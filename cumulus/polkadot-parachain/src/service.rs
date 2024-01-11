@@ -98,7 +98,6 @@ impl sc_executor::NativeExecutionDispatch for ShellRuntimeExecutor {
 
 /// Native Asset Hub Westend (Westmint) executor instance.
 pub struct AssetHubWestendExecutor;
-
 impl sc_executor::NativeExecutionDispatch for AssetHubWestendExecutor {
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 
@@ -128,7 +127,6 @@ impl sc_executor::NativeExecutionDispatch for CollectivesWestendRuntimeExecutor 
 
 /// Native BridgeHubRococo executor instance.
 pub struct BridgeHubRococoRuntimeExecutor;
-
 impl sc_executor::NativeExecutionDispatch for BridgeHubRococoRuntimeExecutor {
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 
@@ -167,7 +165,6 @@ impl sc_executor::NativeExecutionDispatch for CoretimeWestendRuntimeExecutor {
 
 /// Native contracts executor instance.
 pub struct ContractsRococoRuntimeExecutor;
-
 impl sc_executor::NativeExecutionDispatch for ContractsRococoRuntimeExecutor {
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 
@@ -195,6 +192,40 @@ impl sc_executor::NativeExecutionDispatch for GluttonWestendRuntimeExecutor {
 	}
 }
 
+/// Native `PeopleWestend` executor instance.
+pub struct PeopleWestendRuntimeExecutor;
+impl sc_executor::NativeExecutionDispatch for PeopleWestendRuntimeExecutor {
+	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+		people_westend_runtime::api::dispatch(method, data)
+	}
+	fn native_version() -> sc_executor::NativeVersion {
+		people_westend_runtime::native_version()
+	}
+}
+
+/// Native `PeopleRococo` executor instance.
+pub struct PeopleRococoRuntimeExecutor;
+impl sc_executor::NativeExecutionDispatch for PeopleRococoRuntimeExecutor {
+	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+		people_rococo_runtime::api::dispatch(method, data)
+	}
+	fn native_version() -> sc_executor::NativeVersion {
+		people_rococo_runtime::native_version()
+	}
+}
+
+/// Assembly of PartialComponents (enough to run chain ops subcommands)
+pub type Service<RuntimeApi> = PartialComponents<
+	ParachainClient<RuntimeApi>,
+	ParachainBackend,
+	(),
+	sc_consensus::DefaultImportQueue<Block>,
+	sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>,
+	(ParachainBlockImport<RuntimeApi>, Option<Telemetry>, Option<TelemetryWorkerHandle>),
+>;
+
 /// Starts a `ServiceBuilder` for a full service.
 ///
 /// Use this macro if you don't actually need the full service, but just the builder in order to
@@ -202,17 +233,7 @@ impl sc_executor::NativeExecutionDispatch for GluttonWestendRuntimeExecutor {
 pub fn new_partial<RuntimeApi, BIQ>(
 	config: &Configuration,
 	build_import_queue: BIQ,
-) -> Result<
-	PartialComponents<
-		ParachainClient<RuntimeApi>,
-		ParachainBackend,
-		(),
-		sc_consensus::DefaultImportQueue<Block>,
-		sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>,
-		(ParachainBlockImport<RuntimeApi>, Option<Telemetry>, Option<TelemetryWorkerHandle>),
-	>,
-	sc_service::Error,
->
+) -> Result<Service<RuntimeApi>, sc_service::Error>
 where
 	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
 	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
@@ -1064,7 +1085,7 @@ where
 						let relay_chain_interface = relay_chain_interface.clone();
 						async move {
 							let parachain_inherent =
-							cumulus_primitives_parachain_inherent::ParachainInherentData::create_at(
+							cumulus_client_parachain_inherent::ParachainInherentDataProvider::create_at(
 								relay_parent,
 								&relay_chain_interface,
 								&validation_data,

@@ -26,7 +26,7 @@ use rstest::rstest;
 
 use parity_scale_codec::Encode;
 use polkadot_node_network_protocol::request_response::{
-	self as req_res, v1::AvailableDataFetchingRequest, IncomingRequest, Recipient,
+	self as req_res, v1::AvailableDataFetchingRequest, IncomingRequest, Protocol, Recipient,
 	ReqProtocolNames, Requests,
 };
 
@@ -44,7 +44,7 @@ use polkadot_primitives::{
 	AuthorityDiscoveryId, Hash, HeadData, IndexedVec, PersistedValidationData, ValidatorId,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
-use sc_network::{IfDisconnected, OutboundFailure, RequestFailure};
+use sc_network::{IfDisconnected, OutboundFailure, ProtocolName, RequestFailure};
 use sp_keyring::Sr25519Keyring;
 
 type VirtualOverseer = TestSubsystemContextHandle<AvailabilityRecoveryMessage>;
@@ -52,9 +52,10 @@ type VirtualOverseer = TestSubsystemContextHandle<AvailabilityRecoveryMessage>;
 // Deterministic genesis hash for protocol names
 const GENESIS_HASH: Hash = Hash::repeat_byte(0xff);
 
-fn request_receiver() -> IncomingRequestReceiver<AvailableDataFetchingRequest> {
-	let receiver =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(&GENESIS_HASH, None));
+fn request_receiver(
+	req_protocol_names: &ReqProtocolNames,
+) -> IncomingRequestReceiver<AvailableDataFetchingRequest> {
+	let receiver = IncomingRequest::get_config_receiver(req_protocol_names);
 	// Don't close the sending end of the request protocol. Otherwise, the subsystem will terminate.
 	std::mem::forget(receiver.1.inbound_queue);
 	receiver.0
@@ -331,12 +332,13 @@ impl TestState {
 
 	async fn test_chunk_requests(
 		&self,
+		req_protocol_names: &ReqProtocolNames,
 		candidate_hash: CandidateHash,
 		virtual_overseer: &mut VirtualOverseer,
 		n: usize,
 		mut who_has: impl FnMut(usize) -> Has,
 		systematic_recovery: bool,
-	) -> Vec<oneshot::Sender<std::result::Result<Vec<u8>, RequestFailure>>> {
+	) -> Vec<oneshot::Sender<std::result::Result<(Vec<u8>, ProtocolName), RequestFailure>>> {
 		// arbitrary order.
 		let mut i = 0;
 		let mut senders = Vec::new();
@@ -375,7 +377,7 @@ impl TestState {
 
 								let _ = req.pending_response.send(
 									available_data.map(|r|
-										req_res::v1::ChunkFetchingResponse::from(r).encode()
+										(req_res::v1::ChunkFetchingResponse::from(r).encode(), req_protocol_names.get_name(Protocol::ChunkFetchingV1))
 									)
 								);
 							}
@@ -389,11 +391,12 @@ impl TestState {
 
 	async fn test_full_data_requests(
 		&self,
+		req_protocol_names: &ReqProtocolNames,
 		candidate_hash: CandidateHash,
 		virtual_overseer: &mut VirtualOverseer,
 		who_has: impl Fn(usize) -> Has,
 		group_index: GroupIndex,
-	) -> Vec<oneshot::Sender<std::result::Result<Vec<u8>, RequestFailure>>> {
+	) -> Vec<oneshot::Sender<std::result::Result<(Vec<u8>, ProtocolName), RequestFailure>>> {
 		let mut senders = Vec::new();
 		let expected_validators = self.validator_groups.get(group_index).unwrap();
 		for _ in 0..expected_validators.len() {
@@ -431,9 +434,10 @@ impl TestState {
 							let done = available_data.as_ref().ok().map_or(false, |x| x.is_some());
 
 							let _ = req.pending_response.send(
-								available_data.map(|r|
-									req_res::v1::AvailableDataFetchingResponse::from(r).encode()
-								)
+								available_data.map(|r|(
+									req_res::v1::AvailableDataFetchingResponse::from(r).encode(),
+									req_protocol_names.get_name(Protocol::AvailableDataFetchingV1)
+								))
 							);
 
 							if done { break }
@@ -544,16 +548,20 @@ impl Default for TestState {
 #[case(false)]
 fn availability_is_recovered_from_chunks_if_no_group_provided(#[case] systematic_recovery: bool) {
 	let test_state = TestState::default();
+	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
 	let (subsystem, threshold) = match systematic_recovery {
 		true => (
 			AvailabilityRecoverySubsystem::with_fast_path_then_systematic_chunks(
-				request_receiver(),
+				request_receiver(&req_protocol_names),
 				Metrics::new_dummy(),
 			),
 			test_state.systematic_threshold(),
 		),
 		false => (
-			AvailabilityRecoverySubsystem::with_fast_path(request_receiver(), Metrics::new_dummy()),
+			AvailabilityRecoverySubsystem::with_fast_path(
+				request_receiver(&req_protocol_names),
+				Metrics::new_dummy(),
+			),
 			test_state.threshold(),
 		),
 	};
@@ -593,6 +601,7 @@ fn availability_is_recovered_from_chunks_if_no_group_provided(#[case] systematic
 
 		test_state
 			.test_chunk_requests(
+				&req_protocol_names,
 				candidate_hash,
 				&mut virtual_overseer,
 				threshold,
@@ -632,6 +641,7 @@ fn availability_is_recovered_from_chunks_if_no_group_provided(#[case] systematic
 		if systematic_recovery {
 			test_state
 				.test_chunk_requests(
+					&req_protocol_names,
 					new_candidate.hash(),
 					&mut virtual_overseer,
 					threshold,
@@ -646,6 +656,7 @@ fn availability_is_recovered_from_chunks_if_no_group_provided(#[case] systematic
 		// this around.
 		test_state
 			.test_chunk_requests(
+				&req_protocol_names,
 				new_candidate.hash(),
 				&mut virtual_overseer,
 				test_state.impossibility_threshold(),
@@ -666,18 +677,19 @@ fn availability_is_recovered_from_chunks_if_no_group_provided(#[case] systematic
 fn availability_is_recovered_from_chunks_even_if_backing_group_supplied_if_chunks_only(
 	#[case] systematic_recovery: bool,
 ) {
+	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
 	let test_state = TestState::default();
 	let (subsystem, threshold) = match systematic_recovery {
 		true => (
 			AvailabilityRecoverySubsystem::with_systematic_chunks(
-				request_receiver(),
+				request_receiver(&req_protocol_names),
 				Metrics::new_dummy(),
 			),
 			test_state.systematic_threshold(),
 		),
 		false => (
 			AvailabilityRecoverySubsystem::with_chunks_only(
-				request_receiver(),
+				request_receiver(&req_protocol_names),
 				Metrics::new_dummy(),
 			),
 			test_state.threshold(),
@@ -719,6 +731,7 @@ fn availability_is_recovered_from_chunks_even_if_backing_group_supplied_if_chunk
 
 		test_state
 			.test_chunk_requests(
+				&req_protocol_names,
 				candidate_hash,
 				&mut virtual_overseer,
 				threshold,
@@ -758,6 +771,7 @@ fn availability_is_recovered_from_chunks_even_if_backing_group_supplied_if_chunk
 		if systematic_recovery {
 			test_state
 				.test_chunk_requests(
+					&req_protocol_names,
 					new_candidate.hash(),
 					&mut virtual_overseer,
 					threshold * SYSTEMATIC_CHUNKS_REQ_RETRY_LIMIT as usize,
@@ -770,6 +784,7 @@ fn availability_is_recovered_from_chunks_even_if_backing_group_supplied_if_chunk
 			// keep this around.
 			test_state
 				.test_chunk_requests(
+					&req_protocol_names,
 					new_candidate.hash(),
 					&mut virtual_overseer,
 					test_state.impossibility_threshold() - threshold,
@@ -783,6 +798,7 @@ fn availability_is_recovered_from_chunks_even_if_backing_group_supplied_if_chunk
 		} else {
 			test_state
 				.test_chunk_requests(
+					&req_protocol_names,
 					new_candidate.hash(),
 					&mut virtual_overseer,
 					test_state.impossibility_threshold(),
@@ -802,14 +818,15 @@ fn availability_is_recovered_from_chunks_even_if_backing_group_supplied_if_chunk
 #[case(true)]
 #[case(false)]
 fn bad_merkle_path_leads_to_recovery_error(#[case] systematic_recovery: bool) {
+	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
 	let mut test_state = TestState::default();
 	let subsystem = match systematic_recovery {
 		true => AvailabilityRecoverySubsystem::with_systematic_chunks(
-			request_receiver(),
+			request_receiver(&req_protocol_names),
 			Metrics::new_dummy(),
 		),
 		false => AvailabilityRecoverySubsystem::with_chunks_only(
-			request_receiver(),
+			request_receiver(&req_protocol_names),
 			Metrics::new_dummy(),
 		),
 	};
@@ -855,6 +872,7 @@ fn bad_merkle_path_leads_to_recovery_error(#[case] systematic_recovery: bool) {
 		if systematic_recovery {
 			test_state
 				.test_chunk_requests(
+					&req_protocol_names,
 					candidate_hash,
 					&mut virtual_overseer,
 					test_state.systematic_threshold(),
@@ -867,6 +885,7 @@ fn bad_merkle_path_leads_to_recovery_error(#[case] systematic_recovery: bool) {
 
 		test_state
 			.test_chunk_requests(
+				&req_protocol_names,
 				candidate_hash,
 				&mut virtual_overseer,
 				test_state.impossibility_threshold(),
@@ -886,14 +905,14 @@ fn bad_merkle_path_leads_to_recovery_error(#[case] systematic_recovery: bool) {
 #[case(false)]
 fn wrong_chunk_index_leads_to_recovery_error(#[case] systematic_recovery: bool) {
 	let mut test_state = TestState::default();
-
+	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
 	let subsystem = match systematic_recovery {
 		true => AvailabilityRecoverySubsystem::with_systematic_chunks(
-			request_receiver(),
+			request_receiver(&req_protocol_names),
 			Metrics::new_dummy(),
 		),
 		false => AvailabilityRecoverySubsystem::with_chunks_only(
-			request_receiver(),
+			request_receiver(&req_protocol_names),
 			Metrics::new_dummy(),
 		),
 	};
@@ -941,6 +960,7 @@ fn wrong_chunk_index_leads_to_recovery_error(#[case] systematic_recovery: bool) 
 		if systematic_recovery {
 			test_state
 				.test_chunk_requests(
+					&req_protocol_names,
 					candidate_hash,
 					&mut virtual_overseer,
 					test_state.systematic_threshold(),
@@ -954,6 +974,7 @@ fn wrong_chunk_index_leads_to_recovery_error(#[case] systematic_recovery: bool) 
 
 		test_state
 			.test_chunk_requests(
+				&req_protocol_names,
 				candidate_hash,
 				&mut virtual_overseer,
 				test_state.chunks.len() - 1,
@@ -973,17 +994,20 @@ fn wrong_chunk_index_leads_to_recovery_error(#[case] systematic_recovery: bool) 
 #[case(false)]
 fn invalid_erasure_coding_leads_to_invalid_error(#[case] systematic_recovery: bool) {
 	let mut test_state = TestState::default();
-
+	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
 	let (subsystem, threshold) = match systematic_recovery {
 		true => (
 			AvailabilityRecoverySubsystem::with_fast_path_then_systematic_chunks(
-				request_receiver(),
+				request_receiver(&req_protocol_names),
 				Metrics::new_dummy(),
 			),
 			test_state.systematic_threshold(),
 		),
 		false => (
-			AvailabilityRecoverySubsystem::with_fast_path(request_receiver(), Metrics::new_dummy()),
+			AvailabilityRecoverySubsystem::with_fast_path(
+				request_receiver(&req_protocol_names),
+				Metrics::new_dummy(),
+			),
 			test_state.threshold(),
 		),
 	};
@@ -1037,6 +1061,7 @@ fn invalid_erasure_coding_leads_to_invalid_error(#[case] systematic_recovery: bo
 
 		test_state
 			.test_chunk_requests(
+				&req_protocol_names,
 				candidate_hash,
 				&mut virtual_overseer,
 				threshold,
@@ -1054,9 +1079,11 @@ fn invalid_erasure_coding_leads_to_invalid_error(#[case] systematic_recovery: bo
 #[test]
 fn invalid_pov_hash_leads_to_invalid_error() {
 	let mut test_state = TestState::default();
-
-	let subsystem =
-		AvailabilityRecoverySubsystem::for_collator(request_receiver(), Metrics::new_dummy());
+	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
+	let subsystem = AvailabilityRecoverySubsystem::for_collator(
+		request_receiver(&req_protocol_names),
+		Metrics::new_dummy(),
+	);
 
 	test_harness(subsystem, |mut virtual_overseer| async move {
 		let pov = PoV { block_data: BlockData(vec![69; 64]) };
@@ -1094,6 +1121,7 @@ fn invalid_pov_hash_leads_to_invalid_error() {
 
 		test_state
 			.test_chunk_requests(
+				&req_protocol_names,
 				candidate_hash,
 				&mut virtual_overseer,
 				test_state.threshold(),
@@ -1112,8 +1140,11 @@ fn invalid_pov_hash_leads_to_invalid_error() {
 #[case(None)]
 fn fast_path_backing_group_recovers(#[case] relay_parent_block_number: Option<BlockNumber>) {
 	let test_state = TestState::default();
-	let subsystem =
-		AvailabilityRecoverySubsystem::with_fast_path(request_receiver(), Metrics::new_dummy());
+	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
+	let subsystem = AvailabilityRecoverySubsystem::with_fast_path(
+		request_receiver(&req_protocol_names),
+		Metrics::new_dummy(),
+	);
 
 	test_harness(subsystem, |mut virtual_overseer| async move {
 		overseer_signal(
@@ -1155,7 +1186,13 @@ fn fast_path_backing_group_recovers(#[case] relay_parent_block_number: Option<Bl
 		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
 
 		test_state
-			.test_full_data_requests(candidate_hash, &mut virtual_overseer, who_has, GroupIndex(0))
+			.test_full_data_requests(
+				&req_protocol_names,
+				candidate_hash,
+				&mut virtual_overseer,
+				who_has,
+				GroupIndex(0),
+			)
 			.await;
 
 		// Recovered data should match the original one.
@@ -1173,18 +1210,18 @@ fn recovers_from_only_chunks_if_pov_large(
 	#[case] for_collator: bool,
 ) {
 	let mut test_state = TestState::default();
-
+	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
 	let (subsystem, threshold) = match (systematic_recovery, for_collator) {
 		(true, false) => (
 			AvailabilityRecoverySubsystem::with_systematic_chunks_if_pov_large(
-				request_receiver(),
+				request_receiver(&req_protocol_names),
 				Metrics::new_dummy(),
 			),
 			test_state.systematic_threshold(),
 		),
 		(false, false) => (
 			AvailabilityRecoverySubsystem::with_chunks_if_pov_large(
-				request_receiver(),
+				request_receiver(&req_protocol_names),
 				Metrics::new_dummy(),
 			),
 			test_state.threshold(),
@@ -1193,7 +1230,7 @@ fn recovers_from_only_chunks_if_pov_large(
 			test_state.candidate.descriptor.pov_hash = test_state.available_data.pov.hash();
 			(
 				AvailabilityRecoverySubsystem::for_collator(
-					request_receiver(),
+					request_receiver(&req_protocol_names),
 					Metrics::new_dummy(),
 				),
 				test_state.threshold(),
@@ -1248,6 +1285,7 @@ fn recovers_from_only_chunks_if_pov_large(
 
 		test_state
 			.test_chunk_requests(
+				&req_protocol_names,
 				candidate_hash,
 				&mut virtual_overseer,
 				threshold,
@@ -1298,6 +1336,7 @@ fn recovers_from_only_chunks_if_pov_large(
 		if systematic_recovery {
 			test_state
 				.test_chunk_requests(
+					&req_protocol_names,
 					new_candidate.hash(),
 					&mut virtual_overseer,
 					test_state.systematic_threshold() * SYSTEMATIC_CHUNKS_REQ_RETRY_LIMIT as usize,
@@ -1311,6 +1350,7 @@ fn recovers_from_only_chunks_if_pov_large(
 			// Even if the recovery is systematic, we'll always fall back to regular recovery.
 			test_state
 				.test_chunk_requests(
+					&req_protocol_names,
 					new_candidate.hash(),
 					&mut virtual_overseer,
 					test_state.impossibility_threshold() - threshold,
@@ -1321,6 +1361,7 @@ fn recovers_from_only_chunks_if_pov_large(
 		} else {
 			test_state
 				.test_chunk_requests(
+					&req_protocol_names,
 					new_candidate.hash(),
 					&mut virtual_overseer,
 					test_state.impossibility_threshold(),
@@ -1345,20 +1386,24 @@ fn fast_path_backing_group_recovers_if_pov_small(
 	#[case] for_collator: bool,
 ) {
 	let mut test_state = TestState::default();
+	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
 
 	let subsystem = match (systematic_recovery, for_collator) {
 		(true, false) => AvailabilityRecoverySubsystem::with_systematic_chunks_if_pov_large(
-			request_receiver(),
+			request_receiver(&req_protocol_names),
 			Metrics::new_dummy(),
 		),
 
 		(false, false) => AvailabilityRecoverySubsystem::with_chunks_if_pov_large(
-			request_receiver(),
+			request_receiver(&req_protocol_names),
 			Metrics::new_dummy(),
 		),
 		(false, true) => {
 			test_state.candidate.descriptor.pov_hash = test_state.available_data.pov.hash();
-			AvailabilityRecoverySubsystem::for_collator(request_receiver(), Metrics::new_dummy())
+			AvailabilityRecoverySubsystem::for_collator(
+				request_receiver(&req_protocol_names),
+				Metrics::new_dummy(),
+			)
 		},
 		(_, _) => unreachable!(),
 	};
@@ -1412,7 +1457,13 @@ fn fast_path_backing_group_recovers_if_pov_small(
 		}
 
 		test_state
-			.test_full_data_requests(candidate_hash, &mut virtual_overseer, who_has, GroupIndex(0))
+			.test_full_data_requests(
+				&req_protocol_names,
+				candidate_hash,
+				&mut virtual_overseer,
+				who_has,
+				GroupIndex(0),
+			)
 			.await;
 
 		// Recovered data should match the original one.
@@ -1426,17 +1477,21 @@ fn fast_path_backing_group_recovers_if_pov_small(
 #[case(false)]
 fn no_answers_in_fast_path_causes_chunk_requests(#[case] systematic_recovery: bool) {
 	let test_state = TestState::default();
+	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
 
 	let (subsystem, threshold) = match systematic_recovery {
 		true => (
 			AvailabilityRecoverySubsystem::with_fast_path_then_systematic_chunks(
-				request_receiver(),
+				request_receiver(&req_protocol_names),
 				Metrics::new_dummy(),
 			),
 			test_state.systematic_threshold(),
 		),
 		false => (
-			AvailabilityRecoverySubsystem::with_fast_path(request_receiver(), Metrics::new_dummy()),
+			AvailabilityRecoverySubsystem::with_fast_path(
+				request_receiver(&req_protocol_names),
+				Metrics::new_dummy(),
+			),
 			test_state.threshold(),
 		),
 	};
@@ -1480,13 +1535,20 @@ fn no_answers_in_fast_path_causes_chunk_requests(#[case] systematic_recovery: bo
 		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
 
 		test_state
-			.test_full_data_requests(candidate_hash, &mut virtual_overseer, who_has, GroupIndex(0))
+			.test_full_data_requests(
+				&req_protocol_names,
+				candidate_hash,
+				&mut virtual_overseer,
+				who_has,
+				GroupIndex(0),
+			)
 			.await;
 
 		test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
 
 		test_state
 			.test_chunk_requests(
+				&req_protocol_names,
 				candidate_hash,
 				&mut virtual_overseer,
 				threshold,
@@ -1506,14 +1568,15 @@ fn no_answers_in_fast_path_causes_chunk_requests(#[case] systematic_recovery: bo
 #[case(false)]
 fn task_canceled_when_receivers_dropped(#[case] systematic_recovery: bool) {
 	let test_state = TestState::default();
+	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
 
 	let subsystem = match systematic_recovery {
 		true => AvailabilityRecoverySubsystem::with_systematic_chunks(
-			request_receiver(),
+			request_receiver(&req_protocol_names),
 			Metrics::new_dummy(),
 		),
 		false => AvailabilityRecoverySubsystem::with_chunks_only(
-			request_receiver(),
+			request_receiver(&req_protocol_names),
 			Metrics::new_dummy(),
 		),
 	};
@@ -1562,13 +1625,14 @@ fn task_canceled_when_receivers_dropped(#[case] systematic_recovery: bool) {
 #[case(false)]
 fn chunks_retry_until_all_nodes_respond(#[case] systematic_recovery: bool) {
 	let test_state = TestState::default();
+	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
 	let subsystem = match systematic_recovery {
 		true => AvailabilityRecoverySubsystem::with_systematic_chunks(
-			request_receiver(),
+			request_receiver(&req_protocol_names),
 			Metrics::new_dummy(),
 		),
 		false => AvailabilityRecoverySubsystem::with_chunks_only(
-			request_receiver(),
+			request_receiver(&req_protocol_names),
 			Metrics::new_dummy(),
 		),
 	};
@@ -1610,6 +1674,7 @@ fn chunks_retry_until_all_nodes_respond(#[case] systematic_recovery: bool) {
 			for _ in 0..SYSTEMATIC_CHUNKS_REQ_RETRY_LIMIT {
 				test_state
 					.test_chunk_requests(
+						&req_protocol_names,
 						candidate_hash,
 						&mut virtual_overseer,
 						test_state.systematic_threshold(),
@@ -1623,6 +1688,7 @@ fn chunks_retry_until_all_nodes_respond(#[case] systematic_recovery: bool) {
 
 		test_state
 			.test_chunk_requests(
+				&req_protocol_names,
 				candidate_hash,
 				&mut virtual_overseer,
 				test_state.impossibility_threshold(),
@@ -1635,6 +1701,7 @@ fn chunks_retry_until_all_nodes_respond(#[case] systematic_recovery: bool) {
 		// number of times.
 		test_state
 			.test_chunk_requests(
+				&req_protocol_names,
 				candidate_hash,
 				&mut virtual_overseer,
 				test_state.impossibility_threshold(),
@@ -1652,9 +1719,11 @@ fn chunks_retry_until_all_nodes_respond(#[case] systematic_recovery: bool) {
 #[test]
 fn network_bridge_not_returning_responses_wont_stall_retrieval() {
 	let test_state = TestState::default();
-
-	let subsystem =
-		AvailabilityRecoverySubsystem::with_chunks_only(request_receiver(), Metrics::new_dummy());
+	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
+	let subsystem = AvailabilityRecoverySubsystem::with_chunks_only(
+		request_receiver(&req_protocol_names),
+		Metrics::new_dummy(),
+	);
 
 	test_harness(subsystem, |mut virtual_overseer| async move {
 		overseer_signal(
@@ -1695,6 +1764,7 @@ fn network_bridge_not_returning_responses_wont_stall_retrieval() {
 		// Not returning senders won't cause the retrieval to stall:
 		let _senders = test_state
 			.test_chunk_requests(
+				&req_protocol_names,
 				candidate_hash,
 				&mut virtual_overseer,
 				not_returning_count,
@@ -1705,6 +1775,7 @@ fn network_bridge_not_returning_responses_wont_stall_retrieval() {
 
 		test_state
 			.test_chunk_requests(
+				&req_protocol_names,
 				candidate_hash,
 				&mut virtual_overseer,
 				// Should start over:
@@ -1717,6 +1788,7 @@ fn network_bridge_not_returning_responses_wont_stall_retrieval() {
 		// we get to go another round!
 		test_state
 			.test_chunk_requests(
+				&req_protocol_names,
 				candidate_hash,
 				&mut virtual_overseer,
 				test_state.threshold(),
@@ -1736,13 +1808,14 @@ fn network_bridge_not_returning_responses_wont_stall_retrieval() {
 #[case(false)]
 fn all_not_returning_requests_still_recovers_on_return(#[case] systematic_recovery: bool) {
 	let test_state = TestState::default();
+	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
 	let subsystem = match systematic_recovery {
 		true => AvailabilityRecoverySubsystem::with_systematic_chunks(
-			request_receiver(),
+			request_receiver(&req_protocol_names),
 			Metrics::new_dummy(),
 		),
 		false => AvailabilityRecoverySubsystem::with_chunks_only(
-			request_receiver(),
+			request_receiver(&req_protocol_names),
 			Metrics::new_dummy(),
 		),
 	};
@@ -1787,6 +1860,7 @@ fn all_not_returning_requests_still_recovers_on_return(#[case] systematic_recove
 
 		let senders = test_state
 			.test_chunk_requests(
+				&req_protocol_names,
 				candidate_hash,
 				&mut virtual_overseer,
 				n,
@@ -1804,6 +1878,7 @@ fn all_not_returning_requests_still_recovers_on_return(#[case] systematic_recove
 			async {
 				test_state
 					.test_chunk_requests(
+						&req_protocol_names,
 						candidate_hash,
 						&mut virtual_overseer,
 						// Should start over:
@@ -1823,6 +1898,7 @@ fn all_not_returning_requests_still_recovers_on_return(#[case] systematic_recove
 		// we get to go another round!
 		test_state
 			.test_chunk_requests(
+				&req_protocol_names,
 				candidate_hash,
 				&mut virtual_overseer,
 				test_state.threshold(),
@@ -1842,13 +1918,14 @@ fn all_not_returning_requests_still_recovers_on_return(#[case] systematic_recove
 #[case(false)]
 fn returns_early_if_we_have_the_data(#[case] systematic_recovery: bool) {
 	let test_state = TestState::default();
+	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
 	let subsystem = match systematic_recovery {
 		true => AvailabilityRecoverySubsystem::with_systematic_chunks(
-			request_receiver(),
+			request_receiver(&req_protocol_names),
 			Metrics::new_dummy(),
 		),
 		false => AvailabilityRecoverySubsystem::with_chunks_only(
-			request_receiver(),
+			request_receiver(&req_protocol_names),
 			Metrics::new_dummy(),
 		),
 	};
@@ -1890,8 +1967,11 @@ fn returns_early_if_we_have_the_data(#[case] systematic_recovery: bool) {
 #[test]
 fn returns_early_if_present_in_the_subsystem_cache() {
 	let test_state = TestState::default();
-	let subsystem =
-		AvailabilityRecoverySubsystem::with_fast_path(request_receiver(), Metrics::new_dummy());
+	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
+	let subsystem = AvailabilityRecoverySubsystem::with_fast_path(
+		request_receiver(&req_protocol_names),
+		Metrics::new_dummy(),
+	);
 
 	test_harness(subsystem, |mut virtual_overseer| async move {
 		overseer_signal(
@@ -1931,7 +2011,13 @@ fn returns_early_if_present_in_the_subsystem_cache() {
 		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
 
 		test_state
-			.test_full_data_requests(candidate_hash, &mut virtual_overseer, who_has, GroupIndex(0))
+			.test_full_data_requests(
+				&req_protocol_names,
+				candidate_hash,
+				&mut virtual_overseer,
+				who_has,
+				GroupIndex(0),
+			)
 			.await;
 
 		// Recovered data should match the original one.
@@ -1962,17 +2048,18 @@ fn returns_early_if_present_in_the_subsystem_cache() {
 #[case(false)]
 fn does_not_query_local_validator(#[case] systematic_recovery: bool) {
 	let test_state = TestState::default();
+	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
 	let (subsystem, threshold) = match systematic_recovery {
 		true => (
 			AvailabilityRecoverySubsystem::with_systematic_chunks(
-				request_receiver(),
+				request_receiver(&req_protocol_names),
 				Metrics::new_dummy(),
 			),
 			test_state.systematic_threshold(),
 		),
 		false => (
 			AvailabilityRecoverySubsystem::with_chunks_only(
-				request_receiver(),
+				request_receiver(&req_protocol_names),
 				Metrics::new_dummy(),
 			),
 			test_state.threshold(),
@@ -2014,6 +2101,7 @@ fn does_not_query_local_validator(#[case] systematic_recovery: bool) {
 		// second round, make sure it uses the local chunk.
 		test_state
 			.test_chunk_requests(
+				&req_protocol_names,
 				candidate_hash,
 				&mut virtual_overseer,
 				threshold - 1,
@@ -2032,13 +2120,14 @@ fn does_not_query_local_validator(#[case] systematic_recovery: bool) {
 #[case(false)]
 fn invalid_local_chunk(#[case] systematic_recovery: bool) {
 	let test_state = TestState::default();
+	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
 	let subsystem = match systematic_recovery {
 		true => AvailabilityRecoverySubsystem::with_systematic_chunks(
-			request_receiver(),
+			request_receiver(&req_protocol_names),
 			Metrics::new_dummy(),
 		),
 		false => AvailabilityRecoverySubsystem::with_chunks_only(
-			request_receiver(),
+			request_receiver(&req_protocol_names),
 			Metrics::new_dummy(),
 		),
 	};
@@ -2087,6 +2176,7 @@ fn invalid_local_chunk(#[case] systematic_recovery: bool) {
 
 		test_state
 			.test_chunk_requests(
+				&req_protocol_names,
 				candidate_hash,
 				&mut virtual_overseer,
 				test_state.threshold(),
@@ -2106,8 +2196,9 @@ fn systematic_chunks_are_not_requested_again_in_regular_recovery() {
 	// to make sure that we catch regressions.
 	for _ in 0..TestState::default().chunks.len() {
 		let test_state = TestState::default();
+		let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
 		let subsystem = AvailabilityRecoverySubsystem::with_systematic_chunks(
-			request_receiver(),
+			request_receiver(&req_protocol_names),
 			Metrics::new_dummy(),
 		);
 
@@ -2143,6 +2234,7 @@ fn systematic_chunks_are_not_requested_again_in_regular_recovery() {
 
 			test_state
 				.test_chunk_requests(
+					&req_protocol_names,
 					test_state.candidate.hash(),
 					&mut virtual_overseer,
 					test_state.systematic_threshold(),
@@ -2156,6 +2248,7 @@ fn systematic_chunks_are_not_requested_again_in_regular_recovery() {
 
 			test_state
 				.test_chunk_requests(
+					&req_protocol_names,
 					test_state.candidate.hash(),
 					&mut virtual_overseer,
 					1,
@@ -2183,13 +2276,14 @@ fn systematic_chunks_are_not_requested_again_in_regular_recovery() {
 #[case(false, false)]
 fn chunk_indices_are_shuffled(#[case] systematic_recovery: bool, #[case] shuffling_enabled: bool) {
 	let test_state = TestState::default();
+	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
 	let subsystem = match systematic_recovery {
 		true => AvailabilityRecoverySubsystem::with_systematic_chunks(
-			request_receiver(),
+			request_receiver(&req_protocol_names),
 			Metrics::new_dummy(),
 		),
 		false => AvailabilityRecoverySubsystem::with_chunks_only(
-			request_receiver(),
+			request_receiver(&req_protocol_names),
 			Metrics::new_dummy(),
 		),
 	};
@@ -2286,6 +2380,7 @@ fn number_of_request_retries_is_bounded(
 	#[case] should_fail: bool,
 ) {
 	let mut test_state = TestState::default();
+	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
 	// We need the number of validators to be evenly divisible by the threshold for this test to be
 	// easier to write.
 	let n_validators = 6;
@@ -2306,14 +2401,14 @@ fn number_of_request_retries_is_bounded(
 	let (subsystem, retry_limit) = match systematic_recovery {
 		false => (
 			AvailabilityRecoverySubsystem::with_chunks_only(
-				request_receiver(),
+				request_receiver(&req_protocol_names),
 				Metrics::new_dummy(),
 			),
 			REGULAR_CHUNKS_REQ_RETRY_LIMIT,
 		),
 		true => (
 			AvailabilityRecoverySubsystem::with_systematic_chunks(
-				request_receiver(),
+				request_receiver(&req_protocol_names),
 				Metrics::new_dummy(),
 			),
 			SYSTEMATIC_CHUNKS_REQ_RETRY_LIMIT,
@@ -2360,6 +2455,7 @@ fn number_of_request_retries_is_bounded(
 		for _ in 1..retry_limit {
 			test_state
 				.test_chunk_requests(
+					&req_protocol_names,
 					test_state.candidate.hash(),
 					&mut virtual_overseer,
 					validator_count_per_iteration,
@@ -2372,6 +2468,7 @@ fn number_of_request_retries_is_bounded(
 		if should_fail {
 			test_state
 				.test_chunk_requests(
+					&req_protocol_names,
 					test_state.candidate.hash(),
 					&mut virtual_overseer,
 					validator_count_per_iteration,
@@ -2384,6 +2481,7 @@ fn number_of_request_retries_is_bounded(
 		} else {
 			test_state
 				.test_chunk_requests(
+					&req_protocol_names,
 					test_state.candidate.hash(),
 					&mut virtual_overseer,
 					test_state.threshold(),
@@ -2404,17 +2502,18 @@ fn number_of_request_retries_is_bounded(
 #[case(true)]
 fn block_number_not_requested_if_provided(#[case] systematic_recovery: bool) {
 	let test_state = TestState::default();
+	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
 	let (subsystem, threshold) = match systematic_recovery {
 		true => (
 			AvailabilityRecoverySubsystem::with_systematic_chunks(
-				request_receiver(),
+				request_receiver(&req_protocol_names),
 				Metrics::new_dummy(),
 			),
 			test_state.systematic_threshold(),
 		),
 		false => (
 			AvailabilityRecoverySubsystem::with_chunks_only(
-				request_receiver(),
+				request_receiver(&req_protocol_names),
 				Metrics::new_dummy(),
 			),
 			test_state.threshold(),
@@ -2452,6 +2551,7 @@ fn block_number_not_requested_if_provided(#[case] systematic_recovery: bool) {
 
 		test_state
 			.test_chunk_requests(
+				&req_protocol_names,
 				test_state.candidate.hash(),
 				&mut virtual_overseer,
 				threshold,
@@ -2468,8 +2568,9 @@ fn block_number_not_requested_if_provided(#[case] systematic_recovery: bool) {
 #[test]
 fn systematic_recovery_retries_from_backers() {
 	let test_state = TestState::default();
+	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
 	let subsystem = AvailabilityRecoverySubsystem::with_systematic_chunks(
-		request_receiver(),
+		request_receiver(&req_protocol_names),
 		Metrics::new_dummy(),
 	);
 
@@ -2509,6 +2610,7 @@ fn systematic_recovery_retries_from_backers() {
 
 		test_state
 			.test_chunk_requests(
+				&req_protocol_names,
 				test_state.candidate.hash(),
 				&mut virtual_overseer,
 				test_state.systematic_threshold(),
@@ -2525,6 +2627,7 @@ fn systematic_recovery_retries_from_backers() {
 		for _ in 0..(SYSTEMATIC_CHUNKS_REQ_RETRY_LIMIT - 1) {
 			test_state
 				.test_chunk_requests(
+					&req_protocol_names,
 					test_state.candidate.hash(),
 					&mut virtual_overseer,
 					group_size,
@@ -2537,6 +2640,7 @@ fn systematic_recovery_retries_from_backers() {
 		// Now, final chance is to try from a backer.
 		test_state
 			.test_chunk_requests(
+				&req_protocol_names,
 				test_state.candidate.hash(),
 				&mut virtual_overseer,
 				group_size,
