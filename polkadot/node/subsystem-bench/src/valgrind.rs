@@ -49,7 +49,7 @@ pub(crate) fn stop_measuring() {}
 #[cfg(target_os = "linux")]
 pub(crate) fn relaunch_in_valgrind_mode() -> eyre::Result<()> {
 	use std::os::unix::process::CommandExt;
-	std::process::Command::new("valgrind")
+	let err = std::process::Command::new("valgrind")
 		.arg("--tool=cachegrind")
 		.arg("--cache-sim=yes")
 		.arg("--instr-at-start=no")
@@ -57,7 +57,10 @@ pub(crate) fn relaunch_in_valgrind_mode() -> eyre::Result<()> {
 		.args(std::env::args())
 		.exec();
 
-	return Ok(())
+	return Err(eyre::eyre!(
+		"Сannot run Valgrind, check that it is installed and available in the PATH\n{}",
+		err
+	))
 }
 
 #[cfg(not(target_os = "linux"))]
