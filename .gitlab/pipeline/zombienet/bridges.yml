@@ -37,6 +37,7 @@
       - ./zombienet-logs
   after_script:
     - echo "Am I working???!!!"
+    - ls -R /tmp
     - mkdir -p ./zombienet-logs
     - cp /tmp/zombie*/logs/* ./zombienet-logs/
     - cp /tmp/polkadot.*/* ./zombienet-logs/
