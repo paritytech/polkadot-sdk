@@ -1,7 +1,22 @@
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 //! As our runtime should _never_ panic; this includes carefully handling [`Result`]/[`Option`]
 //! types, eliminating the possibility of integer overflows, converting between number types, or
-//! even replacing floating point usage with fixed point arithmetic to mitigate issues that come with
-//! floating point calculations.
+//! even replacing floating point usage with fixed point arithmetic to mitigate issues that come
+//! with floating point calculations.
 //!
 //! Intentional and predictable design should be our first and foremost
 //! property for ensuring a well running, safely designed system.
@@ -25,12 +40,15 @@
 //!
 //!  General guidelines:
 //!
-//! - Avoid panickable operations, such as directly using `unwrap()` for a [`Result`], common errors such as accessing collections out of bounds (using safer methods to access collection types, i.e., `get()`).
+//! - Avoid panickable operations, such as directly using `unwrap()` for a [`Result`], common errors
+//!   such as accessing collections out of bounds (using safer methods to access collection types,
+//!   i.e., `get()`).
 //! - It may be acceptable to use `except()`, but only if one is completely certain (and has
 //!   performed a check beforehand) that a value won't panic upon unwrapping.
 //! - If you are writing a function that could panic, [be sure to document it!](https://doc.rust-lang.org/rustdoc/how-to-write-documentation.html#documenting-components)
-//! - Carefully handle mathematical operations.  Many seemingly, simplistic operations, such as **arithmetic** in the runtime, could present a
-//!   number of issues [(see more later in this document)](#integer-overflow).
+//! - Carefully handle mathematical operations.  Many seemingly, simplistic operations, such as
+//!   **arithmetic** in the runtime, could present a number of issues [(see more later in this
+//!   document)](#integer-overflow).
 //!
 //! ### Defensive Traits
 //!
@@ -53,12 +71,12 @@
 //!
 //! The Rust compiler prevents any sort of static overflow from happening at compile time.  
 //! The compiler panics in **debug** mode in the event of an integer overflow. In
-//! **release** mode, it resorts to silently _wrapping_ the overflowed amount in a modular fashion (from the `MAX` back to zero).
+//! **release** mode, it resorts to silently _wrapping_ the overflowed amount in a modular fashion
+//! (from the `MAX` back to zero).
 //!
-//! In the context of runtime development, we don't always have control over what is being supplied as a
-//! parameter. For example, even this simple adding function could present one of two outcomes
+//! In the context of runtime development, we don't always have control over what is being supplied
+//! as a parameter. For example, even this simple adding function could present one of two outcomes
 //! depending on whether it is in **release** or **debug** mode:
-//!
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", naive_add)]
 //!
 //! If we passed in overflow-able values at runtime, this could actually panic (or wrap, if in
@@ -68,9 +86,9 @@
 //! naive_add(250u8, 10u8); // In debug mode, this would panic. In release, this would return 4.
 //! ```
 //!
-//! It is the _silent_ portion of this behavior that presents a real issue. Such behavior should be made obvious, especially in
-//! the context of blockchain development, where unsafe arithmetic could produce unexpected
-//! consequences like a user balance over or underflowing.
+//! It is the _silent_ portion of this behavior that presents a real issue. Such behavior should be
+//! made obvious, especially in the context of blockchain development, where unsafe arithmetic could
+//! produce unexpected consequences like a user balance over or underflowing.
 //!
 //! Luckily, there are ways to both represent and handle these scenarios depending on our specific
 //! use case natively built into Rust, as well as libraries like [`sp_arithmetic`].
@@ -80,8 +98,8 @@
 //! Both Rust and Substrate provide safe ways to deal with numbers and alternatives to floating
 //! point arithmetic.
 //!
-//! A developer should use fixed-point instead of floating-point arithmetic to mitigate the potential for inaccuracy,
-//! rounding errors, or other unexpected behavior.
+//! A developer should use fixed-point instead of floating-point arithmetic to mitigate the
+//! potential for inaccuracy, rounding errors, or other unexpected behavior.
 //!
 //! Using floating point number types in the runtime should be avoided,
 //! as a single nondeterministic result could cause chaos for consensus along with the
