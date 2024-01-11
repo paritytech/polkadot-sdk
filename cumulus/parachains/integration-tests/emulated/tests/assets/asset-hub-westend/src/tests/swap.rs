@@ -48,8 +48,8 @@ fn swap_locally_on_chain_using_local_assets() {
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::create_pool(
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
-			asset_native.clone(),
-			asset_one.clone(),
+			Box::new(asset_native),
+			Box::new(asset_one),
 		));
 
 		assert_expected_events!(
@@ -61,8 +61,8 @@ fn swap_locally_on_chain_using_local_assets() {
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::add_liquidity(
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
-			asset_native.clone(),
-			asset_one.clone(),
+			Box::new(asset_native),
+			Box::new(asset_one),
 			1_000_000_000_000,
 			2_000_000_000_000,
 			0,
@@ -77,7 +77,7 @@ fn swap_locally_on_chain_using_local_assets() {
 			]
 		);
 
-		let path = BoundedVec::<_, _>::truncate_from(vec![asset_native.clone(), asset_one.clone()]);
+		let path = vec![Box::new(asset_native), Box::new(asset_one)];
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::swap_exact_tokens_for_tokens(
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
@@ -100,8 +100,8 @@ fn swap_locally_on_chain_using_local_assets() {
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::remove_liquidity(
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
-			asset_native,
-			asset_one,
+			Box::new(asset_native),
+			Box::new(asset_one),
 			1414213562273 - 2_000_000_000, // all but the 2 EDs can't be retrieved.
 			0,
 			0,
@@ -164,12 +164,11 @@ fn swap_locally_on_chain_using_foreign_assets() {
 			]
 		);
 
-		let foreign_asset_at_asset_hub_westend = Box::new(foreign_asset_at_asset_hub_westend);
 		// 4. Create pool:
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::create_pool(
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
-			asset_native.clone(),
-			foreign_asset_at_asset_hub_westend.clone(),
+			Box::new(asset_native),
+			Box::new(foreign_asset_at_asset_hub_westend),
 		));
 
 		assert_expected_events!(
@@ -182,8 +181,8 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		// 5. Add liquidity:
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::add_liquidity(
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(sov_penpal_on_ahw.clone()),
-			asset_native.clone(),
-			foreign_asset_at_asset_hub_westend.clone(),
+			Box::new(asset_native),
+			Box::new(foreign_asset_at_asset_hub_westend),
 			1_000_000_000_000,
 			2_000_000_000_000,
 			0,
@@ -201,10 +200,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		);
 
 		// 6. Swap!
-		let path = BoundedVec::<_, _>::truncate_from(vec![
-			asset_native.clone(),
-			foreign_asset_at_asset_hub_westend.clone(),
-		]);
+		let path = vec![Box::new(asset_native), Box::new(foreign_asset_at_asset_hub_westend)];
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::swap_exact_tokens_for_tokens(
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
@@ -228,12 +224,12 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		// 7. Remove liquidity
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::remove_liquidity(
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(sov_penpal_on_ahw.clone()),
-			asset_native,
-			foreign_asset_at_asset_hub_westend,
+			Box::new(asset_native),
+			Box::new(foreign_asset_at_asset_hub_westend),
 			1414213562273 - 2_000_000_000, // all but the 2 EDs can't be retrieved.
 			0,
 			0,
-			sov_penpal_on_ahw.clone().into(),
+			sov_penpal_on_ahw.into(),
 		));
 	});
 }
@@ -267,10 +263,10 @@ fn cannot_create_pool_from_pool_assets() {
 		assert_matches::assert_matches!(
 			<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::create_pool(
 				<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
-				asset_native.clone(),
+				Box::new(asset_native),
 				Box::new(asset_one),
 			),
-			Err(DispatchError::Module(ModuleError{index: _, error: _, message})) => assert_eq!(message, Some("UnsupportedAsset"))
+			Err(DispatchError::Module(ModuleError{index: _, error: _, message})) => assert_eq!(message, Some("Unknown"))
 		);
 	});
 }

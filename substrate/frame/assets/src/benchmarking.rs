@@ -102,7 +102,7 @@ fn add_sufficients<T: Config<I>, I: 'static>(minter: T::AccountId, n: u32) {
 
 fn add_approvals<T: Config<I>, I: 'static>(minter: T::AccountId, n: u32) {
 	let asset_id = default_asset_id::<T, I>();
-	T::Currency::deposit_creating(
+	let _ = T::Currency::deposit_creating(
 		&minter,
 		T::ApprovalDeposit::get() * n.into() + T::Currency::minimum_balance(),
 	);

@@ -43,6 +43,11 @@ pub use emulated_integration_tests_common::{
 	PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
 };
 pub use parachains_common::{AccountId, Balance};
+pub use rococo_system_emulated_network::{
+	penpal_emulated_chain::PenpalAParaPallet as PenpalAPallet,
+	BridgeHubRococoParaReceiver as BridgeHubRococoReceiver, PenpalAPara as PenpalA,
+	PenpalAParaReceiver as PenpalAReceiver, PenpalAParaSender as PenpalASender,
+};
 pub use rococo_westend_system_emulated_network::{
 	asset_hub_rococo_emulated_chain::{
 		genesis::ED as ASSET_HUB_ROCOCO_ED, AssetHubRococoParaPallet as AssetHubRococoPallet,
@@ -53,12 +58,13 @@ pub use rococo_westend_system_emulated_network::{
 	bridge_hub_rococo_emulated_chain::{
 		genesis::ED as BRIDGE_HUB_ROCOCO_ED, BridgeHubRococoParaPallet as BridgeHubRococoPallet,
 	},
-	rococo_emulated_chain::RococoRelayPallet as RococoPallet,
+	rococo_emulated_chain::{genesis::ED as ROCOCO_ED, RococoRelayPallet as RococoPallet},
 	AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
 	AssetHubRococoParaSender as AssetHubRococoSender, AssetHubWestendPara as AssetHubWestend,
 	AssetHubWestendParaReceiver as AssetHubWestendReceiver, BridgeHubRococoPara as BridgeHubRococo,
 	BridgeHubRococoParaSender as BridgeHubRococoSender, BridgeHubWestendPara as BridgeHubWestend,
-	RococoRelay as Rococo,
+	RococoRelay as Rococo, RococoRelayReceiver as RococoReceiver,
+	RococoRelaySender as RococoSender,
 };
 
 pub const ASSET_ID: u32 = 1;
