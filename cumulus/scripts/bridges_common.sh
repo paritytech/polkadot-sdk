@@ -1,7 +1,7 @@
 #!/bin/bash
 
 function relayer_path() {
-    local default_path="~/local_bridge_testing/bin/substrate-relay"
+    local default_path=~/local_bridge_testing/bin/substrate-relay
     local path="${SUBSTRATE_RELAY_PATH:-$default_path}"
     echo "$path"
 }
@@ -15,7 +15,7 @@ function ensure_relayer() {
         exit 1
     fi
 
-    return $path
+    echo $path
 }
 
 function ensure_polkadot_js_api() {
