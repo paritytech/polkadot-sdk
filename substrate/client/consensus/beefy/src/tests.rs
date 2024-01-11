@@ -22,6 +22,7 @@ use crate::{
 	aux_schema::{load_persistent, tests::verify_persisted_version},
 	beefy_block_import_and_links,
 	communication::{
+		fisherman::Fisherman,
 		gossip::{
 			proofs_topic, tests::sign_commitment, votes_topic, GossipFilterCfg, GossipMessage,
 			GossipValidator,
@@ -31,6 +32,7 @@ use crate::{
 	error::Error,
 	gossip_protocol_name,
 	justification::*,
+	keystore::BeefyKeystore,
 	load_or_init_voter_state, wait_for_runtime_pallet, BeefyRPCLinks, BeefyVoterLinks, KnownPeers,
 	PersistedState,
 };
@@ -57,8 +59,8 @@ use sp_consensus_beefy::{
 	known_payloads,
 	mmr::{find_mmr_root_digest, MmrRootProvider},
 	BeefyApi, Commitment, ConsensusLog, ForkEquivocationProof, Keyring as BeefyKeyring,
-	MmrRootHash, OpaqueKeyOwnershipProof, Payload, SignedCommitment, ValidatorSet, ValidatorSetId,
-	VersionedFinalityProof, VoteEquivocationProof, VoteMessage, BEEFY_ENGINE_ID,
+	MmrRootHash, OpaqueKeyOwnershipProof, Payload, PayloadProvider, SignedCommitment, ValidatorSet,
+	ValidatorSetId, VersionedFinalityProof, VoteEquivocationProof, VoteMessage, BEEFY_ENGINE_ID,
 };
 use sp_core::H256;
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystorePtr};
@@ -409,13 +411,31 @@ pub(crate) fn create_beefy_keystore(authority: BeefyKeyring) -> KeystorePtr {
 	keystore.into()
 }
 
+fn create_fisherman<BE>(
+	beefy_keyring: BeefyKeyring, // Assuming BeefyKeyring contains necessary keys for the Fisherman
+	api: Arc<TestApi>,
+	backend: Arc<BE>,
+) -> Fisherman<Block, BE, MmrRootProvider<Block, TestApi>, TestApi> {
+	let key_store: Arc<BeefyKeystore> = Arc::new(Some(create_beefy_keystore(beefy_keyring)).into());
+	let payload_provider = MmrRootProvider::new(api.clone());
+
+	Fisherman {
+		backend,
+		key_store,
+		runtime: api.clone().into(),
+		payload_provider,
+		_phantom: PhantomData,
+	}
+}
+
 async fn voter_init_setup(
+	keyring: BeefyKeyring,
 	net: &mut BeefyTestNet,
 	finality: &mut futures::stream::Fuse<FinalityNotifications<Block>>,
 	api: &TestApi,
 ) -> sp_blockchain::Result<PersistedState<Block>> {
 	let backend = net.peer(0).client().as_backend();
-	let fisherman = DummyFisherman { _phantom: PhantomData };
+	let fisherman = create_fisherman(keyring, Arc::new(api.clone()), backend.clone());
 	let known_peers = Arc::new(Mutex::new(KnownPeers::new()));
 	let (gossip_validator, _) = GossipValidator::new(known_peers, fisherman);
 	let gossip_validator = Arc::new(gossip_validator);
@@ -1065,7 +1085,7 @@ async fn should_initialize_voter_at_genesis() {
 
 	let api = TestApi::with_validator_set(&validator_set);
 	// load persistent state - nothing in DB, should init at genesis
-	let persisted_state = voter_init_setup(&mut net, &mut finality, &api).await.unwrap();
+	let persisted_state = voter_init_setup(keys[0], &mut net, &mut finality, &api).await.unwrap();
 
 	// Test initialization at session boundary.
 	// verify voter initialized with two sessions starting at blocks 1 and 10
@@ -1111,7 +1131,7 @@ async fn should_initialize_voter_at_custom_genesis() {
 	// NOTE: code from `voter_init_setup()` is moved here because the new network event system
 	// doesn't allow creating a new `GossipEngine` as the notification handle is consumed by the
 	// first `GossipEngine`
-	let fisherman = DummyFisherman { _phantom: PhantomData::<Block> };
+	let fisherman = create_fisherman(BeefyKeyring::Alice, Arc::new(api.clone()), backend.clone());
 	let known_peers = Arc::new(Mutex::new(KnownPeers::new()));
 	let (gossip_validator, _) = GossipValidator::new(known_peers, fisherman);
 	let gossip_validator = Arc::new(gossip_validator);
@@ -1218,7 +1238,7 @@ async fn should_initialize_voter_when_last_final_is_session_boundary() {
 
 	let api = TestApi::with_validator_set(&validator_set);
 	// load persistent state - nothing in DB, should init at session boundary
-	let persisted_state = voter_init_setup(&mut net, &mut finality, &api).await.unwrap();
+	let persisted_state = voter_init_setup(keys[0], &mut net, &mut finality, &api).await.unwrap();
 
 	// verify voter initialized with single session starting at block 10
 	assert_eq!(persisted_state.voting_oracle().sessions().len(), 1);
@@ -1271,7 +1291,7 @@ async fn should_initialize_voter_at_latest_finalized() {
 
 	let api = TestApi::with_validator_set(&validator_set);
 	// load persistent state - nothing in DB, should init at last BEEFY finalized
-	let persisted_state = voter_init_setup(&mut net, &mut finality, &api).await.unwrap();
+	let persisted_state = voter_init_setup(keys[0], &mut net, &mut finality, &api).await.unwrap();
 
 	// verify voter initialized with single session starting at block 12
 	assert_eq!(persisted_state.voting_oracle().sessions().len(), 1);
@@ -1309,7 +1329,7 @@ async fn should_initialize_voter_at_custom_genesis_when_state_unavailable() {
 	net.peer(0).client().as_client().finalize_block(hashes[30], None).unwrap();
 
 	// load persistent state - nothing in DB, should init at genesis
-	let persisted_state = voter_init_setup(&mut net, &mut finality, &api).await.unwrap();
+	let persisted_state = voter_init_setup(keys[0], &mut net, &mut finality, &api).await.unwrap();
 
 	// Test initialization at session boundary.
 	// verify voter initialized with all sessions pending, first one starting at block 5 (start of
@@ -1457,11 +1477,12 @@ async fn gossiped_finality_proofs() {
 	let min_block_delta = 1;
 
 	let mut net = BeefyTestNet::new(3);
+	let backend = net.peer(0).client().as_backend();
 	let api = Arc::new(TestApi::with_validator_set(&validator_set));
 	let beefy_peers = peers.iter().enumerate().map(|(id, key)| (id, key, api.clone())).collect();
 
 	let charlie = &mut net.peers[2];
-	let fisherman = DummyFisherman { _phantom: PhantomData::<Block> };
+	let fisherman = create_fisherman(BeefyKeyring::Alice, api, backend.clone());
 	let known_peers = Arc::new(Mutex::new(KnownPeers::<Block>::new()));
 	// Charlie will run just the gossip engine and not the full voter.
 	let (gossip_validator, _) = GossipValidator::new(known_peers, fisherman);
