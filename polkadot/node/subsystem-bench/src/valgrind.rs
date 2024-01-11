@@ -75,12 +75,12 @@ pub(crate) fn relaunch_in_valgrind_mode() -> eyre::Result<()> {
 #[cfg(target_os = "linux")]
 fn prepare_report() -> eyre::Result<String> {
 	let log_file = std::fs::read_to_string(LOG_FILE)?;
-  let lines: Vec<&str> = contents
-    .lines()
-    .skip(HEADER_SIZE)
-    .map(|line| line.trim_start_matches(|c: char| !c.is_alphabetic()))
-    .filter(|line| !line.contains(WARNING))
-    .collect();
+	let lines: Vec<&str> = log_file
+		.lines()
+		.skip(HEADER_SIZE)
+		.map(|line| line.trim_start_matches(|c: char| !c.is_alphabetic()))
+		.filter(|line| !line.contains(WARNING))
+		.collect();
 
 	Ok(format!("\nCache misses report:\n\t{}", lines.join("\n\t")))
 }
