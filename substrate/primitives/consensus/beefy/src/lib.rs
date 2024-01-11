@@ -407,7 +407,8 @@ where
 		// and they will likewise be slashed.
 		// Note that we can only check this if a valid header has been provided - we cannot
 		// slash for this with an ancestry proof - by necessity)
-		return Some(&commitment.payload) != canonical_payload.as_ref()
+		return canonical_header.hash() == *canonical_header_hash &&
+			Some(&commitment.payload) != canonical_payload.as_ref()
 	}
 	// if no header provided, the header proof is also not correct
 	false
