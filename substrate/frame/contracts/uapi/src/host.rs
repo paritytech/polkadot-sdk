@@ -47,15 +47,6 @@ fn extract_from_slice(output: &mut &mut [u8], new_len: usize) {
 
 #[cfg(target_arch = "wasm32")]
 #[inline(always)]
-fn ptr_len_or_sentinel(data: &mut Option<&mut &mut [u8]>) -> (*mut u8, u32) {
-	match data {
-		Some(ref mut data) => (data.as_mut_ptr(), data.len() as _),
-		None => (crate::SENTINEL as _, 0),
-	}
-}
-
-#[cfg(target_arch = "wasm32")]
-#[inline(always)]
 fn ptr_or_sentinel(data: &Option<&[u8]>) -> *const u8 {
 	match data {
 		Some(ref data) => data.as_ptr(),
@@ -135,7 +126,7 @@ pub trait HostFn {
 		gas: u64,
 		value: &[u8],
 		input_data: &[u8],
-		output: Option<&mut &mut [u8]>,
+		output: &mut &mut [u8],
 	) -> Result;
 
 	/// Make a call to another contract.
@@ -148,7 +139,7 @@ pub trait HostFn {
 		gas: u64,
 		value: &[u8],
 		input_data: &[u8],
-		output: Option<&mut &mut [u8]>,
+		output: &mut &mut [u8],
 	) -> Result;
 
 	/// Call (possibly transferring some amount of funds) into the specified account.
@@ -189,7 +180,7 @@ pub trait HostFn {
 		deposit: Option<&[u8]>,
 		value: &[u8],
 		input_data: &[u8],
-		output: Option<&mut &mut [u8]>,
+		output: &mut &mut [u8],
 	) -> Result;
 
 	/// Call into the chain extension provided by the chain if any.
@@ -214,7 +205,7 @@ pub trait HostFn {
 	/// # Return
 	///
 	/// The chain extension returned value, if executed successfully.
-	fn call_chain_extension(func_id: u32, input: &[u8], output: Option<&mut &mut [u8]>) -> u32;
+	fn call_chain_extension(func_id: u32, input: &[u8], output: &mut &mut [u8]) -> u32;
 
 	/// Call some dispatchable of the runtime.
 	///
@@ -377,7 +368,7 @@ pub trait HostFn {
 		flags: CallFlags,
 		code_hash: &[u8],
 		input_data: &[u8],
-		output: Option<&mut &mut [u8]>,
+		output: &mut &mut [u8],
 	) -> Result;
 
 	/// Deposit a contract event with the data buffer and optional list of topics. There is a limit
@@ -488,8 +479,8 @@ pub trait HostFn {
 		gas: u64,
 		value: &[u8],
 		input: &[u8],
-		address: Option<&mut &mut [u8]>,
-		output: Option<&mut &mut [u8]>,
+		address: &mut &mut [u8],
+		output: &mut &mut [u8],
 		salt: &[u8],
 	) -> Result;
 
@@ -537,8 +528,8 @@ pub trait HostFn {
 		deposit: Option<&[u8]>,
 		value: &[u8],
 		input: &[u8],
-		address: Option<&mut &mut [u8]>,
-		output: Option<&mut &mut [u8]>,
+		address: &mut &mut [u8],
+		output: &mut &mut [u8],
 		salt: &[u8],
 	) -> Result;
 
