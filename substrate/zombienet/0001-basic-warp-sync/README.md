@@ -20,7 +20,7 @@ chain_spec_path = "chain-spec.json"
   [[relaychain.nodes]]
   name = "alice"
   validator = true
-  
+
   [[relaychain.nodes]]
   name = "bob"
   validator = true
