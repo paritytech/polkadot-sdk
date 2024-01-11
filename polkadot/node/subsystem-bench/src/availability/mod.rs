@@ -25,7 +25,7 @@ use polkadot_node_subsystem_types::{
 	Span,
 };
 use polkadot_overseer::Handle as OverseerHandle;
-use sc_network::{request_responses::ProtocolConfig, PeerId};
+use sc_network::{request_responses::ProtocolConfig, PeerId, ProtocolName};
 use sp_core::H256;
 use std::{collections::HashMap, iter::Cycle, ops::Sub, sync::Arc, time::Instant};
 
@@ -167,7 +167,10 @@ impl HandleNetworkMessage for NetworkAvailabilityState {
 						.into();
 					let mut size = chunk.encoded_size();
 
-					let response = Ok(ChunkFetchingResponse::from(Some(chunk)).encode());
+					let response = Ok((
+						ChunkFetchingResponse::from(Some(chunk)).encode(),
+						ProtocolName::from(""),
+					));
 
 					if let Err(err) = outgoing_request.pending_response.send(response) {
 						gum::error!(target: LOG_TARGET, "Failed to send `ChunkFetchingResponse`");
@@ -188,8 +191,10 @@ impl HandleNetworkMessage for NetworkAvailabilityState {
 
 					let size = available_data.encoded_size();
 
-					let response =
-						Ok(AvailableDataFetchingResponse::from(Some(available_data)).encode());
+					let response = Ok((
+						AvailableDataFetchingResponse::from(Some(available_data)).encode(),
+						ProtocolName::from(""),
+					));
 					let _ = outgoing_request
 						.pending_response
 						.send(response)
@@ -530,8 +535,8 @@ pub async fn benchmark_availability_read(env: &mut TestEnvironment, mut state: T
 	env.metrics().set_n_validators(config.n_validators);
 	env.metrics().set_n_cores(config.n_cores);
 
-	for block_num in 1..=env.config().num_blocks {
-		gum::info!(target: LOG_TARGET, "Current block {}/{}", block_num, env.config().num_blocks);
+	for block_num in 0..env.config().num_blocks {
+		gum::info!(target: LOG_TARGET, "Current block {}/{}", block_num + 1, env.config().num_blocks);
 		env.metrics().set_current_block(block_num);
 
 		let block_start_ts = Instant::now();

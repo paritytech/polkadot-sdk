@@ -68,7 +68,7 @@ impl MockAvailabilityStore {
 		let v = self
 			.state
 			.chunks
-			.get(*candidate_index as usize)
+			.get(*candidate_index)
 			.unwrap()
 			.iter()
 			.filter(|c| send_chunk(c.index.0 as usize))
@@ -96,10 +96,10 @@ impl MockAvailabilityStore {
 			let msg = ctx.recv().await.expect("Overseer never fails us");
 
 			match msg {
-				orchestra::FromOrchestra::Signal(signal) => match signal {
-					OverseerSignal::Conclude => return,
-					_ => {},
-				},
+				orchestra::FromOrchestra::Signal(signal) =>
+					if signal == OverseerSignal::Conclude {
+						return
+					},
 				orchestra::FromOrchestra::Communication { msg } => match msg {
 					AvailabilityStoreMessage::QueryAvailableData(candidate_hash, tx) => {
 						gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_hash, "Responding to QueryAvailableData");

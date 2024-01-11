@@ -43,7 +43,7 @@ use crate::{
 };
 
 /// Response type received from network.
-type Response = Result<Vec<u8>, RequestFailure>;
+type Response = Result<(Vec<u8>, ProtocolName), RequestFailure>;
 /// Used to receive a response from the network.
 type ResponseReceiver = oneshot::Receiver<Response>;
 
@@ -125,6 +125,7 @@ impl<B: Block> OnDemandJustificationsEngine<B> {
 			peer,
 			self.protocol_name.clone(),
 			payload,
+			None,
 			tx,
 			IfDisconnected::ImmediateError,
 		);
@@ -204,7 +205,7 @@ impl<B: Block> OnDemandJustificationsEngine<B> {
 					},
 				}
 			})
-			.and_then(|encoded| {
+			.and_then(|(encoded, _)| {
 				decode_and_verify_finality_proof::<B>(
 					&encoded[..],
 					req_info.block,

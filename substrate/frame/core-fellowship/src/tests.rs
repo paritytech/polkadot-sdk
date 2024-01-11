@@ -307,6 +307,28 @@ fn offboard_works() {
 }
 
 #[test]
+fn infinite_demotion_period_works() {
+	new_test_ext().execute_with(|| {
+		let params = ParamsType {
+			active_salary: [10; 9],
+			passive_salary: [10; 9],
+			min_promotion_period: [10; 9],
+			demotion_period: [0; 9],
+			offboard_timeout: 0,
+		};
+		assert_ok!(CoreFellowship::set_params(signed(1), Box::new(params)));
+
+		set_rank(0, 0);
+		assert_ok!(CoreFellowship::import(signed(0)));
+		set_rank(1, 1);
+		assert_ok!(CoreFellowship::import(signed(1)));
+
+		assert_noop!(CoreFellowship::bump(signed(0), 0), Error::<Test>::NothingDoing);
+		assert_noop!(CoreFellowship::bump(signed(0), 1), Error::<Test>::NothingDoing);
+	});
+}
+
+#[test]
 fn proof_postpones_auto_demote() {
 	new_test_ext().execute_with(|| {
 		set_rank(10, 5);
@@ -354,5 +376,13 @@ fn active_changing_get_salary_works() {
 			assert_ok!(CoreFellowship::set_active(signed(10 + i), true));
 			assert_eq!(CoreFellowship::get_salary(i as u16, &(10 + i)), i * 10);
 		}
+	});
+}
+
+#[test]
+fn approve_imports_not_tracked_member() {
+	new_test_ext().execute_with(|| {
+		set_rank(10, 5);
+		assert_ok!(CoreFellowship::approve(signed(5), 10, 5));
 	});
 }

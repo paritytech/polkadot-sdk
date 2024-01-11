@@ -17,13 +17,12 @@
 //! Test configuration definition and helpers.
 use super::*;
 use keyring::Keyring;
-use std::path::Path;
+use rand_distr::Normal;
+use std::{path::Path, time::Duration};
 
 pub use crate::cli::TestObjective;
 use polkadot_primitives::{AuthorityDiscoveryId, ValidatorId};
-use rand::thread_rng;
-use rand_distr::{Distribution, Normal, Uniform};
-
+use rand::{distributions::Uniform, prelude::Distribution, thread_rng};
 use serde::{Deserialize, Serialize};
 
 pub fn random_pov_size(min_pov_size: usize, max_pov_size: usize) -> usize {
@@ -114,7 +113,7 @@ pub struct TestSequence {
 }
 
 impl TestSequence {
-	pub fn to_vec(self) -> Vec<TestConfiguration> {
+	pub fn into_vec(self) -> Vec<TestConfiguration> {
 		self.test_configurations
 			.into_iter()
 			.map(|mut config| {
@@ -128,7 +127,7 @@ impl TestSequence {
 
 impl TestSequence {
 	pub fn new_from_file(path: &Path) -> std::io::Result<TestSequence> {
-		let string = String::from_utf8(std::fs::read(&path)?).expect("File is valid UTF8");
+		let string = String::from_utf8(std::fs::read(path)?).expect("File is valid UTF8");
 		Ok(serde_yaml::from_str(&string).expect("File is valid test sequence YA"))
 	}
 }

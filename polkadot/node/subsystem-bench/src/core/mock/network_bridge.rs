@@ -45,7 +45,7 @@ use polkadot_node_subsystem::{
 };
 
 use polkadot_node_network_protocol::{
-	request_response::{ v1::ChunkResponse, Recipient, Requests, ResponseSender},
+	request_response::{v1::ChunkResponse, Recipient, Requests, ResponseSender},
 	Versioned,
 };
 use polkadot_primitives::AuthorityDiscoveryId;
@@ -130,13 +130,10 @@ impl RequestExt for Requests {
 
 	fn into_response_sender(self) -> ResponseSender {
 		match self {
-			Requests::ChunkFetchingV1(outgoing_request) => {
-				outgoing_request.pending_response
-			},
-			Requests::AvailableDataFetchingV1(outgoing_request) => {
-				outgoing_request.pending_response
-			}
-			_ => unimplemented!("unsupported request type")
+			Requests::ChunkFetchingV1(outgoing_request) => outgoing_request.pending_response,
+			Requests::AvailableDataFetchingV1(outgoing_request) =>
+				outgoing_request.pending_response,
+			_ => unimplemented!("unsupported request type"),
 		}
 	}
 }
@@ -161,13 +158,16 @@ impl MockNetworkBridgeTx {
 
 							if !self.network.is_peer_connected(&peer_id) {
 								// Attempting to send a request to a disconnected peer.
-								let _ = request.into_response_sender().send(Err(RequestFailure::NotConnected)).expect("send never fails");
+								let _ = request
+									.into_response_sender()
+									.send(Err(RequestFailure::NotConnected))
+									.expect("send never fails");
 								continue
 							}
-							
+
 							let peer_message =
 								NetworkMessage::RequestFromNode(peer_id.clone(), request);
-								
+
 							let _ = self.to_network_interface.unbounded_send(peer_message);
 						}
 					},

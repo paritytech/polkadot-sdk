@@ -29,7 +29,7 @@ test-linux-stable:
         --locked \
         --release \
         --no-fail-fast \
-        --features try-runtime,experimental,ci-only-tests \
+        --features try-runtime,experimental,riscv,ci-only-tests \
         --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
     # Upload tests results to Elasticsearch
     - echo "Upload test results to Elasticsearch"
@@ -238,6 +238,8 @@ test-deterministic-wasm:
 
 cargo-check-benches:
   stage: test
+  artifacts:
+    expire_in: 10 days
   variables:
     CI_JOB_NAME: "cargo-check-benches"
   extends:
@@ -305,6 +307,10 @@ node-bench-regression-guard:
     CI_IMAGE: "paritytech/node-bench-regression-guard:latest"
   before_script: [""]
   script:
+    - if [ $(ls -la artifacts/benches/ | grep master | wc -l) == 0 ]; then
+      echo "Couldn't find master artifacts";
+      exit 1;
+      fi
     - echo "------- IMPORTANT -------"
     - echo "node-bench-regression-guard depends on the results of a cargo-check-benches job"
     - echo "In case of this job failure, check your pipeline's cargo-check-benches"
@@ -438,6 +444,7 @@ cargo-check-each-crate:
     - .run-immediately
     # - .collect-artifacts
   variables:
+    RUSTFLAGS: "-D warnings"
     # $CI_JOB_NAME is set manually so that cache could be shared for all jobs
     # "cargo-check-each-crate I/N" jobs
     CI_JOB_NAME: cargo-check-each-crate
@@ -519,6 +526,6 @@ test-syscalls:
     - ./list-syscalls.rb ../../../target/x86_64-unknown-linux-musl/production/polkadot-prepare-worker --only-used-syscalls | diff -u prepare-worker-syscalls -
   after_script:
     - if [[ "$CI_JOB_STATUS" == "failed" ]]; then
-        printf "The x86_64 syscalls used by the worker binaries have changed. Please review if this is expected and update polkadot/scripts/list-syscalls/*-worker-syscalls as needed.\n";
+      printf "The x86_64 syscalls used by the worker binaries have changed. Please review if this is expected and update polkadot/scripts/list-syscalls/*-worker-syscalls as needed.\n";
       fi
   allow_failure: false # this rarely triggers in practice

@@ -68,7 +68,7 @@ use std::{
 use polkadot_node_network_protocol::{
 	self as net_protocol,
 	peer_set::{ProtocolVersion, ValidationVersion},
-	v1 as protocol_v1, v2 as protocol_v2, vstaging as protocol_vstaging, OurView, PeerId,
+	v1 as protocol_v1, v2 as protocol_v2, v3 as protocol_v3, OurView, PeerId,
 	UnifiedReputationChange as Rep, Versioned, View,
 };
 
@@ -160,12 +160,12 @@ impl NetworkMessage {
 		match &self {
 			NetworkMessage::MessageFromPeer(Versioned::V2(message)) => message.encoded_size(),
 			NetworkMessage::MessageFromPeer(Versioned::V1(message)) => message.encoded_size(),
-			NetworkMessage::MessageFromPeer(Versioned::VStaging(message)) => message.encoded_size(),
+			NetworkMessage::MessageFromPeer(Versioned::V3(message)) => message.encoded_size(),
 			NetworkMessage::MessageFromNode(_peer_id, Versioned::V2(message)) =>
 				message.encoded_size(),
 			NetworkMessage::MessageFromNode(_peer_id, Versioned::V1(message)) =>
 				message.encoded_size(),
-			NetworkMessage::MessageFromNode(_peer_id, Versioned::VStaging(message)) =>
+			NetworkMessage::MessageFromNode(_peer_id, Versioned::V3(message)) =>
 				message.encoded_size(),
 			NetworkMessage::RequestFromNode(_peer_id, incoming) => request_size(incoming),
 			NetworkMessage::RequestFromPeer(request) => request.payload.encoded_size(),
@@ -739,7 +739,7 @@ pub fn new_network(
 
 /// Errors that can happen when sending data to emulated peers.
 pub enum EmulatedPeerError {
-	NotConnected
+	NotConnected,
 }
 
 impl NetworkEmulatorHandle {

@@ -24,7 +24,7 @@ pub struct TestSequenceOptions {
 	pub path: String,
 }
 
-/// Supported test objectives
+/// Define the supported benchmarks targets
 #[derive(Debug, Clone, clap::Parser, Serialize, Deserialize)]
 #[command(rename_all = "kebab-case")]
 pub enum TestObjective {

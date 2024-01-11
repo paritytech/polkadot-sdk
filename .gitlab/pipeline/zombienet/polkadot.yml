@@ -131,6 +131,22 @@ zombienet-polkadot-functional-0008-dispute-old-finalized:
       --local-dir="${LOCAL_DIR}/functional"
       --test="0008-dispute-old-finalized.zndsl"
 
+zombienet-polkadot-functional-0009-approval-voting-coalescing:
+  extends:
+    - .zombienet-polkadot-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/functional"
+      --test="0009-approval-voting-coalescing.zndsl"
+
+zombienet-polkadot-functional-0010-validator-disabling:
+  extends:
+    - .zombienet-polkadot-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/functional"
+      --test="0010-validator-disabling.zndsl"
+
 zombienet-polkadot-smoke-0001-parachains-smoke-test:
   extends:
     - .zombienet-polkadot-common
@@ -177,6 +193,14 @@ zombienet-polkadot-smoke-0003-deregister-register-validator:
       --local-dir="${LOCAL_DIR}/smoke"
       --test="0003-deregister-register-validator-smoke.zndsl"
 
+zombienet-polkadot-smoke-0004-coretime-smoke-test:
+  extends:
+    - .zombienet-polkadot-common
+  script:
+    - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/smoke"
+      --test="0004-coretime-smoke-test.zndsl"
+
 zombienet-polkadot-misc-0001-parachains-paritydb:
   extends:
     - .zombienet-polkadot-common
@@ -201,7 +225,7 @@ zombienet-polkadot-misc-0002-upgrade-node:
     # Exit if the job is not merge queue
     # - if [[ $CI_COMMIT_REF_NAME != *"gh-readonly-queue"* ]]; then echo "I will run only in a merge queue"; exit 0; fi
     - export ZOMBIENET_INTEGRATION_TEST_IMAGE="docker.io/parity/polkadot:latest"
-    - echo "Overrided poladot image ${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
+    - echo "Overrided polkadot image ${ZOMBIENET_INTEGRATION_TEST_IMAGE}"
     - export COL_IMAGE="${COLANDER_IMAGE}":${PIPELINE_IMAGE_TAG}
     - BUILD_LINUX_JOB_ID="$(cat ./artifacts/BUILD_LINUX_JOB_ID)"
     - export POLKADOT_PR_ARTIFACTS_URL="https://gitlab.parity.io/parity/mirrors/polkadot-sdk/-/jobs/${BUILD_LINUX_JOB_ID}/artifacts/raw/artifacts"

@@ -10,11 +10,14 @@ description = "Fuzzer for phragmén implementation."
 documentation = "https://docs.rs/sp-npos-elections-fuzzer"
 publish = false
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-clap = { version = "4.4.10", features = ["derive"] }
+clap = { version = "4.4.14", features = ["derive"] }
 honggfuzz = "0.5"
 rand = { version = "0.8", features = ["small_rng", "std"] }
 sp-npos-elections = { path = ".." }

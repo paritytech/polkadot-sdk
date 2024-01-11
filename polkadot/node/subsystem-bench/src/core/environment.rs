@@ -14,10 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 //! Test environment implementation
-use crate::{
-	core::{mock::AlwaysSupportsParachains, network::NetworkEmulatorHandle},
-	TestConfiguration,
-};
+use crate::{core::mock::AlwaysSupportsParachains, TestConfiguration};
 use colored::Colorize;
 use core::time::Duration;
 use futures::{Future, FutureExt};
@@ -29,14 +26,20 @@ use polkadot_node_subsystem_util::metrics::prometheus::{
 	self, Gauge, Histogram, PrometheusError, Registry, U64,
 };
 
+use sc_network::peer_store::LOG_TARGET;
 use sc_service::{SpawnTaskHandle, TaskManager};
-use std::net::{Ipv4Addr, SocketAddr};
+use std::{
+	fmt::Display,
+	net::{Ipv4Addr, SocketAddr},
+};
 use tokio::runtime::Handle;
 
-const LOG_TARGET: &str = "subsystem-bench::environment";
-use super::{configuration::TestAuthorities, network::NetworkInterface};
+use super::{
+	configuration::TestAuthorities,
+	network::{NetworkEmulatorHandle, NetworkInterface},
+};
 
-const MIB: usize = 1024 * 1024;
+const MIB: f64 = 1024.0 * 1024.0;
 
 /// Test environment/configuration metrics
 #[derive(Clone)]
@@ -55,8 +58,9 @@ pub struct TestEnvironmentMetrics {
 
 impl TestEnvironmentMetrics {
 	pub fn new(registry: &Registry) -> Result<Self, PrometheusError> {
-		let buckets = prometheus::exponential_buckets(16384.0, 2.0, 9)
+		let mut buckets = prometheus::exponential_buckets(16384.0, 2.0, 9)
 			.expect("arguments are always valid; qed");
+		buckets.extend(vec![5.0 * MIB, 6.0 * MIB, 7.0 * MIB, 8.0 * MIB, 9.0 * MIB, 10.0 * MIB]);
 
 		Ok(Self {
 			n_validators: prometheus::register(
@@ -148,7 +152,7 @@ pub const GENESIS_HASH: Hash = Hash::repeat_byte(0xff);
 // We use this to bail out sending messages to the subsystem if it is overloaded such that
 // the time of flight is breaches 5s.
 // This should eventually be a test parameter.
-pub const MAX_TIME_OF_FLIGHT: Duration = Duration::from_millis(5000);
+const MAX_TIME_OF_FLIGHT: Duration = Duration::from_millis(5000);
 
 /// The test environment is the high level wrapper of all things required to test
 /// a certain subsystem.
