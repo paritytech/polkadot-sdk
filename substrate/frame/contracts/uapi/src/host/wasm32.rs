@@ -69,6 +69,8 @@ mod sys {
 
 		pub fn contains_storage(key_ptr: *const u8, key_len: u32) -> ReturnCode;
 
+		pub fn debug_message(str_ptr: *const u8, str_len: u32) -> ReturnCode;
+
 		pub fn delegate_call(
 			flags: u32,
 			code_hash_ptr: *const u8,
@@ -97,7 +99,6 @@ mod sys {
 
 		pub fn get_storage(
 			key_ptr: *const u8,
-			key_len: u32,
 			out_ptr: *mut u8,
 			out_len_ptr: *mut u32,
 		) -> ReturnCode;
@@ -130,12 +131,7 @@ mod sys {
 
 		pub fn set_code_hash(code_hash_ptr: *const u8) -> ReturnCode;
 
-		pub fn set_storage(
-			key_ptr: *const u8,
-			key_len: u32,
-			value_ptr: *const u8,
-			value_len: u32,
-		) -> ReturnCode;
+		pub fn set_storage(key_ptr: *const u8, value_ptr: *const u8, value_len: u32);
 
 		pub fn sr25519_verify(
 			signature_ptr: *const u8,
@@ -219,7 +215,6 @@ mod sys {
 
 			pub fn set_storage(
 				key_ptr: *const u8,
-				key_len: u32,
 				value_ptr: *const u8,
 				value_len: u32,
 			) -> ReturnCode;
@@ -280,29 +275,47 @@ mod sys {
 }
 
 /// A macro to implement all Host functions with a signature of `fn(&mut &mut [u8])`.
+///
+/// Example:
+/// ```nocompile
+// impl_wrapper_for! {
+//     () => [gas_left],
+//     (v1) => [gas_left],
+// }
+// ```
+// 
+// Expands to:
+// ```nocompile
+// fn gas_left(output: &mut &mut [u8]) {
+//     unsafe { sys::gas_left(...); }
+// }
+// fn gas_left_v1(output: &mut &mut [u8]) {
+//     unsafe { sys::v1::gas_left(...); }
+// }
+// ```
 macro_rules! impl_wrapper_for {
-    (@impl_fn $( $mod:ident )::*, $suffix:literal, $name:ident) => {
-        paste::paste! {
-            fn [<$name $suffix>](output: &mut &mut [u8]) {
-                let mut output_len = output.len() as u32;
-                unsafe {
-                    $( $mod )::*::$name(output.as_mut_ptr(), &mut output_len);
-                }
-            }
-        }
-    };
+	(@impl_fn $( $mod:ident )::*, $suffix_sep: literal, $suffix:tt, $name:ident) => {
+		paste::paste! {
+			fn [<$name $suffix_sep $suffix>](output: &mut &mut [u8]) {
+				let mut output_len = output.len() as u32;
+				unsafe {
+					$( $mod )::*::$name(output.as_mut_ptr(), &mut output_len);
+				}
+			}
+		}
+	};
 
-    () => {};
+	() => {};
 
-    (($mod:ident, $suffix:literal) => [$( $name:ident),*], $($tail:tt)*) => {
-        $(impl_wrapper_for!(@impl_fn sys::$mod, $suffix, $name);)*
-        impl_wrapper_for!($($tail)*);
-    };
+	(($mod:ident) => [$( $name:ident),*], $($tail:tt)*) => {
+		$(impl_wrapper_for!(@impl_fn sys::$mod, "_", $mod, $name);)*
+		impl_wrapper_for!($($tail)*);
+	};
 
-    (() =>  [$( $name:ident),*], $($tail:tt)*) => {
-        $(impl_wrapper_for!(@impl_fn sys, "", $name);)*
-        impl_wrapper_for!($($tail)*);
-    };
+	(() =>	[$( $name:ident),*], $($tail:tt)*) => {
+		$(impl_wrapper_for!(@impl_fn sys, "", "", $name);)*
+		impl_wrapper_for!($($tail)*);
+	};
 }
 
 /// A macro to implement all the hash functions Apis.
@@ -318,27 +331,6 @@ macro_rules! impl_hash_fn {
 					)
 				}
 			}
-		}
-	};
-}
-
-/// A macro to implement the get_storage functions.
-macro_rules! impl_get_storage {
-	($fn_name:ident, $sys_get_storage:path) => {
-		fn $fn_name(key: &[u8], output: &mut &mut [u8]) -> Result {
-			let mut output_len = output.len() as u32;
-			let ret_code = {
-				unsafe {
-					$sys_get_storage(
-						key.as_ptr(),
-						key.len() as u32,
-						output.as_mut_ptr(),
-						&mut output_len,
-					)
-				}
-			};
-			extract_from_slice(output, output_len as usize);
-			ret_code.into()
 		}
 	};
 }
@@ -579,19 +571,12 @@ impl HostFn for HostFnImpl {
 	}
 
 	fn set_storage(key: &[u8], value: &[u8]) {
-		unsafe {
-			sys::set_storage(key.as_ptr(), key.len() as u32, value.as_ptr(), value.len() as u32)
-		};
+		unsafe { sys::set_storage(key.as_ptr(), value.as_ptr(), value.len() as u32) };
 	}
 
 	fn set_storage_v1(key: &[u8], encoded_value: &[u8]) -> Option<u32> {
 		let ret_code = unsafe {
-			sys::v1::set_storage(
-				key.as_ptr(),
-				key.len() as u32,
-				encoded_value.as_ptr(),
-				encoded_value.len() as u32,
-			)
+			sys::v1::set_storage(key.as_ptr(), encoded_value.as_ptr(), encoded_value.len() as u32)
 		};
 		ret_code.into()
 	}
@@ -617,8 +602,29 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
-	impl_get_storage!(get_storage, sys::get_storage);
-	impl_get_storage!(get_storage_v1, sys::v1::get_storage);
+	fn get_storage(key: &[u8], output: &mut &mut [u8]) -> Result {
+		let mut output_len = output.len() as u32;
+		let ret_code =
+			{ unsafe { sys::get_storage(key.as_ptr(), output.as_mut_ptr(), &mut output_len) } };
+		extract_from_slice(output, output_len as usize);
+		ret_code.into()
+	}
+
+	fn get_storage_v1(key: &[u8], output: &mut &mut [u8]) -> Result {
+		let mut output_len = output.len() as u32;
+		let ret_code = {
+			unsafe {
+				sys::v1::get_storage(
+					key.as_ptr(),
+					key.len() as u32,
+					output.as_mut_ptr(),
+					&mut output_len,
+				)
+			}
+		};
+		extract_from_slice(output, output_len as usize);
+		ret_code.into()
+	}
 
 	fn take_storage(key: &[u8], output: &mut &mut [u8]) -> Result {
 		let mut output_len = output.len() as u32;
@@ -633,6 +639,11 @@ impl HostFn for HostFnImpl {
 			}
 		};
 		extract_from_slice(output, output_len as usize);
+		ret_code.into()
+	}
+
+	fn debug_message(str: &[u8]) -> Result {
+		let ret_code = unsafe { sys::debug_message(str.as_ptr(), str.len() as u32) };
 		ret_code.into()
 	}
 
@@ -654,20 +665,23 @@ impl HostFn for HostFnImpl {
 		unsafe { sys::v1::terminate(beneficiary.as_ptr()) }
 	}
 
-	fn call_chain_extension(func_id: u32, input: &[u8], output: &mut &mut [u8]) -> u32 {
-		let mut output_len = output.len() as u32;
+	fn call_chain_extension(func_id: u32, input: &[u8], mut output: Option<&mut [u8]>) -> u32 {
+		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let ret_code = {
 			unsafe {
 				sys::call_chain_extension(
 					func_id,
 					input.as_ptr(),
 					input.len() as u32,
-					output.as_mut_ptr(),
+					output_ptr,
 					&mut output_len,
 				)
 			}
 		};
-		extract_from_slice(output, output_len as usize);
+
+		if let Some(ref mut output) = output {
+			extract_from_slice(output, output_len as usize);
+		}
 		ret_code.into_u32()
 	}
 
@@ -690,7 +704,7 @@ impl HostFn for HostFnImpl {
 
 	impl_wrapper_for! {
 		() => [caller, block_number, address, balance, gas_left, value_transferred, now, minimum_balance],
-		(v1, "_v1") => [gas_left],
+		(v1) => [gas_left],
 	}
 
 	fn weight_to_fee(gas: u64, output: &mut &mut [u8]) {
@@ -802,7 +816,7 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
-	fn xcm_send(dest: &[u8], msg: &[u8], output: &mut &mut [u8]) -> Result {
+	fn xcm_send(dest: &[u8], msg: &[u8], output: &mut [u8; 32]) -> Result {
 		let ret_code = unsafe {
 			sys::xcm_send(dest.as_ptr(), msg.as_ptr(), msg.len() as _, output.as_mut_ptr())
 		};

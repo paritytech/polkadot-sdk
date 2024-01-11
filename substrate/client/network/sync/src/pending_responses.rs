@@ -28,13 +28,13 @@ use futures::{
 };
 use libp2p::PeerId;
 use log::error;
-use sc_network::request_responses::RequestFailure;
+use sc_network::{request_responses::RequestFailure, types::ProtocolName};
 use sp_runtime::traits::Block as BlockT;
 use std::task::{Context, Poll, Waker};
 use tokio_stream::StreamMap;
 
 /// Response result.
-type ResponseResult = Result<Result<Vec<u8>, RequestFailure>, oneshot::Canceled>;
+type ResponseResult = Result<Result<(Vec<u8>, ProtocolName), RequestFailure>, oneshot::Canceled>;
 
 /// A future yielding [`ResponseResult`].
 type ResponseFuture = BoxFuture<'static, ResponseResult>;

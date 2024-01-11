@@ -24,7 +24,7 @@ sp-consensus = { path = "../../consensus/common" }
 sc-block-builder = { path = "../../../client/block-builder" }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 sp-state-machine = { path = "../../state-machine" }
-trybuild = "1.0.74"
+trybuild = "1.0.88"
 rustversion = "1.0.6"
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 

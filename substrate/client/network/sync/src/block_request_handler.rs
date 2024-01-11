@@ -570,7 +570,7 @@ impl<B: BlockT> BlockDownloader<B> for FullBlockDownloader {
 		&self,
 		who: PeerId,
 		request: BlockRequest<B>,
-	) -> Result<Result<Vec<u8>, RequestFailure>, oneshot::Canceled> {
+	) -> Result<Result<(Vec<u8>, ProtocolName), RequestFailure>, oneshot::Canceled> {
 		// Build the request protobuf.
 		let bytes = BlockRequestSchema {
 			fields: request.fields.to_be_u32(),
