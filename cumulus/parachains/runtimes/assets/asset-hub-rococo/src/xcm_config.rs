@@ -68,7 +68,8 @@ parameter_types! {
 		[GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into())].into();
 	pub UniversalLocationNetworkId: NetworkId = UniversalLocation::get().global_consensus().unwrap();
 	pub TrustBackedAssetsPalletLocation: Location =
-		PalletInstance(<Assets as PalletInfoAccess>::index() as u8).into();
+		PalletInstance(TrustBackedAssetsPalletIndex::get()).into();
+	pub TrustBackedAssetsPalletIndex: u8 = <Assets as PalletInfoAccess>::index() as u8;
 	pub TrustBackedAssetsPalletLocationV3: xcm::v3::Location =
 		xcm::v3::Junction::PalletInstance(<Assets as PalletInfoAccess>::index() as u8).into();
 	pub ForeignAssetsPalletLocation: Location =
@@ -830,16 +831,16 @@ pub mod bridging {
 			/// Polkadot uses 10 decimals, Kusama and Rococo 12 decimals.
 			pub const DefaultBridgeHubEthereumBaseFee: Balance = 2_750_872_500_000;
 			pub storage BridgeHubEthereumBaseFee: Balance = DefaultBridgeHubEthereumBaseFee::get();
-			pub SiblingBridgeHubWithEthereumInboundQueueInstance: MultiLocation = MultiLocation::new(
+			pub SiblingBridgeHubWithEthereumInboundQueueInstance: Location = Location::new(
 				1,
-				X2(
+				[
 					Parachain(SiblingBridgeHubParaId::get()),
 					PalletInstance(parachains_common::rococo::snowbridge::INBOUND_QUEUE_PALLET_INDEX)
-				)
+				]
 			);
 
 			/// Set up exporters configuration.
-			/// `Option<MultiAsset>` represents static "base fee" which is used for total delivery fee calculation.
+			/// `Option<Asset>` represents static "base fee" which is used for total delivery fee calculation.
 			pub BridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
 				NetworkExportTableItem::new(
 					EthereumNetwork::get(),
@@ -853,7 +854,7 @@ pub mod bridging {
 			];
 
 			/// Universal aliases
-			pub UniversalAliases: BTreeSet<(MultiLocation, Junction)> = BTreeSet::from_iter(
+			pub UniversalAliases: BTreeSet<(Location, Junction)> = BTreeSet::from_iter(
 				sp_std::vec![
 					(SiblingBridgeHubWithEthereumInboundQueueInstance::get(), GlobalConsensus(EthereumNetwork::get())),
 				]
@@ -863,8 +864,8 @@ pub mod bridging {
 		pub type IsTrustedBridgedReserveLocationForForeignAsset =
 			matching::IsForeignConcreteAsset<FromNetwork<UniversalLocation, EthereumNetwork>>;
 
-		impl Contains<(MultiLocation, Junction)> for UniversalAliases {
-			fn contains(alias: &(MultiLocation, Junction)) -> bool {
+		impl Contains<(Location, Junction)> for UniversalAliases {
+			fn contains(alias: &(Location, Junction)) -> bool {
 				UniversalAliases::get().contains(alias)
 			}
 		}

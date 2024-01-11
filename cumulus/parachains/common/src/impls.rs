@@ -148,7 +148,7 @@ where
 			Err(amount) => amount,
 		};
 		let imbalance = amount.peek();
-		let root_location: MultiLocation = Here.into();
+		let root_location: Location = Here.into();
 		let root_account: AccountIdOf<T> =
 			match AccountIdConverter::convert_location(&root_location) {
 				Some(a) => a,

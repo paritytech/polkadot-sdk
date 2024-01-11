@@ -95,6 +95,11 @@ use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 // We exclude `Assets` since it's the name of a pallet
 use xcm::latest::prelude::{AssetId, BodyId};
+#[cfg(feature = "runtime-benchmarks")]
+use xcm::latest::prelude::{
+	Asset, Fungible, Here, InteriorLocation, Junction, Junction::*, Location, NetworkId,
+	NonFungible, Parent, ParentThen, Response, XCM_VERSION,
+};
 
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
@@ -331,7 +336,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type Assets = fungible::UnionOf<
 		Balances,
 		LocalAndForeignAssets,
-		TargetFromLeft<TokenLocation>,
+		TargetFromLeft<TokenLocationV3>,
 		Self::AssetKind,
 		Self::AccountId,
 	>;
@@ -351,7 +356,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type WeightInfo = weights::pallet_asset_conversion::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = assets_common::benchmarks::AssetPairFactory<
-		TokenLocation,
+		TokenLocationV3,
 		parachain_info::Pallet<Runtime>,
 		xcm_config::AssetsPalletIndex,
 	>;
@@ -750,7 +755,7 @@ impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Fungibles = LocalAndForeignAssets;
 	type OnChargeAssetTransaction =
-		AssetConversionAdapter<Balances, AssetConversion, TokenLocation>;
+		AssetConversionAdapter<Balances, AssetConversion, TokenLocationV3>;
 }
 
 parameter_types! {
@@ -1154,17 +1159,17 @@ impl_runtime_apis! {
 	impl pallet_asset_conversion::AssetConversionApi<
 		Block,
 		Balance,
-		Box<xcm::v3::Location>,
+		xcm::v3::Location,
 	> for Runtime
 	{
-		fn quote_price_exact_tokens_for_tokens(asset1: Box<xcm::v3::Location>, asset2: Box<xcm::v3::Location>, amount: Balance, include_fee: bool) -> Option<Balance> {
+		fn quote_price_exact_tokens_for_tokens(asset1: xcm::v3::Location, asset2: xcm::v3::Location, amount: Balance, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_exact_tokens_for_tokens(asset1, asset2, amount, include_fee)
 		}
-		fn quote_price_tokens_for_exact_tokens(asset1: Box<xcm::v3::Location>, asset2: Box<xcm::v3::Location>, amount: Balance, include_fee: bool) -> Option<Balance> {
+		fn quote_price_tokens_for_exact_tokens(asset1: xcm::v3::Location, asset2: xcm::v3::Location, amount: Balance, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
 		}
-		fn get_reserves(asset1: Box<xcm::v3::Location>, asset2: Box<xcm::v3::Location>) -> Option<(Balance, Balance)> {
-			AssetConversion::get_reserves(&asset1, &asset2).ok()
+		fn get_reserves(asset1: xcm::v3::Location, asset2: xcm::v3::Location) -> Option<(Balance, Balance)> {
+			AssetConversion::get_reserves(asset1, asset2).ok()
 		}
 	}
 

@@ -65,7 +65,8 @@ parameter_types! {
 		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into())].into();
 	pub UniversalLocationNetworkId: NetworkId = UniversalLocation::get().global_consensus().unwrap();
 	pub TrustBackedAssetsPalletLocation: Location =
-		PalletInstance(<Assets as PalletInfoAccess>::index() as u8).into();
+		PalletInstance(TrustBackedAssetsPalletIndex::get()).into();
+	pub TrustBackedAssetsPalletIndex: u8 = <Assets as PalletInfoAccess>::index() as u8;
 	pub TrustBackedAssetsPalletLocationV3: xcm::v3::Location =
 		xcm::v3::Junction::PalletInstance(<Assets as PalletInfoAccess>::index() as u8).into();
 	pub ForeignAssetsPalletLocation: Location =

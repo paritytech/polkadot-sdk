@@ -127,7 +127,7 @@ impl<C> ExecuteXcm<C> for () {
 
 pub trait Reanchorable: Sized {
 	/// Type to return in case of an error.
-	type Error;
+	type Error: Debug;
 
 	/// Mutate `self` so that it represents the same location from the point of view of `target`.
 	/// The context of `self` is provided as `context`.

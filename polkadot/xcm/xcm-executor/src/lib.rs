@@ -403,8 +403,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		Ok(())
 	}
 
-	fn take_fee(&mut self, fee: MultiAssets, reason: FeeReason) -> XcmResult {
-		if Config::FeeManager::is_waived(self.origin_ref(), reason) {
+	fn take_fee(&mut self, fee: Assets, reason: FeeReason) -> XcmResult {
+		if Config::FeeManager::is_waived(self.origin_ref(), reason.clone()) {
 			return Ok(())
 		}
 		log::trace!(
@@ -430,13 +430,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 	/// Calculates what `local_querier` would be from the perspective of `destination`.
 	fn to_querier(
-		local_querier: Option<MultiLocation>,
-		destination: &MultiLocation,
-	) -> Result<Option<MultiLocation>, XcmError> {
+		local_querier: Option<Location>,
+		destination: &Location,
+	) -> Result<Option<Location>, XcmError> {
 		Ok(match local_querier {
 			None => None,
 			Some(q) => Some(
-				q.reanchored(&destination, Config::UniversalLocation::get())
+				q.reanchored(&destination, &Config::UniversalLocation::get())
 					.map_err(|_| XcmError::ReanchorFailed)?,
 			),
 		})
@@ -447,7 +447,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	/// The `local_querier` argument is the querier (if any) specified from the *local* perspective.
 	fn respond(
 		&mut self,
-		local_querier: Option<MultiLocation>,
+		local_querier: Option<Location>,
 		response: Response,
 		info: QueryResponseInfo,
 		fee_reason: FeeReason,
@@ -459,36 +459,28 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		self.send(destination, message, fee_reason)
 	}
 
-	fn try_reanchor(
-		asset: MultiAsset,
-		destination: &MultiLocation,
-	) -> Result<(MultiAsset, InteriorMultiLocation), XcmError> {
+	fn try_reanchor<T: Reanchorable>(
+		reanchorable: T,
+		destination: &Location,
+	) -> Result<(T, InteriorLocation), XcmError> {
 		let reanchor_context = Config::UniversalLocation::get();
-		let asset = asset
-			.reanchored(&destination, reanchor_context)
-			.map_err(|()| XcmError::ReanchorFailed)?;
-		Ok((asset, reanchor_context))
-	}
-
-	fn try_reanchor_multilocation(
-		location: MultiLocation,
-		destination: &MultiLocation,
-	) -> Result<(MultiLocation, InteriorMultiLocation), XcmError> {
-		let reanchor_context = Config::UniversalLocation::get();
-		let location = location
-			.reanchored(&destination, reanchor_context)
-			.map_err(|_| XcmError::ReanchorFailed)?;
-		Ok((location, reanchor_context))
+		let reanchored = reanchorable
+			.reanchored(&destination, &reanchor_context)
+			.map_err(|error| {
+				log::error!(target: "xcm::reanchor", "Failed reanchoring with error {error:?}");
+				XcmError::ReanchorFailed
+			})?;
+		Ok((reanchored, reanchor_context))
 	}
 
 	/// NOTE: Any assets which were unable to be reanchored are introduced into `failed_bin`.
 	fn reanchored(
-		mut assets: Assets,
-		dest: &MultiLocation,
-		maybe_failed_bin: Option<&mut Assets>,
-	) -> MultiAssets {
+		mut assets: AssetsInHolding,
+		dest: &Location,
+		maybe_failed_bin: Option<&mut AssetsInHolding>,
+	) -> Assets {
 		let reanchor_context = Config::UniversalLocation::get();
-		assets.reanchor(dest, reanchor_context, maybe_failed_bin);
+		assets.reanchor(dest, &reanchor_context, maybe_failed_bin);
 		assets.into_assets_iter().collect::<Vec<_>>().into()
 	}
 
@@ -668,7 +660,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					return Err(XcmError::NoPermission)
 				}
 
-				let dispatch_origin = Config::OriginConverter::convert_origin(origin, origin_kind)
+				let dispatch_origin = Config::OriginConverter::convert_origin(origin.clone(), origin_kind)
 					.map_err(|_| {
 						log::trace!(
 							target: "xcm::process_instruction::transact",

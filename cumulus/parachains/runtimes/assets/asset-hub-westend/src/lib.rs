@@ -79,7 +79,7 @@ use sp_version::RuntimeVersion;
 use xcm_config::{
 	TrustBackedAssetsPalletLocationV3, WestendLocationV3,
 	ForeignAssetsConvertedConcreteId, PoolAssetsConvertedConcreteId,
-	TrustBackedAssetsConvertedConcreteId, TrustBackedAssetsPalletLocation, WestendLocation,
+	TrustBackedAssetsConvertedConcreteId, WestendLocation,
 	XcmOriginToTransactDispatchOrigin,
 };
 
@@ -300,15 +300,16 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type BenchmarkHelper = ();
 }
 
-/// Union fungibles implementation for `Assets`` and `ForeignAssets`.
+/// Union fungibles implementation for `Assets` and `ForeignAssets`.
 pub type LocalAndForeignAssets = fungibles::UnionOf<
 	Assets,
 	ForeignAssets,
 	LocalFromLeft<
-		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation>,
+		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocationV3>,
 		AssetIdForTrustBackedAssets,
+		xcm::v3::Location,
 	>,
-	MultiLocation,
+	xcm::v3::Location,
 	AccountId,
 >;
 
@@ -320,17 +321,17 @@ impl pallet_asset_conversion::Config for Runtime {
 	type Assets = fungible::UnionOf<
 		Balances,
 		LocalAndForeignAssets,
-		TargetFromLeft<WestendLocation>,
+		TargetFromLeft<WestendLocationV3, xcm::v3::Location>,
 		Self::AssetKind,
 		Self::AccountId,
 	>;
 	type PoolId = (Self::AssetKind, Self::AssetKind);
 	type PoolLocator =
-		pallet_asset_conversion::WithFirstAsset<WestendLocation, AccountId, Self::AssetKind>;
+		pallet_asset_conversion::WithFirstAsset<WestendLocationV3, AccountId, Self::AssetKind>;
 	type PoolAssetId = u32;
 	type PoolAssets = PoolAssets;
 	type PoolSetupFee = ConstU128<0>; // Asset class deposit fees are sufficient to prevent spam
-	type PoolSetupFeeAsset = WestendLocation;
+	type PoolSetupFeeAsset = WestendLocationV3;
 	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
 	type LPFee = ConstU32<3>;
@@ -340,9 +341,10 @@ impl pallet_asset_conversion::Config for Runtime {
 	type WeightInfo = weights::pallet_asset_conversion::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = assets_common::benchmarks::AssetPairFactory<
-		WestendLocation,
+		WestendLocationV3,
 		parachain_info::Pallet<Runtime>,
-		xcm_config::AssetsPalletIndex,
+		xcm_config::TrustBackedAssetsPalletIndex,
+		xcm::v3::Location,
 	>;
 }
 
@@ -727,12 +729,12 @@ impl pallet_collator_selection::Config for Runtime {
 	type WeightInfo = weights::pallet_collator_selection::WeightInfo<Runtime>;
 }
 
-impl pallet_asset_conversion_tx_payment::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Fungibles = LocalAndForeignAssets;
-	type OnChargeAssetTransaction =
-		AssetConversionAdapter<Balances, AssetConversion, WestendLocation>;
-}
+// impl pallet_asset_conversion_tx_payment::Config for Runtime {
+// 	type RuntimeEvent = RuntimeEvent;
+// 	type Fungibles = LocalAndForeignAssets;
+// 	type OnChargeAssetTransaction =
+// 		AssetConversionAdapter<Balances, AssetConversion, WestendLocationV3>;
+// }
 
 parameter_types! {
 	pub const UniquesCollectionDeposit: Balance = UNITS / 10; // 1 / 10 UNIT deposit to create a collection
@@ -878,7 +880,7 @@ construct_runtime!(
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 11,
 		// AssetTxPayment: pallet_asset_tx_payment::{Pallet, Event<T>} = 12,
-		AssetTxPayment: pallet_asset_conversion_tx_payment::{Pallet, Event<T>} = 13,
+		// AssetTxPayment: pallet_asset_conversion_tx_payment::{Pallet, Event<T>} = 13,
 
 		// Collator support. the order of these 5 are important and shall not change.
 		Authorship: pallet_authorship::{Pallet, Storage} = 20,
@@ -928,7 +930,7 @@ pub type SignedExtra = (
 	frame_system::CheckEra<Runtime>,
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
-	pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
+	// pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
@@ -1232,19 +1234,19 @@ impl_runtime_apis! {
 	impl pallet_asset_conversion::AssetConversionApi<
 		Block,
 		Balance,
-		Box<xcm::v3::Location>,
+		xcm::v3::Location,
 	> for Runtime
 	{
-		fn quote_price_exact_tokens_for_tokens(asset1: Box<xcm::v3::Location>, asset2: Box<xcm::v3::Location>, amount: Balance, include_fee: bool) -> Option<Balance> {
+		fn quote_price_exact_tokens_for_tokens(asset1: xcm::v3::Location, asset2: xcm::v3::Location, amount: Balance, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_exact_tokens_for_tokens(asset1, asset2, amount, include_fee)
 		}
 
-		fn quote_price_tokens_for_exact_tokens(asset1: Box<xcm::v3::Location>, asset2: Box<xcm::v3::Location>, amount: Balance, include_fee: bool) -> Option<Balance> {
+		fn quote_price_tokens_for_exact_tokens(asset1: xcm::v3::Location, asset2: xcm::v3::Location, amount: Balance, include_fee: bool) -> Option<Balance> {
 			AssetConversion::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
 		}
 
-		fn get_reserves(asset1: Box<xcm::v3::Location>, asset2: Box<xcm::v3::Location>) -> Option<(Balance, Balance)> {
-			AssetConversion::get_reserves(&asset1, &asset2).ok()
+		fn get_reserves(asset1: xcm::v3::Location, asset2: xcm::v3::Location) -> Option<(Balance, Balance)> {
+			AssetConversion::get_reserves(asset1, asset2).ok()
 		}
 	}
 

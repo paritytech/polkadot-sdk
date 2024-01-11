@@ -116,23 +116,25 @@ pub type XcmRouter = WithUniqueTopic<
 >;
 
 parameter_types! {
-	pub const Roc: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) });
-	pub const AssetHub: Location = Parachain(ASSET_HUB_ID).into_location();
-	pub const Contracts: Location = Parachain(CONTRACTS_ID).into_location();
-	pub const Encointer: Location = Parachain(ENCOINTER_ID).into_location();
-	pub const BridgeHub: Location = Parachain(BRIDGE_HUB_ID).into_location();
-	pub const Tick: Location = Parachain(100).into_location();
-	pub const Trick: Location = Parachain(110).into_location();
-	pub const Track: Location = Parachain(120).into_location();
-	pub const RocForTick: (AssetFilter, Location) = (Roc::get(), Tick::get());
-	pub const RocForTrick: (AssetFilter, Location) = (Roc::get(), Trick::get());
-	pub const RocForTrack: (AssetFilter, Location) = (Roc::get(), Track::get());
-	pub const RocForAssetHub: (AssetFilter, Location) = (Roc::get(), AssetHub::get());
-	pub const RocForContracts: (AssetFilter, Location) = (Roc::get(), Contracts::get());
-	pub const RocForEncointer: (AssetFilter, Location) = (Roc::get(), Encointer::get());
-	pub const RocForBridgeHub: (AssetFilter, Location) = (Roc::get(), BridgeHub::get());
-	pub const RocForPeople: (AssetFilter, Location) = (Roc::get(), People::get());
-	pub const RocForBroker: (AssetFilter, Location) = (Roc::get(), Broker::get());
+	pub Roc: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) });
+	pub AssetHub: Location = Parachain(ASSET_HUB_ID).into_location();
+	pub Contracts: Location = Parachain(CONTRACTS_ID).into_location();
+	pub Encointer: Location = Parachain(ENCOINTER_ID).into_location();
+	pub BridgeHub: Location = Parachain(BRIDGE_HUB_ID).into_location();
+	pub People: Location = Parachain(PEOPLE_ID).into_location();
+	pub Broker: Location = Parachain(BROKER_ID).into_location();
+	pub Tick: Location = Parachain(100).into_location();
+	pub Trick: Location = Parachain(110).into_location();
+	pub Track: Location = Parachain(120).into_location();
+	pub RocForTick: (AssetFilter, Location) = (Roc::get(), Tick::get());
+	pub RocForTrick: (AssetFilter, Location) = (Roc::get(), Trick::get());
+	pub RocForTrack: (AssetFilter, Location) = (Roc::get(), Track::get());
+	pub RocForAssetHub: (AssetFilter, Location) = (Roc::get(), AssetHub::get());
+	pub RocForContracts: (AssetFilter, Location) = (Roc::get(), Contracts::get());
+	pub RocForEncointer: (AssetFilter, Location) = (Roc::get(), Encointer::get());
+	pub RocForBridgeHub: (AssetFilter, Location) = (Roc::get(), BridgeHub::get());
+	pub RocForPeople: (AssetFilter, Location) = (Roc::get(), People::get());
+	pub RocForBroker: (AssetFilter, Location) = (Roc::get(), Broker::get());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }

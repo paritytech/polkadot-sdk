@@ -114,17 +114,17 @@ pub type XcmRouter = WithUniqueTopic<
 >;
 
 parameter_types! {
-	pub const AssetHub: Location = Parachain(ASSET_HUB_ID).into_location();
-	pub const Collectives: Location = Parachain(COLLECTIVES_ID).into_location();
-	pub const BridgeHub: Location = Parachain(BRIDGE_HUB_ID).into_location();
-	pub const People: Location = Parachain(PEOPLE_ID).into_location();
-	pub const Wnd: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) });
-	pub const WndForAssetHub: (AssetFilter, Location) = (Wnd::get(), AssetHub::get());
-	pub const WndForCollectives: (AssetFilter, Location) = (Wnd::get(), Collectives::get());
-	pub const WndForBridgeHub: (AssetFilter, Location) = (Wnd::get(), BridgeHub::get());
-	pub const WndForPeople: (AssetFilter, Location) = (Wnd::get(), People::get());
-	pub const MaxInstructions: u32 = 100;
-	pub const MaxAssetsIntoHolding: u32 = 64;
+	pub AssetHub: Location = Parachain(ASSET_HUB_ID).into_location();
+	pub Collectives: Location = Parachain(COLLECTIVES_ID).into_location();
+	pub BridgeHub: Location = Parachain(BRIDGE_HUB_ID).into_location();
+	pub People: Location = Parachain(PEOPLE_ID).into_location();
+	pub Wnd: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) });
+	pub WndForAssetHub: (AssetFilter, Location) = (Wnd::get(), AssetHub::get());
+	pub WndForCollectives: (AssetFilter, Location) = (Wnd::get(), Collectives::get());
+	pub WndForBridgeHub: (AssetFilter, Location) = (Wnd::get(), BridgeHub::get());
+	pub WndForPeople: (AssetFilter, Location) = (Wnd::get(), People::get());
+	pub MaxInstructions: u32 = 100;
+	pub MaxAssetsIntoHolding: u32 = 64;
 }
 
 pub type TrustedTeleporters = (

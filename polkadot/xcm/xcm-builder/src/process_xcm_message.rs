@@ -85,22 +85,22 @@ impl<
 			Outcome::Complete { used } => {
 				log::trace!(
 					target: LOG_TARGET,
-					"XCM message execution complete, used weight: {w}",
+					"XCM message execution complete, used weight: {used}",
 				);
 				(used, Ok(true))
 			},
-			Outcome::Incomplete { used, .. } => {
+			Outcome::Incomplete { used, error } => {
 				log::trace!(
 					target: LOG_TARGET,
-					"XCM message execution incomplete, used weight: {w}, error: {e:?}",
+					"XCM message execution incomplete, used weight: {used}, error: {error:?}",
 				);
 				(used, Ok(false))
 			},
 			// In the error-case we assume the worst case and consume all possible weight.
-			Outcome::Error { .. } => {
+			Outcome::Error { error } => {
 				log::trace!(
 					target: LOG_TARGET,
-					"XCM message execution error: {e:?}",
+					"XCM message execution error: {error:?}",
 				);
 				(required, Err(ProcessMessageError::Unsupported))
 			},

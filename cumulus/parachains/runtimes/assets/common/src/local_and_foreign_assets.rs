@@ -26,11 +26,11 @@ use xcm::latest::Location;
 /// [`Either::Right`] otherwise.
 ///
 /// Suitable for use as a `Criterion` with [`frame_support::traits::tokens::fungible::UnionOf`].
-pub struct TargetFromLeft<Target>(PhantomData<Target>);
-impl<Target: Get<Location>> Convert<Location, Either<(), Location>>
-	for TargetFromLeft<Target>
+pub struct TargetFromLeft<Target, L = Location>(PhantomData<(Target, L)>);
+impl<Target: Get<L>, L: PartialEq + Eq> Convert<L, Either<(), L>>
+	for TargetFromLeft<Target, L>
 {
-	fn convert(l: Location) -> Either<(), Location> {
+	fn convert(l: L) -> Either<(), L> {
 		Target::get().eq(&l).then(|| Left(())).map_or(Right(l), |n| n)
 	}
 }
@@ -39,13 +39,13 @@ impl<Target: Get<Location>> Convert<Location, Either<(), Location>>
 /// Returns [`Either::Right`] if not equivalent.
 ///
 /// Suitable for use as a `Criterion` with [`frame_support::traits::tokens::fungibles::UnionOf`].
-pub struct LocalFromLeft<Equivalence, AssetId>(PhantomData<(Equivalence, AssetId)>);
-impl<Equivalence, AssetId> Convert<Location, Either<AssetId, Location>>
-	for LocalFromLeft<Equivalence, AssetId>
+pub struct LocalFromLeft<Equivalence, AssetId, L = Location>(PhantomData<(Equivalence, AssetId, L)>);
+impl<Equivalence, AssetId, L> Convert<L, Either<AssetId, L>>
+	for LocalFromLeft<Equivalence, AssetId, L>
 where
-	Equivalence: MaybeEquivalence<Location, AssetId>,
+	Equivalence: MaybeEquivalence<L, AssetId>,
 {
-	fn convert(l: Location) -> Either<AssetId, Location> {
+	fn convert(l: L) -> Either<AssetId, L> {
 		match Equivalence::convert(&l) {
 			Some(id) => Left(id),
 			None => Right(l),

@@ -78,7 +78,7 @@ use bridge_hub_common::{
 use pallet_xcm::EnsureXcm;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
-use xcm::VersionedMultiLocation;
+use xcm::VersionedLocation;
 use xcm_config::{TreasuryAccount, XcmOriginToTransactDispatchOrigin, XcmRouter};
 
 #[cfg(any(feature = "std", test))]
@@ -517,7 +517,7 @@ pub mod benchmark_helpers {
 	use snowbridge_beacon_primitives::CompactExecutionHeader;
 	use snowbridge_pallet_inbound_queue::BenchmarkHelper;
 	use sp_core::H256;
-	use xcm::latest::{MultiAssets, MultiLocation, SendError, SendResult, SendXcm, Xcm, XcmHash};
+	use xcm::latest::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
 
 	impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Runtime {
 		fn initialize_storage(block_hash: H256, header: CompactExecutionHeader) {
@@ -530,10 +530,10 @@ pub mod benchmark_helpers {
 		type Ticket = Xcm<()>;
 
 		fn validate(
-			_dest: &mut Option<MultiLocation>,
+			_dest: &mut Option<Location>,
 			xcm: &mut Option<Xcm<()>>,
 		) -> SendResult<Self::Ticket> {
-			Ok((xcm.clone().unwrap(), MultiAssets::new()))
+			Ok((xcm.clone().unwrap(), Assets::new()))
 		}
 		fn deliver(xcm: Xcm<()>) -> Result<XcmHash, SendError> {
 			let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
@@ -542,7 +542,7 @@ pub mod benchmark_helpers {
 	}
 
 	impl snowbridge_pallet_system::BenchmarkHelper<RuntimeOrigin> for () {
-		fn make_xcm_origin(location: MultiLocation) -> RuntimeOrigin {
+		fn make_xcm_origin(location: Location) -> RuntimeOrigin {
 			RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location))
 		}
 	}
@@ -1016,7 +1016,7 @@ impl_runtime_apis! {
 	}
 
 	impl snowbridge_system_runtime_api::ControlApi<Block> for Runtime {
-		fn agent_id(location: VersionedMultiLocation) -> Option<AgentId> {
+		fn agent_id(location: VersionedLocation) -> Option<AgentId> {
 			snowbridge_pallet_system::api::agent_id::<Runtime>(location)
 		}
 	}
@@ -1331,7 +1331,7 @@ impl_runtime_apis! {
 						Runtime,
 						bridge_common_config::BridgeGrandpaRococoBulletinInstance,
 						bridge_to_bulletin_config::WithRococoBulletinMessageBridge,
-					>(params, generate_xcm_builder_bridge_message_sample(X2(GlobalConsensus(Rococo), Parachain(42))))
+					>(params, generate_xcm_builder_bridge_message_sample([GlobalConsensus(Rococo), Parachain(42)].into()))
 				}
 
 				fn prepare_message_delivery_proof(
