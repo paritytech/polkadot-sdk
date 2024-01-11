@@ -16,13 +16,6 @@
 
 use color_eyre::eyre;
 
-#[cfg(target_os = "linux")]
-const LOG_FILE: &str = "cachegrind_logs";
-#[cfg(target_os = "linux")]
-const HEADER_SIZE: usize = 6;
-#[cfg(target_os = "linux")]
-const WARNING: &str = "warning";
-
 /// Show if the app is running under Valgrind
 #[cfg(target_os = "linux")]
 pub(crate) fn is_valgrind_running() -> bool {
@@ -60,7 +53,7 @@ pub(crate) fn relaunch_in_valgrind_mode() -> eyre::Result<()> {
 		.arg("--tool=cachegrind")
 		.arg("--cache-sim=yes")
 		.arg("--instr-at-start=no")
-		.arg(format!("--log-file={}", LOG_FILE))
+		.arg("--log-file=cachegrind_report.txt")
 		.args(std::env::args())
 		.exec();
 
@@ -70,29 +63,4 @@ pub(crate) fn relaunch_in_valgrind_mode() -> eyre::Result<()> {
 #[cfg(not(target_os = "linux"))]
 pub(crate) fn relaunch_in_valgrind_mode() -> eyre::Result<()> {
 	return Err(eyre::eyre!("Valgrind can be executed only on linux"));
-}
-
-#[cfg(target_os = "linux")]
-fn prepare_report() -> eyre::Result<String> {
-	let log_file = std::fs::read_to_string(LOG_FILE)?;
-	let lines: Vec<&str> = log_file
-		.lines()
-		.skip(HEADER_SIZE)
-		.map(|line| line.trim_start_matches(|c: char| !c.is_alphabetic()))
-		.filter(|line| !line.contains(WARNING))
-		.collect();
-
-	Ok(format!("\nCache misses report:\n\t{}", lines.join("\n\t")))
-}
-
-#[cfg(target_os = "linux")]
-pub(crate) fn dispay_report() -> eyre::Result<()> {
-	gum::info!("{}", prepare_report()?);
-
-	Ok(())
-}
-
-#[cfg(not(target_os = "linux"))]
-pub(crate) fn dispay_report() -> eyre::Result<()> {
-	Ok(())
 }

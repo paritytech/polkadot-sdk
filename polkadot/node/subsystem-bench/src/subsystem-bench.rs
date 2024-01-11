@@ -206,7 +206,6 @@ impl BenchCli {
 
 		if is_valgrind_running {
 			valgrind::stop_measuring();
-			valgrind::dispay_report()?;
 		}
 
 		if let Some(agent_running) = agent_running {
