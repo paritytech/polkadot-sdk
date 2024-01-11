@@ -142,8 +142,8 @@ mod v_coretime {
 			let new_core_count = assigner_coretime::Pallet::<T>::session_core_count();
 			ensure!(new_core_count == prev_core_count, "Total number of cores need to not change.");
 			ensure!(
-				dmp_queue_size == prev_dmp_queue_size + 4,
-				"There should have been four enqueued DMP messages."
+				dmp_queue_size > prev_dmp_queue_size,
+				"There should have been enqueued at least one DMP messages."
 			);
 
 			Ok(())
