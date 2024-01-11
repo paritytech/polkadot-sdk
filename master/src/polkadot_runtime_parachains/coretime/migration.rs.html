@@ -283,6 +283,14 @@
 <a href="#283" id="283">283</a>
 <a href="#284" id="284">284</a>
 <a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -427,8 +435,8 @@
 			<span class="kw">let </span>new_core_count = assigner_coretime::Pallet::&lt;T&gt;::session_core_count();
 			<span class="macro">ensure!</span>(new_core_count == prev_core_count, <span class="string">&quot;Total number of cores need to not change.&quot;</span>);
 			<span class="macro">ensure!</span>(
-				dmp_queue_size == prev_dmp_queue_size + <span class="number">1</span>,
-				<span class="string">&quot;There should have been enqueued one DMP message.&quot;
+				dmp_queue_size &gt; prev_dmp_queue_size,
+				<span class="string">&quot;There should have been enqueued at least one DMP messages.&quot;
 			</span>);
 
 			<span class="prelude-val">Ok</span>(())
@@ -549,22 +557,30 @@
 		<span class="kw">let </span>message_content = iter::once(Instruction::UnpaidExecution {
 			weight_limit: WeightLimit::Unlimited,
 			check_origin: <span class="prelude-val">None</span>,
-		})
-		.chain(reservations)
-		.chain(pool)
-		.chain(leases)
-		.chain(set_core_count)
-		.collect();
+		});
 
-		<span class="kw">let </span>message = Xcm(message_content);
+		<span class="kw">let </span>reservation_content = message_content.clone().chain(reservations).collect();
+		<span class="kw">let </span>pool_content = message_content.clone().chain(pool).collect();
+		<span class="kw">let </span>leases_content = message_content.clone().chain(leases).collect();
+		<span class="kw">let </span>set_core_count_content = message_content.clone().chain(set_core_count).collect();
 
-		send_xcm::&lt;SendXcm&gt;(
-			MultiLocation {
-				parents: <span class="number">0</span>,
-				interior: Junctions::X1(Junction::Parachain(T::BrokerId::get())),
-			},
-			message,
-		)<span class="question-mark">?</span>;
+		<span class="kw">let </span>messages = <span class="macro">vec!</span>[
+			Xcm(reservation_content),
+			Xcm(pool_content),
+			Xcm(leases_content),
+			Xcm(set_core_count_content),
+		];
+
+		<span class="kw">for </span>message <span class="kw">in </span>messages {
+			send_xcm::&lt;SendXcm&gt;(
+				MultiLocation {
+					parents: <span class="number">0</span>,
+					interior: Junctions::X1(Junction::Parachain(T::BrokerId::get())),
+				},
+				message,
+			)<span class="question-mark">?</span>;
+		}
+
 		<span class="prelude-val">Ok</span>(())
 	}
 }
