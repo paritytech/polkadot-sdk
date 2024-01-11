@@ -36,7 +36,6 @@
     paths:
       - ./zombienet-logs
   after_script:
-    - echo "Collecting logs"
     - mkdir -p ./zombienet-logs
     # copy logs of tests runner (run-tests.sh)
     - cp -r /tmp/bridges-zombienet-tests.*/tmp.*/tmp.* ./zombienet-logs/
@@ -46,8 +45,6 @@
     - cp /tmp/polkadot.* ./zombienet-logs/
     # copy logs of our polkadot-parachain binary wrapper (polkadot-parachain-x.sh)
     - cp /tmp/polkadot-parachain.* ./zombienet-logs/
-    - echo "Collected logs"
-    - ls -R /tmp
   retry: 2
   tags:
     - zombienet-polkadot-integration-test
