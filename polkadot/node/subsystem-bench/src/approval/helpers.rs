@@ -82,10 +82,10 @@ impl Clock for PastSystemClock {
 /// It does not change for the duration of the test.
 pub fn generate_babe_epoch(current_slot: Slot, authorities: TestAuthorities) -> BabeEpoch {
 	let authorities = authorities
-		.keyrings
+		.validator_babe_id
 		.into_iter()
 		.enumerate()
-		.map(|(index, keyring)| (keyring.public().into(), index as u64))
+		.map(|(index, public)| (public, index as u64))
 		.collect_vec();
 	BabeEpoch {
 		epoch_index: 1,
@@ -100,7 +100,7 @@ pub fn generate_babe_epoch(current_slot: Slot, authorities: TestAuthorities) -> 
 /// Generates a topology to be used for this benchmark.
 pub fn generate_topology(test_authorities: &TestAuthorities) -> SessionGridTopology {
 	let keyrings = test_authorities
-		.keyrings
+		.validator_authority_id
 		.clone()
 		.into_iter()
 		.zip(test_authorities.peer_ids.clone())
@@ -110,10 +110,10 @@ pub fn generate_topology(test_authorities: &TestAuthorities) -> SessionGridTopol
 		.clone()
 		.into_iter()
 		.enumerate()
-		.map(|(index, (keyring, peer_id))| TopologyPeerInfo {
+		.map(|(index, (discovery_id, peer_id))| TopologyPeerInfo {
 			peer_ids: vec![peer_id],
 			validator_index: ValidatorIndex(index as u32),
-			discovery_id: keyring.public().into(),
+			discovery_id,
 		})
 		.collect_vec();
 	let shuffled = (0..keyrings.len()).collect_vec();
@@ -138,17 +138,12 @@ pub fn generate_new_session_topology(
 
 /// Generates peer_connected messages for all peers in `test_authorities`
 pub fn generate_peer_connected(test_authorities: &TestAuthorities) -> Vec<AllMessages> {
-	let keyrings = test_authorities
-		.keyrings
-		.clone()
-		.into_iter()
-		.zip(test_authorities.peer_ids.clone())
-		.collect_vec();
-	keyrings
-		.into_iter()
-		.map(|(_, peer_id)| {
+	test_authorities
+		.peer_ids
+		.iter()
+		.map(|peer_id| {
 			let network = NetworkBridgeEvent::PeerConnected(
-				peer_id,
+				*peer_id,
 				ObservedRole::Full,
 				ProtocolVersion::from(ValidationVersion::V3),
 				None,
@@ -172,13 +167,12 @@ pub fn session_info_for_peers(
 	configuration: &TestConfiguration,
 	authorities: TestAuthorities,
 ) -> SessionInfo {
-	let keys = authorities.keyrings.iter().zip(authorities.peer_ids.iter());
 	SessionInfo {
-		validators: keys.clone().map(|v| v.0.clone().public().into()).collect(),
-		discovery_keys: keys.clone().map(|v| v.0.clone().public().into()).collect(),
-		assignment_keys: keys.clone().map(|v| v.0.clone().public().into()).collect(),
+		validators: authorities.validator_public.iter().cloned().collect(),
+		discovery_keys: authorities.validator_authority_id.iter().cloned().collect(),
+		assignment_keys: authorities.validator_assignment_id.iter().cloned().collect(),
 		validator_groups: IndexedVec::<GroupIndex, Vec<ValidatorIndex>>::from(
-			(0..authorities.keyrings.len())
+			(0..authorities.validator_authority_id.len())
 				.map(|index| vec![ValidatorIndex(index as u32)])
 				.collect_vec(),
 		),
@@ -188,7 +182,7 @@ pub fn session_info_for_peers(
 		relay_vrf_modulo_samples: 6,
 		n_delay_tranches: 89,
 		no_show_slots: 3,
-		active_validator_indices: (0..authorities.keyrings.len())
+		active_validator_indices: (0..authorities.validator_authority_id.len())
 			.map(|index| ValidatorIndex(index as u32))
 			.collect_vec(),
 		dispute_period: 6,

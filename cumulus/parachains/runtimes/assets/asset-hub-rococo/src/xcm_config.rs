@@ -31,6 +31,7 @@ use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{
 	impls::ToStakingPot,
+	rococo::snowbridge::EthereumNetwork,
 	xcm_config::{
 		AllSiblingSystemParachains, AssetFeeAsExistentialDepositMultiplier,
 		ConcreteAssetFromSystem, ParentRelayOrSiblingParachains, RelayOrOtherSystemParachains,
@@ -39,7 +40,6 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use snowbridge_rococo_common::EthereumNetwork;
 use snowbridge_router_primitives::inbound::GlobalConsensusEthereumConvertsFor;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto};
 use xcm::latest::prelude::*;
@@ -817,7 +817,7 @@ pub mod bridging {
 				1,
 				X2(
 					Parachain(SiblingBridgeHubParaId::get()),
-					PalletInstance(snowbridge_rococo_common::INBOUND_QUEUE_MESSAGES_PALLET_INDEX)
+					PalletInstance(parachains_common::rococo::snowbridge::INBOUND_QUEUE_PALLET_INDEX)
 				)
 			);
 

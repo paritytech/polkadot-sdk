@@ -73,6 +73,7 @@ macro_rules! mock {
 	};
 }
 
+// Generate dummy implementation for all subsystems
 mock!(AvailabilityStore);
 mock!(StatementDistribution);
 mock!(BitfieldSigning);

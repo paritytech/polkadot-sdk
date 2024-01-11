@@ -14,13 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 //! Test environment implementation
-use crate::{
-	core::{mock::AlwaysSupportsParachains, network::NetworkEmulator},
-	TestConfiguration,
-};
+use crate::{core::mock::AlwaysSupportsParachains, TestConfiguration};
 use colored::Colorize;
 use core::time::Duration;
-use futures::FutureExt;
+use futures::{Future, FutureExt};
 use polkadot_overseer::{BlockInfo, Handle as OverseerHandle};
 
 use polkadot_node_subsystem::{messages::AllMessages, Overseer, SpawnGlue, TimeoutExt};
@@ -36,6 +33,11 @@ use std::{
 	net::{Ipv4Addr, SocketAddr},
 };
 use tokio::runtime::Handle;
+
+use super::{
+	configuration::TestAuthorities,
+	network::{NetworkEmulatorHandle, NetworkInterface},
+};
 
 const MIB: f64 = 1024.0 * 1024.0;
 
@@ -190,9 +192,13 @@ pub struct TestEnvironment {
 	/// The test configuration.
 	config: TestConfiguration,
 	/// A handle to the network emulator.
-	network: NetworkEmulator,
+	network: NetworkEmulatorHandle,
 	/// Configuration/env metrics
 	metrics: TestEnvironmentMetrics,
+	/// Test authorities generated from the configuration.
+	authorities: TestAuthorities,
+	/// The network interface used by the node.
+	network_interface: NetworkInterface,
 }
 
 impl TestEnvironment {
@@ -200,9 +206,11 @@ impl TestEnvironment {
 	pub fn new(
 		dependencies: TestEnvironmentDependencies,
 		config: TestConfiguration,
-		network: NetworkEmulator,
+		network: NetworkEmulatorHandle,
 		overseer: Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
 		overseer_handle: OverseerHandle,
+		authorities: TestAuthorities,
+		network_interface: NetworkInterface,
 	) -> Self {
 		let metrics = TestEnvironmentMetrics::new(&dependencies.registry)
 			.expect("Metrics need to be registered");
@@ -231,38 +239,72 @@ impl TestEnvironment {
 			config,
 			network,
 			metrics,
+			authorities,
+			network_interface,
 		}
 	}
 
+	/// Returns the test configuration.
 	pub fn config(&self) -> &TestConfiguration {
 		&self.config
 	}
 
-	pub fn network(&self) -> &NetworkEmulator {
+	/// Returns a reference to the inner network emulator handle.
+	pub fn network(&self) -> &NetworkEmulatorHandle {
 		&self.network
 	}
 
+	/// Returns a reference to the overseer handle.
 	pub fn overseer_handle(&self) -> &OverseerHandle {
 		&self.overseer_handle
 	}
 
+	/// Returns a reference to the spawn task handle.
 	pub fn spawn_handle(&self) -> SpawnTaskHandle {
 		self.dependencies.task_manager.spawn_handle()
 	}
 
+	/// Returns the Prometheus registry.
 	pub fn registry(&self) -> &Registry {
 		&self.dependencies.registry
 	}
 
+	/// Spawn a named task in the `test-environment` task group.
+	pub fn spawn(&self, name: &'static str, task: impl Future<Output = ()> + Send + 'static) {
+		self.dependencies
+			.task_manager
+			.spawn_handle()
+			.spawn(name, "test-environment", task);
+	}
+
+	/// Spawn a blocking named task in the `test-environment` task group.
+	pub fn spawn_blocking(
+		&self,
+		name: &'static str,
+		task: impl Future<Output = ()> + Send + 'static,
+	) {
+		self.dependencies.task_manager.spawn_handle().spawn_blocking(
+			name,
+			"test-environment",
+			task,
+		);
+	}
+	/// Returns a reference to the test environment metrics instance
 	pub fn metrics(&self) -> &TestEnvironmentMetrics {
 		&self.metrics
 	}
 
+	/// Returns a handle to the tokio runtime.
 	pub fn runtime(&self) -> Handle {
 		self.runtime_handle.clone()
 	}
 
-	// Send a message to the subsystem under test environment.
+	/// Returns a reference to the authority keys used in the test.
+	pub fn authorities(&self) -> &TestAuthorities {
+		&self.authorities
+	}
+
+	/// Send a message to the subsystem under test environment.
 	pub async fn send_message(&mut self, msg: AllMessages) {
 		self.overseer_handle
 			.send_msg(msg, LOG_TARGET)
@@ -273,7 +315,7 @@ impl TestEnvironment {
 			});
 	}
 
-	// Send an `ActiveLeavesUpdate` signal to all subsystems under test.
+	/// Send an `ActiveLeavesUpdate` signal to all subsystems under test.
 	pub async fn import_block(&mut self, block: BlockInfo) {
 		self.overseer_handle
 			.block_imported(block)
@@ -283,6 +325,7 @@ impl TestEnvironment {
 				panic!("{}ms maximum time of flight breached", MAX_TIME_OF_FLIGHT.as_millis())
 			});
 	}
+
 	/// Tells if entries in bucket metric is lower than `value`
 	pub fn metric_with_label_lower_than(
 		&self,
@@ -314,78 +357,79 @@ impl TestEnvironment {
 
 		test_metrics.bucket_metric_lower_than(metric_name, label_name, label_value, value)
 	}
-	// Stop overseer and subsystems.
+	/// Stop overseer and subsystems.
 	pub async fn stop(&mut self) {
 		self.overseer_handle.stop().await;
 	}
-}
 
-impl Display for TestEnvironment {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		let stats = self.network().stats();
+	/// Blocks until `metric_name` >= `value`
+	pub async fn wait_until_metric_ge(&self, metric_name: &str, value: usize) {
+		let value = value as f64;
+		loop {
+			let test_metrics = super::display::parse_metrics(self.registry());
+			let current_value = test_metrics.sum_by(metric_name);
 
-		writeln!(f, "\n")?;
-		writeln!(
-			f,
-			"Total received from network: {}",
-			format!(
-				"{} MiB",
-				stats
-					.iter()
-					.enumerate()
-					.filter(|(index, _)| *index != 0)
-					.map(|(_index, stats)| stats.tx_bytes_total as u128)
-					.sum::<u128>() / (1024 * 1024)
-			)
-			.cyan()
-		)?;
-		writeln!(
-			f,
-			"Total sent to network: {}",
-			format!("{} KiB", stats[0].tx_bytes_total / (1024)).cyan()
-		)?;
+			gum::debug!(target: LOG_TARGET, metric_name, current_value, value, "Waiting for metric");
+			if current_value >= value {
+				break
+			}
 
+			// Check value every 50ms.
+			tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+		}
+	}
+
+	/// Display network usage stats.
+	pub fn display_network_usage(&self) {
+		let stats = self.network().peer_stats(0);
+
+		let total_node_received = stats.received() / 1024;
+		let total_node_sent = stats.sent() / 1024;
+
+		println!(
+			"\nPayload bytes received from peers: {}, {}",
+			format!("{:.2} KiB total", total_node_received).blue(),
+			format!("{:.2} KiB/block", total_node_received / self.config().num_blocks)
+				.bright_blue()
+		);
+
+		println!(
+			"Payload bytes sent to peers: {}, {}",
+			format!("{:.2} KiB total", total_node_sent).blue(),
+			format!("{:.2} KiB/block", total_node_sent / self.config().num_blocks).bright_blue()
+		);
+	}
+
+	/// Print CPU usage stats in the CLI.
+	pub fn display_cpu_usage(&self, subsystems_under_test: &[&str]) {
 		let test_metrics = super::display::parse_metrics(self.registry());
-		let subsystem_cpu_metrics =
-			test_metrics.subset_with_label_value("task_group", "approval-distribution");
-		let total_cpu = subsystem_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
-		writeln!(
-			f,
-			"Total approval-distribution CPU usage {}",
-			format!("{:.2}s", total_cpu).bright_purple()
-		)?;
-		writeln!(
-			f,
-			"CPU usage per block {}",
-			format!("{:.2}s", total_cpu / self.config().num_blocks as f64).bright_purple()
-		)?;
 
-		let subsystem_cpu_metrics =
-			test_metrics.subset_with_label_value("task_group", "approval-voting");
-		let total_cpu = subsystem_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
-		writeln!(
-			f,
-			"Total approval-voting CPU usage {}",
-			format!("{:.2}s", total_cpu).bright_purple()
-		)?;
-		writeln!(
-			f,
-			"CPU usage per block {}",
-			format!("{:.2}s", total_cpu / self.config().num_blocks as f64).bright_purple()
-		)?;
+		for subsystem in subsystems_under_test.into_iter() {
+			let subsystem_cpu_metrics =
+				test_metrics.subset_with_label_value("task_group", subsystem);
+			let total_cpu = subsystem_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
+			println!(
+				"{} CPU usage {}",
+				format!("{}", subsystem).bright_green(),
+				format!("{:.3}s", total_cpu).bright_purple()
+			);
+			println!(
+				"{} CPU usage per block {}",
+				format!("{}", subsystem).bright_green(),
+				format!("{:.3}s", total_cpu / self.config().num_blocks as f64).bright_purple()
+			);
+		}
 
 		let test_env_cpu_metrics =
 			test_metrics.subset_with_label_value("task_group", "test-environment");
 		let total_cpu = test_env_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
-		writeln!(
-			f,
+		println!(
 			"Total test environment CPU usage {}",
-			format!("{:.2}s", total_cpu).bright_purple()
-		)?;
-		writeln!(
-			f,
-			"CPU usage per block {}",
-			format!("{:.2}s", total_cpu / self.config().num_blocks as f64).bright_purple()
+			format!("{:.3}s", total_cpu).bright_purple()
+		);
+		println!(
+			"Test environment CPU usage per block {}",
+			format!("{:.3}s", total_cpu / self.config().num_blocks as f64).bright_purple()
 		)
 	}
 }

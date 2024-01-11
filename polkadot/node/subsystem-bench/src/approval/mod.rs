@@ -16,7 +16,7 @@
 
 use self::{
 	helpers::{make_candidates, make_header},
-	test_message::MessagesBundle,
+	test_message::{MessagesBundle, TestMessageInfo},
 };
 use crate::{
 	approval::{
@@ -34,9 +34,12 @@ use crate::{
 		environment::{TestEnvironment, TestEnvironmentDependencies, MAX_TIME_OF_FLIGHT},
 		mock::{
 			dummy_builder, network_bridge::MockNetworkBridgeTx, AlwaysSupportsParachains,
-			TestSyncOracle,
+			MockNetworkBridgeRx, TestSyncOracle,
 		},
-		network::{NetworkAction, NetworkEmulator},
+		network::{
+			new_network, HandleNetworkMessage, NetworkEmulatorHandle, NetworkInterface,
+			NetworkInterfaceReceiver,
+		},
 	},
 };
 use colored::Colorize;
@@ -50,6 +53,7 @@ use polkadot_node_core_approval_voting::{
 	time::{slot_number_to_tick, tick_to_slot_number, Clock, ClockExt, SystemClock},
 	ApprovalVotingSubsystem, Config as ApprovalVotingConfig, Metrics as ApprovalVotingMetrics,
 };
+use polkadot_node_network_protocol::{v3 as protocol_v3, Versioned};
 use polkadot_node_primitives::approval::{self, v1::RelayVRFStory};
 use polkadot_node_subsystem::{overseer, AllMessages, Overseer, OverseerConnector, SpawnGlue};
 use polkadot_node_subsystem_test_helpers::mock::new_block_import_info;
@@ -368,7 +372,6 @@ impl ApprovalTestState {
 					babe_epoch.epoch_index,
 				)
 				.expect("Can not continue without vrf story");
-
 			let block_info = BlockTestData {
 				slot: slot_for_block,
 				block_number: block_number as BlockNumber,
@@ -400,7 +403,7 @@ impl ApprovalTestState {
 	/// Starts the generation of messages(Assignments & Approvals) needed for approving blocks.
 	async fn start_message_production(
 		&mut self,
-		network_emulator: &NetworkEmulator,
+		network_emulator: &NetworkEmulatorHandle,
 		overseer_handle: OverseerHandleReal,
 		spawn_task_handle: &SpawnTaskHandle,
 		registry: Registry,
@@ -446,6 +449,18 @@ impl ApprovalTestState {
 	}
 }
 
+impl HandleNetworkMessage for ApprovalTestState {
+	fn handle(
+		&self,
+		message: crate::core::network::NetworkMessage,
+		node_sender: &mut futures::channel::mpsc::UnboundedSender<
+			crate::core::network::NetworkMessage,
+		>,
+	) -> Option<crate::core::network::NetworkMessage> {
+		None
+	}
+}
+
 /// A generator of messages coming from a given Peer/Validator
 struct PeerMessageProducer {
 	/// The state state used to know what messages to generate.
@@ -453,7 +468,7 @@ struct PeerMessageProducer {
 	/// Configuration options, passed at the beginning of the test.
 	options: ApprovalsOptions,
 	/// A reference to the network emulator
-	network: NetworkEmulator,
+	network: NetworkEmulatorHandle,
 	/// A handle to the overseer, used for sending messages to the node
 	/// under test.
 	overseer_handle: OverseerHandleReal,
@@ -550,7 +565,8 @@ impl PeerMessageProducer {
 			sleep(Duration::from_secs(6)).await;
 			let (tx, rx) = oneshot::channel();
 			let msg = ApprovalDistributionMessage::GetApprovalSignatures(HashSet::new(), tx);
-			self.send_message(AllMessages::ApprovalDistribution(msg), ValidatorIndex(0), None);
+			self.send_message(AllMessages::ApprovalDistribution(msg), ValidatorIndex(0), None)
+				.await;
 			rx.await.expect("Failed to get signatures");
 			self.notify_done.send(()).expect("Failed to notify main loop");
 			gum::info!("All messages processed ");
@@ -592,11 +608,7 @@ impl PeerMessageProducer {
 							.total_sent_messages
 							.as_ref()
 							.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-						self.send_message(
-							message.into_all_messages_from_peer(peer.1),
-							peer.0,
-							latency,
-						)
+						self.queue_message_from_peer(message, peer.0)
 					}
 				}
 			}
@@ -641,41 +653,36 @@ impl PeerMessageProducer {
 			block_initialized
 	}
 
-	/// Queues a message to be sent by the peer identified by the `sent_by` value.
-	fn send_message(
-		&mut self,
-		message: AllMessages,
-		sent_by: ValidatorIndex,
-		latency: Option<Duration>,
-	) {
-		let peer = self
+	fn queue_message_from_peer(&mut self, message: TestMessageInfo, sent_by: ValidatorIndex) {
+		let peer_authority_id = self
 			.state
 			.test_authorities
 			.validator_authority_id
 			.get(sent_by.0 as usize)
 			.expect("We can't handle unknown peers")
 			.clone();
+		self.network
+			.send_message_from_peer(
+				&peer_authority_id,
+				protocol_v3::ValidationProtocol::ApprovalDistribution(message.msg).into(),
+			)
+			.expect("Network should be up and running");
+	}
 
-		let mut overseer_handle = self.overseer_handle.clone();
-		let network_action = NetworkAction::new(
-			peer.clone(),
-			async move {
-				overseer_handle
-					.send_msg(message, LOG_TARGET)
-					.timeout(MAX_TIME_OF_FLIGHT)
-					.await
-					.unwrap_or_else(|| {
-						panic!(
-							"{} ms maximum time of flight breached",
-							MAX_TIME_OF_FLIGHT.as_millis()
-						)
-					});
-			}
-			.boxed(),
-			200,
-			latency,
-		);
-		self.network.submit_peer_action(peer, network_action);
+	/// Queues a message to be sent by the peer identified by the `sent_by` value.
+	async fn send_message(
+		&mut self,
+		message: AllMessages,
+		sent_by: ValidatorIndex,
+		latency: Option<Duration>,
+	) {
+		self.overseer_handle
+			.send_msg(message, LOG_TARGET)
+			.timeout(MAX_TIME_OF_FLIGHT)
+			.await
+			.unwrap_or_else(|| {
+				panic!("{} ms maximum time of flight breached", MAX_TIME_OF_FLIGHT.as_millis())
+			});
 	}
 
 	async fn initialize_block(&mut self, block_info: &BlockTestData) {
@@ -687,13 +694,13 @@ impl PeerMessageProducer {
 			.expect("We should not fail waiting for block to be activated")
 			.expect("We should not fail waiting for block to be activated");
 
-		for validator in 1..self.state.test_authorities.keyrings.len() as u32 {
+		for validator in 1..self.state.test_authorities.validator_authority_id.len() as u32 {
 			let peer_id = self.state.test_authorities.peer_ids.get(validator as usize).unwrap();
 			let validator = ValidatorIndex(validator);
 
 			let view_update = generate_peer_view_change_for(block_info.hash, *peer_id);
 
-			self.send_message(view_update, validator, None);
+			self.send_message(view_update, validator, None).await;
 		}
 	}
 
@@ -724,9 +731,11 @@ impl PeerMessageProducer {
 /// `ApprovalVoting` subystems and mock subsytems for all others.
 fn build_overseer(
 	state: &ApprovalTestState,
-	network: &NetworkEmulator,
+	network: &NetworkEmulatorHandle,
 	config: &TestConfiguration,
 	dependencies: &TestEnvironmentDependencies,
+	network_interface: &NetworkInterface,
+	network_receiver: NetworkInterfaceReceiver,
 ) -> (Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>, OverseerHandleReal) {
 	let overseer_connector = OverseerConnector::with_event_capacity(6400000);
 
@@ -753,7 +762,12 @@ fn build_overseer(
 	let mock_chain_api = MockChainApi { state: state.clone() };
 	let mock_chain_selection = MockChainSelection { state: state.clone(), clock: system_clock };
 	let mock_runtime_api = MockRuntimeApi { state: state.clone() };
-	let mock_tx_bridge = MockNetworkBridgeTx::new(config.clone(), state.clone(), network.clone());
+	let mock_tx_bridge = MockNetworkBridgeTx::new(
+		network.clone(),
+		network_interface.subsystem_sender(),
+		state.test_authorities.clone(),
+	);
+	let mock_rx_bridge = MockNetworkBridgeRx::new(network_receiver, None);
 	let overseer_metrics = OverseerMetrics::try_register(&dependencies.registry).unwrap();
 	let dummy = dummy_builder!(spawn_task_handle, overseer_metrics)
 		.replace_approval_distribution(|_| approval_distribution)
@@ -761,7 +775,8 @@ fn build_overseer(
 		.replace_chain_api(|_| mock_chain_api)
 		.replace_chain_selection(|_| mock_chain_selection)
 		.replace_runtime_api(|_| mock_runtime_api)
-		.replace_network_bridge_tx(|_| mock_tx_bridge);
+		.replace_network_bridge_tx(|_| mock_tx_bridge)
+		.replace_network_bridge_rx(|_| mock_rx_bridge);
 
 	let (overseer, raw_handle) =
 		dummy.build_with_connector(overseer_connector).expect("Should not fail");
@@ -789,13 +804,32 @@ fn prepare_test_inner(
 
 	gum::info!("Build network emulator");
 
-	let network = NetworkEmulator::new(&config, &dependencies, &state.test_authorities);
+	let (network, network_interface, network_receiver) =
+		new_network(&config, &dependencies, &state.test_authorities, vec![Arc::new(state.clone())]);
 
 	gum::info!("Build overseer");
 
-	let (overseer, overseer_handle) = build_overseer(&state, &network, &config, &dependencies);
+	let (overseer, overseer_handle) = build_overseer(
+		&state,
+		&network,
+		&config,
+		&dependencies,
+		&network_interface,
+		network_receiver,
+	);
 
-	(TestEnvironment::new(dependencies, config, network, overseer, overseer_handle), state)
+	(
+		TestEnvironment::new(
+			dependencies,
+			config,
+			network,
+			overseer,
+			overseer_handle,
+			state.test_authorities.clone(),
+			network_interface,
+		),
+		state,
+	)
 }
 
 pub async fn bench_approvals(env: &mut TestEnvironment, mut state: ApprovalTestState) {
@@ -942,7 +976,9 @@ pub async fn bench_approvals_run(
 		state.total_sent_messages.load(std::sync::atomic::Ordering::SeqCst),
 		state.total_unique_messages.load(std::sync::atomic::Ordering::SeqCst)
 	);
-	gum::info!("{}", &env);
+
+	env.display_network_usage();
+	env.display_cpu_usage(&["approval-distribution", "approval-voting"]);
 
 	assert!(env.metric_with_label_lower_than(
 		"substrate_tasks_polling_duration_sum",

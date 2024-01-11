@@ -39,13 +39,15 @@ use polkadot_node_primitives::approval::{
 };
 use polkadot_primitives::{
 	vstaging::ApprovalVoteMultipleCandidates, CandidateEvent, CandidateHash, CandidateIndex,
-	CoreIndex, SessionInfo, Slot, ValidatorIndex, ValidatorPair, ASSIGNMENT_KEY_TYPE_ID,
+	CoreIndex, SessionInfo, Slot, ValidatorId, ValidatorIndex, ValidatorPair,
+	ASSIGNMENT_KEY_TYPE_ID,
 };
 use rand::{seq::SliceRandom, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use sc_keystore::LocalKeystore;
 use sc_network::PeerId;
 use sha1::Digest;
+use sp_application_crypto::AppCrypto;
 use sp_consensus_babe::SlotDuration;
 use sp_core::Pair;
 use sp_keystore::Keystore;
@@ -110,12 +112,8 @@ impl PeerMessagesGenerator {
 			for block_info in self.blocks {
 				let assignments = generate_assignments(
 					&block_info,
-					self.test_authorities
-						.keyrings
-						.clone()
-						.into_iter()
-						.zip(self.test_authorities.peer_ids.clone().into_iter())
-						.collect_vec(),
+					self.test_authorities.peer_ids.clone(),
+					self.test_authorities.key_seeds.clone(),
 					&self.session_info,
 					self.enable_assignments_v2,
 					&self.random_samplings,
@@ -136,17 +134,13 @@ impl PeerMessagesGenerator {
 				let approvals = issue_approvals(
 					assignments,
 					block_info.hash,
-					self.test_authorities
-						.keyrings
-						.clone()
-						.into_iter()
-						.zip(self.test_authorities.peer_ids.clone().into_iter())
-						.collect_vec(),
+					&self.test_authorities.validator_public,
 					block_info.candidates.clone(),
 					self.min_coalesce,
 					self.max_coalesce,
 					self.coalesce_tranche_diff,
 					&mut rand_chacha,
+					self.test_authorities.keyring.keystore_ref(),
 				);
 
 				self.tx_messages
@@ -214,8 +208,8 @@ impl PeerMessagesGenerator {
 
 		let random_samplings = random_samplings_to_node_patterns(
 			ValidatorIndex(NODE_UNDER_TEST),
-			test_authorities.keyrings.len(),
-			test_authorities.keyrings.len() * 2,
+			test_authorities.validator_public.len(),
+			test_authorities.validator_public.len() * 2,
 		);
 
 		let topology_node_under_test =
@@ -225,7 +219,7 @@ impl PeerMessagesGenerator {
 
 		// Spawn a thread to generate the messages for each validator, so that we speed up the
 		// generation a bit.
-		for current_validator_index in 1..test_authorities.keyrings.len() {
+		for current_validator_index in 1..test_authorities.validator_public.len() {
 			let peer_message_source = PeerMessagesGenerator {
 				topology_node_under_test: topology_node_under_test.clone(),
 				topology: topology.clone(),
@@ -360,12 +354,13 @@ fn coalesce_approvals_len(
 fn issue_approvals(
 	assignments: Vec<TestMessageInfo>,
 	block_hash: Hash,
-	keyrings: Vec<(Keyring, PeerId)>,
+	validator_ids: &[ValidatorId],
 	candidates: Vec<CandidateEvent>,
 	min_coalesce: u32,
 	max_coalesce: u32,
 	coalesce_tranche_diff: u32,
 	rand_chacha: &mut ChaCha20Rng,
+	store: &LocalKeystore,
 ) -> Vec<MessagesBundle> {
 	let mut queued_to_sign: Vec<TestSignInfo> = Vec::new();
 	let mut num_coalesce = coalesce_approvals_len(min_coalesce, max_coalesce, rand_chacha);
@@ -398,9 +393,10 @@ fn issue_approvals(
 				{
 					approvals_to_create.push(TestSignInfo::sign_candidates(
 						&mut queued_to_sign,
-						&keyrings,
+						&validator_ids,
 						block_hash,
 						num_coalesce,
+						store,
 					));
 					num_coalesce = coalesce_approvals_len(min_coalesce, max_coalesce, rand_chacha);
 				}
@@ -433,9 +429,10 @@ fn issue_approvals(
 	if !queued_to_sign.is_empty() {
 		messages.push(TestSignInfo::sign_candidates(
 			&mut queued_to_sign,
-			&keyrings,
+			&validator_ids,
 			block_hash,
 			num_coalesce,
+			store,
 		));
 	}
 	messages
@@ -459,14 +456,15 @@ impl TestSignInfo {
 	/// Returns a TestMessage
 	fn sign_candidates(
 		to_sign: &mut Vec<TestSignInfo>,
-		keyrings: &[(Keyring, PeerId)],
+		validator_ids: &[ValidatorId],
 		block_hash: Hash,
 		num_coalesce: usize,
+		store: &LocalKeystore,
 	) -> MessagesBundle {
 		let current_validator_index = to_sign.first().map(|val| val.validator_index).unwrap();
 		let tranche_approval_can_be_sent =
 			to_sign.iter().map(|val| val.assignment.tranche).max().unwrap();
-		let keyring = keyrings.get(current_validator_index.0 as usize).unwrap().clone();
+		let validator_id = validator_ids.get(current_validator_index.0 as usize).unwrap().clone();
 
 		let unique_assignments: HashSet<TestMessageInfo> =
 			to_sign.iter().map(|info| info.assignment.clone()).collect();
@@ -495,8 +493,11 @@ impl TestSignInfo {
 
 			let payload = ApprovalVoteMultipleCandidates(&hashes).signing_payload(1);
 
-			let validator_key: ValidatorPair = keyring.0.clone().pair().into();
-			let signature = validator_key.sign(&payload[..]);
+			let signature = store
+				.sr25519_sign(ValidatorId::ID, &validator_id.clone().into(), &payload[..])
+				.unwrap()
+				.unwrap()
+				.into();
 			let indirect = IndirectSignedApprovalVoteV2 {
 				block_hash,
 				candidate_indices: candidate_indices.try_into().unwrap(),
@@ -518,7 +519,7 @@ impl TestSignInfo {
 
 /// Determine what neighbours would send a given message to the node under test.
 fn neighbours_that_would_sent_message(
-	keyrings: &[(Keyring, PeerId)],
+	peer_ids: &[PeerId],
 	current_validator_index: u32,
 	topology_node_under_test: &GridNeighbors,
 	topology: &SessionGridTopology,
@@ -546,11 +547,11 @@ fn neighbours_that_would_sent_message(
 	let mut to_be_sent_by = originator_y
 		.into_iter()
 		.chain(originator_x)
-		.map(|val| (*val, keyrings[val.0 as usize].1))
+		.map(|val| (*val, peer_ids[val.0 as usize]))
 		.collect_vec();
 
 	if is_neighbour {
-		to_be_sent_by.push((ValidatorIndex(NODE_UNDER_TEST), keyrings[0].1));
+		to_be_sent_by.push((ValidatorIndex(NODE_UNDER_TEST), peer_ids[0]));
 	}
 	to_be_sent_by
 }
@@ -560,7 +561,8 @@ fn neighbours_that_would_sent_message(
 #[allow(clippy::too_many_arguments)]
 fn generate_assignments(
 	block_info: &BlockTestData,
-	keyrings: Vec<(Keyring, PeerId)>,
+	peer_ids: Vec<PeerId>,
+	seeds: Vec<String>,
 	session_info: &SessionInfo,
 	generate_v2_assignments: bool,
 	random_samplings: &Vec<Vec<ValidatorIndex>>,
@@ -597,19 +599,11 @@ fn generate_assignments(
 	let mut rand_chacha = ChaCha20Rng::from_seed(seed);
 
 	let to_be_sent_by = neighbours_that_would_sent_message(
-		&keyrings,
+		&peer_ids,
 		current_validator_index,
 		topology_node_under_test,
 		topology,
 	);
-
-	let store = LocalKeystore::in_memory();
-	let _public = store
-		.sr25519_generate_new(
-			ASSIGNMENT_KEY_TYPE_ID,
-			Some(keyrings[current_validator_index as usize].0.seed().as_str()),
-		)
-		.expect("should not fail");
 
 	let leaving_cores = leaving_cores
 		.clone()
@@ -617,6 +611,13 @@ fn generate_assignments(
 		.filter(|(_, core_index, _group_index)| core_index.0 != current_validator_index)
 		.collect_vec();
 
+	let store = LocalKeystore::in_memory();
+	let _public = store
+		.sr25519_generate_new(
+			ASSIGNMENT_KEY_TYPE_ID,
+			Some(seeds[current_validator_index as usize].as_str()),
+		)
+		.expect("should not fail");
 	let assignments = compute_assignments(
 		&store,
 		relay_vrf_story.clone(),
@@ -630,7 +631,7 @@ fn generate_assignments(
 		.unwrap();
 	let random_sending_peer_ids = random_sending_nodes
 		.iter()
-		.map(|validator| (*validator, keyrings[validator.0 as usize].1))
+		.map(|validator| (*validator, peer_ids[validator.0 as usize]))
 		.collect_vec();
 
 	let mut unique_assignments = HashSet::new();

@@ -32,6 +32,8 @@ pub struct TestSequenceOptions {
 pub enum TestObjective {
 	/// Benchmark availability recovery strategies.
 	DataAvailabilityRead(DataAvailabilityReadOptions),
+	/// Benchmark availability and bitfield distribution.
+	DataAvailabilityWrite,
 	/// Run a test sequence specified in a file
 	TestSequence(TestSequenceOptions),
 	/// Benchmark the approval-voting and approval-distribution subsystems.

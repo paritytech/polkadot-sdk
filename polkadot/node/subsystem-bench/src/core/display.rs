@@ -246,7 +246,7 @@ pub fn display_configuration(test_config: &TestConfiguration) {
 		format!("n_cores = {}", test_config.n_cores).blue(),
 		format!("pov_size = {} - {}", test_config.min_pov_size, test_config.max_pov_size)
 			.bright_black(),
-		format!("error = {}", test_config.error).bright_black(),
+		format!("connectivity = {}", test_config.connectivity).bright_black(),
 		format!("latency = {:?}", test_config.latency).bright_black(),
 	);
 }

@@ -194,3 +194,5 @@ try-runtime = [
 ]
 
 experimental = ["pallet-aura/experimental"]
+
+fast-runtime = []

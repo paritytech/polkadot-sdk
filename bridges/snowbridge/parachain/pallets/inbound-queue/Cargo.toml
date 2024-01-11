@@ -1,11 +1,15 @@
 [package]
-name = "snowbridge-inbound-queue"
-description = "Snowbridge Inbound Queue"
-version = "0.1.1"
-edition = "2021"
+name = "snowbridge-pallet-inbound-queue"
+description = "Snowbridge Inbound Queue Pallet"
+version = "0.9.0"
 authors = ["Snowfork <contact@snowfork.com>"]
-repository = "https://github.com/Snowfork/snowbridge"
+edition.workspace = true
+repository.workspace = true
 license = "Apache-2.0"
+categories = ["cryptography::cryptocurrencies"]
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -32,6 +36,7 @@ sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-fea
 
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false }
 
 snowbridge-core = { path = "../../primitives/core", default-features = false }
 snowbridge-ethereum = { path = "../../primitives/ethereum", default-features = false }
@@ -42,7 +47,7 @@ snowbridge-beacon-primitives = { path = "../../primitives/beacon", default-featu
 frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking" }
 sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
 snowbridge-beacon-primitives = { path = "../../primitives/beacon" }
-snowbridge-ethereum-beacon-client = { path = "../../pallets/ethereum-beacon-client" }
+snowbridge-pallet-ethereum-client = { path = "../../pallets/ethereum-client" }
 hex-literal = { version = "0.4.1" }
 
 [features]
@@ -68,6 +73,7 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 	"xcm-builder/std",
+	"xcm-executor/std",
 	"xcm/std",
 ]
 runtime-benchmarks = [
@@ -79,15 +85,16 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"snowbridge-beacon-primitives",
 	"snowbridge-core/runtime-benchmarks",
-	"snowbridge-ethereum-beacon-client/runtime-benchmarks",
+	"snowbridge-pallet-ethereum-client/runtime-benchmarks",
 	"snowbridge-router-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
-	"snowbridge-ethereum-beacon-client/try-runtime",
+	"snowbridge-pallet-ethereum-client/try-runtime",
 	"sp-runtime/try-runtime",
 ]

@@ -14,8 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use futures::{channel::oneshot, prelude::Future};
+use futures::{channel::oneshot, prelude::Future, FutureExt};
 
+use network::ProtocolName;
 use parity_scale_codec::{Decode, Encode, Error as DecodingError};
 
 use sc_network as network;
@@ -49,20 +50,6 @@ pub enum Requests {
 }
 
 impl Requests {
-	/// Get the protocol this request conforms to.
-	pub fn get_protocol(&self) -> Protocol {
-		match self {
-			Self::ChunkFetchingV1(_) => Protocol::ChunkFetchingV1,
-			Self::CollationFetchingV1(_) => Protocol::CollationFetchingV1,
-			Self::CollationFetchingV2(_) => Protocol::CollationFetchingV2,
-			Self::PoVFetchingV1(_) => Protocol::PoVFetchingV1,
-			Self::AvailableDataFetchingV1(_) => Protocol::AvailableDataFetchingV1,
-			Self::StatementFetchingV1(_) => Protocol::StatementFetchingV1,
-			Self::DisputeSendingV1(_) => Protocol::DisputeSendingV1,
-			Self::AttestedCandidateV2(_) => Protocol::AttestedCandidateV2,
-		}
-	}
-
 	/// Encode the request.
 	///
 	/// The corresponding protocol is returned as well, as we are now leaving typed territory.
@@ -85,7 +72,7 @@ impl Requests {
 }
 
 /// Used by the network to send us a response to a request.
-pub type ResponseSender = oneshot::Sender<Result<Vec<u8>, network::RequestFailure>>;
+pub type ResponseSender = oneshot::Sender<Result<(Vec<u8>, ProtocolName), network::RequestFailure>>;
 
 /// Any error that can occur when sending a request.
 #[derive(Debug, thiserror::Error)]
@@ -128,11 +115,13 @@ impl RequestError {
 /// When using `Recipient::Authority`, the addresses can be found thanks to the authority
 /// discovery system.
 #[derive(Debug)]
-pub struct OutgoingRequest<Req> {
+pub struct OutgoingRequest<Req, FallbackReq = Req> {
 	/// Intended recipient of this request.
 	pub peer: Recipient,
 	/// The actual request to send over the wire.
 	pub payload: Req,
+	/// Optional fallback request and protocol.
+	pub fallback_request: Option<(FallbackReq, Protocol)>,
 	/// Sender which is used by networking to get us back a response.
 	pub pending_response: ResponseSender,
 }
@@ -149,10 +138,12 @@ pub enum Recipient {
 /// Responses received for an `OutgoingRequest`.
 pub type OutgoingResult<Res> = Result<Res, RequestError>;
 
-impl<Req> OutgoingRequest<Req>
+impl<Req, FallbackReq> OutgoingRequest<Req, FallbackReq>
 where
 	Req: IsRequest + Encode,
 	Req::Response: Decode,
+	FallbackReq: IsRequest + Encode,
+	FallbackReq::Response: Decode,
 {
 	/// Create a new `OutgoingRequest`.
 	///
@@ -163,24 +154,54 @@ where
 		payload: Req,
 	) -> (Self, impl Future<Output = OutgoingResult<Req::Response>>) {
 		let (tx, rx) = oneshot::channel();
-		let r = Self { peer, payload, pending_response: tx };
-		(r, receive_response::<Req>(rx))
+		let r = Self { peer, payload, pending_response: tx, fallback_request: None };
+		(r, receive_response::<Req>(rx.map(|r| r.map(|r| r.map(|(resp, _)| resp)))))
 	}
+
+	/// Create a new `OutgoingRequest` with a fallback in case the remote does not support this
+	/// protocol. Useful when adding a new version of a req-response protocol, to achieve
+	/// compatibility with the older version.
+	///
+	/// Returns a raw `Vec<u8>` response over the channel. Use the associated `ProtocolName` to know
+	/// which request was the successful one and appropriately decode the response.
+	// WARNING: This is commented for now because it's not used yet.
+	// If you need it, make sure to test it. You may need to enable the V1 substream upgrade
+	// protocol, unless libp2p was in the meantime updated to a version that fixes the problem
+	// described in https://github.com/libp2p/rust-libp2p/issues/5074
+	// pub fn new_with_fallback(
+	// 	peer: Recipient,
+	// 	payload: Req,
+	// 	fallback_request: FallbackReq,
+	// ) -> (Self, impl Future<Output = OutgoingResult<(Vec<u8>, ProtocolName)>>) {
+	// 	let (tx, rx) = oneshot::channel();
+	// 	let r = Self {
+	// 		peer,
+	// 		payload,
+	// 		pending_response: tx,
+	// 		fallback_request: Some((fallback_request, FallbackReq::PROTOCOL)),
+	// 	};
+	// 	(r, async { Ok(rx.await??) })
+	// }
 
 	/// Encode a request into a `Vec<u8>`.
 	///
 	/// As this throws away type information, we also return the `Protocol` this encoded request
 	/// adheres to.
 	pub fn encode_request(self) -> (Protocol, OutgoingRequest<Vec<u8>>) {
-		let OutgoingRequest { peer, payload, pending_response } = self;
-		let encoded = OutgoingRequest { peer, payload: payload.encode(), pending_response };
+		let OutgoingRequest { peer, payload, pending_response, fallback_request } = self;
+		let encoded = OutgoingRequest {
+			peer,
+			payload: payload.encode(),
+			fallback_request: fallback_request.map(|(r, p)| (r.encode(), p)),
+			pending_response,
+		};
 		(Req::PROTOCOL, encoded)
 	}
 }
 
 /// Future for actually receiving a typed response for an `OutgoingRequest`.
 async fn receive_response<Req>(
-	rec: oneshot::Receiver<Result<Vec<u8>, network::RequestFailure>>,
+	rec: impl Future<Output = Result<Result<Vec<u8>, network::RequestFailure>, oneshot::Canceled>>,
 ) -> OutgoingResult<Req::Response>
 where
 	Req: IsRequest,
