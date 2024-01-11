@@ -2702,8 +2702,8 @@ impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(3)]
-	impl sp_consensus_beefy::BeefyApi<Block, BeefyId> for Runtime {
+	#[api_version(4)]
+	impl sp_consensus_beefy::BeefyApi<Block, BeefyId, Hash> for Runtime {
 		fn beefy_genesis() -> Option<BlockNumber> {
 			Beefy::genesis_block()
 		}
@@ -2712,8 +2712,8 @@ impl_runtime_apis! {
 			Beefy::validator_set()
 		}
 
-		fn submit_report_equivocation_unsigned_extrinsic(
-			equivocation_proof: sp_consensus_beefy::EquivocationProof<
+		fn submit_report_vote_equivocation_unsigned_extrinsic(
+			vote_equivocation_proof: sp_consensus_beefy::VoteEquivocationProof<
 				BlockNumber,
 				BeefyId,
 				BeefySignature,
@@ -2722,9 +2722,21 @@ impl_runtime_apis! {
 		) -> Option<()> {
 			let key_owner_proof = key_owner_proof.decode()?;
 
-			Beefy::submit_unsigned_equivocation_report(
-				equivocation_proof,
+			Beefy::submit_unsigned_vote_equivocation_report(
+				vote_equivocation_proof,
 				key_owner_proof,
+			)
+		}
+
+		fn submit_report_fork_equivocation_unsigned_extrinsic(
+			fork_equivocation_proof: sp_consensus_beefy::ForkEquivocationProof<BlockNumber, BeefyId, BeefySignature, Header, Hash>,
+			key_owner_proofs: Vec<sp_consensus_beefy::OpaqueKeyOwnershipProof>,
+		) -> Option<()> {
+			let key_owner_proofs = key_owner_proofs.iter().cloned().map(|p| p.decode()).collect::<Option<Vec<_>>>()?;
+
+			Beefy::submit_unsigned_fork_equivocation_report(
+				fork_equivocation_proof,
+				key_owner_proofs,
 			)
 		}
 
