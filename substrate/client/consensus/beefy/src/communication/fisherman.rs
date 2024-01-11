@@ -41,7 +41,7 @@ use std::{marker::PhantomData, sync::Arc};
 
 /// Helper wrapper used to check gossiped votes for (historical) equivocations,
 /// and report any such protocol infringements.
-pub(crate) struct Fisherman<B: Block, BE, R, P> {
+pub(crate) struct Fisherman<B: Block, BE, P, R> {
 	pub backend: Arc<BE>,
 	pub runtime: Arc<R>,
 	pub key_store: Arc<BeefyKeystore>,
@@ -49,7 +49,7 @@ pub(crate) struct Fisherman<B: Block, BE, R, P> {
 	pub _phantom: PhantomData<B>,
 }
 
-impl<B, BE, R, P> Fisherman<B, BE, R, P>
+impl<B, BE, R, P> Fisherman<B, BE, P, R>
 where
 	B: Block,
 	BE: Backend<B> + Send + Sync,

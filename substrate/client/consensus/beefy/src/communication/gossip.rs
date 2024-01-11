@@ -232,17 +232,17 @@ impl<B: Block> Filter<B> {
 /// to create forks before head of GRANDPA are reported.
 ///
 ///All messaging is handled in a single BEEFY global topic.
-pub(crate) struct GossipValidator<B: Block, BE, R, P> {
+pub(crate) struct GossipValidator<B: Block, BE, P, R> {
 	votes_topic: B::Hash,
 	justifs_topic: B::Hash,
 	gossip_filter: RwLock<Filter<B>>,
 	next_rebroadcast: Mutex<Instant>,
 	known_peers: Arc<Mutex<KnownPeers<B>>>,
 	report_sender: TracingUnboundedSender<PeerReport>,
-	pub(crate) fisherman: Fisherman<B, BE, R, P>,
+	pub(crate) fisherman: Fisherman<B, BE, P, R>,
 }
 
-impl<B, BE, R, P> GossipValidator<B, BE, R, P>
+impl<B, BE, P, R> GossipValidator<B, BE, P, R>
 where
 	B: Block,
 	BE: Backend<B> + Send + Sync,
@@ -252,8 +252,8 @@ where
 {
 	pub(crate) fn new(
 		known_peers: Arc<Mutex<KnownPeers<B>>>,
-		fisherman: Fisherman<B, BE, R, P>,
-	) -> (GossipValidator<B, BE, R, P>, TracingUnboundedReceiver<PeerReport>) {
+		fisherman: Fisherman<B, BE, P, R>,
+	) -> (GossipValidator<B, BE, P, R>, TracingUnboundedReceiver<PeerReport>) {
 		let (tx, rx) = tracing_unbounded("mpsc_beefy_gossip_validator", 10_000);
 		let val = GossipValidator {
 			votes_topic: votes_topic::<B>(),
@@ -391,7 +391,7 @@ where
 	}
 }
 
-impl<B, BE, R, P> Validator<B> for GossipValidator<B, BE, R, P>
+impl<B, BE, P, R> Validator<B> for GossipValidator<B, BE, P, R>
 where
 	B: Block,
 	BE: Backend<B> + Send + Sync,

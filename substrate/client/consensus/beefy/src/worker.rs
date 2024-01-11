@@ -319,7 +319,7 @@ impl<B: Block> PersistedState<B> {
 /// These are created once, but will be reused if worker is restarted/reinitialized.
 pub(crate) struct BeefyComms<B: Block, BE, P, R> {
 	pub gossip_engine: GossipEngine<B>,
-	pub gossip_validator: Arc<GossipValidator<B, BE, R, P>>,
+	pub gossip_validator: Arc<GossipValidator<B, BE, P, R>>,
 	pub gossip_report_stream: TracingUnboundedReceiver<PeerReport>,
 	pub on_demand_justifications: OnDemandJustificationsEngine<B>,
 }
