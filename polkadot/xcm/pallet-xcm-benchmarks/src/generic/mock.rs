@@ -137,7 +137,7 @@ impl xcm_executor::Config for XcmConfig {
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Aliasers;
-	type TransactionalProcessor = FrameTransactionalProcessor;
+	type TransactionalProcessor = ();
 }
 
 parameter_types! {
