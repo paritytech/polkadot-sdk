@@ -308,8 +308,8 @@ impl<Number, Id, Signature> VoteEquivocationProof<Number, Id, Signature> {
 /// See [check_fork_equivocation_proof] for proof validity conditions.
 #[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
 pub struct ForkEquivocationProof<Number, Id, Signature, Header, Hash> {
-	/// Commitment for a block on different fork than one at the same height in
-	/// this client's chain.
+	/// Commitment for a block on a different fork than one at the same height in
+	/// the chain where this proof is submitted.
 	pub commitment: Commitment<Number>,
 	/// Signatures on this block
 	pub signatories: Vec<(Id, Signature)>,
@@ -322,7 +322,7 @@ pub struct ForkEquivocationProof<Number, Id, Signature, Header, Hash> {
 impl<Number, Id, Signature, H: HeaderT, Hash>
 	ForkEquivocationProof<Number, Id, Signature, H, Hash>
 {
-	/// Returns the authority id of the misbehaving voter.
+	/// Returns the authority ids of the misbehaving voters.
 	pub fn offender_ids(&self) -> Vec<&Id> {
 		self.signatories.iter().map(|(id, _)| id).collect()
 	}
@@ -407,11 +407,7 @@ where
 		// and they will likewise be slashed.
 		// Note that we can only check this if a valid header has been provided - we cannot
 		// slash for this with an ancestry proof - by necessity)
-		if canonical_header.hash() == *canonical_header_hash &&
-			Some(&commitment.payload) != canonical_payload.as_ref()
-		{
-			return true
-		}
+		return Some(&commitment.payload) != canonical_payload.as_ref()
 	}
 	// if no header provided, the header proof is also not correct
 	false

@@ -48,7 +48,6 @@ pub fn verify_ancestry_proof<H, M>(
 	ancestry_proof: AncestryProof<H>,
 ) -> Result<bool, Error>
 where
-	// H: sp_runtime::traits::Hash::Output,
 	H: Clone + Debug + PartialEq + Encode,
 	M: mmr_lib::Merge<Item = H>,
 {

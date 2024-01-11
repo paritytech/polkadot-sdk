@@ -366,7 +366,7 @@ pub struct NodeProof<Hash> {
 	pub leaf_indices: Vec<LeafIndex>,
 	/// Number of leaves in MMR, when the proof was generated.
 	pub leaf_count: NodeIndex,
-	/// Proof elements (hashes of siblings of inner nodes on the path to the leaf).
+	/// Proof elements (positions and hashes of siblings of inner nodes on the path to the node(s)).
 	pub items: Vec<(u64, Hash)>,
 }
 
@@ -482,7 +482,7 @@ sp_api::decl_runtime_apis! {
 			best_known_block_number: Option<BlockNumber>
 		) -> Result<AncestryProof<Hash>, Error>;
 
-		/// Verifies that a claimed prev_root is in fact an ancestor of the provided mmr root
+		/// Verifies that a claimed prev_root is in fact an ancestor of the current mmr root
 		fn verify_ancestry_proof(ancestry_proof: AncestryProof<Hash>) -> Result<(), Error>;
 	}
 }
