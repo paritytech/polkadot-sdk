@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use super::{
-	extract_from_slice, ptr_len_or_sentinel, ptr_or_sentinel, CallFlags, HostFn, HostFnImpl, Result,
+	extract_from_slice,  ptr_or_sentinel, CallFlags, HostFn, HostFnImpl, Result,
 };
 use crate::{ReturnCode, ReturnFlags};
 
@@ -342,12 +342,13 @@ impl HostFn for HostFnImpl {
 		gas: u64,
 		value: &[u8],
 		input: &[u8],
-		mut address: Option<&mut &mut [u8]>,
-		mut output: Option<&mut &mut [u8]>,
+		address: &mut &mut [u8],
+		output: &mut &mut [u8],
 		salt: &[u8],
 	) -> Result {
-		let (address_ptr, mut address_len) = ptr_len_or_sentinel(&mut address);
-		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
+		let mut address_len = address.len() as u32;
+		let mut output_len = output.len() as u32;
+
 		let ret_code = unsafe {
 			sys::v1::instantiate(
 				code_hash.as_ptr(),
@@ -355,21 +356,17 @@ impl HostFn for HostFnImpl {
 				value.as_ptr(),
 				input.as_ptr(),
 				input.len() as u32,
-				address_ptr,
+				address.as_mut_ptr(),
 				&mut address_len,
-				output_ptr,
+				output.as_mut_ptr(),
 				&mut output_len,
 				salt.as_ptr(),
 				salt.len() as u32,
 			)
 		};
 
-		if let Some(ref mut address) = address {
-			extract_from_slice(address, address_len as usize);
-		}
-		if let Some(ref mut output) = output {
-			extract_from_slice(output, output_len as usize);
-		}
+		extract_from_slice(address, address_len as usize);
+		extract_from_slice(output, output_len as usize);
 		ret_code.into()
 	}
 
@@ -380,12 +377,12 @@ impl HostFn for HostFnImpl {
 		deposit: Option<&[u8]>,
 		value: &[u8],
 		input: &[u8],
-		mut address: Option<&mut &mut [u8]>,
-		mut output: Option<&mut &mut [u8]>,
+		address: &mut &mut [u8],
+		output: &mut &mut [u8],
 		salt: &[u8],
 	) -> Result {
-		let (address_ptr, mut address_len) = ptr_len_or_sentinel(&mut address);
-		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
+		let mut address_len = address.len() as u32;
+		let mut output_len = output.len() as u32;
 		let deposit_ptr = ptr_or_sentinel(&deposit);
 
 		let ret_code = {
@@ -398,9 +395,9 @@ impl HostFn for HostFnImpl {
 					value.as_ptr(),
 					input.as_ptr(),
 					input.len() as u32,
-					address_ptr,
+					address.as_mut_ptr(),
 					&mut address_len,
-					output_ptr,
+					output.as_mut_ptr(),
 					&mut output_len,
 					salt.as_ptr(),
 					salt.len() as u32,
@@ -408,13 +405,8 @@ impl HostFn for HostFnImpl {
 			}
 		};
 
-		if let Some(ref mut address) = address {
-			extract_from_slice(address, address_len as usize);
-		}
-
-		if let Some(ref mut output) = output {
-			extract_from_slice(output, output_len as usize);
-		}
+		extract_from_slice(address, address_len as usize);
+		extract_from_slice(output, output_len as usize);
 
 		ret_code.into()
 	}
@@ -425,9 +417,9 @@ impl HostFn for HostFnImpl {
 		gas: u64,
 		value: &[u8],
 		input_data: &[u8],
-		mut output: Option<&mut &mut [u8]>,
+		output: &mut &mut [u8],
 	) -> Result {
-		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
+		let mut output_len = output.len() as u32;
 		let ret_code = {
 			unsafe {
 				sys::call(
@@ -438,16 +430,13 @@ impl HostFn for HostFnImpl {
 					value.len() as u32,
 					input_data.as_ptr(),
 					input_data.len() as u32,
-					output_ptr,
+					output.as_mut_ptr(),
 					&mut output_len,
 				)
 			}
 		};
 
-		if let Some(ref mut output) = output {
-			extract_from_slice(output, output_len as usize);
-		}
-
+		extract_from_slice(output, output_len as usize);
 		ret_code.into()
 	}
 
@@ -458,9 +447,9 @@ impl HostFn for HostFnImpl {
 		gas: u64,
 		value: &[u8],
 		input_data: &[u8],
-		mut output: Option<&mut &mut [u8]>,
+		output: &mut &mut [u8],
 	) -> Result {
-		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
+		let mut output_len = output.len() as u32;
 		let ret_code = {
 			unsafe {
 				sys::v1::call(
@@ -470,16 +459,13 @@ impl HostFn for HostFnImpl {
 					value.as_ptr(),
 					input_data.as_ptr(),
 					input_data.len() as u32,
-					output_ptr,
+					output.as_mut_ptr(),
 					&mut output_len,
 				)
 			}
 		};
 
-		if let Some(ref mut output) = output {
-			extract_from_slice(output, output_len as usize);
-		}
-
+		extract_from_slice(output, output_len as usize);
 		ret_code.into()
 	}
 
@@ -491,9 +477,9 @@ impl HostFn for HostFnImpl {
 		deposit: Option<&[u8]>,
 		value: &[u8],
 		input_data: &[u8],
-		mut output: Option<&mut &mut [u8]>,
+		output:&mut &mut [u8],
 	) -> Result {
-		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
+		let  mut output_len = output.len() as u32;
 		let deposit_ptr = ptr_or_sentinel(&deposit);
 		let ret_code = {
 			unsafe {
@@ -506,16 +492,13 @@ impl HostFn for HostFnImpl {
 					value.as_ptr(),
 					input_data.as_ptr(),
 					input_data.len() as u32,
-					output_ptr,
+					output.as_mut_ptr(),
 					&mut output_len,
 				)
 			}
 		};
 
-		if let Some(ref mut output) = output {
-			extract_from_slice(output, output_len as usize);
-		}
-
+		extract_from_slice(output, output_len as usize);
 		ret_code.into()
 	}
 
@@ -528,9 +511,10 @@ impl HostFn for HostFnImpl {
 		flags: CallFlags,
 		code_hash: &[u8],
 		input: &[u8],
-		mut output: Option<&mut &mut [u8]>,
+		output:&mut &mut [u8],
 	) -> Result {
-		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
+		let  mut output_len = output.len() as u32;
+
 		let ret_code = {
 			unsafe {
 				sys::delegate_call(
@@ -538,16 +522,13 @@ impl HostFn for HostFnImpl {
 					code_hash.as_ptr(),
 					input.as_ptr(),
 					input.len() as u32,
-					output_ptr,
+					output.as_mut_ptr(),
 					&mut output_len,
 				)
 			}
 		};
 
-		if let Some(ref mut output) = output {
-			extract_from_slice(output, output_len as usize);
-		}
-
+		extract_from_slice(output, output_len as usize);
 		ret_code.into()
 	}
 
@@ -670,23 +651,21 @@ impl HostFn for HostFnImpl {
 		unsafe { sys::v1::terminate(beneficiary.as_ptr()) }
 	}
 
-	fn call_chain_extension(func_id: u32, input: &[u8], mut output: Option<&mut &mut [u8]>) -> u32 {
-		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
+	fn call_chain_extension(func_id: u32, input: &[u8], output: &mut &mut [u8]) -> u32 {
+		let  mut output_len = output.len() as u32;
 		let ret_code = {
 			unsafe {
 				sys::call_chain_extension(
 					func_id,
 					input.as_ptr(),
 					input.len() as u32,
-					output_ptr,
+					output.as_mut_ptr(),
 					&mut output_len,
 				)
 			}
 		};
 
-		if let Some(ref mut output) = output {
-			extract_from_slice(output, output_len as usize);
-		}
+		extract_from_slice(output, output_len as usize);
 		ret_code.into_u32()
 	}
 
