@@ -23,7 +23,7 @@
 //!
 //! ## Defensive Programming
 //!
-//! Defensive programming is a design paradigm that enables a particular program to continue
+//! [Defensive programming](https://en.wikipedia.org/wiki/Defensive_programming) is a design paradigm that enables a particular program to continue
 //! running despite unexpected behavior. These unforseen circumstances may
 //! cause the program to stop or, in the Rust context, `panic!`. Defensive practices allow for
 //! these circumstances to be accounted for ahead of time and for them to be handled in a more
@@ -494,12 +494,10 @@ mod tests {
 	#[docify::export]
 	#[test]
 	fn fixed_u64_block_computation_example() {
-		// Cores available per block
-		let supply = 10u128;
-		// Cores being ordered per block
-		let demand = 5u128;
-		// Calculate a very rudimentry on-chain price from supply / demand
-		let price = FixedU64::from_rational(demand, supply);
+		// Calculate a very rudimentary on-chain price from supply / demand
+		// Supply: Cores available per block
+		// Demand: Cores being ordered per block
+		let price = FixedU64::from_rational(5u128, 10u128);
 
 		// 0.5 DOT per core
 		assert_eq!(price, FixedU64::from_float(0.5));
@@ -508,12 +506,10 @@ mod tests {
 		// available.  This also means that price goes up! For the sake of simplicity, we don't care
 		// about who gets a core - just about our very simple price model
 
-		// Cores available per block
-		let supply = 10u128;
-		// Cores being ordered per block
-		let demand = 19u128;
 		// Calculate a very rudimentary on-chain price from supply / demand
-		let price = FixedU64::from_rational(demand, supply);
+		// Supply: Cores available per block
+		// Demand: Cores being ordered per block
+		let price = FixedU64::from_rational(10u32, 19u32);
 
 		// 1.9 DOT per core
 		assert_eq!(price, FixedU64::from_float(1.9));
@@ -567,6 +563,7 @@ mod tests {
 
 	#[docify::export]
 	#[test]
+	#[should_panic]
 	fn bad_collection_retrieval() {
 		let my_list = vec![1, 2, 3, 4, 5];
 		// THIS PANICS!
