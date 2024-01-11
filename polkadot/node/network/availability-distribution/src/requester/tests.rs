@@ -17,7 +17,7 @@
 use futures::FutureExt;
 use std::{collections::HashMap, future::Future};
 
-use polkadot_node_network_protocol::jaeger;
+use polkadot_node_network_protocol::{jaeger, request_response::ReqProtocolNames};
 use polkadot_node_primitives::{BlockData, ErasureChunk, PoV};
 use polkadot_node_subsystem_util::runtime::RuntimeInfo;
 use polkadot_primitives::{
@@ -41,7 +41,7 @@ use polkadot_node_subsystem_test_helpers::{
 
 use crate::tests::{
 	mock::{get_valid_chunk_data, make_session_info, OccupiedCoreBuilder},
-	node_features_with_shuffling,
+	node_features_with_mapping_enabled,
 };
 
 use super::Requester;
@@ -124,7 +124,7 @@ fn spawn_virtual_overseer(
 									.expect("Receiver should be alive.");
 							},
 							RuntimeApiRequest::NodeFeatures(_, tx) => {
-								tx.send(Ok(node_features_with_shuffling()))
+								tx.send(Ok(node_features_with_mapping_enabled()))
 									.expect("Receiver should be alive.");
 							},
 							RuntimeApiRequest::AvailabilityCores(tx) => {
@@ -176,15 +176,6 @@ fn spawn_virtual_overseer(
 							.send(Ok(ancestors))
 							.expect("Receiver is expected to be alive");
 					},
-					AllMessages::ChainApi(ChainApiMessage::BlockNumber(hash, response_channel)) => {
-						response_channel
-							.send(Ok(test_state
-								.relay_chain
-								.iter()
-								.position(|h| *h == hash)
-								.map(|pos| pos as u32)))
-							.expect("Receiver is expected to be alive");
-					},
 					msg => panic!("Unexpected overseer message: {:?}", msg),
 				}
 			}
@@ -210,7 +201,8 @@ fn test_harness<T: Future<Output = ()>>(
 #[test]
 fn check_ancestry_lookup_in_same_session() {
 	let test_state = TestState::new();
-	let mut requester = Requester::new(Default::default());
+	let mut requester =
+		Requester::new(ReqProtocolNames::new(&Hash::repeat_byte(0xff), None), Default::default());
 	let keystore = make_ferdie_keystore();
 	let mut runtime = RuntimeInfo::new(Some(keystore));
 
@@ -277,7 +269,8 @@ fn check_ancestry_lookup_in_same_session() {
 #[test]
 fn check_ancestry_lookup_in_different_sessions() {
 	let mut test_state = TestState::new();
-	let mut requester = Requester::new(Default::default());
+	let mut requester =
+		Requester::new(ReqProtocolNames::new(&Hash::repeat_byte(0xff), None), Default::default());
 	let keystore = make_ferdie_keystore();
 	let mut runtime = RuntimeInfo::new(Some(keystore));
 

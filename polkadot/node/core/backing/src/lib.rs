@@ -104,10 +104,10 @@ use polkadot_node_subsystem_util::{
 	Validator,
 };
 use polkadot_primitives::{
-	BackedCandidate, CandidateCommitments, CandidateHash, CandidateReceipt,
+	vstaging::NodeFeatures, BackedCandidate, CandidateCommitments, CandidateHash, CandidateReceipt,
 	CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, Hash, Id as ParaId,
-	PersistedValidationData, PvfExecKind, SigningContext, ValidationCode, ValidatorId,
-	ValidatorIndex, ValidatorSignature, ValidityAttestation,
+	PersistedValidationData, PvfExecKind, SessionIndex, SigningContext, ValidationCode,
+	ValidatorId, ValidatorIndex, ValidatorSignature, ValidityAttestation,
 };
 use sp_keystore::KeystorePtr;
 use statement_table::{
@@ -118,7 +118,7 @@ use statement_table::{
 	},
 	Config as TableConfig, Context as TableContextTrait, Table,
 };
-use util::vstaging::get_disabled_validators_with_fallback;
+use util::{runtime::request_node_features, vstaging::get_disabled_validators_with_fallback};
 
 mod error;
 
@@ -204,12 +204,22 @@ where
 	}
 }
 
+struct Assignment {
+	/// The `ParaId` assigned to the local validator at this relay parent.
+	para_id: ParaId,
+	/// The core index above para id is scheduled on.
+	core_index: CoreIndex,
+}
+
 struct PerRelayParentState {
 	prospective_parachains_mode: ProspectiveParachainsMode,
 	/// The hash of the relay parent on top of which this job is doing it's work.
 	parent: Hash,
-	/// The `ParaId` assigned to the local validator at this relay parent.
-	assignment: Option<ParaId>,
+	/// Session index.
+	session_index: SessionIndex,
+	/// The `ParaId` assigned to the local validator at this relay parent and the core index it's
+	/// scheduled on.
+	assignment: Option<Assignment>,
 	/// The candidates that are backed by enough validators in their group, by hash.
 	backed: HashSet<CandidateHash>,
 	/// The table of candidates and statements under this relay-parent.
@@ -495,6 +505,8 @@ async fn store_available_data(
 	candidate_hash: CandidateHash,
 	available_data: AvailableData,
 	expected_erasure_root: Hash,
+	core_index: CoreIndex,
+	node_features: NodeFeatures,
 ) -> Result<(), Error> {
 	let (tx, rx) = oneshot::channel();
 	// Important: the `av-store` subsystem will check if the erasure root of the `available_data`
@@ -507,6 +519,8 @@ async fn store_available_data(
 			n_validators,
 			available_data,
 			expected_erasure_root,
+			core_index,
+			node_features,
 			tx,
 		})
 		.await;
@@ -530,6 +544,8 @@ async fn make_pov_available(
 	candidate_hash: CandidateHash,
 	validation_data: PersistedValidationData,
 	expected_erasure_root: Hash,
+	core_index: CoreIndex,
+	node_features: NodeFeatures,
 ) -> Result<(), Error> {
 	store_available_data(
 		sender,
@@ -537,6 +553,8 @@ async fn make_pov_available(
 		candidate_hash,
 		AvailableData { pov, validation_data },
 		expected_erasure_root,
+		core_index,
+		node_features,
 	)
 	.await
 }
@@ -607,6 +625,7 @@ struct BackgroundValidationParams<S: overseer::CandidateBackingSenderTrait, F> {
 	tx_command: mpsc::Sender<(Hash, ValidatedCandidateCommand)>,
 	candidate: CandidateReceipt,
 	relay_parent: Hash,
+	session_index: SessionIndex,
 	persisted_validation_data: PersistedValidationData,
 	pov: PoVData,
 	n_validators: usize,
@@ -618,12 +637,14 @@ async fn validate_and_make_available(
 		impl overseer::CandidateBackingSenderTrait,
 		impl Fn(BackgroundValidationResult) -> ValidatedCandidateCommand + Sync,
 	>,
+	core_index: CoreIndex,
 ) -> Result<(), Error> {
 	let BackgroundValidationParams {
 		mut sender,
 		mut tx_command,
 		candidate,
 		relay_parent,
+		session_index,
 		persisted_validation_data,
 		pov,
 		n_validators,
@@ -652,6 +673,10 @@ async fn validate_and_make_available(
 		Ok(ep) => ep,
 		Err(e) => return Err(Error::UtilError(e)),
 	};
+
+	let node_features = request_node_features(relay_parent, session_index, &mut sender)
+		.await?
+		.unwrap_or(NodeFeatures::EMPTY);
 
 	let pov = match pov {
 		PoVData::Ready(pov) => pov,
@@ -708,6 +733,8 @@ async fn validate_and_make_available(
 				candidate.hash(),
 				validation_data.clone(),
 				candidate.descriptor.erasure_root,
+				core_index,
+				node_features,
 			)
 			.await;
 
@@ -1077,7 +1104,7 @@ async fn construct_per_relay_parent_state<Context>(
 		let group_index = group_rotation_info.group_for_core(core_index, n_cores);
 		if let Some(g) = validator_groups.get(group_index.0 as usize) {
 			if validator.as_ref().map_or(false, |v| g.contains(&v.index())) {
-				assignment = Some(core_para_id);
+				assignment = Some(Assignment { para_id: core_para_id, core_index });
 			}
 			groups.insert(core_para_id, g.clone());
 		}
@@ -1094,6 +1121,7 @@ async fn construct_per_relay_parent_state<Context>(
 	Ok(Some(PerRelayParentState {
 		prospective_parachains_mode: mode,
 		parent,
+		session_index,
 		assignment,
 		backed: HashSet::new(),
 		table: Table::new(table_config),
@@ -1719,10 +1747,11 @@ async fn background_validate_and_make_available<Context>(
 	>,
 ) -> Result<(), Error> {
 	let candidate_hash = params.candidate.hash();
+	let Some(Assignment { core_index, .. }) = rp_state.assignment else { return Ok(()) };
 	if rp_state.awaiting_validation.insert(candidate_hash) {
 		// spawn background task.
 		let bg = async move {
-			if let Err(e) = validate_and_make_available(params).await {
+			if let Err(e) = validate_and_make_available(params, core_index).await {
 				if let Error::BackgroundValidationMpsc(error) = e {
 					gum::debug!(
 						target: LOG_TARGET,
@@ -1795,6 +1824,7 @@ async fn kick_off_validation_work<Context>(
 			tx_command: background_validation_tx.clone(),
 			candidate: attesting.candidate,
 			relay_parent: rp_state.parent,
+			session_index: rp_state.session_index,
 			persisted_validation_data,
 			pov,
 			n_validators: rp_state.table_context.validators.len(),
@@ -1859,8 +1889,10 @@ async fn maybe_validate_and_import<Context>(
 
 		let candidate_hash = summary.candidate;
 
-		if Some(summary.group_id) != rp_state.assignment {
-			return Ok(())
+		match rp_state.assignment {
+			Some(Assignment { para_id, .. }) if para_id != summary.group_id => return Ok(()),
+			None => return Ok(()),
+			_ => {},
 		}
 		let attesting = match statement.payload() {
 			StatementWithPVD::Seconded(receipt, _) => {
@@ -1947,6 +1979,7 @@ async fn validate_and_second<Context>(
 			tx_command: background_validation_tx.clone(),
 			candidate: candidate.clone(),
 			relay_parent: rp_state.parent,
+			session_index: rp_state.session_index,
 			persisted_validation_data,
 			pov: PoVData::Ready(pov),
 			n_validators: rp_state.table_context.validators.len(),
@@ -2004,15 +2037,19 @@ async fn handle_second_message<Context>(
 	}
 
 	// Sanity check that candidate is from our assignment.
-	if Some(candidate.descriptor().para_id) != rp_state.assignment {
-		gum::debug!(
-			target: LOG_TARGET,
-			our_assignment = ?rp_state.assignment,
-			collation = ?candidate.descriptor().para_id,
-			"Subsystem asked to second for para outside of our assignment",
-		);
+	match rp_state.assignment {
+		Some(Assignment { para_id, .. }) if para_id != candidate.descriptor().para_id => {
+			gum::debug!(
+				target: LOG_TARGET,
+				our_assignment = ?para_id,
+				collation = ?candidate.descriptor().para_id,
+				"Subsystem asked to second for para outside of our assignment",
+			);
 
-		return Ok(())
+			return Ok(())
+		},
+		None => return Ok(()),
+		_ => {},
 	}
 
 	// If the message is a `CandidateBackingMessage::Second`, sign and dispatch a

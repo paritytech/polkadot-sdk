@@ -55,8 +55,7 @@ use polkadot_node_primitives::{PoV, POV_BOMB_LIMIT};
 use polkadot_node_subsystem::messages::AvailabilityRecoveryMessage;
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{
-	BlockId, BlockNumber as RCBlockNumber, CandidateReceipt, CommittedCandidateReceipt,
-	Id as ParaId, SessionIndex,
+	CandidateReceipt, CommittedCandidateReceipt, Id as ParaId, SessionIndex,
 };
 
 use cumulus_primitives_core::ParachainBlockData;
@@ -146,7 +145,6 @@ struct Candidate<Block: BlockT> {
 	session_index: SessionIndex,
 	block_number: NumberFor<Block>,
 	parent_hash: Block::Hash,
-	relay_parent_block_number: RCBlockNumber,
 	// Lazy recovery has been submitted.
 	// Should be true iff a block is either queued to be recovered or
 	// recovery is currently in progress.
@@ -270,7 +268,6 @@ where
 		&mut self,
 		receipt: CommittedCandidateReceipt,
 		session_index: SessionIndex,
-		relay_parent_block_number: RCBlockNumber,
 	) {
 		let header = match Block::Header::decode(&mut &receipt.commitments.head_data.0[..]) {
 			Ok(header) => header,
@@ -301,7 +298,6 @@ where
 				block_number: *header.number(),
 				receipt: receipt.to_plain(),
 				session_index,
-				relay_parent_block_number,
 				parent_hash: *header.parent_hash(),
 				waiting_recovery: false,
 			},
@@ -559,8 +555,8 @@ where
 		loop {
 			select! {
 				pending_candidate = pending_candidates.next() => {
-					if let Some((receipt, session_index, relay_parent_block_nunber)) = pending_candidate {
-						self.handle_pending_candidate(receipt, session_index, relay_parent_block_nunber).await;
+					if let Some((receipt, session_index)) = pending_candidate {
+						self.handle_pending_candidate(receipt, session_index).await;
 					} else {
 						tracing::debug!(target: LOG_TARGET, "Pending candidates stream ended");
 						return;
@@ -619,8 +615,7 @@ async fn pending_candidates(
 	relay_chain_client: impl RelayChainInterface + Clone,
 	para_id: ParaId,
 	sync_service: Arc<dyn SyncOracle + Sync + Send>,
-) -> RelayChainResult<impl Stream<Item = (CommittedCandidateReceipt, SessionIndex, RCBlockNumber)>>
-{
+) -> RelayChainResult<impl Stream<Item = (CommittedCandidateReceipt, SessionIndex)>> {
 	let import_notification_stream = relay_chain_client.import_notification_stream().await?;
 
 	let filtered_stream = import_notification_stream.filter_map(move |n| {
@@ -655,29 +650,9 @@ async fn pending_candidates(
 						"Failed to fetch session index.",
 					)
 				});
-			let relay_parent_header = match client_for_closure.header(BlockId::Hash(hash)).await {
-				Ok(Some(header)) => header,
-				Ok(None) => {
-					tracing::error!(
-						target: LOG_TARGET,
-						"Failed to retrieve relay parent block number",
-					);
-					return None
-				},
-				Err(err) => {
-					tracing::error!(
-						target: LOG_TARGET,
-						error = ?err,
-						"Failed to retrieve relay parent block number",
-					);
-					return None
-				},
-			};
 
 			if let Ok(Some(candidate)) = pending_availability_result {
-				session_index_result
-					.map(|session_index| (candidate, session_index, relay_parent_header.number))
-					.ok()
+				session_index_result.map(|session_index| (candidate, session_index)).ok()
 			} else {
 				None
 			}

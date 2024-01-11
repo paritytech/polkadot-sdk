@@ -34,6 +34,7 @@ use futures::{
 	stream::{FuturesUnordered, StreamExt},
 	task::{Context, Poll},
 };
+use sc_network::ProtocolName;
 use schnellru::{ByLength, LruMap};
 use task::{
 	FetchChunks, FetchChunksParams, FetchFull, FetchFullParams, FetchSystematicChunks,
@@ -48,10 +49,12 @@ use task::{RecoveryParams, RecoveryStrategy, RecoveryTask};
 
 use error::{log_error, Error, FatalError, Result};
 use polkadot_node_network_protocol::{
-	request_response::{v1 as request_v1, IncomingRequestReceiver},
+	request_response::{
+		v1 as request_v1, v2 as request_v2, IncomingRequestReceiver, IsRequest, ReqProtocolNames,
+	},
 	UnifiedReputationChange as Rep,
 };
-use polkadot_node_primitives::{AvailableData, ErasureChunk};
+use polkadot_node_primitives::AvailableData;
 use polkadot_node_subsystem::{
 	errors::RecoveryError,
 	jaeger,
@@ -60,12 +63,12 @@ use polkadot_node_subsystem::{
 	SubsystemContext, SubsystemError,
 };
 use polkadot_node_subsystem_util::{
-	availability_chunks::ChunkIndexCacheRegistry, get_block_number, request_session_info,
-	runtime::request_node_features,
+	availability_chunks::availability_chunk_indices,
+	runtime::{ExtendedSessionInfo, RuntimeInfo},
 };
 use polkadot_primitives::{
-	BlockNumber, CandidateHash, CandidateReceipt, ChunkIndex, GroupIndex, Hash, SessionIndex,
-	SessionInfo, ValidatorIndex,
+	vstaging::node_features, BlockNumber, CandidateHash, CandidateReceipt, ChunkIndex, CoreIndex,
+	GroupIndex, Hash, SessionIndex, ValidatorIndex,
 };
 
 mod error;
@@ -91,20 +94,27 @@ const SMALL_POV_LIMIT: usize = 128 * 1024;
 
 #[derive(Clone, PartialEq)]
 /// The strategy we use to recover the PoV.
-pub enum RecoveryStrategyKind {
-	/// We always try the backing group first, then fallback to validator chunks.
-	BackersFirstAlways,
+enum RecoveryStrategyKind {
 	/// We try the backing group first if PoV size is lower than specified, then fallback to
 	/// validator chunks.
 	BackersFirstIfSizeLower(usize),
 	/// We try the backing group first if PoV size is lower than specified, then fallback to
-	/// systematic chunks.
+	/// systematic chunks. Regular chunk recovery as a last resort.
 	BackersFirstIfSizeLowerThenSystematicChunks(usize),
+
+	/// The following variants are only helpful for integration tests.
+	///
+	/// We always try the backing group first, then fallback to validator chunks.
+	#[allow(dead_code)]
+	BackersFirstAlways,
 	/// We always recover using validator chunks.
+	#[allow(dead_code)]
 	ChunksAlways,
 	/// First try the backing group. Then systematic chunks.
+	#[allow(dead_code)]
 	BackersThenSystematicChunks,
 	/// Always recover using systematic chunks, fall back to regular chunks.
+	#[allow(dead_code)]
 	SystematicChunks,
 }
 
@@ -123,6 +133,10 @@ pub struct AvailabilityRecoverySubsystem {
 	metrics: Metrics,
 	/// The type of check to perform after available data was recovered.
 	post_recovery_check: PostRecoveryCheck,
+	/// Full protocol name for ChunkFetchingV1.
+	req_v1_protocol_name: ProtocolName,
+	/// Full protocol name for ChunkFetchingV2.
+	req_v2_protocol_name: ProtocolName,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -139,7 +153,7 @@ pub enum ErasureTask {
 	/// Reconstructs `AvailableData` from chunks given `n_validators`.
 	Reconstruct(
 		usize,
-		BTreeMap<ChunkIndex, ErasureChunk>,
+		BTreeMap<ChunkIndex, Vec<u8>>,
 		oneshot::Sender<std::result::Result<AvailableData, ErasureEncodingError>>,
 	),
 	/// Re-encode `AvailableData` into erasure chunks in order to verify the provided root hash of
@@ -282,8 +296,8 @@ struct State {
 	/// An LRU cache of recently recovered data.
 	availability_lru: LruMap<CandidateHash, CachedRecovery>,
 
-	/// Cache of the chunk indices shuffle based on the relay parent block.
-	chunk_indices: ChunkIndexCacheRegistry,
+	/// Cached runtime info.
+	runtime_info: RuntimeInfo,
 }
 
 impl Default for State {
@@ -292,7 +306,7 @@ impl Default for State {
 			ongoing_recoveries: FuturesUnordered::new(),
 			live_block: (0, Hash::default()),
 			availability_lru: LruMap::new(ByLength::new(LRU_SIZE)),
-			chunk_indices: ChunkIndexCacheRegistry::new(LRU_SIZE),
+			runtime_info: RuntimeInfo::new(None),
 		}
 	}
 }
@@ -332,27 +346,11 @@ async fn handle_signal(state: &mut State, signal: OverseerSignal) -> bool {
 async fn launch_recovery_task<Context>(
 	state: &mut State,
 	ctx: &mut Context,
-	session_info: SessionInfo,
-	receipt: CandidateReceipt,
 	response_sender: oneshot::Sender<RecoveryResult>,
-	metrics: &Metrics,
 	recovery_strategies: VecDeque<Box<dyn RecoveryStrategy<<Context as SubsystemContext>::Sender>>>,
-	bypass_availability_store: bool,
-	post_recovery_check: PostRecoveryCheck,
+	params: RecoveryParams,
 ) -> Result<()> {
-	let candidate_hash = receipt.hash();
-	let params = RecoveryParams {
-		validator_authority_keys: session_info.discovery_keys.clone(),
-		n_validators: session_info.validators.len(),
-		threshold: recovery_threshold(session_info.validators.len())?,
-		candidate_hash,
-		erasure_root: receipt.descriptor.erasure_root,
-		metrics: metrics.clone(),
-		bypass_availability_store,
-		post_recovery_check,
-		pov_hash: receipt.descriptor.pov_hash,
-	};
-
+	let candidate_hash = params.candidate_hash;
 	let recovery_task = RecoveryTask::new(ctx.sender().clone(), params, recovery_strategies);
 
 	let (remote, remote_handle) = recovery_task.run().remote_handle();
@@ -381,7 +379,9 @@ async fn handle_recover<Context>(
 	recovery_strategy_kind: RecoveryStrategyKind,
 	bypass_availability_store: bool,
 	post_recovery_check: PostRecoveryCheck,
-	maybe_block_number: Option<BlockNumber>,
+	maybe_core_index: Option<CoreIndex>,
+	req_v1_protocol_name: ProtocolName,
+	req_v2_protocol_name: ProtocolName,
 ) -> Result<()> {
 	let candidate_hash = receipt.hash();
 
@@ -402,59 +402,17 @@ async fn handle_recover<Context>(
 	}
 
 	let _span = span.child("not-cached");
-	let session_info = request_session_info(state.live_block.1, session_index, ctx.sender())
-		.await
-		.await??;
+	let session_info_res = state
+		.runtime_info
+		.get_session_info_by_index(ctx.sender(), state.live_block.1, session_index)
+		.await;
 
 	let _span = span.child("session-info-ctx-received");
-	match session_info {
-		Some(session_info) => {
-			let block_number = if let Some(block_number) = maybe_block_number {
-				block_number
-			} else {
-				get_block_number::<_, Error>(ctx.sender(), receipt.descriptor.relay_parent)
-					.await?
-					.ok_or(Error::BlockNumberNotFound)?
-			};
-
-			let chunk_indices = if let Some(chunk_indices) = state
-				.chunk_indices
-				.query_cache_for_para(block_number, session_index, receipt.descriptor.para_id)
-			{
-				chunk_indices
-			} else {
-				let maybe_node_features = request_node_features(
-					receipt.descriptor.relay_parent,
-					session_index,
-					ctx.sender(),
-				)
-				.await
-				.map_err(Error::RequestNodeFeatures)?;
-
-				state.chunk_indices.populate_for_para(
-					maybe_node_features,
-					session_info.random_seed,
-					session_info.validators.len(),
-					block_number,
-					session_index,
-					receipt.descriptor.para_id,
-				)
-			};
-
-			let chunk_indices: VecDeque<_> = chunk_indices
-				.iter()
-				.enumerate()
-				.map(|(v_index, c_index)| {
-					(
-						*c_index,
-						ValidatorIndex(
-							u32::try_from(v_index).expect("validator count should not exceed u32"),
-						),
-					)
-				})
-				.collect();
-
+	match session_info_res {
+		Ok(ExtendedSessionInfo { session_info, node_features, .. }) => {
 			let mut backer_group = None;
+			let n_validators = session_info.validators.len();
+			let systematic_threshold = systematic_recovery_threshold(n_validators)?;
 			let mut recovery_strategies: VecDeque<
 				Box<dyn RecoveryStrategy<<Context as SubsystemContext>::Sender>>,
 			> = VecDeque::with_capacity(2);
@@ -472,8 +430,7 @@ async fn handle_recover<Context>(
 							let chunk_size: Result<Option<usize>> =
 								query_chunk_size(ctx, candidate_hash).await;
 							if let Ok(Some(chunk_size)) = chunk_size {
-								let pov_size_estimate =
-									chunk_size.saturating_mul(session_info.validators.len()) / 3;
+								let pov_size_estimate = chunk_size * systematic_threshold;
 								small_pov_size = pov_size_estimate < small_pov_limit;
 
 								if small_pov_size {
@@ -514,54 +471,95 @@ async fn handle_recover<Context>(
 				}
 			}
 
-			if matches!(
-				recovery_strategy_kind,
-				RecoveryStrategyKind::BackersThenSystematicChunks |
-					RecoveryStrategyKind::SystematicChunks |
-					RecoveryStrategyKind::BackersFirstIfSizeLowerThenSystematicChunks(_)
-			) {
-				let systematic_threshold =
-					systematic_recovery_threshold(session_info.validators.len())?;
+			// We can only attempt systematic recovery if we received the core index of the
+			// candidate.
+			if let Some(core_index) = maybe_core_index {
+				if matches!(
+					recovery_strategy_kind,
+					RecoveryStrategyKind::BackersThenSystematicChunks |
+						RecoveryStrategyKind::SystematicChunks |
+						RecoveryStrategyKind::BackersFirstIfSizeLowerThenSystematicChunks(_)
+				) {
+					let chunk_indices =
+						availability_chunk_indices(Some(node_features), n_validators, core_index)?;
 
-				// Only get the validators according to the threshold.
-				let validators = chunk_indices
-					.clone()
-					.into_iter()
-					.filter(|(c_index, _)| {
-						usize::try_from(c_index.0)
-							.expect("usize is at least u32 bytes on all modern targets.") <
-							systematic_threshold
-					})
-					.collect();
+					let chunk_indices: VecDeque<_> = chunk_indices
+						.iter()
+						.enumerate()
+						.map(|(v_index, c_index)| {
+							(
+								*c_index,
+								ValidatorIndex(
+									u32::try_from(v_index)
+										.expect("validator count should not exceed u32"),
+								),
+							)
+						})
+						.collect();
 
-				recovery_strategies.push_back(Box::new(FetchSystematicChunks::new(
-					FetchSystematicChunksParams {
-						validators,
-						backers: backer_group.map(|v| v.to_vec()).unwrap_or_else(|| vec![]),
-						erasure_task_tx: erasure_task_tx.clone(),
-					},
-				)));
+					// Only get the validators according to the threshold.
+					let validators = chunk_indices
+						.clone()
+						.into_iter()
+						.filter(|(c_index, _)| {
+							usize::try_from(c_index.0)
+								.expect("usize is at least u32 bytes on all modern targets.") <
+								systematic_threshold
+						})
+						.collect();
+
+					recovery_strategies.push_back(Box::new(FetchSystematicChunks::new(
+						FetchSystematicChunksParams {
+							validators,
+							backers: backer_group.map(|v| v.to_vec()).unwrap_or_else(|| vec![]),
+							erasure_task_tx: erasure_task_tx.clone(),
+						},
+					)));
+				}
 			}
 
 			recovery_strategies.push_back(Box::new(FetchChunks::new(FetchChunksParams {
-				validators: chunk_indices.clone(),
+				n_validators: session_info.validators.len(),
 				erasure_task_tx,
 			})));
+
+			let session_info = session_info.clone();
+
+			let n_validators = session_info.validators.len();
+
+			let chunk_mapping_enabled = if let Some(&true) = node_features
+				.get(usize::from(node_features::FeatureIndex::AvailabilityChunkMapping as u8))
+				.as_deref()
+			{
+				true
+			} else {
+				false
+			};
 
 			launch_recovery_task(
 				state,
 				ctx,
-				session_info,
-				receipt,
 				response_sender,
-				metrics,
 				recovery_strategies,
-				bypass_availability_store,
-				post_recovery_check,
+				RecoveryParams {
+					validator_authority_keys: session_info.discovery_keys.clone(),
+					n_validators,
+					threshold: recovery_threshold(n_validators)?,
+					systematic_threshold,
+					candidate_hash,
+					erasure_root: receipt.descriptor.erasure_root,
+					metrics: metrics.clone(),
+					bypass_availability_store,
+					post_recovery_check,
+					pov_hash: receipt.descriptor.pov_hash,
+					req_v1_protocol_name,
+					req_v2_protocol_name,
+					chunk_mapping_enabled,
+				},
 			)
 			.await
 		},
-		None => {
+		Err(_) => {
 			response_sender
 				.send(Err(RecoveryError::Unavailable))
 				.map_err(|_| Error::CanceledResponseSender)?;
@@ -604,6 +602,7 @@ impl AvailabilityRecoverySubsystem {
 	/// instead of reencoding the available data.
 	pub fn for_collator(
 		req_receiver: IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
+		req_protocol_names: &ReqProtocolNames,
 		metrics: Metrics,
 	) -> Self {
 		Self {
@@ -612,57 +611,23 @@ impl AvailabilityRecoverySubsystem {
 			post_recovery_check: PostRecoveryCheck::PovHash,
 			req_receiver,
 			metrics,
+			req_v1_protocol_name: req_protocol_names
+				.get_name(request_v1::ChunkFetchingRequest::PROTOCOL),
+			req_v2_protocol_name: req_protocol_names
+				.get_name(request_v2::ChunkFetchingRequest::PROTOCOL),
 		}
 	}
 
-	/// Create a new instance of `AvailabilityRecoverySubsystem` which starts with a fast path to
-	/// request data from backers.
-	pub fn with_fast_path(
+	/// Create an optimised new instance of `AvailabilityRecoverySubsystem` suitable for validator
+	/// nodes, which:
+	/// - for small POVs (over 128Kib), it attempts full recovery from backers, if backing group
+	///   supplied.
+	/// - for large POVs, attempts systematic recovery, if core_index supplied and
+	///   AvailabilityChunkMapping node feature is enabled.
+	/// - as a last resort, attempt regular chunk recovery from all validators.
+	pub fn for_validator(
 		req_receiver: IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
-		metrics: Metrics,
-	) -> Self {
-		Self {
-			recovery_strategy_kind: RecoveryStrategyKind::BackersFirstAlways,
-			bypass_availability_store: false,
-			post_recovery_check: PostRecoveryCheck::Reencode,
-			req_receiver,
-			metrics,
-		}
-	}
-
-	/// Create a new instance of `AvailabilityRecoverySubsystem` which requests only chunks
-	pub fn with_chunks_only(
-		req_receiver: IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
-		metrics: Metrics,
-	) -> Self {
-		Self {
-			recovery_strategy_kind: RecoveryStrategyKind::ChunksAlways,
-			bypass_availability_store: false,
-			post_recovery_check: PostRecoveryCheck::Reencode,
-			req_receiver,
-			metrics,
-		}
-	}
-
-	/// Create a new instance of `AvailabilityRecoverySubsystem` which requests chunks if PoV is
-	/// above a threshold.
-	pub fn with_chunks_if_pov_large(
-		req_receiver: IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
-		metrics: Metrics,
-	) -> Self {
-		Self {
-			recovery_strategy_kind: RecoveryStrategyKind::BackersFirstIfSizeLower(SMALL_POV_LIMIT),
-			bypass_availability_store: false,
-			post_recovery_check: PostRecoveryCheck::Reencode,
-			req_receiver,
-			metrics,
-		}
-	}
-
-	/// Create a new instance of `AvailabilityRecoverySubsystem` which requests systematic chunks if
-	/// PoV is above a threshold.
-	pub fn with_systematic_chunks_if_pov_large(
-		req_receiver: IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
+		req_protocol_names: &ReqProtocolNames,
 		metrics: Metrics,
 	) -> Self {
 		Self {
@@ -672,36 +637,32 @@ impl AvailabilityRecoverySubsystem {
 			post_recovery_check: PostRecoveryCheck::Reencode,
 			req_receiver,
 			metrics,
+			req_v1_protocol_name: req_protocol_names
+				.get_name(request_v1::ChunkFetchingRequest::PROTOCOL),
+			req_v2_protocol_name: req_protocol_names
+				.get_name(request_v2::ChunkFetchingRequest::PROTOCOL),
 		}
 	}
 
-	/// Create a new instance of `AvailabilityRecoverySubsystem` which first requests full data
-	/// from backers, with a fallback to recover from systematic chunks.
-	pub fn with_fast_path_then_systematic_chunks(
+	/// Customise the recovery strategy kind
+	/// Currently only useful for tests.
+	#[cfg(test)]
+	fn with_recovery_strategy_kind(
 		req_receiver: IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
+		req_protocol_names: &ReqProtocolNames,
 		metrics: Metrics,
+		recovery_strategy_kind: RecoveryStrategyKind,
 	) -> Self {
 		Self {
-			recovery_strategy_kind: RecoveryStrategyKind::BackersThenSystematicChunks,
+			recovery_strategy_kind,
 			bypass_availability_store: false,
 			post_recovery_check: PostRecoveryCheck::Reencode,
 			req_receiver,
 			metrics,
-		}
-	}
-
-	/// Create a new instance of `AvailabilityRecoverySubsystem` which first attempts to request
-	/// systematic chunks, with a fallback to requesting regular chunks.
-	pub fn with_systematic_chunks(
-		req_receiver: IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
-		metrics: Metrics,
-	) -> Self {
-		Self {
-			recovery_strategy_kind: RecoveryStrategyKind::SystematicChunks,
-			bypass_availability_store: false,
-			post_recovery_check: PostRecoveryCheck::Reencode,
-			req_receiver,
-			metrics,
+			req_v1_protocol_name: req_protocol_names
+				.get_name(request_v1::ChunkFetchingRequest::PROTOCOL),
+			req_v2_protocol_name: req_protocol_names
+				.get_name(request_v2::ChunkFetchingRequest::PROTOCOL),
 		}
 	}
 
@@ -714,6 +675,8 @@ impl AvailabilityRecoverySubsystem {
 			recovery_strategy_kind,
 			bypass_availability_store,
 			post_recovery_check,
+			req_v1_protocol_name,
+			req_v2_protocol_name,
 		} = self;
 
 		let (erasure_task_tx, erasure_task_rx) = futures::channel::mpsc::channel(16);
@@ -783,7 +746,7 @@ impl AvailabilityRecoverySubsystem {
 										receipt,
 										session_index,
 										maybe_backing_group,
-										maybe_block_number,
+										maybe_core_index,
 										response_sender,
 									)
 								} => handle_recover(
@@ -798,7 +761,9 @@ impl AvailabilityRecoverySubsystem {
 										recovery_strategy_kind.clone(),
 										bypass_availability_store,
 										post_recovery_check.clone(),
-										maybe_block_number
+										maybe_core_index,
+										req_v1_protocol_name.clone(),
+										req_v2_protocol_name.clone(),
 									).await
 							}
 						},
@@ -919,7 +884,7 @@ async fn erasure_task_thread(
 					n_validators,
 					chunks.iter().map(|(c_index, chunk)| {
 						(
-							&chunk.chunk[..],
+							&chunk[..],
 							usize::try_from(c_index.0)
 								.expect("usize is at least u32 bytes on all modern targets."),
 						)

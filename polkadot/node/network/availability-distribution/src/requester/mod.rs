@@ -29,19 +29,19 @@ use futures::{
 	Stream,
 };
 
+use polkadot_node_network_protocol::request_response::{v1, v2, IsRequest, ReqProtocolNames};
 use polkadot_node_subsystem::{
 	jaeger,
 	messages::{ChainApiMessage, RuntimeApiMessage},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate,
 };
 use polkadot_node_subsystem_util::{
-	availability_chunks::ChunkIndexCacheRegistry,
-	get_block_number,
-	runtime::{get_occupied_cores, request_node_features, RuntimeInfo},
+	availability_chunks::availability_chunk_index,
+	runtime::{get_occupied_cores, RuntimeInfo},
 };
-use polkadot_primitives::{CandidateHash, Hash, OccupiedCore, SessionIndex};
+use polkadot_primitives::{CandidateHash, CoreIndex, Hash, OccupiedCore, SessionIndex};
 
-use super::{error::Error, FatalError, Metrics, Result, LOG_TARGET};
+use super::{FatalError, Metrics, Result, LOG_TARGET};
 
 #[cfg(test)]
 mod tests;
@@ -79,8 +79,8 @@ pub struct Requester {
 	/// Prometheus Metrics
 	metrics: Metrics,
 
-	/// Cache of our chunk indices based on the relay parent block and core index.
-	chunk_indices: ChunkIndexCacheRegistry,
+	/// Mapping of the req-response protocols to the full protocol names.
+	req_protocol_names: ReqProtocolNames,
 }
 
 #[overseer::contextbounds(AvailabilityDistribution, prefix = self::overseer)]
@@ -92,7 +92,7 @@ impl Requester {
 	///
 	/// You must feed it with `ActiveLeavesUpdate` via `update_fetching_heads` and make it progress
 	/// by advancing the stream.
-	pub fn new(metrics: Metrics) -> Self {
+	pub fn new(req_protocol_names: ReqProtocolNames, metrics: Metrics) -> Self {
 		let (tx, rx) = mpsc::channel(1);
 		Requester {
 			fetches: HashMap::new(),
@@ -100,9 +100,7 @@ impl Requester {
 			tx,
 			rx,
 			metrics,
-			// Candidates shouldn't be pending availability for many blocks, so keep our index for
-			// the last two relay parents.
-			chunk_indices: ChunkIndexCacheRegistry::new(2),
+			req_protocol_names,
 		}
 	}
 
@@ -210,10 +208,10 @@ impl Requester {
 		runtime: &mut RuntimeInfo,
 		leaf: Hash,
 		leaf_session_index: SessionIndex,
-		cores: impl IntoIterator<Item = OccupiedCore>,
+		cores: impl IntoIterator<Item = (CoreIndex, OccupiedCore)>,
 		span: jaeger::Span,
 	) -> Result<()> {
-		for core in cores {
+		for (core_index, core) in cores {
 			let mut span = span
 				.child("check-fetch-candidate")
 				.with_trace_id(core.candidate_hash)
@@ -229,12 +227,6 @@ impl Requester {
 				span.add_string_tag("already-requested-chunk", "false");
 				let tx = self.tx.clone();
 				let metrics = self.metrics.clone();
-				let block_number = get_block_number::<_, Error>(
-					context.sender(),
-					core.candidate_descriptor.relay_parent,
-				)
-				.await?
-				.ok_or(Error::BlockNumberNotFound)?;
 
 				let session_info = self
 					.session_cache
@@ -264,33 +256,12 @@ impl Requester {
 							acc = acc.saturating_add(group.len());
 							acc
 						});
-
-					let chunk_index = if let Some(chunk_index) =
-						self.chunk_indices.query_cache_for_validator(
-							block_number,
-							session_info.session_index,
-							core.para_id(),
-							session_info.our_index,
-						) {
-						chunk_index
-					} else {
-						let maybe_node_features = request_node_features(
-							core.candidate_descriptor.relay_parent,
-							session_info.session_index,
-							context.sender(),
-						)
-						.await?;
-
-						self.chunk_indices.populate_for_validator(
-							maybe_node_features,
-							session_info.random_seed,
-							n_validators,
-							block_number,
-							session_info.session_index,
-							core.para_id(),
-							session_info.our_index,
-						)
-					};
+					let chunk_index = availability_chunk_index(
+						session_info.node_features.as_ref(),
+						n_validators,
+						core_index,
+						session_info.our_index,
+					)?;
 
 					let task_cfg = FetchTaskConfig::new(
 						leaf,
@@ -300,6 +271,8 @@ impl Requester {
 						session_info,
 						chunk_index,
 						span,
+						self.req_protocol_names.get_name(v1::ChunkFetchingRequest::PROTOCOL),
+						self.req_protocol_names.get_name(v2::ChunkFetchingRequest::PROTOCOL),
 					);
 
 					self.fetches

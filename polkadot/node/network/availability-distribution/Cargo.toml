@@ -19,6 +19,7 @@ polkadot-node-network-protocol = { path = "../protocol" }
 polkadot-node-subsystem = { path = "../../subsystem" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }
 polkadot-node-primitives = { path = "../../primitives" }
+sc-network = { path = "../../../../substrate/client/network" }
 sp-core = { path = "../../../../substrate/primitives/core", features = ["std"] }
 sp-keystore = { path = "../../../../substrate/primitives/keystore" }
 thiserror = "1.0.48"

@@ -56,7 +56,7 @@ impl<Block: BlockT> ActiveCandidateRecovery<Block> {
 					candidate.receipt.clone(),
 					candidate.session_index,
 					None,
-					Some(candidate.relay_parent_block_number),
+					None,
 					tx,
 				),
 				"ActiveCandidateRecovery",
