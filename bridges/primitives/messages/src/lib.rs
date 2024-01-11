@@ -16,14 +16,13 @@
 
 //! Primitives of messages module.
 
+#![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
-// RuntimeApi generated functions
-#![allow(clippy::too_many_arguments)]
 
 use bp_header_chain::HeaderChainError;
 use bp_runtime::{
-	messages::MessageDispatchResult, BasicOperatingMode, OperatingMode, RangeInclusiveExt,
-	StorageProofError,
+	messages::MessageDispatchResult, BasicOperatingMode, Chain, OperatingMode, RangeInclusiveExt,
+	StorageProofError, UnderlyingChainOf, UnderlyingChainProvider,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::PalletError;
@@ -38,6 +37,36 @@ use sp_std::{collections::vec_deque::VecDeque, ops::RangeInclusive, prelude::*};
 pub mod source_chain;
 pub mod storage_keys;
 pub mod target_chain;
+
+/// Substrate-based chain with messaging support.
+pub trait ChainWithMessages: Chain {
+	/// Name of the bridge messages pallet (used in `construct_runtime` macro call) that is
+	/// deployed at some other chain to bridge with this `ChainWithMessages`.
+	///
+	/// We assume that all chains that are bridging with this `ChainWithMessages` are using
+	/// the same name.
+	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str;
+
+	/// Maximal number of unrewarded relayers in a single confirmation transaction at this
+	/// `ChainWithMessages`.
+	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce;
+	/// Maximal number of unconfirmed messages in a single confirmation transaction at this
+	/// `ChainWithMessages`.
+	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce;
+}
+
+impl<T> ChainWithMessages for T
+where
+	T: Chain + UnderlyingChainProvider,
+	UnderlyingChainOf<T>: ChainWithMessages,
+{
+	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str =
+		UnderlyingChainOf::<T>::WITH_CHAIN_MESSAGES_PALLET_NAME;
+	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce =
+		UnderlyingChainOf::<T>::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
+	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce =
+		UnderlyingChainOf::<T>::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
+}
 
 /// Messages pallet operating mode.
 #[derive(
@@ -264,6 +293,7 @@ pub struct ReceivedMessages<DispatchLevelResult> {
 }
 
 impl<DispatchLevelResult> ReceivedMessages<DispatchLevelResult> {
+	/// Creates new `ReceivedMessages` structure from given results.
 	pub fn new(
 		lane: LaneId,
 		receive_results: Vec<(MessageNonce, ReceivalResult<DispatchLevelResult>)>,
@@ -271,6 +301,7 @@ impl<DispatchLevelResult> ReceivedMessages<DispatchLevelResult> {
 		ReceivedMessages { lane, receive_results }
 	}
 
+	/// Push `result` of the `message` delivery onto `receive_results` vector.
 	pub fn push(&mut self, message: MessageNonce, result: ReceivalResult<DispatchLevelResult>) {
 		self.receive_results.push((message, result));
 	}
@@ -342,7 +373,7 @@ pub struct UnrewardedRelayersState {
 }
 
 impl UnrewardedRelayersState {
-	// Verify that the relayers state corresponds with the `InboundLaneData`.
+	/// Verify that the relayers state corresponds with the `InboundLaneData`.
 	pub fn is_valid<RelayerId>(&self, lane_data: &InboundLaneData<RelayerId>) -> bool {
 		self == &lane_data.into()
 	}
@@ -423,15 +454,21 @@ pub enum BridgeMessagesCall<AccountId, MessagesProof, MessagesDeliveryProof> {
 	/// `pallet-bridge-messages::Call::receive_messages_proof`
 	#[codec(index = 2)]
 	receive_messages_proof {
+		/// Account id of relayer at the **bridged** chain.
 		relayer_id_at_bridged_chain: AccountId,
+		/// Messages proof.
 		proof: MessagesProof,
+		/// A number of messages in the proof.
 		messages_count: u32,
+		/// Total dispatch weight of messages in the proof.
 		dispatch_weight: Weight,
 	},
 	/// `pallet-bridge-messages::Call::receive_messages_delivery_proof`
 	#[codec(index = 3)]
 	receive_messages_delivery_proof {
+		/// Messages delivery proof.
 		proof: MessagesDeliveryProof,
+		/// "Digest" of unrewarded relayers state at the bridged chain.
 		relayers_state: UnrewardedRelayersState,
 	},
 }

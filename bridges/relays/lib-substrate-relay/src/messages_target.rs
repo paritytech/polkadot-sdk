@@ -31,8 +31,8 @@ use crate::{
 use async_std::sync::Arc;
 use async_trait::async_trait;
 use bp_messages::{
-	storage_keys::inbound_lane_data_key, InboundLaneData, LaneId, MessageNonce,
-	UnrewardedRelayersState,
+	storage_keys::inbound_lane_data_key, ChainWithMessages as _, InboundLaneData, LaneId,
+	MessageNonce, UnrewardedRelayersState,
 };
 use bridge_runtime_common::messages::source::FromBridgedChainMessagesDeliveryProof;
 use messages_relay::{
@@ -40,8 +40,8 @@ use messages_relay::{
 	message_lane_loop::{NoncesSubmitArtifacts, TargetClient, TargetClientState},
 };
 use relay_substrate_client::{
-	AccountIdOf, AccountKeyPairOf, BalanceOf, CallOf, ChainWithMessages, Client,
-	Error as SubstrateError, HashOf, TransactionEra, TransactionTracker, UnsignedTransaction,
+	AccountIdOf, AccountKeyPairOf, BalanceOf, CallOf, Client, Error as SubstrateError, HashOf,
+	TransactionEra, TransactionTracker, UnsignedTransaction,
 };
 use relay_utils::relay_loop::Client as RelayClient;
 use sp_core::Pair;

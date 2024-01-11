@@ -18,7 +18,6 @@ relay-substrate-client = { path = "../client-substrate" }
 bp-bridge-hub-kusama = { path = "../../primitives/chain-bridge-hub-kusama" }
 bp-bridge-hub-polkadot = { path = "../../primitives/chain-bridge-hub-polkadot" }
 bp-header-chain = { path = "../../primitives/header-chain" }
-bp-messages = { path = "../../primitives/messages" }
 bp-parachains = { path = "../../primitives/parachains" }
 bp-polkadot-bulletin = { path = "../../primitives/chain-polkadot-bulletin" }
 bp-polkadot-core = { path = "../../primitives/polkadot-core" }

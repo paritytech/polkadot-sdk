@@ -20,7 +20,6 @@ mod codegen_runtime;
 
 use bp_polkadot::{AccountInfoStorageMapKeyProvider, POLKADOT_SYNCED_HEADERS_GRANDPA_INFO_METHOD};
 use bp_polkadot_core::SuffixedCommonSignedExtensionExt;
-use bp_runtime::ChainId;
 use codec::Encode;
 use relay_substrate_client::{
 	Chain, ChainWithBalances, ChainWithGrandpa, ChainWithTransactions, Error as SubstrateError,
@@ -55,7 +54,6 @@ impl UnderlyingChainProvider for Polkadot {
 }
 
 impl Chain for Polkadot {
-	const ID: ChainId = bp_runtime::POLKADOT_CHAIN_ID;
 	const NAME: &'static str = "Polkadot";
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
 		bp_polkadot::BEST_FINALIZED_POLKADOT_HEADER_METHOD;
