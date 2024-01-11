@@ -24,7 +24,7 @@ frame-metadata = { version = "16.0.0", default-features = false, features = ["cu
 sp-api = { path = "../../primitives/api", default-features = false, features = ["frame-metadata"] }
 sp-std = { path = "../../primitives/std", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
+sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"] }
 sp-tracing = { path = "../../primitives/tracing", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false }
 sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false }
