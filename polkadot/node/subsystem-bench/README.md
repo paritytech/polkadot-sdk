@@ -231,67 +231,43 @@ usage, and more importantly it doesn't require a bare-metal machine to run on, w
 a remote virtual installation.
 
 To profile cache misses use the `--cache-misses` flag. Since the execution will be very slow, it's recommended not to
-run it together with other profiling and not to take benchmark results into account.
+run it together with other profiling and not to take benchmark results into account. A report is saved in a file
+`cachegrind_report.txt`.
 
 Example run results:
 ```
 $ target/testnet/subsystem-bench --n-cores 10 --cache-misses data-availability-read
-==201761== Callgrind, a call-graph generating cache profiler
-==201761== Copyright (C) 2002-2017, and GNU GPL'd, by Josef Weidendorfer et al.
-==201761== Using Valgrind-3.22.0 and LibVEX; rerun with -h for copyright info
-==201761== Command: target/testnet/subsystem-bench --n-cores 10 --cache-misses data-availability-read
-==201761==
---201761-- warning: L3 cache found, using its data for the LL simulation.
---201761-- warning: specified LL cache: line_size 64  assoc 20  total_size 57,671,680
---201761-- warning: simulated LL cache: line_size 64  assoc 28  total_size 58,720,256
-==201761== For interactive control, run 'callgrind_control -h'.
-[2024-01-10T08:00:32Z INFO  subsystem_bench::core::display] n_validators = 500, n_cores = 10, pov_size = 5120 - 5120, error = 0, latency = N
-one
-[2024-01-10T08:00:32Z INFO  subsystem-bench::availability] Generating template candidate index=0 pov_size=5242880
-[2024-01-10T08:01:21Z INFO  subsystem-bench::availability] Created test environment.
-[2024-01-10T08:01:21Z INFO  subsystem-bench::availability] Pre-generating 10 candidates.
-[2024-01-10T08:07:18Z INFO  subsystem-bench::core] Initializing emulation for a 500 peer network.
-[2024-01-10T08:07:18Z INFO  subsystem-bench::core] connectivity 100%, error 0%
-[2024-01-10T08:07:19Z INFO  subsystem-bench::core] Network created, connected validator count 500
-[2024-01-10T08:07:19Z INFO  subsystem-bench::availability] Current block 1/1
-[2024-01-10T08:07:19Z INFO  substrate_prometheus_endpoint] 〽️ Prometheus exporter started at 127.0.0.1:9999
-[2024-01-10T08:07:20Z INFO  subsystem_bench::availability] 10 recoveries pending
-[2024-01-10T08:31:42Z INFO  subsystem_bench::availability] All work for block completed in 1462465ms
-[2024-01-10T08:31:42Z INFO  subsystem_bench::availability] All blocks processed in 1462533ms
-[2024-01-10T08:31:42Z INFO  subsystem_bench::availability] Throughput: 51200 KiB/block
-[2024-01-10T08:31:42Z INFO  subsystem_bench::availability] Block time: 1462538 ms
-[2024-01-10T08:31:42Z INFO  subsystem_bench::availability]
-
-    Total received from network: 200 MiB
-    Total sent to network: 762 KiB
-    Total subsystem CPU usage 2916.57s
-    CPU usage per block 2916.57s
-    Total test environment CPU usage 6.17s
-    CPU usage per block 6.17s
-
-==201761==
-==201761== Events    : Ir Dr Dw I1mr D1mr D1mw ILmr DLmr DLmw
-==201761== Collected : 95411656238 10227094854 8380466979 9032639 161537270 173821878 42409 6413757 10014923
-==201761==
-==201761== I   refs:      95,411,656,238
-==201761== I1  misses:         9,032,639
-==201761== LLi misses:            42,409
-==201761== I1  miss rate:           0.01%
-==201761== LLi miss rate:           0.00%
-==201761==
-==201761== D   refs:      18,607,561,833  (10,227,094,854 rd + 8,380,466,979 wr)
-==201761== D1  misses:       335,359,148  (   161,537,270 rd +   173,821,878 wr)
-==201761== LLd misses:        16,428,680  (     6,413,757 rd +    10,014,923 wr)
-==201761== D1  miss rate:            1.8% (           1.6%   +           2.1%  )
-==201761== LLd miss rate:            0.1% (           0.1%   +           0.1%  )
-==201761==
-==201761== LL refs:          344,391,787  (   170,569,909 rd +   173,821,878 wr)
-==201761== LL misses:         16,471,089  (     6,456,166 rd +    10,014,923 wr)
+$ cat cachegrind_report.txt
+==232852== Cachegrind, a high-precision tracing profiler
+==232852== Copyright (C) 2002-2017, and GNU GPL'd, by Nicholas Nethercote et al.
+==232852== Using Valgrind-3.22.0 and LibVEX; rerun with -h for copyright info
+==232852== Command: target/testnet/subsystem-bench --n-cores 10 --cache-misses data-availability-read
+==232852== Parent PID: 135623
+==232852==
+--232852-- warning: L3 cache found, using its data for the LL simulation.
+--232852-- warning: specified LL cache: line_size 64  assoc 20  total_size 57,671,680
+--232852-- warning: simulated LL cache: line_size 64  assoc 28  total_size 58,720,256
+==232852==
+==232852== I refs:        64,792,806,728
+==232852== I1  misses:         3,720,238
+==232852== LLi misses:            34,545
+==232852== I1  miss rate:           0.01%
+==232852== LLi miss rate:           0.00%
+==232852==
+==232852== D refs:        12,431,397,584  (10,003,114,208 rd   + 2,428,283,376 wr)
+==232852== D1  misses:       259,602,002  (   123,007,075 rd   +   136,594,927 wr)
+==232852== LLd misses:        13,168,490  (     5,331,255 rd   +     7,837,235 wr)
+==232852== D1  miss rate:            2.1% (           1.2%     +           5.6%  )
+==232852== LLd miss rate:            0.1% (           0.1%     +           0.3%  )
+==232852==
+==232852== LL refs:          263,322,240  (   126,727,313 rd   +   136,594,927 wr)
+==232852== LL misses:         13,203,035  (     5,365,800 rd   +     7,837,235 wr)
+==232852== LL miss rate:             0.0% (           0.0%     +           0.3%  )
 ==201761== LL miss rate:             0.0% (           0.0%   +           0.1%  )
 ```
 
-The results show that 1.8% of the L1 data cache missed, but the last level cache only missed 0.1% of the time.
-Instruction data of the L1 has 0.04% of the time and almost nothing was missed at the last level.
+The results show that 2.1% of the L1 data cache missed, but the last level cache only missed 0.1% of the time.
+Instruction data of the L1 has 0.01% of the time and almost nothing was missed at the last level.
 
 Cachegrind writes line-by-line cache profiling information to a file named `cachegrind.out.<pid>`.
 This file is best interpreted with `cg_annotate --auto=yes cachegrind.out.<pid>`. For more information see the
