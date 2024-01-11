@@ -5,8 +5,8 @@ doc:
     description: |
       Enforces the following invariants;
       1. The number of entries in Tips should be equal to Reasons.
-      2.  If OpenTip.finders_fee is true, then OpenTip.deposit should be greater than zero.
-      3.  Reasons exists for each Tip[OpenTip.reason], implying equal length of storage.
+      2. If OpenTip.finders_fee is true, then OpenTip.deposit should be greater than zero.
+      3. Reasons exists for each Tip[OpenTip.reason], implying equal length of storage.
 
 crates:
 - name: pallet-tips
