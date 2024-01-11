@@ -36,15 +36,24 @@
 //! When developing within the context of the a runtime, there is one golden rule:
 //!
 //! ***DO NOT PANIC***. There are some exceptions, such as critical operations being actually more
-//! dangerous than allowing the node to continue running (block authoring, consensus, etc).
+//! dangerous than allowing the runtime to continue functioning (block authoring, consensus, etc).
+//!
+//! > It's important to make the differentiation between the **runtime** and **node**.  The runtime
+//! > refers to the core business logic of a Substrate-based chain, whereas the node refers to the
+//! > outer client which deals with telemetry and gossip from other nodes. For more information,
+//! > read about Substrate's architecture.
 //!
 //!  General guidelines:
 //!
-//! - Avoid panickable operations, such as directly using `unwrap()` for a [`Result`], common errors
-//!   such as accessing collections out of bounds (using safer methods to access collection types,
-//!   i.e., `get()`).
+//! - Avoid any writing functions that could explicitly panic.  Directly using `unwrap()` for a
+//!   [`Result`] or common errors such as accessing an out of bounds index on a collection (using
+//!   safer methods to access collection types, i.e., `get()`) are both examples of what to
+//!   completely avoid in runtime development.
 //! - It may be acceptable to use `except()`, but only if one is completely certain (and has
-//!   performed a check beforehand) that a value won't panic upon unwrapping.
+//!   performed a check beforehand) that a value won't panic upon unwrapping.  Even this is
+//!   discouraged, however, as future changes to that function could then cause that statement to
+//!   panic.  It is better to ensure all errors are propagated and handled accordingly in some way.
+//! - If a function *can* panic, it usually is prefaced with `unchecked_` to indicate its safety.
 //! - If you are writing a function that could panic, [be sure to document it!](https://doc.rust-lang.org/rustdoc/how-to-write-documentation.html#documenting-components)
 //! - Carefully handle mathematical operations.  Many seemingly, simplistic operations, such as
 //!   **arithmetic** in the runtime, could present a number of issues [(see more later in this
@@ -63,6 +72,18 @@
 //! [`DefensiveResult`](frame::traits::DefensiveResult) can be used to defensively unwrap
 //! and handle values.  This can be used in place of
 //! an `expect`, and again, only if the developer is sure about the unwrap in the first place.
+//!
+//! Here is a full list of all defensive types:
+//!
+//! - [`DefensiveOption`](frame::traits::DefensiveOption)
+//! - [`DefensiveResult`](frame::traits::DefensiveResult)
+//! - [`DefensiveMax`](frame::traits::DefensiveMax)
+//! - [`DefensiveSaturating`](frame::traits::DefensiveSaturating)
+//! - [`DefensiveTruncateFrom`](frame::traits::DefensiveTruncateFrom)
+//!
+//! All of which can be used by importing
+//! [`frame::traits::defensive_prelude`](frame::traits::defensive_prelude), which imports all
+//! defensive traits at once.
 //!
 //! Defensive methods use [`debug_assertions`](https://doc.rust-lang.org/reference/conditional-compilation.html#debug_assertions), which panic in development, but in
 //! production/release, they will merely log an error (i.e., `log::error`).
