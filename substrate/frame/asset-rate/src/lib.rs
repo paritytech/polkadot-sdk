@@ -59,7 +59,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::traits::{fungible::Inspect, tokens::{ConversionFromAssetBalance, ConversionToAssetBalance}};
+use frame_support::traits::{
+	fungible::Inspect,
+	tokens::{ConversionFromAssetBalance, ConversionToAssetBalance},
+};
 use sp_runtime::{traits::Zero, FixedPointNumber, FixedU128};
 use sp_std::boxed::Box;
 

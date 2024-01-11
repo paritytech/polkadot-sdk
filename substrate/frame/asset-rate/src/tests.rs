@@ -139,12 +139,11 @@ fn convert_works() {
 		assert_eq!(conversion_from_asset.expect("Conversion rate exists for asset"), 25);
 
 		let conversion_to_asset = <AssetRate as ConversionToAssetBalance<
-		BalanceOf<Test>,
-		<Test as pallet_asset_rate::Config>::AssetKind,
-		BalanceOf<Test>,
+			BalanceOf<Test>,
+			<Test as pallet_asset_rate::Config>::AssetKind,
+			BalanceOf<Test>,
 		>>::to_asset_balance(25, ASSET_ID);
 		assert_eq!(conversion_to_asset.expect("Conversion rate exists for asset"), 9);
-
 	});
 }
 
