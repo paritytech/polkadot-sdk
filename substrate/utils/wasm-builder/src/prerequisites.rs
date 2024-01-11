@@ -19,7 +19,7 @@ use crate::{write_file_if_changed, CargoCommand, CargoCommandVersioned};
 
 use std::{fs, path::Path};
 
-use ansi_term::Color;
+use ansiterm::Color;
 use tempfile::tempdir;
 
 /// Print an error message.
