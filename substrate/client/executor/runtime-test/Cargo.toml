@@ -21,6 +21,7 @@ sp-io = { path = "../../../primitives/io", default-features = false, features = 
 sp-runtime = { path = "../../../primitives/runtime", default-features = false }
 sp-runtime-interface = { path = "../../../primitives/runtime-interface", default-features = false }
 sp-std = { path = "../../../primitives/std", default-features = false }
+sp-virtualization = { path = "../../../primitives/virtualization", default-features = false }
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true }
@@ -33,5 +34,6 @@ std = [
 	"sp-runtime-interface/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"sp-virtualization/std",
 	"substrate-wasm-builder",
 ]

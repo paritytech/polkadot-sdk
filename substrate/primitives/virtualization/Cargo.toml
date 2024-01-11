@@ -1,0 +1,30 @@
+[package]
+name = "sp-virtualization"
+version = "1.0.0"
+license = "Apache-2.0"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+description = "Spawn a new polkavm instance from within the runtime/pvf"
+
+[lints]
+workspace = true
+
+[dependencies]
+log = { workspace = true }
+polkavm = { workspace = true, optional = true }
+sp-io = { path = "../io", default-features =  false }
+sp-std = { path = "../std", default-features = false}
+
+[dev-dependencies]
+sp-tracing = { path = "../tracing" }
+sp-virtualization-test-fixture = { path = "./test-fixture" }
+
+[features]
+default = [ "std" ]
+std = [
+	"log/std",
+	"polkavm",
+	"sp-io/std",
+	"sp-std/std",
+]

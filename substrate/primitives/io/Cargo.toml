@@ -31,6 +31,7 @@ sp-trie = { path = "../trie", default-features = false, optional = true }
 sp-externalities = { path = "../externalities", default-features = false }
 sp-tracing = { path = "../tracing", default-features = false }
 log = { optional = true, workspace = true, default-features = true }
+num_enum = { version = "0.7.1", default-features = false }
 secp256k1 = { version = "0.28.0", features = ["global-context", "recovery"], optional = true }
 tracing = { version = "0.1.29", default-features = false }
 tracing-core = { version = "0.1.32", default-features = false }
@@ -50,6 +51,7 @@ std = [
 	"ed25519-dalek?/std",
 	"libsecp256k1",
 	"log/std",
+	"num_enum/std",
 	"secp256k1",
 	"sp-core/std",
 	"sp-crypto-hashing/std",

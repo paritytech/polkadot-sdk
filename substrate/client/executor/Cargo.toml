@@ -46,6 +46,7 @@ sp-runtime = { path = "../../primitives/runtime" }
 sp-maybe-compressed-blob = { path = "../../primitives/maybe-compressed-blob" }
 sc-tracing = { path = "../tracing" }
 sp-tracing = { path = "../../primitives/tracing" }
+sp-virtualization-test-fixture = { path = "../../primitives/virtualization/test-fixture" }
 tracing-subscriber = "0.2.19"
 paste = "1.0"
 regex = "1.6.0"
