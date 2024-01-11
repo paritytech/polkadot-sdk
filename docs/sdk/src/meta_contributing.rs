@@ -54,8 +54,8 @@
 //! > high level tutorial. They should be explained in the rust-doc of the corresponding type or
 //! > macro.
 //!
-//! 2. 🧘 Less is More: For reasons mentioned [above](#crate::why-rust-docs), the more concise this
-//!    crate is, the better.
+//! 2. 🧘 Less is More: For reasons mentioned [above](#why-rust-docs), the more concise this crate
+//!    is, the better.
 //! 3. √ Don’t Repeat Yourself – DRY: A summary of the above two points. Authors should always
 //!    strive to avoid any duplicate information. Every concept should ideally be documented in
 //!    *ONE* place and one place only. This makes the task of maintaining topics significantly
@@ -69,8 +69,7 @@
 //! > what topics are already covered in this crate, and how you can build on top of the information
 //! > that they already pose, rather than repeating yourself**.
 //!
-//! For more details about documenting guidelines, see:
-//! <https://github.com/paritytech/polkadot-sdk/master/docs/contributor/DOCUMENTATION_GUIDELINES.md>
+//! For more details see the [latest documenting guidelines](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/DOCUMENTATION_GUIDELINES.md).
 //!
 //! #### Example: Explaining `#[pallet::call]`
 //!
@@ -133,14 +132,16 @@
 //! compromise, but in the long term, we should work towards finding a way to maintain different
 //! revisions of this crate.
 //!
-//! ## How to Build
+//! ## How to Develop Locally
 //!
-//! To build this crate properly, with with right HTML headers injected, run:
+//! To view the docs specific [`crate`] locally for development, including the correct HTML headers
+//! injected, run:
 //!
-//! ```no_compile
-//! RUSTDOCFLAGS="--html-in-header $(pwd)/docs/sdk/headers/toc.html" cargo doc -p polkadot-sdk-docs
+//! ```sh
+//! SKIP_WASM_BUILD=1 RUSTDOCFLAGS="--html-in-header $(pwd)/docs/sdk/headers/toc.html" cargo doc -p polkadot-sdk-docs --no-deps --open
 //! ```
 //!
-//! adding `--no-deps` would speed up the process while development. If even faster build time for
-//! docs is needed, you can temporarily remove most of the substrate/cumulus dependencies that are
-//! only used for linking purposes.
+//! If even faster build time for docs is needed, you can temporarily remove most of the
+//! substrate/cumulus dependencies that are only used for linking purposes.
+//!
+//! For more on local development, see [`crate::reference_docs::development_environment_advice`].

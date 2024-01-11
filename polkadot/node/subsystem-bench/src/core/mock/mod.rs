@@ -23,7 +23,6 @@ pub mod network_bridge;
 pub mod runtime_api;
 
 pub use av_store::*;
-pub use network_bridge::*;
 pub use runtime_api::*;
 
 pub struct AlwaysSupportsParachains {}

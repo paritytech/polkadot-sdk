@@ -18,7 +18,10 @@
 
 use futures::channel::oneshot;
 use libp2p::PeerId;
-use sc_network::request_responses::{ProtocolConfig, RequestFailure};
+use sc_network::{
+	request_responses::{ProtocolConfig, RequestFailure},
+	ProtocolName,
+};
 use sc_network_common::sync::message::{BlockData, BlockRequest};
 use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
@@ -43,7 +46,7 @@ pub trait BlockDownloader<Block: BlockT>: Send + Sync {
 		&self,
 		who: PeerId,
 		request: BlockRequest<Block>,
-	) -> Result<Result<Vec<u8>, RequestFailure>, oneshot::Canceled>;
+	) -> Result<Result<(Vec<u8>, ProtocolName), RequestFailure>, oneshot::Canceled>;
 
 	/// Parses the protocol specific response to retrieve the block data.
 	fn block_response_into_blocks(
