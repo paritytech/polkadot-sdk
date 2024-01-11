@@ -28,6 +28,7 @@ use std::{path::Path, time::Duration};
 pub(crate) mod availability;
 pub(crate) mod cli;
 pub(crate) mod core;
+mod valgrind;
 
 use availability::{prepare_test, NetworkEmulation, TestState};
 use cli::TestObjective;
@@ -101,9 +102,9 @@ struct BenchCli {
 
 impl BenchCli {
 	fn launch(self) -> eyre::Result<()> {
-		let is_valgrind = is_valgrind_mode();
-		if !is_valgrind && self.cache_misses {
-			return valgrind_init()
+		let is_valgrind_running = valgrind::is_valgrind_running();
+		if !is_valgrind_running && self.cache_misses {
+			return valgrind::relaunch_in_valgrind_mode()
 		}
 
 		let agent_running = if self.profile {
@@ -196,15 +197,16 @@ impl BenchCli {
 		let mut state = TestState::new(&test_config);
 		let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
 
-		if is_valgrind {
-			valgrind_start();
+		if is_valgrind_running {
+			valgrind::start_measuring();
 		}
 
 		env.runtime()
 			.block_on(availability::benchmark_availability_read(&mut env, state));
 
-		if is_valgrind {
-			valgrind_stop();
+		if is_valgrind_running {
+			valgrind::stop_measuring();
+			valgrind::dispay_report()?;
 		}
 
 		if let Some(agent_running) = agent_running {
@@ -214,52 +216,6 @@ impl BenchCli {
 
 		Ok(())
 	}
-}
-
-#[cfg(target_os = "linux")]
-fn is_valgrind_mode() -> bool {
-	!matches!(crabgrind::run_mode(), crabgrind::RunMode::Native)
-}
-
-#[cfg(not(target_os = "linux"))]
-fn is_valgrind_mode() -> bool {
-	false
-}
-
-/// Start collecting cache misses data
-#[cfg(target_os = "linux")]
-fn valgrind_start() {
-	crabgrind::cachegrind::start_instrumentation();
-}
-
-#[cfg(not(target_os = "linux"))]
-fn valgrind_start() {}
-
-/// Stop collecting cache misses data
-#[cfg(target_os = "linux")]
-fn valgrind_stop() {
-	crabgrind::cachegrind::stop_instrumentation();
-}
-
-#[cfg(not(target_os = "linux"))]
-fn valgrind_stop() {}
-
-#[cfg(target_os = "linux")]
-fn valgrind_init() -> eyre::Result<()> {
-	use std::os::unix::process::CommandExt;
-	std::process::Command::new("valgrind")
-		.arg("--tool=cachegrind")
-		.arg("--cache-sim=yes")
-		.arg("--instr-at-start=no")
-		.args(std::env::args())
-		.exec();
-
-	return Ok(())
-}
-
-#[cfg(not(target_os = "linux"))]
-fn valgrind_init() -> eyre::Result<()> {
-	return Err(eyre::eyre!("Valgrind can be executed only on linux"));
 }
 
 fn main() -> eyre::Result<()> {
