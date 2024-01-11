@@ -514,8 +514,11 @@ where
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
-	use crate::{keystore::BeefyKeystore, tests::DummyFisherman};
-	use sc_network_test::Block;
+	use crate::{
+		keystore::BeefyKeystore,
+		tests::{create_beefy_keystore, create_fisherman, BeefyTestNet, TestApi},
+	};
+	use sc_network_test::{Block, TestNetFactory};
 	use sp_application_crypto::key_types::BEEFY as BEEFY_KEY_TYPE;
 	use sp_consensus_beefy::{
 		ecdsa_crypto::Signature, known_payloads, Commitment, Keyring, MmrRootHash, Payload,
@@ -581,9 +584,15 @@ pub(crate) mod tests {
 
 	#[test]
 	fn should_validate_messages() {
-		let keys = vec![Keyring::Alice.public()];
+		let keyring = Keyring::Alice;
+		let keys = vec![keyring.public()];
 		let validator_set = ValidatorSet::<AuthorityId>::new(keys.clone(), 0).unwrap();
-		let fisherman = DummyFisherman { _phantom: PhantomData::<Block> };
+
+		let api = TestApi::new(0, &validator_set, MmrRootHash::repeat_byte(0xbf));
+		let mut net = BeefyTestNet::new(1);
+		let backend = net.peer(0).client().as_backend();
+		let fisherman = create_fisherman(keyring, Arc::new(api.clone()), backend.clone());
+
 		let (gv, mut report_stream) =
 			GossipValidator::new(Arc::new(Mutex::new(KnownPeers::new())), fisherman);
 		let sender = PeerId::random();
@@ -696,9 +705,15 @@ pub(crate) mod tests {
 
 	#[test]
 	fn messages_allowed_and_expired() {
-		let keys = vec![Keyring::Alice.public()];
+		let keyring = Keyring::Alice;
+		let keys = vec![keyring.public()];
 		let validator_set = ValidatorSet::<AuthorityId>::new(keys.clone(), 0).unwrap();
-		let fisherman = DummyFisherman { _phantom: PhantomData::<Block> };
+
+		let api = TestApi::new(0, &validator_set, MmrRootHash::repeat_byte(0xbf));
+		let mut net = BeefyTestNet::new(1);
+		let backend = net.peer(0).client().as_backend();
+		let fisherman = create_fisherman(keyring, Arc::new(api.clone()), backend.clone());
+
 		let (gv, _) = GossipValidator::new(Arc::new(Mutex::new(KnownPeers::new())), fisherman);
 		gv.update_filter(GossipFilterCfg { start: 0, end: 10, validator_set: &validator_set });
 		let sender = sc_network::PeerId::random();
@@ -774,9 +789,15 @@ pub(crate) mod tests {
 
 	#[test]
 	fn messages_rebroadcast() {
-		let keys = vec![Keyring::Alice.public()];
+		let keyring = Keyring::Alice;
+		let keys = vec![keyring.public()];
 		let validator_set = ValidatorSet::<AuthorityId>::new(keys.clone(), 0).unwrap();
-		let fisherman = DummyFisherman { _phantom: PhantomData::<Block> };
+
+		let api = TestApi::new(0, &validator_set, MmrRootHash::repeat_byte(0xbf));
+		let mut net = BeefyTestNet::new(1);
+		let backend = net.peer(0).client().as_backend();
+		let fisherman = create_fisherman(keyring, Arc::new(api.clone()), backend.clone());
+
 		let (gv, _) = GossipValidator::new(Arc::new(Mutex::new(KnownPeers::new())), fisherman);
 		gv.update_filter(GossipFilterCfg { start: 0, end: 10, validator_set: &validator_set });
 		let sender = sc_network::PeerId::random();

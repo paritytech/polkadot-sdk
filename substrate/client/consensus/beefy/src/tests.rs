@@ -411,7 +411,7 @@ pub(crate) fn create_beefy_keystore(authority: BeefyKeyring) -> KeystorePtr {
 	keystore.into()
 }
 
-fn create_fisherman<BE>(
+pub(crate) fn create_fisherman<BE>(
 	beefy_keyring: BeefyKeyring, // Assuming BeefyKeyring contains necessary keys for the Fisherman
 	api: Arc<TestApi>,
 	backend: Arc<BE>,
