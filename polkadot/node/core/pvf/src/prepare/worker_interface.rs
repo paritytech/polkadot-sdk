@@ -17,7 +17,7 @@
 //! Host interface to the prepare worker.
 
 use crate::{
-	artifacts::ArtifactId,
+	artifacts::generate_artifact_path,
 	metrics::Metrics,
 	worker_interface::{
 		clear_worker_dir_path, framed_recv, framed_send, spawn_with_program_path, IdleWorker,
@@ -165,7 +165,6 @@ pub async fn start_work(
 						prepare_worker_result,
 						pid,
 						tmp_artifact_file,
-						&pvf,
 						&cache_path,
 						preparation_timeout,
 					)
@@ -205,19 +204,22 @@ async fn handle_response(
 	result: PrepareWorkerResult,
 	worker_pid: u32,
 	tmp_file: PathBuf,
-	pvf: &PvfPrepData,
 	cache_path: &Path,
 	preparation_timeout: Duration,
 ) -> Outcome {
-	let PrepareWorkerSuccess { checksum, stats: PrepareStats { cpu_time_elapsed, memory_stats } } =
-		match result.clone() {
-			Ok(result) => result,
-			// Timed out on the child. This should already be logged by the child.
-			Err(PrepareError::TimedOut) => return Outcome::TimedOut,
-			Err(PrepareError::JobDied { err, job_pid }) => return Outcome::JobDied { err, job_pid },
-			Err(PrepareError::OutOfMemory) => return Outcome::OutOfMemory,
-			Err(err) => return Outcome::Concluded { worker, result: Err(err) },
-		};
+	// TODO: Add `checksum` to `ArtifactPathId`. See:
+	//       https://github.com/paritytech/polkadot-sdk/issues/2399
+	let PrepareWorkerSuccess {
+		checksum: _,
+		stats: PrepareStats { cpu_time_elapsed, memory_stats },
+	} = match result.clone() {
+		Ok(result) => result,
+		// Timed out on the child. This should already be logged by the child.
+		Err(PrepareError::TimedOut) => return Outcome::TimedOut,
+		Err(PrepareError::JobDied { err, job_pid }) => return Outcome::JobDied { err, job_pid },
+		Err(PrepareError::OutOfMemory) => return Outcome::OutOfMemory,
+		Err(err) => return Outcome::Concluded { worker, result: Err(err) },
+	};
 
 	if cpu_time_elapsed > preparation_timeout {
 		// The job didn't complete within the timeout.
@@ -232,8 +234,11 @@ async fn handle_response(
 		return Outcome::TimedOut
 	}
 
-	let artifact_id = ArtifactId::from_pvf_prep_data(pvf);
-	let artifact_path = artifact_id.path(cache_path, &checksum);
+	// The file name should uniquely identify the artifact even across restarts. In case the cache
+	// for some reason is not cleared correctly, we cannot
+	// accidentally execute an artifact compiled under a different wasmtime version, host
+	// environment, etc.
+	let artifact_path = generate_artifact_path(cache_path);
 
 	gum::debug!(
 		target: LOG_TARGET,

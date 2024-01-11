@@ -142,8 +142,8 @@ mod v_coretime {
 			let new_core_count = assigner_coretime::Pallet::<T>::session_core_count();
 			ensure!(new_core_count == prev_core_count, "Total number of cores need to not change.");
 			ensure!(
-				dmp_queue_size == prev_dmp_queue_size + 1,
-				"There should have been enqueued one DMP message."
+				dmp_queue_size > prev_dmp_queue_size,
+				"There should have been enqueued at least one DMP messages."
 			);
 
 			Ok(())
@@ -264,22 +264,30 @@ mod v_coretime {
 		let message_content = iter::once(Instruction::UnpaidExecution {
 			weight_limit: WeightLimit::Unlimited,
 			check_origin: None,
-		})
-		.chain(reservations)
-		.chain(pool)
-		.chain(leases)
-		.chain(set_core_count)
-		.collect();
+		});
 
-		let message = Xcm(message_content);
+		let reservation_content = message_content.clone().chain(reservations).collect();
+		let pool_content = message_content.clone().chain(pool).collect();
+		let leases_content = message_content.clone().chain(leases).collect();
+		let set_core_count_content = message_content.clone().chain(set_core_count).collect();
 
-		send_xcm::<SendXcm>(
-			MultiLocation {
-				parents: 0,
-				interior: Junctions::X1(Junction::Parachain(T::BrokerId::get())),
-			},
-			message,
-		)?;
+		let messages = vec![
+			Xcm(reservation_content),
+			Xcm(pool_content),
+			Xcm(leases_content),
+			Xcm(set_core_count_content),
+		];
+
+		for message in messages {
+			send_xcm::<SendXcm>(
+				MultiLocation {
+					parents: 0,
+					interior: Junctions::X1(Junction::Parachain(T::BrokerId::get())),
+				},
+				message,
+			)?;
+		}
+
 		Ok(())
 	}
 }
