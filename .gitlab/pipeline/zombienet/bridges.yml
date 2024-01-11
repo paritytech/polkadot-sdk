@@ -36,14 +36,18 @@
     paths:
       - ./zombienet-logs
   after_script:
-    - echo "Am I working???!!!"
-    - ls -R /tmp
+    - echo "Collecting logs"
     - mkdir -p ./zombienet-logs
+    # copy logs of tests runner (run-tests.sh)
+    - cp -r /tmp/bridges-zombienet-tests.*/tmp.*/tmp.* ./zombienet-logs/
+    # copy logs of all nodes
     - cp /tmp/zombie*/logs/* ./zombienet-logs/
-    - cp /tmp/polkadot.*/* ./zombienet-logs/
-    - cp /tmp/polkadot-parachain.*/* ./zombienet-logs/
-    - cp -r /tmp/bridges-zombienet-tests*/* ./zombienet-logs/
-    - echo "Am I working???"
+    # copy logs of our polkadot binary wrapper (polkadot-x.sh)
+    - cp /tmp/polkadot.* ./zombienet-logs/
+    # copy logs of our polkadot-parachain binary wrapper (polkadot-parachain-x.sh)
+    - cp /tmp/polkadot-parachain.* ./zombienet-logs/
+    - echo "Collected logs"
+    - ls -R /tmp
 #  retry: 2
 #  tags:
 #    - zombienet-polkadot-integration-test
