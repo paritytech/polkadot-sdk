@@ -48,9 +48,9 @@
     - cp /tmp/polkadot-parachain.* ./zombienet-logs/
     - echo "Collected logs"
     - ls -R /tmp
-#  retry: 2
-#  tags:
-#    - zombienet-polkadot-integration-test
+  retry: 2
+  tags:
+    - zombienet-polkadot-integration-test
 
 run-zombienet-bridges-tests:
   extends:
