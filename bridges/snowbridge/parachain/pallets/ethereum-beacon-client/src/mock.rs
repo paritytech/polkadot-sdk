@@ -159,6 +159,7 @@ pub mod minimal {
 		type OnNewAccount = ();
 		type OnKilledAccount = ();
 		type SystemWeightInfo = ();
+		type ExtensionsWeightInfo = ();
 		type SS58Prefix = SS58Prefix;
 		type MaxConsumers = frame_support::traits::ConstU32<16>;
 		type Nonce = u64;
@@ -251,6 +252,7 @@ pub mod mainnet {
 		type OnNewAccount = ();
 		type OnKilledAccount = ();
 		type SystemWeightInfo = ();
+		type ExtensionsWeightInfo = ();
 		type SS58Prefix = SS58Prefix;
 		type MaxConsumers = frame_support::traits::ConstU32<16>;
 		type Nonce = u64;

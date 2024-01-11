@@ -558,6 +558,7 @@ impl pallet_transaction_payment::Config for Runtime {
 		MinimumMultiplier,
 		MaximumMultiplier,
 	>;
+	type WeightInfo = pallet_transaction_payment::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_asset_tx_payment::Config for Runtime {
@@ -567,6 +568,9 @@ impl pallet_asset_tx_payment::Config for Runtime {
 		pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto, Instance1>,
 		CreditToBlockAuthor,
 	>;
+	type WeightInfo = pallet_asset_tx_payment::weights::SubstrateWeight<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = AssetTxHelper;
 }
 
 impl pallet_asset_conversion_tx_payment::Config for Runtime {
@@ -577,6 +581,9 @@ impl pallet_asset_conversion_tx_payment::Config for Runtime {
 		AssetConversion,
 		Native,
 	>;
+	type WeightInfo = pallet_asset_conversion_tx_payment::weights::SubstrateWeight<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = AssetConversionTxHelper;
 }
 
 impl pallet_skip_feeless_payment::Config for Runtime {
@@ -2255,6 +2262,106 @@ mod mmr {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
+pub struct AssetConversionTxHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_asset_conversion_tx_payment::BenchmarkHelperTrait<AccountId, u32, u32>
+	for AssetConversionTxHelper
+{
+	fn create_asset_id_parameter(seed: u32) -> (u32, u32) {
+		(seed, seed)
+	}
+
+	fn setup_balances_and_pool(asset_id: u32, account: AccountId) {
+		use frame_support::{assert_ok, traits::fungibles::Mutate};
+		assert_ok!(Assets::force_create(
+			RuntimeOrigin::root(),
+			asset_id.into(),
+			account.clone().into(), /* owner */
+			true,                   /* is_sufficient */
+			1,
+		));
+
+		let lp_provider = account.clone();
+		let _ = Balances::deposit_creating(&lp_provider, ((u64::MAX as u128) * 100).into());
+		assert_ok!(Assets::mint_into(
+			asset_id.into(),
+			&lp_provider,
+			((u64::MAX as u128) * 100).into()
+		));
+
+		let token_native = Box::new(NativeOrWithId::Native);
+		let token_second = Box::new(NativeOrWithId::WithId(asset_id));
+
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(lp_provider.clone()),
+			token_native.clone(),
+			token_second.clone()
+		));
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(lp_provider.clone()),
+			token_native,
+			token_second,
+			u64::MAX.into(), // 1 desired
+			u64::MAX.into(), // 2 desired
+			1,               // 1 min
+			1,               // 2 min
+			lp_provider,
+		));
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct AssetTxHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_asset_tx_payment::BenchmarkHelperTrait<AccountId, u32, u32> for AssetTxHelper {
+	fn create_asset_id_parameter(seed: u32) -> (u32, u32) {
+		(seed, seed)
+	}
+
+	fn setup_balances_and_pool(asset_id: u32, account: AccountId) {
+		use frame_support::{assert_ok, traits::fungibles::Mutate};
+		assert_ok!(Assets::force_create(
+			RuntimeOrigin::root(),
+			asset_id.into(),
+			account.clone().into(), /* owner */
+			true,                   /* is_sufficient */
+			1,
+		));
+
+		let lp_provider = account.clone();
+		let _ = Balances::deposit_creating(&lp_provider, ((u64::MAX as u128) * 100).into());
+		assert_ok!(Assets::mint_into(
+			asset_id.into(),
+			&lp_provider,
+			((u64::MAX as u128) * 100).into()
+		));
+
+		let token_native = Box::new(NativeOrWithId::Native);
+		let token_second = Box::new(NativeOrWithId::WithId(asset_id));
+
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(lp_provider.clone()),
+			token_native.clone(),
+			token_second.clone()
+		));
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(lp_provider.clone()),
+			token_native,
+			token_second,
+			u64::MAX.into(), // 1 desired
+			u64::MAX.into(), // 2 desired
+			1,               // 1 min
+			1,               // 2 min
+			lp_provider,
+		));
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
 mod benches {
 	frame_benchmarking::define_benchmarks!(
 		[frame_benchmarking, BaselineBench::<Runtime>]
@@ -2274,6 +2381,9 @@ mod benches {
 		[tasks_example, TasksExample]
 		[pallet_democracy, Democracy]
 		[pallet_asset_conversion, AssetConversion]
+		[pallet_asset_conversion_tx_payment, AssetConversionTxPayment]
+		[pallet_asset_tx_payment, AssetTxPayment]
+		[pallet_transaction_payment, TransactionPayment]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
 		[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
 		[pallet_elections_phragmen, Elections]
@@ -2305,6 +2415,7 @@ mod benches {
 		[pallet_state_trie_migration, StateTrieMigration]
 		[pallet_sudo, Sudo]
 		[frame_system, SystemBench::<Runtime>]
+		[frame_system_extensions, SystemExtensionsBench::<Runtime>]
 		[pallet_timestamp, Timestamp]
 		[pallet_tips, Tips]
 		[pallet_transaction_storage, TransactionStorage]
@@ -2852,6 +2963,7 @@ impl_runtime_apis! {
 			use pallet_offences_benchmarking::Pallet as OffencesBench;
 			use pallet_election_provider_support_benchmarking::Pallet as EPSBench;
 			use frame_system_benchmarking::Pallet as SystemBench;
+			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use baseline::Pallet as BaselineBench;
 			use pallet_nomination_pools_benchmarking::Pallet as NominationPoolsBench;
 
@@ -2876,6 +2988,7 @@ impl_runtime_apis! {
 			use pallet_offences_benchmarking::Pallet as OffencesBench;
 			use pallet_election_provider_support_benchmarking::Pallet as EPSBench;
 			use frame_system_benchmarking::Pallet as SystemBench;
+			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use baseline::Pallet as BaselineBench;
 			use pallet_nomination_pools_benchmarking::Pallet as NominationPoolsBench;
 

@@ -203,6 +203,7 @@ impl frame_system::Config for Runtime {
 	type Version = Version;
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
+	type ExtensionsWeightInfo = weights::frame_system_extensions::WeightInfo<Runtime>;
 	type SS58Prefix = SS58Prefix;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
@@ -334,6 +335,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
+	type WeightInfo = weights::pallet_transaction_payment::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -639,12 +641,32 @@ parameter_types! {
 	pub Prefix: &'static [u8] = b"Pay ROCs to the Rococo account:";
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+pub struct ClaimsHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+use frame_support::dispatch::DispatchInfo;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl claims::BenchmarkHelperTrait<RuntimeCall, DispatchInfo> for ClaimsHelper {
+	fn default_call_and_info() -> (RuntimeCall, DispatchInfo) {
+		use frame_support::dispatch::GetDispatchInfo;
+		let call = RuntimeCall::Claims(claims::Call::attest {
+			statement: claims::StatementKind::Regular.to_text().to_vec(),
+		});
+		let info = call.get_dispatch_info();
+		(call, info)
+	}
+}
+
 impl claims::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type VestingSchedule = Vesting;
 	type Prefix = Prefix;
 	type MoveClaimOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::runtime_common_claims::WeightInfo<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ClaimsHelper;
 }
 
 parameter_types! {
@@ -1742,7 +1764,9 @@ mod benches {
 		[pallet_scheduler, Scheduler]
 		[pallet_sudo, Sudo]
 		[frame_system, SystemBench::<Runtime>]
+		[frame_system_extensions, SystemExtensionsBench::<Runtime>]
 		[pallet_timestamp, Timestamp]
+		[pallet_transaction_payment, TransactionPayment]
 		[pallet_treasury, Treasury]
 		[pallet_utility, Utility]
 		[pallet_vesting, Vesting]
@@ -2230,6 +2254,7 @@ sp_api::impl_runtime_apis! {
 			use frame_support::traits::StorageInfoTrait;
 
 			use frame_system_benchmarking::Pallet as SystemBench;
+			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use frame_benchmarking::baseline::Pallet as Baseline;
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
@@ -2250,6 +2275,7 @@ sp_api::impl_runtime_apis! {
 			use frame_support::traits::WhitelistedStorageKeys;
 			use frame_benchmarking::{Benchmarking, BenchmarkBatch, BenchmarkError};
 			use frame_system_benchmarking::Pallet as SystemBench;
+			use frame_system_benchmarking::extensions::Pallet as SystemExtensionsBench;
 			use frame_benchmarking::baseline::Pallet as Baseline;
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			use sp_storage::TrackedStorageKey;
