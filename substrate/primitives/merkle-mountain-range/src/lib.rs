@@ -366,7 +366,8 @@ pub struct NodeProof<Hash> {
 	pub leaf_indices: Vec<LeafIndex>,
 	/// Number of leaves in MMR, when the proof was generated.
 	pub leaf_count: NodeIndex,
-	/// Proof elements (positions and hashes of siblings of inner nodes on the path to the node(s)).
+	/// Proof elements (positions and hashes of siblings of inner nodes on the path to the
+	/// node(s)).
 	pub items: Vec<(u64, Hash)>,
 }
 
