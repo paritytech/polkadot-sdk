@@ -21,6 +21,7 @@
 //! accepts storage proof of some parachain `Heads` entries from bridged relay chain.
 //! It requires corresponding relay headers to be already synced.
 
+#![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use weights::WeightInfo;
@@ -98,27 +99,49 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
 		/// The caller has provided head of parachain that the pallet is not configured to track.
-		UntrackedParachainRejected { parachain: ParaId },
+		UntrackedParachainRejected {
+			/// Identifier of the parachain that is not tracked by the pallet.
+			parachain: ParaId,
+		},
 		/// The caller has declared that he has provided given parachain head, but it is missing
 		/// from the storage proof.
-		MissingParachainHead { parachain: ParaId },
+		MissingParachainHead {
+			/// Identifier of the parachain with missing head.
+			parachain: ParaId,
+		},
 		/// The caller has provided parachain head hash that is not matching the hash read from the
 		/// storage proof.
 		IncorrectParachainHeadHash {
+			/// Identifier of the parachain with incorrect head hast.
 			parachain: ParaId,
+			/// Specified parachain head hash.
 			parachain_head_hash: ParaHash,
+			/// Actual parachain head hash.
 			actual_parachain_head_hash: ParaHash,
 		},
 		/// The caller has provided obsolete parachain head, which is already known to the pallet.
-		RejectedObsoleteParachainHead { parachain: ParaId, parachain_head_hash: ParaHash },
+		RejectedObsoleteParachainHead {
+			/// Identifier of the parachain with obsolete head.
+			parachain: ParaId,
+			/// Obsolete parachain head hash.
+			parachain_head_hash: ParaHash,
+		},
 		/// The caller has provided parachain head that exceeds the maximal configured head size.
 		RejectedLargeParachainHead {
+			/// Identifier of the parachain with rejected head.
 			parachain: ParaId,
+			/// Parachain head hash.
 			parachain_head_hash: ParaHash,
+			/// Parachain head size.
 			parachain_head_size: u32,
 		},
 		/// Parachain head has been updated.
-		UpdatedParachainHead { parachain: ParaId, parachain_head_hash: ParaHash },
+		UpdatedParachainHead {
+			/// Identifier of the parachain that has been updated.
+			parachain: ParaId,
+			/// Parachain head hash.
+			parachain_head_hash: ParaHash,
+		},
 	}
 
 	#[pallet::error]
@@ -137,6 +160,7 @@ pub mod pallet {
 	pub trait BoundedBridgeGrandpaConfig<I: 'static>:
 		pallet_bridge_grandpa::Config<I, BridgedChain = Self::BridgedRelayChain>
 	{
+		/// Type of the bridged relay chain.
 		type BridgedRelayChain: Chain<
 			BlockNumber = RelayBlockNumber,
 			Hash = RelayBlockHash,
@@ -336,7 +360,7 @@ pub mod pallet {
 
 			let mut storage = GrandpaPalletOf::<T, I>::storage_proof_checker(
 				relay_block_hash,
-				parachain_heads_proof.0,
+				parachain_heads_proof.storage_proof,
 			)
 			.map_err(Error::<T, I>::HeaderChainStorageProof)?;
 

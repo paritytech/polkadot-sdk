@@ -17,9 +17,7 @@
 //! Types used to connect to the BridgeHub-Polkadot-Substrate parachain.
 
 use bp_bridge_hub_polkadot::AVERAGE_BLOCK_INTERVAL;
-use bp_messages::MessageNonce;
 use bp_polkadot_core::SuffixedCommonSignedExtensionExt;
-use bp_runtime::ChainId;
 use codec::Encode;
 use relay_substrate_client::{
 	Chain, ChainWithBalances, ChainWithMessages, ChainWithTransactions, ChainWithUtilityPallet,
@@ -43,7 +41,6 @@ impl UnderlyingChainProvider for BridgeHubPolkadot {
 }
 
 impl Chain for BridgeHubPolkadot {
-	const ID: ChainId = bp_runtime::BRIDGE_HUB_POLKADOT_CHAIN_ID;
 	const NAME: &'static str = "BridgeHubPolkadot";
 	const BEST_FINALIZED_HEADER_ID_METHOD: &'static str =
 		bp_bridge_hub_polkadot::BEST_FINALIZED_BRIDGE_HUB_POLKADOT_HEADER_METHOD;
@@ -116,8 +113,6 @@ impl ChainWithTransactions for BridgeHubPolkadot {
 }
 
 impl ChainWithMessages for BridgeHubPolkadot {
-	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str =
-		bp_bridge_hub_polkadot::WITH_BRIDGE_HUB_POLKADOT_MESSAGES_PALLET_NAME;
 	const WITH_CHAIN_RELAYERS_PALLET_NAME: Option<&'static str> =
 		Some(bp_bridge_hub_polkadot::WITH_BRIDGE_HUB_POLKADOT_RELAYERS_PALLET_NAME);
 
@@ -125,11 +120,6 @@ impl ChainWithMessages for BridgeHubPolkadot {
 		bp_bridge_hub_polkadot::TO_BRIDGE_HUB_POLKADOT_MESSAGE_DETAILS_METHOD;
 	const FROM_CHAIN_MESSAGE_DETAILS_METHOD: &'static str =
 		bp_bridge_hub_polkadot::FROM_BRIDGE_HUB_POLKADOT_MESSAGE_DETAILS_METHOD;
-
-	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce =
-		bp_bridge_hub_polkadot::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
-	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce =
-		bp_bridge_hub_polkadot::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 }
 
 #[cfg(test)]
