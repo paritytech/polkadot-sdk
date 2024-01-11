@@ -32,9 +32,8 @@ pub use overseer::{
 use polkadot_node_subsystem::{
 	errors::{RuntimeApiError, SubsystemError},
 	messages::{RuntimeApiMessage, RuntimeApiRequest, RuntimeApiSender},
-	overseer, ChainApiError, SubsystemSender,
+	overseer, SubsystemSender,
 };
-use polkadot_node_subsystem_types::messages::ChainApiMessage;
 
 pub use polkadot_node_metrics::{metrics, Metronome};
 
@@ -42,7 +41,7 @@ use futures::channel::{mpsc, oneshot};
 use parity_scale_codec::Encode;
 
 use polkadot_primitives::{
-	slashing, AsyncBackingParams, AuthorityDiscoveryId, BlockNumber, CandidateEvent, CandidateHash,
+	slashing, AsyncBackingParams, AuthorityDiscoveryId, CandidateEvent, CandidateHash,
 	CommittedCandidateReceipt, CoreState, EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo,
 	Hash, Id as ParaId, OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes,
 	SessionIndex, SessionInfo, Signed, SigningContext, ValidationCode, ValidationCodeHash,
@@ -460,18 +459,21 @@ pub struct Validator {
 impl Validator {
 	/// Get a struct representing this node's validator if this node is in fact a validator in the
 	/// context of the given block.
-	pub async fn new<S>(
-		validators: &[ValidatorId],
-		parent: Hash,
-		keystore: KeystorePtr,
-		sender: &mut S,
-	) -> Result<Self, Error>
+	pub async fn new<S>(parent: Hash, keystore: KeystorePtr, sender: &mut S) -> Result<Self, Error>
 	where
 		S: SubsystemSender<RuntimeApiMessage>,
 	{
-		let session_index = request_session_index_for_child(parent, sender).await.await??;
+		// Note: request_validators and request_session_index_for_child do not and cannot
+		// run concurrently: they both have a mutable handle to the same sender.
+		// However, each of them returns a oneshot::Receiver, and those are resolved concurrently.
+		let (validators, session_index) = futures::try_join!(
+			request_validators(parent, sender).await,
+			request_session_index_for_child(parent, sender).await,
+		)?;
 
-		let signing_context = SigningContext { session_index, parent_hash: parent };
+		let signing_context = SigningContext { session_index: session_index?, parent_hash: parent };
+
+		let validators = validators?;
 
 		// TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
 		// When `DisabledValidators` is released remove this and add a
@@ -528,19 +530,4 @@ impl Validator {
 	) -> Result<Option<Signed<Payload, RealPayload>>, KeystoreError> {
 		Signed::sign(&keystore, payload, &self.signing_context, self.index, &self.key)
 	}
-}
-
-/// Get the block number by hash.
-pub async fn get_block_number<Sender, E>(
-	sender: &mut Sender,
-	relay_parent: Hash,
-) -> Result<Option<BlockNumber>, E>
-where
-	Sender: overseer::SubsystemSender<ChainApiMessage>,
-	E: From<ChainApiError> + From<oneshot::Canceled>,
-{
-	let (tx, rx) = oneshot::channel();
-	sender.send_message(ChainApiMessage::BlockNumber(relay_parent, tx)).await;
-
-	rx.await?.map_err(Into::into)
 }

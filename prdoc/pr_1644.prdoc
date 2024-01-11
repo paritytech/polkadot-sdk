@@ -1,0 +1,8 @@
+title: Add availability-recovery from systematic chunks
+
+doc:
+  - audience: Node Dev
+    description: |
+      ...
+
+crates: [ ]

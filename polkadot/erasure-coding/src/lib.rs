@@ -166,12 +166,6 @@ pub fn reconstruct_from_systematic<T: Decode>(
 		}
 	}
 
-	let Some(first_shard) = chunks.iter().next() else { return Err(Error::NotEnoughChunks) };
-	let shard_len = first_shard.len();
-	if shard_len % 2 != 0 {
-		return Err(Error::UnevenLength)
-	}
-
 	let bytes = code_params.make_encoder().reconstruct_from_systematic(
 		chunks
 			.into_iter()

@@ -20,8 +20,10 @@ use rand::{seq::SliceRandom, thread_rng};
 use schnellru::{ByLength, LruMap};
 
 use polkadot_node_subsystem::overseer;
-use polkadot_node_subsystem_util::runtime::RuntimeInfo;
-use polkadot_primitives::{AuthorityDiscoveryId, GroupIndex, Hash, SessionIndex, ValidatorIndex};
+use polkadot_node_subsystem_util::runtime::{request_node_features, RuntimeInfo};
+use polkadot_primitives::{
+	vstaging::NodeFeatures, AuthorityDiscoveryId, GroupIndex, Hash, SessionIndex, ValidatorIndex,
+};
 
 use crate::{
 	error::{Error, Result},
@@ -63,8 +65,8 @@ pub struct SessionInfo {
 	/// `None`, if we are not in fact part of any group.
 	pub our_group: Option<GroupIndex>,
 
-	/// Per-session randomness gathered from BABE.
-	pub random_seed: [u8; 32],
+	/// Node features.
+	pub node_features: Option<NodeFeatures>,
 }
 
 /// Report of bad validators.
@@ -173,6 +175,9 @@ impl SessionCache {
 			.get_session_info_by_index(ctx.sender(), relay_parent, session_index)
 			.await?;
 
+		let node_features =
+			request_node_features(relay_parent, session_index, ctx.sender()).await?;
+
 		let discovery_keys = info.session_info.discovery_keys.clone();
 		let mut validator_groups = info.session_info.validator_groups.clone();
 
@@ -205,7 +210,7 @@ impl SessionCache {
 				our_index,
 				session_index,
 				our_group,
-				random_seed: info.session_info.random_seed,
+				node_features,
 			};
 			return Ok(Some(info))
 		}

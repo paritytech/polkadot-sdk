@@ -100,8 +100,10 @@ where
 	pub authority_discovery_service: AuthorityDiscoveryService,
 	/// POV request receiver.
 	pub pov_req_receiver: IncomingRequestReceiver<request_v1::PoVFetchingRequest>,
-	/// Erasure chunks request receiver.
-	pub chunk_req_receiver: IncomingRequestReceiver<request_v1::ChunkFetchingRequest>,
+	/// Erasure chunks request receiver for v1.
+	pub chunk_req_v1_receiver: IncomingRequestReceiver<request_v1::ChunkFetchingRequest>,
+	/// Erasure chunks request receiver for v2.
+	pub chunk_req_v2_receiver: IncomingRequestReceiver<request_v2::ChunkFetchingRequest>,
 	/// Collations request receiver for network protocol v1.
 	pub collation_req_v1_receiver: IncomingRequestReceiver<request_v1::CollationFetchingRequest>,
 	/// Collations request receiver for network protocol v2.
@@ -156,7 +158,8 @@ pub fn prepared_overseer_builder<Spawner, RuntimeClient>(
 		sync_service,
 		authority_discovery_service,
 		pov_req_receiver,
-		chunk_req_receiver,
+		chunk_req_v1_receiver,
+		chunk_req_v2_receiver,
 		collation_req_v1_receiver,
 		collation_req_v2_receiver,
 		available_data_req_receiver,
@@ -238,7 +241,7 @@ where
 			network_service.clone(),
 			authority_discovery_service.clone(),
 			network_bridge_metrics.clone(),
-			req_protocol_names,
+			req_protocol_names.clone(),
 			peerset_protocol_names.clone(),
 			notification_sinks.clone(),
 		))
@@ -253,11 +256,17 @@ where
 		))
 		.availability_distribution(AvailabilityDistributionSubsystem::new(
 			keystore.clone(),
-			IncomingRequestReceivers { pov_req_receiver, chunk_req_receiver },
+			IncomingRequestReceivers {
+				pov_req_receiver,
+				chunk_req_v1_receiver,
+				chunk_req_v2_receiver,
+			},
+			req_protocol_names.clone(),
 			Metrics::register(registry)?,
 		))
-		.availability_recovery(AvailabilityRecoverySubsystem::with_systematic_chunks_if_pov_large(
+		.availability_recovery(AvailabilityRecoverySubsystem::for_validator(
 			available_data_req_receiver,
+			&req_protocol_names,
 			Metrics::register(registry)?,
 		))
 		.availability_store(AvailabilityStoreSubsystem::new(

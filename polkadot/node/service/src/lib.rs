@@ -869,7 +869,9 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 
 	let (pov_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
-	let (chunk_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
+	let (chunk_req_v1_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
+	net_config.add_request_response_protocol(cfg);
+	let (chunk_req_v2_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
 	let (collation_req_v1_receiver, cfg) =
 		IncomingRequest::get_config_receiver(&req_protocol_names);
@@ -1074,7 +1076,8 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					sync_service: sync_service.clone(),
 					authority_discovery_service,
 					pov_req_receiver,
-					chunk_req_receiver,
+					chunk_req_v1_receiver,
+					chunk_req_v2_receiver,
 					collation_req_v1_receiver,
 					collation_req_v2_receiver,
 					available_data_req_receiver,

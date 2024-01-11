@@ -111,6 +111,7 @@ fn build_overseer(
 		.availability_distribution(DummySubsystem)
 		.availability_recovery(AvailabilityRecoverySubsystem::for_collator(
 			available_data_req_receiver,
+			&req_protocol_names,
 			Metrics::register(registry)?,
 		))
 		.availability_store(DummySubsystem)

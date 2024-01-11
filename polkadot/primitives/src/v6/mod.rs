@@ -1687,6 +1687,14 @@ where
 		self.0.get(index.type_index())
 	}
 
+	/// Returns a mutable reference to an element indexed using `K`.
+	pub fn get_mut(&mut self, index: K) -> Option<&mut V>
+	where
+		K: TypeIndex,
+	{
+		self.0.get_mut(index.type_index())
+	}
+
 	/// Returns number of elements in vector.
 	pub fn len(&self) -> usize {
 		self.0.len()

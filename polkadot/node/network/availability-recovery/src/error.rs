@@ -20,7 +20,7 @@ use crate::LOG_TARGET;
 use fatality::{fatality, Nested};
 use futures::channel::oneshot;
 use polkadot_node_network_protocol::request_response::incoming;
-use polkadot_node_subsystem::{ChainApiError, RecoveryError, SubsystemError};
+use polkadot_node_subsystem::{RecoveryError, SubsystemError};
 use polkadot_primitives::Hash;
 
 /// Error type used by the Availability Recovery subsystem.
@@ -57,12 +57,6 @@ pub enum Error {
 	#[fatal]
 	#[error(transparent)]
 	Oneshot(#[from] oneshot::Canceled),
-
-	#[error("Retrieving response from Chain API unexpectedly failed with error: {0}")]
-	ChainApi(#[from] ChainApiError),
-
-	#[error("Cannot find block number for given relay parent")]
-	BlockNumberNotFound,
 
 	#[fatal(forward)]
 	#[error("Error during recovery: {0}")]

@@ -12988,6 +12988,7 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.1",
  "pin-project",
+ "polkadot-erasure-coding",
  "polkadot-node-jaeger",
  "polkadot-node-metrics",
  "polkadot-node-network-protocol",

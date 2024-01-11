@@ -16,10 +16,8 @@
 
 use super::*;
 use futures::{executor::block_on, pin_mut, StreamExt};
-use polkadot_node_subsystem::messages::{
-	AllMessages, ChainApiMessage, RuntimeApiMessage, RuntimeApiRequest,
-};
-use polkadot_primitives::{vstaging::NodeFeatures, CandidateHash, OccupiedCore};
+use polkadot_node_subsystem::messages::{AllMessages, RuntimeApiMessage, RuntimeApiRequest};
+use polkadot_primitives::{CandidateHash, OccupiedCore};
 use test_helpers::dummy_candidate_descriptor;
 
 fn occupied_core(para_id: u32, candidate_hash: CandidateHash) -> CoreState {
@@ -45,7 +43,6 @@ fn construct_availability_bitfield_works() {
 		let future = construct_availability_bitfield(
 			relay_parent,
 			&jaeger::Span::Disabled,
-			10,
 			validator_index,
 			&mut sender,
 		)
@@ -64,28 +61,13 @@ fn construct_availability_bitfield_works() {
 						assert_eq!(relay_parent, rp);
 						tx.send(Ok(vec![CoreState::Free, occupied_core(1, hash_a), occupied_core(2, hash_b)])).unwrap();
 					}
-					AllMessages::RuntimeApi(
-						RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, tx)),
-					) => {
-						tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
-					}
-					AllMessages::RuntimeApi(
-						RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx)),
-					) => {
-						tx.send(Ok(1)).unwrap();
-					}
 					AllMessages::AvailabilityStore(
-						AvailabilityStoreMessage::QueryChunkAvailability(c_hash, cidx, tx),
+						AvailabilityStoreMessage::QueryChunkAvailability(c_hash, vidx, tx),
 					) => {
-						assert_eq!(validator_index, cidx.into());
+						assert_eq!(validator_index, vidx.into());
 
 						tx.send(c_hash == hash_a).unwrap();
 					},
-					AllMessages::ChainApi(
-						ChainApiMessage::BlockNumber(_, tx)
-					) => {
-						tx.send(Ok(Some(1))).unwrap();
-					}
 					o => panic!("Unknown message: {:?}", o),
 				},
 				r = future => match r {
