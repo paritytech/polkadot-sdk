@@ -77,7 +77,7 @@ fn prepare_report() -> eyre::Result<String> {
 	let start = lines
 		.iter()
 		.position(|line| line.contains(REPORT_START))
-		.ok_or(Err(eyre::eyre!("Log file {} does not contain cache misses report", LOG_FILE)))?;
+		.ok_or(eyre::eyre!("Log file {} does not contain cache misses report", LOG_FILE))?;
 	let lines: Vec<&str> = lines
 		.iter()
 		.skip(start)
