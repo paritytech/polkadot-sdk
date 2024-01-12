@@ -21,7 +21,7 @@ workflow:
     - if: $CI_COMMIT_BRANCH
 
 variables:
-  CI_IMAGE: "docker.io/paritytech/ci-unified:bullseye-1.74.0-2023-11-01-v20240108"
+  CI_IMAGE: !reference [.ci-unified, variables, CI_IMAGE]
   # BUILDAH_IMAGE is defined in group variables
   BUILDAH_COMMAND: "buildah --storage-driver overlay2"
   RELENG_SCRIPTS_BRANCH: "master"
@@ -274,16 +274,6 @@ cancel-pipeline-test-linux-stable3:
   extends: .cancel-pipeline-template
   needs:
     - job: "test-linux-stable 3/3"
-
-cancel-pipeline-test-linux-stable-additional-tests:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "test-linux-stable-additional-tests"
-
-cancel-pipeline-test-linux-stable-slow:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "test-linux-stable-slow"
 
 cancel-pipeline-cargo-check-benches1:
   extends: .cancel-pipeline-template
