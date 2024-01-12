@@ -45,11 +45,12 @@
     - cp /tmp/polkadot.* ./zombienet-logs/
     # copy logs of our polkadot-parachain binary wrapper (polkadot-parachain-x.sh)
     - cp /tmp/polkadot-parachain.* ./zombienet-logs/
+# following lines are causing spurious test failures ("At least one of the nodes fails to start")
 #  retry: 2
 #  tags:
 #    - zombienet-polkadot-integration-test
 
-run-zombienet-bridges-tests:
+zombienet-bridges-0001-asset-transfer-works:
   extends:
     - .zombienet-bridges-common
   script:
