@@ -27,9 +27,7 @@ use xcm::latest::Location;
 ///
 /// Suitable for use as a `Criterion` with [`frame_support::traits::tokens::fungible::UnionOf`].
 pub struct TargetFromLeft<Target, L = Location>(PhantomData<(Target, L)>);
-impl<Target: Get<L>, L: PartialEq + Eq> Convert<L, Either<(), L>>
-	for TargetFromLeft<Target, L>
-{
+impl<Target: Get<L>, L: PartialEq + Eq> Convert<L, Either<(), L>> for TargetFromLeft<Target, L> {
 	fn convert(l: L) -> Either<(), L> {
 		Target::get().eq(&l).then(|| Left(())).map_or(Right(l), |n| n)
 	}
@@ -39,7 +37,9 @@ impl<Target: Get<L>, L: PartialEq + Eq> Convert<L, Either<(), L>>
 /// Returns [`Either::Right`] if not equivalent.
 ///
 /// Suitable for use as a `Criterion` with [`frame_support::traits::tokens::fungibles::UnionOf`].
-pub struct LocalFromLeft<Equivalence, AssetId, L = Location>(PhantomData<(Equivalence, AssetId, L)>);
+pub struct LocalFromLeft<Equivalence, AssetId, L = Location>(
+	PhantomData<(Equivalence, AssetId, L)>,
+);
 impl<Equivalence, AssetId, L> Convert<L, Either<AssetId, L>>
 	for LocalFromLeft<Equivalence, AssetId, L>
 where

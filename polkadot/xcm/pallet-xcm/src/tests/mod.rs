@@ -1080,7 +1080,10 @@ fn get_and_wrap_version_works() {
 		// does not work because remote_b has unknown version and default is set to 1, and
 		// `XCM_VERSION` cannot be wrapped to the `1`
 		assert_eq!(XcmPallet::wrap_version(&remote_b, xcm.clone()), Err(()));
-		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![(remote_b.clone().into(), 1)]);
+		assert_eq!(
+			VersionDiscoveryQueue::<Test>::get().into_inner(),
+			vec![(remote_b.clone().into(), 1)]
+		);
 
 		// set default to the `XCM_VERSION`
 		assert_ok!(XcmPallet::force_default_xcm_version(RuntimeOrigin::root(), Some(XCM_VERSION)));
@@ -1092,10 +1095,17 @@ fn get_and_wrap_version_works() {
 			XcmPallet::wrap_version(&remote_b, xcm.clone()),
 			Ok(VersionedXcm::from(xcm.clone()))
 		);
-		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![(remote_b.clone().into(), 2)]);
+		assert_eq!(
+			VersionDiscoveryQueue::<Test>::get().into_inner(),
+			vec![(remote_b.clone().into(), 2)]
+		);
 
 		// change remote_c to `1`
-		assert_ok!(XcmPallet::force_xcm_version(RuntimeOrigin::root(), Box::new(remote_c.clone()), 1));
+		assert_ok!(XcmPallet::force_xcm_version(
+			RuntimeOrigin::root(),
+			Box::new(remote_c.clone()),
+			1
+		));
 
 		// does not work because remote_c has `1` and default is `XCM_VERSION` which cannot be
 		// wrapped to the `1`

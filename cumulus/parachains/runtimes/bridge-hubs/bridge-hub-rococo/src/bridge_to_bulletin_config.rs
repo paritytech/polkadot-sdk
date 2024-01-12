@@ -283,12 +283,10 @@ mod tests {
 		>(FEE_BOOST_PER_MESSAGE);
 
 		let expected: InteriorLocation = PalletInstance(
-			bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_BULLETIN_MESSAGES_PALLET_INDEX
-		).into();
+			bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_BULLETIN_MESSAGES_PALLET_INDEX,
+		)
+		.into();
 
-		assert_eq!(
-			BridgeRococoToRococoBulletinMessagesPalletInstance::get(),
-			expected,
-		);
+		assert_eq!(BridgeRococoToRococoBulletinMessagesPalletInstance::get(), expected,);
 	}
 }

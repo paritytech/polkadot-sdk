@@ -221,11 +221,8 @@ where
 
 		let (dest_para_id, beneficiary, dest_para_fee) = match destination {
 			// Final destination is a 32-byte account on AssetHub
-			Destination::AccountId32 { id } => (
-				None,
-				Location::new(0, [AccountId32 { network: None, id }]),
-				0,
-			),
+			Destination::AccountId32 { id } =>
+				(None, Location::new(0, [AccountId32 { network: None, id }]), 0),
 			// Final destination is a 32-byte account on a sibling of AssetHub
 			Destination::ForeignAccountId32 { para_id, id, fee } => (
 				Some(para_id),
@@ -257,8 +254,7 @@ where
 
 		match dest_para_id {
 			Some(dest_para_id) => {
-				let dest_para_fee_asset: Asset =
-					(Location::parent(), dest_para_fee).into();
+				let dest_para_fee_asset: Asset = (Location::parent(), dest_para_fee).into();
 
 				instructions.extend(vec![
 					// Perform a deposit reserve to send to destination chain.
@@ -290,10 +286,7 @@ where
 	fn convert_token_address(network: NetworkId, token: H160) -> Location {
 		Location::new(
 			2,
-			[
-				GlobalConsensus(network),
-				AccountKey20 { network: None, key: token.into() },
-			],
+			[GlobalConsensus(network), AccountKey20 { network: None, key: token.into() }],
 		)
 	}
 }
@@ -305,7 +298,8 @@ where
 {
 	fn convert_location(location: &Location) -> Option<AccountId> {
 		match location.unpack() {
-			(_, [GlobalConsensus(Ethereum { chain_id })]) => Some(Self::from_chain_id(chain_id).into()),
+			(_, [GlobalConsensus(Ethereum { chain_id })]) =>
+				Some(Self::from_chain_id(chain_id).into()),
 			_ => None,
 		}
 	}

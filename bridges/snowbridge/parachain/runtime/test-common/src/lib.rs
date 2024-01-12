@@ -73,10 +73,8 @@ where
 		SetTopic([0; 32]),
 	]);
 
-	let fee = Asset {
-		id: AssetId(Location { parents: 1, interior: Here }),
-		fun: Fungible(fee_amount),
-	};
+	let fee =
+		Asset { id: AssetId(Location { parents: 1, interior: Here }), fun: Fungible(fee_amount) };
 
 	// prepare transfer token message
 	let xcm = Xcm(vec![
@@ -212,10 +210,7 @@ pub fn send_unpaid_transfer_token_message<Runtime, XcmConfig>(
 					assets: Wild(AllCounted(1)),
 					beneficiary: Location::new(
 						0,
-						[AccountKey20 {
-							network: None,
-							key: destination_contract.into(),
-						}],
+						[AccountKey20 { network: None, key: destination_contract.into() }],
 					),
 				},
 				SetTopic([0; 32]),

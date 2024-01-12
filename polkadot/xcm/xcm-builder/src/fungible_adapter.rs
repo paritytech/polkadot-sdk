@@ -25,8 +25,10 @@ use frame_support::traits::{
 };
 use sp_std::{marker::PhantomData, prelude::*, result};
 use xcm::latest::prelude::*;
-use xcm_executor::AssetsInHolding;
-use xcm_executor::traits::{ConvertLocation, Error as MatchError, MatchesFungible, TransactAsset};
+use xcm_executor::{
+	traits::{ConvertLocation, Error as MatchError, MatchesFungible, TransactAsset},
+	AssetsInHolding,
+};
 
 /// [`TransactAsset`] implementation that allows the use of a [`fungible`] implementation for
 /// handling an asset in the XCM executor.
@@ -112,11 +114,7 @@ impl<
 	> TransactAsset
 	for FungibleMutateAdapter<Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount>
 {
-	fn can_check_in(
-		_origin: &Location,
-		what: &Asset,
-		_context: &XcmContext,
-	) -> XcmResult {
+	fn can_check_in(_origin: &Location, what: &Asset, _context: &XcmContext) -> XcmResult {
 		log::trace!(
 			target: "xcm::fungible_adapter",
 			"can_check_in origin: {:?}, what: {:?}",
@@ -185,11 +183,7 @@ impl<
 		}
 	}
 
-	fn deposit_asset(
-		what: &Asset,
-		who: &Location,
-		_context: Option<&XcmContext>,
-	) -> XcmResult {
+	fn deposit_asset(what: &Asset, who: &Location, _context: Option<&XcmContext>) -> XcmResult {
 		log::trace!(
 			target: "xcm::fungible_adapter",
 			"deposit_asset what: {:?}, who: {:?}",
@@ -277,11 +271,7 @@ impl<
 		>::check_out(dest, what, context)
 	}
 
-	fn deposit_asset(
-		what: &Asset,
-		who: &Location,
-		context: Option<&XcmContext>,
-	) -> XcmResult {
+	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
 		FungibleMutateAdapter::<
 			Fungible,
 			Matcher,

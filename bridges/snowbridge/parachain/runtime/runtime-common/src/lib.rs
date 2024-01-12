@@ -51,11 +51,7 @@ impl<Balance, AccountId, FeeAssetLocation, EthereumNetwork, AssetTransactor, Fee
 	AssetTransactor: TransactAsset,
 	FeeProvider: SendMessageFeeProvider<Balance = Balance>,
 {
-	fn handle_fee(
-		fees: Assets,
-		context: Option<&XcmContext>,
-		reason: FeeReason,
-	) -> Assets {
+	fn handle_fee(fees: Assets, context: Option<&XcmContext>, reason: FeeReason) -> Assets {
 		let token_location = FeeAssetLocation::get();
 
 		// Check the reason to see if this export is for snowbridge.
@@ -68,21 +64,20 @@ impl<Balance, AccountId, FeeAssetLocation, EthereumNetwork, AssetTransactor, Fee
 		}
 
 		// Get the parachain sovereign from the `context`.
-		let para_sovereign = if let Some(XcmContext {
-			origin: Some(Location { parents: 1, interior }),
-			..
-		}) = context
-		{
-			if let Some(Parachain(sibling_para_id)) = interior.first() {
-				let account: AccountId =
-					sibling_sovereign_account_raw((*sibling_para_id).into()).into();
-				account
+		let para_sovereign =
+			if let Some(XcmContext { origin: Some(Location { parents: 1, interior }), .. }) =
+				context
+			{
+				if let Some(Parachain(sibling_para_id)) = interior.first() {
+					let account: AccountId =
+						sibling_sovereign_account_raw((*sibling_para_id).into()).into();
+					account
+				} else {
+					return fees
+				}
 			} else {
 				return fees
-			}
-		} else {
-			return fees
-		};
+			};
 
 		// Get the total fee offered by export message.
 		let maybe_total_supplied_fee: Option<(usize, Balance)> = fees

@@ -100,9 +100,10 @@ fn exporter_validate_with_x8_destination_yields_not_applicable() {
 	let network = BridgedNetwork::get();
 	let channel: u32 = 0;
 	let mut universal_source: Option<InteriorLocation> = None;
-	let mut destination: Option<InteriorLocation> = Some([
-		OnlyChild, OnlyChild, OnlyChild, OnlyChild, OnlyChild, OnlyChild, OnlyChild, OnlyChild,
-	].into());
+	let mut destination: Option<InteriorLocation> = Some(
+		[OnlyChild, OnlyChild, OnlyChild, OnlyChild, OnlyChild, OnlyChild, OnlyChild, OnlyChild]
+			.into(),
+	);
 	let mut message: Option<Xcm<()>> = None;
 
 	let result = EthereumBlobExporter::<
@@ -497,8 +498,7 @@ fn xcm_converter_convert_with_fees_less_than_reserve_yields_success() {
 	let asset_location: Location = [AccountKey20 { network: None, key: token_address }].into();
 	let fee_asset = Asset { id: AssetId(asset_location.clone()), fun: Fungible(500) };
 
-	let assets: Assets =
-		vec![Asset { id: AssetId(asset_location), fun: Fungible(1000) }].into();
+	let assets: Assets = vec![Asset { id: AssetId(asset_location), fun: Fungible(1000) }].into();
 
 	let filter: AssetFilter = assets.clone().into();
 
@@ -577,13 +577,10 @@ fn xcm_converter_with_different_fee_asset_fails() {
 	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
 
 	let asset_location = [AccountKey20 { network: None, key: token_address }].into();
-	let fee_asset = Asset {
-		id: AssetId(Location { parents: 0, interior: Here }),
-		fun: Fungible(1000),
-	};
+	let fee_asset =
+		Asset { id: AssetId(Location { parents: 0, interior: Here }), fun: Fungible(1000) };
 
-	let assets: Assets =
-		vec![Asset { id: AssetId(asset_location), fun: Fungible(1000) }].into();
+	let assets: Assets = vec![Asset { id: AssetId(asset_location), fun: Fungible(1000) }].into();
 
 	let filter: AssetFilter = assets.clone().into();
 
@@ -613,8 +610,7 @@ fn xcm_converter_with_fees_greater_than_reserve_fails() {
 	let asset_location: Location = [AccountKey20 { network: None, key: token_address }].into();
 	let fee_asset = Asset { id: AssetId(asset_location.clone()), fun: Fungible(1001) };
 
-	let assets: Assets =
-		vec![Asset { id: AssetId(asset_location), fun: Fungible(1000) }].into();
+	let assets: Assets = vec![Asset { id: AssetId(asset_location), fun: Fungible(1000) }].into();
 
 	let filter: AssetFilter = assets.clone().into();
 
@@ -1037,8 +1033,7 @@ fn xcm_converter_convert_with_non_ethereum_chain_beneficiary_yields_beneficiary_
 
 #[test]
 fn test_describe_asset_hub() {
-	let legacy_location: Location =
-		Location::new(0, [Parachain(1000)]);
+	let legacy_location: Location = Location::new(0, [Parachain(1000)]);
 	let legacy_agent_id = AgentIdOf::convert_location(&legacy_location).unwrap();
 	assert_eq!(
 		legacy_agent_id,

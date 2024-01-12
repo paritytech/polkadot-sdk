@@ -246,13 +246,12 @@ impl<'a, Call> XcmConverter<'a, Call> {
 		}
 
 		let (token, amount) = match reserve_asset {
-			Asset {
-				id: AssetId(inner_location),
-				fun: Fungible(amount)
-			} => match inner_location.unpack() {
-				(0, [AccountKey20 { network, key }]) if self.network_matches(network) => Some((H160(*key), *amount)),
-				_ => None,
-			},
+			Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
+				match inner_location.unpack() {
+					(0, [AccountKey20 { network, key }]) if self.network_matches(network) =>
+						Some((H160(*key), *amount)),
+					_ => None,
+				},
 			_ => None,
 		}
 		.ok_or(AssetResolutionFailed)?;

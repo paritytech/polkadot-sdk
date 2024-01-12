@@ -97,8 +97,11 @@ impl<SelfParaId: Get<ParaId>, L: TryFrom<Location> + TryInto<Location> + Clone> 
 pub struct FromNetwork<UniversalLocation, ExpectedNetworkId, L = Location>(
 	sp_std::marker::PhantomData<(UniversalLocation, ExpectedNetworkId, L)>,
 );
-impl<UniversalLocation: Get<InteriorLocation>, ExpectedNetworkId: Get<NetworkId>, L: TryFrom<Location> + TryInto<Location> + Clone>
-	ContainsPair<L, L> for FromNetwork<UniversalLocation, ExpectedNetworkId, L>
+impl<
+		UniversalLocation: Get<InteriorLocation>,
+		ExpectedNetworkId: Get<NetworkId>,
+		L: TryFrom<Location> + TryInto<Location> + Clone,
+	> ContainsPair<L, L> for FromNetwork<UniversalLocation, ExpectedNetworkId, L>
 {
 	fn contains(a: &L, b: &L) -> bool {
 		let a: Location = if let Ok(location) = (*a).clone().try_into() {
@@ -192,8 +195,7 @@ mod tests {
 			GeneralIndex(1),
 		)
 			.into();
-		let origin: Location =
-			(Parent, Parent, GlobalConsensus(Wococo), Parachain(1000)).into();
+		let origin: Location = (Parent, Parent, GlobalConsensus(Wococo), Parachain(1000)).into();
 		assert!(FromNetwork::<UniversalLocation, ExpectedNetworkId>::contains(&asset, &origin));
 
 		// asset and origin from local consensus fails
@@ -206,8 +208,7 @@ mod tests {
 			GeneralIndex(1),
 		)
 			.into();
-		let origin: Location =
-			(Parent, Parent, GlobalConsensus(Rococo), Parachain(1000)).into();
+		let origin: Location = (Parent, Parent, GlobalConsensus(Rococo), Parachain(1000)).into();
 		assert!(!FromNetwork::<UniversalLocation, ExpectedNetworkId>::contains(&asset, &origin));
 
 		// asset and origin from here fails
@@ -225,8 +226,7 @@ mod tests {
 			GeneralIndex(1),
 		)
 			.into();
-		let origin: Location =
-			(Parent, Parent, GlobalConsensus(Wococo), Parachain(1000)).into();
+		let origin: Location = (Parent, Parent, GlobalConsensus(Wococo), Parachain(1000)).into();
 		assert!(!FromNetwork::<UniversalLocation, ExpectedNetworkId>::contains(&asset, &origin));
 
 		// origin from different consensus fails
@@ -239,8 +239,7 @@ mod tests {
 			GeneralIndex(1),
 		)
 			.into();
-		let origin: Location =
-			(Parent, Parent, GlobalConsensus(Polkadot), Parachain(1000)).into();
+		let origin: Location = (Parent, Parent, GlobalConsensus(Polkadot), Parachain(1000)).into();
 		assert!(!FromNetwork::<UniversalLocation, ExpectedNetworkId>::contains(&asset, &origin));
 
 		// asset and origin from unexpected consensus fails
@@ -253,8 +252,7 @@ mod tests {
 			GeneralIndex(1),
 		)
 			.into();
-		let origin: Location =
-			(Parent, Parent, GlobalConsensus(Polkadot), Parachain(1000)).into();
+		let origin: Location = (Parent, Parent, GlobalConsensus(Polkadot), Parachain(1000)).into();
 		assert!(!FromNetwork::<UniversalLocation, ExpectedNetworkId>::contains(&asset, &origin));
 	}
 }

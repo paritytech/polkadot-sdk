@@ -24,8 +24,8 @@ use pallet_asset_tx_payment::HandleCredit;
 use sp_runtime::traits::Zero;
 use sp_std::{marker::PhantomData, prelude::*};
 use xcm::latest::{
-	Asset, AssetId, Fungibility, Fungibility::Fungible, Junction, Junctions::Here,
-	Location, Parent, WeightLimit,
+	Asset, AssetId, Fungibility, Fungibility::Fungible, Junction, Junctions::Here, Location,
+	Parent, WeightLimit,
 };
 use xcm_executor::traits::ConvertLocation;
 

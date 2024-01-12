@@ -384,10 +384,7 @@ impl coretime::Config for Test {
 pub struct DummyXcmSender;
 impl SendXcm for DummyXcmSender {
 	type Ticket = ();
-	fn validate(
-		_: &mut Option<Location>,
-		_: &mut Option<Xcm<()>>,
-	) -> SendResult<Self::Ticket> {
+	fn validate(_: &mut Option<Location>, _: &mut Option<Xcm<()>>) -> SendResult<Self::Ticket> {
 		Ok(((), Assets::new()))
 	}
 

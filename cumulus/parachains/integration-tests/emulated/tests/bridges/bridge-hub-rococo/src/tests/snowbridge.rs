@@ -383,10 +383,7 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 	AssetHubRococo::force_default_xcm_version(Some(XCM_VERSION));
 	BridgeHubRococo::force_default_xcm_version(Some(XCM_VERSION));
 	AssetHubRococo::force_xcm_version(
-		Location::new(
-			2,
-			[GlobalConsensus(Ethereum { chain_id: CHAIN_ID })],
-		),
+		Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]),
 		XCM_VERSION,
 	);
 

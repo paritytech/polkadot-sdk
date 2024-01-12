@@ -22,20 +22,14 @@ mod teleport;
 pub(crate) fn asset_hub_rococo_location() -> Location {
 	Location::new(
 		2,
-		[
-			GlobalConsensus(NetworkId::Rococo),
-			Parachain(AssetHubRococo::para_id().into()),
-		],
+		[GlobalConsensus(NetworkId::Rococo), Parachain(AssetHubRococo::para_id().into())],
 	)
 }
 
 pub(crate) fn bridge_hub_rococo_location() -> Location {
 	Location::new(
 		2,
-		[
-			GlobalConsensus(NetworkId::Rococo),
-			Parachain(BridgeHubRococo::para_id().into()),
-		],
+		[GlobalConsensus(NetworkId::Rococo), Parachain(BridgeHubRococo::para_id().into())],
 	)
 }
 

@@ -125,7 +125,10 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 		xcm::v3::prelude::XCM_VERSION,
 	);
 	// send XCM from AssetHubWestend - ok
-	assert_ok!(send_asset_from_asset_hub_westend(destination.clone(), (native_token.clone(), amount)));
+	assert_ok!(send_asset_from_asset_hub_westend(
+		destination.clone(),
+		(native_token.clone(), amount)
+	));
 
 	// `ExportMessage` on local BridgeHub - fails - remote BridgeHub version not known
 	assert_bridge_hub_westend_message_accepted(false);
@@ -142,7 +145,10 @@ fn send_xcm_through_opened_lane_with_different_xcm_version_on_hops_works() {
 	);
 
 	// send XCM from AssetHubWestend - ok
-	assert_ok!(send_asset_from_asset_hub_westend(destination.clone(), (native_token.clone(), amount)));
+	assert_ok!(send_asset_from_asset_hub_westend(
+		destination.clone(),
+		(native_token.clone(), amount)
+	));
 	assert_bridge_hub_westend_message_accepted(true);
 	assert_bridge_hub_rococo_message_received();
 	// message delivered and processed at destination

@@ -31,8 +31,7 @@ fn test_contract_location_with_network_converts_successfully() {
 
 #[test]
 fn test_contract_location_with_incorrect_location_fails_convert() {
-	let contract_location =
-		Location::new(2, [GlobalConsensus(Polkadot), Parachain(1000)]);
+	let contract_location = Location::new(2, [GlobalConsensus(Polkadot), Parachain(1000)]);
 
 	assert_eq!(
 		GlobalConsensusEthereumConvertsFor::<[u8; 32]>::convert_location(&contract_location),

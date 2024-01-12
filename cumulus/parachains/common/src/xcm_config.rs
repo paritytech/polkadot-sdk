@@ -142,10 +142,7 @@ impl<AssetLocation: Get<Location>> ContainsPair<Asset, Location>
 pub struct ParentRelayOrSiblingParachains;
 impl Contains<Location> for ParentRelayOrSiblingParachains {
 	fn contains(location: &Location) -> bool {
-		matches!(
-			location.unpack(),
-			(1, []) | (1, [Parachain(_)])
-		)
+		matches!(location.unpack(), (1, []) | (1, [Parachain(_)]))
 	}
 }
 

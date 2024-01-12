@@ -79,11 +79,7 @@ impl<Call> XcmWeightInfo<Call> for PeopleWestendXcmWeight<Call> {
 	fn transfer_asset(assets: &Assets, _dest: &Location) -> Weight {
 		assets.weigh_assets(XcmFungibleWeight::<Runtime>::transfer_asset())
 	}
-	fn transfer_reserve_asset(
-		assets: &Assets,
-		_dest: &Location,
-		_xcm: &Xcm<()>,
-	) -> Weight {
+	fn transfer_reserve_asset(assets: &Assets, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
 		assets.weigh_assets(XcmFungibleWeight::<Runtime>::transfer_reserve_asset())
 	}
 	fn transact(
@@ -125,11 +121,7 @@ impl<Call> XcmWeightInfo<Call> for PeopleWestendXcmWeight<Call> {
 		let weight = assets.weigh_assets(XcmFungibleWeight::<Runtime>::deposit_asset());
 		hardcoded_weight.min(weight)
 	}
-	fn deposit_reserve_asset(
-		assets: &AssetFilter,
-		_dest: &Location,
-		_xcm: &Xcm<()>,
-	) -> Weight {
+	fn deposit_reserve_asset(assets: &AssetFilter, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
 		assets.weigh_assets(XcmFungibleWeight::<Runtime>::deposit_reserve_asset())
 	}
 	fn exchange_asset(_give: &AssetFilter, _receive: &Assets, _maximal: &bool) -> Weight {
@@ -142,11 +134,7 @@ impl<Call> XcmWeightInfo<Call> for PeopleWestendXcmWeight<Call> {
 	) -> Weight {
 		assets.weigh_assets(XcmGeneric::<Runtime>::initiate_reserve_withdraw())
 	}
-	fn initiate_teleport(
-		assets: &AssetFilter,
-		_dest: &Location,
-		_xcm: &Xcm<()>,
-	) -> Weight {
+	fn initiate_teleport(assets: &AssetFilter, _dest: &Location, _xcm: &Xcm<()>) -> Weight {
 		// Hardcoded till the XCM pallet is fixed
 		let hardcoded_weight = Weight::from_parts(200_000_000_u64, 0);
 		let weight = assets.weigh_assets(XcmFungibleWeight::<Runtime>::initiate_teleport());

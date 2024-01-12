@@ -56,10 +56,7 @@ fn create_agent_bad_origin() {
 	new_test_ext(true).execute_with(|| {
 		// relay chain location not allowed
 		assert_noop!(
-			EthereumSystem::create_agent(make_xcm_origin(Location::new(
-				1,
-				[],
-			))),
+			EthereumSystem::create_agent(make_xcm_origin(Location::new(1, [],))),
 			BadOrigin,
 		);
 
@@ -293,10 +290,7 @@ fn create_channel_bad_origin() {
 			EthereumSystem::create_channel(
 				make_xcm_origin(Location::new(
 					1,
-					[
-						Parachain(2000),
-						Junction::AccountId32 { network: None, id: [67u8; 32] }
-					],
+					[Parachain(2000), Junction::AccountId32 { network: None, id: [67u8; 32] }],
 				)),
 				OperatingMode::Normal,
 			),
@@ -359,10 +353,7 @@ fn update_channel_bad_origin() {
 
 		// relay chain location not allowed
 		assert_noop!(
-			EthereumSystem::update_channel(
-				make_xcm_origin(Location::new(1, [])),
-				mode,
-			),
+			EthereumSystem::update_channel(make_xcm_origin(Location::new(1, [])), mode,),
 			BadOrigin,
 		);
 
@@ -371,10 +362,7 @@ fn update_channel_bad_origin() {
 			EthereumSystem::update_channel(
 				make_xcm_origin(Location::new(
 					1,
-					[
-						Parachain(2000),
-						Junction::AccountId32 { network: None, id: [67u8; 32] }
-					],
+					[Parachain(2000), Junction::AccountId32 { network: None, id: [67u8; 32] }],
 				)),
 				mode,
 			),
@@ -532,10 +520,7 @@ fn force_transfer_native_from_agent_bad_origin() {
 				Box::new(
 					Location::new(
 						1,
-						[
-							Parachain(2000),
-							Junction::AccountId32 { network: None, id: [67u8; 32] }
-						],
+						[Parachain(2000), Junction::AccountId32 { network: None, id: [67u8; 32] }],
 					)
 					.into()
 				),

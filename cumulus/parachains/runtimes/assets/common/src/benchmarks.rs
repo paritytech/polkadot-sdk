@@ -23,8 +23,7 @@ pub struct AssetPairFactory<Target, SelfParaId, PalletId, L = Location>(
 	PhantomData<(Target, SelfParaId, PalletId, L)>,
 );
 impl<Target: Get<L>, SelfParaId: Get<ParaId>, PalletId: Get<u32>, L: TryFrom<Location>>
-	pallet_asset_conversion::BenchmarkHelper<L>
-	for AssetPairFactory<Target, SelfParaId, PalletId, L>
+	pallet_asset_conversion::BenchmarkHelper<L> for AssetPairFactory<Target, SelfParaId, PalletId, L>
 {
 	fn create_pair(seed1: u32, seed2: u32) -> (L, L) {
 		let with_id = Location::new(

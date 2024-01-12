@@ -83,8 +83,8 @@ use parachains_common::{
 use sp_runtime::{Perbill, RuntimeDebug};
 use xcm_config::{
 	ForeignAssetsConvertedConcreteId, ForeignCreatorsSovereignAccountOf, GovernanceLocation,
-	PoolAssetsConvertedConcreteId, TokenLocation,
-	TokenLocationV3, TrustBackedAssetsConvertedConcreteId, TrustBackedAssetsPalletLocationV3,
+	PoolAssetsConvertedConcreteId, TokenLocation, TokenLocationV3,
+	TrustBackedAssetsConvertedConcreteId, TrustBackedAssetsPalletLocationV3,
 };
 
 #[cfg(any(feature = "std", test))]
@@ -94,12 +94,12 @@ pub use sp_runtime::BuildStorage;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 // We exclude `Assets` since it's the name of a pallet
-use xcm::latest::prelude::{AssetId, BodyId};
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
 	Asset, Fungible, Here, InteriorLocation, Junction, Junction::*, Location, NetworkId,
 	NonFungible, Parent, ParentThen, Response, XCM_VERSION,
 };
+use xcm::latest::prelude::{AssetId, BodyId};
 
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 

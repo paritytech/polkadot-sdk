@@ -23,20 +23,14 @@ mod teleport;
 pub(crate) fn asset_hub_westend_location() -> Location {
 	Location::new(
 		2,
-		[
-			GlobalConsensus(NetworkId::Westend),
-			Parachain(AssetHubWestend::para_id().into()),
-		],
+		[GlobalConsensus(NetworkId::Westend), Parachain(AssetHubWestend::para_id().into())],
 	)
 }
 
 pub(crate) fn bridge_hub_westend_location() -> Location {
 	Location::new(
 		2,
-		[
-			GlobalConsensus(NetworkId::Westend),
-			Parachain(BridgeHubWestend::para_id().into()),
-		],
+		[GlobalConsensus(NetworkId::Westend), Parachain(BridgeHubWestend::para_id().into())],
 	)
 }
 

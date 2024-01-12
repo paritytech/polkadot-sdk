@@ -202,27 +202,15 @@ impl StaticLookup for MockChannelLookup {
 
 pub struct SuccessfulTransactor;
 impl TransactAsset for SuccessfulTransactor {
-	fn can_check_in(
-		_origin: &Location,
-		_what: &Asset,
-		_context: &XcmContext,
-	) -> XcmResult {
+	fn can_check_in(_origin: &Location, _what: &Asset, _context: &XcmContext) -> XcmResult {
 		Ok(())
 	}
 
-	fn can_check_out(
-		_dest: &Location,
-		_what: &Asset,
-		_context: &XcmContext,
-	) -> XcmResult {
+	fn can_check_out(_dest: &Location, _what: &Asset, _context: &XcmContext) -> XcmResult {
 		Ok(())
 	}
 
-	fn deposit_asset(
-		_what: &Asset,
-		_who: &Location,
-		_context: Option<&XcmContext>,
-	) -> XcmResult {
+	fn deposit_asset(_what: &Asset, _who: &Location, _context: Option<&XcmContext>) -> XcmResult {
 		Ok(())
 	}
 

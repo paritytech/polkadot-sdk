@@ -28,10 +28,7 @@ use sp_core::H256;
 use sp_io::hashing::keccak_256;
 use sp_runtime::{traits::AccountIdConversion, RuntimeDebug};
 use sp_std::prelude::*;
-use xcm::prelude::{
-	Junction::Parachain,
-	Location,
-};
+use xcm::prelude::{Junction::Parachain, Location};
 use xcm_builder::{DescribeAllTerminal, DescribeFamily, DescribeLocation, HashedDescription};
 
 /// The ID of an agent contract

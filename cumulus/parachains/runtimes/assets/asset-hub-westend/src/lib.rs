@@ -77,10 +77,9 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use xcm_config::{
-	TrustBackedAssetsPalletLocationV3, WestendLocationV3,
 	ForeignAssetsConvertedConcreteId, PoolAssetsConvertedConcreteId,
-	TrustBackedAssetsConvertedConcreteId, WestendLocation,
-	XcmOriginToTransactDispatchOrigin,
+	TrustBackedAssetsConvertedConcreteId, TrustBackedAssetsPalletLocationV3, WestendLocation,
+	WestendLocationV3, XcmOriginToTransactDispatchOrigin,
 };
 
 #[cfg(any(feature = "std", test))]

@@ -571,10 +571,7 @@ where
 			fun: Fungible(34333299),
 		}])),
 		BuyExecution {
-			fees: Asset {
-				id: AssetId(Location::new(1, [])),
-				fun: Fungible(34333299),
-			},
+			fees: Asset { id: AssetId(Location::new(1, [])), fun: Fungible(34333299) },
 			weight_limit: Unlimited,
 		},
 		ExportMessage {
@@ -582,19 +579,13 @@ where
 			destination: [Parachain(1000)].into(),
 			xcm: Xcm(vec![
 				ReserveAssetDeposited(Assets::from(vec![Asset {
-					id: AssetId(Location::new(
-						2,
-						[GlobalConsensus(Kusama)],
-					)),
+					id: AssetId(Location::new(2, [GlobalConsensus(Kusama)])),
 					fun: Fungible(1000000000000),
 				}])),
 				ClearOrigin,
 				BuyExecution {
 					fees: Asset {
-						id: AssetId(Location::new(
-							2,
-							[GlobalConsensus(Kusama)],
-						)),
+						id: AssetId(Location::new(2, [GlobalConsensus(Kusama)])),
 						fun: Fungible(1000000000000),
 					},
 					weight_limit: Unlimited,
@@ -619,10 +610,7 @@ where
 				]),
 			]),
 		},
-		DepositAsset {
-			assets: Wild(All),
-			beneficiary: Location::new(1, [Parachain(1000)]),
-		},
+		DepositAsset { assets: Wild(All), beneficiary: Location::new(1, [Parachain(1000)]) },
 		SetTopic([
 			36, 224, 250, 165, 82, 195, 67, 110, 160, 170, 140, 87, 217, 62, 201, 164, 42, 98, 219,
 			157, 124, 105, 248, 25, 131, 218, 199, 36, 109, 173, 100, 122,

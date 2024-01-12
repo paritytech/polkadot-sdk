@@ -464,9 +464,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		destination: &Location,
 	) -> Result<(T, InteriorLocation), XcmError> {
 		let reanchor_context = Config::UniversalLocation::get();
-		let reanchored = reanchorable
-			.reanchored(&destination, &reanchor_context)
-			.map_err(|error| {
+		let reanchored =
+			reanchorable.reanchored(&destination, &reanchor_context).map_err(|error| {
 				log::error!(target: "xcm::reanchor", "Failed reanchoring with error {error:?}");
 				XcmError::ReanchorFailed
 			})?;
@@ -660,15 +659,17 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					return Err(XcmError::NoPermission)
 				}
 
-				let dispatch_origin = Config::OriginConverter::convert_origin(origin.clone(), origin_kind)
-					.map_err(|_| {
-						log::trace!(
-							target: "xcm::process_instruction::transact",
-							"Failed to convert origin {origin:?} and origin kind {origin_kind:?} to a local origin."
-						);
+				let dispatch_origin =
+					Config::OriginConverter::convert_origin(origin.clone(), origin_kind).map_err(
+						|_| {
+							log::trace!(
+								target: "xcm::process_instruction::transact",
+								"Failed to convert origin {origin:?} and origin kind {origin_kind:?} to a local origin."
+							);
 
-						XcmError::BadOrigin
-					})?;
+							XcmError::BadOrigin
+						},
+					)?;
 
 				log::trace!(
 					target: "xcm::process_instruction::transact",
