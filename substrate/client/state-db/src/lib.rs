@@ -22,7 +22,6 @@
 //! Canonicalization window tracks a tree of blocks identified by header hash. The in-memory
 //! overlay allows to get any trie node that was inserted in any of the blocks within the window.
 //! The overlay is journaled to the backing database and rebuilt on startup.
-//! There's a limit of 32 blocks that may have the same block number in the canonicalization window.
 //!
 //! Canonicalization function selects one root from the top of the tree and discards all other roots
 //! and their subtrees. Upon canonicalization all trie nodes that were inserted in the block are

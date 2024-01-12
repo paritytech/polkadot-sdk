@@ -30,6 +30,7 @@ use std::collections::{hash_map::Entry, BTreeSet, HashMap, VecDeque};
 const NON_CANONICAL_JOURNAL: &[u8] = b"noncanonical_journal";
 pub(crate) const LAST_CANONICAL: &[u8] = b"last_canonical";
 const OVERLAY_LEVEL_SPAN: &[u8] = b"noncanonical_overlay_span";
+/// Threshold for storing overlay level span in db.
 /// To decrease the number of database operations, the span of some overlay
 /// level will be committed to the database iff span > `OVERLAY_LEVEL_STORE_SPANS_LONGER_THAN`
 const OVERLAY_LEVEL_STORE_SPANS_LONGER_THAN: u64 = 32;
