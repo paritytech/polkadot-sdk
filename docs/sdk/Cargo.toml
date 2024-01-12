@@ -61,6 +61,9 @@ sp-core = { path = "../../substrate/primitives/core" }
 sp-keyring = { path = "../../substrate/primitives/keyring" }
 sp-runtime = { path = "../../substrate/primitives/runtime" }
 
+# XCM
+xcm = { package = "staging-xcm", path = "../../polkadot/xcm" }
+
 [dev-dependencies]
 parity-scale-codec = "3.6.5"
 scale-info = "2.9.0"

@@ -13375,6 +13375,7 @@ dependencies = [
  "staging-chain-spec-builder",
  "staging-node-cli",
  "staging-parachain-info",
+ "staging-xcm",
  "subkey",
  "substrate-wasm-builder",
 ]

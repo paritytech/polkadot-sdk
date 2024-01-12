@@ -40,6 +40,30 @@
 //! - `xcm-simulator`: a playground for trying out different XCM programs and executor
 //!   configurations
 //!
+//! ## Example
+//!
+//! To perform the very usual operation of transferring assets, the following XCM program can be used:
+//!
+#![doc = docify::embed!("src/polkadot_sdk/xcm.rs", example_transfer)]
+//!
 //! ## Get started
 //!
 //! To learn how it works and to get started, go to the [XCM docs](https://paritytech.github.io/xcm-docs/).
+
+use xcm::latest::prelude::*;
+
+#[cfg(test)]
+mod tests {
+    #[docify::export]
+    #[test]
+    fn example_transfer() {
+        let transfer_program = Xcm::<()>(vec![
+            WithdrawAsset((Here, 100u128).into()),
+            BuyExecution { fees: (Here, 100u128).into(), weight_limit: Unlimited },
+            DepositAsset {
+                assets: All.into(),
+                beneficiary: AccountId32 { id: [0u8; 32].into(), network: None }.into(),
+            }
+        ]);
+    }
+}
