@@ -340,7 +340,7 @@
 //! point arithmetic to calculate.
 //!
 //! Let's examine the usage of `Perbill` and how exactly we can use it as an alternative to floating
-//! point numbers in Substrate development. For this scenario, let's say we are demonstrating a
+//! point numbers in development with Substrate. For this scenario, let's say we are demonstrating a
 //! _voting_ system which depends on reaching a certain threshold, or percentage, before it can be
 //! deemed valid.
 //!
