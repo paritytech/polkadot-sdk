@@ -19,7 +19,7 @@
 //! [`PendingResponses`] is responsible for keeping track of pending responses and
 //! polling them. [`Stream`] implemented by [`PendingResponses`] never terminates.
 
-use crate::types::PeerRequest;
+use crate::{types::PeerRequest, LOG_TARGET};
 use futures::{
 	channel::oneshot,
 	future::BoxFuture,
@@ -32,9 +32,6 @@ use sc_network::{request_responses::RequestFailure, types::ProtocolName};
 use sp_runtime::traits::Block as BlockT;
 use std::task::{Context, Poll, Waker};
 use tokio_stream::StreamMap;
-
-/// Log target for this file.
-const LOG_TARGET: &'static str = "sync";
 
 /// Response result.
 type ResponseResult = Result<Result<(Vec<u8>, ProtocolName), RequestFailure>, oneshot::Canceled>;
