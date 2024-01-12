@@ -150,7 +150,7 @@ pub mod pallet {
 		UnknownAssetKind,
 		/// The given asset ID already has an assigned conversion rate and cannot be re-created.
 		AlreadyExists,
-		/// Overflow ocurred when calculating the inverse rate
+		/// Overflow ocurred when calculating the inverse rate.
 		Overflow,
 	}
 
@@ -269,7 +269,7 @@ where
 		let rate = pallet::ConversionRateToNative::<T>::get(asset_kind)
 			.ok_or(pallet::Error::<T>::UnknownAssetKind.into())?;
 
-		// We cannot use saturating_div here so we use checked_div
+		// We cannot use `saturating_div` here so we use `checked_div`.
 		Ok(FixedU128::from_u32(1)
 			.checked_div(&rate)
 			.ok_or(pallet::Error::<T>::Overflow.into())?
