@@ -62,6 +62,12 @@ macro_rules! define_error_codes {
     };
 }
 
+impl From<ReturnErrorCode> for u32 {
+	fn from(code: ReturnErrorCode) -> u32 {
+		code as u32
+	}
+}
+
 define_error_codes! {
 	/// The called function trapped and has its state changes reverted.
 	/// In this case no output buffer is returned.
