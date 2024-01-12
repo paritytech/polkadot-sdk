@@ -377,6 +377,22 @@ pub fn run_worker<F>(
 	{
 		gum::trace!(target: LOG_TARGET, ?security_status, "Enabling security features");
 
+		// First, make sure env vars were cleared, to match the environment we perform the checks
+		// within. (In theory, running checks with different env vars could result in different
+		// outcomes of the checks.)
+		if !security::check_env_vars_were_cleared(&worker_info) {
+			let err = "not all env vars were cleared when spawning the process";
+			gum::error!(
+				target: LOG_TARGET,
+				?worker_info,
+				"{}",
+				err
+			);
+			if security_status.secure_validator_mode {
+				worker_shutdown(worker_info, err);
+			}
+		}
+
 		// Call based on whether we can change root. Error out if it should work but fails.
 		//
 		// NOTE: This should not be called in a multi-threaded context (i.e. inside the tokio
@@ -428,19 +444,6 @@ pub fn run_worker<F>(
 				if security_status.secure_validator_mode {
 					worker_shutdown(worker_info, &err);
 				}
-			}
-		}
-
-		if !security::check_env_vars_were_cleared(&worker_info) {
-			let err = "not all env vars were cleared when spawning the process";
-			gum::error!(
-				target: LOG_TARGET,
-				?worker_info,
-				"{}",
-				err
-			);
-			if security_status.secure_validator_mode {
-				worker_shutdown(worker_info, err);
 			}
 		}
 	}

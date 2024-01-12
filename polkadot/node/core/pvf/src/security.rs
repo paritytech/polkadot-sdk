@@ -128,7 +128,7 @@ type SecureModeResult = std::result::Result<(), SecureModeError>;
 /// Errors related to enabling Secure Validator Mode.
 #[derive(Debug)]
 enum SecureModeError {
-	CannotEnableLandlock(String),
+	CannotEnableLandlock { err: String, abi: u8 },
 	CannotEnableSeccomp(String),
 	CannotUnshareUserNamespaceAndChangeRoot(String),
 	CannotDoSecureClone(String),
@@ -141,7 +141,8 @@ impl SecureModeError {
 		match self {
 			// Landlock is present on relatively recent Linuxes. This is optional if the unshare
 			// capability is present, providing FS sandboxing a different way.
-			CannotEnableLandlock(_) => security_status.can_unshare_user_namespace_and_change_root,
+			CannotEnableLandlock { .. } =>
+				security_status.can_unshare_user_namespace_and_change_root,
 			// seccomp should be present on all modern Linuxes unless it's been disabled.
 			CannotEnableSeccomp(_) => false,
 			// Should always be present on modern Linuxes. If not, Landlock also provides FS
@@ -158,7 +159,7 @@ impl fmt::Display for SecureModeError {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		use SecureModeError::*;
 		match self {
-			CannotEnableLandlock(err) => write!(f, "Cannot enable landlock, a Linux 5.13+ kernel security feature: {err}"),
+			CannotEnableLandlock{err, abi} => write!(f, "Cannot enable landlock (ABI {abi}), a Linux 5.13+ kernel security feature: {err}"),
 			CannotEnableSeccomp(err) => write!(f, "Cannot enable seccomp, a Linux-specific kernel security feature: {err}"),
 			CannotUnshareUserNamespaceAndChangeRoot(err) => write!(f, "Cannot unshare user namespace and change root, which are Linux-specific kernel security features: {err}"),
 			CannotDoSecureClone(err) => write!(f, "Cannot call clone with all sandboxing flags, a Linux-specific kernel security features: {err}"),
@@ -221,32 +222,11 @@ async fn check_can_unshare_user_namespace_and_change_root(
 				.map_err(|err| SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
 					format!("could not create a temporary directory in {:?}: {}", cache_path, err)
 				))?;
-			match tokio::process::Command::new(prepare_worker_program_path)
-				.arg("--check-can-unshare-user-namespace-and-change-root")
-				.arg(cache_dir_tempdir.path())
-				.output()
-				.await
-			{
-				Ok(output) if output.status.success() => Ok(()),
-				Ok(output) => {
-					let stderr = std::str::from_utf8(&output.stderr)
-						.expect("child process writes a UTF-8 string to stderr; qed")
-						.trim();
-					if stderr.is_empty() {
-						Err(SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
-							"not available".into()
-						))
-					} else {
-						Err(SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
-							format!("not available: {}", stderr)
-						))
-					}
-				},
-				Err(err) =>
-					Err(SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
-						format!("could not start child process: {}", err)
-					)),
-			}
+			spawn_process_for_security_check(
+				prepare_worker_program_path,
+				"--check-can-unshare-user-namespace-and-change-root",
+				&[cache_dir_tempdir.path()],
+			).await.map_err(|err| SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(err))
 		} else {
 			Err(SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
 				"only available on Linux".into()
@@ -266,37 +246,17 @@ async fn check_landlock(
 ) -> SecureModeResult {
 	cfg_if::cfg_if! {
 		if #[cfg(target_os = "linux")] {
-			match tokio::process::Command::new(prepare_worker_program_path)
-				.arg("--check-can-enable-landlock")
-				.output()
-				.await
-			{
-				Ok(output) if output.status.success() => Ok(()),
-				Ok(output) => {
-					let abi =
-						polkadot_node_core_pvf_common::worker::security::landlock::LANDLOCK_ABI as u8;
-					let stderr = std::str::from_utf8(&output.stderr)
-						.expect("child process writes a UTF-8 string to stderr; qed")
-						.trim();
-					if stderr.is_empty() {
-						Err(SecureModeError::CannotEnableLandlock(
-							format!("landlock ABI {} not available", abi)
-						))
-					} else {
-						Err(SecureModeError::CannotEnableLandlock(
-							format!("not available: {}", stderr)
-						))
-					}
-				},
-				Err(err) =>
-					Err(SecureModeError::CannotEnableLandlock(
-						format!("could not start child process: {}", err)
-					)),
-			}
+			let abi = polkadot_node_core_pvf_common::worker::security::landlock::LANDLOCK_ABI as u8;
+			spawn_process_for_security_check(
+				prepare_worker_program_path,
+				"--check-can-enable-landlock",
+				std::iter::empty::<&str>(),
+			).await.map_err(|err| SecureModeError::CannotEnableLandlock { err, abi })
 		} else {
-			Err(SecureModeError::CannotEnableLandlock(
-				"only available on Linux".into()
-			))
+			Err(SecureModeError::CannotEnableLandlock {
+				err: "only available on Linux".into(),
+				abi: 0,
+			})
 		}
 	}
 }
@@ -314,31 +274,11 @@ async fn check_seccomp(
 		if #[cfg(target_os = "linux")] {
 			cfg_if::cfg_if! {
 				if #[cfg(target_arch = "x86_64")] {
-					match tokio::process::Command::new(prepare_worker_program_path)
-						.arg("--check-can-enable-seccomp")
-						.output()
-						.await
-					{
-						Ok(output) if output.status.success() => Ok(()),
-						Ok(output) => {
-							let stderr = std::str::from_utf8(&output.stderr)
-								.expect("child process writes a UTF-8 string to stderr; qed")
-								.trim();
-							if stderr.is_empty() {
-								Err(SecureModeError::CannotEnableSeccomp(
-									"not available".into()
-								))
-							} else {
-								Err(SecureModeError::CannotEnableSeccomp(
-									format!("not available: {}", stderr)
-								))
-							}
-						},
-						Err(err) =>
-							Err(SecureModeError::CannotEnableSeccomp(
-								format!("could not start child process: {}", err)
-							)),
-					}
+					spawn_process_for_security_check(
+						prepare_worker_program_path,
+						"--check-can-enable-seccomp",
+						std::iter::empty::<&str>(),
+					).await.map_err(|err| SecureModeError::CannotEnableSeccomp(err))
 				} else {
 					Err(SecureModeError::CannotEnableSeccomp(
 						"only supported on CPUs from the x86_64 family (usually Intel or AMD)".into()
@@ -372,36 +312,51 @@ async fn check_can_do_secure_clone(
 ) -> SecureModeResult {
 	cfg_if::cfg_if! {
 		if #[cfg(target_os = "linux")] {
-			match tokio::process::Command::new(prepare_worker_program_path)
-				.arg("--check-can-do-secure-clone")
-				.output()
-				.await
-			{
-				Ok(output) if output.status.success() => Ok(()),
-				Ok(output) => {
-					let stderr = std::str::from_utf8(&output.stderr)
-						.expect("child process writes a UTF-8 string to stderr; qed")
-						.trim();
-					if stderr.is_empty() {
-						Err(SecureModeError::CannotDoSecureClone(
-							"not available".into()
-						))
-					} else {
-						Err(SecureModeError::CannotDoSecureClone(
-							format!("not available: {}", stderr)
-						))
-					}
-				},
-				Err(err) =>
-					Err(SecureModeError::CannotDoSecureClone(
-						format!("could not start child process: {}", err)
-					)),
-			}
+			spawn_process_for_security_check(
+				prepare_worker_program_path,
+				"--check-can-do-secure-clone",
+				std::iter::empty::<&str>(),
+			).await.map_err(|err| SecureModeError::CannotDoSecureClone(err))
 		} else {
 			Err(SecureModeError::CannotDoSecureClone(
 				"only available on Linux".into()
 			))
 		}
+	}
+}
+
+#[cfg(target_os = "linux")]
+async fn spawn_process_for_security_check<I, S>(
+	prepare_worker_program_path: &Path,
+	check_arg: &'static str,
+	extra_args: I,
+) -> Result<(), String>
+where
+	I: IntoIterator<Item = S>,
+	S: AsRef<std::ffi::OsStr>,
+{
+	let mut command = tokio::process::Command::new(prepare_worker_program_path);
+	// Clear env vars. (In theory, running checks with different env vars could result in different
+	// outcomes of the checks.)
+	command.env_clear();
+	// Add back any env vars we want to keep.
+	if let Ok(value) = std::env::var("RUST_LOG") {
+		command.env("RUST_LOG", value);
+	}
+
+	match command.arg(check_arg).args(extra_args).output().await {
+		Ok(output) if output.status.success() => Ok(()),
+		Ok(output) => {
+			let stderr = std::str::from_utf8(&output.stderr)
+				.expect("child process writes a UTF-8 string to stderr; qed")
+				.trim();
+			if stderr.is_empty() {
+				Err("not available".into())
+			} else {
+				Err(format!("not available: {}", stderr))
+			}
+		},
+		Err(err) => Err(format!("could not start child process: {}", err)),
 	}
 }
 
@@ -411,7 +366,7 @@ mod tests {
 
 	#[test]
 	fn test_secure_mode_error_optionality() {
-		let err = SecureModeError::CannotEnableLandlock(String::new());
+		let err = SecureModeError::CannotEnableLandlock { err: String::new(), abi: 3 };
 		assert!(err.is_allowed_in_secure_mode(&SecurityStatus {
 			secure_validator_mode: true,
 			can_enable_landlock: false,
