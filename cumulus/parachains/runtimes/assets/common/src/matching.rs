@@ -92,8 +92,8 @@ impl<SelfParaId: Get<ParaId>, L: TryFrom<Location> + TryInto<Location> + Clone> 
 	}
 }
 
-/// Checks if `a` is from the expected global consensus network. Checks that `MultiLocation-a`
-/// starts with `MultiLocation-b`, and that network is a foreign consensus system.
+/// Checks if `a` is from the expected global consensus network. Checks that `Location-a`
+/// starts with `Location-b`, and that network is a foreign consensus system.
 pub struct FromNetwork<UniversalLocation, ExpectedNetworkId, L = Location>(
 	sp_std::marker::PhantomData<(UniversalLocation, ExpectedNetworkId, L)>,
 );
@@ -134,7 +134,7 @@ impl<UniversalLocation: Get<InteriorLocation>, ExpectedNetworkId: Get<NetworkId>
 	}
 }
 
-/// Adapter verifies if it is allowed to receive `MultiAsset` from `MultiLocation`.
+/// Adapter verifies if it is allowed to receive `Asset` from `Location`.
 ///
 /// Note: `Location` has to be from a different global consensus.
 pub struct IsTrustedBridgedReserveLocationForConcreteAsset<UniversalLocation, Reserves>(
@@ -176,14 +176,14 @@ mod tests {
 	use frame_support::parameter_types;
 
 	parameter_types! {
-		pub UniversalLocation: InteriorMultiLocation = X2(GlobalConsensus(Rococo), Parachain(1000));
+		pub UniversalLocation: InteriorLocation = [GlobalConsensus(Rococo), Parachain(1000)].into();
 		pub ExpectedNetworkId: NetworkId = Wococo;
 	}
 
 	#[test]
 	fn from_network_contains_works() {
 		// asset and origin from foreign consensus works
-		let asset: MultiLocation = (
+		let asset: Location = (
 			Parent,
 			Parent,
 			GlobalConsensus(Wococo),
@@ -192,12 +192,12 @@ mod tests {
 			GeneralIndex(1),
 		)
 			.into();
-		let origin: MultiLocation =
+		let origin: Location =
 			(Parent, Parent, GlobalConsensus(Wococo), Parachain(1000)).into();
 		assert!(FromNetwork::<UniversalLocation, ExpectedNetworkId>::contains(&asset, &origin));
 
 		// asset and origin from local consensus fails
-		let asset: MultiLocation = (
+		let asset: Location = (
 			Parent,
 			Parent,
 			GlobalConsensus(Rococo),
@@ -206,17 +206,17 @@ mod tests {
 			GeneralIndex(1),
 		)
 			.into();
-		let origin: MultiLocation =
+		let origin: Location =
 			(Parent, Parent, GlobalConsensus(Rococo), Parachain(1000)).into();
 		assert!(!FromNetwork::<UniversalLocation, ExpectedNetworkId>::contains(&asset, &origin));
 
 		// asset and origin from here fails
-		let asset: MultiLocation = (PalletInstance(1), GeneralIndex(1)).into();
-		let origin: MultiLocation = Here.into();
+		let asset: Location = (PalletInstance(1), GeneralIndex(1)).into();
+		let origin: Location = Here.into();
 		assert!(!FromNetwork::<UniversalLocation, ExpectedNetworkId>::contains(&asset, &origin));
 
 		// asset from different consensus fails
-		let asset: MultiLocation = (
+		let asset: Location = (
 			Parent,
 			Parent,
 			GlobalConsensus(Polkadot),
@@ -225,12 +225,12 @@ mod tests {
 			GeneralIndex(1),
 		)
 			.into();
-		let origin: MultiLocation =
+		let origin: Location =
 			(Parent, Parent, GlobalConsensus(Wococo), Parachain(1000)).into();
 		assert!(!FromNetwork::<UniversalLocation, ExpectedNetworkId>::contains(&asset, &origin));
 
 		// origin from different consensus fails
-		let asset: MultiLocation = (
+		let asset: Location = (
 			Parent,
 			Parent,
 			GlobalConsensus(Wococo),
@@ -239,12 +239,12 @@ mod tests {
 			GeneralIndex(1),
 		)
 			.into();
-		let origin: MultiLocation =
+		let origin: Location =
 			(Parent, Parent, GlobalConsensus(Polkadot), Parachain(1000)).into();
 		assert!(!FromNetwork::<UniversalLocation, ExpectedNetworkId>::contains(&asset, &origin));
 
 		// asset and origin from unexpected consensus fails
-		let asset: MultiLocation = (
+		let asset: Location = (
 			Parent,
 			Parent,
 			GlobalConsensus(Polkadot),
@@ -253,7 +253,7 @@ mod tests {
 			GeneralIndex(1),
 		)
 			.into();
-		let origin: MultiLocation =
+		let origin: Location =
 			(Parent, Parent, GlobalConsensus(Polkadot), Parachain(1000)).into();
 		assert!(!FromNetwork::<UniversalLocation, ExpectedNetworkId>::contains(&asset, &origin));
 	}

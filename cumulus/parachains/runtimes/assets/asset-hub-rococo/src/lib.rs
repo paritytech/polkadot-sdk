@@ -83,7 +83,7 @@ use parachains_common::{
 use sp_runtime::{Perbill, RuntimeDebug};
 use xcm_config::{
 	ForeignAssetsConvertedConcreteId, ForeignCreatorsSovereignAccountOf, GovernanceLocation,
-	LocalAndForeignAssetsLocationMatcher, PoolAssetsConvertedConcreteId, TokenLocation,
+	PoolAssetsConvertedConcreteId, TokenLocation,
 	TokenLocationV3, TrustBackedAssetsConvertedConcreteId, TrustBackedAssetsPalletLocationV3,
 };
 
@@ -321,8 +321,9 @@ pub type LocalAndForeignAssets = fungibles::UnionOf<
 	Assets,
 	ForeignAssets,
 	LocalFromLeft<
-		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation>,
+		AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocationV3>,
 		AssetIdForTrustBackedAssets,
+		xcm::v3::Location,
 	>,
 	xcm::v3::Location,
 	AccountId,
@@ -336,7 +337,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type Assets = fungible::UnionOf<
 		Balances,
 		LocalAndForeignAssets,
-		TargetFromLeft<TokenLocationV3>,
+		TargetFromLeft<TokenLocationV3, xcm::v3::Location>,
 		Self::AssetKind,
 		Self::AccountId,
 	>;
@@ -358,7 +359,8 @@ impl pallet_asset_conversion::Config for Runtime {
 	type BenchmarkHelper = assets_common::benchmarks::AssetPairFactory<
 		TokenLocationV3,
 		parachain_info::Pallet<Runtime>,
-		xcm_config::AssetsPalletIndex,
+		xcm_config::TrustBackedAssetsPalletIndex,
+		xcm::v3::Location,
 	>;
 }
 

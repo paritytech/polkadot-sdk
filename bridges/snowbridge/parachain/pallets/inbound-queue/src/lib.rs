@@ -54,7 +54,7 @@ use scale_info::TypeInfo;
 use sp_core::{H160, H256};
 use sp_std::{convert::TryFrom, vec};
 use xcm::prelude::{
-	send_xcm, Instruction::SetTopic, Junction::*, Junctions::*, Location,
+	send_xcm, Instruction::SetTopic, Junction::*, Location,
 	SendError as XcmpSendError, SendXcm, Xcm, XcmContext, XcmHash,
 };
 use xcm_executor::traits::TransactAsset;

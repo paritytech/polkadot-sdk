@@ -49,8 +49,8 @@ fn swap_locally_on_chain_using_local_assets() {
 
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::create_pool(
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
-			Box::new(asset_native),
-			Box::new(asset_one),
+			asset_native.clone(),
+			asset_one.clone(),
 		));
 
 		assert_expected_events!(
@@ -62,8 +62,8 @@ fn swap_locally_on_chain_using_local_assets() {
 
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::add_liquidity(
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
-			Box::new(asset_native),
-			Box::new(asset_one),
+			asset_native.clone(),
+			asset_one.clone(),
 			1_000_000_000_000,
 			2_000_000_000_000,
 			0,
@@ -78,7 +78,7 @@ fn swap_locally_on_chain_using_local_assets() {
 			]
 		);
 
-		let path = vec![Box::new(asset_native), Box::new(asset_one)];
+		let path = vec![asset_native.clone(), asset_one.clone()];
 
 		assert_ok!(
 			<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::swap_exact_tokens_for_tokens(
@@ -103,8 +103,8 @@ fn swap_locally_on_chain_using_local_assets() {
 
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::remove_liquidity(
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
-			Box::new(asset_native),
-			Box::new(asset_one),
+			asset_native,
+			asset_one,
 			1414213562273 - EXISTENTIAL_DEPOSIT * 2, // all but the 2 EDs can't be retrieved.
 			0,
 			0,
@@ -170,7 +170,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		// 4. Create pool:
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::create_pool(
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
-			Box::new(asset_native),
+			asset_native.clone(),
 			Box::new(foreign_asset_at_asset_hub_rococo),
 		));
 
@@ -184,7 +184,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		// 5. Add liquidity:
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::add_liquidity(
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(sov_penpal_on_ahr.clone()),
-			Box::new(asset_native),
+			asset_native.clone(),
 			Box::new(foreign_asset_at_asset_hub_rococo),
 			1_000_000_000_000,
 			2_000_000_000_000,
@@ -203,7 +203,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		);
 
 		// 6. Swap!
-		let path = vec![Box::new(asset_native), Box::new(foreign_asset_at_asset_hub_rococo)];
+		let path = vec![asset_native.clone(), Box::new(foreign_asset_at_asset_hub_rococo)];
 
 		assert_ok!(
 			<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::swap_exact_tokens_for_tokens(
@@ -229,7 +229,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		// 7. Remove liquidity
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::remove_liquidity(
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(sov_penpal_on_ahr.clone()),
-			Box::new(asset_native),
+			asset_native.clone(),
 			Box::new(foreign_asset_at_asset_hub_rococo),
 			1414213562273 - 2_000_000_000, // all but the 2 EDs can't be retrieved.
 			0,
@@ -268,7 +268,7 @@ fn cannot_create_pool_from_pool_assets() {
 		assert_matches::assert_matches!(
 			<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::create_pool(
 				<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
-				Box::new(asset_native),
+				asset_native,
 				Box::new(asset_one),
 			),
 			Err(DispatchError::Module(ModuleError{index: _, error: _, message})) => assert_eq!(message, Some("Unknown"))

@@ -52,7 +52,7 @@ use sp_runtime::{
 };
 use sp_std::collections::vec_deque::VecDeque;
 use std::{cell::RefCell, collections::HashMap};
-use xcm::v3::{MultiAssets, MultiLocation, SendError, SendResult, SendXcm, Xcm, XcmHash};
+use xcm::v4::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlockU32<Test>;
@@ -385,10 +385,10 @@ pub struct DummyXcmSender;
 impl SendXcm for DummyXcmSender {
 	type Ticket = ();
 	fn validate(
-		_: &mut Option<MultiLocation>,
+		_: &mut Option<Location>,
 		_: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
-		Ok(((), MultiAssets::new()))
+		Ok(((), Assets::new()))
 	}
 
 	/// Actually carry out the delivery operation for a previously validated message sending.

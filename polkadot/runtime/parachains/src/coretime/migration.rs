@@ -47,7 +47,7 @@ mod v_coretime {
 	use sp_std::vec::Vec;
 	use sp_std::{iter, prelude::*, result};
 	use xcm::v4::{
-		send_xcm, Instruction, Junction, Junctions, Location, SendError, WeightLimit, Xcm,
+		send_xcm, Instruction, Junction, Location, SendError, WeightLimit, Xcm,
 	};
 
 	/// Return information about a legacy lease of a parachain.

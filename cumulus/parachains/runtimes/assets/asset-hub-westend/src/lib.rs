@@ -729,12 +729,12 @@ impl pallet_collator_selection::Config for Runtime {
 	type WeightInfo = weights::pallet_collator_selection::WeightInfo<Runtime>;
 }
 
-// impl pallet_asset_conversion_tx_payment::Config for Runtime {
-// 	type RuntimeEvent = RuntimeEvent;
-// 	type Fungibles = LocalAndForeignAssets;
-// 	type OnChargeAssetTransaction =
-// 		AssetConversionAdapter<Balances, AssetConversion, WestendLocationV3>;
-// }
+impl pallet_asset_conversion_tx_payment::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Fungibles = LocalAndForeignAssets;
+	type OnChargeAssetTransaction =
+		AssetConversionAdapter<Balances, AssetConversion, WestendLocationV3>;
+}
 
 parameter_types! {
 	pub const UniquesCollectionDeposit: Balance = UNITS / 10; // 1 / 10 UNIT deposit to create a collection
@@ -880,7 +880,7 @@ construct_runtime!(
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 11,
 		// AssetTxPayment: pallet_asset_tx_payment::{Pallet, Event<T>} = 12,
-		// AssetTxPayment: pallet_asset_conversion_tx_payment::{Pallet, Event<T>} = 13,
+		AssetTxPayment: pallet_asset_conversion_tx_payment::{Pallet, Event<T>} = 13,
 
 		// Collator support. the order of these 5 are important and shall not change.
 		Authorship: pallet_authorship::{Pallet, Storage} = 20,
@@ -930,7 +930,7 @@ pub type SignedExtra = (
 	frame_system::CheckEra<Runtime>,
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
-	// pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
+	pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =

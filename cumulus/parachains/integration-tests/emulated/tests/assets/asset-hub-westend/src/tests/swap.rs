@@ -48,8 +48,8 @@ fn swap_locally_on_chain_using_local_assets() {
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::create_pool(
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
-			Box::new(asset_native),
-			Box::new(asset_one),
+			asset_native.clone(),
+			asset_one.clone(),
 		));
 
 		assert_expected_events!(
@@ -61,8 +61,8 @@ fn swap_locally_on_chain_using_local_assets() {
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::add_liquidity(
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
-			Box::new(asset_native),
-			Box::new(asset_one),
+			asset_native.clone(),
+			asset_one.clone(),
 			1_000_000_000_000,
 			2_000_000_000_000,
 			0,
@@ -77,7 +77,7 @@ fn swap_locally_on_chain_using_local_assets() {
 			]
 		);
 
-		let path = vec![Box::new(asset_native), Box::new(asset_one)];
+		let path = vec![asset_native.clone(), asset_one.clone()];
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::swap_exact_tokens_for_tokens(
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
@@ -100,8 +100,8 @@ fn swap_locally_on_chain_using_local_assets() {
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::remove_liquidity(
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
-			Box::new(asset_native),
-			Box::new(asset_one),
+			asset_native.clone(),
+			asset_one.clone(),
 			1414213562273 - 2_000_000_000, // all but the 2 EDs can't be retrieved.
 			0,
 			0,
@@ -167,7 +167,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		// 4. Create pool:
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::create_pool(
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
-			Box::new(asset_native),
+			asset_native.clone(),
 			Box::new(foreign_asset_at_asset_hub_westend),
 		));
 
@@ -181,7 +181,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		// 5. Add liquidity:
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::add_liquidity(
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(sov_penpal_on_ahw.clone()),
-			Box::new(asset_native),
+			asset_native.clone(),
 			Box::new(foreign_asset_at_asset_hub_westend),
 			1_000_000_000_000,
 			2_000_000_000_000,
@@ -200,7 +200,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		);
 
 		// 6. Swap!
-		let path = vec![Box::new(asset_native), Box::new(foreign_asset_at_asset_hub_westend)];
+		let path = vec![asset_native.clone(), Box::new(foreign_asset_at_asset_hub_westend)];
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::swap_exact_tokens_for_tokens(
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
@@ -224,7 +224,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		// 7. Remove liquidity
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::remove_liquidity(
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(sov_penpal_on_ahw.clone()),
-			Box::new(asset_native),
+			asset_native.clone(),
 			Box::new(foreign_asset_at_asset_hub_westend),
 			1414213562273 - 2_000_000_000, // all but the 2 EDs can't be retrieved.
 			0,
@@ -263,7 +263,7 @@ fn cannot_create_pool_from_pool_assets() {
 		assert_matches::assert_matches!(
 			<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::create_pool(
 				<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
-				Box::new(asset_native),
+				asset_native,
 				Box::new(asset_one),
 			),
 			Err(DispatchError::Module(ModuleError{index: _, error: _, message})) => assert_eq!(message, Some("Unknown"))
