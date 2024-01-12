@@ -74,7 +74,7 @@ use pallet_nfts::PalletFeatures;
 use parachains_common::{
 	impls::DealWithFees,
 	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
-	rococo::{currency::*, fee::WeightToFee},
+	rococo::{consensus::RELAY_CHAIN_SLOT_DURATION_MILLIS, currency::*, fee::WeightToFee},
 	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, BlockNumber, Hash, Header, Nonce,
 	Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, NORMAL_DISPATCH_RATIO,
 };
@@ -147,8 +147,6 @@ const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
 /// How many parachain blocks are processed by the relay chain per parent. Limits the
 /// number of blocks authored per slot.
 const BLOCK_PROCESSING_VELOCITY: u32 = 1;
-/// Relay chain slot duration, in milliseconds.
-pub const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 
 /// This determines the average expected block time that we are targeting.
 /// Blocks will be produced at a minimum duration defined by `SLOT_DURATION`.
@@ -156,7 +154,7 @@ pub const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 /// up by `pallet_aura` to implement `fn slot_duration()`.
 ///
 /// Change this to adjust the block time.
-pub const MILLISECS_PER_BLOCK: u64 = 6000; // TODO: See if we make 6s blocks.
+pub const MILLISECS_PER_BLOCK: u64 = 6000;
 pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 
 parameter_types! {
@@ -739,8 +737,6 @@ impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
 	type MaxAuthorities = ConstU32<100_000>;
-	// TODO: should this be true? Guide says false, but see:
-	// https://github.com/paritytech/polkadot-sdk/pull/1619/files#diff-17c0e44911184254502a1d0b157c58e706eaa938cd0b1fe34c0456e541066a2fR234
 	type AllowMultipleBlocksPerSlot = ConstBool<true>;
 	#[cfg(feature = "experimental")]
 	type SlotDuration = ConstU64<SLOT_DURATION>;
@@ -1096,7 +1092,6 @@ impl_runtime_apis! {
 		}
 	}
 
-	// TODO: Step 3.2 seems redundant?
 	impl cumulus_primitives_aura::AuraUnincludedSegmentApi<Block> for Runtime {
 		fn can_build_upon(
 			included_hash: <Block as BlockT>::Hash,
