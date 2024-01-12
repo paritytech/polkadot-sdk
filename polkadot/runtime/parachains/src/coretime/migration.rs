@@ -278,10 +278,10 @@ mod v_coretime {
 
 		for message in messages {
 			send_xcm::<SendXcm>(
-				MultiLocation {
-					parents: 0,
-					interior: Junctions::X1(Junction::Parachain(T::BrokerId::get())),
-				},
+				Location::new(
+					0,
+					Junction::Parachain(T::BrokerId::get()),
+				),
 				message,
 			)?;
 		}
