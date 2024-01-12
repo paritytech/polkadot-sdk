@@ -582,6 +582,7 @@
 <a href="#582" id="582">582</a>
 <a href="#583" id="583">583</a>
 <a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -601,8 +602,9 @@
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use crate</span>::{
-	chain_sync::{PeerSync, PeerSyncState},
 	request_metrics::Metrics,
+	strategy::chain_sync::{PeerSync, PeerSyncState},
+	LOG_TARGET,
 };
 <span class="kw">use </span>fork_tree::ForkTree;
 <span class="kw">use </span>libp2p::PeerId;
@@ -686,7 +688,7 @@
 				// ignore the `Revert` error.
 			</span>},
 			<span class="prelude-val">Err</span>(err) =&gt; {
-				<span class="macro">debug!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Failed to insert request {:?} into tree: {}&quot;</span>, request, err);
+				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Failed to insert request {:?} into tree: {}&quot;</span>, request, err);
 			},
 			<span class="kw">_ </span>=&gt; (),
 		}
@@ -710,7 +712,7 @@
 		// messages to chain sync.
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(request) = <span class="self">self</span>.active_requests.remove(<span class="kw-2">&amp;</span>who) {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(r) = resp {
-				<span class="macro">trace!</span>(target: <span class="string">&quot;sync&quot;</span>,
+				<span class="macro">trace!</span>(target: LOG_TARGET,
 					<span class="string">&quot;Queuing import of {} from {:?} for {:?}&quot;</span>,
 					<span class="self">self</span>.request_type_name, who, request,
 				);
@@ -718,7 +720,7 @@
 				<span class="self">self</span>.importing_requests.insert(request);
 				<span class="kw">return </span><span class="prelude-val">Some</span>((who, request.<span class="number">0</span>, request.<span class="number">1</span>, r))
 			} <span class="kw">else </span>{
-				<span class="macro">trace!</span>(target: <span class="string">&quot;sync&quot;</span>,
+				<span class="macro">trace!</span>(target: LOG_TARGET,
 					<span class="string">&quot;Empty {} response from {:?} for {:?}&quot;</span>,
 					<span class="self">self</span>.request_type_name, who, request,
 				);
@@ -726,7 +728,7 @@
 			<span class="self">self</span>.failed_requests.entry(request).or_default().push((who, Instant::now()));
 			<span class="self">self</span>.pending_requests.push_front(request);
 		} <span class="kw">else </span>{
-			<span class="macro">trace!</span>(target: <span class="string">&quot;sync&quot;</span>,
+			<span class="macro">trace!</span>(target: LOG_TARGET,
 				<span class="string">&quot;No active {} request to {:?}&quot;</span>,
 				<span class="self">self</span>.request_type_name, who,
 			);
@@ -801,7 +803,7 @@
 		};
 
 		<span class="kw">if </span><span class="self">self</span>.tree.finalize_root(<span class="kw-2">&amp;</span>finalized_hash).is_none() {
-			<span class="macro">warn!</span>(target: <span class="string">&quot;sync&quot;</span>,
+			<span class="macro">warn!</span>(target: LOG_TARGET,
 				<span class="string">&quot;‼️ Imported {:?} {:?} which isn&#39;t a root in the tree: {:?}&quot;</span>,
 				finalized_hash, finalized_number, <span class="self">self</span>.tree.roots().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
 			);
@@ -906,7 +908,7 @@
 				</span>}
 				<span class="self">self</span>.extras.active_requests.insert(<span class="kw-2">*</span>peer, request);
 
-				<span class="macro">trace!</span>(target: <span class="string">&quot;sync&quot;</span>,
+				<span class="macro">trace!</span>(target: LOG_TARGET,
 					<span class="string">&quot;Sending {} request to {:?} for {:?}&quot;</span>,
 					<span class="self">self</span>.extras.request_type_name, peer, request,
 				);
@@ -929,7 +931,7 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span><span class="kw">crate</span>::chain_sync::PeerSync;
+	<span class="kw">use </span><span class="kw">crate</span>::strategy::chain_sync::PeerSync;
 	<span class="kw">use </span>quickcheck::{Arbitrary, Gen, QuickCheck};
 	<span class="kw">use </span>sp_blockchain::Error <span class="kw">as </span>ClientError;
 	<span class="kw">use </span>sp_test_primitives::{Block, BlockNumber, Hash};

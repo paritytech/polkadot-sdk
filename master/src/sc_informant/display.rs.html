@@ -244,8 +244,6 @@
 <a href="#244" id="244">244</a>
 <a href="#245" id="245">245</a>
 <a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
-<a href="#248" id="248">248</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -269,10 +267,7 @@
 <span class="kw">use </span>log::info;
 <span class="kw">use </span>sc_client_api::ClientInfo;
 <span class="kw">use </span>sc_network::NetworkStatus;
-<span class="kw">use </span>sc_network_sync::{
-	warp::{WarpSyncPhase, WarpSyncProgress},
-	SyncState, SyncStatus,
-};
+<span class="kw">use </span>sc_network_sync::{SyncState, SyncStatus, WarpSyncPhase, WarpSyncProgress};
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, CheckedDiv, NumberFor, Saturating, Zero};
 <span class="kw">use </span>std::{fmt, time::Instant};
 
@@ -378,9 +373,10 @@
 					),
 				(<span class="kw">_</span>, <span class="prelude-val">Some</span>(state), <span class="kw">_</span>) =&gt; (
 					<span class="string">&quot;⚙️ &quot;</span>,
-					<span class="string">&quot;Downloading state&quot;</span>.into(),
+					<span class="string">&quot;State sync&quot;</span>.into(),
 					<span class="macro">format!</span>(
-						<span class="string">&quot;, {}%, {:.2} Mib&quot;</span>,
+						<span class="string">&quot;, {}, {}%, {:.2} Mib&quot;</span>,
+						state.phase,
 						state.percentage,
 						(state.size <span class="kw">as </span>f32) / (<span class="number">1024f32 </span>* <span class="number">1024f32</span>)
 					),

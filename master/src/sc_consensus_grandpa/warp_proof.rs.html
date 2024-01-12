@@ -472,7 +472,7 @@
 	BlockNumberOps, GrandpaJustification, SharedAuthoritySet,
 };
 <span class="kw">use </span>sc_client_api::Backend <span class="kw">as </span>ClientBackend;
-<span class="kw">use </span>sc_network_sync::warp::{EncodedProof, VerificationResult, WarpSyncProvider};
+<span class="kw">use </span>sc_network_sync::strategy::warp::{EncodedProof, VerificationResult, WarpSyncProvider};
 <span class="kw">use </span>sp_blockchain::{Backend <span class="kw">as </span>BlockchainBackend, HeaderBackend};
 <span class="kw">use </span>sp_consensus_grandpa::{AuthorityList, SetId, GRANDPA_ENGINE_ID};
 <span class="kw">use </span>sp_runtime::{

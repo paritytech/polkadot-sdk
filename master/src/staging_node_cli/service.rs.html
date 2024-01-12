@@ -1071,7 +1071,7 @@
 <span class="kw">use </span>sc_client_api::{Backend, BlockBackend};
 <span class="kw">use </span>sc_consensus_babe::{<span class="self">self</span>, SlotProportion};
 <span class="kw">use </span>sc_network::{event::Event, NetworkEventStream, NetworkService};
-<span class="kw">use </span>sc_network_sync::{warp::WarpSyncParams, SyncingService};
+<span class="kw">use </span>sc_network_sync::{strategy::warp::WarpSyncParams, SyncingService};
 <span class="kw">use </span>sc_service::{config::Configuration, error::Error <span class="kw">as </span>ServiceError, RpcHandlers, TaskManager};
 <span class="kw">use </span>sc_statement_store::Store <span class="kw">as </span>StatementStore;
 <span class="kw">use </span>sc_telemetry::{Telemetry, TelemetryWorker};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["SyncEvent","SyncState"],"mod":["block_relay_protocol","block_request_handler","blocks","engine","mock","service","state","state_request_handler","warp","warp_request_handler"],"struct":["SyncStatus"],"trait":["SyncEventStream","SyncStatusProvider"]};
+window.SIDEBAR_ITEMS = {"enum":["SyncEvent","SyncState"],"mod":["block_relay_protocol","block_request_handler","blocks","engine","mock","service","state_request_handler","strategy","warp_request_handler"],"struct":["SyncStatus"],"trait":["SyncEventStream","SyncStatusProvider"]};

@@ -646,6 +646,7 @@
 <a href="#646" id="646">646</a>
 <a href="#647" id="647">647</a>
 <a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -664,7 +665,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span>libp2p::PeerId;
+</span><span class="kw">use </span><span class="kw">crate</span>::LOG_TARGET;
+<span class="kw">use </span>libp2p::PeerId;
 <span class="kw">use </span>log::trace;
 <span class="kw">use </span>sc_network_common::sync::message;
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, NumberFor, One};
@@ -735,10 +737,10 @@
 
 		<span class="kw">match </span><span class="self">self</span>.blocks.get(<span class="kw-2">&amp;</span>start) {
 			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>BlockRangeState::Downloading { .. }) =&gt; {
-				<span class="macro">trace!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Inserting block data still marked as being downloaded: {}&quot;</span>, start);
+				<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Inserting block data still marked as being downloaded: {}&quot;</span>, start);
 			},
 			<span class="prelude-val">Some</span>(BlockRangeState::Complete(existing)) <span class="kw">if </span>existing.len() &gt;= blocks.len() =&gt; {
-				<span class="macro">trace!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Ignored block data already downloaded: {}&quot;</span>, start);
+				<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Ignored block data already downloaded: {}&quot;</span>, start);
 				<span class="kw">return
 			</span>},
 			<span class="kw">_ </span>=&gt; (),
@@ -810,7 +812,7 @@
 		};
 		<span class="comment">// crop to peers best
 		</span><span class="kw">if </span>range.start &gt; peer_best {
-			<span class="macro">trace!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Out of range for peer {} ({} vs {})&quot;</span>, who, range.start, peer_best);
+			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Out of range for peer {} ({} vs {})&quot;</span>, who, range.start, peer_best);
 			<span class="kw">return </span><span class="prelude-val">None
 		</span>}
 		range.end = cmp::min(peer_best + One::one(), range.end);
@@ -821,7 +823,7 @@
 			.next()
 			.map_or(<span class="bool-val">false</span>, |(n, <span class="kw">_</span>)| range.start &gt; <span class="kw-2">*</span>n + max_ahead.into())
 		{
-			<span class="macro">trace!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Too far ahead for peer {} ({})&quot;</span>, who, range.start);
+			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Too far ahead for peer {} ({})&quot;</span>, who, range.start);
 			<span class="kw">return </span><span class="prelude-val">None
 		</span>}
 
@@ -872,7 +874,7 @@
 			};
 			<span class="kw-2">*</span>range_data = BlockRangeState::Queued { len };
 		}
-		<span class="macro">trace!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;{} blocks ready for import&quot;</span>, ready.len());
+		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;{} blocks ready for import&quot;</span>, ready.len());
 		ready
 	}
 
@@ -883,7 +885,7 @@
 				<span class="self">self</span>.blocks.remove(<span class="kw-2">&amp;</span>block_num);
 				block_num += One::one();
 			}
-			<span class="macro">trace!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Cleared blocks from {:?} to {:?}&quot;</span>, from, to);
+			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Cleared blocks from {:?} to {:?}&quot;</span>, from, to);
 		}
 	}
 

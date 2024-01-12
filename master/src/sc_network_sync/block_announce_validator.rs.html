@@ -408,9 +408,6 @@
 <a href="#408" id="408">408</a>
 <a href="#409" id="409">409</a>
 <a href="#410" id="410">410</a>
-<a href="#411" id="411">411</a>
-<a href="#412" id="412">412</a>
-<a href="#413" id="413">413</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -432,7 +429,7 @@
 </span><span class="doccomment">//! [`BlockAnnounceValidator`] is responsible for async validation of block announcements.
 //! [`Stream`] implemented by [`BlockAnnounceValidator`] never terminates.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::futures_stream::FuturesStream;
+</span><span class="kw">use crate</span>::{futures_stream::FuturesStream, LOG_TARGET};
 <span class="kw">use </span>futures::{stream::FusedStream, Future, FutureExt, Stream, StreamExt};
 <span class="kw">use </span>libp2p::PeerId;
 <span class="kw">use </span>log::{debug, error, trace, warn};
@@ -445,9 +442,6 @@
 	pin::Pin,
 	task::{Context, Poll},
 };
-
-<span class="doccomment">/// Log target for this file.
-</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;sync&quot;</span>;
 
 <span class="doccomment">/// Maximum number of concurrent block announce validations.
 ///

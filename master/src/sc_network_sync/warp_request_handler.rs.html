@@ -152,6 +152,9 @@
 <a href="#152" id="152">152</a>
 <a href="#153" id="153">153</a>
 <a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
 
@@ -174,7 +177,10 @@
 <span class="kw">use </span>futures::{channel::oneshot, stream::StreamExt};
 <span class="kw">use </span>log::debug;
 
-<span class="kw">use </span><span class="kw">crate</span>::warp::{EncodedProof, WarpProofRequest, WarpSyncProvider};
+<span class="kw">use crate</span>::{
+	strategy::warp::{EncodedProof, WarpProofRequest, WarpSyncProvider},
+	LOG_TARGET,
+};
 <span class="kw">use </span>sc_network::{
 	config::ProtocolId,
 	request_responses::{
@@ -274,10 +280,10 @@
 
 			<span class="kw">match </span><span class="self">self</span>.handle_request(payload, pending_response) {
 				<span class="prelude-val">Ok</span>(()) =&gt; {
-					<span class="macro">debug!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Handled grandpa warp sync request from {}.&quot;</span>, peer)
+					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Handled grandpa warp sync request from {}.&quot;</span>, peer)
 				},
 				<span class="prelude-val">Err</span>(e) =&gt; <span class="macro">debug!</span>(
-					target: <span class="string">&quot;sync&quot;</span>,
+					target: LOG_TARGET,
 					<span class="string">&quot;Failed to handle grandpa warp sync request from {}: {}&quot;</span>,
 					peer, e,
 				),

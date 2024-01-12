@@ -1230,6 +1230,10 @@
 <a href="#1230" id="1230">1230</a>
 <a href="#1231" id="1231">1231</a>
 <a href="#1232" id="1232">1232</a>
+<a href="#1233" id="1233">1233</a>
+<a href="#1234" id="1234">1234</a>
+<a href="#1235" id="1235">1235</a>
+<a href="#1236" id="1236">1236</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1298,7 +1302,7 @@
 	block_request_handler::BlockRequestHandler,
 	service::{network::NetworkServiceProvider, syncing_service::SyncingService},
 	state_request_handler::StateRequestHandler,
-	warp::{
+	strategy::warp::{
 		AuthorityList, EncodedProof, SetId, VerificationResult, WarpSyncParams, WarpSyncProvider,
 	},
 	warp_request_handler,
@@ -1931,6 +1935,8 @@
 	</span><span class="kw">pub </span>storage_chain: bool,
 	<span class="doccomment">/// Optional target block header to sync to
 	</span><span class="kw">pub </span>target_block: <span class="prelude-ty">Option</span>&lt;&lt;Block <span class="kw">as </span>BlockT&gt;::Header&gt;,
+	<span class="doccomment">/// Force genesis even in case of warp &amp; light state sync.
+	</span><span class="kw">pub </span>force_genesis: bool,
 }
 
 <span class="attr">#[async_trait::async_trait]
@@ -1990,7 +1996,9 @@
 			<span class="kw-2">*</span>genesis_extra_storage = storage;
 		}
 
-		<span class="kw">if </span><span class="macro">matches!</span>(config.sync_mode, SyncMode::LightState { .. } | SyncMode::Warp) {
+		<span class="kw">if </span>!config.force_genesis &amp;&amp;
+			<span class="macro">matches!</span>(config.sync_mode, SyncMode::LightState { .. } | SyncMode::Warp)
+		{
 			test_client_builder = test_client_builder.set_no_genesis();
 		}
 		<span class="kw">let </span>backend = test_client_builder.backend();

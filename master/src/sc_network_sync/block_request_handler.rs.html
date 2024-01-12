@@ -635,6 +635,7 @@
 		BlockResponse <span class="kw">as </span>BlockResponseSchema, BlockResponse, Direction,
 	},
 	service::network::NetworkServiceHandle,
+	LOG_TARGET,
 };
 
 <span class="kw">use </span>codec::{Decode, DecodeAll, Encode};
@@ -667,7 +668,6 @@
 <span class="doccomment">/// Maximum blocks per response.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>MAX_BLOCKS_IN_RESPONSE: usize = <span class="number">128</span>;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;sync&quot;</span>;
 <span class="kw">const </span>MAX_BODY_BYTES: usize = <span class="number">8 </span>* <span class="number">1024 </span>* <span class="number">1024</span>;
 <span class="kw">const </span>MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER: usize = <span class="number">2</span>;
 
