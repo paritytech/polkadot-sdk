@@ -19,7 +19,7 @@
 //! with floating point calculations.
 //!
 //! Intentional and predictable design should be our first and foremost
-//! property for ensuring a well running, safely designed system.
+//! priority for ensuring a well running, safely designed system.
 //!
 //! ## Defensive Programming
 //!
