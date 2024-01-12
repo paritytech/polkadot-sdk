@@ -974,7 +974,7 @@ pub async fn bench_approvals_run(
 
 	env.wait_until_metric_ge(
 		"polkadot_parachain_subsystem_bounded_received",
-		Some(("subsystem_name", "approval-distribution")),
+		Some(("subsystem_name", "approval-distribution-subsystem")),
 		state.total_sent_messages_to_node.load(std::sync::atomic::Ordering::SeqCst) as usize,
 	)
 	.await;
