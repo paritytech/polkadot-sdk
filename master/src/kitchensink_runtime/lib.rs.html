@@ -3839,7 +3839,7 @@
 	<span class="kw">pub const </span>MaxPointsToBalance: u8 = <span class="number">10</span>;
 }
 
-<span class="kw">use </span>sp_runtime::traits::Convert;
+<span class="kw">use </span>sp_runtime::traits::{Convert, Keccak256};
 <span class="kw">pub struct </span>BalanceToU256;
 <span class="kw">impl </span>Convert&lt;Balance, sp_core::U256&gt; <span class="kw">for </span>BalanceToU256 {
 	<span class="kw">fn </span>convert(balance: Balance) -&gt; sp_core::U256 {
@@ -4538,9 +4538,9 @@
 
 <span class="kw">impl </span>pallet_mmr::Config <span class="kw">for </span>Runtime {
 	<span class="kw">const </span>INDEXING_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] = <span class="string">b&quot;mmr&quot;</span>;
-	<span class="kw">type </span>Hashing = &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::Hashing;
+	<span class="kw">type </span>Hashing = Keccak256;
 	<span class="kw">type </span>LeafData = pallet_mmr::ParentNumberAndHash&lt;<span class="self">Self</span>&gt;;
-	<span class="kw">type </span>OnNewRoot = ();
+	<span class="kw">type </span>OnNewRoot = pallet_beefy_mmr::DepositBeefyDigest&lt;Runtime&gt;;
 	<span class="kw">type </span>WeightInfo = ();
 }
 
