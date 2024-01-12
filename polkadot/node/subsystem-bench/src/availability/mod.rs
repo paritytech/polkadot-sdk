@@ -40,7 +40,6 @@ use polkadot_availability_recovery::AvailabilityRecoverySubsystem;
 use polkadot_node_primitives::{AvailableData, ErasureChunk};
 
 use crate::GENESIS_HASH;
-use futures::FutureExt;
 use parity_scale_codec::Encode;
 use polkadot_node_network_protocol::{
 	request_response::{
@@ -48,9 +47,9 @@ use polkadot_node_network_protocol::{
 			AvailableDataFetchingResponse, ChunkFetchingRequest, ChunkFetchingResponse,
 			ChunkResponse,
 		},
-		IncomingRequest, OutgoingRequest, ReqProtocolNames, Requests,
+		IncomingRequest, ReqProtocolNames, Requests,
 	},
-	BitfieldDistributionMessage, OurView, Versioned, VersionedValidationProtocol, View,
+	OurView, Versioned, VersionedValidationProtocol,
 };
 use sc_network::request_responses::IncomingRequest as RawIncomingRequest;
 
@@ -152,7 +151,7 @@ impl HandleNetworkMessage for NetworkAvailabilityState {
 	fn handle(
 		&self,
 		message: NetworkMessage,
-		node_sender: &mut futures::channel::mpsc::UnboundedSender<NetworkMessage>,
+		_node_sender: &mut futures::channel::mpsc::UnboundedSender<NetworkMessage>,
 	) -> Option<NetworkMessage> {
 		match message {
 			NetworkMessage::RequestFromNode(peer, request) => match request {
@@ -171,14 +170,14 @@ impl HandleNetworkMessage for NetworkAvailabilityState {
 						[validator_index]
 						.clone()
 						.into();
-					let mut size = chunk.encoded_size();
+					let _size = chunk.encoded_size();
 
 					let response = Ok((
 						ChunkFetchingResponse::from(Some(chunk)).encode(),
 						ProtocolName::from(""),
 					));
 
-					if let Err(err) = outgoing_request.pending_response.send(response) {
+					if let Err(_err) = outgoing_request.pending_response.send(response) {
 						gum::error!(target: LOG_TARGET, "Failed to send `ChunkFetchingResponse`");
 					}
 
@@ -195,7 +194,7 @@ impl HandleNetworkMessage for NetworkAvailabilityState {
 					let available_data =
 						self.available_data.get(*candidate_index as usize).unwrap().clone();
 
-					let size = available_data.encoded_size();
+					let _size = available_data.encoded_size();
 
 					let response = Ok((
 						AvailableDataFetchingResponse::from(Some(available_data)).encode(),
@@ -377,7 +376,6 @@ fn prepare_test_inner(
 			overseer,
 			overseer_handle,
 			test_authorities,
-			network_interface,
 		),
 		req_cfgs,
 	)
@@ -404,8 +402,6 @@ pub struct TestState {
 	chunks: Vec<Vec<ErasureChunk>>,
 	// Availability distribution
 	chunk_request_protocol: Option<ProtocolConfig>,
-	// Availability distribution.
-	pov_request_protocol: Option<ProtocolConfig>,
 	// Per relay chain block - candidate backed by our backing group
 	backed_candidates: Vec<CandidateReceipt>,
 }
@@ -507,7 +503,6 @@ impl TestState {
 			candidate_hashes: HashMap::new(),
 			candidates: Vec::new().into_iter().cycle(),
 			chunk_request_protocol: None,
-			pov_request_protocol: None,
 			backed_candidates: Vec::new(),
 		};
 
@@ -521,10 +516,6 @@ impl TestState {
 
 	pub fn set_chunk_request_protocol(&mut self, config: ProtocolConfig) {
 		self.chunk_request_protocol = Some(config);
-	}
-
-	pub fn set_pov_request_protocol(&mut self, config: ProtocolConfig) {
-		self.pov_request_protocol = Some(config);
 	}
 
 	pub fn chunk_request_protocol(&self) -> Option<ProtocolConfig> {
@@ -638,7 +629,7 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 		env.import_block(new_block_import_info(relay_block_hash, block_num as BlockNumber))
 			.await;
 
-		let chunk_request_protocol =
+		let _chunk_request_protocol =
 			state.chunk_request_protocol().expect("No chunk fetching protocol configured");
 
 		// Inform bitfield distribution about our view of current test block

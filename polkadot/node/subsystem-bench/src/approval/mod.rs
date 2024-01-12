@@ -43,7 +43,7 @@ use crate::{
 	},
 };
 use colored::Colorize;
-use futures::{channel::oneshot, FutureExt};
+use futures::channel::oneshot;
 use itertools::Itertools;
 use orchestra::TimeoutExt;
 use overseer::{metrics::Metrics as OverseerMetrics, MetricsTrait};
@@ -53,7 +53,7 @@ use polkadot_node_core_approval_voting::{
 	time::{slot_number_to_tick, tick_to_slot_number, Clock, ClockExt, SystemClock},
 	ApprovalVotingSubsystem, Config as ApprovalVotingConfig, Metrics as ApprovalVotingMetrics,
 };
-use polkadot_node_network_protocol::{v3 as protocol_v3, Versioned};
+use polkadot_node_network_protocol::v3 as protocol_v3;
 use polkadot_node_primitives::approval::{self, v1::RelayVRFStory};
 use polkadot_node_subsystem::{overseer, AllMessages, Overseer, OverseerConnector, SpawnGlue};
 use polkadot_node_subsystem_test_helpers::mock::new_block_import_info;
@@ -405,7 +405,7 @@ impl ApprovalTestState {
 		&mut self,
 		network_emulator: &NetworkEmulatorHandle,
 		overseer_handle: OverseerHandleReal,
-		spawn_task_handle: &SpawnTaskHandle,
+		env: &TestEnvironment,
 		registry: Registry,
 	) -> oneshot::Receiver<()> {
 		gum::info!(target: LOG_TARGET, "Start assignments/approvals production");
@@ -421,7 +421,7 @@ impl ApprovalTestState {
 		};
 
 		peer_message_source
-			.produce_messages(spawn_task_handle, self.generated_state.all_messages.take().unwrap());
+			.produce_messages(env, self.generated_state.all_messages.take().unwrap());
 		producer_rx
 	}
 }
@@ -452,8 +452,8 @@ impl ApprovalTestState {
 impl HandleNetworkMessage for ApprovalTestState {
 	fn handle(
 		&self,
-		message: crate::core::network::NetworkMessage,
-		node_sender: &mut futures::channel::mpsc::UnboundedSender<
+		_message: crate::core::network::NetworkMessage,
+		_node_sender: &mut futures::channel::mpsc::UnboundedSender<
 			crate::core::network::NetworkMessage,
 		>,
 	) -> Option<crate::core::network::NetworkMessage> {
@@ -479,12 +479,8 @@ struct PeerMessageProducer {
 impl PeerMessageProducer {
 	/// Generates messages by spawning a blocking task in the background which begins creating
 	/// the assignments/approvals and peer view changes at the begining of each block.
-	fn produce_messages(
-		mut self,
-		spawn_task_handle: &SpawnTaskHandle,
-		all_messages: Vec<MessagesBundle>,
-	) {
-		spawn_task_handle.spawn_blocking("produce-messages", "produce-messages", async move {
+	fn produce_messages(mut self, env: &TestEnvironment, all_messages: Vec<MessagesBundle>) {
+		env.spawn_blocking("produce-messages", async move {
 			let mut initialized_blocks = HashSet::new();
 			let mut per_candidate_data: HashMap<(Hash, CandidateIndex), CandidateTestData> =
 				self.initialize_candidates_test_data();
@@ -603,7 +599,7 @@ impl PeerMessageProducer {
 					.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 				for (peer, messages) in message.split_by_peer_id(&self.state.test_authorities) {
 					for message in messages {
-						let latency = message.get_latency();
+						let _latency = message.get_latency();
 						self.state
 							.total_sent_messages
 							.as_ref()
@@ -673,8 +669,8 @@ impl PeerMessageProducer {
 	async fn send_message(
 		&mut self,
 		message: AllMessages,
-		sent_by: ValidatorIndex,
-		latency: Option<Duration>,
+		_sent_by: ValidatorIndex,
+		_latency: Option<Duration>,
 	) {
 		self.overseer_handle
 			.send_msg(message, LOG_TARGET)
@@ -732,7 +728,7 @@ impl PeerMessageProducer {
 fn build_overseer(
 	state: &ApprovalTestState,
 	network: &NetworkEmulatorHandle,
-	config: &TestConfiguration,
+	_config: &TestConfiguration,
 	dependencies: &TestEnvironmentDependencies,
 	network_interface: &NetworkInterface,
 	network_receiver: NetworkInterfaceReceiver,
@@ -826,7 +822,6 @@ fn prepare_test_inner(
 			overseer,
 			overseer_handle,
 			state.test_authorities.clone(),
-			network_interface,
 		),
 		state,
 	)
@@ -837,7 +832,7 @@ pub async fn bench_approvals(env: &mut TestEnvironment, mut state: ApprovalTestS
 		.start_message_production(
 			env.network(),
 			env.overseer_handle().clone(),
-			&env.spawn_handle(),
+			&env,
 			env.registry().clone(),
 		)
 		.await;

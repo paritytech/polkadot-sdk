@@ -28,16 +28,10 @@ use polkadot_node_subsystem_util::metrics::prometheus::{
 
 use sc_network::peer_store::LOG_TARGET;
 use sc_service::{SpawnTaskHandle, TaskManager};
-use std::{
-	fmt::Display,
-	net::{Ipv4Addr, SocketAddr},
-};
+use std::net::{Ipv4Addr, SocketAddr};
 use tokio::runtime::Handle;
 
-use super::{
-	configuration::TestAuthorities,
-	network::{NetworkEmulatorHandle, NetworkInterface},
-};
+use super::{configuration::TestAuthorities, network::NetworkEmulatorHandle};
 
 const MIB: f64 = 1024.0 * 1024.0;
 
@@ -197,8 +191,6 @@ pub struct TestEnvironment {
 	metrics: TestEnvironmentMetrics,
 	/// Test authorities generated from the configuration.
 	authorities: TestAuthorities,
-	/// The network interface used by the node.
-	network_interface: NetworkInterface,
 }
 
 impl TestEnvironment {
@@ -210,7 +202,6 @@ impl TestEnvironment {
 		overseer: Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
 		overseer_handle: OverseerHandle,
 		authorities: TestAuthorities,
-		network_interface: NetworkInterface,
 	) -> Self {
 		let metrics = TestEnvironmentMetrics::new(&dependencies.registry)
 			.expect("Metrics need to be registered");
@@ -240,7 +231,6 @@ impl TestEnvironment {
 			network,
 			metrics,
 			authorities,
-			network_interface,
 		}
 	}
 
@@ -259,22 +249,9 @@ impl TestEnvironment {
 		&self.overseer_handle
 	}
 
-	/// Returns a reference to the spawn task handle.
-	pub fn spawn_handle(&self) -> SpawnTaskHandle {
-		self.dependencies.task_manager.spawn_handle()
-	}
-
 	/// Returns the Prometheus registry.
 	pub fn registry(&self) -> &Registry {
 		&self.dependencies.registry
-	}
-
-	/// Spawn a named task in the `test-environment` task group.
-	pub fn spawn(&self, name: &'static str, task: impl Future<Output = ()> + Send + 'static) {
-		self.dependencies
-			.task_manager
-			.spawn_handle()
-			.spawn(name, "test-environment", task);
 	}
 
 	/// Spawn a blocking named task in the `test-environment` task group.

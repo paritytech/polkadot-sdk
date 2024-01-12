@@ -39,8 +39,7 @@ use polkadot_node_primitives::approval::{
 };
 use polkadot_primitives::{
 	vstaging::ApprovalVoteMultipleCandidates, CandidateEvent, CandidateHash, CandidateIndex,
-	CoreIndex, SessionInfo, Slot, ValidatorId, ValidatorIndex, ValidatorPair,
-	ASSIGNMENT_KEY_TYPE_ID,
+	CoreIndex, SessionInfo, Slot, ValidatorId, ValidatorIndex, ASSIGNMENT_KEY_TYPE_ID,
 };
 use rand::{seq::SliceRandom, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
@@ -49,7 +48,6 @@ use sc_network::PeerId;
 use sha1::Digest;
 use sp_application_crypto::AppCrypto;
 use sp_consensus_babe::SlotDuration;
-use sp_core::Pair;
 use sp_keystore::Keystore;
 use sp_timestamp::Timestamp;
 
@@ -63,10 +61,7 @@ use crate::{
 		GeneratedState, BUFFER_FOR_GENERATION_MILLIS, LOG_TARGET, NODE_UNDER_TEST,
 		SLOT_DURATION_MILLIS,
 	},
-	core::{
-		configuration::{TestAuthorities, TestConfiguration, TestObjective},
-		keyring::Keyring,
-	},
+	core::configuration::{TestAuthorities, TestConfiguration, TestObjective},
 };
 use polkadot_node_network_protocol::v3 as protocol_v3;
 use polkadot_primitives::Hash;

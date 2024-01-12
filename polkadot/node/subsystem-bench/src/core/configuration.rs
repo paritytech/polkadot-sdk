@@ -21,10 +21,10 @@ use keyring::Keyring;
 use rand_distr::Normal;
 use sc_network::PeerId;
 use sp_consensus_babe::AuthorityId;
-use std::{collections::HashMap, path::Path, time::Duration};
+use std::{collections::HashMap, path::Path};
 
 pub use crate::cli::TestObjective;
-use polkadot_primitives::{AssignmentId, AuthorityDiscoveryId, HashT, ValidatorId};
+use polkadot_primitives::{AssignmentId, AuthorityDiscoveryId, ValidatorId};
 use rand::{distributions::Uniform, prelude::Distribution, thread_rng};
 use serde::{Deserialize, Serialize};
 

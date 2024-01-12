@@ -18,9 +18,9 @@ use super::{ApprovalsOptions, BlockTestData, CandidateTestData};
 use crate::core::configuration::TestAuthorities;
 use itertools::Itertools;
 use parity_scale_codec::{Decode, Encode};
-use polkadot_node_network_protocol::{v3 as protocol_v3, Versioned};
-use polkadot_node_subsystem_types::messages::{ApprovalDistributionMessage, NetworkBridgeEvent};
-use polkadot_overseer::AllMessages;
+use polkadot_node_network_protocol::{v3 as protocol_v3};
+
+
 use polkadot_primitives::{CandidateIndex, Hash, ValidatorIndex};
 use sc_network::PeerId;
 use std::{
@@ -125,13 +125,6 @@ impl MessagesBundle {
 }
 
 impl TestMessageInfo {
-	/// Converts message to `AllMessages` to be sent to overseer.
-	pub fn into_all_messages_from_peer(self, peer: PeerId) -> AllMessages {
-		AllMessages::ApprovalDistribution(ApprovalDistributionMessage::NetworkBridgeUpdate(
-			NetworkBridgeEvent::PeerMessage(peer, Versioned::V3(self.msg)),
-		))
-	}
-
 	/// Gives us the latency for this message.
 	pub fn get_latency(&self) -> Option<Duration> {
 		match &self.msg {

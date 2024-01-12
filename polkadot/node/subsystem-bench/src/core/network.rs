@@ -66,15 +66,12 @@ use std::{
 };
 
 use polkadot_node_network_protocol::{
-	self as net_protocol,
-	peer_set::{ProtocolVersion, ValidationVersion},
-	v1 as protocol_v1, v2 as protocol_v2, v3 as protocol_v3, OurView, PeerId,
-	UnifiedReputationChange as Rep, Versioned, View,
+	self as net_protocol, PeerId, Versioned,
 };
 
 use futures::channel::mpsc::{UnboundedReceiver, UnboundedSender};
 
-use futures::{Future, FutureExt, Stream, StreamExt};
+use futures::{Future, FutureExt, StreamExt};
 // An emulated node egress traffic rate_limiter.
 #[derive(Debug)]
 pub struct RateLimit {
@@ -229,14 +226,14 @@ impl NetworkInterface {
 	/// Create a new `NetworkInterface`
 	pub fn new(
 		spawn_task_handle: SpawnTaskHandle,
-		mut network: NetworkEmulatorHandle,
+		network: NetworkEmulatorHandle,
 		bandwidth_bps: usize,
 		mut from_network: UnboundedReceiver<NetworkMessage>,
 	) -> (NetworkInterface, NetworkInterfaceReceiver) {
 		let mut rx_limiter = RateLimit::new(10, bandwidth_bps);
 		// We need to share the transimit limiter as we handle incoming request/response on rx
 		// thread.
-		let mut tx_limiter = Arc::new(Mutex::new(RateLimit::new(10, bandwidth_bps)));
+		let tx_limiter = Arc::new(Mutex::new(RateLimit::new(10, bandwidth_bps)));
 		let mut proxied_requests = FuturesUnordered::new();
 
 		// Channel for receiving messages from the network bridge subsystem.
@@ -247,8 +244,8 @@ impl NetworkInterface {
 		let (interface_to_bridge_sender, interface_to_bridge_receiver) =
 			mpsc::unbounded::<NetworkMessage>();
 
-		let mut rx_network = network.clone();
-		let mut tx_network = network;
+		let rx_network = network.clone();
+		let tx_network = network;
 
 		let rx_task_bridge_sender = interface_to_bridge_sender.clone();
 		let rx_task_tx_limiter = tx_limiter.clone();
@@ -422,7 +419,7 @@ impl EmulatedPeer {
 		if self.latency_ms == 0 {
 			let _ = self.to_node.unbounded_send(message).expect("Sending to the node never fails");
 		} else {
-			let mut to_node = self.to_node.clone();
+			let to_node = self.to_node.clone();
 			let latency_ms = std::time::Duration::from_millis(self.latency_ms as u64);
 
 			// Emulate RTT latency
@@ -563,16 +560,16 @@ pub fn new_peer(
 	spawn_task_handle: SpawnTaskHandle,
 	handlers: Vec<Arc<dyn HandleNetworkMessage + Sync + Send>>,
 	stats: Arc<PeerEmulatorStats>,
-	mut to_network_interface: UnboundedSender<NetworkMessage>,
+	to_network_interface: UnboundedSender<NetworkMessage>,
 	latency_ms: usize,
 	peer_id: PeerId,
 ) -> EmulatedPeerHandle {
-	let (messages_tx, mut messages_rx) = mpsc::unbounded::<NetworkMessage>();
-	let (actions_tx, mut actions_rx) = mpsc::unbounded::<NetworkMessage>();
+	let (messages_tx, messages_rx) = mpsc::unbounded::<NetworkMessage>();
+	let (actions_tx, actions_rx) = mpsc::unbounded::<NetworkMessage>();
 
 	let rx_limiter = RateLimit::new(10, bandwidth);
 	let tx_limiter = RateLimit::new(10, bandwidth);
-	let mut emulated_peer = EmulatedPeer {
+	let emulated_peer = EmulatedPeer {
 		spawn_handle: spawn_task_handle.clone(),
 		rx_limiter,
 		tx_limiter,
@@ -741,6 +738,7 @@ pub fn new_network(
 }
 
 /// Errors that can happen when sending data to emulated peers.
+#[derive(Clone, Debug)]
 pub enum EmulatedPeerError {
 	NotConnected,
 }

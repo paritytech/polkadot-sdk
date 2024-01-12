@@ -41,7 +41,7 @@ impl Keyring {
 			.sr25519_generate_new(ValidatorId::ID, Some(seed))
 			.expect("Insert key into keystore");
 
-		let assignment_id = self
+		let _assignment_id = self
 			.keystore
 			.sr25519_generate_new(ASSIGNMENT_KEY_TYPE_ID, Some(seed))
 			.expect("should not fail");

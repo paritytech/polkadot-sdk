@@ -16,37 +16,23 @@
 //!
 //! Mocked `network-bridge` subsystems that uses a `NetworkInterface` to access
 //! the emulated network.
-use futures::{
-	channel::{
-		mpsc::{UnboundedReceiver, UnboundedSender},
-		oneshot,
-	},
-	Future,
-};
-use overseer::AllMessages;
-use parity_scale_codec::Encode;
+use futures::channel::mpsc::UnboundedSender;
+
 use polkadot_node_subsystem_types::{
 	messages::{ApprovalDistributionMessage, BitfieldDistributionMessage, NetworkBridgeEvent},
 	OverseerSignal,
 };
-use std::{collections::HashMap, f32::consts::E, pin::Pin};
 
-use futures::{FutureExt, Stream, StreamExt};
+use futures::{FutureExt, StreamExt};
 
-use polkadot_primitives::CandidateHash;
-use sc_network::{
-	network_state::Peer,
-	protocol_controller::Message,
-	request_responses::{IncomingRequest, ProtocolConfig},
-	OutboundFailure, PeerId, RequestFailure,
-};
+use sc_network::{request_responses::ProtocolConfig, RequestFailure};
 
 use polkadot_node_subsystem::{
 	messages::NetworkBridgeTxMessage, overseer, SpawnedSubsystem, SubsystemError,
 };
 
 use polkadot_node_network_protocol::{
-	request_response::{v1::ChunkResponse, Recipient, Requests, ResponseSender},
+	request_response::{Recipient, Requests, ResponseSender},
 	Versioned,
 };
 use polkadot_primitives::AuthorityDiscoveryId;
@@ -183,20 +169,18 @@ impl MockNetworkBridgeTx {
 					},
 					NetworkBridgeTxMessage::SendValidationMessage(peers, message) => {
 						for peer in peers {
-							self.to_network_interface.unbounded_send(
-								NetworkMessage::MessageFromNode(
+							self.to_network_interface
+								.unbounded_send(NetworkMessage::MessageFromNode(
 									self.test_authorithies
 										.peer_id_to_authority
 										.get(&peer)
 										.unwrap()
 										.clone(),
 									message.clone(),
-								)
-								.expect("Should not fail"),
-							);
+								))
+								.expect("Should not fail");
 						}
 					},
-					NetworkBridgeTxMessage::ReportPeer(_) => {},
 					NetworkBridgeTxMessage::DisconnectPeer(_, _) => todo!(),
 					NetworkBridgeTxMessage::SendCollationMessage(_, _) => todo!(),
 					NetworkBridgeTxMessage::SendValidationMessages(_) => todo!(),
