@@ -720,6 +720,7 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 		// Wait for all bitfields to be processed.
 		env.wait_until_metric_ge(
 			"polkadot_parachain_received_availabilty_bitfields_total",
+			None,
 			(config.n_validators - 1) * (block_num),
 		)
 		.await;

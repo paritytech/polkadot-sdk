@@ -340,10 +340,20 @@ impl TestEnvironment {
 	}
 
 	/// Blocks until `metric_name` >= `value`
-	pub async fn wait_until_metric_ge(&self, metric_name: &str, value: usize) {
+	pub async fn wait_until_metric_ge(
+		&self,
+		metric_name: &str,
+		label: Option<(&str, &str)>,
+		value: usize,
+	) {
 		let value = value as f64;
 		loop {
-			let test_metrics = super::display::parse_metrics(self.registry());
+			let test_metrics = if let Some((label_name, label_value)) = label {
+				super::display::parse_metrics(self.registry())
+					.subset_with_label_value(label_name, label_value)
+			} else {
+				super::display::parse_metrics(self.registry())
+			};
 			let current_value = test_metrics.sum_by(metric_name);
 
 			gum::debug!(target: LOG_TARGET, metric_name, current_value, value, "Waiting for metric");
