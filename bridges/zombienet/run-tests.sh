@@ -25,20 +25,10 @@ export BRIDGE_TESTS_FOLDER=$POLKADOT_SDK_FOLDER/bridges/zombienet/tests
 
 # set pathc to binaries
 if [ "$ZOMBIENET_DOCKER_PATHS" -eq 1 ]; then
-    # normally we would use this:
-    #
     export POLKADOT_BINARY_PATH=/usr/local/bin/polkadot
     export POLKADOT_PARACHAIN_BINARY_PATH=/usr/local/bin/polkadot-parachain
     export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO=/usr/local/bin/polkadot-parachain
     export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND=/usr/local/bin/polkadot-parachain
-    #
-    # but then tests fail in 90% of starts at CI with "At least one of the nodes fails to start".
-    # When using a dummy script that just passes all its arguments to the binary, everything is ok. So:
-    #
-    #export POLKADOT_BINARY_PATH=/home/nonroot/bridges-polkadot-sdk/bridges/zombienet/scripts/polkadot-x.sh
-    #export POLKADOT_PARACHAIN_BINARY_PATH=/home/nonroot/bridges-polkadot-sdk/bridges/zombienet/scripts/polkadot-parachain-x.sh
-    #export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO=/home/nonroot/bridges-polkadot-sdk/bridges/zombienet/scripts/polkadot-parachain-x.sh
-    #export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND=/home/nonroot/bridges-polkadot-sdk/bridges/zombienet/scripts/polkadot-parachain-x.sh
 
     export SUBSTRATE_RELAY_PATH=/usr/local/bin/substrate-relay
     export ZOMBIENET_BINARY_PATH=/usr/local/bin/zombie
