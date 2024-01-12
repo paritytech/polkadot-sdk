@@ -132,10 +132,10 @@ LANE_ID="00000002"
 XCM_VERSION=3
 
 function init_ro_wnd() {
-    local relay_path=$(ensure_relayer)
+    local relayer_path=$(ensure_relayer)
 
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
-        $relay_path init-bridge rococo-to-bridge-hub-westend \
+        $relayer_path init-bridge rococo-to-bridge-hub-westend \
 	--source-host localhost \
 	--source-port 9942 \
 	--source-version-mode Auto \
@@ -146,10 +146,10 @@ function init_ro_wnd() {
 }
 
 function init_wnd_ro() {
-    local relay_path=$(ensure_relayer)
+    local relayer_path=$(ensure_relayer)
 
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
-        $relay_path init-bridge westend-to-bridge-hub-rococo \
+        $relayer_path init-bridge westend-to-bridge-hub-rococo \
         --source-host localhost \
         --source-port 9945 \
         --source-version-mode Auto \
@@ -160,10 +160,10 @@ function init_wnd_ro() {
 }
 
 function run_relay() {
-    local relay_path=$(ensure_relayer)
+    local relayer_path=$(ensure_relayer)
 
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
-        $relay_path relay-headers-and-messages bridge-hub-rococo-bridge-hub-westend \
+        $relayer_path relay-headers-and-messages bridge-hub-rococo-bridge-hub-westend \
         --rococo-host localhost \
         --rococo-port 9942 \
         --rococo-version-mode Auto \
