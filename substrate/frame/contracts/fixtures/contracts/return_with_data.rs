@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This calls another contract as passed as its account id.
 #![no_std]
 #![no_main]
 
@@ -24,24 +23,21 @@ use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
-pub extern "C" fn deploy() {}
+pub extern "C" fn deploy() {
+	call();
+}
 
+/// Reads the first byte as the exit status and copy all but the first 4 bytes of the input as
+/// output data.
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
 	input!(
-		callee_input: [u8; 4],
-		callee_addr: [u8; 32],
+		input, 128,
+		exit_status: [u8; 4],
+		output: [u8],
 	);
 
-	// Call the callee
-	api::call_v1(
-		uapi::CallFlags::empty(),
-		callee_addr,
-		0u64,                // How much gas to devote for the execution. 0 = all.
-		&0u64.to_le_bytes(), // value transferred to the contract.
-		callee_input,
-		None,
-	)
-	.unwrap();
+	let exit_status = uapi::ReturnFlags::from_bits(exit_status[0] as u32).unwrap();
+	api::return_value(exit_status, output);
 }
