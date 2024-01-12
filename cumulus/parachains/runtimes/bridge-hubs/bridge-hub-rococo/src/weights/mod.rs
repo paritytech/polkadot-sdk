@@ -42,10 +42,10 @@ pub mod pallet_utility;
 pub mod pallet_xcm;
 pub mod paritydb_weights;
 pub mod rocksdb_weights;
-pub mod snowbridge_ethereum_beacon_client;
-pub mod snowbridge_inbound_queue;
-pub mod snowbridge_outbound_queue;
-pub mod snowbridge_system;
+pub mod snowbridge_pallet_ethereum_client;
+pub mod snowbridge_pallet_inbound_queue;
+pub mod snowbridge_pallet_outbound_queue;
+pub mod snowbridge_pallet_system;
 pub mod xcm;
 
 pub use block_weights::constants::BlockExecutionWeight;

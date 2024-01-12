@@ -71,8 +71,6 @@ use frame_system::{
 };
 
 use bp_runtime::HeaderId;
-#[cfg(not(feature = "runtime-benchmarks"))]
-use bridge_hub_common::BridgeHubMessageRouter;
 use bridge_hub_common::{
 	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
 	AggregateMessageOrigin,
@@ -102,17 +100,9 @@ use parachains_common::{
 use polkadot_runtime_common::prod_or_fast;
 
 #[cfg(feature = "runtime-benchmarks")]
-use crate::xcm_config::benchmark_helpers::DoNothingRouter;
-#[cfg(feature = "runtime-benchmarks")]
-use snowbridge_beacon_primitives::CompactExecutionHeader;
-#[cfg(feature = "runtime-benchmarks")]
-use snowbridge_core::RingBufferMap;
-#[cfg(feature = "runtime-benchmarks")]
-pub use snowbridge_ethereum_beacon_client::ExecutionHeaderBuffer;
-#[cfg(feature = "runtime-benchmarks")]
-use snowbridge_inbound_queue::BenchmarkHelper;
-#[cfg(feature = "runtime-benchmarks")]
-use sp_core::H256;
+use benchmark_helpers::DoNothingRouter;
+#[cfg(not(feature = "runtime-benchmarks"))]
+use bridge_hub_common::BridgeHubMessageRouter;
 
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;
@@ -154,7 +144,7 @@ pub type Migrations = (
 	InitStorageVersions,
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 	// unreleased
-	snowbridge_system::migration::v0::InitializeOnUpgrade<
+	snowbridge_pallet_system::migration::v0::InitializeOnUpgrade<
 		Runtime,
 		ConstU32<BRIDGE_HUB_ID>,
 		ConstU32<ASSET_HUB_ID>,
@@ -515,7 +505,7 @@ parameter_types! {
 parameter_types! {
 	pub const CreateAssetCall: [u8;2] = [53, 0];
 	pub const CreateAssetDeposit: u128 = (UNITS / 10) + EXISTENTIAL_DEPOSIT;
-	pub const InboundQueuePalletInstance: u8 = snowbridge_rococo_common::INBOUND_QUEUE_MESSAGES_PALLET_INDEX;
+	pub const InboundQueuePalletInstance: u8 = parachains_common::rococo::snowbridge::INBOUND_QUEUE_PALLET_INDEX;
 	pub Parameters: PricingParameters<u128> = PricingParameters {
 		exchange_rate: FixedU128::from_rational(1, 400),
 		fee_per_gas: gwei(20),
@@ -524,15 +514,46 @@ parameter_types! {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-impl<T: snowbridge_ethereum_beacon_client::Config> BenchmarkHelper<T> for Runtime {
-	fn initialize_storage(block_hash: H256, header: CompactExecutionHeader) {
-		<ExecutionHeaderBuffer<T>>::insert(block_hash, header);
+pub mod benchmark_helpers {
+	use crate::{EthereumBeaconClient, Runtime, RuntimeOrigin};
+	use codec::Encode;
+	use snowbridge_beacon_primitives::CompactExecutionHeader;
+	use snowbridge_pallet_inbound_queue::BenchmarkHelper;
+	use sp_core::H256;
+	use xcm::latest::{MultiAssets, MultiLocation, SendError, SendResult, SendXcm, Xcm, XcmHash};
+
+	impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Runtime {
+		fn initialize_storage(block_hash: H256, header: CompactExecutionHeader) {
+			EthereumBeaconClient::store_execution_header(block_hash, header, 0, H256::default())
+		}
+	}
+
+	pub struct DoNothingRouter;
+	impl SendXcm for DoNothingRouter {
+		type Ticket = Xcm<()>;
+
+		fn validate(
+			_dest: &mut Option<MultiLocation>,
+			xcm: &mut Option<Xcm<()>>,
+		) -> SendResult<Self::Ticket> {
+			Ok((xcm.clone().unwrap(), MultiAssets::new()))
+		}
+		fn deliver(xcm: Xcm<()>) -> Result<XcmHash, SendError> {
+			let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+			Ok(hash)
+		}
+	}
+
+	impl snowbridge_pallet_system::BenchmarkHelper<RuntimeOrigin> for () {
+		fn make_xcm_origin(location: MultiLocation) -> RuntimeOrigin {
+			RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location))
+		}
 	}
 }
 
-impl snowbridge_inbound_queue::Config for Runtime {
+impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Verifier = snowbridge_ethereum_beacon_client::Pallet<Runtime>;
+	type Verifier = snowbridge_pallet_ethereum_client::Pallet<Runtime>;
 	type Token = Balances;
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type XcmSender = XcmRouter;
@@ -552,11 +573,12 @@ impl snowbridge_inbound_queue::Config for Runtime {
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type MaxMessageSize = ConstU32<2048>;
-	type WeightInfo = weights::snowbridge_inbound_queue::WeightInfo<Runtime>;
+	type WeightInfo = weights::snowbridge_pallet_inbound_queue::WeightInfo<Runtime>;
 	type PricingParameters = EthereumSystem;
+	type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
 }
 
-impl snowbridge_outbound_queue::Config for Runtime {
+impl snowbridge_pallet_outbound_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Hashing = Keccak256;
 	type MessageQueue = MessageQueue;
@@ -566,7 +588,7 @@ impl snowbridge_outbound_queue::Config for Runtime {
 	type GasMeter = snowbridge_core::outbound::ConstantGasMeter;
 	type Balance = Balance;
 	type WeightToFee = WeightToFee;
-	type WeightInfo = weights::snowbridge_outbound_queue::WeightInfo<Runtime>;
+	type WeightInfo = weights::snowbridge_pallet_outbound_queue::WeightInfo<Runtime>;
 	type PricingParameters = EthereumSystem;
 	type Channels = EthereumSystem;
 }
@@ -619,28 +641,21 @@ parameter_types! {
 	pub const MaxExecutionHeadersToKeep: u32 = prod_or_fast!(8192 * 2, 1000);
 }
 
-impl snowbridge_ethereum_beacon_client::Config for Runtime {
+impl snowbridge_pallet_ethereum_client::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ForkVersions = ChainForkVersions;
 	type MaxExecutionHeadersToKeep = MaxExecutionHeadersToKeep;
-	type WeightInfo = weights::snowbridge_ethereum_beacon_client::WeightInfo<Runtime>;
+	type WeightInfo = weights::snowbridge_pallet_ethereum_client::WeightInfo<Runtime>;
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-impl snowbridge_system::BenchmarkHelper<RuntimeOrigin> for () {
-	fn make_xcm_origin(location: xcm::latest::MultiLocation) -> RuntimeOrigin {
-		RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location))
-	}
-}
-
-impl snowbridge_system::Config for Runtime {
+impl snowbridge_pallet_system::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OutboundQueue = EthereumOutboundQueue;
 	type SiblingOrigin = EnsureXcm<AllowSiblingsOnly>;
 	type AgentIdOf = snowbridge_core::AgentIdOf;
 	type TreasuryAccount = TreasuryAccount;
 	type Token = Balances;
-	type WeightInfo = weights::snowbridge_system::WeightInfo<Runtime>;
+	type WeightInfo = weights::snowbridge_pallet_system::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
 	type DefaultPricingParameters = Parameters;
@@ -706,10 +721,10 @@ construct_runtime!(
 		// With-Rococo Bulletin bridge hub pallet.
 		XcmOverPolkadotBulletin: pallet_xcm_bridge_hub::<Instance2>::{Pallet} = 62,
 
-		EthereumInboundQueue: snowbridge_inbound_queue::{Pallet, Call, Storage, Event<T>} = 80,
-		EthereumOutboundQueue: snowbridge_outbound_queue::{Pallet, Call, Storage, Event<T>} = 81,
-		EthereumBeaconClient: snowbridge_ethereum_beacon_client::{Pallet, Call, Storage, Event<T>} = 82,
-		EthereumSystem: snowbridge_system::{Pallet, Call, Storage, Config<T>, Event<T>} = 83,
+		EthereumInboundQueue: snowbridge_pallet_inbound_queue::{Pallet, Call, Storage, Event<T>} = 80,
+		EthereumOutboundQueue: snowbridge_pallet_outbound_queue::{Pallet, Call, Storage, Event<T>} = 81,
+		EthereumBeaconClient: snowbridge_pallet_ethereum_client::{Pallet, Call, Storage, Event<T>} = 82,
+		EthereumSystem: snowbridge_pallet_system::{Pallet, Call, Storage, Config<T>, Event<T>} = 83,
 
 		// Message Queue. Importantly, is registered last so that messages are processed after
 		// the `on_initialize` hooks of bridging pallets.
@@ -763,10 +778,10 @@ mod benches {
 		[pallet_bridge_messages, RococoToRococoBulletin]
 		[pallet_bridge_relayers, BridgeRelayersBench::<Runtime>]
 		// Ethereum Bridge
-		[snowbridge_inbound_queue, EthereumInboundQueue]
-		[snowbridge_outbound_queue, EthereumOutboundQueue]
-		[snowbridge_system, EthereumSystem]
-		[snowbridge_ethereum_beacon_client, EthereumBeaconClient]
+		[snowbridge_pallet_inbound_queue, EthereumInboundQueue]
+		[snowbridge_pallet_outbound_queue, EthereumOutboundQueue]
+		[snowbridge_pallet_system, EthereumSystem]
+		[snowbridge_pallet_ethereum_client, EthereumBeaconClient]
 	);
 }
 
@@ -996,18 +1011,18 @@ impl_runtime_apis! {
 	}
 
 	impl snowbridge_outbound_queue_runtime_api::OutboundQueueApi<Block, Balance> for Runtime {
-		fn prove_message(leaf_index: u64) -> Option<snowbridge_outbound_queue::MerkleProof> {
-			snowbridge_outbound_queue::api::prove_message::<Runtime>(leaf_index)
+		fn prove_message(leaf_index: u64) -> Option<snowbridge_pallet_outbound_queue::MerkleProof> {
+			snowbridge_pallet_outbound_queue::api::prove_message::<Runtime>(leaf_index)
 		}
 
 		fn calculate_fee(message: Message) -> Option<Balance> {
-			snowbridge_outbound_queue::api::calculate_fee::<Runtime>(message)
+			snowbridge_pallet_outbound_queue::api::calculate_fee::<Runtime>(message)
 		}
 	}
 
 	impl snowbridge_system_runtime_api::ControlApi<Block> for Runtime {
 		fn agent_id(location: VersionedMultiLocation) -> Option<AgentId> {
-			snowbridge_system::api::agent_id::<Runtime>(location)
+			snowbridge_pallet_system::api::agent_id::<Runtime>(location)
 		}
 	}
 

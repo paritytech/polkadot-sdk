@@ -43,7 +43,7 @@ use core::marker::PhantomData;
 
 /// Weight functions for `snowbridge_outbound_queue`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> snowbridge_outbound_queue::WeightInfo for WeightInfo<T> {
+impl<T: frame_system::Config> snowbridge_pallet_outbound_queue::WeightInfo for WeightInfo<T> {
 	/// Storage: EthereumOutboundQueue MessageLeaves (r:1 w:1)
 	/// Proof Skipped: EthereumOutboundQueue MessageLeaves (max_values: Some(1), max_size: None, mode: Measured)
 	/// Storage: EthereumOutboundQueue PendingHighPriorityMessageCount (r:1 w:1)

@@ -89,7 +89,7 @@ frame_support::construct_runtime!(
 		System: frame_system,
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		XcmOrigin: pallet_xcm_origin::{Pallet, Origin},
-		OutboundQueue: snowbridge_outbound_queue::{Pallet, Call, Storage, Event<T>},
+		OutboundQueue: snowbridge_pallet_outbound_queue::{Pallet, Call, Storage, Event<T>},
 		EthereumSystem: snowbridge_system,
 		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>}
 	}
@@ -168,7 +168,7 @@ parameter_types! {
 	pub const OwnParaId: ParaId = ParaId::new(1013);
 }
 
-impl snowbridge_outbound_queue::Config for Test {
+impl snowbridge_pallet_outbound_queue::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Hashing = Keccak256;
 	type MessageQueue = MessageQueue;

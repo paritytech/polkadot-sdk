@@ -11,6 +11,11 @@ use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, IdentityLookup};
 use std::{fs::File, path::PathBuf};
 
+#[cfg(feature = "beacon-spec-minimal")]
+const SPEC: &str = "minimal";
+#[cfg(not(feature = "beacon-spec-minimal"))]
+const SPEC: &str = "mainnet";
+
 fn load_fixture<T>(basename: String) -> Result<T, serde_json::Error>
 where
 	T: for<'de> serde::Deserialize<'de>,
@@ -21,60 +26,36 @@ where
 }
 
 pub fn load_execution_header_update_fixture() -> primitives::ExecutionHeaderUpdate {
-	#[cfg(feature = "beacon-spec-minimal")]
-	const SPEC: &str = "minimal";
-	#[cfg(not(feature = "beacon-spec-minimal"))]
-	const SPEC: &str = "mainnet";
 	let basename = format!("execution-header-update.{}.json", SPEC);
 	load_fixture(basename).unwrap()
 }
 
 pub fn load_checkpoint_update_fixture(
 ) -> primitives::CheckpointUpdate<{ config::SYNC_COMMITTEE_SIZE }> {
-	#[cfg(feature = "beacon-spec-minimal")]
-	const SPEC: &str = "minimal";
-	#[cfg(not(feature = "beacon-spec-minimal"))]
-	const SPEC: &str = "mainnet";
 	let basename = format!("initial-checkpoint.{}.json", SPEC);
 	load_fixture(basename).unwrap()
 }
 
 pub fn load_sync_committee_update_fixture(
 ) -> primitives::Update<{ config::SYNC_COMMITTEE_SIZE }, { config::SYNC_COMMITTEE_BITS_SIZE }> {
-	#[cfg(feature = "beacon-spec-minimal")]
-	const SPEC: &str = "minimal";
-	#[cfg(not(feature = "beacon-spec-minimal"))]
-	const SPEC: &str = "mainnet";
 	let basename = format!("sync-committee-update.{}.json", SPEC);
 	load_fixture(basename).unwrap()
 }
 
 pub fn load_finalized_header_update_fixture(
 ) -> primitives::Update<{ config::SYNC_COMMITTEE_SIZE }, { config::SYNC_COMMITTEE_BITS_SIZE }> {
-	#[cfg(feature = "beacon-spec-minimal")]
-	const SPEC: &str = "minimal";
-	#[cfg(not(feature = "beacon-spec-minimal"))]
-	const SPEC: &str = "mainnet";
 	let basename = format!("finalized-header-update.{}.json", SPEC);
 	load_fixture(basename).unwrap()
 }
 
 pub fn load_next_sync_committee_update_fixture(
 ) -> primitives::Update<{ config::SYNC_COMMITTEE_SIZE }, { config::SYNC_COMMITTEE_BITS_SIZE }> {
-	#[cfg(feature = "beacon-spec-minimal")]
-	const SPEC: &str = "minimal";
-	#[cfg(not(feature = "beacon-spec-minimal"))]
-	const SPEC: &str = "mainnet";
 	let basename = format!("next-sync-committee-update.{}.json", SPEC);
 	load_fixture(basename).unwrap()
 }
 
 pub fn load_next_finalized_header_update_fixture(
 ) -> primitives::Update<{ config::SYNC_COMMITTEE_SIZE }, { config::SYNC_COMMITTEE_BITS_SIZE }> {
-	#[cfg(feature = "beacon-spec-minimal")]
-	const SPEC: &str = "minimal";
-	#[cfg(not(feature = "beacon-spec-minimal"))]
-	const SPEC: &str = "mainnet";
 	let basename = format!("next-finalized-header-update.{}.json", SPEC);
 	load_fixture(basename).unwrap()
 }
