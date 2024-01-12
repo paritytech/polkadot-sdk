@@ -176,7 +176,7 @@ impl TestConfiguration {
 			.map(|seed| keyring.sr25519_new(seed.as_str()))
 			.collect::<Vec<_>>();
 
-		// Generate `AuthorityDiscoveryId`` for each peer
+		// Generate keys and peers ids in each of the format needed by the tests.
 		let validator_public: Vec<ValidatorId> =
 			keys.iter().map(|key| key.clone().into()).collect::<Vec<_>>();
 

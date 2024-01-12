@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use polkadot_primitives::{ValidatorId, ASSIGNMENT_KEY_TYPE_ID};
+use polkadot_primitives::ValidatorId;
 use sc_keystore::LocalKeystore;
 use sp_application_crypto::AppCrypto;
 pub use sp_core::sr25519;
@@ -36,17 +36,9 @@ impl Default for Keyring {
 
 impl Keyring {
 	pub fn sr25519_new(&self, seed: &str) -> Public {
-		let validator_id = self
-			.keystore
+		self.keystore
 			.sr25519_generate_new(ValidatorId::ID, Some(seed))
-			.expect("Insert key into keystore");
-
-		let _assignment_id = self
-			.keystore
-			.sr25519_generate_new(ASSIGNMENT_KEY_TYPE_ID, Some(seed))
-			.expect("should not fail");
-
-		validator_id
+			.expect("Insert key into keystore")
 	}
 
 	pub fn keystore(&self) -> Arc<dyn Keystore> {

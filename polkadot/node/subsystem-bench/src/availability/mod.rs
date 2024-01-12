@@ -257,6 +257,8 @@ fn prepare_test_inner(
 		config.clone(),
 		test_authorities.clone(),
 		candidate_hashes,
+		Default::default(),
+		Default::default(),
 	);
 
 	let availability_state = NetworkAvailabilityState {

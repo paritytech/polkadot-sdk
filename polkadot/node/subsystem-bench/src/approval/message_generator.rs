@@ -57,11 +57,14 @@ use super::{
 };
 use crate::{
 	approval::{
-		helpers::{generate_babe_epoch, generate_topology, session_info_for_peers},
+		helpers::{generate_babe_epoch, generate_topology},
 		GeneratedState, BUFFER_FOR_GENERATION_MILLIS, LOG_TARGET, NODE_UNDER_TEST,
 		SLOT_DURATION_MILLIS,
 	},
-	core::configuration::{TestAuthorities, TestConfiguration, TestObjective},
+	core::{
+		configuration::{TestAuthorities, TestConfiguration, TestObjective},
+		mock::session_info_for_peers,
+	},
 };
 use polkadot_node_network_protocol::v3 as protocol_v3;
 use polkadot_primitives::Hash;
@@ -191,7 +194,7 @@ impl PeerMessagesGenerator {
 		);
 
 		let babe_epoch = generate_babe_epoch(initial_slot, test_authorities.clone());
-		let session_info = session_info_for_peers(configuration, test_authorities.clone());
+		let session_info = session_info_for_peers(configuration, &test_authorities);
 		let blocks = ApprovalTestState::generate_blocks_information(
 			configuration,
 			&babe_epoch,

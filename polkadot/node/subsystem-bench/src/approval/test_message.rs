@@ -18,15 +18,11 @@ use super::{ApprovalsOptions, BlockTestData, CandidateTestData};
 use crate::core::configuration::TestAuthorities;
 use itertools::Itertools;
 use parity_scale_codec::{Decode, Encode};
-use polkadot_node_network_protocol::{v3 as protocol_v3};
-
+use polkadot_node_network_protocol::v3 as protocol_v3;
 
 use polkadot_primitives::{CandidateIndex, Hash, ValidatorIndex};
 use sc_network::PeerId;
-use std::{
-	collections::{HashMap, HashSet},
-	time::Duration,
-};
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
 pub struct TestMessageInfo {
@@ -125,14 +121,6 @@ impl MessagesBundle {
 }
 
 impl TestMessageInfo {
-	/// Gives us the latency for this message.
-	pub fn get_latency(&self) -> Option<Duration> {
-		match &self.msg {
-			protocol_v3::ApprovalDistributionMessage::Assignments(_) => None,
-			protocol_v3::ApprovalDistributionMessage::Approvals(_) => None,
-		}
-	}
-
 	/// Tells if the message is an approval.
 	fn is_approval(&self) -> bool {
 		match self.msg {

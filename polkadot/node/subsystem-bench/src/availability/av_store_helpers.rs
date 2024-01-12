@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::core::mock::TestSyncOracle;
+
 use super::*;
 
 use polkadot_node_metrics::metrics::Metrics;
@@ -31,22 +33,10 @@ mod columns {
 
 const TEST_CONFIG: Config = Config { col_data: columns::DATA, col_meta: columns::META };
 
-struct DumbOracle;
-
-impl sp_consensus::SyncOracle for DumbOracle {
-	fn is_major_syncing(&self) -> bool {
-		false
-	}
-
-	fn is_offline(&self) -> bool {
-		unimplemented!("oh no!")
-	}
-}
-
 pub fn new_av_store(dependencies: &TestEnvironmentDependencies) -> AvailabilityStoreSubsystem {
 	let metrics = Metrics::try_register(&dependencies.registry).unwrap();
 
-	AvailabilityStoreSubsystem::new(test_store(), TEST_CONFIG, Box::new(DumbOracle), metrics)
+	AvailabilityStoreSubsystem::new(test_store(), TEST_CONFIG, Box::new(TestSyncOracle {}), metrics)
 }
 
 fn test_store() -> Arc<dyn Database> {

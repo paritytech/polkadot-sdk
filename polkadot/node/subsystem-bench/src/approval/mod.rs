@@ -22,19 +22,18 @@ use crate::{
 	approval::{
 		helpers::{
 			generate_babe_epoch, generate_new_session_topology, generate_peer_connected,
-			generate_peer_view_change_for, session_info_for_peers, PastSystemClock,
+			generate_peer_view_change_for, PastSystemClock,
 		},
 		message_generator::PeerMessagesGenerator,
-		mock_chain_api::MockChainApi,
 		mock_chain_selection::MockChainSelection,
-		mock_runtime_api::MockRuntimeApi,
 	},
 	core::{
 		configuration::{TestAuthorities, TestConfiguration},
 		environment::{TestEnvironment, TestEnvironmentDependencies, MAX_TIME_OF_FLIGHT},
 		mock::{
 			dummy_builder, network_bridge::MockNetworkBridgeTx, AlwaysSupportsParachains,
-			MockNetworkBridgeRx, TestSyncOracle,
+			ChainApiState, MockChainApi, MockNetworkBridgeRx, MockRuntimeApi, TestSyncOracle,
+			NEEDED_APPROVALS,
 		},
 		network::{
 			new_network, HandleNetworkMessage, NetworkEmulatorHandle, NetworkInterface,
@@ -61,13 +60,15 @@ use polkadot_node_subsystem_types::messages::{ApprovalDistributionMessage, Appro
 use polkadot_node_subsystem_util::metrics::Metrics;
 use polkadot_overseer::Handle as OverseerHandleReal;
 use polkadot_primitives::{
-	BlockNumber, CandidateEvent, CandidateIndex, Hash, Header, SessionInfo, Slot, ValidatorIndex,
+	BlockNumber, CandidateEvent, CandidateIndex, CandidateReceipt, Hash, Header, Slot,
+	ValidatorIndex,
 };
 use prometheus::Registry;
 use sc_keystore::LocalKeystore;
 use sc_service::SpawnTaskHandle;
 use serde::{Deserialize, Serialize};
 use sp_consensus_babe::Epoch as BabeEpoch;
+use sp_core::H256;
 use std::{
 	cmp::max,
 	collections::{HashMap, HashSet},
@@ -84,9 +85,7 @@ use tokio::time::sleep;
 
 mod helpers;
 mod message_generator;
-mod mock_chain_api;
 mod mock_chain_selection;
-mod mock_runtime_api;
 mod test_message;
 
 pub const LOG_TARGET: &str = "bench::approval";
@@ -99,7 +98,6 @@ pub(crate) const TEST_CONFIG: ApprovalVotingConfig = ApprovalVotingConfig {
 };
 
 pub const NODE_UNDER_TEST: u32 = 0;
-pub const NEEDED_APPROVALS: u32 = 30;
 
 /// Start generating messages for a slot into the future, so that the
 /// generation nevers falls behind the current slot.
@@ -264,16 +262,16 @@ pub struct ApprovalTestState {
 	blocks: Vec<BlockTestData>,
 	/// The babe epoch used during testing.
 	babe_epoch: BabeEpoch,
-	/// The session info used during testing.
-	session_info: SessionInfo,
 	/// The slot at which this benchamrk begins.
 	generated_state: GeneratedState,
 	/// The test authorities
 	test_authorities: TestAuthorities,
 	/// Last approved block number.
 	last_approved_block: Arc<AtomicU32>,
-	/// Total sent messages.
-	total_sent_messages: Arc<AtomicU64>,
+	/// Total sent messages from peers to node
+	total_sent_messages_to_node: Arc<AtomicU64>,
+	/// Total sent messages from test node to other peers
+	total_sent_messages_from_node: Arc<AtomicU64>,
 	/// Total unique sent messages.
 	total_unique_messages: Arc<AtomicU64>,
 	/// Approval voting metrics.
@@ -319,7 +317,6 @@ impl ApprovalTestState {
 
 		let babe_epoch =
 			generate_babe_epoch(generated_state.initial_slot, test_authorities.clone());
-		let session_info = session_info_for_peers(configuration, test_authorities.clone());
 		let blocks = Self::generate_blocks_information(
 			configuration,
 			&babe_epoch,
@@ -329,11 +326,11 @@ impl ApprovalTestState {
 		let state = ApprovalTestState {
 			blocks,
 			babe_epoch: babe_epoch.clone(),
-			session_info: session_info.clone(),
 			generated_state,
 			test_authorities,
 			last_approved_block: Arc::new(AtomicU32::new(0)),
-			total_sent_messages: Arc::new(AtomicU64::new(0)),
+			total_sent_messages_to_node: Arc::new(AtomicU64::new(0)),
+			total_sent_messages_from_node: Arc::new(AtomicU64::new(0)),
 			total_unique_messages: Arc::new(AtomicU64::new(0)),
 			options,
 			approval_voting_metrics: ApprovalVotingMetrics::try_register(&dependencies.registry)
@@ -355,7 +352,7 @@ impl ApprovalTestState {
 	) -> Vec<BlockTestData> {
 		let mut per_block_heads: Vec<BlockTestData> = Vec::new();
 		let mut prev_candidates = 0;
-		for block_number in 1..configuration.num_blocks + 1 {
+		for block_number in 1..=configuration.num_blocks {
 			let block_hash = Hash::repeat_byte(block_number as u8);
 			let parent_hash =
 				per_block_heads.last().map(|val| val.hash).unwrap_or(Hash::repeat_byte(0xde));
@@ -424,6 +421,43 @@ impl ApprovalTestState {
 			.produce_messages(env, self.generated_state.all_messages.take().unwrap());
 		producer_rx
 	}
+
+	// Generates a ChainApiState used for driving MockChainApi
+	fn build_chain_api_state(&self) -> ChainApiState {
+		ChainApiState {
+			block_headers: self
+				.blocks
+				.iter()
+				.map(|block| (block.hash, block.header.clone()))
+				.collect(),
+		}
+	}
+
+	// Builds a map  with the list of candidate events per-block.
+	fn candidate_events_by_block(&self) -> HashMap<H256, Vec<CandidateEvent>> {
+		self.blocks.iter().map(|block| (block.hash, block.candidates.clone())).collect()
+	}
+
+	// Builds a map  with the list of candidate hashes per-block.
+	fn candidate_hashes_by_block(&self) -> HashMap<H256, Vec<CandidateReceipt>> {
+		self.blocks
+			.iter()
+			.map(|block| {
+				(
+					block.hash,
+					block
+						.candidates
+						.iter()
+						.map(|candidate_event| match candidate_event {
+							CandidateEvent::CandidateBacked(_, _, _, _) => todo!(),
+							CandidateEvent::CandidateIncluded(receipt, _, _, _) => receipt.clone(),
+							CandidateEvent::CandidateTimedOut(_, _, _) => todo!(),
+						})
+						.collect_vec(),
+				)
+			})
+			.collect()
+	}
 }
 
 impl ApprovalTestState {
@@ -433,14 +467,6 @@ impl ApprovalTestState {
 			.iter()
 			.find(|block| block.hash == requested_hash)
 			.expect("Mocks should not use unknown hashes")
-	}
-
-	/// Returns test data for the given block number
-	fn get_info_by_number(&self, requested_number: u32) -> &BlockTestData {
-		self.blocks
-			.iter()
-			.find(|block| block.block_number == requested_number)
-			.expect("Mocks should not use unknown numbers")
 	}
 
 	/// Returns test data for the given slot
@@ -457,6 +483,9 @@ impl HandleNetworkMessage for ApprovalTestState {
 			crate::core::network::NetworkMessage,
 		>,
 	) -> Option<crate::core::network::NetworkMessage> {
+		self.total_sent_messages_from_node
+			.as_ref()
+			.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 		None
 	}
 }
@@ -472,7 +501,10 @@ struct PeerMessageProducer {
 	/// A handle to the overseer, used for sending messages to the node
 	/// under test.
 	overseer_handle: OverseerHandleReal,
+	/// Channel for producer to notify main loop it finished sending
+	/// all messages and they have been processed.
 	notify_done: oneshot::Sender<()>,
+	/// The metrics registry.
 	registry: Registry,
 }
 
@@ -561,14 +593,20 @@ impl PeerMessageProducer {
 			sleep(Duration::from_secs(6)).await;
 			let (tx, rx) = oneshot::channel();
 			let msg = ApprovalDistributionMessage::GetApprovalSignatures(HashSet::new(), tx);
-			self.send_message(AllMessages::ApprovalDistribution(msg), ValidatorIndex(0), None)
-				.await;
+			self.send_overseer_message(
+				AllMessages::ApprovalDistribution(msg),
+				ValidatorIndex(0),
+				None,
+			)
+			.await;
 			rx.await.expect("Failed to get signatures");
 			self.notify_done.send(()).expect("Failed to notify main loop");
 			gum::info!("All messages processed ");
 		});
 	}
 
+	// Processes a single message bundle and queue the messages to be sent by the peers that would
+	// send the message in our simulation.
 	pub fn process_message(
 		&mut self,
 		bundle: MessagesBundle,
@@ -599,9 +637,8 @@ impl PeerMessageProducer {
 					.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 				for (peer, messages) in message.split_by_peer_id(&self.state.test_authorities) {
 					for message in messages {
-						let _latency = message.get_latency();
 						self.state
-							.total_sent_messages
+							.total_sent_messages_to_node
 							.as_ref()
 							.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 						self.queue_message_from_peer(message, peer.0)
@@ -616,6 +653,7 @@ impl PeerMessageProducer {
 		reprocess_skipped
 	}
 
+	// Tells if it is the time to process a message.
 	pub fn time_to_process_message(
 		&self,
 		bundle: &MessagesBundle,
@@ -628,7 +666,7 @@ impl PeerMessageProducer {
 			self.state.get_info_by_hash(bundle.assignments.first().unwrap().block_hash);
 		let tranche_now = system_clock.tranche_now(SLOT_DURATION_MILLIS, block_info.slot);
 
-		Self::time_to_send(
+		Self::is_past_tranche(
 			bundle,
 			tranche_now,
 			current_slot,
@@ -637,7 +675,8 @@ impl PeerMessageProducer {
 		) || !bundle.bundle_needed(per_candidate_data, &self.options)
 	}
 
-	pub fn time_to_send(
+	// Tells if the tranche where the bundle should be sent has passed.
+	pub fn is_past_tranche(
 		bundle: &MessagesBundle,
 		tranche_now: u32,
 		current_slot: Slot,
@@ -649,6 +688,7 @@ impl PeerMessageProducer {
 			block_initialized
 	}
 
+	// Queue message to be sent by validator `sent_by`
 	fn queue_message_from_peer(&mut self, message: TestMessageInfo, sent_by: ValidatorIndex) {
 		let peer_authority_id = self
 			.state
@@ -665,8 +705,8 @@ impl PeerMessageProducer {
 			.expect("Network should be up and running");
 	}
 
-	/// Queues a message to be sent by the peer identified by the `sent_by` value.
-	async fn send_message(
+	// Queues a message to be sent by the peer identified by the `sent_by` value.
+	async fn send_overseer_message(
 		&mut self,
 		message: AllMessages,
 		_sent_by: ValidatorIndex,
@@ -681,6 +721,8 @@ impl PeerMessageProducer {
 			});
 	}
 
+	// Sends the messages needed by approval-distribution and approval-voting for processing a
+	// message. E.g: PeerViewChange.
 	async fn initialize_block(&mut self, block_info: &BlockTestData) {
 		gum::info!("Initialize block {:?}", block_info.hash);
 		let (tx, rx) = oneshot::channel();
@@ -696,10 +738,12 @@ impl PeerMessageProducer {
 
 			let view_update = generate_peer_view_change_for(block_info.hash, *peer_id);
 
-			self.send_message(view_update, validator, None).await;
+			self.send_overseer_message(view_update, validator, None).await;
 		}
 	}
 
+	// Initializes the candidates test data. This is used for bookeeping if more assignments and
+	// approvals would be needed.
 	fn initialize_candidates_test_data(
 		&self,
 	) -> HashMap<(Hash, CandidateIndex), CandidateTestData> {
@@ -728,7 +772,7 @@ impl PeerMessageProducer {
 fn build_overseer(
 	state: &ApprovalTestState,
 	network: &NetworkEmulatorHandle,
-	_config: &TestConfiguration,
+	config: &TestConfiguration,
 	dependencies: &TestEnvironmentDependencies,
 	network_interface: &NetworkInterface,
 	network_receiver: NetworkInterfaceReceiver,
@@ -755,9 +799,15 @@ fn build_overseer(
 
 	let approval_distribution =
 		ApprovalDistribution::new(Metrics::register(Some(&dependencies.registry)).unwrap());
-	let mock_chain_api = MockChainApi { state: state.clone() };
+	let mock_chain_api = MockChainApi::new(state.build_chain_api_state());
 	let mock_chain_selection = MockChainSelection { state: state.clone(), clock: system_clock };
-	let mock_runtime_api = MockRuntimeApi { state: state.clone() };
+	let mock_runtime_api = MockRuntimeApi::new(
+		config.clone(),
+		state.test_authorities.clone(),
+		state.candidate_hashes_by_block(),
+		state.candidate_events_by_block(),
+		Some(state.babe_epoch.clone()),
+	);
 	let mock_tx_bridge = MockNetworkBridgeTx::new(
 		network.clone(),
 		network_interface.subsystem_sender(),
@@ -910,7 +960,7 @@ pub async fn bench_approvals_run(
 		gum::info!(
 			"Waiting for all blocks to be approved current approved {:} num_sent {:} num_unique {:}",
 			state.last_approved_block.load(std::sync::atomic::Ordering::SeqCst),
-			state.total_sent_messages.load(std::sync::atomic::Ordering::SeqCst),
+			state.total_sent_messages_to_node.load(std::sync::atomic::Ordering::SeqCst),
 			state.total_unique_messages.load(std::sync::atomic::Ordering::SeqCst)
 		);
 		tokio::time::sleep(Duration::from_secs(6)).await;
@@ -966,9 +1016,10 @@ pub async fn bench_approvals_run(
 
 	let duration: u128 = start_marker.elapsed().as_millis();
 	gum::info!(
-		"All blocks processed in {} num_messages {} num_unique_messages {}",
+		"All blocks processed in {} total_sent_messages_to_node {} total_sent_messages_from_node {} num_unique_messages {}",
 		format!("{:?}ms", duration).cyan(),
-		state.total_sent_messages.load(std::sync::atomic::Ordering::SeqCst),
+		state.total_sent_messages_to_node.load(std::sync::atomic::Ordering::SeqCst),
+		state.total_sent_messages_from_node.load(std::sync::atomic::Ordering::SeqCst),
 		state.total_unique_messages.load(std::sync::atomic::Ordering::SeqCst)
 	);
 

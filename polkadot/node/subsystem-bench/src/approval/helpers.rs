@@ -11,7 +11,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-use crate::core::configuration::{TestAuthorities, TestConfiguration};
+use crate::core::configuration::TestAuthorities;
 use itertools::Itertools;
 use polkadot_node_core_approval_voting::time::{Clock, SystemClock, Tick};
 use polkadot_node_network_protocol::{
@@ -25,7 +25,7 @@ use polkadot_node_subsystem_types::messages::{
 use polkadot_overseer::AllMessages;
 use polkadot_primitives::{
 	BlockNumber, CandidateEvent, CandidateReceipt, CoreIndex, GroupIndex, Hash, Header,
-	Id as ParaId, IndexedVec, SessionInfo, Slot, ValidatorIndex,
+	Id as ParaId, Slot, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::dummy_candidate_receipt_bad_sig;
 use rand::{seq::SliceRandom, SeedableRng};
@@ -39,8 +39,6 @@ use sp_core::crypto::VrfSecret;
 use sp_keyring::sr25519::Keyring as Sr25519Keyring;
 use sp_runtime::{Digest, DigestItem};
 use std::sync::{atomic::AtomicU64, Arc};
-
-use super::NEEDED_APPROVALS;
 
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
@@ -160,34 +158,6 @@ pub fn generate_peer_view_change_for(block_hash: Hash, peer_id: PeerId) -> AllMe
 	let network = NetworkBridgeEvent::PeerViewChange(peer_id, View::new([block_hash], 0));
 
 	AllMessages::ApprovalDistribution(ApprovalDistributionMessage::NetworkBridgeUpdate(network))
-}
-
-/// Generates a test session info with all passed authorities as consensus validators.
-pub fn session_info_for_peers(
-	configuration: &TestConfiguration,
-	authorities: TestAuthorities,
-) -> SessionInfo {
-	SessionInfo {
-		validators: authorities.validator_public.iter().cloned().collect(),
-		discovery_keys: authorities.validator_authority_id.iter().cloned().collect(),
-		assignment_keys: authorities.validator_assignment_id.iter().cloned().collect(),
-		validator_groups: IndexedVec::<GroupIndex, Vec<ValidatorIndex>>::from(
-			(0..authorities.validator_authority_id.len())
-				.map(|index| vec![ValidatorIndex(index as u32)])
-				.collect_vec(),
-		),
-		n_cores: configuration.n_cores as u32,
-		needed_approvals: NEEDED_APPROVALS,
-		zeroth_delay_tranche_width: 0,
-		relay_vrf_modulo_samples: 6,
-		n_delay_tranches: 89,
-		no_show_slots: 3,
-		active_validator_indices: (0..authorities.validator_authority_id.len())
-			.map(|index| ValidatorIndex(index as u32))
-			.collect_vec(),
-		dispute_period: 6,
-		random_seed: [0u8; 32],
-	}
 }
 
 /// Helper function to create a a signature for the block header.
