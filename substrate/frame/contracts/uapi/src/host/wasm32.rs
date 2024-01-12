@@ -283,7 +283,7 @@ mod sys {
 //     (v1) => [gas_left],
 // }
 // ```
-// 
+//
 // Expands to:
 // ```nocompile
 // fn gas_left(output: &mut &mut [u8]) {
@@ -336,6 +336,7 @@ macro_rules! impl_hash_fn {
 }
 
 impl HostFn for HostFnImpl {
+	#[inline(always)]
 	fn instantiate_v1(
 		code_hash: &[u8],
 		gas: u64,
@@ -418,6 +419,7 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
+	#[inline(always)]
 	fn call(
 		callee: &[u8],
 		gas: u64,
@@ -449,6 +451,7 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
+	#[inline(always)]
 	fn call_v1(
 		flags: CallFlags,
 		callee: &[u8],
@@ -520,6 +523,7 @@ impl HostFn for HostFnImpl {
 		unsafe { sys::caller_is_root() }.into_u32()
 	}
 
+	#[inline(always)]
 	fn delegate_call(
 		flags: CallFlags,
 		code_hash: &[u8],
@@ -602,6 +606,7 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
+	#[inline(always)]
 	fn get_storage(key: &[u8], output: &mut &mut [u8]) -> Result {
 		let mut output_len = output.len() as u32;
 		let ret_code =
@@ -610,6 +615,7 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
+	#[inline(always)]
 	fn get_storage_v1(key: &[u8], output: &mut &mut [u8]) -> Result {
 		let mut output_len = output.len() as u32;
 		let ret_code = {
@@ -626,6 +632,7 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
+	#[inline(always)]
 	fn take_storage(key: &[u8], output: &mut &mut [u8]) -> Result {
 		let mut output_len = output.len() as u32;
 		let ret_code = {
@@ -685,6 +692,7 @@ impl HostFn for HostFnImpl {
 		ret_code.into_u32()
 	}
 
+	#[inline(always)]
 	fn input(output: &mut &mut [u8]) {
 		let mut output_len = output.len() as u32;
 		{
@@ -707,6 +715,7 @@ impl HostFn for HostFnImpl {
 		(v1) => [gas_left],
 	}
 
+	#[inline(always)]
 	fn weight_to_fee(gas: u64, output: &mut &mut [u8]) {
 		let mut output_len = output.len() as u32;
 		{
