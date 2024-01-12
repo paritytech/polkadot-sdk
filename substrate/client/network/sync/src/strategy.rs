@@ -409,7 +409,7 @@ where
 					Some(res) => {
 						info!(
 							target: LOG_TARGET,
-							"Warp sync finished, continuing with state sync."
+							"Warp sync is complete, continuing with state sync."
 						);
 						let state_sync = StateStrategy::new(
 							client,
@@ -427,7 +427,7 @@ where
 					None => {
 						error!(
 							target: LOG_TARGET,
-							"Warp sync failed. Continuing with full sync."
+							"Warp sync failed. Falling back to full sync."
 						);
 						let mut chain_sync = match ChainSync::new(
 							chain_sync_mode(config.mode),
@@ -453,8 +453,12 @@ where
 					},
 				}
 			},
-			Self::StateSyncStrategy(_) => {
-				info!(target: LOG_TARGET, "State sync finished, continuing with block sync.");
+			Self::StateSyncStrategy(state_sync) => {
+				if state_sync.is_succeded() {
+					info!(target: LOG_TARGET, "State sync is complete, continuing with block sync.");
+				} else {
+					error!(target: LOG_TARGET, "State sync failed. Falling back to full sync.");
+				}
 				let mut chain_sync = match ChainSync::new(
 					chain_sync_mode(config.mode),
 					client,

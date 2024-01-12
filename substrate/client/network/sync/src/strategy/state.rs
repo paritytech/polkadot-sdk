@@ -25,7 +25,7 @@ use crate::{
 	LOG_TARGET,
 };
 use libp2p::PeerId;
-use log::{debug, error, info, trace};
+use log::{debug, error, trace};
 use sc_client_api::ProofProvider;
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network_common::sync::message::BlockAnnounce;
@@ -79,6 +79,7 @@ pub struct StateStrategy<B: BlockT> {
 	state_sync: Box<dyn StateSyncProvider<B>>,
 	peers: HashMap<PeerId, Peer<B>>,
 	actions: Vec<StateStrategyAction<B>>,
+	succeded: bool,
 }
 
 impl<B: BlockT> StateStrategy<B> {
@@ -109,6 +110,7 @@ impl<B: BlockT> StateStrategy<B> {
 			)),
 			peers,
 			actions: Vec::new(),
+			succeded: false,
 		}
 	}
 
@@ -127,6 +129,7 @@ impl<B: BlockT> StateStrategy<B> {
 				})
 				.collect(),
 			actions: Vec::new(),
+			succeded: false,
 		}
 	}
 
@@ -257,21 +260,7 @@ impl<B: BlockT> StateStrategy<B> {
 					"Failed to import target block with state: {e:?}."
 				);
 			});
-			match results.into_iter().any(|result| result.is_ok()) {
-				true => {
-					info!(
-						target: LOG_TARGET,
-						"State sync is complete ({} MiB), continuing with block sync.",
-						self.state_sync.progress().size / (1024 * 1024),
-					);
-				},
-				false => {
-					error!(
-						target: LOG_TARGET,
-						"State sync failed. Falling back to full sync.",
-					);
-				},
-			}
+			self.succeded |= results.into_iter().any(|result| result.is_ok());
 			self.actions.push(StateStrategyAction::Finished);
 		}
 	}
@@ -356,6 +345,12 @@ impl<B: BlockT> StateStrategy<B> {
 		self.actions.extend(state_request);
 
 		std::mem::take(&mut self.actions).into_iter()
+	}
+
+	/// Check if state sync has succeded.
+	#[must_use]
+	pub fn is_succeded(&self) -> bool {
+		self.succeded
 	}
 }
 
