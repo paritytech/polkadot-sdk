@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This calls another contract as passed as its account id.
+//! This passes its input to `call_runtime` and returns the return value to its caller.
 #![no_std]
 #![no_main]
 
@@ -29,19 +29,14 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	input!(
-		callee_input: [u8; 4],
-		callee_addr: [u8; 32],
-	);
+	// Fixture calls should fit into 100 bytes.
+	input!(100, call: [u8], );
 
-	// Call the callee
-	api::call_v1(
-		uapi::CallFlags::empty(),
-		callee_addr,
-		0u64,                // How much gas to devote for the execution. 0 = all.
-		&0u64.to_le_bytes(), // value transferred to the contract.
-		callee_input,
-		None,
-	)
-	.unwrap();
+	// Use the call passed as input to call the runtime.
+	let err_code = match api::call_runtime(call) {
+		Ok(_) => 0u32,
+		Err(code) => code as u32,
+	};
+
+	api::return_value(uapi::ReturnFlags::empty(), &err_code.to_le_bytes());
 }
