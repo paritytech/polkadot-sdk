@@ -24,7 +24,7 @@
 //! ## Defensive Programming
 //!
 //! [Defensive programming](https://en.wikipedia.org/wiki/Defensive_programming) is a design paradigm that enables a particular program to continue
-//! running despite unexpected behavior. Unforseen circumstances may
+//! running despite unexpected behavior. Unforeseen circumstances may
 //! cause the program to stop or, in the Rust context, `panic!`. Defensive practices allow for
 //! these circumstances to be accounted for ahead of time and for them to be handled in a more
 //! graceful manner.
@@ -45,10 +45,10 @@
 //!
 //!  General guidelines:
 //!
-//! - Avoid writing functions that could explicitly panic.  Directly using `unwrap()` for a
-//!   [`Result`] or common errors such as accessing an out of bounds index on a collection (using
-//!   safer methods to access collection types, i.e., `get()`) are both examples of what to
-//!   completely avoid in runtime development.
+//! - Avoid writing functions that could explicitly panic. Directly using `unwrap()` for a
+//!   [`Result`], or common errors such as accessing an out of bounds index on a collection
+//!   should not be used. Safer methods to access collection types, i.e., `get()` are available,
+//!   upon which defensive handling of the resulting [`Option`] can occur.
 //! - It may be acceptable to use `except()`, but only if one is completely certain (and has
 //!   performed a check beforehand) that a value won't panic upon unwrapping.  Even this is
 //!   discouraged, however, as future changes to that function could then cause that statement to
@@ -235,10 +235,10 @@
 //!
 //! <details>
 //!   <summary><b>Solution: Saturating or Checked</b></summary>
-//!     For Bob's balance problems, using a `saturating_add` or `checked_add` could've mitigated this
-//! issue.  They simply would've reached the upper, or lower bounds, of the particular type for an
-//! on-chain balance.  In other words: Bob's balance would've stayed at the maximum of the Balance
-//! type. </details>
+//!     For Bob's balance problems, using a `saturating_add` or `checked_add` could've mitigated
+//! this issue.  They simply would've reached the upper, or lower bounds, of the particular type for
+//! an on-chain balance.  In other words: Bob's balance would've stayed at the maximum of the
+//! Balance type. </details>
 //!
 //! #### Alice's 'Underflowed' Balance
 //!
@@ -337,7 +337,7 @@
 //! Each of these can be used to construct and represent ratios within our runtime.
 //! You will find types like [`Perbill`](sp_arithmetic::Perbill) being used often in pallet
 //! development.  [`pallet_referenda`] is a good example of a pallet which makes good use of fixed
-//! point arithmetic to calculate.
+//! point arithmetic.
 //!
 //! Let's examine the usage of `Perbill` and how exactly we can use it as an alternative to floating
 //! point numbers in development with Substrate. For this scenario, let's say we are demonstrating a
