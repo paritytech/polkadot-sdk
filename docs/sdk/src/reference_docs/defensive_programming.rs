@@ -344,7 +344,7 @@
 //! _voting_ system which depends on reaching a certain threshold, or percentage, before it can be
 //! deemed valid.
 //!
-//! For most cases, `Perbill` gives us a reasonable amount of precision for most applications, which
+//! For most applications, `Perbill` gives us a reasonable amount of precision, which
 //! is why we're using it here.
 //!
 //! #### Fixed Point Arithmetic with [`PerThing`](sp_arithmetic::PerThing)
