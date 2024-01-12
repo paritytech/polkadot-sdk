@@ -24,7 +24,7 @@
 //! ## Defensive Programming
 //!
 //! [Defensive programming](https://en.wikipedia.org/wiki/Defensive_programming) is a design paradigm that enables a particular program to continue
-//! running despite unexpected behavior. These unforseen circumstances may
+//! running despite unexpected behavior. Unforseen circumstances may
 //! cause the program to stop or, in the Rust context, `panic!`. Defensive practices allow for
 //! these circumstances to be accounted for ahead of time and for them to be handled in a more
 //! graceful manner.
