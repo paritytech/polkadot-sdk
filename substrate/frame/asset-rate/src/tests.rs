@@ -158,3 +158,21 @@ fn convert_unknown_throws() {
 		assert!(conversion.is_err());
 	});
 }
+
+#[test]
+fn convert_overflow_throws() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(AssetRate::create(
+			RuntimeOrigin::root(),
+			Box::new(ASSET_ID),
+			FixedU128::from_u32(0)
+		));
+
+		let conversion = <AssetRate as ConversionToAssetBalance<
+			BalanceOf<Test>,
+			<Test as pallet_asset_rate::Config>::AssetKind,
+			BalanceOf<Test>,
+		>>::to_asset_balance(10, ASSET_ID);
+		assert!(conversion.is_err());
+	});
+}

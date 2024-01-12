@@ -63,7 +63,10 @@ use frame_support::traits::{
 	fungible::Inspect,
 	tokens::{ConversionFromAssetBalance, ConversionToAssetBalance},
 };
-use sp_runtime::{traits::Zero, FixedPointNumber, FixedU128};
+use sp_runtime::{
+	traits::{CheckedDiv, Zero},
+	FixedPointNumber, FixedU128,
+};
 use sp_std::boxed::Box;
 
 pub use pallet::*;
@@ -147,6 +150,8 @@ pub mod pallet {
 		UnknownAssetKind,
 		/// The given asset ID already has an assigned conversion rate and cannot be re-created.
 		AlreadyExists,
+		/// Overflow ocurred when calculating the inverse rate
+		Overflow,
 	}
 
 	#[pallet::call]
@@ -263,6 +268,11 @@ where
 	) -> Result<BalanceOf<T>, pallet::Error<T>> {
 		let rate = pallet::ConversionRateToNative::<T>::get(asset_kind)
 			.ok_or(pallet::Error::<T>::UnknownAssetKind.into())?;
-		Ok(FixedU128::from_u32(1).div(rate).saturating_mul_int(balance))
+
+		// We cannot use saturating_div here so we use checked_div
+		Ok(FixedU128::from_u32(1)
+			.checked_div(&rate)
+			.ok_or(pallet::Error::<T>::Overflow.into())?
+			.saturating_mul_int(balance))
 	}
 }
