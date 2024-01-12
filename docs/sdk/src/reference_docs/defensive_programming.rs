@@ -53,7 +53,7 @@
 //!   performed a check beforehand) that a value won't panic upon unwrapping.  Even this is
 //!   discouraged, however, as future changes to that function could then cause that statement to
 //!   panic.  It is better to ensure all errors are propagated and handled accordingly in some way.
-//! - If a function *can* panic, it usually is prefaced with `unchecked_` to indicate its safety.
+//! - If a function *can* panic, it usually is prefaced with `unchecked_` to indicate its unsafety.
 //! - If you are writing a function that could panic, [be sure to document it!](https://doc.rust-lang.org/rustdoc/how-to-write-documentation.html#documenting-components)
 //! - Carefully handle mathematical operations.  Many seemingly, simplistic operations, such as
 //!   **arithmetic** in the runtime, could present a number of issues [(see more later in this
