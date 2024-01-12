@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This calls another contract as passed as its account id.
 #![no_std]
 #![no_main]
 
@@ -24,24 +23,22 @@ use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
-pub extern "C" fn deploy() {}
+pub extern "C" fn deploy() {
+	ok_trap_revert();
+}
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	input!(
-		callee_input: [u8; 4],
-		callee_addr: [u8; 32],
-	);
+	ok_trap_revert();
+}
 
-	// Call the callee
-	api::call_v1(
-		uapi::CallFlags::empty(),
-		callee_addr,
-		0u64,                // How much gas to devote for the execution. 0 = all.
-		&0u64.to_le_bytes(), // value transferred to the contract.
-		callee_input,
-		None,
-	)
-	.unwrap();
+#[no_mangle]
+fn ok_trap_revert() {
+	input!(buffer, 4,);
+	match buffer.first().unwrap_or(&0) {
+		1 => api::return_value(uapi::ReturnFlags::REVERT, &[0u8; 0]),
+		2 => panic!(),
+		_ => {},
+	};
 }

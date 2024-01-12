@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This calls another contract as passed as its account id.
+//! This calls another contract as passed as its account id. It also creates some storage.
 #![no_std]
 #![no_main]
 
@@ -30,18 +30,30 @@ pub extern "C" fn deploy() {}
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
 	input!(
-		callee_input: [u8; 4],
-		callee_addr: [u8; 32],
+		buffer,
+		input: [u8; 4],
+		callee: [u8; 32],
+		deposit_limit: [u8; 8],
 	);
 
+	// create 4 byte of storage before calling
+	api::set_storage(buffer, &[1u8; 4]);
+
 	// Call the callee
-	api::call_v1(
+	#[allow(deprecated)]
+	api::call_v2(
 		uapi::CallFlags::empty(),
-		callee_addr,
-		0u64,                // How much gas to devote for the execution. 0 = all.
+		callee,
+		0u64, // How much ref_time weight to devote for the execution. 0 = all.
+		0u64, // How much proof_size weight to devote for the execution. 0 = all.
+		Some(deposit_limit),
 		&0u64.to_le_bytes(), // value transferred to the contract.
-		callee_input,
+		input,
 		None,
 	)
 	.unwrap();
+
+	// create 8 byte of storage after calling
+	// item of 12 bytes because we override 4 bytes
+	api::set_storage(buffer, &[1u8; 12]);
 }
