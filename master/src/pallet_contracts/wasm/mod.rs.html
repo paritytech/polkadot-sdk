@@ -3429,6 +3429,22 @@
 <a href="#3429" id="3429">3429</a>
 <a href="#3430" id="3430">3430</a>
 <a href="#3431" id="3431">3431</a>
+<a href="#3432" id="3432">3432</a>
+<a href="#3433" id="3433">3433</a>
+<a href="#3434" id="3434">3434</a>
+<a href="#3435" id="3435">3435</a>
+<a href="#3436" id="3436">3436</a>
+<a href="#3437" id="3437">3437</a>
+<a href="#3438" id="3438">3438</a>
+<a href="#3439" id="3439">3439</a>
+<a href="#3440" id="3440">3440</a>
+<a href="#3441" id="3441">3441</a>
+<a href="#3442" id="3442">3442</a>
+<a href="#3443" id="3443">3443</a>
+<a href="#3444" id="3444">3444</a>
+<a href="#3445" id="3445">3445</a>
+<a href="#3446" id="3446">3446</a>
+<a href="#3447" id="3447">3447</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -5891,7 +5907,7 @@
 		<span class="macro">assert_eq!</span>(
 			result,
 			<span class="prelude-val">Err</span>(ExecError {
-				error: Error::&lt;Test&gt;::OutOfBounds.into(),
+				error: Error::&lt;Test&gt;::DecodingFailed.into(),
 				origin: ErrorOrigin::Caller,
 			})
 		);
@@ -6858,6 +6874,22 @@
 			mock_ext.delegate_dependencies.into_inner().into_iter().collect();
 		<span class="macro">assert_eq!</span>(delegate_dependencies.len(), <span class="number">1</span>);
 		<span class="macro">assert_eq!</span>(delegate_dependencies[<span class="number">0</span>].as_bytes(), [<span class="number">1</span>; <span class="number">32</span>]);
+	}
+
+	<span class="comment">// This test checks that [`Runtime::read_sandbox_memory_as`] works, when the decoded type has a
+	// max_len greater than the memory size, but the decoded data fits into the memory.
+	</span><span class="attr">#[test]
+	</span><span class="kw">fn </span>read_sandbox_memory_as_works_with_max_len_out_of_bounds_but_fitting_actual_data() {
+		<span class="kw">use </span>frame_support::BoundedVec;
+		<span class="kw">use </span>sp_core::ConstU32;
+
+		<span class="kw">let </span><span class="kw-2">mut </span>ext = MockExt::default();
+		<span class="kw">let </span>runtime = Runtime::new(<span class="kw-2">&amp;mut </span>ext, <span class="macro">vec!</span>[]);
+		<span class="kw">let </span>data = <span class="macro">vec!</span>[<span class="number">1u8</span>, <span class="number">2</span>, <span class="number">3</span>];
+		<span class="kw">let </span>memory = data.encode();
+		<span class="kw">let </span>decoded: BoundedVec&lt;u8, ConstU32&lt;<span class="number">128</span>&gt;&gt; =
+			runtime.read_sandbox_memory_as(<span class="kw-2">&amp;</span>memory, <span class="number">0u32</span>).unwrap();
+		<span class="macro">assert_eq!</span>(decoded.into_inner(), data);
 	}
 }
 </code></pre></div></section></main></body></html>

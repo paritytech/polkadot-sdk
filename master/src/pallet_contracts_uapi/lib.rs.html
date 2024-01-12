@@ -174,7 +174,7 @@
     ) =&gt; {
         <span class="doccomment">/// Every error that can be returned to a contract when it calls any of the host functions.
         </span><span class="attr">#[derive(Debug, PartialEq, Eq)]
-        #[repr(u32)]
+        #[repr(u8)]
         </span><span class="kw">pub enum </span>ReturnErrorCode {
             <span class="doccomment">/// API call successful.
             </span>Success = <span class="number">0</span>,
