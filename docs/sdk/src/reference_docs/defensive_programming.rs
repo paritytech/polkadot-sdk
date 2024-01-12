@@ -45,7 +45,7 @@
 //!
 //!  General guidelines:
 //!
-//! - Avoid any writing functions that could explicitly panic.  Directly using `unwrap()` for a
+//! - Avoid writing functions that could explicitly panic.  Directly using `unwrap()` for a
 //!   [`Result`] or common errors such as accessing an out of bounds index on a collection (using
 //!   safer methods to access collection types, i.e., `get()`) are both examples of what to
 //!   completely avoid in runtime development.
