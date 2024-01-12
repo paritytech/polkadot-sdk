@@ -21,6 +21,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{BoundedVec, DebugNoBound};
 use scale_info::TypeInfo;
 use sp_npos_elections::ElectionScore;
+use sp_runtime::SaturatedConversion;
 
 use crate::Verifier;
 
@@ -134,7 +135,15 @@ pub struct PageSize {
 	pub targets: u32,
 }
 
-/// A paged raw solution which is the input type for on and off-chain election solutions.
+/// Alias for all pages of voters, parameterized by this crate's config.
+pub(crate) type AllVoterPagesOf<T> = BoundedVec<VoterPageOf<T>, <T as crate::Config>::Pages>;
+// Accuracy of the election.
+pub type SolutionAccuracyOf<T> = <SolutionOf<T> as NposSolution>::Accuracy;
+
+/// Edges from voters to nominated targets that are part of the winner set.
+pub type AssignmentOf<T> = sp_npos_elections::Assignment<AccountIdOf<T>, SolutionAccuracyOf<T>>;
+
+/// A paged raw solution which contains a set of paginated solutions to be submitted.
 ///
 /// A raw solution has not been checked for correctness.
 #[derive(
@@ -151,8 +160,41 @@ pub struct PageSize {
 #[codec(mel_bound(T: crate::Config))]
 #[scale_info(skip_type_params(T))]
 pub struct PagedRawSolution<T: crate::Config> {
-	pub solution: SolutionOf<T>,
+	pub solution_pages: BoundedVec<SolutionOf<T>, T::Pages>,
 	pub score: ElectionScore,
-	pub page: PageIndex,
 	pub round: u32,
+}
+
+/// A helper trait to deal with the page index of partial solutions.
+///
+/// This should only be called on the `Vec<Solution>` or similar types. If the solution is *full*,
+/// then it returns a normal iterator that is just mapping the index (usize) to `PageIndex`.
+///
+/// if the solution is partial, it shifts the indices sufficiently so that the most significant page
+/// of the solution matches with the most significant page of the snapshot onchain.
+pub trait Pagify<T> {
+	fn pagify(&self, bound: PageIndex) -> Box<dyn Iterator<Item = (PageIndex, &T)> + '_>;
+	fn into_pagify(self, bound: PageIndex) -> Box<dyn Iterator<Item = (PageIndex, T)>>;
+}
+
+impl<T> Pagify<T> for Vec<T> {
+	fn pagify(&self, desired_pages: PageIndex) -> Box<dyn Iterator<Item = (PageIndex, &T)> + '_> {
+		Box::new(
+			self.into_iter()
+				.enumerate()
+				.map(|(p, s)| (p.saturated_into::<PageIndex>(), s))
+				.map(move |(p, s)| {
+					let desired_pages_usize = desired_pages as usize;
+					// TODO: this could be an error.
+					debug_assert!(self.len() <= desired_pages_usize);
+					let padding = desired_pages_usize.saturating_sub(self.len());
+					let new_page = p.saturating_add(padding.saturated_into::<PageIndex>());
+					(new_page, s)
+				}),
+		)
+	}
+
+	fn into_pagify(self, _: PageIndex) -> Box<dyn Iterator<Item = (PageIndex, T)>> {
+		todo!()
+	}
 }

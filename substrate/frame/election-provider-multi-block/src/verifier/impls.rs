@@ -365,6 +365,13 @@ impl<T: impls::pallet::Config> Verifier for Pallet<T> {
 			},
 		}
 	}
+
+	fn feasibility_check(
+		partial_solution: Self::Solution,
+		page: PageIndex,
+	) -> Result<SupportsOf<Self>, FeasibilityError> {
+		Self::feasibility_check(partial_solution, page)
+	}
 }
 
 impl<T: impls::pallet::Config> AsyncVerifier for Pallet<T> {
@@ -557,7 +564,7 @@ impl<T: impls::pallet::Config> Pallet<T> {
 	}
 
 	/// Do the full feasibility check:
-	pub(super) fn feasibility_check(
+	pub(crate) fn feasibility_check(
 		partial_solution: SolutionOf<T>,
 		page: PageIndex,
 	) -> Result<SupportsOf<Self>, FeasibilityError> {

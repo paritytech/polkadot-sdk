@@ -17,9 +17,13 @@
 
 //! Some helper functions/macros for this crate.
 
-use crate::{types::VoterOf, Config, SolutionTargetIndexOf, SolutionVoterIndexOf};
-use frame_election_provider_support::VoteWeight;
+use crate::{
+	types::{AllVoterPagesOf, VoterOf},
+	Config, SolutionTargetIndexOf, SolutionVoterIndexOf,
+};
+use frame_election_provider_support::{PageIndex, VoteWeight};
 use frame_support::{traits::Get, BoundedVec};
+use sp_runtime::SaturatedConversion;
 use std::collections::BTreeMap;
 
 #[macro_export]
@@ -64,6 +68,26 @@ pub fn generate_voter_cache<T: Config, AnyBound: Get<u32>>(
 	cache
 }
 
+/// Generate an `fficient closure of voters and the page in which they live in.
+pub fn generate_voter_page_fn<T: Config>(
+	paged_snapshot: &AllVoterPagesOf<T>,
+) -> impl Fn(&T::AccountId) -> Option<PageIndex> {
+	let mut cache: BTreeMap<T::AccountId, PageIndex> = BTreeMap::new();
+	paged_snapshot
+		.iter()
+		.enumerate()
+		.map(|(page, whatever)| (page.saturated_into::<PageIndex>(), whatever))
+		.for_each(|(page, page_voters)| {
+			page_voters.iter().for_each(|(v, _, _)| {
+				let _existed = cache.insert(v.clone(), page);
+				// if a duplicate exists, we only consider the last one. Defensive only, should
+				// never happen.
+				debug_assert!(_existed.is_none());
+			});
+		});
+	move |who| cache.get(who).copied()
+}
+
 /// Create a function that returns the index of a voter in the snapshot.
 ///
 /// The returning index type is the same as the one defined in `T::Solution::Voter`.
@@ -74,6 +98,20 @@ pub fn generate_voter_cache<T: Config, AnyBound: Get<u32>>(
 pub fn voter_index_fn<T: Config>(
 	cache: &BTreeMap<T::AccountId, usize>,
 ) -> impl Fn(&T::AccountId) -> Option<SolutionVoterIndexOf<T>> + '_ {
+	move |who| {
+		cache
+			.get(who)
+			.and_then(|i| <usize as TryInto<SolutionVoterIndexOf<T>>>::try_into(*i).ok())
+	}
+}
+
+/// Create a function that returns the index of a voter in the snapshot.
+///
+/// Same as [`voter_index_fn`] but the returned function owns all its necessary data; nothing is
+/// borrowed.
+pub fn voter_index_fn_owned<T: Config>(
+	cache: BTreeMap<T::AccountId, usize>,
+) -> impl Fn(&T::AccountId) -> Option<SolutionVoterIndexOf<T>> {
 	move |who| {
 		cache
 			.get(who)

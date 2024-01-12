@@ -19,22 +19,23 @@
 
 use crate::{
 	helpers,
-	types::{PageSize, VoterOf},
+	types::{PageSize, Pagify, SupportsOf, VoterOf},
 	unsigned::pallet::Config as UnsignedConfig,
 	verifier::FeasibilityError,
-	Config, PagedRawSolution, Snapshot, SolutionOf,
+	AssignmentOf, Config, PagedRawSolution, Pallet as EPM, Snapshot, SolutionAccuracyOf,
+	SolutionOf,
 };
 
 use codec::Encode;
 use frame_election_provider_support::{
-	IndexAssignmentOf, NposSolution, NposSolver, PageIndex, Weight,
+	ElectionProvider, IndexAssignmentOf, NposSolution, NposSolver, PageIndex, Weight,
 };
 use frame_support::{traits::Get, BoundedVec};
 use sp_npos_elections::{
 	assignment_ratio_to_staked_normalized, assignment_staked_to_ratio_normalized, ElectionResult,
-	ElectionScore,
+	ElectionScore, ExtendedBalance, Support,
 };
-use sp_runtime::SaturatedConversion;
+use sp_runtime::{bounded_vec, SaturatedConversion};
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum MinerError {
@@ -46,6 +47,7 @@ pub enum MinerError {
 	Solver,
 	/// The solution generated from the miner is not feasible.
 	Feasibility(FeasibilityError),
+	InvalidPage,
 }
 
 impl From<sp_npos_elections::Error> for MinerError {
@@ -86,12 +88,130 @@ pub struct TrimmingStatus {
 	length: usize,
 }
 
+impl Default for TrimmingStatus {
+	fn default() -> Self {
+		Self { weight: 0, length: 0 }
+	}
+}
+
 pub struct Miner<T: UnsignedConfig, Solver: NposSolver>(sp_std::marker::PhantomData<(T, Solver)>);
 
 impl<T: UnsignedConfig, S: NposSolver> Miner<T, S>
 where
-	S: NposSolver<AccountId = T::AccountId>,
+	S: NposSolver<AccountId = T::AccountId, Accuracy = SolutionAccuracyOf<T>>,
 {
+	/// Mines a paged solution.
+	///
+	/// This always trims the solution to match a few parameters:
+	///
+	/// 1. [`crate::verifier::Config::MaxBackersPerWinner`]
+	/// 2. [`crate::unsigned::Config::MinerMaxLength`]
+	/// 3. [`crate::unsigned::Config::MinerMaxWeight`]
+	///
+	/// //TODO(doc)
+	pub fn mine_paged_solution(
+		mut pages: PageIndex,
+		do_reduce: bool,
+	) -> Result<(PagedRawSolution<T>, TrimmingStatus), MinerError> {
+		let desired_targets = Snapshot::<T>::desired_targets()
+			.ok_or::<MinerError>(SnapshotType::DesiredTargets.into())?;
+
+		// Note to self: having paged targets may be problematic here, maybe remove it?
+		// Maybe needs flattening.
+		let paged_targets_range = (0..EPM::<T>::msp() + 1).take(pages as usize);
+		let paged_voters_range = (0..EPM::<T>::msp() + 1).take(pages as usize);
+
+		let a = paged_targets_range.clone();
+
+		// all targets in the snapshot, flatten (i.e. not paged).
+		let all_targets: Vec<_> = paged_targets_range
+			.map(|page| {
+				Snapshot::<T>::targets(page)
+					.ok_or(MinerError::SnapshotUnAvailable(SnapshotType::Voters(page)))
+			})
+			.collect::<Result<Vec<_>, _>>()?
+			.into_iter()
+			.flatten()
+			.collect::<Vec<_>>();
+
+		// all voters in the snapshot, per page.
+		let all_voter_pages: BoundedVec<_, T::Pages> = paged_voters_range
+			.map(|page| {
+				Snapshot::<T>::voters(page)
+					.ok_or(MinerError::SnapshotUnAvailable(SnapshotType::Voters(page)))
+			})
+			.collect::<Result<Vec<_>, _>>()?
+			.try_into()
+			.expect("range was constructed from the bounded vec bounds; qed.");
+
+		// build helper closures.
+		let voters_page_fn = helpers::generate_voter_page_fn::<T>(&all_voter_pages);
+		let targets_index_fn = helpers::target_index_fn::<T>(&all_targets);
+
+		// flatten the voters as well.
+		let all_voters: Vec<VoterOf<T>> =
+			all_voter_pages.iter().cloned().flatten().collect::<Vec<_>>();
+
+		// run the election with all voters and targets.
+		let ElectionResult { winners: _, assignments } =
+			S::solve(desired_targets as usize, all_targets.clone().to_vec(), all_voters.clone())
+				.map_err(|_| MinerError::Solver)?;
+
+		// TODO(gpestana): reduce and trim.
+
+		// split assignments into `T::Pages pages. // TOOD bounded vec of assignments?
+		let mut paged_assignments: BoundedVec<Vec<AssignmentOf<T>>, T::Pages> =
+			BoundedVec::with_bounded_capacity(pages as usize);
+
+		paged_assignments.bounded_resize(pages as usize, vec![]);
+
+		for assignment in assignments {
+			let page = voters_page_fn(&assignment.who).ok_or(MinerError::InvalidPage)?;
+			let assignment_page =
+				paged_assignments.get_mut(page as usize).ok_or(MinerError::InvalidPage)?;
+			assignment_page.push(assignment);
+		}
+
+		// convert each page of assignments to a paged `T::Solution`.
+		let solution_pages: BoundedVec<SolutionOf<T>, T::Pages> = paged_assignments
+			.into_iter()
+			.enumerate()
+			.map(|(page_index, assignment_page)| {
+				let page: PageIndex = page_index.saturated_into();
+
+				let voter_snapshot_page = all_voter_pages
+					.get(page as usize)
+					.ok_or(MinerError::SnapshotUnAvailable(SnapshotType::Voters(page)))?;
+
+				let voters_index_fn = {
+					let cache = helpers::generate_voter_cache::<T, _>(&voter_snapshot_page);
+					helpers::voter_index_fn_owned::<T>(cache)
+				};
+
+				<SolutionOf<T>>::from_assignment(
+					&assignment_page,
+					&voters_index_fn,
+					&targets_index_fn,
+				)
+				.map_err(|e| MinerError::NposElections(e))
+			})
+			.collect::<Result<Vec<_>, _>>()?
+			.try_into()
+			.expect("paged_assignments is bound by `T::Pages. qed.");
+
+		println!("--- {:?}", solution_pages);
+
+		// TODO(gpestana): trim again?
+		let trimming_status = Default::default();
+
+		let round = crate::Pallet::<T>::current_round();
+		let mut paged_solution =
+			PagedRawSolution { solution_pages, score: Default::default(), round };
+		Self::compute_score(&paged_solution);
+
+		Ok((paged_solution, trimming_status))
+	}
+
 	/// Mines a NPoS solution of a given page anc converts the result into a [`PagedRawSolution`],
 	/// ready to be submitted on-chain.
 	///
@@ -99,7 +219,7 @@ where
 	/// requested page and calls into the NPoS solver `S` to calculate a solution.
 	///
 	/// The final solution may be reduced, based on the `reduce` bool.
-	pub fn mine_and_prepare_solution_page(
+	pub fn mine_and_prepare_solution_single_page(
 		page: PageIndex,
 		reduce: bool,
 	) -> Result<(PagedRawSolution<T>, TrimmingStatus), MinerError> {
@@ -213,9 +333,61 @@ where
 		let score = solution.clone().score(stake_of, voter_at, target_at)?;
 		let is_trimmed = TrimmingStatus { weight: weight_trimmed, length: length_trimmed };
 
-		let round = crate::Pallet::<T>::current_round();
+		let round = EPM::<T>::current_round();
+		let solution_pages: BoundedVec<T::Solution, T::Pages> = bounded_vec![solution];
 
-		Ok((PagedRawSolution { solution, score, page, round }, is_trimmed))
+		Ok((PagedRawSolution { solution_pages, score, round }, is_trimmed))
+	}
+
+	/// Take the given raw paged solution and compute its score. This will replicate what the chain
+	/// would do as closely as possible, and expects all the corresponding snapshot data to be
+	/// available.
+	fn compute_score(paged_solution: &PagedRawSolution<T>) -> Result<ElectionScore, MinerError> {
+		use sp_npos_elections::EvaluateSupport;
+		use sp_std::collections::btree_map::BTreeMap;
+
+		let all_supports = Self::check_feasibility(paged_solution, "mined")?;
+		let mut total_backings: BTreeMap<T::AccountId, ExtendedBalance> = BTreeMap::new();
+		all_supports.into_iter().map(|x| x.0).flatten().for_each(|(who, support)| {
+			let backing = total_backings.entry(who).or_default();
+			*backing = backing.saturating_add(support.total);
+		});
+
+		let all_supports = total_backings
+			.into_iter()
+			.map(|(who, total)| (who, Support { total, ..Default::default() }))
+			.collect::<Vec<_>>();
+
+		Ok((&all_supports).evaluate())
+	}
+
+	/// perform the feasibility check on all pages of a solution, returning `Ok(())` if all good and
+	/// the corresponding error otherwise.
+	pub fn check_feasibility(
+		paged_solution: &PagedRawSolution<T>,
+		solution_type: &str,
+	) -> Result<Vec<SupportsOf<T::Verifier>>, MinerError> {
+		// check every solution page for feasibility.
+		paged_solution
+			.solution_pages
+			.pagify(T::Pages::get())
+			.map(|(page_index, page_solution)| {
+				<T::Verifier as crate::verifier::Verifier>::feasibility_check(
+					page_solution.clone(),
+					page_index as PageIndex,
+				)
+			})
+			.collect::<Result<Vec<_>, _>>()
+			.map_err(|err| {
+				sublog!(
+					warn,
+					"unsigned::base-miner",
+					"feasibility check failed for {} solution at: {:?}",
+					solution_type,
+					err
+				);
+				MinerError::from(err)
+			})
 	}
 
 	/// Greedily reduce the size of the solution to fit into the block w.r.t length.

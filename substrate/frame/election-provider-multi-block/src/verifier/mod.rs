@@ -158,6 +158,14 @@ pub trait Verifier {
 		claimed_score: ElectionScore,
 		page: PageIndex,
 	) -> Result<SupportsOf<Self>, FeasibilityError>;
+
+	/// Just perform a single-page feasibility-check, based on the standards of this pallet.
+	///
+	/// No score check is part of this.
+	fn feasibility_check(
+		partial_solution: Self::Solution,
+		page: PageIndex,
+	) -> Result<SupportsOf<Self>, FeasibilityError>;
 }
 
 /// Something that can verify a solution asynchronously.

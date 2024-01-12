@@ -94,7 +94,7 @@ pub(crate) type VoterIndex = u16;
 pub(crate) type TargetIndex = u16;
 pub(crate) type Moment = u32;
 
-type Solver = SequentialPhragmen<AccountId, sp_runtime::PerU16>;
+pub type Solver = SequentialPhragmen<AccountId, sp_runtime::PerU16>;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
@@ -625,7 +625,7 @@ pub fn roll_to(n: BlockNumber, delay_solution: bool) {
 		Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
 
 		if ElectionProvider::current_phase() == Phase::Signed && !delay_solution {
-			let _ = try_submit_solution().map_err(|e| {
+			let _ = try_submit_paged_solution().map_err(|e| {
 				log!(info, "failed to mine/queue solution: {:?}", e);
 			});
 		};
@@ -800,7 +800,45 @@ parameter_types! {
 	pub static LastSolutionSubmittedFor: Option<u32> = None;
 }
 
-// Queue a solution based on the current snapshot rn.
+pub(crate) fn try_submit_paged_solution() -> Result<(), ()> {
+	let submit = || {
+		let (paged_solution, _) =
+			Miner::<Runtime, Solver>::mine_paged_solution(Pages::get(), false).unwrap();
+
+		let _ = SignedPallet::register(RuntimeOrigin::signed(10), paged_solution.score).unwrap();
+
+		for (idx, page) in paged_solution.solution_pages.into_iter().enumerate() {
+			let _ = SignedPallet::submit_page(RuntimeOrigin::signed(10), idx as u32, Some(page));
+		}
+		log!(
+			info,
+			"submitter: successfully submitted {} pages with {:?} score in round {}.",
+			Pages::get(),
+			paged_solution.score,
+			ElectionProvider::current_round(),
+		);
+	};
+
+	match LastSolutionSubmittedFor::get() {
+		Some(submitted_at) => {
+			if submitted_at == ElectionProvider::current_round() {
+				// solution already submitted in this round, do nothing.
+			} else {
+				// haven't submit in this round, submit it.
+				submit()
+			}
+		},
+		// never submitted, do it.
+		None => submit(),
+	};
+	LastSolutionSubmittedFor::set(Some(ElectionProvider::current_round()));
+
+	Ok(())
+}
+
+/// Queue a solution based on the current snapshot rn.
+///
+/// TODO: remove, not neeeded anymre.
 pub(crate) fn try_submit_solution() -> Result<(), ()> {
 	let submit = || {
 		log!(
@@ -814,10 +852,10 @@ pub(crate) fn try_submit_solution() -> Result<(), ()> {
 
 		for _ in 0..Pages::get() {
 			let paged_solution =
-				Miner::<Runtime, Solver>::mine_and_prepare_solution_page(0, false).unwrap();
+				Miner::<Runtime, Solver>::mine_and_prepare_solution_single_page(0, false).unwrap();
 			let page_score = paged_solution.0.score;
 
-			paged_solutions.push(paged_solution.0.solution);
+			paged_solutions.push(paged_solution.0.solution_pages[0].clone());
 			total_election_score += page_score;
 		}
 
@@ -835,14 +873,6 @@ pub(crate) fn try_submit_solution() -> Result<(), ()> {
 				Some(page),
 			);
 		}
-
-		log!(
-			info,
-			"submitter: successfully submitted {} pages with {:?} score in round {}.",
-			Pages::get(),
-			total_election_score,
-			ElectionProvider::current_round(),
-		);
 	};
 
 	match LastSolutionSubmittedFor::get() {

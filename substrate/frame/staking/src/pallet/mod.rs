@@ -58,6 +58,7 @@ pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 
 #[frame_support::pallet]
 pub mod pallet {
+
 	use frame_election_provider_support::ElectionDataProvider;
 
 	use crate::{BenchmarkingConfig, PagedExposureMetadata};
@@ -656,6 +657,17 @@ pub mod pallet {
 	/// (`CountFor*`) in the system compared to the configured max (`Max*Count`).
 	#[pallet::storage]
 	pub(crate) type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
+
+	// TODO: think about encapsulating both indices below in one typ.
+	/// Last voter processed in the snapshot;
+	#[pallet::storage]
+	pub(crate) type LastIteratedVoter<T: Config> =
+		StorageValue<_, Option<T::AccountId>, ValueQuery>;
+
+	/// Last target processed in the snapshot;
+	#[pallet::storage]
+	pub(crate) type LastIteratedTarget<T: Config> =
+		StorageValue<_, Option<T::AccountId>, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]

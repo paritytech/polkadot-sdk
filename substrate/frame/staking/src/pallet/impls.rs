@@ -813,7 +813,10 @@ impl<T: Config> Pallet<T> {
 	/// nominators.
 	///
 	/// This function is self-weighing as [`DispatchClass::Mandatory`].
-	pub fn get_npos_voters(bounds: DataProviderBounds) -> Vec<VoterOf<Self>> {
+	pub fn get_npos_voters_init(
+		bounds: DataProviderBounds,
+		remaining_pages: PageIndex,
+	) -> Vec<VoterOf<Self>> {
 		let mut voters_size_tracker: StaticTracker<Self> = StaticTracker::default();
 
 		let final_predicted_len = {
@@ -831,7 +834,14 @@ impl<T: Config> Pallet<T> {
 		let mut nominators_taken = 0u32;
 		let mut min_active_stake = u64::MAX;
 
-		let mut sorted_voters = T::VoterList::iter();
+		let mut sorted_voters = match LastIteratedVoter::<T>::get() {
+			// snapshot continues, start from last.
+			Some(start_at) =>
+				T::VoterList::iter_from(&start_at).defensive_unwrap_or_else(|| T::VoterList::iter()),
+			// beginning of the snapshot, start from the beginning.
+			None => T::VoterList::iter(),
+		};
+
 		while all_voters.len() < final_predicted_len as usize &&
 			voters_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * final_predicted_len as u32)
 		{
@@ -904,6 +914,13 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
+		match remaining_pages {
+			0 => LastIteratedVoter::<T>::kill(),
+			_ => {
+				LastIteratedVoter::<T>::put(all_voters.last().map(|(x, _, _)| x).cloned());
+			},
+		};
+
 		// all_voters should have not re-allocated.
 		debug_assert!(all_voters.capacity() == final_predicted_len as usize);
 
@@ -928,7 +945,10 @@ impl<T: Config> Pallet<T> {
 	/// Get the targets for an upcoming npos election.
 	///
 	/// This function is self-weighing as [`DispatchClass::Mandatory`].
-	pub fn get_npos_targets(bounds: DataProviderBounds) -> Vec<T::AccountId> {
+	pub fn get_npos_targets(
+		bounds: DataProviderBounds,
+		remaining_pages: PageIndex,
+	) -> Vec<T::AccountId> {
 		let mut targets_size_tracker: StaticTracker<Self> = StaticTracker::default();
 
 		let final_predicted_len = {
@@ -939,7 +959,14 @@ impl<T: Config> Pallet<T> {
 		let mut all_targets = Vec::<T::AccountId>::with_capacity(final_predicted_len as usize);
 		let mut targets_seen = 0;
 
-		let mut targets_iter = T::TargetList::iter();
+		let mut targets_iter = match LastIteratedTarget::<T>::get() {
+			// snapshot continues, start from last.
+			Some(start_at) => T::TargetList::iter_from(&start_at)
+				.defensive_unwrap_or_else(|| T::TargetList::iter()),
+			// beginning of the snapshot, start from the beginning.
+			None => T::TargetList::iter(),
+		};
+
 		while all_targets.len() < final_predicted_len as usize &&
 			targets_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * final_predicted_len as u32)
 		{
@@ -963,6 +990,13 @@ impl<T: Config> Pallet<T> {
 				all_targets.push(target);
 			}
 		}
+
+		match remaining_pages {
+			0 => LastIteratedTarget::<T>::kill(),
+			_ => {
+				LastIteratedTarget::<T>::put(all_targets.last().cloned());
+			},
+		};
 
 		Self::register_weight(T::WeightInfo::get_npos_targets(all_targets.len() as u32));
 		log!(info, "generated {} npos targets", all_targets.len());
@@ -1117,10 +1151,9 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 
 	fn electing_voters(
 		bounds: DataProviderBounds,
-		_remaining: PageIndex,
+		remaining_pages: PageIndex,
 	) -> data_provider::Result<Vec<VoterOf<Self>>> {
-		// This can never fail -- if `maybe_max_len` is `Some(_)` we handle it.
-		let voters = Self::get_npos_voters(bounds);
+		let voters = Self::get_npos_voters_init(bounds, remaining_pages);
 
 		debug_assert!(!bounds.exhausted(
 			SizeBound(voters.encoded_size() as u32).into(),
@@ -1132,9 +1165,9 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 
 	fn electable_targets(
 		bounds: DataProviderBounds,
-		_remaining: PageIndex,
+		remaining: PageIndex,
 	) -> data_provider::Result<Vec<T::AccountId>> {
-		let targets = Self::get_npos_targets(bounds);
+		let targets = Self::get_npos_targets(bounds, remaining);
 
 		// We can't handle this case yet -- return an error. WIP to improve handling this case in
 		// <https://github.com/paritytech/substrate/pull/13195>.

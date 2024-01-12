@@ -77,7 +77,10 @@ mod staking_integration {
 	use super::*;
 
 	#[test]
-	fn call_elect_single_block() {
+	fn call_elect_single_block() {} // TODO
+
+	#[test]
+	fn call_elect_multi_block() {
 		ExtBuilder::default().build_and_execute(|| {
 			assert_eq!(Pages::get(), 3);
 			assert_eq!(ElectionProvider::current_round(), 0);
@@ -91,7 +94,4 @@ mod staking_integration {
 			assert_eq!(Staking::current_era(), Some(1));
 		})
 	}
-
-	#[test]
-	fn call_elect_multi_block() {}
 }

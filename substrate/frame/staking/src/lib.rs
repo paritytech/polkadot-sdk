@@ -382,6 +382,13 @@ pub struct ActiveEraInfo {
 	start: Option<u64>,
 }
 
+/// Pointer to the last iterated indices for targets and voters used when generating the snapshot.
+#[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub(crate) struct LastIteratedStakers<AccountId> {
+	voter: AccountId,
+	target: AccountId,
+}
+
 /// Reward points of an era. Used to split era total payout between validators.
 ///
 /// This points will be used to reward validators and their respective nominators.

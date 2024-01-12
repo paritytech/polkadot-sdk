@@ -20,8 +20,7 @@
 use crate::{self as pallet_staking, *};
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
-	onchain, BoundedSupports, SequentialPhragmen, Support, TryIntoBoundedSupports,
-	VoteWeight,
+	onchain, BoundedSupports, SequentialPhragmen, Support, TryIntoBoundedSupports, VoteWeight,
 };
 use frame_support::{
 	assert_ok, ord_parameter_types, parameter_types,
