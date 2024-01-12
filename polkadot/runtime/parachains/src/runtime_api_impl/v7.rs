@@ -62,7 +62,7 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 	//
 	// At the end of a session we clear the claim queues: Without this update call, nothing would be
 	// scheduled to the client.
-	<scheduler::Pallet<T>>::update_claimqueue(Vec::new(), now);
+	<scheduler::Pallet<T>>::free_cores_and_fill_claimqueue(Vec::new(), now);
 
 	let time_out_for = <scheduler::Pallet<T>>::availability_timeout_predicate();
 

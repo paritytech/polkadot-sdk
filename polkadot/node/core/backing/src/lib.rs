@@ -118,6 +118,7 @@ use statement_table::{
 	},
 	Config as TableConfig, Context as TableContextTrait, Table,
 };
+use util::vstaging::get_disabled_validators_with_fallback;
 
 mod error;
 
@@ -383,6 +384,21 @@ struct TableContext {
 	validator: Option<Validator>,
 	groups: HashMap<ParaId, Vec<ValidatorIndex>>,
 	validators: Vec<ValidatorId>,
+	disabled_validators: Vec<ValidatorIndex>,
+}
+
+impl TableContext {
+	// Returns `true` if the provided `ValidatorIndex` is in the disabled validators list
+	pub fn validator_is_disabled(&self, validator_idx: &ValidatorIndex) -> bool {
+		self.disabled_validators
+			.iter()
+			.any(|disabled_val_idx| *disabled_val_idx == *validator_idx)
+	}
+
+	// Returns `true` if the local validator is in the disabled validators list
+	pub fn local_validator_is_disabled(&self) -> Option<bool> {
+		self.validator.as_ref().map(|v| v.disabled())
+	}
 }
 
 impl TableContextTrait for TableContext {
@@ -1010,21 +1026,34 @@ async fn construct_per_relay_parent_state<Context>(
 	let minimum_backing_votes =
 		try_runtime_api!(request_min_backing_votes(parent, session_index, ctx.sender()).await);
 
-	let signing_context = SigningContext { parent_hash: parent, session_index };
-	let validator =
-		match Validator::construct(&validators, signing_context.clone(), keystore.clone()) {
-			Ok(v) => Some(v),
-			Err(util::Error::NotAValidator) => None,
-			Err(e) => {
-				gum::warn!(
-					target: LOG_TARGET,
-					err = ?e,
-					"Cannot participate in candidate backing",
-				);
+	// TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
+	// Once runtime ver `DISABLED_VALIDATORS_RUNTIME_REQUIREMENT` is released remove this call to
+	// `get_disabled_validators_with_fallback`, add `request_disabled_validators` call to the
+	// `try_join!` above and use `try_runtime_api!` to get `disabled_validators`
+	let disabled_validators =
+		get_disabled_validators_with_fallback(ctx.sender(), parent).await.map_err(|e| {
+			Error::UtilError(TryFrom::try_from(e).expect("the conversion is infallible; qed"))
+		})?;
 
-				return Ok(None)
-			},
-		};
+	let signing_context = SigningContext { parent_hash: parent, session_index };
+	let validator = match Validator::construct(
+		&validators,
+		&disabled_validators,
+		signing_context.clone(),
+		keystore.clone(),
+	) {
+		Ok(v) => Some(v),
+		Err(util::Error::NotAValidator) => None,
+		Err(e) => {
+			gum::warn!(
+				target: LOG_TARGET,
+				err = ?e,
+				"Cannot participate in candidate backing",
+			);
+
+			return Ok(None)
+		},
+	};
 
 	let mut groups = HashMap::new();
 	let n_cores = cores.len();
@@ -1054,7 +1083,7 @@ async fn construct_per_relay_parent_state<Context>(
 		}
 	}
 
-	let table_context = TableContext { groups, validators, validator };
+	let table_context = TableContext { validator, groups, validators, disabled_validators };
 	let table_config = TableConfig {
 		allow_multiple_seconded: match mode {
 			ProspectiveParachainsMode::Enabled { .. } => true,
@@ -1726,6 +1755,19 @@ async fn kick_off_validation_work<Context>(
 	background_validation_tx: &mpsc::Sender<(Hash, ValidatedCandidateCommand)>,
 	attesting: AttestingData,
 ) -> Result<(), Error> {
+	// Do nothing if the local validator is disabled or not a validator at all
+	match rp_state.table_context.local_validator_is_disabled() {
+		Some(true) => {
+			gum::info!(target: LOG_TARGET, "We are disabled - don't kick off validation");
+			return Ok(())
+		},
+		Some(false) => {}, // we are not disabled - move on
+		None => {
+			gum::debug!(target: LOG_TARGET, "We are not a validator - don't kick off validation");
+			return Ok(())
+		},
+	}
+
 	let candidate_hash = attesting.candidate.hash();
 	if rp_state.issued_statements.contains(&candidate_hash) {
 		return Ok(())
@@ -1782,6 +1824,16 @@ async fn maybe_validate_and_import<Context>(
 			return Ok(())
 		},
 	};
+
+	// Don't import statement if the sender is disabled
+	if rp_state.table_context.validator_is_disabled(&statement.validator_index()) {
+		gum::debug!(
+			target: LOG_TARGET,
+			sender_validator_idx = ?statement.validator_index(),
+			"Not importing statement because the sender is disabled"
+		);
+		return Ok(())
+	}
 
 	let res = import_statement(ctx, rp_state, &mut state.per_candidate, &statement).await;
 
@@ -1944,6 +1996,13 @@ async fn handle_second_message<Context>(
 		Some(r) => r,
 	};
 
+	// Just return if the local validator is disabled. If we are here the local node should be a
+	// validator but defensively use `unwrap_or(false)` to continue processing in this case.
+	if rp_state.table_context.local_validator_is_disabled().unwrap_or(false) {
+		gum::warn!(target: LOG_TARGET, "Local validator is disabled. Don't validate and second");
+		return Ok(())
+	}
+
 	// Sanity check that candidate is from our assignment.
 	if Some(candidate.descriptor().para_id) != rp_state.assignment {
 		gum::debug!(
@@ -1990,6 +2049,7 @@ async fn handle_statement_message<Context>(
 ) -> Result<(), Error> {
 	let _timer = metrics.time_process_statement();
 
+	// Validator disabling is handled in `maybe_validate_and_import`
 	match maybe_validate_and_import(ctx, state, relay_parent, statement).await {
 		Err(Error::ValidationFailed(_)) => Ok(()),
 		Err(e) => Err(e),

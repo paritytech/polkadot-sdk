@@ -12,7 +12,7 @@ workspace = true
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
 paste = "1.0.14"
-serde_json = "1.0.108"
+serde_json = "1.0.111"
 
 # Substrate
 grandpa = { package = "sc-consensus-grandpa", path = "../../../../../substrate/client/consensus/grandpa" }
