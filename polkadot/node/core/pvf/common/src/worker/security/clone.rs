@@ -40,19 +40,17 @@ pub unsafe fn clone_on_worker(
 	worker_info: &WorkerInfo,
 	have_unshare_newuser: bool,
 	cb: CloneCb,
-	stack_size: usize,
 ) -> Result<Pid> {
 	let flags = clone_flags(have_unshare_newuser);
 
 	gum::trace!(
 		target: LOG_TARGET,
 		?worker_info,
-		%stack_size,
 		"calling clone with flags: {:?}",
 		flags
 	);
 
-	try_clone(cb, stack_size, flags)
+	try_clone(cb, flags)
 }
 
 /// Runs a check for clone(2) with all sandboxing flags and returns an error indicating whether it
@@ -61,16 +59,15 @@ pub unsafe fn clone_on_worker(
 /// SAFETY: new process should be either spawned within a single threaded process, or use only
 /// async-signal-safe functions.
 pub unsafe fn check_can_fully_clone() -> Result<()> {
-	let stack_size = 2 * 1024 * 1024; // Use same as prepare worker for this check.
-	try_clone(Box::new(|| 0), stack_size, clone_flags(false)).map(|_pid| ())
+	try_clone(Box::new(|| 0), clone_flags(false)).map(|_pid| ())
 }
 
 /// Runs clone(2) with all sandboxing flags.
 ///
 /// SAFETY: new process should be either spawned within a single threaded process, or use only
 /// async-signal-safe functions.
-unsafe fn try_clone(cb: CloneCb, stack_size: usize, flags: CloneFlags) -> Result<Pid> {
-	let mut stack: Vec<u8> = vec![0u8; stack_size];
+unsafe fn try_clone(cb: CloneCb, flags: CloneFlags) -> Result<Pid> {
+	let mut stack = [0u8; 2 * 1024 * 1024];
 
 	nix::sched::clone(cb, stack.as_mut_slice(), flags, None).map_err(|errno| Error::Clone(errno))
 }

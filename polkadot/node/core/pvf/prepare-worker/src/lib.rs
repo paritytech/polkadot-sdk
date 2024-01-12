@@ -82,7 +82,7 @@ static ALLOC: TrackingAllocator<std::alloc::System> = TrackingAllocator(std::all
 /// 1 - Main thread
 /// 2 - Cpu monitor thread
 /// 3 - Memory tracker thread
-/// 3 - Prepare thread
+/// 4 - Prepare thread
 ///
 /// NOTE: The correctness of this value is enforced by a test. If the number of threads inside
 /// the child process changes in the future, this value must be changed as well.
@@ -346,9 +346,6 @@ fn handle_clone(
 ) -> Result<PrepareWorkerSuccess, PrepareError> {
 	use polkadot_node_core_pvf_common::worker::security;
 
-	// 2MiB * num_threads
-	let stack_size = 2 * 1024 * 1024 * PREPARE_WORKER_THREAD_NUMBER;
-
 	// SAFETY: new process is spawned within a single threaded process. This invariant
 	// is enforced by tests. Stack size being specified to ensure child doesn't overflow
 	match unsafe {
@@ -366,7 +363,6 @@ fn handle_clone(
 					Arc::clone(&executor_params),
 				)
 			}),
-			stack_size as usize,
 		)
 	} {
 		Ok(child) => handle_parent_process(

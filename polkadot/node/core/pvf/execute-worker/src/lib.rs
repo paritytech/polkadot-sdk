@@ -128,9 +128,7 @@ pub fn worker_entrypoint(
 			let Handshake { executor_params } = recv_execute_handshake(&mut stream)?;
 
 			let executor_params: Arc<ExecutorParams> = Arc::new(executor_params);
-			let execute_thread_stack_size = get_max_stack_size(&executor_params, 1);
-			#[cfg(target_os = "linux")]
-			let clone_stack_size = get_max_stack_size(&executor_params, EXECUTE_WORKER_THREAD_NUMBER);
+			let execute_thread_stack_size = max_stack_size(&executor_params);
 
 			loop {
 				let (params, execution_timeout) = recv_request(&mut stream)?;
@@ -181,7 +179,6 @@ pub fn worker_entrypoint(
 								&params,
 								execution_timeout,
 								execute_thread_stack_size,
-								clone_stack_size,
 								worker_info,
 								security_status.can_unshare_user_namespace_and_change_root,
 								usage_before,
@@ -266,7 +263,6 @@ fn handle_clone(
 	params: &Arc<Vec<u8>>,
 	execution_timeout: Duration,
 	execute_stack_size: usize,
-	clone_stack_size: usize,
 	worker_info: &WorkerInfo,
 	have_unshare_newuser: bool,
 	usage_before: Usage,
@@ -291,7 +287,6 @@ fn handle_clone(
 					execute_stack_size,
 				)
 			}),
-			clone_stack_size,
 		)
 	} {
 		Ok(child) => handle_parent_process(
@@ -467,10 +462,9 @@ fn handle_child_process(
 /// the desired stack limit. We must also make sure the job process has enough stack for *all* its
 /// threads. This function can be used to get the stack size of either the execute thread or execute
 /// job process.
-fn get_max_stack_size(executor_params: &ExecutorParams, number_of_threads: u32) -> usize {
+fn max_stack_size(executor_params: &ExecutorParams) -> usize {
 	let (_sem, deterministic_stack_limit) = params_to_wasmtime_semantics(executor_params);
-	return (2 * 1024 * 1024 * number_of_threads + deterministic_stack_limit.native_stack_max)
-		as usize;
+	return (2 * 1024 * 1024 + deterministic_stack_limit.native_stack_max) as usize;
 }
 
 /// Waits for child process to finish and handle child response from pipe.
