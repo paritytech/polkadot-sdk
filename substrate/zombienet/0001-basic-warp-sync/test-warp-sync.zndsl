@@ -22,6 +22,8 @@ dave: reports block height is at least 1 within 60 seconds
 dave: reports block height is at least {{DB_BLOCK_HEIGHT}} within 60 seconds
 
 dave: log line matches "Warp sync is complete" within 60 seconds
+# State sync is logically part of warp sync
+dave: log line matches "State sync is complete" within 60 seconds
 dave: log line matches "Block history download is complete" within 10 seconds
 
 dave: count of log lines containing "error" is 0 within 10 seconds
