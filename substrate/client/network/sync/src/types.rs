@@ -23,7 +23,7 @@ use sc_network_common::{role::Roles, types::ReputationChange};
 
 use libp2p::PeerId;
 
-use crate::strategy::warp::WarpSyncProgress;
+use crate::strategy::{state_sync::StateSyncProgress, warp::WarpSyncProgress};
 use sc_network_common::sync::message::BlockRequest;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
@@ -67,15 +67,6 @@ impl<BlockNumber> SyncState<BlockNumber> {
 	}
 }
 
-/// Reported state download progress.
-#[derive(Clone, Eq, PartialEq, Debug)]
-pub struct StateDownloadProgress {
-	/// Estimated download percentage.
-	pub percentage: u32,
-	/// Total state size in bytes downloaded so far.
-	pub size: u64,
-}
-
 /// Syncing status and statistics.
 #[derive(Debug, Clone)]
 pub struct SyncStatus<Block: BlockT> {
@@ -90,7 +81,7 @@ pub struct SyncStatus<Block: BlockT> {
 	/// Number of blocks queued for import
 	pub queued_blocks: u32,
 	/// State sync status in progress, if any.
-	pub state_sync: Option<StateDownloadProgress>,
+	pub state_sync: Option<StateSyncProgress>,
 	/// Warp sync in progress, if any.
 	pub warp_sync: Option<WarpSyncProgress<Block>>,
 }

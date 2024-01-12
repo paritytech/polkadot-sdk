@@ -21,7 +21,7 @@
 
 pub mod chain_sync;
 mod state;
-mod state_sync;
+pub mod state_sync;
 pub mod warp;
 
 use crate::{

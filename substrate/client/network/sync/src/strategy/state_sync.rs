@@ -20,7 +20,6 @@
 
 use crate::{
 	schema::v1::{StateEntry, StateRequest, StateResponse},
-	types::StateDownloadProgress,
 	LOG_TARGET,
 };
 use codec::{Decode, Encode};
@@ -33,7 +32,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header, NumberFor},
 	Justifications,
 };
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, fmt, sync::Arc};
 
 /// Generic state sync provider. Used for mocking in tests.
 pub trait StateSyncProvider<B: BlockT>: Send + Sync {
@@ -48,7 +47,36 @@ pub trait StateSyncProvider<B: BlockT>: Send + Sync {
 	/// Returns target block hash.
 	fn target_hash(&self) -> B::Hash;
 	/// Returns state sync estimated progress.
-	fn progress(&self) -> StateDownloadProgress;
+	fn progress(&self) -> StateSyncProgress;
+}
+
+// Reported state sync phase.
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub enum StateSyncPhase {
+	// State download in progress.
+	DownloadingState,
+	// Download is complete, state is being imported.
+	ImportingState,
+}
+
+impl fmt::Display for StateSyncPhase {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Self::DownloadingState => write!(f, "Downloading state"),
+			Self::ImportingState => write!(f, "Importing state"),
+		}
+	}
+}
+
+/// Reported state download progress.
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub struct StateSyncProgress {
+	/// Estimated download percentage.
+	pub percentage: u32,
+	/// Total state size in bytes downloaded so far.
+	pub size: u64,
+	/// Current state sync phase.
+	pub phase: StateSyncPhase,
 }
 
 /// Import state chunk result.
@@ -284,9 +312,17 @@ where
 	}
 
 	/// Returns state sync estimated progress.
-	fn progress(&self) -> StateDownloadProgress {
+	fn progress(&self) -> StateSyncProgress {
 		let cursor = *self.last_key.get(0).and_then(|last| last.get(0)).unwrap_or(&0u8);
 		let percent_done = cursor as u32 * 100 / 256;
-		StateDownloadProgress { percentage: percent_done, size: self.imported_bytes }
+		StateSyncProgress {
+			percentage: percent_done,
+			size: self.imported_bytes,
+			phase: if self.complete {
+				StateSyncPhase::ImportingState
+			} else {
+				StateSyncPhase::DownloadingState
+			},
+		}
 	}
 }

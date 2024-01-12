@@ -359,8 +359,7 @@ mod test {
 	use super::*;
 	use crate::{
 		schema::v1::{StateRequest, StateResponse},
-		strategy::state_sync::{ImportResult, StateSyncProvider},
-		types::StateDownloadProgress,
+		strategy::state_sync::{ImportResult, StateSyncProgress, StateSyncProvider},
 	};
 	use codec::Decode;
 	use sc_block_builder::BlockBuilderBuilder;
@@ -381,7 +380,7 @@ mod test {
 			fn is_complete(&self) -> bool;
 			fn target_number(&self) -> NumberFor<B>;
 			fn target_hash(&self) -> B::Hash;
-			fn progress(&self) -> StateDownloadProgress;
+			fn progress(&self) -> StateSyncProgress;
 		}
 	}
 

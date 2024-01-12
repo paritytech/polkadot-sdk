@@ -127,9 +127,10 @@ impl<B: BlockT> InformantDisplay<B> {
 					),
 				(_, Some(state), _) => (
 					"⚙️ ",
-					"Downloading state".into(),
+					"State sync".into(),
 					format!(
-						", {}%, {:.2} Mib",
+						", {}, {}%, {:.2} Mib",
+						state.phase,
 						state.percentage,
 						(state.size as f32) / (1024f32 * 1024f32)
 					),
