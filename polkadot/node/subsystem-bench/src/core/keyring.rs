@@ -17,7 +17,6 @@
 use polkadot_primitives::ValidatorId;
 use sc_keystore::LocalKeystore;
 use sp_application_crypto::AppCrypto;
-pub use sp_core::sr25519;
 use sp_core::sr25519::Public;
 use sp_keystore::Keystore;
 use std::sync::Arc;

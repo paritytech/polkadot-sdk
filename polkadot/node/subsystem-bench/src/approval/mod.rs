@@ -969,6 +969,14 @@ pub async fn bench_approvals_run(
 	gum::info!("Awaiting producer to signal done");
 
 	producer_rx.await.expect("Failed to receive done from message producer");
+
+	gum::info!("Awaiting polkadot_parachain_subsystem_bounded_received to tells us the messages have been processed");
+
+	env.wait_until_metric_ge(
+		"polkadot_parachain_subsystem_bounded_received",
+		state.total_sent_messages_to_node.load(std::sync::atomic::Ordering::SeqCst) as usize,
+	)
+	.await;
 	gum::info!("Requesting approval votes ms");
 
 	for info in &state.blocks {
