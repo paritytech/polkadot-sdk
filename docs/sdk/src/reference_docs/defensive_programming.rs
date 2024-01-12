@@ -235,7 +235,7 @@
 //!
 //! <details>
 //!   <summary><b>Solution: Saturating or Checked</b></summary>
-//!     For Bob's balance problems, using a `saturated_add` or `checked_add` could've mitigated this
+//!     For Bob's balance problems, using a `saturating_add` or `checked_add` could've mitigated this
 //! issue.  They simply would've reached the upper, or lower bounds, of the particular type for an
 //! on-chain balance.  In other words: Bob's balance would've stayed at the maximum of the Balance
 //! type. </details>
