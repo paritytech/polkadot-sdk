@@ -21,6 +21,9 @@ eve: reports block height is at least {{DB_BLOCK_HEIGHT}} within 60 seconds
 
 alice: log line matches "Warp sync is complete" within 60 seconds
 bob: log line matches "Warp sync is complete" within 60 seconds
+# State sync is logically part of warp sync
+alice: log line matches "State sync is complete" within 60 seconds
+bob: log line matches "State sync is complete" within 60 seconds
 
 alice: log line matches "Block history download is complete" within 120 seconds
 bob: log line matches "Block history download is complete" within 120 seconds
