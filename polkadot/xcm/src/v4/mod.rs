@@ -1019,6 +1019,9 @@ pub enum Instruction<Call> {
 	///
 	/// Errors: If the given origin is `Some` and not equal to the current Origin register.
 	UnpaidExecution { weight_limit: WeightLimit, check_origin: Option<Location> },
+
+	/// A directive to indicate some arbitrary key value pair wants to be published somewhere.
+	Publish { data: Vec<Vec<u8>, Vec<u8>> },
 }
 
 impl<Call> Xcm<Call> {
