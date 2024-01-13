@@ -16649,7 +16649,6 @@ dependencies = [
 name = "sc-tracing"
 version = "4.0.0-dev"
 dependencies = [
- "ansi_term",
  "chrono",
  "console",
  "criterion 0.4.0",
