@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::OutputFormat;
-use ansi_term::Colour;
+use console::{Attribute, Color};
 use log::info;
 use sc_client_api::ClientInfo;
 use sc_network::NetworkStatus;
@@ -146,15 +146,15 @@ impl<B: BlockT> InformantDisplay<B> {
 			target: "substrate",
 			"{} {}{} ({} peers), best: #{} ({}), finalized #{} ({}), {} {}",
 			level,
-			self.format.print_with_color(Colour::White.bold(), status),
+			self.format.print(Color::White, Some(Attribute::Bold), &status),
 			target,
-			self.format.print_with_color(Colour::White.bold(), num_connected_peers),
-			self.format.print_with_color(Colour::White.bold(), best_number),
+			self.format.print(Color::White, Some(Attribute::Bold), format!("{}", num_connected_peers)),
+			self.format.print(Color::White, Some(Attribute::Bold), format!("{}", best_number)),
 			best_hash,
-			self.format.print_with_color(Colour::White.bold(), finalized_number),
+			self.format.print(Color::White, Some(Attribute::Bold), format!("{}", finalized_number)),
 			info.chain.finalized_hash,
-			self.format.print_with_color(Colour::Green, format!("⬇ {}", TransferRateFormat(avg_bytes_per_sec_inbound))),
-			self.format.print_with_color(Colour::Red, format!("⬆ {}", TransferRateFormat(avg_bytes_per_sec_outbound))),
+			self.format.print(Color::Green, None, format!("⬇ {}", TransferRateFormat(avg_bytes_per_sec_inbound))),
+			self.format.print(Color::Red, None, format!("⬆ {}", TransferRateFormat(avg_bytes_per_sec_outbound))),
 		)
 	}
 }

@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::logging::fast_local_time::FastLocalTime;
-use ansi_term::Colour;
+use console::style;
 use regex::Regex;
 use std::fmt::{self, Write};
 use tracing::{Event, Level, Subscriber};
@@ -166,11 +166,11 @@ impl<'a> fmt::Display for FmtLevel<'a> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		if self.ansi {
 			match *self.level {
-				Level::TRACE => write!(f, "{}", Colour::Purple.paint(TRACE_STR)),
-				Level::DEBUG => write!(f, "{}", Colour::Blue.paint(DEBUG_STR)),
-				Level::INFO => write!(f, "{}", Colour::Green.paint(INFO_STR)),
-				Level::WARN => write!(f, "{}", Colour::Yellow.paint(WARN_STR)),
-				Level::ERROR => write!(f, "{}", Colour::Red.paint(ERROR_STR)),
+				Level::TRACE => write!(f, "{}", style(TRACE_STR).purple().to_string()),
+				Level::DEBUG => write!(f, "{}", style(DEBUG_STR).blue().to_string()),
+				Level::INFO => write!(f, "{}", style(INFO_STR).green().to_string()),
+				Level::WARN => write!(f, "{}", style(WARN_STR).yellow().to_string()),
+				Level::ERROR => write!(f, "{}", style(ERROR_STR).red().to_string()),
 			}
 		} else {
 			match *self.level {

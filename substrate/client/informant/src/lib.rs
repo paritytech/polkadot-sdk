@@ -18,7 +18,7 @@
 
 //! Console informant. Prints sync progress and block events. Runs on the calling thread.
 
-use ansi_term::{Colour, Style};
+use console::{style, Attribute, Color};
 use futures::prelude::*;
 use futures_timer::Delay;
 use log::{debug, info, trace};
@@ -51,41 +51,15 @@ impl Default for OutputFormat {
 	}
 }
 
-enum ColorOrStyle {
-	Color(Colour),
-	Style(Style),
-}
-
-impl From<Colour> for ColorOrStyle {
-	fn from(value: Colour) -> Self {
-		Self::Color(value)
-	}
-}
-
-impl From<Style> for ColorOrStyle {
-	fn from(value: Style) -> Self {
-		Self::Style(value)
-	}
-}
-
-impl ColorOrStyle {
-	fn paint(&self, data: String) -> impl Display {
-		match self {
-			Self::Color(c) => c.paint(data),
-			Self::Style(s) => s.paint(data),
-		}
-	}
-}
-
 impl OutputFormat {
 	/// Print with color if `self.enable_color == true`.
-	fn print_with_color(
-		&self,
-		color: impl Into<ColorOrStyle>,
-		data: impl ToString,
-	) -> impl Display {
+	fn print(&self, color: Color, attr: Option<Attribute>, data: impl Display) -> impl Display {
 		if self.enable_color {
-			color.into().paint(data.to_string()).to_string()
+			let mut styled = style(data).fg(color);
+			if let Some(attr) = attr {
+				styled = styled.attr(attr);
+			}
+			styled.to_string()
 		} else {
 			data.to_string()
 		}
@@ -161,11 +135,23 @@ where
 				match maybe_ancestor {
 					Ok(ref ancestor) if ancestor.hash != *last_hash => info!(
 						"♻️  Reorg on #{},{} to #{},{}, common ancestor #{},{}",
-						format.print_with_color(Colour::Red.bold(), last_num),
+						format.print(
+							Color::Red,
+							Some(Attribute::Bold),
+							format!("{}", last_num)
+						),
 						last_hash,
-						format.print_with_color(Colour::Green.bold(), n.header.number()),
+						format.print(
+							Color::Green,
+							Some(Attribute::Bold),
+							format!("{}", n.header.number())
+						),
 						n.hash,
-						format.print_with_color(Colour::White.bold(), ancestor.number),
+						format.print(
+							Color::White,
+							Some(Attribute::Bold),
+							format!("{}", ancestor.number)
+						),
 						ancestor.hash,
 					),
 					Ok(_) => {},
@@ -191,7 +177,7 @@ where
 			info!(
 				target: "substrate",
 				"{best_indicator} Imported #{} ({} → {})",
-				format.print_with_color(Colour::White.bold(), n.header.number()),
+				format.print(Color::White, Some(Attribute::Bold), format!("{}", n.header.number())),
 				n.header.parent_hash(),
 				n.hash,
 			);
