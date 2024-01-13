@@ -17,6 +17,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 ansi_term = "0.12.1"
+console = "0.15.8"
 is-terminal = "0.4.9"
 chrono = "0.4.31"
 codec = { package = "parity-scale-codec", version = "3.6.1" }

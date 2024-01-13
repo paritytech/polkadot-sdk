@@ -15976,7 +15976,7 @@ dependencies = [
 name = "sc-informant"
 version = "0.10.0-dev"
 dependencies = [
- "ansi_term",
+ "console",
  "futures",
  "futures-timer",
  "log",
@@ -16651,6 +16651,7 @@ version = "4.0.0-dev"
 dependencies = [
  "ansi_term",
  "chrono",
+ "console",
  "criterion 0.4.0",
  "is-terminal",
  "lazy_static",
