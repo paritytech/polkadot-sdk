@@ -154,7 +154,6 @@
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -174,15 +173,14 @@
 
 </span><span class="kw">use crate</span>::{write_file_if_changed, CargoCommand, CargoCommandVersioned};
 
+<span class="kw">use </span>console::style;
 <span class="kw">use </span>std::{fs, path::Path};
-
-<span class="kw">use </span>ansi_term::Color;
 <span class="kw">use </span>tempfile::tempdir;
 
 <span class="doccomment">/// Print an error message.
 </span><span class="kw">fn </span>print_error_message(message: <span class="kw-2">&amp;</span>str) -&gt; String {
 	<span class="kw">if </span><span class="kw">super</span>::color_output_enabled() {
-		Color::Red.bold().paint(message).to_string()
+		style(message).red().bold().to_string()
 	} <span class="kw">else </span>{
 		message.into()
 	}
@@ -274,10 +272,10 @@
 			<span class="prelude-val">Ok</span>(<span class="kw-2">ref </span>err) =&gt; <span class="prelude-val">Err</span>(<span class="macro">format!</span>(
 				<span class="string">&quot;{}\n\n{}\n{}\n{}{}\n&quot;</span>,
 				err_msg,
-				Color::Yellow.bold().paint(<span class="string">&quot;Further error information:&quot;</span>),
-				Color::Yellow.bold().paint(<span class="string">&quot;-&quot;</span>.repeat(<span class="number">60</span>)),
+				style(<span class="string">&quot;Further error information:&quot;</span>).yellow().bold(),
+				style(<span class="string">&quot;-&quot;</span>.repeat(<span class="number">60</span>)).yellow().bold(),
 				err,
-				Color::Yellow.bold().paint(<span class="string">&quot;-&quot;</span>.repeat(<span class="number">60</span>)),
+				style(<span class="string">&quot;-&quot;</span>.repeat(<span class="number">60</span>)).yellow().bold(),
 			)),
 
 			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(err_msg),
