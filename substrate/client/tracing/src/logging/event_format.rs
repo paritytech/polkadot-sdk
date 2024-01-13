@@ -166,7 +166,7 @@ impl<'a> fmt::Display for FmtLevel<'a> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		if self.ansi {
 			match *self.level {
-				Level::TRACE => write!(f, "{}", style(TRACE_STR).purple().to_string()),
+				Level::TRACE => write!(f, "{}", style(TRACE_STR).magenta().to_string()),
 				Level::DEBUG => write!(f, "{}", style(DEBUG_STR).blue().to_string()),
 				Level::INFO => write!(f, "{}", style(INFO_STR).green().to_string()),
 				Level::WARN => write!(f, "{}", style(WARN_STR).yellow().to_string()),
