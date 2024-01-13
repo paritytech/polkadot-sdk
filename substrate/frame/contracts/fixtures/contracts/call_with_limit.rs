@@ -15,7 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This calls another contract as passed as its account id.
+//! This fixture calls the account_id with the 2D Weight limit.
+//! It returns the result of the call as output data.
 #![no_std]
 #![no_main]
 
@@ -30,17 +31,20 @@ pub extern "C" fn deploy() {}
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
 	input!(
-		callee_input: [u8; 4],
 		callee_addr: [u8; 32],
+		ref_time: u64,
+		proof_size: u64,
 	);
 
-	// Call the callee
-	api::call_v1(
+	#[allow(deprecated)]
+	api::call_v2(
 		uapi::CallFlags::empty(),
 		callee_addr,
-		0u64,                // How much gas to devote for the execution. 0 = all.
+		ref_time,
+		proof_size,
+		None,                // No deposit limit.
 		&0u64.to_le_bytes(), // value transferred to the contract.
-		callee_input,
+		&[0u8; 0],           // input data.
 		None,
 	)
 	.unwrap();

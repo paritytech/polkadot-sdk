@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This calls another contract as passed as its account id.
 #![no_std]
 #![no_main]
 
@@ -29,19 +28,22 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	input!(
-		callee_input: [u8; 4],
-		callee_addr: [u8; 32],
-	);
+	input!(code_hash: [u8; 32],);
 
-	// Call the callee
-	api::call_v1(
-		uapi::CallFlags::empty(),
-		callee_addr,
-		0u64,                // How much gas to devote for the execution. 0 = all.
-		&0u64.to_le_bytes(), // value transferred to the contract.
-		callee_input,
-		None,
-	)
-	.unwrap();
+	let mut key = [0u8; 32];
+	key[0] = 1u8;
+
+	let mut value = [0u8; 32];
+	let value = &mut &mut value[..];
+	value[0] = 2u8;
+
+	api::set_storage(&key, value);
+	api::get_storage(&key, value).unwrap();
+	assert!(value[0] == 2u8);
+
+	let input = [0u8; 0];
+	api::delegate_call(uapi::CallFlags::empty(), code_hash, &input, None).unwrap();
+
+	api::get_storage(&[1u8], value).unwrap();
+	assert!(value[0] == 1u8);
 }

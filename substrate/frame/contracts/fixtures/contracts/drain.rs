@@ -15,11 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This calls another contract as passed as its account id.
 #![no_std]
 #![no_main]
 
-use common::input;
+use common::output;
 use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
@@ -29,19 +28,17 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	input!(
-		callee_input: [u8; 4],
-		callee_addr: [u8; 32],
-	);
+	output!(balance, [0u8; 8], api::balance,);
+	let balance = u64::from_le_bytes(balance[..].try_into().unwrap());
 
-	// Call the callee
-	api::call_v1(
-		uapi::CallFlags::empty(),
-		callee_addr,
-		0u64,                // How much gas to devote for the execution. 0 = all.
-		&0u64.to_le_bytes(), // value transferred to the contract.
-		callee_input,
-		None,
-	)
-	.unwrap();
+	output!(minimum_balance, [0u8; 8], api::minimum_balance,);
+	let minimum_balance = u64::from_le_bytes(minimum_balance[..].try_into().unwrap());
+
+	// Make the transferred value exceed the balance by adding the minimum balance.
+	let balance = balance + minimum_balance;
+
+	// Try to self-destruct by sending more balance to the 0 address.
+	// The call will fail because a contract transfer has a keep alive requirement.
+	let res = api::transfer(&[0u8; 32], &balance.to_le_bytes());
+	assert!(matches!(res, Err(uapi::ReturnErrorCode::TransferFailed)));
 }
