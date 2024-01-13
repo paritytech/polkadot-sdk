@@ -234,7 +234,6 @@ impl<'a> fmt::Display for FmtThreadName<'a> {
 //
 //       https://github.com/tokio-rs/tracing/blob/2f59b32/tracing-subscriber/src/fmt/time/mod.rs#L252
 mod time {
-	use ansi_term::Style;
 	use std::fmt;
 	use tracing_subscriber::fmt::{format, time::FormatTime};
 
@@ -247,10 +246,9 @@ mod time {
 		T: FormatTime,
 	{
 		if with_ansi {
-			let style = Style::new().dimmed();
-			write!(writer, "{}", style.prefix())?;
+			write!(writer, "\x1B[2m")?;
 			timer.format_time(writer)?;
-			write!(writer, "{}", style.suffix())?;
+			write!(writer, "\x1B[0m")?;
 		} else {
 			timer.format_time(writer)?;
 		}
