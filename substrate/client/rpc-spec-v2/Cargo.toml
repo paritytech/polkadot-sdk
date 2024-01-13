@@ -38,7 +38,7 @@ parking_lot = "0.12.1"
 tokio-stream = { version = "0.1.14", features = ["sync"] }
 tokio = { version = "1.22.0", features = ["sync"] }
 array-bytes = "6.1"
-log = "0.4.20"
+log = { workspace = true }
 futures-util = { version = "0.3.19", default-features = false }
 
 [dev-dependencies]

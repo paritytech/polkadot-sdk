@@ -29,7 +29,7 @@ multihash = { version = "0.18.1", default-features = false, features = [
 	"sha2",
 	"std",
 ] }
-log = "0.4.20"
+log = { workspace = true }
 prost = "0.11"
 rand = "0.8.5"
 thiserror = "1.0"

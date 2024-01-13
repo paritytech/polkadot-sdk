@@ -20,7 +20,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 cfg-if = "1.0"
 clap = { version = "4.4.14", features = ["derive"], optional = true }
-log = "0.4.20"
+log = { workspace = true }
 thiserror = "1.0.48"
 futures = "0.3.21"
 pyro = { package = "pyroscope", version = "0.5.3", optional = true }

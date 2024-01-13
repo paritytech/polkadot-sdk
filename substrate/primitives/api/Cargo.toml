@@ -29,7 +29,7 @@ hash-db = { version = "0.16.0", optional = true }
 thiserror = { version = "1.0.48", optional = true }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 sp-metadata-ir = { path = "../metadata-ir", default-features = false, optional = true }
-log = { version = "0.4.20", default-features = false }
+log = { workspace = true }
 
 [dev-dependencies]
 sp-test-primitives = { path = "../test-primitives" }

@@ -36,7 +36,7 @@ futures = "0.3.21"
 futures-timer = "3.0.2"
 gum = { package = "tracing-gum", path = "../gum" }
 polkadot-erasure-coding = { package = "polkadot-erasure-coding", path = "../../erasure-coding" }
-log = "0.4.20"
+log = { workspace = true }
 env_logger = "0.9.0"
 rand = "0.8.5"
 parity-scale-codec = { version = "3.6.1", features = ["derive", "std"] }

@@ -46,7 +46,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1" }
 serde = { version = "1.0.195", features = ["derive"] }
 jsonrpsee = { version = "0.16.2", features = ["server"] }
 futures = "0.3.21"
-log = "0.4.20"
+log = { workspace = true }
 rand = "0.8"
 
 # primitives

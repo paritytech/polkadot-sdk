@@ -19,5 +19,5 @@ frame-system = { path = "../../../../substrate/frame/system" }
 sp-core = { path = "../../../../substrate/primitives/core" }
 
 clap = { version = "4.4.14", features = ["derive"] }
-log = "0.4.20"
+log = { workspace = true }
 tokio = { version = "1.24.2", features = ["macros"] }
