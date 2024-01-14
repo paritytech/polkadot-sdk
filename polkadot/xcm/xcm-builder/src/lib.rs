@@ -82,6 +82,11 @@ pub use fungibles_adapter::{
 	LocalMint, MintLocation, NoChecking, NonLocalMint,
 };
 
+mod nonfungible_adapter;
+pub use nonfungible_adapter::{
+	NonFungibleAdapter, NonFungibleMutateAdapter, NonFungibleTransferAdapter,
+};
+
 mod nonfungibles_adapter;
 pub use nonfungibles_adapter::{
 	NonFungiblesAdapter, NonFungiblesMutateAdapter, NonFungiblesTransferAdapter,
