@@ -516,7 +516,7 @@ pub(crate) mod tests {
 	use super::*;
 	use crate::{
 		keystore::BeefyKeystore,
-		tests::{create_beefy_keystore, create_fisherman, BeefyTestNet, TestApi},
+		tests::{create_fisherman, BeefyTestNet, TestApi},
 	};
 	use sc_network_test::{Block, TestNetFactory};
 	use sp_application_crypto::key_types::BEEFY as BEEFY_KEY_TYPE;
@@ -525,7 +525,6 @@ pub(crate) mod tests {
 		SignedCommitment, VoteMessage,
 	};
 	use sp_keystore::{testing::MemoryKeystore, Keystore};
-	use std::marker::PhantomData;
 
 	struct TestContext;
 	impl<B: sp_runtime::traits::Block> ValidatorContext<B> for TestContext {

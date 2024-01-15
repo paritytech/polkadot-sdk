@@ -29,7 +29,6 @@ use crate::{
 		},
 		request_response::{on_demand_justifications_protocol_config, BeefyJustifsRequestHandler},
 	},
-	error::Error,
 	gossip_protocol_name,
 	justification::*,
 	keystore::BeefyKeystore,
@@ -59,15 +58,15 @@ use sp_consensus_beefy::{
 	known_payloads,
 	mmr::{find_mmr_root_digest, MmrRootProvider},
 	BeefyApi, Commitment, ConsensusLog, ForkEquivocationProof, Keyring as BeefyKeyring,
-	MmrRootHash, OpaqueKeyOwnershipProof, Payload, PayloadProvider, SignedCommitment, ValidatorSet,
-	ValidatorSetId, VersionedFinalityProof, VoteEquivocationProof, VoteMessage, BEEFY_ENGINE_ID,
+	MmrRootHash, OpaqueKeyOwnershipProof, Payload, SignedCommitment, ValidatorSet, ValidatorSetId,
+	VersionedFinalityProof, VoteEquivocationProof, VoteMessage, BEEFY_ENGINE_ID,
 };
 use sp_core::H256;
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystorePtr};
 use sp_mmr_primitives::{AncestryProof, Error as MmrError, LeafIndex, MmrApi, NodeProof};
 use sp_runtime::{
 	codec::{Decode, Encode},
-	traits::{Block as BlockT, Header as HeaderT, NumberFor},
+	traits::{Header as HeaderT, NumberFor},
 	BuildStorage, DigestItem, EncodedJustification, Justifications, Storage,
 };
 use std::{marker::PhantomData, sync::Arc, task::Poll};
@@ -246,10 +245,6 @@ impl TestNetFactory for BeefyTestNet {
 		// `add_authority_peer()` used instead.
 		unimplemented!()
 	}
-}
-
-pub(crate) struct DummyFisherman<B> {
-	pub _phantom: PhantomData<B>,
 }
 
 #[derive(Clone)]
