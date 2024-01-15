@@ -487,6 +487,7 @@ where
 		);
 	}
 
+	/// Process new peers assigning proper states and initiating requests.
 	fn handle_new_peers(
 		&mut self,
 	) -> impl Iterator<Item = Result<(PeerId, BlockRequest<B>), BadPeer>> + '_ {
@@ -1372,7 +1373,6 @@ where
 			self.add_peer(peer_id, p.best_hash, p.best_number);
 
 			// since the request is not a justification, remove it from pending responses
-			// TODO: check `PeerSyncState`?
 			self.actions.push(ChainSyncAction::CancelBlockRequest { peer_id });
 		});
 	}

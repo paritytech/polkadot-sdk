@@ -101,9 +101,7 @@ impl PeerPool {
 		self.peers
 			.lock()
 			.iter()
-			.filter_map(
-				|(peer_id, status)| status.is_available().then_some(*peer_id),
-			)
+			.filter_map(|(peer_id, status)| status.is_available().then_some(*peer_id))
 			.collect()
 	}
 
@@ -185,7 +183,7 @@ where
 		+ Sync
 		+ 'static,
 {
-	/// Initialize a new syncing startegy.
+	/// Initialize a new syncing strategy.
 	pub fn new(
 		config: SyncingConfig,
 		client: Arc<Client>,
@@ -384,7 +382,7 @@ where
 			self.state.is_some() ||
 			match self.chain_sync {
 				Some(ref s) => s.status().state.is_major_syncing(),
-				None => unreachable!("At least one syncing startegy is active; qed"),
+				None => unreachable!("At least one syncing strategy is active; qed"),
 			}
 	}
 
@@ -404,7 +402,7 @@ where
 		} else if let Some(ref chain_sync) = self.chain_sync {
 			chain_sync.status()
 		} else {
-			unreachable!("At least one syncing startegy is always active; qed")
+			unreachable!("At least one syncing strategy is always active; qed")
 		}
 	}
 
@@ -515,7 +513,7 @@ where
 				})
 				.collect())
 		} else {
-			unreachable!("At least one syncing startegy is always active; qed")
+			unreachable!("At least one syncing strategy is always active; qed")
 		}
 	}
 
