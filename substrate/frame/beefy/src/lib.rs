@@ -218,7 +218,7 @@ pub mod pallet {
 			key_owner_proof.validator_count(),
 			T::MaxNominators::get(),
 		))]
-		pub fn report_equivocation(
+		pub fn report_vote_equivocation(
 			origin: OriginFor<T>,
 			equivocation_proof: Box<
 				VoteEquivocationProof<

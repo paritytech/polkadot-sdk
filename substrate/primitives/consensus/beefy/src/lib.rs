@@ -401,7 +401,7 @@ where
 		let canonical_payload = canonical_mmr_root_digest.map(|mmr_root| {
 			Payload::from_single_entry(known_payloads::MMR_ROOT_ID, mmr_root.encode())
 		});
-		// Check header's hash and that `payload` of the `commitment` is different that the
+		// Check header's hash and that the `payload` of the `commitment` differs from the
 		// `canonical_payload`. Note that if the signatories signed a payload when there should be
 		// none (for instance for a block prior to BEEFY activation), then canonical_payload = None,
 		// and they will likewise be slashed.
