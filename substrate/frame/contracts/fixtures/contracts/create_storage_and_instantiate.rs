@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This calls another contract as passed as its account id.
+//! This instantiates another contract and passes some input to its constructor.
 #![no_std]
 #![no_main]
 
@@ -30,18 +30,30 @@ pub extern "C" fn deploy() {}
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
 	input!(
-		callee_input: [u8; 4],
-		callee_addr: [u8; 32],
+		input: [u8; 4],
+		code_hash: [u8; 32],
+		deposit_limit: [u8; 8],
 	);
 
-	// Call the callee
-	api::call_v1(
-		uapi::CallFlags::empty(),
-		callee_addr,
-		0u64,                // How much gas to devote for the execution. 0 = all.
-		&0u64.to_le_bytes(), // value transferred to the contract.
-		callee_input,
+	let value = 10_000u64.to_le_bytes();
+	let salt = [0u8; 0];
+	let mut address = [0u8; 32];
+	let address = &mut &mut address[..];
+
+	#[allow(deprecated)]
+	api::instantiate_v2(
+		code_hash,
+		0u64, // How much ref_time weight to devote for the execution. 0 = all.
+		0u64, // How much proof_size weight to devote for the execution. 0 = all.
+		Some(deposit_limit),
+		&value,
+		input,
+		Some(address),
 		None,
+		&salt,
 	)
 	.unwrap();
+
+	// Return the deployed contract address.
+	api::return_value(uapi::ReturnFlags::empty(), address);
 }

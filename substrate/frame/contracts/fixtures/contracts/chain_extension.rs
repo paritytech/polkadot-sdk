@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This calls another contract as passed as its account id.
+//! Call chain extension by passing through input and output of this contract.
 #![no_std]
 #![no_main]
 
@@ -29,19 +29,14 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	input!(
-		callee_input: [u8; 4],
-		callee_addr: [u8; 32],
-	);
+	input!(input, 8, func_id: u32,);
 
-	// Call the callee
-	api::call_v1(
-		uapi::CallFlags::empty(),
-		callee_addr,
-		0u64,                // How much gas to devote for the execution. 0 = all.
-		&0u64.to_le_bytes(), // value transferred to the contract.
-		callee_input,
-		None,
-	)
-	.unwrap();
+	// the chain extension passes through the input and returns it as output
+	let mut output_buffer = [0u8; 32];
+	let output = &mut &mut output_buffer[0..input.len()];
+
+	let ret_id = api::call_chain_extension(func_id, input, Some(output));
+	assert_eq!(ret_id, func_id);
+
+	api::return_value(uapi::ReturnFlags::empty(), output);
 }

@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This calls another contract as passed as its account id.
 #![no_std]
 #![no_main]
 
@@ -30,9 +29,14 @@ pub extern "C" fn deploy() {}
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
 	input!(
+		512,
 		callee_input: [u8; 4],
 		callee_addr: [u8; 32],
+		call: [u8],
 	);
+
+	// Use the call passed as input to call the runtime.
+	api::call_runtime(call).unwrap();
 
 	// Call the callee
 	api::call_v1(
