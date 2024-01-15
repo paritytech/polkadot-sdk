@@ -1248,7 +1248,10 @@ impl<const DISABLING_THRESHOLD_FACTOR: usize>
 	/// Disabling limit calculated from the total number of validators in the active set. When
 	/// reached no more validators will be disabled.
 	pub fn disable_threshold(validators_len: usize) -> usize {
-		validators_len.saturating_sub(1) / DISABLING_THRESHOLD_FACTOR
+		validators_len
+			.saturating_sub(1)
+			.checked_div(DISABLING_THRESHOLD_FACTOR)
+			.unwrap_or(0)
 	}
 }
 
