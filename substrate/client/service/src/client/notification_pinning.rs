@@ -33,7 +33,7 @@ use schnellru::Limiter;
 use sp_runtime::traits::Block as BlockT;
 
 const LOG_TARGET: &str = "db::notification_pinning";
-const NOTIFICATION_PINNING_LIMIT: usize = 2048;
+const NOTIFICATION_PINNING_LIMIT: usize = 1024;
 
 /// A limiter which automatically unpins blockst hat leave the data structure.
 #[derive(Clone, Debug)]
@@ -217,7 +217,7 @@ mod tests {
 
 		let mut worker = NotificationPinningWorker::new(rx, Arc::downgrade(&backend));
 
-		// 1. Block got pinned and unpin message should unpin in the backend.
+		// Block got pinned and unpin message should unpin in the backend.
 		let _ = backend.pin_block(hash);
 		assert_eq!(backend.pin_refs(&hash), Some(1));
 
@@ -239,7 +239,7 @@ mod tests {
 		let hash = H256::random();
 
 		let mut worker = NotificationPinningWorker::new(rx, Arc::downgrade(&backend));
-		// 2. Block got pinned multiple times.
+		// Block got pinned multiple times.
 		let _ = backend.pin_block(hash);
 		let _ = backend.pin_block(hash);
 		let _ = backend.pin_block(hash);
@@ -272,8 +272,8 @@ mod tests {
 		let hash2 = H256::random();
 
 		let mut worker = NotificationPinningWorker::new(rx, Arc::downgrade(&backend));
-		// 3. Block was announced once but unpinned multiple times. The worker should ignore the
-		//    additional unpins.
+		// Block was announced once but unpinned multiple times. The worker should ignore the
+		// additional unpins.
 		let _ = backend.pin_block(hash);
 		let _ = backend.pin_block(hash);
 		let _ = backend.pin_block(hash);
@@ -307,8 +307,8 @@ mod tests {
 		// Only two items fit into the cache.
 		let mut worker = NotificationPinningWorker::new_with_limit(rx, Arc::downgrade(&backend), 2);
 
-		// 4. Multiple blocks are announced but the cache size is too small. We expect that blocks
-		//    are evicted by the cache and unpinned in the backend.
+		// Multiple blocks are announced but the cache size is too small. We expect that blocks
+		// are evicted by the cache and unpinned in the backend.
 		let _ = backend.pin_block(hash1);
 		let _ = backend.pin_block(hash2);
 		let _ = backend.pin_block(hash3);
