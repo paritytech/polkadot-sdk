@@ -2420,6 +2420,13 @@ sp_api::impl_runtime_apis! {
 					Ok((origin, ticket, assets))
 				}
 
+				fn fee_asset() -> Result<MultiAsset, BenchmarkError> {
+					Ok(MultiAsset {
+						id: Concrete(TokenLocation::get()),
+						fun: Fungible(1_000_000 * UNITS),
+					})
+				}
+
 				fn unlockable_asset() -> Result<(MultiLocation, MultiLocation, MultiAsset), BenchmarkError> {
 					// Westend doesn't support asset locking
 					Err(BenchmarkError::Skip)
