@@ -178,16 +178,16 @@ impl TestConfiguration {
 
 		// Generate keys and peers ids in each of the format needed by the tests.
 		let validator_public: Vec<ValidatorId> =
-			keys.iter().map(|key| key.clone().into()).collect::<Vec<_>>();
+			keys.iter().map(|key| (*key).into()).collect::<Vec<_>>();
 
 		let validator_authority_id: Vec<AuthorityDiscoveryId> =
-			keys.iter().map(|key| key.clone().into()).collect::<Vec<_>>().into();
+			keys.iter().map(|key| (*key).into()).collect::<Vec<_>>();
 
 		let validator_babe_id: Vec<AuthorityId> =
-			keys.iter().map(|key| key.clone().into()).collect::<Vec<_>>().into();
+			keys.iter().map(|key| (*key).into()).collect::<Vec<_>>();
 
 		let validator_assignment_id: Vec<AssignmentId> =
-			keys.iter().map(|key| key.clone().into()).collect::<Vec<_>>().into();
+			keys.iter().map(|key| (*key).into()).collect::<Vec<_>>();
 		let peer_ids: Vec<PeerId> = keys.iter().map(|_| PeerId::random()).collect::<Vec<_>>();
 
 		let peer_id_to_authority = peer_ids

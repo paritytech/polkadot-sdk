@@ -194,7 +194,7 @@ impl PeerMessagesGenerator {
 		);
 
 		let babe_epoch = generate_babe_epoch(initial_slot, test_authorities.clone());
-		let session_info = session_info_for_peers(configuration, &test_authorities);
+		let session_info = session_info_for_peers(configuration, test_authorities);
 		let blocks = ApprovalTestState::generate_blocks_information(
 			configuration,
 			&babe_epoch,
@@ -391,7 +391,7 @@ fn issue_approvals(
 				{
 					approvals_to_create.push(TestSignInfo::sign_candidates(
 						&mut queued_to_sign,
-						&validator_ids,
+						validator_ids,
 						block_hash,
 						num_coalesce,
 						store,
@@ -427,7 +427,7 @@ fn issue_approvals(
 	if !queued_to_sign.is_empty() {
 		messages.push(TestSignInfo::sign_candidates(
 			&mut queued_to_sign,
-			&validator_ids,
+			validator_ids,
 			block_hash,
 			num_coalesce,
 			store,

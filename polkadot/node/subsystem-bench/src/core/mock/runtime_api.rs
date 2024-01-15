@@ -90,13 +90,13 @@ pub fn session_info_for_peers(
 
 	let validator_groups = all_validators
 		.chunks(configuration.max_validators_per_core)
-		.map(|x| Vec::from(x))
+		.map(Vec::from)
 		.collect::<Vec<_>>();
 
 	SessionInfo {
 		validators: authorities.validator_public.iter().cloned().collect(),
-		discovery_keys: authorities.validator_authority_id.iter().cloned().collect(),
-		assignment_keys: authorities.validator_assignment_id.iter().cloned().collect(),
+		discovery_keys: authorities.validator_authority_id.to_vec(),
+		assignment_keys: authorities.validator_assignment_id.to_vec(),
 		validator_groups: IndexedVec::<GroupIndex, Vec<ValidatorIndex>>::from(validator_groups),
 		n_cores: configuration.n_cores as u32,
 		needed_approvals: NEEDED_APPROVALS,
@@ -193,7 +193,7 @@ impl MockRuntimeApi {
 
 							// All cores are always occupied.
 							let cores = candidate_hashes
-								.into_iter()
+								.iter()
 								.enumerate()
 								.map(|(index, candidate_receipt)| {
 									// Ensure test breaks if badly configured.

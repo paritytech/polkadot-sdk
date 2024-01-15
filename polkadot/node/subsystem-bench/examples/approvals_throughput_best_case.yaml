@@ -11,8 +11,8 @@ TestConfiguration:
     workdir_prefix: "/tmp/"
     num_no_shows_per_candidate: 0
     approval_distribution_expected_tof: 60.0
-    approval_distribution_cpu_ms: 1.0
-    approval_voting_cpu_ms: 1.0
+    approval_distribution_cpu_ms: 14.00
+    approval_voting_cpu_ms: 14.00
   n_validators: 500
   n_cores: 100
   n_included_candidates: 100

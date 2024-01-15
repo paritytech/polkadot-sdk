@@ -882,7 +882,7 @@ pub async fn bench_approvals(env: &mut TestEnvironment, mut state: ApprovalTestS
 		.start_message_production(
 			env.network(),
 			env.overseer_handle().clone(),
-			&env,
+			env,
 			env.registry().clone(),
 		)
 		.await;

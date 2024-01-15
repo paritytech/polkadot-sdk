@@ -10,7 +10,6 @@
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 //!
@@ -35,7 +34,6 @@
 //!    [Emulated Network Bridge]
 //!               |
 //!     Subsystems under test
-
 use crate::core::configuration::random_latency;
 
 use super::{
@@ -65,9 +63,7 @@ use std::{
 	time::{Duration, Instant},
 };
 
-use polkadot_node_network_protocol::{
-	self as net_protocol, PeerId, Versioned,
-};
+use polkadot_node_network_protocol::{self as net_protocol, PeerId, Versioned};
 
 use futures::channel::mpsc::{UnboundedReceiver, UnboundedSender};
 
@@ -380,23 +376,20 @@ pub struct EmulatedPeerHandle {
 impl EmulatedPeerHandle {
 	/// Receive and process a message
 	pub fn receive(&self, message: NetworkMessage) {
-		let _ = self
-			.messages_tx
+		self.messages_tx
 			.unbounded_send(message)
 			.expect("Sending action to the peer never fails");
 	}
 
 	pub fn send_message(&self, message: VersionedValidationProtocol) {
-		let _ = self
-			.actions_tx
+		self.actions_tx
 			.unbounded_send(NetworkMessage::MessageFromPeer(self.peer_id, message))
 			.expect("Sending action to the peer never fails");
 	}
 
 	/// Send a `request` to the node.
 	pub fn send_request(&self, request: IncomingRequest) {
-		let _ = self
-			.actions_tx
+		self.actions_tx
 			.unbounded_send(NetworkMessage::RequestFromPeer(request))
 			.expect("Sending action to the peer never fails");
 	}
@@ -417,7 +410,7 @@ impl EmulatedPeer {
 		self.tx_limiter.reap(message.size()).await;
 
 		if self.latency_ms == 0 {
-			let _ = self.to_node.unbounded_send(message).expect("Sending to the node never fails");
+			self.to_node.unbounded_send(message).expect("Sending to the node never fails");
 		} else {
 			let to_node = self.to_node.clone();
 			let latency_ms = std::time::Duration::from_millis(self.latency_ms as u64);
@@ -426,8 +419,7 @@ impl EmulatedPeer {
 			self.spawn_handle
 				.spawn("peer-latency-emulator", "test-environment", async move {
 					tokio::time::sleep(latency_ms).await;
-					let _ =
-						to_node.unbounded_send(message).expect("Sending to the node never fails");
+					to_node.unbounded_send(message).expect("Sending to the node never fails");
 				});
 		}
 	}
@@ -690,7 +682,7 @@ pub fn new_network(
 
 	// Create a `PeerEmulator` for each peer.
 	let (stats, mut peers): (_, Vec<_>) = (0..n_peers)
-		.zip(authorities.validator_authority_id.clone().into_iter())
+		.zip(authorities.validator_authority_id.clone())
 		.map(|(peer_index, authority_id)| {
 			validator_authority_id_mapping.insert(authority_id, peer_index);
 			let stats = Arc::new(PeerEmulatorStats::new(peer_index, metrics.clone()));
@@ -774,7 +766,7 @@ impl NetworkEmulatorHandle {
 		from_peer: &AuthorityDiscoveryId,
 		message: VersionedValidationProtocol,
 	) -> Result<(), EmulatedPeerError> {
-		let dst_peer = self.peer(&from_peer);
+		let dst_peer = self.peer(from_peer);
 
 		if !dst_peer.is_connected() {
 			gum::warn!(target: LOG_TARGET, "Attempted to send message from a peer not connected to our node, operation ignored");
@@ -791,7 +783,7 @@ impl NetworkEmulatorHandle {
 		from_peer: &AuthorityDiscoveryId,
 		request: IncomingRequest,
 	) -> Result<(), EmulatedPeerError> {
-		let dst_peer = self.peer(&from_peer);
+		let dst_peer = self.peer(from_peer);
 
 		if !dst_peer.is_connected() {
 			gum::warn!(target: LOG_TARGET, "Attempted to send request from a peer not connected to our node, operation ignored");
@@ -915,7 +907,7 @@ mod tests {
 		let mut reap_amount = 0;
 		while rate_limiter.total_ticks < tick_rate {
 			reap_amount += 1;
-			reap_amount = reap_amount % 100;
+			reap_amount %= 100;
 
 			rate_limiter.reap(reap_amount).await;
 			total_sent += reap_amount;

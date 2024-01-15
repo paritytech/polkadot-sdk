@@ -21,4 +21,5 @@ pub mod display;
 pub mod environment;
 pub mod keyring;
 pub mod mock;
+#[allow(clippy::tabs_in_doc_comments)]
 pub mod network;

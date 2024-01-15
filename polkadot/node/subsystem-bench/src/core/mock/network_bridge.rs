@@ -151,7 +151,7 @@ impl MockNetworkBridgeTx {
 
 							if !self.network.is_peer_connected(&peer_id) {
 								// Attempting to send a request to a disconnected peer.
-								let _ = request
+								request
 									.into_response_sender()
 									.send(Err(RequestFailure::NotConnected))
 									.expect("send never fails");
@@ -234,7 +234,7 @@ impl MockNetworkBridgeRx {
 							NetworkMessage::RequestFromPeer(request) => {
 								if let Some(protocol) = self.chunk_request_sender.as_mut() {
 									if let Some(inbound_queue) = protocol.inbound_queue.as_ref() {
-										let _ = inbound_queue
+										inbound_queue
 											.send(request)
 											.await
 											.expect("Forwarding requests to subsystem never fails");
