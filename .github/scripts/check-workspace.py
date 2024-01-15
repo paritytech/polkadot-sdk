@@ -4,6 +4,8 @@
 # - all crates are added to the root workspace
 # - local dependencies are resolved via `path`
 #
+# It does not check that the local paths resolve to the correct crate. This is already done by cargo.
+#
 # Must be called with a folder containing a `Cargo.toml` workspace file.
 
 import os
@@ -112,7 +114,7 @@ def check_links(all_crates):
 	links = []
 	broken = []
 
-	for name, (_path, manifest) in all_crates.items():
+	for name, (path, manifest) in all_crates.items():
 		def check_deps(deps):
 			for dep in deps:
 				# Could be renamed:
@@ -123,21 +125,32 @@ def check_links(all_crates):
 					links.append((name, dep_name))
 
 					if not 'path' in deps[dep]:
-						broken.append((name, dep_name))
+						broken.append((name, dep_name, "crate must be linked via `path`"))
+						return
 		
-		if 'dependencies' in manifest:
-			check_deps(manifest['dependencies'])
-		if 'dev-dependencies' in manifest:
-			check_deps(manifest['dev-dependencies'])
-		if 'build-dependencies' in manifest:
-			check_deps(manifest['build-dependencies'])
+		def check_crate(deps):
+			to_checks = ['dependencies', 'dev-dependencies', 'build-dependencies']
+
+			for to_check in to_checks:
+				if to_check in deps:
+					check_deps(deps[to_check])
+		
+		# There could possibly target dependant deps:
+		if 'target' in manifest:
+			# Target dependant deps can only have one level of nesting:
+			for _, target in manifest['target'].items():
+				check_crate(target)
+		
+		check_crate(manifest)
+
+		
 
 	links.sort()
 	broken.sort()
 
 	if len(broken) > 0:
-		for link in broken:
-			print("❌ %s -> %s" % link)
+		for (l, r, reason) in broken:
+			print(f'❌ {l} -> {r} ({reason})')
 
 		print("💥 %d out of %d links are broken" % (len(broken), len(links)))
 		sys.exit(1)

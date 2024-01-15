@@ -4,7 +4,6 @@ on:
   pull_request:
     paths:
       - "*.toml"
-    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
 
 jobs:
