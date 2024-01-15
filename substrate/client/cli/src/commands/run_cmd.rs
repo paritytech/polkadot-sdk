@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{
-	arg_enums::RpcMethods,
+	arg_enums::{Cors, RpcMethods},
 	error::{Error, Result},
 	params::{
 		ImportParams, KeystoreParams, NetworkParams, OffchainWorkerParams, SharedParams,
@@ -108,7 +108,7 @@ pub struct RunCmd {
 	/// value). Value of `all` will disable origin validation. Default is to
 	/// allow localhost and <https://polkadot.js.org> origins. When running in
 	/// `--dev` mode the default is to allow all origins.
-	#[arg(long, value_name = "ORIGINS", value_parser = parse_cors)]
+	#[arg(long, value_name = "ORIGINS")]
 	pub rpc_cors: Option<Cors>,
 
 	/// The human-readable name for this node.
@@ -467,47 +467,6 @@ fn rpc_interface(
 		Ok(Ipv4Addr::UNSPECIFIED.into())
 	} else {
 		Ok(Ipv4Addr::LOCALHOST.into())
-	}
-}
-
-/// CORS setting
-///
-/// The type is introduced to overcome `Option<Option<T>>` handling of `clap`.
-#[derive(Clone, Debug)]
-pub enum Cors {
-	/// All hosts allowed.
-	All,
-	/// Only hosts on the list are allowed.
-	List(Vec<String>),
-}
-
-impl From<Cors> for Option<Vec<String>> {
-	fn from(cors: Cors) -> Self {
-		match cors {
-			Cors::All => None,
-			Cors::List(list) => Some(list),
-		}
-	}
-}
-
-/// Parse cors origins.
-fn parse_cors(s: &str) -> Result<Cors> {
-	let mut is_all = false;
-	let mut origins = Vec::new();
-	for part in s.split(',') {
-		match part {
-			"all" | "*" => {
-				is_all = true;
-				break
-			},
-			other => origins.push(other.to_owned()),
-		}
-	}
-
-	if is_all {
-		Ok(Cors::All)
-	} else {
-		Ok(Cors::List(origins))
 	}
 }
 

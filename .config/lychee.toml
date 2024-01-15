@@ -12,10 +12,10 @@ exclude_all_private = true
 # Treat these codes as success condition:
 accept = [
 	# Ok
-	200,
+	"200",
 
 	# Rate limited - GitHub likes to throw this.
-	429,
+	"429",
 ]
 
 exclude_path = ["./target"]

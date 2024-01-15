@@ -20,7 +20,7 @@ proc-macro = true
 
 [dependencies]
 Inflector = "0.11.4"
-proc-macro-crate = "2.0.1"
+proc-macro-crate = "3.0.0"
 proc-macro2 = "1.0.56"
 quote = "1.0.28"
 expander = "2.0.0"
