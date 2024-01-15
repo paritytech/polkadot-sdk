@@ -15,42 +15,45 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use color_eyre::eyre;
+#[cfg(all(target_os = "linux", feature = "valgrind"))]
+use crabgrind as cg;
 
-/// Show if the app is running under Valgrind
-#[cfg(target_os = "linux")]
-pub(crate) fn is_valgrind_running() -> bool {
-	!matches!(crabgrind::run_mode(), crabgrind::RunMode::Native)
+#[cfg(not(all(target_os = "linux", feature = "valgrind")))]
+mod cg {
+	pub(super) enum RunMode {
+		Native,
+	}
+
+	pub(super) fn run_mode() -> RunMode {
+		RunMode::Native
+	}
+
+	pub(super) mod cachegrind {
+		pub fn start_instrumentation() {}
+		pub fn stop_instrumentation() {}
+	}
 }
 
-#[cfg(not(target_os = "linux"))]
+/// Show if the app is running under Valgrind
 pub(crate) fn is_valgrind_running() -> bool {
-	false
+	!matches!(cg::run_mode(), cg::RunMode::Native)
 }
 
 /// Start collecting cache misses data
-#[cfg(target_os = "linux")]
 pub(crate) fn start_measuring() {
-	crabgrind::cachegrind::start_instrumentation();
+	cg::cachegrind::start_instrumentation();
 }
-
-#[cfg(not(target_os = "linux"))]
-pub(crate) fn start_measuring() {}
 
 /// Stop collecting cache misses data
-#[cfg(target_os = "linux")]
 pub(crate) fn stop_measuring() {
-	crabgrind::cachegrind::stop_instrumentation();
+	cg::cachegrind::stop_instrumentation();
 }
-
-#[cfg(not(target_os = "linux"))]
-pub(crate) fn stop_measuring() {}
 
 /// Stop execution and relaunch the app under valgrind
 /// Cache configuration used to emulate Intel Ice Lake (size, associativity, line size):
 ///     L1 instruction: 32,768 B, 8-way, 64 B lines
 ///     L1 data: 49,152 B, 12-way, 64 B lines
 ///     Last-level: 2,097,152 B, 16-way, 64 B lines
-#[cfg(target_os = "linux")]
 pub(crate) fn relaunch_in_valgrind_mode() -> eyre::Result<()> {
 	use std::os::unix::process::CommandExt;
 	let err = std::process::Command::new("valgrind")
@@ -69,9 +72,4 @@ pub(crate) fn relaunch_in_valgrind_mode() -> eyre::Result<()> {
 		"Сannot run Valgrind, check that it is installed and available in the PATH\n{}",
 		err
 	))
-}
-
-#[cfg(not(target_os = "linux"))]
-pub(crate) fn relaunch_in_valgrind_mode() -> eyre::Result<()> {
-	return Err(eyre::eyre!("Valgrind can be executed only on linux"));
 }
