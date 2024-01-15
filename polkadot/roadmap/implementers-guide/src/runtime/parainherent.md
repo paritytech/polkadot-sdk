@@ -61,7 +61,8 @@ This also means that the `enter` function keeps data around for no good reason. 
 of a block is rather limited. Nevertheless if we ever wanted to optimize this we can easily implement an inherent
 collector that has two implementations, where one clones and stores the data and the other just passes it on.
 
-## Data sanitization
+## Sanitization
+
 `ParasInherent` with the entry point of `create_inherent` sanitizes the input data, while the `enter` entry point
 enforces already sanitized input data. If unsanitized data is provided the module generates an error.
 
