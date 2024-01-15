@@ -43,13 +43,15 @@ def get_members(workspace_dir, exclude):
 		print(f'❌ No workspace found in root {root_manifest_path}')
 		sys.exit(1)
 
+	if not 'members' in root_manifest['workspace']:
+		return []
+	
 	members = []
-	if 'members' in root_manifest['workspace']:
-		for member in root_manifest['workspace']['members']:
-			if member in exclude:
-				print(f'❌ Excluded member should not appear in the workspace {member}')
-				sys.exit(1)
-			members.append(member)
+	for member in root_manifest['workspace']['members']:
+		if member in exclude:
+			print(f'❌ Excluded member should not appear in the workspace {member}')
+			sys.exit(1)
+		members.append(member)
 	
 	return members
 
@@ -62,43 +64,47 @@ def get_crates(workspace_dir, exclude_crates) -> dict:
 		if "target" in root:
 			continue
 		for file in files:
-			if file == "Cargo.toml":
-				path = os.path.join(root, file)
-				with open(path, "r") as f:
-					content = f.read()
-					manifest = toml.loads(content)
-					if 'workspace' in manifest:
-						# Dont print 'excluded' for the root workspace.
-						if root != workspace_dir:
-							print("⏩ Excluded recursive workspace at %s" % path)
-						continue
-					
-					# Cut off the root path and the trailing /Cargo.toml.
-					path = path[len(workspace_dir)+1:-11]
-					name = manifest['package']['name']
-					if path in exclude_crates:
-						print("⏩ Excluded crate %s at %s" % (name, path))
-						continue
-					crates[name] = (path, manifest)
+			if file != "Cargo.toml":
+				continue
+
+			path = os.path.join(root, file)
+			with open(path, "r") as f:
+				content = f.read()
+				manifest = toml.loads(content)
+			
+			if 'workspace' in manifest:
+				if root != workspace_dir:
+					print("⏩ Excluded recursive workspace at %s" % path)
+				continue
+			
+			# Cut off the root path and the trailing /Cargo.toml.
+			path = path[len(workspace_dir)+1:-11]
+			name = manifest['package']['name']
+			if path in exclude_crates:
+				print("⏩ Excluded crate %s at %s" % (name, path))
+				continue
+			crates[name] = (path, manifest)
 	
 	return crates
 
 # Check that all crates are in the workspace.
 def check_missing(workspace_crates, all_crates):
 	print(f'🔎 Checking for missing crates')
-	if len(workspace_crates) != len(all_crates):
-		missing = []
-		# Find out which ones are missing.
-		for name, (path, manifest) in all_crates.items():
-			if not path in workspace_crates:
-				missing.append([name, path, manifest])
-		missing.sort()
+	if len(workspace_crates) == len(all_crates):
+		print(f'✅ All {len(all_crates)} crates are in the workspace')
+		pass
 
-		for name, path, _manifest in missing:
-			print("❌ %s in %s" % (name, path))
-		print(f'😱 {len(all_crates) - len(workspace_crates)} crates are missing from the workspace')
-		sys.exit(1)
-	print(f'✅ All {len(all_crates)} crates are in the workspace')
+	missing = []
+	# Find out which ones are missing.
+	for name, (path, manifest) in all_crates.items():
+		if not path in workspace_crates:
+			missing.append([name, path, manifest])
+	missing.sort()
+
+	for name, path, _manifest in missing:
+		print("❌ %s in %s" % (name, path))
+	print(f'😱 {len(all_crates) - len(workspace_crates)} crates are missing from the workspace')
+	sys.exit(1)
 
 # Check that all local dependencies are good.
 def check_links(all_crates):
