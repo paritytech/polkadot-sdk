@@ -393,7 +393,7 @@ impl<
 		amount: Self::Balance,
 	) -> Result<(Debt<AccountId, Self>, Credit<AccountId, Self>), DispatchError> {
 		let (a, b) = <F as fungibles::Balanced<AccountId>>::pair(A::get(), amount)?;
-		Ok((imbalance::from_fungibles(a), imbalance::from_fungibles(b))
+		Ok((imbalance::from_fungibles(a), imbalance::from_fungibles(b)))
 	}
 	fn rescind(amount: Self::Balance) -> Debt<AccountId, Self> {
 		let debt = <F as fungibles::Balanced<AccountId>>::rescind(A::get(), amount);
