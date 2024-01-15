@@ -105,6 +105,8 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, SO, Proposer, CS> {
 	pub collator_service: CS,
 	/// The amount of time to spend authoring each block.
 	pub authoring_duration: Duration,
+	/// Whether we should reinitialize the collator config (i.e. we are transitioning to aura).
+	pub reinitialize: bool,
 }
 
 /// Run async-backing-friendly Aura.
@@ -149,6 +151,7 @@ where
 			&mut params.overseer_handle,
 			params.collator_key,
 			params.para_id,
+			params.reinitialize,
 		)
 		.await;
 
