@@ -190,8 +190,7 @@ impl HandleNetworkMessage for NetworkAvailabilityState {
 						.expect("candidate was generated previously; qed");
 					gum::debug!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
 
-					let available_data =
-						self.available_data.get(*candidate_index).unwrap().clone();
+					let available_data = self.available_data.get(*candidate_index).unwrap().clone();
 
 					let _size = available_data.encoded_size();
 
