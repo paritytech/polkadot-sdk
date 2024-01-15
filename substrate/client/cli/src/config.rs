@@ -262,7 +262,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 	fn blocks_pruning(&self) -> Result<BlocksPruning> {
 		self.pruning_params()
 			.map(|x| x.blocks_pruning())
-			.unwrap_or_else(|| Ok(BlocksPruning::KeepFinalized))
+			.unwrap_or_else(|| Ok(BlocksPruning::KeepFinalized { prune_headers: false }))
 	}
 
 	/// Get the chain ID (string).

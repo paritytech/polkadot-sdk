@@ -101,8 +101,10 @@ impl<Block: BlockT, ExecutorDispatch, G: GenesisInit>
 
 	/// Create new `TestClientBuilder` with default backend and storage chain mode
 	pub fn with_tx_storage(blocks_pruning: u32) -> Self {
-		let backend =
-			Arc::new(Backend::new_test_with_tx_storage(BlocksPruning::Some(blocks_pruning), 0));
+		let backend = Arc::new(Backend::new_test_with_tx_storage(
+			BlocksPruning::Some { blocks: blocks_pruning, prune_headers: false },
+			0,
+		));
 		Self::with_backend(backend)
 	}
 }

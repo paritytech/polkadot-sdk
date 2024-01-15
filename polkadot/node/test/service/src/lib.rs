@@ -198,7 +198,7 @@ pub fn node_config(
 		database: DatabaseSource::RocksDb { path: root.join("db"), cache_size: 128 },
 		trie_cache_maximum_size: Some(64 * 1024 * 1024),
 		state_pruning: Default::default(),
-		blocks_pruning: BlocksPruning::KeepFinalized,
+		blocks_pruning: BlocksPruning::KeepFinalized { prune_headers: false },
 		chain_spec: Box::new(spec),
 		wasm_method: WasmExecutionMethod::Compiled {
 			instantiation_strategy: WasmtimeInstantiationStrategy::PoolingCopyOnWrite,

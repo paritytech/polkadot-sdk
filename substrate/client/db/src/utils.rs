@@ -23,7 +23,7 @@ use std::{fmt, fs, io, path::Path, sync::Arc};
 
 use log::{debug, info};
 
-use crate::{Database, DatabaseSource, DbHash};
+use crate::{columns, Database, DatabaseSource, DbHash};
 use codec::Decode;
 use sp_database::Transaction;
 use sp_runtime::{
@@ -463,6 +463,15 @@ pub fn read_header<Block: BlockT>(
 		},
 		None => Ok(None),
 	}
+}
+
+/// Drop a header from the database.
+pub fn remove_header<Block: BlockT>(
+	transaction: &mut Transaction<DbHash>,
+	db: &dyn Database<DbHash>,
+	id: BlockId<Block>,
+) -> sp_blockchain::Result<()> {
+	remove_from_db(transaction, db, columns::KEY_LOOKUP, columns::HEADER, id)
 }
 
 /// Read meta from the database.
