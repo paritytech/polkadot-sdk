@@ -1350,7 +1350,7 @@ mod remote_tests {
 			.unwrap();
 
 		// create an ext without children keys
-		let ext = Builder::<Block>::new()
+		let mut ext = Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
 				pallets: vec!["Proxy".to_owned()],
 				child_trie: false,
