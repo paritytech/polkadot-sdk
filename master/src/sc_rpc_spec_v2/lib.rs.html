@@ -103,6 +103,14 @@
 <a href="#103" id="103">103</a>
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -129,6 +137,9 @@
 #![deny(unused_crate_dependencies)]
 
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>sp_core::hexdisplay::{AsBytesRef, HexDisplay};
+
+<span class="kw">mod </span>common;
 
 <span class="kw">pub mod </span>archive;
 <span class="kw">pub mod </span>chain_head;
@@ -144,7 +155,7 @@
 </span><span class="kw">pub enum </span>MethodResult {
 	<span class="doccomment">/// Method generated a result.
 	</span><span class="prelude-val">Ok</span>(MethodResultOk),
-	<span class="doccomment">/// Method ecountered an error.
+	<span class="doccomment">/// Method encountered an error.
 	</span><span class="prelude-val">Err</span>(MethodResultErr),
 }
 
@@ -178,6 +189,11 @@
 	</span>success: bool,
 	<span class="doccomment">/// The error of the method.
 	</span><span class="kw">pub </span>error: String,
+}
+
+<span class="doccomment">/// Util function to encode a value as a hex string
+</span><span class="kw">pub fn </span>hex_string&lt;Data: AsBytesRef&gt;(data: <span class="kw-2">&amp;</span>Data) -&gt; String {
+	<span class="macro">format!</span>(<span class="string">&quot;0x{:?}&quot;</span>, HexDisplay::from(data))
 }
 
 <span class="attr">#[cfg(test)]

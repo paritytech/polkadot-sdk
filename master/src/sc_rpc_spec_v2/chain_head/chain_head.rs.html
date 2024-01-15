@@ -511,11 +511,11 @@
 		api::ChainHeadApiServer,
 		chain_head_follow::ChainHeadFollower,
 		error::Error <span class="kw">as </span>ChainHeadRpcError,
-		event::{FollowEvent, MethodResponse, OperationError, StorageQuery},
-		hex_string,
+		event::{FollowEvent, MethodResponse, OperationError},
 		subscription::{SubscriptionManagement, SubscriptionManagementError},
 	},
-	SubscriptionTaskExecutor,
+	common::events::StorageQuery,
+	hex_string, SubscriptionTaskExecutor,
 };
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>futures::future::FutureExt;

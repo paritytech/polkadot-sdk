@@ -146,6 +146,9 @@
 <a href="#146" id="146">146</a>
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -167,7 +170,10 @@
 </span><span class="attr">#![allow(non_snake_case)]
 
 </span><span class="doccomment">//! API trait of the chain head.
-</span><span class="kw">use </span><span class="kw">crate</span>::chain_head::event::{FollowEvent, MethodResponse, StorageQuery};
+</span><span class="kw">use crate</span>::{
+	chain_head::event::{FollowEvent, MethodResponse},
+	common::events::StorageQuery,
+};
 <span class="kw">use </span>jsonrpsee::{core::RpcResult, proc_macros::rpc};
 <span class="kw">use </span>sp_rpc::list::ListOrValue;
 

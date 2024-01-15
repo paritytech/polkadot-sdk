@@ -89,6 +89,22 @@
 <a href="#89" id="89">89</a>
 <a href="#90" id="90">90</a>
 <a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -109,7 +125,10 @@
 
 </span><span class="doccomment">//! API trait of the archive methods.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::MethodResult;
+</span><span class="kw">use crate</span>::{
+	common::events::{ArchiveStorageResult, PaginatedStorageQuery},
+	MethodResult,
+};
 <span class="kw">use </span>jsonrpsee::{core::RpcResult, proc_macros::rpc};
 
 <span class="attr">#[rpc(client, server)]
@@ -179,5 +198,18 @@
 		function: String,
 		call_parameters: String,
 	) -&gt; RpcResult&lt;MethodResult&gt;;
+
+	<span class="doccomment">/// Returns storage entries at a specific block&#39;s state.
+	///
+	/// # Unstable
+	///
+	/// This method is unstable and subject to change in the future.
+	</span><span class="attr">#[method(name = <span class="string">&quot;archive_unstable_storage&quot;</span>, blocking)]
+	</span><span class="kw">fn </span>archive_unstable_storage(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		hash: Hash,
+		items: Vec&lt;PaginatedStorageQuery&lt;String&gt;&gt;,
+		child_trie: <span class="prelude-ty">Option</span>&lt;String&gt;,
+	) -&gt; RpcResult&lt;ArchiveStorageResult&gt;;
 }
 </code></pre></div></section></main></body></html>
