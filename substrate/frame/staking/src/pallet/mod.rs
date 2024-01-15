@@ -274,7 +274,7 @@ pub mod pallet {
 		/// WARNING: this only reports slashing events for the time being.
 		type EventListeners: sp_staking::OnStakingUpdate<Self::AccountId, BalanceOf<Self>>;
 
-		// `DisablingStragegy` controlls how validators are disabled
+		// `DisablingStragegy` controls how validators are disabled
 		type DisablingStrategy: DisablingStrategy<Self>;
 
 		/// Some parameters of the benchmarking.

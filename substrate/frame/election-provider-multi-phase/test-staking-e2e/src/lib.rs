@@ -129,7 +129,7 @@ fn offchainify_works() {
 /// Inspired by the Kusama incident of 8th Dec 2022 and its resolution through the governance
 /// fallback.
 ///
-/// Mass slash of validators shoudn't disable more than 1/3 of them (the byzantine threshold). Also
+/// Mass slash of validators shouldn't disable more than 1/3 of them (the byzantine threshold). Also
 /// no new era should be forced which could lead to EPM entering emergency mode.
 fn mass_slash_doesnt_enter_emergency_phase() {
 	let epm_builder = EpmExtBuilder::default().disable_emergency_throttling();
@@ -151,7 +151,7 @@ fn mass_slash_doesnt_enter_emergency_phase() {
 		// And no more than `1/3` of the validators are disabled
 		assert_eq!(
 			Session::disabled_validators().len(),
-			pallet_staking::UpToThresholdDisablingStrategy::<DISABLING_FACTOR>::disable_threshold(
+			pallet_staking::UpToThresholdDisablingStrategy::<SLASHING_DISABLING_FACTOR>::disable_threshold(
 				Session::validators().len()
 			)
 		);

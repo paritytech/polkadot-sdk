@@ -250,7 +250,7 @@ impl pallet_bags_list::Config for Runtime {
 /// Upper limit on the number of NPOS nominations.
 const MAX_QUOTA_NOMINATIONS: u32 = 16;
 /// Disabling factor set explicitly to byzantine threshold
-pub(crate) const DISABLING_FACTOR: usize = 3;
+pub(crate) const SLASHING_DISABLING_FACTOR: usize = 3;
 
 impl pallet_staking::Config for Runtime {
 	type Currency = Balances;
@@ -280,7 +280,8 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = ();
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
-	type DisablingStrategy = pallet_staking::UpToThresholdDisablingStrategy<DISABLING_FACTOR>;
+	type DisablingStrategy =
+		pallet_staking::UpToThresholdDisablingStrategy<SLASHING_DISABLING_FACTOR>;
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Runtime
