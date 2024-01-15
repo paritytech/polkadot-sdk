@@ -42,9 +42,7 @@ pub use weights::WeightInfo;
 pub use adapt_price::*;
 pub use core_mask::*;
 pub use coretime_interface::*;
-pub use nonfungible_impl::*;
 pub use types::*;
-pub use utility_impls::*;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -160,6 +158,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type InstaPoolHistory<T> =
 		StorageMap<_, Blake2_128Concat, Timeslice, InstaPoolHistoryRecordOf<T>>;
+
+	/// Received core count change from the relay chain.
+	#[pallet::storage]
+	pub type CoreCountInbox<T> = StorageValue<_, CoreIndex, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -625,7 +627,7 @@ pub mod pallet {
 		/// - `origin`: Must be a Signed origin of the account which owns the Region `region_id`.
 		/// - `region_id`: The Region which should become two interlaced Regions of incomplete
 		///   regularity.
-		/// - `pivot`: The interlace mask of on of the two new regions (the other it its partial
+		/// - `pivot`: The interlace mask of one of the two new regions (the other is its partial
 		///   complement).
 		#[pallet::call_index(9)]
 		pub fn interlace(
@@ -716,55 +718,51 @@ pub mod pallet {
 
 		/// Drop an expired Region from the chain.
 		///
-		/// - `origin`: Must be a Signed origin.
+		/// - `origin`: Can be any kind of origin.
 		/// - `region_id`: The Region which has expired.
 		#[pallet::call_index(14)]
 		pub fn drop_region(
-			origin: OriginFor<T>,
+			_origin: OriginFor<T>,
 			region_id: RegionId,
 		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
 			Self::do_drop_region(region_id)?;
 			Ok(Pays::No.into())
 		}
 
 		/// Drop an expired Instantaneous Pool Contribution record from the chain.
 		///
-		/// - `origin`: Must be a Signed origin.
+		/// - `origin`: Can be any kind of origin.
 		/// - `region_id`: The Region identifying the Pool Contribution which has expired.
 		#[pallet::call_index(15)]
 		pub fn drop_contribution(
-			origin: OriginFor<T>,
+			_origin: OriginFor<T>,
 			region_id: RegionId,
 		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
 			Self::do_drop_contribution(region_id)?;
 			Ok(Pays::No.into())
 		}
 
 		/// Drop an expired Instantaneous Pool History record from the chain.
 		///
-		/// - `origin`: Must be a Signed origin.
+		/// - `origin`: Can be any kind of origin.
 		/// - `region_id`: The time of the Pool History record which has expired.
 		#[pallet::call_index(16)]
-		pub fn drop_history(origin: OriginFor<T>, when: Timeslice) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+		pub fn drop_history(_origin: OriginFor<T>, when: Timeslice) -> DispatchResultWithPostInfo {
 			Self::do_drop_history(when)?;
 			Ok(Pays::No.into())
 		}
 
 		/// Drop an expired Allowed Renewal record from the chain.
 		///
-		/// - `origin`: Must be a Signed origin of the account which owns the Region `region_id`.
+		/// - `origin`: Can be any kind of origin.
 		/// - `core`: The core to which the expired renewal refers.
 		/// - `when`: The timeslice to which the expired renewal refers. This must have passed.
 		#[pallet::call_index(17)]
 		pub fn drop_renewal(
-			origin: OriginFor<T>,
+			_origin: OriginFor<T>,
 			core: CoreIndex,
 			when: Timeslice,
 		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
 			Self::do_drop_renewal(core, when)?;
 			Ok(Pays::No.into())
 		}
@@ -778,6 +776,14 @@ pub mod pallet {
 		pub fn request_core_count(origin: OriginFor<T>, core_count: CoreIndex) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_request_core_count(core_count)?;
+			Ok(())
+		}
+
+		#[pallet::call_index(19)]
+		#[pallet::weight(T::WeightInfo::notify_core_count())]
+		pub fn notify_core_count(origin: OriginFor<T>, core_count: CoreIndex) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_notify_core_count(core_count)?;
 			Ok(())
 		}
 	}

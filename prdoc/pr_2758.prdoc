@@ -1,0 +1,10 @@
+title: Fix vote weights of ranked members in the Society pallet
+
+doc:
+  - audience: Runtime User
+    description: |
+      Fixes a bug in the tally accrual of approvals/rejections when
+      ranked members vote for Candidates and Defender in the Society pallet.
+
+crates:
+  - name: pallet-society

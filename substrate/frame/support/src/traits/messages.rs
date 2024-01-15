@@ -82,6 +82,8 @@ pub enum ExecuteOverweightError {
 	QueuePaused,
 	/// An unspecified error.
 	Other,
+	/// Another call is currently ongoing and prevents this call from executing.
+	RecursiveDisallowed,
 }
 
 /// Can service queues and execute overweight messages.
@@ -240,8 +242,14 @@ pub trait QueuePausedQuery<Origin> {
 	fn is_paused(origin: &Origin) -> bool;
 }
 
-impl<Origin> QueuePausedQuery<Origin> for () {
-	fn is_paused(_: &Origin) -> bool {
+#[impl_trait_for_tuples::impl_for_tuples(8)]
+impl<Origin> QueuePausedQuery<Origin> for Tuple {
+	fn is_paused(origin: &Origin) -> bool {
+		for_tuples!( #(
+			if Tuple::is_paused(origin) {
+				return true;
+			}
+		)* );
 		false
 	}
 }

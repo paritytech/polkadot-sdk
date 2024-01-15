@@ -142,7 +142,6 @@ pub use crate::{
 mod std_reexport {
 	pub use crate::{
 		basic::BasicExternalities,
-		error::{Error, ExecutionError},
 		in_memory_backend::new_in_mem,
 		read_only::{InspectState, ReadOnlyExternalities},
 		testing::TestExternalities,
@@ -289,7 +288,7 @@ mod execution {
 
 			let result = self
 				.exec
-				.call(&mut ext, self.runtime_code, self.method, self.call_data, false, self.context)
+				.call(&mut ext, self.runtime_code, self.method, self.call_data, self.context)
 				.0;
 
 			self.overlay
@@ -1120,10 +1119,9 @@ mod tests {
 			_: &RuntimeCode,
 			_method: &str,
 			_data: &[u8],
-			use_native: bool,
 			_: CallContext,
 		) -> (CallResult<Self::Error>, bool) {
-			let using_native = use_native && self.native_available;
+			let using_native = self.native_available;
 			match (using_native, self.native_succeeds, self.fallback_succeeds) {
 				(true, true, _) | (false, _, true) => (
 					Ok(vec![

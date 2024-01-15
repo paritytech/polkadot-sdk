@@ -18,12 +18,16 @@
 
 use frame_support::traits::{
 	fungibles::{self, Balanced, Credit},
-	Contains, ContainsPair, Currency, Get, Imbalance, OnUnbalanced,
+	Contains, ContainsPair, Currency, Get, Imbalance, OnUnbalanced, OriginTrait,
 };
 use pallet_asset_tx_payment::HandleCredit;
 use sp_runtime::traits::Zero;
-use sp_std::marker::PhantomData;
-use xcm::latest::{AssetId, Fungibility::Fungible, MultiAsset, MultiLocation};
+use sp_std::{marker::PhantomData, prelude::*};
+use xcm::latest::{
+	AssetId, Fungibility, Fungibility::Fungible, Junction, Junctions::Here, MultiAsset,
+	MultiLocation, Parent, WeightLimit,
+};
+use xcm_executor::traits::ConvertLocation;
 
 /// Type alias to conveniently refer to the `Currency::NegativeImbalance` associated type.
 pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<
@@ -118,11 +122,69 @@ impl<T: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation> for AssetsFr
 	}
 }
 
+/// Type alias to conveniently refer to the `Currency::Balance` associated type.
+pub type BalanceOf<T> =
+	<pallet_balances::Pallet<T> as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
+/// Implements `OnUnbalanced::on_unbalanced` to teleport slashed assets to relay chain treasury
+/// account.
+pub struct ToParentTreasury<TreasuryAccount, AccountIdConverter, T>(
+	PhantomData<(TreasuryAccount, AccountIdConverter, T)>,
+);
+
+impl<TreasuryAccount, AccountIdConverter, T> OnUnbalanced<NegativeImbalance<T>>
+	for ToParentTreasury<TreasuryAccount, AccountIdConverter, T>
+where
+	T: pallet_balances::Config + pallet_xcm::Config + frame_system::Config,
+	<<T as frame_system::Config>::RuntimeOrigin as OriginTrait>::AccountId: From<AccountIdOf<T>>,
+	[u8; 32]: From<<T as frame_system::Config>::AccountId>,
+	TreasuryAccount: Get<AccountIdOf<T>>,
+	AccountIdConverter: ConvertLocation<AccountIdOf<T>>,
+	BalanceOf<T>: Into<Fungibility>,
+{
+	fn on_unbalanced(amount: NegativeImbalance<T>) {
+		let amount = match amount.drop_zero() {
+			Ok(..) => return,
+			Err(amount) => amount,
+		};
+		let imbalance = amount.peek();
+		let root_location: MultiLocation = Here.into();
+		let root_account: AccountIdOf<T> =
+			match AccountIdConverter::convert_location(&root_location) {
+				Some(a) => a,
+				None => {
+					log::warn!("Failed to convert root origin into account id");
+					return
+				},
+			};
+		let treasury_account: AccountIdOf<T> = TreasuryAccount::get();
+
+		<pallet_balances::Pallet<T>>::resolve_creating(&root_account, amount);
+
+		let result = <pallet_xcm::Pallet<T>>::limited_teleport_assets(
+			<<T as frame_system::Config>::RuntimeOrigin>::root(),
+			Box::new(Parent.into()),
+			Box::new(
+				Junction::AccountId32 { network: None, id: treasury_account.into() }
+					.into_location()
+					.into(),
+			),
+			Box::new((Parent, imbalance).into()),
+			0,
+			WeightLimit::Unlimited,
+		);
+
+		if let Err(err) = result {
+			log::warn!("Failed to teleport slashed assets: {:?}", err);
+		}
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use frame_support::{
-		parameter_types,
+		derive_impl, parameter_types,
 		traits::{ConstU32, FindAuthor, ValidatorRegistration},
 		PalletId,
 	};
@@ -155,6 +217,7 @@ mod tests {
 		pub const MaxReserves: u32 = 50;
 	}
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type RuntimeOrigin = RuntimeOrigin;

@@ -53,6 +53,19 @@ mod benchmarks {
 		Ok(member)
 	}
 
+	fn set_benchmark_params<T: Config<I>, I: 'static>() -> Result<(), BenchmarkError> {
+		let params = ParamsType {
+			active_salary: [100u32.into(); 9],
+			passive_salary: [10u32.into(); 9],
+			demotion_period: [100u32.into(); 9],
+			min_promotion_period: [100u32.into(); 9],
+			offboard_timeout: 1u32.into(),
+		};
+
+		CoreFellowship::<T, I>::set_params(RawOrigin::Root.into(), Box::new(params))?;
+		Ok(())
+	}
+
 	#[benchmark]
 	fn set_params() -> Result<(), BenchmarkError> {
 		let params = ParamsType {
@@ -72,6 +85,8 @@ mod benchmarks {
 
 	#[benchmark]
 	fn bump_offboard() -> Result<(), BenchmarkError> {
+		set_benchmark_params::<T, I>()?;
+
 		let member = make_member::<T, I>(0)?;
 
 		// Set it to the max value to ensure that any possible auto-demotion period has passed.
@@ -89,6 +104,8 @@ mod benchmarks {
 
 	#[benchmark]
 	fn bump_demote() -> Result<(), BenchmarkError> {
+		set_benchmark_params::<T, I>()?;
+
 		let member = make_member::<T, I>(2)?;
 
 		// Set it to the max value to ensure that any possible auto-demotion period has passed.

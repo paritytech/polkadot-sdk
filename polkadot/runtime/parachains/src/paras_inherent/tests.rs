@@ -25,7 +25,8 @@ mod enter {
 	use super::*;
 	use crate::{
 		builder::{Bench, BenchBuilder},
-		mock::{new_test_ext, BlockLength, BlockWeights, MockGenesisConfig, Test},
+		mock::{mock_assigner, new_test_ext, BlockLength, BlockWeights, MockGenesisConfig, Test},
+		scheduler::common::Assignment,
 	};
 	use assert_matches::assert_matches;
 	use frame_support::assert_ok;
@@ -39,6 +40,7 @@ mod enter {
 		backed_and_concluding: BTreeMap<u32, u32>,
 		num_validators_per_core: u32,
 		code_upgrade: Option<u32>,
+		fill_claimqueue: bool,
 	}
 
 	fn make_inherent_data(
@@ -48,6 +50,7 @@ mod enter {
 			backed_and_concluding,
 			num_validators_per_core,
 			code_upgrade,
+			fill_claimqueue,
 		}: TestConfig,
 	) -> Bench<Test> {
 		let builder = BenchBuilder::<Test>::new()
@@ -58,7 +61,15 @@ mod enter {
 			.set_max_validators_per_core(num_validators_per_core)
 			.set_dispute_statements(dispute_statements)
 			.set_backed_and_concluding_cores(backed_and_concluding)
-			.set_dispute_sessions(&dispute_sessions[..]);
+			.set_dispute_sessions(&dispute_sessions[..])
+			.set_fill_claimqueue(fill_claimqueue);
+
+		// Setup some assignments as needed:
+		mock_assigner::Pallet::<Test>::set_core_count(builder.max_cores());
+		for core_index in 0..builder.max_cores() {
+			// Core index == para_id in this case
+			mock_assigner::Pallet::<Test>::add_test_assignment(Assignment::Bulk(core_index.into()));
+		}
 
 		if let Some(code_size) = code_upgrade {
 			builder.set_code_upgrade(code_size).build()
@@ -88,6 +99,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 1,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			// We expect the scenario to have cores 0 & 1 with pending availability. The backed
@@ -238,6 +250,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -308,6 +321,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 6,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -376,6 +390,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 4,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -460,6 +475,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -544,6 +560,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -627,6 +644,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -666,15 +684,9 @@ mod enter {
 			// * 3 disputes.
 			assert_eq!(limit_inherent_data.disputes.len(), 2);
 
-			assert_ok!(Pallet::<Test>::enter(
-				frame_system::RawOrigin::None.into(),
-				limit_inherent_data,
-			));
-
-			// TODO [now]: this assertion fails with async backing runtime.
 			assert_eq!(
-				// The length of this vec is equal to the number of candidates, so we know our 2
-				// backed candidates did not get filtered out
+				// The length of this vec is equal to the number of candidates, so we know 1
+				// candidate got filtered out
 				Pallet::<Test>::on_chain_votes().unwrap().backing_validators_per_candidate.len(),
 				1
 			);
@@ -684,6 +696,11 @@ mod enter {
 				Pallet::<Test>::on_chain_votes().unwrap().session,
 				2
 			);
+
+			assert_ok!(Pallet::<Test>::enter(
+				frame_system::RawOrigin::None.into(),
+				limit_inherent_data,
+			));
 		});
 	}
 
@@ -713,6 +730,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -778,6 +796,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -841,6 +860,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
@@ -905,6 +925,7 @@ mod enter {
 				backed_and_concluding,
 				num_validators_per_core: 5,
 				code_upgrade: None,
+				fill_claimqueue: false,
 			});
 
 			let expected_para_inherent_data = scenario.data.clone();
