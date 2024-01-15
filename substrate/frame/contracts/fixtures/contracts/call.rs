@@ -19,29 +19,28 @@
 #![no_std]
 #![no_main]
 
-extern crate common;
-use uapi::{CallFlags, HostFn, HostFnImpl as api};
+use common::input;
+use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
+#[polkavm_derive::polkavm_export]
 pub extern "C" fn deploy() {}
 
 #[no_mangle]
+#[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	let mut buffer = [0u8; 40];
-	let callee_input = 0..4;
-	let callee_addr = 4..36;
-	let value = 36..40;
-
-	// Read the input data.
-	api::input(&mut &mut buffer[..]);
+	input!(
+		callee_input: [u8; 4],
+		callee_addr: [u8; 32],
+	);
 
 	// Call the callee
 	api::call_v1(
-		CallFlags::empty(),
-		&buffer[callee_addr],
-		0u64, // How much gas to devote for the execution. 0 = all.
-		&buffer[value],
-		&buffer[callee_input],
+		uapi::CallFlags::empty(),
+		callee_addr,
+		0u64,                // How much gas to devote for the execution. 0 = all.
+		&0u64.to_le_bytes(), // value transferred to the contract.
+		callee_input,
 		None,
 	)
 	.unwrap();

@@ -113,7 +113,7 @@ where
 					let (sender, receiver) = std::sync::mpsc::channel();
 					let mut new_sender = subsystem_sender.clone();
 					let _candidate = candidate.clone();
-					self.spawner.spawn(
+					self.spawner.spawn_blocking(
 						"malus-get-validation-data",
 						Some("malus"),
 						Box::pin(async move {
