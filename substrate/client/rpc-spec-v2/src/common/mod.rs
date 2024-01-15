@@ -1,8 +1,3 @@
-// This file is part of Substrate.
-
-// Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
-
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
@@ -16,19 +11,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Substrate archive API.
-//!
-//! # Note
-//!
-//! Methods are prefixed by `archive`.
+//! Common types and functionality for the RPC-V2 spec.
 
-#[cfg(test)]
-mod tests;
-
-mod archive_storage;
-
-pub mod api;
-pub mod archive;
-pub mod error;
-
-pub use api::ArchiveApiServer;
+pub mod events;
+pub mod storage;
