@@ -189,6 +189,7 @@
 //! as follows:
 #![doc = docify::embed!("./src/reference_docs/extrinsic_encoding.rs", encoding_example)]
 
+#[cfg(feature = "build-deps")]
 #[docify::export]
 pub mod call_data {
 	use parity_scale_codec::{Decode, Encode};
@@ -220,6 +221,7 @@ pub mod call_data {
 	}
 }
 
+#[cfg(feature = "build-deps")]
 #[docify::export]
 pub mod encoding_example {
 	use super::call_data::{Call, PalletACall};

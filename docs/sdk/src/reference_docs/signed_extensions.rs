@@ -6,6 +6,7 @@
 //! Defining a couple of very simple signed extensions looks like the following:
 #![doc = docify::embed!("./src/reference_docs/signed_extensions.rs", signed_extensions_example)]
 
+#[cfg(feature = "build-deps")]
 #[docify::export]
 pub mod signed_extensions_example {
 	use parity_scale_codec::{Decode, Encode};
