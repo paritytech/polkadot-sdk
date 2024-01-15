@@ -1,4 +1,4 @@
-title: Adds ability to configure default nonce
+title: Adds ability to configure default account nonce
 
 doc:
   - audience: Runtime Dev
