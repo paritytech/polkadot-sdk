@@ -19,7 +19,6 @@ migrations.
 - `OffendingValidators` storage item is replaced with `DisabledValidators`. The former keeps all
   offenders and if they are disabled or not. The latter just keeps a list of all offenders as they
   are disabled by default.
-- TODO: STORAGE ITEM FOR DISABLING THRESHOLD
 
 ### Deprecated
 
