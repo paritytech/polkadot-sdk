@@ -16,7 +16,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-clap = { version = "4.4.14", features = ["derive"] }
+clap = { version = "4.4.16", features = ["derive"] }
 honggfuzz = "0.5"
 rand = { version = "0.8", features = ["small_rng", "std"] }
 
