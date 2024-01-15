@@ -365,7 +365,7 @@ pub mod pallet {
 			// ensure sender has enough balance, and if so, calculate what is left after `amount`.
 			let sender_balance = Balances::<T>::get(&sender).ok_or("NonExistentAccount")?;
 			if sender_balance < amount {
-				return Err("InsufficientBalance".into())
+				return Err("InsufficientBalance".into());
 			}
 			let reminder = sender_balance - amount;
 

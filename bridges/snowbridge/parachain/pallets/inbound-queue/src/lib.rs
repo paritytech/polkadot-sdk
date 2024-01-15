@@ -44,7 +44,7 @@ use envelope::Envelope;
 use frame_support::{
 	traits::{
 		fungible::{Inspect, Mutate},
-		tokens::{Fortitude, Precision, Preservation},
+		tokens::Preservation,
 	},
 	weights::WeightToFee,
 	PalletError,
@@ -55,18 +55,20 @@ use sp_core::{H160, H256};
 use sp_std::{convert::TryFrom, vec};
 use xcm::prelude::{
 	send_xcm, Instruction::SetTopic, Junction::*, Junctions::*, MultiLocation,
-	SendError as XcmpSendError, SendXcm, Xcm, XcmHash,
+	SendError as XcmpSendError, SendXcm, Xcm, XcmContext, XcmHash,
 };
+use xcm_executor::traits::TransactAsset;
 
 use snowbridge_core::{
 	inbound::{Message, VerificationError, Verifier},
-	sibling_sovereign_account, BasicOperatingMode, Channel, ChannelId, ParaId, StaticLookup,
+	sibling_sovereign_account, BasicOperatingMode, Channel, ChannelId, ParaId, PricingParameters,
+	StaticLookup,
 };
 use snowbridge_router_primitives::{
 	inbound,
 	inbound::{ConvertMessage, ConvertMessageError},
 };
-use sp_runtime::traits::Saturating;
+use sp_runtime::{traits::Saturating, SaturatedConversion, TokenError};
 
 pub use weights::WeightInfo;
 
@@ -83,7 +85,6 @@ pub mod pallet {
 
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use snowbridge_core::PricingParameters;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -135,6 +136,9 @@ pub mod pallet {
 
 		/// The upper limit here only used to estimate delivery cost
 		type MaxMessageSize: Get<u32>;
+
+		/// To withdraw and deposit an asset.
+		type AssetTransactor: TransactAsset;
 	}
 
 	#[pallet::hooks]
@@ -142,7 +146,7 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event<T> {
+	pub enum Event<T: Config> {
 		/// A message was received from Ethereum
 		MessageReceived {
 			/// The message channel
@@ -151,6 +155,8 @@ pub mod pallet {
 			nonce: u64,
 			/// ID of the XCM message which was forwarded to the final destination parachain
 			message_id: [u8; 32],
+			/// Fee burned for the teleport
+			fee_burned: BalanceOf<T>,
 		},
 		/// Set OperatingMode
 		OperatingModeChanged { mode: BasicOperatingMode },
@@ -268,16 +274,15 @@ pub mod pallet {
 					Err(_) => return Err(Error::<T>::InvalidPayload.into()),
 				};
 
-			// We embed fees for xcm execution inside the xcm program using teleports
-			// so we must burn the amount of the fee embedded into the XCM script.
-			T::Token::burn_from(&sovereign_account, fee, Precision::Exact, Fortitude::Polite)?;
-
 			log::info!(
 				target: LOG_TARGET,
-				"💫 xcm {:?} sent with fee {:?}",
+				"💫 xcm decoded as {:?} with fee {:?}",
 				xcm,
 				fee
 			);
+
+			// Burning fees for teleport
+			Self::burn_fees(channel.para_id, fee)?;
 
 			// Attempt to send XCM to a dest parachain
 			let message_id = Self::send_xcm(xcm, channel.para_id)?;
@@ -286,6 +291,7 @@ pub mod pallet {
 				channel_id: envelope.channel_id,
 				nonce: envelope.nonce,
 				message_id,
+				fee_burned: fee,
 			});
 
 			Ok(())
@@ -329,6 +335,30 @@ pub mod pallet {
 			weight_fee
 				.saturating_add(len_fee)
 				.saturating_add(T::PricingParameters::get().rewards.local)
+		}
+
+		/// Burn the amount of the fee embedded into the XCM for teleports
+		pub fn burn_fees(para_id: ParaId, fee: BalanceOf<T>) -> DispatchResult {
+			let dummy_context =
+				XcmContext { origin: None, message_id: Default::default(), topic: None };
+			let dest = MultiLocation { parents: 1, interior: X1(Parachain(para_id.into())) };
+			let fees = (MultiLocation::parent(), fee.saturated_into::<u128>()).into();
+			T::AssetTransactor::can_check_out(&dest, &fees, &dummy_context).map_err(|error| {
+				log::error!(
+					target: LOG_TARGET,
+					"XCM asset check out failed with error {:?}", error
+				);
+				TokenError::FundsUnavailable
+			})?;
+			T::AssetTransactor::check_out(&dest, &fees, &dummy_context);
+			T::AssetTransactor::withdraw_asset(&fees, &dest, None).map_err(|error| {
+				log::error!(
+					target: LOG_TARGET,
+					"XCM asset withdraw failed with error {:?}", error
+				);
+				TokenError::FundsUnavailable
+			})?;
+			Ok(())
 		}
 	}
 
