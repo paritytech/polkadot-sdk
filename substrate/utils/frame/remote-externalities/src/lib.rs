@@ -1338,7 +1338,7 @@ mod remote_tests {
 		init_logger();
 
 		// create an ext with children keys
-		let child_ext = Builder::<Block>::new()
+		let mut child_ext = Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
 				pallets: vec!["Proxy".to_owned()],
 				child_trie: true,
