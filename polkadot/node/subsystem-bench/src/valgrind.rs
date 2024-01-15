@@ -51,7 +51,7 @@ pub(crate) fn stop_measuring() {
 
 #[cfg(not(feature = "valgrind"))]
 pub(crate) fn relaunch_in_valgrind_mode() -> eyre::Result<()> {
-	return Err(eyre::eyre!("Feature `valgrind` must be enabled to measure cache misses"));
+	Err(eyre::eyre!("Feature `valgrind` must be enabled to measure cache misses"))
 }
 
 /// Stop execution and relaunch the app under valgrind
@@ -74,7 +74,7 @@ pub(crate) fn relaunch_in_valgrind_mode() -> eyre::Result<()> {
 		.args(std::env::args())
 		.exec();
 
-	return Err(eyre::eyre!(
+	Err(eyre::eyre!(
 		"Сannot run Valgrind, check that it is installed and available in the PATH\n{}",
 		err
 	))
