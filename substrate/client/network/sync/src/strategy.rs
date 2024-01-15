@@ -410,12 +410,20 @@ where
 
 	/// Get the total number of downloaded blocks.
 	pub fn num_downloaded_blocks(&self) -> usize {
-        self.chain_sync.map_or(0, |chain_sync| chain_sync.num_downloaded_blocks())
+		if let Some(ref chain_sync) = self.chain_sync {
+			chain_sync.num_downloaded_blocks()
+		} else {
+			0
+		}
 	}
 
 	/// Get an estimate of the number of parallel sync requests.
 	pub fn num_sync_requests(&self) -> usize {
-        self.chain_sync.map_or(0, |chain_sync| chain_sync.num_sync_requests())
+		if let Some(ref chain_sync) = self.chain_sync {
+			chain_sync.num_sync_requests()
+		} else {
+			0
+		}
 	}
 
 	/// Report Prometheus metrics
