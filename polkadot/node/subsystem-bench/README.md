@@ -232,42 +232,31 @@ a remote virtual installation.
 
 To profile cache misses use the `--cache-misses` flag. Since the execution will be very slow, it's recommended not to
 run it together with other profiling and not to take benchmark results into account. A report is saved in a file
-`cachegrind_report.txt`.
+`cachegrind_report.txt`. Cache simulation of current runs tuned for Intel Ice Lake CPU.
 
 Example run results:
 ```
 $ target/testnet/subsystem-bench --n-cores 10 --cache-misses data-availability-read
 $ cat cachegrind_report.txt
-==232852== Cachegrind, a high-precision tracing profiler
-==232852== Copyright (C) 2002-2017, and GNU GPL'd, by Nicholas Nethercote et al.
-==232852== Using Valgrind-3.22.0 and LibVEX; rerun with -h for copyright info
-==232852== Command: target/testnet/subsystem-bench --n-cores 10 --cache-misses data-availability-read
-==232852== Parent PID: 135623
-==232852==
---232852-- warning: L3 cache found, using its data for the LL simulation.
---232852-- warning: specified LL cache: line_size 64  assoc 20  total_size 57,671,680
---232852-- warning: simulated LL cache: line_size 64  assoc 28  total_size 58,720,256
-==232852==
-==232852== I refs:        64,792,806,728
-==232852== I1  misses:         3,720,238
-==232852== LLi misses:            34,545
-==232852== I1  miss rate:           0.01%
-==232852== LLi miss rate:           0.00%
-==232852==
-==232852== D refs:        12,431,397,584  (10,003,114,208 rd   + 2,428,283,376 wr)
-==232852== D1  misses:       259,602,002  (   123,007,075 rd   +   136,594,927 wr)
-==232852== LLd misses:        13,168,490  (     5,331,255 rd   +     7,837,235 wr)
-==232852== D1  miss rate:            2.1% (           1.2%     +           5.6%  )
-==232852== LLd miss rate:            0.1% (           0.1%     +           0.3%  )
-==232852==
-==232852== LL refs:          263,322,240  (   126,727,313 rd   +   136,594,927 wr)
-==232852== LL misses:         13,203,035  (     5,365,800 rd   +     7,837,235 wr)
-==232852== LL miss rate:             0.0% (           0.0%     +           0.3%  )
-==201761== LL miss rate:             0.0% (           0.0%   +           0.1%  )
+I refs:        64,622,081,485
+I1  misses:         3,018,168
+LLi misses:           437,654
+I1  miss rate:           0.00%
+LLi miss rate:           0.00%
+
+D refs:        12,161,833,115  (9,868,356,364 rd   + 2,293,476,751 wr)
+D1  misses:       167,940,701  (   71,060,073 rd   +    96,880,628 wr)
+LLd misses:        33,550,018  (   16,685,853 rd   +    16,864,165 wr)
+D1  miss rate:            1.4% (          0.7%     +           4.2%  )
+LLd miss rate:            0.3% (          0.2%     +           0.7%  )
+
+LL refs:          170,958,869  (   74,078,241 rd   +    96,880,628 wr)
+LL misses:         33,987,672  (   17,123,507 rd   +    16,864,165 wr)
+LL miss rate:             0.0% (          0.0%     +           0.7%  )
 ```
 
-The results show that 2.1% of the L1 data cache missed, but the last level cache only missed 0.1% of the time.
-Instruction data of the L1 has 0.01% of the time and almost nothing was missed at the last level.
+The results show that 1.4% of the L1 data cache missed, but the last level cache only missed 0.3% of the time.
+Instruction data of the L1 has 0.00%.
 
 Cachegrind writes line-by-line cache profiling information to a file named `cachegrind.out.<pid>`.
 This file is best interpreted with `cg_annotate --auto=yes cachegrind.out.<pid>`. For more information see the

@@ -46,6 +46,10 @@ pub(crate) fn stop_measuring() {
 pub(crate) fn stop_measuring() {}
 
 /// Stop execution and relaunch the app under valgrind
+/// Cache configuration used to emulate Intel Ice Lake (size, associativity, line size):
+///     L1 instruction: 32,768 B, 8-way, 64 B lines
+///     L1 data: 49,152 B, 12-way, 64 B lines
+///     Last-level: 2,097,152 B, 16-way, 64 B lines
 #[cfg(target_os = "linux")]
 pub(crate) fn relaunch_in_valgrind_mode() -> eyre::Result<()> {
 	use std::os::unix::process::CommandExt;
@@ -54,6 +58,10 @@ pub(crate) fn relaunch_in_valgrind_mode() -> eyre::Result<()> {
 		.arg("--cache-sim=yes")
 		.arg("--instr-at-start=no")
 		.arg("--log-file=cachegrind_report.txt")
+		.arg("--I1=32768,8,64")
+		.arg("--D1=49152,12,64")
+		.arg("--LL=2097152,16,64")
+		.arg("--verbose")
 		.args(std::env::args())
 		.exec();
 
