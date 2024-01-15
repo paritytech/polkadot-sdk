@@ -88,6 +88,7 @@ fn processes_empty_response_on_justification_request_for_unknown_block() {
 
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
+		Default::default(),
 		client.clone(),
 		1,
 		64,
@@ -153,6 +154,7 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 	// deterministic
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
+		Default::default(),
 		client.clone(),
 		1,
 		8,
@@ -359,6 +361,7 @@ fn do_ancestor_search_when_common_block_to_best_queued_gap_is_to_big() {
 
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
+		Default::default(),
 		client.clone(),
 		5,
 		64,
@@ -517,6 +520,7 @@ fn can_sync_huge_fork() {
 
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
+		Default::default(),
 		client.clone(),
 		5,
 		64,
@@ -665,6 +669,7 @@ fn syncs_fork_without_duplicate_requests() {
 
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
+		Default::default(),
 		client.clone(),
 		5,
 		64,
@@ -813,6 +818,7 @@ fn removes_target_fork_on_disconnect() {
 
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
+		Default::default(),
 		client.clone(),
 		1,
 		64,
@@ -848,6 +854,7 @@ fn can_import_response_with_missing_blocks() {
 
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
+		Default::default(),
 		empty_client.clone(),
 		1,
 		64,
@@ -889,6 +896,7 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 	let client = Arc::new(TestClientBuilder::new().build());
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
+		Default::default(),
 		client.clone(),
 		1,
 		64,
@@ -1041,6 +1049,7 @@ fn request_across_forks() {
 
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
+		Default::default(),
 		client.clone(),
 		5,
 		64,

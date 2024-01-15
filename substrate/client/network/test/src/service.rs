@@ -206,6 +206,7 @@ impl TestNetworkBuilder {
 
 		let syncing_config = PolkadotSyncingStrategyConfig {
 			mode: network_config.sync_mode,
+			pause_sync: Arc::clone(&network_config.pause_sync),
 			max_parallel_downloads: network_config.max_parallel_downloads,
 			max_blocks_per_request: network_config.max_blocks_per_request,
 			metrics_registry: None,

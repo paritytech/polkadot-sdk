@@ -41,7 +41,11 @@ use sc_network_common::sync::{message::BlockAnnounce, SyncMode};
 use sc_network_types::PeerId;
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
 use sp_runtime::traits::{Block as BlockT, Header, NumberFor};
-use std::{any::Any, collections::HashMap, sync::Arc};
+use std::{
+	any::Any,
+	collections::HashMap,
+	sync::{atomic::AtomicBool, Arc},
+};
 
 /// Corresponding `ChainSync` mode.
 fn chain_sync_mode(sync_mode: SyncMode) -> ChainSyncMode {
@@ -61,6 +65,8 @@ where
 {
 	/// Syncing mode.
 	pub mode: SyncMode,
+	/// Whether to pause Substrate sync
+	pub pause_sync: Arc<AtomicBool>,
 	/// The number of parallel downloads to guard against slow peers.
 	pub max_parallel_downloads: u32,
 	/// Maximum number of blocks to request.
@@ -372,6 +378,7 @@ where
 		} else {
 			let chain_sync = ChainSync::new(
 				chain_sync_mode(config.mode),
+				config.pause_sync.clone(),
 				client.clone(),
 				config.max_parallel_downloads,
 				config.max_blocks_per_request,
@@ -424,6 +431,7 @@ where
 					);
 					let chain_sync = match ChainSync::new(
 						chain_sync_mode(self.config.mode),
+						self.config.pause_sync.clone(),
 						self.client.clone(),
 						self.config.max_parallel_downloads,
 						self.config.max_blocks_per_request,
@@ -454,6 +462,7 @@ where
 			}
 			let chain_sync = match ChainSync::new(
 				chain_sync_mode(self.config.mode),
+				self.config.pause_sync.clone(),
 				self.client.clone(),
 				self.config.max_parallel_downloads,
 				self.config.max_blocks_per_request,

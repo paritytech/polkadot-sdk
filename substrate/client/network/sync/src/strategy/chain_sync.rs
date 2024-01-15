@@ -69,7 +69,10 @@ use std::{
 	any::Any,
 	collections::{HashMap, HashSet},
 	ops::Range,
-	sync::Arc,
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
 };
 
 #[cfg(test)]
@@ -305,6 +308,8 @@ pub struct ChainSync<B: BlockT, Client> {
 	best_queued_hash: B::Hash,
 	/// Current mode (full/light)
 	mode: ChainSyncMode,
+    /// Whether to pause Substrate sync
+    pause_sync: Arc<AtomicBool>,
 	/// Any extra justification requests.
 	extra_justifications: ExtraRequests<B>,
 	/// A set of hashes of blocks that are being downloaded or have been
@@ -942,6 +947,7 @@ where
 	/// Create a new instance.
 	pub fn new(
 		mode: ChainSyncMode,
+		pause_sync: Arc<AtomicBool>,
 		client: Arc<Client>,
 		max_parallel_downloads: u32,
 		max_blocks_per_request: u32,
@@ -959,6 +965,7 @@ where
 			best_queued_number: Zero::zero(),
 			extra_justifications: ExtraRequests::new("justification", metrics_registry),
 			mode,
+			pause_sync,
 			queue_blocks: Default::default(),
 			pending_state_sync_attempt: None,
 			fork_targets: Default::default(),
@@ -1796,6 +1803,10 @@ where
 
 	/// Get block requests scheduled by sync to be sent out.
 	fn block_requests(&mut self) -> Vec<(PeerId, BlockRequest<B>)> {
+		if self.pause_sync.load(Ordering::Acquire) {
+			return Vec::new();
+		}
+
 		if self.allowed_requests.is_empty() || self.state_sync.is_some() {
 			return Vec::new();
 		}

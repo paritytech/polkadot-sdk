@@ -1382,6 +1382,7 @@ where
 
 	let syncing_config = PolkadotSyncingStrategyConfig {
 		mode: net_config.network_config.sync_mode,
+		pause_sync: Arc::clone(&net_config.network_config.pause_sync),
 		max_parallel_downloads: net_config.network_config.max_parallel_downloads,
 		max_blocks_per_request: net_config.network_config.max_blocks_per_request,
 		metrics_registry: metrics_registry.cloned(),

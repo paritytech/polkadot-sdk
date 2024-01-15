@@ -65,7 +65,7 @@ use std::{
 	path::{Path, PathBuf},
 	pin::Pin,
 	str::{self, FromStr},
-	sync::Arc,
+	sync::{atomic::AtomicBool, Arc},
 };
 
 /// Protocol name prefix, transmitted on the wire for legacy protocol names.
@@ -629,6 +629,9 @@ pub struct NetworkConfiguration {
 	/// Initial syncing mode.
 	pub sync_mode: SyncMode,
 
+	/// Whether to pause Substrate sync
+	pub pause_sync: Arc<AtomicBool>,
+
 	/// True if Kademlia random discovery should be enabled.
 	///
 	/// If true, the node will automatically randomly walk the DHT in order to find new peers.
@@ -698,6 +701,7 @@ impl NetworkConfiguration {
 			max_parallel_downloads: 5,
 			max_blocks_per_request: 64,
 			sync_mode: SyncMode::Full,
+			pause_sync: Arc::new(AtomicBool::new(false)),
 			enable_dht_random_walk: true,
 			allow_non_globals_in_dht: false,
 			kademlia_disjoint_query_paths: false,
