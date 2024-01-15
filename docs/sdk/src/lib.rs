@@ -27,7 +27,7 @@
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(rustdoc::private_intra_doc_links)]
 // Overide above deny if no deps are being built
-#![cfg(not(feature = "build-deps"))]
+#![cfg(not(feature = "docs-build-deps"))]
 #![allow(rustdoc::broken_intra_doc_links)]
 #![allow(rustdoc::private_intra_doc_links)]
 
