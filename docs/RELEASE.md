@@ -31,8 +31,7 @@ The versioning of the Polkadot node is done most of the time by only incrementin
 The `major` version is only bumped for special releases and the `patch` can be used for an 
 out of band release that fixes some critical bug. The node version is not following SemVer. 
 This means that the version doesn't express if there are any breaking changes in the CLI 
-interface or similar. The node version is declared in the `NODE_VERSION` variable in 
-`polkadot/node/primitives/src/lib.rs`.
+interface or similar. The node version is declared in the [`NODE_VERSION`](https://paritytech.github.io/polkadot-sdk/master/polkadot_node_primitives/constant.NODE_VERSION.html) variable.
 
 ## Westend & Rococo
 
