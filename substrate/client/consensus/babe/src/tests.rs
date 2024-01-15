@@ -409,7 +409,7 @@ async fn run_one_test(mutator: impl Fn(&mut TestHeader, Stage) + Send + Sync + '
 			let mut net = net.lock();
 			net.poll(cx);
 			for p in net.peers() {
-				for (h, e) in p.failed_verifications() {
+				if let Some((h, e)) = p.failed_verifications().into_iter().next() {
 					panic!("Verification failed for {:?}: {}", h, e);
 				}
 			}
@@ -578,7 +578,7 @@ fn claim_vrf_check() {
 	};
 	let data = make_vrf_sign_data(&epoch.randomness.clone(), 0.into(), epoch.epoch_index);
 	let sign = keystore.sr25519_vrf_sign(AuthorityId::ID, &public, &data).unwrap().unwrap();
-	assert_eq!(pre_digest.vrf_signature.output, sign.output);
+	assert_eq!(pre_digest.vrf_signature.pre_output, sign.pre_output);
 
 	// We expect a SecondaryVRF claim for slot 1
 	let pre_digest = match claim_slot(1.into(), &epoch, &keystore).unwrap().0 {
@@ -587,7 +587,7 @@ fn claim_vrf_check() {
 	};
 	let data = make_vrf_sign_data(&epoch.randomness.clone(), 1.into(), epoch.epoch_index);
 	let sign = keystore.sr25519_vrf_sign(AuthorityId::ID, &public, &data).unwrap().unwrap();
-	assert_eq!(pre_digest.vrf_signature.output, sign.output);
+	assert_eq!(pre_digest.vrf_signature.pre_output, sign.pre_output);
 
 	// Check that correct epoch index has been used if epochs are skipped (primary VRF)
 	let slot = Slot::from(103);
@@ -599,7 +599,7 @@ fn claim_vrf_check() {
 	let data = make_vrf_sign_data(&epoch.randomness.clone(), slot, fixed_epoch.epoch_index);
 	let sign = keystore.sr25519_vrf_sign(AuthorityId::ID, &public, &data).unwrap().unwrap();
 	assert_eq!(fixed_epoch.epoch_index, 11);
-	assert_eq!(claim.vrf_signature.output, sign.output);
+	assert_eq!(claim.vrf_signature.pre_output, sign.pre_output);
 
 	// Check that correct epoch index has been used if epochs are skipped (secondary VRF)
 	let slot = Slot::from(100);
@@ -611,7 +611,7 @@ fn claim_vrf_check() {
 	let data = make_vrf_sign_data(&epoch.randomness.clone(), slot, fixed_epoch.epoch_index);
 	let sign = keystore.sr25519_vrf_sign(AuthorityId::ID, &public, &data).unwrap().unwrap();
 	assert_eq!(fixed_epoch.epoch_index, 11);
-	assert_eq!(pre_digest.vrf_signature.output, sign.output);
+	assert_eq!(pre_digest.vrf_signature.pre_output, sign.pre_output);
 }
 
 // Propose and import a new BABE block on top of the given parent.

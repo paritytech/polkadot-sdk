@@ -434,7 +434,7 @@ impl<T: Sized + AsMut<[u8]> + AsRef<[u8]> + Public + Derive> Ss58Codec for T {
 	fn from_string(s: &str) -> Result<Self, PublicError> {
 		let cap = AddressUri::parse(s)?;
 		if cap.pass.is_some() {
-			return Err(PublicError::PasswordNotAllowed);
+			return Err(PublicError::PasswordNotAllowed)
 		}
 		let s = cap.phrase.unwrap_or(DEV_ADDRESS);
 		let addr = if let Some(stripped) = s.strip_prefix("0x") {
@@ -454,7 +454,7 @@ impl<T: Sized + AsMut<[u8]> + AsRef<[u8]> + Public + Derive> Ss58Codec for T {
 	fn from_string_with_version(s: &str) -> Result<(Self, Ss58AddressFormat), PublicError> {
 		let cap = AddressUri::parse(s)?;
 		if cap.pass.is_some() {
-			return Err(PublicError::PasswordNotAllowed);
+			return Err(PublicError::PasswordNotAllowed)
 		}
 		let (addr, v) = Self::from_ss58check_with_version(cap.phrase.unwrap_or(DEV_ADDRESS))?;
 		if cap.paths.is_empty() {
@@ -1109,8 +1109,8 @@ impl<'a> TryFrom<&'a str> for KeyTypeId {
 pub trait VrfCrypto {
 	/// VRF input.
 	type VrfInput;
-	/// VRF output.
-	type VrfOutput;
+	/// VRF pre-output.
+	type VrfPreOutput;
 	/// VRF signing data.
 	type VrfSignData;
 	/// VRF signature.
@@ -1119,8 +1119,8 @@ pub trait VrfCrypto {
 
 /// VRF Secret Key.
 pub trait VrfSecret: VrfCrypto {
-	/// Get VRF-specific output .
-	fn vrf_output(&self, data: &Self::VrfInput) -> Self::VrfOutput;
+	/// Get VRF-specific pre-output.
+	fn vrf_pre_output(&self, data: &Self::VrfInput) -> Self::VrfPreOutput;
 
 	/// Sign VRF-specific data.
 	fn vrf_sign(&self, input: &Self::VrfSignData) -> Self::VrfSignature;

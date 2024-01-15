@@ -10,6 +10,9 @@ description = "A crate that provides basic hardware and software telemetry infor
 documentation = "https://docs.rs/sc-sysinfo"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
@@ -21,8 +24,8 @@ rand = "0.8.5"
 rand_pcg = "0.3.1"
 derive_more = "0.99"
 regex = "1"
-serde = { version = "1.0.193", features = ["derive"] }
-serde_json = "1.0.108"
+serde = { version = "1.0.195", features = ["derive"] }
+serde_json = "1.0.111"
 sc-telemetry = { path = "../telemetry" }
 sp-core = { path = "../../primitives/core" }
 sp-io = { path = "../../primitives/io" }

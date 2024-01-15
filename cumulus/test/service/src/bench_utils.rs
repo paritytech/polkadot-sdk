@@ -20,8 +20,8 @@ use sc_block_builder::BlockBuilderBuilder;
 use sp_api::RuntimeInstance;
 
 use crate::{construct_extrinsic, Client as TestClient};
+use cumulus_client_parachain_inherent::ParachainInherentData;
 use cumulus_primitives_core::{relay_chain::AccountId, PersistedValidationData};
-use cumulus_primitives_parachain_inherent::ParachainInherentData;
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use cumulus_test_runtime::{
 	BalancesCall, GluttonCall, NodeBlock, SudoCall, UncheckedExtrinsic, WASM_BINARY,

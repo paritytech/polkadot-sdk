@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use parachain_template_runtime::{opaque::Block, AccountId, Balance, Nonce};
 
-pub use sc_rpc::{DenyUnsafe, SubscriptionTaskExecutor};
+pub use sc_rpc::DenyUnsafe;
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::CallApiAt;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};

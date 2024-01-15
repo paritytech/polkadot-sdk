@@ -190,9 +190,9 @@ pub fn make_ticket_body(attempt_idx: u32, pair: &AuthorityPair) -> (TicketId, Ti
 	let randomness = Sassafras::next_randomness();
 
 	let ticket_id_input = vrf::ticket_id_input(&randomness, attempt_idx, epoch);
-	let ticket_id_output = pair.as_inner_ref().vrf_output(&ticket_id_input);
+	let ticket_id_pre_output = pair.as_inner_ref().vrf_pre_output(&ticket_id_input);
 
-	let id = vrf::make_ticket_id(&ticket_id_input, &ticket_id_output);
+	let id = vrf::make_ticket_id(&ticket_id_input, &ticket_id_pre_output);
 
 	// Make a dummy ephemeral public that hopefully is unique within one test instance.
 	// In the tests, the values within the erased public are just used to compare

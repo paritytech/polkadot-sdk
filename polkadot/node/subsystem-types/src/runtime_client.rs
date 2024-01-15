@@ -16,12 +16,15 @@
 
 use async_trait::async_trait;
 use polkadot_primitives::{
-	async_backing, runtime_api::ParachainHost, slashing, vstaging, Block, BlockNumber,
-	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreState,
-	DisputeState, ExecutorParams, GroupRotationInfo, Hash, Header, Id, InboundDownwardMessage,
-	InboundHrmpMessage, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
-	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	async_backing,
+	runtime_api::ParachainHost,
+	slashing,
+	vstaging::{self, ApprovalVotingParams},
+	Block, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
+	CommittedCandidateReceipt, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash,
+	Header, Id, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption,
+	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
+	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use sc_client_api::HeaderBackend;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
@@ -309,9 +312,16 @@ pub trait RuntimeApiSubsystemClient {
 	async fn disabled_validators(&self, at: Hash) -> Result<Vec<ValidatorIndex>, ApiError>;
 
 	// === v9 ===
-
 	/// Get the node features.
 	async fn node_features(&self, at: Hash) -> Result<vstaging::NodeFeatures, ApiError>;
+
+	// == v10: Approval voting params ==
+	/// Approval voting configuration parameters
+	async fn approval_voting_params(
+		&self,
+		at: Hash,
+		session_index: SessionIndex,
+	) -> Result<ApprovalVotingParams, ApiError>;
 }
 
 /// Default implementation of [`RuntimeApiSubsystemClient`].
@@ -581,5 +591,14 @@ where
 
 	async fn disabled_validators(&self, at: Hash) -> Result<Vec<ValidatorIndex>, ApiError> {
 		ParachainHost::disabled_validators(&mut self.runtime_api(at))
+	}
+
+	/// Approval voting configuration parameters
+	async fn approval_voting_params(
+		&self,
+		at: Hash,
+		_session_index: SessionIndex,
+	) -> Result<ApprovalVotingParams, ApiError> {
+		self.client.runtime_api().approval_voting_params(at)
 	}
 }
