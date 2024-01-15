@@ -387,6 +387,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	/// Refund any unused weight.
 	fn refund_surplus(&mut self) -> Result<(), XcmError> {
 		let current_surplus = self.total_surplus.saturating_sub(self.total_refunded);
+		log::trace!(
+			target: "xcm::refund_surplus",
+			"total_surplus: {:?}, total_refunded: {:?}, current_surplus: {:?}",
+			self.total_surplus,
+			self.total_refunded,
+			current_surplus,
+		);
 		if current_surplus.any_gt(Weight::zero()) {
 			if let Some(w) = self.trader.refund_weight(current_surplus, &self.context) {
 				if !self.holding.contains_asset(&(w.id, 1).into()) &&
@@ -398,12 +405,21 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						.defensive_proof(
 							"refund_weight returned an asset capable of buying weight; qed",
 						);
+					log::error!(
+						target: "xcm::refund_surplus",
+						"error: HoldingWouldOverflow",
+					);
 					return Err(XcmError::HoldingWouldOverflow)
 				}
 				self.total_refunded.saturating_accrue(current_surplus);
 				self.holding.subsume_assets(w.into());
 			}
 		}
+		log::trace!(
+			target: "xcm::refund_surplus",
+			"total_refunded: {:?}",
+			self.total_refunded,
+		);
 		Ok(())
 	}
 

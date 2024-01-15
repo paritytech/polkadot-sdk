@@ -238,6 +238,7 @@ impl<
 		self.0 -= weight;
 		self.1 = self.1.saturating_sub(amount);
 		let amount: u128 = amount.saturated_into();
+		log::trace!(target: "xcm::weight", "UsingComponents::refund_weight amount to refund: {:?}", amount);
 		if amount > 0 {
 			Some((AssetId::get(), amount).into())
 		} else {
