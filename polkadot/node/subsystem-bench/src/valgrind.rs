@@ -51,7 +51,7 @@ pub(crate) fn stop_measuring() {
 
 #[cfg(not(feature = "valgrind"))]
 pub(crate) fn relaunch_in_valgrind_mode() -> eyre::Result<()> {
-	return Err(eyre::eyre!("Feature `valgrind` must be enabled"));
+	return Err(eyre::eyre!("Feature `valgrind` must be enabled to measure cache misses"));
 }
 
 /// Stop execution and relaunch the app under valgrind
