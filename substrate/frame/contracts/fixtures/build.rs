@@ -234,11 +234,12 @@ fn post_process_wasm(input_path: &Path, output_path: &Path) -> Result<()> {
 /// Build contracts for RISC-V.
 #[cfg(feature = "riscv")]
 fn invoke_riscv_build(current_dir: &Path) -> Result<()> {
-	let encoded_rustflags =
-		["-Crelocation-model=pie", "-Clink-arg=--emit-relocs", "-Clink-arg=-Tmemory.ld"]
-			.join("\x1f");
-
-	fs::write(current_dir.join("memory.ld"), include_bytes!("./build/riscv_memory_layout.ld"))?;
+	let encoded_rustflags = [
+		"-Crelocation-model=pie",
+		"-Clink-arg=--emit-relocs",
+		"-Clink-arg=--export-dynamic-symbol=__polkavm_symbol_export_hack__*",
+	]
+	.join("\x1f");
 
 	let build_res = Command::new(env::var("CARGO")?)
 		.current_dir(current_dir)
@@ -247,7 +248,7 @@ fn invoke_riscv_build(current_dir: &Path) -> Result<()> {
 		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
 		.env("RUSTUP_TOOLCHAIN", "rve-nightly")
 		.env("RUSTUP_HOME", env::var("RUSTUP_HOME").unwrap_or_default())
-		.args(["build", "--release", "--target=riscv32em-unknown-none-elf"])
+		.args(["build", "--release", "--target=riscv32ema-unknown-none-elf"])
 		.output()
 		.expect("failed to execute process");
 
@@ -288,7 +289,7 @@ fn write_output(build_dir: &Path, out_dir: &Path, entries: Vec<Entry>) -> Result
 
 		#[cfg(feature = "riscv")]
 		post_process_riscv(
-			&build_dir.join("target/riscv32em-unknown-none-elf/release").join(entry.name()),
+			&build_dir.join("target/riscv32ema-unknown-none-elf/release").join(entry.name()),
 			&out_dir.join(entry.out_riscv_filename()),
 		)?;
 
