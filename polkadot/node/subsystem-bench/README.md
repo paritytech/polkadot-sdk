@@ -230,9 +230,12 @@ and unlikely to reflect the behavior of a modern machine. However, it still repr
 usage, and more importantly it doesn't require a bare-metal machine to run on, which means it could be run in CI or in
 a remote virtual installation.
 
-To profile cache misses use the `--cache-misses` flag. Since the execution will be very slow, it's recommended not to
-run it together with other profiling and not to take benchmark results into account. A report is saved in a file
-`cachegrind_report.txt`. Cache simulation of current runs tuned for Intel Ice Lake CPU.
+The use of Cachegrind is specific. To avoid overcomplicating the rest of the functionality, the measurement of cache
+misses is placed in a separate feature `valgrind`.
+
+To profile cache misses use the `--cache-misses` flag. Cache simulation of current runs tuned for Intel Ice Lake CPU.
+Since the execution will be very slow, it's recommended not to run it together with other profiling and not to take
+benchmark results into account. A report is saved in a file `cachegrind_report.txt`.
 
 Example run results:
 ```
