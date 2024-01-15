@@ -380,6 +380,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		// `holding_limit` items (which has a best case outcome of holding.len() == holding_limit),
 		// then the operation is guaranteed to succeed.
 		let worst_case_holding_len = self.holding.len() + assets_length;
+		log::trace!(target: "xcm::ensure_can_subsume_assets", "worst_case_holding_len: {:?}, holding_limit: {:?}", worst_case_holding_len, self.holding_limit);
 		ensure!(worst_case_holding_len <= self.holding_limit * 2, XcmError::HoldingWouldOverflow);
 		Ok(())
 	}
@@ -909,7 +910,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				Ok(())
 			},
 			BuyExecution { fees, weight_limit } => {
-				// There is no need to buy any weight is `weight_limit` is `Unlimited` since it
+				// There is no need to buy any weight if `weight_limit` is `Unlimited` since it
 				// would indicate that `AllowTopLevelPaidExecutionFrom` was unused for execution
 				// and thus there is some other reason why it has been determined that this XCM
 				// should be executed.
