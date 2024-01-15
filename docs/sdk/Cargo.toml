@@ -15,55 +15,86 @@ workspace = true
 
 [dependencies]
 # Needed for all FRAME-based code
-parity-scale-codec = { version = "3.0.0", default-features = false }
-scale-info = { version = "2.6.0", default-features = false }
-frame = { path = "../../substrate/frame", features = ["experimental", "runtime"] }
-pallet-examples = { path = "../../substrate/frame/examples" }
-pallet-default-config-example = { path = "../../substrate/frame/examples/default-config" }
+parity-scale-codec = { version = "3.0.0", default-features = false, optional = true }
+scale-info = { version = "2.6.0", default-features = false, optional = true }
+frame = { path = "../../substrate/frame", features = ["experimental", "runtime"], optional = true }
+pallet-examples = { path = "../../substrate/frame/examples", optional = true }
+pallet-default-config-example = { path = "../../substrate/frame/examples/default-config", optional = true }
 
 # How we build docs in rust-docs
 simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", rev = "e48b187bcfd5cc75111acd9d241f1bd36604344b" }
 docify = "0.2.6"
 
 # Polkadot SDK deps, typically all should only be in scope such that we can link to their doc item.
-node-cli = { package = "staging-node-cli", path = "../../substrate/bin/node/cli" }
-kitchensink-runtime = { path = "../../substrate/bin/node/runtime" }
-chain-spec-builder = { package = "staging-chain-spec-builder", path = "../../substrate/bin/utils/chain-spec-builder" }
-subkey = { path = "../../substrate/bin/utils/subkey" }
+node-cli = { package = "staging-node-cli", path = "../../substrate/bin/node/cli", optional = true }
+kitchensink-runtime = { path = "../../substrate/bin/node/runtime", optional = true }
+chain-spec-builder = { package = "staging-chain-spec-builder", path = "../../substrate/bin/utils/chain-spec-builder", optional = true }
+subkey = { path = "../../substrate/bin/utils/subkey", optional = true }
 
 # Substrate
-sc-network = { path = "../../substrate/client/network" }
-sc-rpc-api = { path = "../../substrate/client/rpc-api" }
-sc-rpc = { path = "../../substrate/client/rpc" }
-sc-client-db = { path = "../../substrate/client/db" }
-sc-cli = { path = "../../substrate/client/cli" }
-sc-consensus-aura = { path = "../../substrate/client/consensus/aura" }
-sc-consensus-babe = { path = "../../substrate/client/consensus/babe" }
-sc-consensus-grandpa = { path = "../../substrate/client/consensus/grandpa" }
-sc-consensus-beefy = { path = "../../substrate/client/consensus/beefy" }
-sc-consensus-manual-seal = { path = "../../substrate/client/consensus/manual-seal" }
-sc-consensus-pow = { path = "../../substrate/client/consensus/pow" }
-substrate-wasm-builder = { path = "../../substrate/utils/wasm-builder" }
+sc-network = { path = "../../substrate/client/network", optional = true }
+sc-rpc-api = { path = "../../substrate/client/rpc-api", optional = true }
+sc-rpc = { path = "../../substrate/client/rpc", optional = true }
+sc-client-db = { path = "../../substrate/client/db", optional = true }
+sc-cli = { path = "../../substrate/client/cli", optional = true }
+sc-consensus-aura = { path = "../../substrate/client/consensus/aura", optional = true }
+sc-consensus-babe = { path = "../../substrate/client/consensus/babe", optional = true }
+sc-consensus-grandpa = { path = "../../substrate/client/consensus/grandpa", optional = true }
+sc-consensus-beefy = { path = "../../substrate/client/consensus/beefy", optional = true }
+sc-consensus-manual-seal = { path = "../../substrate/client/consensus/manual-seal", optional = true }
+sc-consensus-pow = { path = "../../substrate/client/consensus/pow", optional = true }
+substrate-wasm-builder = { path = "../../substrate/utils/wasm-builder", optional = true }
 
 # Cumulus
-cumulus-pallet-aura-ext = { path = "../../cumulus/pallets/aura-ext" }
+cumulus-pallet-aura-ext = { path = "../../cumulus/pallets/aura-ext", optional = true }
 cumulus-pallet-parachain-system = { path = "../../cumulus/pallets/parachain-system", features = [
 	"parameterized-consensus-hook",
-] }
-parachain-info = { package = "staging-parachain-info", path = "../../cumulus/parachains/pallets/parachain-info" }
-pallet-aura = { path = "../../substrate/frame/aura", default-features = false }
-pallet-timestamp = { path = "../../substrate/frame/timestamp" }
+], optional = true }
+parachain-info = { package = "staging-parachain-info", path = "../../cumulus/parachains/pallets/parachain-info", optional = true }
+pallet-aura = { path = "../../substrate/frame/aura", default-features = false, optional = true }
+pallet-timestamp = { path = "../../substrate/frame/timestamp", optional = true }
 
 # Primitives
-sp-io = { path = "../../substrate/primitives/io" }
-sp-api = { path = "../../substrate/primitives/api" }
-sp-core = { path = "../../substrate/primitives/core" }
-sp-keyring = { path = "../../substrate/primitives/keyring" }
-sp-runtime = { path = "../../substrate/primitives/runtime" }
-
-[dev-dependencies]
-parity-scale-codec = "3.6.5"
-scale-info = "2.9.0"
+sp-io = { path = "../../substrate/primitives/io", optional = true }
+sp-api = { path = "../../substrate/primitives/api", optional = true }
+sp-core = { path = "../../substrate/primitives/core", optional = true }
+sp-keyring = { path = "../../substrate/primitives/keyring", optional = true }
+sp-runtime = { path = "../../substrate/primitives/runtime", optional = true }
 
 [features]
+default = ["build-deps"]
+build-deps = [
+	"sp-io",
+	"parity-scale-codec",
+	"scale-info",
+	"frame",
+	"pallet-examples",
+	"pallet-default-config-example",
+	"node-cli",
+	"kitchensink-runtime",
+	"chain-spec-builder",
+	"subkey",
+	"sc-network",
+	"sc-rpc-api",
+	"sc-rpc",
+	"sc-client-db",
+	"sc-cli",
+	"sc-consensus-aura",
+	"sc-consensus-babe",
+	"sc-consensus-grandpa",
+	"sc-consensus-beefy",
+	"sc-consensus-manual-seal",
+	"sc-consensus-pow",
+	"substrate-wasm-builder",
+	"cumulus-pallet-aura-ext",
+	"cumulus-pallet-parachain-system",
+	"parachain-info",
+	"pallet-aura",
+	"pallet-timestamp",
+	"sp-io",
+	"sp-api",
+	"sp-core",
+	"sp-keyring",
+	"sp-runtime",
+]
 experimental = ["pallet-aura/experimental"]
