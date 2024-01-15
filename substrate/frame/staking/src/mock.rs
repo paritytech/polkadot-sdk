@@ -459,6 +459,10 @@ impl ExtBuilder {
 		self.balance_factor = factor;
 		self
 	}
+	pub fn try_state(self, enable: bool) -> Self {
+		SkipTryStateCheck::set(!enable);
+		self
+	}
 	fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
 		let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
@@ -592,10 +596,6 @@ impl ExtBuilder {
 			}
 		});
 	}
-}
-
-pub(crate) fn skip_try_state_checks() {
-	SkipTryStateCheck::set(true);
 }
 
 pub(crate) fn active_era() -> EraIndex {

@@ -751,17 +751,13 @@ fn nominators_also_get_slashed_pro_rata() {
 	});
 }
 
-// note: this test will panic due to manual changes in the `Ledger` storage that will trigger the
-// `try_state` checks. The check that panics runs at the end of the test (`post_check`), thus the
-// asserts in the tests are checked before.
 #[test]
-#[should_panic = "called `Result::unwrap()` on an `Err` value: Other(\"bonded ledger does not have payee set\")"]
 fn double_staking_should_fail() {
 	// should test (in the same order):
 	// * an account already bonded as stash cannot be be stashed again.
 	// * an account already bonded as stash cannot nominate.
 	// * an account already bonded as controller can nominate.
-	ExtBuilder::default().build_and_execute(|| {
+	ExtBuilder::default().try_state(false).build_and_execute(|| {
 		let arbitrary_value = 5;
 		let (stash, controller) = testing_utils::create_unique_stash_controller::<Test>(
 			0,
@@ -790,16 +786,12 @@ fn double_staking_should_fail() {
 	});
 }
 
-// note: this test will panic due to manual changes in the `Ledger` storage that will trigger the
-// `try_state` checks. The check tat panics runs at the end of the test (`post_check`), thus the
-// asserts in the tests are checked before.
 #[test]
-#[should_panic = "called `Result::unwrap()` on an `Err` value: Other(\"bonded ledger does not have payee set\")"]
 fn double_controlling_attempt_should_fail() {
 	// should test (in the same order):
 	// * an account already bonded as controller CANNOT be reused as the controller of another
 	//   account.
-	ExtBuilder::default().build_and_execute(|| {
+	ExtBuilder::default().try_state(false).build_and_execute(|| {
 		let arbitrary_value = 5;
 		let (stash, _) = testing_utils::create_unique_stash_controller::<Test>(
 			0,
@@ -1733,17 +1725,14 @@ fn rebond_emits_right_value_in_event() {
 	});
 }
 
-// note: this test will panic due to manual changes in the `Ledger` storage that will trigger the
-// `try_state` checks. The check tat panics runs at the end of the test (`post_check`), thus the
-// asserts in the tests are checked before.
 #[test]
-#[should_panic = "called `Result::unwrap()` on an `Err` value: Other(\"bonded ledger does not have payee set\")"]
 fn reward_to_stake_works() {
 	ExtBuilder::default()
 		.nominate(false)
 		.set_status(31, StakerStatus::Idle)
 		.set_status(41, StakerStatus::Idle)
 		.set_stake(21, 2000)
+		.try_state(false)
 		.build_and_execute(|| {
 			assert_eq!(Staking::validator_count(), 2);
 			// Confirm account 10 and 20 are validators
@@ -6752,13 +6741,9 @@ mod staking_interface {
 mod ledger {
 	use super::*;
 
-	// note: this test will panic due to manual changes in the `Ledger` storage that will trigger
-	// the `try_state` checks. The check tat panics runs at the end of the test (`post_check`), thus
-	// the asserts in the tests are checked before.
 	#[test]
-	#[should_panic = "called `Result::unwrap()` on an `Err` value: Other(\"bonded ledger does not have payee set\")"]
 	fn paired_account_works() {
-		ExtBuilder::default().build_and_execute(|| {
+		ExtBuilder::default().try_state(false).build_and_execute(|| {
 			assert_ok!(Staking::bond(
 				RuntimeOrigin::signed(10),
 				100,
@@ -6791,13 +6776,9 @@ mod ledger {
 		})
 	}
 
-	// note: this test will panic due to manual changes in the `Ledger` storage that will trigger
-	// the `try_state` checks. The check tat panics runs at the end of the test (`post_check`), thus
-	// the asserts in the tests are checked before.
 	#[test]
-	#[should_panic = "called `Result::unwrap()` on an `Err` value: Other(\"bonded ledger does not have payee set\")"]
 	fn get_ledger_works() {
-		ExtBuilder::default().build_and_execute(|| {
+		ExtBuilder::default().try_state(false).build_and_execute(|| {
 			// stash does not exist
 			assert!(StakingLedger::<Test>::get(StakingAccount::Stash(42)).is_err());
 
@@ -7044,7 +7025,7 @@ mod ledger {
 
 	#[test]
 	fn deprecate_controller_batch_skips_unmigrated_controller_payees() {
-		ExtBuilder::default().build_and_execute(|| {
+		ExtBuilder::default().try_state(false).build_and_execute(|| {
 			// Given:
 
 			let stash: u64 = 1000;
@@ -7084,10 +7065,6 @@ mod ledger {
 			// Ledger is still keyed by controller.
 			let ledger_updated = Ledger::<Test>::get(ctlr).unwrap();
 			assert_eq!(ledger_updated.stash, stash);
-
-			// this test manually inserts a ledger in storage. Let's skip the try-state assertions
-			// at the end of the test, as we expect them to fail.
-			skip_try_state_checks();
 		})
 	}
 }
