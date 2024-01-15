@@ -30,14 +30,14 @@ use jsonrpsee::{
 };
 use serde::{Deserialize, Serialize};
 
-use sp_api::{ApiExt, NumberFor, ProvideRuntimeApi};
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_core::{
 	offchain::{storage::OffchainDb, OffchainDbExt, OffchainStorage},
 	Bytes,
 };
 use sp_mmr_primitives::{Error as MmrError, Proof};
-use sp_runtime::traits::Block as BlockT;
+use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 pub use sp_mmr_primitives::MmrApi as MmrRuntimeApi;
 

@@ -16,11 +16,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::{PeerSync, PeerSyncState};
+use crate::{
+	request_metrics::Metrics,
+	strategy::chain_sync::{PeerSync, PeerSyncState},
+	LOG_TARGET,
+};
 use fork_tree::ForkTree;
 use libp2p::PeerId;
 use log::{debug, trace, warn};
-use sc_network_common::sync::metrics::Metrics;
 use sp_blockchain::Error as ClientError;
 use sp_runtime::traits::{Block as BlockT, NumberFor, Zero};
 use std::{
@@ -100,7 +103,7 @@ impl<B: BlockT> ExtraRequests<B> {
 				// ignore the `Revert` error.
 			},
 			Err(err) => {
-				debug!(target: "sync", "Failed to insert request {:?} into tree: {}", request, err);
+				debug!(target: LOG_TARGET, "Failed to insert request {:?} into tree: {}", request, err);
 			},
 			_ => (),
 		}
@@ -124,7 +127,7 @@ impl<B: BlockT> ExtraRequests<B> {
 		// messages to chain sync.
 		if let Some(request) = self.active_requests.remove(&who) {
 			if let Some(r) = resp {
-				trace!(target: "sync",
+				trace!(target: LOG_TARGET,
 					"Queuing import of {} from {:?} for {:?}",
 					self.request_type_name, who, request,
 				);
@@ -132,7 +135,7 @@ impl<B: BlockT> ExtraRequests<B> {
 				self.importing_requests.insert(request);
 				return Some((who, request.0, request.1, r))
 			} else {
-				trace!(target: "sync",
+				trace!(target: LOG_TARGET,
 					"Empty {} response from {:?} for {:?}",
 					self.request_type_name, who, request,
 				);
@@ -140,7 +143,7 @@ impl<B: BlockT> ExtraRequests<B> {
 			self.failed_requests.entry(request).or_default().push((who, Instant::now()));
 			self.pending_requests.push_front(request);
 		} else {
-			trace!(target: "sync",
+			trace!(target: LOG_TARGET,
 				"No active {} request to {:?}",
 				self.request_type_name, who,
 			);
@@ -215,7 +218,7 @@ impl<B: BlockT> ExtraRequests<B> {
 		};
 
 		if self.tree.finalize_root(&finalized_hash).is_none() {
-			warn!(target: "sync",
+			warn!(target: LOG_TARGET,
 				"‼️ Imported {:?} {:?} which isn't a root in the tree: {:?}",
 				finalized_hash, finalized_number, self.tree.roots().collect::<Vec<_>>()
 			);
@@ -320,7 +323,7 @@ impl<'a, B: BlockT> Matcher<'a, B> {
 				}
 				self.extras.active_requests.insert(*peer, request);
 
-				trace!(target: "sync",
+				trace!(target: LOG_TARGET,
 					"Sending {} request to {:?} for {:?}",
 					self.extras.request_type_name, peer, request,
 				);
@@ -343,7 +346,7 @@ impl<'a, B: BlockT> Matcher<'a, B> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::PeerSync;
+	use crate::strategy::chain_sync::PeerSync;
 	use quickcheck::{Arbitrary, Gen, QuickCheck};
 	use sp_blockchain::Error as ClientError;
 	use sp_test_primitives::{Block, BlockNumber, Hash};

@@ -137,6 +137,14 @@ impl<A, B, These: ContainsPair<A, B>, Those: ContainsPair<A, B>> ContainsPair<A,
 	}
 }
 
+/// An implementation of [`Contains`] which contains only equal members to `T`.
+pub struct Equals<T>(PhantomData<T>);
+impl<X: PartialEq, T: super::Get<X>> Contains<X> for Equals<T> {
+	fn contains(t: &X) -> bool {
+		t == &T::get()
+	}
+}
+
 /// Create a type which implements the `Contains` trait for a particular type with syntax similar
 /// to `matches!`.
 #[macro_export]

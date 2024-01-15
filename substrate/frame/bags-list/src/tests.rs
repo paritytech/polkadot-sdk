@@ -163,7 +163,7 @@ mod pallet {
 
 			assert_eq!(Bag::<Runtime>::get(10).unwrap(), Bag::new(Some(1), Some(3), 10));
 			assert_eq!(Bag::<Runtime>::get(1_000).unwrap(), Bag::new(Some(2), Some(2), 1_000));
-			assert_eq!(get_list_as_ids(), vec![2u32, 1, 4, 3]);
+			assert_eq!(get_list_as_ids(), vec![2u64, 1, 4, 3]);
 
 			// when
 			StakingMock::set_score_of(&2, 10);
@@ -272,10 +272,10 @@ mod pallet {
 				// given
 				assert_eq!(List::<Runtime>::get_bags(), vec![(20, vec![10, 11, 12])]);
 				// 11 now has more weight than 10 and can be moved before it.
-				StakingMock::set_score_of(&11u32, 17);
+				StakingMock::set_score_of(&11u64, 17);
 
 				// when
-				assert_ok!(BagsList::put_in_front_of_other(RuntimeOrigin::signed(42), 11u32, 10));
+				assert_ok!(BagsList::put_in_front_of_other(RuntimeOrigin::signed(42), 11u64, 10));
 
 				// then
 				assert_eq!(List::<Runtime>::get_bags(), vec![(20, vec![11, 10, 12])]);

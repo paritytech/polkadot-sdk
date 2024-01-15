@@ -270,8 +270,8 @@ pub trait StateApi<Hash> {
 	/// [querying substrate storage via rpc][3].
 	///
 	/// [1]: https://docs.substrate.io/main-docs/fundamentals/state-transitions-and-storage/
-	/// [2]: https://www.shawntabrizi.com/substrate/transparent-keys-in-substrate/
-	/// [3]: https://www.shawntabrizi.com/substrate/querying-substrate-storage-via-rpc/
+	/// [2]: https://www.shawntabrizi.com/blog/substrate/transparent-keys-in-substrate/
+	/// [3]: https://www.shawntabrizi.com/blog/substrate/querying-substrate-storage-via-rpc/
 	///
 	/// ### Maximum payload size
 	///

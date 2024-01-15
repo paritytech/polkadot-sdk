@@ -65,8 +65,7 @@ type Block = frame_system::mocking::MockBlockU32<Runtime>;
 type Extrinsic = testing::TestXt<RuntimeCall, ()>;
 
 frame_support::construct_runtime!(
-	pub enum Runtime
-	{
+	pub enum Runtime {
 		System: frame_system,
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase,
 		Staking: pallet_staking,
@@ -89,15 +88,8 @@ pub(crate) type Moment = u32;
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = Block;
-	type BlockHashCount = ConstU32<10>;
-	type BaseCallFilter = frame_support::traits::Everything;
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type RuntimeEvent = RuntimeEvent;
-	type PalletInfo = PalletInfo;
-	type OnSetCode = ();
-
 	type AccountData = pallet_balances::AccountData<Balance>;
+	type BlockHashCount = ConstU32<10>;
 }
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
@@ -122,6 +114,7 @@ impl pallet_balances::Config for Runtime {
 	type MaxHolds = ConstU32<1>;
 	type MaxFreezes = traits::ConstU32<1>;
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
 	type WeightInfo = ();
 }
@@ -197,7 +190,6 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type SignedPhase = SignedPhase;
 	type UnsignedPhase = UnsignedPhase;
 	type BetterSignedThreshold = ();
-	type BetterUnsignedThreshold = ();
 	type OffchainRepeat = OffchainRepeat;
 	type MinerTxPriority = TransactionPriority;
 	type MinerConfig = Self;
@@ -244,7 +236,6 @@ parameter_types! {
 	pub const SessionsPerEra: sp_staking::SessionIndex = 2;
 	pub const BondingDuration: sp_staking::EraIndex = 28;
 	pub const SlashDeferDuration: sp_staking::EraIndex = 7; // 1/4 the bonding duration.
-	pub const MaxNominatorRewardedPerValidator: u32 = 256;
 	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(40);
 	pub HistoryDepth: u32 = 84;
 }
@@ -276,7 +267,7 @@ impl pallet_staking::Config for Runtime {
 	type SessionInterface = Self;
 	type EraPayout = ();
 	type NextNewSession = Session;
-	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
+	type MaxExposurePageSize = ConstU32<256>;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type ElectionProvider = ElectionProviderMultiPhase;
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
@@ -284,6 +275,7 @@ impl pallet_staking::Config for Runtime {
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<MAX_QUOTA_NOMINATIONS>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type MaxUnlockingChunks = ConstU32<32>;
+	type MaxControllersInDeprecationBatch = ConstU32<100>;
 	type HistoryDepth = HistoryDepth;
 	type EventListeners = ();
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
@@ -816,7 +808,7 @@ pub(crate) fn on_offence_now(
 pub(crate) fn add_slash(who: &AccountId) {
 	on_offence_now(
 		&[OffenceDetails {
-			offender: (*who, Staking::eras_stakers(active_era(), *who)),
+			offender: (*who, Staking::eras_stakers(active_era(), who)),
 			reporters: vec![],
 		}],
 		&[Perbill::from_percent(10)],

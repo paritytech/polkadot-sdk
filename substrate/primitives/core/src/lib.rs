@@ -51,10 +51,13 @@ pub mod hashing;
 
 #[cfg(feature = "full_crypto")]
 pub use hashing::{blake2_128, blake2_256, keccak_256, twox_128, twox_256, twox_64};
+pub mod const_hex2array;
 pub mod crypto;
 pub mod hexdisplay;
 pub use paste;
 
+#[cfg(any(feature = "full_crypto", feature = "std"))]
+mod address_uri;
 #[cfg(feature = "bandersnatch-experimental")]
 pub mod bandersnatch;
 #[cfg(feature = "bls-experimental")]
@@ -66,6 +69,7 @@ pub mod hash;
 #[cfg(feature = "std")]
 mod hasher;
 pub mod offchain;
+pub mod paired_crypto;
 pub mod sr25519;
 pub mod testing;
 #[cfg(feature = "std")]
@@ -74,6 +78,8 @@ pub mod uint;
 
 #[cfg(feature = "bls-experimental")]
 pub use bls::{bls377, bls381};
+#[cfg(feature = "bls-experimental")]
+pub use paired_crypto::ecdsa_bls377;
 
 pub use self::{
 	hash::{convert_hash, H160, H256, H512},

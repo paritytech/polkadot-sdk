@@ -17,7 +17,7 @@
 
 //! > Made with *Substrate*, for *Polkadot*.
 //!
-//! [![github]](https://github.com/paritytech/substrate/frame/fast-unstake) -
+//! [![github]](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/scheduler) -
 //! [![polkadot]](https://polkadot.network)
 //!
 //! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
