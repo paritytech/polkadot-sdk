@@ -200,6 +200,13 @@ impl generic::Config for Test {
 		Ok((Default::default(), ticket, assets))
 	}
 
+	fn fee_asset() -> Result<MultiAsset, BenchmarkError> {
+		MultiAsset {
+			id: Concrete(Here.into()),
+			fun: Fungible(1_000_000 * UNITS),
+		}
+	}
+
 	fn unlockable_asset() -> Result<(MultiLocation, MultiLocation, MultiAsset), BenchmarkError> {
 		let assets: MultiAsset = (Concrete(Here.into()), 100).into();
 		Ok((Default::default(), account_id_junction::<Test>(1).into(), assets))
