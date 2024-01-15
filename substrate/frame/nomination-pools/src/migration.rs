@@ -27,6 +27,15 @@ use sp_runtime::TryRuntimeError;
 pub mod versioned {
 	use super::*;
 
+	/// v8: Adds commission claim permissions to `BondedPools`.
+	pub type V7ToV8<T> = frame_support::migrations::VersionedMigration<
+		7,
+		8,
+		v8::VersionUncheckedMigrateV7ToV8<T>,
+		crate::pallet::Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+
 	/// Migration V6 to V7 wrapped in a [`frame_support::migrations::VersionedMigration`], ensuring
 	/// the migration is only performed when on-chain version is 6.
 	pub type V6ToV7<T> = frame_support::migrations::VersionedMigration<
@@ -45,6 +54,74 @@ pub mod versioned {
 		crate::pallet::Pallet<T>,
 		<T as frame_system::Config>::DbWeight,
 	>;
+}
+
+pub mod v8 {
+	use super::*;
+
+	#[derive(Decode)]
+	pub struct OldCommission<T: Config> {
+		pub current: Option<(Perbill, T::AccountId)>,
+		pub max: Option<Perbill>,
+		pub change_rate: Option<CommissionChangeRate<BlockNumberFor<T>>>,
+		pub throttle_from: Option<BlockNumberFor<T>>,
+	}
+
+	#[derive(Decode)]
+	pub struct OldBondedPoolInner<T: Config> {
+		pub commission: OldCommission<T>,
+		pub member_counter: u32,
+		pub points: BalanceOf<T>,
+		pub roles: PoolRoles<T::AccountId>,
+		pub state: PoolState,
+	}
+
+	impl<T: Config> OldBondedPoolInner<T> {
+		fn migrate_to_v8(self) -> BondedPoolInner<T> {
+			BondedPoolInner {
+				commission: Commission {
+					current: self.commission.current,
+					max: self.commission.max,
+					change_rate: self.commission.change_rate,
+					throttle_from: self.commission.throttle_from,
+					// `claim_permission` is a new field.
+					claim_permission: None,
+				},
+				member_counter: self.member_counter,
+				points: self.points,
+				roles: self.roles,
+				state: self.state,
+			}
+		}
+	}
+
+	pub struct VersionUncheckedMigrateV7ToV8<T>(sp_std::marker::PhantomData<T>);
+	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV7ToV8<T> {
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			Ok(Vec::new())
+		}
+
+		fn on_runtime_upgrade() -> Weight {
+			let mut translated = 0u64;
+			BondedPools::<T>::translate::<OldBondedPoolInner<T>, _>(|_key, old_value| {
+				translated.saturating_inc();
+				Some(old_value.migrate_to_v8())
+			});
+			T::DbWeight::get().reads_writes(translated, translated + 1)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_: Vec<u8>) -> Result<(), TryRuntimeError> {
+			// Check new `claim_permission` field is present.
+			ensure!(
+				BondedPools::<T>::iter()
+					.all(|(_, inner)| inner.commission.claim_permission.is_none()),
+				"`claim_permission` value has not been set correctly."
+			);
+			Ok(())
+		}
+	}
 }
 
 /// This migration accumulates and initializes the [`TotalValueLocked`] for all pools.

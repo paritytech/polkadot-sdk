@@ -452,9 +452,9 @@ impl<T: Config> Leaser<BlockNumberFor<T>> for Pallet<T> {
 		// Note that blocks before `LeaseOffset` do not count as any lease period.
 		let offset_block_now = b.checked_sub(&T::LeaseOffset::get())?;
 		let lease_period = offset_block_now / T::LeasePeriod::get();
-		let first_block = (offset_block_now % T::LeasePeriod::get()).is_zero();
+		let at_begin = (offset_block_now % T::LeasePeriod::get()).is_zero();
 
-		Some((lease_period, first_block))
+		Some((lease_period, at_begin))
 	}
 
 	fn already_leased(
@@ -505,7 +505,7 @@ mod tests {
 
 	use crate::{mock::TestRegistrar, slots};
 	use ::test_helpers::{dummy_head_data, dummy_validation_code};
-	use frame_support::{assert_noop, assert_ok, parameter_types};
+	use frame_support::{assert_noop, assert_ok, derive_impl, parameter_types};
 	use frame_system::EnsureRoot;
 	use pallet_balances;
 	use primitives::BlockNumber;
@@ -529,6 +529,8 @@ mod tests {
 	parameter_types! {
 		pub const BlockHashCount: u32 = 250;
 	}
+
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();

@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 
 //! Storage migrations for the Staking pallet. The changelog for this is maintained at
-//! [CHANGELOG.md](https://github.com/paritytech/substrate/blob/master/frame/staking/CHANGELOG.md).
+//! [CHANGELOG.md](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/frame/staking/CHANGELOG.md).
 
 use super::*;
 use frame_election_provider_support::SortedListProvider;
@@ -82,19 +82,9 @@ pub mod v14 {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-			frame_support::ensure!(
-				Pallet::<T>::on_chain_storage_version() == 13,
-				"Required v13 before upgrading to v14."
-			);
-
-			Ok(Default::default())
-		}
-
-		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
 			frame_support::ensure!(
-				Pallet::<T>::on_chain_storage_version() == 14,
+				Pallet::<T>::on_chain_storage_version() >= 14,
 				"v14 not applied"
 			);
 			Ok(())

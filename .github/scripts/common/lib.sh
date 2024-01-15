@@ -202,21 +202,26 @@ fetch_release_artifacts() {
   echo "Release ID : $RELEASE_ID"
   echo "Repo       : $REPO"
   echo "Binary     : $BINARY"
+  OUTPUT_DIR=${OUTPUT_DIR:-"./release-artifacts/${BINARY}"}
+  echo "OUTPUT_DIR : $OUTPUT_DIR"
 
+  echo "Fetching release info..."
   curl -L -s \
     -H "Accept: application/vnd.github+json" \
     -H "Authorization: Bearer ${GITHUB_TOKEN}" \
     -H "X-GitHub-Api-Version: 2022-11-28" \
     https://api.github.com/repos/${REPO}/releases/${RELEASE_ID} > release.json
 
-  # Get Asset ids
+  echo "Extract asset ids..."
   ids=($(jq -r '.assets[].id' < release.json ))
+  echo "Extract asset count..."
   count=$(jq '.assets|length' < release.json )
 
   # Fetch artifacts
-  mkdir -p "./release-artifacts/${BINARY}"
-  pushd "./release-artifacts/${BINARY}" > /dev/null
+  mkdir -p "$OUTPUT_DIR"
+  pushd "$OUTPUT_DIR" > /dev/null
 
+  echo "Fetching assets..."
   iter=1
   for id in "${ids[@]}"
   do
@@ -263,4 +268,79 @@ function import_gpg_keys() {
 function check_gpg() {
     echo "Checking GPG Signature for $1"
     gpg --no-tty --verify -q $1.asc $1
+}
+
+# GITHUB_REF will typically be like:
+# - refs/heads/release-v1.2.3
+# - refs/heads/release-polkadot-v1.2.3-rc2
+# This function extracts the version
+function get_version_from_ghref() {
+  GITHUB_REF=$1
+  stripped=${GITHUB_REF#refs/heads/release-}
+  re="v([0-9]+\.[0-9]+\.[0-9]+)"
+  if [[ $stripped =~ $re ]]; then
+    echo ${BASH_REMATCH[0]};
+    return 0
+  else
+    return 1
+  fi
+}
+
+# Get latest rc tag based on the release version and product
+function get_latest_rc_tag() {
+  version=$1
+  product=$2
+
+  if [[ "$product" == "polkadot" ]]; then
+    last_rc=$(git tag -l "$version-rc*" | sort -V | tail -n 1)
+  elif [[ "$product" == "polkadot-parachain"  ]]; then
+    last_rc=$(git tag -l "polkadot-parachains-$version-rc*" | sort -V | tail -n 1)
+  fi
+  echo "${last_rc}"
+}
+
+# Increment rc tag number based on the value of a suffix of the current rc tag
+function increment_rc_tag() {
+  last_rc=$1
+
+  suffix=$(echo "$last_rc" | grep -Eo '[0-9]+$')
+  ((suffix++))
+  echo $suffix
+}
+
+function relative_parent() {
+    echo "$1" | sed -E 's/(.*)\/(.*)\/\.\./\1/g'
+}
+
+# Find all the runtimes, it returns the result as JSON object, compatible to be
+# used as Github Workflow Matrix. This call is exposed by the `scan` command and can be used as:
+# podman run --rm -it -v /.../fellowship-runtimes:/build docker.io/chevdor/srtool:1.70.0-0.11.1 scan
+function find_runtimes() {
+    libs=($(git grep -I -r --cached --max-depth 20 --files-with-matches 'construct_runtime!' -- '*lib.rs'))
+    re=".*-runtime$"
+    JSON=$(jq --null-input '{ "include": [] }')
+
+    # EXCLUDED_RUNTIMES is a space separated list of runtime names (without the -runtime postfix)
+    # EXCLUDED_RUNTIMES=${EXCLUDED_RUNTIMES:-"substrate-test"}
+    IFS=' ' read -r -a exclusions <<< "$EXCLUDED_RUNTIMES"
+
+    for lib in "${libs[@]}"; do
+        crate_dir=$(dirname "$lib")
+        cargo_toml="$crate_dir/../Cargo.toml"
+
+        name=$(toml get -r $cargo_toml 'package.name')
+        chain=${name//-runtime/}
+
+        if [[ "$name" =~ $re ]] && ! [[ ${exclusions[@]} =~ $chain ]]; then
+            lib_dir=$(dirname "$lib")
+            runtime_dir=$(relative_parent "$lib_dir/..")
+            ITEM=$(jq --null-input \
+                --arg chain "$chain" \
+                --arg name "$name" \
+                --arg runtime_dir "$runtime_dir" \
+                '{ "chain": $chain, "crate": $name, "runtime_dir": $runtime_dir }')
+            JSON=$(echo $JSON | jq ".include += [$ITEM]")
+        fi
+    done
+    echo $JSON
 }
