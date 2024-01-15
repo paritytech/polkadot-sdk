@@ -64,6 +64,7 @@ sp-runtime = { path = "../../substrate/primitives/runtime", optional = true }
 
 [features]
 default = ["min-docs", "docs-build-deps"]
+gen-docify = []
 min-docs = [
 	"simple-mermaid",
 	"docify",

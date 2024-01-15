@@ -134,13 +134,14 @@
 //!
 //! ## How to Develop Locally
 //!
-//! To expedite documentation development and view _only_ the docs specific [`crate`] locally for development, including the correct HTML headers injected, run:
+//! To expedite documentation development and view _only_ the docs specific [`crate`] locally for
+//! development, including the correct HTML headers injected, run:
 //!
 //! ```sh
 //! # (Fastest) HTML ONLY - Only build the documentation crate, with MINIMAL code compilation.
 //! RUSTDOCFLAGS="--html-in-header $(pwd)/docs/sdk/headers/toc.html" cargo doc -p polkadot-sdk-docs --no-default-features -F min-docs --no-deps --open
 //!
-//! # SDK Docs only - Minimal build - Only build the documentation crate, including code compilation for examples. 
+//! # SDK Docs only - Minimal build - Only build the documentation crate, including code compilation for examples.
 //! SKIP_WASM_BUILD=1 RUSTDOCFLAGS="--html-in-header $(pwd)/docs/sdk/headers/toc.html" cargo doc -p polkadot-sdk-docs --no-deps --open
 //!
 //! # All docs, with external deps
