@@ -102,7 +102,7 @@ impl PeerPool {
 			.lock()
 			.iter()
 			.filter_map(
-				|(peer_id, status)| if status.is_available() { Some(*peer_id) } else { None },
+				|(peer_id, status)| status.is_available().then_some(*peer_id),
 			)
 			.collect()
 	}
@@ -410,20 +410,12 @@ where
 
 	/// Get the total number of downloaded blocks.
 	pub fn num_downloaded_blocks(&self) -> usize {
-		if let Some(ref chain_sync) = self.chain_sync {
-			chain_sync.num_downloaded_blocks()
-		} else {
-			0
-		}
+        self.chain_sync.map_or(0, |chain_sync| chain_sync.num_downloaded_blocks())
 	}
 
 	/// Get an estimate of the number of parallel sync requests.
 	pub fn num_sync_requests(&self) -> usize {
-		if let Some(ref chain_sync) = self.chain_sync {
-			chain_sync.num_sync_requests()
-		} else {
-			0
-		}
+        self.chain_sync.map_or(0, |chain_sync| chain_sync.num_sync_requests())
 	}
 
 	/// Report Prometheus metrics
