@@ -38,6 +38,7 @@ use polkadot_primitives::{
 	SessionIndex, SessionInfo, ValidatorPair,
 };
 use sc_keystore::LocalKeystore;
+use sc_network::ProtocolName;
 use sp_application_crypto::Pair as PairT;
 use sp_authority_discovery::AuthorityPair as AuthorityDiscoveryPair;
 use sp_keyring::Sr25519Keyring;
@@ -684,7 +685,7 @@ async fn handle_sent_request(
 						persisted_validation_data,
 						statements,
 					};
-					outgoing.pending_response.send(Ok(res.encode())).unwrap();
+					outgoing.pending_response.send(Ok((res.encode(), ProtocolName::from("")))).unwrap();
 				}
 			);
 		}

@@ -15,7 +15,6 @@ workspace = true
 clap = { version = "4.4.14", features = ["derive", "string"] }
 log = "0.4.17"
 fs4 = "0.7.0"
-sc-client-db = { path = "../db", default-features = false }
 sp-core = { path = "../../primitives/core" }
-tokio = "1.22.0"
+tokio = { version = "1.22.0", features = ["time"] }
 thiserror = "1.0.48"

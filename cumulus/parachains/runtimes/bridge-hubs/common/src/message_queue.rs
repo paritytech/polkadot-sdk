@@ -26,7 +26,7 @@ use sp_std::{marker::PhantomData, prelude::*};
 use xcm::v3::{Junction, MultiLocation};
 
 /// The aggregate origin of an inbound message.
-/// This is specialized for BridgeHub, as the snowbridge-outbound-queue pallet is also using
+/// This is specialized for BridgeHub, as the snowbridge-outbound-queue-pallet is also using
 /// the shared MessageQueue pallet.
 #[derive(Encode, Decode, Copy, MaxEncodedLen, Clone, Eq, PartialEq, TypeInfo, Debug)]
 pub enum AggregateMessageOrigin {
