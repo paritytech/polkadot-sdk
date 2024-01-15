@@ -599,6 +599,6 @@ where
 		at: Hash,
 		_session_index: SessionIndex,
 	) -> Result<ApprovalVotingParams, ApiError> {
-		self.client.runtime_api().approval_voting_params(at)
+		ParachainHost::approval_voting_params(&mut self.runtime_api(at))
 	}
 }

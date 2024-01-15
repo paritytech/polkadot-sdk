@@ -20,14 +20,14 @@
 use polkadot_cli::{
 	prepared_overseer_builder,
 	service::{
-		AuthorityDiscoveryApi, AuxStore, BabeApi, Block, Error, HeaderBackend, Overseer,
-		OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle, ParachainHost,
-		ProvideRuntimeApi,
+		AuxStore, Block, Error, HeaderBackend, Overseer, OverseerConnector, OverseerGen,
+		OverseerGenArgs, OverseerHandle,
 	},
 	Cli,
 };
 use polkadot_node_subsystem::SpawnGlue;
 use polkadot_node_subsystem_types::DefaultSubsystemClient;
+use sp_api::CallApiAt;
 use sp_core::traits::SpawnNamed;
 
 use crate::interceptor::*;
@@ -55,8 +55,7 @@ impl OverseerGen for SupportDisabled {
 		Error,
 	>
 	where
-		RuntimeClient: 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block> + AuxStore,
-		RuntimeClient::Api: ParachainHost<Block> + BabeApi<Block> + AuthorityDiscoveryApi<Block>,
+		RuntimeClient: 'static + HeaderBackend<Block> + AuxStore + CallApiAt<Block>,
 		Spawner: 'static + SpawnNamed + Clone + Unpin,
 	{
 		prepared_overseer_builder(args)?

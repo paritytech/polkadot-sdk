@@ -969,7 +969,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl bp_polkadot_bulletin::PolkadotBulletinFinalityApi<Block> for Runtime {
+	impl bp_polkadot_bulletin::PolkadotBulletinFinalityApi for Runtime {
 		fn best_finalized() -> Option<bp_runtime::HeaderId<bp_polkadot_bulletin::Hash, bp_polkadot_bulletin::BlockNumber>> {
 			BridgePolkadotBulletinGrandpa::best_finalized()
 		}
@@ -980,7 +980,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl bp_polkadot_bulletin::FromPolkadotBulletinInboundLaneApi<Block> for Runtime {
+	impl bp_polkadot_bulletin::FromPolkadotBulletinInboundLaneApi for Runtime {
 		fn message_details(
 			lane: bp_messages::LaneId,
 			messages: Vec<(bp_messages::MessagePayload, bp_messages::OutboundMessageDetails)>,
@@ -992,7 +992,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl bp_polkadot_bulletin::ToPolkadotBulletinOutboundLaneApi<Block> for Runtime {
+	impl bp_polkadot_bulletin::ToPolkadotBulletinOutboundLaneApi for Runtime {
 		fn message_details(
 			lane: bp_messages::LaneId,
 			begin: bp_messages::MessageNonce,
@@ -1005,7 +1005,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl snowbridge_outbound_queue_runtime_api::OutboundQueueApi<Block, Balance> for Runtime {
+	impl snowbridge_outbound_queue_runtime_api::OutboundQueueApi<Balance> for Runtime {
 		fn prove_message(leaf_index: u64) -> Option<snowbridge_pallet_outbound_queue::MerkleProof> {
 			snowbridge_pallet_outbound_queue::api::prove_message::<Runtime>(leaf_index)
 		}
@@ -1015,7 +1015,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl snowbridge_system_runtime_api::ControlApi<Block> for Runtime {
+	impl snowbridge_system_runtime_api::ControlApi for Runtime {
 		fn agent_id(location: VersionedMultiLocation) -> Option<AgentId> {
 			snowbridge_pallet_system::api::agent_id::<Runtime>(location)
 		}

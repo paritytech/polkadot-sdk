@@ -407,31 +407,22 @@ macro_rules! construct_partials {
 			Runtime::CollectivesWestend |
 			Runtime::Coretime(_) |
 			Runtime::People(_) => {
-				let $partials = new_partial(
-					&$config,
-					crate::service::aura_build_import_queue::<AuraId>,
-				)?;
+				let $partials =
+					new_partial(&$config, crate::service::aura_build_import_queue::<AuraId>)?;
 				$code
 			},
 			Runtime::GluttonWestend | Runtime::Glutton | Runtime::Shell | Runtime::Seedling => {
-				let $partials = new_partial(
-					&$config,
-					crate::service::shell_build_import_queue,
-				)?;
+				let $partials = new_partial(&$config, crate::service::shell_build_import_queue)?;
 				$code
 			},
 			Runtime::ContractsRococo => {
-				let $partials = new_partial(
-					&$config,
-					crate::service::contracts_rococo_build_import_queue,
-				)?;
+				let $partials =
+					new_partial(&$config, crate::service::contracts_rococo_build_import_queue)?;
 				$code
 			},
 			Runtime::Penpal(_) | Runtime::Default => {
-				let $partials = new_partial(
-					&$config,
-					crate::service::rococo_parachain_build_import_queue,
-				)?;
+				let $partials =
+					new_partial(&$config, crate::service::rococo_parachain_build_import_queue)?;
 				$code
 			},
 		}
@@ -768,7 +759,6 @@ pub fn run() -> Result<()> {
 						chain_spec::coretime::CoretimeRuntimeType::WestendLocal |
 						chain_spec::coretime::CoretimeRuntimeType::WestendDevelopment =>
 							crate::service::start_generic_aura_node::<
-								RuntimeApi,
 								AuraId,
 							>(config, polkadot_config, collator_options, id, hwbench)
 							.await
@@ -804,7 +794,6 @@ pub fn run() -> Result<()> {
 						chain_spec::people::PeopleRuntimeType::WestendLocal |
 						chain_spec::people::PeopleRuntimeType::WestendDevelopment =>
 							crate::service::start_generic_aura_node::<
-								RuntimeApi,
 								AuraId,
 							>(config, polkadot_config, collator_options, id, hwbench)
 							.await

@@ -446,6 +446,8 @@ where
 	BE: Backend<B>,
 	R: CallApiAt<B>,
 {
+	let blockchain = backend.blockchain();
+
 	let mut api = RuntimeInstance::builder(runtime, best_grandpa.hash())
 		.off_chain_context()
 		.build();
@@ -601,7 +603,8 @@ where
 	loop {
 		debug!(target: LOG_TARGET, "🥩 Looking for auth set change at block number: {:?}", *header.number());
 
-	    let mut api = RuntimeInstance::builder(runtime, at_header.hash()).off_chain_context().build();
+		let mut api =
+			RuntimeInstance::builder(runtime, at_header.hash()).off_chain_context().build();
 
 		if let Ok(Some(active)) = BeefyApi::<B, AuthorityId>::validator_set(&mut api) {
 			return Ok(active)

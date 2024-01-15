@@ -28,7 +28,7 @@
 
 use codec::Encode;
 use sp_api::{
-	CallApiAt, Core, DisableProofRecording, EnableProofRecording, ProofRecording, RuntimeInstance,
+	CallApiAt, Core, DisableProofRecording, EnableProofRecording, RuntimeInstance,
 	RuntimeInstanceBuilderStage2, StorageChanges, TransactionOutcome,
 };
 use sp_blockchain::{ApplyExtrinsicFailed, Error, HeaderBackend};

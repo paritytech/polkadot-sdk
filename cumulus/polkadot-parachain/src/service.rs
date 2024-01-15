@@ -216,13 +216,13 @@ impl sc_executor::NativeExecutionDispatch for PeopleRococoRuntimeExecutor {
 }
 
 /// Assembly of PartialComponents (enough to run chain ops subcommands)
-pub type Service<RuntimeApi> = PartialComponents<
-	ParachainClient<RuntimeApi>,
+pub type Service = PartialComponents<
+	ParachainClient,
 	ParachainBackend,
 	(),
 	sc_consensus::DefaultImportQueue<Block>,
-	sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>,
-	(ParachainBlockImport<RuntimeApi>, Option<Telemetry>, Option<TelemetryWorkerHandle>),
+	sc_transaction_pool::FullPool<Block, ParachainClient>,
+	(ParachainBlockImport, Option<Telemetry>, Option<TelemetryWorkerHandle>),
 >;
 
 /// Starts a `ServiceBuilder` for a full service.
@@ -1271,7 +1271,8 @@ where
 		 overseer_handle,
 		 announce_block,
 		 _backend| {
-			let slot_duration = cumulus_client_consensus_aura::slot_duration::<AuraId, _, _>(&*client)?;
+			let slot_duration =
+				cumulus_client_consensus_aura::slot_duration::<AuraId, _, _>(&*client)?;
 
 			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 				task_manager.spawn_handle(),
@@ -1411,13 +1412,14 @@ where
 				}
 
 				// Move to Aura consensus.
-				let slot_duration = match cumulus_client_consensus_aura::slot_duration::<AuraId, _, _>(&*client) {
-					Ok(d) => d,
-					Err(e) => {
-						log::error!("Could not get Aura slot duration: {e}");
-						return
-					},
-				};
+				let slot_duration =
+					match cumulus_client_consensus_aura::slot_duration::<AuraId, _, _>(&*client) {
+						Ok(d) => d,
+						Err(e) => {
+							log::error!("Could not get Aura slot duration: {e}");
+							return
+						},
+					};
 
 				let proposer = Proposer::new(proposer_factory);
 
@@ -1492,7 +1494,8 @@ where
 		 overseer_handle,
 		 announce_block,
 		 backend| {
-			let slot_duration = cumulus_client_consensus_aura::slot_duration::<AuraId, _, _>(&*client)?;
+			let slot_duration =
+				cumulus_client_consensus_aura::slot_duration::<AuraId, _, _>(&*client)?;
 
 			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 				task_manager.spawn_handle(),
