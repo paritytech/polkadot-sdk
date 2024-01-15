@@ -145,7 +145,8 @@ where
 			.expect("range was constructed from the bounded vec bounds; qed.");
 
 		// build helper closures.
-		let voters_page_fn = helpers::generate_voter_page_fn::<T>(&all_voter_pages);
+		//let voters_page_fn = helpers::generate_voter_page_fn::<T>(&all_voter_pages);
+		let voters_page_fn = helpers::generate_voter_page_stake_fn::<T>(&all_voter_pages);
 		let targets_index_fn = helpers::target_index_fn::<T>(&all_targets);
 
 		// flatten the voters as well.
@@ -179,12 +180,10 @@ where
 			.map(|(page_index, assignment_page)| {
 				let page: PageIndex = page_index.saturated_into();
 
-				let voter_snapshot_page = all_voter_pages
-					.get(page as usize)
-					.ok_or(MinerError::SnapshotUnAvailable(SnapshotType::Voters(page)))?;
+				let voter_snapshot_page = all_voter_pages.iter().flatten().collect::<Vec<_>>();
 
 				let voters_index_fn = {
-					let cache = helpers::generate_voter_cache::<T, _>(&voter_snapshot_page);
+					let cache = helpers::generate_voter_staked_cache::<T>(&voter_snapshot_page);
 					helpers::voter_index_fn_owned::<T>(cache)
 				};
 
@@ -198,8 +197,6 @@ where
 			.collect::<Result<Vec<_>, _>>()?
 			.try_into()
 			.expect("paged_assignments is bound by `T::Pages. qed.");
-
-		println!("--- {:?}", solution_pages);
 
 		// TODO(gpestana): trim again?
 		let trimming_status = Default::default();

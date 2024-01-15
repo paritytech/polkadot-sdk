@@ -111,7 +111,7 @@ impl Config for Runtime {
 
 parameter_types! {
 	pub static SolutionImprovementThreshold: Perbill = Perbill::zero();
-	pub static MaxWinnersPerPage: u32 = 10;
+	pub static MaxWinnersPerPage: u32 = 3;
 	pub static MaxBackersPerWinner: u32 = (staking::Targets::get().len() as u32).min(staking::DesiredTargets::get());
 }
 

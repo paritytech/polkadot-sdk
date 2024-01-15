@@ -259,7 +259,7 @@ pub struct IndexAssignment<VoterIndex, TargetIndex, P: PerThing> {
 	pub distribution: Vec<(TargetIndex, P)>,
 }
 
-impl<VoterIndex, TargetIndex, P: PerThing> IndexAssignment<VoterIndex, TargetIndex, P> {
+impl<VoterIndex: core::fmt::Debug, TargetIndex: core::fmt::Debug, P: PerThing> IndexAssignment<VoterIndex, TargetIndex, P> {
 	pub fn new<AccountId: IdentifierT>(
 		assignment: &Assignment<AccountId, P>,
 		voter_index: impl Fn(&AccountId) -> Option<VoterIndex>,
@@ -272,6 +272,10 @@ impl<VoterIndex, TargetIndex, P: PerThing> IndexAssignment<VoterIndex, TargetInd
 				.iter()
 				.map(|(target, proportion)| Some((target_index(target)?, *proportion)))
 				.collect::<Option<Vec<_>>>()
+				.map(|a| {
+					println!("bbbbbbbbbbb {:?}", a);
+					a
+				})
 				.or_invalid_index()?,
 		})
 	}

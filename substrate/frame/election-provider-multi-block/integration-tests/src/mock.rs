@@ -190,7 +190,6 @@ parameter_types! {
 	pub static MinBlocksBeforeEmergency: BlockNumber = 3;
 	pub static MaxActiveValidators: u32 = 1000;
 	#[derive(Debug)]
-	pub static MaxWinners: u32 = 100;
 	pub static MaxVotesPerVoter: u32 = 16;
 	pub static SignedFixedDeposit: Balance = 1;
 	pub static SignedDepositIncreaseFactor: Percent = Percent::from_percent(10);
@@ -221,7 +220,7 @@ impl epm_core_pallet::Config for Runtime {
 
 parameter_types! {
 	pub static SolutionImprovementThreshold: Perbill = Perbill::zero();
-	pub static MaxWinnersPerPage: u32 = 10;
+	pub static MaxWinnersPerPage: u32 = 4;
 	pub static MaxBackersPerWinner: u32 = 16;
 }
 
@@ -416,7 +415,7 @@ impl Default for StakingExtBuilder {
 		];
 
 		Self {
-			validator_count: 2,
+			validator_count: 6,
 			minimum_validator_count: 0,
 			min_nominator_bond: ExistentialDeposit::get(),
 			min_validator_bond: ExistentialDeposit::get(),

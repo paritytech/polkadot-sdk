@@ -19,11 +19,12 @@
 
 use crate::{
 	types::{AllVoterPagesOf, VoterOf},
-	Config, SolutionTargetIndexOf, SolutionVoterIndexOf,
+	Config, MaxWinnersPerPageOf, SolutionTargetIndexOf, SolutionVoterIndexOf,
 };
 use frame_election_provider_support::{PageIndex, VoteWeight};
 use frame_support::{traits::Get, BoundedVec};
 use sp_runtime::SaturatedConversion;
+use sp_std::cmp::Reverse;
 use std::collections::BTreeMap;
 
 #[macro_export]
@@ -68,7 +69,22 @@ pub fn generate_voter_cache<T: Config, AnyBound: Get<u32>>(
 	cache
 }
 
-/// Generate an `fficient closure of voters and the page in which they live in.
+pub fn generate_voter_staked_cache<T: Config>(
+	snapshot: &Vec<&VoterOf<T>>,
+) -> BTreeMap<T::AccountId, usize> {
+	let mut cache: BTreeMap<T::AccountId, usize> = BTreeMap::new();
+	snapshot.into_iter().enumerate().for_each(|(i, (x, _, _))| {
+		let _existed = cache.insert(x.clone(), i);
+		// if a duplicate exists, we only consider the last one. Defensive only, should never
+		// happen.
+		debug_assert!(_existed.is_none());
+	});
+	cache
+}
+
+/// Generate an efficient closure of voters and the page in which they live in.
+///
+/// The bucketing of voters into a page number is based on their position in the snapshot's page.
 pub fn generate_voter_page_fn<T: Config>(
 	paged_snapshot: &AllVoterPagesOf<T>,
 ) -> impl Fn(&T::AccountId) -> Option<PageIndex> {
@@ -85,6 +101,37 @@ pub fn generate_voter_page_fn<T: Config>(
 				debug_assert!(_existed.is_none());
 			});
 		});
+
+	move |who| cache.get(who).copied()
+}
+
+/// Generate an efficient closure of voters and the page in which they live in, based on their
+/// stake.
+///
+/// The bucketing of voters into a page number is based on their relative stake in the assignments
+/// set (the larger the stake, the higher the page).
+pub fn generate_voter_page_stake_fn<T: Config>(
+	paged_snapshot: &AllVoterPagesOf<T>,
+) -> impl Fn(&T::AccountId) -> Option<PageIndex> {
+	let mut cache: BTreeMap<T::AccountId, PageIndex> = BTreeMap::new();
+	let mut sorted_by_weight: Vec<(VoteWeight, T::AccountId)> = vec![];
+
+	// sort voter stakes.
+	let _ = paged_snapshot.to_vec().iter().flatten().for_each(|voter| {
+		let pos = sorted_by_weight
+			.binary_search_by_key(&Reverse(&voter.1), |(weight, _)| Reverse(weight))
+			.unwrap_or_else(|pos| pos);
+		sorted_by_weight.insert(pos, (voter.1, voter.0.clone()));
+	});
+
+	sorted_by_weight.iter().enumerate().for_each(|(idx, voter)| {
+		let page = idx
+			.saturating_div(MaxWinnersPerPageOf::<T>::get() as usize)
+			.min(T::Pages::get() as usize);
+		let _existed = cache.insert(voter.1.clone(), page as PageIndex);
+		debug_assert!(_existed.is_none());
+	});
+
 	move |who| cache.get(who).copied()
 }
 

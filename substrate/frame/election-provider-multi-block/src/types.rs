@@ -72,6 +72,8 @@ pub(crate) type VoterOf<T> =
 pub(crate) type VoterPageOf<T> =
 	BoundedVec<VoterOf<T>, <T as crate::Config>::VoterSnapshotPerBlock>;
 
+pub(crate) type MaxWinnersPerPageOf<T> = <<T as crate::Config>::Verifier as Verifier>::MaxWinnersPerPage;
+
 /// Current phase of an election.
 #[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, MaxEncodedLen, Debug, TypeInfo)]
 pub enum Phase<Bn> {
