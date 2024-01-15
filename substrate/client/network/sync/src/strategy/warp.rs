@@ -514,14 +514,14 @@ where
 						debug_assert!(false);
 					}
 				}
+			} else {
+				warn!(
+					target: LOG_TARGET,
+					"State inconsistency: peer {peer_id} is in the pool of connected peers, \
+					but not known to `WarpSync`.",
+				);
+				debug_assert!(false);
 			}
-		} else {
-			warn!(
-				target: LOG_TARGET,
-				"State inconsistency: peer {peer_id} is in the pool of connected peers, \
-				 but not known to `WarpSync`.",
-			);
-			debug_assert!(false);
 		}
 		None
 	}

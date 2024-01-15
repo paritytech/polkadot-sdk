@@ -42,7 +42,7 @@ use sc_network_common::sync::{
 use sp_blockchain::{Error as ClientError, HeaderBackend, HeaderMetadata};
 use sp_consensus::BlockOrigin;
 use sp_runtime::{
-	traits::{Block as BlockT, NumberFor},
+	traits::{Block as BlockT, Header, NumberFor},
 	Justifications,
 };
 use state::{StateStrategy, StateStrategyAction};
@@ -575,11 +575,11 @@ where
 				},
 			}
 		} else if let Some(state) = &self.state {
-            if state.is_succeded() {    
-                info!(target: LOG_TARGET, "State sync is complete, continuing with block sync.");    
-			} else {    
-                error!(target: LOG_TARGET, "State sync failed. Falling back to full sync.");    
-            }
+			if state.is_succeded() {
+				info!(target: LOG_TARGET, "State sync is complete, continuing with block sync.");
+			} else {
+				error!(target: LOG_TARGET, "State sync failed. Falling back to full sync.");
+			}
 			let mut chain_sync = match ChainSync::new(
 				chain_sync_mode(self.config.mode),
 				self.client.clone(),

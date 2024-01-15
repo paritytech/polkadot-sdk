@@ -26,7 +26,7 @@ use crate::{
 	LOG_TARGET,
 };
 use libp2p::PeerId;
-use log::{debug, error, info, trace, warn};
+use log::{debug, error, trace, warn};
 use sc_client_api::ProofProvider;
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network_common::sync::message::BlockAnnounce;
