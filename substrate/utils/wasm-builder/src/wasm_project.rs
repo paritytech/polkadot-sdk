@@ -19,6 +19,7 @@ use crate::{write_file_if_changed, CargoCommandVersioned, OFFLINE};
 
 use build_helper::rerun_if_changed;
 use cargo_metadata::{DependencyKind, Metadata, MetadataCommand};
+use console::style;
 use parity_wasm::elements::{deserialize_buffer, Module};
 use std::{
 	borrow::ToOwned,
@@ -38,7 +39,7 @@ use walkdir::WalkDir;
 /// Returns the colorized message.
 fn colorize_info_message(message: &str) -> String {
 	if super::color_output_enabled() {
-		ansi_term::Color::Yellow.bold().paint(message).to_string()
+		style(message).yellow().bold().to_string()
 	} else {
 		message.into()
 	}

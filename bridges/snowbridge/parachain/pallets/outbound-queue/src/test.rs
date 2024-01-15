@@ -110,7 +110,7 @@ fn process_message_fails_on_max_nonce_reached() {
 			channel_id,
 			command: mock_message(sibling_id).command,
 		};
-		let versioned_queued_message: VersionedQueuedMessage = message.into();
+		let versioned_queued_message: VersionedQueuedMessage = message.try_into().unwrap();
 		let encoded = versioned_queued_message.encode();
 		let mut meter = WeightMeter::with_limit(Weight::MAX);
 
@@ -134,7 +134,7 @@ fn process_message_fails_on_overweight_message() {
 			channel_id,
 			command: mock_message(sibling_id).command,
 		};
-		let versioned_queued_message: VersionedQueuedMessage = message.into();
+		let versioned_queued_message: VersionedQueuedMessage = message.try_into().unwrap();
 		let encoded = versioned_queued_message.encode();
 		let mut meter = WeightMeter::with_limit(Weight::from_parts(1, 1));
 		assert_noop!(
