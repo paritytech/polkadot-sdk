@@ -153,8 +153,14 @@ impl ExtBuilder {
 		let mut ext = sp_io::TestExternalities::new(t);
 		ext.execute_with(|| {
 			System::set_block_number(1);
-			Vesting::do_try_state().unwrap();
 		});
 		ext
+	}
+
+	pub fn build_and_execute(self, test: impl FnOnce() -> ()) {
+		self.build().execute_with(|| {
+			test();
+			Vesting::do_try_state().unwrap();
+		})
 	}
 }
