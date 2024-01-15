@@ -1,0 +1,17 @@
+{
+  "name": "migrate_storage_to_genesis",
+  "version": "1.0.0",
+  "description": "query storage from a pallet and add it to a new chain_spec_raw.json",
+  "main": "index.js",
+  "scripts": {
+    "migrate": "node index.js"
+  },
+  "author": "Parity Technologies <admin@parity.io>",
+  "license": "ISC",
+  "dependencies": {
+    "@polkadot/api": "^10.9.1",
+    "@polkadot/util-crypto": "^12.5.1",
+    "fs-extra": "^11.1.1",
+    "yargs": "^17.7.2"
+  }
+}
