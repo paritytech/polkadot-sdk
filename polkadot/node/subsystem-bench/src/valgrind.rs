@@ -49,11 +49,17 @@ pub(crate) fn stop_measuring() {
 	cg::cachegrind::stop_instrumentation();
 }
 
+#[cfg(not(feature = "valgrind"))]
+pub(crate) fn relaunch_in_valgrind_mode() -> eyre::Result<()> {
+	return Err(eyre::eyre!("Feature `valgrind` must be enabled"));
+}
+
 /// Stop execution and relaunch the app under valgrind
 /// Cache configuration used to emulate Intel Ice Lake (size, associativity, line size):
 ///     L1 instruction: 32,768 B, 8-way, 64 B lines
 ///     L1 data: 49,152 B, 12-way, 64 B lines
 ///     Last-level: 2,097,152 B, 16-way, 64 B lines
+#[cfg(feature = "valgrind")]
 pub(crate) fn relaunch_in_valgrind_mode() -> eyre::Result<()> {
 	use std::os::unix::process::CommandExt;
 	let err = std::process::Command::new("valgrind")
