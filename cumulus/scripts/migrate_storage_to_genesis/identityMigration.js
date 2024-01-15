@@ -39,13 +39,14 @@ const migrateIdentity = async (key, data, api) => {
 
 	// Migrate `IdentityOf` data to its new format
 	if (IdentityOfHexkeyToMigrate === storageItem) {
-		let decoded = api.createType('Registration', data.toU8a(true));
+		let decoded = api.createType('(Registration, Option<Username>)', data.toU8a(true));
 
 		// Default value for `discord` and `github` fields.
 		let discord = { none: null };
 		let github = { none: null };
 
-		let decodedJson = decoded.toJSON();
+		// Get the `Registration` part from the `IdentityInfo` tuple
+		let decodedJson = decoded.toJSON()[0];
 
 		// Look for `Discord` and `Github` keys in `additional` field
 		decodedJson.info.additional.forEach(([key, data]) => {
@@ -84,7 +85,6 @@ const migrateIdentity = async (key, data, api) => {
 				},
 				null
 			]
-
 		);
 
 		data = decodedNew.toHex();
