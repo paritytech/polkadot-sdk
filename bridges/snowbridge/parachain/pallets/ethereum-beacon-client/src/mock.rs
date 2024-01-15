@@ -205,6 +205,7 @@ pub mod mainnet {
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type OnSetCode = ();
+		type ApplyAuthorizedUpgradeOrigin = frame_system::EnsureAlways;
 		type BlockWeights = ();
 		type BlockLength = ();
 		type DbWeight = ();
