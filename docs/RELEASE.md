@@ -27,7 +27,7 @@ Inductively, the public API of our library crates is declared as all public item
 
 ## Node
 
-The versioning of the node is done most of the time by only incrementing the `minor` version. 
+The versioning of the Polkadot node is done most of the time by only incrementing the `minor` version. 
 The `major` version is only bumped for special releases and the `patch` can be used for an 
 out of band release that fixes some critical bug. The node version is not following SemVer. 
 This means that the version doesn't express if there are any breaking changes in the CLI 
