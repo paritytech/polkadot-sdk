@@ -16,7 +16,7 @@
 // limitations under the License.
 
 //! Compile contracts to wasm and RISC-V binaries.
-use anyhow::{bail, format_err, Context, Result};
+use anyhow::{bail, Context, Result};
 use parity_wasm::elements::{deserialize_file, serialize_to_file, Internal};
 use std::{
 	env, fs,
@@ -91,6 +91,7 @@ impl Entry {
 	}
 
 	/// Return the name of the RISC-V polkavm file.
+	#[cfg(feature = "riscv")]
 	fn out_riscv_filename(&self) -> String {
 		format!("{}.polkavm", self.name())
 	}
@@ -104,7 +105,7 @@ fn collect_entries(contracts_dir: &Path, out_dir: &Path) -> Vec<Entry> {
 		.filter_map(|file| {
 			let path = file.expect("file exists; qed").path();
 			if path.extension().map_or(true, |ext| ext != "rs") {
-				return None;
+				return None
 			}
 
 			let entry = Entry::new(path);
@@ -231,6 +232,7 @@ fn post_process_wasm(input_path: &Path, output_path: &Path) -> Result<()> {
 }
 
 /// Build contracts for RISC-V.
+#[cfg(feature = "riscv")]
 fn invoke_riscv_build(current_dir: &Path) -> Result<()> {
 	let encoded_rustflags =
 		["-Crelocation-model=pie", "-Clink-arg=--emit-relocs", "-Clink-arg=-Tmemory.ld"]
@@ -241,10 +243,10 @@ fn invoke_riscv_build(current_dir: &Path) -> Result<()> {
 	let build_res = Command::new(env::var("CARGO")?)
 		.current_dir(current_dir)
 		.env_clear()
-		.env("PATH", env::var("PATH").unwrap())
+		.env("PATH", env::var("PATH").unwrap_or_default())
 		.env("CARGO_ENCODED_RUSTFLAGS", encoded_rustflags)
 		.env("RUSTUP_TOOLCHAIN", "rve-nightly")
-		.env("RUSTUP_HOME", env::var("RUSTUP_HOME").unwrap())
+		.env("RUSTUP_HOME", env::var("RUSTUP_HOME").unwrap_or_default())
 		.args(["build", "--release", "--target=riscv32em-unknown-none-elf"])
 		.output()
 		.expect("failed to execute process");
@@ -265,12 +267,13 @@ fn invoke_riscv_build(current_dir: &Path) -> Result<()> {
 	bail!("Failed to build contracts");
 }
 /// Post-process the compiled wasm contracts.
+#[cfg(feature = "riscv")]
 fn post_process_riscv(input_path: &Path, output_path: &Path) -> Result<()> {
 	let mut config = polkavm_linker::Config::default();
 	config.set_strip(true);
 	let orig = fs::read(input_path).with_context(|| format!("Failed to read {:?}", input_path))?;
 	let linked = polkavm_linker::program_from_elf(config, orig.as_ref())
-		.map_err(|err| format_err!("Failed to link polkavm program: {}", err))?;
+		.map_err(|err| anyhow::format_err!("Failed to link polkavm program: {}", err))?;
 	fs::write(output_path, linked.as_bytes()).map_err(Into::into)
 }
 
@@ -283,6 +286,7 @@ fn write_output(build_dir: &Path, out_dir: &Path, entries: Vec<Entry>) -> Result
 			&out_dir.join(&wasm_output),
 		)?;
 
+		#[cfg(feature = "riscv")]
 		post_process_riscv(
 			&build_dir.join("target/riscv32em-unknown-none-elf/release").join(entry.name()),
 			&out_dir.join(entry.out_riscv_filename()),
@@ -303,7 +307,7 @@ fn find_workspace_root(current_dir: &Path) -> Option<PathBuf> {
 			let cargo_toml_contents =
 				std::fs::read_to_string(current_dir.join("Cargo.toml")).ok()?;
 			if cargo_toml_contents.contains("[workspace]") {
-				return Some(current_dir);
+				return Some(current_dir)
 			}
 		}
 
@@ -321,7 +325,7 @@ fn main() -> Result<()> {
 
 	let entries = collect_entries(&contracts_dir, &out_dir);
 	if entries.is_empty() {
-		return Ok(());
+		return Ok(())
 	}
 
 	let tmp_dir = tempfile::tempdir()?;
@@ -335,6 +339,8 @@ fn main() -> Result<()> {
 	)?;
 
 	invoke_wasm_build(tmp_dir_path)?;
+
+	#[cfg(feature = "riscv")]
 	invoke_riscv_build(tmp_dir_path)?;
 
 	write_output(tmp_dir_path, &out_dir, entries)?;

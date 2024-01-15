@@ -69,8 +69,7 @@ mod test {
 	#[test]
 	fn out_dir_should_have_compiled_mocks() {
 		let out_dir: std::path::PathBuf = env!("OUT_DIR").into();
-		let dummy_wasm = out_dir.join("dummy.wasm");
-		println!("dummy_wasm: {:?}", dummy_wasm);
-		assert!(dummy_wasm.exists());
+		assert!(out_dir.join("dummy.wasm").exists());
+		assert!(out_dir.join("dummy.polkavm").exists());
 	}
 }

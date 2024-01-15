@@ -24,7 +24,7 @@ use kitchensink_runtime::{
 	GrandpaConfig, IndicesConfig, RuntimeGenesisConfig, SessionConfig, SocietyConfig, StakerStatus,
 	StakingConfig, BABE_GENESIS_EPOCH_CONFIG,
 };
-use sp_keyring::{Ed25519Keyring, Sr25519Keyring};
+use sp_keyring::Ed25519Keyring;
 use sp_runtime::Perbill;
 
 /// Create genesis runtime configuration for tests.
@@ -52,13 +52,9 @@ pub fn config_endowed(extra_endowed: Vec<AccountId>) -> RuntimeGenesisConfig {
 		balances: BalancesConfig { balances: endowed },
 		session: SessionConfig {
 			keys: vec![
-				(alice(), dave(), to_session_keys(&Ed25519Keyring::Alice, &Sr25519Keyring::Alice)),
-				(bob(), eve(), to_session_keys(&Ed25519Keyring::Bob, &Sr25519Keyring::Bob)),
-				(
-					charlie(),
-					ferdie(),
-					to_session_keys(&Ed25519Keyring::Charlie, &Sr25519Keyring::Charlie),
-				),
+				(alice(), dave(), session_keys_from_seed(Ed25519Keyring::Alice.into())),
+				(bob(), eve(), session_keys_from_seed(Ed25519Keyring::Bob.into())),
+				(charlie(), ferdie(), session_keys_from_seed(Ed25519Keyring::Charlie.into())),
 			],
 		},
 		staking: StakingConfig {
@@ -79,6 +75,7 @@ pub fn config_endowed(extra_endowed: Vec<AccountId>) -> RuntimeGenesisConfig {
 			..Default::default()
 		},
 		grandpa: GrandpaConfig { authorities: vec![], _config: Default::default() },
+		beefy: Default::default(),
 		im_online: Default::default(),
 		authority_discovery: Default::default(),
 		democracy: Default::default(),
