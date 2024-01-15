@@ -92,7 +92,7 @@ def check_missing(workspace_crates, all_crates):
 	print(f'🔎 Checking for missing crates')
 	if len(workspace_crates) == len(all_crates):
 		print(f'✅ All {len(all_crates)} crates are in the workspace')
-		pass
+		return
 
 	missing = []
 	# Find out which ones are missing.
