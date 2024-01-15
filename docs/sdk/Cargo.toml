@@ -63,12 +63,12 @@ sp-keyring = { path = "../../substrate/primitives/keyring", optional = true }
 sp-runtime = { path = "../../substrate/primitives/runtime", optional = true }
 
 [features]
-default = ["min-docs", "build-deps"]
+default = ["min-docs", "docs-build-deps"]
 min-docs = [
 	"simple-mermaid",
 	"docify",
 ]
-build-deps = [
+docs-build-deps = [
 	"sp-io",
 	"parity-scale-codec",
 	"scale-info",

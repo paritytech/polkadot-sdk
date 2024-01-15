@@ -113,10 +113,10 @@
 //! - <https://substrate.stackexchange.com/questions/2228/type-casting-to-trait-t-as-config>
 #![allow(unused)]
 
-#[cfg(feature = "build-deps")]
+#[cfg(feature = "docs-build-deps")]
 use frame::traits::Get;
 
-#[cfg(feature = "build-deps")]
+#[cfg(feature = "docs-build-deps")]
 #[docify::export]
 mod basic {
 	struct Pallet;
@@ -132,7 +132,7 @@ mod basic {
 	}
 }
 
-#[cfg(feature = "build-deps")]
+#[cfg(feature = "docs-build-deps")]
 #[docify::export]
 mod generic {
 	use super::*;
@@ -154,7 +154,7 @@ mod generic {
 	}
 }
 
-#[cfg(feature = "build-deps")]
+#[cfg(feature = "docs-build-deps")]
 #[docify::export]
 mod trait_based {
 	use super::*;
@@ -174,7 +174,7 @@ mod trait_based {
 	}
 }
 
-#[cfg(feature = "build-deps")]
+#[cfg(feature = "docs-build-deps")]
 #[docify::export]
 mod with_system {
 	use super::*;
@@ -197,7 +197,7 @@ mod with_system {
 	}
 }
 
-#[cfg(feature = "build-deps")]
+#[cfg(feature = "docs-build-deps")]
 #[docify::export]
 mod fully_qualified {
 	use super::with_system::*;
@@ -206,7 +206,7 @@ mod fully_qualified {
 	type AccountIdOf<T> = <T as SystemConfig>::AccountId;
 }
 
-#[cfg(feature = "build-deps")]
+#[cfg(feature = "docs-build-deps")]
 #[docify::export]
 mod fully_qualified_complicated {
 	use super::with_system::*;

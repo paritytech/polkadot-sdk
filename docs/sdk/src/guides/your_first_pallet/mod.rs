@@ -299,7 +299,7 @@
 //! - Learn more about the individual pallet items/macros, such as event and errors and call, in
 //!   [`frame::pallet_macros`].
 
-#[cfg(feature = "build-deps")]
+#[cfg(feature = "docs-build-deps")]
 #[docify::export]
 #[frame::pallet(dev_mode)]
 pub mod shell_pallet {
@@ -312,7 +312,7 @@ pub mod shell_pallet {
 	pub struct Pallet<T>(_);
 }
 
-#[cfg(feature = "build-deps")]
+#[cfg(feature = "docs-build-deps")]
 #[frame::pallet(dev_mode)]
 pub mod pallet {
 	use frame::prelude::*;
@@ -632,7 +632,7 @@ pub mod pallet {
 	}
 }
 
-#[cfg(feature = "build-deps")]
+#[cfg(feature = "docs-build-deps")]
 #[frame::pallet(dev_mode)]
 pub mod pallet_v2 {
 	use super::pallet::Balance;
