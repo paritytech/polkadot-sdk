@@ -78,7 +78,7 @@ pub struct MethodResultErr {
 	pub error: String,
 }
 
-/// Util function to print the results of rpc-spec-v2 as hex string
+/// Util function to encode a value as a hex string
 pub fn hex_string<Data: AsBytesRef>(data: &Data) -> String {
 	format!("0x{:?}", HexDisplay::from(data))
 }
