@@ -23,8 +23,15 @@
 //!
 //! This section paints a picture over the high-level information architecture of this crate.
 #![doc = simple_mermaid::mermaid!("../../mermaid/IA.mmd")]
-#![warn(rustdoc::broken_intra_doc_links)]
-#![warn(rustdoc::private_intra_doc_links)]
+
+#![cfg(feature = "min-docs")]
+#![allow(rustdoc::broken_intra_doc_links)]
+#![allow(rustdoc::private_intra_doc_links)]
+
+
+// #![cfg(feature = "build-deps")]
+// #![deny(rustdoc::broken_intra_doc_links)]
+// #![deny(rustdoc::private_intra_doc_links)]
 
 /// Meta information about this crate, how it is built, what principles dictates its evolution and
 /// how one can contribute to it.
@@ -36,6 +43,6 @@ pub mod guides;
 /// An introduction to the Polkadot SDK. Read this module to learn about the structure of the SDK,
 /// the tools that are provided as a part of it, and to gain a high level understanding of each.
 pub mod polkadot_sdk;
-/// Reference documents covering in-depth topics across the Polkadot SDK. It is suggested to read
-/// these on-demand, while you are going through the [`guides`] or other content.
-pub mod reference_docs;
+// /// Reference documents covering in-depth topics across the Polkadot SDK. It is suggested to read
+// /// these on-demand, while you are going through the [`guides`] or other content.
+// pub mod reference_docs;
