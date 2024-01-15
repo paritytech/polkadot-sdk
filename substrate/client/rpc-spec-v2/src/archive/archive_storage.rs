@@ -75,23 +75,20 @@ where
 					match self.client.query_value(hash, &item.key, child_key.as_ref()) {
 						Ok(Some(value)) => storage_results.push(value),
 						Ok(None) => continue,
-						Err(error) =>
-							return ArchiveStorageResult::err(error),
+						Err(error) => return ArchiveStorageResult::err(error),
 					}
 				},
 				StorageQueryType::Hash =>
 					match self.client.query_hash(hash, &item.key, child_key.as_ref()) {
 						Ok(Some(value)) => storage_results.push(value),
 						Ok(None) => continue,
-						Err(error) =>
-							return ArchiveStorageResult::err(error),
+						Err(error) => return ArchiveStorageResult::err(error),
 					},
 				StorageQueryType::ClosestDescendantMerkleValue =>
 					match self.client.query_merkle_value(hash, &item.key, child_key.as_ref()) {
 						Ok(Some(value)) => storage_results.push(value),
 						Ok(None) => continue,
-						Err(error) =>
-							return ArchiveStorageResult::err(error),
+						Err(error) => return ArchiveStorageResult::err(error),
 					},
 				StorageQueryType::DescendantsValues => {
 					match self.client.query_iter_pagination(
@@ -105,8 +102,7 @@ where
 						self.storage_max_reported_items,
 					) {
 						Ok((results, _)) => storage_results.extend(results),
-						Err(error) =>
-							return ArchiveStorageResult::err(error),
+						Err(error) => return ArchiveStorageResult::err(error),
 					}
 				},
 				StorageQueryType::DescendantsHashes => {
@@ -121,8 +117,7 @@ where
 						self.storage_max_reported_items,
 					) {
 						Ok((results, _)) => storage_results.extend(results),
-						Err(error) =>
-							return ArchiveStorageResult::err(error),
+						Err(error) => return ArchiveStorageResult::err(error),
 					}
 				},
 			};
