@@ -23,14 +23,12 @@
 //!
 //! This section paints a picture over the high-level information architecture of this crate.
 #![doc = simple_mermaid::mermaid!("../../mermaid/IA.mmd")]
-
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(rustdoc::private_intra_doc_links)]
 // Overide above deny if no deps are being built
 #![cfg(not(feature = "docs-build-deps"))]
 #![allow(rustdoc::broken_intra_doc_links)]
 #![allow(rustdoc::private_intra_doc_links)]
-
 
 /// Meta information about this crate, how it is built, what principles dictates its evolution and
 /// how one can contribute to it.
