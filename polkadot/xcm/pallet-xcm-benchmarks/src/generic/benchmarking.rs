@@ -128,7 +128,8 @@ benchmarks! {
 		let mut executor = new_executor::<T>(Default::default());
 		let holding_assets = T::worst_case_holding(1);
 		// We can already buy execution since we'll load the holding register manually
-		let previous_xcm = Xcm(vec![BuyExecution { fees: holding_assets.get(0).unwrap().clone(), weight_limit: Limited(Weight::from_parts(1337, 1337)) }]);
+		let asset_for_fees = T::fee_asset().unwrap();
+		let previous_xcm = Xcm(vec![BuyExecution { fees: asset_for_fees, weight_limit: Limited(Weight::from_parts(1337, 1337)) }]);
 		executor.set_holding(holding_assets.into());
 		executor.set_total_surplus(Weight::from_parts(1337, 1337));
 		executor.set_total_refunded(Weight::zero());
