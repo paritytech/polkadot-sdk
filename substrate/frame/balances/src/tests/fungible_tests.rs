@@ -468,3 +468,28 @@ fn emit_events_with_changing_freezes() {
 		assert_eq!(events(), [RuntimeEvent::Balances(crate::Event::Thawed { who: 1, amount: 15 })]);
 	});
 }
+
+#[test]
+fn withdraw_precision_exact_works() {
+	ExtBuilder::default()
+		.existential_deposit(1)
+		.monied(true)
+		.build_and_execute_with(|| {
+			assert_ok!(Balances::set_freeze(&TestId::Foo, &1, 10));
+			assert_eq!(Balances::account(&1).free, 10);
+			assert_eq!(Balances::account(&1).frozen, 10);
+
+			// `BestEffort` will not reduce anything
+			assert_ok!(<Balances as fungible::Balanced<_>>::withdraw(
+				&1, 5, BestEffort, Preserve, Polite
+			));
+
+			assert_eq!(Balances::account(&1).free, 10);
+			assert_eq!(Balances::account(&1).frozen, 10);
+
+			assert_noop!(
+				<Balances as fungible::Balanced<_>>::withdraw(&1, 5, Exact, Preserve, Polite),
+				TokenError::FundsUnavailable
+			);
+		});
+}

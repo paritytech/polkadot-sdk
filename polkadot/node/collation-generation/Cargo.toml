@@ -6,6 +6,9 @@ edition.workspace = true
 license.workspace = true
 description = "Collator-side subsystem that handles incoming candidate submissions from the parachain."
 
+[lints]
+workspace = true
+
 [dependencies]
 futures = "0.3.21"
 gum = { package = "tracing-gum", path = "../gum" }
