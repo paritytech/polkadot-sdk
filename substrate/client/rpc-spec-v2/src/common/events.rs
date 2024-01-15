@@ -62,6 +62,13 @@ pub enum StorageQueryType {
 	DescendantsHashes,
 }
 
+impl StorageQueryType {
+	/// Returns `true` if the query is a descendant query.
+	pub fn is_descendant_query(&self) -> bool {
+		matches!(self, Self::DescendantsValues | Self::DescendantsHashes)
+	}
+}
+
 /// The storage result.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

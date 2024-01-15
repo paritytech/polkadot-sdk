@@ -218,10 +218,7 @@ where
 					.transpose()?;
 
 				// Paginated start key is only supported
-				if pagination_start_key.is_some() &&
-					(query.query_type != StorageQueryType::DescendantsValues &&
-						query.query_type != StorageQueryType::DescendantsHashes)
-				{
+				if pagination_start_key.is_some() && !query.query_type.is_descendant_query() {
 					return Err(ArchiveError::InvalidParam(
 						"Pagination start key is only supported for descendants queries"
 							.to_string(),
