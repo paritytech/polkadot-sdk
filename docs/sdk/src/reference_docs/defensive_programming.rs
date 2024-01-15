@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! As our runtime should _never_ panic; this includes carefully handling [`Result`]/[`Option`]
+//! As our runtime should _never_ panic, we should carefully handle [`Result`]/[`Option`]
 //! types, eliminating the possibility of integer overflows, converting between number types, or
 //! even replacing floating point usage with fixed point arithmetic to mitigate issues that come
 //! with floating point calculations.
