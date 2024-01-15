@@ -24,16 +24,18 @@
 //! ## Defensive Programming
 //!
 //! [Defensive programming](https://en.wikipedia.org/wiki/Defensive_programming) is a design paradigm that enables a particular program to continue
-//! running despite unexpected behavior. Unforeseen circumstances may
-//! cause the program to stop or, in the Rust context, `panic!`. Defensive practices allow for
-//! these circumstances to be accounted for ahead of time and for them to be handled in a more
-//! graceful manner.
+//! running despite unexpected behavior, input or events which may arise in runtime. Normally,
+//! unforeseen circumstances may cause the program to stop or, in the Rust context, `panic!`.
+//! Defensive practices allow for these circumstances to be accounted for ahead of time and for them
+//! to be handled in a graceful manner, which is in the line of the intended, fault-tolerant
+//! behavior of blockchains.
 //!
-//! The Polkadot SDK is both built to reflect these principles and to facilitate their usage.
+//! The Polkadot SDK is both built to reflect these principles and to facilitate their usage
+//! accordingly.
 //!
 //! ## General Practices
 //!
-//! When developing within the context of the a runtime, there is one golden rule:
+//! When developing within the context of the a runtime, there is *one* golden rule:
 //!
 //! ***DO NOT PANIC***. There are some exceptions, such as critical operations being actually more
 //! dangerous than allowing the runtime to continue functioning (block authoring, consensus, etc).
@@ -42,13 +44,16 @@
 //! > refers to the core business logic of a Substrate-based chain, whereas the node refers to the
 //! > outer client which deals with telemetry and gossip from other nodes. For more information,
 //! > read about Substrate's architecture.
+//! > It's also important to note that the behavior of the **node** may differ from that of the
+//! > **runtime**, which is also why at times, you may see `unwrap()` or other "non-defensive"
+//! > behavior taking place.
 //!
 //!  General guidelines:
 //!
 //! - Avoid writing functions that could explicitly panic. Directly using `unwrap()` for a
-//!   [`Result`], or common errors such as accessing an out of bounds index on a collection
-//!   should not be used. Safer methods to access collection types, i.e., `get()` are available,
-//!   upon which defensive handling of the resulting [`Option`] can occur.
+//!   [`Result`], or common errors such as accessing an out of bounds index on a collection should
+//!   not be used. Safer methods to access collection types, i.e., `get()` are available, upon which
+//!   defensive handling of the resulting [`Option`] can occur.
 //! - It may be acceptable to use `except()`, but only if one is completely certain (and has
 //!   performed a check beforehand) that a value won't panic upon unwrapping.  Even this is
 //!   discouraged, however, as future changes to that function could then cause that statement to
@@ -58,6 +63,30 @@
 //! - Carefully handle mathematical operations.  Many seemingly, simplistic operations, such as
 //!   **arithmetic** in the runtime, could present a number of issues [(see more later in this
 //!   document)](#integer-overflow).
+//!
+//! ### Examples of when to `panic!`
+//!
+//! As you traverse through the codebase (particularly in `substrate/frame`, where the majority of
+//! runtime code lives), you may notice that there occurrences where `panic!` is used explicitly.
+//! This is used when the runtime should stall, rather than keep running, as that is considered
+//! safer. Particularly when it comes to mission critical components, such as block authoring,
+//! consensus, or other protocol-level dependencies, the unauthorized nature of a node may actually
+//! cause harm to the network, and thus stalling would be the better option.
+//!
+//! Take the example of the BABE pallet ([`pallet_babe`]), which doesn't allow for a validator to
+//! participate if it is disabled (see: [frame::traits::DisabledValidators]):
+//!
+//! ```rust
+//! if T::DisabledValidators::is_disabled(authority_index) {
+//! 	panic!(
+//! 		"Validator with index {:?} is disabled and should not be attempting to author blocks.",
+//! 		authority_index,
+//! 	);
+//! }
+//! ```
+//!
+//! There are other such examples throughout various pallets, mostly those who are crucial to the
+//! blockchain's function.
 //!
 //! ### Defensive Traits
 //!

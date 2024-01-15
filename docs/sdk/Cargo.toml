@@ -65,6 +65,7 @@ sp-arithmetic = { path = "../../substrate/primitives/arithmetic" }
 # Misc pallet dependencies
 pallet-referenda = { path = "../../substrate/frame/referenda" }
 pallet-broker = { path = "../../substrate/frame/broker" }
+pallet-babe = { path = "../../substrate/frame/babe" }
 
 
 [dev-dependencies]
