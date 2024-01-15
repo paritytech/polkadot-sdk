@@ -39,7 +39,7 @@ fn processes_empty_response_on_justification_request_for_unknown_block() {
 	let peer_id = PeerId::random();
 
 	let mut sync =
-		ChainSync::new(ChainSyncMode::Full, client.clone(), 1, 64, None, std::iter::empty())
+		ChainSync::new(ChainSyncMode::Full, Default::default(), client.clone(), 1, 64, None, std::iter::empty())
 			.unwrap();
 
 	let (a1_hash, a1_number) = {
@@ -96,7 +96,7 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 	// we request max 8 blocks to always initiate block requests to both peers for the test to be
 	// deterministic
 	let mut sync =
-		ChainSync::new(ChainSyncMode::Full, client.clone(), 1, 8, None, std::iter::empty())
+		ChainSync::new(ChainSyncMode::Full, Default::default(), client.clone(), 1, 8, None, std::iter::empty())
 			.unwrap();
 
 	let peer_id1 = PeerId::random();
@@ -292,7 +292,7 @@ fn do_ancestor_search_when_common_block_to_best_qeued_gap_is_to_big() {
 	let info = client.info();
 
 	let mut sync =
-		ChainSync::new(ChainSyncMode::Full, client.clone(), 5, 64, None, std::iter::empty())
+		ChainSync::new(ChainSyncMode::Full, Default::default(), client.clone(), 5, 64, None, std::iter::empty())
 			.unwrap();
 
 	let peer_id1 = PeerId::random();
@@ -440,7 +440,7 @@ fn can_sync_huge_fork() {
 	let info = client.info();
 
 	let mut sync =
-		ChainSync::new(ChainSyncMode::Full, client.clone(), 5, 64, None, std::iter::empty())
+		ChainSync::new(ChainSyncMode::Full, Default::default(), client.clone(), 5, 64, None, std::iter::empty())
 			.unwrap();
 
 	let finalized_block = blocks[MAX_BLOCKS_TO_LOOK_BACKWARDS as usize * 2 - 1].clone();
@@ -575,7 +575,7 @@ fn syncs_fork_without_duplicate_requests() {
 	let info = client.info();
 
 	let mut sync =
-		ChainSync::new(ChainSyncMode::Full, client.clone(), 5, 64, None, std::iter::empty())
+		ChainSync::new(ChainSyncMode::Full, Default::default(), client.clone(), 5, 64, None, std::iter::empty())
 			.unwrap();
 
 	let finalized_block = blocks[MAX_BLOCKS_TO_LOOK_BACKWARDS as usize * 2 - 1].clone();
@@ -712,7 +712,7 @@ fn removes_target_fork_on_disconnect() {
 	let blocks = (0..3).map(|_| build_block(&mut client, None, false)).collect::<Vec<_>>();
 
 	let mut sync =
-		ChainSync::new(ChainSyncMode::Full, client.clone(), 1, 64, None, std::iter::empty())
+		ChainSync::new(ChainSyncMode::Full, Default::default(), client.clone(), 1, 64, None, std::iter::empty())
 			.unwrap();
 
 	let peer_id1 = PeerId::random();
@@ -739,7 +739,7 @@ fn can_import_response_with_missing_blocks() {
 	let empty_client = Arc::new(TestClientBuilder::new().build());
 
 	let mut sync =
-		ChainSync::new(ChainSyncMode::Full, empty_client.clone(), 1, 64, None, std::iter::empty())
+		ChainSync::new(ChainSyncMode::Full, Default::default(), empty_client.clone(), 1, 64, None, std::iter::empty())
 			.unwrap();
 
 	let peer_id1 = PeerId::random();
@@ -772,7 +772,7 @@ fn ancestor_search_repeat() {
 fn sync_restart_removes_block_but_not_justification_requests() {
 	let mut client = Arc::new(TestClientBuilder::new().build());
 	let mut sync =
-		ChainSync::new(ChainSyncMode::Full, client.clone(), 1, 64, None, std::iter::empty())
+		ChainSync::new(ChainSyncMode::Full, Default::default(), client.clone(), 1, 64, None, std::iter::empty())
 			.unwrap();
 
 	let peers = vec![PeerId::random(), PeerId::random()];
@@ -916,7 +916,7 @@ fn request_across_forks() {
 	};
 
 	let mut sync =
-		ChainSync::new(ChainSyncMode::Full, client.clone(), 5, 64, None, std::iter::empty())
+		ChainSync::new(ChainSyncMode::Full, Default::default(), client.clone(), 5, 64, None, std::iter::empty())
 			.unwrap();
 
 	// Add the peers, all at the common ancestor 100.

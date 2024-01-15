@@ -28,7 +28,12 @@ use sc_service::{
 	config::{Multiaddr, MultiaddrWithPeerId},
 	ChainSpec, ChainType,
 };
-use std::{borrow::Cow, num::NonZeroUsize, path::PathBuf};
+use std::{
+	borrow::Cow,
+	num::NonZeroUsize,
+	path::PathBuf,
+	sync::{atomic::AtomicBool, Arc},
+};
 
 /// Parameters used to create the network configuration.
 #[derive(Debug, Clone, Args)]
@@ -261,6 +266,7 @@ impl NetworkParams {
 			yamux_window_size: None,
 			ipfs_server: self.ipfs_server,
 			sync_mode: self.sync.into(),
+			pause_sync: Arc::new(AtomicBool::new(false)),
 		}
 	}
 }

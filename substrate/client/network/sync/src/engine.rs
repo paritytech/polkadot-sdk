@@ -345,6 +345,7 @@ where
 		peer_store_handle: PeerStoreHandle,
 	) -> Result<(Self, SyncingService<B>, NonDefaultSetConfig), ClientError> {
 		let mode = net_config.network_config.sync_mode;
+		let pause_sync = Arc::clone(&net_config.network_config.pause_sync);
 		let max_parallel_downloads = net_config.network_config.max_parallel_downloads;
 		let max_blocks_per_request =
 			if net_config.network_config.max_blocks_per_request > MAX_BLOCKS_IN_RESPONSE as u32 {
@@ -359,6 +360,7 @@ where
 			};
 		let syncing_config = SyncingConfig {
 			mode,
+			pause_sync,
 			max_parallel_downloads,
 			max_blocks_per_request,
 			metrics_registry: metrics_registry.cloned(),
