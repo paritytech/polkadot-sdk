@@ -20,7 +20,7 @@
 
 use crate::{
 	archive::{error::Error as ArchiveError, ArchiveApiServer},
-	common::events::{ArchiveStorageResult, PaginatedStorageQuery, StorageQueryType},
+	common::events::{ArchiveStorageResult, PaginatedStorageQuery},
 	hex_string, MethodResult,
 };
 

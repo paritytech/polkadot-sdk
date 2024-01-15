@@ -24,10 +24,7 @@ use sc_client_api::{Backend, ChildInfo, StorageKey, StorageProvider};
 use sp_runtime::traits::Block as BlockT;
 
 use crate::common::{
-	events::{
-		ArchiveStorageMethodErr, ArchiveStorageMethodOk, ArchiveStorageResult,
-		PaginatedStorageQuery, StorageQueryType,
-	},
+	events::{ArchiveStorageResult, PaginatedStorageQuery, StorageQueryType},
 	storage::{IterQueryType, QueryIter, Storage},
 };
 
