@@ -297,6 +297,10 @@ impl pallet_bags_list::Config for Runtime {
 	type Score = VoteWeight;
 }
 
+parameter_types! {
+	pub MaxControllersInDeprecationBatch: u32 = 5900;
+}
+
 /// Upper limit on the number of NPOS nominations.
 const MAX_QUOTA_NOMINATIONS: u32 = 16;
 
@@ -327,6 +331,7 @@ impl pallet_staking::Config for Runtime {
 	type HistoryDepth = HistoryDepth;
 	type EventListeners = ();
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
+	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 }
 
