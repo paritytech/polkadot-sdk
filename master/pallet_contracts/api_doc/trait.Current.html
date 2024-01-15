@@ -495,10 +495,7 @@ See [<code>pallet_contracts_uapi::HostFn::set_storage_v2</code>]</p>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.74.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="../../pallet_contracts_uapi/enum.ReturnErrorCode.html" title="enum pallet_contracts_uapi::ReturnErrorCode">ReturnErrorCode</a>, TrapReason&gt;</h4></section></summary><div class="docblock"><p>Verify a sr25519 signature
 See [<code>pallet_contracts_uapi::HostFn::sr25519_verify</code>].</p>
 <h5 id="wasm-import-statement-41"><a href="#wasm-import-statement-41">Wasm Import Statement</a></h5><div class="example-wrap"><pre class="language-wat"><code>(import &quot;seal0&quot; &quot;sr25519_verify&quot; (func ...))
-</code></pre></div><h5 id="unstable-8"><a href="#unstable-8">Unstable</a></h5>
-<p>This function is unstable and it is a subject to change (or removal) in the future.
-Do not deploy a contract using it to a production chain.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.take_storage" class="method"><a class="src rightside" href="../../src/pallet_contracts/wasm/runtime.rs.html#1003">source</a><h4 class="code-header">fn <a href="#tymethod.take_storage" class="fn">take_storage</a>(
+</code></pre></div></div></details><details class="toggle method-toggle" open><summary><section id="tymethod.take_storage" class="method"><a class="src rightside" href="../../src/pallet_contracts/wasm/runtime.rs.html#1003">source</a><h4 class="code-header">fn <a href="#tymethod.take_storage" class="fn">take_storage</a>(
     key_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.74.0/std/primitive.u32.html">u32</a>,
     key_len: <a class="primitive" href="https://doc.rust-lang.org/1.74.0/std/primitive.u32.html">u32</a>,
     out_ptr: <a class="primitive" href="https://doc.rust-lang.org/1.74.0/std/primitive.u32.html">u32</a>,
@@ -539,7 +536,7 @@ See [<code>pallet_contracts_uapi::HostFn::value_transferred</code>].</p>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.74.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.74.0/std/primitive.unit.html">()</a>, TrapReason&gt;</h4></section></summary><div class="docblock"><p>Stores the price for the specified amount of weight into the supplied buffer.
 See [<code>pallet_contracts_uapi::HostFn::weight_to_fee_v1</code>].</p>
 <h5 id="wasm-import-statement-47"><a href="#wasm-import-statement-47">Wasm Import Statement</a></h5><div class="example-wrap"><pre class="language-wat"><code>(import &quot;seal1&quot; &quot;weight_to_fee&quot; (func ...))
-</code></pre></div><h5 id="unstable-9"><a href="#unstable-9">Unstable</a></h5>
+</code></pre></div><h5 id="unstable-8"><a href="#unstable-8">Unstable</a></h5>
 <p>This function is unstable and it is a subject to change (or removal) in the future.
 Do not deploy a contract using it to a production chain.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.xcm_execute" class="method"><a class="src rightside" href="../../src/pallet_contracts/wasm/runtime.rs.html#1003">source</a><h4 class="code-header">fn <a href="#tymethod.xcm_execute" class="fn">xcm_execute</a>(
@@ -549,7 +546,7 @@ Do not deploy a contract using it to a production chain.</p>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.74.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="../../pallet_contracts_uapi/enum.ReturnErrorCode.html" title="enum pallet_contracts_uapi::ReturnErrorCode">ReturnErrorCode</a>, TrapReason&gt;</h4></section></summary><div class="docblock"><p>Execute an XCM program locally, using the contract’s address as the origin.
 See [<code>pallet_contracts_uapi::HostFn::execute_xcm</code>].</p>
 <h5 id="wasm-import-statement-48"><a href="#wasm-import-statement-48">Wasm Import Statement</a></h5><div class="example-wrap"><pre class="language-wat"><code>(import &quot;seal0&quot; &quot;xcm_execute&quot; (func ...))
-</code></pre></div><h5 id="unstable-10"><a href="#unstable-10">Unstable</a></h5>
+</code></pre></div><h5 id="unstable-9"><a href="#unstable-9">Unstable</a></h5>
 <p>This function is unstable and it is a subject to change (or removal) in the future.
 Do not deploy a contract using it to a production chain.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.xcm_send" class="method"><a class="src rightside" href="../../src/pallet_contracts/wasm/runtime.rs.html#1003">source</a><h4 class="code-header">fn <a href="#tymethod.xcm_send" class="fn">xcm_send</a>(
@@ -560,7 +557,7 @@ Do not deploy a contract using it to a production chain.</p>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.74.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="../../pallet_contracts_uapi/enum.ReturnErrorCode.html" title="enum pallet_contracts_uapi::ReturnErrorCode">ReturnErrorCode</a>, TrapReason&gt;</h4></section></summary><div class="docblock"><p>Send an XCM program from the contract to the specified destination.
 See [<code>pallet_contracts_uapi::HostFn::send_xcm</code>].</p>
 <h5 id="wasm-import-statement-49"><a href="#wasm-import-statement-49">Wasm Import Statement</a></h5><div class="example-wrap"><pre class="language-wat"><code>(import &quot;seal0&quot; &quot;xcm_send&quot; (func ...))
-</code></pre></div><h5 id="unstable-11"><a href="#unstable-11">Unstable</a></h5>
+</code></pre></div><h5 id="unstable-10"><a href="#unstable-10">Unstable</a></h5>
 <p>This function is unstable and it is a subject to change (or removal) in the future.
 Do not deploy a contract using it to a production chain.</p>
 </div></details></div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../implementors/pallet_contracts/wasm/runtime/api_doc/trait.Current.js" async></script></section></div></main></body></html>
