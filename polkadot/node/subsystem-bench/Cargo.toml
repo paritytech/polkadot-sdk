@@ -60,7 +60,7 @@ pyroscope = "0.5.7"
 pyroscope_pprofrs = "0.2.7"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-crabgrind = "0.1.10"
+crabgrind = { version = "0.1.10", optional = true }
 
 [features]
 default = []
