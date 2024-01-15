@@ -24,7 +24,7 @@ use frame_support::weights::{
 };
 
 impl crate::WeightInfo for () {
-	fn report_equivocation(validator_count: u32, max_nominators_per_validator: u32) -> Weight {
+	fn report_vote_equivocation(validator_count: u32, max_nominators_per_validator: u32) -> Weight {
 		// we take the validator set count from the membership proof to
 		// calculate the weight but we set a floor of 100 validators.
 		let validator_count = validator_count.max(100) as u64;
@@ -34,6 +34,37 @@ impl crate::WeightInfo for () {
 			.saturating_add(
 				Weight::from_parts(175u64 * WEIGHT_REF_TIME_PER_NANOS, 0)
 					.saturating_mul(validator_count),
+			)
+			.saturating_add(DbWeight::get().reads(5))
+			// check equivocation proof
+			.saturating_add(Weight::from_parts(95u64 * WEIGHT_REF_TIME_PER_MICROS, 0))
+			// report offence
+			.saturating_add(Weight::from_parts(110u64 * WEIGHT_REF_TIME_PER_MICROS, 0))
+			.saturating_add(Weight::from_parts(
+				25u64 * WEIGHT_REF_TIME_PER_MICROS * max_nominators_per_validator as u64,
+				0,
+			))
+			.saturating_add(DbWeight::get().reads(14 + 3 * max_nominators_per_validator as u64))
+			.saturating_add(DbWeight::get().writes(10 + 3 * max_nominators_per_validator as u64))
+			// fetching set id -> session index mappings
+			.saturating_add(DbWeight::get().reads(2))
+	}
+
+	fn report_fork_equivocation(
+		validator_count: u32,
+		max_nominators_per_validator: u32,
+		key_owner_proofs_len: usize,
+	) -> Weight {
+		// we take the validator set count from the membership proof to
+		// calculate the weight but we set a floor of 100 validators.
+		let validator_count = validator_count.max(100) as u64;
+
+		// checking membership proof
+		Weight::from_parts(35u64 * WEIGHT_REF_TIME_PER_MICROS, 0)
+			.saturating_add(
+				Weight::from_parts(175u64 * WEIGHT_REF_TIME_PER_NANOS, 0)
+					.saturating_mul(validator_count)
+					.saturating_mul(key_owner_proofs_len as u64),
 			)
 			.saturating_add(DbWeight::get().reads(5))
 			// check equivocation proof

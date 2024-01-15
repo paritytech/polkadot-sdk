@@ -214,7 +214,7 @@ pub mod pallet {
 		/// against the extracted offender. If both are valid, the offence
 		/// will be reported.
 		#[pallet::call_index(0)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::report_equivocation(
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::report_vote_equivocation(
 			key_owner_proof.validator_count(),
 			T::MaxNominators::get(),
 		))]
@@ -252,7 +252,7 @@ pub mod pallet {
 		/// if the block author is defined it will be defined as the equivocation
 		/// reporter.
 		#[pallet::call_index(1)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::report_equivocation(
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::report_vote_equivocation(
 			key_owner_proof.validator_count(),
 			T::MaxNominators::get(),
 		))]
@@ -300,11 +300,11 @@ pub mod pallet {
 		/// invalid fork proof and validate the given key ownership proof
 		/// against the extracted offender. If both are valid, the offence
 		/// will be reported.
-		// TODO: fix key_owner_proofs[0].validator_count()
 		#[pallet::call_index(3)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::report_equivocation(
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::report_fork_equivocation(
 			key_owner_proofs[0].validator_count(),
 			T::MaxNominators::get(),
+			key_owner_proofs.len(),
 		))]
 		pub fn report_fork_equivocation(
 			origin: OriginFor<T>,
@@ -343,7 +343,7 @@ pub mod pallet {
 		/// reporter.
 		// TODO: fix key_owner_proofs[0].validator_count()
 		#[pallet::call_index(4)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::report_equivocation(key_owner_proofs[0].validator_count(), T::MaxNominators::get(),))]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::report_fork_equivocation(key_owner_proofs[0].validator_count(), T::MaxNominators::get(), key_owner_proofs.len()))]
 		pub fn report_fork_equivocation_unsigned(
 			origin: OriginFor<T>,
 			equivocation_proof: Box<
@@ -584,7 +584,11 @@ impl<T: Config> IsMember<T::BeefyId> for Pallet<T> {
 }
 
 pub trait WeightInfo {
-	// TODO: distinguish for fork equivocation proofs
-	fn report_equivocation(validator_count: u32, max_nominators_per_validator: u32) -> Weight;
+	fn report_vote_equivocation(validator_count: u32, max_nominators_per_validator: u32) -> Weight;
+	fn report_fork_equivocation(
+		validator_count: u32,
+		max_nominators_per_validator: u32,
+		key_owner_proofs_len: usize,
+	) -> Weight;
 	fn set_new_genesis() -> Weight;
 }
