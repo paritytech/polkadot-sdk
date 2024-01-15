@@ -201,10 +201,10 @@ impl generic::Config for Test {
 	}
 
 	fn fee_asset() -> Result<MultiAsset, BenchmarkError> {
-		MultiAsset {
+		Ok(MultiAsset {
 			id: Concrete(Here.into()),
-			fun: Fungible(1_000_000 * UNITS),
-		}
+			fun: Fungible(1_000_000),
+		})
 	}
 
 	fn unlockable_asset() -> Result<(MultiLocation, MultiLocation, MultiAsset), BenchmarkError> {
