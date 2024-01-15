@@ -656,6 +656,20 @@
 <a href="#656" id="656">656</a>
 <a href="#657" id="657">657</a>
 <a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -852,9 +866,10 @@
 		force: Fortitude,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Balance, DispatchError&gt; {
 		<span class="kw">let </span>old_balance = <span class="self">Self</span>::balance(asset.clone(), who);
-		<span class="kw">let </span>free = <span class="self">Self</span>::reducible_balance(asset.clone(), who, preservation, force);
-		<span class="kw">if let </span>BestEffort = precision {
-			amount = amount.min(free);
+		<span class="kw">let </span>reducible = <span class="self">Self</span>::reducible_balance(asset.clone(), who, preservation, force);
+		<span class="kw">match </span>precision {
+			BestEffort =&gt; amount = amount.min(reducible),
+			Exact =&gt; <span class="macro">ensure!</span>(reducible &gt;= amount, TokenError::FundsUnavailable),
 		}
 		<span class="kw">let </span>new_balance = old_balance.checked_sub(<span class="kw-2">&amp;</span>amount).ok_or(TokenError::FundsUnavailable)<span class="question-mark">?</span>;
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(dust) = <span class="self">Self</span>::write_balance(asset.clone(), who, new_balance)<span class="question-mark">? </span>{
@@ -1136,11 +1151,24 @@
 	///
 	/// This is just the same as burning and issuing the same amount and has no effect on the
 	/// total issuance.
+	///
+	/// This is infallible, but doesn&#39;t guarantee that the entire `amount` is used to create the
+	/// pair, for example in the case where the amounts would cause overflow or underflow in
+	/// [`Balanced::issue`] or [`Balanced::rescind`].
 	</span><span class="kw">fn </span>pair(
 		asset: <span class="self">Self</span>::AssetId,
 		amount: <span class="self">Self</span>::Balance,
-	) -&gt; (Debt&lt;AccountId, <span class="self">Self</span>&gt;, Credit&lt;AccountId, <span class="self">Self</span>&gt;) {
-		(<span class="self">Self</span>::rescind(asset.clone(), amount), <span class="self">Self</span>::issue(asset, amount))
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(Debt&lt;AccountId, <span class="self">Self</span>&gt;, Credit&lt;AccountId, <span class="self">Self</span>&gt;), DispatchError&gt; {
+		<span class="kw">let </span>issued = <span class="self">Self</span>::issue(asset.clone(), amount);
+		<span class="kw">let </span>rescinded = <span class="self">Self</span>::rescind(asset, amount);
+		<span class="comment">// Need to check amount in case by some edge case both issued and rescinded are below
+		// `amount` by the exact same value
+		</span><span class="kw">if </span>issued.peek() != rescinded.peek() || issued.peek() != amount {
+			<span class="comment">// Issued and rescinded will be dropped automatically
+			</span><span class="prelude-val">Err</span>(<span class="string">&quot;Failed to issue and rescind equal amounts&quot;</span>.into())
+		} <span class="kw">else </span>{
+			<span class="prelude-val">Ok</span>((rescinded, issued))
+		}
 	}
 
 	<span class="doccomment">/// Mints `value` into the account of `who`, creating it as needed.

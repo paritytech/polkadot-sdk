@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["inspect_mutate"]};
+window.SIDEBAR_ITEMS = {"mod":["inspect_mutate","regular"]};

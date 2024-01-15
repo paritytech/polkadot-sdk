@@ -454,6 +454,8 @@
 <a href="#454" id="454">454</a>
 <a href="#455" id="455">455</a>
 <a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -845,9 +847,11 @@
 		<span class="kw">let </span>credit = &lt;F <span class="kw">as </span>fungibles::Balanced&lt;AccountId&gt;&gt;::issue(A::get(), amount);
 		imbalance::from_fungibles(credit)
 	}
-	<span class="kw">fn </span>pair(amount: <span class="self">Self</span>::Balance) -&gt; (Debt&lt;AccountId, <span class="self">Self</span>&gt;, Credit&lt;AccountId, <span class="self">Self</span>&gt;) {
-		<span class="kw">let </span>(a, b) = &lt;F <span class="kw">as </span>fungibles::Balanced&lt;AccountId&gt;&gt;::pair(A::get(), amount);
-		(imbalance::from_fungibles(a), imbalance::from_fungibles(b))
+	<span class="kw">fn </span>pair(
+		amount: <span class="self">Self</span>::Balance,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(Debt&lt;AccountId, <span class="self">Self</span>&gt;, Credit&lt;AccountId, <span class="self">Self</span>&gt;), DispatchError&gt; {
+		<span class="kw">let </span>(a, b) = &lt;F <span class="kw">as </span>fungibles::Balanced&lt;AccountId&gt;&gt;::pair(A::get(), amount)<span class="question-mark">?</span>;
+		<span class="prelude-val">Ok</span>((imbalance::from_fungibles(a), imbalance::from_fungibles(b)))
 	}
 	<span class="kw">fn </span>rescind(amount: <span class="self">Self</span>::Balance) -&gt; Debt&lt;AccountId, <span class="self">Self</span>&gt; {
 		<span class="kw">let </span>debt = &lt;F <span class="kw">as </span>fungibles::Balanced&lt;AccountId&gt;&gt;::rescind(A::get(), amount);
