@@ -80,8 +80,8 @@ use futures::{
 
 use error::{Error, FatalResult};
 use polkadot_node_primitives::{
-	AvailableData, InvalidCandidate, PoV, SignedFullStatementWithPVD, StatementWithPVD,
-	ValidationResult,
+	approval::WorkRateLimiter, AvailableData, InvalidCandidate, PoV, SignedFullStatementWithPVD,
+	StatementWithPVD, ValidationResult,
 };
 use polkadot_node_subsystem::{
 	messages::{
@@ -103,6 +103,7 @@ use polkadot_node_subsystem_util::{
 	},
 	Validator,
 };
+use polkadot_parachain_primitives::primitives::IsSystem;
 use polkadot_primitives::{
 	BackedCandidate, CandidateCommitments, CandidateHash, CandidateReceipt,
 	CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, Hash, Id as ParaId,
@@ -279,6 +280,9 @@ struct State {
 	background_validation_tx: mpsc::Sender<(Hash, ValidatedCandidateCommand)>,
 	/// The handle to the keystore used for signing.
 	keystore: KeystorePtr,
+	/// A work rate limiter, it is used by `ApprovalDistributionSubsystem` to inform backing
+	/// subsytem it is overloaded and it should refrain from creating new work.
+	rate_limit: WorkRateLimiter,
 }
 
 impl State {
@@ -293,6 +297,7 @@ impl State {
 			per_candidate: HashMap::new(),
 			background_validation_tx,
 			keystore,
+			rate_limit: WorkRateLimiter::default(),
 		}
 	}
 }
@@ -745,9 +750,18 @@ async fn handle_communication<Context>(
 	metrics: &Metrics,
 ) -> Result<(), Error> {
 	match message {
-		CandidateBackingMessage::Second(_relay_parent, candidate, pvd, pov) => {
-			handle_second_message(ctx, state, candidate, pvd, pov, metrics).await?;
-		},
+		CandidateBackingMessage::Second(_relay_parent, candidate, pvd, pov) =>
+			if !state.rate_limit.rate_limited(candidate.hash().as_bytes()[0]) ||
+				candidate.descriptor.para_id.is_system()
+			{
+				handle_second_message(ctx, state, candidate, pvd, pov, metrics).await?;
+			} else {
+				gum::info!(
+					target: LOG_TARGET,
+					slow_down = ?state.rate_limit,
+					"Back-off from backing because approval distribution is loaded"
+				);
+			},
 		CandidateBackingMessage::Statement(relay_parent, statement) => {
 			handle_statement_message(ctx, state, relay_parent, statement, metrics).await?;
 		},
@@ -755,6 +769,9 @@ async fn handle_communication<Context>(
 			handle_get_backed_candidates_message(state, requested_candidates, tx, metrics)?,
 		CandidateBackingMessage::CanSecond(request, tx) =>
 			handle_can_second_request(ctx, state, request, tx).await,
+		CandidateBackingMessage::RateLimitBacking(rate_limit) => {
+			state.rate_limit = rate_limit;
+		},
 	}
 
 	Ok(())

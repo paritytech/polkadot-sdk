@@ -35,6 +35,7 @@ use polkadot_node_primitives::{
 	approval::{
 		v1::BlockApprovalMeta,
 		v2::{CandidateBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2},
+		WorkRateLimiter,
 	},
 	AvailableData, BabeEpoch, BlockWeight, CandidateVotes, CollationGenerationConfig,
 	CollationSecondedSignal, DisputeMessage, DisputeStatus, ErasureChunk, PoV,
@@ -98,6 +99,9 @@ pub enum CandidateBackingMessage {
 	/// Disputes Subsystem, though that escalation is deferred until the approval voting stage to
 	/// guarantee availability. Agreements are simply tallied until a quorum is reached.
 	Statement(Hash, SignedFullStatementWithPVD),
+	/// Rate limit backing, it is used by approval-distribution to slow-down backing subsytem when
+	/// it is overloaded.
+	RateLimitBacking(WorkRateLimiter),
 }
 
 /// Blanket error for validation failing for internal reasons.
@@ -825,8 +829,6 @@ pub enum ProvisionerMessage {
 	RequestInherentData(Hash, oneshot::Sender<ProvisionerInherentData>),
 	/// This data should become part of a relay chain block
 	ProvisionableData(Hash, ProvisionableData),
-	/// Approval checking lag update measured in blocks.
-	ApprovalCheckingLagUpdate(BlockNumber),
 }
 
 /// Message to the Collation Generation subsystem.

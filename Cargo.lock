@@ -4123,7 +4123,7 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-service",
  "polkadot-test-client",
- "prioritized-metered-channel",
+ "prioritized-metered-channel 0.5.1",
  "sc-cli",
  "sc-client-api",
  "sc-sysinfo",
@@ -8987,8 +8987,7 @@ checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 [[package]]
 name = "orchestra"
 version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46d78e1deb2a8d54fc1f063a544130db4da31dfe4d5d3b493186424910222a76"
+source = "git+https://github.com/paritytech/orchestra?branch=alexggh/expose_meters#0bcf7b7a05da7b5770824fee83794b5443f01e19"
 dependencies = [
  "async-trait",
  "dyn-clonable",
@@ -8996,7 +8995,7 @@ dependencies = [
  "futures-timer",
  "orchestra-proc-macro",
  "pin-project",
- "prioritized-metered-channel",
+ "prioritized-metered-channel 0.5.0",
  "thiserror",
  "tracing",
 ]
@@ -9004,8 +9003,7 @@ dependencies = [
 [[package]]
 name = "orchestra-proc-macro"
 version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d035b1f968d91a826f2e34a9d6d02cb2af5aa7ca39ebd27922d850ab4b2dd2c6"
+source = "git+https://github.com/paritytech/orchestra?branch=alexggh/expose_meters#0bcf7b7a05da7b5770824fee83794b5443f01e19"
 dependencies = [
  "expander 2.0.0",
  "indexmap 2.0.0",
@@ -12480,6 +12478,7 @@ dependencies = [
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
  "polkadot-node-subsystem-util",
+ "polkadot-parachain-primitives",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
  "polkadot-statement-table",
@@ -12847,7 +12846,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-primitives",
  "polkadot-test-service",
- "prioritized-metered-channel",
+ "prioritized-metered-channel 0.5.1",
  "prometheus-parse",
  "sc-cli",
  "sc-service",
@@ -12995,7 +12994,7 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
- "prioritized-metered-channel",
+ "prioritized-metered-channel 0.5.1",
  "rand 0.8.5",
  "sc-client-api",
  "schnellru",
@@ -13025,7 +13024,7 @@ dependencies = [
  "polkadot-node-subsystem-types",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
- "prioritized-metered-channel",
+ "prioritized-metered-channel 0.5.1",
  "sc-client-api",
  "sp-api",
  "sp-core",
@@ -14019,6 +14018,21 @@ dependencies = [
  "impl-serde",
  "scale-info",
  "uint",
+]
+
+[[package]]
+name = "prioritized-metered-channel"
+version = "0.5.0"
+source = "git+https://github.com/paritytech/orchestra?branch=alexggh/expose_meters#0bcf7b7a05da7b5770824fee83794b5443f01e19"
+dependencies = [
+ "coarsetime",
+ "crossbeam-queue",
+ "derive_more",
+ "futures",
+ "futures-timer",
+ "nanorand",
+ "thiserror",
+ "tracing",
 ]
 
 [[package]]

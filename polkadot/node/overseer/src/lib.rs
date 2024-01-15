@@ -105,10 +105,10 @@ pub use polkadot_node_metrics::{
 
 pub use orchestra as gen;
 pub use orchestra::{
-	contextbounds, orchestra, subsystem, FromOrchestra, MapSubsystem, MessagePacket,
-	OrchestraError as OverseerError, SignalsReceived, Spawner, Subsystem, SubsystemContext,
-	SubsystemIncomingMessages, SubsystemInstance, SubsystemMeterReadouts, SubsystemMeters,
-	SubsystemSender, TimeoutExt, ToOrchestra, TrySendError,
+	contextbounds, metered::Meter, orchestra, subsystem, FromOrchestra, MapSubsystem,
+	MessagePacket, OrchestraError as OverseerError, SignalsReceived, Spawner, Subsystem,
+	SubsystemContext, SubsystemIncomingMessages, SubsystemInstance, SubsystemMeterReadouts,
+	SubsystemMeters, SubsystemSender, TimeoutExt, ToOrchestra, TrySendError,
 };
 
 #[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
@@ -580,6 +580,7 @@ pub struct Overseer<SupportsParachains> {
 	#[subsystem(blocking, message_capacity: 64000, ApprovalDistributionMessage, sends: [
 		NetworkBridgeTxMessage,
 		ApprovalVotingMessage,
+		CandidateBackingMessage,
 	])]
 	approval_distribution: ApprovalDistribution,
 

@@ -16,6 +16,8 @@
 
 //! Types relevant for approval.
 
+use std::cmp::min;
+
 /// A list of primitives introduced in v1.
 pub mod v1 {
 	use sp_consensus_babe as babe_primitives;
@@ -530,9 +532,43 @@ pub mod v2 {
 	}
 }
 
+/// A uber-simple rate limiter, that returns based on a work_id if should
+/// rate limited or not, it provides and exponential rate limiting once we
+/// are past the tolerated pending items.
+#[derive(Debug, Default)]
+pub struct WorkRateLimiter {
+	level: u32,
+}
+// Max level
+const MAX_LEVEL: u32 = 8;
+
+impl WorkRateLimiter {
+	/// Builds a new WorkRateLimiter out of
+	/// `num_pending_items` - the number of working items waiting for processing.
+	/// `tolerated_pending_items` - acceptable peding_items, when pending items
+	///  is bellow this level, no rate limited is required.
+	/// `level_width` - the number of peding_items each level covers.
+	pub fn new(num_pending_items: u32, tolerated_pending_items: u32, level_width: u32) -> Self {
+		let level = if num_pending_items > tolerated_pending_items {
+			1 + (num_pending_items - tolerated_pending_items) / level_width
+		} else {
+			0
+		};
+
+		WorkRateLimiter { level: min(level, MAX_LEVEL) }
+	}
+
+	/// Returns true if the items should be rate limited and false otherwise.
+	pub fn rate_limited(&self, item_identifier: u8) -> bool {
+		item_identifier as u32 % u32::pow(2, self.level) != 0
+	}
+}
 #[cfg(test)]
 mod test {
-	use super::v2::{BitIndex, Bitfield};
+	use super::{
+		v2::{BitIndex, Bitfield},
+		WorkRateLimiter,
+	};
 
 	use polkadot_primitives::{CandidateIndex, CoreIndex};
 
@@ -581,5 +617,27 @@ mod test {
 		assert!(bitfield.bit_at(BitIndex(20)));
 		assert_eq!(bitfield.inner_mut().count_ones(), 1);
 		assert_eq!(bitfield.len(), 21);
+	}
+
+	#[test]
+	fn test_work_rate_limiter() {
+		let slow_down = WorkRateLimiter::new(200, 40, 12);
+		assert!(!slow_down.rate_limited(0));
+		assert!(slow_down.rate_limited(1));
+		assert!(slow_down.rate_limited(3));
+		assert!(slow_down.rate_limited(255));
+
+		let slow_down = WorkRateLimiter::new(450, 40, 12);
+		assert!(slow_down.rate_limited(255));
+
+		let slow_down = WorkRateLimiter::new(40, 40, 12);
+		assert!(!slow_down.rate_limited(0));
+		assert!(!slow_down.rate_limited(1));
+		assert!(!slow_down.rate_limited(2));
+
+		let slow_down = WorkRateLimiter::new(0, 40, 12);
+		assert!(!slow_down.rate_limited(0));
+		assert!(!slow_down.rate_limited(1));
+		assert!(!slow_down.rate_limited(2));
 	}
 }

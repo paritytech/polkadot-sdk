@@ -41,13 +41,14 @@ use polkadot_node_primitives::approval::{
 		AsBitIndex, AssignmentCertKindV2, CandidateBitfield, IndirectAssignmentCertV2,
 		IndirectSignedApprovalVoteV2,
 	},
+	WorkRateLimiter,
 };
 use polkadot_node_subsystem::{
 	messages::{
 		ApprovalCheckResult, ApprovalDistributionMessage, ApprovalVotingMessage,
-		AssignmentCheckResult, NetworkBridgeEvent, NetworkBridgeTxMessage,
+		AssignmentCheckResult, CandidateBackingMessage, NetworkBridgeEvent, NetworkBridgeTxMessage,
 	},
-	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
+	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemSender,
 };
 use polkadot_node_subsystem_util::reputation::{ReputationAggregator, REPUTATION_CHANGE_INTERVAL};
 use polkadot_primitives::{
@@ -2287,6 +2288,15 @@ async fn modify_reputation(
 	reputation.modify(sender, peer_id, rep).await;
 }
 
+// Normally for 100 parachains and 500 validator, would generate around
+// 3000 assignments and 3000 approval per block, so having 20_000 waiting
+// in the queue is not a good sign, it means we are falling back on work
+// and we need to back-off from creating new work untill we caught up.
+const TOLERATED_PENDING_MESSAGES: u32 = 20_000;
+/// The number of messages for each slowing down level, we need to fastly react
+/// if we are past the tipping point, so that quickly recover/catch up.
+const LEVEL_WIDTH: u32 = 3_000;
+
 #[overseer::contextbounds(ApprovalDistribution, prefix = self::overseer)]
 impl ApprovalDistribution {
 	/// Create a new instance of the [`ApprovalDistribution`] subsystem.
@@ -2314,12 +2324,31 @@ impl ApprovalDistribution {
 		let new_reputation_delay = || futures_timer::Delay::new(reputation_interval).fuse();
 		let mut reputation_delay = new_reputation_delay();
 
+		let new_workload = || futures_timer::Delay::new(Duration::from_secs(1)).fuse();
+		let mut workload_update = new_workload();
+
 		loop {
 			select! {
 				_ = reputation_delay => {
 					state.reputation.send(ctx.sender()).await;
 					reputation_delay = new_reputation_delay();
 				},
+				_ = workload_update => {
+					let num_in_bounded_queue = ctx.bounded_meter().num_in_queue() as u32;
+					let num_in_unbounded_queue = ctx.unbounded_meter().num_in_queue() as u32;
+					gum::trace!(target: LOG_TARGET, ?num_in_bounded_queue, ?num_in_unbounded_queue, "Messages in the queue");
+
+					ctx.sender().send_message(
+						CandidateBackingMessage::RateLimitBacking(
+							WorkRateLimiter::new(
+								num_in_bounded_queue + num_in_unbounded_queue,
+								TOLERATED_PENDING_MESSAGES,
+								LEVEL_WIDTH
+							)
+						)
+					).await;
+					workload_update = new_workload();
+				}
 				message = ctx.recv().fuse() => {
 					let message = match message {
 						Ok(message) => message,
