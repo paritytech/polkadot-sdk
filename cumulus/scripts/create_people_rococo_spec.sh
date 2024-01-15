@@ -41,14 +41,10 @@ cat chain-spec-plain.json | jq --rawfile code rt-hex.txt '.genesis.runtimeGenesi
     | jq '.id = "people-rococo"' \
     | jq '.chainType = "Live"' \
     | jq '.bootNodes = [
-		"/dns/rococo-people-collator-node-0.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWDZg5jMYhKXTu6RU491V5sxsFnP4oaEmZJEUfcRkYzps5",
-		"/dns/rococo-people-collator-node-0.parity-testnet.parity.io/tcp/443/wss/p2p/12D3KooWDZg5jMYhKXTu6RU491V5sxsFnP4oaEmZJEUfcRkYzps5",
-		"/dns/rococo-people-collator-node-1.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWGGR5i6qQqfo7iDNp7vjDRKPWuDk53idGV6nFLwS12X5H",
-		"/dns/rococo-people-collator-node-1.parity-testnet.parity.io/tcp/443/wss/p2p/12D3KooWGGR5i6qQqfo7iDNp7vjDRKPWuDk53idGV6nFLwS12X5H",
-		"/dns/rococo-people-collator-node-2.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWBvA9BmBfrsVMcAcqVXGYFCpMTvkSk2igNXpmoareYbeT",
-		"/dns/rococo-people-collator-node-2.parity-testnet.parity.io/tcp/443/wss/p2p/12D3KooWBvA9BmBfrsVMcAcqVXGYFCpMTvkSk2igNXpmoareYbeT",
-		"/dns/rococo-people-collator-node-3.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWQ7Q9jLcJTPXy7KEp5hSZ8YMY9pHx9CnQVz3T8TKQ81UG",
-		"/dns/rococo-people-collator-node-3.parity-testnet.parity.io/tcp/443/wss/p2p/12D3KooWQ7Q9jLcJTPXy7KEp5hSZ8YMY9pHx9CnQVz3T8TKQ81UG"
+        "/dns/rococo-people-collator-node-0.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWDZg5jMYhKXTu6RU491V5sxsFnP4oaEmZJEUfcRkYzps5",
+        "/dns/rococo-people-collator-node-0.parity-testnet.parity.io/tcp/443/wss/p2p/12D3KooWDZg5jMYhKXTu6RU491V5sxsFnP4oaEmZJEUfcRkYzps5",
+        "/dns/rococo-people-collator-node-1.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWGGR5i6qQqfo7iDNp7vjDRKPWuDk53idGV6nFLwS12X5H",
+        "/dns/rococo-people-collator-node-1.parity-testnet.parity.io/tcp/443/wss/p2p/12D3KooWGGR5i6qQqfo7iDNp7vjDRKPWuDk53idGV6nFLwS12X5H"
 	]' \
     | jq '.relay_chain = "rococo"' \
     | jq --argjson para_id $para_id '.para_id = $para_id' \
@@ -56,9 +52,7 @@ cat chain-spec-plain.json | jq --rawfile code rt-hex.txt '.genesis.runtimeGenesi
     | jq '.genesis.runtimeGenesis.patch.balances.balances = []' \
     | jq '.genesis.runtimeGenesis.patch.collatorSelection.invulnerables = [
 		"5Gnjmw1iuF2kV4PecFgetJed7B8quBKfLiRM99ELcXvFH9Vn",
-		"5FLZRxyeRPhG69zo4ZPqCJSYboSKaRBUjBvQc1nkuWoBpZ5P",
-		"5DNnmPH2MT6SXpfqbJZbTz4eERmuZegssfxc4ysL8PWrHaNN",
-		"5DkKcSP5MboNMpXScW1CyRqaktKMXH8QLP4Mn49TwS5vhL6k"
+		"5FLZRxyeRPhG69zo4ZPqCJSYboSKaRBUjBvQc1nkuWoBpZ5P"
 	]' \
     | jq '.genesis.runtimeGenesis.patch.session.keys = [
             [
@@ -73,20 +67,6 @@ cat chain-spec-plain.json | jq --rawfile code rt-hex.txt '.genesis.runtimeGenesi
                 "5FLZRxyeRPhG69zo4ZPqCJSYboSKaRBUjBvQc1nkuWoBpZ5P",
                     {
                         "aura": "5FLZRxyeRPhG69zo4ZPqCJSYboSKaRBUjBvQc1nkuWoBpZ5P"
-                    }
-            ],
-            [
-                "5DNnmPH2MT6SXpfqbJZbTz4eERmuZegssfxc4ysL8PWrHaNN",
-                "5DNnmPH2MT6SXpfqbJZbTz4eERmuZegssfxc4ysL8PWrHaNN",
-                    {
-                        "aura": "5DNnmPH2MT6SXpfqbJZbTz4eERmuZegssfxc4ysL8PWrHaNN"
-                    }
-            ],
-            [
-                "5DkKcSP5MboNMpXScW1CyRqaktKMXH8QLP4Mn49TwS5vhL6k",
-                "5DkKcSP5MboNMpXScW1CyRqaktKMXH8QLP4Mn49TwS5vhL6k",
-                    {
-                        "aura": "5DkKcSP5MboNMpXScW1CyRqaktKMXH8QLP4Mn49TwS5vhL6k"
                     }
             ]
         ]' \
