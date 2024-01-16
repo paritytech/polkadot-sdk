@@ -10,6 +10,9 @@ description = "Substrate runtime interface"
 documentation = "https://docs.rs/sp-runtime-interface/"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
@@ -32,7 +35,7 @@ sp-state-machine = { path = "../state-machine" }
 sp-core = { path = "../core" }
 sp-io = { path = "../io" }
 rustversion = "1.0.6"
-trybuild = "1.0.74"
+trybuild = "1.0.88"
 
 [features]
 default = ["std"]

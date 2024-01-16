@@ -9,11 +9,14 @@ repository.workspace = true
 description = "Collection of common consensus specific imlementations for Substrate (client)"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-async-trait = "0.1.57"
+async-trait = "0.1.74"
 futures = { version = "0.3.21", features = ["thread-pool"] }
 futures-timer = "3.0.1"
 libp2p-identity = { version = "0.1.3", features = ["ed25519", "peerid"] }
