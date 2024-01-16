@@ -62,7 +62,7 @@ fn send_rocs_from_asset_hub_rococo_to_asset_hub_westend() {
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::create_pool(
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
-			Box::new(Parent.into()),
+			Box::new(xcm::v3::Parent.into()),
 			Box::new(roc_at_asset_hub_westend),
 		));
 
@@ -75,7 +75,7 @@ fn send_rocs_from_asset_hub_rococo_to_asset_hub_westend() {
 
 		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::add_liquidity(
 			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
-			Box::new(Parent.into()),
+			Box::new(xcm::v3::Parent.into()),
 			Box::new(roc_at_asset_hub_westend),
 			1_000_000_000_000,
 			2_000_000_000_000,

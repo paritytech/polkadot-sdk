@@ -61,7 +61,7 @@ fn send_wnds_from_asset_hub_westend_to_asset_hub_rococo() {
 
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::create_pool(
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
-			Box::new(Parent.into()),
+			Box::new(xcm::v3::Parent.into()),
 			Box::new(wnd_at_asset_hub_rococo),
 		));
 
@@ -74,7 +74,7 @@ fn send_wnds_from_asset_hub_westend_to_asset_hub_rococo() {
 
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::add_liquidity(
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
-			Box::new(Parent.into()),
+			Box::new(xcm::v3::Parent.into()),
 			Box::new(wnd_at_asset_hub_rococo),
 			1_000_000_000_000,
 			2_000_000_000_000,

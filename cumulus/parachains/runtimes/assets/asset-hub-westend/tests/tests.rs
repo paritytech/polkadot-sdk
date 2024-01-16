@@ -20,13 +20,13 @@
 use asset_hub_westend_runtime::{
 	xcm_config,
 	xcm_config::{
-		bridging, ForeignCreatorsSovereignAccountOf, LocationToAccountId, WestendLocation,
+		bridging, ForeignCreatorsSovereignAccountOf, LocationToAccountId, WestendLocation, WestendLocationV3,
 	},
 	AllPalletsWithoutSystem, MetadataDepositBase, MetadataDepositPerByte, PolkadotXcm, RuntimeCall,
 	RuntimeEvent, RuntimeOrigin, ToRococoXcmRouterInstance, XcmpQueue,
 };
 pub use asset_hub_westend_runtime::{
-	xcm_config::{CheckingAccount, TrustBackedAssetsPalletLocation, XcmConfig},
+	xcm_config::{CheckingAccount, TrustBackedAssetsPalletLocation, TrustBackedAssetsPalletLocationV3, XcmConfig},
 	AssetConversion, AssetDeposit, Assets, Balances, CollatorSelection, ExistentialDeposit,
 	ForeignAssets, ForeignAssetsInstance, ParachainSystem, Runtime, SessionKeys, System,
 	TrustBackedAssetsInstance,
@@ -57,6 +57,9 @@ use xcm_executor::traits::{JustTry, WeightTrader};
 
 const ALICE: [u8; 32] = [1u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
+
+type AssetIdForTrustBackedAssetsConvert =
+	assets_common::AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocationV3>;
 
 type AssetIdForTrustBackedAssetsConvertLatest =
 	assets_common::AssetIdForTrustBackedAssetsConvertLatest<TrustBackedAssetsPalletLocation>;
@@ -102,7 +105,7 @@ fn test_buy_and_refund_weight_in_native() {
 			let fee = WeightToFee::weight_to_fee(&weight);
 			let extra_amount = 100;
 			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
-			let payment: MultiAsset = (native_location, fee + extra_amount).into();
+			let payment: Asset = (native_location.clone(), fee + extra_amount).into();
 
 			// init trader and buy weight.
 			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
@@ -111,7 +114,7 @@ fn test_buy_and_refund_weight_in_native() {
 
 			// assert.
 			let unused_amount =
-				unused_asset.fungible.get(&native_location.into()).map_or(0, |a| *a);
+				unused_asset.fungible.get(&native_location.clone().into()).map_or(0, |a| *a);
 			assert_eq!(unused_amount, extra_amount);
 			assert_eq!(Balances::total_issuance(), total_issuance);
 
@@ -147,7 +150,7 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 			let bob: AccountId = SOME_ASSET_ADMIN.into();
 			let staking_pot = CollatorSelection::account_id();
 			let asset_1: u32 = 1;
-			let native_location = WestendLocation::get();
+			let native_location = WestendLocationV3::get();
 			let asset_1_location =
 				AssetIdForTrustBackedAssetsConvert::convert_back(&asset_1).unwrap();
 			// bob's initial balance for native and `asset1` assets.
@@ -183,6 +186,8 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 			let asset_total_issuance = Assets::total_issuance(asset_1);
 			let native_total_issuance = Balances::total_issuance();
 
+			let asset_1_location_latest: Location = asset_1_location.clone().try_into().unwrap();
+
 			// prepare input to buy weight.
 			let weight = Weight::from_parts(4_000_000_000, 0);
 			let fee = WeightToFee::weight_to_fee(&weight);
@@ -190,7 +195,7 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 				AssetConversion::get_amount_in(&fee, &pool_liquidity, &pool_liquidity).unwrap();
 			let extra_amount = 100;
 			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
-			let payment: MultiAsset = (asset_1_location, asset_fee + extra_amount).into();
+			let payment: Asset = (asset_1_location_latest.clone(), asset_fee + extra_amount).into();
 
 			// init trader and buy weight.
 			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
@@ -199,7 +204,7 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 
 			// assert.
 			let unused_amount =
-				unused_asset.fungible.get(&asset_1_location.into()).map_or(0, |a| *a);
+				unused_asset.fungible.get(&asset_1_location_latest.clone().into()).map_or(0, |a| *a);
 			assert_eq!(unused_amount, extra_amount);
 			assert_eq!(Assets::total_issuance(asset_1), asset_total_issuance + asset_fee);
 
@@ -213,7 +218,7 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 
 			// refund.
 			let actual_refund = trader.refund_weight(refund_weight, &ctx).unwrap();
-			assert_eq!(actual_refund, (asset_1_location, asset_refund).into());
+			assert_eq!(actual_refund, (asset_1_location_latest, asset_refund).into());
 
 			// assert.
 			assert_eq!(Balances::balance(&staking_pot), initial_balance);
@@ -242,9 +247,9 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 		.execute_with(|| {
 			let bob: AccountId = SOME_ASSET_ADMIN.into();
 			let staking_pot = CollatorSelection::account_id();
-			let native_location = WestendLocation::get();
+			let native_location = WestendLocationV3::get();
 			let foreign_location =
-				MultiLocation { parents: 1, interior: X2(Parachain(1234), GeneralIndex(12345)) };
+				xcm::v3::Location { parents: 1, interior: (xcm::v3::Junction::Parachain(1234), xcm::v3::Junction::GeneralIndex(12345)).into() };
 			// bob's initial balance for native and `asset1` assets.
 			let initial_balance = 200 * UNITS;
 			// liquidity for both arms of (native, asset1) pool.
@@ -283,6 +288,8 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 			let asset_total_issuance = ForeignAssets::total_issuance(foreign_location);
 			let native_total_issuance = Balances::total_issuance();
 
+			let foreign_location_latest: Location = foreign_location.clone().try_into().unwrap();
+
 			// prepare input to buy weight.
 			let weight = Weight::from_parts(4_000_000_000, 0);
 			let fee = WeightToFee::weight_to_fee(&weight);
@@ -290,7 +297,7 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 				AssetConversion::get_amount_in(&fee, &pool_liquidity, &pool_liquidity).unwrap();
 			let extra_amount = 100;
 			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
-			let payment: MultiAsset = (foreign_location, asset_fee + extra_amount).into();
+			let payment: Asset = (foreign_location_latest.clone(), asset_fee + extra_amount).into();
 
 			// init trader and buy weight.
 			let mut trader = <XcmConfig as xcm_executor::Config>::Trader::new();
@@ -299,7 +306,7 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 
 			// assert.
 			let unused_amount =
-				unused_asset.fungible.get(&foreign_location.into()).map_or(0, |a| *a);
+				unused_asset.fungible.get(&foreign_location_latest.clone().into()).map_or(0, |a| *a);
 			assert_eq!(unused_amount, extra_amount);
 			assert_eq!(
 				ForeignAssets::total_issuance(foreign_location),
@@ -316,7 +323,7 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 
 			// refund.
 			let actual_refund = trader.refund_weight(refund_weight, &ctx).unwrap();
-			assert_eq!(actual_refund, (foreign_location, asset_refund).into());
+			assert_eq!(actual_refund, (foreign_location_latest, asset_refund).into());
 
 			// assert.
 			assert_eq!(Balances::balance(&staking_pot), initial_balance);

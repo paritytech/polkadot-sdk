@@ -273,10 +273,10 @@ fn cannot_create_pool_from_pool_assets() {
 
 #[test]
 fn pay_xcm_fee_with_some_asset_swapped_for_native() {
-	let asset_native = asset_hub_westend_runtime::xcm_config::WestendLocation::get();
-	let asset_one = MultiLocation {
+	let asset_native = asset_hub_westend_runtime::xcm_config::WestendLocationV3::get();
+	let asset_one = xcm::v3::Location {
 		parents: 0,
-		interior: X2(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())),
+		interior: [xcm::v3::Junction::PalletInstance(ASSETS_PALLET_ID), xcm::v3::Junction::GeneralIndex(ASSET_ID.into())].into(),
 	};
 	let penpal = AssetHubWestend::sovereign_account_id_of(AssetHubWestend::sibling_location_of(
 		PenpalB::para_id(),
@@ -365,7 +365,7 @@ fn pay_xcm_fee_with_some_asset_swapped_for_native() {
 		let penpal_root = <PenpalB as Chain>::RuntimeOrigin::root();
 		let fee_amount = 4_000_000_000_000u128;
 		let asset_one =
-			(X2(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())), fee_amount)
+			([PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())], fee_amount)
 				.into();
 		let asset_hub_location = PenpalB::sibling_location_of(AssetHubWestend::para_id()).into();
 		let xcm = xcm_transact_paid_execution(

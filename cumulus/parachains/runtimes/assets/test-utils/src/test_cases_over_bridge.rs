@@ -532,11 +532,13 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::xcm_max_weight(
 					XcmReceivedFrom::Sibling,
 				),
-				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::xcm_max_weight(
-					XcmReceivedFrom::Sibling,
-				),
+				Weight::zero(),
 			);
 			assert_ok!(outcome.ensure_complete());
+
+			log::info!(target: "xcm", "Staking pot: {:?}", staking_pot);
+			log::info!(target: "xcm", "Free balance: {:?}", <pallet_balances::Pallet<Runtime>>::free_balance(&staking_pot));
+			log::info!(target: "xcm", "Existential deposit: {:?}", existential_deposit);
 
 			// Balances after
 			// staking pot receives xcm fees in dot
@@ -633,7 +635,7 @@ pub fn report_bridge_status_from_xcm_bridge_router_works<
 					xcm,
 					&mut hash,
 					RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::xcm_max_weight(XcmReceivedFrom::Sibling),
-					RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::xcm_max_weight(XcmReceivedFrom::Sibling),
+					Weight::zero(),
 				);
 				assert_ok!(outcome.ensure_complete());
 				assert_eq!(is_congested, pallet_xcm_bridge_hub_router::Pallet::<Runtime, XcmBridgeHubRouterInstance>::bridge().is_congested);

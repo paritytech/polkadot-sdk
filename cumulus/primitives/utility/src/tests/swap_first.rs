@@ -18,18 +18,18 @@ use crate::*;
 use frame_support::{parameter_types, traits::fungibles::Inspect};
 use mock::{setup_pool, AccountId, AssetId, Balance, Fungibles};
 use xcm::latest::AssetId as XcmAssetId;
-use xcm_executor::Assets as HoldingAsset;
+use xcm_executor::AssetsInHolding;
 
-fn create_holding_asset(asset_id: AssetId, amount: Balance) -> HoldingAsset {
+fn create_holding_asset(asset_id: AssetId, amount: Balance) -> AssetsInHolding {
 	create_asset(asset_id, amount).into()
 }
 
-fn create_asset(asset_id: AssetId, amount: Balance) -> MultiAsset {
-	MultiAsset { id: create_asset_id(asset_id), fun: Fungible(amount) }
+fn create_asset(asset_id: AssetId, amount: Balance) -> Asset {
+	Asset { id: create_asset_id(asset_id), fun: Fungible(amount) }
 }
 
 fn create_asset_id(asset_id: AssetId) -> XcmAssetId {
-	Concrete(MultiLocation::new(0, X1(GeneralIndex(asset_id.into()))))
+	Concrete(Location::new(0, [GeneralIndex(asset_id.into())]))
 }
 
 fn xcm_context() -> XcmContext {
@@ -319,7 +319,7 @@ fn empty_holding_asset() {
 	let mut trader = Trader::new();
 	assert_eq!(
 		trader
-			.buy_weight(Weight::from_all(10), HoldingAsset::new(), &xcm_context())
+			.buy_weight(Weight::from_all(10), AssetsInHolding::new(), &xcm_context())
 			.unwrap_err(),
 		XcmError::AssetNotFound
 	);
@@ -329,7 +329,7 @@ fn empty_holding_asset() {
 fn fails_to_match_holding_asset() {
 	let mut trader = Trader::new();
 	let holding_asset =
-		MultiAsset { id: Concrete(MultiLocation::new(1, X1(Parachain(1)))), fun: Fungible(10) };
+		Asset { id: Concrete(Location::new(1, [Parachain(1)])), fun: Fungible(10) };
 	assert_eq!(
 		trader
 			.buy_weight(Weight::from_all(10), holding_asset.into(), &xcm_context())
@@ -536,13 +536,13 @@ pub mod mock {
 	pub struct FungiblesMatcher;
 	impl MatchesFungibles<AssetId, Balance> for FungiblesMatcher {
 		fn matches_fungibles(
-			a: &MultiAsset,
+			a: &Asset,
 		) -> core::result::Result<(AssetId, Balance), xcm_executor::traits::Error> {
 			match a {
-				MultiAsset {
+				Asset {
 					fun: Fungible(amount),
 					id:
-						Concrete(MultiLocation { parents: 0, interior: X1(Junction::GeneralIndex(id)) }),
+						Concrete(Location { parents: 0, interior: [Junction::GeneralIndex(id)] }),
 				} => Ok(((*id).try_into().unwrap(), *amount)),
 				_ => Err(xcm_executor::traits::Error::AssetNotHandled),
 			}

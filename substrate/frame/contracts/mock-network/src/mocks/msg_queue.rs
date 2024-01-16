@@ -105,7 +105,7 @@ pub mod pallet {
 						xcm,
 						&mut message_hash,
 						max_weight,
-						max_weight,
+						Weight::zero(),
 					) {
 						Outcome::Error { error } => (Err(error), Event::Fail(Some(hash), error)),
 						Outcome::Complete { used } => (Ok(used), Event::Success(Some(hash))),
@@ -167,7 +167,7 @@ pub mod pallet {
 								x.clone(),
 								&mut id,
 								limit,
-								limit,
+								Weight::zero(),
 							);
 							<ReceivedDmp<T>>::append(x);
 							Self::deposit_event(Event::ExecutedDownward(id, outcome));

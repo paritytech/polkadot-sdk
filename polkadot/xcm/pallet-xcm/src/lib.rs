@@ -300,7 +300,7 @@ pub mod pallet {
 				message,
 				&mut hash,
 				max_weight,
-				max_weight,
+				Weight::zero(),
 			);
 			Self::deposit_event(Event::Attempted { outcome: outcome.clone() });
 			Ok(outcome)
