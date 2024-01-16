@@ -306,7 +306,7 @@ fn restore_append_to_parent(
 			from_parent: _,
 		} => {
 			// head contains a data so this is a moved size.
-			debug_assert!(matches!(AppendData::MovedSize(_), parent_data));
+			debug_assert!(matches!(parent_data, AppendData::MovedSize(_)));
 			let AppendData::MovedSize(mut target_size) = parent_data else {
 				return;
 			};
