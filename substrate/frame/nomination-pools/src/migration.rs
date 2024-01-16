@@ -59,22 +59,7 @@ pub mod versioned {
 pub mod v8 {
 	use super::*;
 
-	#[derive(Decode)]
-	pub struct OldCommission<T: Config> {
-		pub current: Option<(Perbill, T::AccountId)>,
-		pub max: Option<Perbill>,
-		pub change_rate: Option<CommissionChangeRate<BlockNumberFor<T>>>,
-		pub throttle_from: Option<BlockNumberFor<T>>,
-	}
-
-	#[derive(Decode)]
-	pub struct OldBondedPoolInner<T: Config> {
-		pub commission: OldCommission<T>,
-		pub member_counter: u32,
-		pub points: BalanceOf<T>,
-		pub roles: PoolRoles<T::AccountId>,
-		pub state: PoolState,
-	}
+	use super::v7::{BondedPoolInner as OldBondedPoolInner, Commission as OldCommission};
 
 	impl<T: Config> OldBondedPoolInner<T> {
 		fn migrate_to_v8(self) -> BondedPoolInner<T> {
@@ -128,8 +113,48 @@ pub mod v8 {
 ///
 /// WARNING: This migration works under the assumption that the [`BondedPools`] cannot be inflated
 /// arbitrarily. Otherwise this migration could fail due to too high weight.
-mod v7 {
+pub(crate) mod v7 {
 	use super::*;
+
+	#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEq, Clone)]
+	#[codec(mel_bound(T: Config))]
+	#[scale_info(skip_type_params(T))]
+	pub struct Commission<T: Config> {
+		pub current: Option<(Perbill, T::AccountId)>,
+		pub max: Option<Perbill>,
+		pub change_rate: Option<CommissionChangeRate<BlockNumberFor<T>>>,
+		pub throttle_from: Option<BlockNumberFor<T>>,
+	}
+
+	#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEq, Clone)]
+	#[codec(mel_bound(T: Config))]
+	#[scale_info(skip_type_params(T))]
+	pub struct BondedPoolInner<T: Config> {
+		pub commission: Commission<T>,
+		pub member_counter: u32,
+		pub points: BalanceOf<T>,
+		pub roles: PoolRoles<T::AccountId>,
+		pub state: PoolState,
+	}
+
+	#[derive(RuntimeDebugNoBound)]
+	#[cfg_attr(feature = "std", derive(Clone, PartialEq))]
+	pub struct BondedPool<T: Config> {
+		/// The identifier of the pool.
+		id: PoolId,
+		/// The inner fields.
+		inner: BondedPoolInner<T>,
+	}
+
+	impl<T: Config> BondedPool<T> {
+		fn bonded_account(&self) -> T::AccountId {
+			Pallet::<T>::create_bonded_account(self.id)
+		}
+	}
+
+	#[frame_support::storage_alias]
+	pub type BondedPools<T: Config> =
+		CountedStorageMap<Pallet<T>, Twox64Concat, PoolId, BondedPoolInner<T>>;
 
 	pub struct VersionUncheckedMigrateV6ToV7<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> VersionUncheckedMigrateV6ToV7<T> {
