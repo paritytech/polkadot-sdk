@@ -17,7 +17,7 @@
 
 //! Basic implementation for Externalities.
 
-use crate::{ext::EXT_NOT_ALLOWED_TO_FAIL, Backend, OverlayedChanges, StorageKey, StorageValue};
+use crate::{Backend, OverlayedChanges, StorageKey, StorageValue};
 use codec::Encode;
 use hash_db::Hasher;
 use log::warn;
@@ -56,7 +56,7 @@ impl BasicExternalities {
 
 	/// Insert key/value
 	pub fn insert(&mut self, k: StorageKey, v: StorageValue) {
-		self.overlay.set_storage(k, Some(v)).expect(EXT_NOT_ALLOWED_TO_FAIL);
+		self.overlay.set_storage(k, Some(v));
 	}
 
 	/// Consume self and returns inner storages
@@ -198,7 +198,7 @@ impl Externalities for BasicExternalities {
 			return
 		}
 
-		self.overlay.set_storage(key, maybe_value).expect(EXT_NOT_ALLOWED_TO_FAIL);
+		self.overlay.set_storage(key, maybe_value)
 	}
 
 	fn place_child_storage(
@@ -207,9 +207,7 @@ impl Externalities for BasicExternalities {
 		key: StorageKey,
 		value: Option<StorageValue>,
 	) {
-		self.overlay
-			.set_child_storage(child_info, key, value)
-			.expect(EXT_NOT_ALLOWED_TO_FAIL);
+		self.overlay.set_child_storage(child_info, key, value);
 	}
 
 	fn kill_child_storage(
@@ -218,7 +216,7 @@ impl Externalities for BasicExternalities {
 		_maybe_limit: Option<u32>,
 		_maybe_cursor: Option<&[u8]>,
 	) -> MultiRemovalResults {
-		let count = self.overlay.clear_child_storage(child_info).expect(EXT_NOT_ALLOWED_TO_FAIL);
+		let count = self.overlay.clear_child_storage(child_info);
 		MultiRemovalResults { maybe_cursor: None, backend: count, unique: count, loops: count }
 	}
 
@@ -237,7 +235,7 @@ impl Externalities for BasicExternalities {
 			return MultiRemovalResults { maybe_cursor, backend: 0, unique: 0, loops: 0 }
 		}
 
-		let count = self.overlay.clear_prefix(prefix).expect(EXT_NOT_ALLOWED_TO_FAIL);
+		let count = self.overlay.clear_prefix(prefix);
 		MultiRemovalResults { maybe_cursor: None, backend: count, unique: count, loops: count }
 	}
 
@@ -248,10 +246,7 @@ impl Externalities for BasicExternalities {
 		_maybe_limit: Option<u32>,
 		_maybe_cursor: Option<&[u8]>,
 	) -> MultiRemovalResults {
-		let count = self
-			.overlay
-			.clear_child_prefix(child_info, prefix)
-			.expect(EXT_NOT_ALLOWED_TO_FAIL);
+		let count = self.overlay.clear_child_prefix(child_info, prefix);
 		MultiRemovalResults { maybe_cursor: None, backend: count, unique: count, loops: count }
 	}
 

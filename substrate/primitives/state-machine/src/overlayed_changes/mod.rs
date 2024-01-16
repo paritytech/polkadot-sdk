@@ -43,9 +43,7 @@ use std::{
 	boxed::Box,
 };
 
-pub use self::changeset::{
-	AlreadyInRuntime, AppendError, NotInRuntime, OverlayedValue, TransactionError,
-};
+pub use self::changeset::{AlreadyInRuntime, NoOpenTransaction, NotInRuntime, OverlayedValue};
 
 /// Changes that are made outside of extrinsics are marked with this index;
 pub const NO_EXTRINSIC_INDEX: u32 = 0xffffffff;
@@ -318,17 +316,13 @@ impl<H: Hasher> OverlayedChanges<H> {
 	/// Set a new value for the specified key.
 	///
 	/// Can be rolled back or committed when called inside a transaction.
-	pub fn set_storage(
-		&mut self,
-		key: StorageKey,
-		val: Option<StorageValue>,
-	) -> Result<(), AppendError> {
+	pub fn set_storage(&mut self, key: StorageKey, val: Option<StorageValue>) {
 		self.mark_dirty();
 
 		let size_write = val.as_ref().map(|x| x.len() as u64).unwrap_or(0);
 		self.stats.tally_write_overlay(size_write);
 		let extrinsic_index = self.extrinsic_index();
-		self.top.set(key, val, extrinsic_index)
+		self.top.set(key, val, extrinsic_index);
 	}
 
 	/// Append a value to encoded storage.
@@ -336,7 +330,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 		let extrinsic_index = self.extrinsic_index();
 		let size_write = val.len() as u64;
 		self.stats.tally_write_overlay(size_write);
-		self.top.append_storage(key, val, extrinsic_index)
+		self.top.append_storage(key, val, extrinsic_index);
 	}
 
 	/// Append a value to storage, init with existing value if first write.
@@ -345,11 +339,11 @@ impl<H: Hasher> OverlayedChanges<H> {
 		key: StorageKey,
 		val: StorageValue,
 		init: impl Fn() -> StorageValue,
-	) -> Result<(), AppendError> {
+	) {
 		let extrinsic_index = self.extrinsic_index();
 		let size_write = val.len() as u64;
 		self.stats.tally_write_overlay(size_write);
-		self.top.append_storage_init(key, val, init, extrinsic_index)
+		self.top.append_storage_init(key, val, init, extrinsic_index);
 	}
 
 	/// Set a new value for the specified key and child.
@@ -362,7 +356,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 		child_info: &ChildInfo,
 		key: StorageKey,
 		val: Option<StorageValue>,
-	) -> Result<(), AppendError> {
+	) {
 		self.mark_dirty();
 
 		let extrinsic_index = self.extrinsic_index();
@@ -376,13 +370,13 @@ impl<H: Hasher> OverlayedChanges<H> {
 			.or_insert_with(|| (top.spawn_child(), child_info.clone()));
 		let updatable = info.try_update(child_info);
 		debug_assert!(updatable);
-		changeset.set(key, val, extrinsic_index)
+		changeset.set(key, val, extrinsic_index);
 	}
 
 	/// Clear child storage of given storage key.
 	///
 	/// Can be rolled back or committed when called inside a transaction.
-	pub fn clear_child_storage(&mut self, child_info: &ChildInfo) -> Result<u32, AppendError> {
+	pub fn clear_child_storage(&mut self, child_info: &ChildInfo) -> u32 {
 		self.mark_dirty();
 
 		let extrinsic_index = self.extrinsic_index();
@@ -400,7 +394,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 	/// Removes all key-value pairs which keys share the given prefix.
 	///
 	/// Can be rolled back or committed when called inside a transaction.
-	pub fn clear_prefix(&mut self, prefix: &[u8]) -> Result<u32, AppendError> {
+	pub fn clear_prefix(&mut self, prefix: &[u8]) -> u32 {
 		self.mark_dirty();
 
 		let extrinsic_index = self.extrinsic_index();
@@ -410,11 +404,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 	/// Removes all key-value pairs which keys share the given prefix.
 	///
 	/// Can be rolled back or committed when called inside a transaction
-	pub fn clear_child_prefix(
-		&mut self,
-		child_info: &ChildInfo,
-		prefix: &[u8],
-	) -> Result<u32, AppendError> {
+	pub fn clear_child_prefix(&mut self, child_info: &ChildInfo, prefix: &[u8]) -> u32 {
 		self.mark_dirty();
 
 		let extrinsic_index = self.extrinsic_index();
@@ -457,7 +447,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 	///
 	/// Any changes made during that transaction are discarded. Returns an error if
 	/// there is no open transaction that can be rolled back.
-	pub fn rollback_transaction(&mut self) -> Result<(), TransactionError> {
+	pub fn rollback_transaction(&mut self) -> Result<(), NoOpenTransaction> {
 		self.mark_dirty();
 
 		self.top.rollback_transaction()?;
@@ -478,7 +468,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 	///
 	/// Any changes made during that transaction are committed. Returns an error if there
 	/// is no open transaction that can be committed.
-	pub fn commit_transaction(&mut self) -> Result<(), TransactionError> {
+	pub fn commit_transaction(&mut self) -> Result<(), NoOpenTransaction> {
 		self.top.commit_transaction()?;
 		for (_, (changeset, _)) in self.children.iter_mut() {
 			changeset
@@ -615,7 +605,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 	/// Inserts storage entry responsible for current extrinsic index.
 	#[cfg(test)]
 	pub(crate) fn set_extrinsic_index(&mut self, extrinsic_index: u32) {
-		self.top.set(EXTRINSIC_INDEX.to_vec(), Some(extrinsic_index.encode()), None).unwrap();
+		self.top.set(EXTRINSIC_INDEX.to_vec(), Some(extrinsic_index.encode()), None);
 	}
 
 	/// Returns current extrinsic index to use in changes trie construction.
@@ -706,8 +696,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 			// the trie backend for storage root.
 			// A better design would be to manage 'child_storage_transaction' in a
 			// similar way as 'storage_transaction' but for each child trie.
-			self.set_storage(prefixed_storage_key.into_inner(), (!is_empty).then(|| root.encode()))
-				.expect("Child trie root cannot be written with append");
+			self.set_storage(prefixed_storage_key.into_inner(), (!is_empty).then(|| root.encode()));
 
 			self.mark_dirty();
 
@@ -896,7 +885,7 @@ mod tests {
 
 		overlayed.start_transaction();
 
-		overlayed.set_storage(key.clone(), Some(vec![1, 2, 3])).unwrap();
+		overlayed.set_storage(key.clone(), Some(vec![1, 2, 3]));
 		assert_eq!(overlayed.storage(&key).unwrap(), Some(&[1, 2, 3][..]));
 
 		overlayed.commit_transaction().unwrap();
@@ -905,17 +894,17 @@ mod tests {
 
 		overlayed.start_transaction();
 
-		overlayed.set_storage(key.clone(), Some(vec![])).unwrap();
+		overlayed.set_storage(key.clone(), Some(vec![]));
 		assert_eq!(overlayed.storage(&key).unwrap(), Some(&[][..]));
 
-		overlayed.set_storage(key.clone(), None).unwrap();
+		overlayed.set_storage(key.clone(), None);
 		assert!(overlayed.storage(&key).unwrap().is_none());
 
 		overlayed.rollback_transaction().unwrap();
 
 		assert_eq!(overlayed.storage(&key).unwrap(), Some(&[1, 2, 3][..]));
 
-		overlayed.set_storage(key.clone(), None).unwrap();
+		overlayed.set_storage(key.clone(), None);
 		assert!(overlayed.storage(&key).unwrap().is_none());
 	}
 
@@ -991,14 +980,14 @@ mod tests {
 		let mut overlay = OverlayedChanges::default();
 
 		overlay.start_transaction();
-		overlay.set_storage(b"dog".to_vec(), Some(b"puppy".to_vec())).unwrap();
-		overlay.set_storage(b"dogglesworth".to_vec(), Some(b"catYYY".to_vec())).unwrap();
-		overlay.set_storage(b"doug".to_vec(), Some(vec![])).unwrap();
+		overlay.set_storage(b"dog".to_vec(), Some(b"puppy".to_vec()));
+		overlay.set_storage(b"dogglesworth".to_vec(), Some(b"catYYY".to_vec()));
+		overlay.set_storage(b"doug".to_vec(), Some(vec![]));
 		overlay.commit_transaction().unwrap();
 
 		overlay.start_transaction();
-		overlay.set_storage(b"dogglesworth".to_vec(), Some(b"cat".to_vec())).unwrap();
-		overlay.set_storage(b"doug".to_vec(), None).unwrap();
+		overlay.set_storage(b"dogglesworth".to_vec(), Some(b"cat".to_vec()));
+		overlay.set_storage(b"doug".to_vec(), None);
 
 		{
 			let mut ext = Ext::new(&mut overlay, &backend, None);
@@ -1010,7 +999,7 @@ mod tests {
 		}
 
 		// Check that the storage root is recalculated
-		overlay.set_storage(b"doug2".to_vec(), Some(b"yes".to_vec())).unwrap();
+		overlay.set_storage(b"doug2".to_vec(), Some(b"yes".to_vec()));
 
 		let mut ext = Ext::new(&mut overlay, &backend, None);
 		let root = "5c0a4e35cb967de785e1cb8743e6f24b6ff6d45155317f2078f6eb3fc4ff3e3d";
@@ -1025,12 +1014,12 @@ mod tests {
 		let backend = new_in_mem::<Blake2Hasher>();
 		let mut overlay = OverlayedChanges::<Blake2Hasher>::default();
 		overlay.start_transaction();
-		overlay.set_child_storage(child_info, vec![20], Some(vec![20])).unwrap();
-		overlay.set_child_storage(child_info, vec![30], Some(vec![30])).unwrap();
-		overlay.set_child_storage(child_info, vec![40], Some(vec![40])).unwrap();
+		overlay.set_child_storage(child_info, vec![20], Some(vec![20]));
+		overlay.set_child_storage(child_info, vec![30], Some(vec![30]));
+		overlay.set_child_storage(child_info, vec![40], Some(vec![40]));
 		overlay.commit_transaction().unwrap();
-		overlay.set_child_storage(child_info, vec![10], Some(vec![10])).unwrap();
-		overlay.set_child_storage(child_info, vec![30], None).unwrap();
+		overlay.set_child_storage(child_info, vec![10], Some(vec![10]));
+		overlay.set_child_storage(child_info, vec![30], None);
 
 		{
 			let mut ext = Ext::new(&mut overlay, &backend, None);
@@ -1059,16 +1048,16 @@ mod tests {
 
 		overlay.start_transaction();
 
-		overlay.set_storage(vec![100], Some(vec![101])).unwrap();
+		overlay.set_storage(vec![100], Some(vec![101]));
 
 		overlay.set_extrinsic_index(0);
-		overlay.set_storage(vec![1], Some(vec![2])).unwrap();
+		overlay.set_storage(vec![1], Some(vec![2]));
 
 		overlay.set_extrinsic_index(1);
-		overlay.set_storage(vec![3], Some(vec![4])).unwrap();
+		overlay.set_storage(vec![3], Some(vec![4]));
 
 		overlay.set_extrinsic_index(2);
-		overlay.set_storage(vec![1], Some(vec![6])).unwrap();
+		overlay.set_storage(vec![1], Some(vec![6]));
 
 		assert_extrinsics(&mut overlay.top, vec![1], vec![0, 2]);
 		assert_extrinsics(&mut overlay.top, vec![3], vec![1]);
@@ -1077,10 +1066,10 @@ mod tests {
 		overlay.start_transaction();
 
 		overlay.set_extrinsic_index(3);
-		overlay.set_storage(vec![3], Some(vec![7])).unwrap();
+		overlay.set_storage(vec![3], Some(vec![7]));
 
 		overlay.set_extrinsic_index(4);
-		overlay.set_storage(vec![1], Some(vec![8])).unwrap();
+		overlay.set_storage(vec![1], Some(vec![8]));
 
 		assert_extrinsics(&mut overlay.top, vec![1], vec![0, 2, 4]);
 		assert_extrinsics(&mut overlay.top, vec![3], vec![1, 3]);
@@ -1097,12 +1086,12 @@ mod tests {
 	fn next_storage_key_change_works() {
 		let mut overlay = OverlayedChanges::<Blake2Hasher>::default();
 		overlay.start_transaction();
-		overlay.set_storage(vec![20], Some(vec![20])).unwrap();
-		overlay.set_storage(vec![30], Some(vec![30])).unwrap();
-		overlay.set_storage(vec![40], Some(vec![40])).unwrap();
+		overlay.set_storage(vec![20], Some(vec![20]));
+		overlay.set_storage(vec![30], Some(vec![30]));
+		overlay.set_storage(vec![40], Some(vec![40]));
 		overlay.commit_transaction().unwrap();
-		overlay.set_storage(vec![10], Some(vec![10])).unwrap();
-		overlay.set_storage(vec![30], None).unwrap();
+		overlay.set_storage(vec![10], Some(vec![10]));
+		overlay.set_storage(vec![30], None);
 
 		// next_prospective < next_committed
 		let next_to_5 = overlay.iter_after(&[5]).next().unwrap();
@@ -1124,7 +1113,7 @@ mod tests {
 		assert_eq!(next_to_30.0.to_vec(), vec![40]);
 		assert_eq!(next_to_30.1.value(), Some(&vec![40]));
 
-		overlay.set_storage(vec![50], Some(vec![50])).unwrap();
+		overlay.set_storage(vec![50], Some(vec![50]));
 		// next_prospective, no next_committed
 		let next_to_40 = overlay.iter_after(&[40]).next().unwrap();
 		assert_eq!(next_to_40.0.to_vec(), vec![50]);
@@ -1138,12 +1127,12 @@ mod tests {
 		let child = child_info.storage_key();
 		let mut overlay = OverlayedChanges::<Blake2Hasher>::default();
 		overlay.start_transaction();
-		overlay.set_child_storage(child_info, vec![20], Some(vec![20])).unwrap();
-		overlay.set_child_storage(child_info, vec![30], Some(vec![30])).unwrap();
-		overlay.set_child_storage(child_info, vec![40], Some(vec![40])).unwrap();
+		overlay.set_child_storage(child_info, vec![20], Some(vec![20]));
+		overlay.set_child_storage(child_info, vec![30], Some(vec![30]));
+		overlay.set_child_storage(child_info, vec![40], Some(vec![40]));
 		overlay.commit_transaction().unwrap();
-		overlay.set_child_storage(child_info, vec![10], Some(vec![10])).unwrap();
-		overlay.set_child_storage(child_info, vec![30], None).unwrap();
+		overlay.set_child_storage(child_info, vec![10], Some(vec![10]));
+		overlay.set_child_storage(child_info, vec![30], None);
 
 		// next_prospective < next_committed
 		let next_to_5 = overlay.child_iter_after(child, &[5]).next().unwrap();
@@ -1165,7 +1154,7 @@ mod tests {
 		assert_eq!(next_to_30.0.to_vec(), vec![40]);
 		assert_eq!(next_to_30.1.value(), Some(&vec![40]));
 
-		overlay.set_child_storage(child_info, vec![50], Some(vec![50])).unwrap();
+		overlay.set_child_storage(child_info, vec![50], Some(vec![50]));
 		// next_prospective, no next_committed
 		let next_to_40 = overlay.child_iter_after(child, &[40]).next().unwrap();
 		assert_eq!(next_to_40.0.to_vec(), vec![50]);

@@ -43,10 +43,7 @@ type Transactions<V> = SmallVec<[InnerValue<V>; 5]>;
 /// when the runtime is trying to close a transaction started by the client.
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
-pub enum TransactionError {
-	NoOpenTransaction,
-	AppendError,
-}
+pub struct NoOpenTransaction;
 
 /// Error when calling `enter_runtime` when already being in runtime execution mode.
 #[derive(Debug)]
@@ -57,18 +54,6 @@ pub struct AlreadyInRuntime;
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct NotInRuntime;
-
-/// Error related to append operation.
-/// This should not happen, and indicate a bug in code.
-#[derive(Debug)]
-#[cfg_attr(test, derive(PartialEq))]
-pub struct AppendError;
-
-impl From<AppendError> for TransactionError {
-	fn from(_: AppendError) -> Self {
-		TransactionError::AppendError
-	}
-}
 
 /// Describes in which mode the node is currently executing.
 #[derive(Debug, Clone, Copy)]
@@ -312,7 +297,7 @@ fn restore_append_to_parent(
 	parent: &mut StorageEntry,
 	mut current_data: Vec<u8>,
 	current_materialized: Option<u32>,
-) -> Result<(), AppendError> {
+) {
 	match parent {
 		StorageEntry::Append {
 			data: parent_data,
@@ -321,7 +306,7 @@ fn restore_append_to_parent(
 			from_parent: _,
 		} => {
 			let AppendData::MovedSize(mut target_size) = parent_data else {
-				return Err(AppendError);
+				unreachable!("restore only when parent is moved");
 			};
 
 			// use materialized size from next layer to avoid changing it at this point.
@@ -342,7 +327,6 @@ fn restore_append_to_parent(
 			// No value or a simple value, no need to restore
 		},
 	}
-	Ok(())
 }
 
 impl OverlayedEntry<StorageEntry> {
@@ -355,7 +339,7 @@ impl OverlayedEntry<StorageEntry> {
 		value: Option<StorageValue>,
 		first_write_in_tx: bool,
 		at_extrinsic: Option<u32>,
-	) -> Result<(), AppendError> {
+	) {
 		let value =
 			if let Some(value) = value { StorageEntry::Some(value) } else { StorageEntry::None };
 
@@ -370,7 +354,9 @@ impl OverlayedEntry<StorageEntry> {
 					// append in same transaction get overwritten, yet if data was moved
 					// from a parent transaction we need to restore it.
 					let AppendData::Data(data) = data else {
-						return Err(AppendError);
+						unreachable!(
+							"set in last transaction and append in last transaction is data"
+						);
 					};
 					let result = core::mem::take(data);
 					from_parent.then(|| (result, *materialized))
@@ -381,17 +367,14 @@ impl OverlayedEntry<StorageEntry> {
 			if let Some((data, current_materialized)) = set_prev {
 				let transactions = self.transactions.len();
 
-				let Some(parent) = self.transactions.get_mut(transactions - 2) else {
-					return Err(AppendError);
-				};
-				restore_append_to_parent(&mut parent.value, data, current_materialized)?;
+				let parent = self.transactions.get_mut(transactions - 2).expect("from parent true");
+				restore_append_to_parent(&mut parent.value, data, current_materialized);
 			}
 		}
 
 		if let Some(extrinsic) = at_extrinsic {
 			self.transaction_extrinsics_mut().insert(extrinsic);
 		}
-		Ok(())
 	}
 
 	/// Append content to a value, updating a prefixed compact encoded length.
@@ -635,7 +618,7 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 	///
 	/// Any changes made during that transaction are discarded. Returns an error if
 	/// there is no open transaction that can be rolled back.
-	pub fn rollback_transaction_offchain(&mut self) -> Result<(), TransactionError> {
+	pub fn rollback_transaction_offchain(&mut self) -> Result<(), NoOpenTransaction> {
 		self.close_transaction_offchain(true)
 	}
 
@@ -643,19 +626,19 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 	///
 	/// Any changes made during that transaction are committed. Returns an error if
 	/// there is no open transaction that can be committed.
-	pub fn commit_transaction_offchain(&mut self) -> Result<(), TransactionError> {
+	pub fn commit_transaction_offchain(&mut self) -> Result<(), NoOpenTransaction> {
 		self.close_transaction_offchain(false)
 	}
 
-	fn close_transaction_offchain(&mut self, rollback: bool) -> Result<(), TransactionError> {
+	fn close_transaction_offchain(&mut self, rollback: bool) -> Result<(), NoOpenTransaction> {
 		// runtime is not allowed to close transactions started by the client
 		if let ExecutionMode::Runtime = self.execution_mode {
 			if !self.has_open_runtime_transactions() {
-				return Err(TransactionError::NoOpenTransaction)
+				return Err(NoOpenTransaction)
 			}
 		}
 
-		for key in self.dirty_keys.pop().ok_or(TransactionError::NoOpenTransaction)? {
+		for key in self.dirty_keys.pop().ok_or(NoOpenTransaction)? {
 			let overlayed = self.changes.get_mut(&key).expect(
 				"\
 				A write to an OverlayedValue is recorded in the dirty key set. Before an
@@ -706,7 +689,7 @@ impl OverlayedChangeSet {
 	///
 	/// Any changes made during that transaction are discarded. Returns an error if
 	/// there is no open transaction that can be rolled back.
-	pub fn rollback_transaction(&mut self) -> Result<(), TransactionError> {
+	pub fn rollback_transaction(&mut self) -> Result<(), NoOpenTransaction> {
 		self.close_transaction(true)
 	}
 
@@ -714,19 +697,19 @@ impl OverlayedChangeSet {
 	///
 	/// Any changes made during that transaction are committed. Returns an error if
 	/// there is no open transaction that can be committed.
-	pub fn commit_transaction(&mut self) -> Result<(), TransactionError> {
+	pub fn commit_transaction(&mut self) -> Result<(), NoOpenTransaction> {
 		self.close_transaction(false)
 	}
 
-	fn close_transaction(&mut self, rollback: bool) -> Result<(), TransactionError> {
+	fn close_transaction(&mut self, rollback: bool) -> Result<(), NoOpenTransaction> {
 		// runtime is not allowed to close transactions started by the client
 		if let ExecutionMode::Runtime = self.execution_mode {
 			if !self.has_open_runtime_transactions() {
-				return Err(TransactionError::NoOpenTransaction)
+				return Err(NoOpenTransaction)
 			}
 		}
 
-		for key in self.dirty_keys.pop().ok_or(TransactionError::NoOpenTransaction)? {
+		for key in self.dirty_keys.pop().ok_or(NoOpenTransaction)? {
 			let overlayed = self.changes.get_mut(&key).expect(
 				"\
 				A write to an OverlayedValue is recorded in the dirty key set. Before an
@@ -744,11 +727,7 @@ impl OverlayedChangeSet {
 						from_parent,
 					} if from_parent => {
 						debug_assert!(!overlayed.transactions.is_empty());
-						restore_append_to_parent(
-							overlayed.value_mut(),
-							data,
-							materialized_current,
-						)?;
+						restore_append_to_parent(overlayed.value_mut(), data, materialized_current);
 					},
 					StorageEntry::Append { data: AppendData::MovedSize(_), .. } =>
 						unreachable!("last tx data is not moved"),
@@ -817,7 +796,7 @@ impl OverlayedChangeSet {
 									&mut parent.value,
 									data,
 									current_materialized,
-								)?;
+								);
 							}
 						}
 					}
@@ -854,14 +833,9 @@ impl OverlayedChangeSet {
 	/// Set a new value for the specified key.
 	///
 	/// Can be rolled back or committed when called inside a transaction.
-	pub fn set(
-		&mut self,
-		key: StorageKey,
-		value: Option<StorageValue>,
-		at_extrinsic: Option<u32>,
-	) -> Result<(), AppendError> {
+	pub fn set(&mut self, key: StorageKey, value: Option<StorageValue>, at_extrinsic: Option<u32>) {
 		let overlayed = self.changes.entry(key.clone()).or_default();
-		overlayed.set(value, insert_dirty(&mut self.dirty_keys, key), at_extrinsic)
+		overlayed.set(value, insert_dirty(&mut self.dirty_keys, key), at_extrinsic);
 	}
 
 	/// Append bytes to an existing content.
@@ -882,17 +856,16 @@ impl OverlayedChangeSet {
 		value: StorageValue,
 		init: impl Fn() -> StorageValue,
 		at_extrinsic: Option<u32>,
-	) -> Result<(), AppendError> {
+	) {
 		let overlayed = self.changes.entry(key.clone()).or_default();
 		let first_write_in_tx = insert_dirty(&mut self.dirty_keys, key);
 		if overlayed.transactions.is_empty() {
 			let init_value = init();
-			overlayed.set(Some(init_value), first_write_in_tx, at_extrinsic)?;
+			overlayed.set(Some(init_value), first_write_in_tx, at_extrinsic);
 			overlayed.append(value, false, at_extrinsic);
 		} else {
 			overlayed.append(value, first_write_in_tx, at_extrinsic);
 		}
-		Ok(())
 	}
 
 	/// Set all values to deleted which are matched by the predicate.
@@ -902,16 +875,16 @@ impl OverlayedChangeSet {
 		&mut self,
 		predicate: impl Fn(&[u8], &OverlayedValue) -> bool,
 		at_extrinsic: Option<u32>,
-	) -> Result<u32, AppendError> {
+	) -> u32 {
 		let mut count = 0;
 		for (key, val) in self.changes.iter_mut().filter(|(k, v)| predicate(k, v)) {
 			match val.value_ref() {
 				StorageEntry::Some(..) | StorageEntry::Append { .. } => count += 1,
 				StorageEntry::None => (),
 			}
-			val.set(None, insert_dirty(&mut self.dirty_keys, key.clone()), at_extrinsic)?;
+			val.set(None, insert_dirty(&mut self.dirty_keys, key.clone()), at_extrinsic);
 		}
-		Ok(count)
+		count
 	}
 
 	/// Get the iterator over all changes that follow the supplied `key`.
@@ -967,9 +940,9 @@ mod test {
 		let mut changeset = OverlayedChangeSet::default();
 		assert_eq!(changeset.transaction_depth(), 0);
 
-		changeset.set(b"key0".to_vec(), Some(b"val0".to_vec()), Some(1)).unwrap();
-		changeset.set(b"key1".to_vec(), Some(b"val1".to_vec()), Some(2)).unwrap();
-		changeset.set(b"key0".to_vec(), Some(b"val0-1".to_vec()), Some(9)).unwrap();
+		changeset.set(b"key0".to_vec(), Some(b"val0".to_vec()), Some(1));
+		changeset.set(b"key1".to_vec(), Some(b"val1".to_vec()), Some(2));
+		changeset.set(b"key0".to_vec(), Some(b"val0-1".to_vec()), Some(9));
 
 		assert_drained(changeset, vec![(b"key0", Some(b"val0-1")), (b"key1", Some(b"val1"))]);
 	}
@@ -980,25 +953,25 @@ mod test {
 		assert_eq!(changeset.transaction_depth(), 0);
 
 		// no transaction: committed on set
-		changeset.set(b"key0".to_vec(), Some(b"val0".to_vec()), Some(1)).unwrap();
-		changeset.set(b"key1".to_vec(), Some(b"val1".to_vec()), Some(1)).unwrap();
-		changeset.set(b"key0".to_vec(), Some(b"val0-1".to_vec()), Some(10)).unwrap();
+		changeset.set(b"key0".to_vec(), Some(b"val0".to_vec()), Some(1));
+		changeset.set(b"key1".to_vec(), Some(b"val1".to_vec()), Some(1));
+		changeset.set(b"key0".to_vec(), Some(b"val0-1".to_vec()), Some(10));
 
 		changeset.start_transaction();
 		assert_eq!(changeset.transaction_depth(), 1);
 
 		// we will commit that later
-		changeset.set(b"key42".to_vec(), Some(b"val42".to_vec()), Some(42)).unwrap();
-		changeset.set(b"key99".to_vec(), Some(b"val99".to_vec()), Some(99)).unwrap();
+		changeset.set(b"key42".to_vec(), Some(b"val42".to_vec()), Some(42));
+		changeset.set(b"key99".to_vec(), Some(b"val99".to_vec()), Some(99));
 
 		changeset.start_transaction();
 		assert_eq!(changeset.transaction_depth(), 2);
 
 		// we will roll that back
-		changeset.set(b"key42".to_vec(), Some(b"val42-rolled".to_vec()), Some(421)).unwrap();
-		changeset.set(b"key7".to_vec(), Some(b"val7-rolled".to_vec()), Some(77)).unwrap();
-		changeset.set(b"key0".to_vec(), Some(b"val0-rolled".to_vec()), Some(1000)).unwrap();
-		changeset.set(b"key5".to_vec(), Some(b"val5-rolled".to_vec()), None).unwrap();
+		changeset.set(b"key42".to_vec(), Some(b"val42-rolled".to_vec()), Some(421));
+		changeset.set(b"key7".to_vec(), Some(b"val7-rolled".to_vec()), Some(77));
+		changeset.set(b"key0".to_vec(), Some(b"val0-rolled".to_vec()), Some(1000));
+		changeset.set(b"key5".to_vec(), Some(b"val5-rolled".to_vec()), None);
 
 		// changes contain all changes not only the commmited ones.
 		let all_changes: Changes = vec![
@@ -1046,23 +1019,23 @@ mod test {
 		let mut changeset = OverlayedChangeSet::default();
 		assert_eq!(changeset.transaction_depth(), 0);
 
-		changeset.set(b"key0".to_vec(), Some(b"val0".to_vec()), Some(1)).unwrap();
-		changeset.set(b"key1".to_vec(), Some(b"val1".to_vec()), Some(1)).unwrap();
-		changeset.set(b"key0".to_vec(), Some(b"val0-1".to_vec()), Some(10)).unwrap();
+		changeset.set(b"key0".to_vec(), Some(b"val0".to_vec()), Some(1));
+		changeset.set(b"key1".to_vec(), Some(b"val1".to_vec()), Some(1));
+		changeset.set(b"key0".to_vec(), Some(b"val0-1".to_vec()), Some(10));
 
 		changeset.start_transaction();
 		assert_eq!(changeset.transaction_depth(), 1);
 
-		changeset.set(b"key42".to_vec(), Some(b"val42".to_vec()), Some(42)).unwrap();
-		changeset.set(b"key99".to_vec(), Some(b"val99".to_vec()), Some(99)).unwrap();
+		changeset.set(b"key42".to_vec(), Some(b"val42".to_vec()), Some(42));
+		changeset.set(b"key99".to_vec(), Some(b"val99".to_vec()), Some(99));
 
 		changeset.start_transaction();
 		assert_eq!(changeset.transaction_depth(), 2);
 
-		changeset.set(b"key42".to_vec(), Some(b"val42-rolled".to_vec()), Some(421)).unwrap();
-		changeset.set(b"key7".to_vec(), Some(b"val7-rolled".to_vec()), Some(77)).unwrap();
-		changeset.set(b"key0".to_vec(), Some(b"val0-rolled".to_vec()), Some(1000)).unwrap();
-		changeset.set(b"key5".to_vec(), Some(b"val5-rolled".to_vec()), None).unwrap();
+		changeset.set(b"key42".to_vec(), Some(b"val42-rolled".to_vec()), Some(421));
+		changeset.set(b"key7".to_vec(), Some(b"val7-rolled".to_vec()), Some(77));
+		changeset.set(b"key0".to_vec(), Some(b"val0-rolled".to_vec()), Some(1000));
+		changeset.set(b"key5".to_vec(), Some(b"val5-rolled".to_vec()), None);
 
 		let all_changes: Changes = vec![
 			(b"key0", (Some(b"val0-rolled"), vec![1, 10, 1000])),
@@ -1109,8 +1082,8 @@ mod test {
 
 		// committed set
 		let val0 = vec![b"val0".to_vec()].encode();
-		changeset.set(b"key0".to_vec(), Some(val0.clone()), Some(0)).unwrap();
-		changeset.set(b"key1".to_vec(), None, Some(1)).unwrap();
+		changeset.set(b"key0".to_vec(), Some(val0.clone()), Some(0));
+		changeset.set(b"key1".to_vec(), None, Some(1));
 		let all_changes: Changes =
 			vec![(b"key0", (Some(val0.as_slice()), vec![0])), (b"key1", (None, vec![1]))];
 
@@ -1120,7 +1093,7 @@ mod test {
 			b"-modified".to_vec().encode(),
 			init,
 			Some(3),
-		).unwrap();
+		);
 		let val3 = vec![b"valinit".to_vec(), b"-modified".to_vec()].encode();
 		let all_changes: Changes = vec![
 			(b"key0", (Some(val0.as_slice()), vec![0])),
@@ -1140,7 +1113,7 @@ mod test {
 			b"-twice".to_vec().encode(),
 			init,
 			Some(15),
-		).unwrap();
+		);
 
 		// non existing value -> init value should be returned
 		changeset.append_storage_init(
@@ -1148,14 +1121,14 @@ mod test {
 			b"-modified".to_vec().encode(),
 			init,
 			Some(2),
-		).unwrap();
+		);
 		// existing value should be reuse on append
 		changeset.append_storage_init(
 			b"key0".to_vec(),
 			b"-modified".to_vec().encode(),
 			init,
 			Some(10),
-		).unwrap();
+		);
 
 		// should work for deleted keys
 		changeset.append_storage_init(
@@ -1163,7 +1136,7 @@ mod test {
 			b"deleted-modified".to_vec().encode(),
 			init,
 			Some(20),
-		).unwrap();
+		);
 		let val0_2 = vec![b"val0".to_vec(), b"-modified".to_vec()].encode();
 		let val3_2 = vec![b"valinit".to_vec(), b"-modified".to_vec(), b"-twice".to_vec()].encode();
 		let val1 = vec![b"deleted-modified".to_vec()].encode();
@@ -1179,7 +1152,7 @@ mod test {
 		let val3_3 =
 			vec![b"valinit".to_vec(), b"-modified".to_vec(), b"-twice".to_vec(), b"-2".to_vec()]
 				.encode();
-		changeset.append_storage_init(b"key3".to_vec(), b"-2".to_vec().encode(), init, Some(21)).unwrap();
+		changeset.append_storage_init(b"key3".to_vec(), b"-2".to_vec().encode(), init, Some(21));
 		let all_changes2: Changes = vec![
 			(b"key0", (Some(val0_2.as_slice()), vec![0, 10])),
 			(b"key1", (Some(val1.as_slice()), vec![1, 20])),
@@ -1203,7 +1176,7 @@ mod test {
 			b"-thrice".to_vec().encode(),
 			init,
 			Some(25),
-		).unwrap();
+		);
 		let all_changes: Changes = vec![
 			(b"key0", (Some(val0_2.as_slice()), vec![0, 10])),
 			(b"key1", (Some(val1.as_slice()), vec![1, 20])),
@@ -1231,14 +1204,14 @@ mod test {
 	fn clear_works() {
 		let mut changeset = OverlayedChangeSet::default();
 
-		changeset.set(b"key0".to_vec(), Some(b"val0".to_vec()), Some(1)).unwrap();
-		changeset.set(b"key1".to_vec(), Some(b"val1".to_vec()), Some(2)).unwrap();
-		changeset.set(b"del1".to_vec(), Some(b"delval1".to_vec()), Some(3)).unwrap();
-		changeset.set(b"del2".to_vec(), Some(b"delval2".to_vec()), Some(4)).unwrap();
+		changeset.set(b"key0".to_vec(), Some(b"val0".to_vec()), Some(1));
+		changeset.set(b"key1".to_vec(), Some(b"val1".to_vec()), Some(2));
+		changeset.set(b"del1".to_vec(), Some(b"delval1".to_vec()), Some(3));
+		changeset.set(b"del2".to_vec(), Some(b"delval2".to_vec()), Some(4));
 
 		changeset.start_transaction();
 
-		changeset.clear_where(|k, _| k.starts_with(b"del"), Some(5)).unwrap();
+		changeset.clear_where(|k, _| k.starts_with(b"del"), Some(5));
 
 		assert_changes(
 			&mut changeset,
@@ -1267,15 +1240,15 @@ mod test {
 	fn next_change_works() {
 		let mut changeset = OverlayedChangeSet::default();
 
-		changeset.set(b"key0".to_vec(), Some(b"val0".to_vec()), Some(0)).unwrap();
-		changeset.set(b"key1".to_vec(), Some(b"val1".to_vec()), Some(1)).unwrap();
-		changeset.set(b"key2".to_vec(), Some(b"val2".to_vec()), Some(2)).unwrap();
+		changeset.set(b"key0".to_vec(), Some(b"val0".to_vec()), Some(0));
+		changeset.set(b"key1".to_vec(), Some(b"val1".to_vec()), Some(1));
+		changeset.set(b"key2".to_vec(), Some(b"val2".to_vec()), Some(2));
 
 		changeset.start_transaction();
 
-		changeset.set(b"key3".to_vec(), Some(b"val3".to_vec()), Some(3)).unwrap();
-		changeset.set(b"key4".to_vec(), Some(b"val4".to_vec()), Some(4)).unwrap();
-		changeset.set(b"key11".to_vec(), Some(b"val11".to_vec()), Some(11)).unwrap();
+		changeset.set(b"key3".to_vec(), Some(b"val3".to_vec()), Some(3));
+		changeset.set(b"key4".to_vec(), Some(b"val4".to_vec()), Some(4));
+		changeset.set(b"key11".to_vec(), Some(b"val11".to_vec()), Some(11));
 
 		assert_eq!(changeset.changes_after(b"key0").next().unwrap().0, b"key1");
 		assert_eq!(
@@ -1330,14 +1303,14 @@ mod test {
 	fn no_open_tx_commit_errors() {
 		let mut changeset = OverlayedChangeSet::default();
 		assert_eq!(changeset.transaction_depth(), 0);
-		assert_eq!(changeset.commit_transaction(), Err(TransactionError::NoOpenTransaction));
+		assert_eq!(changeset.commit_transaction(), Err(NoOpenTransaction));
 	}
 
 	#[test]
 	fn no_open_tx_rollback_errors() {
 		let mut changeset = OverlayedChangeSet::default();
 		assert_eq!(changeset.transaction_depth(), 0);
-		assert_eq!(changeset.rollback_transaction(), Err(TransactionError::NoOpenTransaction));
+		assert_eq!(changeset.rollback_transaction(), Err(NoOpenTransaction));
 	}
 
 	#[test]
@@ -1345,7 +1318,7 @@ mod test {
 		let mut changeset = OverlayedChangeSet::default();
 		changeset.start_transaction();
 		changeset.commit_transaction().unwrap();
-		assert_eq!(changeset.commit_transaction(), Err(TransactionError::NoOpenTransaction));
+		assert_eq!(changeset.commit_transaction(), Err(NoOpenTransaction));
 	}
 
 	#[test]
@@ -1363,8 +1336,8 @@ mod test {
 		changeset.enter_runtime().unwrap();
 		changeset.start_transaction();
 		changeset.commit_transaction().unwrap();
-		assert_eq!(changeset.commit_transaction(), Err(TransactionError::NoOpenTransaction));
-		assert_eq!(changeset.rollback_transaction(), Err(TransactionError::NoOpenTransaction));
+		assert_eq!(changeset.commit_transaction(), Err(NoOpenTransaction));
+		assert_eq!(changeset.rollback_transaction(), Err(NoOpenTransaction));
 	}
 
 	#[test]
@@ -1373,11 +1346,11 @@ mod test {
 
 		changeset.start_transaction();
 
-		changeset.set(b"key0".to_vec(), Some(b"val0".to_vec()), Some(1)).unwrap();
+		changeset.set(b"key0".to_vec(), Some(b"val0".to_vec()), Some(1));
 
 		changeset.enter_runtime().unwrap();
 		changeset.start_transaction();
-		changeset.set(b"key1".to_vec(), Some(b"val1".to_vec()), Some(2)).unwrap();
+		changeset.set(b"key1".to_vec(), Some(b"val1".to_vec()), Some(2));
 		changeset.exit_runtime().unwrap();
 
 		changeset.commit_transaction().unwrap();
