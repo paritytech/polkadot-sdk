@@ -379,7 +379,7 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 			xcm,
 			&mut hash,
 			RuntimeHelper::<Runtime>::xcm_max_weight(XcmReceivedFrom::Sibling),
-			RuntimeHelper::<Runtime>::xcm_max_weight(XcmReceivedFrom::Sibling),
+			Weight::zero(),
 		)
 		.ensure_complete());
 
