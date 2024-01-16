@@ -816,17 +816,16 @@ pub(crate) fn add_slash(who: &AccountId) {
 	);
 }
 
-// Slashes 1/2 of the active set
-pub(crate) fn slash_half_the_active_set() {
-	let validators = Session::validators();
-	let mut remaining_slashes = validators.len() / 2;
+// Slashes 1/2 of the active set. Returns the `AccountId`s of the slashed validators.
+pub(crate) fn slash_half_the_active_set() -> Vec<AccountId> {
+	let mut slashed = Session::validators();
+	slashed.truncate(slashed.len() / 2);
 
-	for v in validators.into_iter() {
-		if remaining_slashes != 0 {
-			add_slash(&v);
-			remaining_slashes -= 1;
-		}
+	for v in slashed.iter() {
+		add_slash(v);
 	}
+
+	slashed
 }
 
 // Slashes a percentage of the active nominators that haven't been slashed yet, with

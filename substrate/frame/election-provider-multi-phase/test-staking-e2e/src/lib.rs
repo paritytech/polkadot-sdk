@@ -142,19 +142,30 @@ fn mass_slash_doesnt_enter_emergency_phase() {
 	ext.execute_with(|| {
 		assert_eq!(pallet_staking::ForceEra::<Runtime>::get(), pallet_staking::Forcing::NotForcing);
 
+		let active_set_size_before_slash = Session::validators().len();
+
 		// Slash more than 1/3 of the active validators
-		slash_half_the_active_set();
+		let mut slashed = slash_half_the_active_set();
 
-		// We are not forcing a new era
+		let active_set_size_after_slash = Session::validators().len();
+
+		// active set should stay the same before and after the slash
+		assert_eq!(active_set_size_before_slash, active_set_size_after_slash);
+
+		// Slashed validators are disabled up to a threshold
+		slashed.truncate(pallet_staking::UpToThresholdDisablingStrategy::<
+			SLASHING_DISABLING_FACTOR,
+		>::disable_threshold(active_set_size_after_slash));
+
+		// Find the indices of the disabled validators
+		let active_set = Session::validators();
+		let expected_disabled = slashed
+			.into_iter()
+			.map(|d| active_set.iter().position(|a| *a == d).unwrap() as u32)
+			.collect::<Vec<_>>();
+
 		assert_eq!(pallet_staking::ForceEra::<Runtime>::get(), pallet_staking::Forcing::NotForcing);
-
-		// And no more than `1/3` of the validators are disabled
-		assert_eq!(
-			Session::disabled_validators().len(),
-			pallet_staking::UpToThresholdDisablingStrategy::<SLASHING_DISABLING_FACTOR>::disable_threshold(
-				Session::validators().len()
-			)
-		);
+		assert_eq!(Session::disabled_validators(), expected_disabled);
 	});
 }
 
