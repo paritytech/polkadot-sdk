@@ -357,8 +357,8 @@ fn spend_and_swap() {
 					RuntimeCall::Treasury(pallet_treasury::Call::<Runtime>::payout { index: 0 }),
 					// TODO - instead of scheduled send call on Relay Chain, schedule on AssetHub.
 					// To achieve this, the scheduled call will have to be wrapped with xcm
-					// execute, since we want to transact a permissioned scheduled call with
-					// `origin_kind = Xcm` and execute a swap with `origin_kind =
+					// execute, since we want to transact the permissioned `schedule_after` call
+					// with `origin_kind = Xcm` and execute a swap with `origin_kind =
 					// SovereignAccount`.
 					RuntimeCall::Scheduler(pallet_scheduler::Call::<Runtime>::schedule_after {
 						after: 10,
