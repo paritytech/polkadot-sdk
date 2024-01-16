@@ -18,6 +18,7 @@
 
 use crate::{
 	error::Error,
+	expect_validator_set_nonblocking,
 	justification::BeefyVersionedFinalityProof,
 	keystore::{BeefyKeystore, BeefySignatureHasher},
 	LOG_TARGET,
@@ -82,11 +83,13 @@ where
 		&self,
 		block_hash: <<B as Block>::Header as Header>::Hash,
 	) -> Result<ValidatorSet<AuthorityId>, Error> {
-		self.runtime
-			.runtime_api()
-			.validator_set(block_hash)
-			.map_err(Error::RuntimeApi)?
-			.ok_or_else(|| Error::Backend("could not get BEEFY validator set".into()))
+		let header = self
+			.backend
+			.blockchain()
+			.expect_header(block_hash)
+			.map_err(|e| Error::Backend(e.to_string()))?;
+		expect_validator_set_nonblocking(&*self.runtime, &*self.backend, &header)
+			.map_err(|e| Error::Backend(e.to_string()))
 	}
 
 	pub(crate) fn report_fork_equivocation(

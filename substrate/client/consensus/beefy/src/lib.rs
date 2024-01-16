@@ -634,3 +634,46 @@ where
 		}
 	}
 }
+
+/// Provides validator set active `at_header`. It tries to get it from state, otherwise falls
+/// back to walk up the chain looking the validator set enactment in header digests.
+///
+/// Note: unlike `expect_validator_set` this function is non-blocking, but will therefore error if
+/// a requested header is not available (yet).
+fn expect_validator_set_nonblocking<B, BE, R>(
+	runtime: &R,
+	backend: &BE,
+	at_header: &B::Header,
+) -> ClientResult<ValidatorSet<AuthorityId>>
+where
+	B: Block,
+	BE: Backend<B>,
+	R: ProvideRuntimeApi<B>,
+	R::Api: BeefyApi<B, AuthorityId, MmrRootHash>,
+{
+	let blockchain = backend.blockchain();
+
+	// Walk up the chain looking for the validator set active at 'at_header'. Process both state and
+	// header digests.
+	debug!(target: LOG_TARGET, "🥩 Trying to find validator set active at header: {:?}", at_header);
+	let mut header = at_header.clone();
+	loop {
+		debug!(target: LOG_TARGET, "🥩 Looking for auth set change at block number: {:?}", *header.number());
+		if let Ok(Some(active)) = runtime.runtime_api().validator_set(header.hash()) {
+			return Ok(active)
+		} else {
+			match worker::find_authorities_change::<B>(&header) {
+				Some(active) => return Ok(active),
+				// Move up the chain. Ultimately we'll get it from chain genesis state, or error out
+				// there.
+				None => match blockchain.header(*header.parent_hash())? {
+					Some(parent) => header = parent,
+					None => {
+						warn!(target: LOG_TARGET, "header {} not found", header.parent_hash());
+						return Err(ClientError::MissingHeader(header.parent_hash().to_string()))
+					},
+				},
+			}
+		}
+	}
+}
