@@ -121,11 +121,14 @@ where
 		if let Some(paid) = already_withdrawn {
 			// Calculate how much refund we should return
 			let refund_amount = paid.peek().saturating_sub(corrected_fee);
-			// refund to the the account that paid the fees. If this fails, the
-			// account might have dropped below the existential balance. In
-			// that case we don't refund anything.
-			let refund_imbalance = F::deposit(who, refund_amount, Precision::BestEffort)
-				.unwrap_or_else(|_| Debt::<T::AccountId, F>::zero());
+			// refund to the the account that paid the fees if it exists. otherwise, don't refind
+			// anything.
+			let refund_imbalance = if F::total_balance(who) > F::Balance::zero() {
+				F::deposit(who, refund_amount, Precision::BestEffort)
+					.unwrap_or_else(|_| Debt::<T::AccountId, F>::zero())
+			} else {
+				Debt::<T::AccountId, F>::zero()
+			};
 			// merge the imbalance caused by paying the fees and refunding parts of it again.
 			let adjusted_paid: Credit<T::AccountId, F> = paid
 				.offset(refund_imbalance)
