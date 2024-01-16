@@ -40,9 +40,9 @@ use frame_system::EnsureRoot;
 use pallet_asset_tx_payment::HandleCredit;
 use pallet_assets::Instance1;
 use pallet_xcm::XcmPassthrough;
+use parachains_common::rococo::snowbridge::EthereumNetwork;
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::impls::ToAuthor;
-use snowbridge_rococo_common::EthereumNetwork;
 use sp_runtime::traits::Zero;
 use xcm::latest::prelude::*;
 #[allow(deprecated)]

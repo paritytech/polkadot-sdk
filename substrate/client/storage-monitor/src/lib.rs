@@ -17,7 +17,6 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use clap::Args;
-use sc_client_db::DatabaseSource;
 use sp_core::traits::SpawnEssentialNamed;
 use std::{
 	io,
@@ -70,43 +69,37 @@ impl StorageMonitorService {
 	/// Creates new StorageMonitorService for given client config
 	pub fn try_spawn(
 		parameters: StorageMonitorParams,
-		database: DatabaseSource,
+		path: PathBuf,
 		spawner: &impl SpawnEssentialNamed,
 	) -> Result<()> {
-		Ok(match (parameters.threshold, database.path()) {
-			(0, _) => {
-				log::info!(
-					target: LOG_TARGET,
-					"StorageMonitorService: threshold `0` given, storage monitoring disabled",
-				);
-			},
-			(_, None) => {
-				log::warn!(
-					target: LOG_TARGET,
-					"StorageMonitorService: no database path to observe",
-				);
-			},
-			(threshold, Some(path)) => {
-				log::debug!(
-					target: LOG_TARGET,
-					"Initializing StorageMonitorService for db path: {path:?}",
-				);
+		if parameters.threshold == 0 {
+			log::info!(
+				target: LOG_TARGET,
+				"StorageMonitorService: threshold `0` given, storage monitoring disabled",
+			);
+		} else {
+			log::debug!(
+				target: LOG_TARGET,
+				"Initializing StorageMonitorService for db path: {}",
+				path.display()
+			);
 
-				Self::check_free_space(&path, threshold)?;
+			Self::check_free_space(&path, parameters.threshold)?;
 
-				let storage_monitor_service = StorageMonitorService {
-					path: path.to_path_buf(),
-					threshold,
-					polling_period: Duration::from_secs(parameters.polling_period.into()),
-				};
+			let storage_monitor_service = StorageMonitorService {
+				path,
+				threshold: parameters.threshold,
+				polling_period: Duration::from_secs(parameters.polling_period.into()),
+			};
 
-				spawner.spawn_essential(
-					"storage-monitor",
-					None,
-					Box::pin(storage_monitor_service.run()),
-				);
-			},
-		})
+			spawner.spawn_essential(
+				"storage-monitor",
+				None,
+				Box::pin(storage_monitor_service.run()),
+			);
+		}
+
+		Ok(())
 	}
 
 	/// Main monitoring loop, intended to be spawned as essential task. Quits if free space drop
