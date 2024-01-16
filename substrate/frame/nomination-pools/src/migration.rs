@@ -59,7 +59,7 @@ pub mod versioned {
 pub mod v8 {
 	use super::*;
 
-	use super::v7::{BondedPoolInner as OldBondedPoolInner, Commission as OldCommission};
+	use super::v7::BondedPoolInner as OldBondedPoolInner;
 
 	impl<T: Config> OldBondedPoolInner<T> {
 		fn migrate_to_v8(self) -> BondedPoolInner<T> {
