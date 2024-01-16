@@ -42,7 +42,6 @@ bridge-hub-rococo-runtime = { path = "../../../../../../parachains/runtimes/brid
 emulated-integration-tests-common = { path = "../../../common", default-features = false }
 rococo-westend-system-emulated-network = { path = "../../../networks/rococo-westend-system" }
 penpal-runtime = { path = "../../../../../runtimes/testing/penpal", default-features = false }
-rococo-system-emulated-network = { path = "../../../networks/rococo-system" }
 asset-hub-rococo-runtime = { path = "../../../../../runtimes/assets/asset-hub-rococo", default-features = false }
 
 # Snowbridge

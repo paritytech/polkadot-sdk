@@ -43,7 +43,7 @@ pub use emulated_integration_tests_common::{
 	PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
 };
 pub use parachains_common::{AccountId, Balance};
-pub use rococo_system_emulated_network::{
+pub use rococo_westend_system_emulated_network::{
 	penpal_emulated_chain::PenpalAParaPallet as PenpalAPallet,
 	BridgeHubRococoParaReceiver as BridgeHubRococoReceiver, PenpalAPara as PenpalA,
 	PenpalAParaReceiver as PenpalAReceiver, PenpalAParaSender as PenpalASender,

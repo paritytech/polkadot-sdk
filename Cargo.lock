@@ -1980,7 +1980,6 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "penpal-runtime",
- "rococo-system-emulated-network",
  "rococo-westend-system-emulated-network",
  "scale-info",
  "snowbridge-core",
