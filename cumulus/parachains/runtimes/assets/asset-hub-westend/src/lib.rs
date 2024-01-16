@@ -55,14 +55,14 @@ use frame_system::{
 use pallet_asset_conversion_tx_payment::AssetConversionAdapter;
 use pallet_nfts::{DestroyWitness, PalletFeatures};
 use pallet_xcm::EnsureXcm;
+pub use parachains_common::westend::consensus::RELAY_CHAIN_SLOT_DURATION_MILLIS;
 use parachains_common::{
 	impls::DealWithFees,
 	message_queue::*,
-	westend::{consensus::RELAY_CHAIN_SLOT_DURATION_MILLIS, currency::*, fee::WeightToFee},
+	westend::{currency::*, fee::WeightToFee},
 	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, BlockNumber, Hash, Header, Nonce,
 	Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, NORMAL_DISPATCH_RATIO,
 };
-pub use parachains_common::{westend::consensus::RELAY_CHAIN_SLOT_DURATION_MILLIS, SLOT_DURATION};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
