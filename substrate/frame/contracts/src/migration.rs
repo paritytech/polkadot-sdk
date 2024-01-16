@@ -70,8 +70,8 @@ use crate::{weights::WeightInfo, Config, Error, MigrationInProgress, Pallet, Wei
 use codec::{Codec, Decode};
 use frame_support::{
 	pallet_prelude::*,
-	weights::WeightMeter,
 	traits::{ConstU32, OnRuntimeUpgrade},
+	weights::WeightMeter,
 };
 use sp_runtime::Saturating;
 use sp_std::marker::PhantomData;
@@ -412,36 +412,34 @@ impl<T: Config, const TEST_ALL_STEPS: bool> Migration<T, TEST_ALL_STEPS> {
 				in_progress_version,
 			);
 
-			let result = match T::Migrations::steps(
-				in_progress_version,
-				cursor_before.as_ref(),
-				&mut meter,
-			) {
-				StepResult::InProgress { cursor, steps_done } => {
-					*progress = Some(cursor);
-					MigrateResult::InProgress { steps_done }
-				},
-				StepResult::Completed { steps_done } => {
-					in_progress_version.put::<Pallet<T>>();
-					if <Pallet<T>>::current_storage_version() != in_progress_version {
-						log::info!(
-							target: LOG_TARGET,
-							"{name}: Next migration is {:?},",
-							in_progress_version + 1
-						);
-						*progress = Some(T::Migrations::new(in_progress_version + 1));
+			let result =
+				match T::Migrations::steps(in_progress_version, cursor_before.as_ref(), &mut meter)
+				{
+					StepResult::InProgress { cursor, steps_done } => {
+						*progress = Some(cursor);
 						MigrateResult::InProgress { steps_done }
-					} else {
-						log::info!(
-							target: LOG_TARGET,
-							"{name}: All migrations done. At version {:?},",
-							in_progress_version
-						);
-						*progress = None;
-						MigrateResult::Completed
-					}
-				},
-			};
+					},
+					StepResult::Completed { steps_done } => {
+						in_progress_version.put::<Pallet<T>>();
+						if <Pallet<T>>::current_storage_version() != in_progress_version {
+							log::info!(
+								target: LOG_TARGET,
+								"{name}: Next migration is {:?},",
+								in_progress_version + 1
+							);
+							*progress = Some(T::Migrations::new(in_progress_version + 1));
+							MigrateResult::InProgress { steps_done }
+						} else {
+							log::info!(
+								target: LOG_TARGET,
+								"{name}: All migrations done. At version {:?},",
+								in_progress_version
+							);
+							*progress = None;
+							MigrateResult::Completed
+						}
+					},
+				};
 
 			result
 		})
@@ -624,7 +622,10 @@ mod test {
 
 		ExtBuilder::default().build().execute_with(|| {
 			assert_eq!(StorageVersion::get::<Pallet<Test>>(), LATEST_MIGRATION_VERSION);
-			assert_eq!(TestMigration::migrate(&mut WeightMeter::new()), MigrateResult::NoMigrationInProgress)
+			assert_eq!(
+				TestMigration::migrate(&mut WeightMeter::new()),
+				MigrateResult::NoMigrationInProgress
+			)
 		});
 	}
 
