@@ -30,4 +30,4 @@ sp-arithmetic = { path = "../../../primitives/arithmetic" }
 # used by generate_solution_type:
 frame-election-provider-support = { path = ".." }
 frame-support = { path = "../../support" }
-trybuild = "1.0.74"
+trybuild = "1.0.88"
