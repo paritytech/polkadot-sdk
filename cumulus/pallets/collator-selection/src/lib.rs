@@ -82,7 +82,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use core::marker::PhantomData;
-
 use frame_support::traits::TypedGet;
 pub use pallet::*;
 
