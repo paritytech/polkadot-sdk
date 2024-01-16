@@ -673,9 +673,16 @@ fn limited_reserve_transfer_assets_for_native_asset_over_bridge_works(
 
 mod asset_hub_rococo_tests {
 	use super::*;
+	use asset_hub_rococo_runtime::{PolkadotXcm, RuntimeOrigin};
 
 	fn bridging_to_asset_hub_westend() -> TestBridgingConfig {
-		asset_test_utils::test_cases_over_bridge::TestBridgingConfig {
+		let _ = PolkadotXcm::force_xcm_version(
+			RuntimeOrigin::root(),
+			Box::new(bridging::to_westend::AssetHubWestend::get()),
+			XCM_VERSION,
+		)
+		.expect("version saved!");
+		TestBridgingConfig {
 			bridged_network: bridging::to_westend::WestendNetwork::get(),
 			local_bridge_hub_para_id: bridging::SiblingBridgeHubParaId::get(),
 			local_bridge_hub_location: bridging::SiblingBridgeHub::get(),
@@ -847,6 +854,58 @@ fn change_xcm_bridge_hub_router_byte_fee_by_governance_works() {
 			(
 				bridging::XcmBridgeHubRouterByteFee::key().to_vec(),
 				bridging::XcmBridgeHubRouterByteFee::get(),
+			)
+		},
+		|old_value| {
+			if let Some(new_value) = old_value.checked_add(1) {
+				new_value
+			} else {
+				old_value.checked_sub(1).unwrap()
+			}
+		},
+	)
+}
+
+#[test]
+fn change_xcm_bridge_hub_router_base_fee_by_governance_works() {
+	asset_test_utils::test_cases::change_storage_constant_by_governance_works::<
+		Runtime,
+		bridging::XcmBridgeHubRouterBaseFee,
+		Balance,
+	>(
+		collator_session_keys(),
+		1000,
+		Box::new(|call| RuntimeCall::System(call).encode()),
+		|| {
+			(
+				bridging::XcmBridgeHubRouterBaseFee::key().to_vec(),
+				bridging::XcmBridgeHubRouterBaseFee::get(),
+			)
+		},
+		|old_value| {
+			if let Some(new_value) = old_value.checked_add(1) {
+				new_value
+			} else {
+				old_value.checked_sub(1).unwrap()
+			}
+		},
+	)
+}
+
+#[test]
+fn change_xcm_bridge_hub_ethereum_base_fee_by_governance_works() {
+	asset_test_utils::test_cases::change_storage_constant_by_governance_works::<
+		Runtime,
+		bridging::to_ethereum::BridgeHubEthereumBaseFee,
+		Balance,
+	>(
+		collator_session_keys(),
+		1000,
+		Box::new(|call| RuntimeCall::System(call).encode()),
+		|| {
+			(
+				bridging::to_ethereum::BridgeHubEthereumBaseFee::key().to_vec(),
+				bridging::to_ethereum::BridgeHubEthereumBaseFee::get(),
 			)
 		},
 		|old_value| {

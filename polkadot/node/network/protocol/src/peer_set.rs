@@ -21,6 +21,7 @@ use polkadot_primitives::Hash;
 use sc_network::{
 	config::{NonDefaultSetConfig, SetConfig},
 	types::ProtocolName,
+	NotificationService,
 };
 use std::{
 	collections::{hash_map::Entry, HashMap},
@@ -68,47 +69,59 @@ impl PeerSet {
 		self,
 		is_authority: IsAuthority,
 		peerset_protocol_names: &PeerSetProtocolNames,
-	) -> NonDefaultSetConfig {
+	) -> (NonDefaultSetConfig, (PeerSet, Box<dyn NotificationService>)) {
 		// Networking layer relies on `get_main_name()` being the main name of the protocol
 		// for peersets and connection management.
 		let protocol = peerset_protocol_names.get_main_name(self);
-		let fallback_names = PeerSetProtocolNames::get_fallback_names(self);
+		let fallback_names = PeerSetProtocolNames::get_fallback_names(
+			self,
+			&peerset_protocol_names.genesis_hash,
+			peerset_protocol_names.fork_id.as_deref(),
+		);
 		let max_notification_size = self.get_max_notification_size(is_authority);
 
 		match self {
-			PeerSet::Validation => NonDefaultSetConfig {
-				notifications_protocol: protocol,
-				fallback_names,
-				max_notification_size,
-				handshake: None,
-				set_config: SetConfig {
-					// we allow full nodes to connect to validators for gossip
-					// to ensure any `MIN_GOSSIP_PEERS` always include reserved peers
-					// we limit the amount of non-reserved slots to be less
-					// than `MIN_GOSSIP_PEERS` in total
-					in_peers: super::MIN_GOSSIP_PEERS as u32 / 2 - 1,
-					out_peers: super::MIN_GOSSIP_PEERS as u32 / 2 - 1,
-					reserved_nodes: Vec::new(),
-					non_reserved_mode: sc_network::config::NonReservedPeerMode::Accept,
-				},
-			},
-			PeerSet::Collation => NonDefaultSetConfig {
-				notifications_protocol: protocol,
-				fallback_names,
-				max_notification_size,
-				handshake: None,
-				set_config: SetConfig {
-					// Non-authority nodes don't need to accept incoming connections on this peer
-					// set:
-					in_peers: if is_authority == IsAuthority::Yes { 100 } else { 0 },
-					out_peers: 0,
-					reserved_nodes: Vec::new(),
-					non_reserved_mode: if is_authority == IsAuthority::Yes {
-						sc_network::config::NonReservedPeerMode::Accept
-					} else {
-						sc_network::config::NonReservedPeerMode::Deny
+			PeerSet::Validation => {
+				let (config, notification_service) = NonDefaultSetConfig::new(
+					protocol,
+					fallback_names,
+					max_notification_size,
+					None,
+					SetConfig {
+						// we allow full nodes to connect to validators for gossip
+						// to ensure any `MIN_GOSSIP_PEERS` always include reserved peers
+						// we limit the amount of non-reserved slots to be less
+						// than `MIN_GOSSIP_PEERS` in total
+						in_peers: super::MIN_GOSSIP_PEERS as u32 / 2 - 1,
+						out_peers: super::MIN_GOSSIP_PEERS as u32 / 2 - 1,
+						reserved_nodes: Vec::new(),
+						non_reserved_mode: sc_network::config::NonReservedPeerMode::Accept,
 					},
-				},
+				);
+
+				(config, (PeerSet::Validation, notification_service))
+			},
+			PeerSet::Collation => {
+				let (config, notification_service) = NonDefaultSetConfig::new(
+					protocol,
+					fallback_names,
+					max_notification_size,
+					None,
+					SetConfig {
+						// Non-authority nodes don't need to accept incoming connections on this
+						// peer set:
+						in_peers: if is_authority == IsAuthority::Yes { 100 } else { 0 },
+						out_peers: 0,
+						reserved_nodes: Vec::new(),
+						non_reserved_mode: if is_authority == IsAuthority::Yes {
+							sc_network::config::NonReservedPeerMode::Accept
+						} else {
+							sc_network::config::NonReservedPeerMode::Deny
+						},
+					},
+				);
+
+				(config, (PeerSet::Collation, notification_service))
 			},
 		}
 	}
@@ -118,15 +131,8 @@ impl PeerSet {
 	/// Networking layer relies on `get_main_version()` being the version
 	/// of the main protocol name reported by [`PeerSetProtocolNames::get_main_name()`].
 	pub fn get_main_version(self) -> ProtocolVersion {
-		#[cfg(not(feature = "network-protocol-staging"))]
 		match self {
-			PeerSet::Validation => ValidationVersion::V2.into(),
-			PeerSet::Collation => CollationVersion::V2.into(),
-		}
-
-		#[cfg(feature = "network-protocol-staging")]
-		match self {
-			PeerSet::Validation => ValidationVersion::VStaging.into(),
+			PeerSet::Validation => ValidationVersion::V3.into(),
 			PeerSet::Collation => CollationVersion::V2.into(),
 		}
 	}
@@ -154,7 +160,7 @@ impl PeerSet {
 					Some("validation/1")
 				} else if version == ValidationVersion::V2.into() {
 					Some("validation/2")
-				} else if version == ValidationVersion::VStaging.into() {
+				} else if version == ValidationVersion::V3.into() {
 					Some("validation/3")
 				} else {
 					None
@@ -204,7 +210,7 @@ impl<T> IndexMut<PeerSet> for PerPeerSet<T> {
 pub fn peer_sets_info(
 	is_authority: IsAuthority,
 	peerset_protocol_names: &PeerSetProtocolNames,
-) -> Vec<NonDefaultSetConfig> {
+) -> Vec<(NonDefaultSetConfig, (PeerSet, Box<dyn NotificationService>))> {
 	PeerSet::iter()
 		.map(|s| s.get_info(is_authority, &peerset_protocol_names))
 		.collect()
@@ -227,9 +233,10 @@ pub enum ValidationVersion {
 	V1 = 1,
 	/// The second version.
 	V2 = 2,
-	/// The staging version to gather changes
-	/// that before the release become v3.
-	VStaging = 3,
+	/// The third version where changes to ApprovalDistributionMessage had been made.
+	/// The changes are translatable to V2 format untill assignments v2 and approvals
+	/// coalescing is enabled through a runtime upgrade.
+	V3 = 3,
 }
 
 /// Supported collation protocol versions. Only versions defined here must be used in the codebase.
@@ -286,10 +293,12 @@ impl From<CollationVersion> for ProtocolVersion {
 }
 
 /// On the wire protocol name to [`PeerSet`] mapping.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct PeerSetProtocolNames {
 	protocols: HashMap<ProtocolName, (PeerSet, ProtocolVersion)>,
 	names: HashMap<(PeerSet, ProtocolVersion), ProtocolName>,
+	genesis_hash: Hash,
+	fork_id: Option<String>,
 }
 
 impl PeerSetProtocolNames {
@@ -324,7 +333,7 @@ impl PeerSetProtocolNames {
 			}
 			Self::register_legacy_protocol(&mut protocols, protocol);
 		}
-		Self { protocols, names }
+		Self { protocols, names, genesis_hash, fork_id: fork_id.map(|fork_id| fork_id.into()) }
 	}
 
 	/// Helper function to register main protocol.
@@ -428,9 +437,30 @@ impl PeerSetProtocolNames {
 	}
 
 	/// Get the protocol fallback names. Currently only holds the legacy name
-	/// for `LEGACY_PROTOCOL_VERSION` = 1.
-	fn get_fallback_names(protocol: PeerSet) -> Vec<ProtocolName> {
-		std::iter::once(Self::get_legacy_name(protocol)).collect()
+	/// for `LEGACY_PROTOCOL_VERSION` = 1 and v2 for validation.
+	fn get_fallback_names(
+		protocol: PeerSet,
+		genesis_hash: &Hash,
+		fork_id: Option<&str>,
+	) -> Vec<ProtocolName> {
+		let mut fallbacks = vec![Self::get_legacy_name(protocol)];
+		match protocol {
+			PeerSet::Validation => {
+				// Fallbacks are tried one by one, till one matches so push v2 at the top, so
+				// that it is used ahead of the legacy one(v1).
+				fallbacks.insert(
+					0,
+					Self::generate_name(
+						genesis_hash,
+						fork_id,
+						protocol,
+						ValidationVersion::V2.into(),
+					),
+				)
+			},
+			PeerSet::Collation => {},
+		};
+		fallbacks
 	}
 }
 

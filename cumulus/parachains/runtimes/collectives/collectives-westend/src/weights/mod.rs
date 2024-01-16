@@ -14,12 +14,12 @@
 // limitations under the License.
 
 pub mod block_weights;
-pub mod cumulus_pallet_dmp_queue;
 pub mod cumulus_pallet_parachain_system;
 pub mod cumulus_pallet_xcmp_queue;
 pub mod extrinsic_weights;
 pub mod frame_system;
 pub mod pallet_alliance;
+pub mod pallet_asset_rate;
 pub mod pallet_balances;
 pub mod pallet_collator_selection;
 pub mod pallet_collective;
@@ -39,6 +39,7 @@ pub mod pallet_salary_fellowship_salary;
 pub mod pallet_scheduler;
 pub mod pallet_session;
 pub mod pallet_timestamp;
+pub mod pallet_treasury;
 pub mod pallet_utility;
 pub mod pallet_xcm;
 pub mod paritydb_weights;
@@ -46,5 +47,4 @@ pub mod rocksdb_weights;
 
 pub use block_weights::constants::BlockExecutionWeight;
 pub use extrinsic_weights::constants::ExtrinsicBaseWeight;
-pub use paritydb_weights::constants::ParityDbWeight;
 pub use rocksdb_weights::constants::RocksDbWeight;
