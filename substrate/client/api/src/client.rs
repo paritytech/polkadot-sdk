@@ -26,7 +26,6 @@ use sp_runtime::{
 	Justifications,
 };
 use std::{
-	backtrace::Backtrace,
 	collections::HashSet,
 	fmt::{self, Debug},
 	sync::Arc,
