@@ -33,8 +33,8 @@ use sp_runtime::{traits::Hash, DispatchError};
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 use sp_std::prelude::Vec;
 use wasmi::{
-	core::ValueType as WasmiValueType, Config as WasmiConfig, Engine, ExternType,
-	Module, StackLimits,
+	core::ValueType as WasmiValueType, Config as WasmiConfig, Engine, ExternType, Module,
+	StackLimits,
 };
 
 /// Imported memory must be located inside this module. The reason for hardcoding is that current
