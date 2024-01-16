@@ -34,7 +34,7 @@ use sp_runtime::{traits::Hash, DispatchError};
 use sp_std::prelude::Vec;
 use wasmi::{
 	core::ValueType as WasmiValueType, Config as WasmiConfig, Engine, ExternType,
-	FuelConsumptionMode, Module, StackLimits,
+	Module, StackLimits,
 };
 
 /// Imported memory must be located inside this module. The reason for hardcoding is that current
@@ -71,8 +71,7 @@ impl LoadedModule {
 			.wasm_extended_const(false)
 			.wasm_saturating_float_to_int(false)
 			.floats(matches!(determinism, Determinism::Relaxed))
-			.consume_fuel(true)
-			.fuel_consumption_mode(FuelConsumptionMode::Eager);
+			.consume_fuel(true);
 
 		if let Some(stack_limits) = stack_limits {
 			config.set_stack_limits(stack_limits);
