@@ -219,9 +219,10 @@ where
 		) {
 			return Ok(())
 		};
-		// if the vote is for a block number exceeding our best block number, there shouldn't even
-		// be a payload to sign yet, hence we assume it is an equivocation and report it
-		if number > self.backend.blockchain().info().best_number {
+		// if the vote is for a block number exceeding the finalized tip (from client's
+		// perspective), there shouldn't even be a payload to sign yet (from client's perspective),
+		// hence client assumes it is an equivocation and reports it
+		if number > self.backend.blockchain().info().finalized_number {
 			let proof = ForkEquivocationProof {
 				commitment: vote.commitment,
 				signatories: vec![(vote.id, vote.signature)],
@@ -268,14 +269,24 @@ where
 	) -> Result<(), Error> {
 		let SignedCommitment { commitment, signatures } = signed_commitment;
 		let number = commitment.block_number;
-		// if the vote is for a block number exceeding our best block number, there shouldn't even
-		// be a payload to sign yet, hence we assume it is an equivocation and report it
-		if number > self.backend.blockchain().info().best_number {
-			// if block number is in the future, we use the latest validator set
+		let best_number = self.backend.blockchain().info().best_number;
+		let finalized_number = self.backend.blockchain().info().finalized_number;
+		// if the signed commitment is to a block number exceeding the finalized tip (from client's
+		// perspective), there shouldn't even be a payload to sign yet (from client's perspective),
+		// hence client assumes it is an equivocation and reports it
+		if number > finalized_number {
+			// if block number exceeds our best block, we use the latest validator set available
 			// as the assumed signatories (note: this assumption is fragile and can possibly be
 			// improved upon)
-			let best_hash = self.backend.blockchain().info().best_hash;
-			let validator_set = self.active_validator_set_at(best_hash)?;
+			let block_hash = if number > best_number {
+				self.backend.blockchain().info().best_hash
+			} else {
+				self.backend
+					.blockchain()
+					.expect_block_hash_from_id(&BlockId::Number(number))
+					.map_err(|e| Error::Backend(e.to_string()))?
+			};
+			let validator_set = self.active_validator_set_at(block_hash)?;
 			let signatories: Vec<_> = validator_set
 				.validators()
 				.iter()
