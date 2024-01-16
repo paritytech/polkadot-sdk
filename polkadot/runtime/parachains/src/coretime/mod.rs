@@ -26,10 +26,7 @@ pub use pallet::*;
 use pallet_broker::{CoreAssignment, CoreIndex as BrokerCoreIndex};
 use primitives::{CoreIndex, Id as ParaId};
 use sp_arithmetic::traits::SaturatedConversion;
-use xcm::v3::{
-	send_xcm, Instruction, Junction, Junctions, MultiLocation, OriginKind, SendXcm, WeightLimit,
-	Xcm,
-};
+use xcm::v4::{send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, WeightLimit, Xcm};
 
 use crate::{
 	assigner_coretime::{self, PartsOf57600},
@@ -229,10 +226,7 @@ impl<T: Config> Pallet<T> {
 				mk_coretime_call(crate::coretime::CoretimeCalls::NotifyCoreCount(core_count)),
 			]);
 			if let Err(err) = send_xcm::<T::SendXcm>(
-				MultiLocation {
-					parents: 0,
-					interior: Junctions::X1(Junction::Parachain(T::BrokerId::get())),
-				},
+				Location::new(0, [Junction::Parachain(T::BrokerId::get())]),
 				message,
 			) {
 				log::error!("Sending `NotifyCoreCount` to coretime chain failed: {:?}", err);
