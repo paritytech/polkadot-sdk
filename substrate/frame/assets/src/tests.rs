@@ -102,7 +102,7 @@ fn basic_minting_should_work() {
 
 #[test]
 fn insufficient_assets_can_turn_into_sufficient() {
-	use sufficiency::{Inspect, Mutate};
+	use sufficiency::{IsSufficient, SetSufficiency};
 
 	new_test_ext().execute_with(|| {
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
