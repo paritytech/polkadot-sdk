@@ -295,7 +295,7 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type BenchmarkHelper = ();
 }
 
-/// Union fungibles implementation for `Assets`` and `ForeignAssets`.
+/// Union fungibles implementation for `Assets` and `ForeignAssets`.
 pub type LocalAndForeignAssets = fungibles::UnionOf<
 	Assets,
 	ForeignAssets,
@@ -307,18 +307,21 @@ pub type LocalAndForeignAssets = fungibles::UnionOf<
 	AccountId,
 >;
 
+/// Union fungibles implementation for [`LocalAndForeignAssets`] and `Balances`.
+pub type NativeAndAssets = fungible::UnionOf<
+	Balances,
+	LocalAndForeignAssets,
+	TargetFromLeft<WestendLocation>,
+	MultiLocation,
+	AccountId,
+>;
+
 impl pallet_asset_conversion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type HigherPrecisionBalance = sp_core::U256;
 	type AssetKind = MultiLocation;
-	type Assets = fungible::UnionOf<
-		Balances,
-		LocalAndForeignAssets,
-		TargetFromLeft<WestendLocation>,
-		Self::AssetKind,
-		Self::AccountId,
-	>;
+	type Assets = NativeAndAssets;
 	type PoolId = (Self::AssetKind, Self::AssetKind);
 	type PoolLocator =
 		pallet_asset_conversion::WithFirstAsset<WestendLocation, AccountId, Self::AssetKind>;
