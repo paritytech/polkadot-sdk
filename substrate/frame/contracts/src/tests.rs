@@ -2637,7 +2637,6 @@ fn lazy_removal_does_not_use_all_weight() {
 	// The lazy removal limit only applies to the backend but not to the overlay.
 	// This commits all keys from the overlay to the backend.
 	ext.commit_all().unwrap();
-	dbg!(&vals.len());
 
 	ext.execute_with(|| {
 		// Run the lazy removal
