@@ -34,9 +34,7 @@ use runtime_common::{
 };
 use sp_core::ConstU32;
 use westend_runtime_constants::{
-	currency::CENTS,
-	system_parachain::*,
-	xcm::body::{FELLOWSHIP_ADMIN_INDEX, TREASURER_INDEX},
+	currency::CENTS, system_parachain::*, xcm::body::FELLOWSHIP_ADMIN_INDEX,
 };
 use xcm::latest::prelude::*;
 #[allow(deprecated)]
@@ -215,7 +213,7 @@ parameter_types! {
 	// FellowshipAdmin pluralistic body.
 	pub const FellowshipAdminBodyId: BodyId = BodyId::Index(FELLOWSHIP_ADMIN_INDEX);
 	// `Treasurer` pluralistic body.
-	pub const TreasurerBodyId: BodyId = BodyId::Index(TREASURER_INDEX);
+	pub const TreasurerBodyId: BodyId = BodyId::Treasury;
 }
 
 /// Type to convert the `GeneralAdmin` origin to a Plurality `MultiLocation` value.

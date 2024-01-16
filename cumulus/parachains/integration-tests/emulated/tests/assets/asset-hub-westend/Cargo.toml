@@ -24,6 +24,8 @@ pallet-asset-conversion = { path = "../../../../../../../substrate/frame/asset-c
 pallet-treasury = { path = "../../../../../../../substrate/frame/treasury", default-features = false }
 pallet-asset-rate = { path = "../../../../../../../substrate/frame/asset-rate", default-features = false }
 pallet-message-queue = { path = "../../../../../../../substrate/frame/message-queue", default-features = false }
+pallet-utility = { path = "../../../../../../../substrate/frame/utility", default-features = false }
+pallet-scheduler = { path = "../../../../../../../substrate/frame/scheduler", default-features = false }
 
 # Polkadot
 polkadot-runtime-common = { path = "../../../../../../../polkadot/runtime/common" }
