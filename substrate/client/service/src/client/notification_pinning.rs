@@ -137,13 +137,13 @@ impl<Block: BlockT, Back: Backend<Block>> NotificationPinningWorker<Block, Back>
 		Self { unpin_message_rx, task_backend, pinned_blocks }
 	}
 
-	pub fn handle_announce_message(&mut self, hash: Block::Hash) {
+	fn handle_announce_message(&mut self, hash: Block::Hash) {
 		if let Some(entry) = self.pinned_blocks.get_or_insert(hash, Default::default) {
 			*entry = *entry + 1;
 		}
 	}
 
-	pub fn handle_unpin_message(&mut self, hash: Block::Hash) {
+	fn handle_unpin_message(&mut self, hash: Block::Hash) {
 		if let Some(refcount) = self.pinned_blocks.peek_mut(&hash) {
 			*refcount = *refcount - 1;
 			if *refcount == 0 {
