@@ -1698,6 +1698,9 @@
 <a href="#1698" id="1698">1698</a>
 <a href="#1699" id="1699">1699</a>
 <a href="#1700" id="1700">1700</a>
+<a href="#1701" id="1701">1701</a>
+<a href="#1702" id="1702">1702</a>
+<a href="#1703" id="1703">1703</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1995,7 +1998,7 @@
 	</span><span class="kw">type </span>BenchmarkHelper = ();
 }
 
-<span class="doccomment">/// Union fungibles implementation for `Assets`` and `ForeignAssets`.
+<span class="doccomment">/// Union fungibles implementation for `Assets` and `ForeignAssets`.
 </span><span class="kw">pub type </span>LocalAndForeignAssets = fungibles::UnionOf&lt;
 	Assets,
 	ForeignAssets,
@@ -2007,18 +2010,21 @@
 	AccountId,
 &gt;;
 
+<span class="doccomment">/// Union fungibles implementation for [`LocalAndForeignAssets`] and `Balances`.
+</span><span class="kw">pub type </span>NativeAndAssets = fungible::UnionOf&lt;
+	Balances,
+	LocalAndForeignAssets,
+	TargetFromLeft&lt;WestendLocation&gt;,
+	MultiLocation,
+	AccountId,
+&gt;;
+
 <span class="kw">impl </span>pallet_asset_conversion::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Balance = Balance;
 	<span class="kw">type </span>HigherPrecisionBalance = sp_core::U256;
 	<span class="kw">type </span>AssetKind = MultiLocation;
-	<span class="kw">type </span>Assets = fungible::UnionOf&lt;
-		Balances,
-		LocalAndForeignAssets,
-		TargetFromLeft&lt;WestendLocation&gt;,
-		<span class="self">Self</span>::AssetKind,
-		<span class="self">Self</span>::AccountId,
-	&gt;;
+	<span class="kw">type </span>Assets = NativeAndAssets;
 	<span class="kw">type </span>PoolId = (<span class="self">Self</span>::AssetKind, <span class="self">Self</span>::AssetKind);
 	<span class="kw">type </span>PoolLocator =
 		pallet_asset_conversion::WithFirstAsset&lt;WestendLocation, AccountId, <span class="self">Self</span>::AssetKind&gt;;
