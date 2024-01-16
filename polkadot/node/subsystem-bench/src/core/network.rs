@@ -19,6 +19,7 @@ use super::{
 	*,
 };
 use colored::Colorize;
+use polkadot_node_network_protocol::request_response::ReqProtocolNames;
 use polkadot_primitives::AuthorityDiscoveryId;
 use prometheus_endpoint::U64;
 use rand::{seq::SliceRandom, thread_rng};
@@ -311,6 +312,8 @@ pub struct NetworkEmulator {
 	stats: Vec<Arc<PeerEmulatorStats>>,
 	/// Each emulated peer is a validator.
 	validator_authority_ids: HashMap<AuthorityDiscoveryId, usize>,
+	/// Request protocol names
+	req_protocol_names: ReqProtocolNames,
 }
 
 impl NetworkEmulator {
@@ -318,6 +321,7 @@ impl NetworkEmulator {
 		config: &TestConfiguration,
 		dependencies: &TestEnvironmentDependencies,
 		authorities: &TestAuthorities,
+		req_protocol_names: ReqProtocolNames,
 	) -> Self {
 		let n_peers = config.n_validators;
 		gum::info!(target: LOG_TARGET, "{}",format!("Initializing emulation for a {} peer network.", n_peers).bright_blue());
@@ -355,7 +359,12 @@ impl NetworkEmulator {
 
 		gum::info!(target: LOG_TARGET, "{}",format!("Network created, connected validator count {}", connected_count).bright_black());
 
-		Self { peers, stats, validator_authority_ids: validator_authority_id_mapping }
+		Self {
+			peers,
+			stats,
+			validator_authority_ids: validator_authority_id_mapping,
+			req_protocol_names,
+		}
 	}
 
 	pub fn is_peer_connected(&self, peer: &AuthorityDiscoveryId) -> bool {
@@ -427,6 +436,11 @@ impl NetworkEmulator {
 	pub fn inc_received(&self, bytes: usize) {
 		// Our node always is peer 0.
 		self.peer_stats(0).inc_received(bytes);
+	}
+
+	// Get the request protocol names
+	pub fn req_protocol_names(&self) -> &ReqProtocolNames {
+		&self.req_protocol_names
 	}
 }
 

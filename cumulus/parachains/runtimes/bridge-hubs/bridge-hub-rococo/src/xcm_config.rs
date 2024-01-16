@@ -39,6 +39,7 @@ use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
 use parachains_common::{
 	impls::ToStakingPot,
+	rococo::snowbridge::EthereumNetwork,
 	xcm_config::{
 		AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains,
 		RelayOrOtherSystemParachains,
@@ -47,10 +48,8 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use snowbridge_core::DescribeHere;
-use snowbridge_rococo_common::EthereumNetwork;
 use snowbridge_runtime_common::XcmExportFeeToSibling;
-use sp_core::{Get, H256};
+use sp_core::Get;
 use sp_runtime::traits::AccountIdConversion;
 use sp_std::marker::PhantomData;
 use xcm::latest::prelude::*;
@@ -58,12 +57,11 @@ use xcm::latest::prelude::*;
 use xcm_builder::{
 	deposit_or_burn_fee, AccountId32Aliases, AllowExplicitUnpaidExecutionFrom,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	CurrencyAdapter, DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal,
-	DescribeFamily, EnsureXcmOrigin, HandleFee, HashedDescription, IsConcrete, ParentAsSuperuser,
-	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeeToAccount,
+	CurrencyAdapter, DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, HandleFee,
+	IsConcrete, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
+	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
+	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeToAccount,
 };
 use xcm_executor::{
 	traits::{FeeManager, FeeReason, FeeReason::Export, TransactAsset, WithOriginFilter},
@@ -218,12 +216,12 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 					WithRococoBulletinMessagesInstance,
 				>::set_operating_mode { .. }) |
 				RuntimeCall::EthereumBeaconClient(
-					snowbridge_ethereum_beacon_client::Call::force_checkpoint { .. } |
-						snowbridge_ethereum_beacon_client::Call::set_operating_mode { .. },
+					snowbridge_pallet_ethereum_client::Call::force_checkpoint { .. } |
+						snowbridge_pallet_ethereum_client::Call::set_operating_mode { .. },
 				) | RuntimeCall::EthereumInboundQueue(
-				snowbridge_inbound_queue::Call::set_operating_mode { .. },
+				snowbridge_pallet_inbound_queue::Call::set_operating_mode { .. },
 			) | RuntimeCall::EthereumOutboundQueue(
-				snowbridge_outbound_queue::Call::set_operating_mode { .. },
+				snowbridge_pallet_outbound_queue::Call::set_operating_mode { .. },
 			) | RuntimeCall::EthereumSystem(..)
 		)
 	}
@@ -383,10 +381,6 @@ impl cumulus_pallet_xcm::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 }
 
-/// Creates an AgentId from a MultiLocation. An AgentId is a unique mapping to a Agent contract on
-/// Ethereum which acts as the sovereign account for the MultiLocation.
-pub type AgentIdOf = HashedDescription<H256, (DescribeHere, DescribeFamily<DescribeAllTerminal>)>;
-
 /// A `HandleFee` implementation that simply deposits the fees for `ExportMessage` XCM instructions
 /// into the accounts that are used for paying the relayer rewards.
 /// Burns the fees in case of a failure.
@@ -496,24 +490,5 @@ impl<WaivedLocations: Contains<MultiLocation>, FeeHandler: HandleFee> FeeManager
 
 	fn handle_fee(fee: MultiAssets, context: Option<&XcmContext>, reason: FeeReason) {
 		FeeHandler::handle_fee(fee, context, reason);
-	}
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-pub mod benchmark_helpers {
-	use crate::{MultiAssets, MultiLocation, SendError, SendResult, SendXcm, Xcm, XcmHash};
-
-	pub struct DoNothingRouter;
-	impl SendXcm for DoNothingRouter {
-		type Ticket = ();
-		fn validate(
-			_dest: &mut Option<MultiLocation>,
-			_msg: &mut Option<Xcm<()>>,
-		) -> SendResult<()> {
-			Ok(((), MultiAssets::new()))
-		}
-		fn deliver(_: ()) -> Result<XcmHash, SendError> {
-			Ok([0; 32])
-		}
 	}
 }
