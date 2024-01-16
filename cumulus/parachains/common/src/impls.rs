@@ -329,7 +329,7 @@ mod tests {
 	#[test]
 	fn assets_from_filters_correctly() {
 		parameter_types! {
-			pub SomeSiblingParachain: Location = Location::new(1, [Parachain(1234)]);
+			pub SomeSiblingParachain: Location = (Parent, Parachain(1234)).into();
 		}
 
 		let asset_location = SomeSiblingParachain::get()

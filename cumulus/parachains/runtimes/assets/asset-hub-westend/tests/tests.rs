@@ -186,7 +186,7 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 			let asset_total_issuance = Assets::total_issuance(asset_1);
 			let native_total_issuance = Balances::total_issuance();
 
-			let asset_1_location_latest: Location = asset_1_location.clone().try_into().unwrap();
+			let asset_1_location_latest: Location = asset_1_location.try_into().unwrap();
 
 			// prepare input to buy weight.
 			let weight = Weight::from_parts(4_000_000_000, 0);
@@ -288,7 +288,7 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 			let asset_total_issuance = ForeignAssets::total_issuance(foreign_location);
 			let native_total_issuance = Balances::total_issuance();
 
-			let foreign_location_latest: Location = foreign_location.clone().try_into().unwrap();
+			let foreign_location_latest: Location = foreign_location.try_into().unwrap();
 
 			// prepare input to buy weight.
 			let weight = Weight::from_parts(4_000_000_000, 0);
