@@ -233,7 +233,7 @@ pub fn send_unpaid_transfer_token_message<Runtime, XcmConfig>(
 				xcm,
 				&mut hash,
 				RuntimeHelper::<Runtime>::xcm_max_weight(XcmReceivedFrom::Sibling),
-				RuntimeHelper::<Runtime>::xcm_max_weight(XcmReceivedFrom::Sibling),
+				Weight::zero(),
 			);
 			// check error is barrier
 			assert_err!(outcome.ensure_complete(), Barrier);

@@ -75,7 +75,7 @@ where
 		}
 
 		let para_id = match local_sub.as_slice() {
-			[Parachain(para_id)] => para_id,
+			[Parachain(para_id)] => *para_id,
 			_ => {
 				log::error!(target: "xcm::ethereum_blob_exporter", "could not get parachain id from universal source '{local_sub:?}'.");
 				return Err(SendError::MissingArgument)
@@ -102,7 +102,7 @@ where
 			},
 		};
 
-		let channel_id: ChannelId = ParaId::from(*para_id).into();
+		let channel_id: ChannelId = ParaId::from(para_id).into();
 
 		let outbound_message = Message {
 			id: Some(message_id.into()),
