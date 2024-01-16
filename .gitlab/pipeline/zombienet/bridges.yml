@@ -6,6 +6,10 @@
   before_script:
     # Exit if the job is not merge queue
     # - if [[ $CI_COMMIT_REF_NAME != *"gh-readonly-queue"* ]]; then echo "I will run only in a merge queue"; exit 0; fi
+    # Docker images have different tag in merge queues
+    - if [[ $CI_COMMIT_REF_NAME == *"gh-readonly-queue"* ]]; then export DOCKER_IMAGES_VERSION="${CI_COMMIT_SHORT_SHA}"; fi
+    - export BRIDGES_ZOMBIENET_TESTS_IMAGE_TAG=${DOCKER_IMAGES_VERSION}
+    - export BRIDGES_ZOMBIENET_TESTS_IMAGE="docker.io/paritypr/bridges-zombienet-tests"
     - echo "Zombienet Tests Config"
     - echo "${ZOMBIENET_IMAGE}"
     - echo "${GH_DIR}"
@@ -29,6 +33,11 @@
     LOCAL_DIR: "/builds/parity/mirrors/polkadot-sdk/bridges/zombienet"
     FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
     RUN_IN_CONTAINER: "1"
+  rules:
+    - !reference [.build-refs, rules]
+    - if: $CI_COMMIT_REF_NAME =~ /^gh-readonly-queue.*$/ # merge queues
+      variables:
+        BRIDGES_ZOMBIENET_TESTS_IMAGE_TAG: ${CI_COMMIT_SHORT_SHA}
   artifacts:
     name: "${CI_JOB_NAME}_${CI_COMMIT_REF_NAME}_zombienet_bridge_tests"
     when: always
