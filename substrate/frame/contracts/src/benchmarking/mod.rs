@@ -41,7 +41,7 @@ use frame_support::{
 	self,
 	pallet_prelude::StorageVersion,
 	traits::{fungible::InspectHold, Currency},
-	weights::Weight,
+	weights::{Weight, WeightMeter},
 };
 use frame_system::RawOrigin;
 use pallet_balances;
@@ -213,7 +213,7 @@ benchmarks! {
 	// The base weight consumed on processing contracts deletion queue.
 	#[pov_mode = Measured]
 	on_process_deletion_queue_batch {}: {
-		ContractInfo::<T>::process_deletion_queue_batch(Weight::MAX)
+		ContractInfo::<T>::process_deletion_queue_batch(&mut WeightMeter::new())
 	}
 
 	#[skip_meta]
@@ -223,7 +223,7 @@ benchmarks! {
 		let instance = Contract::<T>::with_storage(WasmModule::dummy(), k, T::Schedule::get().limits.payload_len)?;
 		instance.info()?.queue_trie_for_deletion();
 	}: {
-		ContractInfo::<T>::process_deletion_queue_batch(Weight::MAX)
+		ContractInfo::<T>::process_deletion_queue_batch(&mut WeightMeter::new())
 	}
 
 	// This benchmarks the v9 migration step (update codeStorage).
@@ -317,7 +317,7 @@ benchmarks! {
 		let version = LATEST_MIGRATION_VERSION;
 		assert_eq!(StorageVersion::get::<Pallet<T>>(), version);
 	}:  {
-		Migration::<T>::migrate(Weight::MAX)
+		Migration::<T>::migrate(&mut WeightMeter::new())
 	} verify {
 		assert_eq!(StorageVersion::get::<Pallet<T>>(), version);
 	}
@@ -2613,7 +2613,7 @@ benchmarks! {
 		#[cfg(feature = "std")]
 		{
 			let max_weight = <T as frame_system::Config>::BlockWeights::get().max_block;
-			let (weight_per_key, key_budget) = ContractInfo::<T>::deletion_budget(max_weight);
+			let (weight_per_key, key_budget) = ContractInfo::<T>::deletion_budget(&mut WeightMeter::with_limit(max_weight));
 			println!("{:#?}", Schedule::<T>::default());
 			println!("###############################################");
 			println!("Lazy deletion weight per key: {weight_per_key}");

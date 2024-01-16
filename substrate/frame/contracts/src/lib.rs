@@ -123,7 +123,7 @@ use frame_support::{
 		fungible::{Inspect, Mutate, MutateHold},
 		ConstU32, Contains, Get, Randomness, Time,
 	},
-	weights::Weight,
+	weights::{Weight, WeightMeter},
 	BoundedVec, DefaultNoBound, RuntimeDebugNoBound,
 };
 use frame_system::{
@@ -413,17 +413,15 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_idle(_block: BlockNumberFor<T>, mut remaining_weight: Weight) -> Weight {
+		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
 			use migration::MigrateResult::*;
+			let mut meter = WeightMeter::with_limit(limit);
 
 			loop {
-				let (result, weight) = Migration::<T>::migrate(remaining_weight);
-				remaining_weight.saturating_reduce(weight);
-
-				match result {
-					// There is not enough weight to perform a migration, or make any progress, we
-					// just return the remaining weight.
-					NoMigrationPerformed | InProgress { steps_done: 0 } => return remaining_weight,
+				match Migration::<T>::migrate(&mut meter) {
+					// There is not enough weight to perform a migration.
+					// We can't do anything more, so we return the used weight.
+					NoMigrationPerformed | InProgress { steps_done: 0 } => return meter.consumed(),
 					// Migration is still in progress, we can start the next step.
 					InProgress { .. } => continue,
 					// Either no migration is in progress, or we are done with all migrations, we
@@ -432,8 +430,8 @@ pub mod pallet {
 				}
 			}
 
-			ContractInfo::<T>::process_deletion_queue_batch(remaining_weight)
-				.saturating_add(T::WeightInfo::on_process_deletion_queue_batch())
+			ContractInfo::<T>::process_deletion_queue_batch(&mut meter);
+			meter.consumed()
 		}
 
 		fn integrity_test() {
@@ -859,16 +857,17 @@ pub mod pallet {
 			use migration::MigrateResult::*;
 			ensure_signed(origin)?;
 
-			let weight_limit = weight_limit.saturating_add(T::WeightInfo::migrate());
-			let (result, weight) = Migration::<T>::migrate(weight_limit);
+			let limit = weight_limit.saturating_add(T::WeightInfo::migrate());
+			let mut meter = WeightMeter::with_limit(limit);
+			let result = Migration::<T>::migrate(&mut meter);
 
 			match result {
 				Completed =>
-					Ok(PostDispatchInfo { actual_weight: Some(weight), pays_fee: Pays::No }),
+					Ok(PostDispatchInfo { actual_weight: Some(meter.consumed()), pays_fee: Pays::No }),
 				InProgress { steps_done, .. } if steps_done > 0 =>
-					Ok(PostDispatchInfo { actual_weight: Some(weight), pays_fee: Pays::No }),
+					Ok(PostDispatchInfo { actual_weight: Some(meter.consumed()), pays_fee: Pays::No }),
 				InProgress { .. } =>
-					Ok(PostDispatchInfo { actual_weight: Some(weight), pays_fee: Pays::Yes }),
+					Ok(PostDispatchInfo { actual_weight: Some(meter.consumed()), pays_fee: Pays::Yes }),
 				NoMigrationInProgress | NoMigrationPerformed => {
 					let err: DispatchError = <Error<T>>::NoMigrationPerformed.into();
 					Err(err.with_weight(T::WeightInfo::migrate()))

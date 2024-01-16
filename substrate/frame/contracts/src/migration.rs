@@ -70,6 +70,7 @@ use crate::{weights::WeightInfo, Config, Error, MigrationInProgress, Pallet, Wei
 use codec::{Codec, Decode};
 use frame_support::{
 	pallet_prelude::*,
+	weights::WeightMeter,
 	traits::{ConstU32, OnRuntimeUpgrade},
 };
 use sp_runtime::Saturating;
@@ -209,8 +210,8 @@ pub trait MigrateSequence: private::Sealed {
 		Ok(())
 	}
 
-	/// Execute the migration step until the weight limit is reached.
-	fn steps(version: StorageVersion, cursor: &[u8], weight_left: &mut Weight) -> StepResult;
+	/// Execute the migration step until the available weight is consumed.
+	fn steps(version: StorageVersion, cursor: &[u8], meter: &mut WeightMeter) -> StepResult;
 
 	/// Verify that the migration step fits into `Cursor`, and that `max_step_weight` is not greater
 	/// than `max_block_weight`.
@@ -240,8 +241,9 @@ impl<T: Config, const TEST_ALL_STEPS: bool> Migration<T, TEST_ALL_STEPS> {
 		loop {
 			let in_progress_version = <Pallet<T>>::on_chain_storage_version() + 1;
 			let state = T::Migrations::pre_upgrade_step(in_progress_version)?;
-			let (status, w) = Self::migrate(Weight::MAX);
-			weight.saturating_accrue(w);
+			let mut meter = &mut WeightMeter::new();
+			let status = Self::migrate(&mut meter);
+			weight.saturating_accrue(meter.consumed());
 			log::info!(
 				target: LOG_TARGET,
 				"{name}: Migration step {:?} weight = {}",
@@ -384,19 +386,19 @@ impl<T: Config, const TEST_ALL_STEPS: bool> Migration<T, TEST_ALL_STEPS> {
 		T::Migrations::integrity_test(max_weight)
 	}
 
-	/// Migrate
-	/// Return the weight used and whether or not a migration is in progress
-	pub(crate) fn migrate(weight_limit: Weight) -> (MigrateResult, Weight) {
+	/// Execute the multi-step migration.
+	/// Returns whether or not a migration is in progress
+	pub(crate) fn migrate(mut meter: &mut WeightMeter) -> MigrateResult {
 		let name = <Pallet<T>>::name();
-		let mut weight_left = weight_limit;
 
-		if weight_left.checked_reduce(T::WeightInfo::migrate()).is_none() {
-			return (MigrateResult::NoMigrationPerformed, Weight::zero())
+		if meter.try_consume(T::WeightInfo::migrate()).is_err() {
+			return MigrateResult::NoMigrationPerformed
 		}
 
 		MigrationInProgress::<T>::mutate_exists(|progress| {
 			let Some(cursor_before) = progress.as_mut() else {
-				return (MigrateResult::NoMigrationInProgress, T::WeightInfo::migration_noop())
+				meter.consume(T::WeightInfo::migration_noop());
+				return MigrateResult::NoMigrationInProgress
 			};
 
 			// if a migration is running it is always upgrading to the next version
@@ -413,7 +415,7 @@ impl<T: Config, const TEST_ALL_STEPS: bool> Migration<T, TEST_ALL_STEPS> {
 			let result = match T::Migrations::steps(
 				in_progress_version,
 				cursor_before.as_ref(),
-				&mut weight_left,
+				&mut meter,
 			) {
 				StepResult::InProgress { cursor, steps_done } => {
 					*progress = Some(cursor);
@@ -441,7 +443,7 @@ impl<T: Config, const TEST_ALL_STEPS: bool> Migration<T, TEST_ALL_STEPS> {
 				},
 			};
 
-			(result, weight_limit.saturating_sub(weight_left))
+			result
 		})
 	}
 
@@ -516,7 +518,7 @@ impl MigrateSequence for Tuple {
 		invalid_version(version)
 	}
 
-	fn steps(version: StorageVersion, mut cursor: &[u8], weight_left: &mut Weight) -> StepResult {
+	fn steps(version: StorageVersion, mut cursor: &[u8], meter: &mut WeightMeter) -> StepResult {
 		for_tuples!(
 			#(
 				if version == Tuple::VERSION {
@@ -524,10 +526,10 @@ impl MigrateSequence for Tuple {
 						.expect(PROOF_DECODE);
 					let max_weight = Tuple::max_step_weight();
 					let mut steps_done = 0;
-					while weight_left.all_gt(max_weight) {
+					while meter.can_consume(max_weight) {
 						let (finished, weight) = migration.step();
 						steps_done.saturating_accrue(1);
-						weight_left.saturating_reduce(weight);
+						meter.consume(weight);
 						if matches!(finished, IsFinished::Yes) {
 							return StepResult::Completed{ steps_done }
 						}
@@ -603,15 +605,15 @@ mod test {
 		let version = StorageVersion::new(2);
 		let mut cursor = Migrations::new(version);
 
-		let mut weight = Weight::from_all(2);
-		let result = Migrations::steps(version, &cursor, &mut weight);
+		let mut meter = WeightMeter::with_limit(Weight::from_all(1));
+		let result = Migrations::steps(version, &cursor, &mut meter);
 		cursor = vec![1u8, 0].try_into().unwrap();
 		assert_eq!(result, StepResult::InProgress { cursor: cursor.clone(), steps_done: 1 });
-		assert_eq!(weight, Weight::from_all(1));
+		assert_eq!(meter.consumed(), Weight::from_all(1));
 
-		let mut weight = Weight::from_all(2);
+		let mut meter = WeightMeter::with_limit(Weight::from_all(1));
 		assert_eq!(
-			Migrations::steps(version, &cursor, &mut weight),
+			Migrations::steps(version, &cursor, &mut meter),
 			StepResult::Completed { steps_done: 1 }
 		);
 	}
@@ -622,7 +624,7 @@ mod test {
 
 		ExtBuilder::default().build().execute_with(|| {
 			assert_eq!(StorageVersion::get::<Pallet<Test>>(), LATEST_MIGRATION_VERSION);
-			assert_eq!(TestMigration::migrate(Weight::MAX).0, MigrateResult::NoMigrationInProgress)
+			assert_eq!(TestMigration::migrate(&mut WeightMeter::new()), MigrateResult::NoMigrationInProgress)
 		});
 	}
 
@@ -640,7 +642,7 @@ mod test {
 					(LATEST_MIGRATION_VERSION - 1, MigrateResult::InProgress { steps_done: 1 }),
 					(LATEST_MIGRATION_VERSION, MigrateResult::Completed),
 				] {
-					assert_eq!(TestMigration::migrate(Weight::MAX).0, status);
+					assert_eq!(TestMigration::migrate(&mut WeightMeter::new()), status);
 					assert_eq!(
 						<Pallet<Test>>::on_chain_storage_version(),
 						StorageVersion::new(version)
@@ -648,7 +650,7 @@ mod test {
 				}
 
 				assert_eq!(
-					TestMigration::migrate(Weight::MAX).0,
+					TestMigration::migrate(&mut WeightMeter::new()),
 					MigrateResult::NoMigrationInProgress
 				);
 				assert_eq!(StorageVersion::get::<Pallet<Test>>(), LATEST_MIGRATION_VERSION);

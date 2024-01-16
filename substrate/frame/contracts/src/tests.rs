@@ -52,7 +52,7 @@ use frame_support::{
 		tokens::Preservation,
 		ConstU32, ConstU64, Contains, OnIdle, OnInitialize, StorageVersion,
 	},
-	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
+	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight, WeightMeter},
 };
 use frame_system::{EventRecord, Phase};
 use pallet_contracts_fixtures::compile_module;
@@ -2409,8 +2409,13 @@ fn lazy_removal_partial_remove_works() {
 
 	// We create a contract with some extra keys above the weight limit
 	let extra_keys = 7u32;
-	let weight_limit = Weight::from_parts(5_000_000_000, 0);
-	let (_, max_keys) = ContractInfo::<Test>::deletion_budget(weight_limit);
+
+	// Give it enough gas to remove at least 10 keys
+	let base_weight = <<Test as Config>::WeightInfo as WeightInfo>::on_process_deletion_queue_batch();
+	let (weight_per_key, _) = ContractInfo::<Test>::deletion_budget(&mut WeightMeter::new());
+	let mut meter = WeightMeter::with_limit((weight_per_key * 10).saturating_add(base_weight));
+
+	let (_, max_keys) = ContractInfo::<Test>::deletion_budget(&meter);
 	let vals: Vec<_> = (0..max_keys + extra_keys)
 		.map(|i| (blake2_256(&i.encode()), (i as u32), (i as u32).encode()))
 		.collect();
@@ -2473,10 +2478,10 @@ fn lazy_removal_partial_remove_works() {
 
 	ext.execute_with(|| {
 		// Run the lazy removal
-		let weight_used = ContractInfo::<Test>::process_deletion_queue_batch(weight_limit);
+		ContractInfo::<Test>::process_deletion_queue_batch(&mut meter);
 
 		// Weight should be exhausted because we could not even delete all keys
-		assert_eq!(weight_used, weight_limit);
+		assert!(!meter.can_consume(weight_per_key));
 
 		let mut num_deleted = 0u32;
 		let mut num_remaining = 0u32;
@@ -2568,7 +2573,7 @@ fn lazy_removal_does_no_run_on_low_remaining_weight() {
 fn lazy_removal_does_not_use_all_weight() {
 	let (code, _hash) = compile_module::<Test>("self_destruct").unwrap();
 
-	let weight_limit = Weight::from_parts(5_000_000_000, 100 * 1024);
+	let mut meter = WeightMeter::with_limit(Weight::from_parts(5_000_000_000, 100 * 1024));
 	let mut ext = ExtBuilder::default().existential_deposit(50).build();
 
 	let (trie, vals, weight_per_key) = ext.execute_with(|| {
@@ -2591,7 +2596,8 @@ fn lazy_removal_does_not_use_all_weight() {
 		.account_id;
 
 		let info = get_contract(&addr);
-		let (weight_per_key, max_keys) = ContractInfo::<Test>::deletion_budget(weight_limit);
+		let (weight_per_key, max_keys) = ContractInfo::<Test>::deletion_budget(&meter);
+		assert!(max_keys > 0);
 
 		// We create a contract with one less storage item than we can remove within the limit
 		let vals: Vec<_> = (0..max_keys - 1)
@@ -2630,13 +2636,13 @@ fn lazy_removal_does_not_use_all_weight() {
 	// The lazy removal limit only applies to the backend but not to the overlay.
 	// This commits all keys from the overlay to the backend.
 	ext.commit_all().unwrap();
+	dbg!(&vals.len());
 
 	ext.execute_with(|| {
 		// Run the lazy removal
-		let weight_used = ContractInfo::<Test>::process_deletion_queue_batch(weight_limit);
-
-		// We have one less key in our trie than our weight limit suffices for
-		assert_eq!(weight_used, weight_limit - weight_per_key);
+		ContractInfo::<Test>::process_deletion_queue_batch(&mut meter);
+		let base_weight = <<Test as Config>::WeightInfo as WeightInfo>::on_process_deletion_queue_batch();
+		assert_eq!(meter.consumed(), weight_per_key.mul(vals.len() as _) + base_weight);
 
 		// All the keys are removed
 		for val in vals {
