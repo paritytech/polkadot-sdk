@@ -25,8 +25,6 @@ sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-fea
 sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
 
-log = "0"
-
 # Cumulus
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"] }
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false }
@@ -85,5 +83,5 @@ std = [
 	"sp-std/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
-	"xcm/std",
+	"xcm/std"
 ]

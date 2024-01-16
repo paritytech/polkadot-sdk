@@ -29,7 +29,7 @@ fn create_asset(asset_id: AssetId, amount: Balance) -> Asset {
 }
 
 fn create_asset_id(asset_id: AssetId) -> XcmAssetId {
-	Concrete(Location::new(0, [GeneralIndex(asset_id.into())]))
+	AssetId(Location::new(0, [GeneralIndex(asset_id.into())]))
 }
 
 fn xcm_context() -> XcmContext {
@@ -329,7 +329,7 @@ fn empty_holding_asset() {
 fn fails_to_match_holding_asset() {
 	let mut trader = Trader::new();
 	let holding_asset =
-		Asset { id: Concrete(Location::new(1, [Parachain(1)])), fun: Fungible(10) };
+		Asset { id: AssetId(Location::new(1, [Parachain(1)])), fun: Fungible(10) };
 	assert_eq!(
 		trader
 			.buy_weight(Weight::from_all(10), holding_asset.into(), &xcm_context())
@@ -541,9 +541,11 @@ pub mod mock {
 			match a {
 				Asset {
 					fun: Fungible(amount),
-					id:
-						Concrete(Location { parents: 0, interior: [Junction::GeneralIndex(id)] }),
-				} => Ok(((*id).try_into().unwrap(), *amount)),
+					id:	AssetId(inner_location),
+				} => match inner_location.unpack() {
+					(0, [Junction::GeneralIndex(id)]) => Ok(((*id).try_into().unwrap(), *amount)),
+					_ => Err(xcm_executor::traits::Error::AssetNotHandled),
+				},
 				_ => Err(xcm_executor::traits::Error::AssetNotHandled),
 			}
 		}

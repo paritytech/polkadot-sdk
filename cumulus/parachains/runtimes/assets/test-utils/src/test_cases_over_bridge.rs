@@ -536,10 +536,6 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 			);
 			assert_ok!(outcome.ensure_complete());
 
-			log::info!(target: "xcm", "Staking pot: {:?}", staking_pot);
-			log::info!(target: "xcm", "Free balance: {:?}", <pallet_balances::Pallet<Runtime>>::free_balance(&staking_pot));
-			log::info!(target: "xcm", "Existential deposit: {:?}", existential_deposit);
-
 			// Balances after
 			// staking pot receives xcm fees in dot
 			assert!(
