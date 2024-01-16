@@ -30,6 +30,7 @@ use parachains_runtimes_test_utils::{
 	SlotDurations, ValidatorIdOf, XcmReceivedFrom,
 };
 use sp_runtime::{traits::StaticLookup, Saturating};
+use sp_std::ops::Mul;
 use xcm::{latest::prelude::*, VersionedMultiAssets};
 use xcm_builder::{CreateMatcher, MatchXcm};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
@@ -338,12 +339,13 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
 		+ cumulus_pallet_xcmp_queue::Config
-		+ pallet_assets::Config<ForeignAssetsPalletInstance>,
+		+ pallet_assets::Config<ForeignAssetsPalletInstance>
+		+ pallet_asset_conversion::Config,
 	AllPalletsWithoutSystem:
 		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
-	AccountIdOf<Runtime>: Into<[u8; 32]>,
+	AccountIdOf<Runtime>: Into<[u8; 32]> + From<[u8; 32]>,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
-	BalanceOf<Runtime>: From<Balance>,
+	BalanceOf<Runtime>: From<Balance> + Into<Balance>,
 	XcmConfig: xcm_executor::Config,
 	LocationToAccountId: ConvertLocation<AccountIdOf<Runtime>>,
 	<Runtime as pallet_assets::Config<ForeignAssetsPalletInstance>>::AssetId:
@@ -356,6 +358,9 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 		+ Into<AccountId>,
 	<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source:
 		From<<Runtime as frame_system::Config>::AccountId>,
+	<Runtime as pallet_asset_conversion::Config>::AssetKind:
+		From<MultiLocation> + Into<MultiLocation>,
+	<Runtime as pallet_asset_conversion::Config>::Balance: From<Balance>,
 	ForeignAssetsPalletInstance: 'static,
 {
 	ExtBuilder::<Runtime>::default()
@@ -401,6 +406,43 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 					foreign_asset_id_minimum_balance.into()
 				)
 			);
+
+			// setup a pool to pay fees with `foreign_asset_id_multilocation` tokens
+			let pool_owner: AccountIdOf<Runtime> = [1u8; 32].into();
+			let native_asset = MultiLocation::parent();
+			let pool_liquidity: u128 =
+				existential_deposit.into().max(foreign_asset_id_minimum_balance).mul(100_000);
+
+			let _ = <pallet_balances::Pallet<Runtime>>::deposit_creating(
+				&pool_owner,
+				(existential_deposit.into() + pool_liquidity).mul(2).into(),
+			);
+
+			assert_ok!(<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::mint(
+				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::origin_of(
+					sovereign_account_as_owner_of_foreign_asset
+				),
+				foreign_asset_id_multilocation.into(),
+				pool_owner.clone().into(),
+				(foreign_asset_id_minimum_balance + pool_liquidity).mul(2).into(),
+			));
+
+			assert_ok!(<pallet_asset_conversion::Pallet<Runtime>>::create_pool(
+				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::origin_of(pool_owner.clone()),
+				Box::new(native_asset.into()),
+				Box::new(foreign_asset_id_multilocation.into())
+			));
+
+			assert_ok!(<pallet_asset_conversion::Pallet<Runtime>>::add_liquidity(
+				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::origin_of(pool_owner.clone()),
+				Box::new(native_asset.into()),
+				Box::new(foreign_asset_id_multilocation.into()),
+				pool_liquidity.into(),
+				pool_liquidity.into(),
+				1.into(),
+				1.into(),
+				pool_owner,
+			));
 
 			// Balances before
 			assert_eq!(
@@ -487,14 +529,12 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 			);
 			assert_ok!(outcome.ensure_complete());
 
-			// author actual balance after (received fees from Trader for ForeignAssets)
-			let author_received_fees =
-				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_multilocation.into(),
-					&block_author_account,
-				);
-
-			// Balances after (untouched)
+			// Balances after
+			// staking pot receives xcm fees in dot
+			assert!(
+				<pallet_balances::Pallet<Runtime>>::free_balance(&staking_pot) !=
+					existential_deposit
+			);
 			assert_eq!(
 				<pallet_balances::Pallet<Runtime>>::free_balance(&target_account),
 				existential_deposit.clone()
@@ -503,30 +543,25 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 				<pallet_balances::Pallet<Runtime>>::free_balance(&block_author_account),
 				0.into()
 			);
-			assert_eq!(
-				<pallet_balances::Pallet<Runtime>>::free_balance(&staking_pot),
-				existential_deposit.clone()
-			);
 
 			// ForeignAssets balances after
-			assert_eq!(
+			assert!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
 					foreign_asset_id_multilocation.into(),
 					&target_account
-				),
-				(transfered_foreign_asset_id_amount - author_received_fees.into()).into()
-			);
-			assert_eq!(
-				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_multilocation.into(),
-					&block_author_account
-				),
-				author_received_fees
+				) > 0.into()
 			);
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
 					foreign_asset_id_multilocation.into(),
 					&staking_pot
+				),
+				0.into()
+			);
+			assert_eq!(
+				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
+					foreign_asset_id_multilocation.into(),
+					&block_author_account
 				),
 				0.into()
 			);

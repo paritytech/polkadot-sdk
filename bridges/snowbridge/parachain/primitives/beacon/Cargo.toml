@@ -1,13 +1,18 @@
 [package]
 name = "snowbridge-beacon-primitives"
 description = "Snowbridge Beacon Primitives"
-version = "0.0.1"
+version = "0.9.0"
 authors = ["Snowfork <contact@snowfork.com>"]
-edition = "2021"
+edition.workspace = true
+repository.workspace = true
 license = "Apache-2.0"
+categories = ["cryptography::cryptocurrencies"]
+
+[lints]
+workspace = true
 
 [dependencies]
-serde = { version = "1.0.188", optional = true, features = ["derive"] }
+serde = { version = "1.0.195", optional = true, features = ["derive"] }
 hex = { version = "0.4", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }

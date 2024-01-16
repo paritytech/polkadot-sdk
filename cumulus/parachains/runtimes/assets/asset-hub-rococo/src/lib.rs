@@ -35,7 +35,7 @@ use assets_common::{
 };
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::AggregateMessageOrigin;
-use snowbridge_rococo_common::EthereumNetwork;
+use parachains_common::rococo::snowbridge::EthereumNetwork;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
@@ -335,7 +335,7 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type BenchmarkHelper = ();
 }
 
-/// Union fungibles implementation for `Assets`` and `ForeignAssets`.
+/// Union fungibles implementation for `Assets` and `ForeignAssets`.
 pub type LocalAndForeignAssets = fungibles::UnionOf<
 	Assets,
 	ForeignAssets,
@@ -347,18 +347,21 @@ pub type LocalAndForeignAssets = fungibles::UnionOf<
 	AccountId,
 >;
 
+/// Union fungibles implementation for [`LocalAndForeignAssets`] and `Balances`.
+pub type NativeAndAssets = fungible::UnionOf<
+	Balances,
+	LocalAndForeignAssets,
+	TargetFromLeft<TokenLocation>,
+	MultiLocation,
+	AccountId,
+>;
+
 impl pallet_asset_conversion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type HigherPrecisionBalance = sp_core::U256;
 	type AssetKind = MultiLocation;
-	type Assets = fungible::UnionOf<
-		Balances,
-		LocalAndForeignAssets,
-		TargetFromLeft<TokenLocation>,
-		Self::AssetKind,
-		Self::AccountId,
-	>;
+	type Assets = NativeAndAssets;
 	type PoolId = (Self::AssetKind, Self::AssetKind);
 	type PoolLocator =
 		pallet_asset_conversion::WithFirstAsset<TokenLocation, AccountId, Self::AssetKind>;
@@ -942,6 +945,7 @@ construct_runtime!(
 
 		// Bridge utilities.
 		ToWestendXcmRouter: pallet_xcm_bridge_hub_router::<Instance3>::{Pallet, Storage, Call} = 45,
+
 		// The main stage.
 		Assets: pallet_assets::<Instance1>::{Pallet, Call, Storage, Event<T>} = 50,
 		Uniques: pallet_uniques::{Pallet, Call, Storage, Event<T>} = 51,

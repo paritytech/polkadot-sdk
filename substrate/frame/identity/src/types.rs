@@ -232,7 +232,7 @@ impl<Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + Part
 
 /// Information concerning the identity of the controller of an account.
 pub trait IdentityInformationProvider:
-	Encode + Decode + MaxEncodedLen + Clone + Debug + Eq + PartialEq + TypeInfo
+	Encode + Decode + MaxEncodedLen + Clone + Debug + Eq + PartialEq + TypeInfo + Default
 {
 	/// Type capable of holding information on which identity fields are set.
 	type FieldsIdentifier: Member + Encode + Decode + MaxEncodedLen + TypeInfo + Default;
@@ -318,6 +318,28 @@ pub struct RegistrarInfo<
 	/// these fields.
 	pub fields: IdField,
 }
+
+/// Authority properties for a given pallet configuration.
+pub type AuthorityPropertiesOf<T> = AuthorityProperties<Suffix<T>>;
+
+/// The number of usernames that an authority may allocate.
+type Allocation = u32;
+/// A byte vec used to represent a username.
+pub(crate) type Suffix<T> = BoundedVec<u8, <T as Config>::MaxSuffixLength>;
+
+/// Properties of a username authority.
+#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Debug)]
+pub struct AuthorityProperties<Suffix> {
+	/// The suffix added to usernames granted by this authority. Will be appended to usernames; for
+	/// example, a suffix of `wallet` will result in `.wallet` being appended to a user's selected
+	/// name.
+	pub suffix: Suffix,
+	/// The number of usernames remaining that this authority can grant.
+	pub allocation: Allocation,
+}
+
+/// A byte vec used to represent a username.
+pub(crate) type Username<T> = BoundedVec<u8, <T as Config>::MaxUsernameLength>;
 
 #[cfg(test)]
 mod tests {
