@@ -106,21 +106,21 @@ pub enum StorageEntry {
 	/// If a `set` operation occurs, store these to parent: overite on commit and restored on
 	/// rollback.
 	Append {
-		// current buffer of appended data.
+		/// current buffer of appended data.
 		data: AppendData,
-		// Current number of appended elements.
-		// This is use to rewrite materialized size when needed.
+		/// Current number of appended elements.
+		/// This is use to rewrite materialized size when needed.
 		nb_append: u32,
-		// When define, contains the number of elements written in data as prefix.
-		// If undefine, `data` do not contain the number of elements.
-		// This number is updated on access only, it may differs from the actual `nb_append`.
+		/// When define, contains the number of elements written in data as prefix.
+		/// If undefine, `data` do not contain the number of elements.
+		/// This number is updated on access only, it may differs from the actual `nb_append`.
 		materialized: Option<u32>,
-		// False when this append is obtain from no value or a value in a same overlay.
-		// This avoid case where we rollback to incorrect data due to delete then append
-		// in an overlay.
-		// Note that this cannot be deduced from transaction depth n minus one because we can have
-		// a break in transaction sequence in a same transaction.
-		// (remove or set value during a transaction).
+		/// False when this append is obtain from no value or a value in a same overlay.
+		/// This avoid case where we rollback to incorrect data due to delete then append
+		/// in an overlay.
+		/// Note that this cannot be deduced from transaction depth n minus one because we can have
+		/// a break in transaction sequence in a same transaction.
+		/// (remove or set value during a transaction).
 		from_parent: bool,
 	},
 }

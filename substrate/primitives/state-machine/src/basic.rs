@@ -123,7 +123,10 @@ impl BasicExternalities {
 
 impl BasicExternalities {
 	/// Same as `Eq` trait but on mutable references.
-	pub fn eq(&mut self, other: &mut BasicExternalities) -> bool {
+	/// This will reduce all append values to their single value representation
+	/// as any read does.
+	#[cfg(test)]
+	pub fn flatten_and_eq(&mut self, other: &mut BasicExternalities) -> bool {
 		self.overlay.changes().map(|(k, v)| (k, v.value())).collect::<BTreeMap<_, _>>() ==
 			other.overlay.changes().map(|(k, v)| (k, v.value())).collect::<BTreeMap<_, _>>() &&
 			self.overlay
