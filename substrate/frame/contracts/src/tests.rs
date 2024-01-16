@@ -2411,7 +2411,8 @@ fn lazy_removal_partial_remove_works() {
 	let extra_keys = 7u32;
 
 	// Give it enough gas to remove at least 10 keys
-	let base_weight = <<Test as Config>::WeightInfo as WeightInfo>::on_process_deletion_queue_batch();
+	let base_weight =
+		<<Test as Config>::WeightInfo as WeightInfo>::on_process_deletion_queue_batch();
 	let (weight_per_key, _) = ContractInfo::<Test>::deletion_budget(&mut WeightMeter::new());
 	let mut meter = WeightMeter::with_limit((weight_per_key * 10).saturating_add(base_weight));
 
@@ -2641,7 +2642,8 @@ fn lazy_removal_does_not_use_all_weight() {
 	ext.execute_with(|| {
 		// Run the lazy removal
 		ContractInfo::<Test>::process_deletion_queue_batch(&mut meter);
-		let base_weight = <<Test as Config>::WeightInfo as WeightInfo>::on_process_deletion_queue_batch();
+		let base_weight =
+			<<Test as Config>::WeightInfo as WeightInfo>::on_process_deletion_queue_batch();
 		assert_eq!(meter.consumed(), weight_per_key.mul(vals.len() as _) + base_weight);
 
 		// All the keys are removed

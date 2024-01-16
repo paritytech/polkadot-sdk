@@ -248,7 +248,7 @@ impl<T: Config, const TEST_ALL_STEPS: bool> Migration<T, TEST_ALL_STEPS> {
 				target: LOG_TARGET,
 				"{name}: Migration step {:?} weight = {}",
 				in_progress_version,
-				weight
+				meter.consumed()
 			);
 			T::Migrations::post_upgrade_step(in_progress_version, state)?;
 			if matches!(status, MigrateResult::Completed) {

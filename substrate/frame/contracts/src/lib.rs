@@ -862,12 +862,18 @@ pub mod pallet {
 			let result = Migration::<T>::migrate(&mut meter);
 
 			match result {
-				Completed =>
-					Ok(PostDispatchInfo { actual_weight: Some(meter.consumed()), pays_fee: Pays::No }),
-				InProgress { steps_done, .. } if steps_done > 0 =>
-					Ok(PostDispatchInfo { actual_weight: Some(meter.consumed()), pays_fee: Pays::No }),
-				InProgress { .. } =>
-					Ok(PostDispatchInfo { actual_weight: Some(meter.consumed()), pays_fee: Pays::Yes }),
+				Completed => Ok(PostDispatchInfo {
+					actual_weight: Some(meter.consumed()),
+					pays_fee: Pays::No,
+				}),
+				InProgress { steps_done, .. } if steps_done > 0 => Ok(PostDispatchInfo {
+					actual_weight: Some(meter.consumed()),
+					pays_fee: Pays::No,
+				}),
+				InProgress { .. } => Ok(PostDispatchInfo {
+					actual_weight: Some(meter.consumed()),
+					pays_fee: Pays::Yes,
+				}),
 				NoMigrationInProgress | NoMigrationPerformed => {
 					let err: DispatchError = <Error<T>>::NoMigrationPerformed.into();
 					Err(err.with_weight(T::WeightInfo::migrate()))

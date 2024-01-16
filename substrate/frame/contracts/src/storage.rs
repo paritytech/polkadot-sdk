@@ -281,7 +281,8 @@ impl<T: Config> ContractInfo<T> {
 
 		// `weight_per_key` being zero makes no sense and would constitute a failure to
 		// benchmark properly. We opt for not removing any keys at all in this case.
-		let key_budget = meter.limit()
+		let key_budget = meter
+			.limit()
 			.saturating_sub(base_weight)
 			.checked_div_per_component(&weight_per_key)
 			.unwrap_or(0) as u32;
@@ -291,7 +292,9 @@ impl<T: Config> ContractInfo<T> {
 
 	/// Delete as many items from the deletion queue possible within the supplied weight limit.
 	pub fn process_deletion_queue_batch(meter: &mut WeightMeter) {
-		let Ok(_) = meter.try_consume(T::WeightInfo::on_process_deletion_queue_batch()) else { return };
+		let Ok(_) = meter.try_consume(T::WeightInfo::on_process_deletion_queue_batch()) else {
+			return
+		};
 		let mut queue = <DeletionQueueManager<T>>::load();
 
 		if queue.is_empty() {
