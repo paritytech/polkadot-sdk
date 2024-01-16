@@ -1258,11 +1258,11 @@ mod tests {
 		let backend = state.as_trie_backend();
 
 		let mut overlay = OverlayedChanges::default();
-		overlay.set_storage(b"aba".to_vec(), Some(b"1312".to_vec()));
-		overlay.set_storage(b"bab".to_vec(), Some(b"228".to_vec()));
+		overlay.set_storage(b"aba".to_vec(), Some(b"1312".to_vec())).unwrap();
+		overlay.set_storage(b"bab".to_vec(), Some(b"228".to_vec())).unwrap();
 		overlay.start_transaction();
-		overlay.set_storage(b"abd".to_vec(), Some(b"69".to_vec()));
-		overlay.set_storage(b"bbd".to_vec(), Some(b"42".to_vec()));
+		overlay.set_storage(b"abd".to_vec(), Some(b"69".to_vec())).unwrap();
+		overlay.set_storage(b"bbd".to_vec(), Some(b"42".to_vec())).unwrap();
 
 		let overlay_limit = overlay.clone();
 		{
@@ -1327,10 +1327,10 @@ mod tests {
 		let backend = InMemoryBackend::<BlakeTwo256>::from((initial, StateVersion::default()));
 
 		let mut overlay = OverlayedChanges::default();
-		overlay.set_child_storage(&child_info, b"1".to_vec(), Some(b"1312".to_vec()));
-		overlay.set_child_storage(&child_info, b"2".to_vec(), Some(b"1312".to_vec()));
-		overlay.set_child_storage(&child_info, b"3".to_vec(), Some(b"1312".to_vec()));
-		overlay.set_child_storage(&child_info, b"4".to_vec(), Some(b"1312".to_vec()));
+		overlay.set_child_storage(&child_info, b"1".to_vec(), Some(b"1312".to_vec())).unwrap();
+		overlay.set_child_storage(&child_info, b"2".to_vec(), Some(b"1312".to_vec())).unwrap();
+		overlay.set_child_storage(&child_info, b"3".to_vec(), Some(b"1312".to_vec())).unwrap();
+		overlay.set_child_storage(&child_info, b"4".to_vec(), Some(b"1312".to_vec())).unwrap();
 
 		{
 			let mut ext = Ext::new(&mut overlay, &backend, None);
@@ -1944,7 +1944,7 @@ mod tests {
 
 		let mut overlay = OverlayedChanges::default();
 		overlay.start_transaction();
-		overlay.set_storage(b"ccc".to_vec(), Some(b"".to_vec()));
+		overlay.set_storage(b"ccc".to_vec(), Some(b"".to_vec())).unwrap();
 		assert_eq!(overlay.storage(b"ccc"), Some(Some(&[][..])));
 		overlay.commit_transaction().unwrap();
 		overlay.start_transaction();

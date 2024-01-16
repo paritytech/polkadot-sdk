@@ -41,7 +41,7 @@ use sp_std::{
 #[cfg(feature = "std")]
 use std::error;
 
-const EXT_NOT_ALLOWED_TO_FAIL: &str = "Externalities not allowed to fail within runtime";
+pub(crate) const EXT_NOT_ALLOWED_TO_FAIL: &str = "Externalities not allowed to fail within runtime";
 const BENCHMARKING_FN: &str = "\
 	This is a special fn only for benchmarking where a database commit happens from the runtime.
 	For that reason client started transactions before calling into runtime are not allowed.
@@ -395,7 +395,7 @@ where
 			),
 		);
 
-		self.overlay.set_storage(key, value);
+		self.overlay.set_storage(key, value).expect(EXT_NOT_ALLOWED_TO_FAIL);
 	}
 
 	fn place_child_storage(
@@ -414,7 +414,9 @@ where
 		);
 		let _guard = guard();
 
-		self.overlay.set_child_storage(child_info, key, value);
+		self.overlay
+			.set_child_storage(child_info, key, value)
+			.expect(EXT_NOT_ALLOWED_TO_FAIL);
 	}
 
 	fn kill_child_storage(
@@ -430,7 +432,7 @@ where
 			child_info = %HexDisplay::from(&child_info.storage_key()),
 		);
 		let _guard = guard();
-		let overlay = self.overlay.clear_child_storage(child_info);
+		let overlay = self.overlay.clear_child_storage(child_info).expect(EXT_NOT_ALLOWED_TO_FAIL);
 		let (maybe_cursor, backend, loops) =
 			self.limit_remove_from_backend(Some(child_info), None, maybe_limit, maybe_cursor);
 		MultiRemovalResults { maybe_cursor, backend, unique: overlay + backend, loops }
@@ -458,7 +460,7 @@ where
 			return MultiRemovalResults { maybe_cursor: None, backend: 0, unique: 0, loops: 0 }
 		}
 
-		let overlay = self.overlay.clear_prefix(prefix);
+		let overlay = self.overlay.clear_prefix(prefix).expect(EXT_NOT_ALLOWED_TO_FAIL);
 		let (maybe_cursor, backend, loops) =
 			self.limit_remove_from_backend(None, Some(prefix), maybe_limit, maybe_cursor);
 		MultiRemovalResults { maybe_cursor, backend, unique: overlay + backend, loops }
@@ -480,7 +482,10 @@ where
 		);
 		let _guard = guard();
 
-		let overlay = self.overlay.clear_child_prefix(child_info, prefix);
+		let overlay = self
+			.overlay
+			.clear_child_prefix(child_info, prefix)
+			.expect(EXT_NOT_ALLOWED_TO_FAIL);
 		let (maybe_cursor, backend, loops) = self.limit_remove_from_backend(
 			Some(child_info),
 			Some(prefix),
@@ -502,9 +507,11 @@ where
 		let _guard = guard();
 
 		let backend = &mut self.backend;
-		self.overlay.append_storage_init(key.clone(), value, || {
-			backend.storage(&key).expect(EXT_NOT_ALLOWED_TO_FAIL).unwrap_or_default()
-		});
+		self.overlay
+			.append_storage_init(key.clone(), value, || {
+				backend.storage(&key).expect(EXT_NOT_ALLOWED_TO_FAIL).unwrap_or_default()
+			})
+			.expect(EXT_NOT_ALLOWED_TO_FAIL);
 	}
 
 	fn storage_root(&mut self, state_version: StateVersion) -> Vec<u8> {
@@ -700,9 +707,11 @@ where
 			if !matches!(overlay, Some(None)) {
 				// not pending deletion from the backend - delete it.
 				if let Some(child_info) = child_info {
-					self.overlay.set_child_storage(child_info, key, None);
+					self.overlay
+						.set_child_storage(child_info, key, None)
+						.expect(EXT_NOT_ALLOWED_TO_FAIL);
 				} else {
-					self.overlay.set_storage(key, None);
+					self.overlay.set_storage(key, None).expect(EXT_NOT_ALLOWED_TO_FAIL);
 				}
 				delete_count = delete_count.saturating_add(1);
 			}
@@ -881,8 +890,8 @@ mod tests {
 	#[test]
 	fn next_storage_key_works() {
 		let mut overlay = OverlayedChanges::default();
-		overlay.set_storage(vec![20], None);
-		overlay.set_storage(vec![30], Some(vec![31]));
+		overlay.set_storage(vec![20], None).unwrap();
+		overlay.set_storage(vec![30], Some(vec![31])).unwrap();
 		let backend = (
 			Storage {
 				top: map![
@@ -911,7 +920,7 @@ mod tests {
 		assert_eq!(ext.next_storage_key(&[30]), Some(vec![40]));
 
 		drop(ext);
-		overlay.set_storage(vec![50], Some(vec![50]));
+		overlay.set_storage(vec![50], Some(vec![50])).unwrap();
 		let mut ext = TestExt::new(&mut overlay, &backend, None);
 
 		// next_overlay exist but next_backend doesn't exist
@@ -921,16 +930,16 @@ mod tests {
 	#[test]
 	fn next_storage_key_works_with_a_lot_empty_values_in_overlay() {
 		let mut overlay = OverlayedChanges::default();
-		overlay.set_storage(vec![20], None);
-		overlay.set_storage(vec![21], None);
-		overlay.set_storage(vec![22], None);
-		overlay.set_storage(vec![23], None);
-		overlay.set_storage(vec![24], None);
-		overlay.set_storage(vec![25], None);
-		overlay.set_storage(vec![26], None);
-		overlay.set_storage(vec![27], None);
-		overlay.set_storage(vec![28], None);
-		overlay.set_storage(vec![29], None);
+		overlay.set_storage(vec![20], None).unwrap();
+		overlay.set_storage(vec![21], None).unwrap();
+		overlay.set_storage(vec![22], None).unwrap();
+		overlay.set_storage(vec![23], None).unwrap();
+		overlay.set_storage(vec![24], None).unwrap();
+		overlay.set_storage(vec![25], None).unwrap();
+		overlay.set_storage(vec![26], None).unwrap();
+		overlay.set_storage(vec![27], None).unwrap();
+		overlay.set_storage(vec![28], None).unwrap();
+		overlay.set_storage(vec![29], None).unwrap();
 		let backend = (
 			Storage {
 				top: map![
@@ -955,8 +964,8 @@ mod tests {
 		let child_info = &child_info;
 
 		let mut overlay = OverlayedChanges::default();
-		overlay.set_child_storage(child_info, vec![20], None);
-		overlay.set_child_storage(child_info, vec![30], Some(vec![31]));
+		overlay.set_child_storage(child_info, vec![20], None).unwrap();
+		overlay.set_child_storage(child_info, vec![30], Some(vec![31])).unwrap();
 		let backend = (
 			Storage {
 				top: map![],
@@ -990,7 +999,7 @@ mod tests {
 		assert_eq!(ext.next_child_storage_key(child_info, &[30]), Some(vec![40]));
 
 		drop(ext);
-		overlay.set_child_storage(child_info, vec![50], Some(vec![50]));
+		overlay.set_child_storage(child_info, vec![50], Some(vec![50])).unwrap();
 		let mut ext = TestExt::new(&mut overlay, &backend, None);
 
 		// next_overlay exist but next_backend doesn't exist
@@ -1002,8 +1011,8 @@ mod tests {
 		let child_info = ChildInfo::new_default(b"Child1");
 		let child_info = &child_info;
 		let mut overlay = OverlayedChanges::default();
-		overlay.set_child_storage(child_info, vec![20], None);
-		overlay.set_child_storage(child_info, vec![30], Some(vec![31]));
+		overlay.set_child_storage(child_info, vec![20], None).unwrap();
+		overlay.set_child_storage(child_info, vec![30], Some(vec![31])).unwrap();
 		let backend = (
 			Storage {
 				top: map![],
