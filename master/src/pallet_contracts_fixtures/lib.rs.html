@@ -73,6 +73,7 @@
 <a href="#73" id="73">73</a>
 <a href="#74" id="74">74</a>
 <a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -145,7 +146,8 @@
 	</span><span class="kw">fn </span>out_dir_should_have_compiled_mocks() {
 		<span class="kw">let </span>out_dir: std::path::PathBuf = <span class="macro">env!</span>(<span class="string">&quot;OUT_DIR&quot;</span>).into();
 		<span class="macro">assert!</span>(out_dir.join(<span class="string">&quot;dummy.wasm&quot;</span>).exists());
-		<span class="macro">assert!</span>(out_dir.join(<span class="string">&quot;dummy.polkavm&quot;</span>).exists());
+		<span class="attr">#[cfg(feature = <span class="string">&quot;riscv&quot;</span>)]
+		</span><span class="macro">assert!</span>(out_dir.join(<span class="string">&quot;dummy.polkavm&quot;</span>).exists());
 	}
 }
 </code></pre></div></section></main></body></html>
