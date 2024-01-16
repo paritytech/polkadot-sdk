@@ -22,7 +22,7 @@ use super::{
 use assets_common::{
 	local_and_foreign_assets::MatchesLocalAndForeignAssetsLocation,
 	matching::{FromSiblingParachain, IsForeignConcreteAsset},
-	TrustBackedAssetsAsMultiLocation,
+	TrustBackedAssetsAsLocation,
 };
 use frame_support::{
 	parameter_types,
@@ -595,12 +595,12 @@ impl xcm_executor::Config for XcmConfig {
 	type Trader = (
 		UsingComponents<WeightToFee, WestendLocation, AccountId, Balances, ToStakingPot<Runtime>>,
 		cumulus_primitives_utility::SwapFirstAssetTrader<
-			WestendLocation,
+			WestendLocationV3,
 			crate::AssetConversion,
 			WeightToFee,
 			crate::NativeAndAssets,
 			(
-				TrustBackedAssetsAsMultiLocation<TrustBackedAssetsPalletLocation, Balance>,
+				TrustBackedAssetsAsLocation<TrustBackedAssetsPalletLocationV3, Balance>,
 				ForeignAssetsConvertedConcreteId,
 			),
 			ResolveAssetTo<StakingPot, crate::NativeAndAssets>,

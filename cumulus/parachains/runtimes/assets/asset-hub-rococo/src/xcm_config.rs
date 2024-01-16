@@ -571,7 +571,7 @@ impl xcm_executor::Config for XcmConfig {
 	type Trader = (
 		UsingComponents<WeightToFee, TokenLocation, AccountId, Balances, ToStakingPot<Runtime>>,
 		cumulus_primitives_utility::SwapFirstAssetTrader<
-			TokenLocation,
+			TokenLocationV3,
 			crate::AssetConversion,
 			WeightToFee,
 			crate::NativeAndAssets,
