@@ -70,7 +70,7 @@ pub trait OnChargeTransaction<T: Config> {
 	) -> Result<(), TransactionValidityError>;
 }
 
-/// Implements transaction payment for a pallet implementing the [`fungible`]
+/// Implements transaction payment for a pallet implementing the [`frame_support::traits::fungible`]
 /// trait (eg. pallet_balances) using an unbalance handler (implementing
 /// [`OnUnbalanced`]).
 ///
