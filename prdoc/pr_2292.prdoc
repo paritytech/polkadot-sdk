@@ -13,3 +13,5 @@ doc:
       - Replace usage of `CurrencyAdapter` with `FungibleAdapter`
       - Replace usage of `ToStakingPot<Runtime>` with `ResolveTo<pallet_collator_selection::StakingPotAccountId<Runtime>, Balances>`
 
+crates: [ ]
+
