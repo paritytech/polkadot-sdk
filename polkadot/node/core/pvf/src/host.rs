@@ -486,7 +486,7 @@ async fn handle_precheck_pvf(
 ///
 /// If the prepare job failed previously, we may retry it under certain conditions.
 ///
-/// When preparing for execution, we use a more lenient timeout ([`LENIENT_PREPARATION_TIMEOUT`])
+/// When preparing for execution, we use a more lenient timeout ([`polkadot_primitives::executor_params:: DEFAULT_LENIENT_PREPARATION_TIMEOUT`])
 /// than when prechecking.
 async fn handle_execute_pvf(
 	artifacts: &mut Artifacts,
