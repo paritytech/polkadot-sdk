@@ -26,7 +26,10 @@ use assets_common::{
 };
 use frame_support::{
 	parameter_types,
-	traits::{tokens::imbalance::ResolveAssetTo, ConstU32, Contains, Equals, Everything, Nothing, PalletInfoAccess},
+	traits::{
+		tokens::imbalance::ResolveAssetTo, ConstU32, Contains, Equals, Everything, Nothing,
+		PalletInfoAccess,
+	},
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;

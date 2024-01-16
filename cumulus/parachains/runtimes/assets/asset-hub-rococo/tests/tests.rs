@@ -19,12 +19,18 @@
 
 use asset_hub_rococo_runtime::{
 	xcm_config,
-	xcm_config::{bridging, ForeignCreatorsSovereignAccountOf, LocationToAccountId, TokenLocation, TokenLocationV3},
+	xcm_config::{
+		bridging, ForeignCreatorsSovereignAccountOf, LocationToAccountId, TokenLocation,
+		TokenLocationV3,
+	},
 	AllPalletsWithoutSystem, MetadataDepositBase, MetadataDepositPerByte, RuntimeCall,
 	RuntimeEvent, ToWestendXcmRouterInstance, XcmpQueue,
 };
 pub use asset_hub_rococo_runtime::{
-	xcm_config::{CheckingAccount, TrustBackedAssetsPalletLocation, TrustBackedAssetsPalletLocationV3, XcmConfig},
+	xcm_config::{
+		CheckingAccount, TrustBackedAssetsPalletLocation, TrustBackedAssetsPalletLocationV3,
+		XcmConfig,
+	},
 	AssetConversion, AssetDeposit, Assets, Balances, CollatorSelection, ExistentialDeposit,
 	ForeignAssets, ForeignAssetsInstance, ParachainSystem, Runtime, SessionKeys, System,
 	TrustBackedAssetsInstance,
@@ -48,10 +54,10 @@ use parachains_common::{
 	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
 };
 use sp_runtime::traits::MaybeEquivalence;
+use std::convert::Into;
 use xcm::latest::prelude::{Assets as XcmAssets, *};
 use xcm_builder::V4V3LocationConverter;
 use xcm_executor::traits::{JustTry, WeightTrader};
-use std::convert::Into;
 
 const ALICE: [u8; 32] = [1u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
@@ -201,8 +207,10 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 				trader.buy_weight(weight, payment.into(), &ctx).expect("Expected Ok");
 
 			// assert.
-			let unused_amount =
-				unused_asset.fungible.get(&asset_1_location_latest.clone().into()).map_or(0, |a| *a);
+			let unused_amount = unused_asset
+				.fungible
+				.get(&asset_1_location_latest.clone().into())
+				.map_or(0, |a| *a);
 			assert_eq!(unused_amount, extra_amount);
 			assert_eq!(Assets::total_issuance(asset_1), asset_total_issuance + asset_fee);
 
@@ -246,8 +254,14 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 			let bob: AccountId = SOME_ASSET_ADMIN.into();
 			let staking_pot = CollatorSelection::account_id();
 			let native_location = TokenLocationV3::get();
-			let foreign_location =
-				xcm::v3::Location { parents: 1, interior: (xcm::v3::Junction::Parachain(1234), xcm::v3::Junction::GeneralIndex(12345)).into() };
+			let foreign_location = xcm::v3::Location {
+				parents: 1,
+				interior: (
+					xcm::v3::Junction::Parachain(1234),
+					xcm::v3::Junction::GeneralIndex(12345),
+				)
+					.into(),
+			};
 			// bob's initial balance for native and `asset1` assets.
 			let initial_balance = 200 * UNITS;
 			// liquidity for both arms of (native, asset1) pool.
@@ -303,8 +317,10 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 				trader.buy_weight(weight, payment.into(), &ctx).expect("Expected Ok");
 
 			// assert.
-			let unused_amount =
-				unused_asset.fungible.get(&foreign_location_latest.clone().into()).map_or(0, |a| *a);
+			let unused_amount = unused_asset
+				.fungible
+				.get(&foreign_location_latest.clone().into())
+				.map_or(0, |a| *a);
 			assert_eq!(unused_amount, extra_amount);
 			assert_eq!(
 				ForeignAssets::total_issuance(foreign_location),

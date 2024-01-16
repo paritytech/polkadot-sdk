@@ -328,8 +328,7 @@ fn empty_holding_asset() {
 #[test]
 fn fails_to_match_holding_asset() {
 	let mut trader = Trader::new();
-	let holding_asset =
-		Asset { id: AssetId(Location::new(1, [Parachain(1)])), fun: Fungible(10) };
+	let holding_asset = Asset { id: AssetId(Location::new(1, [Parachain(1)])), fun: Fungible(10) };
 	assert_eq!(
 		trader
 			.buy_weight(Weight::from_all(10), holding_asset.into(), &xcm_context())
@@ -539,13 +538,12 @@ pub mod mock {
 			a: &Asset,
 		) -> core::result::Result<(AssetId, Balance), xcm_executor::traits::Error> {
 			match a {
-				Asset {
-					fun: Fungible(amount),
-					id:	AssetId(inner_location),
-				} => match inner_location.unpack() {
-					(0, [Junction::GeneralIndex(id)]) => Ok(((*id).try_into().unwrap(), *amount)),
-					_ => Err(xcm_executor::traits::Error::AssetNotHandled),
-				},
+				Asset { fun: Fungible(amount), id: AssetId(inner_location) } =>
+					match inner_location.unpack() {
+						(0, [Junction::GeneralIndex(id)]) =>
+							Ok(((*id).try_into().unwrap(), *amount)),
+						_ => Err(xcm_executor::traits::Error::AssetNotHandled),
+					},
 				_ => Err(xcm_executor::traits::Error::AssetNotHandled),
 			}
 		}

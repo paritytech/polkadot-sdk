@@ -83,5 +83,5 @@ std = [
 	"sp-std/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
-	"xcm/std"
+	"xcm/std",
 ]

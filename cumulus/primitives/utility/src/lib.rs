@@ -35,8 +35,10 @@ use sp_runtime::{
 use sp_std::{marker::PhantomData, prelude::*};
 use xcm::{latest::prelude::*, WrapVersion};
 use xcm_builder::TakeRevenue;
-use xcm_executor::AssetsInHolding;
-use xcm_executor::traits::{MatchesFungibles, TransactAsset, WeightTrader};
+use xcm_executor::{
+	traits::{MatchesFungibles, TransactAsset, WeightTrader},
+	AssetsInHolding,
+};
 
 #[cfg(test)]
 mod tests;
