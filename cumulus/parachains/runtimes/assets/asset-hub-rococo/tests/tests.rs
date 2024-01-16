@@ -45,10 +45,7 @@ use frame_support::{
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use parachains_common::{
-	rococo::{
-		currency::{RELAY_CHAIN_SLOT_DURATION_MILLIS, UNITS},
-		fee::WeightToFee,
-	},
+	rococo::{consensus::RELAY_CHAIN_SLOT_DURATION_MILLIS, currency::UNITS, fee::WeightToFee},
 	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
 };
 use sp_consensus_aura::SlotDuration;
