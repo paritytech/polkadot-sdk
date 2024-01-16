@@ -21,11 +21,12 @@
 
 use core::fmt::Display;
 
-use codec::{Decode, Encode};
-use ref_cast::RefCast;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use sp_debug_derive::RuntimeDebug;
+
+use codec::{Decode, Encode};
+use ref_cast::RefCast;
 use sp_std::{
 	ops::{Deref, DerefMut},
 	vec::Vec,
