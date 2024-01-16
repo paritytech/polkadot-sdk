@@ -197,16 +197,8 @@ impl BenchCli {
 		let mut state = TestState::new(&test_config);
 		let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
 
-		if is_valgrind_running {
-			valgrind::start_measuring();
-		}
-
 		env.runtime()
 			.block_on(availability::benchmark_availability_read(&mut env, state));
-
-		if is_valgrind_running {
-			valgrind::stop_measuring();
-		}
 
 		if let Some(agent_running) = agent_running {
 			let agent_ready = agent_running.stop()?;

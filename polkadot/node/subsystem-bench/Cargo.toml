@@ -59,9 +59,5 @@ orchestra = { version = "0.3.3", default-features = false, features = ["futures_
 pyroscope = "0.5.7"
 pyroscope_pprofrs = "0.2.7"
 
-[target.'cfg(target_os = "linux")'.dependencies]
-crabgrind = { version = "0.1.10", optional = true }
-
 [features]
 default = []
-valgrind = ["crabgrind"]

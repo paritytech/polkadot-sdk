@@ -15,43 +15,13 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use color_eyre::eyre;
-#[cfg(all(target_os = "linux", feature = "valgrind"))]
-use crabgrind as cg;
-
-#[cfg(not(all(target_os = "linux", feature = "valgrind")))]
-mod cg {
-	pub(super) enum RunMode {
-		Native,
-	}
-
-	pub(super) fn run_mode() -> RunMode {
-		RunMode::Native
-	}
-
-	pub(super) mod cachegrind {
-		pub fn start_instrumentation() {}
-		pub fn stop_instrumentation() {}
-	}
-}
 
 /// Show if the app is running under Valgrind
 pub(crate) fn is_valgrind_running() -> bool {
-	!matches!(cg::run_mode(), cg::RunMode::Native)
-}
-
-/// Start collecting cache misses data
-pub(crate) fn start_measuring() {
-	cg::cachegrind::start_instrumentation();
-}
-
-/// Stop collecting cache misses data
-pub(crate) fn stop_measuring() {
-	cg::cachegrind::stop_instrumentation();
-}
-
-#[cfg(not(feature = "valgrind"))]
-pub(crate) fn relaunch_in_valgrind_mode() -> eyre::Result<()> {
-	Err(eyre::eyre!("Feature `valgrind` must be enabled to measure cache misses"))
+	match std::env::var("LD_PRELOAD") {
+		Ok(v) => v.contains("valgrind"),
+		Err(_) => false,
+	}
 }
 
 /// Stop execution and relaunch the app under valgrind
@@ -59,13 +29,11 @@ pub(crate) fn relaunch_in_valgrind_mode() -> eyre::Result<()> {
 ///     L1 instruction: 32,768 B, 8-way, 64 B lines
 ///     L1 data: 49,152 B, 12-way, 64 B lines
 ///     Last-level: 2,097,152 B, 16-way, 64 B lines
-#[cfg(feature = "valgrind")]
 pub(crate) fn relaunch_in_valgrind_mode() -> eyre::Result<()> {
 	use std::os::unix::process::CommandExt;
 	let err = std::process::Command::new("valgrind")
 		.arg("--tool=cachegrind")
 		.arg("--cache-sim=yes")
-		.arg("--instr-at-start=no")
 		.arg("--log-file=cachegrind_report.txt")
 		.arg("--I1=32768,8,64")
 		.arg("--D1=49152,12,64")
