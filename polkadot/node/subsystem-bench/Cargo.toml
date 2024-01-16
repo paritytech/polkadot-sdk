@@ -31,7 +31,7 @@ async-trait = "0.1.74"
 sp-keystore = { path = "../../../substrate/primitives/keystore" }
 sc-keystore = { path = "../../../substrate/client/keystore" }
 sp-core = { path = "../../../substrate/primitives/core" }
-clap = { version = "4.4.16", features = ["derive"] }
+clap = { version = "4.4.17", features = ["derive"] }
 futures = "0.3.21"
 futures-timer = "3.0.2"
 gum = { package = "tracing-gum", path = "../gum" }
