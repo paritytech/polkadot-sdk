@@ -20,26 +20,6 @@ use frame_support::{
 };
 use xcm::prelude::*;
 
-pub struct StartsWith<T>(sp_std::marker::PhantomData<T>);
-impl<LocationValue: Get<Location>> Contains<Location> for StartsWith<LocationValue> {
-	fn contains(t: &Location) -> bool {
-		t.starts_with(&LocationValue::get())
-	}
-}
-
-pub struct Equals<T>(sp_std::marker::PhantomData<T>);
-impl<LocationValue: Get<Location>> Contains<Location> for Equals<LocationValue> {
-	fn contains(t: &Location) -> bool {
-		t == &LocationValue::get()
-	}
-}
-
-pub struct StartsWithExplicitGlobalConsensus<T>(sp_std::marker::PhantomData<T>);
-impl<Network: Get<NetworkId>> Contains<Location> for StartsWithExplicitGlobalConsensus<Network> {
-	fn contains(t: &Location) -> bool {
-		matches!(t.interior.global_consensus(), Ok(requested_network) if requested_network.eq(&Network::get()))
-	}
-}
 use xcm_builder::ensure_is_remote;
 
 frame_support::parameter_types! {
