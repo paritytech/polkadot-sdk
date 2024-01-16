@@ -359,7 +359,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 	<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source:
 		From<<Runtime as frame_system::Config>::AccountId>,
 	<Runtime as pallet_asset_conversion::Config>::AssetKind:
-		From<MultiLocation> + Into<MultiLocation>,
+		From<xcm::v3::Location> + Into<xcm::v3::Location>,
 	<Runtime as pallet_asset_conversion::Config>::Balance: From<Balance>,
 	ForeignAssetsPalletInstance: 'static,
 {
@@ -407,9 +407,9 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 				)
 			);
 
-			// setup a pool to pay fees with `foreign_asset_id_multilocation` tokens
+			// setup a pool to pay fees with `foreign_asset_id_location` tokens
 			let pool_owner: AccountIdOf<Runtime> = [1u8; 32].into();
-			let native_asset = MultiLocation::parent();
+			let native_asset = xcm::v3::Location::parent();
 			let pool_liquidity: u128 =
 				existential_deposit.into().max(foreign_asset_id_minimum_balance).mul(100_000);
 
@@ -422,7 +422,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::origin_of(
 					sovereign_account_as_owner_of_foreign_asset
 				),
-				foreign_asset_id_multilocation.into(),
+				foreign_asset_id_location.into(),
 				pool_owner.clone().into(),
 				(foreign_asset_id_minimum_balance + pool_liquidity).mul(2).into(),
 			));
@@ -430,13 +430,13 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 			assert_ok!(<pallet_asset_conversion::Pallet<Runtime>>::create_pool(
 				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::origin_of(pool_owner.clone()),
 				Box::new(native_asset.into()),
-				Box::new(foreign_asset_id_multilocation.into())
+				Box::new(foreign_asset_id_location.into())
 			));
 
 			assert_ok!(<pallet_asset_conversion::Pallet<Runtime>>::add_liquidity(
 				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::origin_of(pool_owner.clone()),
 				Box::new(native_asset.into()),
-				Box::new(foreign_asset_id_multilocation.into()),
+				Box::new(foreign_asset_id_location.into()),
 				pool_liquidity.into(),
 				pool_liquidity.into(),
 				1.into(),
@@ -569,7 +569,7 @@ pub fn receive_reserve_asset_deposited_from_different_consensus_works<
 			);
 			assert_eq!(
 				<pallet_assets::Pallet<Runtime, ForeignAssetsPalletInstance>>::balance(
-					foreign_asset_id_multilocation.into(),
+					foreign_asset_id_location.into(),
 					&block_author_account
 				),
 				0.into()

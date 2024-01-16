@@ -16,7 +16,7 @@
 use cumulus_primitives_core::ParaId;
 use frame_support::{
 	pallet_prelude::Get,
-	traits::{Contains, ContainsPair},
+	traits::ContainsPair,
 };
 use xcm::prelude::*;
 
@@ -48,9 +48,9 @@ impl<SelfParaId: Get<ParaId>, L: TryFrom<Location> + TryInto<Location> + Clone> 
 {
 	fn contains(a: &L, b: &L) -> bool {
 		// We convert locations to latest
-		let (a, b) = match ((*a).clone().try_into(), (*b).clone().try_into()) {
-			(Ok(a), Ok(b)) if a.starts_with(&b) => (a, b), // `a` needs to be from `b` at least
-			_ => return false;
+		let a = match ((*a).clone().try_into(), (*b).clone().try_into()) {
+			(Ok(a), Ok(b)) if a.starts_with(&b) => a, // `a` needs to be from `b` at least
+			_ => return false,
 		};
 
 		// here we check if sibling
@@ -75,9 +75,9 @@ impl<
 {
 	fn contains(a: &L, b: &L) -> bool {
 		// We convert locations to latest
-		let (a, b) = match ((*a).clone().try_into(), (*b).clone().try_into()) {
-			(Ok(a), Ok(b)) if a.starts_with(&b) => (a, b), // `a` needs to be from `b` at least
-			_ => return false;
+		let a = match ((*a).clone().try_into(), (*b).clone().try_into()) {
+			(Ok(a), Ok(b)) if a.starts_with(&b) => a, // `a` needs to be from `b` at least
+			_ => return false,
 		};
 
 		let universal_source = UniversalLocation::get();

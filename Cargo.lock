@@ -1004,7 +1004,6 @@ dependencies = [
  "log",
  "pallet-asset-conversion",
  "pallet-asset-conversion-tx-payment",
- "pallet-asset-tx-payment",
  "pallet-assets",
  "pallet-aura",
  "pallet-authorship",

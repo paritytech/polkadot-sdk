@@ -35,6 +35,7 @@ use sp_runtime::{
 use sp_std::{marker::PhantomData, prelude::*};
 use xcm::{latest::prelude::*, WrapVersion};
 use xcm_builder::TakeRevenue;
+use xcm_executor::AssetsInHolding;
 use xcm_executor::traits::{MatchesFungibles, TransactAsset, WeightTrader};
 
 #[cfg(test)]
@@ -305,7 +306,7 @@ pub trait ChargeWeightInFungibles<AccountId, Assets: fungibles::Inspect<AccountI
 /// - `SwapCredit`: mechanism used for the exchange of the user's payment asset into the `Target`.
 /// - `WeightToFee`: weight to the `Target` asset fee calculator.
 /// - `Fungibles`: registry of fungible assets.
-/// - `FungiblesAssetMatcher`: utility for mapping [`MultiAsset`] to `Fungibles::AssetId` and
+/// - `FungiblesAssetMatcher`: utility for mapping [`Asset`] to `Fungibles::AssetId` and
 ///   `Fungibles::Balance`.
 /// - `OnUnbalanced`: handler for the fee payment.
 /// - `AccountId`: the account identifier type.
@@ -376,16 +377,16 @@ impl<
 	fn buy_weight(
 		&mut self,
 		weight: Weight,
-		mut payment: xcm_executor::Assets,
+		mut payment: AssetsInHolding,
 		_context: &XcmContext,
-	) -> Result<xcm_executor::Assets, XcmError> {
+	) -> Result<AssetsInHolding, XcmError> {
 		log::trace!(
 			target: "xcm::weight",
 			"SwapFirstAssetTrader::buy_weight weight: {:?}, payment: {:?}",
 			weight,
 			payment,
 		);
-		let first_asset: MultiAsset =
+		let first_asset: Asset =
 			payment.fungible.pop_first().ok_or(XcmError::AssetNotFound)?.into();
 		let (fungibles_asset, balance) = FungiblesAssetMatcher::matches_fungibles(&first_asset)
 			.map_err(|_| XcmError::AssetNotFound)?;
@@ -422,14 +423,14 @@ impl<
 			},
 			_ => (),
 		};
-		self.last_fee_asset = Some(first_asset.id);
+		self.last_fee_asset = Some(first_asset.id.clone());
 
 		payment.fungible.insert(first_asset.id, credit_change.peek().into());
 		drop(credit_change);
 		Ok(payment)
 	}
 
-	fn refund_weight(&mut self, weight: Weight, _context: &XcmContext) -> Option<MultiAsset> {
+	fn refund_weight(&mut self, weight: Weight, _context: &XcmContext) -> Option<Asset> {
 		log::trace!(
 			target: "xcm::weight",
 			"SwapFirstAssetTrader::refund_weight weight: {:?}, self.total_fee: {:?}",
@@ -442,7 +443,7 @@ impl<
 		}
 		let mut refund_asset = if let Some(asset) = &self.last_fee_asset {
 			// create an initial zero refund in the asset used in the last `buy_weight`.
-			(*asset, Fungible(0)).into()
+			(asset.clone(), Fungible(0)).into()
 		} else {
 			return None
 		};
@@ -627,7 +628,7 @@ mod test_trader {
 		},
 	};
 	use sp_runtime::DispatchError;
-	use xcm_executor::{traits::Error, Assets};
+	use xcm_executor::{traits::Error, AssetsInHolding};
 
 	#[test]
 	fn take_first_asset_trader_buy_weight_called_twice_throws_error() {
