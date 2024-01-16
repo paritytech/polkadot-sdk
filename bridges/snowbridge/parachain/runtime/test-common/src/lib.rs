@@ -94,7 +94,7 @@ where
 		xcm,
 		&mut hash,
 		RuntimeHelper::<Runtime>::xcm_max_weight(XcmReceivedFrom::Sibling),
-		RuntimeHelper::<Runtime>::xcm_max_weight(XcmReceivedFrom::Sibling),
+		Weight::zero(),
 	)
 }
 
