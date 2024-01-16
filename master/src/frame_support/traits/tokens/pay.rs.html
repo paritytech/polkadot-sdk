@@ -174,7 +174,7 @@
 <span class="kw">use super</span>::{fungible, fungibles, Balance, Preservation::Expendable};
 
 <span class="doccomment">/// Can be implemented by `PayFromAccount` using a `fungible` impl, but can also be implemented with
-/// XCM/MultiAsset and made generic over assets.
+/// XCM/Asset and made generic over assets.
 </span><span class="kw">pub trait </span>Pay {
 	<span class="doccomment">/// The type by which we measure units of the currency in which we make payments.
 	</span><span class="kw">type </span>Balance: Balance;

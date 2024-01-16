@@ -1102,6 +1102,7 @@
 <a href="#1102" id="1102">1102</a>
 <a href="#1103" id="1103">1103</a>
 <a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1179,8 +1180,8 @@
 		MultiLocation { parents, interior: junctions }
 	}
 
-	<span class="doccomment">/// Consume `self` and return the equivalent `VersionedMultiLocation` value.
-	</span><span class="kw">pub fn </span>versioned(<span class="self">self</span>) -&gt; <span class="kw">crate</span>::VersionedMultiLocation {
+	<span class="doccomment">/// Consume `self` and return the equivalent `VersionedLocation` value.
+	</span><span class="kw">pub fn </span>versioned(<span class="self">self</span>) -&gt; <span class="kw">crate</span>::VersionedLocation {
 		<span class="self">self</span>.into()
 	}
 
@@ -1344,9 +1345,9 @@
 	/// # Example
 	/// ```rust
 	/// # use staging_xcm::v2::{Junctions::*, Junction::*, MultiLocation};
-	/// let mut m = MultiLocation::new(1, X2(PalletInstance(3), OnlyChild));
+	/// let mut m = MultiLocation::new(1, [PalletInstance(3), OnlyChild].into());
 	/// assert_eq!(
-	///     m.match_and_split(&amp;MultiLocation::new(1, X1(PalletInstance(3)))),
+	///     m.match_and_split(&amp;MultiLocation::new(1, [PalletInstance(3)].into())),
 	///     Some(&amp;OnlyChild),
 	/// );
 	/// assert_eq!(m.match_and_split(&amp;MultiLocation::new(1, Here)), None);
@@ -1364,10 +1365,10 @@
 	/// # Example
 	/// ```rust
 	/// # use staging_xcm::v2::{Junctions::*, Junction::*, MultiLocation};
-	/// let m = MultiLocation::new(1, X3(PalletInstance(3), OnlyChild, OnlyChild));
-	/// assert!(m.starts_with(&amp;MultiLocation::new(1, X1(PalletInstance(3)))));
-	/// assert!(!m.starts_with(&amp;MultiLocation::new(1, X1(GeneralIndex(99)))));
-	/// assert!(!m.starts_with(&amp;MultiLocation::new(0, X1(PalletInstance(3)))));
+	/// let m = MultiLocation::new(1, [PalletInstance(3), OnlyChild, OnlyChild].into());
+	/// assert!(m.starts_with(&amp;MultiLocation::new(1, [PalletInstance(3)].into())));
+	/// assert!(!m.starts_with(&amp;MultiLocation::new(1, [GeneralIndex(99)].into())));
+	/// assert!(!m.starts_with(&amp;MultiLocation::new(0, [PalletInstance(3)].into())));
 	/// ```
 	</span><span class="kw">pub fn </span>starts_with(<span class="kw-2">&amp;</span><span class="self">self</span>, prefix: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
 		<span class="kw">if </span><span class="self">self</span>.parents != prefix.parents {
@@ -1383,9 +1384,9 @@
 	/// # Example
 	/// ```rust
 	/// # use staging_xcm::v2::{Junctions::*, Junction::*, MultiLocation};
-	/// let mut m = MultiLocation::new(1, X1(Parachain(21)));
-	/// assert_eq!(m.append_with(X1(PalletInstance(3))), Ok(()));
-	/// assert_eq!(m, MultiLocation::new(1, X2(Parachain(21), PalletInstance(3))));
+	/// let mut m = MultiLocation::new(1, [Parachain(21)].into());
+	/// assert_eq!(m.append_with([PalletInstance(3)].into()), Ok(()));
+	/// assert_eq!(m, MultiLocation::new(1, [Parachain(21), PalletInstance(3)].into()));
 	/// ```
 	</span><span class="kw">pub fn </span>append_with(<span class="kw-2">&amp;mut </span><span class="self">self</span>, suffix: Junctions) -&gt; <span class="prelude-ty">Result</span>&lt;(), Junctions&gt; {
 		<span class="kw">if </span><span class="self">self</span>.interior.len().saturating_add(suffix.len()) &gt; MAX_JUNCTIONS {
@@ -1404,9 +1405,9 @@
 	/// # Example
 	/// ```rust
 	/// # use staging_xcm::v2::{Junctions::*, Junction::*, MultiLocation};
-	/// let mut m = MultiLocation::new(2, X1(PalletInstance(3)));
-	/// assert_eq!(m.prepend_with(MultiLocation::new(1, X2(Parachain(21), OnlyChild))), Ok(()));
-	/// assert_eq!(m, MultiLocation::new(1, X1(PalletInstance(3))));
+	/// let mut m = MultiLocation::new(2, [PalletInstance(3)].into());
+	/// assert_eq!(m.prepend_with(MultiLocation::new(1, [Parachain(21), OnlyChild].into())), Ok(()));
+	/// assert_eq!(m, MultiLocation::new(1, [PalletInstance(3)].into()));
 	/// ```
 	</span><span class="kw">pub fn </span>prepend_with(<span class="kw-2">&amp;mut </span><span class="self">self</span>, <span class="kw-2">mut </span>prefix: MultiLocation) -&gt; <span class="prelude-ty">Result</span>&lt;(), MultiLocation&gt; {
 		<span class="comment">//     prefix     self (suffix)
@@ -1559,6 +1560,7 @@
 }
 
 <span class="macro">xcm_procedural::impl_conversion_functions_for_multilocation_v2!</span>();
+<span class="macro">xcm_procedural::impl_conversion_functions_for_junctions_v2!</span>();
 
 <span class="doccomment">/// Maximum number of `Junction`s that a `Junctions` can contain.
 </span><span class="kw">const </span>MAX_JUNCTIONS: usize = <span class="number">8</span>;

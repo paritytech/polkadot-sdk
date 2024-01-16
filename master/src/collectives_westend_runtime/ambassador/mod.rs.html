@@ -473,7 +473,7 @@
 <span class="macro">parameter_types! </span>{
 	<span class="comment">// The interior location on AssetHub for the paying account. This is the Ambassador Salary
 	// pallet instance (which sits at index 74). This sovereign account will need funding.
-	</span><span class="kw">pub </span>AmbassadorSalaryLocation: InteriorMultiLocation = PalletInstance(<span class="number">74</span>).into();
+	</span><span class="kw">pub </span>AmbassadorSalaryLocation: InteriorLocation = PalletInstance(<span class="number">74</span>).into();
 }
 
 <span class="doccomment">/// [`PayOverXcm`] setup to pay the Ambassador salary on the AssetHub in WND.

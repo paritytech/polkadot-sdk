@@ -418,7 +418,7 @@
 <span class="kw">use </span>sp_runtime::RuntimeDebug;
 <span class="kw">use </span>xcm::{
 	latest::prelude::<span class="kw-2">*</span>,
-	prelude::{InteriorMultiLocation, NetworkId},
+	prelude::{InteriorLocation, NetworkId},
 };
 <span class="kw">use </span>xcm_builder::BridgeBlobDispatcher;
 
@@ -434,12 +434,12 @@
 	<span class="kw">pub const </span>MaxUnconfirmedMessagesAtInboundLane: bp_messages::MessageNonce =
 		bp_bridge_hub_westend::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 	<span class="kw">pub const </span>BridgeHubRococoChainId: bp_runtime::ChainId = bp_runtime::BRIDGE_HUB_ROCOCO_CHAIN_ID;
-	<span class="kw">pub </span>BridgeWestendToRococoMessagesPalletInstance: InteriorMultiLocation = X1(PalletInstance(&lt;BridgeRococoMessages <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8));
+	<span class="kw">pub </span>BridgeWestendToRococoMessagesPalletInstance: InteriorLocation = [PalletInstance(&lt;BridgeRococoMessages <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8)].into();
 	<span class="kw">pub </span>RococoGlobalConsensusNetwork: NetworkId = NetworkId::Rococo;
-	<span class="kw">pub </span>RococoGlobalConsensusNetworkLocation: MultiLocation = MultiLocation {
-		parents: <span class="number">2</span>,
-		interior: X1(GlobalConsensus(RococoGlobalConsensusNetwork::get()))
-	};
+	<span class="kw">pub </span>RococoGlobalConsensusNetworkLocation: Location = Location::new(
+		<span class="number">2</span>,
+		[GlobalConsensus(RococoGlobalConsensusNetwork::get())]
+	);
 	<span class="comment">// see the `FEE_BOOST_PER_MESSAGE` constant to get the meaning of this value
 	</span><span class="kw">pub </span>PriorityBoostPerMessage: u64 = <span class="number">182_044_444_444_444</span>;
 
@@ -450,26 +450,26 @@
 	</span><span class="kw">pub </span>ActiveOutboundLanesToBridgeHubRococo: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[bp_messages::LaneId] = <span class="kw-2">&amp;</span>[XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO];
 	<span class="kw">pub const </span>AssetHubWestendToAssetHubRococoMessagesLane: bp_messages::LaneId = XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO;
 	<span class="kw">pub </span>FromAssetHubWestendToAssetHubRococoRoute: SenderAndLane = SenderAndLane::new(
-		ParentThen(X1(Parachain(AssetHubWestendParaId::get().into()))).into(),
+		ParentThen([Parachain(AssetHubWestendParaId::get().into())].into()).into(),
 		XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO,
 	);
-	<span class="kw">pub </span>ActiveLanes: sp_std::vec::Vec&lt;(SenderAndLane, (NetworkId, InteriorMultiLocation))&gt; = <span class="macro">sp_std::vec!</span>[
+	<span class="kw">pub </span>ActiveLanes: sp_std::vec::Vec&lt;(SenderAndLane, (NetworkId, InteriorLocation))&gt; = <span class="macro">sp_std::vec!</span>[
 			(
 				FromAssetHubWestendToAssetHubRococoRoute::get(),
-				(RococoGlobalConsensusNetwork::get(), X1(Parachain(AssetHubRococoParaId::get().into())))
+				(RococoGlobalConsensusNetwork::get(), [Parachain(AssetHubRococoParaId::get().into())].into())
 			)
 	];
 
 	<span class="kw">pub </span>CongestedMessage: Xcm&lt;()&gt; = build_congestion_message(<span class="bool-val">true</span>).into();
 	<span class="kw">pub </span>UncongestedMessage: Xcm&lt;()&gt; = build_congestion_message(<span class="bool-val">false</span>).into();
 
-	<span class="kw">pub </span>BridgeHubRococoLocation: MultiLocation = MultiLocation {
-		parents: <span class="number">2</span>,
-		interior: X2(
+	<span class="kw">pub </span>BridgeHubRococoLocation: Location = Location::new(
+		<span class="number">2</span>,
+		[
 			GlobalConsensus(RococoGlobalConsensusNetwork::get()),
 			Parachain(&lt;bp_bridge_hub_rococo::BridgeHubRococo <span class="kw">as </span>bp_runtime::Parachain&gt;::PARACHAIN_ID)
-		)
-	};
+		]
+	);
 }
 <span class="kw">pub const </span>XCM_LANE_FOR_ASSET_HUB_WESTEND_TO_ASSET_HUB_ROCOCO: LaneId = LaneId([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">2</span>]);
 
@@ -734,9 +734,9 @@
 
 		<span class="macro">assert_eq!</span>(
 			BridgeWestendToRococoMessagesPalletInstance::get(),
-			X1(PalletInstance(
+			[PalletInstance(
 				bp_bridge_hub_westend::WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX
-			))
+			)]
 		);
 	}
 }

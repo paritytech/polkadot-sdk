@@ -269,7 +269,7 @@
 						&lt;<span class="macro-nonterminal">$receiver_para </span><span class="kw">as </span><span class="macro-nonterminal">$crate::macros::Chain</span>&gt;::account_data_of(receiver.clone()).free;
 					<span class="kw">let </span>para_destination =
 						&lt;<span class="macro-nonterminal">$sender_para</span>&gt;::sibling_location_of(&lt;<span class="macro-nonterminal">$receiver_para</span>&gt;::para_id());
-					<span class="kw">let </span>beneficiary: MultiLocation =
+					<span class="kw">let </span>beneficiary: Location =
 						<span class="macro-nonterminal">$crate::macros::AccountId32 </span>{ network: <span class="prelude-val">None</span>, id: receiver.clone().into() }.into();
 
 					<span class="comment">// Send XCM message from Origin Parachain
@@ -278,8 +278,8 @@
 					</span>&lt;<span class="macro-nonterminal">$sender_para</span>&gt;::execute_with(|| {
 						<span class="macro">assert_ok!</span>(&lt;<span class="macro-nonterminal">$sender_para </span><span class="kw">as </span>[&lt;<span class="macro-nonterminal">$sender_para </span>Pallet&gt;]&gt;::PolkadotXcm::limited_teleport_assets(
 							origin.clone(),
-							<span class="macro">bx!</span>(para_destination.into()),
-							<span class="macro">bx!</span>(beneficiary.into()),
+							<span class="macro">bx!</span>(para_destination.clone().into()),
+							<span class="macro">bx!</span>(beneficiary.clone().into()),
 							<span class="macro">bx!</span>(<span class="macro-nonterminal">$assets</span>.clone().into()),
 							fee_asset_item,
 							weight_limit.clone(),
@@ -348,8 +348,8 @@
 		<span class="macro-nonterminal">$</span><span class="macro">crate::impls::paste::paste! </span>{
 			<span class="kw">pub fn </span><span class="macro-nonterminal">penpal_create_foreign_asset_on_asset_hub</span>(
 				asset_id_on_penpal: u32,
-				foreign_asset_at_asset_hub: MultiLocation,
-				ah_as_seen_by_penpal: MultiLocation,
+				foreign_asset_at_asset_hub: v3::Location,
+				ah_as_seen_by_penpal: Location,
 				is_sufficient: bool,
 				asset_owner: AccountId,
 				prefund_amount: u128,
@@ -365,14 +365,14 @@
 				<span class="comment">// prefund SA of Penpal on AssetHub with enough native tokens to pay for creating
 				// new foreign asset, also prefund CheckingAccount with ED, because teleported asset
 				// itself might not be sufficient and CheckingAccount cannot be created otherwise
-				</span><span class="kw">let </span>sov_penpal_on_ah = <span class="macro-nonterminal">$asset_hub::sovereign_account_id_of</span>(penpal_as_seen_by_ah);
+				</span><span class="kw">let </span>sov_penpal_on_ah = <span class="macro-nonterminal">$asset_hub::sovereign_account_id_of</span>(penpal_as_seen_by_ah.clone());
 				<span class="macro-nonterminal">$asset_hub::fund_accounts</span>(<span class="macro">vec!</span>[
 					(sov_penpal_on_ah.clone().into(), <span class="macro-nonterminal">$relay_ed </span>* <span class="number">100_000_000_000</span>),
 					(ah_check_account.clone().into(), <span class="macro-nonterminal">$relay_ed </span>* <span class="number">1000</span>),
 				]);
 
 				<span class="comment">// prefund SA of AssetHub on Penpal with native asset
-				</span><span class="kw">let </span>sov_ah_on_penpal = <span class="macro-nonterminal">$penpal::sovereign_account_id_of</span>(ah_as_seen_by_penpal);
+				</span><span class="kw">let </span>sov_ah_on_penpal = <span class="macro-nonterminal">$penpal::sovereign_account_id_of</span>(ah_as_seen_by_penpal.clone());
 				<span class="macro-nonterminal">$penpal::fund_accounts</span>(<span class="macro">vec!</span>[
 					(sov_ah_on_penpal.into(), <span class="macro-nonterminal">$relay_ed </span>* <span class="number">1_000_000_000</span>),
 					(penpal_check_account.clone().into(), <span class="macro-nonterminal">$relay_ed </span>* <span class="number">1000</span>),
@@ -404,8 +404,8 @@
 				<span class="kw">let </span>buy_execution_fee_amount = <span class="macro-nonterminal">$weight_to_fee::weight_to_fee</span>(
 					<span class="kw-2">&amp;</span>Weight::from_parts(<span class="number">10_100_000_000_000</span>, <span class="number">300_000</span>),
 				);
-				<span class="kw">let </span>buy_execution_fee = MultiAsset {
-					id: Concrete(MultiLocation { parents: <span class="number">1</span>, interior: Here }),
+				<span class="kw">let </span>buy_execution_fee = Asset {
+					id: AssetId(Location { parents: <span class="number">1</span>, interior: Here }),
 					fun: Fungible(buy_execution_fee_amount),
 				};
 				<span class="kw">let </span>xcm = VersionedXcm::from(Xcm(<span class="macro">vec!</span>[

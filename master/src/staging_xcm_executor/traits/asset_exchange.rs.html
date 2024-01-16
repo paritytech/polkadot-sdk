@@ -72,7 +72,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::Assets;
+</span><span class="kw">use </span><span class="kw">crate</span>::AssetsInHolding;
 <span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// A service for exchanging assets.
@@ -90,21 +90,21 @@
 	/// least want must be in the set. Some assets originally in `give` may also be in this set. In
 	/// the case of returning an `Err`, then `give` is returned.
 	</span><span class="kw">fn </span>exchange_asset(
-		origin: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>MultiLocation&gt;,
-		give: Assets,
-		want: <span class="kw-2">&amp;</span>MultiAssets,
+		origin: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Location&gt;,
+		give: AssetsInHolding,
+		want: <span class="kw-2">&amp;</span>Assets,
 		maximal: bool,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Assets, Assets&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;AssetsInHolding, AssetsInHolding&gt;;
 }
 
 <span class="attr">#[impl_trait_for_tuples::impl_for_tuples(<span class="number">30</span>)]
 </span><span class="kw">impl </span>AssetExchange <span class="kw">for </span>Tuple {
 	<span class="kw">fn </span>exchange_asset(
-		origin: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>MultiLocation&gt;,
-		give: Assets,
-		want: <span class="kw-2">&amp;</span>MultiAssets,
+		origin: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Location&gt;,
+		give: AssetsInHolding,
+		want: <span class="kw-2">&amp;</span>Assets,
 		maximal: bool,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Assets, Assets&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;AssetsInHolding, AssetsInHolding&gt; {
 		<span class="macro">for_tuples!</span>( #(
 			<span class="kw">let </span>give = <span class="kw">match </span>Tuple::exchange_asset(origin, give, want, maximal) {
 				<span class="prelude-val">Ok</span>(r) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(r),

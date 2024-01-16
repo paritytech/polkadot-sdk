@@ -106,6 +106,10 @@
 <a href="#106" id="106">106</a>
 <a href="#107" id="107">107</a>
 <a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -131,11 +135,11 @@
 /// Because it returns only a `u128`, it assumes delivery fees are only paid
 /// in one asset and that asset is known.
 </span><span class="kw">pub fn </span>transfer_assets_delivery_fees&lt;S: SendXcm&gt;(
-	assets: MultiAssets,
+	assets: Assets,
 	fee_asset_item: u32,
 	weight_limit: WeightLimit,
-	beneficiary: MultiLocation,
-	destination: MultiLocation,
+	beneficiary: Location,
+	destination: Location,
 ) -&gt; u128 {
 	<span class="kw">let </span>message = teleport_assets_dummy_message(assets, fee_asset_item, weight_limit, beneficiary);
 	get_fungible_delivery_fees::&lt;S&gt;(destination, message)
@@ -143,7 +147,7 @@
 
 <span class="doccomment">/// Returns the delivery fees amount for a query response as a result of the execution
 /// of a `ExpectError` instruction with no error.
-</span><span class="kw">pub fn </span>query_response_delivery_fees&lt;S: SendXcm&gt;(querier: MultiLocation) -&gt; u128 {
+</span><span class="kw">pub fn </span>query_response_delivery_fees&lt;S: SendXcm&gt;(querier: Location) -&gt; u128 {
 	<span class="comment">// Message to calculate delivery fees, it&#39;s encoded size is what&#39;s important.
 	// This message reports that there was no error, if an error is reported, the encoded size would
 	// be different.
@@ -153,7 +157,7 @@
 			query_id: <span class="number">0</span>, <span class="comment">// Dummy query id
 			</span>response: Response::ExecutionResult(<span class="prelude-val">None</span>),
 			max_weight: Weight::zero(),
-			querier: <span class="prelude-val">Some</span>(querier),
+			querier: <span class="prelude-val">Some</span>(querier.clone()),
 		},
 		SetTopic([<span class="number">0u8</span>; <span class="number">32</span>]), <span class="comment">// Dummy topic
 	</span>]);
@@ -163,9 +167,9 @@
 <span class="doccomment">/// Returns the delivery fees amount for the execution of `PayOverXcm`
 </span><span class="kw">pub fn </span>pay_over_xcm_delivery_fees&lt;S: SendXcm&gt;(
 	interior: Junctions,
-	destination: MultiLocation,
-	beneficiary: MultiLocation,
-	asset: MultiAsset,
+	destination: Location,
+	beneficiary: Location,
+	asset: Asset,
 ) -&gt; u128 {
 	<span class="comment">// This is a dummy message.
 	// The encoded size is all that matters for delivery fees.
@@ -174,7 +178,11 @@
 		UnpaidExecution { weight_limit: Unlimited, check_origin: <span class="prelude-val">None </span>},
 		SetAppendix(Xcm(<span class="macro">vec!</span>[
 			SetFeesMode { jit_withdraw: <span class="bool-val">true </span>},
-			ReportError(QueryResponseInfo { destination, query_id: <span class="number">0</span>, max_weight: Weight::zero() }),
+			ReportError(QueryResponseInfo {
+				destination: destination.clone(),
+				query_id: <span class="number">0</span>,
+				max_weight: Weight::zero(),
+			}),
 		])),
 		TransferAsset { beneficiary, assets: <span class="macro">vec!</span>[asset].into() },
 	]);
@@ -186,10 +194,10 @@
 /// However, it should have the same encoded size, which is what matters for delivery fees.
 /// Also has same encoded size as the one created by the reserve transfer assets extrinsic.
 </span><span class="kw">fn </span>teleport_assets_dummy_message(
-	assets: MultiAssets,
+	assets: Assets,
 	fee_asset_item: u32,
 	weight_limit: WeightLimit,
-	beneficiary: MultiLocation,
+	beneficiary: Location,
 ) -&gt; Xcm&lt;()&gt; {
 	Xcm(<span class="macro">vec!</span>[
 		ReceiveTeleportedAsset(assets.clone()), <span class="comment">// Same encoded size as `ReserveAssetDeposited`
@@ -201,7 +209,7 @@
 }
 
 <span class="doccomment">/// Given a message, a sender, and a destination, it returns the delivery fees
-</span><span class="kw">fn </span>get_fungible_delivery_fees&lt;S: SendXcm&gt;(destination: MultiLocation, message: Xcm&lt;()&gt;) -&gt; u128 {
+</span><span class="kw">fn </span>get_fungible_delivery_fees&lt;S: SendXcm&gt;(destination: Location, message: Xcm&lt;()&gt;) -&gt; u128 {
 	<span class="kw">let </span><span class="prelude-val">Ok</span>((<span class="kw">_</span>, delivery_fees)) = validate_send::&lt;S&gt;(destination, message) <span class="kw">else </span>{
 		<span class="macro">unreachable!</span>(<span class="string">&quot;message can be sent; qed&quot;</span>)
 	};

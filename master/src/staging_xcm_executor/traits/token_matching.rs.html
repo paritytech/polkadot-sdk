@@ -125,12 +125,12 @@
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 
 <span class="kw">pub trait </span>MatchesFungible&lt;Balance&gt; {
-	<span class="kw">fn </span>matches_fungible(a: <span class="kw-2">&amp;</span>MultiAsset) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt;;
+	<span class="kw">fn </span>matches_fungible(a: <span class="kw-2">&amp;</span>Asset) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt;;
 }
 
 <span class="attr">#[impl_trait_for_tuples::impl_for_tuples(<span class="number">30</span>)]
 </span><span class="kw">impl</span>&lt;Balance&gt; MatchesFungible&lt;Balance&gt; <span class="kw">for </span>Tuple {
-	<span class="kw">fn </span>matches_fungible(a: <span class="kw-2">&amp;</span>MultiAsset) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
+	<span class="kw">fn </span>matches_fungible(a: <span class="kw-2">&amp;</span>Asset) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
 		<span class="macro">for_tuples!</span>( #(
 			<span class="kw">match </span>Tuple::matches_fungible(a) { o @ <span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span>o, <span class="kw">_ </span>=&gt; () }
 		)* );
@@ -140,12 +140,12 @@
 }
 
 <span class="kw">pub trait </span>MatchesNonFungible&lt;Instance&gt; {
-	<span class="kw">fn </span>matches_nonfungible(a: <span class="kw-2">&amp;</span>MultiAsset) -&gt; <span class="prelude-ty">Option</span>&lt;Instance&gt;;
+	<span class="kw">fn </span>matches_nonfungible(a: <span class="kw-2">&amp;</span>Asset) -&gt; <span class="prelude-ty">Option</span>&lt;Instance&gt;;
 }
 
 <span class="attr">#[impl_trait_for_tuples::impl_for_tuples(<span class="number">30</span>)]
 </span><span class="kw">impl</span>&lt;Instance&gt; MatchesNonFungible&lt;Instance&gt; <span class="kw">for </span>Tuple {
-	<span class="kw">fn </span>matches_nonfungible(a: <span class="kw-2">&amp;</span>MultiAsset) -&gt; <span class="prelude-ty">Option</span>&lt;Instance&gt; {
+	<span class="kw">fn </span>matches_nonfungible(a: <span class="kw-2">&amp;</span>Asset) -&gt; <span class="prelude-ty">Option</span>&lt;Instance&gt; {
 		<span class="macro">for_tuples!</span>( #(
 			<span class="kw">match </span>Tuple::matches_nonfungible(a) { o @ <span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span>o, <span class="kw">_ </span>=&gt; () }
 		)* );
@@ -159,11 +159,11 @@
 </span><span class="kw">pub enum </span>Error {
 	<span class="doccomment">/// The given asset is not handled. (According to [`XcmError::AssetNotFound`])
 	</span>AssetNotHandled,
-	<span class="doccomment">/// `MultiLocation` to `AccountId` conversion failed.
+	<span class="doccomment">/// `Location` to `AccountId` conversion failed.
 	</span>AccountIdConversionFailed,
 	<span class="doccomment">/// `u128` amount to currency `Balance` conversion failed.
 	</span>AmountToBalanceConversionFailed,
-	<span class="doccomment">/// `MultiLocation` to `AssetId`/`ClassId` conversion failed.
+	<span class="doccomment">/// `Location` to `AssetId`/`ClassId` conversion failed.
 	</span>AssetIdConversionFailed,
 	<span class="doccomment">/// `AssetInstance` to non-fungibles instance ID conversion failed.
 	</span>InstanceConversionFailed,
@@ -184,12 +184,12 @@
 }
 
 <span class="kw">pub trait </span>MatchesFungibles&lt;AssetId, Balance&gt; {
-	<span class="kw">fn </span>matches_fungibles(a: <span class="kw-2">&amp;</span>MultiAsset) -&gt; result::Result&lt;(AssetId, Balance), Error&gt;;
+	<span class="kw">fn </span>matches_fungibles(a: <span class="kw-2">&amp;</span>Asset) -&gt; result::Result&lt;(AssetId, Balance), Error&gt;;
 }
 
 <span class="attr">#[impl_trait_for_tuples::impl_for_tuples(<span class="number">30</span>)]
 </span><span class="kw">impl</span>&lt;AssetId, Balance&gt; MatchesFungibles&lt;AssetId, Balance&gt; <span class="kw">for </span>Tuple {
-	<span class="kw">fn </span>matches_fungibles(a: <span class="kw-2">&amp;</span>MultiAsset) -&gt; result::Result&lt;(AssetId, Balance), Error&gt; {
+	<span class="kw">fn </span>matches_fungibles(a: <span class="kw-2">&amp;</span>Asset) -&gt; result::Result&lt;(AssetId, Balance), Error&gt; {
 		<span class="macro">for_tuples!</span>( #(
 			<span class="kw">match </span>Tuple::matches_fungibles(a) { o @ <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span>o, <span class="kw">_ </span>=&gt; () }
 		)* );
@@ -199,12 +199,12 @@
 }
 
 <span class="kw">pub trait </span>MatchesNonFungibles&lt;AssetId, Instance&gt; {
-	<span class="kw">fn </span>matches_nonfungibles(a: <span class="kw-2">&amp;</span>MultiAsset) -&gt; result::Result&lt;(AssetId, Instance), Error&gt;;
+	<span class="kw">fn </span>matches_nonfungibles(a: <span class="kw-2">&amp;</span>Asset) -&gt; result::Result&lt;(AssetId, Instance), Error&gt;;
 }
 
 <span class="attr">#[impl_trait_for_tuples::impl_for_tuples(<span class="number">30</span>)]
 </span><span class="kw">impl</span>&lt;AssetId, Instance&gt; MatchesNonFungibles&lt;AssetId, Instance&gt; <span class="kw">for </span>Tuple {
-	<span class="kw">fn </span>matches_nonfungibles(a: <span class="kw-2">&amp;</span>MultiAsset) -&gt; result::Result&lt;(AssetId, Instance), Error&gt; {
+	<span class="kw">fn </span>matches_nonfungibles(a: <span class="kw-2">&amp;</span>Asset) -&gt; result::Result&lt;(AssetId, Instance), Error&gt; {
 		<span class="macro">for_tuples!</span>( #(
 			<span class="kw">match </span>Tuple::matches_nonfungibles(a) { o @ <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span>o, <span class="kw">_ </span>=&gt; () }
 		)* );

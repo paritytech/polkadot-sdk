@@ -181,10 +181,10 @@
 
 <span class="kw">pub fn </span>prepare_inbound_xcm&lt;InnerXcmRuntimeCall&gt;(
 	xcm_message: Xcm&lt;InnerXcmRuntimeCall&gt;,
-	destination: InteriorMultiLocation,
+	destination: InteriorLocation,
 ) -&gt; Vec&lt;u8&gt; {
-	<span class="kw">let </span>location = xcm::VersionedInteriorMultiLocation::V3(destination);
-	<span class="kw">let </span>xcm = xcm::VersionedXcm::&lt;InnerXcmRuntimeCall&gt;::V3(xcm_message);
+	<span class="kw">let </span>location = xcm::VersionedInteriorLocation::V4(destination);
+	<span class="kw">let </span>xcm = xcm::VersionedXcm::&lt;InnerXcmRuntimeCall&gt;::V4(xcm_message);
 	<span class="comment">// this is the `BridgeMessage` from polkadot xcm builder, but it has no constructor
 	// or public fields, so just tuple
 	// (double encoding, because `.encode()` is called on original Xcm BLOB when it is pushed
@@ -245,7 +245,7 @@
 /// which are transferred over bridge.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>simulate_message_exporter_on_bridged_chain&lt;
 	SourceNetwork: Get&lt;NetworkId&gt;,
-	DestinationNetwork: Get&lt;MultiLocation&gt;,
+	DestinationNetwork: Get&lt;Location&gt;,
 	DestinationVersion: GetVersion,
 &gt;(
 	(destination_network, destination_junctions): (NetworkId, Junctions),
@@ -253,8 +253,8 @@
 	<span class="macro">grab_haul_blob!</span>(GrabbingHaulBlob, GRABBED_HAUL_BLOB_PAYLOAD);
 
 	<span class="comment">// lets pretend that some parachain on bridged chain exported the message
-	</span><span class="kw">let </span>universal_source_on_bridged_chain =
-		X2(GlobalConsensus(SourceNetwork::get()), Parachain(<span class="number">5678</span>));
+	</span><span class="kw">let </span>universal_source_on_bridged_chain: Junctions =
+		[GlobalConsensus(SourceNetwork::get()), Parachain(<span class="number">5678</span>)].into();
 	<span class="kw">let </span>channel = <span class="number">1_u32</span>;
 
 	<span class="comment">// simulate XCM message export

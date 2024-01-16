@@ -85,9 +85,6 @@
 <a href="#85" id="85">85</a>
 <a href="#86" id="86">86</a>
 <a href="#87" id="87">87</a>
-<a href="#88" id="88">88</a>
-<a href="#89" id="89">89</a>
-<a href="#90" id="90">90</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -120,7 +117,7 @@
 }
 
 <span class="doccomment">/// Specify which type of asset transfer is required for a particular `(asset, dest)` combination.
-</span><span class="attr">#[derive(Copy, Clone, PartialEq, Debug)]
+</span><span class="attr">#[derive(Clone, PartialEq, Debug)]
 </span><span class="kw">pub enum </span>TransferType {
 	<span class="doccomment">/// should teleport `asset` to `dest`
 	</span>Teleport,
@@ -128,8 +125,8 @@
 	</span>LocalReserve,
 	<span class="doccomment">/// should reserve-transfer `asset` to `dest`, using `dest` as reserve
 	</span>DestinationReserve,
-	<span class="doccomment">/// should reserve-transfer `asset` to `dest`, using remote chain `MultiLocation` as reserve
-	</span>RemoteReserve(MultiLocation),
+	<span class="doccomment">/// should reserve-transfer `asset` to `dest`, using remote chain `Location` as reserve
+	</span>RemoteReserve(Location),
 }
 
 <span class="doccomment">/// A trait for identifying asset transfer type based on `IsTeleporter` and `IsReserve`
@@ -137,17 +134,17 @@
 </span><span class="kw">pub trait </span>XcmAssetTransfers {
 	<span class="doccomment">/// Combinations of (Asset, Location) pairs which we trust as reserves. Meaning
 	/// reserve-based-transfers are to be used for assets matching this filter.
-	</span><span class="kw">type </span>IsReserve: ContainsPair&lt;MultiAsset, MultiLocation&gt;;
+	</span><span class="kw">type </span>IsReserve: ContainsPair&lt;Asset, Location&gt;;
 
 	<span class="doccomment">/// Combinations of (Asset, Location) pairs which we trust as teleporters. Meaning teleports are
 	/// to be used for assets matching this filter.
-	</span><span class="kw">type </span>IsTeleporter: ContainsPair&lt;MultiAsset, MultiLocation&gt;;
+	</span><span class="kw">type </span>IsTeleporter: ContainsPair&lt;Asset, Location&gt;;
 
 	<span class="doccomment">/// How to withdraw and deposit an asset.
 	</span><span class="kw">type </span>AssetTransactor: TransactAsset;
 
 	<span class="doccomment">/// Determine transfer type to be used for transferring `asset` from local chain to `dest`.
-	</span><span class="kw">fn </span>determine_for(asset: <span class="kw-2">&amp;</span>MultiAsset, dest: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Result</span>&lt;TransferType, Error&gt; {
+	</span><span class="kw">fn </span>determine_for(asset: <span class="kw-2">&amp;</span>Asset, dest: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Result</span>&lt;TransferType, Error&gt; {
 		<span class="kw">if </span><span class="self">Self</span>::IsTeleporter::contains(asset, dest) {
 			<span class="comment">// we trust destination for teleporting asset
 			</span><span class="kw">return </span><span class="prelude-val">Ok</span>(TransferType::Teleport)
@@ -157,11 +154,8 @@
 		}
 
 		<span class="comment">// try to determine reserve location based on asset id/location
-		</span><span class="kw">let </span>asset_location = <span class="kw">match </span>asset.id {
-			Concrete(location) =&gt; <span class="prelude-val">Ok</span>(location.chain_location()),
-			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(Error::NotConcrete),
-		}<span class="question-mark">?</span>;
-		<span class="kw">if </span>asset_location == MultiLocation::here() ||
+		</span><span class="kw">let </span>asset_location = asset.id.<span class="number">0</span>.chain_location();
+		<span class="kw">if </span>asset_location == Location::here() ||
 			<span class="self">Self</span>::IsTeleporter::contains(asset, <span class="kw-2">&amp;</span>asset_location)
 		{
 			<span class="comment">// if the asset is local, then it&#39;s a local reserve

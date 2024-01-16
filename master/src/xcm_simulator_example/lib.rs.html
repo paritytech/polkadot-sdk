@@ -800,7 +800,7 @@
 	<span class="kw">use </span>xcm_simulator::TestExt;
 
 	<span class="comment">// Helper function for forming buy execution message
-	</span><span class="kw">fn </span>buy_execution&lt;C&gt;(fees: <span class="kw">impl </span>Into&lt;MultiAsset&gt;) -&gt; Instruction&lt;C&gt; {
+	</span><span class="kw">fn </span>buy_execution&lt;C&gt;(fees: <span class="kw">impl </span>Into&lt;Asset&gt;) -&gt; Instruction&lt;C&gt; {
 		BuyExecution { fees: fees.into(), weight_limit: Unlimited }
 	}
 
@@ -1294,7 +1294,7 @@
 				parachain::MsgQueue::received_dmp(),
 				<span class="macro">vec!</span>[Xcm(<span class="macro">vec!</span>[QueryResponse {
 					query_id: query_id_set,
-					response: Response::Assets(MultiAssets::new()),
+					response: Response::Assets(Assets::new()),
 					max_weight: Weight::from_parts(<span class="number">1_000_000_000</span>, <span class="number">1024 </span>* <span class="number">1024</span>),
 					querier: <span class="prelude-val">Some</span>(Here.into()),
 				}])],

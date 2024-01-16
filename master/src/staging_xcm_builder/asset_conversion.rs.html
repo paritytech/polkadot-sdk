@@ -316,36 +316,6 @@
 <a href="#316" id="316">316</a>
 <a href="#317" id="317">317</a>
 <a href="#318" id="318">318</a>
-<a href="#319" id="319">319</a>
-<a href="#320" id="320">320</a>
-<a href="#321" id="321">321</a>
-<a href="#322" id="322">322</a>
-<a href="#323" id="323">323</a>
-<a href="#324" id="324">324</a>
-<a href="#325" id="325">325</a>
-<a href="#326" id="326">326</a>
-<a href="#327" id="327">327</a>
-<a href="#328" id="328">328</a>
-<a href="#329" id="329">329</a>
-<a href="#330" id="330">330</a>
-<a href="#331" id="331">331</a>
-<a href="#332" id="332">332</a>
-<a href="#333" id="333">333</a>
-<a href="#334" id="334">334</a>
-<a href="#335" id="335">335</a>
-<a href="#336" id="336">336</a>
-<a href="#337" id="337">337</a>
-<a href="#338" id="338">338</a>
-<a href="#339" id="339">339</a>
-<a href="#340" id="340">340</a>
-<a href="#341" id="341">341</a>
-<a href="#342" id="342">342</a>
-<a href="#343" id="343">343</a>
-<a href="#344" id="344">344</a>
-<a href="#345" id="345">345</a>
-<a href="#346" id="346">346</a>
-<a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -371,39 +341,42 @@
 <span class="kw">use </span>xcm_executor::traits::{Error <span class="kw">as </span>MatchError, MatchesFungibles, MatchesNonFungibles};
 
 <span class="doccomment">/// Converter struct implementing `AssetIdConversion` converting a numeric asset ID (must be
-/// `TryFrom/TryInto&lt;u128&gt;`) into a `GeneralIndex` junction, prefixed by some `MultiLocation` value.
-/// The `MultiLocation` value will typically be a `PalletInstance` junction.
-</span><span class="kw">pub struct </span>AsPrefixedGeneralIndex&lt;Prefix, AssetId, ConvertAssetId&gt;(
-	PhantomData&lt;(Prefix, AssetId, ConvertAssetId)&gt;,
+/// `TryFrom/TryInto&lt;u128&gt;`) into a `GeneralIndex` junction, prefixed by some `Location` value.
+/// The `Location` value will typically be a `PalletInstance` junction.
+</span><span class="kw">pub struct </span>AsPrefixedGeneralIndex&lt;Prefix, AssetId, ConvertAssetId, L = Location&gt;(
+	PhantomData&lt;(Prefix, AssetId, ConvertAssetId, L)&gt;,
 );
 <span class="kw">impl</span>&lt;
-		Prefix: Get&lt;MultiLocation&gt;,
+		Prefix: Get&lt;L&gt;,
 		AssetId: Clone,
 		ConvertAssetId: MaybeEquivalence&lt;u128, AssetId&gt;,
-	&gt; MaybeEquivalence&lt;MultiLocation, AssetId&gt;
-	<span class="kw">for </span>AsPrefixedGeneralIndex&lt;Prefix, AssetId, ConvertAssetId&gt;
+		L: TryInto&lt;Location&gt; + TryFrom&lt;Location&gt; + Clone,
+	&gt; MaybeEquivalence&lt;L, AssetId&gt; <span class="kw">for </span>AsPrefixedGeneralIndex&lt;Prefix, AssetId, ConvertAssetId, L&gt;
 {
-	<span class="kw">fn </span>convert(id: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;AssetId&gt; {
+	<span class="kw">fn </span>convert(id: <span class="kw-2">&amp;</span>L) -&gt; <span class="prelude-ty">Option</span>&lt;AssetId&gt; {
 		<span class="kw">let </span>prefix = Prefix::get();
-		<span class="kw">if </span>prefix.parent_count() != id.parent_count() ||
-			prefix
+		<span class="kw">let </span>latest_prefix: Location = prefix.try_into().ok()<span class="question-mark">?</span>;
+		<span class="kw">let </span>latest_id: Location = (<span class="kw-2">*</span>id).clone().try_into().ok()<span class="question-mark">?</span>;
+		<span class="kw">if </span>latest_prefix.parent_count() != latest_id.parent_count() ||
+			latest_prefix
 				.interior()
 				.iter()
 				.enumerate()
-				.any(|(index, junction)| id.interior().at(index) != <span class="prelude-val">Some</span>(junction))
+				.any(|(index, junction)| latest_id.interior().at(index) != <span class="prelude-val">Some</span>(junction))
 		{
 			<span class="kw">return </span><span class="prelude-val">None
 		</span>}
-		<span class="kw">match </span>id.interior().at(prefix.interior().len()) {
-			<span class="prelude-val">Some</span>(Junction::GeneralIndex(id)) =&gt; ConvertAssetId::convert(id),
+		<span class="kw">match </span>latest_id.interior().at(latest_prefix.interior().len()) {
+			<span class="prelude-val">Some</span>(Junction::GeneralIndex(id)) =&gt; ConvertAssetId::convert(<span class="kw-2">&amp;</span>id),
 			<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
 		}
 	}
-	<span class="kw">fn </span>convert_back(what: <span class="kw-2">&amp;</span>AssetId) -&gt; <span class="prelude-ty">Option</span>&lt;MultiLocation&gt; {
-		<span class="kw">let </span><span class="kw-2">mut </span>location = Prefix::get();
+	<span class="kw">fn </span>convert_back(what: <span class="kw-2">&amp;</span>AssetId) -&gt; <span class="prelude-ty">Option</span>&lt;L&gt; {
+		<span class="kw">let </span>location = Prefix::get();
+		<span class="kw">let </span><span class="kw-2">mut </span>latest_location: Location = location.try_into().ok()<span class="question-mark">?</span>;
 		<span class="kw">let </span>id = ConvertAssetId::convert_back(what)<span class="question-mark">?</span>;
-		location.push_interior(Junction::GeneralIndex(id)).ok()<span class="question-mark">?</span>;
-		<span class="prelude-val">Some</span>(location)
+		latest_location.push_interior(Junction::GeneralIndex(id)).ok()<span class="question-mark">?</span>;
+		latest_location.try_into().ok()
 	}
 }
 
@@ -413,14 +386,14 @@
 <span class="kw">impl</span>&lt;
 		AssetId: Clone,
 		Balance: Clone,
-		ConvertAssetId: MaybeEquivalence&lt;MultiLocation, AssetId&gt;,
+		ConvertAssetId: MaybeEquivalence&lt;Location, AssetId&gt;,
 		ConvertBalance: MaybeEquivalence&lt;u128, Balance&gt;,
 	&gt; MatchesFungibles&lt;AssetId, Balance&gt;
 	<span class="kw">for </span>ConvertedConcreteId&lt;AssetId, Balance, ConvertAssetId, ConvertBalance&gt;
 {
-	<span class="kw">fn </span>matches_fungibles(a: <span class="kw-2">&amp;</span>MultiAsset) -&gt; result::Result&lt;(AssetId, Balance), MatchError&gt; {
+	<span class="kw">fn </span>matches_fungibles(a: <span class="kw-2">&amp;</span>Asset) -&gt; result::Result&lt;(AssetId, Balance), MatchError&gt; {
 		<span class="kw">let </span>(amount, id) = <span class="kw">match </span>(<span class="kw-2">&amp;</span>a.fun, <span class="kw-2">&amp;</span>a.id) {
-			(Fungible(<span class="kw-2">ref </span>amount), Concrete(<span class="kw-2">ref </span>id)) =&gt; (amount, id),
+			(Fungible(<span class="kw-2">ref </span>amount), AssetId(<span class="kw-2">ref </span>id)) =&gt; (amount, id),
 			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(MatchError::AssetNotHandled),
 		};
 		<span class="kw">let </span>what = ConvertAssetId::convert(id).ok_or(MatchError::AssetIdConversionFailed)<span class="question-mark">?</span>;
@@ -432,56 +405,14 @@
 <span class="kw">impl</span>&lt;
 		ClassId: Clone,
 		InstanceId: Clone,
-		ConvertClassId: MaybeEquivalence&lt;MultiLocation, ClassId&gt;,
+		ConvertClassId: MaybeEquivalence&lt;Location, ClassId&gt;,
 		ConvertInstanceId: MaybeEquivalence&lt;AssetInstance, InstanceId&gt;,
 	&gt; MatchesNonFungibles&lt;ClassId, InstanceId&gt;
 	<span class="kw">for </span>ConvertedConcreteId&lt;ClassId, InstanceId, ConvertClassId, ConvertInstanceId&gt;
 {
-	<span class="kw">fn </span>matches_nonfungibles(a: <span class="kw-2">&amp;</span>MultiAsset) -&gt; result::Result&lt;(ClassId, InstanceId), MatchError&gt; {
+	<span class="kw">fn </span>matches_nonfungibles(a: <span class="kw-2">&amp;</span>Asset) -&gt; result::Result&lt;(ClassId, InstanceId), MatchError&gt; {
 		<span class="kw">let </span>(instance, class) = <span class="kw">match </span>(<span class="kw-2">&amp;</span>a.fun, <span class="kw-2">&amp;</span>a.id) {
-			(NonFungible(<span class="kw-2">ref </span>instance), Concrete(<span class="kw-2">ref </span>class)) =&gt; (instance, class),
-			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(MatchError::AssetNotHandled),
-		};
-		<span class="kw">let </span>what = ConvertClassId::convert(class).ok_or(MatchError::AssetIdConversionFailed)<span class="question-mark">?</span>;
-		<span class="kw">let </span>instance =
-			ConvertInstanceId::convert(instance).ok_or(MatchError::InstanceConversionFailed)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>((what, instance))
-	}
-}
-
-<span class="kw">pub struct </span>ConvertedAbstractId&lt;AssetId, Balance, ConvertAssetId, ConvertOther&gt;(
-	PhantomData&lt;(AssetId, Balance, ConvertAssetId, ConvertOther)&gt;,
-);
-<span class="kw">impl</span>&lt;
-		AssetId: Clone,
-		Balance: Clone,
-		ConvertAssetId: MaybeEquivalence&lt;[u8; <span class="number">32</span>], AssetId&gt;,
-		ConvertBalance: MaybeEquivalence&lt;u128, Balance&gt;,
-	&gt; MatchesFungibles&lt;AssetId, Balance&gt;
-	<span class="kw">for </span>ConvertedAbstractId&lt;AssetId, Balance, ConvertAssetId, ConvertBalance&gt;
-{
-	<span class="kw">fn </span>matches_fungibles(a: <span class="kw-2">&amp;</span>MultiAsset) -&gt; result::Result&lt;(AssetId, Balance), MatchError&gt; {
-		<span class="kw">let </span>(amount, id) = <span class="kw">match </span>(<span class="kw-2">&amp;</span>a.fun, <span class="kw-2">&amp;</span>a.id) {
-			(Fungible(<span class="kw-2">ref </span>amount), Abstract(<span class="kw-2">ref </span>id)) =&gt; (amount, id),
-			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(MatchError::AssetNotHandled),
-		};
-		<span class="kw">let </span>what = ConvertAssetId::convert(id).ok_or(MatchError::AssetIdConversionFailed)<span class="question-mark">?</span>;
-		<span class="kw">let </span>amount =
-			ConvertBalance::convert(amount).ok_or(MatchError::AmountToBalanceConversionFailed)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>((what, amount))
-	}
-}
-<span class="kw">impl</span>&lt;
-		ClassId: Clone,
-		InstanceId: Clone,
-		ConvertClassId: MaybeEquivalence&lt;[u8; <span class="number">32</span>], ClassId&gt;,
-		ConvertInstanceId: MaybeEquivalence&lt;AssetInstance, InstanceId&gt;,
-	&gt; MatchesNonFungibles&lt;ClassId, InstanceId&gt;
-	<span class="kw">for </span>ConvertedAbstractId&lt;ClassId, InstanceId, ConvertClassId, ConvertInstanceId&gt;
-{
-	<span class="kw">fn </span>matches_nonfungibles(a: <span class="kw-2">&amp;</span>MultiAsset) -&gt; result::Result&lt;(ClassId, InstanceId), MatchError&gt; {
-		<span class="kw">let </span>(instance, class) = <span class="kw">match </span>(<span class="kw-2">&amp;</span>a.fun, <span class="kw-2">&amp;</span>a.id) {
-			(NonFungible(<span class="kw-2">ref </span>instance), Abstract(<span class="kw-2">ref </span>class)) =&gt; (instance, class),
+			(NonFungible(<span class="kw-2">ref </span>instance), AssetId(<span class="kw-2">ref </span>class)) =&gt; (instance, class),
 			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(MatchError::AssetNotHandled),
 		};
 		<span class="kw">let </span>what = ConvertClassId::convert(class).ok_or(MatchError::AssetIdConversionFailed)<span class="question-mark">?</span>;
@@ -493,8 +424,17 @@
 
 <span class="attr">#[deprecated = <span class="string">&quot;Use `ConvertedConcreteId` instead&quot;</span>]
 </span><span class="kw">pub type </span>ConvertedConcreteAssetId&lt;A, B, C, O&gt; = ConvertedConcreteId&lt;A, B, C, O&gt;;
-<span class="attr">#[deprecated = <span class="string">&quot;Use `ConvertedAbstractId` instead&quot;</span>]
-</span><span class="kw">pub type </span>ConvertedAbstractAssetId&lt;A, B, C, O&gt; = ConvertedAbstractId&lt;A, B, C, O&gt;;
+
+<span class="kw">pub struct </span>V4V3LocationConverter;
+<span class="kw">impl </span>MaybeEquivalence&lt;xcm::v4::Location, xcm::v3::Location&gt; <span class="kw">for </span>V4V3LocationConverter {
+	<span class="kw">fn </span>convert(old: <span class="kw-2">&amp;</span>xcm::v4::Location) -&gt; <span class="prelude-ty">Option</span>&lt;xcm::v3::Location&gt; {
+		(<span class="kw-2">*</span>old).clone().try_into().ok()
+	}
+
+	<span class="kw">fn </span>convert_back(new: <span class="kw-2">&amp;</span>xcm::v3::Location) -&gt; <span class="prelude-ty">Option</span>&lt;xcm::v4::Location&gt; {
+		(<span class="kw-2">*</span>new).try_into().ok()
+	}
+}
 
 <span class="kw">pub struct </span>MatchedConvertedConcreteId&lt;AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertOther&gt;(
 	PhantomData&lt;(AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertOther)&gt;,
@@ -502,15 +442,15 @@
 <span class="kw">impl</span>&lt;
 		AssetId: Clone,
 		Balance: Clone,
-		MatchAssetId: Contains&lt;MultiLocation&gt;,
-		ConvertAssetId: MaybeEquivalence&lt;MultiLocation, AssetId&gt;,
+		MatchAssetId: Contains&lt;Location&gt;,
+		ConvertAssetId: MaybeEquivalence&lt;Location, AssetId&gt;,
 		ConvertBalance: MaybeEquivalence&lt;u128, Balance&gt;,
 	&gt; MatchesFungibles&lt;AssetId, Balance&gt;
 	<span class="kw">for </span>MatchedConvertedConcreteId&lt;AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertBalance&gt;
 {
-	<span class="kw">fn </span>matches_fungibles(a: <span class="kw-2">&amp;</span>MultiAsset) -&gt; result::Result&lt;(AssetId, Balance), MatchError&gt; {
+	<span class="kw">fn </span>matches_fungibles(a: <span class="kw-2">&amp;</span>Asset) -&gt; result::Result&lt;(AssetId, Balance), MatchError&gt; {
 		<span class="kw">let </span>(amount, id) = <span class="kw">match </span>(<span class="kw-2">&amp;</span>a.fun, <span class="kw-2">&amp;</span>a.id) {
-			(Fungible(<span class="kw-2">ref </span>amount), Concrete(<span class="kw-2">ref </span>id)) <span class="kw">if </span>MatchAssetId::contains(id) =&gt; (amount, id),
+			(Fungible(<span class="kw-2">ref </span>amount), AssetId(<span class="kw-2">ref </span>id)) <span class="kw">if </span>MatchAssetId::contains(id) =&gt; (amount, id),
 			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(MatchError::AssetNotHandled),
 		};
 		<span class="kw">let </span>what = ConvertAssetId::convert(id).ok_or(MatchError::AssetIdConversionFailed)<span class="question-mark">?</span>;
@@ -522,15 +462,15 @@
 <span class="kw">impl</span>&lt;
 		ClassId: Clone,
 		InstanceId: Clone,
-		MatchClassId: Contains&lt;MultiLocation&gt;,
-		ConvertClassId: MaybeEquivalence&lt;MultiLocation, ClassId&gt;,
+		MatchClassId: Contains&lt;Location&gt;,
+		ConvertClassId: MaybeEquivalence&lt;Location, ClassId&gt;,
 		ConvertInstanceId: MaybeEquivalence&lt;AssetInstance, InstanceId&gt;,
 	&gt; MatchesNonFungibles&lt;ClassId, InstanceId&gt;
 	<span class="kw">for </span>MatchedConvertedConcreteId&lt;ClassId, InstanceId, MatchClassId, ConvertClassId, ConvertInstanceId&gt;
 {
-	<span class="kw">fn </span>matches_nonfungibles(a: <span class="kw-2">&amp;</span>MultiAsset) -&gt; result::Result&lt;(ClassId, InstanceId), MatchError&gt; {
+	<span class="kw">fn </span>matches_nonfungibles(a: <span class="kw-2">&amp;</span>Asset) -&gt; result::Result&lt;(ClassId, InstanceId), MatchError&gt; {
 		<span class="kw">let </span>(instance, class) = <span class="kw">match </span>(<span class="kw-2">&amp;</span>a.fun, <span class="kw-2">&amp;</span>a.id) {
-			(NonFungible(<span class="kw-2">ref </span>instance), Concrete(<span class="kw-2">ref </span>class)) <span class="kw">if </span>MatchClassId::contains(class) =&gt;
+			(NonFungible(<span class="kw-2">ref </span>instance), AssetId(<span class="kw-2">ref </span>class)) <span class="kw">if </span>MatchClassId::contains(class) =&gt;
 				(instance, class),
 			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(MatchError::AssetNotHandled),
 		};
@@ -548,10 +488,10 @@
 	<span class="kw">use </span>xcm_executor::traits::JustTry;
 
 	<span class="kw">struct </span>OnlyParentZero;
-	<span class="kw">impl </span>Contains&lt;MultiLocation&gt; <span class="kw">for </span>OnlyParentZero {
-		<span class="kw">fn </span>contains(a: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
+	<span class="kw">impl </span>Contains&lt;Location&gt; <span class="kw">for </span>OnlyParentZero {
+		<span class="kw">fn </span>contains(a: <span class="kw-2">&amp;</span>Location) -&gt; bool {
 			<span class="kw">match </span>a {
-				MultiLocation { parents: <span class="number">0</span>, .. } =&gt; <span class="bool-val">true</span>,
+				Location { parents: <span class="number">0</span>, .. } =&gt; <span class="bool-val">true</span>,
 				<span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
 			}
 		}
@@ -562,7 +502,7 @@
 		<span class="kw">type </span>AssetIdForTrustBackedAssets = u32;
 		<span class="kw">type </span>Balance = u128;
 		<span class="macro">frame_support::parameter_types! </span>{
-			<span class="kw">pub </span>TrustBackedAssetsPalletLocation: MultiLocation = PalletInstance(<span class="number">50</span>).into();
+			<span class="kw">pub </span>TrustBackedAssetsPalletLocation: Location = PalletInstance(<span class="number">50</span>).into();
 		}
 
 		<span class="comment">// ConvertedConcreteId cfg
@@ -579,13 +519,13 @@
 		&gt;;
 		<span class="macro">assert_eq!</span>(
 			TrustBackedAssetsPalletLocation::get(),
-			MultiLocation { parents: <span class="number">0</span>, interior: X1(PalletInstance(<span class="number">50</span>)) }
+			Location { parents: <span class="number">0</span>, interior: [PalletInstance(<span class="number">50</span>)].into() }
 		);
 
 		<span class="comment">// err - does not match
 		</span><span class="macro">assert_eq!</span>(
-			Converter::matches_fungibles(<span class="kw-2">&amp;</span>MultiAsset {
-				id: Concrete(MultiLocation::new(<span class="number">1</span>, X2(PalletInstance(<span class="number">50</span>), GeneralIndex(<span class="number">1</span>)))),
+			Converter::matches_fungibles(<span class="kw-2">&amp;</span>Asset {
+				id: AssetId(Location::new(<span class="number">1</span>, [PalletInstance(<span class="number">50</span>), GeneralIndex(<span class="number">1</span>)])),
 				fun: Fungible(<span class="number">12345</span>),
 			}),
 			<span class="prelude-val">Err</span>(MatchError::AssetNotHandled)
@@ -593,10 +533,10 @@
 
 		<span class="comment">// err - matches, but convert fails
 		</span><span class="macro">assert_eq!</span>(
-			Converter::matches_fungibles(<span class="kw-2">&amp;</span>MultiAsset {
-				id: Concrete(MultiLocation::new(
+			Converter::matches_fungibles(<span class="kw-2">&amp;</span>Asset {
+				id: AssetId(Location::new(
 					<span class="number">0</span>,
-					X2(PalletInstance(<span class="number">50</span>), GeneralKey { length: <span class="number">1</span>, data: [<span class="number">1</span>; <span class="number">32</span>] })
+					[PalletInstance(<span class="number">50</span>), GeneralKey { length: <span class="number">1</span>, data: [<span class="number">1</span>; <span class="number">32</span>] }]
 				)),
 				fun: Fungible(<span class="number">12345</span>),
 			}),
@@ -605,8 +545,8 @@
 
 		<span class="comment">// err - matches, but NonFungible
 		</span><span class="macro">assert_eq!</span>(
-			Converter::matches_fungibles(<span class="kw-2">&amp;</span>MultiAsset {
-				id: Concrete(MultiLocation::new(<span class="number">0</span>, X2(PalletInstance(<span class="number">50</span>), GeneralIndex(<span class="number">1</span>)))),
+			Converter::matches_fungibles(<span class="kw-2">&amp;</span>Asset {
+				id: AssetId(Location::new(<span class="number">0</span>, [PalletInstance(<span class="number">50</span>), GeneralIndex(<span class="number">1</span>)])),
 				fun: NonFungible(Index(<span class="number">54321</span>)),
 			}),
 			<span class="prelude-val">Err</span>(MatchError::AssetNotHandled)
@@ -614,8 +554,8 @@
 
 		<span class="comment">// ok
 		</span><span class="macro">assert_eq!</span>(
-			Converter::matches_fungibles(<span class="kw-2">&amp;</span>MultiAsset {
-				id: Concrete(MultiLocation::new(<span class="number">0</span>, X2(PalletInstance(<span class="number">50</span>), GeneralIndex(<span class="number">1</span>)))),
+			Converter::matches_fungibles(<span class="kw-2">&amp;</span>Asset {
+				id: AssetId(Location::new(<span class="number">0</span>, [PalletInstance(<span class="number">50</span>), GeneralIndex(<span class="number">1</span>)])),
 				fun: Fungible(<span class="number">12345</span>),
 			}),
 			<span class="prelude-val">Ok</span>((<span class="number">1</span>, <span class="number">12345</span>))
@@ -627,7 +567,7 @@
 		<span class="kw">type </span>ClassId = u32;
 		<span class="kw">type </span>ClassInstanceId = u64;
 		<span class="macro">frame_support::parameter_types! </span>{
-			<span class="kw">pub </span>TrustBackedAssetsPalletLocation: MultiLocation = PalletInstance(<span class="number">50</span>).into();
+			<span class="kw">pub </span>TrustBackedAssetsPalletLocation: Location = PalletInstance(<span class="number">50</span>).into();
 		}
 
 		<span class="comment">// ConvertedConcreteId cfg
@@ -651,13 +591,13 @@
 		&gt;;
 		<span class="macro">assert_eq!</span>(
 			TrustBackedAssetsPalletLocation::get(),
-			MultiLocation { parents: <span class="number">0</span>, interior: X1(PalletInstance(<span class="number">50</span>)) }
+			Location { parents: <span class="number">0</span>, interior: [PalletInstance(<span class="number">50</span>)].into() }
 		);
 
 		<span class="comment">// err - does not match
 		</span><span class="macro">assert_eq!</span>(
-			Converter::matches_nonfungibles(<span class="kw-2">&amp;</span>MultiAsset {
-				id: Concrete(MultiLocation::new(<span class="number">1</span>, X2(PalletInstance(<span class="number">50</span>), GeneralIndex(<span class="number">1</span>)))),
+			Converter::matches_nonfungibles(<span class="kw-2">&amp;</span>Asset {
+				id: AssetId(Location::new(<span class="number">1</span>, [PalletInstance(<span class="number">50</span>), GeneralIndex(<span class="number">1</span>)])),
 				fun: NonFungible(Index(<span class="number">54321</span>)),
 			}),
 			<span class="prelude-val">Err</span>(MatchError::AssetNotHandled)
@@ -665,10 +605,10 @@
 
 		<span class="comment">// err - matches, but convert fails
 		</span><span class="macro">assert_eq!</span>(
-			Converter::matches_nonfungibles(<span class="kw-2">&amp;</span>MultiAsset {
-				id: Concrete(MultiLocation::new(
+			Converter::matches_nonfungibles(<span class="kw-2">&amp;</span>Asset {
+				id: AssetId(Location::new(
 					<span class="number">0</span>,
-					X2(PalletInstance(<span class="number">50</span>), GeneralKey { length: <span class="number">1</span>, data: [<span class="number">1</span>; <span class="number">32</span>] })
+					[PalletInstance(<span class="number">50</span>), GeneralKey { length: <span class="number">1</span>, data: [<span class="number">1</span>; <span class="number">32</span>] }]
 				)),
 				fun: NonFungible(Index(<span class="number">54321</span>)),
 			}),
@@ -677,8 +617,8 @@
 
 		<span class="comment">// err - matches, but Fungible vs NonFungible
 		</span><span class="macro">assert_eq!</span>(
-			Converter::matches_nonfungibles(<span class="kw-2">&amp;</span>MultiAsset {
-				id: Concrete(MultiLocation::new(<span class="number">0</span>, X2(PalletInstance(<span class="number">50</span>), GeneralIndex(<span class="number">1</span>)))),
+			Converter::matches_nonfungibles(<span class="kw-2">&amp;</span>Asset {
+				id: AssetId(Location::new(<span class="number">0</span>, [PalletInstance(<span class="number">50</span>), GeneralIndex(<span class="number">1</span>)])),
 				fun: Fungible(<span class="number">12345</span>),
 			}),
 			<span class="prelude-val">Err</span>(MatchError::AssetNotHandled)
@@ -686,8 +626,8 @@
 
 		<span class="comment">// ok
 		</span><span class="macro">assert_eq!</span>(
-			Converter::matches_nonfungibles(<span class="kw-2">&amp;</span>MultiAsset {
-				id: Concrete(MultiLocation::new(<span class="number">0</span>, X2(PalletInstance(<span class="number">50</span>), GeneralIndex(<span class="number">1</span>)))),
+			Converter::matches_nonfungibles(<span class="kw-2">&amp;</span>Asset {
+				id: AssetId(Location::new(<span class="number">0</span>, [PalletInstance(<span class="number">50</span>), GeneralIndex(<span class="number">1</span>)])),
 				fun: NonFungible(Index(<span class="number">54321</span>)),
 			}),
 			<span class="prelude-val">Ok</span>((<span class="number">1</span>, <span class="number">54321</span>))

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["convert","convert_balance"],"trait":["MatchesMultiLocation","MultiAssetConverter"]};
+window.SIDEBAR_ITEMS = {"fn":["convert","convert_balance"],"trait":["AssetConverter","MatchesLocation"]};

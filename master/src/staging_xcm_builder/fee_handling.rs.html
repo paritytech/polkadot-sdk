@@ -110,15 +110,6 @@
 <a href="#110" id="110">110</a>
 <a href="#111" id="111">111</a>
 <a href="#112" id="112">112</a>
-<a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
-<a href="#115" id="115">115</a>
-<a href="#116" id="116">116</a>
-<a href="#117" id="117">117</a>
-<a href="#118" id="118">118</a>
-<a href="#119" id="119">119</a>
-<a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -146,27 +137,22 @@
 	/// fees.
 	///
 	/// Returns any part of the fee that wasn&#39;t consumed.
-	</span><span class="kw">fn </span>handle_fee(fee: MultiAssets, context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;, reason: FeeReason)
-		-&gt; MultiAssets;
+	</span><span class="kw">fn </span>handle_fee(fee: Assets, context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;, reason: FeeReason) -&gt; Assets;
 }
 
 <span class="comment">// Default `HandleFee` implementation that just burns the fee.
 </span><span class="kw">impl </span>HandleFee <span class="kw">for </span>() {
-	<span class="kw">fn </span>handle_fee(<span class="kw">_</span>: MultiAssets, <span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;, <span class="kw">_</span>: FeeReason) -&gt; MultiAssets {
-		MultiAssets::new()
+	<span class="kw">fn </span>handle_fee(<span class="kw">_</span>: Assets, <span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;, <span class="kw">_</span>: FeeReason) -&gt; Assets {
+		Assets::new()
 	}
 }
 
 <span class="attr">#[impl_trait_for_tuples::impl_for_tuples(<span class="number">1</span>, <span class="number">30</span>)]
 </span><span class="kw">impl </span>HandleFee <span class="kw">for </span>Tuple {
-	<span class="kw">fn </span>handle_fee(
-		fee: MultiAssets,
-		context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;,
-		reason: FeeReason,
-	) -&gt; MultiAssets {
+	<span class="kw">fn </span>handle_fee(fee: Assets, context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;, reason: FeeReason) -&gt; Assets {
 		<span class="kw">let </span><span class="kw-2">mut </span>unconsumed_fee = fee;
 		<span class="macro">for_tuples!</span>( #(
-			unconsumed_fee = Tuple::handle_fee(unconsumed_fee, context, reason);
+			unconsumed_fee = Tuple::handle_fee(unconsumed_fee, context, reason.clone());
 			<span class="kw">if </span>unconsumed_fee.is_none() {
 				<span class="kw">return </span>unconsumed_fee;
 			}
@@ -181,15 +167,15 @@
 </span><span class="kw">pub struct </span>XcmFeeManagerFromComponents&lt;WaivedLocations, HandleFee&gt;(
 	PhantomData&lt;(WaivedLocations, HandleFee)&gt;,
 );
-<span class="kw">impl</span>&lt;WaivedLocations: Contains&lt;MultiLocation&gt;, FeeHandler: HandleFee&gt; FeeManager
+<span class="kw">impl</span>&lt;WaivedLocations: Contains&lt;Location&gt;, FeeHandler: HandleFee&gt; FeeManager
 	<span class="kw">for </span>XcmFeeManagerFromComponents&lt;WaivedLocations, FeeHandler&gt;
 {
-	<span class="kw">fn </span>is_waived(origin: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>MultiLocation&gt;, <span class="kw">_</span>: FeeReason) -&gt; bool {
+	<span class="kw">fn </span>is_waived(origin: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Location&gt;, <span class="kw">_</span>: FeeReason) -&gt; bool {
 		<span class="kw">let </span><span class="prelude-val">Some</span>(loc) = origin <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
 		WaivedLocations::contains(loc)
 	}
 
-	<span class="kw">fn </span>handle_fee(fee: MultiAssets, context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;, reason: FeeReason) {
+	<span class="kw">fn </span>handle_fee(fee: Assets, context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;, reason: FeeReason) {
 		FeeHandler::handle_fee(fee, context, reason);
 	}
 }
@@ -197,7 +183,7 @@
 <span class="doccomment">/// Try to deposit the given fee in the specified account.
 /// Burns the fee in case of a failure.
 </span><span class="kw">pub fn </span>deposit_or_burn_fee&lt;AssetTransactor: TransactAsset, AccountId: Clone + Into&lt;[u8; <span class="number">32</span>]&gt;&gt;(
-	fee: MultiAssets,
+	fee: Assets,
 	context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;,
 	receiver: AccountId,
 ) {
@@ -230,14 +216,10 @@
 		ReceiverAccount: Get&lt;AccountId&gt;,
 	&gt; HandleFee <span class="kw">for </span>XcmFeeToAccount&lt;AssetTransactor, AccountId, ReceiverAccount&gt;
 {
-	<span class="kw">fn </span>handle_fee(
-		fee: MultiAssets,
-		context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;,
-		_reason: FeeReason,
-	) -&gt; MultiAssets {
+	<span class="kw">fn </span>handle_fee(fee: Assets, context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;, _reason: FeeReason) -&gt; Assets {
 		deposit_or_burn_fee::&lt;AssetTransactor, <span class="kw">_</span>&gt;(fee, context, ReceiverAccount::get());
 
-		MultiAssets::new()
+		Assets::new()
 	}
 }
 </code></pre></div></section></main></body></html>

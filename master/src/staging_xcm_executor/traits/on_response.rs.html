@@ -193,14 +193,6 @@
 <a href="#193" id="193">193</a>
 <a href="#194" id="194">194</a>
 <a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -227,42 +219,34 @@
 <span class="kw">use </span>sp_arithmetic::traits::Zero;
 <span class="kw">use </span>sp_std::fmt::Debug;
 <span class="kw">use </span>xcm::latest::{
-	Error <span class="kw">as </span>XcmError, InteriorMultiLocation, MultiLocation, QueryId, Response,
-	<span class="prelude-ty">Result </span><span class="kw">as </span>XcmResult, Weight, XcmContext,
+	Error <span class="kw">as </span>XcmError, InteriorLocation, Location, QueryId, Response, <span class="prelude-ty">Result </span><span class="kw">as </span>XcmResult, Weight,
+	XcmContext,
 };
 
 <span class="doccomment">/// Define what needs to be done upon receiving a query response.
 </span><span class="kw">pub trait </span>OnResponse {
 	<span class="doccomment">/// Returns `true` if we are expecting a response from `origin` for query `query_id` that was
 	/// queried by `querier`.
-	</span><span class="kw">fn </span>expecting_response(
-		origin: <span class="kw-2">&amp;</span>MultiLocation,
-		query_id: u64,
-		querier: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>MultiLocation&gt;,
-	) -&gt; bool;
+	</span><span class="kw">fn </span>expecting_response(origin: <span class="kw-2">&amp;</span>Location, query_id: u64, querier: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Location&gt;) -&gt; bool;
 	<span class="doccomment">/// Handler for receiving a `response` from `origin` relating to `query_id` initiated by
 	/// `querier`.
 	</span><span class="kw">fn </span>on_response(
-		origin: <span class="kw-2">&amp;</span>MultiLocation,
+		origin: <span class="kw-2">&amp;</span>Location,
 		query_id: u64,
-		querier: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>MultiLocation&gt;,
+		querier: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Location&gt;,
 		response: Response,
 		max_weight: Weight,
 		context: <span class="kw-2">&amp;</span>XcmContext,
 	) -&gt; Weight;
 }
 <span class="kw">impl </span>OnResponse <span class="kw">for </span>() {
-	<span class="kw">fn </span>expecting_response(
-		_origin: <span class="kw-2">&amp;</span>MultiLocation,
-		_query_id: u64,
-		_querier: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>MultiLocation&gt;,
-	) -&gt; bool {
+	<span class="kw">fn </span>expecting_response(_origin: <span class="kw-2">&amp;</span>Location, _query_id: u64, _querier: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Location&gt;) -&gt; bool {
 		<span class="bool-val">false
 	</span>}
 	<span class="kw">fn </span>on_response(
-		_origin: <span class="kw-2">&amp;</span>MultiLocation,
+		_origin: <span class="kw-2">&amp;</span>Location,
 		_query_id: u64,
-		_querier: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>MultiLocation&gt;,
+		_querier: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Location&gt;,
 		_response: Response,
 		_max_weight: Weight,
 		_context: <span class="kw-2">&amp;</span>XcmContext,
@@ -282,7 +266,7 @@
 	/// If the `location` has an ongoing notification and when this function is called, then an
 	/// error should be returned.
 	</span><span class="kw">fn </span>start(
-		location: <span class="kw-2">&amp;</span>MultiLocation,
+		location: <span class="kw-2">&amp;</span>Location,
 		query_id: QueryId,
 		max_weight: Weight,
 		context: <span class="kw-2">&amp;</span>XcmContext,
@@ -290,20 +274,20 @@
 
 	<span class="doccomment">/// Stop notifying `location` should the XCM change. Returns an error if there is no existing
 	/// notification set up.
-	</span><span class="kw">fn </span>stop(location: <span class="kw-2">&amp;</span>MultiLocation, context: <span class="kw-2">&amp;</span>XcmContext) -&gt; XcmResult;
+	</span><span class="kw">fn </span>stop(location: <span class="kw-2">&amp;</span>Location, context: <span class="kw-2">&amp;</span>XcmContext) -&gt; XcmResult;
 
 	<span class="doccomment">/// Return true if a location is subscribed to XCM version changes.
-	</span><span class="kw">fn </span>is_subscribed(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool;
+	</span><span class="kw">fn </span>is_subscribed(location: <span class="kw-2">&amp;</span>Location) -&gt; bool;
 }
 
 <span class="kw">impl </span>VersionChangeNotifier <span class="kw">for </span>() {
-	<span class="kw">fn </span>start(<span class="kw">_</span>: <span class="kw-2">&amp;</span>MultiLocation, <span class="kw">_</span>: QueryId, <span class="kw">_</span>: Weight, <span class="kw">_</span>: <span class="kw-2">&amp;</span>XcmContext) -&gt; XcmResult {
+	<span class="kw">fn </span>start(<span class="kw">_</span>: <span class="kw-2">&amp;</span>Location, <span class="kw">_</span>: QueryId, <span class="kw">_</span>: Weight, <span class="kw">_</span>: <span class="kw-2">&amp;</span>XcmContext) -&gt; XcmResult {
 		<span class="prelude-val">Err</span>(XcmError::Unimplemented)
 	}
-	<span class="kw">fn </span>stop(<span class="kw">_</span>: <span class="kw-2">&amp;</span>MultiLocation, <span class="kw">_</span>: <span class="kw-2">&amp;</span>XcmContext) -&gt; XcmResult {
+	<span class="kw">fn </span>stop(<span class="kw">_</span>: <span class="kw-2">&amp;</span>Location, <span class="kw">_</span>: <span class="kw-2">&amp;</span>XcmContext) -&gt; XcmResult {
 		<span class="prelude-val">Err</span>(XcmError::Unimplemented)
 	}
-	<span class="kw">fn </span>is_subscribed(<span class="kw">_</span>: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
+	<span class="kw">fn </span>is_subscribed(<span class="kw">_</span>: <span class="kw-2">&amp;</span>Location) -&gt; bool {
 		<span class="bool-val">false
 	</span>}
 }
@@ -337,13 +321,13 @@
 		+ Copy;
 	<span class="kw">type </span>BlockNumber: Zero + Encode;
 	<span class="kw">type </span>Error;
-	<span class="kw">type </span>UniversalLocation: Get&lt;InteriorMultiLocation&gt;;
+	<span class="kw">type </span>UniversalLocation: Get&lt;InteriorLocation&gt;;
 
 	<span class="doccomment">/// Attempt to create a new query ID and register it as a query that is yet to respond.
 	</span><span class="kw">fn </span>new_query(
-		responder: <span class="kw">impl </span>Into&lt;MultiLocation&gt;,
+		responder: <span class="kw">impl </span>Into&lt;Location&gt;,
 		timeout: <span class="self">Self</span>::BlockNumber,
-		match_querier: <span class="kw">impl </span>Into&lt;MultiLocation&gt;,
+		match_querier: <span class="kw">impl </span>Into&lt;Location&gt;,
 	) -&gt; QueryId;
 
 	<span class="doccomment">/// Consume `message` and return another which is equivalent to it except that it reports
@@ -360,7 +344,7 @@
 	/// The response can be queried with `take_response`.
 	</span><span class="kw">fn </span>report_outcome(
 		message: <span class="kw-2">&amp;mut </span>Xcm&lt;()&gt;,
-		responder: <span class="kw">impl </span>Into&lt;MultiLocation&gt;,
+		responder: <span class="kw">impl </span>Into&lt;Location&gt;,
 		timeout: <span class="self">Self</span>::BlockNumber,
 	) -&gt; result::Result&lt;<span class="self">Self</span>::QueryId, <span class="self">Self</span>::Error&gt;;
 
@@ -373,7 +357,7 @@
 }
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub </span>UniversalLocation: InteriorMultiLocation = Here;
+	<span class="kw">pub </span>UniversalLocation: InteriorLocation = Here;
 }
 
 <span class="kw">impl </span>QueryHandler <span class="kw">for </span>() {
@@ -386,16 +370,16 @@
 		QueryResponseStatus::NotFound
 	}
 	<span class="kw">fn </span>new_query(
-		_responder: <span class="kw">impl </span>Into&lt;MultiLocation&gt;,
+		_responder: <span class="kw">impl </span>Into&lt;Location&gt;,
 		_timeout: <span class="self">Self</span>::BlockNumber,
-		_match_querier: <span class="kw">impl </span>Into&lt;MultiLocation&gt;,
+		_match_querier: <span class="kw">impl </span>Into&lt;Location&gt;,
 	) -&gt; <span class="self">Self</span>::QueryId {
 		<span class="number">0u64
 	</span>}
 
 	<span class="kw">fn </span>report_outcome(
 		_message: <span class="kw-2">&amp;mut </span>Xcm&lt;()&gt;,
-		_responder: <span class="kw">impl </span>Into&lt;MultiLocation&gt;,
+		_responder: <span class="kw">impl </span>Into&lt;Location&gt;,
 		_timeout: <span class="self">Self</span>::BlockNumber,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::QueryId, <span class="self">Self</span>::Error&gt; {
 		<span class="prelude-val">Err</span>(())

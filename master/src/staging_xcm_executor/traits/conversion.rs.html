@@ -145,11 +145,6 @@
 <a href="#145" id="145">145</a>
 <a href="#146" id="146">146</a>
 <a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -174,12 +169,12 @@
 <span class="doccomment">/// Means of converting a location into an account identifier.
 </span><span class="kw">pub trait </span>ConvertLocation&lt;AccountId&gt; {
 	<span class="doccomment">/// Convert the `location` into `Some` account ID, or `None` if not possible.
-	</span><span class="kw">fn </span>convert_location(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt;;
+	</span><span class="kw">fn </span>convert_location(location: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt;;
 }
 
 <span class="attr">#[impl_trait_for_tuples::impl_for_tuples(<span class="number">30</span>)]
 </span><span class="kw">impl</span>&lt;AccountId&gt; ConvertLocation&lt;AccountId&gt; <span class="kw">for </span>Tuple {
-	<span class="kw">fn </span>convert_location(l: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
+	<span class="kw">fn </span>convert_location(l: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
 		<span class="macro">for_tuples!</span>( #(
 			<span class="kw">match </span>Tuple::convert_location(l) {
 				<span class="prelude-val">Some</span>(result) =&gt; <span class="kw">return </span><span class="prelude-val">Some</span>(result),
@@ -197,15 +192,15 @@
 /// different `origin` of type `Origin` which is passed to the next convert item.
 ///
 /// ```rust
-/// # use xcm::latest::{MultiLocation, Junctions, Junction, OriginKind};
+/// # use xcm::latest::{Location, Junctions, Junction, OriginKind};
 /// # use staging_xcm_executor::traits::ConvertOrigin;
 /// // A convertor that will bump the para id and pass it to the next one.
 /// struct BumpParaId;
 /// impl ConvertOrigin&lt;u32&gt; for BumpParaId {
-/// 	fn convert_origin(origin: impl Into&lt;MultiLocation&gt;, _: OriginKind) -&gt; Result&lt;u32, MultiLocation&gt; {
-/// 		match origin.into() {
-/// 			MultiLocation { parents: 0, interior: Junctions::X1(Junction::Parachain(id)) } =&gt; {
-/// 				Err(Junctions::X1(Junction::Parachain(id + 1)).into())
+/// 	fn convert_origin(origin: impl Into&lt;Location&gt;, _: OriginKind) -&gt; Result&lt;u32, Location&gt; {
+/// 		match origin.into().unpack() {
+/// 			(0, [Junction::Parachain(id)]) =&gt; {
+/// 				Err([Junction::Parachain(id + 1)].into())
 /// 			}
 /// 			_ =&gt; unreachable!()
 /// 		}
@@ -214,17 +209,18 @@
 ///
 /// struct AcceptPara7;
 /// impl ConvertOrigin&lt;u32&gt; for AcceptPara7 {
-/// 	fn convert_origin(origin: impl Into&lt;MultiLocation&gt;, _: OriginKind) -&gt; Result&lt;u32, MultiLocation&gt; {
-/// 		match origin.into() {
-/// 			MultiLocation { parents: 0, interior: Junctions::X1(Junction::Parachain(id)) } if id == 7 =&gt; {
+/// 	fn convert_origin(origin: impl Into&lt;Location&gt;, _: OriginKind) -&gt; Result&lt;u32, Location&gt; {
+///         let origin = origin.into();
+/// 		match origin.unpack() {
+/// 			(0, [Junction::Parachain(id)]) if *id == 7 =&gt; {
 /// 				Ok(7)
 /// 			}
-/// 			o =&gt; Err(o)
+/// 			_ =&gt; Err(origin)
 /// 		}
 /// 	}
 /// }
 /// # fn main() {
-/// let origin: MultiLocation = Junctions::X1(Junction::Parachain(6)).into();
+/// let origin: Location = [Junction::Parachain(6)].into();
 /// assert!(
 /// 	&lt;(BumpParaId, AcceptPara7) as ConvertOrigin&lt;u32&gt;&gt;::convert_origin(origin, OriginKind::Native)
 /// 		.is_ok()
@@ -233,18 +229,12 @@
 /// ```
 </span><span class="kw">pub trait </span>ConvertOrigin&lt;Origin&gt; {
 	<span class="doccomment">/// Attempt to convert `origin` to the generic `Origin` whilst consuming it.
-	</span><span class="kw">fn </span>convert_origin(
-		origin: <span class="kw">impl </span>Into&lt;MultiLocation&gt;,
-		kind: OriginKind,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Origin, MultiLocation&gt;;
+	</span><span class="kw">fn </span>convert_origin(origin: <span class="kw">impl </span>Into&lt;Location&gt;, kind: OriginKind) -&gt; <span class="prelude-ty">Result</span>&lt;Origin, Location&gt;;
 }
 
 <span class="attr">#[impl_trait_for_tuples::impl_for_tuples(<span class="number">30</span>)]
 </span><span class="kw">impl</span>&lt;O&gt; ConvertOrigin&lt;O&gt; <span class="kw">for </span>Tuple {
-	<span class="kw">fn </span>convert_origin(
-		origin: <span class="kw">impl </span>Into&lt;MultiLocation&gt;,
-		kind: OriginKind,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;O, MultiLocation&gt; {
+	<span class="kw">fn </span>convert_origin(origin: <span class="kw">impl </span>Into&lt;Location&gt;, kind: OriginKind) -&gt; <span class="prelude-ty">Result</span>&lt;O, Location&gt; {
 		<span class="macro">for_tuples!</span>( #(
 			<span class="kw">let </span>origin = <span class="kw">match </span>Tuple::convert_origin(origin, kind) {
 				<span class="prelude-val">Err</span>(o) =&gt; o,

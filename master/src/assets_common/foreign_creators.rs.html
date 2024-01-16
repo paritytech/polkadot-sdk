@@ -54,6 +54,9 @@
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
 <a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -73,21 +76,21 @@
 	ContainsPair, EnsureOrigin, EnsureOriginWithArg, Everything, OriginTrait,
 };
 <span class="kw">use </span>pallet_xcm::{EnsureXcm, Origin <span class="kw">as </span>XcmOrigin};
-<span class="kw">use </span>xcm::latest::MultiLocation;
+<span class="kw">use </span>xcm::latest::Location;
 <span class="kw">use </span>xcm_executor::traits::ConvertLocation;
 
 <span class="doccomment">/// `EnsureOriginWithArg` impl for `CreateOrigin` that allows only XCM origins that are locations
 /// containing the class location.
-</span><span class="kw">pub struct </span>ForeignCreators&lt;IsForeign, AccountOf, AccountId&gt;(
-	sp_std::marker::PhantomData&lt;(IsForeign, AccountOf, AccountId)&gt;,
+</span><span class="kw">pub struct </span>ForeignCreators&lt;IsForeign, AccountOf, AccountId, L = Location&gt;(
+	sp_std::marker::PhantomData&lt;(IsForeign, AccountOf, AccountId, L)&gt;,
 );
 <span class="kw">impl</span>&lt;
-		IsForeign: ContainsPair&lt;MultiLocation, MultiLocation&gt;,
+		IsForeign: ContainsPair&lt;L, L&gt;,
 		AccountOf: ConvertLocation&lt;AccountId&gt;,
 		AccountId: Clone,
 		RuntimeOrigin: From&lt;XcmOrigin&gt; + OriginTrait + Clone,
-	&gt; EnsureOriginWithArg&lt;RuntimeOrigin, MultiLocation&gt;
-	<span class="kw">for </span>ForeignCreators&lt;IsForeign, AccountOf, AccountId&gt;
+		L: TryFrom&lt;Location&gt; + TryInto&lt;Location&gt; + Clone,
+	&gt; EnsureOriginWithArg&lt;RuntimeOrigin, L&gt; <span class="kw">for </span>ForeignCreators&lt;IsForeign, AccountOf, AccountId, L&gt;
 <span class="kw">where
 	</span>RuntimeOrigin::PalletsOrigin:
 		From&lt;XcmOrigin&gt; + TryInto&lt;XcmOrigin, Error = RuntimeOrigin::PalletsOrigin&gt;,
@@ -96,18 +99,21 @@
 
 	<span class="kw">fn </span>try_origin(
 		origin: RuntimeOrigin,
-		asset_location: <span class="kw-2">&amp;</span>MultiLocation,
+		asset_location: <span class="kw-2">&amp;</span>L,
 	) -&gt; sp_std::result::Result&lt;<span class="self">Self</span>::Success, RuntimeOrigin&gt; {
-		<span class="kw">let </span>origin_location = EnsureXcm::&lt;Everything&gt;::try_origin(origin.clone())<span class="question-mark">?</span>;
+		<span class="kw">let </span>origin_location = EnsureXcm::&lt;Everything, L&gt;::try_origin(origin.clone())<span class="question-mark">?</span>;
 		<span class="kw">if </span>!IsForeign::contains(asset_location, <span class="kw-2">&amp;</span>origin_location) {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(origin)
 		}
-		AccountOf::convert_location(<span class="kw-2">&amp;</span>origin_location).ok_or(origin)
+		<span class="kw">let </span>latest_location: Location =
+			origin_location.clone().try_into().map_err(|<span class="kw">_</span>| origin.clone())<span class="question-mark">?</span>;
+		AccountOf::convert_location(<span class="kw-2">&amp;</span>latest_location).ok_or(origin)
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-	</span><span class="kw">fn </span>try_successful_origin(a: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, ()&gt; {
-		<span class="prelude-val">Ok</span>(pallet_xcm::Origin::Xcm(<span class="kw-2">*</span>a).into())
+	</span><span class="kw">fn </span>try_successful_origin(a: <span class="kw-2">&amp;</span>L) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, ()&gt; {
+		<span class="kw">let </span>latest_location: Location = (<span class="kw-2">*</span>a).clone().try_into().map_err(|<span class="kw">_</span>| ())<span class="question-mark">?</span>;
+		<span class="prelude-val">Ok</span>(pallet_xcm::Origin::Xcm(latest_location).into())
 	}
 }
 </code></pre></div></section></main></body></html>

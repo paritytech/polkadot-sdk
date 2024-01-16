@@ -207,8 +207,6 @@
 <a href="#207" id="207">207</a>
 <a href="#208" id="208">208</a>
 <a href="#209" id="209">209</a>
-<a href="#210" id="210">210</a>
-<a href="#211" id="211">211</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -225,28 +223,26 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="doccomment">//! Various implementations of `ContainsPair&lt;MultiAsset, MultiLocation&gt;` or
-//! `Contains&lt;(MultiLocation, Vec&lt;MultiAsset&gt;)&gt;`.
+</span><span class="doccomment">//! Various implementations of `ContainsPair&lt;Asset, Location&gt;` or
+//! `Contains&lt;(Location, Vec&lt;Asset&gt;)&gt;`.
 
 </span><span class="kw">use </span>frame_support::traits::{Contains, ContainsPair, Get};
 <span class="kw">use </span>sp_std::{marker::PhantomData, vec::Vec};
-<span class="kw">use </span>xcm::latest::{AssetId::Concrete, MultiAsset, MultiAssetFilter, MultiLocation, WildMultiAsset};
+<span class="kw">use </span>xcm::latest::{Asset, AssetFilter, AssetId, Location, WildAsset};
 
 <span class="doccomment">/// Accepts an asset iff it is a native asset.
 </span><span class="kw">pub struct </span>NativeAsset;
-<span class="kw">impl </span>ContainsPair&lt;MultiAsset, MultiLocation&gt; <span class="kw">for </span>NativeAsset {
-	<span class="kw">fn </span>contains(asset: <span class="kw-2">&amp;</span>MultiAsset, origin: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
+<span class="kw">impl </span>ContainsPair&lt;Asset, Location&gt; <span class="kw">for </span>NativeAsset {
+	<span class="kw">fn </span>contains(asset: <span class="kw-2">&amp;</span>Asset, origin: <span class="kw-2">&amp;</span>Location) -&gt; bool {
 		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::contains&quot;</span>, <span class="string">&quot;NativeAsset asset: {:?}, origin: {:?}&quot;</span>, asset, origin);
-		<span class="macro">matches!</span>(asset.id, Concrete(<span class="kw-2">ref </span>id) <span class="kw">if </span>id == origin)
+		<span class="macro">matches!</span>(asset.id, AssetId(<span class="kw-2">ref </span>id) <span class="kw">if </span>id == origin)
 	}
 }
 
 <span class="doccomment">/// Accepts an asset if it is contained in the given `T`&#39;s `Get` implementation.
 </span><span class="kw">pub struct </span>Case&lt;T&gt;(PhantomData&lt;T&gt;);
-<span class="kw">impl</span>&lt;T: Get&lt;(MultiAssetFilter, MultiLocation)&gt;&gt; ContainsPair&lt;MultiAsset, MultiLocation&gt;
-	<span class="kw">for </span>Case&lt;T&gt;
-{
-	<span class="kw">fn </span>contains(asset: <span class="kw-2">&amp;</span>MultiAsset, origin: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
+<span class="kw">impl</span>&lt;T: Get&lt;(AssetFilter, Location)&gt;&gt; ContainsPair&lt;Asset, Location&gt; <span class="kw">for </span>Case&lt;T&gt; {
+	<span class="kw">fn </span>contains(asset: <span class="kw-2">&amp;</span>Asset, origin: <span class="kw-2">&amp;</span>Location) -&gt; bool {
 		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::contains&quot;</span>, <span class="string">&quot;Case asset: {:?}, origin: {:?}&quot;</span>, asset, origin);
 		<span class="kw">let </span>(a, o) = T::get();
 		a.matches(asset) &amp;&amp; <span class="kw-2">&amp;</span>o == origin
@@ -255,18 +251,18 @@
 
 <span class="doccomment">/// Accepts a tuple `(location, assets)` if the `location` is contained in the `Contains`
 /// implementation of the given `Location` and if every asset from `assets` matches at least one of
-/// the `MultiAssetFilter` instances provided by the `Get` implementation of `AssetFilters`.
-</span><span class="kw">pub struct </span>LocationWithAssetFilters&lt;Location, AssetFilters&gt;(
-	sp_std::marker::PhantomData&lt;(Location, AssetFilters)&gt;,
+/// the `AssetFilter` instances provided by the `Get` implementation of `AssetFilters`.
+</span><span class="kw">pub struct </span>LocationWithAssetFilters&lt;LocationFilter, AssetFilters&gt;(
+	sp_std::marker::PhantomData&lt;(LocationFilter, AssetFilters)&gt;,
 );
-<span class="kw">impl</span>&lt;Location: Contains&lt;MultiLocation&gt;, AssetFilters: Get&lt;Vec&lt;MultiAssetFilter&gt;&gt;&gt;
-	Contains&lt;(MultiLocation, Vec&lt;MultiAsset&gt;)&gt; <span class="kw">for </span>LocationWithAssetFilters&lt;Location, AssetFilters&gt;
+<span class="kw">impl</span>&lt;LocationFilter: Contains&lt;Location&gt;, AssetFilters: Get&lt;Vec&lt;AssetFilter&gt;&gt;&gt;
+	Contains&lt;(Location, Vec&lt;Asset&gt;)&gt; <span class="kw">for </span>LocationWithAssetFilters&lt;LocationFilter, AssetFilters&gt;
 {
-	<span class="kw">fn </span>contains((location, assets): <span class="kw-2">&amp;</span>(MultiLocation, Vec&lt;MultiAsset&gt;)) -&gt; bool {
+	<span class="kw">fn </span>contains((location, assets): <span class="kw-2">&amp;</span>(Location, Vec&lt;Asset&gt;)) -&gt; bool {
 		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::contains&quot;</span>, <span class="string">&quot;LocationWithAssetFilters location: {:?}, assets: {:?}&quot;</span>, location, assets);
 
 		<span class="comment">// `location` must match the `Location` filter.
-		</span><span class="kw">if </span>!Location::contains(location) {
+		</span><span class="kw">if </span>!LocationFilter::contains(location) {
 			<span class="kw">return </span><span class="bool-val">false
 		</span>}
 
@@ -283,12 +279,12 @@
 	}
 }
 
-<span class="doccomment">/// Implementation of `Get&lt;Vec&lt;MultiAssetFilter&gt;&gt;` which accepts every asset.
+<span class="doccomment">/// Implementation of `Get&lt;Vec&lt;AssetFilter&gt;&gt;` which accepts every asset.
 /// (For example, it can be used with `LocationWithAssetFilters`).
 </span><span class="kw">pub struct </span>AllAssets;
-<span class="kw">impl </span>Get&lt;Vec&lt;MultiAssetFilter&gt;&gt; <span class="kw">for </span>AllAssets {
-	<span class="kw">fn </span>get() -&gt; Vec&lt;MultiAssetFilter&gt; {
-		<span class="macro">sp_std::vec!</span>[MultiAssetFilter::Wild(WildMultiAsset::All)]
+<span class="kw">impl </span>Get&lt;Vec&lt;AssetFilter&gt;&gt; <span class="kw">for </span>AllAssets {
+	<span class="kw">fn </span>get() -&gt; Vec&lt;AssetFilter&gt; {
+		<span class="macro">sp_std::vec!</span>[AssetFilter::Wild(WildAsset::All)]
 	}
 }
 
@@ -301,24 +297,24 @@
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>location_with_asset_filters_works() {
 		<span class="macro">frame_support::parameter_types! </span>{
-			<span class="kw">pub </span>ParaA: MultiLocation = MultiLocation::new(<span class="number">1</span>, X1(Parachain(<span class="number">1001</span>)));
-			<span class="kw">pub </span>ParaB: MultiLocation = MultiLocation::new(<span class="number">1</span>, X1(Parachain(<span class="number">1002</span>)));
-			<span class="kw">pub </span>ParaC: MultiLocation = MultiLocation::new(<span class="number">1</span>, X1(Parachain(<span class="number">1003</span>)));
+			<span class="kw">pub </span>ParaA: Location = Location::new(<span class="number">1</span>, [Parachain(<span class="number">1001</span>)]);
+			<span class="kw">pub </span>ParaB: Location = Location::new(<span class="number">1</span>, [Parachain(<span class="number">1002</span>)]);
+			<span class="kw">pub </span>ParaC: Location = Location::new(<span class="number">1</span>, [Parachain(<span class="number">1003</span>)]);
 
-			<span class="kw">pub </span>AssetXLocation: MultiLocation = MultiLocation::new(<span class="number">1</span>, X1(GeneralIndex(<span class="number">1111</span>)));
-			<span class="kw">pub </span>AssetYLocation: MultiLocation = MultiLocation::new(<span class="number">1</span>, X1(GeneralIndex(<span class="number">2222</span>)));
-			<span class="kw">pub </span>AssetZLocation: MultiLocation = MultiLocation::new(<span class="number">1</span>, X1(GeneralIndex(<span class="number">3333</span>)));
+			<span class="kw">pub </span>AssetXLocation: Location = Location::new(<span class="number">1</span>, [GeneralIndex(<span class="number">1111</span>)]);
+			<span class="kw">pub </span>AssetYLocation: Location = Location::new(<span class="number">1</span>, [GeneralIndex(<span class="number">2222</span>)]);
+			<span class="kw">pub </span>AssetZLocation: Location = Location::new(<span class="number">1</span>, [GeneralIndex(<span class="number">3333</span>)]);
 
-			<span class="kw">pub </span>OnlyAssetXOrAssetY: sp_std::vec::Vec&lt;MultiAssetFilter&gt; = <span class="macro">sp_std::vec!</span>[
-				Wild(AllOf { fun: WildFungible, id: Concrete(AssetXLocation::get()) }),
-				Wild(AllOf { fun: WildFungible, id: Concrete(AssetYLocation::get()) }),
+			<span class="kw">pub </span>OnlyAssetXOrAssetY: sp_std::vec::Vec&lt;AssetFilter&gt; = <span class="macro">sp_std::vec!</span>[
+				Wild(AllOf { fun: WildFungible, id: AssetId(AssetXLocation::get()) }),
+				Wild(AllOf { fun: WildFungible, id: AssetId(AssetYLocation::get()) }),
 			];
-			<span class="kw">pub </span>OnlyAssetZ: sp_std::vec::Vec&lt;MultiAssetFilter&gt; = <span class="macro">sp_std::vec!</span>[
-				Wild(AllOf { fun: WildFungible, id: Concrete(AssetZLocation::get()) })
+			<span class="kw">pub </span>OnlyAssetZ: sp_std::vec::Vec&lt;AssetFilter&gt; = <span class="macro">sp_std::vec!</span>[
+				Wild(AllOf { fun: WildFungible, id: AssetId(AssetZLocation::get()) })
 			];
 		}
 
-		<span class="kw">let </span>test_data: Vec&lt;(MultiLocation, Vec&lt;MultiAsset&gt;, bool)&gt; = <span class="macro">vec!</span>[
+		<span class="kw">let </span>test_data: Vec&lt;(Location, Vec&lt;Asset&gt;, bool)&gt; = <span class="macro">vec!</span>[
 			(ParaA::get(), <span class="macro">vec!</span>[(AssetXLocation::get(), <span class="number">1</span>).into()], <span class="bool-val">true</span>),
 			(ParaA::get(), <span class="macro">vec!</span>[(AssetYLocation::get(), <span class="number">1</span>).into()], <span class="bool-val">true</span>),
 			(ParaA::get(), <span class="macro">vec!</span>[(AssetZLocation::get(), <span class="number">1</span>).into()], <span class="bool-val">false</span>),
@@ -413,7 +409,7 @@
 
 		<span class="kw">for </span>(location, assets, expected_result) <span class="kw">in </span>test_data {
 			<span class="macro">assert_eq!</span>(
-				Filter::contains(<span class="kw-2">&amp;</span>(location, assets.clone())),
+				Filter::contains(<span class="kw-2">&amp;</span>(location.clone(), assets.clone())),
 				expected_result,
 				<span class="string">&quot;expected_result: {expected_result} not matched for (location, assets): ({:?}, {:?})!&quot;</span>, location, assets,
 			)

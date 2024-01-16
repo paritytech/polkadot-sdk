@@ -79,15 +79,15 @@
 <span class="doccomment">/// Handle stuff to do with taking fees in certain XCM instructions.
 </span><span class="kw">pub trait </span>FeeManager {
 	<span class="doccomment">/// Determine if a fee should be waived.
-	</span><span class="kw">fn </span>is_waived(origin: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>MultiLocation&gt;, r: FeeReason) -&gt; bool;
+	</span><span class="kw">fn </span>is_waived(origin: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Location&gt;, r: FeeReason) -&gt; bool;
 
 	<span class="doccomment">/// Do something with the fee which has been paid. Doing nothing here silently burns the
 	/// fees.
-	</span><span class="kw">fn </span>handle_fee(fee: MultiAssets, context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;, r: FeeReason);
+	</span><span class="kw">fn </span>handle_fee(fee: Assets, context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;, r: FeeReason);
 }
 
 <span class="doccomment">/// Context under which a fee is paid.
-</span><span class="attr">#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+</span><span class="attr">#[derive(Clone, Debug, Eq, PartialEq)]
 </span><span class="kw">pub enum </span>FeeReason {
 	<span class="doccomment">/// When a reporting instruction is called.
 	</span>Report,
@@ -102,7 +102,7 @@
 	<span class="doccomment">/// When the `QueryPallet` instruction is called.
 	</span>QueryPallet,
 	<span class="doccomment">/// When the `ExportMessage` instruction is called (and includes the network ID).
-	</span>Export { network: NetworkId, destination: InteriorMultiLocation },
+	</span>Export { network: NetworkId, destination: InteriorLocation },
 	<span class="doccomment">/// The `charge_fees` API.
 	</span>ChargeFees,
 	<span class="doccomment">/// When the `LockAsset` instruction is called.
@@ -112,10 +112,10 @@
 }
 
 <span class="kw">impl </span>FeeManager <span class="kw">for </span>() {
-	<span class="kw">fn </span>is_waived(<span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>MultiLocation&gt;, <span class="kw">_</span>: FeeReason) -&gt; bool {
+	<span class="kw">fn </span>is_waived(<span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Location&gt;, <span class="kw">_</span>: FeeReason) -&gt; bool {
 		<span class="bool-val">false
 	</span>}
 
-	<span class="kw">fn </span>handle_fee(<span class="kw">_</span>: MultiAssets, <span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;, <span class="kw">_</span>: FeeReason) {}
+	<span class="kw">fn </span>handle_fee(<span class="kw">_</span>: Assets, <span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;, <span class="kw">_</span>: FeeReason) {}
 }
 </code></pre></div></section></main></body></html>

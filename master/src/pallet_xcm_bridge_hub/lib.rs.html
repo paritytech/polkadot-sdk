@@ -163,25 +163,25 @@
 		BridgeMessagesConfig&lt;<span class="self">Self</span>::BridgeMessagesPalletInstance&gt;
 	{
 		<span class="doccomment">/// Runtime&#39;s universal location.
-		</span><span class="kw">type </span>UniversalLocation: Get&lt;InteriorMultiLocation&gt;;
+		</span><span class="kw">type </span>UniversalLocation: Get&lt;InteriorLocation&gt;;
 		<span class="comment">// TODO: https://github.com/paritytech/parity-bridges-common/issues/1666 remove `ChainId` and
 		// replace it with the `NetworkId` - then we&#39;ll be able to use
 		// `T as pallet_bridge_messages::Config&lt;T::BridgeMessagesPalletInstance&gt;::BridgedChain::NetworkId`
 		</span><span class="doccomment">/// Bridged network as relative location of bridged `GlobalConsensus`.
 		</span><span class="attr">#[pallet::constant]
-		</span><span class="kw">type </span>BridgedNetwork: Get&lt;MultiLocation&gt;;
+		</span><span class="kw">type </span>BridgedNetwork: Get&lt;Location&gt;;
 		<span class="doccomment">/// Associated messages pallet instance that bridges us with the
 		/// `BridgedNetworkId` consensus.
 		</span><span class="kw">type </span>BridgeMessagesPalletInstance: <span class="lifetime">&#39;static</span>;
 
 		<span class="doccomment">/// Price of single message export to the bridged consensus (`Self::BridgedNetworkId`).
-		</span><span class="kw">type </span>MessageExportPrice: Get&lt;MultiAssets&gt;;
+		</span><span class="kw">type </span>MessageExportPrice: Get&lt;Assets&gt;;
 		<span class="doccomment">/// Checks the XCM version for the destination.
 		</span><span class="kw">type </span>DestinationVersion: GetVersion;
 
 		<span class="doccomment">/// Get point-to-point links with bridged consensus (`Self::BridgedNetworkId`).
 		/// (this will be replaced with dynamic on-chain bridges - `Bridges V2`)
-		</span><span class="kw">type </span>Lanes: Get&lt;sp_std::vec::Vec&lt;(SenderAndLane, (NetworkId, InteriorMultiLocation))&gt;&gt;;
+		</span><span class="kw">type </span>Lanes: Get&lt;sp_std::vec::Vec&lt;(SenderAndLane, (NetworkId, InteriorLocation))&gt;&gt;;
 		<span class="doccomment">/// Support for point-to-point links
 		/// (this will be replaced with dynamic on-chain bridges - `Bridges V2`)
 		</span><span class="kw">type </span>LanesSupport: XcmBlobHauler;
@@ -204,10 +204,10 @@
 	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
 		<span class="doccomment">/// Returns dedicated/configured lane identifier.
 		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>lane_for(
-			source: <span class="kw-2">&amp;</span>InteriorMultiLocation,
-			dest: (<span class="kw-2">&amp;</span>NetworkId, <span class="kw-2">&amp;</span>InteriorMultiLocation),
+			source: <span class="kw-2">&amp;</span>InteriorLocation,
+			dest: (<span class="kw-2">&amp;</span>NetworkId, <span class="kw-2">&amp;</span>InteriorLocation),
 		) -&gt; <span class="prelude-ty">Option</span>&lt;SenderAndLane&gt; {
-			<span class="kw">let </span>source = source.relative_to(<span class="kw-2">&amp;</span>T::UniversalLocation::get());
+			<span class="kw">let </span>source = source.clone().relative_to(<span class="kw-2">&amp;</span>T::UniversalLocation::get());
 
 			<span class="comment">// Check that we have configured a point-to-point lane for &#39;source&#39; and `dest`.
 			</span>T::Lanes::get()

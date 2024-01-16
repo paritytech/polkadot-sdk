@@ -64,12 +64,12 @@
 </span><span class="kw">use </span>codec::{Codec, Decode, Encode};
 <span class="kw">use </span>sp_runtime::RuntimeDebug;
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">use </span>{sp_std::vec::Vec, xcm::latest::MultiAsset};
+</span><span class="kw">use </span>{sp_std::vec::Vec, xcm::latest::Asset};
 
 <span class="doccomment">/// The possible errors that can happen querying the storage of assets.
 </span><span class="attr">#[derive(Eq, PartialEq, Encode, Decode, RuntimeDebug, scale_info::TypeInfo)]
 </span><span class="kw">pub enum </span>FungiblesAccessError {
-	<span class="doccomment">/// `MultiLocation` to `AssetId`/`ClassId` conversion failed.
+	<span class="doccomment">/// `Location` to `AssetId`/`ClassId` conversion failed.
 	</span>AssetIdConversionFailed,
 	<span class="doccomment">/// `u128` amount to currency `Balance` conversion failed.
 	</span>AmountToBalanceConversionFailed,
@@ -82,12 +82,12 @@
 	<span class="kw">where
 		</span>AccountId: Codec,
 	{
-		<span class="doccomment">/// Returns the list of all [`MultiAsset`] that an `AccountId` has.
+		<span class="doccomment">/// Returns the list of all [`Asset`] that an `AccountId` has.
 		</span><span class="attr">#[changed_in(<span class="number">2</span>)]
-		</span><span class="kw">fn </span>query_account_balances(account: AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;MultiAsset&gt;, FungiblesAccessError&gt;;
+		</span><span class="kw">fn </span>query_account_balances(account: AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Asset&gt;, FungiblesAccessError&gt;;
 
-		<span class="doccomment">/// Returns the list of all [`MultiAsset`] that an `AccountId` has.
-		</span><span class="kw">fn </span>query_account_balances(account: AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;xcm::VersionedMultiAssets, FungiblesAccessError&gt;;
+		<span class="doccomment">/// Returns the list of all [`Asset`] that an `AccountId` has.
+		</span><span class="kw">fn </span>query_account_balances(account: AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;xcm::VersionedAssets, FungiblesAccessError&gt;;
 	}
 }
 </code></pre></div></section></main></body></html>

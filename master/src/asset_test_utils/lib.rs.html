@@ -109,7 +109,7 @@
 <span class="kw">use </span>xcm_builder::{CreateMatcher, MatchXcm};
 
 <span class="doccomment">/// Given a message, a sender, and a destination, it returns the delivery fees
-</span><span class="kw">fn </span>get_fungible_delivery_fees&lt;S: SendXcm&gt;(destination: MultiLocation, message: Xcm&lt;()&gt;) -&gt; u128 {
+</span><span class="kw">fn </span>get_fungible_delivery_fees&lt;S: SendXcm&gt;(destination: Location, message: Xcm&lt;()&gt;) -&gt; u128 {
 	<span class="kw">let </span><span class="prelude-val">Ok</span>((<span class="kw">_</span>, delivery_fees)) = validate_send::&lt;S&gt;(destination, message) <span class="kw">else </span>{
 		<span class="macro">unreachable!</span>(<span class="string">&quot;message can be sent; qed&quot;</span>)
 	};
@@ -127,8 +127,8 @@
 /// chain as part of a reserve-asset-transfer.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>assert_matches_reserve_asset_deposited_instructions&lt;RuntimeCall: Debug&gt;(
 	xcm: <span class="kw-2">&amp;mut </span>Xcm&lt;RuntimeCall&gt;,
-	expected_reserve_assets_deposited: <span class="kw-2">&amp;</span>MultiAssets,
-	expected_beneficiary: <span class="kw-2">&amp;</span>MultiLocation,
+	expected_reserve_assets_deposited: <span class="kw-2">&amp;</span>Assets,
+	expected_beneficiary: <span class="kw-2">&amp;</span>Location,
 ) {
 	<span class="kw">let _ </span>= xcm
 		.<span class="number">0

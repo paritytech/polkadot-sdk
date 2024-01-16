@@ -243,11 +243,11 @@
 	traits::{
 		AssetExchange, AssetLock, ConvertOrigin, Enact, LockError, OnResponse, TransactAsset,
 	},
-	Assets, Config,
+	AssetsInHolding, Config,
 };
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub static </span>SubscriptionRequests: Vec&lt;(MultiLocation, <span class="prelude-ty">Option</span>&lt;(QueryId, Weight)&gt;)&gt; = <span class="macro">vec!</span>[];
+	<span class="kw">pub static </span>SubscriptionRequests: Vec&lt;(Location, <span class="prelude-ty">Option</span>&lt;(QueryId, Weight)&gt;)&gt; = <span class="macro">vec!</span>[];
 	<span class="kw">pub static </span>MaxAssetsIntoHolding: u32 = <span class="number">4</span>;
 }
 
@@ -255,39 +255,39 @@
 
 <span class="kw">impl </span>VersionChangeNotifier <span class="kw">for </span>TestSubscriptionService {
 	<span class="kw">fn </span>start(
-		location: <span class="kw-2">&amp;</span>MultiLocation,
+		location: <span class="kw-2">&amp;</span>Location,
 		query_id: QueryId,
 		max_weight: Weight,
 		_context: <span class="kw-2">&amp;</span>XcmContext,
 	) -&gt; XcmResult {
 		<span class="kw">let </span><span class="kw-2">mut </span>r = SubscriptionRequests::get();
-		r.push((<span class="kw-2">*</span>location, <span class="prelude-val">Some</span>((query_id, max_weight))));
+		r.push((location.clone(), <span class="prelude-val">Some</span>((query_id, max_weight))));
 		SubscriptionRequests::set(r);
 		<span class="prelude-val">Ok</span>(())
 	}
-	<span class="kw">fn </span>stop(location: <span class="kw-2">&amp;</span>MultiLocation, _context: <span class="kw-2">&amp;</span>XcmContext) -&gt; XcmResult {
+	<span class="kw">fn </span>stop(location: <span class="kw-2">&amp;</span>Location, _context: <span class="kw-2">&amp;</span>XcmContext) -&gt; XcmResult {
 		<span class="kw">let </span><span class="kw-2">mut </span>r = SubscriptionRequests::get();
 		r.retain(|(l, _q)| l != location);
-		r.push((<span class="kw-2">*</span>location, <span class="prelude-val">None</span>));
+		r.push((location.clone(), <span class="prelude-val">None</span>));
 		SubscriptionRequests::set(r);
 		<span class="prelude-val">Ok</span>(())
 	}
-	<span class="kw">fn </span>is_subscribed(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
+	<span class="kw">fn </span>is_subscribed(location: <span class="kw-2">&amp;</span>Location) -&gt; bool {
 		<span class="kw">let </span>r = SubscriptionRequests::get();
 		r.iter().any(|(l, q)| l == location &amp;&amp; q.is_some())
 	}
 }
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub static </span>TrappedAssets: Vec&lt;(MultiLocation, MultiAssets)&gt; = <span class="macro">vec!</span>[];
+	<span class="kw">pub static </span>TrappedAssets: Vec&lt;(Location, Assets)&gt; = <span class="macro">vec!</span>[];
 }
 
 <span class="kw">pub struct </span>TestAssetTrap;
 
 <span class="kw">impl </span>DropAssets <span class="kw">for </span>TestAssetTrap {
-	<span class="kw">fn </span>drop_assets(origin: <span class="kw-2">&amp;</span>MultiLocation, assets: Assets, _context: <span class="kw-2">&amp;</span>XcmContext) -&gt; Weight {
-		<span class="kw">let </span><span class="kw-2">mut </span>t: Vec&lt;(MultiLocation, MultiAssets)&gt; = TrappedAssets::get();
-		t.push((<span class="kw-2">*</span>origin, assets.into()));
+	<span class="kw">fn </span>drop_assets(origin: <span class="kw-2">&amp;</span>Location, assets: AssetsInHolding, _context: <span class="kw-2">&amp;</span>XcmContext) -&gt; Weight {
+		<span class="kw">let </span><span class="kw-2">mut </span>t: Vec&lt;(Location, Assets)&gt; = TrappedAssets::get();
+		t.push((origin.clone(), assets.into()));
 		TrappedAssets::set(t);
 		Weight::from_parts(<span class="number">5</span>, <span class="number">5</span>)
 	}
@@ -295,13 +295,13 @@
 
 <span class="kw">impl </span>ClaimAssets <span class="kw">for </span>TestAssetTrap {
 	<span class="kw">fn </span>claim_assets(
-		origin: <span class="kw-2">&amp;</span>MultiLocation,
-		ticket: <span class="kw-2">&amp;</span>MultiLocation,
-		what: <span class="kw-2">&amp;</span>MultiAssets,
+		origin: <span class="kw-2">&amp;</span>Location,
+		ticket: <span class="kw-2">&amp;</span>Location,
+		what: <span class="kw-2">&amp;</span>Assets,
 		_context: <span class="kw-2">&amp;</span>XcmContext,
 	) -&gt; bool {
-		<span class="kw">let </span><span class="kw-2">mut </span>t: Vec&lt;(MultiLocation, MultiAssets)&gt; = TrappedAssets::get();
-		<span class="kw">if let </span>(<span class="number">0</span>, X1(GeneralIndex(i))) = (ticket.parents, <span class="kw-2">&amp;</span>ticket.interior) {
+		<span class="kw">let </span><span class="kw-2">mut </span>t: Vec&lt;(Location, Assets)&gt; = TrappedAssets::get();
+		<span class="kw">if let </span>(<span class="number">0</span>, [GeneralIndex(i)]) = ticket.unpack() {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>((l, a)) = t.get(<span class="kw-2">*</span>i <span class="kw">as </span>usize) {
 				<span class="kw">if </span>l == origin &amp;&amp; a == what {
 					t.swap_remove(<span class="kw-2">*</span>i <span class="kw">as </span>usize);
@@ -318,11 +318,11 @@
 
 <span class="kw">impl </span>AssetExchange <span class="kw">for </span>TestAssetExchanger {
 	<span class="kw">fn </span>exchange_asset(
-		_origin: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>MultiLocation&gt;,
-		_give: Assets,
-		want: <span class="kw-2">&amp;</span>MultiAssets,
+		_origin: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Location&gt;,
+		_give: AssetsInHolding,
+		want: <span class="kw-2">&amp;</span>Assets,
 		_maximal: bool,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Assets, Assets&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;AssetsInHolding, AssetsInHolding&gt; {
 		<span class="prelude-val">Ok</span>(want.clone().into())
 	}
 }
@@ -351,17 +351,17 @@
 }
 
 <span class="kw">pub struct </span>TestUniversalAliases;
-<span class="kw">impl </span>Contains&lt;(MultiLocation, Junction)&gt; <span class="kw">for </span>TestUniversalAliases {
-	<span class="kw">fn </span>contains(aliases: <span class="kw-2">&amp;</span>(MultiLocation, Junction)) -&gt; bool {
+<span class="kw">impl </span>Contains&lt;(Location, Junction)&gt; <span class="kw">for </span>TestUniversalAliases {
+	<span class="kw">fn </span>contains(aliases: <span class="kw-2">&amp;</span>(Location, Junction)) -&gt; bool {
 		<span class="kw-2">&amp;</span>aliases.<span class="number">0 </span>== <span class="kw-2">&amp;</span>Here.into_location() &amp;&amp; <span class="kw-2">&amp;</span>aliases.<span class="number">1 </span>== <span class="kw-2">&amp;</span>GlobalConsensus(ByGenesis([<span class="number">0</span>; <span class="number">32</span>]))
 	}
 }
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub static </span>LockedAssets: Vec&lt;(MultiLocation, MultiAsset)&gt; = <span class="macro">vec!</span>[];
+	<span class="kw">pub static </span>LockedAssets: Vec&lt;(Location, Asset)&gt; = <span class="macro">vec!</span>[];
 }
 
-<span class="kw">pub struct </span>TestLockTicket(MultiLocation, MultiAsset);
+<span class="kw">pub struct </span>TestLockTicket(Location, Asset);
 <span class="kw">impl </span>Enact <span class="kw">for </span>TestLockTicket {
 	<span class="kw">fn </span>enact(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), LockError&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>locked_assets = LockedAssets::get();
@@ -370,7 +370,7 @@
 		<span class="prelude-val">Ok</span>(())
 	}
 }
-<span class="kw">pub struct </span>TestUnlockTicket(MultiLocation, MultiAsset);
+<span class="kw">pub struct </span>TestUnlockTicket(Location, Asset);
 <span class="kw">impl </span>Enact <span class="kw">for </span>TestUnlockTicket {
 	<span class="kw">fn </span>enact(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), LockError&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>locked_assets = LockedAssets::get();
@@ -399,33 +399,33 @@
 	<span class="kw">type </span>ReduceTicket = TestReduceTicket;
 
 	<span class="kw">fn </span>prepare_lock(
-		unlocker: MultiLocation,
-		asset: MultiAsset,
-		_owner: MultiLocation,
+		unlocker: Location,
+		asset: Asset,
+		_owner: Location,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;TestLockTicket, LockError&gt; {
 		<span class="prelude-val">Ok</span>(TestLockTicket(unlocker, asset))
 	}
 
 	<span class="kw">fn </span>prepare_unlock(
-		unlocker: MultiLocation,
-		asset: MultiAsset,
-		_owner: MultiLocation,
+		unlocker: Location,
+		asset: Asset,
+		_owner: Location,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;TestUnlockTicket, LockError&gt; {
 		<span class="prelude-val">Ok</span>(TestUnlockTicket(unlocker, asset))
 	}
 
 	<span class="kw">fn </span>note_unlockable(
-		_locker: MultiLocation,
-		_asset: MultiAsset,
-		_owner: MultiLocation,
+		_locker: Location,
+		_asset: Asset,
+		_owner: Location,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), LockError&gt; {
 		<span class="prelude-val">Ok</span>(())
 	}
 
 	<span class="kw">fn </span>prepare_reduce_unlockable(
-		_locker: MultiLocation,
-		_asset: MultiAsset,
-		_owner: MultiLocation,
+		_locker: Location,
+		_asset: Asset,
+		_owner: Location,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;TestReduceTicket, LockError&gt; {
 		<span class="prelude-val">Ok</span>(TestReduceTicket)
 	}

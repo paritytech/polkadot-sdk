@@ -689,6 +689,7 @@
 <a href="#689" id="689">689</a>
 <a href="#690" id="690">690</a>
 <a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -719,18 +720,18 @@
 /// chain, itself situated at `universal_local` within the consensus universe. If
 /// `dest` is not a location in remote consensus, then an error is returned.
 </span><span class="kw">pub fn </span>ensure_is_remote(
-	universal_local: <span class="kw">impl </span>Into&lt;InteriorMultiLocation&gt;,
-	dest: <span class="kw">impl </span>Into&lt;MultiLocation&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(NetworkId, InteriorMultiLocation), MultiLocation&gt; {
+	universal_local: <span class="kw">impl </span>Into&lt;InteriorLocation&gt;,
+	dest: <span class="kw">impl </span>Into&lt;Location&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(NetworkId, InteriorLocation), Location&gt; {
 	<span class="kw">let </span>dest = dest.into();
 	<span class="kw">let </span>universal_local = universal_local.into();
 	<span class="kw">let </span>local_net = <span class="kw">match </span>universal_local.global_consensus() {
 		<span class="prelude-val">Ok</span>(x) =&gt; x,
 		<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(dest),
 	};
-	<span class="kw">let </span>universal_destination: InteriorMultiLocation = universal_local
+	<span class="kw">let </span>universal_destination: InteriorLocation = universal_local
 		.into_location()
-		.appended_with(dest)
+		.appended_with(dest.clone())
 		.map_err(|x| x.<span class="number">1</span>)<span class="question-mark">?
 		</span>.try_into()<span class="question-mark">?</span>;
 	<span class="kw">let </span>(remote_dest, remote_net) = <span class="kw">match </span>universal_destination.split_first() {
@@ -750,18 +751,18 @@
 </span><span class="kw">pub struct </span>UnpaidLocalExporter&lt;Exporter, UniversalLocation&gt;(
 	PhantomData&lt;(Exporter, UniversalLocation)&gt;,
 );
-<span class="kw">impl</span>&lt;Exporter: ExportXcm, UniversalLocation: Get&lt;InteriorMultiLocation&gt;&gt; SendXcm
+<span class="kw">impl</span>&lt;Exporter: ExportXcm, UniversalLocation: Get&lt;InteriorLocation&gt;&gt; SendXcm
 	<span class="kw">for </span>UnpaidLocalExporter&lt;Exporter, UniversalLocation&gt;
 {
 	<span class="kw">type </span>Ticket = Exporter::Ticket;
 
 	<span class="kw">fn </span>validate(
-		dest: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;MultiLocation&gt;,
+		dest: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Location&gt;,
 		xcm: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;,
 	) -&gt; SendResult&lt;Exporter::Ticket&gt; {
 		<span class="kw">let </span>d = dest.take().ok_or(MissingArgument)<span class="question-mark">?</span>;
 		<span class="kw">let </span>universal_source = UniversalLocation::get();
-		<span class="kw">let </span>devolved = <span class="kw">match </span>ensure_is_remote(universal_source, d) {
+		<span class="kw">let </span>devolved = <span class="kw">match </span>ensure_is_remote(universal_source.clone(), d) {
 			<span class="prelude-val">Ok</span>(x) =&gt; x,
 			<span class="prelude-val">Err</span>(d) =&gt; {
 				<span class="kw-2">*</span>dest = <span class="prelude-val">Some</span>(d);
@@ -787,18 +788,18 @@
 	/// the bridge chain as well as payment for the use of the `ExportMessage` instruction.
 	</span><span class="kw">fn </span>exporter_for(
 		network: <span class="kw-2">&amp;</span>NetworkId,
-		remote_location: <span class="kw-2">&amp;</span>InteriorMultiLocation,
+		remote_location: <span class="kw-2">&amp;</span>InteriorLocation,
 		message: <span class="kw-2">&amp;</span>Xcm&lt;()&gt;,
-	) -&gt; <span class="prelude-ty">Option</span>&lt;(MultiLocation, <span class="prelude-ty">Option</span>&lt;MultiAsset&gt;)&gt;;
+	) -&gt; <span class="prelude-ty">Option</span>&lt;(Location, <span class="prelude-ty">Option</span>&lt;Asset&gt;)&gt;;
 }
 
 <span class="attr">#[impl_trait_for_tuples::impl_for_tuples(<span class="number">30</span>)]
 </span><span class="kw">impl </span>ExporterFor <span class="kw">for </span>Tuple {
 	<span class="kw">fn </span>exporter_for(
 		network: <span class="kw-2">&amp;</span>NetworkId,
-		remote_location: <span class="kw-2">&amp;</span>InteriorMultiLocation,
+		remote_location: <span class="kw-2">&amp;</span>InteriorLocation,
 		message: <span class="kw-2">&amp;</span>Xcm&lt;()&gt;,
-	) -&gt; <span class="prelude-ty">Option</span>&lt;(MultiLocation, <span class="prelude-ty">Option</span>&lt;MultiAsset&gt;)&gt; {
+	) -&gt; <span class="prelude-ty">Option</span>&lt;(Location, <span class="prelude-ty">Option</span>&lt;Asset&gt;)&gt; {
 		<span class="macro">for_tuples!</span>( #(
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(r) = Tuple::exporter_for(network, remote_location, message) {
 				<span class="kw">return </span><span class="prelude-val">Some</span>(r);
@@ -816,21 +817,21 @@
 	/// If `Some`, the requested remote location must be equal to one of the items in the vector.
 	/// These are locations in the remote network.
 	/// If `None`, then the check is skipped.
-	</span><span class="kw">pub </span>remote_location_filter: <span class="prelude-ty">Option</span>&lt;Vec&lt;InteriorMultiLocation&gt;&gt;,
+	</span><span class="kw">pub </span>remote_location_filter: <span class="prelude-ty">Option</span>&lt;Vec&lt;InteriorLocation&gt;&gt;,
 	<span class="doccomment">/// Locally-routable bridge with bridging capabilities to the `remote_network` and
 	/// `remote_location`. See [`ExporterFor`] for more details.
-	</span><span class="kw">pub </span>bridge: MultiLocation,
+	</span><span class="kw">pub </span>bridge: Location,
 	<span class="doccomment">/// The local payment.
 	/// See [`ExporterFor`] for more details.
-	</span><span class="kw">pub </span>payment: <span class="prelude-ty">Option</span>&lt;MultiAsset&gt;,
+	</span><span class="kw">pub </span>payment: <span class="prelude-ty">Option</span>&lt;Asset&gt;,
 }
 
 <span class="kw">impl </span>NetworkExportTableItem {
 	<span class="kw">pub fn </span>new(
 		remote_network: NetworkId,
-		remote_location_filter: <span class="prelude-ty">Option</span>&lt;Vec&lt;InteriorMultiLocation&gt;&gt;,
-		bridge: MultiLocation,
-		payment: <span class="prelude-ty">Option</span>&lt;MultiAsset&gt;,
+		remote_location_filter: <span class="prelude-ty">Option</span>&lt;Vec&lt;InteriorLocation&gt;&gt;,
+		bridge: Location,
+		payment: <span class="prelude-ty">Option</span>&lt;Asset&gt;,
 	) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{ remote_network, remote_location_filter, bridge, payment }
 	}
@@ -843,9 +844,9 @@
 <span class="kw">impl</span>&lt;T: Get&lt;Vec&lt;NetworkExportTableItem&gt;&gt;&gt; ExporterFor <span class="kw">for </span>NetworkExportTable&lt;T&gt; {
 	<span class="kw">fn </span>exporter_for(
 		network: <span class="kw-2">&amp;</span>NetworkId,
-		remote_location: <span class="kw-2">&amp;</span>InteriorMultiLocation,
+		remote_location: <span class="kw-2">&amp;</span>InteriorLocation,
 		<span class="kw">_</span>: <span class="kw-2">&amp;</span>Xcm&lt;()&gt;,
-	) -&gt; <span class="prelude-ty">Option</span>&lt;(MultiLocation, <span class="prelude-ty">Option</span>&lt;MultiAsset&gt;)&gt; {
+	) -&gt; <span class="prelude-ty">Option</span>&lt;(Location, <span class="prelude-ty">Option</span>&lt;Asset&gt;)&gt; {
 		T::get()
 			.into_iter()
 			.find(|item| {
@@ -885,16 +886,16 @@
 </span><span class="kw">pub struct </span>UnpaidRemoteExporter&lt;Bridges, Router, UniversalLocation&gt;(
 	PhantomData&lt;(Bridges, Router, UniversalLocation)&gt;,
 );
-<span class="kw">impl</span>&lt;Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get&lt;InteriorMultiLocation&gt;&gt; SendXcm
+<span class="kw">impl</span>&lt;Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get&lt;InteriorLocation&gt;&gt; SendXcm
 	<span class="kw">for </span>UnpaidRemoteExporter&lt;Bridges, Router, UniversalLocation&gt;
 {
 	<span class="kw">type </span>Ticket = Router::Ticket;
 
 	<span class="kw">fn </span>validate(
-		dest: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;MultiLocation&gt;,
+		dest: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Location&gt;,
 		msg: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;,
 	) -&gt; SendResult&lt;Router::Ticket&gt; {
-		<span class="kw">let </span>d = dest.ok_or(MissingArgument)<span class="question-mark">?</span>;
+		<span class="kw">let </span>d = dest.clone().ok_or(MissingArgument)<span class="question-mark">?</span>;
 		<span class="kw">let </span>devolved = ensure_is_remote(UniversalLocation::get(), d).map_err(|<span class="kw">_</span>| NotApplicable)<span class="question-mark">?</span>;
 		<span class="kw">let </span>(remote_network, remote_location) = devolved;
 		<span class="kw">let </span>xcm = msg.take().ok_or(MissingArgument)<span class="question-mark">?</span>;
@@ -952,17 +953,18 @@
 </span><span class="kw">pub struct </span>SovereignPaidRemoteExporter&lt;Bridges, Router, UniversalLocation&gt;(
 	PhantomData&lt;(Bridges, Router, UniversalLocation)&gt;,
 );
-<span class="kw">impl</span>&lt;Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get&lt;InteriorMultiLocation&gt;&gt; SendXcm
+<span class="kw">impl</span>&lt;Bridges: ExporterFor, Router: SendXcm, UniversalLocation: Get&lt;InteriorLocation&gt;&gt; SendXcm
 	<span class="kw">for </span>SovereignPaidRemoteExporter&lt;Bridges, Router, UniversalLocation&gt;
 {
 	<span class="kw">type </span>Ticket = Router::Ticket;
 
 	<span class="kw">fn </span>validate(
-		dest: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;MultiLocation&gt;,
+		dest: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Location&gt;,
 		msg: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;,
 	) -&gt; SendResult&lt;Router::Ticket&gt; {
-		<span class="kw">let </span>d = <span class="kw-2">*</span>dest.as_ref().ok_or(MissingArgument)<span class="question-mark">?</span>;
-		<span class="kw">let </span>devolved = ensure_is_remote(UniversalLocation::get(), d).map_err(|<span class="kw">_</span>| NotApplicable)<span class="question-mark">?</span>;
+		<span class="kw">let </span>d = dest.as_ref().ok_or(MissingArgument)<span class="question-mark">?</span>;
+		<span class="kw">let </span>devolved =
+			ensure_is_remote(UniversalLocation::get(), d.clone()).map_err(|<span class="kw">_</span>| NotApplicable)<span class="question-mark">?</span>;
 		<span class="kw">let </span>(remote_network, remote_location) = devolved;
 		<span class="kw">let </span>xcm = msg.take().ok_or(MissingArgument)<span class="question-mark">?</span>;
 
@@ -990,7 +992,7 @@
 		<span class="kw">let </span><span class="kw-2">mut </span>message = Xcm(<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>payment) = maybe_payment {
 			<span class="kw">let </span>fees = payment
 				.clone()
-				.reanchored(<span class="kw-2">&amp;</span>bridge, UniversalLocation::get())
+				.reanchored(<span class="kw-2">&amp;</span>bridge, <span class="kw-2">&amp;</span>UniversalLocation::get())
 				.map_err(|<span class="kw">_</span>| Unroutable)<span class="question-mark">?</span>;
 			<span class="macro">vec!</span>[
 				WithdrawAsset(fees.clone().into()),
@@ -1057,7 +1059,7 @@
 	<span class="doccomment">/// The message destination as a *Universal Location*. This means it begins with a
 	/// `GlobalConsensus` junction describing the network under which global consensus happens.
 	/// If this does not match our global consensus then it&#39;s a fatal error.
-	</span><span class="kw">pub </span>universal_dest: VersionedInteriorMultiLocation,
+	</span><span class="kw">pub </span>universal_dest: VersionedInteriorLocation,
 	<span class="kw">pub </span>message: VersionedXcm&lt;()&gt;,
 }
 
@@ -1077,8 +1079,8 @@
 );
 <span class="kw">impl</span>&lt;
 		Router: SendXcm,
-		OurPlace: Get&lt;InteriorMultiLocation&gt;,
-		OurPlaceBridgeInstance: Get&lt;<span class="prelude-ty">Option</span>&lt;InteriorMultiLocation&gt;&gt;,
+		OurPlace: Get&lt;InteriorLocation&gt;,
+		OurPlaceBridgeInstance: Get&lt;<span class="prelude-ty">Option</span>&lt;InteriorLocation&gt;&gt;,
 	&gt; DispatchBlob <span class="kw">for </span>BridgeBlobDispatcher&lt;Router, OurPlace, OurPlaceBridgeInstance&gt;
 {
 	<span class="kw">fn </span>dispatch_blob(blob: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchBlobError&gt; {
@@ -1087,7 +1089,7 @@
 			our_universal.global_consensus().map_err(|()| DispatchBlobError::Unbridgable)<span class="question-mark">?</span>;
 		<span class="kw">let </span>BridgeMessage { universal_dest, message } =
 			Decode::decode(<span class="kw-2">&amp;mut &amp;</span>blob[..]).map_err(|<span class="kw">_</span>| DispatchBlobError::InvalidEncoding)<span class="question-mark">?</span>;
-		<span class="kw">let </span>universal_dest: InteriorMultiLocation = universal_dest
+		<span class="kw">let </span>universal_dest: InteriorLocation = universal_dest
 			.try_into()
 			.map_err(|<span class="kw">_</span>| DispatchBlobError::UnsupportedLocationVersion)<span class="question-mark">?</span>;
 		<span class="comment">// `universal_dest` is the desired destination within the universe: first we need to check
@@ -1128,9 +1130,9 @@
 /// ```
 </span><span class="kw">impl</span>&lt;
 		Bridge: HaulBlob,
-		BridgedNetwork: Get&lt;MultiLocation&gt;,
+		BridgedNetwork: Get&lt;Location&gt;,
 		DestinationVersion: GetVersion,
-		Price: Get&lt;MultiAssets&gt;,
+		Price: Get&lt;Assets&gt;,
 	&gt; ExportXcm <span class="kw">for </span>HaulBlobExporter&lt;Bridge, BridgedNetwork, DestinationVersion, Price&gt;
 {
 	<span class="kw">type </span>Ticket = (Vec&lt;u8&gt;, XcmHash);
@@ -1138,12 +1140,12 @@
 	<span class="kw">fn </span>validate(
 		network: NetworkId,
 		_channel: u32,
-		universal_source: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;InteriorMultiLocation&gt;,
-		destination: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;InteriorMultiLocation&gt;,
+		universal_source: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;InteriorLocation&gt;,
+		destination: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;InteriorLocation&gt;,
 		message: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;((Vec&lt;u8&gt;, XcmHash), MultiAssets), SendError&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;((Vec&lt;u8&gt;, XcmHash), Assets), SendError&gt; {
 		<span class="kw">let </span>(bridged_network, bridged_network_location_parents) = {
-			<span class="kw">let </span>MultiLocation { parents, interior: <span class="kw-2">mut </span>junctions } = BridgedNetwork::get();
+			<span class="kw">let </span>Location { parents, interior: <span class="kw-2">mut </span>junctions } = BridgedNetwork::get();
 			<span class="kw">match </span>junctions.take_first() {
 				<span class="prelude-val">Some</span>(GlobalConsensus(network)) =&gt; (network, parents),
 				<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(SendError::NotApplicable),
@@ -1158,8 +1160,8 @@
 		</span><span class="kw">let </span>(universal_dest, version) =
 			<span class="kw">match </span>dest.pushed_front_with(GlobalConsensus(bridged_network)) {
 				<span class="prelude-val">Ok</span>(d) =&gt; {
-					<span class="kw">let </span>version = DestinationVersion::get_version_for(<span class="kw-2">&amp;</span>MultiLocation::from(
-						AncestorThen(bridged_network_location_parents, d),
+					<span class="kw">let </span>version = DestinationVersion::get_version_for(<span class="kw-2">&amp;</span>Location::from(
+						AncestorThen(bridged_network_location_parents, d.clone()),
 					))
 					.ok_or(SendError::DestinationUnsupported)<span class="question-mark">?</span>;
 					(d, version)
@@ -1192,7 +1194,7 @@
 		</span><span class="kw">let </span>message = VersionedXcm::from(message)
 			.into_version(version)
 			.map_err(|()| SendError::DestinationUnsupported)<span class="question-mark">?</span>;
-		<span class="kw">let </span>universal_dest = VersionedInteriorMultiLocation::from(universal_dest)
+		<span class="kw">let </span>universal_dest = VersionedInteriorLocation::from(universal_dest)
 			.into_version(version)
 			.map_err(|()| SendError::DestinationUnsupported)<span class="question-mark">?</span>;
 
@@ -1239,10 +1241,10 @@
 		<span class="kw">type </span>Ticket = ();
 
 		<span class="kw">fn </span>validate(
-			_destination: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;MultiLocation&gt;,
+			_destination: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Location&gt;,
 			_message: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;,
 		) -&gt; SendResult&lt;<span class="self">Self</span>::Ticket&gt; {
-			<span class="prelude-val">Ok</span>(((), MultiAssets::new()))
+			<span class="prelude-val">Ok</span>(((), Assets::new()))
 		}
 
 		<span class="kw">fn </span>deliver(_ticket: <span class="self">Self</span>::Ticket) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, SendError&gt; {
@@ -1253,10 +1255,10 @@
 	<span class="doccomment">/// Generic test case asserting that dest and msg is not consumed by `validate` implementation
 	/// of `SendXcm` in case of expected result.
 	</span><span class="kw">fn </span>ensure_validate_does_not_consume_dest_or_msg&lt;S: SendXcm&gt;(
-		dest: MultiLocation,
+		dest: Location,
 		assert_result: <span class="kw">impl </span>Fn(SendResult&lt;S::Ticket&gt;),
 	) {
-		<span class="kw">let </span><span class="kw-2">mut </span>dest_wrapper = <span class="prelude-val">Some</span>(dest);
+		<span class="kw">let </span><span class="kw-2">mut </span>dest_wrapper = <span class="prelude-val">Some</span>(dest.clone());
 		<span class="kw">let </span>msg = Xcm::&lt;()&gt;::new();
 		<span class="kw">let </span><span class="kw-2">mut </span>msg_wrapper = <span class="prelude-val">Some</span>(msg.clone());
 
@@ -1271,19 +1273,19 @@
 	</span><span class="kw">fn </span>remote_exporters_does_not_consume_dest_or_msg_on_not_applicable() {
 		<span class="macro">frame_support::parameter_types! </span>{
 			<span class="kw">pub </span>Local: NetworkId = ByGenesis([<span class="number">0</span>; <span class="number">32</span>]);
-			<span class="kw">pub </span>UniversalLocation: InteriorMultiLocation = X2(GlobalConsensus(Local::get()), Parachain(<span class="number">1234</span>));
+			<span class="kw">pub </span>UniversalLocation: InteriorLocation = [GlobalConsensus(Local::get()), Parachain(<span class="number">1234</span>)].into();
 			<span class="kw">pub </span>DifferentRemote: NetworkId = ByGenesis([<span class="number">22</span>; <span class="number">32</span>]);
 			<span class="comment">// no routers
 			</span><span class="kw">pub </span>BridgeTable: Vec&lt;NetworkExportTableItem&gt; = <span class="macro">vec!</span>[];
 		}
 
 		<span class="comment">// check with local destination (should be remote)
-		</span><span class="kw">let </span>local_dest = (Parent, Parachain(<span class="number">5678</span>)).into();
-		<span class="macro">assert!</span>(ensure_is_remote(UniversalLocation::get(), local_dest).is_err());
+		</span><span class="kw">let </span>local_dest: Location = (Parent, Parachain(<span class="number">5678</span>)).into();
+		<span class="macro">assert!</span>(ensure_is_remote(UniversalLocation::get(), local_dest.clone()).is_err());
 
 		ensure_validate_does_not_consume_dest_or_msg::&lt;
 			UnpaidRemoteExporter&lt;NetworkExportTable&lt;BridgeTable&gt;, OkSender, UniversalLocation&gt;,
-		&gt;(local_dest, |result| <span class="macro">assert_eq!</span>(<span class="prelude-val">Err</span>(NotApplicable), result));
+		&gt;(local_dest.clone(), |result| <span class="macro">assert_eq!</span>(<span class="prelude-val">Err</span>(NotApplicable), result));
 
 		ensure_validate_does_not_consume_dest_or_msg::&lt;
 			SovereignPaidRemoteExporter&lt;
@@ -1294,12 +1296,12 @@
 		&gt;(local_dest, |result| <span class="macro">assert_eq!</span>(<span class="prelude-val">Err</span>(NotApplicable), result));
 
 		<span class="comment">// check with not applicable destination
-		</span><span class="kw">let </span>remote_dest = (Parent, Parent, DifferentRemote::get()).into();
-		<span class="macro">assert!</span>(ensure_is_remote(UniversalLocation::get(), remote_dest).is_ok());
+		</span><span class="kw">let </span>remote_dest: Location = (Parent, Parent, DifferentRemote::get()).into();
+		<span class="macro">assert!</span>(ensure_is_remote(UniversalLocation::get(), remote_dest.clone()).is_ok());
 
 		ensure_validate_does_not_consume_dest_or_msg::&lt;
 			UnpaidRemoteExporter&lt;NetworkExportTable&lt;BridgeTable&gt;, OkSender, UniversalLocation&gt;,
-		&gt;(remote_dest, |result| <span class="macro">assert_eq!</span>(<span class="prelude-val">Err</span>(NotApplicable), result));
+		&gt;(remote_dest.clone(), |result| <span class="macro">assert_eq!</span>(<span class="prelude-val">Err</span>(NotApplicable), result));
 
 		ensure_validate_does_not_consume_dest_or_msg::&lt;
 			SovereignPaidRemoteExporter&lt;
@@ -1314,15 +1316,15 @@
 	</span><span class="kw">fn </span>network_export_table_works() {
 		<span class="macro">frame_support::parameter_types! </span>{
 			<span class="kw">pub </span>NetworkA: NetworkId = ByGenesis([<span class="number">0</span>; <span class="number">32</span>]);
-			<span class="kw">pub </span>Parachain1000InNetworkA: InteriorMultiLocation = X1(Parachain(<span class="number">1000</span>));
-			<span class="kw">pub </span>Parachain2000InNetworkA: InteriorMultiLocation = X1(Parachain(<span class="number">2000</span>));
+			<span class="kw">pub </span>Parachain1000InNetworkA: InteriorLocation = [Parachain(<span class="number">1000</span>)].into();
+			<span class="kw">pub </span>Parachain2000InNetworkA: InteriorLocation = [Parachain(<span class="number">2000</span>)].into();
 
 			<span class="kw">pub </span>NetworkB: NetworkId = ByGenesis([<span class="number">1</span>; <span class="number">32</span>]);
 
-			<span class="kw">pub </span>BridgeToALocation: MultiLocation = MultiLocation::new(<span class="number">1</span>, X1(Parachain(<span class="number">1234</span>)));
-			<span class="kw">pub </span>BridgeToBLocation: MultiLocation = MultiLocation::new(<span class="number">1</span>, X1(Parachain(<span class="number">4321</span>)));
+			<span class="kw">pub </span>BridgeToALocation: Location = Location::new(<span class="number">1</span>, [Parachain(<span class="number">1234</span>)]);
+			<span class="kw">pub </span>BridgeToBLocation: Location = Location::new(<span class="number">1</span>, [Parachain(<span class="number">4321</span>)]);
 
-			<span class="kw">pub </span>PaymentForNetworkAAndParachain2000: MultiAsset = (MultiLocation::parent(), <span class="number">150</span>).into();
+			<span class="kw">pub </span>PaymentForNetworkAAndParachain2000: Asset = (Location::parent(), <span class="number">150</span>).into();
 
 			<span class="kw">pub </span>BridgeTable: sp_std::vec::Vec&lt;NetworkExportTableItem&gt; = <span class="macro">sp_std::vec!</span>[
 				<span class="comment">// NetworkA allows `Parachain(1000)` as remote location WITHOUT payment.
@@ -1349,19 +1351,19 @@
 			];
 		}
 
-		<span class="kw">let </span>test_data = <span class="macro">vec!</span>[
-			(NetworkA::get(), X1(Parachain(<span class="number">1000</span>)), <span class="prelude-val">Some</span>((BridgeToALocation::get(), <span class="prelude-val">None</span>))),
-			(NetworkA::get(), X2(Parachain(<span class="number">1000</span>), GeneralIndex(<span class="number">1</span>)), <span class="prelude-val">None</span>),
+		<span class="kw">let </span>test_data: Vec&lt;(NetworkId, InteriorLocation, <span class="prelude-ty">Option</span>&lt;(Location, <span class="prelude-ty">Option</span>&lt;Asset&gt;)&gt;)&gt; = <span class="macro">vec!</span>[
+			(NetworkA::get(), [Parachain(<span class="number">1000</span>)].into(), <span class="prelude-val">Some</span>((BridgeToALocation::get(), <span class="prelude-val">None</span>))),
+			(NetworkA::get(), [Parachain(<span class="number">1000</span>), GeneralIndex(<span class="number">1</span>)].into(), <span class="prelude-val">None</span>),
 			(
 				NetworkA::get(),
-				X1(Parachain(<span class="number">2000</span>)),
+				[Parachain(<span class="number">2000</span>)].into(),
 				<span class="prelude-val">Some</span>((BridgeToALocation::get(), <span class="prelude-val">Some</span>(PaymentForNetworkAAndParachain2000::get()))),
 			),
-			(NetworkA::get(), X2(Parachain(<span class="number">2000</span>), GeneralIndex(<span class="number">1</span>)), <span class="prelude-val">None</span>),
-			(NetworkA::get(), X1(Parachain(<span class="number">3000</span>)), <span class="prelude-val">None</span>),
-			(NetworkB::get(), X1(Parachain(<span class="number">1000</span>)), <span class="prelude-val">Some</span>((BridgeToBLocation::get(), <span class="prelude-val">None</span>))),
-			(NetworkB::get(), X1(Parachain(<span class="number">2000</span>)), <span class="prelude-val">Some</span>((BridgeToBLocation::get(), <span class="prelude-val">None</span>))),
-			(NetworkB::get(), X1(Parachain(<span class="number">3000</span>)), <span class="prelude-val">Some</span>((BridgeToBLocation::get(), <span class="prelude-val">None</span>))),
+			(NetworkA::get(), [Parachain(<span class="number">2000</span>), GeneralIndex(<span class="number">1</span>)].into(), <span class="prelude-val">None</span>),
+			(NetworkA::get(), [Parachain(<span class="number">3000</span>)].into(), <span class="prelude-val">None</span>),
+			(NetworkB::get(), [Parachain(<span class="number">1000</span>)].into(), <span class="prelude-val">Some</span>((BridgeToBLocation::get(), <span class="prelude-val">None</span>))),
+			(NetworkB::get(), [Parachain(<span class="number">2000</span>)].into(), <span class="prelude-val">Some</span>((BridgeToBLocation::get(), <span class="prelude-val">None</span>))),
+			(NetworkB::get(), [Parachain(<span class="number">3000</span>)].into(), <span class="prelude-val">Some</span>((BridgeToBLocation::get(), <span class="prelude-val">None</span>))),
 		];
 
 		<span class="kw">for </span>(network, remote_location, expected_result) <span class="kw">in </span>test_data {

@@ -705,9 +705,9 @@
 }
 
 <span class="macro">thread_local! </span>{
-	<span class="kw">pub static </span>PARA_MESSAGE_BUS: RefCell&lt;VecDeque&lt;(ParaId, MultiLocation, Xcm&lt;()&gt;)&gt;&gt;
+	<span class="kw">pub static </span>PARA_MESSAGE_BUS: RefCell&lt;VecDeque&lt;(ParaId, Location, Xcm&lt;()&gt;)&gt;&gt;
 		= RefCell::new(VecDeque::new());
-	<span class="kw">pub static </span>RELAY_MESSAGE_BUS: RefCell&lt;VecDeque&lt;(MultiLocation, Xcm&lt;()&gt;)&gt;&gt;
+	<span class="kw">pub static </span>RELAY_MESSAGE_BUS: RefCell&lt;VecDeque&lt;(Location, Xcm&lt;()&gt;)&gt;&gt;
 		= RefCell::new(VecDeque::new());
 }
 
@@ -765,8 +765,8 @@
 
 			<span class="kw">while let </span><span class="prelude-val">Some</span>((para_id, destination, message)) = <span class="macro-nonterminal">$crate::PARA_MESSAGE_BUS</span>.with(
 				|b| b.borrow_mut().pop_front()) {
-				<span class="kw">match </span>destination.interior() {
-					<span class="macro-nonterminal">$crate::Junctions::Here </span><span class="kw">if </span>destination.parent_count() == <span class="number">1 </span>=&gt; {
+				<span class="kw">match </span>destination.unpack() {
+					(<span class="number">1</span>, []) =&gt; {
 						<span class="kw">let </span>encoded = <span class="macro-nonterminal">$crate::encode_xcm</span>(message, <span class="macro-nonterminal">$crate::MessageKind::Ump</span>);
 						<span class="kw">let </span><span class="kw-2">mut </span>_id = [<span class="number">0</span>; <span class="number">32</span>];
 						<span class="kw">let </span>r = &lt;<span class="macro-nonterminal">$relay_chain</span>&gt;::process_message(
@@ -783,7 +783,7 @@
 						}
 					},
 					$(
-						<span class="macro-nonterminal">$crate::X1</span>(<span class="macro-nonterminal">$crate::Parachain</span>(id)) <span class="kw">if </span><span class="kw-2">*</span>id == <span class="macro-nonterminal">$para_id </span>&amp;&amp; destination.parent_count() == <span class="number">1 </span>=&gt; {
+						(<span class="number">1</span>, [<span class="macro-nonterminal">$crate::Parachain</span>(id)]) <span class="kw">if </span><span class="kw-2">*</span>id == <span class="macro-nonterminal">$para_id </span>=&gt; {
 							<span class="kw">let </span>encoded = <span class="macro-nonterminal">$crate::encode_xcm</span>(message, <span class="macro-nonterminal">$crate::MessageKind::Xcmp</span>);
 							<span class="kw">let </span>messages = <span class="macro">vec!</span>[(para_id, <span class="number">1</span>, <span class="kw-2">&amp;</span>encoded[..])];
 							<span class="kw">let </span>_weight = &lt;<span class="macro-nonterminal">$parachain</span>&gt;::handle_xcmp_messages(
@@ -807,9 +807,9 @@
 
 			<span class="kw">while let </span><span class="prelude-val">Some</span>((destination, message)) = <span class="macro-nonterminal">$crate::RELAY_MESSAGE_BUS</span>.with(
 				|b| b.borrow_mut().pop_front()) {
-				<span class="kw">match </span>destination.interior() {
+				<span class="kw">match </span>destination.unpack() {
 					$(
-						<span class="macro-nonterminal">$crate::X1</span>(<span class="macro-nonterminal">$crate::Parachain</span>(id)) <span class="kw">if </span><span class="kw-2">*</span>id == <span class="macro-nonterminal">$para_id </span>&amp;&amp; destination.parent_count() == <span class="number">0 </span>=&gt; {
+						(<span class="number">0</span>, [<span class="macro-nonterminal">$crate::Parachain</span>(id)]) <span class="kw">if </span><span class="kw-2">*</span>id == <span class="macro-nonterminal">$para_id </span>=&gt; {
 							<span class="kw">let </span>encoded = <span class="macro-nonterminal">$crate::encode_xcm</span>(message, <span class="macro-nonterminal">$crate::MessageKind::Dmp</span>);
 							<span class="comment">// NOTE: RelayChainBlockNumber is hard-coded to 1
 							</span><span class="kw">let </span>messages = <span class="macro">vec!</span>[(<span class="number">1</span>, encoded)];
@@ -829,18 +829,18 @@
 		</span><span class="kw">pub struct </span>ParachainXcmRouter&lt;T&gt;(<span class="macro-nonterminal">$crate::PhantomData</span>&lt;T&gt;);
 
 		<span class="kw">impl</span>&lt;T: <span class="macro-nonterminal">$crate::Get</span>&lt;<span class="macro-nonterminal">$crate::ParaId</span>&gt;&gt; <span class="macro-nonterminal">$crate::SendXcm </span><span class="kw">for </span>ParachainXcmRouter&lt;T&gt; {
-			<span class="kw">type </span>Ticket = (<span class="macro-nonterminal">$crate::ParaId</span>, <span class="macro-nonterminal">$crate::MultiLocation</span>, <span class="macro-nonterminal">$crate::Xcm</span>&lt;()&gt;);
+			<span class="kw">type </span>Ticket = (<span class="macro-nonterminal">$crate::ParaId</span>, <span class="macro-nonterminal">$crate::Location</span>, <span class="macro-nonterminal">$crate::Xcm</span>&lt;()&gt;);
 			<span class="kw">fn </span>validate(
-				destination: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;<span class="macro-nonterminal">$crate::MultiLocation</span>&gt;,
+				destination: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;<span class="macro-nonterminal">$crate::Location</span>&gt;,
 				message: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;<span class="macro-nonterminal">$crate::Xcm</span>&lt;()&gt;&gt;,
-			) -&gt; <span class="macro-nonterminal">$crate::SendResult</span>&lt;(<span class="macro-nonterminal">$crate::ParaId</span>, <span class="macro-nonterminal">$crate::MultiLocation</span>, <span class="macro-nonterminal">$crate::Xcm</span>&lt;()&gt;)&gt; {
+			) -&gt; <span class="macro-nonterminal">$crate::SendResult</span>&lt;(<span class="macro-nonterminal">$crate::ParaId</span>, <span class="macro-nonterminal">$crate::Location</span>, <span class="macro-nonterminal">$crate::Xcm</span>&lt;()&gt;)&gt; {
 				<span class="kw">use </span><span class="macro-nonterminal">$crate::XcmpMessageHandlerT</span>;
 
 				<span class="kw">let </span>d = destination.take().ok_or(<span class="macro-nonterminal">$crate::SendError::MissingArgument</span>)<span class="question-mark">?</span>;
-				<span class="kw">match </span>(d.interior(), d.parent_count()) {
-					(<span class="macro-nonterminal">$crate::Junctions::Here</span>, <span class="number">1</span>) =&gt; {},
+				<span class="kw">match </span>d.unpack() {
+					(<span class="number">1</span>, []) =&gt; {},
 					$(
-						(<span class="macro-nonterminal">$crate::X1</span>(<span class="macro-nonterminal">$crate::Parachain</span>(id)), <span class="number">1</span>) <span class="kw">if </span>id == <span class="kw-2">&amp;</span><span class="macro-nonterminal">$para_id </span>=&gt; {}
+						(<span class="number">1</span>, [<span class="macro-nonterminal">$crate::Parachain</span>(id)]) <span class="kw">if </span>id == <span class="kw-2">&amp;</span><span class="macro-nonterminal">$para_id </span>=&gt; {}
 					)*
 					<span class="kw">_ </span>=&gt; {
 						<span class="kw-2">*</span>destination = <span class="prelude-val">Some</span>(d);
@@ -848,10 +848,10 @@
 					},
 				}
 				<span class="kw">let </span>m = message.take().ok_or(<span class="macro-nonterminal">$crate::SendError::MissingArgument</span>)<span class="question-mark">?</span>;
-				<span class="prelude-val">Ok</span>(((T::get(), d, m), <span class="macro-nonterminal">$crate::MultiAssets::new</span>()))
+				<span class="prelude-val">Ok</span>(((T::get(), d, m), <span class="macro-nonterminal">$crate::Assets::new</span>()))
 			}
 			<span class="kw">fn </span>deliver(
-				triple: (<span class="macro-nonterminal">$crate::ParaId</span>, <span class="macro-nonterminal">$crate::MultiLocation</span>, <span class="macro-nonterminal">$crate::Xcm</span>&lt;()&gt;),
+				triple: (<span class="macro-nonterminal">$crate::ParaId</span>, <span class="macro-nonterminal">$crate::Location</span>, <span class="macro-nonterminal">$crate::Xcm</span>&lt;()&gt;),
 			) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="macro-nonterminal">$crate::XcmHash</span>, <span class="macro-nonterminal">$crate::SendError</span>&gt; {
 				<span class="kw">let </span>hash = <span class="macro-nonterminal">$crate::fake_message_hash</span>(<span class="kw-2">&amp;</span>triple.<span class="number">2</span>);
 				<span class="macro-nonterminal">$crate::PARA_MESSAGE_BUS</span>.with(|b| b.borrow_mut().push_back(triple));
@@ -862,17 +862,17 @@
 		<span class="doccomment">/// XCM router for relay chain.
 		</span><span class="kw">pub struct </span>RelayChainXcmRouter;
 		<span class="kw">impl </span><span class="macro-nonterminal">$crate::SendXcm </span><span class="kw">for </span>RelayChainXcmRouter {
-			<span class="kw">type </span>Ticket = (<span class="macro-nonterminal">$crate::MultiLocation</span>, <span class="macro-nonterminal">$crate::Xcm</span>&lt;()&gt;);
+			<span class="kw">type </span>Ticket = (<span class="macro-nonterminal">$crate::Location</span>, <span class="macro-nonterminal">$crate::Xcm</span>&lt;()&gt;);
 			<span class="kw">fn </span>validate(
-				destination: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;<span class="macro-nonterminal">$crate::MultiLocation</span>&gt;,
+				destination: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;<span class="macro-nonterminal">$crate::Location</span>&gt;,
 				message: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;<span class="macro-nonterminal">$crate::Xcm</span>&lt;()&gt;&gt;,
-			) -&gt; <span class="macro-nonterminal">$crate::SendResult</span>&lt;(<span class="macro-nonterminal">$crate::MultiLocation</span>, <span class="macro-nonterminal">$crate::Xcm</span>&lt;()&gt;)&gt; {
+			) -&gt; <span class="macro-nonterminal">$crate::SendResult</span>&lt;(<span class="macro-nonterminal">$crate::Location</span>, <span class="macro-nonterminal">$crate::Xcm</span>&lt;()&gt;)&gt; {
 				<span class="kw">use </span><span class="macro-nonterminal">$crate::DmpMessageHandlerT</span>;
 
 				<span class="kw">let </span>d = destination.take().ok_or(<span class="macro-nonterminal">$crate::SendError::MissingArgument</span>)<span class="question-mark">?</span>;
-				<span class="kw">match </span>(d.interior(), d.parent_count()) {
+				<span class="kw">match </span>d.unpack() {
 					$(
-						(<span class="macro-nonterminal">$crate::X1</span>(<span class="macro-nonterminal">$crate::Parachain</span>(id)), <span class="number">0</span>) <span class="kw">if </span>id == <span class="kw-2">&amp;</span><span class="macro-nonterminal">$para_id </span>=&gt; {},
+						(<span class="number">0</span>, [<span class="macro-nonterminal">$crate::Parachain</span>(id)]) <span class="kw">if </span>id == <span class="kw-2">&amp;</span><span class="macro-nonterminal">$para_id </span>=&gt; {},
 					)*
 					<span class="kw">_ </span>=&gt; {
 						<span class="kw-2">*</span>destination = <span class="prelude-val">Some</span>(d);
@@ -880,10 +880,10 @@
 					},
 				}
 				<span class="kw">let </span>m = message.take().ok_or(<span class="macro-nonterminal">$crate::SendError::MissingArgument</span>)<span class="question-mark">?</span>;
-				<span class="prelude-val">Ok</span>(((d, m), <span class="macro-nonterminal">$crate::MultiAssets::new</span>()))
+				<span class="prelude-val">Ok</span>(((d, m), <span class="macro-nonterminal">$crate::Assets::new</span>()))
 			}
 			<span class="kw">fn </span>deliver(
-				pair: (<span class="macro-nonterminal">$crate::MultiLocation</span>, <span class="macro-nonterminal">$crate::Xcm</span>&lt;()&gt;),
+				pair: (<span class="macro-nonterminal">$crate::Location</span>, <span class="macro-nonterminal">$crate::Xcm</span>&lt;()&gt;),
 			) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="macro-nonterminal">$crate::XcmHash</span>, <span class="macro-nonterminal">$crate::SendError</span>&gt; {
 				<span class="kw">let </span>hash = <span class="macro-nonterminal">$crate::fake_message_hash</span>(<span class="kw-2">&amp;</span>pair.<span class="number">1</span>);
 				<span class="macro-nonterminal">$crate::RELAY_MESSAGE_BUS</span>.with(|b| b.borrow_mut().push_back(pair));

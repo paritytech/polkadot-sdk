@@ -193,15 +193,6 @@
 <a href="#193" id="193">193</a>
 <a href="#194" id="194">194</a>
 <a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
-<a href="#204" id="204">204</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -223,52 +214,48 @@
 <span class="kw">use </span>frame_support::traits::Contains;
 <span class="kw">use </span>sp_runtime::traits::MaybeEquivalence;
 <span class="kw">use </span>sp_std::{borrow::Borrow, vec::Vec};
-<span class="kw">use </span>xcm::latest::{MultiAsset, MultiLocation};
+<span class="kw">use </span>xcm::latest::{Asset, Location};
 <span class="kw">use </span>xcm_builder::{ConvertedConcreteId, MatchedConvertedConcreteId};
 <span class="kw">use </span>xcm_executor::traits::MatchesFungibles;
 
-<span class="doccomment">/// Converting any [`(AssetId, Balance)`] to [`MultiAsset`]
-</span><span class="kw">pub trait </span>MultiAssetConverter&lt;AssetId, Balance, ConvertAssetId, ConvertBalance&gt;:
+<span class="doccomment">/// Converting any [`(AssetId, Balance)`] to [`Asset`]
+</span><span class="kw">pub trait </span>AssetConverter&lt;AssetId, Balance, ConvertAssetId, ConvertBalance&gt;:
 	MatchesFungibles&lt;AssetId, Balance&gt;
 <span class="kw">where
 	</span>AssetId: Clone,
 	Balance: Clone,
-	ConvertAssetId: MaybeEquivalence&lt;MultiLocation, AssetId&gt;,
+	ConvertAssetId: MaybeEquivalence&lt;Location, AssetId&gt;,
 	ConvertBalance: MaybeEquivalence&lt;u128, Balance&gt;,
 {
-	<span class="kw">fn </span>convert_ref(
-		value: <span class="kw">impl </span>Borrow&lt;(AssetId, Balance)&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;MultiAsset, FungiblesAccessError&gt;;
+	<span class="kw">fn </span>convert_ref(value: <span class="kw">impl </span>Borrow&lt;(AssetId, Balance)&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Asset, FungiblesAccessError&gt;;
 }
 
-<span class="doccomment">/// Checks for `MultiLocation`.
-</span><span class="kw">pub trait </span>MatchesMultiLocation&lt;AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertBalance&gt;:
+<span class="doccomment">/// Checks for `Location`.
+</span><span class="kw">pub trait </span>MatchesLocation&lt;AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertBalance&gt;:
 	MatchesFungibles&lt;AssetId, Balance&gt;
 <span class="kw">where
 	</span>AssetId: Clone,
 	Balance: Clone,
-	MatchAssetId: Contains&lt;MultiLocation&gt;,
-	ConvertAssetId: MaybeEquivalence&lt;MultiLocation, AssetId&gt;,
+	MatchAssetId: Contains&lt;Location&gt;,
+	ConvertAssetId: MaybeEquivalence&lt;Location, AssetId&gt;,
 	ConvertBalance: MaybeEquivalence&lt;u128, Balance&gt;,
 {
-	<span class="kw">fn </span>contains(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool;
+	<span class="kw">fn </span>contains(location: <span class="kw-2">&amp;</span>Location) -&gt; bool;
 }
 
 <span class="kw">impl</span>&lt;
 		AssetId: Clone,
 		Balance: Clone,
-		ConvertAssetId: MaybeEquivalence&lt;MultiLocation, AssetId&gt;,
+		ConvertAssetId: MaybeEquivalence&lt;Location, AssetId&gt;,
 		ConvertBalance: MaybeEquivalence&lt;u128, Balance&gt;,
-	&gt; MultiAssetConverter&lt;AssetId, Balance, ConvertAssetId, ConvertBalance&gt;
+	&gt; AssetConverter&lt;AssetId, Balance, ConvertAssetId, ConvertBalance&gt;
 	<span class="kw">for </span>ConvertedConcreteId&lt;AssetId, Balance, ConvertAssetId, ConvertBalance&gt;
 {
-	<span class="kw">fn </span>convert_ref(
-		value: <span class="kw">impl </span>Borrow&lt;(AssetId, Balance)&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;MultiAsset, FungiblesAccessError&gt; {
+	<span class="kw">fn </span>convert_ref(value: <span class="kw">impl </span>Borrow&lt;(AssetId, Balance)&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Asset, FungiblesAccessError&gt; {
 		<span class="kw">let </span>(asset_id, balance) = value.borrow();
 		<span class="kw">match </span>ConvertAssetId::convert_back(asset_id) {
-			<span class="prelude-val">Some</span>(asset_id_as_multilocation) =&gt; <span class="kw">match </span>ConvertBalance::convert_back(balance) {
-				<span class="prelude-val">Some</span>(amount) =&gt; <span class="prelude-val">Ok</span>((asset_id_as_multilocation, amount).into()),
+			<span class="prelude-val">Some</span>(asset_id_as_location) =&gt; <span class="kw">match </span>ConvertBalance::convert_back(balance) {
+				<span class="prelude-val">Some</span>(amount) =&gt; <span class="prelude-val">Ok</span>((asset_id_as_location, amount).into()),
 				<span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(FungiblesAccessError::AmountToBalanceConversionFailed),
 			},
 			<span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(FungiblesAccessError::AssetIdConversionFailed),
@@ -279,19 +266,17 @@
 <span class="kw">impl</span>&lt;
 		AssetId: Clone,
 		Balance: Clone,
-		MatchAssetId: Contains&lt;MultiLocation&gt;,
-		ConvertAssetId: MaybeEquivalence&lt;MultiLocation, AssetId&gt;,
+		MatchAssetId: Contains&lt;Location&gt;,
+		ConvertAssetId: MaybeEquivalence&lt;Location, AssetId&gt;,
 		ConvertBalance: MaybeEquivalence&lt;u128, Balance&gt;,
-	&gt; MultiAssetConverter&lt;AssetId, Balance, ConvertAssetId, ConvertBalance&gt;
+	&gt; AssetConverter&lt;AssetId, Balance, ConvertAssetId, ConvertBalance&gt;
 	<span class="kw">for </span>MatchedConvertedConcreteId&lt;AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertBalance&gt;
 {
-	<span class="kw">fn </span>convert_ref(
-		value: <span class="kw">impl </span>Borrow&lt;(AssetId, Balance)&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;MultiAsset, FungiblesAccessError&gt; {
+	<span class="kw">fn </span>convert_ref(value: <span class="kw">impl </span>Borrow&lt;(AssetId, Balance)&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Asset, FungiblesAccessError&gt; {
 		<span class="kw">let </span>(asset_id, balance) = value.borrow();
 		<span class="kw">match </span>ConvertAssetId::convert_back(asset_id) {
-			<span class="prelude-val">Some</span>(asset_id_as_multilocation) =&gt; <span class="kw">match </span>ConvertBalance::convert_back(balance) {
-				<span class="prelude-val">Some</span>(amount) =&gt; <span class="prelude-val">Ok</span>((asset_id_as_multilocation, amount).into()),
+			<span class="prelude-val">Some</span>(asset_id_as_location) =&gt; <span class="kw">match </span>ConvertBalance::convert_back(balance) {
+				<span class="prelude-val">Some</span>(amount) =&gt; <span class="prelude-val">Ok</span>((asset_id_as_location, amount).into()),
 				<span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(FungiblesAccessError::AmountToBalanceConversionFailed),
 			},
 			<span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(FungiblesAccessError::AssetIdConversionFailed),
@@ -302,13 +287,13 @@
 <span class="kw">impl</span>&lt;
 		AssetId: Clone,
 		Balance: Clone,
-		MatchAssetId: Contains&lt;MultiLocation&gt;,
-		ConvertAssetId: MaybeEquivalence&lt;MultiLocation, AssetId&gt;,
+		MatchAssetId: Contains&lt;Location&gt;,
+		ConvertAssetId: MaybeEquivalence&lt;Location, AssetId&gt;,
 		ConvertBalance: MaybeEquivalence&lt;u128, Balance&gt;,
-	&gt; MatchesMultiLocation&lt;AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertBalance&gt;
+	&gt; MatchesLocation&lt;AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertBalance&gt;
 	<span class="kw">for </span>MatchedConvertedConcreteId&lt;AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertBalance&gt;
 {
-	<span class="kw">fn </span>contains(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
+	<span class="kw">fn </span>contains(location: <span class="kw-2">&amp;</span>Location) -&gt; bool {
 		MatchAssetId::contains(location)
 	}
 }
@@ -317,12 +302,12 @@
 </span><span class="kw">impl</span>&lt;
 		AssetId: Clone,
 		Balance: Clone,
-		MatchAssetId: Contains&lt;MultiLocation&gt;,
-		ConvertAssetId: MaybeEquivalence&lt;MultiLocation, AssetId&gt;,
+		MatchAssetId: Contains&lt;Location&gt;,
+		ConvertAssetId: MaybeEquivalence&lt;Location, AssetId&gt;,
 		ConvertBalance: MaybeEquivalence&lt;u128, Balance&gt;,
-	&gt; MatchesMultiLocation&lt;AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertBalance&gt; <span class="kw">for </span>Tuple
+	&gt; MatchesLocation&lt;AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertBalance&gt; <span class="kw">for </span>Tuple
 {
-	<span class="kw">fn </span>contains(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
+	<span class="kw">fn </span>contains(location: <span class="kw-2">&amp;</span>Location) -&gt; bool {
 		<span class="macro">for_tuples!</span>( #(
 			<span class="kw">match </span>Tuple::contains(location) { o @ <span class="bool-val">true </span>=&gt; <span class="kw">return </span>o, <span class="kw">_ </span>=&gt; () }
 		)* );
@@ -331,27 +316,24 @@
 	</span>}
 }
 
-<span class="doccomment">/// Helper function to convert collections with [`(AssetId, Balance)`] to [`MultiAsset`]
+<span class="doccomment">/// Helper function to convert collections with [`(AssetId, Balance)`] to [`Asset`]
 </span><span class="kw">pub fn </span>convert&lt;<span class="lifetime">&#39;a</span>, AssetId, Balance, ConvertAssetId, ConvertBalance, Converter&gt;(
 	items: <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(AssetId, Balance)&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;MultiAsset&gt;, FungiblesAccessError&gt;
+) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Asset&gt;, FungiblesAccessError&gt;
 <span class="kw">where
 	</span>AssetId: Clone + <span class="lifetime">&#39;a</span>,
 	Balance: Clone + <span class="lifetime">&#39;a</span>,
-	ConvertAssetId: MaybeEquivalence&lt;MultiLocation, AssetId&gt;,
+	ConvertAssetId: MaybeEquivalence&lt;Location, AssetId&gt;,
 	ConvertBalance: MaybeEquivalence&lt;u128, Balance&gt;,
-	Converter: MultiAssetConverter&lt;AssetId, Balance, ConvertAssetId, ConvertBalance&gt;,
+	Converter: AssetConverter&lt;AssetId, Balance, ConvertAssetId, ConvertBalance&gt;,
 {
 	items.map(Converter::convert_ref).collect()
 }
 
-<span class="doccomment">/// Helper function to convert `Balance` with MultiLocation` to `MultiAsset`
-</span><span class="kw">pub fn </span>convert_balance&lt;
-	T: frame_support::pallet_prelude::Get&lt;MultiLocation&gt;,
-	Balance: TryInto&lt;u128&gt;,
-&gt;(
+<span class="doccomment">/// Helper function to convert `Balance` with Location` to `Asset`
+</span><span class="kw">pub fn </span>convert_balance&lt;T: frame_support::pallet_prelude::Get&lt;Location&gt;, Balance: TryInto&lt;u128&gt;&gt;(
 	balance: Balance,
-) -&gt; <span class="prelude-ty">Result</span>&lt;MultiAsset, FungiblesAccessError&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Asset, FungiblesAccessError&gt; {
 	<span class="kw">match </span>balance.try_into() {
 		<span class="prelude-val">Ok</span>(balance) =&gt; <span class="prelude-val">Ok</span>((T::get(), balance).into()),
 		<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(FungiblesAccessError::AmountToBalanceConversionFailed),
@@ -366,20 +348,20 @@
 	<span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 	<span class="kw">use </span>xcm_executor::traits::{Identity, JustTry};
 
-	<span class="kw">type </span>Converter = MatchedConvertedConcreteId&lt;MultiLocation, u64, Everything, Identity, JustTry&gt;;
+	<span class="kw">type </span>Converter = MatchedConvertedConcreteId&lt;Location, u64, Everything, Identity, JustTry&gt;;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>converted_concrete_id_fungible_multi_asset_conversion_roundtrip_works() {
-		<span class="kw">let </span>location = MultiLocation::new(<span class="number">0</span>, X1(GlobalConsensus(ByGenesis([<span class="number">0</span>; <span class="number">32</span>]))));
+		<span class="kw">let </span>location = Location::new(<span class="number">0</span>, [GlobalConsensus(ByGenesis([<span class="number">0</span>; <span class="number">32</span>]))]);
 		<span class="kw">let </span>amount = <span class="number">123456_u64</span>;
-		<span class="kw">let </span>expected_multi_asset = MultiAsset {
-			id: Concrete(MultiLocation::new(<span class="number">0</span>, X1(GlobalConsensus(ByGenesis([<span class="number">0</span>; <span class="number">32</span>]))))),
+		<span class="kw">let </span>expected_multi_asset = Asset {
+			id: AssetId(Location::new(<span class="number">0</span>, [GlobalConsensus(ByGenesis([<span class="number">0</span>; <span class="number">32</span>]))])),
 			fun: Fungible(<span class="number">123456_u128</span>),
 		};
 
 		<span class="macro">assert_eq!</span>(
 			Converter::matches_fungibles(<span class="kw-2">&amp;</span>expected_multi_asset).map_err(|<span class="kw">_</span>| ()),
-			<span class="prelude-val">Ok</span>((location, amount))
+			<span class="prelude-val">Ok</span>((location.clone(), amount))
 		);
 
 		<span class="macro">assert_eq!</span>(Converter::convert_ref((location, amount)), <span class="prelude-val">Ok</span>(expected_multi_asset));
@@ -388,17 +370,17 @@
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>converted_concrete_id_fungible_multi_asset_conversion_collection_works() {
 		<span class="kw">let </span>data = <span class="macro">vec!</span>[
-			(MultiLocation::new(<span class="number">0</span>, X1(GlobalConsensus(ByGenesis([<span class="number">0</span>; <span class="number">32</span>])))), <span class="number">123456_u64</span>),
-			(MultiLocation::new(<span class="number">1</span>, X1(GlobalConsensus(ByGenesis([<span class="number">1</span>; <span class="number">32</span>])))), <span class="number">654321_u64</span>),
+			(Location::new(<span class="number">0</span>, [GlobalConsensus(ByGenesis([<span class="number">0</span>; <span class="number">32</span>]))]), <span class="number">123456_u64</span>),
+			(Location::new(<span class="number">1</span>, [GlobalConsensus(ByGenesis([<span class="number">1</span>; <span class="number">32</span>]))]), <span class="number">654321_u64</span>),
 		];
 
 		<span class="kw">let </span>expected_data = <span class="macro">vec!</span>[
-			MultiAsset {
-				id: Concrete(MultiLocation::new(<span class="number">0</span>, X1(GlobalConsensus(ByGenesis([<span class="number">0</span>; <span class="number">32</span>]))))),
+			Asset {
+				id: AssetId(Location::new(<span class="number">0</span>, [GlobalConsensus(ByGenesis([<span class="number">0</span>; <span class="number">32</span>]))])),
 				fun: Fungible(<span class="number">123456_u128</span>),
 			},
-			MultiAsset {
-				id: Concrete(MultiLocation::new(<span class="number">1</span>, X1(GlobalConsensus(ByGenesis([<span class="number">1</span>; <span class="number">32</span>]))))),
+			Asset {
+				id: AssetId(Location::new(<span class="number">1</span>, [GlobalConsensus(ByGenesis([<span class="number">1</span>; <span class="number">32</span>]))])),
 				fun: Fungible(<span class="number">654321_u128</span>),
 			},
 		];

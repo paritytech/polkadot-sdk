@@ -631,6 +631,16 @@
 <a href="#631" id="631">631</a>
 <a href="#632" id="632">632</a>
 <a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) 2023 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -664,15 +674,15 @@
 };
 <span class="kw">use </span>sp_runtime::{traits::StaticLookup, Saturating};
 <span class="kw">use </span>sp_std::ops::Mul;
-<span class="kw">use </span>xcm::{latest::prelude::<span class="kw-2">*</span>, VersionedMultiAssets};
+<span class="kw">use </span>xcm::{latest::prelude::<span class="kw-2">*</span>, VersionedAssets};
 <span class="kw">use </span>xcm_builder::{CreateMatcher, MatchXcm};
 <span class="kw">use </span>xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
 <span class="kw">pub struct </span>TestBridgingConfig {
 	<span class="kw">pub </span>bridged_network: NetworkId,
 	<span class="kw">pub </span>local_bridge_hub_para_id: u32,
-	<span class="kw">pub </span>local_bridge_hub_location: MultiLocation,
-	<span class="kw">pub </span>bridged_target_location: MultiLocation,
+	<span class="kw">pub </span>local_bridge_hub_location: Location,
+	<span class="kw">pub </span>bridged_target_location: Location,
 }
 
 <span class="doccomment">/// Test-case makes sure that `Runtime` can initiate **reserve transfer assets** over bridge.
@@ -750,7 +760,7 @@
 				LocationToAccountId::convert_location(<span class="kw-2">&amp;</span>target_location_from_different_consensus)
 					.expect(<span class="string">&quot;Sovereign account for reserves&quot;</span>);
 			<span class="kw">let </span>balance_to_transfer = <span class="number">1_000_000_000_000_u128</span>;
-			<span class="kw">let </span>native_asset = MultiLocation::parent();
+			<span class="kw">let </span>native_asset = Location::parent();
 
 			<span class="comment">// open HRMP to bridge hub
 			</span>mock_open_hrmp_channel::&lt;Runtime, HrmpChannelOpener&gt;(
@@ -796,35 +806,33 @@
 				.unwrap_or(<span class="number">0</span>.into());
 
 			<span class="comment">// local native asset (pallet_balances)
-			</span><span class="kw">let </span>asset_to_transfer = MultiAsset {
-				fun: Fungible(balance_to_transfer.into()),
-				id: Concrete(native_asset),
-			};
+			</span><span class="kw">let </span>asset_to_transfer =
+				Asset { fun: Fungible(balance_to_transfer.into()), id: native_asset.into() };
 
 			<span class="comment">// destination is (some) account relative to the destination different consensus
-			</span><span class="kw">let </span>target_destination_account = MultiLocation {
-				parents: <span class="number">0</span>,
-				interior: X1(AccountId32 {
+			</span><span class="kw">let </span>target_destination_account = Location::new(
+				<span class="number">0</span>,
+				[AccountId32 {
 					network: <span class="prelude-val">Some</span>(bridged_network),
 					id: sp_runtime::AccountId32::new([<span class="number">3</span>; <span class="number">32</span>]).into(),
-				}),
-			};
+				}],
+			);
 
-			<span class="kw">let </span>assets_to_transfer = MultiAssets::from(asset_to_transfer);
+			<span class="kw">let </span>assets_to_transfer = Assets::from(asset_to_transfer);
 			<span class="kw">let </span><span class="kw-2">mut </span>expected_assets = assets_to_transfer.clone();
 			<span class="kw">let </span>context = XcmConfig::UniversalLocation::get();
 			expected_assets
-				.reanchor(<span class="kw-2">&amp;</span>target_location_from_different_consensus, context)
+				.reanchor(<span class="kw-2">&amp;</span>target_location_from_different_consensus, <span class="kw-2">&amp;</span>context)
 				.unwrap();
 
-			<span class="kw">let </span>expected_beneficiary = target_destination_account;
+			<span class="kw">let </span>expected_beneficiary = target_destination_account.clone();
 
 			<span class="comment">// do pallet_xcm call reserve transfer
 			</span><span class="macro">assert_ok!</span>(&lt;pallet_xcm::Pallet&lt;Runtime&gt;&gt;::limited_reserve_transfer_assets(
 				RuntimeHelper::&lt;Runtime, AllPalletsWithoutSystem&gt;::origin_of(alice_account.clone()),
-				Box::new(target_location_from_different_consensus.into_versioned()),
+				Box::new(target_location_from_different_consensus.clone().into_versioned()),
 				Box::new(target_destination_account.into_versioned()),
-				Box::new(VersionedMultiAssets::from(assets_to_transfer)),
+				Box::new(VersionedAssets::from(assets_to_transfer)),
 				<span class="number">0</span>,
 				weight_limit,
 			));
@@ -899,13 +907,17 @@
 					<span class="kw">let </span>(<span class="kw">_</span>, target_location_junctions_without_global_consensus) =
 						target_location_from_different_consensus
 							.interior
+							.clone()
 							.split_global()
 							.expect(<span class="string">&quot;split works&quot;</span>);
 					<span class="macro">assert_eq!</span>(destination, <span class="kw-2">&amp;</span>target_location_junctions_without_global_consensus);
 					<span class="comment">// Call `SendXcm::validate` to get delivery fees.
 					</span>delivery_fees = get_fungible_delivery_fees::&lt;
 						&lt;XcmConfig <span class="kw">as </span>xcm_executor::Config&gt;::XcmSender,
-					&gt;(target_location_from_different_consensus, inner_xcm.clone());
+					&gt;(
+						target_location_from_different_consensus.clone(),
+						inner_xcm.clone(),
+					);
 					assert_matches_reserve_asset_deposited_instructions(
 						inner_xcm,
 						<span class="kw-2">&amp;</span>expected_assets,
@@ -955,10 +967,10 @@
 	target_account: AccountIdOf&lt;Runtime&gt;,
 	block_author_account: AccountIdOf&lt;Runtime&gt;,
 	(
-		foreign_asset_id_multilocation,
+		foreign_asset_id_location,
 		transfered_foreign_asset_id_amount,
 		foreign_asset_id_minimum_balance,
-	): (MultiLocation, u128, u128),
+	): (xcm::v3::Location, u128, u128),
 	prepare_configuration: <span class="kw">fn</span>() -&gt; TestBridgingConfig,
 	(bridge_instance, universal_origin, descend_origin): (Junctions, Junction, Junctions), <span class="comment">/* bridge adds origin manipulation on the way */
 </span>) <span class="kw">where
@@ -980,9 +992,9 @@
 	XcmConfig: xcm_executor::Config,
 	LocationToAccountId: ConvertLocation&lt;AccountIdOf&lt;Runtime&gt;&gt;,
 	&lt;Runtime <span class="kw">as </span>pallet_assets::Config&lt;ForeignAssetsPalletInstance&gt;&gt;::AssetId:
-		From&lt;MultiLocation&gt; + Into&lt;MultiLocation&gt;,
+		From&lt;xcm::v3::Location&gt; + Into&lt;xcm::v3::Location&gt;,
 	&lt;Runtime <span class="kw">as </span>pallet_assets::Config&lt;ForeignAssetsPalletInstance&gt;&gt;::AssetIdParameter:
-		From&lt;MultiLocation&gt; + Into&lt;MultiLocation&gt;,
+		From&lt;xcm::v3::Location&gt; + Into&lt;xcm::v3::Location&gt;,
 	&lt;Runtime <span class="kw">as </span>pallet_assets::Config&lt;ForeignAssetsPalletInstance&gt;&gt;::Balance:
 		From&lt;Balance&gt; + Into&lt;u128&gt; + From&lt;u128&gt;,
 	&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::AccountId: Into&lt;&lt;&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::RuntimeOrigin <span class="kw">as </span>OriginTrait&gt;::AccountId&gt;
@@ -990,7 +1002,7 @@
 	&lt;&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::Lookup <span class="kw">as </span>StaticLookup&gt;::Source:
 		From&lt;&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;,
 	&lt;Runtime <span class="kw">as </span>pallet_asset_conversion::Config&gt;::AssetKind:
-		From&lt;MultiLocation&gt; + Into&lt;MultiLocation&gt;,
+		From&lt;xcm::v3::Location&gt; + Into&lt;xcm::v3::Location&gt;,
 	&lt;Runtime <span class="kw">as </span>pallet_asset_conversion::Config&gt;::Balance: From&lt;Balance&gt;,
 	ForeignAssetsPalletInstance: <span class="lifetime">&#39;static</span>,
 {
@@ -1018,7 +1030,7 @@
 			<span class="comment">// sovereign account as foreign asset owner (can be whoever for this scenario, doesnt
 			// matter)
 			</span><span class="kw">let </span>sovereign_account_as_owner_of_foreign_asset =
-				LocationToAccountId::convert_location(<span class="kw-2">&amp;</span>MultiLocation::parent()).unwrap();
+				LocationToAccountId::convert_location(<span class="kw-2">&amp;</span>Location::parent()).unwrap();
 
 			<span class="comment">// staking pot account for collecting local native fees from `BuyExecution`
 			</span><span class="kw">let </span>staking_pot = &lt;pallet_collator_selection::Pallet&lt;Runtime&gt;&gt;::account_id();
@@ -1031,16 +1043,16 @@
 			</span><span class="macro">assert_ok!</span>(
 				&lt;pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;&gt;::force_create(
 					RuntimeHelper::&lt;Runtime, AllPalletsWithoutSystem&gt;::root_origin(),
-					foreign_asset_id_multilocation.into(),
+					foreign_asset_id_location.into(),
 					sovereign_account_as_owner_of_foreign_asset.clone().into(),
 					<span class="bool-val">true</span>, <span class="comment">// is_sufficient=true
 					</span>foreign_asset_id_minimum_balance.into()
 				)
 			);
 
-			<span class="comment">// setup a pool to pay fees with `foreign_asset_id_multilocation` tokens
+			<span class="comment">// setup a pool to pay fees with `foreign_asset_id_location` tokens
 			</span><span class="kw">let </span>pool_owner: AccountIdOf&lt;Runtime&gt; = [<span class="number">1u8</span>; <span class="number">32</span>].into();
-			<span class="kw">let </span>native_asset = MultiLocation::parent();
+			<span class="kw">let </span>native_asset = xcm::v3::Location::parent();
 			<span class="kw">let </span>pool_liquidity: u128 =
 				existential_deposit.into().max(foreign_asset_id_minimum_balance).mul(<span class="number">100_000</span>);
 
@@ -1053,7 +1065,7 @@
 				RuntimeHelper::&lt;Runtime, AllPalletsWithoutSystem&gt;::origin_of(
 					sovereign_account_as_owner_of_foreign_asset
 				),
-				foreign_asset_id_multilocation.into(),
+				foreign_asset_id_location.into(),
 				pool_owner.clone().into(),
 				(foreign_asset_id_minimum_balance + pool_liquidity).mul(<span class="number">2</span>).into(),
 			));
@@ -1061,13 +1073,13 @@
 			<span class="macro">assert_ok!</span>(&lt;pallet_asset_conversion::Pallet&lt;Runtime&gt;&gt;::create_pool(
 				RuntimeHelper::&lt;Runtime, AllPalletsWithoutSystem&gt;::origin_of(pool_owner.clone()),
 				Box::new(native_asset.into()),
-				Box::new(foreign_asset_id_multilocation.into())
+				Box::new(foreign_asset_id_location.into())
 			));
 
 			<span class="macro">assert_ok!</span>(&lt;pallet_asset_conversion::Pallet&lt;Runtime&gt;&gt;::add_liquidity(
 				RuntimeHelper::&lt;Runtime, AllPalletsWithoutSystem&gt;::origin_of(pool_owner.clone()),
 				Box::new(native_asset.into()),
-				Box::new(foreign_asset_id_multilocation.into()),
+				Box::new(foreign_asset_id_location.into()),
 				pool_liquidity.into(),
 				pool_liquidity.into(),
 				<span class="number">1</span>.into(),
@@ -1092,34 +1104,37 @@
 			<span class="comment">// ForeignAssets balances before
 			</span><span class="macro">assert_eq!</span>(
 				&lt;pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;&gt;::balance(
-					foreign_asset_id_multilocation.into(),
+					foreign_asset_id_location.into(),
 					<span class="kw-2">&amp;</span>target_account
 				),
 				<span class="number">0</span>.into()
 			);
 			<span class="macro">assert_eq!</span>(
 				&lt;pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;&gt;::balance(
-					foreign_asset_id_multilocation.into(),
+					foreign_asset_id_location.into(),
 					<span class="kw-2">&amp;</span>block_author_account
 				),
 				<span class="number">0</span>.into()
 			);
 			<span class="macro">assert_eq!</span>(
 				&lt;pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;&gt;::balance(
-					foreign_asset_id_multilocation.into(),
+					foreign_asset_id_location.into(),
 					<span class="kw-2">&amp;</span>staking_pot
 				),
 				<span class="number">0</span>.into()
 			);
 
-			<span class="kw">let </span>expected_assets = MultiAssets::from(<span class="macro">vec!</span>[MultiAsset {
-				id: Concrete(foreign_asset_id_multilocation),
+			<span class="kw">let </span>foreign_asset_id_location_latest: Location =
+				foreign_asset_id_location.try_into().unwrap();
+
+			<span class="kw">let </span>expected_assets = Assets::from(<span class="macro">vec!</span>[Asset {
+				id: AssetId(foreign_asset_id_location_latest.clone()),
 				fun: Fungible(transfered_foreign_asset_id_amount),
 			}]);
-			<span class="kw">let </span>expected_beneficiary = MultiLocation {
-				parents: <span class="number">0</span>,
-				interior: X1(AccountId32 { network: <span class="prelude-val">None</span>, id: target_account.clone().into() }),
-			};
+			<span class="kw">let </span>expected_beneficiary = Location::new(
+				<span class="number">0</span>,
+				[AccountId32 { network: <span class="prelude-val">None</span>, id: target_account.clone().into() }],
+			);
 
 			<span class="comment">// Call received XCM execution
 			</span><span class="kw">let </span>xcm = Xcm(<span class="macro">vec!</span>[
@@ -1129,13 +1144,16 @@
 				ReserveAssetDeposited(expected_assets.clone()),
 				ClearOrigin,
 				BuyExecution {
-					fees: MultiAsset {
-						id: Concrete(foreign_asset_id_multilocation),
+					fees: Asset {
+						id: AssetId(foreign_asset_id_location_latest.clone()),
 						fun: Fungible(transfered_foreign_asset_id_amount),
 					},
 					weight_limit: Unlimited,
 				},
-				DepositAsset { assets: Wild(AllCounted(<span class="number">1</span>)), beneficiary: expected_beneficiary },
+				DepositAsset {
+					assets: Wild(AllCounted(<span class="number">1</span>)),
+					beneficiary: expected_beneficiary.clone(),
+				},
 				SetTopic([
 					<span class="number">220</span>, <span class="number">188</span>, <span class="number">144</span>, <span class="number">32</span>, <span class="number">213</span>, <span class="number">83</span>, <span class="number">111</span>, <span class="number">175</span>, <span class="number">44</span>, <span class="number">210</span>, <span class="number">111</span>, <span class="number">19</span>, <span class="number">90</span>, <span class="number">165</span>, <span class="number">191</span>, <span class="number">112</span>, <span class="number">140</span>,
 					<span class="number">247</span>, <span class="number">192</span>, <span class="number">124</span>, <span class="number">42</span>, <span class="number">17</span>, <span class="number">153</span>, <span class="number">141</span>, <span class="number">114</span>, <span class="number">34</span>, <span class="number">189</span>, <span class="number">20</span>, <span class="number">83</span>, <span class="number">69</span>, <span class="number">237</span>, <span class="number">173</span>,
@@ -1147,16 +1165,17 @@
 				<span class="kw-2">&amp;</span>expected_beneficiary,
 			);
 
-			<span class="kw">let </span>hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+			<span class="kw">let </span><span class="kw-2">mut </span>hash = xcm.using_encoded(sp_io::hashing::blake2_256);
 
 			<span class="comment">// execute xcm as XcmpQueue would do
-			</span><span class="kw">let </span>outcome = XcmExecutor::&lt;XcmConfig&gt;::execute_xcm(
+			</span><span class="kw">let </span>outcome = XcmExecutor::&lt;XcmConfig&gt;::prepare_and_execute(
 				local_bridge_hub_location,
 				xcm,
-				hash,
+				<span class="kw-2">&amp;mut </span>hash,
 				RuntimeHelper::&lt;Runtime, AllPalletsWithoutSystem&gt;::xcm_max_weight(
 					XcmReceivedFrom::Sibling,
 				),
+				Weight::zero(),
 			);
 			<span class="macro">assert_ok!</span>(outcome.ensure_complete());
 
@@ -1178,20 +1197,20 @@
 			<span class="comment">// ForeignAssets balances after
 			</span><span class="macro">assert!</span>(
 				&lt;pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;&gt;::balance(
-					foreign_asset_id_multilocation.into(),
+					foreign_asset_id_location.into(),
 					<span class="kw-2">&amp;</span>target_account
 				) &gt; <span class="number">0</span>.into()
 			);
 			<span class="macro">assert_eq!</span>(
 				&lt;pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;&gt;::balance(
-					foreign_asset_id_multilocation.into(),
+					foreign_asset_id_location.into(),
 					<span class="kw-2">&amp;</span>staking_pot
 				),
 				<span class="number">0</span>.into()
 			);
 			<span class="macro">assert_eq!</span>(
 				&lt;pallet_assets::Pallet&lt;Runtime, ForeignAssetsPalletInstance&gt;&gt;::balance(
-					foreign_asset_id_multilocation.into(),
+					foreign_asset_id_location.into(),
 					<span class="kw-2">&amp;</span>block_author_account
 				),
 				<span class="number">0</span>.into()
@@ -1247,14 +1266,15 @@
 
 				<span class="comment">// Call received XCM execution
 				</span><span class="kw">let </span>xcm = <span class="kw">if </span>is_congested { congested_message() } <span class="kw">else </span>{ uncongested_message() };
-				<span class="kw">let </span>hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+				<span class="kw">let </span><span class="kw-2">mut </span>hash = xcm.using_encoded(sp_io::hashing::blake2_256);
 
 				<span class="comment">// execute xcm as XcmpQueue would do
-				</span><span class="kw">let </span>outcome = XcmExecutor::&lt;XcmConfig&gt;::execute_xcm(
+				</span><span class="kw">let </span>outcome = XcmExecutor::&lt;XcmConfig&gt;::prepare_and_execute(
 					local_bridge_hub_location,
 					xcm,
-					hash,
+					<span class="kw-2">&amp;mut </span>hash,
 					RuntimeHelper::&lt;Runtime, AllPalletsWithoutSystem&gt;::xcm_max_weight(XcmReceivedFrom::Sibling),
+					Weight::zero(),
 				);
 				<span class="macro">assert_ok!</span>(outcome.ensure_complete());
 				<span class="macro">assert_eq!</span>(is_congested, pallet_xcm_bridge_hub_router::Pallet::&lt;Runtime, XcmBridgeHubRouterInstance&gt;::bridge().is_congested);

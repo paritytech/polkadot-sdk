@@ -89,14 +89,14 @@
 		</span><span class="kw">type </span>CheckedAccount: Get&lt;<span class="prelude-ty">Option</span>&lt;(<span class="self">Self</span>::AccountId, xcm_builder::MintLocation)&gt;&gt;;
 
 		<span class="doccomment">/// A trusted location which we allow teleports from, and the asset we allow to teleport.
-		</span><span class="kw">type </span>TrustedTeleporter: Get&lt;<span class="prelude-ty">Option</span>&lt;(xcm::latest::MultiLocation, xcm::latest::MultiAsset)&gt;&gt;;
+		</span><span class="kw">type </span>TrustedTeleporter: Get&lt;<span class="prelude-ty">Option</span>&lt;(xcm::latest::Location, xcm::latest::Asset)&gt;&gt;;
 
 		<span class="doccomment">/// A trusted location where reserve assets are stored, and the asset we allow to be
 		/// reserves.
-		</span><span class="kw">type </span>TrustedReserve: Get&lt;<span class="prelude-ty">Option</span>&lt;(xcm::latest::MultiLocation, xcm::latest::MultiAsset)&gt;&gt;;
+		</span><span class="kw">type </span>TrustedReserve: Get&lt;<span class="prelude-ty">Option</span>&lt;(xcm::latest::Location, xcm::latest::Asset)&gt;&gt;;
 
 		<span class="doccomment">/// Give me a fungible asset that your asset transactor is going to accept.
-		</span><span class="kw">fn </span>get_multi_asset() -&gt; xcm::latest::MultiAsset;
+		</span><span class="kw">fn </span>get_asset() -&gt; xcm::latest::Asset;
 	}
 
 	<span class="attr">#[pallet::pallet]

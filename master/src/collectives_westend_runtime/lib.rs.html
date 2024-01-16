@@ -1473,7 +1473,7 @@
 
 <span class="macro">parameter_types! </span>{
 	<span class="doccomment">/// The asset ID for the asset that we use to pay for message delivery fees.
-	</span><span class="kw">pub </span>FeeAssetId: AssetId = Concrete(xcm_config::WndLocation::get());
+	</span><span class="kw">pub </span>FeeAssetId: AssetId = AssetId(xcm_config::WndLocation::get());
 	<span class="doccomment">/// The base fee for the message delivery fees.
 	</span><span class="kw">pub const </span>BaseDeliveryFee: u128 = CENTS.saturating_mul(<span class="number">3</span>);
 }
@@ -2020,28 +2020,28 @@
 
 			<span class="kw">use </span>pallet_xcm::benchmarking::Pallet <span class="kw">as </span>PalletXcmExtrinsicsBenchmark;
 			<span class="kw">impl </span>pallet_xcm::benchmarking::Config <span class="kw">for </span>Runtime {
-				<span class="kw">fn </span>reachable_dest() -&gt; <span class="prelude-ty">Option</span>&lt;MultiLocation&gt; {
+				<span class="kw">fn </span>reachable_dest() -&gt; <span class="prelude-ty">Option</span>&lt;Location&gt; {
 					<span class="prelude-val">Some</span>(Parent.into())
 				}
 
-				<span class="kw">fn </span>teleportable_asset_and_dest() -&gt; <span class="prelude-ty">Option</span>&lt;(MultiAsset, MultiLocation)&gt; {
+				<span class="kw">fn </span>teleportable_asset_and_dest() -&gt; <span class="prelude-ty">Option</span>&lt;(Asset, Location)&gt; {
 					<span class="comment">// Relay/native token can be teleported between Collectives and Relay.
 					</span><span class="prelude-val">Some</span>((
-						MultiAsset {
+						Asset {
 							fun: Fungible(EXISTENTIAL_DEPOSIT),
-							id: Concrete(Parent.into())
+							id: AssetId(Parent.into())
 						}.into(),
 						Parent.into(),
 					))
 				}
 
-				<span class="kw">fn </span>reserve_transferable_asset_and_dest() -&gt; <span class="prelude-ty">Option</span>&lt;(MultiAsset, MultiLocation)&gt; {
+				<span class="kw">fn </span>reserve_transferable_asset_and_dest() -&gt; <span class="prelude-ty">Option</span>&lt;(Asset, Location)&gt; {
 					<span class="comment">// Reserve transfers are disabled on Collectives.
 					</span><span class="prelude-val">None
 				</span>}
 
 				<span class="kw">fn </span>set_up_complex_asset_transfer(
-				) -&gt; <span class="prelude-ty">Option</span>&lt;(MultiAssets, u32, MultiLocation, Box&lt;<span class="kw">dyn </span>FnOnce()&gt;)&gt; {
+				) -&gt; <span class="prelude-ty">Option</span>&lt;(Assets, u32, Location, Box&lt;<span class="kw">dyn </span>FnOnce()&gt;)&gt; {
 					<span class="comment">// Collectives only supports teleports to system parachain.
 					// Relay/native token can be teleported between Collectives and Relay.
 					</span><span class="kw">let </span>native_location = Parent.into();

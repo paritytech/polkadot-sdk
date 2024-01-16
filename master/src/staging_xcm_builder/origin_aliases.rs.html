@@ -36,6 +36,8 @@
 <a href="#36" id="36">36</a>
 <a href="#37" id="37">37</a>
 <a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
+<a href="#40" id="40">40</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -52,7 +54,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="doccomment">//! Implementation for `ContainsPair&lt;MultiLocation, MultiLocation&gt;`.
+</span><span class="doccomment">//! Implementation for `ContainsPair&lt;Location, Location&gt;`.
 
 </span><span class="kw">use </span>frame_support::traits::{Contains, ContainsPair};
 <span class="kw">use </span>sp_std::marker::PhantomData;
@@ -63,13 +65,15 @@
 ///
 /// Requires that the prefixed origin `AccountId32` matches the target `AccountId32`.
 </span><span class="kw">pub struct </span>AliasForeignAccountId32&lt;Prefix&gt;(PhantomData&lt;Prefix&gt;);
-<span class="kw">impl</span>&lt;Prefix: Contains&lt;MultiLocation&gt;&gt; ContainsPair&lt;MultiLocation, MultiLocation&gt;
+<span class="kw">impl</span>&lt;Prefix: Contains&lt;Location&gt;&gt; ContainsPair&lt;Location, Location&gt;
 	<span class="kw">for </span>AliasForeignAccountId32&lt;Prefix&gt;
 {
-	<span class="kw">fn </span>contains(origin: <span class="kw-2">&amp;</span>MultiLocation, target: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
-		<span class="kw">if let </span>(prefix, <span class="prelude-val">Some</span>(account_id @ AccountId32 { .. })) = origin.split_last_interior() {
+	<span class="kw">fn </span>contains(origin: <span class="kw-2">&amp;</span>Location, target: <span class="kw-2">&amp;</span>Location) -&gt; bool {
+		<span class="kw">if let </span>(prefix, <span class="prelude-val">Some</span>(account_id @ AccountId32 { .. })) =
+			origin.clone().split_last_interior()
+		{
 			<span class="kw">return </span>Prefix::contains(<span class="kw-2">&amp;</span>prefix) &amp;&amp;
-				<span class="kw-2">*</span>target == MultiLocation { parents: <span class="number">0</span>, interior: X1(account_id) }
+				<span class="kw-2">*</span>target == Location { parents: <span class="number">0</span>, interior: [account_id].into() }
 		}
 		<span class="bool-val">false
 	</span>}

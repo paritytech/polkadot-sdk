@@ -310,14 +310,6 @@
 <a href="#310" id="310">310</a>
 <a href="#311" id="311">311</a>
 <a href="#312" id="312">312</a>
-<a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a>
-<a href="#315" id="315">315</a>
-<a href="#316" id="316">316</a>
-<a href="#317" id="317">317</a>
-<a href="#318" id="318">318</a>
-<a href="#319" id="319">319</a>
-<a href="#320" id="320">320</a>
 </pre></div><pre class="rust"><code><span class="comment">// SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
 </span><span class="doccomment">//! Converts messages from Ethereum to XCM messages
@@ -481,13 +473,13 @@
 {
 	<span class="kw">fn </span>convert_register_token(chain_id: u64, token: H160, fee: u128) -&gt; (Xcm&lt;()&gt;, Balance) {
 		<span class="kw">let </span>network = Ethereum { chain_id };
-		<span class="kw">let </span>xcm_fee: MultiAsset = (MultiLocation::parent(), fee).into();
-		<span class="kw">let </span>deposit: MultiAsset = (MultiLocation::parent(), CreateAssetDeposit::get()).into();
+		<span class="kw">let </span>xcm_fee: Asset = (Location::parent(), fee).into();
+		<span class="kw">let </span>deposit: Asset = (Location::parent(), CreateAssetDeposit::get()).into();
 
 		<span class="kw">let </span>total_amount = fee + CreateAssetDeposit::get();
-		<span class="kw">let </span>total: MultiAsset = (MultiLocation::parent(), total_amount).into();
+		<span class="kw">let </span>total: Asset = (Location::parent(), total_amount).into();
 
-		<span class="kw">let </span>bridge_location: MultiLocation = (Parent, Parent, GlobalConsensus(network)).into();
+		<span class="kw">let </span>bridge_location: Location = (Parent, Parent, GlobalConsensus(network)).into();
 
 		<span class="kw">let </span>owner = GlobalConsensusEthereumConvertsFor::&lt;[u8; <span class="number">32</span>]&gt;::from_chain_id(<span class="kw-2">&amp;</span>chain_id);
 		<span class="kw">let </span>asset_id = <span class="self">Self</span>::convert_token_address(network, token);
@@ -502,7 +494,7 @@
 			<span class="comment">// Fund the snowbridge sovereign with the required deposit for creation.
 			</span>DepositAsset { assets: Definite(deposit.into()), beneficiary: bridge_location },
 			<span class="comment">// Only our inbound-queue pallet is allowed to invoke `UniversalOrigin`
-			</span>DescendOrigin(X1(PalletInstance(inbound_queue_pallet_index))),
+			</span>DescendOrigin(PalletInstance(inbound_queue_pallet_index).into()),
 			<span class="comment">// Change origin to the bridge.
 			</span>UniversalOrigin(GlobalConsensus(network)),
 			<span class="comment">// Call create_asset on foreign assets pallet.
@@ -536,40 +528,37 @@
 		asset_hub_fee: u128,
 	) -&gt; (Xcm&lt;()&gt;, Balance) {
 		<span class="kw">let </span>network = Ethereum { chain_id };
-		<span class="kw">let </span>asset_hub_fee_asset: MultiAsset = (MultiLocation::parent(), asset_hub_fee).into();
-		<span class="kw">let </span>asset: MultiAsset = (<span class="self">Self</span>::convert_token_address(network, token), amount).into();
+		<span class="kw">let </span>asset_hub_fee_asset: Asset = (Location::parent(), asset_hub_fee).into();
+		<span class="kw">let </span>asset: Asset = (<span class="self">Self</span>::convert_token_address(network, token), amount).into();
 
 		<span class="kw">let </span>(dest_para_id, beneficiary, dest_para_fee) = <span class="kw">match </span>destination {
 			<span class="comment">// Final destination is a 32-byte account on AssetHub
-			</span>Destination::AccountId32 { id } =&gt; (
-				<span class="prelude-val">None</span>,
-				MultiLocation { parents: <span class="number">0</span>, interior: X1(AccountId32 { network: <span class="prelude-val">None</span>, id }) },
-				<span class="number">0</span>,
-			),
+			</span>Destination::AccountId32 { id } =&gt;
+				(<span class="prelude-val">None</span>, Location::new(<span class="number">0</span>, [AccountId32 { network: <span class="prelude-val">None</span>, id }]), <span class="number">0</span>),
 			<span class="comment">// Final destination is a 32-byte account on a sibling of AssetHub
 			</span>Destination::ForeignAccountId32 { para_id, id, fee } =&gt; (
 				<span class="prelude-val">Some</span>(para_id),
-				MultiLocation { parents: <span class="number">0</span>, interior: X1(AccountId32 { network: <span class="prelude-val">None</span>, id }) },
+				Location::new(<span class="number">0</span>, [AccountId32 { network: <span class="prelude-val">None</span>, id }]),
 				<span class="comment">// Total fee needs to cover execution on AssetHub and Sibling
 				</span>fee,
 			),
 			<span class="comment">// Final destination is a 20-byte account on a sibling of AssetHub
 			</span>Destination::ForeignAccountId20 { para_id, id, fee } =&gt; (
 				<span class="prelude-val">Some</span>(para_id),
-				MultiLocation { parents: <span class="number">0</span>, interior: X1(AccountKey20 { network: <span class="prelude-val">None</span>, key: id }) },
+				Location::new(<span class="number">0</span>, [AccountKey20 { network: <span class="prelude-val">None</span>, key: id }]),
 				<span class="comment">// Total fee needs to cover execution on AssetHub and Sibling
 				</span>fee,
 			),
 		};
 
 		<span class="kw">let </span>total_fees = asset_hub_fee.saturating_add(dest_para_fee);
-		<span class="kw">let </span>total_fee_asset: MultiAsset = (MultiLocation::parent(), total_fees).into();
+		<span class="kw">let </span>total_fee_asset: Asset = (Location::parent(), total_fees).into();
 		<span class="kw">let </span>inbound_queue_pallet_index = InboundQueuePalletInstance::get();
 
 		<span class="kw">let </span><span class="kw-2">mut </span>instructions = <span class="macro">vec!</span>[
 			ReceiveTeleportedAsset(total_fee_asset.into()),
 			BuyExecution { fees: asset_hub_fee_asset, weight_limit: Unlimited },
-			DescendOrigin(X1(PalletInstance(inbound_queue_pallet_index))),
+			DescendOrigin(PalletInstance(inbound_queue_pallet_index).into()),
 			UniversalOrigin(GlobalConsensus(network)),
 			ReserveAssetDeposited(asset.clone().into()),
 			ClearOrigin,
@@ -577,14 +566,13 @@
 
 		<span class="kw">match </span>dest_para_id {
 			<span class="prelude-val">Some</span>(dest_para_id) =&gt; {
-				<span class="kw">let </span>dest_para_fee_asset: MultiAsset =
-					(MultiLocation::parent(), dest_para_fee).into();
+				<span class="kw">let </span>dest_para_fee_asset: Asset = (Location::parent(), dest_para_fee).into();
 
 				instructions.extend(<span class="macro">vec!</span>[
 					<span class="comment">// Perform a deposit reserve to send to destination chain.
 					</span>DepositReserveAsset {
 						assets: Definite(<span class="macro">vec!</span>[dest_para_fee_asset.clone(), asset.clone()].into()),
-						dest: MultiLocation { parents: <span class="number">1</span>, interior: X1(Parachain(dest_para_id)) },
+						dest: Location::new(<span class="number">1</span>, [Parachain(dest_para_id)]),
 						xcm: <span class="macro">vec!</span>[
 							<span class="comment">// Buy execution on target.
 							</span>BuyExecution { fees: dest_para_fee_asset, weight_limit: Unlimited },
@@ -606,15 +594,12 @@
 		(instructions.into(), total_fees.into())
 	}
 
-	<span class="comment">// Convert ERC20 token address to a Multilocation that can be understood by Assets Hub.
-	</span><span class="kw">fn </span>convert_token_address(network: NetworkId, token: H160) -&gt; MultiLocation {
-		MultiLocation {
-			parents: <span class="number">2</span>,
-			interior: X2(
-				GlobalConsensus(network),
-				AccountKey20 { network: <span class="prelude-val">None</span>, key: token.into() },
-			),
-		}
+	<span class="comment">// Convert ERC20 token address to a location that can be understood by Assets Hub.
+	</span><span class="kw">fn </span>convert_token_address(network: NetworkId, token: H160) -&gt; Location {
+		Location::new(
+			<span class="number">2</span>,
+			[GlobalConsensus(network), AccountKey20 { network: <span class="prelude-val">None</span>, key: token.into() }],
+		)
 	}
 }
 
@@ -623,13 +608,12 @@
 <span class="kw">where
 	</span>AccountId: From&lt;[u8; <span class="number">32</span>]&gt; + Clone,
 {
-	<span class="kw">fn </span>convert_location(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
-		<span class="kw">if let </span>MultiLocation { interior: X1(GlobalConsensus(Ethereum { chain_id })), .. } = location
-		{
-			<span class="prelude-val">Some</span>(<span class="self">Self</span>::from_chain_id(chain_id).into())
-		} <span class="kw">else </span>{
-			<span class="prelude-val">None
-		</span>}
+	<span class="kw">fn </span>convert_location(location: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
+		<span class="kw">match </span>location.unpack() {
+			(<span class="kw">_</span>, [GlobalConsensus(Ethereum { chain_id })]) =&gt;
+				<span class="prelude-val">Some</span>(<span class="self">Self</span>::from_chain_id(chain_id).into()),
+			<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+		}
 	}
 }
 

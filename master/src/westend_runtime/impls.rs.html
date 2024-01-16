@@ -176,8 +176,6 @@
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -202,7 +200,7 @@
 <span class="kw">use </span>runtime_common::identity_migrator::{OnReapIdentity, WeightInfo};
 <span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>westend_runtime_constants::currency::<span class="kw-2">*</span>;
-<span class="kw">use </span>xcm::{latest::prelude::<span class="kw-2">*</span>, VersionedMultiLocation, VersionedXcm};
+<span class="kw">use </span>xcm::{latest::prelude::<span class="kw-2">*</span>, VersionedLocation, VersionedXcm};
 <span class="kw">use </span>xcm_executor::traits::TransactAsset;
 
 <span class="doccomment">/// A type containing the encoding of the People Chain pallets in its runtime. Used to construct any
@@ -275,9 +273,9 @@
 		<span class="kw">let </span>total_to_send = <span class="self">Self</span>::calculate_remote_deposit(fields, subs);
 
 		<span class="comment">// define asset / destination from relay perspective
-		</span><span class="kw">let </span>wnd = MultiAsset { id: Concrete(Here.into_location()), fun: Fungible(total_to_send) };
+		</span><span class="kw">let </span>wnd = Asset { id: AssetId(Here.into_location()), fun: Fungible(total_to_send) };
 		<span class="comment">// People Chain: ParaId 1004
-		</span><span class="kw">let </span>destination: MultiLocation = MultiLocation::new(<span class="number">0</span>, Parachain(<span class="number">1004</span>));
+		</span><span class="kw">let </span>destination: Location = Location::new(<span class="number">0</span>, Parachain(<span class="number">1004</span>));
 
 		<span class="comment">// Do `check_out` accounting since the XCM Executor&#39;s `InitiateTeleport` doesn&#39;t support
 		// unpaid teleports.
@@ -318,11 +316,9 @@
 		);
 
 		<span class="comment">// reanchor
-		</span><span class="kw">let </span>wnd_reanchored: MultiAssets = <span class="macro">vec!</span>[MultiAsset {
-			id: Concrete(MultiLocation::new(<span class="number">1</span>, Here)),
-			fun: Fungible(total_to_send),
-		}]
-		.into();
+		</span><span class="kw">let </span>wnd_reanchored: Assets =
+			<span class="macro">vec!</span>[Asset { id: AssetId(Location::new(<span class="number">1</span>, Here)), fun: Fungible(total_to_send) }]
+				.into();
 
 		<span class="kw">let </span>poke = PeopleRuntimePallets::&lt;AccountId&gt;::IdentityMigrator(PokeDeposit(who.clone()));
 		<span class="kw">let </span>remote_weight_limit = MigratorWeights::&lt;Runtime&gt;::poke_deposit().saturating_mul(<span class="number">2</span>);
@@ -352,8 +348,8 @@
 		<span class="comment">// send
 		</span><span class="kw">let _ </span>= &lt;pallet_xcm::Pallet&lt;Runtime&gt;&gt;::send(
 			RawOrigin::Root.into(),
-			Box::new(VersionedMultiLocation::V3(destination)),
-			Box::new(VersionedXcm::V3(program)),
+			Box::new(VersionedLocation::V4(destination)),
+			Box::new(VersionedXcm::V4(program)),
 		)<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(())
 	}

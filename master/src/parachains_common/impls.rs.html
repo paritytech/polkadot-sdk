@@ -368,8 +368,8 @@
 <span class="kw">use </span>sp_runtime::traits::Zero;
 <span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>xcm::latest::{
-	AssetId, Fungibility, Fungibility::Fungible, Junction, Junctions::Here, MultiAsset,
-	MultiLocation, Parent, WeightLimit,
+	Asset, AssetId, Fungibility, Fungibility::Fungible, Junction, Junctions::Here, Location,
+	Parent, WeightLimit,
 };
 <span class="kw">use </span>xcm_executor::traits::ConvertLocation;
 
@@ -457,11 +457,11 @@
 
 <span class="doccomment">/// Asset filter that allows all assets from a certain location.
 </span><span class="kw">pub struct </span>AssetsFrom&lt;T&gt;(PhantomData&lt;T&gt;);
-<span class="kw">impl</span>&lt;T: Get&lt;MultiLocation&gt;&gt; ContainsPair&lt;MultiAsset, MultiLocation&gt; <span class="kw">for </span>AssetsFrom&lt;T&gt; {
-	<span class="kw">fn </span>contains(asset: <span class="kw-2">&amp;</span>MultiAsset, origin: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
+<span class="kw">impl</span>&lt;T: Get&lt;Location&gt;&gt; ContainsPair&lt;Asset, Location&gt; <span class="kw">for </span>AssetsFrom&lt;T&gt; {
+	<span class="kw">fn </span>contains(asset: <span class="kw-2">&amp;</span>Asset, origin: <span class="kw-2">&amp;</span>Location) -&gt; bool {
 		<span class="kw">let </span>loc = T::get();
 		<span class="kw-2">&amp;</span>loc == origin &amp;&amp;
-			<span class="macro">matches!</span>(asset, MultiAsset { id: AssetId::Concrete(asset_loc), fun: Fungible(_a) }
+			<span class="macro">matches!</span>(asset, Asset { id: AssetId(asset_loc), fun: Fungible(_a) }
 			<span class="kw">if </span>asset_loc.match_and_split(<span class="kw-2">&amp;</span>loc).is_some())
 	}
 }
@@ -492,7 +492,7 @@
 			<span class="prelude-val">Err</span>(amount) =&gt; amount,
 		};
 		<span class="kw">let </span>imbalance = amount.peek();
-		<span class="kw">let </span>root_location: MultiLocation = Here.into();
+		<span class="kw">let </span>root_location: Location = Here.into();
 		<span class="kw">let </span>root_account: AccountIdOf&lt;T&gt; =
 			<span class="kw">match </span>AccountIdConverter::convert_location(<span class="kw-2">&amp;</span>root_location) {
 				<span class="prelude-val">Some</span>(a) =&gt; a,
@@ -673,13 +673,13 @@
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>assets_from_filters_correctly() {
 		<span class="macro">parameter_types! </span>{
-			<span class="kw">pub </span>SomeSiblingParachain: MultiLocation = MultiLocation::new(<span class="number">1</span>, X1(Parachain(<span class="number">1234</span>)));
+			<span class="kw">pub </span>SomeSiblingParachain: Location = (Parent, Parachain(<span class="number">1234</span>)).into();
 		}
 
 		<span class="kw">let </span>asset_location = SomeSiblingParachain::get()
 			.pushed_with_interior(GeneralIndex(<span class="number">42</span>))
-			.expect(<span class="string">&quot;multilocation will only have 2 junctions; qed&quot;</span>);
-		<span class="kw">let </span>asset = MultiAsset { id: Concrete(asset_location), fun: <span class="number">1_000_000u128</span>.into() };
+			.expect(<span class="string">&quot;location will only have 2 junctions; qed&quot;</span>);
+		<span class="kw">let </span>asset = Asset { id: AssetId(asset_location), fun: <span class="number">1_000_000u128</span>.into() };
 		<span class="macro">assert!</span>(
 			AssetsFrom::&lt;SomeSiblingParachain&gt;::contains(<span class="kw-2">&amp;</span>asset, <span class="kw-2">&amp;</span>SomeSiblingParachain::get()),
 			<span class="string">&quot;AssetsFrom should allow assets from any of its interior locations&quot;

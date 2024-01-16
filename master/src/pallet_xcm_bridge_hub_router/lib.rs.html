@@ -566,15 +566,6 @@
 <a href="#566" id="566">566</a>
 <a href="#567" id="567">567</a>
 <a href="#568" id="568">568</a>
-<a href="#569" id="569">569</a>
-<a href="#570" id="570">570</a>
-<a href="#571" id="571">571</a>
-<a href="#572" id="572">572</a>
-<a href="#573" id="573">573</a>
-<a href="#574" id="574">574</a>
-<a href="#575" id="575">575</a>
-<a href="#576" id="576">576</a>
-<a href="#577" id="577">577</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -657,7 +648,7 @@
 		</span><span class="kw">type </span>WeightInfo: WeightInfo;
 
 		<span class="doccomment">/// Universal location of this runtime.
-		</span><span class="kw">type </span>UniversalLocation: Get&lt;InteriorMultiLocation&gt;;
+		</span><span class="kw">type </span>UniversalLocation: Get&lt;InteriorLocation&gt;;
 		<span class="doccomment">/// The bridged network that this config is for if specified.
 		/// Also used for filtering `Bridges` by `BridgedNetworkId`.
 		/// If not specified, allows all networks pass through.
@@ -812,9 +803,9 @@
 </span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; ExporterFor <span class="kw">for </span>Pallet&lt;T, I&gt; {
 	<span class="kw">fn </span>exporter_for(
 		network: <span class="kw-2">&amp;</span>NetworkId,
-		remote_location: <span class="kw-2">&amp;</span>InteriorMultiLocation,
+		remote_location: <span class="kw-2">&amp;</span>InteriorLocation,
 		message: <span class="kw-2">&amp;</span>Xcm&lt;()&gt;,
-	) -&gt; <span class="prelude-ty">Option</span>&lt;(MultiLocation, <span class="prelude-ty">Option</span>&lt;MultiAsset&gt;)&gt; {
+	) -&gt; <span class="prelude-ty">Option</span>&lt;(Location, <span class="prelude-ty">Option</span>&lt;Asset&gt;)&gt; {
 		<span class="comment">// ensure that the message is sent to the expected bridged network (if specified).
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(bridged_network) = T::BridgedNetworkId::get() {
 			<span class="kw">if </span><span class="kw-2">*</span>network != bridged_network {
@@ -845,7 +836,7 @@
 		<span class="comment">// take `base_fee` from `T::Brides`, but it has to be the same `T::FeeAsset`
 		</span><span class="kw">let </span>base_fee = <span class="kw">match </span>maybe_payment {
 			<span class="prelude-val">Some</span>(payment) =&gt; <span class="kw">match </span>payment {
-				MultiAsset { fun: Fungible(amount), id } <span class="kw">if </span>id.eq(<span class="kw-2">&amp;</span>T::FeeAsset::get()) =&gt; amount,
+				Asset { fun: Fungible(amount), id } <span class="kw">if </span>id.eq(<span class="kw-2">&amp;</span>T::FeeAsset::get()) =&gt; amount,
 				invalid_asset =&gt; {
 					<span class="macro">log::error!</span>(
 						target: LOG_TARGET,
@@ -895,7 +886,7 @@
 	<span class="kw">type </span>Ticket = (u32, &lt;T::ToBridgeHubSender <span class="kw">as </span>SendXcm&gt;::Ticket);
 
 	<span class="kw">fn </span>validate(
-		dest: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;MultiLocation&gt;,
+		dest: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Location&gt;,
 		xcm: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;,
 	) -&gt; SendResult&lt;<span class="self">Self</span>::Ticket&gt; {
 		<span class="comment">// `dest` and `xcm` are required here
@@ -1023,7 +1014,7 @@
 		run_test(|| {
 			<span class="macro">assert_eq!</span>(
 				send_xcm::&lt;XcmBridgeHubRouter&gt;(
-					MultiLocation::new(<span class="number">2</span>, X2(GlobalConsensus(Rococo), Parachain(<span class="number">1000</span>))),
+					Location::new(<span class="number">2</span>, [GlobalConsensus(Rococo), Parachain(<span class="number">1000</span>)]),
 					<span class="macro">vec!</span>[].into(),
 				),
 				<span class="prelude-val">Err</span>(SendError::NotApplicable),
@@ -1036,7 +1027,7 @@
 		run_test(|| {
 			<span class="macro">assert_eq!</span>(
 				send_xcm::&lt;XcmBridgeHubRouter&gt;(
-					MultiLocation::new(<span class="number">2</span>, X2(GlobalConsensus(Rococo), Parachain(<span class="number">1000</span>))),
+					Location::new(<span class="number">2</span>, [GlobalConsensus(Rococo), Parachain(<span class="number">1000</span>)]),
 					<span class="macro">vec!</span>[ClearOrigin; HARD_MESSAGE_SIZE_LIMIT <span class="kw">as </span>usize].into(),
 				),
 				<span class="prelude-val">Err</span>(SendError::ExceedsMaxMessageSize),
@@ -1060,14 +1051,14 @@
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>returns_proper_delivery_price() {
 		run_test(|| {
-			<span class="kw">let </span>dest = MultiLocation::new(<span class="number">2</span>, X1(GlobalConsensus(BridgedNetworkId::get())));
+			<span class="kw">let </span>dest = Location::new(<span class="number">2</span>, [GlobalConsensus(BridgedNetworkId::get())]);
 			<span class="kw">let </span>xcm: Xcm&lt;()&gt; = <span class="macro">vec!</span>[ClearOrigin].into();
 			<span class="kw">let </span>msg_size = xcm.encoded_size();
 
 			<span class="comment">// initially the base fee is used: `BASE_FEE + BYTE_FEE * msg_size + HRMP_FEE`
 			</span><span class="kw">let </span>expected_fee = BASE_FEE + BYTE_FEE * (msg_size <span class="kw">as </span>u128) + HRMP_FEE;
 			<span class="macro">assert_eq!</span>(
-				XcmBridgeHubRouter::validate(<span class="kw-2">&amp;mut </span><span class="prelude-val">Some</span>(dest), <span class="kw-2">&amp;mut </span><span class="prelude-val">Some</span>(xcm.clone()))
+				XcmBridgeHubRouter::validate(<span class="kw-2">&amp;mut </span><span class="prelude-val">Some</span>(dest.clone()), <span class="kw-2">&amp;mut </span><span class="prelude-val">Some</span>(xcm.clone()))
 					.unwrap()
 					.<span class="number">1
 					</span>.get(<span class="number">0</span>),
@@ -1095,10 +1086,7 @@
 		run_test(|| {
 			<span class="kw">let </span>old_bridge = XcmBridgeHubRouter::bridge();
 			<span class="macro">assert_ok!</span>(send_xcm::&lt;XcmBridgeHubRouter&gt;(
-				MultiLocation::new(
-					<span class="number">2</span>,
-					X2(GlobalConsensus(BridgedNetworkId::get()), Parachain(<span class="number">1000</span>))
-				),
+				Location::new(<span class="number">2</span>, [GlobalConsensus(BridgedNetworkId::get()), Parachain(<span class="number">1000</span>)]),
 				<span class="macro">vec!</span>[ClearOrigin].into(),
 			)
 			.map(drop));
@@ -1115,10 +1103,7 @@
 
 			<span class="kw">let </span>old_bridge = XcmBridgeHubRouter::bridge();
 			<span class="macro">assert_ok!</span>(send_xcm::&lt;XcmBridgeHubRouter&gt;(
-				MultiLocation::new(
-					<span class="number">2</span>,
-					X2(GlobalConsensus(BridgedNetworkId::get()), Parachain(<span class="number">1000</span>))
-				),
+				Location::new(<span class="number">2</span>, [GlobalConsensus(BridgedNetworkId::get()), Parachain(<span class="number">1000</span>)]),
 				<span class="macro">vec!</span>[ClearOrigin].into(),
 			)
 			.map(drop));
@@ -1137,10 +1122,7 @@
 
 			<span class="kw">let </span>old_bridge = XcmBridgeHubRouter::bridge();
 			<span class="macro">assert_ok!</span>(send_xcm::&lt;XcmBridgeHubRouter&gt;(
-				MultiLocation::new(
-					<span class="number">2</span>,
-					X2(GlobalConsensus(BridgedNetworkId::get()), Parachain(<span class="number">1000</span>))
-				),
+				Location::new(<span class="number">2</span>, [GlobalConsensus(BridgedNetworkId::get()), Parachain(<span class="number">1000</span>)]),
 				<span class="macro">vec!</span>[ClearOrigin].into(),
 			)
 			.map(drop));

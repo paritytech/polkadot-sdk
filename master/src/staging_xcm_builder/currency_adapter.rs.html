@@ -236,10 +236,6 @@
 <a href="#236" id="236">236</a>
 <a href="#237" id="237">237</a>
 <a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
-<a href="#242" id="242">242</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -264,17 +260,17 @@
 <span class="kw">use </span>frame_support::traits::{ExistenceRequirement::AllowDeath, Get, WithdrawReasons};
 <span class="kw">use </span>sp_runtime::traits::CheckedSub;
 <span class="kw">use </span>sp_std::{marker::PhantomData, result};
-<span class="kw">use </span>xcm::latest::{Error <span class="kw">as </span>XcmError, MultiAsset, MultiLocation, <span class="prelude-ty">Result</span>, XcmContext};
+<span class="kw">use </span>xcm::latest::{Asset, Error <span class="kw">as </span>XcmError, Location, <span class="prelude-ty">Result</span>, XcmContext};
 <span class="kw">use </span>xcm_executor::{
 	traits::{ConvertLocation, MatchesFungible, TransactAsset},
-	Assets,
+	AssetsInHolding,
 };
 
 <span class="doccomment">/// Asset transaction errors.
 </span><span class="kw">enum </span>Error {
 	<span class="doccomment">/// The given asset is not handled. (According to [`XcmError::AssetNotFound`])
 	</span>AssetNotHandled,
-	<span class="doccomment">/// `MultiLocation` to `AccountId` conversion failed.
+	<span class="doccomment">/// `Location` to `AccountId` conversion failed.
 	</span>AccountIdConversionFailed,
 }
 
@@ -304,7 +300,7 @@
 ///
 /// /// Our relay chain&#39;s location.
 /// parameter_types! {
-///     pub RelayChain: MultiLocation = Parent.into();
+///     pub RelayChain: Location = Parent.into();
 ///     pub CheckingAccount: AccountId = PalletId(*b&quot;checking&quot;).into_account_truncating();
 /// }
 ///
@@ -384,7 +380,7 @@
 	&gt; TransactAsset
 	<span class="kw">for </span>CurrencyAdapter&lt;Currency, Matcher, AccountIdConverter, AccountId, CheckedAccount&gt;
 {
-	<span class="kw">fn </span>can_check_in(_origin: <span class="kw-2">&amp;</span>MultiLocation, what: <span class="kw-2">&amp;</span>MultiAsset, _context: <span class="kw-2">&amp;</span>XcmContext) -&gt; <span class="prelude-ty">Result </span>{
+	<span class="kw">fn </span>can_check_in(_origin: <span class="kw-2">&amp;</span>Location, what: <span class="kw-2">&amp;</span>Asset, _context: <span class="kw-2">&amp;</span>XcmContext) -&gt; <span class="prelude-ty">Result </span>{
 		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::currency_adapter&quot;</span>, <span class="string">&quot;can_check_in origin: {:?}, what: {:?}&quot;</span>, _origin, what);
 		<span class="comment">// Check we handle this asset.
 		</span><span class="kw">let </span>amount: Currency::Balance =
@@ -398,7 +394,7 @@
 		}
 	}
 
-	<span class="kw">fn </span>check_in(_origin: <span class="kw-2">&amp;</span>MultiLocation, what: <span class="kw-2">&amp;</span>MultiAsset, _context: <span class="kw-2">&amp;</span>XcmContext) {
+	<span class="kw">fn </span>check_in(_origin: <span class="kw-2">&amp;</span>Location, what: <span class="kw-2">&amp;</span>Asset, _context: <span class="kw-2">&amp;</span>XcmContext) {
 		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::currency_adapter&quot;</span>, <span class="string">&quot;check_in origin: {:?}, what: {:?}&quot;</span>, _origin, what);
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(amount) = Matcher::matches_fungible(what) {
 			<span class="kw">match </span>CheckedAccount::get() {
@@ -411,7 +407,7 @@
 		}
 	}
 
-	<span class="kw">fn </span>can_check_out(_dest: <span class="kw-2">&amp;</span>MultiLocation, what: <span class="kw-2">&amp;</span>MultiAsset, _context: <span class="kw-2">&amp;</span>XcmContext) -&gt; <span class="prelude-ty">Result </span>{
+	<span class="kw">fn </span>can_check_out(_dest: <span class="kw-2">&amp;</span>Location, what: <span class="kw-2">&amp;</span>Asset, _context: <span class="kw-2">&amp;</span>XcmContext) -&gt; <span class="prelude-ty">Result </span>{
 		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::currency_adapter&quot;</span>, <span class="string">&quot;check_out dest: {:?}, what: {:?}&quot;</span>, _dest, what);
 		<span class="kw">let </span>amount = Matcher::matches_fungible(what).ok_or(Error::AssetNotHandled)<span class="question-mark">?</span>;
 		<span class="kw">match </span>CheckedAccount::get() {
@@ -423,7 +419,7 @@
 		}
 	}
 
-	<span class="kw">fn </span>check_out(_dest: <span class="kw-2">&amp;</span>MultiLocation, what: <span class="kw-2">&amp;</span>MultiAsset, _context: <span class="kw-2">&amp;</span>XcmContext) {
+	<span class="kw">fn </span>check_out(_dest: <span class="kw-2">&amp;</span>Location, what: <span class="kw-2">&amp;</span>Asset, _context: <span class="kw-2">&amp;</span>XcmContext) {
 		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::currency_adapter&quot;</span>, <span class="string">&quot;check_out dest: {:?}, what: {:?}&quot;</span>, _dest, what);
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(amount) = Matcher::matches_fungible(what) {
 			<span class="kw">match </span>CheckedAccount::get() {
@@ -436,11 +432,7 @@
 		}
 	}
 
-	<span class="kw">fn </span>deposit_asset(
-		what: <span class="kw-2">&amp;</span>MultiAsset,
-		who: <span class="kw-2">&amp;</span>MultiLocation,
-		_context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;,
-	) -&gt; <span class="prelude-ty">Result </span>{
+	<span class="kw">fn </span>deposit_asset(what: <span class="kw-2">&amp;</span>Asset, who: <span class="kw-2">&amp;</span>Location, _context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;) -&gt; <span class="prelude-ty">Result </span>{
 		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::currency_adapter&quot;</span>, <span class="string">&quot;deposit_asset what: {:?}, who: {:?}&quot;</span>, what, who);
 		<span class="comment">// Check we handle this asset.
 		</span><span class="kw">let </span>amount = Matcher::matches_fungible(<span class="kw-2">&amp;</span>what).ok_or(Error::AssetNotHandled)<span class="question-mark">?</span>;
@@ -451,10 +443,10 @@
 	}
 
 	<span class="kw">fn </span>withdraw_asset(
-		what: <span class="kw-2">&amp;</span>MultiAsset,
-		who: <span class="kw-2">&amp;</span>MultiLocation,
+		what: <span class="kw-2">&amp;</span>Asset,
+		who: <span class="kw-2">&amp;</span>Location,
 		_maybe_context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;,
-	) -&gt; result::Result&lt;Assets, XcmError&gt; {
+	) -&gt; result::Result&lt;AssetsInHolding, XcmError&gt; {
 		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::currency_adapter&quot;</span>, <span class="string">&quot;withdraw_asset what: {:?}, who: {:?}&quot;</span>, what, who);
 		<span class="comment">// Check we handle this asset.
 		</span><span class="kw">let </span>amount = Matcher::matches_fungible(what).ok_or(Error::AssetNotHandled)<span class="question-mark">?</span>;
@@ -466,11 +458,11 @@
 	}
 
 	<span class="kw">fn </span>internal_transfer_asset(
-		asset: <span class="kw-2">&amp;</span>MultiAsset,
-		from: <span class="kw-2">&amp;</span>MultiLocation,
-		to: <span class="kw-2">&amp;</span>MultiLocation,
+		asset: <span class="kw-2">&amp;</span>Asset,
+		from: <span class="kw-2">&amp;</span>Location,
+		to: <span class="kw-2">&amp;</span>Location,
 		_context: <span class="kw-2">&amp;</span>XcmContext,
-	) -&gt; result::Result&lt;Assets, XcmError&gt; {
+	) -&gt; result::Result&lt;AssetsInHolding, XcmError&gt; {
 		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::currency_adapter&quot;</span>, <span class="string">&quot;internal_transfer_asset asset: {:?}, from: {:?}, to: {:?}&quot;</span>, asset, from, to);
 		<span class="kw">let </span>amount = Matcher::matches_fungible(asset).ok_or(Error::AssetNotHandled)<span class="question-mark">?</span>;
 		<span class="kw">let </span>from =

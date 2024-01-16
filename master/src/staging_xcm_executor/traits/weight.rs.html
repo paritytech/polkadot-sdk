@@ -127,7 +127,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::Assets;
+</span><span class="kw">use </span><span class="kw">crate</span>::AssetsInHolding;
 <span class="kw">use </span>sp_std::result::Result;
 <span class="kw">use </span>xcm::latest::{prelude::<span class="kw-2">*</span>, Weight};
 
@@ -146,7 +146,7 @@
 /// message.
 </span><span class="kw">pub trait </span>UniversalWeigher {
 	<span class="doccomment">/// Get the upper limit of weight required for `dest` to execute `message`.
-	</span><span class="kw">fn </span>weigh(dest: <span class="kw">impl </span>Into&lt;MultiLocation&gt;, message: Xcm&lt;()&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, ()&gt;;
+	</span><span class="kw">fn </span>weigh(dest: <span class="kw">impl </span>Into&lt;Location&gt;, message: Xcm&lt;()&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, ()&gt;;
 }
 
 <span class="doccomment">/// Charge for weight in order to execute XCM.
@@ -165,15 +165,15 @@
 	</span><span class="kw">fn </span>buy_weight(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		weight: Weight,
-		payment: Assets,
+		payment: AssetsInHolding,
 		context: <span class="kw-2">&amp;</span>XcmContext,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Assets, XcmError&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;AssetsInHolding, XcmError&gt;;
 
 	<span class="doccomment">/// Attempt a refund of `weight` into some asset. The caller does not guarantee that the weight
 	/// was purchased using `buy_weight`.
 	///
 	/// Default implementation refunds nothing.
-	</span><span class="kw">fn </span>refund_weight(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _weight: Weight, _context: <span class="kw-2">&amp;</span>XcmContext) -&gt; <span class="prelude-ty">Option</span>&lt;MultiAsset&gt; {
+	</span><span class="kw">fn </span>refund_weight(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _weight: Weight, _context: <span class="kw-2">&amp;</span>XcmContext) -&gt; <span class="prelude-ty">Option</span>&lt;Asset&gt; {
 		<span class="prelude-val">None
 	</span>}
 }
@@ -187,9 +187,9 @@
 	<span class="kw">fn </span>buy_weight(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		weight: Weight,
-		payment: Assets,
+		payment: AssetsInHolding,
 		context: <span class="kw-2">&amp;</span>XcmContext,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Assets, XcmError&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;AssetsInHolding, XcmError&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>too_expensive_error_found = <span class="bool-val">false</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>last_error = <span class="prelude-val">None</span>;
 		<span class="macro">for_tuples!</span>( #(
@@ -215,7 +215,7 @@
 		})
 	}
 
-	<span class="kw">fn </span>refund_weight(<span class="kw-2">&amp;mut </span><span class="self">self</span>, weight: Weight, context: <span class="kw-2">&amp;</span>XcmContext) -&gt; <span class="prelude-ty">Option</span>&lt;MultiAsset&gt; {
+	<span class="kw">fn </span>refund_weight(<span class="kw-2">&amp;mut </span><span class="self">self</span>, weight: Weight, context: <span class="kw-2">&amp;</span>XcmContext) -&gt; <span class="prelude-ty">Option</span>&lt;Asset&gt; {
 		<span class="macro">for_tuples!</span>( #(
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(asset) = Tuple.refund_weight(weight, context) {
 				<span class="kw">return </span><span class="prelude-val">Some</span>(asset);

@@ -811,6 +811,7 @@
 <a href="#811" id="811">811</a>
 <a href="#812" id="812">812</a>
 <a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -848,7 +849,10 @@
 <span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>xcm::{latest::prelude::<span class="kw-2">*</span>, WrapVersion};
 <span class="kw">use </span>xcm_builder::TakeRevenue;
-<span class="kw">use </span>xcm_executor::traits::{MatchesFungibles, TransactAsset, WeightTrader};
+<span class="kw">use </span>xcm_executor::{
+	traits::{MatchesFungibles, TransactAsset, WeightTrader},
+	AssetsInHolding,
+};
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
@@ -869,10 +873,7 @@
 {
 	<span class="kw">type </span>Ticket = Vec&lt;u8&gt;;
 
-	<span class="kw">fn </span>validate(
-		dest: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;MultiLocation&gt;,
-		msg: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;,
-	) -&gt; SendResult&lt;Vec&lt;u8&gt;&gt; {
+	<span class="kw">fn </span>validate(dest: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Location&gt;, msg: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;) -&gt; SendResult&lt;Vec&lt;u8&gt;&gt; {
 		<span class="kw">let </span>d = dest.take().ok_or(SendError::MissingArgument)<span class="question-mark">?</span>;
 
 		<span class="kw">if </span>d.contains_parents_only(<span class="number">1</span>) {
@@ -908,14 +909,14 @@
 	<span class="comment">// The amount of weight bought minus the weigh already refunded
 	</span>weight_outstanding: Weight,
 	<span class="comment">// The concrete asset containing the asset location and outstanding balance
-	</span>outstanding_concrete_asset: MultiAsset,
+	</span>outstanding_concrete_asset: Asset,
 }
 
-<span class="doccomment">/// Charges for execution in the first multiasset of those selected for fee payment
+<span class="doccomment">/// Charges for execution in the first asset of those selected for fee payment
 /// Only succeeds for Concrete Fungible Assets
-/// First tries to convert the this MultiAsset into a local assetId
+/// First tries to convert the this Asset into a local assetId
 /// Then charges for this assetId as described by FeeCharger
-/// Weight, paid balance, local asset Id and the multilocation is stored for
+/// Weight, paid balance, local asset Id and the location is stored for
 /// later refund purposes
 /// Important: Errors if the Trader is being called twice by 2 BuyExecution instructions
 /// Alternatively we could just return payment in the aforementioned case
@@ -941,15 +942,15 @@
 	<span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>(<span class="prelude-val">None</span>, PhantomData)
 	}
-	<span class="comment">// We take first multiasset
+	<span class="comment">// We take first asset
 	// Check whether we can convert fee to asset_fee (is_sufficient, min_deposit)
 	// If everything goes well, we charge.
 	</span><span class="kw">fn </span>buy_weight(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		weight: Weight,
-		payment: xcm_executor::Assets,
+		payment: xcm_executor::AssetsInHolding,
 		context: <span class="kw-2">&amp;</span>XcmContext,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;xcm_executor::Assets, XcmError&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;xcm_executor::AssetsInHolding, XcmError&gt; {
 		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::weight&quot;</span>, <span class="string">&quot;TakeFirstAssetTrader::buy_weight weight: {:?}, payment: {:?}, context: {:?}&quot;</span>, weight, payment, context);
 
 		<span class="comment">// Make sure we dont enter twice
@@ -957,12 +958,12 @@
 			<span class="kw">return </span><span class="prelude-val">Err</span>(XcmError::NotWithdrawable)
 		}
 
-		<span class="comment">// We take the very first multiasset from payment
+		<span class="comment">// We take the very first asset from payment
 		// (assets are sorted by fungibility/amount after this conversion)
-		</span><span class="kw">let </span>multiassets: MultiAssets = payment.clone().into();
+		</span><span class="kw">let </span>assets: Assets = payment.clone().into();
 
-		<span class="comment">// Take the first multiasset from the selected MultiAssets
-		</span><span class="kw">let </span>first = multiassets.get(<span class="number">0</span>).ok_or(XcmError::AssetNotFound)<span class="question-mark">?</span>;
+		<span class="comment">// Take the first asset from the selected Assets
+		</span><span class="kw">let </span>first = assets.get(<span class="number">0</span>).ok_or(XcmError::AssetNotFound)<span class="question-mark">?</span>;
 
 		<span class="comment">// Get the local asset id in which we can pay for fees
 		</span><span class="kw">let </span>(local_asset_id, <span class="kw">_</span>) =
@@ -984,13 +985,13 @@
 				</span>.try_into()
 				.map_err(|<span class="kw">_</span>| XcmError::Overflow)<span class="question-mark">?</span>;
 
-		<span class="comment">// Convert to the same kind of multiasset, with the required fungible balance
-		</span><span class="kw">let </span>required = first.id.into_multiasset(asset_balance.into());
+		<span class="comment">// Convert to the same kind of asset, with the required fungible balance
+		</span><span class="kw">let </span>required = first.id.clone().into_asset(asset_balance.into());
 
 		<span class="comment">// Substract payment
 		</span><span class="kw">let </span>unused = payment.checked_sub(required.clone()).map_err(|<span class="kw">_</span>| XcmError::TooExpensive)<span class="question-mark">?</span>;
 
-		<span class="comment">// record weight and multiasset
+		<span class="comment">// record weight and asset
 		</span><span class="self">self</span>.<span class="number">0 </span>= <span class="prelude-val">Some</span>(AssetTraderRefunder {
 			weight_outstanding: weight,
 			outstanding_concrete_asset: required,
@@ -999,16 +1000,16 @@
 		<span class="prelude-val">Ok</span>(unused)
 	}
 
-	<span class="kw">fn </span>refund_weight(<span class="kw-2">&amp;mut </span><span class="self">self</span>, weight: Weight, context: <span class="kw-2">&amp;</span>XcmContext) -&gt; <span class="prelude-ty">Option</span>&lt;MultiAsset&gt; {
+	<span class="kw">fn </span>refund_weight(<span class="kw-2">&amp;mut </span><span class="self">self</span>, weight: Weight, context: <span class="kw-2">&amp;</span>XcmContext) -&gt; <span class="prelude-ty">Option</span>&lt;Asset&gt; {
 		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::weight&quot;</span>, <span class="string">&quot;TakeFirstAssetTrader::refund_weight weight: {:?}, context: {:?}&quot;</span>, weight, context);
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(AssetTraderRefunder {
 			<span class="kw-2">mut </span>weight_outstanding,
-			outstanding_concrete_asset: MultiAsset { id, fun },
+			outstanding_concrete_asset: Asset { id, fun },
 		}) = <span class="self">self</span>.<span class="number">0</span>.clone()
 		{
 			<span class="comment">// Get the local asset id in which we can refund fees
 			</span><span class="kw">let </span>(local_asset_id, outstanding_balance) =
-				Matcher::matches_fungibles(<span class="kw-2">&amp;</span>(id, fun).into()).ok()<span class="question-mark">?</span>;
+				Matcher::matches_fungibles(<span class="kw-2">&amp;</span>(id.clone(), fun).into()).ok()<span class="question-mark">?</span>;
 
 			<span class="kw">let </span>minimum_balance = ConcreteAssets::minimum_balance(local_asset_id.clone());
 
@@ -1038,7 +1039,8 @@
 
 			<span class="comment">// Construct outstanding_concrete_asset with the same location id and substracted
 			// balance
-			</span><span class="kw">let </span>outstanding_concrete_asset: MultiAsset = (id, outstanding_minus_substracted).into();
+			</span><span class="kw">let </span>outstanding_concrete_asset: Asset =
+				(id.clone(), outstanding_minus_substracted).into();
 
 			<span class="comment">// Substract from existing weight and balance
 			</span>weight_outstanding = weight_outstanding.saturating_sub(weight);
@@ -1085,11 +1087,11 @@
 		ReceiverAccount: Get&lt;<span class="prelude-ty">Option</span>&lt;AccountId&gt;&gt;,
 	&gt; TakeRevenue <span class="kw">for </span>XcmFeesTo32ByteAccount&lt;FungiblesMutateAdapter, AccountId, ReceiverAccount&gt;
 {
-	<span class="kw">fn </span>take_revenue(revenue: MultiAsset) {
+	<span class="kw">fn </span>take_revenue(revenue: Asset) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(receiver) = ReceiverAccount::get() {
 			<span class="kw">let </span>ok = FungiblesMutateAdapter::deposit_asset(
 				<span class="kw-2">&amp;</span>revenue,
-				<span class="kw-2">&amp;</span>(X1(AccountId32 { network: <span class="prelude-val">None</span>, id: receiver.into() }).into()),
+				<span class="kw-2">&amp;</span>([AccountId32 { network: <span class="prelude-val">None</span>, id: receiver.into() }].into()),
 				<span class="prelude-val">None</span>,
 			)
 			.is_ok();
@@ -1120,7 +1122,7 @@
 /// - `SwapCredit`: mechanism used for the exchange of the user&#39;s payment asset into the `Target`.
 /// - `WeightToFee`: weight to the `Target` asset fee calculator.
 /// - `Fungibles`: registry of fungible assets.
-/// - `FungiblesAssetMatcher`: utility for mapping [`MultiAsset`] to `Fungibles::AssetId` and
+/// - `FungiblesAssetMatcher`: utility for mapping [`Asset`] to `Fungibles::AssetId` and
 ///   `Fungibles::Balance`.
 /// - `OnUnbalanced`: handler for the fee payment.
 /// - `AccountId`: the account identifier type.
@@ -1191,16 +1193,16 @@
 	<span class="kw">fn </span>buy_weight(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		weight: Weight,
-		<span class="kw-2">mut </span>payment: xcm_executor::Assets,
+		<span class="kw-2">mut </span>payment: AssetsInHolding,
 		_context: <span class="kw-2">&amp;</span>XcmContext,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;xcm_executor::Assets, XcmError&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;AssetsInHolding, XcmError&gt; {
 		<span class="macro">log::trace!</span>(
 			target: <span class="string">&quot;xcm::weight&quot;</span>,
 			<span class="string">&quot;SwapFirstAssetTrader::buy_weight weight: {:?}, payment: {:?}&quot;</span>,
 			weight,
 			payment,
 		);
-		<span class="kw">let </span>first_asset: MultiAsset =
+		<span class="kw">let </span>first_asset: Asset =
 			payment.fungible.pop_first().ok_or(XcmError::AssetNotFound)<span class="question-mark">?</span>.into();
 		<span class="kw">let </span>(fungibles_asset, balance) = FungiblesAssetMatcher::matches_fungibles(<span class="kw-2">&amp;</span>first_asset)
 			.map_err(|<span class="kw">_</span>| XcmError::AssetNotFound)<span class="question-mark">?</span>;
@@ -1237,14 +1239,14 @@
 			},
 			<span class="kw">_ </span>=&gt; (),
 		};
-		<span class="self">self</span>.last_fee_asset = <span class="prelude-val">Some</span>(first_asset.id);
+		<span class="self">self</span>.last_fee_asset = <span class="prelude-val">Some</span>(first_asset.id.clone());
 
 		payment.fungible.insert(first_asset.id, credit_change.peek().into());
 		drop(credit_change);
 		<span class="prelude-val">Ok</span>(payment)
 	}
 
-	<span class="kw">fn </span>refund_weight(<span class="kw-2">&amp;mut </span><span class="self">self</span>, weight: Weight, _context: <span class="kw-2">&amp;</span>XcmContext) -&gt; <span class="prelude-ty">Option</span>&lt;MultiAsset&gt; {
+	<span class="kw">fn </span>refund_weight(<span class="kw-2">&amp;mut </span><span class="self">self</span>, weight: Weight, _context: <span class="kw-2">&amp;</span>XcmContext) -&gt; <span class="prelude-ty">Option</span>&lt;Asset&gt; {
 		<span class="macro">log::trace!</span>(
 			target: <span class="string">&quot;xcm::weight&quot;</span>,
 			<span class="string">&quot;SwapFirstAssetTrader::refund_weight weight: {:?}, self.total_fee: {:?}&quot;</span>,
@@ -1257,7 +1259,7 @@
 		</span>}
 		<span class="kw">let </span><span class="kw-2">mut </span>refund_asset = <span class="kw">if let </span><span class="prelude-val">Some</span>(asset) = <span class="kw-2">&amp;</span><span class="self">self</span>.last_fee_asset {
 			<span class="comment">// create an initial zero refund in the asset used in the last `buy_weight`.
-			</span>(<span class="kw-2">*</span>asset, Fungible(<span class="number">0</span>)).into()
+			</span>(asset.clone(), Fungible(<span class="number">0</span>)).into()
 		} <span class="kw">else </span>{
 			<span class="kw">return </span><span class="prelude-val">None
 		</span>};
@@ -1342,11 +1344,11 @@
 	<span class="kw">impl </span>OkFixedXcmHashWithAssertingRequiredInputsSender {
 		<span class="kw">const </span>FIXED_XCM_HASH: [u8; <span class="number">32</span>] = [<span class="number">9</span>; <span class="number">32</span>];
 
-		<span class="kw">fn </span>fixed_delivery_asset() -&gt; MultiAssets {
-			MultiAssets::new()
+		<span class="kw">fn </span>fixed_delivery_asset() -&gt; Assets {
+			Assets::new()
 		}
 
-		<span class="kw">fn </span>expected_delivery_result() -&gt; <span class="prelude-ty">Result</span>&lt;(XcmHash, MultiAssets), SendError&gt; {
+		<span class="kw">fn </span>expected_delivery_result() -&gt; <span class="prelude-ty">Result</span>&lt;(XcmHash, Assets), SendError&gt; {
 			<span class="prelude-val">Ok</span>((<span class="self">Self</span>::FIXED_XCM_HASH, <span class="self">Self</span>::fixed_delivery_asset()))
 		}
 	}
@@ -1354,7 +1356,7 @@
 		<span class="kw">type </span>Ticket = ();
 
 		<span class="kw">fn </span>validate(
-			destination: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;MultiLocation&gt;,
+			destination: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Location&gt;,
 			message: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;,
 		) -&gt; SendResult&lt;<span class="self">Self</span>::Ticket&gt; {
 			<span class="macro">assert!</span>(destination.is_some());
@@ -1410,7 +1412,7 @@
 
 		<span class="comment">// ParentAsUmp - check dest/msg is valid
 		</span><span class="kw">let </span>dest = (Parent, Here);
-		<span class="kw">let </span><span class="kw-2">mut </span>dest_wrapper = <span class="prelude-val">Some</span>(dest.into());
+		<span class="kw">let </span><span class="kw-2">mut </span>dest_wrapper = <span class="prelude-val">Some</span>(dest.clone().into());
 		<span class="kw">let </span><span class="kw-2">mut </span>msg_wrapper = <span class="prelude-val">Some</span>(message.clone());
 		<span class="macro">assert!</span>(&lt;ParentAsUmp&lt;(), (), ()&gt; <span class="kw">as </span>SendXcm&gt;::validate(
 			<span class="kw-2">&amp;mut </span>dest_wrapper,
@@ -1442,7 +1444,7 @@
 		},
 	};
 	<span class="kw">use </span>sp_runtime::DispatchError;
-	<span class="kw">use </span>xcm_executor::{traits::Error, Assets};
+	<span class="kw">use </span>xcm_executor::{traits::Error, AssetsInHolding};
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>take_first_asset_trader_buy_weight_called_twice_throws_error() {
@@ -1454,9 +1456,9 @@
 		<span class="kw">type </span>TestBalance = u128;
 		<span class="kw">struct </span>TestAssets;
 		<span class="kw">impl </span>MatchesFungibles&lt;TestAssetId, TestBalance&gt; <span class="kw">for </span>TestAssets {
-			<span class="kw">fn </span>matches_fungibles(a: <span class="kw-2">&amp;</span>MultiAsset) -&gt; <span class="prelude-ty">Result</span>&lt;(TestAssetId, TestBalance), Error&gt; {
+			<span class="kw">fn </span>matches_fungibles(a: <span class="kw-2">&amp;</span>Asset) -&gt; <span class="prelude-ty">Result</span>&lt;(TestAssetId, TestBalance), Error&gt; {
 				<span class="kw">match </span>a {
-					MultiAsset { fun: Fungible(amount), id: Concrete(_id) } =&gt; <span class="prelude-val">Ok</span>((<span class="number">1</span>, <span class="kw-2">*</span>amount)),
+					Asset { fun: Fungible(amount), id: AssetId(_id) } =&gt; <span class="prelude-val">Ok</span>((<span class="number">1</span>, <span class="kw-2">*</span>amount)),
 					<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(Error::AssetNotHandled),
 				}
 			}
@@ -1543,7 +1545,7 @@
 			}
 		}
 		<span class="kw">impl </span>TakeRevenue <span class="kw">for </span>FeeChargerAssetsHandleRefund {
-			<span class="kw">fn </span>take_revenue(<span class="kw">_</span>: MultiAsset) {}
+			<span class="kw">fn </span>take_revenue(<span class="kw">_</span>: Asset) {}
 		}
 
 		<span class="comment">// create new instance
@@ -1558,8 +1560,8 @@
 		<span class="kw">let </span>ctx = XcmContext { origin: <span class="prelude-val">None</span>, message_id: XcmHash::default(), topic: <span class="prelude-val">None </span>};
 
 		<span class="comment">// prepare test data
-		</span><span class="kw">let </span>asset: MultiAsset = (Here, AMOUNT).into();
-		<span class="kw">let </span>payment = Assets::from(asset);
+		</span><span class="kw">let </span>asset: Asset = (Here, AMOUNT).into();
+		<span class="kw">let </span>payment = AssetsInHolding::from(asset);
 		<span class="kw">let </span>weight_to_buy = Weight::from_parts(<span class="number">1_000</span>, <span class="number">1_000</span>);
 
 		<span class="comment">// lets do first call (success)
@@ -1582,17 +1584,17 @@
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 </span><span class="kw">impl</span>&lt;
 		XcmConfig: xcm_executor::Config,
-		ExistentialDeposit: Get&lt;<span class="prelude-ty">Option</span>&lt;MultiAsset&gt;&gt;,
+		ExistentialDeposit: Get&lt;<span class="prelude-ty">Option</span>&lt;Asset&gt;&gt;,
 		PriceForDelivery: PriceForMessageDelivery&lt;Id = ()&gt;,
 	&gt; pallet_xcm_benchmarks::EnsureDelivery
 	<span class="kw">for </span>ToParentDeliveryHelper&lt;XcmConfig, ExistentialDeposit, PriceForDelivery&gt;
 {
 	<span class="kw">fn </span>ensure_successful_delivery(
-		origin_ref: <span class="kw-2">&amp;</span>MultiLocation,
-		_dest: <span class="kw-2">&amp;</span>MultiLocation,
+		origin_ref: <span class="kw-2">&amp;</span>Location,
+		_dest: <span class="kw-2">&amp;</span>Location,
 		fee_reason: xcm_executor::traits::FeeReason,
-	) -&gt; (<span class="prelude-ty">Option</span>&lt;xcm_executor::FeesMode&gt;, <span class="prelude-ty">Option</span>&lt;MultiAssets&gt;) {
-		<span class="kw">use </span>xcm::latest::{MAX_INSTRUCTIONS_TO_DECODE, MAX_ITEMS_IN_MULTIASSETS};
+	) -&gt; (<span class="prelude-ty">Option</span>&lt;xcm_executor::FeesMode&gt;, <span class="prelude-ty">Option</span>&lt;Assets&gt;) {
+		<span class="kw">use </span>xcm::latest::{MAX_INSTRUCTIONS_TO_DECODE, MAX_ITEMS_IN_ASSETS};
 		<span class="kw">use </span>xcm_executor::{traits::FeeManager, FeesMode};
 
 		<span class="kw">let </span><span class="kw-2">mut </span>fees_mode = <span class="prelude-val">None</span>;
@@ -1605,8 +1607,8 @@
 			}
 
 			<span class="comment">// overestimate delivery fee
-			</span><span class="kw">let </span><span class="kw-2">mut </span>max_assets: Vec&lt;MultiAsset&gt; = Vec::new();
-			<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..MAX_ITEMS_IN_MULTIASSETS {
+			</span><span class="kw">let </span><span class="kw-2">mut </span>max_assets: Vec&lt;Asset&gt; = Vec::new();
+			<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..MAX_ITEMS_IN_ASSETS {
 				max_assets.push((GeneralIndex(i <span class="kw">as </span>u128), <span class="number">100u128</span>).into());
 			}
 			<span class="kw">let </span>overestimated_xcm =

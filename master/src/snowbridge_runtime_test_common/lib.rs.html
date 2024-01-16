@@ -289,9 +289,6 @@
 <a href="#289" id="289">289</a>
 <a href="#290" id="290">290</a>
 <a href="#291" id="291">291</a>
-<a href="#292" id="292">292</a>
-<a href="#293" id="293">293</a>
-<a href="#294" id="294">294</a>
 </pre></div><pre class="rust"><code><span class="comment">// SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
 
@@ -343,38 +340,36 @@
 		+ snowbridge_pallet_outbound_queue::Config,
 	XcmConfig: xcm_executor::Config,
 {
-	<span class="kw">let </span>assethub_parachain_location = MultiLocation::new(<span class="number">1</span>, Parachain(assethub_parachain_id));
-	<span class="kw">let </span>asset = MultiAsset {
-		id: Concrete(MultiLocation {
-			parents: <span class="number">0</span>,
-			interior: X1(AccountKey20 { network: <span class="prelude-val">None</span>, key: weth_contract_address.into() }),
-		}),
+	<span class="kw">let </span>assethub_parachain_location = Location::new(<span class="number">1</span>, Parachain(assethub_parachain_id));
+	<span class="kw">let </span>asset = Asset {
+		id: AssetId(Location::new(
+			<span class="number">0</span>,
+			[AccountKey20 { network: <span class="prelude-val">None</span>, key: weth_contract_address.into() }],
+		)),
 		fun: Fungible(<span class="number">1000000000</span>),
 	};
 	<span class="kw">let </span>assets = <span class="macro">vec!</span>[asset.clone()];
 
 	<span class="kw">let </span>inner_xcm = Xcm(<span class="macro">vec!</span>[
-		WithdrawAsset(MultiAssets::from(assets.clone())),
+		WithdrawAsset(Assets::from(assets.clone())),
 		ClearOrigin,
 		BuyExecution { fees: asset, weight_limit: Unlimited },
 		DepositAsset {
 			assets: Wild(All),
-			beneficiary: MultiLocation {
-				parents: <span class="number">0</span>,
-				interior: X1(AccountKey20 { network: <span class="prelude-val">None</span>, key: destination_address.into() }),
-			},
+			beneficiary: Location::new(
+				<span class="number">0</span>,
+				[AccountKey20 { network: <span class="prelude-val">None</span>, key: destination_address.into() }],
+			),
 		},
 		SetTopic([<span class="number">0</span>; <span class="number">32</span>]),
 	]);
 
-	<span class="kw">let </span>fee = MultiAsset {
-		id: Concrete(MultiLocation { parents: <span class="number">1</span>, interior: Here }),
-		fun: Fungible(fee_amount),
-	};
+	<span class="kw">let </span>fee =
+		Asset { id: AssetId(Location { parents: <span class="number">1</span>, interior: Here }), fun: Fungible(fee_amount) };
 
 	<span class="comment">// prepare transfer token message
 	</span><span class="kw">let </span>xcm = Xcm(<span class="macro">vec!</span>[
-		WithdrawAsset(MultiAssets::from(<span class="macro">vec!</span>[fee.clone()])),
+		WithdrawAsset(Assets::from(<span class="macro">vec!</span>[fee.clone()])),
 		BuyExecution { fees: fee, weight_limit: Unlimited },
 		ExportMessage {
 			network: Ethereum { chain_id: <span class="number">11155111 </span>},
@@ -384,12 +379,13 @@
 	]);
 
 	<span class="comment">// execute XCM
-	</span><span class="kw">let </span>hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-	XcmExecutor::&lt;XcmConfig&gt;::execute_xcm(
+	</span><span class="kw">let </span><span class="kw-2">mut </span>hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+	XcmExecutor::&lt;XcmConfig&gt;::prepare_and_execute(
 		assethub_parachain_location,
 		xcm,
-		hash,
+		<span class="kw-2">&amp;mut </span>hash,
 		RuntimeHelper::&lt;Runtime&gt;::xcm_max_weight(XcmReceivedFrom::Sibling),
+		Weight::zero(),
 	)
 }
 
@@ -470,7 +466,7 @@
 	XcmConfig: xcm_executor::Config,
 	ValidatorIdOf&lt;Runtime&gt;: From&lt;AccountIdOf&lt;Runtime&gt;&gt;,
 {
-	<span class="kw">let </span>assethub_parachain_location = MultiLocation::new(<span class="number">1</span>, Parachain(assethub_parachain_id));
+	<span class="kw">let </span>assethub_parachain_location = Location::new(<span class="number">1</span>, Parachain(assethub_parachain_id));
 
 	ExtBuilder::&lt;Runtime&gt;::default()
 		.with_collators(collator_session_key.collators())
@@ -488,28 +484,25 @@
 			)
 			.unwrap();
 
-			<span class="kw">let </span>asset = MultiAsset {
-				id: Concrete(MultiLocation {
-					parents: <span class="number">0</span>,
-					interior: X1(AccountKey20 { network: <span class="prelude-val">None</span>, key: weth_contract_address.into() }),
-				}),
+			<span class="kw">let </span>asset = Asset {
+				id: AssetId(Location::new(
+					<span class="number">0</span>,
+					[AccountKey20 { network: <span class="prelude-val">None</span>, key: weth_contract_address.into() }],
+				)),
 				fun: Fungible(<span class="number">1000000000</span>),
 			};
 			<span class="kw">let </span>assets = <span class="macro">vec!</span>[asset.clone()];
 
 			<span class="kw">let </span>inner_xcm = Xcm(<span class="macro">vec!</span>[
-				WithdrawAsset(MultiAssets::from(assets.clone())),
+				WithdrawAsset(Assets::from(assets.clone())),
 				ClearOrigin,
 				BuyExecution { fees: asset, weight_limit: Unlimited },
 				DepositAsset {
 					assets: Wild(AllCounted(<span class="number">1</span>)),
-					beneficiary: MultiLocation {
-						parents: <span class="number">0</span>,
-						interior: X1(AccountKey20 {
-							network: <span class="prelude-val">None</span>,
-							key: destination_contract.into(),
-						}),
-					},
+					beneficiary: Location::new(
+						<span class="number">0</span>,
+						[AccountKey20 { network: <span class="prelude-val">None</span>, key: destination_contract.into() }],
+					),
 				},
 				SetTopic([<span class="number">0</span>; <span class="number">32</span>]),
 			]);
@@ -525,12 +518,13 @@
 			]);
 
 			<span class="comment">// execute XCM
-			</span><span class="kw">let </span>hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-			<span class="kw">let </span>outcome = XcmExecutor::&lt;XcmConfig&gt;::execute_xcm(
+			</span><span class="kw">let </span><span class="kw-2">mut </span>hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+			<span class="kw">let </span>outcome = XcmExecutor::&lt;XcmConfig&gt;::prepare_and_execute(
 				assethub_parachain_location,
 				xcm,
-				hash,
+				<span class="kw-2">&amp;mut </span>hash,
 				RuntimeHelper::&lt;Runtime&gt;::xcm_max_weight(XcmReceivedFrom::Sibling),
+				Weight::zero(),
 			);
 			<span class="comment">// check error is barrier
 			</span><span class="macro">assert_err!</span>(outcome.ensure_complete(), Barrier);

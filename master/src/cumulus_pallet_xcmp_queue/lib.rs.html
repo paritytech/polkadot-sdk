@@ -1117,7 +1117,7 @@
 		<span class="doccomment">/// The origin that is allowed to resume or suspend the XCMP queue.
 		</span><span class="kw">type </span>ControllerOrigin: EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin&gt;;
 
-		<span class="doccomment">/// The conversion function used to attempt to convert an XCM `MultiLocation` origin to a
+		<span class="doccomment">/// The conversion function used to attempt to convert an XCM `Location` origin to a
 		/// superuser origin.
 		</span><span class="kw">type </span>ControllerOriginConverter: ConvertOrigin&lt;<span class="self">Self</span>::RuntimeOrigin&gt;;
 
@@ -1885,14 +1885,14 @@
 	<span class="kw">type </span>Ticket = (ParaId, VersionedXcm&lt;()&gt;);
 
 	<span class="kw">fn </span>validate(
-		dest: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;MultiLocation&gt;,
+		dest: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Location&gt;,
 		msg: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;,
 	) -&gt; SendResult&lt;(ParaId, VersionedXcm&lt;()&gt;)&gt; {
 		<span class="kw">let </span>d = dest.take().ok_or(SendError::MissingArgument)<span class="question-mark">?</span>;
 
-		<span class="kw">match </span><span class="kw-2">&amp;</span>d {
+		<span class="kw">match </span>d.unpack() {
 			<span class="comment">// An HRMP message for a sibling parachain.
-			</span>MultiLocation { parents: <span class="number">1</span>, interior: X1(Parachain(id)) } =&gt; {
+			</span>(<span class="number">1</span>, [Parachain(id)]) =&gt; {
 				<span class="kw">let </span>xcm = msg.take().ok_or(SendError::MissingArgument)<span class="question-mark">?</span>;
 				<span class="kw">let </span>id = ParaId::from(<span class="kw-2">*</span>id);
 				<span class="kw">let </span>price = T::PriceForSiblingDelivery::price_for_delivery(id, <span class="kw-2">&amp;</span>xcm);

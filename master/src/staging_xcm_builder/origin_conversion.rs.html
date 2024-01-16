@@ -332,17 +332,6 @@
 <a href="#332" id="332">332</a>
 <a href="#333" id="333">333</a>
 <a href="#334" id="334">334</a>
-<a href="#335" id="335">335</a>
-<a href="#336" id="336">336</a>
-<a href="#337" id="337">337</a>
-<a href="#338" id="338">338</a>
-<a href="#339" id="339">339</a>
-<a href="#340" id="340">340</a>
-<a href="#341" id="341">341</a>
-<a href="#342" id="342">342</a>
-<a href="#343" id="343">343</a>
-<a href="#344" id="344">344</a>
-<a href="#345" id="345">345</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -366,7 +355,7 @@
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::IsSystem;
 <span class="kw">use </span>sp_runtime::traits::TryConvert;
 <span class="kw">use </span>sp_std::marker::PhantomData;
-<span class="kw">use </span>xcm::latest::{BodyId, BodyPart, Junction, Junctions::<span class="kw-2">*</span>, MultiLocation, NetworkId, OriginKind};
+<span class="kw">use </span>xcm::latest::{BodyId, BodyPart, Junction, Junctions::<span class="kw-2">*</span>, Location, NetworkId, OriginKind};
 <span class="kw">use </span>xcm_executor::traits::{ConvertLocation, ConvertOrigin};
 
 <span class="doccomment">/// Sovereign accounts use the system&#39;s `Signed` origin with an account ID derived from the
@@ -380,9 +369,9 @@
 	</span>RuntimeOrigin::AccountId: Clone,
 {
 	<span class="kw">fn </span>convert_origin(
-		origin: <span class="kw">impl </span>Into&lt;MultiLocation&gt;,
+		origin: <span class="kw">impl </span>Into&lt;Location&gt;,
 		kind: OriginKind,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, MultiLocation&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, Location&gt; {
 		<span class="kw">let </span>origin = origin.into();
 		<span class="macro">log::trace!</span>(
 			target: <span class="string">&quot;xcm::origin_conversion&quot;</span>,
@@ -401,9 +390,9 @@
 <span class="kw">pub struct </span>ParentAsSuperuser&lt;RuntimeOrigin&gt;(PhantomData&lt;RuntimeOrigin&gt;);
 <span class="kw">impl</span>&lt;RuntimeOrigin: OriginTrait&gt; ConvertOrigin&lt;RuntimeOrigin&gt; <span class="kw">for </span>ParentAsSuperuser&lt;RuntimeOrigin&gt; {
 	<span class="kw">fn </span>convert_origin(
-		origin: <span class="kw">impl </span>Into&lt;MultiLocation&gt;,
+		origin: <span class="kw">impl </span>Into&lt;Location&gt;,
 		kind: OriginKind,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, MultiLocation&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, Location&gt; {
 		<span class="kw">let </span>origin = origin.into();
 		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::origin_conversion&quot;</span>, <span class="string">&quot;ParentAsSuperuser origin: {:?}, kind: {:?}&quot;</span>, origin, kind);
 		<span class="kw">if </span>kind == OriginKind::Superuser &amp;&amp; origin.contains_parents_only(<span class="number">1</span>) {
@@ -421,17 +410,16 @@
 	<span class="kw">for </span>ChildSystemParachainAsSuperuser&lt;ParaId, RuntimeOrigin&gt;
 {
 	<span class="kw">fn </span>convert_origin(
-		origin: <span class="kw">impl </span>Into&lt;MultiLocation&gt;,
+		origin: <span class="kw">impl </span>Into&lt;Location&gt;,
 		kind: OriginKind,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, MultiLocation&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, Location&gt; {
 		<span class="kw">let </span>origin = origin.into();
 		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::origin_conversion&quot;</span>, <span class="string">&quot;ChildSystemParachainAsSuperuser origin: {:?}, kind: {:?}&quot;</span>, origin, kind);
-		<span class="kw">match </span>(kind, origin) {
-			(
-				OriginKind::Superuser,
-				MultiLocation { parents: <span class="number">0</span>, interior: X1(Junction::Parachain(id)) },
-			) <span class="kw">if </span>ParaId::from(id).is_system() =&gt; <span class="prelude-val">Ok</span>(RuntimeOrigin::root()),
-			(<span class="kw">_</span>, origin) =&gt; <span class="prelude-val">Err</span>(origin),
+		<span class="kw">match </span>(kind, origin.unpack()) {
+			(OriginKind::Superuser, (<span class="number">0</span>, [Junction::Parachain(id)]))
+				<span class="kw">if </span>ParaId::from(<span class="kw-2">*</span>id).is_system() =&gt;
+				<span class="prelude-val">Ok</span>(RuntimeOrigin::root()),
+			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(origin),
 		}
 	}
 }
@@ -443,21 +431,20 @@
 	<span class="kw">for </span>SiblingSystemParachainAsSuperuser&lt;ParaId, RuntimeOrigin&gt;
 {
 	<span class="kw">fn </span>convert_origin(
-		origin: <span class="kw">impl </span>Into&lt;MultiLocation&gt;,
+		origin: <span class="kw">impl </span>Into&lt;Location&gt;,
 		kind: OriginKind,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, MultiLocation&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, Location&gt; {
 		<span class="kw">let </span>origin = origin.into();
 		<span class="macro">log::trace!</span>(
 			target: <span class="string">&quot;xcm::origin_conversion&quot;</span>,
 			<span class="string">&quot;SiblingSystemParachainAsSuperuser origin: {:?}, kind: {:?}&quot;</span>,
 			origin, kind,
 		);
-		<span class="kw">match </span>(kind, origin) {
-			(
-				OriginKind::Superuser,
-				MultiLocation { parents: <span class="number">1</span>, interior: X1(Junction::Parachain(id)) },
-			) <span class="kw">if </span>ParaId::from(id).is_system() =&gt; <span class="prelude-val">Ok</span>(RuntimeOrigin::root()),
-			(<span class="kw">_</span>, origin) =&gt; <span class="prelude-val">Err</span>(origin),
+		<span class="kw">match </span>(kind, origin.unpack()) {
+			(OriginKind::Superuser, (<span class="number">1</span>, [Junction::Parachain(id)]))
+				<span class="kw">if </span>ParaId::from(<span class="kw-2">*</span>id).is_system() =&gt;
+				<span class="prelude-val">Ok</span>(RuntimeOrigin::root()),
+			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(origin),
 		}
 	}
 }
@@ -469,17 +456,15 @@
 	<span class="kw">for </span>ChildParachainAsNative&lt;ParachainOrigin, RuntimeOrigin&gt;
 {
 	<span class="kw">fn </span>convert_origin(
-		origin: <span class="kw">impl </span>Into&lt;MultiLocation&gt;,
+		origin: <span class="kw">impl </span>Into&lt;Location&gt;,
 		kind: OriginKind,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, MultiLocation&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, Location&gt; {
 		<span class="kw">let </span>origin = origin.into();
 		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::origin_conversion&quot;</span>, <span class="string">&quot;ChildParachainAsNative origin: {:?}, kind: {:?}&quot;</span>, origin, kind);
-		<span class="kw">match </span>(kind, origin) {
-			(
-				OriginKind::Native,
-				MultiLocation { parents: <span class="number">0</span>, interior: X1(Junction::Parachain(id)) },
-			) =&gt; <span class="prelude-val">Ok</span>(RuntimeOrigin::from(ParachainOrigin::from(id))),
-			(<span class="kw">_</span>, origin) =&gt; <span class="prelude-val">Err</span>(origin),
+		<span class="kw">match </span>(kind, origin.unpack()) {
+			(OriginKind::Native, (<span class="number">0</span>, [Junction::Parachain(id)])) =&gt;
+				<span class="prelude-val">Ok</span>(RuntimeOrigin::from(ParachainOrigin::from(<span class="kw-2">*</span>id))),
+			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(origin),
 		}
 	}
 }
@@ -491,21 +476,19 @@
 	<span class="kw">for </span>SiblingParachainAsNative&lt;ParachainOrigin, RuntimeOrigin&gt;
 {
 	<span class="kw">fn </span>convert_origin(
-		origin: <span class="kw">impl </span>Into&lt;MultiLocation&gt;,
+		origin: <span class="kw">impl </span>Into&lt;Location&gt;,
 		kind: OriginKind,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, MultiLocation&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, Location&gt; {
 		<span class="kw">let </span>origin = origin.into();
 		<span class="macro">log::trace!</span>(
 			target: <span class="string">&quot;xcm::origin_conversion&quot;</span>,
 			<span class="string">&quot;SiblingParachainAsNative origin: {:?}, kind: {:?}&quot;</span>,
 			origin, kind,
 		);
-		<span class="kw">match </span>(kind, origin) {
-			(
-				OriginKind::Native,
-				MultiLocation { parents: <span class="number">1</span>, interior: X1(Junction::Parachain(id)) },
-			) =&gt; <span class="prelude-val">Ok</span>(RuntimeOrigin::from(ParachainOrigin::from(id))),
-			(<span class="kw">_</span>, origin) =&gt; <span class="prelude-val">Err</span>(origin),
+		<span class="kw">match </span>(kind, origin.unpack()) {
+			(OriginKind::Native, (<span class="number">1</span>, [Junction::Parachain(id)])) =&gt;
+				<span class="prelude-val">Ok</span>(RuntimeOrigin::from(ParachainOrigin::from(<span class="kw-2">*</span>id))),
+			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(origin),
 		}
 	}
 }
@@ -518,9 +501,9 @@
 	<span class="kw">for </span>RelayChainAsNative&lt;RelayOrigin, RuntimeOrigin&gt;
 {
 	<span class="kw">fn </span>convert_origin(
-		origin: <span class="kw">impl </span>Into&lt;MultiLocation&gt;,
+		origin: <span class="kw">impl </span>Into&lt;Location&gt;,
 		kind: OriginKind,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, MultiLocation&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, Location&gt; {
 		<span class="kw">let </span>origin = origin.into();
 		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::origin_conversion&quot;</span>, <span class="string">&quot;RelayChainAsNative origin: {:?}, kind: {:?}&quot;</span>, origin, kind);
 		<span class="kw">if </span>kind == OriginKind::Native &amp;&amp; origin.contains_parents_only(<span class="number">1</span>) {
@@ -538,22 +521,20 @@
 	</span>RuntimeOrigin::AccountId: From&lt;[u8; <span class="number">32</span>]&gt;,
 {
 	<span class="kw">fn </span>convert_origin(
-		origin: <span class="kw">impl </span>Into&lt;MultiLocation&gt;,
+		origin: <span class="kw">impl </span>Into&lt;Location&gt;,
 		kind: OriginKind,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, MultiLocation&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, Location&gt; {
 		<span class="kw">let </span>origin = origin.into();
 		<span class="macro">log::trace!</span>(
 			target: <span class="string">&quot;xcm::origin_conversion&quot;</span>,
 			<span class="string">&quot;SignedAccountId32AsNative origin: {:?}, kind: {:?}&quot;</span>,
 			origin, kind,
 		);
-		<span class="kw">match </span>(kind, origin) {
-			(
-				OriginKind::Native,
-				MultiLocation { parents: <span class="number">0</span>, interior: X1(Junction::AccountId32 { id, network }) },
-			) <span class="kw">if </span><span class="macro">matches!</span>(network, <span class="prelude-val">None</span>) || network == Network::get() =&gt;
-				<span class="prelude-val">Ok</span>(RuntimeOrigin::signed(id.into())),
-			(<span class="kw">_</span>, origin) =&gt; <span class="prelude-val">Err</span>(origin),
+		<span class="kw">match </span>(kind, origin.unpack()) {
+			(OriginKind::Native, (<span class="number">0</span>, [Junction::AccountId32 { id, network }]))
+				<span class="kw">if </span><span class="macro">matches!</span>(network, <span class="prelude-val">None</span>) || <span class="kw-2">*</span>network == Network::get() =&gt;
+				<span class="prelude-val">Ok</span>(RuntimeOrigin::signed((<span class="kw-2">*</span>id).into())),
+			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(origin),
 		}
 	}
 }
@@ -567,34 +548,32 @@
 	</span>RuntimeOrigin::AccountId: From&lt;[u8; <span class="number">20</span>]&gt;,
 {
 	<span class="kw">fn </span>convert_origin(
-		origin: <span class="kw">impl </span>Into&lt;MultiLocation&gt;,
+		origin: <span class="kw">impl </span>Into&lt;Location&gt;,
 		kind: OriginKind,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, MultiLocation&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, Location&gt; {
 		<span class="kw">let </span>origin = origin.into();
 		<span class="macro">log::trace!</span>(
 			target: <span class="string">&quot;xcm::origin_conversion&quot;</span>,
 			<span class="string">&quot;SignedAccountKey20AsNative origin: {:?}, kind: {:?}&quot;</span>,
 			origin, kind,
 		);
-		<span class="kw">match </span>(kind, origin) {
-			(
-				OriginKind::Native,
-				MultiLocation { parents: <span class="number">0</span>, interior: X1(Junction::AccountKey20 { key, network }) },
-			) <span class="kw">if </span>(<span class="macro">matches!</span>(network, <span class="prelude-val">None</span>) || network == Network::get()) =&gt;
-				<span class="prelude-val">Ok</span>(RuntimeOrigin::signed(key.into())),
-			(<span class="kw">_</span>, origin) =&gt; <span class="prelude-val">Err</span>(origin),
+		<span class="kw">match </span>(kind, origin.unpack()) {
+			(OriginKind::Native, (<span class="number">0</span>, [Junction::AccountKey20 { key, network }]))
+				<span class="kw">if </span>(<span class="macro">matches!</span>(network, <span class="prelude-val">None</span>) || <span class="kw-2">*</span>network == Network::get()) =&gt;
+				<span class="prelude-val">Ok</span>(RuntimeOrigin::signed((<span class="kw-2">*</span>key).into())),
+			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(origin),
 		}
 	}
 }
 
 <span class="doccomment">/// `EnsureOrigin` barrier to convert from dispatch origin to XCM origin, if one exists.
 </span><span class="kw">pub struct </span>EnsureXcmOrigin&lt;RuntimeOrigin, Conversion&gt;(PhantomData&lt;(RuntimeOrigin, Conversion)&gt;);
-<span class="kw">impl</span>&lt;RuntimeOrigin: OriginTrait + Clone, Conversion: TryConvert&lt;RuntimeOrigin, MultiLocation&gt;&gt;
+<span class="kw">impl</span>&lt;RuntimeOrigin: OriginTrait + Clone, Conversion: TryConvert&lt;RuntimeOrigin, Location&gt;&gt;
 	EnsureOrigin&lt;RuntimeOrigin&gt; <span class="kw">for </span>EnsureXcmOrigin&lt;RuntimeOrigin, Conversion&gt;
 <span class="kw">where
 	</span>RuntimeOrigin::PalletsOrigin: PartialEq,
 {
-	<span class="kw">type </span>Success = MultiLocation;
+	<span class="kw">type </span>Success = Location;
 	<span class="kw">fn </span>try_origin(o: RuntimeOrigin) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Success, RuntimeOrigin&gt; {
 		<span class="kw">let </span>o = <span class="kw">match </span>Conversion::try_convert(o) {
 			<span class="prelude-val">Ok</span>(location) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(location),
@@ -627,13 +606,12 @@
 		RuntimeOrigin: OriginTrait + Clone,
 		AccountId: Into&lt;[u8; <span class="number">32</span>]&gt;,
 		Network: Get&lt;<span class="prelude-ty">Option</span>&lt;NetworkId&gt;&gt;,
-	&gt; TryConvert&lt;RuntimeOrigin, MultiLocation&gt;
-	<span class="kw">for </span>SignedToAccountId32&lt;RuntimeOrigin, AccountId, Network&gt;
+	&gt; TryConvert&lt;RuntimeOrigin, Location&gt; <span class="kw">for </span>SignedToAccountId32&lt;RuntimeOrigin, AccountId, Network&gt;
 <span class="kw">where
 	</span>RuntimeOrigin::PalletsOrigin: From&lt;SystemRawOrigin&lt;AccountId&gt;&gt;
 		+ TryInto&lt;SystemRawOrigin&lt;AccountId&gt;, Error = RuntimeOrigin::PalletsOrigin&gt;,
 {
-	<span class="kw">fn </span>try_convert(o: RuntimeOrigin) -&gt; <span class="prelude-ty">Result</span>&lt;MultiLocation, RuntimeOrigin&gt; {
+	<span class="kw">fn </span>try_convert(o: RuntimeOrigin) -&gt; <span class="prelude-ty">Result</span>&lt;Location, RuntimeOrigin&gt; {
 		o.try_with_caller(|caller| <span class="kw">match </span>caller.try_into() {
 			<span class="prelude-val">Ok</span>(SystemRawOrigin::Signed(who)) =&gt;
 				<span class="prelude-val">Ok</span>(Junction::AccountId32 { network: Network::get(), id: who.into() }.into()),
@@ -644,7 +622,7 @@
 }
 
 <span class="doccomment">/// `Convert` implementation to convert from some an origin which implements `Backing` into a
-/// corresponding `Plurality` `MultiLocation`.
+/// corresponding `Plurality` `Location`.
 ///
 /// Typically used when configuring `pallet-xcm` for allowing a collective&#39;s Origin to dispatch an
 /// XCM from a `Plurality` origin.
@@ -652,12 +630,12 @@
 	PhantomData&lt;(RuntimeOrigin, COrigin, Body)&gt;,
 );
 <span class="kw">impl</span>&lt;RuntimeOrigin: OriginTrait + Clone, COrigin: GetBacking, Body: Get&lt;BodyId&gt;&gt;
-	TryConvert&lt;RuntimeOrigin, MultiLocation&gt; <span class="kw">for </span>BackingToPlurality&lt;RuntimeOrigin, COrigin, Body&gt;
+	TryConvert&lt;RuntimeOrigin, Location&gt; <span class="kw">for </span>BackingToPlurality&lt;RuntimeOrigin, COrigin, Body&gt;
 <span class="kw">where
 	</span>RuntimeOrigin::PalletsOrigin:
 		From&lt;COrigin&gt; + TryInto&lt;COrigin, Error = RuntimeOrigin::PalletsOrigin&gt;,
 {
-	<span class="kw">fn </span>try_convert(o: RuntimeOrigin) -&gt; <span class="prelude-ty">Result</span>&lt;MultiLocation, RuntimeOrigin&gt; {
+	<span class="kw">fn </span>try_convert(o: RuntimeOrigin) -&gt; <span class="prelude-ty">Result</span>&lt;Location, RuntimeOrigin&gt; {
 		o.try_with_caller(|caller| <span class="kw">match </span>caller.try_into() {
 			<span class="prelude-val">Ok</span>(co) =&gt; <span class="kw">match </span>co.get_backing() {
 				<span class="prelude-val">Some</span>(backing) =&gt; <span class="prelude-val">Ok</span>(Junction::Plurality {
@@ -678,10 +656,10 @@
 	PhantomData&lt;(RuntimeOrigin, EnsureBodyOrigin, Body)&gt;,
 );
 <span class="kw">impl</span>&lt;RuntimeOrigin: Clone, EnsureBodyOrigin: EnsureOrigin&lt;RuntimeOrigin&gt;, Body: Get&lt;BodyId&gt;&gt;
-	TryConvert&lt;RuntimeOrigin, MultiLocation&gt;
+	TryConvert&lt;RuntimeOrigin, Location&gt;
 	<span class="kw">for </span>OriginToPluralityVoice&lt;RuntimeOrigin, EnsureBodyOrigin, Body&gt;
 {
-	<span class="kw">fn </span>try_convert(o: RuntimeOrigin) -&gt; <span class="prelude-ty">Result</span>&lt;MultiLocation, RuntimeOrigin&gt; {
+	<span class="kw">fn </span>try_convert(o: RuntimeOrigin) -&gt; <span class="prelude-ty">Result</span>&lt;Location, RuntimeOrigin&gt; {
 		<span class="kw">match </span>EnsureBodyOrigin::try_origin(o) {
 			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(Junction::Plurality { id: Body::get(), part: BodyPart::Voice }.into()),
 			<span class="prelude-val">Err</span>(o) =&gt; <span class="prelude-val">Err</span>(o),

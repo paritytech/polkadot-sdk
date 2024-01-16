@@ -360,6 +360,7 @@
 <a href="#360" id="360">360</a>
 <a href="#361" id="361">361</a>
 <a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -654,11 +655,12 @@
 ///     }
 /// }
 ///
-/// /// A sender that accepts a message that has an X2 junction, otherwise stops the routing.
+/// /// A sender that accepts a message that has two junctions, otherwise stops the routing.
 /// struct Sender2;
 /// impl SendXcm for Sender2 {
 ///     fn send_xcm(destination: impl Into&lt;MultiLocation&gt;, message: Xcm&lt;()&gt;) -&gt; SendResult {
-///         if let MultiLocation { parents: 0, interior: X2(j1, j2) } = destination.into() {
+///         let destination = destination.into();
+///         if destination.parents == 0 &amp;&amp; destination.interior.len() == 2 {
 ///             Ok(())
 ///         } else {
 ///             Err(SendError::Unroutable)

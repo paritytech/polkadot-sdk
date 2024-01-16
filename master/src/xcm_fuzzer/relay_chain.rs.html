@@ -366,10 +366,10 @@
 }
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>TokenLocation: MultiLocation = Here.into_location();
+	<span class="kw">pub const </span>TokenLocation: Location = Here.into_location();
 	<span class="kw">pub const </span>ThisNetwork: NetworkId = NetworkId::ByGenesis([<span class="number">0</span>; <span class="number">32</span>]);
 	<span class="kw">pub const </span>AnyNetwork: <span class="prelude-ty">Option</span>&lt;NetworkId&gt; = <span class="prelude-val">None</span>;
-	<span class="kw">pub const </span>UniversalLocation: InteriorMultiLocation = Here;
+	<span class="kw">pub const </span>UniversalLocation: InteriorLocation = Here;
 }
 
 <span class="kw">pub type </span>SovereignAccountOf =
@@ -388,7 +388,7 @@
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>BaseXcmWeight: Weight = Weight::from_parts(<span class="number">1_000</span>, <span class="number">1_000</span>);
-	<span class="kw">pub </span>KsmPerSecondPerByte: (AssetId, u128, u128) = (Concrete(TokenLocation::get()), <span class="number">1</span>, <span class="number">1</span>);
+	<span class="kw">pub </span>KsmPerSecondPerByte: (AssetId, u128, u128) = (AssetId(TokenLocation::get()), <span class="number">1</span>, <span class="number">1</span>);
 	<span class="kw">pub const </span>MaxInstructions: u32 = u32::MAX;
 	<span class="kw">pub const </span>MaxAssetsIntoHolding: u32 = <span class="number">64</span>;
 }

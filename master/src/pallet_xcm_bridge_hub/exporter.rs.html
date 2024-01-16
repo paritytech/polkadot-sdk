@@ -261,10 +261,10 @@
 	<span class="kw">fn </span>validate(
 		network: NetworkId,
 		channel: u32,
-		universal_source: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;InteriorMultiLocation&gt;,
-		destination: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;InteriorMultiLocation&gt;,
+		universal_source: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;InteriorLocation&gt;,
+		destination: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;InteriorLocation&gt;,
 		message: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>::Ticket, MultiAssets), SendError&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>::Ticket, Assets), SendError&gt; {
 		<span class="comment">// Find supported lane_id.
 		</span><span class="kw">let </span>sender_and_lane = <span class="self">Self</span>::lane_for(
 			universal_source.as_ref().ok_or(SendError::MissingArgument)<span class="question-mark">?</span>,
@@ -346,11 +346,11 @@
 	<span class="kw">use </span>frame_support::assert_ok;
 	<span class="kw">use </span>xcm_executor::traits::export_xcm;
 
-	<span class="kw">fn </span>universal_source() -&gt; InteriorMultiLocation {
-		X2(GlobalConsensus(RelayNetwork::get()), Parachain(SIBLING_ASSET_HUB_ID))
+	<span class="kw">fn </span>universal_source() -&gt; InteriorLocation {
+		[GlobalConsensus(RelayNetwork::get()), Parachain(SIBLING_ASSET_HUB_ID)].into()
 	}
 
-	<span class="kw">fn </span>universal_destination() -&gt; InteriorMultiLocation {
+	<span class="kw">fn </span>universal_destination() -&gt; InteriorLocation {
 		BridgedDestination::get()
 	}
 

@@ -1087,8 +1087,6 @@
 <a href="#1087" id="1087">1087</a>
 <a href="#1088" id="1088">1088</a>
 <a href="#1089" id="1089">1089</a>
-<a href="#1090" id="1090">1090</a>
-<a href="#1091" id="1091">1091</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1127,7 +1125,7 @@
 };
 
 <span class="kw">mod </span>assets;
-<span class="kw">pub use </span>assets::Assets;
+<span class="kw">pub use </span>assets::AssetsInHolding;
 <span class="kw">mod </span>config;
 <span class="kw">pub use </span>config::Config;
 
@@ -1147,10 +1145,10 @@
 
 <span class="doccomment">/// The XCM executor.
 </span><span class="kw">pub struct </span>XcmExecutor&lt;Config: config::Config&gt; {
-	holding: Assets,
+	holding: AssetsInHolding,
 	holding_limit: usize,
 	context: XcmContext,
-	original_origin: MultiLocation,
+	original_origin: Location,
 	trader: Config::Trader,
 	<span class="doccomment">/// The most recent error result and instruction index into the fragment in which it occurred,
 	/// if any.
@@ -1172,10 +1170,10 @@
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 </span><span class="kw">impl</span>&lt;Config: config::Config&gt; XcmExecutor&lt;Config&gt; {
-	<span class="kw">pub fn </span>holding(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Assets {
+	<span class="kw">pub fn </span>holding(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>AssetsInHolding {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.holding
 	}
-	<span class="kw">pub fn </span>set_holding(<span class="kw-2">&amp;mut </span><span class="self">self</span>, v: Assets) {
+	<span class="kw">pub fn </span>set_holding(<span class="kw-2">&amp;mut </span><span class="self">self</span>, v: AssetsInHolding) {
 		<span class="self">self</span>.holding = v
 	}
 	<span class="kw">pub fn </span>holding_limit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>usize {
@@ -1184,16 +1182,16 @@
 	<span class="kw">pub fn </span>set_holding_limit(<span class="kw-2">&amp;mut </span><span class="self">self</span>, v: usize) {
 		<span class="self">self</span>.holding_limit = v
 	}
-	<span class="kw">pub fn </span>origin(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;MultiLocation&gt; {
+	<span class="kw">pub fn </span>origin(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;Location&gt; {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.context.origin
 	}
-	<span class="kw">pub fn </span>set_origin(<span class="kw-2">&amp;mut </span><span class="self">self</span>, v: <span class="prelude-ty">Option</span>&lt;MultiLocation&gt;) {
+	<span class="kw">pub fn </span>set_origin(<span class="kw-2">&amp;mut </span><span class="self">self</span>, v: <span class="prelude-ty">Option</span>&lt;Location&gt;) {
 		<span class="self">self</span>.context.origin = v
 	}
-	<span class="kw">pub fn </span>original_origin(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>MultiLocation {
+	<span class="kw">pub fn </span>original_origin(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Location {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.original_origin
 	}
-	<span class="kw">pub fn </span>set_original_origin(<span class="kw-2">&amp;mut </span><span class="self">self</span>, v: MultiLocation) {
+	<span class="kw">pub fn </span>set_original_origin(<span class="kw-2">&amp;mut </span><span class="self">self</span>, v: Location) {
 		<span class="self">self</span>.original_origin = v
 	}
 	<span class="kw">pub fn </span>trader(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Config::Trader {
@@ -1282,14 +1280,14 @@
 		}
 	}
 	<span class="kw">fn </span>execute(
-		origin: <span class="kw">impl </span>Into&lt;MultiLocation&gt;,
+		origin: <span class="kw">impl </span>Into&lt;Location&gt;,
 		WeighedMessage(xcm_weight, <span class="kw-2">mut </span>message): WeighedMessage&lt;Config::RuntimeCall&gt;,
 		id: <span class="kw-2">&amp;mut </span>XcmHash,
 		weight_credit: Weight,
 	) -&gt; Outcome {
 		<span class="kw">let </span>origin = origin.into();
 		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;xcm::execute_xcm_in_credit&quot;</span>,
+			target: <span class="string">&quot;xcm::execute&quot;</span>,
 			<span class="string">&quot;origin: {origin:?}, message: {message:?}, weight_credit: {weight_credit:?}&quot;</span>,
 		);
 		<span class="kw">let </span><span class="kw-2">mut </span>properties = Properties { weight_credit, message_id: <span class="prelude-val">None </span>};
@@ -1300,11 +1298,11 @@
 			<span class="kw-2">&amp;mut </span>properties,
 		) {
 			<span class="macro">log::trace!</span>(
-				target: <span class="string">&quot;xcm::execute_xcm_in_credit&quot;</span>,
+				target: <span class="string">&quot;xcm::execute&quot;</span>,
 				<span class="string">&quot;Barrier blocked execution! Error: {e:?}. \
 				 (origin: {origin:?}, message: {message:?}, properties: {properties:?})&quot;</span>,
 			);
-			<span class="kw">return </span>Outcome::Error(XcmError::Barrier)
+			<span class="kw">return </span>Outcome::Error { error: XcmError::Barrier }
 		}
 
 		<span class="kw-2">*</span>id = properties.message_id.unwrap_or(<span class="kw-2">*</span>id);
@@ -1313,7 +1311,7 @@
 
 		<span class="kw">while </span>!message.<span class="number">0</span>.is_empty() {
 			<span class="kw">let </span>result = vm.process(message);
-			<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::execute_xcm_in_credit&quot;</span>, <span class="string">&quot;result: {result:?}&quot;</span>);
+			<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::execute&quot;</span>, <span class="string">&quot;result: {result:?}&quot;</span>);
 			message = <span class="kw">if let </span><span class="prelude-val">Err</span>(error) = result {
 				vm.total_surplus.saturating_accrue(error.weight);
 				vm.error = <span class="prelude-val">Some</span>((error.index, error.xcm_error));
@@ -1327,7 +1325,7 @@
 		vm.post_process(xcm_weight)
 	}
 
-	<span class="kw">fn </span>charge_fees(origin: <span class="kw">impl </span>Into&lt;MultiLocation&gt;, fees: MultiAssets) -&gt; XcmResult {
+	<span class="kw">fn </span>charge_fees(origin: <span class="kw">impl </span>Into&lt;Location&gt;, fees: Assets) -&gt; XcmResult {
 		<span class="kw">let </span>origin = origin.into();
 		<span class="kw">if </span>!Config::FeeManager::is_waived(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>origin), FeeReason::ChargeFees) {
 			<span class="kw">for </span>asset <span class="kw">in </span>fees.inner() {
@@ -1366,12 +1364,12 @@
 }
 
 <span class="kw">impl</span>&lt;Config: config::Config&gt; XcmExecutor&lt;Config&gt; {
-	<span class="kw">pub fn </span>new(origin: <span class="kw">impl </span>Into&lt;MultiLocation&gt;, message_id: XcmHash) -&gt; <span class="self">Self </span>{
+	<span class="kw">pub fn </span>new(origin: <span class="kw">impl </span>Into&lt;Location&gt;, message_id: XcmHash) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>origin = origin.into();
 		<span class="self">Self </span>{
-			holding: Assets::new(),
+			holding: AssetsInHolding::new(),
 			holding_limit: Config::MaxAssetsIntoHolding::get() <span class="kw">as </span>usize,
-			context: XcmContext { origin: <span class="prelude-val">Some</span>(origin), message_id, topic: <span class="prelude-val">None </span>},
+			context: XcmContext { origin: <span class="prelude-val">Some</span>(origin.clone()), message_id, topic: <span class="prelude-val">None </span>},
 			original_origin: origin,
 			trader: Config::Trader::new(),
 			error: <span class="prelude-val">None</span>,
@@ -1400,7 +1398,7 @@
 
 		<span class="kw">if </span>!<span class="self">self</span>.holding.is_empty() {
 			<span class="macro">log::trace!</span>(
-				target: <span class="string">&quot;xcm::execute_xcm_in_credit&quot;</span>,
+				target: <span class="string">&quot;xcm::post_process&quot;</span>,
 				<span class="string">&quot;Trapping assets in holding register: {:?}, context: {:?} (original_origin: {:?})&quot;</span>,
 				<span class="self">self</span>.holding, <span class="self">self</span>.context, <span class="self">self</span>.original_origin,
 			);
@@ -1411,28 +1409,28 @@
 		};
 
 		<span class="kw">match </span><span class="self">self</span>.error {
-			<span class="prelude-val">None </span>=&gt; Outcome::Complete(weight_used),
+			<span class="prelude-val">None </span>=&gt; Outcome::Complete { used: weight_used },
 			<span class="comment">// TODO: #2841 #REALWEIGHT We should deduct the cost of any instructions following
 			// the error which didn&#39;t end up being executed.
 			</span><span class="prelude-val">Some</span>((_i, e)) =&gt; {
-				<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::execute_xcm_in_credit&quot;</span>, <span class="string">&quot;Execution errored at {:?}: {:?} (original_origin: {:?})&quot;</span>, _i, e, <span class="self">self</span>.original_origin);
-				Outcome::Incomplete(weight_used, e)
+				<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::post_process&quot;</span>, <span class="string">&quot;Execution errored at {:?}: {:?} (original_origin: {:?})&quot;</span>, _i, e, <span class="self">self</span>.original_origin);
+				Outcome::Incomplete { used: weight_used, error: e }
 			},
 		}
 	}
 
-	<span class="kw">fn </span>origin_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>MultiLocation&gt; {
+	<span class="kw">fn </span>origin_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Location&gt; {
 		<span class="self">self</span>.context.origin.as_ref()
 	}
 
-	<span class="kw">fn </span>cloned_origin(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;MultiLocation&gt; {
-		<span class="self">self</span>.context.origin
+	<span class="kw">fn </span>cloned_origin(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Location&gt; {
+		<span class="self">self</span>.context.origin.clone()
 	}
 
 	<span class="doccomment">/// Send an XCM, charging fees from Holding as needed.
 	</span><span class="kw">fn </span>send(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		dest: MultiLocation,
+		dest: Location,
 		msg: Xcm&lt;()&gt;,
 		reason: FeeReason,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, XcmError&gt; {
@@ -1464,14 +1462,14 @@
 		r
 	}
 
-	<span class="kw">fn </span>subsume_asset(<span class="kw-2">&amp;mut </span><span class="self">self</span>, asset: MultiAsset) -&gt; <span class="prelude-ty">Result</span>&lt;(), XcmError&gt; {
+	<span class="kw">fn </span>subsume_asset(<span class="kw-2">&amp;mut </span><span class="self">self</span>, asset: Asset) -&gt; <span class="prelude-ty">Result</span>&lt;(), XcmError&gt; {
 		<span class="comment">// worst-case, holding.len becomes 2 * holding_limit.
 		</span><span class="macro">ensure!</span>(<span class="self">self</span>.holding.len() &lt; <span class="self">self</span>.holding_limit * <span class="number">2</span>, XcmError::HoldingWouldOverflow);
 		<span class="self">self</span>.holding.subsume(asset);
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="kw">fn </span>subsume_assets(<span class="kw-2">&amp;mut </span><span class="self">self</span>, assets: Assets) -&gt; <span class="prelude-ty">Result</span>&lt;(), XcmError&gt; {
+	<span class="kw">fn </span>subsume_assets(<span class="kw-2">&amp;mut </span><span class="self">self</span>, assets: AssetsInHolding) -&gt; <span class="prelude-ty">Result</span>&lt;(), XcmError&gt; {
 		<span class="comment">// worst-case, holding.len becomes 2 * holding_limit.
 		// this guarantees that if holding.len() == holding_limit and you have holding_limit more
 		// items (which has a best case outcome of holding.len() == holding_limit), then you&#39;ll
@@ -1494,8 +1492,8 @@
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="kw">fn </span>take_fee(<span class="kw-2">&amp;mut </span><span class="self">self</span>, fee: MultiAssets, reason: FeeReason) -&gt; XcmResult {
-		<span class="kw">if </span>Config::FeeManager::is_waived(<span class="self">self</span>.origin_ref(), reason) {
+	<span class="kw">fn </span>take_fee(<span class="kw-2">&amp;mut </span><span class="self">self</span>, fee: Assets, reason: FeeReason) -&gt; XcmResult {
+		<span class="kw">if </span>Config::FeeManager::is_waived(<span class="self">self</span>.origin_ref(), reason.clone()) {
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		}
 		<span class="macro">log::trace!</span>(
@@ -1521,13 +1519,13 @@
 
 	<span class="doccomment">/// Calculates what `local_querier` would be from the perspective of `destination`.
 	</span><span class="kw">fn </span>to_querier(
-		local_querier: <span class="prelude-ty">Option</span>&lt;MultiLocation&gt;,
-		destination: <span class="kw-2">&amp;</span>MultiLocation,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;MultiLocation&gt;, XcmError&gt; {
+		local_querier: <span class="prelude-ty">Option</span>&lt;Location&gt;,
+		destination: <span class="kw-2">&amp;</span>Location,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Location&gt;, XcmError&gt; {
 		<span class="prelude-val">Ok</span>(<span class="kw">match </span>local_querier {
 			<span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
 			<span class="prelude-val">Some</span>(q) =&gt; <span class="prelude-val">Some</span>(
-				q.reanchored(<span class="kw-2">&amp;</span>destination, Config::UniversalLocation::get())
+				q.reanchored(<span class="kw-2">&amp;</span>destination, <span class="kw-2">&amp;</span>Config::UniversalLocation::get())
 					.map_err(|<span class="kw">_</span>| XcmError::ReanchorFailed)<span class="question-mark">?</span>,
 			),
 		})
@@ -1538,7 +1536,7 @@
 	/// The `local_querier` argument is the querier (if any) specified from the *local* perspective.
 	</span><span class="kw">fn </span>respond(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		local_querier: <span class="prelude-ty">Option</span>&lt;MultiLocation&gt;,
+		local_querier: <span class="prelude-ty">Option</span>&lt;Location&gt;,
 		response: Response,
 		info: QueryResponseInfo,
 		fee_reason: FeeReason,
@@ -1550,36 +1548,27 @@
 		<span class="self">self</span>.send(destination, message, fee_reason)
 	}
 
-	<span class="kw">fn </span>try_reanchor(
-		asset: MultiAsset,
-		destination: <span class="kw-2">&amp;</span>MultiLocation,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(MultiAsset, InteriorMultiLocation), XcmError&gt; {
+	<span class="kw">fn </span>try_reanchor&lt;T: Reanchorable&gt;(
+		reanchorable: T,
+		destination: <span class="kw-2">&amp;</span>Location,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(T, InteriorLocation), XcmError&gt; {
 		<span class="kw">let </span>reanchor_context = Config::UniversalLocation::get();
-		<span class="kw">let </span>asset = asset
-			.reanchored(<span class="kw-2">&amp;</span>destination, reanchor_context)
-			.map_err(|()| XcmError::ReanchorFailed)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>((asset, reanchor_context))
-	}
-
-	<span class="kw">fn </span>try_reanchor_multilocation(
-		location: MultiLocation,
-		destination: <span class="kw-2">&amp;</span>MultiLocation,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(MultiLocation, InteriorMultiLocation), XcmError&gt; {
-		<span class="kw">let </span>reanchor_context = Config::UniversalLocation::get();
-		<span class="kw">let </span>location = location
-			.reanchored(<span class="kw-2">&amp;</span>destination, reanchor_context)
-			.map_err(|<span class="kw">_</span>| XcmError::ReanchorFailed)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>((location, reanchor_context))
+		<span class="kw">let </span>reanchored =
+			reanchorable.reanchored(<span class="kw-2">&amp;</span>destination, <span class="kw-2">&amp;</span>reanchor_context).map_err(|error| {
+				<span class="macro">log::error!</span>(target: <span class="string">&quot;xcm::reanchor&quot;</span>, <span class="string">&quot;Failed reanchoring with error {error:?}&quot;</span>);
+				XcmError::ReanchorFailed
+			})<span class="question-mark">?</span>;
+		<span class="prelude-val">Ok</span>((reanchored, reanchor_context))
 	}
 
 	<span class="doccomment">/// NOTE: Any assets which were unable to be reanchored are introduced into `failed_bin`.
 	</span><span class="kw">fn </span>reanchored(
-		<span class="kw-2">mut </span>assets: Assets,
-		dest: <span class="kw-2">&amp;</span>MultiLocation,
-		maybe_failed_bin: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>Assets&gt;,
-	) -&gt; MultiAssets {
+		<span class="kw-2">mut </span>assets: AssetsInHolding,
+		dest: <span class="kw-2">&amp;</span>Location,
+		maybe_failed_bin: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>AssetsInHolding&gt;,
+	) -&gt; Assets {
 		<span class="kw">let </span>reanchor_context = Config::UniversalLocation::get();
-		assets.reanchor(dest, reanchor_context, maybe_failed_bin);
+		assets.reanchor(dest, <span class="kw-2">&amp;</span>reanchor_context, maybe_failed_bin);
 		assets.into_assets_iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().into()
 	}
 
@@ -1654,9 +1643,9 @@
 		);
 		<span class="kw">match </span>instr {
 			WithdrawAsset(assets) =&gt; {
+				<span class="kw">let </span>origin = <span class="self">self</span>.cloned_origin().ok_or(XcmError::BadOrigin)<span class="question-mark">?</span>;
 				<span class="comment">// Take `assets` from the origin account (on-chain) and place in holding.
-				</span><span class="kw">let </span>origin = <span class="kw-2">*</span><span class="self">self</span>.origin_ref().ok_or(XcmError::BadOrigin)<span class="question-mark">?</span>;
-				<span class="kw">for </span>asset <span class="kw">in </span>assets.into_inner().into_iter() {
+				</span><span class="kw">for </span>asset <span class="kw">in </span>assets.into_inner().into_iter() {
 					Config::AssetTransactor::withdraw_asset(<span class="kw-2">&amp;</span>asset, <span class="kw-2">&amp;</span>origin, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.context))<span class="question-mark">?</span>;
 					<span class="self">self</span>.subsume_asset(asset)<span class="question-mark">?</span>;
 				}
@@ -1664,8 +1653,8 @@
 			},
 			ReserveAssetDeposited(assets) =&gt; {
 				<span class="comment">// check whether we trust origin to be our reserve location for this asset.
-				</span><span class="kw">let </span>origin = <span class="kw-2">*</span><span class="self">self</span>.origin_ref().ok_or(XcmError::BadOrigin)<span class="question-mark">?</span>;
-				<span class="kw">for </span>asset <span class="kw">in </span>assets.into_inner().into_iter() {
+				</span><span class="kw">for </span>asset <span class="kw">in </span>assets.into_inner().into_iter() {
+					<span class="kw">let </span>origin = <span class="self">self</span>.cloned_origin().ok_or(XcmError::BadOrigin)<span class="question-mark">?</span>;
 					<span class="comment">// Must ensure that we recognise the asset as being managed by the origin.
 					</span><span class="macro">ensure!</span>(
 						Config::IsReserve::contains(<span class="kw-2">&amp;</span>asset, <span class="kw-2">&amp;</span>origin),
@@ -1695,14 +1684,14 @@
 					Config::AssetTransactor::transfer_asset(asset, origin, <span class="kw-2">&amp;</span>dest, <span class="kw-2">&amp;</span><span class="self">self</span>.context)<span class="question-mark">?</span>;
 				}
 				<span class="kw">let </span>reanchor_context = Config::UniversalLocation::get();
-				assets.reanchor(<span class="kw-2">&amp;</span>dest, reanchor_context).map_err(|()| XcmError::LocationFull)<span class="question-mark">?</span>;
+				assets.reanchor(<span class="kw-2">&amp;</span>dest, <span class="kw-2">&amp;</span>reanchor_context).map_err(|()| XcmError::LocationFull)<span class="question-mark">?</span>;
 				<span class="kw">let </span><span class="kw-2">mut </span>message = <span class="macro">vec!</span>[ReserveAssetDeposited(assets), ClearOrigin];
 				message.extend(xcm.<span class="number">0</span>.into_iter());
 				<span class="self">self</span>.send(dest, Xcm(message), FeeReason::TransferReserveAsset)<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>(())
 			},
 			ReceiveTeleportedAsset(assets) =&gt; {
-				<span class="kw">let </span>origin = <span class="kw-2">*</span><span class="self">self</span>.origin_ref().ok_or(XcmError::BadOrigin)<span class="question-mark">?</span>;
+				<span class="kw">let </span>origin = <span class="self">self</span>.cloned_origin().ok_or(XcmError::BadOrigin)<span class="question-mark">?</span>;
 				<span class="comment">// check whether we trust origin to teleport this asset to us via config trait.
 				</span><span class="kw">for </span>asset <span class="kw">in </span>assets.inner() {
 					<span class="comment">// We only trust the origin to send us assets that they identify as their
@@ -1718,6 +1707,7 @@
 					</span>Config::AssetTransactor::can_check_in(<span class="kw-2">&amp;</span>origin, asset, <span class="kw-2">&amp;</span><span class="self">self</span>.context)<span class="question-mark">?</span>;
 				}
 				<span class="kw">for </span>asset <span class="kw">in </span>assets.into_inner().into_iter() {
+					<span class="kw">let </span>origin = <span class="self">self</span>.origin_ref().ok_or(XcmError::BadOrigin)<span class="question-mark">?</span>;
 					Config::AssetTransactor::check_in(<span class="kw-2">&amp;</span>origin, <span class="kw-2">&amp;</span>asset, <span class="kw-2">&amp;</span><span class="self">self</span>.context);
 					<span class="self">self</span>.subsume_asset(asset)<span class="question-mark">?</span>;
 				}
@@ -1725,7 +1715,7 @@
 			},
 			Transact { origin_kind, require_weight_at_most, <span class="kw-2">mut </span>call } =&gt; {
 				<span class="comment">// We assume that the Relay-chain is allowed to use transact on this parachain.
-				</span><span class="kw">let </span>origin = <span class="kw-2">*</span><span class="self">self</span>.origin_ref().ok_or_else(|| {
+				</span><span class="kw">let </span>origin = <span class="self">self</span>.cloned_origin().ok_or_else(|| {
 					<span class="macro">log::trace!</span>(
 						target: <span class="string">&quot;xcm::process_instruction::transact&quot;</span>,
 						<span class="string">&quot;No origin provided&quot;</span>,
@@ -1758,15 +1748,17 @@
 					<span class="kw">return </span><span class="prelude-val">Err</span>(XcmError::NoPermission)
 				}
 
-				<span class="kw">let </span>dispatch_origin = Config::OriginConverter::convert_origin(origin, origin_kind)
-					.map_err(|<span class="kw">_</span>| {
-						<span class="macro">log::trace!</span>(
-							target: <span class="string">&quot;xcm::process_instruction::transact&quot;</span>,
-							<span class="string">&quot;Failed to convert origin {origin:?} and origin kind {origin_kind:?} to a local origin.&quot;
-						</span>);
+				<span class="kw">let </span>dispatch_origin =
+					Config::OriginConverter::convert_origin(origin.clone(), origin_kind).map_err(
+						|<span class="kw">_</span>| {
+							<span class="macro">log::trace!</span>(
+								target: <span class="string">&quot;xcm::process_instruction::transact&quot;</span>,
+								<span class="string">&quot;Failed to convert origin {origin:?} and origin kind {origin_kind:?} to a local origin.&quot;
+							</span>);
 
-						XcmError::BadOrigin
-					})<span class="question-mark">?</span>;
+							XcmError::BadOrigin
+						},
+					)<span class="question-mark">?</span>;
 
 				<span class="macro">log::trace!</span>(
 					target: <span class="string">&quot;xcm::process_instruction::transact&quot;</span>,
@@ -2055,12 +2047,12 @@
 			UniversalOrigin(new_global) =&gt; {
 				<span class="kw">let </span>universal_location = Config::UniversalLocation::get();
 				<span class="macro">ensure!</span>(universal_location.first() != <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>new_global), XcmError::InvalidLocation);
-				<span class="kw">let </span>origin = <span class="kw-2">*</span><span class="self">self</span>.origin_ref().ok_or(XcmError::BadOrigin)<span class="question-mark">?</span>;
+				<span class="kw">let </span>origin = <span class="self">self</span>.cloned_origin().ok_or(XcmError::BadOrigin)<span class="question-mark">?</span>;
 				<span class="kw">let </span>origin_xform = (origin, new_global);
 				<span class="kw">let </span>ok = Config::UniversalAliases::contains(<span class="kw-2">&amp;</span>origin_xform);
 				<span class="macro">ensure!</span>(ok, XcmError::InvalidLocation);
 				<span class="kw">let </span>(<span class="kw">_</span>, new_global) = origin_xform;
-				<span class="kw">let </span>new_origin = X1(new_global).relative_to(<span class="kw-2">&amp;</span>universal_location);
+				<span class="kw">let </span>new_origin = Junctions::from([new_global]).relative_to(<span class="kw-2">&amp;</span>universal_location);
 				<span class="self">self</span>.context.origin = <span class="prelude-val">Some</span>(new_origin);
 				<span class="prelude-val">Ok</span>(())
 			},
@@ -2074,7 +2066,7 @@
 				//
 				// This only works because the remote chain empowers the bridge
 				// to speak for the local network.
-				</span><span class="kw">let </span>origin = <span class="self">self</span>.context.origin.ok_or(XcmError::BadOrigin)<span class="question-mark">?</span>;
+				</span><span class="kw">let </span>origin = <span class="self">self</span>.context.origin.as_ref().ok_or(XcmError::BadOrigin)<span class="question-mark">?</span>.clone();
 				<span class="kw">let </span>universal_source = Config::UniversalLocation::get()
 					.within_global(origin)
 					.map_err(|()| XcmError::Unanchored)<span class="question-mark">?</span>;
@@ -2087,7 +2079,7 @@
 					network,
 					channel,
 					universal_source,
-					destination,
+					destination.clone(),
 					xcm,
 				)<span class="question-mark">?</span>;
 				<span class="self">self</span>.take_fee(fee, FeeReason::Export { network, destination })<span class="question-mark">?</span>;
@@ -2095,11 +2087,12 @@
 				<span class="prelude-val">Ok</span>(())
 			},
 			LockAsset { asset, unlocker } =&gt; {
-				<span class="kw">let </span>origin = <span class="kw-2">*</span><span class="self">self</span>.origin_ref().ok_or(XcmError::BadOrigin)<span class="question-mark">?</span>;
+				<span class="kw">let </span>origin = <span class="self">self</span>.cloned_origin().ok_or(XcmError::BadOrigin)<span class="question-mark">?</span>;
 				<span class="kw">let </span>(remote_asset, context) = <span class="self">Self</span>::try_reanchor(asset.clone(), <span class="kw-2">&amp;</span>unlocker)<span class="question-mark">?</span>;
-				<span class="kw">let </span>lock_ticket = Config::AssetLocker::prepare_lock(unlocker, asset, origin)<span class="question-mark">?</span>;
+				<span class="kw">let </span>lock_ticket =
+					Config::AssetLocker::prepare_lock(unlocker.clone(), asset, origin.clone())<span class="question-mark">?</span>;
 				<span class="kw">let </span>owner =
-					origin.reanchored(<span class="kw-2">&amp;</span>unlocker, context).map_err(|<span class="kw">_</span>| XcmError::ReanchorFailed)<span class="question-mark">?</span>;
+					origin.reanchored(<span class="kw-2">&amp;</span>unlocker, <span class="kw-2">&amp;</span>context).map_err(|<span class="kw">_</span>| XcmError::ReanchorFailed)<span class="question-mark">?</span>;
 				<span class="kw">let </span>msg = Xcm::&lt;()&gt;(<span class="macro">vec!</span>[NoteUnlockable { asset: remote_asset, owner }]);
 				<span class="kw">let </span>(ticket, price) = validate_send::&lt;Config::XcmSender&gt;(unlocker, msg)<span class="question-mark">?</span>;
 				<span class="self">self</span>.take_fee(price, FeeReason::LockAsset)<span class="question-mark">?</span>;
@@ -2108,21 +2101,24 @@
 				<span class="prelude-val">Ok</span>(())
 			},
 			UnlockAsset { asset, target } =&gt; {
-				<span class="kw">let </span>origin = <span class="kw-2">*</span><span class="self">self</span>.origin_ref().ok_or(XcmError::BadOrigin)<span class="question-mark">?</span>;
+				<span class="kw">let </span>origin = <span class="self">self</span>.cloned_origin().ok_or(XcmError::BadOrigin)<span class="question-mark">?</span>;
 				Config::AssetLocker::prepare_unlock(origin, asset, target)<span class="question-mark">?</span>.enact()<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>(())
 			},
 			NoteUnlockable { asset, owner } =&gt; {
-				<span class="kw">let </span>origin = <span class="kw-2">*</span><span class="self">self</span>.origin_ref().ok_or(XcmError::BadOrigin)<span class="question-mark">?</span>;
+				<span class="kw">let </span>origin = <span class="self">self</span>.cloned_origin().ok_or(XcmError::BadOrigin)<span class="question-mark">?</span>;
 				Config::AssetLocker::note_unlockable(origin, asset, owner)<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>(())
 			},
 			RequestUnlock { asset, locker } =&gt; {
-				<span class="kw">let </span>origin = <span class="kw-2">*</span><span class="self">self</span>.origin_ref().ok_or(XcmError::BadOrigin)<span class="question-mark">?</span>;
+				<span class="kw">let </span>origin = <span class="self">self</span>.cloned_origin().ok_or(XcmError::BadOrigin)<span class="question-mark">?</span>;
 				<span class="kw">let </span>remote_asset = <span class="self">Self</span>::try_reanchor(asset.clone(), <span class="kw-2">&amp;</span>locker)<span class="question-mark">?</span>.<span class="number">0</span>;
-				<span class="kw">let </span>remote_target = <span class="self">Self</span>::try_reanchor_multilocation(origin, <span class="kw-2">&amp;</span>locker)<span class="question-mark">?</span>.<span class="number">0</span>;
-				<span class="kw">let </span>reduce_ticket =
-					Config::AssetLocker::prepare_reduce_unlockable(locker, asset, origin)<span class="question-mark">?</span>;
+				<span class="kw">let </span>remote_target = <span class="self">Self</span>::try_reanchor(origin.clone(), <span class="kw-2">&amp;</span>locker)<span class="question-mark">?</span>.<span class="number">0</span>;
+				<span class="kw">let </span>reduce_ticket = Config::AssetLocker::prepare_reduce_unlockable(
+					locker.clone(),
+					asset,
+					origin.clone(),
+				)<span class="question-mark">?</span>;
 				<span class="kw">let </span>msg =
 					Xcm::&lt;()&gt;(<span class="macro">vec!</span>[UnlockAsset { asset: remote_asset, target: remote_target }]);
 				<span class="kw">let </span>(ticket, price) = validate_send::&lt;Config::XcmSender&gt;(locker, msg)<span class="question-mark">?</span>;

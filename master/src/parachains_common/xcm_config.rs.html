@@ -224,14 +224,6 @@
 <a href="#224" id="224">224</a>
 <a href="#225" id="225">225</a>
 <a href="#226" id="226">226</a>
-<a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-<a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -300,37 +292,36 @@
 	}
 }
 
-<span class="doccomment">/// Accepts an asset if it is a native asset from a particular `MultiLocation`.
-</span><span class="kw">pub struct </span>ConcreteNativeAssetFrom&lt;Location&gt;(PhantomData&lt;Location&gt;);
-<span class="kw">impl</span>&lt;Location: Get&lt;MultiLocation&gt;&gt; ContainsPair&lt;MultiAsset, MultiLocation&gt;
-	<span class="kw">for </span>ConcreteNativeAssetFrom&lt;Location&gt;
+<span class="doccomment">/// Accepts an asset if it is a native asset from a particular `Location`.
+</span><span class="kw">pub struct </span>ConcreteNativeAssetFrom&lt;LocationValue&gt;(PhantomData&lt;LocationValue&gt;);
+<span class="kw">impl</span>&lt;LocationValue: Get&lt;Location&gt;&gt; ContainsPair&lt;Asset, Location&gt;
+	<span class="kw">for </span>ConcreteNativeAssetFrom&lt;LocationValue&gt;
 {
-	<span class="kw">fn </span>contains(asset: <span class="kw-2">&amp;</span>MultiAsset, origin: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
+	<span class="kw">fn </span>contains(asset: <span class="kw-2">&amp;</span>Asset, origin: <span class="kw-2">&amp;</span>Location) -&gt; bool {
 		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::filter_asset_location&quot;</span>,
 			<span class="string">&quot;ConcreteNativeAsset asset: {:?}, origin: {:?}, location: {:?}&quot;</span>,
-			asset, origin, Location::get());
-		<span class="macro">matches!</span>(asset.id, Concrete(<span class="kw-2">ref </span>id) <span class="kw">if </span>id == origin &amp;&amp; origin == <span class="kw-2">&amp;</span>Location::get())
+			asset, origin, LocationValue::get());
+		asset.id.<span class="number">0 </span>== <span class="kw-2">*</span>origin &amp;&amp; origin == <span class="kw-2">&amp;</span>LocationValue::get()
 	}
 }
 
 <span class="kw">pub struct </span>RelayOrOtherSystemParachains&lt;
-	SystemParachainMatcher: Contains&lt;MultiLocation&gt;,
+	SystemParachainMatcher: Contains&lt;Location&gt;,
 	Runtime: parachain_info::Config,
 &gt; {
 	_runtime: PhantomData&lt;(SystemParachainMatcher, Runtime)&gt;,
 }
-<span class="kw">impl</span>&lt;SystemParachainMatcher: Contains&lt;MultiLocation&gt;, Runtime: parachain_info::Config&gt;
-	Contains&lt;MultiLocation&gt; <span class="kw">for </span>RelayOrOtherSystemParachains&lt;SystemParachainMatcher, Runtime&gt;
+<span class="kw">impl</span>&lt;SystemParachainMatcher: Contains&lt;Location&gt;, Runtime: parachain_info::Config&gt; Contains&lt;Location&gt;
+	<span class="kw">for </span>RelayOrOtherSystemParachains&lt;SystemParachainMatcher, Runtime&gt;
 {
-	<span class="kw">fn </span>contains(l: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
+	<span class="kw">fn </span>contains(l: <span class="kw-2">&amp;</span>Location) -&gt; bool {
 		<span class="kw">let </span>self_para_id: u32 = parachain_info::Pallet::&lt;Runtime&gt;::get().into();
-		<span class="kw">if let </span>MultiLocation { parents: <span class="number">0</span>, interior: X1(Parachain(para_id)) } = l {
+		<span class="kw">if let </span>(<span class="number">0</span>, [Parachain(para_id)]) = l.unpack() {
 			<span class="kw">if </span><span class="kw-2">*</span>para_id == self_para_id {
 				<span class="kw">return </span><span class="bool-val">false
 			</span>}
 		}
-		<span class="macro">matches!</span>(l, MultiLocation { parents: <span class="number">1</span>, interior: Here }) ||
-			SystemParachainMatcher::contains(l)
+		<span class="macro">matches!</span>(l.unpack(), (<span class="number">1</span>, [])) || SystemParachainMatcher::contains(l)
 	}
 }
 
@@ -339,14 +330,12 @@
 /// This structure can only be used at a parachain level. In the Relay Chain, please use
 /// the `xcm_builder::IsChildSystemParachain` matcher.
 </span><span class="kw">pub struct </span>AllSiblingSystemParachains;
-
-<span class="kw">impl </span>Contains&lt;MultiLocation&gt; <span class="kw">for </span>AllSiblingSystemParachains {
-	<span class="kw">fn </span>contains(l: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
+<span class="kw">impl </span>Contains&lt;Location&gt; <span class="kw">for </span>AllSiblingSystemParachains {
+	<span class="kw">fn </span>contains(l: <span class="kw-2">&amp;</span>Location) -&gt; bool {
 		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::contains&quot;</span>, <span class="string">&quot;AllSiblingSystemParachains location: {:?}&quot;</span>, l);
-		<span class="kw">match </span><span class="kw-2">*</span>l {
+		<span class="kw">match </span>l.unpack() {
 			<span class="comment">// System parachain
-			</span>MultiLocation { parents: <span class="number">1</span>, interior: X1(Parachain(id)) } =&gt;
-				ParaId::from(id).is_system(),
+			</span>(<span class="number">1</span>, [Parachain(id)]) =&gt; ParaId::from(<span class="kw-2">*</span>id).is_system(),
 			<span class="comment">// Everything else
 			</span><span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
 		}
@@ -355,21 +344,20 @@
 
 <span class="doccomment">/// Accepts an asset if it is a concrete asset from the system (Relay Chain or system parachain).
 </span><span class="kw">pub struct </span>ConcreteAssetFromSystem&lt;AssetLocation&gt;(PhantomData&lt;AssetLocation&gt;);
-<span class="kw">impl</span>&lt;AssetLocation: Get&lt;MultiLocation&gt;&gt; ContainsPair&lt;MultiAsset, MultiLocation&gt;
+<span class="kw">impl</span>&lt;AssetLocation: Get&lt;Location&gt;&gt; ContainsPair&lt;Asset, Location&gt;
 	<span class="kw">for </span>ConcreteAssetFromSystem&lt;AssetLocation&gt;
 {
-	<span class="kw">fn </span>contains(asset: <span class="kw-2">&amp;</span>MultiAsset, origin: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
+	<span class="kw">fn </span>contains(asset: <span class="kw-2">&amp;</span>Asset, origin: <span class="kw-2">&amp;</span>Location) -&gt; bool {
 		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::contains&quot;</span>, <span class="string">&quot;ConcreteAssetFromSystem asset: {:?}, origin: {:?}&quot;</span>, asset, origin);
-		<span class="kw">let </span>is_system = <span class="kw">match </span>origin {
+		<span class="kw">let </span>is_system = <span class="kw">match </span>origin.unpack() {
 			<span class="comment">// The Relay Chain
-			</span>MultiLocation { parents: <span class="number">1</span>, interior: Here } =&gt; <span class="bool-val">true</span>,
+			</span>(<span class="number">1</span>, []) =&gt; <span class="bool-val">true</span>,
 			<span class="comment">// System parachain
-			</span>MultiLocation { parents: <span class="number">1</span>, interior: X1(Parachain(id)) } =&gt;
-				ParaId::from(<span class="kw-2">*</span>id).is_system(),
+			</span>(<span class="number">1</span>, [Parachain(id)]) =&gt; ParaId::from(<span class="kw-2">*</span>id).is_system(),
 			<span class="comment">// Others
 			</span><span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
 		};
-		<span class="macro">matches!</span>(asset.id, Concrete(id) <span class="kw">if </span>id == AssetLocation::get()) &amp;&amp; is_system
+		asset.id.<span class="number">0 </span>== AssetLocation::get() &amp;&amp; is_system
 	}
 }
 
@@ -378,13 +366,9 @@
 /// This type should only be used within the context of a parachain, since it does not verify that
 /// the parent is indeed a Relay Chain.
 </span><span class="kw">pub struct </span>ParentRelayOrSiblingParachains;
-<span class="kw">impl </span>Contains&lt;MultiLocation&gt; <span class="kw">for </span>ParentRelayOrSiblingParachains {
-	<span class="kw">fn </span>contains(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
-		<span class="macro">matches!</span>(
-			location,
-			MultiLocation { parents: <span class="number">1</span>, interior: Here } |
-				MultiLocation { parents: <span class="number">1</span>, interior: X1(Parachain(<span class="kw">_</span>)) }
-		)
+<span class="kw">impl </span>Contains&lt;Location&gt; <span class="kw">for </span>ParentRelayOrSiblingParachains {
+	<span class="kw">fn </span>contains(location: <span class="kw-2">&amp;</span>Location) -&gt; bool {
+		<span class="macro">matches!</span>(location.unpack(), (<span class="number">1</span>, []) | (<span class="number">1</span>, [Parachain(<span class="kw">_</span>)]))
 	}
 }
 
@@ -393,20 +377,20 @@
 	<span class="kw">use </span>frame_support::{parameter_types, traits::Contains};
 
 	<span class="kw">use super</span>::{
-		AllSiblingSystemParachains, ConcreteAssetFromSystem, ContainsPair, GeneralIndex, Here,
-		MultiAsset, MultiLocation, PalletInstance, Parachain, Parent,
+		AllSiblingSystemParachains, Asset, ConcreteAssetFromSystem, ContainsPair, GeneralIndex,
+		Here, Location, PalletInstance, Parachain, Parent,
 	};
 	<span class="kw">use </span>polkadot_primitives::LOWEST_PUBLIC_ID;
 	<span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 
 	<span class="macro">parameter_types! </span>{
-		<span class="kw">pub const </span>RelayLocation: MultiLocation = MultiLocation::parent();
+		<span class="kw">pub const </span>RelayLocation: Location = Location::parent();
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>concrete_asset_from_relay_works() {
-		<span class="kw">let </span>expected_asset: MultiAsset = (Parent, <span class="number">1000000</span>).into();
-		<span class="kw">let </span>expected_origin: MultiLocation = (Parent, Here).into();
+		<span class="kw">let </span>expected_asset: Asset = (Parent, <span class="number">1000000</span>).into();
+		<span class="kw">let </span>expected_origin: Location = (Parent, Here).into();
 
 		<span class="macro">assert!</span>(&lt;ConcreteAssetFromSystem&lt;RelayLocation&gt;&gt;::contains(
 			<span class="kw-2">&amp;</span>expected_asset,
@@ -416,12 +400,12 @@
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>concrete_asset_from_sibling_system_para_fails_for_wrong_asset() {
-		<span class="kw">let </span>unexpected_assets: Vec&lt;MultiAsset&gt; = <span class="macro">vec!</span>[
+		<span class="kw">let </span>unexpected_assets: Vec&lt;Asset&gt; = <span class="macro">vec!</span>[
 			(Here, <span class="number">1000000</span>).into(),
 			((PalletInstance(<span class="number">50</span>), GeneralIndex(<span class="number">1</span>)), <span class="number">1000000</span>).into(),
 			((Parent, Parachain(<span class="number">1000</span>), PalletInstance(<span class="number">50</span>), GeneralIndex(<span class="number">1</span>)), <span class="number">1000000</span>).into(),
 		];
-		<span class="kw">let </span>expected_origin: MultiLocation = (Parent, Parachain(<span class="number">1000</span>)).into();
+		<span class="kw">let </span>expected_origin: Location = (Parent, Parachain(<span class="number">1000</span>)).into();
 
 		unexpected_assets.iter().for_each(|asset| {
 			<span class="macro">assert!</span>(!&lt;ConcreteAssetFromSystem&lt;RelayLocation&gt;&gt;::contains(asset, <span class="kw-2">&amp;</span>expected_origin));
@@ -440,10 +424,10 @@
 			</span>(<span class="number">2001</span>, <span class="bool-val">false</span>), <span class="comment">// Not a System Parachain
 		</span>];
 
-		<span class="kw">let </span>expected_asset: MultiAsset = (Parent, <span class="number">1000000</span>).into();
+		<span class="kw">let </span>expected_asset: Asset = (Parent, <span class="number">1000000</span>).into();
 
 		<span class="kw">for </span>(para_id, expected_result) <span class="kw">in </span>test_data {
-			<span class="kw">let </span>origin: MultiLocation = (Parent, Parachain(para_id)).into();
+			<span class="kw">let </span>origin: Location = (Parent, Parachain(para_id)).into();
 			<span class="macro">assert_eq!</span>(
 				expected_result,
 				&lt;ConcreteAssetFromSystem&lt;RelayLocation&gt;&gt;::contains(<span class="kw-2">&amp;</span>expected_asset, <span class="kw-2">&amp;</span>origin)
@@ -454,16 +438,16 @@
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>all_sibling_system_parachains_works() {
 		<span class="comment">// system parachain
-		</span><span class="macro">assert!</span>(AllSiblingSystemParachains::contains(<span class="kw-2">&amp;</span>MultiLocation::new(<span class="number">1</span>, X1(Parachain(<span class="number">1</span>)))));
+		</span><span class="macro">assert!</span>(AllSiblingSystemParachains::contains(<span class="kw-2">&amp;</span>Location::new(<span class="number">1</span>, [Parachain(<span class="number">1</span>)])));
 		<span class="comment">// non-system parachain
-		</span><span class="macro">assert!</span>(!AllSiblingSystemParachains::contains(<span class="kw-2">&amp;</span>MultiLocation::new(
+		</span><span class="macro">assert!</span>(!AllSiblingSystemParachains::contains(<span class="kw-2">&amp;</span>Location::new(
 			<span class="number">1</span>,
-			X1(Parachain(LOWEST_PUBLIC_ID.into()))
+			[Parachain(LOWEST_PUBLIC_ID.into())]
 		)));
 		<span class="comment">// when used at relay chain
-		</span><span class="macro">assert!</span>(!AllSiblingSystemParachains::contains(<span class="kw-2">&amp;</span>MultiLocation::new(<span class="number">0</span>, X1(Parachain(<span class="number">1</span>)))));
+		</span><span class="macro">assert!</span>(!AllSiblingSystemParachains::contains(<span class="kw-2">&amp;</span>Location::new(<span class="number">0</span>, [Parachain(<span class="number">1</span>)])));
 		<span class="comment">// when used with non-parachain
-		</span><span class="macro">assert!</span>(!AllSiblingSystemParachains::contains(<span class="kw-2">&amp;</span>MultiLocation::new(<span class="number">1</span>, X1(OnlyChild))));
+		</span><span class="macro">assert!</span>(!AllSiblingSystemParachains::contains(<span class="kw-2">&amp;</span>Location::new(<span class="number">1</span>, [OnlyChild])));
 	}
 }
 </code></pre></div></section></main></body></html>

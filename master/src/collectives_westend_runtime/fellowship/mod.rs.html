@@ -386,7 +386,7 @@
 	westend::{account, currency::GRAND},
 };
 <span class="kw">use </span>polkadot_runtime_common::impls::{
-	LocatableAssetConverter, VersionedLocatableAsset, VersionedMultiLocationConverter,
+	LocatableAssetConverter, VersionedLocatableAsset, VersionedLocationConverter,
 };
 <span class="kw">use </span>sp_arithmetic::Permill;
 <span class="kw">use </span>sp_core::{ConstU128, ConstU32};
@@ -545,7 +545,7 @@
 <span class="macro">parameter_types! </span>{
 	<span class="comment">// The interior location on AssetHub for the paying account. This is the Fellowship Salary
 	// pallet instance (which sits at index 64). This sovereign account will need funding.
-	</span><span class="kw">pub </span>Interior: InteriorMultiLocation = PalletInstance(<span class="number">64</span>).into();
+	</span><span class="kw">pub </span>Interior: InteriorLocation = PalletInstance(<span class="number">64</span>).into();
 }
 
 <span class="kw">const </span>USDT_UNITS: u128 = <span class="number">1_000_000</span>;
@@ -593,7 +593,7 @@
 	<span class="kw">pub const </span>MaxBalance: Balance = Balance::max_value();
 	<span class="comment">// The asset&#39;s interior location for the paying account. This is the Fellowship Treasury
 	// pallet instance (which sits at index 65).
-	</span><span class="kw">pub </span>FellowshipTreasuryInteriorLocation: InteriorMultiLocation = PalletInstance(<span class="number">65</span>).into();
+	</span><span class="kw">pub </span>FellowshipTreasuryInteriorLocation: InteriorLocation = PalletInstance(<span class="number">65</span>).into();
 }
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
@@ -612,10 +612,10 @@
 	<span class="kw">crate</span>::xcm_config::XcmRouter,
 	<span class="kw">crate</span>::PolkadotXcm,
 	ConstU32&lt;{ <span class="number">6 </span>* HOURS }&gt;,
-	VersionedMultiLocation,
+	VersionedLocation,
 	VersionedLocatableAsset,
 	LocatableAssetConverter,
-	VersionedMultiLocationConverter,
+	VersionedLocationConverter,
 &gt;;
 
 <span class="kw">pub type </span>FellowshipTreasuryInstance = pallet_treasury::Instance1;
@@ -670,7 +670,7 @@
 		&gt;,
 	&gt;;
 	<span class="kw">type </span>AssetKind = VersionedLocatableAsset;
-	<span class="kw">type </span>Beneficiary = VersionedMultiLocation;
+	<span class="kw">type </span>Beneficiary = VersionedLocation;
 	<span class="kw">type </span>BeneficiaryLookup = IdentityLookup&lt;<span class="self">Self</span>::Beneficiary&gt;;
 	<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
 	</span><span class="kw">type </span>Paymaster = FellowshipTreasuryPaymaster;

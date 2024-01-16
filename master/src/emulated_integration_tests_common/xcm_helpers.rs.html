@@ -69,10 +69,6 @@
 <a href="#69" id="69">69</a>
 <a href="#70" id="70">70</a>
 <a href="#71" id="71">71</a>
-<a href="#72" id="72">72</a>
-<a href="#73" id="73">73</a>
-<a href="#74" id="74">74</a>
-<a href="#75" id="75">75</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -98,12 +94,12 @@
 </span><span class="kw">pub fn </span>xcm_transact_paid_execution(
 	call: DoubleEncoded&lt;()&gt;,
 	origin_kind: OriginKind,
-	native_asset: MultiAsset,
+	native_asset: Asset,
 	beneficiary: AccountId,
 ) -&gt; VersionedXcm&lt;()&gt; {
 	<span class="kw">let </span>weight_limit = WeightLimit::Unlimited;
 	<span class="kw">let </span>require_weight_at_most = Weight::from_parts(<span class="number">1000000000</span>, <span class="number">200000</span>);
-	<span class="kw">let </span>native_assets: MultiAssets = native_asset.clone().into();
+	<span class="kw">let </span>native_assets: Assets = native_asset.clone().into();
 
 	VersionedXcm::from(Xcm(<span class="macro">vec!</span>[
 		WithdrawAsset(native_assets),
@@ -112,9 +108,9 @@
 		RefundSurplus,
 		DepositAsset {
 			assets: All.into(),
-			beneficiary: MultiLocation {
+			beneficiary: Location {
 				parents: <span class="number">0</span>,
-				interior: X1(AccountId32 { network: <span class="prelude-val">None</span>, id: beneficiary.into() }),
+				interior: [AccountId32 { network: <span class="prelude-val">None</span>, id: beneficiary.into() }].into(),
 			},
 		},
 	]))
@@ -136,16 +132,12 @@
 }
 
 <span class="doccomment">/// Helper method to get the non-fee asset used in multiple assets transfer
-</span><span class="kw">pub fn </span>non_fee_asset(assets: <span class="kw-2">&amp;</span>MultiAssets, fee_idx: usize) -&gt; <span class="prelude-ty">Option</span>&lt;(MultiLocation, u128)&gt; {
+</span><span class="kw">pub fn </span>non_fee_asset(assets: <span class="kw-2">&amp;</span>Assets, fee_idx: usize) -&gt; <span class="prelude-ty">Option</span>&lt;(Location, u128)&gt; {
 	<span class="kw">let </span>asset = assets.inner().into_iter().enumerate().find(|a| a.<span class="number">0 </span>!= fee_idx)<span class="question-mark">?</span>.<span class="number">1</span>.clone();
-	<span class="kw">let </span>asset_id = <span class="kw">match </span>asset.id {
-		Concrete(id) =&gt; id,
-		<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
-	};
 	<span class="kw">let </span>asset_amount = <span class="kw">match </span>asset.fun {
 		Fungible(amount) =&gt; amount,
 		<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
 	};
-	<span class="prelude-val">Some</span>((asset_id, asset_amount))
+	<span class="prelude-val">Some</span>((asset.id.<span class="number">0</span>, asset_amount))
 }
 </code></pre></div></section></main></body></html>

@@ -250,12 +250,6 @@
 <a href="#250" id="250">250</a>
 <a href="#251" id="251">251</a>
 <a href="#252" id="252">252</a>
-<a href="#253" id="253">253</a>
-<a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -284,10 +278,7 @@
 <span class="kw">use </span>pallet_broker::{CoreAssignment, CoreIndex <span class="kw">as </span>BrokerCoreIndex};
 <span class="kw">use </span>primitives::{CoreIndex, Id <span class="kw">as </span>ParaId};
 <span class="kw">use </span>sp_arithmetic::traits::SaturatedConversion;
-<span class="kw">use </span>xcm::v3::{
-	send_xcm, Instruction, Junction, Junctions, MultiLocation, OriginKind, SendXcm, WeightLimit,
-	Xcm,
-};
+<span class="kw">use </span>xcm::v4::{send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, WeightLimit, Xcm};
 
 <span class="kw">use crate</span>::{
 	assigner_coretime::{<span class="self">self</span>, PartsOf57600},
@@ -487,10 +478,7 @@
 				mk_coretime_call(<span class="kw">crate</span>::coretime::CoretimeCalls::NotifyCoreCount(core_count)),
 			]);
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = send_xcm::&lt;T::SendXcm&gt;(
-				MultiLocation {
-					parents: <span class="number">0</span>,
-					interior: Junctions::X1(Junction::Parachain(T::BrokerId::get())),
-				},
+				Location::new(<span class="number">0</span>, [Junction::Parachain(T::BrokerId::get())]),
 				message,
 			) {
 				<span class="macro">log::error!</span>(<span class="string">&quot;Sending `NotifyCoreCount` to coretime chain failed: {:?}&quot;</span>, err);

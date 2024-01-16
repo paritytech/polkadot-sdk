@@ -1701,6 +1701,12 @@
 <a href="#1701" id="1701">1701</a>
 <a href="#1702" id="1702">1702</a>
 <a href="#1703" id="1703">1703</a>
+<a href="#1704" id="1704">1704</a>
+<a href="#1705" id="1705">1705</a>
+<a href="#1706" id="1706">1706</a>
+<a href="#1707" id="1707">1707</a>
+<a href="#1708" id="1708">1708</a>
+<a href="#1709" id="1709">1709</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1779,21 +1785,25 @@
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>sp_version::NativeVersion;
 <span class="kw">use </span>sp_version::RuntimeVersion;
-<span class="kw">use </span>xcm::opaque::v3::MultiLocation;
 <span class="kw">use </span>xcm_config::{
 	ForeignAssetsConvertedConcreteId, PoolAssetsConvertedConcreteId,
-	TrustBackedAssetsConvertedConcreteId, TrustBackedAssetsPalletLocation, WestendLocation,
-	XcmOriginToTransactDispatchOrigin,
+	TrustBackedAssetsConvertedConcreteId, TrustBackedAssetsPalletLocationV3, WestendLocation,
+	WestendLocationV3, XcmOriginToTransactDispatchOrigin,
 };
 
 <span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
 </span><span class="kw">pub use </span>sp_runtime::BuildStorage;
 
-<span class="kw">use </span>assets_common::{
-	foreign_creators::ForeignCreators, matching::FromSiblingParachain, MultiLocationForAssetId,
-};
+<span class="kw">use </span>assets_common::{foreign_creators::ForeignCreators, matching::FromSiblingParachain};
 <span class="kw">use </span>polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
-<span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
+<span class="comment">// We exclude `Assets` since it&#39;s the name of a pallet
+</span><span class="kw">use </span>xcm::latest::prelude::AssetId;
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+</span><span class="kw">use </span>xcm::latest::prelude::{
+	Asset, Fungible, Here, InteriorLocation, Junction, Junction::<span class="kw-2">*</span>, Location, NetworkId,
+	NonFungible, Parent, ParentThen, Response, XCM_VERSION,
+};
 
 <span class="kw">use </span><span class="kw">crate</span>::xcm_config::ForeignCreatorsSovereignAccountOf;
 <span class="kw">use </span>weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
@@ -2003,10 +2013,11 @@
 	Assets,
 	ForeignAssets,
 	LocalFromLeft&lt;
-		AssetIdForTrustBackedAssetsConvert&lt;TrustBackedAssetsPalletLocation&gt;,
+		AssetIdForTrustBackedAssetsConvert&lt;TrustBackedAssetsPalletLocationV3&gt;,
 		AssetIdForTrustBackedAssets,
+		xcm::v3::Location,
 	&gt;,
-	MultiLocation,
+	xcm::v3::Location,
 	AccountId,
 &gt;;
 
@@ -2014,8 +2025,8 @@
 </span><span class="kw">pub type </span>NativeAndAssets = fungible::UnionOf&lt;
 	Balances,
 	LocalAndForeignAssets,
-	TargetFromLeft&lt;WestendLocation&gt;,
-	MultiLocation,
+	TargetFromLeft&lt;WestendLocationV3, xcm::v3::Location&gt;,
+	xcm::v3::Location,
 	AccountId,
 &gt;;
 
@@ -2023,15 +2034,15 @@
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Balance = Balance;
 	<span class="kw">type </span>HigherPrecisionBalance = sp_core::U256;
-	<span class="kw">type </span>AssetKind = MultiLocation;
+	<span class="kw">type </span>AssetKind = xcm::v3::Location;
 	<span class="kw">type </span>Assets = NativeAndAssets;
 	<span class="kw">type </span>PoolId = (<span class="self">Self</span>::AssetKind, <span class="self">Self</span>::AssetKind);
 	<span class="kw">type </span>PoolLocator =
-		pallet_asset_conversion::WithFirstAsset&lt;WestendLocation, AccountId, <span class="self">Self</span>::AssetKind&gt;;
+		pallet_asset_conversion::WithFirstAsset&lt;WestendLocationV3, AccountId, <span class="self">Self</span>::AssetKind&gt;;
 	<span class="kw">type </span>PoolAssetId = u32;
 	<span class="kw">type </span>PoolAssets = PoolAssets;
 	<span class="kw">type </span>PoolSetupFee = ConstU128&lt;<span class="number">0</span>&gt;; <span class="comment">// Asset class deposit fees are sufficient to prevent spam
-	</span><span class="kw">type </span>PoolSetupFeeAsset = WestendLocation;
+	</span><span class="kw">type </span>PoolSetupFeeAsset = WestendLocationV3;
 	<span class="kw">type </span>PoolSetupFeeTarget = ResolveAssetTo&lt;AssetConversionOrigin, <span class="self">Self</span>::Assets&gt;;
 	<span class="kw">type </span>LiquidityWithdrawalFee = LiquidityWithdrawalFee;
 	<span class="kw">type </span>LPFee = ConstU32&lt;<span class="number">3</span>&gt;;
@@ -2041,9 +2052,10 @@
 	<span class="kw">type </span>WeightInfo = weights::pallet_asset_conversion::WeightInfo&lt;Runtime&gt;;
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 	</span><span class="kw">type </span>BenchmarkHelper = assets_common::benchmarks::AssetPairFactory&lt;
-		WestendLocation,
+		WestendLocationV3,
 		parachain_info::Pallet&lt;Runtime&gt;,
-		xcm_config::AssetsPalletIndex,
+		xcm_config::TrustBackedAssetsPalletIndex,
+		xcm::v3::Location,
 	&gt;;
 }
 
@@ -2065,13 +2077,14 @@
 <span class="kw">impl </span>pallet_assets::Config&lt;ForeignAssetsInstance&gt; <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Balance = Balance;
-	<span class="kw">type </span>AssetId = MultiLocationForAssetId;
-	<span class="kw">type </span>AssetIdParameter = MultiLocationForAssetId;
+	<span class="kw">type </span>AssetId = xcm::v3::Location;
+	<span class="kw">type </span>AssetIdParameter = xcm::v3::Location;
 	<span class="kw">type </span>Currency = Balances;
 	<span class="kw">type </span>CreateOrigin = ForeignCreators&lt;
-		(FromSiblingParachain&lt;parachain_info::Pallet&lt;Runtime&gt;&gt;,),
+		FromSiblingParachain&lt;parachain_info::Pallet&lt;Runtime&gt;, xcm::v3::Location&gt;,
 		ForeignCreatorsSovereignAccountOf,
 		AccountId,
+		xcm::v3::Location,
 	&gt;;
 	<span class="kw">type </span>ForceOrigin = AssetsForceOrigin;
 	<span class="kw">type </span>AssetDeposit = ForeignAssetsAssetDeposit;
@@ -2347,7 +2360,7 @@
 
 <span class="macro">parameter_types! </span>{
 	<span class="doccomment">/// The asset ID for the asset that we use to pay for message delivery fees.
-	</span><span class="kw">pub </span>FeeAssetId: AssetId = Concrete(xcm_config::WestendLocation::get());
+	</span><span class="kw">pub </span>FeeAssetId: AssetId = AssetId(xcm_config::WestendLocation::get());
 	<span class="doccomment">/// The base fee for the message delivery fees.
 	</span><span class="kw">pub const </span>BaseDeliveryFee: u128 = CENTS.saturating_mul(<span class="number">3</span>);
 }
@@ -2431,7 +2444,7 @@
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Fungibles = LocalAndForeignAssets;
 	<span class="kw">type </span>OnChargeAssetTransaction =
-		AssetConversionAdapter&lt;Balances, AssetConversion, WestendLocation&gt;;
+		AssetConversionAdapter&lt;Balances, AssetConversion, WestendLocationV3&gt;;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -2932,18 +2945,18 @@
 	<span class="kw">impl </span>pallet_asset_conversion::AssetConversionApi&lt;
 		Block,
 		Balance,
-		MultiLocation,
+		xcm::v3::Location,
 	&gt; <span class="kw">for </span>Runtime
 	{
-		<span class="kw">fn </span>quote_price_exact_tokens_for_tokens(asset1: MultiLocation, asset2: MultiLocation, amount: Balance, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
+		<span class="kw">fn </span>quote_price_exact_tokens_for_tokens(asset1: xcm::v3::Location, asset2: xcm::v3::Location, amount: Balance, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
 			AssetConversion::quote_price_exact_tokens_for_tokens(asset1, asset2, amount, include_fee)
 		}
 
-		<span class="kw">fn </span>quote_price_tokens_for_exact_tokens(asset1: MultiLocation, asset2: MultiLocation, amount: Balance, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
+		<span class="kw">fn </span>quote_price_tokens_for_exact_tokens(asset1: xcm::v3::Location, asset2: xcm::v3::Location, amount: Balance, include_fee: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Balance&gt; {
 			AssetConversion::quote_price_tokens_for_exact_tokens(asset1, asset2, amount, include_fee)
 		}
 
-		<span class="kw">fn </span>get_reserves(asset1: MultiLocation, asset2: MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;(Balance, Balance)&gt; {
+		<span class="kw">fn </span>get_reserves(asset1: xcm::v3::Location, asset2: xcm::v3::Location) -&gt; <span class="prelude-ty">Option</span>&lt;(Balance, Balance)&gt; {
 			AssetConversion::get_reserves(asset1, asset2).ok()
 		}
 	}
@@ -2997,7 +3010,7 @@
 		AccountId,
 	&gt; <span class="kw">for </span>Runtime
 	{
-		<span class="kw">fn </span>query_account_balances(account: AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;xcm::VersionedMultiAssets, assets_common::runtime_api::FungiblesAccessError&gt; {
+		<span class="kw">fn </span>query_account_balances(account: AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;xcm::VersionedAssets, assets_common::runtime_api::FungiblesAccessError&gt; {
 			<span class="kw">use </span>assets_common::fungible_conversion::{convert, convert_balance};
 			<span class="prelude-val">Ok</span>([
 				<span class="comment">// collect pallet_balance
@@ -3116,45 +3129,45 @@
 
 			<span class="kw">use </span>pallet_xcm::benchmarking::Pallet <span class="kw">as </span>PalletXcmExtrinsicsBenchmark;
 			<span class="kw">impl </span>pallet_xcm::benchmarking::Config <span class="kw">for </span>Runtime {
-				<span class="kw">fn </span>reachable_dest() -&gt; <span class="prelude-ty">Option</span>&lt;MultiLocation&gt; {
+				<span class="kw">fn </span>reachable_dest() -&gt; <span class="prelude-ty">Option</span>&lt;Location&gt; {
 					<span class="prelude-val">Some</span>(Parent.into())
 				}
 
-				<span class="kw">fn </span>teleportable_asset_and_dest() -&gt; <span class="prelude-ty">Option</span>&lt;(MultiAsset, MultiLocation)&gt; {
+				<span class="kw">fn </span>teleportable_asset_and_dest() -&gt; <span class="prelude-ty">Option</span>&lt;(Asset, Location)&gt; {
 					<span class="comment">// Relay/native token can be teleported between AH and Relay.
 					</span><span class="prelude-val">Some</span>((
-						MultiAsset {
+						Asset {
 							fun: Fungible(EXISTENTIAL_DEPOSIT),
-							id: Concrete(Parent.into())
+							id: AssetId(Parent.into())
 						},
 						Parent.into(),
 					))
 				}
 
-				<span class="kw">fn </span>reserve_transferable_asset_and_dest() -&gt; <span class="prelude-ty">Option</span>&lt;(MultiAsset, MultiLocation)&gt; {
+				<span class="kw">fn </span>reserve_transferable_asset_and_dest() -&gt; <span class="prelude-ty">Option</span>&lt;(Asset, Location)&gt; {
 					<span class="comment">// AH can reserve transfer native token to some random parachain.
 					</span><span class="kw">let </span>random_para_id = <span class="number">43211234</span>;
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
 						random_para_id.into()
 					);
 					<span class="prelude-val">Some</span>((
-						MultiAsset {
+						Asset {
 							fun: Fungible(EXISTENTIAL_DEPOSIT),
-							id: Concrete(Parent.into())
+							id: AssetId(Parent.into())
 						},
 						ParentThen(Parachain(random_para_id).into()).into(),
 					))
 				}
 
 				<span class="kw">fn </span>set_up_complex_asset_transfer(
-				) -&gt; <span class="prelude-ty">Option</span>&lt;(MultiAssets, u32, MultiLocation, Box&lt;<span class="kw">dyn </span>FnOnce()&gt;)&gt; {
+				) -&gt; <span class="prelude-ty">Option</span>&lt;(xcm::v4::Assets, u32, Location, Box&lt;<span class="kw">dyn </span>FnOnce()&gt;)&gt; {
 					<span class="comment">// Transfer to Relay some local AH asset (local-reserve-transfer) while paying
 					// fees using teleported native token.
 					// (We don&#39;t care that Relay doesn&#39;t accept incoming unknown AH local asset)
 					</span><span class="kw">let </span>dest = Parent.into();
 
 					<span class="kw">let </span>fee_amount = EXISTENTIAL_DEPOSIT;
-					<span class="kw">let </span>fee_asset: MultiAsset = (MultiLocation::parent(), fee_amount).into();
+					<span class="kw">let </span>fee_asset: Asset = (Location::parent(), fee_amount).into();
 
 					<span class="kw">let </span>who = frame_benchmarking::whitelisted_caller();
 					<span class="comment">// Give some multiple of the existential deposit
@@ -3172,13 +3185,13 @@
 						Runtime,
 						pallet_assets::Instance1
 					&gt;(<span class="bool-val">true</span>, initial_asset_amount);
-					<span class="kw">let </span>asset_location = MultiLocation::new(
+					<span class="kw">let </span>asset_location = Location::new(
 						<span class="number">0</span>,
-						X2(PalletInstance(<span class="number">50</span>), GeneralIndex(u32::from(asset_id).into()))
+						[PalletInstance(<span class="number">50</span>), GeneralIndex(u32::from(asset_id).into())]
 					);
-					<span class="kw">let </span>transfer_asset: MultiAsset = (asset_location, asset_amount).into();
+					<span class="kw">let </span>transfer_asset: Asset = (asset_location, asset_amount).into();
 
-					<span class="kw">let </span>assets: MultiAssets = <span class="macro">vec!</span>[fee_asset.clone(), transfer_asset].into();
+					<span class="kw">let </span>assets: xcm::v4::Assets = <span class="macro">vec!</span>[fee_asset.clone(), transfer_asset].into();
 					<span class="kw">let </span>fee_index = <span class="kw">if </span>assets.get(<span class="number">0</span>).unwrap().eq(<span class="kw-2">&amp;</span>fee_asset) { <span class="number">0 </span>} <span class="kw">else </span>{ <span class="number">1 </span>};
 
 					<span class="comment">// verify transferred successfully
@@ -3207,14 +3220,14 @@
 						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
 					);
 				}
-				<span class="kw">fn </span>ensure_bridged_target_destination() -&gt; <span class="prelude-ty">Result</span>&lt;MultiLocation, BenchmarkError&gt; {
+				<span class="kw">fn </span>ensure_bridged_target_destination() -&gt; <span class="prelude-ty">Result</span>&lt;Location, BenchmarkError&gt; {
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
 						xcm_config::bridging::SiblingBridgeHubParaId::get().into()
 					);
 					<span class="kw">let </span>bridged_asset_hub = xcm_config::bridging::to_rococo::AssetHubRococo::get();
 					<span class="kw">let _ </span>= PolkadotXcm::force_xcm_version(
 						RuntimeOrigin::root(),
-						Box::new(bridged_asset_hub),
+						Box::new(bridged_asset_hub.clone()),
 						XCM_VERSION,
 					).map_err(|e| {
 						<span class="macro">log::error!</span>(
@@ -3230,12 +3243,11 @@
 				}
 			}
 
-			<span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 			<span class="kw">use </span>xcm_config::{MaxAssetsIntoHolding, WestendLocation};
 			<span class="kw">use </span>pallet_xcm_benchmarks::asset_instance_from;
 
 			<span class="macro">parameter_types! </span>{
-				<span class="kw">pub </span>ExistentialDepositMultiAsset: <span class="prelude-ty">Option</span>&lt;MultiAsset&gt; = <span class="prelude-val">Some</span>((
+				<span class="kw">pub </span>ExistentialDepositAsset: <span class="prelude-ty">Option</span>&lt;Asset&gt; = <span class="prelude-val">Some</span>((
 					WestendLocation::get(),
 					ExistentialDeposit::get()
 				).into());
@@ -3246,33 +3258,33 @@
 				<span class="kw">type </span>AccountIdConverter = xcm_config::LocationToAccountId;
 				<span class="kw">type </span>DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper&lt;
 					xcm_config::XcmConfig,
-					ExistentialDepositMultiAsset,
+					ExistentialDepositAsset,
 					xcm_config::PriceForParentDelivery,
 				&gt;;
-				<span class="kw">fn </span>valid_destination() -&gt; <span class="prelude-ty">Result</span>&lt;MultiLocation, BenchmarkError&gt; {
+				<span class="kw">fn </span>valid_destination() -&gt; <span class="prelude-ty">Result</span>&lt;Location, BenchmarkError&gt; {
 					<span class="prelude-val">Ok</span>(WestendLocation::get())
 				}
-				<span class="kw">fn </span>worst_case_holding(depositable_count: u32) -&gt; MultiAssets {
+				<span class="kw">fn </span>worst_case_holding(depositable_count: u32) -&gt; xcm::v4::Assets {
 					<span class="comment">// A mix of fungible, non-fungible, and concrete assets.
 					</span><span class="kw">let </span>holding_non_fungibles = MaxAssetsIntoHolding::get() / <span class="number">2 </span>- depositable_count;
 					<span class="kw">let </span>holding_fungibles = holding_non_fungibles - <span class="number">1</span>;
 					<span class="kw">let </span>fungibles_amount: u128 = <span class="number">100</span>;
 					<span class="kw">let </span><span class="kw-2">mut </span>assets = (<span class="number">0</span>..holding_fungibles)
 						.map(|i| {
-							MultiAsset {
-								id: Concrete(GeneralIndex(i <span class="kw">as </span>u128).into()),
+							Asset {
+								id: AssetId(GeneralIndex(i <span class="kw">as </span>u128).into()),
 								fun: Fungible(fungibles_amount * i <span class="kw">as </span>u128),
 							}
 						})
-						.chain(core::iter::once(MultiAsset { id: Concrete(Here.into()), fun: Fungible(u128::MAX) }))
-						.chain((<span class="number">0</span>..holding_non_fungibles).map(|i| MultiAsset {
-							id: Concrete(GeneralIndex(i <span class="kw">as </span>u128).into()),
+						.chain(core::iter::once(Asset { id: AssetId(Here.into()), fun: Fungible(u128::MAX) }))
+						.chain((<span class="number">0</span>..holding_non_fungibles).map(|i| Asset {
+							id: AssetId(GeneralIndex(i <span class="kw">as </span>u128).into()),
 							fun: NonFungible(asset_instance_from(i)),
 						}))
 						.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-					assets.push(MultiAsset {
-						id: Concrete(WestendLocation::get()),
+					assets.push(Asset {
+						id: AssetId(WestendLocation::get()),
 						fun: Fungible(<span class="number">1_000_000 </span>* UNITS),
 					});
 					assets.into()
@@ -3280,16 +3292,16 @@
 			}
 
 			<span class="macro">parameter_types! </span>{
-				<span class="kw">pub const </span>TrustedTeleporter: <span class="prelude-ty">Option</span>&lt;(MultiLocation, MultiAsset)&gt; = <span class="prelude-val">Some</span>((
+				<span class="kw">pub const </span>TrustedTeleporter: <span class="prelude-ty">Option</span>&lt;(Location, Asset)&gt; = <span class="prelude-val">Some</span>((
 					WestendLocation::get(),
-					MultiAsset { fun: Fungible(UNITS), id: Concrete(WestendLocation::get()) },
+					Asset { fun: Fungible(UNITS), id: AssetId(WestendLocation::get()) },
 				));
 				<span class="kw">pub const </span>CheckedAccount: <span class="prelude-ty">Option</span>&lt;(AccountId, xcm_builder::MintLocation)&gt; = <span class="prelude-val">None</span>;
 				<span class="comment">// AssetHubWestend trusts AssetHubRococo as reserve for ROCs
-				</span><span class="kw">pub </span>TrustedReserve: <span class="prelude-ty">Option</span>&lt;(MultiLocation, MultiAsset)&gt; = <span class="prelude-val">Some</span>(
+				</span><span class="kw">pub </span>TrustedReserve: <span class="prelude-ty">Option</span>&lt;(Location, Asset)&gt; = <span class="prelude-val">Some</span>(
 					(
 						xcm_config::bridging::to_rococo::AssetHubRococo::get(),
-						MultiAsset::from((xcm_config::bridging::to_rococo::RocLocation::get(), <span class="number">1000000000000 </span><span class="kw">as </span>u128))
+						Asset::from((xcm_config::bridging::to_rococo::RocLocation::get(), <span class="number">1000000000000 </span><span class="kw">as </span>u128))
 					)
 				);
 			}
@@ -3301,9 +3313,9 @@
 				<span class="kw">type </span>TrustedTeleporter = TrustedTeleporter;
 				<span class="kw">type </span>TrustedReserve = TrustedReserve;
 
-				<span class="kw">fn </span>get_multi_asset() -&gt; MultiAsset {
-					MultiAsset {
-						id: Concrete(WestendLocation::get()),
+				<span class="kw">fn </span>get_asset() -&gt; Asset {
+					Asset {
+						id: AssetId(WestendLocation::get()),
 						fun: Fungible(UNITS),
 					}
 				}
@@ -3317,42 +3329,42 @@
 					(<span class="number">0u64</span>, Response::Version(Default::default()))
 				}
 
-				<span class="kw">fn </span>worst_case_asset_exchange() -&gt; <span class="prelude-ty">Result</span>&lt;(MultiAssets, MultiAssets), BenchmarkError&gt; {
+				<span class="kw">fn </span>worst_case_asset_exchange() -&gt; <span class="prelude-ty">Result</span>&lt;(xcm::v4::Assets, xcm::v4::Assets), BenchmarkError&gt; {
 					<span class="prelude-val">Err</span>(BenchmarkError::Skip)
 				}
 
-				<span class="kw">fn </span>universal_alias() -&gt; <span class="prelude-ty">Result</span>&lt;(MultiLocation, Junction), BenchmarkError&gt; {
+				<span class="kw">fn </span>universal_alias() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, Junction), BenchmarkError&gt; {
 					<span class="kw">match </span>xcm_config::bridging::BridgingBenchmarksHelper::prepare_universal_alias() {
 						<span class="prelude-val">Some</span>(alias) =&gt; <span class="prelude-val">Ok</span>(alias),
 						<span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(BenchmarkError::Skip)
 					}
 				}
 
-				<span class="kw">fn </span>transact_origin_and_runtime_call() -&gt; <span class="prelude-ty">Result</span>&lt;(MultiLocation, RuntimeCall), BenchmarkError&gt; {
+				<span class="kw">fn </span>transact_origin_and_runtime_call() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, RuntimeCall), BenchmarkError&gt; {
 					<span class="prelude-val">Ok</span>((WestendLocation::get(), frame_system::Call::remark_with_event { remark: <span class="macro">vec!</span>[] }.into()))
 				}
 
-				<span class="kw">fn </span>subscribe_origin() -&gt; <span class="prelude-ty">Result</span>&lt;MultiLocation, BenchmarkError&gt; {
+				<span class="kw">fn </span>subscribe_origin() -&gt; <span class="prelude-ty">Result</span>&lt;Location, BenchmarkError&gt; {
 					<span class="prelude-val">Ok</span>(WestendLocation::get())
 				}
 
-				<span class="kw">fn </span>claimable_asset() -&gt; <span class="prelude-ty">Result</span>&lt;(MultiLocation, MultiLocation, MultiAssets), BenchmarkError&gt; {
+				<span class="kw">fn </span>claimable_asset() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, Location, xcm::v4::Assets), BenchmarkError&gt; {
 					<span class="kw">let </span>origin = WestendLocation::get();
-					<span class="kw">let </span>assets: MultiAssets = (Concrete(WestendLocation::get()), <span class="number">1_000 </span>* UNITS).into();
-					<span class="kw">let </span>ticket = MultiLocation { parents: <span class="number">0</span>, interior: Here };
+					<span class="kw">let </span>assets: xcm::v4::Assets = (AssetId(WestendLocation::get()), <span class="number">1_000 </span>* UNITS).into();
+					<span class="kw">let </span>ticket = Location { parents: <span class="number">0</span>, interior: Here };
 					<span class="prelude-val">Ok</span>((origin, ticket, assets))
 				}
 
-				<span class="kw">fn </span>unlockable_asset() -&gt; <span class="prelude-ty">Result</span>&lt;(MultiLocation, MultiLocation, MultiAsset), BenchmarkError&gt; {
+				<span class="kw">fn </span>unlockable_asset() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, Location, Asset), BenchmarkError&gt; {
 					<span class="prelude-val">Err</span>(BenchmarkError::Skip)
 				}
 
 				<span class="kw">fn </span>export_message_origin_and_destination(
-				) -&gt; <span class="prelude-ty">Result</span>&lt;(MultiLocation, NetworkId, InteriorMultiLocation), BenchmarkError&gt; {
+				) -&gt; <span class="prelude-ty">Result</span>&lt;(Location, NetworkId, InteriorLocation), BenchmarkError&gt; {
 					<span class="prelude-val">Err</span>(BenchmarkError::Skip)
 				}
 
-				<span class="kw">fn </span>alias_origin() -&gt; <span class="prelude-ty">Result</span>&lt;(MultiLocation, MultiLocation), BenchmarkError&gt; {
+				<span class="kw">fn </span>alias_origin() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, Location), BenchmarkError&gt; {
 					<span class="prelude-val">Err</span>(BenchmarkError::Skip)
 				}
 			}

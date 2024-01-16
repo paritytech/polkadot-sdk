@@ -280,6 +280,7 @@
 <a href="#280" id="280">280</a>
 <a href="#281" id="281">281</a>
 <a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
 </pre></div><pre class="rust"><code><span class="comment">// SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
 </span><span class="doccomment">//! Converts XCM messages into simpler commands that can be processed by the Gateway contract
@@ -298,7 +299,7 @@
 };
 <span class="kw">use </span>sp_core::{H160, H256};
 <span class="kw">use </span>sp_std::{iter::Peekable, marker::PhantomData, prelude::<span class="kw-2">*</span>};
-<span class="kw">use </span>xcm::v3::prelude::<span class="kw-2">*</span>;
+<span class="kw">use </span>xcm::v4::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_executor::traits::{ConvertLocation, ExportXcm};
 
 <span class="kw">pub struct </span>EthereumBlobExporter&lt;
@@ -311,7 +312,7 @@
 <span class="kw">impl</span>&lt;UniversalLocation, EthereumNetwork, OutboundQueue, AgentHashedDescription&gt; ExportXcm
 	<span class="kw">for </span>EthereumBlobExporter&lt;UniversalLocation, EthereumNetwork, OutboundQueue, AgentHashedDescription&gt;
 <span class="kw">where
-	</span>UniversalLocation: Get&lt;InteriorMultiLocation&gt;,
+	</span>UniversalLocation: Get&lt;InteriorLocation&gt;,
 	EthereumNetwork: Get&lt;NetworkId&gt;,
 	OutboundQueue: SendMessage&lt;Balance = u128&gt;,
 	AgentHashedDescription: ConvertLocation&lt;H256&gt;,
@@ -321,8 +322,8 @@
 	<span class="kw">fn </span>validate(
 		network: NetworkId,
 		_channel: u32,
-		universal_source: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;InteriorMultiLocation&gt;,
-		destination: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;InteriorMultiLocation&gt;,
+		universal_source: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;InteriorLocation&gt;,
+		destination: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;InteriorLocation&gt;,
 		message: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;,
 	) -&gt; SendResult&lt;<span class="self">Self</span>::Ticket&gt; {
 		<span class="kw">let </span>expected_network = EthereumNetwork::get();
@@ -356,8 +357,8 @@
 			<span class="kw">return </span><span class="prelude-val">Err</span>(SendError::NotApplicable)
 		}
 
-		<span class="kw">let </span>para_id = <span class="kw">match </span>local_sub {
-			X1(Parachain(para_id)) =&gt; para_id,
+		<span class="kw">let </span>para_id = <span class="kw">match </span>local_sub.as_slice() {
+			[Parachain(para_id)] =&gt; <span class="kw-2">*</span>para_id,
 			<span class="kw">_ </span>=&gt; {
 				<span class="macro">log::error!</span>(target: <span class="string">&quot;xcm::ethereum_blob_exporter&quot;</span>, <span class="string">&quot;could not get parachain id from universal source &#39;{local_sub:?}&#39;.&quot;</span>);
 				<span class="kw">return </span><span class="prelude-val">Err</span>(SendError::MissingArgument)
@@ -375,7 +376,7 @@
 			SendError::Unroutable
 		})<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>source_location: MultiLocation = MultiLocation { parents: <span class="number">1</span>, interior: local_sub };
+		<span class="kw">let </span>source_location = Location::new(<span class="number">1</span>, local_sub.clone());
 		<span class="kw">let </span>agent_id = <span class="kw">match </span>AgentHashedDescription::convert_location(<span class="kw-2">&amp;</span>source_location) {
 			<span class="prelude-val">Some</span>(id) =&gt; id,
 			<span class="prelude-val">None </span>=&gt; {
@@ -398,8 +399,8 @@
 			SendError::Unroutable
 		})<span class="question-mark">?</span>;
 
-		<span class="comment">// convert fee to MultiAsset
-		</span><span class="kw">let </span>fee = MultiAsset::from((MultiLocation::parent(), fee.total())).into();
+		<span class="comment">// convert fee to Asset
+		</span><span class="kw">let </span>fee = Asset::from((Location::parent(), fee.total())).into();
 
 		<span class="prelude-val">Ok</span>(((ticket.encode(), message_id), fee))
 	}
@@ -498,8 +499,8 @@
 
 		<span class="comment">// assert that the beneficiary is AccountKey20.
 		</span><span class="kw">let </span>recipient = <span class="macro">match_expression!</span>(
-			beneficiary,
-			MultiLocation { parents: <span class="number">0</span>, interior: X1(AccountKey20 { network, key }) }
+			beneficiary.unpack(),
+			(<span class="number">0</span>, [AccountKey20 { network, key }])
 				<span class="kw">if </span><span class="self">self</span>.network_matches(network),
 			H160(<span class="kw-2">*</span>key)
 		)
@@ -527,14 +528,15 @@
 			}
 		}
 
-		<span class="kw">let </span>(token, amount) = <span class="macro">match_expression!</span>(
-			reserve_asset,
-			MultiAsset {
-				id: Concrete(MultiLocation { parents: <span class="number">0</span>, interior: X1(AccountKey20 { network , key })}),
-				fun: Fungible(amount)
-			} <span class="kw">if </span><span class="self">self</span>.network_matches(network),
-			(H160(<span class="kw-2">*</span>key), <span class="kw-2">*</span>amount)
-		)
+		<span class="kw">let </span>(token, amount) = <span class="kw">match </span>reserve_asset {
+			Asset { id: AssetId(inner_location), fun: Fungible(amount) } =&gt;
+				<span class="kw">match </span>inner_location.unpack() {
+					(<span class="number">0</span>, [AccountKey20 { network, key }]) <span class="kw">if </span><span class="self">self</span>.network_matches(network) =&gt;
+						<span class="prelude-val">Some</span>((H160(<span class="kw-2">*</span>key), <span class="kw-2">*</span>amount)),
+					<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+				},
+			<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+		}
 		.ok_or(AssetResolutionFailed)<span class="question-mark">?</span>;
 
 		<span class="comment">// transfer amount must be greater than 0.

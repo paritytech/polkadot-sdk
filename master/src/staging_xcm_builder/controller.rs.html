@@ -232,7 +232,7 @@
 <span class="doccomment">/// Execute an XCM locally, for a given origin.
 ///
 /// An implementation of that trait will handle the low-level details of the execution, such as:
-/// - Validating and Converting the origin to a MultiLocation.
+/// - Validating and Converting the origin to a Location.
 /// - Handling versioning.
 /// - Calling  the internal executor, which implements [`ExecuteXcm`].
 </span><span class="kw">pub trait </span>ExecuteController&lt;Origin, RuntimeCall&gt; {
@@ -279,7 +279,7 @@
 	/// - `msg`: the XCM to be sent.
 	</span><span class="kw">fn </span>send(
 		origin: Origin,
-		dest: Box&lt;VersionedMultiLocation&gt;,
+		dest: Box&lt;VersionedLocation&gt;,
 		message: Box&lt;VersionedXcm&lt;()&gt;&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, DispatchError&gt;;
 }
@@ -314,7 +314,7 @@
 	</span><span class="kw">fn </span>query(
 		origin: Origin,
 		timeout: Timeout,
-		match_querier: VersionedMultiLocation,
+		match_querier: VersionedLocation,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::QueryId, DispatchError&gt;;
 }
 
@@ -325,7 +325,7 @@
 		_message: Box&lt;VersionedXcm&lt;RuntimeCall&gt;&gt;,
 		_max_weight: Weight,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Outcome, DispatchError&gt; {
-		<span class="prelude-val">Ok</span>(Outcome::Error(XcmError::Unimplemented))
+		<span class="prelude-val">Ok</span>(Outcome::Error { error: XcmError::Unimplemented })
 	}
 }
 
@@ -339,7 +339,7 @@
 	<span class="kw">type </span>WeightInfo = ();
 	<span class="kw">fn </span>send(
 		_origin: Origin,
-		_dest: Box&lt;VersionedMultiLocation&gt;,
+		_dest: Box&lt;VersionedLocation&gt;,
 		_message: Box&lt;VersionedXcm&lt;()&gt;&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, DispatchError&gt; {
 		<span class="prelude-val">Ok</span>(Default::default())
@@ -367,7 +367,7 @@
 	<span class="kw">fn </span>query(
 		_origin: Origin,
 		_timeout: Timeout,
-		_match_querier: VersionedMultiLocation,
+		_match_querier: VersionedLocation,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::QueryId, DispatchError&gt; {
 		<span class="prelude-val">Ok</span>(Default::default())
 	}

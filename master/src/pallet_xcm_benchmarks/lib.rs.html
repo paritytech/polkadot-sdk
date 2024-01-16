@@ -183,18 +183,18 @@
 	/// `TransactAsset` is implemented.
 	</span><span class="kw">type </span>XcmConfig: XcmConfig;
 
-	<span class="doccomment">/// A converter between a multi-location to a sovereign account.
+	<span class="doccomment">/// A converter between a location to a sovereign account.
 	</span><span class="kw">type </span>AccountIdConverter: ConvertLocation&lt;<span class="self">Self</span>::AccountId&gt;;
 
 	<span class="doccomment">/// Helper that ensures successful delivery for XCM instructions which need `SendXcm`.
 	</span><span class="kw">type </span>DeliveryHelper: EnsureDelivery;
 
 	<span class="doccomment">/// Does any necessary setup to create a valid destination for XCM messages.
-	/// Returns that destination&#39;s multi-location to be used in benchmarks.
-	</span><span class="kw">fn </span>valid_destination() -&gt; <span class="prelude-ty">Result</span>&lt;MultiLocation, BenchmarkError&gt;;
+	/// Returns that destination&#39;s location to be used in benchmarks.
+	</span><span class="kw">fn </span>valid_destination() -&gt; <span class="prelude-ty">Result</span>&lt;Location, BenchmarkError&gt;;
 
 	<span class="doccomment">/// Worst case scenario for a holding account in this runtime.
-	</span><span class="kw">fn </span>worst_case_holding(depositable_count: u32) -&gt; MultiAssets;
+	</span><span class="kw">fn </span>worst_case_holding(depositable_count: u32) -&gt; Assets;
 }
 
 <span class="kw">const </span>SEED: u32 = <span class="number">0</span>;
@@ -208,21 +208,21 @@
 <span class="doccomment">/// The call type of executor&#39;s config. Should eventually resolve to the same overarching call type.
 </span><span class="kw">pub type </span>XcmCallOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>Config&gt;::XcmConfig <span class="kw">as </span>XcmConfig&gt;::RuntimeCall;
 
-<span class="kw">pub fn </span>mock_worst_case_holding(depositable_count: u32, max_assets: u32) -&gt; MultiAssets {
+<span class="kw">pub fn </span>mock_worst_case_holding(depositable_count: u32, max_assets: u32) -&gt; Assets {
 	<span class="kw">let </span>fungibles_amount: u128 = <span class="number">100</span>;
 	<span class="kw">let </span>holding_fungibles = max_assets / <span class="number">2 </span>- depositable_count;
 	<span class="kw">let </span>holding_non_fungibles = holding_fungibles;
 	(<span class="number">0</span>..holding_fungibles)
 		.map(|i| {
-			MultiAsset {
-				id: Concrete(GeneralIndex(i <span class="kw">as </span>u128).into()),
+			Asset {
+				id: AssetId(GeneralIndex(i <span class="kw">as </span>u128).into()),
 				fun: Fungible(fungibles_amount * i <span class="kw">as </span>u128),
 			}
 			.into()
 		})
-		.chain(core::iter::once(MultiAsset { id: Concrete(Here.into()), fun: Fungible(u128::MAX) }))
-		.chain((<span class="number">0</span>..holding_non_fungibles).map(|i| MultiAsset {
-			id: Concrete(GeneralIndex(i <span class="kw">as </span>u128).into()),
+		.chain(core::iter::once(Asset { id: AssetId(Here.into()), fun: Fungible(u128::MAX) }))
+		.chain((<span class="number">0</span>..holding_non_fungibles).map(|i| Asset {
+			id: AssetId(GeneralIndex(i <span class="kw">as </span>u128).into()),
 			fun: NonFungible(asset_instance_from(i)),
 		}))
 		.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
@@ -236,11 +236,11 @@
 	AssetInstance::Array4(instance)
 }
 
-<span class="kw">pub fn </span>new_executor&lt;T: Config&gt;(origin: MultiLocation) -&gt; ExecutorOf&lt;T&gt; {
+<span class="kw">pub fn </span>new_executor&lt;T: Config&gt;(origin: Location) -&gt; ExecutorOf&lt;T&gt; {
 	ExecutorOf::&lt;T&gt;::new(origin, [<span class="number">0</span>; <span class="number">32</span>])
 }
 
-<span class="doccomment">/// Build a multi-location from an account id.
+<span class="doccomment">/// Build a location from an account id.
 </span><span class="kw">fn </span>account_id_junction&lt;T: frame_system::Config&gt;(index: u32) -&gt; Junction {
 	<span class="kw">let </span>account: T::AccountId = account(<span class="string">&quot;account&quot;</span>, index, SEED);
 	<span class="kw">let </span><span class="kw-2">mut </span>encoded = account.encode();
@@ -250,8 +250,8 @@
 	Junction::AccountId32 { network: <span class="prelude-val">None</span>, id }
 }
 
-<span class="kw">pub fn </span>account_and_location&lt;T: Config&gt;(index: u32) -&gt; (T::AccountId, MultiLocation) {
-	<span class="kw">let </span>location: MultiLocation = account_id_junction::&lt;T&gt;(index).into();
+<span class="kw">pub fn </span>account_and_location&lt;T: Config&gt;(index: u32) -&gt; (T::AccountId, Location) {
+	<span class="kw">let </span>location: Location = account_id_junction::&lt;T&gt;(index).into();
 	<span class="kw">let </span>account = T::AccountIdConverter::convert_location(<span class="kw-2">&amp;</span>location).unwrap();
 
 	(account, location)
@@ -263,21 +263,21 @@
 	<span class="doccomment">/// Prepare all requirements for successful `XcmSender: SendXcm` passing (accounts, balances,
 	/// channels ...). Returns:
 	/// - possible `FeesMode` which is expected to be set to executor
-	/// - possible `MultiAssets` which are expected to be subsume to the Holding Register
+	/// - possible `Assets` which are expected to be subsume to the Holding Register
 	</span><span class="kw">fn </span>ensure_successful_delivery(
-		origin_ref: <span class="kw-2">&amp;</span>MultiLocation,
-		dest: <span class="kw-2">&amp;</span>MultiLocation,
+		origin_ref: <span class="kw-2">&amp;</span>Location,
+		dest: <span class="kw-2">&amp;</span>Location,
 		fee_reason: FeeReason,
-	) -&gt; (<span class="prelude-ty">Option</span>&lt;FeesMode&gt;, <span class="prelude-ty">Option</span>&lt;MultiAssets&gt;);
+	) -&gt; (<span class="prelude-ty">Option</span>&lt;FeesMode&gt;, <span class="prelude-ty">Option</span>&lt;Assets&gt;);
 }
 
 <span class="doccomment">/// `()` implementation does nothing which means no special requirements for environment.
 </span><span class="kw">impl </span>EnsureDelivery <span class="kw">for </span>() {
 	<span class="kw">fn </span>ensure_successful_delivery(
-		_origin_ref: <span class="kw-2">&amp;</span>MultiLocation,
-		_dest: <span class="kw-2">&amp;</span>MultiLocation,
+		_origin_ref: <span class="kw-2">&amp;</span>Location,
+		_dest: <span class="kw-2">&amp;</span>Location,
 		_fee_reason: FeeReason,
-	) -&gt; (<span class="prelude-ty">Option</span>&lt;FeesMode&gt;, <span class="prelude-ty">Option</span>&lt;MultiAssets&gt;) {
+	) -&gt; (<span class="prelude-ty">Option</span>&lt;FeesMode&gt;, <span class="prelude-ty">Option</span>&lt;Assets&gt;) {
 		<span class="comment">// doing nothing
 		</span>(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
 	}

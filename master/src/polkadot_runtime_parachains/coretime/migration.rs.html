@@ -286,11 +286,6 @@
 <a href="#286" id="286">286</a>
 <a href="#287" id="287">287</a>
 <a href="#288" id="288">288</a>
-<a href="#289" id="289">289</a>
-<a href="#290" id="290">290</a>
-<a href="#291" id="291">291</a>
-<a href="#292" id="292">292</a>
-<a href="#293" id="293">293</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -339,9 +334,7 @@
 	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 	</span><span class="kw">use </span>sp_std::vec::Vec;
 	<span class="kw">use </span>sp_std::{iter, prelude::<span class="kw-2">*</span>, result};
-	<span class="kw">use </span>xcm::v3::{
-		send_xcm, Instruction, Junction, Junctions, MultiLocation, SendError, WeightLimit, Xcm,
-	};
+	<span class="kw">use </span>xcm::v4::{send_xcm, Instruction, Junction, Location, SendError, WeightLimit, Xcm};
 
 	<span class="doccomment">/// Return information about a legacy lease of a parachain.
 	</span><span class="kw">pub trait </span>GetLegacyLease&lt;N&gt; {
@@ -357,7 +350,7 @@
 		sp_std::marker::PhantomData&lt;(T, SendXcm, LegacyLease)&gt;,
 	);
 
-	<span class="kw">impl</span>&lt;T: Config, SendXcm: xcm::v3::SendXcm, LegacyLease: GetLegacyLease&lt;BlockNumberFor&lt;T&gt;&gt;&gt;
+	<span class="kw">impl</span>&lt;T: Config, SendXcm: xcm::v4::SendXcm, LegacyLease: GetLegacyLease&lt;BlockNumberFor&lt;T&gt;&gt;&gt;
 		MigrateToCoretime&lt;T, SendXcm, LegacyLease&gt;
 	{
 		<span class="kw">fn </span>already_migrated() -&gt; bool {
@@ -388,7 +381,7 @@
 
 	<span class="kw">impl</span>&lt;
 			T: Config + <span class="kw">crate</span>::dmp::Config,
-			SendXcm: xcm::v3::SendXcm,
+			SendXcm: xcm::v4::SendXcm,
 			LegacyLease: GetLegacyLease&lt;BlockNumberFor&lt;T&gt;&gt;,
 		&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToCoretime&lt;T, SendXcm, LegacyLease&gt;
 	{
@@ -448,7 +441,7 @@
 	// NOTE: Also migrates coretime_cores config value in configuration::ActiveConfig.
 	</span><span class="kw">fn </span>migrate_to_coretime&lt;
 		T: Config,
-		SendXcm: xcm::v3::SendXcm,
+		SendXcm: xcm::v4::SendXcm,
 		LegacyLease: GetLegacyLease&lt;BlockNumberFor&lt;T&gt;&gt;,
 	&gt;() -&gt; Weight {
 		<span class="kw">let </span>legacy_paras = paras::Pallet::&lt;T&gt;::parachains();
@@ -502,7 +495,7 @@
 
 	<span class="kw">fn </span>migrate_send_assignments_to_coretime_chain&lt;
 		T: Config,
-		SendXcm: xcm::v3::SendXcm,
+		SendXcm: xcm::v4::SendXcm,
 		LegacyLease: GetLegacyLease&lt;BlockNumberFor&lt;T&gt;&gt;,
 	&gt;() -&gt; result::Result&lt;(), SendError&gt; {
 		<span class="kw">let </span>legacy_paras = paras::Pallet::&lt;T&gt;::parachains();
@@ -573,10 +566,7 @@
 
 		<span class="kw">for </span>message <span class="kw">in </span>messages {
 			send_xcm::&lt;SendXcm&gt;(
-				MultiLocation {
-					parents: <span class="number">0</span>,
-					interior: Junctions::X1(Junction::Parachain(T::BrokerId::get())),
-				},
+				Location::new(<span class="number">0</span>, Junction::Parachain(T::BrokerId::get())),
 				message,
 			)<span class="question-mark">?</span>;
 		}

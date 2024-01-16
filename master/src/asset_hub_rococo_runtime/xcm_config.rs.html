@@ -867,6 +867,24 @@
 <a href="#867" id="867">867</a>
 <a href="#868" id="868">868</a>
 <a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -889,12 +907,12 @@
 	ToWestendXcmRouter, TransactionByteFee, TrustBackedAssetsInstance, WeightToFee, XcmpQueue,
 };
 <span class="kw">use </span>assets_common::{
-	local_and_foreign_assets::MatchesLocalAndForeignAssetsMultiLocation,
+	local_and_foreign_assets::MatchesLocalAndForeignAssetsLocation,
 	matching::{FromNetwork, FromSiblingParachain, IsForeignConcreteAsset},
-	TrustBackedAssetsAsMultiLocation,
+	TrustBackedAssetsAsLocation,
 };
 <span class="kw">use </span>frame_support::{
-	match_types, parameter_types,
+	parameter_types,
 	traits::{
 		tokens::imbalance::ResolveAssetTo, ConstU32, Contains, Equals, Everything, Nothing,
 		PalletInfoAccess,
@@ -933,26 +951,32 @@
 <span class="kw">use </span>xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>TokenLocation: MultiLocation = MultiLocation::parent();
+	<span class="kw">pub const </span>TokenLocation: Location = Location::parent();
+	<span class="kw">pub const </span>TokenLocationV3: xcm::v3::Location = xcm::v3::Location::parent();
 	<span class="kw">pub const </span>RelayNetwork: NetworkId = NetworkId::Rococo;
 	<span class="kw">pub </span>RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
-	<span class="kw">pub </span>UniversalLocation: InteriorMultiLocation =
-		X2(GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into()));
+	<span class="kw">pub </span>UniversalLocation: InteriorLocation =
+		[GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into())].into();
 	<span class="kw">pub </span>UniversalLocationNetworkId: NetworkId = UniversalLocation::get().global_consensus().unwrap();
-	<span class="kw">pub </span>AssetsPalletIndex: u32 = &lt;Assets <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u32;
-	<span class="kw">pub </span>TrustBackedAssetsPalletLocation: MultiLocation = PalletInstance(AssetsPalletIndex::get() <span class="kw">as </span>u8).into();
-	<span class="kw">pub </span>ForeignAssetsPalletLocation: MultiLocation =
+	<span class="kw">pub </span>TrustBackedAssetsPalletLocation: Location =
+		PalletInstance(TrustBackedAssetsPalletIndex::get()).into();
+	<span class="kw">pub </span>TrustBackedAssetsPalletIndex: u8 = &lt;Assets <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8;
+	<span class="kw">pub </span>TrustBackedAssetsPalletLocationV3: xcm::v3::Location =
+		xcm::v3::Junction::PalletInstance(&lt;Assets <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8).into();
+	<span class="kw">pub </span>ForeignAssetsPalletLocation: Location =
 		PalletInstance(&lt;ForeignAssets <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8).into();
-	<span class="kw">pub </span>PoolAssetsPalletLocation: MultiLocation =
+	<span class="kw">pub </span>PoolAssetsPalletLocation: Location =
 		PalletInstance(&lt;PoolAssets <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8).into();
+	<span class="kw">pub </span>PoolAssetsPalletLocationV3: xcm::v3::Location =
+		xcm::v3::Junction::PalletInstance(&lt;PoolAssets <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8).into();
 	<span class="kw">pub </span>CheckingAccount: AccountId = PolkadotXcm::check_account();
+	<span class="kw">pub const </span>GovernanceLocation: Location = Location::parent();
 	<span class="kw">pub </span>StakingPot: AccountId = CollatorSelection::account_id();
-	<span class="kw">pub const </span>GovernanceLocation: MultiLocation = MultiLocation::parent();
 	<span class="kw">pub </span>TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
-	<span class="kw">pub </span>RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
+	<span class="kw">pub </span>RelayTreasuryLocation: Location = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
 }
 
-<span class="doccomment">/// Type for specifying how a `MultiLocation` can be converted into an `AccountId`. This is used
+<span class="doccomment">/// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
 /// when determining ownership of accounts for asset transacting and when attempting to use XCM
 /// `Transact` in order to determine the dispatch Origin.
 </span><span class="kw">pub type </span>LocationToAccountId = (
@@ -979,7 +1003,7 @@
 	</span>Balances,
 	<span class="comment">// Use this currency when it is a fungible asset matching the given location or name:
 	</span>IsConcrete&lt;TokenLocation&gt;,
-	<span class="comment">// Convert an XCM MultiLocation into a local account id:
+	<span class="comment">// Convert an XCM Location into a local account id:
 	</span>LocationToAccountId,
 	<span class="comment">// Our chain&#39;s account ID type (we can&#39;t get away without mentioning it explicitly):
 	</span>AccountId,
@@ -997,7 +1021,7 @@
 	</span>Assets,
 	<span class="comment">// Use this currency when it is a fungible asset matching the given location or name:
 	</span>TrustBackedAssetsConvertedConcreteId,
-	<span class="comment">// Convert an XCM MultiLocation into a local account id:
+	<span class="comment">// Convert an XCM Location into a local account id:
 	</span>LocationToAccountId,
 	<span class="comment">// Our chain&#39;s account ID type (we can&#39;t get away without mentioning it explicitly):
 	</span>AccountId,
@@ -1014,8 +1038,8 @@
 		<span class="comment">// Ignore `TrustBackedAssets` explicitly
 		</span>StartsWith&lt;TrustBackedAssetsPalletLocation&gt;,
 		<span class="comment">// Ignore assets that start explicitly with our `GlobalConsensus(NetworkId)`, means:
-		// - foreign assets from our consensus should be: `MultiLocation {parents: 1,
-		//   X*(Parachain(xyz), ..)}`
+		// - foreign assets from our consensus should be: `Location {parents: 1, X*(Parachain(xyz),
+		//   ..)}`
 		// - foreign assets outside our consensus with the same `GlobalConsensus(NetworkId)` won&#39;t
 		//   be accepted here
 		</span>StartsWithExplicitGlobalConsensus&lt;UniversalLocationNetworkId&gt;,
@@ -1029,7 +1053,7 @@
 	</span>ForeignAssets,
 	<span class="comment">// Use this currency when it is a fungible asset matching the given location or name:
 	</span>ForeignAssetsConvertedConcreteId,
-	<span class="comment">// Convert an XCM MultiLocation into a local account id:
+	<span class="comment">// Convert an XCM Location into a local account id:
 	</span>LocationToAccountId,
 	<span class="comment">// Our chain&#39;s account ID type (we can&#39;t get away without mentioning it explicitly):
 	</span>AccountId,
@@ -1049,7 +1073,7 @@
 	</span>PoolAssets,
 	<span class="comment">// Use this currency when it is a fungible asset matching the given location or name:
 	</span>PoolAssetsConvertedConcreteId,
-	<span class="comment">// Convert an XCM MultiLocation into a local account id:
+	<span class="comment">// Convert an XCM Location into a local account id:
 	</span>LocationToAccountId,
 	<span class="comment">// Our chain&#39;s account ID type (we can&#39;t get away without mentioning it explicitly):
 	</span>AccountId,
@@ -1064,20 +1088,32 @@
 </span><span class="kw">pub type </span>AssetTransactors =
 	(CurrencyTransactor, FungiblesTransactor, ForeignFungiblesTransactor, PoolFungiblesTransactor);
 
-<span class="doccomment">/// Simple `MultiLocation` matcher for Local and Foreign asset `MultiLocation`.
-</span><span class="kw">pub struct </span>LocalAndForeignAssetsMultiLocationMatcher;
-<span class="kw">impl </span>MatchesLocalAndForeignAssetsMultiLocation <span class="kw">for </span>LocalAndForeignAssetsMultiLocationMatcher {
-	<span class="kw">fn </span>is_local(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
-		<span class="kw">use </span>assets_common::fungible_conversion::MatchesMultiLocation;
-		TrustBackedAssetsConvertedConcreteId::contains(location)
+<span class="doccomment">/// Simple `Location` matcher for Local and Foreign asset `Location`.
+</span><span class="kw">pub struct </span>LocalAndForeignAssetsLocationMatcher;
+<span class="kw">impl </span>MatchesLocalAndForeignAssetsLocation&lt;xcm::v3::Location&gt;
+	<span class="kw">for </span>LocalAndForeignAssetsLocationMatcher
+{
+	<span class="kw">fn </span>is_local(location: <span class="kw-2">&amp;</span>xcm::v3::Location) -&gt; bool {
+		<span class="kw">use </span>assets_common::fungible_conversion::MatchesLocation;
+		<span class="kw">let </span>latest_location: Location = <span class="kw">if let </span><span class="prelude-val">Ok</span>(location) = (<span class="kw-2">*</span>location).try_into() {
+			location
+		} <span class="kw">else </span>{
+			<span class="kw">return </span><span class="bool-val">false</span>;
+		};
+		TrustBackedAssetsConvertedConcreteId::contains(<span class="kw-2">&amp;</span>latest_location)
 	}
-	<span class="kw">fn </span>is_foreign(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
-		<span class="kw">use </span>assets_common::fungible_conversion::MatchesMultiLocation;
-		ForeignAssetsConvertedConcreteId::contains(location)
+	<span class="kw">fn </span>is_foreign(location: <span class="kw-2">&amp;</span>xcm::v3::Location) -&gt; bool {
+		<span class="kw">use </span>assets_common::fungible_conversion::MatchesLocation;
+		<span class="kw">let </span>latest_location: Location = <span class="kw">if let </span><span class="prelude-val">Ok</span>(location) = (<span class="kw-2">*</span>location).try_into() {
+			location
+		} <span class="kw">else </span>{
+			<span class="kw">return </span><span class="bool-val">false</span>;
+		};
+		ForeignAssetsConvertedConcreteId::contains(<span class="kw-2">&amp;</span>latest_location)
 	}
 }
-<span class="kw">impl </span>Contains&lt;MultiLocation&gt; <span class="kw">for </span>LocalAndForeignAssetsMultiLocationMatcher {
-	<span class="kw">fn </span>contains(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
+<span class="kw">impl </span>Contains&lt;xcm::v3::Location&gt; <span class="kw">for </span>LocalAndForeignAssetsLocationMatcher {
+	<span class="kw">fn </span>contains(location: <span class="kw-2">&amp;</span>xcm::v3::Location) -&gt; bool {
 		<span class="self">Self</span>::is_local(location) || <span class="self">Self</span>::is_foreign(location)
 	}
 }
@@ -1112,11 +1148,11 @@
 	<span class="kw">pub </span>XcmAssetFeesReceiver: <span class="prelude-ty">Option</span>&lt;AccountId&gt; = Authorship::author();
 }
 
-<span class="macro">match_types! </span>{
-	<span class="kw">pub type </span>ParentOrParentsPlurality: <span class="kw">impl </span>Contains&lt;MultiLocation&gt; = {
-		MultiLocation { parents: <span class="number">1</span>, interior: Here } |
-		MultiLocation { parents: <span class="number">1</span>, interior: X1(Plurality { .. }) }
-	};
+<span class="kw">pub struct </span>ParentOrParentsPlurality;
+<span class="kw">impl </span>Contains&lt;Location&gt; <span class="kw">for </span>ParentOrParentsPlurality {
+	<span class="kw">fn </span>contains(location: <span class="kw-2">&amp;</span>Location) -&gt; bool {
+		<span class="macro">matches!</span>(location.unpack(), (<span class="number">1</span>, []) | (<span class="number">1</span>, [Plurality { .. }]))
+	}
 }
 
 <span class="doccomment">/// A call filter for the XCM Transact instruction. This is a temporary measure until we properly
@@ -1425,12 +1461,12 @@
 	<span class="kw">type </span>Trader = (
 		UsingComponents&lt;WeightToFee, TokenLocation, AccountId, Balances, ToStakingPot&lt;Runtime&gt;&gt;,
 		cumulus_primitives_utility::SwapFirstAssetTrader&lt;
-			TokenLocation,
+			TokenLocationV3,
 			<span class="kw">crate</span>::AssetConversion,
 			WeightToFee,
 			<span class="kw">crate</span>::NativeAndAssets,
 			(
-				TrustBackedAssetsAsMultiLocation&lt;TrustBackedAssetsPalletLocation, Balance&gt;,
+				TrustBackedAssetsAsLocation&lt;TrustBackedAssetsPalletLocation, Balance&gt;,
 				ForeignAssetsConvertedConcreteId,
 			),
 			ResolveAssetTo&lt;StakingPot, <span class="kw">crate</span>::NativeAndAssets&gt;,
@@ -1457,7 +1493,7 @@
 	<span class="kw">type </span>Aliasers = Nothing;
 }
 
-<span class="doccomment">/// Converts a local signed origin into an XCM multilocation.
+<span class="doccomment">/// Converts a local signed origin into an XCM location.
 /// Forms the basis for local origins sending/executing XCMs.
 </span><span class="kw">pub type </span>LocalOriginToLocation = SignedToAccountId32&lt;RuntimeOrigin, AccountId, RelayNetwork&gt;;
 
@@ -1533,9 +1569,9 @@
 <span class="doccomment">/// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
 </span><span class="kw">pub struct </span>XcmBenchmarkHelper;
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-</span><span class="kw">impl </span>pallet_assets::BenchmarkHelper&lt;MultiLocation&gt; <span class="kw">for </span>XcmBenchmarkHelper {
-	<span class="kw">fn </span>create_asset_id_parameter(id: u32) -&gt; MultiLocation {
-		MultiLocation { parents: <span class="number">1</span>, interior: X1(Parachain(id)) }
+</span><span class="kw">impl </span>pallet_assets::BenchmarkHelper&lt;xcm::v3::Location&gt; <span class="kw">for </span>XcmBenchmarkHelper {
+	<span class="kw">fn </span>create_asset_id_parameter(id: u32) -&gt; xcm::v3::Location {
+		xcm::v3::Location::new(<span class="number">1</span>, [xcm::v3::Junction::Parachain(id)])
 	}
 }
 
@@ -1567,7 +1603,7 @@
 		</span><span class="kw">pub </span>storage XcmBridgeHubRouterByteFee: Balance = TransactionByteFee::get();
 
 		<span class="kw">pub </span>SiblingBridgeHubParaId: u32 = bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID;
-		<span class="kw">pub </span>SiblingBridgeHub: MultiLocation = MultiLocation::new(<span class="number">1</span>, X1(Parachain(SiblingBridgeHubParaId::get())));
+		<span class="kw">pub </span>SiblingBridgeHub: Location = Location::new(<span class="number">1</span>, [Parachain(SiblingBridgeHubParaId::get())]);
 		<span class="doccomment">/// Router expects payment with this `AssetId`.
 		/// (`AssetId` has to be aligned with `BridgeTable`)
 		</span><span class="kw">pub </span>XcmBridgeHubRouterFeeAssetId: AssetId = TokenLocation::get().into();
@@ -1591,25 +1627,25 @@
 		<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 		<span class="macro">parameter_types! </span>{
-			<span class="kw">pub </span>SiblingBridgeHubWithBridgeHubWestendInstance: MultiLocation = MultiLocation::new(
+			<span class="kw">pub </span>SiblingBridgeHubWithBridgeHubWestendInstance: Location = Location::new(
 				<span class="number">1</span>,
-				X2(
+				[
 					Parachain(SiblingBridgeHubParaId::get()),
 					PalletInstance(bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX)
-				)
+				]
 			);
 
 			<span class="kw">pub const </span>WestendNetwork: NetworkId = NetworkId::Westend;
-			<span class="kw">pub </span>AssetHubWestend: MultiLocation = MultiLocation::new(<span class="number">2</span>, X2(GlobalConsensus(WestendNetwork::get()), Parachain(bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID)));
-			<span class="kw">pub </span>WndLocation: MultiLocation = MultiLocation::new(<span class="number">2</span>, X1(GlobalConsensus(WestendNetwork::get())));
+			<span class="kw">pub </span>AssetHubWestend: Location = Location::new(<span class="number">2</span>, [GlobalConsensus(WestendNetwork::get()), Parachain(bp_asset_hub_westend::ASSET_HUB_WESTEND_PARACHAIN_ID)]);
+			<span class="kw">pub </span>WndLocation: Location = Location::new(<span class="number">2</span>, [GlobalConsensus(WestendNetwork::get())]);
 
-			<span class="kw">pub </span>WndFromAssetHubWestend: (MultiAssetFilter, MultiLocation) = (
-				Wild(AllOf { fun: WildFungible, id: Concrete(WndLocation::get()) }),
+			<span class="kw">pub </span>WndFromAssetHubWestend: (AssetFilter, Location) = (
+				Wild(AllOf { fun: WildFungible, id: AssetId(WndLocation::get()) }),
 				AssetHubWestend::get()
 			);
 
 			<span class="doccomment">/// Set up exporters configuration.
-			/// `Option&lt;MultiAsset&gt;` represents static &quot;base fee&quot; which is used for total delivery fee calculation.
+			/// `Option&lt;Asset&gt;` represents static &quot;base fee&quot; which is used for total delivery fee calculation.
 			</span><span class="kw">pub </span>BridgeTable: sp_std::vec::Vec&lt;NetworkExportTableItem&gt; = <span class="macro">sp_std::vec!</span>[
 				NetworkExportTableItem::new(
 					WestendNetwork::get(),
@@ -1626,15 +1662,15 @@
 			];
 
 			<span class="doccomment">/// Universal aliases
-			</span><span class="kw">pub </span>UniversalAliases: BTreeSet&lt;(MultiLocation, Junction)&gt; = BTreeSet::from_iter(
+			</span><span class="kw">pub </span>UniversalAliases: BTreeSet&lt;(Location, Junction)&gt; = BTreeSet::from_iter(
 				<span class="macro">sp_std::vec!</span>[
 					(SiblingBridgeHubWithBridgeHubWestendInstance::get(), GlobalConsensus(WestendNetwork::get()))
 				]
 			);
 		}
 
-		<span class="kw">impl </span>Contains&lt;(MultiLocation, Junction)&gt; <span class="kw">for </span>UniversalAliases {
-			<span class="kw">fn </span>contains(alias: <span class="kw-2">&amp;</span>(MultiLocation, Junction)) -&gt; bool {
+		<span class="kw">impl </span>Contains&lt;(Location, Junction)&gt; <span class="kw">for </span>UniversalAliases {
+			<span class="kw">fn </span>contains(alias: <span class="kw-2">&amp;</span>(Location, Junction)) -&gt; bool {
 				UniversalAliases::get().contains(alias)
 			}
 		}
@@ -1673,16 +1709,16 @@
 			/// Polkadot uses 10 decimals, Kusama and Rococo 12 decimals.
 			</span><span class="kw">pub const </span>DefaultBridgeHubEthereumBaseFee: Balance = <span class="number">2_750_872_500_000</span>;
 			<span class="kw">pub </span>storage BridgeHubEthereumBaseFee: Balance = DefaultBridgeHubEthereumBaseFee::get();
-			<span class="kw">pub </span>SiblingBridgeHubWithEthereumInboundQueueInstance: MultiLocation = MultiLocation::new(
+			<span class="kw">pub </span>SiblingBridgeHubWithEthereumInboundQueueInstance: Location = Location::new(
 				<span class="number">1</span>,
-				X2(
+				[
 					Parachain(SiblingBridgeHubParaId::get()),
 					PalletInstance(parachains_common::rococo::snowbridge::INBOUND_QUEUE_PALLET_INDEX)
-				)
+				]
 			);
 
 			<span class="doccomment">/// Set up exporters configuration.
-			/// `Option&lt;MultiAsset&gt;` represents static &quot;base fee&quot; which is used for total delivery fee calculation.
+			/// `Option&lt;Asset&gt;` represents static &quot;base fee&quot; which is used for total delivery fee calculation.
 			</span><span class="kw">pub </span>BridgeTable: sp_std::vec::Vec&lt;NetworkExportTableItem&gt; = <span class="macro">sp_std::vec!</span>[
 				NetworkExportTableItem::new(
 					EthereumNetwork::get(),
@@ -1696,7 +1732,7 @@
 			];
 
 			<span class="doccomment">/// Universal aliases
-			</span><span class="kw">pub </span>UniversalAliases: BTreeSet&lt;(MultiLocation, Junction)&gt; = BTreeSet::from_iter(
+			</span><span class="kw">pub </span>UniversalAliases: BTreeSet&lt;(Location, Junction)&gt; = BTreeSet::from_iter(
 				<span class="macro">sp_std::vec!</span>[
 					(SiblingBridgeHubWithEthereumInboundQueueInstance::get(), GlobalConsensus(EthereumNetwork::get())),
 				]
@@ -1706,8 +1742,8 @@
 		<span class="kw">pub type </span>IsTrustedBridgedReserveLocationForForeignAsset =
 			matching::IsForeignConcreteAsset&lt;FromNetwork&lt;UniversalLocation, EthereumNetwork&gt;&gt;;
 
-		<span class="kw">impl </span>Contains&lt;(MultiLocation, Junction)&gt; <span class="kw">for </span>UniversalAliases {
-			<span class="kw">fn </span>contains(alias: <span class="kw-2">&amp;</span>(MultiLocation, Junction)) -&gt; bool {
+		<span class="kw">impl </span>Contains&lt;(Location, Junction)&gt; <span class="kw">for </span>UniversalAliases {
+			<span class="kw">fn </span>contains(alias: <span class="kw-2">&amp;</span>(Location, Junction)) -&gt; bool {
 				UniversalAliases::get().contains(alias)
 			}
 		}
@@ -1719,7 +1755,7 @@
 
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 	</span><span class="kw">impl </span>BridgingBenchmarksHelper {
-		<span class="kw">pub fn </span>prepare_universal_alias() -&gt; <span class="prelude-ty">Option</span>&lt;(MultiLocation, Junction)&gt; {
+		<span class="kw">pub fn </span>prepare_universal_alias() -&gt; <span class="prelude-ty">Option</span>&lt;(Location, Junction)&gt; {
 			<span class="kw">let </span>alias =
 				to_westend::UniversalAliases::get()
 					.into_iter()

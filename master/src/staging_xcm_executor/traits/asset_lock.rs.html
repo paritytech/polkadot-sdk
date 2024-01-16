@@ -138,18 +138,6 @@
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
 <a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
-<a href="#143" id="143">143</a>
-<a href="#144" id="144">144</a>
-<a href="#145" id="145">145</a>
-<a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -231,9 +219,9 @@
 	/// WARNING: Don&#39;t call this with an undropped instance of `Self::LockTicket` or
 	/// `Self::UnlockTicket`.
 	</span><span class="kw">fn </span>prepare_lock(
-		unlocker: MultiLocation,
-		asset: MultiAsset,
-		owner: MultiLocation,
+		unlocker: Location,
+		asset: Asset,
+		owner: Location,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::LockTicket, LockError&gt;;
 
 	<span class="doccomment">/// Prepare to unlock an asset. On success, a `Self::UnlockTicket` it returned, which can be
@@ -242,9 +230,9 @@
 	/// WARNING: Don&#39;t call this with an undropped instance of `Self::LockTicket` or
 	/// `Self::UnlockTicket`.
 	</span><span class="kw">fn </span>prepare_unlock(
-		locker: MultiLocation,
-		asset: MultiAsset,
-		owner: MultiLocation,
+		locker: Location,
+		asset: Asset,
+		owner: Location,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::UnlockTicket, LockError&gt;;
 
 	<span class="doccomment">/// Handler for when a location reports to us that an asset has been locked for us to unlock
@@ -254,11 +242,7 @@
 	/// sending chain can ensure the lock does not remain.
 	///
 	/// We should only act upon this message if we believe that the `origin` is honest.
-	</span><span class="kw">fn </span>note_unlockable(
-		locker: MultiLocation,
-		asset: MultiAsset,
-		owner: MultiLocation,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), LockError&gt;;
+	</span><span class="kw">fn </span>note_unlockable(locker: Location, asset: Asset, owner: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), LockError&gt;;
 
 	<span class="doccomment">/// Handler for when an owner wishes to unlock an asset on a remote chain.
 	///
@@ -267,9 +251,9 @@
 	///
 	/// WARNING: Don&#39;t call this with an undropped instance of `Self::ReduceTicket`.
 	</span><span class="kw">fn </span>prepare_reduce_unlockable(
-		locker: MultiLocation,
-		asset: MultiAsset,
-		owner: MultiLocation,
+		locker: Location,
+		asset: Asset,
+		owner: Location,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::ReduceTicket, LockError&gt;;
 }
 
@@ -277,27 +261,19 @@
 	<span class="kw">type </span>LockTicket = Infallible;
 	<span class="kw">type </span>UnlockTicket = Infallible;
 	<span class="kw">type </span>ReduceTicket = Infallible;
-	<span class="kw">fn </span>prepare_lock(
-		<span class="kw">_</span>: MultiLocation,
-		<span class="kw">_</span>: MultiAsset,
-		<span class="kw">_</span>: MultiLocation,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::LockTicket, LockError&gt; {
+	<span class="kw">fn </span>prepare_lock(<span class="kw">_</span>: Location, <span class="kw">_</span>: Asset, <span class="kw">_</span>: Location) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::LockTicket, LockError&gt; {
 		<span class="prelude-val">Err</span>(LockError::NotApplicable)
 	}
-	<span class="kw">fn </span>prepare_unlock(
-		<span class="kw">_</span>: MultiLocation,
-		<span class="kw">_</span>: MultiAsset,
-		<span class="kw">_</span>: MultiLocation,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::UnlockTicket, LockError&gt; {
+	<span class="kw">fn </span>prepare_unlock(<span class="kw">_</span>: Location, <span class="kw">_</span>: Asset, <span class="kw">_</span>: Location) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::UnlockTicket, LockError&gt; {
 		<span class="prelude-val">Err</span>(LockError::NotApplicable)
 	}
-	<span class="kw">fn </span>note_unlockable(<span class="kw">_</span>: MultiLocation, <span class="kw">_</span>: MultiAsset, <span class="kw">_</span>: MultiLocation) -&gt; <span class="prelude-ty">Result</span>&lt;(), LockError&gt; {
+	<span class="kw">fn </span>note_unlockable(<span class="kw">_</span>: Location, <span class="kw">_</span>: Asset, <span class="kw">_</span>: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), LockError&gt; {
 		<span class="prelude-val">Err</span>(LockError::NotApplicable)
 	}
 	<span class="kw">fn </span>prepare_reduce_unlockable(
-		<span class="kw">_</span>: MultiLocation,
-		<span class="kw">_</span>: MultiAsset,
-		<span class="kw">_</span>: MultiLocation,
+		<span class="kw">_</span>: Location,
+		<span class="kw">_</span>: Asset,
+		<span class="kw">_</span>: Location,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::ReduceTicket, LockError&gt; {
 		<span class="prelude-val">Err</span>(LockError::NotApplicable)
 	}

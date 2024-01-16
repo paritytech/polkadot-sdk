@@ -278,18 +278,6 @@
 <a href="#278" id="278">278</a>
 <a href="#279" id="279">279</a>
 <a href="#280" id="280">280</a>
-<a href="#281" id="281">281</a>
-<a href="#282" id="282">282</a>
-<a href="#283" id="283">283</a>
-<a href="#284" id="284">284</a>
-<a href="#285" id="285">285</a>
-<a href="#286" id="286">286</a>
-<a href="#287" id="287">287</a>
-<a href="#288" id="288">288</a>
-<a href="#289" id="289">289</a>
-<a href="#290" id="290">290</a>
-<a href="#291" id="291">291</a>
-<a href="#292" id="292">292</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -328,25 +316,25 @@
 	</span>Unknown,
 }
 
-<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span>MultiAsset&gt; <span class="kw">for </span>AssetTypes {
-	<span class="kw">fn </span>from(asset: <span class="kw-2">&amp;</span>MultiAsset) -&gt; <span class="self">Self </span>{
+<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span>Asset&gt; <span class="kw">for </span>AssetTypes {
+	<span class="kw">fn </span>from(asset: <span class="kw-2">&amp;</span>Asset) -&gt; <span class="self">Self </span>{
 		<span class="kw">match </span>asset {
-			MultiAsset { id: Concrete(MultiLocation { parents: <span class="number">0</span>, interior: Here }), .. } =&gt;
+			Asset { id: AssetId(Location { parents: <span class="number">0</span>, interior: Here }), .. } =&gt;
 				AssetTypes::Balances,
 			<span class="kw">_ </span>=&gt; AssetTypes::Unknown,
 		}
 	}
 }
 
-<span class="kw">trait </span>WeighMultiAssets {
-	<span class="kw">fn </span>weigh_multi_assets(<span class="kw-2">&amp;</span><span class="self">self</span>, balances_weight: Weight) -&gt; Weight;
+<span class="kw">trait </span>WeighAssets {
+	<span class="kw">fn </span>weigh_assets(<span class="kw-2">&amp;</span><span class="self">self</span>, balances_weight: Weight) -&gt; Weight;
 }
 
 <span class="comment">// Westend only knows about one asset, the balances pallet.
 </span><span class="kw">const </span>MAX_ASSETS: u64 = <span class="number">1</span>;
 
-<span class="kw">impl </span>WeighMultiAssets <span class="kw">for </span>MultiAssetFilter {
-	<span class="kw">fn </span>weigh_multi_assets(<span class="kw-2">&amp;</span><span class="self">self</span>, balances_weight: Weight) -&gt; Weight {
+<span class="kw">impl </span>WeighAssets <span class="kw">for </span>AssetFilter {
+	<span class="kw">fn </span>weigh_assets(<span class="kw-2">&amp;</span><span class="self">self</span>, balances_weight: Weight) -&gt; Weight {
 		<span class="kw">match </span><span class="self">self </span>{
 			<span class="self">Self</span>::Definite(assets) =&gt; assets
 				.inner()
@@ -367,11 +355,11 @@
 	}
 }
 
-<span class="kw">impl </span>WeighMultiAssets <span class="kw">for </span>MultiAssets {
-	<span class="kw">fn </span>weigh_multi_assets(<span class="kw-2">&amp;</span><span class="self">self</span>, balances_weight: Weight) -&gt; Weight {
+<span class="kw">impl </span>WeighAssets <span class="kw">for </span>Assets {
+	<span class="kw">fn </span>weigh_assets(<span class="kw-2">&amp;</span><span class="self">self</span>, balances_weight: Weight) -&gt; Weight {
 		<span class="self">self</span>.inner()
 			.into_iter()
-			.map(|m| &lt;AssetTypes <span class="kw">as </span>From&lt;<span class="kw-2">&amp;</span>MultiAsset&gt;&gt;::from(m))
+			.map(|m| &lt;AssetTypes <span class="kw">as </span>From&lt;<span class="kw-2">&amp;</span>Asset&gt;&gt;::from(m))
 			.map(|t| <span class="kw">match </span>t {
 				AssetTypes::Balances =&gt; balances_weight,
 				AssetTypes::Unknown =&gt; Weight::MAX,
@@ -382,32 +370,28 @@
 
 <span class="kw">pub struct </span>WestendXcmWeight&lt;RuntimeCall&gt;(core::marker::PhantomData&lt;RuntimeCall&gt;);
 <span class="kw">impl</span>&lt;RuntimeCall&gt; XcmWeightInfo&lt;RuntimeCall&gt; <span class="kw">for </span>WestendXcmWeight&lt;RuntimeCall&gt; {
-	<span class="kw">fn </span>withdraw_asset(assets: <span class="kw-2">&amp;</span>MultiAssets) -&gt; Weight {
-		assets.weigh_multi_assets(XcmBalancesWeight::&lt;Runtime&gt;::withdraw_asset())
+	<span class="kw">fn </span>withdraw_asset(assets: <span class="kw-2">&amp;</span>Assets) -&gt; Weight {
+		assets.weigh_assets(XcmBalancesWeight::&lt;Runtime&gt;::withdraw_asset())
 	}
-	<span class="kw">fn </span>reserve_asset_deposited(assets: <span class="kw-2">&amp;</span>MultiAssets) -&gt; Weight {
-		assets.weigh_multi_assets(XcmBalancesWeight::&lt;Runtime&gt;::reserve_asset_deposited())
+	<span class="kw">fn </span>reserve_asset_deposited(assets: <span class="kw-2">&amp;</span>Assets) -&gt; Weight {
+		assets.weigh_assets(XcmBalancesWeight::&lt;Runtime&gt;::reserve_asset_deposited())
 	}
-	<span class="kw">fn </span>receive_teleported_asset(assets: <span class="kw-2">&amp;</span>MultiAssets) -&gt; Weight {
-		assets.weigh_multi_assets(XcmBalancesWeight::&lt;Runtime&gt;::receive_teleported_asset())
+	<span class="kw">fn </span>receive_teleported_asset(assets: <span class="kw-2">&amp;</span>Assets) -&gt; Weight {
+		assets.weigh_assets(XcmBalancesWeight::&lt;Runtime&gt;::receive_teleported_asset())
 	}
 	<span class="kw">fn </span>query_response(
 		_query_id: <span class="kw-2">&amp;</span>u64,
 		_response: <span class="kw-2">&amp;</span>Response,
 		_max_weight: <span class="kw-2">&amp;</span>Weight,
-		_querier: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;MultiLocation&gt;,
+		_querier: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;Location&gt;,
 	) -&gt; Weight {
 		XcmGeneric::&lt;Runtime&gt;::query_response()
 	}
-	<span class="kw">fn </span>transfer_asset(assets: <span class="kw-2">&amp;</span>MultiAssets, _dest: <span class="kw-2">&amp;</span>MultiLocation) -&gt; Weight {
-		assets.weigh_multi_assets(XcmBalancesWeight::&lt;Runtime&gt;::transfer_asset())
+	<span class="kw">fn </span>transfer_asset(assets: <span class="kw-2">&amp;</span>Assets, _dest: <span class="kw-2">&amp;</span>Location) -&gt; Weight {
+		assets.weigh_assets(XcmBalancesWeight::&lt;Runtime&gt;::transfer_asset())
 	}
-	<span class="kw">fn </span>transfer_reserve_asset(
-		assets: <span class="kw-2">&amp;</span>MultiAssets,
-		_dest: <span class="kw-2">&amp;</span>MultiLocation,
-		_xcm: <span class="kw-2">&amp;</span>Xcm&lt;()&gt;,
-	) -&gt; Weight {
-		assets.weigh_multi_assets(XcmBalancesWeight::&lt;Runtime&gt;::transfer_reserve_asset())
+	<span class="kw">fn </span>transfer_reserve_asset(assets: <span class="kw-2">&amp;</span>Assets, _dest: <span class="kw-2">&amp;</span>Location, _xcm: <span class="kw-2">&amp;</span>Xcm&lt;()&gt;) -&gt; Weight {
+		assets.weigh_assets(XcmBalancesWeight::&lt;Runtime&gt;::transfer_reserve_asset())
 	}
 	<span class="kw">fn </span>transact(
 		_origin_kind: <span class="kw-2">&amp;</span>OriginKind,
@@ -435,45 +419,37 @@
 	<span class="kw">fn </span>clear_origin() -&gt; Weight {
 		XcmGeneric::&lt;Runtime&gt;::clear_origin()
 	}
-	<span class="kw">fn </span>descend_origin(_who: <span class="kw-2">&amp;</span>InteriorMultiLocation) -&gt; Weight {
+	<span class="kw">fn </span>descend_origin(_who: <span class="kw-2">&amp;</span>InteriorLocation) -&gt; Weight {
 		XcmGeneric::&lt;Runtime&gt;::descend_origin()
 	}
 	<span class="kw">fn </span>report_error(_query_repsonse_info: <span class="kw-2">&amp;</span>QueryResponseInfo) -&gt; Weight {
 		XcmGeneric::&lt;Runtime&gt;::report_error()
 	}
 
-	<span class="kw">fn </span>deposit_asset(assets: <span class="kw-2">&amp;</span>MultiAssetFilter, _dest: <span class="kw-2">&amp;</span>MultiLocation) -&gt; Weight {
-		assets.weigh_multi_assets(XcmBalancesWeight::&lt;Runtime&gt;::deposit_asset())
+	<span class="kw">fn </span>deposit_asset(assets: <span class="kw-2">&amp;</span>AssetFilter, _dest: <span class="kw-2">&amp;</span>Location) -&gt; Weight {
+		assets.weigh_assets(XcmBalancesWeight::&lt;Runtime&gt;::deposit_asset())
 	}
-	<span class="kw">fn </span>deposit_reserve_asset(
-		assets: <span class="kw-2">&amp;</span>MultiAssetFilter,
-		_dest: <span class="kw-2">&amp;</span>MultiLocation,
-		_xcm: <span class="kw-2">&amp;</span>Xcm&lt;()&gt;,
-	) -&gt; Weight {
-		assets.weigh_multi_assets(XcmBalancesWeight::&lt;Runtime&gt;::deposit_reserve_asset())
+	<span class="kw">fn </span>deposit_reserve_asset(assets: <span class="kw-2">&amp;</span>AssetFilter, _dest: <span class="kw-2">&amp;</span>Location, _xcm: <span class="kw-2">&amp;</span>Xcm&lt;()&gt;) -&gt; Weight {
+		assets.weigh_assets(XcmBalancesWeight::&lt;Runtime&gt;::deposit_reserve_asset())
 	}
-	<span class="kw">fn </span>exchange_asset(_give: <span class="kw-2">&amp;</span>MultiAssetFilter, _receive: <span class="kw-2">&amp;</span>MultiAssets, _maximal: <span class="kw-2">&amp;</span>bool) -&gt; Weight {
+	<span class="kw">fn </span>exchange_asset(_give: <span class="kw-2">&amp;</span>AssetFilter, _receive: <span class="kw-2">&amp;</span>Assets, _maximal: <span class="kw-2">&amp;</span>bool) -&gt; Weight {
 		<span class="comment">// Westend does not currently support exchange asset operations
 		</span>Weight::MAX
 	}
 	<span class="kw">fn </span>initiate_reserve_withdraw(
-		assets: <span class="kw-2">&amp;</span>MultiAssetFilter,
-		_reserve: <span class="kw-2">&amp;</span>MultiLocation,
+		assets: <span class="kw-2">&amp;</span>AssetFilter,
+		_reserve: <span class="kw-2">&amp;</span>Location,
 		_xcm: <span class="kw-2">&amp;</span>Xcm&lt;()&gt;,
 	) -&gt; Weight {
-		assets.weigh_multi_assets(XcmBalancesWeight::&lt;Runtime&gt;::initiate_reserve_withdraw())
+		assets.weigh_assets(XcmBalancesWeight::&lt;Runtime&gt;::initiate_reserve_withdraw())
 	}
-	<span class="kw">fn </span>initiate_teleport(
-		assets: <span class="kw-2">&amp;</span>MultiAssetFilter,
-		_dest: <span class="kw-2">&amp;</span>MultiLocation,
-		_xcm: <span class="kw-2">&amp;</span>Xcm&lt;()&gt;,
-	) -&gt; Weight {
-		assets.weigh_multi_assets(XcmBalancesWeight::&lt;Runtime&gt;::initiate_teleport())
+	<span class="kw">fn </span>initiate_teleport(assets: <span class="kw-2">&amp;</span>AssetFilter, _dest: <span class="kw-2">&amp;</span>Location, _xcm: <span class="kw-2">&amp;</span>Xcm&lt;()&gt;) -&gt; Weight {
+		assets.weigh_assets(XcmBalancesWeight::&lt;Runtime&gt;::initiate_teleport())
 	}
-	<span class="kw">fn </span>report_holding(_response_info: <span class="kw-2">&amp;</span>QueryResponseInfo, _assets: <span class="kw-2">&amp;</span>MultiAssetFilter) -&gt; Weight {
+	<span class="kw">fn </span>report_holding(_response_info: <span class="kw-2">&amp;</span>QueryResponseInfo, _assets: <span class="kw-2">&amp;</span>AssetFilter) -&gt; Weight {
 		XcmGeneric::&lt;Runtime&gt;::report_holding()
 	}
-	<span class="kw">fn </span>buy_execution(_fees: <span class="kw-2">&amp;</span>MultiAsset, _weight_limit: <span class="kw-2">&amp;</span>WeightLimit) -&gt; Weight {
+	<span class="kw">fn </span>buy_execution(_fees: <span class="kw-2">&amp;</span>Asset, _weight_limit: <span class="kw-2">&amp;</span>WeightLimit) -&gt; Weight {
 		XcmGeneric::&lt;Runtime&gt;::buy_execution()
 	}
 	<span class="kw">fn </span>refund_surplus() -&gt; Weight {
@@ -488,7 +464,7 @@
 	<span class="kw">fn </span>clear_error() -&gt; Weight {
 		XcmGeneric::&lt;Runtime&gt;::clear_error()
 	}
-	<span class="kw">fn </span>claim_asset(_assets: <span class="kw-2">&amp;</span>MultiAssets, _ticket: <span class="kw-2">&amp;</span>MultiLocation) -&gt; Weight {
+	<span class="kw">fn </span>claim_asset(_assets: <span class="kw-2">&amp;</span>Assets, _ticket: <span class="kw-2">&amp;</span>Location) -&gt; Weight {
 		XcmGeneric::&lt;Runtime&gt;::claim_asset()
 	}
 	<span class="kw">fn </span>trap(_code: <span class="kw-2">&amp;</span>u64) -&gt; Weight {
@@ -500,13 +476,13 @@
 	<span class="kw">fn </span>unsubscribe_version() -&gt; Weight {
 		XcmGeneric::&lt;Runtime&gt;::unsubscribe_version()
 	}
-	<span class="kw">fn </span>burn_asset(assets: <span class="kw-2">&amp;</span>MultiAssets) -&gt; Weight {
-		assets.weigh_multi_assets(XcmGeneric::&lt;Runtime&gt;::burn_asset())
+	<span class="kw">fn </span>burn_asset(assets: <span class="kw-2">&amp;</span>Assets) -&gt; Weight {
+		assets.weigh_assets(XcmGeneric::&lt;Runtime&gt;::burn_asset())
 	}
-	<span class="kw">fn </span>expect_asset(assets: <span class="kw-2">&amp;</span>MultiAssets) -&gt; Weight {
-		assets.weigh_multi_assets(XcmGeneric::&lt;Runtime&gt;::expect_asset())
+	<span class="kw">fn </span>expect_asset(assets: <span class="kw-2">&amp;</span>Assets) -&gt; Weight {
+		assets.weigh_assets(XcmGeneric::&lt;Runtime&gt;::expect_asset())
 	}
-	<span class="kw">fn </span>expect_origin(_origin: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;MultiLocation&gt;) -&gt; Weight {
+	<span class="kw">fn </span>expect_origin(_origin: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;Location&gt;) -&gt; Weight {
 		XcmGeneric::&lt;Runtime&gt;::expect_origin()
 	}
 	<span class="kw">fn </span>expect_error(_error: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;(u32, XcmError)&gt;) -&gt; Weight {
@@ -541,19 +517,19 @@
 		<span class="comment">// Westend relay should not support export message operations
 		</span>Weight::MAX
 	}
-	<span class="kw">fn </span>lock_asset(<span class="kw">_</span>: <span class="kw-2">&amp;</span>MultiAsset, <span class="kw">_</span>: <span class="kw-2">&amp;</span>MultiLocation) -&gt; Weight {
+	<span class="kw">fn </span>lock_asset(<span class="kw">_</span>: <span class="kw-2">&amp;</span>Asset, <span class="kw">_</span>: <span class="kw-2">&amp;</span>Location) -&gt; Weight {
 		<span class="comment">// Westend does not currently support asset locking operations
 		</span>Weight::MAX
 	}
-	<span class="kw">fn </span>unlock_asset(<span class="kw">_</span>: <span class="kw-2">&amp;</span>MultiAsset, <span class="kw">_</span>: <span class="kw-2">&amp;</span>MultiLocation) -&gt; Weight {
+	<span class="kw">fn </span>unlock_asset(<span class="kw">_</span>: <span class="kw-2">&amp;</span>Asset, <span class="kw">_</span>: <span class="kw-2">&amp;</span>Location) -&gt; Weight {
 		<span class="comment">// Westend does not currently support asset locking operations
 		</span>Weight::MAX
 	}
-	<span class="kw">fn </span>note_unlockable(<span class="kw">_</span>: <span class="kw-2">&amp;</span>MultiAsset, <span class="kw">_</span>: <span class="kw-2">&amp;</span>MultiLocation) -&gt; Weight {
+	<span class="kw">fn </span>note_unlockable(<span class="kw">_</span>: <span class="kw-2">&amp;</span>Asset, <span class="kw">_</span>: <span class="kw-2">&amp;</span>Location) -&gt; Weight {
 		<span class="comment">// Westend does not currently support asset locking operations
 		</span>Weight::MAX
 	}
-	<span class="kw">fn </span>request_unlock(<span class="kw">_</span>: <span class="kw-2">&amp;</span>MultiAsset, <span class="kw">_</span>: <span class="kw-2">&amp;</span>MultiLocation) -&gt; Weight {
+	<span class="kw">fn </span>request_unlock(<span class="kw">_</span>: <span class="kw-2">&amp;</span>Asset, <span class="kw">_</span>: <span class="kw-2">&amp;</span>Location) -&gt; Weight {
 		<span class="comment">// Westend does not currently support asset locking operations
 		</span>Weight::MAX
 	}
@@ -566,20 +542,20 @@
 	<span class="kw">fn </span>clear_topic() -&gt; Weight {
 		XcmGeneric::&lt;Runtime&gt;::clear_topic()
 	}
-	<span class="kw">fn </span>alias_origin(<span class="kw">_</span>: <span class="kw-2">&amp;</span>MultiLocation) -&gt; Weight {
+	<span class="kw">fn </span>alias_origin(<span class="kw">_</span>: <span class="kw-2">&amp;</span>Location) -&gt; Weight {
 		<span class="comment">// XCM Executor does not currently support alias origin operations
 		</span>Weight::MAX
 	}
-	<span class="kw">fn </span>unpaid_execution(<span class="kw">_</span>: <span class="kw-2">&amp;</span>WeightLimit, <span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;MultiLocation&gt;) -&gt; Weight {
+	<span class="kw">fn </span>unpaid_execution(<span class="kw">_</span>: <span class="kw-2">&amp;</span>WeightLimit, <span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;Location&gt;) -&gt; Weight {
 		XcmGeneric::&lt;Runtime&gt;::unpaid_execution()
 	}
 }
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>all_counted_has_a_sane_weight_upper_limit() {
-	<span class="kw">let </span>assets = MultiAssetFilter::Wild(AllCounted(<span class="number">4294967295</span>));
+	<span class="kw">let </span>assets = AssetFilter::Wild(AllCounted(<span class="number">4294967295</span>));
 	<span class="kw">let </span>weight = Weight::from_parts(<span class="number">1000</span>, <span class="number">1000</span>);
 
-	<span class="macro">assert_eq!</span>(assets.weigh_multi_assets(weight), weight * MAX_ASSETS);
+	<span class="macro">assert_eq!</span>(assets.weigh_assets(weight), weight * MAX_ASSETS);
 }
 </code></pre></div></section></main></body></html>

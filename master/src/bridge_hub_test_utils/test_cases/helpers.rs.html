@@ -575,7 +575,7 @@
 	prepare_message_proof_import: <span class="kw">impl </span>FnOnce(
 		Runtime::AccountId,
 		Runtime::InboundRelayer,
-		InteriorMultiLocation,
+		InteriorLocation,
 		MessageNonce,
 		Xcm&lt;()&gt;,
 	) -&gt; CallsAndVerifiers&lt;Runtime&gt;,
@@ -621,21 +621,21 @@
 
 			<span class="comment">// set up relayer details and proofs
 
-			</span><span class="kw">let </span>message_destination =
-				X2(GlobalConsensus(local_relay_chain_id), Parachain(sibling_parachain_id));
+			</span><span class="kw">let </span>message_destination: InteriorLocation =
+				[GlobalConsensus(local_relay_chain_id), Parachain(sibling_parachain_id)].into();
 			<span class="comment">// some random numbers (checked by test)
 			</span><span class="kw">let </span>message_nonce = <span class="number">1</span>;
 
-			<span class="kw">let </span>xcm = <span class="macro">vec!</span>[xcm::v3::Instruction::&lt;()&gt;::ClearOrigin; <span class="number">42</span>];
+			<span class="kw">let </span>xcm = <span class="macro">vec!</span>[Instruction::&lt;()&gt;::ClearOrigin; <span class="number">42</span>];
 			<span class="kw">let </span>expected_dispatch = xcm::latest::Xcm::&lt;()&gt;({
 				<span class="kw">let </span><span class="kw-2">mut </span>expected_instructions = xcm.clone();
 				<span class="comment">// dispatch prepends bridge pallet instance
 				</span>expected_instructions.insert(
 					<span class="number">0</span>,
-					DescendOrigin(X1(PalletInstance(
+					DescendOrigin([PalletInstance(
 						&lt;pallet_bridge_messages::Pallet&lt;Runtime, MPI&gt; <span class="kw">as </span>PalletInfoAccess&gt;::index()
 							<span class="kw">as </span>u8,
-					))),
+					)].into()),
 				);
 				expected_instructions
 			});

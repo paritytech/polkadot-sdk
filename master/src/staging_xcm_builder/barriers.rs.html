@@ -440,12 +440,6 @@
 <a href="#440" id="440">440</a>
 <a href="#441" id="441">441</a>
 <a href="#442" id="442">442</a>
-<a href="#443" id="443">443</a>
-<a href="#444" id="444">444</a>
-<a href="#445" id="445">445</a>
-<a href="#446" id="446">446</a>
-<a href="#447" id="447">447</a>
-<a href="#448" id="448">448</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -482,7 +476,7 @@
 </span><span class="kw">pub struct </span>TakeWeightCredit;
 <span class="kw">impl </span>ShouldExecute <span class="kw">for </span>TakeWeightCredit {
 	<span class="kw">fn </span>should_execute&lt;RuntimeCall&gt;(
-		_origin: <span class="kw-2">&amp;</span>MultiLocation,
+		_origin: <span class="kw-2">&amp;</span>Location,
 		_instructions: <span class="kw-2">&amp;mut </span>[Instruction&lt;RuntimeCall&gt;],
 		max_weight: Weight,
 		properties: <span class="kw-2">&amp;mut </span>Properties,
@@ -508,9 +502,9 @@
 /// Only allows for `TeleportAsset`, `WithdrawAsset`, `ClaimAsset` and `ReserveAssetDeposit` XCMs
 /// because they are the only ones that place assets in the Holding Register to pay for execution.
 </span><span class="kw">pub struct </span>AllowTopLevelPaidExecutionFrom&lt;T&gt;(PhantomData&lt;T&gt;);
-<span class="kw">impl</span>&lt;T: Contains&lt;MultiLocation&gt;&gt; ShouldExecute <span class="kw">for </span>AllowTopLevelPaidExecutionFrom&lt;T&gt; {
+<span class="kw">impl</span>&lt;T: Contains&lt;Location&gt;&gt; ShouldExecute <span class="kw">for </span>AllowTopLevelPaidExecutionFrom&lt;T&gt; {
 	<span class="kw">fn </span>should_execute&lt;RuntimeCall&gt;(
-		origin: <span class="kw-2">&amp;</span>MultiLocation,
+		origin: <span class="kw-2">&amp;</span>Location,
 		instructions: <span class="kw-2">&amp;mut </span>[Instruction&lt;RuntimeCall&gt;],
 		max_weight: Weight,
 		_properties: <span class="kw-2">&amp;mut </span>Properties,
@@ -606,14 +600,11 @@
 </span><span class="kw">pub struct </span>WithComputedOrigin&lt;InnerBarrier, LocalUniversal, MaxPrefixes&gt;(
 	PhantomData&lt;(InnerBarrier, LocalUniversal, MaxPrefixes)&gt;,
 );
-<span class="kw">impl</span>&lt;
-		InnerBarrier: ShouldExecute,
-		LocalUniversal: Get&lt;InteriorMultiLocation&gt;,
-		MaxPrefixes: Get&lt;u32&gt;,
-	&gt; ShouldExecute <span class="kw">for </span>WithComputedOrigin&lt;InnerBarrier, LocalUniversal, MaxPrefixes&gt;
+<span class="kw">impl</span>&lt;InnerBarrier: ShouldExecute, LocalUniversal: Get&lt;InteriorLocation&gt;, MaxPrefixes: Get&lt;u32&gt;&gt;
+	ShouldExecute <span class="kw">for </span>WithComputedOrigin&lt;InnerBarrier, LocalUniversal, MaxPrefixes&gt;
 {
 	<span class="kw">fn </span>should_execute&lt;Call&gt;(
-		origin: <span class="kw-2">&amp;</span>MultiLocation,
+		origin: <span class="kw-2">&amp;</span>Location,
 		instructions: <span class="kw-2">&amp;mut </span>[Instruction&lt;Call&gt;],
 		max_weight: Weight,
 		properties: <span class="kw-2">&amp;mut </span>Properties,
@@ -623,7 +614,7 @@
 			<span class="string">&quot;WithComputedOrigin origin: {:?}, instructions: {:?}, max_weight: {:?}, properties: {:?}&quot;</span>,
 			origin, instructions, max_weight, properties,
 		);
-		<span class="kw">let </span><span class="kw-2">mut </span>actual_origin = <span class="kw-2">*</span>origin;
+		<span class="kw">let </span><span class="kw-2">mut </span>actual_origin = origin.clone();
 		<span class="kw">let </span>skipped = Cell::new(<span class="number">0usize</span>);
 		<span class="comment">// NOTE: We do not check the validity of `UniversalOrigin` here, meaning that a malicious
 		// origin could place a `UniversalOrigin` in order to spoof some location which gets free
@@ -638,10 +629,11 @@
 						<span class="comment">// Note the origin is *relative to local consensus*! So we need to escape
 						// local consensus with the `parents` before diving in into the
 						// `universal_location`.
-						</span>actual_origin = X1(<span class="kw-2">*</span>new_global).relative_to(<span class="kw-2">&amp;</span>LocalUniversal::get());
+						</span>actual_origin =
+							Junctions::from([<span class="kw-2">*</span>new_global]).relative_to(<span class="kw-2">&amp;</span>LocalUniversal::get());
 					},
 					DescendOrigin(j) =&gt; {
-						<span class="kw">let </span><span class="prelude-val">Ok</span>(<span class="kw">_</span>) = actual_origin.append_with(<span class="kw-2">*</span>j) <span class="kw">else </span>{
+						<span class="kw">let </span><span class="prelude-val">Ok</span>(<span class="kw">_</span>) = actual_origin.append_with(j.clone()) <span class="kw">else </span>{
 							<span class="kw">return </span><span class="prelude-val">Err</span>(ProcessMessageError::Unsupported)
 						};
 					},
@@ -669,7 +661,7 @@
 </span><span class="kw">pub struct </span>TrailingSetTopicAsId&lt;InnerBarrier&gt;(PhantomData&lt;InnerBarrier&gt;);
 <span class="kw">impl</span>&lt;InnerBarrier: ShouldExecute&gt; ShouldExecute <span class="kw">for </span>TrailingSetTopicAsId&lt;InnerBarrier&gt; {
 	<span class="kw">fn </span>should_execute&lt;Call&gt;(
-		origin: <span class="kw-2">&amp;</span>MultiLocation,
+		origin: <span class="kw-2">&amp;</span>Location,
 		instructions: <span class="kw-2">&amp;mut </span>[Instruction&lt;Call&gt;],
 		max_weight: Weight,
 		properties: <span class="kw-2">&amp;mut </span>Properties,
@@ -698,7 +690,7 @@
 	SuspensionChecker: CheckSuspension,
 {
 	<span class="kw">fn </span>should_execute&lt;Call&gt;(
-		origin: <span class="kw-2">&amp;</span>MultiLocation,
+		origin: <span class="kw-2">&amp;</span>Location,
 		instructions: <span class="kw-2">&amp;mut </span>[Instruction&lt;Call&gt;],
 		max_weight: Weight,
 		properties: <span class="kw-2">&amp;mut </span>Properties,
@@ -716,9 +708,9 @@
 /// Use only for executions from completely trusted origins, from which no permissionless messages
 /// can be sent.
 </span><span class="kw">pub struct </span>AllowUnpaidExecutionFrom&lt;T&gt;(PhantomData&lt;T&gt;);
-<span class="kw">impl</span>&lt;T: Contains&lt;MultiLocation&gt;&gt; ShouldExecute <span class="kw">for </span>AllowUnpaidExecutionFrom&lt;T&gt; {
+<span class="kw">impl</span>&lt;T: Contains&lt;Location&gt;&gt; ShouldExecute <span class="kw">for </span>AllowUnpaidExecutionFrom&lt;T&gt; {
 	<span class="kw">fn </span>should_execute&lt;RuntimeCall&gt;(
-		origin: <span class="kw-2">&amp;</span>MultiLocation,
+		origin: <span class="kw-2">&amp;</span>Location,
 		instructions: <span class="kw-2">&amp;mut </span>[Instruction&lt;RuntimeCall&gt;],
 		_max_weight: Weight,
 		_properties: <span class="kw-2">&amp;mut </span>Properties,
@@ -738,9 +730,9 @@
 ///
 /// Use only for executions from trusted origin groups.
 </span><span class="kw">pub struct </span>AllowExplicitUnpaidExecutionFrom&lt;T&gt;(PhantomData&lt;T&gt;);
-<span class="kw">impl</span>&lt;T: Contains&lt;MultiLocation&gt;&gt; ShouldExecute <span class="kw">for </span>AllowExplicitUnpaidExecutionFrom&lt;T&gt; {
+<span class="kw">impl</span>&lt;T: Contains&lt;Location&gt;&gt; ShouldExecute <span class="kw">for </span>AllowExplicitUnpaidExecutionFrom&lt;T&gt; {
 	<span class="kw">fn </span>should_execute&lt;Call&gt;(
-		origin: <span class="kw-2">&amp;</span>MultiLocation,
+		origin: <span class="kw-2">&amp;</span>Location,
 		instructions: <span class="kw-2">&amp;mut </span>[Instruction&lt;Call&gt;],
 		max_weight: Weight,
 		_properties: <span class="kw-2">&amp;mut </span>Properties,
@@ -762,11 +754,11 @@
 
 <span class="doccomment">/// Allows a message only if it is from a system-level child parachain.
 </span><span class="kw">pub struct </span>IsChildSystemParachain&lt;ParaId&gt;(PhantomData&lt;ParaId&gt;);
-<span class="kw">impl</span>&lt;ParaId: IsSystem + From&lt;u32&gt;&gt; Contains&lt;MultiLocation&gt; <span class="kw">for </span>IsChildSystemParachain&lt;ParaId&gt; {
-	<span class="kw">fn </span>contains(l: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
+<span class="kw">impl</span>&lt;ParaId: IsSystem + From&lt;u32&gt;&gt; Contains&lt;Location&gt; <span class="kw">for </span>IsChildSystemParachain&lt;ParaId&gt; {
+	<span class="kw">fn </span>contains(l: <span class="kw-2">&amp;</span>Location) -&gt; bool {
 		<span class="macro">matches!</span>(
-			l.interior(),
-			Junctions::X1(Junction::Parachain(id))
+			l.interior().as_slice(),
+			[Junction::Parachain(id)]
 				<span class="kw">if </span>ParaId::from(<span class="kw-2">*</span>id).is_system() &amp;&amp; l.parent_count() == <span class="number">0</span>,
 		)
 	}
@@ -776,7 +768,7 @@
 </span><span class="kw">pub struct </span>AllowKnownQueryResponses&lt;ResponseHandler&gt;(PhantomData&lt;ResponseHandler&gt;);
 <span class="kw">impl</span>&lt;ResponseHandler: OnResponse&gt; ShouldExecute <span class="kw">for </span>AllowKnownQueryResponses&lt;ResponseHandler&gt; {
 	<span class="kw">fn </span>should_execute&lt;RuntimeCall&gt;(
-		origin: <span class="kw-2">&amp;</span>MultiLocation,
+		origin: <span class="kw-2">&amp;</span>Location,
 		instructions: <span class="kw-2">&amp;mut </span>[Instruction&lt;RuntimeCall&gt;],
 		_max_weight: Weight,
 		_properties: <span class="kw-2">&amp;mut </span>Properties,
@@ -802,9 +794,9 @@
 <span class="doccomment">/// Allows execution from `origin` if it is just a straight `SubscribeVersion` or
 /// `UnsubscribeVersion` instruction.
 </span><span class="kw">pub struct </span>AllowSubscriptionsFrom&lt;T&gt;(PhantomData&lt;T&gt;);
-<span class="kw">impl</span>&lt;T: Contains&lt;MultiLocation&gt;&gt; ShouldExecute <span class="kw">for </span>AllowSubscriptionsFrom&lt;T&gt; {
+<span class="kw">impl</span>&lt;T: Contains&lt;Location&gt;&gt; ShouldExecute <span class="kw">for </span>AllowSubscriptionsFrom&lt;T&gt; {
 	<span class="kw">fn </span>should_execute&lt;RuntimeCall&gt;(
-		origin: <span class="kw-2">&amp;</span>MultiLocation,
+		origin: <span class="kw-2">&amp;</span>Location,
 		instructions: <span class="kw-2">&amp;mut </span>[Instruction&lt;RuntimeCall&gt;],
 		_max_weight: Weight,
 		_properties: <span class="kw-2">&amp;mut </span>Properties,
@@ -839,7 +831,7 @@
 	Allow: ShouldExecute,
 {
 	<span class="kw">fn </span>should_execute&lt;RuntimeCall&gt;(
-		origin: <span class="kw-2">&amp;</span>MultiLocation,
+		origin: <span class="kw-2">&amp;</span>Location,
 		message: <span class="kw-2">&amp;mut </span>[Instruction&lt;RuntimeCall&gt;],
 		max_weight: Weight,
 		properties: <span class="kw-2">&amp;mut </span>Properties,
@@ -853,7 +845,7 @@
 </span><span class="kw">pub struct </span>DenyReserveTransferToRelayChain;
 <span class="kw">impl </span>ShouldExecute <span class="kw">for </span>DenyReserveTransferToRelayChain {
 	<span class="kw">fn </span>should_execute&lt;RuntimeCall&gt;(
-		origin: <span class="kw-2">&amp;</span>MultiLocation,
+		origin: <span class="kw-2">&amp;</span>Location,
 		message: <span class="kw-2">&amp;mut </span>[Instruction&lt;RuntimeCall&gt;],
 		_max_weight: Weight,
 		_properties: <span class="kw-2">&amp;mut </span>Properties,
@@ -862,22 +854,18 @@
 			|<span class="kw">_</span>| <span class="bool-val">true</span>,
 			|inst| <span class="kw">match </span>inst {
 				InitiateReserveWithdraw {
-					reserve: MultiLocation { parents: <span class="number">1</span>, interior: Here },
+					reserve: Location { parents: <span class="number">1</span>, interior: Here },
 					..
 				} |
-				DepositReserveAsset {
-					dest: MultiLocation { parents: <span class="number">1</span>, interior: Here }, ..
-				} |
-				TransferReserveAsset {
-					dest: MultiLocation { parents: <span class="number">1</span>, interior: Here }, ..
-				} =&gt; {
+				DepositReserveAsset { dest: Location { parents: <span class="number">1</span>, interior: Here }, .. } |
+				TransferReserveAsset { dest: Location { parents: <span class="number">1</span>, interior: Here }, .. } =&gt; {
 					<span class="prelude-val">Err</span>(ProcessMessageError::Unsupported) <span class="comment">// Deny
 				</span>},
 
 				<span class="comment">// An unexpected reserve transfer has arrived from the Relay Chain. Generally,
 				// `IsReserve` should not allow this, but we just log it here.
 				</span>ReserveAssetDeposited { .. }
-					<span class="kw">if </span><span class="macro">matches!</span>(origin, MultiLocation { parents: <span class="number">1</span>, interior: Here }) =&gt;
+					<span class="kw">if </span><span class="macro">matches!</span>(origin, Location { parents: <span class="number">1</span>, interior: Here }) =&gt;
 				{
 					<span class="macro">log::warn!</span>(
 						target: <span class="string">&quot;xcm::barrier&quot;</span>,

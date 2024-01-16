@@ -622,14 +622,14 @@
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Debug, Eq, PartialEq))]
 </span><span class="kw">pub struct </span>SenderAndLane {
 	<span class="doccomment">/// Sending chain relative location.
-	</span><span class="kw">pub </span>location: MultiLocation,
+	</span><span class="kw">pub </span>location: Location,
 	<span class="doccomment">/// Message lane, used by the sending chain.
 	</span><span class="kw">pub </span>lane: LaneId,
 }
 
 <span class="kw">impl </span>SenderAndLane {
 	<span class="doccomment">/// Create new object using provided location and lane.
-	</span><span class="kw">pub fn </span>new(location: MultiLocation, lane: LaneId) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>new(location: Location, lane: LaneId) -&gt; <span class="self">Self </span>{
 		SenderAndLane { location, lane }
 	}
 }
@@ -667,7 +667,7 @@
 
 <span class="kw">impl</span>&lt;
 		H: XcmBlobHauler,
-		Lanes: Get&lt;sp_std::vec::Vec&lt;(SenderAndLane, (NetworkId, InteriorMultiLocation))&gt;&gt;,
+		Lanes: Get&lt;sp_std::vec::Vec&lt;(SenderAndLane, (NetworkId, InteriorLocation))&gt;&gt;,
 	&gt; OnMessagesDelivered <span class="kw">for </span>XcmBlobHaulerAdapter&lt;H, Lanes&gt;
 {
 	<span class="kw">fn </span>on_messages_delivered(lane: LaneId, enqueued_messages: MessageNonce) {
@@ -787,7 +787,7 @@
 	<span class="doccomment">/// Send congested signal to the `sending_chain_location`.
 	</span><span class="kw">fn </span>send_congested_signal(sender_and_lane: <span class="kw-2">&amp;</span>SenderAndLane) -&gt; <span class="prelude-ty">Result</span>&lt;(), SendError&gt; {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(msg) = H::CongestedMessage::get() {
-			send_xcm::&lt;H::ToSourceChainSender&gt;(sender_and_lane.location, msg)<span class="question-mark">?</span>;
+			send_xcm::&lt;H::ToSourceChainSender&gt;(sender_and_lane.location.clone(), msg)<span class="question-mark">?</span>;
 			OutboundLanesCongestedSignals::&lt;H::Runtime, H::MessagesInstance&gt;::insert(
 				sender_and_lane.lane,
 				<span class="bool-val">true</span>,
@@ -799,7 +799,7 @@
 	<span class="doccomment">/// Send `uncongested` signal to the `sending_chain_location`.
 	</span><span class="kw">fn </span>send_uncongested_signal(sender_and_lane: <span class="kw-2">&amp;</span>SenderAndLane) -&gt; <span class="prelude-ty">Result</span>&lt;(), SendError&gt; {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(msg) = H::UncongestedMessage::get() {
-			send_xcm::&lt;H::ToSourceChainSender&gt;(sender_and_lane.location, msg)<span class="question-mark">?</span>;
+			send_xcm::&lt;H::ToSourceChainSender&gt;(sender_and_lane.location.clone(), msg)<span class="question-mark">?</span>;
 			OutboundLanesCongestedSignals::&lt;H::Runtime, H::MessagesInstance&gt;::remove(
 				sender_and_lane.lane,
 			);
@@ -814,10 +814,10 @@
 </span><span class="kw">pub struct </span>XcmVersionOfDestAndRemoteBridge&lt;Version, RemoteBridge&gt;(
 	sp_std::marker::PhantomData&lt;(Version, RemoteBridge)&gt;,
 );
-<span class="kw">impl</span>&lt;Version: GetVersion, RemoteBridge: Get&lt;MultiLocation&gt;&gt; GetVersion
+<span class="kw">impl</span>&lt;Version: GetVersion, RemoteBridge: Get&lt;Location&gt;&gt; GetVersion
 	<span class="kw">for </span>XcmVersionOfDestAndRemoteBridge&lt;Version, RemoteBridge&gt;
 {
-	<span class="kw">fn </span>get_version_for(dest: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;XcmVersion&gt; {
+	<span class="kw">fn </span>get_version_for(dest: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;XcmVersion&gt; {
 		<span class="kw">let </span>dest_version = Version::get_version_for(dest);
 		<span class="kw">let </span>bridge_hub_version = Version::get_version_for(<span class="kw-2">&amp;</span>RemoteBridge::get());
 
@@ -841,11 +841,11 @@
 
 	<span class="macro">parameter_types! </span>{
 		<span class="kw">pub </span>TestSenderAndLane: SenderAndLane = SenderAndLane {
-			location: MultiLocation::new(<span class="number">1</span>, X1(Parachain(<span class="number">1000</span>))),
+			location: Location::new(<span class="number">1</span>, [Parachain(<span class="number">1000</span>)]),
 			lane: TEST_LANE_ID,
 		};
-		<span class="kw">pub </span>TestLanes: sp_std::vec::Vec&lt;(SenderAndLane, (NetworkId, InteriorMultiLocation))&gt; = <span class="macro">sp_std::vec!</span>[
-			(TestSenderAndLane::get(), (NetworkId::ByGenesis([<span class="number">0</span>; <span class="number">32</span>]), InteriorMultiLocation::Here))
+		<span class="kw">pub </span>TestLanes: sp_std::vec::Vec&lt;(SenderAndLane, (NetworkId, InteriorLocation))&gt; = <span class="macro">sp_std::vec!</span>[
+			(TestSenderAndLane::get(), (NetworkId::ByGenesis([<span class="number">0</span>; <span class="number">32</span>]), InteriorLocation::Here))
 		];
 		<span class="kw">pub </span>DummyXcmMessage: Xcm&lt;()&gt; = Xcm::new();
 	}
@@ -862,7 +862,7 @@
 		<span class="kw">type </span>Ticket = ();
 
 		<span class="kw">fn </span>validate(
-			_destination: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;MultiLocation&gt;,
+			_destination: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Location&gt;,
 			_message: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;,
 		) -&gt; SendResult&lt;<span class="self">Self</span>::Ticket&gt; {
 			<span class="prelude-val">Ok</span>(((), Default::default()))

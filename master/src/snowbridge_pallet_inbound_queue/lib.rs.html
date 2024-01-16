@@ -426,8 +426,8 @@
 <span class="kw">use </span>sp_core::{H160, H256};
 <span class="kw">use </span>sp_std::{convert::TryFrom, vec};
 <span class="kw">use </span>xcm::prelude::{
-	send_xcm, Instruction::SetTopic, Junction::<span class="kw-2">*</span>, Junctions::<span class="kw-2">*</span>, MultiLocation,
-	SendError <span class="kw">as </span>XcmpSendError, SendXcm, Xcm, XcmContext, XcmHash,
+	send_xcm, Instruction::SetTopic, Junction::<span class="kw-2">*</span>, Location, SendError <span class="kw">as </span>XcmpSendError, SendXcm,
+	Xcm, XcmContext, XcmHash,
 };
 <span class="kw">use </span>xcm_executor::traits::TransactAsset;
 
@@ -696,7 +696,7 @@
 		}
 
 		<span class="kw">pub fn </span>send_xcm(xcm: Xcm&lt;()&gt;, dest: ParaId) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, Error&lt;T&gt;&gt; {
-			<span class="kw">let </span>dest = MultiLocation { parents: <span class="number">1</span>, interior: X1(Parachain(dest.into())) };
+			<span class="kw">let </span>dest = Location::new(<span class="number">1</span>, [Parachain(dest.into())]);
 			<span class="kw">let </span>(xcm_hash, <span class="kw">_</span>) = send_xcm::&lt;T::XcmSender&gt;(dest, xcm).map_err(Error::&lt;T&gt;::from)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(xcm_hash)
 		}
@@ -713,8 +713,8 @@
 		</span><span class="kw">pub fn </span>burn_fees(para_id: ParaId, fee: BalanceOf&lt;T&gt;) -&gt; DispatchResult {
 			<span class="kw">let </span>dummy_context =
 				XcmContext { origin: <span class="prelude-val">None</span>, message_id: Default::default(), topic: <span class="prelude-val">None </span>};
-			<span class="kw">let </span>dest = MultiLocation { parents: <span class="number">1</span>, interior: X1(Parachain(para_id.into())) };
-			<span class="kw">let </span>fees = (MultiLocation::parent(), fee.saturated_into::&lt;u128&gt;()).into();
+			<span class="kw">let </span>dest = Location::new(<span class="number">1</span>, [Parachain(para_id.into())]);
+			<span class="kw">let </span>fees = (Location::parent(), fee.saturated_into::&lt;u128&gt;()).into();
 			T::AssetTransactor::can_check_out(<span class="kw-2">&amp;</span>dest, <span class="kw-2">&amp;</span>fees, <span class="kw-2">&amp;</span>dummy_context).map_err(|error| {
 				<span class="macro">log::error!</span>(
 					target: LOG_TARGET,

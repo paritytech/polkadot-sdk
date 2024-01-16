@@ -166,6 +166,19 @@
 <a href="#166" id="166">166</a>
 <a href="#167" id="167">167</a>
 <a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -264,16 +277,23 @@
 			max_weight: Weight,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, XcmError&gt; {
 			<span class="kw">let </span>hash = Encode::using_encoded(<span class="kw-2">&amp;</span>xcm, T::Hashing::hash);
-			<span class="kw">let </span>message_hash = Encode::using_encoded(<span class="kw-2">&amp;</span>xcm, sp_io::hashing::blake2_256);
+			<span class="kw">let </span><span class="kw-2">mut </span>message_hash = Encode::using_encoded(<span class="kw-2">&amp;</span>xcm, sp_io::hashing::blake2_256);
 			<span class="kw">let </span>(result, event) = <span class="kw">match </span>Xcm::&lt;T::RuntimeCall&gt;::try_from(xcm) {
 				<span class="prelude-val">Ok</span>(xcm) =&gt; {
 					<span class="kw">let </span>location = (Parent, Parachain(sender.into()));
-					<span class="kw">match </span>T::XcmExecutor::execute_xcm(location, xcm, message_hash, max_weight) {
-						Outcome::Error(e) =&gt; (<span class="prelude-val">Err</span>(e), Event::Fail(<span class="prelude-val">Some</span>(hash), e)),
-						Outcome::Complete(w) =&gt; (<span class="prelude-val">Ok</span>(w), Event::Success(<span class="prelude-val">Some</span>(hash))),
+					<span class="kw">match </span>T::XcmExecutor::prepare_and_execute(
+						location,
+						xcm,
+						<span class="kw-2">&amp;mut </span>message_hash,
+						max_weight,
+						Weight::zero(),
+					) {
+						Outcome::Error { error } =&gt; (<span class="prelude-val">Err</span>(error), Event::Fail(<span class="prelude-val">Some</span>(hash), error)),
+						Outcome::Complete { used } =&gt; (<span class="prelude-val">Ok</span>(used), Event::Success(<span class="prelude-val">Some</span>(hash))),
 						<span class="comment">// As far as the caller is concerned, this was dispatched without error, so
 						// we just report the weight used.
-						</span>Outcome::Incomplete(w, e) =&gt; (<span class="prelude-val">Ok</span>(w), Event::Fail(<span class="prelude-val">Some</span>(hash), e)),
+						</span>Outcome::Incomplete { used, error } =&gt;
+							(<span class="prelude-val">Ok</span>(used), Event::Fail(<span class="prelude-val">Some</span>(hash), error)),
 					}
 				},
 				<span class="prelude-val">Err</span>(()) =&gt; (<span class="prelude-val">Err</span>(XcmError::UnhandledXcmVersion), Event::BadVersion(<span class="prelude-val">Some</span>(hash))),
@@ -314,7 +334,7 @@
 			limit: Weight,
 		) -&gt; Weight {
 			<span class="kw">for </span>(_i, (_sent_at, data)) <span class="kw">in </span>iter.enumerate() {
-				<span class="kw">let </span>id = sp_io::hashing::blake2_256(<span class="kw-2">&amp;</span>data[..]);
+				<span class="kw">let </span><span class="kw-2">mut </span>id = sp_io::hashing::blake2_256(<span class="kw-2">&amp;</span>data[..]);
 				<span class="kw">let </span>maybe_versioned = VersionedXcm::&lt;T::RuntimeCall&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>data[..]);
 				<span class="kw">match </span>maybe_versioned {
 					<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
@@ -323,7 +343,13 @@
 					<span class="prelude-val">Ok</span>(versioned) =&gt; <span class="kw">match </span>Xcm::try_from(versioned) {
 						<span class="prelude-val">Err</span>(()) =&gt; <span class="self">Self</span>::deposit_event(Event::UnsupportedVersion(id)),
 						<span class="prelude-val">Ok</span>(x) =&gt; {
-							<span class="kw">let </span>outcome = T::XcmExecutor::execute_xcm(Parent, x.clone(), id, limit);
+							<span class="kw">let </span>outcome = T::XcmExecutor::prepare_and_execute(
+								Parent,
+								x.clone(),
+								<span class="kw-2">&amp;mut </span>id,
+								limit,
+								Weight::zero(),
+							);
 							&lt;ReceivedDmp&lt;T&gt;&gt;::append(x);
 							<span class="self">Self</span>::deposit_event(Event::ExecutedDownward(id, outcome));
 						},

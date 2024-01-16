@@ -192,8 +192,8 @@
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, WeightToFee, XcmpQueue,
 };
 <span class="kw">use </span>frame_support::{
-	match_types, parameter_types,
-	traits::{ConstU32, Everything, Nothing},
+	parameter_types,
+	traits::{ConstU32, Contains, Everything, Nothing},
 	weights::Weight,
 };
 <span class="kw">use </span>frame_system::EnsureRoot;
@@ -214,13 +214,13 @@
 <span class="kw">use </span>xcm_executor::XcmExecutor;
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>RelayLocation: MultiLocation = MultiLocation::parent();
+	<span class="kw">pub const </span>RelayLocation: Location = Location::parent();
 	<span class="kw">pub const </span>RelayNetwork: <span class="prelude-ty">Option</span>&lt;NetworkId&gt; = <span class="prelude-val">None</span>;
 	<span class="kw">pub </span>RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
-	<span class="kw">pub </span>UniversalLocation: InteriorMultiLocation = Parachain(ParachainInfo::parachain_id().into()).into();
+	<span class="kw">pub </span>UniversalLocation: InteriorLocation = Parachain(ParachainInfo::parachain_id().into()).into();
 }
 
-<span class="doccomment">/// Type for specifying how a `MultiLocation` can be converted into an `AccountId`. This is used
+<span class="doccomment">/// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
 /// when determining ownership of accounts for asset transacting and when attempting to use XCM
 /// `Transact` in order to determine the dispatch Origin.
 </span><span class="kw">pub type </span>LocationToAccountId = (
@@ -239,7 +239,7 @@
 	</span>Balances,
 	<span class="comment">// Use this currency when it is a fungible asset matching the given location or name:
 	</span>IsConcrete&lt;RelayLocation&gt;,
-	<span class="comment">// Do a simple punn to convert an AccountId32 MultiLocation into a native chain account ID:
+	<span class="comment">// Do a simple punn to convert an AccountId32 Location into a native chain account ID:
 	</span>LocationToAccountId,
 	<span class="comment">// Our chain&#39;s account ID type (we can&#39;t get away without mentioning it explicitly):
 	</span>AccountId,
@@ -275,11 +275,11 @@
 	<span class="kw">pub const </span>MaxAssetsIntoHolding: u32 = <span class="number">64</span>;
 }
 
-<span class="macro">match_types! </span>{
-	<span class="kw">pub type </span>ParentOrParentsExecutivePlurality: <span class="kw">impl </span>Contains&lt;MultiLocation&gt; = {
-		MultiLocation { parents: <span class="number">1</span>, interior: Here } |
-		MultiLocation { parents: <span class="number">1</span>, interior: X1(Plurality { id: BodyId::Executive, .. }) }
-	};
+<span class="kw">pub struct </span>ParentOrParentsExecutivePlurality;
+<span class="kw">impl </span>Contains&lt;Location&gt; <span class="kw">for </span>ParentOrParentsExecutivePlurality {
+	<span class="kw">fn </span>contains(location: <span class="kw-2">&amp;</span>Location) -&gt; bool {
+		<span class="macro">matches!</span>(location.unpack(), (<span class="number">1</span>, []) | (<span class="number">1</span>, [Plurality { id: BodyId::Executive, .. }]))
+	}
 }
 
 <span class="kw">pub type </span>Barrier = TrailingSetTopicAsId&lt;

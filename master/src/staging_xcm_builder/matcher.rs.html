@@ -209,7 +209,7 @@
 
 </span><span class="kw">use </span>core::ops::ControlFlow;
 <span class="kw">use </span>frame_support::traits::ProcessMessageError;
-<span class="kw">use </span>xcm::latest::{Instruction, MultiLocation};
+<span class="kw">use </span>xcm::latest::{Instruction, Location};
 
 <span class="doccomment">/// Creates an instruction matcher from an XCM. Since XCM versions differ, we need to make a trait
 /// here to unify the interfaces among them.
@@ -258,7 +258,7 @@
 </span><span class="kw">pub trait </span>MatchXcm {
 	<span class="doccomment">/// The concrete instruction type. Necessary to specify as it changes between XCM versions.
 	</span><span class="kw">type </span>Inst;
-	<span class="doccomment">/// The `MultiLocation` type. Necessary to specify as it changes between XCM versions.
+	<span class="doccomment">/// The `Location` type. Necessary to specify as it changes between XCM versions.
 	</span><span class="kw">type </span>Loc;
 	<span class="doccomment">/// The error type to throw when errors happen during matching.
 	</span><span class="kw">type </span>Error;
@@ -316,7 +316,7 @@
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, Call&gt; MatchXcm <span class="kw">for </span>Matcher&lt;<span class="lifetime">&#39;a</span>, Call&gt; {
 	<span class="kw">type </span>Error = ProcessMessageError;
 	<span class="kw">type </span>Inst = Instruction&lt;Call&gt;;
-	<span class="kw">type </span>Loc = MultiLocation;
+	<span class="kw">type </span>Loc = Location;
 
 	<span class="kw">fn </span>assert_remaining_insts(<span class="self">self</span>, n: usize) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt;
 	<span class="kw">where

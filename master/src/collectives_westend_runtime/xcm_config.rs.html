@@ -370,7 +370,7 @@
 	TransactionByteFee, WeightToFee, WestendTreasuryAccount, XcmpQueue,
 };
 <span class="kw">use </span>frame_support::{
-	match_types, parameter_types,
+	parameter_types,
 	traits::{ConstU32, Contains, Equals, Everything, Nothing},
 	weights::Weight,
 };
@@ -402,17 +402,17 @@
 <span class="kw">use </span>xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>WndLocation: MultiLocation = MultiLocation::parent();
+	<span class="kw">pub const </span>WndLocation: Location = Location::parent();
 	<span class="kw">pub const </span>RelayNetwork: <span class="prelude-ty">Option</span>&lt;NetworkId&gt; = <span class="prelude-val">Some</span>(NetworkId::Westend);
 	<span class="kw">pub </span>RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
-	<span class="kw">pub </span>UniversalLocation: InteriorMultiLocation =
-		X2(GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into()));
-	<span class="kw">pub </span>RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
+	<span class="kw">pub </span>UniversalLocation: InteriorLocation =
+		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into())].into();
+	<span class="kw">pub </span>RelayTreasuryLocation: Location = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
 	<span class="kw">pub </span>CheckingAccount: AccountId = PolkadotXcm::check_account();
-	<span class="kw">pub const </span>GovernanceLocation: MultiLocation = MultiLocation::parent();
+	<span class="kw">pub const </span>GovernanceLocation: Location = Location::parent();
 	<span class="kw">pub const </span>FellowshipAdminBodyId: BodyId = BodyId::Index(xcm_constants::body::FELLOWSHIP_ADMIN_INDEX);
+	<span class="kw">pub </span>AssetHub: Location = (Parent, Parachain(<span class="number">1000</span>)).into();
 	<span class="kw">pub const </span>TreasurerBodyId: BodyId = BodyId::Index(xcm_constants::body::TREASURER_INDEX);
-	<span class="kw">pub </span>AssetHub: MultiLocation = (Parent, Parachain(<span class="number">1000</span>)).into();
 	<span class="kw">pub </span>AssetHubUsdtId: AssetId = (PalletInstance(<span class="number">50</span>), GeneralIndex(<span class="number">1984</span>)).into();
 	<span class="kw">pub </span>UsdtAssetHub: LocatableAssetId = LocatableAssetId {
 		location: AssetHub::get(),
@@ -424,7 +424,7 @@
 	};
 }
 
-<span class="doccomment">/// Type for specifying how a `MultiLocation` can be converted into an `AccountId`. This is used
+<span class="doccomment">/// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
 /// when determining ownership of accounts for asset transacting and when attempting to use XCM
 /// `Transact` in order to determine the dispatch Origin.
 </span><span class="kw">pub type </span>LocationToAccountId = (
@@ -443,7 +443,7 @@
 	</span>Balances,
 	<span class="comment">// Use this currency when it is a fungible asset matching the given location or name:
 	</span>IsConcrete&lt;WndLocation&gt;,
-	<span class="comment">// Convert an XCM MultiLocation into a local account id:
+	<span class="comment">// Convert an XCM Location into a local account id:
 	</span>LocationToAccountId,
 	<span class="comment">// Our chain&#39;s account ID type (we can&#39;t get away without mentioning it explicitly):
 	</span>AccountId,
@@ -487,11 +487,11 @@
 	</span><span class="kw">pub const </span>FellowsBodyId: BodyId = BodyId::Technical;
 }
 
-<span class="macro">match_types! </span>{
-	<span class="kw">pub type </span>ParentOrParentsPlurality: <span class="kw">impl </span>Contains&lt;MultiLocation&gt; = {
-		MultiLocation { parents: <span class="number">1</span>, interior: Here } |
-		MultiLocation { parents: <span class="number">1</span>, interior: X1(Plurality { .. }) }
-	};
+<span class="kw">pub struct </span>ParentOrParentsPlurality;
+<span class="kw">impl </span>Contains&lt;Location&gt; <span class="kw">for </span>ParentOrParentsPlurality {
+	<span class="kw">fn </span>contains(location: <span class="kw-2">&amp;</span>Location) -&gt; bool {
+		<span class="macro">matches!</span>(location.unpack(), (<span class="number">1</span>, []) | (<span class="number">1</span>, [Plurality { .. }]))
+	}
 }
 
 <span class="doccomment">/// A call filter for the XCM Transact instruction. This is a temporary measure until we properly
@@ -643,7 +643,7 @@
 	<span class="kw">type </span>Aliasers = Nothing;
 }
 
-<span class="doccomment">/// Converts a local signed origin into an XCM multilocation.
+<span class="doccomment">/// Converts a local signed origin into an XCM location.
 /// Forms the basis for local origins sending/executing XCMs.
 </span><span class="kw">pub type </span>LocalOriginToLocation = SignedToAccountId32&lt;RuntimeOrigin, AccountId, RelayNetwork&gt;;
 
@@ -661,10 +661,10 @@
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 </span><span class="macro">parameter_types! </span>{
-	<span class="kw">pub </span>ReachableDest: <span class="prelude-ty">Option</span>&lt;MultiLocation&gt; = <span class="prelude-val">Some</span>(Parent.into());
+	<span class="kw">pub </span>ReachableDest: <span class="prelude-ty">Option</span>&lt;Location&gt; = <span class="prelude-val">Some</span>(Parent.into());
 }
 
-<span class="doccomment">/// Type to convert the Fellows origin to a Plurality `MultiLocation` value.
+<span class="doccomment">/// Type to convert the Fellows origin to a Plurality `Location` value.
 </span><span class="kw">pub type </span>FellowsToPlurality = OriginToPluralityVoice&lt;RuntimeOrigin, Fellows, FellowsBodyId&gt;;
 
 <span class="kw">impl </span>pallet_xcm::Config <span class="kw">for </span>Runtime {

@@ -103,28 +103,28 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::Assets;
+</span><span class="kw">use </span><span class="kw">crate</span>::AssetsInHolding;
 <span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>frame_support::traits::Contains;
-<span class="kw">use </span>xcm::latest::{MultiAssets, MultiLocation, Weight, XcmContext};
+<span class="kw">use </span>xcm::latest::{Assets, Location, Weight, XcmContext};
 
-<span class="doccomment">/// Define a handler for when some non-empty `Assets` value should be dropped.
+<span class="doccomment">/// Define a handler for when some non-empty `AssetsInHolding` value should be dropped.
 </span><span class="kw">pub trait </span>DropAssets {
 	<span class="doccomment">/// Handler for receiving dropped assets. Returns the weight consumed by this operation.
-	</span><span class="kw">fn </span>drop_assets(origin: <span class="kw-2">&amp;</span>MultiLocation, assets: Assets, context: <span class="kw-2">&amp;</span>XcmContext) -&gt; Weight;
+	</span><span class="kw">fn </span>drop_assets(origin: <span class="kw-2">&amp;</span>Location, assets: AssetsInHolding, context: <span class="kw-2">&amp;</span>XcmContext) -&gt; Weight;
 }
 <span class="kw">impl </span>DropAssets <span class="kw">for </span>() {
-	<span class="kw">fn </span>drop_assets(_origin: <span class="kw-2">&amp;</span>MultiLocation, _assets: Assets, _context: <span class="kw-2">&amp;</span>XcmContext) -&gt; Weight {
+	<span class="kw">fn </span>drop_assets(_origin: <span class="kw-2">&amp;</span>Location, _assets: AssetsInHolding, _context: <span class="kw-2">&amp;</span>XcmContext) -&gt; Weight {
 		Weight::zero()
 	}
 }
 
 <span class="doccomment">/// Morph a given `DropAssets` implementation into one which can filter based on assets. This can
-/// be used to ensure that `Assets` values which hold no value are ignored.
+/// be used to ensure that `AssetsInHolding` values which hold no value are ignored.
 </span><span class="kw">pub struct </span>FilterAssets&lt;D, A&gt;(PhantomData&lt;(D, A)&gt;);
 
-<span class="kw">impl</span>&lt;D: DropAssets, A: Contains&lt;Assets&gt;&gt; DropAssets <span class="kw">for </span>FilterAssets&lt;D, A&gt; {
-	<span class="kw">fn </span>drop_assets(origin: <span class="kw-2">&amp;</span>MultiLocation, assets: Assets, context: <span class="kw-2">&amp;</span>XcmContext) -&gt; Weight {
+<span class="kw">impl</span>&lt;D: DropAssets, A: Contains&lt;AssetsInHolding&gt;&gt; DropAssets <span class="kw">for </span>FilterAssets&lt;D, A&gt; {
+	<span class="kw">fn </span>drop_assets(origin: <span class="kw-2">&amp;</span>Location, assets: AssetsInHolding, context: <span class="kw-2">&amp;</span>XcmContext) -&gt; Weight {
 		<span class="kw">if </span>A::contains(<span class="kw-2">&amp;</span>assets) {
 			D::drop_assets(origin, assets, context)
 		} <span class="kw">else </span>{
@@ -138,8 +138,8 @@
 /// asset trap facility don&#39;t get to use it.
 </span><span class="kw">pub struct </span>FilterOrigin&lt;D, O&gt;(PhantomData&lt;(D, O)&gt;);
 
-<span class="kw">impl</span>&lt;D: DropAssets, O: Contains&lt;MultiLocation&gt;&gt; DropAssets <span class="kw">for </span>FilterOrigin&lt;D, O&gt; {
-	<span class="kw">fn </span>drop_assets(origin: <span class="kw-2">&amp;</span>MultiLocation, assets: Assets, context: <span class="kw-2">&amp;</span>XcmContext) -&gt; Weight {
+<span class="kw">impl</span>&lt;D: DropAssets, O: Contains&lt;Location&gt;&gt; DropAssets <span class="kw">for </span>FilterOrigin&lt;D, O&gt; {
+	<span class="kw">fn </span>drop_assets(origin: <span class="kw-2">&amp;</span>Location, assets: AssetsInHolding, context: <span class="kw-2">&amp;</span>XcmContext) -&gt; Weight {
 		<span class="kw">if </span>O::contains(origin) {
 			D::drop_assets(origin, assets, context)
 		} <span class="kw">else </span>{
@@ -153,9 +153,9 @@
 	<span class="doccomment">/// Claim any assets available to `origin` and return them in a single `Assets` value, together
 	/// with the weight used by this operation.
 	</span><span class="kw">fn </span>claim_assets(
-		origin: <span class="kw-2">&amp;</span>MultiLocation,
-		ticket: <span class="kw-2">&amp;</span>MultiLocation,
-		what: <span class="kw-2">&amp;</span>MultiAssets,
+		origin: <span class="kw-2">&amp;</span>Location,
+		ticket: <span class="kw-2">&amp;</span>Location,
+		what: <span class="kw-2">&amp;</span>Assets,
 		context: <span class="kw-2">&amp;</span>XcmContext,
 	) -&gt; bool;
 }
@@ -163,9 +163,9 @@
 <span class="attr">#[impl_trait_for_tuples::impl_for_tuples(<span class="number">30</span>)]
 </span><span class="kw">impl </span>ClaimAssets <span class="kw">for </span>Tuple {
 	<span class="kw">fn </span>claim_assets(
-		origin: <span class="kw-2">&amp;</span>MultiLocation,
-		ticket: <span class="kw-2">&amp;</span>MultiLocation,
-		what: <span class="kw-2">&amp;</span>MultiAssets,
+		origin: <span class="kw-2">&amp;</span>Location,
+		ticket: <span class="kw-2">&amp;</span>Location,
+		what: <span class="kw-2">&amp;</span>Assets,
 		context: <span class="kw-2">&amp;</span>XcmContext,
 	) -&gt; bool {
 		<span class="macro">for_tuples!</span>( #(

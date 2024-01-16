@@ -19,15 +19,15 @@
 </span><span class="doccomment">//! Helpers for implementing runtime api
 
 </span><span class="kw">use </span>snowbridge_core::AgentId;
-<span class="kw">use </span>xcm::{prelude::<span class="kw-2">*</span>, VersionedMultiLocation};
+<span class="kw">use </span>xcm::{prelude::<span class="kw-2">*</span>, VersionedLocation};
 
 <span class="kw">use crate</span>::{agent_id_of, Config};
 
-<span class="kw">pub fn </span>agent_id&lt;Runtime&gt;(location: VersionedMultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;AgentId&gt;
+<span class="kw">pub fn </span>agent_id&lt;Runtime&gt;(location: VersionedLocation) -&gt; <span class="prelude-ty">Option</span>&lt;AgentId&gt;
 <span class="kw">where
 	</span>Runtime: Config,
 {
-	<span class="kw">let </span>location: MultiLocation = location.try_into().ok()<span class="question-mark">?</span>;
+	<span class="kw">let </span>location: Location = location.try_into().ok()<span class="question-mark">?</span>;
 	agent_id_of::&lt;Runtime&gt;(<span class="kw-2">&amp;</span>location).ok()
 }
 </code></pre></div></section></main></body></html>

@@ -1760,7 +1760,7 @@
 	</span><span class="kw">pub enum </span>Event&lt;T: Config&gt; {
 		QueryPrepared(QueryId),
 		NotifyQueryPrepared(QueryId),
-		ResponseReceived(MultiLocation, QueryId, Response),
+		ResponseReceived(Location, QueryId, Response),
 	}
 
 	<span class="attr">#[pallet::error]

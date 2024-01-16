@@ -575,6 +575,7 @@
 <a href="#575" id="575">575</a>
 <a href="#576" id="576">576</a>
 <a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -614,11 +615,11 @@
 <span class="kw">use </span>sp_core::Encode;
 <span class="kw">use </span>sp_runtime::{traits::Header, BuildStorage, Digest, DigestItem};
 <span class="kw">use </span>xcm::{
-	latest::{MultiAsset, MultiLocation, XcmContext, XcmHash},
+	latest::{Asset, Location, XcmContext, XcmHash},
 	prelude::<span class="kw-2">*</span>,
 	VersionedXcm, MAX_XCM_DECODE_DEPTH,
 };
-<span class="kw">use </span>xcm_executor::{traits::TransactAsset, Assets};
+<span class="kw">use </span>xcm_executor::{traits::TransactAsset, AssetsInHolding};
 
 <span class="kw">pub mod </span>test_cases;
 
@@ -884,12 +885,12 @@
 	RuntimeHelper&lt;XcmConfig, AllPalletsWithoutSystem&gt;
 {
 	<span class="kw">pub fn </span>do_transfer(
-		from: MultiLocation,
-		to: MultiLocation,
-		(asset, amount): (MultiLocation, u128),
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Assets, XcmError&gt; {
+		from: Location,
+		to: Location,
+		(asset, amount): (Location, u128),
+	) -&gt; <span class="prelude-ty">Result</span>&lt;AssetsInHolding, XcmError&gt; {
 		&lt;XcmConfig::AssetTransactor <span class="kw">as </span>TransactAsset&gt;::transfer_asset(
-			<span class="kw-2">&amp;</span>MultiAsset { id: Concrete(asset), fun: Fungible(amount) },
+			<span class="kw-2">&amp;</span>Asset { id: AssetId(asset), fun: Fungible(amount) },
 			<span class="kw-2">&amp;</span>from,
 			<span class="kw-2">&amp;</span>to,
 			<span class="comment">// We aren&#39;t able to track the XCM that initiated the fee deposit, so we create a
@@ -906,9 +907,9 @@
 {
 	<span class="kw">pub fn </span>do_teleport_assets&lt;HrmpChannelOpener&gt;(
 		origin: &lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::RuntimeOrigin,
-		dest: MultiLocation,
-		beneficiary: MultiLocation,
-		(asset, amount): (MultiLocation, u128),
+		dest: Location,
+		beneficiary: Location,
+		(asset, amount): (Location, u128),
 		open_hrmp_channel: <span class="prelude-ty">Option</span>&lt;(u32, u32)&gt;,
 		included_head: HeaderFor&lt;Runtime&gt;,
 		slot_digest: <span class="kw-2">&amp;</span>[u8],
@@ -933,7 +934,7 @@
 			origin,
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
-			Box::new((Concrete(asset), amount).into()),
+			Box::new((AssetId(asset), amount).into()),
 			<span class="number">0</span>,
 		)
 	}
@@ -956,12 +957,13 @@
 		]);
 
 		<span class="comment">// execute xcm as parent origin
-		</span><span class="kw">let </span>hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-		&lt;&lt;Runtime <span class="kw">as </span>pallet_xcm::Config&gt;::XcmExecutor&gt;::execute_xcm(
-			MultiLocation::parent(),
+		</span><span class="kw">let </span><span class="kw-2">mut </span>hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+		&lt;&lt;Runtime <span class="kw">as </span>pallet_xcm::Config&gt;::XcmExecutor&gt;::prepare_and_execute(
+			Location::parent(),
 			xcm,
-			hash,
+			<span class="kw-2">&amp;mut </span>hash,
 			<span class="self">Self</span>::xcm_max_weight(XcmReceivedFrom::Parent),
+			Weight::zero(),
 		)
 	}
 }
@@ -1028,7 +1030,7 @@
 }
 
 <span class="kw">pub fn </span>assert_metadata&lt;Fungibles, AccountId&gt;(
-	asset_id: <span class="kw">impl </span>Into&lt;Fungibles::AssetId&gt; + Copy,
+	asset_id: <span class="kw">impl </span>Into&lt;Fungibles::AssetId&gt; + Clone,
 	expected_name: <span class="kw-2">&amp;</span>str,
 	expected_symbol: <span class="kw-2">&amp;</span>str,
 	expected_decimals: u8,
@@ -1036,20 +1038,20 @@
 	</span>Fungibles: frame_support::traits::fungibles::metadata::Inspect&lt;AccountId&gt;
 		+ frame_support::traits::fungibles::Inspect&lt;AccountId&gt;,
 {
-	<span class="macro">assert_eq!</span>(Fungibles::name(asset_id.into()), Vec::from(expected_name),);
-	<span class="macro">assert_eq!</span>(Fungibles::symbol(asset_id.into()), Vec::from(expected_symbol),);
+	<span class="macro">assert_eq!</span>(Fungibles::name(asset_id.clone().into()), Vec::from(expected_name),);
+	<span class="macro">assert_eq!</span>(Fungibles::symbol(asset_id.clone().into()), Vec::from(expected_symbol),);
 	<span class="macro">assert_eq!</span>(Fungibles::decimals(asset_id.into()), expected_decimals);
 }
 
 <span class="kw">pub fn </span>assert_total&lt;Fungibles, AccountId&gt;(
-	asset_id: <span class="kw">impl </span>Into&lt;Fungibles::AssetId&gt; + Copy,
+	asset_id: <span class="kw">impl </span>Into&lt;Fungibles::AssetId&gt; + Clone,
 	expected_total_issuance: <span class="kw">impl </span>Into&lt;Fungibles::Balance&gt;,
 	expected_active_issuance: <span class="kw">impl </span>Into&lt;Fungibles::Balance&gt;,
 ) <span class="kw">where
 	</span>Fungibles: frame_support::traits::fungibles::metadata::Inspect&lt;AccountId&gt;
 		+ frame_support::traits::fungibles::Inspect&lt;AccountId&gt;,
 {
-	<span class="macro">assert_eq!</span>(Fungibles::total_issuance(asset_id.into()), expected_total_issuance.into());
+	<span class="macro">assert_eq!</span>(Fungibles::total_issuance(asset_id.clone().into()), expected_total_issuance.into());
 	<span class="macro">assert_eq!</span>(Fungibles::active_issuance(asset_id.into()), expected_active_issuance.into());
 }
 

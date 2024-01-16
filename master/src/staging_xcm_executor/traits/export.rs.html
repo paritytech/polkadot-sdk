@@ -197,8 +197,8 @@
 	</span><span class="kw">fn </span>validate(
 		network: NetworkId,
 		channel: u32,
-		universal_source: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;InteriorMultiLocation&gt;,
-		destination: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;InteriorMultiLocation&gt;,
+		universal_source: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;InteriorLocation&gt;,
+		destination: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;InteriorLocation&gt;,
 		message: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;,
 	) -&gt; SendResult&lt;<span class="self">Self</span>::Ticket&gt;;
 
@@ -217,11 +217,11 @@
 	<span class="kw">fn </span>validate(
 		network: NetworkId,
 		channel: u32,
-		universal_source: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;InteriorMultiLocation&gt;,
-		destination: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;InteriorMultiLocation&gt;,
+		universal_source: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;InteriorLocation&gt;,
+		destination: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;InteriorLocation&gt;,
 		message: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;,
 	) -&gt; SendResult&lt;<span class="self">Self</span>::Ticket&gt; {
-		<span class="kw">let </span><span class="kw-2">mut </span>maybe_cost: <span class="prelude-ty">Option</span>&lt;MultiAssets&gt; = <span class="prelude-val">None</span>;
+		<span class="kw">let </span><span class="kw-2">mut </span>maybe_cost: <span class="prelude-ty">Option</span>&lt;Assets&gt; = <span class="prelude-val">None</span>;
 		<span class="kw">let </span>one_ticket: <span class="self">Self</span>::Ticket = (<span class="macro">for_tuples! </span>{ #(
 			<span class="kw">if </span>maybe_cost.is_some() {
 				<span class="prelude-val">None
@@ -258,8 +258,8 @@
 </span><span class="kw">pub fn </span>validate_export&lt;T: ExportXcm&gt;(
 	network: NetworkId,
 	channel: u32,
-	universal_source: InteriorMultiLocation,
-	dest: InteriorMultiLocation,
+	universal_source: InteriorLocation,
+	dest: InteriorLocation,
 	msg: Xcm&lt;()&gt;,
 ) -&gt; SendResult&lt;T::Ticket&gt; {
 	T::validate(network, channel, <span class="kw-2">&amp;mut </span><span class="prelude-val">Some</span>(universal_source), <span class="kw-2">&amp;mut </span><span class="prelude-val">Some</span>(dest), <span class="kw-2">&amp;mut </span><span class="prelude-val">Some</span>(msg))
@@ -276,10 +276,10 @@
 </span><span class="kw">pub fn </span>export_xcm&lt;T: ExportXcm&gt;(
 	network: NetworkId,
 	channel: u32,
-	universal_source: InteriorMultiLocation,
-	dest: InteriorMultiLocation,
+	universal_source: InteriorLocation,
+	dest: InteriorLocation,
 	msg: Xcm&lt;()&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(XcmHash, MultiAssets), SendError&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;(XcmHash, Assets), SendError&gt; {
 	<span class="kw">let </span>(ticket, price) = T::validate(
 		network,
 		channel,

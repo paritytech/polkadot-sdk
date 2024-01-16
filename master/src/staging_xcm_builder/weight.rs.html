@@ -284,10 +284,10 @@
 <span class="kw">use </span>parity_scale_codec::Decode;
 <span class="kw">use </span>sp_runtime::traits::{SaturatedConversion, Saturating, Zero};
 <span class="kw">use </span>sp_std::{marker::PhantomData, result::Result};
-<span class="kw">use </span>xcm::latest::{prelude::<span class="kw-2">*</span>, Weight};
+<span class="kw">use </span>xcm::latest::{prelude::<span class="kw-2">*</span>, GetWeight, Weight};
 <span class="kw">use </span>xcm_executor::{
 	traits::{WeightBounds, WeightTrader},
-	Assets,
+	AssetsInHolding,
 };
 
 <span class="kw">pub struct </span>FixedWeightBounds&lt;T, C, M&gt;(PhantomData&lt;(T, C, M)&gt;);
@@ -373,16 +373,16 @@
 }
 
 <span class="doccomment">/// Function trait for handling some revenue. Similar to a negative imbalance (credit) handler, but
-/// for a `MultiAsset`. Sensible implementations will deposit the asset in some known treasury or
+/// for a `Asset`. Sensible implementations will deposit the asset in some known treasury or
 /// block-author account.
 </span><span class="kw">pub trait </span>TakeRevenue {
-	<span class="doccomment">/// Do something with the given `revenue`, which is a single non-wildcard `MultiAsset`.
-	</span><span class="kw">fn </span>take_revenue(revenue: MultiAsset);
+	<span class="doccomment">/// Do something with the given `revenue`, which is a single non-wildcard `Asset`.
+	</span><span class="kw">fn </span>take_revenue(revenue: Asset);
 }
 
 <span class="doccomment">/// Null implementation just burns the revenue.
 </span><span class="kw">impl </span>TakeRevenue <span class="kw">for </span>() {
-	<span class="kw">fn </span>take_revenue(_revenue: MultiAsset) {}
+	<span class="kw">fn </span>take_revenue(_revenue: Asset) {}
 }
 
 <span class="doccomment">/// Simple fee calculator that requires payment in a single fungible at a fixed rate.
@@ -402,9 +402,9 @@
 	<span class="kw">fn </span>buy_weight(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		weight: Weight,
-		payment: Assets,
+		payment: AssetsInHolding,
 		context: <span class="kw-2">&amp;</span>XcmContext,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Assets, XcmError&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;AssetsInHolding, XcmError&gt; {
 		<span class="macro">log::trace!</span>(
 			target: <span class="string">&quot;xcm::weight&quot;</span>,
 			<span class="string">&quot;FixedRateOfFungible::buy_weight weight: {:?}, payment: {:?}, context: {:?}&quot;</span>,
@@ -424,7 +424,7 @@
 		<span class="prelude-val">Ok</span>(unused)
 	}
 
-	<span class="kw">fn </span>refund_weight(<span class="kw-2">&amp;mut </span><span class="self">self</span>, weight: Weight, context: <span class="kw-2">&amp;</span>XcmContext) -&gt; <span class="prelude-ty">Option</span>&lt;MultiAsset&gt; {
+	<span class="kw">fn </span>refund_weight(<span class="kw-2">&amp;mut </span><span class="self">self</span>, weight: Weight, context: <span class="kw-2">&amp;</span>XcmContext) -&gt; <span class="prelude-ty">Option</span>&lt;Asset&gt; {
 		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::weight&quot;</span>, <span class="string">&quot;FixedRateOfFungible::refund_weight weight: {:?}, context: {:?}&quot;</span>, weight, context);
 		<span class="kw">let </span>(id, units_per_second, units_per_mb) = T::get();
 		<span class="kw">let </span>weight = weight.min(<span class="self">self</span>.<span class="number">0</span>);
@@ -453,22 +453,22 @@
 /// places any weight bought into the right account.
 </span><span class="kw">pub struct </span>UsingComponents&lt;
 	WeightToFee: WeightToFeeT&lt;Balance = Currency::Balance&gt;,
-	AssetId: Get&lt;MultiLocation&gt;,
+	AssetIdValue: Get&lt;Location&gt;,
 	AccountId,
 	Currency: CurrencyT&lt;AccountId&gt;,
 	OnUnbalanced: OnUnbalancedT&lt;Currency::NegativeImbalance&gt;,
 &gt;(
 	Weight,
 	Currency::Balance,
-	PhantomData&lt;(WeightToFee, AssetId, AccountId, Currency, OnUnbalanced)&gt;,
+	PhantomData&lt;(WeightToFee, AssetIdValue, AccountId, Currency, OnUnbalanced)&gt;,
 );
 <span class="kw">impl</span>&lt;
 		WeightToFee: WeightToFeeT&lt;Balance = Currency::Balance&gt;,
-		AssetId: Get&lt;MultiLocation&gt;,
+		AssetIdValue: Get&lt;Location&gt;,
 		AccountId,
 		Currency: CurrencyT&lt;AccountId&gt;,
 		OnUnbalanced: OnUnbalancedT&lt;Currency::NegativeImbalance&gt;,
-	&gt; WeightTrader <span class="kw">for </span>UsingComponents&lt;WeightToFee, AssetId, AccountId, Currency, OnUnbalanced&gt;
+	&gt; WeightTrader <span class="kw">for </span>UsingComponents&lt;WeightToFee, AssetIdValue, AccountId, Currency, OnUnbalanced&gt;
 {
 	<span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>(Weight::zero(), Zero::zero(), PhantomData)
@@ -477,20 +477,20 @@
 	<span class="kw">fn </span>buy_weight(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		weight: Weight,
-		payment: Assets,
+		payment: AssetsInHolding,
 		context: <span class="kw-2">&amp;</span>XcmContext,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Assets, XcmError&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;AssetsInHolding, XcmError&gt; {
 		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::weight&quot;</span>, <span class="string">&quot;UsingComponents::buy_weight weight: {:?}, payment: {:?}, context: {:?}&quot;</span>, weight, payment, context);
 		<span class="kw">let </span>amount = WeightToFee::weight_to_fee(<span class="kw-2">&amp;</span>weight);
 		<span class="kw">let </span>u128_amount: u128 = amount.try_into().map_err(|<span class="kw">_</span>| XcmError::Overflow)<span class="question-mark">?</span>;
-		<span class="kw">let </span>required = (Concrete(AssetId::get()), u128_amount).into();
+		<span class="kw">let </span>required = (AssetId(AssetIdValue::get()), u128_amount).into();
 		<span class="kw">let </span>unused = payment.checked_sub(required).map_err(|<span class="kw">_</span>| XcmError::TooExpensive)<span class="question-mark">?</span>;
 		<span class="self">self</span>.<span class="number">0 </span>= <span class="self">self</span>.<span class="number">0</span>.saturating_add(weight);
 		<span class="self">self</span>.<span class="number">1 </span>= <span class="self">self</span>.<span class="number">1</span>.saturating_add(amount);
 		<span class="prelude-val">Ok</span>(unused)
 	}
 
-	<span class="kw">fn </span>refund_weight(<span class="kw-2">&amp;mut </span><span class="self">self</span>, weight: Weight, context: <span class="kw-2">&amp;</span>XcmContext) -&gt; <span class="prelude-ty">Option</span>&lt;MultiAsset&gt; {
+	<span class="kw">fn </span>refund_weight(<span class="kw-2">&amp;mut </span><span class="self">self</span>, weight: Weight, context: <span class="kw-2">&amp;</span>XcmContext) -&gt; <span class="prelude-ty">Option</span>&lt;Asset&gt; {
 		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::weight&quot;</span>, <span class="string">&quot;UsingComponents::refund_weight weight: {:?}, context: {:?}&quot;</span>, weight, context);
 		<span class="kw">let </span>weight = weight.min(<span class="self">self</span>.<span class="number">0</span>);
 		<span class="kw">let </span>amount = WeightToFee::weight_to_fee(<span class="kw-2">&amp;</span>weight);
@@ -498,7 +498,7 @@
 		<span class="self">self</span>.<span class="number">1 </span>= <span class="self">self</span>.<span class="number">1</span>.saturating_sub(amount);
 		<span class="kw">let </span>amount: u128 = amount.saturated_into();
 		<span class="kw">if </span>amount &gt; <span class="number">0 </span>{
-			<span class="prelude-val">Some</span>((AssetId::get(), amount).into())
+			<span class="prelude-val">Some</span>((AssetIdValue::get(), amount).into())
 		} <span class="kw">else </span>{
 			<span class="prelude-val">None
 		</span>}
@@ -506,7 +506,7 @@
 }
 <span class="kw">impl</span>&lt;
 		WeightToFee: WeightToFeeT&lt;Balance = Currency::Balance&gt;,
-		AssetId: Get&lt;MultiLocation&gt;,
+		AssetId: Get&lt;Location&gt;,
 		AccountId,
 		Currency: CurrencyT&lt;AccountId&gt;,
 		OnUnbalanced: OnUnbalancedT&lt;Currency::NegativeImbalance&gt;,

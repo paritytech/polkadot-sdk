@@ -326,13 +326,13 @@
 	<span class="doccomment">/// Type used for charging different prices to different destinations
 	</span><span class="kw">type </span>Id;
 	<span class="doccomment">/// Return the assets required to deliver `message` to the given `para` destination.
-	</span><span class="kw">fn </span>price_for_delivery(id: <span class="self">Self</span>::Id, message: <span class="kw-2">&amp;</span>Xcm&lt;()&gt;) -&gt; MultiAssets;
+	</span><span class="kw">fn </span>price_for_delivery(id: <span class="self">Self</span>::Id, message: <span class="kw-2">&amp;</span>Xcm&lt;()&gt;) -&gt; Assets;
 }
 <span class="kw">impl </span>PriceForMessageDelivery <span class="kw">for </span>() {
 	<span class="kw">type </span>Id = ();
 
-	<span class="kw">fn </span>price_for_delivery(<span class="kw">_</span>: <span class="self">Self</span>::Id, <span class="kw">_</span>: <span class="kw-2">&amp;</span>Xcm&lt;()&gt;) -&gt; MultiAssets {
-		MultiAssets::new()
+	<span class="kw">fn </span>price_for_delivery(<span class="kw">_</span>: <span class="self">Self</span>::Id, <span class="kw">_</span>: <span class="kw-2">&amp;</span>Xcm&lt;()&gt;) -&gt; Assets {
+		Assets::new()
 	}
 }
 
@@ -340,17 +340,17 @@
 <span class="kw">impl</span>&lt;Id&gt; PriceForMessageDelivery <span class="kw">for </span>NoPriceForMessageDelivery&lt;Id&gt; {
 	<span class="kw">type </span>Id = Id;
 
-	<span class="kw">fn </span>price_for_delivery(<span class="kw">_</span>: <span class="self">Self</span>::Id, <span class="kw">_</span>: <span class="kw-2">&amp;</span>Xcm&lt;()&gt;) -&gt; MultiAssets {
-		MultiAssets::new()
+	<span class="kw">fn </span>price_for_delivery(<span class="kw">_</span>: <span class="self">Self</span>::Id, <span class="kw">_</span>: <span class="kw-2">&amp;</span>Xcm&lt;()&gt;) -&gt; Assets {
+		Assets::new()
 	}
 }
 
 <span class="doccomment">/// Implementation of [`PriceForMessageDelivery`] which returns a fixed price.
 </span><span class="kw">pub struct </span>ConstantPrice&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
-<span class="kw">impl</span>&lt;T: Get&lt;MultiAssets&gt;&gt; PriceForMessageDelivery <span class="kw">for </span>ConstantPrice&lt;T&gt; {
+<span class="kw">impl</span>&lt;T: Get&lt;Assets&gt;&gt; PriceForMessageDelivery <span class="kw">for </span>ConstantPrice&lt;T&gt; {
 	<span class="kw">type </span>Id = ();
 
-	<span class="kw">fn </span>price_for_delivery(<span class="kw">_</span>: <span class="self">Self</span>::Id, <span class="kw">_</span>: <span class="kw-2">&amp;</span>Xcm&lt;()&gt;) -&gt; MultiAssets {
+	<span class="kw">fn </span>price_for_delivery(<span class="kw">_</span>: <span class="self">Self</span>::Id, <span class="kw">_</span>: <span class="kw-2">&amp;</span>Xcm&lt;()&gt;) -&gt; Assets {
 		T::get()
 	}
 }
@@ -375,7 +375,7 @@
 {
 	<span class="kw">type </span>Id = F::Id;
 
-	<span class="kw">fn </span>price_for_delivery(id: <span class="self">Self</span>::Id, msg: <span class="kw-2">&amp;</span>Xcm&lt;()&gt;) -&gt; MultiAssets {
+	<span class="kw">fn </span>price_for_delivery(id: <span class="self">Self</span>::Id, msg: <span class="kw-2">&amp;</span>Xcm&lt;()&gt;) -&gt; Assets {
 		<span class="kw">let </span>msg_fee = (msg.encoded_size() <span class="kw">as </span>u128).saturating_mul(M::get());
 		<span class="kw">let </span>fee_sum = B::get().saturating_add(msg_fee);
 		<span class="kw">let </span>amount = F::get_fee_factor(id).saturating_mul_int(fee_sum);
@@ -394,11 +394,11 @@
 	<span class="kw">type </span>Ticket = (HostConfiguration&lt;BlockNumberFor&lt;T&gt;&gt;, ParaId, Vec&lt;u8&gt;);
 
 	<span class="kw">fn </span>validate(
-		dest: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;MultiLocation&gt;,
+		dest: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Location&gt;,
 		msg: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;,
 	) -&gt; SendResult&lt;(HostConfiguration&lt;BlockNumberFor&lt;T&gt;&gt;, ParaId, Vec&lt;u8&gt;)&gt; {
 		<span class="kw">let </span>d = dest.take().ok_or(MissingArgument)<span class="question-mark">?</span>;
-		<span class="kw">let </span>id = <span class="kw">if let </span>MultiLocation { parents: <span class="number">0</span>, interior: X1(Parachain(id)) } = <span class="kw-2">&amp;</span>d {
+		<span class="kw">let </span>id = <span class="kw">if let </span>(<span class="number">0</span>, [Parachain(id)]) = d.unpack() {
 			<span class="kw-2">*</span>id
 		} <span class="kw">else </span>{
 			<span class="kw-2">*</span>dest = <span class="prelude-val">Some</span>(d);
@@ -451,7 +451,7 @@
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 </span><span class="kw">impl</span>&lt;
 		XcmConfig: xcm_executor::Config,
-		ExistentialDeposit: Get&lt;<span class="prelude-ty">Option</span>&lt;MultiAsset&gt;&gt;,
+		ExistentialDeposit: Get&lt;<span class="prelude-ty">Option</span>&lt;Asset&gt;&gt;,
 		PriceForDelivery: PriceForMessageDelivery&lt;Id = ParaId&gt;,
 		Parachain: Get&lt;ParaId&gt;,
 		ToParachainHelper: EnsureForParachain,
@@ -465,10 +465,10 @@
 	&gt;
 {
 	<span class="kw">fn </span>ensure_successful_delivery(
-		origin_ref: <span class="kw-2">&amp;</span>MultiLocation,
-		_dest: <span class="kw-2">&amp;</span>MultiLocation,
+		origin_ref: <span class="kw-2">&amp;</span>Location,
+		_dest: <span class="kw-2">&amp;</span>Location,
 		fee_reason: xcm_executor::traits::FeeReason,
-	) -&gt; (<span class="prelude-ty">Option</span>&lt;xcm_executor::FeesMode&gt;, <span class="prelude-ty">Option</span>&lt;MultiAssets&gt;) {
+	) -&gt; (<span class="prelude-ty">Option</span>&lt;xcm_executor::FeesMode&gt;, <span class="prelude-ty">Option</span>&lt;Assets&gt;) {
 		<span class="kw">use </span>xcm_executor::{
 			traits::{FeeManager, TransactAsset},
 			FeesMode,
@@ -525,7 +525,7 @@
 	<span class="macro">parameter_types! </span>{
 		<span class="kw">pub const </span>BaseDeliveryFee: u128 = <span class="number">300_000_000</span>;
 		<span class="kw">pub const </span>TransactionByteFee: u128 = <span class="number">1_000_000</span>;
-		<span class="kw">pub </span>FeeAssetId: AssetId = Concrete(Here.into());
+		<span class="kw">pub </span>FeeAssetId: AssetId = AssetId(Here.into());
 	}
 
 	<span class="kw">struct </span>TestFeeTracker;

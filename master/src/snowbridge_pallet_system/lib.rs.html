@@ -768,12 +768,12 @@
 <span class="kw">pub type </span>PricingParametersOf&lt;T&gt; = PricingParametersRecord&lt;BalanceOf&lt;T&gt;&gt;;
 
 <span class="doccomment">/// Ensure origin location is a sibling
-</span><span class="kw">fn </span>ensure_sibling&lt;T&gt;(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Result</span>&lt;(ParaId, H256), DispatchError&gt;
+</span><span class="kw">fn </span>ensure_sibling&lt;T&gt;(location: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Result</span>&lt;(ParaId, H256), DispatchError&gt;
 <span class="kw">where
 	</span>T: Config,
 {
-	<span class="kw">match </span>location {
-		MultiLocation { parents: <span class="number">1</span>, interior: X1(Parachain(para_id)) } =&gt; {
+	<span class="kw">match </span>location.unpack() {
+		(<span class="number">1</span>, [Parachain(para_id)]) =&gt; {
 			<span class="kw">let </span>agent_id = agent_id_of::&lt;T&gt;(location)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(((<span class="kw-2">*</span>para_id).into(), agent_id))
 		},
@@ -782,7 +782,7 @@
 }
 
 <span class="doccomment">/// Hash the location to produce an agent id
-</span><span class="kw">fn </span>agent_id_of&lt;T: Config&gt;(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Result</span>&lt;H256, DispatchError&gt; {
+</span><span class="kw">fn </span>agent_id_of&lt;T: Config&gt;(location: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Result</span>&lt;H256, DispatchError&gt; {
 	T::AgentIdOf::convert_location(location).ok_or(Error::&lt;T&gt;::LocationConversionFailed.into())
 }
 
@@ -791,7 +791,7 @@
 <span class="kw">where
 	</span>O: OriginTrait,
 {
-	<span class="kw">fn </span>make_xcm_origin(location: MultiLocation) -&gt; O;
+	<span class="kw">fn </span>make_xcm_origin(location: Location) -&gt; O;
 }
 
 <span class="doccomment">/// Whether a fee should be withdrawn to an account for sending an outbound message
@@ -826,9 +826,9 @@
 		</span><span class="kw">type </span>OutboundQueue: SendMessage&lt;Balance = BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
 
 		<span class="doccomment">/// Origin check for XCM locations that can create agents
-		</span><span class="kw">type </span>SiblingOrigin: EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin, Success = MultiLocation&gt;;
+		</span><span class="kw">type </span>SiblingOrigin: EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin, Success = Location&gt;;
 
-		<span class="doccomment">/// Converts MultiLocation to AgentId
+		<span class="doccomment">/// Converts Location to AgentId
 		</span><span class="kw">type </span>AgentIdOf: ConvertLocation&lt;AgentId&gt;;
 
 		<span class="doccomment">/// Token reserved for control operations
@@ -861,7 +861,7 @@
 		},
 		<span class="doccomment">/// An CreateAgent message was sent to the Gateway
 		</span>CreateAgent {
-			location: Box&lt;MultiLocation&gt;,
+			location: Box&lt;Location&gt;,
 			agent_id: AgentId,
 		},
 		<span class="doccomment">/// An CreateChannel message was sent to the Gateway
@@ -980,7 +980,7 @@
 		///
 		/// Fee required: No
 		///
-		/// - `origin`: Must be `MultiLocation`
+		/// - `origin`: Must be `Location`
 		</span><span class="attr">#[pallet::call_index(<span class="number">1</span>)]
 		#[pallet::weight((T::WeightInfo::set_operating_mode(), DispatchClass::Operational))]
 		</span><span class="kw">pub fn </span>set_operating_mode(origin: OriginFor&lt;T&gt;, mode: OperatingMode) -&gt; DispatchResult {
@@ -1023,11 +1023,11 @@
 		///
 		/// Fee required: Yes
 		///
-		/// - `origin`: Must be `MultiLocation` of a sibling parachain
+		/// - `origin`: Must be `Location` of a sibling parachain
 		</span><span class="attr">#[pallet::call_index(<span class="number">3</span>)]
 		#[pallet::weight(T::WeightInfo::create_agent())]
 		</span><span class="kw">pub fn </span>create_agent(origin: OriginFor&lt;T&gt;) -&gt; DispatchResult {
-			<span class="kw">let </span>origin_location: MultiLocation = T::SiblingOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
+			<span class="kw">let </span>origin_location: Location = T::SiblingOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 
 			<span class="comment">// Ensure that origin location is some consensus system on a sibling parachain
 			</span><span class="kw">let </span>(para_id, agent_id) = ensure_sibling::&lt;T&gt;(<span class="kw-2">&amp;</span>origin_location)<span class="question-mark">?</span>;
@@ -1056,12 +1056,12 @@
 		///
 		/// The message is sent over the bridge on BridgeHub&#39;s own channel to the Gateway.
 		///
-		/// - `origin`: Must be `MultiLocation`
+		/// - `origin`: Must be `Location`
 		/// - `mode`: Initial operating mode of the channel
 		</span><span class="attr">#[pallet::call_index(<span class="number">4</span>)]
 		#[pallet::weight(T::WeightInfo::create_channel())]
 		</span><span class="kw">pub fn </span>create_channel(origin: OriginFor&lt;T&gt;, mode: OperatingMode) -&gt; DispatchResult {
-			<span class="kw">let </span>origin_location: MultiLocation = T::SiblingOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
+			<span class="kw">let </span>origin_location: Location = T::SiblingOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 
 			<span class="comment">// Ensure that origin location is a sibling parachain
 			</span><span class="kw">let </span>(para_id, agent_id) = ensure_sibling::&lt;T&gt;(<span class="kw-2">&amp;</span>origin_location)<span class="question-mark">?</span>;
@@ -1088,12 +1088,12 @@
 		///
 		/// A partial fee will be charged for local processing only.
 		///
-		/// - `origin`: Must be `MultiLocation`
+		/// - `origin`: Must be `Location`
 		/// - `mode`: Initial operating mode of the channel
 		</span><span class="attr">#[pallet::call_index(<span class="number">5</span>)]
 		#[pallet::weight(T::WeightInfo::update_channel())]
 		</span><span class="kw">pub fn </span>update_channel(origin: OriginFor&lt;T&gt;, mode: OperatingMode) -&gt; DispatchResult {
-			<span class="kw">let </span>origin_location: MultiLocation = T::SiblingOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
+			<span class="kw">let </span>origin_location: Location = T::SiblingOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 
 			<span class="comment">// Ensure that origin location is a sibling parachain
 			</span><span class="kw">let </span>(para_id, <span class="kw">_</span>) = ensure_sibling::&lt;T&gt;(<span class="kw-2">&amp;</span>origin_location)<span class="question-mark">?</span>;
@@ -1142,7 +1142,7 @@
 		///
 		/// A partial fee will be charged for local processing only.
 		///
-		/// - `origin`: Must be `MultiLocation`
+		/// - `origin`: Must be `Location`
 		</span><span class="attr">#[pallet::call_index(<span class="number">7</span>)]
 		#[pallet::weight(T::WeightInfo::transfer_native_from_agent())]
 		</span><span class="kw">pub fn </span>transfer_native_from_agent(
@@ -1150,7 +1150,7 @@
 			recipient: H160,
 			amount: u128,
 		) -&gt; DispatchResult {
-			<span class="kw">let </span>origin_location: MultiLocation = T::SiblingOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
+			<span class="kw">let </span>origin_location: Location = T::SiblingOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 
 			<span class="comment">// Ensure that origin location is some consensus system on a sibling parachain
 			</span><span class="kw">let </span>(para_id, agent_id) = ensure_sibling::&lt;T&gt;(<span class="kw-2">&amp;</span>origin_location)<span class="question-mark">?</span>;
@@ -1182,14 +1182,14 @@
 		#[pallet::weight(T::WeightInfo::force_transfer_native_from_agent())]
 		</span><span class="kw">pub fn </span>force_transfer_native_from_agent(
 			origin: OriginFor&lt;T&gt;,
-			location: Box&lt;VersionedMultiLocation&gt;,
+			location: Box&lt;VersionedLocation&gt;,
 			recipient: H160,
 			amount: u128,
 		) -&gt; DispatchResult {
 			ensure_root(origin)<span class="question-mark">?</span>;
 
 			<span class="comment">// Ensure that location is some consensus system on a sibling parachain
-			</span><span class="kw">let </span>location: MultiLocation =
+			</span><span class="kw">let </span>location: Location =
 				(<span class="kw-2">*</span>location).try_into().map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::UnsupportedLocationVersion)<span class="question-mark">?</span>;
 			<span class="kw">let </span>(<span class="kw">_</span>, agent_id) =
 				ensure_sibling::&lt;T&gt;(<span class="kw-2">&amp;</span>location).map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::InvalidLocation)<span class="question-mark">?</span>;
@@ -1302,8 +1302,8 @@
 		<span class="doccomment">/// Initializes agents and channels.
 		</span><span class="kw">pub fn </span>initialize(para_id: ParaId, asset_hub_para_id: ParaId) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
 			<span class="comment">// Asset Hub
-			</span><span class="kw">let </span>asset_hub_location: MultiLocation =
-				ParentThen(X1(Parachain(asset_hub_para_id.into()))).into();
+			</span><span class="kw">let </span>asset_hub_location: Location =
+				ParentThen(Parachain(asset_hub_para_id.into()).into()).into();
 			<span class="kw">let </span>asset_hub_agent_id = agent_id_of::&lt;T&gt;(<span class="kw-2">&amp;</span>asset_hub_location)<span class="question-mark">?</span>;
 			<span class="kw">let </span>asset_hub_channel_id: ChannelId = asset_hub_para_id.into();
 			Agents::&lt;T&gt;::insert(asset_hub_agent_id, ());
@@ -1313,7 +1313,7 @@
 			);
 
 			<span class="comment">// Governance channels
-			</span><span class="kw">let </span>bridge_hub_agent_id = agent_id_of::&lt;T&gt;(<span class="kw-2">&amp;</span>MultiLocation::here())<span class="question-mark">?</span>;
+			</span><span class="kw">let </span>bridge_hub_agent_id = agent_id_of::&lt;T&gt;(<span class="kw-2">&amp;</span>Location::here())<span class="question-mark">?</span>;
 			<span class="comment">// Agent for BridgeHub
 			</span>Agents::&lt;T&gt;::insert(bridge_hub_agent_id, ());
 

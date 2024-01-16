@@ -1008,38 +1008,6 @@
 <a href="#1008" id="1008">1008</a>
 <a href="#1009" id="1009">1009</a>
 <a href="#1010" id="1010">1010</a>
-<a href="#1011" id="1011">1011</a>
-<a href="#1012" id="1012">1012</a>
-<a href="#1013" id="1013">1013</a>
-<a href="#1014" id="1014">1014</a>
-<a href="#1015" id="1015">1015</a>
-<a href="#1016" id="1016">1016</a>
-<a href="#1017" id="1017">1017</a>
-<a href="#1018" id="1018">1018</a>
-<a href="#1019" id="1019">1019</a>
-<a href="#1020" id="1020">1020</a>
-<a href="#1021" id="1021">1021</a>
-<a href="#1022" id="1022">1022</a>
-<a href="#1023" id="1023">1023</a>
-<a href="#1024" id="1024">1024</a>
-<a href="#1025" id="1025">1025</a>
-<a href="#1026" id="1026">1026</a>
-<a href="#1027" id="1027">1027</a>
-<a href="#1028" id="1028">1028</a>
-<a href="#1029" id="1029">1029</a>
-<a href="#1030" id="1030">1030</a>
-<a href="#1031" id="1031">1031</a>
-<a href="#1032" id="1032">1032</a>
-<a href="#1033" id="1033">1033</a>
-<a href="#1034" id="1034">1034</a>
-<a href="#1035" id="1035">1035</a>
-<a href="#1036" id="1036">1036</a>
-<a href="#1037" id="1037">1037</a>
-<a href="#1038" id="1038">1038</a>
-<a href="#1039" id="1039">1039</a>
-<a href="#1040" id="1040">1040</a>
-<a href="#1041" id="1041">1041</a>
-<a href="#1042" id="1042">1042</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1069,12 +1037,12 @@
 </span><span class="kw">pub trait </span>DescribeLocation {
 	<span class="doccomment">/// Create a description of the given `location` if possible. No two locations should have the
 	/// same descriptor.
-	</span><span class="kw">fn </span>describe_location(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;;
+	</span><span class="kw">fn </span>describe_location(location: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;;
 }
 
 <span class="attr">#[impl_trait_for_tuples::impl_for_tuples(<span class="number">30</span>)]
 </span><span class="kw">impl </span>DescribeLocation <span class="kw">for </span>Tuple {
-	<span class="kw">fn </span>describe_location(l: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+	<span class="kw">fn </span>describe_location(l: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
 		<span class="macro">for_tuples!</span>( #(
 			<span class="kw">match </span>Tuple::describe_location(l) {
 				<span class="prelude-val">Some</span>(result) =&gt; <span class="kw">return </span><span class="prelude-val">Some</span>(result),
@@ -1087,9 +1055,9 @@
 
 <span class="kw">pub struct </span>DescribeTerminus;
 <span class="kw">impl </span>DescribeLocation <span class="kw">for </span>DescribeTerminus {
-	<span class="kw">fn </span>describe_location(l: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
-		<span class="kw">match </span>(l.parents, <span class="kw-2">&amp;</span>l.interior) {
-			(<span class="number">0</span>, Here) =&gt; <span class="prelude-val">Some</span>(Vec::new()),
+	<span class="kw">fn </span>describe_location(l: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+		<span class="kw">match </span>l.unpack() {
+			(<span class="number">0</span>, []) =&gt; <span class="prelude-val">Some</span>(Vec::new()),
 			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
 		}
 	}
@@ -1097,10 +1065,9 @@
 
 <span class="kw">pub struct </span>DescribePalletTerminal;
 <span class="kw">impl </span>DescribeLocation <span class="kw">for </span>DescribePalletTerminal {
-	<span class="kw">fn </span>describe_location(l: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
-		<span class="kw">match </span>(l.parents, <span class="kw-2">&amp;</span>l.interior) {
-			(<span class="number">0</span>, X1(PalletInstance(i))) =&gt;
-				<span class="prelude-val">Some</span>((<span class="string">b&quot;Pallet&quot;</span>, Compact::&lt;u32&gt;::from(<span class="kw-2">*</span>i <span class="kw">as </span>u32)).encode()),
+	<span class="kw">fn </span>describe_location(l: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+		<span class="kw">match </span>l.unpack() {
+			(<span class="number">0</span>, [PalletInstance(i)]) =&gt; <span class="prelude-val">Some</span>((<span class="string">b&quot;Pallet&quot;</span>, Compact::&lt;u32&gt;::from(<span class="kw-2">*</span>i <span class="kw">as </span>u32)).encode()),
 			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
 		}
 	}
@@ -1108,9 +1075,9 @@
 
 <span class="kw">pub struct </span>DescribeAccountId32Terminal;
 <span class="kw">impl </span>DescribeLocation <span class="kw">for </span>DescribeAccountId32Terminal {
-	<span class="kw">fn </span>describe_location(l: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
-		<span class="kw">match </span>(l.parents, <span class="kw-2">&amp;</span>l.interior) {
-			(<span class="number">0</span>, X1(AccountId32 { id, .. })) =&gt; <span class="prelude-val">Some</span>((<span class="string">b&quot;AccountId32&quot;</span>, id).encode()),
+	<span class="kw">fn </span>describe_location(l: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+		<span class="kw">match </span>l.unpack() {
+			(<span class="number">0</span>, [AccountId32 { id, .. }]) =&gt; <span class="prelude-val">Some</span>((<span class="string">b&quot;AccountId32&quot;</span>, id).encode()),
 			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
 		}
 	}
@@ -1118,9 +1085,9 @@
 
 <span class="kw">pub struct </span>DescribeAccountKey20Terminal;
 <span class="kw">impl </span>DescribeLocation <span class="kw">for </span>DescribeAccountKey20Terminal {
-	<span class="kw">fn </span>describe_location(l: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
-		<span class="kw">match </span>(l.parents, <span class="kw-2">&amp;</span>l.interior) {
-			(<span class="number">0</span>, X1(AccountKey20 { key, .. })) =&gt; <span class="prelude-val">Some</span>((<span class="string">b&quot;AccountKey20&quot;</span>, key).encode()),
+	<span class="kw">fn </span>describe_location(l: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+		<span class="kw">match </span>l.unpack() {
+			(<span class="number">0</span>, [AccountKey20 { key, .. }]) =&gt; <span class="prelude-val">Some</span>((<span class="string">b&quot;AccountKey20&quot;</span>, key).encode()),
 			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
 		}
 	}
@@ -1131,9 +1098,9 @@
 </span><span class="kw">pub struct </span>DescribeTreasuryVoiceTerminal;
 
 <span class="kw">impl </span>DescribeLocation <span class="kw">for </span>DescribeTreasuryVoiceTerminal {
-	<span class="kw">fn </span>describe_location(l: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
-		<span class="kw">match </span>(l.parents, <span class="kw-2">&amp;</span>l.interior) {
-			(<span class="number">0</span>, X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice })) =&gt;
+	<span class="kw">fn </span>describe_location(location: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+		<span class="kw">match </span>location.unpack() {
+			(<span class="number">0</span>, [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]) =&gt;
 				<span class="prelude-val">Some</span>((<span class="string">b&quot;Treasury&quot;</span>, <span class="string">b&quot;Voice&quot;</span>).encode()),
 			<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
 		}
@@ -1144,9 +1111,9 @@
 
 <span class="kw">pub struct </span>DescribeBodyTerminal;
 <span class="kw">impl </span>DescribeLocation <span class="kw">for </span>DescribeBodyTerminal {
-	<span class="kw">fn </span>describe_location(l: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
-		<span class="kw">match </span>(l.parents, <span class="kw-2">&amp;</span>l.interior) {
-			(<span class="number">0</span>, X1(Plurality { id, part })) =&gt; <span class="prelude-val">Some</span>((<span class="string">b&quot;Body&quot;</span>, id, part).encode()),
+	<span class="kw">fn </span>describe_location(l: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+		<span class="kw">match </span>l.unpack() {
+			(<span class="number">0</span>, [Plurality { id, part }]) =&gt; <span class="prelude-val">Some</span>((<span class="string">b&quot;Body&quot;</span>, id, part).encode()),
 			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
 		}
 	}
@@ -1163,20 +1130,21 @@
 
 <span class="kw">pub struct </span>DescribeFamily&lt;DescribeInterior&gt;(PhantomData&lt;DescribeInterior&gt;);
 <span class="kw">impl</span>&lt;Suffix: DescribeLocation&gt; DescribeLocation <span class="kw">for </span>DescribeFamily&lt;Suffix&gt; {
-	<span class="kw">fn </span>describe_location(l: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
-		<span class="kw">match </span>(l.parents, l.interior.first()) {
+	<span class="kw">fn </span>describe_location(l: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+		<span class="kw">match </span>(l.parent_count(), l.first_interior()) {
 			(<span class="number">0</span>, <span class="prelude-val">Some</span>(Parachain(index))) =&gt; {
-				<span class="kw">let </span>tail = l.interior.split_first().<span class="number">0</span>;
+				<span class="kw">let </span>tail = l.clone().split_first_interior().<span class="number">0</span>;
 				<span class="kw">let </span>interior = Suffix::describe_location(<span class="kw-2">&amp;</span>tail.into())<span class="question-mark">?</span>;
 				<span class="prelude-val">Some</span>((<span class="string">b&quot;ChildChain&quot;</span>, Compact::&lt;u32&gt;::from(<span class="kw-2">*</span>index), interior).encode())
 			},
 			(<span class="number">1</span>, <span class="prelude-val">Some</span>(Parachain(index))) =&gt; {
-				<span class="kw">let </span>tail = l.interior.split_first().<span class="number">0</span>;
-				<span class="kw">let </span>interior = Suffix::describe_location(<span class="kw-2">&amp;</span>tail.into())<span class="question-mark">?</span>;
+				<span class="kw">let </span>tail_junctions = l.interior().clone().split_first().<span class="number">0</span>;
+				<span class="kw">let </span>tail = Location::new(<span class="number">0</span>, tail_junctions);
+				<span class="kw">let </span>interior = Suffix::describe_location(<span class="kw-2">&amp;</span>tail)<span class="question-mark">?</span>;
 				<span class="prelude-val">Some</span>((<span class="string">b&quot;SiblingChain&quot;</span>, Compact::&lt;u32&gt;::from(<span class="kw-2">*</span>index), interior).encode())
 			},
 			(<span class="number">1</span>, <span class="kw">_</span>) =&gt; {
-				<span class="kw">let </span>tail = l.interior.into();
+				<span class="kw">let </span>tail = l.interior().clone().into();
 				<span class="kw">let </span>interior = Suffix::describe_location(<span class="kw-2">&amp;</span>tail)<span class="question-mark">?</span>;
 				<span class="prelude-val">Some</span>((<span class="string">b&quot;ParentChain&quot;</span>, interior).encode())
 			},
@@ -1189,7 +1157,7 @@
 <span class="kw">impl</span>&lt;AccountId: From&lt;[u8; <span class="number">32</span>]&gt; + Clone, Describe: DescribeLocation&gt; ConvertLocation&lt;AccountId&gt;
 	<span class="kw">for </span>HashedDescription&lt;AccountId, Describe&gt;
 {
-	<span class="kw">fn </span>convert_location(value: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
+	<span class="kw">fn </span>convert_location(value: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
 		<span class="prelude-val">Some</span>(blake2_256(<span class="kw-2">&amp;</span>Describe::describe_location(value)<span class="question-mark">?</span>).into())
 	}
 }
@@ -1198,34 +1166,26 @@
 /// are recommended to use the more extensible `HashedDescription` type.
 </span><span class="kw">pub struct </span>LegacyDescribeForeignChainAccount;
 <span class="kw">impl </span>DescribeLocation <span class="kw">for </span>LegacyDescribeForeignChainAccount {
-	<span class="kw">fn </span>describe_location(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
-		<span class="prelude-val">Some</span>(<span class="kw">match </span>location {
+	<span class="kw">fn </span>describe_location(location: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+		<span class="prelude-val">Some</span>(<span class="kw">match </span>location.unpack() {
 			<span class="comment">// Used on the relay chain for sending paras that use 32 byte accounts
-			</span>MultiLocation {
-				parents: <span class="number">0</span>,
-				interior: X2(Parachain(para_id), AccountId32 { id, .. }),
-			} =&gt; LegacyDescribeForeignChainAccount::from_para_32(para_id, id, <span class="number">0</span>),
+			</span>(<span class="number">0</span>, [Parachain(para_id), AccountId32 { id, .. }]) =&gt;
+				LegacyDescribeForeignChainAccount::from_para_32(para_id, id, <span class="number">0</span>),
 
 			<span class="comment">// Used on the relay chain for sending paras that use 20 byte accounts
-			</span>MultiLocation {
-				parents: <span class="number">0</span>,
-				interior: X2(Parachain(para_id), AccountKey20 { key, .. }),
-			} =&gt; LegacyDescribeForeignChainAccount::from_para_20(para_id, key, <span class="number">0</span>),
+			</span>(<span class="number">0</span>, [Parachain(para_id), AccountKey20 { key, .. }]) =&gt;
+				LegacyDescribeForeignChainAccount::from_para_20(para_id, key, <span class="number">0</span>),
 
 			<span class="comment">// Used on para-chain for sending paras that use 32 byte accounts
-			</span>MultiLocation {
-				parents: <span class="number">1</span>,
-				interior: X2(Parachain(para_id), AccountId32 { id, .. }),
-			} =&gt; LegacyDescribeForeignChainAccount::from_para_32(para_id, id, <span class="number">1</span>),
+			</span>(<span class="number">1</span>, [Parachain(para_id), AccountId32 { id, .. }]) =&gt;
+				LegacyDescribeForeignChainAccount::from_para_32(para_id, id, <span class="number">1</span>),
 
 			<span class="comment">// Used on para-chain for sending paras that use 20 byte accounts
-			</span>MultiLocation {
-				parents: <span class="number">1</span>,
-				interior: X2(Parachain(para_id), AccountKey20 { key, .. }),
-			} =&gt; LegacyDescribeForeignChainAccount::from_para_20(para_id, key, <span class="number">1</span>),
+			</span>(<span class="number">1</span>, [Parachain(para_id), AccountKey20 { key, .. }]) =&gt;
+				LegacyDescribeForeignChainAccount::from_para_20(para_id, key, <span class="number">1</span>),
 
 			<span class="comment">// Used on para-chain for sending from the relay chain
-			</span>MultiLocation { parents: <span class="number">1</span>, interior: X1(AccountId32 { id, .. }) } =&gt;
+			</span>(<span class="number">1</span>, [AccountId32 { id, .. }]) =&gt;
 				LegacyDescribeForeignChainAccount::from_relay_32(id, <span class="number">1</span>),
 
 			<span class="comment">// No other conversions provided
@@ -1320,16 +1280,16 @@
 <span class="kw">impl</span>&lt;Network: Get&lt;<span class="prelude-ty">Option</span>&lt;NetworkId&gt;&gt;, AccountId: From&lt;[u8; <span class="number">32</span>]&gt; + Into&lt;[u8; <span class="number">32</span>]&gt; + Clone&gt;
 	ConvertLocation&lt;AccountId&gt; <span class="kw">for </span>Account32Hash&lt;Network, AccountId&gt;
 {
-	<span class="kw">fn </span>convert_location(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
+	<span class="kw">fn </span>convert_location(location: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
 		<span class="prelude-val">Some</span>((<span class="string">&quot;multiloc&quot;</span>, location).using_encoded(blake2_256).into())
 	}
 }
 
-<span class="doccomment">/// A [`MultiLocation`] consisting of a single `Parent` [`Junction`] will be converted to the
+<span class="doccomment">/// A [`Location`] consisting of a single `Parent` [`Junction`] will be converted to the
 /// parent `AccountId`.
 </span><span class="kw">pub struct </span>ParentIsPreset&lt;AccountId&gt;(PhantomData&lt;AccountId&gt;);
 <span class="kw">impl</span>&lt;AccountId: Decode + Eq + Clone&gt; ConvertLocation&lt;AccountId&gt; <span class="kw">for </span>ParentIsPreset&lt;AccountId&gt; {
-	<span class="kw">fn </span>convert_location(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
+	<span class="kw">fn </span>convert_location(location: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
 		<span class="kw">if </span>location.contains_parents_only(<span class="number">1</span>) {
 			<span class="prelude-val">Some</span>(
 				<span class="string">b&quot;Parent&quot;
@@ -1346,10 +1306,9 @@
 <span class="kw">impl</span>&lt;ParaId: From&lt;u32&gt; + Into&lt;u32&gt; + AccountIdConversion&lt;AccountId&gt;, AccountId: Clone&gt;
 	ConvertLocation&lt;AccountId&gt; <span class="kw">for </span>ChildParachainConvertsVia&lt;ParaId, AccountId&gt;
 {
-	<span class="kw">fn </span>convert_location(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
-		<span class="kw">match </span>location {
-			MultiLocation { parents: <span class="number">0</span>, interior: X1(Parachain(id)) } =&gt;
-				<span class="prelude-val">Some</span>(ParaId::from(<span class="kw-2">*</span>id).into_account_truncating()),
+	<span class="kw">fn </span>convert_location(location: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
+		<span class="kw">match </span>location.unpack() {
+			(<span class="number">0</span>, [Parachain(id)]) =&gt; <span class="prelude-val">Some</span>(ParaId::from(<span class="kw-2">*</span>id).into_account_truncating()),
 			<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
 		}
 	}
@@ -1359,10 +1318,9 @@
 <span class="kw">impl</span>&lt;ParaId: From&lt;u32&gt; + Into&lt;u32&gt; + AccountIdConversion&lt;AccountId&gt;, AccountId: Clone&gt;
 	ConvertLocation&lt;AccountId&gt; <span class="kw">for </span>SiblingParachainConvertsVia&lt;ParaId, AccountId&gt;
 {
-	<span class="kw">fn </span>convert_location(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
-		<span class="kw">match </span>location {
-			MultiLocation { parents: <span class="number">1</span>, interior: X1(Parachain(id)) } =&gt;
-				<span class="prelude-val">Some</span>(ParaId::from(<span class="kw-2">*</span>id).into_account_truncating()),
+	<span class="kw">fn </span>convert_location(location: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
+		<span class="kw">match </span>location.unpack() {
+			(<span class="number">1</span>, [Parachain(id)]) =&gt; <span class="prelude-val">Some</span>(ParaId::from(<span class="kw-2">*</span>id).into_account_truncating()),
 			<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
 		}
 	}
@@ -1373,15 +1331,13 @@
 <span class="kw">impl</span>&lt;Network: Get&lt;<span class="prelude-ty">Option</span>&lt;NetworkId&gt;&gt;, AccountId: From&lt;[u8; <span class="number">32</span>]&gt; + Into&lt;[u8; <span class="number">32</span>]&gt; + Clone&gt;
 	ConvertLocation&lt;AccountId&gt; <span class="kw">for </span>AccountId32Aliases&lt;Network, AccountId&gt;
 {
-	<span class="kw">fn </span>convert_location(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
-		<span class="kw">let </span>id = <span class="kw">match </span><span class="kw-2">*</span>location {
-			MultiLocation { parents: <span class="number">0</span>, interior: X1(AccountId32 { id, network: <span class="prelude-val">None </span>}) } =&gt; id,
-			MultiLocation { parents: <span class="number">0</span>, interior: X1(AccountId32 { id, network }) }
-				<span class="kw">if </span>network == Network::get() =&gt;
-				id,
+	<span class="kw">fn </span>convert_location(location: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
+		<span class="kw">let </span>id = <span class="kw">match </span>location.unpack() {
+			(<span class="number">0</span>, [AccountId32 { id, network: <span class="prelude-val">None </span>}]) =&gt; id,
+			(<span class="number">0</span>, [AccountId32 { id, network }]) <span class="kw">if </span><span class="kw-2">*</span>network == Network::get() =&gt; id,
 			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
 		};
-		<span class="prelude-val">Some</span>(id.into())
+		<span class="prelude-val">Some</span>((<span class="kw-2">*</span>id).into())
 	}
 }
 
@@ -1393,25 +1349,23 @@
 <span class="kw">impl</span>&lt;TreasuryAccount: Get&lt;AccountId&gt;, AccountId: From&lt;[u8; <span class="number">32</span>]&gt; + Into&lt;[u8; <span class="number">32</span>]&gt; + Clone&gt;
 	ConvertLocation&lt;AccountId&gt; <span class="kw">for </span>LocalTreasuryVoiceConvertsVia&lt;TreasuryAccount, AccountId&gt;
 {
-	<span class="kw">fn </span>convert_location(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
-		<span class="kw">match </span><span class="kw-2">*</span>location {
-			MultiLocation {
-				parents: <span class="number">0</span>,
-				interior: X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }),
-			} =&gt; <span class="prelude-val">Some</span>((TreasuryAccount::get().into() <span class="kw">as </span>[u8; <span class="number">32</span>]).into()),
+	<span class="kw">fn </span>convert_location(location: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
+		<span class="kw">match </span>location.unpack() {
+			(<span class="number">0</span>, [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]) =&gt;
+				<span class="prelude-val">Some</span>((TreasuryAccount::get().into() <span class="kw">as </span>[u8; <span class="number">32</span>]).into()),
 			<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
 		}
 	}
 }
 
 <span class="doccomment">/// Conversion implementation which converts from a `[u8; 32]`-based `AccountId` into a
-/// `MultiLocation` consisting solely of a `AccountId32` junction with a fixed value for its
+/// `Location` consisting solely of a `AccountId32` junction with a fixed value for its
 /// network (provided by `Network`) and the `AccountId`&#39;s `[u8; 32]` datum for the `id`.
 </span><span class="kw">pub struct </span>AliasesIntoAccountId32&lt;Network, AccountId&gt;(PhantomData&lt;(Network, AccountId)&gt;);
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, Network: Get&lt;<span class="prelude-ty">Option</span>&lt;NetworkId&gt;&gt;, AccountId: Clone + Into&lt;[u8; <span class="number">32</span>]&gt; + Clone&gt;
-	TryConvert&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>AccountId, MultiLocation&gt; <span class="kw">for </span>AliasesIntoAccountId32&lt;Network, AccountId&gt;
+	TryConvert&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>AccountId, Location&gt; <span class="kw">for </span>AliasesIntoAccountId32&lt;Network, AccountId&gt;
 {
-	<span class="kw">fn </span>try_convert(who: <span class="kw-2">&amp;</span>AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;MultiLocation, <span class="kw-2">&amp;</span>AccountId&gt; {
+	<span class="kw">fn </span>try_convert(who: <span class="kw-2">&amp;</span>AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;Location, <span class="kw-2">&amp;</span>AccountId&gt; {
 		<span class="prelude-val">Ok</span>(AccountId32 { network: Network::get(), id: who.clone().into() }.into())
 	}
 }
@@ -1420,15 +1374,13 @@
 <span class="kw">impl</span>&lt;Network: Get&lt;<span class="prelude-ty">Option</span>&lt;NetworkId&gt;&gt;, AccountId: From&lt;[u8; <span class="number">20</span>]&gt; + Into&lt;[u8; <span class="number">20</span>]&gt; + Clone&gt;
 	ConvertLocation&lt;AccountId&gt; <span class="kw">for </span>AccountKey20Aliases&lt;Network, AccountId&gt;
 {
-	<span class="kw">fn </span>convert_location(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
-		<span class="kw">let </span>key = <span class="kw">match </span><span class="kw-2">*</span>location {
-			MultiLocation { parents: <span class="number">0</span>, interior: X1(AccountKey20 { key, network: <span class="prelude-val">None </span>}) } =&gt; key,
-			MultiLocation { parents: <span class="number">0</span>, interior: X1(AccountKey20 { key, network }) }
-				<span class="kw">if </span>network == Network::get() =&gt;
-				key,
+	<span class="kw">fn </span>convert_location(location: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
+		<span class="kw">let </span>key = <span class="kw">match </span>location.unpack() {
+			(<span class="number">0</span>, [AccountKey20 { key, network: <span class="prelude-val">None </span>}]) =&gt; key,
+			(<span class="number">0</span>, [AccountKey20 { key, network }]) <span class="kw">if </span><span class="kw-2">*</span>network == Network::get() =&gt; key,
 			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
 		};
-		<span class="prelude-val">Some</span>(key.into())
+		<span class="prelude-val">Some</span>((<span class="kw-2">*</span>key).into())
 	}
 }
 
@@ -1444,10 +1396,10 @@
 </span><span class="kw">pub struct </span>GlobalConsensusConvertsFor&lt;UniversalLocation, AccountId&gt;(
 	PhantomData&lt;(UniversalLocation, AccountId)&gt;,
 );
-<span class="kw">impl</span>&lt;UniversalLocation: Get&lt;InteriorMultiLocation&gt;, AccountId: From&lt;[u8; <span class="number">32</span>]&gt; + Clone&gt;
+<span class="kw">impl</span>&lt;UniversalLocation: Get&lt;InteriorLocation&gt;, AccountId: From&lt;[u8; <span class="number">32</span>]&gt; + Clone&gt;
 	ConvertLocation&lt;AccountId&gt; <span class="kw">for </span>GlobalConsensusConvertsFor&lt;UniversalLocation, AccountId&gt;
 {
-	<span class="kw">fn </span>convert_location(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
+	<span class="kw">fn </span>convert_location(location: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
 		<span class="kw">let </span>universal_source = UniversalLocation::get();
 		<span class="macro">log::trace!</span>(
 			target: <span class="string">&quot;xcm::location_conversion&quot;</span>,
@@ -1455,7 +1407,7 @@
 			universal_source, location,
 		);
 		<span class="kw">let </span>(remote_network, remote_location) =
-			ensure_is_remote(universal_source, <span class="kw-2">*</span>location).ok()<span class="question-mark">?</span>;
+			ensure_is_remote(universal_source, location.clone()).ok()<span class="question-mark">?</span>;
 
 		<span class="kw">match </span>remote_location {
 			Here =&gt; <span class="prelude-val">Some</span>(AccountId::from(<span class="self">Self</span>::from_params(<span class="kw-2">&amp;</span>remote_network))),
@@ -1487,21 +1439,21 @@
 </span><span class="kw">pub struct </span>GlobalConsensusParachainConvertsFor&lt;UniversalLocation, AccountId&gt;(
 	PhantomData&lt;(UniversalLocation, AccountId)&gt;,
 );
-<span class="kw">impl</span>&lt;UniversalLocation: Get&lt;InteriorMultiLocation&gt;, AccountId: From&lt;[u8; <span class="number">32</span>]&gt; + Clone&gt;
+<span class="kw">impl</span>&lt;UniversalLocation: Get&lt;InteriorLocation&gt;, AccountId: From&lt;[u8; <span class="number">32</span>]&gt; + Clone&gt;
 	ConvertLocation&lt;AccountId&gt; <span class="kw">for </span>GlobalConsensusParachainConvertsFor&lt;UniversalLocation, AccountId&gt;
 {
-	<span class="kw">fn </span>convert_location(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
+	<span class="kw">fn </span>convert_location(location: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
 		<span class="kw">let </span>universal_source = UniversalLocation::get();
 		<span class="macro">log::trace!</span>(
 			target: <span class="string">&quot;xcm::location_conversion&quot;</span>,
 			<span class="string">&quot;GlobalConsensusParachainConvertsFor universal_source: {:?}, location: {:?}&quot;</span>,
 			universal_source, location,
 		);
-		<span class="kw">let </span>devolved = ensure_is_remote(universal_source, <span class="kw-2">*</span>location).ok()<span class="question-mark">?</span>;
+		<span class="kw">let </span>devolved = ensure_is_remote(universal_source, location.clone()).ok()<span class="question-mark">?</span>;
 		<span class="kw">let </span>(remote_network, remote_location) = devolved;
 
-		<span class="kw">match </span>remote_location {
-			X1(Parachain(remote_network_para_id)) =&gt;
+		<span class="kw">match </span>remote_location.as_slice() {
+			[Parachain(remote_network_para_id)] =&gt;
 				<span class="prelude-val">Some</span>(AccountId::from(<span class="self">Self</span>::from_params(<span class="kw-2">&amp;</span>remote_network, <span class="kw-2">&amp;</span>remote_network_para_id))),
 			<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
 		}
@@ -1551,12 +1503,12 @@
 	</span><span class="attr">#[test]
 	</span><span class="kw">fn </span>inverter_works_in_tree() {
 		<span class="macro">parameter_types! </span>{
-			<span class="kw">pub </span>UniversalLocation: InteriorMultiLocation = X3(Parachain(<span class="number">1</span>), account20(), account20());
+			<span class="kw">pub </span>UniversalLocation: InteriorLocation = [Parachain(<span class="number">1</span>), account20(), account20()].into();
 		}
 
-		<span class="kw">let </span>input = MultiLocation::new(<span class="number">3</span>, X2(Parachain(<span class="number">2</span>), account32()));
+		<span class="kw">let </span>input = Location::new(<span class="number">3</span>, [Parachain(<span class="number">2</span>), account32()]);
 		<span class="kw">let </span>inverted = UniversalLocation::get().invert_target(<span class="kw-2">&amp;</span>input).unwrap();
-		<span class="macro">assert_eq!</span>(inverted, MultiLocation::new(<span class="number">2</span>, X3(Parachain(<span class="number">1</span>), account20(), account20())));
+		<span class="macro">assert_eq!</span>(inverted, Location::new(<span class="number">2</span>, [Parachain(<span class="number">1</span>), account20(), account20()]));
 	}
 
 	<span class="comment">// Network Topology
@@ -1566,12 +1518,12 @@
 	</span><span class="attr">#[test]
 	</span><span class="kw">fn </span>inverter_uses_context_as_inverted_location() {
 		<span class="macro">parameter_types! </span>{
-			<span class="kw">pub </span>UniversalLocation: InteriorMultiLocation = X2(account20(), account20());
+			<span class="kw">pub </span>UniversalLocation: InteriorLocation = [account20(), account20()].into();
 		}
 
-		<span class="kw">let </span>input = MultiLocation::grandparent();
+		<span class="kw">let </span>input = Location::new(<span class="number">2</span>, Here);
 		<span class="kw">let </span>inverted = UniversalLocation::get().invert_target(<span class="kw-2">&amp;</span>input).unwrap();
-		<span class="macro">assert_eq!</span>(inverted, X2(account20(), account20()).into());
+		<span class="macro">assert_eq!</span>(inverted, [account20(), account20()].into());
 	}
 
 	<span class="comment">// Network Topology
@@ -1581,10 +1533,10 @@
 	</span><span class="attr">#[test]
 	</span><span class="kw">fn </span>inverter_uses_only_child_on_missing_context() {
 		<span class="macro">parameter_types! </span>{
-			<span class="kw">pub </span>UniversalLocation: InteriorMultiLocation = PalletInstance(<span class="number">5</span>).into();
+			<span class="kw">pub </span>UniversalLocation: InteriorLocation = PalletInstance(<span class="number">5</span>).into();
 		}
 
-		<span class="kw">let </span>input = MultiLocation::grandparent();
+		<span class="kw">let </span>input = Location::new(<span class="number">2</span>, Here);
 		<span class="kw">let </span>inverted = UniversalLocation::get().invert_target(<span class="kw-2">&amp;</span>input).unwrap();
 		<span class="macro">assert_eq!</span>(inverted, (OnlyChild, PalletInstance(<span class="number">5</span>)).into());
 	}
@@ -1592,10 +1544,10 @@
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>inverter_errors_when_location_is_too_large() {
 		<span class="macro">parameter_types! </span>{
-			<span class="kw">pub </span>UniversalLocation: InteriorMultiLocation = Here;
+			<span class="kw">pub </span>UniversalLocation: InteriorLocation = Here;
 		}
 
-		<span class="kw">let </span>input = MultiLocation { parents: <span class="number">99</span>, interior: X1(Parachain(<span class="number">88</span>)) };
+		<span class="kw">let </span>input = Location { parents: <span class="number">99</span>, interior: [Parachain(<span class="number">88</span>)].into() };
 		<span class="kw">let </span>inverted = UniversalLocation::get().invert_target(<span class="kw-2">&amp;</span>input);
 		<span class="macro">assert_eq!</span>(inverted, <span class="prelude-val">Err</span>(()));
 	}
@@ -1603,8 +1555,8 @@
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>global_consensus_converts_for_works() {
 		<span class="macro">parameter_types! </span>{
-			<span class="kw">pub </span>UniversalLocationInNetwork1: InteriorMultiLocation = X2(GlobalConsensus(ByGenesis([<span class="number">1</span>; <span class="number">32</span>])), Parachain(<span class="number">1234</span>));
-			<span class="kw">pub </span>UniversalLocationInNetwork2: InteriorMultiLocation = X2(GlobalConsensus(ByGenesis([<span class="number">2</span>; <span class="number">32</span>])), Parachain(<span class="number">1234</span>));
+			<span class="kw">pub </span>UniversalLocationInNetwork1: InteriorLocation = [GlobalConsensus(ByGenesis([<span class="number">1</span>; <span class="number">32</span>])), Parachain(<span class="number">1234</span>)].into();
+			<span class="kw">pub </span>UniversalLocationInNetwork2: InteriorLocation = [GlobalConsensus(ByGenesis([<span class="number">2</span>; <span class="number">32</span>])), Parachain(<span class="number">1234</span>)].into();
 		}
 		<span class="kw">let </span>network_1 = UniversalLocationInNetwork1::get().global_consensus().expect(<span class="string">&quot;NetworkId&quot;</span>);
 		<span class="kw">let </span>network_2 = UniversalLocationInNetwork2::get().global_consensus().expect(<span class="string">&quot;NetworkId&quot;</span>);
@@ -1613,17 +1565,17 @@
 		<span class="kw">let </span>network_5 = ByGenesis([<span class="number">5</span>; <span class="number">32</span>]);
 
 		<span class="kw">let </span>test_data = <span class="macro">vec!</span>[
-			(MultiLocation::parent(), <span class="bool-val">false</span>),
-			(MultiLocation::new(<span class="number">0</span>, Here), <span class="bool-val">false</span>),
-			(MultiLocation::new(<span class="number">0</span>, X1(GlobalConsensus(network_1))), <span class="bool-val">false</span>),
-			(MultiLocation::new(<span class="number">1</span>, X1(GlobalConsensus(network_1))), <span class="bool-val">false</span>),
-			(MultiLocation::new(<span class="number">2</span>, X1(GlobalConsensus(network_1))), <span class="bool-val">false</span>),
-			(MultiLocation::new(<span class="number">0</span>, X1(GlobalConsensus(network_2))), <span class="bool-val">false</span>),
-			(MultiLocation::new(<span class="number">1</span>, X1(GlobalConsensus(network_2))), <span class="bool-val">false</span>),
-			(MultiLocation::new(<span class="number">2</span>, X1(GlobalConsensus(network_2))), <span class="bool-val">true</span>),
-			(MultiLocation::new(<span class="number">0</span>, X2(GlobalConsensus(network_2), Parachain(<span class="number">1000</span>))), <span class="bool-val">false</span>),
-			(MultiLocation::new(<span class="number">1</span>, X2(GlobalConsensus(network_2), Parachain(<span class="number">1000</span>))), <span class="bool-val">false</span>),
-			(MultiLocation::new(<span class="number">2</span>, X2(GlobalConsensus(network_2), Parachain(<span class="number">1000</span>))), <span class="bool-val">false</span>),
+			(Location::parent(), <span class="bool-val">false</span>),
+			(Location::new(<span class="number">0</span>, Here), <span class="bool-val">false</span>),
+			(Location::new(<span class="number">0</span>, [GlobalConsensus(network_1)]), <span class="bool-val">false</span>),
+			(Location::new(<span class="number">1</span>, [GlobalConsensus(network_1)]), <span class="bool-val">false</span>),
+			(Location::new(<span class="number">2</span>, [GlobalConsensus(network_1)]), <span class="bool-val">false</span>),
+			(Location::new(<span class="number">0</span>, [GlobalConsensus(network_2)]), <span class="bool-val">false</span>),
+			(Location::new(<span class="number">1</span>, [GlobalConsensus(network_2)]), <span class="bool-val">false</span>),
+			(Location::new(<span class="number">2</span>, [GlobalConsensus(network_2)]), <span class="bool-val">true</span>),
+			(Location::new(<span class="number">0</span>, [GlobalConsensus(network_2), Parachain(<span class="number">1000</span>)]), <span class="bool-val">false</span>),
+			(Location::new(<span class="number">1</span>, [GlobalConsensus(network_2), Parachain(<span class="number">1000</span>)]), <span class="bool-val">false</span>),
+			(Location::new(<span class="number">2</span>, [GlobalConsensus(network_2), Parachain(<span class="number">1000</span>)]), <span class="bool-val">false</span>),
 		];
 
 		<span class="kw">for </span>(location, expected_result) <span class="kw">in </span>test_data {
@@ -1638,14 +1590,14 @@
 						<span class="string">&quot;expected_result: {}, but conversion passed: {:?}, location: {:?}&quot;</span>,
 						expected_result, account, location
 					);
-					<span class="kw">match </span><span class="kw-2">&amp;</span>location {
-						MultiLocation { interior: X1(GlobalConsensus(network)), .. } =&gt;
+					<span class="kw">match </span>location.unpack() {
+						(<span class="kw">_</span>, [GlobalConsensus(network)]) =&gt;
 							<span class="macro">assert_eq!</span>(
 								account,
 								GlobalConsensusConvertsFor::&lt;UniversalLocationInNetwork1, [u8; <span class="number">32</span>]&gt;::from_params(network),
 								<span class="string">&quot;expected_result: {}, but conversion passed: {:?}, location: {:?}&quot;</span>, expected_result, account, location
 							),
-						<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;expected_result: {}, conversion passed: {:?}, but MultiLocation does not match expected pattern, location: {:?}&quot;</span>, expected_result, account, location)
+						<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;expected_result: {}, conversion passed: {:?}, but Location does not match expected pattern, location: {:?}&quot;</span>, expected_result, account, location)
 					}
 				},
 				<span class="prelude-val">None </span>=&gt; {
@@ -1661,32 +1613,32 @@
 		<span class="comment">// all success
 		</span><span class="kw">let </span>res_1_gc_network_3 =
 			GlobalConsensusConvertsFor::&lt;UniversalLocationInNetwork1, [u8; <span class="number">32</span>]&gt;::convert_location(
-				<span class="kw-2">&amp;</span>MultiLocation::new(<span class="number">2</span>, X1(GlobalConsensus(network_3))),
+				<span class="kw-2">&amp;</span>Location::new(<span class="number">2</span>, [GlobalConsensus(network_3)]),
 			)
 			.expect(<span class="string">&quot;conversion is ok&quot;</span>);
 		<span class="kw">let </span>res_2_gc_network_3 =
 			GlobalConsensusConvertsFor::&lt;UniversalLocationInNetwork2, [u8; <span class="number">32</span>]&gt;::convert_location(
-				<span class="kw-2">&amp;</span>MultiLocation::new(<span class="number">2</span>, X1(GlobalConsensus(network_3))),
+				<span class="kw-2">&amp;</span>Location::new(<span class="number">2</span>, [GlobalConsensus(network_3)]),
 			)
 			.expect(<span class="string">&quot;conversion is ok&quot;</span>);
 		<span class="kw">let </span>res_1_gc_network_4 =
 			GlobalConsensusConvertsFor::&lt;UniversalLocationInNetwork1, [u8; <span class="number">32</span>]&gt;::convert_location(
-				<span class="kw-2">&amp;</span>MultiLocation::new(<span class="number">2</span>, X1(GlobalConsensus(network_4))),
+				<span class="kw-2">&amp;</span>Location::new(<span class="number">2</span>, [GlobalConsensus(network_4)]),
 			)
 			.expect(<span class="string">&quot;conversion is ok&quot;</span>);
 		<span class="kw">let </span>res_2_gc_network_4 =
 			GlobalConsensusConvertsFor::&lt;UniversalLocationInNetwork2, [u8; <span class="number">32</span>]&gt;::convert_location(
-				<span class="kw-2">&amp;</span>MultiLocation::new(<span class="number">2</span>, X1(GlobalConsensus(network_4))),
+				<span class="kw-2">&amp;</span>Location::new(<span class="number">2</span>, [GlobalConsensus(network_4)]),
 			)
 			.expect(<span class="string">&quot;conversion is ok&quot;</span>);
 		<span class="kw">let </span>res_1_gc_network_5 =
 			GlobalConsensusConvertsFor::&lt;UniversalLocationInNetwork1, [u8; <span class="number">32</span>]&gt;::convert_location(
-				<span class="kw-2">&amp;</span>MultiLocation::new(<span class="number">2</span>, X1(GlobalConsensus(network_5))),
+				<span class="kw-2">&amp;</span>Location::new(<span class="number">2</span>, [GlobalConsensus(network_5)]),
 			)
 			.expect(<span class="string">&quot;conversion is ok&quot;</span>);
 		<span class="kw">let </span>res_2_gc_network_5 =
 			GlobalConsensusConvertsFor::&lt;UniversalLocationInNetwork2, [u8; <span class="number">32</span>]&gt;::convert_location(
-				<span class="kw-2">&amp;</span>MultiLocation::new(<span class="number">2</span>, X1(GlobalConsensus(network_5))),
+				<span class="kw-2">&amp;</span>Location::new(<span class="number">2</span>, [GlobalConsensus(network_5)]),
 			)
 			.expect(<span class="string">&quot;conversion is ok&quot;</span>);
 
@@ -1702,42 +1654,30 @@
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>global_consensus_parachain_converts_for_works() {
 		<span class="macro">parameter_types! </span>{
-			<span class="kw">pub </span>UniversalLocation: InteriorMultiLocation = X2(GlobalConsensus(ByGenesis([<span class="number">9</span>; <span class="number">32</span>])), Parachain(<span class="number">1234</span>));
+			<span class="kw">pub </span>UniversalLocation: InteriorLocation = [GlobalConsensus(ByGenesis([<span class="number">9</span>; <span class="number">32</span>])), Parachain(<span class="number">1234</span>)].into();
 		}
 
 		<span class="kw">let </span>test_data = <span class="macro">vec!</span>[
-			(MultiLocation::parent(), <span class="bool-val">false</span>),
-			(MultiLocation::new(<span class="number">0</span>, X1(Parachain(<span class="number">1000</span>))), <span class="bool-val">false</span>),
-			(MultiLocation::new(<span class="number">1</span>, X1(Parachain(<span class="number">1000</span>))), <span class="bool-val">false</span>),
+			(Location::parent(), <span class="bool-val">false</span>),
+			(Location::new(<span class="number">0</span>, [Parachain(<span class="number">1000</span>)]), <span class="bool-val">false</span>),
+			(Location::new(<span class="number">1</span>, [Parachain(<span class="number">1000</span>)]), <span class="bool-val">false</span>),
 			(
-				MultiLocation::new(
+				Location::new(
 					<span class="number">2</span>,
-					X3(
+					[
 						GlobalConsensus(ByGenesis([<span class="number">0</span>; <span class="number">32</span>])),
 						Parachain(<span class="number">1000</span>),
 						AccountId32 { network: <span class="prelude-val">None</span>, id: [<span class="number">1</span>; <span class="number">32</span>].into() },
-					),
+					],
 				),
 				<span class="bool-val">false</span>,
 			),
-			(MultiLocation::new(<span class="number">2</span>, X1(GlobalConsensus(ByGenesis([<span class="number">0</span>; <span class="number">32</span>])))), <span class="bool-val">false</span>),
-			(
-				MultiLocation::new(<span class="number">0</span>, X2(GlobalConsensus(ByGenesis([<span class="number">0</span>; <span class="number">32</span>])), Parachain(<span class="number">1000</span>))),
-				<span class="bool-val">false</span>,
-			),
-			(
-				MultiLocation::new(<span class="number">1</span>, X2(GlobalConsensus(ByGenesis([<span class="number">0</span>; <span class="number">32</span>])), Parachain(<span class="number">1000</span>))),
-				<span class="bool-val">false</span>,
-			),
-			(MultiLocation::new(<span class="number">2</span>, X2(GlobalConsensus(ByGenesis([<span class="number">0</span>; <span class="number">32</span>])), Parachain(<span class="number">1000</span>))), <span class="bool-val">true</span>),
-			(
-				MultiLocation::new(<span class="number">3</span>, X2(GlobalConsensus(ByGenesis([<span class="number">0</span>; <span class="number">32</span>])), Parachain(<span class="number">1000</span>))),
-				<span class="bool-val">false</span>,
-			),
-			(
-				MultiLocation::new(<span class="number">9</span>, X2(GlobalConsensus(ByGenesis([<span class="number">0</span>; <span class="number">32</span>])), Parachain(<span class="number">1000</span>))),
-				<span class="bool-val">false</span>,
-			),
+			(Location::new(<span class="number">2</span>, [GlobalConsensus(ByGenesis([<span class="number">0</span>; <span class="number">32</span>]))]), <span class="bool-val">false</span>),
+			(Location::new(<span class="number">0</span>, [GlobalConsensus(ByGenesis([<span class="number">0</span>; <span class="number">32</span>])), Parachain(<span class="number">1000</span>)]), <span class="bool-val">false</span>),
+			(Location::new(<span class="number">1</span>, [GlobalConsensus(ByGenesis([<span class="number">0</span>; <span class="number">32</span>])), Parachain(<span class="number">1000</span>)]), <span class="bool-val">false</span>),
+			(Location::new(<span class="number">2</span>, [GlobalConsensus(ByGenesis([<span class="number">0</span>; <span class="number">32</span>])), Parachain(<span class="number">1000</span>)]), <span class="bool-val">true</span>),
+			(Location::new(<span class="number">3</span>, [GlobalConsensus(ByGenesis([<span class="number">0</span>; <span class="number">32</span>])), Parachain(<span class="number">1000</span>)]), <span class="bool-val">false</span>),
+			(Location::new(<span class="number">9</span>, [GlobalConsensus(ByGenesis([<span class="number">0</span>; <span class="number">32</span>])), Parachain(<span class="number">1000</span>)]), <span class="bool-val">false</span>),
 		];
 
 		<span class="kw">for </span>(location, expected_result) <span class="kw">in </span>test_data {
@@ -1752,8 +1692,8 @@
 						<span class="string">&quot;expected_result: {}, but conversion passed: {:?}, location: {:?}&quot;</span>,
 						expected_result, account, location
 					);
-					<span class="kw">match </span><span class="kw-2">&amp;</span>location {
-						MultiLocation { interior: X2(GlobalConsensus(network), Parachain(para_id)), .. } =&gt;
+					<span class="kw">match </span>location.unpack() {
+						(<span class="kw">_</span>, [GlobalConsensus(network), Parachain(para_id)]) =&gt;
 							<span class="macro">assert_eq!</span>(
 								account,
 								GlobalConsensusParachainConvertsFor::&lt;UniversalLocation, [u8; <span class="number">32</span>]&gt;::from_params(network, para_id),
@@ -1762,7 +1702,7 @@
 						<span class="kw">_ </span>=&gt; <span class="macro">assert_eq!</span>(
 							<span class="bool-val">true</span>,
 							expected_result,
-							<span class="string">&quot;expected_result: {}, conversion passed: {:?}, but MultiLocation does not match expected pattern, location: {:?}&quot;</span>, expected_result, account, location
+							<span class="string">&quot;expected_result: {}, conversion passed: {:?}, but Location does not match expected pattern, location: {:?}&quot;</span>, expected_result, account, location
 						)
 					}
 				},
@@ -1779,22 +1719,22 @@
 		<span class="comment">// all success
 		</span><span class="kw">let </span>res_gc_a_p1000 =
 			GlobalConsensusParachainConvertsFor::&lt;UniversalLocation, [u8; <span class="number">32</span>]&gt;::convert_location(
-				<span class="kw-2">&amp;</span>MultiLocation::new(<span class="number">2</span>, X2(GlobalConsensus(ByGenesis([<span class="number">3</span>; <span class="number">32</span>])), Parachain(<span class="number">1000</span>))),
+				<span class="kw-2">&amp;</span>Location::new(<span class="number">2</span>, [GlobalConsensus(ByGenesis([<span class="number">3</span>; <span class="number">32</span>])), Parachain(<span class="number">1000</span>)]),
 			)
 			.expect(<span class="string">&quot;conversion is ok&quot;</span>);
 		<span class="kw">let </span>res_gc_a_p1001 =
 			GlobalConsensusParachainConvertsFor::&lt;UniversalLocation, [u8; <span class="number">32</span>]&gt;::convert_location(
-				<span class="kw-2">&amp;</span>MultiLocation::new(<span class="number">2</span>, X2(GlobalConsensus(ByGenesis([<span class="number">3</span>; <span class="number">32</span>])), Parachain(<span class="number">1001</span>))),
+				<span class="kw-2">&amp;</span>Location::new(<span class="number">2</span>, [GlobalConsensus(ByGenesis([<span class="number">3</span>; <span class="number">32</span>])), Parachain(<span class="number">1001</span>)]),
 			)
 			.expect(<span class="string">&quot;conversion is ok&quot;</span>);
 		<span class="kw">let </span>res_gc_b_p1000 =
 			GlobalConsensusParachainConvertsFor::&lt;UniversalLocation, [u8; <span class="number">32</span>]&gt;::convert_location(
-				<span class="kw-2">&amp;</span>MultiLocation::new(<span class="number">2</span>, X2(GlobalConsensus(ByGenesis([<span class="number">4</span>; <span class="number">32</span>])), Parachain(<span class="number">1000</span>))),
+				<span class="kw-2">&amp;</span>Location::new(<span class="number">2</span>, [GlobalConsensus(ByGenesis([<span class="number">4</span>; <span class="number">32</span>])), Parachain(<span class="number">1000</span>)]),
 			)
 			.expect(<span class="string">&quot;conversion is ok&quot;</span>);
 		<span class="kw">let </span>res_gc_b_p1001 =
 			GlobalConsensusParachainConvertsFor::&lt;UniversalLocation, [u8; <span class="number">32</span>]&gt;::convert_location(
-				<span class="kw-2">&amp;</span>MultiLocation::new(<span class="number">2</span>, X2(GlobalConsensus(ByGenesis([<span class="number">4</span>; <span class="number">32</span>])), Parachain(<span class="number">1001</span>))),
+				<span class="kw-2">&amp;</span>Location::new(<span class="number">2</span>, [GlobalConsensus(ByGenesis([<span class="number">4</span>; <span class="number">32</span>])), Parachain(<span class="number">1001</span>)]),
 			)
 			.expect(<span class="string">&quot;conversion is ok&quot;</span>);
 		<span class="macro">assert_ne!</span>(res_gc_a_p1000, res_gc_a_p1001);
@@ -1807,9 +1747,9 @@
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>remote_account_convert_on_para_sending_para_32() {
-		<span class="kw">let </span>mul = MultiLocation {
+		<span class="kw">let </span>mul = Location {
 			parents: <span class="number">1</span>,
-			interior: X2(Parachain(<span class="number">1</span>), AccountId32 { network: <span class="prelude-val">None</span>, id: [<span class="number">0u8</span>; <span class="number">32</span>] }),
+			interior: [Parachain(<span class="number">1</span>), AccountId32 { network: <span class="prelude-val">None</span>, id: [<span class="number">0u8</span>; <span class="number">32</span>] }].into(),
 		};
 		<span class="kw">let </span>rem_1 = ForeignChainAliasAccount::&lt;[u8; <span class="number">32</span>]&gt;::convert_location(<span class="kw-2">&amp;</span>mul).unwrap();
 
@@ -1821,19 +1761,20 @@
 			rem_1
 		);
 
-		<span class="kw">let </span>mul = MultiLocation {
+		<span class="kw">let </span>mul = Location {
 			parents: <span class="number">1</span>,
-			interior: X2(
+			interior: [
 				Parachain(<span class="number">1</span>),
 				AccountId32 { network: <span class="prelude-val">Some</span>(NetworkId::Polkadot), id: [<span class="number">0u8</span>; <span class="number">32</span>] },
-			),
+			]
+			.into(),
 		};
 
 		<span class="macro">assert_eq!</span>(ForeignChainAliasAccount::&lt;[u8; <span class="number">32</span>]&gt;::convert_location(<span class="kw-2">&amp;</span>mul).unwrap(), rem_1);
 
-		<span class="kw">let </span>mul = MultiLocation {
+		<span class="kw">let </span>mul = Location {
 			parents: <span class="number">1</span>,
-			interior: X2(Parachain(<span class="number">2</span>), AccountId32 { network: <span class="prelude-val">None</span>, id: [<span class="number">0u8</span>; <span class="number">32</span>] }),
+			interior: [Parachain(<span class="number">2</span>), AccountId32 { network: <span class="prelude-val">None</span>, id: [<span class="number">0u8</span>; <span class="number">32</span>] }].into(),
 		};
 		<span class="kw">let </span>rem_2 = ForeignChainAliasAccount::&lt;[u8; <span class="number">32</span>]&gt;::convert_location(<span class="kw-2">&amp;</span>mul).unwrap();
 
@@ -1850,9 +1791,9 @@
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>remote_account_convert_on_para_sending_para_20() {
-		<span class="kw">let </span>mul = MultiLocation {
+		<span class="kw">let </span>mul = Location {
 			parents: <span class="number">1</span>,
-			interior: X2(Parachain(<span class="number">1</span>), AccountKey20 { network: <span class="prelude-val">None</span>, key: [<span class="number">0u8</span>; <span class="number">20</span>] }),
+			interior: [Parachain(<span class="number">1</span>), AccountKey20 { network: <span class="prelude-val">None</span>, key: [<span class="number">0u8</span>; <span class="number">20</span>] }].into(),
 		};
 		<span class="kw">let </span>rem_1 = ForeignChainAliasAccount::&lt;[u8; <span class="number">32</span>]&gt;::convert_location(<span class="kw-2">&amp;</span>mul).unwrap();
 
@@ -1864,19 +1805,20 @@
 			rem_1
 		);
 
-		<span class="kw">let </span>mul = MultiLocation {
+		<span class="kw">let </span>mul = Location {
 			parents: <span class="number">1</span>,
-			interior: X2(
+			interior: [
 				Parachain(<span class="number">1</span>),
 				AccountKey20 { network: <span class="prelude-val">Some</span>(NetworkId::Polkadot), key: [<span class="number">0u8</span>; <span class="number">20</span>] },
-			),
+			]
+			.into(),
 		};
 
 		<span class="macro">assert_eq!</span>(ForeignChainAliasAccount::&lt;[u8; <span class="number">32</span>]&gt;::convert_location(<span class="kw-2">&amp;</span>mul).unwrap(), rem_1);
 
-		<span class="kw">let </span>mul = MultiLocation {
+		<span class="kw">let </span>mul = Location {
 			parents: <span class="number">1</span>,
-			interior: X2(Parachain(<span class="number">2</span>), AccountKey20 { network: <span class="prelude-val">None</span>, key: [<span class="number">0u8</span>; <span class="number">20</span>] }),
+			interior: [Parachain(<span class="number">2</span>), AccountKey20 { network: <span class="prelude-val">None</span>, key: [<span class="number">0u8</span>; <span class="number">20</span>] }].into(),
 		};
 		<span class="kw">let </span>rem_2 = ForeignChainAliasAccount::&lt;[u8; <span class="number">32</span>]&gt;::convert_location(<span class="kw-2">&amp;</span>mul).unwrap();
 
@@ -1893,9 +1835,9 @@
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>remote_account_convert_on_para_sending_relay() {
-		<span class="kw">let </span>mul = MultiLocation {
+		<span class="kw">let </span>mul = Location {
 			parents: <span class="number">1</span>,
-			interior: X1(AccountId32 { network: <span class="prelude-val">None</span>, id: [<span class="number">0u8</span>; <span class="number">32</span>] }),
+			interior: [AccountId32 { network: <span class="prelude-val">None</span>, id: [<span class="number">0u8</span>; <span class="number">32</span>] }].into(),
 		};
 		<span class="kw">let </span>rem_1 = ForeignChainAliasAccount::&lt;[u8; <span class="number">32</span>]&gt;::convert_location(<span class="kw-2">&amp;</span>mul).unwrap();
 
@@ -1907,16 +1849,16 @@
 			rem_1
 		);
 
-		<span class="kw">let </span>mul = MultiLocation {
+		<span class="kw">let </span>mul = Location {
 			parents: <span class="number">1</span>,
-			interior: X1(AccountId32 { network: <span class="prelude-val">Some</span>(NetworkId::Polkadot), id: [<span class="number">0u8</span>; <span class="number">32</span>] }),
+			interior: [AccountId32 { network: <span class="prelude-val">Some</span>(NetworkId::Polkadot), id: [<span class="number">0u8</span>; <span class="number">32</span>] }].into(),
 		};
 
 		<span class="macro">assert_eq!</span>(ForeignChainAliasAccount::&lt;[u8; <span class="number">32</span>]&gt;::convert_location(<span class="kw-2">&amp;</span>mul).unwrap(), rem_1);
 
-		<span class="kw">let </span>mul = MultiLocation {
+		<span class="kw">let </span>mul = Location {
 			parents: <span class="number">1</span>,
-			interior: X1(AccountId32 { network: <span class="prelude-val">None</span>, id: [<span class="number">1u8</span>; <span class="number">32</span>] }),
+			interior: [AccountId32 { network: <span class="prelude-val">None</span>, id: [<span class="number">1u8</span>; <span class="number">32</span>] }].into(),
 		};
 		<span class="kw">let </span>rem_2 = ForeignChainAliasAccount::&lt;[u8; <span class="number">32</span>]&gt;::convert_location(<span class="kw-2">&amp;</span>mul).unwrap();
 
@@ -1933,9 +1875,9 @@
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>remote_account_convert_on_relay_sending_para_20() {
-		<span class="kw">let </span>mul = MultiLocation {
+		<span class="kw">let </span>mul = Location {
 			parents: <span class="number">0</span>,
-			interior: X2(Parachain(<span class="number">1</span>), AccountKey20 { network: <span class="prelude-val">None</span>, key: [<span class="number">0u8</span>; <span class="number">20</span>] }),
+			interior: [Parachain(<span class="number">1</span>), AccountKey20 { network: <span class="prelude-val">None</span>, key: [<span class="number">0u8</span>; <span class="number">20</span>] }].into(),
 		};
 		<span class="kw">let </span>rem_1 = ForeignChainAliasAccount::&lt;[u8; <span class="number">32</span>]&gt;::convert_location(<span class="kw-2">&amp;</span>mul).unwrap();
 
@@ -1947,9 +1889,9 @@
 			rem_1
 		);
 
-		<span class="kw">let </span>mul = MultiLocation {
+		<span class="kw">let </span>mul = Location {
 			parents: <span class="number">0</span>,
-			interior: X2(Parachain(<span class="number">2</span>), AccountKey20 { network: <span class="prelude-val">None</span>, key: [<span class="number">0u8</span>; <span class="number">20</span>] }),
+			interior: [Parachain(<span class="number">2</span>), AccountKey20 { network: <span class="prelude-val">None</span>, key: [<span class="number">0u8</span>; <span class="number">20</span>] }].into(),
 		};
 		<span class="kw">let </span>rem_2 = ForeignChainAliasAccount::&lt;[u8; <span class="number">32</span>]&gt;::convert_location(<span class="kw-2">&amp;</span>mul).unwrap();
 
@@ -1966,9 +1908,9 @@
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>remote_account_convert_on_relay_sending_para_32() {
-		<span class="kw">let </span>mul = MultiLocation {
+		<span class="kw">let </span>mul = Location {
 			parents: <span class="number">0</span>,
-			interior: X2(Parachain(<span class="number">1</span>), AccountId32 { network: <span class="prelude-val">None</span>, id: [<span class="number">0u8</span>; <span class="number">32</span>] }),
+			interior: [Parachain(<span class="number">1</span>), AccountId32 { network: <span class="prelude-val">None</span>, id: [<span class="number">0u8</span>; <span class="number">32</span>] }].into(),
 		};
 		<span class="kw">let </span>rem_1 = ForeignChainAliasAccount::&lt;[u8; <span class="number">32</span>]&gt;::convert_location(<span class="kw-2">&amp;</span>mul).unwrap();
 
@@ -1980,19 +1922,20 @@
 			rem_1
 		);
 
-		<span class="kw">let </span>mul = MultiLocation {
+		<span class="kw">let </span>mul = Location {
 			parents: <span class="number">0</span>,
-			interior: X2(
+			interior: [
 				Parachain(<span class="number">1</span>),
 				AccountId32 { network: <span class="prelude-val">Some</span>(NetworkId::Polkadot), id: [<span class="number">0u8</span>; <span class="number">32</span>] },
-			),
+			]
+			.into(),
 		};
 
 		<span class="macro">assert_eq!</span>(ForeignChainAliasAccount::&lt;[u8; <span class="number">32</span>]&gt;::convert_location(<span class="kw-2">&amp;</span>mul).unwrap(), rem_1);
 
-		<span class="kw">let </span>mul = MultiLocation {
+		<span class="kw">let </span>mul = Location {
 			parents: <span class="number">0</span>,
-			interior: X2(Parachain(<span class="number">2</span>), AccountId32 { network: <span class="prelude-val">None</span>, id: [<span class="number">0u8</span>; <span class="number">32</span>] }),
+			interior: [Parachain(<span class="number">2</span>), AccountId32 { network: <span class="prelude-val">None</span>, id: [<span class="number">0u8</span>; <span class="number">32</span>] }].into(),
 		};
 		<span class="kw">let </span>rem_2 = ForeignChainAliasAccount::&lt;[u8; <span class="number">32</span>]&gt;::convert_location(<span class="kw-2">&amp;</span>mul).unwrap();
 
@@ -2008,20 +1951,18 @@
 	}
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>remote_account_fails_with_bad_multilocation() {
-		<span class="kw">let </span>mul = MultiLocation {
+	</span><span class="kw">fn </span>remote_account_fails_with_bad_location() {
+		<span class="kw">let </span>mul = Location {
 			parents: <span class="number">1</span>,
-			interior: X1(AccountKey20 { network: <span class="prelude-val">None</span>, key: [<span class="number">0u8</span>; <span class="number">20</span>] }),
+			interior: [AccountKey20 { network: <span class="prelude-val">None</span>, key: [<span class="number">0u8</span>; <span class="number">20</span>] }].into(),
 		};
 		<span class="macro">assert!</span>(ForeignChainAliasAccount::&lt;[u8; <span class="number">32</span>]&gt;::convert_location(<span class="kw-2">&amp;</span>mul).is_none());
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>remote_account_convert_on_para_sending_from_remote_para_treasury() {
-		<span class="kw">let </span>relay_treasury_to_para_location = MultiLocation {
-			parents: <span class="number">1</span>,
-			interior: X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }),
-		};
+		<span class="kw">let </span>relay_treasury_to_para_location =
+			Location::new(<span class="number">1</span>, [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]);
 		<span class="kw">let </span>actual_description = ForeignChainAliasTreasuryAccount::&lt;[u8; <span class="number">32</span>]&gt;::convert_location(
 			<span class="kw-2">&amp;</span>relay_treasury_to_para_location,
 		)
@@ -2035,13 +1976,10 @@
 			actual_description
 		);
 
-		<span class="kw">let </span>para_to_para_treasury_location = MultiLocation {
-			parents: <span class="number">1</span>,
-			interior: X2(
-				Parachain(<span class="number">1001</span>),
-				Plurality { id: BodyId::Treasury, part: BodyPart::Voice },
-			),
-		};
+		<span class="kw">let </span>para_to_para_treasury_location = Location::new(
+			<span class="number">1</span>,
+			[Parachain(<span class="number">1001</span>), Plurality { id: BodyId::Treasury, part: BodyPart::Voice }],
+		);
 		<span class="kw">let </span>actual_description = ForeignChainAliasTreasuryAccount::&lt;[u8; <span class="number">32</span>]&gt;::convert_location(
 			<span class="kw-2">&amp;</span>para_to_para_treasury_location,
 		)
@@ -2058,10 +1996,8 @@
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>local_account_convert_on_para_from_relay_treasury() {
-		<span class="kw">let </span>location = MultiLocation {
-			parents: <span class="number">0</span>,
-			interior: X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }),
-		};
+		<span class="kw">let </span>location =
+			Location::new(<span class="number">0</span>, [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]);
 
 		<span class="macro">parameter_types! </span>{
 			<span class="kw">pub </span>TreasuryAccountId: AccountId = AccountId::new([<span class="number">42u8</span>; <span class="number">32</span>]);

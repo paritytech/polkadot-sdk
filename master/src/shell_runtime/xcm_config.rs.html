@@ -90,6 +90,9 @@
 <a href="#90" id="90">90</a>
 <a href="#91" id="91">91</a>
 <a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -110,8 +113,8 @@
 	RuntimeOrigin,
 };
 <span class="kw">use </span>frame_support::{
-	match_types, parameter_types,
-	traits::{Everything, Nothing},
+	parameter_types,
+	traits::{Contains, Everything, Nothing},
 	weights::Weight,
 };
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
@@ -121,9 +124,9 @@
 };
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>RococoLocation: MultiLocation = MultiLocation::parent();
+	<span class="kw">pub const </span>RococoLocation: Location = Location::parent();
 	<span class="kw">pub const </span>RococoNetwork: <span class="prelude-ty">Option</span>&lt;NetworkId&gt; = <span class="prelude-val">Some</span>(NetworkId::Rococo);
-	<span class="kw">pub </span>UniversalLocation: InteriorMultiLocation = X1(Parachain(ParachainInfo::parachain_id().into()));
+	<span class="kw">pub </span>UniversalLocation: InteriorLocation = [Parachain(ParachainInfo::parachain_id().into())].into();
 }
 
 <span class="doccomment">/// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
@@ -139,8 +142,11 @@
 	</span>ParentAsSuperuser&lt;RuntimeOrigin&gt;,
 );
 
-<span class="macro">match_types! </span>{
-	<span class="kw">pub type </span>JustTheParent: <span class="kw">impl </span>Contains&lt;MultiLocation&gt; = { MultiLocation { parents:<span class="number">1</span>, interior: Here } };
+<span class="kw">pub struct </span>JustTheParent;
+<span class="kw">impl </span>Contains&lt;Location&gt; <span class="kw">for </span>JustTheParent {
+	<span class="kw">fn </span>contains(location: <span class="kw-2">&amp;</span>Location) -&gt; bool {
+		<span class="macro">matches!</span>(location.unpack(), (<span class="number">1</span>, []))
+	}
 }
 
 <span class="macro">parameter_types! </span>{

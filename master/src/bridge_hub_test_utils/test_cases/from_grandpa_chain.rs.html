@@ -773,9 +773,9 @@
 				(),
 			&gt;(
 				LaneId::default(),
-				<span class="macro">vec!</span>[xcm::v3::Instruction::&lt;()&gt;::ClearOrigin; <span class="number">1_024</span>].into(),
+				<span class="macro">vec!</span>[Instruction::&lt;()&gt;::ClearOrigin; <span class="number">1_024</span>].into(),
 				<span class="number">1</span>,
-				X2(GlobalConsensus(Polkadot), Parachain(<span class="number">1_000</span>)),
+				[GlobalConsensus(Polkadot), Parachain(<span class="number">1_000</span>)].into(),
 				<span class="number">1u32</span>.into(),
 			);
 

@@ -155,17 +155,17 @@
 	</span><span class="kw">type </span>OriginConverter: ConvertOrigin&lt;&lt;<span class="self">Self</span>::RuntimeCall <span class="kw">as </span>Dispatchable&gt;::RuntimeOrigin&gt;;
 
 	<span class="doccomment">/// Combinations of (Asset, Location) pairs which we trust as reserves.
-	</span><span class="kw">type </span>IsReserve: ContainsPair&lt;MultiAsset, MultiLocation&gt;;
+	</span><span class="kw">type </span>IsReserve: ContainsPair&lt;Asset, Location&gt;;
 
 	<span class="doccomment">/// Combinations of (Asset, Location) pairs which we trust as teleporters.
-	</span><span class="kw">type </span>IsTeleporter: ContainsPair&lt;MultiAsset, MultiLocation&gt;;
+	</span><span class="kw">type </span>IsTeleporter: ContainsPair&lt;Asset, Location&gt;;
 
 	<span class="doccomment">/// A list of (Origin, Target) pairs allowing a given Origin to be substituted with its
 	/// corresponding Target pair.
-	</span><span class="kw">type </span>Aliasers: ContainsPair&lt;MultiLocation, MultiLocation&gt;;
+	</span><span class="kw">type </span>Aliasers: ContainsPair&lt;Location, Location&gt;;
 
 	<span class="doccomment">/// This chain&#39;s Universal Location.
-	</span><span class="kw">type </span>UniversalLocation: Get&lt;InteriorMultiLocation&gt;;
+	</span><span class="kw">type </span>UniversalLocation: Get&lt;InteriorLocation&gt;;
 
 	<span class="doccomment">/// Whether we should execute the given XCM at all.
 	</span><span class="kw">type </span>Barrier: ShouldExecute;
@@ -212,7 +212,7 @@
 
 	<span class="doccomment">/// The origin locations and specific universal junctions to which they are allowed to elevate
 	/// themselves.
-	</span><span class="kw">type </span>UniversalAliases: Contains&lt;(MultiLocation, Junction)&gt;;
+	</span><span class="kw">type </span>UniversalAliases: Contains&lt;(Location, Junction)&gt;;
 
 	<span class="doccomment">/// The call dispatcher used by XCM.
 	///

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["LocalFromLeft","TargetFromLeft"],"trait":["MatchesLocalAndForeignAssetsMultiLocation"]};
+window.SIDEBAR_ITEMS = {"struct":["LocalFromLeft","TargetFromLeft"],"trait":["MatchesLocalAndForeignAssetsLocation"]};

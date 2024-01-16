@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["traits"],"struct":["Assets","ExecutorError","FeesMode","WeighedMessage","XcmExecutor"],"trait":["Config"]};
+window.SIDEBAR_ITEMS = {"mod":["traits"],"struct":["AssetsInHolding","ExecutorError","FeesMode","WeighedMessage","XcmExecutor"],"trait":["Config"]};

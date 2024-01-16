@@ -150,10 +150,6 @@
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
 <a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -183,7 +179,7 @@
 };
 <span class="kw">use </span>xcm_executor::{
 	traits::{TransactAsset, WeightTrader},
-	Assets,
+	AssetsInHolding,
 };
 
 <span class="macro">parameter_types! </span>{
@@ -191,10 +187,10 @@
 	<span class="kw">pub const </span>AnyNetwork: <span class="prelude-ty">Option</span>&lt;NetworkId&gt; = <span class="prelude-val">None</span>;
 	<span class="kw">pub const </span>MaxInstructions: u32 = <span class="number">100</span>;
 	<span class="kw">pub const </span>MaxAssetsIntoHolding: u32 = <span class="number">16</span>;
-	<span class="kw">pub const </span>UniversalLocation: xcm::latest::InteriorMultiLocation = xcm::latest::Junctions::Here;
+	<span class="kw">pub const </span>UniversalLocation: xcm::latest::InteriorLocation = xcm::latest::Junctions::Here;
 }
 
-<span class="doccomment">/// Type to convert an `Origin` type value into a `MultiLocation` value which represents an interior
+<span class="doccomment">/// Type to convert an `Origin` type value into a `Location` value which represents an interior
 /// location of this chain.
 </span><span class="kw">pub type </span>LocalOriginToLocation = (
 	<span class="comment">// And a usual Signed origin to be used in XCM as a corresponding AccountId32
@@ -204,8 +200,8 @@
 <span class="kw">pub struct </span>DoNothingRouter;
 <span class="kw">impl </span>SendXcm <span class="kw">for </span>DoNothingRouter {
 	<span class="kw">type </span>Ticket = ();
-	<span class="kw">fn </span>validate(_dest: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;MultiLocation&gt;, _msg: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;) -&gt; SendResult&lt;()&gt; {
-		<span class="prelude-val">Ok</span>(((), MultiAssets::new()))
+	<span class="kw">fn </span>validate(_dest: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Location&gt;, _msg: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;) -&gt; SendResult&lt;()&gt; {
+		<span class="prelude-val">Ok</span>(((), Assets::new()))
 	}
 	<span class="kw">fn </span>deliver(<span class="kw">_</span>: ()) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, SendError&gt; {
 		<span class="prelude-val">Ok</span>([<span class="number">0</span>; <span class="number">32</span>])
@@ -216,20 +212,16 @@
 
 <span class="kw">pub struct </span>DummyAssetTransactor;
 <span class="kw">impl </span>TransactAsset <span class="kw">for </span>DummyAssetTransactor {
-	<span class="kw">fn </span>deposit_asset(
-		_what: <span class="kw-2">&amp;</span>MultiAsset,
-		_who: <span class="kw-2">&amp;</span>MultiLocation,
-		_context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;,
-	) -&gt; XcmResult {
+	<span class="kw">fn </span>deposit_asset(_what: <span class="kw-2">&amp;</span>Asset, _who: <span class="kw-2">&amp;</span>Location, _context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;) -&gt; XcmResult {
 		<span class="prelude-val">Ok</span>(())
 	}
 
 	<span class="kw">fn </span>withdraw_asset(
-		_what: <span class="kw-2">&amp;</span>MultiAsset,
-		_who: <span class="kw-2">&amp;</span>MultiLocation,
+		_what: <span class="kw-2">&amp;</span>Asset,
+		_who: <span class="kw-2">&amp;</span>Location,
 		_maybe_context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Assets, XcmError&gt; {
-		<span class="kw">let </span>asset: MultiAsset = (Parent, <span class="number">100_000</span>).into();
+	) -&gt; <span class="prelude-ty">Result</span>&lt;AssetsInHolding, XcmError&gt; {
+		<span class="kw">let </span>asset: Asset = (Parent, <span class="number">100_000</span>).into();
 		<span class="prelude-val">Ok</span>(asset.into())
 	}
 }
@@ -243,10 +235,10 @@
 	<span class="kw">fn </span>buy_weight(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		_weight: Weight,
-		_payment: Assets,
+		_payment: AssetsInHolding,
 		_context: <span class="kw-2">&amp;</span>XcmContext,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Assets, XcmError&gt; {
-		<span class="prelude-val">Ok</span>(Assets::default())
+	) -&gt; <span class="prelude-ty">Result</span>&lt;AssetsInHolding, XcmError&gt; {
+		<span class="prelude-val">Ok</span>(AssetsInHolding::default())
 	}
 }
 

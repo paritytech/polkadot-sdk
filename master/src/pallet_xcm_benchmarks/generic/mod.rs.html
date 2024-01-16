@@ -105,9 +105,6 @@
 <a href="#105" id="105">105</a>
 <a href="#106" id="106">106</a>
 <a href="#107" id="107">107</a>
-<a href="#108" id="108">108</a>
-<a href="#109" id="109">109</a>
-<a href="#110" id="110">110</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -136,10 +133,7 @@
 	<span class="kw">use </span>frame_benchmarking::BenchmarkError;
 	<span class="kw">use </span>frame_support::{dispatch::GetDispatchInfo, pallet_prelude::Encode};
 	<span class="kw">use </span>sp_runtime::traits::Dispatchable;
-	<span class="kw">use </span>xcm::latest::{
-		InteriorMultiLocation, Junction, MultiAsset, MultiAssets, MultiLocation, NetworkId,
-		Response,
-	};
+	<span class="kw">use </span>xcm::latest::{Asset, Assets, InteriorLocation, Junction, Location, NetworkId, Response};
 
 	<span class="attr">#[pallet::config]
 	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">&#39;static </span>= ()&gt;: frame_system::Config + <span class="kw">crate</span>::Config {
@@ -163,44 +157,44 @@
 		/// from, whereas the second element represents the assets that are being exchanged to.
 		///
 		/// If set to `Err`, benchmarks which rely on an `exchange_asset` will be skipped.
-		</span><span class="kw">fn </span>worst_case_asset_exchange() -&gt; <span class="prelude-ty">Result</span>&lt;(MultiAssets, MultiAssets), BenchmarkError&gt;;
+		</span><span class="kw">fn </span>worst_case_asset_exchange() -&gt; <span class="prelude-ty">Result</span>&lt;(Assets, Assets), BenchmarkError&gt;;
 
-		<span class="doccomment">/// A `(MultiLocation, Junction)` that is one of the `UniversalAliases` configured by the
+		<span class="doccomment">/// A `(Location, Junction)` that is one of the `UniversalAliases` configured by the
 		/// XCM executor.
 		///
 		/// If set to `Err`, benchmarks which rely on a universal alias will be skipped.
-		</span><span class="kw">fn </span>universal_alias() -&gt; <span class="prelude-ty">Result</span>&lt;(MultiLocation, Junction), BenchmarkError&gt;;
+		</span><span class="kw">fn </span>universal_alias() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, Junction), BenchmarkError&gt;;
 
-		<span class="doccomment">/// The `MultiLocation` and `RuntimeCall` used for successful transaction XCMs.
+		<span class="doccomment">/// The `Location` and `RuntimeCall` used for successful transaction XCMs.
 		///
 		/// If set to `Err`, benchmarks which rely on a `transact_origin_and_runtime_call` will be
 		/// skipped.
 		</span><span class="kw">fn </span>transact_origin_and_runtime_call(
-		) -&gt; <span class="prelude-ty">Result</span>&lt;(MultiLocation, &lt;<span class="self">Self </span><span class="kw">as </span><span class="kw">crate</span>::generic::Config&lt;I&gt;&gt;::RuntimeCall), BenchmarkError&gt;;
+		) -&gt; <span class="prelude-ty">Result</span>&lt;(Location, &lt;<span class="self">Self </span><span class="kw">as </span><span class="kw">crate</span>::generic::Config&lt;I&gt;&gt;::RuntimeCall), BenchmarkError&gt;;
 
-		<span class="doccomment">/// A valid `MultiLocation` we can successfully subscribe to.
+		<span class="doccomment">/// A valid `Location` we can successfully subscribe to.
 		///
 		/// If set to `Err`, benchmarks which rely on a `subscribe_origin` will be skipped.
-		</span><span class="kw">fn </span>subscribe_origin() -&gt; <span class="prelude-ty">Result</span>&lt;MultiLocation, BenchmarkError&gt;;
+		</span><span class="kw">fn </span>subscribe_origin() -&gt; <span class="prelude-ty">Result</span>&lt;Location, BenchmarkError&gt;;
 
 		<span class="doccomment">/// Return an origin, ticket, and assets that can be trapped and claimed.
-		</span><span class="kw">fn </span>claimable_asset() -&gt; <span class="prelude-ty">Result</span>&lt;(MultiLocation, MultiLocation, MultiAssets), BenchmarkError&gt;;
+		</span><span class="kw">fn </span>claimable_asset() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, Location, Assets), BenchmarkError&gt;;
 
 		<span class="doccomment">/// Return an unlocker, owner and assets that can be locked and unlocked.
-		</span><span class="kw">fn </span>unlockable_asset() -&gt; <span class="prelude-ty">Result</span>&lt;(MultiLocation, MultiLocation, MultiAsset), BenchmarkError&gt;;
+		</span><span class="kw">fn </span>unlockable_asset() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, Location, Asset), BenchmarkError&gt;;
 
-		<span class="doccomment">/// A `(MultiLocation, NetworkId, InteriorMultiLocation)` we can successfully export message
+		<span class="doccomment">/// A `(Location, NetworkId, InteriorLocation)` we can successfully export message
 		/// to.
 		///
 		/// If set to `Err`, benchmarks which rely on `export_message` will be skipped.
 		</span><span class="kw">fn </span>export_message_origin_and_destination(
-		) -&gt; <span class="prelude-ty">Result</span>&lt;(MultiLocation, NetworkId, InteriorMultiLocation), BenchmarkError&gt;;
+		) -&gt; <span class="prelude-ty">Result</span>&lt;(Location, NetworkId, InteriorLocation), BenchmarkError&gt;;
 
-		<span class="doccomment">/// A `(MultiLocation, MultiLocation)` that is one of the `Aliasers` configured by the XCM
+		<span class="doccomment">/// A `(Location, Location)` that is one of the `Aliasers` configured by the XCM
 		/// executor.
 		///
 		/// If set to `Err`, benchmarks which rely on a universal alias will be skipped.
-		</span><span class="kw">fn </span>alias_origin() -&gt; <span class="prelude-ty">Result</span>&lt;(MultiLocation, MultiLocation), BenchmarkError&gt;;
+		</span><span class="kw">fn </span>alias_origin() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, Location), BenchmarkError&gt;;
 
 		<span class="doccomment">/// Returns a valid pallet info for `ExpectPallet` or `QueryPallet` benchmark.
 		///

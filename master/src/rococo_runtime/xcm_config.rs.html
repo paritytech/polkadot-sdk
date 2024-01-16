@@ -282,6 +282,11 @@
 <a href="#282" id="282">282</a>
 <a href="#283" id="283">283</a>
 <a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -308,8 +313,8 @@
 <span class="kw">use </span><span class="kw">crate</span>::governance::StakingAdmin;
 
 <span class="kw">use </span>frame_support::{
-	match_types, parameter_types,
-	traits::{Equals, Everything, Nothing},
+	parameter_types,
+	traits::{Contains, Equals, Everything, Nothing},
 	weights::Weight,
 };
 <span class="kw">use </span>frame_system::EnsureRoot;
@@ -334,10 +339,10 @@
 <span class="kw">use </span>xcm_executor::XcmExecutor;
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>RootLocation: MultiLocation = MultiLocation::here();
-	<span class="kw">pub const </span>TokenLocation: MultiLocation = Here.into_location();
+	<span class="kw">pub </span>TokenLocation: Location = Here.into_location();
+	<span class="kw">pub </span>RootLocation: Location = Location::here();
 	<span class="kw">pub const </span>ThisNetwork: NetworkId = NetworkId::Rococo;
-	<span class="kw">pub </span>UniversalLocation: InteriorMultiLocation = ThisNetwork::get().into();
+	<span class="kw">pub </span>UniversalLocation: InteriorLocation = ThisNetwork::get().into();
 	<span class="kw">pub </span>CheckAccount: AccountId = XcmPallet::check_account();
 	<span class="kw">pub </span>LocalCheckAccount: (AccountId, MintLocation) = (CheckAccount::get(), MintLocation::Local);
 	<span class="kw">pub </span>TreasuryAccount: AccountId = Treasury::account_id();
@@ -353,7 +358,7 @@
 );
 
 <span class="doccomment">/// Our asset transactor. This is what allows us to interest with the runtime facilities from the
-/// point of view of XCM-only concepts like `MultiLocation` and `MultiAsset`.
+/// point of view of XCM-only concepts like `Location` and `Asset`.
 ///
 /// Ours is only aware of the Balances pallet, which is mapped to `RocLocation`.
 </span><span class="attr">#[allow(deprecated)]
@@ -362,7 +367,7 @@
 	</span>Balances,
 	<span class="comment">// Use this currency when it is a fungible asset matching the given location or name:
 	</span>IsConcrete&lt;TokenLocation&gt;,
-	<span class="comment">// We can convert the MultiLocations with our converter above:
+	<span class="comment">// We can convert the Locations with our converter above:
 	</span>LocationConverter,
 	<span class="comment">// Our chain&#39;s account ID type (we can&#39;t get away without mentioning it explicitly):
 	</span>AccountId,
@@ -384,7 +389,7 @@
 	<span class="doccomment">/// The amount of weight an XCM operation takes. This is a safe overestimate.
 	</span><span class="kw">pub const </span>BaseXcmWeight: Weight = Weight::from_parts(<span class="number">1_000_000_000</span>, <span class="number">64 </span>* <span class="number">1024</span>);
 	<span class="doccomment">/// The asset ID for the asset that we use to pay for message delivery fees.
-	</span><span class="kw">pub </span>FeeAssetId: AssetId = Concrete(TokenLocation::get());
+	</span><span class="kw">pub </span>FeeAssetId: AssetId = AssetId(TokenLocation::get());
 	<span class="doccomment">/// The base fee for the message delivery fees.
 	</span><span class="kw">pub const </span>BaseDeliveryFee: u128 = CENTS.saturating_mul(<span class="number">3</span>);
 }
@@ -400,25 +405,25 @@
 &gt;;
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>Roc: MultiAssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
-	<span class="kw">pub const </span>AssetHub: MultiLocation = Parachain(ASSET_HUB_ID).into_location();
-	<span class="kw">pub const </span>Contracts: MultiLocation = Parachain(CONTRACTS_ID).into_location();
-	<span class="kw">pub const </span>Encointer: MultiLocation = Parachain(ENCOINTER_ID).into_location();
-	<span class="kw">pub const </span>BridgeHub: MultiLocation = Parachain(BRIDGE_HUB_ID).into_location();
-	<span class="kw">pub const </span>People: MultiLocation = Parachain(PEOPLE_ID).into_location();
-	<span class="kw">pub const </span>Broker: MultiLocation = Parachain(BROKER_ID).into_location();
-	<span class="kw">pub const </span>Tick: MultiLocation = Parachain(<span class="number">100</span>).into_location();
-	<span class="kw">pub const </span>Trick: MultiLocation = Parachain(<span class="number">110</span>).into_location();
-	<span class="kw">pub const </span>Track: MultiLocation = Parachain(<span class="number">120</span>).into_location();
-	<span class="kw">pub const </span>RocForTick: (MultiAssetFilter, MultiLocation) = (Roc::get(), Tick::get());
-	<span class="kw">pub const </span>RocForTrick: (MultiAssetFilter, MultiLocation) = (Roc::get(), Trick::get());
-	<span class="kw">pub const </span>RocForTrack: (MultiAssetFilter, MultiLocation) = (Roc::get(), Track::get());
-	<span class="kw">pub const </span>RocForAssetHub: (MultiAssetFilter, MultiLocation) = (Roc::get(), AssetHub::get());
-	<span class="kw">pub const </span>RocForContracts: (MultiAssetFilter, MultiLocation) = (Roc::get(), Contracts::get());
-	<span class="kw">pub const </span>RocForEncointer: (MultiAssetFilter, MultiLocation) = (Roc::get(), Encointer::get());
-	<span class="kw">pub const </span>RocForBridgeHub: (MultiAssetFilter, MultiLocation) = (Roc::get(), BridgeHub::get());
-	<span class="kw">pub const </span>RocForPeople: (MultiAssetFilter, MultiLocation) = (Roc::get(), People::get());
-	<span class="kw">pub const </span>RocForBroker: (MultiAssetFilter, MultiLocation) = (Roc::get(), Broker::get());
+	<span class="kw">pub </span>Roc: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) });
+	<span class="kw">pub </span>AssetHub: Location = Parachain(ASSET_HUB_ID).into_location();
+	<span class="kw">pub </span>Contracts: Location = Parachain(CONTRACTS_ID).into_location();
+	<span class="kw">pub </span>Encointer: Location = Parachain(ENCOINTER_ID).into_location();
+	<span class="kw">pub </span>BridgeHub: Location = Parachain(BRIDGE_HUB_ID).into_location();
+	<span class="kw">pub </span>People: Location = Parachain(PEOPLE_ID).into_location();
+	<span class="kw">pub </span>Broker: Location = Parachain(BROKER_ID).into_location();
+	<span class="kw">pub </span>Tick: Location = Parachain(<span class="number">100</span>).into_location();
+	<span class="kw">pub </span>Trick: Location = Parachain(<span class="number">110</span>).into_location();
+	<span class="kw">pub </span>Track: Location = Parachain(<span class="number">120</span>).into_location();
+	<span class="kw">pub </span>RocForTick: (AssetFilter, Location) = (Roc::get(), Tick::get());
+	<span class="kw">pub </span>RocForTrick: (AssetFilter, Location) = (Roc::get(), Trick::get());
+	<span class="kw">pub </span>RocForTrack: (AssetFilter, Location) = (Roc::get(), Track::get());
+	<span class="kw">pub </span>RocForAssetHub: (AssetFilter, Location) = (Roc::get(), AssetHub::get());
+	<span class="kw">pub </span>RocForContracts: (AssetFilter, Location) = (Roc::get(), Contracts::get());
+	<span class="kw">pub </span>RocForEncointer: (AssetFilter, Location) = (Roc::get(), Encointer::get());
+	<span class="kw">pub </span>RocForBridgeHub: (AssetFilter, Location) = (Roc::get(), BridgeHub::get());
+	<span class="kw">pub </span>RocForPeople: (AssetFilter, Location) = (Roc::get(), People::get());
+	<span class="kw">pub </span>RocForBroker: (AssetFilter, Location) = (Roc::get(), Broker::get());
 	<span class="kw">pub const </span>MaxInstructions: u32 = <span class="number">100</span>;
 	<span class="kw">pub const </span>MaxAssetsIntoHolding: u32 = <span class="number">64</span>;
 }
@@ -434,13 +439,18 @@
 	xcm_builder::Case&lt;RocForBroker&gt;,
 );
 
-<span class="macro">match_types! </span>{
-	<span class="kw">pub type </span>OnlyParachains: <span class="kw">impl </span>Contains&lt;MultiLocation&gt; = {
-		MultiLocation { parents: <span class="number">0</span>, interior: X1(Parachain(<span class="kw">_</span>)) }
-	};
-	<span class="kw">pub type </span>LocalPlurality: <span class="kw">impl </span>Contains&lt;MultiLocation&gt; = {
-		MultiLocation { parents: <span class="number">0</span>, interior: X1(Plurality { .. }) }
-	};
+<span class="kw">pub struct </span>OnlyParachains;
+<span class="kw">impl </span>Contains&lt;Location&gt; <span class="kw">for </span>OnlyParachains {
+	<span class="kw">fn </span>contains(loc: <span class="kw-2">&amp;</span>Location) -&gt; bool {
+		<span class="macro">matches!</span>(loc.unpack(), (<span class="number">0</span>, [Parachain(<span class="kw">_</span>)]))
+	}
+}
+
+<span class="kw">pub struct </span>LocalPlurality;
+<span class="kw">impl </span>Contains&lt;Location&gt; <span class="kw">for </span>LocalPlurality {
+	<span class="kw">fn </span>contains(loc: <span class="kw-2">&amp;</span>Location) -&gt; bool {
+		<span class="macro">matches!</span>(loc.unpack(), (<span class="number">0</span>, [Plurality { .. }]))
+	}
 }
 
 <span class="doccomment">/// The barriers one of which must be passed for an XCM message to be executed.
@@ -511,26 +521,26 @@
 	</span><span class="kw">pub const </span>FellowsBodyId: BodyId = BodyId::Technical;
 }
 
-<span class="doccomment">/// Type to convert an `Origin` type value into a `MultiLocation` value which represents an interior
+<span class="doccomment">/// Type to convert an `Origin` type value into a `Location` value which represents an interior
 /// location of this chain.
 </span><span class="kw">pub type </span>LocalOriginToLocation = (
 	<span class="comment">// And a usual Signed origin to be used in XCM as a corresponding AccountId32
 	</span>SignedToAccountId32&lt;RuntimeOrigin, AccountId, ThisNetwork&gt;,
 );
 
-<span class="doccomment">/// Type to convert the `StakingAdmin` origin to a Plurality `MultiLocation` value.
+<span class="doccomment">/// Type to convert the `StakingAdmin` origin to a Plurality `Location` value.
 </span><span class="kw">pub type </span>StakingAdminToPlurality =
 	OriginToPluralityVoice&lt;RuntimeOrigin, StakingAdmin, StakingAdminBodyId&gt;;
 
-<span class="doccomment">/// Type to convert the Fellows origin to a Plurality `MultiLocation` value.
+<span class="doccomment">/// Type to convert the Fellows origin to a Plurality `Location` value.
 </span><span class="kw">pub type </span>FellowsToPlurality = OriginToPluralityVoice&lt;RuntimeOrigin, Fellows, FellowsBodyId&gt;;
 
-<span class="doccomment">/// Type to convert a pallet `Origin` type value into a `MultiLocation` value which represents an
+<span class="doccomment">/// Type to convert a pallet `Origin` type value into a `Location` value which represents an
 /// interior location of this chain for a destination chain.
 </span><span class="kw">pub type </span>LocalPalletOriginToLocation = (
-	<span class="comment">// StakingAdmin origin to be used in XCM as a corresponding Plurality `MultiLocation` value.
+	<span class="comment">// StakingAdmin origin to be used in XCM as a corresponding Plurality `Location` value.
 	</span>StakingAdminToPlurality,
-	<span class="comment">// Fellows origin to be used in XCM as a corresponding Plurality `MultiLocation` value.
+	<span class="comment">// Fellows origin to be used in XCM as a corresponding Plurality `Location` value.
 	</span>FellowsToPlurality,
 );
 

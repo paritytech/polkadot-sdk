@@ -453,6 +453,17 @@
 <a href="#453" id="453">453</a>
 <a href="#454" id="454">454</a>
 <a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -570,8 +581,8 @@
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 </span><span class="kw">pub struct </span>UniquesHelper;
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-</span><span class="kw">impl </span>pallet_uniques::BenchmarkHelper&lt;MultiLocation, AssetInstance&gt; <span class="kw">for </span>UniquesHelper {
-	<span class="kw">fn </span>collection(i: u16) -&gt; MultiLocation {
+</span><span class="kw">impl </span>pallet_uniques::BenchmarkHelper&lt;Location, AssetInstance&gt; <span class="kw">for </span>UniquesHelper {
+	<span class="kw">fn </span>collection(i: u16) -&gt; Location {
 		GeneralIndex(i <span class="kw">as </span>u128).into()
 	}
 	<span class="kw">fn </span>item(i: u16) -&gt; AssetInstance {
@@ -581,7 +592,7 @@
 
 <span class="kw">impl </span>pallet_uniques::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="kw">type </span>CollectionId = MultiLocation;
+	<span class="kw">type </span>CollectionId = Location;
 	<span class="kw">type </span>ItemId = AssetInstance;
 	<span class="kw">type </span>Currency = Balances;
 	<span class="kw">type </span>CreateOrigin = ForeignCreators;
@@ -603,12 +614,12 @@
 <span class="comment">// `EnsureOriginWithArg` impl for `CreateOrigin` which allows only XCM origins
 // which are locations containing the class location.
 </span><span class="kw">pub struct </span>ForeignCreators;
-<span class="kw">impl </span>EnsureOriginWithArg&lt;RuntimeOrigin, MultiLocation&gt; <span class="kw">for </span>ForeignCreators {
+<span class="kw">impl </span>EnsureOriginWithArg&lt;RuntimeOrigin, Location&gt; <span class="kw">for </span>ForeignCreators {
 	<span class="kw">type </span>Success = AccountId;
 
 	<span class="kw">fn </span>try_origin(
 		o: RuntimeOrigin,
-		a: <span class="kw-2">&amp;</span>MultiLocation,
+		a: <span class="kw-2">&amp;</span>Location,
 	) -&gt; sp_std::result::Result&lt;<span class="self">Self</span>::Success, RuntimeOrigin&gt; {
 		<span class="kw">let </span>origin_location = pallet_xcm::EnsureXcm::&lt;Everything&gt;::try_origin(o.clone())<span class="question-mark">?</span>;
 		<span class="kw">if </span>!a.starts_with(<span class="kw-2">&amp;</span>origin_location) {
@@ -618,8 +629,8 @@
 	}
 
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-	</span><span class="kw">fn </span>try_successful_origin(a: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, ()&gt; {
-		<span class="prelude-val">Ok</span>(pallet_xcm::Origin::Xcm(<span class="kw-2">*</span>a).into())
+	</span><span class="kw">fn </span>try_successful_origin(a: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, ()&gt; {
+		<span class="prelude-val">Ok</span>(pallet_xcm::Origin::Xcm(a.clone()).into())
 	}
 }
 
@@ -629,9 +640,9 @@
 }
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>KsmLocation: MultiLocation = MultiLocation::parent();
+	<span class="kw">pub const </span>KsmLocation: Location = Location::parent();
 	<span class="kw">pub const </span>RelayNetwork: NetworkId = NetworkId::Kusama;
-	<span class="kw">pub </span>UniversalLocation: InteriorMultiLocation = Parachain(MsgQueue::parachain_id().into()).into();
+	<span class="kw">pub </span>UniversalLocation: InteriorLocation = Parachain(MsgQueue::parachain_id().into()).into();
 }
 
 <span class="kw">pub type </span>LocationToAccountId = (
@@ -649,17 +660,17 @@
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>UnitWeightCost: Weight = Weight::from_parts(<span class="number">1</span>, <span class="number">1</span>);
-	<span class="kw">pub </span>KsmPerSecondPerByte: (AssetId, u128, u128) = (Concrete(Parent.into()), <span class="number">1</span>, <span class="number">1</span>);
+	<span class="kw">pub </span>KsmPerSecondPerByte: (AssetId, u128, u128) = (AssetId(Parent.into()), <span class="number">1</span>, <span class="number">1</span>);
 	<span class="kw">pub const </span>MaxInstructions: u32 = <span class="number">100</span>;
 	<span class="kw">pub const </span>MaxAssetsIntoHolding: u32 = <span class="number">64</span>;
-	<span class="kw">pub </span>ForeignPrefix: MultiLocation = (Parent,).into();
+	<span class="kw">pub </span>ForeignPrefix: Location = (Parent,).into();
 }
 
 <span class="kw">pub type </span>LocalAssetTransactor = (
 	FungibleAdapter&lt;Balances, IsConcrete&lt;KsmLocation&gt;, LocationToAccountId, AccountId, ()&gt;,
 	NonFungiblesAdapter&lt;
 		ForeignUniques,
-		ConvertedConcreteId&lt;MultiLocation, AssetInstance, JustTry, JustTry&gt;,
+		ConvertedConcreteId&lt;Location, AssetInstance, JustTry, JustTry&gt;,
 		SovereignAccountOf,
 		AccountId,
 		NoChecking,
@@ -671,9 +682,9 @@
 <span class="kw">pub type </span>Barrier = AllowUnpaidExecutionFrom&lt;Everything&gt;;
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub </span>NftCollectionOne: MultiAssetFilter
-		= Wild(AllOf { fun: WildNonFungible, id: Concrete((Parent, GeneralIndex(<span class="number">1</span>)).into()) });
-	<span class="kw">pub </span>NftCollectionOneForRelay: (MultiAssetFilter, MultiLocation)
+	<span class="kw">pub </span>NftCollectionOne: AssetFilter
+		= Wild(AllOf { fun: WildNonFungible, id: AssetId((Parent, GeneralIndex(<span class="number">1</span>)).into()) });
+	<span class="kw">pub </span>NftCollectionOneForRelay: (AssetFilter, Location)
 		= (NftCollectionOne::get(), (Parent,).into());
 }
 <span class="kw">pub type </span>TrustedTeleporters = xcm_builder::Case&lt;NftCollectionOneForRelay&gt;;
@@ -776,16 +787,23 @@
 			max_weight: Weight,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, XcmError&gt; {
 			<span class="kw">let </span>hash = Encode::using_encoded(<span class="kw-2">&amp;</span>xcm, T::Hashing::hash);
-			<span class="kw">let </span>message_hash = Encode::using_encoded(<span class="kw-2">&amp;</span>xcm, sp_io::hashing::blake2_256);
+			<span class="kw">let </span><span class="kw-2">mut </span>message_hash = Encode::using_encoded(<span class="kw-2">&amp;</span>xcm, sp_io::hashing::blake2_256);
 			<span class="kw">let </span>(result, event) = <span class="kw">match </span>Xcm::&lt;T::RuntimeCall&gt;::try_from(xcm) {
 				<span class="prelude-val">Ok</span>(xcm) =&gt; {
 					<span class="kw">let </span>location = (Parent, Parachain(sender.into()));
-					<span class="kw">match </span>T::XcmExecutor::execute_xcm(location, xcm, message_hash, max_weight) {
-						Outcome::Error(e) =&gt; (<span class="prelude-val">Err</span>(e), Event::Fail(<span class="prelude-val">Some</span>(hash), e)),
-						Outcome::Complete(w) =&gt; (<span class="prelude-val">Ok</span>(w), Event::Success(<span class="prelude-val">Some</span>(hash))),
+					<span class="kw">match </span>T::XcmExecutor::prepare_and_execute(
+						location,
+						xcm,
+						<span class="kw-2">&amp;mut </span>message_hash,
+						max_weight,
+						Weight::zero(),
+					) {
+						Outcome::Error { error } =&gt; (<span class="prelude-val">Err</span>(error), Event::Fail(<span class="prelude-val">Some</span>(hash), error)),
+						Outcome::Complete { used } =&gt; (<span class="prelude-val">Ok</span>(used), Event::Success(<span class="prelude-val">Some</span>(hash))),
 						<span class="comment">// As far as the caller is concerned, this was dispatched without error, so
 						// we just report the weight used.
-						</span>Outcome::Incomplete(w, e) =&gt; (<span class="prelude-val">Ok</span>(w), Event::Fail(<span class="prelude-val">Some</span>(hash), e)),
+						</span>Outcome::Incomplete { used, error } =&gt;
+							(<span class="prelude-val">Ok</span>(used), Event::Fail(<span class="prelude-val">Some</span>(hash), error)),
 					}
 				},
 				<span class="prelude-val">Err</span>(()) =&gt; (<span class="prelude-val">Err</span>(XcmError::UnhandledXcmVersion), Event::BadVersion(<span class="prelude-val">Some</span>(hash))),
@@ -826,7 +844,7 @@
 			limit: Weight,
 		) -&gt; Weight {
 			<span class="kw">for </span>(_i, (_sent_at, data)) <span class="kw">in </span>iter.enumerate() {
-				<span class="kw">let </span>id = sp_io::hashing::blake2_256(<span class="kw-2">&amp;</span>data[..]);
+				<span class="kw">let </span><span class="kw-2">mut </span>id = sp_io::hashing::blake2_256(<span class="kw-2">&amp;</span>data[..]);
 				<span class="kw">let </span>maybe_versioned = VersionedXcm::&lt;T::RuntimeCall&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>data[..]);
 				<span class="kw">match </span>maybe_versioned {
 					<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
@@ -835,7 +853,13 @@
 					<span class="prelude-val">Ok</span>(versioned) =&gt; <span class="kw">match </span>Xcm::try_from(versioned) {
 						<span class="prelude-val">Err</span>(()) =&gt; <span class="self">Self</span>::deposit_event(Event::UnsupportedVersion(id)),
 						<span class="prelude-val">Ok</span>(x) =&gt; {
-							<span class="kw">let </span>outcome = T::XcmExecutor::execute_xcm(Parent, x.clone(), id, limit);
+							<span class="kw">let </span>outcome = T::XcmExecutor::prepare_and_execute(
+								Parent,
+								x.clone(),
+								<span class="kw-2">&amp;mut </span>id,
+								limit,
+								Weight::zero(),
+							);
 							&lt;ReceivedDmp&lt;T&gt;&gt;::append(x);
 							<span class="self">Self</span>::deposit_event(Event::ExecutedDownward(id, outcome));
 						},
@@ -855,17 +879,15 @@
 <span class="kw">pub type </span>LocalOriginToLocation = SignedToAccountId32&lt;RuntimeOrigin, AccountId, RelayNetwork&gt;;
 
 <span class="kw">pub struct </span>TrustedLockerCase&lt;T&gt;(PhantomData&lt;T&gt;);
-<span class="kw">impl</span>&lt;T: Get&lt;(MultiLocation, MultiAssetFilter)&gt;&gt; ContainsPair&lt;MultiLocation, MultiAsset&gt;
-	<span class="kw">for </span>TrustedLockerCase&lt;T&gt;
-{
-	<span class="kw">fn </span>contains(origin: <span class="kw-2">&amp;</span>MultiLocation, asset: <span class="kw-2">&amp;</span>MultiAsset) -&gt; bool {
+<span class="kw">impl</span>&lt;T: Get&lt;(Location, AssetFilter)&gt;&gt; ContainsPair&lt;Location, Asset&gt; <span class="kw">for </span>TrustedLockerCase&lt;T&gt; {
+	<span class="kw">fn </span>contains(origin: <span class="kw-2">&amp;</span>Location, asset: <span class="kw-2">&amp;</span>Asset) -&gt; bool {
 		<span class="kw">let </span>(o, a) = T::get();
 		a.matches(asset) &amp;&amp; <span class="kw-2">&amp;</span>o == origin
 	}
 }
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub </span>RelayTokenForRelay: (MultiLocation, MultiAssetFilter) = (Parent.into(), Wild(AllOf { id: Concrete(Parent.into()), fun: WildFungible }));
+	<span class="kw">pub </span>RelayTokenForRelay: (Location, AssetFilter) = (Parent.into(), Wild(AllOf { id: AssetId(Parent.into()), fun: WildFungible }));
 }
 
 <span class="kw">pub type </span>TrustedLockers = TrustedLockerCase&lt;RelayTokenForRelay&gt;;

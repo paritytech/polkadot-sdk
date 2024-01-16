@@ -1597,9 +1597,6 @@
 <a href="#1597" id="1597">1597</a>
 <a href="#1598" id="1598">1598</a>
 <a href="#1599" id="1599">1599</a>
-<a href="#1600" id="1600">1600</a>
-<a href="#1601" id="1601">1601</a>
-<a href="#1602" id="1602">1602</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1662,12 +1659,9 @@
 <span class="comment">// Polkadot
 </span><span class="kw">pub use </span>polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 <span class="kw">use </span>sp_core::crypto::AccountId32;
-<span class="kw">pub use </span>xcm::{
-	prelude::{AccountId32 <span class="kw">as </span>AccountId32Junction, Here},
-	v3::prelude::{
-		Ancestor, MultiAssets, MultiLocation, Parachain <span class="kw">as </span>ParachainJunction, Parent, WeightLimit,
-		XcmHash, X1,
-	},
+<span class="kw">pub use </span>xcm::latest::prelude::{
+	AccountId32 <span class="kw">as </span>AccountId32Junction, Ancestor, Assets, Here, Location,
+	Parachain <span class="kw">as </span>ParachainJunction, Parent, WeightLimit, XcmHash,
 };
 <span class="kw">pub use </span>xcm_executor::traits::ConvertLocation;
 
@@ -1833,11 +1827,11 @@
 
 	<span class="kw">fn </span>init();
 
-	<span class="kw">fn </span>child_location_of(id: ParaId) -&gt; MultiLocation {
+	<span class="kw">fn </span>child_location_of(id: ParaId) -&gt; Location {
 		(Ancestor(<span class="number">0</span>), ParachainJunction(id.into())).into()
 	}
 
-	<span class="kw">fn </span>sovereign_account_id_of(location: MultiLocation) -&gt; AccountIdOf&lt;<span class="self">Self</span>::Runtime&gt; {
+	<span class="kw">fn </span>sovereign_account_id_of(location: Location) -&gt; AccountIdOf&lt;<span class="self">Self</span>::Runtime&gt; {
 		<span class="self">Self</span>::SovereignAccountOf::convert_location(<span class="kw-2">&amp;</span>location).unwrap()
 	}
 
@@ -1865,15 +1859,15 @@
 		<span class="self">Self</span>::ext_wrapper(|| <span class="self">Self</span>::ParachainInfo::get())
 	}
 
-	<span class="kw">fn </span>parent_location() -&gt; MultiLocation {
+	<span class="kw">fn </span>parent_location() -&gt; Location {
 		(Parent).into()
 	}
 
-	<span class="kw">fn </span>sibling_location_of(para_id: ParaId) -&gt; MultiLocation {
-		(Parent, X1(ParachainJunction(para_id.into()))).into()
+	<span class="kw">fn </span>sibling_location_of(para_id: ParaId) -&gt; Location {
+		(Parent, ParachainJunction(para_id.into())).into()
 	}
 
-	<span class="kw">fn </span>sovereign_account_id_of(location: MultiLocation) -&gt; AccountIdOf&lt;<span class="self">Self</span>::Runtime&gt; {
+	<span class="kw">fn </span>sovereign_account_id_of(location: Location) -&gt; AccountIdOf&lt;<span class="self">Self</span>::Runtime&gt; {
 		<span class="self">Self</span>::LocationToAccountId::convert_location(<span class="kw-2">&amp;</span>location).unwrap()
 	}
 }
@@ -3034,10 +3028,10 @@
 <span class="doccomment">/// Default `Args` provided by xcm-emulator to be stored in a `Test` instance
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>TestArgs {
-	<span class="kw">pub </span>dest: MultiLocation,
-	<span class="kw">pub </span>beneficiary: MultiLocation,
+	<span class="kw">pub </span>dest: Location,
+	<span class="kw">pub </span>beneficiary: Location,
 	<span class="kw">pub </span>amount: Balance,
-	<span class="kw">pub </span>assets: MultiAssets,
+	<span class="kw">pub </span>assets: Assets,
 	<span class="kw">pub </span>asset_id: <span class="prelude-ty">Option</span>&lt;u32&gt;,
 	<span class="kw">pub </span>fee_asset_item: u32,
 	<span class="kw">pub </span>weight_limit: WeightLimit,
@@ -3045,7 +3039,7 @@
 
 <span class="kw">impl </span>TestArgs {
 	<span class="doccomment">/// Returns a [`TestArgs`] instance to be used for the Relay Chain across integration tests.
-	</span><span class="kw">pub fn </span>new_relay(dest: MultiLocation, beneficiary_id: AccountId32, amount: Balance) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>new_relay(dest: Location, beneficiary_id: AccountId32, amount: Balance) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
 			dest,
 			beneficiary: AccountId32Junction { network: <span class="prelude-val">None</span>, id: beneficiary_id.into() }.into(),
@@ -3059,10 +3053,10 @@
 
 	<span class="doccomment">/// Returns a [`TestArgs`] instance to be used for parachains across integration tests.
 	</span><span class="kw">pub fn </span>new_para(
-		dest: MultiLocation,
+		dest: Location,
 		beneficiary_id: AccountId32,
 		amount: Balance,
-		assets: MultiAssets,
+		assets: Assets,
 		asset_id: <span class="prelude-ty">Option</span>&lt;u32&gt;,
 		fee_asset_item: u32,
 	) -&gt; <span class="self">Self </span>{

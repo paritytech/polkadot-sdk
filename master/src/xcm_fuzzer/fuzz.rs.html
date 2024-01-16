@@ -395,7 +395,7 @@
 		<span class="kw">if </span>xcm_message.source % <span class="number">4 </span>== <span class="number">0 </span>{
 			<span class="comment">// We get the destination for the message
 			</span><span class="kw">let </span>parachain_id = (xcm_message.destination % <span class="number">3</span>) + <span class="number">1</span>;
-			<span class="kw">let </span>destination: MultiLocation = Parachain(parachain_id).into();
+			<span class="kw">let </span>destination: Location = Parachain(parachain_id).into();
 			<span class="attr">#[cfg(not(fuzzing))]
 			</span>{
 				<span class="macro">println!</span>(<span class="string">&quot;  source:      Relay Chain&quot;</span>);
@@ -413,7 +413,7 @@
 				<span class="kw">_ </span>=&gt; ParaC::execute_with,
 			};
 			<span class="comment">// We get the destination for the message
-			</span><span class="kw">let </span>destination: MultiLocation = <span class="kw">match </span>xcm_message.destination % <span class="number">4 </span>{
+			</span><span class="kw">let </span>destination: Location = <span class="kw">match </span>xcm_message.destination % <span class="number">4 </span>{
 				n @ <span class="number">1</span>..=<span class="number">3 </span>=&gt; (Parent, Parachain(n)).into(),
 				<span class="kw">_ </span>=&gt; Parent.into(),
 			};

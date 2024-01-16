@@ -50,21 +50,21 @@
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use </span>frame_support::traits::ContainsPair;
-<span class="kw">use </span>xcm::latest::{MultiAsset, MultiLocation};
+<span class="kw">use </span>xcm::latest::{Asset, Location};
 
 <span class="doccomment">/// Filters assets/location pairs.
 ///
 /// Can be amalgamated into tuples. If any item returns `true`, it short-circuits, else `false` is
 /// returned.
-</span><span class="attr">#[deprecated = <span class="string">&quot;Use `frame_support::traits::ContainsPair&lt;MultiAsset, MultiLocation&gt;` instead&quot;</span>]
+</span><span class="attr">#[deprecated = <span class="string">&quot;Use `frame_support::traits::ContainsPair&lt;Asset, Location&gt;` instead&quot;</span>]
 </span><span class="kw">pub trait </span>FilterAssetLocation {
 	<span class="doccomment">/// A filter to distinguish between asset/location pairs.
-	</span><span class="kw">fn </span>contains(asset: <span class="kw-2">&amp;</span>MultiAsset, origin: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool;
+	</span><span class="kw">fn </span>contains(asset: <span class="kw-2">&amp;</span>Asset, origin: <span class="kw-2">&amp;</span>Location) -&gt; bool;
 }
 
 <span class="attr">#[allow(deprecated)]
-</span><span class="kw">impl</span>&lt;T: ContainsPair&lt;MultiAsset, MultiLocation&gt;&gt; FilterAssetLocation <span class="kw">for </span>T {
-	<span class="kw">fn </span>contains(asset: <span class="kw-2">&amp;</span>MultiAsset, origin: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
+</span><span class="kw">impl</span>&lt;T: ContainsPair&lt;Asset, Location&gt;&gt; FilterAssetLocation <span class="kw">for </span>T {
+	<span class="kw">fn </span>contains(asset: <span class="kw-2">&amp;</span>Asset, origin: <span class="kw-2">&amp;</span>Location) -&gt; bool {
 		T::contains(asset, origin)
 	}
 }

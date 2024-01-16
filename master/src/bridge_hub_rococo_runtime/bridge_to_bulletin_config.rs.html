@@ -340,7 +340,7 @@
 <span class="kw">use </span>sp_runtime::RuntimeDebug;
 <span class="kw">use </span>xcm::{
 	latest::prelude::<span class="kw-2">*</span>,
-	prelude::{InteriorMultiLocation, NetworkId},
+	prelude::{InteriorLocation, NetworkId},
 };
 <span class="kw">use </span>xcm_builder::BridgeBlobDispatcher;
 
@@ -357,16 +357,16 @@
 	<span class="doccomment">/// Bridge specific chain (network) identifier of the Rococo Bulletin Chain.
 	</span><span class="kw">pub const </span>RococoBulletinChainId: bp_runtime::ChainId = bp_runtime::POLKADOT_BULLETIN_CHAIN_ID;
 	<span class="doccomment">/// Interior location (relative to this runtime) of the with-RococoBulletin messages pallet.
-	</span><span class="kw">pub </span>BridgeRococoToRococoBulletinMessagesPalletInstance: InteriorMultiLocation = X1(
+	</span><span class="kw">pub </span>BridgeRococoToRococoBulletinMessagesPalletInstance: InteriorLocation = [
 		PalletInstance(&lt;BridgeRococoBulletinMessages <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8)
-	);
+	].into();
 	<span class="doccomment">/// Rococo Bulletin Network identifier.
 	</span><span class="kw">pub </span>RococoBulletinGlobalConsensusNetwork: NetworkId = NetworkId::PolkadotBulletin;
 	<span class="doccomment">/// Relative location of the Rococo Bulletin chain.
-	</span><span class="kw">pub </span>RococoBulletinGlobalConsensusNetworkLocation: MultiLocation = MultiLocation {
-		parents: <span class="number">2</span>,
-		interior: X1(GlobalConsensus(RococoBulletinGlobalConsensusNetwork::get()))
-	};
+	</span><span class="kw">pub </span>RococoBulletinGlobalConsensusNetworkLocation: Location = Location::new(
+		<span class="number">2</span>,
+		[GlobalConsensus(RococoBulletinGlobalConsensusNetwork::get())]
+	);
 	<span class="doccomment">/// All active lanes that the current bridge supports.
 	</span><span class="kw">pub </span>ActiveOutboundLanesToRococoBulletin: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[bp_messages::LaneId]
 		= <span class="kw-2">&amp;</span>[XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN];
@@ -386,11 +386,11 @@
 	<span class="doccomment">/// A route (XCM location and bridge lane) that the Rococo People Chain -&gt; Rococo Bulletin Chain
 	/// message is following.
 	</span><span class="kw">pub </span>FromRococoPeopleToRococoBulletinRoute: SenderAndLane = SenderAndLane::new(
-		ParentThen(X1(Parachain(RococoPeopleParaId::get().into()))).into(),
+		ParentThen(Parachain(RococoPeopleParaId::get().into()).into()).into(),
 		XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN,
 	);
 	<span class="doccomment">/// All active routes and their destinations.
-	</span><span class="kw">pub </span>ActiveLanes: sp_std::vec::Vec&lt;(SenderAndLane, (NetworkId, InteriorMultiLocation))&gt; = <span class="macro">sp_std::vec!</span>[
+	</span><span class="kw">pub </span>ActiveLanes: sp_std::vec::Vec&lt;(SenderAndLane, (NetworkId, InteriorLocation))&gt; = <span class="macro">sp_std::vec!</span>[
 			(
 				FromRococoPeopleToRococoBulletinRoute::get(),
 				(RococoBulletinGlobalConsensusNetwork::get(), Here)
@@ -574,12 +574,12 @@
 			PriorityBoostPerMessage,
 		&gt;(FEE_BOOST_PER_MESSAGE);
 
-		<span class="macro">assert_eq!</span>(
-			BridgeRococoToRococoBulletinMessagesPalletInstance::get(),
-			X1(PalletInstance(
-				bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_BULLETIN_MESSAGES_PALLET_INDEX
-			))
-		);
+		<span class="kw">let </span>expected: InteriorLocation = PalletInstance(
+			bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_BULLETIN_MESSAGES_PALLET_INDEX,
+		)
+		.into();
+
+		<span class="macro">assert_eq!</span>(BridgeRococoToRococoBulletinMessagesPalletInstance::get(), expected,);
 	}
 }
 </code></pre></div></section></main></body></html>

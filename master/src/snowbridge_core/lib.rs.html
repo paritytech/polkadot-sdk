@@ -168,10 +168,6 @@
 <a href="#168" id="168">168</a>
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
 </pre></div><pre class="rust"><code><span class="comment">// SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
 </span><span class="doccomment">//! # Core
@@ -202,11 +198,7 @@
 <span class="kw">use </span>sp_io::hashing::keccak_256;
 <span class="kw">use </span>sp_runtime::{traits::AccountIdConversion, RuntimeDebug};
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>xcm::prelude::{
-	Junction::Parachain,
-	Junctions::{Here, X1},
-	MultiLocation,
-};
+<span class="kw">use </span>xcm::prelude::{Junction::Parachain, Location};
 <span class="kw">use </span>xcm_builder::{DescribeAllTerminal, DescribeFamily, DescribeLocation, HashedDescription};
 
 <span class="doccomment">/// The ID of an agent contract
@@ -227,9 +219,9 @@
 }
 
 <span class="kw">pub struct </span>AllowSiblingsOnly;
-<span class="kw">impl </span>Contains&lt;MultiLocation&gt; <span class="kw">for </span>AllowSiblingsOnly {
-	<span class="kw">fn </span>contains(location: <span class="kw-2">&amp;</span>MultiLocation) -&gt; bool {
-		<span class="macro">matches!</span>(location, MultiLocation { parents: <span class="number">1</span>, interior: X1(Parachain(<span class="kw">_</span>)) })
+<span class="kw">impl </span>Contains&lt;Location&gt; <span class="kw">for </span>AllowSiblingsOnly {
+	<span class="kw">fn </span>contains(location: <span class="kw-2">&amp;</span>Location) -&gt; bool {
+		<span class="macro">matches!</span>(location.unpack(), (<span class="number">1</span>, [Parachain(<span class="kw">_</span>)]))
 	}
 }
 
@@ -335,15 +327,15 @@
 
 <span class="kw">pub struct </span>DescribeHere;
 <span class="kw">impl </span>DescribeLocation <span class="kw">for </span>DescribeHere {
-	<span class="kw">fn </span>describe_location(l: <span class="kw-2">&amp;</span>MultiLocation) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
-		<span class="kw">match </span>(l.parents, l.interior) {
-			(<span class="number">0</span>, Here) =&gt; <span class="prelude-val">Some</span>(Vec::&lt;u8&gt;::new().encode()),
+	<span class="kw">fn </span>describe_location(l: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+		<span class="kw">match </span>l.unpack() {
+			(<span class="number">0</span>, []) =&gt; <span class="prelude-val">Some</span>(Vec::&lt;u8&gt;::new().encode()),
 			<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
 		}
 	}
 }
 
-<span class="doccomment">/// Creates an AgentId from a MultiLocation. An AgentId is a unique mapping to a Agent contract on
-/// Ethereum which acts as the sovereign account for the MultiLocation.
+<span class="doccomment">/// Creates an AgentId from a Location. An AgentId is a unique mapping to a Agent contract on
+/// Ethereum which acts as the sovereign account for the Location.
 </span><span class="kw">pub type </span>AgentIdOf = HashedDescription&lt;H256, (DescribeHere, DescribeFamily&lt;DescribeAllTerminal&gt;)&gt;;
 </code></pre></div></section></main></body></html>

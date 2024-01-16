@@ -174,11 +174,11 @@
 };
 
 <span class="kw">mod </span>asset_conversion;
-<span class="kw">pub use </span>asset_conversion::{
-	AsPrefixedGeneralIndex, ConvertedAbstractId, ConvertedConcreteId, MatchedConvertedConcreteId,
-};
 <span class="attr">#[allow(deprecated)]
-</span><span class="kw">pub use </span>asset_conversion::{ConvertedAbstractAssetId, ConvertedConcreteAssetId};
+</span><span class="kw">pub use </span>asset_conversion::ConvertedConcreteAssetId;
+<span class="kw">pub use </span>asset_conversion::{
+	AsPrefixedGeneralIndex, ConvertedConcreteId, MatchedConvertedConcreteId, V4V3LocationConverter,
+};
 
 <span class="kw">mod </span>barriers;
 <span class="kw">pub use </span>barriers::{
@@ -223,7 +223,7 @@
 <span class="kw">pub use </span>matches_location::{StartsWith, StartsWithExplicitGlobalConsensus};
 
 <span class="kw">mod </span>matches_token;
-<span class="kw">pub use </span>matches_token::{IsAbstract, IsConcrete};
+<span class="kw">pub use </span>matches_token::IsConcrete;
 
 <span class="kw">mod </span>matcher;
 <span class="kw">pub use </span>matcher::{CreateMatcher, MatchXcm, Matcher};

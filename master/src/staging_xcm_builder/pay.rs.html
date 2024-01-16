@@ -207,7 +207,6 @@
 <a href="#207" id="207">207</a>
 <a href="#208" id="208">208</a>
 <a href="#209" id="209">209</a>
-<a href="#210" id="210">210</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -240,7 +239,7 @@
 /// ownership of some `Interior` location of the local chain to a particular `Beneficiary`. The
 /// `AssetKind` value is not itself bounded (to avoid the issue of needing to wrap some preexisting
 /// datatype), however a converter type `AssetKindToLocatableAsset` must be provided in order to
-/// translate it into a `LocatableAsset`, which comprises both an XCM `MultiLocation` describing
+/// translate it into a `LocatableAsset`, which comprises both an XCM `Location` describing
 /// the XCM endpoint on which the asset to be paid resides and an XCM `AssetId` to identify the
 /// specific asset at that endpoint.
 ///
@@ -275,14 +274,14 @@
 	)&gt;,
 );
 <span class="kw">impl</span>&lt;
-		Interior: Get&lt;InteriorMultiLocation&gt;,
+		Interior: Get&lt;InteriorLocation&gt;,
 		Router: SendXcm,
 		Querier: QueryHandler,
 		Timeout: Get&lt;Querier::BlockNumber&gt;,
 		Beneficiary: Clone,
 		AssetKind,
 		AssetKindToLocatableAsset: TryConvert&lt;AssetKind, LocatableAssetId&gt;,
-		BeneficiaryRefToLocation: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; TryConvert&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Beneficiary, MultiLocation&gt;,
+		BeneficiaryRefToLocation: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; TryConvert&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Beneficiary, Location&gt;,
 	&gt; Pay
 	<span class="kw">for </span>PayOverXcm&lt;
 		Interior,
@@ -315,7 +314,7 @@
 		<span class="kw">let </span>beneficiary = BeneficiaryRefToLocation::try_convert(<span class="kw-2">&amp;</span>who)
 			.map_err(|<span class="kw">_</span>| xcm::latest::Error::InvalidLocation)<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>query_id = Querier::new_query(asset_location, Timeout::get(), Interior::get());
+		<span class="kw">let </span>query_id = Querier::new_query(asset_location.clone(), Timeout::get(), Interior::get());
 
 		<span class="kw">let </span>message = Xcm(<span class="macro">vec!</span>[
 			DescendOrigin(Interior::get()),
@@ -330,8 +329,7 @@
 			])),
 			TransferAsset {
 				beneficiary,
-				assets: <span class="macro">vec!</span>[MultiAsset { id: asset_id, fun: Fungibility::Fungible(amount) }]
-					.into(),
+				assets: <span class="macro">vec!</span>[Asset { id: asset_id, fun: Fungibility::Fungible(amount) }].into(),
 			},
 		]);
 
@@ -405,17 +403,17 @@
 	<span class="doccomment">/// The asset&#39;s ID.
 	</span><span class="kw">pub </span>asset_id: AssetId,
 	<span class="doccomment">/// The (relative) location in which the asset ID is meaningful.
-	</span><span class="kw">pub </span>location: MultiLocation,
+	</span><span class="kw">pub </span>location: Location,
 }
 
 <span class="doccomment">/// Adapter `struct` which implements a conversion from any `AssetKind` into a [`LocatableAssetId`]
 /// value using a fixed `Location` for the `location` field.
-</span><span class="kw">pub struct </span>FixedLocation&lt;Location&gt;(sp_std::marker::PhantomData&lt;Location&gt;);
-<span class="kw">impl</span>&lt;Location: Get&lt;MultiLocation&gt;, AssetKind: Into&lt;AssetId&gt;&gt; TryConvert&lt;AssetKind, LocatableAssetId&gt;
-	<span class="kw">for </span>FixedLocation&lt;Location&gt;
+</span><span class="kw">pub struct </span>FixedLocation&lt;FixedLocationValue&gt;(sp_std::marker::PhantomData&lt;FixedLocationValue&gt;);
+<span class="kw">impl</span>&lt;FixedLocationValue: Get&lt;Location&gt;, AssetKind: Into&lt;AssetId&gt;&gt;
+	TryConvert&lt;AssetKind, LocatableAssetId&gt; <span class="kw">for </span>FixedLocation&lt;FixedLocationValue&gt;
 {
 	<span class="kw">fn </span>try_convert(value: AssetKind) -&gt; <span class="prelude-ty">Result</span>&lt;LocatableAssetId, AssetKind&gt; {
-		<span class="prelude-val">Ok</span>(LocatableAssetId { asset_id: value.into(), location: Location::get() })
+		<span class="prelude-val">Ok</span>(LocatableAssetId { asset_id: value.into(), location: FixedLocationValue::get() })
 	}
 }
 </code></pre></div></section></main></body></html>

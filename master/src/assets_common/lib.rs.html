@@ -335,6 +335,42 @@
 <a href="#335" id="335">335</a>
 <a href="#336" id="336">336</a>
 <a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -360,15 +396,24 @@
 <span class="kw">pub mod </span>matching;
 <span class="kw">pub mod </span>runtime_api;
 
-<span class="kw">use </span><span class="kw">crate</span>::matching::{LocalMultiLocationPattern, ParentLocation};
+<span class="kw">use </span><span class="kw">crate</span>::matching::{LocalLocationPattern, ParentLocation};
 <span class="kw">use </span>frame_support::traits::{Equals, EverythingBut};
 <span class="kw">use </span>parachains_common::AssetIdForTrustBackedAssets;
-<span class="kw">use </span>xcm::prelude::MultiLocation;
-<span class="kw">use </span>xcm_builder::{AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith};
-<span class="kw">use </span>xcm_executor::traits::{Identity, JustTry};
+<span class="kw">use </span>xcm_builder::{
+	AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith, V4V3LocationConverter,
+};
+<span class="kw">use </span>xcm_executor::traits::JustTry;
 
-<span class="doccomment">/// `MultiLocation` vs `AssetIdForTrustBackedAssets` converter for `TrustBackedAssets`
+<span class="doccomment">/// `Location` vs `AssetIdForTrustBackedAssets` converter for `TrustBackedAssets`
 </span><span class="kw">pub type </span>AssetIdForTrustBackedAssetsConvert&lt;TrustBackedAssetsPalletLocation&gt; =
+	AsPrefixedGeneralIndex&lt;
+		TrustBackedAssetsPalletLocation,
+		AssetIdForTrustBackedAssets,
+		JustTry,
+		xcm::v3::Location,
+	&gt;;
+
+<span class="kw">pub type </span>AssetIdForTrustBackedAssetsConvertLatest&lt;TrustBackedAssetsPalletLocation&gt; =
 	AsPrefixedGeneralIndex&lt;TrustBackedAssetsPalletLocation, AssetIdForTrustBackedAssets, JustTry&gt;;
 
 <span class="doccomment">/// [`MatchedConvertedConcreteId`] converter dedicated for `TrustBackedAssets`
@@ -377,59 +422,55 @@
 		AssetIdForTrustBackedAssets,
 		Balance,
 		StartsWith&lt;TrustBackedAssetsPalletLocation&gt;,
-		AssetIdForTrustBackedAssetsConvert&lt;TrustBackedAssetsPalletLocation&gt;,
+		AssetIdForTrustBackedAssetsConvertLatest&lt;TrustBackedAssetsPalletLocation&gt;,
 		JustTry,
 	&gt;;
 
-<span class="doccomment">/// AssetId used for identifying assets by MultiLocation.
-</span><span class="kw">pub type </span>MultiLocationForAssetId = MultiLocation;
+<span class="doccomment">/// [`MatchedConvertedConcreteId`] converter dedicated for storing `AssetId` as `Location`.
+</span><span class="kw">pub type </span>LocationConvertedConcreteId&lt;LocationFilter, Balance&gt; = MatchedConvertedConcreteId&lt;
+	xcm::v3::Location,
+	Balance,
+	LocationFilter,
+	V4V3LocationConverter,
+	JustTry,
+&gt;;
 
 <span class="doccomment">/// [`MatchedConvertedConcreteId`] converter dedicated for `TrustBackedAssets`
-</span><span class="kw">pub type </span>TrustBackedAssetsAsMultiLocation&lt;TrustBackedAssetsPalletLocation, Balance&gt; =
+</span><span class="kw">pub type </span>TrustBackedAssetsAsLocation&lt;TrustBackedAssetsPalletLocation, Balance&gt; =
 	MatchedConvertedConcreteId&lt;
-		MultiLocationForAssetId,
+		xcm::v3::Location,
 		Balance,
 		StartsWith&lt;TrustBackedAssetsPalletLocation&gt;,
-		Identity,
-		JustTry,
-	&gt;;
-
-<span class="doccomment">/// [`MatchedConvertedConcreteId`] converter dedicated for storing `AssetId` as `MultiLocation`.
-</span><span class="kw">pub type </span>MultiLocationConvertedConcreteId&lt;MultiLocationFilter, Balance&gt; =
-	MatchedConvertedConcreteId&lt;
-		MultiLocationForAssetId,
-		Balance,
-		MultiLocationFilter,
-		Identity,
+		V4V3LocationConverter,
 		JustTry,
 	&gt;;
 
 <span class="doccomment">/// [`MatchedConvertedConcreteId`] converter dedicated for storing `ForeignAssets` with `AssetId` as
-/// `MultiLocation`.
+/// `Location`.
 ///
 /// Excludes by default:
 /// - parent as relay chain
-/// - all local MultiLocations
+/// - all local Locations
 ///
-/// `AdditionalMultiLocationExclusionFilter` can customize additional excluded MultiLocations
-</span><span class="kw">pub type </span>ForeignAssetsConvertedConcreteId&lt;AdditionalMultiLocationExclusionFilter, Balance&gt; =
-	MultiLocationConvertedConcreteId&lt;
+/// `AdditionalLocationExclusionFilter` can customize additional excluded Locations
+</span><span class="kw">pub type </span>ForeignAssetsConvertedConcreteId&lt;AdditionalLocationExclusionFilter, Balance&gt; =
+	LocationConvertedConcreteId&lt;
 		EverythingBut&lt;(
 			<span class="comment">// Excludes relay/parent chain currency
 			</span>Equals&lt;ParentLocation&gt;,
 			<span class="comment">// Here we rely on fact that something like this works:
-			// assert!(MultiLocation::new(1,
-			// X1(Parachain(100))).starts_with(&amp;MultiLocation::parent()));
-			// assert!(X1(Parachain(100)).starts_with(&amp;Here));
-			</span>StartsWith&lt;LocalMultiLocationPattern&gt;,
+			// assert!(Location::new(1,
+			// [Parachain(100)]).starts_with(&amp;Location::parent()));
+			// assert!([Parachain(100)].into().starts_with(&amp;Here));
+			</span>StartsWith&lt;LocalLocationPattern&gt;,
 			<span class="comment">// Here we can exclude more stuff or leave it as `()`
-			</span>AdditionalMultiLocationExclusionFilter,
+			</span>AdditionalLocationExclusionFilter,
 		)&gt;,
 		Balance,
 	&gt;;
 
 <span class="kw">type </span>AssetIdForPoolAssets = u32;
-<span class="doccomment">/// `MultiLocation` vs `AssetIdForPoolAssets` converter for `PoolAssets`.
+<span class="doccomment">/// `Location` vs `AssetIdForPoolAssets` converter for `PoolAssets`.
 </span><span class="kw">pub type </span>AssetIdForPoolAssetsConvert&lt;PoolAssetsPalletLocation&gt; =
 	AsPrefixedGeneralIndex&lt;PoolAssetsPalletLocation, AssetIdForPoolAssets, JustTry&gt;;
 <span class="doccomment">/// [`MatchedConvertedConcreteId`] converter dedicated for `PoolAssets`
@@ -446,28 +487,28 @@
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>sp_runtime::traits::MaybeEquivalence;
-	<span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
+	<span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
 	<span class="kw">use </span>xcm_builder::StartsWithExplicitGlobalConsensus;
 	<span class="kw">use </span>xcm_executor::traits::{Error <span class="kw">as </span>MatchError, MatchesFungibles};
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>asset_id_for_trust_backed_assets_convert_works() {
 		<span class="macro">frame_support::parameter_types! </span>{
-			<span class="kw">pub </span>TrustBackedAssetsPalletLocation: MultiLocation = MultiLocation::new(<span class="number">5</span>, X1(PalletInstance(<span class="number">13</span>)));
+			<span class="kw">pub </span>TrustBackedAssetsPalletLocation: Location = Location::new(<span class="number">5</span>, [PalletInstance(<span class="number">13</span>)]);
 		}
 		<span class="kw">let </span>local_asset_id = <span class="number">123456789 </span><span class="kw">as </span>AssetIdForTrustBackedAssets;
 		<span class="kw">let </span>expected_reverse_ref =
-			MultiLocation::new(<span class="number">5</span>, X2(PalletInstance(<span class="number">13</span>), GeneralIndex(local_asset_id.into())));
+			Location::new(<span class="number">5</span>, [PalletInstance(<span class="number">13</span>), GeneralIndex(local_asset_id.into())]);
 
 		<span class="macro">assert_eq!</span>(
-			AssetIdForTrustBackedAssetsConvert::&lt;TrustBackedAssetsPalletLocation&gt;::convert_back(
+			AssetIdForTrustBackedAssetsConvertLatest::&lt;TrustBackedAssetsPalletLocation&gt;::convert_back(
 				<span class="kw-2">&amp;</span>local_asset_id
 			)
 			.unwrap(),
 			expected_reverse_ref
 		);
 		<span class="macro">assert_eq!</span>(
-			AssetIdForTrustBackedAssetsConvert::&lt;TrustBackedAssetsPalletLocation&gt;::convert(
+			AssetIdForTrustBackedAssetsConvertLatest::&lt;TrustBackedAssetsPalletLocation&gt;::convert(
 				<span class="kw-2">&amp;</span>expected_reverse_ref
 			)
 			.unwrap(),
@@ -478,7 +519,7 @@
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>trust_backed_assets_match_fungibles_works() {
 		<span class="macro">frame_support::parameter_types! </span>{
-			<span class="kw">pub </span>TrustBackedAssetsPalletLocation: MultiLocation = MultiLocation::new(<span class="number">0</span>, X1(PalletInstance(<span class="number">13</span>)));
+			<span class="kw">pub </span>TrustBackedAssetsPalletLocation: Location = Location::new(<span class="number">0</span>, [PalletInstance(<span class="number">13</span>)]);
 		}
 		<span class="comment">// setup convert
 		</span><span class="kw">type </span>TrustBackedAssetsConvert =
@@ -486,85 +527,86 @@
 
 		<span class="kw">let </span>test_data = <span class="macro">vec!</span>[
 			<span class="comment">// missing GeneralIndex
-			</span>(ma_1000(<span class="number">0</span>, X1(PalletInstance(<span class="number">13</span>))), <span class="prelude-val">Err</span>(MatchError::AssetIdConversionFailed)),
+			</span>(ma_1000(<span class="number">0</span>, [PalletInstance(<span class="number">13</span>)].into()), <span class="prelude-val">Err</span>(MatchError::AssetIdConversionFailed)),
 			(
-				ma_1000(<span class="number">0</span>, X2(PalletInstance(<span class="number">13</span>), GeneralKey { data: [<span class="number">0</span>; <span class="number">32</span>], length: <span class="number">32 </span>})),
+				ma_1000(<span class="number">0</span>, [PalletInstance(<span class="number">13</span>), GeneralKey { data: [<span class="number">0</span>; <span class="number">32</span>], length: <span class="number">32 </span>}].into()),
 				<span class="prelude-val">Err</span>(MatchError::AssetIdConversionFailed),
 			),
 			(
-				ma_1000(<span class="number">0</span>, X2(PalletInstance(<span class="number">13</span>), Parachain(<span class="number">1000</span>))),
+				ma_1000(<span class="number">0</span>, [PalletInstance(<span class="number">13</span>), Parachain(<span class="number">1000</span>)].into()),
 				<span class="prelude-val">Err</span>(MatchError::AssetIdConversionFailed),
 			),
 			<span class="comment">// OK
-			</span>(ma_1000(<span class="number">0</span>, X2(PalletInstance(<span class="number">13</span>), GeneralIndex(<span class="number">1234</span>))), <span class="prelude-val">Ok</span>((<span class="number">1234</span>, <span class="number">1000</span>))),
+			</span>(ma_1000(<span class="number">0</span>, [PalletInstance(<span class="number">13</span>), GeneralIndex(<span class="number">1234</span>)].into()), <span class="prelude-val">Ok</span>((<span class="number">1234</span>, <span class="number">1000</span>))),
 			(
-				ma_1000(<span class="number">0</span>, X3(PalletInstance(<span class="number">13</span>), GeneralIndex(<span class="number">1234</span>), GeneralIndex(<span class="number">2222</span>))),
+				ma_1000(<span class="number">0</span>, [PalletInstance(<span class="number">13</span>), GeneralIndex(<span class="number">1234</span>), GeneralIndex(<span class="number">2222</span>)].into()),
 				<span class="prelude-val">Ok</span>((<span class="number">1234</span>, <span class="number">1000</span>)),
 			),
 			(
 				ma_1000(
 					<span class="number">0</span>,
-					X4(
+					[
 						PalletInstance(<span class="number">13</span>),
 						GeneralIndex(<span class="number">1234</span>),
 						GeneralIndex(<span class="number">2222</span>),
 						GeneralKey { data: [<span class="number">0</span>; <span class="number">32</span>], length: <span class="number">32 </span>},
-					),
+					]
+					.into(),
 				),
 				<span class="prelude-val">Ok</span>((<span class="number">1234</span>, <span class="number">1000</span>)),
 			),
 			<span class="comment">// wrong pallet instance
 			</span>(
-				ma_1000(<span class="number">0</span>, X2(PalletInstance(<span class="number">77</span>), GeneralIndex(<span class="number">1234</span>))),
+				ma_1000(<span class="number">0</span>, [PalletInstance(<span class="number">77</span>), GeneralIndex(<span class="number">1234</span>)].into()),
 				<span class="prelude-val">Err</span>(MatchError::AssetNotHandled),
 			),
 			(
-				ma_1000(<span class="number">0</span>, X3(PalletInstance(<span class="number">77</span>), GeneralIndex(<span class="number">1234</span>), GeneralIndex(<span class="number">2222</span>))),
+				ma_1000(<span class="number">0</span>, [PalletInstance(<span class="number">77</span>), GeneralIndex(<span class="number">1234</span>), GeneralIndex(<span class="number">2222</span>)].into()),
 				<span class="prelude-val">Err</span>(MatchError::AssetNotHandled),
 			),
 			<span class="comment">// wrong parent
 			</span>(
-				ma_1000(<span class="number">1</span>, X2(PalletInstance(<span class="number">13</span>), GeneralIndex(<span class="number">1234</span>))),
+				ma_1000(<span class="number">1</span>, [PalletInstance(<span class="number">13</span>), GeneralIndex(<span class="number">1234</span>)].into()),
 				<span class="prelude-val">Err</span>(MatchError::AssetNotHandled),
 			),
 			(
-				ma_1000(<span class="number">1</span>, X3(PalletInstance(<span class="number">13</span>), GeneralIndex(<span class="number">1234</span>), GeneralIndex(<span class="number">2222</span>))),
+				ma_1000(<span class="number">1</span>, [PalletInstance(<span class="number">13</span>), GeneralIndex(<span class="number">1234</span>), GeneralIndex(<span class="number">2222</span>)].into()),
 				<span class="prelude-val">Err</span>(MatchError::AssetNotHandled),
 			),
 			(
-				ma_1000(<span class="number">1</span>, X2(PalletInstance(<span class="number">77</span>), GeneralIndex(<span class="number">1234</span>))),
+				ma_1000(<span class="number">1</span>, [PalletInstance(<span class="number">77</span>), GeneralIndex(<span class="number">1234</span>)].into()),
 				<span class="prelude-val">Err</span>(MatchError::AssetNotHandled),
 			),
 			(
-				ma_1000(<span class="number">1</span>, X3(PalletInstance(<span class="number">77</span>), GeneralIndex(<span class="number">1234</span>), GeneralIndex(<span class="number">2222</span>))),
+				ma_1000(<span class="number">1</span>, [PalletInstance(<span class="number">77</span>), GeneralIndex(<span class="number">1234</span>), GeneralIndex(<span class="number">2222</span>)].into()),
 				<span class="prelude-val">Err</span>(MatchError::AssetNotHandled),
 			),
 			<span class="comment">// wrong parent
 			</span>(
-				ma_1000(<span class="number">2</span>, X2(PalletInstance(<span class="number">13</span>), GeneralIndex(<span class="number">1234</span>))),
+				ma_1000(<span class="number">2</span>, [PalletInstance(<span class="number">13</span>), GeneralIndex(<span class="number">1234</span>)].into()),
 				<span class="prelude-val">Err</span>(MatchError::AssetNotHandled),
 			),
 			(
-				ma_1000(<span class="number">2</span>, X3(PalletInstance(<span class="number">13</span>), GeneralIndex(<span class="number">1234</span>), GeneralIndex(<span class="number">2222</span>))),
+				ma_1000(<span class="number">2</span>, [PalletInstance(<span class="number">13</span>), GeneralIndex(<span class="number">1234</span>), GeneralIndex(<span class="number">2222</span>)].into()),
 				<span class="prelude-val">Err</span>(MatchError::AssetNotHandled),
 			),
 			<span class="comment">// missing GeneralIndex
-			</span>(ma_1000(<span class="number">0</span>, X1(PalletInstance(<span class="number">77</span>))), <span class="prelude-val">Err</span>(MatchError::AssetNotHandled)),
-			(ma_1000(<span class="number">1</span>, X1(PalletInstance(<span class="number">13</span>))), <span class="prelude-val">Err</span>(MatchError::AssetNotHandled)),
-			(ma_1000(<span class="number">2</span>, X1(PalletInstance(<span class="number">13</span>))), <span class="prelude-val">Err</span>(MatchError::AssetNotHandled)),
+			</span>(ma_1000(<span class="number">0</span>, [PalletInstance(<span class="number">77</span>)].into()), <span class="prelude-val">Err</span>(MatchError::AssetNotHandled)),
+			(ma_1000(<span class="number">1</span>, [PalletInstance(<span class="number">13</span>)].into()), <span class="prelude-val">Err</span>(MatchError::AssetNotHandled)),
+			(ma_1000(<span class="number">2</span>, [PalletInstance(<span class="number">13</span>)].into()), <span class="prelude-val">Err</span>(MatchError::AssetNotHandled)),
 		];
 
-		<span class="kw">for </span>(multi_asset, expected_result) <span class="kw">in </span>test_data {
+		<span class="kw">for </span>(asset, expected_result) <span class="kw">in </span>test_data {
 			<span class="macro">assert_eq!</span>(
-				&lt;TrustBackedAssetsConvert <span class="kw">as </span>MatchesFungibles&lt;AssetIdForTrustBackedAssets, u128&gt;&gt;::matches_fungibles(<span class="kw-2">&amp;</span>multi_asset),
-				expected_result, <span class="string">&quot;multi_asset: {:?}&quot;</span>, multi_asset);
+				&lt;TrustBackedAssetsConvert <span class="kw">as </span>MatchesFungibles&lt;AssetIdForTrustBackedAssets, u128&gt;&gt;::matches_fungibles(<span class="kw-2">&amp;</span>asset.clone().try_into().unwrap()),
+				expected_result, <span class="string">&quot;asset: {:?}&quot;</span>, asset);
 		}
 	}
 
 	<span class="attr">#[test]
-	</span><span class="kw">fn </span>multi_location_converted_concrete_id_converter_works() {
+	</span><span class="kw">fn </span>location_converted_concrete_id_converter_works() {
 		<span class="macro">frame_support::parameter_types! </span>{
-			<span class="kw">pub </span>Parachain100Pattern: MultiLocation = MultiLocation::new(<span class="number">1</span>, X1(Parachain(<span class="number">100</span>)));
+			<span class="kw">pub </span>Parachain100Pattern: Location = Location::new(<span class="number">1</span>, [Parachain(<span class="number">100</span>)]);
 			<span class="kw">pub </span>UniversalLocationNetworkId: NetworkId = NetworkId::ByGenesis([<span class="number">9</span>; <span class="number">32</span>]);
 		}
 
@@ -580,96 +622,126 @@
 		<span class="kw">let </span>test_data = <span class="macro">vec!</span>[
 			<span class="comment">// excluded as local
 			</span>(ma_1000(<span class="number">0</span>, Here), <span class="prelude-val">Err</span>(MatchError::AssetNotHandled)),
-			(ma_1000(<span class="number">0</span>, X1(Parachain(<span class="number">100</span>))), <span class="prelude-val">Err</span>(MatchError::AssetNotHandled)),
+			(ma_1000(<span class="number">0</span>, [Parachain(<span class="number">100</span>)].into()), <span class="prelude-val">Err</span>(MatchError::AssetNotHandled)),
 			(
-				ma_1000(<span class="number">0</span>, X2(PalletInstance(<span class="number">13</span>), GeneralIndex(<span class="number">1234</span>))),
+				ma_1000(<span class="number">0</span>, [PalletInstance(<span class="number">13</span>), GeneralIndex(<span class="number">1234</span>)].into()),
 				<span class="prelude-val">Err</span>(MatchError::AssetNotHandled),
 			),
 			<span class="comment">// excluded as parent
 			</span>(ma_1000(<span class="number">1</span>, Here), <span class="prelude-val">Err</span>(MatchError::AssetNotHandled)),
 			<span class="comment">// excluded as additional filter - Parachain100Pattern
-			</span>(ma_1000(<span class="number">1</span>, X1(Parachain(<span class="number">100</span>))), <span class="prelude-val">Err</span>(MatchError::AssetNotHandled)),
-			(ma_1000(<span class="number">1</span>, X2(Parachain(<span class="number">100</span>), GeneralIndex(<span class="number">1234</span>))), <span class="prelude-val">Err</span>(MatchError::AssetNotHandled)),
+			</span>(ma_1000(<span class="number">1</span>, [Parachain(<span class="number">100</span>)].into()), <span class="prelude-val">Err</span>(MatchError::AssetNotHandled)),
 			(
-				ma_1000(<span class="number">1</span>, X3(Parachain(<span class="number">100</span>), PalletInstance(<span class="number">13</span>), GeneralIndex(<span class="number">1234</span>))),
+				ma_1000(<span class="number">1</span>, [Parachain(<span class="number">100</span>), GeneralIndex(<span class="number">1234</span>)].into()),
+				<span class="prelude-val">Err</span>(MatchError::AssetNotHandled),
+			),
+			(
+				ma_1000(<span class="number">1</span>, [Parachain(<span class="number">100</span>), PalletInstance(<span class="number">13</span>), GeneralIndex(<span class="number">1234</span>)].into()),
 				<span class="prelude-val">Err</span>(MatchError::AssetNotHandled),
 			),
 			<span class="comment">// excluded as additional filter - StartsWithExplicitGlobalConsensus
 			</span>(
-				ma_1000(<span class="number">1</span>, X1(GlobalConsensus(NetworkId::ByGenesis([<span class="number">9</span>; <span class="number">32</span>])))),
+				ma_1000(<span class="number">1</span>, [GlobalConsensus(NetworkId::ByGenesis([<span class="number">9</span>; <span class="number">32</span>]))].into()),
 				<span class="prelude-val">Err</span>(MatchError::AssetNotHandled),
 			),
 			(
-				ma_1000(<span class="number">2</span>, X1(GlobalConsensus(NetworkId::ByGenesis([<span class="number">9</span>; <span class="number">32</span>])))),
+				ma_1000(<span class="number">2</span>, [GlobalConsensus(NetworkId::ByGenesis([<span class="number">9</span>; <span class="number">32</span>]))].into()),
 				<span class="prelude-val">Err</span>(MatchError::AssetNotHandled),
 			),
 			(
 				ma_1000(
 					<span class="number">2</span>,
-					X3(
+					[
 						GlobalConsensus(NetworkId::ByGenesis([<span class="number">9</span>; <span class="number">32</span>])),
 						Parachain(<span class="number">200</span>),
 						GeneralIndex(<span class="number">1234</span>),
-					),
+					]
+					.into(),
 				),
 				<span class="prelude-val">Err</span>(MatchError::AssetNotHandled),
 			),
 			<span class="comment">// ok
-			</span>(ma_1000(<span class="number">1</span>, X1(Parachain(<span class="number">200</span>))), <span class="prelude-val">Ok</span>((MultiLocation::new(<span class="number">1</span>, X1(Parachain(<span class="number">200</span>))), <span class="number">1000</span>))),
-			(ma_1000(<span class="number">2</span>, X1(Parachain(<span class="number">200</span>))), <span class="prelude-val">Ok</span>((MultiLocation::new(<span class="number">2</span>, X1(Parachain(<span class="number">200</span>))), <span class="number">1000</span>))),
-			(
-				ma_1000(<span class="number">1</span>, X2(Parachain(<span class="number">200</span>), GeneralIndex(<span class="number">1234</span>))),
-				<span class="prelude-val">Ok</span>((MultiLocation::new(<span class="number">1</span>, X2(Parachain(<span class="number">200</span>), GeneralIndex(<span class="number">1234</span>))), <span class="number">1000</span>)),
+			</span>(
+				ma_1000(<span class="number">1</span>, [Parachain(<span class="number">200</span>)].into()),
+				<span class="prelude-val">Ok</span>((xcm::v3::Location::new(<span class="number">1</span>, [xcm::v3::Junction::Parachain(<span class="number">200</span>)]), <span class="number">1000</span>)),
 			),
 			(
-				ma_1000(<span class="number">2</span>, X2(Parachain(<span class="number">200</span>), GeneralIndex(<span class="number">1234</span>))),
-				<span class="prelude-val">Ok</span>((MultiLocation::new(<span class="number">2</span>, X2(Parachain(<span class="number">200</span>), GeneralIndex(<span class="number">1234</span>))), <span class="number">1000</span>)),
+				ma_1000(<span class="number">2</span>, [Parachain(<span class="number">200</span>)].into()),
+				<span class="prelude-val">Ok</span>((xcm::v3::Location::new(<span class="number">2</span>, [xcm::v3::Junction::Parachain(<span class="number">200</span>)]), <span class="number">1000</span>)),
 			),
 			(
-				ma_1000(<span class="number">2</span>, X1(GlobalConsensus(NetworkId::ByGenesis([<span class="number">7</span>; <span class="number">32</span>])))),
+				ma_1000(<span class="number">1</span>, [Parachain(<span class="number">200</span>), GeneralIndex(<span class="number">1234</span>)].into()),
 				<span class="prelude-val">Ok</span>((
-					MultiLocation::new(<span class="number">2</span>, X1(GlobalConsensus(NetworkId::ByGenesis([<span class="number">7</span>; <span class="number">32</span>])))),
+					xcm::v3::Location::new(
+						<span class="number">1</span>,
+						[xcm::v3::Junction::Parachain(<span class="number">200</span>), xcm::v3::Junction::GeneralIndex(<span class="number">1234</span>)],
+					),
+					<span class="number">1000</span>,
+				)),
+			),
+			(
+				ma_1000(<span class="number">2</span>, [Parachain(<span class="number">200</span>), GeneralIndex(<span class="number">1234</span>)].into()),
+				<span class="prelude-val">Ok</span>((
+					xcm::v3::Location::new(
+						<span class="number">2</span>,
+						[xcm::v3::Junction::Parachain(<span class="number">200</span>), xcm::v3::Junction::GeneralIndex(<span class="number">1234</span>)],
+					),
+					<span class="number">1000</span>,
+				)),
+			),
+			(
+				ma_1000(<span class="number">2</span>, [GlobalConsensus(NetworkId::ByGenesis([<span class="number">7</span>; <span class="number">32</span>]))].into()),
+				<span class="prelude-val">Ok</span>((
+					xcm::v3::Location::new(
+						<span class="number">2</span>,
+						[xcm::v3::Junction::GlobalConsensus(xcm::v3::NetworkId::ByGenesis(
+							[<span class="number">7</span>; <span class="number">32</span>],
+						))],
+					),
 					<span class="number">1000</span>,
 				)),
 			),
 			(
 				ma_1000(
 					<span class="number">2</span>,
-					X3(
+					[
 						GlobalConsensus(NetworkId::ByGenesis([<span class="number">7</span>; <span class="number">32</span>])),
 						Parachain(<span class="number">200</span>),
 						GeneralIndex(<span class="number">1234</span>),
-					),
+					]
+					.into(),
 				),
 				<span class="prelude-val">Ok</span>((
-					MultiLocation::new(
+					xcm::v3::Location::new(
 						<span class="number">2</span>,
-						X3(
-							GlobalConsensus(NetworkId::ByGenesis([<span class="number">7</span>; <span class="number">32</span>])),
-							Parachain(<span class="number">200</span>),
-							GeneralIndex(<span class="number">1234</span>),
-						),
+						[
+							xcm::v3::Junction::GlobalConsensus(xcm::v3::NetworkId::ByGenesis(
+								[<span class="number">7</span>; <span class="number">32</span>],
+							)),
+							xcm::v3::Junction::Parachain(<span class="number">200</span>),
+							xcm::v3::Junction::GeneralIndex(<span class="number">1234</span>),
+						],
 					),
 					<span class="number">1000</span>,
 				)),
 			),
 		];
 
-		<span class="kw">for </span>(multi_asset, expected_result) <span class="kw">in </span>test_data {
+		<span class="kw">for </span>(asset, expected_result) <span class="kw">in </span>test_data {
 			<span class="macro">assert_eq!</span>(
-				&lt;Convert <span class="kw">as </span>MatchesFungibles&lt;MultiLocationForAssetId, u128&gt;&gt;::matches_fungibles(
-					<span class="kw-2">&amp;</span>multi_asset
+				&lt;Convert <span class="kw">as </span>MatchesFungibles&lt;xcm::v3::MultiLocation, u128&gt;&gt;::matches_fungibles(
+					<span class="kw-2">&amp;</span>asset.clone().try_into().unwrap()
 				),
 				expected_result,
-				<span class="string">&quot;multi_asset: {:?}&quot;</span>,
-				multi_asset
+				<span class="string">&quot;asset: {:?}&quot;</span>,
+				asset
 			);
 		}
 	}
 
-	<span class="comment">// Create MultiAsset
-	</span><span class="kw">fn </span>ma_1000(parents: u8, interior: Junctions) -&gt; MultiAsset {
-		(MultiLocation::new(parents, interior), <span class="number">1000</span>).into()
+	<span class="comment">// Create Asset
+	</span><span class="kw">fn </span>ma_1000(parents: u8, interior: Junctions) -&gt; Asset {
+		(Location::new(parents, interior), <span class="number">1000</span>).into()
 	}
 }
 </code></pre></div></section></main></body></html>

@@ -306,15 +306,6 @@
 <a href="#306" id="306">306</a>
 <a href="#307" id="307">307</a>
 <a href="#308" id="308">308</a>
-<a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a>
-<a href="#311" id="311">311</a>
-<a href="#312" id="312">312</a>
-<a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a>
-<a href="#315" id="315">315</a>
-<a href="#316" id="316">316</a>
-<a href="#317" id="317">317</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -342,7 +333,10 @@
 };
 <span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>, result};
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>xcm_executor::traits::{ConvertLocation, Error <span class="kw">as </span>MatchError, MatchesFungible, TransactAsset};
+<span class="kw">use </span>xcm_executor::{
+	traits::{ConvertLocation, Error <span class="kw">as </span>MatchError, MatchesFungible, TransactAsset},
+	AssetsInHolding,
+};
 
 <span class="doccomment">/// [`TransactAsset`] implementation that allows the use of a [`fungible`] implementation for
 /// handling an asset in the XCM executor.
@@ -358,11 +352,11 @@
 	&gt; TransactAsset <span class="kw">for </span>FungibleTransferAdapter&lt;Fungible, Matcher, AccountIdConverter, AccountId&gt;
 {
 	<span class="kw">fn </span>internal_transfer_asset(
-		what: <span class="kw-2">&amp;</span>MultiAsset,
-		from: <span class="kw-2">&amp;</span>MultiLocation,
-		to: <span class="kw-2">&amp;</span>MultiLocation,
+		what: <span class="kw-2">&amp;</span>Asset,
+		from: <span class="kw-2">&amp;</span>Location,
+		to: <span class="kw-2">&amp;</span>Location,
 		_context: <span class="kw-2">&amp;</span>XcmContext,
-	) -&gt; result::Result&lt;xcm_executor::Assets, XcmError&gt; {
+	) -&gt; result::Result&lt;AssetsInHolding, XcmError&gt; {
 		<span class="macro">log::trace!</span>(
 			target: <span class="string">&quot;xcm::fungible_adapter&quot;</span>,
 			<span class="string">&quot;internal_transfer_asset what: {:?}, from: {:?}, to: {:?}&quot;</span>,
@@ -428,11 +422,7 @@
 	&gt; TransactAsset
 	<span class="kw">for </span>FungibleMutateAdapter&lt;Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount&gt;
 {
-	<span class="kw">fn </span>can_check_in(
-		_origin: <span class="kw-2">&amp;</span>MultiLocation,
-		what: <span class="kw-2">&amp;</span>MultiAsset,
-		_context: <span class="kw-2">&amp;</span>XcmContext,
-	) -&gt; XcmResult {
+	<span class="kw">fn </span>can_check_in(_origin: <span class="kw-2">&amp;</span>Location, what: <span class="kw-2">&amp;</span>Asset, _context: <span class="kw-2">&amp;</span>XcmContext) -&gt; XcmResult {
 		<span class="macro">log::trace!</span>(
 			target: <span class="string">&quot;xcm::fungible_adapter&quot;</span>,
 			<span class="string">&quot;can_check_in origin: {:?}, what: {:?}&quot;</span>,
@@ -449,7 +439,7 @@
 		}
 	}
 
-	<span class="kw">fn </span>check_in(_origin: <span class="kw-2">&amp;</span>MultiLocation, what: <span class="kw-2">&amp;</span>MultiAsset, _context: <span class="kw-2">&amp;</span>XcmContext) {
+	<span class="kw">fn </span>check_in(_origin: <span class="kw-2">&amp;</span>Location, what: <span class="kw-2">&amp;</span>Asset, _context: <span class="kw-2">&amp;</span>XcmContext) {
 		<span class="macro">log::trace!</span>(
 			target: <span class="string">&quot;xcm::fungible_adapter&quot;</span>,
 			<span class="string">&quot;check_in origin: {:?}, what: {:?}&quot;</span>,
@@ -466,7 +456,7 @@
 		}
 	}
 
-	<span class="kw">fn </span>can_check_out(_dest: <span class="kw-2">&amp;</span>MultiLocation, what: <span class="kw-2">&amp;</span>MultiAsset, _context: <span class="kw-2">&amp;</span>XcmContext) -&gt; XcmResult {
+	<span class="kw">fn </span>can_check_out(_dest: <span class="kw-2">&amp;</span>Location, what: <span class="kw-2">&amp;</span>Asset, _context: <span class="kw-2">&amp;</span>XcmContext) -&gt; XcmResult {
 		<span class="macro">log::trace!</span>(
 			target: <span class="string">&quot;xcm::fungible_adapter&quot;</span>,
 			<span class="string">&quot;check_out dest: {:?}, what: {:?}&quot;</span>,
@@ -483,7 +473,7 @@
 		}
 	}
 
-	<span class="kw">fn </span>check_out(_dest: <span class="kw-2">&amp;</span>MultiLocation, what: <span class="kw-2">&amp;</span>MultiAsset, _context: <span class="kw-2">&amp;</span>XcmContext) {
+	<span class="kw">fn </span>check_out(_dest: <span class="kw-2">&amp;</span>Location, what: <span class="kw-2">&amp;</span>Asset, _context: <span class="kw-2">&amp;</span>XcmContext) {
 		<span class="macro">log::trace!</span>(
 			target: <span class="string">&quot;xcm::fungible_adapter&quot;</span>,
 			<span class="string">&quot;check_out dest: {:?}, what: {:?}&quot;</span>,
@@ -501,11 +491,7 @@
 		}
 	}
 
-	<span class="kw">fn </span>deposit_asset(
-		what: <span class="kw-2">&amp;</span>MultiAsset,
-		who: <span class="kw-2">&amp;</span>MultiLocation,
-		_context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;,
-	) -&gt; XcmResult {
+	<span class="kw">fn </span>deposit_asset(what: <span class="kw-2">&amp;</span>Asset, who: <span class="kw-2">&amp;</span>Location, _context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;) -&gt; XcmResult {
 		<span class="macro">log::trace!</span>(
 			target: <span class="string">&quot;xcm::fungible_adapter&quot;</span>,
 			<span class="string">&quot;deposit_asset what: {:?}, who: {:?}&quot;</span>,
@@ -520,10 +506,10 @@
 	}
 
 	<span class="kw">fn </span>withdraw_asset(
-		what: <span class="kw-2">&amp;</span>MultiAsset,
-		who: <span class="kw-2">&amp;</span>MultiLocation,
+		what: <span class="kw-2">&amp;</span>Asset,
+		who: <span class="kw-2">&amp;</span>Location,
 		_context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;,
-	) -&gt; result::Result&lt;xcm_executor::Assets, XcmError&gt; {
+	) -&gt; result::Result&lt;AssetsInHolding, XcmError&gt; {
 		<span class="macro">log::trace!</span>(
 			target: <span class="string">&quot;xcm::fungible_adapter&quot;</span>,
 			<span class="string">&quot;deposit_asset what: {:?}, who: {:?}&quot;</span>,
@@ -553,7 +539,7 @@
 	&gt; TransactAsset
 	<span class="kw">for </span>FungibleAdapter&lt;Fungible, Matcher, AccountIdConverter, AccountId, CheckingAccount&gt;
 {
-	<span class="kw">fn </span>can_check_in(origin: <span class="kw-2">&amp;</span>MultiLocation, what: <span class="kw-2">&amp;</span>MultiAsset, context: <span class="kw-2">&amp;</span>XcmContext) -&gt; XcmResult {
+	<span class="kw">fn </span>can_check_in(origin: <span class="kw-2">&amp;</span>Location, what: <span class="kw-2">&amp;</span>Asset, context: <span class="kw-2">&amp;</span>XcmContext) -&gt; XcmResult {
 		FungibleMutateAdapter::&lt;
 			Fungible,
 			Matcher,
@@ -563,7 +549,7 @@
 		&gt;::can_check_in(origin, what, context)
 	}
 
-	<span class="kw">fn </span>check_in(origin: <span class="kw-2">&amp;</span>MultiLocation, what: <span class="kw-2">&amp;</span>MultiAsset, context: <span class="kw-2">&amp;</span>XcmContext) {
+	<span class="kw">fn </span>check_in(origin: <span class="kw-2">&amp;</span>Location, what: <span class="kw-2">&amp;</span>Asset, context: <span class="kw-2">&amp;</span>XcmContext) {
 		FungibleMutateAdapter::&lt;
 			Fungible,
 			Matcher,
@@ -573,7 +559,7 @@
 		&gt;::check_in(origin, what, context)
 	}
 
-	<span class="kw">fn </span>can_check_out(dest: <span class="kw-2">&amp;</span>MultiLocation, what: <span class="kw-2">&amp;</span>MultiAsset, context: <span class="kw-2">&amp;</span>XcmContext) -&gt; XcmResult {
+	<span class="kw">fn </span>can_check_out(dest: <span class="kw-2">&amp;</span>Location, what: <span class="kw-2">&amp;</span>Asset, context: <span class="kw-2">&amp;</span>XcmContext) -&gt; XcmResult {
 		FungibleMutateAdapter::&lt;
 			Fungible,
 			Matcher,
@@ -583,7 +569,7 @@
 		&gt;::can_check_out(dest, what, context)
 	}
 
-	<span class="kw">fn </span>check_out(dest: <span class="kw-2">&amp;</span>MultiLocation, what: <span class="kw-2">&amp;</span>MultiAsset, context: <span class="kw-2">&amp;</span>XcmContext) {
+	<span class="kw">fn </span>check_out(dest: <span class="kw-2">&amp;</span>Location, what: <span class="kw-2">&amp;</span>Asset, context: <span class="kw-2">&amp;</span>XcmContext) {
 		FungibleMutateAdapter::&lt;
 			Fungible,
 			Matcher,
@@ -593,11 +579,7 @@
 		&gt;::check_out(dest, what, context)
 	}
 
-	<span class="kw">fn </span>deposit_asset(
-		what: <span class="kw-2">&amp;</span>MultiAsset,
-		who: <span class="kw-2">&amp;</span>MultiLocation,
-		context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;,
-	) -&gt; XcmResult {
+	<span class="kw">fn </span>deposit_asset(what: <span class="kw-2">&amp;</span>Asset, who: <span class="kw-2">&amp;</span>Location, context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;) -&gt; XcmResult {
 		FungibleMutateAdapter::&lt;
 			Fungible,
 			Matcher,
@@ -608,10 +590,10 @@
 	}
 
 	<span class="kw">fn </span>withdraw_asset(
-		what: <span class="kw-2">&amp;</span>MultiAsset,
-		who: <span class="kw-2">&amp;</span>MultiLocation,
+		what: <span class="kw-2">&amp;</span>Asset,
+		who: <span class="kw-2">&amp;</span>Location,
 		maybe_context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;,
-	) -&gt; result::Result&lt;xcm_executor::Assets, XcmError&gt; {
+	) -&gt; result::Result&lt;AssetsInHolding, XcmError&gt; {
 		FungibleMutateAdapter::&lt;
 			Fungible,
 			Matcher,
@@ -622,11 +604,11 @@
 	}
 
 	<span class="kw">fn </span>internal_transfer_asset(
-		what: <span class="kw-2">&amp;</span>MultiAsset,
-		from: <span class="kw-2">&amp;</span>MultiLocation,
-		to: <span class="kw-2">&amp;</span>MultiLocation,
+		what: <span class="kw-2">&amp;</span>Asset,
+		from: <span class="kw-2">&amp;</span>Location,
+		to: <span class="kw-2">&amp;</span>Location,
 		context: <span class="kw-2">&amp;</span>XcmContext,
-	) -&gt; result::Result&lt;xcm_executor::Assets, XcmError&gt; {
+	) -&gt; result::Result&lt;AssetsInHolding, XcmError&gt; {
 		FungibleTransferAdapter::&lt;Fungible, Matcher, AccountIdConverter, AccountId&gt;::internal_transfer_asset(
 			what, from, to, context
 		)

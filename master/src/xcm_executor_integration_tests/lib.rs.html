@@ -390,7 +390,7 @@
 		<span class="macro">assert!</span>(polkadot_test_runtime::System::events().iter().any(|r| <span class="macro">matches!</span>(
 			r.event,
 			polkadot_test_runtime::RuntimeEvent::Xcm(pallet_xcm::Event::Attempted {
-				outcome: Outcome::Complete(<span class="kw">_</span>)
+				outcome: Outcome::Complete { .. }
 			}),
 		)));
 	});
@@ -472,7 +472,7 @@
 				.filter(|r| <span class="macro">matches!</span>(
 					r.event,
 					polkadot_test_runtime::RuntimeEvent::Xcm(pallet_xcm::Event::Attempted {
-						outcome: Outcome::Complete(<span class="kw">_</span>)
+						outcome: Outcome::Complete { .. }
 					}),
 				))
 				.count(),
@@ -567,7 +567,7 @@
 		<span class="macro">assert_eq!</span>(
 			polkadot_test_runtime::Xcm::query(query_id),
 			<span class="prelude-val">Some</span>(QueryStatus::Ready {
-				response: VersionedResponse::V3(Response::ExecutionResult(<span class="prelude-val">None</span>)),
+				response: VersionedResponse::V4(Response::ExecutionResult(<span class="prelude-val">None</span>)),
 				at: <span class="number">2u32</span>.into()
 			}),
 		)
@@ -639,12 +639,12 @@
 
 	client.state_at(block_hash).expect(<span class="string">&quot;state should exist&quot;</span>).inspect_state(|| {
 		<span class="macro">assert!</span>(polkadot_test_runtime::System::events().iter().any(|r| <span class="macro">matches!</span>(
-			r.event,
+			<span class="kw-2">&amp;</span>r.event,
 			TestNotifier(ResponseReceived(
-				MultiLocation { parents: <span class="number">0</span>, interior: X1(Junction::AccountId32 { .. }) },
+				location,
 				q,
 				Response::ExecutionResult(<span class="prelude-val">None</span>),
-			)) <span class="kw">if </span>q == query_id,
+			)) <span class="kw">if </span><span class="kw-2">*</span>q == query_id &amp;&amp; <span class="macro">matches!</span>(location.unpack(), (<span class="number">0</span>, [Junction::AccountId32 { .. }])),
 		)));
 	});
 }

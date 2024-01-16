@@ -836,6 +836,7 @@
 <a href="#836" id="836">836</a>
 <a href="#837" id="837">837</a>
 <a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -876,8 +877,9 @@
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 };
 <span class="kw">pub use </span>xcm::{
-	prelude::{MultiLocation, OriginKind, Outcome, VersionedXcm, XcmVersion},
-	v3::Error,
+	prelude::{Location, OriginKind, Outcome, VersionedXcm, XcmVersion},
+	v3,
+	v4::Error <span class="kw">as </span>XcmError,
 	DoubleEncoded,
 };
 
@@ -1047,7 +1049,7 @@
 						<span class="macro-nonterminal">Self</span>,
 						<span class="macro">vec!</span>[
 							[&lt;<span class="macro-nonterminal">$chain </span>RuntimeEvent&gt;]::&lt;N&gt;::XcmPallet(
-								<span class="macro-nonterminal">$crate::impls::pallet_xcm::Event::Attempted </span>{ outcome: <span class="macro-nonterminal">$crate::impls::Outcome::Complete</span>(weight) }
+								<span class="macro-nonterminal">$crate::impls::pallet_xcm::Event::Attempted </span>{ outcome: <span class="macro-nonterminal">$crate::impls::Outcome::Complete </span>{ used: weight } }
 							) =&gt; {
 								weight: <span class="macro-nonterminal">$crate::impls::weight_within_threshold</span>(
 									(<span class="macro-nonterminal">$crate::impls::REF_TIME_THRESHOLD</span>, <span class="macro-nonterminal">$crate::impls::PROOF_SIZE_THRESHOLD</span>),
@@ -1062,21 +1064,21 @@
 				<span class="doccomment">/// Asserts a dispatchable is incompletely executed and XCM sent
 				</span><span class="kw">pub fn </span>assert_xcm_pallet_attempted_incomplete(
 					expected_weight: <span class="prelude-ty">Option</span>&lt;<span class="macro-nonterminal">$crate::impls::Weight</span>&gt;,
-					expected_error: <span class="prelude-ty">Option</span>&lt;<span class="macro-nonterminal">$crate::impls::Error</span>&gt;,
+					expected_error: <span class="prelude-ty">Option</span>&lt;<span class="macro-nonterminal">$crate::impls::XcmError</span>&gt;,
 				) {
 					<span class="macro-nonterminal">$</span><span class="macro">crate::impls::assert_expected_events!</span>(
 						<span class="macro-nonterminal">Self</span>,
 						<span class="macro">vec!</span>[
 							<span class="comment">// Dispatchable is properly executed and XCM message sent
 							</span>[&lt;<span class="macro-nonterminal">$chain </span>RuntimeEvent&gt;]::&lt;N&gt;::XcmPallet(
-								<span class="macro-nonterminal">$crate::impls::pallet_xcm::Event::Attempted </span>{ outcome: <span class="macro-nonterminal">$crate::impls::Outcome::Incomplete</span>(weight, error) }
+								<span class="macro-nonterminal">$crate::impls::pallet_xcm::Event::Attempted </span>{ outcome: <span class="macro-nonterminal">$crate::impls::Outcome::Incomplete </span>{ used: weight, error } }
 							) =&gt; {
 								weight: <span class="macro-nonterminal">$crate::impls::weight_within_threshold</span>(
 									(<span class="macro-nonterminal">$crate::impls::REF_TIME_THRESHOLD</span>, <span class="macro-nonterminal">$crate::impls::PROOF_SIZE_THRESHOLD</span>),
 									expected_weight.unwrap_or(<span class="kw-2">*</span>weight),
 									<span class="kw-2">*</span>weight
 								),
-								error: <span class="kw-2">*</span>error == expected_error.unwrap_or(<span class="kw-2">*</span>error),
+								error: <span class="kw-2">*</span>error == expected_error.unwrap_or((<span class="kw-2">*</span>error).into()).into(),
 							},
 						]
 					);
@@ -1203,7 +1205,7 @@
 
 					&lt;<span class="self">Self </span><span class="kw">as </span><span class="macro-nonterminal">$crate::impls::TestExt</span>&gt;::execute_with(|| {
 						<span class="kw">let </span>root_origin = &lt;<span class="self">Self </span><span class="kw">as </span>Chain&gt;::RuntimeOrigin::root();
-						<span class="kw">let </span>destination:  <span class="macro-nonterminal">$crate::impls::MultiLocation </span>= &lt;<span class="self">Self </span><span class="kw">as </span>RelayChain&gt;::child_location_of(recipient);
+						<span class="kw">let </span>destination:  <span class="macro-nonterminal">$crate::impls::Location </span>= &lt;<span class="self">Self </span><span class="kw">as </span>RelayChain&gt;::child_location_of(recipient);
 						<span class="kw">let </span>xcm = <span class="macro-nonterminal">$crate::impls::xcm_transact_unpaid_execution</span>(call, <span class="macro-nonterminal">$crate::impls::OriginKind::Superuser</span>);
 
 						<span class="comment">// Send XCM `Transact`
@@ -1254,13 +1256,13 @@
 					network_id: <span class="macro-nonterminal">$crate::impls::NetworkId</span>,
 					para_id: <span class="macro-nonterminal">$crate::impls::ParaId</span>,
 				) -&gt; <span class="macro-nonterminal">$crate::impls::AccountId </span>{
-					<span class="kw">let </span>remote_location = <span class="macro-nonterminal">$crate::impls::MultiLocation </span>{
-						parents: <span class="number">2</span>,
-						interior: <span class="macro-nonterminal">$crate::impls::Junctions::X2</span>(
+					<span class="kw">let </span>remote_location = <span class="macro-nonterminal">$crate::impls::Location::new</span>(
+						<span class="number">2</span>,
+						[
 							<span class="macro-nonterminal">$crate::impls::Junction::GlobalConsensus</span>(network_id),
 							<span class="macro-nonterminal">$crate::impls::Junction::Parachain</span>(para_id.into()),
-						),
-					};
+						],
+					);
 					&lt;<span class="self">Self </span><span class="kw">as </span><span class="macro-nonterminal">$crate::impls::TestExt</span>&gt;::execute_with(|| {
 						<span class="self">Self</span>::sovereign_account_id_of(remote_location)
 					})
@@ -1283,7 +1285,7 @@
 						<span class="macro-nonterminal">Self</span>,
 						<span class="macro">vec!</span>[
 							[&lt;<span class="macro-nonterminal">$chain </span>RuntimeEvent&gt;]::&lt;N&gt;::PolkadotXcm(
-								<span class="macro-nonterminal">$crate::impls::pallet_xcm::Event::Attempted </span>{ outcome: <span class="macro-nonterminal">$crate::impls::Outcome::Complete</span>(weight) }
+								<span class="macro-nonterminal">$crate::impls::pallet_xcm::Event::Attempted </span>{ outcome: <span class="macro-nonterminal">$crate::impls::Outcome::Complete </span>{ used: weight } }
 							) =&gt; {
 								weight: <span class="macro-nonterminal">$crate::impls::weight_within_threshold</span>(
 									(<span class="macro-nonterminal">$crate::impls::REF_TIME_THRESHOLD</span>, <span class="macro-nonterminal">$crate::impls::PROOF_SIZE_THRESHOLD</span>),
@@ -1298,36 +1300,36 @@
 				<span class="doccomment">/// Asserts a dispatchable is incompletely executed and XCM sent
 				</span><span class="kw">pub fn </span>assert_xcm_pallet_attempted_incomplete(
 					expected_weight: <span class="prelude-ty">Option</span>&lt;<span class="macro-nonterminal">$crate::impls::Weight</span>&gt;,
-					expected_error: <span class="prelude-ty">Option</span>&lt;<span class="macro-nonterminal">$crate::impls::Error</span>&gt;,
+					expected_error: <span class="prelude-ty">Option</span>&lt;<span class="macro-nonterminal">$crate::impls::XcmError</span>&gt;,
 				) {
 					<span class="macro-nonterminal">$</span><span class="macro">crate::impls::assert_expected_events!</span>(
 						<span class="macro-nonterminal">Self</span>,
 						<span class="macro">vec!</span>[
 							<span class="comment">// Dispatchable is properly executed and XCM message sent
 							</span>[&lt;<span class="macro-nonterminal">$chain </span>RuntimeEvent&gt;]::&lt;N&gt;::PolkadotXcm(
-								<span class="macro-nonterminal">$crate::impls::pallet_xcm::Event::Attempted </span>{ outcome: <span class="macro-nonterminal">$crate::impls::Outcome::Incomplete</span>(weight, error) }
+								<span class="macro-nonterminal">$crate::impls::pallet_xcm::Event::Attempted </span>{ outcome: <span class="macro-nonterminal">$crate::impls::Outcome::Incomplete </span>{ used: weight, error } }
 							) =&gt; {
 								weight: <span class="macro-nonterminal">$crate::impls::weight_within_threshold</span>(
 									(<span class="macro-nonterminal">$crate::impls::REF_TIME_THRESHOLD</span>, <span class="macro-nonterminal">$crate::impls::PROOF_SIZE_THRESHOLD</span>),
 									expected_weight.unwrap_or(<span class="kw-2">*</span>weight),
 									<span class="kw-2">*</span>weight
 								),
-								error: <span class="kw-2">*</span>error == expected_error.unwrap_or(<span class="kw-2">*</span>error),
+								error: <span class="kw-2">*</span>error == expected_error.unwrap_or((<span class="kw-2">*</span>error).into()).into(),
 							},
 						]
 					);
 				}
 
 				<span class="doccomment">/// Asserts a dispatchable throws and error when trying to be sent
-				</span><span class="kw">pub fn </span>assert_xcm_pallet_attempted_error(expected_error: <span class="prelude-ty">Option</span>&lt;<span class="macro-nonterminal">$crate::impls::Error</span>&gt;) {
+				</span><span class="kw">pub fn </span>assert_xcm_pallet_attempted_error(expected_error: <span class="prelude-ty">Option</span>&lt;<span class="macro-nonterminal">$crate::impls::XcmError</span>&gt;) {
 					<span class="macro-nonterminal">$</span><span class="macro">crate::impls::assert_expected_events!</span>(
 						<span class="macro-nonterminal">Self</span>,
 						<span class="macro">vec!</span>[
 							<span class="comment">// Execution fails in the origin with `Barrier`
 							</span>[&lt;<span class="macro-nonterminal">$chain </span>RuntimeEvent&gt;]::&lt;N&gt;::PolkadotXcm(
-								<span class="macro-nonterminal">$crate::impls::pallet_xcm::Event::Attempted </span>{ outcome: <span class="macro-nonterminal">$crate::impls::Outcome::Error</span>(error) }
+								<span class="macro-nonterminal">$crate::impls::pallet_xcm::Event::Attempted </span>{ outcome: <span class="macro-nonterminal">$crate::impls::Outcome::Error </span>{ error } }
 							) =&gt; {
-								error: <span class="kw-2">*</span>error == expected_error.unwrap_or(<span class="kw-2">*</span>error),
+								error: <span class="kw-2">*</span>error == expected_error.unwrap_or((<span class="kw-2">*</span>error).into()).into(),
 							},
 						]
 					);
@@ -1477,7 +1479,7 @@
 					&lt;<span class="self">Self </span><span class="kw">as </span><span class="macro-nonterminal">$crate::impls::TestExt</span>&gt;::execute_with(|| {
 						<span class="macro-nonterminal">$</span><span class="macro">crate::impls::assert_ok!</span>(&lt;<span class="macro-nonterminal">Self </span><span class="kw">as </span>[&lt;<span class="macro-nonterminal">$chain </span>ParaPallet&gt;]&gt;::Assets::mint(
 							signed_origin,
-							id.into(),
+							id.clone().into(),
 							beneficiary.clone().into(),
 							amount_to_mint
 						));
@@ -1555,7 +1557,7 @@
 							]
 						);
 
-						<span class="macro">assert!</span>(&lt;<span class="self">Self </span><span class="kw">as </span>[&lt;<span class="macro-nonterminal">$chain </span>ParaPallet&gt;]&gt;::Assets::asset_exists(id.into()));
+						<span class="macro">assert!</span>(&lt;<span class="self">Self </span><span class="kw">as </span>[&lt;<span class="macro-nonterminal">$chain </span>ParaPallet&gt;]&gt;::Assets::asset_exists(id.clone().into()));
 					});
 				}
 			}
@@ -1570,7 +1572,7 @@
 			<span class="kw">impl</span>&lt;<span class="macro-nonterminal">N</span>: <span class="macro-nonterminal">$crate::impls::Network</span>&gt; <span class="macro-nonterminal">$chain</span>&lt;N&gt; {
 				<span class="doccomment">/// Create foreign assets using sudo `ForeignAssets::force_create()`
 				</span><span class="kw">pub fn </span>force_create_foreign_asset(
-					id: <span class="macro-nonterminal">$crate::impls::MultiLocation</span>,
+					id: <span class="macro-nonterminal">$crate::impls::v3::Location</span>,
 					owner: <span class="macro-nonterminal">$crate::impls::AccountId</span>,
 					is_sufficient: bool,
 					min_balance: u128,
@@ -1582,13 +1584,13 @@
 						<span class="macro-nonterminal">$</span><span class="macro">crate::impls::assert_ok!</span>(
 							&lt;<span class="macro-nonterminal">Self </span><span class="kw">as </span>[&lt;<span class="macro-nonterminal">$chain </span>ParaPallet&gt;]&gt;::ForeignAssets::force_create(
 								sudo_origin,
-								id,
+								id.clone(),
 								owner.clone().into(),
 								is_sufficient,
 								min_balance,
 							)
 						);
-						<span class="macro">assert!</span>(&lt;<span class="self">Self </span><span class="kw">as </span>[&lt;<span class="macro-nonterminal">$chain </span>ParaPallet&gt;]&gt;::ForeignAssets::asset_exists(id));
+						<span class="macro">assert!</span>(&lt;<span class="self">Self </span><span class="kw">as </span>[&lt;<span class="macro-nonterminal">$chain </span>ParaPallet&gt;]&gt;::ForeignAssets::asset_exists(id.clone()));
 						<span class="kw">type </span>RuntimeEvent&lt;N&gt; = &lt;<span class="macro-nonterminal">$chain</span>&lt;N&gt; <span class="kw">as </span><span class="macro-nonterminal">$crate::impls::Chain</span>&gt;::RuntimeEvent;
 						<span class="macro-nonterminal">$</span><span class="macro">crate::impls::assert_expected_events!</span>(
 							<span class="macro-nonterminal">Self</span>,
@@ -1605,21 +1607,21 @@
 					<span class="kw">for </span>(beneficiary, amount) <span class="kw">in </span>prefund_accounts.into_iter() {
 						<span class="kw">let </span>signed_origin =
 							&lt;<span class="macro-nonterminal">$chain</span>&lt;N&gt; <span class="kw">as </span><span class="macro-nonterminal">$crate::impls::Chain</span>&gt;::RuntimeOrigin::signed(owner.clone());
-						<span class="self">Self</span>::mint_foreign_asset(signed_origin, id, beneficiary, amount);
+						<span class="self">Self</span>::mint_foreign_asset(signed_origin, id.clone(), beneficiary, amount);
 					}
 				}
 
 				<span class="doccomment">/// Mint assets making use of the ForeignAssets pallet-assets instance
 				</span><span class="kw">pub fn </span>mint_foreign_asset(
 					signed_origin: &lt;<span class="self">Self </span><span class="kw">as </span><span class="macro-nonterminal">$crate::impls::Chain</span>&gt;::RuntimeOrigin,
-					id: <span class="macro-nonterminal">$crate::impls::MultiLocation</span>,
+					id: <span class="macro-nonterminal">$crate::impls::v3::Location</span>,
 					beneficiary: <span class="macro-nonterminal">$crate::impls::AccountId</span>,
 					amount_to_mint: u128,
 				) {
 					&lt;<span class="self">Self </span><span class="kw">as </span><span class="macro-nonterminal">$crate::impls::TestExt</span>&gt;::execute_with(|| {
 						<span class="macro-nonterminal">$</span><span class="macro">crate::impls::assert_ok!</span>(&lt;<span class="macro-nonterminal">Self </span><span class="kw">as </span>[&lt;<span class="macro-nonterminal">$chain </span>ParaPallet&gt;]&gt;::ForeignAssets::mint(
 							signed_origin,
-							id.into(),
+							id.clone().into(),
 							beneficiary.clone().into(),
 							amount_to_mint
 						));
@@ -1651,7 +1653,7 @@
 		<span class="macro-nonterminal">$</span><span class="macro">crate::impls::paste::paste! </span>{
 			<span class="kw">impl</span>&lt;<span class="macro-nonterminal">N</span>: <span class="macro-nonterminal">$crate::impls::Network</span>&gt; <span class="macro-nonterminal">$chain</span>&lt;N&gt; {
 				<span class="doccomment">/// Set XCM version for destination.
-				</span><span class="kw">pub fn </span>force_xcm_version(dest: <span class="macro-nonterminal">$crate::impls::MultiLocation</span>, version: <span class="macro-nonterminal">$crate::impls::XcmVersion</span>) {
+				</span><span class="kw">pub fn </span>force_xcm_version(dest: <span class="macro-nonterminal">$crate::impls::Location</span>, version: <span class="macro-nonterminal">$crate::impls::XcmVersion</span>) {
 					&lt;<span class="self">Self </span><span class="kw">as </span><span class="macro-nonterminal">$crate::impls::TestExt</span>&gt;::execute_with(|| {
 						<span class="macro-nonterminal">$</span><span class="macro">crate::impls::assert_ok!</span>(&lt;<span class="macro-nonterminal">Self </span><span class="kw">as </span>[&lt;<span class="macro-nonterminal">$chain </span>ParaPallet&gt;]&gt;::PolkadotXcm::force_xcm_version(
 							&lt;<span class="self">Self </span><span class="kw">as </span><span class="macro-nonterminal">$crate::impls::Chain</span>&gt;::RuntimeOrigin::root(),

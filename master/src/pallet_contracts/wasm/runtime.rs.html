@@ -4510,11 +4510,11 @@
 		msg_len: u32,
 		output_ptr: u32,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ReturnErrorCode, TrapReason&gt; {
-		<span class="kw">use </span>xcm::{VersionedMultiLocation, VersionedXcm};
+		<span class="kw">use </span>xcm::{VersionedLocation, VersionedXcm};
 		<span class="kw">use </span>xcm_builder::{SendController, SendControllerWeightInfo};
 
 		ctx.charge_gas(RuntimeCosts::CopyFromContract(msg_len))<span class="question-mark">?</span>;
-		<span class="kw">let </span>dest: VersionedMultiLocation = ctx.read_sandbox_memory_as(memory, dest_ptr)<span class="question-mark">?</span>;
+		<span class="kw">let </span>dest: VersionedLocation = ctx.read_sandbox_memory_as(memory, dest_ptr)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>message: VersionedXcm&lt;()&gt; =
 			ctx.read_sandbox_memory_as_unbounded(memory, msg_ptr, msg_len)<span class="question-mark">?</span>;
