@@ -1251,7 +1251,10 @@ impl<const DISABLING_THRESHOLD_FACTOR: usize>
 		validators_len
 			.saturating_sub(1)
 			.checked_div(DISABLING_THRESHOLD_FACTOR)
-			.unwrap_or(0)
+			.unwrap_or_else(|| {
+				defensive!("DISABLING_THRESHOLD_FACTOR should not be 0");
+				0
+			})
 	}
 }
 
