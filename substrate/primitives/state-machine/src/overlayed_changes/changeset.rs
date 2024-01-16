@@ -305,8 +305,10 @@ fn restore_append_to_parent(
 			materialized: parent_materialized,
 			from_parent: _,
 		} => {
+			// head contains a data so this is a moved size.
+			debug_assert!(matches!(AppendData::MovedSize(_), parent_data);
 			let AppendData::MovedSize(mut target_size) = parent_data else {
-				unreachable!("restore only when parent is moved");
+				return;
 			};
 
 			// use materialized size from next layer to avoid changing it at this point.
@@ -354,6 +356,7 @@ impl OverlayedEntry<StorageEntry> {
 					// append in same transaction get overwritten, yet if data was moved
 					// from a parent transaction we need to restore it.
 					let AppendData::Data(data) = data else {
+						// This is transaction head, `Append::MovedSize` cannot be in head.
 						unreachable!(
 							"set in last transaction and append in last transaction is data"
 						);
@@ -367,6 +370,7 @@ impl OverlayedEntry<StorageEntry> {
 			if let Some((data, current_materialized)) = set_prev {
 				let transactions = self.transactions.len();
 
+				debug_assert!(transactions >= 2);
 				let parent = self.transactions.get_mut(transactions - 2).expect("from parent true");
 				restore_append_to_parent(&mut parent.value, data, current_materialized);
 			}
@@ -788,15 +792,19 @@ impl OverlayedChangeSet {
 							if from_parent {
 								let transactions = overlayed.transactions.len();
 
-								let parent = overlayed
-									.transactions
-									.get_mut(transactions - 2)
-									.expect("from parent true");
-								restore_append_to_parent(
-									&mut parent.value,
-									data,
-									current_materialized,
-								);
+								// info from replaced head so len is at least one
+								// and from_parent implies a parent transaction
+								// so length is at least two.
+								debug_assert!(transactions >= 2);
+								if let Some(parent) =
+									overlayed.transactions.get_mut(transactions - 2)
+								{
+									restore_append_to_parent(
+										&mut parent.value,
+										data,
+										current_materialized,
+									)
+								}
 							}
 						}
 					}
