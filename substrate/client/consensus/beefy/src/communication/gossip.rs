@@ -292,17 +292,28 @@ where
 		let set_id = vote.commitment.validator_set_id;
 		self.known_peers.lock().note_vote_for(*sender, round);
 
-		// Verify general usefulness of the message.
-		// We are going to discard old votes right away (without verification).
+		// Verify general utility of the message.
+		// Have fisherman check the vote for equivocations against finalized
+		// state if the vote is rejected since it could either equivocate against finalized state or
+		// be for a future non-active round that should not be voted for yet (from the client's
+		// perspective). The check is best-effort and ignores errors such as state pruned. We do not
+		// check for equivocations on accepted votes here since this check is performed later in
+		// `sc_consensus_beefy::worker::BeefyWorker::handle_vote`, and in case the vote does not
+		// equivocate, we'd otherwise only produce a false-positive report here. We are going to
+		// discard old votes right away (without verification).
 		{
 			let filter = self.gossip_filter.read();
 
 			match filter.consider_vote(round, set_id) {
-				Consider::RejectFuture => return Action::Discard(cost::FUTURE_MESSAGE),
-				Consider::RejectOutOfScope => return Action::Discard(cost::OUT_OF_SCOPE_MESSAGE),
+				Consider::RejectFuture => {
+					let _ = self.fisherman.check_vote(vote);
+					return Action::Discard(cost::FUTURE_MESSAGE)
+				},
+				Consider::RejectOutOfScope => {
+					let _ = self.fisherman.check_vote(vote);
+					return Action::Discard(cost::OUT_OF_SCOPE_MESSAGE)
+				},
 				Consider::RejectPast => {
-					// We know `vote` is for some past (finalized) block. Have fisherman check
-					// for equivocations. Best-effort, ignore errors such as state pruned.
 					let _ = self.fisherman.check_vote(vote);
 					// TODO: maybe raise cost reputation when seeing votes that are intentional
 					// spam: votes that trigger fisherman reports, but don't go through either
@@ -346,11 +357,14 @@ where
 		let action = {
 			let guard = self.gossip_filter.read();
 
-			// Verify general usefulness of the justification.
+			// Verify general utility of the justification.
+			// The justification is only useful if it is for an active round: voters should
+			// broadcast finality proofs once they have seen sufficient affirming votes to build a
+			// valid one. If the proof is not for an active round, the fisherman will check the
+			// proof for equivocations against its state (and report if applicable). The check is
+			// best-effort and ignores errors such as state pruned.
 			match guard.consider_finality_proof(round, set_id) {
 				Consider::RejectPast => {
-					// We know `proof` is for some past (finalized) block. Have fisherman check
-					// for equivocations. Best-effort, ignore errors such as state pruned.
 					let _ = self.fisherman.check_proof(proof);
 					// TODO: maybe raise cost reputation when seeing votes that are intentional
 					// spam: votes that trigger fisherman reports, but don't go through either
@@ -358,8 +372,14 @@ where
 					// The idea is to more quickly disconnect neighbors which are attempting DoS.
 					return Action::Discard(cost::OUTDATED_MESSAGE)
 				},
-				Consider::RejectFuture => return Action::Discard(cost::FUTURE_MESSAGE),
-				Consider::RejectOutOfScope => return Action::Discard(cost::OUT_OF_SCOPE_MESSAGE),
+				Consider::RejectFuture => {
+					let _ = self.fisherman.check_proof(proof);
+					return Action::Discard(cost::FUTURE_MESSAGE)
+				},
+				Consider::RejectOutOfScope => {
+					let _ = self.fisherman.check_proof(proof);
+					return Action::Discard(cost::OUT_OF_SCOPE_MESSAGE)
+				},
 				Consider::Accept => {},
 			}
 
