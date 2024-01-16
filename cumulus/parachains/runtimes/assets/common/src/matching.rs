@@ -47,21 +47,11 @@ impl<SelfParaId: Get<ParaId>, L: TryFrom<Location> + TryInto<Location> + Clone> 
 	for FromSiblingParachain<SelfParaId, L>
 {
 	fn contains(a: &L, b: &L) -> bool {
-		let a: Location = if let Ok(location) = (*a).clone().try_into() {
-			location
-		} else {
-			return false;
+		// We convert locations to latest
+		let (a, b) = match ((*a).clone().try_into(), (*b).clone().try_into()) {
+			(Ok(a), Ok(b)) if a.starts_with(&b) => (a, b), // `a` needs to be from `b` at least
+			_ => return false;
 		};
-		let b: Location = if let Ok(location) = (*b).clone().try_into() {
-			location
-		} else {
-			return false;
-		};
-
-		// `a` needs to be from `b` at least
-		if !a.starts_with(&b) {
-			return false;
-		}
 
 		// here we check if sibling
 		match a.unpack() {
@@ -84,21 +74,11 @@ impl<
 	> ContainsPair<L, L> for FromNetwork<UniversalLocation, ExpectedNetworkId, L>
 {
 	fn contains(a: &L, b: &L) -> bool {
-		let a: Location = if let Ok(location) = (*a).clone().try_into() {
-			location
-		} else {
-			return false;
+		// We convert locations to latest
+		let (a, b) = match ((*a).clone().try_into(), (*b).clone().try_into()) {
+			(Ok(a), Ok(b)) if a.starts_with(&b) => (a, b), // `a` needs to be from `b` at least
+			_ => return false;
 		};
-		let b: Location = if let Ok(location) = (*b).clone().try_into() {
-			location
-		} else {
-			return false;
-		};
-
-		// `a` needs to be from `b` at least
-		if !a.starts_with(&b) {
-			return false
-		}
 
 		let universal_source = UniversalLocation::get();
 
