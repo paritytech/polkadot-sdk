@@ -370,7 +370,7 @@ fn pay_xcm_fee_with_some_asset_swapped_for_native() {
 		let penpal_root = <PenpalA as Chain>::RuntimeOrigin::root();
 		let fee_amount = 4_000_000_000_000u128;
 		let asset_one =
-			((xcm::v3::Junction::PalletInstance(ASSETS_PALLET_ID), xcm::v3::Junction::GeneralIndex(ASSET_ID.into())).into(), fee_amount)
+			([PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())], fee_amount)
 				.into();
 		let asset_hub_location = PenpalA::sibling_location_of(AssetHubRococo::para_id()).into();
 		let xcm = xcm_transact_paid_execution(
