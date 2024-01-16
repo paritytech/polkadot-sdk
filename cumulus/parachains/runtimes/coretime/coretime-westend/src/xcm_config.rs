@@ -21,13 +21,11 @@ use super::{
 };
 use frame_support::{
 	match_types, parameter_types,
-	traits::{tokens::imbalance::ResolveTo, ConstU32, Contains, Everything, Nothing},
-	traits::{ConstU32, Contains, Equals, Everything, Nothing},
+	traits::{tokens::imbalance::ResolveTo, ConstU32, Contains, Equals, Everything, Nothing},
 };
 use frame_system::EnsureRoot;
 use pallet_collator_selection::StakingPotAccountId;
 use pallet_xcm::XcmPassthrough;
-use parachains_common::xcm_config::ConcreteAssetFromSystem;
 use parachains_common::{
 	impls::ToStakingPot,
 	xcm_config::{
@@ -223,8 +221,13 @@ impl xcm_executor::Config for XcmConfig {
 		RuntimeCall,
 		MaxInstructions,
 	>;
-	type Trader =
-		UsingComponents<WeightToFee, WndRelayLocation, AccountId, Balances, ResolveTo<StakingPotAccountId<Runtime>, Balances>;
+	type Trader = UsingComponents<
+		WeightToFee,
+		WndRelayLocation,
+		AccountId,
+		Balances,
+		ResolveTo<StakingPotAccountId<Runtime>, Balances>,
+	>;
 	type ResponseHandler = PolkadotXcm;
 	type AssetTrap = PolkadotXcm;
 	type AssetClaims = PolkadotXcm;

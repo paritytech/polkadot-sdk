@@ -17,10 +17,10 @@
 //! Taken from polkadot/runtime/common (at a21cd64) and adapted for parachains.
 
 use frame_support::traits::{
+	fungible,
 	fungibles::{self, Balanced, Credit},
-	Contains, ContainsPair, Currency, Get, Imbalance, OnUnbalanced, OriginTrait,
-	fungible, fungibles, tokens::imbalance::ResolveTo, Contains, ContainsPair, Currency, Defensive,
-	Get, Imbalance, OnUnbalanced,
+	tokens::imbalance::ResolveTo,
+	Contains, ContainsPair, Currency, Defensive, Get, Imbalance, OnUnbalanced, OriginTrait,
 };
 use pallet_asset_tx_payment::HandleCredit;
 use pallet_collator_selection::StakingPotAccountId;
