@@ -231,13 +231,20 @@ impl<B: BlockT> Behaviour<B> {
 	pub fn send_request(
 		&mut self,
 		target: &PeerId,
-		protocol: &str,
+		protocol: ProtocolName,
 		request: Vec<u8>,
-		pending_response: oneshot::Sender<Result<Vec<u8>, RequestFailure>>,
+		fallback_request: Option<(Vec<u8>, ProtocolName)>,
+		pending_response: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
 		connect: IfDisconnected,
 	) {
-		self.request_responses
-			.send_request(target, protocol, request, pending_response, connect)
+		self.request_responses.send_request(
+			target,
+			protocol,
+			request,
+			fallback_request,
+			pending_response,
+			connect,
+		)
 	}
 
 	/// Returns a shared reference to the user protocol.

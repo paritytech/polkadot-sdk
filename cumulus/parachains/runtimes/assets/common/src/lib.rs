@@ -15,6 +15,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarks;
 pub mod foreign_creators;
 pub mod fungible_conversion;
 pub mod local_and_foreign_assets;
@@ -44,6 +46,16 @@ pub type TrustBackedAssetsConvertedConcreteId<TrustBackedAssetsPalletLocation, B
 
 /// AssetId used for identifying assets by MultiLocation.
 pub type MultiLocationForAssetId = MultiLocation;
+
+/// [`MatchedConvertedConcreteId`] converter dedicated for `TrustBackedAssets`
+pub type TrustBackedAssetsAsMultiLocation<TrustBackedAssetsPalletLocation, Balance> =
+	MatchedConvertedConcreteId<
+		MultiLocationForAssetId,
+		Balance,
+		StartsWith<TrustBackedAssetsPalletLocation>,
+		Identity,
+		JustTry,
+	>;
 
 /// [`MatchedConvertedConcreteId`] converter dedicated for storing `AssetId` as `MultiLocation`.
 pub type MultiLocationConvertedConcreteId<MultiLocationFilter, Balance> =

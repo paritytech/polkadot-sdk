@@ -48,6 +48,49 @@ fn send_wnds_from_asset_hub_westend_to_asset_hub_rococo() {
 		AssetHubRococo::para_id(),
 	);
 
+	AssetHubRococo::execute_with(|| {
+		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
+
+		// setup a pool to pay xcm fees with `wnd_at_asset_hub_rococo` tokens
+		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::ForeignAssets::mint(
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			wnd_at_asset_hub_rococo.into(),
+			AssetHubRococoSender::get().into(),
+			3_000_000_000_000,
+		));
+
+		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::create_pool(
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			Box::new(Parent.into()),
+			Box::new(wnd_at_asset_hub_rococo),
+		));
+
+		assert_expected_events!(
+			AssetHubRococo,
+			vec![
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::PoolCreated { .. }) => {},
+			]
+		);
+
+		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::add_liquidity(
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			Box::new(Parent.into()),
+			Box::new(wnd_at_asset_hub_rococo),
+			1_000_000_000_000,
+			2_000_000_000_000,
+			1,
+			1,
+			AssetHubRococoSender::get().into()
+		));
+
+		assert_expected_events!(
+			AssetHubRococo,
+			vec![
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded {..}) => {},
+			]
+		);
+	});
+
 	let wnds_in_reserve_on_ahw_before =
 		<AssetHubWestend as Chain>::account_data_of(sov_ahr_on_ahw.clone()).free;
 	let sender_wnds_before =
