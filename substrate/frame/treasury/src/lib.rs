@@ -1112,17 +1112,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		Ok(())
 	}
-
-	// /// Ensure that the origin is either the `ApproveOrigin` or a signed origin.
-	// fn ensure_signed_or_manager(
-	// 	origin: T::RuntimeOrigin,
-	// ) -> Result<Option<T::AccountId>, BadOrigin> {
-	// 	if T::ApproveOrigin::ensure_origin(origin.clone()).is_ok() {
-	// 		return Ok(None)
-	// 	}
-	// 	let who = ensure_signed(origin)?;
-	// 	Ok(Some(who))
-	// }
 }
 
 impl<T: Config<I>, I: 'static> OnUnbalanced<NegativeImbalanceOf<T, I>> for Pallet<T, I> {
