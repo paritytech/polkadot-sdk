@@ -1,0 +1,20 @@
+title: XCMv4
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      A new version of the XCM format.
+      The main changes are:
+      - Removed `Multi` prefix from types
+      - Removed `Abstract` asset id
+      - `Outcome` is now a named fields struct
+      - Added `Reanchorable` trait, implemented for both `Location` and `Asset`
+      - New syntax for building `Location`s and `Junction`s using slices.
+        You build them like `let location = Location::new(1, [Parachain(1000), PalletInstance(50), GeneralIndex(1984)]);`
+        and match on them like `match location.unpack() {
+          (1, [Parachain(id)]) => ...
+          (0, Here) => ...,
+          (1, [_]) => ...,
+        }`
+
+crates: []
