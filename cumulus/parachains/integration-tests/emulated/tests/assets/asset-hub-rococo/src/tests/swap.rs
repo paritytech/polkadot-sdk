@@ -275,3 +275,130 @@ fn cannot_create_pool_from_pool_assets() {
 		);
 	});
 }
+
+#[test]
+fn pay_xcm_fee_with_some_asset_swapped_for_native() {
+	let asset_native = asset_hub_rococo_runtime::xcm_config::TokenLocation::get();
+	let asset_one = MultiLocation {
+		parents: 0,
+		interior: X2(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())),
+	};
+	let penpal = AssetHubRococo::sovereign_account_id_of(AssetHubRococo::sibling_location_of(
+		PenpalA::para_id(),
+	));
+
+	AssetHubRococo::execute_with(|| {
+		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
+
+		// set up pool with ASSET_ID <> NATIVE pair
+		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::Assets::create(
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			ASSET_ID.into(),
+			AssetHubRococoSender::get().into(),
+			ASSET_MIN_BALANCE,
+		));
+		assert!(<AssetHubRococo as AssetHubRococoPallet>::Assets::asset_exists(ASSET_ID));
+
+		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::Assets::mint(
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			ASSET_ID.into(),
+			AssetHubRococoSender::get().into(),
+			3_000_000_000_000,
+		));
+
+		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::create_pool(
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			Box::new(asset_native),
+			Box::new(asset_one),
+		));
+
+		assert_expected_events!(
+			AssetHubRococo,
+			vec![
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::PoolCreated { .. }) => {},
+			]
+		);
+
+		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::add_liquidity(
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			Box::new(asset_native),
+			Box::new(asset_one),
+			1_000_000_000_000,
+			2_000_000_000_000,
+			0,
+			0,
+			AssetHubRococoSender::get().into()
+		));
+
+		assert_expected_events!(
+			AssetHubRococo,
+			vec![
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded {lp_token_minted, .. }) => { lp_token_minted: *lp_token_minted == 1414213562273, },
+			]
+		);
+
+		// ensure `penpal` sovereign account has no native tokens and mint some `ASSET_ID`
+		assert_eq!(
+			<AssetHubRococo as AssetHubRococoPallet>::Balances::free_balance(penpal.clone()),
+			0
+		);
+
+		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::Assets::touch_other(
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			ASSET_ID.into(),
+			penpal.clone().into(),
+		));
+
+		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::Assets::mint(
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			ASSET_ID.into(),
+			penpal.clone().into(),
+			10_000_000_000_000,
+		));
+	});
+
+	PenpalA::execute_with(|| {
+		// send xcm transact from `penpal` account which as only `ASSET_ID` tokens on
+		// `AssetHubRococo`
+		let call = AssetHubRococo::force_create_asset_call(
+			ASSET_ID + 1000,
+			penpal.clone(),
+			true,
+			ASSET_MIN_BALANCE,
+		);
+
+		let penpal_root = <PenpalA as Chain>::RuntimeOrigin::root();
+		let fee_amount = 4_000_000_000_000u128;
+		let asset_one =
+			(X2(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())), fee_amount)
+				.into();
+		let asset_hub_location = PenpalA::sibling_location_of(AssetHubRococo::para_id()).into();
+		let xcm = xcm_transact_paid_execution(
+			call,
+			OriginKind::SovereignAccount,
+			asset_one,
+			penpal.clone(),
+		);
+
+		assert_ok!(<PenpalA as PenpalAPallet>::PolkadotXcm::send(
+			penpal_root,
+			bx!(asset_hub_location),
+			bx!(xcm),
+		));
+
+		PenpalA::assert_xcm_pallet_sent();
+	});
+
+	AssetHubRococo::execute_with(|| {
+		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
+
+		AssetHubRococo::assert_xcmp_queue_success(None);
+		assert_expected_events!(
+			AssetHubRococo,
+			vec![
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::SwapCreditExecuted { .. },) => {},
+				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success: true,.. }) => {},
+			]
+		);
+	});
+}

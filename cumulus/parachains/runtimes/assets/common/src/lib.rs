@@ -55,12 +55,22 @@ pub type TrustBackedAssetsConvertedConcreteId<TrustBackedAssetsPalletLocation, B
 
 /// [`MatchedConvertedConcreteId`] converter dedicated for storing `AssetId` as `Location`.
 pub type LocationConvertedConcreteId<LocationFilter, Balance> = MatchedConvertedConcreteId<
-	xcm::v3::MultiLocation,
+	xcm::v3::Location,
 	Balance,
 	LocationFilter,
 	V4V3LocationConverter,
 	JustTry,
 >;
+
+/// [`MatchedConvertedConcreteId`] converter dedicated for `TrustBackedAssets`
+pub type TrustBackedAssetsAsLocation<TrustBackedAssetsPalletLocation, Balance> =
+	MatchedConvertedConcreteId<
+		xcm::v3::Location,
+		Balance,
+		StartsWith<TrustBackedAssetsPalletLocation>,
+		V4V3LocationConverter,
+		JustTry,
+	>;
 
 /// [`MatchedConvertedConcreteId`] converter dedicated for storing `ForeignAssets` with `AssetId` as
 /// `Location`.

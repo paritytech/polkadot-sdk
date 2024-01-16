@@ -2229,7 +2229,6 @@ pub mod env {
 
 	/// Verify a sr25519 signature
 	/// See [`pallet_contracts_uapi::HostFn::sr25519_verify`].
-	#[unstable]
 	fn sr25519_verify(
 		ctx: _,
 		memory: _,

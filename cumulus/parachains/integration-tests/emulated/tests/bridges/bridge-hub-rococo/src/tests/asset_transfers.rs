@@ -49,6 +49,49 @@ fn send_rocs_from_asset_hub_rococo_to_asset_hub_westend() {
 		AssetHubWestend::para_id(),
 	);
 
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+
+		// setup a pool to pay xcm fees with `roc_at_asset_hub_westend` tokens
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::ForeignAssets::mint(
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			roc_at_asset_hub_westend.into(),
+			AssetHubWestendSender::get().into(),
+			3_000_000_000_000,
+		));
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::create_pool(
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			Box::new(Parent.into()),
+			Box::new(roc_at_asset_hub_westend),
+		));
+
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::PoolCreated { .. }) => {},
+			]
+		);
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::add_liquidity(
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			Box::new(Parent.into()),
+			Box::new(roc_at_asset_hub_westend),
+			1_000_000_000_000,
+			2_000_000_000_000,
+			1,
+			1,
+			AssetHubWestendSender::get().into()
+		));
+
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded {..}) => {},
+			]
+		);
+	});
+
 	let rocs_in_reserve_on_ahr_before =
 		<AssetHubRococo as Chain>::account_data_of(sov_ahw_on_ahr.clone()).free;
 	let sender_rocs_before =
@@ -59,7 +102,7 @@ fn send_rocs_from_asset_hub_rococo_to_asset_hub_westend() {
 	});
 
 	let roc_at_asset_hub_rococo_latest: Location = roc_at_asset_hub_rococo.try_into().unwrap();
-	let amount = ASSET_HUB_ROCOCO_ED * 1_000;
+	let amount = ASSET_HUB_ROCOCO_ED * 1_000_000;
 	send_asset_from_asset_hub_rococo_to_asset_hub_westend(roc_at_asset_hub_rococo_latest, amount);
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;

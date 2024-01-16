@@ -270,3 +270,130 @@ fn cannot_create_pool_from_pool_assets() {
 		);
 	});
 }
+
+#[test]
+fn pay_xcm_fee_with_some_asset_swapped_for_native() {
+	let asset_native = asset_hub_westend_runtime::xcm_config::WestendLocation::get();
+	let asset_one = MultiLocation {
+		parents: 0,
+		interior: X2(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())),
+	};
+	let penpal = AssetHubWestend::sovereign_account_id_of(AssetHubWestend::sibling_location_of(
+		PenpalB::para_id(),
+	));
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+
+		// set up pool with ASSET_ID <> NATIVE pair
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::Assets::create(
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			ASSET_ID.into(),
+			AssetHubWestendSender::get().into(),
+			ASSET_MIN_BALANCE,
+		));
+		assert!(<AssetHubWestend as AssetHubWestendPallet>::Assets::asset_exists(ASSET_ID));
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::Assets::mint(
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			ASSET_ID.into(),
+			AssetHubWestendSender::get().into(),
+			3_000_000_000_000,
+		));
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::create_pool(
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			Box::new(asset_native),
+			Box::new(asset_one),
+		));
+
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::PoolCreated { .. }) => {},
+			]
+		);
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::AssetConversion::add_liquidity(
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			Box::new(asset_native),
+			Box::new(asset_one),
+			1_000_000_000_000,
+			2_000_000_000_000,
+			0,
+			0,
+			AssetHubWestendSender::get().into()
+		));
+
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded {lp_token_minted, .. }) => { lp_token_minted: *lp_token_minted == 1414213562273, },
+			]
+		);
+
+		// ensure `penpal` sovereign account has no native tokens and mint some `ASSET_ID`
+		assert_eq!(
+			<AssetHubWestend as AssetHubWestendPallet>::Balances::free_balance(penpal.clone()),
+			0
+		);
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::Assets::touch_other(
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			ASSET_ID.into(),
+			penpal.clone().into(),
+		));
+
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::Assets::mint(
+			<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get()),
+			ASSET_ID.into(),
+			penpal.clone().into(),
+			10_000_000_000_000,
+		));
+	});
+
+	PenpalB::execute_with(|| {
+		// send xcm transact from `penpal` account which as only `ASSET_ID` tokens on
+		// `AssetHubWestend`
+		let call = AssetHubWestend::force_create_asset_call(
+			ASSET_ID + 1000,
+			penpal.clone(),
+			true,
+			ASSET_MIN_BALANCE,
+		);
+
+		let penpal_root = <PenpalB as Chain>::RuntimeOrigin::root();
+		let fee_amount = 4_000_000_000_000u128;
+		let asset_one =
+			(X2(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())), fee_amount)
+				.into();
+		let asset_hub_location = PenpalB::sibling_location_of(AssetHubWestend::para_id()).into();
+		let xcm = xcm_transact_paid_execution(
+			call,
+			OriginKind::SovereignAccount,
+			asset_one,
+			penpal.clone(),
+		);
+
+		assert_ok!(<PenpalB as PenpalBPallet>::PolkadotXcm::send(
+			penpal_root,
+			bx!(asset_hub_location),
+			bx!(xcm),
+		));
+
+		PenpalB::assert_xcm_pallet_sent();
+	});
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+
+		AssetHubWestend::assert_xcmp_queue_success(None);
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::SwapCreditExecuted { .. },) => {},
+				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success: true,.. }) => {},
+			]
+		);
+	});
+}
