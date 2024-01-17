@@ -729,7 +729,7 @@ pub fn new_network(
 ) -> (NetworkEmulatorHandle, NetworkInterface, NetworkInterfaceReceiver) {
 	let n_peers = config.n_validators;
 	gum::info!(target: LOG_TARGET, "{}",format!("Initializing emulation for a {} peer network.", n_peers).bright_blue());
-	gum::info!(target: LOG_TARGET, "{}",format!("connectivity {}%, latency {:?}%", config.connectivity, config.latency).bright_black());
+	gum::info!(target: LOG_TARGET, "{}",format!("connectivity {}%, latency {:?}", config.connectivity, config.latency).bright_black());
 
 	let metrics =
 		Metrics::new(&dependencies.registry).expect("Metrics always register succesfully");
