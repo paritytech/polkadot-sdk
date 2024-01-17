@@ -383,13 +383,12 @@ impl Default for Limits {
 }
 
 impl<T: Config> Default for InstructionWeights<T> {
-	/// We price all of `i64.add`, `local.get` and `local.set` as `instr_i64add / 2`. The reason
-	/// for that is that we cannot benchmark either of them on their own and division by 2 makes
-	/// for a decent compromise between the optimization capabilities of Wasmi (stack) and
-	/// Wasmi (register).
+	/// We execute 4 different instructions to emulate the `i64.add` therefore
+	/// we have to divide the actual computed gas costs by 4 to have a rough
+	/// estimate as to how expensive each single executed instruction is going to be.
 	fn default() -> Self {
 		let instr_cost = cost_args!(instr_i64add, 1).ref_time() as u32;
-		let base = instr_cost.saturating_sub(instr_cost / 2);
+		let base = instr_cost.saturating_sub(instr_cost / 4);
 		Self { base, _phantom: PhantomData }
 	}
 }
