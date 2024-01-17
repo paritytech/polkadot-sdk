@@ -6,7 +6,7 @@ title: Add NonFungibleAdapter
 doc:
   - audience: Runtime Dev
     description: |
-      Introduces new adapters to work with `frame_support::traits::tokens::nonfungible`
+      Introduces a new adapter, `NonFungibleAdapter`, to work with `frame_support::traits::tokens::nonfungible`
       through XCM.
 
 crates: 
