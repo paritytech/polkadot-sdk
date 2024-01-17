@@ -1,0 +1,16 @@
+title: Migrates pallet-multisig to Consideration API
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Migrates Multisig pallet to use Consideration - an abstraction over storage deposits introduced in https://github.com/paritytech/polkadot-sdk/pull/1361
+
+migrations:
+  db: []
+
+  runtime: []
+
+crates:
+  - name: pallet-multisig
+
+host_functions: []
