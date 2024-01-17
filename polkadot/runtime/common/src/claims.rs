@@ -591,11 +591,9 @@ impl<T: Config> Pallet<T> {
 /// otherwise free to place on chain.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-pub struct PrevalidateAttests<T: Config + Send + Sync>(sp_std::marker::PhantomData<T>)
-where
-	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>;
+pub struct PrevalidateAttests<T>(core::marker::PhantomData<fn(T)>);
 
-impl<T: Config + Send + Sync> Debug for PrevalidateAttests<T>
+impl<T: Config> Debug for PrevalidateAttests<T>
 where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
@@ -610,7 +608,7 @@ where
 	}
 }
 
-impl<T: Config + Send + Sync> PrevalidateAttests<T>
+impl<T: Config> PrevalidateAttests<T>
 where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
@@ -620,7 +618,7 @@ where
 	}
 }
 
-impl<T: Config + Send + Sync> SignedExtension for PrevalidateAttests<T>
+impl<T: Config> SignedExtension for PrevalidateAttests<T>
 where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {

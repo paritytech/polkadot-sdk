@@ -16,6 +16,7 @@
 
 //! A tool for running subsystem benchmark tests designed for development and
 //! CI regression testing.
+
 use clap::Parser;
 use color_eyre::eyre;
 use pyroscope::PyroscopeAgent;
@@ -27,6 +28,7 @@ use std::{path::Path, time::Duration};
 pub(crate) mod availability;
 pub(crate) mod cli;
 pub(crate) mod core;
+mod valgrind;
 
 use availability::{prepare_test, NetworkEmulation, TestState};
 use cli::TestObjective;
@@ -90,12 +92,21 @@ struct BenchCli {
 	/// Pyroscope Sample Rate
 	pub pyroscope_sample_rate: u32,
 
+	#[clap(long, default_value_t = false)]
+	/// Enable Cache Misses Profiling with Valgrind. Linux only, Valgrind must be in the PATH
+	pub cache_misses: bool,
+
 	#[command(subcommand)]
 	pub objective: cli::TestObjective,
 }
 
 impl BenchCli {
 	fn launch(self) -> eyre::Result<()> {
+		let is_valgrind_running = valgrind::is_valgrind_running();
+		if !is_valgrind_running && self.cache_misses {
+			return valgrind::relaunch_in_valgrind_mode()
+		}
+
 		let agent_running = if self.profile {
 			let agent = PyroscopeAgent::builder(self.pyroscope_url.as_str(), "subsystem-bench")
 				.backend(pprof_backend(PprofConfig::new().sample_rate(self.pyroscope_sample_rate)))
@@ -185,7 +196,7 @@ impl BenchCli {
 
 		let mut state = TestState::new(&test_config);
 		let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
-		// test_config.write_to_disk();
+
 		env.runtime()
 			.block_on(availability::benchmark_availability_read(&mut env, state));
 

@@ -16,7 +16,7 @@
 
 use codec::Encode;
 use frame_support::{
-	construct_runtime, derive_impl, match_types, parameter_types,
+	construct_runtime, derive_impl, parameter_types,
 	traits::{
 		AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, Equals, Everything, EverythingBut,
 		Nothing,
@@ -76,7 +76,7 @@ pub mod pallet_test_notifier {
 	pub enum Event<T: Config> {
 		QueryPrepared(QueryId),
 		NotifyQueryPrepared(QueryId),
-		ResponseReceived(MultiLocation, QueryId, Response),
+		ResponseReceived(Location, QueryId, Response),
 	}
 
 	#[pallet::error]
@@ -89,7 +89,7 @@ pub mod pallet_test_notifier {
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::from_parts(1_000_000, 1_000_000))]
-		pub fn prepare_new_query(origin: OriginFor<T>, querier: MultiLocation) -> DispatchResult {
+		pub fn prepare_new_query(origin: OriginFor<T>, querier: Location) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let id = who
 				.using_encoded(|mut d| <[u8; 32]>::decode(&mut d))
@@ -105,10 +105,7 @@ pub mod pallet_test_notifier {
 
 		#[pallet::call_index(1)]
 		#[pallet::weight(Weight::from_parts(1_000_000, 1_000_000))]
-		pub fn prepare_new_notify_query(
-			origin: OriginFor<T>,
-			querier: MultiLocation,
-		) -> DispatchResult {
+		pub fn prepare_new_notify_query(origin: OriginFor<T>, querier: Location) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let id = who
 				.using_encoded(|mut d| <[u8; 32]>::decode(&mut d))
@@ -144,7 +141,7 @@ construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Assets: pallet_assets::{Pallet, Call, Storage, Config<T>, Event<T>},
+		AssetsPallet: pallet_assets::{Pallet, Call, Storage, Config<T>, Event<T>},
 		ParasOrigin: origin::{Pallet, Origin},
 		XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config<T>},
 		TestNotifier: pallet_test_notifier::{Pallet, Call, Event<T>},
@@ -152,13 +149,13 @@ construct_runtime!(
 );
 
 thread_local! {
-	pub static SENT_XCM: RefCell<Vec<(MultiLocation, Xcm<()>)>> = RefCell::new(Vec::new());
+	pub static SENT_XCM: RefCell<Vec<(Location, Xcm<()>)>> = RefCell::new(Vec::new());
 	pub static FAIL_SEND_XCM: RefCell<bool> = RefCell::new(false);
 }
-pub(crate) fn sent_xcm() -> Vec<(MultiLocation, Xcm<()>)> {
+pub(crate) fn sent_xcm() -> Vec<(Location, Xcm<()>)> {
 	SENT_XCM.with(|q| (*q.borrow()).clone())
 }
-pub(crate) fn take_sent_xcm() -> Vec<(MultiLocation, Xcm<()>)> {
+pub(crate) fn take_sent_xcm() -> Vec<(Location, Xcm<()>)> {
 	SENT_XCM.with(|q| {
 		let mut r = Vec::new();
 		std::mem::swap(&mut r, &mut *q.borrow_mut());
@@ -171,18 +168,18 @@ pub(crate) fn set_send_xcm_artificial_failure(should_fail: bool) {
 /// Sender that never returns error.
 pub struct TestSendXcm;
 impl SendXcm for TestSendXcm {
-	type Ticket = (MultiLocation, Xcm<()>);
+	type Ticket = (Location, Xcm<()>);
 	fn validate(
-		dest: &mut Option<MultiLocation>,
+		dest: &mut Option<Location>,
 		msg: &mut Option<Xcm<()>>,
-	) -> SendResult<(MultiLocation, Xcm<()>)> {
+	) -> SendResult<(Location, Xcm<()>)> {
 		if FAIL_SEND_XCM.with(|q| *q.borrow()) {
 			return Err(SendError::Transport("Intentional send failure used in tests"))
 		}
 		let pair = (dest.take().unwrap(), msg.take().unwrap());
-		Ok((pair, MultiAssets::new()))
+		Ok((pair, Assets::new()))
 	}
-	fn deliver(pair: (MultiLocation, Xcm<()>)) -> Result<XcmHash, SendError> {
+	fn deliver(pair: (Location, Xcm<()>)) -> Result<XcmHash, SendError> {
 		let hash = fake_message_hash(&pair.1);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
 		Ok(hash)
@@ -191,11 +188,11 @@ impl SendXcm for TestSendXcm {
 /// Sender that returns error if `X8` junction and stops routing
 pub struct TestSendXcmErrX8;
 impl SendXcm for TestSendXcmErrX8 {
-	type Ticket = (MultiLocation, Xcm<()>);
+	type Ticket = (Location, Xcm<()>);
 	fn validate(
-		dest: &mut Option<MultiLocation>,
+		dest: &mut Option<Location>,
 		_: &mut Option<Xcm<()>>,
-	) -> SendResult<(MultiLocation, Xcm<()>)> {
+	) -> SendResult<(Location, Xcm<()>)> {
 		if dest.as_ref().unwrap().len() == 8 {
 			dest.take();
 			Err(SendError::Transport("Destination location full"))
@@ -203,7 +200,7 @@ impl SendXcm for TestSendXcmErrX8 {
 			Err(SendError::NotApplicable)
 		}
 	}
-	fn deliver(pair: (MultiLocation, Xcm<()>)) -> Result<XcmHash, SendError> {
+	fn deliver(pair: (Location, Xcm<()>)) -> Result<XcmHash, SendError> {
 		let hash = fake_message_hash(&pair.1);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
 		Ok(hash)
@@ -212,18 +209,18 @@ impl SendXcm for TestSendXcmErrX8 {
 
 parameter_types! {
 	pub Para3000: u32 = 3000;
-	pub Para3000Location: MultiLocation = Parachain(Para3000::get()).into();
+	pub Para3000Location: Location = Parachain(Para3000::get()).into();
 	pub Para3000PaymentAmount: u128 = 1;
-	pub Para3000PaymentMultiAssets: MultiAssets = MultiAssets::from(MultiAsset::from((Here, Para3000PaymentAmount::get())));
+	pub Para3000PaymentAssets: Assets = Assets::from(Asset::from((Here, Para3000PaymentAmount::get())));
 }
 /// Sender only sends to `Parachain(3000)` destination requiring payment.
 pub struct TestPaidForPara3000SendXcm;
 impl SendXcm for TestPaidForPara3000SendXcm {
-	type Ticket = (MultiLocation, Xcm<()>);
+	type Ticket = (Location, Xcm<()>);
 	fn validate(
-		dest: &mut Option<MultiLocation>,
+		dest: &mut Option<Location>,
 		msg: &mut Option<Xcm<()>>,
-	) -> SendResult<(MultiLocation, Xcm<()>)> {
+	) -> SendResult<(Location, Xcm<()>)> {
 		if let Some(dest) = dest.as_ref() {
 			if !dest.eq(&Para3000Location::get()) {
 				return Err(SendError::NotApplicable)
@@ -233,9 +230,9 @@ impl SendXcm for TestPaidForPara3000SendXcm {
 		}
 
 		let pair = (dest.take().unwrap(), msg.take().unwrap());
-		Ok((pair, Para3000PaymentMultiAssets::get()))
+		Ok((pair, Para3000PaymentAssets::get()))
 	}
-	fn deliver(pair: (MultiLocation, Xcm<()>)) -> Result<XcmHash, SendError> {
+	fn deliver(pair: (Location, Xcm<()>)) -> Result<XcmHash, SendError> {
 		let hash = fake_message_hash(&pair.1);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
 		Ok(hash)
@@ -300,17 +297,17 @@ impl pallet_balances::Config for Test {
 /// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
 pub struct XcmBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_assets::BenchmarkHelper<MultiLocation> for XcmBenchmarkHelper {
-	fn create_asset_id_parameter(id: u32) -> MultiLocation {
-		MultiLocation { parents: 1, interior: X1(Parachain(id)) }
+impl pallet_assets::BenchmarkHelper<Location> for XcmBenchmarkHelper {
+	fn create_asset_id_parameter(id: u32) -> Location {
+		Location::new(1, [Parachain(id)])
 	}
 }
 
 impl pallet_assets::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
-	type AssetId = MultiLocation;
-	type AssetIdParameter = MultiLocation;
+	type AssetId = Location;
+	type AssetIdParameter = Location;
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = EnsureRoot<AccountId>;
@@ -354,61 +351,61 @@ pub const OTHER_PARA_ID: u32 = 2009;
 pub const FILTERED_PARA_ID: u32 = 2010;
 
 parameter_types! {
-	pub const RelayLocation: MultiLocation = Here.into_location();
-	pub const NativeAsset: MultiAsset = MultiAsset {
+	pub const RelayLocation: Location = Here.into_location();
+	pub const NativeAsset: Asset = Asset {
 		fun: Fungible(10),
-		id: Concrete(Here.into_location()),
+		id: AssetId(Here.into_location()),
 	};
-	pub const SystemParachainLocation: MultiLocation = MultiLocation {
-		parents: 0,
-		interior: X1(Parachain(SOME_SYSTEM_PARA))
-	};
-	pub const ForeignReserveLocation: MultiLocation = MultiLocation {
-		parents: 0,
-		interior: X1(Parachain(FOREIGN_ASSET_RESERVE_PARA_ID))
-	};
-	pub const ForeignAsset: MultiAsset = MultiAsset {
+	pub SystemParachainLocation: Location = Location::new(
+		0,
+		[Parachain(SOME_SYSTEM_PARA)]
+	);
+	pub ForeignReserveLocation: Location = Location::new(
+		0,
+		[Parachain(FOREIGN_ASSET_RESERVE_PARA_ID)]
+	);
+	pub ForeignAsset: Asset = Asset {
 		fun: Fungible(10),
-		id: Concrete(MultiLocation {
-			parents: 0,
-			interior: X2(Parachain(FOREIGN_ASSET_RESERVE_PARA_ID), FOREIGN_ASSET_INNER_JUNCTION),
-		}),
+		id: AssetId(Location::new(
+			0,
+			[Parachain(FOREIGN_ASSET_RESERVE_PARA_ID), FOREIGN_ASSET_INNER_JUNCTION],
+		)),
 	};
-	pub const UsdcReserveLocation: MultiLocation = MultiLocation {
-		parents: 0,
-		interior: X1(Parachain(USDC_RESERVE_PARA_ID))
-	};
-	pub const Usdc: MultiAsset = MultiAsset {
+	pub UsdcReserveLocation: Location = Location::new(
+		0,
+		[Parachain(USDC_RESERVE_PARA_ID)]
+	);
+	pub Usdc: Asset = Asset {
 		fun: Fungible(10),
-		id: Concrete(MultiLocation {
-			parents: 0,
-			interior: X2(Parachain(USDC_RESERVE_PARA_ID), USDC_INNER_JUNCTION),
-		}),
+		id: AssetId(Location::new(
+			0,
+			[Parachain(USDC_RESERVE_PARA_ID), USDC_INNER_JUNCTION],
+		)),
 	};
-	pub const UsdtTeleportLocation: MultiLocation = MultiLocation {
-		parents: 0,
-		interior: X1(Parachain(USDT_PARA_ID))
-	};
-	pub const Usdt: MultiAsset = MultiAsset {
+	pub UsdtTeleportLocation: Location = Location::new(
+		0,
+		[Parachain(USDT_PARA_ID)]
+	);
+	pub Usdt: Asset = Asset {
 		fun: Fungible(10),
-		id: Concrete(MultiLocation {
-			parents: 0,
-			interior: X1(Parachain(USDT_PARA_ID)),
-		}),
+		id: AssetId(Location::new(
+			0,
+			[Parachain(USDT_PARA_ID)],
+		)),
 	};
-	pub const FilteredTeleportLocation: MultiLocation = MultiLocation {
-		parents: 0,
-		interior: X1(Parachain(FILTERED_PARA_ID))
-	};
-	pub const FilteredTeleportAsset: MultiAsset = MultiAsset {
+	pub FilteredTeleportLocation: Location = Location::new(
+		0,
+		[Parachain(FILTERED_PARA_ID)]
+	);
+	pub FilteredTeleportAsset: Asset = Asset {
 		fun: Fungible(10),
-		id: Concrete(MultiLocation {
-			parents: 0,
-			interior: X1(Parachain(FILTERED_PARA_ID)),
-		}),
+		id: AssetId(Location::new(
+			0,
+			[Parachain(FILTERED_PARA_ID)],
+		)),
 	};
 	pub const AnyNetwork: Option<NetworkId> = None;
-	pub UniversalLocation: InteriorMultiLocation = Here;
+	pub UniversalLocation: InteriorLocation = Here;
 	pub UnitWeightCost: u64 = 1_000;
 	pub CheckingAccount: AccountId = XcmPallet::check_account();
 }
@@ -420,7 +417,7 @@ pub type SovereignAccountOf = (
 );
 
 pub type ForeignAssetsConvertedConcreteId = MatchedConvertedConcreteId<
-	MultiLocation,
+	Location,
 	Balance,
 	// Excludes relay/parent chain currency
 	EverythingBut<(Equals<RelayLocation>,)>,
@@ -432,7 +429,7 @@ pub type ForeignAssetsConvertedConcreteId = MatchedConvertedConcreteId<
 pub type AssetTransactors = (
 	XcmCurrencyAdapter<Balances, IsConcrete<RelayLocation>, SovereignAccountOf, AccountId, ()>,
 	FungiblesAdapter<
-		Assets,
+		AssetsPallet,
 		ForeignAssetsConvertedConcreteId,
 		SovereignAccountOf,
 		AccountId,
@@ -450,24 +447,29 @@ type LocalOriginConverter = (
 
 parameter_types! {
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
-	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (Concrete(RelayLocation::get()), 1, 1);
-	pub TrustedLocal: (MultiAssetFilter, MultiLocation) = (All.into(), Here.into());
-	pub TrustedSystemPara: (MultiAssetFilter, MultiLocation) = (NativeAsset::get().into(), SystemParachainLocation::get());
-	pub TrustedUsdt: (MultiAssetFilter, MultiLocation) = (Usdt::get().into(), UsdtTeleportLocation::get());
-	pub TrustedFilteredTeleport: (MultiAssetFilter, MultiLocation) = (FilteredTeleportAsset::get().into(), FilteredTeleportLocation::get());
-	pub TeleportUsdtToForeign: (MultiAssetFilter, MultiLocation) = (Usdt::get().into(), ForeignReserveLocation::get());
-	pub TrustedForeign: (MultiAssetFilter, MultiLocation) = (ForeignAsset::get().into(), ForeignReserveLocation::get());
-	pub TrustedUsdc: (MultiAssetFilter, MultiLocation) = (Usdc::get().into(), UsdcReserveLocation::get());
+	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (AssetId(RelayLocation::get()), 1, 1);
+	pub TrustedLocal: (AssetFilter, Location) = (All.into(), Here.into());
+	pub TrustedSystemPara: (AssetFilter, Location) = (NativeAsset::get().into(), SystemParachainLocation::get());
+	pub TrustedUsdt: (AssetFilter, Location) = (Usdt::get().into(), UsdtTeleportLocation::get());
+	pub TrustedFilteredTeleport: (AssetFilter, Location) = (FilteredTeleportAsset::get().into(), FilteredTeleportLocation::get());
+	pub TeleportUsdtToForeign: (AssetFilter, Location) = (Usdt::get().into(), ForeignReserveLocation::get());
+	pub TrustedForeign: (AssetFilter, Location) = (ForeignAsset::get().into(), ForeignReserveLocation::get());
+	pub TrustedUsdc: (AssetFilter, Location) = (Usdc::get().into(), UsdcReserveLocation::get());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub XcmFeesTargetAccount: AccountId = AccountId::new([167u8; 32]);
 }
 
 pub const XCM_FEES_NOT_WAIVED_USER_ACCOUNT: [u8; 32] = [37u8; 32];
-match_types! {
-	pub type XcmFeesNotWaivedLocations: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 0, interior: X1(Junction::AccountId32 {network: None, id: XCM_FEES_NOT_WAIVED_USER_ACCOUNT})}
-	};
+
+pub struct XcmFeesNotWaivedLocations;
+impl Contains<Location> for XcmFeesNotWaivedLocations {
+	fn contains(location: &Location) -> bool {
+		matches!(
+			location.unpack(),
+			(0, [Junction::AccountId32 { network: None, id: XCM_FEES_NOT_WAIVED_USER_ACCOUNT }])
+		)
+	}
 }
 
 pub type Barrier = (
@@ -519,12 +521,12 @@ impl xcm_executor::Config for XcmConfig {
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, AnyNetwork>;
 
 parameter_types! {
-	pub static AdvertisedXcmVersion: pallet_xcm::XcmVersion = 3;
+	pub static AdvertisedXcmVersion: pallet_xcm::XcmVersion = 4;
 }
 
 pub struct XcmTeleportFiltered;
-impl Contains<(MultiLocation, Vec<MultiAsset>)> for XcmTeleportFiltered {
-	fn contains(t: &(MultiLocation, Vec<MultiAsset>)) -> bool {
+impl Contains<(Location, Vec<Asset>)> for XcmTeleportFiltered {
+	fn contains(t: &(Location, Vec<Asset>)) -> bool {
 		let filtered = FilteredTeleportAsset::get();
 		t.1.iter().any(|asset| asset == &filtered)
 	}
@@ -566,24 +568,23 @@ impl pallet_test_notifier::Config for Test {
 
 #[cfg(feature = "runtime-benchmarks")]
 impl super::benchmarking::Config for Test {
-	fn reachable_dest() -> Option<MultiLocation> {
+	fn reachable_dest() -> Option<Location> {
 		Some(Parachain(1000).into())
 	}
 
-	fn teleportable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
+	fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
 		Some((NativeAsset::get(), SystemParachainLocation::get()))
 	}
 
-	fn reserve_transferable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
+	fn reserve_transferable_asset_and_dest() -> Option<(Asset, Location)> {
 		Some((
-			MultiAsset { fun: Fungible(10), id: Concrete(Here.into_location()) },
+			Asset { fun: Fungible(10), id: AssetId(Here.into_location()) },
 			Parachain(OTHER_PARA_ID).into(),
 		))
 	}
 
-	fn set_up_complex_asset_transfer(
-	) -> Option<(MultiAssets, u32, MultiLocation, Box<dyn FnOnce()>)> {
-		use crate::tests::assets_transfer::{into_multiassets_checked, set_up_foreign_asset};
+	fn set_up_complex_asset_transfer() -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
+		use crate::tests::assets_transfer::{into_assets_checked, set_up_foreign_asset};
 		// Transfer native asset (local reserve) to `USDT_PARA_ID`. Using teleport-trusted USDT for
 		// fees.
 
@@ -600,7 +601,7 @@ impl super::benchmarking::Config for Test {
 		);
 		// create sufficient foreign asset USDT
 		let usdt_initial_local_amount = fee_amount * 10;
-		let (usdt_chain, _, usdt_id_multilocation) = set_up_foreign_asset(
+		let (usdt_chain, _, usdt_id_location) = set_up_foreign_asset(
 			USDT_PARA_ID,
 			None,
 			caller.clone(),
@@ -610,22 +611,25 @@ impl super::benchmarking::Config for Test {
 
 		// native assets transfer destination is USDT chain (teleport trust only for USDT)
 		let dest = usdt_chain;
-		let (assets, fee_index, _, _) = into_multiassets_checked(
+		let (assets, fee_index, _, _) = into_assets_checked(
 			// USDT for fees (is sufficient on local chain too) - teleported
-			(usdt_id_multilocation, fee_amount).into(),
+			(usdt_id_location.clone(), fee_amount).into(),
 			// native asset to transfer (not used for fees) - local reserve
-			(MultiLocation::here(), asset_amount).into(),
+			(Location::here(), asset_amount).into(),
 		);
 		// verify initial balances
 		assert_eq!(Balances::free_balance(&caller), balance);
-		assert_eq!(Assets::balance(usdt_id_multilocation, &caller), usdt_initial_local_amount);
+		assert_eq!(
+			AssetsPallet::balance(usdt_id_location.clone(), &caller),
+			usdt_initial_local_amount
+		);
 
 		// verify transferred successfully
 		let verify = Box::new(move || {
 			// verify balances after transfer, decreased by transferred amounts
 			assert_eq!(Balances::free_balance(&caller), balance - asset_amount);
 			assert_eq!(
-				Assets::balance(usdt_id_multilocation, &caller),
+				AssetsPallet::balance(usdt_id_location, &caller),
 				usdt_initial_local_amount - fee_amount
 			);
 		});
@@ -641,13 +645,13 @@ pub(crate) fn last_events(n: usize) -> Vec<RuntimeEvent> {
 	System::events().into_iter().map(|e| e.event).rev().take(n).rev().collect()
 }
 
-pub(crate) fn buy_execution<C>(fees: impl Into<MultiAsset>) -> Instruction<C> {
+pub(crate) fn buy_execution<C>(fees: impl Into<Asset>) -> Instruction<C> {
 	use xcm::latest::prelude::*;
 	BuyExecution { fees: fees.into(), weight_limit: Unlimited }
 }
 
 pub(crate) fn buy_limited_execution<C>(
-	fees: impl Into<MultiAsset>,
+	fees: impl Into<Asset>,
 	weight_limit: WeightLimit,
 ) -> Instruction<C> {
 	use xcm::latest::prelude::*;

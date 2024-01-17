@@ -124,8 +124,8 @@ impl cumulus_pallet_parachain_system::Config for Test {
 }
 
 parameter_types! {
-	pub const RelayChain: MultiLocation = MultiLocation::parent();
-	pub UniversalLocation: InteriorMultiLocation = X1(Parachain(1u32));
+	pub const RelayChain: Location = Location::parent();
+	pub UniversalLocation: InteriorLocation = [Parachain(1u32)].into();
 	pub UnitWeightCost: Weight = Weight::from_parts(1_000_000, 1024);
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
@@ -138,7 +138,7 @@ pub type LocalAssetTransactor = CurrencyAdapter<
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
 	IsConcrete<RelayChain>,
-	// Do a simple punn to convert an AccountId32 MultiLocation into a native chain account ID:
+	// Do a simple punn to convert an AccountId32 Location into a native chain account ID:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
@@ -187,17 +187,14 @@ impl<RuntimeOrigin: OriginTrait> ConvertOrigin<RuntimeOrigin>
 	for SystemParachainAsSuperuser<RuntimeOrigin>
 {
 	fn convert_origin(
-		origin: impl Into<MultiLocation>,
+		origin: impl Into<Location>,
 		kind: OriginKind,
-	) -> Result<RuntimeOrigin, MultiLocation> {
+	) -> Result<RuntimeOrigin, Location> {
 		let origin = origin.into();
 		if kind == OriginKind::Superuser &&
 			matches!(
-				origin,
-				MultiLocation {
-					parents: 1,
-					interior: X1(Parachain(id)),
-				} if ParaId::from(id).is_system(),
+				origin.unpack(),
+				(1,	[Parachain(id)]) if ParaId::from(*id).is_system(),
 			) {
 			Ok(RuntimeOrigin::root())
 		} else {
@@ -256,7 +253,7 @@ impl<T: OnQueueChanged<ParaId>> EnqueueMessage<ParaId> for EnqueueToLocalStorage
 
 parameter_types! {
 	/// The asset ID for the asset that we use to pay for message delivery fees.
-	pub FeeAssetId: AssetId = Concrete(RelayChain::get());
+	pub FeeAssetId: AssetId = AssetId(RelayChain::get());
 	/// The base fee for the message delivery fees.
 	pub const BaseDeliveryFee: Balance = 300_000_000;
 	/// The fee per byte
