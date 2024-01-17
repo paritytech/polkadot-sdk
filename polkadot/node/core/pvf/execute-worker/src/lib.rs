@@ -16,9 +16,7 @@
 
 //! Contains the logic for executing PVFs. Used by the polkadot-execute-worker binary.
 
-pub use polkadot_node_core_pvf_common::{
-	executor_interface::execute_artifact, worker_dir, SecurityStatus,
-};
+pub use polkadot_node_core_pvf_common::{executor_interface::execute_artifact, worker_dir};
 
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-execute-worker=trace`.
@@ -92,12 +90,13 @@ use std::{
 /// The stack size for the execute thread.
 pub const EXECUTE_THREAD_STACK_SIZE: usize = 2 * 1024 * 1024 + DEFAULT_NATIVE_STACK_MAX as usize;
 
-fn recv_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
+/// Receives a handshake with information specific to the execute worker.
+fn recv_execute_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
 	let handshake_enc = framed_recv_blocking(stream)?;
 	let handshake = Handshake::decode(&mut &handshake_enc[..]).map_err(|_| {
 		io::Error::new(
 			io::ErrorKind::Other,
-			"execute pvf recv_handshake: failed to decode Handshake".to_owned(),
+			"execute pvf recv_execute_handshake: failed to decode Handshake".to_owned(),
 		)
 	})?;
 	Ok(handshake)
@@ -139,7 +138,6 @@ pub fn worker_entrypoint(
 	worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
-	security_status: SecurityStatus,
 ) {
 	run_worker(
 		WorkerKind::Execute,
@@ -147,12 +145,11 @@ pub fn worker_entrypoint(
 		worker_dir_path,
 		node_version,
 		worker_version,
-		&security_status,
 		|mut stream, worker_dir_path| {
 			let worker_pid = process::id();
 			let artifact_path = worker_dir::execute_artifact(&worker_dir_path);
 
-			let Handshake { executor_params } = recv_handshake(&mut stream)?;
+			let Handshake { executor_params } = recv_execute_handshake(&mut stream)?;
 
 			loop {
 				let (params, execution_timeout) = recv_request(&mut stream)?;
@@ -280,6 +277,15 @@ fn handle_child_process(
 	params: Vec<u8>,
 	execution_timeout: Duration,
 ) -> ! {
+	// Terminate if the parent thread dies. Parent thread == worker process (it is single-threaded).
+	//
+	// RACE: the worker may die before we install the death signal. In practice this is unlikely,
+	// and most of the time the job process should terminate on its own when it completes.
+	#[cfg(target_os = "linux")]
+	nix::sys::prctl::set_pdeathsig(nix::sys::signal::Signal::SIGTERM).unwrap_or_else(|err| {
+		send_child_response(&mut pipe_write, Err(JobError::CouldNotSetPdeathsig(err.to_string())))
+	});
+
 	gum::debug!(
 		target: LOG_TARGET,
 		worker_job_pid = %process::id(),

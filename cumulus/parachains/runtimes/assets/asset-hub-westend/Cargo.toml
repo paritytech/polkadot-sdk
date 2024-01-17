@@ -6,6 +6,9 @@ edition.workspace = true
 description = "Westend variant of Asset Hub parachain runtime"
 license = "Apache-2.0"
 
+[lints]
+workspace = true
+
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
 hex-literal = { version = "0.4.1", optional = true }
@@ -52,7 +55,7 @@ sp-storage = { path = "../../../../../substrate/primitives/storage", default-fea
 sp-transaction-pool = { path = "../../../../../substrate/primitives/transaction-pool", default-features = false }
 sp-version = { path = "../../../../../substrate/primitives/version", default-features = false }
 # num-traits feature needed for dex integer sq root:
-primitive-types = { version = "0.12.1", default-features = false, features = ["codec", "scale-info", "num-traits"] }
+primitive-types = { version = "0.12.1", default-features = false, features = ["codec", "num-traits", "scale-info"] }
 
 # Polkadot
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false }
@@ -94,7 +97,7 @@ asset-test-utils = { path = "../test-utils" }
 substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 runtime-benchmarks = [
 	"assets-common/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
@@ -232,9 +235,9 @@ std = [
 	"xcm/std",
 ]
 
-experimental = [ "pallet-aura/experimental" ]
+experimental = ["pallet-aura/experimental"]
 
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
 # to make it smaller like logging for example.
-on-chain-release-build = [ "sp-api/disable-logging" ]
+on-chain-release-build = ["sp-api/disable-logging"]

@@ -36,7 +36,7 @@ use polkadot_node_core_pvf_common::{
 	prepare::PrepareSuccess,
 	pvf::PvfPrepData,
 };
-use polkadot_node_subsystem::SubsystemResult;
+use polkadot_node_subsystem::{SubsystemError, SubsystemResult};
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use std::{
 	collections::HashMap,
@@ -156,6 +156,8 @@ pub struct Config {
 	pub cache_path: PathBuf,
 	/// The version of the node. `None` can be passed to skip the version check (only for tests).
 	pub node_version: Option<String>,
+	/// Whether the node is attempting to run as a secure validator.
+	pub secure_validator_mode: bool,
 
 	/// The path to the program that can be used to spawn the prepare workers.
 	pub prepare_worker_program_path: PathBuf,
@@ -180,12 +182,14 @@ impl Config {
 	pub fn new(
 		cache_path: PathBuf,
 		node_version: Option<String>,
+		secure_validator_mode: bool,
 		prepare_worker_program_path: PathBuf,
 		execute_worker_program_path: PathBuf,
 	) -> Self {
 		Self {
 			cache_path,
 			node_version,
+			secure_validator_mode,
 
 			prepare_worker_program_path,
 			prepare_worker_spawn_timeout: Duration::from_secs(3),
@@ -213,8 +217,15 @@ pub async fn start(
 ) -> SubsystemResult<(ValidationHost, impl Future<Output = ()>)> {
 	gum::debug!(target: LOG_TARGET, ?config, "starting PVF validation host");
 
-	// Run checks for supported security features once per host startup. Warn here if not enabled.
-	let security_status = security::check_security_status(&config).await;
+	// Make sure the cache is initialized before doing anything else.
+	let artifacts = Artifacts::new(&config.cache_path).await;
+
+	// Run checks for supported security features once per host startup. If some checks fail, warn
+	// if Secure Validator Mode is disabled and return an error otherwise.
+	let security_status = match security::check_security_status(&config).await {
+		Ok(ok) => ok,
+		Err(err) => return Err(SubsystemError::Context(err)),
+	};
 
 	let (to_host_tx, to_host_rx) = mpsc::channel(10);
 
@@ -252,8 +263,6 @@ pub async fn start(
 	let run_sweeper = sweeper_task(to_sweeper_rx);
 
 	let run_host = async move {
-		let artifacts = Artifacts::new_and_prune(&config.cache_path).await;
-
 		run(Inner {
 			cleanup_pulse_interval: Duration::from_secs(3600),
 			artifact_ttl: Duration::from_secs(3600 * 24),
@@ -875,14 +884,13 @@ fn pulse_every(interval: std::time::Duration) -> impl futures::Stream<Item = ()>
 #[cfg(test)]
 pub(crate) mod tests {
 	use super::*;
-	use crate::PossiblyInvalidError;
+	use crate::{artifacts::generate_artifact_path, PossiblyInvalidError};
 	use assert_matches::assert_matches;
 	use futures::future::BoxFuture;
 	use polkadot_node_core_pvf_common::{
 		error::PrepareError,
 		prepare::{PrepareStats, PrepareSuccess},
 	};
-	use sp_core::hexdisplay::AsBytesRef;
 
 	const TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(3);
 	pub(crate) const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(30);
@@ -904,14 +912,6 @@ pub(crate) mod tests {
 	/// Creates a new PVF which artifact id can be uniquely identified by the given number.
 	fn artifact_id(discriminator: u32) -> ArtifactId {
 		ArtifactId::from_pvf_prep_data(&PvfPrepData::from_discriminator(discriminator))
-	}
-
-	fn artifact_path(discriminator: u32) -> PathBuf {
-		let pvf = PvfPrepData::from_discriminator(discriminator);
-		let checksum = blake3::hash(pvf.code().as_bytes_ref());
-		artifact_id(discriminator)
-			.path(&PathBuf::from(std::env::temp_dir()), checksum.to_hex().as_str())
-			.to_owned()
 	}
 
 	struct Builder {
@@ -1101,19 +1101,23 @@ pub(crate) mod tests {
 	#[tokio::test]
 	async fn pruning() {
 		let mock_now = SystemTime::now() - Duration::from_millis(1000);
+		let tempdir = tempfile::tempdir().unwrap();
+		let cache_path = tempdir.path();
 
 		let mut builder = Builder::default();
 		builder.cleanup_pulse_interval = Duration::from_millis(100);
 		builder.artifact_ttl = Duration::from_millis(500);
+		let path1 = generate_artifact_path(cache_path);
+		let path2 = generate_artifact_path(cache_path);
 		builder.artifacts.insert_prepared(
 			artifact_id(1),
-			artifact_path(1),
+			path1.clone(),
 			mock_now,
 			PrepareStats::default(),
 		);
 		builder.artifacts.insert_prepared(
 			artifact_id(2),
-			artifact_path(2),
+			path2.clone(),
 			mock_now,
 			PrepareStats::default(),
 		);
@@ -1126,7 +1130,7 @@ pub(crate) mod tests {
 		run_until(
 			&mut test.run,
 			async {
-				assert_eq!(to_sweeper_rx.next().await.unwrap(), artifact_path(2));
+				assert_eq!(to_sweeper_rx.next().await.unwrap(), path2);
 			}
 			.boxed(),
 		)

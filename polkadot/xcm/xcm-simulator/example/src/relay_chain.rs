@@ -36,9 +36,9 @@ use xcm::latest::prelude::*;
 use xcm_builder::{
 	Account32Hash, AccountId32Aliases, AllowUnpaidExecutionFrom, AsPrefixedGeneralIndex,
 	ChildParachainAsNative, ChildParachainConvertsVia, ChildSystemParachainAsSuperuser,
-	ConvertedConcreteId, CurrencyAdapter as XcmCurrencyAdapter, FixedRateOfFungible,
-	FixedWeightBounds, IsConcrete, NoChecking, NonFungiblesAdapter, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation,
+	ConvertedConcreteId, FixedRateOfFungible, FixedWeightBounds, FungibleAdapter, IsConcrete,
+	NoChecking, NonFungiblesAdapter, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation,
 };
 use xcm_executor::{traits::JustTry, Config, XcmExecutor};
 
@@ -127,10 +127,10 @@ impl configuration::Config for Runtime {
 }
 
 parameter_types! {
-	pub const TokenLocation: MultiLocation = Here.into_location();
+	pub const TokenLocation: Location = Here.into_location();
 	pub RelayNetwork: NetworkId = ByGenesis([0; 32]);
 	pub const AnyNetwork: Option<NetworkId> = None;
-	pub UniversalLocation: InteriorMultiLocation = Here;
+	pub UniversalLocation: InteriorLocation = Here;
 	pub UnitWeightCost: u64 = 1_000;
 }
 
@@ -141,7 +141,7 @@ pub type LocationToAccountId = (
 );
 
 pub type LocalAssetTransactor = (
-	XcmCurrencyAdapter<Balances, IsConcrete<TokenLocation>, LocationToAccountId, AccountId, ()>,
+	FungibleAdapter<Balances, IsConcrete<TokenLocation>, LocationToAccountId, AccountId, ()>,
 	NonFungiblesAdapter<
 		Uniques,
 		ConvertedConcreteId<u32, u32, AsPrefixedGeneralIndex<(), u32, JustTry>, JustTry>,
@@ -162,7 +162,7 @@ type LocalOriginConverter = (
 parameter_types! {
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
 	pub TokensPerSecondPerByte: (AssetId, u128, u128) =
-		(Concrete(TokenLocation::get()), 1_000_000_000_000, 1024 * 1024);
+		(AssetId(TokenLocation::get()), 1_000_000_000_000, 1024 * 1024);
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }

@@ -19,8 +19,9 @@
 use crate::LOG_TARGET;
 use futures::FutureExt as _;
 use futures_timer::Delay;
+use parity_scale_codec::Encode;
 use pin_project::pin_project;
-use polkadot_node_core_pvf_common::SecurityStatus;
+use polkadot_node_core_pvf_common::{SecurityStatus, WorkerHandshake};
 use rand::Rng;
 use std::{
 	fmt, mem,
@@ -68,83 +69,54 @@ pub async fn spawn_with_program_path(
 	let program_path = program_path.into();
 	let worker_dir = WorkerDir::new(debug_id, cache_path).await?;
 	let extra_args: Vec<String> = extra_args.iter().map(|arg| arg.to_string()).collect();
+	// Hack the borrow-checker.
+	let program_path_clone = program_path.clone();
+	let worker_dir_clone = worker_dir.path().to_owned();
+	let extra_args_clone = extra_args.clone();
 
 	with_transient_socket_path(debug_id, |socket_path| {
 		let socket_path = socket_path.to_owned();
-		let worker_dir_path = worker_dir.path().to_owned();
 
 		async move {
-			let listener = UnixListener::bind(&socket_path).map_err(|err| {
-				gum::warn!(
-					target: LOG_TARGET,
-					%debug_id,
-					?program_path,
-					?extra_args,
-					?worker_dir,
-					?socket_path,
-					"cannot bind unix socket: {:?}",
-					err,
-				);
-				SpawnErr::Bind
-			})?;
+			let listener = match UnixListener::bind(&socket_path) {
+				Ok(ok) => ok,
+				Err(err) => return Err(SpawnErr::Bind { socket_path, err: err.to_string() }),
+			};
 
-			let handle = WorkerHandle::spawn(
-				&program_path,
-				&extra_args,
-				&socket_path,
-				&worker_dir_path,
-				security_status,
-			)
-			.map_err(|err| {
-				gum::warn!(
-					target: LOG_TARGET,
-					%debug_id,
-					?program_path,
-					?extra_args,
-					?worker_dir_path,
-					?socket_path,
-					"cannot spawn a worker: {:?}",
-					err,
-				);
-				SpawnErr::ProcessSpawn
-			})?;
+			let handle =
+				WorkerHandle::spawn(&program_path, &extra_args, &socket_path, &worker_dir.path())
+					.map_err(|err| SpawnErr::ProcessSpawn { program_path, err: err.to_string() })?;
 
 			futures::select! {
 				accept_result = listener.accept().fuse() => {
-					let (stream, _) = accept_result.map_err(|err| {
-						gum::warn!(
-							target: LOG_TARGET,
-							%debug_id,
-							?program_path,
-							?extra_args,
-							?worker_dir_path,
-							?socket_path,
-							"cannot accept a worker: {:?}",
-							err,
-						);
-						SpawnErr::Accept
-					})?;
+					let (mut stream, _) = accept_result
+						.map_err(|err| SpawnErr::Accept { socket_path, err: err.to_string() })?;
+					send_worker_handshake(&mut stream, WorkerHandshake { security_status })
+						.await
+						.map_err(|err| SpawnErr::Handshake { err: err.to_string() })?;
 					Ok((IdleWorker { stream, pid: handle.id(), worker_dir }, handle))
 				}
-				_ = Delay::new(spawn_timeout).fuse() => {
-					gum::warn!(
-						target: LOG_TARGET,
-						%debug_id,
-						?program_path,
-						?extra_args,
-						?worker_dir_path,
-						?socket_path,
-						?spawn_timeout,
-						"spawning and connecting to socket timed out",
-					);
-					Err(SpawnErr::AcceptTimeout)
-				}
+				_ = Delay::new(spawn_timeout).fuse() => Err(SpawnErr::AcceptTimeout{spawn_timeout}),
 			}
 		}
 	})
 	.await
+	.map_err(|err| {
+		gum::warn!(
+			target: LOG_TARGET,
+			%debug_id,
+			program_path = ?program_path_clone,
+			extra_args = ?extra_args_clone,
+			worker_dir = ?worker_dir_clone,
+			"error spawning worker: {}",
+			err,
+		);
+		err
+	})
 }
 
+/// A temporary, random, free path that is necessary only to establish socket communications. If a
+/// directory exists at the path at the end of this function, it is removed then.
 async fn with_transient_socket_path<T, F, Fut>(debug_id: &'static str, f: F) -> Result<T, SpawnErr>
 where
 	F: FnOnce(&Path) -> Fut,
@@ -214,21 +186,26 @@ pub struct IdleWorker {
 	pub worker_dir: WorkerDir,
 }
 
+/// This is publicly exposed only for integration tests.
+///
 /// An error happened during spawning a worker process.
-#[derive(Clone, Debug)]
+#[derive(thiserror::Error, Clone, Debug)]
+#[doc(hidden)]
 pub enum SpawnErr {
-	/// Cannot obtain a temporary path location.
+	#[error("cannot obtain a temporary path location")]
 	TmpPath,
-	/// Cannot bind the socket to the given path.
-	Bind,
-	/// An error happened during accepting a connection to the socket.
-	Accept,
-	/// An error happened during spawning the process.
-	ProcessSpawn,
-	/// The deadline allotted for the worker spawning and connecting to the socket has elapsed.
-	AcceptTimeout,
-	/// Failed to send handshake after successful spawning was signaled
-	Handshake,
+	#[error("cannot bind the socket to the given path {socket_path:?}: {err}")]
+	Bind { socket_path: PathBuf, err: String },
+	#[error(
+		"an error happened during accepting a connection to the socket {socket_path:?}: {err}"
+	)]
+	Accept { socket_path: PathBuf, err: String },
+	#[error("an error happened during spawning the process at path {program_path:?}: {err}")]
+	ProcessSpawn { program_path: PathBuf, err: String },
+	#[error("the deadline {}ms allotted for the worker spawning and connecting to the socket has elapsed", .spawn_timeout.as_millis())]
+	AcceptTimeout { spawn_timeout: Duration },
+	#[error("failed to send handshake after successful spawning was signaled: {err}")]
+	Handshake { err: String },
 }
 
 /// This is a representation of a potentially running worker. Drop it and the process will be
@@ -256,22 +233,7 @@ impl WorkerHandle {
 		extra_args: &[String],
 		socket_path: impl AsRef<Path>,
 		worker_dir_path: impl AsRef<Path>,
-		security_status: SecurityStatus,
 	) -> io::Result<Self> {
-		let security_args = {
-			let mut args = vec![];
-			if security_status.can_enable_landlock {
-				args.push("--can-enable-landlock".to_string());
-			}
-			if security_status.can_enable_seccomp {
-				args.push("--can-enable-seccomp".to_string());
-			}
-			if security_status.can_unshare_user_namespace_and_change_root {
-				args.push("--can-unshare-user-namespace-and-change-root".to_string());
-			}
-			args
-		};
-
 		// Clear all env vars from the spawned process.
 		let mut command = process::Command::new(program.as_ref());
 		command.env_clear();
@@ -286,7 +248,6 @@ impl WorkerHandle {
 			.arg(socket_path.as_ref().as_os_str())
 			.arg("--worker-dir-path")
 			.arg(worker_dir_path.as_ref().as_os_str())
-			.args(&security_args)
 			.stdout(std::process::Stdio::piped())
 			.kill_on_drop(true)
 			.spawn()?;
@@ -386,6 +347,14 @@ pub async fn framed_recv(r: &mut (impl AsyncRead + Unpin)) -> io::Result<Vec<u8>
 	Ok(buf)
 }
 
+/// Sends a handshake with information for the worker.
+async fn send_worker_handshake(
+	stream: &mut UnixStream,
+	handshake: WorkerHandshake,
+) -> io::Result<()> {
+	framed_send(stream, &handshake.encode()).await
+}
+
 /// A temporary worker dir that contains only files needed by the worker. The worker will change its
 /// root (the `/` directory) to this directory; it should have access to no other paths on its
 /// filesystem.
@@ -415,10 +384,12 @@ pub struct WorkerDir {
 	tempdir: tempfile::TempDir,
 }
 
+pub const WORKER_DIR_PREFIX: &str = "worker-dir";
+
 impl WorkerDir {
 	/// Creates a new, empty worker dir with a random name in the given cache dir.
 	pub async fn new(debug_id: &'static str, cache_dir: &Path) -> Result<Self, SpawnErr> {
-		let prefix = format!("worker-dir-{}-", debug_id);
+		let prefix = format!("{WORKER_DIR_PREFIX}-{debug_id}-");
 		let tempdir = tempfile::Builder::new()
 			.prefix(&prefix)
 			.tempdir_in(cache_dir)
@@ -433,8 +404,6 @@ impl WorkerDir {
 
 // Not async since Rust has trouble with async recursion. There should be few files here anyway.
 //
-// TODO: A lingering malicious job can still access future files in this dir. See
-// <https://github.com/paritytech/polkadot-sdk/issues/574> for how to fully secure this.
 /// Clear the temporary worker dir without deleting it. Not deleting is important because the worker
 /// has mounted its own separate filesystem here.
 ///

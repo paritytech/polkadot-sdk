@@ -33,13 +33,12 @@ mod weights;
 pub mod xcm_config;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
-use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
-use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
+use cumulus_primitives_core::ParaId;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT},
+	traits::Block as BlockT,
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
@@ -49,12 +48,16 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
+use bridge_hub_common::{
+	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
+	AggregateMessageOrigin,
+};
 use frame_support::{
-	construct_runtime,
+	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
-	traits::{ConstBool, ConstU32, ConstU64, ConstU8, Everything, TransformOrigin},
+	traits::{ConstBool, ConstU32, ConstU64, ConstU8, TransformOrigin},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
 };
@@ -118,6 +121,8 @@ pub type Migrations = (
 	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
 	pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
 	InitStorageVersions,
+	// unreleased
+	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 );
 
 /// Migration to initialize storage versions for pallets added after genesis.
@@ -170,10 +175,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("bridge-hub-westend"),
 	impl_name: create_runtime_str!("bridge-hub-westend"),
 	authoring_version: 1,
-	spec_version: 1_004_000,
+	spec_version: 1_005_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 3,
+	transaction_version: 4,
 	state_version: 1,
 };
 
@@ -210,41 +215,24 @@ parameter_types! {
 
 // Configure FRAME pallets to include in runtime.
 
+#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	/// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
-	/// The aggregated dispatch type that is available for extrinsics.
-	type RuntimeCall = RuntimeCall;
-	/// The lookup mechanism to get account ID from whatever is passed in dispatchers.
-	type Lookup = AccountIdLookup<AccountId, ()>;
 	/// The index type for storing how many extrinsics an account has signed.
 	type Nonce = Nonce;
 	/// The type for hashing blocks and tries.
 	type Hash = Hash;
-	/// The hashing algorithm used.
-	type Hashing = BlakeTwo256;
 	/// The block type.
 	type Block = Block;
-	/// The ubiquitous event type.
-	type RuntimeEvent = RuntimeEvent;
-	/// The ubiquitous origin type.
-	type RuntimeOrigin = RuntimeOrigin;
 	/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
 	type BlockHashCount = BlockHashCount;
 	/// Runtime version.
 	type Version = Version;
-	/// Converts a module to an index of this module in the runtime.
-	type PalletInfo = PalletInfo;
 	/// The data to be stored in an account.
 	type AccountData = pallet_balances::AccountData<Balance>;
-	/// What to do if a new account is created.
-	type OnNewAccount = ();
-	/// What to do if an account is fully reaped from the system.
-	type OnKilledAccount = ();
 	/// The weight of database operations that the runtime can invoke.
 	type DbWeight = RocksDbWeight;
-	/// The basic call filter to use in dispatchable.
-	type BaseCallFilter = Everything;
 	/// Weight information for the extrinsics of this pallet.
 	type SystemWeightInfo = weights::frame_system::WeightInfo<Runtime>;
 	/// Block & extrinsics weights: base values and limits.
@@ -343,9 +331,8 @@ impl pallet_message_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_message_queue::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type MessageProcessor = pallet_message_queue::mock_helpers::NoopMessageProcessor<
-		cumulus_primitives_core::AggregateMessageOrigin,
-	>;
+	type MessageProcessor =
+		pallet_message_queue::mock_helpers::NoopMessageProcessor<AggregateMessageOrigin>;
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type MessageProcessor = xcm_builder::ProcessXcmMessage<
 		AggregateMessageOrigin,
@@ -365,7 +352,7 @@ impl cumulus_pallet_aura_ext::Config for Runtime {}
 
 parameter_types! {
 	/// The asset ID for the asset that we use to pay for message delivery fees.
-	pub FeeAssetId: AssetId = Concrete(xcm_config::WestendLocation::get());
+	pub FeeAssetId: AssetId = AssetId(xcm_config::WestendLocation::get());
 	/// The base fee for the message delivery fees.
 	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
 }
@@ -503,6 +490,7 @@ construct_runtime!(
 		BridgeRococoGrandpa: pallet_bridge_grandpa::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 42,
 		BridgeRococoParachains: pallet_bridge_parachains::<Instance1>::{Pallet, Call, Storage, Event<T>} = 43,
 		BridgeRococoMessages: pallet_bridge_messages::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>} = 44,
+		XcmOverBridgeHubRococo: pallet_xcm_bridge_hub::<Instance1>::{Pallet} = 45,
 
 		// Message Queue. Importantly, is registered last so that messages are processed after
 		// the `on_initialize` hooks of bridging pallets.
@@ -809,24 +797,36 @@ impl_runtime_apis! {
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
-				fn reachable_dest() -> Option<MultiLocation> {
+				fn reachable_dest() -> Option<Location> {
 					Some(Parent.into())
 				}
 
-				fn teleportable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
+				fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
 					// Relay/native token can be teleported between BH and Relay.
 					Some((
-						MultiAsset {
+						Asset {
 							fun: Fungible(EXISTENTIAL_DEPOSIT),
-							id: Concrete(Parent.into())
+							id: AssetId(Parent.into())
 						},
 						Parent.into(),
 					))
 				}
 
-				fn reserve_transferable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
+				fn reserve_transferable_asset_and_dest() -> Option<(Asset, Location)> {
 					// Reserve transfers are disabled on BH.
 					None
+				}
+
+				fn set_up_complex_asset_transfer(
+				) -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
+					// BH only supports teleports to system parachain.
+					// Relay/native token can be teleported between BH and Relay.
+					let native_location = Parent.into();
+					let dest = Parent.into();
+					pallet_xcm::benchmarking::helpers::native_teleport_as_asset_transfer::<Runtime>(
+						native_location,
+						dest
+					)
 				}
 			}
 
@@ -834,7 +834,7 @@ impl_runtime_apis! {
 			use xcm_config::WestendLocation;
 
 			parameter_types! {
-				pub ExistentialDepositMultiAsset: Option<MultiAsset> = Some((
+				pub ExistentialDepositAsset: Option<Asset> = Some((
 					WestendLocation::get(),
 					ExistentialDeposit::get()
 				).into());
@@ -845,17 +845,17 @@ impl_runtime_apis! {
 				type AccountIdConverter = xcm_config::LocationToAccountId;
 				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
 					xcm_config::XcmConfig,
-					ExistentialDepositMultiAsset,
+					ExistentialDepositAsset,
 					xcm_config::PriceForParentDelivery,
 				>;
-				fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
+				fn valid_destination() -> Result<Location, BenchmarkError> {
 					Ok(WestendLocation::get())
 				}
-				fn worst_case_holding(_depositable_count: u32) -> MultiAssets {
-					// just concrete assets according to relay chain.
-					let assets: Vec<MultiAsset> = vec![
-						MultiAsset {
-							id: Concrete(WestendLocation::get()),
+				fn worst_case_holding(_depositable_count: u32) -> Assets {
+					// just assets according to relay chain.
+					let assets: Vec<Asset> = vec![
+						Asset {
+							id: AssetId(WestendLocation::get()),
 							fun: Fungible(1_000_000 * UNITS),
 						}
 					];
@@ -864,12 +864,12 @@ impl_runtime_apis! {
 			}
 
 			parameter_types! {
-				pub const TrustedTeleporter: Option<(MultiLocation, MultiAsset)> = Some((
+				pub const TrustedTeleporter: Option<(Location, Asset)> = Some((
 					WestendLocation::get(),
-					MultiAsset { fun: Fungible(UNITS), id: Concrete(WestendLocation::get()) },
+					Asset { fun: Fungible(UNITS), id: AssetId(WestendLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
-				pub const TrustedReserve: Option<(MultiLocation, MultiAsset)> = None;
+				pub const TrustedReserve: Option<(Location, Asset)> = None;
 			}
 
 			impl pallet_xcm_benchmarks::fungible::Config for Runtime {
@@ -879,9 +879,9 @@ impl_runtime_apis! {
 				type TrustedTeleporter = TrustedTeleporter;
 				type TrustedReserve = TrustedReserve;
 
-				fn get_multi_asset() -> MultiAsset {
-					MultiAsset {
-						id: Concrete(WestendLocation::get()),
+				fn get_asset() -> Asset {
+					Asset {
+						id: AssetId(WestendLocation::get()),
 						fun: Fungible(UNITS),
 					}
 				}
@@ -895,39 +895,60 @@ impl_runtime_apis! {
 					(0u64, Response::Version(Default::default()))
 				}
 
-				fn worst_case_asset_exchange() -> Result<(MultiAssets, MultiAssets), BenchmarkError> {
+				fn worst_case_asset_exchange() -> Result<(Assets, Assets), BenchmarkError> {
 					Err(BenchmarkError::Skip)
 				}
 
-				fn universal_alias() -> Result<(MultiLocation, Junction), BenchmarkError> {
+				fn universal_alias() -> Result<(Location, Junction), BenchmarkError> {
 					Err(BenchmarkError::Skip)
 				}
 
-				fn transact_origin_and_runtime_call() -> Result<(MultiLocation, RuntimeCall), BenchmarkError> {
+				fn transact_origin_and_runtime_call() -> Result<(Location, RuntimeCall), BenchmarkError> {
 					Ok((WestendLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
 				}
 
-				fn subscribe_origin() -> Result<MultiLocation, BenchmarkError> {
+				fn subscribe_origin() -> Result<Location, BenchmarkError> {
 					Ok(WestendLocation::get())
 				}
 
-				fn claimable_asset() -> Result<(MultiLocation, MultiLocation, MultiAssets), BenchmarkError> {
+				fn claimable_asset() -> Result<(Location, Location, Assets), BenchmarkError> {
 					let origin = WestendLocation::get();
-					let assets: MultiAssets = (Concrete(WestendLocation::get()), 1_000 * UNITS).into();
-					let ticket = MultiLocation { parents: 0, interior: Here };
+					let assets: Assets = (AssetId(WestendLocation::get()), 1_000 * UNITS).into();
+					let ticket = Location { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
 				}
 
-				fn unlockable_asset() -> Result<(MultiLocation, MultiLocation, MultiAsset), BenchmarkError> {
+				fn unlockable_asset() -> Result<(Location, Location, Asset), BenchmarkError> {
 					Err(BenchmarkError::Skip)
 				}
 
 				fn export_message_origin_and_destination(
-				) -> Result<(MultiLocation, NetworkId, InteriorMultiLocation), BenchmarkError> {
-					Ok((WestendLocation::get(), NetworkId::Rococo, X1(Parachain(100))))
+				) -> Result<(Location, NetworkId, InteriorLocation), BenchmarkError> {
+					// save XCM version for remote bridge hub
+					let _ = PolkadotXcm::force_xcm_version(
+						RuntimeOrigin::root(),
+						Box::new(bridge_to_rococo_config::BridgeHubRococoLocation::get()),
+						XCM_VERSION,
+					).map_err(|e| {
+						log::error!(
+							"Failed to dispatch `force_xcm_version({:?}, {:?}, {:?})`, error: {:?}",
+							RuntimeOrigin::root(),
+							bridge_to_rococo_config::BridgeHubRococoLocation::get(),
+							XCM_VERSION,
+							e
+						);
+						BenchmarkError::Stop("XcmVersion was not stored!")
+					})?;
+					Ok(
+						(
+							bridge_to_rococo_config::FromAssetHubWestendToAssetHubRococoRoute::get().location,
+							NetworkId::Rococo,
+							[Parachain(bridge_to_rococo_config::AssetHubRococoParaId::get().into())].into()
+						)
+					)
 				}
 
-				fn alias_origin() -> Result<(MultiLocation, MultiLocation), BenchmarkError> {
+				fn alias_origin() -> Result<(Location, Location), BenchmarkError> {
 					Err(BenchmarkError::Skip)
 				}
 			}
@@ -974,7 +995,7 @@ impl_runtime_apis! {
 						Runtime,
 						bridge_to_rococo_config::BridgeGrandpaRococoInstance,
 						bridge_to_rococo_config::WithBridgeHubRococoMessageBridge,
-					>(params, generate_xcm_builder_bridge_message_sample(X2(GlobalConsensus(Westend), Parachain(42))))
+					>(params, generate_xcm_builder_bridge_message_sample([GlobalConsensus(Westend), Parachain(42)].into()))
 				}
 
 				fn prepare_message_delivery_proof(

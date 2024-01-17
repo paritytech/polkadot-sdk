@@ -16,9 +16,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod impls;
-pub mod kusama;
 pub mod message_queue;
-pub mod polkadot;
 pub mod rococo;
 pub mod storage_weight_reclaim_extension;
 pub mod westend;
