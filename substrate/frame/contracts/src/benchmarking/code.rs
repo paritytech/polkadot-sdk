@@ -373,8 +373,6 @@ pub mod body {
 		/// Insert a I32Const with incrementing value for each insertion.
 		/// (start_at, increment_by)
 		Counter(u32, u32),
-		/// Insert the specified amount of I64Const with a random value.
-		RandomI64Repeated(usize),
 	}
 
 	pub fn plain(instructions: Vec<Instruction>) -> FuncBody {
@@ -403,11 +401,6 @@ pub mod body {
 	}
 
 	pub fn repeated_dyn(repetitions: u32, mut instructions: Vec<DynInstr>) -> FuncBody {
-		use rand::{distributions::Standard, prelude::*};
-
-		// We do not need to be secure here.
-		let mut rng = rand_pcg::Pcg32::seed_from_u64(8446744073709551615);
-
 		// We need to iterate over indices because we cannot cycle over mutable references
 		let body = (0..instructions.len())
 			.cycle()
@@ -419,8 +412,6 @@ pub mod body {
 					*offset += *increment_by;
 					vec![Instruction::I32Const(current as i32)]
 				},
-				DynInstr::RandomI64Repeated(num) =>
-					(&mut rng).sample_iter(Standard).take(*num).map(Instruction::I64Const).collect(),
 			})
 			.chain(sp_std::iter::once(Instruction::End))
 			.collect();
