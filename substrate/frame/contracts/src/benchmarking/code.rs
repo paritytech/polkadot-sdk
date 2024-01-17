@@ -31,8 +31,8 @@ use sp_std::{borrow::ToOwned, prelude::*};
 use wasm_instrument::parity_wasm::{
 	builder,
 	elements::{
-		self, BlockType, CustomSection, External, FuncBody, Instruction, Instructions, Module,
-		Section, ValueType,
+		self, BlockType, CustomSection, External, FuncBody, Instruction, Instructions, Local,
+		Module, Section, ValueType,
 	},
 };
 
@@ -382,6 +382,14 @@ pub mod body {
 	}
 
 	pub fn repeated(repetitions: u32, instructions: &[Instruction]) -> FuncBody {
+		repeated_with_locals(&[], repetitions, instructions)
+	}
+
+	pub fn repeated_with_locals(
+		locals: &[Local],
+		repetitions: u32,
+		instructions: &[Instruction],
+	) -> FuncBody {
 		let instructions = Instructions::new(
 			instructions
 				.iter()
@@ -391,7 +399,7 @@ pub mod body {
 				.chain(sp_std::iter::once(Instruction::End))
 				.collect(),
 		);
-		FuncBody::new(Vec::new(), instructions)
+		FuncBody::new(locals.to_vec(), instructions)
 	}
 
 	pub fn repeated_dyn(repetitions: u32, mut instructions: Vec<DynInstr>) -> FuncBody {

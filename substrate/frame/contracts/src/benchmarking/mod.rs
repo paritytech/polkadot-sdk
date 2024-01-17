@@ -48,7 +48,7 @@ use pallet_balances;
 use pallet_contracts_uapi::CallFlags;
 use sp_runtime::traits::{Bounded, Hash};
 use sp_std::prelude::*;
-use wasm_instrument::parity_wasm::elements::{BlockType, Instruction, ValueType};
+use wasm_instrument::parity_wasm::elements::{BlockType, Instruction, Local, ValueType};
 
 /// How many runs we do per API benchmark.
 ///
@@ -2582,19 +2582,24 @@ benchmarks! {
 		let origin = RawOrigin::Signed(instance.caller.clone());
 	}: call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![])
 
-	// We make the assumption that pushing a constant and dropping a value takes roughly
-	// the same amount of time. We call this weight `w_base`.
-	// The weight that would result from the respective benchmark we call: `w_bench`.
+	// We add two `i64` integers from local variables and store the result into yet another
+	// local variable. The combination of this computation is our weight base `w_base`.
 	//
-	// w_base = w_i{32,64}const = w_drop = w_bench / 2
+	// The weight that would result from the respective benchmark we call: `w_bench`.
 	#[pov_mode = Ignored]
-	instr_i64const {
+	instr_i64add {
 		let r in 0 .. INSTR_BENCHMARK_RUNS;
 		let mut sbox = Sandbox::from(&WasmModule::<T>::from(ModuleDefinition {
-			call_body: Some(body::repeated_dyn(r, vec![
-				RandomI64Repeated(1),
-				Regular(Instruction::Drop),
-			])),
+			call_body: Some(body::repeated_with_locals(
+				&[Local::new(3, ValueType::I64)],
+				r,
+				&[
+					Instruction::GetLocal(0),
+					Instruction::GetLocal(1),
+					Instruction::I64Add,
+					Instruction::SetLocal(2),
+				],
+			)),
 			.. Default::default()
 		}));
 	}: {
