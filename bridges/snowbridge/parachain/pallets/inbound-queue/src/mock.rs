@@ -20,7 +20,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, FixedU128, MultiSignature,
 };
-use sp_std::convert::From;
+use core::convert::From;
 use xcm::v4::{prelude::*, SendXcm};
 use xcm_executor::AssetsInHolding;
 

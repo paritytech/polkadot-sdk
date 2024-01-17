@@ -28,7 +28,7 @@ use sp_runtime::{
 	traits::SignedExtension,
 	DispatchError, RuntimeDebug,
 };
-use sp_std::fmt;
+use core::fmt;
 use sp_weights::Weight;
 
 /// The return type of a `Dispatchable` in frame. When returned explicitly from

@@ -28,7 +28,7 @@ use polkadot_parachain_primitives::primitives::Id as ParaId;
 use polkadot_runtime_parachains::origin;
 use sp_core::H256;
 use sp_runtime::{traits::IdentityLookup, AccountId32, BuildStorage};
-pub use sp_std::cell::RefCell;
+pub use core::cell::RefCell;
 use xcm::prelude::*;
 #[allow(deprecated)]
 use xcm_builder::CurrencyAdapter as XcmCurrencyAdapter;

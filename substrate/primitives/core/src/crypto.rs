@@ -30,7 +30,7 @@ use scale_info::TypeInfo;
 pub use secrecy::{ExposeSecret, SecretString};
 use sp_runtime_interface::pass_by::PassByInner;
 #[doc(hidden)]
-pub use sp_std::ops::Deref;
+pub use core::ops::Deref;
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use sp_std::{
 	alloc::{format, string::String},
@@ -963,7 +963,7 @@ pub trait Pair: CryptoType + Sized {
 		s: &str,
 		password_override: Option<&str>,
 	) -> Result<(Self, Option<Self::Seed>), SecretStringError> {
-		use sp_std::str::FromStr;
+		use core::str::FromStr;
 		let SecretUri { junctions, phrase, password } = SecretUri::from_str(s)?;
 		let password =
 			password_override.or_else(|| password.as_ref().map(|p| p.expose_secret().as_str()));

@@ -31,7 +31,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup, TryMorphInto},
 	BuildStorage, DispatchError, DispatchResult,
 };
-use sp_std::cell::RefCell;
+use core::cell::RefCell;
 
 use super::*;
 use crate as pallet_core_fellowship;

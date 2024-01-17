@@ -429,7 +429,7 @@ mod normalize_tests {
 mod threshold_compare_tests {
 	use super::*;
 	use crate::traits::Saturating;
-	use sp_std::cmp::Ordering;
+	use core::cmp::Ordering;
 
 	#[test]
 	fn epsilon_ord_works() {

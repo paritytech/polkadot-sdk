@@ -25,7 +25,7 @@ use frame_support::{
 };
 use pallet_bridge_messages::{Config, Pallet};
 use sp_runtime::{transaction_validity::TransactionValidity, RuntimeDebug};
-use sp_std::ops::RangeInclusive;
+use core::ops::RangeInclusive;
 
 /// Generic info about a messages delivery/confirmation proof.
 #[derive(PartialEq, RuntimeDebug)]
@@ -363,7 +363,7 @@ mod tests {
 		},
 	};
 	use bp_messages::{DeliveredMessages, UnrewardedRelayer, UnrewardedRelayersState};
-	use sp_std::ops::RangeInclusive;
+	use core::ops::RangeInclusive;
 
 	fn fill_unrewarded_relayers() {
 		let mut inbound_lane_state =

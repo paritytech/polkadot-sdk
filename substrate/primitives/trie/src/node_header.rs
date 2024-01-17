@@ -19,7 +19,7 @@
 
 use crate::trie_constants;
 use codec::{Decode, Encode, Input, Output};
-use sp_std::iter::once;
+use core::iter::once;
 
 /// A node header
 #[derive(Copy, Clone, PartialEq, Eq, sp_core::RuntimeDebug)]

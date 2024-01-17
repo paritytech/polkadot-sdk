@@ -219,7 +219,7 @@ mod tests {
 		outbound_lane,
 	};
 	use frame_support::{assert_ok, weights::constants::RocksDbWeight};
-	use sp_std::ops::RangeInclusive;
+	use core::ops::RangeInclusive;
 
 	fn unrewarded_relayers(
 		nonces: RangeInclusive<MessageNonce>,

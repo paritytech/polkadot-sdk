@@ -24,7 +24,7 @@ use sp_runtime::{
 	traits::{Convert, MaybeSerializeDeserialize},
 	ArithmeticError, DispatchError, TokenError,
 };
-use sp_std::fmt::Debug;
+use core::fmt::Debug;
 
 /// The origin of funds to be used for a deposit operation.
 #[derive(Copy, Clone, RuntimeDebug, Eq, PartialEq)]

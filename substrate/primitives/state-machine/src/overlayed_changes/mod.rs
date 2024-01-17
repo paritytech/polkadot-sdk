@@ -572,7 +572,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 			},
 		};
 
-		use sp_std::mem::take;
+		use core::mem::take;
 		let main_storage_changes = take(&mut self.top).drain_commited();
 		let child_storage_changes = take(&mut self.children)
 			.into_iter()

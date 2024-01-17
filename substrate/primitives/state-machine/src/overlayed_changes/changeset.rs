@@ -225,7 +225,7 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 	/// This changeset might be created when there are already open transactions.
 	/// We need to catch up here so that the child is at the same transaction depth.
 	pub fn spawn_child(&self) -> Self {
-		use sp_std::iter::repeat;
+		use core::iter::repeat;
 		Self {
 			changes: Default::default(),
 			dirty_keys: repeat(Set::new()).take(self.transaction_depth()).collect(),
@@ -448,7 +448,7 @@ impl OverlayedChangeSet {
 
 	/// Get the iterator over all changes that follow the supplied `key`.
 	pub fn changes_after(&self, key: &[u8]) -> impl Iterator<Item = (&[u8], &OverlayedValue)> {
-		use sp_std::ops::Bound;
+		use core::ops::Bound;
 		let range = (Bound::Excluded(key), Bound::Unbounded);
 		self.changes.range::<[u8], _>(range).map(|(k, v)| (k.as_slice(), v))
 	}

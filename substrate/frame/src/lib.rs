@@ -313,7 +313,7 @@ pub mod derive {
 	pub use parity_scale_codec::{Decode, Encode};
 	pub use scale_info::TypeInfo;
 	pub use sp_runtime::RuntimeDebug;
-	pub use sp_std::fmt::Debug;
+	pub use core::fmt::Debug;
 }
 
 /// Access to all of the dependencies of this crate. In case the re-exports are not enough, this

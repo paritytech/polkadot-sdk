@@ -49,7 +49,7 @@ use sp_runtime::{
 	transaction_validity::TransactionPriority,
 	AccountId32, BuildStorage, MultiSignature,
 };
-use sp_std::sync::Arc;
+use core::sync::Arc;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlockU32<Test>;

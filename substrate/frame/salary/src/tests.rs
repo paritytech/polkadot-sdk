@@ -30,7 +30,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, Identity, IdentityLookup},
 	BuildStorage, DispatchResult,
 };
-use sp_std::cell::RefCell;
+use core::cell::RefCell;
 
 use super::*;
 use crate as pallet_salary;

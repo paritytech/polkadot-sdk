@@ -85,7 +85,7 @@ pub trait EnsureOrigin<OuterOrigin> {
 /// ```rust
 /// # use frame_support::traits::{EnsureOriginEqualOrHigherPrivilege, PrivilegeCmp, EnsureOrigin as _};
 /// # use sp_runtime::traits::{parameter_types, Get};
-/// # use sp_std::cmp::Ordering;
+/// # use core::cmp::Ordering;
 ///
 /// #[derive(Eq, PartialEq, Debug)]
 /// pub enum Origin {

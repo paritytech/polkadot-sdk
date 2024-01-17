@@ -25,7 +25,7 @@ pub use mmr_lib;
 use scale_info::TypeInfo;
 use sp_debug_derive::RuntimeDebug;
 use sp_runtime::traits;
-use sp_std::fmt;
+use core::fmt;
 #[cfg(not(feature = "std"))]
 use sp_std::prelude::Vec;
 

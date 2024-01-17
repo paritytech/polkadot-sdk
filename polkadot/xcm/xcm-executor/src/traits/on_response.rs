@@ -22,7 +22,7 @@ use frame_support::{
 };
 use parity_scale_codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use sp_arithmetic::traits::Zero;
-use sp_std::fmt::Debug;
+use core::fmt::Debug;
 use xcm::latest::{
 	Error as XcmError, InteriorLocation, Location, QueryId, Response, Result as XcmResult, Weight,
 	XcmContext,

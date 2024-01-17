@@ -28,7 +28,7 @@ pub use num_traits::{
 	checked_pow, Bounded, CheckedAdd, CheckedDiv, CheckedMul, CheckedNeg, CheckedRem, CheckedShl,
 	CheckedShr, CheckedSub, One, Signed, Unsigned, Zero,
 };
-use sp_std::ops::{
+use core::ops::{
 	Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, RemAssign, Shl, Shr, Sub, SubAssign,
 };
 

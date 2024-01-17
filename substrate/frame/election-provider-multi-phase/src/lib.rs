@@ -841,7 +841,7 @@ pub mod pallet {
 		}
 
 		fn integrity_test() {
-			use sp_std::mem::size_of;
+			use core::mem::size_of;
 			// The index type of both voters and targets need to be smaller than that of usize (very
 			// unlikely to be the case, but anyhow)..
 			assert!(size_of::<SolutionVoterIndexOf<T::MinerConfig>>() <= size_of::<usize>());

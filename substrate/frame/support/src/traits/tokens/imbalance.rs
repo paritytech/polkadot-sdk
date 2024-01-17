@@ -20,7 +20,7 @@
 
 use crate::traits::misc::{SameOrOther, TryDrop};
 use sp_runtime::traits::Saturating;
-use sp_std::ops::Div;
+use core::ops::Div;
 
 mod on_unbalanced;
 mod signed_imbalance;

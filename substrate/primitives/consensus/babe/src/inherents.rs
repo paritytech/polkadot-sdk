@@ -18,7 +18,7 @@
 //! Inherents for BABE
 
 use sp_inherents::{Error, InherentData, InherentIdentifier};
-use sp_std::result::Result;
+use core::result::Result;
 
 /// The BABE inherent identifier.
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"babeslot";

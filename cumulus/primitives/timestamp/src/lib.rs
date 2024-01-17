@@ -29,7 +29,7 @@
 
 use cumulus_primitives_core::relay_chain::Slot;
 use sp_inherents::{Error, InherentData};
-use sp_std::time::Duration;
+use core::time::Duration;
 
 pub use sp_timestamp::{InherentType, INHERENT_IDENTIFIER};
 

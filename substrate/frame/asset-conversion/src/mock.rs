@@ -39,7 +39,7 @@ use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
 	BuildStorage,
 };
-use sp_std::default::Default;
+use core::default::Default;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

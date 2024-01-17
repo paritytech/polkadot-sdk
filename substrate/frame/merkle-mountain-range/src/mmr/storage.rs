@@ -22,7 +22,7 @@ use log::{debug, trace};
 use sp_core::offchain::StorageKind;
 use sp_io::offchain_index;
 use sp_mmr_primitives::{mmr_lib, mmr_lib::helper, utils::NodesUtils};
-use sp_std::iter::Peekable;
+use core::iter::Peekable;
 #[cfg(not(feature = "std"))]
 use sp_std::prelude::*;
 

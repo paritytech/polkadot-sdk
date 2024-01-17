@@ -34,7 +34,7 @@ use frame_support::{
 	weights::constants,
 };
 use frame_system::limits;
-use sp_std::time::Duration;
+use core::time::Duration;
 
 /// Average block interval in Cumulus-based parachains.
 ///

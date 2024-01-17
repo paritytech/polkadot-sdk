@@ -45,7 +45,7 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use sp_runtime_interface::pass_by::PassByInner;
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use sp_std::alloc::{format, string::String};
-use sp_std::ops::Deref;
+use core::ops::Deref;
 
 /// An identifier used to match public keys against ed25519 keys
 pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"ed25");

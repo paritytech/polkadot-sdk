@@ -26,7 +26,7 @@ use frame_support::{
 use scale_info::TypeInfo;
 use sp_arithmetic::{Rounding::*, SignedRounding::*};
 use sp_runtime::{FixedI64, PerThing, RuntimeDebug};
-use sp_std::fmt::Debug;
+use core::fmt::Debug;
 
 pub type BalanceOf<T, I = ()> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;

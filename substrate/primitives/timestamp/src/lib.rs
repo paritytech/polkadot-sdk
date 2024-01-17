@@ -21,7 +21,7 @@
 
 use codec::{Decode, Encode};
 use sp_inherents::{InherentData, InherentIdentifier, IsFatalError};
-use sp_std::time::Duration;
+use core::time::Duration;
 
 /// The identifier for the `timestamp` inherent.
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"timstap0";

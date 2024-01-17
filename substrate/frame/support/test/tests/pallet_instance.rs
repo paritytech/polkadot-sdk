@@ -32,7 +32,7 @@ use sp_io::{
 	TestExternalities,
 };
 use sp_runtime::{DispatchError, ModuleError};
-use sp_std::any::TypeId;
+use core::any::TypeId;
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {

@@ -7,7 +7,7 @@ use hex_literal::hex;
 use snowbridge_core::{inbound::Proof, ChannelId};
 use sp_keyring::AccountKeyring as Keyring;
 use sp_runtime::{DispatchError, TokenError};
-use sp_std::convert::From;
+use core::convert::From;
 
 use crate::{Error, Event as InboundQueueEvent};
 

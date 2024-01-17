@@ -30,7 +30,7 @@ use parachains_runtimes_test_utils::{
 	ValidatorIdOf, XcmReceivedFrom,
 };
 use sp_runtime::{traits::StaticLookup, Saturating};
-use sp_std::ops::Mul;
+use core::ops::Mul;
 use xcm::{latest::prelude::*, VersionedAssets};
 use xcm_builder::{CreateMatcher, MatchXcm};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};

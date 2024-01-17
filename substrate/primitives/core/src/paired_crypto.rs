@@ -34,7 +34,7 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use sp_std::alloc::{format, string::String};
 
 use sp_runtime_interface::pass_by::{self, PassBy, PassByInner};
-use sp_std::convert::TryFrom;
+use core::convert::TryFrom;
 
 /// ECDSA and BLS12-377 paired crypto scheme
 #[cfg(feature = "bls-experimental")]

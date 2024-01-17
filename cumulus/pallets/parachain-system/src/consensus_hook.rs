@@ -19,7 +19,7 @@
 
 use super::relay_state_snapshot::RelayChainStateProof;
 use frame_support::weights::Weight;
-use sp_std::num::NonZeroU32;
+use core::num::NonZeroU32;
 
 /// The possible capacity of the unincluded segment.
 #[derive(Clone)]

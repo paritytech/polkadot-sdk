@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use sp_io::hashing::twox_128;
-use sp_std::str;
+use core::str;
 
 use frame_support::{
 	storage::{generator::StorageValue, StoragePrefixedMap},

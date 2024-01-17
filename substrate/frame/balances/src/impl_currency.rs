@@ -40,7 +40,7 @@ pub use imbalances::{NegativeImbalance, PositiveImbalance};
 mod imbalances {
 	use super::{result, Config, Imbalance, RuntimeDebug, Saturating, TryDrop, Zero};
 	use frame_support::traits::SameOrOther;
-	use sp_std::mem;
+	use core::mem;
 
 	/// Opaque, move-only struct with private fields that serves as a token denoting that
 	/// funds have been created without any equal and opposite accounting.

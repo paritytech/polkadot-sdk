@@ -23,7 +23,7 @@ pub use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Lazy, Verify},
 	BuildStorage, MultiSignature,
 };
-use sp_std::convert::{TryFrom, TryInto};
+use core::convert::{TryFrom, TryInto};
 
 pub use frame_support::{
 	assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,

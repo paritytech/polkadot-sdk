@@ -969,7 +969,7 @@ macro_rules! implement_fixed {
 			where
 				D: Deserializer<'de>,
 			{
-				use sp_std::str::FromStr;
+				use core::str::FromStr;
 				let s = String::deserialize(deserializer)?;
 				$name::from_str(&s).map_err(de::Error::custom)
 			}

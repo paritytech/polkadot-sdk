@@ -29,7 +29,7 @@ use hash_db::{self, AsHashDB, HashDB, HashDBRef, Hasher, Prefix};
 use parking_lot::RwLock;
 use sp_core::storage::{ChildInfo, ChildType, StateVersion};
 #[cfg(feature = "std")]
-use sp_std::sync::Arc;
+use alloc::sync::Arc;
 use sp_std::{boxed::Box, marker::PhantomData, vec::Vec};
 use sp_trie::{
 	child_delta_trie_root, delta_trie_root, empty_child_trie_root,

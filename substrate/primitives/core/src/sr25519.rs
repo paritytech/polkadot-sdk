@@ -46,7 +46,7 @@ use crate::{
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_std::ops::Deref;
+use core::ops::Deref;
 
 #[cfg(feature = "full_crypto")]
 use schnorrkel::keys::{MINI_SECRET_KEY_LENGTH, SECRET_KEY_LENGTH};

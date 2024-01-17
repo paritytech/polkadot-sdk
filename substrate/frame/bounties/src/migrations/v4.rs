@@ -25,7 +25,7 @@ use frame_support::{
 };
 use sp_core::hexdisplay::HexDisplay;
 use sp_io::{hashing::twox_128, storage};
-use sp_std::str;
+use core::str;
 
 use crate as pallet_bounties;
 
