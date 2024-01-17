@@ -2584,8 +2584,6 @@ benchmarks! {
 
 	// We add two `i64` integers from local variables and store the result into yet another
 	// local variable. The combination of this computation is our weight base `w_base`.
-	//
-	// The weight that would result from the respective benchmark we call: `w_bench`.
 	#[pov_mode = Ignored]
 	instr_i64add {
 		let r in 0 .. INSTR_BENCHMARK_RUNS;
