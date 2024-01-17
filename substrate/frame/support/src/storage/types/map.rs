@@ -28,7 +28,6 @@ use crate::{
 	},
 	traits::{Get, GetDefault, StorageInfo, StorageInstance},
 	Never,
-	ReversibleStorageHasher,
 	StorageHasher,
 	Twox128,
 };

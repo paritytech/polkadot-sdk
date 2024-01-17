@@ -22,7 +22,7 @@ use crate::{
 		types::{OptionQuery, QueryKindTrait, StorageEntryMetadataBuilder},
 		unhashed, StorageAppend, StorageDecodeLength, StorageTryAppend, TryAppendValue,
 	},
-	traits::{GetDefault, StorageInfo, StorageInstance},
+	traits::{Get, GetDefault, StorageInfo, StorageInstance},
 	Never,
 };
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
