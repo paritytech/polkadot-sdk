@@ -580,6 +580,9 @@ impl<T: impls::pallet::Config> Pallet<T> {
 		let target_at = helpers::target_at_fn::<T>(&snapshot_targets);
 		let voter_index = helpers::voter_index_fn_usize::<T>(&cache);
 
+		println!("  > ON_CHAIN cache {:?}", cache);
+		println!("{:?}", partial_solution);
+
 		// Then convert solution -> assignment. This will fail if any of the indices are
 		// gibberish.
 		let assignments = partial_solution

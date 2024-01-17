@@ -116,14 +116,10 @@ where
 		let desired_targets = Snapshot::<T>::desired_targets()
 			.ok_or::<MinerError>(SnapshotType::DesiredTargets.into())?;
 
-		// Note to self: having paged targets may be problematic here, maybe remove it?
-		// Maybe needs flattening.
 		let paged_targets_range = (0..EPM::<T>::msp() + 1).take(pages as usize);
 		let paged_voters_range = (0..EPM::<T>::msp() + 1).take(pages as usize);
 
-		let a = paged_targets_range.clone();
-
-		// all targets in the snapshot, flatten (i.e. not paged).
+		// all targets in the snapshot, flattened (i.e. not paged).
 		let all_targets: Vec<_> = paged_targets_range
 			.map(|page| {
 				Snapshot::<T>::targets(page)
@@ -145,8 +141,8 @@ where
 			.expect("range was constructed from the bounded vec bounds; qed.");
 
 		// build helper closures.
-		//let voters_page_fn = helpers::generate_voter_page_fn::<T>(&all_voter_pages);
-		let voters_page_fn = helpers::generate_voter_page_stake_fn::<T>(&all_voter_pages);
+		let voters_page_fn = helpers::generate_voter_page_fn::<T>(&all_voter_pages);
+		//let voters_page_fn = helpers::generate_voter_page_stake_fn::<T>(&all_voter_pages);
 		let targets_index_fn = helpers::target_index_fn::<T>(&all_targets);
 
 		// flatten the voters as well.
@@ -158,9 +154,11 @@ where
 			S::solve(desired_targets as usize, all_targets.clone().to_vec(), all_voters.clone())
 				.map_err(|_| MinerError::Solver)?;
 
+        println!(">>> {:?}", assignments);
+
 		// TODO(gpestana): reduce and trim.
 
-		// split assignments into `T::Pages pages. // TOOD bounded vec of assignments?
+		// split assignments into `T::Pages pages.
 		let mut paged_assignments: BoundedVec<Vec<AssignmentOf<T>>, T::Pages> =
 			BoundedVec::with_bounded_capacity(pages as usize);
 
@@ -173,17 +171,24 @@ where
 			assignment_page.push(assignment);
 		}
 
-		// convert each page of assignments to a paged `T::Solution`.
+       	// convert each page of assignments to a paged `T::Solution`.
 		let solution_pages: BoundedVec<SolutionOf<T>, T::Pages> = paged_assignments
 			.into_iter()
 			.enumerate()
 			.map(|(page_index, assignment_page)| {
 				let page: PageIndex = page_index.saturated_into();
 
-				let voter_snapshot_page = all_voter_pages.iter().flatten().collect::<Vec<_>>();
+                // for stake-idx based
+				//let voter_snapshot_page = all_voter_pages.iter().flatten().collect::<Vec<_>>();
+
+                 // for snapshot-based idx only
+		        let voter_snapshot_page = all_voter_pages
+			        .get(page as usize)
+			        .ok_or(MinerError::SnapshotUnAvailable(SnapshotType::Voters(page)))?;
 
 				let voters_index_fn = {
-					let cache = helpers::generate_voter_staked_cache::<T>(&voter_snapshot_page);
+					//let cache = helpers::generate_voter_staked_cache::<T>(&voter_snapshot_page);
+					let cache = helpers::generate_voter_cache::<T, _>(&voter_snapshot_page);
 					helpers::voter_index_fn_owned::<T>(cache)
 				};
 
@@ -204,7 +209,12 @@ where
 		let round = crate::Pallet::<T>::current_round();
 		let mut paged_solution =
 			PagedRawSolution { solution_pages, score: Default::default(), round };
-		Self::compute_score(&paged_solution);
+
+		// TODO: this fails due to the feasibility check implemented by the Verifier, which does not
+		// use the same caching fn so tha indices are wrong.
+		Self::compute_score(&paged_solution);//.unwrap();
+
+		println!("\n after: {:?}\n", paged_solution);
 
 		Ok((paged_solution, trimming_status))
 	}
@@ -573,5 +583,39 @@ where
 			max_weight,
 		);
 		final_decision
+	}
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+	use crate::{mock::*, Phase, Snapshot};
+	use frame_support::BoundedVec;
+    use frame_election_provider_support::SequentialPhragmen;
+    use sp_runtime::Perbill;
+	use sp_npos_elections::ElectionResult;
+
+	mod indice_encode_decode_solution {
+		use super::*;
+
+		#[test]
+		fn snapshot_idx_based_works() {
+			ExtBuilder::default().build_and_execute(|| {
+				roll_to_phase(Phase::Signed);
+
+				let mut all_voter_pages = vec![];
+				let mut all_target_pages = vec![];
+				let desired_targets = Snapshot::<T>::desired_targets().unwrap();
+
+				for page in (0..Pages::get()).rev() {
+					all_voter_pages.push(Snapshot::<T>::voters(page).unwrap());
+					all_target_pages.push(Snapshot::<T>::targets(page).unwrap());
+				}
+
+			})
+		}
+
+		#[test]
+		fn snapshot_stake_sorted_works() {}
 	}
 }

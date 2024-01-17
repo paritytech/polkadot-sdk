@@ -171,7 +171,7 @@ frame_election_provider_support::generate_solution_type!(
 		TargetIndex = TargetIndex,
 		Accuracy = PerU16,
 		MaxVoters = ConstU32::<2_000>
-	>(16)
+	>(6)
 );
 
 parameter_types! {
@@ -398,10 +398,8 @@ impl Default for StakingExtBuilder {
 	fn default() -> Self {
 		let stakers = vec![
 			// (stash, ctrl, stake, status)
-			// these two will be elected in the default test where we elect 2.
 			(11, 11, 1000, StakerStatus::<AccountId>::Validator),
 			(21, 21, 1000, StakerStatus::<AccountId>::Validator),
-			// loser validators if validator_count() is default.
 			(31, 31, 500, StakerStatus::<AccountId>::Validator),
 			(41, 41, 1500, StakerStatus::<AccountId>::Validator),
 			(51, 51, 1500, StakerStatus::<AccountId>::Validator),
@@ -410,8 +408,14 @@ impl Default for StakingExtBuilder {
 			(81, 81, 1500, StakerStatus::<AccountId>::Validator),
 			(91, 91, 1500, StakerStatus::<AccountId>::Validator),
 			(101, 101, 500, StakerStatus::<AccountId>::Validator),
-			// an idle validator
+			// idle validators
 			(201, 201, 1000, StakerStatus::<AccountId>::Idle),
+			(301, 301, 1000, StakerStatus::<AccountId>::Idle),
+			// nominators
+			(10, 10, 2000, StakerStatus::<AccountId>::Nominator(vec![11, 21])),
+			(20, 20, 2000, StakerStatus::<AccountId>::Nominator(vec![31])),
+			(30, 30, 2000, StakerStatus::<AccountId>::Nominator(vec![91, 101])),
+			(40, 40, 2000, StakerStatus::<AccountId>::Nominator(vec![11, 101])),
 		];
 
 		Self {
@@ -466,19 +470,19 @@ impl Default for BalancesExtBuilder {
 			(2, 20),
 			(3, 300),
 			(4, 400),
-			// controllers (still used in some tests. Soon to be deprecated).
-			(10, 100),
-			(20, 100),
-			(30, 100),
-			(40, 100),
-			(50, 100),
-			(60, 100),
-			(70, 100),
-			(80, 100),
-			(90, 100),
-			(100, 100),
-			(200, 100),
-			// stashes
+			// nominators
+			(10, 10_000),
+			(20, 10_000),
+			(30, 10_000),
+			(40, 10_000),
+			(50, 10_000),
+			(60, 10_000),
+			(70, 10_000),
+			(80, 10_000),
+			(90, 10_000),
+			(100, 10_000),
+			(200, 10_000),
+			// validators
 			(11, 1000),
 			(21, 2000),
 			(31, 3000),
@@ -490,6 +494,7 @@ impl Default for BalancesExtBuilder {
 			(91, 9000),
 			(101, 10000),
 			(201, 20000),
+			(301, 20000),
 			// This allows us to have a total_payout different from 0.
 			(999, 1_000_000_000_000),
 		];
