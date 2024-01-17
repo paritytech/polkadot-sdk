@@ -35,19 +35,19 @@ pub type PrecheckResult = Result<(), PrepareError>;
 pub enum PrepareError {
 	/// During the prevalidation stage of preparation an issue was found with the PVF.
 	#[codec(index = 0)]
-	#[error("prevalidation: {0}")]
+	#[error("prepare: prevalidation error: {0}")]
 	Prevalidation(String),
 	/// Compilation failed for the given PVF.
 	#[codec(index = 1)]
-	#[error("preparation: {0}")]
+	#[error("prepare: preparation error: {0}")]
 	Preparation(String),
 	/// Instantiation of the WASM module instance failed.
 	#[codec(index = 2)]
-	#[error("runtime construction: {0}")]
+	#[error("prepare: runtime construction: {0}")]
 	RuntimeConstruction(String),
 	/// An unexpected error has occurred in the preparation job.
 	#[codec(index = 3)]
-	#[error("panic: {0}")]
+	#[error("prepare: job error: {0}")]
 	JobError(String),
 	/// Failed to prepare the PVF due to the time limit.
 	#[codec(index = 4)]
