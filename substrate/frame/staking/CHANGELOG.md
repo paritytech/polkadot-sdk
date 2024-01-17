@@ -14,8 +14,8 @@ migrations.
 - New trait `DisablingStrategy` which is responsible for making a decision which offenders should be
   disabled on new offence.
 - Default implementation of `DisablingStrategy` - `UpToThresholdDisablingStrategy`. It
-  disables each new offender up to a threshold (1/3 by default). Offenders are not punished for
-  offences in previous era(s).
+  disables each new offender up to a threshold (1/3 by default). Offenders are not runtime disabled for
+  offences in previous era(s). But they will be low-priority node-side disabled for dispute initiation.
 - `OffendingValidators` storage item is replaced with `DisabledValidators`. The former keeps all
   offenders and if they are disabled or not. The latter just keeps a list of all offenders as they
   are disabled by default.
