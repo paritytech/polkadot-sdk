@@ -39,11 +39,11 @@ High level assumptions and goals of the validator disabling system that will be 
 1. Disablement lasts for 1 era.
 1. Disabled validators remain in the active validator set but have some limited permissions.
 1. Disabled validators can get re-elected.
-1. Disabled validators can no longer back candidates.
+1. Disabled validators cannot back candidates.
 1. Disabled validators can participate in approval checking.
 1. Disabled validators cannot initiate disputes, but their votes are still counted if a dispute occurs.
 1. Disabled validators making dispute statements no-show in approval checking.
-1. Disabling does not affect GRANDPA at all.
+1. Disabled validators can participate in GRANDPA, but equivocations cause disablement.
 1. Disabling affects Block Authoring. (Both ways: block authoring equivocation disables and disabling stops block authoring)
 
 
@@ -197,14 +197,11 @@ The only GRANDPA offense is an equivocation (as of now). It is not a very seriou
 Honest nodes generally should not commit those offenses so the goal of protecting them does not apply here.
 
 > **Note:** \
-> A validator running multiple nodes with the same identity might equivocate, but doing that is highly not advised but it has happened before.
+> A validator running multiple nodes with the same identity might equivocate. Doing that is highly not advised but it has happened before.
 
 It's not a game of chance so giving attackers extra chances does not compromise soundness. Also it requires a supermajority of honest nodes to successfully finalize blocks so any disabling of honest nodes from GRANDPA might compromise liveness.
 
-Best approach is to allow disabled nodes to participate in GRANDPA as normal. ([**Point 11.**](#system-overview))
-
-TODO: Verify GRANDPA performance loss if a bit less than 1/3 equivocates.
-TODO: GRANDPA equivocation causing disablement? Seems unnecessary. Add reasoning.
+Best approach is to allow disabled nodes to participate in GRANDPA as normal and as mentioned before GRANDPA equivocations should not happen to honest nodes so we can safely disable the offenders. ([**Point 11.**](#system-overview))
 
 ## Block Authoring Offenses
 
