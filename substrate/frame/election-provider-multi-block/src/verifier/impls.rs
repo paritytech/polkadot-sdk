@@ -575,13 +575,16 @@ impl<T: impls::pallet::Config> Pallet<T> {
 			crate::Snapshot::<T>::voters(page).ok_or(FeasibilityError::SnapshotUnavailable)?;
 
 		// ----- Start building. First, we need some closures.
-		let cache = helpers::generate_voter_cache::<T, _>(&snapshot_voters);
+		let voter_cache = helpers::generate_voter_cache::<T, _>(&snapshot_voters);
 		let voter_at = helpers::voter_at_fn::<T>(&snapshot_voters);
-		let target_at = helpers::target_at_fn::<T>(&snapshot_targets);
-		let voter_index = helpers::voter_index_fn_usize::<T>(&cache);
+		let voter_index = helpers::voter_index_fn_usize::<T>(&voter_cache);
 
-		println!("  > ON_CHAIN cache {:?}", cache);
-		println!("{:?}", partial_solution);
+		let target_cache = helpers::generate_target_cache::<T>(&snapshot_targets);
+		let target_at = helpers::target_at_fn::<T>(&snapshot_targets);
+		let target_index = helpers::target_index_fn_usize::<T>(&target_cache);
+
+		println!("  > ON_CHAIN voter_cache {:?}", voter_cache);
+		println!("Page {page}:  {:?}", partial_solution);
 
 		// Then convert solution -> assignment. This will fail if any of the indices are
 		// gibberish.
@@ -616,7 +619,7 @@ impl<T: impls::pallet::Config> Pallet<T> {
 			.collect::<Result<(), FeasibilityError>>()?;
 
 		// ----- Start building support. First, we need one more closure.
-		let stake_of = helpers::stake_of_fn::<T, _>(&snapshot_voters, &cache);
+		let stake_of = helpers::stake_of_fn::<T, _>(&snapshot_voters, &voter_cache);
 
 		// This might fail if the normalization fails. Very unlikely. See `integrity_test`.
 		let staked_assignments =

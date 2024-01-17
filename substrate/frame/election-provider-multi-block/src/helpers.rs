@@ -18,8 +18,8 @@
 //! Some helper functions/macros for this crate.
 
 use crate::{
-	types::{AllVoterPagesOf, VoterOf},
-	Config, MaxWinnersPerPageOf, SolutionTargetIndexOf, SolutionVoterIndexOf,
+	types::{AllTargetPagesOf, AllVoterPagesOf, VoterOf},
+	AccountIdOf, Config, MaxWinnersPerPageOf, SolutionTargetIndexOf, SolutionVoterIndexOf,
 };
 use frame_election_provider_support::{PageIndex, VoteWeight};
 use frame_support::{traits::Get, BoundedVec};
@@ -69,6 +69,20 @@ pub fn generate_voter_cache<T: Config, AnyBound: Get<u32>>(
 	cache
 }
 
+pub fn generate_target_cache<T: Config>(
+	snapshot: &Vec<AccountIdOf<T>>,
+) -> BTreeMap<T::AccountId, usize> {
+	let mut cache: BTreeMap<T::AccountId, usize> = BTreeMap::new();
+	snapshot.iter().enumerate().for_each(|(i, x)| {
+		let _existed = cache.insert(x.clone(), i);
+		// if a duplicate exists, we only consider the last one. Defensive only, should never
+		// happen.
+		debug_assert!(_existed.is_none());
+	});
+
+	cache
+}
+
 pub fn generate_voter_staked_cache<T: Config>(
 	snapshot: &Vec<&VoterOf<T>>,
 ) -> BTreeMap<T::AccountId, usize> {
@@ -105,7 +119,26 @@ pub fn generate_voter_page_fn<T: Config>(
 	move |who| cache.get(who).copied()
 }
 
-/// Generate an efficient closure of voters and the page in which they live in, based on their
+pub fn generate_target_page_fn<T: Config>(
+	paged_snapshot: &AllTargetPagesOf<T>,
+) -> impl Fn(&T::AccountId) -> Option<PageIndex> {
+	let mut cache: BTreeMap<T::AccountId, PageIndex> = BTreeMap::new();
+	paged_snapshot
+		.iter()
+		.enumerate()
+		.map(|(page, whatever)| (page.saturated_into::<PageIndex>(), whatever))
+		.for_each(|(page, page_voters)| {
+			page_voters.iter().for_each(|t| {
+				let _existed = cache.insert(t.clone(), page);
+				// if a duplicate exists, we only consider the last one. Defensive only, should
+				// never happen.
+				debug_assert!(_existed.is_none());
+			});
+		});
+
+	move |who| cache.get(who).copied()
+}
+
 /// stake.
 ///
 /// The bucketing of voters into a page number is based on their relative stake in the assignments
@@ -166,6 +199,16 @@ pub fn voter_index_fn_owned<T: Config>(
 	}
 }
 
+pub fn target_index_fn_owned<T: Config>(
+	cache: BTreeMap<T::AccountId, usize>,
+) -> impl Fn(&T::AccountId) -> Option<SolutionTargetIndexOf<T>> {
+	move |who| {
+		cache
+			.get(who)
+			.and_then(|i| <usize as TryInto<SolutionTargetIndexOf<T>>>::try_into(*i).ok())
+	}
+}
+
 /// Create a function that returns the index of a target in the snapshot.
 ///
 /// The returned index type is the same as the one defined in `T::Solution::Target`.
@@ -220,6 +263,12 @@ pub fn voter_index_fn_usize<T: Config>(
 	move |who| cache.get(who).cloned()
 }
 
+pub fn target_index_fn_usize<T: Config>(
+	cache: &BTreeMap<T::AccountId, usize>,
+) -> impl Fn(&T::AccountId) -> Option<usize> + '_ {
+	move |who| cache.get(who).cloned()
+}
+
 /// Create a function to get the stake of a voter.
 pub fn stake_of_fn<'a, T: Config, AnyBound: Get<u32>>(
 	snapshot: &'a BoundedVec<VoterOf<T>, AnyBound>,
@@ -231,5 +280,20 @@ pub fn stake_of_fn<'a, T: Config, AnyBound: Get<u32>>(
 		} else {
 			0
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+
+	#[test]
+	fn paged_targets_indexing_works() {
+		let voter_snapshot = vec![];
+		let target_snapshot = vec![];
+
+		// flatten both
+
+		let voters_page_fn = helpers::generate_voter_page_fn::<T>(&all_voter_pages);
+		let targets_index_fn = helpers::target_index_fn::<T>(&all_targets);
 	}
 }

@@ -72,7 +72,11 @@ pub(crate) type VoterOf<T> =
 pub(crate) type VoterPageOf<T> =
 	BoundedVec<VoterOf<T>, <T as crate::Config>::VoterSnapshotPerBlock>;
 
-pub(crate) type MaxWinnersPerPageOf<T> = <<T as crate::Config>::Verifier as Verifier>::MaxWinnersPerPage;
+pub(crate) type TargetPageOf<T> =
+	BoundedVec<AccountIdOf<T>, <T as crate::Config>::TargetSnapshotPerBlock>;
+
+pub(crate) type MaxWinnersPerPageOf<T> =
+	<<T as crate::Config>::Verifier as Verifier>::MaxWinnersPerPage;
 
 /// Current phase of an election.
 #[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, MaxEncodedLen, Debug, TypeInfo)]
@@ -139,6 +143,7 @@ pub struct PageSize {
 
 /// Alias for all pages of voters, parameterized by this crate's config.
 pub(crate) type AllVoterPagesOf<T> = BoundedVec<VoterPageOf<T>, <T as crate::Config>::Pages>;
+pub(crate) type AllTargetPagesOf<T> = BoundedVec<TargetPageOf<T>, <T as crate::Config>::Pages>;
 // Accuracy of the election.
 pub type SolutionAccuracyOf<T> = <SolutionOf<T> as NposSolution>::Accuracy;
 

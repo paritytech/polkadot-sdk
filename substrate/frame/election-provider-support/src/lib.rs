@@ -272,10 +272,6 @@ impl<VoterIndex: core::fmt::Debug, TargetIndex: core::fmt::Debug, P: PerThing> I
 				.iter()
 				.map(|(target, proportion)| Some((target_index(target)?, *proportion)))
 				.collect::<Option<Vec<_>>>()
-				.map(|a| {
-					println!("bbbbbbbbbbb {:?}", a);
-					a
-				})
 				.or_invalid_index()?,
 		})
 	}
