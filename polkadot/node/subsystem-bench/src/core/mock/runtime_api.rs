@@ -176,9 +176,15 @@ impl MockRuntimeApi {
 
 							let _ = sender.send(Ok(cores));
 						},
+						RuntimeApiMessage::Request(
+							_block_hash,
+							RuntimeApiRequest::NodeFeatures(_session_index, sender),
+						) => {
+							let _ = sender.send(Ok(Default::default()));
+						},
 						// Long term TODO: implement more as needed.
-						_ => {
-							unimplemented!("Unexpected runtime-api message")
+						message => {
+							unimplemented!("Unexpected runtime-api message: {:?}", message)
 						},
 					}
 				},

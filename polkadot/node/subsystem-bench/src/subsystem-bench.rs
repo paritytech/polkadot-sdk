@@ -80,7 +80,7 @@ struct BenchCli {
 	#[clap(long, value_parser=le_5000)]
 	/// Remote peer latency standard deviation
 	pub peer_latency_std_dev: Option<f64>,
-	
+
 	#[clap(long, default_value_t = false)]
 	/// Enable CPU Profiling with Pyroscope
 	pub profile: bool,
@@ -149,7 +149,6 @@ impl BenchCli {
 			None
 		};
 
-		let configuration = self.standard_configuration;
 		let mut test_config = match self.objective {
 			TestObjective::TestSequence(options) => {
 				let test_sequence =

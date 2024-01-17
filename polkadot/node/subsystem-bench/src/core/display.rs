@@ -180,7 +180,7 @@ pub fn parse_metrics(registry: &Registry) -> MetricCollection {
 
 pub fn display_configuration(test_config: &TestConfiguration) {
 	gum::info!(
-		"[] {}, {}, {}, {}, {}",
+		"[{}] {}, {}, {}, {}, {}",
 		format!("objective = {:?}", test_config.objective).green(),
 		format!("n_validators = {}", test_config.n_validators).blue(),
 		format!("n_cores = {}", test_config.n_cores).blue(),

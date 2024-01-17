@@ -25,7 +25,7 @@ use polkadot_node_subsystem_types::{
 	Span,
 };
 use polkadot_overseer::Handle as OverseerHandle;
-use sc_network::{request_responses::ProtocolConfig, PeerId};
+use sc_network::{request_responses::ProtocolConfig, PeerId, ProtocolName};
 use sp_core::H256;
 use std::{collections::HashMap, iter::Cycle, ops::Sub, sync::Arc, time::Instant};
 
@@ -164,7 +164,10 @@ impl HandleNetworkMessage for NetworkAvailabilityState {
 						[validator_index]
 						.clone()
 						.into();
-					let response = Ok(ChunkFetchingResponse::from(Some(chunk)).encode());
+					let response = Ok((
+						ChunkFetchingResponse::from(Some(chunk)).encode(),
+						ProtocolName::Static("dummy"),
+					));
 
 					if let Err(err) = outgoing_request.pending_response.send(response) {
 						gum::error!(target: LOG_TARGET, ?err, "Failed to send `ChunkFetchingResponse`");
@@ -183,8 +186,10 @@ impl HandleNetworkMessage for NetworkAvailabilityState {
 					let available_data =
 						self.available_data.get(*candidate_index as usize).unwrap().clone();
 
-					let response =
-						Ok(AvailableDataFetchingResponse::from(Some(available_data)).encode());
+					let response = Ok((
+						AvailableDataFetchingResponse::from(Some(available_data)).encode(),
+						ProtocolName::Static("dummy"),
+					));
 					let _ = outgoing_request
 						.pending_response
 						.send(response)
@@ -483,6 +488,7 @@ impl TestState {
 			candidates: Vec::new().into_iter().cycle(),
 			chunk_request_protocol: None,
 			backed_candidates: Vec::new(),
+		};
 
 		_self.generate_candidates();
 		_self

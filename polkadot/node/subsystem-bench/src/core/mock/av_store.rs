@@ -123,9 +123,8 @@ impl MockAvailabilityStore {
 							.expect("candidate was generated previously; qed");
 						gum::debug!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
 
-						let chunk_size = self.state.chunks.get(*candidate_index).unwrap()
-							[0]
-						.encoded_size();
+						let chunk_size =
+							self.state.chunks.get(*candidate_index).unwrap()[0].encoded_size();
 						let _ = tx.send(Some(chunk_size));
 					},
 					AvailabilityStoreMessage::StoreChunk { candidate_hash, chunk, tx } => {

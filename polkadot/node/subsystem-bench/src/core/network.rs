@@ -159,12 +159,12 @@ impl NetworkMessage {
 		match &self {
 			NetworkMessage::MessageFromPeer(Versioned::V2(message)) => message.encoded_size(),
 			NetworkMessage::MessageFromPeer(Versioned::V1(message)) => message.encoded_size(),
-			NetworkMessage::MessageFromPeer(Versioned::VStaging(message)) => message.encoded_size(),
+			NetworkMessage::MessageFromPeer(Versioned::V3(message)) => message.encoded_size(),
 			NetworkMessage::MessageFromNode(_peer_id, Versioned::V2(message)) =>
 				message.encoded_size(),
 			NetworkMessage::MessageFromNode(_peer_id, Versioned::V1(message)) =>
 				message.encoded_size(),
-			NetworkMessage::MessageFromNode(_peer_id, Versioned::VStaging(message)) =>
+			NetworkMessage::MessageFromNode(_peer_id, Versioned::V3(message)) =>
 				message.encoded_size(),
 			NetworkMessage::RequestFromNode(_peer_id, incoming) => incoming.size(),
 			NetworkMessage::RequestFromPeer(request) => request.payload.encoded_size(),
@@ -411,13 +411,13 @@ impl NetworkInterface {
 			Ok(Err(err)) => {
 				sender.send(Err(err)).expect("Oneshot send always works.");
 			},
-			Ok(Ok(response)) => {
+			Ok(Ok((response, protocol_name))) => {
 				let response_size = response.encoded_size();
 				task_rx_limiter.lock().await.reap(response_size).await;
 				tx_network.inc_received(response_size);
 
 				// Send the response to the original request sender.
-				if let Err(_) = sender.send(Ok(response)) {
+				if let Err(_) = sender.send(Ok((response, protocol_name))) {
 					gum::warn!(target: LOG_TARGET, response_size, "response oneshot canceled by node")
 				}
 			},
