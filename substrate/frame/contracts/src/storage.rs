@@ -292,11 +292,11 @@ impl<T: Config> ContractInfo<T> {
 
 	/// Delete as many items from the deletion queue possible within the supplied weight limit.
 	pub fn process_deletion_queue_batch(meter: &mut WeightMeter) {
-		let Ok(_) = meter.try_consume(T::WeightInfo::on_process_deletion_queue_batch()) else {
+		if meter.try_consume(T::WeightInfo::on_process_deletion_queue_batch()).is_err() {
 			return
 		};
-		let mut queue = <DeletionQueueManager<T>>::load();
 
+		let mut queue = <DeletionQueueManager<T>>::load();
 		if queue.is_empty() {
 			return;
 		}
