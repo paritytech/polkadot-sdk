@@ -302,14 +302,6 @@ impl<T: Config> ContractInfo<T> {
 		}
 
 		let (weight_per_key, budget) = Self::deletion_budget(&meter);
-
-		// We want to check whether we have enough weight to decode the queue before
-		// proceeding. Too little weight for decoding might happen during runtime upgrades
-		// which consume the whole block before the other `on_initialize` blocks are called.
-		if budget == 0 {
-			return;
-		}
-
 		let mut remaining_key_budget = budget;
 		while remaining_key_budget > 0 {
 			let Some(entry) = queue.next() else { break };
