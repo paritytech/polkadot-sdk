@@ -386,7 +386,7 @@ fn relay_dispatch_queue_size_is_updated() {
 			MessageQueue::service_queues(Weight::from_all(u64::MAX));
 
 			let fp = MessageQueue::footprint(AggregateMessageOrigin::Ump(para));
-			let (para_queue_count, para_queue_size) = (fp.count, fp.size);
+			let (para_queue_count, para_queue_size) = (fp.storage.count, fp.storage.size);
 			assert_eq!(para_queue_count, 1, "count wrong for para: {}", p);
 			assert_eq!(para_queue_size, 8, "size wrong for para: {}", p);
 		}
@@ -400,7 +400,7 @@ fn relay_dispatch_queue_size_is_updated() {
 
 			assert_queue_remaining(p.into(), cfg.max_upward_queue_count, cfg.max_upward_queue_size);
 			let fp = MessageQueue::footprint(AggregateMessageOrigin::Ump(para));
-			let (para_queue_count, para_queue_size) = (fp.count, fp.size);
+			let (para_queue_count, para_queue_size) = (fp.storage.count, fp.storage.size);
 			assert_eq!(para_queue_count, 0, "count wrong for para: {}", p);
 			assert_eq!(para_queue_size, 0, "size wrong for para: {}", p);
 		}
@@ -523,21 +523,21 @@ fn overweight_queue_works() {
 		assert_last_events(
 			[
 				pallet_message_queue::Event::<Test>::Processed {
-					id: hash_1,
+					id: hash_1.into(),
 					origin: Ump(UmpQueueId::Para(para_a)),
 					weight_used: Weight::from_parts(301, 301),
 					success: true,
 				}
 				.into(),
 				pallet_message_queue::Event::<Test>::OverweightEnqueued {
-					id: hash_2,
+					id: hash_2.into(),
 					origin: Ump(UmpQueueId::Para(para_a)),
 					page_index: 0,
 					message_index: 1,
 				}
 				.into(),
 				pallet_message_queue::Event::<Test>::OverweightEnqueued {
-					id: hash_3,
+					id: hash_3.into(),
 					origin: Ump(UmpQueueId::Para(para_a)),
 					page_index: 0,
 					message_index: 2,
@@ -565,7 +565,7 @@ fn overweight_queue_works() {
 		));
 		assert_last_event(
 			pallet_message_queue::Event::<Test>::Processed {
-				id: hash_3,
+				id: hash_3.into(),
 				origin: Ump(UmpQueueId::Para(para_a)),
 				weight_used: Weight::from_parts(501, 501),
 				success: true,

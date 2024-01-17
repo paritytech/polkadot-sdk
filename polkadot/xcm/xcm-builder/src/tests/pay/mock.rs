@@ -75,6 +75,7 @@ impl pallet_balances::Config for Test {
 	type MaxReserves = ();
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
 	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<0>;
@@ -114,14 +115,14 @@ impl pallet_assets::Config for Test {
 }
 
 parameter_types! {
-	pub const RelayLocation: MultiLocation = Here.into_location();
+	pub const RelayLocation: Location = Here.into_location();
 	pub const AnyNetwork: Option<NetworkId> = None;
-	pub UniversalLocation: InteriorMultiLocation = (ByGenesis([0; 32]), Parachain(42)).into();
+	pub UniversalLocation: InteriorLocation = (ByGenesis([0; 32]), Parachain(42)).into();
 	pub UnitWeightCost: u64 = 1_000;
 	pub static AdvertisedXcmVersion: u32 = 3;
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
-	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (Concrete(RelayLocation::get()), 1, 1);
-	pub TrustedAssets: (MultiAssetFilter, MultiLocation) = (All.into(), Here.into());
+	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (AssetId(RelayLocation::get()), 1, 1);
+	pub TrustedAssets: (AssetFilter, Location) = (All.into(), Here.into());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub CheckingAccount: AccountId = XcmPallet::check_account();
@@ -129,28 +130,25 @@ parameter_types! {
 
 type AssetIdForAssets = u128;
 
-pub struct FromMultiLocationToAsset<MultiLocation, AssetId>(
-	core::marker::PhantomData<(MultiLocation, AssetId)>,
-);
-impl MaybeEquivalence<MultiLocation, AssetIdForAssets>
-	for FromMultiLocationToAsset<MultiLocation, AssetIdForAssets>
+pub struct FromLocationToAsset<Location, AssetId>(core::marker::PhantomData<(Location, AssetId)>);
+impl MaybeEquivalence<Location, AssetIdForAssets>
+	for FromLocationToAsset<Location, AssetIdForAssets>
 {
-	fn convert(value: &MultiLocation) -> Option<AssetIdForAssets> {
-		match value {
-			MultiLocation { parents: 0, interior: Here } => Some(0 as AssetIdForAssets),
-			MultiLocation { parents: 1, interior: Here } => Some(1 as AssetIdForAssets),
-			MultiLocation { parents: 0, interior: X2(PalletInstance(1), GeneralIndex(index)) }
-				if ![0, 1].contains(index) =>
+	fn convert(value: &Location) -> Option<AssetIdForAssets> {
+		match value.unpack() {
+			(0, []) => Some(0 as AssetIdForAssets),
+			(1, []) => Some(1 as AssetIdForAssets),
+			(0, [PalletInstance(1), GeneralIndex(index)]) if ![0, 1].contains(index) =>
 				Some(*index as AssetIdForAssets),
 			_ => None,
 		}
 	}
 
-	fn convert_back(value: &AssetIdForAssets) -> Option<MultiLocation> {
+	fn convert_back(value: &AssetIdForAssets) -> Option<Location> {
 		match value {
-			0u128 => Some(MultiLocation { parents: 1, interior: Here }),
+			0u128 => Some(Location { parents: 1, interior: Here }),
 			para_id @ 1..=1000 =>
-				Some(MultiLocation { parents: 1, interior: X1(Parachain(*para_id as u32)) }),
+				Some(Location { parents: 1, interior: [Parachain(*para_id as u32)].into() }),
 			_ => None,
 		}
 	}
@@ -162,7 +160,7 @@ pub type LocalAssetsTransactor = FungiblesAdapter<
 	ConvertedConcreteId<
 		AssetIdForAssets,
 		Balance,
-		FromMultiLocationToAsset<MultiLocation, AssetIdForAssets>,
+		FromLocationToAsset<Location, AssetIdForAssets>,
 		JustTry,
 	>,
 	SovereignAccountOf,
@@ -186,10 +184,10 @@ impl WeightTrader for DummyWeightTrader {
 	fn buy_weight(
 		&mut self,
 		_weight: Weight,
-		_payment: xcm_executor::Assets,
+		_payment: xcm_executor::AssetsInHolding,
 		_context: &XcmContext,
-	) -> Result<xcm_executor::Assets, XcmError> {
-		Ok(xcm_executor::Assets::default())
+	) -> Result<xcm_executor::AssetsInHolding, XcmError> {
+		Ok(xcm_executor::AssetsInHolding::default())
 	}
 }
 
@@ -227,13 +225,10 @@ parameter_types! {
 
 pub struct TreasuryToAccount;
 impl ConvertLocation<AccountId> for TreasuryToAccount {
-	fn convert_location(location: &MultiLocation) -> Option<AccountId> {
-		match location {
-			MultiLocation {
-				parents: 1,
-				interior:
-					X2(Parachain(42), Plurality { id: BodyId::Treasury, part: BodyPart::Voice }),
-			} => Some(TreasuryAccountId::get()), // Hardcoded test treasury account id
+	fn convert_location(location: &Location) -> Option<AccountId> {
+		match location.unpack() {
+			(1, [Parachain(42), Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]) =>
+				Some(TreasuryAccountId::get()), // Hardcoded test treasury account id
 			_ => None,
 		}
 	}
@@ -244,11 +239,6 @@ type SovereignAccountOf = (
 	TreasuryToAccount,
 	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
 );
-
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parachain(1000).into());
-}
 
 impl pallet_xcm::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
@@ -273,8 +263,6 @@ impl pallet_xcm::Config for Test {
 	type MaxRemoteLockConsumers = frame_support::traits::ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = pallet_xcm::TestWeightInfo;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReachableDest = ReachableDest;
 	type AdminOrigin = EnsureRoot<AccountId>;
 }
 
@@ -283,7 +271,7 @@ pub const INITIAL_BALANCE: Balance = 100 * UNITS;
 pub const MINIMUM_BALANCE: Balance = 1 * UNITS;
 
 pub fn sibling_chain_account_id(para_id: u32, account: [u8; 32]) -> AccountId {
-	let location: MultiLocation =
+	let location: Location =
 		(Parent, Parachain(para_id), Junction::AccountId32 { id: account, network: None }).into();
 	SovereignAccountOf::convert_location(&location).unwrap()
 }

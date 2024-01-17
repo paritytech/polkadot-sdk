@@ -46,6 +46,7 @@ pub fn expand_outer_freeze_reason(pallet_decls: &[Pallet], scrate: &TokenStream)
 			));
 		}
 	}
+	let freeze_reason_variants_count = freeze_reason_variants.len() as u32;
 
 	quote! {
 		/// A reason for placing a freeze on funds.
@@ -57,6 +58,10 @@ pub fn expand_outer_freeze_reason(pallet_decls: &[Pallet], scrate: &TokenStream)
 		)]
 		pub enum RuntimeFreezeReason {
 			#( #freeze_reason_variants )*
+		}
+
+		impl #scrate::traits::VariantCount for RuntimeFreezeReason {
+			const VARIANT_COUNT: u32 = #freeze_reason_variants_count;
 		}
 
 		#( #conversion_fns )*

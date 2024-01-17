@@ -74,7 +74,7 @@ The output above shows a **secret phrase** (also called **mnemonic phrase**) and
 **Private Key**). Those 2 secrets are the pieces of information you MUST keep safe and secret. All the other information
 below can be derived from those secrets.
 
-The output above also show the **public key** and the **Account ID**. Those are the independant from the network where
+The output above also show the **public key** and the **Account ID**. Those are the independent from the network where
 you will use the key.
 
 The **SS58 address** (or **Public Address**) of a new account is a reprensentation of the public keys of an account for
@@ -163,7 +163,7 @@ This time, we properly recovered `5He5pZpc7AJ8evPuab37vJF6KkFDqq9uDq2WXh877Qw6ia
 
 ### Inspecting a key
 
-If you have *some data* about a key, `subkey inpsect` will help you discover more information about it.
+If you have *some data* about a key, `subkey inspect` will help you discover more information about it.
 
 If you have **secrets** that you would like to verify for instance, you can use:
 

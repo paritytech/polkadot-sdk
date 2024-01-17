@@ -52,7 +52,7 @@ stateDiagram-v2
     IncomingRequestDisputeAvailabilityData --> RespondUnavailable
     IncomingRequestDisputeAvailabilityData --> DisputeDataAvail
     DisputeDataAvail --> RespondWithDisputeAvailabilityData: Send
-    VoteGossipReceived --> Track: implies source peer has<br />dispute availablity data
+    VoteGossipReceived --> Track: implies source peer has<br />dispute availability data
 ```
 
 ---

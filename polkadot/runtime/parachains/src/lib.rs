@@ -23,10 +23,11 @@
 #![cfg_attr(feature = "runtime-benchmarks", recursion_limit = "256")]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub mod assigner;
+pub mod assigner_coretime;
 pub mod assigner_on_demand;
 pub mod assigner_parachains;
 pub mod configuration;
+pub mod coretime;
 pub mod disputes;
 pub mod dmp;
 pub mod hrmp;
@@ -59,7 +60,21 @@ use sp_runtime::{DispatchResult, FixedU128};
 
 /// Trait for tracking message delivery fees on a transport protocol.
 pub trait FeeTracker {
-	fn get_fee_factor(para: ParaId) -> FixedU128;
+	/// Type used for assigning different fee factors to different destinations
+	type Id;
+	/// Returns the evolving exponential fee factor which will be used to calculate the delivery
+	/// fees.
+	fn get_fee_factor(id: Self::Id) -> FixedU128;
+	/// Increases the delivery fee factor by a factor based on message size and records the result.
+	///
+	/// Returns the new delivery fee factor after the increase.
+	fn increase_fee_factor(id: Self::Id, message_size_factor: FixedU128) -> FixedU128;
+	/// Decreases the delivery fee factor by a constant factor and records the result.
+	///
+	/// Does not reduce the fee factor below the initial value, which is currently set as 1.
+	///
+	/// Returns the new delivery fee factor after the decrease.
+	fn decrease_fee_factor(id: Self::Id) -> FixedU128;
 }
 
 /// Schedule a para to be initialized at the start of the next session with the given genesis data.

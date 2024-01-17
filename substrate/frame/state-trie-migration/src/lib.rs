@@ -476,7 +476,7 @@ pub mod pallet {
 		/// - [`frame_support::storage::StorageDoubleMap`]: 96 byte
 		///
 		/// For more info see
-		/// <https://www.shawntabrizi.com/substrate/querying-substrate-storage-via-rpc/>
+		/// <https://www.shawntabrizi.com/blog/substrate/querying-substrate-storage-via-rpc/>
 
 		#[pallet::constant]
 		type MaxKeyLen: Get<u32>;
@@ -1051,7 +1051,7 @@ mod mock {
 	use super::*;
 	use crate as pallet_state_trie_migration;
 	use frame_support::{
-		parameter_types,
+		derive_impl, parameter_types,
 		traits::{ConstU32, ConstU64, Hooks},
 		weights::Weight,
 	};
@@ -1081,6 +1081,7 @@ mod mock {
 		pub const SS58Prefix: u8 = 42;
 	}
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();
@@ -1126,6 +1127,7 @@ mod mock {
 		type FreezeIdentifier = ();
 		type MaxFreezes = ();
 		type RuntimeHoldReason = ();
+		type RuntimeFreezeReason = ();
 		type MaxHolds = ();
 	}
 
@@ -1635,7 +1637,7 @@ pub(crate) mod remote_tests {
 			weight_sum +=
 				StateTrieMigration::<Runtime>::on_initialize(System::<Runtime>::block_number());
 
-			root = System::<Runtime>::finalize().state_root().clone();
+			root = *System::<Runtime>::finalize().state_root();
 			System::<Runtime>::on_finalize(System::<Runtime>::block_number());
 		}
 		(root, weight_sum)
@@ -1685,7 +1687,7 @@ pub(crate) mod remote_tests {
 		);
 
 		loop {
-			let last_state_root = ext.backend.root().clone();
+			let last_state_root = *ext.backend.root();
 			let ((finished, weight), proof) = ext.execute_and_prove(|| {
 				let weight = run_to_block::<Runtime>(now + One::one()).1;
 				if StateTrieMigration::<Runtime>::migration_process().finished() {

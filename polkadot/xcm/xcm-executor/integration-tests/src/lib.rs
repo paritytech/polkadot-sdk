@@ -65,7 +65,7 @@ fn basic_buy_fees_message_executes() {
 		assert!(polkadot_test_runtime::System::events().iter().any(|r| matches!(
 			r.event,
 			polkadot_test_runtime::RuntimeEvent::Xcm(pallet_xcm::Event::Attempted {
-				outcome: Outcome::Complete(_)
+				outcome: Outcome::Complete { .. }
 			}),
 		)));
 	});
@@ -76,33 +76,59 @@ fn transact_recursion_limit_works() {
 	sp_tracing::try_init_simple();
 	let mut client = TestClientBuilder::new().build();
 
-	let mut msg = Xcm(vec![ClearOrigin]);
-	let max_weight = <XcmConfig as xcm_executor::Config>::Weigher::weight(&mut msg).unwrap();
-	let mut call = polkadot_test_runtime::RuntimeCall::Xcm(pallet_xcm::Call::execute {
-		message: Box::new(VersionedXcm::from(msg)),
-		max_weight,
-	});
-
-	for _ in 0..11 {
-		let mut msg = Xcm(vec![
-			WithdrawAsset((Parent, 1_000).into()),
-			BuyExecution { fees: (Parent, 1).into(), weight_limit: Unlimited },
+	let base_xcm = |call: polkadot_test_runtime::RuntimeCall| {
+		Xcm(vec![
+			WithdrawAsset((Here, 1_000).into()),
+			BuyExecution { fees: (Here, 1).into(), weight_limit: Unlimited },
 			Transact {
 				origin_kind: OriginKind::Native,
 				require_weight_at_most: call.get_dispatch_info().weight,
 				call: call.encode().into(),
 			},
-		]);
+		])
+	};
+	let mut call: Option<polkadot_test_runtime::RuntimeCall> = None;
+	// set up transacts with recursive depth of 11
+	for depth in (1..12).rev() {
+		let mut msg;
+		match depth {
+			// this one should fail with `XcmError::ExceedsStackLimit`
+			11 => {
+				msg = Xcm(vec![ClearOrigin]);
+			},
+			// this one checks that the inner one (depth 11) fails as expected,
+			// itself should not fail => should have outcome == Complete
+			10 => {
+				let inner_call = call.take().unwrap();
+				let expected_transact_status =
+					sp_runtime::DispatchError::Module(sp_runtime::ModuleError {
+						index: 27,
+						error: [24, 0, 0, 0],
+						message: Some("LocalExecutionIncomplete"),
+					})
+					.encode()
+					.into();
+				msg = base_xcm(inner_call);
+				msg.inner_mut().push(ExpectTransactStatus(expected_transact_status));
+			},
+			// these are the outer 9 calls that expect `ExpectTransactStatus(Success)`
+			d if d >= 1 && d <= 9 => {
+				let inner_call = call.take().unwrap();
+				msg = base_xcm(inner_call);
+				msg.inner_mut().push(ExpectTransactStatus(MaybeErrorCode::Success));
+			},
+			_ => unreachable!(),
+		}
 		let max_weight = <XcmConfig as xcm_executor::Config>::Weigher::weight(&mut msg).unwrap();
-		call = polkadot_test_runtime::RuntimeCall::Xcm(pallet_xcm::Call::execute {
-			message: Box::new(VersionedXcm::from(msg)),
+		call = Some(polkadot_test_runtime::RuntimeCall::Xcm(pallet_xcm::Call::execute {
+			message: Box::new(VersionedXcm::from(msg.clone())),
 			max_weight,
-		});
+		}));
 	}
 
 	let mut block_builder = client.init_polkadot_block_builder();
 
-	let execute = construct_extrinsic(&client, call, sp_keyring::Sr25519Keyring::Alice, 0);
+	let execute = construct_extrinsic(&client, call.unwrap(), sp_keyring::Sr25519Keyring::Alice, 0);
 
 	block_builder.push_polkadot_extrinsic(execute).expect("pushes extrinsic");
 
@@ -113,11 +139,29 @@ fn transact_recursion_limit_works() {
 		.expect("imports the block");
 
 	client.state_at(block_hash).expect("state should exist").inspect_state(|| {
-		assert!(polkadot_test_runtime::System::events().iter().any(|r| matches!(
-			r.event,
-			polkadot_test_runtime::RuntimeEvent::Xcm(pallet_xcm::Event::Attempted {
-				outcome: Outcome::Incomplete(_, XcmError::ExceedsStackLimit)
-			}),
+		let events = polkadot_test_runtime::System::events();
+		// verify 10 pallet_xcm calls were successful
+		assert_eq!(
+			polkadot_test_runtime::System::events()
+				.iter()
+				.filter(|r| matches!(
+					r.event,
+					polkadot_test_runtime::RuntimeEvent::Xcm(pallet_xcm::Event::Attempted {
+						outcome: Outcome::Complete { .. }
+					}),
+				))
+				.count(),
+			10
+		);
+		// verify transaction fees have been paid
+		assert!(events.iter().any(|r| matches!(
+			&r.event,
+			polkadot_test_runtime::RuntimeEvent::TransactionPayment(
+				pallet_transaction_payment::Event::TransactionFeePaid {
+					who: payer,
+					..
+				}
+			) if *payer == sp_keyring::Sr25519Keyring::Alice.into(),
 		)));
 	});
 }
@@ -198,7 +242,7 @@ fn query_response_fires() {
 		assert_eq!(
 			polkadot_test_runtime::Xcm::query(query_id),
 			Some(QueryStatus::Ready {
-				response: VersionedResponse::V3(Response::ExecutionResult(None)),
+				response: VersionedResponse::V4(Response::ExecutionResult(None)),
 				at: 2u32.into()
 			}),
 		)
@@ -270,12 +314,12 @@ fn query_response_elicits_handler() {
 
 	client.state_at(block_hash).expect("state should exist").inspect_state(|| {
 		assert!(polkadot_test_runtime::System::events().iter().any(|r| matches!(
-			r.event,
+			&r.event,
 			TestNotifier(ResponseReceived(
-				MultiLocation { parents: 0, interior: X1(Junction::AccountId32 { .. }) },
+				location,
 				q,
 				Response::ExecutionResult(None),
-			)) if q == query_id,
+			)) if *q == query_id && matches!(location.unpack(), (0, [Junction::AccountId32 { .. }])),
 		)));
 	});
 }

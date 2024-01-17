@@ -134,7 +134,7 @@ impl<T> Eq for Public<T> {}
 
 impl<T> PartialOrd for Public<T> {
 	fn partial_cmp(&self, other: &Self) -> Option<sp_std::cmp::Ordering> {
-		self.inner.partial_cmp(&other.inner)
+		Some(self.cmp(other))
 	}
 }
 
