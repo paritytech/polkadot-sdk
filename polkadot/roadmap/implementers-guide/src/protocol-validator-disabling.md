@@ -153,6 +153,7 @@ Higher values could be considered and the main arguments for those are based aro
 Disablement is generally a form of punishment and that will be reflected in the rewards at the end of an era. A disabled validator will not receive any rewards for backing or block authoring. which will reduce it's profits.
 
 That means that the opportunity cost of being disabled is a punishment by itself and thus it can be used for some cases where a minor punishment is needed. Current implementation was using 0% slashes to mark nodes for chilling and similar approach of 0% slashes can be used to mark validators for disablement. ([**Point 1.**](#system-overview))
+0% slashes could for instance be used to punish approval checkers voting invalid on valid candidates.
 
 Anything higher than 0% will of course also lead to a disablement.
 
@@ -161,7 +162,7 @@ Anything higher than 0% will of course also lead to a disablement.
 
 </br></br></br>
 
-# Simplifications
+# Redundancy
 
 Some systems can be greatly simplified our outright removed thanks to the above changes. This leads to reduced complexity around the systems that were hard to reason about and were sources of multiple bugs.
 
@@ -247,7 +248,7 @@ Granularity is particularly crucial in the final design as only a few select fun
 
 Implementation of the above design covers a few additional areas that allow for node-side optimizations. 
 
-## Core Features
+## Core Features (+ #issues)
 
 1. Disabled Validators Tracking (**Runtime**) #2950
     - Add and expose a ``disabled_validators`` map through a Runtime API
@@ -267,12 +268,18 @@ Implementation of the above design covers a few additional areas that allow for 
     - Don't start backing new candidates when disabled
     - Don't react to backing requests when disabled
 1. Stop Automatic Chilling of Offenders #1962
+    - Chilling still persists as a state but is no longer automatic applied on offenses
 1. Respect Disabling in Dispute Participation (**Node**) #2225
     - Receive dispute statements from ``disabled_validators`` but do not release own statements
     - Ensure dispute confirmation when BZT statements from disabled
 1. Defense Against Past-Era Dispute Spam (**Node**) #2225
+    - This is needed because runtime cannot disable validators which it no longer knows about
     - Add a node-side parallel store of ``disabled_validators``
+    - Add new disabled validators to node-side store when they loose a dispute in any leaf in scope
     - Runtime ``disabled_validators`` always have priority over node-side ``disabled_validators``
     - Respect the BZT threshold
+    > **Note:** \
+    > An alternative design here was considered where instead of tracking new incoming leaves a relay parent is used. This would guarantee determinism as different nodes can see different leaves, but this approach was leaving too wide of a window because of Async-Backing. Relay Parent could have been significantly in the past and it would give a lot of time for past session disputes to be spammed.
 1. Re-enable small offender when approaching BZT (**Runtime**) #TODO
+    - When BZT limit is reached and there are more offenders to be disabled re-enable the smallest offenders to disable the biggest ones
 
