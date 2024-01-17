@@ -29,8 +29,6 @@ Side goals are:
 - Reduce the damages to honest nodes that had a fault which might cause repeated slashes
 - Reduce liveness impact of individual malicious attackers
 
-</br></br></br>
-
 ## System Overview
 
 High level assumptions and goals of the validator disabling system that will be further discussed in the following sections:
@@ -242,4 +240,39 @@ Validator disabling and getting forced ouf of NPoS elections (1 era) due to slas
 - **granularity** (validator disabling could remove only a portion of validator privileges instead of all)   
 
 Granularity is particularly crucial in the final design as only a few select functions are disabled while others remain.
+
+</br></br></br>
+
+# Implementation
+
+Implementation of the above design covers a few additional areas that allow for node-side optimizations. 
+
+## Core Features
+
+1. Disabled Validators Tracking (**Runtime**) #2950
+    - Add and expose a ``disabled_validators`` map through a Runtime API
+    - Add new disabled validators when they get slashed
+1. Enforce Backing Disabling (**Runtime**) #1592
+    - Filter out votes from ``disabled_validators`` in ``BackedCandidates`` in ``process_inherent_data``
+1. Substrate BZT Limit for Disabling #1963
+    - Can be parametrized but default to BZT
+    - Disable only up to 1/3 of validators
+1. Set Disabling Duration to 1 Era #1966
+    - Clear ``disabled_validators`` on era change
+1. Respect Disabling in Backing Statement Distribution (**Node**) #1591
+    - This is an optimization as in the end it would get filtered in the runtime anyway
+    - Filter out backing statements coming from ``disabled_validators``
+1. Respect Disablement in Backing (**Node**) #2951
+    - This is an optimization as in the end it would get filtered in the runtime anyway
+    - Don't start backing new candidates when disabled
+    - Don't react to backing requests when disabled
+1. Stop Automatic Chilling of Offenders #1962
+1. Respect Disabling in Dispute Participation (**Node**) #2225
+    - Receive dispute statements from ``disabled_validators`` but do not release own statements
+    - Ensure dispute confirmation when BZT statements from disabled
+1. Defense Against Past-Era Dispute Spam (**Node**) #2225
+    - Add a node-side parallel store of ``disabled_validators``
+    - Runtime ``disabled_validators`` always have priority over node-side ``disabled_validators``
+    - Respect the BZT threshold
+1. Re-enable small offender when approaching BZT (**Runtime**) #TODO
 
