@@ -114,7 +114,7 @@ pub struct TestSequence {
 }
 
 impl TestSequence {
-	pub fn to_vec(self) -> Vec<TestConfiguration> {
+	pub fn into_vec(self) -> Vec<TestConfiguration> {
 		self.test_configurations
 			.into_iter()
 			.map(|mut config| {
@@ -128,7 +128,7 @@ impl TestSequence {
 
 impl TestSequence {
 	pub fn new_from_file(path: &Path) -> std::io::Result<TestSequence> {
-		let string = String::from_utf8(std::fs::read(&path)?).expect("File is valid UTF8");
+		let string = String::from_utf8(std::fs::read(path)?).expect("File is valid UTF8");
 		Ok(serde_yaml::from_str(&string).expect("File is valid test sequence YA"))
 	}
 }
@@ -163,15 +163,15 @@ impl TestConfiguration {
 		let keyring = Keyring::default();
 
 		let keys = (0..self.n_validators)
-			.map(|peer_index| keyring.sr25519_new(format!("Node{}", peer_index).into()))
+			.map(|peer_index| keyring.sr25519_new(format!("Node{}", peer_index)))
 			.collect::<Vec<_>>();
 
 		// Generate `AuthorityDiscoveryId`` for each peer
 		let validator_public: Vec<ValidatorId> =
-			keys.iter().map(|key| key.clone().into()).collect::<Vec<_>>();
+			keys.iter().map(|key| (*key).into()).collect::<Vec<_>>();
 
 		let validator_authority_id: Vec<AuthorityDiscoveryId> =
-			keys.iter().map(|key| key.clone().into()).collect::<Vec<_>>().into();
+			keys.iter().map(|key| (*key).into()).collect::<Vec<_>>();
 
 		TestAuthorities { keyring, validator_public, validator_authority_id }
 	}

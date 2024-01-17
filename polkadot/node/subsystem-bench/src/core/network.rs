@@ -16,25 +16,23 @@
 //!
 //! Implements network emulation and interfaces to control and specialize
 //! network peer behaviour.
-//!
-//! High level component wiring chart:
-//!
-//! 	  [TestEnvironment]
-//! 	[NetworkEmulatorHandle]
-//! 			 ||
-//!   +-------+--||--+-------+
-//!   |       |      |       |
-//!  Peer1	Peer2  Peer3  Peer4
-//!    \      |	     |	    /
-//!     \     |      |	   /
-//!      \    |      |    /
-//!       \   |      |   /
-//!        \  |      |  /
-//!     [Network Interface]
-//!               |
-//!    [Emulated Network Bridge]
-//!               |
-//!     Subsystems under test
+//
+//	  [TestEnvironment]
+// 	[NetworkEmulatorHandle]
+// 			 ||
+//   +-------+--||--+-------+
+//   |       |      |       |
+//  Peer1	Peer2  Peer3  Peer4
+//    \      |	     |	    /
+//     \     |      |	   /
+//      \    |      |    /
+//       \   |      |   /
+//        \  |      |  /
+//     [Network Interface]
+//               |
+//    [Emulated Network Bridge]
+//               |
+//     Subsystems under test
 
 use crate::core::configuration::random_latency;
 
@@ -417,7 +415,7 @@ impl NetworkInterface {
 				tx_network.inc_received(response_size);
 
 				// Send the response to the original request sender.
-				if let Err(_) = sender.send(Ok((response, protocol_name))) {
+				if sender.send(Ok((response, protocol_name))).is_err() {
 					gum::warn!(target: LOG_TARGET, response_size, "response oneshot canceled by node")
 				}
 			},
@@ -437,21 +435,19 @@ pub struct EmulatedPeerHandle {
 impl EmulatedPeerHandle {
 	/// Receive and process a message from the node.
 	pub fn receive(&self, message: NetworkMessage) {
-		let _ = self.messages_tx.unbounded_send(message).expect("Peer message channel hangup");
+		self.messages_tx.unbounded_send(message).expect("Peer message channel hangup");
 	}
 
 	/// Send a message to the node.
 	pub fn send_message(&self, message: VersionedValidationProtocol) {
-		let _ = self
-			.actions_tx
+		self.actions_tx
 			.unbounded_send(NetworkMessage::MessageFromPeer(message))
 			.expect("Peer action channel hangup");
 	}
 
 	/// Send a `request` to the node.
 	pub fn send_request(&self, request: IncomingRequest) {
-		let _ = self
-			.actions_tx
+		self.actions_tx
 			.unbounded_send(NetworkMessage::RequestFromPeer(request))
 			.expect("Peer action channel hangup");
 	}
@@ -472,7 +468,7 @@ impl EmulatedPeer {
 		self.tx_limiter.reap(message.size()).await;
 
 		if self.latency_ms == 0 {
-			let _ = self.to_node.unbounded_send(message).expect("Sending to the node never fails");
+			self.to_node.unbounded_send(message).expect("Sending to the node never fails");
 		} else {
 			let to_node = self.to_node.clone();
 			let latency_ms = std::time::Duration::from_millis(self.latency_ms as u64);
@@ -481,8 +477,7 @@ impl EmulatedPeer {
 			self.spawn_handle
 				.spawn("peer-latency-emulator", "test-environment", async move {
 					tokio::time::sleep(latency_ms).await;
-					let _ =
-						to_node.unbounded_send(message).expect("Sending to the node never fails");
+					to_node.unbounded_send(message).expect("Sending to the node never fails");
 				});
 		}
 	}
@@ -745,7 +740,7 @@ pub fn new_network(
 
 	// Create a `PeerEmulator` for each peer.
 	let (stats, mut peers): (_, Vec<_>) = (0..n_peers)
-		.zip(authorities.validator_authority_id.clone().into_iter())
+		.zip(authorities.validator_authority_id.clone())
 		.map(|(peer_index, authority_id)| {
 			validator_authority_id_mapping.insert(authority_id, peer_index);
 			let stats = Arc::new(PeerEmulatorStats::new(peer_index, metrics.clone()));
@@ -827,7 +822,7 @@ impl NetworkEmulatorHandle {
 		from_peer: &AuthorityDiscoveryId,
 		message: VersionedValidationProtocol,
 	) -> Result<(), EmulatedPeerError> {
-		let dst_peer = self.peer(&from_peer);
+		let dst_peer = self.peer(from_peer);
 
 		if !dst_peer.is_connected() {
 			gum::warn!(target: LOG_TARGET, "Attempted to send message from a peer not connected to our node, operation ignored");
@@ -844,7 +839,7 @@ impl NetworkEmulatorHandle {
 		from_peer: &AuthorityDiscoveryId,
 		request: IncomingRequest,
 	) -> Result<(), EmulatedPeerError> {
-		let dst_peer = self.peer(&from_peer);
+		let dst_peer = self.peer(from_peer);
 
 		if !dst_peer.is_connected() {
 			gum::warn!(target: LOG_TARGET, "Attempted to send request from a peer not connected to our node, operation ignored");

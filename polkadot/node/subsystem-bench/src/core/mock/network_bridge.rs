@@ -95,10 +95,10 @@ impl MockNetworkBridgeTx {
 		loop {
 			let subsystem_message = ctx.recv().await.expect("Overseer never fails us");
 			match subsystem_message {
-				orchestra::FromOrchestra::Signal(signal) => match signal {
-					OverseerSignal::Conclude => return,
-					_ => {},
-				},
+				orchestra::FromOrchestra::Signal(signal) =>
+					if signal == OverseerSignal::Conclude {
+						return
+					},
 				orchestra::FromOrchestra::Communication { msg } => match msg {
 					NetworkBridgeTxMessage::SendRequests(requests, _if_disconnected) => {
 						for request in requests {
@@ -108,7 +108,7 @@ impl MockNetworkBridgeTx {
 
 							if !self.network.is_peer_connected(&peer_id) {
 								// Attempting to send a request to a disconnected peer.
-								let _ = request
+								request
 									.into_response_sender()
 									.send(Err(RequestFailure::NotConnected))
 									.expect("send never fails");
@@ -160,7 +160,7 @@ impl MockNetworkBridgeRx {
 							NetworkMessage::RequestFromPeer(request) => {
 								if let Some(protocol) = self.chunk_request_sender.as_mut() {
 									if let Some(inbound_queue) = protocol.inbound_queue.as_ref() {
-										let _ = inbound_queue
+										inbound_queue
 											.send(request)
 											.await
 											.expect("Forwarding requests to subsystem never fails");
@@ -175,10 +175,7 @@ impl MockNetworkBridgeRx {
 				},
 				subsystem_message = ctx.recv().fuse() => {
 					match subsystem_message.expect("Overseer never fails us") {
-						orchestra::FromOrchestra::Signal(signal) => match signal {
-							OverseerSignal::Conclude => return,
-							_ => {},
-						},
+						orchestra::FromOrchestra::Signal(signal) => if signal == OverseerSignal::Conclude { return },
 						_ => {
 							unimplemented!("Unexpected network bridge rx message")
 						},

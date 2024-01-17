@@ -24,7 +24,7 @@ use color_eyre::eyre;
 use pyroscope::PyroscopeAgent;
 use pyroscope_pprofrs::{pprof_backend, PprofConfig};
 
-use std::{path::Path, time::Duration};
+use std::path::Path;
 
 pub(crate) mod availability;
 pub(crate) mod cli;
@@ -154,7 +154,7 @@ impl BenchCli {
 				let test_sequence =
 					core::configuration::TestSequence::new_from_file(Path::new(&options.path))
 						.expect("File exists")
-						.to_vec();
+						.into_vec();
 				let num_steps = test_sequence.len();
 				gum::info!(
 					"{}",
@@ -243,7 +243,7 @@ impl BenchCli {
 
 fn main() -> eyre::Result<()> {
 	color_eyre::install()?;
-	let _ = env_logger::builder()
+	env_logger::builder()
 		.filter(Some("hyper"), log::LevelFilter::Info)
 		// Avoid `Terminating due to subsystem exit subsystem` warnings
 		.filter(Some("polkadot_overseer"), log::LevelFilter::Error)

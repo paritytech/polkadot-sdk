@@ -160,10 +160,8 @@ impl HandleNetworkMessage for NetworkAvailabilityState {
 						.expect("candidate was generated previously; qed");
 					gum::warn!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
 
-					let chunk: ChunkResponse = self.chunks.get(*candidate_index as usize).unwrap()
-						[validator_index]
-						.clone()
-						.into();
+					let chunk: ChunkResponse =
+						self.chunks.get(*candidate_index).unwrap()[validator_index].clone().into();
 					let response = Ok((
 						ChunkFetchingResponse::from(Some(chunk)).encode(),
 						ProtocolName::Static("dummy"),
@@ -183,14 +181,13 @@ impl HandleNetworkMessage for NetworkAvailabilityState {
 						.expect("candidate was generated previously; qed");
 					gum::debug!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
 
-					let available_data =
-						self.available_data.get(*candidate_index as usize).unwrap().clone();
+					let available_data = self.available_data.get(*candidate_index).unwrap().clone();
 
 					let response = Ok((
 						AvailableDataFetchingResponse::from(Some(available_data)).encode(),
 						ProtocolName::Static("dummy"),
 					));
-					let _ = outgoing_request
+					outgoing_request
 						.pending_response
 						.send(response)
 						.expect("Response is always sent succesfully");
@@ -258,14 +255,14 @@ fn prepare_test_inner(
 	let mut req_cfgs = Vec::new();
 
 	let (collation_req_receiver, collation_req_cfg) =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(&GENESIS_HASH, None));
+		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
 	req_cfgs.push(collation_req_cfg);
 
 	let (pov_req_receiver, pov_req_cfg) =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(&GENESIS_HASH, None));
+		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
 
 	let (chunk_req_receiver, chunk_req_cfg) =
-		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(&GENESIS_HASH, None));
+		IncomingRequest::get_config_receiver(&ReqProtocolNames::new(GENESIS_HASH, None));
 	req_cfgs.push(pov_req_cfg);
 
 	let (network, network_interface, network_receiver) =
@@ -359,7 +356,6 @@ fn prepare_test_inner(
 			overseer,
 			overseer_handle,
 			test_authorities,
-			network_interface,
 		),
 		req_cfgs,
 	)
@@ -474,20 +470,19 @@ impl TestState {
 			candidate_receipt_templates.push(candidate_receipt);
 		}
 
-		let pov_sizes = config.pov_sizes().to_vec().into_iter().cycle();
 		gum::info!(target: LOG_TARGET, "{}","Created test environment.".bright_blue());
 
 		let mut _self = Self {
-			config,
 			available_data,
 			candidate_receipt_templates,
 			chunks,
 			pov_size_to_candidate,
-			pov_sizes,
+			pov_sizes: Vec::from(config.pov_sizes()).into_iter().cycle(),
 			candidate_hashes: HashMap::new(),
 			candidates: Vec::new().into_iter().cycle(),
 			chunk_request_protocol: None,
 			backed_candidates: Vec::new(),
+			config,
 		};
 
 		_self.generate_candidates();
@@ -592,8 +587,7 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 		))
 		.await;
 
-		let _ = rx
-			.await
+		rx.await
 			.unwrap()
 			.expect("Test candidates are stored nicely in availability store");
 	}
@@ -678,7 +672,7 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 					payload,
 					&signing_context,
 					ValidatorIndex(index as u32),
-					&validator_public.clone().into(),
+					validator_public,
 				)
 				.ok()
 				.flatten()
@@ -689,7 +683,7 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 				let message = peer_bitfield_message_v2(relay_block_hash, signed_bitfield);
 
 				// Send the action from peer only if it is connected to our node.
-				if network.is_peer_connected(&from_peer) {
+				if network.is_peer_connected(from_peer) {
 					let _ = network.send_message_from_peer(from_peer, message);
 				}
 			}

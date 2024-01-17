@@ -34,7 +34,7 @@ use std::net::{Ipv4Addr, SocketAddr};
 use tokio::runtime::Handle;
 
 const LOG_TARGET: &str = "subsystem-bench::environment";
-use super::{configuration::TestAuthorities, network::NetworkInterface};
+use super::configuration::TestAuthorities;
 
 /// Test environment/configuration metrics
 #[derive(Clone)]
@@ -190,8 +190,6 @@ pub struct TestEnvironment {
 	metrics: TestEnvironmentMetrics,
 	/// Test authorities generated from the configuration.
 	authorities: TestAuthorities,
-	/// The network interface used by the node.
-	network_interface: NetworkInterface,
 }
 
 impl TestEnvironment {
@@ -203,7 +201,6 @@ impl TestEnvironment {
 		overseer: Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
 		overseer_handle: OverseerHandle,
 		authorities: TestAuthorities,
-		network_interface: NetworkInterface,
 	) -> Self {
 		let metrics = TestEnvironmentMetrics::new(&dependencies.registry)
 			.expect("Metrics need to be registered");
@@ -233,7 +230,6 @@ impl TestEnvironment {
 			network,
 			metrics,
 			authorities,
-			network_interface,
 		}
 	}
 
@@ -253,6 +249,7 @@ impl TestEnvironment {
 	}
 
 	/// Spawn a named task in the `test-environment` task group.
+	#[allow(unused)]
 	pub fn spawn(&self, name: &'static str, task: impl Future<Output = ()> + Send + 'static) {
 		self.dependencies
 			.task_manager
@@ -356,18 +353,18 @@ impl TestEnvironment {
 	pub fn display_cpu_usage(&self, subsystems_under_test: &[&str]) {
 		let test_metrics = super::display::parse_metrics(self.registry());
 
-		for subsystem in subsystems_under_test.into_iter() {
+		for subsystem in subsystems_under_test.iter() {
 			let subsystem_cpu_metrics =
 				test_metrics.subset_with_label_value("task_group", subsystem);
 			let total_cpu = subsystem_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
 			println!(
 				"{} CPU usage {}",
-				format!("{}", subsystem).bright_green(),
+				subsystem.to_string().bright_green(),
 				format!("{:.3}s", total_cpu).bright_purple()
 			);
 			println!(
 				"{} CPU usage per block {}",
-				format!("{}", subsystem).bright_green(),
+				subsystem.to_string().bright_green(),
 				format!("{:.3}s", total_cpu / self.config().num_blocks as f64).bright_purple()
 			);
 		}

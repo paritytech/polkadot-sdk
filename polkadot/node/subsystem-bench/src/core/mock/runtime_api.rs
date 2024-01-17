@@ -64,9 +64,8 @@ impl MockRuntimeApi {
 
 		let validator_groups = all_validators
 			.chunks(self.config.max_validators_per_core)
-			.map(|x| Vec::from(x))
+			.map(Vec::from)
 			.collect::<Vec<_>>();
-
 		SessionInfo {
 			validators: self.state.authorities.validator_public.clone().into(),
 			discovery_keys: self.state.authorities.validator_authority_id.clone(),
@@ -103,10 +102,10 @@ impl MockRuntimeApi {
 			let msg = ctx.recv().await.expect("Overseer never fails us");
 
 			match msg {
-				orchestra::FromOrchestra::Signal(signal) => match signal {
-					OverseerSignal::Conclude => return,
-					_ => {},
-				},
+				orchestra::FromOrchestra::Signal(signal) =>
+					if signal == OverseerSignal::Conclude {
+						return
+					},
 				orchestra::FromOrchestra::Communication { msg } => {
 					gum::debug!(target: LOG_TARGET, msg=?msg, "recv message");
 
@@ -155,7 +154,7 @@ impl MockRuntimeApi {
 
 							// All cores are always occupied.
 							let cores = candidate_hashes
-								.into_iter()
+								.iter()
 								.enumerate()
 								.map(|(index, candidate_receipt)| {
 									// Ensure test breaks if badly configured.
