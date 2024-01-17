@@ -520,15 +520,19 @@ fn legacy_account_unreserve_work() {
 
 		// Set up a legacy account where free = 0 and reserved = 100.
 		// Accounts now require the Existential Deposit in addition to any amount to be reserved.
-		// We increment the provider count so that we can reserve the full balance.
+		// We need to increment the provider count so that we can reserve the full balance.
 		System::inc_providers(&1);
+		assert_eq!(System::providers(&1), 2);
 		assert_ok!(Balances::reserve(&1, 100));
 		assert_eq!(System::providers(&1), 1);
+
+		// Set the `old_logic` flag, to exercise the [`crate::Pallet::ensure_upgrade`] logic.
 		assert_ok!(<Test as Config>::AccountStore::mutate(&1, |account| {
 			account.flags = crate::ExtraFlags::old_logic();
 		}));
 
 		Balances::unreserve(&1, 100);
+		assert!(Balances::account(&1).flags.is_new_logic());
 		assert_eq!(System::providers(&1), 1);
 		assert_eq!(Balances::free_balance(1), 100);
 	});
