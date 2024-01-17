@@ -16,7 +16,7 @@
 //!
 //! A generic runtime api subsystem mockup suitable to be used in benchmarks.
 
-use polkadot_primitives::{GroupIndex, Header, IndexedVec, SessionInfo, ValidatorIndex};
+use polkadot_primitives::Header;
 
 use polkadot_node_subsystem::{
 	messages::ChainApiMessage, overseer, SpawnedSubsystem, SubsystemError,
@@ -77,7 +77,7 @@ impl MockChainApi {
 									.expect("Relay chain block hashes are known"),
 							)));
 						},
-						ChainApiMessage::Ancestors { hash, k, response_channel } => {
+						ChainApiMessage::Ancestors { hash: _hash, k: _k, response_channel } => {
 							// For our purposes, no ancestors is fine.
 							let _ = response_channel.send(Ok(Vec::new()));
 						},

@@ -153,6 +153,10 @@ impl TestConfiguration {
 	pub fn pov_sizes(&self) -> &[usize] {
 		&self.pov_sizes
 	}
+	/// Return the number of peers connected to our node.
+	pub fn connected_count(&self) -> usize {
+		((self.n_validators - 1) as f64 / (100.0 / self.connectivity as f64)) as usize
+	}
 
 	/// Generates the authority keys we need for the network emulation.
 	pub fn generate_authorities(&self) -> TestAuthorities {

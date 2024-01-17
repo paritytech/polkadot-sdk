@@ -128,10 +128,23 @@ impl BenchCli {
 					gum::info!("{}", format!("Step {}/{}", index + 1, num_steps).bright_purple(),);
 					display_configuration(&test_config);
 
-					let mut state = TestState::new(&test_config);
-					let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
-					env.runtime()
-						.block_on(availability::benchmark_availability_read(&mut env, state));
+					match test_config.objective {
+						TestObjective::DataAvailabilityRead(ref _opts) => {
+							let mut state = TestState::new(&test_config);
+							let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
+							env.runtime().block_on(availability::benchmark_availability_read(
+								&mut env, state,
+							));
+						},
+						TestObjective::DataAvailabilityWrite => {
+							let mut state = TestState::new(&test_config);
+							let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
+							env.runtime().block_on(availability::benchmark_availability_write(
+								&mut env, state,
+							));
+						},
+						_ => gum::error!("Invalid test objective in sequence"),
+					}
 				}
 				return Ok(())
 			},

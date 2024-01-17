@@ -36,8 +36,6 @@ use tokio::runtime::Handle;
 const LOG_TARGET: &str = "subsystem-bench::environment";
 use super::{configuration::TestAuthorities, network::NetworkInterface};
 
-const MIB: usize = 1024 * 1024;
-
 /// Test environment/configuration metrics
 #[derive(Clone)]
 pub struct TestEnvironmentMetrics {
@@ -317,14 +315,14 @@ impl TestEnvironment {
 	}
 
 	/// Blocks until `metric_name` >= `value`
-	pub async fn wait_until_metric_ge(&self, metric_name: &str, value: usize) {
+	pub async fn wait_until_metric_eq(&self, metric_name: &str, value: usize) {
 		let value = value as f64;
 		loop {
 			let test_metrics = super::display::parse_metrics(self.registry());
 			let current_value = test_metrics.sum_by(metric_name);
 
 			gum::debug!(target: LOG_TARGET, metric_name, current_value, value, "Waiting for metric");
-			if current_value >= value {
+			if current_value == value {
 				break
 			}
 

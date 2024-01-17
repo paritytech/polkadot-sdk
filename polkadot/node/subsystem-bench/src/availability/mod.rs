@@ -40,7 +40,6 @@ use polkadot_availability_recovery::AvailabilityRecoverySubsystem;
 use polkadot_node_primitives::{AvailableData, ErasureChunk};
 
 use crate::GENESIS_HASH;
-use futures::FutureExt;
 use parity_scale_codec::Encode;
 use polkadot_node_network_protocol::{
 	request_response::{
@@ -48,9 +47,9 @@ use polkadot_node_network_protocol::{
 			AvailableDataFetchingResponse, ChunkFetchingRequest, ChunkFetchingResponse,
 			ChunkResponse,
 		},
-		IncomingRequest, OutgoingRequest, ReqProtocolNames, Requests,
+		IncomingRequest, ReqProtocolNames, Requests,
 	},
-	BitfieldDistributionMessage, OurView, Versioned, VersionedValidationProtocol, View,
+	OurView, Versioned, VersionedValidationProtocol,
 };
 use sc_network::request_responses::IncomingRequest as RawIncomingRequest;
 
@@ -146,7 +145,7 @@ impl HandleNetworkMessage for NetworkAvailabilityState {
 	fn handle(
 		&self,
 		message: NetworkMessage,
-		node_sender: &mut futures::channel::mpsc::UnboundedSender<NetworkMessage>,
+		_node_sender: &mut futures::channel::mpsc::UnboundedSender<NetworkMessage>,
 	) -> Option<NetworkMessage> {
 		match message {
 			NetworkMessage::RequestFromNode(peer, request) => match request {
@@ -165,12 +164,10 @@ impl HandleNetworkMessage for NetworkAvailabilityState {
 						[validator_index]
 						.clone()
 						.into();
-					let mut size = chunk.encoded_size();
-
 					let response = Ok(ChunkFetchingResponse::from(Some(chunk)).encode());
 
 					if let Err(err) = outgoing_request.pending_response.send(response) {
-						gum::error!(target: LOG_TARGET, "Failed to send `ChunkFetchingResponse`");
+						gum::error!(target: LOG_TARGET, ?err, "Failed to send `ChunkFetchingResponse`");
 					}
 
 					None
@@ -185,8 +182,6 @@ impl HandleNetworkMessage for NetworkAvailabilityState {
 
 					let available_data =
 						self.available_data.get(*candidate_index as usize).unwrap().clone();
-
-					let size = available_data.encoded_size();
 
 					let response =
 						Ok(AvailableDataFetchingResponse::from(Some(available_data)).encode());
@@ -281,11 +276,8 @@ fn prepare_test_inner(
 	state.set_chunk_request_protocol(chunk_req_cfg);
 
 	let (overseer, overseer_handle) = match &state.config().objective {
-		TestObjective::DataAvailabilityRead(_options) => {
-			let use_fast_path = match &state.config().objective {
-				TestObjective::DataAvailabilityRead(options) => options.fetch_from_backers,
-				_ => panic!("Unexpected objective"),
-			};
+		TestObjective::DataAvailabilityRead(options) => {
+			let use_fast_path = options.fetch_from_backers;
 
 			let subsystem = if use_fast_path {
 				AvailabilityRecoverySubsystem::with_fast_path(
@@ -300,7 +292,6 @@ fn prepare_test_inner(
 			};
 
 			// Use a mocked av-store.
-			// TODO: switch to real av-store.
 			let av_store = av_store::MockAvailabilityStore::new(
 				state.chunks.clone(),
 				state.candidate_hashes.clone(),
@@ -390,8 +381,6 @@ pub struct TestState {
 	chunks: Vec<Vec<ErasureChunk>>,
 	// Availability distribution
 	chunk_request_protocol: Option<ProtocolConfig>,
-	// Availability distribution.
-	pov_request_protocol: Option<ProtocolConfig>,
 	// Per relay chain block - candidate backed by our backing group
 	backed_candidates: Vec<CandidateReceipt>,
 }
@@ -493,7 +482,6 @@ impl TestState {
 			candidate_hashes: HashMap::new(),
 			candidates: Vec::new().into_iter().cycle(),
 			chunk_request_protocol: None,
-			pov_request_protocol: None,
 			backed_candidates: Vec::new(),
 		};
 
@@ -507,14 +495,6 @@ impl TestState {
 
 	pub fn set_chunk_request_protocol(&mut self, config: ProtocolConfig) {
 		self.chunk_request_protocol = Some(config);
-	}
-
-	pub fn set_pov_request_protocol(&mut self, config: ProtocolConfig) {
-		self.pov_request_protocol = Some(config);
-	}
-
-	pub fn chunk_request_protocol(&self) -> Option<ProtocolConfig> {
-		self.chunk_request_protocol.clone()
 	}
 }
 
@@ -624,9 +604,6 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 		env.import_block(new_block_import_info(relay_block_hash, block_num as BlockNumber))
 			.await;
 
-		let chunk_request_protocol =
-			state.chunk_request_protocol().expect("No chunk fetching protocol configured");
-
 		// Inform bitfield distribution about our view of current test block
 		let message = polkadot_node_subsystem_types::messages::BitfieldDistributionMessage::NetworkBridgeUpdate(
 			NetworkBridgeEvent::OurViewChange(OurView::new(vec![(relay_block_hash, Arc::new(Span::Disabled))], 0))
@@ -656,7 +633,9 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 				.get(index)
 				.expect("all validators have keys");
 
-			if env.network().send_request_from_peer(peer, request).is_ok() {
+			if env.network().is_peer_connected(peer) &&
+				env.network().send_request_from_peer(peer, request).is_ok()
+			{
 				receivers.push(pending_response_receiver);
 			}
 		}
@@ -679,6 +658,7 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 
 		// Spawn a task that will generate `n_validator` - 1 signed bitfiends and
 		// send them from the emulated peers to the subsystem.
+		// TODO: Implement topology.
 		env.spawn_blocking("send-bitfields", async move {
 			for index in 1..n_validators {
 				let validator_public =
@@ -703,17 +683,22 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 
 				let message = peer_bitfield_message_v2(relay_block_hash, signed_bitfield);
 
-				// Send the action to `to_peer`.
-				let _ = network.send_message_from_peer(from_peer, message);
+				// Send the action from peer only if it is connected to our node.
+				if network.is_peer_connected(&from_peer) {
+					let _ = network.send_message_from_peer(from_peer, message);
+				}
 			}
-
-			gum::info!("Waiting for {} bitfields to be received and processed", n_validators - 1);
 		});
 
+		gum::info!(
+			"Waiting for {} bitfields to be received and processed",
+			config.connected_count()
+		);
+
 		// Wait for all bitfields to be processed.
-		env.wait_until_metric_ge(
+		env.wait_until_metric_eq(
 			"polkadot_parachain_received_availabilty_bitfields_total",
-			(config.n_validators - 1) * (block_num),
+			config.connected_count() * block_num,
 		)
 		.await;
 

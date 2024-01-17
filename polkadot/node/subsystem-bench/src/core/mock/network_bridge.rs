@@ -16,41 +16,23 @@
 //!
 //! Mocked `network-bridge` subsystems that uses a `NetworkInterface` to access
 //! the emulated network.
-use futures::{
-	channel::{
-		mpsc::{UnboundedReceiver, UnboundedSender},
-		oneshot,
-	},
-	Future,
-};
-use overseer::AllMessages;
-use parity_scale_codec::Encode;
+use futures::{channel::mpsc::UnboundedSender, FutureExt, StreamExt};
 use polkadot_node_subsystem_types::{
 	messages::{BitfieldDistributionMessage, NetworkBridgeEvent},
 	OverseerSignal,
 };
-use std::{collections::HashMap, f32::consts::E, pin::Pin};
 
-use futures::{FutureExt, Stream, StreamExt};
-
-use polkadot_primitives::CandidateHash;
-use sc_network::{
-	network_state::Peer,
-	request_responses::{IncomingRequest, ProtocolConfig},
-	OutboundFailure, PeerId, RequestFailure,
-};
+use sc_network::{request_responses::ProtocolConfig, PeerId, RequestFailure};
 
 use polkadot_node_subsystem::{
 	messages::NetworkBridgeTxMessage, overseer, SpawnedSubsystem, SubsystemError,
 };
 
-use polkadot_node_network_protocol::{
-	request_response::{ v1::ChunkResponse, Recipient, Requests, ResponseSender},
-	Versioned,
-};
-use polkadot_primitives::AuthorityDiscoveryId;
+use polkadot_node_network_protocol::Versioned;
 
-use crate::core::network::{NetworkEmulatorHandle, NetworkInterfaceReceiver, NetworkMessage};
+use crate::core::network::{
+	NetworkEmulatorHandle, NetworkInterfaceReceiver, NetworkMessage, RequestExt,
+};
 
 const LOG_TARGET: &str = "subsystem-bench::network-bridge";
 
@@ -106,41 +88,6 @@ impl<Context> MockNetworkBridgeRx {
 	}
 }
 
-// Helper trait for `Requests`.
-trait RequestExt {
-	fn authority_id(&self) -> Option<&AuthorityDiscoveryId>;
-	fn into_response_sender(self) -> ResponseSender;
-}
-
-impl RequestExt for Requests {
-	fn authority_id(&self) -> Option<&AuthorityDiscoveryId> {
-		match self {
-			Requests::ChunkFetchingV1(request) => {
-				if let Recipient::Authority(authority_id) = &request.peer {
-					Some(authority_id)
-				} else {
-					None
-				}
-			},
-			request => {
-				unimplemented!("RequestAuthority not implemented for {:?}", request)
-			},
-		}
-	}
-
-	fn into_response_sender(self) -> ResponseSender {
-		match self {
-			Requests::ChunkFetchingV1(outgoing_request) => {
-				outgoing_request.pending_response
-			},
-			Requests::AvailableDataFetchingV1(outgoing_request) => {
-				outgoing_request.pending_response
-			}
-			_ => unimplemented!("unsupported request type")
-		}
-	}
-}
-
 #[overseer::contextbounds(NetworkBridgeTx, prefix = self::overseer)]
 impl MockNetworkBridgeTx {
 	async fn run<Context>(self, mut ctx: Context) {
@@ -161,13 +108,16 @@ impl MockNetworkBridgeTx {
 
 							if !self.network.is_peer_connected(&peer_id) {
 								// Attempting to send a request to a disconnected peer.
-								let _ = request.into_response_sender().send(Err(RequestFailure::NotConnected)).expect("send never fails");
+								let _ = request
+									.into_response_sender()
+									.send(Err(RequestFailure::NotConnected))
+									.expect("send never fails");
 								continue
 							}
-							
+
 							let peer_message =
 								NetworkMessage::RequestFromNode(peer_id.clone(), request);
-								
+
 							let _ = self.to_network_interface.unbounded_send(peer_message);
 						}
 					},
