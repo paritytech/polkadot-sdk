@@ -1,0 +1,17 @@
+Description: While relayer is idle, we only sync mandatory Rococo (and a single Rococo BH) headers to Wococo BH.
+Network: ../../../cumulus/zombienet/bridge-hubs/bridge_hub_westend_local_network.toml
+Creds: config
+
+# step 1: initialize Westend bridge hub
+#bridge-hub-westend-collator1: run ../scripts/invoke-script.sh with "init-bridge-hub-westend-local" within 600 seconds
+
+# step 2: sleep some time before starting relayer. We want to sleep for at least 1 session, which is expected to
+# be 60 seconds for test environment.
+sleep 200 seconds
+
+# step 3: start relayer
+# (it is started by the sibling 0002-mandatory-headers-synced-while-idle-westend-to-rococo.zndsl test file)
+
+# step 4: ensure that relayer is only syncing mandatory headers while idle. This includes both headers that were
+# born while relay was offline and those in the next 100 seconds while script is active.
+bridge-hub-westend-collator1: js-script ../helpers/../helpers/only-mandatory-headers-synced-when-idle.js with "120,rococo-at-westend" return is 1 within 200 seconds

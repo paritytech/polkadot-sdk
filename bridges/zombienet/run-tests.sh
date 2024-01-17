@@ -1,10 +1,12 @@
 #!/bin/bash
-#set -eu
 set -x
 shopt -s nullglob
 
-trap "trap - SIGINT SIGTERM EXIT && kill -- -$$" SIGINT SIGTERM EXIT
+trap "trap - SIGINT SIGTERM EXIT && killall -9 substrate-relay && kill -- -$$" SIGINT SIGTERM EXIT
 
+# run tests in range [TESTS_BEGIN; TESTS_END)
+TESTS_BEGIN=1
+TESTS_END=1000
 # whether to use paths for zombienet+bridges tests container or for local testing
 ZOMBIENET_DOCKER_PATHS=0
 while [ $# -ne 0 ]
@@ -13,6 +15,11 @@ do
     case "$arg" in
         --docker)
             ZOMBIENET_DOCKER_PATHS=1
+            ;;
+        --test)
+            shift
+            TESTS_BEGIN="$1"
+            TESTS_END="$1"
             ;;
     esac
     shift
@@ -73,7 +80,7 @@ function start_coproc() {
 }
 
 # execute every test from tests folder
-TEST_INDEX=1
+TEST_INDEX=$TESTS_BEGIN
 while true
 do
     declare -A TEST_COPROCS
@@ -89,7 +96,7 @@ do
         break
     fi
 
-    # start relay
+    # start relay (if there's a separate file for that)
     if [ -f $BRIDGE_TESTS_FOLDER/$TEST_PREFIX-start-relay.sh ]; then
         start_coproc "${BRIDGE_TESTS_FOLDER}/${TEST_PREFIX}-start-relay.sh" "relay"
         RELAY_COPROC=$COPROC_PID
@@ -124,7 +131,7 @@ do
             echo "====================================================================="
             echo "=== Shutting down. Log of failed process below                    ==="
             echo "====================================================================="
-            echo $coproc_stdout
+            IFS= echo $coproc_stdout
 
             exit 1
         fi
@@ -135,7 +142,15 @@ do
             break
         fi
     done
+
+    # proceed to next index
     ((TEST_INDEX++))
+    if [ "$TEST_INDEX" -ge "$TESTS_END" ]; then
+        break
+    fi
+
+    # relay may be started by tests => kill it manually before starting next test
+    killall substrate-relay
 done
 
 echo "====================================================================="
