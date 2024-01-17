@@ -6,7 +6,7 @@
         origin: Origin,
         message: <a class="struct" href="https://doc.rust-lang.org/1.74.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;<a class="enum" href="../staging_xcm/enum.VersionedXcm.html" title="enum staging_xcm::VersionedXcm">VersionedXcm</a>&lt;RuntimeCall&gt;&gt;,
         max_weight: <a class="struct" href="test_utils/struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>
-    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.74.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="test_utils/enum.Outcome.html" title="enum staging_xcm_builder::test_utils::Outcome">Outcome</a>, DispatchError&gt;;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.74.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="test_utils/enum.Outcome.html" title="enum staging_xcm_builder::test_utils::Outcome">Outcome</a>, <a class="enum" href="../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError">DispatchError</a>&gt;;
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Execute an XCM locally, for a given origin.</p>
 <p>An implementation of that trait will handle the low-level details of the execution, such as:</p>
 <ul>
@@ -19,7 +19,7 @@
     origin: Origin,
     message: <a class="struct" href="https://doc.rust-lang.org/1.74.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;<a class="enum" href="../staging_xcm/enum.VersionedXcm.html" title="enum staging_xcm::VersionedXcm">VersionedXcm</a>&lt;RuntimeCall&gt;&gt;,
     max_weight: <a class="struct" href="test_utils/struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.74.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="test_utils/enum.Outcome.html" title="enum staging_xcm_builder::test_utils::Outcome">Outcome</a>, DispatchError&gt;</h4></section></summary><div class="docblock"><p>Attempt to execute an XCM locally, and return the outcome.</p>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.74.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="test_utils/enum.Outcome.html" title="enum staging_xcm_builder::test_utils::Outcome">Outcome</a>, <a class="enum" href="../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError">DispatchError</a>&gt;</h4></section></summary><div class="docblock"><p>Attempt to execute an XCM locally, and return the outcome.</p>
 <h5 id="parameters"><a href="#parameters">Parameters</a></h5>
 <ul>
 <li><code>origin</code>: the origin of the call.</li>
@@ -30,4 +30,4 @@
     _origin: Origin,
     _message: <a class="struct" href="https://doc.rust-lang.org/1.74.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;<a class="enum" href="../staging_xcm/enum.VersionedXcm.html" title="enum staging_xcm::VersionedXcm">VersionedXcm</a>&lt;RuntimeCall&gt;&gt;,
     _max_weight: <a class="struct" href="test_utils/struct.Weight.html" title="struct staging_xcm_builder::test_utils::Weight">Weight</a>
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.74.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="test_utils/enum.Outcome.html" title="enum staging_xcm_builder::test_utils::Outcome">Outcome</a>, DispatchError&gt;</h4></section></div></details><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../implementors/staging_xcm_builder/controller/trait.ExecuteController.js" data-ignore-extern-crates="std" async></script></section></div></main></body></html>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.74.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="test_utils/enum.Outcome.html" title="enum staging_xcm_builder::test_utils::Outcome">Outcome</a>, <a class="enum" href="../sp_runtime/enum.DispatchError.html" title="enum sp_runtime::DispatchError">DispatchError</a>&gt;</h4></section></div></details><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../implementors/staging_xcm_builder/controller/trait.ExecuteController.js" data-ignore-extern-crates="std" async></script></section></div></main></body></html>

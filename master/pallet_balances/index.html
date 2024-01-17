@@ -60,14 +60,14 @@ number. Multiple locks always operate over the same funds, so they “overlay”
 <p>The Balances pallet provides implementations for the following traits. If these traits provide
 the functionality that you need, then you can avoid coupling with the Balances pallet.</p>
 <ul>
-<li>[<code>Currency</code>]: Functions for dealing with a
+<li><a href="../frame_support/traits/tokens/currency/trait.Currency.html" title="trait frame_support::traits::tokens::currency::Currency"><code>Currency</code></a>: Functions for dealing with a
 fungible assets system.</li>
-<li>[<code>ReservableCurrency</code>]</li>
-<li><a href="frame_support::traits::NamedReservableCurrency"><code>NamedReservableCurrency</code></a>:
+<li><a href="../frame_support/traits/tokens/currency/reservable/trait.ReservableCurrency.html" title="trait frame_support::traits::tokens::currency::reservable::ReservableCurrency"><code>ReservableCurrency</code></a></li>
+<li><a href="../frame_support/traits/tokens/currency/reservable/trait.NamedReservableCurrency.html" title="trait frame_support::traits::tokens::currency::reservable::NamedReservableCurrency"><code>NamedReservableCurrency</code></a>:
 Functions for dealing with assets that can be reserved from an account.</li>
-<li><a href="frame_support::traits::LockableCurrency"><code>LockableCurrency</code></a>: Functions for
+<li><a href="../frame_support/traits/tokens/currency/lockable/trait.LockableCurrency.html" title="trait frame_support::traits::tokens::currency::lockable::LockableCurrency"><code>LockableCurrency</code></a>: Functions for
 dealing with accounts that allow liquidity restrictions.</li>
-<li><a href="frame_support::traits::Imbalance"><code>Imbalance</code></a>: Functions for handling
+<li><a href="../frame_support/traits/tokens/imbalance/trait.Imbalance.html" title="trait frame_support::traits::tokens::imbalance::Imbalance"><code>Imbalance</code></a>: Functions for handling
 imbalances between total issuance in the system and account balances. Must be used when a
 function creates new funds (e.g. a reward) or destroys some funds (e.g. a system fee).</li>
 </ul>
