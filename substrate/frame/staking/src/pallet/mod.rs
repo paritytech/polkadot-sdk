@@ -31,7 +31,7 @@ use frame_support::{
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use sp_runtime::{
 	traits::{CheckedSub, SaturatedConversion, StaticLookup, Zero},
-	ArithmeticError, Perbill, Percent,
+	ArithmeticError, Perbill, Percent, Saturating,
 };
 
 use sp_staking::{
@@ -59,7 +59,7 @@ pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 #[frame_support::pallet]
 pub mod pallet {
 
-	use frame_election_provider_support::ElectionDataProvider;
+	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
 
 	use crate::{BenchmarkingConfig, PagedExposureMetadata};
 
@@ -218,6 +218,10 @@ pub mod pallet {
 		/// without handling it in a migration.
 		#[pallet::constant]
 		type MaxExposurePageSize: Get<u32>;
+
+		/// The absolute maximum of next winner validators this pallet should return.
+		#[pallet::constant]
+		type MaxValidatorSet: Get<u32>;
 
 		/// The fraction of the validator set that is safe to be offending.
 		/// After the threshold is reached a new era will be forced.
@@ -672,6 +676,16 @@ pub mod pallet {
 	pub(crate) type LastIteratedTarget<T: Config> =
 		StorageValue<_, Option<T::AccountId>, ValueQuery>;
 
+	/// Block when the request for a paged election started, if any.
+	#[pallet::storage]
+	pub(crate) type ElectStarted<T: Config> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
+
+	// TODO:
+	// * maybe use pallet-paged-list? (https://paritytech.github.io/polkadot-sdk/master/pallet_paged_list/index.html)
+	#[pallet::storage]
+	pub(crate) type ElectableStashes<T: Config> =
+		StorageValue<_, BoundedVec<T::AccountId, T::MaxValidatorSet>, ValueQuery>;
+
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
@@ -860,8 +874,43 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
-			// just return the weight of the on_finalize.
+		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
+			let pages: BlockNumberFor<T> =
+				<<T as Config>::ElectionProvider as ElectionProvider>::Pages::get().into();
+
+			if let Some(started_at) = ElectStarted::<T>::get() {
+				// elect is ongoing, proceed.
+				let remaining_pages = pages.saturating_sub(now - started_at);
+
+				crate::log!(
+					info,
+					"progressing with calling elect, remaining pages {}",
+					remaining_pages
+				);
+
+				Self::elect(remaining_pages.saturated_into::<PageIndex>());
+
+				if now == started_at.saturating_add(pages) {
+					// last page, reset elect status.
+					crate::log!(info, "finished fetching all paged solutions");
+					ElectStarted::<T>::kill();
+				};
+			} else {
+				let next_election = <Self as ElectionDataProvider>::next_election_prediction(now);
+
+				if now == (next_election.saturating_sub(pages)) {
+					// start calling elect.
+					crate::log!(
+						info,
+						"next election in {} pages, start fetching solution pages.",
+						pages,
+					);
+					ElectStarted::<T>::set(Some(now));
+
+					Self::elect(pages.saturated_into::<PageIndex>().saturating_sub(1));
+				}
+			};
+			// return the weight of the on_finalize.
 			T::DbWeight::get().reads(1)
 		}
 

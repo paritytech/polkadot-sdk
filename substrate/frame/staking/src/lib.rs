@@ -1207,9 +1207,23 @@ impl<T: Config> EraInfo<T> {
 		});
 	}
 
+	pub fn set_or_update_exposure(
+		_era: EraIndex,
+		_validator: &T::AccountId,
+		_exposure: Exposure<T::AccountId, BalanceOf<T>>,
+	) {
+		// TODO
+	}
+
 	/// Store total exposure for all the elected validators in the era.
 	pub(crate) fn set_total_stake(era: EraIndex, total_stake: BalanceOf<T>) {
 		<ErasTotalStake<T>>::insert(era, total_stake);
+	}
+
+	pub(crate) fn add_total_stake(era: EraIndex, stake: BalanceOf<T>) {
+		<ErasTotalStake<T>>::mutate(era, |total_stake| {
+			*total_stake += stake;
+		});
 	}
 }
 

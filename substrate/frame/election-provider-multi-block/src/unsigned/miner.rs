@@ -199,8 +199,6 @@ where
 			.try_into()
 			.expect("paged_assignments is bound by `T::Pages. qed.");
 
-		println!("--- {:?}", solution_pages);
-
 		// TODO(gpestana): trim again?
 		let trimming_status = Default::default();
 
