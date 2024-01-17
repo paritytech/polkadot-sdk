@@ -324,13 +324,9 @@ fn kick_out_if_recent<T: Config>(params: SlashParams<T>) {
 /// validators provided by [`make_disabling_decision`].
 fn add_offending_validator<T: Config>(params: &SlashParams<T>) {
 	DisabledValidators::<T>::mutate(|disabled| {
-		let disable_offenders = T::DisablingStrategy::make_disabling_decision(
-			params.stash,
-			params.slash_era,
-			&disabled,
-		);
-
-		for offender in disable_offenders {
+		if let Some(offender) =
+			T::DisablingStrategy::make_disabling_decision(params.stash, params.slash_era, &disabled)
+		{
 			// Add the validator to `DisabledValidators` and disable it. Do nothing if it is
 			// already disabled.
 			if let Err(index) = disabled.binary_search_by_key(&offender, |index| *index) {

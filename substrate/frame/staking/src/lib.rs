@@ -1232,7 +1232,7 @@ pub trait DisablingStrategy<T: Config> {
 		offender_stash: &T::AccountId,
 		slash_era: EraIndex,
 		currently_disabled: &Vec<u32>,
-	) -> Vec<u32>;
+	) -> Option<u32>;
 }
 
 /// Implementation of [`DisablingStrategy`] which disables validators from the active set up to a
@@ -1265,25 +1265,25 @@ impl<T: Config, const DISABLING_THRESHOLD_FACTOR: usize> DisablingStrategy<T>
 		offender_stash: &T::AccountId,
 		slash_era: EraIndex,
 		currently_disabled: &Vec<u32>,
-	) -> Vec<u32> {
+	) -> Option<u32> {
 		let active_set = T::SessionInterface::validators();
 		let offender_idx = if let Some(idx) = active_set.iter().position(|i| i == offender_stash) {
 			idx as u32
 		} else {
 			// offender not found in the active set, do nothing
-			return vec![]
+			return None
 		};
 
 		// We don't disable more than the threshold
 		if currently_disabled.len() >= Self::disable_threshold(active_set.len()) {
-			return vec![]
+			return None
 		}
 
 		// We don't disable for offences in previous eras
 		if Pallet::<T>::current_era().unwrap_or(1) > slash_era {
-			return vec![]
+			return None
 		}
 
-		vec![offender_idx]
+		Some(offender_idx)
 	}
 }
