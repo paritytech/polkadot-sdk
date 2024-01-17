@@ -52,10 +52,10 @@ where
 	fn validate(
 		network: NetworkId,
 		channel: u32,
-		universal_source: &mut Option<InteriorMultiLocation>,
-		destination: &mut Option<InteriorMultiLocation>,
+		universal_source: &mut Option<InteriorLocation>,
+		destination: &mut Option<InteriorLocation>,
 		message: &mut Option<Xcm<()>>,
-	) -> Result<(Self::Ticket, MultiAssets), SendError> {
+	) -> Result<(Self::Ticket, Assets), SendError> {
 		// Find supported lane_id.
 		let sender_and_lane = Self::lane_for(
 			universal_source.as_ref().ok_or(SendError::MissingArgument)?,
@@ -137,11 +137,11 @@ mod tests {
 	use frame_support::assert_ok;
 	use xcm_executor::traits::export_xcm;
 
-	fn universal_source() -> InteriorMultiLocation {
-		X2(GlobalConsensus(RelayNetwork::get()), Parachain(SIBLING_ASSET_HUB_ID))
+	fn universal_source() -> InteriorLocation {
+		[GlobalConsensus(RelayNetwork::get()), Parachain(SIBLING_ASSET_HUB_ID)].into()
 	}
 
-	fn universal_destination() -> InteriorMultiLocation {
+	fn universal_destination() -> InteriorLocation {
 		BridgedDestination::get()
 	}
 
