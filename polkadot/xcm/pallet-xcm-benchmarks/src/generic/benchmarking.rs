@@ -77,11 +77,13 @@ benchmarks! {
 		let mut executor = new_executor::<T>(Default::default());
 		executor.set_holding(holding);
 
-		let fee_asset = AssetId(Here.into());
+		// The worst case we want for buy execution in terms of
+		// fee asset and weight
+		let (fee_asset, weight_limit) = T::worst_case_buy_execution()?;
 
 		let instruction = Instruction::<XcmCallOf<T>>::BuyExecution {
-			fees: (fee_asset, 100_000_000u128).into(), // should be something inside of holding
-			weight_limit: WeightLimit::Unlimited,
+			fees: fee_asset,
+			weight_limit: weight_limit.into(),
 		};
 
 		let xcm = Xcm(vec![instruction]);
