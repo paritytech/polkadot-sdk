@@ -281,7 +281,7 @@ impl<T: Config> WasmModule<T> {
 	/// instrumentation runtime by nesting blocks as deeply as possible given the byte budget.
 	/// `code_location`: Whether to place the code into `deploy` or `call`.
 	pub fn sized(target_bytes: u32, code_location: Location) -> Self {
-		use self::elements::Instruction::{End, If, GetLocal, Return};
+		use self::elements::Instruction::{End, GetLocal, If, Return};
 		// Base size of a contract is 63 bytes and each expansion adds 6 bytes.
 		// We do one expansion less to account for the code section and function body
 		// size fields inside the binary wasm module representation which are leb128 encoded
