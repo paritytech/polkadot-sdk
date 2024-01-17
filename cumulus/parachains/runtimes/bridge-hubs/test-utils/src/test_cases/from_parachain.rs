@@ -418,9 +418,9 @@ where
 			(),
 		>(
 			LaneId::default(),
-			vec![xcm::v3::Instruction::<()>::ClearOrigin; 1_024].into(),
+			vec![Instruction::<()>::ClearOrigin; 1_024].into(),
 			1,
-			X2(GlobalConsensus(Polkadot), Parachain(1_000)),
+			[GlobalConsensus(Polkadot), Parachain(1_000)].into(),
 			1,
 			5,
 			1_000,
