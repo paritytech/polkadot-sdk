@@ -27,7 +27,7 @@ use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::RuntimeDebug;
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 
 /// Definition of the cost schedule and other parameterizations for the wasm vm.
 ///

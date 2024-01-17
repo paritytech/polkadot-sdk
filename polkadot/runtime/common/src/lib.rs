@@ -18,6 +18,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub mod assigned_slots;
 pub mod auctions;
 pub mod claims;

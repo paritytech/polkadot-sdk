@@ -22,7 +22,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::{vstaging::ApprovalVotingParams, SessionIndex};
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 use frame_support::traits::OnRuntimeUpgrade;
 

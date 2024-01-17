@@ -21,7 +21,7 @@ use crate::utils;
 use ark_bls12_377_ext::CurveHooks;
 use ark_ec::{pairing::Pairing, CurveConfig};
 use sp_runtime_interface::runtime_interface;
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 /// First pairing group definitions.
 pub mod g1 {

@@ -27,7 +27,7 @@ use bp_runtime::StorageDoubleMapKeyProvider;
 use frame_support::fail;
 use sp_arithmetic::traits::{AtLeast32BitUnsigned, Zero};
 use sp_runtime::{traits::CheckedSub, Saturating};
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 
 pub use pallet::*;
 pub use payment_adapter::DeliveryConfirmationPaymentsAdapter;

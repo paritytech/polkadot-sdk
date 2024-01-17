@@ -21,7 +21,7 @@ use crate::*;
 
 use frame_benchmarking::v2::*;
 use frame_support::{pallet_prelude::*, traits::Hooks};
-use sp_std::vec;
+use alloc::vec;
 
 #[benchmarks]
 mod benchmarks {

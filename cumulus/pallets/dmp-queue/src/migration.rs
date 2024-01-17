@@ -19,7 +19,7 @@
 use crate::*;
 use cumulus_primitives_core::relay_chain::BlockNumber as RelayBlockNumber;
 use frame_support::{pallet_prelude::*, storage_alias, traits::HandleMessage};
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 pub(crate) const LOG: &str = "runtime::dmp-queue-export-xcms";
 

@@ -17,7 +17,7 @@
 
 use crate::{BoundedBTreeMap, BoundedBTreeSet, BoundedVec, WeakBoundedVec};
 use codec::Decode;
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 /// Provides the sealed trait `StreamIter`.
 mod private {

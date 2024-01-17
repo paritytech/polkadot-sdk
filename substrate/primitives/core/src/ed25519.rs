@@ -20,7 +20,7 @@
 // end::description[]
 
 #[cfg(feature = "full_crypto")]
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 use crate::{
 	crypto::ByteArray,

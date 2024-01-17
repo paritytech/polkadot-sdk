@@ -716,7 +716,7 @@ mod tests {
 		transaction_validity::TransactionPriority,
 		BuildStorage, Perbill,
 	};
-	use sp_std::collections::btree_map::BTreeMap;
+	use alloc::collections::btree_map::BTreeMap;
 
 	type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 	type Block = frame_system::mocking::MockBlockU32<Test>;

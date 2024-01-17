@@ -26,7 +26,7 @@ use crate::traits::{
 };
 use frame_support_procedural::{EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use sp_runtime::traits::Zero;
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 
 /// Handler for when an imbalance gets dropped. This could handle either a credit (negative) or
 /// debt (positive) imbalance.

@@ -27,7 +27,7 @@ use codec::{CompactAs, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::Hasher;
 use sp_runtime::RuntimeDebug;
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};

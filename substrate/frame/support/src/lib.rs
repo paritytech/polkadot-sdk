@@ -33,6 +33,8 @@
 #[doc(hidden)]
 extern crate self as frame_support;
 
+extern crate alloc;
+
 /// Private exports that are being used by macros.
 ///
 /// The exports are not stable and should not be relied on.
@@ -883,7 +885,7 @@ pub mod pallet_prelude {
 		},
 		DispatchError, RuntimeDebug, MAX_MODULE_ERROR_ENCODED_SIZE,
 	};
-	pub use sp_std::marker::PhantomData;
+	pub use core::marker::PhantomData;
 	pub use sp_weights::Weight;
 }
 

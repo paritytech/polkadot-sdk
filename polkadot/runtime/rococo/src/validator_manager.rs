@@ -17,7 +17,7 @@
 //! A pallet for managing validators on Rococo.
 
 use sp_staking::SessionIndex;
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 pub use pallet::*;
 

@@ -27,7 +27,7 @@ use frame_support::{
 	Parameter, Twox64Concat,
 };
 use sp_runtime::{traits::Zero, Saturating};
-use sp_std::collections::btree_map::BTreeMap;
+use alloc::collections::btree_map::BTreeMap;
 
 #[cfg(feature = "try-runtime")]
 const LOG_TARGET: &str = "runtime::tips::migrations::unreserve_deposits";

@@ -17,7 +17,7 @@
 
 use codec::{Decode, Encode};
 use sp_core::RuntimeDebug;
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 /// A string that wraps a `&'static str` in the runtime and `String`/`Vec<u8>` on decode.
 #[derive(Eq, RuntimeDebug, Clone)]

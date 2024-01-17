@@ -21,7 +21,7 @@ pub mod v1 {
 		traits::{Defensive, GetStorageVersion, OnRuntimeUpgrade},
 		BoundedVec,
 	};
-	use sp_std::collections::btree_map::BTreeMap;
+	use alloc::collections::btree_map::BTreeMap;
 
 	use crate::*;
 	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);

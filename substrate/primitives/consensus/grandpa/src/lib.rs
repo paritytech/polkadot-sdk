@@ -19,6 +19,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(feature = "serde")]
 use serde::Serialize;
 
@@ -30,7 +32,7 @@ use sp_runtime::{
 	traits::{Header as HeaderT, NumberFor},
 	ConsensusEngineId, RuntimeDebug,
 };
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 /// The log target to be used by client code.
 pub const CLIENT_LOG_TARGET: &str = "grandpa";

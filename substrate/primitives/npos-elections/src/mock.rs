@@ -24,7 +24,7 @@ use sp_arithmetic::{
 	PerThing,
 };
 use sp_runtime::assert_eq_error_rate;
-use sp_std::collections::btree_map::BTreeMap;
+use alloc::collections::btree_map::BTreeMap;
 
 use crate::{seq_phragmen, Assignment, ElectionResult, ExtendedBalance, PerThing128, VoteWeight};
 

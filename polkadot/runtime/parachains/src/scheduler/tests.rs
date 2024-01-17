@@ -19,7 +19,7 @@ use super::*;
 use frame_support::assert_ok;
 use keyring::Sr25519Keyring;
 use primitives::{BlockNumber, SessionIndex, ValidationCode, ValidatorId};
-use sp_std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
+use alloc::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
 
 use crate::{
 	configuration::HostConfiguration,

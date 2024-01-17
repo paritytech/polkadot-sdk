@@ -19,6 +19,7 @@
 //!
 //! Note: `CHAIN_CODE_LENGTH` must be equal to `crate::crypto::JUNCTION_ID_LEN`
 //! for this to work.
+
 #[cfg(any(feature = "full_crypto", feature = "serde"))]
 use crate::crypto::DeriveJunction;
 #[cfg(feature = "serde")]
@@ -34,7 +35,7 @@ use schnorrkel::{
 	derive::{ChainCode, Derivation},
 	PublicKey,
 };
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 use crate::{
 	crypto::{

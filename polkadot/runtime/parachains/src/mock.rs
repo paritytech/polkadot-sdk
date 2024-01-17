@@ -50,7 +50,7 @@ use sp_runtime::{
 	transaction_validity::TransactionPriority,
 	BuildStorage, FixedU128, Perbill, Permill,
 };
-use sp_std::collections::vec_deque::VecDeque;
+use alloc::collections::vec_deque::VecDeque;
 use std::{cell::RefCell, collections::HashMap};
 use xcm::v4::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
 

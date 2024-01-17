@@ -64,6 +64,8 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use codec::{Codec, Encode};
 use frame_support::{
 	dispatch::DispatchResult,
@@ -112,7 +114,7 @@ mod tests;
 pub mod benchmarking;
 
 pub use frame_support::traits::Get;
-pub use sp_std::vec::Vec;
+pub use alloc::vec::Vec;
 
 #[macro_export]
 macro_rules! impl_tracksinfo_get {

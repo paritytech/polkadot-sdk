@@ -25,7 +25,7 @@ use sp_arithmetic::{
 	Normalizable, PerThing,
 };
 use sp_core::RuntimeDebug;
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 /// A voter's stake assignment among a set of targets, represented as ratios.
 #[derive(RuntimeDebug, Clone, Default)]

@@ -28,7 +28,7 @@ use sp_runtime::{
 	transaction_validity::InvalidTransaction,
 	Saturating,
 };
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 
 /// Handle withdrawing, refunding and depositing of transaction fees.
 pub trait OnChargeAssetTransaction<T: Config> {

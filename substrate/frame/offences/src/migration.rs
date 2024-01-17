@@ -24,7 +24,7 @@ use frame_support::{
 	Twox64Concat,
 };
 use sp_staking::offence::{DisableStrategy, OnOffenceHandler};
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;

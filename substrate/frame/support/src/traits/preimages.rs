@@ -24,7 +24,7 @@ use sp_runtime::{
 	traits::{ConstU32, Hash},
 	DispatchError,
 };
-use sp_std::borrow::Cow;
+use alloc::borrow::Cow;
 
 pub type BoundedInline = crate::BoundedVec<u8, ConstU32<128>>;
 

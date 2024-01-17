@@ -19,7 +19,7 @@ use cumulus_primitives_core::{
 };
 use polkadot_primitives::UpgradeGoAhead;
 use sp_runtime::traits::HashingFor;
-use sp_std::collections::btree_map::BTreeMap;
+use alloc::collections::btree_map::BTreeMap;
 use sp_trie::PrefixedMemoryDB;
 
 /// Builds a sproof (portmanteau of 'spoof' and 'proof') of the relay chain state.

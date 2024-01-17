@@ -65,7 +65,7 @@ use sp_runtime::{
 	DispatchResult, RuntimeDebug,
 };
 use sp_staking::{offence::DisableStrategy, EraIndex};
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 /// The proportion of the slashing reward to be paid out on the first slashing detection.
 /// This is f_1 in the paper.

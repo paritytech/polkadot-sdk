@@ -1196,7 +1196,7 @@ pub trait AccountTouch<AssetId, AccountId> {
 mod test {
 	use super::*;
 	use sp_core::bounded::{BoundedSlice, BoundedVec};
-	use sp_std::marker::PhantomData;
+	use core::marker::PhantomData;
 
 	#[test]
 	fn defensive_assert_works() {

@@ -21,7 +21,7 @@
 use codec::{Decode, Encode};
 use sp_core::Get;
 use sp_runtime::{transaction_validity::TransactionValidityError, DispatchError, Perbill};
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 use crate::SessionIndex;
 

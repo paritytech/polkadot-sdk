@@ -32,7 +32,7 @@ mod enter {
 	use frame_support::assert_ok;
 	use frame_system::limits;
 	use sp_runtime::Perbill;
-	use sp_std::collections::btree_map::BTreeMap;
+	use alloc::collections::btree_map::BTreeMap;
 
 	struct TestConfig {
 		dispute_statements: BTreeMap<u32, u32>,

@@ -116,7 +116,7 @@ pub mod pallet {
 		RuntimeDebug,
 	};
 	use sp_staking::SessionIndex;
-	use sp_std::vec::Vec;
+	use alloc::vec::Vec;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);

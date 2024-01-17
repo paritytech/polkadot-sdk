@@ -19,7 +19,7 @@
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::traits::{QueueFootprint, QueuePausedQuery};
 use pallet_message_queue::OnQueueChanged;
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 
 /// Narrow the scope of the `Inner` query from `AggregateMessageOrigin` to `ParaId`.
 ///

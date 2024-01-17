@@ -44,7 +44,7 @@ use frame_system::{
 use scale_info::TypeInfo;
 use sp_std::prelude::*;
 #[cfg(not(feature = "std"))]
-use sp_std::vec;
+use alloc::vec;
 
 use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic};
 use sp_core::{OpaqueMetadata, RuntimeDebug};

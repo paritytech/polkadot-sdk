@@ -21,7 +21,7 @@
 
 use codec::Decode;
 use sp_runtime::ConsensusEngineId;
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 /// The `ConsensusEngineId` of PoW.
 pub const POW_ENGINE_ID: ConsensusEngineId = [b'p', b'o', b'w', b'_'];

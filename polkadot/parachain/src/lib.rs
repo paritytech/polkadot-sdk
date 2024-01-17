@@ -44,6 +44,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub mod primitives;
 
 #[cfg(all(not(feature = "std"), feature = "wasm-api"))]

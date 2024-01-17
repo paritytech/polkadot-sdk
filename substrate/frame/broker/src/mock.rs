@@ -34,7 +34,7 @@ use sp_runtime::{
 	traits::{BlockNumberProvider, Identity},
 	BuildStorage, Saturating,
 };
-use sp_std::collections::btree_map::BTreeMap;
+use alloc::collections::btree_map::BTreeMap;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

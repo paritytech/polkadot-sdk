@@ -67,7 +67,7 @@ use sp_runtime::{
 	transaction_validity::{InvalidTransaction, TransactionValidity, ValidTransaction},
 	RuntimeDebug,
 };
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 #[cfg(test)]
 mod tests;

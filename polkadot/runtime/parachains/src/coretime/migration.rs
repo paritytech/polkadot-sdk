@@ -44,7 +44,7 @@ mod v_coretime {
 	use sp_core::Get;
 	use sp_runtime::BoundedVec;
 	#[cfg(feature = "try-runtime")]
-	use sp_std::vec::Vec;
+	use alloc::vec::Vec;
 	use sp_std::{iter, prelude::*, result};
 	use xcm::v4::{send_xcm, Instruction, Junction, Location, SendError, WeightLimit, Xcm};
 

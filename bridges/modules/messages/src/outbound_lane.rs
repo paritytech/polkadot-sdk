@@ -30,7 +30,7 @@ use frame_support::{
 use num_traits::Zero;
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
-use sp_std::collections::vec_deque::VecDeque;
+use alloc::collections::vec_deque::VecDeque;
 
 /// Outbound lane storage.
 pub trait OutboundLaneStorage {

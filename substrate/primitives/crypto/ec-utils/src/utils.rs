@@ -31,7 +31,7 @@ use ark_scale::{
 	ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, Validate},
 	scale::{Decode, Encode},
 };
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 // SCALE encoding parameters shared by all the enabled modules
 const SCALE_USAGE: u8 = ark_scale::make_usage(Compress::No, Validate::No);

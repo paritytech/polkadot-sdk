@@ -20,7 +20,7 @@
 use super::{Extrinsics, StorageKey, StorageValue};
 
 #[cfg(not(feature = "std"))]
-use sp_std::collections::btree_set::BTreeSet as Set;
+use alloc::collections::btree_set::BTreeSet as Set;
 #[cfg(feature = "std")]
 use std::collections::HashSet as Set;
 

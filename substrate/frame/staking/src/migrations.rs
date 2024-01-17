@@ -333,7 +333,7 @@ pub mod v9 {
 	#[cfg(feature = "try-runtime")]
 	use codec::{Decode, Encode};
 	#[cfg(feature = "try-runtime")]
-	use sp_std::vec::Vec;
+	use alloc::vec::Vec;
 
 	/// Migration implementation that injects all validators into sorted list.
 	///

@@ -26,7 +26,7 @@ use sp_application_crypto::sr25519;
 
 pub use sp_core::{hash::H256, RuntimeDebug};
 use sp_runtime::traits::{BlakeTwo256, Extrinsic as ExtrinsicT, Verify};
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 /// Extrinsic for test-runtime.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, scale_info::TypeInfo)]

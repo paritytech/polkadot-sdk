@@ -19,8 +19,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use codec::{Decode, Encode};
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 sp_api::decl_runtime_apis! {
 	pub trait NftsApi<AccountId, CollectionId, ItemId>

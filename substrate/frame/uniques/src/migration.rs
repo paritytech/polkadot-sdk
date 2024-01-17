@@ -18,7 +18,7 @@
 //! Various pieces of common functionality.
 use super::*;
 use frame_support::traits::{Get, OnRuntimeUpgrade};
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 
 mod v1 {
 	use super::*;

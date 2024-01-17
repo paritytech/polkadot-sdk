@@ -20,6 +20,8 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub use sp_core::crypto::{key_types, CryptoTypeId, KeyTypeId};
 #[doc(hidden)]
 #[cfg(feature = "full_crypto")]

@@ -20,6 +20,8 @@
 //! A crate which contains primitives that are useful for implementation that uses staking
 //! approaches in general. Definitions related to sessions, slashing, etc go here.
 
+extern crate alloc;
+
 use crate::currency_to_vote::CurrencyToVote;
 use codec::{Decode, Encode, FullCodec, HasCompact, MaxEncodedLen};
 use scale_info::TypeInfo;

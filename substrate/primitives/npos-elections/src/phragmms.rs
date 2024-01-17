@@ -233,7 +233,7 @@ mod tests {
 	use super::*;
 	use crate::{Assignment, ElectionResult};
 	use sp_runtime::{Perbill, Percent};
-	use sp_std::rc::Rc;
+	use alloc::rc::Rc;
 
 	#[test]
 	fn basic_election_manual_works() {

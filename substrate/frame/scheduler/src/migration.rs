@@ -306,7 +306,7 @@ mod test {
 	use super::*;
 	use crate::mock::*;
 	use frame_support::Hashable;
-	use sp_std::borrow::Cow;
+	use alloc::borrow::Cow;
 	use substrate_test_utils::assert_eq_uvec;
 
 	#[test]

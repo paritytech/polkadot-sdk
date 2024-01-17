@@ -18,6 +18,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 #[cfg(test)]
@@ -901,7 +903,7 @@ pub mod pallet {
 			let maybe_dest: Result<Location, ()> = (*dest.clone()).try_into();
 			match (maybe_assets, maybe_dest) {
 				(Ok(assets), Ok(dest)) => {
-					use sp_std::vec;
+					use alloc::vec;
 					let count = assets.len() as u32;
 					let mut message = Xcm(vec![
 						WithdrawAsset(assets),
@@ -959,7 +961,7 @@ pub mod pallet {
 			let maybe_dest: Result<Location, ()> = (*dest.clone()).try_into();
 			match (maybe_assets, maybe_dest) {
 				(Ok(assets), Ok(dest)) => {
-					use sp_std::vec;
+					use alloc::vec;
 					// heaviest version of locally executed XCM program: equivalent in weight to
 					// transfer assets to SA, reanchor them, extend XCM program, and send onward XCM
 					let mut message = Xcm(vec![
@@ -1134,7 +1136,7 @@ pub mod pallet {
 			let maybe_dest: Result<Location, ()> = (*dest.clone()).try_into();
 			match (maybe_assets, maybe_dest) {
 				(Ok(assets), Ok(dest)) => {
-					use sp_std::vec;
+					use alloc::vec;
 					// heaviest version of locally executed XCM program: equivalent in weight to
 					// transfer assets to SA, reanchor them, extend XCM program, and send onward XCM
 					let mut message = Xcm(vec![
@@ -1188,7 +1190,7 @@ pub mod pallet {
 			let maybe_dest: Result<Location, ()> = (*dest.clone()).try_into();
 			match (maybe_assets, maybe_dest) {
 				(Ok(assets), Ok(dest)) => {
-					use sp_std::vec;
+					use alloc::vec;
 					let count = assets.len() as u32;
 					let mut message = Xcm(vec![
 						WithdrawAsset(assets),
@@ -1269,7 +1271,7 @@ pub mod pallet {
 			let maybe_dest: Result<Location, ()> = (*dest.clone()).try_into();
 			match (maybe_assets, maybe_dest) {
 				(Ok(assets), Ok(dest)) => {
-					use sp_std::vec;
+					use alloc::vec;
 					// heaviest version of locally executed XCM program: equivalent in weight to withdrawing fees,
 					// burning them, transferring rest of assets to SA, reanchoring them, extending XCM program,
 					// and sending onward XCM

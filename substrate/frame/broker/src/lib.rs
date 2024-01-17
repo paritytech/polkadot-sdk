@@ -18,6 +18,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![doc = include_str!("../README.md")]
 
+extern crate alloc;
+
 pub use pallet::*;
 
 mod adapt_price;
@@ -57,7 +59,7 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::{Convert, ConvertBack};
-	use sp_std::vec::Vec;
+	use alloc::vec::Vec;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);

@@ -45,7 +45,7 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use sp_std::alloc::{format, string::String};
 #[cfg(feature = "full_crypto")]
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 /// An identifier used to match public keys against ecdsa keys
 pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"ecds");

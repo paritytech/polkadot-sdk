@@ -19,6 +19,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use codec::{Decode, Encode};
 
 #[cfg(feature = "std")]
@@ -28,7 +30,7 @@ use sp_runtime::traits::Block as BlockT;
 
 use sp_core::RuntimeDebug;
 use sp_staking::SessionIndex;
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 pub mod runtime_api;
 pub use runtime_api::*;

@@ -30,7 +30,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::{AssignmentId, AuthorityDiscoveryId, ExecutorParams, SessionIndex, SessionInfo};
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 pub use pallet::*;
 

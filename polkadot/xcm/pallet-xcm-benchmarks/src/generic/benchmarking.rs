@@ -19,7 +19,7 @@ use crate::{account_and_location, new_executor, EnsureDelivery, XcmCallOf};
 use codec::Encode;
 use frame_benchmarking::{benchmarks, BenchmarkError};
 use frame_support::{dispatch::GetDispatchInfo, traits::fungible::Inspect};
-use sp_std::vec;
+use alloc::vec;
 use xcm::{
 	latest::{prelude::*, MaxDispatchErrorLen, MaybeErrorCode, Weight},
 	DoubleEncoded,

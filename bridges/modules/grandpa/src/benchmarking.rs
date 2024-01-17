@@ -51,7 +51,7 @@ use frame_benchmarking::{benchmarks_instance_pallet, whitelisted_caller};
 use frame_system::RawOrigin;
 use sp_consensus_grandpa::AuthorityId;
 use sp_runtime::traits::{One, Zero};
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 /// The maximum number of vote ancestries to include in a justification.
 ///

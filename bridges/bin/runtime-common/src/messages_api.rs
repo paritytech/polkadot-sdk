@@ -19,7 +19,7 @@
 use bp_messages::{
 	InboundMessageDetails, LaneId, MessageNonce, MessagePayload, OutboundMessageDetails,
 };
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 /// Implementation of the `To*OutboundLaneApi::message_details`.
 pub fn outbound_message_details<Runtime, MessagesPalletInstance>(

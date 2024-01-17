@@ -32,7 +32,7 @@ use sp_core::{
 #[cfg(feature = "std")]
 use sp_externalities::{Extension, Extensions};
 #[cfg(not(feature = "std"))]
-use sp_std::collections::btree_map::BTreeMap as Map;
+use alloc::collections::btree_map::BTreeMap as Map;
 use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 use sp_trie::{empty_child_trie_root, LayoutV1};
 #[cfg(feature = "std")]

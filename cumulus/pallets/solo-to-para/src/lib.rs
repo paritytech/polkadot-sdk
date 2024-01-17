@@ -21,7 +21,7 @@ use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use polkadot_primitives::PersistedValidationData;
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 #[frame_support::pallet]
 pub mod pallet {

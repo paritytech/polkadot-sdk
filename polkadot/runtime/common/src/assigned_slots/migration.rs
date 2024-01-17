@@ -20,7 +20,7 @@ use frame_support::traits::{Get, GetStorageVersion, OnRuntimeUpgrade};
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
 #[cfg(feature = "try-runtime")]
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 pub mod v1 {
 

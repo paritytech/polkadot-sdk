@@ -38,7 +38,7 @@ use codec::{Decode, Encode};
 use sp_std::{any::TypeId, mem, vec::Vec};
 
 #[cfg(feature = "std")]
-use sp_std::borrow::Cow;
+use alloc::borrow::Cow;
 
 // Make sure that our assumptions for storing a pointer + its size in `u64` is valid.
 #[cfg(all(not(feature = "std"), not(feature = "disable_target_static_assertions")))]

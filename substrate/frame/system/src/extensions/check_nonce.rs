@@ -26,7 +26,7 @@ use sp_runtime::{
 		ValidTransaction,
 	},
 };
-use sp_std::vec;
+use alloc::vec;
 
 /// Nonce check and increment to give replay protection for transactions.
 ///

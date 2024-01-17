@@ -7,7 +7,7 @@ use frame_support::PalletError;
 use scale_info::TypeInfo;
 use sp_core::{H160, H256};
 use sp_runtime::RuntimeDebug;
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 /// A trait for verifying inbound messages from Ethereum.
 pub trait Verifier {

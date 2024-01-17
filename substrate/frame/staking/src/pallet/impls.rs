@@ -1879,7 +1879,7 @@ impl<T: Config> Pallet<T> {
 
 	fn check_paged_exposures() -> Result<(), TryRuntimeError> {
 		use sp_staking::PagedExposureMetadata;
-		use sp_std::collections::btree_map::BTreeMap;
+		use alloc::collections::btree_map::BTreeMap;
 
 		// Sanity check for the paged exposure of the active era.
 		let mut exposures: BTreeMap<T::AccountId, PagedExposureMetadata<BalanceOf<T>>> =

@@ -36,7 +36,7 @@ use parachains_runtimes_test_utils::{
 use sp_core::Get;
 use sp_keyring::AccountKeyring::*;
 use sp_runtime::{traits::TrailingZeroInput, AccountId32};
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 use xcm::latest::prelude::*;
 
 /// Verify that the transaction has succeeded.

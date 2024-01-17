@@ -45,6 +45,8 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[doc(hidden)]
 pub use codec;
 #[doc(hidden)]

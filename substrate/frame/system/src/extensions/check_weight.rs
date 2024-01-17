@@ -301,7 +301,7 @@ mod tests {
 		AllExtrinsicsLen, BlockWeight, DispatchClass,
 	};
 	use frame_support::{assert_err, assert_ok, dispatch::Pays, weights::Weight};
-	use sp_std::marker::PhantomData;
+	use core::marker::PhantomData;
 
 	fn block_weights() -> crate::limits::BlockWeights {
 		<Test as crate::Config>::BlockWeights::get()

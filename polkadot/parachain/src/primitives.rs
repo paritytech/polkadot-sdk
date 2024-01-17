@@ -17,7 +17,7 @@
 //! Primitive types which are strictly necessary from a parachain-execution point
 //! of view.
 
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 use bounded_collections::{BoundedVec, ConstU32};
 use parity_scale_codec::{CompactAs, Decode, Encode, MaxEncodedLen};

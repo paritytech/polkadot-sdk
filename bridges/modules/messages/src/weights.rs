@@ -46,7 +46,7 @@ use frame_support::{
 	traits::Get,
 	weights::{constants::RocksDbWeight, Weight},
 };
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 
 /// Weight functions needed for pallet_bridge_messages.
 pub trait WeightInfo {

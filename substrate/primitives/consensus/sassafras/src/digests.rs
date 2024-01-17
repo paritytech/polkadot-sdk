@@ -26,7 +26,7 @@ use scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 use sp_runtime::{DigestItem, RuntimeDebug};
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 /// Epoch slot claim digest entry.
 ///

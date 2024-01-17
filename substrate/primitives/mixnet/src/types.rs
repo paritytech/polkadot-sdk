@@ -19,7 +19,7 @@
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 mod app {
 	use sp_application_crypto::{app_crypto, key_types::MIXNET, sr25519};

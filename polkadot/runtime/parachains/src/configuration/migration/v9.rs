@@ -28,7 +28,7 @@ use primitives::{
 	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 use sp_runtime::Perbill;
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 use frame_support::traits::OnRuntimeUpgrade;
 

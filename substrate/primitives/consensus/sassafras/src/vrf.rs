@@ -20,7 +20,7 @@
 use crate::{Randomness, TicketBody, TicketId};
 use scale_codec::Encode;
 use sp_consensus_slots::Slot;
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 pub use sp_core::bandersnatch::{
 	ring_vrf::{RingProver, RingVerifier, RingVerifierData, RingVrfSignature},

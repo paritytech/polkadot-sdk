@@ -24,7 +24,7 @@ use crate::crypto::{ByteArray, CryptoType, Derive, Public as PublicT, UncheckedF
 use crate::crypto::{DeriveError, DeriveJunction, Pair as PairT, SecretStringError};
 
 #[cfg(feature = "full_crypto")]
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;

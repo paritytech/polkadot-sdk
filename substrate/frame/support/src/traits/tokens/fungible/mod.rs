@@ -49,7 +49,7 @@ mod union_of;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support_procedural::{CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use super::{
 	Fortitude::{Force, Polite},

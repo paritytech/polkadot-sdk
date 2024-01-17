@@ -22,7 +22,7 @@ use frame_support::{
 	storage_alias,
 	traits::{ConstU32, OnRuntimeUpgrade},
 };
-use sp_std::collections::btree_map::BTreeMap;
+use alloc::collections::btree_map::BTreeMap;
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;

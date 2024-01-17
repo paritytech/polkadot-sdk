@@ -33,6 +33,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "std")]
@@ -411,7 +413,7 @@ mod apis_serialize {
 	use super::*;
 	use impl_serde::serialize as bytes;
 	use serde::{de, ser::SerializeTuple, Serializer};
-	use sp_std::vec::Vec;
+	use alloc::vec::Vec;
 
 	#[derive(Serialize)]
 	struct ApiId<'a>(#[serde(serialize_with = "serialize_bytesref")] &'a super::ApiId, &'a u32);

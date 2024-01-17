@@ -19,7 +19,7 @@
 use crate::configuration::{Config, Pallet};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::BlockNumberFor;
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 use primitives::{AsyncBackingParams, Balance, ExecutorParams, SessionIndex};
 #[cfg(feature = "try-runtime")]

@@ -45,7 +45,7 @@ pub use sp_core::{
 	ConstU16, ConstU32, ConstU64, ConstU8, Get, GetDefault, TryCollect, TypedGet,
 };
 #[doc(hidden)]
-pub use sp_std::marker::PhantomData;
+pub use core::marker::PhantomData;
 use sp_std::{self, fmt::Debug, prelude::*};
 #[cfg(feature = "std")]
 use std::fmt::Display;

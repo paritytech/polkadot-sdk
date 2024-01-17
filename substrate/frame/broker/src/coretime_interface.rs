@@ -23,7 +23,7 @@ use scale_info::TypeInfo;
 use sp_arithmetic::traits::AtLeast32BitUnsigned;
 use sp_core::RuntimeDebug;
 use sp_runtime::traits::BlockNumberProvider;
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 
 /// Index of a Polkadot Core.
 pub type CoreIndex = u16;

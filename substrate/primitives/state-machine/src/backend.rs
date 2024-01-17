@@ -29,7 +29,7 @@ use hash_db::Hasher;
 use sp_core::storage::{ChildInfo, StateVersion, TrackedStorageKey};
 #[cfg(feature = "std")]
 use sp_core::traits::RuntimeCode;
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 use sp_trie::{MerkleValue, PrefixedMemoryDB};
 
 /// A struct containing arguments for iterating over the storage.

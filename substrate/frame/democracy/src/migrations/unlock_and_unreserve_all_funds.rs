@@ -171,7 +171,7 @@ where
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 		use codec::Encode;
-		use sp_std::collections::btree_set::BTreeSet;
+		use alloc::collections::btree_set::BTreeSet;
 
 		// Get staked and deposited balances as reported by this pallet.
 		let (account_deposits, account_locks, _) = Self::get_account_deposits_and_locks();

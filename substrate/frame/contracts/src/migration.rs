@@ -73,7 +73,7 @@ use frame_support::{
 	traits::{ConstU32, OnRuntimeUpgrade},
 };
 use sp_runtime::Saturating;
-use sp_std::marker::PhantomData;
+use core::marker::PhantomData;
 
 #[cfg(feature = "try-runtime")]
 use sp_std::prelude::*;

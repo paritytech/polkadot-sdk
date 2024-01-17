@@ -77,7 +77,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(enable_alloc_error_handler, feature(alloc_error_handler))]
 
-use sp_std::vec::Vec;
+extern crate alloc;
 
 #[cfg(feature = "std")]
 use tracing;

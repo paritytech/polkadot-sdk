@@ -20,6 +20,8 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 /// Initialize a key-value collection from array.
 ///
 /// Creates a vector of given pairs and calls `collect` on the iterator from it.

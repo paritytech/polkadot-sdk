@@ -692,7 +692,7 @@ impl pallet_assets::BenchmarkHelper<xcm::v3::Location> for XcmBenchmarkHelper {
 pub mod bridging {
 	use super::*;
 	use assets_common::matching;
-	use sp_std::collections::btree_set::BTreeSet;
+	use alloc::collections::btree_set::BTreeSet;
 
 	// common/shared parameters
 	parameter_types! {

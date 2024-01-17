@@ -23,7 +23,7 @@ use crate::{
 };
 use codec::{Compact, Encode};
 use hash_db::Hasher;
-use sp_std::vec::Vec;
+use alloc::vec::Vec;
 use trie_root;
 
 /// Codec-flavored TrieStream.

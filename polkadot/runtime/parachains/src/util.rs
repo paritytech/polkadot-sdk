@@ -101,7 +101,7 @@ pub fn take_active_subset<T: Clone>(active: &[ValidatorIndex], set: &[T]) -> Vec
 #[cfg(test)]
 mod tests {
 
-	use sp_std::vec::Vec;
+	use alloc::vec::Vec;
 
 	use crate::util::{split_active_subset, take_active_subset};
 	use primitives::ValidatorIndex;
