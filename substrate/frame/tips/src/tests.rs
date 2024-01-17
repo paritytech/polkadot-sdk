@@ -230,8 +230,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 }
 
 /// Run the function pointer inside externalities and asserts the try_state hook at the end.
-pub fn build_and_execute(test: impl FnOnce() -> ()) 
-{
+pub fn build_and_execute(test: impl FnOnce() -> ()) {
 	new_test_ext().execute_with(|| {
 		test();
 		Tips::do_try_state().expect("All invariants must hold after a test");
@@ -637,7 +636,7 @@ fn genesis_funding_works() {
 
 #[test]
 fn report_awesome_and_tip_works_second_instance() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		Balances::make_free_balance_be(&Treasury1::account_id(), 201);
 		assert_eq!(Balances::free_balance(&Treasury::account_id()), 101);
