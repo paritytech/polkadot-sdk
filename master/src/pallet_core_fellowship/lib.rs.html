@@ -603,17 +603,6 @@
 <a href="#603" id="603">603</a>
 <a href="#604" id="604">604</a>
 <a href="#605" id="605">605</a>
-<a href="#606" id="606">606</a>
-<a href="#607" id="607">607</a>
-<a href="#608" id="608">608</a>
-<a href="#609" id="609">609</a>
-<a href="#610" id="610">610</a>
-<a href="#611" id="611">611</a>
-<a href="#612" id="612">612</a>
-<a href="#613" id="613">613</a>
-<a href="#614" id="614">614</a>
-<a href="#615" id="615">615</a>
-<a href="#616" id="616">616</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -978,8 +967,7 @@
 		///
 		/// This resets `last_proof` to the current block, thereby delaying any automatic demotion.
 		///
-		/// If `who` is not already tracked by this pallet, then it will become tracked.
-		/// `last_promotion` will be set to zero.
+		/// `who` must already be tracked by this pallet for this to have an effect.
 		///
 		/// - `origin`: An origin which satisfies `ApproveOrigin` or root.
 		/// - `who`: A member (i.e. of non-zero rank).
@@ -998,11 +986,7 @@
 			<span class="macro">ensure!</span>(at_rank &gt; <span class="number">0</span>, Error::&lt;T, I&gt;::InvalidRank);
 			<span class="kw">let </span>rank = T::Members::rank_of(<span class="kw-2">&amp;</span>who).ok_or(Error::&lt;T, I&gt;::Unranked)<span class="question-mark">?</span>;
 			<span class="macro">ensure!</span>(rank == at_rank, Error::&lt;T, I&gt;::UnexpectedRank);
-			<span class="kw">let </span><span class="kw-2">mut </span>member = <span class="kw">if let </span><span class="prelude-val">Some</span>(m) = Member::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>who) {
-				m
-			} <span class="kw">else </span>{
-				<span class="self">Self</span>::import_member(who.clone(), rank)
-			};
+			<span class="kw">let </span><span class="kw-2">mut </span>member = Member::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>who).ok_or(Error::&lt;T, I&gt;::NotTracked)<span class="question-mark">?</span>;
 
 			member.last_proof = frame_system::Pallet::&lt;T&gt;::block_number();
 			Member::&lt;T, I&gt;::insert(<span class="kw-2">&amp;</span>who, <span class="kw-2">&amp;</span>member);
@@ -1138,7 +1122,13 @@
 			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
 			<span class="macro">ensure!</span>(!Member::&lt;T, I&gt;::contains_key(<span class="kw-2">&amp;</span>who), Error::&lt;T, I&gt;::AlreadyInducted);
 			<span class="kw">let </span>rank = T::Members::rank_of(<span class="kw-2">&amp;</span>who).ok_or(Error::&lt;T, I&gt;::Unranked)<span class="question-mark">?</span>;
-			<span class="kw">let _ </span>= <span class="self">Self</span>::import_member(who, rank);
+
+			<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
+			Member::&lt;T, I&gt;::insert(
+				<span class="kw-2">&amp;</span>who,
+				MemberStatus { is_active: <span class="bool-val">true</span>, last_promotion: <span class="number">0u32</span>.into(), last_proof: now },
+			);
+			<span class="self">Self</span>::deposit_event(Event::&lt;T, I&gt;::Imported { who, rank });
 
 			<span class="prelude-val">Ok</span>(Pays::No.into())
 		}
@@ -1161,18 +1151,6 @@
 				<span class="kw">let </span>e = Event::&lt;T, I&gt;::EvidenceJudged { who, wish, evidence, old_rank, new_rank };
 				<span class="self">Self</span>::deposit_event(e);
 			}
-		}
-
-		<span class="kw">fn </span>import_member(who: T::AccountId, rank: RankOf&lt;T, I&gt;) -&gt; MemberStatusOf&lt;T&gt; {
-			<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
-			<span class="kw">let </span>status = MemberStatus {
-				is_active: <span class="bool-val">true</span>,
-				last_promotion: BlockNumberFor::&lt;T&gt;::zero(),
-				last_proof: now,
-			};
-			Member::&lt;T, I&gt;::insert(<span class="kw-2">&amp;</span>who, status.clone());
-			<span class="self">Self</span>::deposit_event(Event::&lt;T, I&gt;::Imported { who, rank });
-			status
 		}
 	}
 

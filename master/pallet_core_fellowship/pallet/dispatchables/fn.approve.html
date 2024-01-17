@@ -3,8 +3,7 @@
     at_rank: <a class="type" href="../type.RankOf.html" title="type pallet_core_fellowship::pallet::RankOf">RankOf</a>&lt;T, I&gt;
 )</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Approve a member to continue at their rank.</p>
 <p>This resets <code>last_proof</code> to the current block, thereby delaying any automatic demotion.</p>
-<p>If <code>who</code> is not already tracked by this pallet, then it will become tracked.
-<code>last_promotion</code> will be set to zero.</p>
+<p><code>who</code> must already be tracked by this pallet for this to have an effect.</p>
 <ul>
 <li><code>origin</code>: An origin which satisfies <code>ApproveOrigin</code> or root.</li>
 <li><code>who</code>: A member (i.e. of non-zero rank).</li>

@@ -14,6 +14,6 @@
     C::Api: MixnetApi&lt;B&gt;,
     S: <a class="trait" href="../sp_consensus/trait.SyncOracle.html" title="trait sp_consensus::SyncOracle">SyncOracle</a>,
     N: NetworkStateInfo + NetworkNotification + NetworkPeers,
-    P: TransactionPool&lt;Block = B&gt; + LocalTransactionPool&lt;Block = B&gt; + 'static,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Run the mixnet service. If <code>keystore</code> is <code>None</code>, the service will not attempt to register the
+    P: <a class="trait" href="../sc_transaction_pool_api/trait.TransactionPool.html" title="trait sc_transaction_pool_api::TransactionPool">TransactionPool</a>&lt;Block = B&gt; + <a class="trait" href="../sc_transaction_pool_api/trait.LocalTransactionPool.html" title="trait sc_transaction_pool_api::LocalTransactionPool">LocalTransactionPool</a>&lt;Block = B&gt; + 'static,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Run the mixnet service. If <code>keystore</code> is <code>None</code>, the service will not attempt to register the
 local node as a mixnode, even if <code>config.register</code> is <code>true</code>.</p>
 </div></details></section></div></main></body></html>
