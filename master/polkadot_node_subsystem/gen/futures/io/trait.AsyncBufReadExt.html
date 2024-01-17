@@ -136,11 +136,11 @@ byte (the 0xA byte) or CRLF (0xD, 0xA bytes) at the end.</p>
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>futures::io::{AsyncBufReadExt, Cursor};
 <span class="kw">use </span>futures::stream::StreamExt;
 
-<span class="kw">let </span>cursor = Cursor::new(<span class="string">b&quot;lorem\nipsum\r\ndolor&quot;</span>);
+<span class="kw">let </span>cursor = Cursor::new(<span class="string">b&quot;lorem\nipsum\xc2\r\ndolor&quot;</span>);
 
-<span class="kw">let </span><span class="kw-2">mut </span>lines_stream = cursor.lines().map(|l| l.unwrap());
+<span class="kw">let </span><span class="kw-2">mut </span>lines_stream = cursor.lines().map(|l| l.unwrap_or(String::from(<span class="string">&quot;invalid UTF_8&quot;</span>)));
 <span class="macro">assert_eq!</span>(lines_stream.next().<span class="kw">await</span>, <span class="prelude-val">Some</span>(String::from(<span class="string">&quot;lorem&quot;</span>)));
-<span class="macro">assert_eq!</span>(lines_stream.next().<span class="kw">await</span>, <span class="prelude-val">Some</span>(String::from(<span class="string">&quot;ipsum&quot;</span>)));
+<span class="macro">assert_eq!</span>(lines_stream.next().<span class="kw">await</span>, <span class="prelude-val">Some</span>(String::from(<span class="string">&quot;invalid UTF_8&quot;</span>)));
 <span class="macro">assert_eq!</span>(lines_stream.next().<span class="kw">await</span>, <span class="prelude-val">Some</span>(String::from(<span class="string">&quot;dolor&quot;</span>)));
 <span class="macro">assert_eq!</span>(lines_stream.next().<span class="kw">await</span>, <span class="prelude-val">None</span>);</code></pre></div>
 </div></details></div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-AsyncBufReadExt-for-R" class="impl"><a href="#impl-AsyncBufReadExt-for-R" class="anchor">§</a><h3 class="code-header">impl&lt;R&gt; <a class="trait" href="trait.AsyncBufReadExt.html" title="trait polkadot_node_subsystem::gen::futures::io::AsyncBufReadExt">AsyncBufReadExt</a> for R<span class="where fmt-newline">where

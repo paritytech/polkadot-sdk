@@ -243,11 +243,7 @@ library is activated, and it is activated by default.</p>
 <span class="macro">assert_eq!</span>(<span class="number">6</span>, shared1.<span class="kw">await</span>);
 <span class="macro">assert_eq!</span>(<span class="number">6</span>, shared2.<span class="kw">await</span>);</code></pre></div>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// Note, unlike most examples this is written in the context of a
-// synchronous function to better illustrate the cross-thread aspect of
-// the `shared` combinator.
-
-</span><span class="kw">use </span>futures::future::FutureExt;
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>futures::future::FutureExt;
 <span class="kw">use </span>futures::executor::block_on;
 <span class="kw">use </span>std::thread;
 

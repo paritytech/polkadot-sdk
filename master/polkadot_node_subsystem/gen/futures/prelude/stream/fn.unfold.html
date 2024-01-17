@@ -20,7 +20,7 @@ will turn it into a <code>Stream</code> by repeating the operation.</p>
 <span class="kw">let </span>stream = stream::unfold(<span class="number">0</span>, |state| <span class="kw">async move </span>{
     <span class="kw">if </span>state &lt;= <span class="number">2 </span>{
         <span class="kw">let </span>next_state = state + <span class="number">1</span>;
-        <span class="kw">let </span>yielded = state  * <span class="number">2</span>;
+        <span class="kw">let </span>yielded = state * <span class="number">2</span>;
         <span class="prelude-val">Some</span>((yielded, next_state))
     } <span class="kw">else </span>{
         <span class="prelude-val">None
