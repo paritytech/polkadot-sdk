@@ -358,22 +358,9 @@ macro_rules! cost_args {
 	}
 }
 
-macro_rules! cost_instr_no_params {
-	($name:ident) => {
-		cost_args!($name, 1).ref_time() as u32
-	};
-}
-
 macro_rules! cost {
 	($name:ident) => {
 		cost_args!($name, 1)
-	};
-}
-
-macro_rules! cost_instr {
-	($name:ident, $num_params:expr) => {
-		cost_instr_no_params!($name)
-			.saturating_sub((cost_instr_no_params!($name) / 2).saturating_mul($num_params))
 	};
 }
 
@@ -401,7 +388,9 @@ impl<T: Config> Default for InstructionWeights<T> {
 	/// for a decent compromise between the optimization capabilities of Wasmi (stack) and
 	/// Wasmi (register).
 	fn default() -> Self {
-		Self { base: cost_instr!(instr_i64add, 1), _phantom: PhantomData }
+		let instr_cost = cost_args!(instr_i64add, 1).ref_time() as u32;
+		let base = instr_cost.saturating_sub(instr_cost / 2);
+		Self { base, _phantom: PhantomData }
 	}
 }
 
