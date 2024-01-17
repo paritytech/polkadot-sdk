@@ -1377,34 +1377,49 @@ impl<T: Config> Pallet<T> {
 		target: &T::AccountId,
 	) -> Result<(BalanceOf<T>, BalanceOf<T>), DispatchError> {
 		// Identity Deposit
-		let new_id_deposit = IdentityOf::<T>::try_mutate(
-			&target,
-			|identity_of| -> Result<BalanceOf<T>, DispatchError> {
-				let (reg, _) = identity_of.as_mut().ok_or(Error::<T>::NoIdentity)?;
-				// Calculate what deposit should be
-				let encoded_byte_size = reg.info.encoded_size() as u32;
-				let byte_deposit =
-					T::ByteDeposit::get().saturating_mul(<BalanceOf<T>>::from(encoded_byte_size));
-				let new_id_deposit = T::BasicDeposit::get().saturating_add(byte_deposit);
+		let has_identity = IdentityOf::<T>::contains_key(&target);
+		// This should really always be true, but don't insert random storage on the off chance it's
+		// not.
+		let new_id_deposit = if has_identity {
+			IdentityOf::<T>::try_mutate(
+				&target,
+				|identity_of| -> Result<BalanceOf<T>, DispatchError> {
+					let (reg, _) = identity_of.as_mut().ok_or(Error::<T>::NoIdentity)?;
+					// Calculate what deposit should be
+					let encoded_byte_size = reg.info.encoded_size() as u32;
+					let byte_deposit = T::ByteDeposit::get()
+						.saturating_mul(<BalanceOf<T>>::from(encoded_byte_size));
+					let new_id_deposit = T::BasicDeposit::get().saturating_add(byte_deposit);
 
-				// Update account
-				Self::rejig_deposit(&target, reg.deposit, new_id_deposit)?;
+					// Update account
+					Self::rejig_deposit(&target, reg.deposit, new_id_deposit)?;
 
-				reg.deposit = new_id_deposit;
-				Ok(new_id_deposit)
-			},
-		)?;
+					reg.deposit = new_id_deposit;
+					Ok(new_id_deposit)
+				},
+			)?
+		} else {
+			// If the item doesn't exist, there is no "old" deposit, and the new one is zero, so no
+			// need to call rejig, it'd just be zero -> zero.
+			Zero::zero()
+		};
 
-		// Subs Deposit
-		let new_subs_deposit = SubsOf::<T>::try_mutate(
-			&target,
-			|(current_subs_deposit, subs_of)| -> Result<BalanceOf<T>, DispatchError> {
-				let new_subs_deposit = Self::subs_deposit(subs_of.len() as u32);
-				Self::rejig_deposit(&target, *current_subs_deposit, new_subs_deposit)?;
-				*current_subs_deposit = new_subs_deposit;
-				Ok(new_subs_deposit)
-			},
-		)?;
+		let has_subs = SubsOf::<T>::contains_key(&target);
+		let new_subs_deposit = if has_subs {
+			SubsOf::<T>::try_mutate(
+				&target,
+				|(current_subs_deposit, subs_of)| -> Result<BalanceOf<T>, DispatchError> {
+					let new_subs_deposit = Self::subs_deposit(subs_of.len() as u32);
+					Self::rejig_deposit(&target, *current_subs_deposit, new_subs_deposit)?;
+					*current_subs_deposit = new_subs_deposit;
+					Ok(new_subs_deposit)
+				},
+			)?
+		} else {
+			// If the item doesn't exist, there is no "old" deposit, and the new one is zero, so no
+			// need to call rejig, it'd just be zero -> zero.
+			Zero::zero()
+		};
 		Ok((new_id_deposit, new_subs_deposit))
 	}
 
