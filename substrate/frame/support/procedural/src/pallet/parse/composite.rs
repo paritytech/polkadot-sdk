@@ -109,6 +109,19 @@ impl CompositeDef {
 		item: &mut syn::Item,
 	) -> syn::Result<Self> {
 		let item = if let syn::Item::Enum(item) = item {
+			// check variants: composite enums support only field-less enum variants. This is
+			// because fields can introduce too many possibilities, making it challenging to compute
+			// a fixed variant count.
+			for variant in &item.variants {
+				match variant.fields {
+					syn::Fields::Named(_) | syn::Fields::Unnamed(_) =>
+						return Err(syn::Error::new(
+							variant.ident.span(),
+							"The composite enum does not support variants with fields!",
+						)),
+					syn::Fields::Unit => (),
+				}
+			}
 			item
 		} else {
 			return Err(syn::Error::new(
