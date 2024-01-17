@@ -143,10 +143,10 @@ parameter_types! {
 }
 
 parameter_types! {
-	pub const KsmLocation: MultiLocation = MultiLocation::parent();
-	pub const TokenLocation: MultiLocation = Here.into_location();
+	pub const KsmLocation: Location = Location::parent();
+	pub const TokenLocation: Location = Here.into_location();
 	pub const RelayNetwork: NetworkId = ByGenesis([0; 32]);
-	pub UniversalLocation: InteriorMultiLocation = Parachain(MsgQueue::parachain_id().into()).into();
+	pub UniversalLocation: InteriorLocation = Parachain(MsgQueue::parachain_id().into()).into();
 }
 
 pub type XcmOriginToCallOrigin = (
@@ -158,13 +158,13 @@ pub type XcmOriginToCallOrigin = (
 
 parameter_types! {
 	pub const XcmInstructionWeight: Weight = Weight::from_parts(1_000, 1_000);
-	pub TokensPerSecondPerMegabyte: (AssetId, u128, u128) = (Concrete(Parent.into()), 1_000_000_000_000, 1024 * 1024);
+	pub TokensPerSecondPerMegabyte: (AssetId, u128, u128) = (AssetId(Parent.into()), 1_000_000_000_000, 1024 * 1024);
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
-	pub ForeignPrefix: MultiLocation = (Parent,).into();
+	pub ForeignPrefix: Location = (Parent,).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
-	pub TrustedLockPairs: (MultiLocation, MultiAssetFilter) =
-	(Parent.into(), Wild(AllOf { id: Concrete(Parent.into()), fun: WildFungible }));
+	pub TrustedLockPairs: (Location, AssetFilter) =
+	(Parent.into(), Wild(AllOf { id: AssetId(Parent.into()), fun: WildFungible }));
 }
 
 pub fn estimate_message_fee(number_of_instructions: u64) -> u128 {
@@ -188,20 +188,19 @@ pub fn estimate_fee_for_weight(weight: Weight) -> u128 {
 pub type LocalBalancesTransactor =
 	XcmCurrencyAdapter<Balances, IsConcrete<TokenLocation>, SovereignAccountOf, AccountId, ()>;
 
-pub struct FromMultiLocationToAsset<MultiLocation, AssetId>(PhantomData<(MultiLocation, AssetId)>);
-impl MaybeEquivalence<MultiLocation, AssetIdForAssets>
-	for FromMultiLocationToAsset<MultiLocation, AssetIdForAssets>
+pub struct FromLocationToAsset<Location, AssetId>(PhantomData<(Location, AssetId)>);
+impl MaybeEquivalence<Location, AssetIdForAssets>
+	for FromLocationToAsset<Location, AssetIdForAssets>
 {
-	fn convert(value: &MultiLocation) -> Option<AssetIdForAssets> {
-		match *value {
-			MultiLocation { parents: 1, interior: Here } => Some(0 as AssetIdForAssets),
-			MultiLocation { parents: 1, interior: X1(Parachain(para_id)) } =>
-				Some(para_id as AssetIdForAssets),
+	fn convert(value: &Location) -> Option<AssetIdForAssets> {
+		match value.unpack() {
+			(1, []) => Some(0 as AssetIdForAssets),
+			(1, [Parachain(para_id)]) => Some(*para_id as AssetIdForAssets),
 			_ => None,
 		}
 	}
 
-	fn convert_back(_id: &AssetIdForAssets) -> Option<MultiLocation> {
+	fn convert_back(_id: &AssetIdForAssets) -> Option<Location> {
 		None
 	}
 }
@@ -211,7 +210,7 @@ pub type ForeignAssetsTransactor = FungiblesAdapter<
 	ConvertedConcreteId<
 		AssetIdForAssets,
 		Balance,
-		FromMultiLocationToAsset<MultiLocation, AssetIdForAssets>,
+		FromLocationToAsset<Location, AssetIdForAssets>,
 		JustTry,
 	>,
 	SovereignAccountOf,
@@ -224,18 +223,15 @@ pub type ForeignAssetsTransactor = FungiblesAdapter<
 pub type AssetTransactors = (LocalBalancesTransactor, ForeignAssetsTransactor);
 
 pub struct ParentRelay;
-impl Contains<MultiLocation> for ParentRelay {
-	fn contains(location: &MultiLocation) -> bool {
+impl Contains<Location> for ParentRelay {
+	fn contains(location: &Location) -> bool {
 		location.contains_parents_only(1)
 	}
 }
 pub struct ThisParachain;
-impl Contains<MultiLocation> for ThisParachain {
-	fn contains(location: &MultiLocation) -> bool {
-		matches!(
-			location,
-			MultiLocation { parents: 0, interior: Junctions::X1(Junction::AccountId32 { .. }) }
-		)
+impl Contains<Location> for ThisParachain {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (0, [Junction::AccountId32 { .. }]))
 	}
 }
 
@@ -251,12 +247,12 @@ pub type Barrier = (
 );
 
 parameter_types! {
-	pub NftCollectionOne: MultiAssetFilter
-		= Wild(AllOf { fun: WildNonFungible, id: Concrete((Parent, GeneralIndex(1)).into()) });
-	pub NftCollectionOneForRelay: (MultiAssetFilter, MultiLocation)
+	pub NftCollectionOne: AssetFilter
+		= Wild(AllOf { fun: WildNonFungible, id: AssetId((Parent, GeneralIndex(1)).into()) });
+	pub NftCollectionOneForRelay: (AssetFilter, Location)
 		= (NftCollectionOne::get(), Parent.into());
-	pub RelayNativeAsset: MultiAssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete((Parent, Here).into()) });
-	pub RelayNativeAssetForRelay: (MultiAssetFilter, MultiLocation) = (RelayNativeAsset::get(), Parent.into());
+	pub RelayNativeAsset: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId((Parent, Here).into()) });
+	pub RelayNativeAssetForRelay: (AssetFilter, Location) = (RelayNativeAsset::get(), Parent.into());
 }
 pub type TrustedTeleporters =
 	(xcm_builder::Case<NftCollectionOneForRelay>, xcm_builder::Case<RelayNativeAssetForRelay>);
@@ -298,10 +294,8 @@ impl mock_msg_queue::Config for Runtime {
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
 
 pub struct TrustedLockerCase<T>(PhantomData<T>);
-impl<T: Get<(MultiLocation, MultiAssetFilter)>> ContainsPair<MultiLocation, MultiAsset>
-	for TrustedLockerCase<T>
-{
-	fn contains(origin: &MultiLocation, asset: &MultiAsset) -> bool {
+impl<T: Get<(Location, AssetFilter)>> ContainsPair<Location, Asset> for TrustedLockerCase<T> {
+	fn contains(origin: &Location, asset: &Asset) -> bool {
 		let (o, a) = T::get();
 		a.matches(asset) && &o == origin
 	}
