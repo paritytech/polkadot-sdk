@@ -322,8 +322,7 @@ impl<T: Config> ContractInfo<T> {
 				KillStorageResult::SomeRemaining(_) => return weight_limit,
 				KillStorageResult::AllRemoved(keys_removed) => {
 					entry.remove();
-					// charge at least one key even if none were removed.
-					remaining_key_budget = remaining_key_budget.saturating_sub(keys_removed.min(1));
+					remaining_key_budget = remaining_key_budget.saturating_sub(keys_removed);
 				},
 			};
 		}
