@@ -503,7 +503,7 @@ pub async fn benchmark_availability_read(env: &mut TestEnvironment, mut state: T
 
 	env.import_block(new_block_import_info(Hash::repeat_byte(1), 1)).await;
 
-	let start_marker = Instant::now();
+	let test_start = Instant::now();
 	let mut batch = FuturesUnordered::new();
 	let mut availability_bytes = 0u128;
 
@@ -546,7 +546,7 @@ pub async fn benchmark_availability_read(env: &mut TestEnvironment, mut state: T
 		gum::info!("All work for block completed in {}", format!("{:?}ms", block_time).cyan());
 	}
 
-	let duration: u128 = start_marker.elapsed().as_millis();
+	let duration: u128 = test_start.elapsed().as_millis();
 	let availability_bytes = availability_bytes / 1024;
 	gum::info!("All blocks processed in {}", format!("{:?}ms", duration).cyan());
 	gum::info!(
@@ -554,9 +554,8 @@ pub async fn benchmark_availability_read(env: &mut TestEnvironment, mut state: T
 		format!("{} KiB/block", availability_bytes / env.config().num_blocks as u128).bright_red()
 	);
 	gum::info!(
-		"Block time: {}",
-		format!("{} ms", start_marker.elapsed().as_millis() / env.config().num_blocks as u128)
-			.red()
+		"Avg block time: {}",
+		format!("{} ms", test_start.elapsed().as_millis() / env.config().num_blocks as u128).red()
 	);
 
 	env.display_network_usage();
@@ -566,7 +565,6 @@ pub async fn benchmark_availability_read(env: &mut TestEnvironment, mut state: T
 
 pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: TestState) {
 	let config = env.config().clone();
-	let start_marker = Instant::now();
 
 	env.metrics().set_n_validators(config.n_validators);
 	env.metrics().set_n_cores(config.n_cores);
@@ -593,6 +591,8 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 	}
 
 	gum::info!("Done");
+
+	let test_start = Instant::now();
 
 	for block_num in 1..=env.config().num_blocks {
 		gum::info!(target: LOG_TARGET, "Current block #{}", block_num);
@@ -708,12 +708,11 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 		gum::info!("All work for block completed in {}", format!("{:?}ms", block_time).cyan());
 	}
 
-	let duration: u128 = start_marker.elapsed().as_millis();
+	let duration: u128 = test_start.elapsed().as_millis();
 	gum::info!("All blocks processed in {}", format!("{:?}ms", duration).cyan());
 	gum::info!(
-		"Block time: {}",
-		format!("{} ms", start_marker.elapsed().as_millis() / env.config().num_blocks as u128)
-			.red()
+		"Avg block time: {}",
+		format!("{} ms", test_start.elapsed().as_millis() / env.config().num_blocks as u128).red()
 	);
 
 	env.display_network_usage();
