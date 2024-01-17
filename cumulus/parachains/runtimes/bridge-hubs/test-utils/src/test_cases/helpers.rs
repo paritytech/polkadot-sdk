@@ -230,7 +230,7 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 	prepare_message_proof_import: impl FnOnce(
 		Runtime::AccountId,
 		Runtime::InboundRelayer,
-		InteriorMultiLocation,
+		InteriorLocation,
 		MessageNonce,
 		Xcm<()>,
 	) -> CallsAndVerifiers<Runtime>,
@@ -276,21 +276,21 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 
 			// set up relayer details and proofs
 
-			let message_destination =
-				X2(GlobalConsensus(local_relay_chain_id), Parachain(sibling_parachain_id));
+			let message_destination: InteriorLocation =
+				[GlobalConsensus(local_relay_chain_id), Parachain(sibling_parachain_id)].into();
 			// some random numbers (checked by test)
 			let message_nonce = 1;
 
-			let xcm = vec![xcm::v3::Instruction::<()>::ClearOrigin; 42];
+			let xcm = vec![Instruction::<()>::ClearOrigin; 42];
 			let expected_dispatch = xcm::latest::Xcm::<()>({
 				let mut expected_instructions = xcm.clone();
 				// dispatch prepends bridge pallet instance
 				expected_instructions.insert(
 					0,
-					DescendOrigin(X1(PalletInstance(
+					DescendOrigin([PalletInstance(
 						<pallet_bridge_messages::Pallet<Runtime, MPI> as PalletInfoAccess>::index()
 							as u8,
-					))),
+					)].into()),
 				);
 				expected_instructions
 			});
