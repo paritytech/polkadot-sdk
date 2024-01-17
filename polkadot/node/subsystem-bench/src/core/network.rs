@@ -17,13 +17,13 @@
 //! Implements network emulation and interfaces to control and specialize
 //! network peer behaviour.
 //
-//	  [TestEnvironment]
-// 	[NetworkEmulatorHandle]
-// 			 ||
+//	     [TestEnvironment]
+// 	  [NetworkEmulatorHandle]
+// 			    ||
 //   +-------+--||--+-------+
 //   |       |      |       |
 //  Peer1	Peer2  Peer3  Peer4
-//    \      |	     |	    /
+//    \      |	    |	    /
 //     \     |      |	   /
 //      \    |      |    /
 //       \   |      |   /
