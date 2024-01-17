@@ -396,10 +396,12 @@ impl Default for Limits {
 }
 
 impl<T: Config> Default for InstructionWeights<T> {
-	/// We price both `i64.const` and `drop` as `instr_i64const / 2`. The reason
-	/// for that is that we cannot benchmark either of them on its own.
+	/// We price all of `i64.add`, `local.get` and `local.set` as `instr_i64add / 2`. The reason
+	/// for that is that we cannot benchmark either of them on their own and division by 2 makes
+	/// for a decent compromise between the optimization capabilities of Wasmi (stack) and
+	/// Wasmi (register).
 	fn default() -> Self {
-		Self { base: cost_instr!(instr_i64const, 1), _phantom: PhantomData }
+		Self { base: cost_instr!(instr_i64add, 1), _phantom: PhantomData }
 	}
 }
 
