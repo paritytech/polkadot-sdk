@@ -316,7 +316,7 @@ impl pallet_balances::Config for Runtime {
 	type FreezeIdentifier = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type MaxHolds = RuntimeHoldReason;
+
 	type MaxFreezes = RuntimeFreezeReason;
 }
 
@@ -1163,7 +1163,7 @@ impl pallet_balances::Config<NisCounterpartInstance> for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = RuntimeHoldReason;
+
 	type MaxFreezes = RuntimeFreezeReason;
 }
 

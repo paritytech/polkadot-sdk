@@ -84,7 +84,7 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ConstU32<1>;
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-	type MaxHolds = ConstU32<2>;
+
 }
 
 ord_parameter_types! {

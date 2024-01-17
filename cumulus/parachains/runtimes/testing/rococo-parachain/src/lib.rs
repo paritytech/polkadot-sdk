@@ -258,7 +258,7 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = RuntimeHoldReason;
+
 	type MaxFreezes = RuntimeFreezeReason;
 }
 
