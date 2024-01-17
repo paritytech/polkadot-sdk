@@ -92,7 +92,6 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]

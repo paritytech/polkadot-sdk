@@ -254,7 +254,6 @@ impl pallet_balances::Config for Runtime {
 	type MaxFreezes = ConstU32<1>;
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-
 }
 
 pub struct BalanceToU256;

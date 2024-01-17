@@ -69,7 +69,6 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-
 }
 
 const MOTION_DURATION_IN_BLOCKS: BlockNumber = 3;

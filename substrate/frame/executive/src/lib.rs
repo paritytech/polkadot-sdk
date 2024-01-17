@@ -960,7 +960,6 @@ mod tests {
 		type MaxFreezes = ConstU32<1>;
 		type RuntimeHoldReason = ();
 		type RuntimeFreezeReason = ();
-
 	}
 
 	parameter_types! {

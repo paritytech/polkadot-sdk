@@ -129,7 +129,6 @@ impl pallet_balances::Config for Runtime {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-
 }
 
 impl WeightToFeeT for WeightToFee {

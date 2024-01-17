@@ -91,7 +91,6 @@ impl pallet_balances::Config<Instance1> for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-
 }
 
 impl pallet_balances::Config<Instance2> for Test {
@@ -112,7 +111,6 @@ impl pallet_balances::Config<Instance2> for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-
 }
 
 parameter_types! {

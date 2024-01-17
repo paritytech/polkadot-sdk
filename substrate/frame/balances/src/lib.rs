@@ -475,7 +475,10 @@ pub mod pallet {
 		_,
 		Blake2_128Concat,
 		T::AccountId,
-		BoundedVec<IdAmount<T::RuntimeHoldReason, T::Balance>, VariantCountOf<T::RuntimeHoldReason>>,
+		BoundedVec<
+			IdAmount<T::RuntimeHoldReason, T::Balance>,
+			VariantCountOf<T::RuntimeHoldReason>,
+		>,
 		ValueQuery,
 	>;
 
