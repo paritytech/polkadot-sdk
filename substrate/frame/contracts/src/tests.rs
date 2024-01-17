@@ -2409,14 +2409,8 @@ fn lazy_removal_partial_remove_works() {
 
 	// We create a contract with some extra keys above the weight limit
 	let extra_keys = 7u32;
-
-	// Give it enough gas to remove at least 10 keys
-	let base_weight =
-		<<Test as Config>::WeightInfo as WeightInfo>::on_process_deletion_queue_batch();
-	let (weight_per_key, _) = ContractInfo::<Test>::deletion_budget(&mut WeightMeter::new());
-	let mut meter = WeightMeter::with_limit((weight_per_key * 10).saturating_add(base_weight));
-
-	let (_, max_keys) = ContractInfo::<Test>::deletion_budget(&meter);
+	let mut meter = WeightMeter::with_limit(Weight::from_parts(5_000_000_000, 100 * 1024));
+	let (weight_per_key, max_keys) = ContractInfo::<Test>::deletion_budget(&meter);
 	let vals: Vec<_> = (0..max_keys + extra_keys)
 		.map(|i| (blake2_256(&i.encode()), (i as u32), (i as u32).encode()))
 		.collect();
