@@ -123,6 +123,31 @@ only send "importable" statements to the backing subsystem itself.
   backable and part of the hypothetical frontier.
 - Note that requesting is not an implicit acknowledgement, and an explicit acknowledgement must be sent upon receipt.
 
+### Disabled validators
+
+After a validator is disabled in the runtime, other validators should no longer
+accept statements from it. Filtering out of statements from disabled validators
+on the node side is purely an optimization, as it will be done in the runtime
+as well.
+
+Because we use the state of the active leaves to
+check whether a validator is disabled instead of the relay parent, the notion
+of being disabled is inherently racy:
+- the responder has learned about the disabled validator before the requester
+- the receiver has witnessed the disabled validator after sending the request
+
+We could have sent a manifest to a peer, then received information about
+disabling, and then receive a request. This can break an invariant of the grid
+mode:
+- the response is required to indicate quorum
+
+Due to the above, there should be no response at all for grid requests when
+the backing threshold is no longer met as a result of disabled validators.
+In addition to that, we add disabled validators to the request's unwanted
+mask. This ensures that the sender will not send statements from disabled
+validators (at least from the perspective of the receiver at the moment of the
+request). This doesn't fully avoid race conditions, but tries to minimize them.
+
 ## Messages
 
 ### Incoming

@@ -33,7 +33,9 @@ use polkadot_node_subsystem::{
 };
 
 use polkadot_node_network_protocol::request_response::{
-	self as req_res, v1::ChunkResponse, Requests,
+	self as req_res,
+	v1::{AvailableDataFetchingRequest, ChunkFetchingRequest, ChunkResponse},
+	IsRequest, Requests,
 };
 use polkadot_primitives::AuthorityDiscoveryId;
 
@@ -144,7 +146,10 @@ impl MockNetworkBridgeTx {
 					size = 0;
 					Err(RequestFailure::Network(OutboundFailure::ConnectionClosed))
 				} else {
-					Ok(req_res::v1::ChunkFetchingResponse::from(Some(chunk)).encode())
+					Ok((
+						req_res::v1::ChunkFetchingResponse::from(Some(chunk)).encode(),
+						self.network.req_protocol_names().get_name(ChunkFetchingRequest::PROTOCOL),
+					))
 				};
 
 				let authority_discovery_id_clone = authority_discovery_id.clone();
@@ -212,8 +217,13 @@ impl MockNetworkBridgeTx {
 				let response = if random_error(self.config.error) {
 					Err(RequestFailure::Network(OutboundFailure::ConnectionClosed))
 				} else {
-					Ok(req_res::v1::AvailableDataFetchingResponse::from(Some(available_data))
-						.encode())
+					Ok((
+						req_res::v1::AvailableDataFetchingResponse::from(Some(available_data))
+							.encode(),
+						self.network
+							.req_protocol_names()
+							.get_name(AvailableDataFetchingRequest::PROTOCOL),
+					))
 				};
 
 				let future = async move {

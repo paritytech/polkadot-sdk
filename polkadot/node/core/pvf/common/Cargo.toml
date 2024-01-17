@@ -39,9 +39,6 @@ seccompiler = "0.4.0"
 assert_matches = "1.4.0"
 tempfile = "3.3.0"
 
-[build-dependencies]
-substrate-build-script-utils = { path = "../../../../../substrate/utils/build-script-utils" }
-
 [features]
 # This feature is used to export test code to other crates without putting it in the production build.
 test-utils = []

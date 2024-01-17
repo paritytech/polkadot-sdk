@@ -52,6 +52,8 @@ pub struct CandidateEnvironment<'a> {
 	executor_params: &'a ExecutorParams,
 	/// Validator indices controlled by this node.
 	controlled_indices: HashSet<ValidatorIndex>,
+	/// Indices of disabled validators at the `relay_parent`.
+	disabled_indices: HashSet<ValidatorIndex>,
 }
 
 #[overseer::contextbounds(DisputeCoordinator, prefix = self::overseer)]
@@ -66,6 +68,16 @@ impl<'a> CandidateEnvironment<'a> {
 		session_index: SessionIndex,
 		relay_parent: Hash,
 	) -> Option<CandidateEnvironment<'a>> {
+		let disabled_indices = runtime_info
+			.get_disabled_validators(ctx.sender(), relay_parent)
+			.await
+			.unwrap_or_else(|err| {
+				gum::info!(target: LOG_TARGET, ?err, "Failed to get disabled validators");
+				Vec::new()
+			})
+			.into_iter()
+			.collect();
+
 		let (session, executor_params) = match runtime_info
 			.get_session_info_by_index(ctx.sender(), relay_parent, session_index)
 			.await
@@ -76,7 +88,7 @@ impl<'a> CandidateEnvironment<'a> {
 		};
 
 		let controlled_indices = find_controlled_validator_indices(keystore, &session.validators);
-		Some(Self { session_index, session, executor_params, controlled_indices })
+		Some(Self { session_index, session, executor_params, controlled_indices, disabled_indices })
 	}
 
 	/// Validators in the candidate's session.
@@ -102,6 +114,11 @@ impl<'a> CandidateEnvironment<'a> {
 	/// Indices controlled by this node.
 	pub fn controlled_indices(&'a self) -> &'a HashSet<ValidatorIndex> {
 		&self.controlled_indices
+	}
+
+	/// Indices of disabled validators at the `relay_parent`.
+	pub fn disabled_indices(&'a self) -> &'a HashSet<ValidatorIndex> {
+		&self.disabled_indices
 	}
 }
 
@@ -342,6 +359,14 @@ impl CandidateVoteState<CandidateVotes> {
 	/// Retrieve `CandidateReceipt` in `CandidateVotes`.
 	pub fn candidate_receipt(&self) -> &CandidateReceipt {
 		&self.votes.candidate_receipt
+	}
+
+	/// Returns true if all the invalid votes are from disabled validators.
+	pub fn invalid_votes_all_disabled(
+		&self,
+		mut is_disabled: impl FnMut(&ValidatorIndex) -> bool,
+	) -> bool {
+		self.votes.invalid.keys().all(|i| is_disabled(i))
 	}
 
 	/// Extract `CandidateVotes` for handling import of new statements.
