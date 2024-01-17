@@ -21,7 +21,7 @@ use super::{
 };
 use crate::bridge_common_config::{DeliveryRewardInBalance, RequiredStakeForStakeAndSlash};
 use frame_support::{
-	match_types, parameter_types,
+	parameter_types,
 	traits::{tokens::imbalance::ResolveTo, ConstU32, Contains, Equals, Everything, Nothing},
 };
 use frame_system::EnsureRoot;

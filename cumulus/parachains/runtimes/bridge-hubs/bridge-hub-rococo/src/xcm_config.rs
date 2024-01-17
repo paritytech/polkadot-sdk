@@ -32,7 +32,7 @@ use bp_messages::LaneId;
 use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
 use bp_runtime::ChainId;
 use frame_support::{
-	match_types, parameter_types,
+	parameter_types,
 	traits::{tokens::imbalance::ResolveTo, ConstU32, Contains, Equals, Everything, Nothing},
 };
 use frame_system::EnsureRoot;
