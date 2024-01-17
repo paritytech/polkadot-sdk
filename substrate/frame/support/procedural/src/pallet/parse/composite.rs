@@ -91,8 +91,14 @@ pub struct CompositeDef {
 	pub index: usize,
 	/// The composite keyword used (contains span).
 	pub composite_keyword: keyword::CompositeKeyword,
+
+	/// Name of the associated type.
+	pub ident: syn::Ident,
+	pub generics: syn::Generics,
 	/// The span of the pallet::composite_enum attribute.
 	pub attr_span: proc_macro2::Span,
+
+	pub variant_count: u32,
 }
 
 impl CompositeDef {
@@ -138,7 +144,6 @@ impl CompositeDef {
 					#scrate::__private::codec::Encode, #scrate::__private::codec::Decode, #scrate::__private::codec::MaxEncodedLen,
 					#scrate::__private::scale_info::TypeInfo,
 					#scrate::__private::RuntimeDebug,
-					#scrate::CompositeEnumVariantCount,
 				)]
 			};
 			item.attrs.push(derive_attr);
@@ -161,6 +166,13 @@ impl CompositeDef {
 		let composite_keyword =
 			syn::parse2::<keyword::CompositeKeyword>(item.ident.to_token_stream())?;
 
-		Ok(CompositeDef { index, composite_keyword, attr_span })
+		Ok(CompositeDef {
+			index,
+			composite_keyword,
+			attr_span,
+			generics: item.generics.clone(),
+			variant_count: item.variants.len() as u32,
+			ident: item.ident.clone(),
+		})
 	}
 }

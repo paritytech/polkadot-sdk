@@ -21,10 +21,7 @@
 #![recursion_limit = "128"]
 
 use codec::Encode;
-use frame_support::{
-	derive_impl,
-	traits::VariantCount,
-};
+use frame_support::{derive_impl, traits::VariantCount};
 use sp_core::sr25519;
 use sp_runtime::{
 	generic,
