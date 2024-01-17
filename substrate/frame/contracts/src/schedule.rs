@@ -373,7 +373,8 @@ macro_rules! cost {
 macro_rules! cost_instr {
 	($name:ident, $num_params:expr) => {
 		cost_instr_no_params!($name)
-			.saturating_sub((cost_instr_no_params!(instr_i64const) / 2).saturating_mul($num_params))
+			.saturating_sub((cost_instr_no_params!(instr_i64const) / 2)
+			.saturating_mul($num_params))
 	};
 }
 
