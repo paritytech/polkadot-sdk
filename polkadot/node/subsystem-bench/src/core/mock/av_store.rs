@@ -68,7 +68,7 @@ impl MockAvailabilityStore {
 		let v = self
 			.state
 			.chunks
-			.get(*candidate_index as usize)
+			.get(*candidate_index)
 			.unwrap()
 			.iter()
 			.filter(|c| send_chunk(c.index.0 as usize))
@@ -123,7 +123,7 @@ impl MockAvailabilityStore {
 							.expect("candidate was generated previously; qed");
 						gum::debug!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
 
-						let chunk_size = self.state.chunks.get(*candidate_index as usize).unwrap()
+						let chunk_size = self.state.chunks.get(*candidate_index).unwrap()
 							[0]
 						.encoded_size();
 						let _ = tx.send(Some(chunk_size));

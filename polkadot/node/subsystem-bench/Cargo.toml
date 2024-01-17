@@ -66,6 +66,8 @@ orchestra = { version = "0.3.3", default-features = false, features=["futures_ch
 kvdb-memorydb = "0.13.0"
 sp-consensus = { path = "../../../substrate/primitives/consensus/common", default-features = false }
 bitvec = "1.0.0"
+pyroscope = "0.5.7"
+pyroscope_pprofrs = "0.2.7"
 
 [features]
 default = []

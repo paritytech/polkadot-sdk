@@ -47,11 +47,11 @@ pub use origin_conversion::{
 };
 
 mod asset_conversion;
-pub use asset_conversion::{
-	AsPrefixedGeneralIndex, ConvertedAbstractId, ConvertedConcreteId, MatchedConvertedConcreteId,
-};
 #[allow(deprecated)]
-pub use asset_conversion::{ConvertedAbstractAssetId, ConvertedConcreteAssetId};
+pub use asset_conversion::ConvertedConcreteAssetId;
+pub use asset_conversion::{
+	AsPrefixedGeneralIndex, ConvertedConcreteId, MatchedConvertedConcreteId, V4V3LocationConverter,
+};
 
 mod barriers;
 pub use barriers::{
@@ -65,12 +65,16 @@ mod process_xcm_message;
 pub use process_xcm_message::ProcessXcmMessage;
 
 mod currency_adapter;
+#[allow(deprecated)]
 pub use currency_adapter::CurrencyAdapter;
 
 mod fee_handling;
 pub use fee_handling::{
 	deposit_or_burn_fee, HandleFee, XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
+
+mod fungible_adapter;
+pub use fungible_adapter::{FungibleAdapter, FungibleMutateAdapter, FungibleTransferAdapter};
 
 mod fungibles_adapter;
 pub use fungibles_adapter::{
@@ -92,7 +96,7 @@ mod matches_location;
 pub use matches_location::{StartsWith, StartsWithExplicitGlobalConsensus};
 
 mod matches_token;
-pub use matches_token::{IsAbstract, IsConcrete};
+pub use matches_token::IsConcrete;
 
 mod matcher;
 pub use matcher::{CreateMatcher, MatchXcm, Matcher};

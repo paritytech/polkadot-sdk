@@ -483,7 +483,6 @@ impl TestState {
 			candidates: Vec::new().into_iter().cycle(),
 			chunk_request_protocol: None,
 			backed_candidates: Vec::new(),
-		};
 
 		_self.generate_candidates();
 		_self

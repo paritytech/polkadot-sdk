@@ -129,12 +129,13 @@ ON_BRIDGE_HUB_WESTEND_SOVEREIGN_ACCOUNT_FOR_LANE_00000002_bhro_ThisChain="5EHnXa
 ON_BRIDGE_HUB_WESTEND_SOVEREIGN_ACCOUNT_FOR_LANE_00000002_bhro_BridgedChain="5EHnXaT5BhiSGP5h9RgQci1txJ2BDbp7KBRE9k8xty3BMUSi"
 
 LANE_ID="00000002"
+XCM_VERSION=3
 
 function init_ro_wnd() {
-    ensure_relayer
+    local relayer_path=$(ensure_relayer)
 
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
-        ~/local_bridge_testing/bin/substrate-relay init-bridge rococo-to-bridge-hub-westend \
+        $relayer_path init-bridge rococo-to-bridge-hub-westend \
 	--source-host localhost \
 	--source-port 9942 \
 	--source-version-mode Auto \
@@ -145,10 +146,10 @@ function init_ro_wnd() {
 }
 
 function init_wnd_ro() {
-    ensure_relayer
+    local relayer_path=$(ensure_relayer)
 
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
-        ~/local_bridge_testing/bin/substrate-relay init-bridge westend-to-bridge-hub-rococo \
+        $relayer_path init-bridge westend-to-bridge-hub-rococo \
         --source-host localhost \
         --source-port 9945 \
         --source-version-mode Auto \
@@ -159,10 +160,10 @@ function init_wnd_ro() {
 }
 
 function run_relay() {
-    ensure_relayer
+    local relayer_path=$(ensure_relayer)
 
     RUST_LOG=runtime=trace,rpc=trace,bridge=trace \
-        ~/local_bridge_testing/bin/substrate-relay relay-headers-and-messages bridge-hub-rococo-bridge-hub-westend \
+        $relayer_path relay-headers-and-messages bridge-hub-rococo-bridge-hub-westend \
         --rococo-host localhost \
         --rococo-port 9942 \
         --rococo-version-mode Auto \
@@ -215,6 +216,14 @@ case "$1" in
           "ws://127.0.0.1:9942" \
           "//Alice" \
           1013 1000 4 524288
+      # set XCM version of remote AssetHubWestend
+      force_xcm_version \
+          "ws://127.0.0.1:9942" \
+          "//Alice" \
+          1000 \
+          "ws://127.0.0.1:9910" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Westend" }, { "Parachain": 1000 } ] } }')" \
+          $XCM_VERSION
       ;;
   init-bridge-hub-rococo-local)
       ensure_polkadot_js_api
@@ -236,6 +245,14 @@ case "$1" in
           "//Alice" \
           "$ON_BRIDGE_HUB_ROCOCO_SOVEREIGN_ACCOUNT_FOR_LANE_00000002_bhwd_BridgedChain" \
           $((1000000000000 + 2000000000000))
+      # set XCM version of remote BridgeHubWestend
+      force_xcm_version \
+          "ws://127.0.0.1:9942" \
+          "//Alice" \
+          1013 \
+          "ws://127.0.0.1:8943" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Westend" }, { "Parachain": 1002 } ] } }')" \
+          $XCM_VERSION
       ;;
   init-asset-hub-westend-local)
       ensure_polkadot_js_api
@@ -264,6 +281,14 @@ case "$1" in
           "ws://127.0.0.1:9945" \
           "//Alice" \
           1002 1000 4 524288
+      # set XCM version of remote AssetHubRococo
+      force_xcm_version \
+          "ws://127.0.0.1:9945" \
+          "//Alice" \
+          1000 \
+          "ws://127.0.0.1:9010" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Rococo" }, { "Parachain": 1000 } ] } }')" \
+          $XCM_VERSION
       ;;
   init-bridge-hub-westend-local)
       # SA of sibling asset hub pays for the execution
@@ -284,6 +309,14 @@ case "$1" in
           "//Alice" \
           "$ON_BRIDGE_HUB_WESTEND_SOVEREIGN_ACCOUNT_FOR_LANE_00000002_bhro_BridgedChain" \
           $((1000000000000000 + 2000000000000))
+      # set XCM version of remote BridgeHubRococo
+      force_xcm_version \
+          "ws://127.0.0.1:9945" \
+          "//Alice" \
+          1002 \
+          "ws://127.0.0.1:8945" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Rococo" }, { "Parachain": 1013 } ] } }')" \
+          $XCM_VERSION
       ;;
   reserve-transfer-assets-from-asset-hub-rococo-local)
       ensure_polkadot_js_api
@@ -293,7 +326,7 @@ case "$1" in
           "//Alice" \
           "$(jq --null-input '{ "V3": { "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Westend" }, { "Parachain": 1000 } ] } } }')" \
           "$(jq --null-input '{ "V3": { "parents": 0, "interior": { "X1": { "AccountId32": { "id": [212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125] } } } } }')" \
-          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 1, "interior": "Here" } }, "fun": { "Fungible": 200000000000 } } ] }')" \
+          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 1, "interior": "Here" } }, "fun": { "Fungible": 5000000000000 } } ] }')" \
           0 \
           "Unlimited"
       ;;
@@ -305,7 +338,7 @@ case "$1" in
           "//Alice" \
           "$(jq --null-input '{ "V3": { "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Westend" }, { "Parachain": 1000 } ] } } }')" \
           "$(jq --null-input '{ "V3": { "parents": 0, "interior": { "X1": { "AccountId32": { "id": [212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125] } } } } }')" \
-          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 2, "interior": { "X1": { "GlobalConsensus": "Westend" } } } }, "fun": { "Fungible": 40000000000 } } ] }')" \
+          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 2, "interior": { "X1": { "GlobalConsensus": "Westend" } } } }, "fun": { "Fungible": 3000000000000 } } ] }')" \
           0 \
           "Unlimited"
       ;;
@@ -317,7 +350,7 @@ case "$1" in
           "//Alice" \
           "$(jq --null-input '{ "V3": { "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Rococo" }, { "Parachain": 1000 } ] } } }')" \
           "$(jq --null-input '{ "V3": { "parents": 0, "interior": { "X1": { "AccountId32": { "id": [212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125] } } } } }')" \
-          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 1, "interior": "Here" } }, "fun": { "Fungible": 150000000000 } } ] }')" \
+          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 1, "interior": "Here" } }, "fun": { "Fungible": 5000000000000 } } ] }')" \
           0 \
           "Unlimited"
       ;;
@@ -329,7 +362,7 @@ case "$1" in
           "//Alice" \
           "$(jq --null-input '{ "V3": { "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Rococo" }, { "Parachain": 1000 } ] } } }')" \
           "$(jq --null-input '{ "V3": { "parents": 0, "interior": { "X1": { "AccountId32": { "id": [212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159, 214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165, 109, 162, 125] } } } } }')" \
-          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 2, "interior": { "X1": { "GlobalConsensus": "Rococo" } } } }, "fun": { "Fungible": 100000000000 } } ] }')" \
+          "$(jq --null-input '{ "V3": [ { "id": { "Concrete": { "parents": 2, "interior": { "X1": { "GlobalConsensus": "Rococo" } } } }, "fun": { "Fungible": 3000000000000 } } ] }')" \
           0 \
           "Unlimited"
       ;;

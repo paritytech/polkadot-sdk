@@ -39,7 +39,7 @@ use parking_lot::Mutex;
 use sp_runtime::traits::Block as BlockT;
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
-pub use crate::request_responses::{InboundFailure, OutboundFailure, RequestId, ResponseFailure};
+pub use crate::request_responses::{InboundFailure, OutboundFailure, ResponseFailure};
 
 /// General behaviour of the network. Combines all protocols together.
 #[derive(NetworkBehaviour)]
@@ -231,13 +231,20 @@ impl<B: BlockT> Behaviour<B> {
 	pub fn send_request(
 		&mut self,
 		target: &PeerId,
-		protocol: &str,
+		protocol: ProtocolName,
 		request: Vec<u8>,
-		pending_response: oneshot::Sender<Result<Vec<u8>, RequestFailure>>,
+		fallback_request: Option<(Vec<u8>, ProtocolName)>,
+		pending_response: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
 		connect: IfDisconnected,
 	) {
-		self.request_responses
-			.send_request(target, protocol, request, pending_response, connect)
+		self.request_responses.send_request(
+			target,
+			protocol,
+			request,
+			fallback_request,
+			pending_response,
+			connect,
+		)
 	}
 
 	/// Returns a shared reference to the user protocol.

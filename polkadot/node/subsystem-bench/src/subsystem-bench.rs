@@ -17,16 +17,21 @@
 //! A tool for running subsystem benchmark tests designed for development and
 //! CI regression testing.
 use clap::Parser;
-use color_eyre::eyre;
 
 use colored::Colorize;
-use std::path::Path;
+
+use color_eyre::eyre;
+use pyroscope::PyroscopeAgent;
+use pyroscope_pprofrs::{pprof_backend, PprofConfig};
+
+use std::{path::Path, time::Duration};
 
 pub(crate) mod availability;
 pub(crate) mod cli;
 pub(crate) mod core;
+mod valgrind;
 
-use crate::availability::{prepare_test, NetworkEmulation, TestState};
+use availability::{prepare_test, NetworkEmulation, TestState};
 use cli::TestObjective;
 
 use core::{
@@ -75,6 +80,22 @@ struct BenchCli {
 	#[clap(long, value_parser=le_5000)]
 	/// Remote peer latency standard deviation
 	pub peer_latency_std_dev: Option<f64>,
+	
+	#[clap(long, default_value_t = false)]
+	/// Enable CPU Profiling with Pyroscope
+	pub profile: bool,
+
+	#[clap(long, requires = "profile", default_value_t = String::from("http://localhost:4040"))]
+	/// Pyroscope Server URL
+	pub pyroscope_url: String,
+
+	#[clap(long, requires = "profile", default_value_t = 113)]
+	/// Pyroscope Sample Rate
+	pub pyroscope_sample_rate: u32,
+
+	#[clap(long, default_value_t = false)]
+	/// Enable Cache Misses Profiling with Valgrind. Linux only, Valgrind must be in the PATH
+	pub cache_misses: bool,
 
 	#[command(subcommand)]
 	pub objective: cli::TestObjective,
@@ -113,6 +134,22 @@ impl BenchCli {
 	}
 
 	fn launch(self) -> eyre::Result<()> {
+		let is_valgrind_running = valgrind::is_valgrind_running();
+		if !is_valgrind_running && self.cache_misses {
+			return valgrind::relaunch_in_valgrind_mode()
+		}
+
+		let agent_running = if self.profile {
+			let agent = PyroscopeAgent::builder(self.pyroscope_url.as_str(), "subsystem-bench")
+				.backend(pprof_backend(PprofConfig::new().sample_rate(self.pyroscope_sample_rate)))
+				.build()?;
+
+			Some(agent.start()?)
+		} else {
+			None
+		};
+
+		let configuration = self.standard_configuration;
 		let mut test_config = match self.objective {
 			TestObjective::TestSequence(options) => {
 				let test_sequence =
@@ -194,6 +231,11 @@ impl BenchCli {
 					.block_on(availability::benchmark_availability_write(&mut env, state));
 			},
 			TestObjective::TestSequence(_options) => {},
+		}
+
+		if let Some(agent_running) = agent_running {
+			let agent_ready = agent_running.stop()?;
+			agent_ready.shutdown();
 		}
 
 		Ok(())

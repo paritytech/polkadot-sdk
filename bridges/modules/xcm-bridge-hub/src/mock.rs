@@ -170,34 +170,37 @@ impl pallet_bridge_messages::WeightInfoExt for TestMessagesWeights {
 parameter_types! {
 	pub const RelayNetwork: NetworkId = NetworkId::Kusama;
 	pub const BridgedRelayNetwork: NetworkId = NetworkId::Polkadot;
+	pub BridgedRelayNetworkLocation: Location = (Parent, GlobalConsensus(BridgedRelayNetwork::get())).into();
 	pub const NonBridgedRelayNetwork: NetworkId = NetworkId::Rococo;
 	pub const BridgeReserve: Balance = 100_000;
-	pub UniversalLocation: InteriorMultiLocation = X2(
+	pub UniversalLocation: InteriorLocation = [
 		GlobalConsensus(RelayNetwork::get()),
 		Parachain(THIS_BRIDGE_HUB_ID),
-	);
+	].into();
 	pub const Penalty: Balance = 1_000;
 }
 
 impl pallet_xcm_bridge_hub::Config for TestRuntime {
 	type UniversalLocation = UniversalLocation;
-	type BridgedNetworkId = BridgedRelayNetwork;
+	type BridgedNetwork = BridgedRelayNetworkLocation;
 	type BridgeMessagesPalletInstance = ();
 
 	type MessageExportPrice = ();
+	type DestinationVersion = AlwaysLatest;
+
 	type Lanes = TestLanes;
 	type LanesSupport = TestXcmBlobHauler;
 }
 
 parameter_types! {
 	pub TestSenderAndLane: SenderAndLane = SenderAndLane {
-		location: MultiLocation::new(1, X1(Parachain(SIBLING_ASSET_HUB_ID))),
+		location: Location::new(1, [Parachain(SIBLING_ASSET_HUB_ID)]),
 		lane: TEST_LANE_ID,
 	};
-	pub const BridgedDestination: InteriorMultiLocation = X1(
+	pub BridgedDestination: InteriorLocation = [
 		Parachain(BRIDGED_ASSET_HUB_ID)
-	);
-	pub TestLanes: sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorMultiLocation))> = sp_std::vec![
+	].into();
+	pub TestLanes: sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))> = sp_std::vec![
 		(TestSenderAndLane::get(), (BridgedRelayNetwork::get(), BridgedDestination::get()))
 	];
 }
