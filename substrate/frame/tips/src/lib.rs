@@ -154,7 +154,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type TipFindersFee: Get<Percent>;
 
-		/// The amount held on deposit for placing a tip report.
+		/// The non-zero amount held on deposit for placing a tip report.
 		#[pallet::constant]
 		type TipReportDepositBase: Get<BalanceOf<Self, I>>;
 

@@ -229,6 +229,15 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext
 }
 
+/// Run the function pointer inside externalities and asserts the try_state hook at the end.
+pub fn build_and_execute(test: impl FnOnce() -> ()) 
+{
+	new_test_ext().execute_with(|| {
+		test();
+		Tips::do_try_state().expect("All invariants must hold after a test");
+	});
+}
+
 fn last_event() -> TipEvent<Test> {
 	System::events()
 		.into_iter()
@@ -240,7 +249,7 @@ fn last_event() -> TipEvent<Test> {
 
 #[test]
 fn genesis_config_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_eq!(Treasury::pot(), 0);
 		assert_eq!(Treasury::proposal_count(), 0);
 	});
@@ -252,7 +261,7 @@ fn tip_hash() -> H256 {
 
 #[test]
 fn tip_new_cannot_be_used_twice() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_ok!(Tips::tip_new(RuntimeOrigin::signed(10), b"awesome.dot".to_vec(), 3, 10));
 		assert_noop!(
@@ -264,7 +273,7 @@ fn tip_new_cannot_be_used_twice() {
 
 #[test]
 fn report_awesome_and_tip_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_ok!(Tips::report_awesome(RuntimeOrigin::signed(0), b"awesome.dot".to_vec(), 3));
 		assert_eq!(Balances::reserved_balance(0), 12);
@@ -291,7 +300,7 @@ fn report_awesome_and_tip_works() {
 
 #[test]
 fn report_awesome_from_beneficiary_and_tip_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_ok!(Tips::report_awesome(RuntimeOrigin::signed(0), b"awesome.dot".to_vec(), 0));
 		assert_eq!(Balances::reserved_balance(0), 12);
@@ -309,7 +318,7 @@ fn report_awesome_from_beneficiary_and_tip_works() {
 
 #[test]
 fn close_tip_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		System::set_block_number(1);
 
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -347,7 +356,7 @@ fn close_tip_works() {
 
 #[test]
 fn slash_tip_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		System::set_block_number(1);
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
@@ -378,7 +387,7 @@ fn slash_tip_works() {
 
 #[test]
 fn retract_tip_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// with report awesome
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_ok!(Tips::report_awesome(RuntimeOrigin::signed(0), b"awesome.dot".to_vec(), 3));
@@ -412,7 +421,7 @@ fn retract_tip_works() {
 
 #[test]
 fn tip_median_calculation_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_ok!(Tips::tip_new(RuntimeOrigin::signed(10), b"awesome.dot".to_vec(), 3, 0));
 		let h = tip_hash();
@@ -426,7 +435,7 @@ fn tip_median_calculation_works() {
 
 #[test]
 fn tip_large_should_fail() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_ok!(Tips::tip_new(RuntimeOrigin::signed(10), b"awesome.dot".to_vec(), 3, 0));
 		let h = tip_hash();
@@ -443,7 +452,7 @@ fn tip_large_should_fail() {
 
 #[test]
 fn tip_changing_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_ok!(Tips::tip_new(RuntimeOrigin::signed(10), b"awesome.dot".to_vec(), 3, 10000));
 		let h = tip_hash();
