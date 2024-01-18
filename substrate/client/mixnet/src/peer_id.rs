@@ -16,7 +16,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-// use libp2p_identity::PeerId;
 use mixnet::core::PeerId as CorePeerId;
 use sc_network_types::PeerId;
 

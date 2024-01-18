@@ -16459,9 +16459,7 @@ dependencies = [
  "litep2p",
  "multiaddr",
  "multihash 0.17.0",
- "prost-build",
  "rand 0.8.5",
- "tempfile",
  "thiserror",
 ]
 
