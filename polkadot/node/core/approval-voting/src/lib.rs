@@ -3354,7 +3354,7 @@ async fn issue_approval<Context>(
 		);
 	}
 
-	gum::info!(
+	gum::debug!(
 		target: LOG_TARGET,
 		?candidate_hash,
 		?block_hash,

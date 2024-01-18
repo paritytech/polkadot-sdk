@@ -120,17 +120,19 @@ impl pallet_uniques::Config for Runtime {
 	type Helper = ();
 }
 
-impl shared::Config for Runtime {}
+impl shared::Config for Runtime {
+	type DisabledValidators = ();
+}
 
 impl configuration::Config for Runtime {
 	type WeightInfo = configuration::TestWeightInfo;
 }
 
 parameter_types! {
-	pub const TokenLocation: MultiLocation = Here.into_location();
+	pub const TokenLocation: Location = Here.into_location();
 	pub RelayNetwork: NetworkId = ByGenesis([0; 32]);
 	pub const AnyNetwork: Option<NetworkId> = None;
-	pub UniversalLocation: InteriorMultiLocation = Here;
+	pub UniversalLocation: InteriorLocation = Here;
 	pub UnitWeightCost: u64 = 1_000;
 }
 
@@ -162,7 +164,7 @@ type LocalOriginConverter = (
 parameter_types! {
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
 	pub TokensPerSecondPerByte: (AssetId, u128, u128) =
-		(Concrete(TokenLocation::get()), 1_000_000_000_000, 1024 * 1024);
+		(AssetId(TokenLocation::get()), 1_000_000_000_000, 1024 * 1024);
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
