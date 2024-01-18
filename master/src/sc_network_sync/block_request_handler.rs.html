@@ -839,7 +839,7 @@
 		};
 
 		<span class="kw">let </span>direction =
-			Direction::from_i32(request.direction).ok_or(HandleRequestError::ParseDirection)<span class="question-mark">?</span>;
+			i32::try_into(request.direction).map_err(|<span class="kw">_</span>| HandleRequestError::ParseDirection)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>attributes = BlockAttributes::from_be_u32(request.fields)<span class="question-mark">?</span>;
 
