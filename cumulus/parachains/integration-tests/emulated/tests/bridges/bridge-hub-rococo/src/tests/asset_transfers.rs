@@ -140,7 +140,7 @@ fn send_rocs_from_asset_hub_rococo_to_asset_hub_westend() {
 }
 
 #[test]
-fn send_rocs_from_asset_hub_rococo_to_asset_hub_westend() {
+fn send_wnds_from_asset_hub_rococo_to_asset_hub_westend() {
 	let prefund_amount = 10_000_000_000_000u128;
 	let wnd_at_asset_hub_rococo =
 		v3::Location::new(2, [v3::Junction::GlobalConsensus(v3::NetworkId::Westend)]);
