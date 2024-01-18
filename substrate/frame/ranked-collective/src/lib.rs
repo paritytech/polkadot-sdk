@@ -459,7 +459,7 @@ pub mod pallet {
 		MemberRemoved { who: T::AccountId, rank: Rank },
 		/// The member `who` had their `AccountId` changed to `new_who`.
 		Voted { who: T::AccountId, poll: PollIndexOf<T, I>, vote: VoteRecord, tally: TallyOf<T, I> },
-		/// The member `who`, of given `rank`, has had their `AccountId` changed to `new_who`.
+		/// The member `who` had their `AccountId` changed to `new_who`.
 		MemberExchanged { who: T::AccountId, new_who: T::AccountId },
 	}
 
