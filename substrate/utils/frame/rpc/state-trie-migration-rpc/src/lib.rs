@@ -44,10 +44,12 @@ use trie_db::{
 fn count_migrate<'a, H: Hasher>(
 	storage: &'a dyn trie_db::HashDB<H, Vec<u8>, sp_state_machine::DBLocation>,
 	root: &'a H::Out,
+	root_location: sp_state_machine::DBLocation,
 ) -> std::result::Result<(u64, u64, TrieDB<'a, 'a, H>), String> {
 	let mut nb = 0u64;
 	let mut total_nb = 0u64;
-	let trie = TrieDBBuilder::new(storage, root).build();
+	let trie = TrieDBBuilder::new_with_db_location(storage, root, root_location).build();
+
 	let iter_node =
 		TrieDBNodeIterator::new(&trie).map_err(|e| format!("TrieDB node iterator error: {}", e))?;
 	for node in iter_node {
@@ -78,27 +80,32 @@ where
 {
 	let trie_backend = backend.as_trie_backend();
 	let essence = trie_backend.essence();
-	let (top_remaining_to_migrate, total_top, trie) = count_migrate(essence, essence.root())?;
+	let (top_remaining_to_migrate, total_top, trie) = count_migrate(essence, essence.root(), Default::default())?;
 
 	let mut child_remaining_to_migrate = 0;
 	let mut total_child = 0;
-	let mut child_roots: Vec<(ChildInfo, Vec<u8>)> = Vec::new();
+	let mut child_roots: Vec<(ChildInfo, Vec<u8>, sp_state_machine::DBLocation)> = Vec::new();
 	// get all child trie roots
-	for key_value in trie.iter().map_err(|e| format!("TrieDB node iterator error: {}", e))? {
+	let mut iter_node =
+		TrieDBNodeIterator::new(&trie).map_err(|e| format!("TrieDB node iterator error: {}", e))?;
+	while let Some(item) = iter_node.next() {
+		let item = item.map_err(|e| format!("TrieDB node iterator error: {}", e))?;
+		let Some(key_value) = iter_node.item_from_raw(&item) else { continue };
+		let location = item.2.node_plan().attached_change_set_location(item.2.locations());
 		let (key, value) = key_value.map_err(|e| format!("TrieDB node iterator error: {}", e))?;
 		if key[..].starts_with(sp_core::storage::well_known_keys::DEFAULT_CHILD_STORAGE_KEY_PREFIX)
 		{
 			let prefixed_key = PrefixedStorageKey::new(key);
 			let (_type, unprefixed) = ChildType::from_prefixed_key(&prefixed_key).unwrap();
-			child_roots.push((ChildInfo::new_default(unprefixed), value));
+			child_roots.push((ChildInfo::new_default(unprefixed), value, location.unwrap_or_default()));
 		}
 	}
-	for (child_info, root) in child_roots {
+	for (child_info, root, location) in child_roots {
 		let mut child_root = H::Out::default();
 		let storage = KeySpacedDB::new(essence, child_info.keyspace());
 
 		child_root.as_mut()[..].copy_from_slice(&root[..]);
-		let (nb, total_top, _) = count_migrate(&storage, &child_root)?;
+		let (nb, total_top, _) = count_migrate(&storage, &child_root, location)?;
 		child_remaining_to_migrate += nb;
 		total_child += total_top;
 	}
