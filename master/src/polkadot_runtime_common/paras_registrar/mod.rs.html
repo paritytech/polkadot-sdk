@@ -1609,6 +1609,8 @@
 <a href="#1609" id="1609">1609</a>
 <a href="#1610" id="1610">1610</a>
 <a href="#1611" id="1611">1611</a>
+<a href="#1612" id="1612">1612</a>
+<a href="#1613" id="1613">1613</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2410,7 +2412,9 @@
 		<span class="kw">type </span>MaxFreezes = ConstU32&lt;<span class="number">1</span>&gt;;
 	}
 
-	<span class="kw">impl </span>shared::Config <span class="kw">for </span>Test {}
+	<span class="kw">impl </span>shared::Config <span class="kw">for </span>Test {
+		<span class="kw">type </span>DisabledValidators = ();
+	}
 
 	<span class="kw">impl </span>origin::Config <span class="kw">for </span>Test {}
 

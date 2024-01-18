@@ -2473,6 +2473,8 @@
 <a href="#2473" id="2473">2473</a>
 <a href="#2474" id="2474">2474</a>
 <a href="#2475" id="2475">2475</a>
+<a href="#2476" id="2476">2476</a>
+<a href="#2477" id="2477">2477</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3384,7 +3386,9 @@
 	<span class="kw">type </span>WeightInfo = weights::runtime_parachains_configuration::WeightInfo&lt;Runtime&gt;;
 }
 
-<span class="kw">impl </span>parachains_shared::Config <span class="kw">for </span>Runtime {}
+<span class="kw">impl </span>parachains_shared::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>DisabledValidators = Session;
+}
 
 <span class="kw">impl </span>parachains_session_info::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>ValidatorSet = Historical;

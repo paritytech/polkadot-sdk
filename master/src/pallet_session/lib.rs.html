@@ -938,6 +938,10 @@
 <a href="#938" id="938">938</a>
 <a href="#939" id="939">939</a>
 <a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1857,6 +1861,10 @@
 <span class="kw">impl</span>&lt;T: Config&gt; frame_support::traits::DisabledValidators <span class="kw">for </span>Pallet&lt;T&gt; {
 	<span class="kw">fn </span>is_disabled(index: u32) -&gt; bool {
 		&lt;Pallet&lt;T&gt;&gt;::disabled_validators().binary_search(<span class="kw-2">&amp;</span>index).is_ok()
+	}
+
+	<span class="kw">fn </span>disabled_validators() -&gt; Vec&lt;u32&gt; {
+		&lt;Pallet&lt;T&gt;&gt;::disabled_validators()
 	}
 }
 

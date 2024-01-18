@@ -692,6 +692,11 @@
 <a href="#692" id="692">692</a>
 <a href="#693" id="693">693</a>
 <a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1384,6 +1389,11 @@
 	<span class="attr">#[cfg(test)]
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set_validator_groups(validator_groups: Vec&lt;Vec&lt;ValidatorIndex&gt;&gt;) {
 		ValidatorGroups::&lt;T&gt;::set(validator_groups);
+	}
+
+	<span class="attr">#[cfg(test)]
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set_claimqueue(claimqueue: BTreeMap&lt;CoreIndex, VecDeque&lt;ParasEntryType&lt;T&gt;&gt;&gt;) {
+		ClaimQueue::&lt;T&gt;::set(claimqueue);
 	}
 }
 </code></pre></div></section></main></body></html>

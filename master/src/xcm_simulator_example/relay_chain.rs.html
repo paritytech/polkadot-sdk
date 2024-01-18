@@ -287,6 +287,8 @@
 <a href="#287" id="287">287</a>
 <a href="#288" id="288">288</a>
 <a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -409,7 +411,9 @@
 	</span><span class="kw">type </span>Helper = ();
 }
 
-<span class="kw">impl </span>shared::Config <span class="kw">for </span>Runtime {}
+<span class="kw">impl </span>shared::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>DisabledValidators = ();
+}
 
 <span class="kw">impl </span>configuration::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>WeightInfo = configuration::TestWeightInfo;

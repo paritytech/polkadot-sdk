@@ -1470,6 +1470,8 @@
 <a href="#1470" id="1470">1470</a>
 <a href="#1471" id="1471">1471</a>
 <a href="#1472" id="1472">1472</a>
+<a href="#1473" id="1473">1473</a>
+<a href="#1474" id="1474">1474</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2218,7 +2220,9 @@
 		<span class="kw">type </span>AssignCoretime = ();
 	}
 
-	<span class="kw">impl </span>parachains_shared::Config <span class="kw">for </span>Test {}
+	<span class="kw">impl </span>parachains_shared::Config <span class="kw">for </span>Test {
+		<span class="kw">type </span>DisabledValidators = ();
+	}
 
 	<span class="macro">parameter_types! </span>{
 		<span class="kw">pub const </span>LeasePeriod: BlockNumber = <span class="number">3</span>;
