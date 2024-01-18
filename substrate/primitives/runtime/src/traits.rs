@@ -1438,7 +1438,7 @@ pub trait Dispatchable {
 	/// Every function call from your runtime has an origin, which specifies where the extrinsic was
 	/// generated from. In the case of a signed extrinsic (transaction), the origin contains an
 	/// identifier for the caller. The origin can be empty in the case of an inherent extrinsic.
-	type RuntimeOrigin;
+	type RuntimeOrigin: Debug;
 	/// ...
 	type Config;
 	/// An opaque set of information attached to the transaction. This could be constructed anywhere
@@ -2292,7 +2292,15 @@ pub trait BlockIdTo<Block: self::Block> {
 /// Get current block number
 pub trait BlockNumberProvider {
 	/// Type of `BlockNumber` to provide.
-	type BlockNumber: Codec + Clone + Ord + Eq + AtLeast32BitUnsigned;
+	type BlockNumber: Codec
+		+ Clone
+		+ Ord
+		+ Eq
+		+ AtLeast32BitUnsigned
+		+ TypeInfo
+		+ Debug
+		+ MaxEncodedLen
+		+ Copy;
 
 	/// Returns the current block number.
 	///
@@ -2318,6 +2326,13 @@ pub trait BlockNumberProvider {
 	/// This is useful in case the block number provider is different than System
 	#[cfg(feature = "runtime-benchmarks")]
 	fn set_block_number(_block: Self::BlockNumber) {}
+}
+
+impl BlockNumberProvider for () {
+	type BlockNumber = u32;
+	fn current_block_number() -> Self::BlockNumber {
+		0
+	}
 }
 
 #[cfg(test)]
