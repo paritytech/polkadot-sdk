@@ -89,7 +89,7 @@ use sp_state_machine::{
 	StateMachineStats, StorageCollection, StorageIterator, StorageKey, StorageValue,
 	UsageInfo as StateUsageInfo, DBLocation, HashDB, TrieCommit,
 };
-use sp_trie::{cache::SharedTrieCache, prefixed_key, MemoryDB, MerkleValue};
+use sp_trie::{cache::SharedTrieCache, prefixed_key, MemoryDB, MerkleValue, ChildChangeset};
 
 // Re-export the Database trait so that one can pass an implementation of it.
 pub use sc_state_db::PruningMode;
@@ -250,7 +250,7 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 
 	fn storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<B::Hash>>)>,
 		state_version: StateVersion,
 	) -> TrieCommit<B::Hash> {
 		self.state.storage_root(delta, state_version)
@@ -904,7 +904,7 @@ impl<Block: BlockT> BlockImportOperation<Block> {
 		);
 
 		self.db_updates = transaction;
-		let root = self.db_updates.main.root_hash();
+		let root = self.db_updates.root_hash();
 		Ok(root)
 	}
 }
@@ -1151,8 +1151,8 @@ pub fn apply_tree_commit<H: Hash>(commit: TrieCommit<H::Out>, db_tree_support: b
 	}
 
 	if db_tree_support {
-		let hash = commit.main.root_hash();
-		match commit.main.root {
+		let hash = commit.root_hash();
+		match commit.root {
 			sp_trie::ChangesetNodeRef::Existing(node) => {
 				tx.reference_tree(columns::STATE, DbHash::from_slice(node.hash.as_ref()));
 			}
@@ -1162,25 +1162,9 @@ pub fn apply_tree_commit<H: Hash>(commit: TrieCommit<H::Out>, db_tree_support: b
 				}
 			}
 		}
-		for (c, _) in commit.child {
-			let hash = c.root_hash();
-			match c.root {
-				sp_trie::ChangesetNodeRef::Existing(node) => {
-					tx.reference_tree(columns::STATE, DbHash::from_slice(node.hash.as_ref()));
-				}
-				new_node @ sp_trie::ChangesetNodeRef::New(_) => {
-					if let sp_database::NodeRef::New(n) = convert::<H>(new_node) {
-						tx.insert_tree(columns::STATE, DbHash::from_slice(hash.as_ref()), n);
-					}
-				}
-			}
-		}
 	} else {
 		let mut memdb = sp_trie::PrefixedMemoryDB::<H>::default();
-		commit.main.apply_to(&mut memdb);
-		for (c, info) in commit.child {
-			c.apply_with_prefix(&mut memdb, info.keyspace());
-		}
+		commit.apply_to(&mut memdb);
 
 		for (key, (val, rc)) in memdb.drain() {
 			if rc > 0 {
@@ -1634,7 +1618,7 @@ impl<Block: BlockT> Backend<Block>{
 					// memory to bootstrap consensus. It is queried for an initial list of
 					// authorities, etc.
 					let mut genesis_state = MemoryDB::default();
-					operation.db_updates.main.apply_to(&mut genesis_state);
+					operation.db_updates.apply_to(&mut genesis_state);
 					*self.genesis_state.write() = Some(DbGenesisStorage::new(
 						*pending_block.header.state_root(),
 						genesis_state,
@@ -1655,10 +1639,7 @@ impl<Block: BlockT> Backend<Block>{
 					let mut bytes_removal: u64 = 0;
 
 					let mut memdb = sp_trie::PrefixedMemoryDB::<HashingFor<Block>>::default();
-					trie_commit.main.apply_to(&mut memdb);
-					for (c, info) in trie_commit.child {
-						c.apply_with_prefix(&mut memdb, info.keyspace());
-					}
+					trie_commit.apply_to(&mut memdb);
 
 					for (key, (val, rc)) in memdb.drain() {
 						if rc > 0 {
@@ -2751,7 +2732,7 @@ pub(crate) mod tests {
 			vec![(block_hash.as_ref(), Some(block_hash.as_ref()))].into_iter(),
 			StateVersion::V1,
 		);
-		let root = commit.main.root_hash();
+		let root = commit.root_hash();
 		op.update_db_storage(commit).unwrap();
 		header.state_root = root.into();
 
@@ -2789,7 +2770,6 @@ pub(crate) mod tests {
 				vec![(parent_hash.as_ref(), Some(parent_hash.as_ref()))].into_iter(),
 				StateVersion::V1,
 			)
-			.main
 			.root_hash();
 		header.state_root = root.into();
 
@@ -2872,7 +2852,6 @@ pub(crate) mod tests {
 			header.state_root = op
 				.old_state
 				.storage_root(storage.iter().map(|(x, y)| (&x[..], Some(&y[..]))), state_version)
-				.main
 				.root_hash()
 				.into();
 			let hash = header.hash();
@@ -2916,7 +2895,7 @@ pub(crate) mod tests {
 				storage.iter().map(|(k, v)| (k.as_slice(), v.as_ref().map(|v| &v[..]))),
 				state_version,
 			);
-			let root = commit.main.root_hash();
+			let root = commit.root_hash();
 			op.update_db_storage(commit).unwrap();
 			header.state_root = root.into();
 
@@ -2955,7 +2934,7 @@ pub(crate) mod tests {
 			};
 
 			header.state_root =
-				op.old_state.storage_root(std::iter::empty(), state_version).main.root_hash().into();
+				op.old_state.storage_root(std::iter::empty(), state_version).root_hash().into();
 			let hash = header.hash();
 
 			op.reset_storage(
@@ -3007,7 +2986,6 @@ pub(crate) mod tests {
 			header.state_root = op
 				.old_state
 				.storage_root(storage.iter().cloned().map(|(x, y)| (x, Some(y))), state_version)
-				.main
 				.root_hash()
 				.into();
 			let hash = header.hash();
@@ -3055,7 +3033,6 @@ pub(crate) mod tests {
 			header.state_root = op
 				.old_state
 				.storage_root(storage.iter().cloned().map(|(x, y)| (x, Some(y))), state_version)
-				.main
 				.root_hash()
 				.into();
 			let hash = header.hash();
@@ -3101,7 +3078,6 @@ pub(crate) mod tests {
 			header.state_root = op
 				.old_state
 				.storage_root(storage.iter().cloned().map(|(x, y)| (x, Some(y))), state_version)
-				.main
 				.root_hash()
 				.into();
 			let hash = header.hash();
@@ -3129,7 +3105,6 @@ pub(crate) mod tests {
 			header.state_root = op
 				.old_state
 				.storage_root(storage.iter().cloned().map(|(x, y)| (x, Some(y))), state_version)
-				.main
 				.root_hash()
 				.into();
 			let hash = header.hash();
@@ -3468,7 +3443,6 @@ pub(crate) mod tests {
 			header.state_root = op
 				.old_state
 				.storage_root(storage.iter().map(|(x, y)| (&x[..], Some(&y[..]))), state_version)
-				.main
 				.root_hash()
 				.into();
 			let hash = header.hash();
@@ -3508,7 +3482,7 @@ pub(crate) mod tests {
 				storage.iter().map(|(k, v)| (k.as_slice(), v.as_ref().map(|v| &v[..]))),
 				state_version,
 			);
-			let root = commit.main.root_hash();
+			let root = commit.root_hash();
 			op.update_db_storage(commit).unwrap();
 			header.state_root = root.into();
 			let hash = header.hash();
@@ -4186,7 +4160,7 @@ pub(crate) mod tests {
 					storage.iter().map(|(k, v)| (k.as_slice(), v.as_ref().map(|v| &v[..]))),
 					StateVersion::V1,
 				);
-				let root = commit.main.root_hash();
+				let root = commit.root_hash();
 				op.update_db_storage(commit).unwrap();
 				header.state_root = root.into();
 
@@ -4232,7 +4206,7 @@ pub(crate) mod tests {
 					storage.iter().map(|(k, v)| (k.as_slice(), v.as_ref().map(|v| &v[..]))),
 					StateVersion::V1,
 				);
-				let root = commit.main.root_hash();
+				let root = commit.root_hash();
 				op.update_db_storage(commit).unwrap();
 				header.state_root = root.into();
 
@@ -4278,7 +4252,7 @@ pub(crate) mod tests {
 					storage.iter().map(|(k, v)| (k.as_slice(), v.as_ref().map(|v| &v[..]))),
 					StateVersion::V1,
 				);
-				let root = commit.main.root_hash();
+				let root = commit.root_hash();
 				op.update_db_storage(commit).unwrap();
 				header.state_root = root.into();
 
@@ -4316,7 +4290,7 @@ pub(crate) mod tests {
 					storage.iter().map(|(k, v)| (k.as_slice(), v.as_ref().map(|v| &v[..]))),
 					StateVersion::V1,
 				);
-				let root = commit.main.root_hash();
+				let root = commit.root_hash();
 				op.update_db_storage(commit).unwrap();
 				header.state_root = root.into();
 

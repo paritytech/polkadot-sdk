@@ -507,7 +507,7 @@ impl<Block: BlockT> BlockImportOperation<Block> {
 			child_delta,
 			state_version,
 		);
-		let root = transaction.main.root_hash();
+		let root = transaction.root_hash();
 
 		if commit {
 			self.trie_commit = Some(transaction);

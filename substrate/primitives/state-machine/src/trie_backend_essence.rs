@@ -666,7 +666,7 @@ where
 	/// Return the storage root after applying the given `delta`.
 	pub fn storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<H>>)>,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<H::Out>>)>,
 		state_version: StateVersion,
 	) -> TrieCommit<H::Out> {
 		self.with_recorder_and_cache_for_storage_root(None, |recorder, cache| {

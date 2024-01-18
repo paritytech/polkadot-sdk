@@ -245,7 +245,7 @@ pub trait Backend<H: Hasher>: sp_std::fmt::Debug {
 	/// Does not include child storage updates.
 	fn storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<H>>)>,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<H::Out>>)>,
 		state_version: StateVersion,
 	) -> TrieCommit<H::Out>
 	where

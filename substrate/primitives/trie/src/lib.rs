@@ -185,8 +185,8 @@ pub type TrieDBMutBuilder<'a, L> = trie_db::TrieDBMutBuilder<'a, L>;
 pub type Lookup<'a, 'cache, L, Q> = trie_db::Lookup<'a, 'cache, L, Q>;
 /// Hash type for a trie layout.
 pub type TrieHash<L> = <<L as TrieLayout>::Hash as Hasher>::Out;
-/// Same in layout V0 and V1 (internaly depend only on hash and location).
-pub type ChildChangeset<H> = trie_db::triedbmut::ChildChangeset<LayoutV1<H, DBLocation>>;
+/// Change set for child trie.
+pub type ChildChangeset<H> = Box<trie_db::triedbmut::ChangesetNodeRef<H, DBLocation>>;
 
 /// This module is for non generic definition of trie type.
 /// Only the `Hasher` trait is generic in this case.
@@ -330,9 +330,9 @@ pub fn read_trie_value_with_location<
 		.with_optional_recorder(recorder)
 		.build();
 
-	let mut iter = trie_db::TrieDBNodeIterator::new(&trie).unwrap();
+	let mut iter = trie_db::TrieDBNodeIterator::new(&trie)?;
 	use trie_db::TrieIterator;
-	iter.seek(root_key).unwrap();
+	iter.seek(root_key)?;
 	let Some(item) = iter.next() else { return Ok(None) };
 	let item = item?;
 	let node = &item.2;

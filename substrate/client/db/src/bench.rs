@@ -35,7 +35,7 @@ use sp_state_machine::{
 };
 use sp_trie::{
 	cache::{CacheSize, SharedTrieCache},
-	MemoryDB, MerkleValue,
+	MemoryDB, MerkleValue, ChildChangeset,
 };
 use std::{
 	cell::{Cell, RefCell},
@@ -157,11 +157,7 @@ impl<B: BlockT> BenchmarkingState<B> {
 				state_version,
 			);
 		let mut genesis = MemoryDB::<HashingFor<B>>::default();
-		let genesis_root = transaction.main.apply_to(&mut genesis);
-		for (child, _) in transaction.child {
-			child.apply_to(&mut genesis);
-		}
-
+		let genesis_root = transaction.apply_to(&mut genesis);
 		state.genesis = genesis;
 		state.genesis_root = genesis_root;
 		state.reopen()?;
@@ -418,7 +414,7 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for BenchmarkingState<B> {
 
 	fn storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<B::Hash>>)>,
 		state_version: StateVersion,
 	) -> TrieCommit<B::Hash> {
 		self.state
@@ -463,7 +459,7 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for BenchmarkingState<B> {
 
 		if let Some(ref mut state) = *self.state.borrow_mut() {
 			if let Some(mut db) = state.backend_storage_mut().as_mem_db_mut() {
-				let root = transaction.main.apply_to(&mut db);
+				let root = transaction.apply_to(&mut db);
 				self.root.set(root);
 			}
 			// Track DB Writes
