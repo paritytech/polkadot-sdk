@@ -1961,15 +1961,15 @@ impl State {
 		}
 	}
 
-	// It is very important that aggression starts with oldest unfinalized block, rather than oldest unapproved 
-	// block. We use approval checking lag just as a mean to trigger the aggression, but use finality
-	// lag to choose our aggression target.
+	// It is very important that aggression starts with oldest unfinalized block, rather than oldest
+	// unapproved block. We use approval checking lag just as a mean to trigger the aggression, but
+	// use finality lag to choose our aggression target.
 	//
-	// We have GRANDPA consensus around the last finalized block, but we don't for approvals. 
-	// Using GRANDPA as source of truth, we can reason that an unfinalized but approved block will never
-	// be finalized because at least 1/3 of the nodes haven't seen enough approvals for it. It becomes
-	// mandatory that we share them in an aggressive manner wrt topology to increase the chance that 
-	// the approval messages reach those nodes.
+	// We have GRANDPA consensus around the last finalized block, but we don't for approvals.
+	// Using GRANDPA as source of truth, we can reason that an unfinalized but approved block will
+	// never be finalized because at least 1/3 of the nodes haven't seen enough approvals for it. It
+	// becomes mandatory that we share them in an aggressive manner wrt topology to increase the
+	// chance that the approval messages reach those nodes.
 	async fn enable_aggression<Context>(
 		&mut self,
 		ctx: &mut Context,
