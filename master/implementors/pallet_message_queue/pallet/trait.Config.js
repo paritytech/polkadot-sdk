@@ -8,7 +8,7 @@
 "coretime_rococo_runtime":[["impl Config for <a class=\"struct\" href=\"coretime_rococo_runtime/struct.Runtime.html\" title=\"struct coretime_rococo_runtime::Runtime\">Runtime</a>"]],
 "coretime_westend_runtime":[["impl Config for <a class=\"struct\" href=\"coretime_westend_runtime/struct.Runtime.html\" title=\"struct coretime_westend_runtime::Runtime\">Runtime</a>"]],
 "glutton_westend_runtime":[["impl Config for <a class=\"struct\" href=\"glutton_westend_runtime/struct.Runtime.html\" title=\"struct glutton_westend_runtime::Runtime\">Runtime</a>"]],
-"kitchensink_runtime":[["impl <a class=\"trait\" href=\"pallet_message_queue/pallet/trait.Config.html\" title=\"trait pallet_message_queue::pallet::Config\">Config</a> for <a class=\"struct\" href=\"kitchensink_runtime/struct.Runtime.html\" title=\"struct kitchensink_runtime::Runtime\">Runtime</a>"]],
+"kitchensink_runtime":[["impl Config for <a class=\"struct\" href=\"kitchensink_runtime/struct.Runtime.html\" title=\"struct kitchensink_runtime::Runtime\">Runtime</a>"]],
 "pallet_contracts_mock_network":[["impl Config for <a class=\"struct\" href=\"pallet_contracts_mock_network/relay_chain/struct.Runtime.html\" title=\"struct pallet_contracts_mock_network::relay_chain::Runtime\">Runtime</a>"]],
 "parachain_template_runtime":[["impl Config for <a class=\"struct\" href=\"parachain_template_runtime/struct.Runtime.html\" title=\"struct parachain_template_runtime::Runtime\">Runtime</a>"]],
 "penpal_runtime":[["impl Config for <a class=\"struct\" href=\"penpal_runtime/struct.Runtime.html\" title=\"struct penpal_runtime::Runtime\">Runtime</a>"]],
