@@ -1,10 +1,7 @@
-//! Signed extensions are, briefly, a means for different chains to extend the "basic" extrinsic
-//! format with custom data that can be checked by the runtime.
-//!
-//! # Example
-//!
-//! Defining a couple of very simple signed extensions looks like the following:
-#![doc = docify::embed!("./src/reference_docs/signed_extensions.rs", signed_extensions_example)]
+#![doc = include_str!("signed_extensions.md")]
+#[cfg(all(doc, feature = "gen-docify"))]
+docify::compile_markdown!("src/reference_docs/signed_extensions.docify.md", "src/reference_docs/signed_extensions.md");
+
 
 #[cfg(feature = "docs-build-deps")]
 #[docify::export]
