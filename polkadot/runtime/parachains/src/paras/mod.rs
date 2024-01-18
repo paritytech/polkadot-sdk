@@ -512,12 +512,10 @@ impl OnNewHead for Tuple {
 	}
 }
 
-pub trait OnCodeUpgrade {
+/// A callback for when a parachain successfully upgraded its code.
+pub trait OnCodeUpgraded {
 	/// A function to execute some custom logic once the pre-checking is successfully completed.
-	///
-	/// This is currently used by the registrar pallet to perform refunds upon validation code
-	/// size reduction.
-	fn on_code_upgrade(id: ParaId) -> Weight;
+	fn on_code_upgraded(id: ParaId) -> Weight;
 }
 
 /// An empty implementation of the trait where there is no logic executed upon a successful
