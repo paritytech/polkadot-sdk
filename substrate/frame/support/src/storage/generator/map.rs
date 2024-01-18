@@ -205,7 +205,7 @@ where
 		let key = match K::decode(&mut key_material) {
 			Ok(key) => key,
 			Err(_) => {
-				crate::defensive!("Invalid translate: fail to decode key");
+				crate::defensive!("Invalid translation: failed to decode key");
 				return Some(current_key)
 			},
 		};
