@@ -106,6 +106,7 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Event<T>, Origin<T>} = 30,
 		ModuleSingleInstance: module_single_instance::{HoldReason, FreezeReason},
+		ModuleMultiInstance0: module_multi_instance::{HoldReason, FreezeReason} = 50,
 		ModuleMultiInstance1: module_multi_instance::<Instance1>::{HoldReason, FreezeReason} = 51,
 		ModuleMultiInstance2: module_multi_instance::<Instance2>::{HoldReason, FreezeReason} = 52,
 		ModuleMultiInstance3: module_multi_instance::<Instance3>::{HoldReason, FreezeReason} = 53,
@@ -123,6 +124,10 @@ impl module_single_instance::Config for Runtime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
+impl module_multi_instance::Config for Runtime {
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+}
 impl module_multi_instance::Config<module_multi_instance::Instance1> for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
@@ -145,6 +150,10 @@ fn list_all_hold_reason_variants() -> Vec<RuntimeHoldReason> {
 	let variants = vec![
 		RuntimeHoldReason::ModuleSingleInstance(module_single_instance::HoldReason::ModuleSingleInstanceReason1),
 		RuntimeHoldReason::ModuleSingleInstance(module_single_instance::HoldReason::ModuleSingleInstanceReason2),
+		RuntimeHoldReason::ModuleMultiInstance0(<module_multi_instance::HoldReason>::ModuleMultiInstanceReason1),
+		RuntimeHoldReason::ModuleMultiInstance0(<module_multi_instance::HoldReason>::ModuleMultiInstanceReason2),
+		RuntimeHoldReason::ModuleMultiInstance0(<module_multi_instance::HoldReason>::ModuleMultiInstanceReason3),
+		RuntimeHoldReason::ModuleMultiInstance0(<module_multi_instance::HoldReason>::__Ignore(Default::default())),
 		RuntimeHoldReason::ModuleMultiInstance1(module_multi_instance::HoldReason::<module_multi_instance::Instance1>::ModuleMultiInstanceReason1),
 		RuntimeHoldReason::ModuleMultiInstance1(module_multi_instance::HoldReason::<module_multi_instance::Instance1>::ModuleMultiInstanceReason2),
 		RuntimeHoldReason::ModuleMultiInstance1(module_multi_instance::HoldReason::<module_multi_instance::Instance1>::ModuleMultiInstanceReason3),
@@ -164,6 +173,12 @@ fn list_all_hold_reason_variants() -> Vec<RuntimeHoldReason> {
 			RuntimeHoldReason::ModuleSingleInstance(inner) => match inner {
 				module_single_instance::HoldReason::ModuleSingleInstanceReason1
 				| module_single_instance::HoldReason::ModuleSingleInstanceReason2 => (),
+			}
+			RuntimeHoldReason::ModuleMultiInstance0(inner) => match inner {
+				<module_multi_instance::HoldReason>::ModuleMultiInstanceReason1
+				| <module_multi_instance::HoldReason>::ModuleMultiInstanceReason2
+				| <module_multi_instance::HoldReason>::ModuleMultiInstanceReason3
+				| module_multi_instance::HoldReason::<()>::__Ignore(_) => (),
 			}
 			RuntimeHoldReason::ModuleMultiInstance1(inner) => match inner {
 				module_multi_instance::HoldReason::<module_multi_instance::Instance1>::ModuleMultiInstanceReason1
@@ -192,6 +207,8 @@ fn list_all_freeze_reason_variants() -> Vec<RuntimeFreezeReason> {
 	let variants = vec![
 		RuntimeFreezeReason::ModuleSingleInstance(module_single_instance::FreezeReason::ModuleSingleInstanceReason1),
 		RuntimeFreezeReason::ModuleSingleInstance(module_single_instance::FreezeReason::ModuleSingleInstanceReason2),
+		RuntimeFreezeReason::ModuleMultiInstance0(<module_multi_instance::FreezeReason>::ModuleMultiInstanceReason1),
+		RuntimeFreezeReason::ModuleMultiInstance0(<module_multi_instance::FreezeReason>::__Ignore(Default::default())),
 		RuntimeFreezeReason::ModuleMultiInstance1(module_multi_instance::FreezeReason::<module_multi_instance::Instance1>::ModuleMultiInstanceReason1),
 		RuntimeFreezeReason::ModuleMultiInstance1(module_multi_instance::FreezeReason::<module_multi_instance::Instance1>::__Ignore(Default::default())),
 		RuntimeFreezeReason::ModuleMultiInstance2(module_multi_instance::FreezeReason::<module_multi_instance::Instance2>::ModuleMultiInstanceReason1),
@@ -205,6 +222,10 @@ fn list_all_freeze_reason_variants() -> Vec<RuntimeFreezeReason> {
 			RuntimeFreezeReason::ModuleSingleInstance(inner) => match inner {
 				module_single_instance::FreezeReason::ModuleSingleInstanceReason1
 				| module_single_instance::FreezeReason::ModuleSingleInstanceReason2 => (),
+			}
+			RuntimeFreezeReason::ModuleMultiInstance0(inner) => match inner {
+				<module_multi_instance::FreezeReason>::ModuleMultiInstanceReason1
+				| module_multi_instance::FreezeReason::<()>::__Ignore(_) => (),
 			}
 			RuntimeFreezeReason::ModuleMultiInstance1(inner) => match inner {
 				module_multi_instance::FreezeReason::<module_multi_instance::Instance1>::ModuleMultiInstanceReason1
