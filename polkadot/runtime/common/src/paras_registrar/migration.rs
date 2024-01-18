@@ -56,7 +56,6 @@ impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateToV2<T> {
 		ensure!(old_count == new_count, "Paras count should not change");
 
 		Paras::<T>::iter().try_for_each(|(para_id, info)| -> Result<(), _> {
-			let info = Paras::<T>::get(para_id).unwrap();
 			ensure!(info.billing_account.is_none(), "The billing account must be set to the None");
 			ensure!(info.pending_deposit_refund.is_none(), "There should be no pending refund");
 
