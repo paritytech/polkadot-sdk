@@ -132,7 +132,7 @@ do
             echo "====================================================================="
             echo "=== Shutting down. Log of failed process below                    ==="
             echo "====================================================================="
-            IFS= echo $coproc_stdout
+            echo $coproc_stdout
 
             exit 1
         fi
