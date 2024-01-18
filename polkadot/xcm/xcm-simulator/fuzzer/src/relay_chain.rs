@@ -100,7 +100,9 @@ impl pallet_balances::Config for Runtime {
 	type MaxFreezes = ConstU32<0>;
 }
 
-impl shared::Config for Runtime {}
+impl shared::Config for Runtime {
+	type DisabledValidators = ();
+}
 
 impl configuration::Config for Runtime {
 	type WeightInfo = configuration::TestWeightInfo;
