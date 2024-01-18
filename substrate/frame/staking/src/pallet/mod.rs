@@ -30,7 +30,7 @@ use frame_support::{
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use sp_runtime::{
-	traits::{CheckedSub, SaturatedConversion, StaticLookup, Zero},
+	traits::{CheckedSub, One, SaturatedConversion, StaticLookup, Zero},
 	ArithmeticError, Perbill, Percent, Saturating,
 };
 
@@ -58,12 +58,10 @@ pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 
 #[frame_support::pallet]
 pub mod pallet {
-
-	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
-
-	use crate::{BenchmarkingConfig, PagedExposureMetadata};
-
 	use super::*;
+
+	use crate::{BenchmarkingConfig, PagedExposureMetadata, SnapshotStatus};
+	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(14);
@@ -665,20 +663,26 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
 
-	// TODO: think about encapsulating both indices below in one typ.
-	/// Last voter processed in the snapshot;
+	/// Voter snapshot progress status.
+	///
+	/// If the status is `Ongoing`, it keeps track of the last voter account returned in the
+	/// snapshot.
 	#[pallet::storage]
-	pub(crate) type LastIteratedVoter<T: Config> =
-		StorageValue<_, Option<T::AccountId>, ValueQuery>;
+	pub(crate) type VoterSnapshotStatus<T: Config> =
+		StorageValue<_, SnapshotStatus<T::AccountId>, ValueQuery>;
 
-	/// Last target processed in the snapshot;
+	/// Target snapshot progress status.
+	///
+	/// If the status is `Ongoing`, it keeps track of the last target account returned in the
+	/// snapshot.
 	#[pallet::storage]
-	pub(crate) type LastIteratedTarget<T: Config> =
-		StorageValue<_, Option<T::AccountId>, ValueQuery>;
+	pub(crate) type TargetSnapshotStatus<T: Config> =
+		StorageValue<_, SnapshotStatus<T::AccountId>, ValueQuery>;
 
-	/// Block when the request for a paged election started, if any.
+	/// Keeps track of an ongoing multi-page election solution request and the block the first paged
+	/// was requested, if any.
 	#[pallet::storage]
-	pub(crate) type ElectStarted<T: Config> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
+	pub(crate) type ElectingStartedAt<T: Config> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
 
 	// TODO:
 	// * maybe use pallet-paged-list? (https://paritytech.github.io/polkadot-sdk/master/pallet_paged_list/index.html)
@@ -878,22 +882,23 @@ pub mod pallet {
 			let pages: BlockNumberFor<T> =
 				<<T as Config>::ElectionProvider as ElectionProvider>::Pages::get().into();
 
-			if let Some(started_at) = ElectStarted::<T>::get() {
+			if let Some(started_at) = ElectingStartedAt::<T>::get() {
 				// elect is ongoing, proceed.
-				let remaining_pages = pages.saturating_sub(now - started_at);
+				let remaining_pages =
+					pages.saturating_sub(One::one()) - now.saturating_sub(started_at);
 
 				crate::log!(
 					info,
-					"progressing with calling elect, remaining pages {}",
+					"elect(): progressing with calling elect, remaining pages {}",
 					remaining_pages
 				);
 
 				Self::elect(remaining_pages.saturated_into::<PageIndex>());
 
-				if now == started_at.saturating_add(pages) {
+				if remaining_pages == Zero::zero() {
 					// last page, reset elect status.
-					crate::log!(info, "finished fetching all paged solutions");
-					ElectStarted::<T>::kill();
+					crate::log!(info, "elect(): finished fetching all paged solutions");
+					ElectingStartedAt::<T>::kill();
 				};
 			} else {
 				let next_election = <Self as ElectionDataProvider>::next_election_prediction(now);
@@ -902,10 +907,10 @@ pub mod pallet {
 					// start calling elect.
 					crate::log!(
 						info,
-						"next election in {} pages, start fetching solution pages.",
+						"elect(): next election in {} pages, start fetching solution pages.",
 						pages,
 					);
-					ElectStarted::<T>::set(Some(now));
+					ElectingStartedAt::<T>::set(Some(now));
 
 					Self::elect(pages.saturated_into::<PageIndex>().saturating_sub(1));
 				}

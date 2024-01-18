@@ -446,6 +446,23 @@ pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 	era: EraIndex,
 }
 
+/// Status of a paged snapshot progress.
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub enum SnapshotStatus<AccountId> {
+	/// Paged snapshot is in progress, the `AccountId` was the last staker iterated.
+	Ongoing(AccountId),
+	/// All the stakers in the system have been consumed since the snapshot started.
+	Consumed,
+	/// Waiting for a new snapshot to be requested.
+	Waiting,
+}
+
+impl<AccountId> Default for SnapshotStatus<AccountId> {
+	fn default() -> Self {
+		Self::Waiting
+	}
+}
+
 /// The ledger of a (bonded) stash.
 ///
 /// Note: All the reads and mutations to the [`Ledger`], [`Bonded`] and [`Payee`] storage items

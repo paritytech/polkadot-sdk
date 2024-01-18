@@ -51,7 +51,7 @@ use crate::{
 	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
 	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
 	MaxExposuresPerPageOf, MaxNominationsOf, Nominations, NominationsQuota, PositiveImbalanceOf,
-	RewardDestination, SessionInterface, StakingLedger, ValidatorPrefs,
+	RewardDestination, SessionInterface, SnapshotStatus, StakingLedger, ValidatorPrefs,
 };
 
 use super::pallet::*;
@@ -639,12 +639,15 @@ impl<T: Config> Pallet<T> {
 			Ok(result) => result,
 			Err(e) => {
 				log!(warn, "electiong provider page failed due to {:?} (page: {})", e, page);
+				// TODO: be resilient here, not all pages need to be submitted successfuly for an
+				// election to be OK.
 				Self::deposit_event(Event::StakingElectionFailed);
 				return
 			},
 		};
 
 		let exposures = Self::collect_exposures(paged_result);
+		println!("  >> {page} | Exposures of page {page}: {:?}", exposures);
 
 		let new_planned_era = CurrentEra::<T>::mutate(|s| {
 			*s = Some(s.map(|s| s + 1).unwrap_or(0));
@@ -913,7 +916,7 @@ impl<T: Config> Pallet<T> {
 	/// nominators.
 	///
 	/// This function is self-weighing as [`DispatchClass::Mandatory`].
-	pub fn get_npos_voters_init(
+	pub fn get_npos_voters(
 		bounds: DataProviderBounds,
 		remaining_pages: PageIndex,
 	) -> Vec<VoterOf<Self>> {
@@ -934,12 +937,14 @@ impl<T: Config> Pallet<T> {
 		let mut nominators_taken = 0u32;
 		let mut min_active_stake = u64::MAX;
 
-		let mut sorted_voters = match LastIteratedVoter::<T>::get() {
-			// snapshot continues, start from last.
-			Some(start_at) =>
-				T::VoterList::iter_from(&start_at).defensive_unwrap_or_else(|| T::VoterList::iter()),
-			// beginning of the snapshot, start from the beginning.
-			None => T::VoterList::iter(),
+		let mut sorted_voters = match VoterSnapshotStatus::<T>::get() {
+			// snapshot continues, start from last iterated voter in the list.
+			SnapshotStatus::Ongoing(start_at) =>
+				T::VoterList::iter_from(&start_at).unwrap_or_else(|_| T::TargetList::iter()),
+			// all the voters have been consumed, return an empty iterator.
+			SnapshotStatus::Consumed => Box::new(vec![].into_iter()),
+			// start the snapshot processing, start from the beginning.
+			SnapshotStatus::Waiting => T::VoterList::iter(),
 		};
 
 		while all_voters.len() < final_predicted_len as usize &&
@@ -1014,10 +1019,18 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		match remaining_pages {
-			0 => LastIteratedVoter::<T>::kill(),
-			_ => {
-				LastIteratedVoter::<T>::put(all_voters.last().map(|(x, _, _)| x).cloned());
+		match (remaining_pages, VoterSnapshotStatus::<T>::get()) {
+			// last page requested, reset.
+			(0, _) => VoterSnapshotStatus::<T>::set(SnapshotStatus::Waiting),
+			// all voters have been consumed, do nothing.
+			(_, SnapshotStatus::Consumed) => {},
+			(_, SnapshotStatus::Waiting) | (_, SnapshotStatus::Ongoing(_)) => {
+				if let Some(last) = all_voters.last().map(|(x, _, _)| x).cloned() {
+					VoterSnapshotStatus::<T>::set(SnapshotStatus::Ongoing(last));
+				} else {
+					// no more to consume, next pages will be empty.
+					VoterSnapshotStatus::<T>::set(SnapshotStatus::Consumed);
+				}
 			},
 		};
 
@@ -1059,12 +1072,14 @@ impl<T: Config> Pallet<T> {
 		let mut all_targets = Vec::<T::AccountId>::with_capacity(final_predicted_len as usize);
 		let mut targets_seen = 0;
 
-		let mut targets_iter = match LastIteratedTarget::<T>::get() {
-			// snapshot continues, start from last.
-			Some(start_at) => T::TargetList::iter_from(&start_at)
-				.defensive_unwrap_or_else(|| T::TargetList::iter()),
-			// beginning of the snapshot, start from the beginning.
-			None => T::TargetList::iter(),
+		let mut targets_iter = match TargetSnapshotStatus::<T>::get() {
+			// snapshot continues, start from last iterated target in the list.
+			SnapshotStatus::Ongoing(start_at) =>
+				T::TargetList::iter_from(&start_at).unwrap_or_else(|_| T::TargetList::iter()),
+			// all the targets have been consumed, return an empty iterator.
+			SnapshotStatus::Consumed => Box::new(vec![].into_iter()),
+			// start the snapshot processing, start from the beginning.
+			SnapshotStatus::Waiting => T::TargetList::iter(),
 		};
 
 		while all_targets.len() < final_predicted_len as usize &&
@@ -1091,10 +1106,18 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		match remaining_pages {
-			0 => LastIteratedTarget::<T>::kill(),
-			_ => {
-				LastIteratedTarget::<T>::put(all_targets.last().cloned());
+		match (remaining_pages, TargetSnapshotStatus::<T>::get()) {
+			// last page requested, reset.
+			(0, _) => TargetSnapshotStatus::<T>::set(SnapshotStatus::Waiting),
+			// all targets have been consumed, do nothing.
+			(_, SnapshotStatus::Consumed) => {},
+			(_, SnapshotStatus::Waiting) | (_, SnapshotStatus::Ongoing(_)) => {
+				if let Some(last) = all_targets.last().cloned() {
+					TargetSnapshotStatus::<T>::set(SnapshotStatus::Ongoing(last));
+				} else {
+					// no more to consume, next pages will be empty.
+					TargetSnapshotStatus::<T>::set(SnapshotStatus::Consumed);
+				}
 			},
 		};
 
@@ -1253,7 +1276,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		bounds: DataProviderBounds,
 		remaining_pages: PageIndex,
 	) -> data_provider::Result<Vec<VoterOf<Self>>> {
-		let voters = Self::get_npos_voters_init(bounds, remaining_pages);
+		let voters = Self::get_npos_voters(bounds, remaining_pages);
 
 		debug_assert!(!bounds.exhausted(
 			SizeBound(voters.encoded_size() as u32).into(),

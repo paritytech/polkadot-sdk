@@ -7068,3 +7068,88 @@ mod ledger {
 		})
 	}
 }
+
+pub mod multi_page_staking {
+	use super::*;
+	use frame_election_provider_support::ElectionDataProvider;
+
+	#[test]
+	fn multi_page_target_snapshot_works() {
+		ExtBuilder::default().nominate(true).build_and_execute(|| {
+			let bounds = ElectionBoundsBuilder::default().targets_count(2.into()).build().targets;
+
+			// fetch from page 3 to 0.
+			assert_eq!(
+				<Staking as ElectionDataProvider>::electable_targets(bounds, 3).unwrap(),
+				vec![31, 21]
+			);
+			assert_eq!(
+				<Staking as ElectionDataProvider>::electable_targets(bounds, 2).unwrap(),
+				vec![11]
+			);
+			// all targets consumed now, thus remaining calls are empty vecs.
+			assert!(<Staking as ElectionDataProvider>::electable_targets(bounds, 1)
+				.unwrap()
+				.is_empty());
+			assert_eq!(TargetSnapshotStatus::<Test>::get(), SnapshotStatus::Consumed);
+
+			assert!(<Staking as ElectionDataProvider>::electable_targets(bounds, 0)
+				.unwrap()
+				.is_empty());
+
+			// once we reach page 0, the status reset.
+			assert_eq!(TargetSnapshotStatus::<Test>::get(), SnapshotStatus::Waiting);
+			// and requesting a nsew snapshot can restart
+			assert_eq!(
+				<Staking as ElectionDataProvider>::electable_targets(bounds, 1).unwrap(),
+				vec![31, 21]
+			);
+		})
+	}
+
+	#[test]
+	fn multi_page_voter_snapshot_works() {
+		ExtBuilder::default().nominate(true).build_and_execute(|| {
+			let bounds = ElectionBoundsBuilder::default().voters_count(3.into()).build().voters;
+
+			// fetch from page 3 to 0.
+			assert_eq!(
+				<Staking as ElectionDataProvider>::electing_voters(bounds, 3)
+					.unwrap()
+					.iter()
+					.map(|(x, _, _)| *x)
+					.collect::<Vec<_>>(),
+				vec![11, 21, 31]
+			);
+			assert_eq!(
+				<Staking as ElectionDataProvider>::electing_voters(bounds, 2)
+					.unwrap()
+					.iter()
+					.map(|(x, _, _)| *x)
+					.collect::<Vec<_>>(),
+				vec![101]
+			);
+			// all voters consumed now, thus remaining calls are empty vecs.
+			assert!(<Staking as ElectionDataProvider>::electing_voters(bounds, 1)
+				.unwrap()
+				.is_empty());
+			assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Consumed);
+
+			assert!(<Staking as ElectionDataProvider>::electing_voters(bounds, 0)
+				.unwrap()
+				.is_empty());
+
+			// once we reach page 0, the status reset.
+			assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Waiting);
+			// and requesting a nsew snapshot can restart
+			assert_eq!(
+				<Staking as ElectionDataProvider>::electing_voters(bounds, 1)
+					.unwrap()
+					.iter()
+					.map(|(x, _, _)| *x)
+					.collect::<Vec<_>>(),
+				vec![11, 21, 31]
+			);
+		})
+	}
+}
