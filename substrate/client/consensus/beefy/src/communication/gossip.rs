@@ -285,36 +285,22 @@ where
 
 	fn validate_vote(
 		&self,
-		vote: VoteMessage<NumberFor<B>, AuthorityId, Signature>,
+		vote: &VoteMessage<NumberFor<B>, AuthorityId, Signature>,
 		sender: &PeerId,
 	) -> Action<B::Hash> {
 		let round = vote.commitment.block_number;
 		let set_id = vote.commitment.validator_set_id;
 		self.known_peers.lock().note_vote_for(*sender, round);
 
-		// Verify general utility of the message.
-		// Have fisherman check the vote for equivocations against finalized
-		// state if the vote is rejected since it could either equivocate against finalized state or
-		// be for a future non-active round that should not be voted for yet (from the client's
-		// perspective). The check is best-effort and ignores errors such as state pruned. We do not
-		// check for equivocations on accepted votes here since this check is performed later in
-		// `sc_consensus_beefy::worker::BeefyWorker::handle_vote`, and in case the vote does not
-		// equivocate, we'd otherwise only produce a false-positive report here. We are going to
-		// discard old votes right away (without verification).
+		// Verify general utility of the message. A vote is only useful if for an active round.
+		// We are going to discard old votes right away (without verification).
 		{
 			let filter = self.gossip_filter.read();
 
 			match filter.consider_vote(round, set_id) {
-				Consider::RejectFuture => {
-					let _ = self.fisherman.check_vote(vote);
-					return Action::Discard(cost::FUTURE_MESSAGE)
-				},
-				Consider::RejectOutOfScope => {
-					let _ = self.fisherman.check_vote(vote);
-					return Action::Discard(cost::OUT_OF_SCOPE_MESSAGE)
-				},
+				Consider::RejectFuture => return Action::Discard(cost::FUTURE_MESSAGE),
+				Consider::RejectOutOfScope => return Action::Discard(cost::OUT_OF_SCOPE_MESSAGE),
 				Consider::RejectPast => {
-					let _ = self.fisherman.check_vote(vote);
 					// TODO: maybe raise cost reputation when seeing votes that are intentional
 					// spam: votes that trigger fisherman reports, but don't go through either
 					// because signer is/was not authority or similar reasons.
@@ -348,10 +334,10 @@ where
 
 	fn validate_finality_proof(
 		&self,
-		proof: BeefyVersionedFinalityProof<B>,
+		proof: &BeefyVersionedFinalityProof<B>,
 		sender: &PeerId,
 	) -> Action<B::Hash> {
-		let (round, set_id) = proof_block_num_and_set_id::<B>(&proof);
+		let (round, set_id) = proof_block_num_and_set_id::<B>(proof);
 		self.known_peers.lock().note_vote_for(*sender, round);
 
 		let action = {
@@ -360,26 +346,17 @@ where
 			// Verify general utility of the justification.
 			// The justification is only useful if it is for an active round: voters should
 			// broadcast finality proofs once they have seen sufficient affirming votes to build a
-			// valid one. If the proof is not for an active round, the fisherman will check the
-			// proof for equivocations against its state (and report if applicable). The check is
-			// best-effort and ignores errors such as state pruned.
+			// valid one.
 			match guard.consider_finality_proof(round, set_id) {
 				Consider::RejectPast => {
-					let _ = self.fisherman.check_proof(proof);
 					// TODO: maybe raise cost reputation when seeing votes that are intentional
 					// spam: votes that trigger fisherman reports, but don't go through either
 					// because signer is/was not authority or similar reasons.
 					// The idea is to more quickly disconnect neighbors which are attempting DoS.
 					return Action::Discard(cost::OUTDATED_MESSAGE)
 				},
-				Consider::RejectFuture => {
-					let _ = self.fisherman.check_proof(proof);
-					return Action::Discard(cost::FUTURE_MESSAGE)
-				},
-				Consider::RejectOutOfScope => {
-					let _ = self.fisherman.check_proof(proof);
-					return Action::Discard(cost::OUT_OF_SCOPE_MESSAGE)
-				},
+				Consider::RejectFuture => return Action::Discard(cost::FUTURE_MESSAGE),
+				Consider::RejectOutOfScope => return Action::Discard(cost::OUT_OF_SCOPE_MESSAGE),
 				Consider::Accept => {},
 			}
 
@@ -392,7 +369,7 @@ where
 				.validator_set()
 				.map(|validator_set| {
 					if let Err((_, signatures_checked)) =
-						verify_with_validator_set::<B>(round, validator_set, &proof)
+						verify_with_validator_set::<B>(round, validator_set, proof)
 					{
 						debug!(
 							target: LOG_TARGET,
@@ -434,9 +411,28 @@ where
 		mut data: &[u8],
 	) -> ValidationResult<B::Hash> {
 		let raw = data;
+		// Have fisherman check the vote or proof for fork equivocations regardless of
+		// the action on it:
+		// 1. We check votes/proofs on past rounds and active rounds since they might equivocate
+		//    against grandpa-finalized state.
+		// 2. We check votes/proofs on future non-active rounds since these should not have been
+		//    voted on yet (from the client's perspective). In case the block is not even in the
+		//    client's history, but is in fact already finalized, the resulting equivocation report
+		//    will be ineffectual.
+		// The check is best-effort and ignores errors such as state pruned. Accepted votes are also
+		// checked against vote equivocations in
+		// `sc_consensus_beefy::worker::BeefyWorker::handle_vote`
 		let action = match GossipMessage::<B>::decode_all(&mut data) {
-			Ok(GossipMessage::Vote(msg)) => self.validate_vote(msg, sender),
-			Ok(GossipMessage::FinalityProof(proof)) => self.validate_finality_proof(proof, sender),
+			Ok(GossipMessage::Vote(msg)) => {
+				let action = self.validate_vote(&msg, sender);
+				let _ = self.fisherman.check_vote(msg);
+				action
+			},
+			Ok(GossipMessage::FinalityProof(proof)) => {
+				let action = self.validate_finality_proof(&proof, sender);
+				let _ = self.fisherman.check_proof(proof);
+				action
+			},
 			Err(e) => {
 				debug!(target: LOG_TARGET, "Error decoding message: {}", e);
 				let bytes = raw.len().min(i32::MAX as usize) as i32;
