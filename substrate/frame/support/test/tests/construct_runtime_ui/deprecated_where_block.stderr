@@ -67,9 +67,6 @@ note: required because it appears within the type `RuntimeEvent`
 ...  |
 note: required by a bound in `Clone`
   --> $RUST/core/src/clone.rs
-   |
-   | pub trait Clone: Sized {
-   |                  ^^^^^ required by this bound in `Clone`
    = note: this error originates in the derive macro `Clone` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied in `RuntimeEvent`
@@ -156,9 +153,6 @@ note: required because it appears within the type `Event<Runtime>`
    |              ^^^^^
 note: required by a bound in `From`
   --> $RUST/core/src/convert/mod.rs
-   |
-   | pub trait From<T>: Sized {
-   |                ^ required by this bound in `From`
    = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied in `frame_system::Event<Runtime>`
@@ -181,9 +175,6 @@ note: required because it appears within the type `Event<Runtime>`
    |              ^^^^^
 note: required by a bound in `TryInto`
   --> $RUST/core/src/convert/mod.rs
-   |
-   | pub trait TryInto<T>: Sized {
-   |                   ^ required by this bound in `TryInto`
    = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
@@ -270,9 +261,6 @@ note: required because it appears within the type `RuntimeCall`
 ...  |
 note: required by a bound in `Clone`
   --> $RUST/core/src/clone.rs
-   |
-   | pub trait Clone: Sized {
-   |                  ^^^^^ required by this bound in `Clone`
    = note: this error originates in the derive macro `Clone` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
@@ -380,9 +368,6 @@ note: required because it appears within the type `RuntimeEvent`
 ...  |
 note: required by a bound in `Result`
   --> $RUST/core/src/result.rs
-   |
-   | pub enum Result<T, E> {
-   |                 ^ required by this bound in `Result`
    = note: this error originates in the derive macro `self::sp_api_hidden_includes_construct_runtime::hidden_include::__private::codec::Decode` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied in `RuntimeEvent`
@@ -412,9 +397,6 @@ note: required because it appears within the type `RuntimeEvent`
 ...  |
 note: required by a bound in `TryInto`
   --> $RUST/core/src/convert/mod.rs
-   |
-   | pub trait TryInto<T>: Sized {
-   |                       ^^^^^ required by this bound in `TryInto`
    = note: this error originates in the macro `frame_support::construct_runtime` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Runtime: Config` is not satisfied
@@ -445,7 +427,4 @@ note: required because it appears within the type `RuntimeCall`
 ...  |
 note: required by a bound in `Result`
   --> $RUST/core/src/result.rs
-   |
-   | pub enum Result<T, E> {
-   |                 ^ required by this bound in `Result`
    = note: this error originates in the derive macro `self::sp_api_hidden_includes_construct_runtime::hidden_include::__private::codec::Decode` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
