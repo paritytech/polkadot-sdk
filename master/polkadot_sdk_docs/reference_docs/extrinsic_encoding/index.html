@@ -191,7 +191,7 @@ if length(signed_payload) &gt; 256 {
     signed_payload = blake2_256(signed_payload)
 }
 </code></pre></div>
-<p>The bytes representing <code>call_data</code> and <code>signed_extensions_extra</code> can be obtained as descibed
+<p>The bytes representing <code>call_data</code> and <code>signed_extensions_extra</code> can be obtained as described
 above. <code>signed_extensions_additional</code> is constructed by SCALE encoding the
 <a href="../../../sp_runtime/traits/trait.SignedExtension.html#associatedtype.AdditionalSigned" title="associated type sp_runtime::traits::SignedExtension::AdditionalSigned">“additional signed” data</a> for each
 signed extension that the chain is using, in order.</p>
