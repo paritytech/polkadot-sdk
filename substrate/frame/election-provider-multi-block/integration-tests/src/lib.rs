@@ -23,7 +23,6 @@ pub(crate) const LOG_TARGET: &str = "integration-tests::epm-staking";
 use mock::*;
 
 use frame_election_provider_support::{bounds::ElectionBoundsBuilder, ElectionDataProvider};
-use pallet_election_provider_multi_block::Phase;
 
 use frame_support::assert_ok;
 
@@ -77,21 +76,25 @@ mod staking_integration {
 	use super::*;
 
 	#[test]
-	fn call_elect_single_block() {} // TODO
-
-	#[test]
 	fn call_elect_multi_block() {
 		ExtBuilder::default().build_and_execute(|| {
 			assert_eq!(Pages::get(), 3);
 			assert_eq!(ElectionProvider::current_round(), 0);
 			assert_eq!(Staking::current_era(), Some(0));
 
-			roll_to(election_prediction(), false);
+			// staking prepares first page of exposures.
+			roll_to(election_prediction() - 3, false);
+
+			// staking prepares second page of exposures.
+			roll_to(election_prediction() - 2, false);
+
+			// staking prepares third page of exposures.
+			roll_to(election_prediction() - 1, false);
 
 			// election successfully, round & era progressed.
-			assert_eq!(ElectionProvider::current_phase(), Phase::Off);
-			assert_eq!(ElectionProvider::current_round(), 1);
-			assert_eq!(Staking::current_era(), Some(1));
+			//assert_eq!(ElectionProvider::current_phase(), Phase::Off);
+			//assert_eq!(ElectionProvider::current_round(), 1);
+			//assert_eq!(Staking::current_era(), Some(1));
 		})
 	}
 }

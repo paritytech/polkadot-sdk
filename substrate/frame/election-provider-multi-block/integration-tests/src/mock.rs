@@ -178,7 +178,7 @@ parameter_types! {
 	pub static SignedPhase: BlockNumber = 10;
 	pub static UnsignedPhase: BlockNumber = 10;
 	pub static SignedValidationPhase: BlockNumber = Pages::get().into();
-	pub static Lookhaead: BlockNumber = 0;
+	pub static Lookhaead: BlockNumber = Pages::get();
 	pub static VoterSnapshotPerBlock: VoterIndex = 4;
 	pub static TargetSnapshotPerBlock: TargetIndex = 8;
 	pub static Pages: PageIndex = 3;
@@ -188,7 +188,6 @@ parameter_types! {
 	// we expect a minimum of 3 blocks in signed phase and unsigned phases before trying
 	// enetering in emergency phase after the election failed.
 	pub static MinBlocksBeforeEmergency: BlockNumber = 3;
-	pub static MaxActiveValidators: u32 = 1000;
 	#[derive(Debug)]
 	pub static MaxVotesPerVoter: u32 = 16;
 	pub static SignedFixedDeposit: Balance = 1;
@@ -298,6 +297,7 @@ impl pallet_bags_list::Config for Runtime {
 
 parameter_types! {
 	pub MaxControllersInDeprecationBatch: u32 = 5900;
+	pub static MaxValidatorSet: u32 = 500;
 }
 
 /// Upper limit on the number of NPOS nominations.
@@ -320,6 +320,7 @@ impl pallet_staking::Config for Runtime {
 	type EraPayout = ();
 	type NextNewSession = Session;
 	type MaxExposurePageSize = ConstU32<256>;
+	type MaxValidatorSet = MaxValidatorSet;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type ElectionProvider = ElectionProvider;
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
