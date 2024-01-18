@@ -967,7 +967,7 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 			}
 
 			let additional_deposit = new_deposit.saturating_sub(current_deposit);
-			if let Err(_) = <T as Config>::Currency::reserve(&billing_account, additional_deposit) {
+			if <T as Config>::Currency::reserve(&billing_account, additional_deposit).is_err() {
 				Self::deposit_event(Event::<T>::CodeUpgradeScheduleFailed(
 					CodeUpgradeScheduleError::FailedToReserveDeposit,
 				));
