@@ -2083,8 +2083,7 @@ impl pallet_mixnet::Config for Runtime {
 }
 
 construct_runtime!(
-	pub struct Runtime
-	{
+	pub struct Runtime {
 		System: frame_system,
 		Utility: pallet_utility,
 		Babe: pallet_babe,

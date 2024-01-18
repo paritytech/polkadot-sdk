@@ -194,8 +194,7 @@ mod tests {
 	pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 
 	frame_support::construct_runtime!(
-		pub struct Runtime
-		{
+		pub struct Runtime {
 			System: frame_system,
 		}
 	);
