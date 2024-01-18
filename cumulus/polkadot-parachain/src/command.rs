@@ -713,7 +713,6 @@ pub fn run() -> Result<()> {
 						.map(|r| r.0)
 						.map_err(Into::into),
 
-
 					CollectivesPolkadot | CollectivesWestend =>
 						crate::service::start_generic_aura_node::<
 							RuntimeApi,
