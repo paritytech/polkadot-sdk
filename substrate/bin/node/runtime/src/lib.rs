@@ -2083,7 +2083,8 @@ impl pallet_mixnet::Config for Runtime {
 }
 
 construct_runtime!(
-	pub struct Runtime {
+	pub struct Runtime
+	{
 		System: frame_system,
 		Utility: pallet_utility,
 		Babe: pallet_babe,
@@ -2105,10 +2106,10 @@ construct_runtime!(
 		MmrLeaf: pallet_beefy_mmr,
 		Session: pallet_session,
 		Democracy: pallet_democracy,
-		Council: pallet_collective<Instance1>,
-		TechnicalCommittee: pallet_collective<Instance2>,
+		Council: pallet_collective::<Instance1>,
+		TechnicalCommittee: pallet_collective::<Instance2>,
 		Elections: pallet_elections_phragmen,
-		TechnicalMembership: pallet_membership<Instance1>,
+		TechnicalMembership: pallet_membership::<Instance1>,
 		Grandpa: pallet_grandpa,
 		Treasury: pallet_treasury,
 		AssetRate: pallet_asset_rate,
@@ -2130,8 +2131,8 @@ construct_runtime!(
 		Multisig: pallet_multisig,
 		Bounties: pallet_bounties,
 		Tips: pallet_tips,
-		Assets: pallet_assets<Instance1>,
-		PoolAssets: pallet_assets<Instance2>,
+		Assets: pallet_assets::<Instance1>,
+		PoolAssets: pallet_assets::<Instance2>,
 		Lottery: pallet_lottery,
 		Nis: pallet_nis,
 		Uniques: pallet_uniques,
@@ -2140,7 +2141,7 @@ construct_runtime!(
 		Salary: pallet_salary,
 		CoreFellowship: pallet_core_fellowship,
 		TransactionStorage: pallet_transaction_storage,
-		VoterList: pallet_bags_list<Instance1>,
+		VoterList: pallet_bags_list::<Instance1>,
 		StateTrieMigration: pallet_state_trie_migration,
 		ChildBounties: pallet_child_bounties,
 		Referenda: pallet_referenda,
@@ -2148,10 +2149,10 @@ construct_runtime!(
 		RootTesting: pallet_root_testing,
 		ConvictionVoting: pallet_conviction_voting,
 		Whitelist: pallet_whitelist,
-		AllianceMotion: pallet_collective<Instance3>,
+		AllianceMotion: pallet_collective::<Instance3>,
 		Alliance: pallet_alliance,
 		NominationPools: pallet_nomination_pools,
-		RankedPolls: pallet_referenda<Instance2>,
+		RankedPolls: pallet_referenda::<Instance2>,
 		RankedCollective: pallet_ranked_collective,
 		AssetConversion: pallet_asset_conversion,
 		FastUnstake: pallet_fast_unstake,

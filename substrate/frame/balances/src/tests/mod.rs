@@ -75,7 +75,8 @@ impl VariantCount for TestId {
 }
 
 frame_support::construct_runtime!(
-	pub struct Test {
+	pub struct Test
+	{
 		System: frame_system,
 		Balances: pallet_balances,
 		TransactionPayment: pallet_transaction_payment,
