@@ -897,7 +897,7 @@ mod tests {
 	}
 
 	frame_support::construct_runtime!(
-		pub struct Runtime {
+		pub enum Runtime {
 			System: frame_system,
 			Balances: pallet_balances,
 			TransactionPayment: pallet_transaction_payment,

@@ -158,7 +158,7 @@ mod tests {
 
 		// The major macro that amalgamates pallets into `struct Runtime`
 		construct_runtime!(
-			pub struct Runtime {
+			pub enum Runtime {
 				System: frame_system,
 				Example: pallet_example,
 			}

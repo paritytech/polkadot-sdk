@@ -54,7 +54,7 @@ pub type UncheckedExtrinsic =
 	sp_runtime::generic::UncheckedExtrinsic<AccountId, RuntimeCall, (), ()>;
 
 frame_support::construct_runtime!(
-	pub struct Runtime {
+	pub enum Runtime {
 		System: frame_system,
 		Balances: pallet_balances,
 		MultiPhase: multi_phase,

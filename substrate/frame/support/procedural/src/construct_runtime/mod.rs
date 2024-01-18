@@ -172,7 +172,7 @@
 //!
 //! This call has no implicit pallet parts, thus it will expand to the runtime construction:
 //! ```ignore
-//! pub struct Runtime { ... }
+//! pub enum Runtime { ... }
 //! pub struct Call { ... }
 //! impl Call ...
 //! pub enum Origin { ... }
