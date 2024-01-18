@@ -378,11 +378,3 @@ fn active_changing_get_salary_works() {
 		}
 	});
 }
-
-#[test]
-fn approve_imports_not_tracked_member() {
-	new_test_ext().execute_with(|| {
-		set_rank(10, 5);
-		assert_ok!(CoreFellowship::approve(signed(5), 10, 5));
-	});
-}

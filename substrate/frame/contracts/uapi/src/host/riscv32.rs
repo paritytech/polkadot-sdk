@@ -84,8 +84,8 @@ impl HostFn for HostFnImpl {
 		gas: u64,
 		value: &[u8],
 		input: &[u8],
-		mut address: Option<&mut [u8]>,
-		mut output: Option<&mut [u8]>,
+		mut address: Option<&mut &mut [u8]>,
+		mut output: Option<&mut &mut [u8]>,
 		salt: &[u8],
 	) -> Result {
 		todo!()
@@ -98,8 +98,8 @@ impl HostFn for HostFnImpl {
 		deposit: Option<&[u8]>,
 		value: &[u8],
 		input: &[u8],
-		mut address: Option<&mut [u8]>,
-		mut output: Option<&mut [u8]>,
+		mut address: Option<&mut &mut [u8]>,
+		mut output: Option<&mut &mut [u8]>,
 		salt: &[u8],
 	) -> Result {
 		todo!()
@@ -110,7 +110,7 @@ impl HostFn for HostFnImpl {
 		gas: u64,
 		value: &[u8],
 		input_data: &[u8],
-		mut output: Option<&mut [u8]>,
+		mut output: Option<&mut &mut [u8]>,
 	) -> Result {
 		todo!()
 	}
@@ -121,7 +121,7 @@ impl HostFn for HostFnImpl {
 		gas: u64,
 		value: &[u8],
 		input_data: &[u8],
-		mut output: Option<&mut [u8]>,
+		mut output: Option<&mut &mut [u8]>,
 	) -> Result {
 		todo!()
 	}
@@ -134,7 +134,7 @@ impl HostFn for HostFnImpl {
 		deposit: Option<&[u8]>,
 		value: &[u8],
 		input_data: &[u8],
-		mut output: Option<&mut [u8]>,
+		mut output: Option<&mut &mut [u8]>,
 	) -> Result {
 		todo!()
 	}
@@ -147,7 +147,7 @@ impl HostFn for HostFnImpl {
 		flags: CallFlags,
 		code_hash: &[u8],
 		input: &[u8],
-		mut output: Option<&mut [u8]>,
+		mut output: Option<&mut &mut [u8]>,
 	) -> Result {
 		todo!()
 	}
@@ -203,7 +203,7 @@ impl HostFn for HostFnImpl {
 		todo!()
 	}
 
-	fn call_chain_extension(func_id: u32, input: &[u8], output: Option<&mut [u8]>) -> u32 {
+	fn call_chain_extension(func_id: u32, input: &[u8], output: Option<&mut &mut [u8]>) -> u32 {
 		todo!()
 	}
 
