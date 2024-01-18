@@ -438,7 +438,7 @@ impl Stream for Discovery {
 				log::trace!(target: LOG_TARGET, "routing table update, discovered {} peers", peers.len());
 
 				return Poll::Ready(Some(DiscoveryEvent::RoutingTableUpdate {
-					peers: peers.into_iter().map(|peer| peer).collect(),
+					peers: peers.into_iter().collect(),
 				}))
 			},
 			Poll::Ready(Some(KademliaEvent::GetRecordSuccess { query_id, record })) => {

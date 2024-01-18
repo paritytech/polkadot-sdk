@@ -73,7 +73,8 @@ mod rep {
 		Rep::new(-(1 << 10), "same small block request multiple times");
 }
 
-/// Generates a [`ProtocolConfig`] for the block request protocol, refusing incoming requests.
+/// Generates a `RequestResponseProtocolConfig` for the block request protocol,
+/// refusing incoming requests.
 pub fn generate_protocol_config<
 	Hash: AsRef<[u8]>,
 	B: BlockT,

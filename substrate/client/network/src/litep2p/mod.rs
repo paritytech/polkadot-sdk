@@ -642,7 +642,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		)
 	}
 
-	/// Start [`Litep2pBackend`] event loop.
+	/// Start [`Litep2pNetworkBackend`] event loop.
 	async fn run(mut self) {
 		log::debug!(target: LOG_TARGET, "starting litep2p network backend");
 

@@ -38,7 +38,7 @@ const MAX_RESPONSE_SIZE: u64 = 16 * 1024 * 1024;
 /// Incoming warp requests bounded queue size.
 const MAX_WARP_REQUEST_QUEUE: usize = 20;
 
-/// Generates a [`RequestResponseConfig`] for the grandpa warp sync request protocol, refusing
+/// Generates a `RequestResponseProtocolConfig` for the grandpa warp sync request protocol, refusing
 /// incoming requests.
 pub fn generate_request_response_config<
 	Hash: AsRef<[u8]>,

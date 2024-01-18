@@ -207,7 +207,7 @@ impl PeerStoreProvider for PeerstoreHandle {
 
 	/// Get peer role, if available.
 	fn peer_role(&self, peer: &PeerId) -> Option<ObservedRole> {
-		self.0.lock().peers.get(peer).map(|info| info.role).flatten()
+		self.0.lock().peers.get(peer).and_then(|info| info.role)
 	}
 
 	/// Get candidates with highest reputations for initiating outgoing connections.

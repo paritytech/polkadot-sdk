@@ -269,12 +269,7 @@ impl RequestResponseProtocol {
 		}) {
 			Ok(_) => {
 				self.pending_outbound_responses.push(Box::pin(async move {
-					(
-						peer,
-						request_id,
-						rx.await.map(|response| response).map_err(|_| ()),
-						Instant::now(),
-					)
+					(peer, request_id, rx.await.map_err(|_| ()), Instant::now())
 				}));
 			},
 			Err(error) => {

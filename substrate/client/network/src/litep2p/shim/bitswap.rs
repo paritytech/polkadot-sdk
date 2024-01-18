@@ -60,7 +60,7 @@ impl<Block: BlockT> BitswapServer<Block> {
 
 					let response: Vec<ResponseType> = cids
 						.into_iter()
-						.filter_map(|(cid, want_type)| {
+						.map(|(cid, want_type)| {
 							let mut hash = Block::Hash::default();
 							hash.as_mut().copy_from_slice(&cid.hash().digest()[0..32]);
 							let transaction = match self.client.indexed_transaction(hash) {
@@ -77,20 +77,20 @@ impl<Block: BlockT> BitswapServer<Block> {
 
 									match want_type {
 										WantType::Block =>
-											Some(ResponseType::Block { cid, block: transaction }),
-										_ => Some(ResponseType::Presence {
+											ResponseType::Block { cid, block: transaction },
+										_ => ResponseType::Presence {
 											cid,
 											presence: BlockPresenceType::Have,
-										}),
+										},
 									}
 								},
 								None => {
 									log::trace!(target: LOG_TARGET, "missing cid {cid:?}, hash {hash:?}");
 
-									Some(ResponseType::Presence {
+									ResponseType::Presence {
 										cid,
 										presence: BlockPresenceType::DontHave,
-									})
+									}
 								},
 							}
 						})

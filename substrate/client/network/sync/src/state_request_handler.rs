@@ -53,7 +53,8 @@ mod rep {
 	pub const SAME_REQUEST: Rep = Rep::new(i32::MIN, "Same state request multiple times");
 }
 
-/// Generates a [`ProtocolConfig`] for the state request protocol, refusing incoming requests.
+/// Generates a `RequestResponseProtocolConfig` for the state request protocol, refusing incoming
+/// requests.
 pub fn generate_protocol_config<
 	Hash: AsRef<[u8]>,
 	B: BlockT,

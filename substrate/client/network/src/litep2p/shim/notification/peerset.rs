@@ -936,7 +936,7 @@ impl Stream for Peerset {
 					return Poll::Ready(Some(PeersetNotificationCommand::CloseSubstream {
 						peers: peers_to_remove
 							.into_iter()
-							.filter_map(|peer| {
+							.filter(|peer| {
 								match self.peers.remove(&peer) {
 									Some(PeerState::Connected { direction }) => {
 										log::trace!(
@@ -945,23 +945,23 @@ impl Stream for Peerset {
 											self.protocol,
 										);
 
-										self.peers.insert(peer, PeerState::Closing { direction });
-										Some(peer)
+										self.peers.insert(*peer, PeerState::Closing { direction });
+										true
 									},
 									// substream might have been opening but not yet fully open when
 									// the protocol request the reserved set to be changed
 									Some(PeerState::Opening { direction }) => {
-										self.peers.insert(peer, PeerState::Canceled { direction });
-										None
+										self.peers.insert(*peer, PeerState::Canceled { direction });
+										false
 									},
 									Some(state) => {
-										self.peers.insert(peer, state);
-										None
+										self.peers.insert(*peer, state);
+										false
 									},
 									None => {
 										log::debug!(target: LOG_TARGET, "{}: {peer:?} doesn't exist", self.protocol);
 										debug_assert!(false);
-										None
+										false
 									},
 								}
 							})
