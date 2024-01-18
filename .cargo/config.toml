@@ -1,4 +1,4 @@
-paths=["../trie", "../parity-db"]
+#paths=["../trie", "../parity-db"]
 
 #
 # An auto defined `clippy` feature was introduced,

@@ -527,3 +527,10 @@ wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
+
+[patch.crates-io]
+trie-db = { git = "https://github.com/cheme/trie.git", branch = "cheme/new-trie" }
+hash-db = { git = "https://github.com/cheme/trie.git", branch = "cheme/new-trie" }
+memory-db = { git = "https://github.com/cheme/trie.git", branch = "cheme/new-trie" }
+trie-bench = { git = "https://github.com/cheme/trie.git", branch = "cheme/new-trie" }
+parity-db = { git = "https://github.com/paritytech/parity-db.git", branch = "multi_tree_option" }
