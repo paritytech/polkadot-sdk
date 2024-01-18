@@ -22,3 +22,4 @@ pub mod environment;
 pub mod keyring;
 pub mod mock;
 pub mod network;
+pub mod report;

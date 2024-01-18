@@ -26,7 +26,7 @@ use prometheus::{
 };
 use std::fmt::Display;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct MetricCollection(Vec<TestMetric>);
 
 impl From<Vec<TestMetric>> for MetricCollection {

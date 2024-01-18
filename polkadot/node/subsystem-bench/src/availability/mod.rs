@@ -205,14 +205,16 @@ impl HandleNetworkMessage for NetworkAvailabilityState {
 pub fn prepare_test(
 	config: TestConfiguration,
 	state: &mut TestState,
+	subsystems: &[&str],
 ) -> (TestEnvironment, Vec<ProtocolConfig>) {
-	prepare_test_inner(config, state, TestEnvironmentDependencies::default())
+	prepare_test_inner(config, state, TestEnvironmentDependencies::default(), subsystems)
 }
 
 fn prepare_test_inner(
 	config: TestConfiguration,
 	state: &mut TestState,
 	dependencies: TestEnvironmentDependencies,
+	subsystems: &[&str],
 ) -> (TestEnvironment, Vec<ProtocolConfig>) {
 	// Generate test authorities.
 	let test_authorities = config.generate_authorities();
@@ -356,6 +358,7 @@ fn prepare_test_inner(
 			overseer,
 			overseer_handle,
 			test_authorities,
+			subsystems,
 		),
 		req_cfgs,
 	)
@@ -560,7 +563,7 @@ pub async fn benchmark_availability_read(env: &mut TestEnvironment, mut state: T
 
 	env.display_network_usage();
 	env.display_cpu_usage(&["availability-recovery"]);
-	env.stop().await;
+	let test_run = env.stop().await;
 }
 
 pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: TestState) {
@@ -723,7 +726,7 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 		"availability-store",
 	]);
 
-	env.stop().await;
+	let test_run = env.stop().await;
 }
 
 pub fn peer_bitfield_message_v2(

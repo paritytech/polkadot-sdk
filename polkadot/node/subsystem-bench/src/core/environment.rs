@@ -34,7 +34,7 @@ use std::net::{Ipv4Addr, SocketAddr};
 use tokio::runtime::Handle;
 
 const LOG_TARGET: &str = "subsystem-bench::environment";
-use super::configuration::TestAuthorities;
+use super::{configuration::TestAuthorities, report::TestRun, display::parse_metrics};
 
 /// Test environment/configuration metrics
 #[derive(Clone)]
@@ -190,6 +190,8 @@ pub struct TestEnvironment {
 	metrics: TestEnvironmentMetrics,
 	/// Test authorities generated from the configuration.
 	authorities: TestAuthorities,
+	/// The current test run.
+	test_run: TestRun,
 }
 
 impl TestEnvironment {
@@ -201,6 +203,7 @@ impl TestEnvironment {
 		overseer: Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>,
 		overseer_handle: OverseerHandle,
 		authorities: TestAuthorities,
+		subsystems: &[&str],
 	) -> Self {
 		let metrics = TestEnvironmentMetrics::new(&dependencies.registry)
 			.expect("Metrics need to be registered");
@@ -222,6 +225,8 @@ impl TestEnvironment {
 			},
 		);
 
+		let test_run = TestRun::start(config.clone(), subsystems);
+		
 		TestEnvironment {
 			runtime_handle: dependencies.runtime.handle().clone(),
 			dependencies,
@@ -230,6 +235,7 @@ impl TestEnvironment {
 			network,
 			metrics,
 			authorities,
+			test_run,
 		}
 	}
 
@@ -306,9 +312,11 @@ impl TestEnvironment {
 			});
 	}
 
-	/// Stop overseer and subsystems.
-	pub async fn stop(&mut self) {
+	/// Stop overseer and subsystems and returns information about the test run.
+	pub async fn stop(&mut self) -> TestRun {
 		self.overseer_handle.stop().await;
+		self.test_run.stop(parse_metrics(&self.dependencies.registry));
+		self.test_run.clone()
 	}
 
 	/// Blocks until `metric_name` >= `value`

@@ -167,14 +167,18 @@ impl BenchCli {
 					match test_config.objective {
 						TestObjective::DataAvailabilityRead(ref _opts) => {
 							let mut state = TestState::new(&test_config);
-							let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
+							let (mut env, _protocol_config) = prepare_test(test_config, &mut state, &["availability-recovery"]);
 							env.runtime().block_on(availability::benchmark_availability_read(
 								&mut env, state,
 							));
 						},
 						TestObjective::DataAvailabilityWrite => {
 							let mut state = TestState::new(&test_config);
-							let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
+							let (mut env, _protocol_config) = prepare_test(test_config, &mut state, &[
+								"availability-distribution",
+								"bitfield-distribution",
+								"availability-store",
+							]);
 							env.runtime().block_on(availability::benchmark_availability_write(
 								&mut env, state,
 							));
@@ -184,8 +188,7 @@ impl BenchCli {
 				}
 				return Ok(())
 			},
-			TestObjective::DataAvailabilityRead(ref _options) => self.create_test_configuration(),
-			TestObjective::DataAvailabilityWrite => self.create_test_configuration(),
+			_ => self.create_test_configuration(),
 		};
 
 		let mut latency_config = test_config.latency.clone().unwrap_or_default();
@@ -218,14 +221,16 @@ impl BenchCli {
 		display_configuration(&test_config);
 
 		let mut state = TestState::new(&test_config);
-		let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
 
 		match self.objective {
 			TestObjective::DataAvailabilityRead(_options) => {
+				let (mut env, _protocol_config) = prepare_test(test_config, &mut state, &["availability-recovery"]);
+
 				env.runtime()
 					.block_on(availability::benchmark_availability_read(&mut env, state));
 			},
 			TestObjective::DataAvailabilityWrite => {
+				let (mut env, _protocol_config) = prepare_test(test_config, &mut state, &["availability-recovery"]);
 				env.runtime()
 					.block_on(availability::benchmark_availability_write(&mut env, state));
 			},

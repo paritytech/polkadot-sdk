@@ -42,7 +42,6 @@ macro_rules! dummy_builder {
 		use super::core::mock::dummy::*;
 
 		// Initialize a mock overseer.
-		// All subsystem except approval_voting and approval_distribution are mock subsystems.
 		Overseer::builder()
 			.approval_voting(MockApprovalVoting {})
 			.approval_distribution(MockApprovalDistribution {})
