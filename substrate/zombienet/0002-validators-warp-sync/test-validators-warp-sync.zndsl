@@ -31,6 +31,12 @@ bob: log line matches "Block history download is complete" within 120 seconds
 alice: reports block height is at least {{DB_BLOCK_HEIGHT}} within 10 seconds
 bob: reports block height is at least {{DB_BLOCK_HEIGHT}} within 10 seconds
 
+alice: reports substrate_beefy_best_block is at least {{DB_BLOCK_HEIGHT}} within 180 seconds
+bob: reports substrate_beefy_best_block is at least {{DB_BLOCK_HEIGHT}} within 180 seconds
+
+alice: reports substrate_beefy_best_block is greater than {{DB_BLOCK_HEIGHT}} within 60 seconds
+bob: reports substrate_beefy_best_block is greater than {{DB_BLOCK_HEIGHT}} within 60 seconds
+
 alice: count of log lines containing "error" is 0 within 10 seconds
 bob: count of log lines containing "verification failed" is 0 within 10 seconds
 
