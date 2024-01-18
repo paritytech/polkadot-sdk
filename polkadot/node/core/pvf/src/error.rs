@@ -27,17 +27,17 @@ pub enum ValidationError {
 	/// pre-checking enabled only valid runtimes should ever get enacted, so we can be
 	/// reasonably sure that this is some local problem on the current node. However, as this
 	/// particular error *seems* to indicate a deterministic error, we raise a warning.
-	#[error(transparent)]
+	#[error("candidate validation: {0}")]
 	Preparation(PrepareError),
 	/// The error was raised because the candidate is invalid. Should vote against.
-	#[error(transparent)]
+	#[error("candidate validation: {0}")]
 	Invalid(#[from] InvalidCandidate),
 	/// Possibly transient issue that may resolve after retries. Should vote against when retries
 	/// fail.
-	#[error(transparent)]
+	#[error("candidate validation: {0}")]
 	PossiblyInvalid(#[from] PossiblyInvalidError),
 	/// Preparation or execution issue caused by an internal condition. Should not vote against.
-	#[error(transparent)]
+	#[error("candidate validation: internal: {0}")]
 	Internal(#[from] InternalValidationError),
 }
 
