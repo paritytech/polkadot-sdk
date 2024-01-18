@@ -1450,6 +1450,11 @@
 <a href="#1450" id="1450">1450</a>
 <a href="#1451" id="1451">1451</a>
 <a href="#1452" id="1452">1452</a>
+<a href="#1453" id="1453">1453</a>
+<a href="#1454" id="1454">1454</a>
+<a href="#1455" id="1455">1455</a>
+<a href="#1456" id="1456">1456</a>
+<a href="#1457" id="1457">1457</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2847,16 +2852,21 @@
 			},
 		)<span class="question-mark">?</span>;
 
-		<span class="comment">// Subs Deposit
-		</span><span class="kw">let </span>new_subs_deposit = SubsOf::&lt;T&gt;::try_mutate(
-			<span class="kw-2">&amp;</span>target,
-			|(current_subs_deposit, subs_of)| -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, DispatchError&gt; {
-				<span class="kw">let </span>new_subs_deposit = <span class="self">Self</span>::subs_deposit(subs_of.len() <span class="kw">as </span>u32);
-				<span class="self">Self</span>::rejig_deposit(<span class="kw-2">&amp;</span>target, <span class="kw-2">*</span>current_subs_deposit, new_subs_deposit)<span class="question-mark">?</span>;
-				<span class="kw-2">*</span>current_subs_deposit = new_subs_deposit;
-				<span class="prelude-val">Ok</span>(new_subs_deposit)
-			},
-		)<span class="question-mark">?</span>;
+		<span class="kw">let </span>new_subs_deposit = <span class="kw">if </span>SubsOf::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>target) {
+			SubsOf::&lt;T&gt;::try_mutate(
+				<span class="kw-2">&amp;</span>target,
+				|(current_subs_deposit, subs_of)| -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, DispatchError&gt; {
+					<span class="kw">let </span>new_subs_deposit = <span class="self">Self</span>::subs_deposit(subs_of.len() <span class="kw">as </span>u32);
+					<span class="self">Self</span>::rejig_deposit(<span class="kw-2">&amp;</span>target, <span class="kw-2">*</span>current_subs_deposit, new_subs_deposit)<span class="question-mark">?</span>;
+					<span class="kw-2">*</span>current_subs_deposit = new_subs_deposit;
+					<span class="prelude-val">Ok</span>(new_subs_deposit)
+				},
+			)<span class="question-mark">?
+		</span>} <span class="kw">else </span>{
+			<span class="comment">// If the item doesn&#39;t exist, there is no &quot;old&quot; deposit, and the new one is zero, so no
+			// need to call rejig, it&#39;d just be zero -&gt; zero.
+			</span>Zero::zero()
+		};
 		<span class="prelude-val">Ok</span>((new_id_deposit, new_subs_deposit))
 	}
 

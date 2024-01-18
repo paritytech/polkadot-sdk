@@ -835,14 +835,6 @@
 <a href="#835" id="835">835</a>
 <a href="#836" id="836">836</a>
 <a href="#837" id="837">837</a>
-<a href="#838" id="838">838</a>
-<a href="#839" id="839">839</a>
-<a href="#840" id="840">840</a>
-<a href="#841" id="841">841</a>
-<a href="#842" id="842">842</a>
-<a href="#843" id="843">843</a>
-<a href="#844" id="844">844</a>
-<a href="#845" id="845">845</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -875,8 +867,7 @@
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
 	traits::{
-		ConstBool, ConstU32, ConstU64, ConstU8, Contains, EitherOfDiverse, EverythingBut,
-		TransformOrigin,
+		ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Everything, TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
@@ -969,7 +960,7 @@
 	spec_name: <span class="macro">create_runtime_str!</span>(<span class="string">&quot;people-rococo&quot;</span>),
 	impl_name: <span class="macro">create_runtime_str!</span>(<span class="string">&quot;people-rococo&quot;</span>),
 	authoring_version: <span class="number">1</span>,
-	spec_version: <span class="number">1_006_000</span>,
+	spec_version: <span class="number">1_006_002</span>,
 	impl_version: <span class="number">0</span>,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: <span class="number">0</span>,
@@ -1007,16 +998,9 @@
 	<span class="kw">pub const </span>SS58Prefix: u8 = <span class="number">42</span>;
 }
 
-<span class="kw">pub struct </span>IdentityCalls;
-<span class="kw">impl </span>Contains&lt;RuntimeCall&gt; <span class="kw">for </span>IdentityCalls {
-	<span class="kw">fn </span>contains(c: <span class="kw-2">&amp;</span>RuntimeCall) -&gt; bool {
-		<span class="macro">matches!</span>(c, RuntimeCall::Identity(<span class="kw">_</span>))
-	}
-}
-
 <span class="attr">#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig)]
 </span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
-	<span class="kw">type </span>BaseCallFilter = EverythingBut&lt;IdentityCalls&gt;;
+	<span class="kw">type </span>BaseCallFilter = Everything;
 	<span class="kw">type </span>BlockWeights = RuntimeBlockWeights;
 	<span class="kw">type </span>BlockLength = RuntimeBlockLength;
 	<span class="kw">type </span>AccountId = AccountId;
