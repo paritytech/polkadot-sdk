@@ -64,7 +64,8 @@ ALL_TESTS_FOLDER=`mktemp -d /tmp/bridges-zombienet-tests.XXXXX`
 function start_coproc() {
     local command=$1
     local name=$2
-    local coproc_log=`mktemp -p $TEST_FOLDER`
+    local logname=`basename $name`
+    local coproc_log=`mktemp -p $TEST_FOLDER $logname.XXXXX`
     coproc COPROC {
         # otherwise zombienet uses some hardcoded paths
         unset RUN_IN_CONTAINER
@@ -88,7 +89,7 @@ do
     TEST_PREFIX=$(printf "%04d" $TEST_INDEX)
 
     # it'll be used by the `sync-exit.sh` script
-    export TEST_FOLDER=`mktemp -d -p $ALL_TESTS_FOLDER`
+    export TEST_FOLDER=`mktemp -d -p $ALL_TESTS_FOLDER test-$TEST_PREFIX.XXXXX`
 
     # check if there are no more tests
     zndsl_files=($BRIDGE_TESTS_FOLDER/$TEST_PREFIX-*.zndsl)

@@ -38,7 +38,7 @@
   after_script:
     - mkdir -p ./zombienet-logs
     # copy logs of tests runner (run-tests.sh)
-    - cp -r /tmp/bridges-zombienet-tests.*/tmp.*/tmp.* ./zombienet-logs/
+    - cp -r /tmp/bridges-zombienet-tests.*/test-*.*/* ./zombienet-logs/
     # copy logs of all nodes
     - cp /tmp/zombie*/logs/* ./zombienet-logs/
 # following lines are causing spurious test failures ("At least one of the nodes fails to start")
