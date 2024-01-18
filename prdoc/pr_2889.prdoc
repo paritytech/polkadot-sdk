@@ -1,0 +1,10 @@
+title: Filter backing votes from disabled validators in paras_inherent
+
+doc:
+  - audience: Runtime User
+    description: |
+      paras_inherent drops any backing votes from disabled validators on block import and asserts
+      that no votes from disabled validators are included in a block during execution
+
+crates:
+  - name: polkadot-runtime-parachains
