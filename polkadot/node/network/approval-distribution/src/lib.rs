@@ -1977,8 +1977,6 @@ impl State {
 		metrics: &Metrics,
 	) {
 		let config = self.aggression_config.clone();
-		let min_age = self.blocks_by_number.iter().next().map(|(num, _)| num);
-		let max_age = self.blocks_by_number.iter().rev().next().map(|(num, _)| num);
 
 		// Trigger on approval checking lag.
 		if !self.aggression_config.should_trigger_aggression(self.approval_checking_lag) {
@@ -1989,6 +1987,10 @@ impl State {
 			);
 			return
 		}
+
+		let min_age = self.blocks_by_number.iter().next().map(|(num, _)| num);
+		let max_age = self.blocks_by_number.iter().rev().next().map(|(num, _)| num);
+
 		// Return if we don't have at least 1 block.
 		let (min_age, max_age) = match (min_age, max_age) {
 			(Some(min), Some(max)) => (min, max),
