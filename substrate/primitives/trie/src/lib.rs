@@ -49,9 +49,9 @@ use trie_db::proof::{generate_proof, verify_proof};
 pub use trie_db::{
 	nibble_ops,
 	node::{NodePlan, ValuePlan},
-	CError, DBValue, Query, Recorder, Trie, TrieCache, TrieConfiguration, TrieDBIterator,
-	TrieDBKeyIterator, TrieDBRawIterator, TrieLayout, TrieRecorder,
-	Changeset, ChangesetNodeRef, NewChangesetNode, ExistingChangesetNode,
+	CError, Changeset, ChangesetNodeRef, DBValue, ExistingChangesetNode, NewChangesetNode, Query,
+	Recorder, Trie, TrieCache, TrieConfiguration, TrieDBIterator, TrieDBKeyIterator,
+	TrieDBRawIterator, TrieLayout, TrieRecorder,
 };
 pub use trie_db::{proof::VerifyError, MerkleValue};
 /// The Substrate format implementation of `TrieStream`.
@@ -160,7 +160,6 @@ pub type DBLocation = u64;
 #[cfg(not(feature = "std"))]
 pub type DBLocation = ();
 
-
 /// TrieDB error over `TrieConfiguration` trait.
 pub type TrieError<L> = trie_db::TrieError<TrieHash<L>, CError<L>>;
 /// Reexport from `hash_db`, with genericity set for `Hasher` trait.
@@ -197,7 +196,8 @@ pub mod trie_types {
 	/// Read only V1 and V0 are compatible, thus we always use V1.
 	pub type TrieDB<'a, 'cache, H> = super::TrieDB<'a, 'cache, LayoutV1<H, DBLocation>>;
 	/// Builder for creating a [`TrieDB`].
-	pub type TrieDBBuilder<'a, 'cache, H> = super::TrieDBBuilder<'a, 'cache, LayoutV1<H, DBLocation>>;
+	pub type TrieDBBuilder<'a, 'cache, H> =
+		super::TrieDBBuilder<'a, 'cache, LayoutV1<H, DBLocation>>;
 	/// Builder for creating a [`TrieDB`] for state V0.
 	pub type TrieDBBuilderV0<'a, 'cache, H, L> = super::TrieDBBuilder<'a, 'cache, LayoutV0<H, L>>;
 	/// Builder for creating a [`TrieDB`] for state V1.
@@ -215,6 +215,9 @@ pub mod trie_types {
 	/// As in `trie_db`, but less generic, error type for the crate.
 	pub type TrieError<H> = trie_db::TrieError<H, super::Error<H>>;
 }
+
+/// Alias to root hash and db location.
+pub type Root<L> = (TrieHash<L>, <L as TrieLayout>::Location);
 
 /// Create a proof for a subset of keys in a trie.
 ///
@@ -263,7 +266,7 @@ where
 /// Determine a trie root given a hash DB and delta values.
 pub fn delta_trie_root<L: TrieConfiguration, I, A, B, V>(
 	db: &dyn hash_db::HashDB<L::Hash, trie_db::DBValue, L::Location>,
-	root: TrieHash<L>,
+	root: Root<L>,
 	delta: I,
 	recorder: Option<&mut dyn trie_db::TrieRecorder<TrieHash<L>, L::Location>>,
 	cache: Option<&mut dyn TrieCache<L::Codec, L::Location>>,
@@ -274,7 +277,7 @@ where
 	B: Borrow<Option<V>>,
 	V: Borrow<[u8]>,
 {
-	let mut trie = TrieDBMutBuilder::<L>::from_existing(db, root)
+	let mut trie = TrieDBMutBuilder::<L>::from_existing_with_db_location(db, root.0, root.1)
 		.with_optional_cache(cache)
 		.with_optional_recorder(recorder)
 		.build();
@@ -292,7 +295,10 @@ where
 }
 
 /// Read a value from the trie.
-pub fn read_trie_value<L: TrieLayout, DB: hash_db::HashDB<L::Hash, trie_db::DBValue, L::Location>>(
+pub fn read_trie_value<
+	L: TrieLayout,
+	DB: hash_db::HashDB<L::Hash, trie_db::DBValue, L::Location>,
+>(
 	db: &DB,
 	root: &TrieHash<L>,
 	key: &[u8],
@@ -308,7 +314,7 @@ pub fn read_trie_value<L: TrieLayout, DB: hash_db::HashDB<L::Hash, trie_db::DBVa
 
 /// Read the [`trie_db::MerkleValue`] of the node that is the closest descendant for
 /// the provided key.
-pub fn read_trie_first_descedant_value<L: TrieLayout, DB>(
+pub fn read_trie_first_descendant_value<L: TrieLayout, DB>(
 	db: &DB,
 	root: &TrieHash<L>,
 	key: &[u8],
@@ -366,6 +372,7 @@ pub fn child_delta_trie_root<L: TrieConfiguration, I, A, B, RD, V>(
 	keyspace: &[u8],
 	db: &dyn hash_db::HashDB<L::Hash, trie_db::DBValue, L::Location>,
 	root_data: RD,
+	root_location: L::Location,
 	delta: I,
 	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>, L::Location>>,
 	cache: Option<&mut dyn TrieCache<L::Codec, L::Location>>,
@@ -383,20 +390,20 @@ where
 	root.as_mut().copy_from_slice(root_data.as_ref());
 
 	let db = KeySpacedDB::new(db, keyspace);
-	delta_trie_root::<L, _, _, _, _>(&db, root, delta, recorder, cache)
+	delta_trie_root::<L, _, _, _, _>(&db, (root, root_location), delta, recorder, cache)
 }
 
 /// Read a value from the child trie.
 pub fn read_child_trie_value<L: TrieConfiguration>(
 	keyspace: &[u8],
 	db: &dyn hash_db::HashDB<L::Hash, trie_db::DBValue, L::Location>,
-	root: &TrieHash<L>,
+	root: &Root<L>,
 	key: &[u8],
 	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>, L::Location>>,
 	cache: Option<&mut dyn TrieCache<L::Codec, L::Location>>,
 ) -> Result<Option<Vec<u8>>, Box<TrieError<L>>> {
 	let db = KeySpacedDB::new(db, keyspace);
-	TrieDBBuilder::<L>::new(&db, &root)
+	TrieDBBuilder::<L>::new_with_db_location(&db, &root.0, &root.1)
 		.with_optional_recorder(recorder)
 		.with_optional_cache(cache)
 		.build()
@@ -408,13 +415,13 @@ pub fn read_child_trie_value<L: TrieConfiguration>(
 pub fn read_child_trie_hash<L: TrieConfiguration>(
 	keyspace: &[u8],
 	db: &dyn hash_db::HashDB<L::Hash, trie_db::DBValue, L::Location>,
-	root: &TrieHash<L>,
+	root: &Root<L>,
 	key: &[u8],
 	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>, L::Location>>,
 	cache: Option<&mut dyn TrieCache<L::Codec, L::Location>>,
 ) -> Result<Option<TrieHash<L>>, Box<TrieError<L>>> {
 	let db = KeySpacedDB::new(db, keyspace);
-	TrieDBBuilder::<L>::new(&db, &root)
+	TrieDBBuilder::<L>::new_with_db_location(&db, &root.0, &root.1)
 		.with_optional_recorder(recorder)
 		.with_optional_cache(cache)
 		.build()
@@ -426,7 +433,7 @@ pub fn read_child_trie_hash<L: TrieConfiguration>(
 pub fn read_child_trie_first_descedant_value<L: TrieConfiguration, DB>(
 	keyspace: &[u8],
 	db: &DB,
-	root: &TrieHash<L>,
+	root: &Root<L>,
 	key: &[u8],
 	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>, L::Location>>,
 	cache: Option<&mut dyn TrieCache<L::Codec, L::Location>>,
@@ -435,7 +442,7 @@ where
 	DB: hash_db::HashDB<L::Hash, trie_db::DBValue, L::Location>,
 {
 	let db = KeySpacedDB::new(db, keyspace);
-	TrieDBBuilder::<L>::new(&db, &root)
+	TrieDBBuilder::<L>::new_with_db_location(&db, &root.0, &root.1)
 		.with_optional_recorder(recorder)
 		.with_optional_cache(cache)
 		.build()
@@ -447,6 +454,7 @@ pub fn read_child_trie_value_with<L, Q, DB>(
 	keyspace: &[u8],
 	db: &dyn hash_db::HashDB<L::Hash, trie_db::DBValue, L::Location>,
 	root_slice: &[u8],
+	root_location: L::Location,
 	key: &[u8],
 	query: Q,
 ) -> Result<Option<Vec<u8>>, Box<TrieError<L>>>
@@ -460,7 +468,7 @@ where
 	root.as_mut().copy_from_slice(root_slice);
 
 	let db = KeySpacedDB::new(db, keyspace);
-	TrieDBBuilder::<L>::new(&db, &root)
+	TrieDBBuilder::<L>::new_with_db_location(&db, &root, root_location)
 		.build()
 		.get_with(key, query)
 		.map(|x| x.map(|val| val.to_vec()))
@@ -943,7 +951,8 @@ mod tests {
 			None,
 			None,
 		)
-		.unwrap().root_hash();
+		.unwrap()
+		.root_hash();
 		let second_storage_root = delta_trie_root::<LayoutV0, _, _, _, _>(
 			&mut proof_db.clone(),
 			storage_root,
@@ -951,7 +960,8 @@ mod tests {
 			None,
 			None,
 		)
-		.unwrap().root_hash();
+		.unwrap()
+		.root_hash();
 
 		assert_eq!(first_storage_root, second_storage_root);
 	}

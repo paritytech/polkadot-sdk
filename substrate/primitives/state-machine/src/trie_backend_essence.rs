@@ -34,10 +34,9 @@ use sp_trie::recorder::Recorder;
 use sp_trie::{
 	child_delta_trie_root, delta_trie_root, empty_child_trie_root,
 	read_child_trie_first_descedant_value, read_child_trie_hash, read_child_trie_value,
-	read_trie_first_descedant_value, read_trie_value,
+	read_trie_first_descendant_value, read_trie_value,
 	trie_types::{TrieDBBuilder, TrieError},
-	DBValue, KeySpacedDB, NodeCodec, Trie, TrieCache, TrieDBRawIterator,
-	TrieRecorder, MerkleValue,
+	DBValue, KeySpacedDB, MerkleValue, NodeCodec, Trie, TrieCache, TrieDBRawIterator, TrieRecorder,
 };
 #[cfg(feature = "std")]
 use std::collections::HashMap;
@@ -198,7 +197,7 @@ where
 
 /// Patricia trie-based pairs storage essence.
 pub struct TrieBackendEssence<H: Hasher, C> {
-	pub (crate) storage: Box<dyn AsDB<H>>,
+	pub(crate) storage: Box<dyn AsDB<H>>,
 	root: H::Out,
 	empty: H::Out,
 	#[cfg(feature = "std")]
@@ -390,8 +389,7 @@ impl<H: Hasher, C: TrieCacheProvider<H>> TrieBackendEssence<H, C> {
 	}
 }
 
-impl<H: Hasher, C: TrieCacheProvider<H> + Send + Sync>
-	TrieBackendEssence<H, C>
+impl<H: Hasher, C: TrieCacheProvider<H> + Send + Sync> TrieBackendEssence<H, C>
 where
 	H::Out: Codec + Ord,
 {
@@ -400,7 +398,7 @@ where
 	#[inline]
 	fn with_trie_db<R>(
 		&self,
-		root: H::Out,
+		root: sp_trie::Root<Layout<H, DBLocation>>,
 		child_info: Option<&ChildInfo>,
 		callback: impl FnOnce(&sp_trie::TrieDB<Layout<H, DBLocation>>) -> R,
 	) -> R {
@@ -411,7 +409,7 @@ where
 		let db = db.as_ref().map(|db| db as &dyn HashDB<_, _, _>).unwrap_or(backend);
 
 		self.with_recorder_and_cache(Some(root), |recorder, cache| {
-			let trie = TrieDBBuilder::<H>::new(db, &root)
+			let trie = TrieDBBuilder::<H>::new_with_db_location(db, &root.0, &root.1)
 				.with_optional_recorder(recorder)
 				.with_optional_cache(cache)
 				.build();
@@ -526,7 +524,8 @@ where
 		let map_e = |e| format!("Trie lookup error: {}", e);
 
 		self.with_recorder_and_cache(None, |recorder, cache| {
-			read_trie_value::<Layout<H, DBLocation>, _>(self, &self.root, key, recorder, cache).map_err(map_e)
+			read_trie_value::<Layout<H, DBLocation>, _>(self, &self.root, key, recorder, cache)
+				.map_err(map_e)
 		})
 	}
 
@@ -583,8 +582,10 @@ where
 		let map_e = |e| format!("Trie lookup error: {}", e);
 
 		self.with_recorder_and_cache(None, |recorder, cache| {
-			read_trie_first_descedant_value::<Layout<H, DBLocation>, _>(self, &self.root, key, recorder, cache)
-				.map_err(map_e)
+			read_trie_first_descendant_value::<Layout<H, DBLocation>, _>(
+				self, &self.root, key, recorder, cache,
+			)
+			.map_err(map_e)
 		})
 	}
 
@@ -663,19 +664,21 @@ where
 		self.with_recorder_and_cache_for_storage_root(None, |recorder, cache| {
 			let backend = self as &dyn HashDB<H, Vec<u8>, DBLocation>;
 			let commit = match state_version {
-				StateVersion::V0 => delta_trie_root::<sp_trie::LayoutV0<H, DBLocation>, _, _, _, _>(
-					backend, self.root, delta, recorder, cache,
-				),
-				StateVersion::V1 => delta_trie_root::<sp_trie::LayoutV1<H, DBLocation>, _, _, _, _>(
-					backend, self.root, delta, recorder, cache,
-				),
+				StateVersion::V0 =>
+					delta_trie_root::<sp_trie::LayoutV0<H, DBLocation>, _, _, _, _>(
+						backend, self.root, delta, recorder, cache,
+					),
+				StateVersion::V1 =>
+					delta_trie_root::<sp_trie::LayoutV1<H, DBLocation>, _, _, _, _>(
+						backend, self.root, delta, recorder, cache,
+					),
 			};
 
 			match commit {
-				Ok(commit) => (Some(commit.root_hash()), TrieCommit {
-					main: commit,
-					child: Default::default(),
-				}),
+				Ok(commit) => (
+					Some(commit.root_hash()),
+					TrieCommit { main: commit, child: Default::default() },
+				),
 				Err(e) => {
 					warn!(target: "trie", "Failed to write to trie: {}", e);
 					(None, TrieCommit::empty(self.root))
@@ -727,10 +730,10 @@ where
 							cache,
 						),
 				} {
-					Ok(commit) => (Some(commit.root_hash()), TrieCommit {
-						main: commit,
-						child: Default::default(),
-					}),
+					Ok(commit) => (
+						Some(commit.root_hash()),
+						TrieCommit { main: commit, child: Default::default() },
+					),
 					Err(e) => {
 						warn!(target: "trie", "Failed to write to trie: {}", e);
 						(None, TrieCommit::empty(self.root))
@@ -747,7 +750,12 @@ where
 impl<H: Hasher, C: TrieCacheProvider<H> + Send + Sync> HashDB<H, DBValue, DBLocation>
 	for TrieBackendEssence<H, C>
 {
-	fn get(&self, key: &H::Out, prefix: Prefix, location: DBLocation) -> Option<(DBValue, Vec<DBLocation>)> {
+	fn get(
+		&self,
+		key: &H::Out,
+		prefix: Prefix,
+		location: DBLocation,
+	) -> Option<(DBValue, Vec<DBLocation>)> {
 		if *key == self.empty {
 			return Some(([0u8].to_vec(), Default::default()))
 		}
@@ -774,6 +782,7 @@ mod test {
 
 	#[test]
 	fn next_storage_key_and_next_child_storage_key_work() {
+		// TODO also test on mem-tree-db
 		let child_info = ChildInfo::new_default(b"MyChild");
 		let child_info = &child_info;
 		// Contains values
@@ -799,7 +808,8 @@ mod test {
 			.expect("insert failed");
 		let root_2 = trie.commit().apply_to(&mut mdb);
 
-		let essence_1 = TrieBackendEssence::<_, LocalTrieCache<_, DBLocation>>::new(Box::new(mdb), root_1);
+		let essence_1 =
+			TrieBackendEssence::<_, LocalTrieCache<_, DBLocation>>::new(Box::new(mdb), root_1);
 		let mdb = essence_1.backend_storage().as_mem_db().unwrap().clone();
 		let essence_1 = TrieBackend::from_essence(essence_1);
 
@@ -809,7 +819,8 @@ mod test {
 		assert_eq!(essence_1.next_storage_key(b"5"), Ok(Some(b"6".to_vec())));
 		assert_eq!(essence_1.next_storage_key(b"6"), Ok(None));
 
-		let essence_2 = TrieBackendEssence::<_, LocalTrieCache<_, DBLocation>>::new(Box::new(mdb), root_2);
+		let essence_2 =
+			TrieBackendEssence::<_, LocalTrieCache<_, DBLocation>>::new(Box::new(mdb), root_2);
 
 		assert_eq!(essence_2.next_child_storage_key(child_info, b"2"), Ok(Some(b"3".to_vec())));
 		assert_eq!(essence_2.next_child_storage_key(child_info, b"3"), Ok(Some(b"4".to_vec())));
