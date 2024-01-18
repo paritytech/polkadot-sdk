@@ -29,12 +29,14 @@ use sp_runtime::traits::IdentityLookup;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use polkadot_runtime_parachains::{configuration, origin, shared};
 use xcm::latest::prelude::*;
+#[allow(deprecated)]
+use xcm_builder::CurrencyAdapter as XcmCurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, ChildParachainAsNative, ChildParachainConvertsVia,
-	ChildSystemParachainAsSuperuser, CurrencyAdapter as XcmCurrencyAdapter, DescribeAllTerminal,
-	DescribeFamily, FixedRateOfFungible, FixedWeightBounds, HashedDescription, IsConcrete,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, WithComputedOrigin,
+	ChildSystemParachainAsSuperuser, DescribeAllTerminal, DescribeFamily, FixedRateOfFungible,
+	FixedWeightBounds, HashedDescription, IsConcrete, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, WithComputedOrigin,
 };
 use xcm_executor::{Config, XcmExecutor};
 
@@ -105,8 +107,8 @@ impl configuration::Config for Runtime {
 
 parameter_types! {
 	pub RelayNetwork: NetworkId = ByGenesis([0; 32]);
-	pub const TokenLocation: MultiLocation = Here.into_location();
-	pub UniversalLocation: InteriorMultiLocation = Here;
+	pub const TokenLocation: Location = Here.into_location();
+	pub UniversalLocation: InteriorLocation = Here;
 	pub UnitWeightCost: u64 = 1_000;
 }
 
@@ -116,6 +118,7 @@ pub type SovereignAccountOf = (
 	ChildParachainConvertsVia<ParaId, AccountId>,
 );
 
+#[allow(deprecated)]
 pub type LocalBalancesTransactor =
 	XcmCurrencyAdapter<Balances, IsConcrete<TokenLocation>, SovereignAccountOf, AccountId, ()>;
 
@@ -131,15 +134,15 @@ type LocalOriginConverter = (
 parameter_types! {
 	pub const XcmInstructionWeight: Weight = Weight::from_parts(1_000, 1_000);
 	pub TokensPerSecondPerMegabyte: (AssetId, u128, u128) =
-		(Concrete(TokenLocation::get()), 1_000_000_000_000, 1024 * 1024);
+		(AssetId(TokenLocation::get()), 1_000_000_000_000, 1024 * 1024);
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
 
 pub struct ChildrenParachains;
-impl Contains<MultiLocation> for ChildrenParachains {
-	fn contains(location: &MultiLocation) -> bool {
-		matches!(location, MultiLocation { parents: 0, interior: X1(Parachain(_)) })
+impl Contains<Location> for ChildrenParachains {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (0, [Parachain(_)]))
 	}
 }
 

@@ -257,6 +257,13 @@ pub mod pallet {
 		pub fn check_for_dispatch_context(_origin: OriginFor<T>) -> DispatchResult {
 			with_context::<(), _>(|_| ()).ok_or_else(|| DispatchError::Unavailable)
 		}
+
+		#[cfg(feature = "frame-feature-testing")]
+		#[pallet::call_index(5)]
+		#[pallet::weight({1})]
+		pub fn foo_feature_test(_origin: OriginFor<T>) -> DispatchResult {
+			Ok(())
+		}
 	}
 
 	#[pallet::error]
@@ -269,6 +276,8 @@ pub mod pallet {
 		#[codec(skip)]
 		Skipped(u128),
 		CompactU8(#[codec(compact)] u8),
+		#[cfg(feature = "frame-feature-testing")]
+		FeatureTest,
 	}
 
 	#[pallet::event]
@@ -796,6 +805,7 @@ fn call_expand() {
 		}
 	);
 	assert_eq!(call_foo.get_call_name(), "foo");
+	#[cfg(not(feature = "frame-feature-testing"))]
 	assert_eq!(
 		pallet::Call::<Runtime>::get_call_names(),
 		&[
@@ -806,9 +816,24 @@ fn call_expand() {
 			"check_for_dispatch_context"
 		],
 	);
+	#[cfg(feature = "frame-feature-testing")]
+	assert_eq!(
+		pallet::Call::<Runtime>::get_call_names(),
+		&[
+			"foo",
+			"foo_storage_layer",
+			"foo_index_out_of_order",
+			"foo_no_post_info",
+			"check_for_dispatch_context",
+			"foo_feature_test"
+		],
+	);
 
 	assert_eq!(call_foo.get_call_index(), 0u8);
-	assert_eq!(pallet::Call::<Runtime>::get_call_indices(), &[0u8, 1u8, 4u8, 2u8, 3u8])
+	#[cfg(not(feature = "frame-feature-testing"))]
+	assert_eq!(pallet::Call::<Runtime>::get_call_indices(), &[0u8, 1u8, 4u8, 2u8, 3u8]);
+	#[cfg(feature = "frame-feature-testing")]
+	assert_eq!(pallet::Call::<Runtime>::get_call_indices(), &[0u8, 1u8, 4u8, 2u8, 3u8, 5u8]);
 }
 
 #[test]
@@ -816,7 +841,10 @@ fn call_expand_index() {
 	let call_foo = pallet::Call::<Runtime>::foo_index_out_of_order {};
 
 	assert_eq!(call_foo.get_call_index(), 4u8);
-	assert_eq!(pallet::Call::<Runtime>::get_call_indices(), &[0u8, 1u8, 4u8, 2u8, 3u8])
+	#[cfg(not(feature = "frame-feature-testing"))]
+	assert_eq!(pallet::Call::<Runtime>::get_call_indices(), &[0u8, 1u8, 4u8, 2u8, 3u8]);
+	#[cfg(feature = "frame-feature-testing")]
+	assert_eq!(pallet::Call::<Runtime>::get_call_indices(), &[0u8, 1u8, 4u8, 2u8, 3u8, 5u8]);
 }
 
 #[test]
@@ -838,6 +866,8 @@ fn error_expand() {
 		}),
 	);
 	assert_eq!(<pallet::Error::<Runtime> as PalletError>::MAX_ENCODED_SIZE, 3);
+	#[cfg(feature = "frame-feature-testing")]
+	assert_eq!(format!("{:?}", pallet::Error::<Runtime>::FeatureTest), String::from("FeatureTest"),);
 }
 
 #[test]
@@ -2378,4 +2408,34 @@ fn test_dispatch_context() {
 		assert_ok!(RuntimeCall::from(pallet::Call::<Runtime>::check_for_dispatch_context {})
 			.dispatch(RuntimeOrigin::root()));
 	});
+}
+
+#[test]
+fn test_call_feature_parsing() {
+	let call = pallet::Call::<Runtime>::check_for_dispatch_context {};
+	match call {
+		pallet::Call::<Runtime>::check_for_dispatch_context {} |
+		pallet::Call::<Runtime>::foo { .. } |
+		pallet::Call::foo_storage_layer { .. } |
+		pallet::Call::foo_index_out_of_order {} |
+		pallet::Call::foo_no_post_info {} => (),
+		#[cfg(feature = "frame-feature-testing")]
+		pallet::Call::foo_feature_test {} => (),
+		pallet::Call::__Ignore(_, _) => (),
+	}
+}
+
+#[test]
+fn test_error_feature_parsing() {
+	let err = pallet::Error::<Runtime>::InsufficientProposersBalance;
+	match err {
+		pallet::Error::InsufficientProposersBalance |
+		pallet::Error::NonExistentStorageValue |
+		pallet::Error::Code(_) |
+		pallet::Error::Skipped(_) |
+		pallet::Error::CompactU8(_) => (),
+		#[cfg(feature = "frame-feature-testing")]
+		pallet::Error::FeatureTest => (),
+		pallet::Error::__Ignore(_, _) => (),
+	}
 }

@@ -19,6 +19,7 @@ use std::{
 	time::Duration,
 };
 
+use network::ProtocolName;
 use polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle;
 use polkadot_node_subsystem_util::TimeoutExt;
 
@@ -46,8 +47,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
-	CandidateHash, CoreState, ExecutorParams, GroupIndex, Hash, Id as ParaId, ScheduledCore,
-	SessionInfo, ValidatorIndex,
+	vstaging::NodeFeatures, CandidateHash, CoreState, ExecutorParams, GroupIndex, Hash,
+	Id as ParaId, ScheduledCore, SessionInfo, ValidatorIndex,
 };
 use test_helpers::mock::{make_ferdie_keystore, new_leaf};
 
@@ -264,6 +265,9 @@ impl TestState {
 							tx.send(Ok(Some(ExecutorParams::default())))
 								.expect("Receiver should be alive.");
 						},
+						RuntimeApiRequest::NodeFeatures(_, si_tx) => {
+							si_tx.send(Ok(NodeFeatures::EMPTY)).expect("Receiver should be alive.");
+						},
 						RuntimeApiRequest::AvailabilityCores(tx) => {
 							gum::trace!(target: LOG_TARGET, cores= ?self.cores[&hash], hash = ?hash, "Sending out cores for hash");
 							tx.send(Ok(self.cores[&hash].clone()))
@@ -321,7 +325,11 @@ fn to_incoming_req(
 					let response = rx.await;
 					let payload = response.expect("Unexpected canceled request").result;
 					pending_response
-						.send(payload.map_err(|_| network::RequestFailure::Refused))
+						.send(
+							payload
+								.map_err(|_| network::RequestFailure::Refused)
+								.map(|r| (r, ProtocolName::from(""))),
+						)
 						.expect("Sending response is expected to work");
 				}
 				.boxed(),

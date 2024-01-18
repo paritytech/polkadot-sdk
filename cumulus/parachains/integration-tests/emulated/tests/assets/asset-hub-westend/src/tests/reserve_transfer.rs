@@ -32,7 +32,7 @@ fn relay_to_para_sender_assertions(t: RelayToParaTest) {
 			) => {
 				from: *from == t.sender.account_id,
 				to: *to == Westend::sovereign_account_id_of(
-					t.args.dest
+					t.args.dest.clone()
 				),
 				amount: *amount == t.args.amount,
 			},
@@ -57,7 +57,7 @@ fn system_para_to_para_sender_assertions(t: SystemParaToParaTest) {
 			) => {
 				from: *from == t.sender.account_id,
 				to: *to == AssetHubWestend::sovereign_account_id_of(
-					t.args.dest
+					t.args.dest.clone()
 				),
 				amount: *amount == t.args.amount,
 			},
@@ -140,7 +140,7 @@ fn system_para_to_para_assets_sender_assertions(t: SystemParaToParaTest) {
 				asset_id: *asset_id == ASSET_ID,
 				from: *from == t.sender.account_id,
 				to: *to == AssetHubWestend::sovereign_account_id_of(
-					t.args.dest
+					t.args.dest.clone()
 				),
 				amount: *amount == t.args.amount,
 			},
@@ -200,10 +200,10 @@ fn para_to_system_para_reserve_transfer_assets(t: ParaToSystemParaTest) -> Dispa
 fn reserve_transfer_native_asset_from_relay_to_system_para_fails() {
 	let signed_origin = <Westend as Chain>::RuntimeOrigin::signed(WestendSender::get().into());
 	let destination = Westend::child_location_of(AssetHubWestend::para_id());
-	let beneficiary: MultiLocation =
+	let beneficiary: Location =
 		AccountId32Junction { network: None, id: AssetHubWestendReceiver::get().into() }.into();
 	let amount_to_send: Balance = WESTEND_ED * 1000;
-	let assets: MultiAssets = (Here, amount_to_send).into();
+	let assets: Assets = (Here, amount_to_send).into();
 	let fee_asset_item = 0;
 
 	// this should fail
@@ -235,10 +235,10 @@ fn reserve_transfer_native_asset_from_system_para_to_relay_fails() {
 		<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get().into());
 	let destination = AssetHubWestend::parent_location();
 	let beneficiary_id = WestendReceiver::get();
-	let beneficiary: MultiLocation =
+	let beneficiary: Location =
 		AccountId32Junction { network: None, id: beneficiary_id.into() }.into();
 	let amount_to_send: Balance = ASSET_HUB_WESTEND_ED * 1000;
-	let assets: MultiAssets = (Parent, amount_to_send).into();
+	let assets: Assets = (Parent, amount_to_send).into();
 	let fee_asset_item = 0;
 
 	// this should fail
@@ -274,7 +274,7 @@ fn reserve_transfer_native_asset_from_relay_to_para() {
 	let test_args = TestContext {
 		sender: WestendSender::get(),
 		receiver: PenpalBReceiver::get(),
-		args: relay_test_args(destination, beneficiary_id, amount_to_send),
+		args: TestArgs::new_relay(destination, beneficiary_id, amount_to_send),
 	};
 
 	let mut test = RelayToParaTest::new(test_args);
@@ -318,7 +318,7 @@ fn reserve_transfer_native_asset_from_system_para_to_para() {
 	let test_args = TestContext {
 		sender: AssetHubWestendSender::get(),
 		receiver: PenpalBReceiver::get(),
-		args: para_test_args(destination, beneficiary_id, amount_to_send, assets, None, 0),
+		args: TestArgs::new_para(destination, beneficiary_id, amount_to_send, assets, None, 0),
 	};
 
 	let mut test = SystemParaToParaTest::new(test_args);
@@ -362,7 +362,7 @@ fn reserve_transfer_native_asset_from_para_to_system_para() {
 	let test_args = TestContext {
 		sender: PenpalBSender::get(),
 		receiver: AssetHubWestendReceiver::get(),
-		args: para_test_args(destination, beneficiary_id, amount_to_send, assets, None, 0),
+		args: TestArgs::new_para(destination, beneficiary_id, amount_to_send, assets, None, 0),
 	};
 
 	let mut test = ParaToSystemParaTest::new(test_args);
@@ -428,9 +428,9 @@ fn reserve_transfer_assets_from_system_para_to_para() {
 	let beneficiary_id = PenpalBReceiver::get();
 	let fee_amount_to_send = ASSET_HUB_WESTEND_ED * 1000;
 	let asset_amount_to_send = ASSET_MIN_BALANCE * 1000;
-	let assets: MultiAssets = vec![
+	let assets: Assets = vec![
 		(Parent, fee_amount_to_send).into(),
-		(X2(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())), asset_amount_to_send)
+		([PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())], asset_amount_to_send)
 			.into(),
 	]
 	.into();
@@ -443,7 +443,7 @@ fn reserve_transfer_assets_from_system_para_to_para() {
 	let para_test_args = TestContext {
 		sender: AssetHubWestendSender::get(),
 		receiver: PenpalBReceiver::get(),
-		args: para_test_args(
+		args: TestArgs::new_para(
 			destination,
 			beneficiary_id,
 			asset_amount_to_send,

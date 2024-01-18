@@ -814,6 +814,7 @@ mod tests {
 		type QueueFootprinter = ();
 		type NextSessionRotation = crate::mock::TestNextSessionRotation;
 		type OnNewHead = ();
+		type AssignCoretime = ();
 	}
 
 	impl configuration::Config for Test {

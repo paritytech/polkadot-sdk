@@ -219,7 +219,7 @@ where
 					"Failed to transfer the base deposit, reason: {:?}",
 					err
 				);
-				OldCurrency::deposit_creating(&deposit_account, min_balance);
+				let _ = OldCurrency::deposit_creating(&deposit_account, min_balance);
 				min_balance
 			});
 
