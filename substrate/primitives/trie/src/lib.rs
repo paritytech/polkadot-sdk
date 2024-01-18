@@ -63,9 +63,10 @@ pub struct LayoutV0<H, DL>(PhantomData<(H, DL)>);
 /// substrate trie layout, with external value nodes.
 pub struct LayoutV1<H, DL>(PhantomData<(H, DL)>);
 
-impl<H, DL: Copy + Default + Eq + PartialEq> TrieLayout for LayoutV0<H, DL>
+impl<H, DL> TrieLayout for LayoutV0<H, DL>
 where
 	H: Hasher,
+	DL: trie_db::Location,
 {
 	const USE_EXTENSION: bool = false;
 	const ALLOW_EMPTY: bool = true;
@@ -76,9 +77,10 @@ where
 	type Location = DL;
 }
 
-impl<H, DL: Copy + Default + Eq + PartialEq> TrieConfiguration for LayoutV0<H, DL>
+impl<H, DL> TrieConfiguration for LayoutV0<H, DL>
 where
 	H: Hasher,
+	DL: trie_db::Location,
 {
 	fn trie_root<I, A, B>(input: I) -> <Self::Hash as Hasher>::Out
 	where
@@ -106,9 +108,10 @@ where
 	}
 }
 
-impl<H, DL: Copy + Default + Eq + PartialEq> TrieLayout for LayoutV1<H, DL>
+impl<H, DL> TrieLayout for LayoutV1<H, DL>
 where
 	H: Hasher,
+	DL: trie_db::Location,
 {
 	const USE_EXTENSION: bool = false;
 	const ALLOW_EMPTY: bool = true;
@@ -119,9 +122,10 @@ where
 	type Location = DL;
 }
 
-impl<H, DL: Copy + Default + Eq + PartialEq> TrieConfiguration for LayoutV1<H, DL>
+impl<H, DL> TrieConfiguration for LayoutV1<H, DL>
 where
 	H: Hasher,
+	DL: trie_db::Location,
 {
 	fn trie_root<I, A, B>(input: I) -> <Self::Hash as Hasher>::Out
 	where
