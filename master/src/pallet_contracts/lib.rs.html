@@ -2956,6 +2956,9 @@
 	</span>result: <span class="prelude-ty">Result</span>&lt;O, ExecError&gt;,
 }
 
+<span class="comment">// Set up a global reference to the boolean flag used for the re-entrancy guard.
+</span><span class="macro">environmental!</span>(executing_contract: bool);
+
 <span class="doccomment">/// Helper trait to wrap contract execution entry points into a single function
 /// [`Invokable::run_guarded`].
 </span><span class="kw">trait </span>Invokable&lt;T: Config&gt;: Sized {
@@ -2971,9 +2974,6 @@
 	/// We enforce a re-entrancy guard here by initializing and checking a boolean flag through a
 	/// global reference.
 	</span><span class="kw">fn </span>run_guarded(<span class="self">self</span>, common: CommonInput&lt;T&gt;) -&gt; InternalOutput&lt;T, <span class="self">Self</span>::Output&gt; {
-		<span class="comment">// Set up a global reference to the boolean flag used for the re-entrancy guard.
-		</span><span class="macro">environmental!</span>(executing_contract: bool);
-
 		<span class="kw">let </span>gas_limit = common.gas_limit;
 
 		<span class="comment">// Check whether the origin is allowed here. The logic of the access rules

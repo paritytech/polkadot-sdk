@@ -4729,7 +4729,7 @@
 				<span class="comment">// Punish the peer for the invalid message.
 				</span>modify_reputation(<span class="kw-2">&amp;mut </span><span class="self">self</span>.reputation, sender, peer_id, COST_OVERSIZED_BITFIELD)
 					.<span class="kw">await</span>;
-				<span class="macro">gum::error!</span>(target: LOG_TARGET, block_hash = <span class="question-mark">?</span>cert.block_hash, <span class="question-mark">?</span>candidate_index, validator_index = <span class="question-mark">?</span>cert.validator, kind = <span class="question-mark">?</span>cert.cert.kind, <span class="string">&quot;Bad assignment v1&quot;</span>);
+				<span class="macro">gum::debug!</span>(target: LOG_TARGET, block_hash = <span class="question-mark">?</span>cert.block_hash, <span class="question-mark">?</span>candidate_index, validator_index = <span class="question-mark">?</span>cert.validator, kind = <span class="question-mark">?</span>cert.cert.kind, <span class="string">&quot;Bad assignment v1, invalid candidate index&quot;</span>);
 			} <span class="kw">else </span>{
 				sanitized_assignments.push((cert.into(), candidate_index.into()))
 			}
@@ -4773,7 +4773,7 @@
 				</span>modify_reputation(<span class="kw-2">&amp;mut </span><span class="self">self</span>.reputation, sender, peer_id, COST_OVERSIZED_BITFIELD)
 					.<span class="kw">await</span>;
 				<span class="kw">for </span>candidate_index <span class="kw">in </span>candidate_bitfield.iter_ones() {
-					<span class="macro">gum::error!</span>(target: LOG_TARGET, block_hash = <span class="question-mark">?</span>cert.block_hash, <span class="question-mark">?</span>candidate_index, validator_index = <span class="question-mark">?</span>cert.validator, <span class="string">&quot;Bad assignment v2&quot;</span>);
+					<span class="macro">gum::debug!</span>(target: LOG_TARGET, block_hash = <span class="question-mark">?</span>cert.block_hash, <span class="question-mark">?</span>candidate_index, validator_index = <span class="question-mark">?</span>cert.validator, <span class="string">&quot;Bad assignment v2, oversized bitfield&quot;</span>);
 				}
 			} <span class="kw">else </span>{
 				sanitized_assignments.push((cert, candidate_bitfield))
