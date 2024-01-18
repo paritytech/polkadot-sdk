@@ -1961,6 +1961,15 @@ impl State {
 		}
 	}
 
+	// It is very important that aggression starts with oldest unfinalized block, rather than oldest unapproved 
+	// block. We use approval checking lag just as a mean to trigger the aggression, but use finality
+	// lag to choose our aggression target.
+	//
+	// We have GRANDPA consensus around the last finalized block, but we don't for approvals. 
+	// Using GRANDPA as source of truth, we can reason that an unfinalized but approved block will never
+	// be finalized because at least 1/3 of the nodes haven't seen enough approvals for it. It becomes
+	// mandatory that we share them in an aggressive manner wrt topology to increase the chance that 
+	// the approval messages reach those nodes.
 	async fn enable_aggression<Context>(
 		&mut self,
 		ctx: &mut Context,
@@ -1968,7 +1977,10 @@ impl State {
 		metrics: &Metrics,
 	) {
 		let config = self.aggression_config.clone();
+		let min_age = self.blocks_by_number.iter().next().map(|(num, _)| num);
+		let max_age = self.blocks_by_number.iter().rev().next().map(|(num, _)| num);
 
+		// Trigger on approval checking lag.
 		if !self.aggression_config.should_trigger_aggression(self.approval_checking_lag) {
 			gum::trace!(
 				target: LOG_TARGET,
@@ -1977,17 +1989,11 @@ impl State {
 			);
 			return
 		}
-
-		let max_age = self.blocks_by_number.iter().rev().next().map(|(num, _)| num);
-
-		let max_age = match max_age {
-			Some(max) => *max,
+		// Return if we don't have at least 1 block.
+		let (min_age, max_age) = match (min_age, max_age) {
+			(Some(min), Some(max)) => (min, max),
 			_ => return, // empty.
 		};
-
-		// Since we have the approval checking lag, we need to set the `min_age` accordingly to
-		// enable aggresion for the oldest block that is not approved.
-		let min_age = max_age.saturating_sub(self.approval_checking_lag);
 
 		gum::debug!(target: LOG_TARGET, min_age, max_age, "Aggression enabled",);
 
