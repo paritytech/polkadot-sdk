@@ -161,6 +161,7 @@ impl<T: Config<I>, I: 'static, M: GetMaxVoters<Class = ClassOf<T, I>>>
 				crate::Pallet::<T, I>::do_add_member_to_rank(
 					who,
 					T::MinRankOfClass::convert(class.clone()),
+					true,
 				)
 				.expect("could not add members for benchmarks");
 			}
@@ -299,7 +300,7 @@ impl<T: Config<I>, I: 'static> EnsureOriginWithArg<T::RuntimeOrigin, Rank> for E
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin(min_rank: &Rank) -> Result<T::RuntimeOrigin, ()> {
 		let who = frame_benchmarking::account::<T::AccountId>("successful_origin", 0, 0);
-		crate::Pallet::<T, I>::do_add_member_to_rank(who.clone(), *min_rank)
+		crate::Pallet::<T, I>::do_add_member_to_rank(who.clone(), *min_rank, true)
 			.expect("Could not add members for benchmarks");
 		Ok(frame_system::RawOrigin::Signed(who).into())
 	}
@@ -352,7 +353,7 @@ impl<T: Config<I>, I: 'static, const MIN_RANK: u16> EnsureOrigin<T::RuntimeOrigi
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<T::RuntimeOrigin, ()> {
 		let who = frame_benchmarking::account::<T::AccountId>("successful_origin", 0, 0);
-		crate::Pallet::<T, I>::do_add_member_to_rank(who.clone(), MIN_RANK)
+		crate::Pallet::<T, I>::do_add_member_to_rank(who.clone(), MIN_RANK, true)
 			.expect("Could not add members for benchmarks");
 		Ok(frame_system::RawOrigin::Signed(who).into())
 	}
@@ -390,8 +391,9 @@ pub mod pallet {
 		/// maximum rank *from which* the demotion/removal may be.
 		type DemoteOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Rank>;
 
-		/// The origin required to exchange an account for a member. The success value indicates the
-		/// maximum rank *from which* the exhange may be.
+		/// The origin required to exchange an account for a member.
+		///
+		/// The success value indicates the maximum rank *from which* the exchange may be.
 		type ExchangeOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Rank>;
 
 		/// The polling system used for our voting.
@@ -455,8 +457,7 @@ pub mod pallet {
 		RankChanged { who: T::AccountId, rank: Rank },
 		/// The member `who` of given `rank` has been removed from the collective.
 		MemberRemoved { who: T::AccountId, rank: Rank },
-		/// The member `who` has voted for the `poll` with the given `vote` leading to an updated
-		/// `tally`.
+		/// The member `who` had their `AccountId` changed to `new_who`.
 		Voted { who: T::AccountId, poll: PollIndexOf<T, I>, vote: VoteRecord, tally: TallyOf<T, I> },
 		/// The member `who`, of given `rank`, has had their `AccountId` changed to `new_who`.
 		MemberExchanged { who: T::AccountId, new_who: T::AccountId },
@@ -482,6 +483,8 @@ pub mod pallet {
 		InvalidWitness,
 		/// The origin is not sufficiently privileged to do the operation.
 		NoPermission,
+		/// The new member to exchange is the same as the old member
+		SameMember,
 	}
 
 	#[pallet::call]
@@ -498,7 +501,7 @@ pub mod pallet {
 		pub fn add_member(origin: OriginFor<T>, who: AccountIdLookupOf<T>) -> DispatchResult {
 			let _ = T::PromoteOrigin::ensure_origin(origin)?;
 			let who = T::Lookup::lookup(who)?;
-			Self::do_add_member(who)
+			Self::do_add_member(who, true)
 		}
 
 		/// Increment the rank of an existing member by one.
@@ -512,7 +515,7 @@ pub mod pallet {
 		pub fn promote_member(origin: OriginFor<T>, who: AccountIdLookupOf<T>) -> DispatchResult {
 			let max_rank = T::PromoteOrigin::ensure_origin(origin)?;
 			let who = T::Lookup::lookup(who)?;
-			Self::do_promote_member(who, Some(max_rank))
+			Self::do_promote_member(who, Some(max_rank), true)
 		}
 
 		/// Decrement the rank of an existing member by one. If the member is already at rank zero,
@@ -662,9 +665,6 @@ pub mod pallet {
 		/// - `origin`: Must be the `AdminOrigin`.
 		/// - `who`: Account of existing member of rank greater than zero to be exchanged.
 		/// - `new_who`: New Account of existing member of rank greater than zero to exchanged to.
-		/// - `min_rank`: The rank of the member or greater.
-		///
-		/// Weight: `O(min_rank)`.
 		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::exchange_member())]
 		pub fn exchange_member(
@@ -673,7 +673,8 @@ pub mod pallet {
 			new_who: AccountIdLookupOf<T>,
 		) -> DispatchResult {
 			// remove who
-			let max_rank = T::ExchangeOrigin::ensure_origin(origin)?;
+			T::ExchangeOrigin::ensure_origin(origin)?;
+			ensure!(who != new_who, Error::<T, I>::SameMember);
 			let who = T::Lookup::lookup(who)?;
 			let MemberRecord { rank, .. } = Self::ensure_member(&who)?;
 
@@ -682,14 +683,9 @@ pub mod pallet {
 			}
 			Members::<T, I>::remove(&who);
 
-			// add new member
+			// add new_who member
 			let new_who = T::Lookup::lookup(new_who)?;
-			Self::do_add_member(new_who.clone())?;
-
-			// promotes new_who to the rank of who
-			for _i in 1..=rank {
-				let _ = Self::do_promote_member(new_who.clone(), Some(max_rank))?;
-			}
+			Self::do_add_member_to_rank(new_who.clone(), rank, false)?;
 
 			Self::deposit_event(Event::MemberExchanged { who, new_who });
 			Ok(())
@@ -727,7 +723,7 @@ pub mod pallet {
 		/// Adds a member into the ranked collective at level 0.
 		///
 		/// No origin checks are executed.
-		pub fn do_add_member(who: T::AccountId) -> DispatchResult {
+		pub fn do_add_member(who: T::AccountId, emit_event: bool) -> DispatchResult {
 			ensure!(!Members::<T, I>::contains_key(&who), Error::<T, I>::AlreadyMember);
 			let index = MemberCount::<T, I>::get(0);
 			let count = index.checked_add(1).ok_or(Overflow)?;
@@ -736,7 +732,9 @@ pub mod pallet {
 			IdToIndex::<T, I>::insert(0, &who, index);
 			IndexToId::<T, I>::insert(0, index, &who);
 			MemberCount::<T, I>::insert(0, count);
-			Self::deposit_event(Event::MemberAdded { who });
+			if emit_event {
+				Self::deposit_event(Event::MemberAdded { who });
+			}
 			Ok(())
 		}
 
@@ -747,6 +745,7 @@ pub mod pallet {
 		pub fn do_promote_member(
 			who: T::AccountId,
 			maybe_max_rank: Option<Rank>,
+			emit_event: bool,
 		) -> DispatchResult {
 			let record = Self::ensure_member(&who)?;
 			let rank = record.rank.checked_add(1).ok_or(Overflow)?;
@@ -758,7 +757,9 @@ pub mod pallet {
 			IdToIndex::<T, I>::insert(rank, &who, index);
 			IndexToId::<T, I>::insert(rank, index, &who);
 			Members::<T, I>::insert(&who, MemberRecord { rank });
-			Self::deposit_event(Event::RankChanged { who, rank });
+			if emit_event {
+				Self::deposit_event(Event::RankChanged { who, rank });
+			}
 			Ok(())
 		}
 
@@ -791,10 +792,14 @@ pub mod pallet {
 
 		/// Add a member to the rank collective, and continue to promote them until a certain rank
 		/// is reached.
-		pub fn do_add_member_to_rank(who: T::AccountId, rank: Rank) -> DispatchResult {
-			Self::do_add_member(who.clone())?;
+		pub fn do_add_member_to_rank(
+			who: T::AccountId,
+			rank: Rank,
+			emit_event: bool,
+		) -> DispatchResult {
+			Self::do_add_member(who.clone(), emit_event)?;
 			for _ in 0..rank {
-				Self::do_promote_member(who.clone(), None)?;
+				Self::do_promote_member(who.clone(), None, emit_event)?;
 			}
 			Ok(())
 		}
@@ -822,11 +827,11 @@ pub mod pallet {
 		}
 
 		fn induct(who: &Self::AccountId) -> DispatchResult {
-			Self::do_add_member(who.clone())
+			Self::do_add_member(who.clone(), true)
 		}
 
 		fn promote(who: &Self::AccountId) -> DispatchResult {
-			Self::do_promote_member(who.clone(), None)
+			Self::do_promote_member(who.clone(), None, true)
 		}
 
 		fn demote(who: &Self::AccountId) -> DispatchResult {

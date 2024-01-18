@@ -522,8 +522,8 @@ fn ensure_ranked_works() {
 fn do_add_member_to_rank_works() {
 	new_test_ext().execute_with(|| {
 		let max_rank = 9u16;
-		assert_ok!(Club::do_add_member_to_rank(69, max_rank / 2));
-		assert_ok!(Club::do_add_member_to_rank(1337, max_rank));
+		assert_ok!(Club::do_add_member_to_rank(69, max_rank / 2, true));
+		assert_ok!(Club::do_add_member_to_rank(1337, max_rank, true));
 		for i in 0..=max_rank {
 			if i <= max_rank / 2 {
 				assert_eq!(member_count(i), 2);
