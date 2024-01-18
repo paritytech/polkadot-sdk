@@ -56,9 +56,9 @@ pub type UncheckedExtrinsic =
 frame_support::construct_runtime!(
 	pub struct Runtime
 	{
-		System: frame_system::{Pallet, Call, Event<T>, Config<T>},
-		Balances: pallet_balances::{Pallet, Call, Event<T>, Config<T>},
-		MultiPhase: multi_phase::{Pallet, Call, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		MultiPhase: multi_phase,
 	}
 );
 

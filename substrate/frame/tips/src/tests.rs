@@ -44,12 +44,12 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Treasury: pallet_treasury::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Treasury1: pallet_treasury::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Tips: pallet_tips::{Pallet, Call, Storage, Event<T>},
-		Tips1: pallet_tips::<Instance1>::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		Treasury: pallet_treasury,
+		Treasury1: pallet_treasury::<Instance1>,
+		Tips: pallet_tips,
+		Tips1: pallet_tips::<Instance1>,
 	}
 );
 

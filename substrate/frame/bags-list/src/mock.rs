@@ -70,8 +70,8 @@ type Block = frame_system::mocking::MockBlock<Runtime>;
 frame_support::construct_runtime!(
 	pub struct Runtime
 	{
-		System: frame_system::{Pallet, Call, Storage, Event<T>, Config<T>},
-		BagsList: bags_list::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		BagsList: bags_list,
 	}
 );
 

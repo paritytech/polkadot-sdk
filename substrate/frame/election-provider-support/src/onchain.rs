@@ -196,7 +196,7 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub struct Runtime
 		{
-			System: frame_system::{Pallet, Call, Event<T>},
+			System: frame_system,
 		}
 	);
 

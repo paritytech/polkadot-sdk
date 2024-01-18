@@ -899,10 +899,10 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub struct Runtime
 		{
-			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-			TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
-			Custom: custom::{Pallet, Call, ValidateUnsigned, Inherent},
+			System: frame_system,
+			Balances: pallet_balances,
+			TransactionPayment: pallet_transaction_payment,
+			Custom: custom,
 		}
 	);
 
