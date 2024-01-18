@@ -8,8 +8,8 @@
     &lt;T::Proposer as SubstrateProposer&lt;B&gt;&gt;::Error: <a class="trait" href="https://doc.rust-lang.org/1.74.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.74.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,</span></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.propose" class="method trait-impl"><a class="src rightside" href="../src/cumulus_client_consensus_proposer/lib.rs.html#104-132">source</a><a href="#method.propose" class="anchor">§</a><h4 class="code-header">fn <a href="trait.ProposerInterface.html#tymethod.propose" class="fn">propose</a>&lt;'life0, 'life1, 'life2, 'async_trait&gt;(
     &amp;'life0 mut self,
     parent_header: &amp;'life1 B::<a class="associatedtype" href="../sp_runtime/traits/trait.Block.html#associatedtype.Header" title="type sp_runtime::traits::Block::Header">Header</a>,
-    paras_inherent_data: &amp;'life2 <a class="struct" href="../cumulus_primitives_parachain_inherent/struct.ParachainInherentData.html" title="struct cumulus_primitives_parachain_inherent::ParachainInherentData">ParachainInherentData</a>,
-    other_inherent_data: InherentData,
+    paras_inherent_data: &amp;'life2 ParachainInherentData,
+    other_inherent_data: <a class="struct" href="../sp_inherents/struct.InherentData.html" title="struct sp_inherents::InherentData">InherentData</a>,
     inherent_digests: <a class="struct" href="../sp_runtime/generic/digest/struct.Digest.html" title="struct sp_runtime::generic::digest::Digest">Digest</a>,
     max_duration: <a class="struct" href="https://doc.rust-lang.org/1.74.0/core/time/struct.Duration.html" title="struct core::time::Duration">Duration</a>,
     block_size_limit: <a class="enum" href="https://doc.rust-lang.org/1.74.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.74.0/std/primitive.usize.html">usize</a>&gt;
