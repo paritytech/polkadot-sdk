@@ -60,3 +60,4 @@ zombienet-bridges-0002-mandatory-headers-synced-while-idle:
   script:
     - /home/nonroot/bridges-polkadot-sdk/bridges/zombienet/run-tests.sh --docker --test 2
     - echo "Done"
+
