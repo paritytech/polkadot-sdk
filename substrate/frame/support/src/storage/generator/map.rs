@@ -196,7 +196,7 @@ where
 		let value = match unhashed::get::<O>(&current_key) {
 			Some(value) => value,
 			None => {
-				crate::defensive!("Invalid translate: fail to decode old value");
+				crate::defensive!("Invalid translation: failed to decode old value");
 				return Some(current_key)
 			},
 		};
