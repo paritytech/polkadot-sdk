@@ -472,6 +472,7 @@ fn store_pov_and_queries_work() {
 		for core_index in 0..n_cores {
 			let store = test_store();
 			let test_state = TestState::default();
+			let core_index = CoreIndex(core_index);
 
 			test_harness(test_state.clone(), store.clone(), |mut virtual_overseer| async move {
 				let node_features = NodeFeatures::EMPTY;
@@ -494,9 +495,9 @@ fn store_pov_and_queries_work() {
 					n_validators,
 					available_data: available_data.clone(),
 					tx,
+					core_index,
 					expected_erasure_root: branches.root(),
 					node_features: node_features.clone(),
-					core_index: CoreIndex(core_index),
 				};
 
 				virtual_overseer.send(FromOrchestra::Communication { msg: block_msg }).await;
@@ -506,8 +507,17 @@ fn store_pov_and_queries_work() {
 					query_available_data(&mut virtual_overseer, candidate_hash).await.unwrap();
 				assert_eq!(pov, available_data);
 
-				let query_all_chunks_res =
-					query_all_chunks(&mut virtual_overseer, candidate_hash).await;
+				let query_all_chunks_res = query_all_chunks(
+					&mut virtual_overseer,
+					availability_chunk_indices(
+						Some(&node_features),
+						n_validators as usize,
+						core_index,
+					)
+					.unwrap(),
+					candidate_hash,
+				)
+				.await;
 				assert_eq!(query_all_chunks_res.len(), chunks.len());
 
 				let branches: Vec<_> = branches.collect();
@@ -561,6 +571,7 @@ fn store_pov_and_queries_work() {
 				let chunks = erasure::obtain_chunks_v1(n_validators as _, &available_data).unwrap();
 
 				let branches = erasure::branches(chunks.as_ref());
+				let core_index = CoreIndex(core_index);
 
 				let (tx, rx) = oneshot::channel();
 				let block_msg = AvailabilityStoreMessage::StoreAvailableData {
@@ -568,9 +579,9 @@ fn store_pov_and_queries_work() {
 					n_validators,
 					available_data: available_data.clone(),
 					tx,
+					core_index,
 					expected_erasure_root: branches.root(),
 					node_features: node_features.clone(),
-					core_index: CoreIndex(core_index),
 				};
 
 				virtual_overseer.send(FromOrchestra::Communication { msg: block_msg }).await;
@@ -580,8 +591,17 @@ fn store_pov_and_queries_work() {
 					query_available_data(&mut virtual_overseer, candidate_hash).await.unwrap();
 				assert_eq!(pov, available_data);
 
-				let query_all_chunks_res =
-					query_all_chunks(&mut virtual_overseer, candidate_hash).await;
+				let query_all_chunks_res = query_all_chunks(
+					&mut virtual_overseer,
+					availability_chunk_indices(
+						Some(&node_features),
+						n_validators as usize,
+						core_index,
+					)
+					.unwrap(),
+					candidate_hash,
+				)
+				.await;
 				assert_eq!(query_all_chunks_res.len(), chunks.len());
 
 				let branches: Vec<_> = branches.collect();
@@ -597,7 +617,7 @@ fn store_pov_and_queries_work() {
 					let expected_chunk_index = availability_chunk_index(
 						Some(&node_features),
 						n_validators as usize,
-						CoreIndex(core_index),
+						core_index,
 						ValidatorIndex(validator_index),
 					)
 					.unwrap();
@@ -698,13 +718,28 @@ fn query_all_chunks_works() {
 			assert_eq!(rx.await.unwrap(), Ok(()));
 		}
 
+		let chunk_indices =
+			availability_chunk_indices(None, n_validators as usize, CoreIndex(0)).unwrap();
+
 		assert_eq!(
-			query_all_chunks(&mut virtual_overseer, candidate_hash_1).await.len(),
+			query_all_chunks(&mut virtual_overseer, chunk_indices.clone(), candidate_hash_1)
+				.await
+				.len(),
 			n_validators as usize
 		);
 
-		assert_eq!(query_all_chunks(&mut virtual_overseer, candidate_hash_2).await.len(), 1);
-		assert_eq!(query_all_chunks(&mut virtual_overseer, candidate_hash_3).await.len(), 0);
+		assert_eq!(
+			query_all_chunks(&mut virtual_overseer, chunk_indices.clone(), candidate_hash_2)
+				.await
+				.len(),
+			1
+		);
+		assert_eq!(
+			query_all_chunks(&mut virtual_overseer, chunk_indices.clone(), candidate_hash_3)
+				.await
+				.len(),
+			0
+		);
 
 		virtual_overseer
 	});
@@ -1204,6 +1239,7 @@ async fn query_chunk(
 
 async fn query_all_chunks(
 	virtual_overseer: &mut VirtualOverseer,
+	chunk_mapping: Vec<ChunkIndex>,
 	candidate_hash: CandidateHash,
 ) -> Vec<ErasureChunk> {
 	let (tx, rx) = oneshot::channel();
@@ -1211,7 +1247,13 @@ async fn query_all_chunks(
 	let msg = AvailabilityStoreMessage::QueryAllChunks(candidate_hash, tx);
 	virtual_overseer.send(FromOrchestra::Communication { msg }).await;
 
-	rx.await.unwrap()
+	let resp = rx.await.unwrap();
+	resp.into_iter()
+		.map(|(val_idx, chunk)| {
+			assert_eq!(chunk.index, chunk_mapping[val_idx.0 as usize]);
+			chunk
+		})
+		.collect()
 }
 
 async fn has_all_chunks(
