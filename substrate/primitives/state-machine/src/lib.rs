@@ -1207,7 +1207,7 @@ mod tests {
 
 		// fetch execution proof from 'remote' full node
 		let mut remote_backend = trie_backend::tests::test_trie(state_version, None, None);
-		let remote_root = remote_backend.storage_root(std::iter::empty(), state_version).main.root_hash();
+		let remote_root = remote_backend.storage_root(std::iter::empty(), state_version).root_hash();
 		let (remote_result, remote_proof) = prove_execution(
 			&mut remote_backend,
 			&mut Default::default(),
@@ -1517,7 +1517,7 @@ mod tests {
 		let missing_child_info = &missing_child_info;
 		// fetch read proof from 'remote' full node
 		let remote_backend = trie_backend::tests::test_trie(state_version, None, None);
-		let remote_root = remote_backend.storage_root(std::iter::empty(), state_version).main.root_hash();
+		let remote_root = remote_backend.storage_root(std::iter::empty(), state_version).root_hash();
 		let remote_proof = prove_read(remote_backend, &[b"value2"]).unwrap();
 		let remote_proof = test_compact(remote_proof, &remote_root);
 		// check proof locally
@@ -1534,7 +1534,7 @@ mod tests {
 		assert_eq!(local_result2, false);
 		// on child trie
 		let remote_backend = trie_backend::tests::test_trie(state_version, None, None);
-		let remote_root = remote_backend.storage_root(std::iter::empty(), state_version).main.root_hash();
+		let remote_root = remote_backend.storage_root(std::iter::empty(), state_version).root_hash();
 		let remote_proof = prove_child_read(remote_backend, child_info, &[b"value3"]).unwrap();
 		let remote_proof = test_compact(remote_proof, &remote_root);
 		let local_result1 = read_child_proof_check::<BlakeTwo256, _>(
@@ -1664,7 +1664,7 @@ mod tests {
 	fn prove_read_with_size_limit_works() {
 		let state_version = StateVersion::V0;
 		let remote_backend = trie_backend::tests::test_trie(state_version, None, None);
-		let remote_root = remote_backend.storage_root(::std::iter::empty(), state_version).main.root_hash();
+		let remote_root = remote_backend.storage_root(::std::iter::empty(), state_version).root_hash();
 		let (proof, count) =
 			prove_range_read_with_size(remote_backend, None, None, 0, None).unwrap();
 		// Always contains at least some nodes.
@@ -1752,7 +1752,7 @@ mod tests {
 
 		let check_proof = |mdb, root, state_version| -> StorageProof {
 			let remote_backend = TrieBackendBuilder::new(Box::new(mdb), root).build();
-			let remote_root = remote_backend.storage_root(std::iter::empty(), state_version).main.root_hash();
+			let remote_root = remote_backend.storage_root(std::iter::empty(), state_version).root_hash();
 			let remote_proof = prove_read(remote_backend, &[b"foo222"]).unwrap();
 			// check proof locally
 			let local_result1 =
@@ -1796,7 +1796,7 @@ mod tests {
 	fn prove_range_with_child_works() {
 		let state_version = StateVersion::V0;
 		let remote_backend = trie_backend::tests::test_trie(state_version, None, None);
-		let remote_root = remote_backend.storage_root(std::iter::empty(), state_version).main.root_hash();
+		let remote_root = remote_backend.storage_root(std::iter::empty(), state_version).root_hash();
 		let mut start_at = smallvec::SmallVec::<[Vec<u8>; 2]>::new();
 		let trie_backend = remote_backend.as_trie_backend();
 		let max_iter = 1000;
@@ -1878,7 +1878,7 @@ mod tests {
 			state_version,
 		);
 		let mut remote_storage = remote_backend.backend_storage().as_mem_db().unwrap().clone();
-		let remote_root = transaction.main.apply_to(&mut remote_storage);
+		let remote_root = transaction.apply_to(&mut remote_storage);
 		let remote_backend = TrieBackendBuilder::new(Box::new(remote_storage), remote_root).build();
 		let remote_proof = prove_child_read(remote_backend, &child_info1, &[b"key1"]).unwrap();
 		let size = remote_proof.encoded_size();
@@ -1914,7 +1914,7 @@ mod tests {
 		};
 		let mut duplicate = false;
 		let mut memdb = PrefixedMemoryDB::<BlakeTwo256>::default();
-		transaction.main.apply_to(&mut memdb);
+		transaction.apply_to(&mut memdb);
 		for (k, (value, rc)) in memdb.drain().iter() {
 			// look for a key inserted twice: transaction rc is 2
 			if *rc == 2 {

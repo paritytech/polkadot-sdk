@@ -284,7 +284,7 @@ impl Externalities for BasicExternalities {
 				data.into_iter().map(|(k, v)| (k.as_ref(), v.value().map(|v| v.as_slice())));
 			crate::in_memory_backend::new_in_mem::<Blake2Hasher>()
 				.child_storage_root(&child_info, delta, state_version)
-				.0.main.root_hash()
+				.0.root_hash()
 		} else {
 			empty_child_trie_root::<LayoutV1<Blake2Hasher, DBLocation>>()
 		}

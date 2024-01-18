@@ -1051,7 +1051,6 @@ pub mod tests {
 		assert!(
 			test_trie(state_version, cache, recorder)
 				.storage_root(iter::empty(), state_version)
-				.main
 				.root_hash() != H256::repeat_byte(0)
 		);
 	}
@@ -1068,13 +1067,12 @@ pub mod tests {
 		let tx = test_trie(state_version, cache, recorder)
 			.storage_root(iter::once((&b"new-key"[..], Some(&b"new-value"[..]), None)), state_version);
 		let mut mdb = MemoryDB::<BlakeTwo256>::default();
-		let new_root = tx.main.apply_to(&mut mdb);
+		let new_root = tx.apply_to(&mut mdb);
 		assert!(!mdb.drain().is_empty());
 		assert!(
 			new_root !=
 				test_trie(state_version, None, None)
 					.storage_root(iter::empty(), state_version)
-					.main
 					.root_hash()
 		);
 	}
@@ -1155,13 +1153,13 @@ pub mod tests {
 
 		let in_memory = InMemoryBackend::<BlakeTwo256>::default();
 		let mut in_memory = in_memory.update(vec![(None, contents)], state_version).unwrap();
-		let in_memory_root = in_memory.storage_root(std::iter::empty(), state_version).main.root_hash();
+		let in_memory_root = in_memory.storage_root(std::iter::empty(), state_version).root_hash();
 		value_range.clone().for_each(|i| {
 			assert_eq!(in_memory.storage(&[i]).unwrap().unwrap(), vec![i; size_content])
 		});
 
 		let trie = in_memory.as_trie_backend_mut();
-		let trie_root = trie.storage_root(std::iter::empty(), state_version).main.root_hash();
+		let trie_root = trie.storage_root(std::iter::empty(), state_version).root_hash();
 		assert_eq!(in_memory_root, trie_root);
 		value_range
 			.clone()
@@ -1212,12 +1210,12 @@ pub mod tests {
 				let contents = (0..64).map(|i| (vec![i], Some(vec![i]))).collect::<Vec<_>>();
 				let in_memory = InMemoryBackend::<BlakeTwo256>::default();
 				let mut in_memory = in_memory.update(vec![(None, contents)], state_version).unwrap();
-				let in_memory_root = in_memory.storage_root(std::iter::empty(), state_version).main.root_hash();
+				let in_memory_root = in_memory.storage_root(std::iter::empty(), state_version).root_hash();
 				(0..64)
 					.for_each(|i| assert_eq!(in_memory.storage(&[i]).unwrap().unwrap(), vec![i]));
 
 				let trie = in_memory.as_trie_backend_mut();
-				let trie_root = trie.storage_root(std::iter::empty(), state_version).main.root_hash();
+				let trie_root = trie.storage_root(std::iter::empty(), state_version).root_hash();
 				assert_eq!(in_memory_root, trie_root);
 				(0..64).for_each(|i| assert_eq!(trie.storage(&[i]).unwrap().unwrap(), vec![i]));
 
@@ -1264,7 +1262,6 @@ pub mod tests {
 				child_storage_keys.iter().map(|k| (k, std::iter::empty())),
 				state_version,
 			)
-			.main
 			.root_hash();
 		(0..64).for_each(|i| assert_eq!(in_memory.storage(&[i]).unwrap().unwrap(), vec![i]));
 		(28..65).for_each(|i| {
@@ -1288,7 +1285,7 @@ pub mod tests {
 				}
 
 				let trie = in_memory.as_trie_backend_mut();
-				let trie_root = trie.storage_root(std::iter::empty(), state_version).main.root_hash()	;
+				let trie_root = trie.storage_root(std::iter::empty(), state_version).root_hash()	;
 				assert_eq!(in_memory_root, trie_root);
 				(0..64).for_each(|i| assert_eq!(trie.storage(&[i]).unwrap().unwrap(), vec![i]));
 
@@ -1369,11 +1366,11 @@ pub mod tests {
 				child_storage_keys.iter().map(|k| (k, std::iter::empty())),
 				state_version,
 			);
-		let in_memory_root = commit.main.root_hash();
+		let in_memory_root = commit.root_hash();
 		in_memory.apply_transaction(commit);
 
 		let child_1_root =
-			in_memory.child_storage_root(child_info_1, std::iter::empty(), state_version).0.main.root_hash();
+			in_memory.child_storage_root(child_info_1, std::iter::empty(), state_version).0.root_hash();
 		let trie = in_memory.as_trie_backend_mut();
 		let nodes = {
 			let backend = trie.with_recorder(Default::default());
@@ -1500,7 +1497,7 @@ pub mod tests {
 
 		let new_root = {
 			let trie = test_trie(StateVersion::V1, Some(shared_cache.local_cache()), None);
-			trie.storage_root(new_data.clone().into_iter().map(|(k, v)| (k, v, None)), StateVersion::V1).main.root_hash()
+			trie.storage_root(new_data.clone().into_iter().map(|(k, v)| (k, v, None)), StateVersion::V1).root_hash()
 		};
 
 		let local_cache = shared_cache.local_cache();
@@ -1547,7 +1544,6 @@ pub mod tests {
 				child_storage_keys.iter().map(|k| (k, std::iter::empty())),
 				state_version,
 			)
-			.main
 			.root_hash();
 		assert_eq!(in_memory.storage(&key).unwrap().unwrap(), top_trie_val);
 		assert_eq!(in_memory.child_storage(child_info_1, &key).unwrap().unwrap(), child_trie_1_val);
@@ -1567,7 +1563,7 @@ pub mod tests {
 				}
 
 				let trie = in_memory.as_trie_backend_mut();
-				let trie_root = trie.storage_root(std::iter::empty(), state_version).main.root_hash();
+				let trie_root = trie.storage_root(std::iter::empty(), state_version).root_hash();
 				assert_eq!(in_memory_root, trie_root);
 
 				trie.essence.trie_node_cache = cache.as_ref().map(|c| c.local_cache());

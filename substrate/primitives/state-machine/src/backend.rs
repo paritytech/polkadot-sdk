@@ -173,21 +173,7 @@ where
 }
 
 /// Database changeset for the trie backend.
-/// TODO switch to simply changeset
-pub struct TrieCommit<H> {
-	/// Main trie changeset.
-	pub main: trie_db::Changeset<H, DBLocation>,
-}
-
-impl <H: Copy> TrieCommit<H> {
-	/// Create an empty changeset.
-	pub fn empty(root: H) -> Self {
-		TrieCommit {
-			main: trie_db::Changeset::empty(root),
-		}
-	}
-
-}
+pub type TrieCommit<H> = trie_db::Changeset<H, DBLocation>;
 
 /// A state backend is used to read state data and can have changes committed
 /// to it.
@@ -321,12 +307,12 @@ pub trait Backend<H: Hasher>: sp_std::fmt::Debug {
 			if empty {
 				child_roots.push((prefixed_storage_key.into_inner(), None, None));
 			} else {
-				let root = child_commit.main.root_hash();
-				let change_to_insert = child_commit.main.to_insert_in_other_trie(child_info.keyspace().to_vec());
+				let root = child_commit.root_hash();
+				let change_to_insert = child_commit.to_insert_in_other_trie(child_info.keyspace().to_vec());
 				child_roots.push((prefixed_storage_key.into_inner(), Some(root.encode()), Some(change_to_insert)));
 			}
 		}
-		let commit = self.storage_root(
+		self.storage_root(
 			delta
 				.map(|(k, v)| (k, v.as_ref().map(|v| &v[..]), None))
 				.chain(child_roots.iter_mut().map(|(k, r, c)| {
@@ -338,10 +324,7 @@ pub trait Backend<H: Hasher>: sp_std::fmt::Debug {
 					}
 				})),
 			state_version,
-		);
-		TrieCommit {
-			main: commit.main,
-		}
+		)
 	}
 
 	/// Register stats from overlay of state machine.

@@ -77,7 +77,7 @@ where
 	/// Apply the given transaction to this backend and set the root to the given value.
 	pub fn apply_transaction(&mut self, transaction: TrieCommit<H::Out>) {
 		if let Some(mut mdb) = self.backend_storage_mut().as_mem_db_mut() {
-			let root = transaction.main.apply_to(&mut mdb);
+			let root = transaction.apply_to(&mut mdb);
 			self.set_root(root);
 		}
 	}

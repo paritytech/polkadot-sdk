@@ -49,12 +49,8 @@ pub fn generate_trie(
 	let root = commit.root_hash();
 
 	let mut transaction = sc_client_db::Transaction::default();
-	let trie_commit = sp_state_machine::TrieCommit {
-		main: commit,
-		child: Default::default(),
-	};
-	sc_client_db::apply_tree_commit::<BlakeTwo256>(trie_commit, db.state_db.is_none(),  &mut transaction);
-	
+	sc_client_db::apply_tree_commit::<BlakeTwo256>(commit, db.state_db.is_none(),  &mut transaction);
+
 	db.db.commit(transaction).expect("Failed to write transaction");
 
 	root

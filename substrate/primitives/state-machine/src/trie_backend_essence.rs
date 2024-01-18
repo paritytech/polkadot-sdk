@@ -685,7 +685,7 @@ where
 			match commit {
 				Ok(commit) => (
 					Some(commit.root_hash()),
-					TrieCommit { main: commit },
+					commit,
 				),
 				Err(e) => {
 					warn!(target: "trie", "Failed to write to trie: {}", e);
@@ -742,7 +742,7 @@ where
 				} {
 					Ok(commit) => (
 						Some(commit.root_hash()),
-						TrieCommit { main: commit },
+						commit,
 					),
 					Err(e) => {
 						warn!(target: "trie", "Failed to write to trie: {}", e);
@@ -751,7 +751,7 @@ where
 				}
 			});
 
-		let is_default = commit.main.root_hash() == default_root;
+		let is_default = commit.root_hash() == default_root;
 
 		(commit, is_default)
 	}

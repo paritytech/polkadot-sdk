@@ -256,7 +256,7 @@ impl<H: Hasher> Clone for StorageTransactionCache<H> {
 impl<H: Hasher> sp_std::fmt::Debug for StorageTransactionCache<H> {
 	fn fmt(&self, _f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		#[cfg(feature = "std")]
-		write!(_f, "storage_root={:?}", self.transaction.main.root_hash())?;
+		write!(_f, "storage_root={:?}", self.transaction.root_hash())?;
 		Ok(())
 	}
 }
@@ -616,7 +616,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 		H::Out: Ord + Encode,
 	{
 		if let Some(cache) = &self.storage_transaction_cache {
-			return (cache.transaction.main.root_hash(), true)
+			return (cache.transaction.root_hash(), true)
 		}
 
 		let delta = self.changes().map(|(k, v)| (&k[..], v.value().map(|v| &v[..])));
@@ -626,7 +626,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 
 		let transaction = backend.full_storage_root(delta, child_delta, state_version);
 
-		let root = transaction.main.root_hash();
+		let root = transaction.root_hash();
 
 		self.storage_transaction_cache =
 			Some(StorageTransactionCache { transaction });
@@ -672,7 +672,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 		};
 
 		let root = if let Some((commit, is_empty)) = commit {
-			let root = commit.main.root_hash();
+			let root = commit.root_hash();
 			// We store update in the overlay in order to be able to use
 			// 'self.storage_transaction' cache. This is brittle as it rely on Ext only querying
 			// the trie backend for storage root.
