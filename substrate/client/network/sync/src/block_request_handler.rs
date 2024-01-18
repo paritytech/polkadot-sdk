@@ -228,7 +228,7 @@ where
 		};
 
 		let direction =
-			Direction::from_i32(request.direction).ok_or(HandleRequestError::ParseDirection)?;
+			i32::try_into(request.direction).map_err(|_| HandleRequestError::ParseDirection)?;
 
 		let attributes = BlockAttributes::from_be_u32(request.fields)?;
 
