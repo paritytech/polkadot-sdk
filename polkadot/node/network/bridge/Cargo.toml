@@ -22,7 +22,7 @@ polkadot-node-metrics = { path = "../../metrics" }
 polkadot-node-network-protocol = { path = "../protocol" }
 polkadot-node-subsystem = { path = "../../subsystem" }
 polkadot-overseer = { path = "../../overseer" }
-parking_lot = "0.12.0"
+parking_lot = "0.12.1"
 bytes = "1"
 fatality = "0.0.6"
 thiserror = "1"

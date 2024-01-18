@@ -31,4 +31,5 @@ jobs:
         env:
           CONFIG: .github/.markdownlint.yaml
         run: |
+          echo "Checking markdown formatting. More info: docs/contributor/markdown_linting.md"
           markdownlint --config "$CONFIG" --ignore target .

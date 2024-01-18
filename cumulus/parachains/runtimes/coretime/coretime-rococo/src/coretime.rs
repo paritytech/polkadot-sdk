@@ -17,6 +17,7 @@
 use crate::*;
 use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::RelaychainDataProvider;
+use cumulus_primitives_core::relay_chain;
 use frame_support::{
 	parameter_types,
 	traits::{
@@ -51,11 +52,16 @@ enum CoretimeProviderCalls {
 	#[codec(index = 1)]
 	RequestCoreCount(CoreIndex),
 	#[codec(index = 2)]
-	RequestRevenueInfoAt(BlockNumber),
+	RequestRevenueInfoAt(relay_chain::BlockNumber),
 	#[codec(index = 3)]
 	CreditAccount(AccountId, Balance),
 	#[codec(index = 4)]
-	AssignCore(CoreIndex, BlockNumber, Vec<(CoreAssignment, PartsOf57600)>, Option<BlockNumber>),
+	AssignCore(
+		CoreIndex,
+		relay_chain::BlockNumber,
+		Vec<(CoreAssignment, PartsOf57600)>,
+		Option<relay_chain::BlockNumber>,
+	),
 }
 
 parameter_types! {
@@ -92,7 +98,7 @@ impl CoretimeInterface for CoretimeAllocator {
 			},
 		]);
 
-		match PolkadotXcm::send_xcm(Here, MultiLocation::parent(), message.clone()) {
+		match PolkadotXcm::send_xcm(Here, Location::parent(), message.clone()) {
 			Ok(_) => log::info!(
 				target: "runtime::coretime",
 				"Request to update schedulable cores sent successfully."
@@ -122,7 +128,7 @@ impl CoretimeInterface for CoretimeAllocator {
 			},
 		]);
 
-		match PolkadotXcm::send_xcm(Here, MultiLocation::parent(), message.clone()) {
+		match PolkadotXcm::send_xcm(Here, Location::parent(), message.clone()) {
 			Ok(_) => log::info!(
 				target: "runtime::coretime",
 				"Request for revenue information sent successfully."
@@ -151,7 +157,7 @@ impl CoretimeInterface for CoretimeAllocator {
 			},
 		]);
 
-		match PolkadotXcm::send_xcm(Here, MultiLocation::parent(), message.clone()) {
+		match PolkadotXcm::send_xcm(Here, Location::parent(), message.clone()) {
 			Ok(_) => log::info!(
 				target: "runtime::coretime",
 				"Instruction to credit account sent successfully."
@@ -181,12 +187,12 @@ impl CoretimeInterface for CoretimeAllocator {
 			},
 			Instruction::Transact {
 				origin_kind: OriginKind::Native,
-				require_weight_at_most: Weight::from_parts(1000000000, 200000),
+				require_weight_at_most: Weight::from_parts(1_000_000_000, 200000),
 				call: assign_core_call.encode().into(),
 			},
 		]);
 
-		match PolkadotXcm::send_xcm(Here, MultiLocation::parent(), message.clone()) {
+		match PolkadotXcm::send_xcm(Here, Location::parent(), message.clone()) {
 			Ok(_) => log::info!(
 				target: "runtime::coretime",
 				"Core assignment sent successfully."
@@ -215,6 +221,9 @@ impl pallet_broker::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type OnRevenue = CreditToCollatorPot;
+	#[cfg(feature = "fast-runtime")]
+	type TimeslicePeriod = ConstU32<10>;
+	#[cfg(not(feature = "fast-runtime"))]
 	type TimeslicePeriod = ConstU32<80>;
 	type MaxLeasedCores = ConstU32<50>;
 	type MaxReservedCores = ConstU32<10>;
