@@ -953,12 +953,12 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 				return Err(<T as Config>::WeightInfo::pre_code_upgrade())
 			};
 
-			if let Err(_) = <T as Config>::Currency::withdraw(
+			if <T as Config>::Currency::withdraw(
 				&billing_account,
 				T::UpgradeFee::get(),
 				WithdrawReasons::FEE,
 				ExistenceRequirement::KeepAlive,
-			) {
+			).is_err() {
 				Self::deposit_event(Event::<T>::CodeUpgradeScheduleFailed(
 					CodeUpgradeScheduleError::FailedToPayUpgradeFee,
 				));
