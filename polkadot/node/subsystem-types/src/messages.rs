@@ -830,9 +830,9 @@ pub enum ProvisionerMessage {
 /// Message to the Collation Generation subsystem.
 #[derive(Debug)]
 pub enum CollationGenerationMessage {
-	/// Initialize the collation generation subsystem
+	/// Initialize the collation generation subsystem.
 	Initialize(CollationGenerationConfig),
-	/// Reinitialize the collation generation subsystem, overriding the existing config
+	/// Reinitialize the collation generation subsystem, overriding the existing config.
 	Reinitialize(CollationGenerationConfig),
 	/// Submit a collation to the subsystem. This will package it into a signed
 	/// [`CommittedCandidateReceipt`] and distribute along the network to validators.
