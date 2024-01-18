@@ -65,7 +65,7 @@ fn add_referendum<T: Config>(n: u32) -> (ReferendumIndex, T::Hash, T::Hash) {
 		0u32.into(),
 	);
 	let preimage_hash = note_preimage::<T>();
-	MetadataOf::<T>::insert(crate::MetadataOwner::Referendum(index), preimage_hash.clone());
+	MetadataOf::<T>::insert(crate::MetadataOwner::Referendum(index), preimage_hash);
 	(index, hash, preimage_hash)
 }
 

@@ -17,10 +17,13 @@
 
 //! Implementation of `fungible` traits for Balances pallet.
 use super::*;
-use frame_support::traits::tokens::{
-	Fortitude,
-	Preservation::{self, Preserve, Protect},
-	Provenance::{self, Minted},
+use frame_support::traits::{
+	tokens::{
+		Fortitude,
+		Preservation::{self, Preserve, Protect},
+		Provenance::{self, Minted},
+	},
+	AccountTouch,
 };
 
 impl<T: Config<I>, I: 'static> fungible::Inspect<T::AccountId> for Pallet<T, I> {
@@ -174,7 +177,10 @@ impl<T: Config<I>, I: 'static> fungible::Unbalanced<T::AccountId> for Pallet<T, 
 	}
 
 	fn deactivate(amount: Self::Balance) {
-		InactiveIssuance::<T, I>::mutate(|b| b.saturating_accrue(amount));
+		InactiveIssuance::<T, I>::mutate(|b| {
+			// InactiveIssuance cannot be greater than TotalIssuance.
+			*b = b.saturating_add(amount).min(TotalIssuance::<T, I>::get());
+		});
 	}
 
 	fn reactivate(amount: Self::Balance) {
@@ -356,3 +362,16 @@ impl<T: Config<I>, I: 'static> fungible::Balanced<T::AccountId> for Pallet<T, I>
 }
 
 impl<T: Config<I>, I: 'static> fungible::BalancedHold<T::AccountId> for Pallet<T, I> {}
+
+impl<T: Config<I>, I: 'static> AccountTouch<(), T::AccountId> for Pallet<T, I> {
+	type Balance = T::Balance;
+	fn deposit_required(_: ()) -> Self::Balance {
+		Self::Balance::zero()
+	}
+	fn should_touch(_: (), _: &T::AccountId) -> bool {
+		false
+	}
+	fn touch(_: (), _: &T::AccountId, _: &T::AccountId) -> DispatchResult {
+		Ok(())
+	}
+}

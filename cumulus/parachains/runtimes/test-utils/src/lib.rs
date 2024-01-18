@@ -37,16 +37,17 @@ use sp_consensus_aura::{SlotDuration, AURA_ENGINE_ID};
 use sp_core::Encode;
 use sp_runtime::{traits::Header, BuildStorage, Digest, DigestItem};
 use xcm::{
-	latest::{MultiAsset, MultiLocation, XcmContext, XcmHash},
+	latest::{Asset, Location, XcmContext, XcmHash},
 	prelude::*,
 	VersionedXcm, MAX_XCM_DECODE_DEPTH,
 };
-use xcm_executor::{traits::TransactAsset, Assets};
+use xcm_executor::{traits::TransactAsset, AssetsInHolding};
 
 pub mod test_cases;
 
 pub type BalanceOf<Runtime> = <Runtime as pallet_balances::Config>::Balance;
 pub type AccountIdOf<Runtime> = <Runtime as frame_system::Config>::AccountId;
+pub type RuntimeCallOf<Runtime> = <Runtime as frame_system::Config>::RuntimeCall;
 pub type ValidatorIdOf<Runtime> = <Runtime as pallet_session::Config>::ValidatorId;
 pub type SessionKeysOf<Runtime> = <Runtime as pallet_session::Config>::Keys;
 
@@ -114,35 +115,48 @@ impl<Runtime: frame_system::Config + pallet_balances::Config + pallet_session::C
 	}
 }
 
-// Basic builder based on balances, collators and pallet_sessopm
-pub struct ExtBuilder<
-	Runtime: frame_system::Config
+/// A set of traits for a minimal parachain runtime, that may be used in conjunction with the
+/// `ExtBuilder` and the `RuntimeHelper`.
+pub trait BasicParachainRuntime:
+	frame_system::Config
+	+ pallet_balances::Config
+	+ pallet_session::Config
+	+ pallet_xcm::Config
+	+ parachain_info::Config
+	+ pallet_collator_selection::Config
+	+ cumulus_pallet_parachain_system::Config
+{
+}
+
+impl<T> BasicParachainRuntime for T
+where
+	T: frame_system::Config
 		+ pallet_balances::Config
 		+ pallet_session::Config
 		+ pallet_xcm::Config
-		+ parachain_info::Config,
-> {
+		+ parachain_info::Config
+		+ pallet_collator_selection::Config
+		+ cumulus_pallet_parachain_system::Config,
+	ValidatorIdOf<T>: From<AccountIdOf<T>>,
+{
+}
+
+/// Basic builder based on balances, collators and pallet_session.
+pub struct ExtBuilder<Runtime: BasicParachainRuntime> {
 	// endowed accounts with balances
 	balances: Vec<(AccountIdOf<Runtime>, BalanceOf<Runtime>)>,
 	// collators to test block prod
 	collators: Vec<AccountIdOf<Runtime>>,
 	// keys added to pallet session
 	keys: Vec<(AccountIdOf<Runtime>, ValidatorIdOf<Runtime>, SessionKeysOf<Runtime>)>,
-	// safe xcm version for pallet_xcm
+	// safe XCM version for pallet_xcm
 	safe_xcm_version: Option<XcmVersion>,
 	// para id
 	para_id: Option<ParaId>,
 	_runtime: PhantomData<Runtime>,
 }
 
-impl<
-		Runtime: frame_system::Config
-			+ pallet_balances::Config
-			+ pallet_session::Config
-			+ pallet_xcm::Config
-			+ parachain_info::Config,
-	> Default for ExtBuilder<Runtime>
-{
+impl<Runtime: BasicParachainRuntime> Default for ExtBuilder<Runtime> {
 	fn default() -> ExtBuilder<Runtime> {
 		ExtBuilder {
 			balances: vec![],
@@ -155,14 +169,7 @@ impl<
 	}
 }
 
-impl<
-		Runtime: frame_system::Config
-			+ pallet_balances::Config
-			+ pallet_session::Config
-			+ pallet_xcm::Config
-			+ parachain_info::Config,
-	> ExtBuilder<Runtime>
-{
+impl<Runtime: BasicParachainRuntime> ExtBuilder<Runtime> {
 	pub fn with_balances(
 		mut self,
 		balances: Vec<(AccountIdOf<Runtime>, BalanceOf<Runtime>)>,
@@ -198,12 +205,7 @@ impl<
 		self
 	}
 
-	pub fn build(self) -> sp_io::TestExternalities
-	where
-		Runtime:
-			pallet_collator_selection::Config + pallet_balances::Config + pallet_session::Config,
-		ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
-	{
+	pub fn build(self) -> sp_io::TestExternalities {
 		let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
 		pallet_xcm::GenesisConfig::<Runtime> {
@@ -305,12 +307,12 @@ impl<XcmConfig: xcm_executor::Config, AllPalletsWithoutSystem>
 	RuntimeHelper<XcmConfig, AllPalletsWithoutSystem>
 {
 	pub fn do_transfer(
-		from: MultiLocation,
-		to: MultiLocation,
-		(asset, amount): (MultiLocation, u128),
-	) -> Result<Assets, XcmError> {
+		from: Location,
+		to: Location,
+		(asset, amount): (Location, u128),
+	) -> Result<AssetsInHolding, XcmError> {
 		<XcmConfig::AssetTransactor as TransactAsset>::transfer_asset(
-			&MultiAsset { id: Concrete(asset), fun: Fungible(amount) },
+			&Asset { id: AssetId(asset), fun: Fungible(amount) },
 			&from,
 			&to,
 			// We aren't able to track the XCM that initiated the fee deposit, so we create a
@@ -327,9 +329,9 @@ impl<
 {
 	pub fn do_teleport_assets<HrmpChannelOpener>(
 		origin: <Runtime as frame_system::Config>::RuntimeOrigin,
-		dest: MultiLocation,
-		beneficiary: MultiLocation,
-		(asset, amount): (MultiLocation, u128),
+		dest: Location,
+		beneficiary: Location,
+		(asset, amount): (Location, u128),
 		open_hrmp_channel: Option<(u32, u32)>,
 		included_head: HeaderFor<Runtime>,
 		slot_digest: &[u8],
@@ -354,7 +356,7 @@ impl<
 			origin,
 			Box::new(dest.into()),
 			Box::new(beneficiary.into()),
-			Box::new((Concrete(asset), amount).into()),
+			Box::new((AssetId(asset), amount).into()),
 			0,
 		)
 	}
@@ -377,12 +379,13 @@ impl<
 		]);
 
 		// execute xcm as parent origin
-		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-		<<Runtime as pallet_xcm::Config>::XcmExecutor>::execute_xcm(
-			MultiLocation::parent(),
+		let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+		<<Runtime as pallet_xcm::Config>::XcmExecutor>::prepare_and_execute(
+			Location::parent(),
 			xcm,
-			hash,
+			&mut hash,
 			Self::xcm_max_weight(XcmReceivedFrom::Parent),
+			Weight::zero(),
 		)
 	}
 }
@@ -449,7 +452,7 @@ impl<
 }
 
 pub fn assert_metadata<Fungibles, AccountId>(
-	asset_id: impl Into<Fungibles::AssetId> + Copy,
+	asset_id: impl Into<Fungibles::AssetId> + Clone,
 	expected_name: &str,
 	expected_symbol: &str,
 	expected_decimals: u8,
@@ -457,20 +460,20 @@ pub fn assert_metadata<Fungibles, AccountId>(
 	Fungibles: frame_support::traits::fungibles::metadata::Inspect<AccountId>
 		+ frame_support::traits::fungibles::Inspect<AccountId>,
 {
-	assert_eq!(Fungibles::name(asset_id.into()), Vec::from(expected_name),);
-	assert_eq!(Fungibles::symbol(asset_id.into()), Vec::from(expected_symbol),);
+	assert_eq!(Fungibles::name(asset_id.clone().into()), Vec::from(expected_name),);
+	assert_eq!(Fungibles::symbol(asset_id.clone().into()), Vec::from(expected_symbol),);
 	assert_eq!(Fungibles::decimals(asset_id.into()), expected_decimals);
 }
 
 pub fn assert_total<Fungibles, AccountId>(
-	asset_id: impl Into<Fungibles::AssetId> + Copy,
+	asset_id: impl Into<Fungibles::AssetId> + Clone,
 	expected_total_issuance: impl Into<Fungibles::Balance>,
 	expected_active_issuance: impl Into<Fungibles::Balance>,
 ) where
 	Fungibles: frame_support::traits::fungibles::metadata::Inspect<AccountId>
 		+ frame_support::traits::fungibles::Inspect<AccountId>,
 {
-	assert_eq!(Fungibles::total_issuance(asset_id.into()), expected_total_issuance.into());
+	assert_eq!(Fungibles::total_issuance(asset_id.clone().into()), expected_total_issuance.into());
 	assert_eq!(Fungibles::active_issuance(asset_id.into()), expected_active_issuance.into());
 }
 

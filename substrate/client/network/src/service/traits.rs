@@ -155,12 +155,15 @@ pub trait NetworkPeers {
 
 	/// Report a given peer as either beneficial (+) or costly (-) according to the
 	/// given scalar.
-	fn report_peer(&self, who: PeerId, cost_benefit: ReputationChange);
+	fn report_peer(&self, peer_id: PeerId, cost_benefit: ReputationChange);
+
+	/// Get peer reputation.
+	fn peer_reputation(&self, peer_id: &PeerId) -> i32;
 
 	/// Disconnect from a node as soon as possible.
 	///
 	/// This triggers the same effects as if the connection had closed itself spontaneously.
-	fn disconnect_peer(&self, who: PeerId, protocol: ProtocolName);
+	fn disconnect_peer(&self, peer_id: PeerId, protocol: ProtocolName);
 
 	/// Connect to unreserved peers and allow unreserved peers to connect for syncing purposes.
 	fn accept_unreserved_peers(&self);
@@ -254,16 +257,16 @@ where
 		T::add_known_address(self, peer_id, addr)
 	}
 
-	fn report_peer(&self, who: PeerId, cost_benefit: ReputationChange) {
-		// TODO: when we get rid of `Peerset`, we'll likely need to add some kind of async
-		// interface to `PeerStore`, otherwise we'll have trouble calling functions accepting
-		// `&mut self` via `Arc`.
-		// See https://github.com/paritytech/substrate/issues/14170.
-		T::report_peer(self, who, cost_benefit)
+	fn report_peer(&self, peer_id: PeerId, cost_benefit: ReputationChange) {
+		T::report_peer(self, peer_id, cost_benefit)
 	}
 
-	fn disconnect_peer(&self, who: PeerId, protocol: ProtocolName) {
-		T::disconnect_peer(self, who, protocol)
+	fn peer_reputation(&self, peer_id: &PeerId) -> i32 {
+		T::peer_reputation(self, peer_id)
+	}
+
+	fn disconnect_peer(&self, peer_id: PeerId, protocol: ProtocolName) {
+		T::disconnect_peer(self, peer_id, protocol)
 	}
 
 	fn accept_unreserved_peers(&self) {
@@ -548,8 +551,9 @@ pub trait NetworkRequest {
 		target: PeerId,
 		protocol: ProtocolName,
 		request: Vec<u8>,
+		fallback_request: Option<(Vec<u8>, ProtocolName)>,
 		connect: IfDisconnected,
-	) -> Result<Vec<u8>, RequestFailure>;
+	) -> Result<(Vec<u8>, ProtocolName), RequestFailure>;
 
 	/// Variation of `request` which starts a request whose response is delivered on a provided
 	/// channel.
@@ -566,7 +570,8 @@ pub trait NetworkRequest {
 		target: PeerId,
 		protocol: ProtocolName,
 		request: Vec<u8>,
-		tx: oneshot::Sender<Result<Vec<u8>, RequestFailure>>,
+		fallback_request: Option<(Vec<u8>, ProtocolName)>,
+		tx: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
 		connect: IfDisconnected,
 	);
 }
@@ -582,13 +587,20 @@ where
 		target: PeerId,
 		protocol: ProtocolName,
 		request: Vec<u8>,
+		fallback_request: Option<(Vec<u8>, ProtocolName)>,
 		connect: IfDisconnected,
-	) -> Pin<Box<dyn Future<Output = Result<Vec<u8>, RequestFailure>> + Send + 'async_trait>>
+	) -> Pin<
+		Box<
+			dyn Future<Output = Result<(Vec<u8>, ProtocolName), RequestFailure>>
+				+ Send
+				+ 'async_trait,
+		>,
+	>
 	where
 		'life0: 'async_trait,
 		Self: 'async_trait,
 	{
-		T::request(self, target, protocol, request, connect)
+		T::request(self, target, protocol, request, fallback_request, connect)
 	}
 
 	fn start_request(
@@ -596,10 +608,11 @@ where
 		target: PeerId,
 		protocol: ProtocolName,
 		request: Vec<u8>,
-		tx: oneshot::Sender<Result<Vec<u8>, RequestFailure>>,
+		fallback_request: Option<(Vec<u8>, ProtocolName)>,
+		tx: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
 		connect: IfDisconnected,
 	) {
-		T::start_request(self, target, protocol, request, tx, connect)
+		T::start_request(self, target, protocol, request, fallback_request, tx, connect)
 	}
 }
 

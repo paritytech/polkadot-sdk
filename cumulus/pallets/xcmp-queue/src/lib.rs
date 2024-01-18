@@ -60,7 +60,7 @@ use cumulus_primitives_core::{
 use frame_support::{
 	defensive, defensive_assert,
 	traits::{EnqueueMessage, EnsureOrigin, Get, QueueFootprint, QueuePausedQuery},
-	weights::{constants::WEIGHT_REF_TIME_PER_MILLIS, Weight, WeightMeter},
+	weights::{Weight, WeightMeter},
 	BoundedVec,
 };
 use pallet_message_queue::OnQueueChanged;
@@ -135,7 +135,7 @@ pub mod pallet {
 		/// The origin that is allowed to resume or suspend the XCMP queue.
 		type ControllerOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// The conversion function used to attempt to convert an XCM `MultiLocation` origin to a
+		/// The conversion function used to attempt to convert an XCM `Location` origin to a
 		/// superuser origin.
 		type ControllerOriginConverter: ConvertOrigin<Self::RuntimeOrigin>;
 
@@ -255,7 +255,7 @@ pub mod pallet {
 				return meter.consumed()
 			}
 
-			migration::lazy_migrate_inbound_queue::<T>();
+			migration::v3::lazy_migrate_inbound_queue::<T>();
 
 			meter.consumed()
 		}
@@ -387,36 +387,16 @@ pub struct QueueConfigData {
 	/// The number of pages which the queue must be reduced to before it signals that
 	/// message sending may recommence after it has been suspended.
 	resume_threshold: u32,
-	/// UNUSED - The amount of remaining weight under which we stop processing messages.
-	#[deprecated(note = "Will be removed")]
-	threshold_weight: Weight,
-	/// UNUSED - The speed to which the available weight approaches the maximum weight. A lower
-	/// number results in a faster progression. A value of 1 makes the entire weight available
-	/// initially.
-	#[deprecated(note = "Will be removed")]
-	weight_restrict_decay: Weight,
-	/// UNUSED - The maximum amount of weight any individual message may consume. Messages above
-	/// this weight go into the overweight queue and may only be serviced explicitly.
-	#[deprecated(note = "Will be removed")]
-	xcmp_max_individual_weight: Weight,
 }
 
 impl Default for QueueConfigData {
 	fn default() -> Self {
 		// NOTE that these default values are only used on genesis. They should give a rough idea of
 		// what to set these values to, but is in no way a requirement.
-		#![allow(deprecated)]
 		Self {
 			drop_threshold: 48,    // 64KiB * 48 = 3MiB
 			suspend_threshold: 32, // 64KiB * 32 = 2MiB
 			resume_threshold: 8,   // 64KiB * 8 = 512KiB
-			// unused:
-			threshold_weight: Weight::from_parts(100_000, 0),
-			weight_restrict_decay: Weight::from_parts(2, 0),
-			xcmp_max_individual_weight: Weight::from_parts(
-				20u64 * WEIGHT_REF_TIME_PER_MILLIS,
-				DEFAULT_POV_SIZE,
-			),
 		}
 	}
 }
@@ -474,11 +454,21 @@ impl<T: Config> Pallet<T> {
 	) -> Result<u32, MessageSendError> {
 		let encoded_fragment = fragment.encode();
 
+		// Optimization note: `max_message_size` could potentially be stored in
+		// `OutboundXcmpMessages` once known; that way it's only accessed when a new page is needed.
+
 		let channel_info =
 			T::ChannelInfo::get_channel_info(recipient).ok_or(MessageSendError::NoChannel)?;
-		let max_message_size = channel_info.max_message_size as usize;
 		// Max message size refers to aggregates, or pages. Not to individual fragments.
-		if encoded_fragment.len() > max_message_size {
+		let max_message_size = channel_info.max_message_size as usize;
+		let format_size = format.encoded_size();
+		// We check the encoded fragment length plus the format size agains the max message size
+		// because the format is concatenated if a new page is needed.
+		let size_to_check = encoded_fragment
+			.len()
+			.checked_add(format_size)
+			.ok_or(MessageSendError::TooBig)?;
+		if size_to_check > max_message_size {
 			return Err(MessageSendError::TooBig)
 		}
 
@@ -913,14 +903,14 @@ impl<T: Config> SendXcm for Pallet<T> {
 	type Ticket = (ParaId, VersionedXcm<()>);
 
 	fn validate(
-		dest: &mut Option<MultiLocation>,
+		dest: &mut Option<Location>,
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<(ParaId, VersionedXcm<()>)> {
 		let d = dest.take().ok_or(SendError::MissingArgument)?;
 
-		match &d {
+		match d.unpack() {
 			// An HRMP message for a sibling parachain.
-			MultiLocation { parents: 1, interior: X1(Parachain(id)) } => {
+			(1, [Parachain(id)]) => {
 				let xcm = msg.take().ok_or(SendError::MissingArgument)?;
 				let id = ParaId::from(*id);
 				let price = T::PriceForSiblingDelivery::price_for_delivery(id, &xcm);

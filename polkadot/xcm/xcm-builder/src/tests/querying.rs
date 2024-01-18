@@ -18,7 +18,7 @@ use super::*;
 
 #[test]
 fn pallet_query_should_work() {
-	AllowUnpaidFrom::set(vec![X1(Parachain(1)).into()]);
+	AllowUnpaidFrom::set(vec![[Parachain(1)].into()]);
 	// They want to transfer 100 of our native asset from sovereign account of parachain #1 into #2
 	// and let them know to hand it to account #3.
 	let message = Xcm(vec![QueryPallet {
@@ -29,14 +29,15 @@ fn pallet_query_should_work() {
 			max_weight: Weight::from_parts(50, 50),
 		},
 	}]);
-	let hash = fake_message_hash(&message);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(
+	let mut hash = fake_message_hash(&message);
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
-		hash,
+		&mut hash,
 		Weight::from_parts(50, 50),
+		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 
 	let expected_msg = Xcm::<()>(vec![QueryResponse {
 		query_id: 1,
@@ -50,7 +51,7 @@ fn pallet_query_should_work() {
 
 #[test]
 fn pallet_query_with_results_should_work() {
-	AllowUnpaidFrom::set(vec![X1(Parachain(1)).into()]);
+	AllowUnpaidFrom::set(vec![[Parachain(1)].into()]);
 	// They want to transfer 100 of our native asset from sovereign account of parachain #1 into #2
 	// and let them know to hand it to account #3.
 	let message = Xcm(vec![QueryPallet {
@@ -61,14 +62,15 @@ fn pallet_query_with_results_should_work() {
 			max_weight: Weight::from_parts(50, 50),
 		},
 	}]);
-	let hash = fake_message_hash(&message);
-	let r = XcmExecutor::<TestConfig>::execute_xcm(
+	let mut hash = fake_message_hash(&message);
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
 		Parachain(1),
 		message,
-		hash,
+		&mut hash,
 		Weight::from_parts(50, 50),
+		Weight::zero(),
 	);
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 
 	let expected_msg = Xcm::<()>(vec![QueryResponse {
 		query_id: 1,
@@ -106,15 +108,27 @@ fn prepaid_result_of_query_should_get_free_execution() {
 		max_weight: Weight::from_parts(10, 10),
 		querier: Some(Here.into()),
 	}]);
-	let hash = fake_message_hash(&message);
+	let mut hash = fake_message_hash(&message);
 	let weight_limit = Weight::from_parts(10, 10);
 
 	// First time the response gets through since we're expecting it...
-	let r = XcmExecutor::<TestConfig>::execute_xcm(Parent, message.clone(), hash, weight_limit);
-	assert_eq!(r, Outcome::Complete(Weight::from_parts(10, 10)));
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+		Parent,
+		message.clone(),
+		&mut hash,
+		weight_limit,
+		Weight::zero(),
+	);
+	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(10, 10) });
 	assert_eq!(response(query_id).unwrap(), the_response);
 
 	// Second time it doesn't, since we're not.
-	let r = XcmExecutor::<TestConfig>::execute_xcm(Parent, message.clone(), hash, weight_limit);
-	assert_eq!(r, Outcome::Error(XcmError::Barrier));
+	let r = XcmExecutor::<TestConfig>::prepare_and_execute(
+		Parent,
+		message.clone(),
+		&mut hash,
+		weight_limit,
+		Weight::zero(),
+	);
+	assert_eq!(r, Outcome::Error { error: XcmError::Barrier });
 }
