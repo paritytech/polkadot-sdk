@@ -1004,13 +1004,9 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 
 impl<T: Config> OnCodeUpgrade for Pallet<T> {
 	fn on_code_upgrade(id: ParaId) -> Weight {
-		let maybe_info = Paras::<T>::get(id);
-		if maybe_info.is_none() {
+		let Some(mut info) = Paras::<T>::get(id) else {
 			return T::DbWeight::get().reads(1)
-		}
-
-		let mut info = maybe_info
-			.expect("Ensured above that the deposit info is stored for the parachain; qed");
+		};
 
 		if let Some(rebate) = info.pending_deposit_refund {
 			if let Some(billing_account) = info.billing_account.clone() {
