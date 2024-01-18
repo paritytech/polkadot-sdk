@@ -312,6 +312,39 @@ pub fn read_trie_value<
 		.get(key)
 }
 
+/// Read a value from the trie, get db location if db uses it.
+pub fn read_trie_value_with_location<
+	L: TrieLayout,
+	DB: hash_db::HashDB<L::Hash, trie_db::DBValue, L::Location>,
+>(
+	db: &DB,
+	root: &TrieHash<L>,
+	root_key: &[u8],
+	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>, L::Location>>,
+	cache: Option<&mut dyn TrieCache<L::Codec, L::Location>>,
+) -> Result<Option<(Vec<u8>, L::Location)>, Box<TrieError<L>>> {
+	let trie = TrieDBBuilder::<L>::new(db, root)
+		.with_optional_cache(cache)
+		.with_optional_recorder(recorder)
+		.build();
+
+	let mut iter = trie_db::TrieDBNodeIterator::new(&trie).unwrap();
+	use trie_db::TrieIterator;
+	iter.seek(root_key).unwrap();
+	let Some(item) = iter.next() else { return Ok(None) };
+	let item = item?;
+	let node = &item.2;
+	let location = node.node_plan().attached_change_set_location(node.locations());
+	let Some(root) = iter.item_from_raw(&item) else { return Ok(None) };
+	let (root_key2, root) = root?;
+	// TODO should be a debug_assert
+	if root_key2.as_slice() != root_key {
+		return Ok(None);
+	}
+	Ok(Some((root, location.unwrap_or_default())))
+}
+
+
 /// Read the [`trie_db::MerkleValue`] of the node that is the closest descendant for
 /// the provided key.
 pub fn read_trie_first_descendant_value<L: TrieLayout, DB>(
@@ -403,7 +436,7 @@ pub fn read_child_trie_value<L: TrieConfiguration>(
 	cache: Option<&mut dyn TrieCache<L::Codec, L::Location>>,
 ) -> Result<Option<Vec<u8>>, Box<TrieError<L>>> {
 	let db = KeySpacedDB::new(db, keyspace);
-	TrieDBBuilder::<L>::new_with_db_location(&db, &root.0, &root.1)
+	TrieDBBuilder::<L>::new_with_db_location(&db, &root.0, root.1)
 		.with_optional_recorder(recorder)
 		.with_optional_cache(cache)
 		.build()
@@ -421,7 +454,7 @@ pub fn read_child_trie_hash<L: TrieConfiguration>(
 	cache: Option<&mut dyn TrieCache<L::Codec, L::Location>>,
 ) -> Result<Option<TrieHash<L>>, Box<TrieError<L>>> {
 	let db = KeySpacedDB::new(db, keyspace);
-	TrieDBBuilder::<L>::new_with_db_location(&db, &root.0, &root.1)
+	TrieDBBuilder::<L>::new_with_db_location(&db, &root.0, root.1)
 		.with_optional_recorder(recorder)
 		.with_optional_cache(cache)
 		.build()
@@ -442,7 +475,7 @@ where
 	DB: hash_db::HashDB<L::Hash, trie_db::DBValue, L::Location>,
 {
 	let db = KeySpacedDB::new(db, keyspace);
-	TrieDBBuilder::<L>::new_with_db_location(&db, &root.0, &root.1)
+	TrieDBBuilder::<L>::new_with_db_location(&db, &root.0, root.1)
 		.with_optional_recorder(recorder)
 		.with_optional_cache(cache)
 		.build()
@@ -946,7 +979,7 @@ mod tests {
 		let proof_db = proof.into_memory_db::<Blake2Hasher>();
 		let first_storage_root = delta_trie_root::<LayoutV0, _, _, _, _>(
 			&mut proof_db.clone(),
-			storage_root,
+			(storage_root, Default::default()),
 			valid_delta,
 			None,
 			None,
@@ -955,7 +988,7 @@ mod tests {
 		.root_hash();
 		let second_storage_root = delta_trie_root::<LayoutV0, _, _, _, _>(
 			&mut proof_db.clone(),
-			storage_root,
+			(storage_root, Default::default()),
 			invalid_delta,
 			None,
 			None,

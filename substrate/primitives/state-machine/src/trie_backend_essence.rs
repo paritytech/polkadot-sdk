@@ -34,7 +34,7 @@ use sp_trie::recorder::Recorder;
 use sp_trie::{
 	child_delta_trie_root, delta_trie_root, empty_child_trie_root,
 	read_child_trie_first_descedant_value, read_child_trie_hash, read_child_trie_value,
-	read_trie_first_descendant_value, read_trie_value,
+	read_trie_first_descendant_value, read_trie_value, read_trie_value_with_location,
 	trie_types::{TrieDBBuilder, TrieError},
 	DBValue, KeySpacedDB, MerkleValue, NodeCodec, Trie, TrieCache, TrieDBRawIterator, TrieRecorder,
 };
@@ -43,6 +43,8 @@ use std::collections::HashMap;
 // In this module, we only use layout for read operation and empty root,
 // where V1 and V0 are equivalent.
 use sp_trie::LayoutV1 as Layout;
+
+type Root<H> = sp_trie::Root<Layout<H, DBLocation>>;
 
 #[cfg(not(feature = "std"))]
 macro_rules! format {
@@ -83,7 +85,7 @@ where
 {
 	stop_on_incomplete_database: bool,
 	skip_if_first: Option<StorageKey>,
-	root: H::Out,
+	root: Root<H>,
 	child_info: Option<ChildInfo>,
 	trie_iter: TrieDBRawIterator<Layout<H, DBLocation>>,
 	state: IterState,
@@ -201,7 +203,7 @@ pub struct TrieBackendEssence<H: Hasher, C> {
 	root: H::Out,
 	empty: H::Out,
 	#[cfg(feature = "std")]
-	pub(crate) cache: RwLock<Cache<H::Out>>,
+	pub(crate) cache: RwLock<Cache<Root<H>>>,
 	pub(crate) trie_node_cache: Option<C>,
 	#[cfg(feature = "std")]
 	pub(crate) recorder: RwLock<Option<Recorder<H>>>,
@@ -398,7 +400,7 @@ where
 	#[inline]
 	fn with_trie_db<R>(
 		&self,
-		root: sp_trie::Root<Layout<H, DBLocation>>,
+		root: Root<H>,
 		child_info: Option<&ChildInfo>,
 		callback: impl FnOnce(&sp_trie::TrieDB<Layout<H, DBLocation>>) -> R,
 	) -> R {
@@ -408,8 +410,8 @@ where
 			.map(|child_info| KeySpacedDB::new(backend, child_info.keyspace()));
 		let db = db.as_ref().map(|db| db as &dyn HashDB<_, _, _>).unwrap_or(backend);
 
-		self.with_recorder_and_cache(Some(root), |recorder, cache| {
-			let trie = TrieDBBuilder::<H>::new_with_db_location(db, &root.0, &root.1)
+		self.with_recorder_and_cache(Some(root.0), |recorder, cache| {
+			let trie = TrieDBBuilder::<H>::new_with_db_location(db, &root.0, root.1)
 				.with_optional_recorder(recorder)
 				.with_optional_cache(cache)
 				.build();
@@ -426,11 +428,11 @@ where
 	/// the next key through an iterator.
 	#[cfg(debug_assertions)]
 	pub fn next_storage_key_slow(&self, key: &[u8]) -> Result<Option<StorageKey>> {
-		self.next_storage_key_from_root(&self.root, None, key)
+		self.next_storage_key_from_root(&(self.root, Default::default()), None, key)
 	}
 
 	/// Access the root of the child storage in its parent trie
-	fn child_root(&self, child_info: &ChildInfo) -> Result<Option<H::Out>> {
+	fn child_root(&self, child_info: &ChildInfo) -> Result<Option<Root<H>>> {
 		#[cfg(feature = "std")]
 		{
 			if let Some(result) = self.cache.read().child_root.get(child_info.storage_key()) {
@@ -438,13 +440,19 @@ where
 			}
 		}
 
-		let result = self.storage(child_info.prefixed_storage_key().as_slice())?.map(|r| {
+		let map_e = |e| format!("Trie lookup with location error: {}", e);
+		let result = self.with_recorder_and_cache(None, |recorder, cache| {
+			read_trie_value_with_location::<Layout<H, DBLocation>, _>(self, &self.root, child_info.prefixed_storage_key().as_slice(), recorder, cache)
+				.map_err(map_e)
+		});
+
+		let result = result?.map(|r| {
 			let mut hash = H::Out::default();
 
 			// root is fetched from DB, not writable by runtime, so it's always valid.
-			hash.as_mut().copy_from_slice(&r[..]);
+			hash.as_mut().copy_from_slice(&r.0[..]);
 
-			hash
+			(hash, r.1)
 		});
 
 		#[cfg(feature = "std")]
@@ -473,7 +481,7 @@ where
 	/// Return next key from main trie or child trie by providing corresponding root.
 	fn next_storage_key_from_root(
 		&self,
-		root: &H::Out,
+		root: &Root<H>,
 		child_info: Option<&ChildInfo>,
 		key: &[u8],
 	) -> Result<Option<StorageKey>> {
@@ -538,7 +546,7 @@ where
 
 		let map_e = |e| format!("Trie lookup error: {}", e);
 
-		self.with_recorder_and_cache(Some(child_root), |recorder, cache| {
+		self.with_recorder_and_cache(Some(child_root.0), |recorder, cache| {
 			read_child_trie_hash::<Layout<H, DBLocation>>(
 				child_info.keyspace(),
 				self,
@@ -564,7 +572,7 @@ where
 
 		let map_e = |e| format!("Trie lookup error: {}", e);
 
-		self.with_recorder_and_cache(Some(child_root), |recorder, cache| {
+		self.with_recorder_and_cache(Some(child_root.0), |recorder, cache| {
 			read_child_trie_value::<Layout<H, DBLocation>>(
 				child_info.keyspace(),
 				self,
@@ -599,7 +607,7 @@ where
 
 		let map_e = |e| format!("Trie lookup error: {}", e);
 
-		self.with_recorder_and_cache(Some(child_root), |recorder, cache| {
+		self.with_recorder_and_cache(Some(child_root.0), |recorder, cache| {
 			read_child_trie_first_descedant_value::<Layout<H, DBLocation>, _>(
 				child_info.keyspace(),
 				self,
@@ -621,7 +629,7 @@ where
 			};
 			root
 		} else {
-			self.root
+			(self.root, Default::default())
 		};
 
 		if self.root == Default::default() {
@@ -666,11 +674,11 @@ where
 			let commit = match state_version {
 				StateVersion::V0 =>
 					delta_trie_root::<sp_trie::LayoutV0<H, DBLocation>, _, _, _, _>(
-						backend, self.root, delta, recorder, cache,
+						backend, (self.root, Default::default()), delta, recorder, cache,
 					),
 				StateVersion::V1 =>
 					delta_trie_root::<sp_trie::LayoutV1<H, DBLocation>, _, _, _, _>(
-						backend, self.root, delta, recorder, cache,
+						backend, (self.root, Default::default()), delta, recorder, cache,
 					),
 			};
 
@@ -699,23 +707,24 @@ where
 			ChildType::ParentKeyId => empty_child_trie_root::<sp_trie::LayoutV1<H, DBLocation>>(),
 		};
 		let child_root = match self.child_root(child_info) {
-			Ok(Some(hash)) => hash,
-			Ok(None) => default_root,
+			Ok(Some(root)) => root,
+			Ok(None) => (default_root, Default::default()),
 			Err(e) => {
 				warn!(target: "trie", "Failed to read child storage root: {}", e);
-				default_root
+				(default_root, Default::default())
 			},
 		};
 
 		let commit =
-			self.with_recorder_and_cache_for_storage_root(Some(child_root), |recorder, cache| {
+			self.with_recorder_and_cache_for_storage_root(Some(child_root.0), |recorder, cache| {
 				let backend = self as &dyn HashDB<H, Vec<u8>, DBLocation>;
 				match match state_version {
 					StateVersion::V0 =>
 						child_delta_trie_root::<sp_trie::LayoutV0<H, DBLocation>, _, _, _, _, _>(
 							child_info.keyspace(),
 							backend,
-							child_root,
+							child_root.0,
+							child_root.1,
 							delta,
 							recorder,
 							cache,
@@ -724,7 +733,8 @@ where
 						child_delta_trie_root::<sp_trie::LayoutV1<H, DBLocation>, _, _, _, _, _>(
 							child_info.keyspace(),
 							backend,
-							child_root,
+							child_root.0,
+							child_root.1,
 							delta,
 							recorder,
 							cache,
