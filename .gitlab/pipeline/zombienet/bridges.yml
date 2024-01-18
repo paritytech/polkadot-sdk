@@ -50,5 +50,12 @@ zombienet-bridges-0001-asset-transfer-works:
   extends:
     - .zombienet-bridges-common
   script:
-    - /home/nonroot/bridges-polkadot-sdk/bridges/zombienet/run-tests.sh --docker
+    - /home/nonroot/bridges-polkadot-sdk/bridges/zombienet/run-tests.sh --docker --test 1
+    - echo "Done"
+
+zombienet-bridges-0002-mandatory-headers-synced-while-idle:
+  extends:
+    - .zombienet-bridges-common
+  script:
+    - /home/nonroot/bridges-polkadot-sdk/bridges/zombienet/run-tests.sh --docker --test 2
     - echo "Done"
