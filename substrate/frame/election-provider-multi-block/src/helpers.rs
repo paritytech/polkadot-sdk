@@ -286,14 +286,47 @@ pub fn stake_of_fn<'a, T: Config, AnyBound: Get<u32>>(
 #[cfg(test)]
 mod tests {
 
+	use super::*;
+	use crate::mock::*;
+
+	use sp_runtime::bounded_vec;
+
+	type TargetsPerSnapshotPageOf<T> = <T as crate::Config>::TargetSnapshotPerBlock;
+
 	#[test]
 	fn paged_targets_indexing_works() {
-		let voter_snapshot = vec![];
-		let target_snapshot = vec![];
+		ExtBuilder::default().build_and_execute(|| {
+			let all_target_pages: BoundedVec<
+				BoundedVec<AccountId, TargetsPerSnapshotPageOf<T>>,
+				<T as crate::Config>::Pages,
+			> = bounded_vec![
+				bounded_vec![],                                // page 0
+				bounded_vec![11, 61],                          // page 1
+				bounded_vec![51, 101, 31, 41, 21, 81, 71, 91], // page 2
+			];
 
-		// flatten both
+			// flatten all targets.
+			let all_targets = all_target_pages.iter().cloned().flatten().collect::<Vec<_>>();
 
-		let voters_page_fn = helpers::generate_voter_page_fn::<T>(&all_voter_pages);
-		let targets_index_fn = helpers::target_index_fn::<T>(&all_targets);
+			// `targets_index_fn` get the snapshot page of the target.
+			let targets_index_fn = generate_target_page_fn::<T>(&all_target_pages);
+			let page2_cache = generate_target_cache::<T>(&all_target_pages[2]);
+
+			let get_target = |snapshot: BoundedVec<
+				BoundedVec<AccountId, TargetsPerSnapshotPageOf<T>>,
+				<T as crate::Config>::Pages,
+			>,
+			                  snapshot_idx,
+			                  idx|
+			 -> AccountId {
+				let page: &BoundedVec<AccountId, TargetsPerSnapshotPageOf<T>> =
+					&snapshot[snapshot_idx];
+				let target = page[idx];
+				page[idx]
+			};
+
+			//let snapshot_map = all_targets.iter().map(|x| (x,
+			// targets_index_fn(x))).collect::<Vec<_>>();
+		})
 	}
 }

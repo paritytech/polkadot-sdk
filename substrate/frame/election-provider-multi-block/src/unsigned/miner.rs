@@ -116,11 +116,12 @@ where
 		let desired_targets = Snapshot::<T>::desired_targets()
 			.ok_or::<MinerError>(SnapshotType::DesiredTargets.into())?;
 
-		let paged_targets_range = (0..EPM::<T>::msp() + 1).take(pages as usize);
-		let paged_voters_range = (0..EPM::<T>::msp() + 1).take(pages as usize);
+		// prepare range to fetch all pages of the target and voter snapshot.
+		let paged_range = (0..EPM::<T>::msp() + 1).take(pages as usize);
 
-		// all targets in the snapshot, flattened (i.e. not paged).
-		let all_target_pages: BoundedVec<_, T::Pages> = paged_targets_range
+		// fetch all pages of the target snapshot and collect them in a bounded vec.
+		let all_target_pages: BoundedVec<_, T::Pages> = paged_range
+			.clone()
 			.map(|page| {
 				Snapshot::<T>::targets(page)
 					.ok_or(MinerError::SnapshotUnAvailable(SnapshotType::Targets(page)))
@@ -129,8 +130,8 @@ where
 			.try_into()
 			.expect("range was constructed from the bounded vec bounds; qed.");
 
-		// all voters in the snapshot, per page.
-		let all_voter_pages: BoundedVec<_, T::Pages> = paged_voters_range
+		// fetch all pages of the voter snapshot and collect them in a bounded vec.
+		let all_voter_pages: BoundedVec<_, T::Pages> = paged_range
 			.map(|page| {
 				Snapshot::<T>::voters(page)
 					.ok_or(MinerError::SnapshotUnAvailable(SnapshotType::Voters(page)))
@@ -139,32 +140,28 @@ where
 			.try_into()
 			.expect("range was constructed from the bounded vec bounds; qed.");
 
-		println!("target snapshot: {:?} (page 2)\n", Snapshot::<T>::targets(2));
-		println!("voter snapshot: {:?} (page 2)\n", Snapshot::<T>::voters(2));
-
-		// flatten the voters and targets.
-		let all_voters: Vec<VoterOf<T>> =
-			all_voter_pages.iter().cloned().flatten().collect::<Vec<_>>();
+		// flatten pages of voters and target snapshots.
 		let all_targets: Vec<T::AccountId> =
 			all_target_pages.iter().cloned().flatten().collect::<Vec<_>>();
+		let all_voters: Vec<VoterOf<T>> =
+			all_voter_pages.iter().cloned().flatten().collect::<Vec<_>>();
 
-		// build helper closures.
+		// these closures generate an effiient index mapping of each target or voter -> the snaphot
+		// that they are part of. this needs to be the same indexing fn in the verifier side to
+		// sync when reconstructing the assingments page from a solution.
+		let targets_page_fn = helpers::generate_target_page_fn::<T>(&all_target_pages);
 		let voters_page_fn = helpers::generate_voter_page_fn::<T>(&all_voter_pages);
+
+		println!("All target pages: {:?}\n", all_target_pages);
+
+		// TODO: later
 		//let voters_page_fn = helpers::generate_voter_page_stake_fn::<T>(&all_voter_pages);
 		//let targets_index_fn = helpers::target_index_fn::<T>(&all_targets);
-		let targets_index_fn = helpers::generate_target_page_fn::<T>(&all_target_pages);
 
 		// run the election with all voters and targets.
 		let ElectionResult { winners: _, assignments } =
 			S::solve(desired_targets as usize, all_targets.clone().to_vec(), all_voters.clone())
 				.map_err(|_| MinerError::Solver)?;
-
-		assignments
-			.iter()
-			.map(|a| {
-				println!(" assignment: {:?}", a.who);
-			})
-			.collect::<Vec<_>>();
 
 		// TODO(gpestana): reduce and trim.
 
@@ -183,6 +180,7 @@ where
 
 		// convert each page of assignments to a paged `T::Solution`.
 		let solution_pages: BoundedVec<SolutionOf<T>, T::Pages> = paged_assignments
+			.clone()
 			.into_iter()
 			.enumerate()
 			.map(|(page_index, assignment_page)| {
@@ -203,16 +201,12 @@ where
 				let voters_index_fn = {
 					//let cache = helpers::generate_voter_staked_cache::<T>(&voter_snapshot_page);
 					let cache = helpers::generate_voter_cache::<T, _>(&voter_snapshot_page);
-					println!("- voters before cache {:?}", voter_snapshot_page);
-					println!("VOTER Cache page {page}: {:?}", cache);
 					helpers::voter_index_fn_owned::<T>(cache)
 				};
 
 				// note: needs all targets when processing each page.
 				let targets_index_fn = {
 					let cache = helpers::generate_target_cache::<T>(&all_targets);
-					println!("- targets before cache {:?}", all_targets);
-					println!("TARGET Cache page {page}: {:?}", cache);
 					helpers::target_index_fn_owned::<T>(cache)
 				};
 
@@ -227,6 +221,9 @@ where
 			.try_into()
 			.expect("paged_assignments is bound by `T::Pages. qed.");
 
+		println!("Assignments: \n{:#?}\n", paged_assignments);
+		println!("Solution Pages: \n{:#?}\n", solution_pages);
+
 		// TODO(gpestana): trim again?
 		let trimming_status = Default::default();
 
@@ -236,9 +233,7 @@ where
 
 		// TODO: this fails due to the feasibility check implemented by the Verifier, which does not
 		// use the same caching fn so tha indices are wrong.
-		Self::compute_score(&paged_solution); //.unwrap();
-
-		println!("\n after: {:?}\n", paged_solution);
+		Self::compute_score(&paged_solution).unwrap();
 
 		Ok((paged_solution, trimming_status))
 	}

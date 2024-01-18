@@ -579,12 +579,9 @@ impl<T: impls::pallet::Config> Pallet<T> {
 		let voter_at = helpers::voter_at_fn::<T>(&snapshot_voters);
 		let voter_index = helpers::voter_index_fn_usize::<T>(&voter_cache);
 
-		let target_cache = helpers::generate_target_cache::<T>(&snapshot_targets);
+		//let target_cache = helpers::generate_target_cache::<T>(&snapshot_targets);
 		let target_at = helpers::target_at_fn::<T>(&snapshot_targets);
-		let target_index = helpers::target_index_fn_usize::<T>(&target_cache);
-
-		println!("  > ON_CHAIN voter_cache {:?}", voter_cache);
-		println!("Page {page}:  {:?}", partial_solution);
+		//let target_index = helpers::target_index_fn_usize::<T>(&target_cache);
 
 		// Then convert solution -> assignment. This will fail if any of the indices are
 		// gibberish.
