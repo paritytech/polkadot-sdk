@@ -2578,7 +2578,7 @@ fn chunk_indices_are_mapped_to_different_validators(
 							let validator_index = req.payload.index;
 							let chunk_index = test_state.chunks.get(validator_index).unwrap().index;
 
-							if systematic_recovery {
+							if systematic_recovery && mapping_enabled {
 								assert!((chunk_index.0 as usize) <= test_state.systematic_threshold(), "requested non-systematic chunk");
 							}
 
@@ -2823,7 +2823,8 @@ fn systematic_recovery_retries_from_backers() {
 #[case(false)]
 fn test_legacy_network_protocol_with_mapping_disabled(#[case] systematic_recovery: bool) {
 	// In this case, when the mapping is disabled, recovery will work with both v2 and v1 requests,
-	// under the assumption that ValidatorIndex is always equal to ChunkIndex.
+	// under the assumption that ValidatorIndex is always equal to ChunkIndex. However, systematic
+	// recovery will not be possible, it will fall back to regular recovery.
 	let test_state = TestState::with_empty_node_features();
 	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
 	let (subsystem, threshold) = match systematic_recovery {
@@ -2885,7 +2886,7 @@ fn test_legacy_network_protocol_with_mapping_disabled(#[case] systematic_recover
 				&mut virtual_overseer,
 				threshold,
 				|_| Has::Yes,
-				systematic_recovery,
+				false,
 			)
 			.await;
 
@@ -3015,6 +3016,68 @@ fn test_systematic_recovery_skipped_if_no_core_index() {
 				test_state.session_index,
 				None,
 				None,
+				tx,
+			),
+		)
+		.await;
+
+		test_state.test_runtime_api_session_info(&mut virtual_overseer).await;
+
+		test_state.test_runtime_api_node_features(&mut virtual_overseer).await;
+
+		let candidate_hash = test_state.candidate.hash();
+
+		test_state.respond_to_available_data_query(&mut virtual_overseer, false).await;
+		test_state.respond_to_query_all_request(&mut virtual_overseer, |_| false).await;
+
+		// Systematic recovery not possible without core index, falling back to regular recovery.
+		test_state
+			.test_chunk_requests(
+				&req_protocol_names,
+				candidate_hash,
+				&mut virtual_overseer,
+				test_state.validators.len() - test_state.threshold(),
+				|_| Has::No,
+				false,
+			)
+			.await;
+
+		// Make it fail, in order to assert that indeed regular recovery was attempted. If it were
+		// systematic recovery, we would have had one more attempt for regular reconstruction.
+		assert_eq!(rx.await.unwrap().unwrap_err(), RecoveryError::Unavailable);
+		virtual_overseer
+	});
+}
+
+#[test]
+fn test_systematic_recovery_skipped_if_mapping_disabled() {
+	let test_state = TestState::with_empty_node_features();
+	let req_protocol_names = ReqProtocolNames::new(&GENESIS_HASH, None);
+	let subsystem = AvailabilityRecoverySubsystem::for_validator(
+		request_receiver(&req_protocol_names),
+		&req_protocol_names,
+		Metrics::new_dummy(),
+	);
+
+	test_harness(subsystem, |mut virtual_overseer| async move {
+		overseer_signal(
+			&mut virtual_overseer,
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
+				test_state.current,
+				1,
+			))),
+		)
+		.await;
+
+		let (tx, rx) = oneshot::channel();
+
+		overseer_send(
+			&mut virtual_overseer,
+			AvailabilityRecoveryMessage::RecoverAvailableData(
+				test_state.candidate.clone(),
+				test_state.session_index,
+				None,
+				Some(test_state.core_index),
 				tx,
 			),
 		)

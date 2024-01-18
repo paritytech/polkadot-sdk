@@ -471,15 +471,25 @@ async fn handle_recover<Context>(
 				}
 			}
 
+			let chunk_mapping_enabled = if let Some(&true) = node_features
+				.get(usize::from(node_features::FeatureIndex::AvailabilityChunkMapping as u8))
+				.as_deref()
+			{
+				true
+			} else {
+				false
+			};
+
 			// We can only attempt systematic recovery if we received the core index of the
-			// candidate.
+			// candidate and chunk mapping is enabled.
 			if let Some(core_index) = maybe_core_index {
 				if matches!(
 					recovery_strategy_kind,
 					RecoveryStrategyKind::BackersThenSystematicChunks |
 						RecoveryStrategyKind::SystematicChunks |
 						RecoveryStrategyKind::BackersFirstIfSizeLowerThenSystematicChunks(_)
-				) {
+				) && chunk_mapping_enabled
+				{
 					let chunk_indices =
 						availability_chunk_indices(Some(node_features), n_validators, core_index)?;
 
@@ -526,15 +536,6 @@ async fn handle_recover<Context>(
 			let session_info = session_info.clone();
 
 			let n_validators = session_info.validators.len();
-
-			let chunk_mapping_enabled = if let Some(&true) = node_features
-				.get(usize::from(node_features::FeatureIndex::AvailabilityChunkMapping as u8))
-				.as_deref()
-			{
-				true
-			} else {
-				false
-			};
 
 			launch_recovery_task(
 				state,
