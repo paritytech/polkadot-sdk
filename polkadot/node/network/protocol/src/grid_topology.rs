@@ -95,7 +95,7 @@ impl SessionGridTopology {
 		peer_id: PeerId,
 		ids: &HashSet<AuthorityDiscoveryId>,
 	) -> bool {
-		if self.peer_ids.contains(&peer_id) {
+		if !self.peer_ids.contains(&peer_id) {
 			for peer in self
 				.canonical_shuffling
 				.iter_mut()
