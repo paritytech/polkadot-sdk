@@ -125,22 +125,22 @@ pub trait MessagesBridge<Payload> {
 	/// Error type.
 	type Error: Debug;
 
+	/// Intermediary structure returned by `validate_message()`.
+	///
+	/// It can than be passed to `send_message()` in order to actually send the message
+	/// on the bridge.
+	type SendMessageArgs;
+
+	/// Check if the message can be sent over the bridge.
+	fn validate_message(
+		lane: LaneId,
+		message: &Payload,
+	) -> Result<Self::SendMessageArgs, Self::Error>;
+
 	/// Send message over the bridge.
 	///
 	/// Returns unique message nonce or error if send has failed.
-	fn send_message(lane: LaneId, message: Payload) -> Result<SendMessageArtifacts, Self::Error>;
-}
-
-/// Bridge that does nothing when message is being sent.
-#[derive(Eq, RuntimeDebug, PartialEq)]
-pub struct NoopMessagesBridge;
-
-impl<Payload> MessagesBridge<Payload> for NoopMessagesBridge {
-	type Error = &'static str;
-
-	fn send_message(_lane: LaneId, _message: Payload) -> Result<SendMessageArtifacts, Self::Error> {
-		Ok(SendMessageArtifacts { nonce: 0, enqueued_messages: 0 })
-	}
+	fn send_message(message: Self::SendMessageArgs) -> SendMessageArtifacts;
 }
 
 /// Structure that may be used in place of `TargetHeaderChain` and

@@ -17,7 +17,7 @@
 // From construct_runtime macro
 #![allow(clippy::from_over_into)]
 
-use crate::Config;
+use crate::{Config, StoredMessagePayload};
 
 use bp_messages::{
 	calc_relayers_rewards,
@@ -26,7 +26,7 @@ use bp_messages::{
 		DeliveryPayments, DispatchMessage, DispatchMessageData, MessageDispatch,
 		ProvedLaneMessages, ProvedMessages, SourceHeaderChain,
 	},
-	DeliveredMessages, InboundLaneData, LaneId, Message, MessageKey, MessageNonce, MessagePayload,
+	DeliveredMessages, InboundLaneData, LaneId, Message, MessageKey, MessageNonce,
 	UnrewardedRelayer, UnrewardedRelayersState, VerificationError,
 };
 use bp_runtime::{messages::MessageDispatchResult, Size};
@@ -402,8 +402,8 @@ pub fn message(nonce: MessageNonce, payload: TestPayload) -> Message {
 }
 
 /// Return valid outbound message data, constructed from given payload.
-pub fn outbound_message_data(payload: TestPayload) -> MessagePayload {
-	payload.encode()
+pub fn outbound_message_data(payload: TestPayload) -> StoredMessagePayload<TestRuntime, ()> {
+	StoredMessagePayload::<TestRuntime, ()>::try_from(payload.encode()).expect("payload too large")
 }
 
 /// Return valid inbound (dispatch) message data, constructed from given payload.
