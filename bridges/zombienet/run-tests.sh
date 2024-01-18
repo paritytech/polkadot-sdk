@@ -97,12 +97,6 @@ do
         break
     fi
 
-    # start relay (if there's a separate file for that)
-    if [ -f $BRIDGE_TESTS_FOLDER/$TEST_PREFIX-start-relay.sh ]; then
-        start_coproc "${BRIDGE_TESTS_FOLDER}/${TEST_PREFIX}-start-relay.sh" "relay"
-        RELAY_COPROC=$COPROC_PID
-        ((TEST_COPROCS_COUNT++))
-    fi
     # start tests
     for zndsl_file in "${zndsl_files[@]}"; do
         start_coproc "$ZOMBIENET_BINARY_PATH --provider native test $zndsl_file" "$zndsl_file"
@@ -110,7 +104,6 @@ do
         ((TEST_COPROCS_COUNT++))
     done
     # wait until all tests are completed
-    relay_exited=0
     for n in `seq 1 $TEST_COPROCS_COUNT`; do
         if [ "$IS_BASH_5_1" -eq 1 ]; then
             wait -n -p COPROC_PID
@@ -118,7 +111,6 @@ do
             coproc_name=${TEST_COPROCS[$COPROC_PID, 0]}
             coproc_log=${TEST_COPROCS[$COPROC_PID, 1]}
             coproc_stdout=$(cat $coproc_log)
-            relay_exited=$(expr "${coproc_name}" == "relay")
         else
             wait -n
             exit_code=$?
@@ -136,12 +128,6 @@ do
 
             exit 1
         fi
-
-        # if last test has exited, exit relay too
-        if [ $n -eq $(($TEST_COPROCS_COUNT - 1)) ] && [ $relay_exited -eq 0 ]; then
-            kill $RELAY_COPROC
-            break
-        fi
     done
 
     # proceed to next index
@@ -150,7 +136,7 @@ do
         break
     fi
 
-    # relay may be started by tests => kill it manually before starting next test
+    # kill relay here - it is started manually by tests
     killall substrate-relay
 done
 
