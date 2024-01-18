@@ -22,11 +22,9 @@ use crate::{weights::WeightInfo, Config};
 
 use codec::{Decode, Encode};
 use frame_support::{weights::Weight, DefaultNoBound};
-use pallet_contracts_proc_macro::{ScheduleDebug, WeightDebug};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_runtime::RuntimeDebug;
 use sp_std::marker::PhantomData;
 
 /// Definition of the cost schedule and other parameterizations for the wasm vm.
@@ -57,7 +55,8 @@ use sp_std::marker::PhantomData;
 /// ```
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "std", serde(bound(serialize = "", deserialize = "")))]
-#[derive(Clone, Encode, Decode, PartialEq, Eq, ScheduleDebug, DefaultNoBound, TypeInfo)]
+#[cfg_attr(feature = "runtime-benchmarks", derive(frame_support::DebugNoBound))]
+#[derive(Clone, Encode, Decode, PartialEq, Eq, DefaultNoBound, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct Schedule<T: Config> {
 	/// Describes the upper limits on various metrics.
@@ -72,7 +71,8 @@ pub struct Schedule<T: Config> {
 
 /// Describes the upper limits on various metrics.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[cfg_attr(feature = "runtime-benchmarks", derive(Debug))]
+#[derive(Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
 pub struct Limits {
 	/// The maximum number of topics supported by an event.
 	pub event_topics: u32,
@@ -130,7 +130,8 @@ impl Limits {
 /// Gas metering of Wasm executed instructions is being done on the engine side.
 /// This struct holds a reference value used to gas units scaling between host and engine.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, Encode, Decode, PartialEq, Eq, ScheduleDebug, TypeInfo)]
+#[cfg_attr(feature = "runtime-benchmarks", derive(frame_support::DebugNoBound))]
+#[derive(Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct InstructionWeights<T: Config> {
 	/// Base instruction `ref_time` Weight.
@@ -143,7 +144,8 @@ pub struct InstructionWeights<T: Config> {
 
 /// Describes the weight for each imported function that a contract is allowed to call.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, Encode, Decode, PartialEq, Eq, WeightDebug, TypeInfo)]
+#[cfg_attr(feature = "runtime-benchmarks", derive(pallet_contracts_proc_macro::WeightDebug))]
+#[derive(Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct HostFnWeights<T: Config> {
 	/// Weight of calling `seal_caller`.
@@ -476,17 +478,5 @@ impl<T: Config> Default for HostFnWeights<T> {
 			remove_delegate_dependency: cost!(remove_delegate_dependency),
 			_phantom: PhantomData,
 		}
-	}
-}
-
-#[cfg(test)]
-mod test {
-	use super::*;
-	use crate::tests::Test;
-
-	#[test]
-	fn print_test_schedule() {
-		let schedule = Schedule::<Test>::default();
-		println!("{:#?}", schedule);
 	}
 }

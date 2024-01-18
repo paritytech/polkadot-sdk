@@ -55,7 +55,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-balances/std",
-	"pallet-contracts-proc-macro/full",
 	"pallet-contracts/std",
 	"pallet-insecure-randomness-collective-flip/std",
 	"pallet-proxy/std",

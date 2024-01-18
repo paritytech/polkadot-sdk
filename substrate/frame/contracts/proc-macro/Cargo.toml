@@ -22,8 +22,3 @@ proc-macro2 = "1.0.56"
 quote = "1.0.28"
 syn = { version = "2.0.48", features = ["full"] }
 
-[dev-dependencies]
-
-[features]
-# If set the full output is generated. Do NOT set when generating for wasm runtime.
-full = []
