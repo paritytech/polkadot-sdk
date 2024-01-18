@@ -1536,6 +1536,7 @@ where
 /// needs to sync and upgrade before it can run `AuraApi` functions.
 ///
 /// Uses the lookahead collator to support async backing.
+#[sc_tracing::logging::prefix_logs_with("Parachain")]
 pub async fn start_asset_hub_lookahead_node<RuntimeApi, AuraId: AppCrypto + Send + Codec + Sync>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
