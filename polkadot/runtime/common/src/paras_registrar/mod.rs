@@ -864,7 +864,7 @@ impl<T: Config> Pallet<T> {
 		para: ParaId,
 		new_billing_account: T::AccountId,
 	) -> DispatchResult {
-		let mut info = Paras::<T>::get(para).map_or(Err(Error::<T>::NotRegistered), Ok)?;
+		let mut info = Paras::<T>::get(para).ok_or_else(|| Error::<T>::NotRegistered)?;
 
 		// When updating the account responsible for all code upgrade costs, we unreserve all
 		// funds associated with the registered parachain from the original billing account and
