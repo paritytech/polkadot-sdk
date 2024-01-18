@@ -55,9 +55,9 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_primitives::{
 	vstaging::{ApprovalVoteMultipleCandidates, ApprovalVotingParams},
-	BlockNumber, CandidateHash, CandidateIndex, CandidateReceipt, DisputeStatement, ExecutorParams,
-	GroupIndex, Hash, PvfExecKind, SessionIndex, SessionInfo, ValidDisputeStatementKind,
-	ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
+	BlockNumber, CandidateHash, CandidateIndex, CandidateReceipt, CoreIndex, DisputeStatement,
+	ExecutorParams, GroupIndex, Hash, PvfExecKind, SessionIndex, SessionInfo,
+	ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
 };
 use sc_keystore::LocalKeystore;
 use sp_application_crypto::Pair;
@@ -898,6 +898,7 @@ enum Action {
 		candidate: CandidateReceipt,
 		backing_group: GroupIndex,
 		distribute_assignment: bool,
+		core_index: Option<CoreIndex>,
 	},
 	NoteApprovedInChainSelection(Hash),
 	IssueApproval(CandidateHash, ApprovalVoteRequest),
@@ -1157,6 +1158,7 @@ async fn handle_actions<Context>(
 				candidate,
 				backing_group,
 				distribute_assignment,
+				core_index,
 			} => {
 				// Don't launch approval work if the node is syncing.
 				if let Mode::Syncing(_) = *mode {
@@ -1213,6 +1215,7 @@ async fn handle_actions<Context>(
 										block_hash,
 										backing_group,
 										executor_params,
+										core_index,
 										&launch_approval_span,
 									)
 									.await
@@ -2948,6 +2951,11 @@ async fn process_wakeup<Context>(
 			"Launching approval work.",
 		);
 
+		let candidate_core_index = block_entry
+			.candidates()
+			.iter()
+			.find_map(|(core_index, h)| (h == &candidate_hash).then_some(*core_index));
+
 		if let Some(claimed_core_indices) =
 			get_assignment_core_indices(&indirect_cert.cert.kind, &candidate_hash, &block_entry)
 		{
@@ -2960,7 +2968,6 @@ async fn process_wakeup<Context>(
 						true
 					};
 					db.write_block_entry(block_entry.clone());
-
 					actions.push(Action::LaunchApproval {
 						claimed_candidate_indices,
 						candidate_hash,
@@ -2972,10 +2979,12 @@ async fn process_wakeup<Context>(
 						candidate: candidate_receipt,
 						backing_group,
 						distribute_assignment,
+						core_index: candidate_core_index,
 					});
 				},
 				Err(err) => {
-					// Never happens, it should only happen if no cores are claimed, which is a bug.
+					// Never happens, it should only happen if no cores are claimed, which is a
+					// bug.
 					gum::warn!(
 						target: LOG_TARGET,
 						block_hash = ?relay_block,
@@ -3030,6 +3039,7 @@ async fn launch_approval<Context>(
 	block_hash: Hash,
 	backing_group: GroupIndex,
 	executor_params: ExecutorParams,
+	core_index: Option<CoreIndex>,
 	span: &jaeger::Span,
 ) -> SubsystemResult<RemoteHandle<ApprovalState>> {
 	let (a_tx, a_rx) = oneshot::channel();
@@ -3076,7 +3086,7 @@ async fn launch_approval<Context>(
 		candidate.clone(),
 		session_index,
 		Some(backing_group),
-		None,
+		core_index,
 		a_tx,
 	))
 	.await;
