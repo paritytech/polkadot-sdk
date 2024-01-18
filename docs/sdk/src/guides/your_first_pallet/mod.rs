@@ -429,7 +429,7 @@ pub mod pallet {
 
 			construct_runtime!(
 				pub enum Runtime {
-					// ---^^^^^^ This is where `struct Runtime` is defined.
+					// ---^^^^^^ This is where `enum Runtime` is defined.
 					System: frame_system,
 					Currency: pallet_currency,
 				}
