@@ -54,10 +54,6 @@ pub fn expand_outer_freeze_reason(pallet_decls: &[Pallet], scrate: &TokenStream)
 		}
 	}
 
-	if freeze_reason_variants_count.is_empty() {
-		freeze_reason_variants_count.push(quote! { 0 })
-	}
-
 	quote! {
 		/// A reason for placing a freeze on funds.
 		#[derive(
@@ -71,7 +67,7 @@ pub fn expand_outer_freeze_reason(pallet_decls: &[Pallet], scrate: &TokenStream)
 		}
 
 		impl #scrate::traits::VariantCount for RuntimeFreezeReason {
-			const VARIANT_COUNT: u32 = #( #freeze_reason_variants_count )+*;
+			const VARIANT_COUNT: u32 = 0 #( + #freeze_reason_variants_count )*;
 		}
 
 		#( #conversion_fns )*
