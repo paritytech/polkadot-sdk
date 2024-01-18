@@ -85,7 +85,6 @@ use parachains_common::{
 	AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
 	HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO,
 };
-pub use parachains_common::{westend::consensus::RELAY_CHAIN_SLOT_DURATION_MILLIS, SLOT_DURATION};
 
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;

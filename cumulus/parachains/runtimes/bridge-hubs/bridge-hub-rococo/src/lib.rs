@@ -96,7 +96,6 @@ use parachains_common::{
 	AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
 	HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO,
 };
-pub use parachains_common::{rococo::consensus::RELAY_CHAIN_SLOT_DURATION_MILLIS, SLOT_DURATION};
 
 use polkadot_runtime_common::prod_or_fast;
 
