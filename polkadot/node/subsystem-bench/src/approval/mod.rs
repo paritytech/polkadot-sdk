@@ -690,6 +690,9 @@ impl PeerMessageProducer {
 
 	// Queue message to be sent by validator `sent_by`
 	fn queue_message_from_peer(&mut self, message: TestMessageInfo, sent_by: ValidatorIndex) {
+		if sent_by == ValidatorIndex(NODE_UNDER_TEST) {
+			return;
+		}
 		let peer_authority_id = self
 			.state
 			.test_authorities
@@ -697,12 +700,13 @@ impl PeerMessageProducer {
 			.get(sent_by.0 as usize)
 			.expect("We can't handle unknown peers")
 			.clone();
+
 		self.network
 			.send_message_from_peer(
 				&peer_authority_id,
 				protocol_v3::ValidationProtocol::ApprovalDistribution(message.msg).into(),
 			)
-			.expect("Network should be up and running");
+			.expect(format!("Network should be up and running {:?}", sent_by).as_str());
 	}
 
 	// Queues a message to be sent by the peer identified by the `sent_by` value.
@@ -972,7 +976,7 @@ pub async fn bench_approvals_run(
 
 	gum::info!("Awaiting polkadot_parachain_subsystem_bounded_received to tells us the messages have been processed");
 
-	env.wait_until_metric_ge(
+	env.wait_until_metric_eq(
 		"polkadot_parachain_subsystem_bounded_received",
 		Some(("subsystem_name", "approval-distribution-subsystem")),
 		state.total_sent_messages_to_node.load(std::sync::atomic::Ordering::SeqCst) as usize,

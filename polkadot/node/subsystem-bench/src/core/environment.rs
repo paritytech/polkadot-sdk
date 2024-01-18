@@ -14,7 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 //! Test environment implementation
-use crate::{core::mock::AlwaysSupportsParachains, TestConfiguration};
+use crate::{
+	core::{mock::AlwaysSupportsParachains, network::NetworkEmulatorHandle},
+	TestConfiguration,
+};
 use colored::Colorize;
 use core::time::Duration;
 use futures::{Future, FutureExt};
@@ -26,14 +29,12 @@ use polkadot_node_subsystem_util::metrics::prometheus::{
 	self, Gauge, Histogram, PrometheusError, Registry, U64,
 };
 
-use sc_network::peer_store::LOG_TARGET;
 use sc_service::{SpawnTaskHandle, TaskManager};
 use std::net::{Ipv4Addr, SocketAddr};
 use tokio::runtime::Handle;
 
-use super::{configuration::TestAuthorities, network::NetworkEmulatorHandle};
-
-const MIB: f64 = 1024.0 * 1024.0;
+const LOG_TARGET: &str = "subsystem-bench::environment";
+use super::configuration::TestAuthorities;
 
 /// Test environment/configuration metrics
 #[derive(Clone)]
@@ -52,9 +53,8 @@ pub struct TestEnvironmentMetrics {
 
 impl TestEnvironmentMetrics {
 	pub fn new(registry: &Registry) -> Result<Self, PrometheusError> {
-		let mut buckets = prometheus::exponential_buckets(16384.0, 2.0, 9)
+		let buckets = prometheus::exponential_buckets(16384.0, 2.0, 9)
 			.expect("arguments are always valid; qed");
-		buckets.extend(vec![5.0 * MIB, 6.0 * MIB, 7.0 * MIB, 8.0 * MIB, 9.0 * MIB, 10.0 * MIB]);
 
 		Ok(Self {
 			n_validators: prometheus::register(
@@ -254,6 +254,15 @@ impl TestEnvironment {
 		&self.dependencies.registry
 	}
 
+	/// Spawn a named task in the `test-environment` task group.
+	#[allow(unused)]
+	pub fn spawn(&self, name: &'static str, task: impl Future<Output = ()> + Send + 'static) {
+		self.dependencies
+			.task_manager
+			.spawn_handle()
+			.spawn(name, "test-environment", task);
+	}
+
 	/// Spawn a blocking named task in the `test-environment` task group.
 	pub fn spawn_blocking(
 		&self,
@@ -340,7 +349,7 @@ impl TestEnvironment {
 	}
 
 	/// Blocks until `metric_name` >= `value`
-	pub async fn wait_until_metric_ge(
+	pub async fn wait_until_metric_eq(
 		&self,
 		metric_name: &str,
 		label: Option<(&str, &str)>,
@@ -357,7 +366,7 @@ impl TestEnvironment {
 			let current_value = test_metrics.sum_by(metric_name);
 
 			gum::debug!(target: LOG_TARGET, metric_name, current_value, value, "Waiting for metric");
-			if current_value >= value {
+			if current_value == value {
 				break
 			}
 

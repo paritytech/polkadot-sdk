@@ -15,25 +15,24 @@
 //!
 //! Implements network emulation and interfaces to control and specialize
 //! network peer behaviour.
-//!
-//! High level component wiring chart:
-//!
-//! 	  [TestEnvironment]
-//! 	[NetworkEmulatorHandle]
-//! 			 ||
-//!   +-------+--||--+-------+
-//!   |       |      |       |
-//!  Peer1	Peer2  Peer3  Peer4
-//!    \      |	     |	    /
-//!     \     |      |	   /
-//!      \    |      |    /
-//!       \   |      |   /
-//!        \  |      |  /
-//!     [Network Interface]
-//!               |
-//!    [Emulated Network Bridge]
-//!               |
-//!     Subsystems under test
+//
+//	     [TestEnvironment]
+// 	  [NetworkEmulatorHandle]
+// 			    ||
+//   +-------+--||--+-------+
+//   |       |      |       |
+//  Peer1	Peer2  Peer3  Peer4
+//    \      |	    |	    /
+//     \     |      |	   /
+//      \    |      |    /
+//       \   |      |   /
+//        \  |      |  /
+//     [Network Interface]
+//               |
+//    [Emulated Network Bridge]
+//               |
+//     Subsystems under test
+
 use crate::core::configuration::random_latency;
 
 use super::{
@@ -47,14 +46,18 @@ use futures::{
 	lock::Mutex,
 	stream::FuturesUnordered,
 };
-use net_protocol::{request_response::Requests, VersionedValidationProtocol};
+
+use net_protocol::{
+	request_response::{Recipient, Requests, ResponseSender},
+	VersionedValidationProtocol,
+};
 use parity_scale_codec::Encode;
 use polkadot_primitives::AuthorityDiscoveryId;
 use prometheus_endpoint::U64;
 use rand::{seq::SliceRandom, thread_rng};
 use sc_network::{
 	request_responses::{IncomingRequest, OutgoingResponse},
-	RequestFailure,
+	PeerId, RequestFailure,
 };
 use sc_service::SpawnTaskHandle;
 use std::{
@@ -63,7 +66,7 @@ use std::{
 	time::{Duration, Instant},
 };
 
-use polkadot_node_network_protocol::{self as net_protocol, PeerId, Versioned};
+use polkadot_node_network_protocol::{self as net_protocol, Versioned};
 
 use futures::channel::mpsc::{UnboundedReceiver, UnboundedSender};
 
@@ -160,7 +163,7 @@ impl NetworkMessage {
 				message.encoded_size(),
 			NetworkMessage::MessageFromNode(_peer_id, Versioned::V3(message)) =>
 				message.encoded_size(),
-			NetworkMessage::RequestFromNode(_peer_id, incoming) => request_size(incoming),
+			NetworkMessage::RequestFromNode(_peer_id, incoming) => incoming.size(),
 			NetworkMessage::RequestFromPeer(request) => request.payload.encoded_size(),
 		}
 	}
@@ -226,11 +229,8 @@ impl NetworkInterface {
 		bandwidth_bps: usize,
 		mut from_network: UnboundedReceiver<NetworkMessage>,
 	) -> (NetworkInterface, NetworkInterfaceReceiver) {
-		let mut rx_limiter = RateLimit::new(10, bandwidth_bps);
-		// We need to share the transimit limiter as we handle incoming request/response on rx
-		// thread.
+		let rx_limiter = Arc::new(Mutex::new(RateLimit::new(10, bandwidth_bps)));
 		let tx_limiter = Arc::new(Mutex::new(RateLimit::new(10, bandwidth_bps)));
-		let mut proxied_requests = FuturesUnordered::new();
 
 		// Channel for receiving messages from the network bridge subsystem.
 		let (bridge_to_interface_sender, mut bridge_to_interface_receiver) =
@@ -244,18 +244,21 @@ impl NetworkInterface {
 		let tx_network = network;
 
 		let rx_task_bridge_sender = interface_to_bridge_sender.clone();
-		let rx_task_tx_limiter = tx_limiter.clone();
-		let tx_task_tx_limiter = tx_limiter;
+
+		let task_rx_limiter = rx_limiter.clone();
+		let task_tx_limiter = tx_limiter.clone();
 
 		// A task that forwards messages from emulated peers to the node (emulated network bridge).
 		let rx_task = async move {
+			let mut proxied_requests = FuturesUnordered::new();
+
 			loop {
 				let mut from_network = from_network.next().fuse();
 				futures::select! {
 					maybe_peer_message = from_network => {
 						if let Some(peer_message) = maybe_peer_message {
 							let size = peer_message.size();
-							rx_limiter.reap(size).await;
+							task_rx_limiter.lock().await.reap(size).await;
 							rx_network.inc_received(size);
 
 							// To be able to apply the configured bandwidth limits for responses being sent 
@@ -294,8 +297,8 @@ impl NetworkInterface {
 
 									// Enforce bandwidth based on the response the node has sent.
 									// TODO: Fix the stall of RX when TX lock() takes a while to refill
-									// the token bucket.
-									rx_task_tx_limiter.lock().await.reap(bytes).await;
+									// the token bucket. Good idea would be to create a task for each request.
+									task_tx_limiter.lock().await.reap(bytes).await;
 									rx_network.inc_sent(bytes);
 
 									// Forward the response to original recipient.
@@ -321,19 +324,38 @@ impl NetworkInterface {
 		}
 		.boxed();
 
+		let task_spawn_handle = spawn_task_handle.clone();
+		let task_rx_limiter = rx_limiter.clone();
+		let task_tx_limiter = tx_limiter.clone();
+
 		// A task that forwards messages from the node to emulated peers.
 		let tx_task = async move {
+			// Wrap it in an `Arc` to avoid `clone()` the inner data as we need to share it across
+			// many send tasks.
+			let tx_network = Arc::new(tx_network);
+
 			loop {
 				if let Some(peer_message) = bridge_to_interface_receiver.next().await {
 					let size = peer_message.size();
 					// Ensure bandwidth used is limited.
-					tx_task_tx_limiter.lock().await.reap(size).await;
+					task_tx_limiter.lock().await.reap(size).await;
 
 					match peer_message {
 						NetworkMessage::MessageFromNode(peer, message) =>
 							tx_network.send_message_to_peer(&peer, message),
-						NetworkMessage::RequestFromNode(peer, request) =>
-							tx_network.send_request_to_peer(&peer, request),
+						NetworkMessage::RequestFromNode(peer, request) => {
+							// Send request through a proxy so we can account and limit bandwidth
+							// usage for the node.
+							let send_task = Self::proxy_send_request(
+								peer.clone(),
+								request,
+								tx_network.clone(),
+								task_rx_limiter.clone(),
+							)
+							.boxed();
+
+							task_spawn_handle.spawn("request-proxy", "test-environment", send_task);
+						},
 						_ => panic!(
 							"Unexpected network message received from emulated network bridge"
 						),
@@ -361,6 +383,43 @@ impl NetworkInterface {
 	pub fn subsystem_sender(&self) -> UnboundedSender<NetworkMessage> {
 		self.bridge_to_interface_sender.clone()
 	}
+
+	/// Helper method that proxies a request from node to peer and implements rate limiting and
+	/// accounting.
+	async fn proxy_send_request(
+		peer: AuthorityDiscoveryId,
+		mut request: Requests,
+		tx_network: Arc<NetworkEmulatorHandle>,
+		task_rx_limiter: Arc<Mutex<RateLimit>>,
+	) {
+		let (proxy_sender, proxy_receiver) = oneshot::channel();
+
+		// Modify the request response sender so we can intercept the answer
+		let sender = request.swap_response_sender(proxy_sender);
+
+		// Send the modified request to the peer.
+		tx_network.send_request_to_peer(&peer, request);
+
+		// Wait for answer (intercept the response).
+		match proxy_receiver.await {
+			Err(_) => {
+				panic!("Emulated peer hangup");
+			},
+			Ok(Err(err)) => {
+				sender.send(Err(err)).expect("Oneshot send always works.");
+			},
+			Ok(Ok((response, protocol_name))) => {
+				let response_size = response.encoded_size();
+				task_rx_limiter.lock().await.reap(response_size).await;
+				tx_network.inc_received(response_size);
+
+				// Send the response to the original request sender.
+				if sender.send(Ok((response, protocol_name))).is_err() {
+					gum::warn!(target: LOG_TARGET, response_size, "response oneshot canceled by node")
+				}
+			},
+		};
+	}
 }
 
 /// A handle for controlling an emulated peer.
@@ -374,24 +433,23 @@ pub struct EmulatedPeerHandle {
 }
 
 impl EmulatedPeerHandle {
-	/// Receive and process a message
+	/// Receive and process a message from the node.
 	pub fn receive(&self, message: NetworkMessage) {
-		self.messages_tx
-			.unbounded_send(message)
-			.expect("Sending action to the peer never fails");
+		self.messages_tx.unbounded_send(message).expect("Peer message channel hangup");
 	}
 
+	/// Send a message to the node.
 	pub fn send_message(&self, message: VersionedValidationProtocol) {
 		self.actions_tx
 			.unbounded_send(NetworkMessage::MessageFromPeer(self.peer_id, message))
-			.expect("Sending action to the peer never fails");
+			.expect("Peer action channel hangup");
 	}
 
 	/// Send a `request` to the node.
 	pub fn send_request(&self, request: IncomingRequest) {
 		self.actions_tx
 			.unbounded_send(NetworkMessage::RequestFromPeer(request))
-			.expect("Sending action to the peer never fails");
+			.expect("Peer action channel hangup");
 	}
 }
 
@@ -547,6 +605,7 @@ async fn emulated_peer_loop(
 	}
 }
 
+/// Creates a new peer emulator task and returns a handle to it.
 pub fn new_peer(
 	bandwidth: usize,
 	spawn_task_handle: SpawnTaskHandle,
@@ -671,7 +730,7 @@ pub fn new_network(
 ) -> (NetworkEmulatorHandle, NetworkInterface, NetworkInterfaceReceiver) {
 	let n_peers = config.n_validators;
 	gum::info!(target: LOG_TARGET, "{}",format!("Initializing emulation for a {} peer network.", n_peers).bright_blue());
-	gum::info!(target: LOG_TARGET, "{}",format!("connectivity {}%, latency {:?}%", config.connectivity, config.latency).bright_black());
+	gum::info!(target: LOG_TARGET, "{}",format!("connectivity {}%, latency {:?}", config.connectivity, config.latency).bright_black());
 
 	let metrics =
 		Metrics::new(&dependencies.registry).expect("Metrics always register succesfully");
@@ -701,10 +760,9 @@ pub fn new_network(
 		})
 		.unzip();
 
-	let connected_count = config.n_validators as f64 / (100.0 / config.connectivity as f64);
+	let connected_count = config.connected_count();
 
-	let (_connected, to_disconnect) =
-		peers.partial_shuffle(&mut thread_rng(), connected_count as usize);
+	let (_connected, to_disconnect) = peers.partial_shuffle(&mut thread_rng(), connected_count);
 
 	for peer in to_disconnect {
 		peer.disconnect();
@@ -736,6 +794,7 @@ pub enum EmulatedPeerError {
 }
 
 impl NetworkEmulatorHandle {
+	/// Returns true if the emulated peer is connected to the node under test.
 	pub fn is_peer_connected(&self, peer: &AuthorityDiscoveryId) -> bool {
 		self.peer(peer).is_connected()
 	}
@@ -879,13 +938,69 @@ impl Metrics {
 	}
 }
 
-/// A helper to determine the request payload size.
-pub fn request_size(request: &Requests) -> usize {
-	match request {
-		Requests::ChunkFetchingV1(outgoing_request) => outgoing_request.payload.encoded_size(),
-		Requests::AvailableDataFetchingV1(outgoing_request) =>
-			outgoing_request.payload.encoded_size(),
-		_ => unimplemented!("received an unexpected request"),
+// Helper trait for low level access to `Requests` variants.
+pub trait RequestExt {
+	/// Get the authority id if any from the request.
+	fn authority_id(&self) -> Option<&AuthorityDiscoveryId>;
+	/// Consume self and return the response sender.
+	fn into_response_sender(self) -> ResponseSender;
+	/// Allows to change the `ResponseSender` in place.
+	fn swap_response_sender(&mut self, new_sender: ResponseSender) -> ResponseSender;
+	/// Returns the size in bytes of the request payload.
+	fn size(&self) -> usize;
+}
+
+impl RequestExt for Requests {
+	fn authority_id(&self) -> Option<&AuthorityDiscoveryId> {
+		match self {
+			Requests::ChunkFetchingV1(request) => {
+				if let Recipient::Authority(authority_id) = &request.peer {
+					Some(authority_id)
+				} else {
+					None
+				}
+			},
+			Requests::AvailableDataFetchingV1(request) => {
+				if let Recipient::Authority(authority_id) = &request.peer {
+					Some(authority_id)
+				} else {
+					None
+				}
+			},
+			request => {
+				unimplemented!("RequestAuthority not implemented for {:?}", request)
+			},
+		}
+	}
+
+	fn into_response_sender(self) -> ResponseSender {
+		match self {
+			Requests::ChunkFetchingV1(outgoing_request) => outgoing_request.pending_response,
+			Requests::AvailableDataFetchingV1(outgoing_request) =>
+				outgoing_request.pending_response,
+			_ => unimplemented!("unsupported request type"),
+		}
+	}
+
+	/// Swaps the `ResponseSender` and returns the previous value.
+	fn swap_response_sender(&mut self, new_sender: ResponseSender) -> ResponseSender {
+		match self {
+			Requests::ChunkFetchingV1(outgoing_request) =>
+				std::mem::replace(&mut outgoing_request.pending_response, new_sender),
+			Requests::AvailableDataFetchingV1(outgoing_request) =>
+				std::mem::replace(&mut outgoing_request.pending_response, new_sender),
+			_ => unimplemented!("unsupported request type"),
+		}
+	}
+
+	/// Returns the size in bytes of the request payload.
+	fn size(&self) -> usize {
+		match self {
+			Requests::ChunkFetchingV1(outgoing_request) => outgoing_request.payload.encoded_size(),
+			Requests::AvailableDataFetchingV1(outgoing_request) =>
+				outgoing_request.payload.encoded_size(),
+			_ => unimplemented!("received an unexpected request"),
+		}
 	}
 }
 

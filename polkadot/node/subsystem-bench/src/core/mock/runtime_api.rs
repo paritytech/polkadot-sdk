@@ -16,17 +16,18 @@
 //!
 //! A generic runtime api subsystem mockup suitable to be used in benchmarks.
 
-use bitvec::prelude::BitVec;
 use itertools::Itertools;
+use polkadot_primitives::{
+	vstaging::NodeFeatures, CandidateEvent, CandidateReceipt, CoreState, GroupIndex, IndexedVec,
+	OccupiedCore, SessionInfo, ValidatorIndex,
+};
+
+use bitvec::prelude::BitVec;
 use polkadot_node_subsystem::{
 	messages::{RuntimeApiMessage, RuntimeApiRequest},
 	overseer, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_types::OverseerSignal;
-use polkadot_primitives::{
-	vstaging::NodeFeatures, CandidateEvent, CandidateReceipt, CoreState, GroupIndex, IndexedVec,
-	OccupiedCore, SessionInfo, ValidatorIndex,
-};
 use sp_consensus_babe::Epoch as BabeEpoch;
 use sp_core::H256;
 use std::collections::HashMap;
@@ -130,10 +131,10 @@ impl MockRuntimeApi {
 			let msg = ctx.recv().await.expect("Overseer never fails us");
 
 			match msg {
-				orchestra::FromOrchestra::Signal(signal) => match signal {
-					OverseerSignal::Conclude => return,
-					_ => {},
-				},
+				orchestra::FromOrchestra::Signal(signal) =>
+					if signal == OverseerSignal::Conclude {
+						return
+					},
 				orchestra::FromOrchestra::Communication { msg } => {
 					gum::debug!(target: LOG_TARGET, msg=?msg, "recv message");
 
@@ -225,8 +226,8 @@ impl MockRuntimeApi {
 								.expect("Babe epoch unpopulated")));
 						},
 						// Long term TODO: implement more as needed.
-						_ => {
-							unimplemented!("Unexpected runtime-api message")
+						message => {
+							unimplemented!("Unexpected runtime-api message: {:?}", message)
 						},
 					}
 				},

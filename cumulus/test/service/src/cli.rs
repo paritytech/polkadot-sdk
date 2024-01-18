@@ -38,9 +38,6 @@ pub struct TestCollatorCli {
 	#[command(flatten)]
 	pub run: cumulus_client_cli::RunCmd,
 
-	#[arg(default_value_t = 2000u32)]
-	pub parachain_id: u32,
-
 	/// Relay chain arguments
 	#[arg(raw = true)]
 	pub relaychain_args: Vec<String>,
@@ -256,9 +253,8 @@ impl SubstrateCli for TestCollatorCli {
 
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
 		Ok(match id {
-			"" => Box::new(cumulus_test_service::get_chain_spec(Some(ParaId::from(
-				self.parachain_id,
-			)))) as Box<_>,
+			"" =>
+				Box::new(cumulus_test_service::get_chain_spec(Some(ParaId::from(2000)))) as Box<_>,
 			path => {
 				let chain_spec =
 					cumulus_test_service::chain_spec::ChainSpec::from_json_file(path.into())?;

@@ -16,14 +16,11 @@
 //!
 //! Mocked `network-bridge` subsystems that uses a `NetworkInterface` to access
 //! the emulated network.
-use futures::channel::mpsc::UnboundedSender;
-
+use futures::{channel::mpsc::UnboundedSender, FutureExt, StreamExt};
 use polkadot_node_subsystem_types::{
 	messages::{ApprovalDistributionMessage, BitfieldDistributionMessage, NetworkBridgeEvent},
 	OverseerSignal,
 };
-
-use futures::{FutureExt, StreamExt};
 
 use sc_network::{request_responses::ProtocolConfig, RequestFailure};
 
@@ -31,15 +28,11 @@ use polkadot_node_subsystem::{
 	messages::NetworkBridgeTxMessage, overseer, SpawnedSubsystem, SubsystemError,
 };
 
-use polkadot_node_network_protocol::{
-	request_response::{Recipient, Requests, ResponseSender},
-	Versioned,
-};
-use polkadot_primitives::AuthorityDiscoveryId;
+use polkadot_node_network_protocol::Versioned;
 
 use crate::core::{
 	configuration::TestAuthorities,
-	network::{NetworkEmulatorHandle, NetworkInterfaceReceiver, NetworkMessage},
+	network::{NetworkEmulatorHandle, NetworkInterfaceReceiver, NetworkMessage, RequestExt},
 };
 
 const LOG_TARGET: &str = "subsystem-bench::network-bridge";
@@ -99,38 +92,6 @@ impl<Context> MockNetworkBridgeRx {
 	}
 }
 
-// Helper trait for `Requests`.
-trait RequestExt {
-	fn authority_id(&self) -> Option<&AuthorityDiscoveryId>;
-	fn into_response_sender(self) -> ResponseSender;
-}
-
-impl RequestExt for Requests {
-	fn authority_id(&self) -> Option<&AuthorityDiscoveryId> {
-		match self {
-			Requests::ChunkFetchingV1(request) => {
-				if let Recipient::Authority(authority_id) = &request.peer {
-					Some(authority_id)
-				} else {
-					None
-				}
-			},
-			request => {
-				unimplemented!("RequestAuthority not implemented for {:?}", request)
-			},
-		}
-	}
-
-	fn into_response_sender(self) -> ResponseSender {
-		match self {
-			Requests::ChunkFetchingV1(outgoing_request) => outgoing_request.pending_response,
-			Requests::AvailableDataFetchingV1(outgoing_request) =>
-				outgoing_request.pending_response,
-			_ => unimplemented!("unsupported request type"),
-		}
-	}
-}
-
 #[overseer::contextbounds(NetworkBridgeTx, prefix = self::overseer)]
 impl MockNetworkBridgeTx {
 	async fn run<Context>(self, mut ctx: Context) {
@@ -138,10 +99,10 @@ impl MockNetworkBridgeTx {
 		loop {
 			let subsystem_message = ctx.recv().await.expect("Overseer never fails us");
 			match subsystem_message {
-				orchestra::FromOrchestra::Signal(signal) => match signal {
-					OverseerSignal::Conclude => return,
-					_ => {},
-				},
+				orchestra::FromOrchestra::Signal(signal) =>
+					if signal == OverseerSignal::Conclude {
+						return
+					},
 				orchestra::FromOrchestra::Communication { msg } => match msg {
 					NetworkBridgeTxMessage::SendRequests(requests, _if_disconnected) => {
 						for request in requests {
@@ -249,10 +210,7 @@ impl MockNetworkBridgeRx {
 				},
 				subsystem_message = ctx.recv().fuse() => {
 					match subsystem_message.expect("Overseer never fails us") {
-						orchestra::FromOrchestra::Signal(signal) => match signal {
-							OverseerSignal::Conclude => return,
-							_ => {},
-						},
+						orchestra::FromOrchestra::Signal(signal) => if signal == OverseerSignal::Conclude { return },
 						_ => {
 							unimplemented!("Unexpected network bridge rx message")
 						},

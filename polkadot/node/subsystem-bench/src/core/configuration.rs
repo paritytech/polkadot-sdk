@@ -18,14 +18,15 @@
 use super::*;
 use itertools::Itertools;
 use keyring::Keyring;
-use rand_distr::Normal;
 use sc_network::PeerId;
 use sp_consensus_babe::AuthorityId;
 use std::{collections::HashMap, path::Path};
 
 pub use crate::cli::TestObjective;
 use polkadot_primitives::{AssignmentId, AuthorityDiscoveryId, ValidatorId};
-use rand::{distributions::Uniform, prelude::Distribution, thread_rng};
+use rand::thread_rng;
+use rand_distr::{Distribution, Normal, Uniform};
+
 use serde::{Deserialize, Serialize};
 
 pub fn random_pov_size(min_pov_size: usize, max_pov_size: usize) -> usize {
@@ -161,6 +162,10 @@ impl TestConfiguration {
 
 	pub fn pov_sizes(&self) -> &[usize] {
 		&self.pov_sizes
+	}
+	/// Return the number of peers connected to our node.
+	pub fn connected_count(&self) -> usize {
+		((self.n_validators - 1) as f64 / (100.0 / self.connectivity as f64)) as usize
 	}
 
 	/// Generates the authority keys we need for the network emulation.
