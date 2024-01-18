@@ -41,6 +41,7 @@
     - cp -r /tmp/bridges-zombienet-tests.*/test-*.*/* ./zombienet-logs/
     # copy logs of all nodes
     - cp /tmp/zombie*/logs/* ./zombienet-logs/
+    - cp /tmp/zombie*/*.log ./zombienet-logs/
 # following lines are causing spurious test failures ("At least one of the nodes fails to start")
 #  retry: 2
 #  tags:
