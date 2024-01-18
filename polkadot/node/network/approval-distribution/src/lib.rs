@@ -1993,7 +1993,7 @@ impl State {
 
 		// Return if we don't have at least 1 block.
 		let (min_age, max_age) = match (min_age, max_age) {
-			(Some(min), Some(max)) => (min, max),
+			(Some(min), Some(max)) => (*min, *max),
 			_ => return, // empty.
 		};
 
