@@ -878,7 +878,7 @@ impl<T: Config> Pallet<T> {
 		<T as Config>::Currency::unreserve(&current_deposit_holder, info.deposit);
 
 		info.billing_account = Some(new_billing_account.clone());
-		Paras::<T>::insert(para, info.clone());
+		Paras::<T>::insert(para, info);
 
 		Self::deposit_event(Event::<T>::BillingAccountSet {
 			para_id: para,
