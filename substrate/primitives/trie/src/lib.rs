@@ -51,8 +51,7 @@ pub use trie_db::{
 	node::{NodePlan, ValuePlan},
 	CError, Changeset, ChangesetNodeRef, DBValue, ExistingChangesetNode, NewChangesetNode, Query,
 	Recorder, Trie, TrieCache, TrieConfiguration, TrieDBIterator, TrieDBKeyIterator,
-	TrieDBRawIterator, TrieLayout, TrieRecorder,
-};
+	TrieDBRawIterator, TrieLayout, TrieRecorder, };
 pub use trie_db::{proof::VerifyError, MerkleValue};
 /// The Substrate format implementation of `TrieStream`.
 pub use trie_stream::TrieStream;
@@ -186,6 +185,9 @@ pub type TrieDBMutBuilder<'a, L> = trie_db::TrieDBMutBuilder<'a, L>;
 pub type Lookup<'a, 'cache, L, Q> = trie_db::Lookup<'a, 'cache, L, Q>;
 /// Hash type for a trie layout.
 pub type TrieHash<L> = <<L as TrieLayout>::Hash as Hasher>::Out;
+/// Same in layout V0 and V1 (internaly depend only on hash and location).
+pub type ChildChangeset<H> = trie_db::triedbmut::ChildChangeset<LayoutV1<H, DBLocation>>;
+
 /// This module is for non generic definition of trie type.
 /// Only the `Hasher` trait is generic in this case.
 pub mod trie_types {
@@ -272,7 +274,7 @@ pub fn delta_trie_root<L: TrieConfiguration, I, A, B, V>(
 	cache: Option<&mut dyn TrieCache<L::Codec, L::Location>>,
 ) -> Result<trie_db::Changeset<TrieHash<L>, L::Location>, Box<TrieError<L>>>
 where
-	I: IntoIterator<Item = (A, B)>,
+	I: IntoIterator<Item = (A, B, Option<trie_db::triedbmut::ChildChangeset<L>>)>,
 	A: Borrow<[u8]>,
 	B: Borrow<Option<V>>,
 	V: Borrow<[u8]>,
@@ -285,10 +287,10 @@ where
 	let mut delta = delta.into_iter().collect::<Vec<_>>();
 	delta.sort_by(|l, r| l.0.borrow().cmp(r.0.borrow()));
 
-	for (key, change) in delta {
+	for (key, change, set) in delta {
 		match change.borrow() {
-			Some(val) => trie.insert(key.borrow(), val.borrow())?,
-			None => trie.remove(key.borrow())?,
+			Some(val) => trie.insert_with_child_changes(key.borrow(), val.borrow(), set)?,
+			None => trie.remove_with_child_changes(key.borrow(), set)?,
 		};
 	}
 	Ok(trie.commit())
@@ -423,7 +425,7 @@ where
 	root.as_mut().copy_from_slice(root_data.as_ref());
 
 	let db = KeySpacedDB::new(db, keyspace);
-	delta_trie_root::<L, _, _, _, _>(&db, (root, root_location), delta, recorder, cache)
+	delta_trie_root::<L, _, _, _, _>(&db, (root, root_location), delta.into_iter().map(|(k, v)| (k, v, None)), recorder, cache)
 }
 
 /// Read a value from the child trie.
@@ -980,7 +982,7 @@ mod tests {
 		let first_storage_root = delta_trie_root::<LayoutV0, _, _, _, _>(
 			&mut proof_db.clone(),
 			(storage_root, Default::default()),
-			valid_delta,
+			valid_delta.iter().map(|(k, v)| (k.as_slice(), v.as_ref().map(Vec::as_slice), None)),
 			None,
 			None,
 		)
@@ -989,7 +991,7 @@ mod tests {
 		let second_storage_root = delta_trie_root::<LayoutV0, _, _, _, _>(
 			&mut proof_db.clone(),
 			(storage_root, Default::default()),
-			invalid_delta,
+			invalid_delta.iter().map(|(k, v)| (k.as_slice(), v.as_ref().map(Vec::as_slice), None)),
 			None,
 			None,
 		)

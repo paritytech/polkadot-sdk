@@ -1879,9 +1879,6 @@ mod tests {
 		);
 		let mut remote_storage = remote_backend.backend_storage().as_mem_db().unwrap().clone();
 		let remote_root = transaction.main.apply_to(&mut remote_storage);
-		for (child, info) in transaction.child {
-			child.apply_with_prefix(&mut remote_storage, info.keyspace());
-		}
 		let remote_backend = TrieBackendBuilder::new(Box::new(remote_storage), remote_root).build();
 		let remote_proof = prove_child_read(remote_backend, &child_info1, &[b"key1"]).unwrap();
 		let size = remote_proof.encoded_size();
@@ -1918,9 +1915,6 @@ mod tests {
 		let mut duplicate = false;
 		let mut memdb = PrefixedMemoryDB::<BlakeTwo256>::default();
 		transaction.main.apply_to(&mut memdb);
-		for (c, info) in transaction.child {
-			c.apply_with_prefix(&mut memdb, info.keyspace());
-		}
 		for (k, (value, rc)) in memdb.drain().iter() {
 			// look for a key inserted twice: transaction rc is 2
 			if *rc == 2 {

@@ -78,9 +78,6 @@ where
 	pub fn apply_transaction(&mut self, transaction: TrieCommit<H::Out>) {
 		if let Some(mut mdb) = self.backend_storage_mut().as_mem_db_mut() {
 			let root = transaction.main.apply_to(&mut mdb);
-			for (c, _) in transaction.child {
-				c.apply_to(&mut mdb);
-			}
 			self.set_root(root);
 		}
 	}

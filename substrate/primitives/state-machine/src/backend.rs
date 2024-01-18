@@ -33,7 +33,7 @@ use sp_std::vec::Vec;
 
 /// DB location hint for a trie node.
 pub type DBLocation = sp_trie::DBLocation;
-use sp_trie::MerkleValue;
+use sp_trie::{MerkleValue, ChildChangeset};
 
 /// A struct containing arguments for iterating over the storage.
 #[derive(Default)]
@@ -173,11 +173,10 @@ where
 }
 
 /// Database changeset for the trie backend.
+/// TODO switch to simply changeset
 pub struct TrieCommit<H> {
 	/// Main trie changeset.
 	pub main: trie_db::Changeset<H, DBLocation>,
-	/// Child trie changesets.
-	pub child: Vec<(trie_db::Changeset<H, DBLocation>, ChildInfo)>,
 }
 
 impl <H: Copy> TrieCommit<H> {
@@ -185,7 +184,6 @@ impl <H: Copy> TrieCommit<H> {
 	pub fn empty(root: H) -> Self {
 		TrieCommit {
 			main: trie_db::Changeset::empty(root),
-			child: Default::default(),
 		}
 	}
 
@@ -261,7 +259,7 @@ pub trait Backend<H: Hasher>: sp_std::fmt::Debug {
 	/// Does not include child storage updates.
 	fn storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<H>>)>,
 		state_version: StateVersion,
 	) -> TrieCommit<H::Out>
 	where
@@ -314,7 +312,6 @@ pub trait Backend<H: Hasher>: sp_std::fmt::Debug {
 	where
 		H::Out: Ord + Encode,
 	{
-		let mut children = Vec::new();
 		let mut child_roots = Vec::with_capacity(child_deltas.size_hint().0);
 		// child first
 		for (child_info, child_delta) in child_deltas {
@@ -322,21 +319,28 @@ pub trait Backend<H: Hasher>: sp_std::fmt::Debug {
 				self.child_storage_root(child_info, child_delta, state_version);
 			let prefixed_storage_key = child_info.prefixed_storage_key();
 			if empty {
-				child_roots.push((prefixed_storage_key.into_inner(), None));
+				child_roots.push((prefixed_storage_key.into_inner(), None, None));
 			} else {
-				child_roots.push((prefixed_storage_key.into_inner(), Some(child_commit.main.root_hash().encode())));
+				let root = child_commit.main.root_hash();
+				let change_to_insert = child_commit.main.to_insert_in_other_trie(child_info.keyspace().to_vec());
+				child_roots.push((prefixed_storage_key.into_inner(), Some(root.encode()), Some(change_to_insert)));
 			}
-			children.push((child_commit.main, child_info.clone()));
 		}
 		let commit = self.storage_root(
 			delta
-				.map(|(k, v)| (k, v.as_ref().map(|v| &v[..])))
-				.chain(child_roots.iter().map(|(k, v)| (&k[..], v.as_ref().map(|v| &v[..])))),
+				.map(|(k, v)| (k, v.as_ref().map(|v| &v[..]), None))
+				.chain(child_roots.iter_mut().map(|(k, r, c)| {
+					let root = r.as_ref().map(|r| r.as_slice());
+					if let Some(child_commit) = core::mem::take(c) {
+						(k.as_slice(), root, Some(child_commit))
+					} else {
+						(k.as_slice(), root, None)
+					}
+				})),
 			state_version,
 		);
 		TrieCommit {
 			main: commit.main,
-			child: children,
 		}
 	}
 

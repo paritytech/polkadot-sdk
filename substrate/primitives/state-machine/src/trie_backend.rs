@@ -28,7 +28,7 @@ use crate::{
 use codec::Codec;
 use hash_db::HashDB;
 use hash_db::Hasher;
-use sp_trie::{MemoryDB, DBValue};
+use sp_trie::{MemoryDB, DBValue, ChildChangeset};
 use sp_core::storage::{ChildInfo, StateVersion};
 #[cfg(feature = "std")]
 use sp_trie::{
@@ -556,7 +556,7 @@ where
 
 	fn storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<H>>)>,
 		state_version: StateVersion,
 	) -> TrieCommit<H::Out>
 	where
@@ -1066,7 +1066,7 @@ pub mod tests {
 		recorder: Option<Recorder>,
 	) {
 		let tx = test_trie(state_version, cache, recorder)
-			.storage_root(iter::once((&b"new-key"[..], Some(&b"new-value"[..]))), state_version);
+			.storage_root(iter::once((&b"new-key"[..], Some(&b"new-value"[..]), None)), state_version);
 		let mut mdb = MemoryDB::<BlakeTwo256>::default();
 		let new_root = tx.main.apply_to(&mut mdb);
 		assert!(!mdb.drain().is_empty());
@@ -1500,7 +1500,7 @@ pub mod tests {
 
 		let new_root = {
 			let trie = test_trie(StateVersion::V1, Some(shared_cache.local_cache()), None);
-			trie.storage_root(new_data.clone().into_iter(), StateVersion::V1).main.root_hash()
+			trie.storage_root(new_data.clone().into_iter().map(|(k, v)| (k, v, None)), StateVersion::V1).main.root_hash()
 		};
 
 		let local_cache = shared_cache.local_cache();
