@@ -529,9 +529,6 @@ impl OnCodeUpgrade for () {
 pub trait PreCodeUpgrade {
 	/// A function that performs custom logic to before sceduling a code upgrade.
 	///
-	/// This is currently utilized by the registrar pallet to ensure that the necessary validation
-	/// code upgrade costs are covered.
-	///
 	/// `requirements` signals whether to enforce the pre code upgrade requirements.
 	///
 	/// As a result, it indicates either the success or failure of executing the pre code upgrade
