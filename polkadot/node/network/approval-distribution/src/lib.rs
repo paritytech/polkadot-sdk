@@ -667,9 +667,12 @@ impl State {
 		rng: &mut (impl CryptoRng + Rng),
 	) {
 		match event {
-			NetworkBridgeEvent::PeerConnected(peer_id, role, version, _) => {
+			NetworkBridgeEvent::PeerConnected(peer_id, role, version, authority_ids) => {
+				gum::info!(target: LOG_TARGET, ?peer_id, ?role, ?authority_ids, "Peer connected");
+				if let Some(authority_ids) = authority_ids {
+					self.topologies.update_authority_ids(peer_id, &authority_ids);
+				}
 				// insert a blank view if none already present
-				gum::trace!(target: LOG_TARGET, ?peer_id, ?role, "Peer connected");
 				self.peer_views
 					.entry(peer_id)
 					.or_insert(PeerEntry { view: Default::default(), version });
@@ -716,8 +719,9 @@ impl State {
 			NetworkBridgeEvent::PeerMessage(peer_id, message) => {
 				self.process_incoming_peer_message(ctx, metrics, peer_id, message, rng).await;
 			},
-			NetworkBridgeEvent::UpdatedAuthorityIds { .. } => {
-				// The approval-distribution subsystem doesn't deal with `AuthorityDiscoveryId`s.
+			NetworkBridgeEvent::UpdatedAuthorityIds(peer_id, authority_ids) => {
+				gum::info!(target: LOG_TARGET, ?peer_id, ?authority_ids, "Update Authority Ids");
+				self.topologies.update_authority_ids(peer_id, &authority_ids);
 			},
 		}
 	}
