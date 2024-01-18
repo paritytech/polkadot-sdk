@@ -1507,6 +1507,7 @@ mod tests {
 				*m.borrow_mut() = self.genesis_members.iter().map(|(m, _)| *m).collect::<Vec<_>>()
 			});
 			let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
+				system: frame_system::GenesisConfig::default(),
 				balances: pallet_balances::GenesisConfig::<Test> {
 					balances: vec![
 						(1, 10 * self.balance_factor),
