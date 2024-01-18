@@ -1232,12 +1232,14 @@ async fn warp_sync() {
 	let target = net.peer(0).push_blocks(1, false).pop().unwrap();
 	net.peer(1).push_blocks(64, false);
 	net.peer(2).push_blocks(64, false);
-	// Wait for peer 1 to sync state.
+	// Wait for peer 3 to sync state.
 	net.run_until_sync().await;
+	// Make sure it was not a full sync.
 	assert!(!net.peer(3).client().has_state_at(&BlockId::Number(1)));
+	// Make sure warp sync was successful.
 	assert!(net.peer(3).client().has_state_at(&BlockId::Number(64)));
 
-	// Wait for peer 1 download block history
+	// Wait for peer 3 to download block history (gap sync).
 	futures::future::poll_fn::<(), _>(|cx| {
 		net.poll(cx);
 		if net.peer(3).has_body(gap_end) && net.peer(3).has_body(target) {
@@ -1247,6 +1249,35 @@ async fn warp_sync() {
 		}
 	})
 	.await;
+}
+
+/// If there is a finalized state in the DB, warp sync falls back to full sync.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn warp_sync_failover_to_full_sync() {
+	sp_tracing::try_init_simple();
+	let mut net = TestNet::new(0);
+	// Create 3 synced peers and 1 peer trying to warp sync.
+	net.add_full_peer_with_config(Default::default());
+	net.add_full_peer_with_config(Default::default());
+	net.add_full_peer_with_config(Default::default());
+	net.add_full_peer_with_config(FullPeerConfig {
+		sync_mode: SyncMode::Warp,
+		// We want some finalized state in the DB to make warp sync impossible.
+		force_genesis: true,
+		..Default::default()
+	});
+	net.peer(0).push_blocks(64, false);
+	net.peer(1).push_blocks(64, false);
+	net.peer(2).push_blocks(64, false);
+	// Even though we requested peer 3 to warp sync, it'll fall back to full sync if there is
+	// a finalized state in the DB.
+	assert!(net.peer(3).client().info().finalized_state.is_some());
+	// Wait for peer 3 to sync.
+	net.run_until_sync().await;
+	// Make sure it was a full sync (peer 3 has state for all blocks).
+	(1..65)
+		.into_iter()
+		.for_each(|i| assert!(net.peer(3).client().has_state_at(&BlockId::Number(i as u64))));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
