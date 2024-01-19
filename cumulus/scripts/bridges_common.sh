@@ -68,6 +68,15 @@ function generate_hex_encoded_call_data() {
     return $retVal
 }
 
+function call_polkadot_js_api() {
+    local extra=
+    if [ -n "${NOWAIT}" ]; then
+        extra="${extra} --noWait"
+    fi
+    set -x
+    polkadot-js-api ${extra} "$@"
+}
+
 function transfer_balance() {
     local runtime_para_endpoint=$1
     local seed=$2
@@ -80,7 +89,7 @@ function transfer_balance() {
     echo "      amount: ${amount}"
     echo "--------------------------------------------------"
 
-    polkadot-js-api \
+    call_polkadot_js_api \
         --ws "${runtime_para_endpoint}" \
         --seed "${seed?}" \
         tx.balances.transferAllowDeath \
@@ -145,7 +154,7 @@ function send_governance_transact() {
     echo ""
     echo "--------------------------------------------------"
 
-    polkadot-js-api \
+    call_polkadot_js_api \
         --ws "${relay_url?}" \
         --seed "${relay_chain_seed?}" \
         --sudo \
@@ -170,7 +179,7 @@ function open_hrmp_channels() {
     echo "      max_message_size: ${max_message_size}"
     echo "      params:"
     echo "--------------------------------------------------"
-    polkadot-js-api \
+    call_polkadot_js_api \
         --ws "${relay_url?}" \
         --seed "${relay_chain_seed?}" \
         --sudo \
@@ -254,7 +263,7 @@ function limited_reserve_transfer_assets() {
     echo ""
     echo "--------------------------------------------------"
 
-    polkadot-js-api \
+    call_polkadot_js_api \
         --ws "${url?}" \
         --seed "${seed?}" \
         tx.polkadotXcm.limitedReserveTransferAssets \
@@ -293,7 +302,7 @@ function claim_rewards() {
     echo "${rewards_account_params}"
     echo "--------------------------------------------------"
 
-    polkadot-js-api \
+    call_polkadot_js_api \
         --ws "${runtime_para_endpoint}" \
         --seed "${seed?}" \
         tx.bridgeRelayers.claimRewards \

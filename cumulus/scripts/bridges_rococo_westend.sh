@@ -192,6 +192,7 @@ case "$1" in
   init-asset-hub-rococo-local)
       ensure_polkadot_js_api
       # create foreign assets for native Westend token (governance call on Rococo)
+      NOWAIT=1
       force_create_foreign_asset \
           "ws://127.0.0.1:9942" \
           "//Alice" \
@@ -217,6 +218,7 @@ case "$1" in
           "//Alice" \
           1013 1000 4 524288
       # set XCM version of remote AssetHubWestend
+      unset NOWAIT
       force_xcm_version \
           "ws://127.0.0.1:9942" \
           "//Alice" \
@@ -228,6 +230,7 @@ case "$1" in
   init-bridge-hub-rococo-local)
       ensure_polkadot_js_api
       # SA of sibling asset hub pays for the execution
+      NOWAIT=1
       transfer_balance \
           "ws://127.0.0.1:8943" \
           "//Alice" \
@@ -245,6 +248,7 @@ case "$1" in
           "//Alice" \
           "$ON_BRIDGE_HUB_ROCOCO_SOVEREIGN_ACCOUNT_FOR_LANE_00000002_bhwd_BridgedChain" \
           $((1000000000000 + 2000000000000))
+    unset NOWAIT
       # set XCM version of remote BridgeHubWestend
       force_xcm_version \
           "ws://127.0.0.1:9942" \
@@ -257,6 +261,7 @@ case "$1" in
   init-asset-hub-westend-local)
       ensure_polkadot_js_api
       # create foreign assets for native Rococo token (governance call on Westend)
+      NOWAIT=1
       force_create_foreign_asset \
           "ws://127.0.0.1:9945" \
           "//Alice" \
@@ -282,6 +287,7 @@ case "$1" in
           "//Alice" \
           1002 1000 4 524288
       # set XCM version of remote AssetHubRococo
+      unset NOWAIT
       force_xcm_version \
           "ws://127.0.0.1:9945" \
           "//Alice" \
@@ -292,6 +298,7 @@ case "$1" in
       ;;
   init-bridge-hub-westend-local)
       # SA of sibling asset hub pays for the execution
+      NOWAIT=1
       transfer_balance \
           "ws://127.0.0.1:8945" \
           "//Alice" \
@@ -310,6 +317,7 @@ case "$1" in
           "$ON_BRIDGE_HUB_WESTEND_SOVEREIGN_ACCOUNT_FOR_LANE_00000002_bhro_BridgedChain" \
           $((1000000000000000 + 2000000000000))
       # set XCM version of remote BridgeHubRococo
+      unset NOWAIT
       force_xcm_version \
           "ws://127.0.0.1:9945" \
           "//Alice" \
@@ -369,12 +377,14 @@ case "$1" in
   claim-rewards-bridge-hub-rococo-local)
       ensure_polkadot_js_api
       # bhwd -> [62, 68, 77, 64] -> 0x62687764
+      NOWAIT=1
       claim_rewards \
           "ws://127.0.0.1:8943" \
           "//Charlie" \
           "0x${LANE_ID}" \
           "0x62687764" \
           "ThisChain"
+      unset NOWAIT
       claim_rewards \
           "ws://127.0.0.1:8943" \
           "//Charlie" \
@@ -384,12 +394,14 @@ case "$1" in
       ;;
   claim-rewards-bridge-hub-westend-local)
       # bhro -> [62, 68, 72, 6f] -> 0x6268726f
+      NOWAIT=1
       claim_rewards \
           "ws://127.0.0.1:8945" \
           "//Charlie" \
           "0x${LANE_ID}" \
           "0x6268726f" \
           "ThisChain"
+      unset NOWAIT
       claim_rewards \
           "ws://127.0.0.1:8945" \
           "//Charlie" \
