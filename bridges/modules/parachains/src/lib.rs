@@ -1470,7 +1470,7 @@ pub(crate) mod tests {
 			);
 
 			// then if someone is pretending to provide updated head#10 of parachain#1 at relay
-			// block#30, and actualy provides it
+			// block#30, and actually provides it
 			//
 			// => we'll update value
 			proceed(30, state_root_10_at_30);
