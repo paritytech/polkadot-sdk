@@ -96,6 +96,9 @@
 <a href="#96" id="96">96</a>
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -115,7 +118,7 @@
 </span><span class="kw">use </span>polkadot_node_core_pvf_common::error::{InternalValidationError, PrepareError};
 
 <span class="doccomment">/// A error raised during validation of the candidate.
-</span><span class="attr">#[derive(Debug, Clone)]
+</span><span class="attr">#[derive(thiserror::Error, Debug, Clone)]
 </span><span class="kw">pub enum </span>ValidationError {
 	<span class="doccomment">/// Deterministic preparation issue. In practice, most of the problems should be caught by
 	/// prechecking, so this may be a sign of internal conditions.
@@ -125,35 +128,42 @@
 	/// pre-checking enabled only valid runtimes should ever get enacted, so we can be
 	/// reasonably sure that this is some local problem on the current node. However, as this
 	/// particular error *seems* to indicate a deterministic error, we raise a warning.
+	</span><span class="attr">#[error(<span class="string">&quot;candidate validation: {0}&quot;</span>)]
 	</span>Preparation(PrepareError),
 	<span class="doccomment">/// The error was raised because the candidate is invalid. Should vote against.
-	</span>Invalid(InvalidCandidate),
+	</span><span class="attr">#[error(<span class="string">&quot;candidate validation: {0}&quot;</span>)]
+	</span>Invalid(<span class="attr">#[from] </span>InvalidCandidate),
 	<span class="doccomment">/// Possibly transient issue that may resolve after retries. Should vote against when retries
 	/// fail.
-	</span>PossiblyInvalid(PossiblyInvalidError),
+	</span><span class="attr">#[error(<span class="string">&quot;candidate validation: {0}&quot;</span>)]
+	</span>PossiblyInvalid(<span class="attr">#[from] </span>PossiblyInvalidError),
 	<span class="doccomment">/// Preparation or execution issue caused by an internal condition. Should not vote against.
-	</span>Internal(InternalValidationError),
+	</span><span class="attr">#[error(<span class="string">&quot;candidate validation: internal: {0}&quot;</span>)]
+	</span>Internal(<span class="attr">#[from] </span>InternalValidationError),
 }
 
 <span class="doccomment">/// A description of an error raised during executing a PVF and can be attributed to the combination
 /// of the candidate [`polkadot_parachain_primitives::primitives::ValidationParams`] and the PVF.
-</span><span class="attr">#[derive(Debug, Clone)]
+</span><span class="attr">#[derive(thiserror::Error, Debug, Clone)]
 </span><span class="kw">pub enum </span>InvalidCandidate {
 	<span class="doccomment">/// The candidate is reported to be invalid by the execution worker. The string contains the
 	/// error message.
+	</span><span class="attr">#[error(<span class="string">&quot;invalid: worker reported: {0}&quot;</span>)]
 	</span>WorkerReportedInvalid(String),
 	<span class="doccomment">/// PVF execution (compilation is not included) took more time than was allotted.
+	</span><span class="attr">#[error(<span class="string">&quot;invalid: hard timeout&quot;</span>)]
 	</span>HardTimeout,
 }
 
 <span class="doccomment">/// Possibly transient issue that may resolve after retries.
-</span><span class="attr">#[derive(Debug, Clone)]
+</span><span class="attr">#[derive(thiserror::Error, Debug, Clone)]
 </span><span class="kw">pub enum </span>PossiblyInvalidError {
 	<span class="doccomment">/// The worker process (not the job) has died during validation of a candidate.
 	///
 	/// It&#39;s unlikely that this is caused by malicious code since workers spawn separate job
 	/// processes, and those job processes are sandboxed. But, it is possible. We retry in this
 	/// case, and if the error persists, we assume it&#39;s caused by the candidate and vote against.
+	</span><span class="attr">#[error(<span class="string">&quot;possibly invalid: ambiguous worker death&quot;</span>)]
 	</span>AmbiguousWorkerDeath,
 	<span class="doccomment">/// The job process (not the worker) has died for one of the following reasons:
 	///
@@ -167,6 +177,7 @@
 	/// (c) Some other reason, perhaps transient or perhaps caused by malicious code.
 	///
 	/// We cannot treat this as an internal error because malicious code may have caused this.
+	</span><span class="attr">#[error(<span class="string">&quot;possibly invalid: ambiguous job death: {0}&quot;</span>)]
 	</span>AmbiguousJobDeath(String),
 	<span class="doccomment">/// An unexpected error occurred in the job process and we can&#39;t be sure whether the candidate
 	/// is really invalid or some internal glitch occurred. Whenever we are unsure, we can never
@@ -174,13 +185,8 @@
 	/// issue was due to the candidate, then all validators would abstain, stalling finality on the
 	/// chain. So we will first retry the candidate, and if the issue persists we are forced to
 	/// vote invalid.
+	</span><span class="attr">#[error(<span class="string">&quot;possibly invalid: job error: {0}&quot;</span>)]
 	</span>JobError(String),
-}
-
-<span class="kw">impl </span>From&lt;InternalValidationError&gt; <span class="kw">for </span>ValidationError {
-	<span class="kw">fn </span>from(error: InternalValidationError) -&gt; <span class="self">Self </span>{
-		<span class="self">Self</span>::Internal(error)
-	}
 }
 
 <span class="kw">impl </span>From&lt;PrepareError&gt; <span class="kw">for </span>ValidationError {

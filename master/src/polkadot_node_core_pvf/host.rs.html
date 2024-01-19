@@ -1708,6 +1708,7 @@
 <a href="#1708" id="1708">1708</a>
 <a href="#1709" id="1709">1709</a>
 <a href="#1710" id="1710">1710</a>
+<a href="#1711" id="1711">1711</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2196,7 +2197,8 @@
 ///
 /// If the prepare job failed previously, we may retry it under certain conditions.
 ///
-/// When preparing for execution, we use a more lenient timeout ([`LENIENT_PREPARATION_TIMEOUT`])
+/// When preparing for execution, we use a more lenient timeout
+/// ([`DEFAULT_LENIENT_PREPARATION_TIMEOUT`](polkadot_primitives::executor_params::DEFAULT_LENIENT_PREPARATION_TIMEOUT))
 /// than when prechecking.
 </span><span class="kw">async fn </span>handle_execute_pvf(
 	artifacts: <span class="kw-2">&amp;mut </span>Artifacts,

@@ -1003,7 +1003,7 @@
 	JobResult::decode(<span class="kw-2">&amp;mut </span>response_bytes.as_slice()).map_err(|e| {
 		io::Error::new(
 			io::ErrorKind::Other,
-			<span class="macro">format!</span>(<span class="string">&quot;execute pvf recv_child_response: decode error: {:?}&quot;</span>, e),
+			<span class="macro">format!</span>(<span class="string">&quot;execute pvf recv_child_response: decode error: {}&quot;</span>, e),
 		)
 	})
 }
