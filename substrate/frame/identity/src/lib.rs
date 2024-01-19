@@ -1395,16 +1395,21 @@ impl<T: Config> Pallet<T> {
 			},
 		)?;
 
-		// Subs Deposit
-		let new_subs_deposit = SubsOf::<T>::try_mutate(
-			&target,
-			|(current_subs_deposit, subs_of)| -> Result<BalanceOf<T>, DispatchError> {
-				let new_subs_deposit = Self::subs_deposit(subs_of.len() as u32);
-				Self::rejig_deposit(&target, *current_subs_deposit, new_subs_deposit)?;
-				*current_subs_deposit = new_subs_deposit;
-				Ok(new_subs_deposit)
-			},
-		)?;
+		let new_subs_deposit = if SubsOf::<T>::contains_key(&target) {
+			SubsOf::<T>::try_mutate(
+				&target,
+				|(current_subs_deposit, subs_of)| -> Result<BalanceOf<T>, DispatchError> {
+					let new_subs_deposit = Self::subs_deposit(subs_of.len() as u32);
+					Self::rejig_deposit(&target, *current_subs_deposit, new_subs_deposit)?;
+					*current_subs_deposit = new_subs_deposit;
+					Ok(new_subs_deposit)
+				},
+			)?
+		} else {
+			// If the item doesn't exist, there is no "old" deposit, and the new one is zero, so no
+			// need to call rejig, it'd just be zero -> zero.
+			Zero::zero()
+		};
 		Ok((new_id_deposit, new_subs_deposit))
 	}
 
