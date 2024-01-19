@@ -371,6 +371,21 @@
 <a href="#371" id="371">371</a>
 <a href="#372" id="372">372</a>
 <a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -398,7 +413,7 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::matching::{LocalLocationPattern, ParentLocation};
 <span class="kw">use </span>frame_support::traits::{Equals, EverythingBut};
-<span class="kw">use </span>parachains_common::AssetIdForTrustBackedAssets;
+<span class="kw">use </span>parachains_common::{AssetIdForTrustBackedAssets, CollectionId, ItemId};
 <span class="kw">use </span>xcm_builder::{
 	AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith, V4V3LocationConverter,
 };
@@ -416,6 +431,10 @@
 <span class="kw">pub type </span>AssetIdForTrustBackedAssetsConvertLatest&lt;TrustBackedAssetsPalletLocation&gt; =
 	AsPrefixedGeneralIndex&lt;TrustBackedAssetsPalletLocation, AssetIdForTrustBackedAssets, JustTry&gt;;
 
+<span class="doccomment">/// `Location` vs `CollectionId` converter for `Uniques`
+</span><span class="kw">pub type </span>CollectionIdForUniquesConvert&lt;UniquesPalletLocation&gt; =
+	AsPrefixedGeneralIndex&lt;UniquesPalletLocation, CollectionId, JustTry&gt;;
+
 <span class="doccomment">/// [`MatchedConvertedConcreteId`] converter dedicated for `TrustBackedAssets`
 </span><span class="kw">pub type </span>TrustBackedAssetsConvertedConcreteId&lt;TrustBackedAssetsPalletLocation, Balance&gt; =
 	MatchedConvertedConcreteId&lt;
@@ -425,6 +444,17 @@
 		AssetIdForTrustBackedAssetsConvertLatest&lt;TrustBackedAssetsPalletLocation&gt;,
 		JustTry,
 	&gt;;
+
+<span class="doccomment">/// [`MatchedConvertedConcreteId`] converter dedicated for `Uniques`
+</span><span class="kw">pub type </span>UniquesConvertedConcreteId&lt;UniquesPalletLocation&gt; = MatchedConvertedConcreteId&lt;
+	CollectionId,
+	ItemId,
+	<span class="comment">// The asset starts with the uniques pallet. The `CollectionId` of the asset is specified as a
+	// junction within the pallet itself.
+	</span>StartsWith&lt;UniquesPalletLocation&gt;,
+	CollectionIdForUniquesConvert&lt;UniquesPalletLocation&gt;,
+	JustTry,
+&gt;;
 
 <span class="doccomment">/// [`MatchedConvertedConcreteId`] converter dedicated for storing `AssetId` as `Location`.
 </span><span class="kw">pub type </span>LocationConvertedConcreteId&lt;LocationFilter, Balance&gt; = MatchedConvertedConcreteId&lt;

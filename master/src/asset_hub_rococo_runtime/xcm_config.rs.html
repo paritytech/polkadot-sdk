@@ -911,6 +911,34 @@
 <a href="#911" id="911">911</a>
 <a href="#912" id="912">912</a>
 <a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -930,7 +958,8 @@
 	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee,
 	CollatorSelection, FeeAssetId, ForeignAssets, ForeignAssetsInstance, ParachainInfo,
 	ParachainSystem, PolkadotXcm, PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	ToWestendXcmRouter, TransactionByteFee, TrustBackedAssetsInstance, WeightToFee, XcmpQueue,
+	ToWestendXcmRouter, TransactionByteFee, TrustBackedAssetsInstance, Uniques, WeightToFee,
+	XcmpQueue,
 };
 <span class="kw">use </span>assets_common::{
 	local_and_foreign_assets::MatchesLocalAndForeignAssetsLocation,
@@ -967,12 +996,12 @@
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, DenyReserveTransferToRelayChain,
 	DenyThenTry, DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin, FungiblesAdapter,
 	GlobalConsensusParachainConvertsFor, HashedDescription, IsConcrete, LocalMint,
-	NetworkExportTableItem, NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
-	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignPaidRemoteExporter, SovereignSignedViaLocation, StartsWith,
-	StartsWithExplicitGlobalConsensus, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
-	XcmFeeToAccount,
+	NetworkExportTableItem, NoChecking, NonFungiblesAdapter, ParentAsSuperuser, ParentIsPreset,
+	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignPaidRemoteExporter,
+	SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 <span class="kw">use </span>xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
@@ -993,6 +1022,8 @@
 		PalletInstance(&lt;ForeignAssets <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8).into();
 	<span class="kw">pub </span>PoolAssetsPalletLocation: Location =
 		PalletInstance(&lt;PoolAssets <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8).into();
+	<span class="kw">pub </span>UniquesPalletLocation: Location =
+		PalletInstance(&lt;Uniques <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8).into();
 	<span class="kw">pub </span>PoolAssetsPalletLocationV3: xcm::v3::Location =
 		xcm::v3::Junction::PalletInstance(&lt;PoolAssets <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8).into();
 	<span class="kw">pub </span>CheckingAccount: AccountId = PolkadotXcm::check_account();
@@ -1058,6 +1089,26 @@
 	</span>CheckingAccount,
 &gt;;
 
+<span class="doccomment">/// Matcher for converting `ClassId`/`InstanceId` into a uniques asset.
+</span><span class="kw">pub type </span>UniquesConvertedConcreteId =
+	assets_common::UniquesConvertedConcreteId&lt;UniquesPalletLocation&gt;;
+
+<span class="doccomment">/// Means for transacting unique assets.
+</span><span class="kw">pub type </span>UniquesTransactor = NonFungiblesAdapter&lt;
+	<span class="comment">// Use this non-fungibles implementation:
+	</span>Uniques,
+	<span class="comment">// This adapter will handle any non-fungible asset from the uniques pallet.
+	</span>UniquesConvertedConcreteId,
+	<span class="comment">// Convert an XCM Location into a local account id:
+	</span>LocationToAccountId,
+	<span class="comment">// Our chain&#39;s account ID type (we can&#39;t get away without mentioning it explicitly):
+	</span>AccountId,
+	<span class="comment">// Does not check teleports.
+	</span>NoChecking,
+	<span class="comment">// The account to use for tracking teleports.
+	</span>CheckingAccount,
+&gt;;
+
 <span class="doccomment">/// `AssetId`/`Balance` converter for `ForeignAssets`.
 </span><span class="kw">pub type </span>ForeignAssetsConvertedConcreteId = assets_common::ForeignAssetsConvertedConcreteId&lt;
 	(
@@ -1111,8 +1162,13 @@
 &gt;;
 
 <span class="doccomment">/// Means for transacting assets on this chain.
-</span><span class="kw">pub type </span>AssetTransactors =
-	(CurrencyTransactor, FungiblesTransactor, ForeignFungiblesTransactor, PoolFungiblesTransactor);
+</span><span class="kw">pub type </span>AssetTransactors = (
+	CurrencyTransactor,
+	FungiblesTransactor,
+	ForeignFungiblesTransactor,
+	PoolFungiblesTransactor,
+	UniquesTransactor,
+);
 
 <span class="doccomment">/// Simple `Location` matcher for Local and Foreign asset `Location`.
 </span><span class="kw">pub struct </span>LocalAndForeignAssetsLocationMatcher;
