@@ -91,7 +91,7 @@ impl MockAvailabilityStore {
 				.chunk_indices
 				.get(core_index.0 as usize)
 				.unwrap()
-				.get(validator_index as usize)
+				.get(validator_index)
 				.unwrap();
 
 			let chunk = candidate_chunks.get(chunk_index.0 as usize).unwrap().clone();

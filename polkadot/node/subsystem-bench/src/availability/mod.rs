@@ -234,7 +234,6 @@ impl TestState {
 		let config = config.clone();
 
 		let mut chunks = Vec::new();
-		let mut chunk_indices = vec![vec![]; config.n_cores];
 		let mut available_data = Vec::new();
 		let mut candidate_receipt_templates = Vec::new();
 		let mut pov_size_to_candidate = HashMap::new();
@@ -247,14 +246,16 @@ impl TestState {
 			relay_parent_storage_root: Default::default(),
 		};
 
-		for core_index in 0..config.n_cores {
-			chunk_indices[core_index] = availability_chunk_indices(
-				Some(&node_features_with_chunk_mapping_enabled()),
-				config.n_validators,
-				CoreIndex(core_index as u32),
-			)
-			.unwrap();
-		}
+		let chunk_indices = (0..config.n_cores)
+			.map(|core_index| {
+				availability_chunk_indices(
+					Some(&node_features_with_chunk_mapping_enabled()),
+					config.n_validators,
+					CoreIndex(core_index as u32),
+				)
+				.unwrap()
+			})
+			.collect();
 
 		// For each unique pov we create a candidate receipt.
 		for (index, pov_size) in config.pov_sizes().iter().cloned().unique().enumerate() {
