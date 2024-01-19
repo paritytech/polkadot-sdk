@@ -383,9 +383,9 @@ impl Default for Limits {
 }
 
 impl<T: Config> Default for InstructionWeights<T> {
-	/// We execute 4 different instructions to emulate the `i64.add` therefore
-	/// we have to divide the actual computed gas costs by 4 to have a rough
-	/// estimate as to how expensive each single executed instruction is going to be.
+	/// We execute 6 different instructions therefore we have to divide the actual
+	/// computed gas costs by 6 to have a rough estimate as to how expensive each
+	/// single executed instruction is going to be.
 	fn default() -> Self {
 		let instr_cost = cost!(instr_i64_load_store).ref_time() as u32;
 		let base = instr_cost / 6;

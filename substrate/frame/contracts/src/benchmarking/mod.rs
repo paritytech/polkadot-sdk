@@ -2582,8 +2582,12 @@ benchmarks! {
 		let origin = RawOrigin::Signed(instance.caller.clone());
 	}: call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![])
 
-	// We add two `i64` integers from local variables and store the result into yet another
-	// local variable. The combination of this computation is our weight base `w_base`.
+	// We load `i64` values from random linear memory locations and store the loaded
+	// values back into yet another random linear memory location.
+	// The random addresses are uniformely distributed across the entire span of the linear memory.
+	// We do this to enforce random memory accesses which are particularly expensive.
+	//
+	// The combination of this computation is our weight base `w_base`.
 	#[pov_mode = Ignored]
 	instr_i64_load_store {
 		let r in 0 .. INSTR_BENCHMARK_RUNS;
