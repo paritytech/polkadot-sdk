@@ -36,7 +36,6 @@ sp-core = { path = "../../../primitives/core" }
 sp-keystore = { path = "../../../primitives/keystore" }
 sp-mmr-primitives = { path = "../../../primitives/merkle-mountain-range" }
 sp-runtime = { path = "../../../primitives/runtime" }
-sp-std = { path = "../../../primitives/std", default-features = false}
 
 [dev-dependencies]
 serde = "1.0.193"

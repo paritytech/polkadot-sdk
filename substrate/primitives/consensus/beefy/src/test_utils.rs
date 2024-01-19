@@ -53,7 +53,7 @@ pub enum Keyring {
 ///
 /// Accepts custom hashing fn for the message and custom convertor fn for the signer.
 pub trait BeefySignerAuthority<MsgHash: Hash>: AppPair {
-	/// generate a signature.
+	/// Generate a signature.
 	///
 	/// Return `true` if signature over `msg` is valid for this id.
 	fn sign_with_hasher(&self, message: &[u8]) -> <Self as AppCrypto>::Signature;
@@ -88,6 +88,7 @@ where
 {
 	///The key pair type which is used to perform crypto functionalities for the Keyring     
 	type KeyPair: AppPair;
+
 	/// Generate key pair in the given store using the provided seed
 	fn generate_in_store(
 		store: KeystorePtr,
