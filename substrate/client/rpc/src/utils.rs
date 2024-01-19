@@ -46,7 +46,7 @@ impl<T> BoundedVecDeque<T> {
 pub async fn pipe_from_stream<S, T>(pending: PendingSubscriptionSink, mut stream: S)
 where
 	S: Stream<Item = T> + Unpin + Send + 'static,
-	T: Serialize + Send + 'static + std::fmt::Debug,
+	T: Serialize + Send + 'static,
 {
 	let mut buf = BoundedVecDeque::new();
 	let accept_fut = pending.accept();
@@ -80,7 +80,7 @@ async fn inner_pipe_from_stream<S, T>(
 	mut buf: BoundedVecDeque<T>,
 ) where
 	S: Stream<Item = T> + Unpin + Send + 'static,
-	T: Serialize + Send + 'static + std::fmt::Debug,
+	T: Serialize + Send + 'static,
 {
 	let mut next_fut = Box::pin(Fuse::terminated());
 	let mut next_item = stream.next();
