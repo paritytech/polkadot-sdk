@@ -752,7 +752,6 @@ mod tests {
 		type RuntimeHoldReason = RuntimeHoldReason;
 		type RuntimeFreezeReason = RuntimeFreezeReason;
 		type FreezeIdentifier = ();
-
 		type MaxFreezes = ConstU32<1>;
 	}
 
