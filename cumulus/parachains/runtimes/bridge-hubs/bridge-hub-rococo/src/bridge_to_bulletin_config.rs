@@ -27,6 +27,7 @@ use crate::{
 	RuntimeEvent, XcmOverRococoBulletin, XcmRouter,
 };
 use bp_messages::LaneId;
+use bp_runtime::Chain;
 use bridge_runtime_common::{
 	messages,
 	messages::{
@@ -48,7 +49,7 @@ use frame_support::{parameter_types, traits::PalletInfoAccess};
 use sp_runtime::RuntimeDebug;
 use xcm::{
 	latest::prelude::*,
-	prelude::{InteriorMultiLocation, NetworkId},
+	prelude::{InteriorLocation, NetworkId},
 };
 use xcm_builder::BridgeBlobDispatcher;
 
@@ -63,18 +64,18 @@ parameter_types! {
 	pub const MaxUnconfirmedMessagesAtInboundLane: bp_messages::MessageNonce =
 		bp_polkadot_bulletin::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 	/// Bridge specific chain (network) identifier of the Rococo Bulletin Chain.
-	pub const RococoBulletinChainId: bp_runtime::ChainId = bp_runtime::POLKADOT_BULLETIN_CHAIN_ID;
+	pub const RococoBulletinChainId: bp_runtime::ChainId = bp_polkadot_bulletin::PolkadotBulletin::ID;
 	/// Interior location (relative to this runtime) of the with-RococoBulletin messages pallet.
-	pub BridgeRococoToRococoBulletinMessagesPalletInstance: InteriorMultiLocation = X1(
+	pub BridgeRococoToRococoBulletinMessagesPalletInstance: InteriorLocation = [
 		PalletInstance(<BridgeRococoBulletinMessages as PalletInfoAccess>::index() as u8)
-	);
+	].into();
 	/// Rococo Bulletin Network identifier.
 	pub RococoBulletinGlobalConsensusNetwork: NetworkId = NetworkId::PolkadotBulletin;
 	/// Relative location of the Rococo Bulletin chain.
-	pub RococoBulletinGlobalConsensusNetworkLocation: MultiLocation = MultiLocation {
-		parents: 2,
-		interior: X1(GlobalConsensus(RococoBulletinGlobalConsensusNetwork::get()))
-	};
+	pub RococoBulletinGlobalConsensusNetworkLocation: Location = Location::new(
+		2,
+		[GlobalConsensus(RococoBulletinGlobalConsensusNetwork::get())]
+	);
 	/// All active lanes that the current bridge supports.
 	pub ActiveOutboundLanesToRococoBulletin: &'static [bp_messages::LaneId]
 		= &[XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN];
@@ -94,11 +95,11 @@ parameter_types! {
 	/// A route (XCM location and bridge lane) that the Rococo People Chain -> Rococo Bulletin Chain
 	/// message is following.
 	pub FromRococoPeopleToRococoBulletinRoute: SenderAndLane = SenderAndLane::new(
-		ParentThen(X1(Parachain(RococoPeopleParaId::get().into()))).into(),
+		ParentThen(Parachain(RococoPeopleParaId::get().into()).into()).into(),
 		XCM_LANE_FOR_ROCOCO_PEOPLE_TO_ROCOCO_BULLETIN,
 	);
 	/// All active routes and their destinations.
-	pub ActiveLanes: sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorMultiLocation))> = sp_std::vec![
+	pub ActiveLanes: sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))> = sp_std::vec![
 			(
 				FromRococoPeopleToRococoBulletinRoute::get(),
 				(RococoBulletinGlobalConsensusNetwork::get(), Here)
@@ -151,10 +152,6 @@ impl MessageBridge for WithRococoBulletinMessageBridge {
 	type BridgedHeaderChain = BridgeRococoBulletinGrandpa;
 }
 
-/// Message verifier for RococoBulletin messages sent from BridgeHubRococo.
-pub type ToRococoBulletinMessageVerifier =
-	messages::source::FromThisChainMessageVerifier<WithRococoBulletinMessageBridge>;
-
 /// Maximal outbound payload size of BridgeHubRococo -> RococoBulletin messages.
 pub type ToRococoBulletinMaximalOutboundPayloadSize =
 	messages::source::FromThisChainMaximalOutboundPayloadSize<WithRococoBulletinMessageBridge>;
@@ -205,7 +202,6 @@ impl pallet_bridge_messages::Config<WithRococoBulletinMessagesInstance> for Runt
 	type DeliveryPayments = ();
 
 	type TargetHeaderChain = TargetHeaderChainAdapter<WithRococoBulletinMessageBridge>;
-	type LaneMessageVerifier = ToRococoBulletinMessageVerifier;
 	type DeliveryConfirmationPayments = ();
 
 	type SourceHeaderChain = SourceHeaderChainAdapter<WithRococoBulletinMessageBridge>;
@@ -282,11 +278,11 @@ mod tests {
 			PriorityBoostPerMessage,
 		>(FEE_BOOST_PER_MESSAGE);
 
-		assert_eq!(
-			BridgeRococoToRococoBulletinMessagesPalletInstance::get(),
-			X1(PalletInstance(
-				bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_BULLETIN_MESSAGES_PALLET_INDEX
-			))
-		);
+		let expected: InteriorLocation = PalletInstance(
+			bp_bridge_hub_rococo::WITH_BRIDGE_ROCOCO_TO_BULLETIN_MESSAGES_PALLET_INDEX,
+		)
+		.into();
+
+		assert_eq!(BridgeRococoToRococoBulletinMessagesPalletInstance::get(), expected,);
 	}
 }
