@@ -174,6 +174,8 @@
 <a href="#174" id="174">174</a>
 <a href="#175" id="175">175</a>
 <a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -202,6 +204,7 @@
 <span class="doccomment">/// Unit type wrapper that represents a slot.
 </span><span class="attr">#[derive(Debug, Encode, MaxEncodedLen, Decode, Eq, Clone, Copy, Default, Ord, Hash, TypeInfo)]
 #[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+#[repr(transparent)]
 </span><span class="kw">pub struct </span>Slot(u64);
 
 <span class="kw">impl </span>core::ops::Deref <span class="kw">for </span>Slot {
@@ -311,6 +314,7 @@
 	Eq,
 	TypeInfo,
 )]
+#[repr(transparent)]
 </span><span class="kw">pub struct </span>SlotDuration(u64);
 
 <span class="kw">impl </span>SlotDuration {

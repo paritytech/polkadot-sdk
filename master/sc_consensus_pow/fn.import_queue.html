@@ -2,7 +2,7 @@
     block_import: BoxBlockImport&lt;B&gt;,
     justification_import: <a class="enum" href="https://doc.rust-lang.org/1.74.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BoxJustificationImport&lt;B&gt;&gt;,
     algorithm: Algorithm,
-    spawner: &amp;impl SpawnEssentialNamed,
+    spawner: &amp;impl <a class="trait" href="../sp_core/traits/trait.SpawnEssentialNamed.html" title="trait sp_core::traits::SpawnEssentialNamed">SpawnEssentialNamed</a>,
     registry: <a class="enum" href="https://doc.rust-lang.org/1.74.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;Registry&gt;
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.74.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="type" href="type.PowImportQueue.html" title="type sc_consensus_pow::PowImportQueue">PowImportQueue</a>&lt;B&gt;, Error&gt;<span class="where fmt-newline">where
     B: BlockT,
