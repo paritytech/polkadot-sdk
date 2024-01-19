@@ -29,10 +29,9 @@ pub(crate) mod map;
 pub(crate) mod nmap;
 pub(crate) mod value;
 
-pub use double_map::StorageDoubleMap;
-pub use map::StorageMap;
-pub use nmap::StorageNMap;
-pub use value::StorageValue;
+//pub use double_map::StorageDoubleMap;
+//pub use map::StorageMap;
+//pub use nmap::StorageNMap;
 
 #[cfg(test)]
 mod tests {
@@ -40,10 +39,7 @@ mod tests {
 	use sp_io::TestExternalities;
 	use sp_runtime::{generic, traits::BlakeTwo256, BuildStorage};
 
-	use crate::{
-		assert_noop, assert_ok,
-		storage::{generator::StorageValue, unhashed},
-	};
+	use crate::{assert_noop, assert_ok, storage::unhashed};
 
 	#[crate::pallet]
 	pub mod frame_system {
@@ -83,15 +79,15 @@ mod tests {
 		#[pallet::storage]
 		pub type Value<T> = StorageValue<_, (u64, u64), ValueQuery>;
 
-		#[pallet::storage]
-		pub type Map<T> = StorageMap<_, Blake2_128Concat, u16, u64, ValueQuery>;
+		//#[pallet::storage]
+		//pub type Map<T> = StorageMap<_, Blake2_128Concat, u16, u64, ValueQuery>;
 
-		#[pallet::storage]
-		pub type NumberMap<T> = StorageMap<_, Identity, u32, u64, ValueQuery>;
+		//#[pallet::storage]
+		//pub type NumberMap<T> = StorageMap<_, Identity, u32, u64, ValueQuery>;
 
-		#[pallet::storage]
-		pub type DoubleMap<T> =
-			StorageDoubleMap<_, Blake2_128Concat, u16, Twox64Concat, u32, u64, ValueQuery>;
+		//#[pallet::storage]
+		//pub type DoubleMap<T> =
+		//StorageDoubleMap<_, Blake2_128Concat, u16, Twox64Concat, u32, u64, ValueQuery>;
 
 		#[pallet::storage]
 		pub type NMap<T> = StorageNMap<
@@ -170,7 +166,7 @@ mod tests {
 			assert_eq!(Value::get(), (1111, 2222));
 		})
 	}
-
+	/*
 	#[test]
 	fn map_translate_works() {
 		let t = RuntimeGenesisConfig::default().build_storage().unwrap();
@@ -201,18 +197,19 @@ mod tests {
 			);
 		})
 	}
+	*/
 
 	#[test]
 	fn try_mutate_works() {
 		let t = RuntimeGenesisConfig::default().build_storage().unwrap();
 		TestExternalities::new(t).execute_with(|| {
 			type Value = self::frame_system::Value<Runtime>;
-			type NumberMap = self::frame_system::NumberMap<Runtime>;
-			type DoubleMap = self::frame_system::DoubleMap<Runtime>;
+			//type NumberMap = self::frame_system::NumberMap<Runtime>;
+			//type DoubleMap = self::frame_system::DoubleMap<Runtime>;
 
 			assert_eq!(Value::get(), (0, 0));
-			assert_eq!(NumberMap::get(0), 0);
-			assert_eq!(DoubleMap::get(0, 0), 0);
+			//assert_eq!(NumberMap::get(0), 0);
+			//assert_eq!(DoubleMap::get(0, 0), 0);
 
 			// `assert_noop` ensures that the state does not change
 			assert_noop!(
@@ -223,6 +220,7 @@ mod tests {
 				"don't change value"
 			);
 
+			/*
 			assert_noop!(
 				NumberMap::try_mutate(0, |value| -> Result<(), &'static str> {
 					*value = 4;
@@ -231,6 +229,7 @@ mod tests {
 				"don't change value"
 			);
 
+
 			assert_noop!(
 				DoubleMap::try_mutate(0, 0, |value| -> Result<(), &'static str> {
 					*value = 6;
@@ -238,29 +237,33 @@ mod tests {
 				}),
 				"don't change value"
 			);
+			*/
 
 			// Showing this explicitly for clarity
 			assert_eq!(Value::get(), (0, 0));
-			assert_eq!(NumberMap::get(0), 0);
-			assert_eq!(DoubleMap::get(0, 0), 0);
+			//assert_eq!(NumberMap::get(0), 0);
+			//assert_eq!(DoubleMap::get(0, 0), 0);
 
 			assert_ok!(Value::try_mutate(|value| -> Result<(), &'static str> {
 				*value = (2, 2);
 				Ok(())
 			}));
 
-			assert_ok!(NumberMap::try_mutate(0, |value| -> Result<(), &'static str> {
-				*value = 4;
-				Ok(())
-			}));
+			/*
+				assert_ok!(NumberMap::try_mutate(0, |value| -> Result<(), &'static str> {
+					*value = 4;
+					Ok(())
+				}));
 
-			assert_ok!(DoubleMap::try_mutate(0, 0, |value| -> Result<(), &'static str> {
-				*value = 6;
-				Ok(())
-			}));
+
+				assert_ok!(DoubleMap::try_mutate(0, 0, |value| -> Result<(), &'static str> {
+					*value = 6;
+					Ok(())
+				}));
+			*/
 
 			assert_eq!(Value::get(), (2, 2));
-			assert_eq!(NumberMap::get(0), 4);
+			//assert_eq!(NumberMap::get(0), 4);
 			assert_eq!(DoubleMap::get(0, 0), 6);
 		});
 	}

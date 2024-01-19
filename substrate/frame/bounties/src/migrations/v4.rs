@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use frame_support::{
-	storage::{generator::StorageValue, StoragePrefixedMap},
+	storage::StoragePrefixedMap,
 	traits::{
 		Get, GetStorageVersion, PalletInfoAccess, StorageVersion,
 		STORAGE_VERSION_STORAGE_KEY_POSTFIX,

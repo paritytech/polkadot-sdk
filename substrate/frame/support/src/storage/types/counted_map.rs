@@ -19,12 +19,14 @@
 
 use crate::{
 	storage::{
-		generator::StorageMap as _,
+		//generator::StorageMap as _,
 		types::{
 			OptionQuery, QueryKindTrait, StorageEntryMetadataBuilder, StorageMap, StorageValue,
 			ValueQuery,
 		},
-		StorageAppend, StorageDecodeLength, StorageTryAppend,
+		StorageAppend,
+		StorageDecodeLength,
+		StorageTryAppend,
 	},
 	traits::{Get, GetDefault, StorageInfo, StorageInfoTrait, StorageInstance},
 	Never,
@@ -155,7 +157,7 @@ where
 
 	/// The prefix used to generate the key of the map.
 	pub fn map_storage_final_prefix() -> Vec<u8> {
-		use crate::storage::generator::StorageMap;
+		//use crate::storage::generator::StorageMap;
 		<Self as MapWrapper>::Map::prefix_hash().to_vec()
 	}
 
