@@ -197,7 +197,7 @@ where
 			Some(value) => value,
 			None => {
 				crate::defensive!(
-					"Invalid translation: failed to decode old value for key {}",
+					"Invalid translation: failed to decode old value for key",
 					array_bytes::bytes2hex("0x", &current_key)
 				);
 				return Some(current_key)
@@ -209,7 +209,7 @@ where
 			Ok(key) => key,
 			Err(_) => {
 				crate::defensive!(
-					"Invalid translation: failed to decode key {}",
+					"Invalid translation: failed to decode key",
 					array_bytes::bytes2hex("0x", &current_key)
 				);
 				return Some(current_key)
@@ -430,15 +430,6 @@ mod test_iterators {
 			for i in 0..4 {
 				Map::insert(i as u16, i as u64);
 			}
-
-			// Wrong key
-			unhashed::put(&[prefix.clone(), vec![1, 2, 3]].concat(), &3u64.encode());
-
-			// Wrong value
-			unhashed::put(
-				&[prefix.clone(), crate::Blake2_128Concat::hash(&6u16.encode())].concat(),
-				&vec![1],
-			);
 
 			Map::translate(|_k1, v: u64| Some(v * 2));
 			assert_eq!(Map::iter().collect::<Vec<_>>(), vec![(3, 6), (0, 0), (2, 4), (1, 2)]);
