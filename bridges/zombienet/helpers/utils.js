@@ -42,7 +42,6 @@ module.exports = {
         const newGrandpaHeaders = module.exports.countGrandpaHeaderImports(bridgedChain, currentEvents);
 
         // check that our assumptions are correct
-console.log("=== " + bridgedChain.grandpaPalletName + ": " + newGrandpaHeaders + " / " + maxNewGrandpaHeaders);
         if (newGrandpaHeaders > maxNewGrandpaHeaders) {
             throw new Error("Unexpected relay chain header import: " + newGrandpaHeaders + " / " + maxNewGrandpaHeaders);
         }
@@ -64,7 +63,6 @@ console.log("=== " + bridgedChain.grandpaPalletName + ": " + newGrandpaHeaders +
         const newParachainHeaders = module.exports.countParachainHeaderImports(bridgedChain, currentEvents);
 
         // check that our assumptions are correct
-console.log("=== " + bridgedChain.parachainsPalletName + ": " + newParachainHeaders + " / " + maxNewParachainHeaders);
         if (newParachainHeaders > maxNewParachainHeaders) {
             throw new Error("Unexpected parachain header import: " + newParachainHeaders + " / " + maxNewParachainHeaders);
         }
