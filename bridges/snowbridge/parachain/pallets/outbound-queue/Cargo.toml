@@ -31,7 +31,7 @@ sp-arithmetic = { path = "../../../../../substrate/primitives/arithmetic", defau
 
 bridge-hub-common = { path = "../../../../../cumulus/parachains/runtimes/bridge-hubs/common", default-features = false }
 
-snowbridge-core = { path = "../../primitives/core", features = ["serde"], default-features = false }
+snowbridge-core = { path = "../../primitives/core", default-features = false, features = ["serde"] }
 snowbridge-outbound-queue-merkle-tree = { path = "merkle-tree", default-features = false }
 ethabi = { git = "https://github.com/snowfork/ethabi-decode.git", package = "ethabi-decode", branch = "master", default-features = false }
 
