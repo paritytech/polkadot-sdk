@@ -2593,11 +2593,11 @@ benchmarks! {
 		// We do not need to be secure here. Fixed seed allows for determinstic results.
 		let mut rng = rand_pcg::Pcg32::seed_from_u64(8446744073709551615);
 
-		let memory_pages = 10;
+		let memory = ImportedMemory::max::<T>();
 		let bytes_per_page = 65536;
-		let bytes_per_memory = memory_pages * bytes_per_page;
+		let bytes_per_memory = memory.max_pages * bytes_per_page;
 		let mut sbox = Sandbox::from(&WasmModule::<T>::from(ModuleDefinition {
-			memory: Some(ImportedMemory { min_pages: memory_pages, max_pages: memory_pages }),
+			memory: Some(memory),
 			call_body: Some(body::repeated_with_locals_using(
 				&[Local::new(1, ValueType::I64)],
 				r,
