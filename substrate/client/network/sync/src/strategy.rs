@@ -72,6 +72,7 @@ pub struct SyncingConfig {
 	pub metrics_registry: Option<Registry>,
 }
 
+#[derive(Debug)]
 enum PeerStatus {
 	Available,
 	Reserved,
