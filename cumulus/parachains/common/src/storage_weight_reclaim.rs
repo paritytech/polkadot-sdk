@@ -54,13 +54,13 @@ const PROOF_RECORDING_DISABLED: u64 = u64::MAX;
 ///     log::info!("Reclaimed {} weight", reclaimed_weight);
 /// }
 /// ```
-pub struct StorageWeightReclaimer<T: Config + Send + Sync> {
+pub struct StorageWeightReclaimer<T: Config> {
 	previous_proof_weight: u64,
 	previous_reported_proof_size: Option<u64>,
 	_phantom: PhantomData<T>,
 }
 
-impl<T: Config + Send + Sync> StorageWeightReclaimer<T> {
+impl<T: Config> StorageWeightReclaimer<T> {
 	/// Creates a new `StorageWeightReclaimer` instance and initializes it with the current storage
 	/// weight and reported proof size from the node.
 	pub fn start() -> StorageWeightReclaimer<T> {
