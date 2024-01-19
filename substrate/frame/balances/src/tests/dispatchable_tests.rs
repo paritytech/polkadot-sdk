@@ -265,11 +265,11 @@ fn force_adjust_total_issuance_rejects_zero_delta() {
 	ExtBuilder::default().build_and_execute_with(|| {
 		assert_noop!(
 			Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Inc, 0),
-			Error::<Test>::InsufficientBalance,
+			Error::<Test>::DeltaZero,
 		);
 		assert_noop!(
 			Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Dec, 0),
-			Error::<Test>::InsufficientBalance,
+			Error::<Test>::DeltaZero,
 		);
 	});
 }
@@ -291,7 +291,7 @@ fn force_adjust_total_issuance_rejects_more_than_inactive() {
 		// Errors with more than 48:
 		assert_noop!(
 			Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Dec, 1),
-			Error::<Test>::InsufficientBalance,
+			Error::<Test>::IssuanceDeactivated,
 		);
 		// Increasing again increases the inactive issuance:
 		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Inc, 10),);

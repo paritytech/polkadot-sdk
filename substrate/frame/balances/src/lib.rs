@@ -411,6 +411,10 @@ pub mod pallet {
 		TooManyHolds,
 		/// Number of freezes exceed `MaxFreezes`.
 		TooManyFreezes,
+		/// The issuance cannot be modified since it is already deactivated.
+		IssuanceDeactivated,
+		/// The delta cannot be zero.
+		DeltaZero,
 	}
 
 	/// The total units issued in the system.
@@ -759,7 +763,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			ensure!(delta > Zero::zero(), Error::<T, I>::InsufficientBalance);
+			ensure!(delta > Zero::zero(), Error::<T, I>::DeltaZero);
 
 			let old = TotalIssuance::<T, I>::get();
 			let new = match direction {
@@ -767,7 +771,7 @@ pub mod pallet {
 				AdjustmentDirection::Decrease => old.saturating_sub(delta),
 			};
 
-			ensure!(InactiveIssuance::<T, I>::get() <= new, Error::<T, I>::InsufficientBalance);
+			ensure!(InactiveIssuance::<T, I>::get() <= new, Error::<T, I>::IssuanceDeactivated);
 			TotalIssuance::<T, I>::set(new);
 
 			Self::deposit_event(Event::<T, I>::TotalIssuanceChanged { old, new });
