@@ -24,6 +24,7 @@ use frame_support::{
 	ensure,
 	pallet_prelude::Weight,
 	traits::{Currency, ExistenceRequirement, Get, ReservableCurrency, WithdrawReasons},
+	transactional,
 };
 use frame_system::{self, ensure_root, ensure_signed};
 use polkadot_parachain_primitives::primitives::IsSystem;
@@ -83,10 +84,8 @@ pub enum CodeUpgradeScheduleError {
 	/// The parachain billing account has to be explicitly set before being able to schedule a
 	/// code upgrade.
 	BillingAccountNotSet,
-	/// Failed to pay the upgrade fee for scheduling the code upgrade.
-	FailedToPayUpgradeFee,
-	/// Failed to reserve the appropriate deposit for the new validation code.
-	FailedToReserveDeposit,
+	/// Failed to pay the associated costs of scheduling the code upgrade.
+	FailedToPayUpgradeCosts,
 }
 
 type BalanceOf<T> =
@@ -878,6 +877,23 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	#[transactional]
+	fn charge_upgrade_costs(
+		billing_account: T::AccountId,
+		additional_deposit: BalanceOf<T>,
+	) -> DispatchResult {
+		<T as Config>::Currency::withdraw(
+			&billing_account,
+			T::UpgradeFee::get(),
+			WithdrawReasons::FEE,
+			ExistenceRequirement::KeepAlive,
+		)?;
+
+		<T as Config>::Currency::reserve(&billing_account, additional_deposit)?;
+
+		Ok(())
+	}
+
 	/// Returns the required deposit amount for the parachain, given the specified genesis head
 	/// and validation code size.
 	fn required_para_deposit(head_size: usize, validation_code_size: usize) -> BalanceOf<T> {
@@ -944,29 +960,14 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 				return Err(<T as Config>::WeightInfo::pre_code_upgrade())
 			};
 
-			if <T as Config>::Currency::withdraw(
-				&billing_account,
-				T::UpgradeFee::get(),
-				WithdrawReasons::FEE,
-				ExistenceRequirement::KeepAlive,
-			)
-			.is_err()
-			{
-				Self::deposit_event(Event::<T>::CodeUpgradeScheduleFailed(
-					CodeUpgradeScheduleError::FailedToPayUpgradeFee,
-				));
-				// An overestimate of the used weight, but it's better to be safe than sorry.
-				return Err(<T as Config>::WeightInfo::pre_code_upgrade())
-			}
-
 			let additional_deposit = new_deposit.saturating_sub(current_deposit);
-			if <T as Config>::Currency::reserve(&billing_account, additional_deposit).is_err() {
+			if Self::charge_upgrade_costs(billing_account, additional_deposit).is_err() {
 				Self::deposit_event(Event::<T>::CodeUpgradeScheduleFailed(
-					CodeUpgradeScheduleError::FailedToReserveDeposit,
+					CodeUpgradeScheduleError::FailedToPayUpgradeCosts,
 				));
 				// An overestimate of the used weight, but it's better to be safe than sorry.
 				return Err(<T as Config>::WeightInfo::pre_code_upgrade())
-			}
+			};
 
 			// Update the deposit to the new appropriate amount.
 			info.deposit = new_deposit;
