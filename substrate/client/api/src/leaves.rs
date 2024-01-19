@@ -49,7 +49,7 @@ pub struct FinalizationOutcome<H, N> {
 	removed: BTreeMap<Reverse<N>, Vec<H>>,
 }
 
-impl<H, N: Ord> FinalizationOutcome<H, N> {
+impl<H: Copy, N: Ord> FinalizationOutcome<H, N> {
 	/// Merge with another. This should only be used for displaced items that
 	/// are produced within one transaction of each other.
 	pub fn merge(&mut self, mut other: Self) {
@@ -62,6 +62,21 @@ impl<H, N: Ord> FinalizationOutcome<H, N> {
 	/// Iterate over all displaced leaves.
 	pub fn leaves(&self) -> impl Iterator<Item = &H> {
 		self.removed.values().flatten()
+	}
+
+	/// Constructor
+	pub fn new(new_displaced: impl Iterator<Item = (H, N)>) -> Self {
+		let mut removed = BTreeMap::<Reverse<N>, Vec<H>>::new();
+		for (hash, number) in new_displaced {
+			removed
+				.entry(Reverse(number))
+				.and_modify(|hashes| {
+					hashes.push(hash);
+				})
+				.or_insert(vec![hash]);
+		}
+
+		FinalizationOutcome { removed }
 	}
 }
 
@@ -151,39 +166,12 @@ where
 		Some(RemoveOutcome { inserted, removed: LeafSetItem { hash, number } })
 	}
 
-	/// Note a block height finalized, displacing all leaves with number less than the finalized
-	/// block's.
-	///
-	/// Although it would be more technically correct to also prune out leaves at the
-	/// same number as the finalized block, but with different hashes, the current behavior
-	/// is simpler and our assumptions about how finalization works means that those leaves
-	/// will be pruned soon afterwards anyway.
-	pub fn finalize_height(&mut self, number: N) -> FinalizationOutcome<H, N> {
-		let boundary = if number == N::zero() {
-			return FinalizationOutcome { removed: BTreeMap::new() }
-		} else {
-			number - N::one()
-		};
-
-		let below_boundary = self.storage.split_off(&Reverse(boundary));
-		FinalizationOutcome { removed: below_boundary }
-	}
-
-	/// The same as [`Self::finalize_height`], but it only simulates the operation.
-	///
-	/// This means that no changes are done.
-	///
-	/// Returns the leaves that would be displaced by finalizing the given block.
-	pub fn displaced_by_finalize_height(&self, number: N) -> FinalizationOutcome<H, N> {
-		let boundary = if number == N::zero() {
-			return FinalizationOutcome { removed: BTreeMap::new() }
-		} else {
-			number - N::one()
-		};
-
-		let below_boundary = self.storage.range(&Reverse(boundary)..);
-		FinalizationOutcome {
-			removed: below_boundary.map(|(k, v)| (k.clone(), v.clone())).collect(),
+	/// Remove all leaves displaced by the last block finalization.
+	pub fn remove_displaced_leaves(&mut self, displaced_leaves: &FinalizationOutcome<H, N>) {
+		for (number, hashes) in &displaced_leaves.removed {
+			for hash in hashes.iter() {
+				self.remove_leaf(number, hash);
+			}
 		}
 	}
 

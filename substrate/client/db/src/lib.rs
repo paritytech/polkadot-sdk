@@ -734,19 +734,6 @@ impl<Block: BlockT> sc_client_api::blockchain::Backend<Block> for BlockchainDb<B
 		Ok(self.leaves.read().hashes())
 	}
 
-	fn displaced_leaves_after_finalizing(
-		&self,
-		block_number: NumberFor<Block>,
-	) -> ClientResult<Vec<Block::Hash>> {
-		Ok(self
-			.leaves
-			.read()
-			.displaced_by_finalize_height(block_number)
-			.leaves()
-			.cloned()
-			.collect::<Vec<_>>())
-	}
-
 	fn children(&self, parent_hash: Block::Hash) -> ClientResult<Vec<Block::Hash>> {
 		children::read_children(&*self.db, columns::META, meta_keys::CHILDREN_PREFIX, parent_hash)
 	}
@@ -1800,12 +1787,16 @@ impl<Block: BlockT> Backend<Block> {
 			apply_state_commit(transaction, commit);
 		}
 
-		let new_displaced = self.blockchain.leaves.write().finalize_height(f_num);
+		let new_displaced = self.blockchain.displaced_leaves_after_finalizing(f_hash, f_num)?;
+		let finalization_outcome = FinalizationOutcome::new(new_displaced.into_iter());
+
+		self.blockchain.leaves.write().remove_displaced_leaves(&finalization_outcome);
+
 		self.prune_blocks(
 			transaction,
 			f_num,
 			f_hash,
-			&new_displaced,
+			&finalization_outcome,
 			current_transaction_justifications,
 		)?;
 
@@ -3173,6 +3164,9 @@ pub(crate) mod tests {
 
 	#[test]
 	fn test_leaves_pruned_on_finality() {
+		//   / 1b - 2b - 3b
+		// 0 - 1a - 2a
+		//   \ 1c
 		let backend: Backend<Block> = Backend::new_test(10, 10);
 		let block0 = insert_header(&backend, 0, Default::default(), None, Default::default());
 
@@ -3184,18 +3178,16 @@ pub(crate) mod tests {
 
 		let block2_a = insert_header(&backend, 2, block1_a, None, Default::default());
 		let block2_b = insert_header(&backend, 2, block1_b, None, Default::default());
-		let block2_c = insert_header(&backend, 2, block1_b, None, [1; 32].into());
 
-		assert_eq!(
-			backend.blockchain().leaves().unwrap(),
-			vec![block2_a, block2_b, block2_c, block1_c]
-		);
+		let block3_b = insert_header(&backend, 3, block2_b, None, [3; 32].into());
+
+		assert_eq!(backend.blockchain().leaves().unwrap(), vec![block3_b, block2_a, block1_c]);
 
 		backend.finalize_block(block1_a, None).unwrap();
 		backend.finalize_block(block2_a, None).unwrap();
 
-		// leaves at same height stay. Leaves at lower heights pruned.
-		assert_eq!(backend.blockchain().leaves().unwrap(), vec![block2_a, block2_b, block2_c]);
+		// All leaves are pruned that are known to not belong to canonical branch
+		assert_eq!(backend.blockchain().leaves().unwrap(), vec![block2_a]);
 	}
 
 	#[test]

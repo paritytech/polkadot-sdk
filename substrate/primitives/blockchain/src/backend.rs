@@ -21,7 +21,7 @@ use log::warn;
 use parking_lot::RwLock;
 use sp_runtime::{
 	generic::BlockId,
-	traits::{Block as BlockT, Header as HeaderT, NumberFor, Saturating},
+	traits::{Block as BlockT, Header as HeaderT, NumberFor, Saturating, Zero},
 	Justifications,
 };
 use std::collections::btree_set::BTreeSet;
@@ -172,14 +172,6 @@ pub trait Backend<Block: BlockT>:
 	/// Results must be ordered best (longest, highest) chain first.
 	fn leaves(&self) -> Result<Vec<Block::Hash>>;
 
-	/// Returns displaced leaves after the given block would be finalized.
-	///
-	/// The returned leaves do not contain the leaves from the same height as `block_number`.
-	fn displaced_leaves_after_finalizing(
-		&self,
-		block_number: NumberFor<Block>,
-	) -> Result<Vec<Block::Hash>>;
-
 	/// Return hashes of all blocks that are children of the block with `parent_hash`.
 	fn children(&self, parent_hash: Block::Hash) -> Result<Vec<Block::Hash>>;
 
@@ -255,6 +247,58 @@ pub trait Backend<Block: BlockT>:
 	}
 
 	fn block_indexed_body(&self, hash: Block::Hash) -> Result<Option<Vec<Vec<u8>>>>;
+
+	/// Returns all leaves that will be displaced after the block finalization.
+	fn displaced_leaves_after_finalizing(
+		&self,
+		finalized_block_hash: Block::Hash,
+		finalized_block_number: NumberFor<Block>,
+	) -> std::result::Result<Vec<(Block::Hash, NumberFor<Block>)>, Error> {
+		if finalized_block_number == Zero::zero() {
+			return Ok(Vec::new())
+		}
+
+		let mut displaced_leaves = Vec::new();
+
+		let finalized_block_header = self.expect_header(finalized_block_hash)?;
+		// For each leaf determine whether it belongs to a non-canonical branch.
+		for leaf_hash in self.leaves()? {
+			let mut fork_block_header = self.expect_header(leaf_hash)?;
+
+			let leaf_number = *fork_block_header.number();
+
+			let mut needs_pruning = false;
+			// All leaves will eventually have as ancestor either the finalized block or its
+			// parent. All other forks were cleared on the previous block finalization.
+			loop {
+				// The block ends up in the finalized block. All forks are valid at this point.
+				if fork_block_header.hash() == finalized_block_hash {
+					break
+				}
+
+				// The block ends up in the parent block of the finalized block. It's a stale fork.
+				if fork_block_header.hash() == *finalized_block_header.parent_hash() {
+					needs_pruning = true;
+					break
+				}
+
+				if let Some(parent_header) = self.header(*fork_block_header.parent_hash())? {
+					fork_block_header = parent_header;
+				} else {
+					// Sometimes routes can't be calculated. E.g. after warp sync.
+					needs_pruning = true;
+					break
+				}
+			}
+
+			// Fork ended up in the parent of the finalized block.
+			if needs_pruning {
+				displaced_leaves.push((leaf_hash, leaf_number));
+			}
+		}
+
+		Ok(displaced_leaves)
+	}
 }
 
 /// Blockchain info
