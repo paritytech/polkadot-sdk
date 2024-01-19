@@ -490,16 +490,6 @@
 <a href="#490" id="490">490</a>
 <a href="#491" id="491">491</a>
 <a href="#492" id="492">492</a>
-<a href="#493" id="493">493</a>
-<a href="#494" id="494">494</a>
-<a href="#495" id="495">495</a>
-<a href="#496" id="496">496</a>
-<a href="#497" id="497">497</a>
-<a href="#498" id="498">498</a>
-<a href="#499" id="499">499</a>
-<a href="#500" id="500">500</a>
-<a href="#501" id="501">501</a>
-<a href="#502" id="502">502</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -860,22 +850,9 @@
 	}
 }
 
-<span class="macro">macro_rules! </span>cost_instr_no_params {
-	(<span class="macro-nonterminal">$name</span>:ident) =&gt; {
-		<span class="macro">cost_args!</span>(<span class="macro-nonterminal">$name</span>, <span class="number">1</span>).ref_time() <span class="kw">as </span>u32
-	};
-}
-
 <span class="macro">macro_rules! </span>cost {
 	(<span class="macro-nonterminal">$name</span>:ident) =&gt; {
 		<span class="macro">cost_args!</span>(<span class="macro-nonterminal">$name</span>, <span class="number">1</span>)
-	};
-}
-
-<span class="macro">macro_rules! </span>cost_instr {
-	(<span class="macro-nonterminal">$name</span>:ident, <span class="macro-nonterminal">$num_params</span>:expr) =&gt; {
-		<span class="macro">cost_instr_no_params!</span>(<span class="macro-nonterminal">$name</span>)
-			.saturating_sub((<span class="macro">cost_instr_no_params!</span>(instr_i64const) / <span class="number">2</span>).saturating_mul(<span class="macro-nonterminal">$num_params</span>))
 	};
 }
 
@@ -898,10 +875,13 @@
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; Default <span class="kw">for </span>InstructionWeights&lt;T&gt; {
-	<span class="doccomment">/// We price both `i64.const` and `drop` as `instr_i64const / 2`. The reason
-	/// for that is that we cannot benchmark either of them on its own.
+	<span class="doccomment">/// We execute 6 different instructions therefore we have to divide the actual
+	/// computed gas costs by 6 to have a rough estimate as to how expensive each
+	/// single executed instruction is going to be.
 	</span><span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-		<span class="self">Self </span>{ base: <span class="macro">cost_instr!</span>(instr_i64const, <span class="number">1</span>), _phantom: PhantomData }
+		<span class="kw">let </span>instr_cost = <span class="macro">cost!</span>(instr_i64_load_store).ref_time() <span class="kw">as </span>u32;
+		<span class="kw">let </span>base = instr_cost / <span class="number">6</span>;
+		<span class="self">Self </span>{ base, _phantom: PhantomData }
 	}
 }
 
