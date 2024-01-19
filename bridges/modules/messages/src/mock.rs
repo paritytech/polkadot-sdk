@@ -17,19 +17,17 @@
 // From construct_runtime macro
 #![allow(clippy::from_over_into)]
 
-use crate::Config;
+use crate::{Config, StoredMessagePayload};
 
 use bp_messages::{
 	calc_relayers_rewards,
-	source_chain::{
-		DeliveryConfirmationPayments, LaneMessageVerifier, OnMessagesDelivered, TargetHeaderChain,
-	},
+	source_chain::{DeliveryConfirmationPayments, OnMessagesDelivered, TargetHeaderChain},
 	target_chain::{
 		DeliveryPayments, DispatchMessage, DispatchMessageData, MessageDispatch,
 		ProvedLaneMessages, ProvedMessages, SourceHeaderChain,
 	},
-	DeliveredMessages, InboundLaneData, LaneId, Message, MessageKey, MessageNonce, MessagePayload,
-	OutboundLaneData, UnrewardedRelayer, UnrewardedRelayersState, VerificationError,
+	DeliveredMessages, InboundLaneData, LaneId, Message, MessageKey, MessageNonce,
+	UnrewardedRelayer, UnrewardedRelayersState, VerificationError,
 };
 use bp_runtime::{messages::MessageDispatchResult, Size};
 use codec::{Decode, Encode};
@@ -50,8 +48,6 @@ pub type Balance = u64;
 pub struct TestPayload {
 	/// Field that may be used to identify messages.
 	pub id: u64,
-	/// Reject this message by lane verifier?
-	pub reject_by_lane_verifier: bool,
 	/// Dispatch weight that is declared by the message sender.
 	pub declared_weight: Weight,
 	/// Message dispatch result.
@@ -120,7 +116,6 @@ impl Config for TestRuntime {
 	type DeliveryPayments = TestDeliveryPayments;
 
 	type TargetHeaderChain = TestTargetHeaderChain;
-	type LaneMessageVerifier = TestLaneMessageVerifier;
 	type DeliveryConfirmationPayments = TestDeliveryConfirmationPayments;
 	type OnMessagesDelivered = TestOnMessagesDelivered;
 
@@ -268,24 +263,6 @@ impl TargetHeaderChain<TestPayload, TestRelayer> for TestTargetHeaderChain {
 	}
 }
 
-/// Lane message verifier that is used in tests.
-#[derive(Debug, Default)]
-pub struct TestLaneMessageVerifier;
-
-impl LaneMessageVerifier<TestPayload> for TestLaneMessageVerifier {
-	fn verify_message(
-		_lane: &LaneId,
-		_lane_outbound_data: &OutboundLaneData,
-		payload: &TestPayload,
-	) -> Result<(), VerificationError> {
-		if !payload.reject_by_lane_verifier {
-			Ok(())
-		} else {
-			Err(VerificationError::Other(TEST_ERROR))
-		}
-	}
-}
-
 /// Reward payments at the target chain during delivery transaction.
 #[derive(Debug, Default)]
 pub struct TestDeliveryPayments;
@@ -425,8 +402,8 @@ pub fn message(nonce: MessageNonce, payload: TestPayload) -> Message {
 }
 
 /// Return valid outbound message data, constructed from given payload.
-pub fn outbound_message_data(payload: TestPayload) -> MessagePayload {
-	payload.encode()
+pub fn outbound_message_data(payload: TestPayload) -> StoredMessagePayload<TestRuntime, ()> {
+	StoredMessagePayload::<TestRuntime, ()>::try_from(payload.encode()).expect("payload too large")
 }
 
 /// Return valid inbound (dispatch) message data, constructed from given payload.
@@ -438,7 +415,6 @@ pub fn inbound_message_data(payload: TestPayload) -> DispatchMessageData<TestPay
 pub const fn message_payload(id: u64, declared_weight: u64) -> TestPayload {
 	TestPayload {
 		id,
-		reject_by_lane_verifier: false,
 		declared_weight: Weight::from_parts(declared_weight, 0),
 		dispatch_result: dispatch_result(0),
 		extra: Vec::new(),
