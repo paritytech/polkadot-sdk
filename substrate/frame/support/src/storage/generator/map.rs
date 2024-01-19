@@ -196,7 +196,10 @@ where
 		let value = match unhashed::get::<O>(&current_key) {
 			Some(value) => value,
 			None => {
-				crate::defensive!("Invalid translation: failed to decode old value for key {}", array_bytes::bytes2hex("0x", &current_key));
+				crate::defensive!(
+					"Invalid translation: failed to decode old value for key {}",
+					array_bytes::bytes2hex("0x", &current_key)
+				);
 				return Some(current_key)
 			},
 		};
@@ -205,7 +208,10 @@ where
 		let key = match K::decode(&mut key_material) {
 			Ok(key) => key,
 			Err(_) => {
-				crate::defensive!("Invalid translation: failed to decode key {}", array_bytes::bytes2hex("0x", &current_key));
+				crate::defensive!(
+					"Invalid translation: failed to decode key {}",
+					array_bytes::bytes2hex("0x", &current_key)
+				);
 				return Some(current_key)
 			},
 		};
