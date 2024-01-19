@@ -609,6 +609,10 @@ parameter_types! {
 			version: [3, 0, 0, 1], // 0x03000001
 			epoch: 0,
 		},
+		deneb: Fork {
+			version: [4, 0, 0, 1], // 0x04000001
+			epoch: 0,
+		}
 	};
 }
 
@@ -630,6 +634,10 @@ parameter_types! {
 		capella: Fork {
 			version: [144, 0, 0, 114], // 0x90000072
 			epoch: 56832,
+		},
+		deneb: Fork {
+			version: [144, 0, 0, 115], // 0x90000073
+			epoch: 4294967295,
 		},
 	};
 }
