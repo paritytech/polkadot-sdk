@@ -251,5 +251,7 @@ fn build_request_response_protocol_receivers(
 	config.add_request_response_protocol(cfg);
 	let cfg = Protocol::ChunkFetchingV1.get_outbound_only_config(request_protocol_names);
 	config.add_request_response_protocol(cfg);
+	let cfg = Protocol::ChunkFetchingV2.get_outbound_only_config(request_protocol_names);
+	config.add_request_response_protocol(cfg);
 	(collation_req_receiver_v1, collation_req_receiver_v2, available_data_req_receiver)
 }
