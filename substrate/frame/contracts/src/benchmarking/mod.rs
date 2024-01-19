@@ -2585,7 +2585,7 @@ benchmarks! {
 	// We add two `i64` integers from local variables and store the result into yet another
 	// local variable. The combination of this computation is our weight base `w_base`.
 	#[pov_mode = Ignored]
-	instr_i64add {
+	instr_i64_load_store {
 		let r in 0 .. INSTR_BENCHMARK_RUNS;
 
 		use rand::prelude::*;

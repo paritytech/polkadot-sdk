@@ -387,7 +387,7 @@ impl<T: Config> Default for InstructionWeights<T> {
 	/// we have to divide the actual computed gas costs by 4 to have a rough
 	/// estimate as to how expensive each single executed instruction is going to be.
 	fn default() -> Self {
-		let instr_cost = cost!(instr_i64add).ref_time() as u32;
+		let instr_cost = cost!(instr_i64_load_store).ref_time() as u32;
 		let base = instr_cost / 4;
 		Self { base, _phantom: PhantomData }
 	}
