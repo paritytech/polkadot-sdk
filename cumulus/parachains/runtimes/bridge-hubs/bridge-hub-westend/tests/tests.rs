@@ -33,7 +33,10 @@ use bridge_to_rococo_config::{
 };
 use codec::{Decode, Encode};
 use frame_support::{dispatch::GetDispatchInfo, parameter_types, traits::ConstU8};
-use parachains_common::{westend::fee::WeightToFee, AccountId, AuraId, Balance};
+use parachains_common::{
+	westend::{consensus::RELAY_CHAIN_SLOT_DURATION_MILLIS, fee::WeightToFee},
+	AccountId, AuraId, Balance, SLOT_DURATION,
+};
 use sp_consensus_aura::SlotDuration;
 use sp_keyring::AccountKeyring::Alice;
 use sp_runtime::{
@@ -114,10 +117,8 @@ fn collator_session_keys() -> bridge_hub_test_utils::CollatorSessionKeys<Runtime
 
 fn slot_durations() -> SlotDurations {
 	SlotDurations {
-		relay: SlotDuration::from_millis(
-			bridge_hub_westend_runtime::RELAY_CHAIN_SLOT_DURATION_MILLIS.into(),
-		),
-		para: SlotDuration::from_millis(bridge_hub_westend_runtime::SLOT_DURATION),
+		relay: SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS.into()),
+		para: SlotDuration::from_millis(SLOT_DURATION),
 	}
 }
 

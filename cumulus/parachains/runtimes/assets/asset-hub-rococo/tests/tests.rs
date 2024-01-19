@@ -27,7 +27,7 @@ pub use asset_hub_rococo_runtime::{
 	xcm_config::{CheckingAccount, TrustBackedAssetsPalletLocation, XcmConfig},
 	AssetConversion, AssetDeposit, Assets, Balances, CollatorSelection, ExistentialDeposit,
 	ForeignAssets, ForeignAssetsInstance, ParachainSystem, Runtime, SessionKeys, System,
-	TrustBackedAssetsInstance,
+	TrustBackedAssetsInstance, SLOT_DURATION,
 };
 use asset_test_utils::{
 	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
@@ -77,7 +77,7 @@ fn collator_session_keys() -> CollatorSessionKeys<Runtime> {
 fn slot_durations() -> SlotDurations {
 	SlotDurations {
 		relay: SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS.into()),
-		para: SlotDuration::from_millis(asset_hub_rococo_runtime::SLOT_DURATION),
+		para: SlotDuration::from_millis(SLOT_DURATION),
 	}
 }
 

@@ -47,8 +47,8 @@ use frame_support::{
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use parachains_common::{
-	westend::{currency::UNITS, fee::WeightToFee},
-	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
+	westend::{consensus::RELAY_CHAIN_SLOT_DURATION_MILLIS, currency::UNITS, fee::WeightToFee},
+	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, SLOT_DURATION,
 };
 use sp_consensus_aura::SlotDuration;
 use sp_runtime::traits::MaybeEquivalence;
@@ -78,10 +78,8 @@ fn collator_session_keys() -> CollatorSessionKeys<Runtime> {
 
 fn slot_durations() -> SlotDurations {
 	SlotDurations {
-		relay: SlotDuration::from_millis(
-			asset_hub_westend_runtime::RELAY_CHAIN_SLOT_DURATION_MILLIS.into(),
-		),
-		para: SlotDuration::from_millis(asset_hub_westend_runtime::SLOT_DURATION),
+		relay: SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS.into()),
+		para: SlotDuration::from_millis(SLOT_DURATION),
 	}
 }
 
