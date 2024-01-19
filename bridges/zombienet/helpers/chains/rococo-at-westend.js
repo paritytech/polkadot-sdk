@@ -1,6 +1,7 @@
 module.exports = {
 	grandpaPalletName: "bridgeRococoGrandpa",
 	parachainsPalletName: "bridgeRococoParachains",
+	messagesPalletName: "bridgeRococoMessages",
 	bestBridgedRelayChainGrandpaAuthoritySet: async function(api) {
 		return await api.query.bridgeRococoGrandpa.currentAuthoritySet();
 	},
