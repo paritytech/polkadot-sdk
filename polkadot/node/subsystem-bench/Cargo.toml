@@ -58,6 +58,7 @@ paste = "1.0.14"
 orchestra = { version = "0.3.3", default-features = false, features = ["futures_channel"] }
 pyroscope = "0.5.7"
 pyroscope_pprofrs = "0.2.7"
+strum = { version = "0.25", features = ["derive"] }
 
 [features]
 default = []

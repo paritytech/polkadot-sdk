@@ -14,9 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 use itertools::Itertools;
+use polkadot_node_subsystem_util::availability_chunks::availability_chunk_indices;
 use std::{collections::HashMap, iter::Cycle, ops::Sub, sync::Arc, time::Instant};
 
-use crate::TestEnvironment;
+use crate::{core::mock::node_features_with_chunk_mapping_enabled, TestEnvironment};
 use polkadot_node_subsystem::{Overseer, OverseerConnector, SpawnGlue};
 use polkadot_node_subsystem_test_helpers::derive_erasure_chunks_with_proofs_and_root;
 use polkadot_overseer::Handle as OverseerHandle;
@@ -27,7 +28,7 @@ use colored::Colorize;
 use futures::{channel::oneshot, stream::FuturesUnordered, StreamExt};
 use polkadot_node_metrics::metrics::Metrics;
 
-use polkadot_availability_recovery::AvailabilityRecoverySubsystem;
+use polkadot_availability_recovery::{AvailabilityRecoverySubsystem, RecoveryStrategyKind};
 
 use crate::GENESIS_HASH;
 use parity_scale_codec::Encode;
@@ -44,6 +45,8 @@ use crate::core::{
 	},
 };
 
+use self::cli::Strategy;
+
 use super::core::{configuration::TestConfiguration, mock::dummy_builder, network::*};
 
 const LOG_TARGET: &str = "subsystem-bench::availability";
@@ -53,7 +56,8 @@ use polkadot_node_primitives::{AvailableData, ErasureChunk};
 use super::{cli::TestObjective, core::mock::AlwaysSupportsParachains};
 use polkadot_node_subsystem_test_helpers::mock::new_block_import_info;
 use polkadot_primitives::{
-	CandidateHash, CandidateReceipt, GroupIndex, Hash, HeadData, PersistedValidationData,
+	CandidateHash, CandidateReceipt, ChunkIndex, CoreIndex, GroupIndex, Hash, HeadData,
+	PersistedValidationData,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use sc_service::SpawnTaskHandle;
@@ -100,13 +104,19 @@ fn prepare_test_inner(
 
 	let runtime_api = runtime_api::MockRuntimeApi::new(config.clone(), test_authorities.clone());
 
-	let av_store =
-		av_store::MockAvailabilityStore::new(state.chunks.clone(), state.candidate_hashes.clone());
+	let av_store = av_store::MockAvailabilityStore::new(
+		state.chunks.clone(),
+		state.chunk_indices.clone(),
+		state.candidate_hashes.clone(),
+		state.candidate_hash_to_core_index.clone(),
+	);
 
 	let availability_state = NetworkAvailabilityState {
 		candidate_hashes: state.candidate_hashes.clone(),
+		candidate_hash_to_core_index: state.candidate_hash_to_core_index.clone(),
 		available_data: state.available_data.clone(),
 		chunks: state.chunks.clone(),
+		chunk_indices: state.chunk_indices.clone(),
 	};
 
 	let req_protocol_names = ReqProtocolNames::new(GENESIS_HASH, None);
@@ -114,7 +124,7 @@ fn prepare_test_inner(
 		IncomingRequest::get_config_receiver(&req_protocol_names);
 
 	let network =
-		NetworkEmulator::new(&config, &dependencies, &test_authorities, req_protocol_names);
+		NetworkEmulator::new(&config, &dependencies, &test_authorities, req_protocol_names.clone());
 
 	let network_bridge_tx = network_bridge::MockNetworkBridgeTx::new(
 		config.clone(),
@@ -122,22 +132,21 @@ fn prepare_test_inner(
 		network.clone(),
 	);
 
-	let use_fast_path = match &state.config().objective {
-		TestObjective::DataAvailabilityRead(options) => options.fetch_from_backers,
+	let strategy = match &state.config().objective {
+		TestObjective::DataAvailabilityRead(options) => options.strategy,
 		_ => panic!("Unexpected objective"),
 	};
 
-	let subsystem = if use_fast_path {
-		AvailabilityRecoverySubsystem::with_fast_path(
-			collation_req_receiver,
-			Metrics::try_register(&dependencies.registry).unwrap(),
-		)
-	} else {
-		AvailabilityRecoverySubsystem::with_chunks_only(
-			collation_req_receiver,
-			Metrics::try_register(&dependencies.registry).unwrap(),
-		)
-	};
+	let subsystem = AvailabilityRecoverySubsystem::with_recovery_strategy_kind(
+		collation_req_receiver,
+		&req_protocol_names,
+		Metrics::try_register(&dependencies.registry).unwrap(),
+		match strategy {
+			Strategy::Chunks => RecoveryStrategyKind::ChunksAlways,
+			Strategy::Systematic => RecoveryStrategyKind::SystematicChunks,
+			Strategy::FullFromBackers => RecoveryStrategyKind::BackersFirstAlways,
+		},
+	);
 
 	let (overseer, overseer_handle) = build_overseer(
 		dependencies.task_manager.spawn_handle(),
@@ -163,12 +172,16 @@ pub struct TestState {
 	// Map from generated candidate hashes to candidate index in `available_data`
 	// and `chunks`.
 	candidate_hashes: HashMap<CandidateHash, usize>,
+	// Map from candidate hash to occupied core index.
+	candidate_hash_to_core_index: HashMap<CandidateHash, CoreIndex>,
 	// Per candidate index receipts.
 	candidate_receipt_templates: Vec<CandidateReceipt>,
 	// Per candidate index `AvailableData`
 	available_data: Vec<AvailableData>,
-	// Per candiadte index chunks
+	// Per candidate index chunks
 	chunks: Vec<Vec<ErasureChunk>>,
+	// Per-core ValidatorIndex -> ChunkIndex mapping
+	chunk_indices: Vec<Vec<ChunkIndex>>,
 }
 
 impl TestState {
@@ -204,6 +217,10 @@ impl TestState {
 				// Store the new candidate in the state
 				self.candidate_hashes.insert(candidate_receipt.hash(), candidate_index);
 
+				let core_index = (index % self.config.n_cores) as u32;
+				self.candidate_hash_to_core_index
+					.insert(candidate_receipt.hash(), core_index.into());
+
 				gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_receipt.hash(), "new candidate");
 
 				candidate_receipt
@@ -217,6 +234,7 @@ impl TestState {
 		let config = config.clone();
 
 		let mut chunks = Vec::new();
+		let mut chunk_indices = vec![vec![]; config.n_cores];
 		let mut available_data = Vec::new();
 		let mut candidate_receipt_templates = Vec::new();
 		let mut pov_size_to_candidate = HashMap::new();
@@ -228,6 +246,15 @@ impl TestState {
 			max_pov_size: 1024,
 			relay_parent_storage_root: Default::default(),
 		};
+
+		for core_index in 0..config.n_cores {
+			chunk_indices[core_index] = availability_chunk_indices(
+				Some(&node_features_with_chunk_mapping_enabled()),
+				config.n_validators,
+				CoreIndex(core_index as u32),
+			)
+			.unwrap();
+		}
 
 		// For each unique pov we create a candidate receipt.
 		for (index, pov_size) in config.pov_sizes().iter().cloned().unique().enumerate() {
@@ -264,9 +291,11 @@ impl TestState {
 			available_data,
 			candidate_receipt_templates,
 			chunks,
+			chunk_indices,
 			pov_size_to_candidate,
 			pov_sizes,
 			candidate_hashes: HashMap::new(),
+			candidate_hash_to_core_index: HashMap::new(),
 			candidates: Vec::new().into_iter().cycle(),
 		};
 
@@ -305,7 +334,7 @@ pub async fn benchmark_availability_read(env: &mut TestEnvironment, mut state: T
 					Some(GroupIndex(
 						candidate_num as u32 % (std::cmp::max(5, config.n_cores) / 5) as u32,
 					)),
-					None,
+					Some(CoreIndex(candidate_num as u32)),
 					tx,
 				),
 			);

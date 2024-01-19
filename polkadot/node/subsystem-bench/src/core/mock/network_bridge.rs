@@ -25,7 +25,7 @@ use futures::FutureExt;
 
 use polkadot_node_primitives::{AvailableData, ErasureChunk};
 
-use polkadot_primitives::CandidateHash;
+use polkadot_primitives::{CandidateHash, ChunkIndex, CoreIndex};
 use sc_network::{OutboundFailure, RequestFailure};
 
 use polkadot_node_subsystem::{
@@ -33,9 +33,7 @@ use polkadot_node_subsystem::{
 };
 
 use polkadot_node_network_protocol::request_response::{
-	self as req_res,
-	v1::{AvailableDataFetchingRequest, ChunkFetchingRequest, ChunkResponse},
-	IsRequest, Requests,
+	self as req_res, v1::AvailableDataFetchingRequest, IsRequest, Requests,
 };
 use polkadot_primitives::AuthorityDiscoveryId;
 
@@ -49,8 +47,10 @@ use crate::core::{
 /// by a remote peer on the network
 pub struct NetworkAvailabilityState {
 	pub candidate_hashes: HashMap<CandidateHash, usize>,
+	pub candidate_hash_to_core_index: HashMap<CandidateHash, CoreIndex>,
 	pub available_data: Vec<AvailableData>,
 	pub chunks: Vec<Vec<ErasureChunk>>,
+	pub chunk_indices: Vec<Vec<ChunkIndex>>,
 }
 
 const LOG_TARGET: &str = "subsystem-bench::network-bridge-tx-mock";
@@ -60,7 +60,7 @@ pub struct MockNetworkBridgeTx {
 	/// The test configurationg
 	config: TestConfiguration,
 	/// The network availability state
-	availabilty: NetworkAvailabilityState,
+	availability: NetworkAvailabilityState,
 	/// A network emulator instance
 	network: NetworkEmulator,
 }
@@ -68,10 +68,10 @@ pub struct MockNetworkBridgeTx {
 impl MockNetworkBridgeTx {
 	pub fn new(
 		config: TestConfiguration,
-		availabilty: NetworkAvailabilityState,
+		availability: NetworkAvailabilityState,
 		network: NetworkEmulator,
 	) -> MockNetworkBridgeTx {
-		Self { config, availabilty, network }
+		Self { config, availability, network }
 	}
 
 	fn not_connected_response(
@@ -99,7 +99,7 @@ impl MockNetworkBridgeTx {
 		let ingress_tx = ingress_tx.clone();
 
 		match request {
-			Requests::ChunkFetchingV1(outgoing_request) => {
+			Requests::ChunkFetching(outgoing_request) => {
 				let authority_discovery_id = match outgoing_request.peer {
 					req_res::Recipient::Authority(authority_discovery_id) => authority_discovery_id,
 					_ => unimplemented!("Peer recipient not supported yet"),
@@ -125,20 +125,32 @@ impl MockNetworkBridgeTx {
 					.peer_stats_by_id(&authority_discovery_id)
 					.inc_received(outgoing_request.payload.encoded_size());
 
-				let validator_index: usize = outgoing_request.payload.index.0 as usize;
 				let candidate_hash = outgoing_request.payload.candidate_hash;
 
 				let candidate_index = self
-					.availabilty
+					.availability
 					.candidate_hashes
 					.get(&candidate_hash)
 					.expect("candidate was generated previously; qed");
 				gum::warn!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
 
-				let chunk: ChunkResponse = self.availabilty.chunks.get(*candidate_index).unwrap()
-					[validator_index]
-					.clone()
-					.into();
+				let validator_index = outgoing_request.payload.index;
+
+				let candidate_chunks = self.availability.chunks.get(*candidate_index).unwrap();
+				let core_index =
+					self.availability.candidate_hash_to_core_index.get(&candidate_hash).unwrap();
+				let chunk_index = self
+					.availability
+					.chunk_indices
+					.get(core_index.0 as usize)
+					.unwrap()
+					.get(validator_index.0 as usize)
+					.unwrap();
+
+				let chunk = candidate_chunks.get(chunk_index.0 as usize).unwrap().clone();
+
+				assert_eq!(chunk.index, *chunk_index);
+
 				let mut size = chunk.encoded_size();
 
 				let response = if random_error(self.config.error) {
@@ -147,8 +159,10 @@ impl MockNetworkBridgeTx {
 					Err(RequestFailure::Network(OutboundFailure::ConnectionClosed))
 				} else {
 					Ok((
-						req_res::v1::ChunkFetchingResponse::from(Some(chunk)).encode(),
-						self.network.req_protocol_names().get_name(ChunkFetchingRequest::PROTOCOL),
+						req_res::v2::ChunkFetchingResponse::from(Some(chunk)).encode(),
+						self.network
+							.req_protocol_names()
+							.get_name(req_res::v2::ChunkFetchingRequest::PROTOCOL),
 					))
 				};
 
@@ -179,7 +193,7 @@ impl MockNetworkBridgeTx {
 			Requests::AvailableDataFetchingV1(outgoing_request) => {
 				let candidate_hash = outgoing_request.payload.candidate_hash;
 				let candidate_index = self
-					.availabilty
+					.availability
 					.candidate_hashes
 					.get(&candidate_hash)
 					.expect("candidate was generated previously; qed");
@@ -210,7 +224,7 @@ impl MockNetworkBridgeTx {
 					.inc_received(outgoing_request.payload.encoded_size());
 
 				let available_data =
-					self.availabilty.available_data.get(*candidate_index).unwrap().clone();
+					self.availability.available_data.get(*candidate_index).unwrap().clone();
 
 				let size = available_data.encoded_size();
 
@@ -325,7 +339,7 @@ impl MockNetworkBridgeTx {
 // A helper to determine the request payload size.
 fn request_size(request: &Requests) -> usize {
 	match request {
-		Requests::ChunkFetchingV1(outgoing_request) => outgoing_request.payload.encoded_size(),
+		Requests::ChunkFetching(outgoing_request) => outgoing_request.payload.encoded_size(),
 		Requests::AvailableDataFetchingV1(outgoing_request) =>
 			outgoing_request.payload.encoded_size(),
 		_ => unimplemented!("received an unexpected request"),

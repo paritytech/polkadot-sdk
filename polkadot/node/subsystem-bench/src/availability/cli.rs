@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use serde::{Deserialize, Serialize};
+use strum::Display;
 
 #[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq)]
 #[value(rename_all = "kebab-case")]
@@ -25,13 +26,24 @@ pub enum NetworkEmulation {
 	Degraded,
 }
 
+#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Serialize, Deserialize, Display)]
+#[value(rename_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case")]
+pub enum Strategy {
+	/// Regular random chunk recovery. This is also the fallback for the next strategies.
+	Chunks,
+	/// Recovery from systematic chunks. Much faster than regular chunk recovery becasue it avoid
+	/// doing the reed-solomon reconstruction.
+	Systematic,
+	/// Fetch the full availability datafrom backers first. Saves CPU as we don't need to
+	/// re-construct from chunks. Typically this is only faster if nodes have enough bandwidth.
+	FullFromBackers,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, clap::Parser)]
 #[clap(rename_all = "kebab-case")]
 #[allow(missing_docs)]
 pub struct DataAvailabilityReadOptions {
-	#[clap(short, long, default_value_t = false)]
-	/// Turbo boost AD Read by fetching the full availability datafrom backers first. Saves CPU as
-	/// we don't need to re-construct from chunks. Tipically this is only faster if nodes have
-	/// enough bandwidth.
-	pub fetch_from_backers: bool,
+	#[clap(short, long, default_value_t = Strategy::Systematic)]
+	pub strategy: Strategy,
 }

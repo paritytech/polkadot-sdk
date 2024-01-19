@@ -16,7 +16,10 @@
 //!
 //! A generic runtime api subsystem mockup suitable to be used in benchmarks.
 
-use polkadot_primitives::{GroupIndex, IndexedVec, SessionInfo, ValidatorIndex};
+use polkadot_primitives::{
+	vstaging::{node_features, NodeFeatures},
+	ExecutorParams, GroupIndex, IndexedVec, SessionInfo, ValidatorIndex,
+};
 
 use polkadot_node_subsystem::{
 	messages::{RuntimeApiMessage, RuntimeApiRequest},
@@ -31,6 +34,7 @@ const LOG_TARGET: &str = "subsystem-bench::runtime-api-mock";
 
 pub struct RuntimeApiState {
 	authorities: TestAuthorities,
+	node_features: NodeFeatures,
 }
 
 pub struct MockRuntimeApi {
@@ -40,7 +44,10 @@ pub struct MockRuntimeApi {
 
 impl MockRuntimeApi {
 	pub fn new(config: TestConfiguration, authorities: TestAuthorities) -> MockRuntimeApi {
-		Self { state: RuntimeApiState { authorities }, config }
+		// Enable chunk mapping feature to make systematic av-recovery possible.
+		let node_features = node_features_with_chunk_mapping_enabled();
+
+		Self { state: RuntimeApiState { authorities, node_features }, config }
 	}
 
 	fn session_info(&self) -> SessionInfo {
@@ -93,10 +100,22 @@ impl MockRuntimeApi {
 
 					match msg {
 						RuntimeApiMessage::Request(
-							_request,
+							_hash,
 							RuntimeApiRequest::SessionInfo(_session_index, sender),
 						) => {
 							let _ = sender.send(Ok(Some(self.session_info())));
+						},
+						RuntimeApiMessage::Request(
+							_hash,
+							RuntimeApiRequest::SessionExecutorParams(_session_index, sender),
+						) => {
+							let _ = sender.send(Ok(Some(ExecutorParams::new())));
+						},
+						RuntimeApiMessage::Request(
+							_hash,
+							RuntimeApiRequest::NodeFeatures(_session_index, sender),
+						) => {
+							let _ = sender.send(Ok(self.state.node_features.clone()));
 						},
 						// Long term TODO: implement more as needed.
 						_ => {
@@ -107,4 +126,11 @@ impl MockRuntimeApi {
 			}
 		}
 	}
+}
+
+pub fn node_features_with_chunk_mapping_enabled() -> NodeFeatures {
+	let mut node_features = NodeFeatures::new();
+	node_features.resize(node_features::FeatureIndex::AvailabilityChunkMapping as usize + 1, false);
+	node_features.set(node_features::FeatureIndex::AvailabilityChunkMapping as u8 as usize, true);
+	node_features
 }

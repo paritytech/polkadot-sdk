@@ -17,7 +17,7 @@
 //! A generic av store subsystem mockup suitable to be used in benchmarks.
 
 use parity_scale_codec::Encode;
-use polkadot_primitives::CandidateHash;
+use polkadot_primitives::{CandidateHash, ChunkIndex, CoreIndex, ValidatorIndex};
 
 use std::collections::HashMap;
 
@@ -34,6 +34,8 @@ use polkadot_node_subsystem_types::OverseerSignal;
 pub struct AvailabilityStoreState {
 	candidate_hashes: HashMap<CandidateHash, usize>,
 	chunks: Vec<Vec<ErasureChunk>>,
+	chunk_indices: Vec<Vec<ChunkIndex>>,
+	candidate_hash_to_core_index: HashMap<CandidateHash, CoreIndex>,
 }
 
 const LOG_TARGET: &str = "subsystem-bench::av-store-mock";
@@ -47,16 +49,25 @@ pub struct MockAvailabilityStore {
 impl MockAvailabilityStore {
 	pub fn new(
 		chunks: Vec<Vec<ErasureChunk>>,
+		chunk_indices: Vec<Vec<ChunkIndex>>,
 		candidate_hashes: HashMap<CandidateHash, usize>,
+		candidate_hash_to_core_index: HashMap<CandidateHash, CoreIndex>,
 	) -> MockAvailabilityStore {
-		Self { state: AvailabilityStoreState { chunks, candidate_hashes } }
+		Self {
+			state: AvailabilityStoreState {
+				chunks,
+				candidate_hashes,
+				chunk_indices,
+				candidate_hash_to_core_index,
+			},
+		}
 	}
 
 	async fn respond_to_query_all_request(
 		&self,
 		candidate_hash: CandidateHash,
-		send_chunk: impl Fn(usize) -> bool,
-		tx: oneshot::Sender<Vec<ErasureChunk>>,
+		send_chunk: impl Fn(ValidatorIndex) -> bool,
+		tx: oneshot::Sender<Vec<(ValidatorIndex, ErasureChunk)>>,
 	) {
 		let candidate_index = self
 			.state
@@ -65,15 +76,27 @@ impl MockAvailabilityStore {
 			.expect("candidate was generated previously; qed");
 		gum::debug!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
 
-		let v = self
-			.state
-			.chunks
-			.get(*candidate_index)
-			.unwrap()
-			.iter()
-			.filter(|c| send_chunk(c.index.0 as usize))
-			.cloned()
-			.collect();
+		let n_validators = self.state.chunks[0].len();
+		let candidate_chunks = self.state.chunks.get(*candidate_index).unwrap();
+		let core_index = self.state.candidate_hash_to_core_index.get(&candidate_hash).unwrap();
+		// We'll likely only send our chunk, so use capacity 1.
+		let mut v = Vec::with_capacity(1);
+
+		for validator_index in 0..n_validators {
+			if !send_chunk(ValidatorIndex(validator_index as u32)) {
+				continue;
+			}
+			let chunk_index = self
+				.state
+				.chunk_indices
+				.get(core_index.0 as usize)
+				.unwrap()
+				.get(validator_index as usize)
+				.unwrap();
+
+			let chunk = candidate_chunks.get(chunk_index.0 as usize).unwrap().clone();
+			v.push((ValidatorIndex(validator_index as u32), chunk.clone()));
+		}
 
 		let _ = tx.send(v);
 	}
@@ -110,8 +133,12 @@ impl MockAvailabilityStore {
 					AvailabilityStoreMessage::QueryAllChunks(candidate_hash, tx) => {
 						// We always have our own chunk.
 						gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_hash, "Responding to QueryAllChunks");
-						self.respond_to_query_all_request(candidate_hash, |index| index == 0, tx)
-							.await;
+						self.respond_to_query_all_request(
+							candidate_hash,
+							|index| index == 0.into(),
+							tx,
+						)
+						.await;
 					},
 					AvailabilityStoreMessage::QueryChunkSize(candidate_hash, tx) => {
 						gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_hash, "Responding to QueryChunkSize");
@@ -123,8 +150,14 @@ impl MockAvailabilityStore {
 							.expect("candidate was generated previously; qed");
 						gum::debug!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
 
-						let chunk_size =
-							self.state.chunks.get(*candidate_index).unwrap()[0].encoded_size();
+						let chunk_size = self
+							.state
+							.chunks
+							.get(*candidate_index)
+							.unwrap()
+							.get(0)
+							.unwrap()
+							.encoded_size();
 						let _ = tx.send(Some(chunk_size));
 					},
 					_ => {

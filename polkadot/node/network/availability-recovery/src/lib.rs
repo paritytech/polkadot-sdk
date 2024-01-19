@@ -94,7 +94,7 @@ const SMALL_POV_LIMIT: usize = 128 * 1024;
 
 #[derive(Clone, PartialEq)]
 /// The strategy we use to recover the PoV.
-enum RecoveryStrategyKind {
+pub enum RecoveryStrategyKind {
 	/// We try the backing group first if PoV size is lower than specified, then fallback to
 	/// validator chunks.
 	BackersFirstIfSizeLower(usize),
@@ -141,7 +141,7 @@ pub struct AvailabilityRecoverySubsystem {
 
 #[derive(Clone, PartialEq, Debug)]
 /// The type of check to perform after available data was recovered.
-pub enum PostRecoveryCheck {
+enum PostRecoveryCheck {
 	/// Reencode the data and check erasure root. For validators.
 	Reencode,
 	/// Only check the pov hash. For collators only.
@@ -149,7 +149,7 @@ pub enum PostRecoveryCheck {
 }
 
 /// Expensive erasure coding computations that we want to run on a blocking thread.
-pub enum ErasureTask {
+enum ErasureTask {
 	/// Reconstructs `AvailableData` from chunks given `n_validators`.
 	Reconstruct(
 		usize,
@@ -647,8 +647,8 @@ impl AvailabilityRecoverySubsystem {
 
 	/// Customise the recovery strategy kind
 	/// Currently only useful for tests.
-	#[cfg(test)]
-	fn with_recovery_strategy_kind(
+	#[cfg(any(test, feature = "subsystem-benchmarks"))]
+	pub fn with_recovery_strategy_kind(
 		req_receiver: IncomingRequestReceiver<request_v1::AvailableDataFetchingRequest>,
 		req_protocol_names: &ReqProtocolNames,
 		metrics: Metrics,
