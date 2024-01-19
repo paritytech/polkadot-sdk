@@ -1117,7 +1117,9 @@ impl parachains_configuration::Config for Runtime {
 	type WeightInfo = weights::runtime_parachains_configuration::WeightInfo<Runtime>;
 }
 
-impl parachains_shared::Config for Runtime {}
+impl parachains_shared::Config for Runtime {
+	type DisabledValidators = Session;
+}
 
 impl parachains_session_info::Config for Runtime {
 	type ValidatorSet = Historical;
