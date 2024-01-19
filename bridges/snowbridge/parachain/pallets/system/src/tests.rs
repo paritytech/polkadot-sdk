@@ -11,8 +11,8 @@ use sp_runtime::{AccountId32, DispatchError::BadOrigin, TokenError};
 fn create_agent() {
 	new_test_ext(true).execute_with(|| {
 		let origin_para_id = 2000;
-		let origin_location = MultiLocation { parents: 1, interior: X1(Parachain(origin_para_id)) };
-		let agent_id = make_agent_id(origin_location);
+		let origin_location = Location::new(1, [Parachain(origin_para_id)]);
+		let agent_id = make_agent_id(origin_location.clone());
 		let sovereign_account = sibling_sovereign_account::<Test>(origin_para_id.into());
 
 		// fund sovereign account of origin
@@ -30,7 +30,7 @@ fn create_agent() {
 #[test]
 fn test_agent_for_here() {
 	new_test_ext(true).execute_with(|| {
-		let origin_location = MultiLocation::here();
+		let origin_location = Location::here();
 		let agent_id = make_agent_id(origin_location);
 		assert_eq!(
 			agent_id,
@@ -42,7 +42,7 @@ fn test_agent_for_here() {
 #[test]
 fn create_agent_fails_on_funds_unavailable() {
 	new_test_ext(true).execute_with(|| {
-		let origin_location = MultiLocation { parents: 1, interior: X1(Parachain(2000)) };
+		let origin_location = Location::new(1, [Parachain(2000)]);
 		let origin = make_xcm_origin(origin_location);
 		// Reset balance of sovereign_account to zero so to trigger the FundsUnavailable error
 		let sovereign_account = sibling_sovereign_account::<Test>(2000.into());
@@ -56,19 +56,16 @@ fn create_agent_bad_origin() {
 	new_test_ext(true).execute_with(|| {
 		// relay chain location not allowed
 		assert_noop!(
-			EthereumSystem::create_agent(make_xcm_origin(MultiLocation {
-				parents: 1,
-				interior: Here,
-			})),
+			EthereumSystem::create_agent(make_xcm_origin(Location::new(1, [],))),
 			BadOrigin,
 		);
 
 		// local account location not allowed
 		assert_noop!(
-			EthereumSystem::create_agent(make_xcm_origin(MultiLocation {
-				parents: 0,
-				interior: X1(Junction::AccountId32 { network: None, id: [67u8; 32] }),
-			})),
+			EthereumSystem::create_agent(make_xcm_origin(Location::new(
+				0,
+				[Junction::AccountId32 { network: None, id: [67u8; 32] }],
+			))),
 			BadOrigin,
 		);
 
@@ -243,7 +240,7 @@ fn set_token_transfer_fees_invalid() {
 fn create_channel() {
 	new_test_ext(true).execute_with(|| {
 		let origin_para_id = 2000;
-		let origin_location = MultiLocation { parents: 1, interior: X1(Parachain(origin_para_id)) };
+		let origin_location = Location::new(1, [Parachain(origin_para_id)]);
 		let sovereign_account = sibling_sovereign_account::<Test>(origin_para_id.into());
 		let origin = make_xcm_origin(origin_location);
 
@@ -259,7 +256,7 @@ fn create_channel() {
 fn create_channel_fail_already_exists() {
 	new_test_ext(true).execute_with(|| {
 		let origin_para_id = 2000;
-		let origin_location = MultiLocation { parents: 1, interior: X1(Parachain(origin_para_id)) };
+		let origin_location = Location::new(1, [Parachain(origin_para_id)]);
 		let sovereign_account = sibling_sovereign_account::<Test>(origin_para_id.into());
 		let origin = make_xcm_origin(origin_location);
 
@@ -282,7 +279,7 @@ fn create_channel_bad_origin() {
 		// relay chain location not allowed
 		assert_noop!(
 			EthereumSystem::create_channel(
-				make_xcm_origin(MultiLocation { parents: 1, interior: Here }),
+				make_xcm_origin(Location::new(1, [])),
 				OperatingMode::Normal,
 			),
 			BadOrigin,
@@ -291,13 +288,10 @@ fn create_channel_bad_origin() {
 		// child of sibling location not allowed
 		assert_noop!(
 			EthereumSystem::create_channel(
-				make_xcm_origin(MultiLocation {
-					parents: 1,
-					interior: X2(
-						Parachain(2000),
-						Junction::AccountId32 { network: None, id: [67u8; 32] }
-					),
-				}),
+				make_xcm_origin(Location::new(
+					1,
+					[Parachain(2000), Junction::AccountId32 { network: None, id: [67u8; 32] }],
+				)),
 				OperatingMode::Normal,
 			),
 			BadOrigin,
@@ -306,10 +300,10 @@ fn create_channel_bad_origin() {
 		// local account location not allowed
 		assert_noop!(
 			EthereumSystem::create_channel(
-				make_xcm_origin(MultiLocation {
-					parents: 0,
-					interior: X1(Junction::AccountId32 { network: None, id: [67u8; 32] }),
-				}),
+				make_xcm_origin(Location::new(
+					0,
+					[Junction::AccountId32 { network: None, id: [67u8; 32] }],
+				)),
 				OperatingMode::Normal,
 			),
 			BadOrigin,
@@ -333,7 +327,7 @@ fn create_channel_bad_origin() {
 fn update_channel() {
 	new_test_ext(true).execute_with(|| {
 		let origin_para_id = 2000;
-		let origin_location = MultiLocation { parents: 1, interior: X1(Parachain(origin_para_id)) };
+		let origin_location = Location::new(1, [Parachain(origin_para_id)]);
 		let sovereign_account = sibling_sovereign_account::<Test>(origin_para_id.into());
 		let origin = make_xcm_origin(origin_location);
 
@@ -359,23 +353,17 @@ fn update_channel_bad_origin() {
 
 		// relay chain location not allowed
 		assert_noop!(
-			EthereumSystem::update_channel(
-				make_xcm_origin(MultiLocation { parents: 1, interior: Here }),
-				mode,
-			),
+			EthereumSystem::update_channel(make_xcm_origin(Location::new(1, [])), mode,),
 			BadOrigin,
 		);
 
 		// child of sibling location not allowed
 		assert_noop!(
 			EthereumSystem::update_channel(
-				make_xcm_origin(MultiLocation {
-					parents: 1,
-					interior: X2(
-						Parachain(2000),
-						Junction::AccountId32 { network: None, id: [67u8; 32] }
-					),
-				}),
+				make_xcm_origin(Location::new(
+					1,
+					[Parachain(2000), Junction::AccountId32 { network: None, id: [67u8; 32] }],
+				)),
 				mode,
 			),
 			BadOrigin,
@@ -384,10 +372,10 @@ fn update_channel_bad_origin() {
 		// local account location not allowed
 		assert_noop!(
 			EthereumSystem::update_channel(
-				make_xcm_origin(MultiLocation {
-					parents: 0,
-					interior: X1(Junction::AccountId32 { network: None, id: [67u8; 32] }),
-				}),
+				make_xcm_origin(Location::new(
+					0,
+					[Junction::AccountId32 { network: None, id: [67u8; 32] }],
+				)),
 				mode,
 			),
 			BadOrigin,
@@ -407,7 +395,7 @@ fn update_channel_bad_origin() {
 #[test]
 fn update_channel_fails_not_exist() {
 	new_test_ext(true).execute_with(|| {
-		let origin_location = MultiLocation { parents: 1, interior: X1(Parachain(2000)) };
+		let origin_location = Location::new(1, [Parachain(2000)]);
 		let origin = make_xcm_origin(origin_location);
 
 		// Now try to update it
@@ -422,7 +410,7 @@ fn update_channel_fails_not_exist() {
 fn force_update_channel() {
 	new_test_ext(true).execute_with(|| {
 		let origin_para_id = 2000;
-		let origin_location = MultiLocation { parents: 1, interior: X1(Parachain(origin_para_id)) };
+		let origin_location = Location::new(1, [Parachain(origin_para_id)]);
 		let sovereign_account = sibling_sovereign_account::<Test>(origin_para_id.into());
 		let origin = make_xcm_origin(origin_location);
 
@@ -468,8 +456,8 @@ fn force_update_channel_bad_origin() {
 #[test]
 fn transfer_native_from_agent() {
 	new_test_ext(true).execute_with(|| {
-		let origin_location = MultiLocation { parents: 1, interior: X1(Parachain(2000)) };
-		let origin = make_xcm_origin(origin_location);
+		let origin_location = Location::new(1, [Parachain(2000)]);
+		let origin = make_xcm_origin(origin_location.clone());
 		let recipient: H160 = [27u8; 20].into();
 		let amount = 103435;
 
@@ -477,7 +465,7 @@ fn transfer_native_from_agent() {
 		assert_ok!(EthereumSystem::create_agent(origin.clone()));
 		assert_ok!(EthereumSystem::create_channel(origin, OperatingMode::Normal));
 
-		let origin = make_xcm_origin(origin_location);
+		let origin = make_xcm_origin(origin_location.clone());
 		assert_ok!(EthereumSystem::transfer_native_from_agent(origin, recipient, amount),);
 
 		System::assert_last_event(RuntimeEvent::EthereumSystem(
@@ -494,13 +482,13 @@ fn transfer_native_from_agent() {
 fn force_transfer_native_from_agent() {
 	new_test_ext(true).execute_with(|| {
 		let origin = RuntimeOrigin::root();
-		let location = MultiLocation { parents: 1, interior: X1(Parachain(2000)) };
-		let versioned_location: Box<VersionedMultiLocation> = Box::new(location.into());
+		let location = Location::new(1, [Parachain(2000)]);
+		let versioned_location: Box<VersionedLocation> = Box::new(location.clone().into());
 		let recipient: H160 = [27u8; 20].into();
 		let amount = 103435;
 
 		// First create the agent
-		Agents::<Test>::insert(make_agent_id(location), ());
+		Agents::<Test>::insert(make_agent_id(location.clone()), ());
 
 		assert_ok!(EthereumSystem::force_transfer_native_from_agent(
 			origin,
@@ -530,13 +518,10 @@ fn force_transfer_native_from_agent_bad_origin() {
 			EthereumSystem::force_transfer_native_from_agent(
 				RuntimeOrigin::signed([14; 32].into()),
 				Box::new(
-					MultiLocation {
-						parents: 1,
-						interior: X2(
-							Parachain(2000),
-							Junction::AccountId32 { network: None, id: [67u8; 32] }
-						),
-					}
+					Location::new(
+						1,
+						[Parachain(2000), Junction::AccountId32 { network: None, id: [67u8; 32] }],
+					)
 					.into()
 				),
 				recipient,
@@ -571,8 +556,8 @@ fn check_sibling_sovereign_account() {
 fn charge_fee_for_create_agent() {
 	new_test_ext(true).execute_with(|| {
 		let para_id: u32 = TestParaId::get();
-		let origin_location = MultiLocation { parents: 1, interior: X1(Parachain(para_id)) };
-		let origin = make_xcm_origin(origin_location);
+		let origin_location = Location::new(1, [Parachain(para_id)]);
+		let origin = make_xcm_origin(origin_location.clone());
 		let sovereign_account = sibling_sovereign_account::<Test>(para_id.into());
 		let (_, agent_id) = ensure_sibling::<Test>(&origin_location).unwrap();
 
@@ -605,10 +590,10 @@ fn charge_fee_for_create_agent() {
 fn charge_fee_for_transfer_native_from_agent() {
 	new_test_ext(true).execute_with(|| {
 		let para_id: u32 = TestParaId::get();
-		let origin_location = MultiLocation { parents: 1, interior: X1(Parachain(para_id)) };
+		let origin_location = Location::new(1, [Parachain(para_id)]);
 		let recipient: H160 = [27u8; 20].into();
 		let amount = 103435;
-		let origin = make_xcm_origin(origin_location);
+		let origin = make_xcm_origin(origin_location.clone());
 		let (_, agent_id) = ensure_sibling::<Test>(&origin_location).unwrap();
 
 		let sovereign_account = sibling_sovereign_account::<Test>(para_id.into());

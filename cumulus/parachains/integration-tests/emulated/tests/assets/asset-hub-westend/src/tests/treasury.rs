@@ -31,16 +31,16 @@ fn create_and_claim_treasury_spend() {
 	const ASSET_ID: u32 = 1984;
 	const SPEND_AMOUNT: u128 = 1_000_000;
 	// treasury location from a sibling parachain.
-	let treasury_location: MultiLocation = MultiLocation::new(1, PalletInstance(37));
+	let treasury_location: Location = Location::new(1, PalletInstance(37));
 	// treasury account on a sibling parachain.
 	let treasury_account =
 		AssetHubLocationToAccountId::convert_location(&treasury_location).unwrap();
-	let asset_hub_location = MultiLocation::new(0, Parachain(AssetHubWestend::para_id().into()));
+	let asset_hub_location = Location::new(0, Parachain(AssetHubWestend::para_id().into()));
 	let root = <Westend as Chain>::RuntimeOrigin::root();
 	// asset kind to be spend from the treasury.
-	let asset_kind = VersionedLocatableAsset::V3 {
+	let asset_kind = VersionedLocatableAsset::V4 {
 		location: asset_hub_location,
-		asset_id: AssetId::Concrete((PalletInstance(50), GeneralIndex(ASSET_ID.into())).into()),
+		asset_id: AssetId([PalletInstance(50), GeneralIndex(ASSET_ID.into())].into()),
 	};
 	// treasury spend beneficiary.
 	let alice: AccountId = Westend::account_id_of(ALICE);
@@ -75,7 +75,7 @@ fn create_and_claim_treasury_spend() {
 			root,
 			Box::new(asset_kind),
 			SPEND_AMOUNT,
-			Box::new(MultiLocation::new(0, Into::<[u8; 32]>::into(alice.clone())).into()),
+			Box::new(Location::new(0, Into::<[u8; 32]>::into(alice.clone())).into()),
 			None,
 		));
 		// claim the spend.
@@ -136,6 +136,11 @@ fn spend_and_swap() {
 	use sp_runtime::traits::Dispatchable;
 	use westend_runtime::{AssetRate, OriginCaller};
 	use westend_system_emulated_network::WestendMockNet;
+	use xcm::v3::{
+		Junction::{GeneralIndex, PalletInstance, Parachain, Plurality},
+		Junctions::X1,
+		MultiAsset, MultiLocation, Xcm,
+	};
 
 	type Runtime = <Westend as Chain>::Runtime;
 	type AssetHubRuntime = <AssetHubWestend as Chain>::Runtime;
@@ -156,14 +161,18 @@ fn spend_and_swap() {
 	let asset_hub_location: MultiLocation = X1(Parachain(1000)).into();
 
 	let asset_hub_treasury_location: MultiLocation =
-		treasury_location.prepended_with(Parent).unwrap();
-	let asset_hub_treasury_account =
-		AssetHubLocationToAccountId::convert_location(&asset_hub_treasury_location).unwrap();
+		treasury_location.prepended_with(v3::Parent).unwrap();
+	let asset_hub_treasury_account = AssetHubLocationToAccountId::convert_location(
+		&asset_hub_treasury_location.try_into().unwrap(),
+	)
+	.unwrap();
 
 	let treasury_plurality_location =
 		MultiLocation::new(1, X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }));
-	let treasury_plurality_account =
-		AssetHubLocationToAccountId::convert_location(&treasury_plurality_location).unwrap();
+	let treasury_plurality_account = AssetHubLocationToAccountId::convert_location(
+		&treasury_plurality_location.try_into().unwrap(),
+	)
+	.unwrap();
 
 	// 1 native coin ~ 20 usdt, our current market price.
 	let usdt_to_native_rate = 20;
@@ -183,7 +192,7 @@ fn spend_and_swap() {
 		// Setup `native_asset` <> `usdt_asset` liquidity pool with `usdt_to_native_rate`.
 
 		let root = <AssetHubWestend as Chain>::RuntimeOrigin::root();
-		let native_asset = native_asset.prepended_with(Parent).unwrap();
+		let native_asset = native_asset.prepended_with(v3::Parent).unwrap();
 		let usdt_asset: MultiLocation = (PalletInstance(50), GeneralIndex(USDT_ID.into())).into();
 		let usdt_liquidity = total_swap_amount_out * 100_000;
 		let native_liquidity = (usdt_liquidity / USDT_UNITS) / usdt_to_native_rate * UNITS;
@@ -261,11 +270,11 @@ fn spend_and_swap() {
 		let teleport_call = RuntimeCall::Utility(pallet_utility::Call::<Runtime>::dispatch_as {
 			as_origin: bx!(OriginCaller::system(RawOrigin::Signed(treasury_account))),
 			call: bx!(RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::teleport_assets {
-				dest: bx!(asset_hub_location.into()),
-				beneficiary: bx!(asset_hub_treasury_location.into()),
-				assets: bx!(
+				dest: bx!(VersionedLocation::V3(asset_hub_location)),
+				beneficiary: bx!(VersionedLocation::V3(asset_hub_treasury_location)),
+				assets: bx!(VersionedAssets::V3(
 					MultiAsset { id: native_asset.into(), fun: teleport_amount.into() }.into()
-				),
+				)),
 				fee_asset_item: 0,
 			})),
 		});
@@ -285,9 +294,11 @@ fn spend_and_swap() {
 
 		// Ensure teleported assets are received.
 
-		let treasury_location: MultiLocation = treasury_location.prepended_with(Parent).unwrap();
+		let treasury_location: MultiLocation =
+			treasury_location.prepended_with(v3::Parent).unwrap();
 		let treasury_account =
-			AssetHubLocationToAccountId::convert_location(&treasury_location).unwrap();
+			AssetHubLocationToAccountId::convert_location(&treasury_location.try_into().unwrap())
+				.unwrap();
 
 		assert!(AssetHubBalances::free_balance(treasury_account) > 0);
 
@@ -311,7 +322,7 @@ fn spend_and_swap() {
 		// of the swapped USDT coins is the treasury pallet. This corresponds to our treasury setup
 		// on the relay chain and allows spending those assets with the spend call.
 
-		let native_asset = native_asset.prepended_with(Parent).unwrap();
+		let native_asset = native_asset.prepended_with(v3::Parent).unwrap();
 		let usdt_asset: MultiLocation = (PalletInstance(50), GeneralIndex(USDT_ID.into())).into();
 		let treasury_origin = OriginCaller::Origins(
 			westend_runtime::governance::pallet_custom_origins::Origin::Treasurer,
@@ -351,7 +362,7 @@ fn spend_and_swap() {
 							asset_id: native_asset.into(),
 						}),
 						amount: total_swap_amount_in,
-						beneficiary: bx!(VersionedMultiLocation::V3(beneficiary)),
+						beneficiary: bx!(VersionedLocation::V3(beneficiary)),
 						valid_from: None,
 					}),
 					RuntimeCall::Treasury(pallet_treasury::Call::<Runtime>::payout { index: 0 }),
@@ -367,11 +378,14 @@ fn spend_and_swap() {
 						maybe_periodic: Some((100, swaps_number)),
 						priority: 3,
 						call: bx!(RuntimeCall::XcmPallet(pallet_xcm::Call::<Runtime>::send {
-							dest: bx!(asset_hub_location.into()),
+							dest: bx!(VersionedLocation::V3(asset_hub_location)),
 							message: bx!(VersionedXcm::V3(Xcm(vec![
-								UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-								Transact {
-									origin_kind: OriginKind::SovereignAccount,
+								v3::Instruction::UnpaidExecution {
+									weight_limit: Unlimited,
+									check_origin: None
+								},
+								v3::Instruction::Transact {
+									origin_kind: OriginKind::SovereqignAccount,
 									require_weight_at_most: Weight::from_parts(
 										5_000_000_000,
 										50_000
