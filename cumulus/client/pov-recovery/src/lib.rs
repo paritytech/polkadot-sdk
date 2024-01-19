@@ -264,7 +264,7 @@ where
 	}
 
 	/// Handle a new pending candidate.
-	async fn handle_pending_candidate(
+	fn handle_pending_candidate(
 		&mut self,
 		receipt: CommittedCandidateReceipt,
 		session_index: SessionIndex,
@@ -556,7 +556,7 @@ where
 			select! {
 				pending_candidate = pending_candidates.next() => {
 					if let Some((receipt, session_index)) = pending_candidate {
-						self.handle_pending_candidate(receipt, session_index).await;
+						self.handle_pending_candidate(receipt, session_index);
 					} else {
 						tracing::debug!(target: LOG_TARGET, "Pending candidates stream ended");
 						return;

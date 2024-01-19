@@ -13005,7 +13005,6 @@ dependencies = [
  "polkadot-primitives-test-helpers",
  "prioritized-metered-channel",
  "rand 0.8.5",
- "rand_chacha 0.3.1",
  "sc-client-api",
  "schnellru",
  "sp-application-crypto",
