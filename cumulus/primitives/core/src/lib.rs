@@ -93,13 +93,12 @@ pub enum AggregateMessageOrigin {
 	Sibling(ParaId),
 }
 
-impl From<AggregateMessageOrigin> for xcm::v3::MultiLocation {
+impl From<AggregateMessageOrigin> for Location {
 	fn from(origin: AggregateMessageOrigin) -> Self {
 		match origin {
-			AggregateMessageOrigin::Here => MultiLocation::here(),
-			AggregateMessageOrigin::Parent => MultiLocation::parent(),
-			AggregateMessageOrigin::Sibling(id) =>
-				MultiLocation::new(1, Junction::Parachain(id.into())),
+			AggregateMessageOrigin::Here => Location::here(),
+			AggregateMessageOrigin::Parent => Location::parent(),
+			AggregateMessageOrigin::Sibling(id) => Location::new(1, Junction::Parachain(id.into())),
 		}
 	}
 }

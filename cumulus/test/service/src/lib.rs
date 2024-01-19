@@ -23,9 +23,6 @@ pub mod bench_utils;
 
 pub mod chain_spec;
 
-/// Utilities for creating test genesis block and head data
-pub mod genesis;
-
 use runtime::AccountId;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use std::{
@@ -88,7 +85,6 @@ use substrate_test_client::{
 
 pub use chain_spec::*;
 pub use cumulus_test_runtime as runtime;
-pub use genesis::*;
 pub use sp_keyring::Sr25519Keyring as Keyring;
 
 const LOG_TARGET: &str = "cumulus-test-service";
@@ -447,7 +443,7 @@ where
 						let relay_chain_interface = relay_chain_interface_for_closure.clone();
 						async move {
 							let parachain_inherent =
-							cumulus_primitives_parachain_inherent::ParachainInherentData::create_at(
+							cumulus_client_parachain_inherent::ParachainInherentDataProvider::create_at(
 								relay_parent,
 								&relay_chain_interface,
 								&validation_data,
@@ -923,7 +919,7 @@ pub fn run_relay_chain_validator_node(
 ) -> polkadot_test_service::PolkadotTestNode {
 	let mut config = polkadot_test_service::node_config(
 		storage_update_func,
-		tokio_handle,
+		tokio_handle.clone(),
 		key,
 		boot_nodes,
 		true,
@@ -937,5 +933,7 @@ pub fn run_relay_chain_validator_node(
 	workers_path.pop();
 	workers_path.pop();
 
-	polkadot_test_service::run_validator_node(config, Some(workers_path))
+	tokio_handle.block_on(async move {
+		polkadot_test_service::run_validator_node(config, Some(workers_path))
+	})
 }

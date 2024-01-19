@@ -19,9 +19,12 @@
 #![allow(non_snake_case)]
 
 //! API trait of the chain head.
-use crate::chain_head::{
-	error::Error,
-	event::{FollowEvent, MethodResponse, StorageQuery},
+use crate::{
+	chain_head::{
+		error::Error,
+		event::{FollowEvent, MethodResponse},
+	},
+	common::events::StorageQuery,
 };
 use jsonrpsee::proc_macros::rpc;
 use sp_rpc::list::ListOrValue;

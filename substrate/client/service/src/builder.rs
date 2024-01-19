@@ -52,8 +52,8 @@ use sc_network_light::light_client_requests::handler::LightClientRequestHandler;
 use sc_network_sync::{
 	block_relay_protocol::BlockRelayParams, block_request_handler::BlockRequestHandler,
 	engine::SyncingEngine, service::network::NetworkServiceProvider,
-	state_request_handler::StateRequestHandler, warp::WarpSyncParams,
-	warp_request_handler::RequestHandler as WarpSyncRequestHandler, SyncingService,
+	state_request_handler::StateRequestHandler,
+	warp_request_handler::RequestHandler as WarpSyncRequestHandler, SyncingService, WarpSyncParams,
 };
 use sc_rpc::{
 	author::AuthorApiServer,

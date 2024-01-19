@@ -30,8 +30,7 @@ use frame_support::{
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
 	traits::{
-		ConstBool, ConstU32, ConstU64, ConstU8, Contains, EitherOfDiverse, EverythingBut,
-		TransformOrigin,
+		ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Everything, TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
@@ -124,7 +123,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("people-rococo"),
 	impl_name: create_runtime_str!("people-rococo"),
 	authoring_version: 1,
-	spec_version: 1_000,
+	spec_version: 1_006_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 0,
@@ -162,16 +161,9 @@ parameter_types! {
 	pub const SS58Prefix: u8 = 42;
 }
 
-pub struct IdentityCalls;
-impl Contains<RuntimeCall> for IdentityCalls {
-	fn contains(c: &RuntimeCall) -> bool {
-		matches!(c, RuntimeCall::Identity(_))
-	}
-}
-
 #[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
-	type BaseCallFilter = EverythingBut<IdentityCalls>;
+	type BaseCallFilter = Everything;
 	type BlockWeights = RuntimeBlockWeights;
 	type BlockLength = RuntimeBlockLength;
 	type AccountId = AccountId;
@@ -428,7 +420,7 @@ construct_runtime!(
 
 		// XCM & related
 		XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>} = 30,
-		PolkadotXcm: pallet_xcm::{Pallet, Call, Event<T>, Origin, Config<T>} = 31,
+		PolkadotXcm: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config<T>} = 31,
 		CumulusXcm: cumulus_pallet_xcm::{Pallet, Event<T>, Origin} = 32,
 		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 34,
 
@@ -682,22 +674,22 @@ impl_runtime_apis! {
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsiscsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
-				fn reachable_dest() -> Option<MultiLocation> {
+				fn reachable_dest() -> Option<Location> {
 					Some(Parent.into())
 				}
 
-				fn teleportable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
+				fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
 					// Relay/native token can be teleported between People and Relay.
 					Some((
-						MultiAsset {
+						Asset {
 							fun: Fungible(EXISTENTIAL_DEPOSIT),
-							id: Concrete(Parent.into())
+							id: AssetId(Parent.into())
 						},
 						Parent.into(),
 					))
 				}
 
-				fn reserve_transferable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
+				fn reserve_transferable_asset_and_dest() -> Option<(Asset, Location)> {
 					None
 				}
 			}
@@ -706,7 +698,7 @@ impl_runtime_apis! {
 			use xcm_config::{PriceForParentDelivery, RelayLocation};
 
 			parameter_types! {
-				pub ExistentialDepositMultiAsset: Option<MultiAsset> = Some((
+				pub ExistentialDepositAsset: Option<Asset> = Some((
 					RelayLocation::get(),
 					ExistentialDeposit::get()
 				).into());
@@ -717,17 +709,17 @@ impl_runtime_apis! {
 				type AccountIdConverter = xcm_config::LocationToAccountId;
 				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
 					XcmConfig,
-					ExistentialDepositMultiAsset,
+					ExistentialDepositAsset,
 					PriceForParentDelivery,
 				>;
-				fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
+				fn valid_destination() -> Result<Location, BenchmarkError> {
 					Ok(RelayLocation::get())
 				}
-				fn worst_case_holding(_depositable_count: u32) -> MultiAssets {
+				fn worst_case_holding(_depositable_count: u32) -> Assets {
 					// just concrete assets according to relay chain.
-					let assets: Vec<MultiAsset> = vec![
-						MultiAsset {
-							id: Concrete(RelayLocation::get()),
+					let assets: Vec<Asset> = vec![
+						Asset {
+							id: AssetId(RelayLocation::get()),
 							fun: Fungible(1_000_000 * UNITS),
 						}
 					];
@@ -736,12 +728,12 @@ impl_runtime_apis! {
 			}
 
 			parameter_types! {
-				pub const TrustedTeleporter: Option<(MultiLocation, MultiAsset)> = Some((
+				pub const TrustedTeleporter: Option<(Location, Asset)> = Some((
 					RelayLocation::get(),
-					MultiAsset { fun: Fungible(UNITS), id: Concrete(RelayLocation::get()) },
+					Asset { fun: Fungible(UNITS), id: AssetId(RelayLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
-				pub const TrustedReserve: Option<(MultiLocation, MultiAsset)> = None;
+				pub const TrustedReserve: Option<(Location, Asset)> = None;
 			}
 
 			impl pallet_xcm_benchmarks::fungible::Config for Runtime {
@@ -751,9 +743,9 @@ impl_runtime_apis! {
 				type TrustedTeleporter = TrustedTeleporter;
 				type TrustedReserve = TrustedReserve;
 
-				fn get_multi_asset() -> MultiAsset {
-					MultiAsset {
-						id: Concrete(RelayLocation::get()),
+				fn get_asset() -> Asset {
+					Asset {
+						id: AssetId(RelayLocation::get()),
 						fun: Fungible(UNITS),
 					}
 				}
@@ -767,39 +759,39 @@ impl_runtime_apis! {
 					(0u64, Response::Version(Default::default()))
 				}
 
-				fn worst_case_asset_exchange() -> Result<(MultiAssets, MultiAssets), BenchmarkError> {
+				fn worst_case_asset_exchange() -> Result<(Assets, Assets), BenchmarkError> {
 					Err(BenchmarkError::Skip)
 				}
 
-				fn universal_alias() -> Result<(MultiLocation, Junction), BenchmarkError> {
+				fn universal_alias() -> Result<(Location, Junction), BenchmarkError> {
 					Err(BenchmarkError::Skip)
 				}
 
-				fn transact_origin_and_runtime_call() -> Result<(MultiLocation, RuntimeCall), BenchmarkError> {
+				fn transact_origin_and_runtime_call() -> Result<(Location, RuntimeCall), BenchmarkError> {
 					Ok((RelayLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
 				}
 
-				fn subscribe_origin() -> Result<MultiLocation, BenchmarkError> {
+				fn subscribe_origin() -> Result<Location, BenchmarkError> {
 					Ok(RelayLocation::get())
 				}
 
-				fn claimable_asset() -> Result<(MultiLocation, MultiLocation, MultiAssets), BenchmarkError> {
+				fn claimable_asset() -> Result<(Location, Location, Assets), BenchmarkError> {
 					let origin = RelayLocation::get();
-					let assets: MultiAssets = (Concrete(RelayLocation::get()), 1_000 * UNITS).into();
-					let ticket = MultiLocation { parents: 0, interior: Here };
+					let assets: Assets = (AssetId(RelayLocation::get()), 1_000 * UNITS).into();
+					let ticket = Location::new(0, []);
 					Ok((origin, ticket, assets))
 				}
 
-				fn unlockable_asset() -> Result<(MultiLocation, MultiLocation, MultiAsset), BenchmarkError> {
+				fn unlockable_asset() -> Result<(Location, Location, Asset), BenchmarkError> {
 					Err(BenchmarkError::Skip)
 				}
 
 				fn export_message_origin_and_destination(
-				) -> Result<(MultiLocation, NetworkId, InteriorMultiLocation), BenchmarkError> {
+				) -> Result<(Location, NetworkId, InteriorLocation), BenchmarkError> {
 					Err(BenchmarkError::Skip)
 				}
 
-				fn alias_origin() -> Result<(MultiLocation, MultiLocation), BenchmarkError> {
+				fn alias_origin() -> Result<(Location, Location), BenchmarkError> {
 					Err(BenchmarkError::Skip)
 				}
 			}
