@@ -593,7 +593,6 @@ impl std::fmt::Display for AccountId32 {
 }
 
 impl sp_std::fmt::Debug for AccountId32 {
-	#[cfg(any(feature = "std", debug_assertions))]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
 		#[cfg(feature = "serde")]
 		{
@@ -604,11 +603,6 @@ impl sp_std::fmt::Debug for AccountId32 {
 		#[cfg(not(feature = "serde"))]
 		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.0))?;
 
-		Ok(())
-	}
-
-	#[cfg(not(any(feature = "std", debug_assertions)))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
 		Ok(())
 	}
 }
