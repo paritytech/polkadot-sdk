@@ -68,6 +68,25 @@ fn default_backing_group_size() -> usize {
 	5
 }
 
+// Default needed approvals
+fn default_needed_approvals() -> usize {
+	30
+}
+
+fn default_zeroth_delay_tranche_width() -> usize {
+	0
+}
+fn default_relay_vrf_modulo_samples() -> usize {
+	6
+}
+
+fn default_n_delay_tranches() -> usize {
+	89
+}
+fn default_no_show_slots() -> usize {
+	3
+}
+
 /// The test input parameters
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TestConfiguration {
@@ -77,8 +96,17 @@ pub struct TestConfiguration {
 	pub n_validators: usize,
 	/// Number of cores
 	pub n_cores: usize,
-	/// Number of included candidates
-	pub n_included_candidates: usize,
+	/// The number of needed votes to approve a candidate.
+	#[serde(default = "default_needed_approvals")]
+	pub needed_approvals: usize,
+	#[serde(default = "default_zeroth_delay_tranche_width")]
+	pub zeroth_delay_tranche_width: usize,
+	#[serde(default = "default_relay_vrf_modulo_samples")]
+	pub relay_vrf_modulo_samples: usize,
+	#[serde(default = "default_n_delay_tranches")]
+	pub n_delay_tranches: usize,
+	#[serde(default = "default_no_show_slots")]
+	pub no_show_slots: usize,
 	/// Maximum backing group size
 	#[serde(default = "default_backing_group_size")]
 	pub max_validators_per_core: usize,
@@ -225,7 +253,6 @@ impl TestConfiguration {
 		Self {
 			objective,
 			n_cores,
-			n_included_candidates: n_cores,
 			n_validators,
 			max_validators_per_core: 5,
 			pov_sizes: generate_pov_sizes(n_cores, min_pov_size, max_pov_size),
@@ -237,6 +264,11 @@ impl TestConfiguration {
 			min_pov_size,
 			max_pov_size,
 			connectivity: 100,
+			needed_approvals: default_needed_approvals(),
+			n_delay_tranches: default_n_delay_tranches(),
+			no_show_slots: default_no_show_slots(),
+			relay_vrf_modulo_samples: default_relay_vrf_modulo_samples(),
+			zeroth_delay_tranche_width: default_zeroth_delay_tranche_width(),
 		}
 	}
 
@@ -251,7 +283,6 @@ impl TestConfiguration {
 		Self {
 			objective,
 			n_cores,
-			n_included_candidates: n_cores,
 			n_validators,
 			max_validators_per_core: 5,
 			pov_sizes: generate_pov_sizes(n_cores, min_pov_size, max_pov_size),
@@ -262,6 +293,11 @@ impl TestConfiguration {
 			min_pov_size,
 			max_pov_size,
 			connectivity: 95,
+			needed_approvals: default_needed_approvals(),
+			n_delay_tranches: default_n_delay_tranches(),
+			no_show_slots: default_no_show_slots(),
+			relay_vrf_modulo_samples: default_relay_vrf_modulo_samples(),
+			zeroth_delay_tranche_width: default_zeroth_delay_tranche_width(),
 		}
 	}
 
@@ -276,7 +312,6 @@ impl TestConfiguration {
 		Self {
 			objective,
 			n_cores,
-			n_included_candidates: n_cores,
 			n_validators,
 			max_validators_per_core: 5,
 			pov_sizes: generate_pov_sizes(n_cores, min_pov_size, max_pov_size),
@@ -287,6 +322,11 @@ impl TestConfiguration {
 			min_pov_size,
 			max_pov_size,
 			connectivity: 67,
+			needed_approvals: default_needed_approvals(),
+			n_delay_tranches: default_n_delay_tranches(),
+			no_show_slots: default_no_show_slots(),
+			relay_vrf_modulo_samples: default_relay_vrf_modulo_samples(),
+			zeroth_delay_tranche_width: default_zeroth_delay_tranche_width(),
 		}
 	}
 }

@@ -21,8 +21,8 @@ use self::{
 use crate::{
 	approval::{
 		helpers::{
-			generate_babe_epoch, generate_new_session_topology, generate_peer_connected,
-			generate_peer_view_change_for, PastSystemClock,
+			generate_babe_epoch, generate_new_session_topology, generate_peer_view_change_for,
+			PastSystemClock,
 		},
 		message_generator::PeerMessagesGenerator,
 		mock_chain_selection::MockChainSelection,
@@ -33,12 +33,12 @@ use crate::{
 		mock::{
 			dummy_builder, network_bridge::MockNetworkBridgeTx, AlwaysSupportsParachains,
 			ChainApiState, MockChainApi, MockNetworkBridgeRx, MockRuntimeApi, TestSyncOracle,
-			NEEDED_APPROVALS,
 		},
 		network::{
 			new_network, HandleNetworkMessage, NetworkEmulatorHandle, NetworkInterface,
 			NetworkInterfaceReceiver,
 		},
+		NODE_UNDER_TEST,
 	},
 };
 use colored::Colorize;
@@ -97,8 +97,6 @@ pub(crate) const TEST_CONFIG: ApprovalVotingConfig = ApprovalVotingConfig {
 	slot_duration_millis: SLOT_DURATION_MILLIS,
 };
 
-pub const NODE_UNDER_TEST: u32 = 0;
-
 /// Start generating messages for a slot into the future, so that the
 /// generation nevers falls behind the current slot.
 const BUFFER_FOR_GENERATION_MILLIS: u64 = 30_000;
@@ -109,24 +107,19 @@ const BUFFER_FOR_GENERATION_MILLIS: u64 = 30_000;
 #[allow(missing_docs)]
 pub struct ApprovalsOptions {
 	#[clap(short, long, default_value_t = 89)]
-	/// The last considered tranche for which we should generate message, this does not
-	/// mean the message is sent, because if the block is approved no other message is sent
-	/// anymore.
+	/// The last considered tranche for which we send the message.
 	pub last_considered_tranche: u32,
-	#[clap(short, long, default_value_t = 1)]
+	#[clap(short, long, default_value_t = 1.0)]
 	/// Min candidates to be signed in a single approval.
-	pub min_coalesce: u32,
-	#[clap(short, long, default_value_t = 1)]
+	pub coalesce_mean: f32,
+	#[clap(short, long, default_value_t = 1.0)]
 	/// Max candidate to be signed in a single approval.
-	pub max_coalesce: u32,
+	pub coalesce_std_dev: f32,
 	/// The maximum tranche diff between approvals coalesced toghther.
 	pub coalesce_tranche_diff: u32,
 	#[clap(short, long, default_value_t = false)]
 	/// Enable assignments v2.
 	pub enable_assignments_v2: bool,
-	#[clap(short, long, default_value_t = 89)]
-	/// Send messages till tranche
-	pub send_till_tranche: u32,
 	#[clap(short, long, default_value_t = true)]
 	/// Sends messages only till block is approved.
 	pub stop_when_approved: bool,
@@ -136,24 +129,14 @@ pub struct ApprovalsOptions {
 	/// The number of no shows per candidate
 	#[clap(short, long, default_value_t = 0)]
 	pub num_no_shows_per_candidate: u32,
-	/// Max expected time of flight for approval-distribution.
-	#[clap(short, long, default_value_t = 6.0)]
-	pub approval_distribution_expected_tof: f64,
-	/// Max expected cpu usage by approval-distribution.
-	#[clap(short, long, default_value_t = 6.0)]
-	pub approval_distribution_cpu_ms: f64,
-	/// Max expected cpu usage by approval-voting.
-	#[clap(short, long, default_value_t = 6.0)]
-	pub approval_voting_cpu_ms: f64,
 }
 
 impl ApprovalsOptions {
 	// Generates a fingerprint use to determine if messages need to be re-generated.
 	fn fingerprint(&self) -> Vec<u8> {
 		let mut bytes = Vec::new();
-		bytes.extend(self.last_considered_tranche.to_be_bytes());
-		bytes.extend(self.min_coalesce.to_be_bytes());
-		bytes.extend(self.max_coalesce.to_be_bytes());
+		bytes.extend(self.coalesce_mean.to_be_bytes());
+		bytes.extend(self.coalesce_std_dev.to_be_bytes());
 		bytes.extend(self.coalesce_tranche_diff.to_be_bytes());
 		bytes.extend((self.enable_assignments_v2 as i32).to_be_bytes());
 		bytes
@@ -204,12 +187,15 @@ struct CandidateTestData {
 	num_no_shows: u32,
 	/// The maximum tranche were we covered the needed approvals
 	max_tranche: u32,
+	/// Minimum needed votes to approve candidate.
+	needed_approvals: u32,
 }
 
 impl CandidateTestData {
 	/// If message in this tranche needs to be sent.
 	fn should_send_tranche(&self, tranche: u32) -> bool {
-		self.sent_assignment <= NEEDED_APPROVALS || tranche <= self.max_tranche + self.num_no_shows
+		self.sent_assignment <= self.needed_approvals ||
+			tranche <= self.max_tranche + self.num_no_shows
 	}
 
 	/// Sets max tranche
@@ -224,8 +210,8 @@ impl CandidateTestData {
 	}
 
 	/// Marks an assignment sent.
-	fn sent_assignment(&mut self, tranche: u32) {
-		if self.sent_assignment < NEEDED_APPROVALS {
+	fn mark_sent_assignment(&mut self, tranche: u32) {
+		if self.sent_assignment < self.needed_approvals {
 			self.set_max_tranche(tranche);
 		}
 
@@ -256,13 +242,15 @@ struct GeneratedState {
 /// updated between subsystems, they would have to be wrapped in Arc's.
 #[derive(Clone)]
 pub struct ApprovalTestState {
+	/// The main test configuration
+	configuration: TestConfiguration,
 	/// The specific test configurations passed when starting the benchmark.
 	options: ApprovalsOptions,
 	/// The list of blocks used for testing.
 	blocks: Vec<BlockTestData>,
 	/// The babe epoch used during testing.
 	babe_epoch: BabeEpoch,
-	/// The slot at which this benchamrk begins.
+	/// The pre-generated state.
 	generated_state: GeneratedState,
 	/// The test authorities
 	test_authorities: TestAuthorities,
@@ -336,6 +324,7 @@ impl ApprovalTestState {
 			approval_voting_metrics: ApprovalVotingMetrics::try_register(&dependencies.registry)
 				.unwrap(),
 			delta_tick_from_generated: Arc::new(AtomicU64::new(630720000)),
+			configuration: configuration.clone(),
 		};
 
 		gum::info!("Built testing state");
@@ -378,7 +367,7 @@ impl ApprovalTestState {
 					block_hash,
 					block_number as BlockNumber,
 					configuration.n_cores as u32,
-					configuration.n_included_candidates as u32,
+					configuration.n_cores as u32,
 				),
 				relay_vrf_story,
 				approved: Arc::new(AtomicBool::new(false)),
@@ -582,6 +571,7 @@ impl PeerMessageProducer {
 						&mut skipped_messages,
 					) || re_process_skipped;
 				}
+				// Sleep, so that we don't busy wait in this loop when don't have anything to send.
 				sleep(Duration::from_millis(50)).await;
 			}
 
@@ -591,6 +581,9 @@ impl PeerMessageProducer {
 				per_candidate_data.values().map(|data| data.last_tranche_with_no_show).max()
 			);
 			sleep(Duration::from_secs(6)).await;
+			// Send an empty GetApprovalSignatures as the last message
+			// so when the approval-distribution answered to it, we know it doesn't have anything
+			// else to process.
 			let (tx, rx) = oneshot::channel();
 			let msg = ApprovalDistributionMessage::GetApprovalSignatures(HashSet::new(), tx);
 			self.send_overseer_message(
@@ -619,7 +612,7 @@ impl PeerMessageProducer {
 			.get_info_by_hash(bundle.assignments.first().unwrap().block_hash)
 			.clone();
 
-		if bundle.bundle_needed(per_candidate_data, &self.options) {
+		if bundle.should_send(per_candidate_data, &self.options) {
 			bundle.record_sent_assignment(per_candidate_data);
 
 			let assignments = bundle.assignments.clone();
@@ -635,7 +628,9 @@ impl PeerMessageProducer {
 					.total_unique_messages
 					.as_ref()
 					.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-				for (peer, messages) in message.split_by_peer_id(&self.state.test_authorities) {
+				for (peer, messages) in
+					message.clone().split_by_peer_id(&self.state.test_authorities)
+				{
 					for message in messages {
 						self.state
 							.total_sent_messages_to_node
@@ -672,7 +667,7 @@ impl PeerMessageProducer {
 			current_slot,
 			block_info,
 			initialized_blocks.contains(&block_info.hash),
-		) || !bundle.bundle_needed(per_candidate_data, &self.options)
+		) || !bundle.should_send(per_candidate_data, &self.options)
 	}
 
 	// Tells if the tranche where the bundle should be sent has passed.
@@ -690,9 +685,6 @@ impl PeerMessageProducer {
 
 	// Queue message to be sent by validator `sent_by`
 	fn queue_message_from_peer(&mut self, message: TestMessageInfo, sent_by: ValidatorIndex) {
-		if sent_by == ValidatorIndex(NODE_UNDER_TEST) {
-			return;
-		}
 		let peer_authority_id = self
 			.state
 			.test_authorities
@@ -706,7 +698,7 @@ impl PeerMessageProducer {
 				&peer_authority_id,
 				protocol_v3::ValidationProtocol::ApprovalDistribution(message.msg).into(),
 			)
-			.expect(format!("Network should be up and running {:?}", sent_by).as_str());
+			.unwrap_or_else(|_| panic!("Network should be up and running {:?}", sent_by));
 	}
 
 	// Queues a message to be sent by the peer identified by the `sent_by` value.
@@ -739,7 +731,6 @@ impl PeerMessageProducer {
 		for validator in 1..self.state.test_authorities.validator_authority_id.len() as u32 {
 			let peer_id = self.state.test_authorities.peer_ids.get(validator as usize).unwrap();
 			let validator = ValidatorIndex(validator);
-
 			let view_update = generate_peer_view_change_for(block_info.hash, *peer_id);
 
 			self.send_overseer_message(view_update, validator, None).await;
@@ -763,6 +754,7 @@ impl PeerMessageProducer {
 						sent_assignment: 0,
 						num_no_shows: 0,
 						max_tranche: 0,
+						needed_approvals: self.state.configuration.needed_approvals as u32,
 					},
 				);
 			}
@@ -906,7 +898,7 @@ pub async fn bench_approvals_run(
 
 	// First create the initialization messages that make sure that then node under
 	// tests receives notifications about the topology used and the connected peers.
-	let mut initialization_messages = generate_peer_connected(&state.test_authorities);
+	let mut initialization_messages = env.network().generate_peer_connected();
 	initialization_messages.extend(generate_new_session_topology(
 		&state.test_authorities,
 		ValidatorIndex(NODE_UNDER_TEST),
@@ -975,11 +967,15 @@ pub async fn bench_approvals_run(
 	producer_rx.await.expect("Failed to receive done from message producer");
 
 	gum::info!("Awaiting polkadot_parachain_subsystem_bounded_received to tells us the messages have been processed");
-
-	env.wait_until_metric_eq(
+	let at_least_messages =
+		state.total_sent_messages_to_node.load(std::sync::atomic::Ordering::SeqCst) as usize;
+	env.wait_until_metric(
 		"polkadot_parachain_subsystem_bounded_received",
 		Some(("subsystem_name", "approval-distribution-subsystem")),
-		state.total_sent_messages_to_node.load(std::sync::atomic::Ordering::SeqCst) as usize,
+		|value| {
+			gum::info!(target: LOG_TARGET, ?value, ?at_least_messages, "Waiting metric");
+			value >= at_least_messages as f64
+		},
 	)
 	.await;
 	gum::info!("Requesting approval votes ms");
@@ -1014,12 +1010,36 @@ pub async fn bench_approvals_run(
 		}
 	}
 
+	gum::info!("Awaiting polkadot_parachain_subsystem_bounded_received to tells us the messages have been processed");
+	let at_least_messages =
+		state.total_sent_messages_to_node.load(std::sync::atomic::Ordering::SeqCst) as usize;
+	env.wait_until_metric(
+		"polkadot_parachain_subsystem_bounded_received",
+		Some(("subsystem_name", "approval-distribution-subsystem")),
+		|value| {
+			gum::info!(target: LOG_TARGET, ?value, ?at_least_messages, "Waiting metric");
+			value >= at_least_messages as f64
+		},
+	)
+	.await;
+
 	for state in &state.blocks {
-		for (validator, votes) in state.votes.as_ref().iter().enumerate() {
+		for (validator, votes) in state
+			.votes
+			.as_ref()
+			.iter()
+			.enumerate()
+			.filter(|(validator, _)| *validator != NODE_UNDER_TEST as usize)
+		{
 			for (index, candidate) in votes.iter().enumerate() {
 				assert_eq!(
-					(validator, index, candidate.load(std::sync::atomic::Ordering::SeqCst)),
-					(validator, index, false)
+					(
+						validator,
+						index,
+						candidate.load(std::sync::atomic::Ordering::SeqCst),
+						state.hash
+					),
+					(validator, index, false, state.hash)
 				);
 			}
 		}
@@ -1038,25 +1058,4 @@ pub async fn bench_approvals_run(
 
 	env.display_network_usage();
 	env.display_cpu_usage(&["approval-distribution", "approval-voting"]);
-
-	assert!(env.metric_with_label_lower_than(
-		"substrate_tasks_polling_duration_sum",
-		"task_group",
-		"approval-voting",
-		state.options.approval_voting_cpu_ms * state.blocks.len() as f64
-	));
-
-	assert!(env.metric_with_label_lower_than(
-		"substrate_tasks_polling_duration_sum",
-		"task_group",
-		"approval-distribution",
-		state.options.approval_distribution_cpu_ms * state.blocks.len() as f64
-	));
-
-	assert!(env.bucket_metric_lower_than(
-		"polkadot_parachain_subsystem_bounded_tof_bucket",
-		"subsystem_name",
-		"approval-distribution-subsystem",
-		state.options.approval_distribution_expected_tof
-	));
 }

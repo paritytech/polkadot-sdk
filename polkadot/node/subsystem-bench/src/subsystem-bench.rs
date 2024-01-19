@@ -42,9 +42,7 @@ use core::{
 
 use clap_num::number_range;
 
-use crate::approval::bench_approvals;
-// const LOG_TARGET: &str = "subsystem-bench";
-use crate::core::display::display_configuration;
+use crate::{approval::bench_approvals, core::display::display_configuration};
 
 fn le_100(s: &str) -> Result<usize, String> {
 	number_range(s, 0, 100)
@@ -175,7 +173,7 @@ impl BenchCli {
 								&mut env, state,
 							));
 						},
-						TestObjective::ApprovalsTest(ref options) => {
+						TestObjective::ApprovalVoting(ref options) => {
 							let (mut env, state) =
 								approval::prepare_test(test_config.clone(), options.clone());
 
@@ -198,7 +196,7 @@ impl BenchCli {
 			},
 			TestObjective::DataAvailabilityRead(ref _options) => self.create_test_configuration(),
 			TestObjective::DataAvailabilityWrite => self.create_test_configuration(),
-			TestObjective::ApprovalsTest(_) => todo!(),
+			TestObjective::ApprovalVoting(_) => todo!(),
 			TestObjective::Unimplemented => todo!(),
 		};
 
@@ -244,7 +242,7 @@ impl BenchCli {
 					.block_on(availability::benchmark_availability_write(&mut env, state));
 			},
 			TestObjective::TestSequence(_options) => {},
-			TestObjective::ApprovalsTest(_) => todo!(),
+			TestObjective::ApprovalVoting(_) => todo!(),
 			TestObjective::Unimplemented => todo!(),
 		}
 

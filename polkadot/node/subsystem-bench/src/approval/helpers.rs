@@ -16,8 +16,7 @@ use itertools::Itertools;
 use polkadot_node_core_approval_voting::time::{Clock, SystemClock, Tick};
 use polkadot_node_network_protocol::{
 	grid_topology::{SessionGridTopology, TopologyPeerInfo},
-	peer_set::{ProtocolVersion, ValidationVersion},
-	ObservedRole, View,
+	View,
 };
 use polkadot_node_subsystem_types::messages::{
 	network_bridge_event::NewGossipTopology, ApprovalDistributionMessage, NetworkBridgeEvent,
@@ -132,25 +131,6 @@ pub fn generate_new_session_topology(
 		local_index: Some(test_node),
 	});
 	vec![AllMessages::ApprovalDistribution(ApprovalDistributionMessage::NetworkBridgeUpdate(event))]
-}
-
-/// Generates peer_connected messages for all peers in `test_authorities`
-pub fn generate_peer_connected(test_authorities: &TestAuthorities) -> Vec<AllMessages> {
-	test_authorities
-		.peer_ids
-		.iter()
-		.map(|peer_id| {
-			let network = NetworkBridgeEvent::PeerConnected(
-				*peer_id,
-				ObservedRole::Full,
-				ProtocolVersion::from(ValidationVersion::V3),
-				None,
-			);
-			AllMessages::ApprovalDistribution(ApprovalDistributionMessage::NetworkBridgeUpdate(
-				network,
-			))
-		})
-		.collect_vec()
 }
 
 /// Generates a peer view change for the passed `block_hash`

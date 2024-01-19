@@ -20,9 +20,8 @@
 //! Currently histogram buckets are skipped.
 use super::{configuration::TestConfiguration, LOG_TARGET};
 use colored::Colorize;
-use itertools::Itertools;
 use prometheus::{
-	proto::{Bucket, MetricFamily, MetricType},
+	proto::{MetricFamily, MetricType},
 	Registry,
 };
 use std::fmt::Display;
@@ -50,51 +49,9 @@ impl MetricCollection {
 			.sum()
 	}
 
-	/// Filters metrics by name
-	pub fn subset_with_name(&self, name: &str) -> MetricCollection {
-		self.all()
-			.iter()
-			.filter(|metric| metric.name == name)
-			.cloned()
-			.collect::<Vec<_>>()
-			.into()
-	}
-
 	/// Tells if entries in bucket metric is lower than `value`
 	pub fn metric_lower_than(&self, metric_name: &str, value: f64) -> bool {
 		self.sum_by(metric_name) < value
-	}
-
-	/// Tells if entries in bucket metric is lower than `value`
-	pub fn bucket_metric_lower_than(
-		&self,
-		metric_name: &str,
-		label_name: &str,
-		label_value: &str,
-		value: f64,
-	) -> bool {
-		let metric = self
-			.subset_with_name(metric_name)
-			.subset_with_label_value(label_name, label_value);
-
-		metric.all().iter().all(|metric| {
-			metric
-				.bucket
-				.as_ref()
-				.map(|buckets| {
-					let mut prev_value = 0;
-					for bucket in buckets {
-						if value < bucket.get_upper_bound() &&
-							prev_value != bucket.get_cumulative_count()
-						{
-							return false;
-						}
-						prev_value = bucket.get_cumulative_count();
-					}
-					true
-				})
-				.unwrap_or_default()
-		})
 	}
 
 	pub fn subset_with_label_value(&self, label_name: &str, label_value: &str) -> MetricCollection {
@@ -133,7 +90,6 @@ pub struct TestMetric {
 	label_names: Vec<String>,
 	label_values: Vec<String>,
 	value: f64,
-	bucket: Option<Vec<Bucket>>,
 }
 
 impl Display for TestMetric {
@@ -187,7 +143,6 @@ pub fn parse_metrics(registry: &Registry) -> MetricCollection {
 						label_names,
 						label_values,
 						value: m.get_counter().get_value(),
-						bucket: None,
 					});
 				},
 				MetricType::GAUGE => {
@@ -196,7 +151,6 @@ pub fn parse_metrics(registry: &Registry) -> MetricCollection {
 						label_names,
 						label_values,
 						value: m.get_gauge().get_value(),
-						bucket: None,
 					});
 				},
 				MetricType::HISTOGRAM => {
@@ -207,7 +161,6 @@ pub fn parse_metrics(registry: &Registry) -> MetricCollection {
 						label_names: label_names.clone(),
 						label_values: label_values.clone(),
 						value: h.get_sample_sum(),
-						bucket: None,
 					});
 
 					let h_name = name.clone() + "_count";
@@ -216,15 +169,6 @@ pub fn parse_metrics(registry: &Registry) -> MetricCollection {
 						label_names: label_names.clone(),
 						label_values: label_values.clone(),
 						value: h.get_sample_count() as f64,
-						bucket: None,
-					});
-					let h_name = name.clone() + "_bucket";
-					test_metrics.push(TestMetric {
-						name: h_name,
-						label_names,
-						label_values,
-						value: 0.0,
-						bucket: Some(h.get_bucket().iter().cloned().collect_vec()),
 					});
 				},
 				MetricType::SUMMARY => {

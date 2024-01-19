@@ -90,13 +90,14 @@ impl MessagesBundle {
 	/// Tells if the bundle is needed for sending.
 	/// We either send it because we need more assignments and approvals to approve the candidates
 	/// or because we configured the test to send messages untill a given tranche.
-	pub fn bundle_needed(
+	pub fn should_send(
 		&self,
 		candidates_test_data: &HashMap<(Hash, CandidateIndex), CandidateTestData>,
 		options: &ApprovalsOptions,
 	) -> bool {
 		self.needed_for_approval(candidates_test_data) ||
-			(!options.stop_when_approved && self.min_tranche() <= options.send_till_tranche)
+			(!options.stop_when_approved &&
+				self.min_tranche() <= options.last_considered_tranche)
 	}
 
 	/// Tells if the bundle is needed because we need more messages to approve the candidates.
@@ -164,7 +165,7 @@ impl TestMessageInfo {
 						let candidate_test_data = candidates_test_data
 							.get_mut(&(assignment.block_hash, candidate_index as CandidateIndex))
 							.unwrap();
-						candidate_test_data.sent_assignment(self.tranche)
+						candidate_test_data.mark_sent_assignment(self.tranche)
 					}
 				}
 			},

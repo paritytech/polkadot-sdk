@@ -1,16 +1,5 @@
 # Subsystem benchmark client
 
-<<<<<<< HEAD
-Run parachain consensus stress and performance tests on your development machine.
-
-## Motivation
-
-The parachain consensus node implementation spans across many modules which we call subsystems. Each subsystem is
-responsible for a small part of logic of the parachain consensus pipeline, but in general the most load and
-performance issues are localized in just a few core subsystems like `availability-recovery`, `approval-voting` or
-`dispute-coordinator`. In the absence of such a tool, we would run large test nets to load/stress test these parts of
-the system. Setting up and making sense of the amount of data produced by such a large test is very expensive, hard
-=======
 Run parachain consensus stress and performance tests on your development machine.  
 
 ## Motivation
@@ -20,7 +9,6 @@ responsible for a small part of logic of the parachain consensus pipeline, but i
 performance issues are localized in just a few core subsystems like `availability-recovery`, `approval-voting` or 
 `dispute-coordinator`. In the absence of such a tool, we would run large test nets to load/stress test these parts of 
 the system. Setting up and making sense of the amount of data produced by such a large test is very expensive, hard 
->>>>>>> origin/sandreim/availability-write-bench
 to orchestrate and is a huge development time sink.
 
 This tool aims to solve the problem by making it easy to:
@@ -128,33 +116,6 @@ Note: `test-sequence` is a special test objective that wraps up an arbitrary num
 ### Standard test options
   
 ```
-<<<<<<< HEAD
-Options:
-      --network <NETWORK>
-          The type of network to be emulated [default: ideal] [possible values: ideal, healthy, degraded]
-      --n-cores <N_CORES>
-          Number of cores to fetch availability for [default: 100]
-      --n-validators <N_VALIDATORS>
-          Number of validators to fetch chunks from [default: 500]
-      --min-pov-size <MIN_POV_SIZE>
-          The minimum pov size in KiB [default: 5120]
-      --max-pov-size <MAX_POV_SIZE>
-          The maximum pov size bytes [default: 5120]
-  -n, --num-blocks <NUM_BLOCKS>
-          The number of blocks the test is going to run [default: 1]
-  -p, --peer-bandwidth <PEER_BANDWIDTH>
-          The bandwidth of emulated remote peers in KiB
-  -b, --bandwidth <BANDWIDTH>
-          The bandwidth of our node in KiB
-      --connectivity <CONNECTIVITY>
-          Emulated peer connection ratio [0-100]
-      --peer-mean-latency <PEER_MEAN_LATENCY>
-          Mean remote peer latency in milliseconds [0-5000]
-      --peer-latency-std-dev <PEER_LATENCY_STD_DEV>
-          Remote peer latency standard deviation
-  -h, --help
-          Print help
-=======
       --network <NETWORK>                              The type of network to be emulated [default: ideal] [possible values: ideal, healthy,
                                                        degraded]
       --n-cores <N_CORES>                              Number of cores to fetch availability for [default: 100]
@@ -172,7 +133,6 @@ Options:
       --pyroscope-sample-rate <PYROSCOPE_SAMPLE_RATE>  Pyroscope Sample Rate [default: 113]
       --cache-misses                                   Enable Cache Misses Profiling with Valgrind. Linux only, Valgrind must be in the PATH
   -h, --help                                           Print help
->>>>>>> origin/sandreim/availability-write-bench
 ```
 
 These apply to all test objectives, except `test-sequence` which relies on the values being specified in a file.
@@ -190,13 +150,8 @@ Benchmark availability recovery strategies
 Usage: subsystem-bench data-availability-read [OPTIONS]
 
 Options:
-<<<<<<< HEAD
-  -f, --fetch-from-backers  Turbo boost AD Read by fetching the full availability datafrom backers first. Saves CPU
-                            as we don't need to re-construct from chunks. Tipically this is only faster if nodes
-=======
   -f, --fetch-from-backers  Turbo boost AD Read by fetching the full availability datafrom backers first. Saves CPU 
                             as we don't need to re-construct from chunks. Tipically this is only faster if nodes 
->>>>>>> origin/sandreim/availability-write-bench
                             have enough bandwidth
   -h, --help                Print help
 ```
@@ -213,15 +168,9 @@ usage:
 - for how many blocks the test should run (`num_blocks`)
 
 From the perspective of the subsystem under test, this means that it will receive an `ActiveLeavesUpdate` signal
-<<<<<<< HEAD
-followed by an arbitrary amount of messages. This process repeats itself for `num_blocks`. The messages are generally
-test payloads pre-generated before the test run, or constructed on pre-genereated payloads. For example the
-`AvailabilityRecoveryMessage::RecoverAvailableData` message includes a `CandidateReceipt` which is generated before
-=======
 followed by an arbitrary amount of messages. This process repeats itself for `num_blocks`. The messages are generally 
 test payloads pre-generated before the test run, or constructed on pre-genereated payloads. For example the 
 `AvailabilityRecoveryMessage::RecoverAvailableData` message includes a `CandidateReceipt` which is generated before 
->>>>>>> origin/sandreim/availability-write-bench
 the test is started.
 
 ### Example run
@@ -230,15 +179,9 @@ Let's run an availabilty read test which will recover availability for 10 cores 
 node validator network.
 
 ```
-<<<<<<< HEAD
- target/testnet/subsystem-bench --n-cores 10 data-availability-read
-[2023-11-28T09:01:59Z INFO  subsystem_bench::core::display] n_validators = 500, n_cores = 10, pov_size = 5120 - 5120,
-                                                            error = 0, latency = None
-=======
  target/testnet/subsystem-bench --n-cores 10 data-availability-read 
 [2023-11-28T09:01:59Z INFO  subsystem_bench::core::display] n_validators = 500, n_cores = 10, pov_size = 5120 - 5120, 
                                                             latency = None
->>>>>>> origin/sandreim/availability-write-bench
 [2023-11-28T09:01:59Z INFO  subsystem-bench::availability] Generating template candidate index=0 pov_size=5242880
 [2023-11-28T09:01:59Z INFO  subsystem-bench::availability] Created test environment.
 [2023-11-28T09:01:59Z INFO  subsystem-bench::availability] Pre-generating 10 candidates.
@@ -251,13 +194,8 @@ node validator network.
 [2023-11-28T09:02:07Z INFO  subsystem_bench::availability] All blocks processed in 6001ms
 [2023-11-28T09:02:07Z INFO  subsystem_bench::availability] Throughput: 51200 KiB/block
 [2023-11-28T09:02:07Z INFO  subsystem_bench::availability] Block time: 6001 ms
-<<<<<<< HEAD
-[2023-11-28T09:02:07Z INFO  subsystem_bench::availability]
-
-=======
 [2023-11-28T09:02:07Z INFO  subsystem_bench::availability] 
     
->>>>>>> origin/sandreim/availability-write-bench
     Total received from network: 66 MiB
     Total sent to network: 58 KiB
     Total subsystem CPU usage 4.16s
@@ -266,20 +204,12 @@ node validator network.
     CPU usage per block 0.00s
 ```
 
-<<<<<<< HEAD
-`Block time` in the context of `data-availability-read` has a different meaning. It measures the amount of time it
-=======
 `Block time` in the context of `data-availability-read` has a different meaning. It measures the amount of time it 
->>>>>>> origin/sandreim/availability-write-bench
 took the subsystem to finish processing all of the messages sent in the context of the current test block.
 
 ### Test logs
 
-<<<<<<< HEAD
-You can select log target, subtarget and verbosity just like with Polkadot node CLI, simply setting
-=======
 You can select log target, subtarget and verbosity just like with Polkadot node CLI, simply setting 
->>>>>>> origin/sandreim/availability-write-bench
 `RUST_LOOG="parachain=debug"` turns on debug logs for all parachain consensus subsystems in the test.
 
 ### View test metrics
@@ -290,8 +220,6 @@ view the test progress in real time by accessing [this link](http://localhost:30
 Now run
 `target/testnet/subsystem-bench test-sequence --path polkadot/node/subsystem-bench/examples/availability_read.yaml`
 and view the metrics in real time and spot differences between different `n_validators` values.
-<<<<<<< HEAD
-=======
 
 ### Profiling cache misses
 
@@ -334,36 +262,23 @@ This file is best interpreted with `cg_annotate --auto=yes cachegrind.out.<pid>`
 
 For finer profiling of cache misses, better use `perf` on a bare-metal machine.
 
->>>>>>> origin/sandreim/availability-write-bench
 ## Create new test objectives
 
 This tool is intended to make it easy to write new test objectives that focus individual subsystems,
 or even multiple subsystems (for example `approval-distribution` and `approval-voting`).
 
 A special kind of test objectives are performance regression tests for the CI pipeline. These should be sequences
-<<<<<<< HEAD
-of tests that check the performance characteristics (such as CPU usage, speed) of the subsystem under test in both
-=======
 of tests that check the performance characteristics (such as CPU usage, speed) of the subsystem under test in both 
->>>>>>> origin/sandreim/availability-write-bench
 happy and negative scenarios (low bandwidth, network errors and low connectivity).
 
 ### Reusable test components
 
-<<<<<<< HEAD
-To faster write a new test objective you need to use some higher level wrappers and logic: `TestEnvironment`,
-=======
 To faster write a new test objective you need to use some higher level wrappers and logic: `TestEnvironment`, 
->>>>>>> origin/sandreim/availability-write-bench
 `TestConfiguration`, `TestAuthorities`, `NetworkEmulator`. To create the `TestEnvironment` you will
 need to also build an `Overseer`, but that should be easy using the mockups for subsystems in`core::mock`.
 
 ### Mocking
 
 Ideally we want to have a single mock implementation for subsystems that can be minimally configured to
-<<<<<<< HEAD
-be used in different tests. A good example is `runtime-api` which currently only responds to session information
-=======
 be used in different tests. A good example is `runtime-api` which currently only responds to session information 
->>>>>>> origin/sandreim/availability-write-bench
 requests based on static data. It can be easily extended to service other requests.

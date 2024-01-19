@@ -47,11 +47,15 @@ use futures::{
 	stream::FuturesUnordered,
 };
 
+use itertools::Itertools;
 use net_protocol::{
+	peer_set::{ProtocolVersion, ValidationVersion},
 	request_response::{Recipient, Requests, ResponseSender},
-	VersionedValidationProtocol,
+	ObservedRole, VersionedValidationProtocol,
 };
 use parity_scale_codec::Encode;
+use polkadot_node_subsystem_types::messages::{ApprovalDistributionMessage, NetworkBridgeEvent};
+use polkadot_overseer::AllMessages;
 use polkadot_primitives::AuthorityDiscoveryId;
 use prometheus_endpoint::U64;
 use rand::{seq::SliceRandom, thread_rng};
@@ -720,6 +724,28 @@ pub struct NetworkEmulatorHandle {
 	validator_authority_ids: HashMap<AuthorityDiscoveryId, usize>,
 }
 
+impl NetworkEmulatorHandle {
+	/// Generates peer_connected messages for all peers in `test_authorities`
+	pub fn generate_peer_connected(&self) -> Vec<AllMessages> {
+		self.peers
+			.iter()
+			.filter(|peer| peer.is_connected())
+			.map(|peer| {
+				let network = NetworkBridgeEvent::PeerConnected(
+					peer.handle().peer_id,
+					ObservedRole::Full,
+					ProtocolVersion::from(ValidationVersion::V3),
+					None,
+				);
+
+				AllMessages::ApprovalDistribution(ApprovalDistributionMessage::NetworkBridgeUpdate(
+					network,
+				))
+			})
+			.collect_vec()
+	}
+}
+
 /// Create a new emulated network based on `config`.
 /// Each emulated peer will run the specified `handlers` to process incoming messages.
 pub fn new_network(
@@ -762,10 +788,14 @@ pub fn new_network(
 
 	let connected_count = config.connected_count();
 
-	let (_connected, to_disconnect) = peers.partial_shuffle(&mut thread_rng(), connected_count);
+	let mut peers_indicies = (0..n_peers).collect_vec();
+	let (_connected, to_disconnect) =
+		peers_indicies.partial_shuffle(&mut thread_rng(), connected_count);
 
-	for peer in to_disconnect {
-		peer.disconnect();
+	// Node under test is always mark as disconnected.
+	peers[NODE_UNDER_TEST].disconnect();
+	for peer in to_disconnect.iter().skip(1) {
+		peers[*peer].disconnect();
 	}
 
 	gum::info!(target: LOG_TARGET, "{}",format!("Network created, connected validator count {}", connected_count).bright_black());

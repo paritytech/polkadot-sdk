@@ -37,7 +37,7 @@ pub enum TestObjective {
 	/// Run a test sequence specified in a file
 	TestSequence(TestSequenceOptions),
 	/// Benchmark the approval-voting and approval-distribution subsystems.
-	ApprovalsTest(ApprovalsOptions),
+	ApprovalVoting(ApprovalsOptions),
 	Unimplemented,
 }
 

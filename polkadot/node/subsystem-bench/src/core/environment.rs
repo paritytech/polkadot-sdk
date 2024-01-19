@@ -331,31 +331,18 @@ impl TestEnvironment {
 		test_metrics.metric_lower_than(metric_name, value)
 	}
 
-	/// Tells if all entries in a Histogram are lower than value
-	pub fn bucket_metric_lower_than(
-		&self,
-		metric_name: &str,
-		label_name: &str,
-		label_value: &str,
-		value: f64,
-	) -> bool {
-		let test_metrics = super::display::parse_metrics(self.registry());
-
-		test_metrics.bucket_metric_lower_than(metric_name, label_name, label_value, value)
-	}
 	/// Stop overseer and subsystems.
 	pub async fn stop(&mut self) {
 		self.overseer_handle.stop().await;
 	}
 
 	/// Blocks until `metric_name` >= `value`
-	pub async fn wait_until_metric_eq(
+	pub async fn wait_until_metric(
 		&self,
 		metric_name: &str,
 		label: Option<(&str, &str)>,
-		value: usize,
+		condition: impl Fn(f64) -> bool,
 	) {
-		let value = value as f64;
 		loop {
 			let test_metrics = if let Some((label_name, label_value)) = label {
 				super::display::parse_metrics(self.registry())
@@ -365,11 +352,10 @@ impl TestEnvironment {
 			};
 			let current_value = test_metrics.sum_by(metric_name);
 
-			gum::debug!(target: LOG_TARGET, metric_name, current_value, value, "Waiting for metric");
-			if current_value == value {
+			gum::debug!(target: LOG_TARGET, metric_name, current_value, "Waiting for metric");
+			if condition(current_value) {
 				break
 			}
-
 			// Check value every 50ms.
 			tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 		}

@@ -109,6 +109,7 @@ fn build_overseer_for_availability_read(
 	(overseer, OverseerHandle::new(raw_handle))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_overseer_for_availability_write(
 	spawn_task_handle: SpawnTaskHandle,
 	runtime_api: MockRuntimeApi,
@@ -706,10 +707,10 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 		);
 
 		// Wait for all bitfields to be processed.
-		env.wait_until_metric_eq(
+		env.wait_until_metric(
 			"polkadot_parachain_received_availabilty_bitfields_total",
 			None,
-			config.connected_count() * block_num,
+			|value| value == (config.connected_count() * block_num) as f64,
 		)
 		.await;
 

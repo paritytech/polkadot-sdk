@@ -365,33 +365,6 @@ test-linux-stable-int:
     - WASM_BUILD_NO_COLOR=1
       time cargo test -p staging-node-cli --release --locked -- --ignored
 
-test-linux-subsystem-bench:
-  stage: test
-  extends:
-    - .docker-env
-    - .common-refs
-    - .run-immediately
-    - .pipeline-stopper-artifacts
-  variables:
-    # Enable debug assertions since we are running optimized builds for testing
-    # but still want to have debug assertions.
-    RUSTFLAGS: "-C debug-assertions -D warnings"
-    RUST_BACKTRACE: 1
-    WASM_BUILD_NO_COLOR: 1
-    WASM_BUILD_RUSTFLAGS: "-C debug-assertions -D warnings"
-    # Ensure we run the UI tests.
-    RUN_UI_TESTS: 1
-  script:
-    - nproc
-    - cat /proc/cpuinfo
-    - cat /proc/meminfo
-    - time cargo run -p polkadot-subsystem-bench --release -- test-sequence --path polkadot/node/subsystem-bench/examples/approvals_throughput.yaml
-    - time cargo run -p polkadot-subsystem-bench --release -- test-sequence --path polkadot/node/subsystem-bench/examples/approvals_throughput_no_optimisations_enabled.yaml
-    - time cargo run -p polkadot-subsystem-bench --release -- test-sequence --path polkadot/node/subsystem-bench/examples/approvals_throughput_12_seconds.yaml
-    - time cargo run -p polkadot-subsystem-bench --release -- test-sequence --path polkadot/node/subsystem-bench/examples/approvals_throughput_12_seconds_no_optimisations.yaml
-    - time cargo run -p polkadot-subsystem-bench --release -- test-sequence --path polkadot/node/subsystem-bench/examples/approvals_throughput_best_case.yaml
-    - time cargo run -p polkadot-subsystem-bench --release -- test-sequence --path polkadot/node/subsystem-bench/examples/approvals_no_shows.yaml
-
 # more information about this job can be found here:
 # https://github.com/paritytech/substrate/pull/6916
 check-tracing:

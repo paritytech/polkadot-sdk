@@ -78,8 +78,6 @@ impl MockRuntimeApi {
 	}
 }
 
-pub const NEEDED_APPROVALS: u32 = 30;
-
 /// Generates a test session info with all passed authorities as consensus validators.
 pub fn session_info_for_peers(
 	configuration: &TestConfiguration,
@@ -100,11 +98,11 @@ pub fn session_info_for_peers(
 		assignment_keys: authorities.validator_assignment_id.to_vec(),
 		validator_groups: IndexedVec::<GroupIndex, Vec<ValidatorIndex>>::from(validator_groups),
 		n_cores: configuration.n_cores as u32,
-		needed_approvals: NEEDED_APPROVALS,
-		zeroth_delay_tranche_width: 0,
-		relay_vrf_modulo_samples: 6,
-		n_delay_tranches: 89,
-		no_show_slots: 3,
+		needed_approvals: configuration.needed_approvals as u32,
+		zeroth_delay_tranche_width: configuration.zeroth_delay_tranche_width as u32,
+		relay_vrf_modulo_samples: configuration.relay_vrf_modulo_samples as u32,
+		n_delay_tranches: configuration.n_delay_tranches as u32,
+		no_show_slots: configuration.no_show_slots as u32,
 		active_validator_indices: (0..authorities.validator_authority_id.len())
 			.map(|index| ValidatorIndex(index as u32))
 			.collect_vec(),

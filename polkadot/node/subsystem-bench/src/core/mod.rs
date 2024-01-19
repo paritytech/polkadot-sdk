@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 const LOG_TARGET: &str = "subsystem-bench::core";
+pub const NODE_UNDER_TEST: u32 = 0;
 
 pub mod configuration;
 pub mod display;

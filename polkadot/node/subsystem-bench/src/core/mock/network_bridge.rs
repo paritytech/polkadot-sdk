@@ -142,19 +142,7 @@ impl MockNetworkBridgeTx {
 								.expect("Should not fail");
 						}
 					},
-					NetworkBridgeTxMessage::DisconnectPeer(_, _) => todo!(),
-					NetworkBridgeTxMessage::SendCollationMessage(_, _) => todo!(),
-					NetworkBridgeTxMessage::SendValidationMessages(_) => todo!(),
-					NetworkBridgeTxMessage::SendCollationMessages(_) => todo!(),
-					NetworkBridgeTxMessage::ConnectToValidators {
-						validator_ids: _,
-						peer_set: _,
-						failed: _,
-					} => todo!(),
-					NetworkBridgeTxMessage::ConnectToResolvedValidators {
-						validator_addrs: _,
-						peer_set: _,
-					} => todo!(),
+					_ => todo!(),
 				},
 			}
 		}

@@ -88,6 +88,6 @@ impl SyncOracle for TestSyncOracle {
 	}
 
 	fn is_offline(&self) -> bool {
-		unimplemented!("should not be used by bridge")
+		unimplemented!("not used by subsystem benchmarks")
 	}
 }
