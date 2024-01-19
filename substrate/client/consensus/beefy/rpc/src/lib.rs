@@ -140,10 +140,7 @@ where
 			.subscribe(100_000)
 			.map(|vfp| notification::EncodedVersionedFinalityProof::new::<Block>(vfp));
 
-		sc_rpc::utils::spawn_subscription_task(
-			&self.executor,
-			pipe_from_stream(pending, stream, 16),
-		);
+		sc_rpc::utils::spawn_subscription_task(&self.executor, pipe_from_stream(pending, stream));
 	}
 
 	async fn latest_finalized(&self) -> Result<Block::Hash, Error> {

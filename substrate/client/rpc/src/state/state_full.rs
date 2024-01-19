@@ -405,7 +405,7 @@ where
 			});
 
 		let stream = futures::stream::once(future::ready(initial)).chain(version_stream);
-		spawn_subscription_task(&self.executor, pipe_from_stream(pending, stream, 16));
+		spawn_subscription_task(&self.executor, pipe_from_stream(pending, stream));
 	}
 
 	fn subscribe_storage(
@@ -457,7 +457,7 @@ where
 			.chain(storage_stream)
 			.filter(|storage| future::ready(!storage.changes.is_empty()));
 
-		spawn_subscription_task(&self.executor, pipe_from_stream(pending, stream, 16));
+		spawn_subscription_task(&self.executor, pipe_from_stream(pending, stream));
 	}
 
 	fn trace_block(

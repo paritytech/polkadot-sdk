@@ -143,5 +143,5 @@ fn subscribe_headers<Block, Client, F, G, S>(
 	// duplicates at the beginning of the stream though.
 	let stream = stream::iter(maybe_header).chain(stream());
 
-	spawn_subscription_task(executor, pipe_from_stream(pending, stream, 16));
+	spawn_subscription_task(executor, pipe_from_stream(pending, stream));
 }

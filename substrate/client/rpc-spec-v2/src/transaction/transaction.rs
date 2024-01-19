@@ -119,14 +119,13 @@ where
 					let mut state = TransactionState::new();
 					let stream =
 						stream.filter_map(move |event| async move { state.handle_event(event) });
-					pipe_from_stream(pending, stream.boxed(), 16).await;
+					pipe_from_stream(pending, stream.boxed()).await;
 				},
 				Err(err) => {
 					// We have not created an `Watcher` for the tx. Make sure the
 					// error is still propagated as an event.
 					let event: TransactionEvent<<Pool::Block as BlockT>::Hash> = err.into();
-					pipe_from_stream(pending, futures::stream::once(async { event }).boxed(), 16)
-						.await;
+					pipe_from_stream(pending, futures::stream::once(async { event }).boxed()).await;
 				},
 			};
 		};
