@@ -404,6 +404,19 @@ pub mod body {
 		FuncBody::new(locals.to_vec(), instructions)
 	}
 
+	pub fn repeated_with_locals_using<const N: usize>(
+		locals: &[Local],
+		repetitions: u32,
+		mut f: impl FnMut() -> [Instruction; N],
+	) -> FuncBody {
+		let mut instructions = Vec::new();
+		for _ in 0..repetitions {
+			instructions.extend(f());
+		}
+		instructions.push(Instruction::End);
+		FuncBody::new(locals.to_vec(), Instructions::new(instructions))
+	}
+
 	pub fn repeated_dyn(repetitions: u32, mut instructions: Vec<DynInstr>) -> FuncBody {
 		// We need to iterate over indices because we cannot cycle over mutable references
 		let body = (0..instructions.len())
