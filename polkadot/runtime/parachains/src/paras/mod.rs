@@ -2137,6 +2137,11 @@ impl<T: Config> Pallet<T> {
 		weight.saturating_add(T::OnNewHead::on_new_head(id, &new_head))
 	}
 
+	/// Signal to the parachain that scheduling the code upgrade failed.
+	pub(crate) fn signal_code_upgrade_failure(id: ParaId) {
+		UpgradeGoAheadSignal::<T>::insert(&id, UpgradeGoAhead::Abort);
+	}
+
 	/// Returns the list of PVFs (aka validation code) that require casting a vote by a validator in
 	/// the active validator set.
 	pub(crate) fn pvfs_require_precheck() -> Vec<ValidationCodeHash> {

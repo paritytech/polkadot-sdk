@@ -1145,6 +1145,7 @@ impl<T: Config> Pallet<T> {
 					SetGoAhead::Yes,
 				)),
 			Err(consumed_weight) => {
+				<paras::Pallet<T>>::signal_code_upgrade_failure(para_id);
 				log::debug!(
 					target: LOG_TARGET,
 					"Failed to schedule a code upgrade for parachain {}",
