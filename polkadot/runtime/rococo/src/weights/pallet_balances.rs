@@ -93,6 +93,10 @@ impl<T: frame_system::Config> pallet_balances::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
+	
+	// FAIL-CI replace  
+	fn force_adjust_total_issuance() -> Weight { Weight::zero() } 
+
 	fn upgrade_accounts(_: u32) -> Weight {
 		Weight::from_parts(0, 0)
 	}

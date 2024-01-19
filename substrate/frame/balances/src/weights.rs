@@ -57,6 +57,7 @@ pub trait WeightInfo {
 	fn transfer_all() -> Weight;
 	fn force_unreserve() -> Weight;
 	fn upgrade_accounts(u: u32, ) -> Weight;
+	fn force_adjust_total_issuance() -> Weight;
 }
 
 /// Weights for pallet_balances using the Substrate node and recommended hardware.

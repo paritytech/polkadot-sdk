@@ -137,7 +137,10 @@ impl<T: frame_system::Config> pallet_balances::WeightInfo for WeightInfo<T> {
 	/// Storage: `System::Account` (r:999 w:999)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// The range of component `u` is `[1, 1000]`.
-	fn upgrade_accounts(u: u32, ) -> Weight {
+	// FAIL-CI replace  
+fn force_adjust_total_issuance() -> Weight { Weight::zero() } 
+
+fn upgrade_accounts(u: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0 + u * (136 ±0)`
 		//  Estimated: `990 + u * (2603 ±0)`
