@@ -20,7 +20,7 @@ use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_std::{boxed::Box, vec::Vec};
 
-use xcm::{VersionedMultiLocation, VersionedXcm};
+use xcm::{VersionedLocation, VersionedXcm};
 
 /// A minimized version of `frame-system::Call` that can be used without a runtime.
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
@@ -55,5 +55,5 @@ pub enum SudoCall<Call> {
 pub enum XcmCall {
 	/// `pallet-xcm::Call::send`
 	#[codec(index = 0)]
-	send(Box<VersionedMultiLocation>, Box<VersionedXcm<()>>),
+	send(Box<VersionedLocation>, Box<VersionedXcm<()>>),
 }
