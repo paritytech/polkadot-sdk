@@ -1,0 +1,25 @@
+title: [frame] `#[pallet::composite_enum]` improved variant count handling + removed `pallet_balances`'s `MaxHolds` config
+
+doc:
+  - audience: Runtime User
+    description: |
+      The implementation of `VariantCount` trait for the result composite enums
+      like `RuntimeHoldReason` and `RuntimeFreezeReason` was fixed
+      and is now calculated as sum of `VariantCount::VARIANT_COUNT` of all corespondent `#[pallet::composite_enum]`.
+      The Balances pallet's `Config` item `type MaxHolds` was removed
+      and `type Holds` are now bounded to the composite enum `RuntimeHoldReason` variant count,
+      so the runtime does not need to consider setting correct value for `MaxHolds`.
+
+      The implementation of the `VariantCount` trait for resulting composite enums,
+      such as `RuntimeHoldReason` and `RuntimeFreezeReason`, has been fixed.
+      It is now calculated as the sum of `VariantCount::VARIANT_COUNT` for all corresponding `#[pallet::composite_enum]`.
+      The `Balances` pallet's `Config` item `type MaxHolds` has been removed,
+      and `type Holds` is now bound to the variant count of the composite enum `RuntimeHoldReason`.
+      Consequently, the runtime does not need to consider setting the correct value for `MaxHolds`.
+
+      notes:
+      - Remove `type MaxHolds` from the `impl pallet_balances::Config for Runtime` in the runtime.
+      - When holds are expected to be used, ensure that `type RuntimeHoldReason = RuntimeHoldReason` is set for `impl pallet_balances::Config for Runtime`.
+
+crates:
+  - name: pallet-balances
