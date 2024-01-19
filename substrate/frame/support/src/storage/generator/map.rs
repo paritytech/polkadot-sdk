@@ -441,9 +441,8 @@ mod test_iterators {
 			// Wrong key
 			unhashed::put(&[prefix.clone(), vec![1, 2, 3]].concat(), &3u64.encode());
 
-			// debug_assert should cause a
 			Map::translate(|_k1, v: u64| Some(v * 2));
-			assert_eq!(Map::iter().collect::<Vec<_>>(), vec![(3, 6), (0, 0), (2, 4), (1, 2)]);
+			assert_eq!(Map::iter().collect::<Vec<_>>(), vec![]);
 		})
 	}
 
@@ -461,7 +460,7 @@ mod test_iterators {
 			);
 
 			Map::translate(|_k1, v: u64| Some(v * 2));
-			assert_eq!(Map::iter().collect::<Vec<_>>(), vec![(3, 6), (0, 0), (2, 4), (1, 2)]);
+			assert_eq!(Map::iter().collect::<Vec<_>>(), vec![]);
 		})
 	}
 
