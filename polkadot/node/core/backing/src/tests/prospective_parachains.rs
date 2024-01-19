@@ -1388,6 +1388,13 @@ fn concurrent_dependent_candidates() {
 					assert_eq!(sess_idx, 1);
 					tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
 				},
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_,
+					RuntimeApiRequest::NodeFeatures(sess_idx, tx),
+				)) => {
+					assert_eq!(sess_idx, 1);
+					tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+				},
 
 				_ => panic!("unexpected message received from overseer: {:?}", msg),
 			}
