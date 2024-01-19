@@ -180,7 +180,7 @@ pub fn craft_valid_storage_proof() -> (sp_core::H256, RawStorageProof) {
 		],
 		state_version,
 	));
-	let root = backend.storage_root(std::iter::empty(), state_version).main.root_hash();
+	let root = backend.storage_root(std::iter::empty(), state_version).root_hash();
 	let proof =
 		prove_read(backend, &[&b"key1"[..], &b"key2"[..], &b"key4"[..], &b"key22"[..]]).unwrap();
 

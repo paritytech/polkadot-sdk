@@ -176,7 +176,7 @@ fn measure_write<Block: BlockT>(
 	let replace = vec![(key.as_ref(), Some(new_v.as_ref()))];
 	let stx = match child_info {
 		Some(info) => trie.child_storage_root(info, replace.iter().cloned(), version).0,
-		None => trie.storage_root(replace.iter().cloned(), version),
+		None => trie.storage_root(replace.iter().cloned().map(|(k, v)| (k, v, None)), version),
 	};
 
 	let mut tx = Transaction::<DbHash>::default();
@@ -208,10 +208,10 @@ fn check_new_value<Block: BlockT>(
 	let new_kv = vec![(key.as_ref(), Some(new_v.as_ref()))];
 	let stx = match child_info {
 		Some(info) => trie.child_storage_root(info, new_kv.iter().cloned(), version).0,
-		None => trie.storage_root(new_kv.iter().cloned(), version),
+		None => trie.storage_root(new_kv.iter().cloned().map(|(k, v)| (k, v, None)), version),
 	};
 	let mut mdb = MemoryDB::<HashingFor<Block>>::default();
-	stx.main.apply_to(&mut mdb);
+	stx.apply_to(&mut mdb);
 	for (k, (_, rc)) in mdb.drain().into_iter() {
 		if rc > 0 {
 			//db.sanitize_key(&mut k);
