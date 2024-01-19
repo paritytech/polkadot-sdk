@@ -286,6 +286,7 @@ where
 		};
 
 		let _ = block_guard.response_sender().unbounded_send(event);
+
 		Ok(MethodResponse::Started(MethodResponseStarted { operation_id, discarded_items: None }))
 	}
 
@@ -358,7 +359,10 @@ where
 		let mut items = items;
 		items.truncate(num_operations);
 
+		let (tx, rx) = futures::channel::oneshot::channel::<()>();
+
 		let fut = async move {
+			rx.await;
 			storage_client.generate_events(block_guard, hash, items, child_trie).await;
 		};
 
