@@ -7,13 +7,15 @@ bridge-hub-rococo-collator1: run ../scripts/start-relayer.sh within 60 seconds
 
 # step 1: initialize Rococo AH
 asset-hub-rococo-collator1: run ../scripts/invoke-script.sh with "init-asset-hub-rococo-local" within 240 seconds
-asset-hub-rococo-collator1: js-script ../helpers/wait-hrmp-channel-opened.js with "1002" within 400 seconds
 
 # step 2: initialize Rococo bridge hub
-bridge-hub-rococo-collator1: run ../scripts/invoke-script.sh with "init-bridge-hub-rococo-local" within 120 seconds
+bridge-hub-rococo-collator1: run ../scripts/invoke-script.sh with "init-bridge-hub-rococo-local" within 240 seconds
+
+# step 3: ensure that the HRMP channel between AH and BH is opened
+asset-hub-rococo-collator1: js-script ../helpers/wait-hrmp-channel-opened.js with "1002" within 240 seconds
 
 # step 3: send message from Rococo to Westend
 asset-hub-rococo-collator1: run ../scripts/invoke-script.sh with "reserve-transfer-assets-from-asset-hub-rococo-local" within 120 seconds
 
 # step 4: ensure that relayer won't sync any extra headers while delivering messages and confirmations
-bridge-hub-rococo-collator1: js-script ../helpers/only-required-headers-synced-when-active.js with "westend-at-rococo,00000002" return is 1 within 600 seconds
+bridge-hub-rococo-collator1: js-script ../helpers/only-required-headers-synced-when-active.js with "westend-at-rococo" return is 1 within 600 seconds

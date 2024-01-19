@@ -7,13 +7,15 @@ Creds: config
 
 # step 1: initialize Westend AH
 asset-hub-westend-collator1: run ../scripts/invoke-script.sh with "init-asset-hub-westend-local" within 240 seconds
-asset-hub-westend-collator1: js-script ../helpers/wait-hrmp-channel-opened.js with "1002" within 400 seconds
 
 # step 2: initialize Westend bridge hub
-bridge-hub-westend-collator1: run ../scripts/invoke-script.sh with "init-bridge-hub-westend-local" within 120 seconds
+bridge-hub-westend-collator1: run ../scripts/invoke-script.sh with "init-bridge-hub-westend-local" within 240 seconds
 
-# step 3: send message from Westend to Rococo
+# step 3: ensure that the HRMP channel between AH and BH is opened
+asset-hub-westend-collator1: js-script ../helpers/wait-hrmp-channel-opened.js with "1002" within 240 seconds
+
+# step 4: send message from Westend to Rococo
 asset-hub-westend-collator1: run ../scripts/invoke-script.sh with "reserve-transfer-assets-from-asset-hub-westend-local" within 120 seconds
 
-# step 4: ensure that relayer won't sync any extra headers while delivering messages and confirmations
-bridge-hub-westend-collator1: js-script ../helpers/only-required-headers-synced-when-active.js with "rococo-at-westend,00000002" return is 1 within 600 seconds
+# step 5: ensure that relayer won't sync any extra headers while delivering messages and confirmations
+bridge-hub-westend-collator1: js-script ../helpers/only-required-headers-synced-when-active.js with "rococo-at-westend" return is 1 within 600 seconds

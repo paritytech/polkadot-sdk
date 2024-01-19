@@ -6,7 +6,6 @@ async function run(nodeName, networkInfo, args) {
 
     // parse arguments
     const bridgedChain = require("./chains/" + args[0]);
-    const laneId = args[1];
 
     // start listening to new blocks
     const startTime = process.hrtime()[0];
