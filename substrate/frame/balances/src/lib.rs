@@ -190,7 +190,8 @@ use sp_runtime::{
 };
 use sp_std::{cmp, fmt::Debug, mem, prelude::*, result};
 pub use types::{
-	AccountData, BalanceLock, DustCleaner, ExtraFlags, IdAmount, Reasons, ReserveData,
+	AccountData, AdjustmentDirection, BalanceLock, DustCleaner, ExtraFlags, IdAmount, Reasons,
+	ReserveData,
 };
 pub use weights::WeightInfo;
 
@@ -384,6 +385,8 @@ pub mod pallet {
 		Frozen { who: T::AccountId, amount: T::Balance },
 		/// Some balance was thawed.
 		Thawed { who: T::AccountId, amount: T::Balance },
+		/// The `TotalIssuance` was forcefully changed.
+		TotalIssuanceChanged { old: T::Balance, new: T::Balance },
 	}
 
 	#[pallet::error]
@@ -743,6 +746,34 @@ pub mod pallet {
 			Self::deposit_event(Event::BalanceSet { who, free: new_free });
 			Ok(())
 		}
+
+		/// Adjust the total issuance in a saturating way.
+		///
+		/// Must only be called by root and always with a positive `delta`.
+		#[pallet::call_index(9)]
+		#[pallet::weight(0)]
+		pub fn force_adjust_total_issuance(
+			origin: OriginFor<T>,
+			direction: AdjustmentDirection,
+			#[pallet::compact] delta: T::Balance,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			ensure!(delta > Zero::zero(), Error::<T, I>::InsufficientBalance);
+
+			let old = TotalIssuance::<T, I>::get();
+			let new = match direction {
+				AdjustmentDirection::Increase => old.saturating_add(delta),
+				AdjustmentDirection::Decrease => old.saturating_sub(delta),
+			};
+
+			ensure!(InactiveIssuance::<T, I>::get() <= new, Error::<T, I>::InsufficientBalance);
+			TotalIssuance::<T, I>::set(new);
+
+			Self::deposit_event(Event::<T, I>::TotalIssuanceChanged { old, new });
+
+			Ok(())
+		}
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -781,6 +812,10 @@ pub mod pallet {
 			Self::deposit_event(Event::Upgraded { who: who.clone() });
 			return true
 		}
+
+		// ED: 2
+		// FREE: 1
+		// RESERVED: 5
 
 		/// Get the free balance of an account.
 		pub fn free_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {

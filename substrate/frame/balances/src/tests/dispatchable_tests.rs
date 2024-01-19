@@ -18,7 +18,8 @@
 //! Tests regarding the functionality of the dispatchables/extrinsics.
 
 use super::*;
-use frame_support::traits::tokens::Preservation::Expendable;
+use crate::AdjustmentDirection::{Decrease as Dec, Increase as Inc};
+use frame_support::traits::{fungible::Unbalanced, tokens::Preservation::Expendable};
 use fungible::{hold::Mutate as HoldMutate, Inspect, Mutate};
 
 #[test]
@@ -221,4 +222,80 @@ fn upgrade_accounts_should_work() {
 			assert_eq!(System::providers(&7), 0);
 			assert_eq!(System::consumers(&7), 0);
 		});
+}
+
+#[test]
+fn force_adjust_total_issuance_works() {
+	ExtBuilder::default().build_and_execute_with(|| {
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 1337, 64));
+		let ti = Balances::total_issuance();
+
+		// Increase works:
+		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Inc, 32));
+		assert_eq!(Balances::total_issuance(), ti + 32);
+
+		// Decrease works:
+		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Dec, 64));
+		assert_eq!(Balances::total_issuance(), ti - 32);
+	});
+}
+
+#[test]
+fn force_adjust_total_issuance_saturates() {
+	ExtBuilder::default().build_and_execute_with(|| {
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 1337, 64));
+		let ti = Balances::total_issuance();
+		let max = Balance::max_value();
+		assert_eq!(ti, 64);
+
+		// Increment saturates:
+		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Inc, max));
+		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Inc, 123));
+		assert_eq!(Balances::total_issuance(), max);
+
+		// Decrement saturates:
+		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Dec, max));
+		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Dec, 123));
+		assert_eq!(Balances::total_issuance(), 0);
+	});
+}
+
+#[test]
+fn force_adjust_total_issuance_rejects_zero_delta() {
+	ExtBuilder::default().build_and_execute_with(|| {
+		assert_noop!(
+			Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Inc, 0),
+			Error::<Test>::InsufficientBalance,
+		);
+		assert_noop!(
+			Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Dec, 0),
+			Error::<Test>::InsufficientBalance,
+		);
+	});
+}
+
+#[test]
+fn force_adjust_total_issuance_rejects_more_than_inactive() {
+	ExtBuilder::default().build_and_execute_with(|| {
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 1337, 64));
+		Balances::deactivate(16u32.into());
+
+		assert_eq!(Balances::total_issuance(), 64);
+		assert_eq!(Balances::active_issuance(), 48);
+
+		// Works with up to 48:
+		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Dec, 40),);
+		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Dec, 8),);
+		assert_eq!(Balances::total_issuance(), 16);
+		assert_eq!(Balances::active_issuance(), 0);
+		// Errors with more than 48:
+		assert_noop!(
+			Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Dec, 1),
+			Error::<Test>::InsufficientBalance,
+		);
+		// Increasing again increases the inactive issuance:
+		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Inc, 10),);
+		assert_eq!(Balances::total_issuance(), 26);
+		assert_eq!(Balances::active_issuance(), 10);
+	});
 }
