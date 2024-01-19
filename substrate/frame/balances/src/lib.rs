@@ -399,7 +399,7 @@ pub mod pallet {
 		DeadAccount,
 		/// Number of named reserves exceed `MaxReserves`.
 		TooManyReserves,
-		/// Number of holds exceed `MaxHolds`.
+		/// Number of holds exceed `VariantCountOf<T::RuntimeHoldReason>`.
 		TooManyHolds,
 		/// Number of freezes exceed `MaxFreezes`.
 		TooManyFreezes,
