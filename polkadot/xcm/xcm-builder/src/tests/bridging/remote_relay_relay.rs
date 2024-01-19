@@ -21,15 +21,15 @@
 use super::*;
 
 parameter_types! {
-	pub UniversalLocation: Junctions = X2(GlobalConsensus(Local::get()), Parachain(1000));
-	pub RelayUniversalLocation: Junctions = X1(GlobalConsensus(Local::get()));
-	pub RemoteUniversalLocation: Junctions = X1(GlobalConsensus(Remote::get()));
-	pub RemoteNetwork: MultiLocation = AncestorThen(1, GlobalConsensus(Remote::get())).into();
+	pub UniversalLocation: Junctions = [GlobalConsensus(Local::get()), Parachain(1000)].into();
+	pub RelayUniversalLocation: Junctions = [GlobalConsensus(Local::get())].into();
+	pub RemoteUniversalLocation: Junctions = [GlobalConsensus(Remote::get())].into();
+	pub RemoteNetwork: Location = AncestorThen(1, GlobalConsensus(Remote::get())).into();
 	pub BridgeTable: Vec<NetworkExportTableItem> = vec![
 		NetworkExportTableItem::new(
 			Remote::get(),
 			None,
-			MultiLocation::parent(),
+			Location::parent(),
 			None
 		)
 	];
@@ -59,7 +59,7 @@ fn sending_to_bridged_chain_works() {
 		let msg = Xcm(vec![Trap(1)]);
 		assert_eq!(
 			send_xcm::<LocalRouter>((Parent, Parent, Remote::get()).into(), msg).unwrap().1,
-			MultiAssets::new()
+			Assets::new()
 		);
 		assert_eq!(TheBridge::service(), 1);
 		assert_eq!(
@@ -91,7 +91,7 @@ fn sending_to_bridged_chain_works() {
 					},
 				],
 			),
-			outcome: Outcome::Complete(test_weight(2)),
+			outcome: Outcome::Complete { used: test_weight(2) },
 			paid: false,
 		};
 		assert_eq!(RoutingLog::take(), vec![entry]);
@@ -113,7 +113,7 @@ fn sending_to_parachain_of_bridged_chain_works() {
 	maybe_with_topic(|| {
 		let msg = Xcm(vec![Trap(1)]);
 		let dest = (Parent, Parent, Remote::get(), Parachain(1000)).into();
-		assert_eq!(send_xcm::<LocalRouter>(dest, msg).unwrap().1, MultiAssets::new());
+		assert_eq!(send_xcm::<LocalRouter>(dest, msg).unwrap().1, Assets::new());
 		assert_eq!(TheBridge::service(), 1);
 		let expected = vec![(
 			Parachain(1000).into(),
@@ -142,7 +142,7 @@ fn sending_to_parachain_of_bridged_chain_works() {
 					},
 				],
 			),
-			outcome: Outcome::Complete(test_weight(2)),
+			outcome: Outcome::Complete { used: test_weight(2) },
 			paid: false,
 		};
 		assert_eq!(RoutingLog::take(), vec![entry]);

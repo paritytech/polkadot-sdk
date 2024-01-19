@@ -20,6 +20,7 @@ hex-literal = "0.4.1"
 sp-core = { path = "../../../../../../../substrate/primitives/core", default-features = false }
 frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false }
 pallet-assets = { path = "../../../../../../../substrate/frame/assets", default-features = false }
+pallet-asset-conversion = { path = "../../../../../../../substrate/frame/asset-conversion", default-features = false }
 pallet-balances = { path = "../../../../../../../substrate/frame/balances", default-features = false }
 pallet-message-queue = { path = "../../../../../../../substrate/frame/message-queue" }
 sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", default-features = false }
@@ -48,7 +49,6 @@ asset-hub-rococo-runtime = { path = "../../../../../runtimes/assets/asset-hub-ro
 # Snowbridge
 snowbridge-core = { path = "../../../../../../../bridges/snowbridge/parachain/primitives/core", default-features = false }
 snowbridge-router-primitives = { path = "../../../../../../../bridges/snowbridge/parachain/primitives/router", default-features = false }
-snowbridge-system = { path = "../../../../../../../bridges/snowbridge/parachain/pallets/system", default-features = false }
-snowbridge-inbound-queue = { path = "../../../../../../../bridges/snowbridge/parachain/pallets/inbound-queue", default-features = false }
-snowbridge-outbound-queue = { path = "../../../../../../../bridges/snowbridge/parachain/pallets/outbound-queue", default-features = false }
-snowbridge-rococo-common = { path = "../../../../../../../bridges/snowbridge/parachain/runtime/rococo-common", default-features = false }
+snowbridge-pallet-system = { path = "../../../../../../../bridges/snowbridge/parachain/pallets/system", default-features = false }
+snowbridge-pallet-inbound-queue = { path = "../../../../../../../bridges/snowbridge/parachain/pallets/inbound-queue", default-features = false }
+snowbridge-pallet-outbound-queue = { path = "../../../../../../../bridges/snowbridge/parachain/pallets/outbound-queue", default-features = false }

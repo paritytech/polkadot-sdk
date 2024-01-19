@@ -88,14 +88,14 @@ impl Identity {
 		};
 		let (github, discord) = additional
 			.as_ref()
-			.and_then(|vec| vec.get(0))
+			.and_then(|vec| vec.first())
 			.map(|(g, d)| (g.clone(), d.clone()))
 			.unwrap_or((Data::None, Data::None));
 		Self {
 			relay: IdentityInfo {
 				display: make_data(b"xcm-test", full),
 				legal: make_data(b"The Xcm Test, Esq.", full),
-				web: make_data(b"https://xcm-test.io", full),
+				web: make_data(b"https://visitme/", full),
 				riot: make_data(b"xcm-riot", full),
 				email: make_data(b"xcm-test@gmail.com", full),
 				pgp_fingerprint: Some(pgp_fingerprint),
@@ -106,7 +106,7 @@ impl Identity {
 			para: IdentityInfoParachain {
 				display: make_data(b"xcm-test", full),
 				legal: make_data(b"The Xcm Test, Esq.", full),
-				web: make_data(b"https://xcm-test.io", full),
+				web: make_data(b"https://visitme/", full),
 				matrix: make_data(b"xcm-matrix@server", full),
 				email: make_data(b"xcm-test@gmail.com", full),
 				pgp_fingerprint: Some(pgp_fingerprint),
