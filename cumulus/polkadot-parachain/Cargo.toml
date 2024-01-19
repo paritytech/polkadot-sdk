@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-parachain-bin"
-version = "1.5.0"
+version = "1.6.0"
 authors.workspace = true
 build = "build.rs"
 edition.workspace = true
@@ -16,13 +16,13 @@ path = "src/main.rs"
 
 [dependencies]
 async-trait = "0.1.74"
-clap = { version = "4.4.11", features = ["derive"] }
+clap = { version = "4.4.18", features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 futures = "0.3.28"
 hex-literal = "0.4.1"
 log = "0.4.20"
-serde = { version = "1.0.193", features = ["derive"] }
-serde_json = "1.0.108"
+serde = { version = "1.0.195", features = ["derive"] }
+serde_json = "1.0.111"
 
 # Local
 rococo-parachain-runtime = { path = "../parachains/runtimes/testing/rococo-parachain" }
@@ -102,10 +102,10 @@ cumulus-client-consensus-aura = { path = "../client/consensus/aura" }
 cumulus-client-consensus-relay-chain = { path = "../client/consensus/relay-chain" }
 cumulus-client-consensus-common = { path = "../client/consensus/common" }
 cumulus-client-consensus-proposer = { path = "../client/consensus/proposer" }
+cumulus-client-parachain-inherent = { path = "../client/parachain-inherent" }
 cumulus-client-service = { path = "../client/service" }
 cumulus-primitives-aura = { path = "../primitives/aura" }
 cumulus-primitives-core = { path = "../primitives/core" }
-cumulus-primitives-parachain-inherent = { path = "../primitives/parachain-inherent" }
 cumulus-relay-chain-interface = { path = "../client/relay-chain-interface" }
 color-print = "0.3.4"
 
@@ -166,4 +166,7 @@ try-runtime = [
 	"polkadot-service/try-runtime",
 	"shell-runtime/try-runtime",
 	"sp-runtime/try-runtime",
+]
+fast-runtime = [
+	"bridge-hub-rococo-runtime/fast-runtime",
 ]

@@ -47,11 +47,11 @@ pub use origin_conversion::{
 };
 
 mod asset_conversion;
-pub use asset_conversion::{
-	AsPrefixedGeneralIndex, ConvertedAbstractId, ConvertedConcreteId, MatchedConvertedConcreteId,
-};
 #[allow(deprecated)]
-pub use asset_conversion::{ConvertedAbstractAssetId, ConvertedConcreteAssetId};
+pub use asset_conversion::ConvertedConcreteAssetId;
+pub use asset_conversion::{
+	AsPrefixedGeneralIndex, ConvertedConcreteId, MatchedConvertedConcreteId, V4V3LocationConverter,
+};
 
 mod barriers;
 pub use barriers::{
@@ -96,7 +96,7 @@ mod matches_location;
 pub use matches_location::{StartsWith, StartsWithExplicitGlobalConsensus};
 
 mod matches_token;
-pub use matches_token::{IsAbstract, IsConcrete};
+pub use matches_token::IsConcrete;
 
 mod matcher;
 pub use matcher::{CreateMatcher, MatchXcm, Matcher};

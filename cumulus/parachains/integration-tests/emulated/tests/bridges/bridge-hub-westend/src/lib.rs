@@ -21,7 +21,8 @@ pub use sp_runtime::DispatchError;
 pub use xcm::{
 	latest::ParentThen,
 	prelude::{AccountId32 as AccountId32Junction, *},
-	v3::{
+	v3,
+	v4::{
 		Error,
 		NetworkId::{Rococo as RococoId, Westend as WestendId},
 	},
@@ -55,7 +56,8 @@ pub use rococo_westend_system_emulated_network::{
 	},
 	westend_emulated_chain::WestendRelayPallet as WestendPallet,
 	AssetHubRococoPara as AssetHubRococo, AssetHubRococoParaReceiver as AssetHubRococoReceiver,
-	AssetHubWestendPara as AssetHubWestend, AssetHubWestendParaReceiver as AssetHubWestendReceiver,
+	AssetHubRococoParaSender as AssetHubRococoSender, AssetHubWestendPara as AssetHubWestend,
+	AssetHubWestendParaReceiver as AssetHubWestendReceiver,
 	AssetHubWestendParaSender as AssetHubWestendSender, BridgeHubRococoPara as BridgeHubRococo,
 	BridgeHubWestendPara as BridgeHubWestend, BridgeHubWestendParaSender as BridgeHubWestendSender,
 	WestendRelay as Westend,
