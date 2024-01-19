@@ -876,7 +876,7 @@ pub mod pallet {
 				}),
 				NoMigrationInProgress | NoMigrationPerformed => {
 					let err: DispatchError = <Error<T>>::NoMigrationPerformed.into();
-					Err(err.with_weight(T::WeightInfo::migrate()))
+					Err(err.with_weight(meter.consumed()))
 				},
 			}
 		}
