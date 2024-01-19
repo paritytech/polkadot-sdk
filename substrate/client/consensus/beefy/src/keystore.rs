@@ -23,7 +23,7 @@ use sp_core::ecdsa_bls377;
 use sp_core::{ecdsa, keccak_256};
 
 use sp_keystore::KeystorePtr;
-use sp_std::marker::PhantomData;
+use std::marker::PhantomData;
 
 use log::warn;
 
