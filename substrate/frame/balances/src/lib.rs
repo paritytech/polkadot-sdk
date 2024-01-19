@@ -751,7 +751,7 @@ pub mod pallet {
 		///
 		/// Must only be called by root and always with a positive `delta`.
 		#[pallet::call_index(9)]
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::force_adjust_total_issuance())]
 		pub fn force_adjust_total_issuance(
 			origin: OriginFor<T>,
 			direction: AdjustmentDirection,
@@ -812,10 +812,6 @@ pub mod pallet {
 			Self::deposit_event(Event::Upgraded { who: who.clone() });
 			return true
 		}
-
-		// ED: 2
-		// FREE: 1
-		// RESERVED: 5
 
 		/// Get the free balance of an account.
 		pub fn free_balance(who: impl sp_std::borrow::Borrow<T::AccountId>) -> T::Balance {
