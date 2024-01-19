@@ -18,6 +18,7 @@
 pub mod impls;
 pub mod message_queue;
 pub mod rococo;
+pub mod storage_weight_reclaim;
 pub mod westend;
 pub mod wococo;
 pub mod xcm_config;

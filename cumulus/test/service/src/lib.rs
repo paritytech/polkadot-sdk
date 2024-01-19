@@ -112,7 +112,7 @@ pub type AnnounceBlockFn = Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>;
 pub struct RuntimeExecutor;
 
 impl sc_executor::NativeExecutionDispatch for RuntimeExecutor {
-	type ExtendHostFunctions = ();
+	type ExtendHostFunctions = cumulus_client_service::storage_proof_size::HostFunctions;
 
 	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
 		cumulus_test_runtime::api::dispatch(method, data)

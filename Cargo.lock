@@ -11364,6 +11364,7 @@ name = "parachains-common"
 version = "1.0.0"
 dependencies = [
  "cumulus-primitives-core",
+ "cumulus-primitives-proof-size-hostfunction",
  "cumulus-primitives-utility",
  "frame-support",
  "frame-system",
@@ -11387,6 +11388,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 8.0.0",
+ "sp-trie",
  "staging-parachain-info",
  "staging-xcm",
  "staging-xcm-builder",

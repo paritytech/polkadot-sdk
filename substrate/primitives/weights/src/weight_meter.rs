@@ -149,6 +149,11 @@ impl WeightMeter {
 	pub fn can_consume(&self, w: Weight) -> bool {
 		self.consumed.checked_add(&w).map_or(false, |t| t.all_lte(self.limit))
 	}
+
+	/// Reclaim the given weight.
+	pub fn reclaim_proof_size(&mut self, s: u64) {
+		self.consumed.saturating_reduce(Weight::from_parts(0, s));
+	}
 }
 
 #[cfg(test)]
@@ -275,6 +280,21 @@ mod tests {
 		assert_eq!(meter.remaining(), Weight::from_parts(0, 10));
 		meter.consume(Weight::from_parts(0, 10));
 		assert_eq!(meter.consumed(), Weight::from_parts(5, 10));
+	}
+
+	#[test]
+	#[cfg(debug_assertions)]
+	fn reclaim_works() {
+		let mut meter = WeightMeter::with_limit(Weight::from_parts(5, 10));
+
+		meter.consume(Weight::from_parts(5, 10));
+		assert_eq!(meter.consumed(), Weight::from_parts(5, 10));
+
+		meter.reclaim_proof_size(3);
+		assert_eq!(meter.consumed(), Weight::from_parts(5, 7));
+
+		meter.reclaim_proof_size(10);
+		assert_eq!(meter.consumed(), Weight::from_parts(5, 0));
 	}
 
 	#[test]
