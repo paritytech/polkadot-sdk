@@ -99,7 +99,9 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
-impl shared::Config for Runtime {}
+impl shared::Config for Runtime {
+	type DisabledValidators = ();
+}
 
 impl configuration::Config for Runtime {
 	type WeightInfo = configuration::TestWeightInfo;
@@ -107,8 +109,8 @@ impl configuration::Config for Runtime {
 
 parameter_types! {
 	pub RelayNetwork: NetworkId = ByGenesis([0; 32]);
-	pub const TokenLocation: MultiLocation = Here.into_location();
-	pub UniversalLocation: InteriorMultiLocation = Here;
+	pub const TokenLocation: Location = Here.into_location();
+	pub UniversalLocation: InteriorLocation = Here;
 	pub UnitWeightCost: u64 = 1_000;
 }
 
@@ -134,15 +136,15 @@ type LocalOriginConverter = (
 parameter_types! {
 	pub const XcmInstructionWeight: Weight = Weight::from_parts(1_000, 1_000);
 	pub TokensPerSecondPerMegabyte: (AssetId, u128, u128) =
-		(Concrete(TokenLocation::get()), 1_000_000_000_000, 1024 * 1024);
+		(AssetId(TokenLocation::get()), 1_000_000_000_000, 1024 * 1024);
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
 
 pub struct ChildrenParachains;
-impl Contains<MultiLocation> for ChildrenParachains {
-	fn contains(location: &MultiLocation) -> bool {
-		matches!(location, MultiLocation { parents: 0, interior: X1(Parachain(_)) })
+impl Contains<Location> for ChildrenParachains {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (0, [Parachain(_)]))
 	}
 }
 

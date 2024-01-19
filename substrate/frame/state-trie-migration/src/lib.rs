@@ -524,7 +524,7 @@ pub mod pallet {
 		/// - [`frame_support::storage::StorageDoubleMap`]: 96 byte
 		///
 		/// For more info see
-		/// <https://www.shawntabrizi.com/substrate/querying-substrate-storage-via-rpc/>
+		/// <https://www.shawntabrizi.com/blog/substrate/querying-substrate-storage-via-rpc/>
 
 		#[pallet::constant]
 		#[pallet::no_default]
