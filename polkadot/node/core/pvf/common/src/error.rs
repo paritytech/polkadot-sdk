@@ -77,8 +77,8 @@ pub enum PrepareError {
 	#[codec(index = 9)]
 	ClearWorkerDir(String),
 	/// The preparation job process died, due to OOM, a seccomp violation, or some other factor.
-	JobDied { err: String, job_pid: i32 },
 	#[codec(index = 10)]
+	JobDied { err: String, job_pid: i32 },
 	/// Some error occurred when interfacing with the kernel.
 	#[codec(index = 11)]
 	Kernel(String),
@@ -135,15 +135,22 @@ impl fmt::Display for PrepareError {
 ///
 /// Should only ever be used for validation errors independent of the candidate and PVF, or for
 /// errors we ruled out during pre-checking (so preparation errors are fine).
-#[derive(Debug, Clone, Encode, Decode)]
+#[derive(thiserror::Error, Debug, Clone, Encode, Decode)]
 pub enum InternalValidationError {
-	/// Some communication error occurred with the host.
+	/// Some communication error occurred with the host. It may have died. Should be unrelated to
+	/// the candidate.
+	#[error("validation: some communication error occurred with the host: {0}")]
 	HostCommunication(String),
 	/// Host could not create a hard link to the artifact path.
+	#[error("validation: host could not create a hard link to the artifact path: {0}")]
 	CouldNotCreateLink(String),
+	#[error("validation: could not create pipe: {0}")]
+	CouldNotCreatePipe(String),
 	/// Could not find or open compiled artifact file.
+	#[error("validation: could not find or open compiled artifact file: {0}")]
 	CouldNotOpenFile(String),
 	/// Host could not clear the worker cache after a job.
+	#[error("validation: host could not clear the worker cache ({path:?}) after a job: {err}")]
 	CouldNotClearWorkerDir {
 		err: String,
 		// Unfortunately `PathBuf` doesn't implement `Encode`/`Decode`, so we do a fallible
@@ -151,32 +158,10 @@ pub enum InternalValidationError {
 		path: Option<String>,
 	},
 	/// Some error occurred when interfacing with the kernel.
+	#[error("validation: error interfacing with the kernel: {0}")]
 	Kernel(String),
 
 	/// Some non-deterministic preparation error occurred.
+	#[error("validation: prepare: {0}")]
 	NonDeterministicPrepareError(PrepareError),
-}
-
-impl fmt::Display for InternalValidationError {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		use InternalValidationError::*;
-		match self {
-			HostCommunication(err) =>
-				write!(f, "validation: some communication error occurred with the host: {}", err),
-			CouldNotCreateLink(err) => write!(
-				f,
-				"validation: host could not create a hard link to the artifact path: {}",
-				err
-			),
-			CouldNotOpenFile(err) =>
-				write!(f, "validation: could not find or open compiled artifact file: {}", err),
-			CouldNotClearWorkerDir { err, path } => write!(
-				f,
-				"validation: host could not clear the worker cache ({:?}) after a job: {}",
-				path, err
-			),
-			Kernel(err) => write!(f, "validation: error interfacing with the kernel: {}", err),
-			NonDeterministicPrepareError(err) => write!(f, "validation: prepare: {}", err),
-		}
-	}
 }

@@ -16,6 +16,8 @@
 
 //! Contains the logic for preparing PVFs. Used by the polkadot-prepare-worker binary.
 
+#![warn(missing_docs)]
+
 mod memory_stats;
 
 use polkadot_node_core_pvf_common::executor_interface::{prepare, prevalidate};
@@ -106,8 +108,35 @@ fn recv_request(stream: &mut UnixStream) -> io::Result<PvfPrepData> {
 }
 
 /// Send a worker response.
-fn send_response(stream: &mut UnixStream, result: PrepareWorkerResult) -> io::Result<()> {
-	framed_send_blocking(stream, &result.encode())
+fn send_response(
+	stream: &mut UnixStream,
+	worker_pid: u32,
+	result: PrepareWorkerResult,
+) -> io::Result<()> {
+	if let Err(ref err) = result {
+		gum::warn!(
+			target: LOG_TARGET,
+			%worker_pid,
+			"worker: error occurred: {}",
+			err
+		);
+	}
+	gum::trace!(
+		target: LOG_TARGET,
+		%worker_pid,
+		"worker: sending result to host: {:?}",
+		result
+	);
+
+	framed_send_blocking(stream, &result.encode()).map_err(|err| {
+		gum::warn!(
+			target: LOG_TARGET,
+			%worker_pid,
+			"worker: error occurred sending result to host: {}",
+			err
+		);
+		err
+	})
 }
 
 fn start_memory_tracking(fd: RawFd, limit: Option<isize>) {
@@ -222,7 +251,7 @@ pub fn worker_entrypoint(
 					Ok(usage) => usage,
 					Err(errno) => {
 						let result = Err(error_from_errno("getrusage before", errno));
-						send_response(&mut stream, result)?;
+						send_response(&mut stream, worker_pid, result)?;
 						continue
 					},
 				};
@@ -264,13 +293,7 @@ pub fn worker_entrypoint(
 					},
 				};
 
-				gum::trace!(
-					target: LOG_TARGET,
-					%worker_pid,
-					"worker: sending result to host: {:?}",
-					result
-				);
-				send_response(&mut stream, result)?;
+				send_response(&mut stream, worker_pid, result)?;
 			}
 		},
 	);
