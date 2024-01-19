@@ -437,8 +437,8 @@ mod test {
 				.map(|best_number| (PeerId::random(), best_number))
 				.collect::<HashMap<_, _>>();
 			let initial_peers = peers.iter().map(|(p, n)| (*p, *n));
-			let peer_pool: PeerPool = Default::default();
-			peers.iter().for_each(|(peer_id, _)| peer_pool.add_peer(*peer_id));
+			let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+			peers.iter().for_each(|(peer_id, _)| peer_pool.lock().add_peer(*peer_id));
 
 			let mut state_strategy = StateStrategy::new(
 				client.clone(),
@@ -473,8 +473,8 @@ mod test {
 				.map(|best_number| (PeerId::random(), best_number))
 				.collect::<HashMap<_, _>>();
 			let initial_peers = peers.iter().map(|(p, n)| (*p, *n));
-			let peer_pool: PeerPool = Default::default();
-			peers.iter().for_each(|(peer_id, _)| peer_pool.add_peer(*peer_id));
+			let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+			peers.iter().for_each(|(peer_id, _)| peer_pool.lock().add_peer(*peer_id));
 
 			let mut state_strategy = StateStrategy::new(
 				client.clone(),
@@ -505,8 +505,10 @@ mod test {
 
 		let initial_peers =
 			(1..=10).map(|best_number| (PeerId::random(), best_number)).collect::<Vec<_>>();
-		let peer_pool: PeerPool = Default::default();
-		initial_peers.iter().for_each(|(peer_id, _)| peer_pool.add_peer(*peer_id));
+		let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+		initial_peers
+			.iter()
+			.for_each(|(peer_id, _)| peer_pool.lock().add_peer(*peer_id));
 
 		let mut state_strategy = StateStrategy::new(
 			client.clone(),
@@ -539,8 +541,10 @@ mod test {
 
 		let initial_peers =
 			(1..=10).map(|best_number| (PeerId::random(), best_number)).collect::<Vec<_>>();
-		let peer_pool: PeerPool = Default::default();
-		initial_peers.iter().for_each(|(peer_id, _)| peer_pool.add_peer(*peer_id));
+		let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+		initial_peers
+			.iter()
+			.for_each(|(peer_id, _)| peer_pool.lock().add_peer(*peer_id));
 
 		let mut state_strategy = StateStrategy::new(
 			client.clone(),
@@ -565,23 +569,23 @@ mod test {
 		state_sync_provider.expect_import().return_once(|_| ImportResult::Continue);
 		let peer_id = PeerId::random();
 		let initial_peers = std::iter::once((peer_id, 10));
-		let peer_pool: PeerPool = Default::default();
-		peer_pool.add_peer(peer_id);
+		let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+		peer_pool.lock().add_peer(peer_id);
 		let mut state_strategy = StateStrategy::new_with_provider(
 			Box::new(state_sync_provider),
 			initial_peers,
 			peer_pool.clone(),
 		);
 		// Manually set the peer's state.
-		assert!(peer_pool.try_reserve_peer(&peer_id));
+		assert!(peer_pool.lock().try_reserve_peer(&peer_id));
 		state_strategy.peers.get_mut(&peer_id).unwrap().state = PeerState::DownloadingState;
 
 		let dummy_response = OpaqueStateResponse(Box::new(StateResponse::default()));
 		state_strategy.on_state_response(peer_id, dummy_response);
 
-		assert!(state_strategy.peers.get(&peer_id).unwrap().state.is_available());
+		assert!(matches!(state_strategy.peers.get(&peer_id).unwrap().state, PeerState::Available));
 		// Peer is also available in `PeerPool`.
-		assert!(peer_pool.try_reserve_peer(&peer_id));
+		assert!(peer_pool.lock().try_reserve_peer(&peer_id));
 	}
 
 	#[test]
@@ -591,15 +595,15 @@ mod test {
 		state_sync_provider.expect_import().return_once(|_| ImportResult::BadResponse);
 		let peer_id = PeerId::random();
 		let initial_peers = std::iter::once((peer_id, 10));
-		let peer_pool: PeerPool = Default::default();
-		peer_pool.add_peer(peer_id);
+		let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+		peer_pool.lock().add_peer(peer_id);
 		let mut state_strategy = StateStrategy::new_with_provider(
 			Box::new(state_sync_provider),
 			initial_peers,
 			peer_pool.clone(),
 		);
 		// Manually set the peer's state.
-		assert!(peer_pool.try_reserve_peer(&peer_id));
+		assert!(peer_pool.lock().try_reserve_peer(&peer_id));
 		state_strategy.peers.get_mut(&peer_id).unwrap().state = PeerState::DownloadingState;
 
 		// Receiving a response drops the peer.
@@ -617,15 +621,15 @@ mod test {
 		state_sync_provider.expect_import().return_once(|_| ImportResult::Continue);
 		let peer_id = PeerId::random();
 		let initial_peers = std::iter::once((peer_id, 10));
-		let peer_pool: PeerPool = Default::default();
-		peer_pool.add_peer(peer_id);
+		let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+		peer_pool.lock().add_peer(peer_id);
 		let mut state_strategy = StateStrategy::new_with_provider(
 			Box::new(state_sync_provider),
 			initial_peers,
 			peer_pool.clone(),
 		);
 		// Manually set the peer's state .
-		assert!(peer_pool.try_reserve_peer(&peer_id));
+		assert!(peer_pool.lock().try_reserve_peer(&peer_id));
 		state_strategy.peers.get_mut(&peer_id).unwrap().state = PeerState::DownloadingState;
 
 		let dummy_response = OpaqueStateResponse(Box::new(StateResponse::default()));
@@ -682,15 +686,15 @@ mod test {
 		// Prepare `StateStrategy`.
 		let peer_id = PeerId::random();
 		let initial_peers = std::iter::once((peer_id, 10));
-		let peer_pool: PeerPool = Default::default();
-		peer_pool.add_peer(peer_id);
+		let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+		peer_pool.lock().add_peer(peer_id);
 		let mut state_strategy = StateStrategy::new_with_provider(
 			Box::new(state_sync_provider),
 			initial_peers,
 			peer_pool.clone(),
 		);
 		// Manually set the peer's state .
-		assert!(peer_pool.try_reserve_peer(&peer_id));
+		assert!(peer_pool.lock().try_reserve_peer(&peer_id));
 		state_strategy.peers.get_mut(&peer_id).unwrap().state = PeerState::DownloadingState;
 
 		// Receive response.
@@ -796,8 +800,10 @@ mod test {
 		// Get enough peers for possible spurious requests.
 		let initial_peers =
 			(1..=10).map(|best_number| (PeerId::random(), best_number)).collect::<Vec<_>>();
-		let peer_pool: PeerPool = Default::default();
-		initial_peers.iter().for_each(|(peer_id, _)| peer_pool.add_peer(*peer_id));
+		let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+		initial_peers
+			.iter()
+			.for_each(|(peer_id, _)| peer_pool.lock().add_peer(*peer_id));
 
 		let mut state_strategy = StateStrategy::new_with_provider(
 			Box::new(state_sync_provider),
