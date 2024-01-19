@@ -77,7 +77,7 @@ pub mod v1 {
 					Some(old_value.migrate_to_v1(item_configs))
 				});
 
-				current_version.put::<Pallet<T>>(
+				current_version.put::<Pallet<T>>();
 
 				log::info!(
 					target: LOG_TARGET,
