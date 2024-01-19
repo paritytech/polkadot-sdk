@@ -44,6 +44,7 @@ use crate::{
 use codec::Encode;
 use libp2p::PeerId;
 use log::{debug, error, info, trace, warn};
+use parking_lot::Mutex;
 use prometheus_endpoint::{register, Gauge, GaugeVec, Opts, PrometheusError, Registry, U64};
 use sc_client_api::{BlockBackend, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
@@ -286,7 +287,7 @@ pub struct ChainSync<B: BlockT, Client> {
 	/// Prometheus metrics.
 	metrics: Option<Metrics>,
 	/// Peer pool to reserve peers for requests from.
-	peer_pool: PeerPool,
+	peer_pool: Arc<Mutex<PeerPool>>,
 }
 
 /// All the data we have about a Peer that we are trying to sync with
@@ -378,7 +379,7 @@ where
 		max_parallel_downloads: u32,
 		max_blocks_per_request: u32,
 		metrics_registry: Option<Registry>,
-		peer_pool: PeerPool,
+		peer_pool: Arc<Mutex<PeerPool>>,
 	) -> Result<Self, ClientError> {
 		let mut sync = Self {
 			client,
@@ -558,7 +559,7 @@ where
 
 						(Some(PeerSyncState::Available), None)
 					} else {
-						if self.peer_pool.try_reserve_peer(&peer_id) {
+						if self.peer_pool.lock().try_reserve_peer(&peer_id) {
 							let common_best = std::cmp::min(self.best_queued_number, best_number);
 
 							debug!(
@@ -727,7 +728,7 @@ where
 				blocks.reverse()
 			}
 			self.allowed_requests.add(peer_id);
-			self.peer_pool.free_peer(peer_id);
+			self.peer_pool.lock().free_peer(peer_id);
 			if let Some(request) = request {
 				match &mut peer.state {
 					PeerSyncState::DownloadingNew(_) => {
@@ -982,7 +983,7 @@ where
 		};
 
 		self.allowed_requests.add(&peer_id);
-		self.peer_pool.free_peer(&peer_id);
+		self.peer_pool.lock().free_peer(&peer_id);
 		if let PeerSyncState::DownloadingJustification(hash) = peer.state {
 			peer.state = PeerSyncState::Available;
 
@@ -1574,11 +1575,12 @@ where
 		let gap_sync = &mut self.gap_sync;
 
 		self.peer_pool
+			.lock()
 			.available_peers()
-			.into_iter()
-			.filter_map(|peer_id| {
-				if let Some(peer) = self.peers.get_mut(&peer_id) {
-					if !peer.state.is_available() || !allowed_requests.contains(&peer_id) {
+			.filter_map(|mut available_peer| {
+				let peer_id = available_peer.peer_id();
+				if let Some(peer) = self.peers.get_mut(peer_id) {
+					if !allowed_requests.contains(&peer_id) {
 						return None
 					}
 
@@ -1593,32 +1595,22 @@ where
 						peer.common_number < last_finalized &&
 						queue.len() <= MAJOR_SYNC_BLOCKS.into()
 					{
-						if self.peer_pool.try_reserve_peer(&peer_id) {
-							trace!(
-								target: LOG_TARGET,
-								"Peer {:?} common block {} too far behind of our best {}. \
-								 Starting ancestry search.",
-								peer_id,
-								peer.common_number,
-								best_queued,
-							);
-							let current = std::cmp::min(peer.best_number, best_queued);
-							peer.state = PeerSyncState::AncestorSearch {
-								current,
-								start: best_queued,
-								state: AncestorSearchState::ExponentialBackoff(One::one()),
-							};
-							Some((peer_id, ancestry_request::<B>(current)))
-						} else {
-							warn!(
-								target: LOG_TARGET,
-								"Failed to reserve peer {peer_id} that was just returned as available.",
-							);
-							debug_assert!(false);
-							// FIXME: this `debug_assert` and others alike only make sense until
-							// no strategy handlers run in parallel in multitasking context.
-							None
-						}
+						available_peer.reserve();
+						trace!(
+							target: LOG_TARGET,
+							"Peer {:?} common block {} too far behind of our best {}. \
+								Starting ancestry search.",
+							peer_id,
+							peer.common_number,
+							best_queued,
+						);
+						let current = std::cmp::min(peer.best_number, best_queued);
+						peer.state = PeerSyncState::AncestorSearch {
+							current,
+							start: best_queued,
+							state: AncestorSearchState::ExponentialBackoff(One::one()),
+						};
+						Some((*peer_id, ancestry_request::<B>(current)))
 					} else if let Some((range, req)) = peer_block_request(
 						&peer_id,
 						peer,
@@ -1629,25 +1621,17 @@ where
 						last_finalized,
 						best_queued,
 					) {
-						if self.peer_pool.try_reserve_peer(&peer_id) {
-							peer.state = PeerSyncState::DownloadingNew(range.start);
-							trace!(
-								target: LOG_TARGET,
-								"New block request for {}, (best:{}, common:{}) {:?}",
-								peer_id,
-								peer.best_number,
-								peer.common_number,
-								req,
-							);
-							Some((peer_id, req))
-						} else {
-							warn!(
-								target: LOG_TARGET,
-								"Failed to reserve peer {peer_id} that was just returned as available.",
-							);
-							debug_assert!(false);
-							None
-						}
+						available_peer.reserve();
+						peer.state = PeerSyncState::DownloadingNew(range.start);
+						trace!(
+							target: LOG_TARGET,
+							"New block request for {}, (best:{}, common:{}) {:?}",
+							peer_id,
+							peer.best_number,
+							peer.common_number,
+							req,
+						);
+						Some((*peer_id, req))
 					} else if let Some((hash, req)) = fork_sync_request(
 						&peer_id,
 						fork_targets,
@@ -1663,18 +1647,10 @@ where
 						},
 						max_blocks_per_request,
 					) {
-						if self.peer_pool.try_reserve_peer(&peer_id) {
-							trace!(target: LOG_TARGET, "Downloading fork {hash:?} from {peer_id}");
-							peer.state = PeerSyncState::DownloadingStale(hash);
-							Some((peer_id, req))
-						} else {
-							warn!(
-								target: LOG_TARGET,
-								"Failed to reserve peer {peer_id} that was just returned as available.",
-							);
-							debug_assert!(false);
-							None
-						}
+						available_peer.reserve();
+						trace!(target: LOG_TARGET, "Downloading fork {hash:?} from {peer_id}");
+						peer.state = PeerSyncState::DownloadingStale(hash);
+						Some((*peer_id, req))
 					} else if let Some((range, req)) = gap_sync.as_mut().and_then(|sync| {
 						peer_gap_block_request(
 							&peer_id,
@@ -1686,25 +1662,17 @@ where
 							max_blocks_per_request,
 						)
 					}) {
-						if self.peer_pool.try_reserve_peer(&peer_id) {
-							peer.state = PeerSyncState::DownloadingGap(range.start);
-							trace!(
-								target: LOG_TARGET,
-								"New gap block request for {}, (best:{}, common:{}) {:?}",
-								peer_id,
-								peer.best_number,
-								peer.common_number,
-								req,
-							);
-							Some((peer_id, req))
-						} else {
-							warn!(
-								target: LOG_TARGET,
-								"Failed to reserve peer {peer_id} that was just returned as available.",
-							);
-							debug_assert!(false);
-							None
-						}
+						available_peer.reserve();
+						peer.state = PeerSyncState::DownloadingGap(range.start);
+						trace!(
+							target: LOG_TARGET,
+							"New gap block request for {}, (best:{}, common:{}) {:?}",
+							peer_id,
+							peer.best_number,
+							peer.common_number,
+							req,
+						);
+						Some((*peer_id, req))
 					} else {
 						None
 					}
@@ -1737,26 +1705,19 @@ where
 				return None
 			}
 
-			for peer_id in self.peer_pool.available_peers() {
+			for mut available_peer in self.peer_pool.lock().available_peers() {
+				let peer_id = available_peer.peer_id();
 				if let Some(peer) = self.peers.get_mut(&peer_id) {
 					if peer.state.is_available() && peer.common_number >= sync.target_number() {
-						if self.peer_pool.try_reserve_peer(&peer_id) {
-							peer.state = PeerSyncState::DownloadingState;
-							let request = sync.next_request();
-							trace!(
-								target: LOG_TARGET,
-								"New StateRequest for {peer_id}: {request:?}",
-							);
-							self.allowed_requests.clear();
-							return Some((peer_id, OpaqueStateRequest(Box::new(request))))
-						} else {
-							warn!(
-								target: LOG_TARGET,
-								"Failed to reserve peer {peer_id} in the peer pool that was just \
-								 returned as available (`ChainSync`).",
-							);
-							debug_assert!(false);
-						}
+						available_peer.reserve();
+						peer.state = PeerSyncState::DownloadingState;
+						let request = sync.next_request();
+						trace!(
+							target: LOG_TARGET,
+							"New StateRequest for {peer_id}: {request:?}",
+						);
+						self.allowed_requests.clear();
+						return Some((*peer_id, OpaqueStateRequest(Box::new(request))))
 					}
 				} else {
 					warn!(
@@ -1790,7 +1751,7 @@ where
 			if let PeerSyncState::DownloadingState = peer.state {
 				peer.state = PeerSyncState::Available;
 				self.allowed_requests.set_all();
-				self.peer_pool.free_peer(peer_id);
+				self.peer_pool.lock().free_peer(peer_id);
 			}
 		}
 		let import_result = if let Some(sync) = &mut self.state_sync {

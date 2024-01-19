@@ -30,6 +30,7 @@ use codec::{Decode, Encode};
 use futures::channel::oneshot;
 use libp2p::PeerId;
 use log::{debug, error, trace, warn};
+use parking_lot::Mutex;
 use sc_network_common::sync::message::{
 	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, Direction, FromBlock,
 };
@@ -205,12 +206,6 @@ enum PeerState {
 	DownloadingTargetBlock,
 }
 
-impl PeerState {
-	fn is_available(&self) -> bool {
-		matches!(self, PeerState::Available)
-	}
-}
-
 struct Peer<B: BlockT> {
 	best_number: NumberFor<B>,
 	state: PeerState,
@@ -243,7 +238,7 @@ pub struct WarpSync<B: BlockT, Client> {
 	peers: HashMap<PeerId, Peer<B>>,
 	actions: Vec<WarpSyncAction<B>>,
 	result: Option<WarpSyncResult<B>>,
-	peer_pool: PeerPool,
+	peer_pool: Arc<Mutex<PeerPool>>,
 }
 
 impl<B, Client> WarpSync<B, Client>
@@ -257,7 +252,7 @@ where
 	pub fn new(
 		client: Arc<Client>,
 		warp_sync_config: WarpSyncConfig<B>,
-		peer_pool: PeerPool,
+		peer_pool: Arc<Mutex<PeerPool>>,
 	) -> Self {
 		if client.info().finalized_state.is_some() {
 			error!(
@@ -363,7 +358,7 @@ where
 		if let Some(peer) = self.peers.get_mut(peer_id) {
 			peer.state = PeerState::Available;
 		}
-		self.peer_pool.free_peer(&peer_id);
+		self.peer_pool.lock().free_peer(&peer_id);
 
 		let Phase::WarpProof { set_id, authorities, last_hash, warp_sync_provider } =
 			&mut self.phase
@@ -422,7 +417,7 @@ where
 		if let Some(peer) = self.peers.get_mut(&peer_id) {
 			peer.state = PeerState::Available;
 		}
-		self.peer_pool.free_peer(&peer_id);
+		self.peer_pool.lock().free_peer(&peer_id);
 
 		let Phase::TargetBlock(header) = &mut self.phase else {
 			debug!(target: LOG_TARGET, "Unexpected target block response from {peer_id}");
@@ -499,20 +494,13 @@ where
 		let threshold = std::cmp::max(median, min_best_number.unwrap_or(Zero::zero()));
 		// Find a random available peer that is synced as much as peer majority and is above
 		// `min_best_number`.
-		for peer_id in self.peer_pool.available_peers() {
-			if let Some(peer) = self.peers.get_mut(&peer_id) {
-				if peer.state.is_available() && peer.best_number >= threshold {
-					if self.peer_pool.try_reserve_peer(&peer_id) {
-						peer.state = new_state;
-						return Some(peer_id)
-					} else {
-						warn!(
-							target: LOG_TARGET,
-							"Failed to reserve peer {peer_id} in the peer pool that was \
-							 just returned as available (`WarpSync`).",
-						);
-						debug_assert!(false);
-					}
+		for mut available_peer in self.peer_pool.lock().available_peers() {
+			let peer_id = available_peer.peer_id();
+			if let Some(peer) = self.peers.get_mut(peer_id) {
+				if peer.best_number >= threshold {
+					available_peer.reserve();
+					peer.state = new_state;
+					return Some(*peer_id)
 				}
 			} else {
 				warn!(

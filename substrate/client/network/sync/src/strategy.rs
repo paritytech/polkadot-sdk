@@ -83,30 +83,43 @@ impl PeerStatus {
 	}
 }
 
-#[derive(Clone, Default)]
+#[derive(Default)]
 pub struct PeerPool {
-	peers: Arc<Mutex<HashMap<PeerId, PeerStatus>>>,
+	peers: HashMap<PeerId, PeerStatus>,
+}
+
+pub struct AvailablePeer<'a> {
+	peer_id: &'a PeerId,
+	status: &'a mut PeerStatus,
+}
+
+impl<'a> AvailablePeer<'a> {
+	pub fn peer_id(&self) -> &'a PeerId {
+		self.peer_id
+	}
+
+	pub fn reserve(&mut self) {
+		*self.status = PeerStatus::Reserved;
+	}
 }
 
 impl PeerPool {
-	fn add_peer(&self, peer_id: PeerId) {
-		self.peers.lock().insert(peer_id, PeerStatus::Available);
+	fn add_peer(&mut self, peer_id: PeerId) {
+		self.peers.insert(peer_id, PeerStatus::Available);
 	}
 
-	fn remove_peer(&self, peer_id: &PeerId) {
-		self.peers.lock().remove(peer_id);
+	fn remove_peer(&mut self, peer_id: &PeerId) {
+		self.peers.remove(peer_id);
 	}
 
-	fn available_peers(&self) -> Vec<PeerId> {
-		self.peers
-			.lock()
-			.iter()
-			.filter_map(|(peer_id, status)| status.is_available().then_some(*peer_id))
-			.collect()
+	fn available_peers<'a>(&'a mut self) -> impl Iterator<Item = AvailablePeer> + 'a {
+		self.peers.iter_mut().filter_map(|(peer_id, status)| {
+			status.is_available().then_some(AvailablePeer::<'a> { peer_id, status })
+		})
 	}
 
-	fn try_reserve_peer(&self, peer_id: &PeerId) -> bool {
-		match self.peers.lock().get_mut(peer_id) {
+	fn try_reserve_peer(&mut self, peer_id: &PeerId) -> bool {
+		match self.peers.get_mut(peer_id) {
 			Some(peer_status) => match peer_status {
 				PeerStatus::Available => {
 					*peer_status = PeerStatus::Reserved;
@@ -121,8 +134,8 @@ impl PeerPool {
 		}
 	}
 
-	fn free_peer(&self, peer_id: &PeerId) {
-		match self.peers.lock().get_mut(peer_id) {
+	fn free_peer(&mut self, peer_id: &PeerId) {
+		match self.peers.get_mut(peer_id) {
 			Some(peer_status) => match peer_status {
 				PeerStatus::Available => {
 					warn!(target: LOG_TARGET, "Trying to free available peer {peer_id}.")
@@ -168,7 +181,7 @@ pub struct SyncingStrategy<B: BlockT, Client> {
 	warp: Option<WarpSync<B, Client>>,
 	state: Option<StateStrategy<B>>,
 	chain_sync: Option<ChainSync<B, Client>>,
-	peer_pool: PeerPool,
+	peer_pool: Arc<Mutex<PeerPool>>,
 	peer_best_blocks: HashMap<PeerId, (B::Hash, NumberFor<B>)>,
 }
 
@@ -192,7 +205,7 @@ where
 		if let SyncMode::Warp = config.mode {
 			let warp_sync_config = warp_sync_config
 				.expect("Warp sync configuration must be supplied in warp sync mode.");
-			let peer_pool: PeerPool = Default::default();
+			let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
 			let warp_sync = WarpSync::new(client.clone(), warp_sync_config, peer_pool.clone());
 			Ok(Self {
 				config,
@@ -204,7 +217,7 @@ where
 				peer_best_blocks: Default::default(),
 			})
 		} else {
-			let peer_pool: PeerPool = Default::default();
+			let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
 			let chain_sync = ChainSync::new(
 				chain_sync_mode(config.mode),
 				client.clone(),
@@ -227,7 +240,7 @@ where
 
 	/// Notify that a new peer has connected.
 	pub fn add_peer(&mut self, peer_id: PeerId, best_hash: B::Hash, best_number: NumberFor<B>) {
-		self.peer_pool.add_peer(peer_id);
+		self.peer_pool.lock().add_peer(peer_id);
 		self.peer_best_blocks.insert(peer_id, (best_hash, best_number));
 
 		self.warp.iter_mut().for_each(|s| s.add_peer(peer_id, best_hash, best_number));
@@ -243,7 +256,7 @@ where
 		self.state.iter_mut().for_each(|s| s.remove_peer(peer_id));
 		self.chain_sync.iter_mut().for_each(|s| s.remove_peer(peer_id));
 
-		self.peer_pool.remove_peer(peer_id);
+		self.peer_pool.lock().remove_peer(peer_id);
 		self.peer_best_blocks.remove(peer_id);
 	}
 

@@ -27,6 +27,7 @@ use crate::{
 };
 use libp2p::PeerId;
 use log::{debug, error, trace, warn};
+use parking_lot::Mutex;
 use sc_client_api::ProofProvider;
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network_common::sync::message::BlockAnnounce;
@@ -64,12 +65,6 @@ enum PeerState {
 	DownloadingState,
 }
 
-impl PeerState {
-	fn is_available(&self) -> bool {
-		matches!(self, PeerState::Available)
-	}
-}
-
 struct Peer<B: BlockT> {
 	best_number: NumberFor<B>,
 	state: PeerState,
@@ -81,7 +76,7 @@ pub struct StateStrategy<B: BlockT> {
 	peers: HashMap<PeerId, Peer<B>>,
 	actions: Vec<StateStrategyAction<B>>,
 	succeded: bool,
-	peer_pool: PeerPool,
+	peer_pool: Arc<Mutex<PeerPool>>,
 }
 
 impl<B: BlockT> StateStrategy<B> {
@@ -93,7 +88,7 @@ impl<B: BlockT> StateStrategy<B> {
 		target_justifications: Option<Justifications>,
 		skip_proof: bool,
 		initial_peers: impl Iterator<Item = (PeerId, NumberFor<B>)>,
-		peer_pool: PeerPool,
+		peer_pool: Arc<Mutex<PeerPool>>,
 	) -> Self
 	where
 		Client: ProofProvider<B> + Send + Sync + 'static,
@@ -124,7 +119,7 @@ impl<B: BlockT> StateStrategy<B> {
 	fn new_with_provider(
 		state_sync_provider: Box<dyn StateSyncProvider<B>>,
 		initial_peers: impl Iterator<Item = (PeerId, NumberFor<B>)>,
-		peer_pool: PeerPool,
+		peer_pool: Arc<Mutex<PeerPool>>,
 	) -> Self {
 		Self {
 			state_sync: state_sync_provider,
@@ -185,7 +180,7 @@ impl<B: BlockT> StateStrategy<B> {
 		if let Some(peer) = self.peers.get_mut(&peer_id) {
 			peer.state = PeerState::Available;
 		}
-		self.peer_pool.free_peer(&peer_id);
+		self.peer_pool.lock().free_peer(&peer_id);
 
 		let response: Box<StateResponse> = response.0.downcast().map_err(|_error| {
 			error!(
@@ -311,20 +306,13 @@ impl<B: BlockT> StateStrategy<B> {
 		let threshold = std::cmp::max(median, min_best_number);
 		// Find a random peer that is synced as much as peer majority and is above
 		// `min_best_number`.
-		for peer_id in self.peer_pool.available_peers() {
-			if let Some(peer) = self.peers.get_mut(&peer_id) {
-				if peer.state.is_available() && peer.best_number >= threshold {
-					if self.peer_pool.try_reserve_peer(&peer_id) {
-						peer.state = new_state;
-						return Some(peer_id)
-					} else {
-						warn!(
-							target: LOG_TARGET,
-							"Failed to reserve peer {peer_id} in the peer pool that was \
-							 just returned as available (`StateStrategy`).",
-						);
-						debug_assert!(false);
-					}
+		for mut available_peer in self.peer_pool.lock().available_peers() {
+			let peer_id = available_peer.peer_id();
+			if let Some(peer) = self.peers.get_mut(peer_id) {
+				if peer.best_number >= threshold {
+					available_peer.reserve();
+					peer.state = new_state;
+					return Some(*peer_id)
 				}
 			} else {
 				warn!(
