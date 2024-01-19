@@ -388,7 +388,7 @@ impl<T: Config> Default for InstructionWeights<T> {
 	/// estimate as to how expensive each single executed instruction is going to be.
 	fn default() -> Self {
 		let instr_cost = cost!(instr_i64_load_store).ref_time() as u32;
-		let base = instr_cost / 4;
+		let base = instr_cost / 6;
 		Self { base, _phantom: PhantomData }
 	}
 }
