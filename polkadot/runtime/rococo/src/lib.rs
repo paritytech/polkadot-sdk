@@ -114,8 +114,6 @@ mod weights;
 // XCM configurations.
 pub mod xcm_config;
 
-use xcm_config::LocationConverter;
-
 // Implemented types.
 mod impls;
 use impls::ToParachainIdentityReaper;
@@ -2326,7 +2324,7 @@ sp_api::impl_runtime_apis! {
 			}
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = XcmConfig;
-				type AccountIdConverter = LocationConverter;
+				type AccountIdConverter = xcm_config::LocationConverter;
 				type DeliveryHelper = runtime_common::xcm_sender::ToParachainDeliveryHelper<
 					XcmConfig,
 					ExistentialDepositAsset,
