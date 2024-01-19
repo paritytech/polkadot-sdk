@@ -1353,28 +1353,39 @@ where
 		);
 		let old_peers = std::mem::take(&mut self.peers);
 
-		old_peers.into_iter().for_each(|(peer_id, mut p)| {
-			// peers that were downloading justifications
-			// should be kept in that state.
-			if let PeerSyncState::DownloadingJustification(_) = p.state {
-				// We make sure our commmon number is at least something we have.
-				trace!(
-					target: LOG_TARGET,
-					"Keeping peer {} after restart, updating common number from={} => to={} (our best).",
-					peer_id,
-					p.common_number,
-					self.best_queued_number,
-				);
-				p.common_number = self.best_queued_number;
-				self.peers.insert(peer_id, p);
-				return
+		old_peers.into_iter().for_each(|(peer_id, mut peer_sync)| {
+			match peer_sync.state {
+				PeerSyncState::New | PeerSyncState::Available => {
+					self.add_peer(peer_id, peer_sync.best_hash, peer_sync.best_number);
+				},
+				PeerSyncState::AncestorSearch { .. } |
+				PeerSyncState::DownloadingNew(_) |
+				PeerSyncState::DownloadingStale(_) |
+				PeerSyncState::DownloadingGap(_) => {
+					self.add_peer(peer_id, peer_sync.best_hash, peer_sync.best_number);
+					self.actions.push(ChainSyncAction::CancelBlockRequest { peer_id });
+					self.peer_pool.lock().free_peer(&peer_id);
+				},
+				PeerSyncState::DownloadingJustification(_) => {
+					// Peers that were downloading justifications
+					// should be kept in that state.
+					// We make sure our commmon number is at least something we have.
+					trace!(
+						target: LOG_TARGET,
+						"Keeping peer {} after restart, updating common number from={} => to={} (our best).",
+						peer_id,
+						peer_sync.common_number,
+						self.best_queued_number,
+					);
+					peer_sync.common_number = self.best_queued_number;
+					self.peers.insert(peer_id, peer_sync);
+				},
+				PeerSyncState::DownloadingState => {
+					self.add_peer(peer_id, peer_sync.best_hash, peer_sync.best_number);
+					self.peer_pool.lock().free_peer(&peer_id);
+					// FIXME: is it safe to not cancel state request here?
+				},
 			}
-
-			// handle peers that were in other states.
-			self.add_peer(peer_id, p.best_hash, p.best_number);
-
-			// since the request is not a justification, remove it from pending responses
-			self.actions.push(ChainSyncAction::CancelBlockRequest { peer_id });
 		});
 	}
 
@@ -2332,3 +2343,6 @@ pub fn validate_blocks<Block: BlockT>(
 
 	Ok(blocks.first().and_then(|b| b.header.as_ref()).map(|h| *h.number()))
 }
+
+// TODO: make state requests respect `PeerPool`.
+// TODO: make (extra) justification requests respect `PeerPool`.

@@ -59,6 +59,8 @@ fn processes_empty_response_on_justification_request_for_unknown_block() {
 	// add a new peer with the same best block
 	peer_pool.lock().add_peer(peer_id);
 	sync.add_peer(peer_id, a1_hash, a1_number);
+	// Transit the peer into a requestable state
+	let _ = sync.handle_new_peers().collect::<Vec<_>>();
 
 	// and request a justification for the block
 	sync.request_justification(&a1_hash, a1_number);
@@ -97,9 +99,10 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 	let mut client = Arc::new(TestClientBuilder::new().build());
 	let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
 
+	// we request max 8 blocks to always initiate block requests to both peers for the test to be
+	// deterministic
 	let mut sync =
-		ChainSync::new(ChainSyncMode::Full, client.clone(), 1, 64, None, peer_pool.clone())
-			.unwrap();
+		ChainSync::new(ChainSyncMode::Full, client.clone(), 1, 8, None, peer_pool.clone()).unwrap();
 
 	let peer_id1 = PeerId::random();
 	let peer_id2 = PeerId::random();
@@ -127,19 +130,26 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 	// add 2 peers at blocks that we don't have locally
 	peer_pool.lock().add_peer(peer_id1);
 	peer_pool.lock().add_peer(peer_id2);
+	// note peer 2 is at block 10 > 8, so we always have something to request from it, even if the
+	// first request went to peer 1
 	sync.add_peer(peer_id1, Hash::random(), 42);
 	sync.add_peer(peer_id2, Hash::random(), 10);
 
 	// we wil send block requests to these peers
 	// for these blocks we don't know about
-	assert!(sync
-		.block_requests()
-		.into_iter()
-		.all(|(p, _)| { p == peer_id1 || p == peer_id2 }));
+	let actions = sync.actions().collect::<Vec<_>>();
+	assert_eq!(actions.len(), 2);
+	assert!(actions.iter().all(|action| match action {
+		ChainSyncAction::SendBlockRequest { peer_id, .. } =>
+			peer_id == &peer_id1 || peer_id == &peer_id2,
+		_ => false,
+	}));
 
 	// add a new peer at a known block
 	peer_pool.lock().add_peer(peer_id3);
 	sync.add_peer(peer_id3, b1_hash, b1_number);
+	// transit the peer into a requestable state
+	let _ = sync.handle_new_peers().collect::<Vec<_>>();
 
 	// we request a justification for a block we have locally
 	sync.request_justification(&b1_hash, b1_number);
@@ -157,22 +167,27 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 		PeerSyncState::DownloadingJustification(b1_hash),
 	);
 
-	// clear old actions
+	// drop old actions
 	let _ = sync.take_actions();
 
 	// we restart the sync state
 	sync.restart();
-	let actions = sync.take_actions().collect::<Vec<_>>();
 
-	// which should make us send out block requests to the first two peers
-	assert_eq!(actions.len(), 2);
-	assert!(actions.iter().all(|action| match action {
+	// which should make us cancel and send out again block requests to the first two peers
+	let actions = sync.actions().collect::<Vec<_>>();
+	assert_eq!(actions.len(), 4);
+	assert!(actions.iter().take(2).all(|action| match action {
+		ChainSyncAction::CancelBlockRequest { peer_id, .. } =>
+			peer_id == &peer_id1 || peer_id == &peer_id2,
+		_ => false,
+	}));
+	assert!(actions.iter().skip(2).all(|action| match action {
 		ChainSyncAction::SendBlockRequest { peer_id, .. } =>
 			peer_id == &peer_id1 || peer_id == &peer_id2,
 		_ => false,
 	}));
 
-	// peer 3 should be unaffected it was downloading finality data
+	// peer 3 should be unaffected as it was downloading finality data
 	assert_eq!(
 		sync.peers.get(&peer_id3).unwrap().state,
 		PeerSyncState::DownloadingJustification(b1_hash),
@@ -807,12 +822,15 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 
 	let (b1_hash, b1_number) = new_blocks(50);
 
+	// we don't actually perform any requests, just keep track of peers waiting for a response
+	let mut pending_responses = HashSet::new();
+
 	// add new peer and request blocks from them
 	peer_pool.lock().add_peer(peers[0]);
 	sync.add_peer(peers[0], Hash::random(), 42);
-
-	// we don't actually perform any requests, just keep track of peers waiting for a response
-	let mut pending_responses = HashSet::new();
+	sync.handle_new_peers().for_each(|result| {
+		pending_responses.insert(result.unwrap().0);
+	});
 
 	// we wil send block requests to these peers
 	// for these blocks we don't know about
@@ -824,6 +842,9 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 	// add a new peer at a known block
 	peer_pool.lock().add_peer(peers[1]);
 	sync.add_peer(peers[1], b1_hash, b1_number);
+	sync.handle_new_peers().for_each(|result| {
+		pending_responses.insert(result.unwrap().0);
+	});
 
 	// we request a justification for a block we have locally
 	sync.request_justification(&b1_hash, b1_number);
@@ -851,7 +872,7 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 
 	// restart sync
 	sync.restart();
-	let actions = sync.take_actions().collect::<Vec<_>>();
+	let actions = sync.actions().collect::<Vec<_>>();
 	for action in actions.iter() {
 		match action {
 			ChainSyncAction::CancelBlockRequest { peer_id } => {
