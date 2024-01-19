@@ -46,14 +46,12 @@ use sp_io::TestExternalities;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup, One},
+	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup, One},
 	transaction_validity::TransactionPriority,
 	AccountId32, BuildStorage,
 };
 use sp_std::sync::Arc;
-use xcm::opaque::lts::{Junction::Parachain, MultiLocation, NetworkId, Parent};
-use xcm_builder::{DescribeAllTerminal, DescribeFamily, HashedDescription};
-use xcm_executor::traits::ConvertLocation;
+use xcm::opaque::lts::NetworkId;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlockU32<Test>;
@@ -216,7 +214,7 @@ impl paras::Config for Test {
 	type QueueFootprinter = ();
 	type NextSessionRotation = crate::mock::TestNextSessionRotation;
 	type PreCodeUpgrade = Registrar;
-	type OnCodeUpgrade = Registrar;
+	type OnCodeUpgraded = Registrar;
 	type OnNewHead = ();
 	type AssignCoretime = ();
 }
@@ -228,8 +226,6 @@ parameter_types! {
 	pub const RelayNetwork: NetworkId = NetworkId::Kusama;
 }
 
-pub type LocationToAccountId = HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>;
-
 impl paras_registrar::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type OnSwap = (Crowdloan, Slots);
@@ -238,7 +234,6 @@ impl paras_registrar::Config for Test {
 	type Currency = Balances;
 	type RuntimeOrigin = RuntimeOrigin;
 	type UpgradeFee = UpgradeFee;
-	type SovereignAccountOf = LocationToAccountId;
 	type WeightInfo = crate::paras_registrar::TestWeightInfo;
 }
 
@@ -968,10 +963,7 @@ fn setting_parachain_billing_account_to_self_works() {
 		// fail if the balance of the sovereign account is insufficient to cover the required
 		// deposit amount
 
-		let location: MultiLocation = (Parent, Parachain(para_id.into())).into();
-		let sovereign_account =
-			<Test as paras_registrar::Config>::SovereignAccountOf::convert_location(&location)
-				.unwrap();
+		let sovereign_account = para_id.into_account_truncating();
 		let para_origin: runtime_parachains::Origin = u32::from(para_id).into();
 
 		assert_noop!(

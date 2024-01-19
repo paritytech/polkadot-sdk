@@ -30,7 +30,7 @@ use polkadot_parachain_primitives::primitives::IsSystem;
 use primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID};
 use runtime_parachains::{
 	configuration, ensure_parachain,
-	paras::{self, OnCodeUpgrade, ParaGenesisArgs, PreCodeUpgrade, SetGoAhead},
+	paras::{self, OnCodeUpgraded, ParaGenesisArgs, PreCodeUpgrade, SetGoAhead},
 	Origin, ParaLifecycle,
 };
 use sp_std::{prelude::*, result};
@@ -41,11 +41,9 @@ use parity_scale_codec::{Decode, Encode};
 use runtime_parachains::paras::{OnNewHead, ParaKind, UpgradeRequirements};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{CheckedSub, Saturating},
+	traits::{AccountIdConversion, CheckedSub, Saturating},
 	RuntimeDebug,
 };
-use xcm::opaque::lts::{Junction::Parachain, MultiLocation, Parent};
-use xcm_executor::traits::ConvertLocation;
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
 pub struct ParaInfo<Account, Balance> {
@@ -101,7 +99,7 @@ pub trait WeightInfo {
 	fn deregister() -> Weight;
 	fn swap() -> Weight;
 	fn pre_code_upgrade() -> Weight;
-	fn on_code_upgrade() -> Weight;
+	fn on_code_upgraded() -> Weight;
 	fn schedule_code_upgrade(b: u32) -> Weight;
 	fn set_current_head(b: u32) -> Weight;
 	fn set_parachain_billing_account_to_self() -> Weight;
@@ -128,7 +126,7 @@ impl WeightInfo for TestWeightInfo {
 	fn pre_code_upgrade() -> Weight {
 		Weight::zero()
 	}
-	fn on_code_upgrade() -> Weight {
+	fn on_code_upgraded() -> Weight {
 		Weight::zero()
 	}
 	fn schedule_code_upgrade(_b: u32) -> Weight {
@@ -192,11 +190,6 @@ pub mod pallet {
 		/// This is used to discourage spamming parachain upgrades.
 		#[pallet::constant]
 		type UpgradeFee: Get<BalanceOf<Self>>;
-
-		/// Type used to get the sovereign account of a parachain.  
-		///
-		/// This is used to enable reserving or refunding deposit from parachains.
-		type SovereignAccountOf: ConvertLocation<Self::AccountId>;
 
 		/// Weight Information for the Extrinsics in the Pallet
 		type WeightInfo: WeightInfo;
@@ -540,9 +533,7 @@ pub mod pallet {
 				// for the root to set itself as the billing account.
 				return Ok(())
 			} else {
-				let location: MultiLocation = (Parent, Parachain(para.into())).into();
-				let sovereign_account = T::SovereignAccountOf::convert_location(&location).unwrap();
-				sovereign_account
+				para.into_account_truncating()
 			};
 
 			Self::set_parachain_billing_account(para, new_billing_account)?;
@@ -958,7 +949,9 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 				T::UpgradeFee::get(),
 				WithdrawReasons::FEE,
 				ExistenceRequirement::KeepAlive,
-			).is_err() {
+			)
+			.is_err()
+			{
 				Self::deposit_event(Event::<T>::CodeUpgradeScheduleFailed(
 					CodeUpgradeScheduleError::FailedToPayUpgradeFee,
 				));
@@ -1002,11 +995,9 @@ impl<T: Config> PreCodeUpgrade for Pallet<T> {
 	}
 }
 
-impl<T: Config> OnCodeUpgrade for Pallet<T> {
-	fn on_code_upgrade(id: ParaId) -> Weight {
-		let Some(mut info) = Paras::<T>::get(id) else {
-			return T::DbWeight::get().reads(1)
-		};
+impl<T: Config> OnCodeUpgraded for Pallet<T> {
+	fn on_code_upgraded(id: ParaId) -> Weight {
+		let Some(mut info) = Paras::<T>::get(id) else { return T::DbWeight::get().reads(1) };
 
 		if let Some(rebate) = info.pending_deposit_refund {
 			if let Some(billing_account) = info.billing_account.clone() {
@@ -1019,7 +1010,7 @@ impl<T: Config> OnCodeUpgrade for Pallet<T> {
 					who: billing_account,
 					amount: rebate,
 				});
-				return <T as Config>::WeightInfo::on_code_upgrade()
+				return <T as Config>::WeightInfo::on_code_upgraded()
 			}
 		}
 
@@ -1149,7 +1140,7 @@ mod tests {
 		type QueueFootprinter = ();
 		type NextSessionRotation = crate::mock::TestNextSessionRotation;
 		type PreCodeUpgrade = Registrar;
-		type OnCodeUpgrade = ();
+		type OnCodeUpgraded = ();
 		type OnNewHead = ();
 		type AssignCoretime = ();
 	}
@@ -1173,7 +1164,6 @@ mod tests {
 		type ParaDeposit = ParaDeposit;
 		type DataDepositPerByte = DataDepositPerByte;
 		type UpgradeFee = UpgradeFee;
-		type SovereignAccountOf = ();
 		type WeightInfo = TestWeightInfo;
 	}
 
@@ -1961,7 +1951,7 @@ mod benchmarking {
 			let _ = T::PreCodeUpgrade::pre_code_upgrade(para, new_small_code, UpgradeRequirements::EnforceRequirements);
 		}
 
-		on_code_upgrade {
+		on_code_upgraded {
 			let para = register_para::<T>(LOWEST_PUBLIC_ID.into());
 			let new_small_code = ValidationCode(vec![0]);
 
@@ -1972,7 +1962,7 @@ mod benchmarking {
 
 			assert_ok!(Registrar::<T>::schedule_code_upgrade(RawOrigin::Root.into(), para, new_small_code));
 		}: {
-			let _ = T::OnCodeUpgrade::on_code_upgrade(para);
+			let _ = T::OnCodeUpgraded::on_code_upgraded(para);
 		}
 
 		set_current_head {

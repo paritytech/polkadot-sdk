@@ -235,7 +235,7 @@ impl<T: frame_system::Config> runtime_common::paras_registrar::WeightInfo for We
 	/// Storage: Paras Heads (r:0 w:1)
 	/// Proof Skipped: Paras Heads (max_values: None, max_size: None, mode: Measured)
 	/// The range of component `b` is `[1, 1048576]`.
-	fn on_code_upgrade() -> Weight {
+	fn on_code_upgraded() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`

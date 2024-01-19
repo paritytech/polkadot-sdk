@@ -743,7 +743,7 @@ mod tests {
 		type QueueFootprinter = ();
 		type NextSessionRotation = crate::mock::TestNextSessionRotation;
 		type PreCodeUpgrade = ();
-		type OnCodeUpgrade = ();
+		type OnCodeUpgraded = ();
 		type OnNewHead = ();
 		type AssignCoretime = ();
 	}

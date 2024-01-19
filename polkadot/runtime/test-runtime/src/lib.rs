@@ -538,7 +538,7 @@ impl parachains_paras::Config for Runtime {
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = Babe;
 	type PreCodeUpgrade = ();
-	type OnCodeUpgrade = ();
+	type OnCodeUpgraded = ();
 	type OnNewHead = ();
 	type AssignCoretime = ();
 }

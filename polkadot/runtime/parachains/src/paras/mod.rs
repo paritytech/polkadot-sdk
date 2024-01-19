@@ -520,8 +520,8 @@ pub trait OnCodeUpgraded {
 
 /// An empty implementation of the trait where there is no logic executed upon a successful
 /// code upgrade.
-impl OnCodeUpgrade for () {
-	fn on_code_upgrade(_id: ParaId) -> Weight {
+impl OnCodeUpgraded for () {
+	fn on_code_upgraded(_id: ParaId) -> Weight {
 		Weight::zero()
 	}
 }
@@ -669,7 +669,7 @@ pub mod pallet {
 		type PreCodeUpgrade: PreCodeUpgrade;
 
 		/// Type that executes some custom logic upon a successful code upgrade.
-		type OnCodeUpgrade: OnCodeUpgrade;
+		type OnCodeUpgraded: OnCodeUpgraded;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -2112,7 +2112,7 @@ impl<T: Config> Pallet<T> {
 
 				let weight = if let Some(prior_code_hash) = maybe_prior_code_hash {
 					let mut weight = Self::note_past_code(id, expected_at, now, prior_code_hash);
-					weight = weight.saturating_add(T::OnCodeUpgrade::on_code_upgrade(id));
+					weight = weight.saturating_add(T::OnCodeUpgraded::on_code_upgraded(id));
 
 					weight
 				} else {

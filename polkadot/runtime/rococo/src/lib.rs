@@ -940,7 +940,7 @@ impl parachains_paras::Config for Runtime {
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = Babe;
 	type PreCodeUpgrade = Registrar;
-	type OnCodeUpgrade = Registrar;
+	type OnCodeUpgraded = Registrar;
 	type OnNewHead = Registrar;
 	type AssignCoretime = CoretimeAssignmentProvider;
 }
@@ -1085,7 +1085,6 @@ impl paras_registrar::Config for Runtime {
 	type OnSwap = (Crowdloan, Slots);
 	type ParaDeposit = ParaDeposit;
 	type UpgradeFee = UpgradeFee;
-	type SovereignAccountOf = LocationConverter;
 	type DataDepositPerByte = DataDepositPerByte;
 	type WeightInfo = weights::runtime_common_paras_registrar::WeightInfo<Runtime>;
 }
