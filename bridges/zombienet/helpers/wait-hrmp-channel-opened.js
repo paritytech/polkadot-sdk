@@ -4,19 +4,18 @@ async function run(nodeName, networkInfo, args) {
 
     const sibling = args[0];
 
-    api.rpc.chain.subscribeNewHeads(async function (header) {
-        const apiAtCurrent = await api.at(header.hash);
-        const messagingStateAsObj = await apiAtCurrent.query.parachainSystem.relevantMessagingState();
-        const messagingState = apiAtCurrent.createType(
-            "Option<CumulusPalletParachainSystemRelayStateSnapshotMessagingStateSnapshot>",
-            messagingStateAsObj,
-        );
+    while (true) {
+        const messagingStateAsObj = await api.query.parachainSystem.relevantMessagingState();
+        const messagingState = api.createType("Option<CumulusPalletParachainSystemRelayStateSnapshotMessagingStateSnapshot>", messagingStateAsObj);
         if (messagingState.isSome) {
             const egressChannels = messagingState.unwrap().egressChannels;
             if (egressChannels.find(x => x[0] == sibling)) {
                 return;
             }
         }
+
+        // else sleep and retry
+        await new Promise((resolve) => setTimeout(resolve, 12000));
     }
 }
 
