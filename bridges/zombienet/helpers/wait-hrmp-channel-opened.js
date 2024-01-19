@@ -6,7 +6,6 @@ async function run(nodeName, networkInfo, args) {
 
     api.rpc.chain.subscribeNewHeads(async function (header) {
         const apiAtCurrent = await api.at(header.hash);
-console.log("=== WaitForHrmp: " + new Date().toLocaleString() + " " + header.number);
         const messagingStateAsObj = await apiAtCurrent.query.parachainSystem.relevantMessagingState();
         const messagingState = apiAtCurrent.createType(
             "Option<CumulusPalletParachainSystemRelayStateSnapshotMessagingStateSnapshot>",
