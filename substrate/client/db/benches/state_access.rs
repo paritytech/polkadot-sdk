@@ -87,7 +87,7 @@ fn insert_blocks(db: &Backend<Block>, storage: Vec<(Vec<u8>, Vec<u8>)>) -> H256 
 			changes.iter().map(|(k, v)| (k.as_slice(), v.as_deref())),
 			StateVersion::V1,
 		);
-		header.state_root = tx.main.root_hash();
+		header.state_root = tx.root_hash();
 
 		op.update_db_storage(tx).unwrap();
 		op.update_storage(changes.clone(), Default::default()).unwrap();
