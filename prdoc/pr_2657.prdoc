@@ -1,7 +1,10 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
 title: [frame] `#[pallet::composite_enum]` improved variant count handling + removed `pallet_balances`'s `MaxHolds` config
 
 doc:
-  - audience: Runtime User
+  - audience: Runtime Dev
     description: |
       The implementation of `VariantCount` trait for the result composite enums
       like `RuntimeHoldReason` and `RuntimeFreezeReason` was fixed
