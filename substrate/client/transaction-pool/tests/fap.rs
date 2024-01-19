@@ -45,6 +45,24 @@ fn invalid_hash() -> Hash {
 	Default::default()
 }
 
+fn new_best_block_event(
+	pool: &ForkAwareTxPool<TestApi, Block>,
+	from: Option<Hash>,
+	to: Hash,
+) -> ChainEvent<Block> {
+	ChainEvent::NewBestBlock {
+		hash: to,
+		tree_route: from.map(|from| {
+			// note: real tree route in NewBestBlock event does not contain 'to' block.
+			Arc::from(
+				pool.api()
+					.tree_route(from, pool.api().block_header(to).unwrap().unwrap().parent_hash)
+					.expect("Tree route exists"),
+			)
+		}),
+	}
+}
+
 fn create_basic_pool_with_genesis(test_api: Arc<TestApi>) -> ForkAwareTxPool<TestApi, Block> {
 	let genesis_hash = {
 		test_api
@@ -146,6 +164,7 @@ mod test_chain_with_forks {
 // - view.ready iterator
 // - stale transaction submission when there is single view only (expect error)
 // - stale transaction submission when there are more views (expect ok)
+// - view count (e.g. same new block notified twice)
 //
 // done:
 // fn submission_should_work()
@@ -156,6 +175,7 @@ mod test_chain_with_forks {
 // fn should_prune_old_during_maintenance()
 // fn should_resubmit_from_retracted_during_maintenance() (shitty name)
 // fn should_not_resubmit_from_retracted_during_maintenance_if_tx_is_also_in_enacted()
+// fn finalization()
 //
 // todo: [validated_pool/pool related, probably can be reused]:
 // fn prune_tags_should_work()
@@ -163,10 +183,6 @@ mod test_chain_with_forks {
 // fn should_correctly_prune_transactions_providing_more_than_one_tag()
 //
 //
-// fn should_push_watchers_during_maintenance()
-// fn finalization()
-// fn fork_aware_finalization()
-// fn prune_and_retract_tx_at_same_time()
 // fn resubmit_tx_of_fork_that_is_not_part_of_retracted()
 // fn resubmit_from_retracted_fork()
 // fn ready_set_should_not_resolve_before_block_update()
@@ -187,6 +203,12 @@ mod test_chain_with_forks {
 // fn should_revalidate_during_maintenance()
 // fn should_not_retain_invalid_hashes_from_retracted()
 // fn should_revalidate_across_many_blocks()
+// fn should_push_watchers_during_maintenance()
+// fn finalization()  //with_watcher!
+// fn fork_aware_finalization()
+// fn prune_and_retract_tx_at_same_time()
+//
+// review, difficult to unerstand:
 
 #[test]
 fn fap_no_view_future_and_ready_submit_one_fails() {
@@ -254,7 +276,7 @@ fn fap_one_view_future_and_ready_submit_one_works() {
 	let header01a = api.push_block(1, vec![], true);
 	// let header01b = api.push_block(1, vec![], true);
 
-	let event = ChainEvent::NewBestBlock { hash: header01a.hash(), tree_route: None };
+	let event = new_best_block_event(&pool, None, header01a.hash());
 	block_on(pool.maintain(event));
 
 	let xt0 = uxt(Alice, 200);
@@ -284,7 +306,7 @@ fn fap_one_view_future_and_ready_submit_many_works() {
 	let header01a = api.push_block(1, vec![], true);
 	// let header01b = api.push_block(1, vec![], true);
 
-	let event = ChainEvent::NewBestBlock { hash: header01a.hash(), tree_route: None };
+	let event = new_best_block_event(&pool, None, header01a.hash());
 	block_on(pool.maintain(event));
 
 	let xts0 = (200..205).map(|i| uxt(Alice, i)).collect::<Vec<_>>();
@@ -315,7 +337,7 @@ fn fap_one_view_stale_submit_one_fails() {
 
 	let header = api.push_block(1, vec![], true);
 
-	let event = ChainEvent::NewBestBlock { hash: header.hash(), tree_route: None };
+	let event = new_best_block_event(&pool, None, header.hash());
 	block_on(pool.maintain(event));
 
 	let xt0 = uxt(Alice, 100);
@@ -342,7 +364,7 @@ fn fap_one_view_stale_submit_many_fails() {
 
 	let header = api.push_block(1, vec![], true);
 
-	let event = ChainEvent::NewBestBlock { hash: header.hash(), tree_route: None };
+	let event = new_best_block_event(&pool, None, header.hash());
 	block_on(pool.maintain(event));
 
 	let xts0 = (100..105).map(|i| uxt(Alice, i)).collect::<Vec<_>>();
@@ -387,7 +409,7 @@ fn fap_one_view_future_turns_to_ready_works() {
 
 	let header = api.push_block(1, vec![], true);
 	let at = header.hash();
-	let event = ChainEvent::NewBestBlock { hash: at, tree_route: None };
+	let event = new_best_block_event(&pool, None, at);
 	block_on(pool.maintain(event));
 
 	let xt0 = uxt(Alice, 201);
@@ -412,7 +434,7 @@ fn fap_one_view_ready_turns_to_stale_works() {
 
 	let header = api.push_block(1, vec![], true);
 	let block1 = header.hash();
-	let event = ChainEvent::NewBestBlock { hash: block1, tree_route: None };
+	let event = new_best_block_event(&pool, None, block1);
 	block_on(pool.maintain(event));
 
 	let xt0 = uxt(Alice, 200);
@@ -426,10 +448,7 @@ fn fap_one_view_ready_turns_to_stale_works() {
 	let header = api.push_block(2, vec![uxt(Alice, 200)], true);
 	let block2 = header.hash();
 	api.set_nonce(block2, Alice.into(), 201);
-	let event = ChainEvent::NewBestBlock {
-		hash: block2,
-		tree_route: api.tree_route(block1, block2).ok().map(Into::into),
-	};
+	let event = new_best_block_event(&pool, Some(block1), block2);
 	block_on(pool.maintain(event));
 	let status = &pool.status_all()[&block2];
 	assert!(pool.ready(block2).unwrap().count() == 0);
@@ -448,10 +467,10 @@ fn fap_two_views_future_and_ready_sumbit_one() {
 	let header01a = api.push_block(1, vec![], true);
 	let header01b = api.push_block(1, vec![], true);
 
-	let event = ChainEvent::NewBestBlock { hash: header01a.hash(), tree_route: None };
+	let event = new_best_block_event(&pool, None, header01a.hash());
 	block_on(pool.maintain(event));
 
-	let event = ChainEvent::NewBestBlock { hash: header01b.hash(), tree_route: None };
+	let event = new_best_block_event(&pool, None, header01b.hash());
 	block_on(pool.maintain(event));
 
 	api.set_nonce(header01b.hash(), Alice.into(), 202);
@@ -487,10 +506,10 @@ fn fap_two_views_future_and_ready_sumbit_many() {
 	let header01a = api.push_block(1, vec![], true);
 	let header01b = api.push_block(1, vec![], true);
 
-	let event = ChainEvent::NewBestBlock { hash: header01a.hash(), tree_route: None };
+	let event = new_best_block_event(&pool, None, header01a.hash());
 	block_on(pool.maintain(event));
 
-	let event = ChainEvent::NewBestBlock { hash: header01b.hash(), tree_route: None };
+	let event = new_best_block_event(&pool, None, header01b.hash());
 	block_on(pool.maintain(event));
 
 	api.set_nonce(header01b.hash(), Alice.into(), 215);
@@ -528,7 +547,7 @@ fn fap_linear_progress() {
 	let f00 = forks[0][0].hash();
 	let f13 = forks[1][3].hash();
 
-	let event = ChainEvent::NewBestBlock { hash: f00, tree_route: None };
+	let event = new_best_block_event(&pool, None, f00);
 	block_on(pool.maintain(event));
 
 	let xt0 = uxt(Bob, 203);
@@ -536,10 +555,7 @@ fn fap_linear_progress() {
 
 	block_on(futures::future::join_all(submissions));
 
-	let event = ChainEvent::NewBestBlock {
-		hash: f13,
-		tree_route: api.tree_route(f00, f13).ok().map(Into::into),
-	};
+	let event = new_best_block_event(&pool, Some(f00), f13);
 	log::info!(target:LOG_TARGET, "event: {:#?}", event);
 	block_on(pool.maintain(event));
 
@@ -564,7 +580,7 @@ fn fap_fork_reorg() {
 	let f03 = forks[0][3].hash();
 	let f13 = forks[1][3].hash();
 
-	let event = ChainEvent::NewBestBlock { hash: f03, tree_route: None };
+	let event = new_best_block_event(&pool, None, f03);
 	block_on(pool.maintain(event));
 
 	let xt0 = uxt(Bob, 203);
@@ -578,10 +594,7 @@ fn fap_fork_reorg() {
 
 	block_on(futures::future::join_all(submissions));
 
-	let event = ChainEvent::NewBestBlock {
-		hash: f13,
-		tree_route: api.tree_route(f03, f13).ok().map(Into::into),
-	};
+	let event = new_best_block_event(&pool, Some(f03), f13);
 	log::info!(target:LOG_TARGET, "event: {:#?}", event);
 	block_on(pool.maintain(event));
 
@@ -616,7 +629,7 @@ fn fap_fork_do_resubmit_same_tx() {
 
 	let (pool, api) = pool();
 	let genesis = api.genesis_hash();
-	let event = ChainEvent::NewBestBlock { hash: genesis, tree_route: None };
+	let event = new_best_block_event(&pool, None, genesis);
 	block_on(pool.maintain(event));
 
 	block_on(pool.submit_one(api.expect_hash_from_number(0), SOURCE, xt.clone()))
@@ -626,18 +639,12 @@ fn fap_fork_do_resubmit_same_tx() {
 	let header = api.push_block(1, vec![xt.clone()], true);
 	let fork_header = api.push_block(1, vec![xt], true);
 
-	let event = ChainEvent::NewBestBlock {
-		hash: fork_header.hash(),
-		tree_route: api.tree_route(header.hash(), fork_header.hash()).ok().map(Into::into),
-	};
+	let event = new_best_block_event(&pool, Some(header.hash()), fork_header.hash());
 	api.set_nonce(header.hash(), Alice.into(), 201);
 	block_on(pool.maintain(event));
 	assert_eq!(pool.status_all()[&fork_header.hash()].ready, 0);
 
-	let event = ChainEvent::NewBestBlock {
-		hash: fork_header.hash(),
-		tree_route: api.tree_route(api.genesis_hash(), fork_header.hash()).ok().map(Into::into),
-	};
+	let event = new_best_block_event(&pool, Some(api.genesis_hash()), fork_header.hash());
 	api.set_nonce(fork_header.hash(), Alice.into(), 201);
 	block_on(pool.maintain(event));
 
@@ -657,7 +664,7 @@ fn fap_fork_stale_switch_to_future() {
 	let f03 = forks[0][3].hash();
 	let f13 = forks[1][3].hash();
 
-	let event = ChainEvent::NewBestBlock { hash: f03, tree_route: None };
+	let event = new_best_block_event(&pool, None, f03);
 	block_on(pool.maintain(event));
 
 	let xt0 = uxt(Bob, 203);
@@ -676,10 +683,7 @@ fn fap_fork_stale_switch_to_future() {
 		TxPoolError::InvalidTransaction(InvalidTransaction::Stale,)
 	));
 
-	let event = ChainEvent::NewBestBlock {
-		hash: f13,
-		tree_route: api.tree_route(f03, f13).ok().map(Into::into),
-	};
+	let event = new_best_block_event(&pool, Some(f03), f13);
 	log::info!(target:LOG_TARGET, "event: {:#?}", event);
 	block_on(pool.maintain(event));
 
@@ -718,17 +722,14 @@ fn fap_fork_no_xts_ready_switch_to_future() {
 	let f03 = forks[0][3].hash();
 	let f13 = forks[1][3].hash();
 
-	let event = ChainEvent::NewBestBlock { hash: f03, tree_route: None };
+	let event = new_best_block_event(&pool, None, f03);
 	block_on(pool.maintain(event));
 
 	let xt0 = uxt(Alice, 203);
 	let submissions = vec![pool.submit_one(invalid_hash(), SOURCE, xt0.clone())];
 	block_on(futures::future::join_all(submissions));
 
-	let event = ChainEvent::NewBestBlock {
-		hash: f13,
-		tree_route: api.tree_route(f03, f13).ok().map(Into::into),
-	};
+	let event = new_best_block_event(&pool, Some(f03), f13);
 	block_on(pool.maintain(event));
 
 	log::info!(target:LOG_TARGET, "stats: {:#?}", pool.status_all());
@@ -774,7 +775,7 @@ fn fap_ready_at_triggered_by_maintain() {
 
 	assert!(pool.ready_at(f03).now_or_never().is_none());
 
-	let event = ChainEvent::NewBestBlock { hash: f03, tree_route: None };
+	let event = new_best_block_event(&pool, None, f03);
 	block_on(pool.maintain(event));
 
 	assert!(pool.ready_at(f03).now_or_never().is_some());
@@ -783,13 +784,92 @@ fn fap_ready_at_triggered_by_maintain() {
 	let submissions = vec![pool.submit_one(invalid_hash(), SOURCE, xt0.clone())];
 	block_on(futures::future::join_all(submissions));
 
-	let event = ChainEvent::NewBestBlock {
-		hash: f13,
-		tree_route: api.tree_route(f03, f13).ok().map(Into::into),
-	};
+	let event = new_best_block_event(&pool, Some(f03), f13);
 	log::info!(target:LOG_TARGET, "event: {:#?}", event);
 	assert!(pool.ready_at(f13).now_or_never().is_none());
 	block_on(pool.maintain(event));
 	assert!(pool.ready_at(f03).now_or_never().is_some());
 	assert!(pool.ready_at(f13).now_or_never().is_some());
+}
+
+#[test]
+fn fap_linear_progress_finalization() {
+	sp_tracing::try_init_simple();
+
+	let (api, forks) = test_chain_with_forks::chain(None);
+	let pool = create_basic_pool(api.clone());
+
+	let f00 = forks[0][0].hash();
+	let f12 = forks[1][2].hash();
+	let f14 = forks[1][4].hash();
+
+	let event = new_best_block_event(&pool, None, f00);
+	block_on(pool.maintain(event));
+
+	let xt0 = uxt(Bob, 204);
+	let submissions = vec![pool.submit_one(invalid_hash(), SOURCE, xt0.clone())];
+	block_on(futures::future::join_all(submissions));
+
+	let event = new_best_block_event(&pool, Some(f00), f12);
+	block_on(pool.maintain(event));
+	let status = &pool.status_all()[&f12];
+	assert_eq!(status.ready, 0);
+	assert_eq!(status.future, 1);
+	assert_eq!(pool.views_len(), 2);
+
+	log::info!(target:LOG_TARGET, "stats: {:#?}", pool.status_all());
+
+	let event = ChainEvent::Finalized { hash: f14, tree_route: Arc::from(vec![]) };
+	block_on(pool.maintain(event));
+
+	log::info!(target:LOG_TARGET, "stats: {:#?}", pool.status_all());
+
+	assert_eq!(pool.views_len(), 1);
+	let status = &pool.status_all()[&f14];
+	assert_eq!(status.ready, 1);
+	assert_eq!(status.future, 0);
+}
+
+#[test]
+fn fap_fork_finalization_removes_stale_views() {
+	sp_tracing::try_init_simple();
+
+	let (api, forks) = test_chain_with_forks::chain(None);
+	let pool = create_basic_pool(api.clone());
+
+	let f00 = forks[0][0].hash();
+	let f12 = forks[1][2].hash();
+	let f14 = forks[1][4].hash();
+	let f02 = forks[0][2].hash();
+	let f03 = forks[0][3].hash();
+	let f04 = forks[0][4].hash();
+
+	let event = new_best_block_event(&pool, None, f00);
+	block_on(pool.maintain(event));
+
+	let xt0 = uxt(Bob, 203);
+	let submissions = vec![pool.submit_one(invalid_hash(), SOURCE, xt0.clone())];
+	block_on(futures::future::join_all(submissions));
+
+	let event = new_best_block_event(&pool, Some(f00), f12);
+	block_on(pool.maintain(event));
+	let event = new_best_block_event(&pool, Some(f00), f14);
+	block_on(pool.maintain(event));
+	let event = new_best_block_event(&pool, Some(f00), f02);
+	block_on(pool.maintain(event));
+
+	assert_eq!(pool.views_len(), 4);
+
+	log::info!(target:LOG_TARGET, "stats: {:#?}", pool.status_all());
+
+	let event = ChainEvent::Finalized { hash: f03, tree_route: Arc::from(vec![]) };
+	block_on(pool.maintain(event));
+	log::info!(target:LOG_TARGET, "stats: {:#?}", pool.status_all());
+	// note: currently the pruning views only cleans views with block number less then finalized
+	// blcock. views with higher number on other forks are not cleaned (will be done in next round).
+	assert_eq!(pool.views_len(), 2);
+
+	let event = ChainEvent::Finalized { hash: f04, tree_route: Arc::from(vec![]) };
+	block_on(pool.maintain(event));
+	assert_eq!(pool.views_len(), 1);
 }
