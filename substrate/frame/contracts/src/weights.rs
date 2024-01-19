@@ -129,7 +129,7 @@ pub trait WeightInfo {
 	fn seal_reentrance_count(r: u32, ) -> Weight;
 	fn seal_account_reentrance_count(r: u32, ) -> Weight;
 	fn seal_instantiation_nonce(r: u32, ) -> Weight;
-	fn instr_i64const(r: u32, ) -> Weight;
+	fn instr_i64_load_store(r: u32, ) -> Weight;
 }
 
 /// Weights for `pallet_contracts` using the Substrate node and recommended hardware.
@@ -2014,7 +2014,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(0, 3).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 5000]`.
-	fn instr_i64const(r: u32, ) -> Weight {
+	fn instr_i64_load_store(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -3906,7 +3906,7 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(0, 3).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 5000]`.
-	fn instr_i64const(r: u32, ) -> Weight {
+	fn instr_i64_load_store(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
