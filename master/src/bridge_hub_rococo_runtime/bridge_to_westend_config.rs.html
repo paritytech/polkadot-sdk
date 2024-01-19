@@ -331,10 +331,6 @@
 <a href="#331" id="331">331</a>
 <a href="#332" id="332">332</a>
 <a href="#333" id="333">333</a>
-<a href="#334" id="334">334</a>
-<a href="#335" id="335">335</a>
-<a href="#336" id="336">336</a>
-<a href="#337" id="337">337</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -363,6 +359,7 @@
 	XcmRouter,
 };
 <span class="kw">use </span>bp_messages::LaneId;
+<span class="kw">use </span>bp_runtime::Chain;
 <span class="kw">use </span>bridge_runtime_common::{
 	messages,
 	messages::{
@@ -394,7 +391,7 @@
 		bp_bridge_hub_rococo::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
 	<span class="kw">pub const </span>MaxUnconfirmedMessagesAtInboundLane: bp_messages::MessageNonce =
 		bp_bridge_hub_rococo::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
-	<span class="kw">pub const </span>BridgeHubWestendChainId: bp_runtime::ChainId = bp_runtime::BRIDGE_HUB_WESTEND_CHAIN_ID;
+	<span class="kw">pub const </span>BridgeHubWestendChainId: bp_runtime::ChainId = BridgeHubWestend::ID;
 	<span class="kw">pub </span>BridgeRococoToWestendMessagesPalletInstance: InteriorLocation = [PalletInstance(&lt;BridgeWestendMessages <span class="kw">as </span>PalletInfoAccess&gt;::index() <span class="kw">as </span>u8)].into();
 	<span class="kw">pub </span>WestendGlobalConsensusNetwork: NetworkId = NetworkId::Westend;
 	<span class="kw">pub </span>WestendGlobalConsensusNetworkLocation: Location = Location::new(
@@ -494,10 +491,6 @@
 	&gt;;
 }
 
-<span class="doccomment">/// Message verifier for BridgeHubWestend messages sent from BridgeHubRococo
-</span><span class="kw">pub type </span>ToBridgeHubWestendMessageVerifier =
-	messages::source::FromThisChainMessageVerifier&lt;WithBridgeHubWestendMessageBridge&gt;;
-
 <span class="doccomment">/// Maximal outbound payload size of BridgeHubRococo -&gt; BridgeHubWestend messages.
 </span><span class="kw">pub type </span>ToBridgeHubWestendMaximalOutboundPayloadSize =
 	messages::source::FromThisChainMaximalOutboundPayloadSize&lt;WithBridgeHubWestendMessageBridge&gt;;
@@ -549,7 +542,6 @@
 	<span class="kw">type </span>DeliveryPayments = ();
 
 	<span class="kw">type </span>TargetHeaderChain = TargetHeaderChainAdapter&lt;WithBridgeHubWestendMessageBridge&gt;;
-	<span class="kw">type </span>LaneMessageVerifier = ToBridgeHubWestendMessageVerifier;
 	<span class="kw">type </span>DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter&lt;
 		Runtime,
 		WithBridgeHubWestendMessagesInstance,
@@ -646,7 +638,7 @@
 					bp_bridge_hub_westend::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
 				max_unconfirmed_messages_in_bridged_confirmation_tx:
 					bp_bridge_hub_westend::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
-				bridged_chain_id: bp_runtime::BRIDGE_HUB_WESTEND_CHAIN_ID,
+				bridged_chain_id: BridgeHubWestend::ID,
 			},
 			pallet_names: AssertBridgePalletNames {
 				with_this_chain_messages_pallet_name:

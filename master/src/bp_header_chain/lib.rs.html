@@ -364,6 +364,18 @@
 <a href="#364" id="364">364</a>
 <a href="#365" id="365">365</a>
 <a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -383,7 +395,8 @@
 </span><span class="doccomment">//! Defines traits which represent a common interface for Substrate pallets which want to
 //! incorporate bridge functionality.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![warn(missing_docs)]
+#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
 </span><span class="kw">use </span><span class="kw">crate</span>::justification::{
 	GrandpaJustification, JustificationVerificationContext, JustificationVerificationError,
@@ -511,7 +524,8 @@
 </span><span class="kw">pub struct </span>GrandpaConsensusLogReader&lt;Number&gt;(sp_std::marker::PhantomData&lt;Number&gt;);
 
 <span class="kw">impl</span>&lt;Number: Codec&gt; GrandpaConsensusLogReader&lt;Number&gt; {
-	<span class="kw">pub fn </span>find_scheduled_change(
+	<span class="doccomment">/// Find and return scheduled (regular) change digest item.
+	</span><span class="kw">pub fn </span>find_scheduled_change(
 		digest: <span class="kw-2">&amp;</span>Digest,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;sp_consensus_grandpa::ScheduledChange&lt;Number&gt;&gt; {
 		<span class="comment">// find the first consensus digest with the right ID which converts to
@@ -524,7 +538,9 @@
 			})
 	}
 
-	<span class="kw">pub fn </span>find_forced_change(
+	<span class="doccomment">/// Find and return forced change digest item. Or light client can&#39;t do anything
+	/// with forced changes, so we can&#39;t accept header with the forced change digest.
+	</span><span class="kw">pub fn </span>find_forced_change(
 		digest: <span class="kw-2">&amp;</span>Digest,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;(Number, sp_consensus_grandpa::ScheduledChange&lt;Number&gt;)&gt; {
 		<span class="comment">// find the first consensus digest with the right ID which converts to
@@ -595,12 +611,17 @@
 	<span class="doccomment">/// `pallet-bridge-grandpa::Call::submit_finality_proof`
 	</span><span class="attr">#[codec(index = <span class="number">0</span>)]
 	</span>submit_finality_proof {
-		finality_target: Box&lt;Header&gt;,
-		justification: justification::GrandpaJustification&lt;Header&gt;,
+		<span class="doccomment">/// The header that we are going to finalize.
+		</span>finality_target: Box&lt;Header&gt;,
+		<span class="doccomment">/// Finality justification for the `finality_target`.
+		</span>justification: justification::GrandpaJustification&lt;Header&gt;,
 	},
 	<span class="doccomment">/// `pallet-bridge-grandpa::Call::initialize`
 	</span><span class="attr">#[codec(index = <span class="number">1</span>)]
-	</span>initialize { init_data: InitializationData&lt;Header&gt; },
+	</span>initialize {
+		<span class="doccomment">/// All data, required to initialize the pallet.
+		</span>init_data: InitializationData&lt;Header&gt;,
+	},
 }
 
 <span class="doccomment">/// The `BridgeGrandpaCall` used by a chain.
@@ -691,12 +712,15 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">use </span>bp_runtime::ChainId;
 	<span class="kw">use </span>frame_support::weights::Weight;
 	<span class="kw">use </span>sp_runtime::{testing::H256, traits::BlakeTwo256, MultiSignature};
 
 	<span class="kw">struct </span>TestChain;
 
 	<span class="kw">impl </span>Chain <span class="kw">for </span>TestChain {
+		<span class="kw">const </span>ID: ChainId = <span class="kw-2">*</span><span class="string">b&quot;test&quot;</span>;
+
 		<span class="kw">type </span>BlockNumber = u32;
 		<span class="kw">type </span>Hash = H256;
 		<span class="kw">type </span>Hasher = BlakeTwo256;

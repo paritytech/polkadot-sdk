@@ -497,6 +497,9 @@
 <a href="#497" id="497">497</a>
 <a href="#498" id="498">498</a>
 <a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -539,12 +542,15 @@
 <span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{DispatchBlob, DispatchBlobError};
 
-<span class="doccomment">/// Message dispatch result type for single message
+<span class="doccomment">/// Message dispatch result type for single message.
 </span><span class="attr">#[derive(CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, Debug, TypeInfo)]
 </span><span class="kw">pub enum </span>XcmBlobMessageDispatchResult {
-	InvalidPayload,
-	Dispatched,
-	NotDispatched(<span class="attr">#[codec(skip)] </span><span class="prelude-ty">Option</span>&lt;DispatchBlobError&gt;),
+	<span class="doccomment">/// We&#39;ve been unable to decode message payload.
+	</span>InvalidPayload,
+	<span class="doccomment">/// Message has been dispatched.
+	</span>Dispatched,
+	<span class="doccomment">/// Message has **NOT** been dispatched because of given error.
+	</span>NotDispatched(<span class="attr">#[codec(skip)] </span><span class="prelude-ty">Option</span>&lt;DispatchBlobError&gt;),
 }
 
 <span class="doccomment">/// [`XcmBlobMessageDispatch`] is responsible for dispatching received messages

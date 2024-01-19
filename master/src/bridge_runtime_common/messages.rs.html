@@ -699,43 +699,6 @@
 <a href="#699" id="699">699</a>
 <a href="#700" id="700">700</a>
 <a href="#701" id="701">701</a>
-<a href="#702" id="702">702</a>
-<a href="#703" id="703">703</a>
-<a href="#704" id="704">704</a>
-<a href="#705" id="705">705</a>
-<a href="#706" id="706">706</a>
-<a href="#707" id="707">707</a>
-<a href="#708" id="708">708</a>
-<a href="#709" id="709">709</a>
-<a href="#710" id="710">710</a>
-<a href="#711" id="711">711</a>
-<a href="#712" id="712">712</a>
-<a href="#713" id="713">713</a>
-<a href="#714" id="714">714</a>
-<a href="#715" id="715">715</a>
-<a href="#716" id="716">716</a>
-<a href="#717" id="717">717</a>
-<a href="#718" id="718">718</a>
-<a href="#719" id="719">719</a>
-<a href="#720" id="720">720</a>
-<a href="#721" id="721">721</a>
-<a href="#722" id="722">722</a>
-<a href="#723" id="723">723</a>
-<a href="#724" id="724">724</a>
-<a href="#725" id="725">725</a>
-<a href="#726" id="726">726</a>
-<a href="#727" id="727">727</a>
-<a href="#728" id="728">728</a>
-<a href="#729" id="729">729</a>
-<a href="#730" id="730">730</a>
-<a href="#731" id="731">731</a>
-<a href="#732" id="732">732</a>
-<a href="#733" id="733">733</a>
-<a href="#734" id="734">734</a>
-<a href="#735" id="735">735</a>
-<a href="#736" id="736">736</a>
-<a href="#737" id="737">737</a>
-<a href="#738" id="738">738</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -762,7 +725,7 @@
 
 <span class="kw">use </span>bp_header_chain::HeaderChain;
 <span class="kw">use </span>bp_messages::{
-	source_chain::{LaneMessageVerifier, TargetHeaderChain},
+	source_chain::TargetHeaderChain,
 	target_chain::{ProvedLaneMessages, ProvedMessages, SourceHeaderChain},
 	InboundLaneData, LaneId, Message, MessageKey, MessageNonce, MessagePayload, OutboundLaneData,
 	VerificationError,
@@ -858,42 +821,6 @@
 	</span><span class="kw">pub type </span>ParsedMessagesDeliveryProofFromBridgedChain&lt;B&gt; =
 		(LaneId, InboundLaneData&lt;AccountIdOf&lt;ThisChain&lt;B&gt;&gt;&gt;);
 
-	<span class="doccomment">/// Message verifier that is doing all basic checks.
-	///
-	/// This verifier assumes following:
-	///
-	/// - all message lanes are equivalent, so all checks are the same;
-	///
-	/// Following checks are made:
-	///
-	/// - message is rejected if its lane is currently blocked;
-	/// - message is rejected if there are too many pending (undelivered) messages at the outbound
-	///   lane;
-	/// - check that the sender has rights to dispatch the call on target chain using provided
-	///   dispatch origin;
-	/// - check that the sender has paid enough funds for both message delivery and dispatch.
-	</span><span class="attr">#[derive(RuntimeDebug)]
-	</span><span class="kw">pub struct </span>FromThisChainMessageVerifier&lt;B&gt;(PhantomData&lt;B&gt;);
-
-	<span class="kw">impl</span>&lt;B&gt; LaneMessageVerifier&lt;FromThisChainMessagePayload&gt; <span class="kw">for </span>FromThisChainMessageVerifier&lt;B&gt;
-	<span class="kw">where
-		</span>B: MessageBridge,
-	{
-		<span class="kw">fn </span>verify_message(
-			_lane: <span class="kw-2">&amp;</span>LaneId,
-			_lane_outbound_data: <span class="kw-2">&amp;</span>OutboundLaneData,
-			_payload: <span class="kw-2">&amp;</span>FromThisChainMessagePayload,
-		) -&gt; <span class="prelude-ty">Result</span>&lt;(), VerificationError&gt; {
-			<span class="comment">// IMPORTANT: any error that is returned here is fatal for the bridge, because
-			// this code is executed at the bridge hub and message sender actually lives
-			// at some sibling parachain. So we are failing **after** the message has been
-			// sent and we can&#39;t report it back to sender (unless error report mechanism is
-			// embedded into message and its dispatcher).
-
-			</span><span class="prelude-val">Ok</span>(())
-		}
-	}
-
 	<span class="doccomment">/// Return maximal message size of This -&gt; Bridged chain message.
 	</span><span class="kw">pub fn </span>maximal_message_size&lt;B: MessageBridge&gt;() -&gt; u32 {
 		<span class="kw">super</span>::target::maximal_incoming_message_size(
@@ -923,8 +850,7 @@
 	<span class="doccomment">/// Do basic Bridged-chain specific verification of This -&gt; Bridged chain message.
 	///
 	/// Ok result from this function means that the delivery transaction with this message
-	/// may be &#39;mined&#39; by the target chain. But the lane may have its own checks (e.g. fee
-	/// check) that would reject message (see `FromThisChainMessageVerifier`).
+	/// may be &#39;mined&#39; by the target chain.
 	</span><span class="kw">pub fn </span>verify_chain_message&lt;B: MessageBridge&gt;(
 		payload: <span class="kw-2">&amp;</span>FromThisChainMessagePayload,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), VerificationError&gt; {

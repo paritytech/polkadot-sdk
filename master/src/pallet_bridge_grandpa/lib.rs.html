@@ -1460,6 +1460,7 @@
 <a href="#1460" id="1460">1460</a>
 <a href="#1461" id="1461">1461</a>
 <a href="#1462" id="1462">1462</a>
+<a href="#1463" id="1463">1463</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -1494,9 +1495,8 @@
 //! Shall the fork occur on the bridged chain governance intervention will be required to
 //! re-initialize the bridge and track the right fork.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
-</span><span class="comment">// Runtime-generated enums
-</span><span class="attr">#![allow(clippy::large_enum_variant)]
+</span><span class="attr">#![warn(missing_docs)]
+#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
 </span><span class="kw">pub use </span>storage_types::StoredAuthoritySet;
 
@@ -1870,8 +1870,10 @@
 	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
 		<span class="doccomment">/// Best finalized chain header has been updated to the header with given number and hash.
 		</span>UpdatedBestFinalizedHeader {
-			number: BridgedBlockNumber&lt;T, I&gt;,
-			hash: BridgedBlockHash&lt;T, I&gt;,
+			<span class="doccomment">/// Number of the new best finalized header.
+			</span>number: BridgedBlockNumber&lt;T, I&gt;,
+			<span class="doccomment">/// Hash of the new best finalized header.
+			</span>hash: BridgedBlockHash&lt;T, I&gt;,
 			<span class="doccomment">/// The Grandpa info associated to the new best finalized header.
 			</span>grandpa_info: StoredHeaderGrandpaInfo&lt;BridgedHeader&lt;T, I&gt;&gt;,
 		},

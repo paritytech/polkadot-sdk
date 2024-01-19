@@ -528,6 +528,43 @@
 <a href="#528" id="528">528</a>
 <a href="#529" id="529">529</a>
 <a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -546,14 +583,13 @@
 
 </span><span class="doccomment">//! Primitives of messages module.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
-</span><span class="comment">// RuntimeApi generated functions
-</span><span class="attr">#![allow(clippy::too_many_arguments)]
+</span><span class="attr">#![warn(missing_docs)]
+#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
 </span><span class="kw">use </span>bp_header_chain::HeaderChainError;
 <span class="kw">use </span>bp_runtime::{
-	messages::MessageDispatchResult, BasicOperatingMode, OperatingMode, RangeInclusiveExt,
-	StorageProofError,
+	messages::MessageDispatchResult, BasicOperatingMode, Chain, OperatingMode, RangeInclusiveExt,
+	StorageProofError, UnderlyingChainOf, UnderlyingChainProvider,
 };
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>frame_support::PalletError;
@@ -568,6 +604,36 @@
 <span class="kw">pub mod </span>source_chain;
 <span class="kw">pub mod </span>storage_keys;
 <span class="kw">pub mod </span>target_chain;
+
+<span class="doccomment">/// Substrate-based chain with messaging support.
+</span><span class="kw">pub trait </span>ChainWithMessages: Chain {
+	<span class="doccomment">/// Name of the bridge messages pallet (used in `construct_runtime` macro call) that is
+	/// deployed at some other chain to bridge with this `ChainWithMessages`.
+	///
+	/// We assume that all chains that are bridging with this `ChainWithMessages` are using
+	/// the same name.
+	</span><span class="kw">const </span>WITH_CHAIN_MESSAGES_PALLET_NAME: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+
+	<span class="doccomment">/// Maximal number of unrewarded relayers in a single confirmation transaction at this
+	/// `ChainWithMessages`.
+	</span><span class="kw">const </span>MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce;
+	<span class="doccomment">/// Maximal number of unconfirmed messages in a single confirmation transaction at this
+	/// `ChainWithMessages`.
+	</span><span class="kw">const </span>MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce;
+}
+
+<span class="kw">impl</span>&lt;T&gt; ChainWithMessages <span class="kw">for </span>T
+<span class="kw">where
+	</span>T: Chain + UnderlyingChainProvider,
+	UnderlyingChainOf&lt;T&gt;: ChainWithMessages,
+{
+	<span class="kw">const </span>WITH_CHAIN_MESSAGES_PALLET_NAME: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str =
+		UnderlyingChainOf::&lt;T&gt;::WITH_CHAIN_MESSAGES_PALLET_NAME;
+	<span class="kw">const </span>MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce =
+		UnderlyingChainOf::&lt;T&gt;::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
+	<span class="kw">const </span>MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce =
+		UnderlyingChainOf::&lt;T&gt;::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
+}
 
 <span class="doccomment">/// Messages pallet operating mode.
 </span><span class="attr">#[derive(
@@ -794,14 +860,16 @@
 }
 
 <span class="kw">impl</span>&lt;DispatchLevelResult&gt; ReceivedMessages&lt;DispatchLevelResult&gt; {
-	<span class="kw">pub fn </span>new(
+	<span class="doccomment">/// Creates new `ReceivedMessages` structure from given results.
+	</span><span class="kw">pub fn </span>new(
 		lane: LaneId,
 		receive_results: Vec&lt;(MessageNonce, ReceivalResult&lt;DispatchLevelResult&gt;)&gt;,
 	) -&gt; <span class="self">Self </span>{
 		ReceivedMessages { lane, receive_results }
 	}
 
-	<span class="kw">pub fn </span>push(<span class="kw-2">&amp;mut </span><span class="self">self</span>, message: MessageNonce, result: ReceivalResult&lt;DispatchLevelResult&gt;) {
+	<span class="doccomment">/// Push `result` of the `message` delivery onto `receive_results` vector.
+	</span><span class="kw">pub fn </span>push(<span class="kw-2">&amp;mut </span><span class="self">self</span>, message: MessageNonce, result: ReceivalResult&lt;DispatchLevelResult&gt;) {
 		<span class="self">self</span>.receive_results.push((message, result));
 	}
 }
@@ -872,7 +940,7 @@
 }
 
 <span class="kw">impl </span>UnrewardedRelayersState {
-	<span class="comment">// Verify that the relayers state corresponds with the `InboundLaneData`.
+	<span class="doccomment">/// Verify that the relayers state corresponds with the `InboundLaneData`.
 	</span><span class="kw">pub fn </span>is_valid&lt;RelayerId&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, lane_data: <span class="kw-2">&amp;</span>InboundLaneData&lt;RelayerId&gt;) -&gt; bool {
 		<span class="self">self </span>== <span class="kw-2">&amp;</span>lane_data.into()
 	}
@@ -953,16 +1021,22 @@
 	<span class="doccomment">/// `pallet-bridge-messages::Call::receive_messages_proof`
 	</span><span class="attr">#[codec(index = <span class="number">2</span>)]
 	</span>receive_messages_proof {
-		relayer_id_at_bridged_chain: AccountId,
-		proof: MessagesProof,
-		messages_count: u32,
-		dispatch_weight: Weight,
+		<span class="doccomment">/// Account id of relayer at the **bridged** chain.
+		</span>relayer_id_at_bridged_chain: AccountId,
+		<span class="doccomment">/// Messages proof.
+		</span>proof: MessagesProof,
+		<span class="doccomment">/// A number of messages in the proof.
+		</span>messages_count: u32,
+		<span class="doccomment">/// Total dispatch weight of messages in the proof.
+		</span>dispatch_weight: Weight,
 	},
 	<span class="doccomment">/// `pallet-bridge-messages::Call::receive_messages_delivery_proof`
 	</span><span class="attr">#[codec(index = <span class="number">3</span>)]
 	</span>receive_messages_delivery_proof {
-		proof: MessagesDeliveryProof,
-		relayers_state: UnrewardedRelayersState,
+		<span class="doccomment">/// Messages delivery proof.
+		</span>proof: MessagesDeliveryProof,
+		<span class="doccomment">/// &quot;Digest&quot; of unrewarded relayers state at the bridged chain.
+		</span>relayers_state: UnrewardedRelayersState,
 	},
 }
 

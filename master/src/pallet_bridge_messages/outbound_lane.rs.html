@@ -422,14 +422,6 @@
 <a href="#422" id="422">422</a>
 <a href="#423" id="423">423</a>
 <a href="#424" id="424">424</a>
-<a href="#425" id="425">425</a>
-<a href="#426" id="426">426</a>
-<a href="#427" id="427">427</a>
-<a href="#428" id="428">428</a>
-<a href="#429" id="429">429</a>
-<a href="#430" id="430">430</a>
-<a href="#431" id="431">431</a>
-<a href="#432" id="432">432</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -450,10 +442,7 @@
 
 </span><span class="kw">use crate</span>::{Config, LOG_TARGET};
 
-<span class="kw">use </span>bp_messages::{
-	DeliveredMessages, LaneId, MessageNonce, MessagePayload, OutboundLaneData, UnrewardedRelayer,
-	VerificationError,
-};
+<span class="kw">use </span>bp_messages::{DeliveredMessages, LaneId, MessageNonce, OutboundLaneData, UnrewardedRelayer};
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{
 	weights::{RuntimeDbWeight, Weight},
@@ -466,6 +455,8 @@
 
 <span class="doccomment">/// Outbound lane storage.
 </span><span class="kw">pub trait </span>OutboundLaneStorage {
+	<span class="kw">type </span>StoredMessagePayload;
+
 	<span class="doccomment">/// Lane id.
 	</span><span class="kw">fn </span>id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; LaneId;
 	<span class="doccomment">/// Get lane data from the storage.
@@ -474,13 +465,9 @@
 	</span><span class="kw">fn </span>set_data(<span class="kw-2">&amp;mut </span><span class="self">self</span>, data: OutboundLaneData);
 	<span class="doccomment">/// Returns saved outbound message payload.
 	</span><span class="attr">#[cfg(test)]
-	</span><span class="kw">fn </span>message(<span class="kw-2">&amp;</span><span class="self">self</span>, nonce: <span class="kw-2">&amp;</span>MessageNonce) -&gt; <span class="prelude-ty">Option</span>&lt;MessagePayload&gt;;
+	</span><span class="kw">fn </span>message(<span class="kw-2">&amp;</span><span class="self">self</span>, nonce: <span class="kw-2">&amp;</span>MessageNonce) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::StoredMessagePayload&gt;;
 	<span class="doccomment">/// Save outbound message in the storage.
-	</span><span class="kw">fn </span>save_message(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		nonce: MessageNonce,
-		message_payload: MessagePayload,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), VerificationError&gt;;
+	</span><span class="kw">fn </span>save_message(<span class="kw-2">&amp;mut </span><span class="self">self</span>, nonce: MessageNonce, message_payload: <span class="self">Self</span>::StoredMessagePayload);
 	<span class="doccomment">/// Remove outbound message from the storage.
 	</span><span class="kw">fn </span>remove_message(<span class="kw-2">&amp;mut </span><span class="self">self</span>, nonce: <span class="kw-2">&amp;</span>MessageNonce);
 }
@@ -523,18 +510,15 @@
 	<span class="doccomment">/// Send message over lane.
 	///
 	/// Returns new message nonce.
-	</span><span class="kw">pub fn </span>send_message(
-		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		message_payload: MessagePayload,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;MessageNonce, VerificationError&gt; {
+	</span><span class="kw">pub fn </span>send_message(<span class="kw-2">&amp;mut </span><span class="self">self</span>, message_payload: S::StoredMessagePayload) -&gt; MessageNonce {
 		<span class="kw">let </span><span class="kw-2">mut </span>data = <span class="self">self</span>.storage.data();
 		<span class="kw">let </span>nonce = data.latest_generated_nonce + <span class="number">1</span>;
 		data.latest_generated_nonce = nonce;
 
-		<span class="self">self</span>.storage.save_message(nonce, message_payload)<span class="question-mark">?</span>;
+		<span class="self">self</span>.storage.save_message(nonce, message_payload);
 		<span class="self">self</span>.storage.set_data(data);
 
-		<span class="prelude-val">Ok</span>(nonce)
+		nonce
 	}
 
 	<span class="doccomment">/// Confirm messages delivery.
@@ -650,7 +634,7 @@
 		},
 		outbound_lane,
 	};
-	<span class="kw">use </span>frame_support::{assert_ok, weights::constants::RocksDbWeight};
+	<span class="kw">use </span>frame_support::weights::constants::RocksDbWeight;
 	<span class="kw">use </span>sp_std::ops::RangeInclusive;
 
 	<span class="kw">fn </span>unrewarded_relayers(
@@ -671,9 +655,9 @@
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;DeliveredMessages&gt;, ReceivalConfirmationError&gt; {
 		run_test(|| {
 			<span class="kw">let </span><span class="kw-2">mut </span>lane = outbound_lane::&lt;TestRuntime, <span class="kw">_</span>&gt;(TEST_LANE_ID);
-			<span class="macro">assert_ok!</span>(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)));
-			<span class="macro">assert_ok!</span>(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)));
-			<span class="macro">assert_ok!</span>(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)));
+			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
+			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
+			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			<span class="macro">assert_eq!</span>(lane.storage.data().latest_generated_nonce, <span class="number">3</span>);
 			<span class="macro">assert_eq!</span>(lane.storage.data().latest_received_nonce, <span class="number">0</span>);
 			<span class="kw">let </span>result = lane.confirm_delivery(<span class="number">3</span>, latest_received_nonce, relayers);
@@ -688,7 +672,7 @@
 		run_test(|| {
 			<span class="kw">let </span><span class="kw-2">mut </span>lane = outbound_lane::&lt;TestRuntime, <span class="kw">_</span>&gt;(TEST_LANE_ID);
 			<span class="macro">assert_eq!</span>(lane.storage.data().latest_generated_nonce, <span class="number">0</span>);
-			<span class="macro">assert_eq!</span>(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), <span class="prelude-val">Ok</span>(<span class="number">1</span>));
+			<span class="macro">assert_eq!</span>(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), <span class="number">1</span>);
 			<span class="macro">assert!</span>(lane.storage.message(<span class="kw-2">&amp;</span><span class="number">1</span>).is_some());
 			<span class="macro">assert_eq!</span>(lane.storage.data().latest_generated_nonce, <span class="number">1</span>);
 		});
@@ -698,9 +682,9 @@
 	</span><span class="kw">fn </span>confirm_delivery_works() {
 		run_test(|| {
 			<span class="kw">let </span><span class="kw-2">mut </span>lane = outbound_lane::&lt;TestRuntime, <span class="kw">_</span>&gt;(TEST_LANE_ID);
-			<span class="macro">assert_eq!</span>(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), <span class="prelude-val">Ok</span>(<span class="number">1</span>));
-			<span class="macro">assert_eq!</span>(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), <span class="prelude-val">Ok</span>(<span class="number">2</span>));
-			<span class="macro">assert_eq!</span>(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), <span class="prelude-val">Ok</span>(<span class="number">3</span>));
+			<span class="macro">assert_eq!</span>(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), <span class="number">1</span>);
+			<span class="macro">assert_eq!</span>(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), <span class="number">2</span>);
+			<span class="macro">assert_eq!</span>(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)), <span class="number">3</span>);
 			<span class="macro">assert_eq!</span>(lane.storage.data().latest_generated_nonce, <span class="number">3</span>);
 			<span class="macro">assert_eq!</span>(lane.storage.data().latest_received_nonce, <span class="number">0</span>);
 			<span class="macro">assert_eq!</span>(
@@ -716,9 +700,9 @@
 	</span><span class="kw">fn </span>confirm_delivery_rejects_nonce_lesser_than_latest_received() {
 		run_test(|| {
 			<span class="kw">let </span><span class="kw-2">mut </span>lane = outbound_lane::&lt;TestRuntime, <span class="kw">_</span>&gt;(TEST_LANE_ID);
-			<span class="macro">assert_ok!</span>(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)));
-			<span class="macro">assert_ok!</span>(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)));
-			<span class="macro">assert_ok!</span>(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)));
+			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
+			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
+			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			<span class="macro">assert_eq!</span>(lane.storage.data().latest_generated_nonce, <span class="number">3</span>);
 			<span class="macro">assert_eq!</span>(lane.storage.data().latest_received_nonce, <span class="number">0</span>);
 			<span class="macro">assert_eq!</span>(
@@ -800,9 +784,9 @@
 			);
 			<span class="macro">assert_eq!</span>(lane.storage.data().oldest_unpruned_nonce, <span class="number">1</span>);
 			<span class="comment">// when nothing is confirmed, nothing is pruned
-			</span><span class="macro">assert_ok!</span>(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)));
-			<span class="macro">assert_ok!</span>(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)));
-			<span class="macro">assert_ok!</span>(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)));
+			</span>lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
+			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
+			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			<span class="macro">assert!</span>(lane.storage.message(<span class="kw-2">&amp;</span><span class="number">1</span>).is_some());
 			<span class="macro">assert!</span>(lane.storage.message(<span class="kw-2">&amp;</span><span class="number">2</span>).is_some());
 			<span class="macro">assert!</span>(lane.storage.message(<span class="kw-2">&amp;</span><span class="number">3</span>).is_some());
@@ -844,9 +828,9 @@
 	</span><span class="kw">fn </span>confirm_delivery_detects_when_more_than_expected_messages_are_confirmed() {
 		run_test(|| {
 			<span class="kw">let </span><span class="kw-2">mut </span>lane = outbound_lane::&lt;TestRuntime, <span class="kw">_</span>&gt;(TEST_LANE_ID);
-			<span class="macro">assert_ok!</span>(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)));
-			<span class="macro">assert_ok!</span>(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)));
-			<span class="macro">assert_ok!</span>(lane.send_message(outbound_message_data(REGULAR_PAYLOAD)));
+			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
+			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
+			lane.send_message(outbound_message_data(REGULAR_PAYLOAD));
 			<span class="macro">assert_eq!</span>(
 				lane.confirm_delivery(<span class="number">0</span>, <span class="number">3</span>, <span class="kw-2">&amp;</span>unrewarded_relayers(<span class="number">1</span>..=<span class="number">3</span>)),
 				<span class="prelude-val">Err</span>(ReceivalConfirmationError::TryingToConfirmMoreMessagesThanExpected),

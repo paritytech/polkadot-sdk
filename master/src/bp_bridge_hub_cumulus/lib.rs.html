@@ -137,6 +137,11 @@
 <a href="#137" id="137">137</a>
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -153,7 +158,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="doccomment">//! Primitives of all Cumulus-based bridge hubs.
+
+</span><span class="attr">#![warn(missing_docs)]
+#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
 </span><span class="kw">pub use </span>bp_polkadot_core::{
 	AccountId, AccountInfoStorageMapKeyProvider, AccountPublic, Balance, BlockNumber, Hash, Hasher,
@@ -200,7 +208,8 @@
 </span><span class="kw">pub const </span>AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(<span class="number">5</span>);
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub </span>BlockLength: limits::BlockLength = limits::BlockLength::max_with_normal_ratio(
+	<span class="doccomment">/// Size limit of the Cumulus-based bridge hub blocks.
+	</span><span class="kw">pub </span>BlockLength: limits::BlockLength = limits::BlockLength::max_with_normal_ratio(
 		<span class="number">5 </span>* <span class="number">1024 </span>* <span class="number">1024</span>,
 		NORMAL_DISPATCH_RATIO,
 	);
@@ -212,7 +221,8 @@
 	</span><span class="kw">pub const </span>ExtrinsicBaseWeight: Weight = Weight::from_parts(constants::WEIGHT_REF_TIME_PER_NANOS, <span class="number">0</span>)
 		.saturating_mul(<span class="number">125_000</span>);
 
-	<span class="kw">pub </span>BlockWeights: limits::BlockWeights = limits::BlockWeights::builder()
+	<span class="doccomment">/// Weight limit of the Cumulus-based bridge hub blocks.
+	</span><span class="kw">pub </span>BlockWeights: limits::BlockWeights = limits::BlockWeights::builder()
 		.base_block(BlockExecutionWeight::get())
 		.for_class(DispatchClass::all(), |weights| {
 			weights.base_extrinsic = ExtrinsicBaseWeight::get();

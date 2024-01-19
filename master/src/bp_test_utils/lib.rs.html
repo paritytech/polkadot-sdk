@@ -341,6 +341,10 @@
 <a href="#341" id="341">341</a>
 <a href="#342" id="342">342</a>
 <a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -359,7 +363,8 @@
 
 </span><span class="doccomment">//! Utilities for testing runtime code.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![warn(missing_docs)]
+#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
 </span><span class="kw">use </span>bp_header_chain::justification::{required_justification_precommits, GrandpaJustification};
 <span class="kw">use </span>bp_parachains::parachain_head_storage_key_at_source;
@@ -376,9 +381,12 @@
 
 <span class="kw">mod </span>keyring;
 
-<span class="kw">pub const </span>TEST_GRANDPA_ROUND: u64 = <span class="number">1</span>;
-<span class="kw">pub const </span>TEST_GRANDPA_SET_ID: SetId = <span class="number">1</span>;
-<span class="kw">pub const </span>PARAS_PALLET_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;Paras&quot;</span>;
+<span class="doccomment">/// GRANDPA round number used across tests.
+</span><span class="kw">pub const </span>TEST_GRANDPA_ROUND: u64 = <span class="number">1</span>;
+<span class="doccomment">/// GRANDPA validators set id used across tests.
+</span><span class="kw">pub const </span>TEST_GRANDPA_SET_ID: SetId = <span class="number">1</span>;
+<span class="doccomment">/// Name of the `Paras` pallet used across tests.
+</span><span class="kw">pub const </span>PARAS_PALLET_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;Paras&quot;</span>;
 
 <span class="doccomment">/// Configuration parameters when generating test GRANDPA justifications.
 </span><span class="attr">#[derive(Clone)]
@@ -533,7 +541,7 @@
 		.map_err(|<span class="kw">_</span>| <span class="string">&quot;record_all_trie_keys has failed&quot;</span>)
 		.expect(<span class="string">&quot;record_all_trie_keys should not fail in benchmarks&quot;</span>);
 
-	(root, ParaHeadsProof(storage_proof), parachains)
+	(root, ParaHeadsProof { storage_proof }, parachains)
 }
 
 <span class="doccomment">/// Create signed precommit with given target.

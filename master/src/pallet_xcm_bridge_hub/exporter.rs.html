@@ -204,9 +204,6 @@
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
 <a href="#206" id="206">206</a>
-<a href="#207" id="207">207</a>
-<a href="#208" id="208">208</a>
-<a href="#209" id="209">209</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -251,12 +248,13 @@
 
 <span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; ExportXcm <span class="kw">for </span>Pallet&lt;T, I&gt;
 <span class="kw">where
-	</span>T: BridgeMessagesConfig&lt;
-		&lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::BridgeMessagesPalletInstance,
-		OutboundPayload = XcmAsPlainPayload,
-	&gt;,
+	</span>T: BridgeMessagesConfig&lt;T::BridgeMessagesPalletInstance, OutboundPayload = XcmAsPlainPayload&gt;,
 {
-	<span class="kw">type </span>Ticket = (SenderAndLane, XcmAsPlainPayload, XcmHash);
+	<span class="kw">type </span>Ticket = (
+		SenderAndLane,
+		&lt;MessagesPallet&lt;T, I&gt; <span class="kw">as </span>MessagesBridge&lt;T::OutboundPayload&gt;&gt;::SendMessageArgs,
+		XcmHash,
+	);
 
 	<span class="kw">fn </span>validate(
 		network: NetworkId,
@@ -283,42 +281,38 @@
 			message,
 		)<span class="question-mark">?</span>;
 
-		<span class="prelude-val">Ok</span>(((sender_and_lane, blob, id), price))
-	}
-
-	<span class="kw">fn </span>deliver(
-		(sender_and_lane, blob, id): (SenderAndLane, XcmAsPlainPayload, XcmHash),
-	) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, SendError&gt; {
-		<span class="kw">let </span>lane_id = sender_and_lane.lane;
-		<span class="kw">let </span>send_result = MessagesPallet::&lt;T, I&gt;::send_message(lane_id, blob);
-
-		<span class="kw">match </span>send_result {
-			<span class="prelude-val">Ok</span>(artifacts) =&gt; {
-				<span class="macro">log::info!</span>(
-					target: LOG_TARGET,
-					<span class="string">&quot;XCM message {:?} has been enqueued at bridge {:?} with nonce {}&quot;</span>,
-					id,
-					lane_id,
-					artifacts.nonce,
-				);
-
-				<span class="comment">// notify XCM queue manager about updated lane state
-				</span>LocalXcmQueueManager::&lt;T::LanesSupport&gt;::on_bridge_message_enqueued(
-					<span class="kw-2">&amp;</span>sender_and_lane,
-					artifacts.enqueued_messages,
-				);
-			},
-			<span class="prelude-val">Err</span>(error) =&gt; {
+		<span class="kw">let </span>bridge_message = MessagesPallet::&lt;T, I&gt;::validate_message(sender_and_lane.lane, <span class="kw-2">&amp;</span>blob)
+			.map_err(|e| {
 				<span class="macro">log::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;XCM message {:?} has been dropped because of bridge error {:?} on bridge {:?}&quot;</span>,
+					<span class="string">&quot;XCM message {:?} cannot be exported because of bridge error {:?} on bridge {:?}&quot;</span>,
 					id,
-					error,
-					lane_id,
+					e,
+					sender_and_lane.lane,
 				);
-				<span class="kw">return </span><span class="prelude-val">Err</span>(SendError::Transport(<span class="string">&quot;BridgeSendError&quot;</span>))
-			},
-		}
+				SendError::Transport(<span class="string">&quot;BridgeValidateError&quot;</span>)
+			})<span class="question-mark">?</span>;
+
+		<span class="prelude-val">Ok</span>(((sender_and_lane, bridge_message, id), price))
+	}
+
+	<span class="kw">fn </span>deliver((sender_and_lane, bridge_message, id): <span class="self">Self</span>::Ticket) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, SendError&gt; {
+		<span class="kw">let </span>lane_id = sender_and_lane.lane;
+		<span class="kw">let </span>artifacts = MessagesPallet::&lt;T, I&gt;::send_message(bridge_message);
+
+		<span class="macro">log::info!</span>(
+			target: LOG_TARGET,
+			<span class="string">&quot;XCM message {:?} has been enqueued at bridge {:?} with nonce {}&quot;</span>,
+			id,
+			lane_id,
+			artifacts.nonce,
+		);
+
+		<span class="comment">// notify XCM queue manager about updated lane state
+		</span>LocalXcmQueueManager::&lt;T::LanesSupport&gt;::on_bridge_message_enqueued(
+			<span class="kw-2">&amp;</span>sender_and_lane,
+			artifacts.enqueued_messages,
+		);
 
 		<span class="prelude-val">Ok</span>(id)
 	}

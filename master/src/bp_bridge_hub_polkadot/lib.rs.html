@@ -70,6 +70,19 @@
 <a href="#70" id="70">70</a>
 <a href="#71" id="71">71</a>
 <a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -89,12 +102,13 @@
 </span><span class="doccomment">//! Module with configuration which reflects BridgeHubPolkadot runtime setup
 //! (AccountId, Headers, Hashes...)
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![warn(missing_docs)]
+#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
 </span><span class="kw">pub use </span>bp_bridge_hub_cumulus::<span class="kw-2">*</span>;
 <span class="kw">use </span>bp_messages::<span class="kw-2">*</span>;
 <span class="kw">use </span>bp_runtime::{
-	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, Parachain,
+	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
 };
 <span class="kw">use </span>frame_support::dispatch::DispatchClass;
 <span class="kw">use </span>sp_runtime::RuntimeDebug;
@@ -104,6 +118,8 @@
 </span><span class="kw">pub struct </span>BridgeHubPolkadot;
 
 <span class="kw">impl </span>Chain <span class="kw">for </span>BridgeHubPolkadot {
+	<span class="kw">const </span>ID: ChainId = <span class="kw-2">*</span><span class="string">b&quot;bhpd&quot;</span>;
+
 	<span class="kw">type </span>BlockNumber = BlockNumber;
 	<span class="kw">type </span>Hash = Hash;
 	<span class="kw">type </span>Hasher = Hasher;
@@ -128,6 +144,16 @@
 
 <span class="kw">impl </span>Parachain <span class="kw">for </span>BridgeHubPolkadot {
 	<span class="kw">const </span>PARACHAIN_ID: u32 = BRIDGE_HUB_POLKADOT_PARACHAIN_ID;
+}
+
+<span class="kw">impl </span>ChainWithMessages <span class="kw">for </span>BridgeHubPolkadot {
+	<span class="kw">const </span>WITH_CHAIN_MESSAGES_PALLET_NAME: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str =
+		WITH_BRIDGE_HUB_POLKADOT_MESSAGES_PALLET_NAME;
+
+	<span class="kw">const </span>MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce =
+		MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
+	<span class="kw">const </span>MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce =
+		MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 }
 
 <span class="doccomment">/// Identifier of BridgeHubPolkadot in the Polkadot relay chain.

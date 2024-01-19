@@ -220,6 +220,7 @@
 <a href="#220" id="220">220</a>
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -238,7 +239,8 @@
 
 </span><span class="doccomment">//! Common types/functions that may be used by runtimes of all bridged chains.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![warn(missing_docs)]
+#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
 </span><span class="kw">use </span><span class="kw">crate</span>::messages_call_ext::MessagesCallSubType;
 <span class="kw">use </span>pallet_bridge_grandpa::CallSubType <span class="kw">as </span>GrandpaCallSubType;

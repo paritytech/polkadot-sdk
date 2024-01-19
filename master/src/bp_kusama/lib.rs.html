@@ -73,6 +73,9 @@
 <a href="#73" id="73">73</a>
 <a href="#74" id="74">74</a>
 <a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -89,36 +92,39 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
-</span><span class="comment">// RuntimeApi generated functions
-</span><span class="attr">#![allow(clippy::too_many_arguments)]
+</span><span class="doccomment">//! Primitives of the Kusama chain.
+
+</span><span class="attr">#![warn(missing_docs)]
+#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
 </span><span class="kw">pub use </span>bp_polkadot_core::<span class="kw-2">*</span>;
 
 <span class="kw">use </span>bp_header_chain::ChainWithGrandpa;
-<span class="kw">use </span>bp_runtime::{decl_bridge_finality_runtime_apis, Chain};
+<span class="kw">use </span>bp_runtime::{decl_bridge_finality_runtime_apis, Chain, ChainId};
 <span class="kw">use </span>frame_support::weights::Weight;
 
 <span class="doccomment">/// Kusama Chain
 </span><span class="kw">pub struct </span>Kusama;
 
 <span class="kw">impl </span>Chain <span class="kw">for </span>Kusama {
-	<span class="kw">type </span>BlockNumber = &lt;PolkadotLike <span class="kw">as </span>Chain&gt;::BlockNumber;
-	<span class="kw">type </span>Hash = &lt;PolkadotLike <span class="kw">as </span>Chain&gt;::Hash;
-	<span class="kw">type </span>Hasher = &lt;PolkadotLike <span class="kw">as </span>Chain&gt;::Hasher;
-	<span class="kw">type </span>Header = &lt;PolkadotLike <span class="kw">as </span>Chain&gt;::Header;
+	<span class="kw">const </span>ID: ChainId = <span class="kw-2">*</span><span class="string">b&quot;ksma&quot;</span>;
 
-	<span class="kw">type </span>AccountId = &lt;PolkadotLike <span class="kw">as </span>Chain&gt;::AccountId;
-	<span class="kw">type </span>Balance = &lt;PolkadotLike <span class="kw">as </span>Chain&gt;::Balance;
-	<span class="kw">type </span>Nonce = &lt;PolkadotLike <span class="kw">as </span>Chain&gt;::Nonce;
-	<span class="kw">type </span>Signature = &lt;PolkadotLike <span class="kw">as </span>Chain&gt;::Signature;
+	<span class="kw">type </span>BlockNumber = BlockNumber;
+	<span class="kw">type </span>Hash = Hash;
+	<span class="kw">type </span>Hasher = Hasher;
+	<span class="kw">type </span>Header = Header;
+
+	<span class="kw">type </span>AccountId = AccountId;
+	<span class="kw">type </span>Balance = Balance;
+	<span class="kw">type </span>Nonce = Nonce;
+	<span class="kw">type </span>Signature = Signature;
 
 	<span class="kw">fn </span>max_extrinsic_size() -&gt; u32 {
-		PolkadotLike::max_extrinsic_size()
+		max_extrinsic_size()
 	}
 
 	<span class="kw">fn </span>max_extrinsic_weight() -&gt; Weight {
-		PolkadotLike::max_extrinsic_weight()
+		max_extrinsic_weight()
 	}
 }
 

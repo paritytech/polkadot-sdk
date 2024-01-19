@@ -1622,6 +1622,30 @@
 <a href="#1622" id="1622">1622</a>
 <a href="#1623" id="1623">1623</a>
 <a href="#1624" id="1624">1624</a>
+<a href="#1625" id="1625">1625</a>
+<a href="#1626" id="1626">1626</a>
+<a href="#1627" id="1627">1627</a>
+<a href="#1628" id="1628">1628</a>
+<a href="#1629" id="1629">1629</a>
+<a href="#1630" id="1630">1630</a>
+<a href="#1631" id="1631">1631</a>
+<a href="#1632" id="1632">1632</a>
+<a href="#1633" id="1633">1633</a>
+<a href="#1634" id="1634">1634</a>
+<a href="#1635" id="1635">1635</a>
+<a href="#1636" id="1636">1636</a>
+<a href="#1637" id="1637">1637</a>
+<a href="#1638" id="1638">1638</a>
+<a href="#1639" id="1639">1639</a>
+<a href="#1640" id="1640">1640</a>
+<a href="#1641" id="1641">1641</a>
+<a href="#1642" id="1642">1642</a>
+<a href="#1643" id="1643">1643</a>
+<a href="#1644" id="1644">1644</a>
+<a href="#1645" id="1645">1645</a>
+<a href="#1646" id="1646">1646</a>
+<a href="#1647" id="1647">1647</a>
+<a href="#1648" id="1648">1648</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -1645,7 +1669,8 @@
 //! accepts storage proof of some parachain `Heads` entries from bridged relay chain.
 //! It requires corresponding relay headers to be already synced.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![warn(missing_docs)]
+#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
 </span><span class="kw">pub use </span>weights::WeightInfo;
 <span class="kw">pub use </span>weights_ext::WeightInfoExt;
@@ -1722,27 +1747,49 @@
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
 	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
 		<span class="doccomment">/// The caller has provided head of parachain that the pallet is not configured to track.
-		</span>UntrackedParachainRejected { parachain: ParaId },
+		</span>UntrackedParachainRejected {
+			<span class="doccomment">/// Identifier of the parachain that is not tracked by the pallet.
+			</span>parachain: ParaId,
+		},
 		<span class="doccomment">/// The caller has declared that he has provided given parachain head, but it is missing
 		/// from the storage proof.
-		</span>MissingParachainHead { parachain: ParaId },
+		</span>MissingParachainHead {
+			<span class="doccomment">/// Identifier of the parachain with missing head.
+			</span>parachain: ParaId,
+		},
 		<span class="doccomment">/// The caller has provided parachain head hash that is not matching the hash read from the
 		/// storage proof.
 		</span>IncorrectParachainHeadHash {
-			parachain: ParaId,
-			parachain_head_hash: ParaHash,
-			actual_parachain_head_hash: ParaHash,
+			<span class="doccomment">/// Identifier of the parachain with incorrect head hast.
+			</span>parachain: ParaId,
+			<span class="doccomment">/// Specified parachain head hash.
+			</span>parachain_head_hash: ParaHash,
+			<span class="doccomment">/// Actual parachain head hash.
+			</span>actual_parachain_head_hash: ParaHash,
 		},
 		<span class="doccomment">/// The caller has provided obsolete parachain head, which is already known to the pallet.
-		</span>RejectedObsoleteParachainHead { parachain: ParaId, parachain_head_hash: ParaHash },
+		</span>RejectedObsoleteParachainHead {
+			<span class="doccomment">/// Identifier of the parachain with obsolete head.
+			</span>parachain: ParaId,
+			<span class="doccomment">/// Obsolete parachain head hash.
+			</span>parachain_head_hash: ParaHash,
+		},
 		<span class="doccomment">/// The caller has provided parachain head that exceeds the maximal configured head size.
 		</span>RejectedLargeParachainHead {
-			parachain: ParaId,
-			parachain_head_hash: ParaHash,
-			parachain_head_size: u32,
+			<span class="doccomment">/// Identifier of the parachain with rejected head.
+			</span>parachain: ParaId,
+			<span class="doccomment">/// Parachain head hash.
+			</span>parachain_head_hash: ParaHash,
+			<span class="doccomment">/// Parachain head size.
+			</span>parachain_head_size: u32,
 		},
 		<span class="doccomment">/// Parachain head has been updated.
-		</span>UpdatedParachainHead { parachain: ParaId, parachain_head_hash: ParaHash },
+		</span>UpdatedParachainHead {
+			<span class="doccomment">/// Identifier of the parachain that has been updated.
+			</span>parachain: ParaId,
+			<span class="doccomment">/// Parachain head hash.
+			</span>parachain_head_hash: ParaHash,
+		},
 	}
 
 	<span class="attr">#[pallet::error]
@@ -1761,7 +1808,8 @@
 	</span><span class="kw">pub trait </span>BoundedBridgeGrandpaConfig&lt;I: <span class="lifetime">&#39;static</span>&gt;:
 		pallet_bridge_grandpa::Config&lt;I, BridgedChain = <span class="self">Self</span>::BridgedRelayChain&gt;
 	{
-		<span class="kw">type </span>BridgedRelayChain: Chain&lt;
+		<span class="doccomment">/// Type of the bridged relay chain.
+		</span><span class="kw">type </span>BridgedRelayChain: Chain&lt;
 			BlockNumber = RelayBlockNumber,
 			Hash = RelayBlockHash,
 			Hasher = RelayBlockHasher,
@@ -1960,7 +2008,7 @@
 
 			<span class="kw">let </span><span class="kw-2">mut </span>storage = GrandpaPalletOf::&lt;T, I&gt;::storage_proof_checker(
 				relay_block_hash,
-				parachain_heads_proof.<span class="number">0</span>,
+				parachain_heads_proof.storage_proof,
 			)
 			.map_err(Error::&lt;T, I&gt;::HeaderChainStorageProof)<span class="question-mark">?</span>;
 

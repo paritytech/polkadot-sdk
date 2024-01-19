@@ -2437,7 +2437,7 @@
 
 <span class="doccomment">/// Refund calculator.
 </span><span class="kw">pub trait </span>RefundCalculator {
-	<span class="comment">// The underlying integer type in which the refund is calculated.
+	<span class="doccomment">/// The underlying integer type in which the refund is calculated.
 	</span><span class="kw">type </span>Balance;
 
 	<span class="doccomment">/// Compute refund for given transaction.
@@ -3307,7 +3307,7 @@
 				ParaId(TestParachain::get()),
 				[parachain_head_at_relay_header_number <span class="kw">as </span>u8; <span class="number">32</span>].into(),
 			)],
-			parachain_heads_proof: ParaHeadsProof(<span class="macro">vec!</span>[]),
+			parachain_heads_proof: ParaHeadsProof { storage_proof: <span class="macro">vec!</span>[] },
 		})
 	}
 
@@ -4053,7 +4053,7 @@
 							(ParaId(TestParachain::get()), [<span class="number">1u8</span>; <span class="number">32</span>].into()),
 							(ParaId(TestParachain::get() + <span class="number">1</span>), [<span class="number">1u8</span>; <span class="number">32</span>].into()),
 						],
-						parachain_heads_proof: ParaHeadsProof(<span class="macro">vec!</span>[]),
+						parachain_heads_proof: ParaHeadsProof { storage_proof: <span class="macro">vec!</span>[] },
 					}),
 					message_delivery_call(<span class="number">200</span>),
 				],

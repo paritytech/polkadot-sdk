@@ -177,34 +177,6 @@
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
 <a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
-<a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
-<a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
-<a href="#204" id="204">204</a>
-<a href="#205" id="205">205</a>
-<a href="#206" id="206">206</a>
-<a href="#207" id="207">207</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -223,7 +195,7 @@
 
 </span><span class="doccomment">//! Primitives of messages module, that are used on the source chain.
 
-</span><span class="kw">use crate</span>::{InboundLaneData, LaneId, MessageNonce, OutboundLaneData, VerificationError};
+</span><span class="kw">use crate</span>::{InboundLaneData, LaneId, MessageNonce, VerificationError};
 
 <span class="kw">use </span><span class="kw">crate</span>::UnrewardedRelayer;
 <span class="kw">use </span>bp_runtime::Size;
@@ -269,24 +241,6 @@
 	</span><span class="kw">fn </span>verify_messages_delivery_proof(
 		proof: <span class="self">Self</span>::MessagesDeliveryProof,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(LaneId, InboundLaneData&lt;AccountId&gt;), VerificationError&gt;;
-}
-
-<span class="doccomment">/// Lane message verifier.
-///
-/// Runtime developer may implement any additional validation logic over message-lane mechanism.
-/// E.g. if lanes should have some security (e.g. you can only accept Lane1 messages from
-/// Submitter1, Lane2 messages for those who has submitted first message to this lane, disable
-/// Lane3 until some block, ...), then it may be built using this verifier.
-///
-/// Any fee requirements should also be enforced here.
-</span><span class="kw">pub trait </span>LaneMessageVerifier&lt;Payload&gt; {
-	<span class="doccomment">/// Verify message payload and return Ok(()) if message is valid and allowed to be sent over the
-	/// lane.
-	</span><span class="kw">fn </span>verify_message(
-		lane: <span class="kw-2">&amp;</span>LaneId,
-		outbound_data: <span class="kw-2">&amp;</span>OutboundLaneData,
-		payload: <span class="kw-2">&amp;</span>Payload,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), VerificationError&gt;;
 }
 
 <span class="doccomment">/// Manages payments that are happening at the source chain during delivery confirmation
@@ -350,25 +304,25 @@
 	<span class="doccomment">/// Error type.
 	</span><span class="kw">type </span>Error: Debug;
 
+	<span class="doccomment">/// Intermediary structure returned by `validate_message()`.
+	///
+	/// It can than be passed to `send_message()` in order to actually send the message
+	/// on the bridge.
+	</span><span class="kw">type </span>SendMessageArgs;
+
+	<span class="doccomment">/// Check if the message can be sent over the bridge.
+	</span><span class="kw">fn </span>validate_message(
+		lane: LaneId,
+		message: <span class="kw-2">&amp;</span>Payload,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::SendMessageArgs, <span class="self">Self</span>::Error&gt;;
+
 	<span class="doccomment">/// Send message over the bridge.
 	///
 	/// Returns unique message nonce or error if send has failed.
-	</span><span class="kw">fn </span>send_message(lane: LaneId, message: Payload) -&gt; <span class="prelude-ty">Result</span>&lt;SendMessageArtifacts, <span class="self">Self</span>::Error&gt;;
+	</span><span class="kw">fn </span>send_message(message: <span class="self">Self</span>::SendMessageArgs) -&gt; SendMessageArtifacts;
 }
 
-<span class="doccomment">/// Bridge that does nothing when message is being sent.
-</span><span class="attr">#[derive(Eq, RuntimeDebug, PartialEq)]
-</span><span class="kw">pub struct </span>NoopMessagesBridge;
-
-<span class="kw">impl</span>&lt;Payload&gt; MessagesBridge&lt;Payload&gt; <span class="kw">for </span>NoopMessagesBridge {
-	<span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
-
-	<span class="kw">fn </span>send_message(_lane: LaneId, _message: Payload) -&gt; <span class="prelude-ty">Result</span>&lt;SendMessageArtifacts, <span class="self">Self</span>::Error&gt; {
-		<span class="prelude-val">Ok</span>(SendMessageArtifacts { nonce: <span class="number">0</span>, enqueued_messages: <span class="number">0 </span>})
-	}
-}
-
-<span class="doccomment">/// Structure that may be used in place of `TargetHeaderChain`, `LaneMessageVerifier` and
+<span class="doccomment">/// Structure that may be used in place of `TargetHeaderChain` and
 /// `MessageDeliveryAndDispatchPayment` on chains, where outbound messages are forbidden.
 </span><span class="kw">pub struct </span>ForbidOutboundMessages;
 
@@ -386,16 +340,6 @@
 	<span class="kw">fn </span>verify_messages_delivery_proof(
 		_proof: <span class="self">Self</span>::MessagesDeliveryProof,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(LaneId, InboundLaneData&lt;AccountId&gt;), VerificationError&gt; {
-		<span class="prelude-val">Err</span>(VerificationError::Other(ALL_OUTBOUND_MESSAGES_REJECTED))
-	}
-}
-
-<span class="kw">impl</span>&lt;Payload&gt; LaneMessageVerifier&lt;Payload&gt; <span class="kw">for </span>ForbidOutboundMessages {
-	<span class="kw">fn </span>verify_message(
-		_lane: <span class="kw-2">&amp;</span>LaneId,
-		_outbound_data: <span class="kw-2">&amp;</span>OutboundLaneData,
-		_payload: <span class="kw-2">&amp;</span>Payload,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), VerificationError&gt; {
 		<span class="prelude-val">Err</span>(VerificationError::Other(ALL_OUTBOUND_MESSAGES_REJECTED))
 	}
 }

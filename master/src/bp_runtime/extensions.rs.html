@@ -150,6 +150,8 @@
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
 <a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -254,7 +256,8 @@
 /// and signed payloads in the client code.
 </span><span class="attr">#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 </span><span class="kw">pub struct </span>GenericSignedExtension&lt;S: SignedExtensionSchema&gt; {
-	<span class="kw">pub </span>payload: S::Payload,
+	<span class="doccomment">/// A payload that is included in the transaction.
+	</span><span class="kw">pub </span>payload: S::Payload,
 	<span class="attr">#[codec(skip)]
 	</span><span class="comment">// It may be set to `None` if extensions are decoded. We are never reconstructing transactions
 	// (and it makes no sense to do that) =&gt; decoded version of `SignedExtensions` is only used to
@@ -264,7 +267,8 @@
 }
 
 <span class="kw">impl</span>&lt;S: SignedExtensionSchema&gt; GenericSignedExtension&lt;S&gt; {
-	<span class="kw">pub fn </span>new(payload: S::Payload, additional_signed: <span class="prelude-ty">Option</span>&lt;S::AdditionalSigned&gt;) -&gt; <span class="self">Self </span>{
+	<span class="doccomment">/// Create new `GenericSignedExtension` object.
+	</span><span class="kw">pub fn </span>new(payload: S::Payload, additional_signed: <span class="prelude-ty">Option</span>&lt;S::AdditionalSigned&gt;) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{ payload, additional_signed }
 	}
 }

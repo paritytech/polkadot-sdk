@@ -88,6 +88,18 @@
 <a href="#88" id="88">88</a>
 <a href="#89" id="89">89</a>
 <a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -112,7 +124,7 @@
 </span><span class="kw">pub use </span>bp_bridge_hub_cumulus::<span class="kw-2">*</span>;
 <span class="kw">use </span>bp_messages::<span class="kw-2">*</span>;
 <span class="kw">use </span>bp_runtime::{
-	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, Parachain,
+	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
 };
 <span class="kw">use </span>frame_support::dispatch::DispatchClass;
 <span class="kw">use </span>sp_runtime::RuntimeDebug;
@@ -122,6 +134,8 @@
 </span><span class="kw">pub struct </span>BridgeHubWestend;
 
 <span class="kw">impl </span>Chain <span class="kw">for </span>BridgeHubWestend {
+	<span class="kw">const </span>ID: ChainId = <span class="kw-2">*</span><span class="string">b&quot;bhwd&quot;</span>;
+
 	<span class="kw">type </span>BlockNumber = BlockNumber;
 	<span class="kw">type </span>Hash = Hash;
 	<span class="kw">type </span>Hasher = Hasher;
@@ -146,6 +160,16 @@
 
 <span class="kw">impl </span>Parachain <span class="kw">for </span>BridgeHubWestend {
 	<span class="kw">const </span>PARACHAIN_ID: u32 = BRIDGE_HUB_WESTEND_PARACHAIN_ID;
+}
+
+<span class="kw">impl </span>ChainWithMessages <span class="kw">for </span>BridgeHubWestend {
+	<span class="kw">const </span>WITH_CHAIN_MESSAGES_PALLET_NAME: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str =
+		WITH_BRIDGE_HUB_WESTEND_MESSAGES_PALLET_NAME;
+
+	<span class="kw">const </span>MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce =
+		MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
+	<span class="kw">const </span>MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce =
+		MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 }
 
 <span class="doccomment">/// Identifier of BridgeHubWestend in the Westend relay chain.
