@@ -2014,6 +2014,16 @@
 <a href="#2014" id="2014">2014</a>
 <a href="#2015" id="2015">2015</a>
 <a href="#2016" id="2016">2016</a>
+<a href="#2017" id="2017">2017</a>
+<a href="#2018" id="2018">2018</a>
+<a href="#2019" id="2019">2019</a>
+<a href="#2020" id="2020">2020</a>
+<a href="#2021" id="2021">2021</a>
+<a href="#2022" id="2022">2022</a>
+<a href="#2023" id="2023">2023</a>
+<a href="#2024" id="2024">2024</a>
+<a href="#2025" id="2025">2025</a>
+<a href="#2026" id="2026">2026</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3869,7 +3879,17 @@
 
 	<span class="kw">fn </span>check_ledgers() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		Bonded::&lt;T&gt;::iter()
-			.map(|(<span class="kw">_</span>, ctrl)| <span class="self">Self</span>::ensure_ledger_consistent(ctrl))
+			.map(|(stash, ctrl)| {
+				<span class="comment">// `ledger.controller` is never stored in raw storage.
+				</span><span class="kw">let </span>raw = Ledger::&lt;T&gt;::get(stash).unwrap_or_else(|| {
+					Ledger::&lt;T&gt;::get(ctrl.clone())
+						.expect(<span class="string">&quot;try_check: bonded stash/ctrl does not have an associated ledger&quot;</span>)
+				});
+				<span class="macro">ensure!</span>(raw.controller.is_none(), <span class="string">&quot;raw storage controller should be None&quot;</span>);
+
+				<span class="comment">// ensure ledger consistency.
+				</span><span class="self">Self</span>::ensure_ledger_consistent(ctrl)
+			})
 			.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(())
 	}

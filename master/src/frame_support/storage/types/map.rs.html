@@ -826,6 +826,7 @@
 <a href="#826" id="826">826</a>
 <a href="#827" id="827">827</a>
 <a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1299,7 +1300,8 @@
 	///
 	/// By returning `None` from `f` for an element, you&#39;ll remove it from the map.
 	///
-	/// NOTE: If a value fail to decode because storage is corrupted then it is skipped.
+	/// NOTE: If a value fails to decode because storage is corrupted, then it will log an error and
+	/// be skipped in production, or panic in development.
 	</span><span class="kw">pub fn </span>translate&lt;O: Decode, F: FnMut(Key, O) -&gt; <span class="prelude-ty">Option</span>&lt;Value&gt;&gt;(f: F) {
 		&lt;<span class="self">Self </span><span class="kw">as </span><span class="kw">crate</span>::storage::IterableStorageMap&lt;Key, Value&gt;&gt;::translate(f)
 	}
