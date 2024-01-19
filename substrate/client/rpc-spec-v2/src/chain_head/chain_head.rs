@@ -27,11 +27,11 @@ use crate::{
 		api::ChainHeadApiServer,
 		chain_head_follow::ChainHeadFollower,
 		error::Error as ChainHeadRpcError,
-		event::{FollowEvent, MethodResponse, OperationError, StorageQuery},
-		hex_string,
+		event::{FollowEvent, MethodResponse, OperationError},
 		subscription::{SubscriptionManagement, SubscriptionManagementError},
 	},
-	SubscriptionTaskExecutor,
+	common::events::StorageQuery,
+	hex_string, SubscriptionTaskExecutor,
 };
 use codec::Encode;
 use futures::future::FutureExt;

@@ -154,7 +154,7 @@ fn blocks() -> ((Vec<u8>, Hash), (Vec<u8>, Hash)) {
 
 	// session change => consensus authorities change => authorities change digest item appears
 	let digest = Header::decode(&mut &block2.0[..]).unwrap().digest;
-	assert_eq!(digest.logs().len(), 1 /* Just babe slot */);
+	assert_eq!(digest.logs().len(), 2 /* Just babe and BEEFY slots */);
 
 	(block1, block2)
 }

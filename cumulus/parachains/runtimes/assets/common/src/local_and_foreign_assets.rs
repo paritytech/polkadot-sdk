@@ -20,32 +20,32 @@ use sp_runtime::{
 	Either::{Left, Right},
 };
 use sp_std::marker::PhantomData;
-use xcm::latest::MultiLocation;
+use xcm::latest::Location;
 
-/// Converts a given [`MultiLocation`] to [`Either::Left`] when equal to `Target`, or
+/// Converts a given [`Location`] to [`Either::Left`] when equal to `Target`, or
 /// [`Either::Right`] otherwise.
 ///
 /// Suitable for use as a `Criterion` with [`frame_support::traits::tokens::fungible::UnionOf`].
-pub struct TargetFromLeft<Target>(PhantomData<Target>);
-impl<Target: Get<MultiLocation>> Convert<MultiLocation, Either<(), MultiLocation>>
-	for TargetFromLeft<Target>
-{
-	fn convert(l: MultiLocation) -> Either<(), MultiLocation> {
+pub struct TargetFromLeft<Target, L = Location>(PhantomData<(Target, L)>);
+impl<Target: Get<L>, L: PartialEq + Eq> Convert<L, Either<(), L>> for TargetFromLeft<Target, L> {
+	fn convert(l: L) -> Either<(), L> {
 		Target::get().eq(&l).then(|| Left(())).map_or(Right(l), |n| n)
 	}
 }
 
-/// Converts a given [`MultiLocation`] to [`Either::Left`] based on the `Equivalence` criteria.
+/// Converts a given [`Location`] to [`Either::Left`] based on the `Equivalence` criteria.
 /// Returns [`Either::Right`] if not equivalent.
 ///
 /// Suitable for use as a `Criterion` with [`frame_support::traits::tokens::fungibles::UnionOf`].
-pub struct LocalFromLeft<Equivalence, AssetId>(PhantomData<(Equivalence, AssetId)>);
-impl<Equivalence, AssetId> Convert<MultiLocation, Either<AssetId, MultiLocation>>
-	for LocalFromLeft<Equivalence, AssetId>
+pub struct LocalFromLeft<Equivalence, AssetId, L = Location>(
+	PhantomData<(Equivalence, AssetId, L)>,
+);
+impl<Equivalence, AssetId, L> Convert<L, Either<AssetId, L>>
+	for LocalFromLeft<Equivalence, AssetId, L>
 where
-	Equivalence: MaybeEquivalence<MultiLocation, AssetId>,
+	Equivalence: MaybeEquivalence<L, AssetId>,
 {
-	fn convert(l: MultiLocation) -> Either<AssetId, MultiLocation> {
+	fn convert(l: L) -> Either<AssetId, L> {
 		match Equivalence::convert(&l) {
 			Some(id) => Left(id),
 			None => Right(l),
@@ -53,7 +53,7 @@ where
 	}
 }
 
-pub trait MatchesLocalAndForeignAssetsMultiLocation {
-	fn is_local(location: &MultiLocation) -> bool;
-	fn is_foreign(location: &MultiLocation) -> bool;
+pub trait MatchesLocalAndForeignAssetsLocation<L = Location> {
+	fn is_local(location: &L) -> bool;
+	fn is_foreign(location: &L) -> bool;
 }

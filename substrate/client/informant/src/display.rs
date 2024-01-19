@@ -21,10 +21,7 @@ use ansi_term::Colour;
 use log::info;
 use sc_client_api::ClientInfo;
 use sc_network::NetworkStatus;
-use sc_network_sync::{
-	warp::{WarpSyncPhase, WarpSyncProgress},
-	SyncState, SyncStatus,
-};
+use sc_network_sync::{SyncState, SyncStatus, WarpSyncPhase, WarpSyncProgress};
 use sp_runtime::traits::{Block as BlockT, CheckedDiv, NumberFor, Saturating, Zero};
 use std::{fmt, time::Instant};
 
@@ -130,9 +127,10 @@ impl<B: BlockT> InformantDisplay<B> {
 					),
 				(_, Some(state), _) => (
 					"⚙️ ",
-					"Downloading state".into(),
+					"State sync".into(),
 					format!(
-						", {}%, {:.2} Mib",
+						", {}, {}%, {:.2} Mib",
+						state.phase,
 						state.percentage,
 						(state.size as f32) / (1024f32 * 1024f32)
 					),
