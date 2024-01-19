@@ -7,7 +7,7 @@ bridge-hub-rococo-collator1: run ../scripts/invoke-script.sh with "init-bridge-h
 
 # step 2: sleep some time before starting relayer. We want to sleep for at least 1 session, which is expected to
 # be 60 seconds for test environment.
-sleep 60 seconds
+sleep 120 seconds
 
 # step 3: start relayer
 bridge-hub-rococo-collator1: run ../scripts/start-relayer.sh within 60 seconds
