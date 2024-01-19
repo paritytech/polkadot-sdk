@@ -1,0 +1,88 @@
+[workspace.package]
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+repository = "https://github.com/paritytech/parity-bridges-common.git"
+license = "GPL-3.0-only"
+
+[workspace]
+resolver = "2"
+
+members = [
+	"bin/runtime-common",
+	"modules/beefy",
+	"modules/grandpa",
+	"modules/messages",
+	"modules/parachains",
+	"modules/relayers",
+	"modules/xcm-bridge-hub",
+	"modules/xcm-bridge-hub-router",
+	"primitives/beefy",
+	"primitives/chain-asset-hub-rococo",
+	"primitives/chain-asset-hub-westend",
+	"primitives/chain-bridge-hub-cumulus",
+	"primitives/chain-bridge-hub-kusama",
+	"primitives/chain-bridge-hub-polkadot",
+	"primitives/chain-bridge-hub-rococo",
+	"primitives/chain-bridge-hub-westend",
+	"primitives/chain-kusama",
+	"primitives/chain-polkadot",
+	"primitives/chain-polkadot-bulletin",
+	"primitives/chain-rococo",
+	"primitives/chain-westend",
+	"primitives/header-chain",
+	"primitives/messages",
+	"primitives/parachains",
+	"primitives/polkadot-core",
+	"primitives/relayers",
+	"primitives/runtime",
+	"primitives/test-utils",
+	"primitives/xcm-bridge-hub-router",
+	"relays/bin-substrate",
+	"relays/client-bridge-hub-kusama",
+	"relays/client-bridge-hub-polkadot",
+	"relays/client-bridge-hub-rococo",
+	"relays/client-bridge-hub-westend",
+	"relays/client-kusama",
+	"relays/client-polkadot",
+	"relays/client-polkadot-bulletin",
+	"relays/client-rococo",
+	"relays/client-substrate",
+	"relays/client-westend",
+	"relays/equivocation",
+	"relays/finality",
+	"relays/lib-substrate-relay",
+	"relays/messages",
+	"relays/parachains",
+	"relays/utils",
+]
+
+# Setup clippy lints as `polkadot-sdk`,
+# but let's better be strict here and disable what `polkadot-sdk` allows :)
+
+[workspace.lints.rust]
+# suspicious_double_ref_op = { level = "allow", priority = 2 }
+
+[workspace.lints.clippy]
+all = { level = "allow", priority = 0 }
+correctness = { level = "deny", priority = 1 }
+#if-same-then-else = { level = "allow", priority = 2 }
+complexity = { level = "deny", priority = 1 }
+#zero-prefixed-literal = { level = "allow", priority = 2 }            # 00_1000_000
+#type_complexity = { level = "allow", priority = 2 }                  # raison d'etre
+#nonminimal-bool = { level = "allow", priority = 2 }                  # maybe
+#borrowed-box = { level = "allow", priority = 2 }                     # Reasonable to fix this one
+#too-many-arguments = { level = "allow", priority = 2 }               # (Turning this on would lead to)
+#unnecessary_cast = { level = "allow", priority = 2 }                 # Types may change
+#identity-op = { level = "allow", priority = 2 }                      # One case where we do 0 +
+#useless_conversion = { level = "allow", priority = 2 }               # Types may change
+#unit_arg = { level = "allow", priority = 2 }                         # styalistic.
+#option-map-unit-fn = { level = "allow", priority = 2 }               # styalistic
+#bind_instead_of_map = { level = "allow", priority = 2 }              # styalistic
+#erasing_op = { level = "allow", priority = 2 }                       # E.g. 0 * DOLLARS
+#eq_op = { level = "allow", priority = 2 }                            # In tests we test equality.
+#while_immutable_condition = { level = "allow", priority = 2 }        # false positives
+#needless_option_as_deref = { level = "allow", priority = 2 }         # false positives
+#derivable_impls = { level = "allow", priority = 2 }                  # false positives
+#stable_sort_primitive = { level = "allow", priority = 2 }            # prefer stable sort
+#extra-unused-type-parameters = { level = "allow", priority = 2 }     # stylistic
+#default_constructed_unit_structs = { level = "allow", priority = 2 } # stylistic
