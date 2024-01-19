@@ -1641,7 +1641,7 @@ pub mod migrations {
 		parachains_scheduler::migration::MigrateV1ToV2<Runtime>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
-		paras_registrar::migration::MigrateToV2<Runtime>,
+		paras_registrar::migration::v2::MigrateToV2<Runtime>,
 		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
 		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, pallet_referenda::Instance2>,
 

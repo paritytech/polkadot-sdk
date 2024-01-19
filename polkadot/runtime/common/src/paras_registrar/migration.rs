@@ -15,7 +15,10 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use frame_support::traits::OnRuntimeUpgrade;
+use frame_support::{
+	traits::{Contains, OnRuntimeUpgrade},
+	Twox64Concat,
+};
 
 #[derive(Encode, Decode)]
 pub struct ParaInfoV1<Account, Balance> {
@@ -24,50 +27,120 @@ pub struct ParaInfoV1<Account, Balance> {
 	locked: Option<bool>,
 }
 
-pub struct VersionUncheckedMigrateToV2<T>(sp_std::marker::PhantomData<T>);
-impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateToV2<T> {
-	fn on_runtime_upgrade() -> Weight {
-		let mut count = 0u64;
-		Paras::<T>::translate::<ParaInfoV1<T::AccountId, BalanceOf<T>>, _>(|_key, v1| {
-			count.saturating_inc();
-			Some(ParaInfo {
-				manager: v1.manager,
-				deposit: v1.deposit,
-				locked: v1.locked,
-				billing_account: None,
-				pending_deposit_refund: None,
-			})
-		});
+pub mod v1 {
+	use super::*;
 
-		log::info!(target: "runtime::registrar", "Upgraded {} storages to version 2", count);
-		T::DbWeight::get().reads_writes(count, count)
+	#[frame_support::storage_alias]
+	pub type Paras<T: Config> = StorageMap<
+		Pallet<T>,
+		Twox64Concat,
+		ParaId,
+		ParaInfoV1<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
+	>;
+
+	#[derive(Encode, Decode)]
+	pub struct ParaInfoOld<Account, Balance> {
+		manager: Account,
+		deposit: Balance,
+		locked: bool,
 	}
 
-	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-		Ok((Paras::<T>::iter_keys().count() as u32).encode())
-	}
+	pub struct VersionUncheckedMigrateToV1<T, UnlockParaIds>(
+		sp_std::marker::PhantomData<(T, UnlockParaIds)>,
+	);
+	impl<T: Config, UnlockParaIds: Contains<ParaId>> OnRuntimeUpgrade
+		for VersionUncheckedMigrateToV1<T, UnlockParaIds>
+	{
+		fn on_runtime_upgrade() -> Weight {
+			let mut count = 0u64;
+			Paras::<T>::translate::<ParaInfoOld<T::AccountId, BalanceOf<T>>, _>(|key, v1| {
+				count.saturating_inc();
+				Some(ParaInfoV1 {
+					manager: v1.manager,
+					deposit: v1.deposit,
+					locked: if UnlockParaIds::contains(&key) { None } else { Some(v1.locked) },
+				})
+			});
 
-	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		let old_count = u32::decode(&mut &state[..]).expect("Known good");
-		let new_count = Paras::<T>::iter_values().count() as u32;
+			log::info!(target: "runtime::registrar", "Upgraded {} storages to version 1", count);
+			T::DbWeight::get().reads_writes(count, count)
+		}
 
-		ensure!(old_count == new_count, "Paras count should not change");
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			Ok((Paras::<T>::iter_keys().count() as u32).encode())
+		}
 
-		Paras::<T>::iter().try_for_each(|(para_id, info)| -> Result<(), _> {
-			ensure!(info.billing_account.is_none(), "The billing account must be set to the None");
-			ensure!(info.pending_deposit_refund.is_none(), "There should be no pending refund");
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			let old_count = u32::decode(&mut &state[..]).expect("Known good");
+			let new_count = Paras::<T>::iter_values().count() as u32;
 
+			ensure!(old_count == new_count, "Paras count should not change");
 			Ok(())
-		})
+		}
 	}
+
+	pub type MigrateToV1<T, UnlockParaIds> = frame_support::migrations::VersionedMigration<
+		0,
+		1,
+		VersionUncheckedMigrateToV1<T, UnlockParaIds>,
+		super::Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
 }
 
-pub type MigrateToV2<T> = frame_support::migrations::VersionedMigration<
-	1,
-	2,
-	VersionUncheckedMigrateToV2<T>,
-	super::Pallet<T>,
-	<T as frame_system::Config>::DbWeight,
->;
+pub mod v2 {
+	use super::*;
+
+	pub struct VersionUncheckedMigrateToV2<T>(sp_std::marker::PhantomData<T>);
+	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateToV2<T> {
+		fn on_runtime_upgrade() -> Weight {
+			let mut count = 0u64;
+			Paras::<T>::translate::<ParaInfoV1<T::AccountId, BalanceOf<T>>, _>(|_key, v1| {
+				count.saturating_inc();
+				Some(ParaInfo {
+					manager: v1.manager,
+					deposit: v1.deposit,
+					locked: v1.locked,
+					billing_account: None,
+					pending_deposit_refund: None,
+				})
+			});
+
+			log::info!(target: "runtime::registrar", "Upgraded {} storages to version 2", count);
+			T::DbWeight::get().reads_writes(count, count)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			Ok((Paras::<T>::iter_keys().count() as u32).encode())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			let old_count = u32::decode(&mut &state[..]).expect("Known good");
+			let new_count = Paras::<T>::iter_values().count() as u32;
+
+			ensure!(old_count == new_count, "Paras count should not change");
+
+			Paras::<T>::iter().try_for_each(|(_para_id, info)| -> Result<(), _> {
+				ensure!(
+					info.billing_account.is_none(),
+					"The billing account must be set to the None"
+				);
+				ensure!(info.pending_deposit_refund.is_none(), "There should be no pending refund");
+
+				Ok(())
+			})
+		}
+	}
+
+	pub type MigrateToV2<T> = frame_support::migrations::VersionedMigration<
+		1,
+		2,
+		VersionUncheckedMigrateToV2<T>,
+		super::Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+}
