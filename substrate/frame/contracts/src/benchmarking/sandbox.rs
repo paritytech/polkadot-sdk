@@ -23,7 +23,7 @@ use crate::wasm::{
 	AllowDeprecatedInterface, AllowUnstableInterface, Determinism, Environment, WasmBlob,
 };
 use sp_core::Get;
-use wasmi::{errors::LinkerError, Func, Linker, StackLimits, Store};
+use wasmi::{errors::LinkerError, CompilationMode, Func, Linker, StackLimits, Store};
 
 /// Minimal execution environment without any imported functions.
 pub struct Sandbox {
@@ -50,6 +50,7 @@ impl<T: Config> From<&WasmModule<T>> for Sandbox {
 			StackLimits::default(),
 			// We are testing with an empty environment anyways
 			AllowDeprecatedInterface::No,
+			CompilationMode::Lazy,
 		)
 		.expect("Failed to create benchmarking Sandbox instance");
 
