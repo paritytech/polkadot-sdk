@@ -1127,8 +1127,9 @@ fn upgrade_version_checks_should_work() {
 			let new_code = vec![1, 2, 3, 4];
 			let new_code_hash = H256(sp_core::blake2_256(&new_code));
 
-			let _authorize =
-				ParachainSystem::authorize_upgrade(RawOrigin::Root.into(), new_code_hash, true);
+			#[allow(deprecated)]
+			let _authorize = ParachainSystem::authorize_upgrade(RawOrigin::Root.into(), new_code_hash, true);
+			#[allow(deprecated)]
 			let res = ParachainSystem::enact_authorized_upgrade(RawOrigin::None.into(), new_code);
 
 			assert_eq!(expected.map_err(DispatchErrorWithPostInfo::from), res);

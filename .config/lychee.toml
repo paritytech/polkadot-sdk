@@ -12,39 +12,43 @@ exclude_all_private = true
 # Treat these codes as success condition:
 accept = [
 	# Ok
-	200,
+	"200",
 
 	# Rate limited - GitHub likes to throw this.
-	429
+	"429",
 ]
 
-exclude_path = [ "./target" ]
+exclude_path = ["./target"]
 
 exclude = [
-  # Place holders (no need to fix these):
-  "http://visitme/",
-  "https://visitme/",
-  
-  # TODO <https://github.com/paritytech/polkadot-sdk/issues/134>
-  "https://docs.substrate.io/main-docs/build/custom-rpc/#public-rpcs",
-  "https://docs.substrate.io/rustdocs/latest/sp_api/macro.decl_runtime_apis.html",
-  "https://github.com/ipfs/js-ipfs-bitswap/blob/",
-  "https://github.com/paritytech/polkadot-sdk/substrate/frame/timestamp",
-  "https://github.com/paritytech/substrate/frame/fast-unstake",
-  "https://github.com/zkcrypto/bls12_381/blob/e224ad4ea1babfc582ccd751c2bf128611d10936/src/test-data/mod.rs",
-  "https://polkadot.network/the-path-of-a-parachain-block/",
-  "https://research.web3.foundation/en/latest/polkadot/BABE/Babe/#6-practical-results",
-  "https://research.web3.foundation/en/latest/polkadot/block-production/Babe.html",
-  "https://research.web3.foundation/en/latest/polkadot/block-production/Babe.html#-6.-practical-results",
-  "https://research.web3.foundation/en/latest/polkadot/networking/3-avail-valid.html#topology",
-  "https://research.web3.foundation/en/latest/polkadot/NPoS/3.%20Balancing.html",
-  "https://research.web3.foundation/en/latest/polkadot/overview/2-token-economics.html",
-  "https://research.web3.foundation/en/latest/polkadot/overview/2-token-economics.html#inflation-model",
-  "https://research.web3.foundation/en/latest/polkadot/slashing/npos.html",
-  "https://research.web3.foundation/en/latest/polkadot/Token%20Economics.html#inflation-model",
-  "https://rpc.polkadot.io/",
-  "https://w3f.github.io/parachain-implementers-guide/node/approval/approval-distribution.html",
-  "https://w3f.github.io/parachain-implementers-guide/node/index.html",
-  "https://w3f.github.io/parachain-implementers-guide/protocol-chain-selection.html",
-  "https://w3f.github.io/parachain-implementers-guide/runtime/session_info.html",
+	# Place holders (no need to fix these):
+	"http://visitme/",
+	"https://visitme/",
+
+	# TODO <https://github.com/paritytech/polkadot-sdk/issues/134>
+	"https://docs.substrate.io/main-docs/build/custom-rpc/#public-rpcs",
+	"https://docs.substrate.io/rustdocs/latest/sp_api/macro.decl_runtime_apis.html",
+	"https://github.com/ipfs/js-ipfs-bitswap/blob/",
+	"https://github.com/paritytech/polkadot-sdk/substrate/frame/timestamp",
+	"https://github.com/paritytech/substrate/frame/fast-unstake",
+	"https://github.com/zkcrypto/bls12_381/blob/e224ad4ea1babfc582ccd751c2bf128611d10936/src/test-data/mod.rs",
+	"https://polkadot.network/the-path-of-a-parachain-block/",
+	"https://research.web3.foundation/en/latest/polkadot/BABE/Babe/#6-practical-results",
+	"https://research.web3.foundation/en/latest/polkadot/NPoS/3.%20Balancing.html",
+	"https://research.web3.foundation/en/latest/polkadot/Token%20Economics.html#inflation-model",
+	"https://research.web3.foundation/en/latest/polkadot/block-production/Babe.html",
+	"https://research.web3.foundation/en/latest/polkadot/block-production/Babe.html#-6.-practical-results",
+	"https://research.web3.foundation/en/latest/polkadot/networking/3-avail-valid.html#topology",
+	"https://research.web3.foundation/en/latest/polkadot/overview/2-token-economics.html",
+	"https://research.web3.foundation/en/latest/polkadot/overview/2-token-economics.html#inflation-model",
+	"https://research.web3.foundation/en/latest/polkadot/slashing/npos.html",
+	"https://rpc.polkadot.io/",
+	"https://w3f.github.io/parachain-implementers-guide/node/approval/approval-distribution.html",
+	"https://w3f.github.io/parachain-implementers-guide/node/index.html",
+	"https://w3f.github.io/parachain-implementers-guide/protocol-chain-selection.html",
+	"https://w3f.github.io/parachain-implementers-guide/runtime/session_info.html",
+
+	# Behind a captcha (code 403):
+	"https://iohk.io/en/blog/posts/2023/11/03/partner-chains-are-coming-to-cardano/",
+	"https://www.reddit.com/r/rust/comments/3spfh1/does_collect_allocate_more_than_once_while/",
 ]

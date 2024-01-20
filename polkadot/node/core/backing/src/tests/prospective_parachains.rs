@@ -195,6 +195,26 @@ async fn activate_leaf(
 				tx.send(Ok(test_state.minimum_backing_votes)).unwrap();
 			}
 		);
+
+		// Check that subsystem job issues a request for the runtime version.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::Version(tx))
+			) if parent == hash => {
+				tx.send(Ok(RuntimeApiRequest::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT)).unwrap();
+			}
+		);
+
+		// Check that the subsystem job issues a request for the disabled validators.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::DisabledValidators(tx))
+			) if parent == hash => {
+				tx.send(Ok(Vec::new())).unwrap();
+			}
+		);
 	}
 }
 
@@ -232,14 +252,14 @@ async fn assert_validate_seconded_candidate(
 			validation_code,
 			candidate_receipt,
 			pov,
-			exec_timeout_kind,
+			exec_kind,
 			response_sender,
 			..
 		}) if &validation_data == assert_pvd &&
 			&validation_code == assert_validation_code &&
 			&*pov == assert_pov &&
 			&candidate_receipt.descriptor == candidate.descriptor() &&
-			exec_timeout_kind == PvfExecTimeoutKind::Backing &&
+			exec_kind == PvfExecKind::Backing &&
 			candidate.commitments.hash() == candidate_receipt.commitments_hash =>
 		{
 			response_sender.send(Ok(ValidationResult::Valid(

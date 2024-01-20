@@ -15,6 +15,9 @@
 
 mod genesis;
 pub use genesis::{genesis, ED, PARA_ID_A, PARA_ID_B};
+pub use penpal_runtime::xcm_config::{
+	LocalTeleportableToAssetHub, LocalTeleportableToAssetHubV3, XcmConfig,
+};
 
 // Substrate
 use frame_support::traits::OnInitialize;
@@ -25,6 +28,7 @@ use emulated_integration_tests_common::{
 	impl_assets_helpers_for_parachain, impls::Parachain, xcm_emulator::decl_test_parachains,
 };
 use rococo_emulated_chain::Rococo;
+use westend_emulated_chain::Westend;
 
 // Penpal Parachain declaration
 decl_test_parachains! {
@@ -38,10 +42,12 @@ decl_test_parachains! {
 			XcmpMessageHandler: penpal_runtime::XcmpQueue,
 			LocationToAccountId: penpal_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: penpal_runtime::ParachainInfo,
+			MessageOrigin: cumulus_primitives_core::AggregateMessageOrigin,
 		},
 		pallets = {
 			PolkadotXcm: penpal_runtime::PolkadotXcm,
 			Assets: penpal_runtime::Assets,
+			ForeignAssets: penpal_runtime::ForeignAssets,
 			Balances: penpal_runtime::Balances,
 		}
 	},
@@ -55,10 +61,12 @@ decl_test_parachains! {
 			XcmpMessageHandler: penpal_runtime::XcmpQueue,
 			LocationToAccountId: penpal_runtime::xcm_config::LocationToAccountId,
 			ParachainInfo: penpal_runtime::ParachainInfo,
+			MessageOrigin: cumulus_primitives_core::AggregateMessageOrigin,
 		},
 		pallets = {
 			PolkadotXcm: penpal_runtime::PolkadotXcm,
 			Assets: penpal_runtime::Assets,
+			ForeignAssets: penpal_runtime::ForeignAssets,
 			Balances: penpal_runtime::Balances,
 		}
 	},
@@ -66,6 +74,8 @@ decl_test_parachains! {
 
 // Penpal implementation
 impl_accounts_helpers_for_parachain!(PenpalA);
+impl_accounts_helpers_for_parachain!(PenpalB);
 impl_assets_helpers_for_parachain!(PenpalA, Rococo);
-impl_assert_events_helpers_for_parachain!(PenpalA, true);
-impl_assert_events_helpers_for_parachain!(PenpalB, true);
+impl_assets_helpers_for_parachain!(PenpalB, Westend);
+impl_assert_events_helpers_for_parachain!(PenpalA);
+impl_assert_events_helpers_for_parachain!(PenpalB);

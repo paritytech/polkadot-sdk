@@ -39,6 +39,7 @@ fn main() -> Result<()> {
 			// `pov_size` and `pvf_complexity` need to match the ones that we start the collator
 			// with.
 			let collator = Collator::new(params.pov_size, params.pvf_complexity);
+
 			let output_buf =
 				format!("0x{:?}", HexDisplay::from(&collator.genesis_head())).into_bytes();
 
@@ -81,13 +82,14 @@ fn main() -> Result<()> {
 						is_parachain_node: polkadot_service::IsParachainNode::Collator(
 							collator.collator_key(),
 						),
-						grandpa_pause: None,
 						enable_beefy: false,
+						force_authoring_backoff: false,
 						jaeger_agent: None,
 						telemetry_worker_handle: None,
 
 						// Collators don't spawn PVF workers, so we can disable version checks.
 						node_version: None,
+						secure_validator_mode: false,
 						workers_path: None,
 						workers_names: None,
 
