@@ -34,9 +34,6 @@ use sp_consensus_beefy::ecdsa_bls_crypto;
 
 use crate::{error, LOG_TARGET};
 
-// impl<T: Codec + Debug + Clone + Ord + Sync + Send + AsRef<[u8]> + AppPublic + AppCrypto +
-// RuntimeAppPublic + BeefyAuthorityId<BeefySignatureHasher> >  AuthorityIdBound for T { type
-// Signature = AppCrypto::Signature; }
 
 /// A BEEFY specific keystore implemented as a `Newtype`. This is basically a
 /// wrapper around [`sp_keystore::Keystore`] and allows to customize
