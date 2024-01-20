@@ -51,7 +51,7 @@ use frame_support::{
 use sp_core::Get;
 use sp_runtime::{DispatchError, RuntimeDebug};
 use sp_std::prelude::*;
-use wasmi::{InstancePre, Linker, Memory, MemoryType, StackLimits, Store};
+use wasmi::{CompilationMode, InstancePre, Linker, Memory, MemoryType, StackLimits, Store};
 
 const BYTES_PER_PAGE: usize = 64 * 1024;
 
@@ -153,12 +153,14 @@ impl<T: Config> WasmBlob<T> {
 		schedule: &Schedule<T>,
 		owner: AccountIdOf<T>,
 		determinism: Determinism,
+		compilation_mode: CompilationMode,
 	) -> Result<Self, (DispatchError, &'static str)> {
 		prepare::prepare::<runtime::Env, T>(
 			code.try_into().map_err(|_| (<Error<T>>::CodeTooLarge.into(), ""))?,
 			schedule,
 			owner,
 			determinism,
+			compilation_mode,
 		)
 	}
 
@@ -204,11 +206,13 @@ impl<T: Config> WasmBlob<T> {
 		determinism: Determinism,
 		stack_limits: StackLimits,
 		allow_deprecated: AllowDeprecatedInterface,
+		compilation_mode: CompilationMode,
 	) -> Result<(Store<H>, Memory, InstancePre), &'static str>
 	where
 		E: Environment<H>,
 	{
-		let contract = LoadedModule::new::<T>(&code, determinism, Some(stack_limits))?;
+		let contract =
+			LoadedModule::new::<T>(&code, determinism, Some(stack_limits), compilation_mode)?;
 		let mut store = Store::new(&contract.engine, host_state);
 		let mut linker = Linker::new(&contract.engine);
 		E::define(
@@ -360,6 +364,7 @@ impl<T: Config> Executable<T> for WasmBlob<T> {
 				ExportedFunction::Call => AllowDeprecatedInterface::Yes,
 				ExportedFunction::Constructor => AllowDeprecatedInterface::No,
 			},
+			CompilationMode::Lazy,
 		)
 		.map_err(|msg| {
 			log::debug!(target: LOG_TARGET, "failed to instantiate code to wasmi: {}", msg);
@@ -771,6 +776,7 @@ mod tests {
 				ext.borrow_mut().schedule(),
 				ALICE,
 				Determinism::Enforced,
+				CompilationMode::Eager,
 			)
 			.map_err(|err| err.0)?
 		};

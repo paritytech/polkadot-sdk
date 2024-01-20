@@ -33,8 +33,8 @@ use sp_runtime::{traits::Hash, DispatchError};
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 use sp_std::prelude::Vec;
 use wasmi::{
-	core::ValueType as WasmiValueType, Config as WasmiConfig, Engine, ExternType, Module,
-	StackLimits,
+	core::ValueType as WasmiValueType, CompilationMode, Config as WasmiConfig, Engine, ExternType,
+	Module, StackLimits,
 };
 
 /// Imported memory must be located inside this module. The reason for hardcoding is that current
@@ -57,6 +57,7 @@ impl LoadedModule {
 		code: &[u8],
 		determinism: Determinism,
 		stack_limits: Option<StackLimits>,
+		compilation_mode: CompilationMode,
 	) -> Result<Self, &'static str> {
 		// NOTE: wasmi does not support unstable WebAssembly features. The module is implicitly
 		// checked for not having those ones when creating `wasmi::Module` below.
@@ -71,6 +72,7 @@ impl LoadedModule {
 			.wasm_extended_const(false)
 			.wasm_saturating_float_to_int(false)
 			.floats(matches!(determinism, Determinism::Relaxed))
+			.compilation_mode(compilation_mode)
 			.consume_fuel(true);
 
 		if let Some(stack_limits) = stack_limits {
@@ -220,6 +222,7 @@ fn validate<E, T>(
 	code: &[u8],
 	schedule: &Schedule<T>,
 	determinism: Determinism,
+	compilation_mode: CompilationMode,
 ) -> Result<(), (DispatchError, &'static str)>
 where
 	E: Environment<()>,
@@ -228,7 +231,7 @@ where
 	(|| {
 		// We check that the module is generally valid,
 		// and does not have restricted WebAssembly features, here.
-		let contract_module = LoadedModule::new::<T>(code, determinism, None)?;
+		let contract_module = LoadedModule::new::<T>(code, determinism, None, compilation_mode)?;
 		// The we check that module satisfies constraints the pallet puts on contracts.
 		contract_module.scan_exports()?;
 		contract_module.scan_imports::<T>(schedule)?;
@@ -254,6 +257,7 @@ where
 		determinism,
 		stack_limits,
 		AllowDeprecatedInterface::No,
+		compilation_mode,
 	)
 	.map_err(|err| {
 		log::debug!(target: LOG_TARGET, "{}", err);
@@ -276,12 +280,13 @@ pub fn prepare<E, T>(
 	schedule: &Schedule<T>,
 	owner: AccountIdOf<T>,
 	determinism: Determinism,
+	compilation_mode: CompilationMode,
 ) -> Result<WasmBlob<T>, (DispatchError, &'static str)>
 where
 	E: Environment<()>,
 	T: Config,
 {
-	validate::<E, T>(code.as_ref(), schedule, determinism)?;
+	validate::<E, T>(code.as_ref(), schedule, determinism, compilation_mode)?;
 
 	// Calculate deposit for storing contract code and `code_info` in two different storage items.
 	let code_len = code.len() as u32;
@@ -311,7 +316,8 @@ pub mod benchmarking {
 		owner: AccountIdOf<T>,
 	) -> Result<WasmBlob<T>, DispatchError> {
 		let determinism = Determinism::Enforced;
-		let contract_module = LoadedModule::new::<T>(&code, determinism, None)?;
+		let compilation_mode = CompilationMode::Lazy;
+		let contract_module = LoadedModule::new::<T>(&code, determinism, None, compilation_mode)?;
 		let _ = contract_module.scan_imports::<T>(schedule)?;
 		let code: CodeVec<T> = code.try_into().map_err(|_| <Error<T>>::CodeTooLarge)?;
 		let code_info = CodeInfo {
@@ -398,6 +404,7 @@ mod tests {
 					&schedule,
 					ALICE,
 					Determinism::Enforced,
+					CompilationMode::Eager,
 				);
 				assert_matches::assert_matches!(r.map_err(|(_, msg)| msg), $($expected)*);
 			}
