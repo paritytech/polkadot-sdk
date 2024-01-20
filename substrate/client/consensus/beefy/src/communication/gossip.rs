@@ -481,7 +481,7 @@ pub(crate) mod tests {
 	use sc_network_test::Block;
 	use sp_application_crypto::key_types::BEEFY as BEEFY_KEY_TYPE;
 	use sp_consensus_beefy::{
-		ecdsa_crypto::Signature, known_payloads, Commitment, GenericKeyring, Keyring, MmrRootHash,
+		ecdsa_crypto::Signature, known_payloads, Commitment, test_utils::GenericKeyring, test_utils::Keyring, MmrRootHash,
 		Payload, SignedCommitment, VoteMessage,
 	};
 	use sp_keystore::{testing::MemoryKeystore, Keystore};

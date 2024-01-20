@@ -55,7 +55,7 @@ use sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId, Signature},
 	known_payloads,
 	mmr::{find_mmr_root_digest, MmrRootProvider},
-	BeefyApi, Commitment, ConsensusLog, EquivocationProof, GenericKeyring, Keyring as BeefyKeyring,
+	BeefyApi, Commitment, ConsensusLog, EquivocationProof, test_utils::GenericKeyring, test_utils::Keyring as BeefyKeyring,
 	MmrRootHash, OpaqueKeyOwnershipProof, Payload, SignedCommitment, ValidatorSet, ValidatorSetId,
 	VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
 };

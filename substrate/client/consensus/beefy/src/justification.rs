@@ -93,7 +93,7 @@ pub(crate) fn verify_with_validator_set<Block: BlockT>(
 #[cfg(test)]
 pub(crate) mod tests {
 	use sp_consensus_beefy::{
-		known_payloads, Commitment, GenericKeyring, Keyring, Payload, SignedCommitment,
+		known_payloads, Commitment, test_utils::GenericKeyring, test_utils::Keyring, Payload, SignedCommitment,
 		VersionedFinalityProof,
 	};
 	use substrate_test_runtime_client::runtime::Block;

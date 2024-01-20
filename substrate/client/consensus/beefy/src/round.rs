@@ -203,7 +203,7 @@ mod tests {
 	use sc_network_test::Block;
 
 	use sp_consensus_beefy::{
-		known_payloads::MMR_ROOT_ID, Commitment, EquivocationProof, GenericKeyring, Keyring,
+		known_payloads::MMR_ROOT_ID, Commitment, EquivocationProof, test_utils::GenericKeyring, test_utils::Keyring,
 		Payload, SignedCommitment, ValidatorSet, VoteMessage,
 	};
 

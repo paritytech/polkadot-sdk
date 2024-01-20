@@ -213,7 +213,7 @@ where
 
 #[cfg(test)]
 pub mod tests {
-	use sp_consensus_beefy::{ecdsa_crypto, BeefySignerAuthority, GenericKeyring, Keyring};
+	use sp_consensus_beefy::{ecdsa_crypto, test_utils::BeefySignerAuthority, test_utils::GenericKeyring, test_utils::Keyring};
 	use sp_core::Pair as PairT;
 	use sp_keystore::testing::MemoryKeystore;
 
