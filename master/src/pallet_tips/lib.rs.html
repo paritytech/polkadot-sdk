@@ -612,6 +612,63 @@
 <a href="#612" id="612">612</a>
 <a href="#613" id="613">613</a>
 <a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -682,6 +739,7 @@
 
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{
+	ensure,
 	traits::{
 		ContainsLengthBound, Currency, EnsureOrigin, ExistenceRequirement::KeepAlive, Get,
 		OnUnbalanced, ReservableCurrency, SortedMembers,
@@ -689,6 +747,9 @@
 	Parameter,
 };
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
+
+<span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, test))]
+</span><span class="kw">use </span>sp_runtime::TryRuntimeError;
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>weights::WeightInfo;
@@ -764,7 +825,7 @@
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>TipFindersFee: Get&lt;Percent&gt;;
 
-		<span class="doccomment">/// The amount held on deposit for placing a tip report.
+		<span class="doccomment">/// The non-zero amount held on deposit for placing a tip report.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>TipReportDepositBase: Get&lt;BalanceOf&lt;<span class="self">Self</span>, I&gt;&gt;;
 
@@ -1079,6 +1140,21 @@
 			<span class="prelude-val">Ok</span>(())
 		}
 	}
+
+	<span class="attr">#[pallet::hooks]
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+		<span class="kw">fn </span>integrity_test() {
+			<span class="macro">assert!</span>(
+				!T::TipReportDepositBase::get().is_zero(),
+				<span class="string">&quot;`TipReportDepositBase` should not be zero&quot;</span>,
+			);
+		}
+
+		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		</span><span class="kw">fn </span>try_state(_n: BlockNumberFor&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
+			<span class="self">Self</span>::do_try_state()
+		}
+	}
 }
 
 <span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
@@ -1224,6 +1300,44 @@
 			};
 			Tips::&lt;T, I&gt;::insert(hash, new_tip)
 		}
+	}
+
+	<span class="doccomment">/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before and after each state transition of this pallet.
+	///
+	/// ## Invariants:
+	/// 1. The number of entries in `Tips` should be equal to `Reasons`.
+	/// 2. Reasons exists for each Tip[`OpenTip.reason`].
+	/// 3. If `OpenTip.finders_fee` is true, then OpenTip.deposit should be greater than zero.
+	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, test))]
+	</span><span class="kw">pub fn </span>do_try_state() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
+		<span class="kw">let </span>reasons = Reasons::&lt;T, I&gt;::iter_keys().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+		<span class="kw">let </span>tips = Tips::&lt;T, I&gt;::iter_keys().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+
+		<span class="macro">ensure!</span>(
+			reasons.len() == tips.len(),
+			TryRuntimeError::Other(<span class="string">&quot;Equal length of entries in `Tips` and `Reasons` Storage&quot;</span>)
+		);
+
+		<span class="kw">for </span>tip <span class="kw">in </span>Tips::&lt;T, I&gt;::iter_keys() {
+			<span class="kw">let </span>open_tip = Tips::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>tip).expect(<span class="string">&quot;All map keys are valid; qed&quot;</span>);
+
+			<span class="kw">if </span>open_tip.finders_fee {
+				<span class="macro">ensure!</span>(
+					!open_tip.deposit.is_zero(),
+					TryRuntimeError::Other(
+						<span class="string">&quot;Tips with `finders_fee` should have non-zero `deposit`.&quot;
+					</span>)
+				)
+			}
+
+			<span class="macro">ensure!</span>(
+				reasons.contains(<span class="kw-2">&amp;</span>open_tip.reason),
+				TryRuntimeError::Other(<span class="string">&quot;no reason for this tip&quot;</span>)
+			);
+		}
+		<span class="prelude-val">Ok</span>(())
 	}
 }
 </code></pre></div></section></main></body></html>
