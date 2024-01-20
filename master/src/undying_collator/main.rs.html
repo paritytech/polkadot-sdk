@@ -192,9 +192,9 @@
 		<span class="prelude-val">Some</span>(cli::Subcommand::ExportGenesisWasm(params)) =&gt; {
 			<span class="comment">// We pass some dummy values for `pov_size` and `pvf_complexity` as these don&#39;t
 			// matter for `wasm` export.
-			</span><span class="kw">let </span>output_buf =
-				<span class="macro">format!</span>(<span class="string">&quot;0x{:?}&quot;</span>, HexDisplay::from(<span class="kw-2">&amp;</span>Collator::default().validation_code()))
-					.into_bytes();
+			</span><span class="kw">let </span>collator = Collator::default();
+			<span class="kw">let </span>output_buf =
+				<span class="macro">format!</span>(<span class="string">&quot;0x{:?}&quot;</span>, HexDisplay::from(<span class="kw-2">&amp;</span>collator.validation_code())).into_bytes();
 
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(output) = params.output {
 				fs::write(output, output_buf)<span class="question-mark">?</span>;

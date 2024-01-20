@@ -106,6 +106,15 @@
 <a href="#106" id="106">106</a>
 <a href="#107" id="107">107</a>
 <a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -126,6 +135,7 @@
 
 </span><span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>sc_cli::SubstrateCli;
+<span class="kw">use </span>std::path::PathBuf;
 
 <span class="doccomment">/// Sub-commands supported by the collator.
 </span><span class="attr">#[derive(Debug, Parser)]
@@ -141,11 +151,19 @@
 
 <span class="doccomment">/// Command for exporting the genesis head data of the parachain
 </span><span class="attr">#[derive(Debug, Parser)]
-</span><span class="kw">pub struct </span>ExportGenesisHeadCommand {}
+</span><span class="kw">pub struct </span>ExportGenesisHeadCommand {
+	<span class="doccomment">/// Output file name or stdout if unspecified.
+	</span><span class="attr">#[arg()]
+	</span><span class="kw">pub </span>output: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+}
 
 <span class="doccomment">/// Command for exporting the genesis wasm file.
 </span><span class="attr">#[derive(Debug, Parser)]
-</span><span class="kw">pub struct </span>ExportGenesisWasmCommand {}
+</span><span class="kw">pub struct </span>ExportGenesisWasmCommand {
+	<span class="doccomment">/// Output file name or stdout if unspecified.
+	</span><span class="attr">#[arg()]
+	</span><span class="kw">pub </span>output: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+}
 
 <span class="attr">#[allow(missing_docs)]
 #[derive(Debug, Parser)]

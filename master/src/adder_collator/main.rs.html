@@ -116,6 +116,24 @@
 <a href="#116" id="116">116</a>
 <a href="#117" id="117">117</a>
 <a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -140,6 +158,10 @@
 <span class="kw">use </span>polkadot_primitives::Id <span class="kw">as </span>ParaId;
 <span class="kw">use </span>sc_cli::{Error <span class="kw">as </span>SubstrateCliError, SubstrateCli};
 <span class="kw">use </span>sp_core::hexdisplay::HexDisplay;
+<span class="kw">use </span>std::{
+	fs,
+	io::{<span class="self">self</span>, Write},
+};
 <span class="kw">use </span>test_parachain_adder_collator::Collator;
 
 <span class="doccomment">/// The parachain ID to collate for in case it wasn&#39;t set explicitly through CLI.
@@ -152,15 +174,29 @@
 	<span class="kw">let </span>cli = Cli::from_args();
 
 	<span class="kw">match </span>cli.subcommand {
-		<span class="prelude-val">Some</span>(cli::Subcommand::ExportGenesisState(_params)) =&gt; {
+		<span class="prelude-val">Some</span>(cli::Subcommand::ExportGenesisState(params)) =&gt; {
 			<span class="kw">let </span>collator = Collator::new();
-			<span class="macro">println!</span>(<span class="string">&quot;0x{:?}&quot;</span>, HexDisplay::from(<span class="kw-2">&amp;</span>collator.genesis_head()));
+			<span class="kw">let </span>output_buf =
+				<span class="macro">format!</span>(<span class="string">&quot;0x{:?}&quot;</span>, HexDisplay::from(<span class="kw-2">&amp;</span>collator.genesis_head())).into_bytes();
+
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(output) = params.output {
+				std::fs::write(output, output_buf)<span class="question-mark">?</span>;
+			} <span class="kw">else </span>{
+				std::io::stdout().write_all(<span class="kw-2">&amp;</span>output_buf)<span class="question-mark">?</span>;
+			}
 
 			<span class="prelude-val">Ok</span>::&lt;<span class="kw">_</span>, Error&gt;(())
 		},
-		<span class="prelude-val">Some</span>(cli::Subcommand::ExportGenesisWasm(_params)) =&gt; {
+		<span class="prelude-val">Some</span>(cli::Subcommand::ExportGenesisWasm(params)) =&gt; {
 			<span class="kw">let </span>collator = Collator::new();
-			<span class="macro">println!</span>(<span class="string">&quot;0x{:?}&quot;</span>, HexDisplay::from(<span class="kw-2">&amp;</span>collator.validation_code()));
+			<span class="kw">let </span>output_buf =
+				<span class="macro">format!</span>(<span class="string">&quot;0x{:?}&quot;</span>, HexDisplay::from(<span class="kw-2">&amp;</span>collator.validation_code())).into_bytes();
+
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(output) = params.output {
+				fs::write(output, output_buf)<span class="question-mark">?</span>;
+			} <span class="kw">else </span>{
+				io::stdout().write_all(<span class="kw-2">&amp;</span>output_buf)<span class="question-mark">?</span>;
+			}
 
 			<span class="prelude-val">Ok</span>(())
 		},
