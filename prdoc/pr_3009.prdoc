@@ -6,5 +6,5 @@ doc:
       Fixes some places that weren't respecting the `--disable-log-color` CLI flag.
 
 crates:
-  -name: "sc-informant"
-  -name: "sc-service"
+  - name: "sc-informant"
+  - name: "sc-service"
