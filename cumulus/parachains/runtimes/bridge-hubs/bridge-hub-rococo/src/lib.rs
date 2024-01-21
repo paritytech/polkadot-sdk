@@ -97,7 +97,7 @@ use parachains_common::{
 	impls::DealWithFees,
 	rococo::{currency::*, fee::WeightToFee},
 	AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
-	HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO,
+	HOURS, NORMAL_DISPATCH_RATIO,
 };
 
 use polkadot_runtime_common::prod_or_fast;
