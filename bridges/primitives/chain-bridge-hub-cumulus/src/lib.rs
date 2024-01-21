@@ -14,6 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+//! Primitives of all Cumulus-based bridge hubs.
+
+#![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use bp_polkadot_core::{
@@ -69,6 +72,7 @@ const MAXIMUM_BLOCK_WEIGHT_FOR_ASYNC_BACKING: Weight = Weight::from_parts(
 pub const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(5);
 
 parameter_types! {
+	/// Size limit of the Cumulus-based bridge hub blocks.
 	pub BlockLength: limits::BlockLength = limits::BlockLength::max_with_normal_ratio(
 		5 * 1024 * 1024,
 		NORMAL_DISPATCH_RATIO,
@@ -81,6 +85,7 @@ parameter_types! {
 	pub const ExtrinsicBaseWeight: Weight = Weight::from_parts(constants::WEIGHT_REF_TIME_PER_NANOS, 0)
 		.saturating_mul(125_000);
 
+	/// Weight limit of the Cumulus-based bridge hub blocks.
 	pub BlockWeights: limits::BlockWeights = limits::BlockWeights::builder()
 		.base_block(BlockExecutionWeight::get())
 		.for_class(DispatchClass::all(), |weights| {
