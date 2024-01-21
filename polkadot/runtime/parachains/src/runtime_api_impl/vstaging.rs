@@ -17,7 +17,7 @@
 //! Put implementations of functions from staging APIs here.
 
 use crate::{configuration, initializer, shared};
-use alloc::{collections::btree_map::BTreeMap, vec::Vec};
+use alloc::vec::Vec;
 use primitives::{
 	vstaging::{ApprovalVotingParams, NodeFeatures},
 	ValidatorIndex,
@@ -28,22 +28,9 @@ use primitives::{
 // as it might produce incorrect results on session boundaries
 pub fn disabled_validators<T>() -> Vec<ValidatorIndex>
 where
-	T: pallet_session::Config + shared::Config,
+	T: shared::Config,
 {
-	let shuffled_indices = <shared::Pallet<T>>::active_validator_indices();
-	// mapping from raw validator index to `ValidatorIndex`
-	// this computation is the same within a session, but should be cheap
-	let reverse_index = shuffled_indices
-		.iter()
-		.enumerate()
-		.map(|(i, v)| (v.0, ValidatorIndex(i as u32)))
-		.collect::<BTreeMap<u32, ValidatorIndex>>();
-
-	// we might have disabled validators who are not parachain validators
-	<pallet_session::Pallet<T>>::disabled_validators()
-		.iter()
-		.filter_map(|v| reverse_index.get(v).cloned())
-		.collect()
+	<shared::Pallet<T>>::disabled_validators()
 }
 
 /// Returns the current state of the node features.

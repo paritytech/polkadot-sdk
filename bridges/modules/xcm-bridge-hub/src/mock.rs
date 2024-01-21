@@ -19,11 +19,10 @@
 use crate as pallet_xcm_bridge_hub;
 
 use bp_messages::{
-	source_chain::LaneMessageVerifier,
 	target_chain::{DispatchMessage, MessageDispatch},
-	LaneId, OutboundLaneData, VerificationError,
+	LaneId,
 };
-use bp_runtime::{messages::MessageDispatchResult, Chain, UnderlyingChainProvider};
+use bp_runtime::{messages::MessageDispatchResult, Chain, ChainId, UnderlyingChainProvider};
 use bridge_runtime_common::{
 	messages::{
 		source::TargetHeaderChainAdapter, target::SourceHeaderChainAdapter,
@@ -78,20 +77,6 @@ impl pallet_balances::Config for TestRuntime {
 	type AccountStore = System;
 }
 
-/// Lane message verifier that is used in tests.
-#[derive(Debug, Default)]
-pub struct TestLaneMessageVerifier;
-
-impl LaneMessageVerifier<Vec<u8>> for TestLaneMessageVerifier {
-	fn verify_message(
-		_lane: &LaneId,
-		_lane_outbound_data: &OutboundLaneData,
-		_payload: &Vec<u8>,
-	) -> Result<(), VerificationError> {
-		Ok(())
-	}
-}
-
 parameter_types! {
 	pub const ActiveOutboundLanes: &'static [LaneId] = &[TEST_LANE_ID];
 }
@@ -110,7 +95,6 @@ impl pallet_bridge_messages::Config for TestRuntime {
 	type InboundRelayer = ();
 	type DeliveryPayments = ();
 	type TargetHeaderChain = TargetHeaderChainAdapter<OnThisChainBridge>;
-	type LaneMessageVerifier = TestLaneMessageVerifier;
 	type DeliveryConfirmationPayments = ();
 	type OnMessagesDelivered = ();
 	type SourceHeaderChain = SourceHeaderChainAdapter<OnThisChainBridge>;
@@ -217,6 +201,7 @@ impl XcmBlobHauler for TestXcmBlobHauler {
 pub struct ThisChain;
 
 impl Chain for ThisChain {
+	const ID: ChainId = *b"tuch";
 	type BlockNumber = u64;
 	type Hash = H256;
 	type Hasher = BlakeTwo256;
@@ -240,6 +225,7 @@ pub type BridgedHeaderHash = H256;
 pub type BridgedChainHeader = SubstrateHeader;
 
 impl Chain for BridgedChain {
+	const ID: ChainId = *b"tuch";
 	type BlockNumber = u64;
 	type Hash = BridgedHeaderHash;
 	type Hasher = BlakeTwo256;

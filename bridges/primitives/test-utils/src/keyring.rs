@@ -23,12 +23,17 @@ use finality_grandpa::voter_set::VoterSet;
 use sp_consensus_grandpa::{AuthorityId, AuthorityList, AuthorityWeight, SetId};
 use sp_runtime::RuntimeDebug;
 
-/// Set of test accounts with friendly names.
+/// Set of test accounts with friendly names: Alice.
 pub const ALICE: Account = Account(0);
+/// Set of test accounts with friendly names: Bob.
 pub const BOB: Account = Account(1);
+/// Set of test accounts with friendly names: Charlie.
 pub const CHARLIE: Account = Account(2);
+/// Set of test accounts with friendly names: Dave.
 pub const DAVE: Account = Account(3);
+/// Set of test accounts with friendly names: Eve.
 pub const EVE: Account = Account(4);
+/// Set of test accounts with friendly names: Ferdie.
 pub const FERDIE: Account = Account(5);
 
 /// A test account which can be used to sign messages.
@@ -36,10 +41,12 @@ pub const FERDIE: Account = Account(5);
 pub struct Account(pub u16);
 
 impl Account {
+	/// Returns public key of this account.
 	pub fn public(&self) -> VerifyingKey {
 		self.pair().verifying_key()
 	}
 
+	/// Returns key pair, used to sign data on behalf of this account.
 	pub fn pair(&self) -> SigningKey {
 		let data = self.0.encode();
 		let mut bytes = [0_u8; 32];
@@ -47,6 +54,7 @@ impl Account {
 		SigningKey::from_bytes(&bytes)
 	}
 
+	/// Generate a signature of given message.
 	pub fn sign(&self, msg: &[u8]) -> Signature {
 		use ed25519_dalek::Signer;
 		self.pair().sign(msg)

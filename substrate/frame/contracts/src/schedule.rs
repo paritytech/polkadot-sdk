@@ -358,22 +358,9 @@ macro_rules! cost_args {
 	}
 }
 
-macro_rules! cost_instr_no_params {
-	($name:ident) => {
-		cost_args!($name, 1).ref_time() as u32
-	};
-}
-
 macro_rules! cost {
 	($name:ident) => {
 		cost_args!($name, 1)
-	};
-}
-
-macro_rules! cost_instr {
-	($name:ident, $num_params:expr) => {
-		cost_instr_no_params!($name)
-			.saturating_sub((cost_instr_no_params!(instr_i64const) / 2).saturating_mul($num_params))
 	};
 }
 
@@ -396,10 +383,13 @@ impl Default for Limits {
 }
 
 impl<T: Config> Default for InstructionWeights<T> {
-	/// We price both `i64.const` and `drop` as `instr_i64const / 2`. The reason
-	/// for that is that we cannot benchmark either of them on its own.
+	/// We execute 6 different instructions therefore we have to divide the actual
+	/// computed gas costs by 6 to have a rough estimate as to how expensive each
+	/// single executed instruction is going to be.
 	fn default() -> Self {
-		Self { base: cost_instr!(instr_i64const, 1), _phantom: PhantomData }
+		let instr_cost = cost!(instr_i64_load_store).ref_time() as u32;
+		let base = instr_cost / 6;
+		Self { base, _phantom: PhantomData }
 	}
 }
 

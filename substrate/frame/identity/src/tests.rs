@@ -953,6 +953,57 @@ fn poke_deposit_works() {
 }
 
 #[test]
+fn poke_deposit_does_not_insert_new_subs_storage() {
+	new_test_ext().execute_with(|| {
+		let [_, _, _, _, ten, _, _, _] = accounts();
+		let ten_info = infoof_ten();
+		// Set a custom registration with 0 deposit
+		IdentityOf::<Test>::insert::<
+			_,
+			(
+				Registration<u64, MaxRegistrars, IdentityInfo<MaxAdditionalFields>>,
+				Option<Username<Test>>,
+			),
+		>(
+			&ten,
+			(
+				Registration {
+					judgements: Default::default(),
+					deposit: Zero::zero(),
+					info: ten_info.clone(),
+				},
+				None::<Username<Test>>,
+			),
+		);
+		assert!(Identity::identity(ten.clone()).is_some());
+
+		// Balance is free
+		assert_eq!(Balances::free_balance(ten.clone()), 1000);
+
+		// poke
+		assert_ok!(Identity::poke_deposit(&ten));
+
+		// free balance reduced correctly
+		let id_deposit = id_deposit(&ten_info);
+		assert_eq!(Balances::free_balance(ten.clone()), 1000 - id_deposit);
+		// new registration deposit is 10
+		assert_eq!(
+			Identity::identity(&ten),
+			Some((
+				Registration {
+					judgements: Default::default(),
+					deposit: id_deposit,
+					info: infoof_ten()
+				},
+				None
+			))
+		);
+		// No new subs storage item.
+		assert!(!SubsOf::<Test>::contains_key(&ten));
+	});
+}
+
+#[test]
 fn adding_and_removing_authorities_should_work() {
 	new_test_ext().execute_with(|| {
 		let [authority, _] = unfunded_accounts();

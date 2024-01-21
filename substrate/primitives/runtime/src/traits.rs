@@ -1790,7 +1790,7 @@ pub trait ValidateUnsigned {
 	/// this code before the unsigned extrinsic enters the transaction pool and also periodically
 	/// afterwards to ensure the validity. To prevent dos-ing a network with unsigned
 	/// extrinsics, these validity checks should include some checks around uniqueness, for example,
-	/// like checking that the unsigned extrinsic was send by an authority in the active set.
+	/// checking that the unsigned extrinsic was sent by an authority in the active set.
 	///
 	/// Changes made to storage should be discarded by caller.
 	fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity;

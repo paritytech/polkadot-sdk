@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::HeaderIdProvider;
+use crate::{ChainId, HeaderIdProvider};
 use alloc::{fmt::Debug, str::FromStr, vec, vec::Vec};
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
 use core::{convert::TryFrom, hash::Hash};
@@ -100,6 +100,9 @@ impl<ChainCall: Encode> Encode for EncodedOrDecodedCall<ChainCall> {
 
 /// Minimal Substrate-based chain representation that may be used from no_std environment.
 pub trait Chain: Send + Sync + 'static {
+	/// Chain id.
+	const ID: ChainId;
+
 	/// A type that fulfills the abstract idea of what a Substrate block number is.
 	// Constraits come from the associated Number type of `sp_runtime::traits::Header`
 	// See here for more info:
@@ -209,6 +212,8 @@ impl<T> Chain for T
 where
 	T: Send + Sync + 'static + UnderlyingChainProvider,
 {
+	const ID: ChainId = <T::Chain as Chain>::ID;
+
 	type BlockNumber = <T::Chain as Chain>::BlockNumber;
 	type Hash = <T::Chain as Chain>::Hash;
 	type Hasher = <T::Chain as Chain>::Hasher;

@@ -117,7 +117,7 @@ where
 
 /// Refund calculator.
 pub trait RefundCalculator {
-	// The underlying integer type in which the refund is calculated.
+	/// The underlying integer type in which the refund is calculated.
 	type Balance;
 
 	/// Compute refund for given transaction.
@@ -987,7 +987,7 @@ mod tests {
 				ParaId(TestParachain::get()),
 				[parachain_head_at_relay_header_number as u8; 32].into(),
 			)],
-			parachain_heads_proof: ParaHeadsProof(vec![]),
+			parachain_heads_proof: ParaHeadsProof { storage_proof: vec![] },
 		})
 	}
 
@@ -1733,7 +1733,7 @@ mod tests {
 							(ParaId(TestParachain::get()), [1u8; 32].into()),
 							(ParaId(TestParachain::get() + 1), [1u8; 32].into()),
 						],
-						parachain_heads_proof: ParaHeadsProof(vec![]),
+						parachain_heads_proof: ParaHeadsProof { storage_proof: vec![] },
 					}),
 					message_delivery_call(200),
 				],
