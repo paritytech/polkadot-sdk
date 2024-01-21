@@ -152,8 +152,6 @@ where
 		let targets_page_fn = helpers::generate_target_page_fn::<T>(&all_target_pages);
 		let voters_page_fn = helpers::generate_voter_page_fn::<T>(&all_voter_pages);
 
-		println!("All target pages: {:?}\n", all_target_pages);
-
 		// TODO: later
 		//let voters_page_fn = helpers::generate_voter_page_stake_fn::<T>(&all_voter_pages);
 		//let targets_index_fn = helpers::target_index_fn::<T>(&all_targets);
@@ -220,9 +218,6 @@ where
 			.collect::<Result<Vec<_>, _>>()?
 			.try_into()
 			.expect("paged_assignments is bound by `T::Pages. qed.");
-
-		println!("Assignments: \n{:#?}\n", paged_assignments);
-		println!("Solution Pages: \n{:#?}\n", solution_pages);
 
 		// TODO(gpestana): trim again?
 		let trimming_status = Default::default();
