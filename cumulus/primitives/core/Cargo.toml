@@ -16,7 +16,6 @@ scale-info = { version = "2.10.0", default-features = false, features = ["derive
 # Substrate
 sp-api = { path = "../../../substrate/primitives/api", default-features = false }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 sp-trie = { path = "../../../substrate/primitives/trie", default-features = false }
 
 # Polkadot
@@ -35,7 +34,6 @@ std = [
 	"scale-info/std",
 	"sp-api/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-trie/std",
 	"xcm/std",
 ]

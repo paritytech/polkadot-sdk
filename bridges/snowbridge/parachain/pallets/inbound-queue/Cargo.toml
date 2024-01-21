@@ -30,7 +30,6 @@ frame-support = { path = "../../../../../substrate/frame/support", default-featu
 frame-system = { path = "../../../../../substrate/frame/system", default-features = false }
 pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false }
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
-sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
 sp-io = { path = "../../../../../substrate/primitives/io", default-features = false }
 sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
 
@@ -71,7 +70,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
@@ -91,10 +89,4 @@ runtime-benchmarks = [
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 ]
-try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
-	"snowbridge-pallet-ethereum-client/try-runtime",
-	"sp-runtime/try-runtime",
-]
+try-runtime = ["frame-support/try-runtime", "frame-system/try-runtime", "pallet-balances/try-runtime", "snowbridge-pallet-ethereum-client/try-runtime", "sp-runtime/try-runtime"]

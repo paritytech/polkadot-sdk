@@ -77,7 +77,6 @@ sp-offchain = { path = "../../substrate/primitives/offchain" }
 frame-system-rpc-runtime-api = { path = "../../substrate/frame/system/rpc/runtime-api" }
 pallet-transaction-payment = { path = "../../substrate/frame/transaction-payment" }
 pallet-transaction-payment-rpc-runtime-api = { path = "../../substrate/frame/transaction-payment/rpc/runtime-api" }
-sp-std = { path = "../../substrate/primitives/std" }
 sp-inherents = { path = "../../substrate/primitives/inherents" }
 sp-api = { path = "../../substrate/primitives/api" }
 sp-consensus-aura = { path = "../../substrate/primitives/consensus/aura" }
@@ -167,6 +166,4 @@ try-runtime = [
 	"shell-runtime/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-fast-runtime = [
-	"bridge-hub-rococo-runtime/fast-runtime",
-]
+fast-runtime = ["bridge-hub-rococo-runtime/fast-runtime"]

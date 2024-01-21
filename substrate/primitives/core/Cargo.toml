@@ -33,7 +33,6 @@ zeroize = { version = "1.4.3", default-features = false }
 secrecy = { version = "0.8.0", default-features = false }
 parking_lot = { version = "0.12.1", optional = true }
 ss58-registry = { version = "1.34.0", default-features = false }
-sp-std = { path = "../std", default-features = false }
 sp-debug-derive = { path = "../debug-derive", default-features = false }
 sp-storage = { path = "../storage", default-features = false }
 sp-externalities = { path = "../externalities", optional = true }
@@ -114,7 +113,6 @@ std = [
 	"sp-debug-derive/std",
 	"sp-externalities/std",
 	"sp-runtime-interface/std",
-	"sp-std/std",
 	"sp-storage/std",
 	"ss58-registry/std",
 	"substrate-bip39",
@@ -143,15 +141,7 @@ serde = [
 # This feature enables all crypto primitives for `no_std` builds like microcontrollers
 # or Intel SGX.
 # For the regular wasm runtime builds this should not be used.
-full_crypto = [
-	"array-bytes",
-	"blake2",
-	"ed25519-zebra",
-	"libsecp256k1",
-	"secp256k1",
-	"sp-core-hashing",
-	"sp-runtime-interface/disable_target_static_assertions",
-]
+full_crypto = ["array-bytes", "blake2", "ed25519-zebra", "libsecp256k1", "secp256k1", "sp-core-hashing", "sp-runtime-interface/disable_target_static_assertions"]
 
 # This feature adds BLS crypto primitives.
 # It should not be used in production since the implementation and interface may still

@@ -31,7 +31,6 @@ sp-consensus-aura = { path = "../../../substrate/primitives/consensus/aura", def
 sp-core = { path = "../../../substrate/primitives/core", default-features = false }
 sp-io = { path = "../../../substrate/primitives/io", default-features = false }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 
 # Polkadot
 pallet-xcm = { path = "../../../polkadot/xcm/pallet-xcm", default-features = false }
@@ -82,7 +81,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"westend-runtime-constants/std",
 	"xcm-builder/std",
 	"xcm-executor/std",

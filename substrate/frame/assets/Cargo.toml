@@ -19,7 +19,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
 log = { version = "0.4.17", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-sp-std = { path = "../../primitives/std", default-features = false }
 # Needed for various traits. In our case, `OnFinalize`.
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
 # Needed for type-safe access to storage DB.
@@ -30,7 +29,6 @@ frame-benchmarking = { path = "../benchmarking", default-features = false, optio
 sp-core = { path = "../../primitives/core", default-features = false }
 
 [dev-dependencies]
-sp-std = { path = "../../primitives/std" }
 sp-io = { path = "../../primitives/io" }
 pallet-balances = { path = "../balances" }
 
@@ -47,7 +45,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -56,9 +53,4 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
-try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
-	"sp-runtime/try-runtime",
-]
+try-runtime = ["frame-support/try-runtime", "frame-system/try-runtime", "pallet-balances/try-runtime", "sp-runtime/try-runtime"]

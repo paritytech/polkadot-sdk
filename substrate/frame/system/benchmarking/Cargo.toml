@@ -23,7 +23,6 @@ frame-support = { path = "../../support", default-features = false }
 frame-system = { path = "..", default-features = false }
 sp-core = { path = "../../../primitives/core", default-features = false }
 sp-runtime = { path = "../../../primitives/runtime", default-features = false }
-sp-std = { path = "../../../primitives/std", default-features = false }
 
 [dev-dependencies]
 sp-io = { path = "../../../primitives/io" }
@@ -42,13 +41,7 @@ std = [
 	"sp-externalities/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-version/std",
 ]
 
-runtime-benchmarks = [
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-]
+runtime-benchmarks = ["frame-benchmarking/runtime-benchmarks", "frame-support/runtime-benchmarks", "frame-system/runtime-benchmarks", "sp-runtime/runtime-benchmarks"]

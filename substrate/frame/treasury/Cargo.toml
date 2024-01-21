@@ -16,10 +16,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
-	"derive",
-	"max-encoded-len",
-] }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
 docify = "0.2.0"
 impl-trait-for-tuples = "0.2.2"
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
@@ -29,7 +26,6 @@ frame-support = { path = "../support", default-features = false }
 frame-system = { path = "../system", default-features = false }
 pallet-balances = { path = "../balances", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false, optional = true }
 
 [dev-dependencies]
@@ -51,7 +47,6 @@ std = [
 	"sp-core?/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"dep:sp-core",
@@ -62,10 +57,4 @@ runtime-benchmarks = [
 	"pallet-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
-try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-utility/try-runtime",
-	"sp-runtime/try-runtime",
-]
+try-runtime = ["frame-support/try-runtime", "frame-system/try-runtime", "pallet-balances/try-runtime", "pallet-utility/try-runtime", "sp-runtime/try-runtime"]

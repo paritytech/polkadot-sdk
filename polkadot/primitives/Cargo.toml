@@ -27,7 +27,6 @@ sp-consensus-slots = { path = "../../substrate/primitives/consensus/slots", defa
 sp-io = { path = "../../substrate/primitives/io", default-features = false }
 sp-keystore = { path = "../../substrate/primitives/keystore", optional = true }
 sp-staking = { path = "../../substrate/primitives/staking", default-features = false, features = ["serde"] }
-sp-std = { package = "sp-std", path = "../../substrate/primitives/std", default-features = false }
 
 polkadot-core-primitives = { path = "../core-primitives", default-features = false }
 polkadot-parachain-primitives = { path = "../parachain", default-features = false }
@@ -52,10 +51,5 @@ std = [
 	"sp-io/std",
 	"sp-keystore",
 	"sp-staking/std",
-	"sp-std/std",
 ]
-runtime-benchmarks = [
-	"polkadot-parachain-primitives/runtime-benchmarks",
-	"runtime_primitives/runtime-benchmarks",
-	"sp-staking/runtime-benchmarks",
-]
+runtime-benchmarks = ["polkadot-parachain-primitives/runtime-benchmarks", "runtime_primitives/runtime-benchmarks", "sp-staking/runtime-benchmarks"]

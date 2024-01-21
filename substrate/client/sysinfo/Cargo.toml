@@ -29,7 +29,6 @@ serde_json = "1.0.111"
 sc-telemetry = { path = "../telemetry" }
 sp-core = { path = "../../primitives/core" }
 sp-io = { path = "../../primitives/io" }
-sp-std = { path = "../../primitives/std" }
 
 [dev-dependencies]
 sp-runtime = { path = "../../primitives/runtime" }

@@ -22,7 +22,6 @@ bp-messages = { path = "../../primitives/messages", default-features = false }
 frame-support = { path = "../../../substrate/frame/support", default-features = false }
 sp-api = { path = "../../../substrate/primitives/api", default-features = false }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 
 [features]
 default = ["std"]
@@ -33,5 +32,4 @@ std = [
 	"frame-support/std",
 	"sp-api/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]

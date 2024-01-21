@@ -22,7 +22,6 @@ frame-system = { path = "../system", default-features = false }
 sp-statement-store = { path = "../../primitives/statement-store", default-features = false }
 sp-api = { path = "../../primitives/api", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false }
 log = { version = "0.4.17", default-features = false }
@@ -44,11 +43,5 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-statement-store/std",
-	"sp-std/std",
 ]
-try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
-	"sp-runtime/try-runtime",
-]
+try-runtime = ["frame-support/try-runtime", "frame-system/try-runtime", "pallet-balances/try-runtime", "sp-runtime/try-runtime"]

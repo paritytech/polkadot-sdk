@@ -19,10 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 
 # third-party dependencies
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
-	"derive",
-	"max-encoded-len",
-] }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive", "serde"] }
 static_assertions = "1.1.0"
 log = { version = "0.4.17", default-features = false }
@@ -43,7 +40,6 @@ node-primitives = { path = "../primitives", default-features = false }
 sp-mixnet = { path = "../../../primitives/mixnet", default-features = false }
 sp-offchain = { path = "../../../primitives/offchain", default-features = false }
 sp-core = { path = "../../../primitives/core", default-features = false, features = ["serde"] }
-sp-std = { path = "../../../primitives/std", default-features = false }
 sp-api = { path = "../../../primitives/api", default-features = false }
 sp-runtime = { path = "../../../primitives/runtime", default-features = false, features = ["serde"] }
 sp-staking = { path = "../../../primitives/staking", default-features = false, features = ["serde"] }
@@ -258,7 +254,6 @@ std = [
 	"sp-session/std",
 	"sp-staking/std",
 	"sp-statement-store/std",
-	"sp-std/std",
 	"sp-storage/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
@@ -415,8 +410,4 @@ try-runtime = [
 	"pallet-whitelist/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-experimental = [
-	"frame-support/experimental",
-	"frame-system/experimental",
-	"pallet-example-tasks/experimental",
-]
+experimental = ["frame-support/experimental", "frame-system/experimental", "pallet-example-tasks/experimental"]

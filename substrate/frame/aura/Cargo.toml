@@ -25,7 +25,6 @@ pallet-timestamp = { path = "../timestamp", default-features = false }
 sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false }
 sp-consensus-aura = { path = "../../primitives/consensus/aura", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
 
 [dev-dependencies]
 sp-core = { path = "../../primitives/core", default-features = false }
@@ -45,12 +44,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
-try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"pallet-timestamp/try-runtime",
-	"sp-runtime/try-runtime",
-]
+try-runtime = ["frame-support/try-runtime", "frame-system/try-runtime", "pallet-timestamp/try-runtime", "sp-runtime/try-runtime"]
 experimental = []

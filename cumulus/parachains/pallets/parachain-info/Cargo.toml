@@ -17,23 +17,10 @@ frame-support = { path = "../../../../substrate/frame/support", default-features
 frame-system = { path = "../../../../substrate/frame/system", default-features = false }
 
 sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
 
 cumulus-primitives-core = { path = "../../../primitives/core", default-features = false }
 
 [features]
 default = ["std"]
-std = [
-	"codec/std",
-	"cumulus-primitives-core/std",
-	"frame-support/std",
-	"frame-system/std",
-	"scale-info/std",
-	"sp-runtime/std",
-	"sp-std/std",
-]
-try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"sp-runtime/try-runtime",
-]
+std = ["codec/std", "cumulus-primitives-core/std", "frame-support/std", "frame-system/std", "scale-info/std", "sp-runtime/std"]
+try-runtime = ["frame-support/try-runtime", "frame-system/try-runtime", "sp-runtime/try-runtime"]

@@ -462,7 +462,6 @@ members = [
 	"substrate/primitives/staking",
 	"substrate/primitives/state-machine",
 	"substrate/primitives/statement-store",
-	"substrate/primitives/std",
 	"substrate/primitives/storage",
 	"substrate/primitives/test-primitives",
 	"substrate/primitives/timestamp",

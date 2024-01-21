@@ -19,7 +19,6 @@ frame-support = { path = "../../../../substrate/frame/support" }
 pallet-balances = { path = "../../../../substrate/frame/balances" }
 pallet-message-queue = { path = "../../../../substrate/frame/message-queue" }
 pallet-uniques = { path = "../../../../substrate/frame/uniques" }
-sp-std = { path = "../../../../substrate/primitives/std" }
 sp-core = { path = "../../../../substrate/primitives/core" }
 sp-runtime = { path = "../../../../substrate/primitives/runtime" }
 sp-io = { path = "../../../../substrate/primitives/io" }

@@ -28,7 +28,6 @@ sp-io = { path = "../../primitives/io", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"] }
 sp-session = { path = "../../primitives/session", default-features = false }
 sp-staking = { path = "../../primitives/staking", default-features = false, features = ["serde"] }
-sp-std = { path = "../../primitives/std", default-features = false }
 sp-trie = { path = "../../primitives/trie", default-features = false, optional = true }
 sp-state-machine = { path = "../../primitives/state-machine", default-features = false }
 
@@ -48,12 +47,6 @@ std = [
 	"sp-session/std",
 	"sp-staking/std",
 	"sp-state-machine/std",
-	"sp-std/std",
 	"sp-trie/std",
 ]
-try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"pallet-timestamp/try-runtime",
-	"sp-runtime/try-runtime",
-]
+try-runtime = ["frame-support/try-runtime", "frame-system/try-runtime", "pallet-timestamp/try-runtime", "sp-runtime/try-runtime"]

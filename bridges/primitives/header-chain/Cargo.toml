@@ -25,7 +25,6 @@ frame-support = { path = "../../../substrate/frame/support", default-features = 
 sp-core = { path = "../../../substrate/primitives/core", default-features = false, features = ["serde"] }
 sp-consensus-grandpa = { path = "../../../substrate/primitives/consensus/grandpa", default-features = false, features = ["serde"] }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, features = ["serde"] }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 
 [dev-dependencies]
 bp-test-utils = { path = "../test-utils" }
@@ -44,5 +43,4 @@ std = [
 	"sp-consensus-grandpa/std",
 	"sp-core/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]

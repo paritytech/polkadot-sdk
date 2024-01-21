@@ -27,7 +27,6 @@ pallet-balances = { path = "../balances", default-features = false }
 sp-inherents = { path = "../../primitives/inherents", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
 sp-transaction-storage-proof = { path = "../../primitives/transaction-storage-proof", default-features = false }
 log = { version = "0.4.17", default-features = false }
 
@@ -58,12 +57,6 @@ std = [
 	"sp-inherents/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-transaction-storage-proof/std",
 ]
-try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
-	"sp-runtime/try-runtime",
-]
+try-runtime = ["frame-support/try-runtime", "frame-system/try-runtime", "pallet-balances/try-runtime", "sp-runtime/try-runtime"]

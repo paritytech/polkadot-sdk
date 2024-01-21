@@ -24,7 +24,6 @@ frame-system = { path = "../system", default-features = false }
 
 sp-io = { path = "../../primitives/io", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
 sp-staking = { path = "../../primitives/staking", default-features = false }
 frame-election-provider-support = { path = "../election-provider-support", default-features = false }
 
@@ -58,7 +57,6 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"sp-std/std",
 	"sp-tracing/std",
 ]
 runtime-benchmarks = [

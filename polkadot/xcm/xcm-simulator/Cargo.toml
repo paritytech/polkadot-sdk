@@ -15,7 +15,6 @@ paste = "1.0.7"
 
 frame-support = { path = "../../../substrate/frame/support" }
 sp-io = { path = "../../../substrate/primitives/io" }
-sp-std = { path = "../../../substrate/primitives/std" }
 
 xcm = { package = "staging-xcm", path = ".." }
 xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor" }

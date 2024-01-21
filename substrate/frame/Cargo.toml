@@ -24,7 +24,6 @@ scale-info = { version = "2.6.0", default-features = false, features = ["derive"
 
 # primitive deps, used for developing FRAME pallets.
 sp-runtime = { default-features = false, path = "../primitives/runtime" }
-sp-std = { default-features = false, path = "../primitives/std" }
 sp-io = { default-features = false, path = "../primitives/io" }
 sp-core = { default-features = false, path = "../primitives/core" }
 sp-arithmetic = { default-features = false, path = "../primitives/arithmetic" }
@@ -90,7 +89,6 @@ std = [
 	"sp-offchain?/std",
 	"sp-runtime/std",
 	"sp-session?/std",
-	"sp-std/std",
 	"sp-transaction-pool?/std",
 	"sp-version?/std",
 ]

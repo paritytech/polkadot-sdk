@@ -21,7 +21,6 @@ scale-info = { version = "2.10.0", features = ["derive"] }
 
 sp-runtime = { path = "../../../primitives/runtime" }
 sp-io = { path = "../../../primitives/io" }
-sp-std = { path = "../../../primitives/std" }
 sp-staking = { path = "../../../primitives/staking" }
 sp-core = { path = "../../../primitives/core" }
 

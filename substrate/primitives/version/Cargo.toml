@@ -25,21 +25,11 @@ serde = { version = "1.0.195", default-features = false, features = ["alloc", "d
 thiserror = { version = "1.0.48", optional = true }
 sp-core-hashing-proc-macro = { path = "../core/hashing/proc-macro" }
 sp-runtime = { path = "../runtime", default-features = false }
-sp-std = { path = "../std", default-features = false }
 sp-version-proc-macro = { path = "proc-macro", default-features = false }
 
 [features]
 default = ["std"]
-std = [
-	"codec/std",
-	"impl-serde/std",
-	"parity-wasm",
-	"scale-info/std",
-	"serde/std",
-	"sp-runtime/std",
-	"sp-std/std",
-	"thiserror",
-]
+std = ["codec/std", "impl-serde/std", "parity-wasm", "scale-info/std", "serde/std", "sp-runtime/std", "thiserror"]
 
 # Serde support without relying on std features.
 serde = ["dep:serde", "impl-serde", "sp-runtime/serde"]

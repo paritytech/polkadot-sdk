@@ -31,7 +31,7 @@ use trie_db::{
 
 /// Helper struct for trie node decoder. This implements `codec::Input` on a byte slice, while
 /// tracking the absolute position. This is similar to `std::io::Cursor` but does not implement
-/// `Read` and `io` is not in `sp-std`.
+/// `Read` and `io` are not in `core` or `alloc`.
 struct ByteSliceInput<'a> {
 	data: &'a [u8],
 	offset: usize,

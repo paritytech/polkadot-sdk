@@ -21,15 +21,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 thiserror = { version = "1.0.48", optional = true }
 sp-inherents = { path = "../inherents", default-features = false }
 sp-runtime = { path = "../runtime", default-features = false }
-sp-std = { path = "../std", default-features = false }
 
 [features]
 default = ["std"]
-std = [
-	"async-trait",
-	"codec/std",
-	"sp-inherents/std",
-	"sp-runtime/std",
-	"sp-std/std",
-	"thiserror",
-]
+std = ["async-trait", "codec/std", "sp-inherents/std", "sp-runtime/std", "thiserror"]

@@ -16,7 +16,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 # Substrate dependencies
 sp-runtime = { path = "../../../primitives/runtime", default-features = false }
-sp-std = { path = "../../../primitives/std", default-features = false }
 
 frame-support = { path = "../../support", default-features = false }
 frame-system = { path = "../../system", default-features = false }
@@ -27,21 +26,6 @@ scale-info = { version = "2.5.0", default-features = false, features = ["derive"
 
 [features]
 default = ["std"]
-std = [
-	"codec/std",
-	"frame-support/std",
-	"frame-system/std",
-	"scale-info/std",
-	"sp-runtime/std",
-	"sp-std/std",
-]
-runtime-benchmarks = [
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-]
-try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"sp-runtime/try-runtime",
-]
+std = ["codec/std", "frame-support/std", "frame-system/std", "scale-info/std", "sp-runtime/std"]
+runtime-benchmarks = ["frame-support/runtime-benchmarks", "frame-system/runtime-benchmarks", "sp-runtime/runtime-benchmarks"]
+try-runtime = ["frame-support/try-runtime", "frame-system/try-runtime", "sp-runtime/try-runtime"]

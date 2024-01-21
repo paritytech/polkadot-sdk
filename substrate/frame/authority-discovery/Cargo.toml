@@ -16,19 +16,14 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
-	"derive",
-] }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 frame-support = { path = "../support", default-features = false }
 frame-system = { path = "../system", default-features = false }
-pallet-session = { path = "../session", default-features = false, features = [
-	"historical",
-] }
+pallet-session = { path = "../session", default-features = false, features = ["historical"] }
 sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false }
 sp-authority-discovery = { path = "../../primitives/authority-discovery", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
 
 [dev-dependencies]
 sp-core = { path = "../../primitives/core" }
@@ -47,11 +42,5 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
-try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"pallet-session/try-runtime",
-	"sp-runtime/try-runtime",
-]
+try-runtime = ["frame-support/try-runtime", "frame-system/try-runtime", "pallet-session/try-runtime", "sp-runtime/try-runtime"]

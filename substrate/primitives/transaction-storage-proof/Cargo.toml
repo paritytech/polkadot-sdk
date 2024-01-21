@@ -22,18 +22,8 @@ scale-info = { version = "2.10.0", default-features = false, features = ["derive
 sp-core = { path = "../core", optional = true }
 sp-inherents = { path = "../inherents", default-features = false }
 sp-runtime = { path = "../runtime", default-features = false }
-sp-std = { path = "../std", default-features = false }
 sp-trie = { path = "../trie", optional = true }
 
 [features]
 default = ["std"]
-std = [
-	"async-trait",
-	"codec/std",
-	"scale-info/std",
-	"sp-core/std",
-	"sp-inherents/std",
-	"sp-runtime/std",
-	"sp-std/std",
-	"sp-trie/std",
-]
+std = ["async-trait", "codec/std", "scale-info/std", "sp-core/std", "sp-inherents/std", "sp-runtime/std", "sp-trie/std"]

@@ -19,7 +19,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 bytes = { version = "1.1.0", default-features = false }
 sp-wasm-interface = { path = "../wasm-interface", default-features = false }
-sp-std = { path = "../std", default-features = false }
 sp-tracing = { path = "../tracing", default-features = false }
 sp-runtime-interface-proc-macro = { path = "proc-macro" }
 sp-externalities = { path = "../externalities", default-features = false }
@@ -48,7 +47,6 @@ std = [
 	"sp-io/std",
 	"sp-runtime-interface-test-wasm/std",
 	"sp-state-machine/std",
-	"sp-std/std",
 	"sp-storage/std",
 	"sp-tracing/std",
 	"sp-wasm-interface/std",

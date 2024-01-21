@@ -21,24 +21,10 @@ serde = { version = "1.0.195", default-features = false, features = ["derive"], 
 sp-application-crypto = { path = "../application-crypto", default-features = false }
 sp-core = { path = "../core", default-features = false }
 sp-runtime = { path = "../runtime", default-features = false }
-sp-std = { path = "../std", default-features = false }
 
 [features]
 default = ["std"]
-std = [
-	"codec/std",
-	"scale-info/std",
-	"serde/std",
-	"sp-application-crypto/std",
-	"sp-core/std",
-	"sp-runtime/std",
-	"sp-std/std",
-]
+std = ["codec/std", "scale-info/std", "serde/std", "sp-application-crypto/std", "sp-core/std", "sp-runtime/std"]
 
 # Serde support without relying on std features.
-serde = [
-	"dep:serde",
-	"sp-application-crypto/serde",
-	"sp-core/serde",
-	"sp-runtime/serde",
-]
+serde = ["dep:serde", "sp-application-crypto/serde", "sp-core/serde", "sp-runtime/serde"]

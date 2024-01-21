@@ -19,7 +19,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
 sp-api-proc-macro = { path = "proc-macro", default-features = false }
 sp-core = { path = "../core", default-features = false }
-sp-std = { path = "../std", default-features = false }
 sp-runtime = { path = "../runtime", default-features = false }
 sp-externalities = { path = "../externalities", default-features = false, optional = true }
 sp-version = { path = "../version", default-features = false }
@@ -48,7 +47,6 @@ std = [
 	"sp-metadata-ir?/std",
 	"sp-runtime/std",
 	"sp-state-machine/std",
-	"sp-std/std",
 	"sp-test-primitives/std",
 	"sp-trie/std",
 	"sp-version/std",

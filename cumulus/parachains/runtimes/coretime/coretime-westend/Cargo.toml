@@ -48,7 +48,6 @@ sp-genesis-builder = { path = "../../../../../substrate/primitives/genesis-build
 sp-offchain = { path = "../../../../../substrate/primitives/offchain", default-features = false }
 sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
 sp-session = { path = "../../../../../substrate/primitives/session", default-features = false }
-sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
 sp-storage = { path = "../../../../../substrate/primitives/storage", default-features = false }
 sp-transaction-pool = { path = "../../../../../substrate/primitives/transaction-pool", default-features = false }
 sp-version = { path = "../../../../../substrate/primitives/version", default-features = false }
@@ -125,7 +124,6 @@ std = [
 	"sp-offchain/std",
 	"sp-runtime/std",
 	"sp-session/std",
-	"sp-std/std",
 	"sp-storage/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",

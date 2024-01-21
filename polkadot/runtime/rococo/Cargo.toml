@@ -29,7 +29,6 @@ sp-genesis-builder = { path = "../../../substrate/primitives/genesis-builder", d
 inherents = { package = "sp-inherents", path = "../../../substrate/primitives/inherents", default-features = false }
 offchain-primitives = { package = "sp-offchain", path = "../../../substrate/primitives/offchain", default-features = false }
 sp-arithmetic = { path = "../../../substrate/primitives/arithmetic", default-features = false }
-sp-std = { package = "sp-std", path = "../../../substrate/primitives/std", default-features = false }
 sp-io = { path = "../../../substrate/primitives/io", default-features = false }
 sp-mmr-primitives = { path = "../../../substrate/primitives/merkle-mountain-range", default-features = false }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
@@ -200,7 +199,6 @@ std = [
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-staking/std",
-	"sp-std/std",
 	"sp-storage/std",
 	"sp-tracing/std",
 	"sp-version/std",

@@ -28,7 +28,6 @@ frame-support = { path = "../../../substrate/frame/support", default-features = 
 frame-system = { path = "../../../substrate/frame/system", default-features = false }
 sp-consensus-grandpa = { path = "../../../substrate/primitives/consensus/grandpa", default-features = false, features = ["serde"] }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, features = ["serde"] }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 sp-trie = { path = "../../../substrate/primitives/trie", default-features = false }
 
 # Optional Benchmarking Dependencies
@@ -54,7 +53,6 @@ std = [
 	"scale-info/std",
 	"sp-consensus-grandpa/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-trie/std",
 ]
 runtime-benchmarks = [

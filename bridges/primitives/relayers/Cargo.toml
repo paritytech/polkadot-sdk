@@ -22,7 +22,6 @@ bp-runtime = { path = "../runtime", default-features = false }
 
 frame-support = { path = "../../../substrate/frame/support", default-features = false }
 sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 
 [dev-dependencies]
 hex = "0.4"
@@ -37,5 +36,4 @@ std = [
 	"frame-support/std",
 	"scale-info/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]

@@ -25,7 +25,6 @@ frame-support = { path = "../support", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false, features = ["serde"] }
 sp-io = { path = "../../primitives/io", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"] }
-sp-std = { path = "../../primitives/std", default-features = false }
 sp-version = { path = "../../primitives/version", default-features = false, features = ["serde"] }
 sp-weights = { path = "../../primitives/weights", default-features = false, features = ["serde"] }
 docify = "0.2.6"
@@ -47,14 +46,10 @@ std = [
 	"sp-externalities/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-version/std",
 	"sp-weights/std",
 ]
-runtime-benchmarks = [
-	"frame-support/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-]
+runtime-benchmarks = ["frame-support/runtime-benchmarks", "sp-runtime/runtime-benchmarks"]
 try-runtime = ["frame-support/try-runtime", "sp-runtime/try-runtime"]
 experimental = ["frame-support/experimental"]
 

@@ -28,7 +28,6 @@ remote-externalities = { package = "frame-remote-externalities", path = "../../u
 sp-core = { path = "../../primitives/core", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
 substrate-state-trie-migration-rpc = { path = "../../utils/frame/rpc/state-trie-migration-rpc", optional = true }
 
 [dev-dependencies]
@@ -50,7 +49,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-tracing/std",
 ]
 runtime-benchmarks = [
@@ -61,17 +59,5 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
-try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
-	"sp-runtime/try-runtime",
-]
-remote-test = [
-	"remote-externalities",
-	"serde",
-	"std",
-	"substrate-state-trie-migration-rpc",
-	"thousands",
-	"zstd",
-]
+try-runtime = ["frame-support/try-runtime", "frame-system/try-runtime", "pallet-balances/try-runtime", "sp-runtime/try-runtime"]
+remote-test = ["remote-externalities", "serde", "std", "substrate-state-trie-migration-rpc", "thousands", "zstd"]

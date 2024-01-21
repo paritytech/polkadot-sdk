@@ -21,7 +21,6 @@ frame-support = { path = "../../../substrate/frame/support" }
 frame-system = { path = "../../../substrate/frame/system" }
 sp-io = { path = "../../../substrate/primitives/io" }
 sp-core = { path = "../../../substrate/primitives/core" }
-sp-std = { path = "../../../substrate/primitives/std" }
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
 sp-arithmetic = { path = "../../../substrate/primitives/arithmetic" }
 sp-tracing = { path = "../../../substrate/primitives/tracing" }

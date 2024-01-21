@@ -36,7 +36,6 @@ sp-core = { path = "../../../primitives/core", default-features = false }
 sp-io = { path = "../../../primitives/io", default-features = false }
 sp-keystore = { path = "../../../primitives/keystore" }
 sp-runtime = { path = "../../../primitives/runtime", default-features = false }
-sp-std = { path = "../../../primitives/std", default-features = false }
 sp-tracing = { path = "../../../primitives/tracing" }
 xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false }
 xcm-builder = { package = "staging-xcm-builder", path = "../../../../polkadot/xcm/xcm-builder" }
@@ -68,7 +67,6 @@ std = [
 	"sp-io/std",
 	"sp-keystore/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]

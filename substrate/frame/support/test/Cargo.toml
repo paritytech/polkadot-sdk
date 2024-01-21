@@ -28,7 +28,6 @@ frame-support = { path = "..", default-features = false }
 frame-benchmarking = { path = "../../benchmarking", default-features = false }
 sp-runtime = { path = "../../../primitives/runtime", default-features = false }
 sp-core = { path = "../../../primitives/core", default-features = false }
-sp-std = { path = "../../../primitives/std", default-features = false }
 sp-version = { path = "../../../primitives/version", default-features = false }
 sp-metadata-ir = { path = "../../../primitives/metadata-ir", default-features = false }
 trybuild = { version = "1.0.88", features = ["diff"] }
@@ -57,20 +56,11 @@ std = [
 	"sp-metadata-ir/std",
 	"sp-runtime/std",
 	"sp-state-machine/std",
-	"sp-std/std",
 	"sp-version/std",
 	"test-pallet/std",
 ]
-experimental = [
-	"frame-support/experimental",
-	"frame-system/experimental",
-]
-try-runtime = [
-	"frame-executive/try-runtime",
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"sp-runtime/try-runtime",
-]
+experimental = ["frame-support/experimental", "frame-system/experimental"]
+try-runtime = ["frame-executive/try-runtime", "frame-support/try-runtime", "frame-system/try-runtime", "sp-runtime/try-runtime"]
 # WARNING:
 # Only CI runs with this feature enabled. This feature is for testing stuff related to the FRAME macros
 # in conjunction with rust features.

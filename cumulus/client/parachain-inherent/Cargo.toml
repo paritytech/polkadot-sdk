@@ -19,7 +19,6 @@ sp-core = { path = "../../../substrate/primitives/core" }
 sp-inherents = { path = "../../../substrate/primitives/inherents" }
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
 sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
-sp-std = { path = "../../../substrate/primitives/std" }
 sp-storage = { path = "../../../substrate/primitives/storage" }
 sp-trie = { path = "../../../substrate/primitives/trie" }
 

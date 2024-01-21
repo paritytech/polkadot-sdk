@@ -16,9 +16,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
-	"derive",
-] }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.195", optional = true }
 frame-support = { path = "../support", default-features = false }
@@ -26,7 +24,6 @@ frame-system = { path = "../system", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
 
 [dev-dependencies]
 serde_json = "1.0.111"
@@ -34,21 +31,5 @@ pallet-balances = { path = "../balances" }
 
 [features]
 default = ["std"]
-std = [
-	"codec/std",
-	"frame-support/std",
-	"frame-system/std",
-	"pallet-balances/std",
-	"scale-info/std",
-	"serde",
-	"sp-core/std",
-	"sp-io/std",
-	"sp-runtime/std",
-	"sp-std/std",
-]
-try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
-	"sp-runtime/try-runtime",
-]
+std = ["codec/std", "frame-support/std", "frame-system/std", "pallet-balances/std", "scale-info/std", "serde", "sp-core/std", "sp-io/std", "sp-runtime/std"]
+try-runtime = ["frame-support/try-runtime", "frame-system/try-runtime", "pallet-balances/try-runtime", "sp-runtime/try-runtime"]

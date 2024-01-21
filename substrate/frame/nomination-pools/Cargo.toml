@@ -23,7 +23,6 @@ scale-info = { version = "2.10.0", default-features = false, features = ["derive
 frame-support = { path = "../support", default-features = false }
 frame-system = { path = "../system", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
 sp-staking = { path = "../../primitives/staking", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
@@ -51,7 +50,6 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"sp-std/std",
 	"sp-tracing?/std",
 ]
 runtime-benchmarks = [
@@ -61,9 +59,4 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
 ]
-try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"pallet-balances?/try-runtime",
-	"sp-runtime/try-runtime",
-]
+try-runtime = ["frame-support/try-runtime", "frame-system/try-runtime", "pallet-balances?/try-runtime", "sp-runtime/try-runtime"]

@@ -23,22 +23,8 @@ frame-system = { path = "../system", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
 
 [features]
-try-runtime = [
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"sp-runtime/try-runtime",
-]
+try-runtime = ["frame-support/try-runtime", "frame-system/try-runtime", "sp-runtime/try-runtime"]
 default = ["std"]
-std = [
-	"codec/std",
-	"frame-support/std",
-	"frame-system/std",
-	"scale-info/std",
-	"sp-core/std",
-	"sp-io/std",
-	"sp-runtime/std",
-	"sp-std/std",
-]
+std = ["codec/std", "frame-support/std", "frame-system/std", "scale-info/std", "sp-core/std", "sp-io/std", "sp-runtime/std"]

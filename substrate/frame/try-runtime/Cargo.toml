@@ -19,15 +19,8 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 frame-support = { path = "../support", default-features = false }
 sp-api = { path = "../../primitives/api", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
 
 [features]
 default = ["std"]
-std = [
-	"codec/std",
-	"frame-support/std",
-	"sp-api/std",
-	"sp-runtime/std",
-	"sp-std/std",
-]
+std = ["codec/std", "frame-support/std", "sp-api/std", "sp-runtime/std"]
 try-runtime = ["frame-support/try-runtime", "sp-runtime/try-runtime"]

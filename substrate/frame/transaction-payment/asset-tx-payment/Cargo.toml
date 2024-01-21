@@ -20,7 +20,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 sp-core = { path = "../../../primitives/core", default-features = false }
 sp-io = { path = "../../../primitives/io", default-features = false }
 sp-runtime = { path = "../../../primitives/runtime", default-features = false }
-sp-std = { path = "../../../primitives/std", default-features = false }
 
 frame-support = { path = "../../support", default-features = false }
 frame-system = { path = "../../system", default-features = false }
@@ -57,7 +56,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-storage/std",
 ]
 runtime-benchmarks = [

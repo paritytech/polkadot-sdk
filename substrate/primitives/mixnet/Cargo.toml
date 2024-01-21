@@ -20,14 +20,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 sp-api = { default-features = false, path = "../api" }
 sp-application-crypto = { default-features = false, path = "../application-crypto" }
-sp-std = { default-features = false, path = "../std" }
 
 [features]
 default = ["std"]
-std = [
-	"codec/std",
-	"scale-info/std",
-	"sp-api/std",
-	"sp-application-crypto/std",
-	"sp-std/std",
-]
+std = ["codec/std", "scale-info/std", "sp-api/std", "sp-application-crypto/std"]

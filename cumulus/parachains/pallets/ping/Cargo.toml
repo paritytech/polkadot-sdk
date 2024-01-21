@@ -13,7 +13,6 @@ workspace = true
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
-sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
 sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
 frame-support = { path = "../../../../substrate/frame/support", default-features = false }
 frame-system = { path = "../../../../substrate/frame/system", default-features = false }
@@ -25,21 +24,6 @@ cumulus-pallet-xcm = { path = "../../../pallets/xcm", default-features = false }
 
 [features]
 default = ["std"]
-std = [
-	"codec/std",
-	"cumulus-pallet-xcm/std",
-	"cumulus-primitives-core/std",
-	"frame-support/std",
-	"frame-system/std",
-	"scale-info/std",
-	"sp-runtime/std",
-	"sp-std/std",
-	"xcm/std",
-]
+std = ["codec/std", "cumulus-pallet-xcm/std", "cumulus-primitives-core/std", "frame-support/std", "frame-system/std", "scale-info/std", "sp-runtime/std", "xcm/std"]
 
-try-runtime = [
-	"cumulus-pallet-xcm/try-runtime",
-	"frame-support/try-runtime",
-	"frame-system/try-runtime",
-	"sp-runtime/try-runtime",
-]
+try-runtime = ["cumulus-pallet-xcm/try-runtime", "frame-support/try-runtime", "frame-system/try-runtime", "sp-runtime/try-runtime"]
