@@ -24,7 +24,7 @@ pub use bp_runtime::{RangeInclusiveExt, UnderlyingChainOf, UnderlyingChainProvid
 
 use bp_header_chain::HeaderChain;
 use bp_messages::{
-	source_chain::{LaneMessageVerifier, TargetHeaderChain},
+	source_chain::TargetHeaderChain,
 	target_chain::{ProvedLaneMessages, ProvedMessages, SourceHeaderChain},
 	InboundLaneData, LaneId, Message, MessageKey, MessageNonce, MessagePayload, OutboundLaneData,
 	VerificationError,
@@ -120,42 +120,6 @@ pub mod source {
 	pub type ParsedMessagesDeliveryProofFromBridgedChain<B> =
 		(LaneId, InboundLaneData<AccountIdOf<ThisChain<B>>>);
 
-	/// Message verifier that is doing all basic checks.
-	///
-	/// This verifier assumes following:
-	///
-	/// - all message lanes are equivalent, so all checks are the same;
-	///
-	/// Following checks are made:
-	///
-	/// - message is rejected if its lane is currently blocked;
-	/// - message is rejected if there are too many pending (undelivered) messages at the outbound
-	///   lane;
-	/// - check that the sender has rights to dispatch the call on target chain using provided
-	///   dispatch origin;
-	/// - check that the sender has paid enough funds for both message delivery and dispatch.
-	#[derive(RuntimeDebug)]
-	pub struct FromThisChainMessageVerifier<B>(PhantomData<B>);
-
-	impl<B> LaneMessageVerifier<FromThisChainMessagePayload> for FromThisChainMessageVerifier<B>
-	where
-		B: MessageBridge,
-	{
-		fn verify_message(
-			_lane: &LaneId,
-			_lane_outbound_data: &OutboundLaneData,
-			_payload: &FromThisChainMessagePayload,
-		) -> Result<(), VerificationError> {
-			// IMPORTANT: any error that is returned here is fatal for the bridge, because
-			// this code is executed at the bridge hub and message sender actually lives
-			// at some sibling parachain. So we are failing **after** the message has been
-			// sent and we can't report it back to sender (unless error report mechanism is
-			// embedded into message and its dispatcher).
-
-			Ok(())
-		}
-	}
-
 	/// Return maximal message size of This -> Bridged chain message.
 	pub fn maximal_message_size<B: MessageBridge>() -> u32 {
 		super::target::maximal_incoming_message_size(
@@ -185,8 +149,7 @@ pub mod source {
 	/// Do basic Bridged-chain specific verification of This -> Bridged chain message.
 	///
 	/// Ok result from this function means that the delivery transaction with this message
-	/// may be 'mined' by the target chain. But the lane may have its own checks (e.g. fee
-	/// check) that would reject message (see `FromThisChainMessageVerifier`).
+	/// may be 'mined' by the target chain.
 	pub fn verify_chain_message<B: MessageBridge>(
 		payload: &FromThisChainMessagePayload,
 	) -> Result<(), VerificationError> {

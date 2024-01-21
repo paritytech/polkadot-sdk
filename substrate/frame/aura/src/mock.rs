@@ -96,6 +96,10 @@ impl DisabledValidators for MockDisabledValidators {
 	fn is_disabled(index: AuthorityIndex) -> bool {
 		DisabledValidatorTestValue::get().binary_search(&index).is_ok()
 	}
+
+	fn disabled_validators() -> Vec<u32> {
+		DisabledValidatorTestValue::get()
+	}
 }
 
 impl pallet_aura::Config for Test {
