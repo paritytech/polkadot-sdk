@@ -172,4 +172,8 @@ impl<T: frame_system::Config> pallet_ranked_collective::WeightInfo for WeightInf
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 2540).saturating_mul(n.into()))
 	}
+
+	fn exchange_member() -> Weight {
+		todo!()
+	}
 }

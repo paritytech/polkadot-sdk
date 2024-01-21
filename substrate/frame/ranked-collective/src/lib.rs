@@ -392,9 +392,7 @@ pub mod pallet {
 		type DemoteOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Rank>;
 
 		/// The origin required to exchange an account for a member.
-		///
-		/// The success value indicates the maximum rank *from which* the exchange may be.
-		type ExchangeOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Rank>;
+		type ExchangeOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The polling system used for our voting.
 		type Polls: Polling<TallyOf<Self, I>, Votes = Votes, Moment = BlockNumberFor<Self>>;
@@ -672,10 +670,12 @@ pub mod pallet {
 			who: AccountIdLookupOf<T>,
 			new_who: AccountIdLookupOf<T>,
 		) -> DispatchResult {
-			// remove who
 			T::ExchangeOrigin::ensure_origin(origin)?;
-			ensure!(who != new_who, Error::<T, I>::SameMember);
 			let who = T::Lookup::lookup(who)?;
+			let new_who = T::Lookup::lookup(new_who)?;
+
+			ensure!(who != new_who, Error::<T, I>::SameMember);
+
 			let MemberRecord { rank, .. } = Self::ensure_member(&who)?;
 
 			for r in 0..=rank {
@@ -683,8 +683,6 @@ pub mod pallet {
 			}
 			Members::<T, I>::remove(&who);
 
-			// add new_who member
-			let new_who = T::Lookup::lookup(new_who)?;
 			Self::do_add_member_to_rank(new_who.clone(), rank, false)?;
 
 			Self::deposit_event(Event::MemberExchanged { who, new_who });
