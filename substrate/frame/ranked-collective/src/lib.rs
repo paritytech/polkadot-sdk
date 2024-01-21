@@ -58,6 +58,9 @@ use frame_support::{
 	CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 
+#[cfg(any(feature = "try-runtime", test))]
+use sp_runtime::TryRuntimeError;
+
 #[cfg(test)]
 mod tests;
 
@@ -652,6 +655,14 @@ pub mod pallet {
 		}
 	}
 
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		fn ensure_member(who: &T::AccountId) -> Result<MemberRecord, DispatchError> {
 			Members::<T, I>::get(who).ok_or(Error::<T, I>::NotMember.into())
@@ -762,6 +773,38 @@ pub mod pallet {
 		) -> Option<u16> {
 			use frame_support::traits::CallerTrait;
 			o.as_signed().and_then(Self::rank_of)
+		}
+
+		/// Ensure the correctness of the state of this pallet.
+		#[cfg(any(feature = "try-runtime", test))]
+		fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::try_state_members()?;
+
+			Ok(())
+		}
+
+		/// ### Invariants of Member storage items
+		///
+		/// 1. [`MemberCount`] == Number of index in [`Members`].
+		/// 2. Each entry in [`Members`] should be saved under a key equals to the number of
+		///    `Members`
+		/// [`MemberCount`].
+		#[cfg(any(feature = "try-runtime", test))]
+		fn try_state_members() -> Result<(), sp_runtime::TryRuntimeError> {
+			MemberCount::<T, I>::iter().try_for_each(|(rank, member_index)| -> DispatchResult {
+				let member_count_from_members_storage = Members::<T, I>::iter()
+					.filter(|(_, member_record)| member_record.rank == rank)
+					.count();
+
+				ensure!(
+				member_count_from_members_storage as u32 == member_index,
+				"`MemberCount` of a `Rank` should be equal to the number of members of a particular `Rank` in `Members`."
+				);
+
+				Ok(())
+			})?;
+
+			Ok(())
 		}
 	}
 
