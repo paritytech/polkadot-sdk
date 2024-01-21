@@ -2094,7 +2094,7 @@ impl State {
 				// Punish the peer for the invalid message.
 				modify_reputation(&mut self.reputation, sender, peer_id, COST_OVERSIZED_BITFIELD)
 					.await;
-				gum::error!(target: LOG_TARGET, block_hash = ?cert.block_hash, ?candidate_index, validator_index = ?cert.validator, kind = ?cert.cert.kind, "Bad assignment v1");
+				gum::debug!(target: LOG_TARGET, block_hash = ?cert.block_hash, ?candidate_index, validator_index = ?cert.validator, kind = ?cert.cert.kind, "Bad assignment v1, invalid candidate index");
 			} else {
 				sanitized_assignments.push((cert.into(), candidate_index.into()))
 			}
@@ -2138,7 +2138,7 @@ impl State {
 				modify_reputation(&mut self.reputation, sender, peer_id, COST_OVERSIZED_BITFIELD)
 					.await;
 				for candidate_index in candidate_bitfield.iter_ones() {
-					gum::error!(target: LOG_TARGET, block_hash = ?cert.block_hash, ?candidate_index, validator_index = ?cert.validator, "Bad assignment v2");
+					gum::debug!(target: LOG_TARGET, block_hash = ?cert.block_hash, ?candidate_index, validator_index = ?cert.validator, "Bad assignment v2, oversized bitfield");
 				}
 			} else {
 				sanitized_assignments.push((cert, candidate_bitfield))

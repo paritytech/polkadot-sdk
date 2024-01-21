@@ -22,7 +22,7 @@
 pub use bp_bridge_hub_cumulus::*;
 use bp_messages::*;
 use bp_runtime::{
-	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, Parachain,
+	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
 };
 use frame_support::dispatch::DispatchClass;
 use sp_runtime::RuntimeDebug;
@@ -32,6 +32,8 @@ use sp_runtime::RuntimeDebug;
 pub struct BridgeHubWestend;
 
 impl Chain for BridgeHubWestend {
+	const ID: ChainId = *b"bhwd";
+
 	type BlockNumber = BlockNumber;
 	type Hash = Hash;
 	type Hasher = Hasher;
@@ -56,6 +58,16 @@ impl Chain for BridgeHubWestend {
 
 impl Parachain for BridgeHubWestend {
 	const PARACHAIN_ID: u32 = BRIDGE_HUB_WESTEND_PARACHAIN_ID;
+}
+
+impl ChainWithMessages for BridgeHubWestend {
+	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str =
+		WITH_BRIDGE_HUB_WESTEND_MESSAGES_PALLET_NAME;
+
+	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce =
+		MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
+	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce =
+		MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 }
 
 /// Identifier of BridgeHubWestend in the Westend relay chain.

@@ -434,7 +434,7 @@ impl<T: Sized + AsMut<[u8]> + AsRef<[u8]> + Public + Derive> Ss58Codec for T {
 	fn from_string(s: &str) -> Result<Self, PublicError> {
 		let cap = AddressUri::parse(s)?;
 		if cap.pass.is_some() {
-			return Err(PublicError::PasswordNotAllowed);
+			return Err(PublicError::PasswordNotAllowed)
 		}
 		let s = cap.phrase.unwrap_or(DEV_ADDRESS);
 		let addr = if let Some(stripped) = s.strip_prefix("0x") {
@@ -454,7 +454,7 @@ impl<T: Sized + AsMut<[u8]> + AsRef<[u8]> + Public + Derive> Ss58Codec for T {
 	fn from_string_with_version(s: &str) -> Result<(Self, Ss58AddressFormat), PublicError> {
 		let cap = AddressUri::parse(s)?;
 		if cap.pass.is_some() {
-			return Err(PublicError::PasswordNotAllowed);
+			return Err(PublicError::PasswordNotAllowed)
 		}
 		let (addr, v) = Self::from_ss58check_with_version(cap.phrase.unwrap_or(DEV_ADDRESS))?;
 		if cap.paths.is_empty() {
@@ -593,14 +593,16 @@ impl std::fmt::Display for AccountId32 {
 }
 
 impl sp_std::fmt::Debug for AccountId32 {
-	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		let s = self.to_ss58check();
-		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.0), &s[0..8])
-	}
+		#[cfg(feature = "serde")]
+		{
+			let s = self.to_ss58check();
+			write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.0), &s[0..8])?;
+		}
 
-	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+		#[cfg(not(feature = "serde"))]
+		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.0))?;
+
 		Ok(())
 	}
 }

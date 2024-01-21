@@ -26,6 +26,7 @@ use sp_timestamp::Timestamp;
 /// Unit type wrapper that represents a slot.
 #[derive(Debug, Encode, MaxEncodedLen, Decode, Eq, Clone, Copy, Default, Ord, Hash, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[repr(transparent)]
 pub struct Slot(u64);
 
 impl core::ops::Deref for Slot {
@@ -135,6 +136,7 @@ impl From<Slot> for u64 {
 	Eq,
 	TypeInfo,
 )]
+#[repr(transparent)]
 pub struct SlotDuration(u64);
 
 impl SlotDuration {

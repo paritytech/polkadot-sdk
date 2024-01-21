@@ -16,6 +16,7 @@
 
 //! Utilities for testing runtime code.
 
+#![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use bp_header_chain::justification::{required_justification_precommits, GrandpaJustification};
@@ -33,8 +34,11 @@ pub use keyring::*;
 
 mod keyring;
 
+/// GRANDPA round number used across tests.
 pub const TEST_GRANDPA_ROUND: u64 = 1;
+/// GRANDPA validators set id used across tests.
 pub const TEST_GRANDPA_SET_ID: SetId = 1;
+/// Name of the `Paras` pallet used across tests.
 pub const PARAS_PALLET_NAME: &str = "Paras";
 
 /// Configuration parameters when generating test GRANDPA justifications.
@@ -190,7 +194,7 @@ pub fn prepare_parachain_heads_proof<H: HeaderT>(
 		.map_err(|_| "record_all_trie_keys has failed")
 		.expect("record_all_trie_keys should not fail in benchmarks");
 
-	(root, ParaHeadsProof(storage_proof), parachains)
+	(root, ParaHeadsProof { storage_proof }, parachains)
 }
 
 /// Create signed precommit with given target.
