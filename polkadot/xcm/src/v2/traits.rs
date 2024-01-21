@@ -292,11 +292,12 @@ pub type SendResult = result::Result<(), SendError>;
 ///     }
 /// }
 ///
-/// /// A sender that accepts a message that has an X2 junction, otherwise stops the routing.
+/// /// A sender that accepts a message that has two junctions, otherwise stops the routing.
 /// struct Sender2;
 /// impl SendXcm for Sender2 {
 ///     fn send_xcm(destination: impl Into<MultiLocation>, message: Xcm<()>) -> SendResult {
-///         if let MultiLocation { parents: 0, interior: X2(j1, j2) } = destination.into() {
+///         let destination = destination.into();
+///         if destination.parents == 0 && destination.interior.len() == 2 {
 ///             Ok(())
 ///         } else {
 ///             Err(SendError::Unroutable)

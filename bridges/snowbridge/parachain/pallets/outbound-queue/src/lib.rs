@@ -5,10 +5,10 @@
 //! # Overview
 //!
 //! Messages come either from sibling parachains via XCM, or BridgeHub itself
-//! via the `snowbridge-system` pallet:
+//! via the `snowbridge-pallet-system`:
 //!
 //! 1. `snowbridge_router_primitives::outbound::EthereumBlobExporter::deliver`
-//! 2. `snowbridge_system::Pallet::send`
+//! 2. `snowbridge_pallet_system::Pallet::send`
 //!
 //! The message submission pipeline works like this:
 //! 1. The message is first validated via the implementation for
@@ -109,7 +109,7 @@ use sp_runtime::{
 	DigestItem,
 };
 use sp_std::prelude::*;
-pub use types::{CommittedMessage, FeeConfigRecord, ProcessMessageOriginOf};
+pub use types::{CommittedMessage, ProcessMessageOriginOf};
 pub use weights::WeightInfo;
 
 pub use pallet::*;
@@ -186,12 +186,7 @@ pub mod pallet {
 			count: u64,
 		},
 		/// Set OperatingMode
-		OperatingModeChanged {
-			mode: BasicOperatingMode,
-		},
-		FeeConfigChanged {
-			fee_config: FeeConfigRecord,
-		},
+		OperatingModeChanged { mode: BasicOperatingMode },
 	}
 
 	#[pallet::error]
@@ -200,8 +195,6 @@ pub mod pallet {
 		MessageTooLarge,
 		/// The pallet is halted
 		Halted,
-		// Invalid fee config
-		InvalidFeeConfig,
 		/// Invalid Channel
 		InvalidChannel,
 	}
