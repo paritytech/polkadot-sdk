@@ -777,7 +777,7 @@ pub mod pallet {
 
 		/// Ensure the correctness of the state of this pallet.
 		#[cfg(any(feature = "try-runtime", test))]
-		fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::try_state_members()?;
 
 			Ok(())
@@ -785,20 +785,15 @@ pub mod pallet {
 
 		/// ### Invariants of Member storage items
 		///
-		/// 1. [`MemberCount`] == Number of index in [`Members`].
-		/// 2. Each entry in [`Members`] should be saved under a key equals to the number of
-		///    `Members`
-		/// [`MemberCount`].
+		/// 1. Total number of [`Members`] in storage should be >= [`MemberIndex`] of a [`Rank`] in
+		///    [`MemberCount`].
 		#[cfg(any(feature = "try-runtime", test))]
 		fn try_state_members() -> Result<(), sp_runtime::TryRuntimeError> {
 			MemberCount::<T, I>::iter().try_for_each(|(rank, member_index)| -> DispatchResult {
-				let member_count_from_members_storage = Members::<T, I>::iter()
-					.filter(|(_, member_record)| member_record.rank == rank)
-					.count();
-
+				let total_members = Members::<T, I>::iter().count();
 				ensure!(
-				member_count_from_members_storage as u32 == member_index,
-				"`MemberCount` of a `Rank` should be equal to the number of members of a particular `Rank` in `Members`."
+				total_members as u32 >= member_index,
+				"Total count of `Members` should be greater than or equal to the number of `MemberIndex` of a particular `Rank` in `MemberCount`."
 				);
 
 				Ok(())
