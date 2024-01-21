@@ -9029,16 +9029,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "os_pipe"
-version = "1.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ae859aa07428ca9a929b936690f8b12dc5f11dd8c6992a18ca93919f28bc177"
-dependencies = [
- "libc",
- "windows-sys 0.48.0",
-]
-
-[[package]]
 name = "os_str_bytes"
 version = "6.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -12744,6 +12734,7 @@ dependencies = [
  "futures",
  "landlock",
  "libc",
+ "nix 0.27.1",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
@@ -12764,10 +12755,10 @@ dependencies = [
 name = "polkadot-node-core-pvf-execute-worker"
 version = "1.0.0"
 dependencies = [
+ "cfg-if",
  "cpu-time",
  "libc",
  "nix 0.27.1",
- "os_pipe",
  "parity-scale-codec",
  "polkadot-node-core-pvf-common",
  "polkadot-parachain-primitives",
@@ -12784,7 +12775,6 @@ dependencies = [
  "criterion 0.4.0",
  "libc",
  "nix 0.27.1",
- "os_pipe",
  "parity-scale-codec",
  "polkadot-node-core-pvf-common",
  "polkadot-primitives",
