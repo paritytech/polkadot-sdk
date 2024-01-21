@@ -31,8 +31,6 @@ pub use sp_tracing;
 
 const LOG_TARGET: &str = "parachain::pvf-common";
 
-pub const RUNTIME_VERSION: &str = env!("SUBSTRATE_WASMTIME_VERSION");
-
 use parity_scale_codec::{Decode, Encode};
 use std::{
 	io::{self, Read, Write},

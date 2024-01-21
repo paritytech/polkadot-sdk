@@ -19,7 +19,7 @@ use bridge_hub_rococo_runtime::xcm_config::XcmConfig;
 #[test]
 fn teleport_to_other_system_parachains_works() {
 	let amount = BRIDGE_HUB_ROCOCO_ED * 100;
-	let native_asset: MultiAssets = (Parent, amount).into();
+	let native_asset: Assets = (Parent, amount).into();
 
 	test_parachain_is_trusted_teleporter!(
 		BridgeHubRococo,      // Origin

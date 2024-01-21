@@ -609,7 +609,7 @@ fn recv_child_response(received_data: &mut io::BufReader<&[u8]>) -> io::Result<J
 	JobResult::decode(&mut response_bytes.as_slice()).map_err(|e| {
 		io::Error::new(
 			io::ErrorKind::Other,
-			format!("execute pvf recv_child_response: decode error: {:?}", e),
+			format!("execute pvf recv_child_response: decode error: {}", e),
 		)
 	})
 }
