@@ -2617,7 +2617,7 @@
 			<span class="kw">let _ </span>= pulse.next().<span class="kw">await</span>.unwrap();
 
 			<span class="kw">let </span>el = start.elapsed().as_millis();
-			<span class="macro">assert!</span>(el &gt; <span class="number">50 </span>&amp;&amp; el &lt; <span class="number">150</span>, <span class="string">&quot;{}&quot;</span>, el);
+			<span class="macro">assert!</span>(el &gt; <span class="number">50 </span>&amp;&amp; el &lt; <span class="number">150</span>, <span class="string">&quot;pulse duration: {}&quot;</span>, el);
 		}
 	}
 

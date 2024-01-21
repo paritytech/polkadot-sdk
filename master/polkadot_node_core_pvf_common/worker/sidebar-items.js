@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["JOB_TIMEOUT_OVERHEAD"],"enum":["WorkerKind"],"fn":["cpu_time_monitor_loop","run_worker","stringify_panic_payload"],"mod":["security","thread"],"struct":["WorkerInfo"]};
+window.SIDEBAR_ITEMS = {"constant":["JOB_TIMEOUT_OVERHEAD"],"enum":["WorkerKind"],"fn":["cpu_time_monitor_loop","pipe2_cloexec","run_worker","stringify_panic_payload"],"mod":["security","thread"],"struct":["PipeFd","WorkerInfo"]};

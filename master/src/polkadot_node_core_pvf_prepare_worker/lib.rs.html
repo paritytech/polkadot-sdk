@@ -684,6 +684,114 @@
 <a href="#684" id="684">684</a>
 <a href="#685" id="685">685</a>
 <a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -704,8 +812,6 @@
 
 </span><span class="kw">mod </span>memory_stats;
 
-<span class="kw">use </span>polkadot_node_core_pvf_common::executor_interface::{prepare, prevalidate};
-
 <span class="comment">// NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-prepare-worker=trace`.
 </span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;parachain::pvf-prepare-worker&quot;</span>;
@@ -723,7 +829,11 @@
 	},
 	unistd::{ForkResult, Pid},
 };
-<span class="kw">use </span>os_pipe::{<span class="self">self</span>, PipeReader, PipeWriter};
+<span class="kw">use </span>polkadot_node_core_pvf_common::{
+	executor_interface::{prepare, prevalidate},
+	worker::{pipe2_cloexec, PipeFd, WorkerInfo},
+};
+
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareWorkerResult},
@@ -743,10 +853,10 @@
 	fs,
 	io::{<span class="self">self</span>, Read},
 	os::{
-		fd::{AsRawFd, RawFd},
+		fd::{AsRawFd, FromRawFd, RawFd},
 		unix::net::UnixStream,
 	},
-	path::PathBuf,
+	path::{Path, PathBuf},
 	process,
 	sync::{mpsc::channel, Arc},
 	time::Duration,
@@ -761,6 +871,16 @@
 <span class="attr">#[cfg(not(any(target_os = <span class="string">&quot;linux&quot;</span>, feature = <span class="string">&quot;jemalloc-allocator&quot;</span>)))]
 #[global_allocator]
 </span><span class="kw">static </span>ALLOC: TrackingAllocator&lt;std::alloc::System&gt; = TrackingAllocator(std::alloc::System);
+
+<span class="doccomment">/// The number of threads for the child process:
+/// 1 - Main thread
+/// 2 - Cpu monitor thread
+/// 3 - Memory tracker thread
+/// 4 - Prepare thread
+///
+/// NOTE: The correctness of this value is enforced by a test. If the number of threads inside
+/// the child process changes in the future, this value must be changed as well.
+</span><span class="kw">pub const </span>PREPARE_WORKER_THREAD_NUMBER: u32 = <span class="number">4</span>;
 
 <span class="doccomment">/// Contains the bytes for a successfully compiled artifact.
 </span><span class="attr">#[derive(Encode, Decode)]
@@ -886,15 +1006,15 @@
 		worker_dir_path,
 		node_version,
 		worker_version,
-		|<span class="kw-2">mut </span>stream, worker_dir_path| {
-			<span class="kw">let </span>worker_pid = process::id();
-			<span class="kw">let </span>temp_artifact_dest = worker_dir::prepare_tmp_artifact(<span class="kw-2">&amp;</span>worker_dir_path);
+		|<span class="kw-2">mut </span>stream, worker_info, security_status| {
+			<span class="kw">let </span>temp_artifact_dest = worker_dir::prepare_tmp_artifact(<span class="kw-2">&amp;</span>worker_info.worker_dir_path);
 
 			<span class="kw">loop </span>{
 				<span class="kw">let </span>pvf = recv_request(<span class="kw-2">&amp;mut </span>stream)<span class="question-mark">?</span>;
 				<span class="macro">gum::debug!</span>(
 					target: LOG_TARGET,
-					%worker_pid,
+					<span class="question-mark">?</span>worker_info,
+					<span class="question-mark">?</span>security_status,
 					<span class="string">&quot;worker: preparing artifact&quot;</span>,
 				);
 
@@ -902,7 +1022,7 @@
 				<span class="kw">let </span>prepare_job_kind = pvf.prep_kind();
 				<span class="kw">let </span>executor_params = pvf.executor_params();
 
-				<span class="kw">let </span>(pipe_reader, pipe_writer) = os_pipe::pipe()<span class="question-mark">?</span>;
+				<span class="kw">let </span>(pipe_read_fd, pipe_write_fd) = pipe2_cloexec()<span class="question-mark">?</span>;
 
 				<span class="kw">let </span>usage_before = <span class="kw">match </span>nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
 					<span class="prelude-val">Ok</span>(usage) =&gt; usage,
@@ -913,46 +1033,58 @@
 					</span>},
 				};
 
-				<span class="comment">// SAFETY: new process is spawned within a single threaded process. This invariant
-				// is enforced by tests.
-				</span><span class="kw">let </span>result = <span class="kw">match unsafe </span>{ nix::unistd::fork() } {
-					<span class="prelude-val">Err</span>(errno) =&gt; <span class="prelude-val">Err</span>(error_from_errno(<span class="string">&quot;fork&quot;</span>, errno)),
-					<span class="prelude-val">Ok</span>(ForkResult::Child) =&gt; {
-						<span class="comment">// Dropping the stream closes the underlying socket. We want to make sure
-						// that the sandboxed child can&#39;t get any kind of information from the
-						// outside world. The only IPC it should be able to do is sending its
-						// response over the pipe.
-						</span>drop(stream);
-						<span class="comment">// Drop the read end so we don&#39;t have too many FDs open.
-						</span>drop(pipe_reader);
+				<span class="kw">let </span>stream_fd = stream.as_raw_fd();
 
-						handle_child_process(
-							pvf,
-							pipe_writer,
+				<span class="macro">cfg_if::cfg_if! </span>{
+					<span class="kw">if </span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)] </span>{
+						<span class="kw">let </span>result = <span class="kw">if </span>security_status.can_do_secure_clone {
+							handle_clone(
+								<span class="kw-2">&amp;</span>pvf,
+								pipe_write_fd,
+								pipe_read_fd,
+								stream_fd,
+								preparation_timeout,
+								prepare_job_kind,
+								<span class="kw-2">&amp;</span>executor_params,
+								worker_info,
+								security_status.can_unshare_user_namespace_and_change_root,
+								<span class="kw-2">&amp;</span>temp_artifact_dest,
+								usage_before,
+							)
+						} <span class="kw">else </span>{
+							<span class="comment">// Fall back to using fork.
+							</span>handle_fork(
+								<span class="kw-2">&amp;</span>pvf,
+								pipe_write_fd,
+								pipe_read_fd,
+								stream_fd,
+								preparation_timeout,
+								prepare_job_kind,
+								<span class="kw-2">&amp;</span>executor_params,
+								worker_info,
+								<span class="kw-2">&amp;</span>temp_artifact_dest,
+								usage_before,
+							)
+						};
+					} <span class="kw">else </span>{
+						<span class="kw">let </span>result = handle_fork(
+							<span class="kw-2">&amp;</span>pvf,
+							pipe_write_fd,
+							pipe_read_fd,
+							stream_fd,
 							preparation_timeout,
 							prepare_job_kind,
-							executor_params,
-						)
-					},
-					<span class="prelude-val">Ok</span>(ForkResult::Parent { child }) =&gt; {
-						<span class="comment">// the read end will wait until all write ends have been closed,
-						// this drop is necessary to avoid deadlock
-						</span>drop(pipe_writer);
-
-						handle_parent_process(
-							pipe_reader,
-							worker_pid,
-							child,
-							temp_artifact_dest.clone(),
+							<span class="kw-2">&amp;</span>executor_params,
+							worker_info,
+							<span class="kw-2">&amp;</span>temp_artifact_dest,
 							usage_before,
-							preparation_timeout,
-						)
-					},
-				};
+						);
+					}
+				}
 
 				<span class="macro">gum::trace!</span>(
 					target: LOG_TARGET,
-					%worker_pid,
+					<span class="question-mark">?</span>worker_info,
 					<span class="string">&quot;worker: sending result to host: {:?}&quot;</span>,
 					result
 				);
@@ -992,21 +1124,94 @@
 	memory_stats: MemoryStats,
 }
 
+<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+</span><span class="kw">fn </span>handle_clone(
+	pvf: <span class="kw-2">&amp;</span>PvfPrepData,
+	pipe_write_fd: i32,
+	pipe_read_fd: i32,
+	stream_fd: i32,
+	preparation_timeout: Duration,
+	prepare_job_kind: PrepareJobKind,
+	executor_params: <span class="kw-2">&amp;</span>Arc&lt;ExecutorParams&gt;,
+	worker_info: <span class="kw-2">&amp;</span>WorkerInfo,
+	have_unshare_newuser: bool,
+	temp_artifact_dest: <span class="kw-2">&amp;</span>Path,
+	usage_before: Usage,
+) -&gt; <span class="prelude-ty">Result</span>&lt;PrepareWorkerSuccess, PrepareError&gt; {
+	<span class="kw">use </span>polkadot_node_core_pvf_common::worker::security;
+
+	<span class="comment">// SAFETY: new process is spawned within a single threaded process. This invariant
+	// is enforced by tests. Stack size being specified to ensure child doesn&#39;t overflow
+	</span><span class="kw">match unsafe </span>{
+		security::clone::clone_on_worker(
+			worker_info,
+			have_unshare_newuser,
+			Box::new(|| {
+				handle_child_process(
+					pvf.clone(),
+					pipe_write_fd,
+					pipe_read_fd,
+					stream_fd,
+					preparation_timeout,
+					prepare_job_kind,
+					Arc::clone(<span class="kw-2">&amp;</span>executor_params),
+				)
+			}),
+		)
+	} {
+		<span class="prelude-val">Ok</span>(child) =&gt; handle_parent_process(
+			pipe_read_fd,
+			pipe_write_fd,
+			worker_info,
+			child,
+			temp_artifact_dest,
+			usage_before,
+			preparation_timeout,
+		),
+		<span class="prelude-val">Err</span>(security::clone::Error::Clone(errno)) =&gt; <span class="prelude-val">Err</span>(error_from_errno(<span class="string">&quot;clone&quot;</span>, errno)),
+	}
+}
+
+<span class="kw">fn </span>handle_fork(
+	pvf: <span class="kw-2">&amp;</span>PvfPrepData,
+	pipe_write_fd: i32,
+	pipe_read_fd: i32,
+	stream_fd: i32,
+	preparation_timeout: Duration,
+	prepare_job_kind: PrepareJobKind,
+	executor_params: <span class="kw-2">&amp;</span>Arc&lt;ExecutorParams&gt;,
+	worker_info: <span class="kw-2">&amp;</span>WorkerInfo,
+	temp_artifact_dest: <span class="kw-2">&amp;</span>Path,
+	usage_before: Usage,
+) -&gt; <span class="prelude-ty">Result</span>&lt;PrepareWorkerSuccess, PrepareError&gt; {
+	<span class="comment">// SAFETY: new process is spawned within a single threaded process. This invariant
+	// is enforced by tests.
+	</span><span class="kw">match unsafe </span>{ nix::unistd::fork() } {
+		<span class="prelude-val">Ok</span>(ForkResult::Child) =&gt; handle_child_process(
+			pvf.clone(),
+			pipe_write_fd,
+			pipe_read_fd,
+			stream_fd,
+			preparation_timeout,
+			prepare_job_kind,
+			Arc::clone(executor_params),
+		),
+		<span class="prelude-val">Ok</span>(ForkResult::Parent { child }) =&gt; handle_parent_process(
+			pipe_read_fd,
+			pipe_write_fd,
+			worker_info,
+			child,
+			temp_artifact_dest,
+			usage_before,
+			preparation_timeout,
+		),
+		<span class="prelude-val">Err</span>(errno) =&gt; <span class="prelude-val">Err</span>(error_from_errno(<span class="string">&quot;fork&quot;</span>, errno)),
+	}
+}
+
 <span class="doccomment">/// This is used to handle child process during pvf prepare worker.
 /// It prepares the artifact and tracks memory stats during preparation
-/// and pipes back the response to the parent process
-///
-/// # Arguments
-///
-/// - `pvf`: `PvfPrepData` structure, containing data to prepare the artifact
-///
-/// - `pipe_write`: A `PipeWriter` structure, the writing end of a pipe.
-///
-/// - `preparation_timeout`: The timeout in `Duration`.
-///
-/// - `prepare_job_kind`: The kind of prepare job.
-///
-/// - `executor_params`: Deterministically serialized execution environment semantics.
+/// and pipes back the response to the parent process.
 ///
 /// # Returns
 ///
@@ -1015,19 +1220,34 @@
 /// - If success, pipe back `JobResponse`.
 </span><span class="kw">fn </span>handle_child_process(
 	pvf: PvfPrepData,
-	<span class="kw-2">mut </span>pipe_write: PipeWriter,
+	pipe_write_fd: i32,
+	pipe_read_fd: i32,
+	stream_fd: i32,
 	preparation_timeout: Duration,
 	prepare_job_kind: PrepareJobKind,
 	executor_params: Arc&lt;ExecutorParams&gt;,
 ) -&gt; ! {
-	<span class="comment">// Terminate if the parent thread dies. Parent thread == worker process (it is single-threaded).
-	//
-	// RACE: the worker may die before we install the death signal. In practice this is unlikely,
-	// and most of the time the job process should terminate on its own when it completes.
-	</span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
-	</span>nix::sys::prctl::set_pdeathsig(nix::sys::signal::Signal::SIGTERM).unwrap_or_else(|err| {
-		send_child_response(<span class="kw-2">&amp;mut </span>pipe_write, <span class="prelude-val">Err</span>(PrepareError::IoErr(err.to_string())))
-	});
+	<span class="comment">// SAFETY: pipe_writer is an open and owned file descriptor at this point.
+	</span><span class="kw">let </span><span class="kw-2">mut </span>pipe_write = <span class="kw">unsafe </span>{ PipeFd::from_raw_fd(pipe_write_fd) };
+
+	<span class="comment">// Drop the read end so we don&#39;t have too many FDs open.
+	</span><span class="kw">if let </span><span class="prelude-val">Err</span>(errno) = nix::unistd::close(pipe_read_fd) {
+		send_child_response(
+			<span class="kw-2">&amp;mut </span>pipe_write,
+			JobResult::Err(error_from_errno(<span class="string">&quot;closing pipe&quot;</span>, errno)),
+		);
+	}
+
+	<span class="comment">// Dropping the stream closes the underlying socket. We want to make sure
+	// that the sandboxed child can&#39;t get any kind of information from the
+	// outside world. The only IPC it should be able to do is sending its
+	// response over the pipe.
+	</span><span class="kw">if let </span><span class="prelude-val">Err</span>(errno) = nix::unistd::close(stream_fd) {
+		send_child_response(
+			<span class="kw-2">&amp;mut </span>pipe_write,
+			JobResult::Err(error_from_errno(<span class="string">&quot;error closing stream&quot;</span>, errno)),
+		);
+	}
 
 	<span class="kw">let </span>worker_job_pid = process::id();
 	<span class="macro">gum::debug!</span>(
@@ -1175,20 +1395,6 @@
 
 <span class="doccomment">/// Waits for child process to finish and handle child response from pipe.
 ///
-/// # Arguments
-///
-/// - `pipe_read`: A `PipeReader` used to read data from the child process.
-///
-/// - `child`: The child pid.
-///
-/// - `temp_artifact_dest`: The destination `PathBuf` to write the temporary artifact file.
-///
-/// - `worker_pid`: The PID of the child process.
-///
-/// - `usage_before`: Resource usage statistics before executing the child process.
-///
-/// - `timeout`: The maximum allowed time for the child process to finish, in `Duration`.
-///
 /// # Returns
 ///
 /// - If the child send response without an error, this function returns `Ok(PrepareStats)`
@@ -1198,13 +1404,23 @@
 ///
 /// - If the child process timeout, it returns `PrepareError::TimedOut`.
 </span><span class="kw">fn </span>handle_parent_process(
-	<span class="kw-2">mut </span>pipe_read: PipeReader,
-	worker_pid: u32,
+	pipe_read_fd: i32,
+	pipe_write_fd: i32,
+	worker_info: <span class="kw-2">&amp;</span>WorkerInfo,
 	job_pid: Pid,
-	temp_artifact_dest: PathBuf,
+	temp_artifact_dest: <span class="kw-2">&amp;</span>Path,
 	usage_before: Usage,
 	timeout: Duration,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;PrepareWorkerSuccess, PrepareError&gt; {
+	<span class="comment">// the read end will wait until all write ends have been closed,
+	// this drop is necessary to avoid deadlock
+	</span><span class="kw">if let </span><span class="prelude-val">Err</span>(errno) = nix::unistd::close(pipe_write_fd) {
+		<span class="kw">return </span><span class="prelude-val">Err</span>(error_from_errno(<span class="string">&quot;closing pipe write fd&quot;</span>, errno));
+	};
+
+	<span class="comment">// SAFETY: this is an open and owned file descriptor at this point.
+	</span><span class="kw">let </span><span class="kw-2">mut </span>pipe_read = <span class="kw">unsafe </span>{ PipeFd::from_raw_fd(pipe_read_fd) };
+
 	<span class="comment">// Read from the child. Don&#39;t decode unless the process exited normally, which we check later.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>received_data = Vec::new();
 	pipe_read
@@ -1214,7 +1430,7 @@
 	<span class="kw">let </span>status = nix::sys::wait::waitpid(job_pid, <span class="prelude-val">None</span>);
 	<span class="macro">gum::trace!</span>(
 		target: LOG_TARGET,
-		%worker_pid,
+		<span class="question-mark">?</span>worker_info,
 		%job_pid,
 		<span class="string">&quot;prepare worker received wait status from job: {:?}&quot;</span>,
 		status,
@@ -1232,7 +1448,7 @@
 	<span class="kw">if </span>cpu_tv &gt;= timeout {
 		<span class="macro">gum::warn!</span>(
 			target: LOG_TARGET,
-			%worker_pid,
+			<span class="question-mark">?</span>worker_info,
 			%job_pid,
 			<span class="string">&quot;prepare job took {}ms cpu time, exceeded prepare timeout {}ms&quot;</span>,
 			cpu_tv.as_millis(),
@@ -1267,13 +1483,13 @@
 					// success.
 					</span><span class="macro">gum::debug!</span>(
 						target: LOG_TARGET,
-						%worker_pid,
+						<span class="question-mark">?</span>worker_info,
 						%job_pid,
 						<span class="string">&quot;worker: writing artifact to {}&quot;</span>,
 						temp_artifact_dest.display(),
 					);
 					<span class="comment">// Write to the temp file created by the host.
-					</span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = fs::write(<span class="kw-2">&amp;</span>temp_artifact_dest, <span class="kw-2">&amp;</span>artifact) {
+					</span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = fs::write(temp_artifact_dest, <span class="kw-2">&amp;</span>artifact) {
 						<span class="kw">return </span><span class="prelude-val">Err</span>(PrepareError::IoErr(err.to_string()))
 					};
 
@@ -1337,10 +1553,10 @@
 ///
 /// # Arguments
 ///
-/// - `pipe_write`: A `PipeWriter` structure, the writing end of a pipe.
+/// - `pipe_write`: A `PipeFd` structure, the writing end of a pipe.
 ///
 /// - `response`: Child process response
-</span><span class="kw">fn </span>send_child_response(pipe_write: <span class="kw-2">&amp;mut </span>PipeWriter, response: JobResult) -&gt; ! {
+</span><span class="kw">fn </span>send_child_response(pipe_write: <span class="kw-2">&amp;mut </span>PipeFd, response: JobResult) -&gt; ! {
 	framed_send_blocking(pipe_write, response.encode().as_slice())
 		.unwrap_or_else(|<span class="kw">_</span>| process::exit(libc::EXIT_FAILURE));
 

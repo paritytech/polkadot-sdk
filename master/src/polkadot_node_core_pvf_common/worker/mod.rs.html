@@ -664,6 +664,102 @@
 <a href="#664" id="664">664</a>
 <a href="#665" id="665">665</a>
 <a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -684,14 +780,19 @@
 
 </span><span class="kw">pub mod </span>security;
 
-<span class="kw">use crate</span>::{framed_recv_blocking, WorkerHandshake, LOG_TARGET};
+<span class="kw">use crate</span>::{framed_recv_blocking, SecurityStatus, WorkerHandshake, LOG_TARGET};
 <span class="kw">use </span>cpu_time::ProcessTime;
 <span class="kw">use </span>futures::never::Never;
 <span class="kw">use </span>parity_scale_codec::Decode;
 <span class="kw">use </span>std::{
 	any::Any,
-	fmt, io,
-	os::unix::net::UnixStream,
+	fmt::{<span class="self">self</span>},
+	fs::File,
+	io::{<span class="self">self</span>, Read, Write},
+	os::{
+		fd::{AsRawFd, FromRawFd, RawFd},
+		unix::net::UnixStream,
+	},
 	path::PathBuf,
 	sync::mpsc::{Receiver, RecvTimeoutError},
 	time::Duration,
@@ -744,7 +845,7 @@
 
 				<span class="string">&quot;--check-can-enable-landlock&quot; </span>=&gt; {
 					<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
-					</span><span class="kw">let </span>status = <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = security::landlock::check_is_fully_enabled() {
+					</span><span class="kw">let </span>status = <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = security::landlock::check_can_fully_enable() {
 						<span class="comment">// Write the error to stderr, log it on the host-side.
 						</span><span class="macro">eprintln!</span>(<span class="string">&quot;{}&quot;</span>, err);
 						-<span class="number">1
@@ -757,7 +858,7 @@
 				},
 				<span class="string">&quot;--check-can-enable-seccomp&quot; </span>=&gt; {
 					<span class="attr">#[cfg(all(target_os = <span class="string">&quot;linux&quot;</span>, target_arch = <span class="string">&quot;x86_64&quot;</span>))]
-					</span><span class="kw">let </span>status = <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = security::seccomp::check_is_fully_enabled() {
+					</span><span class="kw">let </span>status = <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = security::seccomp::check_can_fully_enable() {
 						<span class="comment">// Write the error to stderr, log it on the host-side.
 						</span><span class="macro">eprintln!</span>(<span class="string">&quot;{}&quot;</span>, err);
 						-<span class="number">1
@@ -773,8 +874,23 @@
 					</span><span class="kw">let </span>cache_path_tempdir = std::path::Path::new(<span class="kw-2">&amp;</span>args[<span class="number">2</span>]);
 					<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
 					</span><span class="kw">let </span>status = <span class="kw">if let </span><span class="prelude-val">Err</span>(err) =
-						security::change_root::check_is_fully_enabled(<span class="kw-2">&amp;</span>cache_path_tempdir)
+						security::change_root::check_can_fully_enable(<span class="kw-2">&amp;</span>cache_path_tempdir)
 					{
+						<span class="comment">// Write the error to stderr, log it on the host-side.
+						</span><span class="macro">eprintln!</span>(<span class="string">&quot;{}&quot;</span>, err);
+						-<span class="number">1
+					</span>} <span class="kw">else </span>{
+						<span class="number">0
+					</span>};
+					<span class="attr">#[cfg(not(target_os = <span class="string">&quot;linux&quot;</span>))]
+					</span><span class="kw">let </span>status = -<span class="number">1</span>;
+					std::process::exit(status)
+				},
+				<span class="string">&quot;--check-can-do-secure-clone&quot; </span>=&gt; {
+					<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+					</span><span class="comment">// SAFETY: new process is spawned within a single threaded process. This
+					// invariant is enforced by tests.
+					</span><span class="kw">let </span>status = <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="kw">unsafe </span>{ security::clone::check_can_fully_clone() } {
 						<span class="comment">// Write the error to stderr, log it on the host-side.
 						</span><span class="macro">eprintln!</span>(<span class="string">&quot;{}&quot;</span>, err);
 						-<span class="number">1
@@ -837,6 +953,84 @@
 	};
 }
 
+<span class="comment">//taken from the os_pipe crate. Copied here to reduce one dependency and
+// because its type-safe abstractions do not play well with nix&#39;s clone
+</span><span class="attr">#[cfg(not(target_os = <span class="string">&quot;macos&quot;</span>))]
+</span><span class="kw">pub fn </span>pipe2_cloexec() -&gt; io::Result&lt;(libc::c_int, libc::c_int)&gt; {
+	<span class="kw">let </span><span class="kw-2">mut </span>fds: [libc::c_int; <span class="number">2</span>] = [<span class="number">0</span>; <span class="number">2</span>];
+	<span class="kw">let </span>res = <span class="kw">unsafe </span>{ libc::pipe2(fds.as_mut_ptr(), libc::O_CLOEXEC) };
+	<span class="kw">if </span>res != <span class="number">0 </span>{
+		<span class="kw">return </span><span class="prelude-val">Err</span>(io::Error::last_os_error())
+	}
+	<span class="prelude-val">Ok</span>((fds[<span class="number">0</span>], fds[<span class="number">1</span>]))
+}
+
+<span class="attr">#[cfg(target_os = <span class="string">&quot;macos&quot;</span>)]
+</span><span class="kw">pub fn </span>pipe2_cloexec() -&gt; io::Result&lt;(libc::c_int, libc::c_int)&gt; {
+	<span class="kw">let </span><span class="kw-2">mut </span>fds: [libc::c_int; <span class="number">2</span>] = [<span class="number">0</span>; <span class="number">2</span>];
+	<span class="kw">let </span>res = <span class="kw">unsafe </span>{ libc::pipe(fds.as_mut_ptr()) };
+	<span class="kw">if </span>res != <span class="number">0 </span>{
+		<span class="kw">return </span><span class="prelude-val">Err</span>(io::Error::last_os_error())
+	}
+	<span class="kw">let </span>res = <span class="kw">unsafe </span>{ libc::fcntl(fds[<span class="number">0</span>], libc::F_SETFD, libc::FD_CLOEXEC) };
+	<span class="kw">if </span>res != <span class="number">0 </span>{
+		<span class="kw">return </span><span class="prelude-val">Err</span>(io::Error::last_os_error())
+	}
+	<span class="kw">let </span>res = <span class="kw">unsafe </span>{ libc::fcntl(fds[<span class="number">1</span>], libc::F_SETFD, libc::FD_CLOEXEC) };
+	<span class="kw">if </span>res != <span class="number">0 </span>{
+		<span class="kw">return </span><span class="prelude-val">Err</span>(io::Error::last_os_error())
+	}
+	<span class="prelude-val">Ok</span>((fds[<span class="number">0</span>], fds[<span class="number">1</span>]))
+}
+
+<span class="doccomment">/// A wrapper around a file descriptor used to encapsulate and restrict
+/// functionality for pipe operations.
+</span><span class="kw">pub struct </span>PipeFd {
+	file: File,
+}
+
+<span class="kw">impl </span>AsRawFd <span class="kw">for </span>PipeFd {
+	<span class="doccomment">/// Returns the raw file descriptor associated with this `PipeFd`
+	</span><span class="kw">fn </span>as_raw_fd(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RawFd {
+		<span class="self">self</span>.file.as_raw_fd()
+	}
+}
+
+<span class="kw">impl </span>FromRawFd <span class="kw">for </span>PipeFd {
+	<span class="doccomment">/// Creates a new `PipeFd` instance from a raw file descriptor.
+	///
+	/// # Safety
+	///
+	/// The fd passed in must be an owned file descriptor; in particular, it must be open.
+	</span><span class="kw">unsafe fn </span>from_raw_fd(fd: RawFd) -&gt; <span class="self">Self </span>{
+		PipeFd { file: File::from_raw_fd(fd) }
+	}
+}
+
+<span class="kw">impl </span>Read <span class="kw">for </span>PipeFd {
+	<span class="kw">fn </span>read(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[u8]) -&gt; io::Result&lt;usize&gt; {
+		<span class="self">self</span>.file.read(buf)
+	}
+
+	<span class="kw">fn </span>read_to_end(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>Vec&lt;u8&gt;) -&gt; io::Result&lt;usize&gt; {
+		<span class="self">self</span>.file.read_to_end(buf)
+	}
+}
+
+<span class="kw">impl </span>Write <span class="kw">for </span>PipeFd {
+	<span class="kw">fn </span>write(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;</span>[u8]) -&gt; io::Result&lt;usize&gt; {
+		<span class="self">self</span>.file.write(buf)
+	}
+
+	<span class="kw">fn </span>flush(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;()&gt; {
+		<span class="self">self</span>.file.flush()
+	}
+
+	<span class="kw">fn </span>write_all(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;</span>[u8]) -&gt; io::Result&lt;()&gt; {
+		<span class="self">self</span>.file.write_all(buf)
+	}
+}
+
 <span class="doccomment">/// Some allowed overhead that we account for in the &quot;CPU time monitor&quot; thread&#39;s sleeps, on the
 /// child process.
 </span><span class="kw">pub const </span>JOB_TIMEOUT_OVERHEAD: Duration = Duration::from_millis(<span class="number">50</span>);
@@ -858,14 +1052,12 @@
 	}
 }
 
-<span class="comment">// Some fields are only used for logging, and dead-code analysis ignores Debug.
-</span><span class="attr">#[allow(dead_code)]
-#[derive(Debug)]
+<span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>WorkerInfo {
-	pid: u32,
-	kind: WorkerKind,
-	version: <span class="prelude-ty">Option</span>&lt;String&gt;,
-	worker_dir_path: PathBuf,
+	<span class="kw">pub </span>pid: u32,
+	<span class="kw">pub </span>kind: WorkerKind,
+	<span class="kw">pub </span>version: <span class="prelude-ty">Option</span>&lt;String&gt;,
+	<span class="kw">pub </span>worker_dir_path: PathBuf,
 }
 
 <span class="comment">// NOTE: The worker version must be passed in so that we accurately get the version of the worker,
@@ -884,7 +1076,7 @@
 	worker_version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
 	<span class="kw-2">mut </span>event_loop: F,
 ) <span class="kw">where
-	</span>F: FnMut(UnixStream, PathBuf) -&gt; io::Result&lt;Never&gt;,
+	</span>F: FnMut(UnixStream, <span class="kw-2">&amp;</span>WorkerInfo, SecurityStatus) -&gt; io::Result&lt;Never&gt;,
 {
 	<span class="attr">#[cfg_attr(not(target_os = <span class="string">&quot;linux&quot;</span>), allow(unused_mut))]
 	</span><span class="kw">let </span><span class="kw-2">mut </span>worker_info = WorkerInfo {
@@ -916,11 +1108,8 @@
 	}
 
 	<span class="comment">// Make sure that we can read the worker dir path, and log its contents.
-	</span><span class="kw">let </span>entries = || -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, io::Error&gt; {
-		std::fs::read_dir(<span class="kw-2">&amp;</span>worker_info.worker_dir_path)<span class="question-mark">?
-			</span>.map(|res| res.map(|e| e.file_name()))
-			.collect()
-	}();
+	</span><span class="kw">let </span>entries: io::Result&lt;Vec&lt;<span class="kw">_</span>&gt;&gt; = std::fs::read_dir(<span class="kw-2">&amp;</span>worker_info.worker_dir_path)
+		.and_then(|d| d.map(|res| res.map(|e| e.file_name())).collect());
 	<span class="kw">match </span>entries {
 		<span class="prelude-val">Ok</span>(entries) =&gt;
 			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>worker_info, <span class="string">&quot;content of worker dir: {:?}&quot;</span>, entries),
@@ -949,6 +1138,22 @@
 	<span class="comment">// Enable some security features.
 	</span>{
 		<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>security_status, <span class="string">&quot;Enabling security features&quot;</span>);
+
+		<span class="comment">// First, make sure env vars were cleared, to match the environment we perform the checks
+		// within. (In theory, running checks with different env vars could result in different
+		// outcomes of the checks.)
+		</span><span class="kw">if </span>!security::check_env_vars_were_cleared(<span class="kw-2">&amp;</span>worker_info) {
+			<span class="kw">let </span>err = <span class="string">&quot;not all env vars were cleared when spawning the process&quot;</span>;
+			<span class="macro">gum::error!</span>(
+				target: LOG_TARGET,
+				<span class="question-mark">?</span>worker_info,
+				<span class="string">&quot;{}&quot;</span>,
+				err
+			);
+			<span class="kw">if </span>security_status.secure_validator_mode {
+				worker_shutdown(worker_info, err);
+			}
+		}
 
 		<span class="comment">// Call based on whether we can change root. Error out if it should work but fails.
 		//
@@ -1003,23 +1208,10 @@
 				}
 			}
 		}
-
-		<span class="kw">if </span>!security::check_env_vars_were_cleared(<span class="kw-2">&amp;</span>worker_info) {
-			<span class="kw">let </span>err = <span class="string">&quot;not all env vars were cleared when spawning the process&quot;</span>;
-			<span class="macro">gum::error!</span>(
-				target: LOG_TARGET,
-				<span class="question-mark">?</span>worker_info,
-				<span class="string">&quot;{}&quot;</span>,
-				err
-			);
-			<span class="kw">if </span>security_status.secure_validator_mode {
-				worker_shutdown(worker_info, err);
-			}
-		}
 	}
 
 	<span class="comment">// Run the main worker loop.
-	</span><span class="kw">let </span>err = event_loop(stream, worker_info.worker_dir_path.clone())
+	</span><span class="kw">let </span>err = event_loop(stream, <span class="kw-2">&amp;</span>worker_info, security_status)
 		<span class="comment">// It&#39;s never `Ok` because it&#39;s `Ok(Never)`.
 		</span>.unwrap_err();
 

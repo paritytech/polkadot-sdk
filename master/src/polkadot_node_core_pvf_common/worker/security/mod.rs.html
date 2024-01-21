@@ -73,6 +73,8 @@
 <a href="#73" id="73">73</a>
 <a href="#74" id="74">74</a>
 <a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -102,14 +104,16 @@
 //! - Restrict networking by blocking socket creation and io_uring.
 //! - Remove env vars
 
-</span><span class="kw">use crate</span>::{worker::WorkerInfo, LOG_TARGET};
-
-<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+</span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
 </span><span class="kw">pub mod </span>change_root;
+<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+</span><span class="kw">pub mod </span>clone;
 <span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
 </span><span class="kw">pub mod </span>landlock;
 <span class="attr">#[cfg(all(target_os = <span class="string">&quot;linux&quot;</span>, target_arch = <span class="string">&quot;x86_64&quot;</span>))]
 </span><span class="kw">pub mod </span>seccomp;
+
+<span class="kw">use crate</span>::{worker::WorkerInfo, LOG_TARGET};
 
 <span class="doccomment">/// Require env vars to have been removed when spawning the process, to prevent malicious code from
 /// accessing them.

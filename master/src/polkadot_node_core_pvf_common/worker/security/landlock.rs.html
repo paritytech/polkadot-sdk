@@ -434,7 +434,7 @@
 <span class="comment">// TODO: &lt;https://github.com/landlock-lsm/rust-landlock/issues/36&gt;
 </span><span class="doccomment">/// Runs a check for landlock in its own thread, and returns an error indicating whether the given
 /// landlock ABI is fully enabled on the current Linux environment.
-</span><span class="kw">pub fn </span>check_is_fully_enabled() -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+</span><span class="kw">pub fn </span>check_can_fully_enable() -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 	<span class="kw">match </span>std::thread::spawn(|| try_restrict(std::iter::empty::&lt;(PathBuf, AccessFs)&gt;())).join() {
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(())) =&gt; <span class="prelude-val">Ok</span>(()),
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; <span class="prelude-val">Err</span>(err),
@@ -487,7 +487,7 @@
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>restricted_thread_cannot_read_file() {
 		<span class="comment">// TODO: This would be nice: &lt;https://github.com/rust-lang/rust/issues/68007&gt;.
-		</span><span class="kw">if </span>check_is_fully_enabled().is_err() {
+		</span><span class="kw">if </span>check_can_fully_enable().is_err() {
 			<span class="kw">return
 		</span>}
 
@@ -552,7 +552,7 @@
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>restricted_thread_cannot_write_file() {
 		<span class="comment">// TODO: This would be nice: &lt;https://github.com/rust-lang/rust/issues/68007&gt;.
-		</span><span class="kw">if </span>check_is_fully_enabled().is_err() {
+		</span><span class="kw">if </span>check_can_fully_enable().is_err() {
 			<span class="kw">return
 		</span>}
 
@@ -611,7 +611,7 @@
 	</span><span class="attr">#[test]
 	</span><span class="kw">fn </span>restricted_thread_can_truncate_file() {
 		<span class="comment">// TODO: This would be nice: &lt;https://github.com/rust-lang/rust/issues/68007&gt;.
-		</span><span class="kw">if </span>check_is_fully_enabled().is_err() {
+		</span><span class="kw">if </span>check_can_fully_enable().is_err() {
 			<span class="kw">return
 		</span>}
 

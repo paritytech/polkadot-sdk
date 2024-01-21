@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["EXECUTE_THREAD_STACK_SIZE"],"fn":["execute_artifact","worker_entrypoint"],"mod":["worker_dir"]};
+window.SIDEBAR_ITEMS = {"constant":["EXECUTE_WORKER_THREAD_NUMBER"],"fn":["execute_artifact","worker_entrypoint"]};

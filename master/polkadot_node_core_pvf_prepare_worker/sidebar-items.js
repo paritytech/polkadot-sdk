@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["worker_entrypoint"],"struct":["CompiledArtifact"]};
+window.SIDEBAR_ITEMS = {"constant":["PREPARE_WORKER_THREAD_NUMBER"],"fn":["worker_entrypoint"],"struct":["CompiledArtifact"]};

@@ -283,7 +283,7 @@ var srcIndex = JSON.parse('{\
 "polkadot_node_core_provisioner":["",[["disputes",[["prioritized_selection",[],["mod.rs"]]],["mod.rs"]]],["error.rs","lib.rs","metrics.rs"]],\
 "polkadot_node_core_pvf":["",[["execute",[],["mod.rs","queue.rs","worker_interface.rs"]],["prepare",[],["mod.rs","pool.rs","queue.rs","worker_interface.rs"]]],["artifacts.rs","error.rs","host.rs","lib.rs","metrics.rs","priority.rs","security.rs","worker_interface.rs"]],\
 "polkadot_node_core_pvf_checker":["",[],["interest_view.rs","lib.rs","metrics.rs","runtime_api.rs"]],\
-"polkadot_node_core_pvf_common":["",[["worker",[["security",[],["change_root.rs","landlock.rs","mod.rs","seccomp.rs"]]],["mod.rs"]]],["error.rs","execute.rs","executor_interface.rs","lib.rs","prepare.rs","pvf.rs","worker_dir.rs"]],\
+"polkadot_node_core_pvf_common":["",[["worker",[["security",[],["change_root.rs","clone.rs","landlock.rs","mod.rs","seccomp.rs"]]],["mod.rs"]]],["error.rs","execute.rs","executor_interface.rs","lib.rs","prepare.rs","pvf.rs","worker_dir.rs"]],\
 "polkadot_node_core_pvf_execute_worker":["",[],["lib.rs"]],\
 "polkadot_node_core_pvf_prepare_worker":["",[],["lib.rs","memory_stats.rs"]],\
 "polkadot_node_core_runtime_api":["",[],["cache.rs","lib.rs","metrics.rs"]],\

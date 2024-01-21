@@ -84,6 +84,8 @@
 <a href="#84" id="84">84</a>
 <a href="#85" id="85">85</a>
 <a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -143,6 +145,8 @@
 	</span><span class="kw">pub </span>can_enable_seccomp: bool,
 	<span class="doccomment">/// Whether we are able to unshare the user namespace and change the filesystem root.
 	</span><span class="kw">pub </span>can_unshare_user_namespace_and_change_root: bool,
+	<span class="doccomment">/// Whether we are able to call `clone` with all sandboxing flags.
+	</span><span class="kw">pub </span>can_do_secure_clone: bool,
 }
 
 <span class="doccomment">/// A handshake with information for the worker.

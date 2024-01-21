@@ -99,6 +99,7 @@
 <a href="#99" id="99">99</a>
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -193,11 +194,12 @@
 	</span>TimedOut,
 	<span class="attr">#[error(<span class="string">&quot;An unexpected panic has occurred in the execution job: {0}&quot;</span>)]
 	</span>Panic(String),
+	<span class="doccomment">/// Some error occurred when interfacing with the kernel.
+	</span><span class="attr">#[error(<span class="string">&quot;Error interfacing with the kernel: {0}&quot;</span>)]
+	</span>Kernel(String),
 	<span class="attr">#[error(<span class="string">&quot;Could not spawn the requested thread: {0}&quot;</span>)]
 	</span>CouldNotSpawnThread(String),
 	<span class="attr">#[error(<span class="string">&quot;An error occurred in the CPU time monitor thread: {0}&quot;</span>)]
 	</span>CpuTimeMonitorThread(String),
-	<span class="attr">#[error(<span class="string">&quot;Could not set pdeathsig: {0}&quot;</span>)]
-	</span>CouldNotSetPdeathsig(String),
 }
 </code></pre></div></section></main></body></html>

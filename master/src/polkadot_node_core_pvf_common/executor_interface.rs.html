@@ -376,6 +376,9 @@
 <a href="#376" id="376">376</a>
 <a href="#377" id="377">377</a>
 <a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -518,7 +521,7 @@
 	executor_params: <span class="kw-2">&amp;</span>ExecutorParams,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;WasmtimeRuntime, WasmError&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>config = DEFAULT_CONFIG.clone();
-	config.semantics = params_to_wasmtime_semantics(executor_params);
+	config.semantics = params_to_wasmtime_semantics(executor_params).<span class="number">0</span>;
 
 	sc_executor_wasmtime::create_runtime_from_artifact_bytes::&lt;HostFunctions&gt;(
 		compiled_artifact_blob,
@@ -526,7 +529,10 @@
 	)
 }
 
-<span class="kw">pub fn </span>params_to_wasmtime_semantics(par: <span class="kw-2">&amp;</span>ExecutorParams) -&gt; Semantics {
+<span class="doccomment">/// Takes the default config and overwrites any settings with existing executor parameters.
+///
+/// Returns the semantics as well as the stack limit (since we are guaranteed to have it).
+</span><span class="kw">pub fn </span>params_to_wasmtime_semantics(par: <span class="kw-2">&amp;</span>ExecutorParams) -&gt; (Semantics, DeterministicStackLimit) {
 	<span class="kw">let </span><span class="kw-2">mut </span>sem = DEFAULT_CONFIG.semantics.clone();
 	<span class="kw">let </span><span class="kw-2">mut </span>stack_limit = sem
 		.deterministic_stack_limit
@@ -547,8 +553,8 @@
 			ExecutorParam::PvfExecTimeout(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; (), <span class="comment">/* Not used here */
 		</span>}
 	}
-	sem.deterministic_stack_limit = <span class="prelude-val">Some</span>(stack_limit);
-	sem
+	sem.deterministic_stack_limit = <span class="prelude-val">Some</span>(stack_limit.clone());
+	(sem, stack_limit)
 }
 
 <span class="doccomment">/// Runs the prevalidation on the given code. Returns a [`RuntimeBlob`] if it succeeds.
@@ -565,7 +571,7 @@
 	blob: RuntimeBlob,
 	executor_params: <span class="kw-2">&amp;</span>ExecutorParams,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, sc_executor_common::error::WasmError&gt; {
-	<span class="kw">let </span>semantics = params_to_wasmtime_semantics(executor_params);
+	<span class="kw">let </span>(semantics, <span class="kw">_</span>) = params_to_wasmtime_semantics(executor_params);
 	sc_executor_wasmtime::prepare_runtime_artifact(blob, <span class="kw-2">&amp;</span>semantics)
 }
 

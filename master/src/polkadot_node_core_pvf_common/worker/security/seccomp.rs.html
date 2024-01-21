@@ -301,7 +301,7 @@
 
 <span class="doccomment">/// Runs a check for seccomp in its own thread, and returns an error indicating whether seccomp with
 /// our rules is fully enabled on the current Linux environment.
-</span><span class="kw">pub fn </span>check_is_fully_enabled() -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+</span><span class="kw">pub fn </span>check_can_fully_enable() -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 	<span class="kw">match </span>std::thread::spawn(|| try_restrict()).join() {
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(())) =&gt; <span class="prelude-val">Ok</span>(()),
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; <span class="prelude-val">Err</span>(err),
@@ -352,7 +352,7 @@
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>sandboxed_thread_cannot_use_sockets() {
 		<span class="comment">// TODO: This would be nice: &lt;https://github.com/rust-lang/rust/issues/68007&gt;.
-		</span><span class="kw">if </span>check_is_fully_enabled().is_err() {
+		</span><span class="kw">if </span>check_can_fully_enable().is_err() {
 			<span class="kw">return
 		</span>}
 
