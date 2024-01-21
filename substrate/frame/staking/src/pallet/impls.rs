@@ -1092,16 +1092,13 @@ impl<T: Config> Pallet<T> {
 	/// wrong.
 	pub fn do_add_validator(who: &T::AccountId, prefs: ValidatorPrefs) {
 		if !Validators::<T>::contains_key(who) {
-			Validators::<T>::insert(who, prefs);
-
 			let self_stake = Self::stake(who);
 			T::EventListeners::on_validator_add(
 				who,
 				Some(self_stake.defensive_unwrap_or_default().into()),
 			);
-		} else {
-			Validators::<T>::insert(who, prefs);
-		}
+		};
+		Validators::<T>::insert(who, prefs);
 
 		debug_assert_eq!(
 			Nominators::<T>::count() + Validators::<T>::count(),
