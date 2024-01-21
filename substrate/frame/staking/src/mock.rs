@@ -453,6 +453,10 @@ impl ExtBuilder {
 		self.stakers.push((stash, ctrl, stake, status));
 		self
 	}
+	pub fn exposures_page_size(self, max: u32) -> Self {
+		MaxExposurePageSize::set(max);
+		self
+	}
 	pub fn balance_factor(mut self, factor: Balance) -> Self {
 		self.balance_factor = factor;
 		self
@@ -624,13 +628,17 @@ pub(crate) fn bond_nominator(who: AccountId, val: Balance, target: Vec<AccountId
 /// a block import/propose process where we first initialize the block, then execute some stuff (not
 /// in the function), and then finalize the block.
 pub(crate) fn run_to_block(n: BlockNumber) {
-	Staking::on_finalize(System::block_number());
+	let now = System::block_number();
+	Session::on_finalize(now);
+	Staking::on_finalize(now);
+
 	for b in (System::block_number() + 1)..=n {
 		System::set_block_number(b);
 		Session::on_initialize(b);
-		<Staking as Hooks<u64>>::on_initialize(b);
+		Staking::on_initialize(b);
 		Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
 		if b != n {
+			Session::on_finalize(System::block_number());
 			Staking::on_finalize(System::block_number());
 		}
 	}

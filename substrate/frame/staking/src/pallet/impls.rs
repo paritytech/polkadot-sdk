@@ -580,20 +580,20 @@ impl<T: Config> Pallet<T> {
 		is_genesis: bool,
 	) -> Option<BoundedVec<T::AccountId, T::MaxValidatorSet>> {
 		let validators: BoundedVec<T::AccountId, T::MaxValidatorSet> = if is_genesis {
-			let msp: PageIndex =
-				<<T as Config>::ElectionProvider as ElectionProvider>::Pages::get();
-
-			// genesis election only use the firt page of the election result.
-			let result = <T::GenesisElectionProvider>::elect(msp).map_err(|e| {
+			// genesis election only use the lsp of the election result.
+			let result = <T::GenesisElectionProvider>::elect(Zero::zero()).map_err(|e| {
 				log!(warn, "genesis election provider failed due to {:?}", e);
 				Self::deposit_event(Event::StakingElectionFailed);
 			});
 
-			Self::collect_exposures(result.ok().unwrap_or_default())
+			let exposures = Self::collect_exposures(result.ok().unwrap_or_default());
+			Self::store_stakers_info_paged(exposures.clone());
+
+			exposures
 				.into_iter()
 				.map(|(validator, _)| validator)
 				.try_collect()
-				.unwrap() // TODO
+				.unwrap_or_default()
 		} else {
 			ElectableStashes::<T>::get()
 			// TODO: add status to the election in case it fails in any of the elect() calls.
@@ -619,7 +619,7 @@ impl<T: Config> Pallet<T> {
 					CurrentEra::<T>::put(0);
 					ErasStartSessionIndex::<T>::insert(&0, &start_session_index);
 				},
-				_ => (),
+				_ => {},
 			}
 
 			Self::deposit_event(Event::StakingElectionFailed);
@@ -634,7 +634,7 @@ impl<T: Config> Pallet<T> {
 	/// Paginated elect.
 	///
 	/// TODO: rust-docs
-	pub(crate) fn elect(page: PageIndex) {
+	pub(crate) fn do_elect_paged(page: PageIndex) {
 		let paged_result = match <T::ElectionProvider>::elect(page) {
 			Ok(result) => result,
 			Err(e) => {
@@ -646,16 +646,7 @@ impl<T: Config> Pallet<T> {
 			},
 		};
 
-		let exposures = Self::collect_exposures(paged_result);
-		println!("  >> {page} | Exposures of page {page}: {:?}", exposures);
-
-		let new_planned_era = CurrentEra::<T>::mutate(|s| {
-			*s = Some(s.map(|s| s + 1).unwrap_or(0));
-			s.unwrap()
-		});
-
-		// TODO: optimized?
-		let _ = Self::store_stakers_info_paged(exposures, new_planned_era)
+		let _ = Self::store_stakers_info_paged(Self::collect_exposures(paged_result))
 			.iter()
 			.map(|s| {
 				ElectableStashes::<T>::try_append(s)
@@ -672,11 +663,11 @@ impl<T: Config> Pallet<T> {
 			(T::AccountId, Exposure<T::AccountId, BalanceOf<T>>),
 			MaxExposuresPerPageOf<T>,
 		>,
-		new_planned_era: EraIndex,
 	) -> BoundedVec<T::AccountId, MaxExposuresPerPageOf<T>> {
 		// Populate elected stash, stakers, exposures, and the snapshot of validator prefs.
 		let mut total_stake: BalanceOf<T> = Zero::zero();
 		let mut elected_stashes = Vec::with_capacity(exposures.len());
+		let (_, new_planned_era) = ElectingStartedAt::<T>::get().unwrap_or_default();
 
 		exposures.into_iter().for_each(|(stash, exposure)| {
 			// build elected stash
@@ -684,7 +675,6 @@ impl<T: Config> Pallet<T> {
 			// accumulate total stake
 			total_stake = total_stake.saturating_add(exposure.total);
 			// store staker exposure for this era
-			// TODO
 			EraInfo::<T>::set_or_update_exposure(new_planned_era, &stash, exposure);
 		});
 

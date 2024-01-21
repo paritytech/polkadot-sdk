@@ -7152,4 +7152,88 @@ pub mod multi_page_staking {
 			);
 		})
 	}
+
+	#[test]
+	fn collect_exposures_multi_page_elect_works() {
+		ExtBuilder::default().exposures_page_size(2).build_and_execute(|| {
+			let current_era = CurrentEra::<Test>::get().unwrap();
+			let exposure_one = Exposure {
+				total: 1000 + 700,
+				own: 1000,
+				others: vec![
+					IndividualExposure { who: 101, value: 500 },
+					IndividualExposure { who: 102, value: 100 },
+					IndividualExposure { who: 103, value: 100 },
+				],
+			};
+
+			let exposure_two = Exposure {
+				total: 1000 + 1000,
+				own: 1000,
+				others: vec![
+					IndividualExposure { who: 104, value: 500 },
+					IndividualExposure { who: 105, value: 500 },
+				],
+			};
+
+			// call set of update 2x exposure. It should pad all full vec of individual pages,
+			// including those already stored in storage.
+			EraInfo::<Test>::set_or_update_exposure(current_era, &10, exposure_one.clone());
+			EraInfo::<Test>::set_or_update_exposure(current_era, &10, exposure_two.clone());
+
+			// metadata OK.
+			assert_eq!(
+				ErasStakersOverview::<Test>::get(0, &10).unwrap(),
+				PagedExposureMetadata { total: 2700, own: 1000, nominator_count: 5, page_count: 3 },
+			);
+
+			// paged exposures OK.
+			assert_eq!(
+				ErasStakersPaged::<Test>::get((0, &10, 0)).unwrap(),
+				ExposurePage {
+					page_total: 600,
+					others: vec!(
+						IndividualExposure { who: 101, value: 500 },
+						IndividualExposure { who: 102, value: 100 }
+					)
+				},
+			);
+			assert_eq!(
+				ErasStakersPaged::<Test>::get((0, &10, 1)).unwrap(),
+				ExposurePage {
+					page_total: 600,
+					others: vec!(
+						IndividualExposure { who: 103, value: 100 },
+						IndividualExposure { who: 105, value: 500 }
+					)
+				},
+			);
+			assert_eq!(
+				ErasStakersPaged::<Test>::get((0, &10, 2)).unwrap(),
+				ExposurePage {
+					page_total: 500,
+					others: vec!(IndividualExposure { who: 104, value: 500 })
+				},
+			);
+
+			// no page 3
+			assert!(ErasStakersPaged::<Test>::get((0, &10, 3)).is_none());
+
+			// full exposures OK.
+			assert_eq!(
+				Staking::eras_stakers(active_era(), &10),
+				Exposure {
+					total: 2700,
+					own: 1000,
+					others: vec!(
+						IndividualExposure { who: 101, value: 500 },
+						IndividualExposure { who: 102, value: 100 },
+						IndividualExposure { who: 103, value: 100 },
+						IndividualExposure { who: 105, value: 500 },
+						IndividualExposure { who: 104, value: 500 }
+					)
+				}
+			);
+		})
+	}
 }

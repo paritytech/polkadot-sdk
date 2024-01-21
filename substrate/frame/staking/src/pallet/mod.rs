@@ -680,9 +680,11 @@ pub mod pallet {
 		StorageValue<_, SnapshotStatus<T::AccountId>, ValueQuery>;
 
 	/// Keeps track of an ongoing multi-page election solution request and the block the first paged
-	/// was requested, if any.
+	/// was requested, if any. In addition, it also keeps track of the current era that is being
+	/// plannet.
 	#[pallet::storage]
-	pub(crate) type ElectingStartedAt<T: Config> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
+	pub(crate) type ElectingStartedAt<T: Config> =
+		StorageValue<_, (BlockNumberFor<T>, EraIndex), OptionQuery>;
 
 	// TODO:
 	// * maybe use pallet-paged-list? (https://paritytech.github.io/polkadot-sdk/master/pallet_paged_list/index.html)
@@ -882,24 +884,24 @@ pub mod pallet {
 			let pages: BlockNumberFor<T> =
 				<<T as Config>::ElectionProvider as ElectionProvider>::Pages::get().into();
 
-			if let Some(started_at) = ElectingStartedAt::<T>::get() {
-				// elect is ongoing, proceed.
+			if let Some((started_at, planning_era)) = ElectingStartedAt::<T>::get() {
 				let remaining_pages =
-					pages.saturating_sub(One::one()) - now.saturating_sub(started_at);
-
-				crate::log!(
-					info,
-					"elect(): progressing with calling elect, remaining pages {}",
-					remaining_pages
-				);
-
-				Self::elect(remaining_pages.saturated_into::<PageIndex>());
+					pages.saturating_sub(One::one()).saturating_sub(now.saturating_sub(started_at));
 
 				if remaining_pages == Zero::zero() {
-					// last page, reset elect status.
+					// last page, reset elect status and update era.
 					crate::log!(info, "elect(): finished fetching all paged solutions");
+					CurrentEra::<T>::set(Some(planning_era));
 					ElectingStartedAt::<T>::kill();
-				};
+				} else {
+					crate::log!(
+						info,
+						"elect(): progressing with calling elect, remaining pages {}",
+						remaining_pages
+					);
+
+					Self::do_elect_paged(remaining_pages.saturated_into::<PageIndex>());
+				}
 			} else {
 				let next_election = <Self as ElectionDataProvider>::next_election_prediction(now);
 
@@ -910,9 +912,12 @@ pub mod pallet {
 						"elect(): next election in {} pages, start fetching solution pages.",
 						pages,
 					);
-					ElectingStartedAt::<T>::set(Some(now));
+					ElectingStartedAt::<T>::set(Some((
+						now,
+						CurrentEra::<T>::get().unwrap_or_default().saturating_add(1),
+					)));
 
-					Self::elect(pages.saturated_into::<PageIndex>().saturating_sub(1));
+					Self::do_elect_paged(pages.saturated_into::<PageIndex>().saturating_sub(1));
 				}
 			};
 			// return the weight of the on_finalize.

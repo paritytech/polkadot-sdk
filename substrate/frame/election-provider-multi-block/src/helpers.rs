@@ -309,24 +309,8 @@ mod tests {
 			let all_targets = all_target_pages.iter().cloned().flatten().collect::<Vec<_>>();
 
 			// `targets_index_fn` get the snapshot page of the target.
-			let targets_index_fn = generate_target_page_fn::<T>(&all_target_pages);
-			let page2_cache = generate_target_cache::<T>(&all_target_pages[2]);
-
-			let get_target = |snapshot: BoundedVec<
-				BoundedVec<AccountId, TargetsPerSnapshotPageOf<T>>,
-				<T as crate::Config>::Pages,
-			>,
-			                  snapshot_idx,
-			                  idx|
-			 -> AccountId {
-				let page: &BoundedVec<AccountId, TargetsPerSnapshotPageOf<T>> =
-					&snapshot[snapshot_idx];
-				let target = page[idx];
-				page[idx]
-			};
-
-			//let snapshot_map = all_targets.iter().map(|x| (x,
-			// targets_index_fn(x))).collect::<Vec<_>>();
+			let _targets_index_fn = generate_target_page_fn::<T>(&all_target_pages);
+			let _page2_cache = generate_target_cache::<T>(&all_target_pages[2]);
 		})
 	}
 }

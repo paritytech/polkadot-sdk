@@ -1224,12 +1224,70 @@ impl<T: Config> EraInfo<T> {
 		});
 	}
 
+	/// Store or update exposure for elected validators at the start of the planning era.
+	///
+	/// An exposure for a given validator may be collected from multiple election results page, thus
+	/// the previously stored exposure must be updated.
 	pub fn set_or_update_exposure(
-		_era: EraIndex,
-		_validator: &T::AccountId,
-		_exposure: Exposure<T::AccountId, BalanceOf<T>>,
+		era: EraIndex,
+		validator: &T::AccountId,
+		exposure: Exposure<T::AccountId, BalanceOf<T>>,
 	) {
-		// TODO
+		let page_size = T::MaxExposurePageSize::get().defensive_max(1);
+		let nominator_count = exposure.others.len();
+		let expected_page_count = nominator_count
+			.defensive_saturating_add((page_size as usize).defensive_saturating_sub(1))
+			.saturating_div(page_size as usize);
+
+		let (exposure_metadata, mut exposure_pages) = exposure.into_pages(page_size);
+		defensive_assert!(exposure_pages.len() == expected_page_count, "unexpected page count");
+
+		// get previous exposure and metadata, if it exists.
+		let (metadata, exposures, start_from) =
+			if let Some(mut stored_metadata) = <ErasStakersOverview<T>>::get(era, &validator) {
+				// how many individual exposures should be crammed into the last stored exposure
+				// page of this validator until its full.
+				let fill_in_count = (page_size * stored_metadata.page_count)
+					.saturating_sub(stored_metadata.nominator_count);
+
+				// *take* first `fill_in_count` individual exposures from the exposure pages to add
+				// them to the last stored exposures page.
+				let fill_in_exposures = if let Some(page) = exposure_pages.get_mut(0) {
+					page.from_split_others(fill_in_count as usize)
+				} else {
+					Default::default()
+				};
+
+				// TODO: this can probably be optimized so that the paged_exposure.others don't
+				// need to be decoded/encoded. However, the codec is bounded per max exposures per
+				// page (do not touch ALL the exposed validator pages).
+				<ErasStakersPaged<T>>::mutate(
+					(era, &validator, stored_metadata.page_count - 1),
+					|page| {
+						if let Some(page) = page {
+							(*page).page_total += fill_in_exposures.page_total;
+							(*page).others.extend(fill_in_exposures.others);
+						} else {
+							// defensive?
+						}
+					},
+				);
+				stored_metadata.update(exposure_metadata, page_size);
+
+				let start_from = stored_metadata.page_count.saturating_sub(1);
+				(stored_metadata, exposure_pages, start_from)
+			} else {
+				// new exposure, insert exposure pages, metadata and start from page idx 0.
+				(exposure_metadata, exposure_pages, 0)
+			};
+
+		exposures.iter().enumerate().for_each(|(page, paged_exposure)| {
+			<ErasStakersPaged<T>>::insert(
+				(era, &validator, (start_from as usize + page) as Page),
+				&paged_exposure,
+			);
+		});
+		<ErasStakersOverview<T>>::insert(era, &validator, &metadata);
 	}
 
 	/// Store total exposure for all the elected validators in the era.
