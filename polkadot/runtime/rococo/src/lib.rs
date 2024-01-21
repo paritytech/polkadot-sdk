@@ -1828,7 +1828,7 @@ sp_api::impl_runtime_apis! {
 		fn offchain_worker(header: &<Block as BlockT>::Header) {
 			use sp_runtime::{traits::Header, DigestItem};
 
-			if header.digest().logs().iter().find(|&di| *di == DigestItem::RuntimeEnvironmentUpdated).is_some() {
+			if header.digest().logs().iter().any(|di| di == &DigestItem::RuntimeEnvironmentUpdated) {
 				pallet_im_online::migration::clear_offchain_storage::<Runtime>()
 			}
 
