@@ -126,6 +126,8 @@
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 mod benchmarking;
 #[cfg(test)]
 mod mock;
@@ -133,9 +135,9 @@ mod mock;
 mod tests;
 pub mod weights;
 
+use core::{cmp, result};
 use frame_support::traits::{OnTimestampSet, Time, UnixTime};
 use sp_runtime::traits::{AtLeast32Bit, SaturatedConversion, Scale, Zero};
-use sp_std::{cmp, result};
 use sp_timestamp::{InherentError, InherentType, INHERENT_IDENTIFIER};
 pub use weights::WeightInfo;
 
@@ -368,7 +370,8 @@ impl<T: Config> UnixTime for Pallet<T> {
 		// now is duration since unix epoch in millisecond as documented in
 		// `sp_timestamp::InherentDataProvider`.
 		let now = Self::now();
-		sp_std::if_std! {
+		#[cfg(feature = "std")]
+		{
 			if now == T::Moment::zero() {
 				log::error!(
 					target: "runtime::timestamp",

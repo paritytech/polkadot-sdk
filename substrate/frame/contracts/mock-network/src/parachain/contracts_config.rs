@@ -42,7 +42,7 @@ parameter_types! {
 	pub const MaxDelegateDependencies: u32 = 32;
 }
 
-pub struct DummyRandomness<T: pallet_contracts::Config>(sp_std::marker::PhantomData<T>);
+pub struct DummyRandomness<T: pallet_contracts::Config>(core::marker::PhantomData<T>);
 
 impl<T: pallet_contracts::Config> Randomness<T::Hash, BlockNumberFor<T>> for DummyRandomness<T> {
 	fn random(_subject: &[u8]) -> (T::Hash, BlockNumberFor<T>) {

@@ -33,7 +33,6 @@ use frame_system::limits::BlockWeights;
 use parity_scale_codec::{Decode, Encode};
 use primitives::{BlockNumber, ConsensusLog, SessionIndex, ValidatorId};
 use scale_info::TypeInfo;
-use sp_std::prelude::*;
 
 #[cfg(test)]
 mod tests;
@@ -249,7 +248,7 @@ impl<T: Config> Pallet<T> {
 			// TODO: audit usage of randomness API
 			// https://github.com/paritytech/polkadot/issues/2601
 			let (random_hash, _) = T::Randomness::random(&b"paras"[..]);
-			let len = sp_std::cmp::min(32, random_hash.as_ref().len());
+			let len = core::cmp::min(32, random_hash.as_ref().len());
 			buf[..len].copy_from_slice(&random_hash.as_ref()[..len]);
 			buf
 		};

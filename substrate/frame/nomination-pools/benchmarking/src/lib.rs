@@ -20,9 +20,12 @@
 #![cfg(feature = "runtime-benchmarks")]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(test)]
 mod mock;
 
+use alloc::{vec, vec::Vec};
 use frame_benchmarking::v1::{account, whitelist_account};
 use frame_election_provider_support::SortedListProvider;
 use frame_support::{
@@ -45,7 +48,6 @@ use sp_runtime::{
 	Perbill,
 };
 use sp_staking::{EraIndex, StakingInterface};
-use sp_std::{vec, vec::Vec};
 // `frame_benchmarking::benchmarks!` macro needs this
 use pallet_nomination_pools::Call;
 

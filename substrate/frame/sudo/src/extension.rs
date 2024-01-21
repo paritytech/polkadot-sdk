@@ -16,7 +16,9 @@
 // limitations under the License.
 
 use crate::{Config, Pallet};
+use alloc::fmt;
 use codec::{Decode, Encode};
+use core::marker::PhantomData;
 use frame_support::{dispatch::DispatchInfo, ensure};
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -26,7 +28,6 @@ use sp_runtime::{
 		UnknownTransaction, ValidTransaction,
 	},
 };
-use sp_std::{fmt, marker::PhantomData};
 
 /// Ensure that signed transactions are only valid if they are signed by sudo account.
 ///

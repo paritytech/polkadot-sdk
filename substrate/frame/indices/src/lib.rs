@@ -20,6 +20,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 mod benchmarking;
 mod mock;
 mod tests;
@@ -31,7 +33,7 @@ use sp_runtime::{
 	traits::{AtLeast32Bit, LookupError, Saturating, StaticLookup, Zero},
 	MultiAddress,
 };
-use sp_std::prelude::*;
+
 pub use weights::WeightInfo;
 
 type BalanceOf<T> =

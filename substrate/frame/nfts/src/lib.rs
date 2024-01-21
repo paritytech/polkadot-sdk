@@ -60,7 +60,6 @@ use sp_runtime::{
 	traits::{IdentifyAccount, Saturating, StaticLookup, Verify, Zero},
 	RuntimeDebug,
 };
-use sp_std::prelude::*;
 
 pub use pallet::*;
 pub use types::*;

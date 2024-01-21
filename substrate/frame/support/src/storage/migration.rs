@@ -23,7 +23,6 @@ use crate::{
 	StorageHasher, Twox128,
 };
 use codec::{Decode, Encode};
-use sp_std::prelude::*;
 
 use super::PrefixIterator;
 
@@ -32,7 +31,7 @@ pub struct StorageIterator<T> {
 	prefix: Vec<u8>,
 	previous_key: Vec<u8>,
 	drain: bool,
-	_phantom: ::sp_std::marker::PhantomData<T>,
+	_phantom: ::core::marker::PhantomData<T>,
 }
 
 impl<T> StorageIterator<T> {
@@ -95,7 +94,7 @@ pub struct StorageKeyIterator<K, T, H: ReversibleStorageHasher> {
 	prefix: Vec<u8>,
 	previous_key: Vec<u8>,
 	drain: bool,
-	_phantom: ::sp_std::marker::PhantomData<(K, T, H)>,
+	_phantom: ::core::marker::PhantomData<(K, T, H)>,
 }
 
 impl<K, T, H: ReversibleStorageHasher> StorageKeyIterator<K, T, H> {

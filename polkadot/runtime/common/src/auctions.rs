@@ -22,6 +22,7 @@ use crate::{
 	slot_range::SlotRange,
 	traits::{AuctionStatus, Auctioneer, LeaseError, Leaser, Registrar},
 };
+use core::mem::swap;
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -33,7 +34,6 @@ pub use pallet::*;
 use parity_scale_codec::Decode;
 use primitives::Id as ParaId;
 use sp_runtime::traits::{CheckedSub, One, Saturating, Zero};
-use sp_std::{mem::swap, prelude::*};
 
 type CurrencyOf<T> = <<T as Config>::Leaser as Leaser<BlockNumberFor<T>>>::Currency;
 type BalanceOf<T> = <<<T as Config>::Leaser as Leaser<BlockNumberFor<T>>>::Currency as Currency<

@@ -19,6 +19,8 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 // `v6` is currently the latest stable version of the runtime API.
 pub mod v6;
 

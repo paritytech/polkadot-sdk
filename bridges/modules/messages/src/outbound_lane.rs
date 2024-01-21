@@ -18,6 +18,7 @@
 
 use crate::{Config, LOG_TARGET};
 
+use alloc::collections::vec_deque::VecDeque;
 use bp_messages::{
 	DeliveredMessages, LaneId, MessageNonce, MessagePayload, OutboundLaneData, UnrewardedRelayer,
 	VerificationError,
@@ -30,7 +31,6 @@ use frame_support::{
 use num_traits::Zero;
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
-use alloc::collections::vec_deque::VecDeque;
 
 /// Outbound lane storage.
 pub trait OutboundLaneStorage {
@@ -218,8 +218,8 @@ mod tests {
 		},
 		outbound_lane,
 	};
-	use frame_support::{assert_ok, weights::constants::RocksDbWeight};
 	use core::ops::RangeInclusive;
+	use frame_support::{assert_ok, weights::constants::RocksDbWeight};
 
 	fn unrewarded_relayers(
 		nonces: RangeInclusive<MessageNonce>,

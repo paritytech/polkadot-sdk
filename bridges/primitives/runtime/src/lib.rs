@@ -18,7 +18,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use alloc::{fmt::Debug, vec, vec::Vec};
 use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
+use core::{convert::TryFrom, ops::RangeInclusive};
 use frame_support::{
 	pallet_prelude::DispatchResult, weights::Weight, PalletError, StorageHasher, StorageValue,
 };
@@ -30,7 +32,6 @@ use sp_runtime::{
 	traits::{BadOrigin, Header as HeaderT, UniqueSaturatedInto},
 	RuntimeDebug,
 };
-use sp_std::{convert::TryFrom, fmt::Debug, ops::RangeInclusive, vec, vec::Vec};
 
 pub use chain::{
 	AccountIdOf, AccountPublicOf, BalanceOf, BlockNumberOf, Chain, EncodedOrDecodedCall, HashOf,
@@ -460,7 +461,7 @@ pub trait WeightExtraOps {
 
 impl WeightExtraOps for Weight {
 	fn min_components_checked_div(&self, other: Weight) -> Option<u64> {
-		Some(sp_std::cmp::min(
+		Some(core::cmp::min(
 			self.ref_time().checked_div(other.ref_time())?,
 			self.proof_size().checked_div(other.proof_size())?,
 		))
@@ -488,7 +489,7 @@ macro_rules! generate_static_str_provider {
 #[derive(Encode, Decode, Clone, Eq, PartialEq, PalletError, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct StrippableError<T> {
-	_phantom_data: sp_std::marker::PhantomData<T>,
+	_phantom_data: core::marker::PhantomData<T>,
 	#[codec(skip)]
 	#[cfg(feature = "std")]
 	message: String,
@@ -506,12 +507,12 @@ impl<T: Debug> From<T> for StrippableError<T> {
 
 impl<T> Debug for StrippableError<T> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
 		f.write_str(&self.message)
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
 		f.write_str("Stripped error")
 	}
 }

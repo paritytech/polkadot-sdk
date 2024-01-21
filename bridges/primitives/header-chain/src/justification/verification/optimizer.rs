@@ -24,9 +24,9 @@ use crate::justification::{
 use crate::justification::verification::{
 	IterationFlow, JustificationVerificationContext, SignedPrecommit,
 };
+use alloc::collections::btree_set::BTreeSet;
 use sp_consensus_grandpa::AuthorityId;
 use sp_runtime::traits::Header as HeaderT;
-use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 // Verification callbacks for justification optimization.
 struct JustificationOptimizer<Header: HeaderT> {

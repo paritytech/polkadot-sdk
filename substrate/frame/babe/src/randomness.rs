@@ -51,7 +51,7 @@ use sp_runtime::traits::{Hash, One, Saturating};
 ///
 /// Adversaries should not possess many block production slots towards the beginning or
 /// end of every epoch, but they possess some influence over when they possess more slots.
-pub struct RandomnessFromTwoEpochsAgo<T>(sp_std::marker::PhantomData<T>);
+pub struct RandomnessFromTwoEpochsAgo<T>(core::marker::PhantomData<T>);
 
 /// Randomness usable by on-chain code that **does not depend** upon finality and takes
 /// action based upon on-chain commitments made during the previous epoch.
@@ -79,7 +79,7 @@ pub struct RandomnessFromTwoEpochsAgo<T>(sp_std::marker::PhantomData<T>);
 /// As an example usage, we determine parachain auctions ending times in Polkadot using
 /// `RandomnessFromOneEpochAgo` because it reduces bias from `ParentBlockRandomness` and
 /// does not require the extra finality delay of `RandomnessFromTwoEpochsAgo`.
-pub struct RandomnessFromOneEpochAgo<T>(sp_std::marker::PhantomData<T>);
+pub struct RandomnessFromOneEpochAgo<T>(core::marker::PhantomData<T>);
 
 /// Randomness produced semi-freshly with each block, but inherits limitations of
 /// `RandomnessFromTwoEpochsAgo` from which it derives.
@@ -119,7 +119,7 @@ pub struct RandomnessFromOneEpochAgo<T>(sp_std::marker::PhantomData<T>);
 /// instead you are using this randomness externally, i.e. after block execution, then
 /// this randomness will be provided by the "current" block (this stems from the fact that
 /// we process VRF outputs on block execution finalization, i.e. `on_finalize`).
-pub struct ParentBlockRandomness<T>(sp_std::marker::PhantomData<T>);
+pub struct ParentBlockRandomness<T>(core::marker::PhantomData<T>);
 
 /// Randomness produced semi-freshly with each block, but inherits limitations of
 /// `RandomnessFromTwoEpochsAgo` from which it derives.
@@ -128,7 +128,7 @@ pub struct ParentBlockRandomness<T>(sp_std::marker::PhantomData<T>);
 #[deprecated(note = "Should not be relied upon for correctness, \
 					 will not provide fresh randomness for the current block. \
 					 Please use `ParentBlockRandomness` instead.")]
-pub struct CurrentBlockRandomness<T>(sp_std::marker::PhantomData<T>);
+pub struct CurrentBlockRandomness<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> RandomnessT<T::Hash, BlockNumberFor<T>> for RandomnessFromTwoEpochsAgo<T> {
 	fn random(subject: &[u8]) -> (T::Hash, BlockNumberFor<T>) {

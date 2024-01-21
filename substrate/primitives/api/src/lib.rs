@@ -68,6 +68,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 // Make doc tests happy
+extern crate alloc;
 extern crate self as sp_api;
 
 /// Private exports used by the macros.
@@ -103,7 +104,6 @@ pub mod __private {
 		transaction_validity::TransactionValidity,
 		RuntimeString, TransactionOutcome,
 	};
-	pub use sp_std::{mem, slice, vec};
 	pub use sp_version::{create_apis_vec, ApiId, ApisVec, RuntimeVersion};
 }
 
@@ -823,7 +823,7 @@ decl_runtime_apis! {
 		/// Returns the supported metadata versions.
 		///
 		/// This can be used to call `metadata_at_version`.
-		fn metadata_versions() -> sp_std::vec::Vec<u32>;
+		fn metadata_versions() -> alloc::vec::Vec<u32>;
 	}
 }
 

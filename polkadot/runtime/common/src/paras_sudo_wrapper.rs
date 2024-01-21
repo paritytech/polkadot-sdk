@@ -16,6 +16,7 @@
 
 //! A simple wrapper allowing `Sudo` to call into `paras` routines.
 
+use alloc::boxed::Box;
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
@@ -26,7 +27,6 @@ use runtime_parachains::{
 	paras::{self, AssignCoretime, ParaGenesisArgs},
 	ParaLifecycle,
 };
-use alloc::boxed::Box;
 
 #[frame_support::pallet]
 pub mod pallet {

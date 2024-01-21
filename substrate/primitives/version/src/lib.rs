@@ -46,8 +46,6 @@ use codec::{Decode, Encode, Input};
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeString;
 pub use sp_runtime::{create_runtime_str, StateVersion};
-#[doc(hidden)]
-pub use sp_std;
 
 #[cfg(feature = "std")]
 use sp_runtime::traits::Block as BlockT;
@@ -141,13 +139,13 @@ pub use sp_version_proc_macro::runtime_version;
 pub type ApiId = [u8; 8];
 
 /// A vector of pairs of `ApiId` and a `u32` for version.
-pub type ApisVec = sp_std::borrow::Cow<'static, [(ApiId, u32)]>;
+pub type ApisVec = alloc::borrow::Cow<'static, [(ApiId, u32)]>;
 
 /// Create a vector of Api declarations.
 #[macro_export]
 macro_rules! create_apis_vec {
 	( $y:expr ) => {
-		$crate::sp_std::borrow::Cow::Borrowed(&$y)
+		alloc::borrow::Cow::Borrowed(&$y)
 	};
 }
 
@@ -411,9 +409,9 @@ impl<T: GetNativeVersion> GetNativeVersion for std::sync::Arc<T> {
 #[cfg(feature = "serde")]
 mod apis_serialize {
 	use super::*;
+	use alloc::vec::Vec;
 	use impl_serde::serialize as bytes;
 	use serde::{de, ser::SerializeTuple, Serializer};
-	use alloc::vec::Vec;
 
 	#[derive(Serialize)]
 	struct ApiId<'a>(#[serde(serialize_with = "serialize_bytesref")] &'a super::ApiId, &'a u32);
@@ -448,7 +446,7 @@ mod apis_serialize {
 		impl<'de> de::Visitor<'de> for Visitor {
 			type Value = ApisVec;
 
-			fn expecting(&self, formatter: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+			fn expecting(&self, formatter: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
 				formatter.write_str("a sequence of api id and version tuples")
 			}
 

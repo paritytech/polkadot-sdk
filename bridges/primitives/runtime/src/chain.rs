@@ -15,7 +15,9 @@
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::HeaderIdProvider;
+use alloc::{fmt::Debug, str::FromStr, vec, vec::Vec};
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
+use core::{convert::TryFrom, hash::Hash};
 use frame_support::{weights::Weight, Parameter};
 use num_traits::{AsPrimitive, Bounded, CheckedSub, Saturating, SaturatingAdd, Zero};
 use sp_runtime::{
@@ -25,7 +27,6 @@ use sp_runtime::{
 	},
 	FixedPointOperand,
 };
-use sp_std::{convert::TryFrom, fmt::Debug, hash::Hash, str::FromStr, vec, vec::Vec};
 
 /// Chain call, that is either SCALE-encoded, or decoded.
 #[derive(Debug, Clone, PartialEq)]
@@ -241,7 +242,7 @@ where
 }
 
 /// Adapter for `Get<u32>` to access `PARACHAIN_ID` from `trait Parachain`
-pub struct ParachainIdOf<Para>(sp_std::marker::PhantomData<Para>);
+pub struct ParachainIdOf<Para>(core::marker::PhantomData<Para>);
 impl<Para: Parachain> frame_support::traits::Get<u32> for ParachainIdOf<Para> {
 	fn get() -> u32 {
 		Para::PARACHAIN_ID
@@ -319,7 +320,7 @@ macro_rules! decl_bridge_finality_runtime_apis {
 						$(
 							/// Returns the justifications accepted in the current block.
 							fn [<synced_headers_ $consensus:lower _info>](
-							) -> sp_std::vec::Vec<$justification_type>;
+							) -> alloc::vec::Vec<$justification_type>;
 						)?
 					}
 				}
@@ -371,7 +372,7 @@ macro_rules! decl_bridge_messages_runtime_apis {
 							lane: bp_messages::LaneId,
 							begin: bp_messages::MessageNonce,
 							end: bp_messages::MessageNonce,
-						) -> sp_std::vec::Vec<bp_messages::OutboundMessageDetails>;
+						) -> alloc::vec::Vec<bp_messages::OutboundMessageDetails>;
 					}
 
 					/// Inbound message lane API for messages sent by this chain.
@@ -385,8 +386,8 @@ macro_rules! decl_bridge_messages_runtime_apis {
 						/// Return details of given inbound messages.
 						fn message_details(
 							lane: bp_messages::LaneId,
-							messages: sp_std::vec::Vec<(bp_messages::MessagePayload, bp_messages::OutboundMessageDetails)>,
-						) -> sp_std::vec::Vec<bp_messages::InboundMessageDetails>;
+							messages: alloc::vec::Vec<(bp_messages::MessagePayload, bp_messages::OutboundMessageDetails)>,
+						) -> alloc::vec::Vec<bp_messages::InboundMessageDetails>;
 					}
 				}
 			}

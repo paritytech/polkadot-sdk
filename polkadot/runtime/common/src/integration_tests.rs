@@ -24,6 +24,7 @@ use crate::{
 	slots,
 	traits::{AuctionStatus, Auctioneer, Leaser, Registrar as RegistrarT},
 };
+use core::sync::Arc;
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, parameter_types,
 	traits::{ConstU32, Currency, OnFinalize, OnInitialize},
@@ -49,7 +50,6 @@ use sp_runtime::{
 	transaction_validity::TransactionPriority,
 	AccountId32, BuildStorage, MultiSignature,
 };
-use core::sync::Arc;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlockU32<Test>;

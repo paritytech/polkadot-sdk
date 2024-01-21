@@ -45,6 +45,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 mod benchmarking;
 
 #[cfg(test)]
@@ -56,7 +58,9 @@ mod vesting_info;
 pub mod migrations;
 pub mod weights;
 
+use alloc::fmt::Debug;
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -76,7 +80,6 @@ use sp_runtime::{
 	},
 	DispatchError, RuntimeDebug,
 };
-use sp_std::{fmt::Debug, marker::PhantomData, prelude::*};
 
 pub use pallet::*;
 pub use vesting_info::*;

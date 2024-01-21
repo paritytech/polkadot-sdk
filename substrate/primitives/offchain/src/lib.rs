@@ -20,6 +20,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(missing_docs)]
 
+extern crate alloc;
+
 /// Re-export of parent module scope storage prefix.
 pub use sp_core::offchain::STORAGE_PREFIX;
 

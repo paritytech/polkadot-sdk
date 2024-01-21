@@ -16,10 +16,10 @@
 
 //! Helpers for implementing various message-related runtime API mthods.
 
+use alloc::vec::Vec;
 use bp_messages::{
 	InboundMessageDetails, LaneId, MessageNonce, MessagePayload, OutboundMessageDetails,
 };
-use alloc::vec::Vec;
 
 /// Implementation of the `To*OutboundLaneApi::message_details`.
 pub fn outbound_message_details<Runtime, MessagesPalletInstance>(

@@ -16,12 +16,12 @@
 
 //! Traits used across pallets for Polkadot.
 
+use alloc::vec::*;
 use frame_support::{
 	dispatch::DispatchResult,
 	traits::{Currency, ReservableCurrency},
 };
 use primitives::{HeadData, Id as ParaId, ValidationCode};
-use alloc::vec::*;
 
 /// Parachain registration API.
 pub trait Registrar {

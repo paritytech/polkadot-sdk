@@ -60,7 +60,6 @@ pub mod __private {
 	};
 	#[cfg(feature = "std")]
 	pub use sp_state_machine::BasicExternalities;
-	pub use sp_std;
 	pub use sp_tracing;
 	pub use tt_call::*;
 }
@@ -255,7 +254,7 @@ macro_rules! parameter_types {
 	) => (
 		$( #[ $attr ] )*
 		$vis struct $name $(
-			< $($ty_params),* >( $($crate::__private::sp_std::marker::PhantomData<$ty_params>),* )
+			< $($ty_params),* >( $(core::marker::PhantomData<$ty_params>),* )
 		)?;
 		$crate::parameter_types!(IMPL_CONST $name , $type , $value $( $(, $ty_params)* )?);
 		$crate::parameter_types!( $( $rest )* );
@@ -267,7 +266,7 @@ macro_rules! parameter_types {
 	) => (
 		$( #[ $attr ] )*
 		$vis struct $name $(
-			< $($ty_params),* >( $($crate::__private::sp_std::marker::PhantomData<$ty_params>),* )
+			< $($ty_params),* >( $(core::marker::PhantomData<$ty_params>),* )
 		)?;
 		$crate::parameter_types!(IMPL $name, $type, $value $( $(, $ty_params)* )?);
 		$crate::parameter_types!( $( $rest )* );
@@ -279,7 +278,7 @@ macro_rules! parameter_types {
 	) => (
 		$( #[ $attr ] )*
 		$vis struct $name $(
-			< $($ty_params),* >( $($crate::__private::sp_std::marker::PhantomData<$ty_params>),* )
+			< $($ty_params),* >( $(core::marker::PhantomData<$ty_params>),* )
 		)?;
 		$crate::parameter_types!(IMPL_STORAGE $name, $type, $value $( $(, $ty_params)* )?);
 		$crate::parameter_types!( $( $rest )* );
@@ -462,7 +461,7 @@ macro_rules! ord_parameter_types {
 	(IMPL $name:ident , $type:ty , $value:expr) => {
 		impl $crate::traits::SortedMembers<$type> for $name {
 			fn contains(t: &$type) -> bool { &$value == t }
-			fn sorted_members() -> $crate::__private::sp_std::prelude::Vec<$type> { vec![$value] }
+			fn sorted_members() -> alloc::vec::Vec<$type> { vec![$value] }
 			fn count() -> usize { 1 }
 			#[cfg(feature = "runtime-benchmarks")]
 			fn add(_: &$type) {}
@@ -485,15 +484,15 @@ macro_rules! runtime_print {
 	($($arg:tt)+) => {
 		{
 			use core::fmt::Write;
-			let mut w = $crate::__private::sp_std::Writer::default();
+			let mut w = ::alloc::string::String::default();
 			let _ = core::write!(&mut w, $($arg)+);
-			$crate::__private::sp_io::misc::print_utf8(&w.inner())
+			$crate::__private::sp_io::misc::print_utf8(&w.as_bytes())
 		}
 	}
 }
 
 /// Print out the debuggable type.
-pub fn debug(data: &impl sp_std::fmt::Debug) {
+pub fn debug(data: &impl alloc::fmt::Debug) {
 	runtime_print!("{:?}", data);
 }
 
@@ -857,6 +856,7 @@ pub mod pallet_prelude {
 		PartialEqNoBound, RuntimeDebugNoBound, Twox128, Twox256, Twox64Concat,
 	};
 	pub use codec::{Decode, Encode, MaxEncodedLen};
+	pub use core::marker::PhantomData;
 	pub use frame_support::pallet_macros::*;
 	/// The optional attribute `#[inject_runtime_type]` can be attached to `RuntimeCall`,
 	/// `RuntimeEvent`, `RuntimeOrigin` or `PalletInfo` in an impl statement that has
@@ -885,7 +885,6 @@ pub mod pallet_prelude {
 		},
 		DispatchError, RuntimeDebug, MAX_MODULE_ERROR_ENCODED_SIZE,
 	};
-	pub use core::marker::PhantomData;
 	pub use sp_weights::Weight;
 }
 
@@ -1295,7 +1294,7 @@ pub mod pallet_prelude {
 /// otherwise the pallet will fail to compile. Rust primitive types have already implemented
 /// the [`PalletError`](traits::PalletError) trait along with some commonly used stdlib types
 /// such as [`Option`] and
-/// [`PhantomData`](`frame_support::__private::sp_std::marker::PhantomData`), and hence in most
+/// [`PhantomData`](`core::marker::PhantomData`), and hence in most
 /// use cases, a manual implementation is not necessary and is discouraged.
 ///
 /// The generic `T` must not bound anything and a `where` clause is not allowed. That said,
@@ -1829,7 +1828,7 @@ pub mod pallet_prelude {
 /// 	#[pallet::genesis_config]
 /// 	#[derive(frame_support::DefaultNoBound)]
 /// 	pub struct GenesisConfig<T: Config> {
-/// 	    _config: sp_std::marker::PhantomData<T>,
+/// 	    _config: core::marker::PhantomData<T>,
 /// 		_myfield: u32,
 /// 	}
 ///
@@ -1976,7 +1975,7 @@ pub mod pallet_prelude {
 /// 	#[pallet::genesis_config]
 /// 	#[derive(frame_support::DefaultNoBound)]
 /// 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
-/// 		 _config: sp_std::marker::PhantomData<(T,I)>,
+/// 		 _config: core::marker::PhantomData<(T,I)>,
 /// 		_myfield: u32,
 /// 	}
 ///

@@ -76,7 +76,7 @@ pub trait WithRemoteParachainHelper {
 
 /// Adapter struct that implements `WithRemoteParachainHelper`.
 pub struct WithRemoteParachainHelperAdapter<Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI, MB>(
-	sp_std::marker::PhantomData<(Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI, MB)>,
+	core::marker::PhantomData<(Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI, MB)>,
 );
 
 impl<Runtime, AllPalletsWithoutSystem, GPI, PPI, MPI, MB> WithRemoteParachainHelper

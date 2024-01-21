@@ -26,6 +26,8 @@
 //! These roots and proofs of inclusion can be generated at any time during the current session.
 //! Afterwards, the proofs can be fed to a consensus module when reporting misbehavior.
 
+extern crate alloc;
+
 pub mod offchain;
 pub mod onchain;
 mod shared;
@@ -37,7 +39,7 @@ use sp_runtime::{
 };
 use sp_session::{MembershipProof, ValidatorCount};
 use sp_staking::SessionIndex;
-use sp_std::prelude::*;
+
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV0},
 	LayoutV0, MemoryDB, Recorder, Trie, TrieMut, EMPTY_PREFIX,
@@ -102,7 +104,7 @@ impl<T: Config> Pallet<T> {
 				None => return, // nothing to prune.
 			};
 
-			let up_to = sp_std::cmp::min(up_to, end);
+			let up_to = core::cmp::min(up_to, end);
 
 			if up_to < start {
 				return // out of bounds. harmless.
@@ -157,7 +159,7 @@ pub trait SessionManager<ValidatorId, FullIdentification>:
 
 /// An `SessionManager` implementation that wraps an inner `I` and also
 /// sets the historical trie root of the ending session.
-pub struct NoteHistoricalRoot<T, I>(sp_std::marker::PhantomData<(T, I)>);
+pub struct NoteHistoricalRoot<T, I>(core::marker::PhantomData<(T, I)>);
 
 impl<T: Config, I: SessionManager<T::ValidatorId, T::FullIdentification>> NoteHistoricalRoot<T, I> {
 	fn do_new_session(new_index: SessionIndex, is_genesis: bool) -> Option<Vec<T::ValidatorId>> {

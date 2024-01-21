@@ -26,7 +26,10 @@ use crate::{
 	scheduler::{self, AvailabilityTimeoutStatus},
 	shared::{self, AllowedRelayParentsTracker},
 };
+use alloc::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
+#[cfg(feature = "std")]
+use core::fmt;
 use frame_support::{
 	defensive,
 	pallet_prelude::*,
@@ -45,12 +48,6 @@ use primitives::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
-#[cfg(feature = "std")]
-use core::fmt;
-use sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	prelude::*,
-};
 
 pub use pallet::*;
 

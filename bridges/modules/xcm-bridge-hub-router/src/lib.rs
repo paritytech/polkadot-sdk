@@ -30,6 +30,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use bp_xcm_bridge_hub_router::{
 	BridgeState, XcmChannelStatusProvider, MINIMAL_DELIVERY_FEE_FACTOR,
 };

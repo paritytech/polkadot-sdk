@@ -29,11 +29,11 @@ use bp_runtime::{
 	StorageMapKeyProvider,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use frame_support::{Blake2_128Concat, Twox64Concat};
 use scale_info::TypeInfo;
 use sp_core::storage::StorageKey;
 use sp_runtime::{traits::Header as HeaderT, RuntimeDebug};
-use sp_std::{marker::PhantomData, prelude::*};
 
 /// Best known parachain head hash.
 #[derive(Clone, Decode, Encode, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]

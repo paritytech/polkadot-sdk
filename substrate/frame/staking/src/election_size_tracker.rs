@@ -84,7 +84,7 @@ use frame_election_provider_support::{
 pub struct StaticTracker<DataProvider> {
 	pub size: usize,
 	pub counter: usize,
-	_marker: sp_std::marker::PhantomData<DataProvider>,
+	_marker: core::marker::PhantomData<DataProvider>,
 }
 
 impl<DataProvider> Default for StaticTracker<DataProvider> {

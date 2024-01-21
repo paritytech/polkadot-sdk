@@ -37,6 +37,7 @@
 //! availability cores over time.
 
 use crate::{configuration, initializer::SessionChangeNotification, paras};
+use alloc::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use polkadot_core_primitives::v2::BlockNumber;
@@ -44,10 +45,6 @@ use primitives::{
 	CoreIndex, GroupIndex, GroupRotationInfo, Id as ParaId, ScheduledCore, ValidatorIndex,
 };
 use sp_runtime::traits::One;
-use sp_std::{
-	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
-	prelude::*,
-};
 
 pub mod common;
 
@@ -287,10 +284,8 @@ impl<T: Config> Pallet<T> {
 				.into_iter()
 				.filter(|(freed_index, _)| (freed_index.0 as usize) < c_len)
 				.for_each(|(freed_index, freed_reason)| {
-					match sp_std::mem::replace(
-						&mut cores[freed_index.0 as usize],
-						CoreOccupied::Free,
-					) {
+					match core::mem::replace(&mut cores[freed_index.0 as usize], CoreOccupied::Free)
+					{
 						CoreOccupied::Free => {},
 						CoreOccupied::Paras(entry) => {
 							match freed_reason {
@@ -535,7 +530,7 @@ impl<T: Config> Pallet<T> {
 	fn push_occupied_cores_to_assignment_provider() {
 		AvailabilityCores::<T>::mutate(|cores| {
 			for core in cores.iter_mut() {
-				match sp_std::mem::replace(core, CoreOccupied::Free) {
+				match core::mem::replace(core, CoreOccupied::Free) {
 					CoreOccupied::Free => continue,
 					CoreOccupied::Paras(entry) => {
 						Self::maybe_push_assignment(entry);

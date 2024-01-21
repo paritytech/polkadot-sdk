@@ -140,6 +140,8 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 pub mod migration;
@@ -162,7 +164,6 @@ use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, CheckedAdd, CheckedSub, Saturating, StaticLookup, Zero},
 	ArithmeticError, DispatchError, TokenError,
 };
-use sp_std::prelude::*;
 
 use frame_support::{
 	dispatch::DispatchResult,

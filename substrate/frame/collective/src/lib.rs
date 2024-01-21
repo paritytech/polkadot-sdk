@@ -45,13 +45,13 @@
 extern crate alloc;
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::{marker::PhantomData, result};
 use scale_info::TypeInfo;
 use sp_io::storage;
 use sp_runtime::{
 	traits::{Dispatchable, Hash},
 	DispatchError, RuntimeDebug,
 };
-use sp_std::{marker::PhantomData, prelude::*, result};
 
 use frame_support::{
 	dispatch::{

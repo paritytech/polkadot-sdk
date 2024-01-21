@@ -16,7 +16,7 @@
 //! Benchmarking setup for pallet-session
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg(feature = "runtime-benchmarks")]
-use sp_std::{prelude::*, vec};
+use alloc::vec;
 
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;

@@ -122,9 +122,9 @@ use crate::{
 	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
+use alloc::collections::btree_map::BTreeMap;
 use polkadot_core_primitives as pcp;
 use polkadot_parachain_primitives::primitives as ppp;
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 sp_api::decl_runtime_apis! {
 	/// The API for querying the state of parachains on-chain.

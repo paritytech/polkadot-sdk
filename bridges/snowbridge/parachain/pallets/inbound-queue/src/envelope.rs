@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use snowbridge_core::{inbound::Log, ChannelId};
 
+use core::convert::TryFrom;
 use sp_core::{RuntimeDebug, H160, H256};
-use sp_std::{convert::TryFrom, prelude::*};
 
 use alloy_primitives::B256;
 use alloy_sol_types::{sol, SolEvent};

@@ -1,7 +1,7 @@
+use alloc::vec;
 use hex_literal::hex;
 use snowbridge_beacon_primitives::CompactExecutionHeader;
 use snowbridge_core::inbound::{Log, Message, Proof};
-use alloc::vec;
 
 pub struct InboundQueueTest {
 	pub execution_header: CompactExecutionHeader,

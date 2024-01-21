@@ -15,13 +15,13 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::xcm_config;
+use core::marker::PhantomData;
 use frame_support::pallet_prelude::DispatchResult;
 use frame_system::RawOrigin;
 use parity_scale_codec::{Decode, Encode};
 use primitives::Balance;
 use rococo_runtime_constants::currency::*;
 use runtime_common::identity_migrator::{OnReapIdentity, WeightInfo};
-use sp_std::{marker::PhantomData, prelude::*};
 use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm};
 use xcm_executor::traits::TransactAsset;
 

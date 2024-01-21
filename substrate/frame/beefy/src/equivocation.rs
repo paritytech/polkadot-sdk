@@ -51,7 +51,6 @@ use sp_staking::{
 	offence::{Kind, Offence, OffenceReportSystem, ReportOffence},
 	SessionIndex,
 };
-use sp_std::prelude::*;
 
 use super::{Call, Config, Error, Pallet, LOG_TARGET};
 
@@ -119,7 +118,7 @@ where
 /// - On-chain validity checks and processing are mostly delegated to the user provided generic
 ///   types implementing `KeyOwnerProofSystem` and `ReportOffence` traits.
 /// - Offence reporter for unsigned transactions is fetched via the the authorship pallet.
-pub struct EquivocationReportSystem<T, R, P, L>(sp_std::marker::PhantomData<(T, R, P, L)>);
+pub struct EquivocationReportSystem<T, R, P, L>(core::marker::PhantomData<(T, R, P, L)>);
 
 /// Equivocation evidence convenience alias.
 pub type EquivocationEvidenceFor<T> = (

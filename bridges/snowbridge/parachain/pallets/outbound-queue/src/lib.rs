@@ -75,6 +75,9 @@
 //! * `prove_message`: Generate a merkle proof for a committed message
 //! * `calculate_fee`: Calculate the delivery fee for a message
 #![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
+
 pub mod api;
 pub mod process_message_impl;
 pub mod send_message_impl;
@@ -108,7 +111,7 @@ use sp_runtime::{
 	traits::{CheckedDiv, Hash},
 	DigestItem,
 };
-use sp_std::prelude::*;
+
 pub use types::{CommittedMessage, ProcessMessageOriginOf};
 pub use weights::WeightInfo;
 

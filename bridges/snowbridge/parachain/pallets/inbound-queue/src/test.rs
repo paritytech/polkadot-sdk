@@ -2,12 +2,12 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
 
+use core::convert::From;
 use frame_support::{assert_noop, assert_ok};
 use hex_literal::hex;
 use snowbridge_core::{inbound::Proof, ChannelId};
 use sp_keyring::AccountKeyring as Keyring;
 use sp_runtime::{DispatchError, TokenError};
-use core::convert::From;
 
 use crate::{Error, Event as InboundQueueEvent};
 

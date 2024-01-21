@@ -76,6 +76,8 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 pub mod migration;
@@ -85,7 +87,9 @@ mod mock;
 mod tests;
 pub mod weights;
 
+use alloc::borrow::Borrow;
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::{cmp::Ordering, marker::PhantomData};
 use frame_support::{
 	dispatch::{DispatchResult, GetDispatchInfo, Parameter, RawOrigin},
 	ensure,
@@ -106,7 +110,6 @@ use sp_runtime::{
 	traits::{BadOrigin, Dispatchable, One, Saturating, Zero},
 	BoundedVec, DispatchError, RuntimeDebug,
 };
-use sp_std::{borrow::Borrow, cmp::Ordering, marker::PhantomData, prelude::*};
 
 pub use pallet::*;
 pub use weights::WeightInfo;

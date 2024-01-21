@@ -25,11 +25,9 @@ use alloc::collections::btree_set::BTreeSet as Set;
 use std::collections::HashSet as Set;
 
 use crate::warn;
+use alloc::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
+use core::hash::Hash;
 use smallvec::SmallVec;
-use sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	hash::Hash,
-};
 
 const PROOF_OVERLAY_NON_EMPTY: &str = "\
 	An OverlayValue is always created with at least one transaction and dropped as soon
@@ -242,7 +240,7 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 	/// Get an optional reference to the value stored for the specified key.
 	pub fn get<Q>(&self, key: &Q) -> Option<&OverlayedEntry<V>>
 	where
-		K: sp_std::borrow::Borrow<Q>,
+		K: core::borrow::Borrow<Q>,
 		Q: Ord + ?Sized,
 	{
 		self.changes.get(key)

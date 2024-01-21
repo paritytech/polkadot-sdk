@@ -456,7 +456,7 @@ pub fn benchmarks(
 			}
 
 			impl<#type_impl_generics> #krate::BenchmarkingSetup<#type_use_generics> for SelectedBenchmark where #where_clause {
-				fn components(&self) -> #krate::__private::Vec<(#krate::BenchmarkParameter, u32, u32)> {
+				fn components(&self) -> alloc::vec::Vec<(#krate::BenchmarkParameter, u32, u32)> {
 					match self {
 						#(
 							Self::#benchmark_names => {
@@ -472,7 +472,7 @@ pub fn benchmarks(
 					components: &[(#krate::BenchmarkParameter, u32)],
 					verify: bool,
 				) -> Result<
-					#krate::__private::Box<dyn FnOnce() -> Result<(), #krate::BenchmarkError>>,
+					alloc::boxed::Box<dyn FnOnce() -> Result<(), #krate::BenchmarkError>>,
 					#krate::BenchmarkError,
 				> {
 					match self {
@@ -493,8 +493,8 @@ pub fn benchmarks(
 			{
 				fn benchmarks(
 					extra: bool,
-				) -> #krate::__private::Vec<#krate::BenchmarkMetadata> {
-					let mut all_names = #krate::__private::vec![
+				) -> alloc::vec::Vec<#krate::BenchmarkMetadata> {
+					let mut all_names = alloc::vec![
 						#(#benchmark_names_str),
 						*
 					];
@@ -517,9 +517,9 @@ pub fn benchmarks(
 							components,
 							// TODO: Not supported by V2 syntax as of yet.
 							// https://github.com/paritytech/substrate/issues/13132
-							pov_modes: #krate::__private::vec![],
+							pov_modes: alloc::vec![],
 						}
-					}).collect::<#krate::__private::Vec<_>>()
+					}).collect::<alloc::vec::Vec<_>>()
 				}
 
 				fn run_benchmark(
@@ -528,8 +528,8 @@ pub fn benchmarks(
 					whitelist: &[#krate::__private::TrackedStorageKey],
 					verify: bool,
 					internal_repeats: u32,
-				) -> Result<#krate::__private::Vec<#krate::BenchmarkResult>, #krate::BenchmarkError> {
-					let extrinsic = #krate::__private::str::from_utf8(extrinsic).map_err(|_| "`extrinsic` is not a valid utf-8 string!")?;
+				) -> Result<alloc::vec::Vec<#krate::BenchmarkResult>, #krate::BenchmarkError> {
+					let extrinsic = alloc::str::from_utf8(extrinsic).map_err(|_| "`extrinsic` is not a valid utf-8 string!")?;
 					let selected_benchmark = match extrinsic {
 						#(#selected_benchmark_mappings),
 						*,
@@ -558,7 +558,7 @@ pub fn benchmarks(
 					whitelist.push(intrablock_entropy);
 
 					#krate::benchmarking::set_whitelist(whitelist.clone());
-					let mut results: #krate::__private::Vec<#krate::BenchmarkResult> = #krate::__private::Vec::new();
+					let mut results: alloc::vec::Vec<#krate::BenchmarkResult> = alloc::vec::Vec::new();
 
 					// Always do at least one internal repeat...
 					for _ in 0 .. internal_repeats.max(1) {
@@ -632,7 +632,7 @@ pub fn benchmarks(
 
 						let skip_meta = [ #(#skip_meta_benchmark_names_str),* ];
 						let read_and_written_keys = if skip_meta.contains(&extrinsic) {
-							#krate::__private::vec![(b"Skipped Metadata".to_vec(), 0, 0, false)]
+							alloc::vec![(b"Skipped Metadata".to_vec(), 0, 0, false)]
 						} else {
 							#krate::benchmarking::get_read_and_written_keys()
 						};
@@ -667,7 +667,7 @@ pub fn benchmarks(
 				/// author chooses not to implement benchmarks.
 				#[allow(unused)]
 				fn test_bench_by_name(name: &[u8]) -> Result<(), #krate::BenchmarkError> {
-					let name = #krate::__private::str::from_utf8(name)
+					let name = alloc::str::from_utf8(name)
 						.map_err(|_| -> #krate::BenchmarkError { "`name` is not a valid utf8 string!".into() })?;
 					match name {
 						#(#benchmarks_by_name_mappings),
@@ -898,8 +898,8 @@ fn expand_benchmark(
 		#[allow(unused_variables)]
 		impl<#type_impl_generics> #krate::BenchmarkingSetup<#type_use_generics>
 		for #name where #where_clause {
-			fn components(&self) -> #krate::__private::Vec<(#krate::BenchmarkParameter, u32, u32)> {
-				#krate::__private::vec! [
+			fn components(&self) -> alloc::vec::Vec<(#krate::BenchmarkParameter, u32, u32)> {
+				alloc::vec! [
 					#(
 						(#krate::BenchmarkParameter::#param_ranges)
 					),*
@@ -910,7 +910,7 @@ fn expand_benchmark(
 				&self,
 				components: &[(#krate::BenchmarkParameter, u32)],
 				verify: bool
-			) -> Result<#krate::__private::Box<dyn FnOnce() -> Result<(), #krate::BenchmarkError>>, #krate::BenchmarkError> {
+			) -> Result<alloc::boxed::Box<dyn FnOnce() -> Result<(), #krate::BenchmarkError>>, #krate::BenchmarkError> {
 				#(
 					// prepare instance #param_names
 					let #param_names = components.iter()
@@ -924,7 +924,7 @@ fn expand_benchmark(
 					#setup_stmts
 				)*
 				#pre_call
-				Ok(#krate::__private::Box::new(move || -> Result<(), #krate::BenchmarkError> {
+				Ok(alloc::boxed::Box::new(move || -> Result<(), #krate::BenchmarkError> {
 					#post_call
 					if verify {
 						#(
@@ -945,7 +945,7 @@ fn expand_benchmark(
 					SelectedBenchmark as #krate::BenchmarkingSetup<T, _>
 				>::components(&selected_benchmark);
 				let execute_benchmark = |
-					c: #krate::__private::Vec<(#krate::BenchmarkParameter, u32)>
+					c: alloc::vec::Vec<(#krate::BenchmarkParameter, u32)>
 				| -> Result<(), #krate::BenchmarkError> {
 					// Always reset the state after the benchmark.
 					#krate::__private::defer!(#krate::benchmarking::wipe_db());
@@ -989,7 +989,7 @@ fn expand_benchmark(
 							return Err("The start of a `ParamRange` must be less than or equal to the end".into());
 						}
 
-						let mut values = #krate::__private::vec![low];
+						let mut values = alloc::vec![low];
 						let diff = (high - low).min(num_values - 1);
 						let slope = (high - low) as f32 / diff as f32;
 
@@ -1001,7 +1001,7 @@ fn expand_benchmark(
 
 						for component_value in values {
 							// Select the max value for all the other components.
-							let c: #krate::__private::Vec<(#krate::BenchmarkParameter, u32)> = components
+							let c: alloc::vec::Vec<(#krate::BenchmarkParameter, u32)> = components
 								.iter()
 								.map(|(n, _, h)|
 									if *n == name {

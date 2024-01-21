@@ -35,6 +35,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{CheckIfFeeless, DispatchResult},
@@ -76,7 +78,7 @@ pub mod pallet {
 
 /// A [`SignedExtension`] that skips the wrapped extension if the dispatchable is feeless.
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
-pub struct SkipCheckIfFeeless<T, S>(pub S, sp_std::marker::PhantomData<T>);
+pub struct SkipCheckIfFeeless<T, S>(pub S, core::marker::PhantomData<T>);
 
 // Make this extension "invisible" from the outside (ie metadata type information)
 impl<T, S: StaticTypeInfo> TypeInfo for SkipCheckIfFeeless<T, S> {
@@ -86,20 +88,20 @@ impl<T, S: StaticTypeInfo> TypeInfo for SkipCheckIfFeeless<T, S> {
 	}
 }
 
-impl<T, S: Encode> sp_std::fmt::Debug for SkipCheckIfFeeless<T, S> {
+impl<T, S: Encode> alloc::fmt::Debug for SkipCheckIfFeeless<T, S> {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
 		write!(f, "SkipCheckIfFeeless<{:?}>", self.0.encode())
 	}
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
 		Ok(())
 	}
 }
 
 impl<T, S> From<S> for SkipCheckIfFeeless<T, S> {
 	fn from(s: S) -> Self {
-		Self(s, sp_std::marker::PhantomData)
+		Self(s, core::marker::PhantomData)
 	}
 }
 

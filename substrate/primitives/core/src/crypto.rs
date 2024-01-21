@@ -18,9 +18,14 @@
 //! Cryptographic utilities.
 
 use crate::{ed25519, sr25519};
+#[cfg(all(not(feature = "std"), feature = "serde"))]
+use alloc::{format, string::String, vec, vec::Vec};
 #[cfg(feature = "std")]
 use bip39::{Language, Mnemonic};
 use codec::{Decode, Encode, MaxEncodedLen};
+#[doc(hidden)]
+pub use core::ops::Deref;
+use core::{hash::Hash, str};
 #[cfg(feature = "std")]
 use itertools::Itertools;
 #[cfg(feature = "std")]
@@ -29,14 +34,6 @@ use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 pub use secrecy::{ExposeSecret, SecretString};
 use sp_runtime_interface::pass_by::PassByInner;
-#[doc(hidden)]
-pub use core::ops::Deref;
-#[cfg(all(not(feature = "std"), feature = "serde"))]
-use sp_std::{
-	alloc::{format, string::String},
-	vec,
-};
-use sp_std::{hash::Hash, str, vec::Vec};
 pub use ss58_registry::{from_known_address_format, Ss58AddressFormat, Ss58AddressFormatRegistry};
 /// Trait to zeroize a memory buffer.
 pub use zeroize::Zeroize;
@@ -253,8 +250,8 @@ pub enum PublicError {
 }
 
 #[cfg(feature = "std")]
-impl sp_std::fmt::Debug for PublicError {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+impl alloc::fmt::Debug for PublicError {
+	fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
 		// Just use the `Display` implementation
 		write!(f, "{}", self)
 	}
@@ -592,15 +589,15 @@ impl std::fmt::Display for AccountId32 {
 	}
 }
 
-impl sp_std::fmt::Debug for AccountId32 {
+impl alloc::fmt::Debug for AccountId32 {
 	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
 		let s = self.to_ss58check();
 		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.0), &s[0..8])
 	}
 
 	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+	fn fmt(&self, _: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
 		Ok(())
 	}
 }
@@ -627,7 +624,7 @@ impl<'de> serde::Deserialize<'de> for AccountId32 {
 }
 
 #[cfg(feature = "std")]
-impl sp_std::str::FromStr for AccountId32 {
+impl core::str::FromStr for AccountId32 {
 	type Err = &'static str;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -668,7 +665,7 @@ mod dummy {
 		fn as_mut(&mut self) -> &mut [u8] {
 			unsafe {
 				#[allow(mutable_transmutes)]
-				sp_std::mem::transmute::<_, &'static mut [u8]>(&b""[..])
+				core::mem::transmute::<_, &'static mut [u8]>(&b""[..])
 			}
 		}
 	}
@@ -821,7 +818,7 @@ pub struct SecretUri {
 }
 
 #[cfg(feature = "std")]
-impl sp_std::str::FromStr for SecretUri {
+impl core::str::FromStr for SecretUri {
 	type Err = SecretStringError;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {

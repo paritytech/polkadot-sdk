@@ -16,6 +16,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use bp_messages::MessageNonce;
 use bp_runtime::{
 	self,
@@ -42,7 +45,6 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, Verify},
 	MultiAddress, MultiSignature, OpaqueExtrinsic, RuntimeDebug,
 };
-use sp_std::prelude::Vec;
 
 // Re-export's to avoid extra substrate dependencies in chain-specific crates.
 pub use frame_support::{weights::constants::ExtrinsicBaseWeight, Parameter};

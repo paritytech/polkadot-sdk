@@ -28,11 +28,11 @@ mod enter {
 		mock::{mock_assigner, new_test_ext, BlockLength, BlockWeights, MockGenesisConfig, Test},
 		scheduler::common::Assignment,
 	};
+	use alloc::collections::btree_map::BTreeMap;
 	use assert_matches::assert_matches;
 	use frame_support::assert_ok;
 	use frame_system::limits;
 	use sp_runtime::Perbill;
-	use alloc::collections::btree_map::BTreeMap;
 
 	struct TestConfig {
 		dispute_statements: BTreeMap<u32, u32>,

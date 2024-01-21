@@ -81,11 +81,11 @@
 //! In your pallet you will only have to use [`with_context`], because as described above
 //! [`run_in_context`] will be handled by FRAME for you.
 
-use sp_std::{
-	any::{Any, TypeId},
+use alloc::{
 	boxed::Box,
 	collections::btree_map::{BTreeMap, Entry},
 };
+use core::any::{Any, TypeId};
 
 environmental::environmental!(DISPATCH_CONTEXT: BTreeMap<TypeId, Box<dyn Any>>);
 
@@ -158,7 +158,7 @@ pub fn with_context<T: 'static, R>(callback: impl FnOnce(&mut Value<T>) -> R) ->
 			if value.is_none() {
 				log::error!(
 					"Failed to downcast value for type {} in dispatch context!",
-					sp_std::any::type_name::<T>(),
+					core::any::type_name::<T>(),
 				);
 			}
 

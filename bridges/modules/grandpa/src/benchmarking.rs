@@ -41,6 +41,7 @@
 
 use crate::*;
 
+use alloc::vec::Vec;
 use bp_header_chain::justification::required_justification_precommits;
 use bp_runtime::BasicOperatingMode;
 use bp_test_utils::{
@@ -51,7 +52,6 @@ use frame_benchmarking::{benchmarks_instance_pallet, whitelisted_caller};
 use frame_system::RawOrigin;
 use sp_consensus_grandpa::AuthorityId;
 use sp_runtime::traits::{One, Zero};
-use alloc::vec::Vec;
 
 /// The maximum number of vote ancestries to include in a justification.
 ///
@@ -70,7 +70,7 @@ const MAX_VOTE_ANCESTRIES_RANGE_END: u32 =
 fn precommits_range_end<T: Config<I>, I: 'static>() -> u32 {
 	let max_bridged_authorities = T::BridgedChain::MAX_AUTHORITIES_COUNT;
 	if max_bridged_authorities > 128 {
-		sp_std::cmp::max(128, max_bridged_authorities / 5)
+		core::cmp::max(128, max_bridged_authorities / 5)
 	} else {
 		max_bridged_authorities
 	};

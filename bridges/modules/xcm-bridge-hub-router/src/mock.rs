@@ -86,7 +86,7 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type FeeAsset = BridgeFeeAsset;
 }
 
-pub struct LatestOrNoneForLocationVersionChecker<Location>(sp_std::marker::PhantomData<Location>);
+pub struct LatestOrNoneForLocationVersionChecker<Location>(core::marker::PhantomData<Location>);
 impl<LocationValue: Contains<Location>> GetVersion
 	for LatestOrNoneForLocationVersionChecker<LocationValue>
 {

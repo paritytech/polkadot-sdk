@@ -22,7 +22,6 @@ use ed25519_dalek::{Signature, SigningKey, VerifyingKey};
 use finality_grandpa::voter_set::VoterSet;
 use sp_consensus_grandpa::{AuthorityId, AuthorityList, AuthorityWeight, SetId};
 use sp_runtime::RuntimeDebug;
-use sp_std::prelude::*;
 
 /// Set of test accounts with friendly names.
 pub const ALICE: Account = Account(0);

@@ -40,8 +40,6 @@ use pallet_broker::CoreAssignment;
 use primitives::CoreIndex;
 use sp_runtime::traits::{One, Saturating};
 
-use sp_std::prelude::*;
-
 pub use pallet::*;
 
 /// Fraction expressed as a nominator with an assumed denominator of 57,600.

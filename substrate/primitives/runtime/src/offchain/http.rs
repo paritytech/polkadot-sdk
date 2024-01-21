@@ -48,15 +48,16 @@
 //! assert_eq!(body.error(), &None);
 //! ```
 
+#[cfg(not(feature = "std"))]
+use alloc::vec;
+use alloc::vec::Vec;
+use core::str;
 use sp_core::{
 	offchain::{
 		HttpError, HttpRequestId as RequestId, HttpRequestStatus as RequestStatus, Timestamp,
 	},
 	RuntimeDebug,
 };
-#[cfg(not(feature = "std"))]
-use sp_std::prelude::vec;
-use sp_std::{prelude::Vec, str};
 
 /// Request method (HTTP verb)
 #[derive(Clone, PartialEq, Eq, RuntimeDebug)]

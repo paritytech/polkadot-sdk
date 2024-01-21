@@ -16,6 +16,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::fmt::Debug;
+use core::marker::PhantomData;
 use frame_support::{
 	dispatch::GetDispatchInfo,
 	ensure,
@@ -24,7 +28,6 @@ use frame_support::{
 use parity_scale_codec::{Decode, Encode};
 use sp_core::defer;
 use sp_io::hashing::blake2_128;
-use sp_std::{fmt::Debug, marker::PhantomData, prelude::*};
 use sp_weights::Weight;
 use xcm::latest::prelude::*;
 
@@ -353,7 +356,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	/// Remove the registered error handler and return it. Do not refund its weight.
 	fn take_error_handler(&mut self) -> Xcm<Config::RuntimeCall> {
 		let mut r = Xcm::<Config::RuntimeCall>(vec![]);
-		sp_std::mem::swap(&mut self.error_handler, &mut r);
+		core::mem::swap(&mut self.error_handler, &mut r);
 		self.error_handler_weight = Weight::zero();
 		r
 	}
@@ -368,7 +371,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	/// Remove the registered appendix and return it.
 	fn take_appendix(&mut self) -> Xcm<Config::RuntimeCall> {
 		let mut r = Xcm::<Config::RuntimeCall>(vec![]);
-		sp_std::mem::swap(&mut self.appendix, &mut r);
+		core::mem::swap(&mut self.appendix, &mut r);
 		self.appendix_weight = Weight::zero();
 		r
 	}

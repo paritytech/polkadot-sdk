@@ -28,7 +28,6 @@ use sp_runtime::{
 	KeyTypeId,
 };
 use sp_session::MembershipProof;
-use sp_std::prelude::*;
 
 use super::{shared, Config, IdentificationTuple, ProvingTrie};
 use crate::{Pallet as SessionModule, SessionIndex};
@@ -60,9 +59,9 @@ impl<T: Config> ValidatorSet<T> {
 
 /// Implement conversion into iterator for usage
 /// with [ProvingTrie](super::ProvingTrie::generate_for).
-impl<T: Config> sp_std::iter::IntoIterator for ValidatorSet<T> {
+impl<T: Config> core::iter::IntoIterator for ValidatorSet<T> {
 	type Item = (T::ValidatorId, T::FullIdentification);
-	type IntoIter = sp_std::vec::IntoIter<Self::Item>;
+	type IntoIter = alloc::vec::IntoIter<Self::Item>;
 	fn into_iter(self) -> Self::IntoIter {
 		self.validator_set.into_iter()
 	}

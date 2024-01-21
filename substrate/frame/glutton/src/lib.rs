@@ -27,6 +27,8 @@
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 #[cfg(test)]
@@ -35,12 +37,12 @@ mod mock;
 mod tests;
 pub mod weights;
 
+use alloc::{vec, vec::Vec};
 use blake2::{Blake2b512, Digest};
 use frame_support::{pallet_prelude::*, weights::WeightMeter, DefaultNoBound};
 use frame_system::pallet_prelude::*;
 use sp_io::hashing::twox_256;
 use sp_runtime::{traits::Zero, FixedPointNumber, FixedU64};
-use sp_std::{vec, vec::Vec};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -148,7 +150,7 @@ pub mod pallet {
 		pub trash_data_count: u32,
 		#[serde(skip)]
 		/// The required configuration field.
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]

@@ -66,7 +66,6 @@ use sp_runtime::{
 	traits::{AccountIdConversion, BadOrigin, Hash, StaticLookup, TrailingZeroInput, Zero},
 	Percent, RuntimeDebug,
 };
-use sp_std::prelude::*;
 
 use codec::{Decode, Encode};
 use frame_support::{

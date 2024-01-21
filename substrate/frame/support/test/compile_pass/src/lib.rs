@@ -21,6 +21,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use renamed_frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{ConstU16, ConstU32, ConstU64, Everything},

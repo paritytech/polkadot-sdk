@@ -21,8 +21,10 @@
 
 pub use registration::{Registration, StakeAndSlash};
 
+use alloc::fmt::Debug;
 use bp_messages::LaneId;
 use bp_runtime::{ChainId, StorageDoubleMapKeyProvider};
+use core::marker::PhantomData;
 use frame_support::{traits::tokens::Preservation, Blake2_128Concat, Identity};
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -30,7 +32,6 @@ use sp_runtime::{
 	traits::AccountIdConversion,
 	TypeId,
 };
-use sp_std::{fmt::Debug, marker::PhantomData};
 
 mod registration;
 

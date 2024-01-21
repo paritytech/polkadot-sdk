@@ -21,4 +21,4 @@
 
 /// Encoded XCM blob. We expect the bridge messages pallet to use this blob type for both inbound
 /// and outbound payloads.
-pub type XcmAsPlainPayload = sp_std::vec::Vec<u8>;
+pub type XcmAsPlainPayload = alloc::vec::Vec<u8>;

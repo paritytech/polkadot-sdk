@@ -42,9 +42,6 @@ pub use polkadot_parachain_primitives;
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
 pub use sp_runtime::traits::GetRuntimeBlockType;
-#[cfg(not(feature = "std"))]
-#[doc(hidden)]
-pub use sp_std;
 
 /// Basically the same as
 /// [`ValidationParams`](polkadot_parachain_primitives::primitives::ValidationParams), but a little

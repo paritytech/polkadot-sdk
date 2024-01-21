@@ -27,6 +27,7 @@ use bp_polkadot_core::SuffixedCommonSignedExtension;
 use bp_runtime::extensions::{
 	BridgeRejectObsoleteHeadersAndMessages, RefundBridgedParachainMessagesSchema,
 };
+use core::time::Duration;
 use frame_support::{
 	dispatch::DispatchClass,
 	parameter_types,
@@ -34,7 +35,6 @@ use frame_support::{
 	weights::constants,
 };
 use frame_system::limits;
-use core::time::Duration;
 
 /// Average block interval in Cumulus-based parachains.
 ///

@@ -19,6 +19,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 /// Copied from `sp-runtime` and documented there.
 #[macro_export]
 macro_rules! assert_eq_error_rate {
@@ -49,7 +51,8 @@ pub use per_things::{
 };
 pub use rational::{MultiplyRational, Rational128, RationalInfinite};
 
-use sp_std::{cmp::Ordering, fmt::Debug, prelude::*};
+use alloc::fmt::Debug;
+use core::cmp::Ordering;
 use traits::{BaseArithmetic, One, SaturatedConversion, Unsigned, Zero};
 
 use codec::{Decode, Encode, MaxEncodedLen};

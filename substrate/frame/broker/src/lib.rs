@@ -49,6 +49,7 @@ pub use types::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use alloc::vec::Vec;
 	use frame_support::{
 		pallet_prelude::{DispatchResult, DispatchResultWithPostInfo, *},
 		traits::{
@@ -59,7 +60,6 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::{Convert, ConvertBack};
-	use alloc::vec::Vec;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);

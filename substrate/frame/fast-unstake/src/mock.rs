@@ -29,7 +29,6 @@ use sp_runtime::{
 };
 
 use pallet_staking::{Exposure, IndividualExposure, StakerStatus};
-use sp_std::prelude::*;
 
 pub type AccountId = u128;
 pub type BlockNumber = u64;

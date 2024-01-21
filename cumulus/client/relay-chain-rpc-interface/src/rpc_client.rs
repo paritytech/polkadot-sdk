@@ -47,7 +47,7 @@ use sc_client_api::StorageData;
 use sc_rpc_api::{state::ReadProof, system::Health};
 use sc_service::TaskManager;
 use sp_consensus_babe::Epoch;
-use sp_core::sp_std::collections::btree_map::BTreeMap;
+use sp_core::alloc::collections::btree_map::BTreeMap;
 use sp_storage::StorageKey;
 use sp_version::RuntimeVersion;
 

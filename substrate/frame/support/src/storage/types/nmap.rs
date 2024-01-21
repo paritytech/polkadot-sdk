@@ -31,7 +31,6 @@ use crate::{
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
 use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
 use sp_runtime::SaturatedConversion;
-use sp_std::prelude::*;
 
 /// A type representing an *NMap* in storage. This structure associates an arbitrary number of keys
 /// with a value of a specified type stored on-chain.

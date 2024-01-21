@@ -103,7 +103,8 @@ macro_rules! impl_filter_stack {
 		mod $module {
 			#[allow(unused_imports)]
 			use super::*;
-			use $crate::__private::sp_std::{boxed::Box, cell::RefCell, mem::{swap, take}, vec::Vec};
+			use alloc::{boxed::Box, cell::RefCell, vec::Vec};
+			use core::mem::{swap, take};
 			use $crate::traits::filter::{Contains, FilterStack};
 
 			thread_local! {

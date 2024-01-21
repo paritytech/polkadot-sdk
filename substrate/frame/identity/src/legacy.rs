@@ -22,7 +22,6 @@ use enumflags2::{bitflags, BitFlags};
 use frame_support::{traits::Get, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::{build::Variants, Path, Type, TypeInfo};
 use sp_runtime::{BoundedVec, RuntimeDebug};
-use sp_std::prelude::*;
 
 use crate::types::{Data, IdentityInformationProvider};
 

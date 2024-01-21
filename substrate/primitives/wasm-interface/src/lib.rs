@@ -19,7 +19,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sp_std::{borrow::Cow, iter::Iterator, marker::PhantomData, mem, result, vec, vec::Vec};
+extern crate alloc;
+
+use alloc::{borrow::Cow, vec, vec::Vec};
+use core::{iter::Iterator, marker::PhantomData, mem, result};
 
 #[cfg(not(all(feature = "std", feature = "wasmtime")))]
 #[macro_export]
@@ -76,7 +79,7 @@ impl From<ValueType> for u8 {
 impl TryFrom<u8> for ValueType {
 	type Error = ();
 
-	fn try_from(val: u8) -> sp_std::result::Result<ValueType, ()> {
+	fn try_from(val: u8) -> core::result::Result<ValueType, ()> {
 		match val {
 			0 => Ok(Self::I32),
 			1 => Ok(Self::I64),

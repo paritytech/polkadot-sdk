@@ -18,6 +18,11 @@ use crate::{
 	configuration::{self, HostConfiguration},
 	dmp, ensure_parachain, initializer, paras,
 };
+use alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	fmt,
+};
+use core::mem;
 use frame_support::{pallet_prelude::*, traits::ReservableCurrency, DefaultNoBound};
 use frame_system::pallet_prelude::*;
 use parity_scale_codec::{Decode, Encode};
@@ -30,11 +35,6 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, Hash as HashT, UniqueSaturatedInto, Zero},
 	ArithmeticError,
-};
-use sp_std::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	fmt, mem,
-	prelude::*,
 };
 
 pub use pallet::*;
@@ -471,7 +471,7 @@ pub mod pallet {
 	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		_config: sp_std::marker::PhantomData<T>,
+		_config: core::marker::PhantomData<T>,
 		preopen_hrmp_channels: Vec<(ParaId, ParaId, u32, u32)>,
 	}
 

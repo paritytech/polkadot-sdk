@@ -25,6 +25,11 @@ pub use crate::{
 	AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, FixedRateOfFungible,
 	FixedWeightBounds, TakeWeightCredit,
 };
+pub use alloc::{
+	cell::{Cell, RefCell},
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	fmt::Debug,
+};
 use frame_support::traits::{ContainsPair, Everything};
 pub use frame_support::{
 	dispatch::{DispatchInfo, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},
@@ -33,11 +38,6 @@ pub use frame_support::{
 	traits::{Contains, Get, IsInVec},
 };
 pub use parity_scale_codec::{Decode, Encode};
-pub use sp_std::{
-	cell::{Cell, RefCell},
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	fmt::Debug,
-};
 pub use xcm::latest::{prelude::*, Weight};
 use xcm_executor::traits::{Properties, QueryHandler, QueryResponseStatus};
 pub use xcm_executor::{

@@ -36,7 +36,6 @@ use frame_support::{
 	traits::{LockableCurrency, WithdrawReasons},
 };
 use sp_staking::StakingAccount;
-use sp_std::prelude::*;
 
 use crate::{
 	BalanceOf, Bonded, Config, Error, Ledger, Payee, RewardDestination, StakingLedger, STAKING_ID,

@@ -16,6 +16,8 @@
 
 //! Relay chain runtime mock.
 
+extern crate alloc;
+
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{Everything, Nothing, ProcessMessage, ProcessMessageError},

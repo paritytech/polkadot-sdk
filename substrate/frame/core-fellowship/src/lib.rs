@@ -58,11 +58,13 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "128"]
 
+extern crate alloc;
+
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{Saturating, Zero};
 use sp_runtime::RuntimeDebug;
-use sp_std::{marker::PhantomData, prelude::*};
 
 use frame_support::{
 	dispatch::DispatchResultWithPostInfo,

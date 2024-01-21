@@ -19,8 +19,7 @@
 //! proofs for indexed transactions.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-
-use sp_std::{prelude::*, result::Result};
+use core::result::Result;
 
 use codec::{Decode, Encode};
 use sp_inherents::{InherentData, InherentIdentifier, IsFatalError};

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
 
+use core::convert::From;
 use frame_support::{
 	parameter_types,
 	traits::{ConstU128, ConstU32, Everything},
@@ -20,7 +21,6 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, FixedU128, MultiSignature,
 };
-use core::convert::From;
 use xcm::v4::{prelude::*, SendXcm};
 use xcm_executor::AssetsInHolding;
 

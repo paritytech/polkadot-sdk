@@ -17,11 +17,11 @@
 //! Logic for checking Substrate storage proofs.
 
 use crate::StrippableError;
+use alloc::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::PalletError;
 use hash_db::{HashDB, Hasher, EMPTY_PREFIX};
 use scale_info::TypeInfo;
-use sp_std::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 use sp_trie::{
 	read_trie_value, LayoutV1, MemoryDB, Recorder, StorageProof, Trie, TrieConfiguration,
 	TrieDBBuilder, TrieError, TrieHash,

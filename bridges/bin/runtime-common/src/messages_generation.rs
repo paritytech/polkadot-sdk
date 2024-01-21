@@ -18,13 +18,14 @@
 
 use crate::messages::{AccountIdOf, BridgedChain, HashOf, HasherOf, MessageBridge, ThisChain};
 
+use alloc::vec::Vec;
 use bp_messages::{
 	storage_keys, InboundLaneData, LaneId, MessageKey, MessageNonce, MessagePayload,
 	OutboundLaneData,
 };
 use bp_runtime::{record_all_trie_keys, RawStorageProof, StorageProofSize};
 use codec::Encode;
-use sp_std::{ops::RangeInclusive, prelude::*};
+use core::ops::RangeInclusive;
 use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
 
 /// Simple and correct message data encode function.
@@ -142,7 +143,7 @@ pub fn grow_trie_leaf_value(mut value: Vec<u8>, size: StorageProofSize) -> Vec<u
 	match size {
 		StorageProofSize::Minimal(_) => (),
 		StorageProofSize::HasLargeLeaf(size) if size as usize > value.len() => {
-			value.extend(sp_std::iter::repeat(42u8).take(size as usize - value.len()));
+			value.extend(core::iter::repeat(42u8).take(size as usize - value.len()));
 		},
 		StorageProofSize::HasLargeLeaf(_) => (),
 	}

@@ -21,6 +21,8 @@
 #![warn(missing_docs)]
 #![deny(warnings)]
 
+extern crate alloc;
+
 pub use frame_support::dispatch::RawOrigin;
 use frame_system::pallet_prelude::BlockNumberFor;
 
@@ -127,7 +129,7 @@ pub mod pallet_prelude {
 
 /// Provides an implementation of [`frame_support::traits::Randomness`] that should only be used in
 /// tests!
-pub struct TestRandomness<T>(sp_std::marker::PhantomData<T>);
+pub struct TestRandomness<T>(core::marker::PhantomData<T>);
 
 impl<Output: codec::Decode + Default, T>
 	frame_support::traits::Randomness<Output, BlockNumberFor<T>> for TestRandomness<T>

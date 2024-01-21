@@ -117,6 +117,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Codec, Encode};
+use core::marker::PhantomData;
 use frame_support::{
 	dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::InvalidTransaction,
@@ -136,7 +137,6 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
-use sp_std::{marker::PhantomData, prelude::*};
 
 #[cfg(feature = "try-runtime")]
 use ::{

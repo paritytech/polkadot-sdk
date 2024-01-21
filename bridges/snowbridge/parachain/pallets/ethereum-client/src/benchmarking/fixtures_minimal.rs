@@ -1,13 +1,13 @@
 // Generated, do not edit!
 // See README.md for instructions to generate
 use crate::{CheckpointUpdate, ExecutionHeaderUpdate, Update};
+use alloc::{boxed::Box, vec};
 use hex_literal::hex;
 use primitives::{
 	updates::AncestryProof, BeaconHeader, ExecutionPayloadHeader, NextSyncCommitteeUpdate,
 	SyncAggregate, SyncCommittee,
 };
 use sp_core::U256;
-use sp_std::{boxed::Box, vec};
 
 pub fn make_checkpoint() -> Box<CheckpointUpdate> {
 	Box::new(CheckpointUpdate {

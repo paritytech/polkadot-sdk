@@ -21,9 +21,9 @@
 
 extern crate alloc;
 
+use alloc::vec::Vec;
 use codec::{Codec, Decode, Encode};
 use sp_runtime::ConsensusEngineId;
-use alloc::vec::Vec;
 
 pub mod digests;
 pub mod inherents;

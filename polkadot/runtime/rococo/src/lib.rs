@@ -22,6 +22,8 @@
 
 extern crate alloc;
 
+use alloc::collections::btree_map::BTreeMap;
+use core::cmp::Ordering;
 use pallet_nis::WithMaximumOf;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use primitives::{
@@ -44,7 +46,6 @@ use runtime_common::{
 	BlockHashCount, BlockLength, SlowAdjustingFeeUpdate,
 };
 use scale_info::TypeInfo;
-use sp_std::{cmp::Ordering, collections::btree_map::BTreeMap, prelude::*};
 
 use runtime_parachains::{
 	assigner_coretime as parachains_assigner_coretime,
@@ -1559,7 +1560,7 @@ pub mod migrations {
 
 	impl frame_support::traits::OnRuntimeUpgrade for UpgradeSessionKeys {
 		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<sp_std::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+		fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
 			if System::last_runtime_upgrade_spec_version() > UPGRADE_SESSION_KEYS_FROM_SPEC {
 				log::warn!(target: "runtime::session_keys", "Skipping session keys migration pre-upgrade check due to spec version (already applied?)");
 				return Ok(Vec::new())
@@ -1599,9 +1600,7 @@ pub mod migrations {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(
-			old_state: sp_std::vec::Vec<u8>,
-		) -> Result<(), sp_runtime::TryRuntimeError> {
+		fn post_upgrade(old_state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 			if System::last_runtime_upgrade_spec_version() > UPGRADE_SESSION_KEYS_FROM_SPEC {
 				log::warn!(target: "runtime::session_keys", "Skipping session keys migration post-upgrade check due to spec version (already applied?)");
 				return Ok(())
@@ -1789,7 +1788,7 @@ sp_api::impl_runtime_apis! {
 			Runtime::metadata_at_version(version)
 		}
 
-		fn metadata_versions() -> sp_std::vec::Vec<u32> {
+		fn metadata_versions() -> alloc::vec::Vec<u32> {
 			Runtime::metadata_versions()
 		}
 	}

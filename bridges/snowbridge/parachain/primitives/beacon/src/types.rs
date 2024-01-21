@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
+use alloc::boxed::Box;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 use sp_core::{H160, H256, U256};
 use sp_runtime::RuntimeDebug;
-use sp_std::{boxed::Box, prelude::*};
 
 use crate::config::{PUBKEY_SIZE, SIGNATURE_SIZE};
 

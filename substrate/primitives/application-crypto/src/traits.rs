@@ -18,10 +18,10 @@
 use codec::Codec;
 use scale_info::TypeInfo;
 
+use alloc::{fmt::Debug, vec::Vec};
 #[cfg(feature = "full_crypto")]
 use sp_core::crypto::Pair;
 use sp_core::crypto::{CryptoType, CryptoTypeId, IsWrappedBy, KeyTypeId, Public};
-use sp_std::{fmt::Debug, vec::Vec};
 
 /// Application-specific cryptographic object.
 ///
@@ -51,9 +51,9 @@ pub trait AppCrypto: 'static + Sized + CryptoType {
 
 /// Type which implements Hash in std, not when no-std (std variant).
 #[cfg(any(feature = "std", feature = "full_crypto"))]
-pub trait MaybeHash: sp_std::hash::Hash {}
+pub trait MaybeHash: core::hash::Hash {}
 #[cfg(any(feature = "std", feature = "full_crypto"))]
-impl<T: sp_std::hash::Hash> MaybeHash for T {}
+impl<T: core::hash::Hash> MaybeHash for T {}
 
 /// Type which implements Hash in std, not when no-std (no-std variant).
 #[cfg(all(not(feature = "std"), not(feature = "full_crypto")))]

@@ -30,7 +30,6 @@
 use crate::dispatch::{DispatchResult, Parameter};
 use codec::{Decode, Encode};
 use sp_runtime::{DispatchError, TokenError};
-use sp_std::prelude::*;
 
 /// Trait for providing an interface to many read-only NFT-like sets of items.
 pub trait Inspect<AccountId> {

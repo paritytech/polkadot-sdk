@@ -18,13 +18,13 @@
 //! Scheduler pallet benchmarking.
 
 use super::*;
+use alloc::vec;
 use frame_benchmarking::v1::{account, benchmarks, BenchmarkError};
 use frame_support::{
 	ensure,
 	traits::{schedule::Priority, BoundedInline},
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
-use sp_std::{prelude::*, vec};
 
 use crate::Pallet as Scheduler;
 use frame_system::Call as SystemCall;

@@ -18,6 +18,7 @@
 use super::*;
 use crate as root_offences;
 
+use alloc::collections::btree_map::BTreeMap;
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
 	onchain, SequentialPhragmen,
@@ -35,7 +36,6 @@ use sp_runtime::{
 	BuildStorage,
 };
 use sp_staking::{EraIndex, SessionIndex};
-use alloc::collections::btree_map::BTreeMap;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 type AccountId = u64;

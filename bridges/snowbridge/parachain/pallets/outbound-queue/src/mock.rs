@@ -8,6 +8,7 @@ use frame_support::{
 	weights::IdentityFee,
 };
 
+use core::marker::PhantomData;
 use snowbridge_core::{
 	gwei, meth,
 	outbound::*,
@@ -19,7 +20,6 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup, Keccak256},
 	AccountId32, BuildStorage, FixedU128,
 };
-use core::marker::PhantomData;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 type AccountId = AccountId32;

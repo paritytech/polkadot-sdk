@@ -36,20 +36,23 @@
 // Runtime-generated enums
 #![allow(clippy::large_enum_variant)]
 
+extern crate alloc;
+
 pub use storage_types::StoredAuthoritySet;
 
+use alloc::{boxed::Box, vec::Vec};
 use bp_header_chain::{
 	justification::GrandpaJustification, AuthoritySet, ChainWithGrandpa, GrandpaConsensusLogReader,
 	HeaderChain, InitializationData, StoredHeaderData, StoredHeaderDataBuilder,
 	StoredHeaderGrandpaInfo,
 };
 use bp_runtime::{BlockNumberOf, HashOf, HasherOf, HeaderId, HeaderOf, OwnedBridgeModule};
+use core::convert::TryInto;
 use frame_support::{dispatch::PostDispatchInfo, ensure, DefaultNoBound};
 use sp_runtime::{
 	traits::{Header as HeaderT, Zero},
 	SaturatedConversion,
 };
-use sp_std::{boxed::Box, convert::TryInto, prelude::*};
 
 mod call_ext;
 #[cfg(test)]
@@ -642,8 +645,8 @@ impl<T: Config<I>, I: 'static> HeaderChain<BridgedChain<T, I>> for GrandpaChainH
 pub fn initialize_for_benchmarks<T: Config<I>, I: 'static>(header: BridgedHeader<T, I>) {
 	initialize_bridge::<T, I>(InitializationData {
 		header: Box::new(header),
-		authority_list: sp_std::vec::Vec::new(), /* we don't verify any proofs in external
-		                                          * benchmarks */
+		authority_list: alloc::vec::Vec::new(), /* we don't verify any proofs in external
+		                                         * benchmarks */
 		set_id: 0,
 		operating_mode: bp_runtime::BasicOperatingMode::Normal,
 	})

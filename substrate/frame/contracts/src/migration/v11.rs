@@ -27,8 +27,8 @@ use crate::{
 use sp_runtime::TryRuntimeError;
 
 use codec::{Decode, Encode};
+use core::marker::PhantomData;
 use frame_support::{pallet_prelude::*, storage_alias, DefaultNoBound};
-use sp_std::{marker::PhantomData, prelude::*};
 mod old {
 	use super::*;
 

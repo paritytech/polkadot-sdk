@@ -29,7 +29,6 @@ use frame_support::{
 };
 use frame_system::RawOrigin as SystemOrigin;
 use sp_runtime::traits::Bounded;
-use sp_std::prelude::*;
 
 use crate::Pallet as Uniques;
 

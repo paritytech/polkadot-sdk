@@ -16,7 +16,6 @@
 // limitations under the License.
 
 pub use sp_core::crypto::KeyTypeId;
-use sp_std::prelude::*;
 
 sp_api::decl_runtime_apis! {
 	/// Session keys runtime api.

@@ -35,7 +35,6 @@ use sp_runtime::{
 	traits::{Bounded, IdentifyAccount, One},
 	AccountId32, MultiSignature, MultiSigner,
 };
-use sp_std::prelude::*;
 
 use crate::Pallet as Nfts;
 

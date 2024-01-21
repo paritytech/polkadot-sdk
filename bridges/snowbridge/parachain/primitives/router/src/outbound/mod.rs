@@ -9,13 +9,13 @@ use core::slice::Iter;
 
 use codec::{Decode, Encode};
 
+use core::{iter::Peekable, marker::PhantomData};
 use frame_support::{ensure, traits::Get};
 use snowbridge_core::{
 	outbound::{AgentExecuteCommand, Command, Message, SendMessage},
 	ChannelId, ParaId,
 };
 use sp_core::{H160, H256};
-use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};
 use xcm::v4::prelude::*;
 use xcm_executor::traits::{ConvertLocation, ExportXcm};
 

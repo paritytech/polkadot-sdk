@@ -31,6 +31,7 @@ use crate::{
 use bp_messages::LaneId;
 use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParams};
 use bp_runtime::ChainId;
+use core::marker::PhantomData;
 use frame_support::{
 	parameter_types,
 	traits::{ConstU32, Contains, Equals, Everything, Nothing},
@@ -51,7 +52,6 @@ use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use snowbridge_runtime_common::XcmExportFeeToSibling;
 use sp_core::Get;
 use sp_runtime::traits::AccountIdConversion;
-use core::marker::PhantomData;
 use xcm::latest::prelude::*;
 #[allow(deprecated)]
 use xcm_builder::{

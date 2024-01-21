@@ -201,7 +201,7 @@ frame_benchmarking::benchmarks! {
 	#[pov_mode = Measured]
 	measured_storage_value_read_linear_size {
 		let l in 0 .. 1<<22;
-		let v: sp_runtime::BoundedVec<u8, _> = sp_std::vec![0u8; l as usize].try_into().unwrap();
+		let v: sp_runtime::BoundedVec<u8, _> = alloc::vec![0u8; l as usize].try_into().unwrap();
 		LargeValue::<T>::put(&v);
 	}: {
 		assert!(LargeValue::<T>::get().is_some());
@@ -210,7 +210,7 @@ frame_benchmarking::benchmarks! {
 	#[pov_mode = MaxEncodedLen]
 	mel_storage_value_read_linear_size {
 		let l in 0 .. 1<<22;
-		let v: sp_runtime::BoundedVec<u8, _> = sp_std::vec![0u8; l as usize].try_into().unwrap();
+		let v: sp_runtime::BoundedVec<u8, _> = alloc::vec![0u8; l as usize].try_into().unwrap();
 		LargeValue::<T>::put(&v);
 	}: {
 		assert!(LargeValue::<T>::get().is_some());
@@ -219,7 +219,7 @@ frame_benchmarking::benchmarks! {
 	#[pov_mode = Measured]
 	measured_storage_double_value_read_linear_size {
 		let l in 0 .. 1<<22;
-		let v: sp_runtime::BoundedVec<u8, _> = sp_std::vec![0u8; l as usize].try_into().unwrap();
+		let v: sp_runtime::BoundedVec<u8, _> = alloc::vec![0u8; l as usize].try_into().unwrap();
 		LargeValue::<T>::put(&v);
 		LargeValue2::<T>::put(&v);
 	}: {
@@ -230,7 +230,7 @@ frame_benchmarking::benchmarks! {
 	#[pov_mode = MaxEncodedLen]
 	mel_storage_double_value_read_linear_size {
 		let l in 0 .. 1<<22;
-		let v: sp_runtime::BoundedVec<u8, _> = sp_std::vec![0u8; l as usize].try_into().unwrap();
+		let v: sp_runtime::BoundedVec<u8, _> = alloc::vec![0u8; l as usize].try_into().unwrap();
 		LargeValue::<T>::put(&v);
 		LargeValue2::<T>::put(&v);
 	}: {
@@ -243,7 +243,7 @@ frame_benchmarking::benchmarks! {
 	}]
 	mel_mixed_storage_double_value_read_linear_size {
 		let l in 0 .. 1<<22;
-		let v: sp_runtime::BoundedVec<u8, _> = sp_std::vec![0u8; l as usize].try_into().unwrap();
+		let v: sp_runtime::BoundedVec<u8, _> = alloc::vec![0u8; l as usize].try_into().unwrap();
 		LargeValue::<T>::put(&v);
 		LargeValue2::<T>::put(&v);
 	}: {
@@ -256,7 +256,7 @@ frame_benchmarking::benchmarks! {
 	}]
 	measured_mixed_storage_double_value_read_linear_size {
 		let l in 0 .. 1<<22;
-		let v: sp_runtime::BoundedVec<u8, _> = sp_std::vec![0u8; l as usize].try_into().unwrap();
+		let v: sp_runtime::BoundedVec<u8, _> = alloc::vec![0u8; l as usize].try_into().unwrap();
 		LargeValue::<T>::put(&v);
 		LargeValue2::<T>::put(&v);
 	}: {
@@ -268,8 +268,8 @@ frame_benchmarking::benchmarks! {
 	storage_map_unbounded_both_measured_read {
 		let i in 0 .. 1000;
 
-		UnboundedMap::<T>::insert(i, sp_std::vec![0; i as usize]);
-		UnboundedMap2::<T>::insert(i, sp_std::vec![0; i as usize]);
+		UnboundedMap::<T>::insert(i, alloc::vec![0; i as usize]);
+		UnboundedMap2::<T>::insert(i, alloc::vec![0; i as usize]);
 	}: {
 		assert!(UnboundedMap::<T>::get(i).is_some());
 		assert!(UnboundedMap2::<T>::get(i).is_some());
@@ -282,7 +282,7 @@ frame_benchmarking::benchmarks! {
 		let i in 0 .. 1000;
 
 		Map1M::<T>::insert(i, 0);
-		UnboundedMap::<T>::insert(i, sp_std::vec![0; i as usize]);
+		UnboundedMap::<T>::insert(i, alloc::vec![0; i as usize]);
 	}: {
 		assert!(Map1M::<T>::get(i).is_some());
 		assert!(UnboundedMap::<T>::get(i).is_some());
@@ -295,7 +295,7 @@ frame_benchmarking::benchmarks! {
 		let i in 0 .. 1000;
 
 		Map1M::<T>::insert(i, 0);
-		UnboundedMap::<T>::insert(i, sp_std::vec![0; i as usize]);
+		UnboundedMap::<T>::insert(i, alloc::vec![0; i as usize]);
 	}: {
 		assert!(Map1M::<T>::get(i).is_some());
 		assert!(UnboundedMap::<T>::get(i).is_some());
@@ -319,7 +319,7 @@ frame_benchmarking::benchmarks! {
 
 	storage_iteration {
 		for i in 0..65000 {
-			UnboundedMapTwox::<T>::insert(i, sp_std::vec![0; 64]);
+			UnboundedMapTwox::<T>::insert(i, alloc::vec![0; 64]);
 		}
 	}: {
 		for (key, value) in UnboundedMapTwox::<T>::iter() {

@@ -31,7 +31,7 @@ use sp_runtime::TryRuntimeError;
 use alloc::vec::Vec;
 
 /// A struct that does not migration, but only checks that the counter prefix exists and is correct.
-pub struct CheckCounterPrefix<T: crate::Config<I>, I: 'static>(sp_std::marker::PhantomData<(T, I)>);
+pub struct CheckCounterPrefix<T: crate::Config<I>, I: 'static>(core::marker::PhantomData<(T, I)>);
 impl<T: crate::Config<I>, I: 'static> OnRuntimeUpgrade for CheckCounterPrefix<T, I> {
 	fn on_runtime_upgrade() -> frame_support::weights::Weight {
 		frame_support::weights::Weight::zero()
@@ -88,7 +88,7 @@ mod old {
 }
 
 /// A struct that migrates all bags lists to contain a score value.
-pub struct AddScore<T: crate::Config<I>, I: 'static = ()>(sp_std::marker::PhantomData<(T, I)>);
+pub struct AddScore<T: crate::Config<I>, I: 'static = ()>(core::marker::PhantomData<(T, I)>);
 impl<T: crate::Config<I>, I: 'static> OnRuntimeUpgrade for AddScore<T, I> {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {

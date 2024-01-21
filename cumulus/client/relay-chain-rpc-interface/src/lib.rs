@@ -30,7 +30,7 @@ use futures::{FutureExt, Stream, StreamExt};
 use polkadot_overseer::Handle;
 
 use sc_client_api::StorageProof;
-use sp_core::sp_std::collections::btree_map::BTreeMap;
+use sp_core::alloc::collections::btree_map::BTreeMap;
 use sp_state_machine::StorageValue;
 use sp_storage::StorageKey;
 use std::pin::Pin;

@@ -21,10 +21,12 @@
 #![cfg(feature = "runtime-benchmarks")]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 mod mock;
 
+use alloc::vec;
 use sp_runtime::traits::{One, StaticLookup, TrailingZeroInput};
-use sp_std::{prelude::*, vec};
 
 use codec::Decode;
 use frame_benchmarking::v1::benchmarks;

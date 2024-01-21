@@ -18,7 +18,6 @@
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::traits::Block;
-use sp_std::prelude::*;
 
 /// Id of different payloads in the [`crate::Commitment`] data.
 pub type BeefyPayloadId = [u8; 2];

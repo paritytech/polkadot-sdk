@@ -23,6 +23,8 @@
 //!   parachain.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 mod envelope;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -39,7 +41,9 @@ mod mock;
 #[cfg(test)]
 mod test;
 
+use alloc::vec;
 use codec::{Decode, DecodeAll, Encode};
+use core::convert::TryFrom;
 use envelope::Envelope;
 use frame_support::{
 	traits::{
@@ -52,7 +56,6 @@ use frame_support::{
 use frame_system::ensure_signed;
 use scale_info::TypeInfo;
 use sp_core::{H160, H256};
-use sp_std::{convert::TryFrom, vec};
 use xcm::prelude::{
 	send_xcm, Instruction::SetTopic, Junction::*, Location, SendError as XcmpSendError, SendXcm,
 	Xcm, XcmContext, XcmHash,

@@ -19,7 +19,7 @@ use bounded_collections::{ConstU32, WeakBoundedVec};
 use frame_benchmarking::{benchmarks, whitelisted_caller, BenchmarkError, BenchmarkResult};
 use frame_support::{traits::Currency, weights::Weight};
 use frame_system::RawOrigin;
-use sp_std::prelude::*;
+
 use xcm::{latest::prelude::*, v2};
 
 type RuntimeOrigin<T> = <T as frame_system::Config>::RuntimeOrigin;

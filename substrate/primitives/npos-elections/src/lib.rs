@@ -76,15 +76,14 @@
 
 extern crate alloc;
 
+use alloc::{collections::btree_map::BTreeMap, rc::Rc, vec};
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::{cell::RefCell, cmp::Ordering};
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use sp_arithmetic::{traits::Zero, Normalizable, PerThing, Rational128, ThresholdOrd};
 use sp_core::{bounded::BoundedVec, RuntimeDebug};
-use sp_std::{
-	cell::RefCell, cmp::Ordering, collections::btree_map::BTreeMap, prelude::*, rc::Rc, vec,
-};
 
 #[cfg(test)]
 mod mock;
@@ -200,7 +199,7 @@ impl ElectionScore {
 	}
 }
 
-impl sp_std::cmp::Ord for ElectionScore {
+impl core::cmp::Ord for ElectionScore {
 	fn cmp(&self, other: &Self) -> Ordering {
 		// we delegate this to the lexicographic cmp of slices`, and to incorporate that we want the
 		// third element to be minimized, we swap them.
@@ -212,7 +211,7 @@ impl sp_std::cmp::Ord for ElectionScore {
 	}
 }
 
-impl sp_std::cmp::PartialOrd for ElectionScore {
+impl core::cmp::PartialOrd for ElectionScore {
 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
 		Some(self.cmp(other))
 	}
@@ -280,8 +279,8 @@ impl<AccountId: Clone> Edge<AccountId> {
 }
 
 #[cfg(feature = "std")]
-impl<A: IdentifierT> sp_std::fmt::Debug for Edge<A> {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+impl<A: IdentifierT> alloc::fmt::Debug for Edge<A> {
+	fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
 		write!(f, "Edge({:?}, weight = {:?})", self.who, self.weight)
 	}
 }
@@ -301,7 +300,7 @@ pub struct Voter<AccountId> {
 
 #[cfg(feature = "std")]
 impl<A: IdentifierT> std::fmt::Debug for Voter<A> {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+	fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
 		write!(f, "Voter({:?}, budget = {}, edges = {:?})", self.who, self.budget, self.edges)
 	}
 }

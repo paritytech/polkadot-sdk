@@ -25,10 +25,8 @@ use log;
 pub mod v1 {
 	use super::*;
 	use frame_support::pallet_prelude::*;
-	#[cfg(feature = "try-runtime")]
-	use sp_std::prelude::*;
 
-	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	pub struct MigrateToV1<T>(core::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let onchain_version = Pallet::<T>::on_chain_storage_version();

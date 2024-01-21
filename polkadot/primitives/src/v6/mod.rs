@@ -16,15 +16,14 @@
 
 //! `V6` Primitives.
 
+use alloc::vec::IntoIter;
 use bitvec::vec::BitVec;
+use core::{
+	marker::PhantomData,
+	slice::{Iter, IterMut},
+};
 use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_std::{
-	marker::PhantomData,
-	prelude::*,
-	slice::{Iter, IterMut},
-	vec::IntoIter,
-};
 
 use application_crypto::KeyTypeId;
 use inherents::InherentIdentifier;
@@ -144,7 +143,6 @@ pub mod well_known_keys {
 	use hex_literal::hex;
 	use parity_scale_codec::Encode as _;
 	use sp_io::hashing::twox_64;
-	use sp_std::prelude::*;
 
 	// A note on generating these magic values below:
 	//
@@ -588,13 +586,13 @@ impl<H: Clone> CommittedCandidateReceipt<H> {
 }
 
 impl PartialOrd for CommittedCandidateReceipt {
-	fn partial_cmp(&self, other: &Self) -> Option<sp_std::cmp::Ordering> {
+	fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
 		Some(self.cmp(other))
 	}
 }
 
 impl Ord for CommittedCandidateReceipt {
-	fn cmp(&self, other: &Self) -> sp_std::cmp::Ordering {
+	fn cmp(&self, other: &Self) -> core::cmp::Ordering {
 		// TODO: compare signatures or something more sane
 		// https://github.com/paritytech/polkadot/issues/222
 		self.descriptor()
@@ -860,7 +858,7 @@ impl GroupRotationInfo {
 			return GroupIndex(0)
 		}
 
-		let cores = sp_std::cmp::min(cores, u32::MAX as usize);
+		let cores = core::cmp::min(cores, u32::MAX as usize);
 		let blocks_since_start = self.now.saturating_sub(self.session_start_block);
 		let rotations = blocks_since_start / self.group_rotation_frequency;
 
@@ -882,7 +880,7 @@ impl GroupRotationInfo {
 			return CoreIndex(0)
 		}
 
-		let cores = sp_std::cmp::min(cores, u32::MAX as usize);
+		let cores = core::cmp::min(cores, u32::MAX as usize);
 		let blocks_since_start = self.now.saturating_sub(self.session_start_block);
 		let rotations = blocks_since_start / self.group_rotation_frequency;
 		let rotations = rotations % cores as u32;
@@ -1708,7 +1706,7 @@ pub fn effective_minimum_backing_votes(
 	group_len: usize,
 	configured_minimum_backing_votes: u32,
 ) -> usize {
-	sp_std::cmp::min(group_len, configured_minimum_backing_votes as usize)
+	core::cmp::min(group_len, configured_minimum_backing_votes as usize)
 }
 
 /// Information about validator sets of a session.
@@ -1804,7 +1802,7 @@ impl PvfCheckStatement {
 pub struct WellKnownKey<T> {
 	/// The raw storage key.
 	pub key: Vec<u8>,
-	_p: sp_std::marker::PhantomData<T>,
+	_p: core::marker::PhantomData<T>,
 }
 
 impl<T> From<Vec<u8>> for WellKnownKey<T> {

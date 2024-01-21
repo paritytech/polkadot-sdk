@@ -93,6 +93,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 mod benchmarking;
 pub mod legacy;
 pub mod migration;
@@ -113,7 +115,7 @@ pub use pallet::*;
 use sp_runtime::traits::{
 	AppendZerosInput, Hash, IdentifyAccount, Saturating, StaticLookup, Verify, Zero,
 };
-use sp_std::prelude::*;
+
 pub use types::{
 	Data, IdentityInformationProvider, Judgement, RegistrarIndex, RegistrarInfo, Registration,
 };

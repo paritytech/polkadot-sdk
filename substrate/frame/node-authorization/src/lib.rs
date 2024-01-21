@@ -37,6 +37,8 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -44,10 +46,11 @@ mod tests;
 
 pub mod weights;
 
+use alloc::collections::btree_set::BTreeSet;
+use core::iter::FromIterator;
 pub use pallet::*;
 use sp_core::OpaquePeerId as PeerId;
 use sp_runtime::traits::StaticLookup;
-use sp_std::{collections::btree_set::BTreeSet, iter::FromIterator, prelude::*};
 pub use weights::WeightInfo;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;

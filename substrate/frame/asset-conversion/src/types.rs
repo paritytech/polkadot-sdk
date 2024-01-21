@@ -17,8 +17,8 @@
 
 use super::*;
 use codec::{Decode, Encode, MaxEncodedLen};
-use scale_info::TypeInfo;
 use core::marker::PhantomData;
+use scale_info::TypeInfo;
 
 /// Represents a swap path with associated asset amounts indicating how much of the asset needs to
 /// be deposited to get the following asset's amount withdrawn (this is inclusive of fees).

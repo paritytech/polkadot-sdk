@@ -173,15 +173,17 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub mod bounds;
 pub mod onchain;
 pub mod traits;
 
+use alloc::fmt::Debug;
 use sp_runtime::{
 	traits::{Bounded, Saturating, Zero},
 	RuntimeDebug,
 };
-use sp_std::{fmt::Debug, prelude::*};
 
 pub use bounds::DataProviderBounds;
 pub use codec::{Decode, Encode};
@@ -205,7 +207,6 @@ pub mod private {
 	pub use codec;
 	pub use scale_info;
 	pub use sp_arithmetic;
-	pub use sp_std;
 
 	// Simple Extension trait to easily convert `None` from index closures to `Err`.
 	//
@@ -276,7 +277,7 @@ pub type IndexAssignmentOf<C> = IndexAssignment<
 /// Types that are used by the data provider trait.
 pub mod data_provider {
 	/// Alias for the result type of the election data provider.
-	pub type Result<T> = sp_std::result::Result<T, &'static str>;
+	pub type Result<T> = core::result::Result<T, &'static str>;
 }
 
 /// Something that can provide the data to an [`ElectionProvider`].
@@ -431,7 +432,7 @@ pub trait InstantElectionProvider: ElectionProviderBase {
 }
 
 /// An election provider that does nothing whatsoever.
-pub struct NoElection<X>(sp_std::marker::PhantomData<X>);
+pub struct NoElection<X>(core::marker::PhantomData<X>);
 
 impl<AccountId, BlockNumber, DataProvider, MaxWinners> ElectionProviderBase
 	for NoElection<(AccountId, BlockNumber, DataProvider, MaxWinners)>
@@ -486,7 +487,7 @@ where
 /// used on the implementing side of [`ElectionDataProvider`].
 pub trait SortedListProvider<AccountId> {
 	/// The list's error type.
-	type Error: sp_std::fmt::Debug;
+	type Error: alloc::fmt::Debug;
 
 	/// The type used by the list to compare nodes for ordering.
 	type Score: Bounded + Saturating + Zero;
@@ -597,7 +598,7 @@ pub trait NposSolver {
 	/// The accuracy of this solver. This will affect the accuracy of the output.
 	type Accuracy: PerThing128;
 	/// The error type of this implementation.
-	type Error: sp_std::fmt::Debug + sp_std::cmp::PartialEq;
+	type Error: alloc::fmt::Debug + core::cmp::PartialEq;
 
 	/// Solve an NPoS solution with the given `voters`, `targets`, and select `to_elect` count
 	/// of `targets`.
@@ -617,7 +618,7 @@ pub trait NposSolver {
 /// A wrapper for [`sp_npos_elections::seq_phragmen`] that implements [`NposSolver`]. See the
 /// documentation of [`sp_npos_elections::seq_phragmen`] for more info.
 pub struct SequentialPhragmen<AccountId, Accuracy, Balancing = ()>(
-	sp_std::marker::PhantomData<(AccountId, Accuracy, Balancing)>,
+	core::marker::PhantomData<(AccountId, Accuracy, Balancing)>,
 );
 
 impl<AccountId: IdentifierT, Accuracy: PerThing128, Balancing: Get<Option<BalancingConfig>>>
@@ -642,7 +643,7 @@ impl<AccountId: IdentifierT, Accuracy: PerThing128, Balancing: Get<Option<Balanc
 /// A wrapper for [`sp_npos_elections::phragmms()`] that implements [`NposSolver`]. See the
 /// documentation of [`sp_npos_elections::phragmms()`] for more info.
 pub struct PhragMMS<AccountId, Accuracy, Balancing = ()>(
-	sp_std::marker::PhantomData<(AccountId, Accuracy, Balancing)>,
+	core::marker::PhantomData<(AccountId, Accuracy, Balancing)>,
 );
 
 impl<AccountId: IdentifierT, Accuracy: PerThing128, Balancing: Get<Option<BalancingConfig>>>

@@ -25,10 +25,10 @@ use crate::{
 	},
 	paras::{ParaGenesisArgs, ParaKind},
 };
+use alloc::collections::btree_map::BTreeMap;
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use pallet_balances::Error as BalancesError;
 use primitives::{BlockNumber, SessionIndex, ValidationCode};
-use alloc::collections::btree_map::BTreeMap;
 
 fn schedule_blank_para(id: ParaId, parakind: ParaKind) {
 	let validation_code: ValidationCode = vec![1, 2, 3].into();

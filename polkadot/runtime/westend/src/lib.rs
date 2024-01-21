@@ -20,6 +20,9 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit.
 #![recursion_limit = "512"]
 
+extern crate alloc;
+
+use alloc::collections::btree_map::BTreeMap;
 use authority_discovery_primitives::AuthorityId as AuthorityDiscoveryId;
 use beefy_primitives::{
 	ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature},
@@ -93,7 +96,6 @@ use sp_runtime::{
 	RuntimeAppPublic,
 };
 use sp_staking::SessionIndex;
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -1566,7 +1568,7 @@ pub mod migrations {
 
 	impl frame_support::traits::OnRuntimeUpgrade for UpgradeSessionKeys {
 		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<sp_std::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+		fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
 			if System::last_runtime_upgrade_spec_version() > UPGRADE_SESSION_KEYS_FROM_SPEC {
 				log::warn!(target: "runtime::session_keys", "Skipping session keys migration pre-upgrade check due to spec version (already applied?)");
 				return Ok(Vec::new())
@@ -1606,9 +1608,7 @@ pub mod migrations {
 		}
 
 		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(
-			old_state: sp_std::vec::Vec<u8>,
-		) -> Result<(), sp_runtime::TryRuntimeError> {
+		fn post_upgrade(old_state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 			if System::last_runtime_upgrade_spec_version() > UPGRADE_SESSION_KEYS_FROM_SPEC {
 				log::warn!(target: "runtime::session_keys", "Skipping session keys migration post-upgrade check due to spec version (already applied?)");
 				return Ok(())
@@ -1754,7 +1754,7 @@ sp_api::impl_runtime_apis! {
 			Runtime::metadata_at_version(version)
 		}
 
-		fn metadata_versions() -> sp_std::vec::Vec<u32> {
+		fn metadata_versions() -> alloc::vec::Vec<u32> {
 			Runtime::metadata_versions()
 		}
 	}
@@ -2504,7 +2504,7 @@ mod remote_tests {
 mod clean_state_migration {
 	use super::Runtime;
 	#[cfg(feature = "try-runtime")]
-	use super::Vec;
+	use alloc::vec::Vec;
 	use frame_support::{pallet_prelude::*, storage_alias, traits::OnRuntimeUpgrade};
 	use pallet_state_trie_migration::MigrationLimits;
 

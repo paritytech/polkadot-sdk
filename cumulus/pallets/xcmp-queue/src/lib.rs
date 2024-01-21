@@ -35,6 +35,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub mod migration;
 
 #[cfg(test)]
@@ -69,7 +71,7 @@ use polkadot_runtime_parachains::FeeTracker;
 use scale_info::TypeInfo;
 use sp_core::MAX_POSSIBLE_ALLOCATION;
 use sp_runtime::{FixedU128, RuntimeDebug, Saturating};
-use sp_std::prelude::*;
+
 use xcm::{latest::prelude::*, VersionedXcm, WrapVersion, MAX_XCM_DECODE_DEPTH};
 use xcm_executor::traits::ConvertOrigin;
 

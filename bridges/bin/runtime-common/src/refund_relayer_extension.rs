@@ -22,10 +22,12 @@
 use crate::messages_call_ext::{
 	CallHelper as MessagesCallHelper, CallInfo as MessagesCallInfo, MessagesCallSubType,
 };
+use alloc::{vec, vec::Vec};
 use bp_messages::{LaneId, MessageNonce};
 use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
 use bp_runtime::{Chain, Parachain, ParachainIdOf, RangeInclusiveExt, StaticStrProvider};
 use codec::{Codec, Decode, Encode};
+use core::marker::PhantomData;
 use frame_support::{
 	dispatch::{CallableCallFor, DispatchInfo, PostDispatchInfo},
 	traits::IsSubType,
@@ -54,7 +56,6 @@ use sp_runtime::{
 	},
 	DispatchResult, FixedPointOperand, RuntimeDebug,
 };
-use sp_std::{marker::PhantomData, vec, vec::Vec};
 
 type AccountIdOf<R> = <R as frame_system::Config>::AccountId;
 // without this typedef rustfmt fails with internal err
@@ -228,7 +229,7 @@ pub enum RelayerAccountAction<AccountId, Reward> {
 
 /// Everything common among our refund signed extensions.
 pub trait RefundSignedExtension:
-	'static + Clone + Codec + sp_std::fmt::Debug + Default + Eq + PartialEq + Send + Sync + TypeInfo
+	'static + Clone + Codec + alloc::fmt::Debug + Default + Eq + PartialEq + Send + Sync + TypeInfo
 where
 	<Self::Runtime as GrandpaConfig<Self::GrandpaInstance>>::BridgedChain:
 		Chain<BlockNumber = RelayBlockNumber>,

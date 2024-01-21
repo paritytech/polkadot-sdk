@@ -20,12 +20,14 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use codec::{Decode, Encode};
 use cumulus_primitives_core::ParaId;
 pub use pallet::*;
 use scale_info::TypeInfo;
 use sp_runtime::{traits::BadOrigin, RuntimeDebug};
-use sp_std::prelude::*;
+
 use xcm::latest::{ExecuteXcm, Outcome};
 
 #[frame_support::pallet]

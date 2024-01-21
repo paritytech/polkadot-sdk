@@ -87,6 +87,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "runtime-benchmarks", recursion_limit = "1024")]
 
+extern crate alloc;
+
 mod address;
 mod benchmarking;
 mod exec;
@@ -113,6 +115,7 @@ use crate::{
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
 	wasm::{CodeInfo, WasmBlob},
 };
+use alloc::fmt::Debug;
 use codec::{Codec, Decode, Encode, HasCompact, MaxEncodedLen};
 use environmental::*;
 use frame_support::{
@@ -137,7 +140,6 @@ use sp_runtime::{
 	traits::{Convert, Dispatchable, Hash, Saturating, StaticLookup, Zero},
 	DispatchError, RuntimeDebug,
 };
-use sp_std::{fmt::Debug, prelude::*};
 
 pub use crate::{
 	address::{AddressGenerator, DefaultAddressGenerator},

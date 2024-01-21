@@ -31,6 +31,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 #[cfg(test)]
@@ -49,7 +51,6 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Dispatchable, Hash};
-use sp_std::prelude::*;
 
 pub use pallet::*;
 

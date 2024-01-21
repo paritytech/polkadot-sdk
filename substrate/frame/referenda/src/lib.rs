@@ -66,6 +66,7 @@
 
 extern crate alloc;
 
+use alloc::fmt::Debug;
 use codec::{Codec, Encode};
 use frame_support::{
 	dispatch::DispatchResult,
@@ -86,7 +87,6 @@ use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Bounded, Dispatchable, One, Saturating, Zero},
 	DispatchError, Perbill,
 };
-use sp_std::{fmt::Debug, prelude::*};
 
 mod branch;
 pub mod migration;
@@ -113,8 +113,8 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
-pub use frame_support::traits::Get;
 pub use alloc::vec::Vec;
+pub use frame_support::traits::Get;
 
 #[macro_export]
 macro_rules! impl_tracksinfo_get {

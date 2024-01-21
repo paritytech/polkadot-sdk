@@ -32,7 +32,6 @@ use primitives::{
 	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 use sp_runtime::{traits::Zero, Perbill};
-use sp_std::prelude::*;
 
 #[cfg(test)]
 mod tests;
@@ -363,7 +362,7 @@ pub enum InconsistentError<BlockNumber> {
 
 impl<BlockNumber> HostConfiguration<BlockNumber>
 where
-	BlockNumber: Zero + PartialOrd + sp_std::fmt::Debug + Clone + From<u32>,
+	BlockNumber: Zero + PartialOrd + alloc::fmt::Debug + Clone + From<u32>,
 {
 	/// Checks that this instance is consistent with the requirements on each individual member.
 	///

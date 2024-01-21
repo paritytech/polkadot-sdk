@@ -21,10 +21,12 @@
 #![cfg(feature = "runtime-benchmarks")]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use codec::Decode;
 use frame_benchmarking::v1::benchmarks;
 use frame_election_provider_support::{NposSolver, PhragMMS, SequentialPhragmen};
-use alloc::vec::Vec;
 
 pub struct Pallet<T: Config>(frame_system::Pallet<T>);
 pub trait Config: frame_system::Config {}

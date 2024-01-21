@@ -19,11 +19,11 @@
 //! To avoid cyclic dependencies, it is important that this pallet is not
 //! dependent on any of the other pallets.
 
+use alloc::{collections::vec_deque::VecDeque, vec::Vec};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::{SessionIndex, ValidatorId, ValidatorIndex};
 use sp_runtime::traits::AtLeast32BitUnsigned;
-use sp_std::{collections::vec_deque::VecDeque, vec::Vec};
 
 use rand::{seq::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha20Rng;

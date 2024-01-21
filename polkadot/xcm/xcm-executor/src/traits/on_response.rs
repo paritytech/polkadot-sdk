@@ -15,14 +15,13 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{Junctions::Here, Xcm};
-use core::result;
+use core::{fmt::Debug, result};
 use frame_support::{
 	pallet_prelude::{Get, TypeInfo},
 	parameter_types,
 };
 use parity_scale_codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use sp_arithmetic::traits::Zero;
-use core::fmt::Debug;
 use xcm::latest::{
 	Error as XcmError, InteriorLocation, Location, QueryId, Response, Result as XcmResult, Weight,
 	XcmContext,

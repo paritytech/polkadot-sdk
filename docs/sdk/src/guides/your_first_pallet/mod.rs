@@ -300,6 +300,9 @@
 //!   [`frame::pallet_macros`].
 
 #[docify::export]
+extern crate alloc;
+
+#[docify::export]
 #[frame::pallet(dev_mode)]
 pub mod shell_pallet {
 	use frame::prelude::*;

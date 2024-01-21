@@ -18,6 +18,7 @@
 
 use crate::{assert_matches_reserve_asset_deposited_instructions, get_fungible_delivery_fees};
 use codec::Encode;
+use core::ops::Mul;
 use cumulus_primitives_core::XcmpMessageSource;
 use frame_support::{
 	assert_ok,
@@ -30,7 +31,6 @@ use parachains_runtimes_test_utils::{
 	ValidatorIdOf, XcmReceivedFrom,
 };
 use sp_runtime::{traits::StaticLookup, Saturating};
-use core::ops::Mul;
 use xcm::{latest::prelude::*, VersionedAssets};
 use xcm_builder::{CreateMatcher, MatchXcm};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};

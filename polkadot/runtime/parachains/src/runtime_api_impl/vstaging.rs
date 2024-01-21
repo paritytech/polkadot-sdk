@@ -17,11 +17,11 @@
 //! Put implementations of functions from staging APIs here.
 
 use crate::{configuration, initializer, shared};
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use primitives::{
 	vstaging::{ApprovalVotingParams, NodeFeatures},
 	ValidatorIndex,
 };
-use sp_std::{collections::btree_map::BTreeMap, prelude::Vec};
 
 /// Implementation for `DisabledValidators`
 // CAVEAT: this should only be called on the node side

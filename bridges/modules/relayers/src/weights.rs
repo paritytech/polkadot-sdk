@@ -42,11 +42,11 @@
 #![allow(unused_imports)]
 #![allow(missing_docs)]
 
+use core::marker::PhantomData;
 use frame_support::{
 	traits::Get,
 	weights::{constants::RocksDbWeight, Weight},
 };
-use core::marker::PhantomData;
 
 /// Weight functions needed for pallet_bridge_relayers.
 pub trait WeightInfo {

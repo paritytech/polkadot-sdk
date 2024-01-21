@@ -51,13 +51,12 @@ use primitives::{
 };
 use rand::{seq::SliceRandom, SeedableRng};
 
-use scale_info::TypeInfo;
-use sp_runtime::traits::{Header as HeaderT, One};
-use sp_std::{
+use alloc::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	prelude::*,
 	vec::Vec,
 };
+use scale_info::TypeInfo;
+use sp_runtime::traits::{Header as HeaderT, One};
 
 mod misc;
 mod weights;
@@ -326,7 +325,7 @@ impl<T: Config> Pallet<T> {
 	fn process_inherent_data(
 		data: ParachainsInherentData<HeaderFor<T>>,
 		context: ProcessInherentDataContext,
-	) -> sp_std::result::Result<
+	) -> core::result::Result<
 		(ParachainsInherentData<HeaderFor<T>>, PostDispatchInfo),
 		DispatchErrorWithPostInfo,
 	> {

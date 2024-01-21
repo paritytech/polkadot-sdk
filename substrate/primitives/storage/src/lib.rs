@@ -19,18 +19,18 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use core::fmt::Display;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use sp_debug_derive::RuntimeDebug;
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
+use core::ops::{Deref, DerefMut};
 use ref_cast::RefCast;
-use sp_std::{
-	ops::{Deref, DerefMut},
-	vec::Vec,
-};
 
 /// Storage key.
 #[derive(PartialEq, Eq, RuntimeDebug)]
@@ -49,9 +49,7 @@ impl AsRef<[u8]> for StorageKey {
 }
 
 /// Storage key with read/write tracking information.
-#[derive(
-	PartialEq, Eq, Ord, PartialOrd, sp_std::hash::Hash, RuntimeDebug, Clone, Encode, Decode,
-)]
+#[derive(PartialEq, Eq, Ord, PartialOrd, core::hash::Hash, RuntimeDebug, Clone, Encode, Decode)]
 pub struct TrackedStorageKey {
 	pub key: Vec<u8>,
 	pub reads: u32,
@@ -441,7 +439,7 @@ impl From<StateVersion> for u8 {
 
 impl TryFrom<u8> for StateVersion {
 	type Error = ();
-	fn try_from(val: u8) -> sp_std::result::Result<StateVersion, ()> {
+	fn try_from(val: u8) -> core::result::Result<StateVersion, ()> {
 		match val {
 			0 => Ok(StateVersion::V0),
 			1 => Ok(StateVersion::V1),

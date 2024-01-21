@@ -20,10 +20,10 @@ use crate::{Config, Error};
 
 use bp_header_chain::{AuthoritySet, ChainWithGrandpa};
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use frame_support::{traits::Get, BoundedVec, CloneNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 use sp_consensus_grandpa::{AuthorityId, AuthorityList, AuthorityWeight, SetId};
-use core::marker::PhantomData;
 
 /// A bounded list of Grandpa authorities with associated weights.
 pub type StoredAuthorityList<MaxBridgedAuthorities> =

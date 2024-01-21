@@ -20,9 +20,9 @@
 use codec::Encode;
 use mmr_lib::helper;
 
-use sp_runtime::traits::{CheckedAdd, CheckedSub, Header, One};
 #[cfg(not(feature = "std"))]
-use sp_std::prelude::Vec;
+use alloc::vec::Vec;
+use sp_runtime::traits::{CheckedAdd, CheckedSub, Header, One};
 
 use crate::{Error, LeafIndex, NodeIndex};
 
@@ -131,7 +131,7 @@ impl NodesUtils {
 	/// Used for nodes added by now finalized blocks.
 	/// Never read keys using `node_canon_offchain_key` unless you sure that
 	/// there's no `node_offchain_key` key in the storage.
-	pub fn node_canon_offchain_key(prefix: &[u8], pos: NodeIndex) -> sp_std::prelude::Vec<u8> {
+	pub fn node_canon_offchain_key(prefix: &[u8], pos: NodeIndex) -> alloc::vec::Vec<u8> {
 		(prefix, pos).encode()
 	}
 }

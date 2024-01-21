@@ -3,7 +3,6 @@
 use crate::{Bloom, Log};
 use codec::{Decode, Encode};
 use sp_runtime::RuntimeDebug;
-use sp_std::prelude::*;
 
 #[derive(Clone, Default, Encode, Decode, PartialEq, RuntimeDebug)]
 pub struct Receipt {

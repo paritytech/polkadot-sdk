@@ -17,6 +17,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use codec::{Encode, MaxEncodedLen};
 
 use frame_support::{
@@ -38,7 +40,6 @@ use sp_runtime::{
 };
 use sp_session::{GetSessionNumber, GetValidatorCount};
 use sp_staking::{offence::OffenceReportSystem, SessionIndex};
-use sp_std::prelude::*;
 
 use sp_consensus_beefy::{
 	AuthorityIndex, BeefyAuthorityId, ConsensusLog, EquivocationProof, OnNewValidatorSet,

@@ -74,11 +74,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(rustdoc::broken_intra_doc_links)]
 
+extern crate alloc;
+
 mod benchmarking;
 pub mod mock;
 mod tests;
 pub mod weights;
 
+use core::convert::TryInto;
 use frame_support::{
 	defensive_assert,
 	pallet_prelude::*,
@@ -96,7 +99,6 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use sp_arithmetic::traits::Zero;
 use sp_runtime::traits::Saturating;
-use sp_std::{convert::TryInto, prelude::*};
 
 pub use pallet::*;
 pub use weights::*;

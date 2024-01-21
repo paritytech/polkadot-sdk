@@ -30,7 +30,6 @@ use frame_support::{
 	BoundedVec,
 };
 use sp_runtime::traits::StaticLookup;
-use sp_std::prelude::*;
 
 pub mod migrations;
 pub mod weights;

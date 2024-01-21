@@ -72,6 +72,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 mod benchmarking;
 #[cfg(test)]
 mod tests;
@@ -82,11 +84,11 @@ pub use benchmarking::ArgumentsFactory;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
+use alloc::collections::btree_map::BTreeMap;
 use sp_runtime::{
 	traits::{AccountIdConversion, CheckedAdd, Saturating, StaticLookup, Zero},
 	Permill, RuntimeDebug,
 };
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},
@@ -343,7 +345,7 @@ pub mod pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
 		#[serde(skip)]
-		_config: sp_std::marker::PhantomData<(T, I)>,
+		_config: core::marker::PhantomData<(T, I)>,
 	}
 
 	#[pallet::genesis_build]

@@ -18,8 +18,8 @@
 //! Controller traits defined in this module are high-level traits that will rely on other traits
 //! from `xcm-executor` to perform their tasks.
 
-use frame_support::pallet_prelude::DispatchError;
 use alloc::boxed::Box;
+use frame_support::pallet_prelude::DispatchError;
 use xcm::prelude::*;
 pub use xcm_executor::traits::QueryHandler;
 

@@ -2,12 +2,12 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //! Types for representing inbound messages
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::PalletError;
 use scale_info::TypeInfo;
 use sp_core::{H160, H256};
 use sp_runtime::RuntimeDebug;
-use alloc::vec::Vec;
 
 /// A trait for verifying inbound messages from Ethereum.
 pub trait Verifier {

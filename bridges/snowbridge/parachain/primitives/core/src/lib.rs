@@ -5,6 +5,8 @@
 //! Common traits and types
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(test)]
 mod tests;
 
@@ -27,7 +29,7 @@ use scale_info::TypeInfo;
 use sp_core::H256;
 use sp_io::hashing::keccak_256;
 use sp_runtime::{traits::AccountIdConversion, RuntimeDebug};
-use sp_std::prelude::*;
+
 use xcm::prelude::{Junction::Parachain, Location};
 use xcm_builder::{DescribeAllTerminal, DescribeFamily, DescribeLocation, HashedDescription};
 

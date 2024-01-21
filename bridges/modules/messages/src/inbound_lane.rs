@@ -24,10 +24,10 @@ use bp_messages::{
 	ReceivalResult, UnrewardedRelayer,
 };
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
+use core::cmp::PartialEq;
 use frame_support::traits::Get;
 use scale_info::{Type, TypeInfo};
 use sp_runtime::RuntimeDebug;
-use sp_std::prelude::PartialEq;
 
 /// Inbound lane storage.
 pub trait InboundLaneStorage {
@@ -57,7 +57,7 @@ pub trait InboundLaneStorage {
 #[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq)]
 pub struct StoredInboundLaneData<T: Config<I>, I: 'static>(pub InboundLaneData<T::InboundRelayer>);
 
-impl<T: Config<I>, I: 'static> sp_std::ops::Deref for StoredInboundLaneData<T, I> {
+impl<T: Config<I>, I: 'static> core::ops::Deref for StoredInboundLaneData<T, I> {
 	type Target = InboundLaneData<T::InboundRelayer>;
 
 	fn deref(&self) -> &Self::Target {
@@ -65,7 +65,7 @@ impl<T: Config<I>, I: 'static> sp_std::ops::Deref for StoredInboundLaneData<T, I
 	}
 }
 
-impl<T: Config<I>, I: 'static> sp_std::ops::DerefMut for StoredInboundLaneData<T, I> {
+impl<T: Config<I>, I: 'static> core::ops::DerefMut for StoredInboundLaneData<T, I> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.0
 	}

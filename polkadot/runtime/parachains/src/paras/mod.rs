@@ -113,7 +113,9 @@ use crate::{
 	initializer::SessionChangeNotification,
 	shared,
 };
+use alloc::collections::btree_set::BTreeSet;
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
+use core::{cmp, mem};
 use frame_support::{pallet_prelude::*, traits::EstimateNextSessionRotation, DefaultNoBound};
 use frame_system::pallet_prelude::*;
 use parity_scale_codec::{Decode, Encode};
@@ -127,7 +129,6 @@ use sp_runtime::{
 	traits::{AppVerify, One, Saturating},
 	DispatchResult, SaturatedConversion,
 };
-use sp_std::{cmp, collections::btree_set::BTreeSet, mem, prelude::*};
 
 use serde::{Deserialize, Serialize};
 
@@ -847,7 +848,7 @@ pub mod pallet {
 	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 		pub paras: Vec<(ParaId, ParaGenesisArgs)>,
 	}
 

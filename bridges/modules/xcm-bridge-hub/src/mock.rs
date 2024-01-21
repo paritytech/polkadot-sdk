@@ -200,7 +200,7 @@ parameter_types! {
 	pub BridgedDestination: InteriorLocation = [
 		Parachain(BRIDGED_ASSET_HUB_ID)
 	].into();
-	pub TestLanes: sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))> = sp_std::vec![
+	pub TestLanes: alloc::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))> = alloc::vec![
 		(TestSenderAndLane::get(), (BridgedRelayNetwork::get(), BridgedDestination::get()))
 	];
 }

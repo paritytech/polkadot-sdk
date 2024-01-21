@@ -29,7 +29,6 @@ use bp_runtime::{record_all_trie_keys, StorageProofSize};
 use codec::Encode;
 use frame_support::traits::Get;
 use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
-use sp_std::prelude::*;
 use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
 
 /// Prepare proof of messages for the `receive_messages_proof` call.

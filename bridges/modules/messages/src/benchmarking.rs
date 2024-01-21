@@ -28,11 +28,11 @@ use bp_messages::{
 };
 use bp_runtime::StorageProofSize;
 use codec::Decode;
+use core::ops::RangeInclusive;
 use frame_benchmarking::{account, benchmarks_instance_pallet};
 use frame_support::weights::Weight;
 use frame_system::RawOrigin;
 use sp_runtime::traits::TrailingZeroInput;
-use sp_std::{ops::RangeInclusive, prelude::*};
 
 const SEED: u32 = 0;
 

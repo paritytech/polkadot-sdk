@@ -16,13 +16,13 @@
 //! Auxiliary struct/enums for parachain runtimes.
 //! Taken from polkadot/runtime/common (at a21cd64) and adapted for parachains.
 
+use core::marker::PhantomData;
 use frame_support::traits::{
 	fungibles::{self, Balanced, Credit},
 	Contains, ContainsPair, Currency, Get, Imbalance, OnUnbalanced, OriginTrait,
 };
 use pallet_asset_tx_payment::HandleCredit;
 use sp_runtime::traits::Zero;
-use sp_std::{marker::PhantomData, prelude::*};
 use xcm::latest::{
 	Asset, AssetId, Fungibility, Fungibility::Fungible, Junction, Junctions::Here, Location,
 	Parent, WeightLimit,

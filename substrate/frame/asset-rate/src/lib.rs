@@ -61,9 +61,9 @@
 
 extern crate alloc;
 
+use alloc::boxed::Box;
 use frame_support::traits::{fungible::Inspect, tokens::ConversionFromAssetBalance};
 use sp_runtime::{traits::Zero, FixedPointNumber, FixedU128};
-use alloc::boxed::Box;
 
 pub use pallet::*;
 pub use weights::WeightInfo;

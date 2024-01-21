@@ -18,6 +18,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use crate::messages_call_ext::MessagesCallSubType;
 use pallet_bridge_grandpa::CallSubType as GrandpaCallSubType;
 use pallet_bridge_parachains::CallSubType as ParachainsCallSubtype;
@@ -111,7 +113,7 @@ macro_rules! generate_bridge_reject_obsolete_headers_and_messages {
 			type AdditionalSigned = ();
 			type Pre = ();
 
-			fn additional_signed(&self) -> sp_std::result::Result<
+			fn additional_signed(&self) -> core::result::Result<
 				(),
 				sp_runtime::transaction_validity::TransactionValidityError,
 			> {

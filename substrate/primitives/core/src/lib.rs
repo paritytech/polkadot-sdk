@@ -35,13 +35,13 @@ macro_rules! map {
 
 #[doc(hidden)]
 pub use codec::{Decode, Encode, MaxEncodedLen};
+use core::ops::Deref;
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 pub use serde;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use sp_runtime_interface::pass_by::{PassByEnum, PassByInner};
-use sp_std::{ops::Deref, prelude::*};
 
 pub use sp_debug_derive::RuntimeDebug;
 
@@ -105,9 +105,6 @@ pub use bounded_collections::{
 };
 pub use sp_storage as storage;
 
-#[doc(hidden)]
-pub use sp_std;
-
 /// Hex-serialized shim for `Vec<u8>`.
 #[derive(PartialEq, Eq, Clone, RuntimeDebug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize, Hash, PartialOrd, Ord))]
@@ -139,7 +136,7 @@ impl codec::WrapperTypeDecode for Bytes {
 }
 
 #[cfg(feature = "std")]
-impl sp_std::str::FromStr for Bytes {
+impl core::str::FromStr for Bytes {
 	type Err = bytes::FromHexError;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -158,7 +155,7 @@ impl OpaqueMetadata {
 	}
 }
 
-impl sp_std::ops::Deref for OpaqueMetadata {
+impl core::ops::Deref for OpaqueMetadata {
 	type Target = Vec<u8>;
 
 	fn deref(&self) -> &Self::Target {
@@ -315,7 +312,7 @@ pub fn to_substrate_wasm_fn_return_value(value: &impl Encode) -> u64 {
 	// Leak the output vector to avoid it being freed.
 	// This is fine in a WASM context since the heap
 	// will be discarded after the call.
-	sp_std::mem::forget(encoded);
+	core::mem::forget(encoded);
 
 	res
 }

@@ -83,6 +83,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -95,13 +97,13 @@ mod types;
 pub mod weights;
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::convert::TryInto;
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use sp_runtime::{
 	traits::{Dispatchable, Saturating, StaticLookup, Zero},
 	DispatchError, RuntimeDebug,
 };
-use sp_std::{convert::TryInto, prelude::*};
 
 use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},

@@ -23,12 +23,13 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use frame_support::{
 	traits::{Get, OneSessionHandler},
 	WeakBoundedVec,
 };
 use sp_authority_discovery::AuthorityId;
-use sp_std::prelude::*;
 
 pub use pallet::*;
 
@@ -64,7 +65,7 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		pub keys: Vec<AuthorityId>,
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]

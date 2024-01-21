@@ -21,8 +21,6 @@ use crate::{
 	Never,
 };
 use codec::{Decode, Encode, EncodeLike, FullCodec, FullEncode};
-#[cfg(not(feature = "std"))]
-use sp_std::prelude::*;
 
 /// Generator for `StorageMap` used by `decl_storage`.
 ///
@@ -80,7 +78,7 @@ pub struct StorageMapIterator<K, V, Hasher> {
 	prefix: Vec<u8>,
 	previous_key: Vec<u8>,
 	drain: bool,
-	_phantom: ::sp_std::marker::PhantomData<(K, V, Hasher)>,
+	_phantom: ::core::marker::PhantomData<(K, V, Hasher)>,
 }
 
 impl<K: Decode + Sized, V: Decode + Sized, Hasher: ReversibleStorageHasher> Iterator

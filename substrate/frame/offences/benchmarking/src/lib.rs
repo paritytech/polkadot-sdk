@@ -20,9 +20,11 @@
 #![cfg(feature = "runtime-benchmarks")]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 mod mock;
 
-use sp_std::{prelude::*, vec};
+use alloc::vec;
 
 use frame_benchmarking::v1::{account, benchmarks};
 use frame_support::traits::{Currency, Get};

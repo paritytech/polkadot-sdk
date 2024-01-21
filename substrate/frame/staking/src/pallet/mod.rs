@@ -40,7 +40,6 @@ use sp_staking::{
 	EraIndex, Page, SessionIndex,
 	StakingAccount::{self, Controller, Stash},
 };
-use sp_std::prelude::*;
 
 mod impls;
 
@@ -98,7 +97,7 @@ pub mod pallet {
 			+ codec::FullCodec
 			+ Copy
 			+ MaybeSerializeDeserialize
-			+ sp_std::fmt::Debug
+			+ alloc::fmt::Debug
 			+ Default
 			+ From<u64>
 			+ TypeInfo

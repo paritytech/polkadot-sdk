@@ -50,7 +50,6 @@ use frame_support::{
 };
 use sp_core::Get;
 use sp_runtime::{DispatchError, RuntimeDebug};
-use sp_std::prelude::*;
 use wasmi::{InstancePre, Linker, Memory, MemoryType, StackLimits, Store};
 
 const BYTES_PER_PAGE: usize = 64 * 1024;

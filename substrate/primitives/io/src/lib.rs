@@ -92,6 +92,7 @@ use sp_core::{
 #[cfg(feature = "std")]
 use sp_keystore::KeystoreExt;
 
+use alloc::vec::Vec;
 #[cfg(feature = "bandersnatch-experimental")]
 use sp_core::bandersnatch;
 use sp_core::{
@@ -1766,7 +1767,7 @@ mod allocator_impl {
 #[panic_handler]
 #[no_mangle]
 pub fn panic(info: &core::panic::PanicInfo) -> ! {
-	let message = sp_std::alloc::format!("{}", info);
+	let message = alloc::format!("{}", info);
 	#[cfg(feature = "improved_panic_error_reporting")]
 	{
 		panic_handler::abort_on_panic(&message);

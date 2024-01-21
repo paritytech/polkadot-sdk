@@ -22,20 +22,17 @@ pub mod strict;
 
 use crate::{justification::GrandpaJustification, AuthoritySet};
 
+use alloc::collections::{
+	btree_map::{
+		BTreeMap,
+		Entry::{Occupied, Vacant},
+	},
+	btree_set::BTreeSet,
+};
 use bp_runtime::HeaderId;
 use finality_grandpa::voter_set::VoterSet;
 use sp_consensus_grandpa::{AuthorityId, AuthoritySignature, SetId};
 use sp_runtime::{traits::Header as HeaderT, RuntimeDebug};
-use sp_std::{
-	collections::{
-		btree_map::{
-			BTreeMap,
-			Entry::{Occupied, Vacant},
-		},
-		btree_set::BTreeSet,
-	},
-	prelude::*,
-};
 
 type SignedPrecommit<Header> = finality_grandpa::SignedPrecommit<
 	<Header as HeaderT>::Hash,

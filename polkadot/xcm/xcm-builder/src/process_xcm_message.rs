@@ -16,10 +16,11 @@
 
 //! Implementation of `ProcessMessage` for an `ExecuteXcm` implementation.
 
+use alloc::fmt::Debug;
+use core::marker::PhantomData;
 use frame_support::traits::{ProcessMessage, ProcessMessageError};
 use parity_scale_codec::{Decode, FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_std::{fmt::Debug, marker::PhantomData};
 use sp_weights::{Weight, WeightMeter};
 use xcm::prelude::*;
 

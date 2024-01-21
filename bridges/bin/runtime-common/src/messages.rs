@@ -22,6 +22,7 @@
 
 pub use bp_runtime::{RangeInclusiveExt, UnderlyingChainOf, UnderlyingChainProvider};
 
+use alloc::vec::Vec;
 use bp_header_chain::HeaderChain;
 use bp_messages::{
 	source_chain::{LaneMessageVerifier, TargetHeaderChain},
@@ -31,11 +32,11 @@ use bp_messages::{
 };
 use bp_runtime::{Chain, RawStorageProof, Size, StorageProofChecker};
 use codec::{Decode, Encode};
+use core::{convert::TryFrom, marker::PhantomData};
 use frame_support::{traits::Get, weights::Weight};
 use hash_db::Hasher;
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
-use sp_std::{convert::TryFrom, marker::PhantomData, vec::Vec};
 
 /// Bidirectional message bridge.
 pub trait MessageBridge {
@@ -377,7 +378,7 @@ pub mod target {
 
 	struct StorageProofCheckerAdapter<H: Hasher, B> {
 		storage: StorageProofChecker<H>,
-		_dummy: sp_std::marker::PhantomData<B>,
+		_dummy: core::marker::PhantomData<B>,
 	}
 
 	impl<H: Hasher, B: MessageBridge> StorageProofCheckerAdapter<H, B> {

@@ -25,18 +25,15 @@ use crate::{
 	},
 	PerThing, Perbill, Rounding, SignedRounding,
 };
+use alloc::fmt::Debug;
 use codec::{CompactAs, Decode, Encode};
-use sp_std::{
-	fmt::Debug,
-	ops::{self, Add, Div, Mul, Sub},
-	prelude::*,
-};
+use core::ops::{self, Add, Div, Mul, Sub};
 
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 #[cfg(all(not(feature = "std"), feature = "serde"))]
-use sp_std::alloc::string::{String, ToString};
+use alloc::string::{String, ToString};
 
 /// Integer types that can be used to interact with `FixedPointNumber` implementations.
 pub trait FixedPointOperand:
@@ -899,9 +896,9 @@ macro_rules! implement_fixed {
 			}
 		}
 
-		impl sp_std::fmt::Debug for $name {
+		impl alloc::fmt::Debug for $name {
 			#[cfg(feature = "std")]
-			fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+			fn fmt(&self, f: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
 				let integral = {
 					let int = self.0 / Self::accuracy();
 					let signum_for_zero = if int == 0 && self.is_negative() { "-" } else { "" };
@@ -917,7 +914,7 @@ macro_rules! implement_fixed {
 			}
 
 			#[cfg(not(feature = "std"))]
-			fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+			fn fmt(&self, _: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
 				Ok(())
 			}
 		}
@@ -933,13 +930,13 @@ macro_rules! implement_fixed {
 			}
 		}
 
-		impl sp_std::fmt::Display for $name {
-			fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+		impl alloc::fmt::Display for $name {
+			fn fmt(&self, f: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
 				write!(f, "{}", self.0)
 			}
 		}
 
-		impl sp_std::str::FromStr for $name {
+		impl core::str::FromStr for $name {
 			type Err = &'static str;
 
 			fn from_str(s: &str) -> Result<Self, Self::Err> {

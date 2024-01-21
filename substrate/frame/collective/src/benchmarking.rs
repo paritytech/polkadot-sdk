@@ -20,8 +20,8 @@
 use super::*;
 use crate::Pallet as Collective;
 
-use sp_runtime::traits::Bounded;
 use core::mem::size_of;
+use sp_runtime::traits::Bounded;
 
 use frame_benchmarking::v1::{account, benchmarks_instance_pallet, whitelisted_caller};
 use frame_system::{

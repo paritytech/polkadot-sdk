@@ -244,6 +244,8 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(test)]
 mod mock;
 
@@ -282,7 +284,6 @@ use sp_runtime::{
 	ArithmeticError::Overflow,
 	Percent, RuntimeDebug,
 };
-use sp_std::prelude::*;
 
 pub use weights::WeightInfo;
 
@@ -1362,7 +1363,7 @@ pub mod pallet {
 }
 
 /// Simple ensure origin struct to filter for the founder account.
-pub struct EnsureFounder<T>(sp_std::marker::PhantomData<T>);
+pub struct EnsureFounder<T>(core::marker::PhantomData<T>);
 impl<T: Config> EnsureOrigin<<T as frame_system::Config>::RuntimeOrigin> for EnsureFounder<T> {
 	type Success = T::AccountId;
 	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {

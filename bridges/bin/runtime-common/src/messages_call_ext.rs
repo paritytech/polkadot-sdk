@@ -19,13 +19,13 @@ use crate::messages::{
 };
 use bp_messages::{target_chain::MessageDispatch, InboundLaneData, LaneId, MessageNonce};
 use bp_runtime::OwnedBridgeModule;
+use core::ops::RangeInclusive;
 use frame_support::{
 	dispatch::CallableCallFor,
 	traits::{Get, IsSubType},
 };
 use pallet_bridge_messages::{Config, Pallet};
 use sp_runtime::{transaction_validity::TransactionValidity, RuntimeDebug};
-use core::ops::RangeInclusive;
 
 /// Generic info about a messages delivery/confirmation proof.
 #[derive(PartialEq, RuntimeDebug)]
@@ -132,7 +132,7 @@ impl CallInfo {
 
 /// Helper struct that provides methods for working with a call supported by `CallInfo`.
 pub struct CallHelper<T: Config<I>, I: 'static> {
-	pub _phantom_data: sp_std::marker::PhantomData<(T, I)>,
+	pub _phantom_data: core::marker::PhantomData<(T, I)>,
 }
 
 impl<T: Config<I>, I: 'static> CallHelper<T, I> {

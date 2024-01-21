@@ -22,7 +22,6 @@
 use super::*;
 use frame_benchmarking::v1::{benchmarks, whitelisted_caller};
 use frame_system::{EventRecord, Pallet as System, RawOrigin};
-use sp_std::*;
 
 #[cfg(test)]
 use crate::Pallet as Remark;

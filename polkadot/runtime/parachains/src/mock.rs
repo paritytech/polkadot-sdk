@@ -29,6 +29,7 @@ use crate::{
 use frame_support::pallet_prelude::*;
 use primitives::CoreIndex;
 
+use alloc::collections::vec_deque::VecDeque;
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
 	traits::{
@@ -50,7 +51,6 @@ use sp_runtime::{
 	transaction_validity::TransactionPriority,
 	BuildStorage, FixedU128, Perbill, Permill,
 };
-use alloc::collections::vec_deque::VecDeque;
 use std::{cell::RefCell, collections::HashMap};
 use xcm::v4::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
 
@@ -634,8 +634,8 @@ impl inclusion::RewardValidators for TestRewardValidators {
 
 /// Create a new set of test externalities.
 pub fn new_test_ext(state: MockGenesisConfig) -> TestExternalities {
-	use sp_keystore::{testing::MemoryKeystore, KeystoreExt, KeystorePtr};
 	use core::sync::Arc;
+	use sp_keystore::{testing::MemoryKeystore, KeystoreExt, KeystorePtr};
 
 	sp_tracing::try_init_simple();
 

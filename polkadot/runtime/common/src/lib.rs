@@ -168,7 +168,7 @@ static_assertions::assert_eq_size!(primitives::Balance, u128);
 
 /// A placeholder since there is currently no provided session key handler for parachain validator
 /// keys.
-pub struct ParachainSessionKeyPlaceholder<T>(sp_std::marker::PhantomData<T>);
+pub struct ParachainSessionKeyPlaceholder<T>(core::marker::PhantomData<T>);
 impl<T> sp_runtime::BoundToRuntimeAppPublic for ParachainSessionKeyPlaceholder<T> {
 	type Public = ValidatorId;
 }
@@ -197,7 +197,7 @@ impl<T: pallet_session::Config> OneSessionHandler<T::AccountId>
 
 /// A placeholder since there is currently no provided session key handler for parachain validator
 /// keys.
-pub struct AssignmentSessionKeyPlaceholder<T>(sp_std::marker::PhantomData<T>);
+pub struct AssignmentSessionKeyPlaceholder<T>(core::marker::PhantomData<T>);
 impl<T> sp_runtime::BoundToRuntimeAppPublic for AssignmentSessionKeyPlaceholder<T> {
 	type Public = AssignmentId;
 }

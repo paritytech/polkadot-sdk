@@ -26,6 +26,7 @@ use crate::{
 	Error, Pallet, TrieId, SENTINEL,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use frame_support::{
 	storage::child::{self, ChildInfo},
 	weights::Weight,
@@ -38,7 +39,6 @@ use sp_runtime::{
 	traits::{Hash, Saturating, Zero},
 	BoundedBTreeMap, DispatchError, DispatchResult, RuntimeDebug,
 };
-use sp_std::{marker::PhantomData, prelude::*};
 
 use self::meter::Diff;
 

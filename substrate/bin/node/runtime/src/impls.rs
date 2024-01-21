@@ -27,7 +27,6 @@ use frame_support::{
 use pallet_alliance::{IdentityVerifier, ProposalIndex, ProposalProvider};
 use pallet_asset_tx_payment::HandleCredit;
 use pallet_identity::legacy::IdentityField;
-use sp_std::prelude::*;
 
 use crate::{
 	AccountId, AllianceMotion, Assets, Authorship, Balances, Hash, NegativeImbalance, Runtime,

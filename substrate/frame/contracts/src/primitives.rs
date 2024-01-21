@@ -25,7 +25,6 @@ use sp_runtime::{
 	traits::{Saturating, Zero},
 	DispatchError, RuntimeDebug,
 };
-use sp_std::prelude::*;
 
 /// Result type of a `bare_call` or `bare_instantiate` call as well as `ContractsApi::call` and
 /// `ContractsApi::instantiate`.

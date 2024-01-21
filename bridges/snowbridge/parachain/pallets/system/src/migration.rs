@@ -16,7 +16,7 @@ pub mod v0 {
 	const LOG_TARGET: &str = "ethereum_system::migration";
 
 	pub struct InitializeOnUpgrade<T, BridgeHubParaId, AssetHubParaId>(
-		sp_std::marker::PhantomData<(T, BridgeHubParaId, AssetHubParaId)>,
+		core::marker::PhantomData<(T, BridgeHubParaId, AssetHubParaId)>,
 	);
 	impl<T, BridgeHubParaId, AssetHubParaId> OnRuntimeUpgrade
 		for InitializeOnUpgrade<T, BridgeHubParaId, AssetHubParaId>

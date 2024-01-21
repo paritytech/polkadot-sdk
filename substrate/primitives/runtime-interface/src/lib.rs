@@ -120,9 +120,6 @@ pub use sp_wasm_interface;
 #[doc(hidden)]
 pub use sp_tracing;
 
-#[doc(hidden)]
-pub use sp_std;
-
 /// Attribute macro for transforming a trait declaration into a runtime interface.
 ///
 /// A runtime interface is a fixed interface between a Substrate compatible runtime and the

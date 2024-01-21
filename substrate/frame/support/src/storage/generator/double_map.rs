@@ -21,7 +21,6 @@ use crate::{
 	Never,
 };
 use codec::{Decode, Encode, EncodeLike, FullCodec, FullEncode};
-use sp_std::prelude::*;
 
 /// Generator for `StorageDoubleMap` used by `decl_storage`.
 ///

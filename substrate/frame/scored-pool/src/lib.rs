@@ -92,12 +92,15 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(test)]
 mod mock;
 
 #[cfg(test)]
 mod tests;
 
+use alloc::fmt::Debug;
 use codec::{FullCodec, MaxEncodedLen};
 use frame_support::{
 	ensure,
@@ -106,7 +109,6 @@ use frame_support::{
 };
 pub use pallet::*;
 use sp_runtime::traits::{AtLeast32Bit, StaticLookup, Zero};
-use sp_std::{fmt::Debug, prelude::*};
 
 type BalanceOf<T, I> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;

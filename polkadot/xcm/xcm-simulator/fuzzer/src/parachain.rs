@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Parachain runtime mock.
+extern crate alloc;
 
 use codec::{Decode, Encode};
 use frame_support::{
@@ -29,7 +30,6 @@ use sp_runtime::{
 	traits::{Hash, IdentityLookup},
 	AccountId32,
 };
-use sp_std::prelude::*;
 
 use pallet_xcm::XcmPassthrough;
 use polkadot_core_primitives::BlockNumber as RelayBlockNumber;

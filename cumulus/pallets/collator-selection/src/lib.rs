@@ -81,6 +81,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub use pallet::*;
 
 #[cfg(test)]
@@ -99,6 +101,7 @@ const LOG_TARGET: &str = "runtime::collator-selection";
 #[frame_support::pallet]
 pub mod pallet {
 	pub use crate::weights::WeightInfo;
+	use alloc::vec::Vec;
 	use core::ops::Div;
 	use frame_support::{
 		dispatch::{DispatchClass, DispatchResultWithPostInfo},
@@ -116,7 +119,6 @@ pub mod pallet {
 		RuntimeDebug,
 	};
 	use sp_staking::SessionIndex;
-	use alloc::vec::Vec;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -247,7 +249,7 @@ pub mod pallet {
 			let duplicate_invulnerables = self
 				.invulnerables
 				.iter()
-				.collect::<sp_std::collections::btree_set::BTreeSet<_>>();
+				.collect::<alloc::collections::btree_set::BTreeSet<_>>();
 			assert!(
 				duplicate_invulnerables.len() == self.invulnerables.len(),
 				"duplicate invulnerables in genesis."

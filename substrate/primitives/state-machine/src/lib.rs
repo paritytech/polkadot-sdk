@@ -120,8 +120,8 @@ pub type DefaultError = String;
 pub struct DefaultError;
 
 #[cfg(not(feature = "std"))]
-impl sp_std::fmt::Display for DefaultError {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+impl alloc::fmt::Display for DefaultError {
+	fn fmt(&self, f: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
 		write!(f, "DefaultError")
 	}
 }

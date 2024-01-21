@@ -33,8 +33,9 @@
 //!
 //! and thanks to versioning can be easily updated in the future.
 
+extern crate alloc;
+
 use sp_runtime::traits::{Convert, Member};
-use sp_std::prelude::*;
 
 use codec::Decode;
 use pallet_mmr::{LeafDataProvider, ParentNumberAndHash};
@@ -54,7 +55,7 @@ mod mock;
 mod tests;
 
 /// A BEEFY consensus digest item with MMR root hash.
-pub struct DepositBeefyDigest<T>(sp_std::marker::PhantomData<T>);
+pub struct DepositBeefyDigest<T>(core::marker::PhantomData<T>);
 
 impl<T> pallet_mmr::primitives::OnNewRoot<sp_consensus_beefy::MmrRootHash> for DepositBeefyDigest<T>
 where

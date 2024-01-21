@@ -18,10 +18,10 @@
 //! during conversion.
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::{marker::PhantomData, ops::Deref};
 use frame_support::traits::Get;
 use scale_info::{Type, TypeInfo};
 use sp_runtime::RuntimeDebug;
-use sp_std::{marker::PhantomData, ops::Deref};
 
 /// Error that is returned when the value size exceeds maximal configured size.
 #[derive(RuntimeDebug)]
@@ -39,8 +39,8 @@ pub struct BoundedStorageValue<B, V> {
 	_phantom: PhantomData<B>,
 }
 
-impl<B, V: sp_std::fmt::Debug> sp_std::fmt::Debug for BoundedStorageValue<B, V> {
-	fn fmt(&self, fmt: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+impl<B, V: alloc::fmt::Debug> alloc::fmt::Debug for BoundedStorageValue<B, V> {
+	fn fmt(&self, fmt: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
 		self.value.fmt(fmt)
 	}
 }

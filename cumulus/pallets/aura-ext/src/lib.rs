@@ -34,6 +34,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use frame_support::traits::{ExecuteBlock, FindAuthor};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_consensus_aura::{digests::CompatibleDigestItem, Slot};
@@ -110,7 +112,7 @@ pub mod pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -132,7 +134,7 @@ pub mod pallet {
 ///
 /// When executing the block it will verify the block seal to ensure that the correct author created
 /// the block.
-pub struct BlockExecutor<T, I>(sp_std::marker::PhantomData<(T, I)>);
+pub struct BlockExecutor<T, I>(core::marker::PhantomData<(T, I)>);
 
 impl<Block, T, I> ExecuteBlock<Block> for BlockExecutor<T, I>
 where

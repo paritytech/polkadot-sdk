@@ -24,7 +24,6 @@ use crate::{
 	Config, HashOf, HashingOf,
 };
 use sp_mmr_primitives::{mmr_lib, utils::NodesUtils};
-use sp_std::prelude::*;
 
 /// Stateless verification of the proof for a batch of leaves.
 /// Note, the leaves should be sorted such that corresponding leaves and leaf indices have the

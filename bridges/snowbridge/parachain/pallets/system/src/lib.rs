@@ -37,6 +37,8 @@
 //! `force_update_channel` and extrinsics to manage agents and channels for system parachains.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub use pallet::*;
 
 #[cfg(test)]
@@ -72,7 +74,7 @@ use snowbridge_core::{
 use sp_core::{RuntimeDebug, H160, H256};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{traits::BadOrigin, DispatchError, SaturatedConversion};
-use sp_std::prelude::*;
+
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
 

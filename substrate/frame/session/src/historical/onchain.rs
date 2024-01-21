@@ -19,7 +19,6 @@
 
 use codec::Encode;
 use sp_runtime::traits::Convert;
-use sp_std::prelude::*;
 
 use super::{shared, Config as HistoricalConfig};
 use crate::{Config as SessionConfig, Pallet as SessionModule, SessionIndex};

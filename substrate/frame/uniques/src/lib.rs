@@ -28,6 +28,8 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 #[cfg(test)]
@@ -51,7 +53,6 @@ use sp_runtime::{
 	traits::{Saturating, StaticLookup, Zero},
 	ArithmeticError, RuntimeDebug,
 };
-use sp_std::prelude::*;
 
 pub use pallet::*;
 pub use types::*;

@@ -52,6 +52,8 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 mod benchmarking;
 mod tests;
 pub mod weights;
@@ -64,7 +66,6 @@ use frame_support::{
 use sp_core::TypeId;
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::{BadOrigin, Dispatchable, TrailingZeroInput};
-use sp_std::prelude::*;
 pub use weights::WeightInfo;
 
 pub use pallet::*;
@@ -131,7 +132,7 @@ pub mod pallet {
 		/// The limit on the number of batched calls.
 		fn batched_calls_limit() -> u32 {
 			let allocator_limit = sp_core::MAX_POSSIBLE_ALLOCATION;
-			let call_size = ((sp_std::mem::size_of::<<T as Config>::RuntimeCall>() as u32 +
+			let call_size = ((core::mem::size_of::<<T as Config>::RuntimeCall>() as u32 +
 				CALL_ALIGN - 1) / CALL_ALIGN) *
 				CALL_ALIGN;
 			// The margin to take into account vec doubling capacity.
@@ -146,7 +147,7 @@ pub mod pallet {
 		fn integrity_test() {
 			// If you hit this error, you need to try to `Box` big dispatchable parameters.
 			assert!(
-				sp_std::mem::size_of::<<T as Config>::RuntimeCall>() as u32 <= CALL_ALIGN,
+				core::mem::size_of::<<T as Config>::RuntimeCall>() as u32 <= CALL_ALIGN,
 				"Call enum size should be smaller than {} bytes.",
 				CALL_ALIGN,
 			);

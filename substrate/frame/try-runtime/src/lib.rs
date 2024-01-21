@@ -20,6 +20,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg(feature = "try-runtime")]
 
+extern crate alloc;
+
 pub use frame_support::traits::{TryStateSelect, UpgradeCheckSelect};
 use frame_support::weights::Weight;
 

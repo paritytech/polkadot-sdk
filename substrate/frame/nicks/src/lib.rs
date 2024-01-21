@@ -39,10 +39,11 @@
 #![deny(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use frame_support::traits::{Currency, OnUnbalanced, ReservableCurrency};
 pub use pallet::*;
 use sp_runtime::traits::{StaticLookup, Zero};
-use sp_std::prelude::*;
 
 type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 type BalanceOf<T> = <<T as Config>::Currency as Currency<AccountIdOf<T>>>::Balance;

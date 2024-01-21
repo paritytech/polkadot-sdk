@@ -35,6 +35,8 @@ mod trie_stream;
 #[cfg(feature = "std")]
 pub mod proof_size_extension;
 
+use alloc::{borrow::Borrow, boxed::Box, vec::Vec};
+use core::marker::PhantomData;
 /// Our `NodeCodec`-specific error.
 pub use error::Error;
 /// Various re-exports from the `hash-db` crate.
@@ -44,7 +46,6 @@ use hash_db::{Hasher, Prefix};
 pub use memory_db::{prefixed_key, HashKey, KeyFunction, PrefixedKey};
 /// The Substrate format implementation of `NodeCodec`.
 pub use node_codec::NodeCodec;
-use sp_std::{borrow::Borrow, boxed::Box, marker::PhantomData, vec::Vec};
 pub use storage_proof::{CompactProof, StorageProof};
 /// Trie codec reexport, mainly child trie support
 /// for trie compact proof.
@@ -502,7 +503,7 @@ pub struct KeySpacedDBMut<'a, DB: ?Sized, H>(&'a mut DB, &'a [u8], PhantomData<H
 /// Utility function used to merge some byte data (keyspace) and `prefix` data
 /// before calling key value database primitives.
 fn keyspace_as_prefix_alloc(ks: &[u8], prefix: Prefix) -> (Vec<u8>, Option<u8>) {
-	let mut result = sp_std::vec![0; ks.len() + prefix.0.len()];
+	let mut result = alloc::vec![0; ks.len() + prefix.0.len()];
 	result[..ks.len()].copy_from_slice(ks);
 	result[ks.len()..].copy_from_slice(prefix.0);
 	(result, prefix.1)

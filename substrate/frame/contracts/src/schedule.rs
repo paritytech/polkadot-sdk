@@ -21,13 +21,13 @@
 use crate::{weights::WeightInfo, Config};
 
 use codec::{Decode, Encode};
+use core::marker::PhantomData;
 use frame_support::{weights::Weight, DefaultNoBound};
 use pallet_contracts_proc_macro::{ScheduleDebug, WeightDebug};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_runtime::RuntimeDebug;
-use core::marker::PhantomData;
 
 /// Definition of the cost schedule and other parameterizations for the wasm vm.
 ///

@@ -4,7 +4,6 @@ use codec::{Decode, Encode};
 use frame_support::{CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 use sp_core::H256;
-use sp_std::prelude::*;
 
 use crate::types::{BeaconHeader, ExecutionPayloadHeader, SyncAggregate, SyncCommittee};
 

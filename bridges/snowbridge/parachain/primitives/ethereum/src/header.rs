@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use codec::{Decode, Encode};
+use core::convert::TryInto;
 use ethbloom::Bloom as EthBloom;
 use hex_literal::hex;
 use parity_bytes::Bytes;
@@ -8,7 +9,6 @@ use rlp::RlpStream;
 use scale_info::TypeInfo;
 use sp_io::hashing::keccak_256;
 use sp_runtime::RuntimeDebug;
-use sp_std::{convert::TryInto, prelude::*};
 
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};

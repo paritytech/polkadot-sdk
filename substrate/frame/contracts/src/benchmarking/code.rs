@@ -25,9 +25,9 @@
 //! compiles it down into a `WasmModule` that can be used as a contract's code.
 
 use crate::Config;
+use alloc::borrow::ToOwned;
 use frame_support::traits::Get;
 use sp_runtime::traits::Hash;
-use sp_std::{borrow::ToOwned, prelude::*};
 use wasm_instrument::parity_wasm::{
 	builder,
 	elements::{
@@ -388,7 +388,7 @@ pub mod body {
 				.cycle()
 				.take(instructions.len() * usize::try_from(repetitions).unwrap())
 				.cloned()
-				.chain(sp_std::iter::once(Instruction::End))
+				.chain(core::iter::once(Instruction::End))
 				.collect(),
 		);
 		FuncBody::new(Vec::new(), instructions)
@@ -414,7 +414,7 @@ pub mod body {
 				DynInstr::RandomI64Repeated(num) =>
 					(&mut rng).sample_iter(Standard).take(*num).map(Instruction::I64Const).collect(),
 			})
-			.chain(sp_std::iter::once(Instruction::End))
+			.chain(core::iter::once(Instruction::End))
 			.collect();
 		FuncBody::new(Vec::new(), Instructions::new(body))
 	}

@@ -24,6 +24,7 @@ use crate::{
 	schedule::HostFnWeights,
 	BalanceOf, CodeHash, Config, DebugBufferVec, Error, SENTINEL,
 };
+use alloc::fmt;
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::DispatchInfo,
@@ -40,7 +41,6 @@ use sp_runtime::{
 	traits::{Bounded, Zero},
 	DispatchError, RuntimeDebug,
 };
-use sp_std::{fmt, prelude::*};
 use wasmi::{core::HostError, errors::LinkerError, Linker, Memory, Store};
 use xcm::VersionedXcm;
 
@@ -1933,7 +1933,7 @@ pub mod env {
 		data_len: u32,
 	) -> Result<(), TrapReason> {
 		let num_topic = topics_len
-			.checked_div(sp_std::mem::size_of::<TopicOf<E::T>>() as u32)
+			.checked_div(core::mem::size_of::<TopicOf<E::T>>() as u32)
 			.ok_or("Zero sized topics are not allowed")?;
 		ctx.charge_gas(RuntimeCosts::DepositEvent { num_topic, len: data_len })?;
 		if data_len > ctx.ext.max_value_size() {

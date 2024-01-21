@@ -28,9 +28,9 @@ use sp_api::ProvideRuntimeApi;
 #[cfg(feature = "std")]
 use sp_runtime::traits::Block as BlockT;
 
+use alloc::vec::Vec;
 use sp_core::RuntimeDebug;
 use sp_staking::SessionIndex;
-use alloc::vec::Vec;
 
 pub mod runtime_api;
 pub use runtime_api::*;

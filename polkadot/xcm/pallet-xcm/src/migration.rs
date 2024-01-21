@@ -32,7 +32,7 @@ pub mod v1 {
 	/// enacted on-chain.
 	///
 	/// Use experimental [`MigrateToV1`] instead.
-	pub struct VersionUncheckedMigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	pub struct VersionUncheckedMigrateToV1<T>(core::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let mut weight = T::DbWeight::get().reads(1);

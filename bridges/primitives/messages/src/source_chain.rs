@@ -19,14 +19,14 @@
 use crate::{InboundLaneData, LaneId, MessageNonce, OutboundLaneData, VerificationError};
 
 use crate::UnrewardedRelayer;
-use bp_runtime::Size;
-use frame_support::Parameter;
-use sp_core::RuntimeDebug;
-use sp_std::{
+use alloc::{
 	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
 	fmt::Debug,
-	ops::RangeInclusive,
 };
+use bp_runtime::Size;
+use core::ops::RangeInclusive;
+use frame_support::Parameter;
+use sp_core::RuntimeDebug;
 
 /// Number of messages, delivered by relayers.
 pub type RelayersRewards<AccountId> = BTreeMap<AccountId, MessageNonce>;

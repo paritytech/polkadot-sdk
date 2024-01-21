@@ -47,6 +47,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 mod benchmarking;
 #[cfg(test)]
 mod mock;
@@ -68,7 +70,7 @@ use sp_runtime::{
 	traits::{AccountIdConversion, Dispatchable, Saturating, Zero},
 	ArithmeticError, DispatchError, RuntimeDebug,
 };
-use sp_std::prelude::*;
+
 pub use weights::WeightInfo;
 
 type BalanceOf<T> =

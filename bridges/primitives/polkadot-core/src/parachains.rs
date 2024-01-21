@@ -22,12 +22,12 @@
 //! parachains. Having pallets that are referencing polkadot, would mean that there may
 //! be two versions of polkadot crates included in the runtime. Which is bad.
 
+use alloc::vec::Vec;
 use bp_runtime::{RawStorageProof, Size};
 use codec::{CompactAs, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::Hasher;
 use sp_runtime::RuntimeDebug;
-use alloc::vec::Vec;
 
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};

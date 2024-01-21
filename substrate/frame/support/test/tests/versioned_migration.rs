@@ -52,7 +52,7 @@ mod dummy_pallet {
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
-		_config: sp_std::marker::PhantomData<T>,
+		_config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -92,7 +92,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 
 /// A dummy migration for testing the `VersionedMigration` trait.
 /// Sets SomeStorage to S.
-struct SomeUnversionedMigration<T: Config, const S: u32>(sp_std::marker::PhantomData<T>);
+struct SomeUnversionedMigration<T: Config, const S: u32>(core::marker::PhantomData<T>);
 
 parameter_types! {
 	const UpgradeReads: u64 = 4;

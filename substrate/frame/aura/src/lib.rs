@@ -38,6 +38,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	traits::{DisabledValidators, FindAuthor, Get, OnTimestampSet, OneSessionHandler},
@@ -50,7 +52,6 @@ use sp_runtime::{
 	traits::{IsMember, Member, SaturatedConversion, Saturating, Zero},
 	RuntimeAppPublic,
 };
-use sp_std::prelude::*;
 
 pub mod migrations;
 mod mock;
@@ -69,7 +70,7 @@ const LOG_TARGET: &str = "runtime::aura";
 ///
 /// Note that this type is likely not useful without the `experimental`
 /// feature.
-pub struct MinimumPeriodTimesTwo<T>(sp_std::marker::PhantomData<T>);
+pub struct MinimumPeriodTimesTwo<T>(core::marker::PhantomData<T>);
 
 impl<T: pallet_timestamp::Config> Get<T::Moment> for MinimumPeriodTimesTwo<T> {
 	fn get() -> T::Moment {
@@ -125,7 +126,7 @@ pub mod pallet {
 	}
 
 	#[pallet::pallet]
-	pub struct Pallet<T>(sp_std::marker::PhantomData<T>);
+	pub struct Pallet<T>(core::marker::PhantomData<T>);
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -380,7 +381,7 @@ impl<T: Config> FindAuthor<u32> for Pallet<T> {
 /// We can not implement `FindAuthor` twice, because the compiler does not know if
 /// `u32 == T::AuthorityId` and thus, prevents us to implement the trait twice.
 #[doc(hidden)]
-pub struct FindAccountFromAuthorIndex<T, Inner>(sp_std::marker::PhantomData<(T, Inner)>);
+pub struct FindAccountFromAuthorIndex<T, Inner>(core::marker::PhantomData<(T, Inner)>);
 
 impl<T: Config, Inner: FindAuthor<u32>> FindAuthor<T::AuthorityId>
 	for FindAccountFromAuthorIndex<T, Inner>

@@ -38,7 +38,7 @@ use sc_client_api::{
 use sc_telemetry::TelemetryWorkerHandle;
 use sp_api::ProvideRuntimeApi;
 use sp_consensus::SyncOracle;
-use sp_core::{sp_std::collections::btree_map::BTreeMap, Pair};
+use sp_core::{alloc::collections::btree_map::BTreeMap, Pair};
 use sp_state_machine::{Backend as StateBackend, StorageValue};
 
 /// The timeout in seconds after that the waiting for a block should be aborted.

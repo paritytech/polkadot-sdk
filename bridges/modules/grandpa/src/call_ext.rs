@@ -56,7 +56,7 @@ impl<N> SubmitFinalityProofInfo<N> {
 
 /// Helper struct that provides methods for working with the `SubmitFinalityProof` call.
 pub struct SubmitFinalityProofHelper<T: Config<I>, I: 'static> {
-	_phantom_data: sp_std::marker::PhantomData<(T, I)>,
+	_phantom_data: core::marker::PhantomData<(T, I)>,
 }
 
 impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {

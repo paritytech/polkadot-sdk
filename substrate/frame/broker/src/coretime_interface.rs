@@ -17,13 +17,13 @@
 
 #![deny(missing_docs)]
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::Parameter;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::AtLeast32BitUnsigned;
 use sp_core::RuntimeDebug;
 use sp_runtime::traits::BlockNumberProvider;
-use alloc::vec::Vec;
 
 /// Index of a Polkadot Core.
 pub type CoreIndex = u16;

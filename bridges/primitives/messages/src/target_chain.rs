@@ -20,12 +20,13 @@ use crate::{
 	LaneId, Message, MessageKey, MessageNonce, MessagePayload, OutboundLaneData, VerificationError,
 };
 
+use alloc::{collections::btree_map::BTreeMap, fmt::Debug};
 use bp_runtime::{messages::MessageDispatchResult, Size};
 use codec::{Decode, Encode, Error as CodecError};
+use core::marker::PhantomData;
 use frame_support::{weights::Weight, Parameter};
 use scale_info::TypeInfo;
 use sp_core::RuntimeDebug;
-use sp_std::{collections::btree_map::BTreeMap, fmt::Debug, marker::PhantomData, prelude::*};
 
 /// Proved messages from the source chain.
 pub type ProvedMessages<Message> = BTreeMap<LaneId, ProvedLaneMessages<Message>>;
@@ -90,7 +91,7 @@ pub trait MessageDispatch {
 	type DispatchPayload: Decode;
 
 	/// Fine-grained result of single message dispatch (for better diagnostic purposes)
-	type DispatchLevelResult: Clone + sp_std::fmt::Debug + Eq;
+	type DispatchLevelResult: Clone + alloc::fmt::Debug + Eq;
 
 	/// Returns `true` if dispatcher is ready to accept additional messages. The `false` should
 	/// be treated as a hint by both dispatcher and its consumers - i.e. dispatcher shall not

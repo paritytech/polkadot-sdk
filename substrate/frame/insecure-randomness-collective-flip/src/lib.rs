@@ -70,6 +70,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use safe_mix::TripletMix;
 
 use codec::Encode;

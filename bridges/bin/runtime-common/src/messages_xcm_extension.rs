@@ -30,13 +30,13 @@ use bp_runtime::messages::MessageDispatchResult;
 pub use bp_xcm_bridge_hub::XcmAsPlainPayload;
 use bp_xcm_bridge_hub_router::XcmChannelStatusProvider;
 use codec::{Decode, Encode};
+use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{traits::Get, weights::Weight, CloneNoBound, EqNoBound, PartialEqNoBound};
 use pallet_bridge_messages::{
 	Config as MessagesConfig, OutboundLanesCongestedSignals, WeightInfoExt as MessagesPalletWeights,
 };
 use scale_info::TypeInfo;
 use sp_runtime::SaturatedConversion;
-use sp_std::{fmt::Debug, marker::PhantomData};
 use xcm::prelude::*;
 use xcm_builder::{DispatchBlob, DispatchBlobError};
 
@@ -52,7 +52,7 @@ pub enum XcmBlobMessageDispatchResult {
 ///
 /// It needs to be used at the target bridge hub.
 pub struct XcmBlobMessageDispatch<DispatchBlob, Weights, Channel> {
-	_marker: sp_std::marker::PhantomData<(DispatchBlob, Weights, Channel)>,
+	_marker: core::marker::PhantomData<(DispatchBlob, Weights, Channel)>,
 }
 
 impl<
@@ -163,12 +163,12 @@ pub trait XcmBlobHauler {
 ///
 /// It needs to be used at the source bridge hub.
 pub struct XcmBlobHaulerAdapter<XcmBlobHauler, Lanes>(
-	sp_std::marker::PhantomData<(XcmBlobHauler, Lanes)>,
+	core::marker::PhantomData<(XcmBlobHauler, Lanes)>,
 );
 
 impl<
 		H: XcmBlobHauler,
-		Lanes: Get<sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))>>,
+		Lanes: Get<alloc::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))>>,
 	> OnMessagesDelivered for XcmBlobHaulerAdapter<H, Lanes>
 {
 	fn on_messages_delivered(lane: LaneId, enqueued_messages: MessageNonce) {
@@ -313,7 +313,7 @@ impl<H: XcmBlobHauler> LocalXcmQueueManager<H> {
 /// configured XCM version between the destination `dest` and the bridge hub location provided as
 /// `Get<Location>`.
 pub struct XcmVersionOfDestAndRemoteBridge<Version, RemoteBridge>(
-	sp_std::marker::PhantomData<(Version, RemoteBridge)>,
+	core::marker::PhantomData<(Version, RemoteBridge)>,
 );
 impl<Version: GetVersion, RemoteBridge: Get<Location>> GetVersion
 	for XcmVersionOfDestAndRemoteBridge<Version, RemoteBridge>
@@ -323,7 +323,7 @@ impl<Version: GetVersion, RemoteBridge: Get<Location>> GetVersion
 		let bridge_hub_version = Version::get_version_for(&RemoteBridge::get());
 
 		match (dest_version, bridge_hub_version) {
-			(Some(dv), Some(bhv)) => Some(sp_std::cmp::min(dv, bhv)),
+			(Some(dv), Some(bhv)) => Some(core::cmp::min(dv, bhv)),
 			(Some(dv), None) => Some(dv),
 			(None, Some(bhv)) => Some(bhv),
 			(None, None) => None,
@@ -345,7 +345,7 @@ mod tests {
 			location: Location::new(1, [Parachain(1000)]),
 			lane: TEST_LANE_ID,
 		};
-		pub TestLanes: sp_std::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))> = sp_std::vec![
+		pub TestLanes: alloc::vec::Vec<(SenderAndLane, (NetworkId, InteriorLocation))> = alloc::vec![
 			(TestSenderAndLane::get(), (NetworkId::ByGenesis([0; 32]), InteriorLocation::Here))
 		];
 		pub DummyXcmMessage: Xcm<()> = Xcm::new();

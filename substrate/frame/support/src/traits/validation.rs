@@ -24,7 +24,6 @@ use sp_runtime::{
 	BoundToRuntimeAppPublic, ConsensusEngineId, Permill, RuntimeAppPublic,
 };
 use sp_staking::SessionIndex;
-use sp_std::prelude::*;
 
 /// A trait for online node inspection in a session.
 ///

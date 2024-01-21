@@ -35,7 +35,8 @@ use sp_wasm_interface::{FunctionContext, Result};
 
 use codec::{Decode, Encode};
 
-use sp_std::{any::TypeId, mem, vec::Vec};
+use alloc::vec::Vec;
+use core::{any::TypeId, mem};
 
 #[cfg(feature = "std")]
 use alloc::borrow::Cow;
@@ -337,7 +338,7 @@ impl<const N: usize> IntoPreallocatedFFIValue for [u8; N] {
 	}
 }
 
-impl<T: codec::Codec, E: codec::Codec> PassBy for sp_std::result::Result<T, E> {
+impl<T: codec::Codec, E: codec::Codec> PassBy for core::result::Result<T, E> {
 	type PassBy = Codec<Self>;
 }
 

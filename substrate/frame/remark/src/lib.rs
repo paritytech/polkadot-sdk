@@ -20,6 +20,8 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 mod benchmarking;
 pub mod weights;
 
@@ -27,8 +29,6 @@ pub mod weights;
 mod mock;
 #[cfg(test)]
 mod tests;
-
-use sp_std::prelude::*;
 
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;

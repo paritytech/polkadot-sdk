@@ -18,6 +18,8 @@
 //! This pallet demonstrates the use of the `pallet::task` api for service work.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use frame_support::dispatch::DispatchResult;
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;

@@ -22,6 +22,7 @@ use crate::{
 	scheduler::{self, CoreOccupied},
 	session_info, shared,
 };
+use alloc::collections::btree_map::BTreeMap;
 use frame_system::pallet_prelude::*;
 use primitives::{
 	async_backing::{
@@ -35,7 +36,6 @@ use primitives::{
 	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use sp_runtime::traits::One;
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 /// Implementation for the `validators` function of the runtime API.
 pub fn validators<T: initializer::Config>() -> Vec<ValidatorId> {

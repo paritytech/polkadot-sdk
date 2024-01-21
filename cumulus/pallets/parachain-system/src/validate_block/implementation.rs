@@ -33,7 +33,6 @@ use sp_core::storage::{ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::KillStorageResult;
 use sp_runtime::traits::{Block as BlockT, Extrinsic, HashingFor, Header as HeaderT};
-use sp_std::prelude::*;
 use sp_trie::MemoryDB;
 
 type TrieBackend<B> = sp_state_machine::TrieBackend<
@@ -118,7 +117,7 @@ where
 		Err(_) => panic!("Compact proof decoding failure."),
 	};
 
-	sp_std::mem::drop(storage_proof);
+	core::mem::drop(storage_proof);
 
 	let cache_provider = trie_cache::CacheProvider::new();
 	// We use the storage root of the `parent_head` to ensure that it is the correct root.
@@ -281,7 +280,7 @@ fn host_storage_read(key: &[u8], value_out: &mut [u8], value_offset: u32) -> Opt
 		Some(value) => {
 			let value_offset = value_offset as usize;
 			let data = &value[value_offset.min(value.len())..];
-			let written = sp_std::cmp::min(data.len(), value_out.len());
+			let written = core::cmp::min(data.len(), value_out.len());
 			value_out[..written].copy_from_slice(&data[..written]);
 			Some(value.len() as u32)
 		},
@@ -351,7 +350,7 @@ fn host_default_child_storage_read(
 		Some(value) => {
 			let value_offset = value_offset as usize;
 			let data = &value[value_offset.min(value.len())..];
-			let written = sp_std::cmp::min(data.len(), value_out.len());
+			let written = core::cmp::min(data.len(), value_out.len());
 			value_out[..written].copy_from_slice(&data[..written]);
 			Some(value.len() as u32)
 		},
