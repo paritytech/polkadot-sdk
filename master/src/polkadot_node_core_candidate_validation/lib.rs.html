@@ -930,6 +930,31 @@
 <a href="#930" id="930">930</a>
 <a href="#931" id="931">931</a>
 <a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -987,10 +1012,11 @@
 
 <span class="kw">use </span>parity_scale_codec::Encode;
 
-<span class="kw">use </span>futures::{channel::oneshot, prelude::<span class="kw-2">*</span>};
+<span class="kw">use </span>futures::{channel::oneshot, prelude::<span class="kw-2">*</span>, stream::FuturesUnordered};
 
 <span class="kw">use </span>std::{
 	path::PathBuf,
+	pin::Pin,
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -1012,6 +1038,11 @@
 </span><span class="kw">const </span>PVF_APPROVAL_EXECUTION_RETRY_DELAY: Duration = Duration::from_secs(<span class="number">3</span>);
 <span class="attr">#[cfg(test)]
 </span><span class="kw">const </span>PVF_APPROVAL_EXECUTION_RETRY_DELAY: Duration = Duration::from_millis(<span class="number">200</span>);
+
+<span class="comment">// The task queue size is chosen to be somewhat bigger than the PVF host incoming queue size
+// to allow exhaustive validation messages to fall through in case the tasks are clogged with
+// `ValidateFromChainState` messages awaiting data from the runtime
+</span><span class="kw">const </span>TASK_LIMIT: usize = <span class="number">30</span>;
 
 <span class="doccomment">/// Configuration for the candidate validation subsystem
 </span><span class="attr">#[derive(Clone)]
@@ -1062,6 +1093,83 @@
 	}
 }
 
+<span class="kw">fn </span>handle_validation_message&lt;S&gt;(
+	<span class="kw-2">mut </span>sender: S,
+	validation_host: ValidationHost,
+	metrics: Metrics,
+	msg: CandidateValidationMessage,
+) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send&gt;&gt;
+<span class="kw">where
+	</span>S: SubsystemSender&lt;RuntimeApiMessage&gt;,
+{
+	<span class="kw">match </span>msg {
+		CandidateValidationMessage::ValidateFromChainState {
+			candidate_receipt,
+			pov,
+			executor_params,
+			exec_kind,
+			response_sender,
+			..
+		} =&gt; <span class="kw">async move </span>{
+			<span class="kw">let </span>_timer = metrics.time_validate_from_chain_state();
+			<span class="kw">let </span>res = validate_from_chain_state(
+				<span class="kw-2">&amp;mut </span>sender,
+				validation_host,
+				candidate_receipt,
+				pov,
+				executor_params,
+				exec_kind,
+				<span class="kw-2">&amp;</span>metrics,
+			)
+			.<span class="kw">await</span>;
+
+			metrics.on_validation_event(<span class="kw-2">&amp;</span>res);
+			<span class="kw">let _ </span>= response_sender.send(res);
+		}
+		.boxed(),
+		CandidateValidationMessage::ValidateFromExhaustive {
+			validation_data,
+			validation_code,
+			candidate_receipt,
+			pov,
+			executor_params,
+			exec_kind,
+			response_sender,
+			..
+		} =&gt; <span class="kw">async move </span>{
+			<span class="kw">let </span>_timer = metrics.time_validate_from_exhaustive();
+			<span class="kw">let </span>res = validate_candidate_exhaustive(
+				validation_host,
+				validation_data,
+				validation_code,
+				candidate_receipt,
+				pov,
+				executor_params,
+				exec_kind,
+				<span class="kw-2">&amp;</span>metrics,
+			)
+			.<span class="kw">await</span>;
+
+			metrics.on_validation_event(<span class="kw-2">&amp;</span>res);
+			<span class="kw">let _ </span>= response_sender.send(res);
+		}
+		.boxed(),
+		CandidateValidationMessage::PreCheck {
+			relay_parent,
+			validation_code_hash,
+			response_sender,
+			..
+		} =&gt; <span class="kw">async move </span>{
+			<span class="kw">let </span>precheck_result =
+				precheck_pvf(<span class="kw-2">&amp;mut </span>sender, validation_host, relay_parent, validation_code_hash)
+					.<span class="kw">await</span>;
+
+			<span class="kw">let _ </span>= response_sender.send(precheck_result);
+		}
+		.boxed(),
+	}
+}
+
 <span class="attr">#[overseer::contextbounds(CandidateValidation, prefix = <span class="self">self</span>::overseer)]
 </span><span class="kw">async fn </span>run&lt;Context&gt;(
 	<span class="kw-2">mut </span>ctx: Context,
@@ -1088,106 +1196,48 @@
 	.<span class="kw">await</span><span class="question-mark">?</span>;
 	ctx.spawn_blocking(<span class="string">&quot;pvf-validation-host&quot;</span>, task.boxed())<span class="question-mark">?</span>;
 
+	<span class="kw">let </span><span class="kw-2">mut </span>tasks = FuturesUnordered::new();
+
 	<span class="kw">loop </span>{
-		<span class="kw">match </span>ctx.recv().<span class="kw">await</span><span class="question-mark">? </span>{
-			FromOrchestra::Signal(OverseerSignal::ActiveLeaves(<span class="kw">_</span>)) =&gt; {},
-			FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) =&gt; {},
-			FromOrchestra::Signal(OverseerSignal::Conclude) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(()),
-			FromOrchestra::Communication { msg } =&gt; <span class="kw">match </span>msg {
-				CandidateValidationMessage::ValidateFromChainState {
-					candidate_receipt,
-					pov,
-					executor_params,
-					exec_kind,
-					response_sender,
-					..
-				} =&gt; {
-					<span class="kw">let </span>bg = {
-						<span class="kw">let </span><span class="kw-2">mut </span>sender = ctx.sender().clone();
-						<span class="kw">let </span>metrics = metrics.clone();
-						<span class="kw">let </span>validation_host = validation_host.clone();
-
-						<span class="kw">async move </span>{
-							<span class="kw">let </span>_timer = metrics.time_validate_from_chain_state();
-							<span class="kw">let </span>res = validate_from_chain_state(
-								<span class="kw-2">&amp;mut </span>sender,
-								validation_host,
-								candidate_receipt,
-								pov,
-								executor_params,
-								exec_kind,
-								<span class="kw-2">&amp;</span>metrics,
-							)
-							.<span class="kw">await</span>;
-
-							metrics.on_validation_event(<span class="kw-2">&amp;</span>res);
-							<span class="kw">let _ </span>= response_sender.send(res);
-						}
-					};
-
-					ctx.spawn(<span class="string">&quot;validate-from-chain-state&quot;</span>, bg.boxed())<span class="question-mark">?</span>;
+		<span class="kw">loop </span>{
+			<span class="macro">futures::select! </span>{
+				comm = ctx.recv().fuse() =&gt; {
+					<span class="kw">match </span>comm {
+						<span class="prelude-val">Ok</span>(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(<span class="kw">_</span>))) =&gt; {},
+						<span class="prelude-val">Ok</span>(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) =&gt; {},
+						<span class="prelude-val">Ok</span>(FromOrchestra::Signal(OverseerSignal::Conclude)) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(()),
+						<span class="prelude-val">Ok</span>(FromOrchestra::Communication { msg }) =&gt; {
+							<span class="kw">let </span>task = handle_validation_message(ctx.sender().clone(), validation_host.clone(), metrics.clone(), msg);
+							tasks.push(task);
+							<span class="kw">if </span>tasks.len() &gt;= TASK_LIMIT {
+								<span class="kw">break
+							</span>}
+						},
+						<span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(SubsystemError::from(e)),
+					}
 				},
-				CandidateValidationMessage::ValidateFromExhaustive {
-					validation_data,
-					validation_code,
-					candidate_receipt,
-					pov,
-					executor_params,
-					exec_kind,
-					response_sender,
-					..
-				} =&gt; {
-					<span class="kw">let </span>bg = {
-						<span class="kw">let </span>metrics = metrics.clone();
-						<span class="kw">let </span>validation_host = validation_host.clone();
+				<span class="kw">_ </span>= tasks.select_next_some() =&gt; ()
+			}
+		}
 
-						<span class="kw">async move </span>{
-							<span class="kw">let </span>_timer = metrics.time_validate_from_exhaustive();
-							<span class="kw">let </span>res = validate_candidate_exhaustive(
-								validation_host,
-								validation_data,
-								validation_code,
-								candidate_receipt,
-								pov,
-								executor_params,
-								exec_kind,
-								<span class="kw-2">&amp;</span>metrics,
-							)
-							.<span class="kw">await</span>;
+		<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Validation task limit hit&quot;</span>);
 
-							metrics.on_validation_event(<span class="kw-2">&amp;</span>res);
-							<span class="kw">let _ </span>= response_sender.send(res);
-						}
-					};
-
-					ctx.spawn(<span class="string">&quot;validate-from-exhaustive&quot;</span>, bg.boxed())<span class="question-mark">?</span>;
+		<span class="kw">loop </span>{
+			<span class="macro">futures::select! </span>{
+				signal = ctx.recv_signal().fuse() =&gt; {
+					<span class="kw">match </span>signal {
+						<span class="prelude-val">Ok</span>(OverseerSignal::ActiveLeaves(<span class="kw">_</span>)) =&gt; {},
+						<span class="prelude-val">Ok</span>(OverseerSignal::BlockFinalized(..)) =&gt; {},
+						<span class="prelude-val">Ok</span>(OverseerSignal::Conclude) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(()),
+						<span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(SubsystemError::from(e)),
+					}
 				},
-				CandidateValidationMessage::PreCheck {
-					relay_parent,
-					validation_code_hash,
-					response_sender,
-					..
-				} =&gt; {
-					<span class="kw">let </span>bg = {
-						<span class="kw">let </span><span class="kw-2">mut </span>sender = ctx.sender().clone();
-						<span class="kw">let </span>validation_host = validation_host.clone();
-
-						<span class="kw">async move </span>{
-							<span class="kw">let </span>precheck_result = precheck_pvf(
-								<span class="kw-2">&amp;mut </span>sender,
-								validation_host,
-								relay_parent,
-								validation_code_hash,
-							)
-							.<span class="kw">await</span>;
-
-							<span class="kw">let _ </span>= response_sender.send(precheck_result);
-						}
-					};
-
-					ctx.spawn(<span class="string">&quot;candidate-validation-pre-check&quot;</span>, bg.boxed())<span class="question-mark">?</span>;
-				},
-			},
+				<span class="kw">_ </span>= tasks.select_next_some() =&gt; {
+					<span class="kw">if </span>tasks.len() &lt; TASK_LIMIT {
+						<span class="kw">break
+					</span>}
+				}
+			}
 		}
 	}
 }

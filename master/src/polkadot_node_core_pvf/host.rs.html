@@ -1709,6 +1709,9 @@
 <a href="#1709" id="1709">1709</a>
 <a href="#1710" id="1710">1710</a>
 <a href="#1711" id="1711">1711</a>
+<a href="#1712" id="1712">1712</a>
+<a href="#1713" id="1713">1713</a>
+<a href="#1714" id="1714">1714</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1770,6 +1773,9 @@
 
 <span class="doccomment">/// The name of binary spawned to execute a PVF
 </span><span class="kw">pub const </span>EXECUTE_BINARY_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;polkadot-execute-worker&quot;</span>;
+
+<span class="doccomment">/// The size of incoming message queue
+</span><span class="kw">pub const </span>HOST_MESSAGE_QUEUE_SIZE: usize = <span class="number">10</span>;
 
 <span class="doccomment">/// An alias to not spell the type for the oneshot sender for the PVF execution result.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>ResultSender = oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;ValidationResult, ValidationError&gt;&gt;;
@@ -1938,7 +1944,7 @@
 		<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(SubsystemError::Context(err)),
 	};
 
-	<span class="kw">let </span>(to_host_tx, to_host_rx) = mpsc::channel(<span class="number">10</span>);
+	<span class="kw">let </span>(to_host_tx, to_host_rx) = mpsc::channel(HOST_MESSAGE_QUEUE_SIZE);
 
 	<span class="kw">let </span>validation_host = ValidationHost { to_host_tx, security_status: security_status.clone() };
 

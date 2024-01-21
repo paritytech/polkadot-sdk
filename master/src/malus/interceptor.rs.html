@@ -303,6 +303,23 @@
 <a href="#303" id="303">303</a>
 <a href="#304" id="304">304</a>
 <a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -327,7 +344,7 @@
 
 </span><span class="kw">use </span>polkadot_node_subsystem::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>polkadot_node_subsystem::{messages::<span class="kw-2">*</span>, overseer, FromOrchestra};
-<span class="kw">use </span>std::{future::Future, pin::Pin};
+<span class="kw">use </span>std::{collections::VecDeque, future::Future, pin::Pin};
 
 <span class="doccomment">/// Filter incoming and outgoing messages.
 </span><span class="kw">pub trait </span>MessageInterceptor&lt;Sender&gt;: Send + Sync + Clone + <span class="lifetime">&#39;static
@@ -475,6 +492,7 @@
 	inner: Context,
 	message_filter: Fil,
 	sender: InterceptedSender&lt;&lt;Context <span class="kw">as </span>overseer::SubsystemContext&gt;::Sender, Fil&gt;,
+	message_buffer: VecDeque&lt;FromOrchestra&lt;&lt;Context <span class="kw">as </span>overseer::SubsystemContext&gt;::Message&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;Context, Fil&gt; InterceptedContext&lt;Context, Fil&gt;
@@ -494,7 +512,7 @@
 			inner: inner.sender().clone(),
 			message_filter: message_filter.clone(),
 		};
-		<span class="self">Self </span>{ inner, message_filter, sender }
+		<span class="self">Self </span>{ inner, message_filter, sender, message_buffer: VecDeque::new() }
 	}
 }
 
@@ -538,10 +556,26 @@
 	}
 
 	<span class="kw">async fn </span>recv(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; SubsystemResult&lt;FromOrchestra&lt;<span class="self">Self</span>::Message&gt;&gt; {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(msg) = <span class="self">self</span>.message_buffer.pop_front() {
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(msg)
+		}
 		<span class="kw">loop </span>{
 			<span class="kw">let </span>msg = <span class="self">self</span>.inner.recv().<span class="kw">await</span><span class="question-mark">?</span>;
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(msg) = <span class="self">self</span>.message_filter.intercept_incoming(<span class="self">self</span>.inner.sender(), msg) {
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(msg)
+			}
+		}
+	}
+
+	<span class="kw">async fn </span>recv_signal(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; SubsystemResult&lt;<span class="self">Self</span>::Signal&gt; {
+		<span class="kw">loop </span>{
+			<span class="kw">let </span>msg = <span class="self">self</span>.inner.recv().<span class="kw">await</span><span class="question-mark">?</span>;
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(msg) = <span class="self">self</span>.message_filter.intercept_incoming(<span class="self">self</span>.inner.sender(), msg) {
+				<span class="kw">if let </span>FromOrchestra::Signal(sig) = msg {
+					<span class="kw">return </span><span class="prelude-val">Ok</span>(sig)
+				} <span class="kw">else </span>{
+					<span class="self">self</span>.message_buffer.push_back(msg)
+				}
 			}
 		}
 	}
