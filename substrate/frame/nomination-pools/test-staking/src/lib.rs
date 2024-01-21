@@ -17,6 +17,8 @@
 
 #![cfg(test)]
 
+extern crate alloc;
+
 mod mock;
 
 use frame_support::{assert_noop, assert_ok, traits::Currency};

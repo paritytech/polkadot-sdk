@@ -1225,7 +1225,7 @@ macro_rules! impl_benchmark_test {
 					>::components(&selected_benchmark);
 
 					let execute_benchmark = |
-						c: alloc::Vec<($crate::BenchmarkParameter, u32)>
+						c: alloc::vec::Vec<($crate::BenchmarkParameter, u32)>
 					| -> Result<(), $crate::BenchmarkError> {
 						// Always reset the state after the benchmark.
 						$crate::__private::defer!($crate::benchmarking::wipe_db());

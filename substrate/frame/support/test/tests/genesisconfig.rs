@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+extern crate alloc;
+
 use frame_support::derive_impl;
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_core::{sr25519, ConstU32};

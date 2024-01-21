@@ -16,6 +16,7 @@
 // limitations under the License.
 
 //! Tests for the Rococo Assets Hub chain.
+extern crate alloc;
 
 use asset_hub_rococo_runtime::{
 	xcm_config,

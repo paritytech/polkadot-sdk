@@ -1231,7 +1231,7 @@ mod sanitizers {
 			mock::set_disabled_validators,
 			scheduler::{common::Assignment, ParasEntry},
 		};
-		use sp_std::collections::vec_deque::VecDeque;
+		use alloc::collections::vec_deque::VecDeque;
 
 		use super::*;
 

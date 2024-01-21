@@ -14,8 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+extern crate alloc;
+
 use std::{pin::Pin, sync::Arc, time::Duration};
 
+use alloc::collections::btree_map::BTreeMap;
 use async_trait::async_trait;
 use cumulus_primitives_core::{
 	relay_chain::{
@@ -38,7 +41,7 @@ use sc_client_api::{
 use sc_telemetry::TelemetryWorkerHandle;
 use sp_api::ProvideRuntimeApi;
 use sp_consensus::SyncOracle;
-use sp_core::{alloc::collections::btree_map::BTreeMap, Pair};
+use sp_core::Pair;
 use sp_state_machine::{Backend as StateBackend, StorageValue};
 
 /// The timeout in seconds after that the waiting for a block should be aborted.

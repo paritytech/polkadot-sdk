@@ -26,6 +26,8 @@
 #![warn(rustdoc::broken_intra_doc_links)]
 #![warn(rustdoc::private_intra_doc_links)]
 
+extern crate alloc;
+
 /// Meta information about this crate, how it is built, what principles dictates its evolution and
 /// how one can contribute to it.
 pub mod meta_contributing;

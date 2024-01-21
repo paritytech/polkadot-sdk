@@ -19,6 +19,8 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use alloc::{fmt::Debug, vec, vec::Vec};
 use codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use core::{convert::TryFrom, ops::RangeInclusive};

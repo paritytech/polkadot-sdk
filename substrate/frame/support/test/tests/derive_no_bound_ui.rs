@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+extern crate alloc;
+
 #[rustversion::attr(not(stable), ignore)]
 #[cfg(not(feature = "disable-ui-tests"))]
 #[test]

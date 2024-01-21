@@ -51,7 +51,7 @@ pub use per_things::{
 };
 pub use rational::{MultiplyRational, Rational128, RationalInfinite};
 
-use alloc::fmt::Debug;
+use alloc::{fmt::Debug, vec::Vec};
 use core::cmp::Ordering;
 use traits::{BaseArithmetic, One, SaturatedConversion, Unsigned, Zero};
 

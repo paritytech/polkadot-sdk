@@ -102,6 +102,7 @@ mod tests;
 
 use alloc::fmt::Debug;
 use codec::{FullCodec, MaxEncodedLen};
+use core::cmp::Reverse;
 use frame_support::{
 	ensure,
 	traits::{ChangeMembers, Currency, Get, InitializeMembers, ReservableCurrency},

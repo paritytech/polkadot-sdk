@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+extern crate alloc;
+
 use std::panic::UnwindSafe;
 
 use sc_block_builder::BlockBuilderBuilder;

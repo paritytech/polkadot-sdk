@@ -26,10 +26,10 @@ pub use crate::{
 	FixedWeightBounds, TakeWeightCredit,
 };
 pub use alloc::{
-	cell::{Cell, RefCell},
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
 	fmt::Debug,
 };
+pub use core::cell::{Cell, RefCell};
 use frame_support::traits::{ContainsPair, Everything};
 pub use frame_support::{
 	dispatch::{DispatchInfo, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},

@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+extern crate alloc;
+
 pub use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 pub use lazy_static::lazy_static;
 pub use log;
@@ -24,7 +26,8 @@ pub use std::{
 };
 
 // Substrate
-pub use alloc::{cell::RefCell, collections::vec_deque::VecDeque, fmt::Debug};
+pub use alloc::{collections::vec_deque::VecDeque, fmt::Debug};
+pub use core::cell::RefCell;
 pub use cumulus_primitives_core::AggregateMessageOrigin as CumulusAggregateMessageOrigin;
 pub use frame_support::{
 	assert_ok,

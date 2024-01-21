@@ -17,7 +17,7 @@
 
 //! Infinite precision unsigned integer for substrate runtime.
 
-use alloc::vec;
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use core::{cell::RefCell, cmp::Ordering, ops};
 use num_traits::{One, Zero};

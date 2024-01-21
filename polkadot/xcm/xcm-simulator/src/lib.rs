@@ -16,6 +16,8 @@
 
 //! Test kit to simulate cross-chain message passing and XCM execution.
 
+extern crate alloc;
+
 pub use codec::Encode;
 pub use paste;
 
@@ -295,7 +297,8 @@ macro_rules! decl_test_network {
 
 		impl $name {
 			pub fn reset() {
-				use $crate::{TestExt, VecDeque};
+				use $crate::TestExt;
+				use ::alloc::collections::VecDeque;
 				// Reset relay chain message bus.
 				$crate::RELAY_MESSAGE_BUS.with(|b| b.replace(VecDeque::new()));
 				// Reset parachain message bus.

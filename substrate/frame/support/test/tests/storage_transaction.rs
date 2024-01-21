@@ -18,6 +18,8 @@
 // Disable warnings for #\[transactional\] being deprecated.
 #![allow(deprecated)]
 
+extern crate alloc;
+
 use frame_support::{
 	assert_noop, assert_ok, assert_storage_noop, derive_impl,
 	dispatch::DispatchResult,

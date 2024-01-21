@@ -23,10 +23,10 @@
 use codec::Encode;
 
 use alloc::{
-	cell::{RefCell, RefMut},
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
 	rc::Rc,
 };
+use core::cell::{RefCell, RefMut};
 use sp_trie::{NodeCodec, ProofSizeProvider, StorageProof};
 use trie_db::{Hasher, RecordedForKey, TrieAccess};
 

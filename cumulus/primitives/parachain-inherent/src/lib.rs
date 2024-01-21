@@ -27,6 +27,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use cumulus_primitives_core::{
 	relay_chain::{BlakeTwo256, Hash as RelayHash, HashT as _},
 	InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,

@@ -21,6 +21,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub use sp_consensus_aura::Slot;
 
 sp_api::decl_runtime_apis! {

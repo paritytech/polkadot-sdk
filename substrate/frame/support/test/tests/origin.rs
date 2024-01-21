@@ -19,6 +19,8 @@
 
 #![recursion_limit = "128"]
 
+extern crate alloc;
+
 use frame_support::{
 	derive_impl,
 	traits::{Contains, OriginTrait},

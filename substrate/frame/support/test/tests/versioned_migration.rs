@@ -19,6 +19,8 @@
 
 #![cfg(feature = "try-runtime")]
 
+extern crate alloc;
+
 use frame_support::{
 	construct_runtime, derive_impl,
 	migrations::VersionedMigration,

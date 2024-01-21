@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+extern crate alloc;
+
 use async_trait::async_trait;
 use core::time::Duration;
 use cumulus_primitives_core::{
@@ -29,8 +31,8 @@ use cumulus_relay_chain_interface::{
 use futures::{FutureExt, Stream, StreamExt};
 use polkadot_overseer::Handle;
 
+use alloc::collections::btree_map::BTreeMap;
 use sc_client_api::StorageProof;
-use sp_core::alloc::collections::btree_map::BTreeMap;
 use sp_state_machine::StorageValue;
 use sp_storage::StorageKey;
 use std::pin::Pin;

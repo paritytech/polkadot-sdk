@@ -17,6 +17,8 @@
 
 //! Tests for the Westmint (Westend Assets Hub) chain.
 
+extern crate alloc;
+
 use asset_hub_westend_runtime::{
 	xcm_config,
 	xcm_config::{

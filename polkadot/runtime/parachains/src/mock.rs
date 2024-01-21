@@ -655,7 +655,7 @@ impl inclusion::RewardValidators for TestRewardValidators {
 
 /// Create a new set of test externalities.
 pub fn new_test_ext(state: MockGenesisConfig) -> TestExternalities {
-	use core::sync::Arc;
+	use alloc::sync::Arc;
 	use sp_keystore::{testing::MemoryKeystore, KeystoreExt, KeystorePtr};
 
 	sp_tracing::try_init_simple();

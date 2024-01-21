@@ -31,6 +31,8 @@
 #![warn(missing_docs)]
 #![recursion_limit = "128"]
 
+extern crate alloc;
+
 #[macro_use]
 mod executor;
 #[cfg(test)]

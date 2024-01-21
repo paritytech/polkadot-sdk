@@ -19,6 +19,8 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub use registration::{Registration, StakeAndSlash};
 
 use alloc::fmt::Debug;

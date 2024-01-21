@@ -116,6 +116,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use codec::{Codec, Encode};
 use core::marker::PhantomData;
 use frame_support::{

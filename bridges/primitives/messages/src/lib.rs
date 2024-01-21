@@ -19,6 +19,8 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use bp_header_chain::HeaderChainError;
 use bp_runtime::{
 	messages::MessageDispatchResult, BasicOperatingMode, Chain, OperatingMode, RangeInclusiveExt,
@@ -27,7 +29,7 @@ use bp_runtime::{
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::PalletError;
 // Weight is reexported to avoid additional frame-support dependencies in related crates.
-use alloc::{collections::vec_deque::VecDeque, prelude::*};
+use alloc::collections::vec_deque::VecDeque;
 use core::ops::RangeInclusive;
 pub use frame_support::weights::Weight;
 use scale_info::TypeInfo;

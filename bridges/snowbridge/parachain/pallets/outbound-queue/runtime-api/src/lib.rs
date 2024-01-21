@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use frame_support::traits::tokens::Balance as BalanceT;
 use snowbridge_core::outbound::Message;
 use snowbridge_outbound_queue_merkle_tree::MerkleProof;
