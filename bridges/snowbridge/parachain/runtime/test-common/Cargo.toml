@@ -90,7 +90,7 @@ snowbridge-system-runtime-api = { path = "../../pallets/system/runtime-api", def
 [dev-dependencies]
 static_assertions = "1.1"
 bridge-hub-test-utils = { path = "../../../../../cumulus/parachains/runtimes/bridge-hubs/test-utils" }
-bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common", features = ["integrity-test"] }
+bridge-runtime-common = { path = "../../../../bin/runtime-common", features = ["integrity-test"] }
 sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
 
 [features]
