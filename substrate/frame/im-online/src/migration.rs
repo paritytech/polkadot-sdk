@@ -116,6 +116,18 @@ pub mod v1 {
 	}
 }
 
+pub fn clear_offchain_storage<T: pallet_session::Config>() {
+	let validator_set_size = pallet_session::Pallet::<T>::validators().len() as u32;
+	(0..validator_set_size).for_each(|idx| {
+		let key = {
+			let mut key = DB_PREFIX.to_vec();
+			key.extend(idx.encode());
+			key
+		};
+		sp_runtime::offchain::storage::StorageValueRef::persistent(&key).clear();
+	});
+}
+
 #[cfg(all(feature = "try-runtime", test))]
 mod test {
 	use super::*;
