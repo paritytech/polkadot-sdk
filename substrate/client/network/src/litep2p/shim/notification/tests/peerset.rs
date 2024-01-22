@@ -52,7 +52,7 @@ async fn inbound_substream_for_outbound_peer() {
 			peer
 		})
 		.collect::<Vec<_>>();
-	let inbound_peer = peers.iter().next().unwrap().clone();
+	let inbound_peer = *peers.iter().next().unwrap();
 
 	let (mut peerset, _to_peerset) = Peerset::new(
 		ProtocolName::from("/notif/1"),
@@ -350,7 +350,7 @@ async fn set_reserved_peers_one_peer_already_in_the_set() {
 	sp_tracing::try_init_simple();
 
 	let reserved = HashSet::from_iter([PeerId::random(), PeerId::random(), PeerId::random()]);
-	let common_peer = reserved.iter().next().unwrap().clone();
+	let common_peer = *reserved.iter().next().unwrap();
 	let (mut peerset, to_peerset) = Peerset::new(
 		ProtocolName::from("/notif/1"),
 		25,
@@ -456,7 +456,7 @@ async fn add_reserved_peers_one_peer_already_in_the_set() {
 			peer
 		})
 		.collect::<Vec<_>>();
-	let common_peer = reserved.iter().next().unwrap().clone();
+	let common_peer = *reserved.iter().next().unwrap();
 	let (mut peerset, to_peerset) = Peerset::new(
 		ProtocolName::from("/notif/1"),
 		25,
@@ -505,7 +505,7 @@ async fn add_reserved_peers_one_peer_already_in_the_set() {
 	match peerset.next().await {
 		Some(PeersetNotificationCommand::OpenSubstream { peers: out_peers }) => {
 			assert_eq!(out_peers.len(), 2);
-			assert!(out_peers.iter().find(|peer| peer == &&common_peer).is_none());
+			assert!(!out_peers.iter().any(|peer| peer == &common_peer));
 
 			for peer in &out_peers {
 				assert!(!reserved.contains(peer));

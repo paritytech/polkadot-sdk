@@ -507,17 +507,3 @@ impl Stream for Discovery {
 		Poll::Pending
 	}
 }
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-
-	#[test]
-	fn is_known_address() {}
-
-	#[test]
-	fn can_add_to_dht() {}
-
-	#[test]
-	fn new_external_address() {}
-}
