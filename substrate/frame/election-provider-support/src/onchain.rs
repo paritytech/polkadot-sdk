@@ -194,9 +194,8 @@ mod tests {
 	pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 
 	frame_support::construct_runtime!(
-		pub struct Runtime
-		{
-			System: frame_system::{Pallet, Call, Event<T>},
+		pub enum Runtime {
+			System: frame_system,
 		}
 	);
 
