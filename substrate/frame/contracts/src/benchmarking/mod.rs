@@ -2628,10 +2628,7 @@ benchmarks! {
 	}
 
 	// This is no benchmark. It merely exist to have an easy way to pretty print the currently
-	// configured `Schedule` during benchmark development.
-	// It can be outputted using the following command:
-	// cargo run --features runtime-benchmarks --bin substrate-node benchmark pallet\
-	//	--extra -p pallet_contracts -e print_schedule
+	// configured `Schedule` during benchmark development. Check the README on how to print this.
 	#[extra]
 	#[pov_mode = Ignored]
 	print_schedule {
