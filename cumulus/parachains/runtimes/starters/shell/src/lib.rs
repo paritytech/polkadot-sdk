@@ -258,19 +258,17 @@ impl pallet_timestamp::Config for Runtime {
 construct_runtime! {
 	pub enum Runtime
 	{
-		System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+		System: frame_system,
+		Timestamp: pallet_timestamp,
 
-		ParachainSystem: cumulus_pallet_parachain_system::{
-			Pallet, Call, Config<T>, Storage, Inherent, Event<T>, ValidateUnsigned,
-		},
-		ParachainInfo: parachain_info::{Pallet, Storage, Config<T>},
+		ParachainSystem: cumulus_pallet_parachain_system,
+		ParachainInfo: parachain_info,
 
-		CumulusXcm: cumulus_pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin},
-		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>},
+		CumulusXcm: cumulus_pallet_xcm,
+		MessageQueue: pallet_message_queue,
 
-		Aura: pallet_aura::{Pallet, Storage, Config<T>},
-		AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config<T>},
+		Aura: pallet_aura,
+		AuraExt: cumulus_pallet_aura_ext,
 	}
 }
 
