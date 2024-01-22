@@ -284,12 +284,12 @@ struct AggressionConfig {
 }
 
 impl AggressionConfig {
-	/// Returns `true` if lag is past threshold depending on the aggression level
-	fn should_trigger_aggression(&self, approval_checking_lag: BlockNumber) -> bool {
+	/// Returns `true` if age is past threshold depending on the aggression level
+	fn should_trigger_aggression(&self, age: BlockNumber) -> bool {
 		if let Some(t) = self.l1_threshold {
-			approval_checking_lag >= t
+			age >= t
 		} else if let Some(t) = self.resend_unfinalized_period {
-			approval_checking_lag > 0 && approval_checking_lag % t == 0
+			age > 0 && age % t == 0
 		} else {
 			false
 		}
@@ -1977,17 +1977,6 @@ impl State {
 		metrics: &Metrics,
 	) {
 		let config = self.aggression_config.clone();
-
-		// Trigger on approval checking lag.
-		if !self.aggression_config.should_trigger_aggression(self.approval_checking_lag) {
-			gum::trace!(
-				target: LOG_TARGET,
-				approval_checking_lag = self.approval_checking_lag,
-				"Aggression not enabled",
-			);
-			return
-		}
-
 		let min_age = self.blocks_by_number.iter().next().map(|(num, _)| num);
 		let max_age = self.blocks_by_number.iter().rev().next().map(|(num, _)| num);
 
@@ -1997,6 +1986,18 @@ impl State {
 			_ => return, // empty.
 		};
 
+		let age = max_age.saturating_sub(min_age);
+
+		// Trigger on approval checking lag.
+		if !self.aggression_config.should_trigger_aggression(age) {
+			gum::trace!(
+				target: LOG_TARGET,
+				approval_checking_lag = self.approval_checking_lag,
+				age,
+				"Aggression not enabled",
+			);
+			return
+		}
 		gum::debug!(target: LOG_TARGET, min_age, max_age, "Aggression enabled",);
 
 		adjust_required_routing_and_propagate(
@@ -2052,8 +2053,7 @@ impl State {
 
 				let mut new_required_routing = *required_routing;
 
-				if config.l1_threshold.as_ref().map_or(false, |t| &self.approval_checking_lag >= t)
-				{
+				if config.l1_threshold.as_ref().map_or(false, |t| &age >= t) {
 					// Message originator sends to everyone.
 					if local && new_required_routing != RequiredRouting::All {
 						metrics.on_aggression_l1();
@@ -2061,8 +2061,7 @@ impl State {
 					}
 				}
 
-				if config.l2_threshold.as_ref().map_or(false, |t| &self.approval_checking_lag >= t)
-				{
+				if config.l2_threshold.as_ref().map_or(false, |t| &age >= t) {
 					// Message originator sends to everyone. Everyone else sends to XY.
 					if !local && new_required_routing != RequiredRouting::GridXY {
 						metrics.on_aggression_l2();
