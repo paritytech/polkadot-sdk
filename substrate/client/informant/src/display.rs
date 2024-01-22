@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::OutputFormat;
-use ansi_term::Colour;
+use console::style;
 use log::info;
 use sc_client_api::ClientInfo;
 use sc_network::NetworkStatus;
@@ -147,15 +147,15 @@ impl<B: BlockT> InformantDisplay<B> {
 				target: "substrate",
 				"{} {}{} ({} peers), best: #{} ({}), finalized #{} ({}), {} {}",
 				level,
-				Colour::White.bold().paint(&status),
+				style(&status).white().bold().to_string(),
 				target,
-				Colour::White.bold().paint(format!("{}", num_connected_peers)),
-				Colour::White.bold().paint(format!("{}", best_number)),
+				style(format!("{}", num_connected_peers)).white().bold().to_string(),
+				style(format!("{}", best_number)).white().bold().to_string(),
 				best_hash,
-				Colour::White.bold().paint(format!("{}", finalized_number)),
+				style(format!("{}", finalized_number)).white().bold().to_string(),
 				info.chain.finalized_hash,
-				Colour::Green.paint(format!("⬇ {}", TransferRateFormat(avg_bytes_per_sec_inbound))),
-				Colour::Red.paint(format!("⬆ {}", TransferRateFormat(avg_bytes_per_sec_outbound))),
+				style(format!("⬇ {}", TransferRateFormat(avg_bytes_per_sec_inbound))).green().to_string(),
+				style(format!("⬆ {}", TransferRateFormat(avg_bytes_per_sec_outbound))).red().to_string(),
 			)
 		} else {
 			info!(

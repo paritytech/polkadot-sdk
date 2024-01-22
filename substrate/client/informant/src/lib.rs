@@ -18,7 +18,7 @@
 
 //! Console informant. Prints sync progress and block events. Runs on the calling thread.
 
-use ansi_term::Colour;
+use console::style;
 use futures::prelude::*;
 use futures_timer::Delay;
 use log::{debug, info, trace};
@@ -117,11 +117,11 @@ where
 				match maybe_ancestor {
 					Ok(ref ancestor) if ancestor.hash != *last_hash => info!(
 						"♻️  Reorg on #{},{} to #{},{}, common ancestor #{},{}",
-						Colour::Red.bold().paint(format!("{}", last_num)),
+						style(format!("{}", last_num)).red().bold().to_string(),
 						last_hash,
-						Colour::Green.bold().paint(format!("{}", n.header.number())),
+						style(format!("{}", n.header.number())).green().bold().to_string(),
 						n.hash,
-						Colour::White.bold().paint(format!("{}", ancestor.number)),
+						style(format!("{}", ancestor.number)).white().bold().to_string(),
 						ancestor.hash,
 					),
 					Ok(_) => {},
@@ -146,7 +146,7 @@ where
 			info!(
 				target: "substrate",
 				"✨ Imported #{} ({})",
-				Colour::White.bold().paint(format!("{}", n.header.number())),
+				style(format!("{}", n.header.number())).white().bold().to_string(),
 				n.hash,
 			);
 		}
