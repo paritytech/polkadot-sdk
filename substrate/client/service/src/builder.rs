@@ -666,6 +666,12 @@ where
 	)
 	.into_rpc();
 
+	// Part of the RPC v2 spec.
+	// An archive node that can respond to the `archive` RPC-v2 queries is a node with:
+	// - state pruning in archive mode: The storage of blocks is kept around
+	// - block pruning in archive mode: The block's body is kept around
+	let is_archive_node = config.state_pruning.map(|sp| sp.is_archive()).unwrap_or(false) &&
+		config.blocks_pruning.is_archive();
 	let genesis_hash = client.hash(Zero::zero()).ok().flatten().expect("Genesis block exists; qed");
 	let archive_v2 = sc_rpc_spec_v2::archive::Archive::new(
 		client.clone(),
@@ -696,7 +702,9 @@ where
 	// Part of the RPC v2 spec.
 	rpc_api.merge(transaction_v2).map_err(|e| Error::Application(e.into()))?;
 	rpc_api.merge(chain_head_v2).map_err(|e| Error::Application(e.into()))?;
-	rpc_api.merge(archive_v2).map_err(|e| Error::Application(e.into()))?;
+	if is_archive_node {
+		rpc_api.merge(archive_v2).map_err(|e| Error::Application(e.into()))?;
+	}
 
 	// Part of the old RPC spec.
 	rpc_api.merge(chain).map_err(|e| Error::Application(e.into()))?;
