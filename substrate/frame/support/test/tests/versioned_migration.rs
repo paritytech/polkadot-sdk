@@ -66,8 +66,8 @@ impl dummy_pallet::Config for Test {}
 construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 0,
-		DummyPallet: dummy_pallet::{Pallet, Config<T>, Storage} = 1,
+		System: frame_system = 0,
+		DummyPallet: dummy_pallet = 1,
 	}
 );
 
