@@ -40,13 +40,16 @@ pub enum DispatchTime<BlockNumber> {
 	At(BlockNumber),
 	/// After specified number of blocks.
 	After(BlockNumber),
+	/// At or after specified block.
+	NotBefore(BlockNumber),
 }
 
-impl<BlockNumber: Saturating + Copy> DispatchTime<BlockNumber> {
+impl<BlockNumber: Saturating + Copy + Ord> DispatchTime<BlockNumber> {
 	pub fn evaluate(&self, since: BlockNumber) -> BlockNumber {
 		match &self {
 			Self::At(m) => *m,
 			Self::After(m) => m.saturating_add(since),
+			Self::NotBefore(m) => *m.max(&since),
 		}
 	}
 }

@@ -735,6 +735,8 @@ impl<T: Config> Pallet<T> {
 			// The current block has already completed it's scheduled tasks, so
 			// Schedule the task at lest one block after this current block.
 			DispatchTime::After(x) => now.saturating_add(x).saturating_add(One::one()),
+			// If x is future, schedule it at x, otherwise schedule it at the next block.
+			DispatchTime::NotBefore(x) => x.max(now.saturating_add(One::one())),
 		};
 
 		if when <= now {
