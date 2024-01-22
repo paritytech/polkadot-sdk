@@ -64,7 +64,7 @@ pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u64, Runti
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 
 frame_support::construct_runtime!(
-	pub struct Runtime
+	pub enum Runtime
 	{
 		// Exclude part `Storage` in order not to check its metadata in tests.
 		System: frame_system,

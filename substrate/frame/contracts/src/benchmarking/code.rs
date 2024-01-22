@@ -31,8 +31,8 @@ use sp_std::{borrow::ToOwned, prelude::*};
 use wasm_instrument::parity_wasm::{
 	builder,
 	elements::{
-		self, BlockType, CustomSection, External, FuncBody, Instruction, Instructions, Module,
-		Section, ValueType,
+		self, BlockType, CustomSection, External, FuncBody, Instruction, Instructions, Local,
+		Module, Section, ValueType,
 	},
 };
 
@@ -281,17 +281,21 @@ impl<T: Config> WasmModule<T> {
 	/// instrumentation runtime by nesting blocks as deeply as possible given the byte budget.
 	/// `code_location`: Whether to place the code into `deploy` or `call`.
 	pub fn sized(target_bytes: u32, code_location: Location) -> Self {
-		use self::elements::Instruction::{End, I32Const, If, Return};
+		use self::elements::Instruction::{End, GetLocal, If, Return};
 		// Base size of a contract is 63 bytes and each expansion adds 6 bytes.
 		// We do one expansion less to account for the code section and function body
 		// size fields inside the binary wasm module representation which are leb128 encoded
 		// and therefore grow in size when the contract grows. We are not allowed to overshoot
 		// because of the maximum code size that is enforced by `instantiate_with_code`.
 		let expansions = (target_bytes.saturating_sub(63) / 6).saturating_sub(1);
-		const EXPANSION: [Instruction; 4] = [I32Const(0), If(BlockType::NoResult), Return, End];
+		const EXPANSION: [Instruction; 4] = [GetLocal(0), If(BlockType::NoResult), Return, End];
 		let mut module =
 			ModuleDefinition { memory: Some(ImportedMemory::max::<T>()), ..Default::default() };
-		let body = Some(body::repeated(expansions, &EXPANSION));
+		let body = Some(body::repeated_with_locals(
+			&[Local::new(1, ValueType::I32)],
+			expansions,
+			&EXPANSION,
+		));
 		match code_location {
 			Location::Call => module.call_body = body,
 			Location::Deploy => module.deploy_body = body,
@@ -373,8 +377,6 @@ pub mod body {
 		/// Insert a I32Const with incrementing value for each insertion.
 		/// (start_at, increment_by)
 		Counter(u32, u32),
-		/// Insert the specified amount of I64Const with a random value.
-		RandomI64Repeated(usize),
 	}
 
 	pub fn plain(instructions: Vec<Instruction>) -> FuncBody {
@@ -382,6 +384,14 @@ pub mod body {
 	}
 
 	pub fn repeated(repetitions: u32, instructions: &[Instruction]) -> FuncBody {
+		repeated_with_locals(&[], repetitions, instructions)
+	}
+
+	pub fn repeated_with_locals(
+		locals: &[Local],
+		repetitions: u32,
+		instructions: &[Instruction],
+	) -> FuncBody {
 		let instructions = Instructions::new(
 			instructions
 				.iter()
@@ -391,15 +401,23 @@ pub mod body {
 				.chain(sp_std::iter::once(Instruction::End))
 				.collect(),
 		);
-		FuncBody::new(Vec::new(), instructions)
+		FuncBody::new(locals.to_vec(), instructions)
+	}
+
+	pub fn repeated_with_locals_using<const N: usize>(
+		locals: &[Local],
+		repetitions: u32,
+		mut f: impl FnMut() -> [Instruction; N],
+	) -> FuncBody {
+		let mut instructions = Vec::new();
+		for _ in 0..repetitions {
+			instructions.extend(f());
+		}
+		instructions.push(Instruction::End);
+		FuncBody::new(locals.to_vec(), Instructions::new(instructions))
 	}
 
 	pub fn repeated_dyn(repetitions: u32, mut instructions: Vec<DynInstr>) -> FuncBody {
-		use rand::{distributions::Standard, prelude::*};
-
-		// We do not need to be secure here.
-		let mut rng = rand_pcg::Pcg32::seed_from_u64(8446744073709551615);
-
 		// We need to iterate over indices because we cannot cycle over mutable references
 		let body = (0..instructions.len())
 			.cycle()
@@ -411,8 +429,6 @@ pub mod body {
 					*offset += *increment_by;
 					vec![Instruction::I32Const(current as i32)]
 				},
-				DynInstr::RandomI64Repeated(num) =>
-					(&mut rng).sample_iter(Standard).take(*num).map(Instruction::I64Const).collect(),
 			})
 			.chain(sp_std::iter::once(Instruction::End))
 			.collect();

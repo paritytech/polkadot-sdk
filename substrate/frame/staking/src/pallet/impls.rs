@@ -1853,7 +1853,17 @@ impl<T: Config> Pallet<T> {
 
 	fn check_ledgers() -> Result<(), TryRuntimeError> {
 		Bonded::<T>::iter()
-			.map(|(_, ctrl)| Self::ensure_ledger_consistent(ctrl))
+			.map(|(stash, ctrl)| {
+				// `ledger.controller` is never stored in raw storage.
+				let raw = Ledger::<T>::get(stash).unwrap_or_else(|| {
+					Ledger::<T>::get(ctrl.clone())
+						.expect("try_check: bonded stash/ctrl does not have an associated ledger")
+				});
+				ensure!(raw.controller.is_none(), "raw storage controller should be None");
+
+				// ensure ledger consistency.
+				Self::ensure_ledger_consistent(ctrl)
+			})
 			.collect::<Result<Vec<_>, _>>()?;
 		Ok(())
 	}

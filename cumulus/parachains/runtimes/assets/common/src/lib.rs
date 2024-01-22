@@ -25,7 +25,7 @@ pub mod runtime_api;
 
 use crate::matching::{LocalLocationPattern, ParentLocation};
 use frame_support::traits::{Equals, EverythingBut};
-use parachains_common::AssetIdForTrustBackedAssets;
+use parachains_common::{AssetIdForTrustBackedAssets, CollectionId, ItemId};
 use xcm_builder::{
 	AsPrefixedGeneralIndex, MatchedConvertedConcreteId, StartsWith, V4V3LocationConverter,
 };
@@ -43,6 +43,10 @@ pub type AssetIdForTrustBackedAssetsConvert<TrustBackedAssetsPalletLocation> =
 pub type AssetIdForTrustBackedAssetsConvertLatest<TrustBackedAssetsPalletLocation> =
 	AsPrefixedGeneralIndex<TrustBackedAssetsPalletLocation, AssetIdForTrustBackedAssets, JustTry>;
 
+/// `Location` vs `CollectionId` converter for `Uniques`
+pub type CollectionIdForUniquesConvert<UniquesPalletLocation> =
+	AsPrefixedGeneralIndex<UniquesPalletLocation, CollectionId, JustTry>;
+
 /// [`MatchedConvertedConcreteId`] converter dedicated for `TrustBackedAssets`
 pub type TrustBackedAssetsConvertedConcreteId<TrustBackedAssetsPalletLocation, Balance> =
 	MatchedConvertedConcreteId<
@@ -52,6 +56,17 @@ pub type TrustBackedAssetsConvertedConcreteId<TrustBackedAssetsPalletLocation, B
 		AssetIdForTrustBackedAssetsConvertLatest<TrustBackedAssetsPalletLocation>,
 		JustTry,
 	>;
+
+/// [`MatchedConvertedConcreteId`] converter dedicated for `Uniques`
+pub type UniquesConvertedConcreteId<UniquesPalletLocation> = MatchedConvertedConcreteId<
+	CollectionId,
+	ItemId,
+	// The asset starts with the uniques pallet. The `CollectionId` of the asset is specified as a
+	// junction within the pallet itself.
+	StartsWith<UniquesPalletLocation>,
+	CollectionIdForUniquesConvert<UniquesPalletLocation>,
+	JustTry,
+>;
 
 /// [`MatchedConvertedConcreteId`] converter dedicated for storing `AssetId` as `Location`.
 pub type LocationConvertedConcreteId<LocationFilter, Balance> = MatchedConvertedConcreteId<
