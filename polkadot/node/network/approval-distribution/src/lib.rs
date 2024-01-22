@@ -721,7 +721,38 @@ impl State {
 			},
 			NetworkBridgeEvent::UpdatedAuthorityIds(peer_id, authority_ids) => {
 				gum::info!(target: LOG_TARGET, ?peer_id, ?authority_ids, "Update Authority Ids");
-				self.topologies.update_authority_ids(peer_id, &authority_ids);
+				if self.topologies.update_authority_ids(peer_id, &authority_ids) {
+					if let Some(PeerEntry { view, version }) = self.peer_views.get(&peer_id) {
+						let intersection = self
+							.blocks_by_number
+							.iter()
+							.filter(|(block_number, _)| *block_number > &view.finalized_number)
+							.map(|(_, hashes)| {
+								hashes.iter().filter(|hash| {
+									self.blocks
+										.get(&hash)
+										.map(|block| block.known_by.get(&peer_id).is_some())
+										.unwrap_or_default()
+								})
+							})
+							.flatten();
+						let view_intersection =
+							View::new(intersection.cloned(), view.finalized_number);
+						Self::unify_with_peer(
+							ctx.sender(),
+							metrics,
+							&mut self.blocks,
+							&self.topologies,
+							self.peer_views.len(),
+							peer_id,
+							*version,
+							view_intersection,
+							rng,
+							true,
+						)
+						.await;
+					}
+				}
 			},
 		}
 	}
@@ -793,6 +824,7 @@ impl State {
 					*version,
 					view_intersection,
 					rng,
+					false,
 				)
 				.await;
 			}
@@ -1105,6 +1137,7 @@ impl State {
 			protocol_version,
 			view,
 			rng,
+			false,
 		)
 		.await;
 	}
@@ -1842,6 +1875,7 @@ impl State {
 		protocol_version: ProtocolVersion,
 		view: View,
 		rng: &mut (impl CryptoRng + Rng),
+		retry_known_blocks: bool,
 	) {
 		metrics.on_unify_with_peer();
 		let _timer = metrics.time_unify_with_peer();
@@ -1860,10 +1894,12 @@ impl State {
 					_ => break,
 				};
 
-				// Any peer which is in the `known_by` set has already been
-				// sent all messages it's meant to get for that block and all
-				// in-scope prior blocks.
-				if entry.known_by.contains_key(&peer_id) {
+				// Any peer which is in the `known_by` see and we know its peer_id authorithy id
+				// mapping has already been sent all messages it's meant to get for that block and
+				// all in-scope prior blocks. In case, we just learnt about its peer_id
+				// authorithy-id mapping we have to retry sending the messages that should be sent
+				// to.
+				if entry.known_by.contains_key(&peer_id) && !retry_known_blocks {
 					break
 				}
 
