@@ -349,8 +349,11 @@
 
 </span><span class="doccomment">//! Service configuration.
 
-</span><span class="kw">pub use </span>sc_client_db::{BlocksPruning, Database, DatabaseSource, PruningMode};
+</span><span class="kw">use </span>prometheus_endpoint::Registry;
+<span class="kw">use </span>sc_chain_spec::ChainSpec;
+<span class="kw">pub use </span>sc_client_db::{BlocksPruning, Database, DatabaseSource, PruningMode};
 <span class="kw">pub use </span>sc_executor::{WasmExecutionMethod, WasmtimeInstantiationStrategy};
+<span class="kw">pub use </span>sc_informant::OutputFormat;
 <span class="kw">pub use </span>sc_network::{
 	config::{
 		MultiaddrWithPeerId, NetworkConfiguration, NodeKeyConfig, NonDefaultSetConfig, ProtocolId,
@@ -361,9 +364,6 @@
 	},
 	Multiaddr,
 };
-
-<span class="kw">use </span>prometheus_endpoint::Registry;
-<span class="kw">use </span>sc_chain_spec::ChainSpec;
 <span class="kw">pub use </span>sc_telemetry::TelemetryEndpoints;
 <span class="kw">pub use </span>sc_transaction_pool::Options <span class="kw">as </span>TransactionPoolOptions;
 <span class="kw">use </span>sp_core::crypto::SecretString;
@@ -465,7 +465,7 @@
 	<span class="doccomment">/// Base path of the configuration. This is shared between chains.
 	</span><span class="kw">pub </span>base_path: BasePath,
 	<span class="doccomment">/// Configuration of the output format that the informant uses.
-	</span><span class="kw">pub </span>informant_output_format: sc_informant::OutputFormat,
+	</span><span class="kw">pub </span>informant_output_format: OutputFormat,
 	<span class="doccomment">/// Maximum number of different runtime versions that can be cached.
 	</span><span class="kw">pub </span>runtime_cache_size: u8,
 }

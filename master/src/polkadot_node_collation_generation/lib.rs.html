@@ -588,6 +588,16 @@
 <a href="#588" id="588">588</a>
 <a href="#589" id="589">589</a>
 <a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -728,6 +738,16 @@
 			}) =&gt; {
 				<span class="kw">if </span><span class="self">self</span>.config.is_some() {
 					<span class="macro">gum::error!</span>(target: LOG_TARGET, <span class="string">&quot;double initialization&quot;</span>);
+				} <span class="kw">else </span>{
+					<span class="self">self</span>.config = <span class="prelude-val">Some</span>(Arc::new(config));
+				}
+				<span class="bool-val">false
+			</span>},
+			<span class="prelude-val">Ok</span>(FromOrchestra::Communication {
+				msg: CollationGenerationMessage::Reinitialize(config),
+			}) =&gt; {
+				<span class="kw">if </span><span class="self">self</span>.config.is_none() {
+					<span class="macro">gum::error!</span>(target: LOG_TARGET, <span class="string">&quot;no initial initialization&quot;</span>);
 				} <span class="kw">else </span>{
 					<span class="self">self</span>.config = <span class="prelude-val">Some</span>(Arc::new(config));
 				}

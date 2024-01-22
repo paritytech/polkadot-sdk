@@ -343,6 +343,8 @@
 <a href="#343" id="343">343</a>
 <a href="#344" id="344">344</a>
 <a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -376,7 +378,7 @@
 <span class="kw">use </span>pallet_bridge_grandpa::{BridgedBlockHash, BridgedHeader};
 <span class="kw">use </span>parachains_common::AccountId;
 <span class="kw">use </span>parachains_runtimes_test_utils::{
-	mock_open_hrmp_channel, AccountIdOf, CollatorSessionKeys, RuntimeCallOf,
+	mock_open_hrmp_channel, AccountIdOf, CollatorSessionKeys, RuntimeCallOf, SlotDurations,
 };
 <span class="kw">use </span>sp_core::Get;
 <span class="kw">use </span>sp_keyring::AccountKeyring::<span class="kw-2">*</span>;
@@ -565,6 +567,7 @@
 /// with proofs (finality, message) independently submitted.
 </span><span class="kw">pub fn </span>relayed_incoming_message_works&lt;Runtime, AllPalletsWithoutSystem, MPI&gt;(
 	collator_session_key: CollatorSessionKeys&lt;Runtime&gt;,
+	slot_durations: SlotDurations,
 	runtime_para_id: u32,
 	sibling_parachain_id: u32,
 	local_relay_chain_id: NetworkId,
@@ -617,6 +620,7 @@
 				sibling_parachain_id.into(),
 				included_head,
 				<span class="kw-2">&amp;</span>alice,
+				<span class="kw-2">&amp;</span>slot_durations,
 			);
 
 			<span class="comment">// set up relayer details and proofs

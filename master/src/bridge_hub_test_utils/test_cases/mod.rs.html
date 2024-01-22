@@ -644,6 +644,8 @@
 <a href="#644" id="644">644</a>
 <a href="#645" id="645">645</a>
 <a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -691,7 +693,7 @@
 <span class="kw">use </span>parachains_common::AccountId;
 <span class="kw">use </span>parachains_runtimes_test_utils::{
 	mock_open_hrmp_channel, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder, RuntimeCallOf,
-	XcmReceivedFrom,
+	SlotDurations, XcmReceivedFrom,
 };
 <span class="kw">use </span>sp_runtime::{traits::Zero, AccountId32};
 <span class="kw">use </span>xcm::{latest::prelude::<span class="kw-2">*</span>, AlwaysLatest};
@@ -1065,6 +1067,7 @@
 	NetworkDistanceAsParentCount,
 &gt;(
 	collator_session_key: CollatorSessionKeys&lt;Runtime&gt;,
+	slot_durations: SlotDurations,
 	runtime_para_id: u32,
 	sibling_parachain_id: u32,
 	unwrap_cumulus_pallet_parachain_system_event: Box&lt;
@@ -1175,6 +1178,7 @@
 			sibling_parachain_id.into(),
 			included_head,
 			<span class="kw-2">&amp;</span>alice,
+			<span class="kw-2">&amp;</span>slot_durations,
 		);
 		<span class="kw">let </span>result =
 			&lt;&lt;Runtime <span class="kw">as </span>BridgeMessagesConfig&lt;MessagesPalletInstance&gt;&gt;::MessageDispatch&gt;::dispatch(

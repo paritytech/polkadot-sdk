@@ -1582,6 +1582,17 @@
 <a href="#1582" id="1582">1582</a>
 <a href="#1583" id="1583">1583</a>
 <a href="#1584" id="1584">1584</a>
+<a href="#1585" id="1585">1585</a>
+<a href="#1586" id="1586">1586</a>
+<a href="#1587" id="1587">1587</a>
+<a href="#1588" id="1588">1588</a>
+<a href="#1589" id="1589">1589</a>
+<a href="#1590" id="1590">1590</a>
+<a href="#1591" id="1591">1591</a>
+<a href="#1592" id="1592">1592</a>
+<a href="#1593" id="1593">1593</a>
+<a href="#1594" id="1594">1594</a>
+<a href="#1595" id="1595">1595</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1615,7 +1626,7 @@
 <span class="kw">use </span>parachains_common::{AccountId, Balance};
 <span class="kw">use </span>parachains_runtimes_test_utils::{
 	assert_metadata, assert_total, mock_open_hrmp_channel, AccountIdOf, BalanceOf,
-	CollatorSessionKeys, ExtBuilder, ValidatorIdOf, XcmReceivedFrom,
+	CollatorSessionKeys, ExtBuilder, SlotDurations, ValidatorIdOf, XcmReceivedFrom,
 };
 <span class="kw">use </span>sp_runtime::{
 	traits::{MaybeEquivalence, StaticLookup, Zero},
@@ -1641,6 +1652,7 @@
 	HrmpChannelOpener,
 &gt;(
 	collator_session_keys: CollatorSessionKeys&lt;Runtime&gt;,
+	slot_durations: SlotDurations,
 	existential_deposit: BalanceOf&lt;Runtime&gt;,
 	target_account: AccountIdOf&lt;Runtime&gt;,
 	unwrap_pallet_xcm_event: Box&lt;<span class="kw">dyn </span>Fn(Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;pallet_xcm::Event&lt;Runtime&gt;&gt;&gt;,
@@ -1789,6 +1801,7 @@
 					<span class="prelude-val">None</span>,
 					included_head.clone(),
 					<span class="kw-2">&amp;</span>alice,
+					<span class="kw-2">&amp;</span>slot_durations,
 				));
 
 				<span class="comment">// check balances
@@ -1841,6 +1854,7 @@
 						<span class="prelude-val">Some</span>((runtime_para_id, other_para_id)),
 						included_head,
 						<span class="kw-2">&amp;</span>alice,
+						<span class="kw-2">&amp;</span>slot_durations,
 					),
 					<span class="prelude-val">Err</span>(DispatchError::Module(sp_runtime::ModuleError {
 						index: <span class="number">31</span>,
@@ -1872,6 +1886,7 @@
 		<span class="macro-nonterminal">$weight_to_fee</span>:path,
 		<span class="macro-nonterminal">$hrmp_channel_opener</span>:path,
 		<span class="macro-nonterminal">$collator_session_key</span>:expr,
+		<span class="macro-nonterminal">$slot_durations</span>:expr,
 		<span class="macro-nonterminal">$existential_deposit</span>:expr,
 		<span class="macro-nonterminal">$unwrap_pallet_xcm_event</span>:expr,
 		<span class="macro-nonterminal">$runtime_para_id</span>:expr
@@ -1890,6 +1905,7 @@
 				<span class="macro-nonterminal">$hrmp_channel_opener
 			</span>&gt;(
 				<span class="macro-nonterminal">$collator_session_key</span>,
+				<span class="macro-nonterminal">$slot_durations</span>,
 				<span class="macro-nonterminal">$existential_deposit</span>,
 				target_account,
 				<span class="macro-nonterminal">$unwrap_pallet_xcm_event</span>,
@@ -1912,6 +1928,7 @@
 	ForeignAssetsPalletInstance,
 &gt;(
 	collator_session_keys: CollatorSessionKeys&lt;Runtime&gt;,
+	slot_durations: SlotDurations,
 	target_account: AccountIdOf&lt;Runtime&gt;,
 	existential_deposit: BalanceOf&lt;Runtime&gt;,
 	asset_owner: AccountIdOf&lt;Runtime&gt;,
@@ -2176,6 +2193,7 @@
 					<span class="prelude-val">Some</span>((runtime_para_id, foreign_para_id)),
 					included_head,
 					<span class="kw-2">&amp;</span>alice,
+					<span class="kw-2">&amp;</span>slot_durations,
 				));
 
 				<span class="comment">// check balances
@@ -2228,6 +2246,7 @@
 		<span class="macro-nonterminal">$sovereign_account_of</span>:path,
 		<span class="macro-nonterminal">$assets_pallet_instance</span>:path,
 		<span class="macro-nonterminal">$collator_session_key</span>:expr,
+		<span class="macro-nonterminal">$slot_durations</span>:expr,
 		<span class="macro-nonterminal">$existential_deposit</span>:expr,
 		<span class="macro-nonterminal">$unwrap_pallet_xcm_event</span>:expr,
 		<span class="macro-nonterminal">$unwrap_xcmp_queue_event</span>:expr
@@ -2250,6 +2269,7 @@
 				<span class="macro-nonterminal">$assets_pallet_instance
 			</span>&gt;(
 				<span class="macro-nonterminal">$collator_session_key</span>,
+				<span class="macro-nonterminal">$slot_durations</span>,
 				target_account,
 				<span class="macro-nonterminal">$existential_deposit</span>,
 				asset_owner,
@@ -2981,6 +3001,7 @@
 	LocationToAccountId,
 &gt;(
 	collator_session_keys: CollatorSessionKeys&lt;Runtime&gt;,
+	slot_durations: SlotDurations,
 	existential_deposit: BalanceOf&lt;Runtime&gt;,
 	alice_account: AccountIdOf&lt;Runtime&gt;,
 	unwrap_pallet_xcm_event: Box&lt;<span class="kw">dyn </span>Fn(Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;pallet_xcm::Event&lt;Runtime&gt;&gt;&gt;,
@@ -3054,6 +3075,7 @@
 				other_para_id.into(),
 				included_head,
 				<span class="kw-2">&amp;</span>alice,
+				<span class="kw-2">&amp;</span>slot_durations,
 			);
 
 			<span class="comment">// we calculate exact delivery fees _after_ sending the message by weighing the sent

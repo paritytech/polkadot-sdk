@@ -227,23 +227,6 @@
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-<a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
-<a href="#235" id="235">235</a>
-<a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
-<a href="#242" id="242">242</a>
-<a href="#243" id="243">243</a>
-<a href="#244" id="244">244</a>
-<a href="#245" id="245">245</a>
-<a href="#246" id="246">246</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -388,37 +371,20 @@
 					(<span class="string">&quot;⚙️ &quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;Preparing{}&quot;</span>, speed), <span class="macro">format!</span>(<span class="string">&quot;, target=#{target}&quot;</span>)),
 			};
 
-		<span class="kw">if </span><span class="self">self</span>.format.enable_color {
-			<span class="macro">info!</span>(
-				target: <span class="string">&quot;substrate&quot;</span>,
-				<span class="string">&quot;{} {}{} ({} peers), best: #{} ({}), finalized #{} ({}), {} {}&quot;</span>,
-				level,
-				Colour::White.bold().paint(<span class="kw-2">&amp;</span>status),
-				target,
-				Colour::White.bold().paint(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, num_connected_peers)),
-				Colour::White.bold().paint(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, best_number)),
-				best_hash,
-				Colour::White.bold().paint(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, finalized_number)),
-				info.chain.finalized_hash,
-				Colour::Green.paint(<span class="macro">format!</span>(<span class="string">&quot;⬇ {}&quot;</span>, TransferRateFormat(avg_bytes_per_sec_inbound))),
-				Colour::Red.paint(<span class="macro">format!</span>(<span class="string">&quot;⬆ {}&quot;</span>, TransferRateFormat(avg_bytes_per_sec_outbound))),
-			)
-		} <span class="kw">else </span>{
-			<span class="macro">info!</span>(
-				target: <span class="string">&quot;substrate&quot;</span>,
-				<span class="string">&quot;{} {}{} ({} peers), best: #{} ({}), finalized #{} ({}), ⬇ {} ⬆ {}&quot;</span>,
-				level,
-				status,
-				target,
-				num_connected_peers,
-				best_number,
-				best_hash,
-				finalized_number,
-				info.chain.finalized_hash,
-				TransferRateFormat(avg_bytes_per_sec_inbound),
-				TransferRateFormat(avg_bytes_per_sec_outbound),
-			)
-		}
+		<span class="macro">info!</span>(
+			target: <span class="string">&quot;substrate&quot;</span>,
+			<span class="string">&quot;{} {}{} ({} peers), best: #{} ({}), finalized #{} ({}), {} {}&quot;</span>,
+			level,
+			<span class="self">self</span>.format.print_with_color(Colour::White.bold(), status),
+			target,
+			<span class="self">self</span>.format.print_with_color(Colour::White.bold(), num_connected_peers),
+			<span class="self">self</span>.format.print_with_color(Colour::White.bold(), best_number),
+			best_hash,
+			<span class="self">self</span>.format.print_with_color(Colour::White.bold(), finalized_number),
+			info.chain.finalized_hash,
+			<span class="self">self</span>.format.print_with_color(Colour::Green, <span class="macro">format!</span>(<span class="string">&quot;⬇ {}&quot;</span>, TransferRateFormat(avg_bytes_per_sec_inbound))),
+			<span class="self">self</span>.format.print_with_color(Colour::Red, <span class="macro">format!</span>(<span class="string">&quot;⬆ {}&quot;</span>, TransferRateFormat(avg_bytes_per_sec_outbound))),
+		)
 	}
 }
 

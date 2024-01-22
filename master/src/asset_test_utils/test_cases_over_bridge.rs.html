@@ -641,6 +641,8 @@
 <a href="#641" id="641">641</a>
 <a href="#642" id="642">642</a>
 <a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) 2023 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -670,7 +672,7 @@
 <span class="kw">use </span>parachains_common::{AccountId, Balance};
 <span class="kw">use </span>parachains_runtimes_test_utils::{
 	mock_open_hrmp_channel, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder, RuntimeHelper,
-	ValidatorIdOf, XcmReceivedFrom,
+	SlotDurations, ValidatorIdOf, XcmReceivedFrom,
 };
 <span class="kw">use </span>sp_runtime::{traits::StaticLookup, Saturating};
 <span class="kw">use </span>sp_std::ops::Mul;
@@ -695,6 +697,7 @@
 	LocationToAccountId,
 &gt;(
 	collator_session_keys: CollatorSessionKeys&lt;Runtime&gt;,
+	slot_durations: SlotDurations,
 	existential_deposit: BalanceOf&lt;Runtime&gt;,
 	alice_account: AccountIdOf&lt;Runtime&gt;,
 	unwrap_pallet_xcm_event: Box&lt;<span class="kw">dyn </span>Fn(Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;pallet_xcm::Event&lt;Runtime&gt;&gt;&gt;,
@@ -768,6 +771,7 @@
 				local_bridge_hub_para_id.into(),
 				included_head,
 				<span class="kw-2">&amp;</span>alice,
+				<span class="kw-2">&amp;</span>slot_durations,
 			);
 
 			<span class="comment">// we calculate exact delivery fees _after_ sending the message by weighing the sent

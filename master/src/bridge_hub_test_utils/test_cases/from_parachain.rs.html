@@ -539,6 +539,10 @@
 <a href="#539" id="539">539</a>
 <a href="#540" id="540">540</a>
 <a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -581,7 +585,7 @@
 <span class="kw">use </span>frame_support::traits::{Get, OnFinalize, OnInitialize};
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 <span class="kw">use </span>parachains_runtimes_test_utils::{
-	AccountIdOf, BasicParachainRuntime, CollatorSessionKeys, RuntimeCallOf,
+	AccountIdOf, BasicParachainRuntime, CollatorSessionKeys, RuntimeCallOf, SlotDurations,
 };
 <span class="kw">use </span>sp_keyring::AccountKeyring::<span class="kw-2">*</span>;
 <span class="kw">use </span>sp_runtime::{traits::Header <span class="kw">as </span>HeaderT, AccountId32};
@@ -653,6 +657,7 @@
 /// Also verifies relayer transaction signed extensions work as intended.
 </span><span class="kw">pub fn </span>relayed_incoming_message_works&lt;RuntimeHelper&gt;(
 	collator_session_key: CollatorSessionKeys&lt;RuntimeHelper::Runtime&gt;,
+	slot_durations: SlotDurations,
 	runtime_para_id: u32,
 	bridged_para_id: u32,
 	bridged_chain_id: bp_runtime::ChainId,
@@ -687,6 +692,7 @@
 		RuntimeHelper::MPI,
 	&gt;(
 		collator_session_key,
+		slot_durations,
 		runtime_para_id,
 		sibling_parachain_id,
 		local_relay_chain_id,
@@ -785,6 +791,7 @@
 /// Also verifies relayer transaction signed extensions work as intended.
 </span><span class="kw">pub fn </span>complex_relay_extrinsic_works&lt;RuntimeHelper&gt;(
 	collator_session_key: CollatorSessionKeys&lt;RuntimeHelper::Runtime&gt;,
+	slot_durations: SlotDurations,
 	runtime_para_id: u32,
 	bridged_para_id: u32,
 	sibling_parachain_id: u32,
@@ -822,6 +829,7 @@
 		RuntimeHelper::MPI,
 	&gt;(
 		collator_session_key,
+		slot_durations,
 		runtime_para_id,
 		sibling_parachain_id,
 		local_relay_chain_id,

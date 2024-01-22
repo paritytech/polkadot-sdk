@@ -576,6 +576,12 @@
 <a href="#576" id="576">576</a>
 <a href="#577" id="577">577</a>
 <a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -607,7 +613,6 @@
 	weights::Weight,
 };
 <span class="kw">use </span>frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
-<span class="kw">use </span>parachains_common::SLOT_DURATION;
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::{
 	HeadData, HrmpChannelId, RelayChainBlockNumber, XcmpMessageFormat,
 };
@@ -691,6 +696,11 @@
 			.map(|item| (item.collator.clone(), item.validator.clone(), item.key.clone()))
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
 	}
+}
+
+<span class="kw">pub struct </span>SlotDurations {
+	<span class="kw">pub </span>relay: SlotDuration,
+	<span class="kw">pub </span>para: SlotDuration,
 }
 
 <span class="doccomment">/// A set of traits for a minimal parachain runtime, that may be used in conjunction with the
@@ -913,6 +923,7 @@
 		open_hrmp_channel: <span class="prelude-ty">Option</span>&lt;(u32, u32)&gt;,
 		included_head: HeaderFor&lt;Runtime&gt;,
 		slot_digest: <span class="kw-2">&amp;</span>[u8],
+		slot_durations: <span class="kw-2">&amp;</span>SlotDurations,
 	) -&gt; DispatchResult
 	<span class="kw">where
 		</span>HrmpChannelOpener: frame_support::inherent::ProvideInherent&lt;
@@ -926,6 +937,7 @@
 				target_para_id.into(),
 				included_head,
 				slot_digest,
+				slot_durations,
 			);
 		}
 
@@ -1071,12 +1083,12 @@
 	recipient: ParaId,
 	included_head: HeaderFor&lt;C&gt;,
 	<span class="kw-2">mut </span>slot_digest: <span class="kw-2">&amp;</span>[u8],
+	slot_durations: <span class="kw-2">&amp;</span>SlotDurations,
 ) {
-	<span class="kw">const </span>RELAY_CHAIN_SLOT_DURATION: SlotDuration = SlotDuration::from_millis(<span class="number">6000</span>);
 	<span class="kw">let </span>slot = Slot::decode(<span class="kw-2">&amp;mut </span>slot_digest).expect(<span class="string">&quot;failed to decode digest&quot;</span>);
 	<span class="comment">// Convert para slot to relay chain.
-	</span><span class="kw">let </span>timestamp = slot.saturating_mul(SLOT_DURATION);
-	<span class="kw">let </span>relay_slot = Slot::from_timestamp(timestamp.into(), RELAY_CHAIN_SLOT_DURATION);
+	</span><span class="kw">let </span>timestamp = slot.saturating_mul(slot_durations.para.as_millis());
+	<span class="kw">let </span>relay_slot = Slot::from_timestamp(timestamp.into(), slot_durations.relay);
 
 	<span class="kw">let </span>n = <span class="number">1_u32</span>;
 	<span class="kw">let </span><span class="kw-2">mut </span>sproof_builder = RelayStateSproofBuilder {

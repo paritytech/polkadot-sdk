@@ -672,8 +672,8 @@
 <span class="kw">use </span>sc_service::{
 	config::{
 		BasePath, Configuration, DatabaseSource, KeystoreConfig, NetworkConfiguration,
-		NodeKeyConfig, OffchainWorkerConfig, PrometheusConfig, PruningMode, Role, RpcMethods,
-		TelemetryEndpoints, TransactionPoolOptions, WasmExecutionMethod,
+		NodeKeyConfig, OffchainWorkerConfig, OutputFormat, PrometheusConfig, PruningMode, Role,
+		RpcMethods, TelemetryEndpoints, TransactionPoolOptions, WasmExecutionMethod,
 	},
 	BlocksPruning, ChainSpec, TracingReceiver,
 };
@@ -1161,7 +1161,7 @@
 			announce_block: <span class="self">self</span>.announce_block()<span class="question-mark">?</span>,
 			role,
 			base_path,
-			informant_output_format: Default::default(),
+			informant_output_format: OutputFormat { enable_color: !<span class="self">self</span>.disable_log_color()<span class="question-mark">? </span>},
 			runtime_cache_size,
 		})
 	}

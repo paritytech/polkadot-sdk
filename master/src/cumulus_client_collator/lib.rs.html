@@ -476,6 +476,8 @@
 <a href="#476" id="476">476</a>
 <a href="#477" id="477">477</a>
 <a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -720,17 +722,19 @@
 	overseer_handle: <span class="kw-2">&amp;mut </span>OverseerHandle,
 	key: CollatorPair,
 	para_id: ParaId,
+	reinitialize: bool,
 ) {
-	overseer_handle
-		.send_msg(
-			CollationGenerationMessage::Initialize(CollationGenerationConfig {
-				key,
-				para_id,
-				collator: <span class="prelude-val">None</span>,
-			}),
-			<span class="string">&quot;StartCollator&quot;</span>,
-		)
-		.<span class="kw">await</span>;
+	<span class="kw">let </span>config = CollationGenerationConfig { key, para_id, collator: <span class="prelude-val">None </span>};
+
+	<span class="kw">if </span>reinitialize {
+		overseer_handle
+			.send_msg(CollationGenerationMessage::Reinitialize(config), <span class="string">&quot;StartCollator&quot;</span>)
+			.<span class="kw">await</span>;
+	} <span class="kw">else </span>{
+		overseer_handle
+			.send_msg(CollationGenerationMessage::Initialize(config), <span class="string">&quot;StartCollator&quot;</span>)
+			.<span class="kw">await</span>;
+	}
 
 	overseer_handle
 		.send_msg(CollatorProtocolMessage::CollateOn(para_id), <span class="string">&quot;StartCollator&quot;</span>)
