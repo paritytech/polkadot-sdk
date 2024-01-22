@@ -391,7 +391,7 @@ fn spend_and_swap() {
 									check_origin: None
 								},
 								v3::Instruction::Transact {
-									origin_kind: OriginKind::SovereqignAccount,
+									origin_kind: v3::OriginKind::SovereignAccount,
 									require_weight_at_most: Weight::from_parts(
 										5_000_000_000,
 										50_000
