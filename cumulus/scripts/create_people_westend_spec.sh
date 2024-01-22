@@ -44,11 +44,7 @@ cat chain-spec-plain.json | jq --rawfile code rt-hex.txt '.genesis.runtimeGenesi
         "/dns/westend-people-collator-node-0.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWDcLjDLTu9fNhmas9DTWtqdv8eUbFMWQzVwvXRK7QcjHD",
         "/dns/westend-people-collator-node-0.parity-testnet.parity.io/tcp/443/wss/p2p/12D3KooWDcLjDLTu9fNhmas9DTWtqdv8eUbFMWQzVwvXRK7QcjHD",
         "/dns/westend-people-collator-node-1.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWM56JbKWAXsDyWh313z73aKYVMp1Hj2nSnAKY3q6MnoC9",
-        "/dns/westend-people-collator-node-1.parity-testnet.parity.io/tcp/443/wss/p2p/12D3KooWM56JbKWAXsDyWh313z73aKYVMp1Hj2nSnAKY3q6MnoC9",
-        "/dns/westend-people-collator-node-2.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWGVYTVKW7tYe51JvetvGvVLDPXzqQX1mueJgz14FgkmHG",
-        "/dns/westend-people-collator-node-2.parity-testnet.parity.io/tcp/443/wss/p2p/12D3KooWGVYTVKW7tYe51JvetvGvVLDPXzqQX1mueJgz14FgkmHG",
-        "/dns/westend-people-collator-node-3.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWCF1eA2Gap69zgXD7Df3e9DqDUsGoByocggTGejoHjK23",
-        "/dns/westend-people-collator-node-3.parity-testnet.parity.io/tcp/443/wss/p2p/12D3KooWCF1eA2Gap69zgXD7Df3e9DqDUsGoByocggTGejoHjK23"
+        "/dns/westend-people-collator-node-1.parity-testnet.parity.io/tcp/443/wss/p2p/12D3KooWM56JbKWAXsDyWh313z73aKYVMp1Hj2nSnAKY3q6MnoC9"
     ]' \
     | jq '.relay_chain = "westend"' \
     | jq --argjson para_id $para_id '.para_id = $para_id' \
@@ -56,9 +52,7 @@ cat chain-spec-plain.json | jq --rawfile code rt-hex.txt '.genesis.runtimeGenesi
     | jq '.genesis.runtimeGenesis.patch.balances.balances = []' \
     | jq '.genesis.runtimeGenesis.patch.collatorSelection.invulnerables = [
         "5CFYvshLff1dHmT33jUcBc7mEKbVRJKbA9HzPqmLfjksHah6",
-        "5HgEdsYyVGVsyNmbE1sUxeDLrxTLJXnAKCNa2HJ9QXXEir1B",
-        "5EZmD6eA9wm1Y2Dy2wefLCsFJJcC7o8bVfWm7Mfbuanc8JYo",
-        "5EkJFfUtbo258dCaqgYSvajN1tNtXhT3SrybW8ZhygoMP3kE"
+        "5HgEdsYyVGVsyNmbE1sUxeDLrxTLJXnAKCNa2HJ9QXXEir1B"
     ]' \
     | jq '.genesis.runtimeGenesis.patch.session.keys = [
             [
@@ -74,22 +68,9 @@ cat chain-spec-plain.json | jq --rawfile code rt-hex.txt '.genesis.runtimeGenesi
                     {
                         "aura": "5HgEdsYyVGVsyNmbE1sUxeDLrxTLJXnAKCNa2HJ9QXXEir1B"
                     }
-            ],
-            [
-                "5EZmD6eA9wm1Y2Dy2wefLCsFJJcC7o8bVfWm7Mfbuanc8JYo",
-                "5EZmD6eA9wm1Y2Dy2wefLCsFJJcC7o8bVfWm7Mfbuanc8JYo",
-                    {
-                        "aura": "5EZmD6eA9wm1Y2Dy2wefLCsFJJcC7o8bVfWm7Mfbuanc8JYo"
-                    }
-            ],
-            [
-                "5EkJFfUtbo258dCaqgYSvajN1tNtXhT3SrybW8ZhygoMP3kE",
-                "5EkJFfUtbo258dCaqgYSvajN1tNtXhT3SrybW8ZhygoMP3kE",
-                    {
-                        "aura": "5EkJFfUtbo258dCaqgYSvajN1tNtXhT3SrybW8ZhygoMP3kE"
-                    }
             ]
         ]' \
+    | jq '.genesis.runtimeGenesis.patch.polkadotXcm.safeXcmVersion = 3' \
     > edited-chain-spec-plain.json
 
 # build a raw spec
