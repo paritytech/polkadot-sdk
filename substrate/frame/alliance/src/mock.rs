@@ -20,8 +20,8 @@
 pub use sp_core::H256;
 use sp_runtime::traits::Hash;
 pub use sp_runtime::{
-	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Lazy, Verify},
-	BuildStorage, MultiSignature,
+	traits::{BlakeTwo256, IdentifyAccount, Lazy, Verify},
+	BuildStorage,
 };
 use sp_std::convert::{TryFrom, TryInto};
 
