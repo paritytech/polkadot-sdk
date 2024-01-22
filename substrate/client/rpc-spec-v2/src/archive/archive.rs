@@ -104,7 +104,7 @@ impl<BE: Backend<Block>, Block: BlockT, Client> Archive<BE, Block, Client> {
 			backend,
 			genesis_hash,
 			storage_max_descendant_responses: config.max_queried_items,
-			storage_max_queried_items: config.max_reported_items,
+			storage_max_queried_items: config.max_queried_items,
 			_phantom: PhantomData,
 		}
 	}
