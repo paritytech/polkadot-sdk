@@ -666,7 +666,15 @@ where
 	)
 	.into_rpc();
 
-	let archive_v2 = sc_rpc_spec_v2::archive::Archive::new(client.clone()).into_rpc();
+	let genesis_hash = client.hash(Zero::zero()).ok().flatten().expect("Genesis block exists; qed");
+	let archive_v2 = sc_rpc_spec_v2::archive::Archive::new(
+		client.clone(),
+		backend.clone(),
+		genesis_hash,
+		// Defaults to sensible limits for the `Archive`.
+		sc_rpc_spec_v2::archive::ArchiveConfig::default(),
+	)
+	.into_rpc();
 
 	let author = sc_rpc::author::Author::new(
 		client.clone(),
@@ -688,6 +696,7 @@ where
 	// Part of the RPC v2 spec.
 	rpc_api.merge(transaction_v2).map_err(|e| Error::Application(e.into()))?;
 	rpc_api.merge(chain_head_v2).map_err(|e| Error::Application(e.into()))?;
+	rpc_api.merge(archive_v2).map_err(|e| Error::Application(e.into()))?;
 
 	// Part of the old RPC spec.
 	rpc_api.merge(chain).map_err(|e| Error::Application(e.into()))?;
