@@ -9,7 +9,6 @@ async function run(nodeName, networkInfo, args) {
     const bridgedChain = require("./chains/" + args[1]);
 
     // start listening to new blocks
-    const startTime = process.hrtime()[0];
     let totalGrandpaHeaders = 0;
     let totalParachainHeaders = 0;
     api.rpc.chain.subscribeNewHeads(async function (header) {

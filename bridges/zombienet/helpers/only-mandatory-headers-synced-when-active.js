@@ -3,12 +3,12 @@ const utils = require("./utils");
 async function run(nodeName, networkInfo, args) {
     const {wsUri, userDefinedTypes} = networkInfo.nodesByName[nodeName];
     const api = await zombie.connect(wsUri, userDefinedTypes);
-
+console.log("=== 1");
     // parse arguments
-    const bridgedChain = require("./chains/" + args[0]);
+    const exitAfterSeconds = Number(args[0]);
+    const bridgedChain = require("./chains/" + args[1]);
 
     // start listening to new blocks
-    const startTime = process.hrtime()[0];
     let atLeastOneMessageReceived = false;
     let atLeastOneMessageDelivered = false;
     api.rpc.chain.subscribeNewHeads(async function (header) {
@@ -18,10 +18,10 @@ async function run(nodeName, networkInfo, args) {
 
         const messagesReceived = currentEvents.find((e) => {
             e.section == bridgedChain.messagesPalletName && e.method == "MessagesReceived"
-        });
+        }) != undefined;
         const messagesDelivered = currentEvents.find((e) => {
             e.section == bridgedChain.messagesPalletName && e.method == "MessagesDelivered"
-        });
+        }) != undefined;
         const hasMessageUpdates = messagesReceived || messagesDelivered;
         atLeastOneMessageReceived = atLeastOneMessageReceived || messagesReceived;
         atLeastOneMessageDelivered = atLeastOneMessageDelivered || messagesDelivered;
