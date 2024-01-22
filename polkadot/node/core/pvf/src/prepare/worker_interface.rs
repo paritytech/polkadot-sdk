@@ -174,7 +174,7 @@ pub async fn start_work(
 					gum::warn!(
 						target: LOG_TARGET,
 						worker_pid = %pid,
-						"failed to recv a prepare response: {:?}",
+						"failed to recv a prepare response: {}",
 						err,
 					);
 					Outcome::IoErr(err.to_string())

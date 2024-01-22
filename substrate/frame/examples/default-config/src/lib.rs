@@ -143,7 +143,7 @@ pub mod tests {
 	type Block = frame_system::mocking::MockBlock<Runtime>;
 
 	frame_support::construct_runtime!(
-		pub struct Runtime {
+		pub enum Runtime {
 			System: frame_system,
 			DefaultPallet: pallet_default_config_example,
 		}

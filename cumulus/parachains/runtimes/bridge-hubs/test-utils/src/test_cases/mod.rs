@@ -319,8 +319,8 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 	>,
 	export_message_instruction: fn() -> Instruction<XcmConfig::RuntimeCall>,
 	expected_lane_id: LaneId,
-	existential_deposit: Option<MultiAsset>,
-	maybe_paid_export_message: Option<MultiAsset>,
+	existential_deposit: Option<Asset>,
+	maybe_paid_export_message: Option<Asset>,
 	prepare_configuration: impl Fn(),
 ) where
 	Runtime: BasicParachainRuntime + BridgeMessagesConfig<MessagesPalletInstance>,
@@ -328,7 +328,7 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 	MessagesPalletInstance: 'static,
 {
 	assert_ne!(runtime_para_id, sibling_parachain_id);
-	let sibling_parachain_location = MultiLocation::new(1, Parachain(sibling_parachain_id));
+	let sibling_parachain_location = Location::new(1, [Parachain(sibling_parachain_id)]);
 
 	run_test::<Runtime, _>(collator_session_key, runtime_para_id, vec![], || {
 		prepare_configuration();
@@ -361,7 +361,7 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 			.expect("deposited fee");
 
 			Xcm(vec![
-				WithdrawAsset(MultiAssets::from(vec![fee.clone()])),
+				WithdrawAsset(Assets::from(vec![fee.clone()])),
 				BuyExecution { fees: fee, weight_limit: Unlimited },
 				export_message_instruction(),
 			])
@@ -373,12 +373,13 @@ pub fn handle_export_message_from_system_parachain_to_outbound_queue_works<
 		};
 
 		// execute XCM
-		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-		assert_ok!(XcmExecutor::<XcmConfig>::execute_xcm(
+		let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+		assert_ok!(XcmExecutor::<XcmConfig>::prepare_and_execute(
 			sibling_parachain_location,
 			xcm,
-			hash,
+			&mut hash,
 			RuntimeHelper::<Runtime>::xcm_max_weight(XcmReceivedFrom::Sibling),
+			Weight::zero(),
 		)
 		.ensure_complete());
 
@@ -446,9 +447,9 @@ pub fn message_dispatch_routing_works<
 	NetworkDistanceAsParentCount: Get<u8>,
 {
 	struct NetworkWithParentCount<N, C>(core::marker::PhantomData<(N, C)>);
-	impl<N: Get<NetworkId>, C: Get<u8>> Get<MultiLocation> for NetworkWithParentCount<N, C> {
-		fn get() -> MultiLocation {
-			MultiLocation { parents: C::get(), interior: X1(GlobalConsensus(N::get())) }
+	impl<N: Get<NetworkId>, C: Get<u8>> Get<Location> for NetworkWithParentCount<N, C> {
+		fn get() -> Location {
+			Location::new(C::get(), [GlobalConsensus(N::get())])
 		}
 	}
 
@@ -495,7 +496,7 @@ pub fn message_dispatch_routing_works<
 			BridgedNetwork,
 			NetworkWithParentCount<RuntimeNetwork, NetworkDistanceAsParentCount>,
 			AlwaysLatest,
-		>((RuntimeNetwork::get(), X1(Parachain(sibling_parachain_id))));
+		>((RuntimeNetwork::get(), [Parachain(sibling_parachain_id)].into()));
 
 		// 2.1. WITHOUT opened hrmp channel -> RoutingError
 		let result =
@@ -565,52 +566,43 @@ where
 {
 	// data here are not relevant for weighing
 	let mut xcm = Xcm(vec![
-		WithdrawAsset(MultiAssets::from(vec![MultiAsset {
-			id: Concrete(MultiLocation { parents: 1, interior: Here }),
+		WithdrawAsset(Assets::from(vec![Asset {
+			id: AssetId(Location::new(1, [])),
 			fun: Fungible(34333299),
 		}])),
 		BuyExecution {
-			fees: MultiAsset {
-				id: Concrete(MultiLocation { parents: 1, interior: Here }),
-				fun: Fungible(34333299),
-			},
+			fees: Asset { id: AssetId(Location::new(1, [])), fun: Fungible(34333299) },
 			weight_limit: Unlimited,
 		},
 		ExportMessage {
 			network: Polkadot,
-			destination: X1(Parachain(1000)),
+			destination: [Parachain(1000)].into(),
 			xcm: Xcm(vec![
-				ReserveAssetDeposited(MultiAssets::from(vec![MultiAsset {
-					id: Concrete(MultiLocation {
-						parents: 2,
-						interior: X1(GlobalConsensus(Kusama)),
-					}),
+				ReserveAssetDeposited(Assets::from(vec![Asset {
+					id: AssetId(Location::new(2, [GlobalConsensus(Kusama)])),
 					fun: Fungible(1000000000000),
 				}])),
 				ClearOrigin,
 				BuyExecution {
-					fees: MultiAsset {
-						id: Concrete(MultiLocation {
-							parents: 2,
-							interior: X1(GlobalConsensus(Kusama)),
-						}),
+					fees: Asset {
+						id: AssetId(Location::new(2, [GlobalConsensus(Kusama)])),
 						fun: Fungible(1000000000000),
 					},
 					weight_limit: Unlimited,
 				},
 				DepositAsset {
 					assets: Wild(AllCounted(1)),
-					beneficiary: MultiLocation {
-						parents: 0,
-						interior: X1(xcm::latest::prelude::AccountId32 {
+					beneficiary: Location::new(
+						0,
+						[xcm::latest::prelude::AccountId32 {
 							network: None,
 							id: [
 								212, 53, 147, 199, 21, 253, 211, 28, 97, 20, 26, 189, 4, 169, 159,
 								214, 130, 44, 133, 88, 133, 76, 205, 227, 154, 86, 132, 231, 165,
 								109, 162, 125,
 							],
-						}),
-					},
+						}],
+					),
 				},
 				SetTopic([
 					116, 82, 194, 132, 171, 114, 217, 165, 23, 37, 161, 177, 165, 179, 247, 114,
@@ -618,10 +610,7 @@ where
 				]),
 			]),
 		},
-		DepositAsset {
-			assets: Wild(All),
-			beneficiary: MultiLocation { parents: 1, interior: X1(Parachain(1000)) },
-		},
+		DepositAsset { assets: Wild(All), beneficiary: Location::new(1, [Parachain(1000)]) },
 		SetTopic([
 			36, 224, 250, 165, 82, 195, 67, 110, 160, 170, 140, 87, 217, 62, 201, 164, 42, 98, 219,
 			157, 124, 105, 248, 25, 131, 218, 199, 36, 109, 173, 100, 122,
