@@ -315,8 +315,8 @@ pub mod benchmarking {
 		owner: AccountIdOf<T>,
 	) -> Result<WasmBlob<T>, DispatchError> {
 		let determinism = Determinism::Enforced;
-		let compilation_mode = CompilationMode::Lazy;
-		let contract_module = LoadedModule::new::<T>(&code, determinism, None, compilation_mode)?;
+		let contract_module =
+			LoadedModule::new::<T>(&code, determinism, None, CompilationMode::Eager)?;
 		let _ = contract_module.scan_imports::<T>(schedule)?;
 		let code: CodeVec<T> = code.try_into().map_err(|_| <Error<T>>::CodeTooLarge)?;
 		let code_info = CodeInfo {
