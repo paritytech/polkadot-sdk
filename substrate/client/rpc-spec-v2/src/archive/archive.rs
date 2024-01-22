@@ -43,6 +43,36 @@ use std::{collections::HashSet, marker::PhantomData, sync::Arc};
 
 use super::archive_storage::ArchiveStorage;
 
+/// The configuration of [`Archive`].
+pub struct ArchiveConfig {
+	/// The maximum number of items the `archive_storage` can return for a descendant query before
+	/// pagination is required.
+	pub max_descendant_responses: usize,
+	/// The maximum number of queried items allowed for the `archive_storage` at a time.
+	pub max_queried_items: usize,
+}
+
+/// The maximum number of items the `archive_storage` can return for a descendant query before
+/// pagination is required.
+///
+/// Note: this is identical to the `chainHead` value.
+const MAX_DESCENDANT_RESPONSES: usize = 5;
+
+/// The maximum number of queried items allowed for the `archive_storage` at a time.
+///
+/// Note: A queried item can also be a descendant query which can return up to
+/// `MAX_DESCENDANT_RESPONSES`.
+const MAX_QUERIED_ITEMS: usize = 8;
+
+impl Default for ArchiveConfig {
+	fn default() -> Self {
+		Self {
+			max_descendant_responses: MAX_DESCENDANT_RESPONSES,
+			max_queried_items: MAX_QUERIED_ITEMS,
+		}
+	}
+}
+
 /// An API for archive RPC calls.
 pub struct Archive<BE: Backend<Block>, Block: BlockT, Client> {
 	/// Substrate client.
@@ -51,8 +81,9 @@ pub struct Archive<BE: Backend<Block>, Block: BlockT, Client> {
 	backend: Arc<BE>,
 	/// The hexadecimal encoded hash of the genesis block.
 	genesis_hash: String,
-	/// The maximum number of reported items by the `archive_storage` at a time.
-	storage_max_reported_items: usize,
+	/// The maximum number of items the `archive_storage` can return for a descendant query before
+	/// pagination is required.
+	storage_max_descendant_responses: usize,
 	/// The maximum number of queried items allowed for the `archive_storage` at a time.
 	storage_max_queried_items: usize,
 	/// Phantom member to pin the block type.
@@ -65,16 +96,15 @@ impl<BE: Backend<Block>, Block: BlockT, Client> Archive<BE, Block, Client> {
 		client: Arc<Client>,
 		backend: Arc<BE>,
 		genesis_hash: GenesisHash,
-		storage_max_reported_items: usize,
-		storage_max_queried_items: usize,
+		config: ArchiveConfig,
 	) -> Self {
 		let genesis_hash = hex_string(&genesis_hash.as_ref());
 		Self {
 			client,
 			backend,
 			genesis_hash,
-			storage_max_reported_items,
-			storage_max_queried_items,
+			storage_max_descendant_responses: config.max_queried_items,
+			storage_max_queried_items: config.max_reported_items,
 			_phantom: PhantomData,
 		}
 	}
@@ -240,7 +270,7 @@ where
 
 		let storage_client = ArchiveStorage::new(
 			self.client.clone(),
-			self.storage_max_reported_items,
+			self.storage_max_descendant_responses,
 			self.storage_max_queried_items,
 		);
 		Ok(storage_client.handle_query(hash, items, child_trie))

@@ -63,7 +63,9 @@ use sc_rpc::{
 	system::SystemApiServer,
 	DenyUnsafe, SubscriptionTaskExecutor,
 };
-use sc_rpc_spec_v2::{chain_head::ChainHeadApiServer, transaction::TransactionApiServer};
+use sc_rpc_spec_v2::{
+	archive::ArchiveApiServer, chain_head::ChainHeadApiServer, transaction::TransactionApiServer,
+};
 use sc_telemetry::{telemetry, ConnectionMessage, Telemetry, TelemetryHandle, SUBSTRATE_INFO};
 use sc_transaction_pool_api::{MaintainedTransactionPool, TransactionPool};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
@@ -663,6 +665,8 @@ where
 		sc_rpc_spec_v2::chain_head::ChainHeadConfig::default(),
 	)
 	.into_rpc();
+
+	let archive_v2 = sc_rpc_spec_v2::archive::Archive::new(client.clone()).into_rpc();
 
 	let author = sc_rpc::author::Author::new(
 		client.clone(),
