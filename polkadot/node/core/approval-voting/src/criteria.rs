@@ -261,6 +261,7 @@ pub(crate) trait AssignmentCriteria {
 		relay_vrf_story: RelayVRFStory,
 		config: &Config,
 		leaving_cores: Vec<(CandidateHash, CoreIndex, GroupIndex)>,
+		enable_v2_assignments: bool,
 	) -> HashMap<CoreIndex, OurAssignment>;
 
 	fn check_assignment_cert(
@@ -284,8 +285,9 @@ impl AssignmentCriteria for RealAssignmentCriteria {
 		relay_vrf_story: RelayVRFStory,
 		config: &Config,
 		leaving_cores: Vec<(CandidateHash, CoreIndex, GroupIndex)>,
+		enable_v2_assignments: bool,
 	) -> HashMap<CoreIndex, OurAssignment> {
-		compute_assignments(keystore, relay_vrf_story, config, leaving_cores, false)
+		compute_assignments(keystore, relay_vrf_story, config, leaving_cores, enable_v2_assignments)
 	}
 
 	fn check_assignment_cert(
@@ -461,7 +463,7 @@ fn compute_relay_vrf_modulo_assignments_v1(
 			let cert = AssignmentCert {
 				kind: AssignmentCertKind::RelayVRFModulo { sample: rvm_sample },
 				vrf: VrfSignature {
-					pre_output: VrfPreOutput(vrf_in_out.to_output()),
+					pre_output: VrfPreOutput(vrf_in_out.to_preout()),
 					proof: VrfProof(vrf_proof),
 				},
 			};
@@ -541,7 +543,7 @@ fn compute_relay_vrf_modulo_assignments_v2(
 				core_bitfield: assignment_bitfield.clone(),
 			},
 			vrf: VrfSignature {
-				pre_output: VrfPreOutput(vrf_in_out.to_output()),
+				pre_output: VrfPreOutput(vrf_in_out.to_preout()),
 				proof: VrfProof(vrf_proof),
 			},
 		};
@@ -576,7 +578,7 @@ fn compute_relay_vrf_delay_assignments(
 		let cert = AssignmentCertV2 {
 			kind: AssignmentCertKindV2::RelayVRFDelay { core_index: core },
 			vrf: VrfSignature {
-				pre_output: VrfPreOutput(vrf_in_out.to_output()),
+				pre_output: VrfPreOutput(vrf_in_out.to_preout()),
 				proof: VrfProof(vrf_proof),
 			},
 		};

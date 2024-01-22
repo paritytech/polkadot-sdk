@@ -724,13 +724,13 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-			Configuration: configuration::{Pallet, Call, Storage, Config<T>},
-			Parachains: paras::{Pallet, Call, Storage, Config<T>, Event},
-			ParasShared: shared::{Pallet, Call, Storage},
-			Registrar: paras_registrar::{Pallet, Call, Storage, Event<T>},
-			ParachainsOrigin: origin::{Pallet, Origin},
+			System: frame_system,
+			Balances: pallet_balances,
+			Configuration: configuration,
+			Parachains: paras,
+			ParasShared: shared,
+			Registrar: paras_registrar,
+			ParachainsOrigin: origin,
 		}
 	);
 
@@ -799,7 +799,9 @@ mod tests {
 		type MaxFreezes = ConstU32<1>;
 	}
 
-	impl shared::Config for Test {}
+	impl shared::Config for Test {
+		type DisabledValidators = ();
+	}
 
 	impl origin::Config for Test {}
 
@@ -814,6 +816,7 @@ mod tests {
 		type QueueFootprinter = ();
 		type NextSessionRotation = crate::mock::TestNextSessionRotation;
 		type OnNewHead = ();
+		type AssignCoretime = ();
 	}
 
 	impl configuration::Config for Test {

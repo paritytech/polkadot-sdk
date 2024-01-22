@@ -187,9 +187,9 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-			Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
-			AuthorityDiscovery: pallet_authority_discovery::{Pallet, Config<T>},
+			System: frame_system,
+			Session: pallet_session,
+			AuthorityDiscovery: pallet_authority_discovery,
 		}
 	);
 

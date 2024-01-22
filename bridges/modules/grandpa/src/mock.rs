@@ -18,7 +18,7 @@
 #![allow(clippy::from_over_into)]
 
 use bp_header_chain::ChainWithGrandpa;
-use bp_runtime::Chain;
+use bp_runtime::{Chain, ChainId};
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types, traits::Hooks, weights::Weight,
 };
@@ -64,7 +64,9 @@ impl grandpa::Config for TestRuntime {
 pub struct TestBridgedChain;
 
 impl Chain for TestBridgedChain {
-	type BlockNumber = TestNumber;
+	const ID: ChainId = *b"tbch";
+
+	type BlockNumber = frame_system::pallet_prelude::BlockNumberFor<TestRuntime>;
 	type Hash = <TestRuntime as frame_system::Config>::Hash;
 	type Hasher = <TestRuntime as frame_system::Config>::Hashing;
 	type Header = TestHeader;
@@ -86,8 +88,8 @@ impl ChainWithGrandpa for TestBridgedChain {
 	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = "";
 	const MAX_AUTHORITIES_COUNT: u32 = MAX_BRIDGED_AUTHORITIES;
 	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 8;
-	const MAX_HEADER_SIZE: u32 = 256;
-	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = 64;
+	const MAX_MANDATORY_HEADER_SIZE: u32 = 256;
+	const AVERAGE_HEADER_SIZE: u32 = 64;
 }
 
 /// Return test externalities to use in tests.

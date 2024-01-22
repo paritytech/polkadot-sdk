@@ -18,3 +18,4 @@ error: use of deprecated constant `pallet::warnings::ConstantWeight_0::_w`:
    |                          ^^^^^^^^^^^^^^^
    |
    = note: `-D deprecated` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(deprecated)]`

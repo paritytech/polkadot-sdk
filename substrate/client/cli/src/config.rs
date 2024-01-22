@@ -27,8 +27,8 @@ use names::{Generator, Name};
 use sc_service::{
 	config::{
 		BasePath, Configuration, DatabaseSource, KeystoreConfig, NetworkConfiguration,
-		NodeKeyConfig, OffchainWorkerConfig, PrometheusConfig, PruningMode, Role, RpcMethods,
-		TelemetryEndpoints, TransactionPoolOptions, WasmExecutionMethod,
+		NodeKeyConfig, OffchainWorkerConfig, OutputFormat, PrometheusConfig, PruningMode, Role,
+		RpcMethods, TelemetryEndpoints, TransactionPoolOptions, WasmExecutionMethod,
 	},
 	BlocksPruning, ChainSpec, TracingReceiver,
 };
@@ -516,7 +516,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			announce_block: self.announce_block()?,
 			role,
 			base_path,
-			informant_output_format: Default::default(),
+			informant_output_format: OutputFormat { enable_color: !self.disable_log_color()? },
 			runtime_cache_size,
 		})
 	}

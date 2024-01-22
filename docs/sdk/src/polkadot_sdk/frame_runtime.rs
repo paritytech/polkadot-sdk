@@ -156,9 +156,9 @@ mod tests {
 		use super::pallet as pallet_example;
 		use frame::{prelude::*, testing_prelude::*};
 
-		// The major macro that amalgamates pallets into `struct Runtime`
+		// The major macro that amalgamates pallets into `enum Runtime`
 		construct_runtime!(
-			pub struct Runtime {
+			pub enum Runtime {
 				System: frame_system,
 				Example: pallet_example,
 			}

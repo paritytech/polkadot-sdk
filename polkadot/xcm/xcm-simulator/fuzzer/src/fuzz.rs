@@ -158,7 +158,7 @@ fn run_input(xcm_messages: [XcmMessage; 5]) {
 		if xcm_message.source % 4 == 0 {
 			// We get the destination for the message
 			let parachain_id = (xcm_message.destination % 3) + 1;
-			let destination: MultiLocation = Parachain(parachain_id).into();
+			let destination: Location = Parachain(parachain_id).into();
 			#[cfg(not(fuzzing))]
 			{
 				println!("  source:      Relay Chain");
@@ -176,7 +176,7 @@ fn run_input(xcm_messages: [XcmMessage; 5]) {
 				_ => ParaC::execute_with,
 			};
 			// We get the destination for the message
-			let destination: MultiLocation = match xcm_message.destination % 4 {
+			let destination: Location = match xcm_message.destination % 4 {
 				n @ 1..=3 => (Parent, Parachain(n)).into(),
 				_ => Parent.into(),
 			};
