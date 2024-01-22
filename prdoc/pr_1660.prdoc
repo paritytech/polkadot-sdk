@@ -1,7 +1,7 @@
 title: Implements a percentage cap on staking rewards from era inflation
 
 doc:
-  - audience: Runtime Dev; Runtime User.
+  - audience: Runtime Dev
     description: |
       The `pallet-staking` exposes a new perbill configuration, `MaxStakersRewards`, which caps the
       amount of era inflation that is distributed to the stakers. The remainder of the era
