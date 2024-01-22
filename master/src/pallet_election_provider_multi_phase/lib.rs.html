@@ -2693,6 +2693,20 @@
 <a href="#2693" id="2693">2693</a>
 <a href="#2694" id="2694">2694</a>
 <a href="#2695" id="2695">2695</a>
+<a href="#2696" id="2696">2696</a>
+<a href="#2697" id="2697">2697</a>
+<a href="#2698" id="2698">2698</a>
+<a href="#2699" id="2699">2699</a>
+<a href="#2700" id="2700">2700</a>
+<a href="#2701" id="2701">2701</a>
+<a href="#2702" id="2702">2702</a>
+<a href="#2703" id="2703">2703</a>
+<a href="#2704" id="2704">2704</a>
+<a href="#2705" id="2705">2705</a>
+<a href="#2706" id="2706">2706</a>
+<a href="#2707" id="2707">2707</a>
+<a href="#2708" id="2708">2708</a>
+<a href="#2709" id="2709">2709</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2969,14 +2983,14 @@
 <span class="kw">pub mod </span>signed;
 <span class="kw">pub mod </span>unsigned;
 <span class="kw">pub mod </span>weights;
-<span class="kw">use </span>unsigned::VoterOf;
-<span class="kw">pub use </span>weights::WeightInfo;
 
 <span class="kw">pub use </span>signed::{
 	BalanceOf, GeometricDepositBase, NegativeImbalanceOf, PositiveImbalanceOf, SignedSubmission,
 	SignedSubmissionOf, SignedSubmissions, SubmissionIndicesOf,
 };
+<span class="kw">use </span>unsigned::VoterOf;
 <span class="kw">pub use </span>unsigned::{Miner, MinerConfig};
+<span class="kw">pub use </span>weights::WeightInfo;
 
 <span class="doccomment">/// The solution type used by this crate.
 </span><span class="kw">pub type </span>SolutionOf&lt;T&gt; = &lt;T <span class="kw">as </span>MinerConfig&gt;::Solution;
@@ -3970,6 +3984,7 @@
 	<span class="doccomment">/// Snapshot data of the round.
 	///
 	/// This is created at the beginning of the signed phase and cleared upon calling `elect`.
+	/// Note: This storage type must only be mutated through [`SnapshotWrapper`].
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>snapshot)]
 	</span><span class="kw">pub type </span>Snapshot&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, RoundSnapshot&lt;T::AccountId, VoterOf&lt;T&gt;&gt;&gt;;
@@ -3977,6 +3992,7 @@
 	<span class="doccomment">/// Desired number of targets to elect for this round.
 	///
 	/// Only exists when [`Snapshot`] is present.
+	/// Note: This storage type must only be mutated through [`SnapshotWrapper`].
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>desired_targets)]
 	</span><span class="kw">pub type </span>DesiredTargets&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, u32&gt;;
@@ -3984,6 +4000,7 @@
 	<span class="doccomment">/// The metadata of the [`RoundSnapshot`]
 	///
 	/// Only exists when [`Snapshot`] is present.
+	/// Note: This storage type must only be mutated through [`SnapshotWrapper`].
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>snapshot_metadata)]
 	</span><span class="kw">pub type </span>SnapshotMetadata&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, SolutionOrSnapshotSize&gt;;
@@ -4046,6 +4063,39 @@
 	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
 }
 
+<span class="doccomment">/// This wrapper is created for handling the synchronization of [`Snapshot`], [`SnapshotMetadata`]
+/// and [`DesiredTargets`] storage items.
+</span><span class="kw">pub struct </span>SnapshotWrapper&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+
+<span class="kw">impl</span>&lt;T: Config&gt; SnapshotWrapper&lt;T&gt; {
+	<span class="doccomment">/// Kill all snapshot related storage items at the same time.
+	</span><span class="kw">pub fn </span>kill() {
+		&lt;Snapshot&lt;T&gt;&gt;::kill();
+		&lt;SnapshotMetadata&lt;T&gt;&gt;::kill();
+		&lt;DesiredTargets&lt;T&gt;&gt;::kill();
+	}
+	<span class="doccomment">/// Set all snapshot related storage items at the same time.
+	</span><span class="kw">pub fn </span>set(metadata: SolutionOrSnapshotSize, desired_targets: u32, buffer: <span class="kw-2">&amp;</span>[u8]) {
+		&lt;SnapshotMetadata&lt;T&gt;&gt;::put(metadata);
+		&lt;DesiredTargets&lt;T&gt;&gt;::put(desired_targets);
+		sp_io::storage::set(<span class="kw-2">&amp;</span>&lt;Snapshot&lt;T&gt;&gt;::hashed_key(), <span class="kw-2">&amp;</span>buffer);
+	}
+
+	<span class="doccomment">/// Check if all of the storage items exist at the same time or all of the storage items do not
+	/// exist.
+	</span><span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	</span><span class="kw">pub fn </span>is_consistent() -&gt; bool {
+		<span class="kw">let </span>snapshots = [
+			&lt;Snapshot&lt;T&gt;&gt;::exists(),
+			&lt;SnapshotMetadata&lt;T&gt;&gt;::exists(),
+			&lt;DesiredTargets&lt;T&gt;&gt;::exists(),
+		];
+
+		<span class="comment">// All should either exist or not exist
+		</span>snapshots.iter().skip(<span class="number">1</span>).all(|v| snapshots[<span class="number">0</span>] == <span class="kw-2">*</span>v)
+	}
+}
+
 <span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 	<span class="doccomment">/// Internal logic of the offchain worker, to be executed only when the offchain lock is
 	/// acquired with success.
@@ -4097,9 +4147,6 @@
 			SolutionOrSnapshotSize { voters: voters.len() <span class="kw">as </span>u32, targets: targets.len() <span class="kw">as </span>u32 };
 		<span class="macro">log!</span>(info, <span class="string">&quot;creating a snapshot with metadata {:?}&quot;</span>, metadata);
 
-		&lt;SnapshotMetadata&lt;T&gt;&gt;::put(metadata);
-		&lt;DesiredTargets&lt;T&gt;&gt;::put(desired_targets);
-
 		<span class="comment">// instead of using storage APIs, we do a manual encoding into a fixed-size buffer.
 		// `encoded_size` encodes it without storing it anywhere, this should not cause any
 		// allocation.
@@ -4114,7 +4161,7 @@
 		<span class="comment">// buffer should have not re-allocated since.
 		</span><span class="macro">debug_assert!</span>(buffer.len() == size &amp;&amp; size == buffer.capacity());
 
-		sp_io::storage::set(<span class="kw-2">&amp;</span>&lt;Snapshot&lt;T&gt;&gt;::hashed_key(), <span class="kw-2">&amp;</span>buffer);
+		SnapshotWrapper::&lt;T&gt;::set(metadata, desired_targets, <span class="kw-2">&amp;</span>buffer);
 	}
 
 	<span class="doccomment">/// Parts of [`create_snapshot`] that happen outside of this pallet.
@@ -4195,13 +4242,6 @@
 		);
 	}
 
-	<span class="doccomment">/// Kill everything created by [`Pallet::create_snapshot`].
-	</span><span class="kw">pub fn </span>kill_snapshot() {
-		&lt;Snapshot&lt;T&gt;&gt;::kill();
-		&lt;SnapshotMetadata&lt;T&gt;&gt;::kill();
-		&lt;DesiredTargets&lt;T&gt;&gt;::kill();
-	}
-
 	<span class="doccomment">/// Checks the feasibility of a solution.
 	</span><span class="kw">pub fn </span>feasibility_check(
 		raw_solution: RawSolution&lt;SolutionOf&lt;T::MinerConfig&gt;&gt;,
@@ -4236,8 +4276,8 @@
 		<span class="comment">// Phase is off now.
 		</span><span class="self">Self</span>::phase_transition(Phase::Off);
 
-		<span class="comment">// Kill snapshots.
-		</span><span class="self">Self</span>::kill_snapshot();
+		<span class="comment">// Kill snapshot and relevant metadata (everything created by [`SnapshotMetadata::set`]).
+		</span>SnapshotWrapper::&lt;T&gt;::kill();
 	}
 
 	<span class="kw">fn </span>do_elect() -&gt; <span class="prelude-ty">Result</span>&lt;BoundedSupportsOf&lt;<span class="self">Self</span>&gt;, ElectionError&lt;T&gt;&gt; {
@@ -4308,15 +4348,7 @@
 	// - [`DesiredTargets`] exists if and only if [`Snapshot`] is present.
 	// - [`SnapshotMetadata`] exist if and only if [`Snapshot`] is present.
 	</span><span class="kw">fn </span>try_state_snapshot() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
-		<span class="kw">if </span>&lt;Snapshot&lt;T&gt;&gt;::exists() &amp;&amp;
-			&lt;SnapshotMetadata&lt;T&gt;&gt;::exists() &amp;&amp;
-			&lt;DesiredTargets&lt;T&gt;&gt;::exists()
-		{
-			<span class="prelude-val">Ok</span>(())
-		} <span class="kw">else if </span>!&lt;Snapshot&lt;T&gt;&gt;::exists() &amp;&amp;
-			!&lt;SnapshotMetadata&lt;T&gt;&gt;::exists() &amp;&amp;
-			!&lt;DesiredTargets&lt;T&gt;&gt;::exists()
-		{
+		<span class="kw">if </span>SnapshotWrapper::&lt;T&gt;::is_consistent() {
 			<span class="prelude-val">Ok</span>(())
 		} <span class="kw">else </span>{
 			<span class="prelude-val">Err</span>(<span class="string">&quot;If snapshot exists, metadata and desired targets should be set too. Otherwise, none should be set.&quot;</span>.into())
@@ -4451,18 +4483,14 @@
 			<span class="macro">assert!</span>(MultiPhase::current_phase().is_signed());
 			<span class="kw">let </span>solution = raw_solution();
 
-			<span class="comment">// For whatever reason it might be:
-			</span>&lt;Snapshot&lt;Runtime&gt;&gt;::kill();
+			<span class="comment">// kill `Snapshot`, `SnapshotMetadata` and `DesiredTargets` for the storage state to
+			// be consistent, by using the `SnapshotWrapper` for the try_state checks to pass.
+			</span>&lt;SnapshotWrapper&lt;Runtime&gt;&gt;::kill();
 
 			<span class="macro">assert_noop!</span>(
 				MultiPhase::feasibility_check(solution, COMPUTE),
 				FeasibilityError::SnapshotUnavailable
 			);
-
-			<span class="comment">// kill also `SnapshotMetadata` and `DesiredTargets` for the storage state to be
-			// consistent for the try_state checks to pass.
-			</span>&lt;SnapshotMetadata&lt;Runtime&gt;&gt;::kill();
-			&lt;DesiredTargets&lt;Runtime&gt;&gt;::kill();
 		})
 	}
 
