@@ -19,3 +19,6 @@ asset-hub-rococo-collator1: run ../scripts/invoke-script.sh with "reserve-transf
 
 # step 4: ensure that relayer won't sync any extra headers while delivering messages and confirmations
 bridge-hub-rococo-collator1: js-script ../helpers/only-required-headers-synced-when-active.js with "300,westend-at-rococo" return is 1 within 600 seconds
+
+# wait until other network test has completed OR exit with an error too
+asset-hub-rococo-collator1: run ../scripts/sync-exit.sh within 600 seconds

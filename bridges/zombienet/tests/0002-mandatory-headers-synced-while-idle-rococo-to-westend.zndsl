@@ -18,3 +18,6 @@ sleep 120 seconds
 # step 4: ensure that relayer is only syncing mandatory headers while idle. This includes both headers that were
 # born while relay was offline and those in the next 100 seconds while script is active.
 bridge-hub-westend-collator1: js-script ../helpers/only-mandatory-headers-synced-when-idle.js with "300,rococo-at-westend" return is 1 within 600 seconds
+
+# wait until other network test has completed OR exit with an error too
+asset-hub-westend-collator1: run ../scripts/sync-exit.sh within 600 seconds

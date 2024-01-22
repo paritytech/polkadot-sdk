@@ -19,3 +19,6 @@ asset-hub-westend-collator1: run ../scripts/invoke-script.sh with "reserve-trans
 
 # step 5: ensure that relayer won't sync any extra headers while delivering messages and confirmations
 bridge-hub-westend-collator1: js-script ../helpers/only-required-headers-synced-when-active.js with "300,rococo-at-westend" return is 1 within 600 seconds
+
+# wait until other network test has completed OR exit with an error too
+asset-hub-westend-collator1: run ../scripts/sync-exit.sh within 600 seconds
