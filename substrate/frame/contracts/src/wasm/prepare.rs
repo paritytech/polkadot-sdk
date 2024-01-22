@@ -230,7 +230,8 @@ where
 	(|| {
 		// We check that the module is generally valid,
 		// and does not have restricted WebAssembly features, here.
-		let contract_module = LoadedModule::new::<T>(code, determinism, None, CompilationMode::Eager)?;
+		let contract_module =
+			LoadedModule::new::<T>(code, determinism, None, CompilationMode::Eager)?;
 		// The we check that module satisfies constraints the pallet puts on contracts.
 		contract_module.scan_exports()?;
 		contract_module.scan_imports::<T>(schedule)?;

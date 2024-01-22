@@ -1590,16 +1590,11 @@ impl<T: Config> Pallet<T> {
 		mut debug_message: Option<&mut DebugBufferVec<T>>,
 	) -> Result<(WasmBlob<T>, BalanceOf<T>), DispatchError> {
 		let schedule = T::Schedule::get();
-		let mut module = WasmBlob::from_code(
-			code,
-			&schedule,
-			origin,
-			determinism,
-		)
-		.map_err(|(err, msg)| {
-			debug_message.as_mut().map(|d| d.try_extend(msg.bytes()));
-			err
-		})?;
+		let mut module =
+			WasmBlob::from_code(code, &schedule, origin, determinism).map_err(|(err, msg)| {
+				debug_message.as_mut().map(|d| d.try_extend(msg.bytes()));
+				err
+			})?;
 		let deposit = module.store_code()?;
 		if let Some(storage_deposit_limit) = storage_deposit_limit {
 			ensure!(storage_deposit_limit >= deposit, <Error<T>>::StorageDepositLimitExhausted);
