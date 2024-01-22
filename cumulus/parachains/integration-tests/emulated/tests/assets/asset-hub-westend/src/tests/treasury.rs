@@ -314,7 +314,7 @@ fn spend_and_swap() {
 		type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
 
 		// Build and execute a call to acquire usdt tokens for native assets for the treasury.
-		// the call should be commanded by the `Treasury` origin to allow using the public
+		// The call should be commanded by the `Treasury` origin to allow using the public
 		// referendum's corresponding track.
 		//
 		// The beneficiary of the treasury spend call is the `Treasury` origin's sovereign account.
@@ -365,12 +365,18 @@ fn spend_and_swap() {
 						beneficiary: bx!(VersionedLocation::V3(beneficiary)),
 						valid_from: None,
 					}),
+					// While it's not possible to confirm the success of the `payout` in one call,
+					// the risk is low. This is especially true when the account balance is
+					// sufficient, and any potential failure poses minimal harm.
 					RuntimeCall::Treasury(pallet_treasury::Call::<Runtime>::payout { index: 0 }),
-					// TODO - instead of scheduled send call on Relay Chain, schedule on AssetHub.
-					// To achieve this, the scheduled call will have to be wrapped with xcm
-					// execute, since we want to transact the permissioned `schedule_after` call
-					// with `origin_kind = Xcm` and execute a swap with `origin_kind =
-					// SovereignAccount`.
+					// TODO - Instead of scheduling the send call on the Relay Chain, consider
+					// scheduling it on AssetHub. To achieve this, wrap the scheduled call with
+					// `pallet_xcm::execute(call)`. This allows transacting the permissioned
+					// `schedule_after` call with `origin_kind = Xcm` and executing a swap with
+					// `origin_kind = SovereignAccount`.
+					// Additionally, the `LocationToAccountId` type should be capable of converting
+					// a `Location` wrapped into `pallet_xcm::Origin::Xcm(location)` into a
+					// sovereign account.
 					RuntimeCall::Scheduler(pallet_scheduler::Call::<Runtime>::schedule_after {
 						after: 10,
 						// TODO - provide a retry mechanism for the scheduler.
