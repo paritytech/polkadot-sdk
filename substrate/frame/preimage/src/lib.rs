@@ -39,7 +39,7 @@ mod mock;
 mod tests;
 pub mod weights;
 
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, vec::Vec};
 use sp_runtime::{
 	traits::{BadOrigin, Hash, Saturating},
 	Perbill,

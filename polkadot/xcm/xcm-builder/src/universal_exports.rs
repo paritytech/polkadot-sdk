@@ -16,6 +16,7 @@
 
 //! Traits and utilities to help with origin mutation and bridging.
 
+use alloc::{vec, vec::Vec};
 use core::{convert::TryInto, marker::PhantomData};
 use frame_support::{ensure, traits::Get};
 use parity_scale_codec::{Decode, Encode};

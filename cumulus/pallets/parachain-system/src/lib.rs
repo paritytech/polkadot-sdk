@@ -29,7 +29,7 @@
 
 extern crate alloc;
 
-use alloc::collections::btree_map::BTreeMap;
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, Encode};
 use core::cmp;
 use cumulus_primitives_core::{

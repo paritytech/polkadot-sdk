@@ -84,7 +84,7 @@ pub use benchmarking::ArgumentsFactory;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
-use alloc::collections::btree_map::BTreeMap;
+use alloc::{boxed::Box, collections::btree_map::BTreeMap};
 use sp_runtime::{
 	traits::{AccountIdConversion, CheckedAdd, Saturating, StaticLookup, Zero},
 	Permill, RuntimeDebug,

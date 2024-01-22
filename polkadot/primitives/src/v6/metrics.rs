@@ -16,6 +16,7 @@
 
 //! Runtime metric primitives.
 
+use alloc::vec::Vec;
 use parity_scale_codec::{Decode, Encode};
 
 /// Runtime metric operations.

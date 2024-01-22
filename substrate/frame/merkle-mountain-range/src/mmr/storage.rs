@@ -17,6 +17,7 @@
 
 //! An MMR storage implementation.
 
+use alloc::{vec, vec::Vec};
 use codec::Encode;
 use core::iter::Peekable;
 use log::{debug, trace};

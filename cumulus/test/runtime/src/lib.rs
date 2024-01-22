@@ -31,6 +31,7 @@ pub mod wasm_spec_version_incremented {
 
 mod test_pallet;
 
+use alloc::{boxed::Box, vec, vec::Vec};
 use frame_support::{derive_impl, traits::OnRuntimeUpgrade};
 use sp_api::{decl_runtime_apis, impl_runtime_apis};
 use sp_core::{ConstU32, OpaqueMetadata};

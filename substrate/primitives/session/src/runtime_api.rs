@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use alloc::vec::Vec;
 pub use sp_core::crypto::KeyTypeId;
 
 sp_api::decl_runtime_apis! {

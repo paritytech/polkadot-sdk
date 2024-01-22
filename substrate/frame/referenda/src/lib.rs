@@ -66,7 +66,7 @@
 
 extern crate alloc;
 
-use alloc::fmt::Debug;
+use alloc::{boxed::Box, fmt::Debug};
 use codec::{Codec, Encode};
 use frame_support::{
 	dispatch::DispatchResult,

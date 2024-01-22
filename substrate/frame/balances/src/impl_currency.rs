@@ -21,6 +21,7 @@
 //! are expected to be removed in the near future, once migration to `fungible::*` traits is done.
 
 use super::*;
+use alloc::vec::Vec;
 use frame_support::{
 	ensure,
 	pallet_prelude::DispatchResult,

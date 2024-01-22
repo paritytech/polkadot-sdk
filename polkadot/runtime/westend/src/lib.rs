@@ -22,7 +22,7 @@
 
 extern crate alloc;
 
-use alloc::collections::btree_map::BTreeMap;
+use alloc::{boxed::Box, collections::btree_map::BTreeMap, vec, vec::Vec};
 use authority_discovery_primitives::AuthorityId as AuthorityDiscoveryId;
 use beefy_primitives::{
 	ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature},

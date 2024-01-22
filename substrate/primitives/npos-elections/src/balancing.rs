@@ -27,6 +27,7 @@
 //! See [`balance`] for more information.
 
 use crate::{BalancingConfig, Edge, ExtendedBalance, IdentifierT, Voter};
+use alloc::vec::Vec;
 use sp_arithmetic::traits::Zero;
 
 /// Balance the weight distribution of a given `voters` at most `iterations` times, or up until the

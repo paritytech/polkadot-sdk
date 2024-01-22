@@ -18,6 +18,7 @@ mod pallet_xcm_benchmarks_fungible;
 mod pallet_xcm_benchmarks_generic;
 
 use crate::Runtime;
+use alloc::vec::Vec;
 use frame_support::weights::Weight;
 
 use xcm::{

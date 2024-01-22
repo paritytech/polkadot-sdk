@@ -127,6 +127,8 @@ use sp_runtime::{traits::StaticLookup, DispatchResult};
 
 use frame_support::{dispatch::GetDispatchInfo, traits::UnfilteredDispatchable};
 
+use alloc::boxed::Box;
+
 mod extension;
 #[cfg(test)]
 mod mock;

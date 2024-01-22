@@ -17,6 +17,7 @@
 
 //! A crate that hosts a common definitions that are relevant for the pallet-contracts.
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::weights::Weight;
 use pallet_contracts_uapi::ReturnFlags;

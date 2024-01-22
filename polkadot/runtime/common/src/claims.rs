@@ -16,7 +16,7 @@
 
 //! Pallet to process claims from Ethereum addresses.
 
-use alloc::fmt::Debug;
+use alloc::{fmt::Debug, vec::Vec};
 #[cfg(not(feature = "std"))]
 use alloc::{format, string::String};
 use frame_support::{

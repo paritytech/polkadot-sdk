@@ -100,6 +100,7 @@
 
 extern crate alloc;
 
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use core::cmp::Ordering;
 use frame_support::{

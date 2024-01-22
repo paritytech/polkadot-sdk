@@ -29,6 +29,7 @@ use crate::{
 	traits::{Get, GetDefault, StorageInfo, StorageInfoTrait, StorageInstance},
 	Never,
 };
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen, Ref};
 use sp_io::MultiRemovalResults;
 use sp_metadata_ir::StorageEntryMetadataIR;

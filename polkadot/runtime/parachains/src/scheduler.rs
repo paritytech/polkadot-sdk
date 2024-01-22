@@ -37,7 +37,10 @@
 //! availability cores over time.
 
 use crate::{configuration, initializer::SessionChangeNotification, paras};
-use alloc::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
+use alloc::{
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	vec::Vec,
+};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use polkadot_core_primitives::v2::BlockNumber;

@@ -259,6 +259,7 @@ pub mod weights;
 
 pub mod migrations;
 
+use alloc::vec::Vec;
 use frame_support::{
 	impl_ensure_origin_with_arg_ignoring_arg,
 	pallet_prelude::*,

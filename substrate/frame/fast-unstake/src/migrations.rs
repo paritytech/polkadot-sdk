@@ -17,6 +17,7 @@
 
 pub mod v1 {
 	use crate::{types::BalanceOf, *};
+	use alloc::vec::Vec;
 	use frame_support::{
 		storage::unhashed,
 		traits::{Defensive, Get, GetStorageVersion, OnRuntimeUpgrade},

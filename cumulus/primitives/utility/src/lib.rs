@@ -19,6 +19,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
 use codec::Encode;
 use core::marker::PhantomData;
 use cumulus_primitives_core::{MessageSendError, UpwardMessageSender};

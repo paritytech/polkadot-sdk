@@ -44,6 +44,7 @@
 
 extern crate alloc;
 
+use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::{marker::PhantomData, result};
 use scale_info::TypeInfo;

@@ -28,6 +28,7 @@
 //! `nonfungible` traits by using the `nonfungible::ItemOf` type adapter.
 
 use crate::dispatch::DispatchResult;
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use sp_runtime::{DispatchError, TokenError};
 

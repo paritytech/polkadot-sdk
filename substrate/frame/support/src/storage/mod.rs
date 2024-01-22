@@ -24,7 +24,7 @@ use crate::{
 		ReversibleKeyGenerator, TupleToEncodedIter,
 	},
 };
-use alloc::collections::btree_set::BTreeSet;
+use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use codec::{Decode, Encode, EncodeLike, FullCodec, FullEncode};
 use core::marker::PhantomData;
 use sp_core::storage::ChildInfo;

@@ -5,6 +5,7 @@
 #[cfg(test)]
 mod tests;
 
+use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use frame_support::{traits::tokens::Balance as BalanceT, weights::Weight, PalletError};

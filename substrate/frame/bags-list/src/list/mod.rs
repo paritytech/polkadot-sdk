@@ -28,6 +28,7 @@ use crate::Config;
 use alloc::{
 	boxed::Box,
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	vec::Vec,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::{iter, marker::PhantomData};

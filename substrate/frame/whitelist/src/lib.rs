@@ -42,6 +42,7 @@ mod tests;
 pub mod weights;
 pub use weights::WeightInfo;
 
+use alloc::boxed::Box;
 use codec::{DecodeLimit, Encode, FullCodec};
 use frame_support::{
 	dispatch::{GetDispatchInfo, PostDispatchInfo},

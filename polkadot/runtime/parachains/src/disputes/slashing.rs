@@ -43,14 +43,17 @@
 //! offender and submit it to the runtime to produce an offence.
 
 use crate::{disputes, initializer::ValidatorSetCount, session_info::IdentificationTuple};
+use alloc::{
+	boxed::Box,
+	collections::{btree_map::Entry, btree_set::BTreeSet},
+	vec::Vec,
+};
 use frame_support::{
 	dispatch::Pays,
 	traits::{Defensive, Get, KeyOwnerProofSystem, ValidatorSet, ValidatorSetWithIdentification},
 	weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-
-use alloc::collections::{btree_map::Entry, btree_set::BTreeSet};
 use primitives::{
 	slashing::{DisputeProof, DisputesTimeSlot, PendingSlashes, SlashingOffenceKind},
 	CandidateHash, SessionIndex, ValidatorId, ValidatorIndex,

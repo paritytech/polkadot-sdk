@@ -18,6 +18,7 @@
 //! Shared logic between on-chain and off-chain components used for slashing using an off-chain
 //! worker.
 
+use alloc::{borrow::ToOwned, vec::Vec};
 use codec::Encode;
 use sp_staking::SessionIndex;
 

@@ -37,6 +37,7 @@ extern crate alloc;
 
 use sp_runtime::traits::{Convert, Member};
 
+use alloc::vec::Vec;
 use codec::Decode;
 use pallet_mmr::{LeafDataProvider, ParentNumberAndHash};
 use sp_consensus_beefy::{

@@ -26,8 +26,7 @@ mod v_coretime {
 		coretime::{mk_coretime_call, Config, PartsOf57600, WeightInfo},
 		paras,
 	};
-	#[cfg(feature = "try-runtime")]
-	use alloc::vec::Vec;
+	use alloc::{vec, vec::Vec};
 	use core::{iter, result};
 	#[cfg(feature = "try-runtime")]
 	use frame_support::ensure;

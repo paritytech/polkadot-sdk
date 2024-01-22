@@ -60,6 +60,7 @@
 
 extern crate alloc;
 
+use alloc::boxed::Box;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use scale_info::TypeInfo;

@@ -231,6 +231,7 @@
 
 extern crate alloc;
 
+use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode};
 use frame_election_provider_support::{
 	bounds::{CountBound, ElectionBounds, ElectionBoundsBuilder, SizeBound},

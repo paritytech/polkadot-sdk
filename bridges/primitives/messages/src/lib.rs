@@ -21,6 +21,7 @@
 
 extern crate alloc;
 
+use alloc::vec::Vec;
 use bp_header_chain::HeaderChainError;
 use bp_runtime::{
 	messages::MessageDispatchResult, BasicOperatingMode, Chain, OperatingMode, RangeInclusiveExt,

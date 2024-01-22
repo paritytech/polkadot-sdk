@@ -18,7 +18,7 @@
 //! Traits for the election operations.
 
 use crate::{Assignment, IdentifierT, IndexAssignmentOf, PerThing128, VoteWeight};
-use alloc::fmt::Debug;
+use alloc::{fmt::Debug, vec::Vec};
 use codec::Encode;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{Bounded, UniqueSaturatedInto};

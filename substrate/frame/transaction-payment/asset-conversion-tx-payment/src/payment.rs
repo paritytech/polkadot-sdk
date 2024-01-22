@@ -17,6 +17,7 @@
 use super::*;
 use crate::Config;
 
+use alloc::vec;
 use core::marker::PhantomData;
 use frame_support::{
 	ensure,

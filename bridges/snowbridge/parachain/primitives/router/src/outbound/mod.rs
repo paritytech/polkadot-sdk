@@ -5,11 +5,9 @@
 #[cfg(test)]
 mod tests;
 
-use core::slice::Iter;
-
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
-
-use core::{iter::Peekable, marker::PhantomData};
+use core::{iter::Peekable, marker::PhantomData, slice::Iter};
 use frame_support::{ensure, traits::Get};
 use snowbridge_core::{
 	outbound::{AgentExecuteCommand, Command, Message, SendMessage},

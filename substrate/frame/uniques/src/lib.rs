@@ -44,6 +44,7 @@ mod types;
 pub mod migration;
 pub mod weights;
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::traits::{
 	tokens::Locker, BalanceStatus::Reserved, Currency, EnsureOriginWithArg, ReservableCurrency,

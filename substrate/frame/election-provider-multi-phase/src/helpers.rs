@@ -21,7 +21,7 @@ use crate::{
 	unsigned::{MinerConfig, MinerVoterOf},
 	SolutionTargetIndexOf, SolutionVoterIndexOf, VoteWeight,
 };
-use alloc::collections::btree_map::BTreeMap;
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 
 #[macro_export]
 macro_rules! log {

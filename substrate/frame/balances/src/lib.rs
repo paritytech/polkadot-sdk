@@ -166,7 +166,7 @@ mod tests;
 mod types;
 pub mod weights;
 
-use alloc::fmt::Debug;
+use alloc::{fmt::Debug, vec::Vec};
 use codec::{Codec, MaxEncodedLen};
 use core::{cmp, mem, result};
 use frame_support::{

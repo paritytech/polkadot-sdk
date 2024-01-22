@@ -28,6 +28,7 @@ use crate::{
 	},
 	traits::{Get, GetDefault, StorageInfo, StorageInstance},
 };
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
 use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
 use sp_runtime::SaturatedConversion;

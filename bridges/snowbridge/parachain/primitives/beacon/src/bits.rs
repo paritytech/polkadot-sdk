@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
+use alloc::vec::Vec;
 use core::convert::TryInto;
 use ssz_rs::{Bitvector, Deserialize};
 

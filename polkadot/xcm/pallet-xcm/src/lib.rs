@@ -29,7 +29,7 @@ mod tests;
 
 pub mod migration;
 
-use alloc::{boxed::Box, vec};
+use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use core::{marker::PhantomData, result::Result};
 use frame_support::{

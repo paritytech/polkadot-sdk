@@ -300,7 +300,7 @@ pub mod weights;
 
 mod pallet;
 
-use alloc::collections::btree_map::BTreeMap;
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
 	defensive, defensive_assert,
@@ -310,6 +310,7 @@ use frame_support::{
 	weights::Weight,
 	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
+use frame_system::pallet_prelude::*;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	curve::PiecewiseLinear,

@@ -35,6 +35,7 @@ mod benchmarking;
 mod tests;
 pub mod weights;
 
+use alloc::vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::GetDispatchInfo,

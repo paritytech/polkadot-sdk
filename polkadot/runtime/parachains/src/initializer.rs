@@ -25,6 +25,7 @@ use crate::{
 	disputes::{self, DisputesHandler as _, SlashingHandler as _},
 	dmp, hrmp, inclusion, paras, scheduler, session_info, shared,
 };
+use alloc::vec::Vec;
 use frame_support::{
 	traits::{OneSessionHandler, Randomness},
 	weights::Weight,

@@ -21,6 +21,7 @@ use crate::{
 	helpers, Call, Config, ElectionCompute, Error, FeasibilityError, Pallet, RawSolution,
 	ReadySolution, RoundSnapshot, SolutionAccuracyOf, SolutionOf, SolutionOrSnapshotSize, Weight,
 };
+use alloc::{boxed::Box, vec::Vec};
 use codec::Encode;
 use frame_election_provider_support::{NposSolution, NposSolver, PerThing128, VoteWeight};
 use frame_support::{

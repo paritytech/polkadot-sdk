@@ -26,6 +26,7 @@ use crate::{
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use frame_support::{pallet_prelude::*, storage_alias, DefaultNoBound};

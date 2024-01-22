@@ -50,6 +50,7 @@ pub mod migrations;
 mod tests;
 pub mod weights;
 
+use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::{

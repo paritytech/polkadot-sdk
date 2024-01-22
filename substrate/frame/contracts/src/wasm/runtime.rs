@@ -24,7 +24,7 @@ use crate::{
 	schedule::HostFnWeights,
 	BalanceOf, CodeHash, Config, DebugBufferVec, Error, SENTINEL,
 };
-use alloc::fmt;
+use alloc::{boxed::Box, fmt, vec, vec::Vec};
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::DispatchInfo,

@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use super::super::*;
+use alloc::boxed::Box;
 
 /// Migrate the locks and vote stake on accounts (as specified with param `to_migrate`) that have
 /// more than their free balance locked.

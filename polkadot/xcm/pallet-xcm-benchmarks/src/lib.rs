@@ -20,9 +20,9 @@
 
 extern crate alloc;
 
+use alloc::vec::Vec;
 use codec::Encode;
 use frame_benchmarking::{account, BenchmarkError};
-
 use xcm::latest::prelude::*;
 use xcm_executor::{
 	traits::{ConvertLocation, FeeReason},

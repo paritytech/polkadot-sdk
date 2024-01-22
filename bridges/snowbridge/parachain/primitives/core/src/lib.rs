@@ -22,6 +22,7 @@ pub use polkadot_parachain_primitives::primitives::{
 pub use ringbuffer::{RingBufferMap, RingBufferMapImpl};
 pub use sp_core::U256;
 
+use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::traits::Contains;
 use hex_literal::hex;

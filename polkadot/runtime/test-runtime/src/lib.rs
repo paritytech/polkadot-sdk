@@ -22,7 +22,7 @@
 
 extern crate alloc;
 
-use alloc::collections::btree_map::BTreeMap;
+use alloc::{boxed::Box, collections::btree_map::BTreeMap, vec::Vec};
 use pallet_transaction_payment::CurrencyAdapter;
 use parity_scale_codec::Encode;
 

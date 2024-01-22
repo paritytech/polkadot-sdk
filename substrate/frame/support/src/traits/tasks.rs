@@ -29,7 +29,6 @@ use sp_weights::Weight;
 /// expansion of `RuntimeTask`.
 #[doc(hidden)]
 pub mod __private {
-	pub use alloc::{fmt::Debug, vec, vec::IntoIter};
 	pub use codec::FullCodec;
 	pub use core::iter::Iterator;
 	pub use scale_info::TypeInfo;

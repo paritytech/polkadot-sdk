@@ -32,6 +32,7 @@ pub mod offchain;
 pub mod onchain;
 mod shared;
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use sp_runtime::{
 	traits::{Convert, OpaqueKeys},
@@ -39,7 +40,6 @@ use sp_runtime::{
 };
 use sp_session::{MembershipProof, ValidatorCount};
 use sp_staking::SessionIndex;
-
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV0},
 	LayoutV0, MemoryDB, Recorder, Trie, TrieMut, EMPTY_PREFIX,

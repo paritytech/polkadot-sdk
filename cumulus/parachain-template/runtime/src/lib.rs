@@ -11,6 +11,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 mod weights;
 pub mod xcm_config;
 
+use alloc::{boxed::Box, vec::Vec};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 use smallvec::smallvec;

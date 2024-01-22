@@ -124,6 +124,7 @@ extern crate alloc;
 #[doc = docify::embed!("src/tests.rs", examples_work)]
 pub mod example {}
 
+use alloc::boxed::Box;
 use codec::FullCodec;
 use frame_election_provider_support::{ScoreProvider, SortedListProvider};
 use frame_system::ensure_signed;

@@ -52,6 +52,7 @@ pub mod bridging;
 pub mod weights;
 pub use weights::WeightInfo;
 
+use alloc::vec::Vec;
 use bounded_collections::BoundedBTreeSet;
 use codec::{Decode, DecodeLimit, Encode};
 use cumulus_primitives_core::{

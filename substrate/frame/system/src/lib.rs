@@ -99,7 +99,7 @@
 
 extern crate alloc;
 
-use alloc::fmt::Debug;
+use alloc::{boxed::Box, fmt::Debug, vec::Vec};
 use core::marker::PhantomData;
 use pallet_prelude::{BlockNumberFor, HeaderFor};
 #[cfg(feature = "std")]
@@ -2163,6 +2163,7 @@ impl<T: Config> Lookup for ChainContext<T> {
 /// Prelude to be used alongside pallet macro, for ease of use.
 pub mod pallet_prelude {
 	pub use crate::{ensure_none, ensure_root, ensure_signed, ensure_signed_or_root};
+	pub use alloc::{boxed::Box, vec, vec::Vec};
 
 	/// Type alias for the `Origin` associated type of system config.
 	pub type OriginFor<T> = <T as crate::Config>::RuntimeOrigin;

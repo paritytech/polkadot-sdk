@@ -242,7 +242,7 @@ fn generate_wasm_interface(impls: &[ItemImpl]) -> Result<TokenStream> {
 								&[0u8; 0]
 							} else {
 								unsafe {
-									#c::slice::from_raw_parts(input_data, input_len)
+									::core::slice::from_raw_parts(input_data, input_len)
 								}
 							};
 

@@ -19,6 +19,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
 use sp_runtime_interface::runtime_interface;
 
 #[cfg(not(feature = "std"))]

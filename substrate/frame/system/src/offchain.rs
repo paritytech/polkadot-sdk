@@ -56,7 +56,7 @@
 
 #![warn(missing_docs)]
 
-use alloc::collections::btree_set::BTreeSet;
+use alloc::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 use codec::Encode;
 use sp_runtime::{
 	app_crypto::RuntimeAppPublic,

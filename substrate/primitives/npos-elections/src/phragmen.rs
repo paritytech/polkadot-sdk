@@ -24,6 +24,7 @@ use crate::{
 	balancing, setup_inputs, BalancingConfig, CandidatePtr, ElectionResult, ExtendedBalance,
 	IdentifierT, PerThing128, VoteWeight, Voter,
 };
+use alloc::vec::Vec;
 use sp_arithmetic::{
 	helpers_128bit::multiply_by_rational_with_rounding,
 	traits::{Bounded, Zero},

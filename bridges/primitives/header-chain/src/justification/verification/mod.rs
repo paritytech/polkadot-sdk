@@ -22,12 +22,16 @@ pub mod strict;
 
 use crate::{justification::GrandpaJustification, AuthoritySet};
 
-use alloc::collections::{
-	btree_map::{
-		BTreeMap,
-		Entry::{Occupied, Vacant},
+use alloc::{
+	collections::{
+		btree_map::{
+			BTreeMap,
+			Entry::{Occupied, Vacant},
+		},
+		btree_set::BTreeSet,
 	},
-	btree_set::BTreeSet,
+	vec,
+	vec::Vec,
 };
 use bp_runtime::HeaderId;
 use finality_grandpa::voter_set::VoterSet;

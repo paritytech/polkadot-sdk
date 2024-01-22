@@ -51,7 +51,11 @@ use crate::{
 	node::{Node, NodeId, NodeRef, NodeRole},
 	ExtendedBalance, IdentifierT, StakedAssignment,
 };
-use alloc::collections::btree_map::{BTreeMap, Entry::*};
+use alloc::{
+	collections::btree_map::{BTreeMap, Entry::*},
+	vec,
+	vec::Vec,
+};
 use sp_arithmetic::traits::{Bounded, Zero};
 
 /// Map type used for reduce_4. Can be easily swapped with HashMap.

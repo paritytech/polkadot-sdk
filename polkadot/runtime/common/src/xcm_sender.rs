@@ -16,6 +16,7 @@
 
 //! XCM sender for relay chain.
 
+use alloc::vec::Vec;
 use core::marker::PhantomData;
 use frame_support::traits::Get;
 use frame_system::pallet_prelude::BlockNumberFor;

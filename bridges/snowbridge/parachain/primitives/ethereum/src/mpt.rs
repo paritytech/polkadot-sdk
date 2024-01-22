@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //! Helper types to work with Ethereum's Merkle Patricia Trie nodes
 
+use alloc::{boxed::Box, vec::Vec};
 use core::convert::TryFrom;
 use ethereum_types::H256;
 

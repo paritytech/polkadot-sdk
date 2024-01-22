@@ -25,6 +25,7 @@ pub mod people;
 mod weights;
 pub mod xcm_config;
 
+use alloc::{boxed::Box, vec::Vec};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{

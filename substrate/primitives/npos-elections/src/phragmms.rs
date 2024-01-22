@@ -25,7 +25,7 @@ use crate::{
 	balance, setup_inputs, BalancingConfig, CandidatePtr, ElectionResult, ExtendedBalance,
 	IdentifierT, PerThing128, VoteWeight, Voter,
 };
-use alloc::rc::Rc;
+use alloc::{rc::Rc, vec, vec::Vec};
 use sp_arithmetic::{traits::Bounded, PerThing, Rational128};
 
 /// Execute the phragmms method.

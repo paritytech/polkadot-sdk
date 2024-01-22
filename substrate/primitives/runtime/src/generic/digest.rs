@@ -30,6 +30,7 @@ use crate::{
 	},
 	ConsensusEngineId,
 };
+use alloc::vec::Vec;
 use sp_core::RuntimeDebug;
 
 /// Generic header digest.

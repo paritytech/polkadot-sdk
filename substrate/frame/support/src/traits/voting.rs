@@ -19,6 +19,7 @@
 //! votes.
 
 use crate::dispatch::Parameter;
+use alloc::vec::Vec;
 use codec::{HasCompact, MaxEncodedLen};
 use sp_arithmetic::Perbill;
 use sp_runtime::{traits::Member, DispatchError};

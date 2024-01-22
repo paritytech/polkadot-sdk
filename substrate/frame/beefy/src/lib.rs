@@ -21,6 +21,7 @@ extern crate alloc;
 
 use codec::{Encode, MaxEncodedLen};
 
+use alloc::{boxed::Box, vec, vec::Vec};
 use frame_support::{
 	dispatch::{DispatchResultWithPostInfo, Pays},
 	pallet_prelude::*,
@@ -33,6 +34,10 @@ use frame_system::{
 	pallet_prelude::{BlockNumberFor, OriginFor},
 };
 use log;
+use sp_consensus_beefy::{
+	AuthorityIndex, BeefyAuthorityId, ConsensusLog, EquivocationProof, OnNewValidatorSet,
+	ValidatorSet, BEEFY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
+};
 use sp_runtime::{
 	generic::DigestItem,
 	traits::{IsMember, Member, One},
@@ -40,11 +45,6 @@ use sp_runtime::{
 };
 use sp_session::{GetSessionNumber, GetValidatorCount};
 use sp_staking::{offence::OffenceReportSystem, SessionIndex};
-
-use sp_consensus_beefy::{
-	AuthorityIndex, BeefyAuthorityId, ConsensusLog, EquivocationProof, OnNewValidatorSet,
-	ValidatorSet, BEEFY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
-};
 
 mod default_weights;
 mod equivocation;

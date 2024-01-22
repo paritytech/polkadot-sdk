@@ -22,7 +22,7 @@
 
 extern crate alloc;
 
-use alloc::collections::btree_map::BTreeMap;
+use alloc::{boxed::Box, collections::btree_map::BTreeMap, vec, vec::Vec};
 use core::cmp::Ordering;
 use pallet_nis::WithMaximumOf;
 use parity_scale_codec::{Decode, Encode, MaxEncodedLen};

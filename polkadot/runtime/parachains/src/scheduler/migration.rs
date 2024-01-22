@@ -17,6 +17,7 @@
 //! A module that is responsible for migration of storage.
 
 use super::*;
+use alloc::vec::Vec;
 use frame_support::{
 	migrations::VersionedMigration, pallet_prelude::ValueQuery, storage_alias,
 	traits::OnRuntimeUpgrade, weights::Weight,

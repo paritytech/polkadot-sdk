@@ -17,7 +17,7 @@
 
 //! (very) Basic implementation of a graph node used in the reduce algorithm.
 
-use alloc::{fmt, rc::Rc};
+use alloc::{fmt, rc::Rc, vec::Vec};
 use core::cell::RefCell;
 
 /// The role that a node can accept.

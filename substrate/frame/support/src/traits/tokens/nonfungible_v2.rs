@@ -29,6 +29,7 @@ use crate::{
 	dispatch::{DispatchResult, Parameter},
 	traits::Get,
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use sp_runtime::TokenError;
 

@@ -31,6 +31,7 @@ use crate::{
 	},
 	Justifications,
 };
+use alloc::vec::Vec;
 use sp_core::RuntimeDebug;
 
 /// Something to identify a block.

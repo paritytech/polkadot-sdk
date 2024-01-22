@@ -28,8 +28,6 @@ use crate::{
 	AccountIdOf, BalanceOf, CodeHash, Config, HoldReason, Pallet, TrieId, Weight, LOG_TARGET,
 };
 #[cfg(feature = "try-runtime")]
-use alloc::vec::Vec;
-#[cfg(feature = "try-runtime")]
 use frame_support::traits::fungible::InspectHold;
 use frame_support::{
 	pallet_prelude::*,

@@ -26,7 +26,7 @@ use crate::{
 	},
 	DispatchResult,
 };
-use alloc::fmt::Debug;
+use alloc::{fmt::Debug, vec::Vec};
 use codec::{Codec, Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
 #[doc(hidden)]
 pub use core::marker::PhantomData;

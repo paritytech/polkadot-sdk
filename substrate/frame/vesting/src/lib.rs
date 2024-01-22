@@ -58,7 +58,7 @@ mod vesting_info;
 pub mod migrations;
 pub mod weights;
 
-use alloc::fmt::Debug;
+use alloc::{fmt::Debug, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_support::{

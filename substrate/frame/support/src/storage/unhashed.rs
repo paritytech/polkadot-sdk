@@ -17,6 +17,7 @@
 
 //! Operation on unhashed runtime storage.
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 
 /// Return the value of the item in storage under `key`, or `None` if there is no explicit entry.

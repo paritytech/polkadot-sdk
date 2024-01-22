@@ -89,6 +89,8 @@ pub fn generate_hidden_includes(unique_id: &str, def_crate: &str) -> TokenStream
 			#[doc(hidden)]
 			mod #mod_name {
 				pub use #path as hidden_include;
+
+				pub use ::alloc::{vec, vec::Vec, boxed::Box};
 			}
 		)
 	} else {
@@ -100,6 +102,7 @@ pub fn generate_hidden_includes(unique_id: &str, def_crate: &str) -> TokenStream
 					#[doc(hidden)]
 					mod #mod_name {
 						pub use #name as hidden_include;
+						pub use ::alloc::{vec, vec::Vec, boxed::Box};
 					}
 				)
 			},

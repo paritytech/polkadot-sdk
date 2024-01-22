@@ -117,6 +117,7 @@ mod mock;
 mod tests;
 pub mod weights;
 
+use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, MaxEncodedLen};
 use core::{
 	marker::PhantomData,

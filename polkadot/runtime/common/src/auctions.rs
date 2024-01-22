@@ -22,6 +22,7 @@ use crate::{
 	slot_range::SlotRange,
 	traits::{AuctionStatus, Auctioneer, LeaseError, Leaser, Registrar},
 };
+use alloc::{vec, vec::Vec};
 use core::mem::swap;
 use frame_support::{
 	dispatch::DispatchResult,

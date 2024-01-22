@@ -96,6 +96,7 @@ pub mod migration;
 mod types;
 pub mod weights;
 
+use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::convert::TryInto;
 use frame_support::pallet_prelude::*;

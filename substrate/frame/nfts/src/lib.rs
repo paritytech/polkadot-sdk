@@ -50,6 +50,7 @@ mod types;
 pub mod macros;
 pub mod weights;
 
+use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::traits::{
 	tokens::Locker, BalanceStatus::Reserved, Currency, EnsureOriginWithArg, Incrementable,

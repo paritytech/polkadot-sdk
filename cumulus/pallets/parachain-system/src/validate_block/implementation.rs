@@ -22,11 +22,11 @@ use cumulus_primitives_core::{
 };
 use cumulus_primitives_parachain_inherent::ParachainInherentData;
 
+use alloc::vec::Vec;
+use codec::Encode;
 use polkadot_parachain_primitives::primitives::{
 	HeadData, RelayChainBlockNumber, ValidationResult,
 };
-
-use codec::Encode;
 
 use frame_support::traits::{ExecuteBlock, ExtrinsicCall, Get, IsSubType};
 use sp_core::storage::{ChildInfo, StateVersion};

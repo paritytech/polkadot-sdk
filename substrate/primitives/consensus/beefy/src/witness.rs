@@ -24,6 +24,7 @@
 //! signed commitment.
 
 use crate::commitment::{Commitment, SignedCommitment};
+use alloc::vec::Vec;
 
 /// A light form of [SignedCommitment].
 ///

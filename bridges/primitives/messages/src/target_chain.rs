@@ -20,7 +20,7 @@ use crate::{
 	LaneId, Message, MessageKey, MessageNonce, MessagePayload, OutboundLaneData, VerificationError,
 };
 
-use alloc::{collections::btree_map::BTreeMap, fmt::Debug};
+use alloc::{collections::btree_map::BTreeMap, fmt::Debug, vec::Vec};
 use bp_runtime::{messages::MessageDispatchResult, Size};
 use codec::{Decode, Encode, Error as CodecError};
 use core::marker::PhantomData;

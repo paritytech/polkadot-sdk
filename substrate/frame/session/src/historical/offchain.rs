@@ -31,6 +31,7 @@ use sp_session::MembershipProof;
 
 use super::{shared, Config, IdentificationTuple, ProvingTrie};
 use crate::{Pallet as SessionModule, SessionIndex};
+use alloc::vec::Vec;
 
 /// A set of validators, which was used for a fixed session index.
 struct ValidatorSet<T: Config> {

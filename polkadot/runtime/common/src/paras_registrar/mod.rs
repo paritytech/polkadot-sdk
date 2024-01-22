@@ -19,6 +19,8 @@
 
 pub mod migration;
 
+use crate::traits::{OnSwap, Registrar};
+use alloc::vec::Vec;
 use core::result;
 use frame_support::{
 	dispatch::DispatchResult,
@@ -27,17 +29,14 @@ use frame_support::{
 	traits::{Currency, Get, ReservableCurrency},
 };
 use frame_system::{self, ensure_root, ensure_signed};
+pub use pallet::*;
+use parity_scale_codec::{Decode, Encode};
 use primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID};
 use runtime_parachains::{
 	configuration, ensure_parachain,
-	paras::{self, ParaGenesisArgs, SetGoAhead},
+	paras::{self, OnNewHead, ParaGenesisArgs, ParaKind, SetGoAhead},
 	Origin, ParaLifecycle,
 };
-
-use crate::traits::{OnSwap, Registrar};
-pub use pallet::*;
-use parity_scale_codec::{Decode, Encode};
-use runtime_parachains::paras::{OnNewHead, ParaKind};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{CheckedSub, Saturating},

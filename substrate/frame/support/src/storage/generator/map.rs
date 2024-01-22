@@ -20,6 +20,7 @@ use crate::{
 	storage::{self, storage_prefix, unhashed, KeyPrefixIterator, PrefixIterator, StorageAppend},
 	Never,
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode, EncodeLike, FullCodec, FullEncode};
 
 /// Generator for `StorageMap` used by `decl_storage`.

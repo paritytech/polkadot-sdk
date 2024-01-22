@@ -21,6 +21,7 @@
 // NOTE: could replace unhashed by having only one kind of storage (top trie being the child info
 // of null length parent storage key).
 
+use alloc::vec::Vec;
 use codec::{Codec, Decode, Encode};
 pub use sp_core::storage::{ChildInfo, ChildType, StateVersion};
 pub use sp_io::{KillStorageResult, MultiRemovalResults};

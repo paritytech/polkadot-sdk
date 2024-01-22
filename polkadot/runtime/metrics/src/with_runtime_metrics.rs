@@ -22,6 +22,7 @@
 
 const TRACING_TARGET: &'static str = "metrics";
 
+use alloc::vec::Vec;
 use parity_scale_codec::Encode;
 use primitives::{
 	metric_definitions::{CounterDefinition, CounterVecDefinition, HistogramDefinition},

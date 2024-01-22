@@ -35,6 +35,7 @@
 //! `name` and `target` data in the `values` map (normally they would be in the static
 //! metadata assembled at compile time).
 
+#![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
 #[cfg(feature = "std")]

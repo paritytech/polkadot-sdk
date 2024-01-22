@@ -35,6 +35,7 @@ mod coretime;
 mod weights;
 pub mod xcm_config;
 
+use alloc::{boxed::Box, vec, vec::Vec};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{

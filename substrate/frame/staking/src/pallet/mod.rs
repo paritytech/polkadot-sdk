@@ -17,6 +17,7 @@
 
 //! Staking FRAME Pallet.
 
+use alloc::{vec, vec::Vec};
 use codec::Codec;
 use frame_election_provider_support::{
 	ElectionProvider, ElectionProviderBase, SortedListProvider, VoteWeight,
@@ -35,7 +36,6 @@ use sp_runtime::{
 	traits::{CheckedSub, SaturatedConversion, StaticLookup, Zero},
 	ArithmeticError, Perbill, Percent,
 };
-
 use sp_staking::{
 	EraIndex, Page, SessionIndex,
 	StakingAccount::{self, Controller, Stash},

@@ -122,7 +122,7 @@ use crate::{
 	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
-use alloc::collections::btree_map::BTreeMap;
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use polkadot_core_primitives as pcp;
 use polkadot_parachain_primitives::primitives as ppp;
 

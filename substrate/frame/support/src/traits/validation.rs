@@ -18,6 +18,7 @@
 //! Traits for dealing with validation and validators.
 
 use crate::{dispatch::Parameter, weights::Weight};
+use alloc::{vec, vec::Vec};
 use codec::{Codec, Decode, MaxEncodedLen};
 use sp_runtime::{
 	traits::{Convert, Zero},

@@ -30,6 +30,7 @@ mod tests;
 
 use core::marker::PhantomData;
 
+use alloc::vec::Vec;
 use codec::Encode;
 use frame_support::weights::Weight;
 use sp_runtime::{traits::Hash, Perbill};

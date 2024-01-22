@@ -45,6 +45,7 @@ pub use payload::{known_payloads, BeefyPayloadId, Payload, PayloadProvider};
 #[cfg(feature = "std")]
 pub use test_utils::*;
 
+use alloc::vec::Vec;
 use codec::{Codec, Decode, Encode};
 use scale_info::TypeInfo;
 use sp_application_crypto::RuntimeAppPublic;

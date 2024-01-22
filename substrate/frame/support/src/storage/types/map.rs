@@ -26,6 +26,7 @@ use crate::{
 	traits::{Get, GetDefault, StorageInfo, StorageInstance},
 	StorageHasher, Twox128,
 };
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
 use frame_support::storage::StorageDecodeNonDedupLength;
 use sp_arithmetic::traits::SaturatedConversion;

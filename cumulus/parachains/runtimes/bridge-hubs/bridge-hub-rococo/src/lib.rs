@@ -37,6 +37,7 @@ pub mod bridge_to_westend_config;
 mod weights;
 pub mod xcm_config;
 
+use alloc::{boxed::Box, vec::Vec};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{

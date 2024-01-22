@@ -25,6 +25,7 @@ use crate::{
 	BalanceOf, CodeHash, CodeInfo, Config, ContractInfoOf, DeletionQueue, DeletionQueueCounter,
 	Error, Pallet, TrieId, SENTINEL,
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_support::{

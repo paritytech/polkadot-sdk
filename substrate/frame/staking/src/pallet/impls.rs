@@ -17,6 +17,7 @@
 
 //! Implementations for the Staking FRAME Pallet.
 
+use alloc::{boxed::Box, vec, vec::Vec};
 use frame_election_provider_support::{
 	bounds::{CountBound, SizeBound},
 	data_provider, BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,

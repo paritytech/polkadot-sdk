@@ -14,7 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use alloc::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
+use alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	vec::Vec,
+};
 use core::mem;
 use sp_runtime::{traits::Saturating, RuntimeDebug};
 use xcm::latest::{

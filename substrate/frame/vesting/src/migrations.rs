@@ -22,6 +22,7 @@ use super::*;
 // Migration from single schedule to multiple schedules.
 pub mod v1 {
 	use super::*;
+	use alloc::vec;
 
 	#[cfg(feature = "try-runtime")]
 	pub fn pre_migrate<T: Config>() -> Result<(), &'static str> {

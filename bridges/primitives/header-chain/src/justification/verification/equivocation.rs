@@ -28,7 +28,11 @@ use crate::{
 	ChainWithGrandpa, FindEquivocations,
 };
 
-use alloc::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
+use alloc::{
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	vec,
+	vec::Vec,
+};
 use bp_runtime::{BlockNumberOf, HashOf, HeaderOf};
 use sp_consensus_grandpa::{AuthorityId, AuthoritySignature, EquivocationProof, Precommit};
 use sp_runtime::traits::Header as HeaderT;

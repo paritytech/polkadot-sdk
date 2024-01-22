@@ -58,18 +58,18 @@
 
 extern crate alloc;
 
+use alloc::vec::Vec;
 use frame_support::weights::Weight;
 use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
 use log;
+pub use pallet::*;
 use sp_mmr_primitives::utils;
+pub use sp_mmr_primitives::{
+	self as primitives, utils::NodesUtils, Error, LeafDataProvider, LeafIndex, NodeIndex,
+};
 use sp_runtime::{
 	traits::{self, One, Saturating},
 	SaturatedConversion,
-};
-
-pub use pallet::*;
-pub use sp_mmr_primitives::{
-	self as primitives, utils::NodesUtils, Error, LeafDataProvider, LeafIndex, NodeIndex,
 };
 
 #[cfg(feature = "runtime-benchmarks")]
