@@ -160,11 +160,11 @@ where
 		Ok(Some(hex_string(&header.encode())))
 	}
 
-	fn archive_unstable_finalized_height(&self) -> RpcResult<u64> {
+	fn archive_unstable_finalized_height(&self) -> RpcResult<u128> {
 		Ok(self.client.info().finalized_number.saturated_into())
 	}
 
-	fn archive_unstable_hash_by_height(&self, height: u64) -> RpcResult<Vec<String>> {
+	fn archive_unstable_hash_by_height(&self, height: u128) -> RpcResult<Vec<String>> {
 		let height: NumberFor<Block> = U256::from(height)
 			.try_into()
 			.map_err(|_| ArchiveError::InvalidParam(format!("Invalid block height: {}", height)))?;
