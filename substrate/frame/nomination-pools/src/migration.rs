@@ -137,6 +137,7 @@ pub(crate) mod v7 {
 		pub state: PoolState,
 	}
 
+	#[allow(dead_code)]
 	#[derive(RuntimeDebugNoBound)]
 	#[cfg_attr(feature = "std", derive(Clone, PartialEq))]
 	pub struct BondedPool<T: Config> {
