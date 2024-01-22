@@ -139,12 +139,12 @@ pub mod pallet_test_notifier {
 construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		AssetsPallet: pallet_assets::{Pallet, Call, Storage, Config<T>, Event<T>},
-		ParasOrigin: origin::{Pallet, Origin},
-		XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config<T>},
-		TestNotifier: pallet_test_notifier::{Pallet, Call, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		AssetsPallet: pallet_assets,
+		ParasOrigin: origin,
+		XcmPallet: pallet_xcm,
+		TestNotifier: pallet_test_notifier,
 	}
 );
 

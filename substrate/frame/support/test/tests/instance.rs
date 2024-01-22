@@ -278,24 +278,14 @@ pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 frame_support::construct_runtime!(
 	pub enum Runtime
 	{
-		System: frame_system::{Pallet, Call, Event<T>},
-		Module1_1: module1::<Instance1>::{
-			Pallet, Call, Storage, Event<T>, Config<T>, Origin<T>, Inherent
-		},
-		Module1_2: module1::<Instance2>::{
-			Pallet, Call, Storage, Event<T>, Config<T>, Origin<T>, Inherent
-		},
-		Module2: module2::{Pallet, Call, Storage, Event<T>, Config<T>, Origin<T>, Inherent},
-		Module2_1: module2::<Instance1>::{
-			Pallet, Call, Storage, Event<T>, Config<T>, Origin<T>, Inherent
-		},
-		Module2_2: module2::<Instance2>::{
-			Pallet, Call, Storage, Event<T>, Config<T>, Origin<T>, Inherent
-		},
-		Module2_3: module2::<Instance3>::{
-			Pallet, Call, Storage, Event<T>, Config<T>, Origin<T>, Inherent
-		},
-		Module3: module3::{Pallet, Call},
+		System: frame_system,
+		Module1_1: module1::<Instance1>,
+		Module1_2: module1::<Instance2>,
+		Module2: module2,
+		Module2_1: module2::<Instance1>,
+		Module2_2: module2::<Instance2>,
+		Module2_3: module2::<Instance3>,
+		Module3: module3,
 	}
 );
 
@@ -350,6 +340,7 @@ impl module3::Config for Runtime {
 
 fn new_test_ext() -> sp_io::TestExternalities {
 	RuntimeGenesisConfig {
+		system: Default::default(),
 		module_1_1: module1::GenesisConfig { value: 3, test: 2 },
 		module_1_2: module1::GenesisConfig { value: 4, test: 5 },
 		module_2: module2::GenesisConfig {
