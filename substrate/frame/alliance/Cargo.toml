@@ -37,7 +37,7 @@ pallet-collective = { path = "../collective", default-features = false, optional
 
 [dev-dependencies]
 array-bytes = "6.1"
-sp-crypto-hashing = { path = "../../primitives/crypto/hashing", default-features = false}
+sp-crypto-hashing = { path = "../../primitives/crypto/hashing", default-features = false }
 pallet-balances = { path = "../balances" }
 pallet-collective = { path = "../collective" }
 

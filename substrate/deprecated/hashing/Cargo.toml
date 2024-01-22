@@ -19,5 +19,5 @@ targets = ["x86_64-unknown-linux-gnu"]
 sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
 
 [features]
-default = [ "std" ]
-std = [ "sp-crypto-hashing/std" ]
+default = ["std"]
+std = ["sp-crypto-hashing/std"]
