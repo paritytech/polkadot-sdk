@@ -40,7 +40,7 @@ pub type BlockNumber = u32;
 pub type AccountId = AccountId32;
 
 construct_runtime!(
-	pub struct Test {
+	pub enum Test {
 		System: frame_system,
 		Balances: pallet_balances,
 		Assets: pallet_assets,
