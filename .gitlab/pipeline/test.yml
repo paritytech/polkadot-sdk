@@ -29,7 +29,7 @@ test-linux-stable:
         --locked \
         --release \
         --no-fail-fast \
-        --features try-runtime,experimental,ci-only-tests \
+        --features try-runtime,experimental,riscv,ci-only-tests \
         --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
     # Upload tests results to Elasticsearch
     - echo "Upload test results to Elasticsearch"
@@ -95,44 +95,6 @@ test-linux-stable-runtime-benchmarks:
 #         --features runtime-benchmarks,try-runtime \
 #         --partition count:${CI_NODE_INDEX}/${CI_NODE_TOTAL}
 #     # todo: add flacky-test collector
-
-# TODO: remove me
-test-linux-stable-additional-tests:
-  stage: test
-  extends:
-    - .docker-env
-    - .common-refs
-    - .run-immediately
-    - .pipeline-stopper-artifacts
-  variables:
-    RUST_TOOLCHAIN: stable
-    # Enable debug assertions since we are running optimized builds for testing
-    # but still want to have debug assertions.
-    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-  script:
-    # tests were moved to test-linux-stable
-    # the jobs should be removed
-    - exit 0
-
-# TODO: remove me
-test-linux-stable-slow:
-  stage: test
-  # remove after cache is setup
-  timeout: 2h
-  extends:
-    - .docker-env
-    - .common-refs
-    - .run-immediately
-    - .pipeline-stopper-artifacts
-  variables:
-    RUST_TOOLCHAIN: stable
-    # Enable debug assertions since we are running optimized builds for testing
-    # but still want to have debug assertions.
-    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
-  script:
-    # tests were moved to test-linux-stable
-    # the jobs should be removed
-    - exit 0
 
 # takes about 1,5h without cache
 # can be used to check that nextest works correctly
@@ -238,6 +200,8 @@ test-deterministic-wasm:
 
 cargo-check-benches:
   stage: test
+  artifacts:
+    expire_in: 10 days
   variables:
     CI_JOB_NAME: "cargo-check-benches"
   extends:
@@ -270,7 +234,7 @@ cargo-check-benches:
       SKIP_WASM_BUILD=1 time cargo check --locked --benches --all;
       cargo run --locked --release -p node-bench -- ::trie::read::small --json
       | tee ./artifacts/benches/$CI_COMMIT_REF_NAME-$CI_COMMIT_SHORT_SHA/::trie::read::small.json;
-      echo "___Uploading cache for rusty-cachier___";
+      echo "___Cache could be uploaded___";
       ;;
       2)
       cargo run --locked --release -p node-bench -- ::node::import::sr25519::transfer_keep_alive::paritydb::small --json
@@ -305,6 +269,10 @@ node-bench-regression-guard:
     CI_IMAGE: "paritytech/node-bench-regression-guard:latest"
   before_script: [""]
   script:
+    - if [ $(ls -la artifacts/benches/ | grep master | wc -l) == 0 ]; then
+      echo "Couldn't find master artifacts";
+      exit 1;
+      fi
     - echo "------- IMPORTANT -------"
     - echo "node-bench-regression-guard depends on the results of a cargo-check-benches job"
     - echo "In case of this job failure, check your pipeline's cargo-check-benches"
@@ -313,7 +281,7 @@ node-bench-regression-guard:
   after_script: [""]
 
 # if this fails run `bot update-ui` in the Pull Request or "./scripts/update-ui-tests.sh" locally
-# see ./docs/CONTRIBUTING.md#ui-tests
+# see ./docs/contributor/CONTRIBUTING.md#ui-tests
 test-frame-ui:
   stage: test
   extends:
@@ -395,7 +363,6 @@ test-linux-stable-int:
     RUN_UI_TESTS: 1
   script:
     - WASM_BUILD_NO_COLOR=1
-      RUST_LOG=sync=trace,consensus=trace,client=trace,state-db=trace,db=trace,forks=trace,state_db=trace,storage_cache=trace
       time cargo test -p staging-node-cli --release --locked -- --ignored
 
 # more information about this job can be found here:
@@ -439,7 +406,8 @@ cargo-check-each-crate:
     - .run-immediately
     # - .collect-artifacts
   variables:
-    # $CI_JOB_NAME is set manually so that rusty-cachier can share the cache for all
+    RUSTFLAGS: "-D warnings"
+    # $CI_JOB_NAME is set manually so that cache could be shared for all jobs
     # "cargo-check-each-crate I/N" jobs
     CI_JOB_NAME: cargo-check-each-crate
   timeout: 2h
@@ -462,10 +430,10 @@ cargo-check-each-crate-macos:
   variables:
     SKIP_WASM_BUILD: 1
   script:
-    # TODO: enable rusty-cachier once it supports Mac
     # TODO: use parallel jobs, as per cargo-check-each-crate, once more Mac runners are available
     # - time ./scripts/ci/gitlab/check-each-crate.py 1 1
     - time cargo check --workspace --locked
+  timeout: 2h
   tags:
     - osx
 
@@ -488,7 +456,7 @@ cargo-hfuzz:
     # use git version of honggfuzz-rs until v0.5.56 is out, we need a few recent changes:
     # https://github.com/rust-fuzz/honggfuzz-rs/pull/75 to avoid breakage on debian
     # https://github.com/rust-fuzz/honggfuzz-rs/pull/81 fix to the above pr
-    # https://github.com/rust-fuzz/honggfuzz-rs/pull/82 fix for handling rusty-cachier's absolute CARGO_TARGET_DIR
+    # https://github.com/rust-fuzz/honggfuzz-rs/pull/82 fix for handling absolute CARGO_TARGET_DIR
     HFUZZ_BUILD_ARGS: >
       --config=patch.crates-io.honggfuzz.git="https://github.com/altaua/honggfuzz-rs"
       --config=patch.crates-io.honggfuzz.rev="205f7c8c059a0d98fe1cb912cdac84f324cb6981"
@@ -520,6 +488,6 @@ test-syscalls:
     - ./list-syscalls.rb ../../../target/x86_64-unknown-linux-musl/production/polkadot-prepare-worker --only-used-syscalls | diff -u prepare-worker-syscalls -
   after_script:
     - if [[ "$CI_JOB_STATUS" == "failed" ]]; then
-        printf "The x86_64 syscalls used by the worker binaries have changed. Please review if this is expected and update polkadot/scripts/list-syscalls/*-worker-syscalls as needed.\n";
+      printf "The x86_64 syscalls used by the worker binaries have changed. Please review if this is expected and update polkadot/scripts/list-syscalls/*-worker-syscalls as needed.\n";
       fi
-  allow_failure: true # TODO: remove this once we have an idea how often the syscall lists will change
+  allow_failure: false # this rarely triggers in practice

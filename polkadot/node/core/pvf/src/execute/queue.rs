@@ -16,12 +16,12 @@
 
 //! A queue that handles requests for PVF execution.
 
-use super::worker_intf::Outcome;
+use super::worker_interface::Outcome;
 use crate::{
 	artifacts::{ArtifactId, ArtifactPathId},
 	host::ResultSender,
 	metrics::Metrics,
-	worker_intf::{IdleWorker, WorkerHandle},
+	worker_interface::{IdleWorker, WorkerHandle},
 	InvalidCandidate, PossiblyInvalidError, ValidationError, LOG_TARGET,
 };
 use futures::{
@@ -372,7 +372,7 @@ fn handle_job_finish(
 			?artifact_id,
 			?worker,
 			worker_rip = idle_worker.is_none(),
-			"execution worker concluded, error occurred: {:?}",
+			"execution worker concluded, error occurred: {}",
 			err
 		);
 	} else {
@@ -448,7 +448,7 @@ async fn spawn_worker_task(
 	use futures_timer::Delay;
 
 	loop {
-		match super::worker_intf::spawn(
+		match super::worker_interface::spawn(
 			&program_path,
 			&cache_path,
 			job.executor_params.clone(),
@@ -500,7 +500,7 @@ fn assign(queue: &mut Queue, worker: Worker, job: ExecuteJob) {
 	queue.mux.push(
 		async move {
 			let _timer = execution_timer;
-			let outcome = super::worker_intf::start_work(
+			let outcome = super::worker_interface::start_work(
 				idle,
 				job.artifact.clone(),
 				job.exec_timeout,

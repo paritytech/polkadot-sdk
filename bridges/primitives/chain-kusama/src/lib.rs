@@ -14,36 +14,39 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+//! Primitives of the Kusama chain.
+
+#![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
-// RuntimeApi generated functions
-#![allow(clippy::too_many_arguments)]
 
 pub use bp_polkadot_core::*;
 
 use bp_header_chain::ChainWithGrandpa;
-use bp_runtime::{decl_bridge_finality_runtime_apis, Chain};
+use bp_runtime::{decl_bridge_finality_runtime_apis, Chain, ChainId};
 use frame_support::weights::Weight;
 
 /// Kusama Chain
 pub struct Kusama;
 
 impl Chain for Kusama {
-	type BlockNumber = <PolkadotLike as Chain>::BlockNumber;
-	type Hash = <PolkadotLike as Chain>::Hash;
-	type Hasher = <PolkadotLike as Chain>::Hasher;
-	type Header = <PolkadotLike as Chain>::Header;
+	const ID: ChainId = *b"ksma";
 
-	type AccountId = <PolkadotLike as Chain>::AccountId;
-	type Balance = <PolkadotLike as Chain>::Balance;
-	type Nonce = <PolkadotLike as Chain>::Nonce;
-	type Signature = <PolkadotLike as Chain>::Signature;
+	type BlockNumber = BlockNumber;
+	type Hash = Hash;
+	type Hasher = Hasher;
+	type Header = Header;
+
+	type AccountId = AccountId;
+	type Balance = Balance;
+	type Nonce = Nonce;
+	type Signature = Signature;
 
 	fn max_extrinsic_size() -> u32 {
-		PolkadotLike::max_extrinsic_size()
+		max_extrinsic_size()
 	}
 
 	fn max_extrinsic_weight() -> Weight {
-		PolkadotLike::max_extrinsic_weight()
+		max_extrinsic_weight()
 	}
 }
 
@@ -52,8 +55,8 @@ impl ChainWithGrandpa for Kusama {
 	const MAX_AUTHORITIES_COUNT: u32 = MAX_AUTHORITIES_COUNT;
 	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 =
 		REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY;
-	const MAX_HEADER_SIZE: u32 = MAX_HEADER_SIZE;
-	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = AVERAGE_HEADER_SIZE_IN_JUSTIFICATION;
+	const MAX_MANDATORY_HEADER_SIZE: u32 = MAX_MANDATORY_HEADER_SIZE;
+	const AVERAGE_HEADER_SIZE: u32 = AVERAGE_HEADER_SIZE;
 }
 
 // The SignedExtension used by Kusama.

@@ -38,8 +38,9 @@ pub use polkadot_runtime_parachains::{
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 };
 pub use xcm::{
-	prelude::{MultiLocation, OriginKind, Outcome, VersionedXcm},
-	v3::Error,
+	prelude::{Location, OriginKind, Outcome, VersionedXcm, XcmVersion},
+	v3,
+	v4::Error as XcmError,
 	DoubleEncoded,
 };
 
@@ -173,10 +174,14 @@ macro_rules! impl_accounts_helpers_for_relay_chain {
 				pub fn fund_accounts(accounts: Vec<($crate::impls::AccountId, $crate::impls::Balance)>) {
 					<Self as $crate::impls::TestExt>::execute_with(|| {
 						for account in accounts {
+							let who = account.0;
+							let actual = <Self as [<$chain RelayPallet>]>::Balances::free_balance(&who);
+							let actual = actual.saturating_add(<Self as [<$chain RelayPallet>]>::Balances::reserved_balance(&who));
+
 							$crate::impls::assert_ok!(<Self as [<$chain RelayPallet>]>::Balances::force_set_balance(
 								<Self as $crate::impls::Chain>::RuntimeOrigin::root(),
-								account.0.into(),
-								account.1,
+								who.into(),
+								actual.saturating_add(account.1),
 							));
 						}
 					});
@@ -205,7 +210,7 @@ macro_rules! impl_assert_events_helpers_for_relay_chain {
 						Self,
 						vec![
 							[<$chain RuntimeEvent>]::<N>::XcmPallet(
-								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Complete(weight) }
+								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Complete { used: weight } }
 							) => {
 								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
@@ -220,27 +225,27 @@ macro_rules! impl_assert_events_helpers_for_relay_chain {
 				/// Asserts a dispatchable is incompletely executed and XCM sent
 				pub fn assert_xcm_pallet_attempted_incomplete(
 					expected_weight: Option<$crate::impls::Weight>,
-					expected_error: Option<$crate::impls::Error>,
+					expected_error: Option<$crate::impls::XcmError>,
 				) {
 					$crate::impls::assert_expected_events!(
 						Self,
 						vec![
 							// Dispatchable is properly executed and XCM message sent
 							[<$chain RuntimeEvent>]::<N>::XcmPallet(
-								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Incomplete(weight, error) }
+								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Incomplete { used: weight, error } }
 							) => {
 								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
 									expected_weight.unwrap_or(*weight),
 									*weight
 								),
-								error: *error == expected_error.unwrap_or(*error),
+								error: *error == expected_error.unwrap_or((*error).into()).into(),
 							},
 						]
 					);
 				}
 
-				/// Asserts a XCM message is sent
+				/// Asserts an XCM program is sent.
 				pub fn assert_xcm_pallet_sent() {
 					$crate::impls::assert_expected_events!(
 						Self,
@@ -250,7 +255,8 @@ macro_rules! impl_assert_events_helpers_for_relay_chain {
 					);
 				}
 
-				/// Asserts a XCM from System Parachain is succesfully received and proccessed
+				/// Asserts an XCM program from a System Parachain is successfully received and
+				/// processed within expectations.
 				pub fn assert_ump_queue_processed(
 					expected_success: bool,
 					expected_id: Option<$crate::impls::ParaId>,
@@ -360,7 +366,7 @@ macro_rules! impl_send_transact_helpers_for_relay_chain {
 
 					<Self as $crate::impls::TestExt>::execute_with(|| {
 						let root_origin = <Self as Chain>::RuntimeOrigin::root();
-						let destination:  $crate::impls::MultiLocation = <Self as RelayChain>::child_location_of(recipient);
+						let destination:  $crate::impls::Location = <Self as RelayChain>::child_location_of(recipient);
 						let xcm = $crate::impls::xcm_transact_unpaid_execution(call, $crate::impls::OriginKind::Superuser);
 
 						// Send XCM `Transact`
@@ -386,13 +392,24 @@ macro_rules! impl_accounts_helpers_for_parachain {
 				pub fn fund_accounts(accounts: Vec<($crate::impls::AccountId, $crate::impls::Balance)>) {
 					<Self as $crate::impls::TestExt>::execute_with(|| {
 						for account in accounts {
+							let who = account.0;
+							let actual = <Self as [<$chain ParaPallet>]>::Balances::free_balance(&who);
+							let actual = actual.saturating_add(<Self as [<$chain ParaPallet>]>::Balances::reserved_balance(&who));
+
 							$crate::impls::assert_ok!(<Self as [<$chain ParaPallet>]>::Balances::force_set_balance(
 								<Self as $crate::impls::Chain>::RuntimeOrigin::root(),
-								account.0.into(),
-								account.1,
+								who.into(),
+								actual.saturating_add(account.1),
 							));
 						}
 					});
+				}
+
+				/// Fund a sovereign account of sibling para.
+				pub fn fund_para_sovereign(sibling_para_id: $crate::impls::ParaId, balance: $crate::impls::Balance) {
+					let sibling_location = Self::sibling_location_of(sibling_para_id);
+					let sovereign_account = Self::sovereign_account_id_of(sibling_location);
+					Self::fund_accounts(vec![(sovereign_account.into(), balance)])
 				}
 
 				/// Return local sovereign account of `para_id` on other `network_id`
@@ -400,13 +417,13 @@ macro_rules! impl_accounts_helpers_for_parachain {
 					network_id: $crate::impls::NetworkId,
 					para_id: $crate::impls::ParaId,
 				) -> $crate::impls::AccountId {
-					let remote_location = $crate::impls::MultiLocation {
-						parents: 2,
-						interior: $crate::impls::Junctions::X2(
+					let remote_location = $crate::impls::Location::new(
+						2,
+						[
 							$crate::impls::Junction::GlobalConsensus(network_id),
 							$crate::impls::Junction::Parachain(para_id.into()),
-						),
-					};
+						],
+					);
 					<Self as $crate::impls::TestExt>::execute_with(|| {
 						Self::sovereign_account_id_of(remote_location)
 					})
@@ -418,7 +435,7 @@ macro_rules! impl_accounts_helpers_for_parachain {
 
 #[macro_export]
 macro_rules! impl_assert_events_helpers_for_parachain {
-	( $chain:ident, $ignore_weight:expr ) => {
+	( $chain:ident ) => {
 		$crate::impls::paste::paste! {
 			type [<$chain RuntimeEvent>]<N> = <$chain<N> as $crate::impls::Chain>::RuntimeEvent;
 
@@ -429,9 +446,9 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 						Self,
 						vec![
 							[<$chain RuntimeEvent>]::<N>::PolkadotXcm(
-								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Complete(weight) }
+								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Complete { used: weight } }
 							) => {
-								weight: $ignore_weight || $crate::impls::weight_within_threshold(
+								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
 									expected_weight.unwrap_or(*weight),
 									*weight
@@ -444,36 +461,36 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 				/// Asserts a dispatchable is incompletely executed and XCM sent
 				pub fn assert_xcm_pallet_attempted_incomplete(
 					expected_weight: Option<$crate::impls::Weight>,
-					expected_error: Option<$crate::impls::Error>,
+					expected_error: Option<$crate::impls::XcmError>,
 				) {
 					$crate::impls::assert_expected_events!(
 						Self,
 						vec![
 							// Dispatchable is properly executed and XCM message sent
 							[<$chain RuntimeEvent>]::<N>::PolkadotXcm(
-								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Incomplete(weight, error) }
+								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Incomplete { used: weight, error } }
 							) => {
-								weight: $ignore_weight || $crate::impls::weight_within_threshold(
+								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
 									expected_weight.unwrap_or(*weight),
 									*weight
 								),
-								error: *error == expected_error.unwrap_or(*error),
+								error: *error == expected_error.unwrap_or((*error).into()).into(),
 							},
 						]
 					);
 				}
 
 				/// Asserts a dispatchable throws and error when trying to be sent
-				pub fn assert_xcm_pallet_attempted_error(expected_error: Option<$crate::impls::Error>) {
+				pub fn assert_xcm_pallet_attempted_error(expected_error: Option<$crate::impls::XcmError>) {
 					$crate::impls::assert_expected_events!(
 						Self,
 						vec![
 							// Execution fails in the origin with `Barrier`
 							[<$chain RuntimeEvent>]::<N>::PolkadotXcm(
-								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Error(error) }
+								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Error { error } }
 							) => {
-								error: *error == expected_error.unwrap_or(*error),
+								error: *error == expected_error.unwrap_or((*error).into()).into(),
 							},
 						]
 					);
@@ -509,7 +526,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 							[<$chain RuntimeEvent>]::<N>::MessageQueue($crate::impls::pallet_message_queue::Event::Processed {
 								success: true, weight_used: weight, ..
 							}) => {
-								weight: $ignore_weight || $crate::impls::weight_within_threshold(
+								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
 									expected_weight.unwrap_or(*weight),
 									*weight
@@ -529,7 +546,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 							[<$chain RuntimeEvent>]::<N>::MessageQueue($crate::impls::pallet_message_queue::Event::Processed {
 								success: false, weight_used: weight, ..
 							}) => {
-								weight: $ignore_weight || $crate::impls::weight_within_threshold(
+								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
 									expected_weight.unwrap_or(*weight),
 									*weight
@@ -560,7 +577,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 						vec![
 							[<$chain RuntimeEvent>]::<N>::MessageQueue($crate::impls::pallet_message_queue::Event::Processed { success: true, weight_used: weight, .. }
 							) => {
-								weight: $ignore_weight || $crate::impls::weight_within_threshold(
+								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
 									expected_weight.unwrap_or(*weight),
 									*weight
@@ -623,7 +640,7 @@ macro_rules! impl_assets_helpers_for_parachain {
 					<Self as $crate::impls::TestExt>::execute_with(|| {
 						$crate::impls::assert_ok!(<Self as [<$chain ParaPallet>]>::Assets::mint(
 							signed_origin,
-							id.into(),
+							id.clone().into(),
 							beneficiary.clone().into(),
 							amount_to_mint
 						));
@@ -701,7 +718,7 @@ macro_rules! impl_assets_helpers_for_parachain {
 							]
 						);
 
-						assert!(<Self as [<$chain ParaPallet>]>::Assets::asset_exists(id.into()));
+						assert!(<Self as [<$chain ParaPallet>]>::Assets::asset_exists(id.clone().into()));
 					});
 				}
 			}
@@ -716,7 +733,7 @@ macro_rules! impl_foreign_assets_helpers_for_parachain {
 			impl<N: $crate::impls::Network> $chain<N> {
 				/// Create foreign assets using sudo `ForeignAssets::force_create()`
 				pub fn force_create_foreign_asset(
-					id: $crate::impls::MultiLocation,
+					id: $crate::impls::v3::Location,
 					owner: $crate::impls::AccountId,
 					is_sufficient: bool,
 					min_balance: u128,
@@ -728,13 +745,13 @@ macro_rules! impl_foreign_assets_helpers_for_parachain {
 						$crate::impls::assert_ok!(
 							<Self as [<$chain ParaPallet>]>::ForeignAssets::force_create(
 								sudo_origin,
-								id,
+								id.clone(),
 								owner.clone().into(),
 								is_sufficient,
 								min_balance,
 							)
 						);
-						assert!(<Self as [<$chain ParaPallet>]>::ForeignAssets::asset_exists(id));
+						assert!(<Self as [<$chain ParaPallet>]>::ForeignAssets::asset_exists(id.clone()));
 						type RuntimeEvent<N> = <$chain<N> as $crate::impls::Chain>::RuntimeEvent;
 						$crate::impls::assert_expected_events!(
 							Self,
@@ -751,21 +768,21 @@ macro_rules! impl_foreign_assets_helpers_for_parachain {
 					for (beneficiary, amount) in prefund_accounts.into_iter() {
 						let signed_origin =
 							<$chain<N> as $crate::impls::Chain>::RuntimeOrigin::signed(owner.clone());
-						Self::mint_foreign_asset(signed_origin, id, beneficiary, amount);
+						Self::mint_foreign_asset(signed_origin, id.clone(), beneficiary, amount);
 					}
 				}
 
 				/// Mint assets making use of the ForeignAssets pallet-assets instance
 				pub fn mint_foreign_asset(
 					signed_origin: <Self as $crate::impls::Chain>::RuntimeOrigin,
-					id: $crate::impls::MultiLocation,
+					id: $crate::impls::v3::Location,
 					beneficiary: $crate::impls::AccountId,
 					amount_to_mint: u128,
 				) {
 					<Self as $crate::impls::TestExt>::execute_with(|| {
 						$crate::impls::assert_ok!(<Self as [<$chain ParaPallet>]>::ForeignAssets::mint(
 							signed_origin,
-							id.into(),
+							id.clone().into(),
 							beneficiary.clone().into(),
 							amount_to_mint
 						));
@@ -789,4 +806,34 @@ macro_rules! impl_foreign_assets_helpers_for_parachain {
 			}
 		}
 	};
+}
+
+#[macro_export]
+macro_rules! impl_xcm_helpers_for_parachain {
+	( $chain:ident ) => {
+		$crate::impls::paste::paste! {
+			impl<N: $crate::impls::Network> $chain<N> {
+				/// Set XCM version for destination.
+				pub fn force_xcm_version(dest: $crate::impls::Location, version: $crate::impls::XcmVersion) {
+					<Self as $crate::impls::TestExt>::execute_with(|| {
+						$crate::impls::assert_ok!(<Self as [<$chain ParaPallet>]>::PolkadotXcm::force_xcm_version(
+							<Self as $crate::impls::Chain>::RuntimeOrigin::root(),
+							$crate::impls::bx!(dest),
+							version,
+						));
+					});
+				}
+
+				/// Set default/safe XCM version for runtime.
+				pub fn force_default_xcm_version(version: Option<$crate::impls::XcmVersion>) {
+					<Self as $crate::impls::TestExt>::execute_with(|| {
+						$crate::impls::assert_ok!(<Self as [<$chain ParaPallet>]>::PolkadotXcm::force_default_xcm_version(
+							<Self as $crate::impls::Chain>::RuntimeOrigin::root(),
+							version,
+						));
+					});
+				}
+			}
+		}
+	}
 }

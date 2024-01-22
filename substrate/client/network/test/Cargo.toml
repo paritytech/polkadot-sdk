@@ -9,15 +9,18 @@ publish = false
 homepage = "https://substrate.io"
 repository.workspace = true
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 tokio = "1.22.0"
-async-trait = "0.1.57"
+async-trait = "0.1.74"
 futures = "0.3.21"
 futures-timer = "3.0.1"
-libp2p = "0.51.3"
+libp2p = "0.51.4"
 log = "0.4.17"
 parking_lot = "0.12.1"
 rand = "0.8.5"
@@ -29,7 +32,7 @@ sc-network-common = { path = "../common" }
 sc-utils = { path = "../../utils" }
 sc-network-light = { path = "../light" }
 sc-network-sync = { path = "../sync" }
-sc-service = { path = "../../service", default-features = false, features = ["test-helpers"]}
+sc-service = { path = "../../service", default-features = false, features = ["test-helpers"] }
 sp-blockchain = { path = "../../../primitives/blockchain" }
 sp-consensus = { path = "../../../primitives/consensus/common" }
 sp-core = { path = "../../../primitives/core" }

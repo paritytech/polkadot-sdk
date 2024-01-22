@@ -16,24 +16,18 @@
 
 //! Approval DB migration helpers.
 use super::*;
-use crate::backend::Backend;
-use polkadot_node_primitives::approval::v1::{
-	AssignmentCert, AssignmentCertKind, VrfOutput, VrfProof, VrfSignature, RELAY_VRF_MODULO_CONTEXT,
+use crate::{
+	approval_db::common::{
+		migration_helpers::{dummy_assignment_cert, make_bitvec},
+		Error, Result, StoredBlockRange,
+	},
+	backend::Backend,
 };
+
+use polkadot_node_primitives::approval::v1::AssignmentCertKind;
 use polkadot_node_subsystem_util::database::Database;
 use sp_application_crypto::sp_core::H256;
 use std::{collections::HashSet, sync::Arc};
-
-fn dummy_assignment_cert(kind: AssignmentCertKind) -> AssignmentCert {
-	let ctx = schnorrkel::signing_context(RELAY_VRF_MODULO_CONTEXT);
-	let msg = b"test-garbage";
-	let mut prng = rand_core::OsRng;
-	let keypair = schnorrkel::Keypair::generate_with(&mut prng);
-	let (inout, proof, _) = keypair.vrf_sign(ctx.bytes(msg));
-	let out = inout.to_output();
-
-	AssignmentCert { kind, vrf: VrfSignature { output: VrfOutput(out), proof: VrfProof(proof) } }
-}
 
 fn make_block_entry_v1(
 	block_hash: Hash,
@@ -54,14 +48,10 @@ fn make_block_entry_v1(
 	}
 }
 
-fn make_bitvec(len: usize) -> BitVec<u8, BitOrderLsb0> {
-	bitvec::bitvec![u8, BitOrderLsb0; 0; len]
-}
-
 /// Migrates `OurAssignment`, `CandidateEntry` and `ApprovalEntry` to version 2.
 /// Returns on any error.
 /// Must only be used in parachains DB migration code - `polkadot-service` crate.
-pub fn v1_to_v2(db: Arc<dyn Database>, config: Config) -> Result<()> {
+pub fn v1_to_latest(db: Arc<dyn Database>, config: Config) -> Result<()> {
 	let mut backend = crate::DbBackend::new(db, config);
 	let all_blocks = backend
 		.load_all_blocks()
@@ -85,11 +75,13 @@ pub fn v1_to_v2(db: Arc<dyn Database>, config: Config) -> Result<()> {
 	let mut counter = 0;
 	// Get all candidate entries, approval entries and convert each of them.
 	for block in all_blocks {
-		for (_core_index, candidate_hash) in block.candidates() {
+		for (candidate_index, (_core_index, candidate_hash)) in
+			block.candidates().iter().enumerate()
+		{
 			// Loading the candidate will also perform the conversion to the updated format and
 			// return that represantation.
 			if let Some(candidate_entry) = backend
-				.load_candidate_entry_v1(&candidate_hash)
+				.load_candidate_entry_v1(&candidate_hash, candidate_index as CandidateIndex)
 				.map_err(|e| Error::InternalError(e))?
 			{
 				// Write the updated representation.
@@ -109,42 +101,8 @@ pub fn v1_to_v2(db: Arc<dyn Database>, config: Config) -> Result<()> {
 	Ok(())
 }
 
-// Checks if the migration doesn't leave the DB in an unsane state.
-// This function is to be used in tests.
-pub fn v1_to_v2_sanity_check(
-	db: Arc<dyn Database>,
-	config: Config,
-	expected_candidates: HashSet<CandidateHash>,
-) -> Result<()> {
-	let backend = crate::DbBackend::new(db, config);
-
-	let all_blocks = backend
-		.load_all_blocks()
-		.unwrap()
-		.iter()
-		.map(|block_hash| backend.load_block_entry(block_hash).unwrap().unwrap())
-		.collect::<Vec<_>>();
-
-	let mut candidates = HashSet::new();
-
-	// Iterate all blocks and approval entries.
-	for block in all_blocks {
-		for (_core_index, candidate_hash) in block.candidates() {
-			// Loading the candidate will also perform the conversion to the updated format and
-			// return that represantation.
-			if let Some(candidate_entry) = backend.load_candidate_entry(&candidate_hash).unwrap() {
-				candidates.insert(candidate_entry.candidate.hash());
-			}
-		}
-	}
-
-	assert_eq!(candidates, expected_candidates);
-
-	Ok(())
-}
-
 // Fills the db with dummy data in v1 scheme.
-pub fn v1_to_v2_fill_test_data<F>(
+pub fn v1_fill_test_data<F>(
 	db: Arc<dyn Database>,
 	config: Config,
 	dummy_candidate_create: F,

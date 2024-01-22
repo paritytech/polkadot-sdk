@@ -7,13 +7,16 @@ version = "1.0.0"
 authors.workspace = true
 publish = false
 
+[lints]
+workspace = true
+
 [[bin]]
 name = "undying-collator"
 path = "src/main.rs"
 
 [dependencies]
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
-clap = { version = "4.4.6", features = ["derive"] }
+clap = { version = "4.4.18", features = ["derive"] }
 futures = "0.3.21"
 futures-timer = "3.0.2"
 log = "0.4.17"
@@ -39,6 +42,3 @@ sc-service = { path = "../../../../../substrate/client/service" }
 sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
 
 tokio = { version = "1.24.2", features = ["macros"] }
-
-[features]
-network-protocol-staging = [ "polkadot-cli/network-protocol-staging" ]

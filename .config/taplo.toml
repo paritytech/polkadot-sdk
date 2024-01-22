@@ -1,0 +1,33 @@
+# all options https://taplo.tamasfe.dev/configuration/formatter-options.html
+
+# ignore zombienet as they do some deliberate custom toml stuff
+exclude = [
+	"cumulus/zombienet/**",
+	"polkadot/node/malus/integrationtests/**",
+	"polkadot/zombienet_tests/**",
+	"substrate/zombienet/**",
+]
+
+# global rules
+[formatting]
+reorder_arrays = true
+inline_table_expand = false
+array_auto_expand = false
+array_auto_collapse = false
+indent_string = "	"         # tab
+
+# don't re-order order-dependent deb package metadata
+[[rule]]
+include = ["polkadot/Cargo.toml"]
+keys = ["package.metadata.deb"]
+
+[rule.formatting]
+reorder_arrays = false
+
+# don't re-order order-dependent rustflags
+[[rule]]
+include = [".cargo/config.toml"]
+keys = ["build"]
+
+[rule.formatting]
+reorder_arrays = false

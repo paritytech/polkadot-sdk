@@ -4,8 +4,11 @@ cargo-clippy:
     - .docker-env
     - .common-refs
     - .pipeline-stopper-artifacts
+  variables:
+    RUSTFLAGS: "-D warnings"
   script:
-    - SKIP_WASM_BUILD=1 env -u RUSTFLAGS cargo clippy --all-targets --locked --workspace
+    - SKIP_WASM_BUILD=1 cargo clippy --all-targets --locked --workspace
+    - SKIP_WASM_BUILD=1 cargo clippy --all-targets --all-features --locked --workspace
 
 check-try-runtime:
   stage: check
@@ -65,11 +68,7 @@ test-rust-features:
     - .kubernetes-env
     - .test-refs-no-trigger-prs-only
   script:
-    - git clone
-      --depth=1
-      --branch="master"
-      https://github.com/paritytech/pipeline-scripts
-    - bash ./pipeline-scripts/rust-features.sh .
+    - bash .gitlab/rust-features.sh .
 
 job-starter:
   stage: check
@@ -87,8 +86,16 @@ check-rust-feature-propagation:
     - .kubernetes-env
     - .common-refs
   script:
-    - cargo install --locked --version 0.13.3 -q -f zepter && zepter --version
     - zepter run check
+
+check-toml-format:
+  stage: check
+  extends:
+    - .kubernetes-env
+    - .common-refs
+  script:
+    - taplo format --check --config .config/taplo.toml
+    - echo "Please run `taplo format --config .config/taplo.toml` to fix any toml formatting issues"
 
 # More info can be found here: https://github.com/paritytech/polkadot/pull/5865
 .check-runtime-migration:
@@ -111,6 +118,7 @@ check-rust-feature-propagation:
       time ./try-runtime ${COMMAND_EXTRA_ARGS} \
           --runtime ./target/release/wbuild/"$PACKAGE"/"$WASM" \
           on-runtime-upgrade --disable-spec-version-check --checks=all ${SUBCOMMAND_EXTRA_ARGS} live --uri ${URI}
+      sleep 5
 
 # Check runtime migrations for Parity managed relay chains
 check-runtime-migration-westend:
@@ -215,6 +223,19 @@ check-runtime-migration-collectives-westend:
     WASM: "collectives_westend_runtime.compact.compressed.wasm"
     URI: "wss://westend-collectives-rpc.polkadot.io:443"
     COMMAND_EXTRA_ARGS: "--disable-spec-name-check"
+
+# Check runtime migrations for Parity managed coretime chain
+check-runtime-migration-coretime-rococo:
+  stage: check
+  extends:
+    - .docker-env
+    - .test-pr-refs
+    - .check-runtime-migration
+  variables:
+    NETWORK: "coretime-rococo"
+    PACKAGE: "coretime-rococo-runtime"
+    WASM: "coretime_rococo_runtime.compact.compressed.wasm"
+    URI: "wss://rococo-coretime-rpc.polkadot.io:443"
 
 find-fail-ci-phrase:
   stage: check

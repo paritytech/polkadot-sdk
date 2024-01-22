@@ -7,6 +7,9 @@ license.workspace = true
 version = "1.0.0"
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 frame-support = { path = "../../../../substrate/frame/support", default-features = false }
@@ -26,5 +29,5 @@ xcm-executor = { package = "staging-xcm-executor", path = ".." }
 sp-tracing = { path = "../../../../substrate/primitives/tracing" }
 
 [features]
-default = [ "std" ]
-std = [ "frame-support/std", "sp-runtime/std", "xcm/std" ]
+default = ["std"]
+std = ["frame-support/std", "sp-runtime/std", "xcm/std"]
