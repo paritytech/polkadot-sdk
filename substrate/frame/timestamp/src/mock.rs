@@ -37,8 +37,8 @@ type Moment = u64;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+		System: frame_system,
+		Timestamp: pallet_timestamp,
 	}
 );
 
