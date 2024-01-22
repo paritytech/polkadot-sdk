@@ -18,4 +18,4 @@ asset-hub-westend-collator1: js-script ../helpers/wait-hrmp-channel-opened.js wi
 asset-hub-westend-collator1: run ../scripts/invoke-script.sh with "reserve-transfer-assets-from-asset-hub-westend-local" within 120 seconds
 
 # step 5: ensure that relayer won't sync any extra headers while delivering messages and confirmations
-bridge-hub-westend-collator1: js-script ../helpers/only-required-headers-synced-when-active.js with "rococo-at-westend" return is 1 within 600 seconds
+bridge-hub-westend-collator1: js-script ../helpers/only-required-headers-synced-when-active.js with "300,rococo-at-westend" return is 1 within 600 seconds

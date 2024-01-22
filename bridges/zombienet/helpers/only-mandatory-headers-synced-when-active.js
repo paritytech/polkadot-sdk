@@ -3,7 +3,7 @@ const utils = require("./utils");
 async function run(nodeName, networkInfo, args) {
     const {wsUri, userDefinedTypes} = networkInfo.nodesByName[nodeName];
     const api = await zombie.connect(wsUri, userDefinedTypes);
-console.log("=== 1");
+
     // parse arguments
     const exitAfterSeconds = Number(args[0]);
     const bridgedChain = require("./chains/" + args[1]);
