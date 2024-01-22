@@ -17,7 +17,7 @@ bridge-hub-rococo-collator1: run ../scripts/start-relayer.sh within 60 seconds
 
 # step 4: ensure that relayer is only syncing mandatory headers while idle. This includes both headers that were
 # born while relay was offline and those in the next 100 seconds while script is active.
-bridge-hub-rococo-collator1: js-script ../helpers/only-mandatory-headers-synced-when-idle.js with "300,westend-at-rococo" return is 1 within 600 seconds
+bridge-hub-rococo-collator1: js-script ../helpers/only-mandatory-headers-synced-when-idle.js with "300,westend-at-rococo" within 600 seconds
 
 # wait until other network test has completed OR exit with an error too
 asset-hub-rococo-collator1: run ../scripts/sync-exit.sh within 600 seconds

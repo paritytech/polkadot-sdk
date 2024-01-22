@@ -3,8 +3,6 @@ async function run(nodeName, networkInfo, args) {
     const api = await zombie.connect(wsUri, userDefinedTypes);
 
     const sibling = args[0];
-console.log("=== aaa");
-console.warn("=== bbb");
     while (true) {
         const messagingStateAsObj = await api.query.parachainSystem.relevantMessagingState();
         const messagingState = api.createType("Option<CumulusPalletParachainSystemRelayStateSnapshotMessagingStateSnapshot>", messagingStateAsObj);

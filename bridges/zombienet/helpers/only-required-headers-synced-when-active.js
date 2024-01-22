@@ -56,6 +56,11 @@ async function run(nodeName, networkInfo, args) {
                 throw new Error("Unexpected parachain header import: " + newParachainHeaders + " / " + 1);
             }
         }
+
+        // if we have received message and confirmation => exit
+        if (atLeastOneMessageReceived && atLeastOneMessageDelivered) {
+            process.exit();
+        }
     });
 
     // wait given time
@@ -67,8 +72,6 @@ async function run(nodeName, networkInfo, args) {
     if (!atLeastOneMessageDelivered) {
         throw new Error("No messages delivered to bridged chain");
     }
-    // else => everything is ok
-    return 1;
 }
 
 module.exports = { run }

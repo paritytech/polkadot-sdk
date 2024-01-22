@@ -39,8 +39,6 @@ async function run(nodeName, networkInfo, args) {
     if (totalParachainHeaders == 0) {
         throw new Error("No bridged parachain headers imported");
     }
-    // else => everything is ok
-    return 1;
 }
 
 module.exports = { run }
