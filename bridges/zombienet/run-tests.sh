@@ -2,7 +2,7 @@
 set -x
 shopt -s nullglob
 
-trap "trap - SIGINT SIGTERM EXIT && killall -9 substrate-relay && kill -- -$$" SIGINT SIGTERM EXIT
+trap "trap - SIGINT SIGTERM EXIT && killall -q -9 substrate-relay && kill -- -$$" SIGINT SIGTERM EXIT
 
 # run tests in range [TESTS_BEGIN; TESTS_END)
 TESTS_BEGIN=1
