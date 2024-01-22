@@ -233,10 +233,10 @@ impl pallet_message_queue::Config for Runtime {
 
 construct_runtime!(
 	pub enum Runtime {
-		System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		ParasOrigin: origin::{Pallet, Origin},
-		XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin},
-		MessageQueue: pallet_message_queue::{Pallet, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		ParasOrigin: origin,
+		XcmPallet: pallet_xcm,
+		MessageQueue: pallet_message_queue,
 	}
 );
