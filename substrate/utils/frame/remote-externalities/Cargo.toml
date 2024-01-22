@@ -20,6 +20,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1" }
 log = "0.4.17"
 serde = "1.0.195"
 sp-core = { path = "../../../primitives/core" }
+sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
 sp-state-machine = { path = "../../../primitives/state-machine" }
 sp-io = { path = "../../../primitives/io" }
 sp-runtime = { path = "../../../primitives/runtime" }

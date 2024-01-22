@@ -53,7 +53,7 @@ libsecp256k1 = { version = "0.7", default-features = false, features = ["static-
 schnorrkel = { version = "0.11.4", features = ["preaudit_deprecated"], default-features = false }
 merlin = { version = "3.0", default-features = false }
 secp256k1 = { version = "0.28.0", default-features = false, features = ["alloc", "recovery"], optional = true }
-sp-core-hashing = { path = "hashing", default-features = false, optional = true }
+sp-crypto-hashing = { path = "../crypto/hashing", default-features = false, optional = true }
 sp-runtime-interface = { path = "../runtime-interface", default-features = false }
 
 # bls crypto
@@ -66,7 +66,6 @@ criterion = "0.4.0"
 serde_json = "1.0.111"
 lazy_static = "1.4.0"
 regex = "1.6.0"
-sp-core-hashing-proc-macro = { path = "hashing/proc-macro" }
 
 [[bench]]
 name = "bench"
@@ -110,7 +109,7 @@ std = [
 	"secp256k1/std",
 	"secrecy/alloc",
 	"serde/std",
-	"sp-core-hashing/std",
+	"sp-crypto-hashing/std",
 	"sp-debug-derive/std",
 	"sp-externalities/std",
 	"sp-runtime-interface/std",
@@ -136,7 +135,7 @@ serde = [
 	"primitive-types/serde_no_std",
 	"scale-info/serde",
 	"secrecy/alloc",
-	"sp-core-hashing",
+	"sp-crypto-hashing",
 	"sp-storage/serde",
 ]
 
@@ -149,7 +148,7 @@ full_crypto = [
 	"ed25519-zebra",
 	"libsecp256k1",
 	"secp256k1",
-	"sp-core-hashing",
+	"sp-crypto-hashing",
 	"sp-runtime-interface/disable_target_static_assertions",
 ]
 
