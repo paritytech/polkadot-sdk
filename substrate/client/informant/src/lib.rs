@@ -39,7 +39,7 @@ fn interval(duration: Duration) -> impl Stream<Item = ()> + Unpin {
 /// The format to print telemetry output in.
 #[derive(Clone, Debug)]
 pub struct OutputFormat {
-	/// Enable color output in log s.
+	/// Enable color output in logs.
 	///
 	/// Is enabled by default.
 	pub enable_color: bool,
