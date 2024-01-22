@@ -186,7 +186,7 @@ impl HostFnReturn {
 			Self::U64 => quote! { ::core::primitive::u64 },
 		};
 		quote! {
-			::core::result::Result<#ok, ::wasmi::core::Trap>
+			::core::result::Result<#ok, ::wasmi::Error>
 		}
 	}
 }
@@ -660,7 +660,7 @@ fn expand_functions(def: &EnvDef, expand_blocks: bool, host_state: TokenStream2)
 		let into_host = if expand_blocks {
 			quote! {
 				|reason| {
-					::wasmi::core::Trap::from(reason)
+					::wasmi::Error::host(reason)
 				}
 			}
 		} else {

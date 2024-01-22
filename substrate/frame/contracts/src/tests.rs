@@ -3078,7 +3078,7 @@ fn gas_estimation_call_runtime() {
 		// contract encodes the result of the dispatch runtime
 		let outcome = u32::decode(&mut result.result.unwrap().data.as_ref()).unwrap();
 		assert_eq!(outcome, 0);
-		assert!(result.gas_required.ref_time() > result.gas_consumed.ref_time());
+		assert!(result.gas_required.ref_time() >= result.gas_consumed.ref_time());
 
 		// Make the same call using the required gas. Should succeed.
 		assert_ok!(

@@ -29,7 +29,7 @@ serde = { version = "1", optional = true, features = ["derive"] }
 smallvec = { version = "1", default-features = false, features = [
 	"const_generics",
 ] }
-wasmi = { version = "0.31", default-features = false }
+wasmi = { version = "0.32.0-beta.5", default-features = false }
 impl-trait-for-tuples = "0.2"
 
 # Only used in benchmarking to generate contract code
