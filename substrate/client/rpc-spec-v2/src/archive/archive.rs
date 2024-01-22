@@ -34,7 +34,7 @@ use sp_api::{CallApiAt, CallContext};
 use sp_blockchain::{
 	Backend as BlockChainBackend, Error as BlockChainError, HeaderBackend, HeaderMetadata,
 };
-use sp_core::Bytes;
+use sp_core::{Bytes, U256};
 use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, NumberFor},
 	SaturatedConversion,
@@ -127,7 +127,6 @@ impl<BE, Block, Client> ArchiveApiServer<Block::Hash> for Archive<BE, Block, Cli
 where
 	Block: BlockT + 'static,
 	Block::Header: Unpin,
-	<<Block as BlockT>::Header as HeaderT>::Number: From<u64>,
 	BE: Backend<Block> + 'static,
 	Client: BlockBackend<Block>
 		+ ExecutorProvider<Block>
@@ -166,7 +165,10 @@ where
 	}
 
 	fn archive_unstable_hash_by_height(&self, height: u64) -> RpcResult<Vec<String>> {
-		let height: NumberFor<Block> = height.into();
+		let height: NumberFor<Block> = U256::from(height)
+			.try_into()
+			.map_err(|_| ArchiveError::InvalidParam(format!("Invalid block height: {}", height)))?;
+
 		let finalized_num = self.client.info().finalized_number;
 
 		if finalized_num >= height {
