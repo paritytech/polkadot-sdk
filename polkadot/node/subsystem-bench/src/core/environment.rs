@@ -313,19 +313,6 @@ impl TestEnvironment {
 	}
 
 	/// Tells if entries in bucket metric is lower than `value`
-	pub fn metric_with_label_lower_than(
-		&self,
-		metric_name: &str,
-		label_name: &str,
-		label_value: &str,
-		value: f64,
-	) -> bool {
-		let test_metrics = super::display::parse_metrics(self.registry())
-			.subset_with_label_value(label_name, label_value);
-		test_metrics.metric_lower_than(metric_name, value)
-	}
-
-	/// Tells if entries in bucket metric is lower than `value`
 	pub fn metric_lower_than(registry: &Registry, metric_name: &str, value: f64) -> bool {
 		let test_metrics = super::display::parse_metrics(registry);
 		test_metrics.metric_lower_than(metric_name, value)

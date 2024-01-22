@@ -793,7 +793,7 @@ pub fn new_network(
 		peers_indicies.partial_shuffle(&mut thread_rng(), connected_count);
 
 	// Node under test is always mark as disconnected.
-	peers[NODE_UNDER_TEST].disconnect();
+	peers[NODE_UNDER_TEST as usize].disconnect();
 	for peer in to_disconnect.iter().skip(1) {
 		peers[*peer].disconnect();
 	}
