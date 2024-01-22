@@ -5,6 +5,7 @@ version = "0.1.1"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition = "2021"
 license = "Apache-2.0"
+publish = false
 
 [dependencies]
 serde = { version = "1.0.195", optional = true, features = ["derive"] }

@@ -5,6 +5,7 @@ version = "0.1.0"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition = "2021"
 license = "Apache-2.0"
+publish = false
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }

@@ -5,6 +5,7 @@ authors.workspace = true
 edition.workspace = true
 description = "Rococo's BridgeHub  parachain runtime"
 license = "Apache-2.0"
+publish = false
 
 [lints]
 workspace = true
