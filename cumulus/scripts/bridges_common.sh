@@ -71,10 +71,10 @@ function generate_hex_encoded_call_data() {
 function call_polkadot_js_api() {
     local extra=
     if [ -n "${NOWAIT}" ]; then
-        extra="${extra} --noWait --nonce -1"
+        extra="${extra} --noWait"
     fi
     set -x
-    polkadot-js-api ${extra} "$@"
+    polkadot-js-api ${extra} --nonce -1 "$@"
 }
 
 function transfer_balance() {
