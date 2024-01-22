@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
-use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::{boxed::Box, vec::Vec};
 use sp_core::H256;
 use sp_io::hashing::keccak_256;
 

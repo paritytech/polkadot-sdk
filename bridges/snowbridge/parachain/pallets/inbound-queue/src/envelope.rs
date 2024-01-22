@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use snowbridge_core::{inbound::Log, ChannelId};
 
-use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::vec::Vec;
 use core::convert::TryFrom;
 use sp_core::{RuntimeDebug, H160, H256};
 
