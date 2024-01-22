@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Migrates the storage to version 4.
+//! Migrates the storage to version 5.
 
 use crate::*;
 use cumulus_primitives_core::ListChannelInfos;
@@ -31,8 +31,8 @@ pub trait V5Config: Config {
 /// The migration itself is a no-op, but it checks that none of the `BoundedVec`s would truncate on
 /// the next decode after the upgrade was applied.
 pub type MigrateV4ToV5<T> = frame_support::migrations::VersionedMigration<
-	3,
 	4,
+	5,
 	unversioned::UncheckedMigrateV4ToV5<T>,
 	Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
