@@ -50,7 +50,7 @@ impl<T: Config> From<&WasmModule<T>> for Sandbox {
 			StackLimits::default(),
 			// We are testing with an empty environment anyways
 			AllowDeprecatedInterface::No,
-			CompilationMode::Lazy,
+			CompilationMode::Eager,
 		)
 		.expect("Failed to create benchmarking Sandbox instance");
 
