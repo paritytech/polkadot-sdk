@@ -103,7 +103,6 @@ impl SessionGridTopology {
 			{
 				peer.peer_ids.push(peer_id);
 				self.peer_ids.insert(peer_id);
-				return true;
 			}
 		}
 		false
@@ -383,7 +382,6 @@ impl SessionGridTopologies {
 		let entry = self.inner.entry(session).or_insert((None, 0));
 		if entry.0.is_none() {
 			let local_neighbors = local_index
-				.clone()
 				.and_then(|l| topology.compute_grid_neighbors_for(l))
 				.unwrap_or_else(GridNeighbors::empty);
 
@@ -461,7 +459,6 @@ impl SessionBoundGridTopologyStorage {
 		local_index: Option<ValidatorIndex>,
 	) {
 		let local_neighbors = local_index
-			.clone()
 			.and_then(|l| topology.compute_grid_neighbors_for(l))
 			.unwrap_or_else(GridNeighbors::empty);
 

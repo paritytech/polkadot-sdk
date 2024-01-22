@@ -727,15 +727,14 @@ impl State {
 							.blocks_by_number
 							.iter()
 							.filter(|(block_number, _)| *block_number > &view.finalized_number)
-							.map(|(_, hashes)| {
+							.flat_map(|(_, hashes)| {
 								hashes.iter().filter(|hash| {
 									self.blocks
 										.get(&hash)
 										.map(|block| block.known_by.get(&peer_id).is_some())
 										.unwrap_or_default()
 								})
-							})
-							.flatten();
+							});
 						let view_intersection =
 							View::new(intersection.cloned(), view.finalized_number);
 						Self::unify_with_peer(

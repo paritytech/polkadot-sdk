@@ -153,7 +153,7 @@ fn make_gossip_topology(
 	assert!(all_peers.len() >= grid_size);
 
 	let peer_info = |i: usize| TopologyPeerInfo {
-		peer_ids: all_peers[i].0.clone().into_iter().collect_vec(),
+		peer_ids: all_peers[i].0.into_iter().collect_vec(),
 		validator_index: ValidatorIndex::from(i as u32),
 		discovery_id: all_peers[i].1.clone(),
 	};
