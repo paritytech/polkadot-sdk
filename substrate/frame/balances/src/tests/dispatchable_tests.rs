@@ -18,9 +18,15 @@
 //! Tests regarding the functionality of the dispatchables/extrinsics.
 
 use super::*;
-use crate::AdjustmentDirection::{Decrease as Dec, Increase as Inc};
+use crate::{
+	AdjustmentDirection::{Decrease as Dec, Increase as Inc},
+	Event,
+};
 use frame_support::traits::{fungible::Unbalanced, tokens::Preservation::Expendable};
 use fungible::{hold::Mutate as HoldMutate, Inspect, Mutate};
+
+/// Alice account ID for more readable tests.
+const ALICE: u64 = 1;
 
 #[test]
 fn default_indexing_on_new_accounts_should_not_work2() {
@@ -225,6 +231,28 @@ fn upgrade_accounts_should_work() {
 }
 
 #[test]
+#[docify::export]
+fn force_adjust_total_issuance_example() {
+	ExtBuilder::default().build_and_execute_with(|| {
+		// First we set the TotalIssuance to 64 by giving Alice a balance of 64.
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), ALICE, 64));
+		let old_ti = Balances::total_issuance();
+		assert_eq!(old_ti, 64, "TI should be 64");
+
+		// Now test the increase:
+		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Inc, 32));
+		let new_ti = Balances::total_issuance();
+		assert_eq!(old_ti + 32, new_ti, "Should increase by 32");
+
+		// If Alice tries to call it, it errors:
+		assert_noop!(
+			Balances::force_adjust_total_issuance(RawOrigin::Signed(ALICE).into(), Inc, 32),
+			BadOrigin,
+		);
+	});
+}
+
+#[test]
 fn force_adjust_total_issuance_works() {
 	ExtBuilder::default().build_and_execute_with(|| {
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 1337, 64));
@@ -233,10 +261,18 @@ fn force_adjust_total_issuance_works() {
 		// Increase works:
 		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Inc, 32));
 		assert_eq!(Balances::total_issuance(), ti + 32);
+		System::assert_last_event(RuntimeEvent::Balances(Event::TotalIssuanceForced {
+			old: 64,
+			new: 96,
+		}));
 
 		// Decrease works:
 		assert_ok!(Balances::force_adjust_total_issuance(RawOrigin::Root.into(), Dec, 64));
 		assert_eq!(Balances::total_issuance(), ti - 32);
+		System::assert_last_event(RuntimeEvent::Balances(Event::TotalIssuanceForced {
+			old: 96,
+			new: 32,
+		}));
 	});
 }
 

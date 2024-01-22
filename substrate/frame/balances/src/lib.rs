@@ -386,7 +386,7 @@ pub mod pallet {
 		/// Some balance was thawed.
 		Thawed { who: T::AccountId, amount: T::Balance },
 		/// The `TotalIssuance` was forcefully changed.
-		TotalIssuanceChanged { old: T::Balance, new: T::Balance },
+		TotalIssuanceForced { old: T::Balance, new: T::Balance },
 	}
 
 	#[pallet::error]
@@ -753,7 +753,10 @@ pub mod pallet {
 
 		/// Adjust the total issuance in a saturating way.
 		///
-		/// Must only be called by root and always with a positive `delta`.
+		/// Can only be called by root and always needs a positive `delta`.
+		///
+		/// # Example
+		#[doc = docify::embed!("./src/tests/dispatchable_tests.rs", force_adjust_total_issuance_example)]
 		#[pallet::call_index(9)]
 		#[pallet::weight(T::WeightInfo::force_adjust_total_issuance())]
 		pub fn force_adjust_total_issuance(
@@ -774,7 +777,7 @@ pub mod pallet {
 			ensure!(InactiveIssuance::<T, I>::get() <= new, Error::<T, I>::IssuanceDeactivated);
 			TotalIssuance::<T, I>::set(new);
 
-			Self::deposit_event(Event::<T, I>::TotalIssuanceChanged { old, new });
+			Self::deposit_event(Event::<T, I>::TotalIssuanceForced { old, new });
 
 			Ok(())
 		}
