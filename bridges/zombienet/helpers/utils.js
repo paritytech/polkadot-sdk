@@ -1,4 +1,14 @@
 module.exports = {
+    logEvents: function(events) {
+        let sevents = "";
+        events.forEach((record) => {
+            if (sevents != "") {
+                sevents += ", ";
+            }
+            sevents += record.event.section + "::" + record.event.method;
+        });
+        console.log("Block events: " + sevents);
+    },
     countGrandpaHeaderImports: function(bridgedChain, events) {
         return events.reduce(
             (count, record) => {
@@ -43,6 +53,7 @@ module.exports = {
 
         // check that our assumptions are correct
         if (newGrandpaHeaders > maxNewGrandpaHeaders) {
+            module.exports.logEvents(currentEvents);
             throw new Error("Unexpected relay chain header import: " + newGrandpaHeaders + " / " + maxNewGrandpaHeaders);
         }
 
@@ -64,6 +75,7 @@ module.exports = {
 
         // check that our assumptions are correct
         if (newParachainHeaders > maxNewParachainHeaders) {
+            module.exports.logEvents(currentEvents);
             throw new Error("Unexpected parachain header import: " + newParachainHeaders + " / " + maxNewParachainHeaders);
         }
 

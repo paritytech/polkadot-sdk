@@ -47,12 +47,14 @@ async function run(nodeName, networkInfo, args) {
             // otherwise we only accept at most one GRANDPA header
             const newGrandpaHeaders = utils.countGrandpaHeaderImports(bridgedChain, currentEvents);
             if (newGrandpaHeaders > 1) {
+                module.exports.logEvents(currentEvents);
                 throw new Error("Unexpected relay chain header import: " + newGrandpaHeaders + " / " + 1);
             }
 
             // ...and at most one parachain header
             const newParachainHeaders = utils.countParachainHeaderImports(bridgedChain, currentEvents);
             if (newParachainHeaders > 1) {
+                module.exports.logEvents(currentEvents);
                 throw new Error("Unexpected parachain header import: " + newParachainHeaders + " / " + 1);
             }
         }
