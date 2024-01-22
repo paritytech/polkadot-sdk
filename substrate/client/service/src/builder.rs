@@ -670,7 +670,7 @@ where
 	// An archive node that can respond to the `archive` RPC-v2 queries is a node with:
 	// - state pruning in archive mode: The storage of blocks is kept around
 	// - block pruning in archive mode: The block's body is kept around
-	let is_archive_node = config.state_pruning.map(|sp| sp.is_archive()).unwrap_or(false) &&
+	let is_archive_node = config.state_pruning.as_ref().map(|sp| sp.is_archive()).unwrap_or(false) &&
 		config.blocks_pruning.is_archive();
 	let genesis_hash = client.hash(Zero::zero()).ok().flatten().expect("Genesis block exists; qed");
 	let archive_v2 = sc_rpc_spec_v2::archive::Archive::new(
