@@ -21,7 +21,7 @@ use cumulus_primitives_core::{
 };
 use cumulus_primitives_parachain_inherent::MessageQueueChain;
 use sc_client_api::{Backend, StorageProvider};
-use sp_core::twox_128;
+use sp_crypto_hashing::twox_128;
 use sp_inherents::{InherentData, InherentDataProvider};
 use sp_runtime::traits::Block;
 use std::collections::BTreeMap;

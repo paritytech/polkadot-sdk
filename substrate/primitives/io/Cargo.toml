@@ -17,11 +17,11 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
-
 [dependencies]
 bytes = { version = "1.1.0", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["bytes"] }
 sp-core = { path = "../core", default-features = false }
+sp-crypto-hashing = { path = "../crypto/hashing", default-features = false }
 sp-keystore = { path = "../keystore", default-features = false, optional = true }
 sp-std = { path = "../std", default-features = false }
 libsecp256k1 = { version = "0.7", optional = true }
@@ -52,6 +52,7 @@ std = [
 	"log/std",
 	"secp256k1",
 	"sp-core/std",
+	"sp-crypto-hashing/std",
 	"sp-externalities/std",
 	"sp-keystore/std",
 	"sp-runtime-interface/std",
