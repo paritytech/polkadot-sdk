@@ -54,8 +54,7 @@ pub fn enable_for_worker(worker_info: &WorkerInfo) -> Result<()> {
 ///
 /// NOTE: This should not be called in a multi-threaded context. `unshare(2)`:
 ///       "CLONE_NEWUSER requires that the calling process is not threaded."
-#[cfg(target_os = "linux")]
-pub fn check_is_fully_enabled(tempdir: &Path) -> Result<()> {
+pub fn check_can_fully_enable(tempdir: &Path) -> Result<()> {
 	let worker_dir_path = tempdir.to_owned();
 	try_restrict(&WorkerInfo {
 		pid: std::process::id(),
@@ -69,7 +68,6 @@ pub fn check_is_fully_enabled(tempdir: &Path) -> Result<()> {
 ///
 /// NOTE: This should not be called in a multi-threaded context. `unshare(2)`:
 ///       "CLONE_NEWUSER requires that the calling process is not threaded."
-#[cfg(target_os = "linux")]
 fn try_restrict(worker_info: &WorkerInfo) -> Result<()> {
 	// TODO: Remove this once this is stable: https://github.com/rust-lang/rust/issues/105723
 	macro_rules! cstr_ptr {
@@ -77,12 +75,6 @@ fn try_restrict(worker_info: &WorkerInfo) -> Result<()> {
 			concat!($e, "\0").as_ptr().cast::<core::ffi::c_char>()
 		};
 	}
-
-	gum::trace!(
-		target: LOG_TARGET,
-		?worker_info,
-		"unsharing the user namespace and calling pivot_root",
-	);
 
 	let worker_dir_path_c = CString::new(worker_info.worker_dir_path.as_os_str().as_bytes())
 		.expect("on unix; the path will never contain 0 bytes; qed");

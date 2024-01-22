@@ -215,7 +215,7 @@ pub type AmbassadorSalaryInstance = pallet_salary::Instance2;
 parameter_types! {
 	// The interior location on AssetHub for the paying account. This is the Ambassador Salary
 	// pallet instance (which sits at index 74). This sovereign account will need funding.
-	pub AmbassadorSalaryLocation: InteriorMultiLocation = PalletInstance(74).into();
+	pub AmbassadorSalaryLocation: InteriorLocation = PalletInstance(74).into();
 }
 
 /// [`PayOverXcm`] setup to pay the Ambassador salary on the AssetHub in WND.

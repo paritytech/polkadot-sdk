@@ -41,8 +41,8 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		CoreFellowship: pallet_core_fellowship::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		CoreFellowship: pallet_core_fellowship,
 	}
 );
 
@@ -376,13 +376,5 @@ fn active_changing_get_salary_works() {
 			assert_ok!(CoreFellowship::set_active(signed(10 + i), true));
 			assert_eq!(CoreFellowship::get_salary(i as u16, &(10 + i)), i * 10);
 		}
-	});
-}
-
-#[test]
-fn approve_imports_not_tracked_member() {
-	new_test_ext().execute_with(|| {
-		set_rank(10, 5);
-		assert_ok!(CoreFellowship::approve(signed(5), 10, 5));
 	});
 }

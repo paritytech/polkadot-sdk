@@ -100,17 +100,19 @@ impl pallet_balances::Config for Runtime {
 	type MaxFreezes = ConstU32<0>;
 }
 
-impl shared::Config for Runtime {}
+impl shared::Config for Runtime {
+	type DisabledValidators = ();
+}
 
 impl configuration::Config for Runtime {
 	type WeightInfo = configuration::TestWeightInfo;
 }
 
 parameter_types! {
-	pub const TokenLocation: MultiLocation = Here.into_location();
+	pub const TokenLocation: Location = Here.into_location();
 	pub const ThisNetwork: NetworkId = NetworkId::ByGenesis([0; 32]);
 	pub const AnyNetwork: Option<NetworkId> = None;
-	pub const UniversalLocation: InteriorMultiLocation = Here;
+	pub const UniversalLocation: InteriorLocation = Here;
 }
 
 pub type SovereignAccountOf =
@@ -129,7 +131,7 @@ type LocalOriginConverter = (
 
 parameter_types! {
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
-	pub KsmPerSecondPerByte: (AssetId, u128, u128) = (Concrete(TokenLocation::get()), 1, 1);
+	pub KsmPerSecondPerByte: (AssetId, u128, u128) = (AssetId(TokenLocation::get()), 1, 1);
 	pub const MaxInstructions: u32 = u32::MAX;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
@@ -250,10 +252,10 @@ impl pallet_message_queue::Config for Runtime {
 construct_runtime!(
 	pub enum Runtime
 	{
-		System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		ParasOrigin: origin::{Pallet, Origin},
-		XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin},
-		MessageQueue: pallet_message_queue::{Pallet, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		ParasOrigin: origin,
+		XcmPallet: pallet_xcm,
+		MessageQueue: pallet_message_queue,
 	}
 );

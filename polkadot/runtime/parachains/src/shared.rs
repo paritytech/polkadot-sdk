@@ -19,11 +19,14 @@
 //! To avoid cyclic dependencies, it is important that this pallet is not
 //! dependent on any of the other pallets.
 
-use frame_support::pallet_prelude::*;
+use frame_support::{pallet_prelude::*, traits::DisabledValidators};
 use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::{SessionIndex, ValidatorId, ValidatorIndex};
 use sp_runtime::traits::AtLeast32BitUnsigned;
-use sp_std::{collections::vec_deque::VecDeque, vec::Vec};
+use sp_std::{
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	vec::Vec,
+};
 
 use rand::{seq::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha20Rng;
@@ -129,7 +132,9 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {}
+	pub trait Config: frame_system::Config {
+		type DisabledValidators: frame_support::traits::DisabledValidators;
+	}
 
 	/// The current session index.
 	#[pallet::storage]
@@ -216,6 +221,25 @@ impl<T: Config> Pallet<T> {
 		Self::session_index().saturating_add(SESSION_DELAY)
 	}
 
+	/// Fetches disabled validators list from session pallet.
+	/// CAVEAT: this might produce incorrect results on session boundaries
+	pub fn disabled_validators() -> Vec<ValidatorIndex> {
+		let shuffled_indices = Pallet::<T>::active_validator_indices();
+		// mapping from raw validator index to `ValidatorIndex`
+		// this computation is the same within a session, but should be cheap
+		let reverse_index = shuffled_indices
+			.iter()
+			.enumerate()
+			.map(|(i, v)| (v.0, ValidatorIndex(i as u32)))
+			.collect::<BTreeMap<u32, ValidatorIndex>>();
+
+		// we might have disabled validators who are not parachain validators
+		T::DisabledValidators::disabled_validators()
+			.iter()
+			.filter_map(|v| reverse_index.get(v).cloned())
+			.collect()
+	}
+
 	/// Test function for setting the current session index.
 	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 	pub fn set_session_index(index: SessionIndex) {
@@ -238,5 +262,17 @@ impl<T: Config> Pallet<T> {
 		assert_eq!(indices.len(), keys.len());
 		ActiveValidatorIndices::<T>::set(indices);
 		ActiveValidatorKeys::<T>::set(keys);
+	}
+
+	#[cfg(test)]
+	pub(crate) fn add_allowed_relay_parent(
+		relay_parent: T::Hash,
+		state_root: T::Hash,
+		number: BlockNumberFor<T>,
+		max_ancestry_len: u32,
+	) {
+		AllowedRelayParents::<T>::mutate(|tracker| {
+			tracker.update(relay_parent, state_root, number, max_ancestry_len)
+		})
 	}
 }

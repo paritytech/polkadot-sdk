@@ -20,37 +20,31 @@ mod send_xcm;
 mod snowbridge;
 mod teleport;
 
-pub(crate) fn asset_hub_westend_location() -> MultiLocation {
-	MultiLocation {
-		parents: 2,
-		interior: X2(
-			GlobalConsensus(NetworkId::Westend),
-			Parachain(AssetHubWestend::para_id().into()),
-		),
-	}
+pub(crate) fn asset_hub_westend_location() -> Location {
+	Location::new(
+		2,
+		[GlobalConsensus(NetworkId::Westend), Parachain(AssetHubWestend::para_id().into())],
+	)
 }
 
-pub(crate) fn bridge_hub_westend_location() -> MultiLocation {
-	MultiLocation {
-		parents: 2,
-		interior: X2(
-			GlobalConsensus(NetworkId::Westend),
-			Parachain(BridgeHubWestend::para_id().into()),
-		),
-	}
+pub(crate) fn bridge_hub_westend_location() -> Location {
+	Location::new(
+		2,
+		[GlobalConsensus(NetworkId::Westend), Parachain(BridgeHubWestend::para_id().into())],
+	)
 }
 
 pub(crate) fn send_asset_from_asset_hub_rococo(
-	destination: MultiLocation,
-	(id, amount): (MultiLocation, u128),
+	destination: Location,
+	(id, amount): (Location, u128),
 ) -> DispatchResult {
 	let signed_origin =
 		<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get().into());
 
-	let beneficiary: MultiLocation =
+	let beneficiary: Location =
 		AccountId32Junction { network: None, id: AssetHubWestendReceiver::get().into() }.into();
 
-	let assets: MultiAssets = (id, amount).into();
+	let assets: Assets = (id, amount).into();
 	let fee_asset_item = 0;
 
 	AssetHubRococo::execute_with(|| {
