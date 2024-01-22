@@ -3774,7 +3774,7 @@ dependencies = [
  "sc-client-api",
  "scale-info",
  "sp-api",
- "sp-core",
+ "sp-crypto-hashing",
  "sp-inherents",
  "sp-runtime",
  "sp-state-machine",
@@ -3912,6 +3912,7 @@ dependencies = [
  "sc-client-api",
  "scale-info",
  "sp-core",
+ "sp-crypto-hashing",
  "sp-externalities 0.19.0",
  "sp-inherents",
  "sp-io",
@@ -5689,6 +5690,7 @@ dependencies = [
  "sp-api",
  "sp-arithmetic",
  "sp-core",
+ "sp-crypto-hashing",
  "sp-crypto-hashing-proc-macro",
  "sp-debug-derive 8.0.0",
  "sp-genesis-builder",
@@ -8780,6 +8782,7 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus",
  "sp-core",
+ "sp-crypto-hashing",
  "sp-inherents",
  "sp-io",
  "sp-keyring",
@@ -10152,6 +10155,7 @@ dependencies = [
  "serde",
  "sp-arithmetic",
  "sp-core",
+ "sp-crypto-hashing",
  "sp-io",
  "sp-runtime",
  "sp-std 8.0.0",
@@ -10678,6 +10682,7 @@ dependencies = [
  "scale-info",
  "sp-consensus-sassafras",
  "sp-core",
+ "sp-crypto-hashing",
  "sp-io",
  "sp-runtime",
  "sp-std 8.0.0",
@@ -10789,6 +10794,7 @@ dependencies = [
  "scale-info",
  "sp-arithmetic",
  "sp-core",
+ "sp-crypto-hashing",
  "sp-io",
  "sp-runtime",
  "sp-std 8.0.0",
@@ -13322,6 +13328,7 @@ dependencies = [
  "sp-application-crypto",
  "sp-arithmetic",
  "sp-core",
+ "sp-crypto-hashing",
  "sp-inherents",
  "sp-io",
  "sp-keyring",
@@ -15963,6 +15970,7 @@ dependencies = [
  "schnellru",
  "sp-api",
  "sp-core",
+ "sp-crypto-hashing",
  "sp-externalities 0.19.0",
  "sp-io",
  "sp-maybe-compressed-blob",
@@ -16144,7 +16152,7 @@ dependencies = [
  "sc-network",
  "sp-blockchain",
  "sp-consensus",
- "sp-core",
+ "sp-crypto-hashing",
  "sp-runtime",
  "substrate-test-runtime",
  "substrate-test-runtime-client",
@@ -16396,6 +16404,7 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus",
  "sp-core",
+ "sp-crypto-hashing",
  "sp-io",
  "sp-keystore",
  "sp-offchain",
@@ -16753,6 +16762,7 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus",
  "sp-core",
+ "sp-crypto-hashing",
  "sp-runtime",
  "sp-tracing 10.0.0",
  "sp-transaction-pool",
@@ -17686,6 +17696,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core",
+ "sp-crypto-hashing",
  "sp-runtime",
 ]
 
@@ -18333,14 +18344,14 @@ dependencies = [
 
 [[package]]
 name = "sp-core-hashing"
-version = "9.1.0"
+version = "15.0.0"
 dependencies = [
  "sp-crypto-hashing",
 ]
 
 [[package]]
 name = "sp-core-hashing-proc-macro"
-version = "9.1.0"
+version = "15.0.0"
 dependencies = [
  "sp-crypto-hashing-proc-macro",
 ]
@@ -19206,6 +19217,7 @@ dependencies = [
  "sp-consensus-beefy",
  "sp-consensus-grandpa",
  "sp-core",
+ "sp-crypto-hashing",
  "sp-externalities 0.19.0",
  "sp-inherents",
  "sp-io",
@@ -19649,6 +19661,7 @@ dependencies = [
  "sp-consensus-babe",
  "sp-consensus-grandpa",
  "sp-core",
+ "sp-crypto-hashing",
  "sp-externalities 0.19.0",
  "sp-genesis-builder",
  "sp-inherents",
@@ -22093,6 +22106,7 @@ dependencies = [
  "polkadot-runtime-parachains",
  "sp-arithmetic",
  "sp-core",
+ "sp-crypto-hashing",
  "sp-io",
  "sp-runtime",
  "sp-std 8.0.0",

@@ -1125,7 +1125,7 @@ fn upgrade_version_checks_should_work() {
 		ext.register_extension(sp_core::traits::ReadRuntimeVersionExt::new(read_runtime_version));
 		ext.execute_with(|| {
 			let new_code = vec![1, 2, 3, 4];
-			let new_code_hash = H256(sp_core::blake2_256(&new_code));
+			let new_code_hash = H256(sp_crypto_hashing::blake2_256(&new_code));
 
 			#[allow(deprecated)]
 			let _authorize = ParachainSystem::authorize_upgrade(RawOrigin::Root.into(), new_code_hash, true);
