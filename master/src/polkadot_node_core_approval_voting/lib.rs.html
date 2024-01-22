@@ -6190,7 +6190,7 @@
 			<span class="kw">_ </span>=&gt; {},
 		}
 
-		<span class="macro">gum::debug!</span>(
+		<span class="macro">gum::trace!</span>(
 			target: LOG_TARGET,
 			validator_index = approval.validator.<span class="number">0</span>,
 			candidate_hash = <span class="question-mark">?</span>approved_candidate_hash,
@@ -6307,7 +6307,7 @@
 		</span><span class="kw">let </span>is_approved = check.is_approved(tick_now.saturating_sub(APPROVAL_DELAY));
 		<span class="kw">if </span>status.last_no_shows != <span class="number">0 </span>{
 			metrics.on_observed_no_shows(status.last_no_shows);
-			<span class="macro">gum::debug!</span>(
+			<span class="macro">gum::trace!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>candidate_hash,
 				<span class="question-mark">?</span>block_hash,
