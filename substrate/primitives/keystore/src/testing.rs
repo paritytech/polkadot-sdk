@@ -479,7 +479,7 @@ mod tests {
 		let suri = "//Alice";
 		let pair = ecdsa::Pair::from_string(suri, None).unwrap();
 
-		// Lets pretend this to be the hash output as content doesn't really matter here.
+		// Let's pretend this to be the hash output as content doesn't really matter here.
 		let hash = [0xff; 32];
 
 		// no key in key store
