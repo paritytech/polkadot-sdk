@@ -1042,8 +1042,6 @@
 <a href="#1042" id="1042">1042</a>
 <a href="#1043" id="1043">1043</a>
 <a href="#1044" id="1044">1044</a>
-<a href="#1045" id="1045">1045</a>
-<a href="#1046" id="1046">1046</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1681,64 +1679,62 @@
 	<span class="kw">pub enum </span>Runtime
 	{
 		<span class="comment">// System support stuff.
-		</span>System: frame_system::{Pallet, Call, Config&lt;T&gt;, Storage, Event&lt;T&gt;} = <span class="number">0</span>,
-		ParachainSystem: cumulus_pallet_parachain_system::{
-			Pallet, Call, Config&lt;T&gt;, Storage, Inherent, Event&lt;T&gt;, ValidateUnsigned,
-		} = <span class="number">1</span>,
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = <span class="number">2</span>,
-		ParachainInfo: parachain_info::{Pallet, Storage, Config&lt;T&gt;} = <span class="number">3</span>,
+		</span>System: frame_system = <span class="number">0</span>,
+		ParachainSystem: cumulus_pallet_parachain_system = <span class="number">1</span>,
+		Timestamp: pallet_timestamp = <span class="number">2</span>,
+		ParachainInfo: parachain_info = <span class="number">3</span>,
 
 		<span class="comment">// Monetary stuff.
-		</span>Balances: pallet_balances::{Pallet, Call, Storage, Config&lt;T&gt;, Event&lt;T&gt;} = <span class="number">10</span>,
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event&lt;T&gt;} = <span class="number">11</span>,
+		</span>Balances: pallet_balances = <span class="number">10</span>,
+		TransactionPayment: pallet_transaction_payment = <span class="number">11</span>,
 
 		<span class="comment">// Collator support. the order of these 5 are important and shall not change.
-		</span>Authorship: pallet_authorship::{Pallet, Storage} = <span class="number">20</span>,
-		CollatorSelection: pallet_collator_selection::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;} = <span class="number">21</span>,
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config&lt;T&gt;} = <span class="number">22</span>,
-		Aura: pallet_aura::{Pallet, Storage, Config&lt;T&gt;} = <span class="number">23</span>,
-		AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config&lt;T&gt;} = <span class="number">24</span>,
+		</span>Authorship: pallet_authorship = <span class="number">20</span>,
+		CollatorSelection: pallet_collator_selection = <span class="number">21</span>,
+		Session: pallet_session = <span class="number">22</span>,
+		Aura: pallet_aura = <span class="number">23</span>,
+		AuraExt: cumulus_pallet_aura_ext = <span class="number">24</span>,
 
 		<span class="comment">// XCM helpers.
-		</span>XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">30</span>,
-		PolkadotXcm: pallet_xcm::{Pallet, Call, Storage, Event&lt;T&gt;, Origin, Config&lt;T&gt;} = <span class="number">31</span>,
-		CumulusXcm: cumulus_pallet_xcm::{Pallet, Event&lt;T&gt;, Origin} = <span class="number">32</span>,
-		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">34</span>,
+		</span>XcmpQueue: cumulus_pallet_xcmp_queue = <span class="number">30</span>,
+		PolkadotXcm: pallet_xcm = <span class="number">31</span>,
+		CumulusXcm: cumulus_pallet_xcm = <span class="number">32</span>,
+		MessageQueue: pallet_message_queue = <span class="number">34</span>,
 
 		<span class="comment">// Handy utilities.
-		</span>Utility: pallet_utility::{Pallet, Call, Event} = <span class="number">40</span>,
-		Multisig: pallet_multisig::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">41</span>,
-		Proxy: pallet_proxy::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">42</span>,
-		Preimage: pallet_preimage::{Pallet, Call, Storage, Event&lt;T&gt;, HoldReason} = <span class="number">43</span>,
-		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">44</span>,
-		AssetRate: pallet_asset_rate::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">45</span>,
+		</span>Utility: pallet_utility = <span class="number">40</span>,
+		Multisig: pallet_multisig = <span class="number">41</span>,
+		Proxy: pallet_proxy = <span class="number">42</span>,
+		Preimage: pallet_preimage = <span class="number">43</span>,
+		Scheduler: pallet_scheduler = <span class="number">44</span>,
+		AssetRate: pallet_asset_rate = <span class="number">45</span>,
 
 		<span class="comment">// The main stage.
 
 		// The Alliance.
-		</span>Alliance: pallet_alliance::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;} = <span class="number">50</span>,
-		AllianceMotion: pallet_collective::&lt;Instance1&gt;::{Pallet, Call, Storage, Origin&lt;T&gt;, Event&lt;T&gt;, Config&lt;T&gt;} = <span class="number">51</span>,
+		</span>Alliance: pallet_alliance = <span class="number">50</span>,
+		AllianceMotion: pallet_collective::&lt;Instance1&gt; = <span class="number">51</span>,
 
 		<span class="comment">// The Fellowship.
 		// pub type FellowshipCollectiveInstance = pallet_ranked_collective::Instance1;
-		</span>FellowshipCollective: pallet_ranked_collective::&lt;Instance1&gt;::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">60</span>,
+		</span>FellowshipCollective: pallet_ranked_collective::&lt;Instance1&gt; = <span class="number">60</span>,
 		<span class="comment">// pub type FellowshipReferendaInstance = pallet_referenda::Instance1;
-		</span>FellowshipReferenda: pallet_referenda::&lt;Instance1&gt;::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">61</span>,
-		FellowshipOrigins: pallet_fellowship_origins::{Origin} = <span class="number">62</span>,
+		</span>FellowshipReferenda: pallet_referenda::&lt;Instance1&gt; = <span class="number">61</span>,
+		FellowshipOrigins: pallet_fellowship_origins = <span class="number">62</span>,
 		<span class="comment">// pub type FellowshipCoreInstance = pallet_core_fellowship::Instance1;
-		</span>FellowshipCore: pallet_core_fellowship::&lt;Instance1&gt;::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">63</span>,
+		</span>FellowshipCore: pallet_core_fellowship::&lt;Instance1&gt; = <span class="number">63</span>,
 		<span class="comment">// pub type FellowshipSalaryInstance = pallet_salary::Instance1;
-		</span>FellowshipSalary: pallet_salary::&lt;Instance1&gt;::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">64</span>,
+		</span>FellowshipSalary: pallet_salary::&lt;Instance1&gt; = <span class="number">64</span>,
 		<span class="comment">// pub type FellowshipTreasuryInstance = pallet_treasury::Instance1;
-		</span>FellowshipTreasury: pallet_treasury::&lt;Instance1&gt;::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">65</span>,
+		</span>FellowshipTreasury: pallet_treasury::&lt;Instance1&gt; = <span class="number">65</span>,
 
 		<span class="comment">// Ambassador Program.
-		</span>AmbassadorCollective: pallet_ranked_collective::&lt;Instance2&gt;::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">70</span>,
-		AmbassadorReferenda: pallet_referenda::&lt;Instance2&gt;::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">71</span>,
-		AmbassadorOrigins: pallet_ambassador_origins::{Origin} = <span class="number">72</span>,
-		AmbassadorCore: pallet_core_fellowship::&lt;Instance2&gt;::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">73</span>,
-		AmbassadorSalary: pallet_salary::&lt;Instance2&gt;::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">74</span>,
-		AmbassadorContent: pallet_collective_content::&lt;Instance1&gt;::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">75</span>,
+		</span>AmbassadorCollective: pallet_ranked_collective::&lt;Instance2&gt; = <span class="number">70</span>,
+		AmbassadorReferenda: pallet_referenda::&lt;Instance2&gt; = <span class="number">71</span>,
+		AmbassadorOrigins: pallet_ambassador_origins = <span class="number">72</span>,
+		AmbassadorCore: pallet_core_fellowship::&lt;Instance2&gt; = <span class="number">73</span>,
+		AmbassadorSalary: pallet_salary::&lt;Instance2&gt; = <span class="number">74</span>,
+		AmbassadorContent: pallet_collective_content::&lt;Instance1&gt; = <span class="number">75</span>,
 	}
 );
 

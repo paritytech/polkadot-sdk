@@ -3947,121 +3947,121 @@
 	<span class="kw">pub enum </span>Runtime
 	{
 		<span class="comment">// Basic stuff; balances is uncallable initially.
-		</span>System: frame_system::{Pallet, Call, Storage, Config&lt;T&gt;, Event&lt;T&gt;} = <span class="number">0</span>,
+		</span>System: frame_system = <span class="number">0</span>,
 
 		<span class="comment">// Babe must be before session.
-		</span>Babe: pallet_babe::{Pallet, Call, Storage, Config&lt;T&gt;, ValidateUnsigned} = <span class="number">1</span>,
+		</span>Babe: pallet_babe = <span class="number">1</span>,
 
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = <span class="number">2</span>,
-		Indices: pallet_indices::{Pallet, Call, Storage, Config&lt;T&gt;, Event&lt;T&gt;} = <span class="number">3</span>,
-		Balances: pallet_balances::{Pallet, Call, Storage, Config&lt;T&gt;, Event&lt;T&gt;} = <span class="number">4</span>,
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event&lt;T&gt;} = <span class="number">26</span>,
+		Timestamp: pallet_timestamp = <span class="number">2</span>,
+		Indices: pallet_indices = <span class="number">3</span>,
+		Balances: pallet_balances = <span class="number">4</span>,
+		TransactionPayment: pallet_transaction_payment = <span class="number">26</span>,
 
 		<span class="comment">// Consensus support.
 		// Authorship must be before session in order to note author in the correct session and era.
-		</span>Authorship: pallet_authorship::{Pallet, Storage} = <span class="number">5</span>,
-		Staking: pallet_staking::{Pallet, Call, Storage, Config&lt;T&gt;, Event&lt;T&gt;} = <span class="number">6</span>,
-		Offences: pallet_offences::{Pallet, Storage, Event} = <span class="number">7</span>,
-		Historical: session_historical::{Pallet} = <span class="number">27</span>,
+		</span>Authorship: pallet_authorship = <span class="number">5</span>,
+		Staking: pallet_staking = <span class="number">6</span>,
+		Offences: pallet_offences = <span class="number">7</span>,
+		Historical: session_historical = <span class="number">27</span>,
 
 		<span class="comment">// BEEFY Bridges support.
-		</span>Beefy: pallet_beefy::{Pallet, Call, Storage, Config&lt;T&gt;, ValidateUnsigned} = <span class="number">200</span>,
-		<span class="comment">// MMR leaf construction must be before session in order to have leaf contents
-		// refer to block&lt;N-1&gt; consistently. see substrate issue #11797 for details.
-		</span>Mmr: pallet_mmr::{Pallet, Storage} = <span class="number">201</span>,
-		BeefyMmrLeaf: pallet_beefy_mmr::{Pallet, Storage} = <span class="number">202</span>,
+		</span>Beefy: pallet_beefy = <span class="number">200</span>,
+		<span class="comment">// MMR leaf construction must be before session in order to have leaf contents refer to
+		// block&lt;N-1&gt; consistently. see substrate issue #11797 for details.
+		</span>Mmr: pallet_mmr = <span class="number">201</span>,
+		BeefyMmrLeaf: pallet_beefy_mmr = <span class="number">202</span>,
 
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config&lt;T&gt;} = <span class="number">8</span>,
-		Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config&lt;T&gt;, Event, ValidateUnsigned} = <span class="number">10</span>,
-		AuthorityDiscovery: pallet_authority_discovery::{Pallet, Config&lt;T&gt;} = <span class="number">12</span>,
+		Session: pallet_session = <span class="number">8</span>,
+		Grandpa: pallet_grandpa = <span class="number">10</span>,
+		AuthorityDiscovery: pallet_authority_discovery = <span class="number">12</span>,
 
 		<span class="comment">// Utility module.
-		</span>Utility: pallet_utility::{Pallet, Call, Event} = <span class="number">16</span>,
+		</span>Utility: pallet_utility = <span class="number">16</span>,
 
 		<span class="comment">// Less simple identity module.
-		</span>Identity: pallet_identity::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">17</span>,
+		</span>Identity: pallet_identity = <span class="number">17</span>,
 
 		<span class="comment">// Social recovery module.
-		</span>Recovery: pallet_recovery::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">18</span>,
+		</span>Recovery: pallet_recovery = <span class="number">18</span>,
 
 		<span class="comment">// Vesting. Usable initially, but removed once all vesting is finished.
-		</span>Vesting: pallet_vesting::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;} = <span class="number">19</span>,
+		</span>Vesting: pallet_vesting = <span class="number">19</span>,
 
 		<span class="comment">// System scheduler.
-		</span>Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">20</span>,
+		</span>Scheduler: pallet_scheduler = <span class="number">20</span>,
 
 		<span class="comment">// Preimage registrar.
-		</span>Preimage: pallet_preimage::{Pallet, Call, Storage, Event&lt;T&gt;, HoldReason} = <span class="number">28</span>,
+		</span>Preimage: pallet_preimage = <span class="number">28</span>,
 
 		<span class="comment">// Sudo.
-		</span>Sudo: pallet_sudo::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;} = <span class="number">21</span>,
+		</span>Sudo: pallet_sudo = <span class="number">21</span>,
 
 		<span class="comment">// Proxy module. Late addition.
-		</span>Proxy: pallet_proxy::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">22</span>,
+		</span>Proxy: pallet_proxy = <span class="number">22</span>,
 
 		<span class="comment">// Multisig module. Late addition.
-		</span>Multisig: pallet_multisig::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">23</span>,
+		</span>Multisig: pallet_multisig = <span class="number">23</span>,
 
 		<span class="comment">// Election pallet. Only works with staking, but placed here to maintain indices.
-		</span>ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event&lt;T&gt;, ValidateUnsigned} = <span class="number">24</span>,
+		</span>ElectionProviderMultiPhase: pallet_election_provider_multi_phase = <span class="number">24</span>,
 
 		<span class="comment">// Provides a semi-sorted list of nominators for staking.
-		</span>VoterList: pallet_bags_list::&lt;Instance1&gt;::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">25</span>,
+		</span>VoterList: pallet_bags_list::&lt;Instance1&gt; = <span class="number">25</span>,
 
 		<span class="comment">// Nomination pools for staking.
-		</span>NominationPools: pallet_nomination_pools::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;, FreezeReason} = <span class="number">29</span>,
+		</span>NominationPools: pallet_nomination_pools = <span class="number">29</span>,
 
 		<span class="comment">// Fast unstake pallet: extension to staking.
 		</span>FastUnstake: pallet_fast_unstake = <span class="number">30</span>,
 
 		<span class="comment">// OpenGov
-		</span>ConvictionVoting: pallet_conviction_voting::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">31</span>,
-		Referenda: pallet_referenda::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">32</span>,
-		Origins: pallet_custom_origins::{Origin} = <span class="number">35</span>,
-		Whitelist: pallet_whitelist::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">36</span>,
+		</span>ConvictionVoting: pallet_conviction_voting = <span class="number">31</span>,
+		Referenda: pallet_referenda = <span class="number">32</span>,
+		Origins: pallet_custom_origins = <span class="number">35</span>,
+		Whitelist: pallet_whitelist = <span class="number">36</span>,
 
 		<span class="comment">// Treasury
-		</span>Treasury: pallet_treasury::{Pallet, Call, Storage, Config&lt;T&gt;, Event&lt;T&gt;} = <span class="number">37</span>,
+		</span>Treasury: pallet_treasury = <span class="number">37</span>,
 
 		<span class="comment">// Parachains pallets. Start indices at 40 to leave room.
-		</span>ParachainsOrigin: parachains_origin::{Pallet, Origin} = <span class="number">41</span>,
-		Configuration: parachains_configuration::{Pallet, Call, Storage, Config&lt;T&gt;} = <span class="number">42</span>,
-		ParasShared: parachains_shared::{Pallet, Call, Storage} = <span class="number">43</span>,
-		ParaInclusion: parachains_inclusion::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">44</span>,
-		ParaInherent: parachains_paras_inherent::{Pallet, Call, Storage, Inherent} = <span class="number">45</span>,
-		ParaScheduler: parachains_scheduler::{Pallet, Storage} = <span class="number">46</span>,
-		Paras: parachains_paras::{Pallet, Call, Storage, Event, Config&lt;T&gt;, ValidateUnsigned} = <span class="number">47</span>,
-		Initializer: parachains_initializer::{Pallet, Call, Storage} = <span class="number">48</span>,
-		Dmp: parachains_dmp::{Pallet, Storage} = <span class="number">49</span>,
+		</span>ParachainsOrigin: parachains_origin = <span class="number">41</span>,
+		Configuration: parachains_configuration = <span class="number">42</span>,
+		ParasShared: parachains_shared = <span class="number">43</span>,
+		ParaInclusion: parachains_inclusion = <span class="number">44</span>,
+		ParaInherent: parachains_paras_inherent = <span class="number">45</span>,
+		ParaScheduler: parachains_scheduler = <span class="number">46</span>,
+		Paras: parachains_paras = <span class="number">47</span>,
+		Initializer: parachains_initializer = <span class="number">48</span>,
+		Dmp: parachains_dmp = <span class="number">49</span>,
 		<span class="comment">// RIP Ump 50
-		</span>Hrmp: parachains_hrmp::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;} = <span class="number">51</span>,
-		ParaSessionInfo: parachains_session_info::{Pallet, Storage} = <span class="number">52</span>,
-		ParasDisputes: parachains_disputes::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">53</span>,
-		ParasSlashing: parachains_slashing::{Pallet, Call, Storage, ValidateUnsigned} = <span class="number">54</span>,
-		ParachainsAssignmentProvider: parachains_assigner_parachains::{Pallet} = <span class="number">55</span>,
+		</span>Hrmp: parachains_hrmp = <span class="number">51</span>,
+		ParaSessionInfo: parachains_session_info = <span class="number">52</span>,
+		ParasDisputes: parachains_disputes = <span class="number">53</span>,
+		ParasSlashing: parachains_slashing = <span class="number">54</span>,
+		ParachainsAssignmentProvider: parachains_assigner_parachains = <span class="number">55</span>,
 
 		<span class="comment">// Parachain Onboarding Pallets. Start indices at 60 to leave room.
-		</span>Registrar: paras_registrar::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;} = <span class="number">60</span>,
-		Slots: slots::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">61</span>,
-		ParasSudoWrapper: paras_sudo_wrapper::{Pallet, Call} = <span class="number">62</span>,
-		Auctions: auctions::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">63</span>,
-		Crowdloan: crowdloan::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">64</span>,
-		AssignedSlots: assigned_slots::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;} = <span class="number">65</span>,
+		</span>Registrar: paras_registrar = <span class="number">60</span>,
+		Slots: slots = <span class="number">61</span>,
+		ParasSudoWrapper: paras_sudo_wrapper = <span class="number">62</span>,
+		Auctions: auctions = <span class="number">63</span>,
+		Crowdloan: crowdloan = <span class="number">64</span>,
+		AssignedSlots: assigned_slots = <span class="number">65</span>,
 
 		<span class="comment">// Pallet for sending XCM.
-		</span>XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event&lt;T&gt;, Origin, Config&lt;T&gt;} = <span class="number">99</span>,
+		</span>XcmPallet: pallet_xcm = <span class="number">99</span>,
 
 		<span class="comment">// Generalized message queue
-		</span>MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">100</span>,
+		</span>MessageQueue: pallet_message_queue = <span class="number">100</span>,
 
 		<span class="comment">// Asset rate.
-		</span>AssetRate: pallet_asset_rate::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">101</span>,
+		</span>AssetRate: pallet_asset_rate = <span class="number">101</span>,
 
 		<span class="comment">// Root testing pallet.
-		</span>RootTesting: pallet_root_testing::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">102</span>,
+		</span>RootTesting: pallet_root_testing = <span class="number">102</span>,
 
 		<span class="comment">// Pallet for migrating Identity to a parachain. To be removed post-migration.
-		</span>IdentityMigrator: identity_migrator::{Pallet, Call, Event&lt;T&gt;} = <span class="number">248</span>,
+		</span>IdentityMigrator: identity_migrator = <span class="number">248</span>,
 	}
 }
 

@@ -1182,8 +1182,8 @@
 			</span><span class="kw">use </span><span class="kw">crate</span>::guides::your_first_pallet::pallet <span class="kw">as </span>pallet_currency;
 
 			<span class="macro">construct_runtime!</span>(
-				<span class="kw">pub struct </span>Runtime {
-					<span class="comment">// ---^^^^^^ This is where `struct Runtime` is defined.
+				<span class="kw">pub enum </span>Runtime {
+					<span class="comment">// ---^^^^^^ This is where `enum Runtime` is defined.
 					</span>System: frame_system,
 					Currency: pallet_currency,
 				}
@@ -1462,7 +1462,7 @@
 			<span class="kw">use </span><span class="kw">crate</span>::guides::your_first_pallet::pallet_v2 <span class="kw">as </span>pallet_currency;
 
 			<span class="macro">construct_runtime!</span>(
-				<span class="kw">pub struct </span>Runtime {
+				<span class="kw">pub enum </span>Runtime {
 					System: frame_system,
 					Currency: pallet_currency,
 				}

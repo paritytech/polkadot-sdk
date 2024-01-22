@@ -2132,13 +2132,13 @@
 	<span class="macro">frame_support::construct_runtime!</span>(
 		<span class="kw">pub enum </span>Test
 		{
-			System: frame_system::{Pallet, Call, Config&lt;T&gt;, Storage, Event&lt;T&gt;},
-			Balances: pallet_balances::{Pallet, Call, Storage, Config&lt;T&gt;, Event&lt;T&gt;},
-			Configuration: parachains_configuration::{Pallet, Call, Storage, Config&lt;T&gt;},
-			ParasShared: parachains_shared::{Pallet, Call, Storage},
-			Parachains: parachains_paras::{Pallet, Call, Storage, Config&lt;T&gt;, Event},
-			Slots: slots::{Pallet, Call, Storage, Event&lt;T&gt;},
-			AssignedSlots: assigned_slots::{Pallet, Call, Storage, Event&lt;T&gt;},
+			System: frame_system,
+			Balances: pallet_balances,
+			Configuration: parachains_configuration,
+			ParasShared: parachains_shared,
+			Parachains: parachains_paras,
+			Slots: slots,
+			AssignedSlots: assigned_slots,
 		}
 	);
 

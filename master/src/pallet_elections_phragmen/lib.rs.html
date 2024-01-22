@@ -3330,6 +3330,7 @@
 <a href="#3330" id="3330">3330</a>
 <a href="#3331" id="3331">3331</a>
 <a href="#3332" id="3332">3332</a>
+<a href="#3333" id="3333">3333</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4786,9 +4787,9 @@
 	<span class="macro">frame_support::construct_runtime!</span>(
 		<span class="kw">pub enum </span>Test
 		{
-			System: frame_system::{Pallet, Call, Event&lt;T&gt;},
-			Balances: pallet_balances::{Pallet, Call, Event&lt;T&gt;, Config&lt;T&gt;},
-			Elections: elections_phragmen::{Pallet, Call, Event&lt;T&gt;, Config&lt;T&gt;},
+			System: frame_system,
+			Balances: pallet_balances,
+			Elections: elections_phragmen,
 		}
 	);
 
@@ -4839,6 +4840,7 @@
 				<span class="kw-2">*</span>m.borrow_mut() = <span class="self">self</span>.genesis_members.iter().map(|(m, <span class="kw">_</span>)| <span class="kw-2">*</span>m).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
 			});
 			<span class="kw">let </span><span class="kw-2">mut </span>ext: sp_io::TestExternalities = RuntimeGenesisConfig {
+				system: frame_system::GenesisConfig::default(),
 				balances: pallet_balances::GenesisConfig::&lt;Test&gt; {
 					balances: <span class="macro">vec!</span>[
 						(<span class="number">1</span>, <span class="number">10 </span>* <span class="self">self</span>.balance_factor),

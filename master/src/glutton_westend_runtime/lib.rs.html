@@ -517,8 +517,6 @@
 <a href="#517" id="517">517</a>
 <a href="#518" id="518">518</a>
 <a href="#519" id="519">519</a>
-<a href="#520" id="520">520</a>
-<a href="#521" id="521">521</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -795,26 +793,24 @@
 <span class="macro">construct_runtime! </span>{
 	<span class="kw">pub enum </span>Runtime
 	{
-		System: frame_system::{Pallet, Call, Storage, Config&lt;T&gt;, Event&lt;T&gt;} = <span class="number">0</span>,
-		ParachainSystem: cumulus_pallet_parachain_system::{
-			Pallet, Call, Config&lt;T&gt;, Storage, Inherent, Event&lt;T&gt;, ValidateUnsigned,
-		} = <span class="number">1</span>,
-		ParachainInfo: parachain_info::{Pallet, Storage, Config&lt;T&gt;} = <span class="number">2</span>,
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = <span class="number">3</span>,
+		System: frame_system = <span class="number">0</span>,
+		ParachainSystem: cumulus_pallet_parachain_system = <span class="number">1</span>,
+		ParachainInfo: parachain_info = <span class="number">2</span>,
+		Timestamp: pallet_timestamp = <span class="number">3</span>,
 
 		<span class="comment">// DMP handler.
-		</span>CumulusXcm: cumulus_pallet_xcm::{Pallet, Call, Storage, Event&lt;T&gt;, Origin} = <span class="number">10</span>,
-		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">11</span>,
+		</span>CumulusXcm: cumulus_pallet_xcm = <span class="number">10</span>,
+		MessageQueue: pallet_message_queue = <span class="number">11</span>,
 
 		<span class="comment">// The main stage.
-		</span>Glutton: pallet_glutton::{Pallet, Call, Storage, Event, Config&lt;T&gt;} = <span class="number">20</span>,
+		</span>Glutton: pallet_glutton = <span class="number">20</span>,
 
 		<span class="comment">// Collator support
-		</span>Aura: pallet_aura::{Pallet, Storage, Config&lt;T&gt;} = <span class="number">30</span>,
-		AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config&lt;T&gt;} = <span class="number">31</span>,
+		</span>Aura: pallet_aura = <span class="number">30</span>,
+		AuraExt: cumulus_pallet_aura_ext = <span class="number">31</span>,
 
 		<span class="comment">// Sudo.
-		</span>Sudo: pallet_sudo::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;} = <span class="number">255</span>,
+		</span>Sudo: pallet_sudo = <span class="number">255</span>,
 	}
 }
 

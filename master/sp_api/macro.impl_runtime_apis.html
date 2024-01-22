@@ -64,7 +64,7 @@ must contain all methods declared in version 3 and below.</p>
 let’s say you want to implement a staging version of the runtime api and put it behind a
 feature flag. You can do it this way:</p>
 
-<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub struct </span>Runtime {}
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub enum </span>Runtime {}
 <span class="macro">sp_api::decl_runtime_apis! </span>{
     <span class="kw">pub trait </span>ApiWithStagingMethod {
         <span class="kw">fn </span>stable_one(data: u64);

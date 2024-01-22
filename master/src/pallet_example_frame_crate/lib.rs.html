@@ -115,7 +115,7 @@
 	<span class="kw">use </span>frame::testing_prelude::<span class="kw-2">*</span>;
 
 	<span class="macro">construct_runtime!</span>(
-		<span class="kw">pub struct </span>Runtime {
+		<span class="kw">pub enum </span>Runtime {
 			System: frame_system,
 			MyPallet: my_pallet,
 		}

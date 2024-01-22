@@ -827,7 +827,7 @@
 
 <span class="comment">// Create the runtime by composing the FRAME pallets that were previously configured.
 </span><span class="macro">construct_runtime!</span>(
-	<span class="kw">pub struct </span>Runtime {
+	<span class="kw">pub enum </span>Runtime {
 		System: frame_system,
 		Timestamp: pallet_timestamp,
 		Aura: pallet_aura,

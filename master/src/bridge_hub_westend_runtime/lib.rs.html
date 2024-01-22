@@ -1149,8 +1149,6 @@
 <a href="#1149" id="1149">1149</a>
 <a href="#1150" id="1150">1150</a>
 <a href="#1151" id="1151">1151</a>
-<a href="#1152" id="1152">1152</a>
-<a href="#1153" id="1153">1153</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1613,43 +1611,41 @@
 	<span class="kw">pub enum </span>Runtime
 	{
 		<span class="comment">// System support stuff.
-		</span>System: frame_system::{Pallet, Call, Config&lt;T&gt;, Storage, Event&lt;T&gt;} = <span class="number">0</span>,
-		ParachainSystem: cumulus_pallet_parachain_system::{
-			Pallet, Call, Config&lt;T&gt;, Storage, Inherent, Event&lt;T&gt;, ValidateUnsigned,
-		} = <span class="number">1</span>,
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = <span class="number">2</span>,
-		ParachainInfo: parachain_info::{Pallet, Storage, Config&lt;T&gt;} = <span class="number">3</span>,
+		</span>System: frame_system = <span class="number">0</span>,
+		ParachainSystem: cumulus_pallet_parachain_system = <span class="number">1</span>,
+		Timestamp: pallet_timestamp = <span class="number">2</span>,
+		ParachainInfo: parachain_info = <span class="number">3</span>,
 
 		<span class="comment">// Monetary stuff.
-		</span>Balances: pallet_balances::{Pallet, Call, Storage, Config&lt;T&gt;, Event&lt;T&gt;} = <span class="number">10</span>,
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event&lt;T&gt;} = <span class="number">11</span>,
+		</span>Balances: pallet_balances = <span class="number">10</span>,
+		TransactionPayment: pallet_transaction_payment = <span class="number">11</span>,
 
 		<span class="comment">// Collator support. The order of these 4 are important and shall not change.
-		</span>Authorship: pallet_authorship::{Pallet, Storage} = <span class="number">20</span>,
-		CollatorSelection: pallet_collator_selection::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;} = <span class="number">21</span>,
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config&lt;T&gt;} = <span class="number">22</span>,
-		Aura: pallet_aura::{Pallet, Storage, Config&lt;T&gt;} = <span class="number">23</span>,
-		AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config&lt;T&gt;} = <span class="number">24</span>,
+		</span>Authorship: pallet_authorship = <span class="number">20</span>,
+		CollatorSelection: pallet_collator_selection = <span class="number">21</span>,
+		Session: pallet_session = <span class="number">22</span>,
+		Aura: pallet_aura = <span class="number">23</span>,
+		AuraExt: cumulus_pallet_aura_ext = <span class="number">24</span>,
 
 		<span class="comment">// XCM helpers.
-		</span>XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">30</span>,
-		PolkadotXcm: pallet_xcm::{Pallet, Call, Storage, Event&lt;T&gt;, Origin, Config&lt;T&gt;} = <span class="number">31</span>,
-		CumulusXcm: cumulus_pallet_xcm::{Pallet, Event&lt;T&gt;, Origin} = <span class="number">32</span>,
+		</span>XcmpQueue: cumulus_pallet_xcmp_queue = <span class="number">30</span>,
+		PolkadotXcm: pallet_xcm = <span class="number">31</span>,
+		CumulusXcm: cumulus_pallet_xcm = <span class="number">32</span>,
 
 		<span class="comment">// Handy utilities.
-		</span>Utility: pallet_utility::{Pallet, Call, Event} = <span class="number">40</span>,
-		Multisig: pallet_multisig::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">36</span>,
+		</span>Utility: pallet_utility = <span class="number">40</span>,
+		Multisig: pallet_multisig = <span class="number">36</span>,
 
 		<span class="comment">// Bridging stuff.
-		</span>BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">41</span>,
-		BridgeRococoGrandpa: pallet_bridge_grandpa::&lt;Instance1&gt;::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;} = <span class="number">42</span>,
-		BridgeRococoParachains: pallet_bridge_parachains::&lt;Instance1&gt;::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">43</span>,
-		BridgeRococoMessages: pallet_bridge_messages::&lt;Instance1&gt;::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;} = <span class="number">44</span>,
-		XcmOverBridgeHubRococo: pallet_xcm_bridge_hub::&lt;Instance1&gt;::{Pallet} = <span class="number">45</span>,
+		</span>BridgeRelayers: pallet_bridge_relayers = <span class="number">41</span>,
+		BridgeRococoGrandpa: pallet_bridge_grandpa::&lt;Instance1&gt; = <span class="number">42</span>,
+		BridgeRococoParachains: pallet_bridge_parachains::&lt;Instance1&gt; = <span class="number">43</span>,
+		BridgeRococoMessages: pallet_bridge_messages::&lt;Instance1&gt; = <span class="number">44</span>,
+		XcmOverBridgeHubRococo: pallet_xcm_bridge_hub::&lt;Instance1&gt; = <span class="number">45</span>,
 
 		<span class="comment">// Message Queue. Importantly, is registered last so that messages are processed after
 		// the `on_initialize` hooks of bridging pallets.
-		</span>MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">250</span>,
+		</span>MessageQueue: pallet_message_queue = <span class="number">250</span>,
 	}
 );
 

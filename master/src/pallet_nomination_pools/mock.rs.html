@@ -543,7 +543,6 @@
 <a href="#543" id="543">543</a>
 <a href="#544" id="544">544</a>
 <a href="#545" id="545">545</a>
-<a href="#546" id="546">546</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -841,11 +840,10 @@
 
 <span class="kw">type </span>Block = frame_system::mocking::MockBlock&lt;Runtime&gt;;
 <span class="macro">frame_support::construct_runtime!</span>(
-	<span class="kw">pub struct </span>Runtime
-	{
-		System: frame_system::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config&lt;T&gt;, Event&lt;T&gt;},
-		Pools: pools::{Pallet, Call, Storage, Event&lt;T&gt;, FreezeReason},
+	<span class="kw">pub enum </span>Runtime {
+		System: frame_system,
+		Balances: pallet_balances,
+		Pools: pools,
 	}
 );
 

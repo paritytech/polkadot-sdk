@@ -121,9 +121,9 @@ next to the <a href="../../../frame_system/index.html" title="mod frame_system">
 	<span class="kw">use </span><span class="kw">super</span>::pallet <span class="kw">as </span>pallet_example;
 	<span class="kw">use </span>frame::{prelude::<span class="kw-2">*</span>, testing_prelude::<span class="kw-2">*</span>};
 
-	<span class="comment">// The major macro that amalgamates pallets into `struct Runtime`
+	<span class="comment">// The major macro that amalgamates pallets into `enum Runtime`
 	</span><span class="macro">construct_runtime!</span>(
-		<span class="kw">pub struct </span>Runtime {
+		<span class="kw">pub enum </span>Runtime {
 			System: frame_system,
 			Example: pallet_example,
 		}

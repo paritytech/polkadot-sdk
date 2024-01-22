@@ -600,10 +600,10 @@
 /// construct_runtime! {
 /// 	pub enum Runtime
 /// 	{
-/// 		System: frame_system::{Pallet, Call, Storage, Config&lt;T&gt;, Event&lt;T&gt;} = 0,
+/// 		System: frame_system = 0,
 ///
-/// 		SomePalletToRemove: pallet_something::{Pallet, Call, Storage, Event&lt;T&gt;} = 1,
-/// 		AnotherPalletToRemove: pallet_something_else::{Pallet, Call, Storage, Event&lt;T&gt;} = 2,
+/// 		SomePalletToRemove: pallet_something = 1,
+/// 		AnotherPalletToRemove: pallet_something_else = 2,
 ///
 /// 		YourOtherPallets...
 /// 	}

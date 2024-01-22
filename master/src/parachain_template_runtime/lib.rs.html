@@ -1263,7 +1263,7 @@
 
 <span class="comment">// Create the runtime by composing the FRAME pallets that were previously configured.
 </span><span class="macro">construct_runtime!</span>(
-	<span class="kw">pub struct </span>Runtime {
+	<span class="kw">pub enum </span>Runtime {
 		<span class="comment">// System support stuff.
 		</span>System: frame_system = <span class="number">0</span>,
 		ParachainSystem: cumulus_pallet_parachain_system = <span class="number">1</span>,

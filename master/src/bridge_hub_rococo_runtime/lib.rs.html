@@ -1487,8 +1487,6 @@
 <a href="#1487" id="1487">1487</a>
 <a href="#1488" id="1488">1488</a>
 <a href="#1489" id="1489">1489</a>
-<a href="#1490" id="1490">1490</a>
-<a href="#1491" id="1491">1491</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -2157,68 +2155,66 @@
 	<span class="kw">pub enum </span>Runtime
 	{
 		<span class="comment">// System support stuff.
-		</span>System: frame_system::{Pallet, Call, Config&lt;T&gt;, Storage, Event&lt;T&gt;} = <span class="number">0</span>,
-		ParachainSystem: cumulus_pallet_parachain_system::{
-			Pallet, Call, Config&lt;T&gt;, Storage, Inherent, Event&lt;T&gt;, ValidateUnsigned,
-		} = <span class="number">1</span>,
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = <span class="number">2</span>,
-		ParachainInfo: parachain_info::{Pallet, Storage, Config&lt;T&gt;} = <span class="number">3</span>,
+		</span>System: frame_system = <span class="number">0</span>,
+		ParachainSystem: cumulus_pallet_parachain_system = <span class="number">1</span>,
+		Timestamp: pallet_timestamp = <span class="number">2</span>,
+		ParachainInfo: parachain_info = <span class="number">3</span>,
 
 		<span class="comment">// Monetary stuff.
-		</span>Balances: pallet_balances::{Pallet, Call, Storage, Config&lt;T&gt;, Event&lt;T&gt;} = <span class="number">10</span>,
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event&lt;T&gt;} = <span class="number">11</span>,
+		</span>Balances: pallet_balances = <span class="number">10</span>,
+		TransactionPayment: pallet_transaction_payment = <span class="number">11</span>,
 
 		<span class="comment">// Collator support. The order of these 4 are important and shall not change.
-		</span>Authorship: pallet_authorship::{Pallet, Storage} = <span class="number">20</span>,
-		CollatorSelection: pallet_collator_selection::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;} = <span class="number">21</span>,
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config&lt;T&gt;} = <span class="number">22</span>,
-		Aura: pallet_aura::{Pallet, Storage, Config&lt;T&gt;} = <span class="number">23</span>,
-		AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config&lt;T&gt;} = <span class="number">24</span>,
+		</span>Authorship: pallet_authorship = <span class="number">20</span>,
+		CollatorSelection: pallet_collator_selection = <span class="number">21</span>,
+		Session: pallet_session = <span class="number">22</span>,
+		Aura: pallet_aura = <span class="number">23</span>,
+		AuraExt: cumulus_pallet_aura_ext = <span class="number">24</span>,
 
 		<span class="comment">// XCM helpers.
-		</span>XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">30</span>,
-		PolkadotXcm: pallet_xcm::{Pallet, Call, Storage, Event&lt;T&gt;, Origin, Config&lt;T&gt;} = <span class="number">31</span>,
-		CumulusXcm: cumulus_pallet_xcm::{Pallet, Event&lt;T&gt;, Origin} = <span class="number">32</span>,
+		</span>XcmpQueue: cumulus_pallet_xcmp_queue = <span class="number">30</span>,
+		PolkadotXcm: pallet_xcm = <span class="number">31</span>,
+		CumulusXcm: cumulus_pallet_xcm = <span class="number">32</span>,
 
 		<span class="comment">// Handy utilities.
-		</span>Utility: pallet_utility::{Pallet, Call, Event} = <span class="number">40</span>,
-		Multisig: pallet_multisig::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">36</span>,
+		</span>Utility: pallet_utility = <span class="number">40</span>,
+		Multisig: pallet_multisig = <span class="number">36</span>,
 
 		<span class="comment">// Bridge relayers pallet, used by several bridges here.
-		</span>BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">47</span>,
+		</span>BridgeRelayers: pallet_bridge_relayers = <span class="number">47</span>,
 
 		<span class="comment">// With-Westend GRANDPA bridge module.
-		</span>BridgeWestendGrandpa: pallet_bridge_grandpa::&lt;Instance3&gt;::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;} = <span class="number">48</span>,
+		</span>BridgeWestendGrandpa: pallet_bridge_grandpa::&lt;Instance3&gt; = <span class="number">48</span>,
 		<span class="comment">// With-Westend parachain bridge module.
-		</span>BridgeWestendParachains: pallet_bridge_parachains::&lt;Instance3&gt;::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">49</span>,
+		</span>BridgeWestendParachains: pallet_bridge_parachains::&lt;Instance3&gt; = <span class="number">49</span>,
 		<span class="comment">// With-Westend messaging bridge module.
-		</span>BridgeWestendMessages: pallet_bridge_messages::&lt;Instance3&gt;::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;} = <span class="number">51</span>,
+		</span>BridgeWestendMessages: pallet_bridge_messages::&lt;Instance3&gt; = <span class="number">51</span>,
 		<span class="comment">// With-Westend bridge hub pallet.
-		</span>XcmOverBridgeHubWestend: pallet_xcm_bridge_hub::&lt;Instance1&gt;::{Pallet} = <span class="number">52</span>,
+		</span>XcmOverBridgeHubWestend: pallet_xcm_bridge_hub::&lt;Instance1&gt; = <span class="number">52</span>,
 
 		<span class="comment">// With-Rococo Bulletin GRANDPA bridge module.
 		//
-		// we can&#39;t use `BridgeRococoBulletinGrandpa` name here, because the same Bulletin runtime will be
-		// used for both Rococo and Polkadot Bulletin chains AND this name affects runtime storage keys, used
-		// by the relayer process
-		</span>BridgePolkadotBulletinGrandpa: pallet_bridge_grandpa::&lt;Instance4&gt;::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;} = <span class="number">60</span>,
+		// we can&#39;t use `BridgeRococoBulletinGrandpa` name here, because the same Bulletin runtime
+		// will be used for both Rococo and Polkadot Bulletin chains AND this name affects runtime
+		// storage keys, used by the relayer process.
+		</span>BridgePolkadotBulletinGrandpa: pallet_bridge_grandpa::&lt;Instance4&gt; = <span class="number">60</span>,
 		<span class="comment">// With-Rococo Bulletin messaging bridge module.
 		//
-		// we can&#39;t use `BridgeRococoBulletinMessages` name here, because the same Bulletin runtime will be
-		// used for both Rococo and Polkadot Bulletin chains AND this name affects runtime storage keys, used
-		// by this runtime and the relayer process
-		</span>BridgePolkadotBulletinMessages: pallet_bridge_messages::&lt;Instance4&gt;::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;} = <span class="number">61</span>,
+		// we can&#39;t use `BridgeRococoBulletinMessages` name here, because the same Bulletin runtime
+		// will be used for both Rococo and Polkadot Bulletin chains AND this name affects runtime
+		// storage keys, used by this runtime and the relayer process.
+		</span>BridgePolkadotBulletinMessages: pallet_bridge_messages::&lt;Instance4&gt; = <span class="number">61</span>,
 		<span class="comment">// With-Rococo Bulletin bridge hub pallet.
-		</span>XcmOverPolkadotBulletin: pallet_xcm_bridge_hub::&lt;Instance2&gt;::{Pallet} = <span class="number">62</span>,
+		</span>XcmOverPolkadotBulletin: pallet_xcm_bridge_hub::&lt;Instance2&gt; = <span class="number">62</span>,
 
-		EthereumInboundQueue: snowbridge_pallet_inbound_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">80</span>,
-		EthereumOutboundQueue: snowbridge_pallet_outbound_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">81</span>,
-		EthereumBeaconClient: snowbridge_pallet_ethereum_client::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">82</span>,
-		EthereumSystem: snowbridge_pallet_system::{Pallet, Call, Storage, Config&lt;T&gt;, Event&lt;T&gt;} = <span class="number">83</span>,
+		EthereumInboundQueue: snowbridge_pallet_inbound_queue = <span class="number">80</span>,
+		EthereumOutboundQueue: snowbridge_pallet_outbound_queue = <span class="number">81</span>,
+		EthereumBeaconClient: snowbridge_pallet_ethereum_client = <span class="number">82</span>,
+		EthereumSystem: snowbridge_pallet_system = <span class="number">83</span>,
 
 		<span class="comment">// Message Queue. Importantly, is registered last so that messages are processed after
 		// the `on_initialize` hooks of bridging pallets.
-		</span>MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">250</span>,
+		</span>MessageQueue: pallet_message_queue = <span class="number">250</span>,
 	}
 );
 

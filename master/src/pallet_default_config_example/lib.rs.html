@@ -378,7 +378,7 @@
 	<span class="kw">type </span>Block = frame_system::mocking::MockBlock&lt;Runtime&gt;;
 
 	<span class="macro">frame_support::construct_runtime!</span>(
-		<span class="kw">pub struct </span>Runtime {
+		<span class="kw">pub enum </span>Runtime {
 			System: frame_system,
 			DefaultPallet: pallet_default_config_example,
 		}

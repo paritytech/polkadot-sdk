@@ -1705,8 +1705,6 @@
 <a href="#1705" id="1705">1705</a>
 <a href="#1706" id="1706">1706</a>
 <a href="#1707" id="1707">1707</a>
-<a href="#1708" id="1708">1708</a>
-<a href="#1709" id="1709">1709</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -2579,48 +2577,46 @@
 	<span class="kw">pub enum </span>Runtime
 	{
 		<span class="comment">// System support stuff.
-		</span>System: frame_system::{Pallet, Call, Config&lt;T&gt;, Storage, Event&lt;T&gt;} = <span class="number">0</span>,
-		ParachainSystem: cumulus_pallet_parachain_system::{
-			Pallet, Call, Config&lt;T&gt;, Storage, Inherent, Event&lt;T&gt;, ValidateUnsigned,
-		} = <span class="number">1</span>,
+		</span>System: frame_system = <span class="number">0</span>,
+		ParachainSystem: cumulus_pallet_parachain_system = <span class="number">1</span>,
 		<span class="comment">// RandomnessCollectiveFlip = 2 removed
-		</span>Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = <span class="number">3</span>,
-		ParachainInfo: parachain_info::{Pallet, Storage, Config&lt;T&gt;} = <span class="number">4</span>,
+		</span>Timestamp: pallet_timestamp = <span class="number">3</span>,
+		ParachainInfo: parachain_info = <span class="number">4</span>,
 
 		<span class="comment">// Monetary stuff.
-		</span>Balances: pallet_balances::{Pallet, Call, Storage, Config&lt;T&gt;, Event&lt;T&gt;} = <span class="number">10</span>,
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event&lt;T&gt;} = <span class="number">11</span>,
-		<span class="comment">// AssetTxPayment: pallet_asset_tx_payment::{Pallet, Event&lt;T&gt;} = 12,
-		</span>AssetTxPayment: pallet_asset_conversion_tx_payment::{Pallet, Event&lt;T&gt;} = <span class="number">13</span>,
+		</span>Balances: pallet_balances = <span class="number">10</span>,
+		TransactionPayment: pallet_transaction_payment = <span class="number">11</span>,
+		<span class="comment">// AssetTxPayment: pallet_asset_tx_payment = 12,
+		</span>AssetTxPayment: pallet_asset_conversion_tx_payment = <span class="number">13</span>,
 
 		<span class="comment">// Collator support. the order of these 5 are important and shall not change.
-		</span>Authorship: pallet_authorship::{Pallet, Storage} = <span class="number">20</span>,
-		CollatorSelection: pallet_collator_selection::{Pallet, Call, Storage, Event&lt;T&gt;, Config&lt;T&gt;} = <span class="number">21</span>,
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config&lt;T&gt;} = <span class="number">22</span>,
-		Aura: pallet_aura::{Pallet, Storage, Config&lt;T&gt;} = <span class="number">23</span>,
-		AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config&lt;T&gt;} = <span class="number">24</span>,
+		</span>Authorship: pallet_authorship = <span class="number">20</span>,
+		CollatorSelection: pallet_collator_selection = <span class="number">21</span>,
+		Session: pallet_session = <span class="number">22</span>,
+		Aura: pallet_aura = <span class="number">23</span>,
+		AuraExt: cumulus_pallet_aura_ext = <span class="number">24</span>,
 
 		<span class="comment">// XCM helpers.
-		</span>XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">30</span>,
-		PolkadotXcm: pallet_xcm::{Pallet, Call, Storage, Event&lt;T&gt;, Origin, Config&lt;T&gt;} = <span class="number">31</span>,
-		CumulusXcm: cumulus_pallet_xcm::{Pallet, Event&lt;T&gt;, Origin} = <span class="number">32</span>,
+		</span>XcmpQueue: cumulus_pallet_xcmp_queue = <span class="number">30</span>,
+		PolkadotXcm: pallet_xcm = <span class="number">31</span>,
+		CumulusXcm: cumulus_pallet_xcm = <span class="number">32</span>,
 		<span class="comment">// Bridge utilities.
-		</span>ToRococoXcmRouter: pallet_xcm_bridge_hub_router::&lt;Instance1&gt;::{Pallet, Storage, Call} = <span class="number">34</span>,
-		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">35</span>,
+		</span>ToRococoXcmRouter: pallet_xcm_bridge_hub_router::&lt;Instance1&gt; = <span class="number">34</span>,
+		MessageQueue: pallet_message_queue = <span class="number">35</span>,
 
 		<span class="comment">// Handy utilities.
-		</span>Utility: pallet_utility::{Pallet, Call, Event} = <span class="number">40</span>,
-		Multisig: pallet_multisig::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">41</span>,
-		Proxy: pallet_proxy::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">42</span>,
+		</span>Utility: pallet_utility = <span class="number">40</span>,
+		Multisig: pallet_multisig = <span class="number">41</span>,
+		Proxy: pallet_proxy = <span class="number">42</span>,
 
 		<span class="comment">// The main stage.
-		</span>Assets: pallet_assets::&lt;Instance1&gt;::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">50</span>,
-		Uniques: pallet_uniques::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">51</span>,
-		Nfts: pallet_nfts::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">52</span>,
-		ForeignAssets: pallet_assets::&lt;Instance2&gt;::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">53</span>,
-		NftFractionalization: pallet_nft_fractionalization::{Pallet, Call, Storage, Event&lt;T&gt;, HoldReason} = <span class="number">54</span>,
-		PoolAssets: pallet_assets::&lt;Instance3&gt;::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">55</span>,
-		AssetConversion: pallet_asset_conversion::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">56</span>,
+		</span>Assets: pallet_assets::&lt;Instance1&gt; = <span class="number">50</span>,
+		Uniques: pallet_uniques = <span class="number">51</span>,
+		Nfts: pallet_nfts = <span class="number">52</span>,
+		ForeignAssets: pallet_assets::&lt;Instance2&gt; = <span class="number">53</span>,
+		NftFractionalization: pallet_nft_fractionalization = <span class="number">54</span>,
+		PoolAssets: pallet_assets::&lt;Instance3&gt; = <span class="number">55</span>,
+		AssetConversion: pallet_asset_conversion = <span class="number">56</span>,
 	}
 );
 

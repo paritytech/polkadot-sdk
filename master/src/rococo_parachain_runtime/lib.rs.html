@@ -848,8 +848,6 @@
 <a href="#848" id="848">848</a>
 <a href="#849" id="849">849</a>
 <a href="#850" id="850">850</a>
-<a href="#851" id="851">851</a>
-<a href="#852" id="852">852</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1455,30 +1453,28 @@
 <span class="macro">construct_runtime! </span>{
 	<span class="kw">pub enum </span>Runtime
 	{
-		System: frame_system::{Pallet, Call, Storage, Config&lt;T&gt;, Event&lt;T&gt;},
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-		Sudo: pallet_sudo::{Pallet, Call, Storage, Config&lt;T&gt;, Event&lt;T&gt;},
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event&lt;T&gt;},
+		System: frame_system,
+		Timestamp: pallet_timestamp,
+		Sudo: pallet_sudo,
+		TransactionPayment: pallet_transaction_payment,
 
-		ParachainSystem: cumulus_pallet_parachain_system::{
-			Pallet, Call, Config&lt;T&gt;, Storage, Inherent, Event&lt;T&gt;, ValidateUnsigned,
-		} = <span class="number">20</span>,
-		ParachainInfo: parachain_info::{Pallet, Storage, Config&lt;T&gt;} = <span class="number">21</span>,
+		ParachainSystem: cumulus_pallet_parachain_system = <span class="number">20</span>,
+		ParachainInfo: parachain_info = <span class="number">21</span>,
 
-		Balances: pallet_balances::{Pallet, Call, Storage, Config&lt;T&gt;, Event&lt;T&gt;} = <span class="number">30</span>,
-		Assets: pallet_assets::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">31</span>,
+		Balances: pallet_balances = <span class="number">30</span>,
+		Assets: pallet_assets = <span class="number">31</span>,
 
-		Aura: pallet_aura::{Pallet, Config&lt;T&gt;},
-		AuraExt: cumulus_pallet_aura_ext::{Pallet, Config&lt;T&gt;},
+		Aura: pallet_aura,
+		AuraExt: cumulus_pallet_aura_ext,
 
 		<span class="comment">// XCM helpers.
-		</span>XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">50</span>,
-		PolkadotXcm: pallet_xcm::{Pallet, Call, Event&lt;T&gt;, Origin, Config&lt;T&gt;} = <span class="number">51</span>,
-		CumulusXcm: cumulus_pallet_xcm::{Pallet, Call, Event&lt;T&gt;, Origin} = <span class="number">52</span>,
+		</span>XcmpQueue: cumulus_pallet_xcmp_queue = <span class="number">50</span>,
+		PolkadotXcm: pallet_xcm = <span class="number">51</span>,
+		CumulusXcm: cumulus_pallet_xcm = <span class="number">52</span>,
 		<span class="comment">// RIP DmpQueue 53
-		</span>MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">54</span>,
+		</span>MessageQueue: pallet_message_queue = <span class="number">54</span>,
 
-		Spambot: cumulus_ping::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">99</span>,
+		Spambot: cumulus_ping = <span class="number">99</span>,
 	}
 }
 

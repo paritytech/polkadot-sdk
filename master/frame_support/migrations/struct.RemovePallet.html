@@ -15,10 +15,10 @@ removal before and after the upgrade.</p>
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="macro">construct_runtime! </span>{
 	<span class="kw">pub enum </span>Runtime
 	{
-		System: frame_system::{Pallet, Call, Storage, Config&lt;T&gt;, Event&lt;T&gt;} = <span class="number">0</span>,
+		System: frame_system = <span class="number">0</span>,
 
-		SomePalletToRemove: pallet_something::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">1</span>,
-		AnotherPalletToRemove: pallet_something_else::{Pallet, Call, Storage, Event&lt;T&gt;} = <span class="number">2</span>,
+		SomePalletToRemove: pallet_something = <span class="number">1</span>,
+		AnotherPalletToRemove: pallet_something_else = <span class="number">2</span>,
 
 		YourOtherPallets...
 	}
