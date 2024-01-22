@@ -32,6 +32,7 @@ use litep2p::{
 		ConfigBuilder, DialOptions, RequestResponseError, RequestResponseEvent,
 		RequestResponseHandle,
 	},
+	transport::tcp::config::Config as TcpConfig,
 	Litep2p, Litep2pEvent,
 };
 
@@ -49,7 +50,13 @@ async fn make_litep2p() -> (Litep2p, RequestResponseHandle) {
 		Litep2p::new(
 			Litep2pConfigBuilder::new()
 				.with_request_response_protocol(config)
-				.with_tcp(Default::default())
+				.with_tcp(TcpConfig {
+					listen_addresses: vec![
+						"/ip4/0.0.0.0/tcp/0".parse().unwrap(),
+						"/ip6/::/tcp/0".parse().unwrap(),
+					],
+					..Default::default()
+				})
 				.build(),
 		)
 		.unwrap(),
@@ -164,7 +171,7 @@ async fn send_request_to_disconnected_peer_and_dial() {
 
 	litep2p1.add_known_address(
 		peer2,
-		std::iter::once(litep2p2.listen_addresses().next().unwrap().clone()),
+		std::iter::once(litep2p2.listen_addresses().next().expect("listen address").clone()),
 	);
 
 	let (protocol1, outbound_tx1) = RequestResponseProtocol::new(
