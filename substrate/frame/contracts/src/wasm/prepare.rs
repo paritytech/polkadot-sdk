@@ -403,7 +403,6 @@ mod tests {
 					&schedule,
 					ALICE,
 					Determinism::Enforced,
-					CompilationMode::Eager,
 				);
 				assert_matches::assert_matches!(r.map_err(|(_, msg)| msg), $($expected)*);
 			}

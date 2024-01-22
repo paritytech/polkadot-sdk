@@ -774,7 +774,6 @@ mod tests {
 				ext.borrow_mut().schedule(),
 				ALICE,
 				Determinism::Enforced,
-				CompilationMode::Eager,
 			)
 			.map_err(|err| err.0)?
 		};
