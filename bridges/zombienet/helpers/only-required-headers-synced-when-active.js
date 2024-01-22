@@ -16,11 +16,13 @@ async function run(nodeName, networkInfo, args) {
         const apiAtCurrent = await api.at(header.hash);
         const currentEvents = await apiAtCurrent.query.system.events();
 
-        const messagesReceived = currentEvents.find((e) => {
-            e.section == bridgedChain.messagesPalletName && e.method == "MessagesReceived"
+        const messagesReceived = currentEvents.find((record) => {
+            record.event.section == bridgedChain.messagesPalletName
+                && record.event.method == "MessagesReceived"
         }) != undefined;
-        const messagesDelivered = currentEvents.find((e) => {
-            e.section == bridgedChain.messagesPalletName && e.method == "MessagesDelivered"
+        const messagesDelivered = currentEvents.find((record) => {
+            record.event.section == bridgedChain.messagesPalletName &&
+                record.event.method == "MessagesDelivered"
         }) != undefined;
         const hasMessageUpdates = messagesReceived || messagesDelivered;
         atLeastOneMessageReceived = atLeastOneMessageReceived || messagesReceived;
