@@ -479,16 +479,17 @@ mod tests {
 		let suri = "//Alice";
 		let pair = ecdsa::Pair::from_string(suri, None).unwrap();
 
-		let msg = sp_core::keccak_256(b"this should be a hashed message");
+		// Let's pretend this to be the hash output as content doesn't really matter here.
+		let hash = [0xff; 32];
 
 		// no key in key store
-		let res = store.ecdsa_sign_prehashed(ECDSA, &pair.public(), &msg).unwrap();
+		let res = store.ecdsa_sign_prehashed(ECDSA, &pair.public(), &hash).unwrap();
 		assert!(res.is_none());
 
 		// insert key, sign again
 		store.insert(ECDSA, suri, pair.public().as_ref()).unwrap();
 
-		let res = store.ecdsa_sign_prehashed(ECDSA, &pair.public(), &msg).unwrap();
+		let res = store.ecdsa_sign_prehashed(ECDSA, &pair.public(), &hash).unwrap();
 		assert!(res.is_some());
 	}
 
