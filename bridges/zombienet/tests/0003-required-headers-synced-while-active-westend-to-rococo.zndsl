@@ -12,11 +12,11 @@ bridge-hub-rococo-collator1: run ../scripts/invoke-script.sh with "init-bridge-h
 asset-hub-rococo-collator1: js-script ../helpers/wait-hrmp-channel-opened.js with "1013" within 600 seconds
 
 # step 4: send message from Rococo to Westend
-# (we are starting it after sending the message to be sure that relayer won't relay messages before our js script
-# will be started at step 6)
 asset-hub-rococo-collator1: run ../scripts/invoke-script.sh with "reserve-transfer-assets-from-asset-hub-rococo-local" within 120 seconds
 
 # step 5: start relayer
+# (we are starting it after sending the message to be sure that relayer won't relay messages before our js script
+# will be started at step 6)
 bridge-hub-rococo-collator1: run ../scripts/start-relayer.sh within 60 seconds
 
 # step 6: ensure that relayer won't sync any extra headers while delivering messages and confirmations
