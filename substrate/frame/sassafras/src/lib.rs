@@ -635,6 +635,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// WARNING: Should be called on every block once and if and only if [`should_end_epoch`]
 	/// has returned `true`.
+	/// WARNING: Here we trust the caller ensuring that `next_authorities == NextAuthorities`
 	///
 	/// If we detect one or more skipped epochs the policy is to use the authorities and values
 	/// from the first skipped epoch. The tickets data is invalidated.
