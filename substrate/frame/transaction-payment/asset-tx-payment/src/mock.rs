@@ -37,7 +37,7 @@ type Balance = u64;
 type AccountId = u64;
 
 frame_support::construct_runtime!(
-	pub struct Runtime {
+	pub enum Runtime {
 		System: system,
 		Balances: pallet_balances,
 		TransactionPayment: pallet_transaction_payment,

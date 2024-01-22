@@ -76,9 +76,9 @@ use parachains_common::{
 	impls::DealWithFees,
 	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
 	rococo::{consensus::*, currency::*, fee::WeightToFee},
-	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, BlockNumber, Hash, Header, Nonce,
-	Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, MAXIMUM_BLOCK_WEIGHT,
-	NORMAL_DISPATCH_RATIO, SLOT_DURATION,
+	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, BlockNumber, CollectionId, Hash,
+	Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS,
+	MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
 use sp_runtime::{Perbill, RuntimeDebug};
 use xcm_config::{
@@ -778,8 +778,8 @@ parameter_types! {
 
 impl pallet_uniques::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type CollectionId = u32;
-	type ItemId = u32;
+	type CollectionId = CollectionId;
+	type ItemId = ItemId;
 	type Currency = Balances;
 	type ForceOrigin = AssetsForceOrigin;
 	type CollectionDeposit = UniquesCollectionDeposit;
@@ -836,8 +836,8 @@ parameter_types! {
 
 impl pallet_nfts::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type CollectionId = u32;
-	type ItemId = u32;
+	type CollectionId = CollectionId;
+	type ItemId = ItemId;
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 	type ForceOrigin = AssetsForceOrigin;
@@ -900,48 +900,45 @@ construct_runtime!(
 	pub enum Runtime
 	{
 		// System support stuff.
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 0,
-		ParachainSystem: cumulus_pallet_parachain_system::{
-			Pallet, Call, Config<T>, Storage, Inherent, Event<T>, ValidateUnsigned,
-		} = 1,
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 3,
-		ParachainInfo: parachain_info::{Pallet, Storage, Config<T>} = 4,
+		System: frame_system = 0,
+		ParachainSystem: cumulus_pallet_parachain_system = 1,
+		Timestamp: pallet_timestamp = 3,
+		ParachainInfo: parachain_info = 4,
 
 		// Monetary stuff.
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 11,
-		AssetTxPayment: pallet_asset_conversion_tx_payment::{Pallet, Event<T>} = 13,
+		Balances: pallet_balances = 10,
+		TransactionPayment: pallet_transaction_payment = 11,
+		AssetTxPayment: pallet_asset_conversion_tx_payment = 13,
 
 		// Collator support. the order of these 5 are important and shall not change.
-		Authorship: pallet_authorship::{Pallet, Storage} = 20,
-		CollatorSelection: pallet_collator_selection::{Pallet, Call, Storage, Event<T>, Config<T>} = 21,
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 22,
-		Aura: pallet_aura::{Pallet, Storage, Config<T>} = 23,
-		AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config<T>} = 24,
+		Authorship: pallet_authorship = 20,
+		CollatorSelection: pallet_collator_selection = 21,
+		Session: pallet_session = 22,
+		Aura: pallet_aura = 23,
+		AuraExt: cumulus_pallet_aura_ext = 24,
 
 		// XCM helpers.
-		XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>} = 30,
-		PolkadotXcm: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config<T>} = 31,
-		CumulusXcm: cumulus_pallet_xcm::{Pallet, Event<T>, Origin} = 32,
-		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 34,
+		XcmpQueue: cumulus_pallet_xcmp_queue = 30,
+		PolkadotXcm: pallet_xcm = 31,
+		CumulusXcm: cumulus_pallet_xcm = 32,
+		MessageQueue: pallet_message_queue = 34,
 
 		// Handy utilities.
-		Utility: pallet_utility::{Pallet, Call, Event} = 40,
-		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 41,
-		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 42,
+		Utility: pallet_utility = 40,
+		Multisig: pallet_multisig = 41,
+		Proxy: pallet_proxy = 42,
 
 		// Bridge utilities.
-		ToWestendXcmRouter: pallet_xcm_bridge_hub_router::<Instance3>::{Pallet, Storage, Call} = 45,
+		ToWestendXcmRouter: pallet_xcm_bridge_hub_router::<Instance3> = 45,
 
 		// The main stage.
-		Assets: pallet_assets::<Instance1>::{Pallet, Call, Storage, Event<T>} = 50,
-		Uniques: pallet_uniques::{Pallet, Call, Storage, Event<T>} = 51,
-		Nfts: pallet_nfts::{Pallet, Call, Storage, Event<T>} = 52,
-		ForeignAssets: pallet_assets::<Instance2>::{Pallet, Call, Storage, Event<T>} = 53,
-		NftFractionalization: pallet_nft_fractionalization::{Pallet, Call, Storage, Event<T>, HoldReason} = 54,
-
-		PoolAssets: pallet_assets::<Instance3>::{Pallet, Call, Storage, Event<T>} = 55,
-		AssetConversion: pallet_asset_conversion::{Pallet, Call, Storage, Event<T>} = 56,
+		Assets: pallet_assets::<Instance1> = 50,
+		Uniques: pallet_uniques = 51,
+		Nfts: pallet_nfts = 52,
+		ForeignAssets: pallet_assets::<Instance2> = 53,
+		NftFractionalization: pallet_nft_fractionalization = 54,
+		PoolAssets: pallet_assets::<Instance3> = 55,
+		AssetConversion: pallet_asset_conversion = 56,
 
 		#[cfg(feature = "state-trie-version-1")]
 		StateTrieMigration: pallet_state_trie_migration = 70,

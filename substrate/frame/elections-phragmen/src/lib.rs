@@ -1454,9 +1454,9 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Event<T>},
-			Balances: pallet_balances::{Pallet, Call, Event<T>, Config<T>},
-			Elections: elections_phragmen::{Pallet, Call, Event<T>, Config<T>},
+			System: frame_system,
+			Balances: pallet_balances,
+			Elections: elections_phragmen,
 		}
 	);
 
@@ -1507,6 +1507,7 @@ mod tests {
 				*m.borrow_mut() = self.genesis_members.iter().map(|(m, _)| *m).collect::<Vec<_>>()
 			});
 			let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
+				system: frame_system::GenesisConfig::default(),
 				balances: pallet_balances::GenesisConfig::<Test> {
 					balances: vec![
 						(1, 10 * self.balance_factor),

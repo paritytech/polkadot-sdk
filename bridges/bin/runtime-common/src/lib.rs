@@ -16,6 +16,7 @@
 
 //! Common types/functions that may be used by runtimes of all bridged chains.
 
+#![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use crate::messages_call_ext::MessagesCallSubType;

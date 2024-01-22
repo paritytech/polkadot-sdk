@@ -2293,7 +2293,7 @@ pub mod pallet_macros {
 	/// #        type Block = frame_system::mocking::MockBlock<Self>;
 	/// #    }
 	///     construct_runtime! {
-	///         pub struct Runtime {
+	///         pub enum Runtime {
 	///             System: frame_system,
 	///             Custom: custom_pallet
 	///         }
