@@ -1595,7 +1595,6 @@ impl<T: Config> Pallet<T> {
 			&schedule,
 			origin,
 			determinism,
-			wasmi::CompilationMode::Eager,
 		)
 		.map_err(|(err, msg)| {
 			debug_message.as_mut().map(|d| d.try_extend(msg.bytes()));

@@ -153,14 +153,12 @@ impl<T: Config> WasmBlob<T> {
 		schedule: &Schedule<T>,
 		owner: AccountIdOf<T>,
 		determinism: Determinism,
-		compilation_mode: CompilationMode,
 	) -> Result<Self, (DispatchError, &'static str)> {
 		prepare::prepare::<runtime::Env, T>(
 			code.try_into().map_err(|_| (<Error<T>>::CodeTooLarge.into(), ""))?,
 			schedule,
 			owner,
 			determinism,
-			compilation_mode,
 		)
 	}
 
