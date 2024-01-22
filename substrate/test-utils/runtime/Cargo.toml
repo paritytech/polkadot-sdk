@@ -94,6 +94,7 @@ std = [
 	"sp-consensus-babe/std",
 	"sp-consensus-grandpa/std",
 	"sp-core/std",
+	"sp-crypto-hashing/std",
 	"sp-externalities/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
