@@ -105,7 +105,7 @@ pub(crate) const LOG_TARGET: &str = "runtime::stake-tracker";
 macro_rules! log {
 	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
 		log::$level!(
-			target: crate::LOG_TARGET,
+			target: $crate::LOG_TARGET,
 			concat!("[{:?}] 📚 ", $patter), <frame_system::Pallet<T>>::block_number() $(, $values)*
 		)
 	};
@@ -358,9 +358,13 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 			}
 		};
 
-		if let Ok(_) = T::Staking::status(who).and(T::Staking::stake(who)).defensive_proof(
-			"staker should exist when calling on_stake_update and have a valid status",
-		) {
+		if T::Staking::status(who)
+			.and(T::Staking::stake(who))
+			.defensive_proof(
+				"staker should exist when calling on_stake_update and have a valid status",
+			)
+			.is_ok()
+		{
 			let voter_weight = Self::weight_of(stake.active);
 
 			match T::Staking::status(who).expect("status checked above; qed.") {
@@ -389,7 +393,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 				StakerStatus::Validator => {
 					// validator is both a target and a voter.
 					let stake_imbalance = stake_imbalance_of(prev_stake, voter_weight.into());
-					Self::update_target_score(&who, stake_imbalance);
+					Self::update_target_score(who, stake_imbalance);
 
 					let _ = T::VoterList::on_update(who, voter_weight).defensive_proof(
 						"the staker should exit in VoterList, as per the \
@@ -411,7 +415,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	fn on_validator_add(who: &T::AccountId, self_stake: Option<Stake<BalanceOf<T>>>) {
 		// target may exist in the list in case of re-enabling a chilled validator;
 		if !T::TargetList::contains(who) {
-			let _ = T::TargetList::on_insert(who.clone(), self_stake.unwrap_or_default().active)
+			T::TargetList::on_insert(who.clone(), self_stake.unwrap_or_default().active)
 				.expect("staker does not exist in the list as per check above; qed.");
 		}
 
@@ -458,9 +462,8 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		};
 
 		// remove from target list IIF score is zero.
-		if T::TargetList::get_score(&who).unwrap_or_default().is_zero() {
-			let _ =
-				T::TargetList::on_remove(&who).expect("target exists as per the check above; qed.");
+		if T::TargetList::get_score(who).unwrap_or_default().is_zero() {
+			T::TargetList::on_remove(who).expect("target exists as per the check above; qed.");
 		}
 	}
 
@@ -519,10 +522,10 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 
 		// updates the nominated target's score.
 		for t in nominations.iter() {
-			Self::update_target_score(&t, StakeImbalance::Negative(nominator_vote.into()))
+			Self::update_target_score(t, StakeImbalance::Negative(nominator_vote.into()))
 		}
 
-		let _ = T::VoterList::on_remove(&who)
+		let _ = T::VoterList::on_remove(who)
 			.defensive_proof("the nominator exists in the list as per the contract with staking.");
 	}
 
@@ -550,13 +553,13 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		// new nominations
 		for target in nominations.iter() {
 			if !prev_nominations.contains(target) {
-				Self::update_target_score(&target, StakeImbalance::Positive(nominator_vote.into()));
+				Self::update_target_score(target, StakeImbalance::Positive(nominator_vote.into()));
 			}
 		}
 		// removed nominations
 		for target in prev_nominations.iter() {
 			if !nominations.contains(target) {
-				Self::update_target_score(&target, StakeImbalance::Negative(nominator_vote.into()));
+				Self::update_target_score(target, StakeImbalance::Negative(nominator_vote.into()));
 			}
 		}
 	}

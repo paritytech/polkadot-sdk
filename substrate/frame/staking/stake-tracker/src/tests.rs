@@ -127,7 +127,7 @@ fn on_stake_update_works() {
 		let target_score_before = TargetBagsList::get_score(&10).unwrap();
 
 		// validator has no nominations, as expected.
-		assert!(<StakingMock as StakingInterface>::nominations(&10).unwrap().len() == 0);
+		assert!(<StakingMock as StakingInterface>::nominations(&10).unwrap().is_empty());
 
 		// manually change the self stake.
 		let new_stake = Stake { total: 10, active: 10 };

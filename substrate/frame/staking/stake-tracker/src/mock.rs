@@ -147,7 +147,7 @@ impl StakingInterface for StakingMock {
 		) {
 			(true, true, true) => Ok(StakerStatus::Validator),
 			(false, true, true) =>
-				Ok(StakerStatus::Nominator(nominators.get(&who).expect("exists").1.clone())),
+				Ok(StakerStatus::Nominator(nominators.get(who).expect("exists").1.clone())),
 			(false, false, true) => Ok(StakerStatus::Idle),
 			(false, false, false) => Err("not a staker".into()),
 			_ => Err("mock: inconsistent data".into()),
@@ -156,11 +156,7 @@ impl StakingInterface for StakingMock {
 
 	fn nominations(who: &Self::AccountId) -> Option<Vec<Self::AccountId>> {
 		let n = TestNominators::get();
-		if let Some(nominator) = n.get(&who) {
-			Some(nominator.1.clone())
-		} else {
-			None
-		}
+		n.get(who).map(|nominator| nominator.1.clone())
 	}
 
 	fn minimum_nominator_bond() -> Self::Balance {
@@ -456,7 +452,7 @@ impl ExtBuilder {
 		sp_io::TestExternalities::from(storage)
 	}
 
-	pub fn build_and_execute(self, test: impl FnOnce() -> ()) {
+	pub fn build_and_execute(self, test: impl FnOnce()) {
 		sp_tracing::try_init_simple();
 
 		let mut ext = self.build();
