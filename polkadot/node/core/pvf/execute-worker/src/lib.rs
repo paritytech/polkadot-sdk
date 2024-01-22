@@ -16,9 +16,7 @@
 
 //! Contains the logic for executing PVFs. Used by the polkadot-execute-worker binary.
 
-pub use polkadot_node_core_pvf_common::{
-	executor_intf::execute_artifact, worker_dir, SecurityStatus,
-};
+pub use polkadot_node_core_pvf_common::executor_interface::execute_artifact;
 
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-execute-worker=trace`.
@@ -33,71 +31,49 @@ use nix::{
 	},
 	unistd::{ForkResult, Pid},
 };
-use os_pipe::{self, PipeReader, PipeWriter};
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
 	execute::{Handshake, JobError, JobResponse, JobResult, WorkerResponse},
+	executor_interface::params_to_wasmtime_semantics,
 	framed_recv_blocking, framed_send_blocking,
 	worker::{
-		cpu_time_monitor_loop, run_worker, stringify_panic_payload,
+		cpu_time_monitor_loop, pipe2_cloexec, run_worker, stringify_panic_payload,
 		thread::{self, WaitOutcome},
-		WorkerKind,
+		PipeFd, WorkerInfo, WorkerKind,
 	},
+	worker_dir,
 };
 use polkadot_parachain_primitives::primitives::ValidationResult;
-use polkadot_primitives::{executor_params::DEFAULT_NATIVE_STACK_MAX, ExecutorParams};
+use polkadot_primitives::ExecutorParams;
 use std::{
 	io::{self, Read},
-	os::unix::net::UnixStream,
+	os::{
+		fd::{AsRawFd, FromRawFd},
+		unix::net::UnixStream,
+	},
 	path::PathBuf,
 	process,
 	sync::{mpsc::channel, Arc},
 	time::Duration,
 };
 
-// Wasmtime powers the Substrate Executor. It compiles the wasm bytecode into native code.
-// That native code does not create any stacks and just reuses the stack of the thread that
-// wasmtime was invoked from.
-//
-// Also, we configure the executor to provide the deterministic stack and that requires
-// supplying the amount of the native stack space that wasm is allowed to use. This is
-// realized by supplying the limit into `wasmtime::Config::max_wasm_stack`.
-//
-// There are quirks to that configuration knob:
-//
-// 1. It only limits the amount of stack space consumed by wasm but does not ensure nor check that
-//    the stack space is actually available.
-//
-//    That means, if the calling thread has 1 MiB of stack space left and the wasm code consumes
-//    more, then the wasmtime limit will **not** trigger. Instead, the wasm code will hit the
-//    guard page and the Rust stack overflow handler will be triggered. That leads to an
-//    **abort**.
-//
-// 2. It cannot and does not limit the stack space consumed by Rust code.
-//
-//    Meaning that if the wasm code leaves no stack space for Rust code, then the Rust code
-//    will abort and that will abort the process as well.
-//
-// Typically on Linux the main thread gets the stack size specified by the `ulimit` and
-// typically it's configured to 8 MiB. Rust's spawned threads are 2 MiB. OTOH, the
-// DEFAULT_NATIVE_STACK_MAX is set to 256 MiB. Not nearly enough.
-//
-// Hence we need to increase it. The simplest way to fix that is to spawn a thread with the desired
-// stack limit.
-//
-// The reasoning why we pick this particular size is:
-//
-// The default Rust thread stack limit 2 MiB + 256 MiB wasm stack.
-/// The stack size for the execute thread.
-pub const EXECUTE_THREAD_STACK_SIZE: usize = 2 * 1024 * 1024 + DEFAULT_NATIVE_STACK_MAX as usize;
+/// The number of threads for the child process:
+/// 1 - Main thread
+/// 2 - Cpu monitor thread
+/// 3 - Execute thread
+///
+/// NOTE: The correctness of this value is enforced by a test. If the number of threads inside
+/// the child process changes in the future, this value must be changed as well.
+pub const EXECUTE_WORKER_THREAD_NUMBER: u32 = 3;
 
-fn recv_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
+/// Receives a handshake with information specific to the execute worker.
+fn recv_execute_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
 	let handshake_enc = framed_recv_blocking(stream)?;
 	let handshake = Handshake::decode(&mut &handshake_enc[..]).map_err(|_| {
 		io::Error::new(
 			io::ErrorKind::Other,
-			"execute pvf recv_handshake: failed to decode Handshake".to_owned(),
+			"execute pvf recv_execute_handshake: failed to decode Handshake".to_owned(),
 		)
 	})?;
 	Ok(handshake)
@@ -139,7 +115,6 @@ pub fn worker_entrypoint(
 	worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
-	security_status: SecurityStatus,
 ) {
 	run_worker(
 		WorkerKind::Execute,
@@ -147,18 +122,20 @@ pub fn worker_entrypoint(
 		worker_dir_path,
 		node_version,
 		worker_version,
-		&security_status,
-		|mut stream, worker_dir_path| {
-			let worker_pid = process::id();
-			let artifact_path = worker_dir::execute_artifact(&worker_dir_path);
+		|mut stream, worker_info, security_status| {
+			let artifact_path = worker_dir::execute_artifact(&worker_info.worker_dir_path);
 
-			let Handshake { executor_params } = recv_handshake(&mut stream)?;
+			let Handshake { executor_params } = recv_execute_handshake(&mut stream)?;
+
+			let executor_params: Arc<ExecutorParams> = Arc::new(executor_params);
+			let execute_thread_stack_size = max_stack_size(&executor_params);
 
 			loop {
 				let (params, execution_timeout) = recv_request(&mut stream)?;
 				gum::debug!(
 					target: LOG_TARGET,
-					%worker_pid,
+					?worker_info,
+					?security_status,
 					"worker: validating artifact {}",
 					artifact_path.display(),
 				);
@@ -175,7 +152,7 @@ pub fn worker_entrypoint(
 					},
 				};
 
-				let (pipe_reader, pipe_writer) = os_pipe::pipe()?;
+				let (pipe_read_fd, pipe_write_fd) = pipe2_cloexec()?;
 
 				let usage_before = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
 					Ok(usage) => usage,
@@ -185,44 +162,65 @@ pub fn worker_entrypoint(
 						continue
 					},
 				};
+				let stream_fd = stream.as_raw_fd();
 
-				// SAFETY: new process is spawned within a single threaded process. This invariant
-				// is enforced by tests.
-				let response = match unsafe { nix::unistd::fork() } {
-					Err(errno) => internal_error_from_errno("fork", errno),
-					Ok(ForkResult::Child) => {
-						// Dropping the stream closes the underlying socket. We want to make sure
-						// that the sandboxed child can't get any kind of information from the
-						// outside world. The only IPC it should be able to do is sending its
-						// response over the pipe.
-						drop(stream);
-						// Drop the read end so we don't have too many FDs open.
-						drop(pipe_reader);
+				let compiled_artifact_blob = Arc::new(compiled_artifact_blob);
+				let params = Arc::new(params);
 
-						handle_child_process(
-							pipe_writer,
-							compiled_artifact_blob,
-							executor_params,
-							params,
+				cfg_if::cfg_if! {
+					if #[cfg(target_os = "linux")] {
+						let result = if security_status.can_do_secure_clone {
+							handle_clone(
+								pipe_write_fd,
+								pipe_read_fd,
+								stream_fd,
+								&compiled_artifact_blob,
+								&executor_params,
+								&params,
+								execution_timeout,
+								execute_thread_stack_size,
+								worker_info,
+								security_status.can_unshare_user_namespace_and_change_root,
+								usage_before,
+							)?
+						} else {
+							// Fall back to using fork.
+							handle_fork(
+								pipe_write_fd,
+								pipe_read_fd,
+								stream_fd,
+								&compiled_artifact_blob,
+								&executor_params,
+								&params,
+								execution_timeout,
+								execute_thread_stack_size,
+								worker_info,
+								usage_before,
+							)?
+						};
+					} else {
+						let result = handle_fork(
+							pipe_write_fd,
+							pipe_read_fd,
+							stream_fd,
+							&compiled_artifact_blob,
+							&executor_params,
+							&params,
 							execution_timeout,
-						)
-					},
-					Ok(ForkResult::Parent { child }) => {
-						// the read end will wait until all write ends have been closed,
-						// this drop is necessary to avoid deadlock
-						drop(pipe_writer);
-
-						handle_parent_process(
-							pipe_reader,
-							child,
-							worker_pid,
+							execute_thread_stack_size,
+							worker_info,
 							usage_before,
-							execution_timeout,
-						)?
-					},
-				};
+						)?;
+					}
+				}
 
-				send_response(&mut stream, response)?;
+				gum::trace!(
+					target: LOG_TARGET,
+					?worker_info,
+					"worker: sending result to host: {:?}",
+					result
+				);
+				send_response(&mut stream, result)?;
 			}
 		},
 	);
@@ -236,7 +234,7 @@ fn validate_using_artifact(
 	let descriptor_bytes = match unsafe {
 		// SAFETY: this should be safe since the compiled artifact passed here comes from the
 		//         file created by the prepare workers. These files are obtained by calling
-		//         [`executor_intf::prepare`].
+		//         [`executor_interface::prepare`].
 		execute_artifact(compiled_artifact_blob, executor_params, params)
 	} {
 		Err(err) => return JobResponse::format_invalid("execute", &err),
@@ -255,31 +253,123 @@ fn validate_using_artifact(
 	JobResponse::Ok { result_descriptor }
 }
 
+#[cfg(target_os = "linux")]
+fn handle_clone(
+	pipe_write_fd: i32,
+	pipe_read_fd: i32,
+	stream_fd: i32,
+	compiled_artifact_blob: &Arc<Vec<u8>>,
+	executor_params: &Arc<ExecutorParams>,
+	params: &Arc<Vec<u8>>,
+	execution_timeout: Duration,
+	execute_stack_size: usize,
+	worker_info: &WorkerInfo,
+	have_unshare_newuser: bool,
+	usage_before: Usage,
+) -> io::Result<WorkerResponse> {
+	use polkadot_node_core_pvf_common::worker::security;
+
+	// SAFETY: new process is spawned within a single threaded process. This invariant
+	// is enforced by tests. Stack size being specified to ensure child doesn't overflow
+	match unsafe {
+		security::clone::clone_on_worker(
+			worker_info,
+			have_unshare_newuser,
+			Box::new(|| {
+				handle_child_process(
+					pipe_write_fd,
+					pipe_read_fd,
+					stream_fd,
+					Arc::clone(compiled_artifact_blob),
+					Arc::clone(executor_params),
+					Arc::clone(params),
+					execution_timeout,
+					execute_stack_size,
+				)
+			}),
+		)
+	} {
+		Ok(child) => handle_parent_process(
+			pipe_read_fd,
+			pipe_write_fd,
+			worker_info,
+			child,
+			usage_before,
+			execution_timeout,
+		),
+		Err(security::clone::Error::Clone(errno)) => Ok(internal_error_from_errno("clone", errno)),
+	}
+}
+
+fn handle_fork(
+	pipe_write_fd: i32,
+	pipe_read_fd: i32,
+	stream_fd: i32,
+	compiled_artifact_blob: &Arc<Vec<u8>>,
+	executor_params: &Arc<ExecutorParams>,
+	params: &Arc<Vec<u8>>,
+	execution_timeout: Duration,
+	execute_worker_stack_size: usize,
+	worker_info: &WorkerInfo,
+	usage_before: Usage,
+) -> io::Result<WorkerResponse> {
+	// SAFETY: new process is spawned within a single threaded process. This invariant
+	// is enforced by tests.
+	match unsafe { nix::unistd::fork() } {
+		Ok(ForkResult::Child) => handle_child_process(
+			pipe_write_fd,
+			pipe_read_fd,
+			stream_fd,
+			Arc::clone(compiled_artifact_blob),
+			Arc::clone(executor_params),
+			Arc::clone(params),
+			execution_timeout,
+			execute_worker_stack_size,
+		),
+		Ok(ForkResult::Parent { child }) => handle_parent_process(
+			pipe_read_fd,
+			pipe_write_fd,
+			worker_info,
+			child,
+			usage_before,
+			execution_timeout,
+		),
+		Err(errno) => Ok(internal_error_from_errno("fork", errno)),
+	}
+}
+
 /// This is used to handle child process during pvf execute worker.
-/// It execute the artifact and pipes back the response to the parent process
-///
-/// # Arguments
-///
-/// - `pipe_write`: A `PipeWriter` structure, the writing end of a pipe.
-///
-/// - `compiled_artifact_blob`: The artifact bytes from compiled by the prepare worker`.
-///
-/// - `executor_params`: Deterministically serialized execution environment semantics.
-///
-/// - `params`: Validation parameters.
-///
-/// - `execution_timeout`: The timeout in `Duration`.
+/// It executes the artifact and pipes back the response to the parent process.
 ///
 /// # Returns
 ///
 /// - pipe back `JobResponse` to the parent process.
 fn handle_child_process(
-	mut pipe_write: PipeWriter,
-	compiled_artifact_blob: Vec<u8>,
-	executor_params: ExecutorParams,
-	params: Vec<u8>,
+	pipe_write_fd: i32,
+	pipe_read_fd: i32,
+	stream_fd: i32,
+	compiled_artifact_blob: Arc<Vec<u8>>,
+	executor_params: Arc<ExecutorParams>,
+	params: Arc<Vec<u8>>,
 	execution_timeout: Duration,
+	execute_thread_stack_size: usize,
 ) -> ! {
+	// SAFETY: this is an open and owned file descriptor at this point.
+	let mut pipe_write = unsafe { PipeFd::from_raw_fd(pipe_write_fd) };
+
+	// Drop the read end so we don't have too many FDs open.
+	if let Err(errno) = nix::unistd::close(pipe_read_fd) {
+		send_child_response(&mut pipe_write, job_error_from_errno("closing pipe", errno));
+	}
+
+	// Dropping the stream closes the underlying socket. We want to make sure
+	// that the sandboxed child can't get any kind of information from the
+	// outside world. The only IPC it should be able to do is sending its
+	// response over the pipe.
+	if let Err(errno) = nix::unistd::close(stream_fd) {
+		send_child_response(&mut pipe_write, job_error_from_errno("closing stream", errno));
+	}
+
 	gum::debug!(
 		target: LOG_TARGET,
 		worker_job_pid = %process::id(),
@@ -302,13 +392,12 @@ fn handle_child_process(
 		send_child_response(&mut pipe_write, Err(JobError::CouldNotSpawnThread(err.to_string())))
 	});
 
-	let executor_params_2 = executor_params.clone();
 	let execute_thread = thread::spawn_worker_thread_with_stack_size(
 		"execute thread",
-		move || validate_using_artifact(&compiled_artifact_blob, &executor_params_2, &params),
+		move || validate_using_artifact(&compiled_artifact_blob, &executor_params, &params),
 		Arc::clone(&condvar),
 		WaitOutcome::Finished,
-		EXECUTE_THREAD_STACK_SIZE,
+		execute_thread_stack_size,
 	)
 	.unwrap_or_else(|err| {
 		send_child_response(&mut pipe_write, Err(JobError::CouldNotSpawnThread(err.to_string())))
@@ -337,28 +426,69 @@ fn handle_child_process(
 	send_child_response(&mut pipe_write, response);
 }
 
+/// Returns stack size based on the number of threads.
+/// The stack size is represented by 2MiB * number_of_threads + native stack;
+///
+/// # Background
+///
+/// Wasmtime powers the Substrate Executor. It compiles the wasm bytecode into native code.
+/// That native code does not create any stacks and just reuses the stack of the thread that
+/// wasmtime was invoked from.
+///
+/// Also, we configure the executor to provide the deterministic stack and that requires
+/// supplying the amount of the native stack space that wasm is allowed to use. This is
+/// realized by supplying the limit into `wasmtime::Config::max_wasm_stack`.
+///
+/// There are quirks to that configuration knob:
+///
+/// 1. It only limits the amount of stack space consumed by wasm but does not ensure nor check that
+///    the stack space is actually available.
+///
+///    That means, if the calling thread has 1 MiB of stack space left and the wasm code consumes
+///    more, then the wasmtime limit will **not** trigger. Instead, the wasm code will hit the
+///    guard page and the Rust stack overflow handler will be triggered. That leads to an
+///    **abort**.
+///
+/// 2. It cannot and does not limit the stack space consumed by Rust code.
+///
+///    Meaning that if the wasm code leaves no stack space for Rust code, then the Rust code
+///    will abort and that will abort the process as well.
+///
+/// Typically on Linux the main thread gets the stack size specified by the `ulimit` and
+/// typically it's configured to 8 MiB. Rust's spawned threads are 2 MiB. OTOH, the
+/// DEFAULT_NATIVE_STACK_MAX is set to 256 MiB. Not nearly enough.
+///
+/// Hence we need to increase it. The simplest way to fix that is to spawn an execute thread with
+/// the desired stack limit. We must also make sure the job process has enough stack for *all* its
+/// threads. This function can be used to get the stack size of either the execute thread or execute
+/// job process.
+fn max_stack_size(executor_params: &ExecutorParams) -> usize {
+	let (_sem, deterministic_stack_limit) = params_to_wasmtime_semantics(executor_params);
+	return (2 * 1024 * 1024 + deterministic_stack_limit.native_stack_max) as usize;
+}
+
 /// Waits for child process to finish and handle child response from pipe.
-///
-/// # Arguments
-///
-/// - `pipe_read`: A `PipeReader` used to read data from the child process.
-///
-/// - `child`: The child pid.
-///
-/// - `usage_before`: Resource usage statistics before executing the child process.
-///
-/// - `timeout`: The maximum allowed time for the child process to finish, in `Duration`.
 ///
 /// # Returns
 ///
 /// - The response, either `Ok` or some error state.
 fn handle_parent_process(
-	mut pipe_read: PipeReader,
+	pipe_read_fd: i32,
+	pipe_write_fd: i32,
+	worker_info: &WorkerInfo,
 	job_pid: Pid,
-	worker_pid: u32,
 	usage_before: Usage,
 	timeout: Duration,
 ) -> io::Result<WorkerResponse> {
+	// the read end will wait until all write ends have been closed,
+	// this drop is necessary to avoid deadlock
+	if let Err(errno) = nix::unistd::close(pipe_write_fd) {
+		return Ok(internal_error_from_errno("closing pipe write fd", errno));
+	};
+
+	// SAFETY: pipe_read_fd is an open and owned file descriptor at this point.
+	let mut pipe_read = unsafe { PipeFd::from_raw_fd(pipe_read_fd) };
+
 	// Read from the child. Don't decode unless the process exited normally, which we check later.
 	let mut received_data = Vec::new();
 	pipe_read
@@ -370,7 +500,7 @@ fn handle_parent_process(
 	let status = nix::sys::wait::waitpid(job_pid, None);
 	gum::trace!(
 		target: LOG_TARGET,
-		%worker_pid,
+		?worker_info,
 		%job_pid,
 		"execute worker received wait status from job: {:?}",
 		status,
@@ -390,7 +520,7 @@ fn handle_parent_process(
 	if cpu_tv >= timeout {
 		gum::warn!(
 			target: LOG_TARGET,
-			%worker_pid,
+			?worker_info,
 			%job_pid,
 			"execute job took {}ms cpu time, exceeded execute timeout {}ms",
 			cpu_tv.as_millis(),
@@ -423,7 +553,7 @@ fn handle_parent_process(
 				Err(job_error) => {
 					gum::warn!(
 						target: LOG_TARGET,
-						%worker_pid,
+						?worker_info,
 						%job_pid,
 						"execute job error: {}",
 						job_error,
@@ -479,19 +609,19 @@ fn recv_child_response(received_data: &mut io::BufReader<&[u8]>) -> io::Result<J
 	JobResult::decode(&mut response_bytes.as_slice()).map_err(|e| {
 		io::Error::new(
 			io::ErrorKind::Other,
-			format!("execute pvf recv_child_response: decode error: {:?}", e),
+			format!("execute pvf recv_child_response: decode error: {}", e),
 		)
 	})
 }
 
-/// Write response to the pipe and exit process after.
+/// Write a job response to the pipe and exit process after.
 ///
 /// # Arguments
 ///
-/// - `pipe_write`: A `PipeWriter` structure, the writing end of a pipe.
+/// - `pipe_write`: A `PipeFd` structure, the writing end of a pipe.
 ///
-/// - `response`: Child process response, or error.
-fn send_child_response(pipe_write: &mut PipeWriter, response: JobResult) -> ! {
+/// - `response`: Child process response
+fn send_child_response(pipe_write: &mut PipeFd, response: JobResult) -> ! {
 	framed_send_blocking(pipe_write, response.encode().as_slice())
 		.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
 
@@ -509,4 +639,8 @@ fn internal_error_from_errno(context: &'static str, errno: Errno) -> WorkerRespo
 		errno,
 		io::Error::last_os_error()
 	)))
+}
+
+fn job_error_from_errno(context: &'static str, errno: Errno) -> JobResult {
+	Err(JobError::Kernel(format!("{}: {}: {}", context, errno, io::Error::last_os_error())))
 }

@@ -21,8 +21,8 @@
 //! Usage:
 //!
 //! - Use [`TransactionsHandlerPrototype::new`] to create a prototype.
-//! - Pass the return value of [`TransactionsHandlerPrototype::set_config`] to the network
-//! configuration as an extra peers set.
+//! - Pass the `NonDefaultSetConfig` returned from [`TransactionsHandlerPrototype::new`] to the
+//!   network configuration as an extra peers set.
 //! - Use [`TransactionsHandlerPrototype::build`] then [`TransactionsHandler::run`] to obtain a
 //! `Future` that processes transactions.
 
@@ -37,7 +37,7 @@ use prometheus_endpoint::{register, Counter, PrometheusError, Registry, U64};
 use sc_network::{
 	config::{NonDefaultSetConfig, NonReservedPeerMode, ProtocolId, SetConfig},
 	error,
-	event::Event,
+	service::traits::{NotificationEvent, NotificationService, ValidationResult},
 	types::ProtocolName,
 	utils::{interval, LruHashSet},
 	NetworkEventStream, NetworkNotification, NetworkPeers,
@@ -115,8 +115,11 @@ impl<H: ExHashT> Future for PendingTransaction<H> {
 
 /// Prototype for a [`TransactionsHandler`].
 pub struct TransactionsHandlerPrototype {
+	/// Name of the transaction protocol.
 	protocol_name: ProtocolName,
-	fallback_protocol_names: Vec<ProtocolName>,
+
+	/// Handle that is used to communicate with `sc_network::Notifications`.
+	notification_service: Box<dyn NotificationService>,
 }
 
 impl TransactionsHandlerPrototype {
@@ -125,35 +128,28 @@ impl TransactionsHandlerPrototype {
 		protocol_id: ProtocolId,
 		genesis_hash: Hash,
 		fork_id: Option<&str>,
-	) -> Self {
+	) -> (Self, NonDefaultSetConfig) {
 		let genesis_hash = genesis_hash.as_ref();
-		let protocol_name = if let Some(fork_id) = fork_id {
+		let protocol_name: ProtocolName = if let Some(fork_id) = fork_id {
 			format!("/{}/{}/transactions/1", array_bytes::bytes2hex("", genesis_hash), fork_id)
 		} else {
 			format!("/{}/transactions/1", array_bytes::bytes2hex("", genesis_hash))
-		};
-		let legacy_protocol_name = format!("/{}/transactions/1", protocol_id.as_ref());
-
-		Self {
-			protocol_name: protocol_name.into(),
-			fallback_protocol_names: iter::once(legacy_protocol_name.into()).collect(),
 		}
-	}
-
-	/// Returns the configuration of the set to put in the network configuration.
-	pub fn set_config(&self) -> NonDefaultSetConfig {
-		NonDefaultSetConfig {
-			notifications_protocol: self.protocol_name.clone(),
-			fallback_names: self.fallback_protocol_names.clone(),
-			max_notification_size: MAX_TRANSACTIONS_SIZE,
-			handshake: None,
-			set_config: SetConfig {
+		.into();
+		let (config, notification_service) = NonDefaultSetConfig::new(
+			protocol_name.clone(),
+			vec![format!("/{}/transactions/1", protocol_id.as_ref()).into()],
+			MAX_TRANSACTIONS_SIZE,
+			None,
+			SetConfig {
 				in_peers: 0,
 				out_peers: 0,
 				reserved_nodes: Vec::new(),
 				non_reserved_mode: NonReservedPeerMode::Deny,
 			},
-		}
+		);
+
+		(Self { protocol_name, notification_service }, config)
 	}
 
 	/// Turns the prototype into the actual handler. Returns a controller that allows controlling
@@ -173,12 +169,12 @@ impl TransactionsHandlerPrototype {
 		transaction_pool: Arc<dyn TransactionPool<H, B>>,
 		metrics_registry: Option<&Registry>,
 	) -> error::Result<(TransactionsHandler<B, H, N, S>, TransactionsHandlerController<H>)> {
-		let net_event_stream = network.event_stream("transactions-handler-net");
 		let sync_event_stream = sync.event_stream("transactions-handler-sync");
 		let (to_handler, from_controller) = tracing_unbounded("mpsc_transactions_handler", 100_000);
 
 		let handler = TransactionsHandler {
 			protocol_name: self.protocol_name,
+			notification_service: self.notification_service,
 			propagate_timeout: (Box::pin(interval(PROPAGATE_TIMEOUT))
 				as Pin<Box<dyn Stream<Item = ()> + Send>>)
 				.fuse(),
@@ -186,7 +182,6 @@ impl TransactionsHandlerPrototype {
 			pending_transactions_peers: HashMap::new(),
 			network,
 			sync,
-			net_event_stream: net_event_stream.fuse(),
 			sync_event_stream: sync_event_stream.fuse(),
 			peers: HashMap::new(),
 			transaction_pool,
@@ -253,8 +248,6 @@ pub struct TransactionsHandler<
 	network: N,
 	/// Syncing service.
 	sync: S,
-	/// Stream of networking events.
-	net_event_stream: stream::Fuse<Pin<Box<dyn Stream<Item = Event> + Send>>>,
 	/// Receiver for syncing-related events.
 	sync_event_stream: stream::Fuse<Pin<Box<dyn Stream<Item = SyncEvent> + Send>>>,
 	// All connected peers
@@ -263,6 +256,8 @@ pub struct TransactionsHandler<
 	from_controller: TracingUnboundedReceiver<ToHandler<H>>,
 	/// Prometheus metrics.
 	metrics: Option<Metrics>,
+	/// Handle that is used to communicate with `sc_network::Notifications`.
+	notification_service: Box<dyn NotificationService>,
 }
 
 /// Peer information
@@ -295,14 +290,6 @@ where
 						warn!(target: "sub-libp2p", "Inconsistent state, no peers for pending transaction!");
 					}
 				},
-				network_event = self.net_event_stream.next() => {
-					if let Some(network_event) = network_event {
-						self.handle_network_event(network_event).await;
-					} else {
-						// Networking has seemingly closed. Closing as well.
-						return;
-					}
-				},
 				sync_event = self.sync_event_stream.next() => {
 					if let Some(sync_event) = sync_event {
 						self.handle_sync_event(sync_event);
@@ -317,7 +304,58 @@ where
 						ToHandler::PropagateTransactions => self.propagate_transactions(),
 					}
 				},
+				event = self.notification_service.next_event().fuse() => {
+					if let Some(event) = event {
+						self.handle_notification_event(event)
+					} else {
+						// `Notifications` has seemingly closed. Closing as well.
+						return
+					}
+				}
 			}
+		}
+	}
+
+	fn handle_notification_event(&mut self, event: NotificationEvent) {
+		match event {
+			NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx, .. } => {
+				// only accept peers whose role can be determined
+				let result = self
+					.network
+					.peer_role(peer, handshake)
+					.map_or(ValidationResult::Reject, |_| ValidationResult::Accept);
+				let _ = result_tx.send(result);
+			},
+			NotificationEvent::NotificationStreamOpened { peer, handshake, .. } => {
+				let Some(role) = self.network.peer_role(peer, handshake) else {
+					log::debug!(target: "sub-libp2p", "role for {peer} couldn't be determined");
+					return
+				};
+
+				let _was_in = self.peers.insert(
+					peer,
+					Peer {
+						known_transactions: LruHashSet::new(
+							NonZeroUsize::new(MAX_KNOWN_TRANSACTIONS).expect("Constant is nonzero"),
+						),
+						role,
+					},
+				);
+				debug_assert!(_was_in.is_none());
+			},
+			NotificationEvent::NotificationStreamClosed { peer } => {
+				let _peer = self.peers.remove(&peer);
+				debug_assert!(_peer.is_some());
+			},
+			NotificationEvent::NotificationReceived { peer, notification } => {
+				if let Ok(m) =
+					<Transactions<B::Extrinsic> as Decode>::decode(&mut notification.as_ref())
+				{
+					self.on_transactions(peer, m);
+				} else {
+					warn!(target: "sub-libp2p", "Failed to decode transactions list");
+				}
+			},
 		}
 	}
 
@@ -343,51 +381,6 @@ where
 					log::error!(target: "sync", "Remove reserved peer failed: {}", err);
 				}
 			},
-		}
-	}
-
-	async fn handle_network_event(&mut self, event: Event) {
-		match event {
-			Event::Dht(_) => {},
-			Event::NotificationStreamOpened { remote, protocol, role, .. }
-				if protocol == self.protocol_name =>
-			{
-				let _was_in = self.peers.insert(
-					remote,
-					Peer {
-						known_transactions: LruHashSet::new(
-							NonZeroUsize::new(MAX_KNOWN_TRANSACTIONS).expect("Constant is nonzero"),
-						),
-						role,
-					},
-				);
-				debug_assert!(_was_in.is_none());
-			},
-			Event::NotificationStreamClosed { remote, protocol }
-				if protocol == self.protocol_name =>
-			{
-				let _peer = self.peers.remove(&remote);
-				debug_assert!(_peer.is_some());
-			},
-
-			Event::NotificationsReceived { remote, messages } => {
-				for (protocol, message) in messages {
-					if protocol != self.protocol_name {
-						continue
-					}
-
-					if let Ok(m) =
-						<Transactions<B::Extrinsic> as Decode>::decode(&mut message.as_ref())
-					{
-						self.on_transactions(remote, m);
-					} else {
-						warn!(target: "sub-libp2p", "Failed to decode transactions list");
-					}
-				}
-			},
-
-			// Not our concern.
-			Event::NotificationStreamOpened { .. } | Event::NotificationStreamClosed { .. } => {},
 		}
 	}
 
@@ -482,8 +475,20 @@ where
 					propagated_to.entry(hash).or_default().push(who.to_base58());
 				}
 				trace!(target: "sync", "Sending {} transactions to {}", to_send.len(), who);
-				self.network
-					.write_notification(*who, self.protocol_name.clone(), to_send.encode());
+				// Historically, the format of a notification of the transactions protocol
+				// consisted in a (SCALE-encoded) `Vec<Transaction>`.
+				// After RFC 56, the format was modified in a backwards-compatible way to be
+				// a (SCALE-encoded) tuple `(Compact(1), Transaction)`, which is the same encoding
+				// as a `Vec` of length one. This is no coincidence, as the change was
+				// intentionally done in a backwards-compatible way.
+				// In other words, the `Vec` that is sent below **must** always have only a single
+				// element in it.
+				// See <https://github.com/polkadot-fellows/RFCs/blob/main/text/0056-one-transaction-per-notification.md>
+				for to_send in to_send {
+					let _ = self
+						.notification_service
+						.send_sync_notification(who, vec![to_send].encode());
+				}
 			}
 		}
 

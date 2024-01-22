@@ -84,7 +84,7 @@ pub mod pallet_dummy {
 impl pallet_dummy::Config for Runtime {}
 
 frame_support::construct_runtime!(
-	pub struct Runtime {
+	pub enum Runtime {
 		System: system,
 		SkipFeeless: pallet_skip_feeless_payment,
 		DummyPallet: pallet_dummy,

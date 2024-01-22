@@ -9,6 +9,9 @@ repository.workspace = true
 description = "Substrate test utilities"
 publish = false
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
@@ -17,5 +20,5 @@ futures = "0.3.16"
 tokio = { version = "1.22.0", features = ["macros", "time"] }
 
 [dev-dependencies]
-trybuild = { version = "1.0.74", features = [ "diff" ] }
+trybuild = { version = "1.0.88", features = ["diff"] }
 sc-service = { path = "../client/service" }

@@ -60,3 +60,35 @@ processing it, so the processed inherent data is simply dropped.
 This also means that the `enter` function keeps data around for no good reason. This seems acceptable though as the size
 of a block is rather limited. Nevertheless if we ever wanted to optimize this we can easily implement an inherent
 collector that has two implementations, where one clones and stores the data and the other just passes it on.
+
+## Sanitization
+
+`ParasInherent` with the entry point of `create_inherent` sanitizes the input data, while the `enter` entry point
+enforces already sanitized input data. If unsanitized data is provided the module generates an error.
+
+Disputes are included in the block with a priority for a security reasons. It's important to include as many dispute
+votes onchain as possible so that disputes conclude faster and the offenders are punished. However if there are too many
+disputes to include in a block the dispute set is trimmed so that it respects max block weight.
+
+Dispute data is first deduplicated and sorted by block number (older first) and dispute location (local then remote).
+Concluded and ancient (disputes initiated before the post conclusion acceptance period) disputes are filtered out.
+Votes with invalid signatures or from unknown validators (not found in the active set for the current session) are also
+filtered out.
+
+All dispute statements are included in the order described in the previous paragraph until the available block weight is
+exhausted. After the dispute data is included all remaining weight is filled in with candidates and availability
+bitfields. Bitfields are included with priority, then candidates containing code updates and finally any backed
+candidates. If there is not enough weight for all backed candidates they are trimmed by random selection. Disputes are
+processed in three separate functions - `deduplicate_and_sort_dispute_data`, `filter_dispute_data` and
+`limit_and_sanitize_disputes`.
+
+Availability bitfields are also sanitized by dropping malformed ones, containing disputed cores or bad signatures. Refer
+to `sanitize_bitfields` function for implementation details.
+
+Backed candidates sanitization removes malformed ones, candidates which have got concluded invalid disputes against them
+or candidates produced by unassigned cores. Furthermore any backing votes from disabled validators for a candidate are
+dropped. This is part of the validator disabling strategy. After filtering the statements from disabled validators a
+backed candidate may end up with votes count less than `minimum_backing_votes` (a parameter from `HostConfiguiration`).
+In this case the whole candidate is dropped otherwise it will be rejected by `process_candidates` from pallet inclusion.
+All checks related to backed candidates are implemented in `sanitize_backed_candidates` and
+`filter_backed_statements_from_disabled_validators`.

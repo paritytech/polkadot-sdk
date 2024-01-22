@@ -21,7 +21,7 @@
 
 use crate as pallet_aura;
 use frame_support::{
-	parameter_types,
+	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64, DisabledValidators},
 };
 use sp_consensus_aura::{ed25519::AuthorityId, AuthorityIndex};
@@ -35,12 +35,13 @@ const SLOT_DURATION: u64 = 2;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-		Aura: pallet_aura::{Pallet, Storage, Config<T>},
+		System: frame_system,
+		Timestamp: pallet_timestamp,
+		Aura: pallet_aura,
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -94,6 +95,10 @@ impl MockDisabledValidators {
 impl DisabledValidators for MockDisabledValidators {
 	fn is_disabled(index: AuthorityIndex) -> bool {
 		DisabledValidatorTestValue::get().binary_search(&index).is_ok()
+	}
+
+	fn disabled_validators() -> Vec<u32> {
+		DisabledValidatorTestValue::get()
 	}
 }
 

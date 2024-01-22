@@ -24,7 +24,7 @@ use super::*;
 
 use crate as pallet_message_queue;
 use frame_support::{
-	parameter_types,
+	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64},
 };
 use sp_core::H256;
@@ -39,10 +39,12 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		MessageQueue: pallet_message_queue,
 	}
 );
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -106,7 +108,10 @@ impl MockedWeightInfo {
 
 impl crate::weights::WeightInfo for MockedWeightInfo {
 	fn reap_page() -> Weight {
-		WeightForCall::get().get("reap_page").copied().unwrap_or_default()
+		WeightForCall::get()
+			.get("reap_page")
+			.copied()
+			.unwrap_or(DefaultWeightForCall::get())
 	}
 	fn execute_overweight_page_updated() -> Weight {
 		WeightForCall::get()
@@ -205,6 +210,10 @@ impl ProcessMessage for RecordingMessageProcessor {
 		let required = Weight::from_parts(weight, weight);
 
 		if meter.try_consume(required).is_ok() {
+			if let Some(p) = message.strip_prefix(&b"callback="[..]) {
+				let s = String::from_utf8(p.to_vec()).expect("Need valid UTF8");
+				Callback::get()(&origin, s.parse().expect("Expected an u32"));
+			}
 			let mut m = MessagesProcessed::get();
 			m.push((message.to_vec(), origin));
 			MessagesProcessed::set(m);
@@ -213,6 +222,10 @@ impl ProcessMessage for RecordingMessageProcessor {
 			Err(ProcessMessageError::Overweight(required))
 		}
 	}
+}
+
+parameter_types! {
+	pub static Callback: Box<fn (&MessageOrigin, u32)> = Box::new(|_, _| {});
 }
 
 /// Processed a mocked message. Messages that end with `badformat`, `corrupt`, `unsupported` or
@@ -262,6 +275,10 @@ impl ProcessMessage for CountingMessageProcessor {
 		let required = Weight::from_parts(1, 1);
 
 		if meter.try_consume(required).is_ok() {
+			if let Some(p) = message.strip_prefix(&b"callback="[..]) {
+				let s = String::from_utf8(p.to_vec()).expect("Need valid UTF8");
+				Callback::get()(&origin, s.parse().expect("Expected an u32"));
+			}
 			NumMessagesProcessed::set(NumMessagesProcessed::get() + 1);
 			Ok(true)
 		} else {
@@ -369,4 +386,17 @@ pub fn num_overweight_enqueued_events() -> u32 {
 
 pub fn fp(pages: u32, count: u64, size: u64) -> QueueFootprint {
 	QueueFootprint { storage: Footprint { count, size }, pages }
+}
+
+/// A random seed that can be overwritten with `MQ_SEED`.
+pub fn gen_seed() -> u64 {
+	use rand::Rng;
+	let seed = if let Ok(seed) = std::env::var("MQ_SEED") {
+		seed.parse().expect("Need valid u64 as MQ_SEED env variable")
+	} else {
+		rand::thread_rng().gen::<u64>()
+	};
+
+	println!("Using seed: {}", seed);
+	seed
 }

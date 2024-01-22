@@ -21,7 +21,7 @@ use super::*;
 use crate as pallet_node_authorization;
 
 use frame_support::{
-	ord_parameter_types,
+	derive_impl, ord_parameter_types,
 	traits::{ConstU32, ConstU64},
 };
 use frame_system::EnsureSignedBy;
@@ -36,13 +36,12 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		NodeAuthorization: pallet_node_authorization::{
-			Pallet, Call, Storage, Config<T>, Event<T>,
-		},
+		System: frame_system,
+		NodeAuthorization: pallet_node_authorization,
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type DbWeight = ();

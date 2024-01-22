@@ -53,9 +53,10 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 pub use self::{
 	builder::{
 		build_network, new_client, new_db_backend, new_full_client, new_full_parts,
-		new_full_parts_with_genesis_builder, new_native_or_wasm_executor, new_wasm_executor,
-		spawn_tasks, BuildNetworkParams, KeystoreContainer, NetworkStarter, SpawnTasksParams,
-		TFullBackend, TFullCallExecutor, TFullClient,
+		new_full_parts_record_import, new_full_parts_with_genesis_builder,
+		new_native_or_wasm_executor, new_wasm_executor, spawn_tasks, BuildNetworkParams,
+		KeystoreContainer, NetworkStarter, SpawnTasksParams, TFullBackend, TFullCallExecutor,
+		TFullClient,
 	},
 	client::{ClientConfig, LocalCallExecutor},
 	error::Error,
@@ -76,7 +77,7 @@ pub use sc_chain_spec::{
 
 pub use sc_consensus::ImportQueue;
 pub use sc_executor::NativeExecutionDispatch;
-pub use sc_network_sync::warp::WarpSyncParams;
+pub use sc_network_sync::WarpSyncParams;
 #[doc(hidden)]
 pub use sc_network_transactions::config::{TransactionImport, TransactionImportFuture};
 pub use sc_rpc::{

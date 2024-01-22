@@ -339,6 +339,7 @@ frame_benchmarking::benchmarks! {
 
 #[cfg(test)]
 mod mock {
+	use frame_support::derive_impl;
 	use sp_runtime::{testing::H256, BuildStorage};
 
 	type AccountId = u64;
@@ -349,11 +350,12 @@ mod mock {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-			Baseline: crate::{Pallet, Call, Storage, Event<T>},
+			System: frame_system,
+			Baseline: crate,
 		}
 	);
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();

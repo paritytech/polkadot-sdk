@@ -30,7 +30,24 @@
 //! `trait IsRequest` .... A trait describing a particular request. It is used for gathering meta
 //! data, like what is the corresponding response type.
 //!
-//!  Versioned (v1 module): The actual requests and responses as sent over the network.
+//!  ## Versioning
+//!  
+//! Versioning for request-response protocols can be done in multiple ways.
+//!
+//! If you're just changing the protocol name but the binary payloads are the same, just add a new
+//! `fallback_name` to the protocol config.
+//!
+//! One way in which versioning has historically been achieved for req-response protocols is to
+//! bundle the new req-resp version with an upgrade of a notifications protocol. The subsystem would
+//! then know which request version to use based on stored data about the peer's notifications
+//! protocol version.
+//!
+//! When bumping a notifications protocol version is not needed/desirable, you may add a new
+//! req-resp protocol and set the old request as a fallback (see
+//! `OutgoingRequest::new_with_fallback`). A request with the new version will be attempted and if
+//! the protocol is refused by the peer, the fallback protocol request will be used.
+//! Information about the actually used protocol will be returned alongside the raw response, so
+//! that you know how to decode it.
 
 use std::{collections::HashMap, time::Duration, u64};
 
@@ -188,11 +205,11 @@ impl Protocol {
 		tx: Option<async_channel::Sender<network::IncomingRequest>>,
 	) -> RequestResponseConfig {
 		let name = req_protocol_names.get_name(self);
-		let fallback_names = self.get_fallback_names();
+		let legacy_names = self.get_legacy_name().into_iter().map(Into::into).collect();
 		match self {
 			Protocol::ChunkFetchingV1 => RequestResponseConfig {
 				name,
-				fallback_names,
+				fallback_names: legacy_names,
 				max_request_size: 1_000,
 				max_response_size: POV_RESPONSE_SIZE as u64 * 3,
 				// We are connected to all validators:
@@ -202,7 +219,7 @@ impl Protocol {
 			Protocol::CollationFetchingV1 | Protocol::CollationFetchingV2 =>
 				RequestResponseConfig {
 					name,
-					fallback_names,
+					fallback_names: legacy_names,
 					max_request_size: 1_000,
 					max_response_size: POV_RESPONSE_SIZE,
 					// Taken from initial implementation in collator protocol:
@@ -211,7 +228,7 @@ impl Protocol {
 				},
 			Protocol::PoVFetchingV1 => RequestResponseConfig {
 				name,
-				fallback_names,
+				fallback_names: legacy_names,
 				max_request_size: 1_000,
 				max_response_size: POV_RESPONSE_SIZE,
 				request_timeout: POV_REQUEST_TIMEOUT_CONNECTED,
@@ -219,7 +236,7 @@ impl Protocol {
 			},
 			Protocol::AvailableDataFetchingV1 => RequestResponseConfig {
 				name,
-				fallback_names,
+				fallback_names: legacy_names,
 				max_request_size: 1_000,
 				// Available data size is dominated by the PoV size.
 				max_response_size: POV_RESPONSE_SIZE,
@@ -228,7 +245,7 @@ impl Protocol {
 			},
 			Protocol::StatementFetchingV1 => RequestResponseConfig {
 				name,
-				fallback_names,
+				fallback_names: legacy_names,
 				max_request_size: 1_000,
 				// Available data size is dominated code size.
 				max_response_size: STATEMENT_RESPONSE_SIZE,
@@ -246,17 +263,17 @@ impl Protocol {
 			},
 			Protocol::DisputeSendingV1 => RequestResponseConfig {
 				name,
-				fallback_names,
+				fallback_names: legacy_names,
 				max_request_size: 1_000,
-				/// Responses are just confirmation, in essence not even a bit. So 100 seems
-				/// plenty.
+				// Responses are just confirmation, in essence not even a bit. So 100 seems
+				// plenty.
 				max_response_size: 100,
 				request_timeout: DISPUTE_REQUEST_TIMEOUT,
 				inbound_queue: tx,
 			},
 			Protocol::AttestedCandidateV2 => RequestResponseConfig {
 				name,
-				fallback_names,
+				fallback_names: legacy_names,
 				max_request_size: 1_000,
 				max_response_size: ATTESTED_CANDIDATE_RESPONSE_SIZE,
 				request_timeout: ATTESTED_CANDIDATE_TIMEOUT,
@@ -328,12 +345,9 @@ impl Protocol {
 		}
 	}
 
-	/// Fallback protocol names of this protocol, as understood by substrate networking.
-	fn get_fallback_names(self) -> Vec<ProtocolName> {
-		self.get_legacy_name().into_iter().map(Into::into).collect()
-	}
-
 	/// Legacy protocol name associated with each peer set, if any.
+	/// The request will be tried on this legacy protocol name if the remote refuses to speak the
+	/// protocol.
 	const fn get_legacy_name(self) -> Option<&'static str> {
 		match self {
 			Protocol::ChunkFetchingV1 => Some("/polkadot/req_chunk/1"),
@@ -360,6 +374,7 @@ pub trait IsRequest {
 }
 
 /// Type for getting on the wire [`Protocol`] names using genesis hash & fork id.
+#[derive(Clone)]
 pub struct ReqProtocolNames {
 	names: HashMap<Protocol, ProtocolName>,
 }

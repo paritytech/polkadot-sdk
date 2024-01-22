@@ -21,7 +21,7 @@ use super::*;
 use crate as pallet_society;
 
 use frame_support::{
-	assert_noop, assert_ok, ord_parameter_types, parameter_types,
+	assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{ConstU32, ConstU64},
 };
 use frame_support_test::TestRandomness;
@@ -39,9 +39,9 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Society: pallet_society::{Pallet, Call, Storage, Event<T>, Config<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		Society: pallet_society,
 	}
 );
 
@@ -58,6 +58,7 @@ ord_parameter_types! {
 	pub const MaxBids: u32 = 10;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();

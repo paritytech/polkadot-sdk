@@ -410,6 +410,7 @@ where
 						?block_hash,
 						parent_hash = ?parent,
 						parent_scheduled_for_recovery,
+						waiting_blocks = self.waiting_for_parent.len(),
 						"Waiting for recovery of parent.",
 					);
 
@@ -442,13 +443,13 @@ where
 			_ => (),
 		}
 
-		self.import_block(block).await;
+		self.import_block(block);
 	}
 
 	/// Import the given `block`.
 	///
 	/// This will also recursivley drain `waiting_for_parent` and import them as well.
-	async fn import_block(&mut self, block: Block) {
+	fn import_block(&mut self, block: Block) {
 		let mut blocks = VecDeque::new();
 
 		tracing::debug!(target: LOG_TARGET, block_hash = ?block.hash(), "Importing block retrieved using pov_recovery");
@@ -551,7 +552,6 @@ where
 		};
 
 		futures::pin_mut!(pending_candidates);
-
 		loop {
 			select! {
 				pending_candidate = pending_candidates.next() => {
@@ -573,6 +573,17 @@ where
 				imported = imported_blocks.next() => {
 					if let Some(imported) = imported {
 						self.clear_waiting_recovery(&imported.hash);
+
+						// We need to double check that no blocks are waiting for this block.
+						// Can happen when a waiting child block is queued to wait for parent while the parent block is still
+						// in the import queue.
+						if let Some(waiting_blocks) = self.waiting_for_parent.remove(&imported.hash) {
+							for block in waiting_blocks {
+								tracing::debug!(target: LOG_TARGET, block_hash = ?block.hash(), resolved_parent = ?imported.hash, "Found new waiting child block during import, queuing.");
+								self.import_block(block);
+							}
+						};
+
 					} else {
 						tracing::debug!(target: LOG_TARGET,	"Imported blocks stream ended");
 						return;

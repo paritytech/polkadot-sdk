@@ -19,7 +19,10 @@
 
 use super::*;
 use crate as sudo;
-use frame_support::traits::{ConstU32, Contains};
+use frame_support::{
+	derive_impl,
+	traits::{ConstU32, Contains},
+};
 use sp_core::{ConstU64, H256};
 use sp_io;
 use sp_runtime::{
@@ -95,9 +98,9 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Sudo: sudo::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Logger: logger::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		Sudo: sudo,
+		Logger: logger,
 	}
 );
 
@@ -108,6 +111,7 @@ impl Contains<RuntimeCall> for BlockEverything {
 	}
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = BlockEverything;
 	type BlockWeights = ();

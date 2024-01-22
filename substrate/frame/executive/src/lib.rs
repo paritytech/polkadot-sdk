@@ -362,9 +362,13 @@ where
 		Ok(frame_system::Pallet::<System>::block_weight().total())
 	}
 
-	/// Execute all `OnRuntimeUpgrade` of this runtime.
+	/// Execute all Migrations of this runtime.
 	///
 	/// The `checks` param determines whether to execute `pre/post_upgrade` and `try_state` hooks.
+	///
+	/// [`frame_system::LastRuntimeUpgrade`] is set to the current runtime version after
+	/// migrations execute. This is important for idempotency checks, because some migrations use
+	/// this value to determine whether or not they should execute.
 	pub fn try_runtime_upgrade(checks: UpgradeCheckSelect) -> Result<Weight, TryRuntimeError> {
 		let before_all_weight =
 			<AllPalletsWithSystem as BeforeAllRuntimeMigrations>::before_all_runtime_migrations();
@@ -372,6 +376,13 @@ where
 			<(COnRuntimeUpgrade, AllPalletsWithSystem) as OnRuntimeUpgrade>::try_on_runtime_upgrade(
 				checks.pre_and_post(),
 			)?;
+
+		frame_system::LastRuntimeUpgrade::<System>::put(
+			frame_system::LastRuntimeUpgradeInfo::from(
+				<System::Version as frame_support::traits::Get<_>>::get(),
+			),
+		);
+
 		// Nothing should modify the state after the migrations ran:
 		let _guard = StorageNoopGuard::default();
 
@@ -398,9 +409,10 @@ where
 	) -> Result<(), TryRuntimeError> {
 		match res {
 			Ok(bytes) => {
-				log::debug!(
+				log::info!(
 					target: LOG_TARGET,
-					"decoded the entire state ({bytes} bytes)",
+					"✅ Entire runtime state decodes without error. {} bytes total.",
+					bytes
 				);
 
 				Ok(())
@@ -750,7 +762,7 @@ mod tests {
 	};
 
 	use frame_support::{
-		assert_err, parameter_types,
+		assert_err, derive_impl, parameter_types,
 		traits::{fungible, ConstU32, ConstU64, ConstU8, Currency},
 		weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight, WeightToFee},
 	};
@@ -885,12 +897,11 @@ mod tests {
 	}
 
 	frame_support::construct_runtime!(
-		pub struct Runtime
-		{
-			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-			TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
-			Custom: custom::{Pallet, Call, ValidateUnsigned, Inherent},
+		pub enum Runtime {
+			System: frame_system,
+			Balances: pallet_balances,
+			TransactionPayment: pallet_transaction_payment,
+			Custom: custom,
 		}
 	);
 
@@ -906,6 +917,7 @@ mod tests {
 			write: 100,
 		};
 	}
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Runtime {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = BlockWeights;

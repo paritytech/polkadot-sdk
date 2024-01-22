@@ -282,7 +282,7 @@ pub use sp_api_proc_macro::decl_runtime_apis;
 /// #
 /// # /// The declaration of the `Runtime` type is done by the `construct_runtime!` macro
 /// # /// in a real runtime.
-/// # pub struct Runtime {}
+/// # pub enum Runtime {}
 /// #
 /// # sp_api::decl_runtime_apis! {
 /// #     /// Declare the api trait.
@@ -361,7 +361,7 @@ pub use sp_api_proc_macro::decl_runtime_apis;
 /// let's say you want to implement a staging version of the runtime api and put it behind a
 /// feature flag. You can do it this way:
 /// ```ignore
-/// pub struct Runtime {}
+/// pub enum Runtime {}
 /// sp_api::decl_runtime_apis! {
 ///     pub trait ApiWithStagingMethod {
 ///         fn stable_one(data: u64);
@@ -406,14 +406,14 @@ pub use sp_api_proc_macro::impl_runtime_apis;
 
 /// Mocks given trait implementations as runtime apis.
 ///
-/// Accepts similar syntax as [`impl_runtime_apis!`] and generates
-/// simplified mock implementations of the given runtime apis. The difference in syntax is that
-/// the trait does not need to be referenced by a qualified path, methods accept the `&self`
-/// parameter and the error type can be specified as associated type. If no error type is
-/// specified [`String`] is used as error type.
+/// Accepts similar syntax as [`impl_runtime_apis!`] and generates simplified mock
+/// implementations of the given runtime apis. The difference in syntax is that the trait does
+/// not need to be referenced by a qualified path, methods accept the `&self` parameter and the
+/// error type can be specified as associated type. If no error type is specified [`String`] is
+/// used as error type.
 ///
-/// Besides implementing the given traits, the [`Core`](sp_api::Core) and
-/// [`ApiExt`](sp_api::ApiExt) are implemented automatically.
+/// Besides implementing the given traits, the [`Core`] and [`ApiExt`] are implemented
+/// automatically.
 ///
 /// # Example
 ///

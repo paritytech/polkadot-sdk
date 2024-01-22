@@ -98,16 +98,19 @@ mod metrics;
 mod prepare;
 mod priority;
 mod security;
-mod worker_intf;
+mod worker_interface;
 
 #[cfg(feature = "test-utils")]
 pub mod testing;
 
 pub use error::{InvalidCandidate, PossiblyInvalidError, ValidationError};
-pub use host::{start, Config, ValidationHost, EXECUTE_BINARY_NAME, PREPARE_BINARY_NAME};
+pub use host::{
+	start, Config, ValidationHost, EXECUTE_BINARY_NAME, HOST_MESSAGE_QUEUE_SIZE,
+	PREPARE_BINARY_NAME,
+};
 pub use metrics::Metrics;
 pub use priority::Priority;
-pub use worker_intf::{framed_recv, framed_send, JOB_TIMEOUT_WALL_CLOCK_FACTOR};
+pub use worker_interface::{framed_recv, framed_send, JOB_TIMEOUT_WALL_CLOCK_FACTOR};
 
 // Re-export some common types.
 pub use polkadot_node_core_pvf_common::{
