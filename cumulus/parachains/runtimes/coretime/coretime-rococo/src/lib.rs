@@ -106,7 +106,10 @@ pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 
 /// Migrations to apply on runtime upgrade.
-pub type Migrations = (cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,);
+pub type Migrations = (
+	cumulus_pallet_xcmp_queue::migration::v4::MigrateV3ToV4<Runtime>,
+	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
+);
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
@@ -332,11 +335,18 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type ChannelInfo = ParachainSystem;
 	type VersionWrapper = PolkadotXcm;
 	type XcmpQueue = TransformOrigin<MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling>;
-	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
+	type MaxInboundSuspended = ConstU32<1_000>;
+	type MaxActiveOutboundChannels = ConstU32<128>;
+	type MaxPageSize = ConstU32<{ 1 << 16 }>;
 	type ControllerOrigin = RootOrFellows;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	type WeightInfo = weights::cumulus_pallet_xcmp_queue::WeightInfo<Runtime>;
 	type PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
+}
+
+impl cumulus_pallet_xcmp_queue::migration::v5::V5Config for Runtime {
+	// This must be the same as the `ChannelInfo` from the `Config`:
+	type ChannelList = ParachainSystem;
 }
 
 pub const PERIOD: u32 = 6 * HOURS;
