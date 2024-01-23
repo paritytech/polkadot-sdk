@@ -22,7 +22,7 @@ pub use xcm::{
 	latest::ParentThen,
 	prelude::{AccountId32 as AccountId32Junction, *},
 	v3::{
-		Error,
+		self, Error,
 		NetworkId::{Rococo as RococoId, Westend as WestendId},
 	},
 };

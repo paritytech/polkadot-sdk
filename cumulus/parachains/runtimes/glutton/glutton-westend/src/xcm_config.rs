@@ -18,8 +18,8 @@ use super::{
 	RuntimeOrigin,
 };
 use frame_support::{
-	match_types, parameter_types,
-	traits::{Everything, Nothing},
+	parameter_types,
+	traits::{Contains, Everything, Nothing},
 	weights::Weight,
 };
 use xcm::latest::prelude::*;
@@ -29,9 +29,9 @@ use xcm_builder::{
 };
 
 parameter_types! {
-	pub const WestendLocation: MultiLocation = MultiLocation::parent();
+	pub const WestendLocation: Location = Location::parent();
 	pub const WestendNetwork: Option<NetworkId> = Some(NetworkId::Westend);
-	pub UniversalLocation: InteriorMultiLocation = X1(Parachain(ParachainInfo::parachain_id().into()));
+	pub UniversalLocation: InteriorLocation = [Parachain(ParachainInfo::parachain_id().into())].into();
 }
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
@@ -47,8 +47,11 @@ pub type XcmOriginToTransactDispatchOrigin = (
 	ParentAsSuperuser<RuntimeOrigin>,
 );
 
-match_types! {
-	pub type JustTheParent: impl Contains<MultiLocation> = { MultiLocation { parents:1, interior: Here } };
+pub struct JustTheParent;
+impl Contains<Location> for JustTheParent {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (1, []))
+	}
 }
 
 parameter_types! {
