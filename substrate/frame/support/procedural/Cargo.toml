@@ -29,14 +29,14 @@ frame-support-procedural-tools = { path = "tools" }
 macro_magic = { version = "0.5.0", features = ["proc_support"] }
 proc-macro-warning = { version = "1.0.0", default-features = false }
 expander = "2.0.0"
-sp-core-hashing = { path = "../../../primitives/core/hashing", default-features = false }
+sp-crypto-hashing = { path = "../../../primitives/crypto/hashing", default-features = false }
 
 [dev-dependencies]
 regex = "1"
 
 [features]
 default = ["std"]
-std = ["sp-core-hashing/std"]
+std = ["sp-crypto-hashing/std"]
 no-metadata-docs = []
 # Generate impl-trait for tuples with the given number of tuples. Will be needed as the number of
 # pallets in a runtime grows. Does increase the compile time!
