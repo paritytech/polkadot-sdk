@@ -123,6 +123,10 @@
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
 <a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -153,12 +157,12 @@
 	storage::{IterQueryType, QueryIter, Storage},
 };
 
-<span class="doccomment">/// Generates the events of the `chainHead_storage` method.
+<span class="doccomment">/// Generates the events of the `archive_storage` method.
 </span><span class="kw">pub struct </span>ArchiveStorage&lt;Client, Block, BE&gt; {
 	<span class="doccomment">/// Storage client.
 	</span>client: Storage&lt;Client, Block, BE&gt;,
-	<span class="doccomment">/// The maximum number of reported items by the `archive_storage` at a time.
-	</span>storage_max_reported_items: usize,
+	<span class="doccomment">/// The maximum number of responses the API can return for a descendant query at a time.
+	</span>storage_max_descendant_responses: usize,
 	<span class="doccomment">/// The maximum number of queried items allowed for the `archive_storage` at a time.
 	</span>storage_max_queried_items: usize,
 }
@@ -167,10 +171,14 @@
 	<span class="doccomment">/// Constructs a new [`ArchiveStorage`].
 	</span><span class="kw">pub fn </span>new(
 		client: Arc&lt;Client&gt;,
-		storage_max_reported_items: usize,
+		storage_max_descendant_responses: usize,
 		storage_max_queried_items: usize,
 	) -&gt; <span class="self">Self </span>{
-		<span class="self">Self </span>{ client: Storage::new(client), storage_max_reported_items, storage_max_queried_items }
+		<span class="self">Self </span>{
+			client: Storage::new(client),
+			storage_max_descendant_responses,
+			storage_max_queried_items,
+		}
 	}
 }
 
@@ -221,7 +229,7 @@
 						},
 						hash,
 						child_key.as_ref(),
-						<span class="self">self</span>.storage_max_reported_items,
+						<span class="self">self</span>.storage_max_descendant_responses,
 					) {
 						<span class="prelude-val">Ok</span>((results, <span class="kw">_</span>)) =&gt; storage_results.extend(results),
 						<span class="prelude-val">Err</span>(error) =&gt; <span class="kw">return </span>ArchiveStorageResult::err(error),
@@ -236,7 +244,7 @@
 						},
 						hash,
 						child_key.as_ref(),
-						<span class="self">self</span>.storage_max_reported_items,
+						<span class="self">self</span>.storage_max_descendant_responses,
 					) {
 						<span class="prelude-val">Ok</span>((results, <span class="kw">_</span>)) =&gt; storage_results.extend(results),
 						<span class="prelude-val">Err</span>(error) =&gt; <span class="kw">return </span>ArchiveStorageResult::err(error),

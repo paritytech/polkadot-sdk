@@ -4423,6 +4423,16 @@
 <a href="#4423" id="4423">4423</a>
 <a href="#4424" id="4424">4424</a>
 <a href="#4425" id="4425">4425</a>
+<a href="#4426" id="4426">4426</a>
+<a href="#4427" id="4427">4427</a>
+<a href="#4428" id="4428">4428</a>
+<a href="#4429" id="4429">4429</a>
+<a href="#4430" id="4430">4430</a>
+<a href="#4431" id="4431">4431</a>
+<a href="#4432" id="4432">4432</a>
+<a href="#4433" id="4433">4433</a>
+<a href="#4434" id="4434">4434</a>
+<a href="#4435" id="4435">4435</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4743,6 +4753,16 @@
 	</span>KeepFinalized,
 	<span class="doccomment">/// Keep N recent finalized blocks.
 	</span><span class="prelude-val">Some</span>(u32),
+}
+
+<span class="kw">impl </span>BlocksPruning {
+	<span class="doccomment">/// True if this is an archive pruning mode (either KeepAll or KeepFinalized).
+	</span><span class="kw">pub fn </span>is_archive(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
+			BlocksPruning::KeepAll | BlocksPruning::KeepFinalized =&gt; <span class="bool-val">true</span>,
+			BlocksPruning::Some(<span class="kw">_</span>) =&gt; <span class="bool-val">false</span>,
+		}
+	}
 }
 
 <span class="doccomment">/// Where to find the database..
