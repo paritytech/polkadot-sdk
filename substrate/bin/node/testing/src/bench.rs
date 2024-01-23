@@ -39,15 +39,16 @@ use kitchensink_runtime::{
 	RuntimeCall, Signature, SystemCall, UncheckedExtrinsic,
 };
 use node_primitives::Block;
-use sc_block_builder::BlockBuilderProvider;
-use sc_client_api::execution_extensions::ExecutionExtensions;
+use sc_block_builder::BlockBuilderBuilder;
+use sc_client_api::{execution_extensions::ExecutionExtensions, UsageProvider};
 use sc_client_db::PruningMode;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, ImportResult, ImportedAux};
-use sc_executor::{NativeElseWasmExecutor, WasmExecutionMethod, WasmtimeInstantiationStrategy};
+use sc_executor::{WasmExecutionMethod, WasmtimeInstantiationStrategy};
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_consensus::BlockOrigin;
-use sp_core::{blake2_256, ed25519, sr25519, traits::SpawnNamed, Pair, Public};
+use sp_core::{ed25519, sr25519, traits::SpawnNamed, Pair, Public};
+use sp_crypto_hashing::blake2_256;
 use sp_inherents::InherentData;
 use sp_runtime::{
 	traits::{Block as BlockT, IdentifyAccount, Verify},
@@ -388,17 +389,15 @@ impl BenchDb {
 		let task_executor = TaskExecutor::new();
 
 		let backend = sc_service::new_db_backend(db_config).expect("Should not fail");
-		let executor = NativeElseWasmExecutor::new_with_wasm_executor(
-			sc_executor::WasmExecutor::builder()
-				.with_execution_method(WasmExecutionMethod::Compiled {
-					instantiation_strategy: WasmtimeInstantiationStrategy::PoolingCopyOnWrite,
-				})
-				.build(),
-		);
+		let executor = sc_executor::WasmExecutor::builder()
+			.with_execution_method(WasmExecutionMethod::Compiled {
+				instantiation_strategy: WasmtimeInstantiationStrategy::PoolingCopyOnWrite,
+			})
+			.build();
 
 		let client_config = sc_service::ClientConfig::default();
 		let genesis_block_builder = sc_service::GenesisBlockBuilder::new(
-			&keyring.generate_genesis(),
+			keyring.as_storage_builder(),
 			!client_config.no_genesis,
 			backend.clone(),
 			executor.clone(),
@@ -455,8 +454,13 @@ impl BenchDb {
 	/// Generate new block using this database.
 	pub fn generate_block(&mut self, content: BlockContent) -> Block {
 		let client = self.client();
+		let chain = client.usage_info().chain;
 
-		let mut block = client.new_block(Default::default()).expect("Block creation failed");
+		let mut block = BlockBuilderBuilder::new(&client)
+			.on_parent_block(chain.best_hash)
+			.with_parent_block_number(chain.best_number)
+			.build()
+			.expect("Failed to create block builder.");
 
 		for extrinsic in self.generate_inherents(&client) {
 			block.push(extrinsic).expect("Push inherent failed");
@@ -571,7 +575,7 @@ impl BenchKeyring {
 				let key = self.accounts.get(&signed).expect("Account id not found in keyring");
 				let signature = payload.using_encoded(|b| {
 					if b.len() > 256 {
-						key.sign(&sp_io::hashing::blake2_256(b))
+						key.sign(&blake2_256(b))
 					} else {
 						key.sign(b)
 					}
@@ -585,12 +589,20 @@ impl BenchKeyring {
 		}
 	}
 
-	/// Generate genesis with accounts from this keyring endowed with some balance.
-	pub fn generate_genesis(&self) -> kitchensink_runtime::RuntimeGenesisConfig {
-		crate::genesis::config_endowed(
-			Some(kitchensink_runtime::wasm_binary_unwrap()),
-			self.collect_account_ids(),
-		)
+	/// Generate genesis with accounts from this keyring endowed with some balance and
+	/// kitchensink_runtime code blob.
+	pub fn as_storage_builder(&self) -> &dyn sp_runtime::BuildStorage {
+		self
+	}
+}
+
+impl sp_runtime::BuildStorage for BenchKeyring {
+	fn assimilate_storage(&self, storage: &mut sp_core::storage::Storage) -> Result<(), String> {
+		storage.top.insert(
+			sp_core::storage::well_known_keys::CODE.to_vec(),
+			kitchensink_runtime::wasm_binary_unwrap().into(),
+		);
+		crate::genesis::config_endowed(self.collect_account_ids()).assimilate_storage(storage)
 	}
 }
 

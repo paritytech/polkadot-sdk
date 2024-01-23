@@ -14,8 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::HeaderIdProvider;
-use codec::{Decode, Encode, MaxEncodedLen};
+use crate::{ChainId, HeaderIdProvider};
+
+use codec::{Codec, Decode, Encode, MaxEncodedLen};
 use frame_support::{weights::Weight, Parameter};
 use num_traits::{AsPrimitive, Bounded, CheckedSub, Saturating, SaturatingAdd, Zero};
 use sp_runtime::{
@@ -39,7 +40,7 @@ pub enum EncodedOrDecodedCall<ChainCall> {
 	Decoded(ChainCall),
 }
 
-impl<ChainCall: Clone + Decode> EncodedOrDecodedCall<ChainCall> {
+impl<ChainCall: Clone + Codec> EncodedOrDecodedCall<ChainCall> {
 	/// Returns decoded call.
 	pub fn to_decoded(&self) -> Result<ChainCall, codec::Error> {
 		match self {
@@ -55,6 +56,14 @@ impl<ChainCall: Clone + Decode> EncodedOrDecodedCall<ChainCall> {
 			Self::Encoded(encoded_call) =>
 				ChainCall::decode(&mut &encoded_call[..]).map_err(Into::into),
 			Self::Decoded(decoded_call) => Ok(decoded_call),
+		}
+	}
+
+	/// Converts self to encoded call.
+	pub fn into_encoded(self) -> Vec<u8> {
+		match self {
+			Self::Encoded(encoded_call) => encoded_call,
+			Self::Decoded(decoded_call) => decoded_call.encode(),
 		}
 	}
 }
@@ -91,6 +100,9 @@ impl<ChainCall: Encode> Encode for EncodedOrDecodedCall<ChainCall> {
 
 /// Minimal Substrate-based chain representation that may be used from no_std environment.
 pub trait Chain: Send + Sync + 'static {
+	/// Chain id.
+	const ID: ChainId;
+
 	/// A type that fulfills the abstract idea of what a Substrate block number is.
 	// Constraits come from the associated Number type of `sp_runtime::traits::Header`
 	// See here for more info:
@@ -191,7 +203,7 @@ pub trait Chain: Send + Sync + 'static {
 }
 
 /// A trait that provides the type of the underlying chain.
-pub trait UnderlyingChainProvider {
+pub trait UnderlyingChainProvider: Send + Sync + 'static {
 	/// Underlying chain type.
 	type Chain: Chain;
 }
@@ -200,6 +212,8 @@ impl<T> Chain for T
 where
 	T: Send + Sync + 'static + UnderlyingChainProvider,
 {
+	const ID: ChainId = <T::Chain as Chain>::ID;
+
 	type BlockNumber = <T::Chain as Chain>::BlockNumber;
 	type Hash = <T::Chain as Chain>::Hash;
 	type Hasher = <T::Chain as Chain>::Hasher;
@@ -280,7 +294,7 @@ pub type TransactionEraOf<C> = crate::TransactionEra<BlockNumberOf<C>, HashOf<C>
 /// - constants that are stringified names of runtime API methods:
 ///     - `BEST_FINALIZED_<THIS_CHAIN>_HEADER_METHOD`
 ///     - `<THIS_CHAIN>_ACCEPTED_<CONSENSUS>_FINALITY_PROOFS_METHOD`
-/// The name of the chain has to be specified in snake case (e.g. `rialto_parachain`).
+/// The name of the chain has to be specified in snake case (e.g. `bridge_hub_polkadot`).
 #[macro_export]
 macro_rules! decl_bridge_finality_runtime_apis {
 	($chain: ident $(, $consensus: ident => $justification_type: ty)?) => {
@@ -311,7 +325,7 @@ macro_rules! decl_bridge_finality_runtime_apis {
 						$(
 							/// Returns the justifications accepted in the current block.
 							fn [<synced_headers_ $consensus:lower _info>](
-							) -> Vec<$justification_type>;
+							) -> sp_std::vec::Vec<$justification_type>;
 						)?
 					}
 				}
@@ -332,7 +346,7 @@ macro_rules! decl_bridge_finality_runtime_apis {
 ///     - `From<ThisChain>InboundLaneApi`
 /// - constants that are stringified names of runtime API methods:
 ///     - `FROM_<THIS_CHAIN>_MESSAGE_DETAILS_METHOD`,
-/// The name of the chain has to be specified in snake case (e.g. `rialto_parachain`).
+/// The name of the chain has to be specified in snake case (e.g. `bridge_hub_polkadot`).
 #[macro_export]
 macro_rules! decl_bridge_messages_runtime_apis {
 	($chain: ident) => {
@@ -360,10 +374,10 @@ macro_rules! decl_bridge_messages_runtime_apis {
 						/// If some (or all) messages are missing from the storage, they'll also will
 						/// be missing from the resulting vector. The vector is ordered by the nonce.
 						fn message_details(
-							lane: LaneId,
-							begin: MessageNonce,
-							end: MessageNonce,
-						) -> Vec<OutboundMessageDetails>;
+							lane: bp_messages::LaneId,
+							begin: bp_messages::MessageNonce,
+							end: bp_messages::MessageNonce,
+						) -> sp_std::vec::Vec<bp_messages::OutboundMessageDetails>;
 					}
 
 					/// Inbound message lane API for messages sent by this chain.
@@ -376,9 +390,9 @@ macro_rules! decl_bridge_messages_runtime_apis {
 					pub trait [<From $chain:camel InboundLaneApi>] {
 						/// Return details of given inbound messages.
 						fn message_details(
-							lane: LaneId,
-							messages: Vec<(MessagePayload, OutboundMessageDetails)>,
-						) -> Vec<InboundMessageDetails>;
+							lane: bp_messages::LaneId,
+							messages: sp_std::vec::Vec<(bp_messages::MessagePayload, bp_messages::OutboundMessageDetails)>,
+						) -> sp_std::vec::Vec<bp_messages::InboundMessageDetails>;
 					}
 				}
 			}
@@ -390,7 +404,7 @@ macro_rules! decl_bridge_messages_runtime_apis {
 
 /// Convenience macro that declares bridge finality runtime apis, bridge messages runtime apis
 /// and related constants for a chain.
-/// The name of the chain has to be specified in snake case (e.g. `rialto_parachain`).
+/// The name of the chain has to be specified in snake case (e.g. `bridge_hub_polkadot`).
 #[macro_export]
 macro_rules! decl_bridge_runtime_apis {
 	($chain: ident $(, $consensus: ident)?) => {

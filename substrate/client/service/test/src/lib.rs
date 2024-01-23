@@ -253,6 +253,7 @@ fn node_config<
 		rpc_id_provider: Default::default(),
 		rpc_max_subs_per_conn: Default::default(),
 		rpc_port: 9944,
+		rpc_message_buffer_capacity: Default::default(),
 		prometheus_config: None,
 		telemetry_endpoints: None,
 		default_heap_pages: None,
@@ -285,7 +286,7 @@ where
 		base_port: u16,
 	) -> TestNet<G, E, F, U> {
 		sp_tracing::try_init_simple();
-		fdlimit::raise_fd_limit();
+		fdlimit::raise_fd_limit().unwrap();
 		let runtime = Runtime::new().expect("Error creating tokio runtime");
 		let mut net = TestNet {
 			runtime,

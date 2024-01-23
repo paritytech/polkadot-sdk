@@ -9,11 +9,14 @@ homepage = "https://substrate.io"
 repository.workspace = true
 publish = false
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-jsonrpsee = { version = "0.16.2", features = ["server"] }
+jsonrpsee = { version = "0.20.3", features = ["server"] }
 node-primitives = { path = "../primitives" }
 pallet-transaction-payment-rpc = { path = "../../../frame/transaction-payment/rpc" }
 mmr-rpc = { path = "../../../client/merkle-mountain-range/rpc" }
@@ -21,8 +24,11 @@ sc-chain-spec = { path = "../../../client/chain-spec" }
 sc-client-api = { path = "../../../client/api" }
 sc-consensus-babe = { path = "../../../client/consensus/babe" }
 sc-consensus-babe-rpc = { path = "../../../client/consensus/babe/rpc" }
+sc-consensus-beefy = { path = "../../../client/consensus/beefy" }
+sc-consensus-beefy-rpc = { path = "../../../client/consensus/beefy/rpc" }
 sc-consensus-grandpa = { path = "../../../client/consensus/grandpa" }
 sc-consensus-grandpa-rpc = { path = "../../../client/consensus/grandpa/rpc" }
+sc-mixnet = { path = "../../../client/mixnet" }
 sc-rpc = { path = "../../../client/rpc" }
 sc-rpc-api = { path = "../../../client/rpc-api" }
 sc-rpc-spec-v2 = { path = "../../../client/rpc-spec-v2" }

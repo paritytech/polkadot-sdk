@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{
-	arg_enums::RpcMethods,
+	arg_enums::{Cors, RpcMethods},
 	error::{Error, Result},
 	params::{
 		ImportParams, KeystoreParams, NetworkParams, OffchainWorkerParams, SharedParams,
@@ -25,7 +25,7 @@ use crate::{
 	},
 	CliConfiguration, PrometheusParams, RuntimeParams, TelemetryParams,
 	RPC_DEFAULT_MAX_CONNECTIONS, RPC_DEFAULT_MAX_REQUEST_SIZE_MB, RPC_DEFAULT_MAX_RESPONSE_SIZE_MB,
-	RPC_DEFAULT_MAX_SUBS_PER_CONN,
+	RPC_DEFAULT_MAX_SUBS_PER_CONN, RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN,
 };
 use clap::Parser;
 use regex::Regex;
@@ -40,35 +40,38 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 #[derive(Debug, Clone, Parser)]
 pub struct RunCmd {
 	/// Enable validator mode.
+	///
 	/// The node will be started with the authority role and actively
 	/// participate in any consensus task that it can (e.g. depending on
 	/// availability of local keys).
 	#[arg(long)]
 	pub validator: bool,
 
-	/// Disable GRANDPA voter when running in validator mode, otherwise disable the GRANDPA
+	/// Disable GRANDPA.
+	///
+	/// Disables voter when running in validator mode, otherwise disable the GRANDPA
 	/// observer.
 	#[arg(long)]
 	pub no_grandpa: bool,
 
-	/// Listen to all RPC interfaces.
-	/// Default is local. Note: not all RPC methods are safe to be exposed publicly. Use an RPC
-	/// proxy server to filter out dangerous methods. More details:
+	/// Listen to all RPC interfaces (default: local).
+	///
+	/// Not all RPC methods are safe to be exposed publicly.
+	///
+	/// Use an RPC proxy server to filter out dangerous methods. More details:
 	/// <https://docs.substrate.io/main-docs/build/custom-rpc/#public-rpcs>.
+	///
 	/// Use `--unsafe-rpc-external` to suppress the warning if you understand the risks.
 	#[arg(long)]
 	pub rpc_external: bool,
 
 	/// Listen to all RPC interfaces.
+	///
 	/// Same as `--rpc-external`.
 	#[arg(long)]
 	pub unsafe_rpc_external: bool,
 
 	/// RPC methods to expose.
-	/// - `unsafe`: Exposes every RPC method.
-	/// - `safe`: Exposes only a safe subset of RPC methods, denying unsafe RPC methods.
-	/// - `auto`: Acts as `safe` if RPC is served externally, e.g. when `--rpc--external` is
-	///   passed, otherwise acts as `unsafe`.
 	#[arg(
 		long,
 		value_name = "METHOD SET",
@@ -79,15 +82,15 @@ pub struct RunCmd {
 	)]
 	pub rpc_methods: RpcMethods,
 
-	/// Set the the maximum RPC request payload size for both HTTP and WS in megabytes.
+	/// Set the maximum RPC request payload size for both HTTP and WS in megabytes.
 	#[arg(long, default_value_t = RPC_DEFAULT_MAX_REQUEST_SIZE_MB)]
 	pub rpc_max_request_size: u32,
 
-	/// Set the the maximum RPC response payload size for both HTTP and WS in megabytes.
+	/// Set the maximum RPC response payload size for both HTTP and WS in megabytes.
 	#[arg(long, default_value_t = RPC_DEFAULT_MAX_RESPONSE_SIZE_MB)]
 	pub rpc_max_response_size: u32,
 
-	/// Set the the maximum concurrent subscriptions per connection.
+	/// Set the maximum concurrent subscriptions per connection.
 	#[arg(long, default_value_t = RPC_DEFAULT_MAX_SUBS_PER_CONN)]
 	pub rpc_max_subscriptions_per_connection: u32,
 
@@ -99,15 +102,28 @@ pub struct RunCmd {
 	#[arg(long, value_name = "COUNT", default_value_t = RPC_DEFAULT_MAX_CONNECTIONS)]
 	pub rpc_max_connections: u32,
 
-	/// Specify browser Origins allowed to access the HTTP & WS RPC servers.
+	/// The number of messages the RPC server is allowed to keep in memory.
+	///
+	/// If the buffer becomes full then the server will not process
+	/// new messages until the connected client start reading the
+	/// underlying messages.
+	///
+	/// This applies per connection which includes both
+	/// JSON-RPC methods calls and subscriptions.
+	#[arg(long, default_value_t = RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN)]
+	pub rpc_message_buffer_capacity_per_connection: u32,
+
+	/// Specify browser *origins* allowed to access the HTTP & WS RPC servers.
+	///
 	/// A comma-separated list of origins (protocol://domain or special `null`
 	/// value). Value of `all` will disable origin validation. Default is to
 	/// allow localhost and <https://polkadot.js.org> origins. When running in
-	/// --dev mode the default is to allow all origins.
-	#[arg(long, value_name = "ORIGINS", value_parser = parse_cors)]
+	/// `--dev` mode the default is to allow all origins.
+	#[arg(long, value_name = "ORIGINS")]
 	pub rpc_cors: Option<Cors>,
 
 	/// The human-readable name for this node.
+	///
 	/// It's used as network node name.
 	#[arg(long, value_name = "NAME")]
 	pub name: Option<String>,
@@ -148,36 +164,51 @@ pub struct RunCmd {
 	#[clap(flatten)]
 	pub keystore_params: KeystoreParams,
 
-	/// Shortcut for `--name Alice --validator` with session keys for `Alice` added to keystore.
+	/// Shortcut for `--name Alice --validator`.
+	///
+	/// Session keys for `Alice` are added to keystore.
 	#[arg(long, conflicts_with_all = &["bob", "charlie", "dave", "eve", "ferdie", "one", "two"])]
 	pub alice: bool,
 
-	/// Shortcut for `--name Bob --validator` with session keys for `Bob` added to keystore.
+	/// Shortcut for `--name Bob --validator`.
+	///
+	/// Session keys for `Bob` are added to keystore.
 	#[arg(long, conflicts_with_all = &["alice", "charlie", "dave", "eve", "ferdie", "one", "two"])]
 	pub bob: bool,
 
-	/// Shortcut for `--name Charlie --validator` with session keys for `Charlie` added to
-	/// keystore.
+	/// Shortcut for `--name Charlie --validator`.
+	///
+	/// Session keys for `Charlie` are added to keystore.
 	#[arg(long, conflicts_with_all = &["alice", "bob", "dave", "eve", "ferdie", "one", "two"])]
 	pub charlie: bool,
 
-	/// Shortcut for `--name Dave --validator` with session keys for `Dave` added to keystore.
+	/// Shortcut for `--name Dave --validator`.
+	///
+	/// Session keys for `Dave` are added to keystore.
 	#[arg(long, conflicts_with_all = &["alice", "bob", "charlie", "eve", "ferdie", "one", "two"])]
 	pub dave: bool,
 
-	/// Shortcut for `--name Eve --validator` with session keys for `Eve` added to keystore.
+	/// Shortcut for `--name Eve --validator`.
+	///
+	/// Session keys for `Eve` are added to keystore.
 	#[arg(long, conflicts_with_all = &["alice", "bob", "charlie", "dave", "ferdie", "one", "two"])]
 	pub eve: bool,
 
-	/// Shortcut for `--name Ferdie --validator` with session keys for `Ferdie` added to keystore.
+	/// Shortcut for `--name Ferdie --validator`.
+	///
+	/// Session keys for `Ferdie` are added to keystore.
 	#[arg(long, conflicts_with_all = &["alice", "bob", "charlie", "dave", "eve", "one", "two"])]
 	pub ferdie: bool,
 
-	/// Shortcut for `--name One --validator` with session keys for `One` added to keystore.
+	/// Shortcut for `--name One --validator`.
+	///
+	/// Session keys for `One` are added to keystore.
 	#[arg(long, conflicts_with_all = &["alice", "bob", "charlie", "dave", "eve", "ferdie", "two"])]
 	pub one: bool,
 
-	/// Shortcut for `--name Two --validator` with session keys for `Two` added to keystore.
+	/// Shortcut for `--name Two --validator`.
+	///
+	/// Session keys for `Two` are added to keystore.
 	#[arg(long, conflicts_with_all = &["alice", "bob", "charlie", "dave", "eve", "ferdie", "one"])]
 	pub two: bool,
 
@@ -186,10 +217,13 @@ pub struct RunCmd {
 	pub force_authoring: bool,
 
 	/// Run a temporary node.
+	///
 	/// A temporary directory will be created to store the configuration and will be deleted
 	/// at the end of the process.
+	///
 	/// Note: the directory is random per process execution. This directory is used as base path
 	/// which includes: database, node key and keystore.
+	///
 	/// When `--dev` is given and no explicit `--base-path`, this option is implied.
 	#[arg(long, conflicts_with = "base_path")]
 	pub tmp: bool,
@@ -444,47 +478,6 @@ fn rpc_interface(
 		Ok(Ipv4Addr::UNSPECIFIED.into())
 	} else {
 		Ok(Ipv4Addr::LOCALHOST.into())
-	}
-}
-
-/// CORS setting
-///
-/// The type is introduced to overcome `Option<Option<T>>` handling of `clap`.
-#[derive(Clone, Debug)]
-pub enum Cors {
-	/// All hosts allowed.
-	All,
-	/// Only hosts on the list are allowed.
-	List(Vec<String>),
-}
-
-impl From<Cors> for Option<Vec<String>> {
-	fn from(cors: Cors) -> Self {
-		match cors {
-			Cors::All => None,
-			Cors::List(list) => Some(list),
-		}
-	}
-}
-
-/// Parse cors origins.
-fn parse_cors(s: &str) -> Result<Cors> {
-	let mut is_all = false;
-	let mut origins = Vec::new();
-	for part in s.split(',') {
-		match part {
-			"all" | "*" => {
-				is_all = true;
-				break
-			},
-			other => origins.push(other.to_owned()),
-		}
-	}
-
-	if is_all {
-		Ok(Cors::All)
-	} else {
-		Ok(Cors::List(origins))
 	}
 }
 

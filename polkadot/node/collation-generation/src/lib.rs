@@ -144,6 +144,16 @@ impl CollationGenerationSubsystem {
 				false
 			},
 			Ok(FromOrchestra::Communication {
+				msg: CollationGenerationMessage::Reinitialize(config),
+			}) => {
+				if self.config.is_none() {
+					gum::error!(target: LOG_TARGET, "no initial initialization");
+				} else {
+					self.config = Some(Arc::new(config));
+				}
+				false
+			},
+			Ok(FromOrchestra::Communication {
 				msg: CollationGenerationMessage::SubmitCollation(params),
 			}) => {
 				if let Some(config) = &self.config {
@@ -193,7 +203,7 @@ async fn handle_new_activations<Context>(
 	metrics: Metrics,
 ) -> crate::error::Result<()> {
 	// follow the procedure from the guide:
-	// https://paritytech.github.io/polkadot/book/node/collators/collation-generation.html
+	// https://paritytech.github.io/polkadot-sdk/book/node/collators/collation-generation.html
 
 	if config.collator.is_none() {
 		return Ok(())

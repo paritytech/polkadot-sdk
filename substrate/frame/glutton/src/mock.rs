@@ -19,7 +19,7 @@ use super::*;
 use crate as pallet_glutton;
 
 use frame_support::{
-	assert_ok,
+	assert_ok, derive_impl,
 	traits::{ConstU32, ConstU64},
 };
 use sp_core::H256;
@@ -33,11 +33,12 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Glutton: pallet_glutton::{Pallet, Event},
+		System: frame_system,
+		Glutton: pallet_glutton,
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();

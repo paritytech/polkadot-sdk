@@ -22,9 +22,9 @@ use frame_support::{assert_ok, traits::tokens::Pay};
 
 /// Type representing both a location and an asset that is held at that location.
 /// The id of the held asset is relative to the location where it is being held.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq)]
 pub struct AssetKind {
-	destination: MultiLocation,
+	destination: Location,
 	asset_id: AssetId,
 }
 
@@ -37,8 +37,8 @@ impl sp_runtime::traits::TryConvert<AssetKind, LocatableAssetId> for LocatableAs
 
 parameter_types! {
 	pub SenderAccount: AccountId = AccountId::new([3u8; 32]);
-	pub InteriorAccount: InteriorMultiLocation = AccountId32 { id: SenderAccount::get().into(), network: None }.into();
-	pub InteriorBody: InteriorMultiLocation = Plurality { id: BodyId::Treasury, part: BodyPart::Voice }.into();
+	pub InteriorAccount: InteriorLocation = AccountId32 { id: SenderAccount::get().into(), network: None }.into();
+	pub InteriorBody: InteriorLocation = Plurality { id: BodyId::Treasury, part: BodyPart::Voice }.into();
 	pub Timeout: BlockNumber = 5; // 5 blocks
 }
 
@@ -71,11 +71,14 @@ fn pay_over_xcm_works() {
 		let expected_message = Xcm(vec![
 			DescendOrigin(AccountId32 { id: SenderAccount::get().into(), network: None }.into()),
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-			SetAppendix(Xcm(vec![ReportError(QueryResponseInfo {
-				destination: (Parent, Parachain(42)).into(),
-				query_id: 1,
-				max_weight: Weight::zero(),
-			})])),
+			SetAppendix(Xcm(vec![
+				SetFeesMode { jit_withdraw: true },
+				ReportError(QueryResponseInfo {
+					destination: (Parent, Parachain(42)).into(),
+					query_id: 1,
+					max_weight: Weight::zero(),
+				}),
+			])),
 			TransferAsset {
 				assets: (Here, amount).into(),
 				beneficiary: AccountId32 { id: recipient.clone().into(), network: None }.into(),
@@ -88,13 +91,19 @@ fn pay_over_xcm_works() {
 			vec![((Parent, Parachain(2)).into(), expected_message, expected_hash)]
 		);
 
-		let (_, message, hash) = sent_xcm()[0].clone();
+		let (_, message, mut hash) = sent_xcm()[0].clone();
 		let message =
 			Xcm::<<XcmConfig as xcm_executor::Config>::RuntimeCall>::from(message.clone());
 
 		// Execute message in parachain 2 with parachain 42's origin
 		let origin = (Parent, Parachain(42));
-		XcmExecutor::<XcmConfig>::execute_xcm(origin, message, hash, Weight::MAX);
+		XcmExecutor::<XcmConfig>::prepare_and_execute(
+			origin,
+			message,
+			&mut hash,
+			Weight::MAX,
+			Weight::zero(),
+		);
 		assert_eq!(mock::Assets::balance(0, &recipient), amount);
 	});
 }
@@ -130,11 +139,14 @@ fn pay_over_xcm_governance_body() {
 		let expected_message = Xcm(vec![
 			DescendOrigin(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }.into()),
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-			SetAppendix(Xcm(vec![ReportError(QueryResponseInfo {
-				destination: (Parent, Parachain(42)).into(),
-				query_id: 1,
-				max_weight: Weight::zero(),
-			})])),
+			SetAppendix(Xcm(vec![
+				SetFeesMode { jit_withdraw: true },
+				ReportError(QueryResponseInfo {
+					destination: (Parent, Parachain(42)).into(),
+					query_id: 1,
+					max_weight: Weight::zero(),
+				}),
+			])),
 			TransferAsset {
 				assets: (Parent, amount).into(),
 				beneficiary: AccountId32 { id: recipient.clone().into(), network: None }.into(),
@@ -146,13 +158,19 @@ fn pay_over_xcm_governance_body() {
 			vec![((Parent, Parachain(2)).into(), expected_message, expected_hash)]
 		);
 
-		let (_, message, hash) = sent_xcm()[0].clone();
+		let (_, message, mut hash) = sent_xcm()[0].clone();
 		let message =
 			Xcm::<<XcmConfig as xcm_executor::Config>::RuntimeCall>::from(message.clone());
 
 		// Execute message in parachain 2 with parachain 42's origin
 		let origin = (Parent, Parachain(42));
-		XcmExecutor::<XcmConfig>::execute_xcm(origin, message, hash, Weight::MAX);
+		XcmExecutor::<XcmConfig>::prepare_and_execute(
+			origin,
+			message,
+			&mut hash,
+			Weight::MAX,
+			Weight::zero(),
+		);
 		assert_eq!(mock::Assets::balance(relay_asset_index, &recipient), amount);
 	});
 }

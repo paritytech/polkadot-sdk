@@ -16,18 +16,19 @@
 
 use bp_header_chain::ChainWithGrandpa;
 use bp_polkadot_core::parachains::ParaId;
-use bp_runtime::{Chain, Parachain};
-use frame_support::{construct_runtime, parameter_types, traits::ConstU32, weights::Weight};
+use bp_runtime::{Chain, ChainId, Parachain};
+use frame_support::{
+	construct_runtime, derive_impl, parameter_types, traits::ConstU32, weights::Weight,
+};
 use sp_runtime::{
 	testing::H256,
-	traits::{BlakeTwo256, Header as HeaderT, IdentityLookup},
-	MultiSignature, Perbill,
+	traits::{BlakeTwo256, Header as HeaderT},
+	MultiSignature,
 };
 
 use crate as pallet_bridge_parachains;
 
 pub type AccountId = u64;
-pub type TestNumber = u64;
 
 pub type RelayBlockHeader =
 	sp_runtime::generic::Header<crate::RelayBlockNumber, crate::RelayBlockHasher>;
@@ -48,6 +49,8 @@ pub type BigParachainHeader = sp_runtime::generic::Header<u128, BlakeTwo256>;
 pub struct Parachain1;
 
 impl Chain for Parachain1 {
+	const ID: ChainId = *b"pch1";
+
 	type BlockNumber = u64;
 	type Hash = H256;
 	type Hasher = RegularParachainHasher;
@@ -72,6 +75,8 @@ impl Parachain for Parachain1 {
 pub struct Parachain2;
 
 impl Chain for Parachain2 {
+	const ID: ChainId = *b"pch2";
+
 	type BlockNumber = u64;
 	type Hash = H256;
 	type Hasher = RegularParachainHasher;
@@ -96,6 +101,8 @@ impl Parachain for Parachain2 {
 pub struct Parachain3;
 
 impl Chain for Parachain3 {
+	const ID: ChainId = *b"pch3";
+
 	type BlockNumber = u64;
 	type Hash = H256;
 	type Hasher = RegularParachainHasher;
@@ -121,6 +128,8 @@ impl Parachain for Parachain3 {
 pub struct BigParachain;
 
 impl Chain for BigParachain {
+	const ID: ChainId = *b"bpch";
+
 	type BlockNumber = u128;
 	type Hash = H256;
 	type Hasher = RegularParachainHasher;
@@ -152,42 +161,12 @@ construct_runtime! {
 	}
 }
 
-parameter_types! {
-	pub const BlockHashCount: TestNumber = 250;
-	pub const MaximumBlockWeight: Weight = Weight::from_parts(1024, 0);
-	pub const MaximumBlockLength: u32 = 2 * 1024;
-	pub const AvailableBlockRatio: Perbill = Perbill::one();
-}
-
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for TestRuntime {
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
 	type Block = Block;
-	type Hash = H256;
-	type Hashing = RegularParachainHasher;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = BlockHashCount;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type BaseCallFilter = frame_support::traits::Everything;
-	type SystemWeightInfo = ();
-	type DbWeight = ();
-	type BlockWeights = ();
-	type BlockLength = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {
-	pub const SessionLength: u64 = 5;
-	pub const NumValidators: u32 = 5;
 	pub const HeadersToKeep: u32 = 5;
 }
 
@@ -258,6 +237,8 @@ impl pallet_bridge_parachains::benchmarking::Config<()> for TestRuntime {
 pub struct TestBridgedChain;
 
 impl Chain for TestBridgedChain {
+	const ID: ChainId = *b"tbch";
+
 	type BlockNumber = crate::RelayBlockNumber;
 	type Hash = crate::RelayBlockHash;
 	type Hasher = crate::RelayBlockHasher;
@@ -281,14 +262,16 @@ impl ChainWithGrandpa for TestBridgedChain {
 	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = "";
 	const MAX_AUTHORITIES_COUNT: u32 = 16;
 	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 8;
-	const MAX_HEADER_SIZE: u32 = 256;
-	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = 64;
+	const MAX_MANDATORY_HEADER_SIZE: u32 = 256;
+	const AVERAGE_HEADER_SIZE: u32 = 64;
 }
 
 #[derive(Debug)]
 pub struct OtherBridgedChain;
 
 impl Chain for OtherBridgedChain {
+	const ID: ChainId = *b"obch";
+
 	type BlockNumber = u64;
 	type Hash = crate::RelayBlockHash;
 	type Hasher = crate::RelayBlockHasher;
@@ -312,8 +295,8 @@ impl ChainWithGrandpa for OtherBridgedChain {
 	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = "";
 	const MAX_AUTHORITIES_COUNT: u32 = 16;
 	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 8;
-	const MAX_HEADER_SIZE: u32 = 256;
-	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = 64;
+	const MAX_MANDATORY_HEADER_SIZE: u32 = 256;
+	const AVERAGE_HEADER_SIZE: u32 = 64;
 }
 
 /// Return test externalities to use in tests.

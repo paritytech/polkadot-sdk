@@ -20,7 +20,7 @@ use criterion::{criterion_group, criterion_main, BatchSize, Criterion, Throughpu
 
 use kitchensink_runtime::{constants::currency::*, BalancesCall};
 use node_cli::service::{create_extrinsic, FullClient};
-use sc_block_builder::{BlockBuilderProvider, BuiltBlock, RecordProof};
+use sc_block_builder::{BlockBuilderBuilder, BuiltBlock};
 use sc_consensus::{
 	block_import::{BlockImportParams, ForkChoiceStrategy},
 	BlockImport, StateAction,
@@ -39,6 +39,7 @@ use sp_runtime::{
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	AccountId32, MultiAddress, OpaqueExtrinsic,
 };
+use staging_node_cli as node_cli;
 use tokio::runtime::Handle;
 
 fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
@@ -82,6 +83,7 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		rpc_id_provider: Default::default(),
 		rpc_max_subs_per_conn: Default::default(),
 		rpc_port: 9944,
+		rpc_message_buffer_capacity: Default::default(),
 		prometheus_config: None,
 		telemetry_endpoints: None,
 		default_heap_pages: None,
@@ -100,7 +102,7 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		wasm_runtime_overrides: None,
 	};
 
-	node_cli::service::new_full_base(config, false, |_, _| ())
+	node_cli::service::new_full_base(config, None, false, |_, _| ())
 		.expect("creating a full node doesn't fail")
 }
 
@@ -126,7 +128,11 @@ fn prepare_benchmark(client: &FullClient) -> (usize, Vec<OpaqueExtrinsic>) {
 
 	let mut max_transfer_count = 0;
 	let mut extrinsics = Vec::new();
-	let mut block_builder = client.new_block(Default::default()).unwrap();
+	let mut block_builder = BlockBuilderBuilder::new(client)
+		.on_parent_block(client.chain_info().best_hash)
+		.with_parent_block_number(client.chain_info().best_number)
+		.build()
+		.unwrap();
 
 	// Every block needs one timestamp extrinsic.
 	let extrinsic_set_time = extrinsic_set_time(1 + MINIMUM_PERIOD_FOR_BLOCKS);
@@ -173,7 +179,11 @@ fn block_production(c: &mut Criterion) {
 
 	// Buliding the very first block is around ~30x slower than any subsequent one,
 	// so let's make sure it's built and imported before we benchmark anything.
-	let mut block_builder = client.new_block(Default::default()).unwrap();
+	let mut block_builder = BlockBuilderBuilder::new(client)
+		.on_parent_block(client.chain_info().best_hash)
+		.with_parent_block_number(client.chain_info().best_number)
+		.build()
+		.unwrap();
 	block_builder.push(extrinsic_set_time(1)).unwrap();
 	import_block(client, block_builder.build().unwrap());
 
@@ -185,14 +195,19 @@ fn block_production(c: &mut Criterion) {
 	group.sample_size(10);
 	group.throughput(Throughput::Elements(max_transfer_count as u64));
 
-	let best_hash = client.chain_info().best_hash;
+	let chain = client.chain_info();
+	let best_hash = chain.best_hash;
+	let best_number = chain.best_number;
 
 	group.bench_function(format!("{} transfers (no proof)", max_transfer_count), |b| {
 		b.iter_batched(
 			|| extrinsics.clone(),
 			|extrinsics| {
-				let mut block_builder =
-					client.new_block_at(best_hash, Default::default(), RecordProof::No).unwrap();
+				let mut block_builder = BlockBuilderBuilder::new(client)
+					.on_parent_block(best_hash)
+					.with_parent_block_number(best_number)
+					.build()
+					.unwrap();
 				for extrinsic in extrinsics {
 					block_builder.push(extrinsic).unwrap();
 				}
@@ -206,8 +221,11 @@ fn block_production(c: &mut Criterion) {
 		b.iter_batched(
 			|| extrinsics.clone(),
 			|extrinsics| {
-				let mut block_builder =
-					client.new_block_at(best_hash, Default::default(), RecordProof::Yes).unwrap();
+				let mut block_builder = BlockBuilderBuilder::new(client)
+					.on_parent_block(best_hash)
+					.with_parent_block_number(best_number)
+					.build()
+					.unwrap();
 				for extrinsic in extrinsics {
 					block_builder.push(extrinsic).unwrap();
 				}

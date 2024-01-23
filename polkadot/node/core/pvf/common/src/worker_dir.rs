@@ -20,7 +20,6 @@ use std::path::{Path, PathBuf};
 
 const WORKER_EXECUTE_ARTIFACT_NAME: &str = "artifact";
 const WORKER_PREPARE_TMP_ARTIFACT_NAME: &str = "tmp-artifact";
-const WORKER_SOCKET_NAME: &str = "socket";
 
 pub fn execute_artifact(worker_dir_path: &Path) -> PathBuf {
 	worker_dir_path.join(WORKER_EXECUTE_ARTIFACT_NAME)
@@ -28,8 +27,4 @@ pub fn execute_artifact(worker_dir_path: &Path) -> PathBuf {
 
 pub fn prepare_tmp_artifact(worker_dir_path: &Path) -> PathBuf {
 	worker_dir_path.join(WORKER_PREPARE_TMP_ARTIFACT_NAME)
-}
-
-pub fn socket(worker_dir_path: &Path) -> PathBuf {
-	worker_dir_path.join(WORKER_SOCKET_NAME)
 }

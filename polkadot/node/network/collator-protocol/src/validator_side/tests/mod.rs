@@ -17,6 +17,7 @@
 use super::*;
 use assert_matches::assert_matches;
 use futures::{executor, future, Future};
+use sc_network::ProtocolName;
 use sp_core::{crypto::Pair, Encode};
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::Keystore;
@@ -269,15 +270,15 @@ async fn assert_candidate_backing_second(
 	expected_relay_parent: Hash,
 	expected_para_id: ParaId,
 	expected_pov: &PoV,
-	mode: ProspectiveParachainsMode,
+	version: CollationVersion,
 ) -> CandidateReceipt {
 	let pvd = dummy_pvd();
 
 	// Depending on relay parent mode pvd will be either requested
 	// from the Runtime API or Prospective Parachains.
 	let msg = overseer_recv(virtual_overseer).await;
-	match mode {
-		ProspectiveParachainsMode::Disabled => assert_matches!(
+	match version {
+		CollationVersion::V1 => assert_matches!(
 			msg,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				hash,
@@ -289,7 +290,7 @@ async fn assert_candidate_backing_second(
 				tx.send(Ok(Some(pvd.clone()))).unwrap();
 			}
 		),
-		ProspectiveParachainsMode::Enabled { .. } => assert_matches!(
+		CollationVersion::V2 => assert_matches!(
 			msg,
 			AllMessages::ProspectiveParachains(
 				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx),
@@ -532,7 +533,14 @@ fn act_on_advertisement_v2() {
 		)
 		.await;
 
-		let candidate_hash = CandidateHash::default();
+		let pov = PoV { block_data: BlockData(vec![]) };
+		let mut candidate_a =
+			dummy_candidate_receipt_bad_sig(dummy_hash(), Some(Default::default()));
+		candidate_a.descriptor.para_id = test_state.chain_ids[0];
+		candidate_a.descriptor.relay_parent = test_state.relay_parent;
+		candidate_a.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
+
+		let candidate_hash = candidate_a.hash();
 		let parent_head_data_hash = Hash::zero();
 		// v2 advertisement.
 		advertise_collation(
@@ -543,11 +551,29 @@ fn act_on_advertisement_v2() {
 		)
 		.await;
 
-		assert_fetch_collation_request(
+		let response_channel = assert_fetch_collation_request(
 			&mut virtual_overseer,
 			test_state.relay_parent,
 			test_state.chain_ids[0],
 			Some(candidate_hash),
+		)
+		.await;
+
+		response_channel
+			.send(Ok((
+				request_v1::CollationFetchingResponse::Collation(candidate_a.clone(), pov.clone())
+					.encode(),
+				ProtocolName::from(""),
+			)))
+			.expect("Sending response should succeed");
+
+		assert_candidate_backing_second(
+			&mut virtual_overseer,
+			test_state.relay_parent,
+			test_state.chain_ids[0],
+			&pov,
+			// Async backing isn't enabled and thus it should do it the old way.
+			CollationVersion::V1,
 		)
 		.await;
 
@@ -736,11 +762,11 @@ fn fetch_one_collation_at_a_time() {
 		candidate_a.descriptor.relay_parent = test_state.relay_parent;
 		candidate_a.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
 		response_channel
-			.send(Ok(request_v1::CollationFetchingResponse::Collation(
-				candidate_a.clone(),
-				pov.clone(),
-			)
-			.encode()))
+			.send(Ok((
+				request_v1::CollationFetchingResponse::Collation(candidate_a.clone(), pov.clone())
+					.encode(),
+				ProtocolName::from(""),
+			)))
 			.expect("Sending response should succeed");
 
 		assert_candidate_backing_second(
@@ -748,7 +774,7 @@ fn fetch_one_collation_at_a_time() {
 			test_state.relay_parent,
 			test_state.chain_ids[0],
 			&pov,
-			ProspectiveParachainsMode::Disabled,
+			CollationVersion::V1,
 		)
 		.await;
 
@@ -860,19 +886,19 @@ fn fetches_next_collation() {
 
 		// First request finishes now:
 		response_channel_non_exclusive
-			.send(Ok(request_v1::CollationFetchingResponse::Collation(
-				candidate_a.clone(),
-				pov.clone(),
-			)
-			.encode()))
+			.send(Ok((
+				request_v1::CollationFetchingResponse::Collation(candidate_a.clone(), pov.clone())
+					.encode(),
+				ProtocolName::from(""),
+			)))
 			.expect("Sending response should succeed");
 
 		response_channel
-			.send(Ok(request_v1::CollationFetchingResponse::Collation(
-				candidate_a.clone(),
-				pov.clone(),
-			)
-			.encode()))
+			.send(Ok((
+				request_v1::CollationFetchingResponse::Collation(candidate_a.clone(), pov.clone())
+					.encode(),
+				ProtocolName::from(""),
+			)))
 			.expect("Sending response should succeed");
 
 		assert_candidate_backing_second(
@@ -880,7 +906,7 @@ fn fetches_next_collation() {
 			second,
 			test_state.chain_ids[0],
 			&pov,
-			ProspectiveParachainsMode::Disabled,
+			CollationVersion::V1,
 		)
 		.await;
 
@@ -998,11 +1024,11 @@ fn fetch_next_collation_on_invalid_collation() {
 		candidate_a.descriptor.relay_parent = test_state.relay_parent;
 		candidate_a.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
 		response_channel
-			.send(Ok(request_v1::CollationFetchingResponse::Collation(
-				candidate_a.clone(),
-				pov.clone(),
-			)
-			.encode()))
+			.send(Ok((
+				request_v1::CollationFetchingResponse::Collation(candidate_a.clone(), pov.clone())
+					.encode(),
+				ProtocolName::from(""),
+			)))
 			.expect("Sending response should succeed");
 
 		let receipt = assert_candidate_backing_second(
@@ -1010,7 +1036,7 @@ fn fetch_next_collation_on_invalid_collation() {
 			test_state.relay_parent,
 			test_state.chain_ids[0],
 			&pov,
-			ProspectiveParachainsMode::Disabled,
+			CollationVersion::V1,
 		)
 		.await;
 

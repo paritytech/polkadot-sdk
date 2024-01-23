@@ -27,27 +27,27 @@ use crate::{
 		api::ChainHeadApiServer,
 		chain_head_follow::ChainHeadFollower,
 		error::Error as ChainHeadRpcError,
-		event::{FollowEvent, MethodResponse, OperationError, StorageQuery},
-		hex_string,
+		event::{FollowEvent, MethodResponse, OperationError},
 		subscription::{SubscriptionManagement, SubscriptionManagementError},
 	},
-	SubscriptionTaskExecutor,
+	common::events::StorageQuery,
+	hex_string, SubscriptionTaskExecutor,
 };
 use codec::Encode;
 use futures::future::FutureExt;
 use jsonrpsee::{
-	core::{async_trait, RpcResult},
-	types::{SubscriptionEmptyError, SubscriptionId, SubscriptionResult},
-	SubscriptionSink,
+	core::async_trait, types::SubscriptionId, PendingSubscriptionSink, SubscriptionSink,
 };
 use log::debug;
 use sc_client_api::{
 	Backend, BlockBackend, BlockchainEvents, CallExecutor, ChildInfo, ExecutorProvider, StorageKey,
 	StorageProvider,
 };
+use sc_rpc::utils::to_sub_message;
 use sp_api::CallApiAt;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_core::{traits::CallContext, Bytes};
+use sp_rpc::list::ListOrValue;
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
@@ -106,8 +106,6 @@ pub struct ChainHead<BE: Backend<Block>, Block: BlockT, Client> {
 	executor: SubscriptionTaskExecutor,
 	/// Keep track of the pinned blocks for each subscription.
 	subscriptions: Arc<SubscriptionManagement<Block, BE>>,
-	/// The hexadecimal encoded hash of the genesis block.
-	genesis_hash: String,
 	/// The maximum number of items reported by the `chainHead_storage` before
 	/// pagination is required.
 	operation_max_storage_items: usize,
@@ -117,14 +115,12 @@ pub struct ChainHead<BE: Backend<Block>, Block: BlockT, Client> {
 
 impl<BE: Backend<Block>, Block: BlockT, Client> ChainHead<BE, Block, Client> {
 	/// Create a new [`ChainHead`].
-	pub fn new<GenesisHash: AsRef<[u8]>>(
+	pub fn new(
 		client: Arc<Client>,
 		backend: Arc<BE>,
 		executor: SubscriptionTaskExecutor,
-		genesis_hash: GenesisHash,
 		config: ChainHeadConfig,
 	) -> Self {
-		let genesis_hash = hex_string(&genesis_hash.as_ref());
 		Self {
 			client,
 			backend: backend.clone(),
@@ -136,31 +132,16 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHead<BE, Block, Client> {
 				backend,
 			)),
 			operation_max_storage_items: config.operation_max_storage_items,
-			genesis_hash,
 			_phantom: PhantomData,
 		}
 	}
+}
 
-	/// Accept the subscription and return the subscription ID on success.
-	fn accept_subscription(
-		&self,
-		sink: &mut SubscriptionSink,
-	) -> Result<String, SubscriptionEmptyError> {
-		// The subscription must be accepted before it can provide a valid subscription ID.
-		sink.accept()?;
-
-		let Some(sub_id) = sink.subscription_id() else {
-			// This can only happen if the subscription was not accepted.
-			return Err(SubscriptionEmptyError)
-		};
-
-		// Get the string representation for the subscription.
-		let sub_id = match sub_id {
-			SubscriptionId::Num(num) => num.to_string(),
-			SubscriptionId::Str(id) => id.into_owned().into(),
-		};
-
-		Ok(sub_id)
+/// Helper to convert the `subscription ID` to a string.
+pub fn read_subscription_id_as_string(sink: &SubscriptionSink) -> String {
+	match sink.subscription_id() {
+		SubscriptionId::Num(n) => n.to_string(),
+		SubscriptionId::Str(s) => s.into_owned().into(),
 	}
 }
 
@@ -194,33 +175,28 @@ where
 		+ StorageProvider<Block, BE>
 		+ 'static,
 {
-	fn chain_head_unstable_follow(
-		&self,
-		mut sink: SubscriptionSink,
-		with_runtime: bool,
-	) -> SubscriptionResult {
-		let sub_id = match self.accept_subscription(&mut sink) {
-			Ok(sub_id) => sub_id,
-			Err(err) => {
-				sink.close(ChainHeadRpcError::InvalidSubscriptionID);
-				return Err(err)
-			},
-		};
-		// Keep track of the subscription.
-		let Some(sub_data) = self.subscriptions.insert_subscription(sub_id.clone(), with_runtime)
-		else {
-			// Inserting the subscription can only fail if the JsonRPSee
-			// generated a duplicate subscription ID.
-			debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription already accepted", sub_id);
-			let _ = sink.send(&FollowEvent::<Block::Hash>::Stop);
-			return Ok(())
-		};
-		debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription accepted", sub_id);
-
+	fn chain_head_unstable_follow(&self, pending: PendingSubscriptionSink, with_runtime: bool) {
 		let subscriptions = self.subscriptions.clone();
 		let backend = self.backend.clone();
 		let client = self.client.clone();
+
 		let fut = async move {
+			let Ok(sink) = pending.accept().await else { return };
+
+			let sub_id = read_subscription_id_as_string(&sink);
+
+			// Keep track of the subscription.
+			let Some(sub_data) = subscriptions.insert_subscription(sub_id.clone(), with_runtime)
+			else {
+				// Inserting the subscription can only fail if the JsonRPSee
+				// generated a duplicate subscription ID.
+				debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription already accepted", sub_id);
+				let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
+				let _ = sink.send(msg).await;
+				return
+			};
+			debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription accepted", sub_id);
+
 			let mut chain_head_follow = ChainHeadFollower::new(
 				client,
 				backend,
@@ -236,14 +212,13 @@ where
 		};
 
 		self.executor.spawn("substrate-rpc-subscription", Some("rpc"), fut.boxed());
-		Ok(())
 	}
 
 	fn chain_head_unstable_body(
 		&self,
 		follow_subscription: String,
 		hash: Block::Hash,
-	) -> RpcResult<MethodResponse> {
+	) -> Result<MethodResponse, ChainHeadRpcError> {
 		let mut block_guard = match self.subscriptions.lock_block(&follow_subscription, hash, 1) {
 			Ok(block) => block,
 			Err(SubscriptionManagementError::SubscriptionAbsent) |
@@ -295,7 +270,7 @@ where
 		&self,
 		follow_subscription: String,
 		hash: Block::Hash,
-	) -> RpcResult<Option<String>> {
+	) -> Result<Option<String>, ChainHeadRpcError> {
 		let _block_guard = match self.subscriptions.lock_block(&follow_subscription, hash, 1) {
 			Ok(block) => block,
 			Err(SubscriptionManagementError::SubscriptionAbsent) |
@@ -310,12 +285,7 @@ where
 		self.client
 			.header(hash)
 			.map(|opt_header| opt_header.map(|h| hex_string(&h.encode())))
-			.map_err(ChainHeadRpcError::FetchBlockHeader)
-			.map_err(Into::into)
-	}
-
-	fn chain_head_unstable_genesis_hash(&self) -> RpcResult<String> {
-		Ok(self.genesis_hash.clone())
+			.map_err(|err| ChainHeadRpcError::InternalError(err.to_string()))
 	}
 
 	fn chain_head_unstable_storage(
@@ -324,7 +294,7 @@ where
 		hash: Block::Hash,
 		items: Vec<StorageQuery<String>>,
 		child_trie: Option<String>,
-	) -> RpcResult<MethodResponse> {
+	) -> Result<MethodResponse, ChainHeadRpcError> {
 		// Gain control over parameter parsing and returned error.
 		let items = items
 			.into_iter()
@@ -382,7 +352,7 @@ where
 		hash: Block::Hash,
 		function: String,
 		call_parameters: String,
-	) -> RpcResult<MethodResponse> {
+	) -> Result<MethodResponse, ChainHeadRpcError> {
 		let call_parameters = Bytes::from(parse_hex_param(call_parameters)?);
 
 		let mut block_guard = match self.subscriptions.lock_block(&follow_subscription, hash, 1) {
@@ -401,7 +371,7 @@ where
 
 		// Reject subscription if with_runtime is false.
 		if !block_guard.has_runtime() {
-			return Err(ChainHeadRpcError::InvalidParam(
+			return Err(ChainHeadRpcError::InvalidRuntimeCall(
 				"The runtime updates flag must be set".to_string(),
 			)
 			.into())
@@ -426,15 +396,25 @@ where
 			});
 
 		let _ = block_guard.response_sender().unbounded_send(event);
-		Ok(MethodResponse::Started(MethodResponseStarted { operation_id, discarded_items: None }))
+		Ok(MethodResponse::Started(MethodResponseStarted {
+			operation_id: operation_id.clone(),
+			discarded_items: None,
+		}))
 	}
 
 	fn chain_head_unstable_unpin(
 		&self,
 		follow_subscription: String,
-		hash: Block::Hash,
-	) -> RpcResult<()> {
-		match self.subscriptions.unpin_block(&follow_subscription, hash) {
+		hash_or_hashes: ListOrValue<Block::Hash>,
+	) -> Result<(), ChainHeadRpcError> {
+		let result = match hash_or_hashes {
+			ListOrValue::Value(hash) =>
+				self.subscriptions.unpin_blocks(&follow_subscription, [hash]),
+			ListOrValue::List(hashes) =>
+				self.subscriptions.unpin_blocks(&follow_subscription, hashes),
+		};
+
+		match result {
 			Ok(()) => Ok(()),
 			Err(SubscriptionManagementError::SubscriptionAbsent) => {
 				// Invalid invalid subscription ID.
@@ -442,9 +422,9 @@ where
 			},
 			Err(SubscriptionManagementError::BlockHashAbsent) => {
 				// Block is not part of the subscription.
-				Err(ChainHeadRpcError::InvalidBlock.into())
+				Err(ChainHeadRpcError::InvalidBlock)
 			},
-			Err(_) => Err(ChainHeadRpcError::InvalidBlock.into()),
+			Err(_) => Err(ChainHeadRpcError::InvalidBlock),
 		}
 	}
 
@@ -452,7 +432,7 @@ where
 		&self,
 		follow_subscription: String,
 		operation_id: String,
-	) -> RpcResult<()> {
+	) -> Result<(), ChainHeadRpcError> {
 		let Some(operation) = self.subscriptions.get_operation(&follow_subscription, &operation_id)
 		else {
 			return Ok(())
@@ -470,7 +450,7 @@ where
 		&self,
 		follow_subscription: String,
 		operation_id: String,
-	) -> RpcResult<()> {
+	) -> Result<(), ChainHeadRpcError> {
 		let Some(operation) = self.subscriptions.get_operation(&follow_subscription, &operation_id)
 		else {
 			return Ok(())

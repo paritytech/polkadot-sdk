@@ -141,7 +141,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
+pub mod benchmarking;
 pub mod migration;
 #[cfg(test)]
 pub mod mock;
@@ -259,11 +259,7 @@ pub mod pallet {
 		/// This type includes the `From<Self::AssetId>` bound, since tightly coupled pallets may
 		/// want to convert an `AssetId` into a parameter for calling dispatchable functions
 		/// directly.
-		type AssetIdParameter: Parameter
-			+ Copy
-			+ From<Self::AssetId>
-			+ Into<Self::AssetId>
-			+ MaxEncodedLen;
+		type AssetIdParameter: Parameter + From<Self::AssetId> + Into<Self::AssetId> + MaxEncodedLen;
 
 		/// The currency mechanism.
 		type Currency: ReservableCurrency<Self::AccountId>;
@@ -1648,8 +1644,20 @@ pub mod pallet {
 			T::AssetAccountDeposit::get()
 		}
 
-		fn touch(asset: T::AssetId, who: T::AccountId, depositor: T::AccountId) -> DispatchResult {
-			Self::do_touch(asset, who, depositor, false)
+		fn should_touch(asset: T::AssetId, who: &T::AccountId) -> bool {
+			match Asset::<T, I>::get(&asset) {
+				Some(info) if info.is_sufficient => false,
+				Some(_) => !Account::<T, I>::contains_key(asset, who),
+				_ => true,
+			}
+		}
+
+		fn touch(
+			asset: T::AssetId,
+			who: &T::AccountId,
+			depositor: &T::AccountId,
+		) -> DispatchResult {
+			Self::do_touch(asset, who.clone(), depositor.clone(), false)
 		}
 	}
 

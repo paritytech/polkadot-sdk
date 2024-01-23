@@ -15,16 +15,17 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use crate::{account_and_location, new_executor, AssetTransactorOf, XcmCallOf};
+use crate::{account_and_location, new_executor, AssetTransactorOf, EnsureDelivery, XcmCallOf};
 use frame_benchmarking::{benchmarks_instance_pallet, BenchmarkError, BenchmarkResult};
 use frame_support::{
 	pallet_prelude::Get,
 	traits::fungible::{Inspect, Mutate},
+	weights::Weight,
 };
 use sp_runtime::traits::{Bounded, Zero};
 use sp_std::{prelude::*, vec};
-use xcm::latest::prelude::*;
-use xcm_executor::traits::{ConvertLocation, TransactAsset};
+use xcm::latest::{prelude::*, MAX_ITEMS_IN_ASSETS};
+use xcm_executor::traits::{ConvertLocation, FeeReason, TransactAsset};
 
 benchmarks_instance_pallet! {
 	where_clause { where
@@ -42,17 +43,9 @@ benchmarks_instance_pallet! {
 	withdraw_asset {
 		let (sender_account, sender_location) = account_and_location::<T>(1);
 		let worst_case_holding = T::worst_case_holding(0);
-		let asset = T::get_multi_asset();
+		let asset = T::get_asset();
 
-		<AssetTransactorOf<T>>::deposit_asset(
-			&asset,
-			&sender_location,
-			&XcmContext {
-				origin: Some(sender_location.clone()),
-				message_id: [0; 32],
-				topic: None,
-			},
-		).unwrap();
+		<AssetTransactorOf<T>>::deposit_asset(&asset, &sender_location, None).unwrap();
 		// check the assets of origin.
 		assert!(!T::TransactAsset::balance(&sender_account).is_zero());
 
@@ -70,22 +63,14 @@ benchmarks_instance_pallet! {
 
 	transfer_asset {
 		let (sender_account, sender_location) = account_and_location::<T>(1);
-		let asset = T::get_multi_asset();
-		let assets: MultiAssets = vec![ asset.clone() ].into();
+		let asset = T::get_asset();
+		let assets: Assets = vec![ asset.clone() ].into();
 		// this xcm doesn't use holding
 
 		let dest_location = T::valid_destination()?;
 		let dest_account = T::AccountIdConverter::convert_location(&dest_location).unwrap();
 
-		<AssetTransactorOf<T>>::deposit_asset(
-			&asset,
-			&sender_location,
-			&XcmContext {
-				origin: Some(sender_location.clone()),
-				message_id: [0; 32],
-				topic: None,
-			},
-		).unwrap();
+		<AssetTransactorOf<T>>::deposit_asset(&asset, &sender_location, None).unwrap();
 		assert!(T::TransactAsset::balance(&dest_account).is_zero());
 
 		let mut executor = new_executor::<T>(sender_location);
@@ -103,20 +88,27 @@ benchmarks_instance_pallet! {
 		let dest_location = T::valid_destination()?;
 		let dest_account = T::AccountIdConverter::convert_location(&dest_location).unwrap();
 
-		let asset = T::get_multi_asset();
-		<AssetTransactorOf<T>>::deposit_asset(
-			&asset,
+		let (expected_fees_mode, expected_assets_in_holding) = T::DeliveryHelper::ensure_successful_delivery(
 			&sender_location,
-			&XcmContext {
-				origin: Some(sender_location.clone()),
-				message_id: [0; 32],
-				topic: None,
-			},
-		).unwrap();
-		let assets: MultiAssets = vec![ asset ].into();
+			&dest_location,
+			FeeReason::TransferReserveAsset
+		);
+		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
+
+		let asset = T::get_asset();
+		<AssetTransactorOf<T>>::deposit_asset(&asset, &sender_location, None).unwrap();
+		assert!(T::TransactAsset::balance(&sender_account) > sender_account_balance_before);
+		let assets: Assets = vec![asset].into();
 		assert!(T::TransactAsset::balance(&dest_account).is_zero());
 
 		let mut executor = new_executor::<T>(sender_location);
+		if let Some(expected_fees_mode) = expected_fees_mode {
+			executor.set_fees_mode(expected_fees_mode);
+		}
+		if let Some(expected_assets_in_holding) = expected_assets_in_holding {
+			executor.set_holding(expected_assets_in_holding.into());
+		}
+
 		let instruction = Instruction::TransferReserveAsset {
 			assets,
 			dest: dest_location,
@@ -126,7 +118,7 @@ benchmarks_instance_pallet! {
 	}: {
 		executor.bench_process(xcm)?;
 	} verify {
-		assert!(T::TransactAsset::balance(&sender_account).is_zero());
+		assert!(T::TransactAsset::balance(&sender_account) <= sender_account_balance_before);
 		assert!(!T::TransactAsset::balance(&dest_account).is_zero());
 		// TODO: Check sender queue is not empty. #4426
 	}
@@ -134,10 +126,10 @@ benchmarks_instance_pallet! {
 	reserve_asset_deposited {
 		let (trusted_reserve, transferable_reserve_asset) = T::TrustedReserve::get()
 			.ok_or(BenchmarkError::Override(
-				BenchmarkResult::from_weight(T::BlockWeights::get().max_block)
+				BenchmarkResult::from_weight(Weight::MAX)
 			))?;
 
-		let assets: MultiAssets = vec![ transferable_reserve_asset ].into();
+		let assets: Assets = vec![ transferable_reserve_asset ].into();
 
 		let mut executor = new_executor::<T>(trusted_reserve);
 		let instruction = Instruction::ReserveAssetDeposited(assets.clone());
@@ -149,16 +141,33 @@ benchmarks_instance_pallet! {
 	}
 
 	initiate_reserve_withdraw {
+		let (sender_account, sender_location) = account_and_location::<T>(1);
 		let holding = T::worst_case_holding(1);
-		let assets_filter = MultiAssetFilter::Definite(holding.clone());
+		let assets_filter = AssetFilter::Definite(holding.clone().into_inner().into_iter().take(MAX_ITEMS_IN_ASSETS).collect::<Vec<_>>().into());
 		let reserve = T::valid_destination().map_err(|_| BenchmarkError::Skip)?;
-		let mut executor = new_executor::<T>(Default::default());
+
+		let (expected_fees_mode, expected_assets_in_holding) = T::DeliveryHelper::ensure_successful_delivery(
+			&sender_location,
+			&reserve,
+			FeeReason::InitiateReserveWithdraw,
+		);
+		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
+
+		let mut executor = new_executor::<T>(sender_location);
 		executor.set_holding(holding.into());
+		if let Some(expected_fees_mode) = expected_fees_mode {
+			executor.set_fees_mode(expected_fees_mode);
+		}
+		if let Some(expected_assets_in_holding) = expected_assets_in_holding {
+			executor.set_holding(expected_assets_in_holding.into());
+		}
 		let instruction = Instruction::InitiateReserveWithdraw { assets: assets_filter, reserve, xcm: Xcm(vec![]) };
 		let xcm = Xcm(vec![instruction]);
 	}: {
 		executor.bench_process(xcm)?;
 	} verify {
+		// Check we charged the delivery fees
+		assert!(T::TransactAsset::balance(&sender_account) <= sender_account_balance_before);
 		// The execute completing successfully is as good as we can check.
 		// TODO: Potentially add new trait to XcmSender to detect a queued outgoing message. #4426
 	}
@@ -179,7 +188,7 @@ benchmarks_instance_pallet! {
 			)?;
 		}
 
-		let assets: MultiAssets = vec![ teleportable_asset ].into();
+		let assets: Assets = vec![ teleportable_asset ].into();
 
 		let mut executor = new_executor::<T>(trusted_teleporter);
 		let instruction = Instruction::ReceiveTeleportedAsset(assets.clone());
@@ -187,7 +196,7 @@ benchmarks_instance_pallet! {
 	}: {
 		executor.bench_process(xcm).map_err(|_| {
 			BenchmarkError::Override(
-				BenchmarkResult::from_weight(T::BlockWeights::get().max_block)
+				BenchmarkResult::from_weight(Weight::MAX)
 			)
 		})?;
 	} verify {
@@ -195,7 +204,7 @@ benchmarks_instance_pallet! {
 	}
 
 	deposit_asset {
-		let asset = T::get_multi_asset();
+		let asset = T::get_asset();
 		let mut holding = T::worst_case_holding(1);
 
 		// Add our asset to the holding.
@@ -221,7 +230,7 @@ benchmarks_instance_pallet! {
 	}
 
 	deposit_reserve_asset {
-		let asset = T::get_multi_asset();
+		let asset = T::get_asset();
 		let mut holding = T::worst_case_holding(1);
 
 		// Add our asset to the holding.
@@ -248,7 +257,7 @@ benchmarks_instance_pallet! {
 	}
 
 	initiate_teleport {
-		let asset = T::get_multi_asset();
+		let asset = T::get_asset();
 		let mut holding = T::worst_case_holding(0);
 
 		// Add our asset to the holding.

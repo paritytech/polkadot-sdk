@@ -74,10 +74,11 @@ pub trait BeefyAuthorityId<MsgHash: Hash>: RuntimeAppPublic {
 /// Your code should use the above types as concrete types for all crypto related
 /// functionality.
 pub mod ecdsa_crypto {
-	use super::{BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE as BEEFY_KEY_TYPE};
+	use super::{BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
 	use sp_application_crypto::{app_crypto, ecdsa};
 	use sp_core::crypto::Wraps;
-	app_crypto!(ecdsa, BEEFY_KEY_TYPE);
+
+	app_crypto!(ecdsa, KEY_TYPE);
 
 	/// Identity of a BEEFY authority using ECDSA as its crypto.
 	pub type AuthorityId = Public;
@@ -115,10 +116,11 @@ pub mod ecdsa_crypto {
 
 #[cfg(feature = "bls-experimental")]
 pub mod bls_crypto {
-	use super::{BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE as BEEFY_KEY_TYPE};
+	use super::{BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
 	use sp_application_crypto::{app_crypto, bls377};
 	use sp_core::{bls377::Pair as BlsPair, crypto::Wraps, Pair as _};
-	app_crypto!(bls377, BEEFY_KEY_TYPE);
+
+	app_crypto!(bls377, KEY_TYPE);
 
 	/// Identity of a BEEFY authority using BLS as its crypto.
 	pub type AuthorityId = Public;
@@ -131,7 +133,7 @@ pub mod bls_crypto {
 		<MsgHash as Hash>::Output: Into<[u8; 32]>,
 	{
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
-			// `w3f-bls` library uses IETF hashing standard and as such does not exposes
+			// `w3f-bls` library uses IETF hashing standard and as such does not expose
 			// a choice of hash to field function.
 			// We are directly calling into the library to avoid introducing new host call.
 			// and because BeefyAuthorityId::verify is being called in the runtime so we don't have
@@ -140,6 +142,53 @@ pub mod bls_crypto {
 		}
 	}
 }
+
+/// BEEFY cryptographic types for (ECDSA,BLS) crypto pair
+///
+/// This module basically introduces four crypto types:
+/// - `ecdsa_bls_crypto::Pair`
+/// - `ecdsa_bls_crypto::Public`
+/// - `ecdsa_bls_crypto::Signature`
+/// - `ecdsa_bls_crypto::AuthorityId`
+///
+/// Your code should use the above types as concrete types for all crypto related
+/// functionality.
+#[cfg(feature = "bls-experimental")]
+pub mod ecdsa_bls_crypto {
+	use super::{BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
+	use sp_application_crypto::{app_crypto, ecdsa_bls377};
+	use sp_core::{crypto::Wraps, ecdsa_bls377::Pair as EcdsaBlsPair};
+
+	app_crypto!(ecdsa_bls377, KEY_TYPE);
+
+	/// Identity of a BEEFY authority using (ECDSA,BLS) as its crypto.
+	pub type AuthorityId = Public;
+
+	/// Signature for a BEEFY authority using (ECDSA,BLS) as its crypto.
+	pub type AuthoritySignature = Signature;
+
+	impl<H> BeefyAuthorityId<H> for AuthorityId
+	where
+		H: Hash,
+		H::Output: Into<[u8; 32]>,
+	{
+		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
+			// We can not simply call
+			// `EcdsaBlsPair::verify(signature.as_inner_ref(), msg, self.as_inner_ref())`
+			// because that invokes ECDSA default verification which perfoms Blake2b hash
+			// which we don't want. This is because ECDSA signatures are meant to be verified
+			// on Ethereum network where Keccak hasher is significantly cheaper than Blake2b.
+			// See Figure 3 of [OnSc21](https://www.scitepress.org/Papers/2021/106066/106066.pdf)
+			// for comparison.
+			EcdsaBlsPair::verify_with_hasher::<H>(
+				signature.as_inner_ref(),
+				msg,
+				self.as_inner_ref(),
+			)
+		}
+	}
+}
+
 /// The `ConsensusEngineId` of BEEFY.
 pub const BEEFY_ENGINE_ID: sp_runtime::ConsensusEngineId = *b"BEEF";
 
@@ -215,6 +264,7 @@ pub enum ConsensusLog<AuthorityId: Codec> {
 ///
 /// A vote message is a direct vote created by a BEEFY node on every voting round
 /// and is gossiped to its peers.
+// TODO: Remove `Signature` generic type, instead get it from `Id::Signature`.
 #[derive(Clone, Debug, Decode, Encode, PartialEq, TypeInfo)]
 pub struct VoteMessage<Number, Id, Signature> {
 	/// Commit to information extracted from a finalized block
@@ -387,7 +437,8 @@ sp_api::decl_runtime_apis! {
 mod tests {
 	use super::*;
 	use sp_application_crypto::ecdsa::{self, Public};
-	use sp_core::{blake2_256, crypto::Wraps, keccak_256, Pair};
+	use sp_core::crypto::{Pair, Wraps};
+	use sp_crypto_hashing::{blake2_256, keccak_256};
 	use sp_runtime::traits::{BlakeTwo256, Keccak256};
 
 	#[test]
@@ -456,6 +507,26 @@ mod tests {
 
 		// Other public key doesn't work
 		let (other_pair, _) = bls_crypto::Pair::generate();
+		assert!(!BeefyAuthorityId::<Keccak256>::verify(&other_pair.public(), &signature, msg,));
+	}
+
+	#[test]
+	#[cfg(feature = "bls-experimental")]
+	fn ecdsa_bls_beefy_verify_works() {
+		let msg = &b"test-message"[..];
+		let (pair, _) = ecdsa_bls_crypto::Pair::generate();
+
+		let signature: ecdsa_bls_crypto::Signature =
+			pair.as_inner_ref().sign_with_hasher::<Keccak256>(&msg).into();
+
+		// Verification works if same hashing function is used when signing and verifying.
+		assert!(BeefyAuthorityId::<Keccak256>::verify(&pair.public(), &signature, msg));
+
+		// Verification doesn't work if we verify function provided by pair_crypto implementation
+		assert!(!ecdsa_bls_crypto::Pair::verify(&signature, msg, &pair.public()));
+
+		// Other public key doesn't work
+		let (other_pair, _) = ecdsa_bls_crypto::Pair::generate();
 		assert!(!BeefyAuthorityId::<Keccak256>::verify(&other_pair.public(), &signature, msg,));
 	}
 }

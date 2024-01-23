@@ -14,19 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
-//! A mock runtime for testing different stuff in the crate. We've been using Millau
-//! runtime for that before, but it has two drawbacks:
-//!
-//! - circular dependencies between this crate and Millau runtime;
-//!
-//! - we can't use (e.g. as git subtree or by copying) this crate in repo without Millau.
+//! A mock runtime for testing different stuff in the crate.
 
 #![cfg(test)]
 
 use crate::messages::{
 	source::{
 		FromThisChainMaximalOutboundPayloadSize, FromThisChainMessagePayload,
-		FromThisChainMessageVerifier, TargetHeaderChainAdapter,
+		TargetHeaderChainAdapter,
 	},
 	target::{FromBridgedChainMessagePayload, SourceHeaderChainAdapter},
 	BridgedChainWithMessages, HashOf, MessageBridge, ThisChainWithMessages,
@@ -44,13 +39,13 @@ use bp_runtime::{
 };
 use codec::{Decode, Encode};
 use frame_support::{
-	parameter_types,
+	derive_impl, parameter_types,
 	weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight},
 };
 use pallet_transaction_payment::Multiplier;
 use sp_runtime::{
 	testing::H256,
-	traits::{BlakeTwo256, ConstU32, ConstU64, ConstU8, IdentityLookup},
+	traits::{BlakeTwo256, ConstU32, ConstU64, ConstU8},
 	FixedPointNumber, Perquintill,
 };
 
@@ -146,30 +141,14 @@ parameter_types! {
 	pub const ReserveId: [u8; 8] = *b"brdgrlrs";
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for TestRuntime {
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
 	type Hash = ThisChainHash;
 	type Hashing = ThisChainHasher;
 	type AccountId = ThisChainAccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = ThisChainBlock;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU32<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<ThisChainBalance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type BaseCallFilter = frame_support::traits::Everything;
-	type SystemWeightInfo = ();
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = DbWeight;
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type BlockHashCount = ConstU32<250>;
 }
 
 impl pallet_utility::Config for TestRuntime {
@@ -179,20 +158,10 @@ impl pallet_utility::Config for TestRuntime {
 	type WeightInfo = ();
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
 impl pallet_balances::Config for TestRuntime {
-	type Balance = ThisChainBalance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
-	type ExistentialDeposit = ExistentialDeposit;
-	type AccountStore = System;
-	type WeightInfo = ();
-	type MaxLocks = ConstU32<50>;
-	type MaxReserves = ConstU32<50>;
 	type ReserveIdentifier = [u8; 8];
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<0>;
-	type MaxFreezes = ConstU32<0>;
+	type AccountStore = System;
 }
 
 impl pallet_transaction_payment::Config for TestRuntime {
@@ -244,7 +213,6 @@ impl pallet_bridge_messages::Config for TestRuntime {
 	type DeliveryPayments = ();
 
 	type TargetHeaderChain = TargetHeaderChainAdapter<OnThisChainBridge>;
-	type LaneMessageVerifier = FromThisChainMessageVerifier<OnThisChainBridge>;
 	type DeliveryConfirmationPayments = pallet_bridge_relayers::DeliveryConfirmationPaymentsAdapter<
 		TestRuntime,
 		(),
@@ -346,6 +314,8 @@ impl From<BridgedChainOrigin>
 pub struct ThisUnderlyingChain;
 
 impl Chain for ThisUnderlyingChain {
+	const ID: ChainId = *b"tuch";
+
 	type BlockNumber = ThisChainBlockNumber;
 	type Hash = ThisChainHash;
 	type Hasher = ThisChainHasher;
@@ -386,6 +356,8 @@ pub struct BridgedUnderlyingParachain;
 pub struct BridgedChainCall;
 
 impl Chain for BridgedUnderlyingChain {
+	const ID: ChainId = *b"buch";
+
 	type BlockNumber = BridgedChainBlockNumber;
 	type Hash = BridgedChainHash;
 	type Hasher = BridgedChainHasher;
@@ -407,11 +379,13 @@ impl ChainWithGrandpa for BridgedUnderlyingChain {
 	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = "";
 	const MAX_AUTHORITIES_COUNT: u32 = 16;
 	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 8;
-	const MAX_HEADER_SIZE: u32 = 256;
-	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = 64;
+	const MAX_MANDATORY_HEADER_SIZE: u32 = 256;
+	const AVERAGE_HEADER_SIZE: u32 = 64;
 }
 
 impl Chain for BridgedUnderlyingParachain {
+	const ID: ChainId = *b"bupc";
+
 	type BlockNumber = BridgedChainBlockNumber;
 	type Hash = BridgedChainHash;
 	type Hasher = BridgedChainHasher;

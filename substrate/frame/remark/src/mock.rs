@@ -18,7 +18,10 @@
 //! Test environment for remarks pallet.
 
 use crate as pallet_remark;
-use frame_support::traits::{ConstU16, ConstU32, ConstU64};
+use frame_support::{
+	derive_impl,
+	traits::{ConstU16, ConstU32, ConstU64},
+};
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
@@ -31,11 +34,12 @@ pub type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Remark: pallet_remark::{ Pallet, Call, Event<T> },
+		System: frame_system,
+		Remark: pallet_remark,
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();

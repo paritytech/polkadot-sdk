@@ -34,9 +34,9 @@ use polkadot_node_primitives::{
 use polkadot_node_subsystem::overseer;
 use polkadot_node_subsystem_util::runtime::RuntimeInfo;
 use polkadot_primitives::{
-	CandidateReceipt, DisputeStatement, ExecutorParams, Hash, IndexedVec, SessionIndex,
-	SessionInfo, ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorPair,
-	ValidatorSignature,
+	CandidateHash, CandidateReceipt, DisputeStatement, ExecutorParams, Hash, IndexedVec,
+	SessionIndex, SessionInfo, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
+	ValidatorPair, ValidatorSignature,
 };
 use sc_keystore::LocalKeystore;
 
@@ -52,6 +52,8 @@ pub struct CandidateEnvironment<'a> {
 	executor_params: &'a ExecutorParams,
 	/// Validator indices controlled by this node.
 	controlled_indices: HashSet<ValidatorIndex>,
+	/// Indices of disabled validators at the `relay_parent`.
+	disabled_indices: HashSet<ValidatorIndex>,
 }
 
 #[overseer::contextbounds(DisputeCoordinator, prefix = self::overseer)]
@@ -66,6 +68,16 @@ impl<'a> CandidateEnvironment<'a> {
 		session_index: SessionIndex,
 		relay_parent: Hash,
 	) -> Option<CandidateEnvironment<'a>> {
+		let disabled_indices = runtime_info
+			.get_disabled_validators(ctx.sender(), relay_parent)
+			.await
+			.unwrap_or_else(|err| {
+				gum::info!(target: LOG_TARGET, ?err, "Failed to get disabled validators");
+				Vec::new()
+			})
+			.into_iter()
+			.collect();
+
 		let (session, executor_params) = match runtime_info
 			.get_session_info_by_index(ctx.sender(), relay_parent, session_index)
 			.await
@@ -76,7 +88,7 @@ impl<'a> CandidateEnvironment<'a> {
 		};
 
 		let controlled_indices = find_controlled_validator_indices(keystore, &session.validators);
-		Some(Self { session_index, session, executor_params, controlled_indices })
+		Some(Self { session_index, session, executor_params, controlled_indices, disabled_indices })
 	}
 
 	/// Validators in the candidate's session.
@@ -103,6 +115,11 @@ impl<'a> CandidateEnvironment<'a> {
 	pub fn controlled_indices(&'a self) -> &'a HashSet<ValidatorIndex> {
 		&self.controlled_indices
 	}
+
+	/// Indices of disabled validators at the `relay_parent`.
+	pub fn disabled_indices(&'a self) -> &'a HashSet<ValidatorIndex> {
+		&self.disabled_indices
+	}
 }
 
 /// Whether or not we already issued some statement about a candidate.
@@ -117,7 +134,7 @@ pub enum OwnVoteState {
 }
 
 impl OwnVoteState {
-	fn new(votes: &CandidateVotes, env: &CandidateEnvironment<'_>) -> Self {
+	fn new(votes: &CandidateVotes, env: &CandidateEnvironment) -> Self {
 		let controlled_indices = env.controlled_indices();
 		if controlled_indices.is_empty() {
 			return Self::CannotVote
@@ -126,7 +143,9 @@ impl OwnVoteState {
 		let our_valid_votes = controlled_indices
 			.iter()
 			.filter_map(|i| votes.valid.raw().get_key_value(i))
-			.map(|(index, (kind, sig))| (*index, (DisputeStatement::Valid(*kind), sig.clone())));
+			.map(|(index, (kind, sig))| {
+				(*index, (DisputeStatement::Valid(kind.clone()), sig.clone()))
+			});
 		let our_invalid_votes = controlled_indices
 			.iter()
 			.filter_map(|i| votes.invalid.get_key_value(i))
@@ -305,7 +324,7 @@ impl CandidateVoteState<CandidateVotes> {
 				DisputeStatement::Valid(valid_kind) => {
 					let fresh = votes.valid.insert_vote(
 						val_index,
-						*valid_kind,
+						valid_kind.clone(),
 						statement.into_validator_signature(),
 					);
 					if fresh {
@@ -340,6 +359,14 @@ impl CandidateVoteState<CandidateVotes> {
 	/// Retrieve `CandidateReceipt` in `CandidateVotes`.
 	pub fn candidate_receipt(&self) -> &CandidateReceipt {
 		&self.votes.candidate_receipt
+	}
+
+	/// Returns true if all the invalid votes are from disabled validators.
+	pub fn invalid_votes_all_disabled(
+		&self,
+		mut is_disabled: impl FnMut(&ValidatorIndex) -> bool,
+	) -> bool {
+		self.votes.invalid.keys().all(|i| is_disabled(i))
 	}
 
 	/// Extract `CandidateVotes` for handling import of new statements.
@@ -511,7 +538,7 @@ impl ImportResult {
 	pub fn import_approval_votes(
 		self,
 		env: &CandidateEnvironment,
-		approval_votes: HashMap<ValidatorIndex, ValidatorSignature>,
+		approval_votes: HashMap<ValidatorIndex, (Vec<CandidateHash>, ValidatorSignature)>,
 		now: Timestamp,
 	) -> Self {
 		let Self {
@@ -525,19 +552,33 @@ impl ImportResult {
 
 		let (mut votes, _) = new_state.into_old_state();
 
-		for (index, sig) in approval_votes.into_iter() {
+		for (index, (candidate_hashes, sig)) in approval_votes.into_iter() {
 			debug_assert!(
 				{
 					let pub_key = &env.session_info().validators.get(index).expect("indices are validated by approval-voting subsystem; qed");
-					let candidate_hash = votes.candidate_receipt.hash();
 					let session_index = env.session_index();
-					DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalChecking)
-						.check_signature(pub_key, candidate_hash, session_index, &sig)
+					candidate_hashes.contains(&votes.candidate_receipt.hash()) && DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(candidate_hashes.clone()))
+						.check_signature(pub_key, *candidate_hashes.first().expect("Valid votes have at least one candidate; qed"), session_index, &sig)
 						.is_ok()
 				},
 				"Signature check for imported approval votes failed! This is a serious bug. Session: {:?}, candidate hash: {:?}, validator index: {:?}", env.session_index(), votes.candidate_receipt.hash(), index
 			);
-			if votes.valid.insert_vote(index, ValidDisputeStatementKind::ApprovalChecking, sig) {
+			if votes.valid.insert_vote(
+				index,
+				// There is a hidden dependency here between approval-voting and this subsystem.
+				// We should be able to start emitting
+				// ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates only after:
+				// 1. Runtime have been upgraded to know about the new format.
+				// 2. All nodes have been upgraded to know about the new format.
+				// Once those two requirements have been met we should be able to increase
+				// max_approval_coalesce_count to values greater than 1.
+				if candidate_hashes.len() > 1 {
+					ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(candidate_hashes)
+				} else {
+					ValidDisputeStatementKind::ApprovalChecking
+				},
+				sig,
+			) {
 				imported_valid_votes += 1;
 				imported_approval_votes += 1;
 			}

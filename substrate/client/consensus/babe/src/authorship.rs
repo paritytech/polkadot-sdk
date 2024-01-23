@@ -27,7 +27,6 @@ use sp_consensus_babe::{
 	make_vrf_sign_data, AuthorityId, BabeAuthorityWeight, Randomness, Slot,
 };
 use sp_core::{
-	blake2_256,
 	crypto::{ByteArray, Wraps},
 	U256,
 };
@@ -109,7 +108,7 @@ pub(super) fn secondary_slot_author(
 		return None
 	}
 
-	let rand = U256::from((randomness, slot).using_encoded(blake2_256));
+	let rand = U256::from((randomness, slot).using_encoded(sp_crypto_hashing::blake2_256));
 
 	let authorities_len = U256::from(authorities.len());
 	let idx = rand % authorities_len;
@@ -249,7 +248,7 @@ fn claim_primary_slot(
 				.make_bytes::<AUTHORING_SCORE_LENGTH>(
 					AUTHORING_SCORE_VRF_CONTEXT,
 					&data.as_ref(),
-					&vrf_signature.output,
+					&vrf_signature.pre_output,
 				)
 				.map(|bytes| u128::from_le_bytes(bytes) < threshold)
 				.unwrap_or_default();

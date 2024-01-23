@@ -28,7 +28,7 @@ pub mod migrations;
 
 use codec::Codec;
 use frame_support::traits::{
-	fungible::{InspectHold as FunInspectHold, MutateHold as FunMutateHold},
+	fungible::{InspectHold, MutateHold},
 	tokens::{
 		Fortitude,
 		Precision,
@@ -82,8 +82,8 @@ pub mod pallet {
 		// TODO: How to inspect held balance only with Considerations?
 		// Possible to add Currency when #[cfg(any(feature = "try-runtime", test))]?
 		/// The currency trait.
-		type Currency: FunMutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
-			+ FunInspectHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+		type Currency: MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ InspectHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
 		/// The overarching runtime hold reason.
 		type RuntimeHoldReason: From<HoldReason>;
