@@ -22,6 +22,7 @@ use futures::{executor::block_on, FutureExt};
 use sc_transaction_pool::ChainApi;
 use sc_transaction_pool_api::{
 	error::Error as TxPoolError, ChainEvent, MaintainedTransactionPool, TransactionPool,
+	TransactionStatus,
 };
 use sp_runtime::transaction_validity::{InvalidTransaction, TransactionSource, UnknownTransaction};
 use std::sync::Arc;
@@ -872,4 +873,155 @@ fn fap_fork_finalization_removes_stale_views() {
 	let event = ChainEvent::Finalized { hash: f04, tree_route: Arc::from(vec![]) };
 	block_on(pool.maintain(event));
 	assert_eq!(pool.views_len(), 1);
+}
+
+#[test]
+fn fap_watcher() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let pool = create_basic_pool(api.clone());
+
+	let header01 = api.push_block(1, vec![], true);
+
+	let event = new_best_block_event(&pool, None, header01.hash());
+	block_on(pool.maintain(event));
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Alice, 202);
+
+	let submissions = vec![
+		pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone()),
+		pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone()),
+	];
+
+	let mut submissions = block_on(futures::future::join_all(submissions));
+
+	let header02 = api.push_block(2, vec![xt0], true);
+	log::info!("=============================");
+	let event = ChainEvent::Finalized {
+		hash: header02.hash(),
+		tree_route: Arc::from(vec![header01.hash()]),
+	};
+	// let event = new_best_block_event(&pool, Some(header01.hash()), header02.hash());
+	block_on(pool.maintain(event));
+
+	log::info!(target:LOG_TARGET, "stats: {:?}", pool.status_all());
+
+	// let status = &pool.status_all()[&header01.hash()];
+	// assert_eq!(status.ready, 1);
+	// assert_eq!(status.future, 1);
+
+	//todo: StremMap for debugging?
+	// while !submissions.is_empty() {
+	let watcher = submissions.remove(0).unwrap();
+	// let out = futures::executor::block_on_stream(watcher).collect::<Vec<_>>();
+	// log::info!("stream output: {:?}", out);
+	use futures::StreamExt;
+	block_on(
+		watcher
+			.take_while(|s| {
+				log::info!("xx {:#?}", s);
+				futures::future::ready(true)
+			})
+			.collect::<Vec<_>>(),
+	);
+	// }
+	// assert_eq!(
+	// 	futures::executor::block_on_stream(watcher).collect::<Vec<_>>(),
+	// 	vec![TransactionStatus::Ready, TransactionStatus::Invalid],
+	// );
+}
+
+#[test]
+fn fap_watcher2() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let pool = create_basic_pool(api.clone());
+
+	let header01 = api.push_block(1, vec![], true);
+
+	let event = new_best_block_event(&pool, None, header01.hash());
+	block_on(pool.maintain(event));
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Alice, 201);
+
+	let submissions = vec![
+		pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone()),
+		pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone()),
+	];
+
+	let mut submissions = block_on(futures::future::join_all(submissions));
+
+	let header02 = api.push_block(2, vec![xt0.clone()], true);
+	api.set_nonce(header02.hash(), Alice.into(), 201);
+
+	let header03 = api.push_block(3, vec![xt1.clone()], true);
+	log::info!("=============================");
+	log::info!("header01: {:#?}", header01.hash());
+	log::info!("header02: {:#?}", header02.hash());
+	log::info!("header03: {:#?}", header03.hash());
+	log::info!("xt0: {:#?}", api.hash_and_length(&xt0).0);
+	log::info!("xt1: {:#?}", api.hash_and_length(&xt1).0);
+	log::info!("=============================");
+	let event = ChainEvent::Finalized {
+		hash: header03.hash(),
+		tree_route: Arc::from(vec![header01.hash(), header02.hash()]),
+	};
+	block_on(pool.maintain(event));
+
+	log::info!(target:LOG_TARGET, "stats: {:?}", pool.status_all());
+
+	// let status = &pool.status_all()[&header01.hash()];
+	// assert_eq!(status.ready, 1);
+	// assert_eq!(status.future, 1);
+
+	//todo: StremMap for debugging?
+	// let watcher = submissions.remove(0).unwrap();
+	// let out = futures::executor::block_on_stream(watcher).collect::<Vec<_>>();
+	// log::info!("stream output: {:?}", out);
+	// let watcher = submissions.remove(0).unwrap();
+	// let out = futures::executor::block_on_stream(watcher).collect::<Vec<_>>();
+	// log::info!("stream output: {:?}", out);
+	// while !submissions.is_empty() {
+	// 	use futures::StreamExt;
+	// 	let watcher = submissions.remove(0).unwrap();
+	// 	block_on(
+	// 		watcher
+	// 			.take_while(|s| {
+	// 				log::info!("xx {:#?}", s);
+	// 				futures::future::ready(true)
+	// 			})
+	// 			.collect::<Vec<_>>(),
+	// 	);
+	// }
+
+	let xt1_status =
+		futures::executor::block_on_stream(submissions.remove(1).unwrap()).collect::<Vec<_>>();
+
+	log::info!("xt1_status: {:#?}", xt1_status);
+	assert_eq!(
+		xt1_status,
+		vec![
+			TransactionStatus::Ready,
+			TransactionStatus::InBlock((header03.hash(), 0)),
+			TransactionStatus::Finalized((header03.hash(), 0))
+		]
+	);
+
+	let xt0_status =
+		futures::executor::block_on_stream(submissions.remove(0).unwrap()).collect::<Vec<_>>();
+
+	log::info!("xt0_status: {:#?}", xt0_status);
+
+	assert_eq!(
+		xt0_status,
+		vec![
+			TransactionStatus::Ready,
+			TransactionStatus::InBlock((header02.hash(), 0)),
+			TransactionStatus::Finalized((header02.hash(), 0))
+		]
+	);
 }

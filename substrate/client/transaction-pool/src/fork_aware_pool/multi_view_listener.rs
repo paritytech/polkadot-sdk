@@ -18,44 +18,50 @@
 
 //! Multi view listener. Combines streams from many views into single pool watcher.
 
+const LOG_TARGET: &str = "txpool::mvlistener";
+
+use crate::graph::{BlockHash, ChainApi, ExtrinsicHash as TxHash};
 use futures::{stream, StreamExt};
-use log::info;
-use sc_transaction_pool_api::{BlockHash, TransactionPool, TxHash};
+use log::trace;
+use sc_transaction_pool_api::{TransactionStatus, TransactionStatusStream};
 use sp_runtime::traits::{Block as BlockT, Extrinsic, Hash as HashT};
 use std::{collections::HashMap, pin::Pin};
 use tokio::sync::mpsc;
 use tokio_stream::StreamMap;
 
-type TxStatusStream<T> =
-	Pin<Box<sc_transaction_pool_api::TransactionStatusStream<TxHash<T>, BlockHash<T>>>>;
+pub type TxStatusStream<T> = Pin<Box<TransactionStatusStream<TxHash<T>, BlockHash<T>>>>;
 
-enum ViewEvent<PoolApi: TransactionPool> {
+enum ViewEvent<PoolApi: ChainApi> {
 	ViewAdded(BlockHash<PoolApi>, TxStatusStream<PoolApi>),
 }
 
-pub struct MultiViewListener<PoolApi: TransactionPool> {
-	controllers: HashMap<TxHash<PoolApi>, mpsc::Sender<ViewEvent<PoolApi>>>,
+pub struct MultiViewListener<PoolApi: ChainApi> {
+	//todo: rwlock not needed here (mut?)
+	controllers: tokio::sync::RwLock<HashMap<TxHash<PoolApi>, mpsc::Sender<ViewEvent<PoolApi>>>>,
 }
 
 impl<PoolApi> MultiViewListener<PoolApi>
 where
-	PoolApi: TransactionPool + 'static,
-	<<PoolApi as TransactionPool>::Block as BlockT>::Hash: Unpin,
+	PoolApi: ChainApi + 'static,
+	<<PoolApi as ChainApi>::Block as BlockT>::Hash: Unpin,
 {
 	pub fn new() -> Self {
 		Self { controllers: Default::default() }
 	}
 	//should be called when tx is first submitted
-	pub(crate) fn create_external_watcher_for_tx(
-		&mut self,
+	//is async needed (bc of rwlock)
+	pub(crate) async fn create_external_watcher_for_tx(
+		&self,
 		tx_hash: TxHash<PoolApi>,
 	) -> Option<TxStatusStream<PoolApi>> {
-		if self.controllers.contains_key(&tx_hash) {
+		trace!(target: LOG_TARGET, "create_external_watcher_for_tx: 1: {}", tx_hash);
+		if self.controllers.read().await.contains_key(&tx_hash) {
 			return None;
 		}
+		trace!(target: LOG_TARGET, "create_external_watcher_for_tx: 2: {}", tx_hash);
 
 		let (tx, rx) = mpsc::channel(32);
-		self.controllers.insert(tx_hash, tx);
+		self.controllers.write().await.insert(tx_hash, tx);
 
 		let mut stream_map: StreamMap<BlockHash<PoolApi>, TxStatusStream<PoolApi>> =
 			StreamMap::new();
@@ -63,37 +69,51 @@ where
 		let fused = futures::StreamExt::fuse(stream_map);
 
 		Some(
-			futures::stream::unfold((fused, rx), move |(mut fused, mut rx)| async move {
-				loop {
-					tokio::select! {
-					cmd = rx.recv() => {
-						if let Some(ViewEvent::ViewAdded(h,stream)) = cmd {
-							fused.get_mut().insert(h, stream);
-						}
-					},
-					v =  futures::StreamExt::select_next_some(&mut fused) => {
-						info!(
-							"got value: {v:#?} streams:{:#?}",
-							fused.get_ref().keys().collect::<Vec<_>>()
-						);
-						return Some((v.1, (fused, rx)));
+			futures::stream::unfold(
+				(fused, rx, false),
+				|(mut fused, mut rx, terminate)| async move {
+					if terminate {
+						return None
 					}
-					};
-				}
-			})
+					loop {
+						tokio::select! {
+						biased;
+						v =  futures::StreamExt::select_next_some(&mut fused) => {
+							trace!(
+								target: LOG_TARGET, "got value: {v:#?} streams:{:#?}",
+								fused.get_ref().keys().collect::<Vec<_>>()
+							);
+							let (hash, status) = v;
+
+							// todo: full termination logic: count invalid status events
+							let terminate = matches!(status,TransactionStatus::Finalized(_));
+							return Some((status, (fused, rx, terminate)));
+						}
+						cmd = rx.recv() => {
+							if let Some(ViewEvent::ViewAdded(h,stream)) = cmd {
+								trace!(target: LOG_TARGET, "create_external_watcher_for_tx: got viewEvent {:#?}", h);
+								fused.get_mut().insert(h, stream);
+							}
+						},
+						};
+					}
+				},
+			)
 			.boxed(),
 		)
 	}
 
 	//should be called after submitting tx to every view
+	//todo: should be async?
 	pub(crate) async fn add_view_watcher_for_tx(
 		&self,
 		tx_hash: TxHash<PoolApi>,
 		block_hash: BlockHash<PoolApi>,
 		stream: TxStatusStream<PoolApi>,
 	) {
-		if let Some(tx) = self.controllers.get(&tx_hash) {
+		if let Some(tx) = self.controllers.write().await.get(&tx_hash) {
 			//todo: unwrap / error handling
+			trace!(target: LOG_TARGET, "add_view_watcher_for_tx {:#?}: sent viewEvent", tx_hash);
 			tx.send(ViewEvent::ViewAdded(block_hash, stream)).await.unwrap();
 		}
 	}

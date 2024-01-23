@@ -68,7 +68,10 @@ use sp_runtime::{
 };
 use std::time::Instant;
 
+use multi_view_listener::MultiViewListener;
 use sp_blockchain::{HashAndNumber, TreeRoute};
+
+mod multi_view_listener;
 
 pub(crate) const LOG_TARGET: &str = "txpool";
 
@@ -85,6 +88,10 @@ where
 	fn new(api: Arc<PoolApi>, at: HashAndNumber<PoolApi::Block>) -> Self {
 		Self { pool: graph::Pool::new(Default::default(), true.into(), api), at }
 	}
+
+	async fn finalize(&self, finalized: graph::BlockHash<PoolApi>) {
+		let _ = self.pool.validated_pool().on_block_finalized(finalized).await;
+	}
 }
 
 //todo: better name: ViewStore?
@@ -95,6 +102,7 @@ where
 {
 	api: Arc<PoolApi>,
 	views: RwLock<HashMap<Block::Hash, Arc<View<PoolApi>>>>,
+	listener: MultiViewListener<PoolApi>,
 }
 
 #[derive(Debug)]
@@ -108,9 +116,10 @@ impl<PoolApi, Block> ViewManager<PoolApi, Block>
 where
 	Block: BlockT,
 	PoolApi: graph::ChainApi<Block = Block> + 'static,
+	<Block as BlockT>::Hash: Unpin,
 {
 	fn new(api: Arc<PoolApi>) -> Self {
-		Self { api, views: Default::default() }
+		Self { api, views: Default::default(), listener: MultiViewListener::new() }
 	}
 
 	// shall be called on block import
@@ -206,8 +215,45 @@ where
 		at: Block::Hash,
 		source: TransactionSource,
 		xt: Block::Extrinsic,
-	) -> Result<Watcher<ExtrinsicHash<PoolApi>, ExtrinsicHash<PoolApi>>, PoolApi::Error> {
-		unimplemented!()
+	) -> Result<multi_view_listener::TxStatusStream<PoolApi>, PoolApi::Error> {
+		let tx_hash = self.api.hash_and_length(&xt).0;
+		let external_watcher = self.listener.create_external_watcher_for_tx(tx_hash).await;
+		let futs = {
+			let g = self.views.read();
+			let futs = g
+				.iter()
+				.map(|(hash, view)| {
+					let view = view.clone();
+					let xt = xt.clone();
+
+					async move {
+						let result = view.pool.submit_and_watch(&view.at, source, xt.clone()).await;
+						if let Ok(watcher) = result {
+							self.listener
+								.add_view_watcher_for_tx(
+									tx_hash,
+									view.at.hash,
+									watcher.into_stream().boxed(),
+								)
+								.await;
+							Ok(())
+						} else {
+							Err(result.unwrap_err())
+						}
+					}
+				})
+				.collect::<Vec<_>>();
+			futs
+		};
+		let maybe_watchers = futures::future::join_all(futs).await;
+		log::info!("submit_and_watch: maybe_watchers: {}", maybe_watchers.len());
+
+		// let results = maybe_watchers.into_iter().map(|(hash, result)| {}).collect::<Vec<_>>();
+		// let results = futures::future::join_all(results).await;
+
+		// HashMap::<_, _>::from_iter(results.into_iter())
+		// todo: handle errors from views: if all are errors return error (re-use xxx?)
+		Ok(external_watcher.unwrap())
 	}
 
 	pub fn status(&self) -> HashMap<Block::Hash, PoolStatus> {
@@ -256,6 +302,23 @@ where
 			.get(&at)
 			.map(|v| v.pool.validated_pool().pool.read().futures().cloned().collect())
 	}
+
+	async fn finalize_route(&self, finalized_hash: Block::Hash, tree_route: &[Block::Hash]) {
+		let finalized_view = { self.views.read().get(&finalized_hash).map(|v| v.clone()) };
+
+		let Some(finalized_view) = finalized_view else {
+			log::warn!(
+				target: LOG_TARGET,
+				"Error occurred while attempting to notify watchers about finalization {}",
+				finalized_hash
+			);
+			return;
+		};
+
+		for hash in tree_route.iter().chain(std::iter::once(&finalized_hash)) {
+			finalized_view.finalize(*hash).await;
+		}
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -295,7 +358,8 @@ where
 pub struct ForkAwareTxPool<PoolApi, Block>
 where
 	Block: BlockT,
-	PoolApi: graph::ChainApi<Block = Block>,
+	PoolApi: graph::ChainApi<Block = Block> + 'static,
+	<Block as BlockT>::Hash: Unpin,
 {
 	api: Arc<PoolApi>,
 	xts: Arc<RwLock<Vec<Block::Extrinsic>>>,
@@ -319,6 +383,7 @@ impl<PoolApi, Block> ForkAwareTxPool<PoolApi, Block>
 where
 	Block: BlockT,
 	PoolApi: graph::ChainApi<Block = Block> + 'static,
+	<Block as BlockT>::Hash: Unpin,
 {
 	/// Create new fork aware transaction pool with provided api, for tests.
 	pub fn new_test(
@@ -523,6 +588,7 @@ impl<PoolApi, Block> TransactionPool for ForkAwareTxPool<PoolApi, Block>
 where
 	Block: BlockT,
 	PoolApi: 'static + graph::ChainApi<Block = Block>,
+	<Block as BlockT>::Hash: Unpin,
 {
 	type Block = PoolApi::Block;
 	type Hash = graph::ExtrinsicHash<PoolApi>;
@@ -607,8 +673,14 @@ where
 		// self.metrics.report(|metrics| metrics.submitted_transactions.inc());
 
 		async move {
-			let watcher = views.submit_and_watch(at, source, xt).await?;
-			Ok(watcher.into_stream().boxed())
+			let result = views.submit_and_watch(at, source, xt).await;
+			match result {
+				Ok(watcher) => Ok(watcher),
+				Err(err) => Err(err),
+			}
+			// let watcher = result?;
+			// let watcher = views.submit_and_watch(at, source, xt).await?;
+			// watcher
 		}
 		.boxed()
 	}
@@ -683,6 +755,7 @@ impl<Block, Client> sc_transaction_pool_api::LocalTransactionPool
 	for ForkAwareTxPool<FullChainApi<Client, Block>, Block>
 where
 	Block: BlockT,
+	<Block as BlockT>::Hash: Unpin,
 	Client: sp_api::ProvideRuntimeApi<Block>
 		+ sc_client_api::BlockBackend<Block>
 		+ sc_client_api::blockchain::HeaderBackend<Block>
@@ -713,6 +786,7 @@ impl<PoolApi, Block> ForkAwareTxPool<PoolApi, Block>
 where
 	Block: BlockT,
 	PoolApi: graph::ChainApi<Block = Block> + 'static,
+	<Block as BlockT>::Hash: Unpin,
 {
 	async fn handle_new_block(&self, best_hash: Block::Hash, tree_route: &TreeRoute<Block>) {
 		// let hash_and_number = match tree_route.last() {
@@ -769,15 +843,42 @@ where
 		at: HashAndNumber<Block>,
 		tree_route: &TreeRoute<Block>,
 	) {
+		log::info!("build_cloned_view: x {:?}", at.hash);
 		let new_block_hash = at.hash;
 		let mut view = View { at: at.clone(), pool: origin_view.pool.deep_clone() };
-		self.update_view_with_fork(&mut view, tree_route, at).await;
+
+		//todo: this cloning probably has some flaws. It is possible that tx should be watched, but
+		//was removed from original view (e.g. runtime upgrade)
+		//so we need to have watched transactions in FAPool, question is how and when remove them.
+		let futs = origin_view
+			.pool
+			.validated_pool()
+			.watched_transactions()
+			.iter()
+			.map(|tx_hash| {
+				let watcher = view.pool.validated_pool().create_watcher(*tx_hash);
+				self.views.listener.add_view_watcher_for_tx(
+					*tx_hash,
+					at.hash,
+					watcher.into_stream().boxed(),
+				)
+			})
+			.collect::<Vec<_>>();
+
+		future::join_all(futs).await;
+		log::info!("build_cloned_view: y {:?}", at.hash);
+
+		self.update_view_with_fork(&mut view, tree_route, at.clone()).await;
+		log::info!("build_cloned_view: z {:?}", at.hash);
 		self.update_view(&mut view).await;
+		log::info!("build_cloned_view: u {:?}", at.hash);
 		let view = Arc::from(view);
 		self.views.views.write().insert(new_block_hash, view.clone());
+		log::info!("build_cloned_view: v {:?}", at.hash);
 		self.ready_poll
 			.lock()
 			.trigger(new_block_hash, move || Box::from(view.pool.validated_pool().ready()));
+		log::info!("build_cloned_view: t {:?}", at.hash);
 	}
 
 	async fn update_view(&self, view: &mut View<PoolApi>) {
@@ -803,8 +904,10 @@ where
 		let mut pruned_log = HashSet::<ExtrinsicHash<PoolApi>>::new();
 
 		future::join_all(
-			std::iter::once(&hash_and_number)
-				.chain(tree_route.enacted().iter())
+			tree_route
+				.enacted()
+				.iter()
+				.chain(std::iter::once(&hash_and_number))
 				.map(|h| super::prune_known_txs_for_block(h, &*api, &view.pool)),
 		)
 		.await
@@ -881,7 +984,8 @@ where
 				log::info!("Creating new view for finalized block: {}", finalized_hash);
 				self.create_new_view_at(finalized_hash).await;
 			} else {
-				let tree_route = self.api.tree_route(tree_route[0], finalized_hash).expect(
+				//convert &[Hash] to TreeRoute
+				let tree_route = self.api.tree_route(tree_route[0], tree_route[tree_route.len()-1]).expect(
 					"Tree route between currently and recently finalized blocks must exist. qed",
 				);
 				self.handle_new_block(finalized_hash, &tree_route).await;
@@ -897,6 +1001,8 @@ where
 				Ok(Some(n)) => v.at.number > n,
 			})
 		}
+
+		self.views.finalize_route(finalized_hash, tree_route).await;
 	}
 }
 
@@ -905,6 +1011,7 @@ impl<PoolApi, Block> MaintainedTransactionPool for ForkAwareTxPool<PoolApi, Bloc
 where
 	Block: BlockT,
 	PoolApi: 'static + graph::ChainApi<Block = Block>,
+	<Block as BlockT>::Hash: Unpin,
 {
 	async fn maintain(&self, event: ChainEvent<Self::Block>) {
 		// todo: this is not required here, it is handled either way in
@@ -914,6 +1021,7 @@ where
 		// 	return;
 		// }
 
+		log::info!(">> maintain: {event:#?}");
 		match event {
 			ChainEvent::NewBestBlock { hash, tree_route: Some(tree_route) } =>
 				self.handle_new_block(hash, &tree_route).await,
