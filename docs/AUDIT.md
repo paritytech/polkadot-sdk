@@ -7,7 +7,7 @@ Audits can be deferred if the logic is gated by an `experimental` feature or mar
 
 ## General Guidelines for what to Audit
 
-There is no single one-fits-all rule. Generally we should audit important logic that could immediately be used on production networks. If in doubt; ask in chat or in the Merge Request.
+There is no single one-fits-all rule. Generally we should audit important logic that could immediately be used on production networks. If in doubt, ask in chat or in the Merge Request.
 
 ## Requesting an Audit
 
