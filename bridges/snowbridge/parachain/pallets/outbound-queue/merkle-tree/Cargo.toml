@@ -18,15 +18,15 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { version = "3.1.5", package = "parity-scale-codec", default-features = false, features = ["derive"] }
 scale-info = { version = "2.7.0", default-features = false, features = ["derive"] }
 
-sp-core = { path = "../../../../polkadot-sdk/substrate/primitives/core", default-features = false }
-sp-runtime = { path = "../../../../polkadot-sdk/substrate/primitives/runtime", default-features = false }
+sp-core = { path = "../../../../../../substrate/primitives/core", default-features = false }
+sp-runtime = { path = "../../../../../../substrate/primitives/runtime", default-features = false }
 
 [dev-dependencies]
 hex-literal = { version = "0.4.1" }
 env_logger = "0.9"
 hex = "0.4"
 array-bytes = "4.1"
-sp-crypto-hashing = { path = "../../../../polkadot-sdk/substrate/primitives/crypto/hashing" }
+sp-crypto-hashing = { path = "../../../../../../substrate/primitives/crypto/hashing" }
 
 [features]
 default = ["std"]
