@@ -1479,7 +1479,7 @@
 		_seed: <span class="prelude-ty">Option</span>&lt;Seed&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(Pair, <span class="prelude-ty">Option</span>&lt;Seed&gt;), DeriveError&gt; {
 		<span class="kw">let </span>derive_hard = |seed, cc| -&gt; Seed {
-			(<span class="string">&quot;bandersnatch-vrf-HDKD&quot;</span>, seed, cc).using_encoded(sp_core_hashing::blake2_256)
+			(<span class="string">&quot;bandersnatch-vrf-HDKD&quot;</span>, seed, cc).using_encoded(sp_crypto_hashing::blake2_256)
 		};
 
 		<span class="kw">let </span><span class="kw-2">mut </span>seed = <span class="self">self</span>.seed();

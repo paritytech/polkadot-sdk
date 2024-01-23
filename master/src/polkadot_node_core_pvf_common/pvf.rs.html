@@ -128,7 +128,6 @@
 <a href="#128" id="128">128</a>
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -149,7 +148,6 @@
 <span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::ValidationCodeHash;
 <span class="kw">use </span>polkadot_primitives::ExecutorParams;
-<span class="kw">use </span>sp_core::blake2_256;
 <span class="kw">use </span>std::{
 	cmp::{Eq, PartialEq},
 	fmt,
@@ -184,7 +182,7 @@
 		prep_kind: PrepareJobKind,
 	) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>code = Arc::new(code);
-		<span class="kw">let </span>code_hash = blake2_256(<span class="kw-2">&amp;</span>code).into();
+		<span class="kw">let </span>code_hash = sp_crypto_hashing::blake2_256(<span class="kw-2">&amp;</span>code).into();
 		<span class="kw">let </span>executor_params = Arc::new(executor_params);
 		<span class="self">Self </span>{ code, code_hash, executor_params, prep_timeout, prep_kind }
 	}

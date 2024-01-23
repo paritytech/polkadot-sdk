@@ -1239,7 +1239,7 @@
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>two128_str(s: <span class="kw-2">&amp;</span>str) -&gt; TokenStream {
-	bytes_to_array(sp_core_hashing::twox_128(s.as_bytes()).into_iter())
+	bytes_to_array(sp_crypto_hashing::twox_128(s.as_bytes()).into_iter())
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>bytes_to_array(bytes: <span class="kw">impl </span>IntoIterator&lt;Item = u8&gt;) -&gt; TokenStream {

@@ -1031,7 +1031,7 @@
 								<span class="number">0x70</span>,
 								cid::multihash::Multihash::wrap(
 									u64::from(cid::multihash::Code::Blake2b256),
-									<span class="kw-2">&amp;</span>sp_core::hashing::blake2_256(<span class="kw-2">&amp;</span>ext.encode()[pattern_index..]),
+									<span class="kw-2">&amp;</span>sp_crypto_hashing::blake2_256(<span class="kw-2">&amp;</span>ext.encode()[pattern_index..]),
 								)
 								.unwrap(),
 							)

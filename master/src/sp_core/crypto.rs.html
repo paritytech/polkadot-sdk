@@ -1676,7 +1676,7 @@
 		<span class="kw">let </span><span class="kw-2">mut </span>cc: [u8; JUNCTION_ID_LEN] = Default::default();
 		index.using_encoded(|data| {
 			<span class="kw">if </span>data.len() &gt; JUNCTION_ID_LEN {
-				cc.copy_from_slice(<span class="kw-2">&amp;</span>sp_core_hashing::blake2_256(data));
+				cc.copy_from_slice(<span class="kw-2">&amp;</span>sp_crypto_hashing::blake2_256(data));
 			} <span class="kw">else </span>{
 				cc[<span class="number">0</span>..data.len()].copy_from_slice(data);
 			}

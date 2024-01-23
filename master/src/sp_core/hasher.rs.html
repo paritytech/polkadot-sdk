@@ -90,7 +90,7 @@
 		<span class="kw">const </span>LENGTH: usize = <span class="number">32</span>;
 
 		<span class="kw">fn </span>hash(x: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="self">Self</span>::Out {
-			<span class="kw">crate</span>::hashing::blake2_256(x).into()
+			sp_crypto_hashing::blake2_256(x).into()
 		}
 	}
 }
@@ -110,7 +110,7 @@
 		<span class="kw">const </span>LENGTH: usize = <span class="number">32</span>;
 
 		<span class="kw">fn </span>hash(x: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="self">Self</span>::Out {
-			<span class="kw">crate</span>::hashing::keccak_256(x).into()
+			sp_crypto_hashing::keccak_256(x).into()
 		}
 	}
 }

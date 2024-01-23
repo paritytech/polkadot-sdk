@@ -802,8 +802,6 @@
 <a href="#802" id="802">802</a>
 <a href="#803" id="803">803</a>
 <a href="#804" id="804">804</a>
-<a href="#805" id="805">805</a>
-<a href="#806" id="806">806</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -833,10 +831,7 @@
 	ByteArray, CryptoType, CryptoTypeId, Derive, Public <span class="kw">as </span>TraitPublic, UncheckedFrom,
 };
 <span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-</span><span class="kw">use crate</span>::{
-	crypto::{DeriveError, DeriveJunction, Pair <span class="kw">as </span>TraitPair, SecretStringError},
-	hashing::blake2_256,
-};
+</span><span class="kw">use </span><span class="kw">crate</span>::crypto::{DeriveError, DeriveJunction, Pair <span class="kw">as </span>TraitPair, SecretStringError};
 <span class="attr">#[cfg(all(feature = <span class="string">&quot;full_crypto&quot;</span>, not(feature = <span class="string">&quot;std&quot;</span>)))]
 </span><span class="kw">use </span>secp256k1::Secp256k1;
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
@@ -1134,7 +1129,7 @@
 	<span class="doccomment">/// Recover the public key from this signature and a message.
 	</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 	</span><span class="kw">pub fn </span>recover&lt;M: AsRef&lt;[u8]&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, message: M) -&gt; <span class="prelude-ty">Option</span>&lt;Public&gt; {
-		<span class="self">self</span>.recover_prehashed(<span class="kw-2">&amp;</span>blake2_256(message.as_ref()))
+		<span class="self">self</span>.recover_prehashed(<span class="kw-2">&amp;</span>sp_crypto_hashing::blake2_256(message.as_ref()))
 	}
 
 	<span class="doccomment">/// Recover the public key from this signature and a pre-hashed message.
@@ -1171,7 +1166,7 @@
 <span class="doccomment">/// Derive a single hard junction.
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 </span><span class="kw">fn </span>derive_hard_junction(secret_seed: <span class="kw-2">&amp;</span>Seed, cc: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>]) -&gt; Seed {
-	(<span class="string">&quot;Secp256k1HDKD&quot;</span>, secret_seed, cc).using_encoded(sp_core_hashing::blake2_256)
+	(<span class="string">&quot;Secp256k1HDKD&quot;</span>, secret_seed, cc).using_encoded(sp_crypto_hashing::blake2_256)
 }
 
 <span class="doccomment">/// A key pair.
@@ -1229,7 +1224,7 @@
 
 	<span class="doccomment">/// Sign a message.
 	</span><span class="kw">fn </span>sign(<span class="kw-2">&amp;</span><span class="self">self</span>, message: <span class="kw-2">&amp;</span>[u8]) -&gt; Signature {
-		<span class="self">self</span>.sign_prehashed(<span class="kw-2">&amp;</span>blake2_256(message))
+		<span class="self">self</span>.sign_prehashed(<span class="kw-2">&amp;</span>sp_crypto_hashing::blake2_256(message))
 	}
 
 	<span class="doccomment">/// Verify a signature on a message. Returns true if the signature is good.
@@ -1287,7 +1282,8 @@
 	/// Parses Signature using parse_overflowing_slice.
 	</span><span class="attr">#[deprecated(note = <span class="string">&quot;please use `verify` instead&quot;</span>)]
 	</span><span class="kw">pub fn </span>verify_deprecated&lt;M: AsRef&lt;[u8]&gt;&gt;(sig: <span class="kw-2">&amp;</span>Signature, message: M, pubkey: <span class="kw-2">&amp;</span>Public) -&gt; bool {
-		<span class="kw">let </span>message = libsecp256k1::Message::parse(<span class="kw-2">&amp;</span>blake2_256(message.as_ref()));
+		<span class="kw">let </span>message =
+			libsecp256k1::Message::parse(<span class="kw-2">&amp;</span>sp_crypto_hashing::blake2_256(message.as_ref()));
 
 		<span class="kw">let </span>parse_signature_overflowing = |x: [u8; SIGNATURE_SERIALIZED_SIZE]| {
 			<span class="kw">let </span>sig = libsecp256k1::Signature::parse_overflowing_slice(<span class="kw-2">&amp;</span>x[..<span class="number">64</span>]).ok()<span class="question-mark">?</span>;
@@ -1572,7 +1568,7 @@
 
 		<span class="comment">// using pre-hashed `msg` works
 		</span><span class="kw">let </span>msg = <span class="string">b&quot;this should be hashed&quot;</span>;
-		<span class="kw">let </span>sig1 = pair.sign_prehashed(<span class="kw-2">&amp;</span>blake2_256(msg));
+		<span class="kw">let </span>sig1 = pair.sign_prehashed(<span class="kw-2">&amp;</span>sp_crypto_hashing::blake2_256(msg));
 		<span class="kw">let </span>sig2 = pair.sign(msg);
 		<span class="macro">assert_eq!</span>(sig1, sig2);
 	}
@@ -1582,12 +1578,12 @@
 		<span class="kw">let </span>(pair, <span class="kw">_</span>, <span class="kw">_</span>) = Pair::generate_with_phrase(<span class="prelude-val">Some</span>(<span class="string">&quot;password&quot;</span>));
 
 		<span class="comment">// `msg` and `sig` match
-		</span><span class="kw">let </span>msg = blake2_256(<span class="string">b&quot;this should be hashed&quot;</span>);
+		</span><span class="kw">let </span>msg = sp_crypto_hashing::blake2_256(<span class="string">b&quot;this should be hashed&quot;</span>);
 		<span class="kw">let </span>sig = pair.sign_prehashed(<span class="kw-2">&amp;</span>msg);
 		<span class="macro">assert!</span>(Pair::verify_prehashed(<span class="kw-2">&amp;</span>sig, <span class="kw-2">&amp;</span>msg, <span class="kw-2">&amp;</span>pair.public()));
 
 		<span class="comment">// `msg` and `sig` don&#39;t match
-		</span><span class="kw">let </span>msg = blake2_256(<span class="string">b&quot;this is a different message&quot;</span>);
+		</span><span class="kw">let </span>msg = sp_crypto_hashing::blake2_256(<span class="string">b&quot;this is a different message&quot;</span>);
 		<span class="macro">assert!</span>(!Pair::verify_prehashed(<span class="kw-2">&amp;</span>sig, <span class="kw-2">&amp;</span>msg, <span class="kw-2">&amp;</span>pair.public()));
 	}
 
@@ -1596,7 +1592,7 @@
 		<span class="kw">let </span>(pair, <span class="kw">_</span>, <span class="kw">_</span>) = Pair::generate_with_phrase(<span class="prelude-val">Some</span>(<span class="string">&quot;password&quot;</span>));
 
 		<span class="comment">// recovered key matches signing key
-		</span><span class="kw">let </span>msg = blake2_256(<span class="string">b&quot;this should be hashed&quot;</span>);
+		</span><span class="kw">let </span>msg = sp_crypto_hashing::blake2_256(<span class="string">b&quot;this should be hashed&quot;</span>);
 		<span class="kw">let </span>sig = pair.sign_prehashed(<span class="kw-2">&amp;</span>msg);
 		<span class="kw">let </span>key = sig.recover_prehashed(<span class="kw-2">&amp;</span>msg).unwrap();
 		<span class="macro">assert_eq!</span>(pair.public(), key);
@@ -1605,7 +1601,7 @@
 		</span><span class="macro">assert!</span>(Pair::verify_prehashed(<span class="kw-2">&amp;</span>sig, <span class="kw-2">&amp;</span>msg, <span class="kw-2">&amp;</span>key));
 
 		<span class="comment">// recovered key and signing key don&#39;t match
-		</span><span class="kw">let </span>msg = blake2_256(<span class="string">b&quot;this is a different message&quot;</span>);
+		</span><span class="kw">let </span>msg = sp_crypto_hashing::blake2_256(<span class="string">b&quot;this is a different message&quot;</span>);
 		<span class="kw">let </span>key = sig.recover_prehashed(<span class="kw-2">&amp;</span>msg).unwrap();
 		<span class="macro">assert_ne!</span>(pair.public(), key);
 	}

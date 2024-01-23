@@ -1597,6 +1597,7 @@
 <a href="#1597" id="1597">1597</a>
 <a href="#1598" id="1598">1598</a>
 <a href="#1599" id="1599">1599</a>
+<a href="#1600" id="1600">1600</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1637,7 +1638,8 @@
 <span class="kw">pub use </span>pallet_balances::AccountData;
 <span class="kw">pub use </span>pallet_message_queue;
 <span class="kw">pub use </span>sp_arithmetic::traits::Bounded;
-<span class="kw">pub use </span>sp_core::{blake2_256, parameter_types, sr25519, storage::Storage, Pair};
+<span class="kw">pub use </span>sp_core::{parameter_types, sr25519, storage::Storage, Pair};
+<span class="kw">pub use </span>sp_crypto_hashing::blake2_256;
 <span class="kw">pub use </span>sp_io::TestExternalities;
 <span class="kw">pub use </span>sp_runtime::BoundedSlice;
 <span class="kw">pub use </span>sp_std::{cell::RefCell, collections::vec_deque::VecDeque, fmt::Debug};

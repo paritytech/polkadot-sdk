@@ -789,7 +789,7 @@
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>hex_literal::hex;
-	<span class="kw">use </span>sp_core::keccak_256;
+	<span class="kw">use </span>sp_crypto_hashing::keccak_256;
 	<span class="kw">use </span>sp_runtime::traits::Keccak256;
 
 	<span class="kw">fn </span>make_leaves(count: u64) -&gt; Vec&lt;H256&gt; {

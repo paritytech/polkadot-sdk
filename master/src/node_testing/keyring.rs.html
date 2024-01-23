@@ -113,6 +113,8 @@
 <a href="#113" id="113">113</a>
 <a href="#114" id="114">114</a>
 <a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -138,6 +140,7 @@
 <span class="kw">use </span>node_cli::chain_spec::get_from_seed;
 <span class="kw">use </span>node_primitives::{AccountId, Balance, Nonce};
 <span class="kw">use </span>sp_core::{ecdsa, ed25519, sr25519};
+<span class="kw">use </span>sp_crypto_hashing::blake2_256;
 <span class="kw">use </span>sp_keyring::AccountKeyring;
 <span class="kw">use </span>sp_runtime::generic::Era;
 
@@ -211,15 +214,16 @@
 			<span class="kw">let </span>payload =
 				(xt.function, extra.clone(), spec_version, tx_version, genesis_hash, genesis_hash);
 			<span class="kw">let </span>key = AccountKeyring::from_account_id(<span class="kw-2">&amp;</span>signed).unwrap();
-			<span class="kw">let </span>signature = payload
-				.using_encoded(|b| {
-					<span class="kw">if </span>b.len() &gt; <span class="number">256 </span>{
-						key.sign(<span class="kw-2">&amp;</span>sp_io::hashing::blake2_256(b))
-					} <span class="kw">else </span>{
-						key.sign(b)
-					}
-				})
-				.into();
+			<span class="kw">let </span>signature =
+				payload
+					.using_encoded(|b| {
+						<span class="kw">if </span>b.len() &gt; <span class="number">256 </span>{
+							key.sign(<span class="kw-2">&amp;</span>blake2_256(b))
+						} <span class="kw">else </span>{
+							key.sign(b)
+						}
+					})
+					.into();
 			UncheckedExtrinsic {
 				signature: <span class="prelude-val">Some</span>((sp_runtime::MultiAddress::Id(signed), signature, extra)),
 				function: payload.<span class="number">0</span>,

@@ -501,6 +501,7 @@
 <a href="#501" id="501">501</a>
 <a href="#502" id="502">502</a>
 <a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -756,7 +757,8 @@
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use crate</span>::{ecdsa_crypto::Signature <span class="kw">as </span>EcdsaSignature, known_payloads};
 	<span class="kw">use </span>codec::Decode;
-	<span class="kw">use </span>sp_core::{keccak_256, Pair};
+	<span class="kw">use </span>sp_core::Pair;
+	<span class="kw">use </span>sp_crypto_hashing::keccak_256;
 
 	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
 	</span><span class="kw">use </span><span class="kw">crate</span>::bls_crypto::Signature <span class="kw">as </span>BlsSignature;

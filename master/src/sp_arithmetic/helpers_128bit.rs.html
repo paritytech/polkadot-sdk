@@ -595,7 +595,7 @@
 	}
 
 	<span class="kw">fn </span>random_u128(seed: u32) -&gt; u128 {
-		u128::decode(<span class="kw-2">&amp;mut &amp;</span>seed.using_encoded(sp_core::hashing::twox_128)[..]).unwrap_or(<span class="number">0</span>)
+		u128::decode(<span class="kw-2">&amp;mut &amp;</span>seed.using_encoded(sp_crypto_hashing::twox_128)[..]).unwrap_or(<span class="number">0</span>)
 	}
 
 	<span class="attr">#[test]

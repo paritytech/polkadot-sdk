@@ -488,6 +488,8 @@
 <a href="#488" id="488">488</a>
 <a href="#489" id="489">489</a>
 <a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -537,10 +539,12 @@
 </span><span class="kw">pub use </span>impl_serde::serialize <span class="kw">as </span>bytes;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-</span><span class="kw">pub mod </span>hashing;
+#[deprecated(
+	since = <span class="string">&quot;27.0.0&quot;</span>,
+	note = <span class="string">&quot;`sp-crypto-hashing` re-exports will be removed after June 2024. Use `sp-crypto-hashing` instead.&quot;
+</span>)]
+</span><span class="kw">pub use </span>sp_crypto_hashing::{<span class="self">self </span><span class="kw">as </span>hashing, <span class="kw-2">*</span>};
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
-</span><span class="kw">pub use </span>hashing::{blake2_128, blake2_256, keccak_256, twox_128, twox_256, twox_64};
 <span class="kw">pub mod </span>const_hex2array;
 <span class="kw">pub mod </span>crypto;
 <span class="kw">pub mod </span>hexdisplay;

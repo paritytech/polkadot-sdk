@@ -129,7 +129,7 @@
 
 </span><span class="kw">use crate</span>::{ecdsa_crypto, Commitment, EquivocationProof, Payload, ValidatorSetId, VoteMessage};
 <span class="kw">use </span>codec::Encode;
-<span class="kw">use </span>sp_core::{ecdsa, keccak_256, Pair};
+<span class="kw">use </span>sp_core::{ecdsa, Pair};
 <span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>strum::IntoEnumIterator;
 
@@ -151,7 +151,7 @@
 	<span class="doccomment">/// Sign `msg`.
 	</span><span class="kw">pub fn </span>sign(<span class="self">self</span>, msg: <span class="kw-2">&amp;</span>[u8]) -&gt; ecdsa_crypto::Signature {
 		<span class="comment">// todo: use custom signature hashing type
-		</span><span class="kw">let </span>msg = keccak_256(msg);
+		</span><span class="kw">let </span>msg = sp_crypto_hashing::keccak_256(msg);
 		ecdsa::Pair::from(<span class="self">self</span>).sign_prehashed(<span class="kw-2">&amp;</span>msg).into()
 	}
 

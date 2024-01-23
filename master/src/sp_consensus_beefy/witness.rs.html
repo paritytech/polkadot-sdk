@@ -252,6 +252,7 @@
 <a href="#252" id="252">252</a>
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -331,7 +332,8 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-	<span class="kw">use </span>sp_core::{keccak_256, Pair};
+	<span class="kw">use </span>sp_core::Pair;
+	<span class="kw">use </span>sp_crypto_hashing::keccak_256;
 
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>codec::Decode;

@@ -841,6 +841,9 @@
 <a href="#841" id="841">841</a>
 <a href="#842" id="842">842</a>
 <a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -875,7 +878,6 @@
 <span class="kw">use </span>sp_blockchain::BlockStatus;
 <span class="kw">use </span>sp_consensus::{BlockOrigin, Error <span class="kw">as </span>ConsensusError, SelectChain};
 <span class="kw">use </span>sp_consensus_grandpa::{ConsensusLog, GrandpaApi, ScheduledChange, SetId, GRANDPA_ENGINE_ID};
-<span class="kw">use </span>sp_core::hashing::twox_128;
 <span class="kw">use </span>sp_runtime::{
 	generic::OpaqueDigestItemId,
 	traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT, NumberFor, Zero},
@@ -1281,7 +1283,11 @@
 			<span class="comment">// The new API is not supported in this runtime. Try reading directly from storage.
 			// This code may be removed once warp sync to an old runtime is no longer needed.
 			</span><span class="kw">for </span>prefix <span class="kw">in </span>[<span class="string">&quot;GrandpaFinality&quot;</span>, <span class="string">&quot;Grandpa&quot;</span>] {
-				<span class="kw">let </span>k = [twox_128(prefix.as_bytes()), twox_128(<span class="string">b&quot;CurrentSetId&quot;</span>)].concat();
+				<span class="kw">let </span>k = [
+					sp_crypto_hashing::twox_128(prefix.as_bytes()),
+					sp_crypto_hashing::twox_128(<span class="string">b&quot;CurrentSetId&quot;</span>),
+				]
+				.concat();
 				<span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(id)) =
 					<span class="self">self</span>.inner.storage(hash, <span class="kw-2">&amp;</span>sc_client_api::StorageKey(k.to_vec()))
 				{

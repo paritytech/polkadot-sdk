@@ -670,6 +670,7 @@
 <a href="#670" id="670">670</a>
 <a href="#671" id="671">671</a>
 <a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -719,7 +720,8 @@
 <span class="kw">use </span>sp_api::ProvideRuntimeApi;
 <span class="kw">use </span>sp_block_builder::BlockBuilder;
 <span class="kw">use </span>sp_consensus::BlockOrigin;
-<span class="kw">use </span>sp_core::{blake2_256, ed25519, sr25519, traits::SpawnNamed, Pair, Public};
+<span class="kw">use </span>sp_core::{ed25519, sr25519, traits::SpawnNamed, Pair, Public};
+<span class="kw">use </span>sp_crypto_hashing::blake2_256;
 <span class="kw">use </span>sp_inherents::InherentData;
 <span class="kw">use </span>sp_runtime::{
 	traits::{Block <span class="kw">as </span>BlockT, IdentifyAccount, Verify},
@@ -1246,7 +1248,7 @@
 				<span class="kw">let </span>key = <span class="self">self</span>.accounts.get(<span class="kw-2">&amp;</span>signed).expect(<span class="string">&quot;Account id not found in keyring&quot;</span>);
 				<span class="kw">let </span>signature = payload.using_encoded(|b| {
 					<span class="kw">if </span>b.len() &gt; <span class="number">256 </span>{
-						key.sign(<span class="kw-2">&amp;</span>sp_io::hashing::blake2_256(b))
+						key.sign(<span class="kw-2">&amp;</span>blake2_256(b))
 					} <span class="kw">else </span>{
 						key.sign(b)
 					}

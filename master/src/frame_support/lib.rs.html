@@ -2887,7 +2887,7 @@
 	<span class="kw">pub use </span>scale_info;
 	<span class="kw">pub use </span>serde;
 	<span class="kw">pub use </span>sp_core::{OpaqueMetadata, Void};
-	<span class="kw">pub use </span>sp_core_hashing_proc_macro;
+	<span class="kw">pub use </span>sp_crypto_hashing_proc_macro;
 	<span class="kw">pub use </span>sp_inherents;
 	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 	</span><span class="kw">pub use </span>sp_io::TestExternalities;
@@ -3172,7 +3172,7 @@
 		</span><span class="kw">impl</span>&lt; $(<span class="macro-nonterminal">$ty_params</span>),* &gt; <span class="macro-nonterminal">$name</span>&lt; $(<span class="macro-nonterminal">$ty_params</span>),* &gt; {
 			<span class="doccomment">/// Returns the key for this parameter type.
 			</span><span class="kw">pub fn </span>key() -&gt; [u8; <span class="number">16</span>] {
-				<span class="macro-nonterminal">$</span><span class="macro">crate::__private::sp_core_hashing_proc_macro::twox_128!</span>(<span class="string">b&quot;:&quot;</span>, <span class="macro-nonterminal">$name</span>, <span class="string">b&quot;:&quot;</span>)
+				<span class="macro-nonterminal">$</span><span class="macro">crate::__private::sp_crypto_hashing_proc_macro::twox_128!</span>(<span class="string">b&quot;:&quot;</span>, <span class="macro-nonterminal">$name</span>, <span class="string">b&quot;:&quot;</span>)
 			}
 
 			<span class="doccomment">/// Set the value of this parameter type in the storage.

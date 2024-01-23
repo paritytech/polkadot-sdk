@@ -3208,42 +3208,42 @@
 </span><span class="kw">pub trait </span>Hashing {
 	<span class="doccomment">/// Conduct a 256-bit Keccak hash.
 	</span><span class="kw">fn </span>keccak_256(data: <span class="kw-2">&amp;</span>[u8]) -&gt; [u8; <span class="number">32</span>] {
-		sp_core::hashing::keccak_256(data)
+		sp_crypto_hashing::keccak_256(data)
 	}
 
 	<span class="doccomment">/// Conduct a 512-bit Keccak hash.
 	</span><span class="kw">fn </span>keccak_512(data: <span class="kw-2">&amp;</span>[u8]) -&gt; [u8; <span class="number">64</span>] {
-		sp_core::hashing::keccak_512(data)
+		sp_crypto_hashing::keccak_512(data)
 	}
 
 	<span class="doccomment">/// Conduct a 256-bit Sha2 hash.
 	</span><span class="kw">fn </span>sha2_256(data: <span class="kw-2">&amp;</span>[u8]) -&gt; [u8; <span class="number">32</span>] {
-		sp_core::hashing::sha2_256(data)
+		sp_crypto_hashing::sha2_256(data)
 	}
 
 	<span class="doccomment">/// Conduct a 128-bit Blake2 hash.
 	</span><span class="kw">fn </span>blake2_128(data: <span class="kw-2">&amp;</span>[u8]) -&gt; [u8; <span class="number">16</span>] {
-		sp_core::hashing::blake2_128(data)
+		sp_crypto_hashing::blake2_128(data)
 	}
 
 	<span class="doccomment">/// Conduct a 256-bit Blake2 hash.
 	</span><span class="kw">fn </span>blake2_256(data: <span class="kw-2">&amp;</span>[u8]) -&gt; [u8; <span class="number">32</span>] {
-		sp_core::hashing::blake2_256(data)
+		sp_crypto_hashing::blake2_256(data)
 	}
 
 	<span class="doccomment">/// Conduct four XX hashes to give a 256-bit result.
 	</span><span class="kw">fn </span>twox_256(data: <span class="kw-2">&amp;</span>[u8]) -&gt; [u8; <span class="number">32</span>] {
-		sp_core::hashing::twox_256(data)
+		sp_crypto_hashing::twox_256(data)
 	}
 
 	<span class="doccomment">/// Conduct two XX hashes to give a 128-bit result.
 	</span><span class="kw">fn </span>twox_128(data: <span class="kw-2">&amp;</span>[u8]) -&gt; [u8; <span class="number">16</span>] {
-		sp_core::hashing::twox_128(data)
+		sp_crypto_hashing::twox_128(data)
 	}
 
 	<span class="doccomment">/// Conduct two XX hashes to give a 64-bit result.
 	</span><span class="kw">fn </span>twox_64(data: <span class="kw-2">&amp;</span>[u8]) -&gt; [u8; <span class="number">8</span>] {
-		sp_core::hashing::twox_64(data)
+		sp_crypto_hashing::twox_64(data)
 	}
 }
 

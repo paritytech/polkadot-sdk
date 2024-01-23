@@ -1158,7 +1158,7 @@
 
 	<span class="kw">let </span>run = || -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
 		clobber_slice(<span class="kw-2">&amp;mut </span>buffer);
-		hash = sp_core::hashing::blake2_256(<span class="kw-2">&amp;</span>buffer);
+		hash = sp_crypto_hashing::blake2_256(<span class="kw-2">&amp;</span>buffer);
 		clobber_slice(<span class="kw-2">&amp;mut </span>hash);
 
 		<span class="prelude-val">Ok</span>(())

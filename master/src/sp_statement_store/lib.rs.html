@@ -748,7 +748,7 @@
 <span class="doccomment">/// Returns blake2-256 hash for the encoded statement.
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">pub fn </span>hash_encoded(data: <span class="kw-2">&amp;</span>[u8]) -&gt; [u8; <span class="number">32</span>] {
-	sp_core::hashing::blake2_256(data)
+	sp_crypto_hashing::blake2_256(data)
 }
 
 <span class="doccomment">/// Statement proof.
@@ -1293,7 +1293,7 @@
 		statement.sign_ecdsa_private(<span class="kw-2">&amp;</span>secp256k1_kp);
 		<span class="macro">assert_eq!</span>(
 			statement.verify_signature(),
-			SignatureVerificationResult::Valid(sp_core::hashing::blake2_256(
+			SignatureVerificationResult::Valid(sp_crypto_hashing::blake2_256(
 				<span class="kw-2">&amp;</span>secp256k1_kp.public().<span class="number">0
 			</span>))
 		);

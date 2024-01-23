@@ -557,6 +557,7 @@
 <a href="#557" id="557">557</a>
 <a href="#558" id="558">558</a>
 <a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1038,16 +1039,17 @@
 		<span class="kw">let </span>suri = <span class="string">&quot;//Alice&quot;</span>;
 		<span class="kw">let </span>pair = ecdsa::Pair::from_string(suri, <span class="prelude-val">None</span>).unwrap();
 
-		<span class="kw">let </span>msg = sp_core::keccak_256(<span class="string">b&quot;this should be a hashed message&quot;</span>);
+		<span class="comment">// Let&#39;s pretend this to be the hash output as content doesn&#39;t really matter here.
+		</span><span class="kw">let </span>hash = [<span class="number">0xff</span>; <span class="number">32</span>];
 
 		<span class="comment">// no key in key store
-		</span><span class="kw">let </span>res = store.ecdsa_sign_prehashed(ECDSA, <span class="kw-2">&amp;</span>pair.public(), <span class="kw-2">&amp;</span>msg).unwrap();
+		</span><span class="kw">let </span>res = store.ecdsa_sign_prehashed(ECDSA, <span class="kw-2">&amp;</span>pair.public(), <span class="kw-2">&amp;</span>hash).unwrap();
 		<span class="macro">assert!</span>(res.is_none());
 
 		<span class="comment">// insert key, sign again
 		</span>store.insert(ECDSA, suri, pair.public().as_ref()).unwrap();
 
-		<span class="kw">let </span>res = store.ecdsa_sign_prehashed(ECDSA, <span class="kw-2">&amp;</span>pair.public(), <span class="kw-2">&amp;</span>msg).unwrap();
+		<span class="kw">let </span>res = store.ecdsa_sign_prehashed(ECDSA, <span class="kw-2">&amp;</span>pair.public(), <span class="kw-2">&amp;</span>hash).unwrap();
 		<span class="macro">assert!</span>(res.is_some());
 	}
 

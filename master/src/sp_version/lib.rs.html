@@ -772,7 +772,7 @@
 
 <span class="doccomment">/// Returns the version of the `Core` runtime api.
 </span><span class="kw">pub fn </span>core_version_from_apis(apis: <span class="kw-2">&amp;</span>ApisVec) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
-	<span class="kw">let </span>id = <span class="macro">sp_core_hashing_proc_macro::blake2b_64!</span>(<span class="string">b&quot;Core&quot;</span>);
+	<span class="kw">let </span>id = <span class="macro">sp_crypto_hashing_proc_macro::blake2b_64!</span>(<span class="string">b&quot;Core&quot;</span>);
 	apis.iter().find(|(s, _v)| s == <span class="kw-2">&amp;</span>id).map(|(_s, v)| <span class="kw-2">*</span>v)
 }
 

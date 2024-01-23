@@ -257,7 +257,7 @@
 	</span><span class="kw">pub fn </span>new(code: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]) -&gt; <span class="self">Self </span>{
 		GenesisConfigBuilderRuntimeCaller {
 			code: code.into(),
-			code_hash: sp_core::blake2_256(code).to_vec(),
+			code_hash: sp_crypto_hashing::blake2_256(code).to_vec(),
 			executor: WasmExecutor::&lt;(sp_io::SubstrateHostFunctions, EHF)&gt;::builder()
 				.with_allow_missing_host_functions(<span class="bool-val">true</span>)
 				.build(),

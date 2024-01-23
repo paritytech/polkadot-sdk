@@ -999,7 +999,7 @@
 <span class="doccomment">/// Derive a single hard junction.
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
 </span><span class="kw">fn </span>derive_hard_junction(secret_seed: <span class="kw-2">&amp;</span>Seed, cc: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>]) -&gt; Seed {
-	(<span class="string">&quot;Ed25519HDKD&quot;</span>, secret_seed, cc).using_encoded(sp_core_hashing::blake2_256)
+	(<span class="string">&quot;Ed25519HDKD&quot;</span>, secret_seed, cc).using_encoded(sp_crypto_hashing::blake2_256)
 }
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
