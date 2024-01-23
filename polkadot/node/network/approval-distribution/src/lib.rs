@@ -1899,7 +1899,7 @@ impl State {
 				// mapping has already been sent all messages it's meant to get for that block and
 				// all in-scope prior blocks. In case, we just learnt about its peer_id
 				// authorithy-id mapping we have to retry sending the messages that should be sent
-				// to.
+				// to it for all un-finalized blocks.
 				if entry.known_by.contains_key(&peer_id) && !retry_known_blocks {
 					break
 				}
