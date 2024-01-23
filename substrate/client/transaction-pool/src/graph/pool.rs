@@ -255,7 +255,7 @@ impl<B: ChainApi> Pool<B> {
 		parent: <B::Block as BlockT>::Hash,
 		extrinsics: &[ExtrinsicFor<B>],
 	) {
-		log::debug!(
+		log::info!(
 			target: LOG_TARGET,
 			"Starting pruning of block {:?} (extrinsics: {})",
 			at,
@@ -265,6 +265,12 @@ impl<B: ChainApi> Pool<B> {
 		let in_pool_hashes =
 			extrinsics.iter().map(|extrinsic| self.hash_of(extrinsic)).collect::<Vec<_>>();
 		let in_pool_tags = self.validated_pool.extrinsics_tags(&in_pool_hashes);
+
+		log::info!("in_pool_tags: {at:#?} {in_pool_tags:#?} in_pool_hashes: {in_pool_hashes:#?}",);
+		// log::info!(
+		// 	"in_pool_tags: {at:#?} {in_pool_tags:#?} in_pool_hashes: {in_pool_hashes:#?} {:#?}",
+		// 	std::backtrace::Backtrace::force_capture()
+		// );
 
 		// Zip the ones from the pool with the full list (we get pairs `(Extrinsic,
 		// Option<Vec<Tag>>)`)
@@ -333,7 +339,9 @@ impl<B: ChainApi> Pool<B> {
 		tags: impl IntoIterator<Item = Tag>,
 		known_imported_hashes: impl IntoIterator<Item = ExtrinsicHash<B>> + Clone,
 	) {
-		log::debug!(target: LOG_TARGET, "Pruning at {:?}", at);
+		let tags = tags.into_iter().collect::<Vec<_>>();
+		log::info!(target: LOG_TARGET, "Pool::prune_tags: Pruning at {:?} {:?}", at, tags.clone());
+		let tags = tags.into_iter();
 		// Prune all transactions that provide given tags
 		let prune_status = self.validated_pool.prune_tags(tags);
 
@@ -352,7 +360,7 @@ impl<B: ChainApi> Pool<B> {
 		let reverified_transactions =
 			self.verify(at, pruned_transactions, CheckBannedBeforeVerify::Yes).await;
 
-		log::trace!(target: LOG_TARGET, "Pruning at {:?}. Resubmitting transactions.", &at);
+		log::info!(target: LOG_TARGET, "Pruning at {:?}. Resubmitting transactions.", &at);
 		// And finally - submit reverified transactions back to the pool
 
 		self.validated_pool.resubmit_pruned(

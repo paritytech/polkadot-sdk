@@ -18,13 +18,15 @@
 
 use std::{collections::HashMap, fmt::Debug, hash};
 
-use crate::LOG_TARGET;
+// use crate::LOG_TARGET;
 use linked_hash_map::LinkedHashMap;
 use log::{debug, trace};
 use serde::Serialize;
 use sp_runtime::traits;
 
 use super::{watcher, BlockHash, ChainApi, ExtrinsicHash};
+
+static LOG_TARGET: &str = "txpool::watcher";
 
 /// Extrinsic pool default listener.
 pub struct Listener<H: hash::Hash + Eq, C: ChainApi> {

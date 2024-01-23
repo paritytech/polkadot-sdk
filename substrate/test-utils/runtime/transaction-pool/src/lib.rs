@@ -407,6 +407,16 @@ impl ChainApi for TestApi {
 				vec![vec![transfer.nonce as u8]]
 			};
 
+			// log::info!(
+			// 	"test_api::validate_transaction: h{:?} n:{:?} cn:{:?} tn:{:?} r:{:?} p:{:?}
+			// bt:{:#?}", 	at,
+			// 	block_number,
+			// 	chain_nonce,
+			// 	transfer.nonce,
+			// 	requires,
+			// 	provides,
+			// 	std::backtrace::Backtrace::force_capture(),
+			// );
 			log::info!(
 				"test_api::validate_transaction: h{:?} n:{:?} cn:{:?} tn:{:?} r:{:?} p:{:?}",
 				at,

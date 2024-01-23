@@ -124,6 +124,8 @@ where
 			return Err(ViewCreationError::AlreadyExists)
 		}
 
+		log::info!("create_new_view_at: {hash:?}");
+
 		let number = self
 			.api
 			.resolve_block_number(hash)

@@ -259,7 +259,7 @@ impl<B: ChainApi> ValidatedPool<B> {
 		if ready_limit.is_exceeded(status.ready, status.ready_bytes) ||
 			future_limit.is_exceeded(status.future, status.future_bytes)
 		{
-			log::debug!(
+			log::warn!(
 				target: LOG_TARGET,
 				"Enforcing limits ({}/{}kB ready, {}/{}kB future",
 				ready_limit.count,
@@ -502,6 +502,14 @@ impl<B: ChainApi> ValidatedPool<B> {
 		pruned_xts: Vec<ValidatedTransactionFor<B>>,
 	) {
 		debug_assert_eq!(pruned_hashes.len(), pruned_xts.len());
+		let known_imported_hashes = known_imported_hashes.into_iter().collect::<Vec<_>>();
+		log::info!(
+			"ValidatedPool::resubmit_pruned: known_imported_hashes: {:?}, pruned_hashes: {:?}, pruned_xts: {:?}",
+			known_imported_hashes.clone(),
+			pruned_hashes,
+			pruned_xts
+		);
+		let known_imported_hashes = known_imported_hashes.into_iter();
 
 		// Resubmit pruned transactions
 		let results = self.submit(pruned_xts);
@@ -517,7 +525,9 @@ impl<B: ChainApi> ValidatedPool<B> {
 		// Fire `pruned` notifications for collected hashes and make sure to include
 		// `known_imported_hashes` since they were just imported as part of the block.
 		let hashes = hashes.chain(known_imported_hashes.into_iter());
-		self.fire_pruned(at, hashes);
+		let v = hashes.collect::<Vec<_>>();
+		log::info!("resubmit: {:#?}", v.clone());
+		self.fire_pruned(at, v.into_iter());
 
 		// perform regular cleanup of old transactions in the pool
 		// and update temporary bans.
