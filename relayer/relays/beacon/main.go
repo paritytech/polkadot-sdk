@@ -2,6 +2,7 @@ package beacon
 
 import (
 	"context"
+	log "github.com/sirupsen/logrus"
 	"github.com/snowfork/snowbridge/relayer/chain/parachain"
 	"github.com/snowfork/snowbridge/relayer/crypto/sr25519"
 	"github.com/snowfork/snowbridge/relayer/relays/beacon/config"
@@ -25,7 +26,8 @@ func NewRelay(
 }
 
 func (r *Relay) Start(ctx context.Context, eg *errgroup.Group) error {
-	specSettings := r.config.GetSpecSettings()
+	specSettings := r.config.Source.Beacon.Spec
+	log.WithField("spec", specSettings).Info("spec settings")
 
 	paraconn := parachain.NewConnection(r.config.Sink.Parachain.Endpoint, r.keypair.AsKeyringPair())
 
@@ -49,7 +51,6 @@ func (r *Relay) Start(ctx context.Context, eg *errgroup.Group) error {
 		writer,
 		r.config.Source.Beacon.Endpoint,
 		specSettings,
-		r.config.GetActiveSpec(),
 	)
 
 	return headers.Sync(ctx, eg)

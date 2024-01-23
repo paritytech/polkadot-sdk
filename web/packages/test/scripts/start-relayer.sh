@@ -92,10 +92,8 @@ config_relayer() {
     # Configure beacon relay
     jq \
         --arg beacon_endpoint_http $beacon_endpoint_http \
-        --arg active_spec $active_spec \
         '
       .source.beacon.endpoint = $beacon_endpoint_http
-    | .source.beacon.activeSpec = $active_spec
     ' \
         config/beacon-relay.json >$output_dir/beacon-relay.json
 

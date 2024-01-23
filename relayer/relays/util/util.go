@@ -29,6 +29,16 @@ func ScaleBranchToString(proofs []types.H256) []string {
 	return branch
 }
 
+func ScaleBytesToArrayHexArray(byteArray []types.Bytes) []string {
+	array := []string{}
+
+	for _, byteValue := range byteArray {
+		array = append(array, byteValue.Hex())
+	}
+
+	return array
+}
+
 func ProofBranchToScale(proofs []string) []types.H256 {
 	branch := []types.H256{}
 

@@ -95,5 +95,3 @@ try-runtime = [
 	"pallet-timestamp?/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-beacon-spec-minimal = []
-fast-runtime = ["beacon-spec-minimal"]

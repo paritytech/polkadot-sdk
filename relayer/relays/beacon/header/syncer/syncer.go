@@ -14,8 +14,8 @@ import (
 	"github.com/snowfork/snowbridge/relayer/relays/beacon/config"
 	"github.com/snowfork/snowbridge/relayer/relays/beacon/header/syncer/api"
 	"github.com/snowfork/snowbridge/relayer/relays/beacon/header/syncer/scale"
-	"github.com/snowfork/snowbridge/relayer/relays/beacon/header/syncer/util"
 	"github.com/snowfork/snowbridge/relayer/relays/beacon/state"
+	"github.com/snowfork/snowbridge/relayer/relays/util"
 )
 
 const (
@@ -29,16 +29,14 @@ var (
 )
 
 type Syncer struct {
-	Client     api.BeaconClient
-	setting    config.SpecSettings
-	activeSpec config.ActiveSpec
+	Client  api.BeaconClient
+	setting config.SpecSettings
 }
 
-func New(endpoint string, setting config.SpecSettings, activeSpec config.ActiveSpec) *Syncer {
+func New(endpoint string, setting config.SpecSettings) *Syncer {
 	return &Syncer{
-		Client:     *api.NewBeaconClient(endpoint, activeSpec, setting.SlotsInEpoch),
-		setting:    setting,
-		activeSpec: activeSpec,
+		Client:  *api.NewBeaconClient(endpoint, setting.SlotsInEpoch),
+		setting: setting,
 	}
 }
 
@@ -167,20 +165,11 @@ func (s *Syncer) GetBlockRoots(slot uint64) (scale.BlockRootProof, error) {
 	}
 	isDeneb := s.DenebForked(slot)
 
-	if s.activeSpec == config.Minimal {
-		blockRootsContainer = &state.BlockRootsContainerMinimal{}
-		if isDeneb {
-			beaconState = &state.BeaconStateDenebMinimal{}
-		} else {
-			beaconState = &state.BeaconStateCapellaMinimal{}
-		}
+	blockRootsContainer = &state.BlockRootsContainerMainnet{}
+	if isDeneb {
+		beaconState = &state.BeaconStateDenebMainnet{}
 	} else {
-		blockRootsContainer = &state.BlockRootsContainerMainnet{}
-		if isDeneb {
-			beaconState = &state.BeaconStateDenebMainnet{}
-		} else {
-			beaconState = &state.BeaconStateCapellaMainnet{}
-		}
+		beaconState = &state.BeaconStateCapellaMainnet{}
 	}
 
 	err = beaconState.UnmarshalSSZ(data)
@@ -387,7 +376,7 @@ func (s *Syncer) GetHeaderUpdate(blockRoot common.Hash, checkpoint *cache.Proof)
 		return update, err
 	}
 
-	sszBlock, err := blockResponse.ToFastSSZ(s.activeSpec, s.DenebForked(slot))
+	sszBlock, err := blockResponse.ToFastSSZ(s.DenebForked(slot))
 	if err != nil {
 		return update, err
 	}
@@ -409,13 +398,13 @@ func (s *Syncer) GetHeaderUpdate(blockRoot common.Hash, checkpoint *cache.Proof)
 
 	var versionedExecutionPayloadHeader scale.VersionedExecutionPayloadHeader
 	if s.DenebForked(slot) {
-		executionPayloadScale, err := api.DenebExecutionPayloadToScale(sszBlock.ExecutionPayloadDeneb(), s.activeSpec)
+		executionPayloadScale, err := api.DenebExecutionPayloadToScale(sszBlock.ExecutionPayloadDeneb())
 		if err != nil {
 			return scale.HeaderUpdatePayload{}, err
 		}
 		versionedExecutionPayloadHeader = scale.VersionedExecutionPayloadHeader{Deneb: &executionPayloadScale}
 	} else {
-		executionPayloadScale, err := api.CapellaExecutionPayloadToScale(sszBlock.ExecutionPayloadCapella(), s.activeSpec)
+		executionPayloadScale, err := api.CapellaExecutionPayloadToScale(sszBlock.ExecutionPayloadCapella())
 		if err != nil {
 			return scale.HeaderUpdatePayload{}, err
 		}

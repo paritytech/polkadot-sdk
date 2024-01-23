@@ -125,13 +125,6 @@ jobs:
           cargo test
           --workspace
           --features runtime-benchmarks
-      # Run tests for fast-runtime feature
-      - name: Tests for fast-runtime
-        working-directory: parachain
-        run: >
-          cargo test
-          --workspace
-          --features fast-runtime
       # Run tests for all features
       - name: Tests for all features
         working-directory: parachain

@@ -76,9 +76,7 @@ func importExecutionHeaderFn(cmd *cobra.Command, _ []string) error {
 		lodestarEndpoint, _ := cmd.Flags().GetString("lodestar-endpoint")
 		beaconHeader, _ := cmd.Flags().GetString("beacon-header")
 		finalizedHeader, _ := cmd.Flags().GetString("finalized-header")
-		spec, _ := cmd.Flags().GetString("spec")
 
-		activeSpec, _ := config.ToSpec(spec)
 		viper.SetConfigFile("web/packages/test/config/beacon-relay.json")
 		if err := viper.ReadInConfig(); err != nil {
 			return err
@@ -89,7 +87,7 @@ func importExecutionHeaderFn(cmd *cobra.Command, _ []string) error {
 			return err
 		}
 
-		specSettings := conf.GetSpecSettingsBySpec(activeSpec)
+		specSettings := conf.Source.Beacon.Spec
 
 		keypair, err := getKeyPair(privateKeyFile)
 		if err != nil {
@@ -110,7 +108,7 @@ func importExecutionHeaderFn(cmd *cobra.Command, _ []string) error {
 
 		log.WithField("hash", beaconHeader).Info("will be syncing execution header for beacon hash")
 
-		syncer := syncer.New(lodestarEndpoint, specSettings, activeSpec)
+		syncer := syncer.New(lodestarEndpoint, specSettings)
 
 		beaconHeaderHash := common.HexToHash(finalizedHeader)
 

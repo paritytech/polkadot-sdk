@@ -5,8 +5,8 @@ use crate::{
 };
 use hex_literal::hex;
 use primitives::{
-	types::deneb::ExecutionPayloadHeader, updates::AncestryProof, BeaconHeader,
-	NextSyncCommitteeUpdate, SyncAggregate, SyncCommittee, VersionedExecutionPayloadHeader,
+    types::deneb, updates::AncestryProof, BeaconHeader, NextSyncCommitteeUpdate, SyncAggregate,
+    SyncCommittee, VersionedExecutionPayloadHeader,
 };
 use sp_core::U256;
 use sp_std::{boxed::Box, vec};
@@ -103,7 +103,7 @@ pub fn make_finalized_header_update() -> Box<Update> {
             body_root: hex!("{{FinalizedHeaderUpdate.AttestedHeader.BodyRoot}}").into(),
         },
         sync_aggregate: SyncAggregate{
-            sync_committee_bits: hex!("{{FinalizedHeaderUpdate.SyncAggregate.SyncCommitteeBits}}").into(),
+            sync_committee_bits: hex!("{{FinalizedHeaderUpdate.SyncAggregate.SyncCommitteeBits}}"),
             sync_committee_signature: hex!("{{FinalizedHeaderUpdate.SyncAggregate.SyncCommitteeSignature}}").into(),
         },
         signature_slot: {{FinalizedHeaderUpdate.SignatureSlot}},
@@ -151,7 +151,7 @@ pub fn make_execution_header_update() -> Box<ExecutionHeaderUpdate> {
         {{^HeaderUpdate.AncestryProof}}
         ancestry_proof: None,
         {{/HeaderUpdate.AncestryProof}}
-        execution_header: VersionedExecutionPayloadHeader::Deneb(ExecutionPayloadHeader {
+        execution_header: VersionedExecutionPayloadHeader::Deneb(deneb::ExecutionPayloadHeader {
             parent_hash: hex!("{{HeaderUpdate.ExecutionHeader.Deneb.ParentHash}}").into(),
             fee_recipient: hex!("{{HeaderUpdate.ExecutionHeader.Deneb.FeeRecipient}}").into(),
             state_root: hex!("{{HeaderUpdate.ExecutionHeader.Deneb.StateRoot}}").into(),
@@ -163,7 +163,7 @@ pub fn make_execution_header_update() -> Box<ExecutionHeaderUpdate> {
             gas_used: {{HeaderUpdate.ExecutionHeader.Deneb.GasUsed}},
             timestamp: {{HeaderUpdate.ExecutionHeader.Deneb.Timestamp}},
             extra_data: hex!("{{HeaderUpdate.ExecutionHeader.Deneb.ExtraData}}").into(),
-            base_fee_per_gas: U256::from({{HeaderUpdate.ExecutionHeader.Deneb.BaseFeePerGas}} as u64),
+            base_fee_per_gas: U256::from({{HeaderUpdate.ExecutionHeader.Deneb.BaseFeePerGas}}u64),
             block_hash: hex!("{{HeaderUpdate.ExecutionHeader.Deneb.BlockHash}}").into(),
             transactions_root: hex!("{{HeaderUpdate.ExecutionHeader.Deneb.TransactionRoot}}").into(),
             withdrawals_root: hex!("{{HeaderUpdate.ExecutionHeader.Deneb.WithdrawalsRoot}}").into(),

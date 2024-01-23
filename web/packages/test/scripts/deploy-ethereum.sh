@@ -52,6 +52,8 @@ start_lodestar() {
             timestamp=$(date -d'+10second' +%s)
         fi
 
+        export LODESTAR_PRESET="mainnet"
+
         pushd $root_dir/lodestar
         ./lodestar dev \
             --genesisValidators 8 \

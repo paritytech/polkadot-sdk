@@ -2,7 +2,7 @@ package scale
 
 import (
 	"github.com/snowfork/snowbridge/relayer/relays/beacon/header/syncer/json"
-	"github.com/snowfork/snowbridge/relayer/relays/beacon/header/syncer/util"
+	"github.com/snowfork/snowbridge/relayer/relays/util"
 )
 
 func (p BeaconCheckpoint) ToJSON() json.CheckPoint {

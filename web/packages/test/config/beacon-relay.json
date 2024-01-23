@@ -3,18 +3,10 @@
     "beacon": {
       "endpoint": "http://127.0.0.1:9596",
       "spec": {
-        "minimal": {
-          "slotsInEpoch": 8,
-          "epochsPerSyncCommitteePeriod": 8,
-          "denebForkedEpoch": 0
-        },
-        "mainnet": {
-          "slotsInEpoch": 32,
-          "epochsPerSyncCommitteePeriod": 256,
-          "denebForkedEpoch": 4294967295
-        }
-      },
-      "activeSpec": "minimal"
+        "slotsInEpoch": 32,
+        "epochsPerSyncCommitteePeriod": 256,
+        "denebForkedEpoch": 0
+      }
     }
   },
   "sink": {

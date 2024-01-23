@@ -93,10 +93,6 @@ type BlockRootsContainerMainnet struct {
 	BlockRoots [][]byte `json:"block_roots" ssz-size:"8192,32"`
 }
 
-type BlockRootsContainerMinimal struct {
-	BlockRoots [][]byte `json:"block_roots" ssz-size:"64,32"`
-}
-
 type TransactionsRootContainer struct {
 	Transactions [][]byte `ssz-max:"1048576,1073741824" ssz-size:"?,?" json:"transactions"`
 }
@@ -114,11 +110,6 @@ type BeaconBlockHeader struct {
 	BodyRoot      []byte `json:"body_root" ssz-size:"32"`
 }
 
-type SyncCommitteeMinimal struct {
-	PubKeys         [][]byte `json:"pubkeys" ssz-size:"32,48"`
-	AggregatePubKey [48]byte `json:"aggregate_pubkey" ssz-size:"48"`
-}
-
 type SyncCommittee struct {
 	PubKeys         [][]byte `json:"pubkeys" ssz-size:"512,48"`
 	AggregatePubKey [48]byte `json:"aggregate_pubkey" ssz-size:"48"`
@@ -126,11 +117,6 @@ type SyncCommittee struct {
 
 type SyncAggregateMainnet struct {
 	SyncCommitteeBits      []byte   `json:"sync_committee_bits" ssz-size:"64"`
-	SyncCommitteeSignature [96]byte `json:"sync_committee_signature" ssz-size:"96"`
-}
-
-type SyncAggregateMinimal struct {
-	SyncCommitteeBits      []byte   `json:"sync_committee_bits" ssz-size:"4"`
 	SyncCommitteeSignature [96]byte `json:"sync_committee_signature" ssz-size:"96"`
 }
 
@@ -206,18 +192,6 @@ func (b *BlockRootsContainerMainnet) SetBlockRoots(blockRoots [][]byte) {
 	b.BlockRoots = blockRoots
 }
 
-func (b *BlockRootsContainerMinimal) SetBlockRoots(blockRoots [][]byte) {
-	b.BlockRoots = blockRoots
-}
-
-func (s *SyncAggregateMinimal) GetSyncAggregateBits() []byte {
-	return s.SyncCommitteeBits
-}
-
-func (s *SyncAggregateMinimal) GetSyncAggregateSignature() [96]byte {
-	return s.SyncCommitteeSignature
-}
-
 func (s *SyncAggregateMainnet) GetSyncAggregateBits() []byte {
 	return s.SyncCommitteeBits
 }
@@ -237,34 +211,12 @@ type SignedBLSToExecutionChange struct {
 	Signature []byte                `json:"signature,omitempty" ssz-size:"96"`
 }
 
-type BeaconBlockCapellaMinimal struct {
-	Slot          uint64                         `json:"slot"`
-	ProposerIndex uint64                         `json:"proposer_index"`
-	ParentRoot    []byte                         `json:"parent_root" ssz-size:"32"`
-	StateRoot     []byte                         `json:"state_root" ssz-size:"32"`
-	Body          *BeaconBlockBodyCapellaMinimal `json:"body"`
-}
-
 type BeaconBlockCapellaMainnet struct {
 	Slot          uint64                         `json:"slot"`
 	ProposerIndex uint64                         `json:"proposer_index"`
 	ParentRoot    []byte                         `json:"parent_root" ssz-size:"32"`
 	StateRoot     []byte                         `json:"state_root" ssz-size:"32"`
 	Body          *BeaconBlockBodyCapellaMainnet `json:"body"`
-}
-
-type BeaconBlockBodyCapellaMinimal struct {
-	RandaoReveal          []byte                        `json:"randao_reveal" ssz-size:"96"`
-	Eth1Data              *Eth1Data                     `json:"eth1_data"`
-	Graffiti              [32]byte                      `json:"graffiti" ssz-size:"32"`
-	ProposerSlashings     []*ProposerSlashing           `json:"proposer_slashings" ssz-max:"16"`
-	AttesterSlashings     []*AttesterSlashing           `json:"attester_slashings" ssz-max:"2"`
-	Attestations          []*Attestation                `json:"attestations" ssz-max:"128"`
-	Deposits              []*Deposit                    `json:"deposits" ssz-max:"16"`
-	VoluntaryExits        []*SignedVoluntaryExit        `json:"voluntary_exits" ssz-max:"16"`
-	SyncAggregate         *SyncAggregateMinimal         `json:"sync_aggregate"`
-	ExecutionPayload      *ExecutionPayloadCapella      `json:"execution_payload"`
-	BlsToExecutionChanges []*SignedBLSToExecutionChange `json:"bls_to_execution_changes,omitempty" ssz-max:"16"`
 }
 
 type BeaconBlockBodyCapellaMainnet struct {
@@ -317,37 +269,6 @@ type HistoricalSummary struct {
 	StateSummaryRoot []byte `json:"state_summary_root,omitempty" ssz-size:"32"`
 }
 
-type BeaconStateCapellaMinimal struct {
-	GenesisTime                  uint64                         `json:"genesis_time"`
-	GenesisValidatorsRoot        []byte                         `json:"genesis_validators_root" ssz-size:"32"`
-	Slot                         uint64                         `json:"slot"`
-	Fork                         *Fork                          `json:"fork"`
-	LatestBlockHeader            *BeaconBlockHeader             `json:"latest_block_header"`
-	BlockRoots                   [][]byte                       `json:"block_roots" ssz-size:"64,32"`
-	StateRoots                   [][]byte                       `json:"state_roots" ssz-size:"64,32"`
-	HistoricalRoots              [][]byte                       `json:"historical_roots" ssz-max:"16777216" ssz-size:"?,32"`
-	Eth1Data                     *Eth1Data                      `json:"eth1_data"`
-	Eth1DataVotes                []*Eth1Data                    `json:"eth1_data_votes" ssz-max:"32"`
-	Eth1DepositIndex             uint64                         `json:"eth1_deposit_index"`
-	Validators                   []*Validator                   `json:"validators" ssz-max:"1099511627776"`
-	Balances                     []uint64                       `json:"balances" ssz-max:"1099511627776"`
-	RandaoMixes                  [][]byte                       `json:"randao_mixes" ssz-size:"64,32"`
-	Slashings                    []uint64                       `json:"slashings" ssz-size:"64"`
-	PreviousEpochParticipation   []byte                         `json:"previous_epoch_participation" ssz-max:"1099511627776"`
-	CurrentEpochParticipation    []byte                         `json:"current_epoch_participation" ssz-max:"1099511627776"`
-	JustificationBits            []byte                         `json:"justification_bits" ssz-size:"1"`
-	PreviousJustifiedCheckpoint  *Checkpoint                    `json:"previous_justified_checkpoint"`
-	CurrentJustifiedCheckpoint   *Checkpoint                    `json:"current_justified_checkpoint"`
-	FinalizedCheckpoint          *Checkpoint                    `json:"finalized_checkpoint"`
-	InactivityScores             []uint64                       `json:"inactivity_scores" ssz-max:"1099511627776"`
-	CurrentSyncCommittee         *SyncCommitteeMinimal          `json:"current_sync_committee"`
-	NextSyncCommittee            *SyncCommitteeMinimal          `json:"next_sync_committee"`
-	LatestExecutionPayloadHeader *ExecutionPayloadHeaderCapella `json:"latest_execution_payload_header"`
-	NextWithdrawalIndex          uint64                         `json:"next_withdrawal_index,omitempty"`
-	NextWithdrawalValidatorIndex uint64                         `json:"next_withdrawal_validator_index,omitempty"`
-	HistoricalSummaries          []*HistoricalSummary           `json:"historical_summaries,omitempty" ssz-max:"16777216"`
-}
-
 type Withdrawal struct {
 	Index          uint64   `json:"index"`
 	ValidatorIndex uint64   `json:"validator_index"`
@@ -355,20 +276,8 @@ type Withdrawal struct {
 	Amount         uint64   `json:"amount"`
 }
 
-type WithdrawalsRootContainerMinimal struct {
-	Withdrawals []*Withdrawal `ssz-max:"4" json:"withdrawals"`
-}
-
 type WithdrawalsRootContainerMainnet struct {
 	Withdrawals []*Withdrawal `ssz-max:"16" json:"withdrawals"`
-}
-
-func (b *BeaconBlockCapellaMinimal) GetBeaconSlot() uint64 {
-	return b.Slot
-}
-
-func (b *BeaconBlockCapellaMinimal) GetBlockBodyTree() (*ssz.Node, error) {
-	return b.Body.GetTree()
 }
 
 func (b *BeaconBlockCapellaMainnet) GetBeaconSlot() uint64 {
@@ -377,18 +286,6 @@ func (b *BeaconBlockCapellaMainnet) GetBeaconSlot() uint64 {
 
 func (b *BeaconBlockCapellaMainnet) GetBlockBodyTree() (*ssz.Node, error) {
 	return b.Body.GetTree()
-}
-
-func (b *BeaconStateCapellaMinimal) GetSlot() uint64 {
-	return b.Slot
-}
-
-func (b *BeaconStateCapellaMinimal) GetLatestBlockHeader() *BeaconBlockHeader {
-	return b.LatestBlockHeader
-}
-
-func (b *BeaconStateCapellaMinimal) GetBlockRoots() [][]byte {
-	return b.BlockRoots
 }
 
 func (b *BeaconStateCapellaMainnet) GetSlot() uint64 {
@@ -412,13 +309,5 @@ func (b *BeaconBlockCapellaMainnet) ExecutionPayloadCapella() *ExecutionPayloadC
 }
 
 func (b *BeaconBlockCapellaMainnet) ExecutionPayloadDeneb() *ExecutionPayloadDeneb {
-	return nil
-}
-
-func (b *BeaconBlockCapellaMinimal) ExecutionPayloadCapella() *ExecutionPayloadCapella {
-	return b.Body.ExecutionPayload
-}
-
-func (b *BeaconBlockCapellaMinimal) ExecutionPayloadDeneb() *ExecutionPayloadDeneb {
 	return nil
 }

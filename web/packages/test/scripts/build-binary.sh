@@ -7,7 +7,7 @@ build_binaries() {
     pushd $root_dir/polkadot-sdk
 
     local features=''
-    if [[ "$active_spec" == "minimal" ]]; then
+    if [ "$eth_network" == "localhost" ]; then
         features="--features fast-runtime"
     fi
 
@@ -39,7 +39,7 @@ changes_detected=0
 check_local_changes() {
     local dir=$1
     cd "$dir"
-    if git status --porcelain | grep .; then
+    if git status --untracked-files=no --porcelain . | grep .; then
         changes_detected=1
     fi
     cd -
@@ -58,27 +58,26 @@ build_relayer() {
     cp $relay_bin "$output_bin_dir"
 }
 
-hack_beacon_client() {
+set_slot_time() {
+    local new_value=$1
     echo "Hack lodestar for faster slot time"
-    local preset_minimal_config_file="$root_dir/lodestar/packages/config/src/chainConfig/presets/minimal.ts"
+    local preset_mainnet_config_file="$root_dir/lodestar/packages/config/src/chainConfig/presets/mainnet.ts"
     if [[ "$(uname)" == "Darwin" && -z "${IN_NIX_SHELL:-}" ]]; then
-        gsed -i "s/SECONDS_PER_SLOT: 6/SECONDS_PER_SLOT: 1/g" $preset_minimal_config_file
+        gsed -i "s/SECONDS_PER_SLOT: .*/SECONDS_PER_SLOT: $new_value,/g" $preset_mainnet_config_file
     else
-        sed -i "s/SECONDS_PER_SLOT: 6/SECONDS_PER_SLOT: 1/g" $preset_minimal_config_file
+        sed -i "s/SECONDS_PER_SLOT: .*/SECONDS_PER_SLOT: $new_value,/g" $preset_mainnet_config_file
     fi
 }
 
 build_lodestar() {
-    if [ ! -d "$root_dir/lodestar/packages/cli/lib" ]; then
-        pushd $root_dir/lodestar
-        if [ "$eth_fast_mode" == "true" ]; then
-            hack_beacon_client
-        fi
-        yarn install && yarn run build
-        popd
+    pushd $root_dir/lodestar
+    if [ "$eth_fast_mode" == "true" ]; then
+        set_slot_time 1
     else
-        echo "lodestar has already been built."
+        set_slot_time 12
     fi
+    yarn install && yarn run build
+    popd
 }
 
 install_binary() {

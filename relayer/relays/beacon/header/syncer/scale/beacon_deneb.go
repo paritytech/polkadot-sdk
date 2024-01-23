@@ -3,7 +3,7 @@ package scale
 import (
 	"github.com/snowfork/go-substrate-rpc-client/v4/types"
 	"github.com/snowfork/snowbridge/relayer/relays/beacon/header/syncer/json"
-	"github.com/snowfork/snowbridge/relayer/relays/beacon/header/syncer/util"
+	"github.com/snowfork/snowbridge/relayer/relays/util"
 )
 
 type ExecutionPayloadHeaderDeneb struct {

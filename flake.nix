@@ -37,9 +37,10 @@
                     ps
 
                     # typescript
+                    python3
                     nodePackages.pnpm
-                    nodePackages.yarn
-                    nodejs-18_x
+                    nodejs_20
+                    (yarn.override { nodejs = nodejs_20; })
 
                     # ethereum
                     foundry-bin

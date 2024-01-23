@@ -107,6 +107,13 @@ type ExecutionPayloadHeaderCapella struct {
 	WithdrawalsRoot string `json:"withdrawals_root"`
 }
 
+type CompactExecutionHeader struct {
+	ParentHash   string `json:"parent_hash"`
+	StateRoot    string `json:"state_root"`
+	ReceiptsRoot string `json:"receipts_root"`
+	BlockNumber  uint64 `json:"block_number"`
+}
+
 type Eth1Data struct {
 	DepositRoot  string `json:"deposit_root"`
 	DepositCount uint64 `json:"deposit_count"`
@@ -159,6 +166,12 @@ type VoluntaryExit struct {
 type Deposit struct {
 	Proof []string    `json:"proof"`
 	Data  DepositData `json:"data"`
+}
+
+func (c *CompactExecutionHeader) RemoveLeadingZeroHashes() {
+	c.ParentHash = removeLeadingZeroHash(c.ParentHash)
+	c.ReceiptsRoot = removeLeadingZeroHash(c.ReceiptsRoot)
+	c.StateRoot = removeLeadingZeroHash(c.StateRoot)
 }
 
 func (b *BeaconHeader) RemoveLeadingZeroHashes() {

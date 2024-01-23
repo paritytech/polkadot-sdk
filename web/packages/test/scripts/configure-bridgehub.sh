@@ -6,7 +6,7 @@ source scripts/xcm-helper.sh
 
 config_beacon_checkpoint() {
     pushd $root_dir
-    local check_point_hex=$($relay_bin generate-beacon-checkpoint --spec $active_spec --url $beacon_endpoint_http)
+    local check_point_hex=$($relay_bin generate-beacon-checkpoint --url $beacon_endpoint_http)
     popd
     local transact_call="0x5200"$check_point_hex
     send_governance_transact_from_relaychain $BRIDGE_HUB_PARAID "$transact_call" 180000000000 900000
