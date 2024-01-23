@@ -5471,7 +5471,7 @@ dependencies = [
 
 [[package]]
 name = "frame-benchmarking"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "array-bytes 6.1.0",
  "frame-support",
@@ -5545,7 +5545,7 @@ dependencies = [
 
 [[package]]
 name = "frame-benchmarking-pallet-pov"
-version = "4.0.0-dev"
+version = "18.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -5559,7 +5559,7 @@ dependencies = [
 
 [[package]]
 name = "frame-election-provider-solution-type"
-version = "4.0.0-dev"
+version = "13.0.0"
 dependencies = [
  "frame-election-provider-support",
  "frame-support",
@@ -5575,7 +5575,7 @@ dependencies = [
 
 [[package]]
 name = "frame-election-provider-support"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-election-provider-solution-type",
  "frame-support",
@@ -5610,7 +5610,7 @@ dependencies = [
 
 [[package]]
 name = "frame-executive"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "array-bytes 6.1.0",
  "frame-support",
@@ -5666,7 +5666,7 @@ dependencies = [
 
 [[package]]
 name = "frame-support"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "aquamarine",
  "array-bytes 6.1.0",
@@ -5710,7 +5710,7 @@ dependencies = [
 
 [[package]]
 name = "frame-support-procedural"
-version = "4.0.0-dev"
+version = "23.0.0"
 dependencies = [
  "Inflector",
  "cfg-expr",
@@ -5729,7 +5729,7 @@ dependencies = [
 
 [[package]]
 name = "frame-support-procedural-tools"
-version = "4.0.0-dev"
+version = "10.0.0"
 dependencies = [
  "frame-support-procedural-tools-derive",
  "proc-macro-crate 3.0.0",
@@ -5740,7 +5740,7 @@ dependencies = [
 
 [[package]]
 name = "frame-support-procedural-tools-derive"
-version = "3.0.0"
+version = "11.0.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5811,7 +5811,7 @@ dependencies = [
 
 [[package]]
 name = "frame-system"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "cfg-if",
  "criterion 0.4.0",
@@ -5833,7 +5833,7 @@ dependencies = [
 
 [[package]]
 name = "frame-system-benchmarking"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -5850,7 +5850,7 @@ dependencies = [
 
 [[package]]
 name = "frame-system-rpc-runtime-api"
-version = "4.0.0-dev"
+version = "26.0.0"
 dependencies = [
  "parity-scale-codec",
  "sp-api",
@@ -5858,7 +5858,7 @@ dependencies = [
 
 [[package]]
 name = "frame-try-runtime"
-version = "0.10.0-dev"
+version = "0.34.0"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -9066,7 +9066,7 @@ checksum = "c1b04fb49957986fdce4d6ee7a65027d55d4b6d2265e5848bbb507b58ccfdb6f"
 
 [[package]]
 name = "pallet-alliance"
-version = "4.0.0-dev"
+version = "27.0.0"
 dependencies = [
  "array-bytes 6.1.0",
  "frame-benchmarking",
@@ -9087,7 +9087,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-asset-conversion"
-version = "4.0.0-dev"
+version = "10.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -9107,7 +9107,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-asset-conversion-tx-payment"
-version = "4.0.0-dev"
+version = "10.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -9126,7 +9126,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-asset-rate"
-version = "4.0.0-dev"
+version = "7.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -9142,7 +9142,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-asset-tx-payment"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -9164,7 +9164,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-assets"
-version = "4.0.0-dev"
+version = "29.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -9181,7 +9181,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-atomic-swap"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -9196,7 +9196,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-aura"
-version = "4.0.0-dev"
+version = "27.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -9214,7 +9214,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-authority-discovery"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -9231,7 +9231,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-authorship"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -9246,7 +9246,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-babe"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -9274,7 +9274,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-bags-list"
-version = "4.0.0-dev"
+version = "27.0.0"
 dependencies = [
  "aquamarine",
  "docify",
@@ -9323,7 +9323,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-balances"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -9341,7 +9341,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-beefy"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-election-provider-support",
  "frame-support",
@@ -9369,7 +9369,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-beefy-mmr"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "array-bytes 6.1.0",
  "binary-merkle-tree",
@@ -9394,7 +9394,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-bounties"
-version = "4.0.0-dev"
+version = "27.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -9498,7 +9498,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-broker"
-version = "0.1.0"
+version = "0.6.0"
 dependencies = [
  "bitvec",
  "frame-benchmarking",
@@ -9515,7 +9515,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-child-bounties"
-version = "4.0.0-dev"
+version = "27.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -9559,7 +9559,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-collective"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -9590,7 +9590,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-contracts"
-version = "4.0.0-dev"
+version = "27.0.0"
 dependencies = [
  "array-bytes 6.1.0",
  "assert_matches",
@@ -9650,7 +9650,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-contracts-mock-network"
-version = "1.0.0"
+version = "3.0.0"
 dependencies = [
  "assert_matches",
  "frame-support",
@@ -9688,7 +9688,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-contracts-proc-macro"
-version = "4.0.0-dev"
+version = "18.0.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -9697,7 +9697,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-contracts-uapi"
-version = "4.0.0-dev"
+version = "5.0.0"
 dependencies = [
  "bitflags 1.3.2",
  "parity-scale-codec",
@@ -9708,7 +9708,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-conviction-voting"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "assert_matches",
  "frame-benchmarking",
@@ -9727,7 +9727,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-core-fellowship"
-version = "4.0.0-dev"
+version = "12.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -9744,7 +9744,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-default-config-example"
-version = "4.0.0-dev"
+version = "10.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -9758,7 +9758,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-democracy"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -9778,7 +9778,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-dev-mode"
-version = "4.0.0-dev"
+version = "10.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -9820,7 +9820,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-election-provider-multi-phase"
-version = "4.0.0-dev"
+version = "27.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -9845,7 +9845,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-election-provider-support-benchmarking"
-version = "4.0.0-dev"
+version = "27.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -9858,7 +9858,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-elections-phragmen"
-version = "5.0.0-dev"
+version = "29.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -9879,7 +9879,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-example-basic"
-version = "4.0.0-dev"
+version = "27.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -9922,7 +9922,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-example-offchain-worker"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -9939,7 +9939,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-example-split"
-version = "4.0.0-dev"
+version = "10.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -9954,7 +9954,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-example-tasks"
-version = "1.0.0-dev"
+version = "1.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -9984,7 +9984,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-fast-unstake"
-version = "4.0.0-dev"
+version = "27.0.0"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -10009,7 +10009,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-glutton"
-version = "4.0.0-dev"
+version = "14.0.0"
 dependencies = [
  "blake2 0.10.6",
  "frame-benchmarking",
@@ -10027,7 +10027,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-grandpa"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "finality-grandpa",
  "frame-benchmarking",
@@ -10057,7 +10057,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-identity"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "enumflags2",
  "frame-benchmarking",
@@ -10076,7 +10076,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-im-online"
-version = "4.0.0-dev"
+version = "27.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -10096,7 +10096,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-indices"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -10113,7 +10113,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-insecure-randomness-collective-flip"
-version = "4.0.0-dev"
+version = "16.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -10128,7 +10128,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-lottery"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -10145,7 +10145,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-membership"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -10161,7 +10161,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-message-queue"
-version = "7.0.0-dev"
+version = "31.0.0"
 dependencies = [
  "environmental",
  "frame-benchmarking",
@@ -10185,7 +10185,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-mixnet"
-version = "0.1.0-dev"
+version = "0.4.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -10204,7 +10204,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-mmr"
-version = "4.0.0-dev"
+version = "27.0.0"
 dependencies = [
  "array-bytes 6.1.0",
  "env_logger 0.9.3",
@@ -10224,7 +10224,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-multisig"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -10240,7 +10240,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nft-fractionalization"
-version = "4.0.0-dev"
+version = "10.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -10259,7 +10259,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nfts"
-version = "4.0.0-dev"
+version = "22.0.0"
 dependencies = [
  "enumflags2",
  "frame-benchmarking",
@@ -10278,7 +10278,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nfts-runtime-api"
-version = "4.0.0-dev"
+version = "14.0.0"
 dependencies = [
  "pallet-nfts",
  "parity-scale-codec",
@@ -10288,7 +10288,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nicks"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -10303,7 +10303,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nis"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -10320,7 +10320,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-node-authorization"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -10335,7 +10335,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nomination-pools"
-version = "1.0.0"
+version = "25.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -10353,7 +10353,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nomination-pools-benchmarking"
-version = "1.0.0"
+version = "26.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -10392,7 +10392,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nomination-pools-runtime-api"
-version = "1.0.0-dev"
+version = "23.0.0"
 dependencies = [
  "pallet-nomination-pools",
  "parity-scale-codec",
@@ -10426,7 +10426,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-offences"
-version = "4.0.0-dev"
+version = "27.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -10444,7 +10444,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-offences-benchmarking"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -10471,7 +10471,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-paged-list"
-version = "0.1.0"
+version = "0.6.0"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -10514,7 +10514,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-preimage"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -10531,7 +10531,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-proxy"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -10548,7 +10548,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-ranked-collective"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -10565,7 +10565,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-recovery"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -10581,7 +10581,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-referenda"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "assert_matches",
  "frame-benchmarking",
@@ -10603,7 +10603,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-remark"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -10619,7 +10619,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-root-offences"
-version = "1.0.0-dev"
+version = "25.0.0"
 dependencies = [
  "frame-election-provider-support",
  "frame-support",
@@ -10640,7 +10640,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-root-testing"
-version = "1.0.0-dev"
+version = "4.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -10654,7 +10654,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-safe-mode"
-version = "4.0.0-dev"
+version = "9.0.0"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -10674,7 +10674,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-salary"
-version = "4.0.0-dev"
+version = "13.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -10710,7 +10710,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-scheduler"
-version = "4.0.0-dev"
+version = "29.0.0"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -10730,7 +10730,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-scored-pool"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -10745,7 +10745,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-session"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -10766,7 +10766,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-session-benchmarking"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -10789,7 +10789,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-skip-feeless-payment"
-version = "1.0.0-dev"
+version = "3.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -10801,7 +10801,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-society"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -10822,7 +10822,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -10852,7 +10852,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-reward-curve"
-version = "4.0.0-dev"
+version = "11.0.0"
 dependencies = [
  "proc-macro-crate 3.0.0",
  "proc-macro2",
@@ -10863,7 +10863,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-reward-fn"
-version = "4.0.0-dev"
+version = "19.0.0"
 dependencies = [
  "log",
  "sp-arithmetic",
@@ -10871,7 +10871,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-runtime-api"
-version = "4.0.0-dev"
+version = "14.0.0"
 dependencies = [
  "parity-scale-codec",
  "sp-api",
@@ -10880,7 +10880,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-state-trie-migration"
-version = "4.0.0-dev"
+version = "29.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-remote-externalities",
@@ -10905,7 +10905,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-statement"
-version = "4.0.0-dev"
+version = "10.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -10923,7 +10923,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-sudo"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -10954,7 +10954,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-timestamp"
-version = "4.0.0-dev"
+version = "27.0.0"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -10974,7 +10974,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-tips"
-version = "4.0.0-dev"
+version = "27.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -10994,7 +10994,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-transaction-payment"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -11011,7 +11011,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-transaction-payment-rpc"
-version = "4.0.0-dev"
+version = "30.0.0"
 dependencies = [
  "jsonrpsee",
  "pallet-transaction-payment-rpc-runtime-api",
@@ -11026,7 +11026,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-transaction-payment-rpc-runtime-api"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "pallet-transaction-payment",
  "parity-scale-codec",
@@ -11037,7 +11037,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-transaction-storage"
-version = "4.0.0-dev"
+version = "27.0.0"
 dependencies = [
  "array-bytes 6.1.0",
  "frame-benchmarking",
@@ -11058,7 +11058,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-treasury"
-version = "4.0.0-dev"
+version = "27.0.0"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -11078,7 +11078,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-tx-pause"
-version = "4.0.0-dev"
+version = "9.0.0"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -11097,7 +11097,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-uniques"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -11114,7 +11114,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-utility"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -11133,7 +11133,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-vesting"
-version = "4.0.0-dev"
+version = "28.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -11150,7 +11150,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-whitelist"
-version = "4.0.0-dev"
+version = "27.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -19241,7 +19241,7 @@ dependencies = [
 
 [[package]]
 name = "staging-node-inspect"
-version = "0.9.0-dev"
+version = "0.11.0"
 dependencies = [
  "clap 4.4.18",
  "parity-scale-codec",
@@ -19465,7 +19465,7 @@ dependencies = [
 
 [[package]]
 name = "subkey"
-version = "3.0.0"
+version = "8.0.0"
 dependencies = [
  "clap 4.4.18",
  "sc-cli",

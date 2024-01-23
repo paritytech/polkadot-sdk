@@ -1,6 +1,6 @@
 [package]
 name = "sc-informant"
-version = "0.10.0-dev"
+version = "0.33.0"
 authors.workspace = true
 description = "Substrate informant."
 edition.workspace = true

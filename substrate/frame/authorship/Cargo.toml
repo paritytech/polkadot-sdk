@@ -1,6 +1,6 @@
 [package]
 name = "pallet-authorship"
-version = "4.0.0-dev"
+version = "28.0.0"
 description = "Block and Uncle Author tracking for the FRAME"
 authors.workspace = true
 edition.workspace = true

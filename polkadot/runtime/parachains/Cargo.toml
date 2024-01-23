@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-runtime-parachains"
-version = "1.0.0"
+version = "7.0.0"
 description = "Relay Chain runtime code responsible for Parachains."
 authors.workspace = true
 edition.workspace = true

@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-erasure-coding"
-version = "1.0.0"
+version = "7.0.0"
 description = "Erasure coding used for Polkadot's availability system"
 authors.workspace = true
 edition.workspace = true

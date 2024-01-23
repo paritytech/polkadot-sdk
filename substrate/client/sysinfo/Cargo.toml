@@ -1,6 +1,6 @@
 [package]
 name = "sc-sysinfo"
-version = "6.0.0-dev"
+version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
