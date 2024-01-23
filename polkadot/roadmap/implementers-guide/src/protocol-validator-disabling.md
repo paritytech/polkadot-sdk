@@ -39,12 +39,12 @@ High level assumptions and goals of the validator disabling system that will be 
 1. Disablement lasts for 1 era.
 1. Disabled validators remain in the active validator set but have some limited permissions.
 1. Disabled validators can get re-elected.
-1. Disabled validators cannot back candidates.
 1. Disabled validators can participate in approval checking.
+1. Disabled validators can participate in GRANDPA, but equivocations cause disablement.
+1. Disabled validators cannot author blocks.
+1. Disabled validators cannot back candidates.
 1. Disabled validators cannot initiate disputes, but their votes are still counted if a dispute occurs.
 1. Disabled validators making dispute statements no-show in approval checking.
-1. Disabled validators can participate in GRANDPA, but equivocations cause disablement.
-1. Disabling affects Block Authoring. (Both ways: block authoring equivocation disables and disabling stops block authoring)
 
 
 Having the above elements allows us to simplify the current staking & slashing design: 
@@ -103,21 +103,21 @@ One safety measure is bounding the disabled number to 1/3 ([**Point 2.**](#syste
 Even in such a dire situation where more than 1/3 got disabled the most likely scenario is a non-determinism bug or sacrifice attack bug. Those attacks generally cause minor slashes to multiple honest nodes. In such a case the situation could be salvaged by prioritizing highest offenders for disabling ([**Point 3.**](#system-overview)).
 
 Fully pushing out offending validator out of the validator set it too risky in case of a dispute bug, non-determinism or sacrifice attacks. Main issue lies in skewing the numbers in approval checking so instead of fully fully blocking disabled nodes a different approach can be taken - one were only some functionalities are disabled ([**Point 5.**](#system-overview)).
-Once of those functionalities can be approval voting which as pointed above is so crucial that even in a disabled state nodes should be able to participate in it ([**Point 8.**](#system-overview)).
+Once of those functionalities can be approval voting which as pointed above is so crucial that even in a disabled state nodes should be able to participate in it ([**Point 7.**](#system-overview)).
 
 > **Note:** \
 > Approval Checking statement are implicitly valid. Sending a statement for an invalid candidate is a part of the dispute logic which we did not yet discuss. For now we only allow nodes to state that a candidate is valid or remain silent. But this solves the main risk of disabling.
 
-Because we capped the number of disabled nodes to 1/3 there will always be at least 1/3 honest nodes to participate in backing so liveness should be preserved. That means that backing **COULD** be safely disabled for disabled nodes ([**Point 7.**](#system-overview)).
+Because we capped the number of disabled nodes to 1/3 there will always be at least 1/3 honest nodes to participate in backing so liveness should be preserved. That means that backing **COULD** be safely disabled for disabled nodes ([**Point 10.**](#system-overview)).
 
 
 ## Addressing the risks of NOT having validator disabling:
 
-To determine if backing **SHOULD** be disabled the attack vector of 1.2 (Mass invalid candidate backing) and 2.1 (Getting lucky in approval voting) need to be considered. In both of those cases having extra backed malicious candidates gives attackers extra chances to get lucky in approval checking. The solution is to not allow for backing in disablement. ([**Point 7.**](#system-overview))
+To determine if backing **SHOULD** be disabled the attack vector of 1.2 (Mass invalid candidate backing) and 2.1 (Getting lucky in approval voting) need to be considered. In both of those cases having extra backed malicious candidates gives attackers extra chances to get lucky in approval checking. The solution is to not allow for backing in disablement. ([**Point 10.**](#system-overview))
 
-The attack vector 1.1 (Break sharding) requires a bit more nuance. If we assume that the attacker is a single entity and that he can get a lot of disputes through he could potentially incredibly easily break sharding. This generally points into the direction of disallowing that during disablement ([**Point 9.**](#system-overview)).
+The attack vector 1.1 (Break sharding) requires a bit more nuance. If we assume that the attacker is a single entity and that he can get a lot of disputes through he could potentially incredibly easily break sharding. This generally points into the direction of disallowing that during disablement ([**Point 11.**](#system-overview)).
 
-This might seem like an issue because it takes away the escalation privileges of disabled approval checkers but this is NOT true. By issuing a dispute statement those nodes remain silent in approval checking because they skip their approval statement and thus will count as a no-show. This will create a mini escalation for that particular candidate. This means that disabled nodes maintain just enough escalation that they can protect soundness (same argument as soundness protection during a DoS attack on approval checking) but they lose their extreme escalation privilege which are only given to flawlessly performing nodes ([**Point 10.**](#system-overview)).
+This might seem like an issue because it takes away the escalation privileges of disabled approval checkers but this is NOT true. By issuing a dispute statement those nodes remain silent in approval checking because they skip their approval statement and thus will count as a no-show. This will create a mini escalation for that particular candidate. This means that disabled nodes maintain just enough escalation that they can protect soundness (same argument as soundness protection during a DoS attack on approval checking) but they lose their extreme escalation privilege which are only given to flawlessly performing nodes ([**Point 12.**](#system-overview)).
 
 As a defense in depth measure dispute statements from disabled validators count toward confirming disputes (byzantine threshold needed to confirm). If a dispute is confirmed everyone participates in it. This protects us from situations where due to a bug more than byzantine threshold of validators would be disabled.
 
@@ -201,7 +201,7 @@ Honest nodes generally should not commit those offenses so the goal of protectin
 
 It's not a game of chance so giving attackers extra chances does not compromise soundness. Also it requires a supermajority of honest nodes to successfully finalize blocks so any disabling of honest nodes from GRANDPA might compromise liveness.
 
-Best approach is to allow disabled nodes to participate in GRANDPA as normal and as mentioned before GRANDPA equivocations should not happen to honest nodes so we can safely disable the offenders. ([**Point 11.**](#system-overview))
+Best approach is to allow disabled nodes to participate in GRANDPA as normal and as mentioned before GRANDPA equivocations should not happen to honest nodes so we can safely disable the offenders. ([**Point 8.**](#system-overview))
 
 ## Block Authoring Offenses
 
@@ -211,7 +211,7 @@ Disabling in BA is not a requirement as both liveness and soundness are preserve
 
 Offenses in BA just like in backing can be caused by faulty PVFs or bugs. They might happen to honest nodes and disabling here while not a requirement can also ensure that this node does not repeat the offense as it might not be trusted with it's PVF anymore. 
 
-Both points above don't present significant risks when disabling so the default behavior is to disable in BA and because of offenses in BA. ([**Point 12.**](#system-overview)) This filters out honest faulty nodes as well as protects from some attackers.
+Both points above don't present significant risks when disabling so the default behavior is to disable in BA and because of offenses in BA. ([**Point 9.**](#system-overview)) This filters out honest faulty nodes as well as protects from some attackers.
 
 ## BEEFY
 
@@ -245,31 +245,31 @@ Granularity is particularly crucial in the final design as only a few select fun
 
 Implementation of the above design covers a few additional areas that allow for node-side optimizations. 
 
-## Core Features (+ #issues)
+## Core Features
 
-1. Disabled Validators Tracking (**Runtime**) #2950
+1. Disabled Validators Tracking (**Runtime**) [#2950](https://github.com/paritytech/polkadot-sdk/issues/2950)
     - Add and expose a ``disabled_validators`` map through a Runtime API
     - Add new disabled validators when they get slashed
-1. Enforce Backing Disabling (**Runtime**) #1592
+1. Enforce Backing Disabling (**Runtime**) [#1592](https://github.com/paritytech/polkadot-sdk/issues/1592)
     - Filter out votes from ``disabled_validators`` in ``BackedCandidates`` in ``process_inherent_data``
-1. Substrate BZT Limit for Disabling #1963
+1. Substrate Byzantine Threshold (BZT) as Limit for Disabling [#1963](https://github.com/paritytech/polkadot-sdk/issues/1963)
     - Can be parametrized but default to BZT
     - Disable only up to 1/3 of validators
-1. Set Disabling Duration to 1 Era #1966
+1. Set Disabling Duration to 1 Era [#1966](https://github.com/paritytech/polkadot-sdk/issues/1966)
     - Clear ``disabled_validators`` on era change
-1. Respect Disabling in Backing Statement Distribution (**Node**) #1591
+1. Respect Disabling in Backing Statement Distribution (**Node**) [#1591](https://github.com/paritytech/polkadot-sdk/issues/1951)
     - This is an optimization as in the end it would get filtered in the runtime anyway
     - Filter out backing statements coming from ``disabled_validators``
-1. Respect Disablement in Backing (**Node**) #2951
+1. Respect Disablement in Backing (**Node**) [#2951](https://github.com/paritytech/polkadot-sdk/issues/2951)
     - This is an optimization as in the end it would get filtered in the runtime anyway
     - Don't start backing new candidates when disabled
     - Don't react to backing requests when disabled
-1. Stop Automatic Chilling of Offenders #1962
+1. Stop Automatic Chilling of Offenders [#1962](https://github.com/paritytech/polkadot-sdk/issues/1962)
     - Chilling still persists as a state but is no longer automatic applied on offenses
-1. Respect Disabling in Dispute Participation (**Node**) #2225
+1. Respect Disabling in Dispute Participation (**Node**) [#2225](https://github.com/paritytech/polkadot-sdk/issues/2225)
     - Receive dispute statements from ``disabled_validators`` but do not release own statements
     - Ensure dispute confirmation when BZT statements from disabled
-1. Defense Against Past-Era Dispute Spam (**Node**) #2225
+1. Defense Against Past-Era Dispute Spam (**Node**) [#2225](https://github.com/paritytech/polkadot-sdk/issues/2225)
     - This is needed because runtime cannot disable validators which it no longer knows about
     - Add a node-side parallel store of ``disabled_validators``
     - Add new disabled validators to node-side store when they loose a dispute in any leaf in scope
