@@ -4,6 +4,7 @@ Creds: config
 
 # step 1: initialize Rococo bridge hub
 bridge-hub-rococo-collator1: run ../scripts/invoke-script.sh with "init-bridge-hub-rococo-local" within 600 seconds
+bridge-hub-rococo-collator1: js-script ../helpers/wait-account-nonce-finalized.js with "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY,3" within 600 seconds
 
 # step 2: sleep some time before starting relayer. We want to sleep for at least 1 session, which is expected to
 # be 60 seconds for test environment.
