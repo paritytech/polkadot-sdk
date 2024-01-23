@@ -299,7 +299,7 @@ impl AggressionConfig {
 impl Default for AggressionConfig {
 	fn default() -> Self {
 		AggressionConfig {
-			l1_threshold: Some(13),
+			l1_threshold: Some(16),
 			l2_threshold: Some(28),
 			resend_unfinalized_period: Some(8),
 		}
