@@ -5,7 +5,7 @@ and their system parachains, and new crate versions published to `crates.io`.
 
 # Setup
 
-We have two branches: `master` and `stable`. `master` is the main development branch where normal merge requests are
+We have two branches: `master` and `stable`. `master` is the main development branch where normal Pull Requests are
 opened. Developers need to mostly only care about this branch.  
 The `stable` branch contains a version of the code that is ready to be released. Its contents are always audited.
 Merging to it is restricted to [Backports](#backports).
@@ -49,9 +49,9 @@ The Westend testnet will be updated to the new runtime version immediately after
 
 **From `master` to `stable`**
 
-Backports in this direction can be anything that is audited and either `minor` or a `patch` bump. [Security
+Backports in this direction can be anything that is audited and either a `minor` or a `patch` bump. [Security
 fixes](#bug-and-security-fix) should be prioritized over additions or improvements. Crates that are declared as internal
-API, can also have major version bumps through backports.
+API can also have `major` version bumps through backports.
 
 **From `stable` to `master`**
 
@@ -66,7 +66,7 @@ Release Coordination* Matrix channel. All processes should be automated as much 
 
 ## Crate Bumping
 
-Cadence: (possibly) each Merge Request. Responsible: Developer that opened the Pull Request.
+Cadence: (possibly) each Pull Request. Responsible: Developer that opened the Pull Request.
 
 Following SemVer isn't easy, but there exists [a guide](https://doc.rust-lang.org/cargo/reference/semver.html) in the
 Rust documentation that explains the small details on when to bump what. This process is supported with a CI check that
@@ -74,7 +74,7 @@ utilizes [`cargo-semver-checks`](https://github.com/obi1kenobi/cargo-semver-chec
 
 ### Steps
 
-1. Developer opens a Merge Request with changed crates against `master`.
+1. Developer opens a Pull Request with changed crates against `master`.
 1. They bump all changed crates according to SemVer. Note that this includes any crates that expose the changed
    behaviour in their *public API* and also transitive dependencies for whom the same rule applies.
 
@@ -86,16 +86,16 @@ This process aims to release the `stable` branch as a *Stable* release every two
 
 ### Steps
 
-1. Check if process [Clobbering](#clobbering) needs to happen and do so, if that is the case.
-1. Check if there were any changes since the last release and abort, if not.
-1. Check out the latest commit of `stable`.
-1. Update the `CHANGELOG.md` version, date and compile the content using the prdoc files.
-1. Open a Merge Request against `stable` for visibility.
-1. Internal QA from the release team can happen here.
-1. Do a dry-run release to ensure that it *should* work.
-1. Comment in the Pull Request that a *Stable* release will happen from the merged commit hash.
-1. Release all changed crates to crates.io.
-1. Create the release `stableYYYYMMDD` on GitHub.
+1. Check and execute process [Clobbering](#clobbering), if needed.
+2. Check if there were any changes since the last release and abort, if not.
+3. Check out the latest commit of `stable`.
+4. Update the `CHANGELOG.md` version, date and compile the content using the PrDoc files.
+5. Open a Pull Request against `stable` for visibility of the release happening.
+6. Internal QA from the release team can happen here.
+7. Do a dry-run release to ensure that it *should* work.
+8. Comment in the Pull Request that a *Stable* release will happen from the merged commit hash.
+9. Release all changed crates to crates.io.
+10. Create the release `stableYYYYMMDD` on GitHub.
 
 ## Nightly Release
 
@@ -105,13 +105,14 @@ This process aims to release the `master` branch as a *Nightly* release. The pro
 automatically do the following steps.
 
 1. Check out the latest commit of branch `master`.
-1. Compare this commit to the latest `nightly*` tag and abort if there are no changes detected.
-1. Set the version of all crates to `major.0.0-nightlyYYMMDD` where `major` is the last released `major` version of that
-   crate plus one.
-1. Tag this commit as `nightlyYYMMDD`.
-1. Do a dry-run release to ensure that it *should* work.
-1. Push this tag (the commit will not belong to any branch).
-1. Release all crates that had changed since the last nightly release to crates.io.
+2. Compare this commit to the latest `nightly*` tag and abort if there are no changes detected.
+3. Set the version of all crates that changed to `major.0.0-nightlyYYMMDD` where `major` is the last released `major`
+   version of that crate plus one.
+4. Patch the dependencies of the changed crates to point to the newest version of the dependency.
+5. Tag this commit as `nightlyYYMMDD`.
+6. Do a dry-run release to ensure that it *should* work.
+7. Push this tag (the commit will not belong to any branch).
+8. Release all crates that had changed to crates.io.
 
 ## Clobbering
 
@@ -153,8 +154,8 @@ Describes how developers should merge bug and security fixes.
 ### Steps
 
 1. Developer opens a Pull Request with a bug or security fix.
-1. They have the possibility to mark the PR as such, and does so.
-1. Audit happens with priority.
-1. It is merged into `master`.
-1. It is automatically back-ported to `stable`.
-1. The fix will be released in the next *Stable* release. In urgent cases, a release can happen earlier.
+2. The Pull Request is marked as priority fix.
+3. Audit happens with priority.
+4. It is merged into `master`.
+5. It is automatically back-ported to `stable`.
+6. The fix will be released in the next *Stable* release. In urgent cases, a release can happen earlier.
