@@ -57,7 +57,7 @@ The following processes are necessary to actualize our releases. Each process ha
 
 ## Crate Bumping
 
-Cadence: (possibly) each Merge Request. Responsible: Developer that opened the pull request.
+Cadence: (possibly) each Merge Request. Responsible: Developer that opened the Pull Request.
 
 Following SemVer isn't easy, but there exists [a guide](https://doc.rust-lang.org/cargo/reference/semver.html) in the Rust documentation that explains the small details on when to bump what. This process is supported with a CI check that utilizes [`cargo-semver-checks`](https://github.com/obi1kenobi/cargo-semver-checks).
 
@@ -83,8 +83,8 @@ This process aims to release the `stable` branch as a *Stable* release every two
 1. Open a Merge Request against `stable` for visibility.
 1. Internal QA from the release team can happen here.
 1. Do a dry-run release to ensure that it *should* work.
-1.  Comment that a *Stable* release will happen from the merged commit hash.
-1.  Release all changed crates to crates.io.
+1. Comment in the Pull Request that a *Stable* release will happen from the merged commit hash.
+1. Release all changed crates to crates.io.
 1. Create a release on GitHub.
 
 ## Nightly Release
