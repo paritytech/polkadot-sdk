@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+set -e
+
+# check typos
+chronic typos .
+
+# check format of contracts
+(cd contracts && chronic forge fmt --check)
+
+# check format for relayer codes
+(cd relayer && chronic gofmt -l .)
+
+# check format of rust
+(cd parachain && chronic cargo +$RUST_NIGHTLY_VERSION fmt --check)
