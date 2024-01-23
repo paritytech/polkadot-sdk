@@ -28,7 +28,7 @@ pub mod migrations;
 
 use codec::Codec;
 use frame_support::traits::{
-	fungible::{InspectHold, MutateHold},
+	fungible::{InspectHold, MutateHold, HoldConsiderationFromLegacy},
 	tokens::{
 		Fortitude,
 		Precision,
@@ -89,7 +89,7 @@ pub mod pallet {
 		type RuntimeHoldReason: From<HoldReason>;
 
 		/// A means of providing some cost while data is stored on-chain.
-		type Consideration: Consideration<Self::AccountId>;
+		type Consideration: Consideration<Self::AccountId> + HoldConsiderationFromLegacy<Self::AccountId, Self::Currency>;
 
 		/// The deposit needed for reserving an index.
 		#[pallet::constant]
@@ -180,9 +180,15 @@ pub mod pallet {
 				ensure!(account_id == who, Error::<T>::NotOwner);
 
 				// Done in two steps as `transfer` does not exist for `HoldConsideration`
-				// Alternatively `transfer` could be implemented
 				let maybe_new_ticket = if let Some(ticket) = maybe_ticket {
-					let new_ticket = ticket.clone();
+					let new_ticket =
+						T::Consideration::new(
+						&new,
+						Footprint::from_parts(
+							1,
+							sp_std::mem::size_of::<<T as frame_system::Config>::AccountId>() as usize
+						)
+					)?;
 					ticket.drop(&account_id)?;
 					Some(new_ticket)
 				} else { None };
@@ -372,12 +378,10 @@ impl<T: Config> Pallet<T> {
 	/// The following assertions must always apply.
 	///
 	/// Invariants:
-	/// - If the index has been frozen, the held amount for `ClaimedIndex` reason should be zero.
+	/// - If the index has been frozen, the ticket should be `None`
 	#[cfg(any(feature = "try-runtime", test))]
 	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		// Check held amount is zero when an index is frozen
-		// TODO: Can we really assume it is true? I think we can assume `burn_all_held()` will be able
-		// to burn the whole amount at least for the tests.
 		let zero_held = Accounts::<T>::iter()
 			.filter(|(_, (_, _, perm))| *perm == true )
 			.all(

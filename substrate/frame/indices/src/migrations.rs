@@ -86,27 +86,24 @@ pub mod v1 {
 						);
 					}
 
-					// let unreserved = deposit.saturating_sub(remaining);
-					// let amount = BalanceOf::<T>::from(unreserved);
+					let unreserved = deposit.saturating_sub(remaining);
+					let amount = BalanceOf::<T>::from(unreserved);
 
 					// TODO: is there a way of calculating exactly the same deposit with a Footprint?
-					let ticket = T::Consideration::new(
+					let ticket = T::Consideration::new_from_exact(
 						&account_id,
-						Footprint::from_parts(
-							1,
-							sp_std::mem::size_of::<<T as frame_system::Config>::AccountId>() as usize
-						)
+						amount
 					).map_err(|err| {
 						log::error!(
 							target: LOG_TARGET,
-							"Failed create new Consideration from the account {:?}, reason: {:?}.",
+							"Failed creating a new Consideration for the account {:?}, reason: {:?}.",
 							account_id,
 							err
 						);
 						err
 					}).ok();
 
-					Accounts::<T>::set(account_index, Some((account_id, ticket, perm)));
+					Accounts::<T>::set(account_index, Some((account_id, ticket.unwrap(), perm)));
 				});
 
 				// TODO: Fix weight when lazy migration or multi block migration is in place
