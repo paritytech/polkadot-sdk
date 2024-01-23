@@ -77,6 +77,7 @@ cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system
 cumulus-pallet-session-benchmarking = { path = "../../../../pallets/session-benchmarking", default-features = false }
 cumulus-pallet-xcm = { path = "../../../../pallets/xcm", default-features = false }
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false, features = ["bridging"] }
+cumulus-primitives-aura = { path = "../../../../primitives/aura", default-features = false }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
 cumulus-primitives-utility = { path = "../../../../primitives/utility", default-features = false }
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
@@ -91,7 +92,6 @@ bp-asset-hub-westend = { path = "../../../../../bridges/primitives/chain-asset-h
 bp-bridge-hub-rococo = { path = "../../../../../bridges/primitives/chain-bridge-hub-rococo", default-features = false }
 bp-bridge-hub-westend = { path = "../../../../../bridges/primitives/chain-bridge-hub-westend", default-features = false }
 snowbridge-router-primitives = { path = "../../../../../bridges/snowbridge/parachain/primitives/router", default-features = false }
-snowbridge-rococo-common = { path = "../../../../../bridges/snowbridge/parachain/runtime/rococo-common", default-features = false }
 
 [dev-dependencies]
 asset-test-utils = { path = "../test-utils" }
@@ -139,7 +139,6 @@ runtime-benchmarks = [
 	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
-	"snowbridge-rococo-common/runtime-benchmarks",
 	"snowbridge-router-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
@@ -190,6 +189,7 @@ std = [
 	"cumulus-pallet-session-benchmarking/std",
 	"cumulus-pallet-xcm/std",
 	"cumulus-pallet-xcmp-queue/std",
+	"cumulus-primitives-aura/std",
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-utility/std",
 	"frame-benchmarking?/std",
@@ -231,7 +231,6 @@ std = [
 	"primitive-types/std",
 	"rococo-runtime-constants/std",
 	"scale-info/std",
-	"snowbridge-rococo-common/std",
 	"snowbridge-router-primitives/std",
 	"sp-api/std",
 	"sp-block-builder/std",

@@ -115,8 +115,8 @@ impl pallet_balances::Config for Runtime {
 #[cfg(feature = "runtime-benchmarks")]
 pub struct UniquesHelper;
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_uniques::BenchmarkHelper<MultiLocation, AssetInstance> for UniquesHelper {
-	fn collection(i: u16) -> MultiLocation {
+impl pallet_uniques::BenchmarkHelper<Location, AssetInstance> for UniquesHelper {
+	fn collection(i: u16) -> Location {
 		GeneralIndex(i as u128).into()
 	}
 	fn item(i: u16) -> AssetInstance {
@@ -126,7 +126,7 @@ impl pallet_uniques::BenchmarkHelper<MultiLocation, AssetInstance> for UniquesHe
 
 impl pallet_uniques::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type CollectionId = MultiLocation;
+	type CollectionId = Location;
 	type ItemId = AssetInstance;
 	type Currency = Balances;
 	type CreateOrigin = ForeignCreators;
@@ -148,12 +148,12 @@ impl pallet_uniques::Config for Runtime {
 // `EnsureOriginWithArg` impl for `CreateOrigin` which allows only XCM origins
 // which are locations containing the class location.
 pub struct ForeignCreators;
-impl EnsureOriginWithArg<RuntimeOrigin, MultiLocation> for ForeignCreators {
+impl EnsureOriginWithArg<RuntimeOrigin, Location> for ForeignCreators {
 	type Success = AccountId;
 
 	fn try_origin(
 		o: RuntimeOrigin,
-		a: &MultiLocation,
+		a: &Location,
 	) -> sp_std::result::Result<Self::Success, RuntimeOrigin> {
 		let origin_location = pallet_xcm::EnsureXcm::<Everything>::try_origin(o.clone())?;
 		if !a.starts_with(&origin_location) {
@@ -163,8 +163,8 @@ impl EnsureOriginWithArg<RuntimeOrigin, MultiLocation> for ForeignCreators {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn try_successful_origin(a: &MultiLocation) -> Result<RuntimeOrigin, ()> {
-		Ok(pallet_xcm::Origin::Xcm(*a).into())
+	fn try_successful_origin(a: &Location) -> Result<RuntimeOrigin, ()> {
+		Ok(pallet_xcm::Origin::Xcm(a.clone()).into())
 	}
 }
 
@@ -174,9 +174,9 @@ parameter_types! {
 }
 
 parameter_types! {
-	pub const KsmLocation: MultiLocation = MultiLocation::parent();
+	pub const KsmLocation: Location = Location::parent();
 	pub const RelayNetwork: NetworkId = NetworkId::Kusama;
-	pub UniversalLocation: InteriorMultiLocation = Parachain(MsgQueue::parachain_id().into()).into();
+	pub UniversalLocation: InteriorLocation = Parachain(MsgQueue::parachain_id().into()).into();
 }
 
 pub type LocationToAccountId = (
@@ -194,17 +194,17 @@ pub type XcmOriginToCallOrigin = (
 
 parameter_types! {
 	pub const UnitWeightCost: Weight = Weight::from_parts(1, 1);
-	pub KsmPerSecondPerByte: (AssetId, u128, u128) = (Concrete(Parent.into()), 1, 1);
+	pub KsmPerSecondPerByte: (AssetId, u128, u128) = (AssetId(Parent.into()), 1, 1);
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
-	pub ForeignPrefix: MultiLocation = (Parent,).into();
+	pub ForeignPrefix: Location = (Parent,).into();
 }
 
 pub type LocalAssetTransactor = (
 	FungibleAdapter<Balances, IsConcrete<KsmLocation>, LocationToAccountId, AccountId, ()>,
 	NonFungiblesAdapter<
 		ForeignUniques,
-		ConvertedConcreteId<MultiLocation, AssetInstance, JustTry, JustTry>,
+		ConvertedConcreteId<Location, AssetInstance, JustTry, JustTry>,
 		SovereignAccountOf,
 		AccountId,
 		NoChecking,
@@ -216,9 +216,9 @@ pub type XcmRouter = super::ParachainXcmRouter<MsgQueue>;
 pub type Barrier = AllowUnpaidExecutionFrom<Everything>;
 
 parameter_types! {
-	pub NftCollectionOne: MultiAssetFilter
-		= Wild(AllOf { fun: WildNonFungible, id: Concrete((Parent, GeneralIndex(1)).into()) });
-	pub NftCollectionOneForRelay: (MultiAssetFilter, MultiLocation)
+	pub NftCollectionOne: AssetFilter
+		= Wild(AllOf { fun: WildNonFungible, id: AssetId((Parent, GeneralIndex(1)).into()) });
+	pub NftCollectionOneForRelay: (AssetFilter, Location)
 		= (NftCollectionOne::get(), (Parent,).into());
 }
 pub type TrustedTeleporters = xcm_builder::Case<NftCollectionOneForRelay>;
@@ -321,16 +321,23 @@ pub mod mock_msg_queue {
 			max_weight: Weight,
 		) -> Result<Weight, XcmError> {
 			let hash = Encode::using_encoded(&xcm, T::Hashing::hash);
-			let message_hash = Encode::using_encoded(&xcm, sp_io::hashing::blake2_256);
+			let mut message_hash = Encode::using_encoded(&xcm, sp_io::hashing::blake2_256);
 			let (result, event) = match Xcm::<T::RuntimeCall>::try_from(xcm) {
 				Ok(xcm) => {
 					let location = (Parent, Parachain(sender.into()));
-					match T::XcmExecutor::execute_xcm(location, xcm, message_hash, max_weight) {
-						Outcome::Error(e) => (Err(e), Event::Fail(Some(hash), e)),
-						Outcome::Complete(w) => (Ok(w), Event::Success(Some(hash))),
+					match T::XcmExecutor::prepare_and_execute(
+						location,
+						xcm,
+						&mut message_hash,
+						max_weight,
+						Weight::zero(),
+					) {
+						Outcome::Error { error } => (Err(error), Event::Fail(Some(hash), error)),
+						Outcome::Complete { used } => (Ok(used), Event::Success(Some(hash))),
 						// As far as the caller is concerned, this was dispatched without error, so
 						// we just report the weight used.
-						Outcome::Incomplete(w, e) => (Ok(w), Event::Fail(Some(hash), e)),
+						Outcome::Incomplete { used, error } =>
+							(Ok(used), Event::Fail(Some(hash), error)),
 					}
 				},
 				Err(()) => (Err(XcmError::UnhandledXcmVersion), Event::BadVersion(Some(hash))),
@@ -371,7 +378,7 @@ pub mod mock_msg_queue {
 			limit: Weight,
 		) -> Weight {
 			for (_i, (_sent_at, data)) in iter.enumerate() {
-				let id = sp_io::hashing::blake2_256(&data[..]);
+				let mut id = sp_io::hashing::blake2_256(&data[..]);
 				let maybe_versioned = VersionedXcm::<T::RuntimeCall>::decode(&mut &data[..]);
 				match maybe_versioned {
 					Err(_) => {
@@ -380,7 +387,13 @@ pub mod mock_msg_queue {
 					Ok(versioned) => match Xcm::try_from(versioned) {
 						Err(()) => Self::deposit_event(Event::UnsupportedVersion(id)),
 						Ok(x) => {
-							let outcome = T::XcmExecutor::execute_xcm(Parent, x.clone(), id, limit);
+							let outcome = T::XcmExecutor::prepare_and_execute(
+								Parent,
+								x.clone(),
+								&mut id,
+								limit,
+								Weight::zero(),
+							);
 							<ReceivedDmp<T>>::append(x);
 							Self::deposit_event(Event::ExecutedDownward(id, outcome));
 						},
@@ -400,17 +413,15 @@ impl mock_msg_queue::Config for Runtime {
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
 
 pub struct TrustedLockerCase<T>(PhantomData<T>);
-impl<T: Get<(MultiLocation, MultiAssetFilter)>> ContainsPair<MultiLocation, MultiAsset>
-	for TrustedLockerCase<T>
-{
-	fn contains(origin: &MultiLocation, asset: &MultiAsset) -> bool {
+impl<T: Get<(Location, AssetFilter)>> ContainsPair<Location, Asset> for TrustedLockerCase<T> {
+	fn contains(origin: &Location, asset: &Asset) -> bool {
 		let (o, a) = T::get();
 		a.matches(asset) && &o == origin
 	}
 }
 
 parameter_types! {
-	pub RelayTokenForRelay: (MultiLocation, MultiAssetFilter) = (Parent.into(), Wild(AllOf { id: Concrete(Parent.into()), fun: WildFungible }));
+	pub RelayTokenForRelay: (Location, AssetFilter) = (Parent.into(), Wild(AllOf { id: AssetId(Parent.into()), fun: WildFungible }));
 }
 
 pub type TrustedLockers = TrustedLockerCase<RelayTokenForRelay>;
@@ -446,10 +457,10 @@ type Block = frame_system::mocking::MockBlock<Runtime>;
 construct_runtime!(
 	pub enum Runtime
 	{
-		System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		MsgQueue: mock_msg_queue::{Pallet, Storage, Event<T>},
-		PolkadotXcm: pallet_xcm::{Pallet, Call, Event<T>, Origin},
-		ForeignUniques: pallet_uniques::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		MsgQueue: mock_msg_queue,
+		PolkadotXcm: pallet_xcm,
+		ForeignUniques: pallet_uniques,
 	}
 );

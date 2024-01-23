@@ -24,6 +24,9 @@
 #![deny(unused_crate_dependencies)]
 
 use serde::{Deserialize, Serialize};
+use sp_core::hexdisplay::{AsBytesRef, HexDisplay};
+
+mod common;
 
 pub mod archive;
 pub mod chain_head;
@@ -34,12 +37,12 @@ pub mod transaction;
 pub type SubscriptionTaskExecutor = std::sync::Arc<dyn sp_core::traits::SpawnNamed>;
 
 /// The result of an RPC method.
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(untagged)]
 pub enum MethodResult {
 	/// Method generated a result.
 	Ok(MethodResultOk),
-	/// Method ecountered an error.
+	/// Method encountered an error.
 	Err(MethodResultErr),
 }
 
@@ -73,6 +76,11 @@ pub struct MethodResultErr {
 	success: bool,
 	/// The error of the method.
 	pub error: String,
+}
+
+/// Util function to encode a value as a hex string
+pub fn hex_string<Data: AsBytesRef>(data: &Data) -> String {
+	format!("0x{:?}", HexDisplay::from(data))
 }
 
 #[cfg(test)]

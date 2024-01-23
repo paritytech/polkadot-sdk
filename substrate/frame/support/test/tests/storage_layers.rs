@@ -94,7 +94,7 @@ impl frame_system::Config for Runtime {
 impl Config for Runtime {}
 
 frame_support::construct_runtime!(
-	pub struct Runtime {
+	pub enum Runtime {
 		System: frame_system,
 		MyPallet: pallet,
 	}

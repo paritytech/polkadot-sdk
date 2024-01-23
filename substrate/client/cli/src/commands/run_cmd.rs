@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{
-	arg_enums::RpcMethods,
+	arg_enums::{Cors, RpcMethods},
 	error::{Error, Result},
 	params::{
 		ImportParams, KeystoreParams, NetworkParams, OffchainWorkerParams, SharedParams,
@@ -25,7 +25,7 @@ use crate::{
 	},
 	CliConfiguration, PrometheusParams, RuntimeParams, TelemetryParams,
 	RPC_DEFAULT_MAX_CONNECTIONS, RPC_DEFAULT_MAX_REQUEST_SIZE_MB, RPC_DEFAULT_MAX_RESPONSE_SIZE_MB,
-	RPC_DEFAULT_MAX_SUBS_PER_CONN,
+	RPC_DEFAULT_MAX_SUBS_PER_CONN, RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN,
 };
 use clap::Parser;
 use regex::Regex;
@@ -102,13 +102,24 @@ pub struct RunCmd {
 	#[arg(long, value_name = "COUNT", default_value_t = RPC_DEFAULT_MAX_CONNECTIONS)]
 	pub rpc_max_connections: u32,
 
-	/// Specify browser *origins* allowed to access the HTTP and WS RPC servers.
+	/// The number of messages the RPC server is allowed to keep in memory.
 	///
-	/// A comma-separated list of origins (`protocol://domain` or special `null`
+	/// If the buffer becomes full then the server will not process
+	/// new messages until the connected client start reading the
+	/// underlying messages.
+	///
+	/// This applies per connection which includes both
+	/// JSON-RPC methods calls and subscriptions.
+	#[arg(long, default_value_t = RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN)]
+	pub rpc_message_buffer_capacity_per_connection: u32,
+
+	/// Specify browser *origins* allowed to access the HTTP & WS RPC servers.
+	///
+	/// A comma-separated list of origins (protocol://domain or special `null`
 	/// value). Value of `all` will disable origin validation. Default is to
 	/// allow localhost and <https://polkadot.js.org> origins. When running in
 	/// `--dev` mode the default is to allow all origins.
-	#[arg(long, value_name = "ORIGINS", value_parser = parse_cors)]
+	#[arg(long, value_name = "ORIGINS")]
 	pub rpc_cors: Option<Cors>,
 
 	/// The human-readable name for this node.
@@ -467,47 +478,6 @@ fn rpc_interface(
 		Ok(Ipv4Addr::UNSPECIFIED.into())
 	} else {
 		Ok(Ipv4Addr::LOCALHOST.into())
-	}
-}
-
-/// CORS setting
-///
-/// The type is introduced to overcome `Option<Option<T>>` handling of `clap`.
-#[derive(Clone, Debug)]
-pub enum Cors {
-	/// All hosts allowed.
-	All,
-	/// Only hosts on the list are allowed.
-	List(Vec<String>),
-}
-
-impl From<Cors> for Option<Vec<String>> {
-	fn from(cors: Cors) -> Self {
-		match cors {
-			Cors::All => None,
-			Cors::List(list) => Some(list),
-		}
-	}
-}
-
-/// Parse cors origins.
-fn parse_cors(s: &str) -> Result<Cors> {
-	let mut is_all = false;
-	let mut origins = Vec::new();
-	for part in s.split(',') {
-		match part {
-			"all" | "*" => {
-				is_all = true;
-				break
-			},
-			other => origins.push(other.to_owned()),
-		}
-	}
-
-	if is_all {
-		Ok(Cors::All)
-	} else {
-		Ok(Cors::List(origins))
 	}
 }
 

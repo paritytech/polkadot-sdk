@@ -1,0 +1,10 @@
+title: "sc-informant: Respect `--disable-log-color`"
+
+doc:
+  - audience: Node Operator
+    description: |
+      Fixes some places that weren't respecting the `--disable-log-color` CLI flag.
+
+crates:
+  - name: "sc-informant"
+  - name: "sc-service"

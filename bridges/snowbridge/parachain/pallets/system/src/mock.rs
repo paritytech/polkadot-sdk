@@ -49,22 +49,22 @@ mod pallet_xcm_origin {
 	// Insert this custom Origin into the aggregate RuntimeOrigin
 	#[pallet::origin]
 	#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-	pub struct Origin(pub MultiLocation);
+	pub struct Origin(pub Location);
 
-	impl From<MultiLocation> for Origin {
-		fn from(location: MultiLocation) -> Origin {
+	impl From<Location> for Origin {
+		fn from(location: Location) -> Origin {
 			Origin(location)
 		}
 	}
 
-	/// `EnsureOrigin` implementation succeeding with a `MultiLocation` value to recognize and
+	/// `EnsureOrigin` implementation succeeding with a `Location` value to recognize and
 	/// filter the contained location
 	pub struct EnsureXcm<F>(PhantomData<F>);
-	impl<O: OriginTrait + From<Origin>, F: Contains<MultiLocation>> EnsureOrigin<O> for EnsureXcm<F>
+	impl<O: OriginTrait + From<Origin>, F: Contains<Location>> EnsureOrigin<O> for EnsureXcm<F>
 	where
 		O::PalletsOrigin: From<Origin> + TryInto<Origin, Error = O::PalletsOrigin>,
 	{
-		type Success = MultiLocation;
+		type Success = Location;
 
 		fn try_origin(outer: O) -> Result<Self::Success, O> {
 			outer.try_with_caller(|caller| {
@@ -77,7 +77,7 @@ mod pallet_xcm_origin {
 
 		#[cfg(feature = "runtime-benchmarks")]
 		fn try_successful_origin() -> Result<O, ()> {
-			Ok(O::from(Origin(MultiLocation { parents: 1, interior: X1(Parachain(2000)) })))
+			Ok(O::from(Origin(Location::new(1, [Parachain(2000)]))))
 		}
 	}
 }
@@ -89,7 +89,7 @@ frame_support::construct_runtime!(
 		System: frame_system,
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		XcmOrigin: pallet_xcm_origin::{Pallet, Origin},
-		OutboundQueue: snowbridge_outbound_queue::{Pallet, Call, Storage, Event<T>},
+		OutboundQueue: snowbridge_pallet_outbound_queue::{Pallet, Call, Storage, Event<T>},
 		EthereumSystem: snowbridge_system,
 		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>}
 	}
@@ -167,7 +167,7 @@ parameter_types! {
 	pub const OwnParaId: ParaId = ParaId::new(1013);
 }
 
-impl snowbridge_outbound_queue::Config for Test {
+impl snowbridge_pallet_outbound_queue::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Hashing = Keccak256;
 	type MessageQueue = MessageQueue;
@@ -186,9 +186,9 @@ parameter_types! {
 	pub const SS58Prefix: u8 = 42;
 	pub const AnyNetwork: Option<NetworkId> = None;
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Kusama);
-	pub const RelayLocation: MultiLocation = MultiLocation::parent();
-	pub UniversalLocation: InteriorMultiLocation =
-		X2(GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(1013));
+	pub const RelayLocation: Location = Location::parent();
+	pub UniversalLocation: InteriorLocation =
+		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(1013)].into();
 }
 
 pub const DOT: u128 = 10_000_000_000;
@@ -211,7 +211,7 @@ parameter_types! {
 
 #[cfg(feature = "runtime-benchmarks")]
 impl BenchmarkHelper<RuntimeOrigin> for () {
-	fn make_xcm_origin(location: MultiLocation) -> RuntimeOrigin {
+	fn make_xcm_origin(location: Location) -> RuntimeOrigin {
 		RuntimeOrigin::from(pallet_xcm_origin::Origin(location))
 	}
 }
@@ -260,11 +260,11 @@ pub fn new_test_ext(genesis_build: bool) -> sp_io::TestExternalities {
 
 // Test helpers
 
-pub fn make_xcm_origin(location: MultiLocation) -> RuntimeOrigin {
+pub fn make_xcm_origin(location: Location) -> RuntimeOrigin {
 	pallet_xcm_origin::Origin(location).into()
 }
 
-pub fn make_agent_id(location: MultiLocation) -> AgentId {
+pub fn make_agent_id(location: Location) -> AgentId {
 	<Test as snowbridge_system::Config>::AgentIdOf::convert_location(&location)
 		.expect("convert location")
 }
