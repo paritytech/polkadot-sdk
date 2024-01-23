@@ -821,9 +821,7 @@ dependencies = [
  "frame-support",
  "parachains-common",
  "rococo-emulated-chain",
- "serde_json",
  "sp-core",
- "sp-runtime",
 ]
 
 [[package]]
@@ -939,9 +937,7 @@ dependencies = [
  "emulated-integration-tests-common",
  "frame-support",
  "parachains-common",
- "serde_json",
  "sp-core",
- "sp-runtime",
  "westend-emulated-chain",
 ]
 
@@ -952,14 +948,11 @@ dependencies = [
  "assert_matches",
  "asset-hub-westend-runtime",
  "asset-test-utils",
- "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
  "frame-support",
- "frame-system",
  "pallet-asset-conversion",
- "pallet-asset-rate",
  "pallet-assets",
  "pallet-balances",
  "pallet-message-queue",
@@ -970,10 +963,8 @@ dependencies = [
  "polkadot-runtime-common",
  "sp-runtime",
  "staging-xcm",
- "staging-xcm-builder",
  "staging-xcm-executor",
  "westend-runtime",
- "westend-runtime-constants",
  "westend-system-emulated-network",
 ]
 
@@ -1947,18 +1938,10 @@ version = "0.0.0"
 dependencies = [
  "bridge-hub-common",
  "bridge-hub-rococo-runtime",
- "cumulus-primitives-core",
  "emulated-integration-tests-common",
  "frame-support",
  "parachains-common",
- "serde_json",
- "snowbridge-core",
- "snowbridge-pallet-inbound-queue",
- "snowbridge-pallet-outbound-queue",
- "snowbridge-pallet-system",
- "snowbridge-router-primitives",
  "sp-core",
- "sp-runtime",
 ]
 
 [[package]]
@@ -1966,14 +1949,11 @@ name = "bridge-hub-rococo-integration-tests"
 version = "1.0.0"
 dependencies = [
  "asset-hub-rococo-runtime",
- "asset-test-utils",
  "bp-messages",
  "bridge-hub-rococo-runtime",
- "cumulus-pallet-dmp-queue",
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
  "frame-support",
- "hex",
  "hex-literal",
  "pallet-asset-conversion",
  "pallet-assets",
@@ -1983,12 +1963,10 @@ dependencies = [
  "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
- "penpal-runtime",
  "rococo-system-emulated-network",
  "rococo-westend-system-emulated-network",
  "scale-info",
  "snowbridge-core",
- "snowbridge-pallet-inbound-queue",
  "snowbridge-pallet-outbound-queue",
  "snowbridge-pallet-system",
  "snowbridge-router-primitives",
@@ -2148,23 +2126,18 @@ version = "0.0.0"
 dependencies = [
  "bridge-hub-common",
  "bridge-hub-westend-runtime",
- "cumulus-primitives-core",
  "emulated-integration-tests-common",
  "frame-support",
  "parachains-common",
- "serde_json",
  "sp-core",
- "sp-runtime",
 ]
 
 [[package]]
 name = "bridge-hub-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
- "asset-test-utils",
  "bp-messages",
  "bridge-hub-westend-runtime",
- "cumulus-pallet-dmp-queue",
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
  "frame-support",
@@ -2175,7 +2148,6 @@ dependencies = [
  "pallet-message-queue",
  "pallet-xcm",
  "parachains-common",
- "parity-scale-codec",
  "rococo-westend-system-emulated-network",
  "sp-runtime",
  "staging-xcm",
@@ -2751,10 +2723,7 @@ dependencies = [
  "emulated-integration-tests-common",
  "frame-support",
  "parachains-common",
- "serde_json",
  "sp-core",
- "sp-runtime",
- "westend-emulated-chain",
 ]
 
 [[package]]
@@ -4932,7 +4901,6 @@ dependencies = [
  "pallet-assets",
  "pallet-balances",
  "pallet-bridge-messages",
- "pallet-im-online",
  "pallet-message-queue",
  "pallet-xcm",
  "parachains-common",
@@ -4942,10 +4910,8 @@ dependencies = [
  "polkadot-runtime-parachains",
  "polkadot-service",
  "sc-consensus-grandpa",
- "serde_json",
  "sp-authority-discovery",
  "sp-consensus-babe",
- "sp-consensus-beefy",
  "sp-core",
  "sp-runtime",
  "staging-xcm",
@@ -11648,9 +11614,7 @@ dependencies = [
  "parachains-common",
  "penpal-runtime",
  "rococo-emulated-chain",
- "serde_json",
  "sp-core",
- "sp-runtime",
  "westend-emulated-chain",
 ]
 
@@ -11725,31 +11689,22 @@ dependencies = [
  "frame-support",
  "parachains-common",
  "people-rococo-runtime",
- "rococo-emulated-chain",
- "serde_json",
  "sp-core",
- "sp-runtime",
 ]
 
 [[package]]
 name = "people-rococo-integration-tests"
 version = "0.1.0"
 dependencies = [
- "assert_matches",
  "asset-test-utils",
  "emulated-integration-tests-common",
  "frame-support",
- "pallet-asset-conversion",
- "pallet-assets",
  "pallet-balances",
  "pallet-identity",
  "pallet-message-queue",
- "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
- "penpal-runtime",
  "people-rococo-runtime",
- "polkadot-primitives",
  "polkadot-runtime-common",
  "rococo-runtime",
  "rococo-runtime-constants",
@@ -11833,31 +11788,22 @@ dependencies = [
  "frame-support",
  "parachains-common",
  "people-westend-runtime",
- "serde_json",
  "sp-core",
- "sp-runtime",
- "westend-emulated-chain",
 ]
 
 [[package]]
 name = "people-westend-integration-tests"
 version = "0.1.0"
 dependencies = [
- "assert_matches",
  "asset-test-utils",
  "emulated-integration-tests-common",
  "frame-support",
- "pallet-asset-conversion",
- "pallet-assets",
  "pallet-balances",
  "pallet-identity",
  "pallet-message-queue",
- "pallet-xcm",
  "parachains-common",
  "parity-scale-codec",
- "penpal-runtime",
  "people-westend-runtime",
- "polkadot-primitives",
  "polkadot-runtime-common",
  "sp-runtime",
  "staging-xcm",
@@ -14847,18 +14793,15 @@ name = "rococo-emulated-chain"
 version = "0.0.0"
 dependencies = [
  "emulated-integration-tests-common",
- "pallet-im-online",
  "parachains-common",
  "polkadot-primitives",
  "rococo-runtime",
  "rococo-runtime-constants",
  "sc-consensus-grandpa",
- "serde_json",
  "sp-authority-discovery",
  "sp-consensus-babe",
  "sp-consensus-beefy",
  "sp-core",
- "sp-runtime",
 ]
 
 [[package]]
@@ -21552,12 +21495,10 @@ name = "westend-emulated-chain"
 version = "0.0.0"
 dependencies = [
  "emulated-integration-tests-common",
- "pallet-im-online",
  "pallet-staking",
  "parachains-common",
  "polkadot-primitives",
  "sc-consensus-grandpa",
- "serde_json",
  "sp-authority-discovery",
  "sp-consensus-babe",
  "sp-consensus-beefy",
