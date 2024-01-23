@@ -1,0 +1,14 @@
+Description: Test BEEFY voting and finality, test MMR proofs. Assumes Rococo sessions of 1 minute.
+Network: ./0011-beefy-and-mmr.toml
+Creds: config
+
+stable: reports finalised height is at least 9 within 120 seconds
+
+unstable-1: pause
+unstable-2: pause
+
+sleep 10 seconds
+
+unstable-1: restart
+
+sleep 300 seconds

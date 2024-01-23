@@ -1,0 +1,21 @@
+[settings]
+timeout = 1000
+
+[relaychain]
+default_command = "/home/serban/workplace/sources/polkadot-sdk/target/release/polkadot"
+chain = "rococo-local"
+
+[[relaychain.node_groups]]
+name = "stable"
+count = 3
+args = ["--log=beefy=debug", "--enable-offchain-indexing=true"]
+
+[[relaychain.node_groups]]
+name = "unstable-1"
+count = 5
+args = ["--log=beefy=debug", "--enable-offchain-indexing=true"]
+
+[[relaychain.node_groups]]
+name = "unstable-2"
+count = 3
+args = ["--log=beefy=debug", "--enable-offchain-indexing=true"]
