@@ -192,7 +192,7 @@ fn register_weth_token_from_ethereum_to_asset_hub() {
 	BridgeHubRococo::execute_with(|| {
 		type RuntimeEvent = <BridgeHubRococo as Chain>::RuntimeEvent;
 		type EthereumInboundQueue =
-		<BridgeHubRococo as BridgeHubRococoPallet>::EthereumInboundQueue;
+			<BridgeHubRococo as BridgeHubRococoPallet>::EthereumInboundQueue;
 		let message = VersionedMessage::V1(MessageV1 {
 			chain_id: CHAIN_ID,
 			command: Command::RegisterToken { token: WETH.into(), fee: XCM_FEE },
@@ -285,7 +285,7 @@ fn send_token_from_ethereum_to_penpal() {
 	BridgeHubRococo::execute_with(|| {
 		type RuntimeEvent = <BridgeHubRococo as Chain>::RuntimeEvent;
 		type EthereumInboundQueue =
-		<BridgeHubRococo as BridgeHubRococoPallet>::EthereumInboundQueue;
+			<BridgeHubRococo as BridgeHubRococoPallet>::EthereumInboundQueue;
 		// Construct SendToken message
 		let message = VersionedMessage::V1(MessageV1 {
 			chain_id: CHAIN_ID,
@@ -351,7 +351,7 @@ fn send_token_from_ethereum_to_asset_hub() {
 	BridgeHubRococo::execute_with(|| {
 		type RuntimeEvent = <BridgeHubRococo as Chain>::RuntimeEvent;
 		type EthereumInboundQueue =
-		<BridgeHubRococo as BridgeHubRococoPallet>::EthereumInboundQueue;
+			<BridgeHubRococo as BridgeHubRococoPallet>::EthereumInboundQueue;
 		// Construct RegisterToken message
 		let message = VersionedMessage::V1(MessageV1 {
 			chain_id: CHAIN_ID,
@@ -428,7 +428,7 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 	BridgeHubRococo::execute_with(|| {
 		type RuntimeEvent = <BridgeHubRococo as Chain>::RuntimeEvent;
 		type EthereumInboundQueue =
-		<BridgeHubRococo as BridgeHubRococoPallet>::EthereumInboundQueue;
+			<BridgeHubRococo as BridgeHubRococoPallet>::EthereumInboundQueue;
 
 		// Register ERC-20 token on AssetHub
 		let message = VersionedMessage::V1(MessageV1 {
@@ -436,7 +436,8 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 			command: Command::RegisterToken { token: WETH.into(), fee: XCM_FEE },
 		});
 		// Converts the versioned message to XCM
-		let (xcm, _) = EthereumInboundQueue::do_convert(message_id_register_token, message).unwrap();
+		let (xcm, _) =
+			EthereumInboundQueue::do_convert(message_id_register_token, message).unwrap();
 		let _ = EthereumInboundQueue::send_xcm(xcm, AssetHubRococo::para_id().into()).unwrap();
 
 		// Check that the register token message was sent using xcm
@@ -514,7 +515,7 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 			Box::new(multi_assets),
 			0,
 		)
-			.unwrap();
+		.unwrap();
 		let free_balance_after = <AssetHubRococo as AssetHubRococoPallet>::Balances::free_balance(
 			AssetHubRococoReceiver::get(),
 		);
