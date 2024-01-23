@@ -122,6 +122,18 @@ pub type CallOrHashOf<T> =
 pub type BoundedCallOf<T> =
 	Bounded<<T as Config>::RuntimeCall, <T as frame_system::Config>::Hashing>;
 
+/// The configuration of the retry mechanism for a given task along with its current state.
+#[cfg_attr(any(feature = "std", test), derive(PartialEq, Eq))]
+#[derive(Clone, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]
+pub struct RetryConfig<Period> {
+	/// Initial amount of retries allowed.
+	total_retries: u8,
+	/// Amount of retries left.
+	remaining: u8,
+	/// Period of time between retry attempts.
+	period: Period,
+}
+
 #[cfg_attr(any(feature = "std", test), derive(PartialEq, Eq))]
 #[derive(Clone, RuntimeDebug, Encode, Decode)]
 struct ScheduledV1<Call, BlockNumber> {
@@ -273,6 +285,15 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	#[pallet::storage]
+	pub type Retries<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		TaskAddress<BlockNumberFor<T>>,
+		RetryConfig<BlockNumberFor<T>>,
+		OptionQuery,
+	>;
+
 	/// Lookup from a name to the block number and index of the task.
 	///
 	/// For v3 -> v4 the previously unbounded identities are Blake2-256 hashed to form the v4
@@ -299,6 +320,8 @@ pub mod pallet {
 		CallUnavailable { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
 		/// The given task was unable to be renewed since the agenda is full at that block.
 		PeriodicFailed { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
+		/// The given task was unable to be retried since the agenda is full at that block.
+		RetryFailed { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
 		/// The given task can never be executed since it is overweight.
 		PermanentlyOverweight { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
 	}
@@ -438,6 +461,64 @@ pub mod pallet {
 				origin.caller().clone(),
 				T::Preimages::bound(*call)?,
 			)?;
+			Ok(())
+		}
+
+		#[pallet::call_index(6)]
+		#[pallet::weight(<T as Config>::WeightInfo::schedule_named(T::MaxScheduledPerBlock::get()))]
+		pub fn set_retry(
+			origin: OriginFor<T>,
+			when: BlockNumberFor<T>,
+			index: u32,
+			retries: u8,
+			period: BlockNumberFor<T>,
+		) -> DispatchResult {
+			T::ScheduleOrigin::ensure_origin(origin.clone())?;
+			let origin = <T as Config>::RuntimeOrigin::from(origin);
+			let agenda = Agenda::<T>::get(when);
+			match agenda.get(index as usize) {
+				Some(Some(task)) =>
+					if matches!(
+						T::OriginPrivilegeCmp::cmp_privilege(origin.caller(), &task.origin),
+						Some(Ordering::Less) | None
+					) {
+						return Err(BadOrigin.into())
+					},
+				_ => return Err(Error::<T>::NotFound.into()),
+			}
+			Retries::<T>::insert(
+				(when, index),
+				RetryConfig { total_retries: retries, remaining: retries, period },
+			);
+			Ok(())
+		}
+
+		#[pallet::call_index(7)]
+		#[pallet::weight(<T as Config>::WeightInfo::schedule_named(T::MaxScheduledPerBlock::get()))]
+		pub fn set_retry_named(
+			origin: OriginFor<T>,
+			id: TaskName,
+			retries: u8,
+			period: BlockNumberFor<T>,
+		) -> DispatchResult {
+			T::ScheduleOrigin::ensure_origin(origin.clone())?;
+			let origin = <T as Config>::RuntimeOrigin::from(origin);
+			let (when, agenda_index) = Lookup::<T>::get(&id).ok_or(Error::<T>::NotFound)?;
+			let agenda = Agenda::<T>::get(when);
+			match agenda.get(agenda_index as usize) {
+				Some(Some(task)) =>
+					if matches!(
+						T::OriginPrivilegeCmp::cmp_privilege(origin.caller(), &task.origin),
+						Some(Ordering::Less) | None
+					) {
+						return Err(BadOrigin.into())
+					},
+				_ => return Err(Error::<T>::NotFound.into()),
+			}
+			Retries::<T>::insert(
+				(when, agenda_index),
+				RetryConfig { total_retries: retries, remaining: retries, period },
+			);
 			Ok(())
 		}
 	}
@@ -1089,7 +1170,7 @@ impl<T: Config> Pallet<T> {
 		when: BlockNumberFor<T>,
 		agenda_index: u32,
 		is_first: bool,
-		mut task: ScheduledOf<T>,
+		task: ScheduledOf<T>,
 	) -> Result<(), (ServiceTaskError, Option<ScheduledOf<T>>)> {
 		if let Some(ref id) = task.maybe_id {
 			Lookup::<T>::remove(id);
@@ -1124,11 +1205,22 @@ impl<T: Config> Pallet<T> {
 			},
 			Err(()) => Err((Overweight, Some(task))),
 			Ok(result) => {
+				let failed = result.is_err();
 				Self::deposit_event(Event::Dispatched {
 					task: (when, agenda_index),
 					id: task.maybe_id,
 					result,
 				});
+
+				let mut task = if failed {
+					match Self::check_retry(now, when, agenda_index, task) {
+						Some(task) => task,
+						None => return Ok(()),
+					}
+				} else {
+					task
+				};
+
 				if let &Some((period, count)) = &task.maybe_periodic {
 					if count > 1 {
 						task.maybe_periodic = Some((period, count - 1));
@@ -1137,11 +1229,23 @@ impl<T: Config> Pallet<T> {
 					}
 					let wake = now.saturating_add(period);
 					match Self::place_task(wake, task) {
-						Ok(_) => {},
+						Ok(new_address) => {
+							if let Some(RetryConfig { total_retries, remaining, period }) =
+								Retries::<T>::take((when, agenda_index))
+							{
+								// Reset the counter if the task ran successfully.
+								let remaining = if failed { remaining } else { total_retries };
+								Retries::<T>::insert(
+									new_address,
+									RetryConfig { total_retries, remaining, period },
+								);
+							}
+						},
 						Err((_, task)) => {
 							// TODO: Leave task in storage somewhere for it to be rescheduled
 							// manually.
 							T::Preimages::drop(&task.call);
+							let _ = Retries::<T>::take((when, agenda_index));
 							Self::deposit_event(Event::PeriodicFailed {
 								task: (when, agenda_index),
 								id: task.maybe_id,
@@ -1149,6 +1253,7 @@ impl<T: Config> Pallet<T> {
 						},
 					}
 				} else {
+					let _ = Retries::<T>::take((when, agenda_index));
 					T::Preimages::drop(&task.call);
 				}
 				Ok(())
@@ -1191,6 +1296,45 @@ impl<T: Config> Pallet<T> {
 		let _ = weight.try_consume(base_weight);
 		let _ = weight.try_consume(call_weight);
 		Ok(result)
+	}
+
+	fn check_retry(
+		now: BlockNumberFor<T>,
+		when: BlockNumberFor<T>,
+		agenda_index: u32,
+		task: ScheduledOf<T>,
+	) -> Option<ScheduledOf<T>> {
+		match Retries::<T>::take((when, agenda_index)) {
+			Some(RetryConfig { total_retries, mut remaining, period }) => {
+				remaining = match remaining.checked_sub(1) {
+					Some(n) => n,
+					None => return Some(task),
+				};
+				let wake = now.saturating_add(period);
+				match Self::place_task(wake, task) {
+					Ok(address) => {
+						// Reinsert the retry config to the new address of the task after it was
+						// placed.
+						Retries::<T>::insert(
+							address,
+							RetryConfig { total_retries, remaining, period },
+						);
+						None
+					},
+					Err((_, task)) => {
+						// TODO: Leave task in storage somewhere for it to be
+						// rescheduled manually.
+						T::Preimages::drop(&task.call);
+						Self::deposit_event(Event::RetryFailed {
+							task: (when, agenda_index),
+							id: task.maybe_id,
+						});
+						Some(task)
+					},
+				}
+			},
+			None => Some(task),
+		}
 	}
 }
 
