@@ -54,7 +54,7 @@ frame = { path = "../../../frame", features = ["experimental", "runtime"] }
 runtime = { package = "minimal-runtime", path = "../runtime" }
 
 [build-dependencies]
-substrate-build-script-utils = { version = "3.0.0", path = "../../../utils/build-script-utils" }
+substrate-build-script-utils = { path = "../../../utils/build-script-utils" }
 
 [features]
 default = []
