@@ -60,6 +60,9 @@ pub const PREPARE_BINARY_NAME: &str = "polkadot-prepare-worker";
 /// The name of binary spawned to execute a PVF
 pub const EXECUTE_BINARY_NAME: &str = "polkadot-execute-worker";
 
+/// The size of incoming message queue
+pub const HOST_MESSAGE_QUEUE_SIZE: usize = 10;
+
 /// An alias to not spell the type for the oneshot sender for the PVF execution result.
 pub(crate) type ResultSender = oneshot::Sender<Result<ValidationResult, ValidationError>>;
 
@@ -227,7 +230,7 @@ pub async fn start(
 		Err(err) => return Err(SubsystemError::Context(err)),
 	};
 
-	let (to_host_tx, to_host_rx) = mpsc::channel(10);
+	let (to_host_tx, to_host_rx) = mpsc::channel(HOST_MESSAGE_QUEUE_SIZE);
 
 	let validation_host = ValidationHost { to_host_tx, security_status: security_status.clone() };
 
@@ -486,7 +489,8 @@ async fn handle_precheck_pvf(
 ///
 /// If the prepare job failed previously, we may retry it under certain conditions.
 ///
-/// When preparing for execution, we use a more lenient timeout ([`LENIENT_PREPARATION_TIMEOUT`])
+/// When preparing for execution, we use a more lenient timeout
+/// ([`DEFAULT_LENIENT_PREPARATION_TIMEOUT`](polkadot_primitives::executor_params::DEFAULT_LENIENT_PREPARATION_TIMEOUT))
 /// than when prechecking.
 async fn handle_execute_pvf(
 	artifacts: &mut Artifacts,
@@ -905,7 +909,7 @@ pub(crate) mod tests {
 			let _ = pulse.next().await.unwrap();
 
 			let el = start.elapsed().as_millis();
-			assert!(el > 50 && el < 150, "{}", el);
+			assert!(el > 50 && el < 150, "pulse duration: {}", el);
 		}
 	}
 

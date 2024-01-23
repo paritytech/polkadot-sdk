@@ -1315,135 +1315,131 @@ construct_runtime! {
 	pub enum Runtime
 	{
 		// Basic stuff; balances is uncallable initially.
-		System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>} = 0,
+		System: frame_system = 0,
 
 		// Babe must be before session.
-		Babe: pallet_babe::{Pallet, Call, Storage, Config<T>, ValidateUnsigned} = 1,
+		Babe: pallet_babe = 1,
 
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 2,
-		Indices: pallet_indices::{Pallet, Call, Storage, Config<T>, Event<T>} = 3,
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 4,
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 33,
+		Timestamp: pallet_timestamp = 2,
+		Indices: pallet_indices = 3,
+		Balances: pallet_balances = 4,
+		TransactionPayment: pallet_transaction_payment = 33,
 
 		// Consensus support.
 		// Authorship must be before session in order to note author in the correct session and era.
-		Authorship: pallet_authorship::{Pallet, Storage} = 5,
-		Offences: pallet_offences::{Pallet, Storage, Event} = 7,
-		Historical: session_historical::{Pallet} = 34,
+		Authorship: pallet_authorship = 5,
+		Offences: pallet_offences = 7,
+		Historical: session_historical = 34,
 
 		// BEEFY Bridges support.
-		Beefy: pallet_beefy::{Pallet, Call, Storage, Config<T>, ValidateUnsigned} = 240,
+		Beefy: pallet_beefy = 240,
 		// MMR leaf construction must be before session in order to have leaf contents
 		// refer to block<N-1> consistently. see substrate issue #11797 for details.
-		Mmr: pallet_mmr::{Pallet, Storage} = 241,
-		MmrLeaf: pallet_beefy_mmr::{Pallet, Storage} = 242,
+		Mmr: pallet_mmr = 241,
+		MmrLeaf: pallet_beefy_mmr = 242,
 
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 8,
-		Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config<T>, Event, ValidateUnsigned} = 10,
-		AuthorityDiscovery: pallet_authority_discovery::{Pallet, Config<T>} = 12,
+		Session: pallet_session = 8,
+		Grandpa: pallet_grandpa = 10,
+		AuthorityDiscovery: pallet_authority_discovery = 12,
 
 		// Governance stuff; uncallable initially.
-		Treasury: pallet_treasury::{Pallet, Call, Storage, Config<T>, Event<T>} = 18,
-		ConvictionVoting: pallet_conviction_voting::{Pallet, Call, Storage, Event<T>} = 20,
-		Referenda: pallet_referenda::{Pallet, Call, Storage, Event<T>} = 21,
+		Treasury: pallet_treasury = 18,
+		ConvictionVoting: pallet_conviction_voting = 20,
+		Referenda: pallet_referenda = 21,
 		//	pub type FellowshipCollectiveInstance = pallet_ranked_collective::Instance1;
-		FellowshipCollective: pallet_ranked_collective::<Instance1>::{
-			Pallet, Call, Storage, Event<T>
-		} = 22,
+		FellowshipCollective: pallet_ranked_collective::<Instance1> = 22,
 		// pub type FellowshipReferendaInstance = pallet_referenda::Instance2;
-		FellowshipReferenda: pallet_referenda::<Instance2>::{
-			Pallet, Call, Storage, Event<T>
-		} = 23,
-		Origins: pallet_custom_origins::{Origin} = 43,
-		Whitelist: pallet_whitelist::{Pallet, Call, Storage, Event<T>} = 44,
+		FellowshipReferenda: pallet_referenda::<Instance2> = 23,
+		Origins: pallet_custom_origins = 43,
+		Whitelist: pallet_whitelist = 44,
 		// Claims. Usable initially.
-		Claims: claims::{Pallet, Call, Storage, Event<T>, Config<T>, ValidateUnsigned} = 19,
+		Claims: claims = 19,
 
 		// Utility module.
-		Utility: pallet_utility::{Pallet, Call, Event} = 24,
+		Utility: pallet_utility = 24,
 
 		// Less simple identity module.
-		Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 25,
+		Identity: pallet_identity = 25,
 
 		// Society module.
-		Society: pallet_society::{Pallet, Call, Storage, Event<T>} = 26,
+		Society: pallet_society = 26,
 
 		// Social recovery module.
-		Recovery: pallet_recovery::{Pallet, Call, Storage, Event<T>} = 27,
+		Recovery: pallet_recovery = 27,
 
 		// Vesting. Usable initially, but removed once all vesting is finished.
-		Vesting: pallet_vesting::{Pallet, Call, Storage, Event<T>, Config<T>} = 28,
+		Vesting: pallet_vesting = 28,
 
 		// System scheduler.
-		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 29,
+		Scheduler: pallet_scheduler = 29,
 
 		// Proxy module. Late addition.
-		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 30,
+		Proxy: pallet_proxy = 30,
 
 		// Multisig module. Late addition.
-		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 31,
+		Multisig: pallet_multisig = 31,
 
 		// Preimage registrar.
-		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>, HoldReason} = 32,
+		Preimage: pallet_preimage = 32,
 
 		// Asset rate.
-		AssetRate: pallet_asset_rate::{Pallet, Call, Storage, Event<T>} = 39,
+		AssetRate: pallet_asset_rate = 39,
 
 		// Bounties modules.
-		Bounties: pallet_bounties::{Pallet, Call, Storage, Event<T>} = 35,
+		Bounties: pallet_bounties = 35,
 		ChildBounties: pallet_child_bounties = 40,
 
 		// NIS pallet.
-		Nis: pallet_nis::{Pallet, Call, Storage, Event<T>, HoldReason} = 38,
+		Nis: pallet_nis = 38,
 		// pub type NisCounterpartInstance = pallet_balances::Instance2;
 		NisCounterpartBalances: pallet_balances::<Instance2> = 45,
 
 		// Parachains pallets. Start indices at 50 to leave room.
-		ParachainsOrigin: parachains_origin::{Pallet, Origin} = 50,
-		Configuration: parachains_configuration::{Pallet, Call, Storage, Config<T>} = 51,
-		ParasShared: parachains_shared::{Pallet, Call, Storage} = 52,
-		ParaInclusion: parachains_inclusion::{Pallet, Call, Storage, Event<T>} = 53,
-		ParaInherent: parachains_paras_inherent::{Pallet, Call, Storage, Inherent} = 54,
-		ParaScheduler: parachains_scheduler::{Pallet, Storage} = 55,
-		Paras: parachains_paras::{Pallet, Call, Storage, Event, Config<T>, ValidateUnsigned} = 56,
-		Initializer: parachains_initializer::{Pallet, Call, Storage} = 57,
-		Dmp: parachains_dmp::{Pallet, Storage} = 58,
-		Hrmp: parachains_hrmp::{Pallet, Call, Storage, Event<T>, Config<T>} = 60,
-		ParaSessionInfo: parachains_session_info::{Pallet, Storage} = 61,
-		ParasDisputes: parachains_disputes::{Pallet, Call, Storage, Event<T>} = 62,
-		ParasSlashing: parachains_slashing::{Pallet, Call, Storage, ValidateUnsigned} = 63,
-		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 64,
-		OnDemandAssignmentProvider: parachains_assigner_on_demand::{Pallet, Call, Storage, Event<T>} = 66,
-		ParachainsAssignmentProvider: parachains_assigner_parachains::{Pallet} = 67,
-		CoretimeAssignmentProvider: parachains_assigner_coretime::{Pallet, Storage} = 68,
+		ParachainsOrigin: parachains_origin = 50,
+		Configuration: parachains_configuration = 51,
+		ParasShared: parachains_shared = 52,
+		ParaInclusion: parachains_inclusion = 53,
+		ParaInherent: parachains_paras_inherent = 54,
+		ParaScheduler: parachains_scheduler = 55,
+		Paras: parachains_paras = 56,
+		Initializer: parachains_initializer = 57,
+		Dmp: parachains_dmp = 58,
+		Hrmp: parachains_hrmp = 60,
+		ParaSessionInfo: parachains_session_info = 61,
+		ParasDisputes: parachains_disputes = 62,
+		ParasSlashing: parachains_slashing = 63,
+		MessageQueue: pallet_message_queue = 64,
+		OnDemandAssignmentProvider: parachains_assigner_on_demand = 66,
+		ParachainsAssignmentProvider: parachains_assigner_parachains = 67,
+		CoretimeAssignmentProvider: parachains_assigner_coretime = 68,
 
 		// Parachain Onboarding Pallets. Start indices at 70 to leave room.
-		Registrar: paras_registrar::{Pallet, Call, Storage, Event<T>, Config<T>} = 70,
-		Slots: slots::{Pallet, Call, Storage, Event<T>} = 71,
-		Auctions: auctions::{Pallet, Call, Storage, Event<T>} = 72,
-		Crowdloan: crowdloan::{Pallet, Call, Storage, Event<T>} = 73,
-		Coretime: coretime::{Pallet, Call, Event<T>} = 74,
+		Registrar: paras_registrar = 70,
+		Slots: slots = 71,
+		Auctions: auctions = 72,
+		Crowdloan: crowdloan = 73,
+		Coretime: coretime = 74,
 
 		// Pallet for sending XCM.
-		XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config<T>} = 99,
+		XcmPallet: pallet_xcm = 99,
 
 		// Pallet for migrating Identity to a parachain. To be removed post-migration.
-		IdentityMigrator: identity_migrator::{Pallet, Call, Event<T>} = 248,
+		IdentityMigrator: identity_migrator = 248,
 
-		ParasSudoWrapper: paras_sudo_wrapper::{Pallet, Call} = 250,
-		AssignedSlots: assigned_slots::{Pallet, Call, Storage, Event<T>, Config<T>} = 251,
+		ParasSudoWrapper: paras_sudo_wrapper = 250,
+		AssignedSlots: assigned_slots = 251,
 
 		// Validator Manager pallet.
-		ValidatorManager: validator_manager::{Pallet, Call, Storage, Event<T>} = 252,
+		ValidatorManager: validator_manager = 252,
 
 		// State trie migration pallet, only temporary.
 		StateTrieMigration: pallet_state_trie_migration = 254,
 
 		// Root testing pallet.
-		RootTesting: pallet_root_testing::{Pallet, Call, Storage, Event<T>} = 249,
+		RootTesting: pallet_root_testing = 249,
 
 		// Sudo.
-		Sudo: pallet_sudo::{Pallet, Call, Storage, Event<T>, Config<T>} = 255,
+		Sudo: pallet_sudo = 255,
 	}
 }
 

@@ -603,30 +603,28 @@ impl pallet_aura::Config for Runtime {
 construct_runtime! {
 	pub enum Runtime
 	{
-		System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-		Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>},
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
+		System: frame_system,
+		Timestamp: pallet_timestamp,
+		Sudo: pallet_sudo,
+		TransactionPayment: pallet_transaction_payment,
 
-		ParachainSystem: cumulus_pallet_parachain_system::{
-			Pallet, Call, Config<T>, Storage, Inherent, Event<T>, ValidateUnsigned,
-		} = 20,
-		ParachainInfo: parachain_info::{Pallet, Storage, Config<T>} = 21,
+		ParachainSystem: cumulus_pallet_parachain_system = 20,
+		ParachainInfo: parachain_info = 21,
 
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 30,
-		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>} = 31,
+		Balances: pallet_balances = 30,
+		Assets: pallet_assets = 31,
 
-		Aura: pallet_aura::{Pallet, Config<T>},
-		AuraExt: cumulus_pallet_aura_ext::{Pallet, Config<T>},
+		Aura: pallet_aura,
+		AuraExt: cumulus_pallet_aura_ext,
 
 		// XCM helpers.
-		XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>} = 50,
-		PolkadotXcm: pallet_xcm::{Pallet, Call, Event<T>, Origin, Config<T>} = 51,
-		CumulusXcm: cumulus_pallet_xcm::{Pallet, Call, Event<T>, Origin} = 52,
+		XcmpQueue: cumulus_pallet_xcmp_queue = 50,
+		PolkadotXcm: pallet_xcm = 51,
+		CumulusXcm: cumulus_pallet_xcm = 52,
 		// RIP DmpQueue 53
-		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 54,
+		MessageQueue: pallet_message_queue = 54,
 
-		Spambot: cumulus_ping::{Pallet, Call, Storage, Event<T>} = 99,
+		Spambot: cumulus_ping = 99,
 	}
 }
 
