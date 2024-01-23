@@ -19,7 +19,7 @@ The primary goals are:
 - Eliminate cases where attackers can get free attempts at attacking the network
 - Eliminate or minimize the risks of honest nodes being pushed out of consensus by getting unjustly slashed
 
-The above three goals are generally at odds so a careful balance has to be struck between them. We will achieve them by sacrificing some **liveness** in favor of **soundness** when the network is under stress. Maintaining  some liveness but absolute soundness ia paramount.
+The above three goals are generally at odds so a careful balance has to be struck between them. We will achieve them by sacrificing some **liveness** in favor of **soundness** when the network is under stress. Maintaining some liveness but absolute soundness is paramount.
 
 > **Note:** \
 > Liveness = Valid candidates can go through (at a decent pace) \
@@ -102,6 +102,9 @@ One safety measure is bounding the disabled number to 1/3 ([**Point 2.**](#syste
 
 Even in such a dire situation where more than 1/3 got disabled the most likely scenario is a non-determinism bug or sacrifice attack bug. Those attacks generally cause minor slashes to multiple honest nodes. In such a case the situation could be salvaged by prioritizing highest offenders for disabling ([**Point 3.**](#system-overview)).
 
+> **Note:** \
+> System can be launched with re-enabling and will still provide some security improvements. Re-enabling will be launched in an upgrade after the initial deployment.
+
 Fully pushing out offending validator out of the validator set it too risky in case of a dispute bug, non-determinism or sacrifice attacks. Main issue lies in skewing the numbers in approval checking so instead of fully fully blocking disabled nodes a different approach can be taken - one were only some functionalities are disabled ([**Point 5.**](#system-overview)).
 Once of those functionalities can be approval voting which as pointed above is so crucial that even in a disabled state nodes should be able to participate in it ([**Point 7.**](#system-overview)).
 
@@ -150,7 +153,7 @@ Higher values could be considered and the main arguments for those are based aro
 
 # Economic consequences of Disablement
 
-Disablement is generally a form of punishment and that will be reflected in the rewards at the end of an era. A disabled validator will not receive any rewards for backing or block authoring. which will reduce it's profits.
+Disablement is generally a form of punishment and that will be reflected in the rewards at the end of an era. A disabled validator will not receive any rewards for backing or block authoring. which will reduce its profits.
 
 That means that the opportunity cost of being disabled is a punishment by itself and thus it can be used for some cases where a minor punishment is needed. Current implementation was using 0% slashes to mark nodes for chilling and similar approach of 0% slashes can be used to mark validators for disablement. ([**Point 1.**](#system-overview))
 0% slashes could for instance be used to punish approval checkers voting invalid on valid candidates.
@@ -164,13 +167,13 @@ Anything higher than 0% will of course also lead to a disablement.
 
 # Redundancy
 
-Some systems can be greatly simplified our outright removed thanks to the above changes. This leads to reduced complexity around the systems that were hard to reason about and were sources of multiple bugs.
+Some systems can be greatly simplified or outright removed thanks to the above changes. This leads to reduced complexity around the systems that were hard to reason about and were sources of multiple bugs.
 
 ## Automatic Chilling
 
 Chilling is process of a validator dropping theirs intent to validate. This removes them from the upcoming NPoS solutions and effectively pushes them out of the validator set as quickly as of the next era (or 2 era in case of late offenses). All nominators of that validator were also getting unsubscribed from that validator. Validator could re-register their intent to validate at any time.
 
-Chilling had a myriad of problems. It assumes that validators and nominators remain very active and monitor everything. If a validator got slashed he was getting automatically chilled and his nominators were getting unsubscribed. This was an issue because of minor non-malicious slashes due to node operator mistakes or small bugs. Validators got those bugs fixed quickly and were reimbursed but nominator had to manually re-subscribe to the validator, which they often postponed for very lengthy amounts of time most likely due to simply not checking their stake.
+Chilling had a myriad of problems. It assumes that validators and nominators remain very active and monitor everything. If a validator got slashed he was getting automatically chilled and his nominators were getting unsubscribed. This was an issue because of minor non-malicious slashes due to node operator mistakes or small bugs. Validators got those bugs fixed quickly and were reimbursed but nominator had to manually re-subscribe to the validator, which they often postponed for very lengthy amounts of time most likely due to simply not checking their stake. This forced unsubscribing of nominators was later removed but it leads back to the original quoted issue of offending validators simply re-registering their interest and continuing to attack the network. 
 
 The biggest issue was that chilling in case of honest node slashes could lead to honest validators being somewhat quickly (next era) pushed out of the next validator set. This retains the validator set size but gives an edge to attackers as they can more easily win slots in the NPoS election.
 
@@ -178,11 +181,7 @@ Disabling generally makes automatic-chilling after slash events redundant and di
 
 ## Forcing New Era
 
-Previous implementation of disabling had some mechanisms allowing for temporarily fully disabling validators and if too many were disabled forcing a new era. Substrate offered the ability to force a new era but it was also deemed unsafe as it could be abused and compromised the security of the network for instance by weakening the randomness used throughout the protocol.
-
-## Slashing Spans
-
-TODO
+Previous implementation of disabling had some mechanisms allowing for temporarily fully disabling validators and if too many were disabled forcing a new era. Frame staking pallet offered the ability to force a new era but it was also deemed unsafe as it could be abused and compromised the security of the network for instance by weakening the randomness used throughout the protocol.
 
 </br></br></br>
 
