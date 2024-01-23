@@ -1,6 +1,6 @@
 [package]
 name = "sc-executor-wasmtime"
-version = "0.10.0-dev"
+version = "0.29.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -31,10 +31,10 @@ wasmtime = { version = "8.0.1", default-features = false, features = [
 	"pooling-allocator",
 ] }
 anyhow = "1.0.68"
-sc-allocator = { path = "../../allocator" }
-sc-executor-common = { path = "../common" }
-sp-runtime-interface = { path = "../../../primitives/runtime-interface" }
-sp-wasm-interface = { path = "../../../primitives/wasm-interface", features = ["wasmtime"] }
+sc-allocator = { version = "23.0.0", path = "../../allocator" }
+sc-executor-common = { version = "0.29.0", path = "../common" }
+sp-runtime-interface = { version = "24.0.0", path = "../../../primitives/runtime-interface" }
+sp-wasm-interface = { path = "../../../primitives/wasm-interface", features = ["wasmtime"], version = "20.0.0" }
 
 # Here we include the rustix crate in the exactly same semver-compatible version as used by
 # wasmtime and enable its 'use-libc' flag.

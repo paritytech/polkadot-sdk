@@ -1,6 +1,6 @@
 [package]
 name = "sc-consensus-aura"
-version = "0.10.0-dev"
+version = "0.34.0"
 authors.workspace = true
 description = "Aura consensus algorithm for substrate"
 edition.workspace = true
@@ -21,23 +21,23 @@ codec = { package = "parity-scale-codec", version = "3.6.1" }
 futures = "0.3.21"
 log = "0.4.17"
 thiserror = "1.0"
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
-sc-block-builder = { path = "../../block-builder" }
-sc-client-api = { path = "../../api" }
-sc-consensus = { path = "../common" }
-sc-consensus-slots = { path = "../slots" }
-sc-telemetry = { path = "../../telemetry" }
-sp-api = { path = "../../../primitives/api" }
-sp-application-crypto = { path = "../../../primitives/application-crypto" }
-sp-block-builder = { path = "../../../primitives/block-builder" }
-sp-blockchain = { path = "../../../primitives/blockchain" }
-sp-consensus = { path = "../../../primitives/consensus/common" }
-sp-consensus-aura = { path = "../../../primitives/consensus/aura" }
-sp-consensus-slots = { path = "../../../primitives/consensus/slots" }
-sp-core = { path = "../../../primitives/core" }
-sp-inherents = { path = "../../../primitives/inherents" }
-sp-keystore = { path = "../../../primitives/keystore" }
-sp-runtime = { path = "../../../primitives/runtime" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus", version = "0.17.0" }
+sc-block-builder = { version = "0.33.0", path = "../../block-builder" }
+sc-client-api = { version = "28.0.0", path = "../../api" }
+sc-consensus = { version = "0.33.0", path = "../common" }
+sc-consensus-slots = { version = "0.33.0", path = "../slots" }
+sc-telemetry = { version = "15.0.0", path = "../../telemetry" }
+sp-api = { version = "26.0.0", path = "../../../primitives/api" }
+sp-application-crypto = { version = "30.0.0", path = "../../../primitives/application-crypto" }
+sp-block-builder = { version = "26.0.0", path = "../../../primitives/block-builder" }
+sp-blockchain = { version = "28.0.0", path = "../../../primitives/blockchain" }
+sp-consensus = { version = "0.32.0", path = "../../../primitives/consensus/common" }
+sp-consensus-aura = { version = "0.32.0", path = "../../../primitives/consensus/aura" }
+sp-consensus-slots = { version = "0.32.0", path = "../../../primitives/consensus/slots" }
+sp-core = { version = "28.0.0", path = "../../../primitives/core" }
+sp-inherents = { version = "26.0.0", path = "../../../primitives/inherents" }
+sp-keystore = { version = "0.34.0", path = "../../../primitives/keystore" }
+sp-runtime = { version = "31.0.0", path = "../../../primitives/runtime" }
 
 [dev-dependencies]
 parking_lot = "0.12.1"

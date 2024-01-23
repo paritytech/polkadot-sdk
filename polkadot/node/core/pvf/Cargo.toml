@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-node-core-pvf"
 description = "Polkadot crate that implements the PVF validation host. Responsible for coordinating preparation and execution of PVFs."
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -16,7 +16,7 @@ blake3 = "1.5"
 cfg-if = "1.0"
 futures = "0.3.21"
 futures-timer = "3.0.2"
-gum = { package = "tracing-gum", path = "../../gum" }
+gum = { package = "tracing-gum", path = "../../gum", version = "7.0.0" }
 is_executable = "1.0.1"
 libc = "0.2.139"
 pin-project = "1.0.9"
@@ -27,20 +27,18 @@ thiserror = "1.0.31"
 tokio = { version = "1.24.2", features = ["fs", "process"] }
 
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
-
-polkadot-parachain-primitives = { path = "../../../parachain" }
-polkadot-core-primitives = { path = "../../../core-primitives" }
-polkadot-node-core-pvf-common = { path = "common" }
-polkadot-node-metrics = { path = "../../metrics" }
-polkadot-node-primitives = { path = "../../primitives" }
-polkadot-node-subsystem = { path = "../../subsystem" }
-polkadot-primitives = { path = "../../../primitives" }
-
-sp-core = { path = "../../../../substrate/primitives/core" }
-sp-wasm-interface = { path = "../../../../substrate/primitives/wasm-interface" }
-sp-maybe-compressed-blob = { path = "../../../../substrate/primitives/maybe-compressed-blob" }
-polkadot-node-core-pvf-prepare-worker = { path = "prepare-worker", optional = true }
-polkadot-node-core-pvf-execute-worker = { path = "execute-worker", optional = true }
+polkadot-parachain-primitives = { version = "6.0.0", path = "../../../parachain" }
+polkadot-core-primitives = { version = "7.0.0", path = "../../../core-primitives" }
+polkadot-node-core-pvf-common = { version = "7.0.0", path = "common" }
+polkadot-node-metrics = { version = "7.0.0", path = "../../metrics" }
+polkadot-node-primitives = { version = "7.0.0", path = "../../primitives" }
+polkadot-node-subsystem = { version = "7.0.0", path = "../../subsystem" }
+polkadot-primitives = { version = "7.0.0", path = "../../../primitives" }
+sp-core = { version = "28.0.0", path = "../../../../substrate/primitives/core" }
+sp-wasm-interface = { version = "20.0.0", path = "../../../../substrate/primitives/wasm-interface" }
+sp-maybe-compressed-blob = { version = "11.0.0", path = "../../../../substrate/primitives/maybe-compressed-blob" }
+polkadot-node-core-pvf-prepare-worker = { path = "prepare-worker", optional = true, version = "7.0.0" }
+polkadot-node-core-pvf-execute-worker = { path = "execute-worker", optional = true, version = "7.0.0" }
 
 [dev-dependencies]
 assert_matches = "1.4.0"
@@ -50,7 +48,7 @@ hex-literal = "0.4.1"
 polkadot-node-core-pvf-common = { path = "common", features = ["test-utils"] }
 # For benches and integration tests, depend on ourselves with the test-utils
 # feature.
-polkadot-node-core-pvf = { path = ".", features = ["test-utils"] }
+polkadot-node-core-pvf = { path = "", features = ["test-utils"] }
 rococo-runtime = { path = "../../../runtime/rococo" }
 
 adder = { package = "test-parachain-adder", path = "../../../parachain/test-parachains/adder" }

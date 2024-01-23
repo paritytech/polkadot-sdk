@@ -1,6 +1,6 @@
 [package]
 name = "try-runtime-cli"
-version = "0.10.0-dev"
+version = "0.38.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -15,27 +15,27 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-remote-externalities = { package = "frame-remote-externalities", path = "../../remote-externalities" }
-sc-cli = { path = "../../../../client/cli" }
-sc-executor = { path = "../../../../client/executor" }
-sp-consensus-aura = { path = "../../../../primitives/consensus/aura" }
-sp-consensus-babe = { path = "../../../../primitives/consensus/babe" }
-sp-core = { path = "../../../../primitives/core" }
-sp-externalities = { path = "../../../../primitives/externalities" }
-sp-inherents = { path = "../../../../primitives/inherents" }
-sp-io = { path = "../../../../primitives/io" }
-sp-keystore = { path = "../../../../primitives/keystore" }
-sp-runtime = { path = "../../../../primitives/runtime" }
-sp-rpc = { path = "../../../../primitives/rpc" }
-sp-state-machine = { path = "../../../../primitives/state-machine" }
-sp-timestamp = { path = "../../../../primitives/timestamp" }
-sp-transaction-storage-proof = { path = "../../../../primitives/transaction-storage-proof" }
-sp-version = { path = "../../../../primitives/version" }
-sp-debug-derive = { path = "../../../../primitives/debug-derive" }
-sp-api = { path = "../../../../primitives/api" }
-sp-weights = { path = "../../../../primitives/weights" }
-frame-try-runtime = { path = "../../../../frame/try-runtime", optional = true }
-substrate-rpc-client = { path = "../../rpc/client" }
+remote-externalities = { package = "frame-remote-externalities", path = "../../remote-externalities", version = "0.35.0" }
+sc-cli = { version = "0.36.0", path = "../../../../client/cli" }
+sc-executor = { version = "0.32.0", path = "../../../../client/executor" }
+sp-consensus-aura = { version = "0.32.0", path = "../../../../primitives/consensus/aura" }
+sp-consensus-babe = { version = "0.32.0", path = "../../../../primitives/consensus/babe" }
+sp-core = { version = "28.0.0", path = "../../../../primitives/core" }
+sp-externalities = { version = "0.25.0", path = "../../../../primitives/externalities" }
+sp-inherents = { version = "26.0.0", path = "../../../../primitives/inherents" }
+sp-io = { version = "30.0.0", path = "../../../../primitives/io" }
+sp-keystore = { version = "0.34.0", path = "../../../../primitives/keystore" }
+sp-runtime = { version = "31.0.0", path = "../../../../primitives/runtime" }
+sp-rpc = { version = "26.0.0", path = "../../../../primitives/rpc" }
+sp-state-machine = { version = "0.35.0", path = "../../../../primitives/state-machine" }
+sp-timestamp = { version = "26.0.0", path = "../../../../primitives/timestamp" }
+sp-transaction-storage-proof = { version = "26.0.0", path = "../../../../primitives/transaction-storage-proof" }
+sp-version = { version = "29.0.0", path = "../../../../primitives/version" }
+sp-debug-derive = { version = "14.0.0", path = "../../../../primitives/debug-derive" }
+sp-api = { version = "26.0.0", path = "../../../../primitives/api" }
+sp-weights = { version = "27.0.0", path = "../../../../primitives/weights" }
+frame-try-runtime = { path = "../../../../frame/try-runtime", optional = true, version = "0.34.0" }
+substrate-rpc-client = { version = "0.33.0", path = "../../rpc/client" }
 
 async-trait = "0.1.74"
 clap = { version = "4.4.14", features = ["derive"] }
@@ -59,5 +59,4 @@ try-runtime = [
 	"frame-try-runtime/try-runtime",
 	"sp-debug-derive/force-debug",
 	"sp-runtime/try-runtime",
-	"substrate-cli-test-utils/try-runtime",
 ]

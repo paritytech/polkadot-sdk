@@ -1,6 +1,6 @@
 [package]
 name = "pallet-nicks"
-version = "4.0.0-dev"
+version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -18,11 +18,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-frame-support = { path = "../support", default-features = false }
-frame-system = { path = "../system", default-features = false }
-sp-io = { path = "../../primitives/io", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
+frame-support = { path = "../support", default-features = false, version = "28.0.0" }
+frame-system = { path = "../system", default-features = false, version = "28.0.0" }
+sp-io = { path = "../../primitives/io", default-features = false, version = "30.0.0" }
+sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "31.0.0" }
+sp-std = { path = "../../primitives/std", default-features = false, version = "14.0.0" }
 
 [dev-dependencies]
 pallet-balances = { path = "../balances" }
@@ -34,9 +34,7 @@ std = [
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
-	"pallet-balances/std",
 	"scale-info/std",
-	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
@@ -44,6 +42,5 @@ std = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
 	"sp-runtime/try-runtime",
 ]

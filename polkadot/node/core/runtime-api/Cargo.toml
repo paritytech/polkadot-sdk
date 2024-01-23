@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-node-core-runtime-api"
-version = "1.0.0"
+version = "7.0.0"
 description = "Wrapper around the parachain-related runtime APIs"
 authors.workspace = true
 edition.workspace = true
@@ -11,15 +11,13 @@ workspace = true
 
 [dependencies]
 futures = "0.3.21"
-gum = { package = "tracing-gum", path = "../../gum" }
+gum = { package = "tracing-gum", path = "../../gum", version = "7.0.0" }
 schnellru = "0.2.1"
-
-sp-consensus-babe = { path = "../../../../substrate/primitives/consensus/babe" }
-
-polkadot-primitives = { path = "../../../primitives" }
-polkadot-node-metrics = { path = "../../metrics" }
-polkadot-node-subsystem = { path = "../../subsystem" }
-polkadot-node-subsystem-types = { path = "../../subsystem-types" }
+sp-consensus-babe = { version = "0.32.0", path = "../../../../substrate/primitives/consensus/babe" }
+polkadot-primitives = { version = "7.0.0", path = "../../../primitives" }
+polkadot-node-metrics = { version = "7.0.0", path = "../../metrics" }
+polkadot-node-subsystem = { version = "7.0.0", path = "../../subsystem" }
+polkadot-node-subsystem-types = { version = "7.0.0", path = "../../subsystem-types" }
 
 [dev-dependencies]
 sp-api = { path = "../../../../substrate/primitives/api" }

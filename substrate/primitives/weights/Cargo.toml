@@ -1,6 +1,6 @@
 [package]
 name = "sp-weights"
-version = "20.0.0"
+version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -21,9 +21,9 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.195", default-features = false, optional = true, features = ["alloc", "derive"] }
 smallvec = "1.11.0"
-sp-arithmetic = { path = "../arithmetic", default-features = false }
-sp-debug-derive = { path = "../debug-derive", default-features = false }
-sp-std = { path = "../std", default-features = false }
+sp-arithmetic = { path = "../arithmetic", default-features = false, version = "23.0.0" }
+sp-debug-derive = { path = "../debug-derive", default-features = false, version = "14.0.0" }
+sp-std = { path = "../std", default-features = false, version = "14.0.0" }
 schemars = { version = "0.8.3", default-features = false, optional = true }
 
 [features]

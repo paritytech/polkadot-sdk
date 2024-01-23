@@ -1,6 +1,6 @@
 [package]
 name = "tracing-gum"
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,5 +12,5 @@ workspace = true
 [dependencies]
 coarsetime = "0.1.22"
 tracing = "0.1.35"
-gum-proc-macro = { package = "tracing-gum-proc-macro", path = "proc-macro" }
-polkadot-primitives = { path = "../../primitives", features = ["std"] }
+gum-proc-macro = { package = "tracing-gum-proc-macro", path = "proc-macro", version = "5.0.0" }
+polkadot-primitives = { path = "../../primitives", features = ["std"], version = "7.0.0" }

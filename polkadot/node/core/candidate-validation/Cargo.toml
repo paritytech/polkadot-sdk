@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-node-core-candidate-validation"
 description = "Polkadot crate that implements the Candidate Validation subsystem. Handles requests to validate candidates according to a PVF."
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -13,21 +13,20 @@ workspace = true
 async-trait = "0.1.74"
 futures = "0.3.21"
 futures-timer = "3.0.2"
-gum = { package = "tracing-gum", path = "../../gum" }
+gum = { package = "tracing-gum", path = "../../gum", version = "7.0.0" }
 
-sp-maybe-compressed-blob = { package = "sp-maybe-compressed-blob", path = "../../../../substrate/primitives/maybe-compressed-blob" }
+sp-maybe-compressed-blob = { package = "sp-maybe-compressed-blob", path = "../../../../substrate/primitives/maybe-compressed-blob", version = "11.0.0" }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["bit-vec", "derive"] }
-
-polkadot-primitives = { path = "../../../primitives" }
-polkadot-parachain-primitives = { path = "../../../parachain" }
-polkadot-node-primitives = { path = "../../primitives" }
-polkadot-node-subsystem = { path = "../../subsystem" }
-polkadot-node-subsystem-util = { path = "../../subsystem-util" }
-polkadot-node-metrics = { path = "../../metrics" }
-polkadot-overseer = { path = "../../overseer" }
+polkadot-primitives = { version = "7.0.0", path = "../../../primitives" }
+polkadot-parachain-primitives = { version = "6.0.0", path = "../../../parachain" }
+polkadot-node-primitives = { version = "7.0.0", path = "../../primitives" }
+polkadot-node-subsystem = { version = "7.0.0", path = "../../subsystem" }
+polkadot-node-subsystem-util = { version = "7.0.0", path = "../../subsystem-util" }
+polkadot-node-metrics = { version = "7.0.0", path = "../../metrics" }
+polkadot-overseer = { version = "7.0.0", path = "../../overseer" }
 
 [target.'cfg(not(any(target_os = "android", target_os = "unknown")))'.dependencies]
-polkadot-node-core-pvf = { path = "../pvf" }
+polkadot-node-core-pvf = { version = "7.0.0", path = "../pvf" }
 
 [dev-dependencies]
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }

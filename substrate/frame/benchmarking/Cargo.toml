@@ -1,6 +1,6 @@
 [package]
 name = "frame-benchmarking"
-version = "4.0.0-dev"
+version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -22,17 +22,17 @@ log = { version = "0.4.17", default-features = false }
 paste = "1.0"
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.195", optional = true }
-frame-support = { path = "../support", default-features = false }
-frame-support-procedural = { path = "../support/procedural", default-features = false }
-frame-system = { path = "../system", default-features = false }
-sp-api = { path = "../../primitives/api", default-features = false }
-sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false }
-sp-core = { path = "../../primitives/core", default-features = false }
-sp-io = { path = "../../primitives/io", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-runtime-interface = { path = "../../primitives/runtime-interface", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
-sp-storage = { path = "../../primitives/storage", default-features = false }
+frame-support = { path = "../support", default-features = false, version = "28.0.0" }
+frame-support-procedural = { path = "../support/procedural", default-features = false, version = "23.0.0" }
+frame-system = { path = "../system", default-features = false, version = "28.0.0" }
+sp-api = { path = "../../primitives/api", default-features = false, version = "26.0.0" }
+sp-application-crypto = { path = "../../primitives/application-crypto", default-features = false, version = "30.0.0" }
+sp-core = { path = "../../primitives/core", default-features = false, version = "28.0.0" }
+sp-io = { path = "../../primitives/io", default-features = false, version = "30.0.0" }
+sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "31.0.0" }
+sp-runtime-interface = { path = "../../primitives/runtime-interface", default-features = false, version = "24.0.0" }
+sp-std = { path = "../../primitives/std", default-features = false, version = "14.0.0" }
+sp-storage = { path = "../../primitives/storage", default-features = false, version = "19.0.0" }
 static_assertions = "1.1.0"
 
 [dev-dependencies]
@@ -55,7 +55,6 @@ std = [
 	"sp-application-crypto/std",
 	"sp-core/std",
 	"sp-io/std",
-	"sp-keystore/std",
 	"sp-runtime-interface/std",
 	"sp-runtime/std",
 	"sp-std/std",

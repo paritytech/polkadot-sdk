@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-dispute-distribution"
-version = "1.0.0"
+version = "7.0.0"
 description = "Polkadot Dispute Distribution subsystem, which ensures all concerned validators are aware of a dispute and have the relevant votes."
 authors.workspace = true
 edition.workspace = true
@@ -12,18 +12,18 @@ workspace = true
 [dependencies]
 futures = "0.3.21"
 futures-timer = "3.0.2"
-gum = { package = "tracing-gum", path = "../../gum" }
+gum = { package = "tracing-gum", path = "../../gum", version = "7.0.0" }
 derive_more = "0.99.17"
 parity-scale-codec = { version = "3.6.1", features = ["std"] }
-polkadot-primitives = { path = "../../../primitives" }
-polkadot-erasure-coding = { path = "../../../erasure-coding" }
-polkadot-node-subsystem = { path = "../../subsystem" }
-polkadot-node-network-protocol = { path = "../protocol" }
-polkadot-node-subsystem-util = { path = "../../subsystem-util" }
-polkadot-node-primitives = { path = "../../primitives" }
-sc-network = { path = "../../../../substrate/client/network" }
-sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto" }
-sp-keystore = { path = "../../../../substrate/primitives/keystore" }
+polkadot-primitives = { version = "7.0.0", path = "../../../primitives" }
+polkadot-erasure-coding = { version = "7.0.0", path = "../../../erasure-coding" }
+polkadot-node-subsystem = { version = "7.0.0", path = "../../subsystem" }
+polkadot-node-network-protocol = { version = "7.0.0", path = "../protocol" }
+polkadot-node-subsystem-util = { version = "7.0.0", path = "../../subsystem-util" }
+polkadot-node-primitives = { version = "7.0.0", path = "../../primitives" }
+sc-network = { version = "0.34.0", path = "../../../../substrate/client/network" }
+sp-application-crypto = { version = "30.0.0", path = "../../../../substrate/primitives/application-crypto" }
+sp-keystore = { version = "0.34.0", path = "../../../../substrate/primitives/keystore" }
 thiserror = "1.0.48"
 fatality = "0.0.6"
 schnellru = "0.2.1"

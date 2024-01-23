@@ -1,18 +1,19 @@
 [package]
 name = "polkadot-primitives-test-helpers"
 publish = false
-version = "1.0.0"
+version = "0.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "polkadot-primitives-test-helpers"
 
 [lints]
 workspace = true
 
 [dependencies]
-sp-keyring = { path = "../../../substrate/primitives/keyring" }
-sp-application-crypto = { package = "sp-application-crypto", path = "../../../substrate/primitives/application-crypto", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime" }
-sp-core = { path = "../../../substrate/primitives/core", features = ["std"] }
-polkadot-primitives = { path = ".." }
+sp-keyring = { version = "31.0.0", path = "../../../substrate/primitives/keyring" }
+sp-application-crypto = { package = "sp-application-crypto", path = "../../../substrate/primitives/application-crypto", default-features = false, version = "30.0.0" }
+sp-runtime = { version = "31.0.0", path = "../../../substrate/primitives/runtime" }
+sp-core = { path = "../../../substrate/primitives/core", features = ["std"], version = "28.0.0" }
+polkadot-primitives = { version = "7.0.0", path = ".." }
 rand = "0.8.5"

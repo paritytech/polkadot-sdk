@@ -1,6 +1,6 @@
 [package]
 name = "node-runtime-generate-bags"
-version = "3.0.0"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -13,8 +13,8 @@ publish = false
 workspace = true
 
 [dependencies]
-kitchensink-runtime = { path = "../../../../bin/node/runtime" }
-generate-bags = { path = ".." }
+kitchensink-runtime = { version = "0.1.0", path = "../../../../bin/node/runtime" }
+generate-bags = { version = "28.0.0", path = ".." }
 
 # third-party
 clap = { version = "4.4.14", features = ["derive"] }

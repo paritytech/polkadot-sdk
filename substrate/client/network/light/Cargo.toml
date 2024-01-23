@@ -1,7 +1,7 @@
 [package]
 description = "Substrate light network protocol"
 name = "sc-network-light"
-version = "0.10.0-dev"
+version = "0.33.0"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 authors.workspace = true
 edition.workspace = true
@@ -28,9 +28,9 @@ futures = "0.3.21"
 libp2p-identity = { version = "0.1.3", features = ["peerid"] }
 log = "0.4.16"
 prost = "0.11"
-sp-blockchain = { path = "../../../primitives/blockchain" }
-sc-client-api = { path = "../../api" }
-sc-network = { path = ".." }
-sp-core = { path = "../../../primitives/core" }
-sp-runtime = { path = "../../../primitives/runtime" }
+sp-blockchain = { version = "28.0.0", path = "../../../primitives/blockchain" }
+sc-client-api = { version = "28.0.0", path = "../../api" }
+sc-network = { version = "0.34.0", path = ".." }
+sp-core = { version = "28.0.0", path = "../../../primitives/core" }
+sp-runtime = { version = "31.0.0", path = "../../../primitives/runtime" }
 thiserror = "1.0"

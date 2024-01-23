@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-node-core-pvf-prepare-worker"
 description = "Polkadot crate that contains the logic for preparing PVFs. Used by the polkadot-prepare-worker binary."
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,22 +12,20 @@ workspace = true
 [dependencies]
 blake3 = "1.5"
 cfg-if = "1.0"
-gum = { package = "tracing-gum", path = "../../../gum" }
+gum = { package = "tracing-gum", path = "../../../gum", version = "7.0.0" }
 libc = "0.2.139"
 rayon = "1.5.1"
-tracking-allocator = { package = "staging-tracking-allocator", path = "../../../tracking-allocator" }
+tracking-allocator = { package = "staging-tracking-allocator", path = "../../../tracking-allocator", version = "2.0.0" }
 tikv-jemalloc-ctl = { version = "0.5.0", optional = true }
 tikv-jemallocator = { version = "0.5.0", optional = true }
 os_pipe = "1.1.4"
 nix = { version = "0.27.1", features = ["process", "resource"] }
 
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
-
-polkadot-node-core-pvf-common = { path = "../common" }
-polkadot-primitives = { path = "../../../../primitives" }
-
-sc-executor-common = { path = "../../../../../substrate/client/executor/common" }
-sc-executor-wasmtime = { path = "../../../../../substrate/client/executor/wasmtime" }
+polkadot-node-core-pvf-common = { version = "7.0.0", path = "../common" }
+polkadot-primitives = { version = "7.0.0", path = "../../../../primitives" }
+sc-executor-common = { version = "0.29.0", path = "../../../../../substrate/client/executor/common" }
+sc-executor-wasmtime = { version = "0.29.0", path = "../../../../../substrate/client/executor/wasmtime" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tikv-jemallocator = "0.5.0"

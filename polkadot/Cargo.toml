@@ -18,7 +18,7 @@ rust-version = "1.64.0"
 readme = "README.md"
 authors.workspace = true
 edition.workspace = true
-version = "1.6.0"
+version = "6.0.0"
 default-run = "polkadot"
 
 [lints]
@@ -29,14 +29,12 @@ color-eyre = { version = "0.6.1", default-features = false }
 tikv-jemallocator = { version = "0.5.0", optional = true, features = ["unprefixed_malloc_on_supported_platforms"] }
 
 # Crates in our workspace, defined as dependencies so we can pass them feature flags.
-polkadot-cli = { path = "cli", features = ["rococo-native", "westend-native"] }
-polkadot-node-core-pvf = { path = "node/core/pvf" }
-polkadot-node-core-pvf-prepare-worker = { path = "node/core/pvf/prepare-worker" }
-polkadot-overseer = { path = "node/overseer" }
-
-# Needed for worker binaries.
-polkadot-node-core-pvf-common = { path = "node/core/pvf/common" }
-polkadot-node-core-pvf-execute-worker = { path = "node/core/pvf/execute-worker" }
+polkadot-cli = { path = "cli", features = ["rococo-native", "westend-native"], version = "7.0.0" }
+polkadot-node-core-pvf = { version = "7.0.0", path = "node/core/pvf" }
+polkadot-node-core-pvf-prepare-worker = { version = "7.0.0", path = "node/core/pvf/prepare-worker" }
+polkadot-overseer = { version = "7.0.0", path = "node/overseer" }
+polkadot-node-core-pvf-common = { version = "7.0.0", path = "node/core/pvf/common" }
+polkadot-node-core-pvf-execute-worker = { version = "7.0.0", path = "node/core/pvf/execute-worker" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tikv-jemallocator = { version = "0.5.0", features = ["unprefixed_malloc_on_supported_platforms"] }
@@ -46,11 +44,11 @@ assert_cmd = "2.0.4"
 nix = { version = "0.26.1", features = ["signal"] }
 tempfile = "3.2.0"
 tokio = "1.24.2"
-substrate-rpc-client = { path = "../substrate/utils/frame/rpc/client/" }
+substrate-rpc-client = { path = "../substrate/utils/frame/rpc/client" }
 polkadot-core-primitives = { path = "core-primitives" }
 
 [build-dependencies]
-substrate-build-script-utils = { path = "../substrate/utils/build-script-utils" }
+substrate-build-script-utils = { version = "11.0.0", path = "../substrate/utils/build-script-utils" }
 
 [badges]
 maintenance = { status = "actively-developed" }

@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-network-bridge"
-version = "1.0.0"
+version = "7.0.0"
 description = "The Network Bridge Subsystem — protocol multiplexer for Polkadot."
 authors.workspace = true
 edition.workspace = true
@@ -13,15 +13,15 @@ workspace = true
 always-assert = "0.1"
 async-trait = "0.1.74"
 futures = "0.3.21"
-gum = { package = "tracing-gum", path = "../../gum" }
-polkadot-primitives = { path = "../../../primitives" }
+gum = { package = "tracing-gum", path = "../../gum", version = "7.0.0" }
+polkadot-primitives = { version = "7.0.0", path = "../../../primitives" }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
-sc-network = { path = "../../../../substrate/client/network" }
-sp-consensus = { path = "../../../../substrate/primitives/consensus/common" }
-polkadot-node-metrics = { path = "../../metrics" }
-polkadot-node-network-protocol = { path = "../protocol" }
-polkadot-node-subsystem = { path = "../../subsystem" }
-polkadot-overseer = { path = "../../overseer" }
+sc-network = { version = "0.34.0", path = "../../../../substrate/client/network" }
+sp-consensus = { version = "0.32.0", path = "../../../../substrate/primitives/consensus/common" }
+polkadot-node-metrics = { version = "7.0.0", path = "../../metrics" }
+polkadot-node-network-protocol = { version = "7.0.0", path = "../protocol" }
+polkadot-node-subsystem = { version = "7.0.0", path = "../../subsystem" }
+polkadot-overseer = { version = "7.0.0", path = "../../overseer" }
 parking_lot = "0.12.1"
 bytes = "1"
 fatality = "0.0.6"

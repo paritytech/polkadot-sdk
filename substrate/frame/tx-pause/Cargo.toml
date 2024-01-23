@@ -1,6 +1,6 @@
 [package]
 name = "pallet-tx-pause"
-version = "4.0.0-dev"
+version = "9.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -17,15 +17,15 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false, features = ["derive"] }
 docify = "0.2.6"
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
-frame-support = { path = "../support", default-features = false }
-frame-system = { path = "../system", default-features = false }
+frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true, version = "28.0.0" }
+frame-support = { path = "../support", default-features = false, version = "28.0.0" }
+frame-system = { path = "../system", default-features = false, version = "28.0.0" }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
-pallet-balances = { path = "../balances", default-features = false, optional = true }
-pallet-utility = { path = "../utility", default-features = false, optional = true }
-pallet-proxy = { path = "../proxy", default-features = false, optional = true }
+sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "31.0.0" }
+sp-std = { path = "../../primitives/std", default-features = false, version = "14.0.0" }
+pallet-balances = { path = "../balances", default-features = false, optional = true, version = "28.0.0" }
+pallet-utility = { path = "../utility", default-features = false, optional = true, version = "28.0.0" }
+pallet-proxy = { path = "../proxy", default-features = false, optional = true, version = "28.0.0" }
 
 [dev-dependencies]
 sp-core = { path = "../../primitives/core" }
@@ -45,8 +45,6 @@ std = [
 	"pallet-proxy?/std",
 	"pallet-utility?/std",
 	"scale-info/std",
-	"sp-core/std",
-	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
 ]

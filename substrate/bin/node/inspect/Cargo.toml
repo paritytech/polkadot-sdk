@@ -1,6 +1,6 @@
 [package]
 name = "staging-node-inspect"
-version = "0.9.0-dev"
+version = "0.12.0"
 authors.workspace = true
 description = "Substrate node block inspection tool."
 edition.workspace = true
@@ -18,14 +18,14 @@ targets = ["x86_64-unknown-linux-gnu"]
 clap = { version = "4.4.14", features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 thiserror = "1.0"
-sc-cli = { path = "../../../client/cli" }
-sc-client-api = { path = "../../../client/api" }
-sc-service = { path = "../../../client/service", default-features = false }
-sp-blockchain = { path = "../../../primitives/blockchain" }
-sp-core = { path = "../../../primitives/core" }
-sp-io = { path = "../../../primitives/io" }
-sp-runtime = { path = "../../../primitives/runtime" }
-sp-statement-store = { path = "../../../primitives/statement-store" }
+sc-cli = { version = "0.36.0", path = "../../../client/cli" }
+sc-client-api = { version = "28.0.0", path = "../../../client/api" }
+sc-service = { path = "../../../client/service", default-features = false, version = "0.35.0" }
+sp-blockchain = { version = "28.0.0", path = "../../../primitives/blockchain" }
+sp-core = { version = "28.0.0", path = "../../../primitives/core" }
+sp-io = { version = "30.0.0", path = "../../../primitives/io" }
+sp-runtime = { version = "31.0.0", path = "../../../primitives/runtime" }
+sp-statement-store = { version = "10.0.0", path = "../../../primitives/statement-store" }
 
 [features]
 runtime-benchmarks = [

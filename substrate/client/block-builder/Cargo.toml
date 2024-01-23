@@ -1,6 +1,6 @@
 [package]
 name = "sc-block-builder"
-version = "0.10.0-dev"
+version = "0.33.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -19,13 +19,13 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.6.1", features = [
 	"derive",
 ] }
-sp-api = { path = "../../primitives/api" }
-sp-block-builder = { path = "../../primitives/block-builder" }
-sp-blockchain = { path = "../../primitives/blockchain" }
-sp-core = { path = "../../primitives/core" }
-sp-trie = { path = "../../primitives/trie" }
-sp-inherents = { path = "../../primitives/inherents" }
-sp-runtime = { path = "../../primitives/runtime" }
+sp-api = { version = "26.0.0", path = "../../primitives/api" }
+sp-block-builder = { version = "26.0.0", path = "../../primitives/block-builder" }
+sp-blockchain = { version = "28.0.0", path = "../../primitives/blockchain" }
+sp-core = { version = "28.0.0", path = "../../primitives/core" }
+sp-trie = { version = "29.0.0", path = "../../primitives/trie" }
+sp-inherents = { version = "26.0.0", path = "../../primitives/inherents" }
+sp-runtime = { version = "31.0.0", path = "../../primitives/runtime" }
 
 [dev-dependencies]
 sp-state-machine = { path = "../../primitives/state-machine" }

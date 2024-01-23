@@ -3,7 +3,7 @@ name = "test-parachain-undying"
 description = "Test parachain for zombienet integration tests"
 build = "build.rs"
 publish = false
-version = "1.0.0"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,18 +12,18 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-parachain = { package = "polkadot-parachain-primitives", path = "../..", default-features = false, features = ["wasm-api"] }
+parachain = { package = "polkadot-parachain-primitives", path = "../..", default-features = false, features = ["wasm-api"], version = "6.0.0" }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
-sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
+sp-std = { path = "../../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 dlmalloc = { version = "0.2.4", features = ["global"] }
 log = { version = "0.4.17", default-features = false }
 
 # We need to make sure the global allocator is disabled until we have support of full substrate externalities
-sp-io = { path = "../../../../substrate/primitives/io", default-features = false, features = ["disable_allocator"] }
+sp-io = { path = "../../../../substrate/primitives/io", default-features = false, features = ["disable_allocator"], version = "30.0.0" }
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../../../substrate/utils/wasm-builder" }
+substrate-wasm-builder = { version = "17.0.0", path = "../../../../substrate/utils/wasm-builder" }
 
 [features]
 default = ["std"]

@@ -1,6 +1,6 @@
 [package]
 name = "collectives-westend-emulated-chain"
-version = "0.0.0"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -14,15 +14,13 @@ workspace = true
 serde_json = "1.0.111"
 
 # Substrate
-sp-core = { path = "../../../../../../../../substrate/primitives/core", default-features = false }
-sp-runtime = { path = "../../../../../../../../substrate/primitives/runtime", default-features = false }
-frame-support = { path = "../../../../../../../../substrate/frame/support", default-features = false }
-
-# Polakadot
-parachains-common = { path = "../../../../../../../parachains/common" }
+sp-core = { path = "../../../../../../../../substrate/primitives/core", default-features = false, version = "28.0.0" }
+sp-runtime = { path = "../../../../../../../../substrate/primitives/runtime", default-features = false, version = "31.0.0" }
+frame-support = { path = "../../../../../../../../substrate/frame/support", default-features = false, version = "28.0.0" }
+parachains-common = { version = "7.0.0", path = "../../../../../../common" }
 
 # Cumulus
-cumulus-primitives-core = { path = "../../../../../../../primitives/core", default-features = false }
-emulated-integration-tests-common = { path = "../../../../common", default-features = false }
-collectives-westend-runtime = { path = "../../../../../../runtimes/collectives/collectives-westend" }
-westend-emulated-chain = { path = "../../../relays/westend" }
+cumulus-primitives-core = { path = "../../../../../../../primitives/core", default-features = false, version = "0.7.0" }
+emulated-integration-tests-common = { path = "../../../../common", default-features = false, version = "3.0.0" }
+collectives-westend-runtime = { version = "3.0.0", path = "../../../../../../runtimes/collectives/collectives-westend" }
+westend-emulated-chain = { version = "0.1.0", path = "../../../relays/westend" }

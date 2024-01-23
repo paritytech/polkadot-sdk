@@ -1,6 +1,6 @@
 [package]
 name = "sp-keyring"
-version = "24.0.0"
+version = "31.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -18,11 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 strum = { version = "0.24.1", features = ["derive"], default-features = false }
-sp-core = { path = "../core" }
-sp-runtime = { path = "../runtime" }
+sp-core = { version = "28.0.0", path = "../core" }
+sp-runtime = { version = "31.0.0", path = "../runtime" }
 
 [features]
-# This feature adds Bandersnatch crypto primitives.
-# It should not be used in production since the implementation and interface may still
-# be subject to significant changes.
-bandersnatch-experimental = ["sp-core/bandersnatch-experimental"]

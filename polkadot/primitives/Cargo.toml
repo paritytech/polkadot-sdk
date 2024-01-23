@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-primitives"
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -16,21 +16,21 @@ parity-scale-codec = { version = "3.6.1", default-features = false, features = [
 scale-info = { version = "2.10.0", default-features = false, features = ["bit-vec", "derive", "serde"] }
 serde = { version = "1.0.195", default-features = false, features = ["alloc", "derive"] }
 
-application-crypto = { package = "sp-application-crypto", path = "../../substrate/primitives/application-crypto", default-features = false, features = ["serde"] }
-inherents = { package = "sp-inherents", path = "../../substrate/primitives/inherents", default-features = false }
-primitives = { package = "sp-core", path = "../../substrate/primitives/core", default-features = false }
-runtime_primitives = { package = "sp-runtime", path = "../../substrate/primitives/runtime", default-features = false }
-sp-api = { path = "../../substrate/primitives/api", default-features = false }
-sp-arithmetic = { path = "../../substrate/primitives/arithmetic", default-features = false, features = ["serde"] }
-sp-authority-discovery = { path = "../../substrate/primitives/authority-discovery", default-features = false, features = ["serde"] }
-sp-consensus-slots = { path = "../../substrate/primitives/consensus/slots", default-features = false, features = ["serde"] }
-sp-io = { path = "../../substrate/primitives/io", default-features = false }
-sp-keystore = { path = "../../substrate/primitives/keystore", optional = true }
-sp-staking = { path = "../../substrate/primitives/staking", default-features = false, features = ["serde"] }
-sp-std = { package = "sp-std", path = "../../substrate/primitives/std", default-features = false }
+application-crypto = { package = "sp-application-crypto", path = "../../substrate/primitives/application-crypto", default-features = false, features = ["serde"], version = "30.0.0" }
+inherents = { package = "sp-inherents", path = "../../substrate/primitives/inherents", default-features = false, version = "26.0.0" }
+primitives = { package = "sp-core", path = "../../substrate/primitives/core", default-features = false, version = "28.0.0" }
+runtime_primitives = { package = "sp-runtime", path = "../../substrate/primitives/runtime", default-features = false, version = "31.0.0" }
+sp-api = { path = "../../substrate/primitives/api", default-features = false, version = "26.0.0" }
+sp-arithmetic = { path = "../../substrate/primitives/arithmetic", default-features = false, features = ["serde"], version = "23.0.0" }
+sp-authority-discovery = { path = "../../substrate/primitives/authority-discovery", default-features = false, features = ["serde"], version = "26.0.0" }
+sp-consensus-slots = { path = "../../substrate/primitives/consensus/slots", default-features = false, features = ["serde"], version = "0.32.0" }
+sp-io = { path = "../../substrate/primitives/io", default-features = false, version = "30.0.0" }
+sp-keystore = { path = "../../substrate/primitives/keystore", optional = true, version = "0.34.0" }
+sp-staking = { path = "../../substrate/primitives/staking", default-features = false, features = ["serde"], version = "26.0.0" }
+sp-std = { package = "sp-std", path = "../../substrate/primitives/std", default-features = false, version = "14.0.0" }
 
-polkadot-core-primitives = { path = "../core-primitives", default-features = false }
-polkadot-parachain-primitives = { path = "../parachain", default-features = false }
+polkadot-core-primitives = { path = "../core-primitives", default-features = false, version = "7.0.0" }
+polkadot-parachain-primitives = { path = "../parachain", default-features = false, version = "6.0.0" }
 
 [features]
 default = ["std"]

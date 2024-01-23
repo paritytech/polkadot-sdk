@@ -1,6 +1,6 @@
 [package]
 name = "sp-runtime-interface-test-wasm"
-version = "2.0.0"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 build = "build.rs"
@@ -8,6 +8,7 @@ license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
 publish = false
+description = "sp-runtime-interface-test-wasm"
 
 [lints]
 workspace = true
@@ -17,13 +18,13 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 bytes = { version = "1.1.0", default-features = false }
-sp-core = { path = "../../core", default-features = false }
-sp-io = { path = "../../io", default-features = false }
-sp-runtime-interface = { path = "..", default-features = false }
-sp-std = { path = "../../std", default-features = false }
+sp-core = { path = "../../core", default-features = false, version = "28.0.0" }
+sp-io = { path = "../../io", default-features = false, version = "30.0.0" }
+sp-runtime-interface = { path = "..", default-features = false, version = "24.0.0" }
+sp-std = { path = "../../std", default-features = false, version = "14.0.0" }
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true }
+substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true, version = "17.0.0" }
 
 [features]
 default = ["std"]

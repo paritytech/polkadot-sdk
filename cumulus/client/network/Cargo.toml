@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-client-network"
-version = "0.1.0"
+version = "0.7.0"
 authors.workspace = true
 description = "Cumulus-specific networking protocol"
 edition.workspace = true
@@ -16,29 +16,21 @@ futures = "0.3.28"
 futures-timer = "3.0.2"
 parking_lot = "0.12.1"
 tracing = "0.1.37"
-
-# Substrate
-sc-client-api = { path = "../../../substrate/client/api" }
-sp-blockchain = { path = "../../../substrate/primitives/blockchain" }
-sp-consensus = { path = "../../../substrate/primitives/consensus/common" }
-sp-core = { path = "../../../substrate/primitives/core" }
-sp-runtime = { path = "../../../substrate/primitives/runtime" }
-sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
-
-# Polkadot
-polkadot-node-primitives = { path = "../../../polkadot/node/primitives" }
-polkadot-parachain-primitives = { path = "../../../polkadot/parachain" }
-polkadot-primitives = { path = "../../../polkadot/primitives" }
-
-# Cumulus
-cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
+sc-client-api = { version = "28.0.0", path = "../../../substrate/client/api" }
+sp-blockchain = { version = "28.0.0", path = "../../../substrate/primitives/blockchain" }
+sp-consensus = { version = "0.32.0", path = "../../../substrate/primitives/consensus/common" }
+sp-core = { version = "28.0.0", path = "../../../substrate/primitives/core" }
+sp-runtime = { version = "31.0.0", path = "../../../substrate/primitives/runtime" }
+sp-state-machine = { version = "0.35.0", path = "../../../substrate/primitives/state-machine" }
+polkadot-node-primitives = { version = "7.0.0", path = "../../../polkadot/node/primitives" }
+polkadot-parachain-primitives = { version = "6.0.0", path = "../../../polkadot/parachain" }
+polkadot-primitives = { version = "7.0.0", path = "../../../polkadot/primitives" }
+cumulus-relay-chain-interface = { version = "0.7.0", path = "../relay-chain-interface" }
 
 [dev-dependencies]
 portpicker = "0.1.1"
 tokio = { version = "1.32.0", features = ["macros"] }
 url = "2.4.0"
-
-# Substrate
 sc-cli = { path = "../../../substrate/client/cli" }
 sc-client-api = { path = "../../../substrate/client/api" }
 sp-consensus = { path = "../../../substrate/primitives/consensus/common" }
@@ -46,11 +38,7 @@ sp-core = { path = "../../../substrate/primitives/core" }
 sp-keyring = { path = "../../../substrate/primitives/keyring" }
 sp-keystore = { path = "../../../substrate/primitives/keystore" }
 substrate-test-utils = { path = "../../../substrate/test-utils" }
-
-# Polkadot
 polkadot-test-client = { path = "../../../polkadot/node/test/client" }
-
-# Cumulus
 cumulus-primitives-core = { path = "../../primitives/core" }
 cumulus-relay-chain-inprocess-interface = { path = "../relay-chain-inprocess-interface" }
 cumulus-test-service = { path = "../../test/service" }

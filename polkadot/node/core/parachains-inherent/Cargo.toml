@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-node-core-parachains-inherent"
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,11 +12,11 @@ workspace = true
 [dependencies]
 futures = "0.3.21"
 futures-timer = "3.0.2"
-gum = { package = "tracing-gum", path = "../../gum" }
+gum = { package = "tracing-gum", path = "../../gum", version = "7.0.0" }
 thiserror = "1.0.48"
 async-trait = "0.1.74"
-polkadot-node-subsystem = { path = "../../subsystem" }
-polkadot-overseer = { path = "../../overseer" }
-polkadot-primitives = { path = "../../../primitives" }
-sp-blockchain = { path = "../../../../substrate/primitives/blockchain" }
-sp-inherents = { path = "../../../../substrate/primitives/inherents" }
+polkadot-node-subsystem = { version = "7.0.0", path = "../../subsystem" }
+polkadot-overseer = { version = "7.0.0", path = "../../overseer" }
+polkadot-primitives = { version = "7.0.0", path = "../../../primitives" }
+sp-blockchain = { version = "28.0.0", path = "../../../../substrate/primitives/blockchain" }
+sp-inherents = { version = "26.0.0", path = "../../../../substrate/primitives/inherents" }

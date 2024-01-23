@@ -1,6 +1,6 @@
 [package]
 name = "pallet-alliance"
-version = "4.0.0-dev"
+version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -22,18 +22,18 @@ log = { version = "0.4.14", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
-sp-std = { path = "../../primitives/std", default-features = false }
-sp-core = { path = "../../primitives/core", default-features = false }
-sp-core-hashing = { path = "../../primitives/core/hashing", default-features = false, optional = true }
-sp-io = { path = "../../primitives/io", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
+sp-std = { path = "../../primitives/std", default-features = false, version = "14.0.0" }
+sp-core = { path = "../../primitives/core", default-features = false, version = "28.0.0" }
+sp-core-hashing = { path = "../../primitives/core/hashing", default-features = false, optional = true, version = "15.0.0" }
+sp-io = { path = "../../primitives/io", default-features = false, version = "30.0.0" }
+sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "31.0.0" }
 
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
-frame-support = { path = "../support", default-features = false }
-frame-system = { path = "../system", default-features = false }
+frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true, version = "28.0.0" }
+frame-support = { path = "../support", default-features = false, version = "28.0.0" }
+frame-system = { path = "../system", default-features = false, version = "28.0.0" }
 
-pallet-identity = { path = "../identity", default-features = false }
-pallet-collective = { path = "../collective", default-features = false, optional = true }
+pallet-identity = { path = "../identity", default-features = false, version = "28.0.0" }
+pallet-collective = { path = "../collective", default-features = false, optional = true, version = "28.0.0" }
 
 [dev-dependencies]
 array-bytes = "6.1"
@@ -49,7 +49,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"pallet-balances/std",
 	"pallet-collective?/std",
 	"pallet-identity/std",
 	"scale-info/std",
@@ -64,7 +63,6 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
 	"sp-core-hashing",
@@ -73,7 +71,6 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
 	"pallet-collective?/try-runtime",
 	"pallet-identity/try-runtime",
 	"sp-runtime/try-runtime",

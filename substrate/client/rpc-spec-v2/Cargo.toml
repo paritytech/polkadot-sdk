@@ -1,6 +1,6 @@
 [package]
 name = "sc-rpc-spec-v2"
-version = "0.10.0-dev"
+version = "0.34.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -17,18 +17,16 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 jsonrpsee = { version = "0.16.2", features = ["client-core", "macros", "server"] }
-# Internal chain structures for "chain_spec".
-sc-chain-spec = { path = "../chain-spec" }
-# Pool for submitting extrinsics required by "transaction"
-sc-transaction-pool-api = { path = "../transaction-pool/api" }
-sp-core = { path = "../../primitives/core" }
-sp-runtime = { path = "../../primitives/runtime" }
-sp-api = { path = "../../primitives/api" }
-sp-rpc = { path = "../../primitives/rpc" }
-sp-blockchain = { path = "../../primitives/blockchain" }
-sp-version = { path = "../../primitives/version" }
-sc-client-api = { path = "../api" }
-sc-utils = { path = "../utils" }
+sc-chain-spec = { version = "27.0.0", path = "../chain-spec" }
+sc-transaction-pool-api = { version = "28.0.0", path = "../transaction-pool/api" }
+sp-core = { version = "28.0.0", path = "../../primitives/core" }
+sp-runtime = { version = "31.0.0", path = "../../primitives/runtime" }
+sp-api = { version = "26.0.0", path = "../../primitives/api" }
+sp-rpc = { version = "26.0.0", path = "../../primitives/rpc" }
+sp-blockchain = { version = "28.0.0", path = "../../primitives/blockchain" }
+sp-version = { version = "29.0.0", path = "../../primitives/version" }
+sc-client-api = { version = "28.0.0", path = "../api" }
+sc-utils = { version = "14.0.0", path = "../utils" }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 thiserror = "1.0"
 serde = "1.0"

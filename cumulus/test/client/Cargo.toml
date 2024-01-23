@@ -4,43 +4,38 @@ version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 publish = false
+description = "cumulus-test-client"
 
 [lints]
 workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-
-# Substrate
-sc-service = { path = "../../../substrate/client/service" }
-sc-consensus = { path = "../../../substrate/client/consensus/common" }
-sc-block-builder = { path = "../../../substrate/client/block-builder" }
-sc-executor = { path = "../../../substrate/client/executor" }
-sc-executor-common = { path = "../../../substrate/client/executor/common" }
-substrate-test-client = { path = "../../../substrate/test-utils/client" }
-sp-runtime = { path = "../../../substrate/primitives/runtime" }
-sp-core = { path = "../../../substrate/primitives/core" }
-sp-api = { path = "../../../substrate/primitives/api" }
-sp-keyring = { path = "../../../substrate/primitives/keyring" }
-sp-blockchain = { path = "../../../substrate/primitives/blockchain" }
-sp-inherents = { path = "../../../substrate/primitives/inherents" }
-sp-io = { path = "../../../substrate/primitives/io" }
-sp-timestamp = { path = "../../../substrate/primitives/timestamp" }
-frame-system = { path = "../../../substrate/frame/system" }
-pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment" }
-pallet-balances = { path = "../../../substrate/frame/balances" }
-
-# Polkadot
-polkadot-primitives = { path = "../../../polkadot/primitives" }
-polkadot-parachain-primitives = { path = "../../../polkadot/parachain" }
-
-# Cumulus
-cumulus-test-runtime = { path = "../runtime" }
-cumulus-test-service = { path = "../service" }
-cumulus-test-relay-sproof-builder = { path = "../relay-sproof-builder" }
-cumulus-primitives-core = { path = "../../primitives/core" }
-cumulus-primitives-proof-size-hostfunction = { path = "../../primitives/proof-size-hostfunction" }
-cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent" }
+sc-service = { version = "0.35.0", path = "../../../substrate/client/service" }
+sc-consensus = { version = "0.33.0", path = "../../../substrate/client/consensus/common" }
+sc-block-builder = { version = "0.33.0", path = "../../../substrate/client/block-builder" }
+sc-executor = { version = "0.32.0", path = "../../../substrate/client/executor" }
+sc-executor-common = { version = "0.29.0", path = "../../../substrate/client/executor/common" }
+substrate-test-client = { version = "0.1.0", path = "../../../substrate/test-utils/client" }
+sp-runtime = { version = "31.0.0", path = "../../../substrate/primitives/runtime" }
+sp-core = { version = "28.0.0", path = "../../../substrate/primitives/core" }
+sp-api = { version = "26.0.0", path = "../../../substrate/primitives/api" }
+sp-keyring = { version = "31.0.0", path = "../../../substrate/primitives/keyring" }
+sp-blockchain = { version = "28.0.0", path = "../../../substrate/primitives/blockchain" }
+sp-inherents = { version = "26.0.0", path = "../../../substrate/primitives/inherents" }
+sp-io = { version = "30.0.0", path = "../../../substrate/primitives/io" }
+sp-timestamp = { version = "26.0.0", path = "../../../substrate/primitives/timestamp" }
+frame-system = { version = "28.0.0", path = "../../../substrate/frame/system" }
+pallet-transaction-payment = { version = "28.0.0", path = "../../../substrate/frame/transaction-payment" }
+pallet-balances = { version = "28.0.0", path = "../../../substrate/frame/balances" }
+polkadot-primitives = { version = "7.0.0", path = "../../../polkadot/primitives" }
+polkadot-parachain-primitives = { version = "6.0.0", path = "../../../polkadot/parachain" }
+cumulus-test-runtime = { version = "0.1.0", path = "../runtime" }
+cumulus-test-service = { version = "0.1.0", path = "../service" }
+cumulus-test-relay-sproof-builder = { version = "0.7.0", path = "../relay-sproof-builder" }
+cumulus-primitives-core = { version = "0.7.0", path = "../../primitives/core" }
+cumulus-primitives-proof-size-hostfunction = { version = "0.2.0", path = "../../primitives/proof-size-hostfunction" }
+cumulus-primitives-parachain-inherent = { version = "0.7.0", path = "../../primitives/parachain-inherent" }
 
 [features]
 runtime-benchmarks = [

@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-subsystem-bench"
 description = "Subsystem performance benchmark client"
-version = "1.0.0"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -16,41 +16,41 @@ path = "src/subsystem-bench.rs"
 doc = false
 
 [dependencies]
-polkadot-node-subsystem = { path = "../subsystem" }
-polkadot-node-subsystem-util = { path = "../subsystem-util" }
-polkadot-node-subsystem-types = { path = "../subsystem-types" }
-polkadot-node-primitives = { path = "../primitives" }
-polkadot-primitives = { path = "../../primitives" }
-polkadot-node-network-protocol = { path = "../network/protocol" }
-polkadot-availability-recovery = { path = "../network/availability-recovery", features = ["subsystem-benchmarks"] }
+polkadot-node-subsystem = { version = "7.0.0", path = "../subsystem" }
+polkadot-node-subsystem-util = { version = "7.0.0", path = "../subsystem-util" }
+polkadot-node-subsystem-types = { version = "7.0.0", path = "../subsystem-types" }
+polkadot-node-primitives = { version = "7.0.0", path = "../primitives" }
+polkadot-primitives = { version = "7.0.0", path = "../../primitives" }
+polkadot-node-network-protocol = { version = "7.0.0", path = "../network/protocol" }
+polkadot-availability-recovery = { path = "../network/availability-recovery", features = ["subsystem-benchmarks"], version = "7.0.0" }
 color-eyre = { version = "0.6.1", default-features = false }
-polkadot-overseer = { path = "../overseer" }
+polkadot-overseer = { version = "7.0.0", path = "../overseer" }
 colored = "2.0.4"
 assert_matches = "1.5"
 async-trait = "0.1.74"
-sp-keystore = { path = "../../../substrate/primitives/keystore" }
-sc-keystore = { path = "../../../substrate/client/keystore" }
-sp-core = { path = "../../../substrate/primitives/core" }
+sp-keystore = { version = "0.34.0", path = "../../../substrate/primitives/keystore" }
+sc-keystore = { version = "25.0.0", path = "../../../substrate/client/keystore" }
+sp-core = { version = "28.0.0", path = "../../../substrate/primitives/core" }
 clap = { version = "4.4.14", features = ["derive"] }
 futures = "0.3.21"
 futures-timer = "3.0.2"
-gum = { package = "tracing-gum", path = "../gum" }
-polkadot-erasure-coding = { package = "polkadot-erasure-coding", path = "../../erasure-coding" }
+gum = { package = "tracing-gum", path = "../gum", version = "7.0.0" }
+polkadot-erasure-coding = { package = "polkadot-erasure-coding", path = "../../erasure-coding", version = "7.0.0" }
 log = "0.4.17"
 env_logger = "0.9.0"
 rand = "0.8.5"
 parity-scale-codec = { version = "3.6.1", features = ["derive", "std"] }
 tokio = "1.24.2"
 clap-num = "1.0.2"
-polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
-sp-keyring = { path = "../../../substrate/primitives/keyring" }
-sp-application-crypto = { path = "../../../substrate/primitives/application-crypto" }
-sc-network = { path = "../../../substrate/client/network" }
-sc-service = { path = "../../../substrate/client/service" }
-polkadot-node-metrics = { path = "../metrics" }
+polkadot-node-subsystem-test-helpers = { version = "0.1.0", path = "../subsystem-test-helpers" }
+sp-keyring = { version = "31.0.0", path = "../../../substrate/primitives/keyring" }
+sp-application-crypto = { version = "30.0.0", path = "../../../substrate/primitives/application-crypto" }
+sc-network = { version = "0.34.0", path = "../../../substrate/client/network" }
+sc-service = { version = "0.35.0", path = "../../../substrate/client/service" }
+polkadot-node-metrics = { version = "7.0.0", path = "../metrics" }
 itertools = "0.11.0"
-polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
-prometheus_endpoint = { package = "substrate-prometheus-endpoint", path = "../../../substrate/utils/prometheus" }
+polkadot-primitives-test-helpers = { version = "0.0.0", path = "../../primitives/test-helpers" }
+prometheus_endpoint = { package = "substrate-prometheus-endpoint", path = "../../../substrate/utils/prometheus", version = "0.17.0" }
 prometheus = { version = "0.13.0", default-features = false }
 serde = "1.0.195"
 serde_yaml = "0.9"

@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-availability-distribution"
 description = "The Availability Distribution subsystem. Requests the required availability data. Also distributes availability data and chunks to requesters."
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,16 +11,16 @@ workspace = true
 
 [dependencies]
 futures = "0.3.21"
-gum = { package = "tracing-gum", path = "../../gum" }
+gum = { package = "tracing-gum", path = "../../gum", version = "7.0.0" }
 parity-scale-codec = { version = "3.6.1", features = ["std"] }
-polkadot-primitives = { path = "../../../primitives" }
-polkadot-erasure-coding = { path = "../../../erasure-coding" }
-polkadot-node-network-protocol = { path = "../protocol" }
-polkadot-node-subsystem = { path = "../../subsystem" }
-polkadot-node-subsystem-util = { path = "../../subsystem-util" }
-polkadot-node-primitives = { path = "../../primitives" }
-sp-core = { path = "../../../../substrate/primitives/core", features = ["std"] }
-sp-keystore = { path = "../../../../substrate/primitives/keystore" }
+polkadot-primitives = { version = "7.0.0", path = "../../../primitives" }
+polkadot-erasure-coding = { version = "7.0.0", path = "../../../erasure-coding" }
+polkadot-node-network-protocol = { version = "7.0.0", path = "../protocol" }
+polkadot-node-subsystem = { version = "7.0.0", path = "../../subsystem" }
+polkadot-node-subsystem-util = { version = "7.0.0", path = "../../subsystem-util" }
+polkadot-node-primitives = { version = "7.0.0", path = "../../primitives" }
+sp-core = { path = "../../../../substrate/primitives/core", features = ["std"], version = "28.0.0" }
+sp-keystore = { version = "0.34.0", path = "../../../../substrate/primitives/keystore" }
 thiserror = "1.0.48"
 rand = "0.8.5"
 derive_more = "0.99.17"

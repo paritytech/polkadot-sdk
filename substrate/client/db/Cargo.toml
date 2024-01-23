@@ -1,6 +1,6 @@
 [package]
 name = "sc-client-db"
-version = "0.10.0-dev"
+version = "0.35.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -27,16 +27,16 @@ linked-hash-map = "0.5.4"
 log = "0.4.17"
 parity-db = "0.4.12"
 parking_lot = "0.12.1"
-sc-client-api = { path = "../api" }
-sc-state-db = { path = "../state-db" }
+sc-client-api = { version = "28.0.0", path = "../api" }
+sc-state-db = { version = "0.30.0", path = "../state-db" }
 schnellru = "0.2.1"
-sp-arithmetic = { path = "../../primitives/arithmetic" }
-sp-blockchain = { path = "../../primitives/blockchain" }
-sp-core = { path = "../../primitives/core" }
-sp-database = { path = "../../primitives/database" }
-sp-runtime = { path = "../../primitives/runtime" }
-sp-state-machine = { path = "../../primitives/state-machine" }
-sp-trie = { path = "../../primitives/trie" }
+sp-arithmetic = { version = "23.0.0", path = "../../primitives/arithmetic" }
+sp-blockchain = { version = "28.0.0", path = "../../primitives/blockchain" }
+sp-core = { version = "28.0.0", path = "../../primitives/core" }
+sp-database = { version = "10.0.0", path = "../../primitives/database" }
+sp-runtime = { version = "31.0.0", path = "../../primitives/runtime" }
+sp-state-machine = { version = "0.35.0", path = "../../primitives/state-machine" }
+sp-trie = { version = "29.0.0", path = "../../primitives/trie" }
 
 [dev-dependencies]
 criterion = "0.4.0"
@@ -53,7 +53,6 @@ array-bytes = "6.1"
 default = []
 test-helpers = []
 runtime-benchmarks = [
-	"kitchensink-runtime/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 rocksdb = ["kvdb-rocksdb"]

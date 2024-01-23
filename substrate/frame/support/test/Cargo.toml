@@ -1,12 +1,13 @@
 [package]
 name = "frame-support-test"
-version = "3.0.0"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 publish = false
 homepage = "https://substrate.io"
 repository.workspace = true
+description = "frame-support-test"
 
 [lints]
 workspace = true
@@ -20,24 +21,24 @@ serde = { version = "1.0.195", default-features = false, features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 frame-metadata = { version = "16.0.0", default-features = false, features = ["current"] }
-sp-api = { path = "../../../primitives/api", default-features = false }
-sp-arithmetic = { path = "../../../primitives/arithmetic", default-features = false }
-sp-io = { path = "../../../primitives/io", default-features = false }
-sp-state-machine = { path = "../../../primitives/state-machine", optional = true }
-frame-support = { path = "..", default-features = false }
-frame-benchmarking = { path = "../../benchmarking", default-features = false }
-sp-runtime = { path = "../../../primitives/runtime", default-features = false }
-sp-core = { path = "../../../primitives/core", default-features = false }
-sp-std = { path = "../../../primitives/std", default-features = false }
-sp-version = { path = "../../../primitives/version", default-features = false }
-sp-metadata-ir = { path = "../../../primitives/metadata-ir", default-features = false }
+sp-api = { path = "../../../primitives/api", default-features = false, version = "26.0.0" }
+sp-arithmetic = { path = "../../../primitives/arithmetic", default-features = false, version = "23.0.0" }
+sp-io = { path = "../../../primitives/io", default-features = false, version = "30.0.0" }
+sp-state-machine = { path = "../../../primitives/state-machine", optional = true, version = "0.35.0" }
+frame-support = { path = "..", default-features = false, version = "28.0.0" }
+frame-benchmarking = { path = "../../benchmarking", default-features = false, version = "28.0.0" }
+sp-runtime = { path = "../../../primitives/runtime", default-features = false, version = "31.0.0" }
+sp-core = { path = "../../../primitives/core", default-features = false, version = "28.0.0" }
+sp-std = { path = "../../../primitives/std", default-features = false, version = "14.0.0" }
+sp-version = { path = "../../../primitives/version", default-features = false, version = "29.0.0" }
+sp-metadata-ir = { path = "../../../primitives/metadata-ir", default-features = false, version = "0.6.0" }
 trybuild = { version = "1.0.88", features = ["diff"] }
 pretty_assertions = "1.3.0"
 rustversion = "1.0.6"
-frame-system = { path = "../../system", default-features = false }
-frame-executive = { path = "../../executive", default-features = false }
+frame-system = { path = "../../system", default-features = false, version = "28.0.0" }
+frame-executive = { path = "../../executive", default-features = false, version = "28.0.0" }
 # The "std" feature for this pallet is never activated on purpose, in order to test construct_runtime error message
-test-pallet = { package = "frame-support-test-pallet", path = "pallet", default-features = false }
+test-pallet = { package = "frame-support-test-pallet", path = "pallet", default-features = false, version = "0.1.0" }
 
 [features]
 default = ["std"]

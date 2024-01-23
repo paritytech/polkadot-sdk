@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-node-collation-generation"
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,14 +11,14 @@ workspace = true
 
 [dependencies]
 futures = "0.3.21"
-gum = { package = "tracing-gum", path = "../gum" }
-polkadot-erasure-coding = { path = "../../erasure-coding" }
-polkadot-node-primitives = { path = "../primitives" }
-polkadot-node-subsystem = { path = "../subsystem" }
-polkadot-node-subsystem-util = { path = "../subsystem-util" }
-polkadot-primitives = { path = "../../primitives" }
-sp-core = { path = "../../../substrate/primitives/core" }
-sp-maybe-compressed-blob = { path = "../../../substrate/primitives/maybe-compressed-blob" }
+gum = { package = "tracing-gum", path = "../gum", version = "7.0.0" }
+polkadot-erasure-coding = { version = "7.0.0", path = "../../erasure-coding" }
+polkadot-node-primitives = { version = "7.0.0", path = "../primitives" }
+polkadot-node-subsystem = { version = "7.0.0", path = "../subsystem" }
+polkadot-node-subsystem-util = { version = "7.0.0", path = "../subsystem-util" }
+polkadot-primitives = { version = "7.0.0", path = "../../primitives" }
+sp-core = { version = "28.0.0", path = "../../../substrate/primitives/core" }
+sp-maybe-compressed-blob = { version = "11.0.0", path = "../../../substrate/primitives/maybe-compressed-blob" }
 thiserror = "1.0.48"
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["bit-vec", "derive"] }
 

@@ -4,6 +4,7 @@ version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 publish = false
+description = "cumulus-test-service"
 
 [lints]
 workspace = true
@@ -25,63 +26,57 @@ tokio = { version = "1.32.0", features = ["macros"] }
 tracing = "0.1.37"
 url = "2.4.0"
 tempfile = "3.8.0"
-
-# Substrate
-frame-system = { path = "../../../substrate/frame/system" }
-frame-system-rpc-runtime-api = { path = "../../../substrate/frame/system/rpc/runtime-api" }
-pallet-transaction-payment = { path = "../../../substrate/frame/transaction-payment" }
-sc-basic-authorship = { path = "../../../substrate/client/basic-authorship" }
-sc-chain-spec = { path = "../../../substrate/client/chain-spec" }
-sc-client-api = { path = "../../../substrate/client/api" }
-sc-consensus = { path = "../../../substrate/client/consensus/common" }
-sc-executor = { path = "../../../substrate/client/executor" }
-sc-network = { path = "../../../substrate/client/network" }
-sc-service = { path = "../../../substrate/client/service" }
-sc-tracing = { path = "../../../substrate/client/tracing" }
-sc-transaction-pool = { path = "../../../substrate/client/transaction-pool" }
-sc-transaction-pool-api = { path = "../../../substrate/client/transaction-pool/api" }
-sc-telemetry = { path = "../../../substrate/client/telemetry" }
-sp-arithmetic = { path = "../../../substrate/primitives/arithmetic" }
-sp-blockchain = { path = "../../../substrate/primitives/blockchain" }
-sp-core = { path = "../../../substrate/primitives/core" }
-sp-io = { path = "../../../substrate/primitives/io" }
-sp-api = { path = "../../../substrate/primitives/api" }
-sp-keyring = { path = "../../../substrate/primitives/keyring" }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
-sp-tracing = { path = "../../../substrate/primitives/tracing" }
-sp-timestamp = { path = "../../../substrate/primitives/timestamp" }
-sp-consensus = { path = "../../../substrate/primitives/consensus/common" }
-substrate-test-client = { path = "../../../substrate/test-utils/client" }
-sc-cli = { path = "../../../substrate/client/cli" }
-sc-block-builder = { path = "../../../substrate/client/block-builder" }
-sc-executor-wasmtime = { path = "../../../substrate/client/executor/wasmtime" }
-sc-executor-common = { path = "../../../substrate/client/executor/common" }
-
-# Polkadot
-polkadot-primitives = { path = "../../../polkadot/primitives" }
-polkadot-service = { path = "../../../polkadot/node/service" }
-polkadot-test-service = { path = "../../../polkadot/node/test/service" }
-polkadot-cli = { path = "../../../polkadot/cli" }
-polkadot-node-subsystem = { path = "../../../polkadot/node/subsystem" }
-polkadot-overseer = { path = "../../../polkadot/node/overseer" }
-
-# Cumulus
-cumulus-client-cli = { path = "../../client/cli" }
-parachains-common = { path = "../../parachains/common" }
-cumulus-client-consensus-common = { path = "../../client/consensus/common" }
-cumulus-client-consensus-relay-chain = { path = "../../client/consensus/relay-chain" }
-cumulus-client-parachain-inherent = { path = "../../client/parachain-inherent" }
-cumulus-client-service = { path = "../../client/service" }
-cumulus-primitives-core = { path = "../../primitives/core" }
-cumulus-relay-chain-inprocess-interface = { path = "../../client/relay-chain-inprocess-interface" }
-cumulus-relay-chain-interface = { path = "../../client/relay-chain-interface" }
-cumulus-test-runtime = { path = "../runtime" }
-cumulus-relay-chain-minimal-node = { path = "../../client/relay-chain-minimal-node" }
-cumulus-client-pov-recovery = { path = "../../client/pov-recovery" }
-cumulus-test-relay-sproof-builder = { path = "../relay-sproof-builder" }
-cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"] }
-pallet-timestamp = { path = "../../../substrate/frame/timestamp" }
+frame-system = { version = "28.0.0", path = "../../../substrate/frame/system" }
+frame-system-rpc-runtime-api = { version = "26.0.0", path = "../../../substrate/frame/system/rpc/runtime-api" }
+pallet-transaction-payment = { version = "28.0.0", path = "../../../substrate/frame/transaction-payment" }
+sc-basic-authorship = { version = "0.34.0", path = "../../../substrate/client/basic-authorship" }
+sc-chain-spec = { version = "27.0.0", path = "../../../substrate/client/chain-spec" }
+sc-client-api = { version = "28.0.0", path = "../../../substrate/client/api" }
+sc-consensus = { version = "0.33.0", path = "../../../substrate/client/consensus/common" }
+sc-executor = { version = "0.32.0", path = "../../../substrate/client/executor" }
+sc-network = { version = "0.34.0", path = "../../../substrate/client/network" }
+sc-service = { version = "0.35.0", path = "../../../substrate/client/service" }
+sc-tracing = { version = "28.0.0", path = "../../../substrate/client/tracing" }
+sc-transaction-pool = { version = "28.0.0", path = "../../../substrate/client/transaction-pool" }
+sc-transaction-pool-api = { version = "28.0.0", path = "../../../substrate/client/transaction-pool/api" }
+sc-telemetry = { version = "15.0.0", path = "../../../substrate/client/telemetry" }
+sp-arithmetic = { version = "23.0.0", path = "../../../substrate/primitives/arithmetic" }
+sp-blockchain = { version = "28.0.0", path = "../../../substrate/primitives/blockchain" }
+sp-core = { version = "28.0.0", path = "../../../substrate/primitives/core" }
+sp-io = { version = "30.0.0", path = "../../../substrate/primitives/io" }
+sp-api = { version = "26.0.0", path = "../../../substrate/primitives/api" }
+sp-keyring = { version = "31.0.0", path = "../../../substrate/primitives/keyring" }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "31.0.0" }
+sp-state-machine = { version = "0.35.0", path = "../../../substrate/primitives/state-machine" }
+sp-tracing = { version = "16.0.0", path = "../../../substrate/primitives/tracing" }
+sp-timestamp = { version = "26.0.0", path = "../../../substrate/primitives/timestamp" }
+sp-consensus = { version = "0.32.0", path = "../../../substrate/primitives/consensus/common" }
+substrate-test-client = { version = "0.1.0", path = "../../../substrate/test-utils/client" }
+sc-cli = { version = "0.36.0", path = "../../../substrate/client/cli" }
+sc-block-builder = { version = "0.33.0", path = "../../../substrate/client/block-builder" }
+sc-executor-wasmtime = { version = "0.29.0", path = "../../../substrate/client/executor/wasmtime" }
+sc-executor-common = { version = "0.29.0", path = "../../../substrate/client/executor/common" }
+polkadot-primitives = { version = "7.0.0", path = "../../../polkadot/primitives" }
+polkadot-service = { version = "7.0.0", path = "../../../polkadot/node/service" }
+polkadot-test-service = { version = "0.1.0", path = "../../../polkadot/node/test/service" }
+polkadot-cli = { version = "7.0.0", path = "../../../polkadot/cli" }
+polkadot-node-subsystem = { version = "7.0.0", path = "../../../polkadot/node/subsystem" }
+polkadot-overseer = { version = "7.0.0", path = "../../../polkadot/node/overseer" }
+cumulus-client-cli = { version = "0.7.0", path = "../../client/cli" }
+parachains-common = { version = "7.0.0", path = "../../parachains/common" }
+cumulus-client-consensus-common = { version = "0.7.0", path = "../../client/consensus/common" }
+cumulus-client-consensus-relay-chain = { version = "0.7.0", path = "../../client/consensus/relay-chain" }
+cumulus-client-parachain-inherent = { version = "0.1.0", path = "../../client/parachain-inherent" }
+cumulus-client-service = { version = "0.7.0", path = "../../client/service" }
+cumulus-primitives-core = { version = "0.7.0", path = "../../primitives/core" }
+cumulus-relay-chain-inprocess-interface = { version = "0.7.0", path = "../../client/relay-chain-inprocess-interface" }
+cumulus-relay-chain-interface = { version = "0.7.0", path = "../../client/relay-chain-interface" }
+cumulus-test-runtime = { version = "0.1.0", path = "../runtime" }
+cumulus-relay-chain-minimal-node = { version = "0.7.0", path = "../../client/relay-chain-minimal-node" }
+cumulus-client-pov-recovery = { version = "0.7.0", path = "../../client/pov-recovery" }
+cumulus-test-relay-sproof-builder = { version = "0.7.0", path = "../relay-sproof-builder" }
+cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"], version = "0.7.0" }
+pallet-timestamp = { version = "27.0.0", path = "../../../substrate/frame/timestamp" }
 
 [dev-dependencies]
 futures = "0.3.28"
@@ -91,11 +86,7 @@ pallet-im-online = { path = "../../../substrate/frame/im-online" }
 sp-consensus-grandpa = { path = "../../../substrate/primitives/consensus/grandpa" }
 sp-authority-discovery = { path = "../../../substrate/primitives/authority-discovery" }
 cumulus-test-client = { path = "../client" }
-
-# Polkadot dependencies
 polkadot-test-service = { path = "../../../polkadot/node/test/service" }
-
-# Substrate dependencies
 sc-cli = { path = "../../../substrate/client/cli" }
 substrate-test-utils = { path = "../../../substrate/test-utils" }
 
@@ -103,16 +94,13 @@ substrate-test-utils = { path = "../../../substrate/test-utils" }
 runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-primitives-core/runtime-benchmarks",
-	"cumulus-test-client/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-im-online/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-service/runtime-benchmarks",
 	"polkadot-test-service/runtime-benchmarks",
-	"rococo-parachain-runtime/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]

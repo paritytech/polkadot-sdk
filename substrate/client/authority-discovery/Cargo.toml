@@ -1,6 +1,6 @@
 [package]
 name = "sc-authority-discovery"
-version = "0.10.0-dev"
+version = "0.34.0"
 authors.workspace = true
 edition.workspace = true
 build = "build.rs"
@@ -33,15 +33,15 @@ log = "0.4.17"
 prost = "0.11"
 rand = "0.8.5"
 thiserror = "1.0"
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
-sc-client-api = { path = "../api" }
-sc-network = { path = "../network" }
-sp-api = { path = "../../primitives/api" }
-sp-authority-discovery = { path = "../../primitives/authority-discovery" }
-sp-blockchain = { path = "../../primitives/blockchain" }
-sp-core = { path = "../../primitives/core" }
-sp-keystore = { path = "../../primitives/keystore" }
-sp-runtime = { path = "../../primitives/runtime" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus", version = "0.17.0" }
+sc-client-api = { version = "28.0.0", path = "../api" }
+sc-network = { version = "0.34.0", path = "../network" }
+sp-api = { version = "26.0.0", path = "../../primitives/api" }
+sp-authority-discovery = { version = "26.0.0", path = "../../primitives/authority-discovery" }
+sp-blockchain = { version = "28.0.0", path = "../../primitives/blockchain" }
+sp-core = { version = "28.0.0", path = "../../primitives/core" }
+sp-keystore = { version = "0.34.0", path = "../../primitives/keystore" }
+sp-runtime = { version = "31.0.0", path = "../../primitives/runtime" }
 async-trait = "0.1.74"
 multihash-codetable = { version = "0.1.1", features = [
 	"digest",

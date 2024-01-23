@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-node-subsystem-types"
 description = "Subsystem traits and message definitions"
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,22 +12,22 @@ workspace = true
 [dependencies]
 derive_more = "0.99.17"
 futures = "0.3.21"
-polkadot-primitives = { path = "../../primitives" }
-polkadot-node-primitives = { path = "../primitives" }
-polkadot-node-network-protocol = { path = "../network/protocol" }
-polkadot-statement-table = { path = "../../statement-table" }
-polkadot-node-jaeger = { path = "../jaeger" }
+polkadot-primitives = { version = "7.0.0", path = "../../primitives" }
+polkadot-node-primitives = { version = "7.0.0", path = "../primitives" }
+polkadot-node-network-protocol = { version = "7.0.0", path = "../network/protocol" }
+polkadot-statement-table = { version = "7.0.0", path = "../../statement-table" }
+polkadot-node-jaeger = { version = "7.0.0", path = "../jaeger" }
 orchestra = { version = "0.3.3", default-features = false, features = ["futures_channel"] }
-sc-network = { path = "../../../substrate/client/network" }
-sp-api = { path = "../../../substrate/primitives/api" }
-sp-blockchain = { path = "../../../substrate/primitives/blockchain" }
-sp-consensus-babe = { path = "../../../substrate/primitives/consensus/babe" }
-sp-runtime = { path = "../../../substrate/primitives/runtime" }
-sp-authority-discovery = { path = "../../../substrate/primitives/authority-discovery" }
-sc-client-api = { path = "../../../substrate/client/api" }
-sc-transaction-pool-api = { path = "../../../substrate/client/transaction-pool/api" }
+sc-network = { version = "0.34.0", path = "../../../substrate/client/network" }
+sp-api = { version = "26.0.0", path = "../../../substrate/primitives/api" }
+sp-blockchain = { version = "28.0.0", path = "../../../substrate/primitives/blockchain" }
+sp-consensus-babe = { version = "0.32.0", path = "../../../substrate/primitives/consensus/babe" }
+sp-runtime = { version = "31.0.0", path = "../../../substrate/primitives/runtime" }
+sp-authority-discovery = { version = "26.0.0", path = "../../../substrate/primitives/authority-discovery" }
+sc-client-api = { version = "28.0.0", path = "../../../substrate/client/api" }
+sc-transaction-pool-api = { version = "28.0.0", path = "../../../substrate/client/transaction-pool/api" }
 smallvec = "1.8.0"
-substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
+substrate-prometheus-endpoint = { version = "0.17.0", path = "../../../substrate/utils/prometheus" }
 thiserror = "1.0.48"
 async-trait = "0.1.74"
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }

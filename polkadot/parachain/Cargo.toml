@@ -4,7 +4,7 @@ description = "Types and utilities for creating and working with parachains"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "1.0.0"
+version = "6.0.0"
 
 [lints]
 workspace = true
@@ -15,11 +15,11 @@ workspace = true
 # various unnecessary Substrate-specific endpoints.
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive", "serde"] }
-sp-std = { path = "../../substrate/primitives/std", default-features = false }
-sp-runtime = { path = "../../substrate/primitives/runtime", default-features = false, features = ["serde"] }
-sp-core = { path = "../../substrate/primitives/core", default-features = false, features = ["serde"] }
-sp-weights = { path = "../../substrate/primitives/weights", default-features = false }
-polkadot-core-primitives = { path = "../core-primitives", default-features = false }
+sp-std = { path = "../../substrate/primitives/std", default-features = false, version = "14.0.0" }
+sp-runtime = { path = "../../substrate/primitives/runtime", default-features = false, features = ["serde"], version = "31.0.0" }
+sp-core = { path = "../../substrate/primitives/core", default-features = false, features = ["serde"], version = "28.0.0" }
+sp-weights = { path = "../../substrate/primitives/weights", default-features = false, version = "27.0.0" }
+polkadot-core-primitives = { path = "../core-primitives", default-features = false, version = "7.0.0" }
 derive_more = "0.99.11"
 bounded-collections = { version = "0.1.8", default-features = false, features = ["serde"] }
 

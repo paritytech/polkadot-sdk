@@ -1,7 +1,7 @@
 [package]
 description = "Substrate statement protocol"
 name = "sc-network-statement"
-version = "0.10.0-dev"
+version = "0.16.0"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 authors.workspace = true
 edition.workspace = true
@@ -22,9 +22,9 @@ codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive
 futures = "0.3.21"
 libp2p = "0.51.4"
 log = "0.4.17"
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
-sc-network-common = { path = "../common" }
-sc-network-sync = { path = "../sync" }
-sc-network = { path = ".." }
-sp-consensus = { path = "../../../primitives/consensus/common" }
-sp-statement-store = { path = "../../../primitives/statement-store" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus", version = "0.17.0" }
+sc-network-common = { version = "0.33.0", path = "../common" }
+sc-network-sync = { version = "0.33.0", path = "../sync" }
+sc-network = { version = "0.34.0", path = ".." }
+sp-consensus = { version = "0.32.0", path = "../../../primitives/consensus/common" }
+sp-statement-store = { version = "10.0.0", path = "../../../primitives/statement-store" }

@@ -1,6 +1,6 @@
 [package]
 name = "frame-support-procedural-tools"
-version = "4.0.0-dev"
+version = "10.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -19,4 +19,4 @@ proc-macro-crate = "3.0.0"
 proc-macro2 = "1.0.56"
 quote = "1.0.28"
 syn = { version = "2.0.48", features = ["extra-traits", "full", "visit"] }
-frame-support-procedural-tools-derive = { path = "derive" }
+frame-support-procedural-tools-derive = { version = "11.0.0", path = "derive" }

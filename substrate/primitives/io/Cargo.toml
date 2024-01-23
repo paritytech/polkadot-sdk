@@ -1,6 +1,6 @@
 [package]
 name = "sp-io"
-version = "23.0.0"
+version = "30.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -21,15 +21,15 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 bytes = { version = "1.1.0", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["bytes"] }
-sp-core = { path = "../core", default-features = false }
-sp-keystore = { path = "../keystore", default-features = false, optional = true }
-sp-std = { path = "../std", default-features = false }
+sp-core = { path = "../core", default-features = false, version = "28.0.0" }
+sp-keystore = { path = "../keystore", default-features = false, optional = true, version = "0.34.0" }
+sp-std = { path = "../std", default-features = false, version = "14.0.0" }
 libsecp256k1 = { version = "0.7", optional = true }
-sp-state-machine = { path = "../state-machine", default-features = false, optional = true }
-sp-runtime-interface = { path = "../runtime-interface", default-features = false }
-sp-trie = { path = "../trie", default-features = false, optional = true }
-sp-externalities = { path = "../externalities", default-features = false }
-sp-tracing = { path = "../tracing", default-features = false }
+sp-state-machine = { path = "../state-machine", default-features = false, optional = true, version = "0.35.0" }
+sp-runtime-interface = { path = "../runtime-interface", default-features = false, version = "24.0.0" }
+sp-trie = { path = "../trie", default-features = false, optional = true, version = "29.0.0" }
+sp-externalities = { path = "../externalities", default-features = false, version = "0.25.0" }
+sp-tracing = { path = "../tracing", default-features = false, version = "16.0.0" }
 log = { version = "0.4.17", optional = true }
 secp256k1 = { version = "0.28.0", features = ["global-context", "recovery"], optional = true }
 tracing = { version = "0.1.29", default-features = false }
@@ -96,8 +96,3 @@ improved_panic_error_reporting = []
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.
 bls-experimental = ["sp-keystore/bls-experimental"]
-
-# This feature adds Bandersnatch crypto primitives.
-# It should not be used in production since the implementation and interface may still
-# be subject to significant changes.
-bandersnatch-experimental = ["sp-keystore/bandersnatch-experimental"]

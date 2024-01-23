@@ -1,22 +1,22 @@
 [package]
 name = "remote-ext-tests-bags-list"
 publish = false
-version = "1.0.0"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "remote-ext-tests-bags-list"
 
 [lints]
 workspace = true
 
 [dependencies]
-westend-runtime = { path = "../../../runtime/westend" }
-westend-runtime-constants = { path = "../../../runtime/westend/constants" }
-
-pallet-bags-list-remote-tests = { path = "../../../../substrate/frame/bags-list/remote-tests" }
-sp-tracing = { path = "../../../../substrate/primitives/tracing" }
-frame-system = { path = "../../../../substrate/frame/system" }
-sp-core = { path = "../../../../substrate/primitives/core" }
+westend-runtime = { version = "7.0.0", path = "../../../runtime/westend" }
+westend-runtime-constants = { version = "7.0.0", path = "../../../runtime/westend/constants" }
+pallet-bags-list-remote-tests = { version = "0.1.0", path = "../../../../substrate/frame/bags-list/remote-tests" }
+sp-tracing = { version = "16.0.0", path = "../../../../substrate/primitives/tracing" }
+frame-system = { version = "28.0.0", path = "../../../../substrate/frame/system" }
+sp-core = { version = "28.0.0", path = "../../../../substrate/primitives/core" }
 
 clap = { version = "4.4.14", features = ["derive"] }
 log = "0.4.17"

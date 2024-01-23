@@ -2,7 +2,7 @@
 name = "polkadot-node-subsystem-test-helpers"
 description = "Subsystem traits and message definitions"
 publish = false
-version = "1.0.0"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -14,16 +14,15 @@ workspace = true
 async-trait = "0.1.74"
 futures = "0.3.21"
 parking_lot = "0.12.1"
-polkadot-node-subsystem = { path = "../subsystem" }
-polkadot-erasure-coding = { path = "../../erasure-coding" }
-polkadot-node-subsystem-util = { path = "../subsystem-util" }
-polkadot-primitives = { path = "../../primitives" }
-polkadot-node-primitives = { path = "../primitives" }
-
-sc-client-api = { path = "../../../substrate/client/api" }
-sc-utils = { path = "../../../substrate/client/utils" }
-sp-core = { path = "../../../substrate/primitives/core" }
-sp-keystore = { path = "../../../substrate/primitives/keystore" }
-sc-keystore = { path = "../../../substrate/client/keystore" }
-sp-keyring = { path = "../../../substrate/primitives/keyring" }
-sp-application-crypto = { path = "../../../substrate/primitives/application-crypto" }
+polkadot-node-subsystem = { version = "7.0.0", path = "../subsystem" }
+polkadot-erasure-coding = { version = "7.0.0", path = "../../erasure-coding" }
+polkadot-node-subsystem-util = { version = "7.0.0", path = "../subsystem-util" }
+polkadot-primitives = { version = "7.0.0", path = "../../primitives" }
+polkadot-node-primitives = { version = "7.0.0", path = "../primitives" }
+sc-client-api = { version = "28.0.0", path = "../../../substrate/client/api" }
+sc-utils = { version = "14.0.0", path = "../../../substrate/client/utils" }
+sp-core = { version = "28.0.0", path = "../../../substrate/primitives/core" }
+sp-keystore = { version = "0.34.0", path = "../../../substrate/primitives/keystore" }
+sc-keystore = { version = "25.0.0", path = "../../../substrate/client/keystore" }
+sp-keyring = { version = "31.0.0", path = "../../../substrate/primitives/keyring" }
+sp-application-crypto = { version = "30.0.0", path = "../../../substrate/primitives/application-crypto" }

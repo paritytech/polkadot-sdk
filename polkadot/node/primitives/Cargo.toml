@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-node-primitives"
 description = "Primitives types for the Node-side"
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,15 +12,15 @@ workspace = true
 [dependencies]
 bounded-vec = "0.7"
 futures = "0.3.21"
-polkadot-primitives = { path = "../../primitives" }
+polkadot-primitives = { version = "7.0.0", path = "../../primitives" }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
-sp-core = { path = "../../../substrate/primitives/core" }
-sp-application-crypto = { path = "../../../substrate/primitives/application-crypto" }
-sp-consensus-babe = { path = "../../../substrate/primitives/consensus/babe" }
-sp-keystore = { path = "../../../substrate/primitives/keystore" }
-sp-maybe-compressed-blob = { path = "../../../substrate/primitives/maybe-compressed-blob" }
-sp-runtime = { path = "../../../substrate/primitives/runtime" }
-polkadot-parachain-primitives = { path = "../../parachain", default-features = false }
+sp-core = { version = "28.0.0", path = "../../../substrate/primitives/core" }
+sp-application-crypto = { version = "30.0.0", path = "../../../substrate/primitives/application-crypto" }
+sp-consensus-babe = { version = "0.32.0", path = "../../../substrate/primitives/consensus/babe" }
+sp-keystore = { version = "0.34.0", path = "../../../substrate/primitives/keystore" }
+sp-maybe-compressed-blob = { version = "11.0.0", path = "../../../substrate/primitives/maybe-compressed-blob" }
+sp-runtime = { version = "31.0.0", path = "../../../substrate/primitives/runtime" }
+polkadot-parachain-primitives = { path = "../../parachain", default-features = false, version = "6.0.0" }
 schnorrkel = "0.11.4"
 thiserror = "1.0.48"
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }

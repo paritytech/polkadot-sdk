@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-node-metrics"
 description = "Subsystem metric helpers"
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -12,17 +12,15 @@ workspace = true
 [dependencies]
 futures = "0.3.21"
 futures-timer = "3.0.2"
-gum = { package = "tracing-gum", path = "../gum" }
+gum = { package = "tracing-gum", path = "../gum", version = "7.0.0" }
 
 metered = { package = "prioritized-metered-channel", version = "0.5.1", default-features = false, features = ["futures_channel"] }
-# Both `sc-service` and `sc-cli` are required by runtime metrics `logger_hook()`.
-sc-service = { path = "../../../substrate/client/service" }
-sc-cli = { path = "../../../substrate/client/cli" }
-
-substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
-sc-tracing = { path = "../../../substrate/client/tracing" }
+sc-service = { version = "0.35.0", path = "../../../substrate/client/service" }
+sc-cli = { version = "0.36.0", path = "../../../substrate/client/cli" }
+substrate-prometheus-endpoint = { version = "0.17.0", path = "../../../substrate/utils/prometheus" }
+sc-tracing = { version = "28.0.0", path = "../../../substrate/client/tracing" }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
-primitives = { package = "polkadot-primitives", path = "../../primitives" }
+primitives = { package = "polkadot-primitives", path = "../../primitives", version = "7.0.0" }
 bs58 = { version = "0.5.0", features = ["alloc"] }
 log = "0.4.17"
 
@@ -41,7 +39,6 @@ prometheus-parse = { version = "0.2.2" }
 default = []
 runtime-metrics = []
 runtime-benchmarks = [
-	"polkadot-test-service/runtime-benchmarks",
 	"primitives/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 ]

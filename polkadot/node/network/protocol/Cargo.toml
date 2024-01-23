@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-node-network-protocol"
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -13,19 +13,19 @@ workspace = true
 async-channel = "1.8.0"
 async-trait = "0.1.74"
 hex = "0.4.3"
-polkadot-primitives = { path = "../../../primitives" }
-polkadot-node-primitives = { path = "../../primitives" }
-polkadot-node-jaeger = { path = "../../jaeger" }
+polkadot-primitives = { version = "7.0.0", path = "../../../primitives" }
+polkadot-node-primitives = { version = "7.0.0", path = "../../primitives" }
+polkadot-node-jaeger = { version = "7.0.0", path = "../../jaeger" }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
-sc-network = { path = "../../../../substrate/client/network" }
-sc-authority-discovery = { path = "../../../../substrate/client/authority-discovery" }
+sc-network = { version = "0.34.0", path = "../../../../substrate/client/network" }
+sc-authority-discovery = { version = "0.34.0", path = "../../../../substrate/client/authority-discovery" }
 strum = { version = "0.24", features = ["derive"] }
 futures = "0.3.21"
 thiserror = "1.0.48"
 fatality = "0.0.6"
 rand = "0.8"
 derive_more = "0.99"
-gum = { package = "tracing-gum", path = "../../gum" }
+gum = { package = "tracing-gum", path = "../../gum", version = "7.0.0" }
 bitvec = "1"
 
 [dev-dependencies]

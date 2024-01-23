@@ -1,6 +1,6 @@
 [package]
 name = "pallet-bridge-parachains"
-version = "0.1.0"
+version = "0.7.0"
 description = "Module that allows bridged relay chains to exchange information on their parachains' heads."
 authors.workspace = true
 edition.workspace = true
@@ -16,20 +16,20 @@ scale-info = { version = "2.10.0", default-features = false, features = ["derive
 
 # Bridge Dependencies
 
-bp-header-chain = { path = "../../primitives/header-chain", default-features = false }
-bp-parachains = { path = "../../primitives/parachains", default-features = false }
-bp-polkadot-core = { path = "../../primitives/polkadot-core", default-features = false }
-bp-runtime = { path = "../../primitives/runtime", default-features = false }
-pallet-bridge-grandpa = { path = "../grandpa", default-features = false }
+bp-header-chain = { path = "../../primitives/header-chain", default-features = false, version = "0.7.0" }
+bp-parachains = { path = "../../primitives/parachains", default-features = false, version = "0.7.0" }
+bp-polkadot-core = { path = "../../primitives/polkadot-core", default-features = false, version = "0.7.0" }
+bp-runtime = { path = "../../primitives/runtime", default-features = false, version = "0.7.0" }
+pallet-bridge-grandpa = { path = "../grandpa", default-features = false, version = "0.7.0" }
 
 # Substrate Dependencies
 
-frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../substrate/frame/system", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
-sp-trie = { path = "../../../substrate/primitives/trie", default-features = false }
+frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "28.0.0" }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "28.0.0" }
+frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "28.0.0" }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "31.0.0" }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
+sp-trie = { path = "../../../substrate/primitives/trie", default-features = false, version = "29.0.0" }
 
 [dev-dependencies]
 bp-header-chain = { path = "../../primitives/header-chain" }

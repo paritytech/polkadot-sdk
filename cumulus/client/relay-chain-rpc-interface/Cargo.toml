@@ -1,7 +1,7 @@
 [package]
 authors.workspace = true
 name = "cumulus-relay-chain-rpc-interface"
-version = "0.1.0"
+version = "0.7.0"
 edition.workspace = true
 description = "Implementation of the RelayChainInterface trait that connects to a remote RPC-node."
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -10,22 +10,20 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 workspace = true
 
 [dependencies]
-polkadot-overseer = { path = "../../../polkadot/node/overseer" }
-
-cumulus-primitives-core = { path = "../../primitives/core" }
-cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
-
-sp-api = { path = "../../../substrate/primitives/api" }
-sp-core = { path = "../../../substrate/primitives/core" }
-sp-consensus-babe = { path = "../../../substrate/primitives/consensus/babe" }
-sp-authority-discovery = { path = "../../../substrate/primitives/authority-discovery" }
-sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
-sp-storage = { path = "../../../substrate/primitives/storage" }
-sp-runtime = { path = "../../../substrate/primitives/runtime" }
-sp-version = { path = "../../../substrate/primitives/version" }
-sc-client-api = { path = "../../../substrate/client/api" }
-sc-rpc-api = { path = "../../../substrate/client/rpc-api" }
-sc-service = { path = "../../../substrate/client/service" }
+polkadot-overseer = { version = "7.0.0", path = "../../../polkadot/node/overseer" }
+cumulus-primitives-core = { version = "0.7.0", path = "../../primitives/core" }
+cumulus-relay-chain-interface = { version = "0.7.0", path = "../relay-chain-interface" }
+sp-api = { version = "26.0.0", path = "../../../substrate/primitives/api" }
+sp-core = { version = "28.0.0", path = "../../../substrate/primitives/core" }
+sp-consensus-babe = { version = "0.32.0", path = "../../../substrate/primitives/consensus/babe" }
+sp-authority-discovery = { version = "26.0.0", path = "../../../substrate/primitives/authority-discovery" }
+sp-state-machine = { version = "0.35.0", path = "../../../substrate/primitives/state-machine" }
+sp-storage = { version = "19.0.0", path = "../../../substrate/primitives/storage" }
+sp-runtime = { version = "31.0.0", path = "../../../substrate/primitives/runtime" }
+sp-version = { version = "29.0.0", path = "../../../substrate/primitives/version" }
+sc-client-api = { version = "28.0.0", path = "../../../substrate/client/api" }
+sc-rpc-api = { version = "0.33.0", path = "../../../substrate/client/rpc-api" }
+sc-service = { version = "0.35.0", path = "../../../substrate/client/service" }
 
 tokio = { version = "1.32.0", features = ["sync"] }
 tokio-util = { version = "0.7.8", features = ["compat"] }

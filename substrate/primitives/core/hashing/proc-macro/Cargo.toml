@@ -1,6 +1,6 @@
 [package]
 name = "sp-core-hashing-proc-macro"
-version = "9.0.0"
+version = "15.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -21,4 +21,4 @@ proc-macro = true
 [dependencies]
 quote = "1.0.28"
 syn = { version = "2.0.48", features = ["full", "parsing"] }
-sp-core-hashing = { path = "..", default-features = false }
+sp-core-hashing = { path = "..", default-features = false, version = "15.0.0" }

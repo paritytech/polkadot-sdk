@@ -1,6 +1,6 @@
 [package]
 name = "pallet-election-provider-multi-phase"
-version = "4.0.0-dev"
+version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -23,20 +23,20 @@ scale-info = { version = "2.10.0", default-features = false, features = [
 ] }
 log = { version = "0.4.17", default-features = false }
 
-frame-support = { path = "../support", default-features = false }
-frame-system = { path = "../system", default-features = false }
+frame-support = { path = "../support", default-features = false, version = "28.0.0" }
+frame-system = { path = "../system", default-features = false, version = "28.0.0" }
 
-sp-io = { path = "../../primitives/io", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
-sp-core = { path = "../../primitives/core", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-npos-elections = { path = "../../primitives/npos-elections", default-features = false }
-sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false }
-frame-election-provider-support = { path = "../election-provider-support", default-features = false }
+sp-io = { path = "../../primitives/io", default-features = false, version = "30.0.0" }
+sp-std = { path = "../../primitives/std", default-features = false, version = "14.0.0" }
+sp-core = { path = "../../primitives/core", default-features = false, version = "28.0.0" }
+sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "31.0.0" }
+sp-npos-elections = { path = "../../primitives/npos-elections", default-features = false, version = "26.0.0" }
+sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false, version = "23.0.0" }
+frame-election-provider-support = { path = "../election-provider-support", default-features = false, version = "28.0.0" }
 
 # Optional imports for benchmarking
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
-pallet-election-provider-support-benchmarking = { path = "../election-provider-support/benchmarking", default-features = false, optional = true }
+frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true, version = "28.0.0" }
+pallet-election-provider-support-benchmarking = { path = "../election-provider-support/benchmarking", default-features = false, optional = true, version = "27.0.0" }
 rand = { version = "0.8.5", default-features = false, features = ["alloc", "small_rng"], optional = true }
 strum = { version = "0.24.1", default-features = false, features = ["derive"], optional = true }
 
@@ -59,7 +59,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"pallet-balances/std",
 	"pallet-election-provider-support-benchmarking?/std",
 	"rand/std",
 	"scale-info/std",
@@ -69,7 +68,6 @@ std = [
 	"sp-npos-elections/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"sp-tracing/std",
 	"strum/std",
 ]
 runtime-benchmarks = [
@@ -77,7 +75,6 @@ runtime-benchmarks = [
 	"frame-election-provider-support/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"pallet-election-provider-support-benchmarking?/runtime-benchmarks",
 	"rand",
 	"sp-runtime/runtime-benchmarks",
@@ -87,6 +84,5 @@ try-runtime = [
 	"frame-election-provider-support/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-balances/try-runtime",
 	"sp-runtime/try-runtime",
 ]

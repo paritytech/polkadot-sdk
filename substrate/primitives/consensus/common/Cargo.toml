@@ -1,6 +1,6 @@
 [package]
 name = "sp-consensus"
-version = "0.10.0-dev"
+version = "0.32.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -21,10 +21,10 @@ async-trait = "0.1.74"
 futures = { version = "0.3.21", features = ["thread-pool"] }
 log = "0.4.17"
 thiserror = "1.0.48"
-sp-core = { path = "../../core" }
-sp-inherents = { path = "../../inherents" }
-sp-runtime = { path = "../../runtime" }
-sp-state-machine = { path = "../../state-machine" }
+sp-core = { version = "28.0.0", path = "../../core" }
+sp-inherents = { version = "26.0.0", path = "../../inherents" }
+sp-runtime = { version = "31.0.0", path = "../../runtime" }
+sp-state-machine = { version = "0.35.0", path = "../../state-machine" }
 
 [dev-dependencies]
 futures = "0.3.21"

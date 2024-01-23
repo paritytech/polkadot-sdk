@@ -1,6 +1,6 @@
 [package]
 name = "frame-election-provider-solution-type"
-version = "4.0.0-dev"
+version = "13.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -27,7 +27,6 @@ proc-macro-crate = "3.0.0"
 parity-scale-codec = "3.6.1"
 scale-info = "2.10.0"
 sp-arithmetic = { path = "../../../primitives/arithmetic" }
-# used by generate_solution_type:
 frame-election-provider-support = { path = ".." }
 frame-support = { path = "../../support" }
 trybuild = "1.0.88"

@@ -1,6 +1,6 @@
 [package]
 name = "rococo-emulated-chain"
-version = "0.0.0"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -14,19 +14,17 @@ workspace = true
 serde_json = "1.0.111"
 
 # Substrate
-sp-core = { path = "../../../../../../../substrate/primitives/core", default-features = false }
-sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", default-features = false }
-sp-authority-discovery = { path = "../../../../../../../substrate/primitives/authority-discovery", default-features = false }
-sp-consensus-babe = { path = "../../../../../../../substrate/primitives/consensus/babe", default-features = false }
-beefy-primitives = { package = "sp-consensus-beefy", path = "../../../../../../../substrate/primitives/consensus/beefy" }
-grandpa = { package = "sc-consensus-grandpa", path = "../../../../../../../substrate/client/consensus/grandpa", default-features = false }
-pallet-im-online = { path = "../../../../../../../substrate/frame/im-online", default-features = false }
+sp-core = { path = "../../../../../../../substrate/primitives/core", default-features = false, version = "28.0.0" }
+sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", default-features = false, version = "31.0.0" }
+sp-authority-discovery = { path = "../../../../../../../substrate/primitives/authority-discovery", default-features = false, version = "26.0.0" }
+sp-consensus-babe = { path = "../../../../../../../substrate/primitives/consensus/babe", default-features = false, version = "0.32.0" }
+beefy-primitives = { package = "sp-consensus-beefy", path = "../../../../../../../substrate/primitives/consensus/beefy", version = "13.0.0" }
+grandpa = { package = "sc-consensus-grandpa", path = "../../../../../../../substrate/client/consensus/grandpa", default-features = false, version = "0.19.0" }
+pallet-im-online = { path = "../../../../../../../substrate/frame/im-online", default-features = false, version = "27.0.0" }
 
 # Polkadot
-polkadot-primitives = { path = "../../../../../../../polkadot/primitives", default-features = false }
-rococo-runtime-constants = { path = "../../../../../../../polkadot/runtime/rococo/constants", default-features = false }
-rococo-runtime = { path = "../../../../../../../polkadot/runtime/rococo" }
-
-# Cumulus
-parachains-common = { path = "../../../../../../parachains/common" }
-emulated-integration-tests-common = { path = "../../../common", default-features = false }
+polkadot-primitives = { path = "../../../../../../../polkadot/primitives", default-features = false, version = "7.0.0" }
+rococo-runtime-constants = { path = "../../../../../../../polkadot/runtime/rococo/constants", default-features = false, version = "7.0.0" }
+rococo-runtime = { version = "7.0.0", path = "../../../../../../../polkadot/runtime/rococo" }
+parachains-common = { version = "7.0.0", path = "../../../../../common" }
+emulated-integration-tests-common = { path = "../../../common", default-features = false, version = "3.0.0" }

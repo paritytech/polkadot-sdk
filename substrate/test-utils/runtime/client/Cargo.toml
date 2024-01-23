@@ -1,12 +1,13 @@
 [package]
 name = "substrate-test-runtime-client"
-version = "2.0.0"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
 publish = false
+description = "substrate-test-runtime-client"
 
 [lints]
 workspace = true
@@ -16,13 +17,13 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 futures = "0.3.21"
-sc-block-builder = { path = "../../../client/block-builder" }
-sc-client-api = { path = "../../../client/api" }
-sc-consensus = { path = "../../../client/consensus/common" }
-sp-api = { path = "../../../primitives/api" }
-sp-blockchain = { path = "../../../primitives/blockchain" }
-sp-consensus = { path = "../../../primitives/consensus/common" }
-sp-core = { path = "../../../primitives/core" }
-sp-runtime = { path = "../../../primitives/runtime" }
-substrate-test-client = { path = "../../client" }
-substrate-test-runtime = { path = ".." }
+sc-block-builder = { version = "0.33.0", path = "../../../client/block-builder" }
+sc-client-api = { version = "28.0.0", path = "../../../client/api" }
+sc-consensus = { version = "0.33.0", path = "../../../client/consensus/common" }
+sp-api = { version = "26.0.0", path = "../../../primitives/api" }
+sp-blockchain = { version = "28.0.0", path = "../../../primitives/blockchain" }
+sp-consensus = { version = "0.32.0", path = "../../../primitives/consensus/common" }
+sp-core = { version = "28.0.0", path = "../../../primitives/core" }
+sp-runtime = { version = "31.0.0", path = "../../../primitives/runtime" }
+substrate-test-client = { version = "0.1.0", path = "../../client" }
+substrate-test-runtime = { version = "0.1.0", path = ".." }

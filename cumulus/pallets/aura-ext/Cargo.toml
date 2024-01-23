@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-pallet-aura-ext"
-version = "0.1.0"
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
 description = "AURA consensus extension pallet for parachains"
@@ -14,21 +14,19 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 # Substrate
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../substrate/frame/system", default-features = false }
-pallet-aura = { path = "../../../substrate/frame/aura", default-features = false }
-pallet-timestamp = { path = "../../../substrate/frame/timestamp", default-features = false }
-sp-application-crypto = { path = "../../../substrate/primitives/application-crypto", default-features = false }
-sp-consensus-aura = { path = "../../../substrate/primitives/consensus/aura", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "28.0.0" }
+frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "28.0.0" }
+pallet-aura = { path = "../../../substrate/frame/aura", default-features = false, version = "27.0.0" }
+pallet-timestamp = { path = "../../../substrate/frame/timestamp", default-features = false, version = "27.0.0" }
+sp-application-crypto = { path = "../../../substrate/primitives/application-crypto", default-features = false, version = "30.0.0" }
+sp-consensus-aura = { path = "../../../substrate/primitives/consensus/aura", default-features = false, version = "0.32.0" }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "31.0.0" }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
 
 # Cumulus
-cumulus-pallet-parachain-system = { path = "../parachain-system", default-features = false }
+cumulus-pallet-parachain-system = { path = "../parachain-system", default-features = false, version = "0.7.0" }
 
 [dev-dependencies]
-
-# Cumulus
 cumulus-pallet-parachain-system = { path = "../parachain-system" }
 
 [features]

@@ -1,6 +1,6 @@
 [package]
 name = "sc-executor"
-version = "0.10.0-dev"
+version = "0.32.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -22,17 +22,17 @@ schnellru = "0.2.1"
 tracing = "0.1.29"
 
 codec = { package = "parity-scale-codec", version = "3.6.1" }
-sc-executor-common = { path = "common" }
-sc-executor-wasmtime = { path = "wasmtime" }
-sp-api = { path = "../../primitives/api" }
-sp-core = { path = "../../primitives/core" }
-sp-externalities = { path = "../../primitives/externalities" }
-sp-io = { path = "../../primitives/io" }
-sp-panic-handler = { path = "../../primitives/panic-handler" }
-sp-runtime-interface = { path = "../../primitives/runtime-interface" }
-sp-trie = { path = "../../primitives/trie" }
-sp-version = { path = "../../primitives/version" }
-sp-wasm-interface = { path = "../../primitives/wasm-interface" }
+sc-executor-common = { version = "0.29.0", path = "common" }
+sc-executor-wasmtime = { version = "0.29.0", path = "wasmtime" }
+sp-api = { version = "26.0.0", path = "../../primitives/api" }
+sp-core = { version = "28.0.0", path = "../../primitives/core" }
+sp-externalities = { version = "0.25.0", path = "../../primitives/externalities" }
+sp-io = { version = "30.0.0", path = "../../primitives/io" }
+sp-panic-handler = { version = "13.0.0", path = "../../primitives/panic-handler" }
+sp-runtime-interface = { version = "24.0.0", path = "../../primitives/runtime-interface" }
+sp-trie = { version = "29.0.0", path = "../../primitives/trie" }
+sp-version = { version = "29.0.0", path = "../../primitives/version" }
+sp-wasm-interface = { version = "20.0.0", path = "../../primitives/wasm-interface" }
 
 [dev-dependencies]
 array-bytes = "6.1"
@@ -61,18 +61,13 @@ harness = false
 default = ["std"]
 # This crate does not have `no_std` support, we just require this for tests
 std = [
-	"sc-runtime-test/std",
 	"sp-api/std",
 	"sp-core/std",
 	"sp-externalities/std",
 	"sp-io/std",
 	"sp-runtime-interface/std",
-	"sp-runtime/std",
-	"sp-state-machine/std",
-	"sp-tracing/std",
 	"sp-trie/std",
 	"sp-version/std",
 	"sp-wasm-interface/std",
-	"substrate-test-runtime/std",
 ]
 wasm-extern-trace = []

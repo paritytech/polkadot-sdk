@@ -1,7 +1,7 @@
 [package]
 authors.workspace = true
 name = "cumulus-relay-chain-minimal-node"
-version = "0.1.0"
+version = "0.7.0"
 edition.workspace = true
 description = "Minimal node implementation to be used in tandem with RPC or light-client mode."
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -10,41 +10,35 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 workspace = true
 
 [dependencies]
-# polkadot deps
-polkadot-primitives = { path = "../../../polkadot/primitives" }
-polkadot-core-primitives = { path = "../../../polkadot/core-primitives" }
-polkadot-overseer = { path = "../../../polkadot/node/overseer" }
-polkadot-node-subsystem-util = { path = "../../../polkadot/node/subsystem-util" }
-polkadot-node-network-protocol = { path = "../../../polkadot/node/network/protocol" }
-
-polkadot-availability-recovery = { path = "../../../polkadot/node/network/availability-recovery" }
-polkadot-collator-protocol = { path = "../../../polkadot/node/network/collator-protocol" }
-polkadot-network-bridge = { path = "../../../polkadot/node/network/bridge" }
-polkadot-node-collation-generation = { path = "../../../polkadot/node/collation-generation" }
-polkadot-node-core-runtime-api = { path = "../../../polkadot/node/core/runtime-api" }
-polkadot-node-core-chain-api = { path = "../../../polkadot/node/core/chain-api" }
-polkadot-node-core-prospective-parachains = { path = "../../../polkadot/node/core/prospective-parachains" }
-
-# substrate deps
-sc-authority-discovery = { path = "../../../substrate/client/authority-discovery" }
-sc-network = { path = "../../../substrate/client/network" }
-sc-network-common = { path = "../../../substrate/client/network/common" }
-sc-service = { path = "../../../substrate/client/service" }
-sc-client-api = { path = "../../../substrate/client/api" }
-substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
-sc-tracing = { path = "../../../substrate/client/tracing" }
-sc-utils = { path = "../../../substrate/client/utils" }
-sp-api = { path = "../../../substrate/primitives/api" }
-sp-consensus-babe = { path = "../../../substrate/primitives/consensus/babe" }
-sp-consensus = { path = "../../../substrate/primitives/consensus/common" }
-sp-runtime = { path = "../../../substrate/primitives/runtime" }
-sp-blockchain = { path = "../../../substrate/primitives/blockchain" }
+polkadot-primitives = { version = "7.0.0", path = "../../../polkadot/primitives" }
+polkadot-core-primitives = { version = "7.0.0", path = "../../../polkadot/core-primitives" }
+polkadot-overseer = { version = "7.0.0", path = "../../../polkadot/node/overseer" }
+polkadot-node-subsystem-util = { version = "7.0.0", path = "../../../polkadot/node/subsystem-util" }
+polkadot-node-network-protocol = { version = "7.0.0", path = "../../../polkadot/node/network/protocol" }
+polkadot-availability-recovery = { version = "7.0.0", path = "../../../polkadot/node/network/availability-recovery" }
+polkadot-collator-protocol = { version = "7.0.0", path = "../../../polkadot/node/network/collator-protocol" }
+polkadot-network-bridge = { version = "7.0.0", path = "../../../polkadot/node/network/bridge" }
+polkadot-node-collation-generation = { version = "7.0.0", path = "../../../polkadot/node/collation-generation" }
+polkadot-node-core-runtime-api = { version = "7.0.0", path = "../../../polkadot/node/core/runtime-api" }
+polkadot-node-core-chain-api = { version = "7.0.0", path = "../../../polkadot/node/core/chain-api" }
+polkadot-node-core-prospective-parachains = { version = "6.0.0", path = "../../../polkadot/node/core/prospective-parachains" }
+sc-authority-discovery = { version = "0.34.0", path = "../../../substrate/client/authority-discovery" }
+sc-network = { version = "0.34.0", path = "../../../substrate/client/network" }
+sc-network-common = { version = "0.33.0", path = "../../../substrate/client/network/common" }
+sc-service = { version = "0.35.0", path = "../../../substrate/client/service" }
+sc-client-api = { version = "28.0.0", path = "../../../substrate/client/api" }
+substrate-prometheus-endpoint = { version = "0.17.0", path = "../../../substrate/utils/prometheus" }
+sc-tracing = { version = "28.0.0", path = "../../../substrate/client/tracing" }
+sc-utils = { version = "14.0.0", path = "../../../substrate/client/utils" }
+sp-api = { version = "26.0.0", path = "../../../substrate/primitives/api" }
+sp-consensus-babe = { version = "0.32.0", path = "../../../substrate/primitives/consensus/babe" }
+sp-consensus = { version = "0.32.0", path = "../../../substrate/primitives/consensus/common" }
+sp-runtime = { version = "31.0.0", path = "../../../substrate/primitives/runtime" }
+sp-blockchain = { version = "28.0.0", path = "../../../substrate/primitives/blockchain" }
 tokio = { version = "1.32.0", features = ["macros"] }
-
-# cumulus deps
-cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
-cumulus-relay-chain-rpc-interface = { path = "../relay-chain-rpc-interface" }
-cumulus-primitives-core = { path = "../../primitives/core" }
+cumulus-relay-chain-interface = { version = "0.7.0", path = "../relay-chain-interface" }
+cumulus-relay-chain-rpc-interface = { version = "0.7.0", path = "../relay-chain-rpc-interface" }
+cumulus-primitives-core = { version = "0.7.0", path = "../../primitives/core" }
 
 array-bytes = "6.1"
 tracing = "0.1.37"

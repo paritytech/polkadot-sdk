@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-pallet-dmp-queue"
-version = "0.1.0"
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
 repository.workspace = true
@@ -18,18 +18,18 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 log = { version = "0.4.20", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
-frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../substrate/frame/system", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-io = { path = "../../../substrate/primitives/io", default-features = false }
+frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "28.0.0" }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "28.0.0" }
+frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "28.0.0" }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "31.0.0" }
+sp-io = { path = "../../../substrate/primitives/io", default-features = false, version = "30.0.0" }
 
 # Polkadot
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "7.0.0" }
 
 # Cumulus
-cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
+cumulus-primitives-core = { path = "../../primitives/core", default-features = false, version = "0.7.0" }
 
 [dev-dependencies]
 sp-core = { path = "../../../substrate/primitives/core" }

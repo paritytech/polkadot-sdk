@@ -1,6 +1,6 @@
 [package]
 name = "binary-merkle-tree"
-version = "4.0.0-dev"
+version = "13.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -25,4 +25,4 @@ sp-runtime = { path = "../../primitives/runtime" }
 [features]
 debug = ["array-bytes", "log"]
 default = ["debug", "std"]
-std = ["hash-db/std", "log/std", "sp-core/std", "sp-runtime/std"]
+std = ["hash-db/std", "log/std"]

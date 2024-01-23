@@ -1,6 +1,6 @@
 [package]
 name = "pallet-nft-fractionalization"
-version = "4.0.0-dev"
+version = "10.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -19,13 +19,13 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
 log = { version = "0.4.17", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
-frame-support = { path = "../support", default-features = false }
-frame-system = { path = "../system", default-features = false }
-pallet-assets = { path = "../assets", default-features = false }
-pallet-nfts = { path = "../nfts", default-features = false }
-sp-runtime = { path = "../../primitives/runtime", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
+frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true, version = "28.0.0" }
+frame-support = { path = "../support", default-features = false, version = "28.0.0" }
+frame-system = { path = "../system", default-features = false, version = "28.0.0" }
+pallet-assets = { path = "../assets", default-features = false, version = "29.0.0" }
+pallet-nfts = { path = "../nfts", default-features = false, version = "22.0.0" }
+sp-runtime = { path = "../../primitives/runtime", default-features = false, version = "31.0.0" }
+sp-std = { path = "../../primitives/std", default-features = false, version = "14.0.0" }
 
 [dev-dependencies]
 pallet-balances = { path = "../balances" }
@@ -42,11 +42,8 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-assets/std",
-	"pallet-balances/std",
 	"pallet-nfts/std",
 	"scale-info/std",
-	"sp-core/std",
-	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
 ]
@@ -55,7 +52,6 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
 	"pallet-nfts/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
@@ -63,7 +59,6 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-assets/try-runtime",
-	"pallet-balances/try-runtime",
 	"pallet-nfts/try-runtime",
 	"sp-runtime/try-runtime",
 ]

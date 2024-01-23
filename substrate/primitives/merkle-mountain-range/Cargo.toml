@@ -1,6 +1,6 @@
 [package]
 name = "sp-mmr-primitives"
-version = "4.0.0-dev"
+version = "26.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -20,11 +20,11 @@ scale-info = { version = "2.10.0", default-features = false, features = ["derive
 log = { version = "0.4.17", default-features = false }
 mmr-lib = { package = "ckb-merkle-mountain-range", version = "0.5.2", default-features = false }
 serde = { version = "1.0.195", features = ["alloc", "derive"], default-features = false, optional = true }
-sp-api = { path = "../api", default-features = false }
-sp-core = { path = "../core", default-features = false }
-sp-debug-derive = { path = "../debug-derive", default-features = false }
-sp-runtime = { path = "../runtime", default-features = false }
-sp-std = { path = "../std", default-features = false }
+sp-api = { path = "../api", default-features = false, version = "26.0.0" }
+sp-core = { path = "../core", default-features = false, version = "28.0.0" }
+sp-debug-derive = { path = "../debug-derive", default-features = false, version = "14.0.0" }
+sp-runtime = { path = "../runtime", default-features = false, version = "31.0.0" }
+sp-std = { path = "../std", default-features = false, version = "14.0.0" }
 thiserror = "1.0"
 
 [dev-dependencies]

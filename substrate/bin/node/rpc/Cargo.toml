@@ -1,6 +1,6 @@
 [package]
 name = "node-rpc"
-version = "3.0.0-dev"
+version = "0.1.0"
 authors.workspace = true
 description = "Substrate node rpc methods."
 edition.workspace = true
@@ -17,30 +17,30 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 jsonrpsee = { version = "0.16.2", features = ["server"] }
-node-primitives = { path = "../primitives" }
-pallet-transaction-payment-rpc = { path = "../../../frame/transaction-payment/rpc" }
-mmr-rpc = { path = "../../../client/merkle-mountain-range/rpc" }
-sc-chain-spec = { path = "../../../client/chain-spec" }
-sc-client-api = { path = "../../../client/api" }
-sc-consensus-babe = { path = "../../../client/consensus/babe" }
-sc-consensus-babe-rpc = { path = "../../../client/consensus/babe/rpc" }
-sc-consensus-beefy = { path = "../../../client/consensus/beefy" }
-sc-consensus-beefy-rpc = { path = "../../../client/consensus/beefy/rpc" }
-sc-consensus-grandpa = { path = "../../../client/consensus/grandpa" }
-sc-consensus-grandpa-rpc = { path = "../../../client/consensus/grandpa/rpc" }
-sc-mixnet = { path = "../../../client/mixnet" }
-sc-rpc = { path = "../../../client/rpc" }
-sc-rpc-api = { path = "../../../client/rpc-api" }
-sc-rpc-spec-v2 = { path = "../../../client/rpc-spec-v2" }
-sc-sync-state-rpc = { path = "../../../client/sync-state-rpc" }
-sc-transaction-pool-api = { path = "../../../client/transaction-pool/api" }
-sp-api = { path = "../../../primitives/api" }
-sp-block-builder = { path = "../../../primitives/block-builder" }
-sp-blockchain = { path = "../../../primitives/blockchain" }
-sp-consensus = { path = "../../../primitives/consensus/common" }
-sp-consensus-babe = { path = "../../../primitives/consensus/babe" }
-sp-keystore = { path = "../../../primitives/keystore" }
-sp-runtime = { path = "../../../primitives/runtime" }
-sp-statement-store = { path = "../../../primitives/statement-store" }
-substrate-frame-rpc-system = { path = "../../../utils/frame/rpc/system" }
-substrate-state-trie-migration-rpc = { path = "../../../utils/frame/rpc/state-trie-migration-rpc" }
+node-primitives = { version = "2.0.0", path = "../primitives" }
+pallet-transaction-payment-rpc = { version = "30.0.0", path = "../../../frame/transaction-payment/rpc" }
+mmr-rpc = { version = "28.0.0", path = "../../../client/merkle-mountain-range/rpc" }
+sc-chain-spec = { version = "27.0.0", path = "../../../client/chain-spec" }
+sc-client-api = { version = "28.0.0", path = "../../../client/api" }
+sc-consensus-babe = { version = "0.34.0", path = "../../../client/consensus/babe" }
+sc-consensus-babe-rpc = { version = "0.34.0", path = "../../../client/consensus/babe/rpc" }
+sc-consensus-beefy = { version = "13.0.0", path = "../../../client/consensus/beefy" }
+sc-consensus-beefy-rpc = { version = "13.0.0", path = "../../../client/consensus/beefy/rpc" }
+sc-consensus-grandpa = { version = "0.19.0", path = "../../../client/consensus/grandpa" }
+sc-consensus-grandpa-rpc = { version = "0.19.0", path = "../../../client/consensus/grandpa/rpc" }
+sc-mixnet = { version = "0.4.0", path = "../../../client/mixnet" }
+sc-rpc = { version = "29.0.0", path = "../../../client/rpc" }
+sc-rpc-api = { version = "0.33.0", path = "../../../client/rpc-api" }
+sc-rpc-spec-v2 = { version = "0.34.0", path = "../../../client/rpc-spec-v2" }
+sc-sync-state-rpc = { version = "0.34.0", path = "../../../client/sync-state-rpc" }
+sc-transaction-pool-api = { version = "28.0.0", path = "../../../client/transaction-pool/api" }
+sp-api = { version = "26.0.0", path = "../../../primitives/api" }
+sp-block-builder = { version = "26.0.0", path = "../../../primitives/block-builder" }
+sp-blockchain = { version = "28.0.0", path = "../../../primitives/blockchain" }
+sp-consensus = { version = "0.32.0", path = "../../../primitives/consensus/common" }
+sp-consensus-babe = { version = "0.32.0", path = "../../../primitives/consensus/babe" }
+sp-keystore = { version = "0.34.0", path = "../../../primitives/keystore" }
+sp-runtime = { version = "31.0.0", path = "../../../primitives/runtime" }
+sp-statement-store = { version = "10.0.0", path = "../../../primitives/statement-store" }
+substrate-frame-rpc-system = { version = "28.0.0", path = "../../../utils/frame/rpc/system" }
+substrate-state-trie-migration-rpc = { version = "27.0.0", path = "../../../utils/frame/rpc/state-trie-migration-rpc" }

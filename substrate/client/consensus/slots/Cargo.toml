@@ -1,6 +1,6 @@
 [package]
 name = "sc-consensus-slots"
-version = "0.10.0-dev"
+version = "0.33.0"
 authors.workspace = true
 description = "Generic slots-based utilities for consensus"
 edition.workspace = true
@@ -22,17 +22,17 @@ codec = { package = "parity-scale-codec", version = "3.6.1" }
 futures = "0.3.21"
 futures-timer = "3.0.1"
 log = "0.4.17"
-sc-client-api = { path = "../../api" }
-sc-consensus = { path = "../common" }
-sc-telemetry = { path = "../../telemetry" }
-sp-arithmetic = { path = "../../../primitives/arithmetic" }
-sp-blockchain = { path = "../../../primitives/blockchain" }
-sp-consensus = { path = "../../../primitives/consensus/common" }
-sp-consensus-slots = { path = "../../../primitives/consensus/slots" }
-sp-core = { path = "../../../primitives/core" }
-sp-inherents = { path = "../../../primitives/inherents" }
-sp-runtime = { path = "../../../primitives/runtime" }
-sp-state-machine = { path = "../../../primitives/state-machine" }
+sc-client-api = { version = "28.0.0", path = "../../api" }
+sc-consensus = { version = "0.33.0", path = "../common" }
+sc-telemetry = { version = "15.0.0", path = "../../telemetry" }
+sp-arithmetic = { version = "23.0.0", path = "../../../primitives/arithmetic" }
+sp-blockchain = { version = "28.0.0", path = "../../../primitives/blockchain" }
+sp-consensus = { version = "0.32.0", path = "../../../primitives/consensus/common" }
+sp-consensus-slots = { version = "0.32.0", path = "../../../primitives/consensus/slots" }
+sp-core = { version = "28.0.0", path = "../../../primitives/core" }
+sp-inherents = { version = "26.0.0", path = "../../../primitives/inherents" }
+sp-runtime = { version = "31.0.0", path = "../../../primitives/runtime" }
+sp-state-machine = { version = "0.35.0", path = "../../../primitives/state-machine" }
 
 [dev-dependencies]
 substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }

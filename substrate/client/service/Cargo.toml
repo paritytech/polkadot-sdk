@@ -1,6 +1,6 @@
 [package]
 name = "sc-service"
-version = "0.10.0-dev"
+version = "0.35.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -39,44 +39,44 @@ exit-future = "0.2.0"
 pin-project = "1.0.12"
 serde = "1.0.195"
 serde_json = "1.0.111"
-sc-keystore = { path = "../keystore" }
-sp-runtime = { path = "../../primitives/runtime" }
-sp-trie = { path = "../../primitives/trie" }
-sp-externalities = { path = "../../primitives/externalities" }
-sc-utils = { path = "../utils" }
-sp-version = { path = "../../primitives/version" }
-sp-blockchain = { path = "../../primitives/blockchain" }
-sp-core = { path = "../../primitives/core" }
-sp-keystore = { path = "../../primitives/keystore" }
-sp-session = { path = "../../primitives/session" }
-sp-state-machine = { path = "../../primitives/state-machine" }
-sp-consensus = { path = "../../primitives/consensus/common" }
-sc-consensus = { path = "../consensus/common" }
-sp-storage = { path = "../../primitives/storage" }
-sc-network = { path = "../network" }
-sc-network-bitswap = { path = "../network/bitswap" }
-sc-network-common = { path = "../network/common" }
-sc-network-light = { path = "../network/light" }
-sc-network-sync = { path = "../network/sync" }
-sc-network-transactions = { path = "../network/transactions" }
-sc-chain-spec = { path = "../chain-spec" }
-sc-client-api = { path = "../api" }
-sp-api = { path = "../../primitives/api" }
-sc-client-db = { path = "../db", default-features = false }
+sc-keystore = { version = "25.0.0", path = "../keystore" }
+sp-runtime = { version = "31.0.0", path = "../../primitives/runtime" }
+sp-trie = { version = "29.0.0", path = "../../primitives/trie" }
+sp-externalities = { version = "0.25.0", path = "../../primitives/externalities" }
+sc-utils = { version = "14.0.0", path = "../utils" }
+sp-version = { version = "29.0.0", path = "../../primitives/version" }
+sp-blockchain = { version = "28.0.0", path = "../../primitives/blockchain" }
+sp-core = { version = "28.0.0", path = "../../primitives/core" }
+sp-keystore = { version = "0.34.0", path = "../../primitives/keystore" }
+sp-session = { version = "27.0.0", path = "../../primitives/session" }
+sp-state-machine = { version = "0.35.0", path = "../../primitives/state-machine" }
+sp-consensus = { version = "0.32.0", path = "../../primitives/consensus/common" }
+sc-consensus = { version = "0.33.0", path = "../consensus/common" }
+sp-storage = { version = "19.0.0", path = "../../primitives/storage" }
+sc-network = { version = "0.34.0", path = "../network" }
+sc-network-bitswap = { version = "0.33.0", path = "../network/bitswap" }
+sc-network-common = { version = "0.33.0", path = "../network/common" }
+sc-network-light = { version = "0.33.0", path = "../network/light" }
+sc-network-sync = { version = "0.33.0", path = "../network/sync" }
+sc-network-transactions = { version = "0.33.0", path = "../network/transactions" }
+sc-chain-spec = { version = "27.0.0", path = "../chain-spec" }
+sc-client-api = { version = "28.0.0", path = "../api" }
+sp-api = { version = "26.0.0", path = "../../primitives/api" }
+sc-client-db = { path = "../db", default-features = false, version = "0.35.0" }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
-sc-executor = { path = "../executor" }
-sc-transaction-pool = { path = "../transaction-pool" }
-sp-transaction-pool = { path = "../../primitives/transaction-pool" }
-sc-transaction-pool-api = { path = "../transaction-pool/api" }
-sp-transaction-storage-proof = { path = "../../primitives/transaction-storage-proof" }
-sc-rpc-server = { path = "../rpc-servers" }
-sc-rpc = { path = "../rpc" }
-sc-rpc-spec-v2 = { path = "../rpc-spec-v2" }
-sc-informant = { path = "../informant" }
-sc-telemetry = { path = "../telemetry" }
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
-sc-tracing = { path = "../tracing" }
-sc-sysinfo = { path = "../sysinfo" }
+sc-executor = { version = "0.32.0", path = "../executor" }
+sc-transaction-pool = { version = "28.0.0", path = "../transaction-pool" }
+sp-transaction-pool = { version = "26.0.0", path = "../../primitives/transaction-pool" }
+sc-transaction-pool-api = { version = "28.0.0", path = "../transaction-pool/api" }
+sp-transaction-storage-proof = { version = "26.0.0", path = "../../primitives/transaction-storage-proof" }
+sc-rpc-server = { version = "11.0.0", path = "../rpc-servers" }
+sc-rpc = { version = "29.0.0", path = "../rpc" }
+sc-rpc-spec-v2 = { version = "0.34.0", path = "../rpc-spec-v2" }
+sc-informant = { version = "0.33.0", path = "../informant" }
+sc-telemetry = { version = "15.0.0", path = "../telemetry" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus", version = "0.17.0" }
+sc-tracing = { version = "28.0.0", path = "../tracing" }
+sc-sysinfo = { version = "27.0.0", path = "../sysinfo" }
 tracing = "0.1.29"
 tracing-futures = { version = "0.2.4" }
 async-trait = "0.1.74"

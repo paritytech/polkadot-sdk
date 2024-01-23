@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-node-core-backing"
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,15 +11,15 @@ workspace = true
 
 [dependencies]
 futures = "0.3.21"
-sp-keystore = { path = "../../../../substrate/primitives/keystore" }
-polkadot-primitives = { path = "../../../primitives" }
-polkadot-node-primitives = { path = "../../primitives" }
-polkadot-node-subsystem = { path = "../../subsystem" }
-polkadot-node-subsystem-util = { path = "../../subsystem-util" }
-erasure-coding = { package = "polkadot-erasure-coding", path = "../../../erasure-coding" }
-statement-table = { package = "polkadot-statement-table", path = "../../../statement-table" }
+sp-keystore = { version = "0.34.0", path = "../../../../substrate/primitives/keystore" }
+polkadot-primitives = { version = "7.0.0", path = "../../../primitives" }
+polkadot-node-primitives = { version = "7.0.0", path = "../../primitives" }
+polkadot-node-subsystem = { version = "7.0.0", path = "../../subsystem" }
+polkadot-node-subsystem-util = { version = "7.0.0", path = "../../subsystem-util" }
+erasure-coding = { package = "polkadot-erasure-coding", path = "../../../erasure-coding", version = "7.0.0" }
+statement-table = { package = "polkadot-statement-table", path = "../../../statement-table", version = "7.0.0" }
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
-gum = { package = "tracing-gum", path = "../../gum" }
+gum = { package = "tracing-gum", path = "../../gum", version = "7.0.0" }
 thiserror = "1.0.48"
 fatality = "0.0.6"
 

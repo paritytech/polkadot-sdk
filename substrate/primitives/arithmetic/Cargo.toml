@@ -1,6 +1,6 @@
 [package]
 name = "sp-arithmetic"
-version = "16.0.0"
+version = "23.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -26,7 +26,7 @@ num-traits = { version = "0.2.17", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.195", default-features = false, features = ["alloc", "derive"], optional = true }
 static_assertions = "1.1.0"
-sp-std = { path = "../std", default-features = false }
+sp-std = { path = "../std", default-features = false, version = "14.0.0" }
 
 [dev-dependencies]
 criterion = "0.4.0"
@@ -41,7 +41,6 @@ std = [
 	"num-traits/std",
 	"scale-info/std",
 	"serde/std",
-	"sp-core/std",
 	"sp-std/std",
 ]
 # Serde support without relying on std features.

@@ -1,7 +1,7 @@
 [package]
 name = "bp-bridge-hub-cumulus"
 description = "Primitives for BridgeHub parachain runtimes."
-version = "0.1.0"
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -12,19 +12,19 @@ workspace = true
 [dependencies]
 # Bridge Dependencies
 
-bp-polkadot-core = { path = "../polkadot-core", default-features = false }
-bp-messages = { path = "../messages", default-features = false }
-bp-runtime = { path = "../runtime", default-features = false }
+bp-polkadot-core = { path = "../polkadot-core", default-features = false, version = "0.7.0" }
+bp-messages = { path = "../messages", default-features = false, version = "0.7.0" }
+bp-runtime = { path = "../runtime", default-features = false, version = "0.7.0" }
 
 # Substrate Based Dependencies
 
-frame-system = { path = "../../../substrate/frame/system", default-features = false }
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
-sp-api = { path = "../../../substrate/primitives/api", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "28.0.0" }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "28.0.0" }
+sp-api = { path = "../../../substrate/primitives/api", default-features = false, version = "26.0.0" }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
 
 # Polkadot Dependencies
-polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false }
+polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false, version = "7.0.0" }
 
 [features]
 default = ["std"]

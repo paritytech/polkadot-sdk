@@ -1,6 +1,6 @@
 [package]
 name = "bridge-hub-rococo-emulated-chain"
-version = "0.0.0"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -14,22 +14,20 @@ workspace = true
 serde_json = "1.0.111"
 
 # Substrate
-sp-core = { path = "../../../../../../../../substrate/primitives/core", default-features = false }
-sp-runtime = { path = "../../../../../../../../substrate/primitives/runtime", default-features = false }
-frame-support = { path = "../../../../../../../../substrate/frame/support", default-features = false }
-
-# Polakadot
-parachains-common = { path = "../../../../../../../parachains/common" }
+sp-core = { path = "../../../../../../../../substrate/primitives/core", default-features = false, version = "28.0.0" }
+sp-runtime = { path = "../../../../../../../../substrate/primitives/runtime", default-features = false, version = "31.0.0" }
+frame-support = { path = "../../../../../../../../substrate/frame/support", default-features = false, version = "28.0.0" }
+parachains-common = { version = "7.0.0", path = "../../../../../../common" }
 
 # Cumulus
-cumulus-primitives-core = { path = "../../../../../../../primitives/core", default-features = false }
-emulated-integration-tests-common = { path = "../../../../common", default-features = false }
-bridge-hub-rococo-runtime = { path = "../../../../../../runtimes/bridge-hubs/bridge-hub-rococo" }
-bridge-hub-common = { path = "../../../../../../runtimes/bridge-hubs/common", default-features = false }
+cumulus-primitives-core = { path = "../../../../../../../primitives/core", default-features = false, version = "0.7.0" }
+emulated-integration-tests-common = { path = "../../../../common", default-features = false, version = "3.0.0" }
+bridge-hub-rococo-runtime = { version = "0.1.0", path = "../../../../../../runtimes/bridge-hubs/bridge-hub-rococo" }
+bridge-hub-common = { path = "../../../../../../runtimes/bridge-hubs/common", default-features = false, version = "0.1.0" }
 
 # Snowbridge
-snowbridge-core = { path = "../../../../../../../../bridges/snowbridge/parachain/primitives/core", default-features = false }
-snowbridge-router-primitives = { path = "../../../../../../../../bridges/snowbridge/parachain/primitives/router", default-features = false }
-snowbridge-system = { path = "../../../../../../../../bridges/snowbridge/parachain/pallets/system", default-features = false }
-snowbridge-inbound-queue = { path = "../../../../../../../../bridges/snowbridge/parachain/pallets/inbound-queue", default-features = false }
-snowbridge-outbound-queue = { path = "../../../../../../../../bridges/snowbridge/parachain/pallets/outbound-queue", default-features = false }
+snowbridge-core = { path = "../../../../../../../../bridges/snowbridge/parachain/primitives/core", default-features = false, version = "0.1.0" }
+snowbridge-router-primitives = { path = "../../../../../../../../bridges/snowbridge/parachain/primitives/router", default-features = false, version = "0.1.0" }
+snowbridge-system = { path = "../../../../../../../../bridges/snowbridge/parachain/pallets/system", default-features = false, version = "0.1.0" }
+snowbridge-inbound-queue = { path = "../../../../../../../../bridges/snowbridge/parachain/pallets/inbound-queue", default-features = false, version = "0.1.0" }
+snowbridge-outbound-queue = { path = "../../../../../../../../bridges/snowbridge/parachain/pallets/outbound-queue", default-features = false, version = "0.1.0" }

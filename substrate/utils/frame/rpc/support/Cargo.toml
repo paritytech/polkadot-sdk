@@ -1,6 +1,6 @@
 [package]
 name = "substrate-frame-rpc-support"
-version = "3.0.0"
+version = "29.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -18,9 +18,9 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 jsonrpsee = { version = "0.16.2", features = ["jsonrpsee-types"] }
 serde = "1"
-frame-support = { path = "../../../../frame/support" }
-sc-rpc-api = { path = "../../../../client/rpc-api" }
-sp-storage = { path = "../../../../primitives/storage" }
+frame-support = { version = "28.0.0", path = "../../../../frame/support" }
+sc-rpc-api = { version = "0.33.0", path = "../../../../client/rpc-api" }
+sp-storage = { version = "19.0.0", path = "../../../../primitives/storage" }
 
 [dev-dependencies]
 scale-info = "2.10.0"

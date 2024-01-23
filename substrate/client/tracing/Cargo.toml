@@ -1,6 +1,6 @@
 [package]
 name = "sc-tracing"
-version = "4.0.0-dev"
+version = "28.0.0"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 authors.workspace = true
 edition.workspace = true
@@ -31,14 +31,14 @@ thiserror = "1.0.48"
 tracing = "0.1.29"
 tracing-log = "0.1.3"
 tracing-subscriber = { version = "0.2.25", features = ["parking_lot"] }
-sc-client-api = { path = "../api" }
-sc-tracing-proc-macro = { path = "proc-macro" }
-sp-api = { path = "../../primitives/api" }
-sp-blockchain = { path = "../../primitives/blockchain" }
-sp-core = { path = "../../primitives/core" }
-sp-rpc = { path = "../../primitives/rpc" }
-sp-runtime = { path = "../../primitives/runtime" }
-sp-tracing = { path = "../../primitives/tracing" }
+sc-client-api = { version = "28.0.0", path = "../api" }
+sc-tracing-proc-macro = { version = "11.0.0", path = "proc-macro" }
+sp-api = { version = "26.0.0", path = "../../primitives/api" }
+sp-blockchain = { version = "28.0.0", path = "../../primitives/blockchain" }
+sp-core = { version = "28.0.0", path = "../../primitives/core" }
+sp-rpc = { version = "26.0.0", path = "../../primitives/rpc" }
+sp-runtime = { version = "31.0.0", path = "../../primitives/runtime" }
+sp-tracing = { version = "16.0.0", path = "../../primitives/tracing" }
 
 [dev-dependencies]
 criterion = "0.4.0"

@@ -11,20 +11,16 @@ async-trait = "0.1.73"
 codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"] }
 scale-info = { version = "2.10.0", features = ["derive"] }
 tracing = { version = "0.1.37" }
-
-# Substrate
-sc-client-api = { path = "../../../substrate/client/api" }
-sp-api = { path = "../../../substrate/primitives/api" }
-sp-core = { path = "../../../substrate/primitives/core" }
-sp-inherents = { path = "../../../substrate/primitives/inherents" }
-sp-runtime = { path = "../../../substrate/primitives/runtime" }
-sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
-sp-std = { path = "../../../substrate/primitives/std" }
-sp-storage = { path = "../../../substrate/primitives/storage" }
-sp-trie = { path = "../../../substrate/primitives/trie" }
-
-# Cumulus
-cumulus-primitives-core = { path = "../../primitives/core" }
-cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent" }
-cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
-cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }
+sc-client-api = { version = "28.0.0", path = "../../../substrate/client/api" }
+sp-api = { version = "26.0.0", path = "../../../substrate/primitives/api" }
+sp-core = { version = "28.0.0", path = "../../../substrate/primitives/core" }
+sp-inherents = { version = "26.0.0", path = "../../../substrate/primitives/inherents" }
+sp-runtime = { version = "31.0.0", path = "../../../substrate/primitives/runtime" }
+sp-state-machine = { version = "0.35.0", path = "../../../substrate/primitives/state-machine" }
+sp-std = { version = "14.0.0", path = "../../../substrate/primitives/std" }
+sp-storage = { version = "19.0.0", path = "../../../substrate/primitives/storage" }
+sp-trie = { version = "29.0.0", path = "../../../substrate/primitives/trie" }
+cumulus-primitives-core = { version = "0.7.0", path = "../../primitives/core" }
+cumulus-primitives-parachain-inherent = { version = "0.7.0", path = "../../primitives/parachain-inherent" }
+cumulus-relay-chain-interface = { version = "0.7.0", path = "../relay-chain-interface" }
+cumulus-test-relay-sproof-builder = { version = "0.7.0", path = "../../test/relay-sproof-builder" }

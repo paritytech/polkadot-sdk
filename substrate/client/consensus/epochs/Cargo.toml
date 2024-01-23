@@ -1,6 +1,6 @@
 [package]
 name = "sc-consensus-epochs"
-version = "0.10.0-dev"
+version = "0.33.0"
 authors.workspace = true
 description = "Generic epochs-based utilities for consensus"
 edition.workspace = true
@@ -17,8 +17,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
-fork-tree = { path = "../../../utils/fork-tree" }
-sc-client-api = { path = "../../api" }
-sc-consensus = { path = "../common" }
-sp-blockchain = { path = "../../../primitives/blockchain" }
-sp-runtime = { path = "../../../primitives/runtime" }
+fork-tree = { version = "12.0.0", path = "../../../utils/fork-tree" }
+sc-client-api = { version = "28.0.0", path = "../../api" }
+sc-consensus = { version = "0.33.0", path = "../common" }
+sp-blockchain = { version = "28.0.0", path = "../../../primitives/blockchain" }
+sp-runtime = { version = "31.0.0", path = "../../../primitives/runtime" }

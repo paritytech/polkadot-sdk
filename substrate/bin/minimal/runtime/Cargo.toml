@@ -16,22 +16,22 @@ parity-scale-codec = { version = "3.0.0", default-features = false }
 scale-info = { version = "2.6.0", default-features = false }
 
 # this is a frame-based runtime, thus importing `frame` with runtime feature enabled.
-frame = { path = "../../../frame", default-features = false, features = ["experimental", "runtime"] }
-frame-support = { path = "../../../frame/support", default-features = false }
+frame = { path = "../../../frame", default-features = false, features = ["experimental", "runtime"], version = "0.1.0" }
+frame-support = { path = "../../../frame/support", default-features = false, version = "28.0.0" }
 
 # pallets that we want to use
-pallet-balances = { path = "../../../frame/balances", default-features = false }
-pallet-sudo = { path = "../../../frame/sudo", default-features = false }
-pallet-timestamp = { path = "../../../frame/timestamp", default-features = false }
-pallet-transaction-payment = { path = "../../../frame/transaction-payment", default-features = false }
-pallet-transaction-payment-rpc-runtime-api = { path = "../../../frame/transaction-payment/rpc/runtime-api", default-features = false }
+pallet-balances = { path = "../../../frame/balances", default-features = false, version = "28.0.0" }
+pallet-sudo = { path = "../../../frame/sudo", default-features = false, version = "28.0.0" }
+pallet-timestamp = { path = "../../../frame/timestamp", default-features = false, version = "27.0.0" }
+pallet-transaction-payment = { path = "../../../frame/transaction-payment", default-features = false, version = "28.0.0" }
+pallet-transaction-payment-rpc-runtime-api = { path = "../../../frame/transaction-payment/rpc/runtime-api", default-features = false, version = "28.0.0" }
 
 # genesis builder that allows us to interacto with runtime genesis config
-sp-genesis-builder = { path = "../../../primitives/genesis-builder", default-features = false }
+sp-genesis-builder = { path = "../../../primitives/genesis-builder", default-features = false, version = "0.7.0" }
 
 
 [build-dependencies]
-substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true }
+substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true, version = "17.0.0" }
 
 [features]
 default = ["std"]

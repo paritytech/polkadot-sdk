@@ -1,6 +1,6 @@
 [package]
 name = "pallet-examples"
-version = "4.0.0-dev"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -16,14 +16,14 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-pallet-default-config-example = { path = "default-config", default-features = false }
-pallet-dev-mode = { path = "dev-mode", default-features = false }
-pallet-example-basic = { path = "basic", default-features = false }
-pallet-example-frame-crate = { path = "frame-crate", default-features = false }
-pallet-example-kitchensink = { path = "kitchensink", default-features = false }
-pallet-example-offchain-worker = { path = "offchain-worker", default-features = false }
-pallet-example-split = { path = "split", default-features = false }
-pallet-example-tasks = { path = "tasks", default-features = false }
+pallet-default-config-example = { path = "default-config", default-features = false, version = "10.0.0" }
+pallet-dev-mode = { path = "dev-mode", default-features = false, version = "10.0.0" }
+pallet-example-basic = { path = "basic", default-features = false, version = "27.0.0" }
+pallet-example-frame-crate = { path = "frame-crate", default-features = false, version = "0.1.0" }
+pallet-example-kitchensink = { path = "kitchensink", default-features = false, version = "0.1.0" }
+pallet-example-offchain-worker = { path = "offchain-worker", default-features = false, version = "28.0.0" }
+pallet-example-split = { path = "split", default-features = false, version = "10.0.0" }
+pallet-example-tasks = { path = "tasks", default-features = false, version = "1.0.0" }
 
 [features]
 default = ["std"]

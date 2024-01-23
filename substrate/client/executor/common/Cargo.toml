@@ -1,6 +1,6 @@
 [package]
 name = "sc-executor-common"
-version = "0.10.0-dev"
+version = "0.29.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -19,9 +19,9 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 thiserror = "1.0.48"
 wasm-instrument = "0.3"
-sc-allocator = { path = "../../allocator" }
-sp-maybe-compressed-blob = { path = "../../../primitives/maybe-compressed-blob" }
-sp-wasm-interface = { path = "../../../primitives/wasm-interface" }
+sc-allocator = { version = "23.0.0", path = "../../allocator" }
+sp-maybe-compressed-blob = { version = "11.0.0", path = "../../../primitives/maybe-compressed-blob" }
+sp-wasm-interface = { version = "20.0.0", path = "../../../primitives/wasm-interface" }
 
 [features]
 default = []

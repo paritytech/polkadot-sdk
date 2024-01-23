@@ -1,6 +1,6 @@
 [package]
 name = "sc-consensus-beefy"
-version = "4.0.0-dev"
+version = "13.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -22,23 +22,23 @@ log = "0.4"
 parking_lot = "0.12.1"
 thiserror = "1.0"
 wasm-timer = "0.2.5"
-prometheus = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
-sc-client-api = { path = "../../api" }
-sc-consensus = { path = "../common" }
-sc-network = { path = "../../network" }
-sc-network-gossip = { path = "../../network-gossip" }
-sc-network-sync = { path = "../../network/sync" }
-sc-utils = { path = "../../utils" }
-sp-api = { path = "../../../primitives/api" }
-sp-application-crypto = { path = "../../../primitives/application-crypto" }
-sp-arithmetic = { path = "../../../primitives/arithmetic" }
-sp-blockchain = { path = "../../../primitives/blockchain" }
-sp-consensus = { path = "../../../primitives/consensus/common" }
-sp-consensus-beefy = { path = "../../../primitives/consensus/beefy" }
-sp-core = { path = "../../../primitives/core" }
-sp-keystore = { path = "../../../primitives/keystore" }
-sp-mmr-primitives = { path = "../../../primitives/merkle-mountain-range" }
-sp-runtime = { path = "../../../primitives/runtime" }
+prometheus = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus", version = "0.17.0" }
+sc-client-api = { version = "28.0.0", path = "../../api" }
+sc-consensus = { version = "0.33.0", path = "../common" }
+sc-network = { version = "0.34.0", path = "../../network" }
+sc-network-gossip = { version = "0.34.0", path = "../../network-gossip" }
+sc-network-sync = { version = "0.33.0", path = "../../network/sync" }
+sc-utils = { version = "14.0.0", path = "../../utils" }
+sp-api = { version = "26.0.0", path = "../../../primitives/api" }
+sp-application-crypto = { version = "30.0.0", path = "../../../primitives/application-crypto" }
+sp-arithmetic = { version = "23.0.0", path = "../../../primitives/arithmetic" }
+sp-blockchain = { version = "28.0.0", path = "../../../primitives/blockchain" }
+sp-consensus = { version = "0.32.0", path = "../../../primitives/consensus/common" }
+sp-consensus-beefy = { version = "13.0.0", path = "../../../primitives/consensus/beefy" }
+sp-core = { version = "28.0.0", path = "../../../primitives/core" }
+sp-keystore = { version = "0.34.0", path = "../../../primitives/keystore" }
+sp-mmr-primitives = { version = "26.0.0", path = "../../../primitives/merkle-mountain-range" }
+sp-runtime = { version = "31.0.0", path = "../../../primitives/runtime" }
 tokio = "1.22.0"
 
 

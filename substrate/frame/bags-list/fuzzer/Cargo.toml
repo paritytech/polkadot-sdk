@@ -1,6 +1,6 @@
 [package]
 name = "pallet-bags-list-fuzzer"
-version = "4.0.0-dev"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -15,8 +15,8 @@ workspace = true
 [dependencies]
 honggfuzz = "0.5"
 rand = { version = "0.8", features = ["small_rng", "std"] }
-frame-election-provider-support = { path = "../../election-provider-support", features = ["fuzz"] }
-pallet-bags-list = { path = "..", features = ["fuzz"] }
+frame-election-provider-support = { path = "../../election-provider-support", features = ["fuzz"], version = "28.0.0" }
+pallet-bags-list = { path = "..", features = ["fuzz"], version = "27.0.0" }
 
 [[bin]]
 name = "bags-list"

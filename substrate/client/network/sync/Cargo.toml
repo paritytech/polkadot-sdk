@@ -1,7 +1,7 @@
 [package]
 description = "Substrate sync network protocol"
 name = "sc-network-sync"
-version = "0.10.0-dev"
+version = "0.33.0"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 authors.workspace = true
 edition.workspace = true
@@ -34,19 +34,19 @@ smallvec = "1.11.0"
 thiserror = "1.0"
 tokio-stream = "0.1.14"
 tokio = { version = "1.32.0", features = ["macros", "time"] }
-fork-tree = { path = "../../../utils/fork-tree" }
-prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
-sc-client-api = { path = "../../api" }
-sc-consensus = { path = "../../consensus/common" }
-sc-network = { path = ".." }
-sc-network-common = { path = "../common" }
-sc-utils = { path = "../../utils" }
-sp-arithmetic = { path = "../../../primitives/arithmetic" }
-sp-blockchain = { path = "../../../primitives/blockchain" }
-sp-consensus = { path = "../../../primitives/consensus/common" }
-sp-core = { path = "../../../primitives/core" }
-sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa" }
-sp-runtime = { path = "../../../primitives/runtime" }
+fork-tree = { version = "12.0.0", path = "../../../utils/fork-tree" }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus", version = "0.17.0" }
+sc-client-api = { version = "28.0.0", path = "../../api" }
+sc-consensus = { version = "0.33.0", path = "../../consensus/common" }
+sc-network = { version = "0.34.0", path = ".." }
+sc-network-common = { version = "0.33.0", path = "../common" }
+sc-utils = { version = "14.0.0", path = "../../utils" }
+sp-arithmetic = { version = "23.0.0", path = "../../../primitives/arithmetic" }
+sp-blockchain = { version = "28.0.0", path = "../../../primitives/blockchain" }
+sp-consensus = { version = "0.32.0", path = "../../../primitives/consensus/common" }
+sp-core = { version = "28.0.0", path = "../../../primitives/core" }
+sp-consensus-grandpa = { version = "13.0.0", path = "../../../primitives/consensus/grandpa" }
+sp-runtime = { version = "31.0.0", path = "../../../primitives/runtime" }
 
 [dev-dependencies]
 tokio = { version = "1.22.0", features = ["macros"] }

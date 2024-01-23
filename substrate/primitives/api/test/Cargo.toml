@@ -1,12 +1,13 @@
 [package]
 name = "sp-api-test"
-version = "2.0.1"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 publish = false
 homepage = "https://substrate.io"
 repository.workspace = true
+description = "sp-api-test"
 
 [lints]
 workspace = true
@@ -15,15 +16,15 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-api = { path = ".." }
-substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
-sp-version = { path = "../../version" }
-sp-tracing = { path = "../../tracing" }
-sp-runtime = { path = "../../runtime" }
-sp-consensus = { path = "../../consensus/common" }
-sc-block-builder = { path = "../../../client/block-builder" }
+sp-api = { version = "26.0.0", path = ".." }
+substrate-test-runtime-client = { version = "0.1.0", path = "../../../test-utils/runtime/client" }
+sp-version = { version = "29.0.0", path = "../../version" }
+sp-tracing = { version = "16.0.0", path = "../../tracing" }
+sp-runtime = { version = "31.0.0", path = "../../runtime" }
+sp-consensus = { version = "0.32.0", path = "../../consensus/common" }
+sc-block-builder = { version = "0.33.0", path = "../../../client/block-builder" }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
-sp-state-machine = { path = "../../state-machine" }
+sp-state-machine = { version = "0.35.0", path = "../../state-machine" }
 trybuild = "1.0.88"
 rustversion = "1.0.6"
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }

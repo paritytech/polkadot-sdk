@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-client-cli"
-version = "0.1.0"
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
 description = "Parachain node CLI utilities."
@@ -13,12 +13,10 @@ workspace = true
 clap = { version = "4.4.14", features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 url = "2.4.0"
-
-# Substrate
-sc-cli = { path = "../../../substrate/client/cli" }
-sc-client-api = { path = "../../../substrate/client/api" }
-sc-chain-spec = { path = "../../../substrate/client/chain-spec" }
-sc-service = { path = "../../../substrate/client/service" }
-sp-core = { path = "../../../substrate/primitives/core" }
-sp-runtime = { path = "../../../substrate/primitives/runtime" }
-sp-blockchain = { path = "../../../substrate/primitives/blockchain" }
+sc-cli = { version = "0.36.0", path = "../../../substrate/client/cli" }
+sc-client-api = { version = "28.0.0", path = "../../../substrate/client/api" }
+sc-chain-spec = { version = "27.0.0", path = "../../../substrate/client/chain-spec" }
+sc-service = { version = "0.35.0", path = "../../../substrate/client/service" }
+sp-core = { version = "28.0.0", path = "../../../substrate/primitives/core" }
+sp-runtime = { version = "31.0.0", path = "../../../substrate/primitives/runtime" }
+sp-blockchain = { version = "28.0.0", path = "../../../substrate/primitives/blockchain" }

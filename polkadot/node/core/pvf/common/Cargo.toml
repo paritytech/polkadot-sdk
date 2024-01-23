@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-node-core-pvf-common"
 description = "Polkadot crate that contains functionality related to PVFs that is shared by the PVF host and the PVF workers."
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -13,23 +13,20 @@ workspace = true
 cfg-if = "1.0"
 cpu-time = "1.0.0"
 futures = "0.3.21"
-gum = { package = "tracing-gum", path = "../../../gum" }
+gum = { package = "tracing-gum", path = "../../../gum", version = "7.0.0" }
 libc = "0.2.139"
 thiserror = "1.0.31"
 
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
-
-polkadot-parachain-primitives = { path = "../../../../parachain" }
-polkadot-primitives = { path = "../../../../primitives" }
-
-sc-executor = { path = "../../../../../substrate/client/executor" }
-sc-executor-common = { path = "../../../../../substrate/client/executor/common" }
-sc-executor-wasmtime = { path = "../../../../../substrate/client/executor/wasmtime" }
-
-sp-core = { path = "../../../../../substrate/primitives/core" }
-sp-externalities = { path = "../../../../../substrate/primitives/externalities" }
-sp-io = { path = "../../../../../substrate/primitives/io" }
-sp-tracing = { path = "../../../../../substrate/primitives/tracing" }
+polkadot-parachain-primitives = { version = "6.0.0", path = "../../../../parachain" }
+polkadot-primitives = { version = "7.0.0", path = "../../../../primitives" }
+sc-executor = { version = "0.32.0", path = "../../../../../substrate/client/executor" }
+sc-executor-common = { version = "0.29.0", path = "../../../../../substrate/client/executor/common" }
+sc-executor-wasmtime = { version = "0.29.0", path = "../../../../../substrate/client/executor/wasmtime" }
+sp-core = { version = "28.0.0", path = "../../../../../substrate/primitives/core" }
+sp-externalities = { version = "0.25.0", path = "../../../../../substrate/primitives/externalities" }
+sp-io = { version = "30.0.0", path = "../../../../../substrate/primitives/io" }
+sp-tracing = { version = "16.0.0", path = "../../../../../substrate/primitives/tracing" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 landlock = "0.3.0"

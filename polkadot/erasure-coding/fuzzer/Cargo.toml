@@ -1,19 +1,20 @@
 [package]
 name = "erasure_coding_fuzzer"
-version = "1.0.0"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 publish = false
+description = "erasure_coding_fuzzer"
 
 [lints]
 workspace = true
 
 [dependencies]
-polkadot-erasure-coding = { path = ".." }
+polkadot-erasure-coding = { version = "7.0.0", path = ".." }
 honggfuzz = "0.5"
-polkadot-primitives = { path = "../../primitives" }
-primitives = { package = "polkadot-node-primitives", path = "../../node/primitives" }
+polkadot-primitives = { version = "7.0.0", path = "../../primitives" }
+primitives = { package = "polkadot-node-primitives", path = "../../node/primitives", version = "7.0.0" }
 
 [[bin]]
 name = "reconstruct"

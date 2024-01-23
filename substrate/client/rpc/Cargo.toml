@@ -1,6 +1,6 @@
 [package]
 name = "sc-rpc"
-version = "4.0.0-dev"
+version = "29.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -22,24 +22,24 @@ jsonrpsee = { version = "0.16.2", features = ["server"] }
 log = "0.4.17"
 parking_lot = "0.12.1"
 serde_json = "1.0.111"
-sc-block-builder = { path = "../block-builder" }
-sc-chain-spec = { path = "../chain-spec" }
-sc-client-api = { path = "../api" }
-sc-mixnet = { path = "../mixnet" }
-sc-rpc-api = { path = "../rpc-api" }
-sc-tracing = { path = "../tracing" }
-sc-transaction-pool-api = { path = "../transaction-pool/api" }
-sc-utils = { path = "../utils" }
-sp-api = { path = "../../primitives/api" }
-sp-blockchain = { path = "../../primitives/blockchain" }
-sp-core = { path = "../../primitives/core" }
-sp-keystore = { path = "../../primitives/keystore" }
-sp-offchain = { path = "../../primitives/offchain" }
-sp-rpc = { path = "../../primitives/rpc" }
-sp-runtime = { path = "../../primitives/runtime" }
-sp-session = { path = "../../primitives/session" }
-sp-version = { path = "../../primitives/version" }
-sp-statement-store = { path = "../../primitives/statement-store" }
+sc-block-builder = { version = "0.33.0", path = "../block-builder" }
+sc-chain-spec = { version = "27.0.0", path = "../chain-spec" }
+sc-client-api = { version = "28.0.0", path = "../api" }
+sc-mixnet = { version = "0.4.0", path = "../mixnet" }
+sc-rpc-api = { version = "0.33.0", path = "../rpc-api" }
+sc-tracing = { version = "28.0.0", path = "../tracing" }
+sc-transaction-pool-api = { version = "28.0.0", path = "../transaction-pool/api" }
+sc-utils = { version = "14.0.0", path = "../utils" }
+sp-api = { version = "26.0.0", path = "../../primitives/api" }
+sp-blockchain = { version = "28.0.0", path = "../../primitives/blockchain" }
+sp-core = { version = "28.0.0", path = "../../primitives/core" }
+sp-keystore = { version = "0.34.0", path = "../../primitives/keystore" }
+sp-offchain = { version = "26.0.0", path = "../../primitives/offchain" }
+sp-rpc = { version = "26.0.0", path = "../../primitives/rpc" }
+sp-runtime = { version = "31.0.0", path = "../../primitives/runtime" }
+sp-session = { version = "27.0.0", path = "../../primitives/session" }
+sp-version = { version = "29.0.0", path = "../../primitives/version" }
+sp-statement-store = { version = "10.0.0", path = "../../primitives/statement-store" }
 
 tokio = "1.22.0"
 

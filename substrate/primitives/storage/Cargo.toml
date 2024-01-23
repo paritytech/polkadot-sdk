@@ -1,6 +1,6 @@
 [package]
 name = "sp-storage"
-version = "13.0.0"
+version = "19.0.0"
 authors.workspace = true
 edition.workspace = true
 description = "Storage related primitives"
@@ -21,8 +21,8 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 impl-serde = { version = "0.4.0", optional = true, default-features = false }
 ref-cast = "1.0.0"
 serde = { version = "1.0.195", default-features = false, features = ["alloc", "derive"], optional = true }
-sp-debug-derive = { path = "../debug-derive", default-features = false }
-sp-std = { path = "../std", default-features = false }
+sp-debug-derive = { path = "../debug-derive", default-features = false, version = "14.0.0" }
+sp-std = { path = "../std", default-features = false, version = "14.0.0" }
 
 [features]
 default = ["std"]
