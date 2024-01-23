@@ -1,22 +1,26 @@
 # Release
 
-The outputs of a release are the `polkadot` and `polkadot-parachain` node binaries, the runtimes for Westend & Rococo and their system parachains, and new crate versions published to `crates.io`.
+The outputs of a release are the `polkadot` and `polkadot-parachain` node binaries, the runtimes for Westend & Rococo
+and their system parachains, and new crate versions published to `crates.io`.
 
 # Setup
 
-We have two branches: `master` and `stable`. `master` is the main development branch where normal merge requests are opened. Developers need to mostly only care about this branch.  
-The `stable` branch contains a version of the code that is ready to be released. Its contents are always audited. Merging to it is restricted to [Backports](#backports).
+We have two branches: `master` and `stable`. `master` is the main development branch where normal merge requests are
+opened. Developers need to mostly only care about this branch.  
+The `stable` branch contains a version of the code that is ready to be released. Its contents are always audited.
+Merging to it is restricted to [Backports](#backports).
 
 # Versioning
 
-We are releasing multiple different things from this repository in one release, but we don't want to
-use the same version for everything. Thus, in the following we explain the versioning story for the
-crates, node and Westend & Rococo. To easily refer to a release, it shall be named by its date in
-the form `stableYYMMDD`.
+We are releasing multiple different things from this repository in one release, but we don't want to use the same
+version for everything. Thus, in the following we explain the versioning story for the crates, node and Westend &
+Rococo. To easily refer to a release, it shall be named by its date in the form `stableYYMMDD`.
 
 ## Crate
 
-We try to follow [SemVer 2.0.0](https://semver.org/) as best as possible for versioning our crates. SemVer requires a piece of software to first declare a public API. The public API of the Polkadot SDK is hereby declared as the sum of all crates' public APIs.
+We try to follow [SemVer 2.0.0](https://semver.org/) as best as possible for versioning our crates. SemVer requires a
+piece of software to first declare a public API. The public API of the Polkadot SDK is hereby declared as the sum of all
+crates' public APIs.
 
 
 Inductively, the public API of our library crates is declared as all public items that are neither:
@@ -26,47 +30,54 @@ Inductively, the public API of our library crates is declared as all public item
 
 ## Node
 
-The versioning of the Polkadot node is done most of the time by only incrementing the `minor` version. 
-The `major` version is only bumped for special releases and the `patch` can be used for an 
-out of band release that fixes some critical bug. The node version is not following SemVer. 
-This means that the version doesn't express if there are any breaking changes in the CLI 
-interface or similar. The node version is declared in the [`NODE_VERSION`](https://paritytech.github.io/polkadot-sdk/master/polkadot_node_primitives/constant.NODE_VERSION.html) variable.
+The versioning of the Polkadot node is done most of the time by only incrementing the `minor` version. The `major`
+version is only bumped for special releases and the `patch` can be used for an out of band release that fixes some
+critical bug. The node version is not following SemVer. This means that the version doesn't express if there are any
+breaking changes in the CLI interface or similar. The node version is declared in the
+[`NODE_VERSION`](https://paritytech.github.io/polkadot-sdk/master/polkadot_node_primitives/constant.NODE_VERSION.html)
+variable.
 
 ## Westend & Rococo
 
-For the these networks, in addition to incrementing the `Cargo.toml` version we also increment the
-`spec_version` and sometimes the `transaction_version`. The spec version is also following the node
-version. Its schema is: `M_mmm_ppp` and for example `1_002_000` is the node release `1.2.0`. This
-versioning has no further meaning, and is only done to map from an on chain `spec_version` easily to
-the release in this repository.  
+For the these networks, in addition to incrementing the `Cargo.toml` version we also increment the `spec_version` and
+sometimes the `transaction_version`. The spec version is also following the node version. Its schema is: `M_mmm_ppp` and
+for example `1_002_000` is the node release `1.2.0`. This versioning has no further meaning, and is only done to map
+from an on chain `spec_version` easily to the release in this repository.  
 The Westend testnet will be updated to the new runtime version immediately after a *Stable* release happened.
 
 # Backports
 
 **From `master` to `stable`**
 
-Backports in this direction can be anything that is audited and either `minor` or a `patch` bump. [Security fixes](#bug-and-security-fix) should be prioritized over additions or improvements. Crates that are declared as internal API, can also have major version bumps through backports.
+Backports in this direction can be anything that is audited and either `minor` or a `patch` bump. [Security
+fixes](#bug-and-security-fix) should be prioritized over additions or improvements. Crates that are declared as internal
+API, can also have major version bumps through backports.
 
 **From `stable` to `master`**
 
-Should not be needed since all changes first get merged into `master`. The `stable` branch can get out of sync and will be synced with the [Clobbering](#clobbering) process.
+Should not be needed since all changes first get merged into `master`. The `stable` branch can get out of sync and will
+be synced with the [Clobbering](#clobbering) process.
 
 # Processes
 
-The following processes are necessary to actualize our releases. Each process has a *Cadence* on which it must execute and a *Responsible* that is responsible for autonomously doing so and reporting back any error in the *RelEng: Polkadot Release Coordination* Matrix channel. All processes should be automated as much as possible.
+The following processes are necessary to actualize our releases. Each process has a *Cadence* on which it must execute
+and a *Responsible* that is responsible for autonomously doing so and reporting back any error in the *RelEng: Polkadot
+Release Coordination* Matrix channel. All processes should be automated as much as possible.
 
 ## Crate Bumping
 
 Cadence: (possibly) each Merge Request. Responsible: Developer that opened the Pull Request.
 
-Following SemVer isn't easy, but there exists [a guide](https://doc.rust-lang.org/cargo/reference/semver.html) in the Rust documentation that explains the small details on when to bump what. This process is supported with a CI check that utilizes [`cargo-semver-checks`](https://github.com/obi1kenobi/cargo-semver-checks).
+Following SemVer isn't easy, but there exists [a guide](https://doc.rust-lang.org/cargo/reference/semver.html) in the
+Rust documentation that explains the small details on when to bump what. This process is supported with a CI check that
+utilizes [`cargo-semver-checks`](https://github.com/obi1kenobi/cargo-semver-checks).
 
 ### Steps
 
 1. Developer opens a Merge Request with changed crates against `master`.
 1. They bump all changed crates according to SemVer.
 1. They bump all crates that export any changed types in their *public API*.
-1. They also bump all crates that inherit logic changes from relying on one of the bumped crates. 
+1. They also bump all crates that inherit logic changes from relying on one of the bumped crates.
 
 ## Stable Release
 
@@ -91,11 +102,13 @@ This process aims to release the `stable` branch as a *Stable* release every two
 
 Cadence: every day at 00:00 UTC+1. Responsible: Release Team
 
-This process aims to release the `master` branch as a *Nightly* release. The process can start at 00:00 UTC+1 and should automatically do the following steps.
+This process aims to release the `master` branch as a *Nightly* release. The process can start at 00:00 UTC+1 and should
+automatically do the following steps.
 
 1. Check out the latest commit of branch `master`.
 1. Compare this commit to the latest `nightly*` tag and abort if there are no changes detected.
-1. Set the version of all crates to `major.0.0-nightlyYYMMDD` where `major` is the last released `major` version of that crate plus one.
+1. Set the version of all crates to `major.0.0-nightlyYYMMDD` where `major` is the last released `major` version of that
+   crate plus one.
 1. Tag this commit as `nightlyYYMMDD`.
 1. Do a dry-run release to ensure that it *should* work.
 1. Push this tag (the commit will not belong to any branch).
@@ -105,8 +118,10 @@ This process aims to release the `master` branch as a *Nightly* release. The pro
 
 Cadence: every 6th release (~3 months). Responsible: Release Team
 
-This process aims to bring branch `stable` in sync with the latest audited commit of `master`. It is not done via a Pull Request but rather by just copying files. It should be automated.  
-The following script is provided to do the clobbering. Note that it keeps the complete history of all past clobbering processes.
+This process aims to bring branch `stable` in sync with the latest audited commit of `master`. It is not done via a Pull
+Request but rather by just copying files. It should be automated.  
+The following script is provided to do the clobbering. Note that it keeps the complete history of all past clobbering
+processes.
 
 ```bash
 # Ensure we have the latest remote data
