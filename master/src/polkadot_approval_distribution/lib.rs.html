@@ -2633,6 +2633,14 @@
 <a href="#2633" id="2633">2633</a>
 <a href="#2634" id="2634">2634</a>
 <a href="#2635" id="2635">2635</a>
+<a href="#2636" id="2636">2636</a>
+<a href="#2637" id="2637">2637</a>
+<a href="#2638" id="2638">2638</a>
+<a href="#2639" id="2639">2639</a>
+<a href="#2640" id="2640">2640</a>
+<a href="#2641" id="2641">2641</a>
+<a href="#2642" id="2642">2642</a>
+<a href="#2643" id="2643">2643</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2919,12 +2927,12 @@
 }
 
 <span class="kw">impl </span>AggressionConfig {
-	<span class="doccomment">/// Returns `true` if lag is past threshold depending on the aggression level
-	</span><span class="kw">fn </span>should_trigger_aggression(<span class="kw-2">&amp;</span><span class="self">self</span>, approval_checking_lag: BlockNumber) -&gt; bool {
+	<span class="doccomment">/// Returns `true` if age is past threshold depending on the aggression level
+	</span><span class="kw">fn </span>should_trigger_aggression(<span class="kw-2">&amp;</span><span class="self">self</span>, age: BlockNumber) -&gt; bool {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(t) = <span class="self">self</span>.l1_threshold {
-			approval_checking_lag &gt;= t
+			age &gt;= t
 		} <span class="kw">else if let </span><span class="prelude-val">Some</span>(t) = <span class="self">self</span>.resend_unfinalized_period {
-			approval_checking_lag &gt; <span class="number">0 </span>&amp;&amp; approval_checking_lag % t == <span class="number">0
+			age &gt; <span class="number">0 </span>&amp;&amp; age % t == <span class="number">0
 		</span>} <span class="kw">else </span>{
 			<span class="bool-val">false
 		</span>}
@@ -2934,7 +2942,7 @@
 <span class="kw">impl </span>Default <span class="kw">for </span>AggressionConfig {
 	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
 		AggressionConfig {
-			l1_threshold: <span class="prelude-val">Some</span>(<span class="number">13</span>),
+			l1_threshold: <span class="prelude-val">Some</span>(<span class="number">16</span>),
 			l2_threshold: <span class="prelude-val">Some</span>(<span class="number">28</span>),
 			resend_unfinalized_period: <span class="prelude-val">Some</span>(<span class="number">8</span>),
 		}
@@ -4596,34 +4604,44 @@
 		}
 	}
 
-	<span class="kw">async fn </span>enable_aggression&lt;Context&gt;(
+	<span class="comment">// It is very important that aggression starts with oldest unfinalized block, rather than oldest
+	// unapproved block. Using the gossip approach to distribute potentially
+	// missing votes to validators requires that we always trigger on finality lag, even if
+	// we have have the approval lag value. The reason for this, is to avoid finality stall
+	// when more than 1/3 nodes go offline for a period o time. When they come back
+	// there wouldn&#39;t get any of the approvals since the on-line nodes would never trigger
+	// aggression as they have approved all the candidates and don&#39;t detect any approval lag.
+	//
+	// In order to switch to using approval lag as a trigger we need a request/response protocol
+	// to fetch votes from validators rather than use gossip.
+	</span><span class="kw">async fn </span>enable_aggression&lt;Context&gt;(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		ctx: <span class="kw-2">&amp;mut </span>Context,
 		resend: Resend,
 		metrics: <span class="kw-2">&amp;</span>Metrics,
 	) {
 		<span class="kw">let </span>config = <span class="self">self</span>.aggression_config.clone();
+		<span class="kw">let </span>min_age = <span class="self">self</span>.blocks_by_number.iter().next().map(|(num, <span class="kw">_</span>)| num);
+		<span class="kw">let </span>max_age = <span class="self">self</span>.blocks_by_number.iter().rev().next().map(|(num, <span class="kw">_</span>)| num);
 
-		<span class="kw">if </span>!<span class="self">self</span>.aggression_config.should_trigger_aggression(<span class="self">self</span>.approval_checking_lag) {
+		<span class="comment">// Return if we don&#39;t have at least 1 block.
+		</span><span class="kw">let </span>(min_age, max_age) = <span class="kw">match </span>(min_age, max_age) {
+			(<span class="prelude-val">Some</span>(min), <span class="prelude-val">Some</span>(max)) =&gt; (<span class="kw-2">*</span>min, <span class="kw-2">*</span>max),
+			<span class="kw">_ </span>=&gt; <span class="kw">return</span>, <span class="comment">// empty.
+		</span>};
+
+		<span class="kw">let </span>age = max_age.saturating_sub(min_age);
+
+		<span class="comment">// Trigger on approval checking lag.
+		</span><span class="kw">if </span>!<span class="self">self</span>.aggression_config.should_trigger_aggression(age) {
 			<span class="macro">gum::trace!</span>(
 				target: LOG_TARGET,
 				approval_checking_lag = <span class="self">self</span>.approval_checking_lag,
+				age,
 				<span class="string">&quot;Aggression not enabled&quot;</span>,
 			);
 			<span class="kw">return
 		</span>}
-
-		<span class="kw">let </span>max_age = <span class="self">self</span>.blocks_by_number.iter().rev().next().map(|(num, <span class="kw">_</span>)| num);
-
-		<span class="kw">let </span>max_age = <span class="kw">match </span>max_age {
-			<span class="prelude-val">Some</span>(max) =&gt; <span class="kw-2">*</span>max,
-			<span class="kw">_ </span>=&gt; <span class="kw">return</span>, <span class="comment">// empty.
-		</span>};
-
-		<span class="comment">// Since we have the approval checking lag, we need to set the `min_age` accordingly to
-		// enable aggresion for the oldest block that is not approved.
-		</span><span class="kw">let </span>min_age = max_age.saturating_sub(<span class="self">self</span>.approval_checking_lag);
-
 		<span class="macro">gum::debug!</span>(target: LOG_TARGET, min_age, max_age, <span class="string">&quot;Aggression enabled&quot;</span>,);
 
 		adjust_required_routing_and_propagate(
@@ -4679,8 +4697,7 @@
 
 				<span class="kw">let </span><span class="kw-2">mut </span>new_required_routing = <span class="kw-2">*</span>required_routing;
 
-				<span class="kw">if </span>config.l1_threshold.as_ref().map_or(<span class="bool-val">false</span>, |t| <span class="kw-2">&amp;</span><span class="self">self</span>.approval_checking_lag &gt;= t)
-				{
+				<span class="kw">if </span>config.l1_threshold.as_ref().map_or(<span class="bool-val">false</span>, |t| <span class="kw-2">&amp;</span>age &gt;= t) {
 					<span class="comment">// Message originator sends to everyone.
 					</span><span class="kw">if </span>local &amp;&amp; new_required_routing != RequiredRouting::All {
 						metrics.on_aggression_l1();
@@ -4688,8 +4705,7 @@
 					}
 				}
 
-				<span class="kw">if </span>config.l2_threshold.as_ref().map_or(<span class="bool-val">false</span>, |t| <span class="kw-2">&amp;</span><span class="self">self</span>.approval_checking_lag &gt;= t)
-				{
+				<span class="kw">if </span>config.l2_threshold.as_ref().map_or(<span class="bool-val">false</span>, |t| <span class="kw-2">&amp;</span>age &gt;= t) {
 					<span class="comment">// Message originator sends to everyone. Everyone else sends to XY.
 					</span><span class="kw">if </span>!local &amp;&amp; new_required_routing != RequiredRouting::GridXY {
 						metrics.on_aggression_l2();
