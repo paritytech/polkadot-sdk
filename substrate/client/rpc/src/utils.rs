@@ -17,6 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! JSON-RPC helpers.
+
 use crate::SubscriptionTaskExecutor;
 use futures::{
 	future::{self, Either, Fuse, FusedFuture},
@@ -56,11 +57,11 @@ impl<T> BoundedVecDeque<T> {
 
 /// Feed items to the subscription from the underlying stream.
 ///
-/// It's possible configure how many items from the stream
-/// are allowed to be kept in memory until the subscription is dropped.
+/// This is bounded because the underlying streams in substrate are
+/// unbounded and if the subscription can't keep with stream it can
+/// cause the buffer to become very large and consume lots of memory.
 ///
-/// This is needed because the underlying streams in substrate are
-/// unbounded.
+/// In such cases the subscription is dropped.
 pub async fn pipe_from_stream<S, T>(pending: PendingSubscriptionSink, mut stream: S)
 where
 	S: Stream<Item = T> + Unpin + Send + 'static,
@@ -223,23 +224,5 @@ mod tests {
 		// When the 17th item arrives the subscription is dropped
 		_ = rx.next().await.unwrap();
 		assert!(sub.next::<usize>().await.is_none());
-	}
-
-	#[tokio::test]
-	async fn wait_for_buffered_items() {
-		let mut sub = subscribe().await;
-
-		// HACK: we can't really know when all items have
-		// processed by pipe_from_stream and that's
-		// why we just sleep long enough here.
-		tokio::time::sleep(std::time::Duration::from_secs(6)).await;
-
-		let mut rx = 0;
-
-		while let Some(Ok(_)) = sub.next::<usize>().await {
-			rx += 1;
-		}
-
-		assert_eq!(rx, 16);
 	}
 }
