@@ -45,7 +45,7 @@ The Westend testnet will be updated to the new runtime version immediately after
 
 **From `master` to `stable`**
 
-Backports in this direction can be anything that is audited and either `minor` or a `patch` bump. [Security fixes](#bug-and-security-fix) should be prioritized over additions or improvements. Crates that are declared as internal API can also have major version bumps through backports.
+Backports in this direction can be anything that is audited and either `minor` or a `patch` bump. [Security fixes](#bug-and-security-fix) should be prioritized over additions or improvements. Crates that are declared as internal API, can also have major version bumps through backports.
 
 **From `stable` to `master`**
 
@@ -64,9 +64,9 @@ Following SemVer isn't easy, but there exists [a guide](https://doc.rust-lang.or
 ### Steps
 
 1. Developer opens a Merge Request with changed crates against `master`.
-2. They bump all changed crates according to SemVer.
-3. They bump all crates that export any changed types in their *public API*.
-4. They also bump all crates that inherit logic changes from relying on one of the bumped crates. 
+1. They bump all changed crates according to SemVer.
+1. They bump all crates that export any changed types in their *public API*.
+1. They also bump all crates that inherit logic changes from relying on one of the bumped crates. 
 
 ## Stable Release
 
@@ -77,15 +77,15 @@ This process aims to release the `stable` branch as a *Stable* release every two
 ### Steps
 
 1. Check if process [Clobbering](#clobbering) needs to happen and do so, if that is the case.
-2. Check out the latest commit of `stable`.
-3. Update the `CHANGELOG.md` version, date and compile the content using the prdoc files.
-4. Open a Merge Request against `stable` for visibility.
-5. Check if there were any changes since the last release and abort, if not.
-7. Internal QA from the release team can happen here.
-8. Do a dry-run release to ensure that it *should* work.
-10. Comment that a *Stable* release will happen from the merged commit hash.
-11. Release all changed crates to crates.io.
-12. Create a release on GitHub.
+1. Check if there were any changes since the last release and abort, if not.
+1. Check out the latest commit of `stable`.
+1. Update the `CHANGELOG.md` version, date and compile the content using the prdoc files.
+1. Open a Merge Request against `stable` for visibility.
+1. Internal QA from the release team can happen here.
+1. Do a dry-run release to ensure that it *should* work.
+1.  Comment that a *Stable* release will happen from the merged commit hash.
+1.  Release all changed crates to crates.io.
+1. Create a release on GitHub.
 
 ## Nightly Release
 
@@ -94,12 +94,12 @@ Cadence: every day at 00:00 UTC+1. Responsible: Release Team
 This process aims to release the `master` branch as a *Nightly* release. The process can start at 00:00 UTC+1 and should automatically do the following steps.
 
 1. Check out the latest commit of branch `master`.
-2. Compare this commit to the latest `nightly*` tag and abort if there are no changes detected.
-3. Set the version of all crates to `major.0.0-nightlyYYMMDD` where `major` is the last released `major` version of that crate plus one.
-4. Tag this commit as `nightlyYYMMDD`.
-5. Do a dry-run release to ensure that it *should* work.
-6. Push this tag (the commit will not belong to any branch).
-8. Release all crates that had changed since the last nightly release to crates.io.
+1. Compare this commit to the latest `nightly*` tag and abort if there are no changes detected.
+1. Set the version of all crates to `major.0.0-nightlyYYMMDD` where `major` is the last released `major` version of that crate plus one.
+1. Tag this commit as `nightlyYYMMDD`.
+1. Do a dry-run release to ensure that it *should* work.
+1. Push this tag (the commit will not belong to any branch).
+1. Release all crates that had changed since the last nightly release to crates.io.
 
 ## Clobbering
 
@@ -111,8 +111,8 @@ The following script is provided to do the clobbering. Note that it keeps the co
 ```bash
 # Ensure we have the latest remote data
 git fetch
-# Switch to the release branch
-git checkout release
+# Switch to the release stable
+git checkout stable
 
 # Delete all tracked files in the working directory
 git ls-files -z | xargs -0 rm -f
@@ -139,8 +139,8 @@ Describes how developers should merge bug and security fixes.
 ### Steps
 
 1. Developer opens a Pull Request with a bug or security fix.
-2. They have the possibility to mark the PR as such, and does so.
-3. Audit happens with priority.
-4. It is merged into `master`.
-5. It is automatically back-ported to `stable`.
-6. The fix will be released in the next *Stable* release. In urgent cases, a release can happen earlier.
+1. They have the possibility to mark the PR as such, and does so.
+1. Audit happens with priority.
+1. It is merged into `master`.
+1. It is automatically back-ported to `stable`.
+1. The fix will be released in the next *Stable* release. In urgent cases, a release can happen earlier.
