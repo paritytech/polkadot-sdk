@@ -353,12 +353,13 @@ impl<B: ChainApi> Pool<B> {
 
 		// Try to re-validate pruned transactions since some of them might be still valid.
 		// note that `known_imported_hashes` will be rejected here due to temporary ban.
-		let pruned_hashes = prune_status.pruned.iter().map(|tx| tx.hash).collect::<Vec<_>>();
 		let pruned_transactions =
 			prune_status.pruned.into_iter().map(|tx| (tx.source, tx.data.clone()));
 
 		let reverified_transactions =
 			self.verify(at, pruned_transactions, CheckBannedBeforeVerify::Yes).await;
+
+		let pruned_hashes = reverified_transactions.keys().map(Clone::clone).collect();
 
 		log::info!(target: LOG_TARGET, "Pruning at {:?}. Resubmitting transactions.", &at);
 		// And finally - submit reverified transactions back to the pool
