@@ -1,13 +1,13 @@
 [package]
-name = "sp-core-hashing"
-version = "9.0.0"
+name = "sp-crypto-hashing"
+version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
-description = "Primitive core crate hashing implementation."
-documentation = "https://docs.rs/sp-core-hashing"
+description = "Hashing primitives."
+documentation = "https://docs.rs/sp-crypto-hashing"
 
 [lints]
 workspace = true
@@ -22,6 +22,17 @@ digest = { version = "0.10.3", default-features = false }
 sha2 = { version = "0.10.7", default-features = false }
 sha3 = { version = "0.10.0", default-features = false }
 twox-hash = { version = "1.6.3", default-features = false, features = ["digest_0_10"] }
+
+[dev-dependencies]
+criterion = "0.4.0"
+sp-crypto-hashing-proc-macro = { path = "proc-macro" }
+
+[[bench]]
+name = "bench"
+harness = false
+
+[lib]
+bench = false
 
 [features]
 default = ["std"]

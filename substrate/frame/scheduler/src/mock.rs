@@ -97,10 +97,10 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Logger: logger::{Pallet, Call, Event<T>},
-		Scheduler: scheduler::{Pallet, Call, Storage, Event<T>},
-		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>, HoldReason},
+		System: frame_system,
+		Logger: logger,
+		Scheduler: scheduler,
+		Preimage: pallet_preimage,
 	}
 );
 

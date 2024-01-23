@@ -172,7 +172,7 @@
 //! }
 //! ```
 //!
-//! The bytes representing `call_data` and `signed_extensions_extra` can be obtained as descibed
+//! The bytes representing `call_data` and `signed_extensions_extra` can be obtained as described
 //! above. `signed_extensions_additional` is constructed by SCALE encoding the
 //! ["additional signed" data][sp_runtime::traits::SignedExtension::AdditionalSigned] for each
 //! signed extension that the chain is using, in order.
