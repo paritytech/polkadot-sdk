@@ -1767,10 +1767,13 @@ fn update_peer_authority_id() {
 	let hash_b = Hash::repeat_byte(0xBB);
 	let hash_c = Hash::repeat_byte(0xCC);
 	let peers = make_peers_and_authority_ids(8);
+	let neighbour_x_index = 0;
+	let neighbour_y_index = 2;
+	let local_index = 1;
 	// X neighbour, we simulate that PeerId is not known in the beginining.
-	let neighbour_x = peers.first().unwrap().0;
+	let neighbour_x = peers.get(neighbour_x_index).unwrap().0;
 	// Y neighbour, we simulate that PeerId is not known in the beginining.
-	let neighbour_y = peers.get(2).unwrap().0;
+	let neighbour_y = peers.get(neighbour_y_index).unwrap().0;
 
 	let _state = test_harness(State::default(), |mut virtual_overseer| async move {
 		let overseer = &mut virtual_overseer;
@@ -1814,12 +1817,18 @@ fn update_peer_authority_id() {
 		// Setup a topology where peer_a is neigboor to current node.
 		setup_gossip_topology(
 			overseer,
-			make_gossip_topology(1, &peers_with_optional_peer_id, &[0], &[2], 1),
+			make_gossip_topology(
+				1,
+				&peers_with_optional_peer_id,
+				&[neighbour_x_index],
+				&[neighbour_y_index],
+				local_index,
+			),
 		)
 		.await;
 
-		let cert_a = fake_assignment_cert(hash_a, ValidatorIndex(0));
-		let cert_b = fake_assignment_cert(hash_b, ValidatorIndex(0));
+		let cert_a = fake_assignment_cert(hash_a, ValidatorIndex(local_index as u32));
+		let cert_b = fake_assignment_cert(hash_b, ValidatorIndex(local_index as u32));
 
 		overseer_send(
 			overseer,
@@ -1872,8 +1881,8 @@ fn update_peer_authority_id() {
 			overseer,
 			ApprovalDistributionMessage::NetworkBridgeUpdate(
 				NetworkBridgeEvent::UpdatedAuthorityIds(
-					peers[0].0,
-					[peers[0].1.clone()].into_iter().collect(),
+					peers[neighbour_x_index].0,
+					[peers[neighbour_x_index].1.clone()].into_iter().collect(),
 				),
 			),
 		)
@@ -1901,8 +1910,8 @@ fn update_peer_authority_id() {
 			overseer,
 			ApprovalDistributionMessage::NetworkBridgeUpdate(
 				NetworkBridgeEvent::UpdatedAuthorityIds(
-					peers[2].0,
-					[peers[2].1.clone()].into_iter().collect(),
+					peers[neighbour_y_index].0,
+					[peers[neighbour_y_index].1.clone()].into_iter().collect(),
 				),
 			),
 		)
@@ -1911,8 +1920,8 @@ fn update_peer_authority_id() {
 			overseer,
 			ApprovalDistributionMessage::NetworkBridgeUpdate(
 				NetworkBridgeEvent::UpdatedAuthorityIds(
-					peers[0].0,
-					[peers[0].1.clone()].into_iter().collect(),
+					peers[neighbour_x_index].0,
+					[peers[neighbour_x_index].1.clone()].into_iter().collect(),
 				),
 			),
 		)
