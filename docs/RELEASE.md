@@ -45,7 +45,7 @@ The Westend testnet will be updated to the new runtime version immediately after
 
 **From `master` to `stable`**
 
-Backports in this direction can be anything that is audited and either `minor` or a `patch` bump. [Security fixes](#bug-and-security-fix) should be prioritized over additions or improvements.
+Backports in this direction can be anything that is audited and either `minor` or a `patch` bump. [Security fixes](#bug-and-security-fix) should be prioritized over additions or improvements. Crates that are declared as internal API can also have major version bumps through backports.
 
 **From `stable` to `master`**
 
@@ -53,13 +53,13 @@ Should not be needed since all changes first get merged into `master`. The `stab
 
 # Processes
 
-The following processes are necessary to actualize our releases. Each process has a *Cadence* on which it must execute and a *Responsible* that is responsible for autonomously doing so and reporting back any error in the RelEng<sup>2</sup> channel. All processes should be automated as much as possible.
+The following processes are necessary to actualize our releases. Each process has a *Cadence* on which it must execute and a *Responsible* that is responsible for autonomously doing so and reporting back any error in the *RelEng: Polkadot Release Coordination* Matrix channel. All processes should be automated as much as possible.
 
 ## Crate Bumping
 
 Cadence: (possibly) each Merge Request. Responsible: Developer that opened the pull request.
 
-Following SemVer isn't easy, but there exists [a guide](https://doc.rust-lang.org/cargo/reference/semver.html) in the Rust documentation that explains the small details on when to bump what. This process should be augmented with CI checks that utilize [`cargo-semver-checks`](https://github.com/obi1kenobi/cargo-semver-checks) and/or [`cargo-public-api`](https://github.com/Enselic/cargo-public-api). They must also pay attention to downstream dependencies that require a version bump, because they export the changed API.
+Following SemVer isn't easy, but there exists [a guide](https://doc.rust-lang.org/cargo/reference/semver.html) in the Rust documentation that explains the small details on when to bump what. This process is supported with a CI check that utilizes [`cargo-semver-checks`](https://github.com/obi1kenobi/cargo-semver-checks).
 
 ### Steps
 
