@@ -234,6 +234,9 @@ impl<T: Config> Pallet<T> {
 		ensure!(!pivot.is_void(), Error::<T>::VoidPivot);
 		ensure!(pivot != region_id.mask, Error::<T>::CompletePivot);
 
+		// The old region should be removed.
+		Regions::<T>::remove(&region_id);
+
 		let one = RegionId { mask: pivot, ..region_id };
 		Regions::<T>::insert(&one, &region);
 		let other = RegionId { mask: region_id.mask ^ pivot, ..region_id };

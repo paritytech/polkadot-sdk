@@ -15,7 +15,7 @@ enumflags2 = { version = "0.7.7" }
 hex-literal = { version = "0.4.1" }
 log = { version = "0.4.20", default-features = false }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.171", optional = true, features = ["derive"] }
+serde = { version = "1.0.195", optional = true, features = ["derive"] }
 smallvec = "1.11.0"
 
 # Substrate
@@ -154,6 +154,7 @@ runtime-benchmarks = [
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",

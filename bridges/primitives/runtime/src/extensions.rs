@@ -106,6 +106,7 @@ impl TransactionExtensionSchema for Tuple {
 /// and signed payloads in the client code.
 #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
 pub struct GenericTransactionExtension<S: TransactionExtensionSchema> {
+	/// A payload that is included in the transaction.
 	pub payload: S::Payload,
 	#[codec(skip)]
 	// It may be set to `None` if extensions are decoded. We are never reconstructing transactions
@@ -116,6 +117,7 @@ pub struct GenericTransactionExtension<S: TransactionExtensionSchema> {
 }
 
 impl<S: TransactionExtensionSchema> GenericTransactionExtension<S> {
+	/// Create new `GenericTransactionExtension` object.
 	pub fn new(payload: S::Payload, implicit: Option<S::Implicit>) -> Self {
 		Self { payload, implicit }
 	}

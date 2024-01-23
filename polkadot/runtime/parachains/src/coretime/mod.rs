@@ -26,9 +26,7 @@ pub use pallet::*;
 use pallet_broker::{CoreAssignment, CoreIndex as BrokerCoreIndex};
 use primitives::{CoreIndex, Id as ParaId};
 use sp_arithmetic::traits::SaturatedConversion;
-use xcm::v3::{
-	send_xcm, Instruction, Junction, Junctions, MultiLocation, OriginKind, SendXcm, Xcm,
-};
+use xcm::v4::{send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, WeightLimit, Xcm};
 
 use crate::{
 	assigner_coretime::{self, PartsOf57600},
@@ -220,14 +218,15 @@ impl<T: Config> Pallet<T> {
 		let new_core_count = notification.new_config.coretime_cores;
 		if new_core_count != old_core_count {
 			let core_count: u16 = new_core_count.saturated_into();
-			let message = Xcm(vec![mk_coretime_call(
-				crate::coretime::CoretimeCalls::NotifyCoreCount(core_count),
-			)]);
-			if let Err(err) = send_xcm::<T::SendXcm>(
-				MultiLocation {
-					parents: 0,
-					interior: Junctions::X1(Junction::Parachain(T::BrokerId::get())),
+			let message = Xcm(vec![
+				Instruction::UnpaidExecution {
+					weight_limit: WeightLimit::Unlimited,
+					check_origin: None,
 				},
+				mk_coretime_call(crate::coretime::CoretimeCalls::NotifyCoreCount(core_count)),
+			]);
+			if let Err(err) = send_xcm::<T::SendXcm>(
+				Location::new(0, [Junction::Parachain(T::BrokerId::get())]),
 				message,
 			) {
 				log::error!("Sending `NotifyCoreCount` to coretime chain failed: {:?}", err);
@@ -245,7 +244,9 @@ impl<T: Config> OnNewSession<BlockNumberFor<T>> for Pallet<T> {
 fn mk_coretime_call(call: crate::coretime::CoretimeCalls) -> Instruction<()> {
 	Instruction::Transact {
 		origin_kind: OriginKind::Superuser,
-		require_weight_at_most: Weight::from_parts(1000000000, 200000),
+		// Largest call is set_lease with 1526 byte:
+		// Longest call is reserve() with 31_000_000
+		require_weight_at_most: Weight::from_parts(170_000_000, 20_000),
 		call: BrokerRuntimePallets::Broker(call).encode().into(),
 	}
 }

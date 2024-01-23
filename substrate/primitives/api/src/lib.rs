@@ -282,7 +282,7 @@ pub use sp_api_proc_macro::decl_runtime_apis;
 /// #
 /// # /// The declaration of the `Runtime` type is done by the `construct_runtime!` macro
 /// # /// in a real runtime.
-/// # pub struct Runtime {}
+/// # pub enum Runtime {}
 /// #
 /// # sp_api::decl_runtime_apis! {
 /// #     /// Declare the api trait.
@@ -361,7 +361,7 @@ pub use sp_api_proc_macro::decl_runtime_apis;
 /// let's say you want to implement a staging version of the runtime api and put it behind a
 /// feature flag. You can do it this way:
 /// ```ignore
-/// pub struct Runtime {}
+/// pub enum Runtime {}
 /// sp_api::decl_runtime_apis! {
 ///     pub trait ApiWithStagingMethod {
 ///         fn stable_one(data: u64);

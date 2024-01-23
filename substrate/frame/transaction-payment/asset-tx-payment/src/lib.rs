@@ -40,6 +40,7 @@ use sp_std::prelude::*;
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo},
+	pallet_prelude::Weight,
 	traits::{
 		tokens::{
 			fungibles::{Balanced, Credit, Inspect},
@@ -64,8 +65,14 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
 mod payment;
+pub mod weights;
+
 pub use payment::*;
+pub use weights::WeightInfo;
 
 /// Type aliases used for interaction with `OnChargeTransaction`.
 pub(crate) type OnChargeTransactionOf<T> =
@@ -121,10 +128,29 @@ pub mod pallet {
 		type Fungibles: Balanced<Self::AccountId>;
 		/// The actual transaction charging logic that charges the fees.
 		type OnChargeAssetTransaction: OnChargeAssetTransaction<Self>;
+		/// The weight information of this pallet.
+		type WeightInfo: WeightInfo;
+		#[cfg(feature = "runtime-benchmarks")]
+		/// Benchmark helper
+		type BenchmarkHelper: BenchmarkHelperTrait<
+			Self::AccountId,
+			<<Self as Config>::Fungibles as Inspect<Self::AccountId>>::AssetId,
+			<<Self as Config>::OnChargeAssetTransaction as OnChargeAssetTransaction<Self>>::AssetId,
+		>;
 	}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
+
+	#[cfg(feature = "runtime-benchmarks")]
+	/// Helper trait to benchmark the `ChargeAssetTxPayment` transaction extension.
+	pub trait BenchmarkHelperTrait<AccountId, FunAssetIdParameter, AssetIdParameter> {
+		/// Returns the `AssetId` to be used in the liquidity pool by the benchmarking code.
+		fn create_asset_id_parameter(id: u32) -> (FunAssetIdParameter, AssetIdParameter);
+		/// Create a liquidity pool for a given asset and sufficiently endow accounts to benchmark
+		/// the extension.
+		fn setup_balances_and_pool(asset_id: FunAssetIdParameter, account: AccountId);
+	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -173,9 +199,8 @@ where
 		who: &T::AccountId,
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
-		len: usize,
+		fee: BalanceOf<T>,
 	) -> Result<(BalanceOf<T>, InitialPayment<T>), TransactionValidityError> {
-		let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, self.tip);
 		debug_assert!(self.tip <= fee, "tip should be included in the computed fee");
 		if fee.is_zero() {
 			Ok((fee, InitialPayment::Nothing))
@@ -210,7 +235,7 @@ impl<T: Config> sp_std::fmt::Debug for ChargeAssetTxPayment<T> {
 	}
 }
 
-impl<T: Config + Send + Sync> TransactionExtensionBase for ChargeAssetTxPayment<T>
+impl<T: Config> TransactionExtensionBase for ChargeAssetTxPayment<T>
 where
 	AssetBalanceOf<T>: Send + Sync,
 	BalanceOf<T>: Send + Sync + From<u64> + IsType<ChargeAssetBalanceOf<T>>,
@@ -219,10 +244,17 @@ where
 {
 	const IDENTIFIER: &'static str = "ChargeAssetTxPayment";
 	type Implicit = ();
+
+	fn weight(&self) -> Weight {
+		if self.asset_id.is_some() {
+			<T as Config>::WeightInfo::charge_asset_tx_payment_asset()
+		} else {
+			<T as Config>::WeightInfo::charge_asset_tx_payment_native()
+		}
+	}
 }
 
-impl<T: Config + Send + Sync, Context> TransactionExtension<T::RuntimeCall, Context>
-	for ChargeAssetTxPayment<T>
+impl<T: Config, Context> TransactionExtension<T::RuntimeCall, Context> for ChargeAssetTxPayment<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	AssetBalanceOf<T>: Send + Sync,
@@ -236,6 +268,8 @@ where
 		BalanceOf<T>,
 		// who paid the fee
 		T::AccountId,
+		// transaction fee
+		BalanceOf<T>,
 	);
 	type Pre = (
 		// tip
@@ -266,7 +300,7 @@ where
 		// Non-mutating call of `compute_fee` to calculate the fee used in the transaction priority.
 		let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, self.tip);
 		let priority = ChargeTransactionPayment::<T>::get_priority(info, len, self.tip, fee);
-		let val = (self.tip, who.clone());
+		let val = (self.tip, who.clone(), fee);
 		let validity = ValidTransaction { priority, ..Default::default() };
 		Ok((validity, val, origin))
 	}
@@ -277,12 +311,12 @@ where
 		_origin: &<T::RuntimeCall as Dispatchable>::RuntimeOrigin,
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
-		len: usize,
+		_len: usize,
 		_context: &Context,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		let (tip, who) = val;
+		let (tip, who, fee) = val;
 		// Mutating call of `withdraw_fee` to actually charge for the transaction.
-		let (_fee, initial_payment) = self.withdraw_fee(&who, call, info, len)?;
+		let (_fee, initial_payment) = self.withdraw_fee(&who, call, info, fee)?;
 		Ok((tip, who, initial_payment, self.asset_id))
 	}
 

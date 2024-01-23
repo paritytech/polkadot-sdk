@@ -163,4 +163,17 @@ impl<T: frame_system::Config> runtime_common::claims::WeightInfo for WeightInfo<
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(7))
 	}
+	/// Storage: `Claims::Preclaims` (r:1 w:0)
+	/// Proof: `Claims::Preclaims` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Claims::Signing` (r:1 w:0)
+	/// Proof: `Claims::Signing` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn prevalidate_attests() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `296`
+		//  Estimated: `3761`
+		// Minimum execution time: 8_897_000 picoseconds.
+		Weight::from_parts(10_069_000, 0)
+			.saturating_add(Weight::from_parts(0, 3761))
+			.saturating_add(T::DbWeight::get().reads(2))
+	}
 }
