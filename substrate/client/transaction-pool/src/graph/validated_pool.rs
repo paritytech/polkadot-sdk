@@ -318,6 +318,19 @@ impl<B: ChainApi> ValidatedPool<B> {
 		}
 	}
 
+	//todo: doc
+	pub fn create_watcher(
+		&self,
+		tx_hash: ExtrinsicHash<B>,
+	) -> Watcher<ExtrinsicHash<B>, ExtrinsicHash<B>> {
+		self.listener.write().create_watcher(tx_hash)
+	}
+
+	//todo: doc
+	pub fn watched_transactions(&self) -> Vec<ExtrinsicHash<B>> {
+		self.listener.read().watched_transactions().map(Clone::clone).collect()
+	}
+
 	/// Resubmits revalidated transactions back to the pool.
 	///
 	/// Removes and then submits passed transactions and all dependent transactions.
