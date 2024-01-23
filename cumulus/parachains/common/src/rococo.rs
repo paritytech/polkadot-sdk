@@ -126,7 +126,10 @@ pub mod snowbridge {
 	pub const INBOUND_QUEUE_PALLET_INDEX: u8 = 80;
 
 	parameter_types! {
-		/// Network and location for the Ethereum chain.
+		/// Network and location for the Ethereum chain. On Rococo, the Ethereum chain bridged
+		/// to is the Sepolia Ethereum testnet, with chain ID 11155111.
+		/// <https://chainlist.org/chain/11155111>
+		/// <https://ethereum.org/en/developers/docs/apis/json-rpc/#net_version>
 		pub EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
 	}
 }

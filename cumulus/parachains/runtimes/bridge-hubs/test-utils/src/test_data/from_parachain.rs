@@ -22,12 +22,14 @@ use bp_messages::{
 	source_chain::TargetHeaderChain, target_chain::SourceHeaderChain, LaneId,
 	UnrewardedRelayersState, Weight,
 };
-use bp_runtime::{BlockNumberOf, HeaderOf, Parachain, StorageProofSize, UnderlyingChainOf};
+use bp_runtime::{
+	AccountIdOf, BlockNumberOf, HeaderOf, Parachain, StorageProofSize, UnderlyingChainOf,
+};
 use bp_test_utils::prepare_parachain_heads_proof;
 use bridge_runtime_common::{
 	messages::{
 		source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
-		BridgedChain as MessageBridgedChain, MessageBridge,
+		BridgedChain as MessageBridgedChain, MessageBridge, ThisChain as MessageThisChain,
 	},
 	messages_generation::{
 		encode_all_messages, encode_lane_data, prepare_message_delivery_storage_proof,
@@ -38,7 +40,7 @@ use bridge_runtime_common::{
 use codec::Encode;
 use pallet_bridge_grandpa::BridgedHeader;
 use pallet_bridge_parachains::{RelayBlockHash, RelayBlockNumber};
-use sp_runtime::{traits::Header as HeaderT, AccountId32};
+use sp_runtime::traits::Header as HeaderT;
 use xcm::latest::prelude::*;
 
 use bp_header_chain::{justification::GrandpaJustification, ChainWithGrandpa};
@@ -47,17 +49,21 @@ use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
 use sp_runtime::SaturatedConversion;
 
 /// Prepare a batch call with relay finality proof, parachain head proof and message proof.
-pub fn make_complex_relayer_delivery_batch<Runtime, GPI, PPI, MPI>(
+pub fn make_complex_relayer_delivery_batch<Runtime, GPI, PPI, MPI, InboundRelayer>(
 	relay_chain_header: BridgedHeader<Runtime, GPI>,
 	grandpa_justification: GrandpaJustification<BridgedHeader<Runtime, GPI>>,
 	parachain_heads: Vec<(ParaId, ParaHash)>,
 	para_heads_proof: ParaHeadsProof,
 	message_proof: FromBridgedChainMessagesProof<ParaHash>,
-	relayer_id_at_bridged_chain: AccountId32,
+	relayer_id_at_bridged_chain: InboundRelayer,
 ) -> pallet_utility::Call<Runtime> where
 	Runtime:pallet_bridge_grandpa::Config<GPI>
 		+ pallet_bridge_parachains::Config<PPI>
-		+ pallet_bridge_messages::Config<MPI, InboundPayload = XcmAsPlainPayload>
+		+ pallet_bridge_messages::Config<
+			MPI,
+			InboundPayload = XcmAsPlainPayload,
+			InboundRelayer = InboundRelayer,
+		>
 		+ pallet_utility::Config,
 	GPI: 'static,
 	PPI: 'static,
@@ -66,7 +72,6 @@ pub fn make_complex_relayer_delivery_batch<Runtime, GPI, PPI, MPI>(
 	<<Runtime as pallet_bridge_grandpa::Config<GPI>>::BridgedChain as bp_runtime::Chain>::Hash: From<ParaHash>,
 	<<Runtime as pallet_bridge_messages::Config<MPI>>::SourceHeaderChain as SourceHeaderChain>::MessagesProof:
 		From<FromBridgedChainMessagesProof<ParaHash>>,
-	<Runtime as pallet_bridge_messages::Config<MPI>>::InboundRelayer: From<AccountId32>,
 	<Runtime as pallet_utility::Config>::RuntimeCall:
 		From<pallet_bridge_grandpa::Call<Runtime, GPI>>
 		+ From<pallet_bridge_parachains::Call<Runtime, PPI>>
@@ -117,10 +122,11 @@ where
 	MPI: 'static,
 	<Runtime as pallet_bridge_grandpa::Config<GPI>>::BridgedChain:
 		bp_runtime::Chain<Hash = RelayBlockHash, BlockNumber = RelayBlockNumber> + ChainWithGrandpa,
-	<<Runtime as pallet_bridge_messages::Config<MPI>>::TargetHeaderChain as TargetHeaderChain<
+	<Runtime as pallet_bridge_messages::Config<MPI>>::TargetHeaderChain: TargetHeaderChain<
 		XcmAsPlainPayload,
 		Runtime::AccountId,
-	>>::MessagesDeliveryProof: From<FromBridgedChainMessagesDeliveryProof<ParaHash>>,
+		MessagesDeliveryProof = FromBridgedChainMessagesDeliveryProof<ParaHash>,
+	>,
 	<Runtime as pallet_utility::Config>::RuntimeCall: From<pallet_bridge_grandpa::Call<Runtime, GPI>>
 		+ From<pallet_bridge_parachains::Call<Runtime, PPI>>
 		+ From<pallet_bridge_messages::Call<Runtime, MPI>>,
@@ -141,7 +147,7 @@ where
 	};
 	let submit_message_delivery_proof =
 		pallet_bridge_messages::Call::<Runtime, MPI>::receive_messages_delivery_proof {
-			proof: message_delivery_proof.into(),
+			proof: message_delivery_proof,
 			relayers_state,
 		};
 	pallet_utility::Call::<Runtime>::batch_all {
@@ -174,8 +180,6 @@ where
 	BridgedRelayChain:
 		bp_runtime::Chain<Hash = RelayBlockHash, BlockNumber = RelayBlockNumber> + ChainWithGrandpa,
 	MB: MessageBridge,
-	<MB as MessageBridge>::BridgedChain: Send + Sync + 'static,
-	<MB as MessageBridge>::ThisChain: Send + Sync + 'static,
 	UnderlyingChainOf<MessageBridgedChain<MB>>: bp_runtime::Chain<Hash = ParaHash> + Parachain,
 {
 	let message_payload = prepare_inbound_xcm(xcm_message, message_destination);
@@ -223,7 +227,7 @@ pub fn make_complex_relayer_confirmation_proofs<BridgedRelayChain, MB, InnerXcmR
 	para_header_number: u32,
 	relay_header_number: u32,
 	bridged_para_id: u32,
-	relayer_id_at_this_chain: AccountId32,
+	relayer_id_at_this_chain: AccountIdOf<MessageThisChain<MB>>,
 	relayers_state: UnrewardedRelayersState,
 ) -> (
 	HeaderOf<BridgedRelayChain>,
@@ -237,9 +241,6 @@ where
 	BridgedRelayChain:
 		bp_runtime::Chain<Hash = RelayBlockHash, BlockNumber = RelayBlockNumber> + ChainWithGrandpa,
 	MB: MessageBridge,
-	<MB as MessageBridge>::BridgedChain: Send + Sync + 'static,
-	<MB as MessageBridge>::ThisChain: Send + Sync + 'static,
-	<<MB as MessageBridge>::ThisChain as bp_runtime::Chain>::AccountId: From<AccountId32>,
 	UnderlyingChainOf<MessageBridgedChain<MB>>: bp_runtime::Chain<Hash = ParaHash> + Parachain,
 {
 	// prepare para storage proof containing message delivery proof

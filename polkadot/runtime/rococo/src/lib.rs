@@ -31,21 +31,24 @@ use primitives::{
 	OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes, SessionInfo, Signature,
 	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
 };
+use rococo_runtime_constants::system_parachain::BROKER_ID;
 use runtime_common::{
 	assigned_slots, auctions, claims, crowdloan, identity_migrator, impl_runtime_weights,
 	impls::{
-		LocatableAssetConverter, ToAuthor, VersionedLocatableAsset, VersionedMultiLocationConverter,
+		LocatableAssetConverter, ToAuthor, VersionedLocatableAsset, VersionedLocationConverter,
 	},
-	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots, BlockHashCount, BlockLength,
-	SlowAdjustingFeeUpdate,
+	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots,
+	traits::Leaser,
+	BlockHashCount, BlockLength, SlowAdjustingFeeUpdate,
 };
 use scale_info::TypeInfo;
 use sp_std::{cmp::Ordering, collections::btree_map::BTreeMap, prelude::*};
 
 use runtime_parachains::{
-	assigner as parachains_assigner, assigner_on_demand as parachains_assigner_on_demand,
+	assigner_coretime as parachains_assigner_coretime,
+	assigner_on_demand as parachains_assigner_on_demand,
 	assigner_parachains as parachains_assigner_parachains,
-	configuration as parachains_configuration, disputes as parachains_disputes,
+	configuration as parachains_configuration, coretime, disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing,
 	dmp as parachains_dmp, hrmp as parachains_hrmp, inclusion as parachains_inclusion,
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
@@ -76,7 +79,7 @@ use frame_support::{
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
 };
-use frame_system::EnsureRoot;
+use frame_system::{EnsureRoot, EnsureSigned};
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_identity::legacy::IdentityInfo;
 use pallet_session::historical as session_historical;
@@ -96,10 +99,7 @@ use sp_staking::SessionIndex;
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use xcm::{
-	latest::{InteriorMultiLocation, Junction, Junction::PalletInstance},
-	VersionedMultiLocation,
-};
+use xcm::{latest::prelude::*, VersionedLocation};
 use xcm_builder::PayOverXcm;
 
 pub use frame_system::Call as SystemCall;
@@ -150,7 +150,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("rococo"),
 	impl_name: create_runtime_str!("parity-rococo-v2.0"),
 	authoring_version: 0,
-	spec_version: 1_005_000,
+	spec_version: 1_006_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 24,
@@ -458,7 +458,7 @@ parameter_types! {
 	pub const PayoutSpendPeriod: BlockNumber = 30 * DAYS;
 	// The asset's interior location for the paying account. This is the Treasury
 	// pallet instance (which sits at index 18).
-	pub TreasuryInteriorLocation: InteriorMultiLocation = PalletInstance(18).into();
+	pub TreasuryInteriorLocation: InteriorLocation = PalletInstance(18).into();
 
 	pub const TipCountdown: BlockNumber = 1 * DAYS;
 	pub const TipFindersFee: Percent = Percent::from_percent(20);
@@ -489,7 +489,7 @@ impl pallet_treasury::Config for Runtime {
 	type SpendFunds = Bounties;
 	type SpendOrigin = TreasurySpender;
 	type AssetKind = VersionedLocatableAsset;
-	type Beneficiary = VersionedMultiLocation;
+	type Beneficiary = VersionedLocation;
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
 	type Paymaster = PayOverXcm<
 		TreasuryInteriorLocation,
@@ -499,7 +499,7 @@ impl pallet_treasury::Config for Runtime {
 		Self::Beneficiary,
 		Self::AssetKind,
 		LocatableAssetConverter,
-		VersionedMultiLocationConverter,
+		VersionedLocationConverter,
 	>;
 	type BalanceConverter = AssetRate;
 	type PayoutPeriod = PayoutSpendPeriod;
@@ -535,7 +535,7 @@ impl pallet_bounties::Config for Runtime {
 
 parameter_types! {
 	pub const MaxActiveChildBountyCount: u32 = 100;
-	pub const ChildBountyValueMinimum: Balance = BountyValueMinimum::get() / 10;
+	pub ChildBountyValueMinimum: Balance = BountyValueMinimum::get() / 10;
 }
 
 impl pallet_child_bounties::Config for Runtime {
@@ -665,6 +665,12 @@ impl pallet_identity::Config for Runtime {
 	type Slashed = Treasury;
 	type ForceOrigin = EitherOf<EnsureRoot<Self::AccountId>, GeneralAdmin>;
 	type RegistrarOrigin = EitherOf<EnsureRoot<Self::AccountId>, GeneralAdmin>;
+	type OffchainSignature = Signature;
+	type SigningPublicKey = <Signature as Verify>::Signer;
+	type UsernameAuthorityOrigin = EnsureRoot<Self::AccountId>;
+	type PendingUsernameExpiration = ConstU32<{ 7 * DAYS }>;
+	type MaxSuffixLength = ConstU32<7>;
+	type MaxUsernameLength = ConstU32<32>;
 	type WeightInfo = weights::pallet_identity::WeightInfo<Runtime>;
 }
 
@@ -903,7 +909,9 @@ impl parachains_configuration::Config for Runtime {
 	type WeightInfo = weights::runtime_parachains_configuration::WeightInfo<Runtime>;
 }
 
-impl parachains_shared::Config for Runtime {}
+impl parachains_shared::Config for Runtime {
+	type DisabledValidators = Session;
+}
 
 impl parachains_session_info::Config for Runtime {
 	type ValidatorSet = Historical;
@@ -935,6 +943,7 @@ impl parachains_paras::Config for Runtime {
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = Babe;
 	type OnNewHead = Registrar;
+	type AssignCoretime = CoretimeAssignmentProvider;
 }
 
 parameter_types! {
@@ -1001,7 +1010,22 @@ impl parachains_paras_inherent::Config for Runtime {
 }
 
 impl parachains_scheduler::Config for Runtime {
-	type AssignmentProvider = ParaAssignmentProvider;
+	// If you change this, make sure the `Assignment` type of the new provider is binary compatible,
+	// otherwise provide a migration.
+	type AssignmentProvider = CoretimeAssignmentProvider;
+}
+
+parameter_types! {
+	pub const BrokerId: u32 = BROKER_ID;
+}
+
+impl coretime::Config for Runtime {
+	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type BrokerId = BrokerId;
+	type WeightInfo = weights::runtime_parachains_coretime::WeightInfo<Runtime>;
+	type SendXcm = crate::xcm_config::XcmRouter;
 }
 
 parameter_types! {
@@ -1017,15 +1041,13 @@ impl parachains_assigner_on_demand::Config for Runtime {
 
 impl parachains_assigner_parachains::Config for Runtime {}
 
-impl parachains_assigner::Config for Runtime {
-	type OnDemandAssignmentProvider = OnDemandAssignmentProvider;
-	type ParachainsAssignmentProvider = ParachainsAssignmentProvider;
-}
+impl parachains_assigner_coretime::Config for Runtime {}
 
 impl parachains_initializer::Config for Runtime {
 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::runtime_parachains_initializer::WeightInfo<Runtime>;
+	type CoretimeOnNewSession = Coretime;
 }
 
 impl parachains_disputes::Config for Runtime {
@@ -1122,8 +1144,7 @@ impl auctions::Config for Runtime {
 
 impl identity_migrator::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	// To be changed to `EnsureSigned` once there is a People Chain to migrate to.
-	type Reaper = EnsureRoot<AccountId>;
+	type Reaper = EnsureSigned<AccountId>;
 	type ReapIdentityHandler = ToParachainIdentityReaper<Runtime, Self::AccountId>;
 	type WeightInfo = weights::runtime_common_identity_migrator::WeightInfo<Runtime>;
 }
@@ -1186,7 +1207,7 @@ impl pallet_nis::Config for Runtime {
 }
 
 parameter_types! {
-	pub const BeefySetIdSessionEntries: u32 = BondingDuration::get() * SessionsPerEra::get();
+	pub BeefySetIdSessionEntries: u32 = BondingDuration::get() * SessionsPerEra::get();
 }
 
 impl pallet_beefy::Config for Runtime {
@@ -1220,19 +1241,6 @@ impl pallet_mmr::Config for Runtime {
 }
 
 parameter_types! {
-	/// Version of the produced MMR leaf.
-	///
-	/// The version consists of two parts;
-	/// - `major` (3 bits)
-	/// - `minor` (5 bits)
-	///
-	/// `major` should be updated only if decoding the previous MMR Leaf format from the payload
-	/// is not possible (i.e. backward incompatible change).
-	/// `minor` should be updated if fields are added to the previous MMR Leaf, which given SCALE
-	/// encoding does not prevent old leafs from being decoded.
-	///
-	/// Hence we expect `major` to be changed really rarely (think never).
-	/// See [`MmrLeafVersion`] type documentation for more details.
 	pub LeafVersion: MmrLeafVersion = MmrLeafVersion::new(0, 0);
 }
 
@@ -1307,134 +1315,131 @@ construct_runtime! {
 	pub enum Runtime
 	{
 		// Basic stuff; balances is uncallable initially.
-		System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>} = 0,
+		System: frame_system = 0,
 
 		// Babe must be before session.
-		Babe: pallet_babe::{Pallet, Call, Storage, Config<T>, ValidateUnsigned} = 1,
+		Babe: pallet_babe = 1,
 
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 2,
-		Indices: pallet_indices::{Pallet, Call, Storage, Config<T>, Event<T>} = 3,
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 4,
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 33,
+		Timestamp: pallet_timestamp = 2,
+		Indices: pallet_indices = 3,
+		Balances: pallet_balances = 4,
+		TransactionPayment: pallet_transaction_payment = 33,
 
 		// Consensus support.
 		// Authorship must be before session in order to note author in the correct session and era.
-		Authorship: pallet_authorship::{Pallet, Storage} = 5,
-		Offences: pallet_offences::{Pallet, Storage, Event} = 7,
-		Historical: session_historical::{Pallet} = 34,
+		Authorship: pallet_authorship = 5,
+		Offences: pallet_offences = 7,
+		Historical: session_historical = 34,
 
 		// BEEFY Bridges support.
-		Beefy: pallet_beefy::{Pallet, Call, Storage, Config<T>, ValidateUnsigned} = 240,
+		Beefy: pallet_beefy = 240,
 		// MMR leaf construction must be before session in order to have leaf contents
 		// refer to block<N-1> consistently. see substrate issue #11797 for details.
-		Mmr: pallet_mmr::{Pallet, Storage} = 241,
-		MmrLeaf: pallet_beefy_mmr::{Pallet, Storage} = 242,
+		Mmr: pallet_mmr = 241,
+		MmrLeaf: pallet_beefy_mmr = 242,
 
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 8,
-		Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config<T>, Event, ValidateUnsigned} = 10,
-		AuthorityDiscovery: pallet_authority_discovery::{Pallet, Config<T>} = 12,
+		Session: pallet_session = 8,
+		Grandpa: pallet_grandpa = 10,
+		AuthorityDiscovery: pallet_authority_discovery = 12,
 
 		// Governance stuff; uncallable initially.
-		Treasury: pallet_treasury::{Pallet, Call, Storage, Config<T>, Event<T>} = 18,
-		ConvictionVoting: pallet_conviction_voting::{Pallet, Call, Storage, Event<T>} = 20,
-		Referenda: pallet_referenda::{Pallet, Call, Storage, Event<T>} = 21,
+		Treasury: pallet_treasury = 18,
+		ConvictionVoting: pallet_conviction_voting = 20,
+		Referenda: pallet_referenda = 21,
 		//	pub type FellowshipCollectiveInstance = pallet_ranked_collective::Instance1;
-		FellowshipCollective: pallet_ranked_collective::<Instance1>::{
-			Pallet, Call, Storage, Event<T>
-		} = 22,
+		FellowshipCollective: pallet_ranked_collective::<Instance1> = 22,
 		// pub type FellowshipReferendaInstance = pallet_referenda::Instance2;
-		FellowshipReferenda: pallet_referenda::<Instance2>::{
-			Pallet, Call, Storage, Event<T>
-		} = 23,
-		Origins: pallet_custom_origins::{Origin} = 43,
-		Whitelist: pallet_whitelist::{Pallet, Call, Storage, Event<T>} = 44,
+		FellowshipReferenda: pallet_referenda::<Instance2> = 23,
+		Origins: pallet_custom_origins = 43,
+		Whitelist: pallet_whitelist = 44,
 		// Claims. Usable initially.
-		Claims: claims::{Pallet, Call, Storage, Event<T>, Config<T>, ValidateUnsigned} = 19,
+		Claims: claims = 19,
 
 		// Utility module.
-		Utility: pallet_utility::{Pallet, Call, Event} = 24,
+		Utility: pallet_utility = 24,
 
 		// Less simple identity module.
-		Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 25,
+		Identity: pallet_identity = 25,
 
 		// Society module.
-		Society: pallet_society::{Pallet, Call, Storage, Event<T>} = 26,
+		Society: pallet_society = 26,
 
 		// Social recovery module.
-		Recovery: pallet_recovery::{Pallet, Call, Storage, Event<T>} = 27,
+		Recovery: pallet_recovery = 27,
 
 		// Vesting. Usable initially, but removed once all vesting is finished.
-		Vesting: pallet_vesting::{Pallet, Call, Storage, Event<T>, Config<T>} = 28,
+		Vesting: pallet_vesting = 28,
 
 		// System scheduler.
-		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 29,
+		Scheduler: pallet_scheduler = 29,
 
 		// Proxy module. Late addition.
-		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 30,
+		Proxy: pallet_proxy = 30,
 
 		// Multisig module. Late addition.
-		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 31,
+		Multisig: pallet_multisig = 31,
 
 		// Preimage registrar.
-		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>, HoldReason} = 32,
+		Preimage: pallet_preimage = 32,
 
 		// Asset rate.
-		AssetRate: pallet_asset_rate::{Pallet, Call, Storage, Event<T>} = 39,
+		AssetRate: pallet_asset_rate = 39,
 
 		// Bounties modules.
-		Bounties: pallet_bounties::{Pallet, Call, Storage, Event<T>} = 35,
+		Bounties: pallet_bounties = 35,
 		ChildBounties: pallet_child_bounties = 40,
 
 		// NIS pallet.
-		Nis: pallet_nis::{Pallet, Call, Storage, Event<T>, HoldReason} = 38,
+		Nis: pallet_nis = 38,
 		// pub type NisCounterpartInstance = pallet_balances::Instance2;
 		NisCounterpartBalances: pallet_balances::<Instance2> = 45,
 
 		// Parachains pallets. Start indices at 50 to leave room.
-		ParachainsOrigin: parachains_origin::{Pallet, Origin} = 50,
-		Configuration: parachains_configuration::{Pallet, Call, Storage, Config<T>} = 51,
-		ParasShared: parachains_shared::{Pallet, Call, Storage} = 52,
-		ParaInclusion: parachains_inclusion::{Pallet, Call, Storage, Event<T>} = 53,
-		ParaInherent: parachains_paras_inherent::{Pallet, Call, Storage, Inherent} = 54,
-		ParaScheduler: parachains_scheduler::{Pallet, Storage} = 55,
-		Paras: parachains_paras::{Pallet, Call, Storage, Event, Config<T>, ValidateUnsigned} = 56,
-		Initializer: parachains_initializer::{Pallet, Call, Storage} = 57,
-		Dmp: parachains_dmp::{Pallet, Storage} = 58,
-		Hrmp: parachains_hrmp::{Pallet, Call, Storage, Event<T>, Config<T>} = 60,
-		ParaSessionInfo: parachains_session_info::{Pallet, Storage} = 61,
-		ParasDisputes: parachains_disputes::{Pallet, Call, Storage, Event<T>} = 62,
-		ParasSlashing: parachains_slashing::{Pallet, Call, Storage, ValidateUnsigned} = 63,
-		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 64,
-		ParaAssignmentProvider: parachains_assigner::{Pallet, Storage} = 65,
-		OnDemandAssignmentProvider: parachains_assigner_on_demand::{Pallet, Call, Storage, Event<T>} = 66,
-		ParachainsAssignmentProvider: parachains_assigner_parachains::{Pallet} = 67,
+		ParachainsOrigin: parachains_origin = 50,
+		Configuration: parachains_configuration = 51,
+		ParasShared: parachains_shared = 52,
+		ParaInclusion: parachains_inclusion = 53,
+		ParaInherent: parachains_paras_inherent = 54,
+		ParaScheduler: parachains_scheduler = 55,
+		Paras: parachains_paras = 56,
+		Initializer: parachains_initializer = 57,
+		Dmp: parachains_dmp = 58,
+		Hrmp: parachains_hrmp = 60,
+		ParaSessionInfo: parachains_session_info = 61,
+		ParasDisputes: parachains_disputes = 62,
+		ParasSlashing: parachains_slashing = 63,
+		MessageQueue: pallet_message_queue = 64,
+		OnDemandAssignmentProvider: parachains_assigner_on_demand = 66,
+		ParachainsAssignmentProvider: parachains_assigner_parachains = 67,
+		CoretimeAssignmentProvider: parachains_assigner_coretime = 68,
 
 		// Parachain Onboarding Pallets. Start indices at 70 to leave room.
-		Registrar: paras_registrar::{Pallet, Call, Storage, Event<T>, Config<T>} = 70,
-		Slots: slots::{Pallet, Call, Storage, Event<T>} = 71,
-		Auctions: auctions::{Pallet, Call, Storage, Event<T>} = 72,
-		Crowdloan: crowdloan::{Pallet, Call, Storage, Event<T>} = 73,
+		Registrar: paras_registrar = 70,
+		Slots: slots = 71,
+		Auctions: auctions = 72,
+		Crowdloan: crowdloan = 73,
+		Coretime: coretime = 74,
 
 		// Pallet for sending XCM.
-		XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config<T>} = 99,
+		XcmPallet: pallet_xcm = 99,
 
 		// Pallet for migrating Identity to a parachain. To be removed post-migration.
-		IdentityMigrator: identity_migrator::{Pallet, Call, Event<T>} = 248,
+		IdentityMigrator: identity_migrator = 248,
 
-		ParasSudoWrapper: paras_sudo_wrapper::{Pallet, Call} = 250,
-		AssignedSlots: assigned_slots::{Pallet, Call, Storage, Event<T>, Config<T>} = 251,
+		ParasSudoWrapper: paras_sudo_wrapper = 250,
+		AssignedSlots: assigned_slots = 251,
 
 		// Validator Manager pallet.
-		ValidatorManager: validator_manager::{Pallet, Call, Storage, Event<T>} = 252,
+		ValidatorManager: validator_manager = 252,
 
 		// State trie migration pallet, only temporary.
 		StateTrieMigration: pallet_state_trie_migration = 254,
 
 		// Root testing pallet.
-		RootTesting: pallet_root_testing::{Pallet, Call, Storage, Event<T>} = 249,
+		RootTesting: pallet_root_testing = 249,
 
 		// Sudo.
-		Sudo: pallet_sudo::{Pallet, Call, Storage, Event<T>, Config<T>} = 255,
+		Sudo: pallet_sudo = 255,
 	}
 }
 
@@ -1479,6 +1484,24 @@ pub mod migrations {
 	use frame_system::pallet_prelude::BlockNumberFor;
 	#[cfg(feature = "try-runtime")]
 	use sp_core::crypto::ByteArray;
+
+	pub struct GetLegacyLeaseImpl;
+	impl coretime::migration::GetLegacyLease<BlockNumber> for GetLegacyLeaseImpl {
+		fn get_parachain_lease_in_blocks(para: ParaId) -> Option<BlockNumber> {
+			let now = frame_system::Pallet::<Runtime>::block_number();
+			let lease = slots::Pallet::<Runtime>::lease(para);
+			if lease.is_empty() {
+				return None
+			}
+			// Lease not yet started, ignore:
+			if lease.iter().any(Option::is_none) {
+				return None
+			}
+			let (index, _) =
+				<slots::Pallet<Runtime> as Leaser<BlockNumber>>::lease_period_index(now)?;
+			Some(index.saturating_add(lease.len() as u32).saturating_mul(LeasePeriod::get()))
+		}
+	}
 
 	parameter_types! {
 		pub const DemocracyPalletName: &'static str = "Democracy";
@@ -1597,12 +1620,15 @@ pub mod migrations {
 		}
 	}
 
+	// We don't have a limit in the Relay Chain.
+	const IDENTITY_MIGRATION_KEY_LIMIT: u64 = u64::MAX;
+
 	/// Unreleased migrations. Add new ones here:
 	pub type Unreleased = (
 		pallet_society::migrations::MigrateToV2<Runtime, (), ()>,
 		parachains_configuration::migration::v7::MigrateToV7<Runtime>,
 		assigned_slots::migration::v1::MigrateToV1<Runtime>,
-		parachains_scheduler::migration::v1::MigrateToV1<Runtime>,
+		parachains_scheduler::migration::MigrateV1ToV2<Runtime>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
 		paras_registrar::migration::MigrateToV1<Runtime, ()>,
@@ -1632,7 +1658,12 @@ pub mod migrations {
 
 		// Remove `im-online` pallet on-chain storage
 		frame_support::migrations::RemovePallet<ImOnlinePalletName, <Runtime as frame_system::Config>::DbWeight>,
+
+		// Migrate Identity pallet for Usernames
+		pallet_identity::migration::versioned::V0ToV1<Runtime, IDENTITY_MIGRATION_KEY_LIMIT>,
 		parachains_configuration::migration::v11::MigrateToV11<Runtime>,
+		// This needs to come after the `parachains_configuration` above as we are reading the configuration.
+		coretime::migration::MigrateToCoretime<Runtime, crate::xcm_config::XcmRouter, GetLegacyLeaseImpl>,
 	);
 }
 
@@ -1681,6 +1712,7 @@ mod benches {
 		// the that path resolves correctly in the generated file.
 		[runtime_common::assigned_slots, AssignedSlots]
 		[runtime_common::auctions, Auctions]
+		[runtime_common::coretime, Coretime]
 		[runtime_common::crowdloan, Crowdloan]
 		[runtime_common::claims, Claims]
 		[runtime_common::identity_migrator, IdentityMigrator]
@@ -2232,7 +2264,7 @@ sp_api::impl_runtime_apis! {
 			};
 
 			parameter_types! {
-				pub ExistentialDepositMultiAsset: Option<MultiAsset> = Some((
+				pub ExistentialDepositAsset: Option<Asset> = Some((
 					TokenLocation::get(),
 					ExistentialDeposit::get()
 				).into());
@@ -2242,34 +2274,34 @@ sp_api::impl_runtime_apis! {
 			impl frame_system_benchmarking::Config for Runtime {}
 			impl frame_benchmarking::baseline::Config for Runtime {}
 			impl pallet_xcm::benchmarking::Config for Runtime {
-				fn reachable_dest() -> Option<MultiLocation> {
+				fn reachable_dest() -> Option<Location> {
 					Some(crate::xcm_config::AssetHub::get())
 				}
 
-				fn teleportable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
+				fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
 					// Relay/native token can be teleported to/from AH.
 					Some((
-						MultiAsset {
+						Asset {
 							fun: Fungible(EXISTENTIAL_DEPOSIT),
-							id: Concrete(Here.into())
+							id: AssetId(Here.into())
 						},
 						crate::xcm_config::AssetHub::get(),
 					))
 				}
 
-				fn reserve_transferable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
+				fn reserve_transferable_asset_and_dest() -> Option<(Asset, Location)> {
 					// Relay can reserve transfer native token to some random parachain.
 					Some((
-						MultiAsset {
+						Asset {
 							fun: Fungible(EXISTENTIAL_DEPOSIT),
-							id: Concrete(Here.into())
+							id: AssetId(Here.into())
 						},
 						Parachain(43211234).into(),
 					))
 				}
 
 				fn set_up_complex_asset_transfer(
-				) -> Option<(MultiAssets, u32, MultiLocation, Box<dyn FnOnce()>)> {
+				) -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
 					// Relay supports only native token, either reserve transfer it to non-system parachains,
 					// or teleport it to system parachain. Use the teleport case for benchmarking as it's
 					// slightly heavier.
@@ -2287,29 +2319,29 @@ sp_api::impl_runtime_apis! {
 				type AccountIdConverter = LocationConverter;
 				type DeliveryHelper = runtime_common::xcm_sender::ToParachainDeliveryHelper<
 					XcmConfig,
-					ExistentialDepositMultiAsset,
+					ExistentialDepositAsset,
 					xcm_config::PriceForChildParachainDelivery,
 					ToParachain,
 					(),
 				>;
-				fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
+				fn valid_destination() -> Result<Location, BenchmarkError> {
 					Ok(AssetHub::get())
 				}
-				fn worst_case_holding(_depositable_count: u32) -> MultiAssets {
+				fn worst_case_holding(_depositable_count: u32) -> Assets {
 					// Rococo only knows about ROC
-					vec![MultiAsset{
-						id: Concrete(TokenLocation::get()),
+					vec![Asset{
+						id: AssetId(TokenLocation::get()),
 						fun: Fungible(1_000_000 * UNITS),
 					}].into()
 				}
 			}
 
 			parameter_types! {
-				pub const TrustedTeleporter: Option<(MultiLocation, MultiAsset)> = Some((
+				pub TrustedTeleporter: Option<(Location, Asset)> = Some((
 					AssetHub::get(),
-					MultiAsset { fun: Fungible(1 * UNITS), id: Concrete(TokenLocation::get()) },
+					Asset { fun: Fungible(1 * UNITS), id: AssetId(TokenLocation::get()) },
 				));
-				pub const TrustedReserve: Option<(MultiLocation, MultiAsset)> = None;
+				pub TrustedReserve: Option<(Location, Asset)> = None;
 			}
 
 			impl pallet_xcm_benchmarks::fungible::Config for Runtime {
@@ -2319,9 +2351,9 @@ sp_api::impl_runtime_apis! {
 				type TrustedTeleporter = TrustedTeleporter;
 				type TrustedReserve = TrustedReserve;
 
-				fn get_multi_asset() -> MultiAsset {
-					MultiAsset {
-						id: Concrete(TokenLocation::get()),
+				fn get_asset() -> Asset {
+					Asset {
+						id: AssetId(TokenLocation::get()),
 						fun: Fungible(1 * UNITS),
 					}
 				}
@@ -2335,43 +2367,43 @@ sp_api::impl_runtime_apis! {
 					(0u64, Response::Version(Default::default()))
 				}
 
-				fn worst_case_asset_exchange() -> Result<(MultiAssets, MultiAssets), BenchmarkError> {
+				fn worst_case_asset_exchange() -> Result<(Assets, Assets), BenchmarkError> {
 					// Rococo doesn't support asset exchanges
 					Err(BenchmarkError::Skip)
 				}
 
-				fn universal_alias() -> Result<(MultiLocation, Junction), BenchmarkError> {
+				fn universal_alias() -> Result<(Location, Junction), BenchmarkError> {
 					// The XCM executor of Rococo doesn't have a configured `UniversalAliases`
 					Err(BenchmarkError::Skip)
 				}
 
-				fn transact_origin_and_runtime_call() -> Result<(MultiLocation, RuntimeCall), BenchmarkError> {
+				fn transact_origin_and_runtime_call() -> Result<(Location, RuntimeCall), BenchmarkError> {
 					Ok((AssetHub::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
 				}
 
-				fn subscribe_origin() -> Result<MultiLocation, BenchmarkError> {
+				fn subscribe_origin() -> Result<Location, BenchmarkError> {
 					Ok(AssetHub::get())
 				}
 
-				fn claimable_asset() -> Result<(MultiLocation, MultiLocation, MultiAssets), BenchmarkError> {
+				fn claimable_asset() -> Result<(Location, Location, Assets), BenchmarkError> {
 					let origin = AssetHub::get();
-					let assets: MultiAssets = (Concrete(TokenLocation::get()), 1_000 * UNITS).into();
-					let ticket = MultiLocation { parents: 0, interior: Here };
+					let assets: Assets = (AssetId(TokenLocation::get()), 1_000 * UNITS).into();
+					let ticket = Location { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
 				}
 
-				fn unlockable_asset() -> Result<(MultiLocation, MultiLocation, MultiAsset), BenchmarkError> {
+				fn unlockable_asset() -> Result<(Location, Location, Asset), BenchmarkError> {
 					// Rococo doesn't support asset locking
 					Err(BenchmarkError::Skip)
 				}
 
 				fn export_message_origin_and_destination(
-				) -> Result<(MultiLocation, NetworkId, InteriorMultiLocation), BenchmarkError> {
+				) -> Result<(Location, NetworkId, InteriorLocation), BenchmarkError> {
 					// Rococo doesn't support exporting messages
 					Err(BenchmarkError::Skip)
 				}
 
-				fn alias_origin() -> Result<(MultiLocation, MultiLocation), BenchmarkError> {
+				fn alias_origin() -> Result<(Location, Location), BenchmarkError> {
 					// The XCM executor of Rococo doesn't have a configured `Aliasers`
 					Err(BenchmarkError::Skip)
 				}

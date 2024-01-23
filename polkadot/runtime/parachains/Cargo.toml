@@ -16,7 +16,7 @@ parity-scale-codec = { version = "3.6.1", default-features = false, features = [
 log = { version = "0.4.17", default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.193", default-features = false, features = ["alloc", "derive"] }
+serde = { version = "1.0.195", default-features = false, features = ["alloc", "derive"] }
 derive_more = "0.99.17"
 bitflags = "1.3.2"
 
@@ -31,11 +31,13 @@ sp-core = { path = "../../../substrate/primitives/core", default-features = fals
 sp-keystore = { path = "../../../substrate/primitives/keystore", optional = true }
 sp-application-crypto = { path = "../../../substrate/primitives/application-crypto", default-features = false, optional = true }
 sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false, optional = true }
+sp-arithmetic = { path = "../../../substrate/primitives/arithmetic", default-features = false }
 
 pallet-authority-discovery = { path = "../../../substrate/frame/authority-discovery", default-features = false }
 pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false }
 pallet-balances = { path = "../../../substrate/frame/balances", default-features = false }
 pallet-babe = { path = "../../../substrate/frame/babe", default-features = false }
+pallet-broker = { path = "../../../substrate/frame/broker", default-features = false }
 pallet-message-queue = { path = "../../../substrate/frame/message-queue", default-features = false }
 pallet-session = { path = "../../../substrate/frame/session", default-features = false }
 pallet-staking = { path = "../../../substrate/frame/staking", default-features = false }
@@ -64,9 +66,10 @@ frame-support-test = { path = "../../../substrate/frame/support/test" }
 sc-keystore = { path = "../../../substrate/client/keystore" }
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../primitives/test-helpers" }
 sp-tracing = { path = "../../../substrate/primitives/tracing" }
+sp-crypto-hashing = { path = "../../../substrate/primitives/crypto/hashing" }
 thousands = "0.2.0"
 assert_matches = "1"
-serde_json = "1.0.108"
+serde_json = "1.0.111"
 
 [features]
 default = ["std"]
@@ -82,6 +85,7 @@ std = [
 	"pallet-authorship/std",
 	"pallet-babe/std",
 	"pallet-balances/std",
+	"pallet-broker/std",
 	"pallet-message-queue/std",
 	"pallet-session/std",
 	"pallet-staking/std",
@@ -99,6 +103,7 @@ std = [
 	"serde/std",
 	"sp-api/std",
 	"sp-application-crypto?/std",
+	"sp-arithmetic/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-keystore",
@@ -115,6 +120,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-broker/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
@@ -135,6 +141,7 @@ try-runtime = [
 	"pallet-authorship/try-runtime",
 	"pallet-babe/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-broker/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-staking/try-runtime",

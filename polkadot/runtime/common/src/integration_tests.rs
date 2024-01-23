@@ -45,9 +45,9 @@ use sp_io::TestExternalities;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup, One},
+	traits::{BlakeTwo256, IdentityLookup, One, Verify},
 	transaction_validity::TransactionPriority,
-	AccountId32, BuildStorage,
+	AccountId32, BuildStorage, MultiSignature,
 };
 use sp_std::sync::Arc;
 
@@ -74,25 +74,25 @@ frame_support::construct_runtime!(
 	pub enum Test
 	{
 		// System Stuff
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Babe: pallet_babe::{Pallet, Call, Storage, Config<T>, ValidateUnsigned},
+		System: frame_system,
+		Balances: pallet_balances,
+		Babe: pallet_babe,
 
 		// Parachains Runtime
-		Configuration: configuration::{Pallet, Call, Storage, Config<T>},
-		Paras: paras::{Pallet, Call, Storage, Event, Config<T>},
-		ParasShared: shared::{Pallet, Call, Storage},
-		ParachainsOrigin: origin::{Pallet, Origin},
+		Configuration: configuration,
+		Paras: paras,
+		ParasShared: shared,
+		ParachainsOrigin: origin,
 
 		// Para Onboarding Pallets
-		Registrar: paras_registrar::{Pallet, Call, Storage, Event<T>},
-		Auctions: auctions::{Pallet, Call, Storage, Event<T>},
-		Crowdloan: crowdloan::{Pallet, Call, Storage, Event<T>},
-		Slots: slots::{Pallet, Call, Storage, Event<T>},
+		Registrar: paras_registrar,
+		Auctions: auctions,
+		Crowdloan: crowdloan,
+		Slots: slots,
 
 		// Migrators
-		Identity: pallet_identity::{Pallet, Call, Storage, Event<T>},
-		IdentityMigrator: identity_migrator::{Pallet, Call, Event<T>},
+		Identity: pallet_identity,
+		IdentityMigrator: identity_migrator,
 	}
 );
 
@@ -197,7 +197,9 @@ impl configuration::Config for Test {
 	type WeightInfo = configuration::TestWeightInfo;
 }
 
-impl shared::Config for Test {}
+impl shared::Config for Test {
+	type DisabledValidators = ();
+}
 
 impl origin::Config for Test {}
 
@@ -212,6 +214,7 @@ impl paras::Config for Test {
 	type QueueFootprinter = ();
 	type NextSessionRotation = crate::mock::TestNextSessionRotation;
 	type OnNewHead = ();
+	type AssignCoretime = ();
 }
 
 parameter_types! {
@@ -292,6 +295,12 @@ impl pallet_identity::Config for Test {
 	type MaxRegistrars = ConstU32<20>;
 	type RegistrarOrigin = EnsureRoot<AccountId>;
 	type ForceOrigin = EnsureRoot<AccountId>;
+	type OffchainSignature = MultiSignature;
+	type SigningPublicKey = <MultiSignature as Verify>::Signer;
+	type UsernameAuthorityOrigin = EnsureRoot<AccountId>;
+	type PendingUsernameExpiration = ConstU32<100>;
+	type MaxSuffixLength = ConstU32<7>;
+	type MaxUsernameLength = ConstU32<32>;
 	type WeightInfo = ();
 }
 

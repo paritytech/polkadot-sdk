@@ -11,13 +11,14 @@ workspace = true
 
 [dependencies]
 always-assert = "0.1"
+array-bytes = "6.1"
 blake3 = "1.5"
 cfg-if = "1.0"
 futures = "0.3.21"
 futures-timer = "3.0.2"
 gum = { package = "tracing-gum", path = "../../gum" }
 is_executable = "1.0.1"
-libc = "0.2.139"
+libc = "0.2.152"
 pin-project = "1.0.9"
 rand = "0.8.5"
 slotmap = "1.0"

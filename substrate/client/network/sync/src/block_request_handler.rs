@@ -24,6 +24,7 @@ use crate::{
 		BlockResponse as BlockResponseSchema, BlockResponse, Direction,
 	},
 	service::network::NetworkServiceHandle,
+	LOG_TARGET,
 };
 
 use codec::{Decode, DecodeAll, Encode};
@@ -56,7 +57,6 @@ use std::{
 /// Maximum blocks per response.
 pub(crate) const MAX_BLOCKS_IN_RESPONSE: usize = 128;
 
-const LOG_TARGET: &str = "sync";
 const MAX_BODY_BYTES: usize = 8 * 1024 * 1024;
 const MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER: usize = 2;
 
@@ -228,7 +228,7 @@ where
 		};
 
 		let direction =
-			Direction::from_i32(request.direction).ok_or(HandleRequestError::ParseDirection)?;
+			i32::try_into(request.direction).map_err(|_| HandleRequestError::ParseDirection)?;
 
 		let attributes = BlockAttributes::from_be_u32(request.fields)?;
 
@@ -570,7 +570,7 @@ impl<B: BlockT> BlockDownloader<B> for FullBlockDownloader {
 		&self,
 		who: PeerId,
 		request: BlockRequest<B>,
-	) -> Result<Result<Vec<u8>, RequestFailure>, oneshot::Canceled> {
+	) -> Result<Result<(Vec<u8>, ProtocolName), RequestFailure>, oneshot::Canceled> {
 		// Build the request protobuf.
 		let bytes = BlockRequestSchema {
 			fields: request.fields.to_be_u32(),

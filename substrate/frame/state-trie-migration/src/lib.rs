@@ -476,7 +476,7 @@ pub mod pallet {
 		/// - [`frame_support::storage::StorageDoubleMap`]: 96 byte
 		///
 		/// For more info see
-		/// <https://www.shawntabrizi.com/substrate/querying-substrate-storage-via-rpc/>
+		/// <https://www.shawntabrizi.com/blog/substrate/querying-substrate-storage-via-rpc/>
 
 		#[pallet::constant]
 		type MaxKeyLen: Get<u32>;
@@ -1071,9 +1071,9 @@ mod mock {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-			Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>},
-			StateTrieMigration: pallet_state_trie_migration::{Pallet, Call, Storage, Event<T>},
+			System: frame_system,
+			Balances: pallet_balances,
+			StateTrieMigration: pallet_state_trie_migration,
 		}
 	);
 

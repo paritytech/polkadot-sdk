@@ -41,8 +41,8 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		CoreFellowship: pallet_core_fellowship::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		CoreFellowship: pallet_core_fellowship,
 	}
 );
 
@@ -303,6 +303,28 @@ fn offboard_works() {
 		assert_ok!(CoreFellowship::offboard(signed(0), 10));
 		assert_noop!(CoreFellowship::offboard(signed(0), 10), Error::<Test>::NotTracked);
 		assert_noop!(CoreFellowship::bump(signed(0), 10), Error::<Test>::NotTracked);
+	});
+}
+
+#[test]
+fn infinite_demotion_period_works() {
+	new_test_ext().execute_with(|| {
+		let params = ParamsType {
+			active_salary: [10; 9],
+			passive_salary: [10; 9],
+			min_promotion_period: [10; 9],
+			demotion_period: [0; 9],
+			offboard_timeout: 0,
+		};
+		assert_ok!(CoreFellowship::set_params(signed(1), Box::new(params)));
+
+		set_rank(0, 0);
+		assert_ok!(CoreFellowship::import(signed(0)));
+		set_rank(1, 1);
+		assert_ok!(CoreFellowship::import(signed(1)));
+
+		assert_noop!(CoreFellowship::bump(signed(0), 0), Error::<Test>::NothingDoing);
+		assert_noop!(CoreFellowship::bump(signed(0), 1), Error::<Test>::NothingDoing);
 	});
 }
 

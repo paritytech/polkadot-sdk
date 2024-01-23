@@ -42,10 +42,10 @@ pub use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_config, create_default_config},
-	match_types, parameter_types,
+	parameter_types,
 	traits::{
-		AsEnsureOriginWithArg, ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Everything,
-		IsInVec, Nothing, Randomness,
+		AsEnsureOriginWithArg, ConstBool, ConstU32, ConstU64, ConstU8, Contains, EitherOfDiverse,
+		Everything, IsInVec, Nothing, Randomness,
 	},
 	weights::{
 		constants::{
@@ -108,7 +108,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("test-parachain"),
 	impl_name: create_runtime_str!("test-parachain"),
 	authoring_version: 1,
-	spec_version: 1_005_000,
+	spec_version: 1_006_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -229,6 +229,9 @@ impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
 	type Moment = u64;
 	type OnTimestampSet = Aura;
+	#[cfg(feature = "experimental")]
+	type MinimumPeriod = ConstU64<0>;
+	#[cfg(not(feature = "experimental"))]
 	type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
 	type WeightInfo = ();
 }
@@ -327,14 +330,14 @@ impl pallet_message_queue::Config for Runtime {
 impl cumulus_pallet_aura_ext::Config for Runtime {}
 
 parameter_types! {
-	pub const RocLocation: MultiLocation = MultiLocation::parent();
+	pub const RocLocation: Location = Location::parent();
 	pub const RococoNetwork: Option<NetworkId> = Some(NetworkId::Rococo);
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
-	pub UniversalLocation: InteriorMultiLocation = X1(Parachain(ParachainInfo::parachain_id().into()));
+	pub UniversalLocation: InteriorLocation = [Parachain(ParachainInfo::parachain_id().into())].into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 }
 
-/// Type for specifying how a `MultiLocation` can be converted into an `AccountId`. This is used
+/// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
 /// when determining ownership of accounts for asset transacting and when attempting to use XCM
 /// `Transact` in order to determine the dispatch Origin.
 pub type LocationToAccountId = (
@@ -353,7 +356,7 @@ pub type CurrencyTransactor = CurrencyAdapter<
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
 	IsConcrete<RocLocation>,
-	// Do a simple punn to convert an AccountId32 MultiLocation into a native chain account ID:
+	// Do a simple punn to convert an AccountId32 Location into a native chain account ID:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
@@ -376,7 +379,7 @@ pub type FungiblesTransactor = FungiblesAdapter<
 		>,
 		JustTry,
 	>,
-	// Convert an XCM MultiLocation into a local account id:
+	// Convert an XCM Location into a local account id:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
@@ -417,20 +420,22 @@ parameter_types! {
 	// One XCM operation is 1_000_000_000 weight - almost certainly a conservative estimate.
 	pub UnitWeightCost: Weight = Weight::from_parts(1_000_000_000, 64 * 1024);
 	// One ROC buys 1 second of weight.
-	pub const WeightPrice: (MultiLocation, u128) = (MultiLocation::parent(), ROC);
+	pub const WeightPrice: (Location, u128) = (Location::parent(), ROC);
 	pub const MaxInstructions: u32 = 100;
 }
 
-match_types! {
-	// The parent or the parent's unit plurality.
-	pub type ParentOrParentsUnitPlurality: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: Here } |
-		MultiLocation { parents: 1, interior: X1(Plurality { id: BodyId::Unit, .. }) }
-	};
-	// The location recognized as the Relay network's Asset Hub.
-	pub type AssetHub: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: X1(Parachain(1000)) }
-	};
+pub struct ParentOrParentsUnitPlurality;
+impl Contains<Location> for ParentOrParentsUnitPlurality {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (1, []) | (1, [Plurality { id: BodyId::Unit, .. }]))
+	}
+}
+
+pub struct AssetHub;
+impl Contains<Location> for AssetHub {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (1, [Parachain(1000)]))
+	}
 }
 
 pub type Barrier = TrailingSetTopicAsId<(
@@ -448,11 +453,11 @@ pub type Barrier = TrailingSetTopicAsId<(
 
 parameter_types! {
 	pub MaxAssetsIntoHolding: u32 = 64;
-	pub SystemAssetHubLocation: MultiLocation = MultiLocation::new(1, X1(Parachain(1000)));
+	pub SystemAssetHubLocation: Location = Location::new(1, [Parachain(1000)]);
 	// ALWAYS ensure that the index in PalletInstance stays up-to-date with
 	// the Relay Chain's Asset Hub's Assets pallet index
-	pub SystemAssetHubAssetsPalletLocation: MultiLocation =
-		MultiLocation::new(1, X2(Parachain(1000), PalletInstance(50)));
+	pub SystemAssetHubAssetsPalletLocation: Location =
+		Location::new(1, [Parachain(1000), PalletInstance(50)]);
 }
 
 pub type Reserves = (NativeAsset, AssetsFrom<SystemAssetHubLocation>);
@@ -598,30 +603,28 @@ impl pallet_aura::Config for Runtime {
 construct_runtime! {
 	pub enum Runtime
 	{
-		System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-		Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>},
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
+		System: frame_system,
+		Timestamp: pallet_timestamp,
+		Sudo: pallet_sudo,
+		TransactionPayment: pallet_transaction_payment,
 
-		ParachainSystem: cumulus_pallet_parachain_system::{
-			Pallet, Call, Config<T>, Storage, Inherent, Event<T>, ValidateUnsigned,
-		} = 20,
-		ParachainInfo: parachain_info::{Pallet, Storage, Config<T>} = 21,
+		ParachainSystem: cumulus_pallet_parachain_system = 20,
+		ParachainInfo: parachain_info = 21,
 
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 30,
-		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>} = 31,
+		Balances: pallet_balances = 30,
+		Assets: pallet_assets = 31,
 
-		Aura: pallet_aura::{Pallet, Config<T>},
-		AuraExt: cumulus_pallet_aura_ext::{Pallet, Config<T>},
+		Aura: pallet_aura,
+		AuraExt: cumulus_pallet_aura_ext,
 
 		// XCM helpers.
-		XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>} = 50,
-		PolkadotXcm: pallet_xcm::{Pallet, Call, Event<T>, Origin, Config<T>} = 51,
-		CumulusXcm: cumulus_pallet_xcm::{Pallet, Call, Event<T>, Origin} = 52,
+		XcmpQueue: cumulus_pallet_xcmp_queue = 50,
+		PolkadotXcm: pallet_xcm = 51,
+		CumulusXcm: cumulus_pallet_xcm = 52,
 		// RIP DmpQueue 53
-		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 54,
+		MessageQueue: pallet_message_queue = 54,
 
-		Spambot: cumulus_ping::{Pallet, Call, Storage, Event<T>} = 99,
+		Spambot: cumulus_ping = 99,
 	}
 }
 
@@ -757,7 +760,7 @@ impl_runtime_apis! {
 
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
-			sp_consensus_aura::SlotDuration::from_millis(SLOT_DURATION)
+			sp_consensus_aura::SlotDuration::from_millis(Aura::slot_duration())
 		}
 
 		fn authorities() -> Vec<AuraId> {

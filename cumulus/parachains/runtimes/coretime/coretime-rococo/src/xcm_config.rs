@@ -20,7 +20,7 @@ use super::{
 	TransactionByteFee, WeightToFee, XcmpQueue,
 };
 use frame_support::{
-	match_types, parameter_types,
+	parameter_types,
 	traits::{ConstU32, Contains, Equals, Everything, Nothing},
 };
 use frame_system::EnsureRoot;
@@ -28,7 +28,7 @@ use pallet_xcm::XcmPassthrough;
 use parachains_common::{
 	impls::ToStakingPot,
 	xcm_config::{
-		AllSiblingSystemParachains, ConcreteNativeAssetFrom, ParentRelayOrSiblingParachains,
+		AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains,
 		RelayOrOtherSystemParachains,
 	},
 	TREASURY_PALLET_ID,
@@ -51,18 +51,18 @@ use xcm_builder::{
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
 parameter_types! {
-	pub const RocRelayLocation: MultiLocation = MultiLocation::parent();
+	pub const RocRelayLocation: Location = Location::parent();
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::Rococo);
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
-	pub UniversalLocation: InteriorMultiLocation =
-		X2(GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into()));
+	pub UniversalLocation: InteriorLocation =
+		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into())].into();
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
-	pub const GovernanceLocation: MultiLocation = MultiLocation::parent();
-	pub const FellowshipLocation: MultiLocation = MultiLocation::parent();
+	pub const GovernanceLocation: Location = Location::parent();
+	pub const FellowshipLocation: Location = Location::parent();
 }
 
-/// Type for specifying how a `MultiLocation` can be converted into an `AccountId`. This is used
+/// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
 /// when determining ownership of accounts for asset transacting and when attempting to use XCM
 /// `Transact` in order to determine the dispatch Origin.
 pub type LocationToAccountId = (
@@ -81,7 +81,7 @@ pub type CurrencyTransactor = CurrencyAdapter<
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
 	IsConcrete<RocRelayLocation>,
-	// Do a simple punn to convert an `AccountId32` `MultiLocation` into a native chain
+	// Do a simple punn to convert an `AccountId32` `Location` into a native chain
 	// `AccountId`:
 	LocationToAccountId,
 	// Our chain's `AccountId` type (we can't get away without mentioning it explicitly):
@@ -114,11 +114,11 @@ pub type XcmOriginToTransactDispatchOrigin = (
 	XcmPassthrough<RuntimeOrigin>,
 );
 
-match_types! {
-	pub type ParentOrParentsPlurality: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: Here } |
-		MultiLocation { parents: 1, interior: X1(Plurality { .. }) }
-	};
+pub struct ParentOrParentsPlurality;
+impl Contains<Location> for ParentOrParentsPlurality {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (1, []) | (1, [Plurality { .. }]))
+	}
 }
 
 /// A call filter for the XCM Transact instruction. This is a temporary measure until we properly
@@ -140,15 +140,22 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 
 		matches!(
 			call,
-			RuntimeCall::PolkadotXcm(pallet_xcm::Call::force_xcm_version { .. }) |
-				RuntimeCall::System(
-					frame_system::Call::set_heap_pages { .. } |
+			RuntimeCall::PolkadotXcm(
+				pallet_xcm::Call::force_xcm_version { .. } |
+					pallet_xcm::Call::force_default_xcm_version { .. }
+			) | RuntimeCall::System(
+				frame_system::Call::set_heap_pages { .. } |
 						frame_system::Call::set_code { .. } |
 						frame_system::Call::set_code_without_checks { .. } |
-						frame_system::Call::kill_prefix { .. },
-				) | RuntimeCall::ParachainSystem(..) |
+						frame_system::Call::authorize_upgrade { .. } |
+						frame_system::Call::authorize_upgrade_without_checks { .. } |
+						frame_system::Call::kill_prefix { .. } |
+						// Should not be in Polkadot/Kusama. Here in order to speed up testing.
+						frame_system::Call::set_storage { .. },
+			) | RuntimeCall::ParachainSystem(..) |
 				RuntimeCall::Timestamp(..) |
 				RuntimeCall::Balances(..) |
+				RuntimeCall::Sudo(..) |
 				RuntimeCall::CollatorSelection(..) |
 				RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
 				RuntimeCall::XcmpQueue(..) |
@@ -184,11 +191,10 @@ pub type Barrier = TrailingSetTopicAsId<
 
 parameter_types! {
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
-	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
+	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
 }
 
-/// Locations that will not be charged fees in the executor,
-/// either execution or delivery.
+/// Locations that will not be charged fees in the executor, neither for execution nor delivery.
 /// We only waive fees for system functions, which these locations represent.
 pub type WaivedLocations = (
 	RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
@@ -205,7 +211,7 @@ impl xcm_executor::Config for XcmConfig {
 	// where allowed (e.g. with the Relay Chain).
 	type IsReserve = ();
 	/// Only allow teleportation of ROC.
-	type IsTeleporter = ConcreteNativeAssetFrom<RocRelayLocation>;
+	type IsTeleporter = ConcreteAssetFromSystem<RocRelayLocation>;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = WeightInfoBounds<
@@ -234,7 +240,7 @@ impl xcm_executor::Config for XcmConfig {
 	type Aliasers = Nothing;
 }
 
-/// Converts a local signed origin into an XCM multilocation. Forms the basis for local origins
+/// Converts a local signed origin into an XCM location. Forms the basis for local origins
 /// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
 

@@ -29,13 +29,13 @@ use jsonrpsee::{
 use sc_transaction_pool::{BasicPool, FullChainApi};
 use sc_transaction_pool_api::TransactionStatus;
 use sp_core::{
-	blake2_256,
 	bytes::to_hex,
 	crypto::{ByteArray, Pair},
 	ed25519,
 	testing::{ED25519, SR25519},
 	H256,
 };
+use sp_crypto_hashing::blake2_256;
 use sp_keystore::{testing::MemoryKeystore, Keystore};
 use sp_runtime::Perbill;
 use std::sync::Arc;
