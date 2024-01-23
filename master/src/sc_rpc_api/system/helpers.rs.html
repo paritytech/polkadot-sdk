@@ -186,7 +186,7 @@
 }
 
 <span class="doccomment">/// Health struct returned by the RPC
-</span><span class="attr">#[derive(Debug, PartialEq, Serialize, Deserialize)]
+</span><span class="attr">#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
 </span><span class="kw">pub struct </span>Health {
 	<span class="doccomment">/// Number of connected peers
@@ -206,7 +206,7 @@
 }
 
 <span class="doccomment">/// Network Peer information
-</span><span class="attr">#[derive(Debug, PartialEq, Serialize, Deserialize)]
+</span><span class="attr">#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
 </span><span class="kw">pub struct </span>PeerInfo&lt;Hash, Number&gt; {
 	<span class="doccomment">/// Peer ID
@@ -220,7 +220,7 @@
 }
 
 <span class="doccomment">/// The role the node is running as
-</span><span class="attr">#[derive(Debug, PartialEq, Serialize, Deserialize)]
+</span><span class="attr">#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 </span><span class="kw">pub enum </span>NodeRole {
 	<span class="doccomment">/// The node is a full node
 	</span>Full,
@@ -229,7 +229,7 @@
 }
 
 <span class="doccomment">/// The state of the syncing of the node.
-</span><span class="attr">#[derive(Debug, PartialEq, Serialize, Deserialize)]
+</span><span class="attr">#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
 </span><span class="kw">pub struct </span>SyncState&lt;Number&gt; {
 	<span class="doccomment">/// Height of the block at which syncing started.

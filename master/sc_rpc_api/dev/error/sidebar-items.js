@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Error"]};
+window.SIDEBAR_ITEMS = {"enum":["Error"],"type":["Result"]};

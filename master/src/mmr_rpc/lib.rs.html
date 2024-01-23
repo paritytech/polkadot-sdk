@@ -381,7 +381,7 @@
 <span class="kw">use </span>jsonrpsee::{
 	core::{async_trait, RpcResult},
 	proc_macros::rpc,
-	types::error::{CallError, ErrorObject},
+	types::{error::ErrorObject, ErrorObjectOwned},
 };
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
@@ -544,11 +544,9 @@
 	<span class="kw">fn </span>verify_proof(<span class="kw-2">&amp;</span><span class="self">self</span>, proof: LeavesProof&lt;&lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;) -&gt; RpcResult&lt;bool&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>api = <span class="self">self</span>.client.runtime_api();
 
-		<span class="kw">let </span>leaves = Decode::decode(<span class="kw-2">&amp;mut &amp;</span>proof.leaves.<span class="number">0</span>[..])
-			.map_err(|e| CallError::InvalidParams(anyhow::Error::new(e)))<span class="question-mark">?</span>;
+		<span class="kw">let </span>leaves = Decode::decode(<span class="kw-2">&amp;mut &amp;</span>proof.leaves.<span class="number">0</span>[..]).map_err(invalid_params)<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>decoded_proof = Decode::decode(<span class="kw-2">&amp;mut &amp;</span>proof.proof.<span class="number">0</span>[..])
-			.map_err(|e| CallError::InvalidParams(anyhow::Error::new(e)))<span class="question-mark">?</span>;
+		<span class="kw">let </span>decoded_proof = Decode::decode(<span class="kw-2">&amp;mut &amp;</span>proof.proof.<span class="number">0</span>[..]).map_err(invalid_params)<span class="question-mark">?</span>;
 
 		api.register_extension(OffchainDbExt::new(<span class="self">self</span>.offchain_db.clone()));
 
@@ -566,11 +564,9 @@
 	) -&gt; RpcResult&lt;bool&gt; {
 		<span class="kw">let </span>api = <span class="self">self</span>.client.runtime_api();
 
-		<span class="kw">let </span>leaves = Decode::decode(<span class="kw-2">&amp;mut &amp;</span>proof.leaves.<span class="number">0</span>[..])
-			.map_err(|e| CallError::InvalidParams(anyhow::Error::new(e)))<span class="question-mark">?</span>;
+		<span class="kw">let </span>leaves = Decode::decode(<span class="kw-2">&amp;mut &amp;</span>proof.leaves.<span class="number">0</span>[..]).map_err(invalid_params)<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>decoded_proof = Decode::decode(<span class="kw-2">&amp;mut &amp;</span>proof.proof.<span class="number">0</span>[..])
-			.map_err(|e| CallError::InvalidParams(anyhow::Error::new(e)))<span class="question-mark">?</span>;
+		<span class="kw">let </span>decoded_proof = Decode::decode(<span class="kw-2">&amp;mut &amp;</span>proof.proof.<span class="number">0</span>[..]).map_err(invalid_params)<span class="question-mark">?</span>;
 
 		api.verify_proof_stateless(proof.block_hash, mmr_root, leaves, decoded_proof)
 			.map_err(runtime_error_into_rpc_error)<span class="question-mark">?
@@ -581,7 +577,7 @@
 }
 
 <span class="doccomment">/// Converts an mmr-specific error into a [`CallError`].
-</span><span class="kw">fn </span>mmr_error_into_rpc_error(err: MmrError) -&gt; CallError {
+</span><span class="kw">fn </span>mmr_error_into_rpc_error(err: MmrError) -&gt; ErrorObjectOwned {
 	<span class="kw">let </span>error_code = MMR_ERROR +
 		<span class="kw">match </span>err {
 			MmrError::LeafNotFound =&gt; <span class="number">1</span>,
@@ -592,16 +588,20 @@
 			<span class="kw">_ </span>=&gt; <span class="number">0</span>,
 		};
 
-	CallError::Custom(ErrorObject::owned(error_code, err.to_string(), <span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, err))))
+	ErrorObject::owned(error_code, err.to_string(), <span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, err)))
 }
 
 <span class="doccomment">/// Converts a runtime trap into a [`CallError`].
-</span><span class="kw">fn </span>runtime_error_into_rpc_error(err: <span class="kw">impl </span>std::fmt::Debug) -&gt; CallError {
-	CallError::Custom(ErrorObject::owned(
-		RUNTIME_ERROR,
-		<span class="string">&quot;Runtime trapped&quot;</span>,
-		<span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, err)),
-	))
+</span><span class="kw">fn </span>runtime_error_into_rpc_error(err: <span class="kw">impl </span>std::fmt::Debug) -&gt; ErrorObjectOwned {
+	ErrorObject::owned(RUNTIME_ERROR, <span class="string">&quot;Runtime trapped&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, err)))
+}
+
+<span class="kw">fn </span>invalid_params(e: <span class="kw">impl </span>std::error::Error) -&gt; ErrorObjectOwned {
+	ErrorObject::owned(
+		jsonrpsee::types::error::ErrorCode::InvalidParams.code(),
+		e.to_string(),
+		<span class="prelude-val">None</span>::&lt;()&gt;,
+	)
 }
 
 <span class="attr">#[cfg(test)]

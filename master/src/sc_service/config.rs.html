@@ -329,6 +329,8 @@
 <a href="#329" id="329">329</a>
 <a href="#330" id="330">330</a>
 <a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -431,6 +433,8 @@
 	</span><span class="kw">pub </span>rpc_max_subs_per_conn: u32,
 	<span class="doccomment">/// JSON-RPC server default port.
 	</span><span class="kw">pub </span>rpc_port: u16,
+	<span class="doccomment">/// The number of messages the JSON-RPC server is allowed to keep in memory.
+	</span><span class="kw">pub </span>rpc_message_buffer_capacity: u32,
 	<span class="doccomment">/// Prometheus endpoint configuration. `None` if disabled.
 	</span><span class="kw">pub </span>prometheus_config: <span class="prelude-ty">Option</span>&lt;PrometheusConfig&gt;,
 	<span class="doccomment">/// Telemetry service URL. `None` if disabled.

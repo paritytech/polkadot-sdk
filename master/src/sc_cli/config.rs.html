@@ -643,6 +643,15 @@
 <a href="#643" id="643">643</a>
 <a href="#644" id="644">644</a>
 <a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -697,8 +706,11 @@
 </span><span class="kw">pub const </span>RPC_DEFAULT_MAX_REQUEST_SIZE_MB: u32 = <span class="number">15</span>;
 <span class="doccomment">/// The default max response size in MB.
 </span><span class="kw">pub const </span>RPC_DEFAULT_MAX_RESPONSE_SIZE_MB: u32 = <span class="number">15</span>;
-<span class="doccomment">/// The default number of connection..
+<span class="doccomment">/// The default concurrent connection limit.
 </span><span class="kw">pub const </span>RPC_DEFAULT_MAX_CONNECTIONS: u32 = <span class="number">100</span>;
+<span class="doccomment">/// The default number of messages the RPC server
+/// is allowed to keep in memory per connection.
+</span><span class="kw">pub const </span>RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN: u32 = <span class="number">64</span>;
 
 <span class="doccomment">/// Default configuration values used by Substrate
 ///
@@ -975,6 +987,11 @@
 		<span class="prelude-val">Ok</span>(RPC_DEFAULT_MAX_SUBS_PER_CONN)
 	}
 
+	<span class="doccomment">/// The number of messages the RPC server is allowed to keep in memory per connection.
+	</span><span class="kw">fn </span>rpc_buffer_capacity_per_connection(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;u32&gt; {
+		<span class="prelude-val">Ok</span>(RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN)
+	}
+
 	<span class="doccomment">/// Get the prometheus configuration (`None` if disabled)
 	///
 	/// By default this is `None`.
@@ -1146,6 +1163,7 @@
 			rpc_id_provider: <span class="prelude-val">None</span>,
 			rpc_max_subs_per_conn: <span class="self">self</span>.rpc_max_subscriptions_per_connection()<span class="question-mark">?</span>,
 			rpc_port: DCV::rpc_listen_port(),
+			rpc_message_buffer_capacity: <span class="self">self</span>.rpc_buffer_capacity_per_connection()<span class="question-mark">?</span>,
 			prometheus_config: <span class="self">self
 				</span>.prometheus_config(DCV::prometheus_listen_port(), <span class="kw-2">&amp;</span>chain_spec)<span class="question-mark">?</span>,
 			telemetry_endpoints,

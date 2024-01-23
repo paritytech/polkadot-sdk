@@ -334,7 +334,6 @@
 <a href="#334" id="334">334</a>
 <a href="#335" id="335">335</a>
 <a href="#336" id="336">336</a>
-<a href="#337" id="337">337</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -360,7 +359,7 @@
 <span class="kw">use </span>jsonrpsee::{
 	core::{async_trait, RpcResult},
 	proc_macros::rpc,
-	types::error::{CallError, ErrorObject},
+	types::error::ErrorObject,
 };
 
 <span class="kw">use </span>sc_rpc_api::DenyUnsafe;
@@ -440,11 +439,11 @@
 		<span class="kw">let </span>best = <span class="self">self</span>.client.info().best_hash;
 
 		<span class="kw">let </span>nonce = api.account_nonce(best, account.clone()).map_err(|e| {
-			CallError::Custom(ErrorObject::owned(
+			ErrorObject::owned(
 				Error::RuntimeError.into(),
 				<span class="string">&quot;Unable to query nonce.&quot;</span>,
 				<span class="prelude-val">Some</span>(e.to_string()),
-			))
+			)
 		})<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(adjust_nonce(<span class="kw-2">&amp;*</span><span class="self">self</span>.pool, account, nonce))
 	}
@@ -462,28 +461,28 @@
 
 		<span class="kw">let </span>uxt: &lt;Block <span class="kw">as </span>traits::Block&gt;::Extrinsic =
 			Decode::decode(<span class="kw-2">&amp;mut &amp;*</span>extrinsic).map_err(|e| {
-				CallError::Custom(ErrorObject::owned(
+				ErrorObject::owned(
 					Error::DecodeError.into(),
 					<span class="string">&quot;Unable to dry run extrinsic&quot;</span>,
 					<span class="prelude-val">Some</span>(e.to_string()),
-				))
+				)
 			})<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>api_version = api
 			.api_version::&lt;<span class="kw">dyn </span>BlockBuilder&lt;Block&gt;&gt;(best_hash)
 			.map_err(|e| {
-				CallError::Custom(ErrorObject::owned(
+				ErrorObject::owned(
 					Error::RuntimeError.into(),
 					<span class="string">&quot;Unable to dry run extrinsic.&quot;</span>,
 					<span class="prelude-val">Some</span>(e.to_string()),
-				))
+				)
 			})<span class="question-mark">?
 			</span>.ok_or_else(|| {
-				CallError::Custom(ErrorObject::owned(
+				ErrorObject::owned(
 					Error::RuntimeError.into(),
 					<span class="string">&quot;Unable to dry run extrinsic.&quot;</span>,
 					<span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;Could not find `BlockBuilder` api for block `{:?}`.&quot;</span>, best_hash)),
-				))
+				)
 			})<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>result = <span class="kw">if </span>api_version &lt; <span class="number">6 </span>{
@@ -491,19 +490,19 @@
 			</span>api.apply_extrinsic_before_version_6(best_hash, uxt)
 				.map(legacy::byte_sized_error::convert_to_latest)
 				.map_err(|e| {
-					CallError::Custom(ErrorObject::owned(
+					ErrorObject::owned(
 						Error::RuntimeError.into(),
 						<span class="string">&quot;Unable to dry run extrinsic.&quot;</span>,
 						<span class="prelude-val">Some</span>(e.to_string()),
-					))
+					)
 				})<span class="question-mark">?
 		</span>} <span class="kw">else </span>{
 			api.apply_extrinsic(best_hash, uxt).map_err(|e| {
-				CallError::Custom(ErrorObject::owned(
+				ErrorObject::owned(
 					Error::RuntimeError.into(),
 					<span class="string">&quot;Unable to dry run extrinsic.&quot;</span>,
 					<span class="prelude-val">Some</span>(e.to_string()),
-				))
+				)
 			})<span class="question-mark">?
 		</span>};
 
@@ -553,7 +552,6 @@
 
 	<span class="kw">use </span>assert_matches::assert_matches;
 	<span class="kw">use </span>futures::executor::block_on;
-	<span class="kw">use </span>jsonrpsee::{core::Error <span class="kw">as </span>JsonRpseeError, types::error::CallError};
 	<span class="kw">use </span>sc_transaction_pool::BasicPool;
 	<span class="kw">use </span>sp_runtime::{
 		transaction_validity::{InvalidTransaction, TransactionValidityError},
@@ -611,7 +609,7 @@
 
 		<span class="comment">// when
 		</span><span class="kw">let </span>res = accounts.dry_run(<span class="macro">vec!</span>[].into(), <span class="prelude-val">None</span>).<span class="kw">await</span>;
-		<span class="macro">assert_matches!</span>(res, <span class="prelude-val">Err</span>(JsonRpseeError::Call(CallError::Custom(e))) =&gt; {
+		<span class="macro">assert_matches!</span>(res, <span class="prelude-val">Err</span>(e) =&gt; {
 			<span class="macro">assert!</span>(e.message().contains(<span class="string">&quot;RPC call is unsafe to be called externally&quot;</span>));
 		});
 	}

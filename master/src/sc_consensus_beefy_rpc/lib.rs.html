@@ -288,19 +288,6 @@
 <a href="#288" id="288">288</a>
 <a href="#289" id="289">289</a>
 <a href="#290" id="290">290</a>
-<a href="#291" id="291">291</a>
-<a href="#292" id="292">292</a>
-<a href="#293" id="293">293</a>
-<a href="#294" id="294">294</a>
-<a href="#295" id="295">295</a>
-<a href="#296" id="296">296</a>
-<a href="#297" id="297">297</a>
-<a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
-<a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -326,15 +313,15 @@
 </span><span class="kw">use </span>parking_lot::RwLock;
 <span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span>sc_rpc::SubscriptionTaskExecutor;
+<span class="kw">use </span>sc_rpc::{utils::pipe_from_stream, SubscriptionTaskExecutor};
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 
 <span class="kw">use </span>futures::{task::SpawnError, FutureExt, StreamExt};
 <span class="kw">use </span>jsonrpsee::{
-	core::{async_trait, Error <span class="kw">as </span>JsonRpseeError, RpcResult},
+	core::async_trait,
 	proc_macros::rpc,
-	types::{error::CallError, ErrorObject, SubscriptionResult},
-	SubscriptionSink,
+	types::{ErrorObject, ErrorObjectOwned},
+	PendingSubscriptionSink,
 };
 <span class="kw">use </span>log::warn;
 
@@ -372,15 +359,11 @@
 	}
 }
 
-<span class="kw">impl </span>From&lt;Error&gt; <span class="kw">for </span>JsonRpseeError {
+<span class="kw">impl </span>From&lt;Error&gt; <span class="kw">for </span>ErrorObjectOwned {
 	<span class="kw">fn </span>from(error: Error) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>message = error.to_string();
 		<span class="kw">let </span>code = ErrorCode::from(error);
-		JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
-			code <span class="kw">as </span>i32,
-			message,
-			<span class="prelude-val">None</span>::&lt;()&gt;,
-		)))
+		ErrorObject::owned(code <span class="kw">as </span>i32, message, <span class="prelude-val">None</span>::&lt;()&gt;)
 	}
 }
 
@@ -401,7 +384,7 @@
 	/// in the network or if the client is still initializing or syncing with the network.
 	/// In such case an error would be returned.
 	</span><span class="attr">#[method(name = <span class="string">&quot;beefy_getFinalizedHead&quot;</span>)]
-	</span><span class="kw">async fn </span>latest_finalized(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;Hash&gt;;
+	</span><span class="kw">async fn </span>latest_finalized(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Hash, Error&gt;;
 }
 
 <span class="doccomment">/// Implements the BeefyApi RPC trait for interacting with BEEFY.
@@ -441,27 +424,17 @@
 <span class="kw">where
 	</span>Block: BlockT,
 {
-	<span class="kw">fn </span>subscribe_justifications(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>sink: SubscriptionSink) -&gt; SubscriptionResult {
+	<span class="kw">fn </span>subscribe_justifications(<span class="kw-2">&amp;</span><span class="self">self</span>, pending: PendingSubscriptionSink) {
 		<span class="kw">let </span>stream = <span class="self">self
 			</span>.finality_proof_stream
 			.subscribe(<span class="number">100_000</span>)
 			.map(|vfp| notification::EncodedVersionedFinalityProof::new::&lt;Block&gt;(vfp));
 
-		<span class="kw">let </span>fut = <span class="kw">async move </span>{
-			sink.pipe_from_stream(stream).<span class="kw">await</span>;
-		};
-
-		<span class="self">self</span>.executor.spawn(<span class="string">&quot;substrate-rpc-subscription&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;rpc&quot;</span>), fut.boxed());
-		<span class="prelude-val">Ok</span>(())
+		sc_rpc::utils::spawn_subscription_task(<span class="kw-2">&amp;</span><span class="self">self</span>.executor, pipe_from_stream(pending, stream));
 	}
 
-	<span class="kw">async fn </span>latest_finalized(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;Block::Hash&gt; {
-		<span class="self">self</span>.beefy_best_block
-			.read()
-			.as_ref()
-			.cloned()
-			.ok_or(Error::EndpointNotReady)
-			.map_err(Into::into)
+	<span class="kw">async fn </span>latest_finalized(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Block::Hash, Error&gt; {
+		<span class="self">self</span>.beefy_best_block.read().as_ref().cloned().ok_or(Error::EndpointNotReady)
 	}
 }
 
@@ -470,7 +443,7 @@
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 	<span class="kw">use </span>codec::{Decode, Encode};
-	<span class="kw">use </span>jsonrpsee::{types::EmptyServerParams <span class="kw">as </span>EmptyParams, RpcModule};
+	<span class="kw">use </span>jsonrpsee::{core::EmptyServerParams <span class="kw">as </span>EmptyParams, RpcModule};
 	<span class="kw">use </span>sc_consensus_beefy::{
 		communication::notification::BeefyVersionedFinalityProofSender,
 		justification::BeefyVersionedFinalityProof,
@@ -502,7 +475,7 @@
 		<span class="kw">let </span>(rpc, <span class="kw">_</span>) = setup_io_handler();
 		<span class="kw">let </span>request = <span class="string">r#&quot;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;beefy_getFinalizedHead&quot;,&quot;params&quot;:[],&quot;id&quot;:1}&quot;#</span>;
 		<span class="kw">let </span>expected_response = <span class="string">r#&quot;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;error&quot;:{&quot;code&quot;:1,&quot;message&quot;:&quot;BEEFY RPC endpoint not ready&quot;},&quot;id&quot;:1}&quot;#</span>.to_string();
-		<span class="kw">let </span>(response, <span class="kw">_</span>) = rpc.raw_json_request(<span class="kw-2">&amp;</span>request).<span class="kw">await</span>.unwrap();
+		<span class="kw">let </span>(response, <span class="kw">_</span>) = rpc.raw_json_request(<span class="kw-2">&amp;</span>request, <span class="number">1</span>).<span class="kw">await</span>.unwrap();
 
 		<span class="macro">assert_eq!</span>(expected_response, response.result);
 	}
@@ -533,13 +506,13 @@
 
 		<span class="kw">let </span>deadline = std::time::Instant::now() + std::time::Duration::from_secs(<span class="number">2</span>);
 		<span class="kw">while </span>std::time::Instant::now() &lt; deadline {
-			<span class="kw">let </span>(response, <span class="kw">_</span>) = io.raw_json_request(request).<span class="kw">await</span>.expect(<span class="string">&quot;RPC requests work&quot;</span>);
+			<span class="kw">let </span>(response, <span class="kw">_</span>) = io.raw_json_request(request, <span class="number">1</span>).<span class="kw">await</span>.expect(<span class="string">&quot;RPC requests work&quot;</span>);
 			<span class="kw">if </span>response.result != not_ready {
 				<span class="macro">assert_eq!</span>(response.result, expected);
 				<span class="comment">// Success
 				</span><span class="kw">return
 			</span>}
-			std::thread::sleep(std::time::Duration::from_millis(<span class="number">50</span>))
+			tokio::time::sleep(std::time::Duration::from_millis(<span class="number">50</span>)).<span class="kw">await</span>;
 		}
 
 		<span class="macro">panic!</span>(
@@ -552,7 +525,7 @@
 		<span class="kw">let </span>(rpc, <span class="kw">_</span>) = setup_io_handler();
 		<span class="comment">// Subscribe call.
 		</span><span class="kw">let </span>_sub = rpc
-			.subscribe(<span class="string">&quot;beefy_subscribeJustifications&quot;</span>, EmptyParams::new())
+			.subscribe_unbounded(<span class="string">&quot;beefy_subscribeJustifications&quot;</span>, EmptyParams::new())
 			.<span class="kw">await
 			</span>.unwrap();
 
@@ -560,6 +533,7 @@
 		</span><span class="kw">let </span>(response, <span class="kw">_</span>) = rpc
 			.raw_json_request(
 				<span class="string">r#&quot;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;beefy_unsubscribeJustifications&quot;,&quot;params&quot;:[&quot;FOO&quot;],&quot;id&quot;:1}&quot;#</span>,
+				<span class="number">1</span>,
 			)
 			.<span class="kw">await
 			</span>.unwrap();
@@ -587,7 +561,7 @@
 
 		<span class="comment">// Subscribe
 		</span><span class="kw">let </span><span class="kw-2">mut </span>sub = rpc
-			.subscribe(<span class="string">&quot;beefy_subscribeJustifications&quot;</span>, EmptyParams::new())
+			.subscribe_unbounded(<span class="string">&quot;beefy_subscribeJustifications&quot;</span>, EmptyParams::new())
 			.<span class="kw">await
 			</span>.unwrap();
 

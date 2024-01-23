@@ -174,7 +174,6 @@
 <a href="#174" id="174">174</a>
 <a href="#175" id="175">175</a>
 <a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -198,9 +197,12 @@
 
 <span class="kw">use </span>codec::{Codec, Decode};
 <span class="kw">use </span>jsonrpsee::{
-	core::{Error <span class="kw">as </span>JsonRpseeError, RpcResult},
+	core::RpcResult,
 	proc_macros::rpc,
-	types::error::{CallError, ErrorCode, ErrorObject},
+	types::{
+		error::{ErrorCode, ErrorObject},
+		ErrorObjectOwned,
+	},
 };
 <span class="kw">use </span>pallet_transaction_payment_rpc_runtime_api::{FeeDetails, InclusionFee, RuntimeDispatchInfo};
 <span class="kw">use </span>sp_api::ProvideRuntimeApi;
@@ -277,19 +279,15 @@
 		<span class="kw">let </span>encoded_len = encoded_xt.len() <span class="kw">as </span>u32;
 
 		<span class="kw">let </span>uxt: Block::Extrinsic = Decode::decode(<span class="kw-2">&amp;mut &amp;*</span>encoded_xt).map_err(|e| {
-			CallError::Custom(ErrorObject::owned(
+			ErrorObject::owned(
 				Error::DecodeError.into(),
 				<span class="string">&quot;Unable to query dispatch info.&quot;</span>,
 				<span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e)),
-			))
+			)
 		})<span class="question-mark">?</span>;
 
-		<span class="kw">fn </span>map_err(error: <span class="kw">impl </span>ToString, desc: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; CallError {
-			CallError::Custom(ErrorObject::owned(
-				Error::RuntimeError.into(),
-				desc,
-				<span class="prelude-val">Some</span>(error.to_string()),
-			))
+		<span class="kw">fn </span>map_err(error: <span class="kw">impl </span>ToString, desc: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; ErrorObjectOwned {
+			ErrorObject::owned(Error::RuntimeError.into(), desc, <span class="prelude-val">Some</span>(error.to_string()))
 		}
 
 		<span class="kw">let </span>res = api
@@ -314,27 +312,27 @@
 		<span class="kw">let </span>encoded_len = encoded_xt.len() <span class="kw">as </span>u32;
 
 		<span class="kw">let </span>uxt: Block::Extrinsic = Decode::decode(<span class="kw-2">&amp;mut &amp;*</span>encoded_xt).map_err(|e| {
-			CallError::Custom(ErrorObject::owned(
+			ErrorObject::owned(
 				Error::DecodeError.into(),
 				<span class="string">&quot;Unable to query fee details.&quot;</span>,
 				<span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e)),
-			))
+			)
 		})<span class="question-mark">?</span>;
 		<span class="kw">let </span>fee_details = api.query_fee_details(at_hash, uxt, encoded_len).map_err(|e| {
-			CallError::Custom(ErrorObject::owned(
+			ErrorObject::owned(
 				Error::RuntimeError.into(),
 				<span class="string">&quot;Unable to query fee details.&quot;</span>,
 				<span class="prelude-val">Some</span>(e.to_string()),
-			))
+			)
 		})<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>try_into_rpc_balance = |value: Balance| {
 			value.try_into().map_err(|<span class="kw">_</span>| {
-				JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
+				ErrorObject::owned(
 					ErrorCode::InvalidParams.code(),
 					<span class="macro">format!</span>(<span class="string">&quot;{} doesn&#39;t fit in NumberOrHex representation&quot;</span>, value),
 					<span class="prelude-val">None</span>::&lt;()&gt;,
-				)))
+				)
 			})
 		};
 

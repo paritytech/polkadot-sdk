@@ -461,27 +461,6 @@
 <a href="#461" id="461">461</a>
 <a href="#462" id="462">462</a>
 <a href="#463" id="463">463</a>
-<a href="#464" id="464">464</a>
-<a href="#465" id="465">465</a>
-<a href="#466" id="466">466</a>
-<a href="#467" id="467">467</a>
-<a href="#468" id="468">468</a>
-<a href="#469" id="469">469</a>
-<a href="#470" id="470">470</a>
-<a href="#471" id="471">471</a>
-<a href="#472" id="472">472</a>
-<a href="#473" id="473">473</a>
-<a href="#474" id="474">474</a>
-<a href="#475" id="475">475</a>
-<a href="#476" id="476">476</a>
-<a href="#477" id="477">477</a>
-<a href="#478" id="478">478</a>
-<a href="#479" id="479">479</a>
-<a href="#480" id="480">480</a>
-<a href="#481" id="481">481</a>
-<a href="#482" id="482">482</a>
-<a href="#483" id="483">483</a>
-<a href="#484" id="484">484</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -520,15 +499,14 @@
 <span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>futures::future::FutureExt;
 <span class="kw">use </span>jsonrpsee::{
-	core::{async_trait, RpcResult},
-	types::{SubscriptionEmptyError, SubscriptionId, SubscriptionResult},
-	SubscriptionSink,
+	core::async_trait, types::SubscriptionId, PendingSubscriptionSink, SubscriptionSink,
 };
 <span class="kw">use </span>log::debug;
 <span class="kw">use </span>sc_client_api::{
 	Backend, BlockBackend, BlockchainEvents, CallExecutor, ChildInfo, ExecutorProvider, StorageKey,
 	StorageProvider,
 };
+<span class="kw">use </span>sc_rpc::utils::to_sub_message;
 <span class="kw">use </span>sp_api::CallApiAt;
 <span class="kw">use </span>sp_blockchain::{Error <span class="kw">as </span>BlockChainError, HeaderBackend, HeaderMetadata};
 <span class="kw">use </span>sp_core::{traits::CallContext, Bytes};
@@ -620,27 +598,13 @@
 			_phantom: PhantomData,
 		}
 	}
+}
 
-	<span class="doccomment">/// Accept the subscription and return the subscription ID on success.
-	</span><span class="kw">fn </span>accept_subscription(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		sink: <span class="kw-2">&amp;mut </span>SubscriptionSink,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;String, SubscriptionEmptyError&gt; {
-		<span class="comment">// The subscription must be accepted before it can provide a valid subscription ID.
-		</span>sink.accept()<span class="question-mark">?</span>;
-
-		<span class="kw">let </span><span class="prelude-val">Some</span>(sub_id) = sink.subscription_id() <span class="kw">else </span>{
-			<span class="comment">// This can only happen if the subscription was not accepted.
-			</span><span class="kw">return </span><span class="prelude-val">Err</span>(SubscriptionEmptyError)
-		};
-
-		<span class="comment">// Get the string representation for the subscription.
-		</span><span class="kw">let </span>sub_id = <span class="kw">match </span>sub_id {
-			SubscriptionId::Num(num) =&gt; num.to_string(),
-			SubscriptionId::Str(id) =&gt; id.into_owned().into(),
-		};
-
-		<span class="prelude-val">Ok</span>(sub_id)
+<span class="doccomment">/// Helper to convert the `subscription ID` to a string.
+</span><span class="kw">pub fn </span>read_subscription_id_as_string(sink: <span class="kw-2">&amp;</span>SubscriptionSink) -&gt; String {
+	<span class="kw">match </span>sink.subscription_id() {
+		SubscriptionId::Num(n) =&gt; n.to_string(),
+		SubscriptionId::Str(s) =&gt; s.into_owned().into(),
 	}
 }
 
@@ -674,35 +638,28 @@
 		+ StorageProvider&lt;Block, BE&gt;
 		+ <span class="lifetime">&#39;static</span>,
 {
-	<span class="kw">fn </span>chain_head_unstable_follow(
-		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		<span class="kw-2">mut </span>sink: SubscriptionSink,
-		with_runtime: bool,
-	) -&gt; SubscriptionResult {
-		<span class="kw">let </span>sub_id = <span class="kw">match </span><span class="self">self</span>.accept_subscription(<span class="kw-2">&amp;mut </span>sink) {
-			<span class="prelude-val">Ok</span>(sub_id) =&gt; sub_id,
-			<span class="prelude-val">Err</span>(err) =&gt; {
-				sink.close(ChainHeadRpcError::InternalError(
-					<span class="string">&quot;Cannot generate subscription ID&quot;</span>.into(),
-				));
-				<span class="kw">return </span><span class="prelude-val">Err</span>(err)
-			},
-		};
-		<span class="comment">// Keep track of the subscription.
-		</span><span class="kw">let </span><span class="prelude-val">Some</span>(sub_data) = <span class="self">self</span>.subscriptions.insert_subscription(sub_id.clone(), with_runtime)
-		<span class="kw">else </span>{
-			<span class="comment">// Inserting the subscription can only fail if the JsonRPSee
-			// generated a duplicate subscription ID.
-			</span><span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;[follow][id={:?}] Subscription already accepted&quot;</span>, sub_id);
-			<span class="kw">let _ </span>= sink.send(<span class="kw-2">&amp;</span>FollowEvent::&lt;Block::Hash&gt;::Stop);
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
-		};
-		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;[follow][id={:?}] Subscription accepted&quot;</span>, sub_id);
-
+	<span class="kw">fn </span>chain_head_unstable_follow(<span class="kw-2">&amp;</span><span class="self">self</span>, pending: PendingSubscriptionSink, with_runtime: bool) {
 		<span class="kw">let </span>subscriptions = <span class="self">self</span>.subscriptions.clone();
 		<span class="kw">let </span>backend = <span class="self">self</span>.backend.clone();
 		<span class="kw">let </span>client = <span class="self">self</span>.client.clone();
+
 		<span class="kw">let </span>fut = <span class="kw">async move </span>{
+			<span class="kw">let </span><span class="prelude-val">Ok</span>(sink) = pending.accept().<span class="kw">await else </span>{ <span class="kw">return </span>};
+
+			<span class="kw">let </span>sub_id = read_subscription_id_as_string(<span class="kw-2">&amp;</span>sink);
+
+			<span class="comment">// Keep track of the subscription.
+			</span><span class="kw">let </span><span class="prelude-val">Some</span>(sub_data) = subscriptions.insert_subscription(sub_id.clone(), with_runtime)
+			<span class="kw">else </span>{
+				<span class="comment">// Inserting the subscription can only fail if the JsonRPSee
+				// generated a duplicate subscription ID.
+				</span><span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;[follow][id={:?}] Subscription already accepted&quot;</span>, sub_id);
+				<span class="kw">let </span>msg = to_sub_message(<span class="kw-2">&amp;</span>sink, <span class="kw-2">&amp;</span>FollowEvent::&lt;String&gt;::Stop);
+				<span class="kw">let _ </span>= sink.send(msg).<span class="kw">await</span>;
+				<span class="kw">return
+			</span>};
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;[follow][id={:?}] Subscription accepted&quot;</span>, sub_id);
+
 			<span class="kw">let </span><span class="kw-2">mut </span>chain_head_follow = ChainHeadFollower::new(
 				client,
 				backend,
@@ -718,14 +675,13 @@
 		};
 
 		<span class="self">self</span>.executor.spawn(<span class="string">&quot;substrate-rpc-subscription&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;rpc&quot;</span>), fut.boxed());
-		<span class="prelude-val">Ok</span>(())
 	}
 
 	<span class="kw">fn </span>chain_head_unstable_body(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		follow_subscription: String,
 		hash: Block::Hash,
-	) -&gt; RpcResult&lt;MethodResponse&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;MethodResponse, ChainHeadRpcError&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>block_guard = <span class="kw">match </span><span class="self">self</span>.subscriptions.lock_block(<span class="kw-2">&amp;</span>follow_subscription, hash, <span class="number">1</span>) {
 			<span class="prelude-val">Ok</span>(block) =&gt; block,
 			<span class="prelude-val">Err</span>(SubscriptionManagementError::SubscriptionAbsent) |
@@ -777,7 +733,7 @@
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		follow_subscription: String,
 		hash: Block::Hash,
-	) -&gt; RpcResult&lt;<span class="prelude-ty">Option</span>&lt;String&gt;&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;String&gt;, ChainHeadRpcError&gt; {
 		<span class="kw">let </span>_block_guard = <span class="kw">match </span><span class="self">self</span>.subscriptions.lock_block(<span class="kw-2">&amp;</span>follow_subscription, hash, <span class="number">1</span>) {
 			<span class="prelude-val">Ok</span>(block) =&gt; block,
 			<span class="prelude-val">Err</span>(SubscriptionManagementError::SubscriptionAbsent) |
@@ -793,7 +749,6 @@
 			.header(hash)
 			.map(|opt_header| opt_header.map(|h| hex_string(<span class="kw-2">&amp;</span>h.encode())))
 			.map_err(|err| ChainHeadRpcError::InternalError(err.to_string()))
-			.map_err(Into::into)
 	}
 
 	<span class="kw">fn </span>chain_head_unstable_storage(
@@ -802,7 +757,7 @@
 		hash: Block::Hash,
 		items: Vec&lt;StorageQuery&lt;String&gt;&gt;,
 		child_trie: <span class="prelude-ty">Option</span>&lt;String&gt;,
-	) -&gt; RpcResult&lt;MethodResponse&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;MethodResponse, ChainHeadRpcError&gt; {
 		<span class="comment">// Gain control over parameter parsing and returned error.
 		</span><span class="kw">let </span>items = items
 			.into_iter()
@@ -860,7 +815,7 @@
 		hash: Block::Hash,
 		function: String,
 		call_parameters: String,
-	) -&gt; RpcResult&lt;MethodResponse&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;MethodResponse, ChainHeadRpcError&gt; {
 		<span class="kw">let </span>call_parameters = Bytes::from(parse_hex_param(call_parameters)<span class="question-mark">?</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>block_guard = <span class="kw">match </span><span class="self">self</span>.subscriptions.lock_block(<span class="kw-2">&amp;</span>follow_subscription, hash, <span class="number">1</span>) {
@@ -904,14 +859,17 @@
 			});
 
 		<span class="kw">let _ </span>= block_guard.response_sender().unbounded_send(event);
-		<span class="prelude-val">Ok</span>(MethodResponse::Started(MethodResponseStarted { operation_id, discarded_items: <span class="prelude-val">None </span>}))
+		<span class="prelude-val">Ok</span>(MethodResponse::Started(MethodResponseStarted {
+			operation_id: operation_id.clone(),
+			discarded_items: <span class="prelude-val">None</span>,
+		}))
 	}
 
 	<span class="kw">fn </span>chain_head_unstable_unpin(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		follow_subscription: String,
 		hash_or_hashes: ListOrValue&lt;Block::Hash&gt;,
-	) -&gt; RpcResult&lt;()&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), ChainHeadRpcError&gt; {
 		<span class="kw">let </span>result = <span class="kw">match </span>hash_or_hashes {
 			ListOrValue::Value(hash) =&gt;
 				<span class="self">self</span>.subscriptions.unpin_blocks(<span class="kw-2">&amp;</span>follow_subscription, [hash]),
@@ -927,9 +885,9 @@
 			},
 			<span class="prelude-val">Err</span>(SubscriptionManagementError::BlockHashAbsent) =&gt; {
 				<span class="comment">// Block is not part of the subscription.
-				</span><span class="prelude-val">Err</span>(ChainHeadRpcError::InvalidBlock.into())
+				</span><span class="prelude-val">Err</span>(ChainHeadRpcError::InvalidBlock)
 			},
-			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(ChainHeadRpcError::InvalidBlock.into()),
+			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(ChainHeadRpcError::InvalidBlock),
 		}
 	}
 
@@ -937,7 +895,7 @@
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		follow_subscription: String,
 		operation_id: String,
-	) -&gt; RpcResult&lt;()&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), ChainHeadRpcError&gt; {
 		<span class="kw">let </span><span class="prelude-val">Some</span>(operation) = <span class="self">self</span>.subscriptions.get_operation(<span class="kw-2">&amp;</span>follow_subscription, <span class="kw-2">&amp;</span>operation_id)
 		<span class="kw">else </span>{
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
@@ -955,7 +913,7 @@
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		follow_subscription: String,
 		operation_id: String,
-	) -&gt; RpcResult&lt;()&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), ChainHeadRpcError&gt; {
 		<span class="kw">let </span><span class="prelude-val">Some</span>(operation) = <span class="self">self</span>.subscriptions.get_operation(<span class="kw-2">&amp;</span>follow_subscription, <span class="kw-2">&amp;</span>operation_id)
 		<span class="kw">else </span>{
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())

@@ -66,7 +66,7 @@
 
 </span><span class="doccomment">//! Mixnet RPC module errors.
 
-</span><span class="kw">use </span>jsonrpsee::types::error::{CallError, ErrorObject};
+</span><span class="kw">use </span>jsonrpsee::types::error::{ErrorObject, ErrorObjectOwned};
 <span class="kw">use </span>sc_mixnet::{PostErr, RemoteErr, TopologyErr};
 
 <span class="doccomment">/// Mixnet RPC error type.
@@ -75,7 +75,7 @@
 <span class="doccomment">/// Base code for all mixnet errors.
 </span><span class="kw">const </span>BASE_ERROR: i32 = <span class="kw">crate</span>::error::base::MIXNET;
 
-<span class="kw">impl </span>From&lt;Error&gt; <span class="kw">for </span>jsonrpsee::core::Error {
+<span class="kw">impl </span>From&lt;Error&gt; <span class="kw">for </span>ErrorObjectOwned {
 	<span class="kw">fn </span>from(err: Error) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>code = <span class="kw">match </span>err.<span class="number">0 </span>{
 			sc_mixnet::Error::ServiceUnavailable =&gt; BASE_ERROR + <span class="number">1</span>,
@@ -91,7 +91,7 @@
 			sc_mixnet::Error::Remote(RemoteErr::Other(<span class="kw">_</span>)) =&gt; BASE_ERROR + <span class="number">200</span>,
 			sc_mixnet::Error::Remote(RemoteErr::Decode(<span class="kw">_</span>)) =&gt; BASE_ERROR + <span class="number">201</span>,
 		};
-		CallError::Custom(ErrorObject::owned(code, err.<span class="number">0</span>.to_string(), <span class="prelude-val">None</span>::&lt;()&gt;)).into()
+		ErrorObject::owned(code, err.<span class="number">0</span>.to_string(), <span class="prelude-val">None</span>::&lt;()&gt;)
 	}
 }
 </code></pre></div></section></main></body></html>

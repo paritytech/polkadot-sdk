@@ -34,6 +34,7 @@
 <a href="#34" id="34">34</a>
 <a href="#35" id="35">35</a>
 <a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -54,20 +55,21 @@
 
 </span><span class="doccomment">//! Substrate offchain API.
 
-</span><span class="kw">use </span>jsonrpsee::{core::RpcResult, proc_macros::rpc};
-<span class="kw">use </span>sp_core::{offchain::StorageKind, Bytes};
+</span><span class="kw">pub mod </span>error;
 
-<span class="kw">pub mod </span>error;
+<span class="kw">use </span>error::Error;
+<span class="kw">use </span>jsonrpsee::proc_macros::rpc;
+<span class="kw">use </span>sp_core::{offchain::StorageKind, Bytes};
 
 <span class="doccomment">/// Substrate offchain RPC API
 </span><span class="attr">#[rpc(client, server)]
 </span><span class="kw">pub trait </span>OffchainApi {
 	<span class="doccomment">/// Set offchain local storage under given key and prefix.
 	</span><span class="attr">#[method(name = <span class="string">&quot;offchain_localStorageSet&quot;</span>)]
-	</span><span class="kw">fn </span>set_local_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, kind: StorageKind, key: Bytes, value: Bytes) -&gt; RpcResult&lt;()&gt;;
+	</span><span class="kw">fn </span>set_local_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, kind: StorageKind, key: Bytes, value: Bytes) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
 
 	<span class="doccomment">/// Get offchain local storage under given key and prefix.
 	</span><span class="attr">#[method(name = <span class="string">&quot;offchain_localStorageGet&quot;</span>)]
-	</span><span class="kw">fn </span>get_local_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, kind: StorageKind, key: Bytes) -&gt; RpcResult&lt;<span class="prelude-ty">Option</span>&lt;Bytes&gt;&gt;;
+	</span><span class="kw">fn </span>get_local_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, kind: StorageKind, key: Bytes) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Bytes&gt;, Error&gt;;
 }
 </code></pre></div></section></main></body></html>

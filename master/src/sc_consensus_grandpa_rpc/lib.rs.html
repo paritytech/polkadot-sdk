@@ -407,17 +407,6 @@
 <a href="#407" id="407">407</a>
 <a href="#408" id="408">408</a>
 <a href="#409" id="409">409</a>
-<a href="#410" id="410">410</a>
-<a href="#411" id="411">411</a>
-<a href="#412" id="412">412</a>
-<a href="#413" id="413">413</a>
-<a href="#414" id="414">414</a>
-<a href="#415" id="415">415</a>
-<a href="#416" id="416">416</a>
-<a href="#417" id="417">417</a>
-<a href="#418" id="418">418</a>
-<a href="#419" id="419">419</a>
-<a href="#420" id="420">420</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -439,15 +428,13 @@
 </span><span class="doccomment">//! RPC API for GRANDPA.
 </span><span class="attr">#![warn(missing_docs)]
 
-</span><span class="kw">use </span>futures::{FutureExt, StreamExt};
+</span><span class="kw">use </span>futures::StreamExt;
 <span class="kw">use </span>log::warn;
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>jsonrpsee::{
-	core::{async_trait, RpcResult},
+	core::{async_trait, server::PendingSubscriptionSink},
 	proc_macros::rpc,
-	types::SubscriptionResult,
-	SubscriptionSink,
 };
 
 <span class="kw">mod </span>error;
@@ -455,13 +442,13 @@
 <span class="kw">mod </span>notification;
 <span class="kw">mod </span>report;
 
-<span class="kw">use </span>sc_consensus_grandpa::GrandpaJustificationStream;
-<span class="kw">use </span>sc_rpc::SubscriptionTaskExecutor;
-<span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, NumberFor};
-
+<span class="kw">use </span>error::Error;
 <span class="kw">use </span>finality::{EncodedFinalityProof, RpcFinalityProofProvider};
 <span class="kw">use </span>notification::JustificationNotification;
 <span class="kw">use </span>report::{ReportAuthoritySet, ReportVoterState, ReportedRoundStates};
+<span class="kw">use </span>sc_consensus_grandpa::GrandpaJustificationStream;
+<span class="kw">use </span>sc_rpc::{utils::pipe_from_stream, SubscriptionTaskExecutor};
+<span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, NumberFor};
 
 <span class="doccomment">/// Provides RPC methods for interacting with GRANDPA.
 </span><span class="attr">#[rpc(client, server)]
@@ -469,7 +456,7 @@
 	<span class="doccomment">/// Returns the state of the current best round state as well as the
 	/// ongoing background rounds.
 	</span><span class="attr">#[method(name = <span class="string">&quot;grandpa_roundState&quot;</span>)]
-	</span><span class="kw">async fn </span>round_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;ReportedRoundStates&gt;;
+	</span><span class="kw">async fn </span>round_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;ReportedRoundStates, Error&gt;;
 
 	<span class="doccomment">/// Returns the block most recently finalized by Grandpa, alongside
 	/// side its justification.
@@ -483,7 +470,7 @@
 	<span class="doccomment">/// Prove finality for the given block number by returning the Justification for the last block
 	/// in the set and all the intermediary headers to link them together.
 	</span><span class="attr">#[method(name = <span class="string">&quot;grandpa_proveFinality&quot;</span>)]
-	</span><span class="kw">async fn </span>prove_finality(<span class="kw-2">&amp;</span><span class="self">self</span>, block: Number) -&gt; RpcResult&lt;<span class="prelude-ty">Option</span>&lt;EncodedFinalityProof&gt;&gt;;
+	</span><span class="kw">async fn </span>prove_finality(<span class="kw-2">&amp;</span><span class="self">self</span>, block: Number) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;EncodedFinalityProof&gt;, Error&gt;;
 }
 
 <span class="doccomment">/// Provides RPC methods for interacting with GRANDPA.
@@ -519,36 +506,28 @@
 	Block: BlockT,
 	ProofProvider: RpcFinalityProofProvider&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
 {
-	<span class="kw">async fn </span>round_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;ReportedRoundStates&gt; {
-		ReportedRoundStates::from(<span class="kw-2">&amp;</span><span class="self">self</span>.authority_set, <span class="kw-2">&amp;</span><span class="self">self</span>.voter_state).map_err(Into::into)
+	<span class="kw">async fn </span>round_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;ReportedRoundStates, Error&gt; {
+		ReportedRoundStates::from(<span class="kw-2">&amp;</span><span class="self">self</span>.authority_set, <span class="kw-2">&amp;</span><span class="self">self</span>.voter_state)
 	}
 
-	<span class="kw">fn </span>subscribe_justifications(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>sink: SubscriptionSink) -&gt; SubscriptionResult {
+	<span class="kw">fn </span>subscribe_justifications(<span class="kw-2">&amp;</span><span class="self">self</span>, pending: PendingSubscriptionSink) {
 		<span class="kw">let </span>stream = <span class="self">self</span>.justification_stream.subscribe(<span class="number">100_000</span>).map(
 			|x: sc_consensus_grandpa::GrandpaJustification&lt;Block&gt;| {
 				JustificationNotification::from(x)
 			},
 		);
 
-		<span class="kw">let </span>fut = <span class="kw">async move </span>{
-			sink.pipe_from_stream(stream).<span class="kw">await</span>;
-		};
-
-		<span class="self">self</span>.executor.spawn(<span class="string">&quot;substrate-rpc-subscription&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;rpc&quot;</span>), fut.boxed());
-		<span class="prelude-val">Ok</span>(())
+		sc_rpc::utils::spawn_subscription_task(<span class="kw-2">&amp;</span><span class="self">self</span>.executor, pipe_from_stream(pending, stream));
 	}
 
 	<span class="kw">async fn </span>prove_finality(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		block: NumberFor&lt;Block&gt;,
-	) -&gt; RpcResult&lt;<span class="prelude-ty">Option</span>&lt;EncodedFinalityProof&gt;&gt; {
-		<span class="self">self</span>.finality_proof_provider
-			.rpc_prove_finality(block)
-			.map_err(|e| {
-				<span class="macro">warn!</span>(<span class="string">&quot;Error proving finality: {}&quot;</span>, e);
-				error::Error::ProveFinalityFailed(e)
-			})
-			.map_err(Into::into)
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;EncodedFinalityProof&gt;, Error&gt; {
+		<span class="self">self</span>.finality_proof_provider.rpc_prove_finality(block).map_err(|e| {
+			<span class="macro">warn!</span>(<span class="string">&quot;Error proving finality: {}&quot;</span>, e);
+			error::Error::ProveFinalityFailed(e)
+		})
 	}
 }
 
@@ -557,17 +536,15 @@
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>std::{collections::HashSet, convert::TryInto, sync::Arc};
 
-	<span class="kw">use </span>jsonrpsee::{
-		types::{EmptyServerParams <span class="kw">as </span>EmptyParams, SubscriptionId},
-		RpcModule,
-	};
+	<span class="kw">use </span>jsonrpsee::{core::EmptyServerParams <span class="kw">as </span>EmptyParams, types::SubscriptionId, RpcModule};
 	<span class="kw">use </span>parity_scale_codec::{Decode, Encode};
 	<span class="kw">use </span>sc_block_builder::BlockBuilderBuilder;
 	<span class="kw">use </span>sc_consensus_grandpa::{
 		report, AuthorityId, FinalityProof, GrandpaJustification, GrandpaJustificationSender,
 	};
+	<span class="kw">use </span>sc_rpc::testing::test_executor;
 	<span class="kw">use </span>sp_blockchain::HeaderBackend;
-	<span class="kw">use </span>sp_core::{crypto::ByteArray, testing::TaskExecutor};
+	<span class="kw">use </span>sp_core::crypto::ByteArray;
 	<span class="kw">use </span>sp_keyring::Ed25519Keyring;
 	<span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT};
 	<span class="kw">use </span>substrate_test_runtime_client::{
@@ -684,7 +661,7 @@
 	{
 		<span class="kw">let </span>(justification_sender, justification_stream) = GrandpaJustificationStream::channel();
 		<span class="kw">let </span>finality_proof_provider = Arc::new(TestFinalityProofProvider { finality_proof });
-		<span class="kw">let </span>executor = Arc::new(TaskExecutor::default());
+		<span class="kw">let </span>executor = test_executor();
 
 		<span class="kw">let </span>rpc = Grandpa::new(
 			executor,
@@ -703,7 +680,7 @@
 		<span class="kw">let </span>(rpc, <span class="kw">_</span>) = setup_io_handler(EmptyVoterState);
 		<span class="kw">let </span>expected_response = <span class="string">r#&quot;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;error&quot;:{&quot;code&quot;:1,&quot;message&quot;:&quot;GRANDPA RPC endpoint not ready&quot;},&quot;id&quot;:0}&quot;#</span>.to_string();
 		<span class="kw">let </span>request = <span class="string">r#&quot;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;grandpa_roundState&quot;,&quot;params&quot;:[],&quot;id&quot;:0}&quot;#</span>;
-		<span class="kw">let </span>(response, <span class="kw">_</span>) = rpc.raw_json_request(<span class="kw-2">&amp;</span>request).<span class="kw">await</span>.unwrap();
+		<span class="kw">let </span>(response, <span class="kw">_</span>) = rpc.raw_json_request(<span class="kw-2">&amp;</span>request, <span class="number">1</span>).<span class="kw">await</span>.unwrap();
 
 		<span class="macro">assert_eq!</span>(expected_response, response.result);
 	}
@@ -726,7 +703,7 @@
 		},\&quot;id\&quot;:0}&quot;</span>.to_string();
 
 		<span class="kw">let </span>request = <span class="string">r#&quot;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;grandpa_roundState&quot;,&quot;params&quot;:[],&quot;id&quot;:0}&quot;#</span>;
-		<span class="kw">let </span>(response, <span class="kw">_</span>) = rpc.raw_json_request(<span class="kw-2">&amp;</span>request).<span class="kw">await</span>.unwrap();
+		<span class="kw">let </span>(response, <span class="kw">_</span>) = rpc.raw_json_request(<span class="kw-2">&amp;</span>request, <span class="number">1</span>).<span class="kw">await</span>.unwrap();
 		<span class="macro">assert_eq!</span>(expected_response, response.result);
 	}
 
@@ -735,7 +712,7 @@
 		<span class="kw">let </span>(rpc, <span class="kw">_</span>) = setup_io_handler(TestVoterState);
 		<span class="comment">// Subscribe call.
 		</span><span class="kw">let </span>_sub = rpc
-			.subscribe(<span class="string">&quot;grandpa_subscribeJustifications&quot;</span>, EmptyParams::new())
+			.subscribe_unbounded(<span class="string">&quot;grandpa_subscribeJustifications&quot;</span>, EmptyParams::new())
 			.<span class="kw">await
 			</span>.unwrap();
 
@@ -743,6 +720,7 @@
 		</span><span class="kw">let </span>(response, <span class="kw">_</span>) = rpc
 			.raw_json_request(
 				<span class="string">r#&quot;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;grandpa_unsubscribeJustifications&quot;,&quot;params&quot;:[&quot;FOO&quot;],&quot;id&quot;:1}&quot;#</span>,
+				<span class="number">1</span>,
 			)
 			.<span class="kw">await
 			</span>.unwrap();
@@ -805,7 +783,7 @@
 		<span class="kw">let </span>(rpc, justification_sender) = setup_io_handler(TestVoterState);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>sub = rpc
-			.subscribe(<span class="string">&quot;grandpa_subscribeJustifications&quot;</span>, EmptyParams::new())
+			.subscribe_unbounded(<span class="string">&quot;grandpa_subscribeJustifications&quot;</span>, EmptyParams::new())
 			.<span class="kw">await
 			</span>.unwrap();
 

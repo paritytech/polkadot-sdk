@@ -734,7 +734,7 @@
 	<span class="doccomment">/// The output string of the transaction if any.
 	</span><span class="kw">pub </span>result: String,
 	<span class="doccomment">/// An async receiver if data will be returned via a callback.
-	</span><span class="kw">pub </span>receiver: futures::channel::mpsc::UnboundedReceiver&lt;String&gt;,
+	</span><span class="kw">pub </span>receiver: tokio::sync::mpsc::Receiver&lt;String&gt;,
 }
 
 <span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>RpcTransactionOutput {
@@ -794,7 +794,7 @@
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>parse_rpc_result(
 	result: String,
-	receiver: futures::channel::mpsc::UnboundedReceiver&lt;String&gt;,
+	receiver: tokio::sync::mpsc::Receiver&lt;String&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;RpcTransactionOutput, RpcTransactionError&gt; {
 	<span class="kw">let </span>json: serde_json::Value =
 		serde_json::from_str(<span class="kw-2">&amp;</span>result).expect(<span class="string">&quot;the result can only be a JSONRPC string; qed&quot;</span>);
@@ -848,7 +848,7 @@
 </span><span class="kw">mod </span>tests {
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>parses_error_properly() {
-		<span class="kw">let </span>(<span class="kw">_</span>, rx) = futures::channel::mpsc::unbounded();
+		<span class="kw">let </span>(<span class="kw">_</span>, rx) = tokio::sync::mpsc::channel(<span class="number">1</span>);
 		<span class="macro">assert!</span>(<span class="kw">super</span>::parse_rpc_result(
 			<span class="string">r#&quot;{
 				&quot;jsonrpc&quot;: &quot;2.0&quot;,
@@ -860,7 +860,7 @@
 		)
 		.is_ok());
 
-		<span class="kw">let </span>(<span class="kw">_</span>, rx) = futures::channel::mpsc::unbounded();
+		<span class="kw">let </span>(<span class="kw">_</span>, rx) = tokio::sync::mpsc::channel(<span class="number">1</span>);
 		<span class="kw">let </span>error = <span class="kw">super</span>::parse_rpc_result(
 			<span class="string">r#&quot;{
 				&quot;jsonrpc&quot;: &quot;2.0&quot;,
@@ -878,7 +878,7 @@
 		<span class="macro">assert_eq!</span>(error.message, <span class="string">&quot;Method not found&quot;</span>);
 		<span class="macro">assert!</span>(error.data.is_none());
 
-		<span class="kw">let </span>(<span class="kw">_</span>, rx) = futures::channel::mpsc::unbounded();
+		<span class="kw">let </span>(<span class="kw">_</span>, rx) = tokio::sync::mpsc::channel(<span class="number">1</span>);
 		<span class="kw">let </span>error = <span class="kw">super</span>::parse_rpc_result(
 			<span class="string">r#&quot;{
 				&quot;jsonrpc&quot;: &quot;2.0&quot;,

@@ -78,15 +78,6 @@
 <a href="#78" id="78">78</a>
 <a href="#79" id="79">79</a>
 <a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
-<a href="#84" id="84">84</a>
-<a href="#85" id="85">85</a>
-<a href="#86" id="86">86</a>
-<a href="#87" id="87">87</a>
-<a href="#88" id="88">88</a>
-<a href="#89" id="89">89</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -107,10 +98,7 @@
 
 </span><span class="doccomment">//! Error helpers for `chainHead` RPC module.
 
-</span><span class="kw">use </span>jsonrpsee::{
-	core::Error <span class="kw">as </span>RpcError,
-	types::error::{CallError, ErrorObject},
-};
+</span><span class="kw">use </span>jsonrpsee::types::error::ErrorObject;
 
 <span class="doccomment">/// ChainHead RPC errors.
 </span><span class="attr">#[derive(Debug, thiserror::Error)]
@@ -168,12 +156,6 @@
 			Error::InternalError(<span class="kw">_</span>) =&gt;
 				ErrorObject::owned(json_rpc_spec::INTERNAL_ERROR, msg, <span class="prelude-val">None</span>::&lt;()&gt;),
 		}
-	}
-}
-
-<span class="kw">impl </span>From&lt;Error&gt; <span class="kw">for </span>RpcError {
-	<span class="kw">fn </span>from(e: Error) -&gt; <span class="self">Self </span>{
-		CallError::Custom(e.into()).into()
 	}
 }
 </code></pre></div></section></main></body></html>

@@ -76,6 +76,7 @@
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
 <a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -96,27 +97,28 @@
 
 </span><span class="doccomment">//! Substrate block-author/full-node API.
 
-</span><span class="kw">use </span>jsonrpsee::{core::RpcResult, proc_macros::rpc};
+</span><span class="kw">pub mod </span>error;
+<span class="kw">pub mod </span>hash;
+
+<span class="kw">use </span>error::Error;
+<span class="kw">use </span>jsonrpsee::proc_macros::rpc;
 <span class="kw">use </span>sc_transaction_pool_api::TransactionStatus;
 <span class="kw">use </span>sp_core::Bytes;
-
-<span class="kw">pub mod </span>error;
-<span class="kw">pub mod </span>hash;
 
 <span class="doccomment">/// Substrate authoring RPC API
 </span><span class="attr">#[rpc(client, server)]
 </span><span class="kw">pub trait </span>AuthorApi&lt;Hash, BlockHash&gt; {
 	<span class="doccomment">/// Submit hex-encoded extrinsic for inclusion in block.
 	</span><span class="attr">#[method(name = <span class="string">&quot;author_submitExtrinsic&quot;</span>)]
-	</span><span class="kw">async fn </span>submit_extrinsic(<span class="kw-2">&amp;</span><span class="self">self</span>, extrinsic: Bytes) -&gt; RpcResult&lt;Hash&gt;;
+	</span><span class="kw">async fn </span>submit_extrinsic(<span class="kw-2">&amp;</span><span class="self">self</span>, extrinsic: Bytes) -&gt; <span class="prelude-ty">Result</span>&lt;Hash, Error&gt;;
 
 	<span class="doccomment">/// Insert a key into the keystore.
 	</span><span class="attr">#[method(name = <span class="string">&quot;author_insertKey&quot;</span>)]
-	</span><span class="kw">fn </span>insert_key(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: String, suri: String, public: Bytes) -&gt; RpcResult&lt;()&gt;;
+	</span><span class="kw">fn </span>insert_key(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: String, suri: String, public: Bytes) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
 
 	<span class="doccomment">/// Generate new session keys and returns the corresponding public keys.
 	</span><span class="attr">#[method(name = <span class="string">&quot;author_rotateKeys&quot;</span>)]
-	</span><span class="kw">fn </span>rotate_keys(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;Bytes&gt;;
+	</span><span class="kw">fn </span>rotate_keys(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Bytes, Error&gt;;
 
 	<span class="doccomment">/// Checks if the keystore has private keys for the given session public keys.
 	///
@@ -124,24 +126,24 @@
 	///
 	/// Returns `true` iff all private keys could be found.
 	</span><span class="attr">#[method(name = <span class="string">&quot;author_hasSessionKeys&quot;</span>)]
-	</span><span class="kw">fn </span>has_session_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, session_keys: Bytes) -&gt; RpcResult&lt;bool&gt;;
+	</span><span class="kw">fn </span>has_session_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, session_keys: Bytes) -&gt; <span class="prelude-ty">Result</span>&lt;bool, Error&gt;;
 
 	<span class="doccomment">/// Checks if the keystore has private keys for the given public key and key type.
 	///
 	/// Returns `true` if a private key could be found.
 	</span><span class="attr">#[method(name = <span class="string">&quot;author_hasKey&quot;</span>)]
-	</span><span class="kw">fn </span>has_key(<span class="kw-2">&amp;</span><span class="self">self</span>, public_key: Bytes, key_type: String) -&gt; RpcResult&lt;bool&gt;;
+	</span><span class="kw">fn </span>has_key(<span class="kw-2">&amp;</span><span class="self">self</span>, public_key: Bytes, key_type: String) -&gt; <span class="prelude-ty">Result</span>&lt;bool, Error&gt;;
 
 	<span class="doccomment">/// Returns all pending extrinsics, potentially grouped by sender.
 	</span><span class="attr">#[method(name = <span class="string">&quot;author_pendingExtrinsics&quot;</span>)]
-	</span><span class="kw">fn </span>pending_extrinsics(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;Vec&lt;Bytes&gt;&gt;;
+	</span><span class="kw">fn </span>pending_extrinsics(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Bytes&gt;, Error&gt;;
 
 	<span class="doccomment">/// Remove given extrinsic from the pool and temporarily ban it to prevent reimporting.
 	</span><span class="attr">#[method(name = <span class="string">&quot;author_removeExtrinsic&quot;</span>)]
 	</span><span class="kw">fn </span>remove_extrinsic(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		bytes_or_hash: Vec&lt;hash::ExtrinsicOrHash&lt;Hash&gt;&gt;,
-	) -&gt; RpcResult&lt;Vec&lt;Hash&gt;&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Hash&gt;, Error&gt;;
 
 	<span class="doccomment">/// Submit an extrinsic to watch.
 	///

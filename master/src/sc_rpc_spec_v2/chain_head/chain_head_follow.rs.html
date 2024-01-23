@@ -609,13 +609,6 @@
 <a href="#609" id="609">609</a>
 <a href="#610" id="610">610</a>
 <a href="#611" id="611">611</a>
-<a href="#612" id="612">612</a>
-<a href="#613" id="613">613</a>
-<a href="#614" id="614">614</a>
-<a href="#615" id="615">615</a>
-<a href="#616" id="616">616</a>
-<a href="#617" id="617">617</a>
-<a href="#618" id="618">618</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -642,7 +635,7 @@
 		BestBlockChanged, Finalized, FollowEvent, Initialized, NewBlock, RuntimeEvent,
 		RuntimeVersionEvent,
 	},
-	subscription::{InsertedSubscriptionData, SubscriptionManagement, SubscriptionManagementError},
+	subscription::{SubscriptionManagement, SubscriptionManagementError},
 };
 <span class="kw">use </span>futures::{
 	channel::oneshot,
@@ -654,12 +647,15 @@
 <span class="kw">use </span>sc_client_api::{
 	Backend, BlockBackend, BlockImportNotification, BlockchainEvents, FinalityNotification,
 };
+<span class="kw">use </span>sc_rpc::utils::to_sub_message;
 <span class="kw">use </span>sp_api::CallApiAt;
 <span class="kw">use </span>sp_blockchain::{
 	Backend <span class="kw">as </span>BlockChainBackend, Error <span class="kw">as </span>BlockChainError, HeaderBackend, HeaderMetadata, Info,
 };
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT, NumberFor};
 <span class="kw">use </span>std::{collections::HashSet, sync::Arc};
+
+<span class="kw">use </span><span class="kw">super</span>::subscription::InsertedSubscriptionData;
 
 <span class="doccomment">/// Generates the events of the `chainHead_follow` method.
 </span><span class="kw">pub struct </span>ChainHeadFollower&lt;BE: Backend&lt;Block&gt;, Block: BlockT, Client&gt; {
@@ -1118,7 +1114,7 @@
 		startup_point: <span class="kw-2">&amp;</span>StartupPoint&lt;Block&gt;,
 		<span class="kw-2">mut </span>stream: EventStream,
 		<span class="kw-2">mut </span>to_ignore: HashSet&lt;Block::Hash&gt;,
-		<span class="kw-2">mut </span>sink: SubscriptionSink,
+		sink: SubscriptionSink,
 		rx_stop: oneshot::Receiver&lt;()&gt;,
 	) <span class="kw">where
 		</span>EventStream: Stream&lt;Item = NotificationType&lt;Block&gt;&gt; + Unpin,
@@ -1147,36 +1143,24 @@
 						<span class="self">self</span>.sub_id,
 						err
 					);
-					<span class="kw">let _ </span>= sink.send(<span class="kw-2">&amp;</span>FollowEvent::&lt;String&gt;::Stop);
+					<span class="kw">let </span>msg = to_sub_message(<span class="kw-2">&amp;</span>sink, <span class="kw-2">&amp;</span>FollowEvent::&lt;String&gt;::Stop);
+					<span class="kw">let _ </span>= sink.send(msg).<span class="kw">await</span>;
 					<span class="kw">return
 				</span>},
 			};
 
 			<span class="kw">for </span>event <span class="kw">in </span>events {
-				<span class="kw">let </span>result = sink.send(<span class="kw-2">&amp;</span>event);
-
-				<span class="comment">// Migration note: the new version of jsonrpsee returns Result&lt;(), DisconnectError&gt;
-				// The logic from `Err(err)` should be moved when building the new
-				// `SubscriptionMessage`.
-
-				// For now, jsonrpsee returns:
-				// Ok(true): message sent
-				// Ok(false): client disconnected or subscription closed
-				// Err(err): serder serialization error of the event
-				</span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = result {
+				<span class="kw">let </span>msg = to_sub_message(<span class="kw-2">&amp;</span>sink, <span class="kw-2">&amp;</span>event);
+				<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = sink.send(msg).<span class="kw">await </span>{
 					<span class="comment">// Failed to submit event.
 					</span><span class="macro">debug!</span>(
 						target: LOG_TARGET,
 						<span class="string">&quot;[follow][id={:?}] Failed to send event {:?}&quot;</span>, <span class="self">self</span>.sub_id, err
 					);
 
-					<span class="kw">let _ </span>= sink.send(<span class="kw-2">&amp;</span>FollowEvent::&lt;String&gt;::Stop);
+					<span class="kw">let </span>msg = to_sub_message(<span class="kw-2">&amp;</span>sink, <span class="kw-2">&amp;</span>FollowEvent::&lt;String&gt;::Stop);
+					<span class="kw">let _ </span>= sink.send(msg).<span class="kw">await</span>;
 					<span class="kw">return
-				</span>}
-
-				<span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>) = result {
-					<span class="comment">// Client disconnected or subscription was closed.
-					</span><span class="kw">return
 				</span>}
 			}
 
@@ -1186,13 +1170,14 @@
 
 		<span class="comment">// If we got here either the substrate streams have closed
 		// or the `Stop` receiver was triggered.
-		</span><span class="kw">let _ </span>= sink.send(<span class="kw-2">&amp;</span>FollowEvent::&lt;String&gt;::Stop);
+		</span><span class="kw">let </span>msg = to_sub_message(<span class="kw-2">&amp;</span>sink, <span class="kw-2">&amp;</span>FollowEvent::&lt;String&gt;::Stop);
+		<span class="kw">let _ </span>= sink.send(msg).<span class="kw">await</span>;
 	}
 
 	<span class="doccomment">/// Generate the block events for the `chainHead_follow` method.
 	</span><span class="kw">pub async fn </span>generate_events(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		<span class="kw-2">mut </span>sink: SubscriptionSink,
+		sink: SubscriptionSink,
 		sub_data: InsertedSubscriptionData&lt;Block&gt;,
 	) {
 		<span class="comment">// Register for the new block and finalized notifications.
@@ -1220,7 +1205,8 @@
 					<span class="self">self</span>.sub_id,
 					err
 				);
-				<span class="kw">let _ </span>= sink.send(<span class="kw-2">&amp;</span>FollowEvent::&lt;Block::Hash&gt;::Stop);
+				<span class="kw">let </span>msg = to_sub_message(<span class="kw-2">&amp;</span>sink, <span class="kw-2">&amp;</span>FollowEvent::&lt;String&gt;::Stop);
+				<span class="kw">let _ </span>= sink.send(msg).<span class="kw">await</span>;
 				<span class="kw">return
 			</span>},
 		};

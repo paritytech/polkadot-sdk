@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["ChainHead","ChainHeadConfig"]};
+window.SIDEBAR_ITEMS = {"fn":["read_subscription_id_as_string"],"struct":["ChainHead","ChainHeadConfig"]};

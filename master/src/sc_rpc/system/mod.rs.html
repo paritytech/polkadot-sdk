@@ -185,23 +185,6 @@
 <a href="#185" id="185">185</a>
 <a href="#186" id="186">186</a>
 <a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
-<a href="#204" id="204">204</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -226,16 +209,11 @@
 </span><span class="kw">mod </span>tests;
 
 <span class="kw">use </span>futures::channel::oneshot;
-<span class="kw">use </span>jsonrpsee::{
-	core::{async_trait, error::Error <span class="kw">as </span>JsonRpseeError, JsonValue, RpcResult},
-	types::error::{CallError, ErrorCode, ErrorObject},
-};
+<span class="kw">use </span>jsonrpsee::core::{async_trait, JsonValue};
 <span class="kw">use </span>sc_rpc_api::DenyUnsafe;
 <span class="kw">use </span>sc_tracing::logging;
 <span class="kw">use </span>sc_utils::mpsc::TracingUnboundedSender;
 <span class="kw">use </span>sp_runtime::traits::{<span class="self">self</span>, Header <span class="kw">as </span>HeaderT};
-
-<span class="kw">use </span><span class="self">self</span>::error::Result;
 
 <span class="kw">pub use </span><span class="self">self</span>::helpers::{Health, NodeRole, PeerInfo, SyncState, SystemInfo};
 <span class="kw">pub use </span>sc_rpc_api::system::<span class="kw-2">*</span>;
@@ -261,9 +239,9 @@
 	<span class="doccomment">/// Must return the state of the network.
 	</span>NetworkState(oneshot::Sender&lt;serde_json::Value&gt;),
 	<span class="doccomment">/// Must return any potential parse error.
-	</span>NetworkAddReservedPeer(String, oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;()&gt;&gt;),
+	</span>NetworkAddReservedPeer(String, oneshot::Sender&lt;error::Result&lt;()&gt;&gt;),
 	<span class="doccomment">/// Must return any potential parse error.
-	</span>NetworkRemoveReservedPeer(String, oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;()&gt;&gt;),
+	</span>NetworkRemoveReservedPeer(String, oneshot::Sender&lt;error::Result&lt;()&gt;&gt;),
 	<span class="doccomment">/// Must return the list of reserved peers
 	</span>NetworkReservedPeers(oneshot::Sender&lt;Vec&lt;String&gt;&gt;),
 	<span class="doccomment">/// Must return the node role.
@@ -288,122 +266,110 @@
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;B: traits::Block&gt; SystemApiServer&lt;B::Hash, &lt;B::Header <span class="kw">as </span>HeaderT&gt;::Number&gt; <span class="kw">for </span>System&lt;B&gt; {
-	<span class="kw">fn </span>system_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;String&gt; {
+	<span class="kw">fn </span>system_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;String, Error&gt; {
 		<span class="prelude-val">Ok</span>(<span class="self">self</span>.info.impl_name.clone())
 	}
 
-	<span class="kw">fn </span>system_version(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;String&gt; {
+	<span class="kw">fn </span>system_version(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;String, Error&gt; {
 		<span class="prelude-val">Ok</span>(<span class="self">self</span>.info.impl_version.clone())
 	}
 
-	<span class="kw">fn </span>system_chain(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;String&gt; {
+	<span class="kw">fn </span>system_chain(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;String, Error&gt; {
 		<span class="prelude-val">Ok</span>(<span class="self">self</span>.info.chain_name.clone())
 	}
 
-	<span class="kw">fn </span>system_type(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;sc_chain_spec::ChainType&gt; {
+	<span class="kw">fn </span>system_type(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;sc_chain_spec::ChainType, Error&gt; {
 		<span class="prelude-val">Ok</span>(<span class="self">self</span>.info.chain_type.clone())
 	}
 
-	<span class="kw">fn </span>system_properties(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;sc_chain_spec::Properties&gt; {
+	<span class="kw">fn </span>system_properties(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;sc_chain_spec::Properties, Error&gt; {
 		<span class="prelude-val">Ok</span>(<span class="self">self</span>.info.properties.clone())
 	}
 
-	<span class="kw">async fn </span>system_health(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;Health&gt; {
+	<span class="kw">async fn </span>system_health(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Health, Error&gt; {
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
 		<span class="kw">let _ </span>= <span class="self">self</span>.send_back.unbounded_send(Request::Health(tx));
-		rx.<span class="kw">await</span>.map_err(|e| JsonRpseeError::to_call_error(e))
+		rx.<span class="kw">await</span>.map_err(|e| Error::Internal(e.to_string()))
 	}
 
-	<span class="kw">async fn </span>system_local_peer_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;String&gt; {
+	<span class="kw">async fn </span>system_local_peer_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;String, Error&gt; {
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
 		<span class="kw">let _ </span>= <span class="self">self</span>.send_back.unbounded_send(Request::LocalPeerId(tx));
-		rx.<span class="kw">await</span>.map_err(|e| JsonRpseeError::to_call_error(e))
+		rx.<span class="kw">await</span>.map_err(|e| Error::Internal(e.to_string()))
 	}
 
-	<span class="kw">async fn </span>system_local_listen_addresses(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;Vec&lt;String&gt;&gt; {
+	<span class="kw">async fn </span>system_local_listen_addresses(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;String&gt;, Error&gt; {
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
 		<span class="kw">let _ </span>= <span class="self">self</span>.send_back.unbounded_send(Request::LocalListenAddresses(tx));
-		rx.<span class="kw">await</span>.map_err(|e| JsonRpseeError::to_call_error(e))
+		rx.<span class="kw">await</span>.map_err(|e| Error::Internal(e.to_string()))
 	}
 
 	<span class="kw">async fn </span>system_peers(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-	) -&gt; RpcResult&lt;Vec&lt;PeerInfo&lt;B::Hash, &lt;B::Header <span class="kw">as </span>HeaderT&gt;::Number&gt;&gt;&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PeerInfo&lt;B::Hash, &lt;B::Header <span class="kw">as </span>HeaderT&gt;::Number&gt;&gt;, Error&gt; {
 		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
 		<span class="kw">let _ </span>= <span class="self">self</span>.send_back.unbounded_send(Request::Peers(tx));
-		rx.<span class="kw">await</span>.map_err(|e| JsonRpseeError::to_call_error(e))
+		rx.<span class="kw">await</span>.map_err(|e| Error::Internal(e.to_string()))
 	}
 
-	<span class="kw">async fn </span>system_network_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;JsonValue&gt; {
+	<span class="kw">async fn </span>system_network_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;JsonValue, Error&gt; {
 		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
 		<span class="kw">let _ </span>= <span class="self">self</span>.send_back.unbounded_send(Request::NetworkState(tx));
-		rx.<span class="kw">await</span>.map_err(|e| JsonRpseeError::to_call_error(e))
+		rx.<span class="kw">await</span>.map_err(|e| Error::Internal(e.to_string()))
 	}
 
-	<span class="kw">async fn </span>system_add_reserved_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer: String) -&gt; RpcResult&lt;()&gt; {
+	<span class="kw">async fn </span>system_add_reserved_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer: String) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
 		<span class="kw">let _ </span>= <span class="self">self</span>.send_back.unbounded_send(Request::NetworkAddReservedPeer(peer, tx));
 		<span class="kw">match </span>rx.<span class="kw">await </span>{
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(())) =&gt; <span class="prelude-val">Ok</span>(()),
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(e)) =&gt; <span class="prelude-val">Err</span>(JsonRpseeError::from(e)),
-			<span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(JsonRpseeError::to_call_error(e)),
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(e)) =&gt; <span class="prelude-val">Err</span>(e),
+			<span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(Error::Internal(e.to_string())),
 		}
 	}
 
-	<span class="kw">async fn </span>system_remove_reserved_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer: String) -&gt; RpcResult&lt;()&gt; {
+	<span class="kw">async fn </span>system_remove_reserved_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer: String) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
 		<span class="kw">let _ </span>= <span class="self">self</span>.send_back.unbounded_send(Request::NetworkRemoveReservedPeer(peer, tx));
 		<span class="kw">match </span>rx.<span class="kw">await </span>{
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(())) =&gt; <span class="prelude-val">Ok</span>(()),
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(e)) =&gt; <span class="prelude-val">Err</span>(JsonRpseeError::from(e)),
-			<span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(JsonRpseeError::to_call_error(e)),
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(e)) =&gt; <span class="prelude-val">Err</span>(e),
+			<span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(Error::Internal(e.to_string())),
 		}
 	}
 
-	<span class="kw">async fn </span>system_reserved_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;Vec&lt;String&gt;&gt; {
+	<span class="kw">async fn </span>system_reserved_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;String&gt;, Error&gt; {
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
 		<span class="kw">let _ </span>= <span class="self">self</span>.send_back.unbounded_send(Request::NetworkReservedPeers(tx));
-		rx.<span class="kw">await</span>.map_err(|e| JsonRpseeError::to_call_error(e))
+		rx.<span class="kw">await</span>.map_err(|e| Error::Internal(e.to_string()))
 	}
 
-	<span class="kw">async fn </span>system_node_roles(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;Vec&lt;NodeRole&gt;&gt; {
+	<span class="kw">async fn </span>system_node_roles(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;NodeRole&gt;, Error&gt; {
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
 		<span class="kw">let _ </span>= <span class="self">self</span>.send_back.unbounded_send(Request::NodeRoles(tx));
-		rx.<span class="kw">await</span>.map_err(|e| JsonRpseeError::to_call_error(e))
+		rx.<span class="kw">await</span>.map_err(|e| Error::Internal(e.to_string()))
 	}
 
-	<span class="kw">async fn </span>system_sync_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;SyncState&lt;&lt;B::Header <span class="kw">as </span>HeaderT&gt;::Number&gt;&gt; {
+	<span class="kw">async fn </span>system_sync_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;SyncState&lt;&lt;B::Header <span class="kw">as </span>HeaderT&gt;::Number&gt;, Error&gt; {
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
 		<span class="kw">let _ </span>= <span class="self">self</span>.send_back.unbounded_send(Request::SyncState(tx));
-		rx.<span class="kw">await</span>.map_err(|e| JsonRpseeError::to_call_error(e))
+		rx.<span class="kw">await</span>.map_err(|e| Error::Internal(e.to_string()))
 	}
 
-	<span class="kw">fn </span>system_add_log_filter(<span class="kw-2">&amp;</span><span class="self">self</span>, directives: String) -&gt; RpcResult&lt;()&gt; {
+	<span class="kw">fn </span>system_add_log_filter(<span class="kw-2">&amp;</span><span class="self">self</span>, directives: String) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
 
 		logging::add_directives(<span class="kw-2">&amp;</span>directives);
-		logging::reload_filter().map_err(|e| {
-			JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
-				ErrorCode::InternalError.code(),
-				e,
-				<span class="prelude-val">None</span>::&lt;()&gt;,
-			)))
-		})
+		logging::reload_filter().map_err(|e| Error::Internal(e))
 	}
 
-	<span class="kw">fn </span>system_reset_log_filter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;()&gt; {
+	<span class="kw">fn </span>system_reset_log_filter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
-		logging::reset_log_filter().map_err(|e| {
-			JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
-				ErrorCode::InternalError.code(),
-				e,
-				<span class="prelude-val">None</span>::&lt;()&gt;,
-			)))
-		})
+		logging::reset_log_filter().map_err(|e| Error::Internal(e))
 	}
 }
 </code></pre></div></section></main></body></html>

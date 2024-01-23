@@ -506,6 +506,17 @@
 <a href="#506" id="506">506</a>
 <a href="#507" id="507">507</a>
 <a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -533,7 +544,7 @@
 	},
 	CliConfiguration, PrometheusParams, RuntimeParams, TelemetryParams,
 	RPC_DEFAULT_MAX_CONNECTIONS, RPC_DEFAULT_MAX_REQUEST_SIZE_MB, RPC_DEFAULT_MAX_RESPONSE_SIZE_MB,
-	RPC_DEFAULT_MAX_SUBS_PER_CONN,
+	RPC_DEFAULT_MAX_SUBS_PER_CONN, RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN,
 };
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>regex::Regex;
@@ -610,9 +621,20 @@
 	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;COUNT&quot;</span>, default_value_t = RPC_DEFAULT_MAX_CONNECTIONS)]
 	</span><span class="kw">pub </span>rpc_max_connections: u32,
 
-	<span class="doccomment">/// Specify browser *origins* allowed to access the HTTP and WS RPC servers.
+	<span class="doccomment">/// The number of messages the RPC server is allowed to keep in memory.
 	///
-	/// A comma-separated list of origins (`protocol://domain` or special `null`
+	/// If the buffer becomes full then the server will not process
+	/// new messages until the connected client start reading the
+	/// underlying messages.
+	///
+	/// This applies per connection which includes both
+	/// JSON-RPC methods calls and subscriptions.
+	</span><span class="attr">#[arg(long, default_value_t = RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN)]
+	</span><span class="kw">pub </span>rpc_message_buffer_capacity_per_connection: u32,
+
+	<span class="doccomment">/// Specify browser *origins* allowed to access the HTTP &amp; WS RPC servers.
+	///
+	/// A comma-separated list of origins (protocol://domain or special `null`
 	/// value). Value of `all` will disable origin validation. Default is to
 	/// allow localhost and &lt;https://polkadot.js.org&gt; origins. When running in
 	/// `--dev` mode the default is to allow all origins.

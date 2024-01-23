@@ -166,14 +166,17 @@
 </span><span class="doccomment">//! Blockchain API backend for full nodes.
 
 </span><span class="kw">use super</span>::{client_err, ChainBackend, Error};
-<span class="kw">use </span><span class="kw">crate</span>::SubscriptionTaskExecutor;
+<span class="kw">use crate</span>::{
+	utils::{pipe_from_stream, spawn_subscription_task},
+	SubscriptionTaskExecutor,
+};
 <span class="kw">use </span>std::{marker::PhantomData, sync::Arc};
 
 <span class="kw">use </span>futures::{
-	future::{<span class="self">self</span>, FutureExt},
+	future::{<span class="self">self</span>},
 	stream::{<span class="self">self</span>, Stream, StreamExt},
 };
-<span class="kw">use </span>jsonrpsee::SubscriptionSink;
+<span class="kw">use </span>jsonrpsee::{core::async_trait, PendingSubscriptionSink};
 <span class="kw">use </span>sc_client_api::{BlockBackend, BlockchainEvents};
 <span class="kw">use </span>sp_blockchain::HeaderBackend;
 <span class="kw">use </span>sp_runtime::{generic::SignedBlock, traits::Block <span class="kw">as </span>BlockT};
@@ -195,7 +198,8 @@
 	}
 }
 
-<span class="kw">impl</span>&lt;Block, Client&gt; ChainBackend&lt;Client, Block&gt; <span class="kw">for </span>FullChain&lt;Block, Client&gt;
+<span class="attr">#[async_trait]
+</span><span class="kw">impl</span>&lt;Block, Client&gt; ChainBackend&lt;Client, Block&gt; <span class="kw">for </span>FullChain&lt;Block, Client&gt;
 <span class="kw">where
 	</span>Block: BlockT + <span class="lifetime">&#39;static</span>,
 	Block::Header: Unpin,
@@ -213,11 +217,11 @@
 		<span class="self">self</span>.client.block(<span class="self">self</span>.unwrap_or_best(hash)).map_err(client_err)
 	}
 
-	<span class="kw">fn </span>subscribe_all_heads(<span class="kw-2">&amp;</span><span class="self">self</span>, sink: SubscriptionSink) {
+	<span class="kw">fn </span>subscribe_all_heads(<span class="kw-2">&amp;</span><span class="self">self</span>, pending: PendingSubscriptionSink) {
 		subscribe_headers(
 			<span class="kw-2">&amp;</span><span class="self">self</span>.client,
 			<span class="kw-2">&amp;</span><span class="self">self</span>.executor,
-			sink,
+			pending,
 			|| <span class="self">self</span>.client().info().best_hash,
 			|| {
 				<span class="self">self</span>.client()
@@ -227,11 +231,11 @@
 		)
 	}
 
-	<span class="kw">fn </span>subscribe_new_heads(<span class="kw-2">&amp;</span><span class="self">self</span>, sink: SubscriptionSink) {
+	<span class="kw">fn </span>subscribe_new_heads(<span class="kw-2">&amp;</span><span class="self">self</span>, pending: PendingSubscriptionSink) {
 		subscribe_headers(
 			<span class="kw-2">&amp;</span><span class="self">self</span>.client,
 			<span class="kw-2">&amp;</span><span class="self">self</span>.executor,
-			sink,
+			pending,
 			|| <span class="self">self</span>.client().info().best_hash,
 			|| {
 				<span class="self">self</span>.client()
@@ -242,11 +246,11 @@
 		)
 	}
 
-	<span class="kw">fn </span>subscribe_finalized_heads(<span class="kw-2">&amp;</span><span class="self">self</span>, sink: SubscriptionSink) {
+	<span class="kw">fn </span>subscribe_finalized_heads(<span class="kw-2">&amp;</span><span class="self">self</span>, pending: PendingSubscriptionSink) {
 		subscribe_headers(
 			<span class="kw-2">&amp;</span><span class="self">self</span>.client,
 			<span class="kw-2">&amp;</span><span class="self">self</span>.executor,
-			sink,
+			pending,
 			|| <span class="self">self</span>.client().info().finalized_hash,
 			|| {
 				<span class="self">self</span>.client()
@@ -261,7 +265,7 @@
 </span><span class="kw">fn </span>subscribe_headers&lt;Block, Client, F, G, S&gt;(
 	client: <span class="kw-2">&amp;</span>Arc&lt;Client&gt;,
 	executor: <span class="kw-2">&amp;</span>SubscriptionTaskExecutor,
-	<span class="kw-2">mut </span>sink: SubscriptionSink,
+	pending: PendingSubscriptionSink,
 	best_block_hash: G,
 	stream: F,
 ) <span class="kw">where
@@ -286,10 +290,6 @@
 	// duplicates at the beginning of the stream though.
 	</span><span class="kw">let </span>stream = stream::iter(maybe_header).chain(stream());
 
-	<span class="kw">let </span>fut = <span class="kw">async move </span>{
-		sink.pipe_from_stream(stream).<span class="kw">await</span>;
-	};
-
-	executor.spawn(<span class="string">&quot;substrate-rpc-subscription&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;rpc&quot;</span>), fut.boxed());
+	spawn_subscription_task(executor, pipe_from_stream(pending, stream));
 }
 </code></pre></div></section></main></body></html>

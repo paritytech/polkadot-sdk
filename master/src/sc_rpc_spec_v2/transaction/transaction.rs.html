@@ -197,11 +197,6 @@
 <a href="#197" id="197">197</a>
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
-<a href="#204" id="204">204</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -233,27 +228,21 @@
 	},
 	SubscriptionTaskExecutor,
 };
-<span class="kw">use </span>jsonrpsee::{
-	core::async_trait,
-	types::{
-		error::{CallError, ErrorObject},
-		SubscriptionResult,
-	},
-	SubscriptionSink,
-};
+<span class="kw">use </span>jsonrpsee::{core::async_trait, types::error::ErrorObject, PendingSubscriptionSink};
 <span class="kw">use </span>sc_transaction_pool_api::{
 	error::IntoPoolError, BlockHash, TransactionFor, TransactionPool, TransactionSource,
 	TransactionStatus,
 };
 <span class="kw">use </span>std::sync::Arc;
 
+<span class="kw">use </span>sc_rpc::utils::pipe_from_stream;
 <span class="kw">use </span>sp_api::ProvideRuntimeApi;
 <span class="kw">use </span>sp_blockchain::HeaderBackend;
 <span class="kw">use </span>sp_core::Bytes;
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 
 <span class="kw">use </span>codec::Decode;
-<span class="kw">use </span>futures::{FutureExt, StreamExt, TryFutureExt};
+<span class="kw">use </span>futures::{StreamExt, TryFutureExt};
 
 <span class="doccomment">/// An API for transaction RPC calls.
 </span><span class="kw">pub struct </span>Transaction&lt;Pool, Client&gt; {
@@ -294,52 +283,53 @@
 	&lt;Pool::Block <span class="kw">as </span>BlockT&gt;::Hash: Unpin,
 	Client: HeaderBackend&lt;Pool::Block&gt; + ProvideRuntimeApi&lt;Pool::Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
 {
-	<span class="kw">fn </span>submit_and_watch(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>sink: SubscriptionSink, xt: Bytes) -&gt; SubscriptionResult {
-		<span class="comment">// This is the only place where the RPC server can return an error for this
-		// subscription. Other defects must be signaled as events to the sink.
-		</span><span class="kw">let </span>decoded_extrinsic = <span class="kw">match </span>TransactionFor::&lt;Pool&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>xt[..]) {
-			<span class="prelude-val">Ok</span>(decoded_extrinsic) =&gt; decoded_extrinsic,
-			<span class="prelude-val">Err</span>(e) =&gt; {
-				<span class="kw">let </span>err = CallError::Custom(ErrorObject::owned(
-					BAD_FORMAT,
-					<span class="macro">format!</span>(<span class="string">&quot;Extrinsic has invalid format: {}&quot;</span>, e),
-					<span class="prelude-val">None</span>::&lt;()&gt;,
-				));
-				<span class="kw">let _ </span>= sink.reject(err);
-				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
-			},
-		};
-
-		<span class="kw">let </span>best_block_hash = <span class="self">self</span>.client.info().best_hash;
-
-		<span class="kw">let </span>submit = <span class="self">self
-			</span>.pool
-			.submit_and_watch(best_block_hash, TX_SOURCE, decoded_extrinsic)
-			.map_err(|e| {
-				e.into_pool_error()
-					.map(Error::from)
-					.unwrap_or_else(|e| Error::Verification(Box::new(e)))
-			});
+	<span class="kw">fn </span>submit_and_watch(<span class="kw-2">&amp;</span><span class="self">self</span>, pending: PendingSubscriptionSink, xt: Bytes) {
+		<span class="kw">let </span>client = <span class="self">self</span>.client.clone();
+		<span class="kw">let </span>pool = <span class="self">self</span>.pool.clone();
 
 		<span class="kw">let </span>fut = <span class="kw">async move </span>{
+			<span class="comment">// This is the only place where the RPC server can return an error for this
+			// subscription. Other defects must be signaled as events to the sink.
+			</span><span class="kw">let </span>decoded_extrinsic = <span class="kw">match </span>TransactionFor::&lt;Pool&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>xt[..]) {
+				<span class="prelude-val">Ok</span>(decoded_extrinsic) =&gt; decoded_extrinsic,
+				<span class="prelude-val">Err</span>(e) =&gt; {
+					<span class="kw">let </span>err = ErrorObject::owned(
+						BAD_FORMAT,
+						<span class="macro">format!</span>(<span class="string">&quot;Extrinsic has invalid format: {}&quot;</span>, e),
+						<span class="prelude-val">None</span>::&lt;()&gt;,
+					);
+					<span class="kw">let _ </span>= pending.reject(err).<span class="kw">await</span>;
+					<span class="kw">return
+				</span>},
+			};
+
+			<span class="kw">let </span>best_block_hash = client.info().best_hash;
+
+			<span class="kw">let </span>submit = pool
+				.submit_and_watch(best_block_hash, TX_SOURCE, decoded_extrinsic)
+				.map_err(|e| {
+					e.into_pool_error()
+						.map(Error::from)
+						.unwrap_or_else(|e| Error::Verification(Box::new(e)))
+				});
+
 			<span class="kw">match </span>submit.<span class="kw">await </span>{
 				<span class="prelude-val">Ok</span>(stream) =&gt; {
 					<span class="kw">let </span><span class="kw-2">mut </span>state = TransactionState::new();
 					<span class="kw">let </span>stream =
-						stream.filter_map(|event| <span class="kw">async move </span>{ state.handle_event(event) });
-					sink.pipe_from_stream(stream.boxed()).<span class="kw">await</span>;
+						stream.filter_map(<span class="kw">move </span>|event| <span class="kw">async move </span>{ state.handle_event(event) });
+					pipe_from_stream(pending, stream.boxed()).<span class="kw">await</span>;
 				},
 				<span class="prelude-val">Err</span>(err) =&gt; {
 					<span class="comment">// We have not created an `Watcher` for the tx. Make sure the
 					// error is still propagated as an event.
 					</span><span class="kw">let </span>event: TransactionEvent&lt;&lt;Pool::Block <span class="kw">as </span>BlockT&gt;::Hash&gt; = err.into();
-					sink.pipe_from_stream(futures::stream::once(<span class="kw">async </span>{ event }).boxed()).<span class="kw">await</span>;
+					pipe_from_stream(pending, futures::stream::once(<span class="kw">async </span>{ event }).boxed()).<span class="kw">await</span>;
 				},
 			};
 		};
 
-		<span class="self">self</span>.executor.spawn(<span class="string">&quot;substrate-rpc-subscription&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;rpc&quot;</span>), fut.boxed());
-		<span class="prelude-val">Ok</span>(())
+		sc_rpc::utils::spawn_subscription_task(<span class="kw-2">&amp;</span><span class="self">self</span>.executor, fut);
 	}
 }
 

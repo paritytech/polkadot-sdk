@@ -105,7 +105,7 @@
 ///
 /// Also it&#39;s nice to be able to maintain backward compatibility for methods that
 /// were initially taking a value and now we want to expand them to take a list.
-</span><span class="attr">#[derive(Serialize, Deserialize, Debug, PartialEq)]
+</span><span class="attr">#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(untagged)]
 </span><span class="kw">pub enum </span>ListOrValue&lt;T&gt; {
 	<span class="doccomment">/// A list of values of given type.

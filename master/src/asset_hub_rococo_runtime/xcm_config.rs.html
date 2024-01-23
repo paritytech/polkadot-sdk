@@ -933,12 +933,6 @@
 <a href="#933" id="933">933</a>
 <a href="#934" id="934">934</a>
 <a href="#935" id="935">935</a>
-<a href="#936" id="936">936</a>
-<a href="#937" id="937">937</a>
-<a href="#938" id="938">938</a>
-<a href="#939" id="939">939</a>
-<a href="#940" id="940">940</a>
-<a href="#941" id="941">941</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1177,20 +1171,14 @@
 {
 	<span class="kw">fn </span>is_local(location: <span class="kw-2">&amp;</span>xcm::v3::Location) -&gt; bool {
 		<span class="kw">use </span>assets_common::fungible_conversion::MatchesLocation;
-		<span class="kw">let </span>latest_location: Location = <span class="kw">if let </span><span class="prelude-val">Ok</span>(location) = (<span class="kw-2">*</span>location).try_into() {
-			location
-		} <span class="kw">else </span>{
-			<span class="kw">return </span><span class="bool-val">false</span>;
-		};
+		<span class="kw">let </span>latest_location: Location =
+			<span class="kw">if let </span><span class="prelude-val">Ok</span>(location) = (<span class="kw-2">*</span>location).try_into() { location } <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
 		TrustBackedAssetsConvertedConcreteId::contains(<span class="kw-2">&amp;</span>latest_location)
 	}
 	<span class="kw">fn </span>is_foreign(location: <span class="kw-2">&amp;</span>xcm::v3::Location) -&gt; bool {
 		<span class="kw">use </span>assets_common::fungible_conversion::MatchesLocation;
-		<span class="kw">let </span>latest_location: Location = <span class="kw">if let </span><span class="prelude-val">Ok</span>(location) = (<span class="kw-2">*</span>location).try_into() {
-			location
-		} <span class="kw">else </span>{
-			<span class="kw">return </span><span class="bool-val">false</span>;
-		};
+		<span class="kw">let </span>latest_location: Location =
+			<span class="kw">if let </span><span class="prelude-val">Ok</span>(location) = (<span class="kw-2">*</span>location).try_into() { location } <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
 		ForeignAssetsConvertedConcreteId::contains(<span class="kw-2">&amp;</span>latest_location)
 	}
 }

@@ -29,6 +29,7 @@
 <a href="#29" id="29">29</a>
 <a href="#30" id="30">30</a>
 <a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -51,13 +52,14 @@
 
 </span><span class="kw">pub mod </span>error;
 
-<span class="kw">use </span>jsonrpsee::{core::RpcResult, proc_macros::rpc};
+<span class="kw">use </span>error::Error;
+<span class="kw">use </span>jsonrpsee::proc_macros::rpc;
 <span class="kw">use </span>sp_core::Bytes;
 
 <span class="attr">#[rpc(client, server)]
 </span><span class="kw">pub trait </span>MixnetApi {
 	<span class="doccomment">/// Submit encoded extrinsic over the mixnet for inclusion in block.
 	</span><span class="attr">#[method(name = <span class="string">&quot;mixnet_submitExtrinsic&quot;</span>)]
-	</span><span class="kw">async fn </span>submit_extrinsic(<span class="kw-2">&amp;</span><span class="self">self</span>, extrinsic: Bytes) -&gt; RpcResult&lt;()&gt;;
+	</span><span class="kw">async fn </span>submit_extrinsic(<span class="kw-2">&amp;</span><span class="self">self</span>, extrinsic: Bytes) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
 }
 </code></pre></div></section></main></body></html>

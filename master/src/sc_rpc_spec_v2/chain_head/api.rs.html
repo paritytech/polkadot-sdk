@@ -149,6 +149,9 @@
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -171,10 +174,13 @@
 
 </span><span class="doccomment">//! API trait of the chain head.
 </span><span class="kw">use crate</span>::{
-	chain_head::event::{FollowEvent, MethodResponse},
+	chain_head::{
+		error::Error,
+		event::{FollowEvent, MethodResponse},
+	},
 	common::events::StorageQuery,
 };
-<span class="kw">use </span>jsonrpsee::{core::RpcResult, proc_macros::rpc};
+<span class="kw">use </span>jsonrpsee::proc_macros::rpc;
 <span class="kw">use </span>sp_rpc::list::ListOrValue;
 
 <span class="attr">#[rpc(client, server)]
@@ -207,7 +213,7 @@
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		follow_subscription: String,
 		hash: Hash,
-	) -&gt; RpcResult&lt;MethodResponse&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;MethodResponse, Error&gt;;
 
 	<span class="doccomment">/// Retrieves the header of a pinned block.
 	///
@@ -226,7 +232,7 @@
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		follow_subscription: String,
 		hash: Hash,
-	) -&gt; RpcResult&lt;<span class="prelude-ty">Option</span>&lt;String&gt;&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;String&gt;, Error&gt;;
 
 	<span class="doccomment">/// Returns storage entries at a specific block&#39;s state.
 	///
@@ -240,7 +246,7 @@
 		hash: Hash,
 		items: Vec&lt;StorageQuery&lt;String&gt;&gt;,
 		child_trie: <span class="prelude-ty">Option</span>&lt;String&gt;,
-	) -&gt; RpcResult&lt;MethodResponse&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;MethodResponse, Error&gt;;
 
 	<span class="doccomment">/// Call into the Runtime API at a specified block&#39;s state.
 	///
@@ -254,7 +260,7 @@
 		hash: Hash,
 		function: String,
 		call_parameters: String,
-	) -&gt; RpcResult&lt;MethodResponse&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;MethodResponse, Error&gt;;
 
 	<span class="doccomment">/// Unpin a block or multiple blocks reported by the `follow` method.
 	///
@@ -271,7 +277,7 @@
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		follow_subscription: String,
 		hash_or_hashes: ListOrValue&lt;Hash&gt;,
-	) -&gt; RpcResult&lt;()&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
 
 	<span class="doccomment">/// Resumes a storage fetch started with `chainHead_storage` after it has generated an
 	/// `operationWaitingForContinue` event.
@@ -284,7 +290,7 @@
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		follow_subscription: String,
 		operation_id: String,
-	) -&gt; RpcResult&lt;()&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
 
 	<span class="doccomment">/// Stops an operation started with chainHead_unstable_body, chainHead_unstable_call, or
 	/// chainHead_unstable_storage. If the operation was still in progress, this interrupts it. If
@@ -298,6 +304,6 @@
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		follow_subscription: String,
 		operation_id: String,
-	) -&gt; RpcResult&lt;()&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
 }
 </code></pre></div></section></main></body></html>

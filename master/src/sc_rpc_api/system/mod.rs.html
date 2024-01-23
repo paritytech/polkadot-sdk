@@ -119,8 +119,6 @@
 <a href="#119" id="119">119</a>
 <a href="#120" id="120">120</a>
 <a href="#121" id="121">121</a>
-<a href="#122" id="122">122</a>
-<a href="#123" id="123">123</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -141,38 +139,36 @@
 
 </span><span class="doccomment">//! Substrate system API.
 
-</span><span class="kw">use </span>jsonrpsee::{
-	core::{JsonValue, RpcResult},
-	proc_macros::rpc,
-};
+</span><span class="kw">pub mod </span>error;
+<span class="kw">pub mod </span>helpers;
+
+<span class="kw">use </span>jsonrpsee::{core::JsonValue, proc_macros::rpc};
 
 <span class="kw">pub use </span><span class="self">self</span>::helpers::{Health, NodeRole, PeerInfo, SyncState, SystemInfo};
-
-<span class="kw">pub mod </span>error;
-<span class="kw">pub mod </span>helpers;
+<span class="kw">pub use </span>error::Error;
 
 <span class="doccomment">/// Substrate system RPC API
 </span><span class="attr">#[rpc(client, server)]
 </span><span class="kw">pub trait </span>SystemApi&lt;Hash, Number&gt; {
 	<span class="doccomment">/// Get the node&#39;s implementation name. Plain old string.
 	</span><span class="attr">#[method(name = <span class="string">&quot;system_name&quot;</span>)]
-	</span><span class="kw">fn </span>system_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;String&gt;;
+	</span><span class="kw">fn </span>system_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;String, Error&gt;;
 
 	<span class="doccomment">/// Get the node implementation&#39;s version. Should be a semver string.
 	</span><span class="attr">#[method(name = <span class="string">&quot;system_version&quot;</span>)]
-	</span><span class="kw">fn </span>system_version(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;String&gt;;
+	</span><span class="kw">fn </span>system_version(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;String, Error&gt;;
 
 	<span class="doccomment">/// Get the chain&#39;s name. Given as a string identifier.
 	</span><span class="attr">#[method(name = <span class="string">&quot;system_chain&quot;</span>)]
-	</span><span class="kw">fn </span>system_chain(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;String&gt;;
+	</span><span class="kw">fn </span>system_chain(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;String, Error&gt;;
 
 	<span class="doccomment">/// Get the chain&#39;s type.
 	</span><span class="attr">#[method(name = <span class="string">&quot;system_chainType&quot;</span>)]
-	</span><span class="kw">fn </span>system_type(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;sc_chain_spec::ChainType&gt;;
+	</span><span class="kw">fn </span>system_type(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;sc_chain_spec::ChainType, Error&gt;;
 
 	<span class="doccomment">/// Get a custom set of properties as a JSON object, defined in the chain spec.
 	</span><span class="attr">#[method(name = <span class="string">&quot;system_properties&quot;</span>)]
-	</span><span class="kw">fn </span>system_properties(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;sc_chain_spec::Properties&gt;;
+	</span><span class="kw">fn </span>system_properties(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;sc_chain_spec::Properties, Error&gt;;
 
 	<span class="doccomment">/// Return health status of the node.
 	///
@@ -180,22 +176,22 @@
 	/// - connected to some peers (unless running in dev mode)
 	/// - not performing a major sync
 	</span><span class="attr">#[method(name = <span class="string">&quot;system_health&quot;</span>)]
-	</span><span class="kw">async fn </span>system_health(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;Health&gt;;
+	</span><span class="kw">async fn </span>system_health(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Health, Error&gt;;
 
 	<span class="doccomment">/// Returns the base58-encoded PeerId of the node.
 	</span><span class="attr">#[method(name = <span class="string">&quot;system_localPeerId&quot;</span>)]
-	</span><span class="kw">async fn </span>system_local_peer_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;String&gt;;
+	</span><span class="kw">async fn </span>system_local_peer_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;String, Error&gt;;
 
 	<span class="doccomment">/// Returns the multi-addresses that the local node is listening on
 	///
 	/// The addresses include a trailing `/p2p/` with the local PeerId, and are thus suitable to
 	/// be passed to `addReservedPeer` or as a bootnode address for example.
 	</span><span class="attr">#[method(name = <span class="string">&quot;system_localListenAddresses&quot;</span>)]
-	</span><span class="kw">async fn </span>system_local_listen_addresses(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;Vec&lt;String&gt;&gt;;
+	</span><span class="kw">async fn </span>system_local_listen_addresses(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;String&gt;, Error&gt;;
 
 	<span class="doccomment">/// Returns currently connected peers
 	</span><span class="attr">#[method(name = <span class="string">&quot;system_peers&quot;</span>)]
-	</span><span class="kw">async fn </span>system_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;Vec&lt;PeerInfo&lt;Hash, Number&gt;&gt;&gt;;
+	</span><span class="kw">async fn </span>system_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PeerInfo&lt;Hash, Number&gt;&gt;, Error&gt;;
 
 	<span class="doccomment">/// Returns current state of the network.
 	///
@@ -204,7 +200,7 @@
 	</span><span class="comment">// TODO: the future of this call is uncertain: https://github.com/paritytech/substrate/issues/1890
 	// https://github.com/paritytech/substrate/issues/5541
 	</span><span class="attr">#[method(name = <span class="string">&quot;system_unstable_networkState&quot;</span>)]
-	</span><span class="kw">async fn </span>system_network_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;JsonValue&gt;;
+	</span><span class="kw">async fn </span>system_network_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;JsonValue, Error&gt;;
 
 	<span class="doccomment">/// Adds a reserved peer. Returns the empty string or an error. The string
 	/// parameter should encode a `p2p` multiaddr.
@@ -212,25 +208,25 @@
 	/// `/ip4/198.51.100.19/tcp/30333/p2p/QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV`
 	/// is an example of a valid, passing multiaddr with PeerId attached.
 	</span><span class="attr">#[method(name = <span class="string">&quot;system_addReservedPeer&quot;</span>)]
-	</span><span class="kw">async fn </span>system_add_reserved_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer: String) -&gt; RpcResult&lt;()&gt;;
+	</span><span class="kw">async fn </span>system_add_reserved_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer: String) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
 
 	<span class="doccomment">/// Remove a reserved peer. Returns the empty string or an error. The string
 	/// should encode only the PeerId e.g. `QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV`.
 	</span><span class="attr">#[method(name = <span class="string">&quot;system_removeReservedPeer&quot;</span>)]
-	</span><span class="kw">async fn </span>system_remove_reserved_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: String) -&gt; RpcResult&lt;()&gt;;
+	</span><span class="kw">async fn </span>system_remove_reserved_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: String) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
 
 	<span class="doccomment">/// Returns the list of reserved peers
 	</span><span class="attr">#[method(name = <span class="string">&quot;system_reservedPeers&quot;</span>)]
-	</span><span class="kw">async fn </span>system_reserved_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;Vec&lt;String&gt;&gt;;
+	</span><span class="kw">async fn </span>system_reserved_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;String&gt;, Error&gt;;
 
 	<span class="doccomment">/// Returns the roles the node is running as.
 	</span><span class="attr">#[method(name = <span class="string">&quot;system_nodeRoles&quot;</span>)]
-	</span><span class="kw">async fn </span>system_node_roles(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;Vec&lt;NodeRole&gt;&gt;;
+	</span><span class="kw">async fn </span>system_node_roles(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;NodeRole&gt;, Error&gt;;
 
 	<span class="doccomment">/// Returns the state of the syncing of the node: starting block, current best block, highest
 	/// known block.
 	</span><span class="attr">#[method(name = <span class="string">&quot;system_syncState&quot;</span>)]
-	</span><span class="kw">async fn </span>system_sync_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;SyncState&lt;Number&gt;&gt;;
+	</span><span class="kw">async fn </span>system_sync_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;SyncState&lt;Number&gt;, Error&gt;;
 
 	<span class="doccomment">/// Adds the supplied directives to the current log filter
 	///
@@ -238,10 +234,10 @@
 	///
 	/// `sync=debug,state=trace`
 	</span><span class="attr">#[method(name = <span class="string">&quot;system_addLogFilter&quot;</span>)]
-	</span><span class="kw">fn </span>system_add_log_filter(<span class="kw-2">&amp;</span><span class="self">self</span>, directives: String) -&gt; RpcResult&lt;()&gt;;
+	</span><span class="kw">fn </span>system_add_log_filter(<span class="kw-2">&amp;</span><span class="self">self</span>, directives: String) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
 
 	<span class="doccomment">/// Resets the log filter to Substrate defaults
 	</span><span class="attr">#[method(name = <span class="string">&quot;system_resetLogFilter&quot;</span>)]
-	</span><span class="kw">fn </span>system_reset_log_filter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;()&gt;;
+	</span><span class="kw">fn </span>system_reset_log_filter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
 }
 </code></pre></div></section></main></body></html>

@@ -167,9 +167,6 @@
 <a href="#167" id="167">167</a>
 <a href="#168" id="168">168</a>
 <a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -195,10 +192,7 @@
 	channel::{mpsc, oneshot},
 	SinkExt,
 };
-<span class="kw">use </span>jsonrpsee::{
-	core::{async_trait, Error <span class="kw">as </span>JsonRpseeError, RpcResult},
-	proc_macros::rpc,
-};
+<span class="kw">use </span>jsonrpsee::{core::async_trait, proc_macros::rpc};
 <span class="kw">use </span>sc_consensus::ImportedAux;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>sp_runtime::EncodedJustification;
@@ -246,7 +240,7 @@
 		create_empty: bool,
 		finalize: bool,
 		parent_hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;,
-	) -&gt; RpcResult&lt;CreatedBlock&lt;Hash&gt;&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;CreatedBlock&lt;Hash&gt;, Error&gt;;
 
 	<span class="doccomment">/// Instructs the manual-seal authorship task to finalize a block
 	</span><span class="attr">#[method(name = <span class="string">&quot;engine_finalizeBlock&quot;</span>)]
@@ -254,7 +248,7 @@
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		hash: Hash,
 		justification: <span class="prelude-ty">Option</span>&lt;EncodedJustification&gt;,
-	) -&gt; RpcResult&lt;bool&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;bool, Error&gt;;
 }
 
 <span class="doccomment">/// A struct that implements the [`ManualSealApiServer`].
@@ -263,7 +257,7 @@
 }
 
 <span class="doccomment">/// return type of `engine_createBlock`
-</span><span class="attr">#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
+</span><span class="attr">#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>CreatedBlock&lt;Hash&gt; {
 	<span class="doccomment">/// hash of the created block.
 	</span><span class="kw">pub </span>hash: Hash,
@@ -287,7 +281,7 @@
 		create_empty: bool,
 		finalize: bool,
 		parent_hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;,
-	) -&gt; RpcResult&lt;CreatedBlock&lt;Hash&gt;&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;CreatedBlock&lt;Hash&gt;, Error&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>sink = <span class="self">self</span>.import_block_channel.clone();
 		<span class="kw">let </span>(sender, receiver) = oneshot::channel();
 		<span class="comment">// NOTE: this sends a Result over the channel.
@@ -303,7 +297,7 @@
 		<span class="kw">match </span>receiver.<span class="kw">await </span>{
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(rx)) =&gt; <span class="prelude-val">Ok</span>(rx),
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(e)) =&gt; <span class="prelude-val">Err</span>(e.into()),
-			<span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(JsonRpseeError::to_call_error(e)),
+			<span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e.into()),
 		}
 	}
 
@@ -311,12 +305,12 @@
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		hash: Hash,
 		justification: <span class="prelude-ty">Option</span>&lt;EncodedJustification&gt;,
-	) -&gt; RpcResult&lt;bool&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;bool, Error&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>sink = <span class="self">self</span>.import_block_channel.clone();
 		<span class="kw">let </span>(sender, receiver) = oneshot::channel();
 		<span class="kw">let </span>command = EngineCommand::FinalizeBlock { hash, sender: <span class="prelude-val">Some</span>(sender), justification };
 		sink.send(command).<span class="kw">await</span><span class="question-mark">?</span>;
-		receiver.<span class="kw">await</span>.map(|<span class="kw">_</span>| <span class="bool-val">true</span>).map_err(|e| JsonRpseeError::to_call_error(e))
+		receiver.<span class="kw">await</span>.map(|<span class="kw">_</span>| <span class="bool-val">true</span>).map_err(Into::into)
 	}
 }
 

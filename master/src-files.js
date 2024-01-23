@@ -361,7 +361,7 @@ var srcIndex = JSON.parse('{\
 "sc_network_transactions":["",[],["config.rs","lib.rs"]],\
 "sc_offchain":["",[["api",[],["http.rs","timestamp.rs"]]],["api.rs","lib.rs"]],\
 "sc_proposer_metrics":["",[],["lib.rs"]],\
-"sc_rpc":["",[["author",[],["mod.rs"]],["chain",[],["chain_full.rs","mod.rs"]],["dev",[],["mod.rs"]],["mixnet",[],["mod.rs"]],["offchain",[],["mod.rs"]],["state",[],["mod.rs","state_full.rs","utils.rs"]],["statement",[],["mod.rs"]],["system",[],["mod.rs"]]],["lib.rs"]],\
+"sc_rpc":["",[["author",[],["mod.rs"]],["chain",[],["chain_full.rs","mod.rs"]],["dev",[],["mod.rs"]],["mixnet",[],["mod.rs"]],["offchain",[],["mod.rs"]],["state",[],["mod.rs","state_full.rs","utils.rs"]],["statement",[],["mod.rs"]],["system",[],["mod.rs"]]],["lib.rs","utils.rs"]],\
 "sc_rpc_api":["",[["author",[],["error.rs","hash.rs","mod.rs"]],["chain",[],["error.rs","mod.rs"]],["child_state",[],["mod.rs"]],["dev",[],["error.rs","mod.rs"]],["mixnet",[],["error.rs","mod.rs"]],["offchain",[],["error.rs","mod.rs"]],["state",[],["error.rs","helpers.rs","mod.rs"]],["statement",[],["error.rs","mod.rs"]],["system",[],["error.rs","helpers.rs","mod.rs"]]],["error.rs","lib.rs","policy.rs"]],\
 "sc_rpc_server":["",[],["lib.rs","middleware.rs"]],\
 "sc_rpc_spec_v2":["",[["archive",[],["api.rs","archive.rs","archive_storage.rs","error.rs","mod.rs"]],["chain_head",[["subscription",[],["error.rs","inner.rs","mod.rs"]]],["api.rs","chain_head.rs","chain_head_follow.rs","chain_head_storage.rs","error.rs","event.rs","mod.rs"]],["chain_spec",[],["api.rs","chain_spec.rs","mod.rs"]],["common",[],["events.rs","mod.rs","storage.rs"]],["transaction",[],["api.rs","error.rs","event.rs","mod.rs","transaction.rs"]]],["lib.rs"]],\

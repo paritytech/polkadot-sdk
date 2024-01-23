@@ -655,7 +655,7 @@
 
 <span class="doccomment">/// Storage change set
 </span><span class="attr">#[derive(RuntimeDebug)]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(Serialize, Deserialize, PartialEq, Eq))]
+#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(Serialize, Deserialize, PartialEq, Eq, Clone))]
 #[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, serde(rename_all = <span class="string">&quot;camelCase&quot;</span>))]
 </span><span class="kw">pub struct </span>StorageChangeSet&lt;Hash&gt; {
 	<span class="doccomment">/// Block hash

@@ -96,7 +96,7 @@
 </span><span class="kw">mod </span>tests;
 
 <span class="kw">use </span><span class="self">self</span>::error::Error;
-<span class="kw">use </span>jsonrpsee::core::{async_trait, Error <span class="kw">as </span>JsonRpseeError, RpcResult};
+<span class="kw">use </span>jsonrpsee::core::async_trait;
 <span class="kw">use </span>parking_lot::RwLock;
 <span class="doccomment">/// Re-export the API for backward compatibility.
 </span><span class="kw">pub use </span>sc_rpc_api::offchain::<span class="kw-2">*</span>;
@@ -124,23 +124,23 @@
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;T: OffchainStorage + <span class="lifetime">&#39;static</span>&gt; OffchainApiServer <span class="kw">for </span>Offchain&lt;T&gt; {
-	<span class="kw">fn </span>set_local_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, kind: StorageKind, key: Bytes, value: Bytes) -&gt; RpcResult&lt;()&gt; {
+	<span class="kw">fn </span>set_local_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, kind: StorageKind, key: Bytes, value: Bytes) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>prefix = <span class="kw">match </span>kind {
 			StorageKind::PERSISTENT =&gt; sp_offchain::STORAGE_PREFIX,
-			StorageKind::LOCAL =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(JsonRpseeError::from(Error::UnavailableStorageKind)),
+			StorageKind::LOCAL =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::UnavailableStorageKind),
 		};
 		<span class="self">self</span>.storage.write().set(prefix, <span class="kw-2">&amp;</span>key, <span class="kw-2">&amp;</span>value);
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="kw">fn </span>get_local_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, kind: StorageKind, key: Bytes) -&gt; RpcResult&lt;<span class="prelude-ty">Option</span>&lt;Bytes&gt;&gt; {
+	<span class="kw">fn </span>get_local_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, kind: StorageKind, key: Bytes) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Bytes&gt;, Error&gt; {
 		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>prefix = <span class="kw">match </span>kind {
 			StorageKind::PERSISTENT =&gt; sp_offchain::STORAGE_PREFIX,
-			StorageKind::LOCAL =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(JsonRpseeError::from(Error::UnavailableStorageKind)),
+			StorageKind::LOCAL =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::UnavailableStorageKind),
 		};
 
 		<span class="prelude-val">Ok</span>(<span class="self">self</span>.storage.read().get(prefix, <span class="kw-2">&amp;</span>key).map(Into::into))

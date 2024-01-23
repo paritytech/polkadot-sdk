@@ -61,6 +61,7 @@
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
 <a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -86,7 +87,8 @@
 </span><span class="kw">pub mod </span>error;
 
 <span class="kw">use </span>codec::{Decode, Encode};
-<span class="kw">use </span>jsonrpsee::{core::RpcResult, proc_macros::rpc};
+<span class="kw">use </span>error::Error;
+<span class="kw">use </span>jsonrpsee::proc_macros::rpc;
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
@@ -122,6 +124,6 @@
 	/// at the queried node. If either the specified block or the parent is pruned,
 	/// this function will return `None`.
 	</span><span class="attr">#[method(name = <span class="string">&quot;dev_getBlockStats&quot;</span>)]
-	</span><span class="kw">fn </span>block_stats(<span class="kw-2">&amp;</span><span class="self">self</span>, block_hash: Hash) -&gt; RpcResult&lt;<span class="prelude-ty">Option</span>&lt;BlockStats&gt;&gt;;
+	</span><span class="kw">fn </span>block_stats(<span class="kw-2">&amp;</span><span class="self">self</span>, block_hash: Hash) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;BlockStats&gt;, Error&gt;;
 }
 </code></pre></div></section></main></body></html>

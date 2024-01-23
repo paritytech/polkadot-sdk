@@ -222,6 +222,8 @@
 <a href="#222" id="222">222</a>
 <a href="#223" id="223">223</a>
 <a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -242,7 +244,9 @@
 
 </span><span class="doccomment">//! RPC middleware to collect prometheus metrics on RPC calls.
 
-</span><span class="kw">use </span>jsonrpsee::server::logger::{HttpRequest, Logger, MethodKind, Params, TransportProtocol};
+</span><span class="kw">use </span>jsonrpsee::server::logger::{
+	HttpRequest, Logger, MethodKind, Params, SuccessOrError, TransportProtocol,
+};
 <span class="kw">use </span>prometheus_endpoint::{
 	register, Counter, CounterVec, HistogramOpts, HistogramVec, Opts, PrometheusError, Registry,
 	U64,
@@ -400,7 +404,7 @@
 	<span class="kw">fn </span>on_result(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		name: <span class="kw-2">&amp;</span>str,
-		success: bool,
+		success_or_error: SuccessOrError,
 		started_at: <span class="self">Self</span>::Instant,
 		transport: TransportProtocol,
 	) {
@@ -421,7 +425,7 @@
 				name,
 				<span class="comment">// the label &quot;is_error&quot;, so `success` should be regarded as false
 				// and vice-versa to be registrered correctly.
-				</span><span class="kw">if </span>success { <span class="string">&quot;false&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;true&quot; </span>},
+				</span><span class="kw">if </span>success_or_error.is_success() { <span class="string">&quot;false&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;true&quot; </span>},
 			])
 			.inc();
 	}

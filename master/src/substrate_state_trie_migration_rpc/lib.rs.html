@@ -195,9 +195,9 @@
 </span><span class="doccomment">//! Rpc for state migration.
 
 </span><span class="kw">use </span>jsonrpsee::{
-	core::{Error <span class="kw">as </span>JsonRpseeError, RpcResult},
+	core::RpcResult,
 	proc_macros::rpc,
-	types::error::{CallError, ErrorCode, ErrorObject},
+	types::error::{ErrorCode, ErrorObject, ErrorObjectOwned},
 };
 <span class="kw">use </span>sc_rpc_api::DenyUnsafe;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -289,7 +289,7 @@
 }
 
 <span class="doccomment">/// Current state migration status.
-</span><span class="attr">#[derive(Serialize, Deserialize)]
+</span><span class="attr">#[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
 #[serde(deny_unknown_fields)]
 </span><span class="kw">pub struct </span>MigrationStatusResult {
@@ -345,11 +345,11 @@
 	}
 }
 
-<span class="kw">fn </span>error_into_rpc_err(err: <span class="kw">impl </span>std::fmt::Display) -&gt; JsonRpseeError {
-	JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
+<span class="kw">fn </span>error_into_rpc_err(err: <span class="kw">impl </span>std::fmt::Display) -&gt; ErrorObjectOwned {
+	ErrorObject::owned(
 		ErrorCode::InternalError.code(),
 		<span class="string">&quot;Error while checking migration state&quot;</span>,
 		<span class="prelude-val">Some</span>(err.to_string()),
-	)))
+	)
 }
 </code></pre></div></section></main></body></html>

@@ -958,7 +958,7 @@
 					<span class="prelude-val">Ok</span>(chain_sync) =&gt; chain_sync,
 					<span class="prelude-val">Err</span>(e) =&gt; {
 						<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;Failed to start `ChainSync`.&quot;</span>);
-						<span class="kw">return </span><span class="prelude-val">Err</span>(e);
+						<span class="kw">return </span><span class="prelude-val">Err</span>(e)
 					},
 				};
 				<span class="comment">// Let `ChainSync` know about connected peers.

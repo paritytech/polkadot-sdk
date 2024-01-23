@@ -182,6 +182,9 @@
 <a href="#182" id="182">182</a>
 <a href="#183" id="183">183</a>
 <a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -206,15 +209,14 @@
 
 </span><span class="kw">pub mod </span>middleware;
 
+<span class="kw">use </span>std::{error::Error <span class="kw">as </span>StdError, net::SocketAddr, time::Duration};
+
 <span class="kw">use </span>http::header::HeaderValue;
 <span class="kw">use </span>jsonrpsee::{
-	server::{
-		middleware::proxy_get_request::ProxyGetRequestLayer, AllowHosts, ServerBuilder,
-		ServerHandle,
-	},
+	server::middleware::{HostFilterLayer, ProxyGetRequestLayer},
 	RpcModule,
 };
-<span class="kw">use </span>std::{error::Error <span class="kw">as </span>StdError, net::SocketAddr};
+<span class="kw">use </span>tokio::net::TcpListener;
 <span class="kw">use </span>tower_http::cors::{AllowOrigin, CorsLayer};
 
 <span class="kw">pub use </span><span class="kw">crate</span>::middleware::RpcMetrics;
@@ -226,7 +228,7 @@
 <span class="kw">const </span>MEGABYTE: u32 = <span class="number">1024 </span>* <span class="number">1024</span>;
 
 <span class="doccomment">/// Type alias for the JSON-RPC server.
-</span><span class="kw">pub type </span>Server = ServerHandle;
+</span><span class="kw">pub type </span>Server = jsonrpsee::server::ServerHandle;
 
 <span class="doccomment">/// RPC server configuration.
 </span><span class="attr">#[derive(Debug)]
@@ -245,6 +247,8 @@
 	</span><span class="kw">pub </span>max_payload_out_mb: u32,
 	<span class="doccomment">/// Metrics.
 	</span><span class="kw">pub </span>metrics: <span class="prelude-ty">Option</span>&lt;RpcMetrics&gt;,
+	<span class="doccomment">/// Message buffer size
+	</span><span class="kw">pub </span>message_buffer_capacity: u32,
 	<span class="doccomment">/// RPC API.
 	</span><span class="kw">pub </span>rpc_api: RpcModule&lt;M&gt;,
 	<span class="doccomment">/// Subscription ID provider.
@@ -256,7 +260,7 @@
 <span class="doccomment">/// Start RPC server listening on given address.
 </span><span class="kw">pub async fn </span>start_server&lt;M: Send + Sync + <span class="lifetime">&#39;static</span>&gt;(
 	config: Config&lt;<span class="lifetime">&#39;_</span>, M&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;ServerHandle, Box&lt;<span class="kw">dyn </span>StdError + Send + Sync&gt;&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Server, Box&lt;<span class="kw">dyn </span>StdError + Send + Sync&gt;&gt; {
 	<span class="kw">let </span>Config {
 		addrs,
 		cors,
@@ -265,26 +269,30 @@
 		max_connections,
 		max_subs_per_conn,
 		metrics,
+		message_buffer_capacity,
 		id_provider,
 		tokio_handle,
 		rpc_api,
 	} = config;
 
-	<span class="kw">let </span>host_filter = hosts_filtering(cors.is_some(), <span class="kw-2">&amp;</span>addrs);
+	<span class="kw">let </span>std_listener = TcpListener::bind(addrs.as_slice()).<span class="kw">await</span><span class="question-mark">?</span>.into_std()<span class="question-mark">?</span>;
+	<span class="kw">let </span>local_addr = std_listener.local_addr().ok();
+	<span class="kw">let </span>host_filter = hosts_filtering(cors.is_some(), local_addr);
 
 	<span class="kw">let </span>middleware = tower::ServiceBuilder::new()
+		.option_layer(host_filter)
 		<span class="comment">// Proxy `GET /health` requests to internal `system_health` method.
 		</span>.layer(ProxyGetRequestLayer::new(<span class="string">&quot;/health&quot;</span>, <span class="string">&quot;system_health&quot;</span>)<span class="question-mark">?</span>)
 		.layer(try_into_cors(cors)<span class="question-mark">?</span>);
 
-	<span class="kw">let </span><span class="kw-2">mut </span>builder = ServerBuilder::new()
+	<span class="kw">let </span><span class="kw-2">mut </span>builder = jsonrpsee::server::Server::builder()
 		.max_request_body_size(max_payload_in_mb.saturating_mul(MEGABYTE))
 		.max_response_body_size(max_payload_out_mb.saturating_mul(MEGABYTE))
 		.max_connections(max_connections)
 		.max_subscriptions_per_connection(max_subs_per_conn)
-		.ping_interval(std::time::Duration::from_secs(<span class="number">30</span>))
-		.set_host_filtering(host_filter)
+		.ping_interval(Duration::from_secs(<span class="number">30</span>))
 		.set_middleware(middleware)
+		.set_message_buffer_capacity(message_buffer_capacity)
 		.custom_tokio_runtime(tokio_handle);
 
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(provider) = id_provider {
@@ -294,37 +302,35 @@
 	};
 
 	<span class="kw">let </span>rpc_api = build_rpc_api(rpc_api);
-	<span class="kw">let </span>(handle, addr) = <span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = metrics {
-		<span class="kw">let </span>server = builder.set_logger(metrics).build(<span class="kw-2">&amp;</span>addrs[..]).<span class="kw">await</span><span class="question-mark">?</span>;
-		<span class="kw">let </span>addr = server.local_addr();
-		(server.start(rpc_api)<span class="question-mark">?</span>, addr)
+	<span class="kw">let </span>handle = <span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = metrics {
+		<span class="kw">let </span>server = builder.set_logger(metrics).build_from_tcp(std_listener)<span class="question-mark">?</span>;
+		server.start(rpc_api)
 	} <span class="kw">else </span>{
-		<span class="kw">let </span>server = builder.build(<span class="kw-2">&amp;</span>addrs[..]).<span class="kw">await</span><span class="question-mark">?</span>;
-		<span class="kw">let </span>addr = server.local_addr();
-		(server.start(rpc_api)<span class="question-mark">?</span>, addr)
+		<span class="kw">let </span>server = builder.build_from_tcp(std_listener)<span class="question-mark">?</span>;
+		server.start(rpc_api)
 	};
 
 	<span class="macro">log::info!</span>(
 		<span class="string">&quot;Running JSON-RPC server: addr={}, allowed origins={}&quot;</span>,
-		addr.map_or_else(|<span class="kw">_</span>| <span class="string">&quot;unknown&quot;</span>.to_string(), |a| a.to_string()),
+		local_addr.map_or_else(|| <span class="string">&quot;unknown&quot;</span>.to_string(), |a| a.to_string()),
 		format_cors(cors)
 	);
 
 	<span class="prelude-val">Ok</span>(handle)
 }
 
-<span class="kw">fn </span>hosts_filtering(enabled: bool, addrs: <span class="kw-2">&amp;</span>[SocketAddr]) -&gt; AllowHosts {
+<span class="kw">fn </span>hosts_filtering(enabled: bool, addr: <span class="prelude-ty">Option</span>&lt;SocketAddr&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;HostFilterLayer&gt; {
+	<span class="comment">// If the local_addr failed, fallback to wildcard.
+	</span><span class="kw">let </span>port = addr.map_or(<span class="string">&quot;*&quot;</span>.to_string(), |p| p.port().to_string());
+
 	<span class="kw">if </span>enabled {
-		<span class="comment">// NOTE The listening addresses are whitelisted by default.
-		</span><span class="kw">let </span><span class="kw-2">mut </span>hosts = Vec::with_capacity(addrs.len() * <span class="number">2</span>);
-		<span class="kw">for </span>addr <span class="kw">in </span>addrs {
-			hosts.push(<span class="macro">format!</span>(<span class="string">&quot;localhost:{}&quot;</span>, addr.port()).into());
-			hosts.push(<span class="macro">format!</span>(<span class="string">&quot;127.0.0.1:{}&quot;</span>, addr.port()).into());
-		}
-		AllowHosts::Only(hosts)
+		<span class="comment">// NOTE: The listening addresses are whitelisted by default.
+		</span><span class="kw">let </span>hosts =
+			[<span class="macro">format!</span>(<span class="string">&quot;localhost:{port}&quot;</span>), <span class="macro">format!</span>(<span class="string">&quot;127.0.0.1:{port}&quot;</span>), <span class="macro">format!</span>(<span class="string">&quot;[::1]:{port}&quot;</span>)];
+		<span class="prelude-val">Some</span>(HostFilterLayer::new(hosts).expect(<span class="string">&quot;Valid hosts; qed&quot;</span>))
 	} <span class="kw">else </span>{
-		AllowHosts::Any
-	}
+		<span class="prelude-val">None
+	</span>}
 }
 
 <span class="kw">fn </span>build_rpc_api&lt;M: Send + Sync + <span class="lifetime">&#39;static</span>&gt;(<span class="kw-2">mut </span>rpc_api: RpcModule&lt;M&gt;) -&gt; RpcModule&lt;M&gt; {
@@ -335,9 +341,9 @@
 
 	rpc_api
 		.register_method(<span class="string">&quot;rpc_methods&quot;</span>, <span class="kw">move </span>|<span class="kw">_</span>, <span class="kw">_</span>| {
-			<span class="prelude-val">Ok</span>(<span class="macro">serde_json::json!</span>({
+			<span class="macro">serde_json::json!</span>({
 				<span class="string">&quot;methods&quot;</span>: available_methods,
-			}))
+			})
 		})
 		.expect(<span class="string">&quot;infallible all other methods have their own address space; qed&quot;</span>);
 

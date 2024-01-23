@@ -1560,6 +1560,7 @@
 <a href="#1560" id="1560">1560</a>
 <a href="#1561" id="1561">1561</a>
 <a href="#1562" id="1562">1562</a>
+<a href="#1563" id="1563">1563</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1751,7 +1752,8 @@
 				uri.clone()
 			};
 			<span class="kw">let </span>http_client = HttpClientBuilder::default()
-				.max_request_body_size(u32::MAX)
+				.max_request_size(u32::MAX)
+				.max_response_size(u32::MAX)
 				.request_timeout(std::time::Duration::from_secs(<span class="number">60 </span>* <span class="number">5</span>))
 				.build(uri)
 				.map_err(|e| {

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["NodeRole","Request"],"mod":["error","helpers"],"struct":["Health","PeerInfo","SyncState","System","SystemInfo"],"trait":["SystemApiClient","SystemApiServer"]};
+window.SIDEBAR_ITEMS = {"enum":["Error","NodeRole","Request"],"mod":["error","helpers"],"struct":["Health","PeerInfo","SyncState","System","SystemInfo"],"trait":["SystemApiClient","SystemApiServer"]};

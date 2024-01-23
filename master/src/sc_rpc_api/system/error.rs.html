@@ -59,6 +59,11 @@
 <a href="#59" id="59">59</a>
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -80,9 +85,9 @@
 </span><span class="doccomment">//! System RPC module errors.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::system::helpers::Health;
-<span class="kw">use </span>jsonrpsee::{
-	core::Error <span class="kw">as </span>JsonRpseeError,
-	types::error::{CallError, ErrorObject},
+<span class="kw">use </span>jsonrpsee::types::{
+	error::{ErrorCode, ErrorObject},
+	ErrorObjectOwned,
 };
 
 <span class="doccomment">/// System RPC Result type.
@@ -97,6 +102,12 @@
 	<span class="doccomment">/// Peer argument is malformatted.
 	</span><span class="attr">#[error(<span class="string">&quot;{0}&quot;</span>)]
 	</span>MalformattedPeerArg(String),
+	<span class="doccomment">/// Call to an unsafe RPC was denied.
+	</span><span class="attr">#[error(transparent)]
+	</span>UnsafeRpcCalled(<span class="attr">#[from] </span><span class="kw">crate</span>::policy::UnsafeRpcError),
+	<span class="doccomment">/// Internal error.
+	</span><span class="attr">#[error(<span class="string">&quot;{0}&quot;</span>)]
+	</span>Internal(String),
 }
 
 <span class="comment">// Base code for all system errors.
@@ -106,18 +117,17 @@
 <span class="comment">// Peer argument is malformatted.
 </span><span class="kw">const </span>MALFORMATTED_PEER_ARG_ERROR: i32 = BASE_ERROR + <span class="number">2</span>;
 
-<span class="kw">impl </span>From&lt;Error&gt; <span class="kw">for </span>JsonRpseeError {
-	<span class="kw">fn </span>from(e: Error) -&gt; <span class="self">Self </span>{
+<span class="kw">impl </span>From&lt;Error&gt; <span class="kw">for </span>ErrorObjectOwned {
+	<span class="kw">fn </span>from(e: Error) -&gt; ErrorObjectOwned {
 		<span class="kw">match </span>e {
 			Error::NotHealthy(<span class="kw-2">ref </span>h) =&gt;
-				CallError::Custom(ErrorObject::owned(NOT_HEALTHY_ERROR, e.to_string(), <span class="prelude-val">Some</span>(h))),
-			Error::MalformattedPeerArg(e) =&gt; CallError::Custom(ErrorObject::owned(
-				MALFORMATTED_PEER_ARG_ERROR + <span class="number">2</span>,
-				e,
-				<span class="prelude-val">None</span>::&lt;()&gt;,
-			)),
+				ErrorObject::owned(NOT_HEALTHY_ERROR, e.to_string(), <span class="prelude-val">Some</span>(h)),
+			Error::MalformattedPeerArg(e) =&gt;
+				ErrorObject::owned(MALFORMATTED_PEER_ARG_ERROR, e, <span class="prelude-val">None</span>::&lt;()&gt;),
+			Error::UnsafeRpcCalled(e) =&gt; e.into(),
+			Error::Internal(e) =&gt;
+				ErrorObjectOwned::owned(ErrorCode::InternalError.code(), e, <span class="prelude-val">None</span>::&lt;()&gt;),
 		}
-		.into()
 	}
 }
 </code></pre></div></section></main></body></html>

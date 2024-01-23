@@ -454,7 +454,7 @@
 }
 
 <span class="doccomment">/// Auxiliary data associated with an imported block result.
-</span><span class="attr">#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+</span><span class="attr">#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 </span><span class="kw">pub struct </span>ImportedAux {
 	<span class="doccomment">/// Only the header has been imported. Block body verification was skipped.
 	</span><span class="kw">pub </span>header_only: bool,

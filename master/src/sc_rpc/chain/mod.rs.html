@@ -174,7 +174,6 @@
 <a href="#174" id="174">174</a>
 <a href="#175" id="175">175</a>
 <a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -204,7 +203,7 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::SubscriptionTaskExecutor;
 
-<span class="kw">use </span>jsonrpsee::{core::RpcResult, types::SubscriptionResult, SubscriptionSink};
+<span class="kw">use </span>jsonrpsee::{core::async_trait, PendingSubscriptionSink};
 <span class="kw">use </span>sc_client_api::BlockchainEvents;
 <span class="kw">use </span>sp_rpc::{list::ListOrValue, number::NumberOrHex};
 <span class="kw">use </span>sp_runtime::{
@@ -219,6 +218,7 @@
 <span class="kw">use </span>sp_blockchain::HeaderBackend;
 
 <span class="doccomment">/// Blockchain backend API
+</span><span class="attr">#[async_trait]
 </span><span class="kw">trait </span>ChainBackend&lt;Client, Block: BlockT&gt;: Send + Sync + <span class="lifetime">&#39;static
 </span><span class="kw">where
 	</span>Block: BlockT + <span class="lifetime">&#39;static</span>,
@@ -268,13 +268,13 @@
 	}
 
 	<span class="doccomment">/// All new head subscription
-	</span><span class="kw">fn </span>subscribe_all_heads(<span class="kw-2">&amp;</span><span class="self">self</span>, sink: SubscriptionSink);
+	</span><span class="kw">fn </span>subscribe_all_heads(<span class="kw-2">&amp;</span><span class="self">self</span>, pending: PendingSubscriptionSink);
 
 	<span class="doccomment">/// New best head subscription
-	</span><span class="kw">fn </span>subscribe_new_heads(<span class="kw-2">&amp;</span><span class="self">self</span>, sink: SubscriptionSink);
+	</span><span class="kw">fn </span>subscribe_new_heads(<span class="kw-2">&amp;</span><span class="self">self</span>, pending: PendingSubscriptionSink);
 
 	<span class="doccomment">/// Finalized head subscription
-	</span><span class="kw">fn </span>subscribe_finalized_heads(<span class="kw-2">&amp;</span><span class="self">self</span>, sink: SubscriptionSink);
+	</span><span class="kw">fn </span>subscribe_finalized_heads(<span class="kw-2">&amp;</span><span class="self">self</span>, pending: PendingSubscriptionSink);
 }
 
 <span class="doccomment">/// Create new state API that works on full node.
@@ -295,27 +295,28 @@
 	backend: Box&lt;<span class="kw">dyn </span>ChainBackend&lt;Client, Block&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;Block, Client&gt; ChainApiServer&lt;NumberFor&lt;Block&gt;, Block::Hash, Block::Header, SignedBlock&lt;Block&gt;&gt;
+<span class="attr">#[async_trait]
+</span><span class="kw">impl</span>&lt;Block, Client&gt; ChainApiServer&lt;NumberFor&lt;Block&gt;, Block::Hash, Block::Header, SignedBlock&lt;Block&gt;&gt;
 	<span class="kw">for </span>Chain&lt;Block, Client&gt;
 <span class="kw">where
 	</span>Block: BlockT + <span class="lifetime">&#39;static</span>,
 	Block::Header: Unpin,
 	Client: HeaderBackend&lt;Block&gt; + BlockchainEvents&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
 {
-	<span class="kw">fn </span>header(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: <span class="prelude-ty">Option</span>&lt;Block::Hash&gt;) -&gt; RpcResult&lt;<span class="prelude-ty">Option</span>&lt;Block::Header&gt;&gt; {
-		<span class="self">self</span>.backend.header(hash).map_err(Into::into)
+	<span class="kw">fn </span>header(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: <span class="prelude-ty">Option</span>&lt;Block::Hash&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Block::Header&gt;, Error&gt; {
+		<span class="self">self</span>.backend.header(hash)
 	}
 
-	<span class="kw">fn </span>block(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: <span class="prelude-ty">Option</span>&lt;Block::Hash&gt;) -&gt; RpcResult&lt;<span class="prelude-ty">Option</span>&lt;SignedBlock&lt;Block&gt;&gt;&gt; {
-		<span class="self">self</span>.backend.block(hash).map_err(Into::into)
+	<span class="kw">fn </span>block(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: <span class="prelude-ty">Option</span>&lt;Block::Hash&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;SignedBlock&lt;Block&gt;&gt;, Error&gt; {
+		<span class="self">self</span>.backend.block(hash)
 	}
 
 	<span class="kw">fn </span>block_hash(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		number: <span class="prelude-ty">Option</span>&lt;ListOrValue&lt;NumberOrHex&gt;&gt;,
-	) -&gt; RpcResult&lt;ListOrValue&lt;<span class="prelude-ty">Option</span>&lt;Block::Hash&gt;&gt;&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;ListOrValue&lt;<span class="prelude-ty">Option</span>&lt;Block::Hash&gt;&gt;, Error&gt; {
 		<span class="kw">match </span>number {
-			<span class="prelude-val">None </span>=&gt; <span class="self">self</span>.backend.block_hash(<span class="prelude-val">None</span>).map(ListOrValue::Value).map_err(Into::into),
+			<span class="prelude-val">None </span>=&gt; <span class="self">self</span>.backend.block_hash(<span class="prelude-val">None</span>).map(ListOrValue::Value),
 			<span class="prelude-val">Some</span>(ListOrValue::Value(number)) =&gt; <span class="self">self
 				</span>.backend
 				.block_hash(<span class="prelude-val">Some</span>(number))
@@ -329,23 +330,20 @@
 		}
 	}
 
-	<span class="kw">fn </span>finalized_head(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;Block::Hash&gt; {
-		<span class="self">self</span>.backend.finalized_head().map_err(Into::into)
+	<span class="kw">fn </span>finalized_head(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Block::Hash, Error&gt; {
+		<span class="self">self</span>.backend.finalized_head()
 	}
 
-	<span class="kw">fn </span>subscribe_all_heads(<span class="kw-2">&amp;</span><span class="self">self</span>, sink: SubscriptionSink) -&gt; SubscriptionResult {
-		<span class="self">self</span>.backend.subscribe_all_heads(sink);
-		<span class="prelude-val">Ok</span>(())
+	<span class="kw">fn </span>subscribe_all_heads(<span class="kw-2">&amp;</span><span class="self">self</span>, pending: PendingSubscriptionSink) {
+		<span class="self">self</span>.backend.subscribe_all_heads(pending);
 	}
 
-	<span class="kw">fn </span>subscribe_new_heads(<span class="kw-2">&amp;</span><span class="self">self</span>, sink: SubscriptionSink) -&gt; SubscriptionResult {
-		<span class="self">self</span>.backend.subscribe_new_heads(sink);
-		<span class="prelude-val">Ok</span>(())
+	<span class="kw">fn </span>subscribe_new_heads(<span class="kw-2">&amp;</span><span class="self">self</span>, pending: PendingSubscriptionSink) {
+		<span class="self">self</span>.backend.subscribe_new_heads(pending)
 	}
 
-	<span class="kw">fn </span>subscribe_finalized_heads(<span class="kw-2">&amp;</span><span class="self">self</span>, sink: SubscriptionSink) -&gt; SubscriptionResult {
-		<span class="self">self</span>.backend.subscribe_finalized_heads(sink);
-		<span class="prelude-val">Ok</span>(())
+	<span class="kw">fn </span>subscribe_finalized_heads(<span class="kw-2">&amp;</span><span class="self">self</span>, pending: PendingSubscriptionSink) {
+		<span class="self">self</span>.backend.subscribe_finalized_heads(pending)
 	}
 }
 

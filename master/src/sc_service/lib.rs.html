@@ -562,6 +562,13 @@
 <a href="#562" id="562">562</a>
 <a href="#563" id="563">563</a>
 <a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -601,7 +608,7 @@
 <span class="kw">use </span>std::{collections::HashMap, net::SocketAddr};
 
 <span class="kw">use </span>codec::{Decode, Encode};
-<span class="kw">use </span>futures::{channel::mpsc, pin_mut, FutureExt, StreamExt};
+<span class="kw">use </span>futures::{pin_mut, FutureExt, StreamExt};
 <span class="kw">use </span>jsonrpsee::{core::Error <span class="kw">as </span>JsonRpseeError, RpcModule};
 <span class="kw">use </span>log::{debug, error, warn};
 <span class="kw">use </span>sc_client_api::{blockchain::HeaderBackend, BlockBackend, BlockchainEvents, ProofProvider};
@@ -673,9 +680,15 @@
 	</span><span class="kw">pub async fn </span>rpc_query(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		json_query: <span class="kw-2">&amp;</span>str,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(String, mpsc::UnboundedReceiver&lt;String&gt;), JsonRpseeError&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(String, tokio::sync::mpsc::Receiver&lt;String&gt;), JsonRpseeError&gt; {
+		<span class="comment">// Because `tokio::sync::mpsc::channel` is used under the hood
+		// it will panic if it&#39;s set to usize::MAX.
+		//
+		// This limit is used to prevent panics and is large enough.
+		</span><span class="kw">const </span>TOKIO_MPSC_MAX_SIZE: usize = tokio::sync::Semaphore::MAX_PERMITS;
+
 		<span class="self">self</span>.<span class="number">0
-			</span>.raw_json_request(json_query)
+			</span>.raw_json_request(json_query, TOKIO_MPSC_MAX_SIZE)
 			.<span class="kw">await
 			</span>.map(|(method_res, recv)| (method_res.result, recv))
 	}
@@ -958,6 +971,7 @@
 		max_payload_in_mb: config.rpc_max_request_size,
 		max_payload_out_mb: config.rpc_max_response_size,
 		max_subs_per_conn: config.rpc_max_subs_per_conn,
+		message_buffer_capacity: config.rpc_message_buffer_capacity,
 		rpc_api: gen_rpc_module(deny_unsafe(addr, <span class="kw-2">&amp;</span>config.rpc_methods))<span class="question-mark">?</span>,
 		metrics,
 		id_provider: rpc_id_provider,

@@ -70,7 +70,7 @@
 <span class="kw">use </span>sc_consensus_grandpa::FinalityProofProvider;
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, NumberFor};
 
-<span class="attr">#[derive(Serialize, Deserialize)]
+<span class="attr">#[derive(Clone, Serialize, Deserialize)]
 </span><span class="kw">pub struct </span>EncodedFinalityProof(<span class="kw">pub </span>sp_core::Bytes);
 
 <span class="doccomment">/// Local trait mainly to allow mocking in tests.

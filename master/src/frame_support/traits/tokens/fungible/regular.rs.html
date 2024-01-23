@@ -899,7 +899,7 @@
 		<span class="kw">let </span>_extra = <span class="self">Self</span>::can_withdraw(source, amount).into_result(preservation != Expendable)<span class="question-mark">?</span>;
 		<span class="self">Self</span>::can_deposit(dest, amount, Extant).into_result()<span class="question-mark">?</span>;
 		<span class="kw">if </span>source == dest {
-			<span class="kw">return </span><span class="prelude-val">Ok</span>(amount);
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(amount)
 		}
 
 		<span class="self">Self</span>::decrease_balance(source, amount, BestEffort, preservation, Polite)<span class="question-mark">?</span>;

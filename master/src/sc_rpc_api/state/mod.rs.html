@@ -290,6 +290,16 @@
 <a href="#290" id="290">290</a>
 <a href="#291" id="291">291</a>
 <a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -310,7 +320,7 @@
 
 </span><span class="doccomment">//! Substrate state API.
 
-</span><span class="kw">use </span>jsonrpsee::{core::RpcResult, proc_macros::rpc};
+</span><span class="kw">use </span>jsonrpsee::proc_macros::rpc;
 <span class="kw">use </span>sp_core::{
 	storage::{StorageChangeSet, StorageData, StorageKey},
 	Bytes,
@@ -321,18 +331,23 @@
 <span class="kw">pub mod </span>helpers;
 
 <span class="kw">pub use </span><span class="self">self</span>::helpers::ReadProof;
+<span class="kw">pub use </span>error::Error;
 
 <span class="doccomment">/// Substrate state API
 </span><span class="attr">#[rpc(client, server)]
 </span><span class="kw">pub trait </span>StateApi&lt;Hash&gt; {
 	<span class="doccomment">/// Call a method from the runtime API at a block&#39;s state.
 	</span><span class="attr">#[method(name = <span class="string">&quot;state_call&quot;</span>, aliases = [<span class="string">&quot;state_callAt&quot;</span>]</span>, blocking)]
-	<span class="kw">fn </span>call(<span class="kw-2">&amp;</span><span class="self">self</span>, name: String, bytes: Bytes, hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;) -&gt; RpcResult&lt;Bytes&gt;;
+	<span class="kw">fn </span>call(<span class="kw-2">&amp;</span><span class="self">self</span>, name: String, bytes: Bytes, hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Bytes, Error&gt;;
 
 	<span class="doccomment">/// Returns the keys with prefix, leave empty to get all the keys.
 	</span><span class="attr">#[method(name = <span class="string">&quot;state_getKeys&quot;</span>, blocking)]
 	#[deprecated(since = <span class="string">&quot;2.0.0&quot;</span>, note = <span class="string">&quot;Please use `getKeysPaged` with proper paging support&quot;</span>)]
-	</span><span class="kw">fn </span>storage_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, prefix: StorageKey, hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;) -&gt; RpcResult&lt;Vec&lt;StorageKey&gt;&gt;;
+	</span><span class="kw">fn </span>storage_keys(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		prefix: StorageKey,
+		hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;StorageKey&gt;, Error&gt;;
 
 	<span class="doccomment">/// Returns the keys with prefix, leave empty to get all the keys
 	</span><span class="attr">#[method(name = <span class="string">&quot;state_getPairs&quot;</span>, blocking)]
@@ -340,7 +355,7 @@
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		prefix: StorageKey,
 		hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;,
-	) -&gt; RpcResult&lt;Vec&lt;(StorageKey, StorageData)&gt;&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;(StorageKey, StorageData)&gt;, Error&gt;;
 
 	<span class="doccomment">/// Returns the keys with prefix with pagination support.
 	/// Up to `count` keys will be returned.
@@ -352,27 +367,28 @@
 		count: u32,
 		start_key: <span class="prelude-ty">Option</span>&lt;StorageKey&gt;,
 		hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;,
-	) -&gt; RpcResult&lt;Vec&lt;StorageKey&gt;&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;StorageKey&gt;, Error&gt;;
 
 	<span class="doccomment">/// Returns a storage entry at a specific block&#39;s state.
 	</span><span class="attr">#[method(name = <span class="string">&quot;state_getStorage&quot;</span>, aliases = [<span class="string">&quot;state_getStorageAt&quot;</span>]</span>, blocking)]
-	<span class="kw">fn </span>storage(<span class="kw-2">&amp;</span><span class="self">self</span>, key: StorageKey, hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;) -&gt; RpcResult&lt;<span class="prelude-ty">Option</span>&lt;StorageData&gt;&gt;;
+	<span class="kw">fn </span>storage(<span class="kw-2">&amp;</span><span class="self">self</span>, key: StorageKey, hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;StorageData&gt;, Error&gt;;
 
 	<span class="doccomment">/// Returns the hash of a storage entry at a block&#39;s state.
 	</span><span class="attr">#[method(name = <span class="string">&quot;state_getStorageHash&quot;</span>, aliases = [<span class="string">&quot;state_getStorageHashAt&quot;</span>]</span>, blocking)]
-	<span class="kw">fn </span>storage_hash(<span class="kw-2">&amp;</span><span class="self">self</span>, key: StorageKey, hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;) -&gt; RpcResult&lt;<span class="prelude-ty">Option</span>&lt;Hash&gt;&gt;;
+	<span class="kw">fn </span>storage_hash(<span class="kw-2">&amp;</span><span class="self">self</span>, key: StorageKey, hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Hash&gt;, Error&gt;;
 
 	<span class="doccomment">/// Returns the size of a storage entry at a block&#39;s state.
 	</span><span class="attr">#[method(name = <span class="string">&quot;state_getStorageSize&quot;</span>, aliases = [<span class="string">&quot;state_getStorageSizeAt&quot;</span>]</span>)]
-	<span class="kw">async fn </span>storage_size(<span class="kw-2">&amp;</span><span class="self">self</span>, key: StorageKey, hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;) -&gt; RpcResult&lt;<span class="prelude-ty">Option</span>&lt;u64&gt;&gt;;
+	<span class="kw">async fn </span>storage_size(<span class="kw-2">&amp;</span><span class="self">self</span>, key: StorageKey, hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;)
+		-&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;u64&gt;, Error&gt;;
 
 	<span class="doccomment">/// Returns the runtime metadata as an opaque blob.
 	</span><span class="attr">#[method(name = <span class="string">&quot;state_getMetadata&quot;</span>, blocking)]
-	</span><span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;) -&gt; RpcResult&lt;Bytes&gt;;
+	</span><span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Bytes, Error&gt;;
 
 	<span class="doccomment">/// Get the runtime version.
 	</span><span class="attr">#[method(name = <span class="string">&quot;state_getRuntimeVersion&quot;</span>, aliases = [<span class="string">&quot;chain_getRuntimeVersion&quot;</span>]</span>, blocking)]
-	<span class="kw">fn </span>runtime_version(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;) -&gt; RpcResult&lt;RuntimeVersion&gt;;
+	<span class="kw">fn </span>runtime_version(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeVersion, Error&gt;;
 
 	<span class="doccomment">/// Query historical storage entries (by key) starting from a block given as the second
 	/// parameter.
@@ -387,7 +403,7 @@
 		keys: Vec&lt;StorageKey&gt;,
 		block: Hash,
 		hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;,
-	) -&gt; RpcResult&lt;Vec&lt;StorageChangeSet&lt;Hash&gt;&gt;&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;StorageChangeSet&lt;Hash&gt;&gt;, Error&gt;;
 
 	<span class="doccomment">/// Query storage entries (by key) at a block hash given as the second parameter.
 	/// NOTE: Each StorageChangeSet in the result corresponds to exactly one element --
@@ -397,11 +413,15 @@
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		keys: Vec&lt;StorageKey&gt;,
 		at: <span class="prelude-ty">Option</span>&lt;Hash&gt;,
-	) -&gt; RpcResult&lt;Vec&lt;StorageChangeSet&lt;Hash&gt;&gt;&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;StorageChangeSet&lt;Hash&gt;&gt;, Error&gt;;
 
 	<span class="doccomment">/// Returns proof of storage entries at a specific block&#39;s state.
 	</span><span class="attr">#[method(name = <span class="string">&quot;state_getReadProof&quot;</span>, blocking)]
-	</span><span class="kw">fn </span>read_proof(<span class="kw-2">&amp;</span><span class="self">self</span>, keys: Vec&lt;StorageKey&gt;, hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;) -&gt; RpcResult&lt;ReadProof&lt;Hash&gt;&gt;;
+	</span><span class="kw">fn </span>read_proof(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		keys: Vec&lt;StorageKey&gt;,
+		hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;ReadProof&lt;Hash&gt;, Error&gt;;
 
 	<span class="doccomment">/// New runtime version subscription
 	</span><span class="attr">#[subscription(
@@ -580,6 +600,6 @@
 		targets: <span class="prelude-ty">Option</span>&lt;String&gt;,
 		storage_keys: <span class="prelude-ty">Option</span>&lt;String&gt;,
 		methods: <span class="prelude-ty">Option</span>&lt;String&gt;,
-	) -&gt; RpcResult&lt;sp_rpc::tracing::TraceBlockResponse&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;sp_rpc::tracing::TraceBlockResponse, Error&gt;;
 }
 </code></pre></div></section></main></body></html>

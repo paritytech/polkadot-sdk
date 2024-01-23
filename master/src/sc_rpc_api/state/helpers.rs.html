@@ -54,7 +54,7 @@
 <span class="kw">use </span>sp_core::Bytes;
 
 <span class="doccomment">/// ReadProof struct returned by the RPC
-</span><span class="attr">#[derive(Debug, PartialEq, Serialize, Deserialize)]
+</span><span class="attr">#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
 </span><span class="kw">pub struct </span>ReadProof&lt;Hash&gt; {
 	<span class="doccomment">/// Block hash used to generate the proof

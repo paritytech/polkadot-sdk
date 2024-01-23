@@ -74,6 +74,7 @@
 <a href="#74" id="74">74</a>
 <a href="#75" id="75">75</a>
 <a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -94,20 +95,21 @@
 
 </span><span class="doccomment">//! Substrate blockchain API.
 
-</span><span class="kw">use </span>jsonrpsee::{core::RpcResult, proc_macros::rpc};
-<span class="kw">use </span>sp_rpc::{list::ListOrValue, number::NumberOrHex};
+</span><span class="kw">pub mod </span>error;
 
-<span class="kw">pub mod </span>error;
+<span class="kw">use </span>error::Error;
+<span class="kw">use </span>jsonrpsee::proc_macros::rpc;
+<span class="kw">use </span>sp_rpc::{list::ListOrValue, number::NumberOrHex};
 
 <span class="attr">#[rpc(client, server)]
 </span><span class="kw">pub trait </span>ChainApi&lt;Number, Hash, Header, SignedBlock&gt; {
 	<span class="doccomment">/// Get header.
 	</span><span class="attr">#[method(name = <span class="string">&quot;chain_getHeader&quot;</span>, blocking)]
-	</span><span class="kw">fn </span>header(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;) -&gt; RpcResult&lt;<span class="prelude-ty">Option</span>&lt;Header&gt;&gt;;
+	</span><span class="kw">fn </span>header(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Header&gt;, Error&gt;;
 
 	<span class="doccomment">/// Get header and body of a block.
 	</span><span class="attr">#[method(name = <span class="string">&quot;chain_getBlock&quot;</span>, blocking)]
-	</span><span class="kw">fn </span>block(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;) -&gt; RpcResult&lt;<span class="prelude-ty">Option</span>&lt;SignedBlock&gt;&gt;;
+	</span><span class="kw">fn </span>block(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;SignedBlock&gt;, Error&gt;;
 
 	<span class="doccomment">/// Get hash of the n-th block in the canon chain.
 	///
@@ -116,11 +118,11 @@
 	<span class="kw">fn </span>block_hash(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		hash: <span class="prelude-ty">Option</span>&lt;ListOrValue&lt;NumberOrHex&gt;&gt;,
-	) -&gt; RpcResult&lt;ListOrValue&lt;<span class="prelude-ty">Option</span>&lt;Hash&gt;&gt;&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;ListOrValue&lt;<span class="prelude-ty">Option</span>&lt;Hash&gt;&gt;, Error&gt;;
 
 	<span class="doccomment">/// Get hash of the last finalized block in the canon chain.
 	</span><span class="attr">#[method(name = <span class="string">&quot;chain_getFinalizedHead&quot;</span>, aliases = [<span class="string">&quot;chain_getFinalisedHead&quot;</span>]</span>, blocking)]
-	<span class="kw">fn </span>finalized_head(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;Hash&gt;;
+	<span class="kw">fn </span>finalized_head(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Hash, Error&gt;;
 
 	<span class="doccomment">/// All head subscription.
 	</span><span class="attr">#[subscription(

@@ -114,8 +114,8 @@
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
 </span><span class="doccomment">//! Substrate child state API
-</span><span class="kw">use </span><span class="kw">crate</span>::state::ReadProof;
-<span class="kw">use </span>jsonrpsee::{core::RpcResult, proc_macros::rpc};
+</span><span class="kw">use </span><span class="kw">crate</span>::state::{Error, ReadProof};
+<span class="kw">use </span>jsonrpsee::proc_macros::rpc;
 <span class="kw">use </span>sp_core::storage::{PrefixedStorageKey, StorageData, StorageKey};
 
 <span class="doccomment">/// Substrate child state API
@@ -132,7 +132,7 @@
 		child_storage_key: PrefixedStorageKey,
 		prefix: StorageKey,
 		hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;,
-	) -&gt; RpcResult&lt;Vec&lt;StorageKey&gt;&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;StorageKey&gt;, Error&gt;;
 
 	<span class="doccomment">/// Returns the keys with prefix from a child storage with pagination support.
 	/// Up to `count` keys will be returned.
@@ -145,7 +145,7 @@
 		count: u32,
 		start_key: <span class="prelude-ty">Option</span>&lt;StorageKey&gt;,
 		hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;,
-	) -&gt; RpcResult&lt;Vec&lt;StorageKey&gt;&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;StorageKey&gt;, Error&gt;;
 
 	<span class="doccomment">/// Returns a child storage entry at a specific block&#39;s state.
 	</span><span class="attr">#[method(name = <span class="string">&quot;childstate_getStorage&quot;</span>, blocking)]
@@ -154,7 +154,7 @@
 		child_storage_key: PrefixedStorageKey,
 		key: StorageKey,
 		hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;,
-	) -&gt; RpcResult&lt;<span class="prelude-ty">Option</span>&lt;StorageData&gt;&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;StorageData&gt;, Error&gt;;
 
 	<span class="doccomment">/// Returns child storage entries for multiple keys at a specific block&#39;s state.
 	</span><span class="attr">#[method(name = <span class="string">&quot;childstate_getStorageEntries&quot;</span>, blocking)]
@@ -163,7 +163,7 @@
 		child_storage_key: PrefixedStorageKey,
 		keys: Vec&lt;StorageKey&gt;,
 		hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;,
-	) -&gt; RpcResult&lt;Vec&lt;<span class="prelude-ty">Option</span>&lt;StorageData&gt;&gt;&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="prelude-ty">Option</span>&lt;StorageData&gt;&gt;, Error&gt;;
 
 	<span class="doccomment">/// Returns the hash of a child storage entry at a block&#39;s state.
 	</span><span class="attr">#[method(name = <span class="string">&quot;childstate_getStorageHash&quot;</span>, blocking)]
@@ -172,7 +172,7 @@
 		child_storage_key: PrefixedStorageKey,
 		key: StorageKey,
 		hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;,
-	) -&gt; RpcResult&lt;<span class="prelude-ty">Option</span>&lt;Hash&gt;&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Hash&gt;, Error&gt;;
 
 	<span class="doccomment">/// Returns the size of a child storage entry at a block&#39;s state.
 	</span><span class="attr">#[method(name = <span class="string">&quot;childstate_getStorageSize&quot;</span>, blocking)]
@@ -181,7 +181,7 @@
 		child_storage_key: PrefixedStorageKey,
 		key: StorageKey,
 		hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;,
-	) -&gt; RpcResult&lt;<span class="prelude-ty">Option</span>&lt;u64&gt;&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;u64&gt;, Error&gt;;
 
 	<span class="doccomment">/// Returns proof of storage for child key entries at a specific block&#39;s state.
 	</span><span class="attr">#[method(name = <span class="string">&quot;state_getChildReadProof&quot;</span>, blocking)]
@@ -190,6 +190,6 @@
 		child_storage_key: PrefixedStorageKey,
 		keys: Vec&lt;StorageKey&gt;,
 		hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;,
-	) -&gt; RpcResult&lt;ReadProof&lt;Hash&gt;&gt;;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;ReadProof&lt;Hash&gt;, Error&gt;;
 }
 </code></pre></div></section></main></body></html>

@@ -638,6 +638,9 @@
 <a href="#638" id="638">638</a>
 <a href="#639" id="639">639</a>
 <a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -665,13 +668,13 @@
 	error::{Error, <span class="prelude-ty">Result</span>},
 	ChildStateBackend, StateBackend,
 };
-<span class="kw">use crate</span>::{DenyUnsafe, SubscriptionTaskExecutor};
-
-<span class="kw">use </span>futures::{future, stream, FutureExt, StreamExt};
-<span class="kw">use </span>jsonrpsee::{
-	core::{async_trait, Error <span class="kw">as </span>JsonRpseeError},
-	SubscriptionSink,
+<span class="kw">use crate</span>::{
+	utils::{pipe_from_stream, spawn_subscription_task},
+	DenyUnsafe, SubscriptionTaskExecutor,
 };
+
+<span class="kw">use </span>futures::{future, stream, StreamExt};
+<span class="kw">use </span>jsonrpsee::{core::async_trait, types::ErrorObject, PendingSubscriptionSink};
 <span class="kw">use </span>sc_client_api::{
 	Backend, BlockBackend, BlockchainEvents, CallExecutor, ExecutorProvider, ProofProvider,
 	StorageProvider,
@@ -1011,9 +1014,7 @@
 			.map_err(client_err)
 	}
 
-	<span class="kw">fn </span>subscribe_runtime_version(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>sink: SubscriptionSink) {
-		<span class="kw">let </span>client = <span class="self">self</span>.client.clone();
-
+	<span class="kw">fn </span>subscribe_runtime_version(<span class="kw-2">&amp;</span><span class="self">self</span>, pending: PendingSubscriptionSink) {
 		<span class="kw">let </span>initial = <span class="kw">match </span><span class="self">self
 			</span>.block_or_best(<span class="prelude-val">None</span>)
 			.and_then(|block| <span class="self">self</span>.client.runtime_version_at(block).map_err(Into::into))
@@ -1021,12 +1022,13 @@
 		{
 			<span class="prelude-val">Ok</span>(initial) =&gt; initial,
 			<span class="prelude-val">Err</span>(e) =&gt; {
-				<span class="kw">let _ </span>= sink.reject(JsonRpseeError::from(e));
+				spawn_subscription_task(<span class="kw-2">&amp;</span><span class="self">self</span>.executor, pending.reject(e));
 				<span class="kw">return
 			</span>},
 		};
 
 		<span class="kw">let </span><span class="kw-2">mut </span>previous_version = initial.clone();
+		<span class="kw">let </span>client = <span class="self">self</span>.client.clone();
 
 		<span class="comment">// A stream of new versions
 		</span><span class="kw">let </span>version_stream = client
@@ -1046,25 +1048,34 @@
 			});
 
 		<span class="kw">let </span>stream = futures::stream::once(future::ready(initial)).chain(version_stream);
-
-		<span class="kw">let </span>fut = <span class="kw">async move </span>{
-			sink.pipe_from_stream(stream).<span class="kw">await</span>;
-		};
-
-		<span class="self">self</span>.executor.spawn(<span class="string">&quot;substrate-rpc-subscription&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;rpc&quot;</span>), fut.boxed());
+		spawn_subscription_task(<span class="kw-2">&amp;</span><span class="self">self</span>.executor, pipe_from_stream(pending, stream));
 	}
 
-	<span class="kw">fn </span>subscribe_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>sink: SubscriptionSink, keys: <span class="prelude-ty">Option</span>&lt;Vec&lt;StorageKey&gt;&gt;) {
+	<span class="kw">fn </span>subscribe_storage(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		pending: PendingSubscriptionSink,
+		keys: <span class="prelude-ty">Option</span>&lt;Vec&lt;StorageKey&gt;&gt;,
+		deny_unsafe: DenyUnsafe,
+	) {
+		<span class="kw">if </span>keys.is_none() {
+			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = deny_unsafe.check_if_safe() {
+				spawn_subscription_task(<span class="kw-2">&amp;</span><span class="self">self</span>.executor, pending.reject(ErrorObject::from(err)));
+				<span class="kw">return
+			</span>}
+		}
+
 		<span class="kw">let </span>stream = <span class="kw">match </span><span class="self">self</span>.client.storage_changes_notification_stream(keys.as_deref(), <span class="prelude-val">None</span>) {
 			<span class="prelude-val">Ok</span>(stream) =&gt; stream,
 			<span class="prelude-val">Err</span>(blockchain_err) =&gt; {
-				<span class="kw">let _ </span>= sink.reject(JsonRpseeError::from(Error::Client(Box::new(blockchain_err))));
+				spawn_subscription_task(
+					<span class="kw-2">&amp;</span><span class="self">self</span>.executor,
+					pending.reject(Error::Client(Box::new(blockchain_err))),
+				);
 				<span class="kw">return
 			</span>},
 		};
 
-		<span class="comment">// initial values
-		</span><span class="kw">let </span>initial = stream::iter(keys.map(|keys| {
+		<span class="kw">let </span>initial = stream::iter(keys.map(|keys| {
 			<span class="kw">let </span>block = <span class="self">self</span>.client.info().best_hash;
 			<span class="kw">let </span>changes = keys
 				.into_iter()
@@ -1076,8 +1087,7 @@
 			StorageChangeSet { block, changes }
 		}));
 
-		<span class="comment">// let storage_stream = stream.map(|(block, changes)| StorageChangeSet {
-		</span><span class="kw">let </span>storage_stream = stream.map(|storage_notif| StorageChangeSet {
+		<span class="kw">let </span>storage_stream = stream.map(|storage_notif| StorageChangeSet {
 			block: storage_notif.block,
 			changes: storage_notif
 				.changes
@@ -1090,11 +1100,7 @@
 			.chain(storage_stream)
 			.filter(|storage| future::ready(!storage.changes.is_empty()));
 
-		<span class="kw">let </span>fut = <span class="kw">async move </span>{
-			sink.pipe_from_stream(stream).<span class="kw">await</span>;
-		};
-
-		<span class="self">self</span>.executor.spawn(<span class="string">&quot;substrate-rpc-subscription&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;rpc&quot;</span>), fut.boxed());
+		spawn_subscription_task(<span class="kw-2">&amp;</span><span class="self">self</span>.executor, pipe_from_stream(pending, stream));
 	}
 
 	<span class="kw">fn </span>trace_block(

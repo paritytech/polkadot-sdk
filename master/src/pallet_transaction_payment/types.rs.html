@@ -272,7 +272,7 @@
 <span class="doccomment">/// Information related to a dispatchable&#39;s class, weight, and fee that can be queried from the
 /// runtime.
 </span><span class="attr">#[derive(Eq, PartialEq, Encode, Decode, Default, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Debug, Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Debug, Serialize, Deserialize, Clone))]
 #[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, serde(rename_all = <span class="string">&quot;camelCase&quot;</span>))]
 #[cfg_attr(
 	feature = <span class="string">&quot;std&quot;</span>,

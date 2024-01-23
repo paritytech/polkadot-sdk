@@ -267,6 +267,7 @@
 <a href="#267" id="267">267</a>
 <a href="#268" id="268">268</a>
 <a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -330,10 +331,11 @@
 <span class="doccomment">/// Create a new `WebSocket` connection with shared settings.
 </span><span class="kw">pub async fn </span>ws_client(uri: <span class="kw">impl </span>AsRef&lt;str&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;WsClient, String&gt; {
 	WsClientBuilder::default()
-		.max_request_body_size(u32::MAX)
+		.max_request_size(u32::MAX)
+		.max_response_size(u32::MAX)
 		.request_timeout(std::time::Duration::from_secs(<span class="number">60 </span>* <span class="number">10</span>))
 		.connection_timeout(std::time::Duration::from_secs(<span class="number">60</span>))
-		.max_notifs_per_subscription(<span class="number">1024</span>)
+		.max_buffer_capacity_per_subscription(<span class="number">1024</span>)
 		.build(uri)
 		.<span class="kw">await
 		</span>.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;`WsClientBuilder` failed to build: {:?}&quot;</span>, e))

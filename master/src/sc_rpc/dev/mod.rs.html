@@ -110,7 +110,6 @@
 <a href="#110" id="110">110</a>
 <a href="#111" id="111">111</a>
 <a href="#112" id="112">112</a>
-<a href="#113" id="113">113</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -135,7 +134,6 @@
 </span><span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
-<span class="kw">use </span>jsonrpsee::core::RpcResult;
 <span class="kw">use </span>sc_client_api::{BlockBackend, HeaderBackend};
 <span class="kw">use </span>sc_rpc_api::{dev::error::Error, DenyUnsafe};
 <span class="kw">use </span>sp_api::{ApiExt, Core, ProvideRuntimeApi};
@@ -178,7 +176,7 @@
 		+ <span class="lifetime">&#39;static</span>,
 	Client::Api: Core&lt;Block&gt;,
 {
-	<span class="kw">fn </span>block_stats(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: Block::Hash) -&gt; RpcResult&lt;<span class="prelude-ty">Option</span>&lt;BlockStats&gt;&gt; {
+	<span class="kw">fn </span>block_stats(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: Block::Hash) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;BlockStats&gt;, Error&gt; {
 		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>block = {

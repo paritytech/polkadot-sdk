@@ -208,8 +208,6 @@
 <a href="#208" id="208">208</a>
 <a href="#209" id="209">209</a>
 <a href="#210" id="210">210</a>
-<a href="#211" id="211">211</a>
-<a href="#212" id="212">212</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -235,15 +233,14 @@
 
 <span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span><span class="kw">crate</span>::SubscriptionTaskExecutor;
+<span class="kw">use crate</span>::{
+	utils::{pipe_from_stream, spawn_subscription_task},
+	SubscriptionTaskExecutor,
+};
 
 <span class="kw">use </span>codec::{Decode, Encode};
-<span class="kw">use </span>futures::{FutureExt, TryFutureExt};
-<span class="kw">use </span>jsonrpsee::{
-	core::{async_trait, Error <span class="kw">as </span>JsonRpseeError, RpcResult},
-	types::SubscriptionResult,
-	SubscriptionSink,
-};
+<span class="kw">use </span>futures::TryFutureExt;
+<span class="kw">use </span>jsonrpsee::{core::async_trait, types::ErrorObject, PendingSubscriptionSink};
 <span class="kw">use </span>sc_rpc_api::DenyUnsafe;
 <span class="kw">use </span>sc_transaction_pool_api::{
 	error::IntoPoolError, BlockHash, InPoolTransaction, TransactionFor, TransactionPool,
@@ -303,7 +300,7 @@
 	P::Hash: Unpin,
 	&lt;P::Block <span class="kw">as </span>BlockT&gt;::Hash: Unpin,
 {
-	<span class="kw">async fn </span>submit_extrinsic(<span class="kw-2">&amp;</span><span class="self">self</span>, ext: Bytes) -&gt; RpcResult&lt;TxHash&lt;P&gt;&gt; {
+	<span class="kw">async fn </span>submit_extrinsic(<span class="kw-2">&amp;</span><span class="self">self</span>, ext: Bytes) -&gt; <span class="prelude-ty">Result</span>&lt;TxHash&lt;P&gt;&gt; {
 		<span class="kw">let </span>xt = <span class="kw">match </span>Decode::decode(<span class="kw-2">&amp;mut &amp;</span>ext[..]) {
 			<span class="prelude-val">Ok</span>(xt) =&gt; xt,
 			<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::Client(Box::new(err)).into()),
@@ -317,7 +314,7 @@
 		})
 	}
 
-	<span class="kw">fn </span>insert_key(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: String, suri: String, public: Bytes) -&gt; RpcResult&lt;()&gt; {
+	<span class="kw">fn </span>insert_key(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: String, suri: String, public: Bytes) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>key_type = key_type.as_str().try_into().map_err(|<span class="kw">_</span>| Error::BadKeyType)<span class="question-mark">?</span>;
@@ -327,7 +324,7 @@
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="kw">fn </span>rotate_keys(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;Bytes&gt; {
+	<span class="kw">fn </span>rotate_keys(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Bytes&gt; {
 		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>best_block_hash = <span class="self">self</span>.client.info().best_hash;
@@ -341,7 +338,7 @@
 			.map_err(|api_err| Error::Client(Box::new(api_err)).into())
 	}
 
-	<span class="kw">fn </span>has_session_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, session_keys: Bytes) -&gt; RpcResult&lt;bool&gt; {
+	<span class="kw">fn </span>has_session_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, session_keys: Bytes) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
 		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>best_block_hash = <span class="self">self</span>.client.info().best_hash;
@@ -355,21 +352,21 @@
 		<span class="prelude-val">Ok</span>(<span class="self">self</span>.keystore.has_keys(<span class="kw-2">&amp;</span>keys))
 	}
 
-	<span class="kw">fn </span>has_key(<span class="kw-2">&amp;</span><span class="self">self</span>, public_key: Bytes, key_type: String) -&gt; RpcResult&lt;bool&gt; {
+	<span class="kw">fn </span>has_key(<span class="kw-2">&amp;</span><span class="self">self</span>, public_key: Bytes, key_type: String) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
 		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>key_type = key_type.as_str().try_into().map_err(|<span class="kw">_</span>| Error::BadKeyType)<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(<span class="self">self</span>.keystore.has_keys(<span class="kw-2">&amp;</span>[(public_key.to_vec(), key_type)]))
 	}
 
-	<span class="kw">fn </span>pending_extrinsics(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RpcResult&lt;Vec&lt;Bytes&gt;&gt; {
+	<span class="kw">fn </span>pending_extrinsics(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Bytes&gt;&gt; {
 		<span class="prelude-val">Ok</span>(<span class="self">self</span>.pool.ready().map(|tx| tx.data().encode().into()).collect())
 	}
 
 	<span class="kw">fn </span>remove_extrinsic(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		bytes_or_hash: Vec&lt;hash::ExtrinsicOrHash&lt;TxHash&lt;P&gt;&gt;&gt;,
-	) -&gt; RpcResult&lt;Vec&lt;TxHash&lt;P&gt;&gt;&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;TxHash&lt;P&gt;&gt;&gt; {
 		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
 		<span class="kw">let </span>hashes = bytes_or_hash
 			.into_iter()
@@ -390,14 +387,14 @@
 			.collect())
 	}
 
-	<span class="kw">fn </span>watch_extrinsic(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>sink: SubscriptionSink, xt: Bytes) -&gt; SubscriptionResult {
+	<span class="kw">fn </span>watch_extrinsic(<span class="kw-2">&amp;</span><span class="self">self</span>, pending: PendingSubscriptionSink, xt: Bytes) {
 		<span class="kw">let </span>best_block_hash = <span class="self">self</span>.client.info().best_hash;
 		<span class="kw">let </span>dxt = <span class="kw">match </span>TransactionFor::&lt;P&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>xt[..]).map_err(|e| Error::from(e)) {
 			<span class="prelude-val">Ok</span>(dxt) =&gt; dxt,
 			<span class="prelude-val">Err</span>(e) =&gt; {
-				<span class="kw">let _ </span>= sink.reject(JsonRpseeError::from(e));
-				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
-			},
+				spawn_subscription_task(<span class="kw-2">&amp;</span><span class="self">self</span>.executor, pending.reject(e));
+				<span class="kw">return
+			</span>},
 		};
 
 		<span class="kw">let </span>submit = <span class="self">self</span>.pool.submit_and_watch(best_block_hash, TX_SOURCE, dxt).map_err(|e| {
@@ -410,16 +407,15 @@
 			<span class="kw">let </span>stream = <span class="kw">match </span>submit.<span class="kw">await </span>{
 				<span class="prelude-val">Ok</span>(stream) =&gt; stream,
 				<span class="prelude-val">Err</span>(err) =&gt; {
-					<span class="kw">let _ </span>= sink.reject(JsonRpseeError::from(err));
+					<span class="kw">let _ </span>= pending.reject(ErrorObject::from(err)).<span class="kw">await</span>;
 					<span class="kw">return
 				</span>},
 			};
 
-			sink.pipe_from_stream(stream).<span class="kw">await</span>;
+			pipe_from_stream(pending, stream).<span class="kw">await</span>;
 		};
 
-		<span class="self">self</span>.executor.spawn(<span class="string">&quot;substrate-rpc-subscription&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;rpc&quot;</span>), fut.boxed());
-		<span class="prelude-val">Ok</span>(())
+		spawn_subscription_task(<span class="kw-2">&amp;</span><span class="self">self</span>.executor, fut);
 	}
 }
 </code></pre></div></section></main></body></html>

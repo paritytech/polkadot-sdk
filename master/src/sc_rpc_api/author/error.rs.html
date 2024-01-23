@@ -181,6 +181,9 @@
 <a href="#181" id="181">181</a>
 <a href="#182" id="182">182</a>
 <a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -201,10 +204,7 @@
 
 </span><span class="doccomment">//! Authoring RPC module errors.
 
-</span><span class="kw">use </span>jsonrpsee::{
-	core::Error <span class="kw">as </span>JsonRpseeError,
-	types::error::{CallError, ErrorObject},
-};
+</span><span class="kw">use </span>jsonrpsee::types::error::{ErrorObject, ErrorObjectOwned};
 <span class="kw">use </span>sp_runtime::transaction_validity::InvalidTransaction;
 
 <span class="doccomment">/// Author RPC Result type.
@@ -269,99 +269,105 @@
 </span><span class="kw">const </span>POOL_INVALID_BLOCK_ID: i32 = POOL_INVALID_TX + <span class="number">10</span>;
 <span class="doccomment">/// The pool is not accepting future transactions.
 </span><span class="kw">const </span>POOL_FUTURE_TX: i32 = POOL_INVALID_TX + <span class="number">11</span>;
+<span class="doccomment">/// Other error.
+</span><span class="kw">const </span>OTHER_ERR: i32 = BASE_ERROR + <span class="number">40</span>;
 
-<span class="kw">impl </span>From&lt;Error&gt; <span class="kw">for </span>JsonRpseeError {
-	<span class="kw">fn </span>from(e: Error) -&gt; <span class="self">Self </span>{
+<span class="kw">impl </span>From&lt;Error&gt; <span class="kw">for </span>ErrorObjectOwned {
+	<span class="kw">fn </span>from(e: Error) -&gt; ErrorObjectOwned {
 		<span class="kw">use </span>sc_transaction_pool_api::error::Error <span class="kw">as </span>PoolError;
 
 		<span class="kw">match </span>e {
-			Error::BadFormat(e) =&gt; CallError::Custom(ErrorObject::owned(
+			Error::BadFormat(e) =&gt; ErrorObject::owned(
 				BAD_FORMAT,
 				<span class="macro">format!</span>(<span class="string">&quot;Extrinsic has invalid format: {}&quot;</span>, e),
 				<span class="prelude-val">None</span>::&lt;()&gt;,
-			)),
-			Error::Verification(e) =&gt; CallError::Custom(ErrorObject::owned(
+			),
+			Error::Verification(e) =&gt; ErrorObject::owned(
 				VERIFICATION_ERROR,
 				<span class="macro">format!</span>(<span class="string">&quot;Verification Error: {}&quot;</span>, e),
 				<span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e)),
-			)),
+			),
 			Error::Pool(PoolError::InvalidTransaction(InvalidTransaction::Custom(e))) =&gt; {
-				CallError::Custom(ErrorObject::owned(
+				ErrorObject::owned(
 					POOL_INVALID_TX,
 					<span class="string">&quot;Invalid Transaction&quot;</span>,
 					<span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;Custom error: {}&quot;</span>, e)),
-				))
+				)
 			},
 			Error::Pool(PoolError::InvalidTransaction(e)) =&gt; {
 				<span class="kw">let </span>msg: <span class="kw-2">&amp;</span>str = e.into();
-				CallError::Custom(ErrorObject::owned(
+				ErrorObject::owned(
 					POOL_INVALID_TX,
 					<span class="string">&quot;Invalid Transaction&quot;</span>,
 					<span class="prelude-val">Some</span>(msg),
-				))
+				)
 			},
 			Error::Pool(PoolError::UnknownTransaction(e)) =&gt; {
-				CallError::Custom(ErrorObject::owned(
+				ErrorObject::owned(
 					POOL_UNKNOWN_VALIDITY,
 					<span class="string">&quot;Unknown Transaction Validity&quot;</span>,
 					<span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e)),
-				))
+				)
 			},
 			Error::Pool(PoolError::TemporarilyBanned) =&gt;
-				CallError::Custom(ErrorObject::owned(
+				ErrorObject::owned(
 				POOL_TEMPORARILY_BANNED,
 				<span class="string">&quot;Transaction is temporarily banned&quot;</span>,
 				<span class="prelude-val">None</span>::&lt;()&gt;,
-			)),
+			),
 			Error::Pool(PoolError::AlreadyImported(hash)) =&gt;
-				CallError::Custom(ErrorObject::owned(
+				ErrorObject::owned(
 				POOL_ALREADY_IMPORTED,
 				<span class="string">&quot;Transaction Already Imported&quot;</span>,
 				<span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, hash)),
-			)),
-			Error::Pool(PoolError::TooLowPriority { old, new }) =&gt; CallError::Custom(ErrorObject::owned(
+			),
+			Error::Pool(PoolError::TooLowPriority { old, new }) =&gt; ErrorObject::owned(
 				POOL_TOO_LOW_PRIORITY,
 				<span class="macro">format!</span>(<span class="string">&quot;Priority is too low: ({} vs {})&quot;</span>, old, new),
 				<span class="prelude-val">Some</span>(<span class="string">&quot;The transaction has too low priority to replace another transaction already in the pool.&quot;</span>)
-			)),
+			),
 			Error::Pool(PoolError::CycleDetected) =&gt;
-				CallError::Custom(ErrorObject::owned(
+				ErrorObject::owned(
 				POOL_CYCLE_DETECTED,
 				<span class="string">&quot;Cycle Detected&quot;</span>,
 				<span class="prelude-val">None</span>::&lt;()&gt;
-			)),
-			Error::Pool(PoolError::ImmediatelyDropped) =&gt; CallError::Custom(ErrorObject::owned(
+			),
+			Error::Pool(PoolError::ImmediatelyDropped) =&gt; ErrorObject::owned(
 				POOL_IMMEDIATELY_DROPPED,
 				<span class="string">&quot;Immediately Dropped&quot;</span>,
 				<span class="prelude-val">Some</span>(<span class="string">&quot;The transaction couldn&#39;t enter the pool because of the limit&quot;</span>),
-			)),
-			Error::Pool(PoolError::Unactionable) =&gt; CallError::Custom(ErrorObject::owned(
+			),
+			Error::Pool(PoolError::Unactionable) =&gt; ErrorObject::owned(
 				POOL_UNACTIONABLE,
 				<span class="string">&quot;Unactionable&quot;</span>,
 				<span class="prelude-val">Some</span>(<span class="string">&quot;The transaction is unactionable since it is not propagable and \
 				the local node does not author blocks&quot;</span>)
-			)),
-			Error::Pool(PoolError::NoTagsProvided) =&gt; CallError::Custom(ErrorObject::owned(
+			),
+			Error::Pool(PoolError::NoTagsProvided) =&gt; ErrorObject::owned(
 				POOL_NO_TAGS,
 				<span class="string">&quot;No tags provided&quot;</span>,
 				<span class="prelude-val">Some</span>(<span class="string">&quot;Transaction does not provide any tags, so the pool can&#39;t identify it&quot;</span>)
-			)),
+			),
 			Error::Pool(PoolError::InvalidBlockId(<span class="kw">_</span>)) =&gt;
-				CallError::Custom(ErrorObject::owned(
+				ErrorObject::owned(
 				POOL_INVALID_BLOCK_ID,
 				<span class="string">&quot;The provided block ID is not valid&quot;</span>,
 				<span class="prelude-val">None</span>::&lt;()&gt;
-			)),
+			),
 			Error::Pool(PoolError::RejectedFutureTransaction) =&gt; {
-				CallError::Custom(ErrorObject::owned(
+				ErrorObject::owned(
 					POOL_FUTURE_TX,
 					<span class="string">&quot;The pool is not accepting future transactions&quot;</span>,
 					<span class="prelude-val">None</span>::&lt;()&gt;,
-				))
+				)
 			},
 			Error::UnsafeRpcCalled(e) =&gt; e.into(),
-			e =&gt; CallError::Failed(e.into()),
-		}.into()
+			other =&gt; ErrorObject::owned(
+				OTHER_ERR,
+				other.to_string(),
+				<span class="prelude-val">None</span>::&lt;()&gt;,
+			)
+		}
 	}
 }
 </code></pre></div></section></main></body></html>

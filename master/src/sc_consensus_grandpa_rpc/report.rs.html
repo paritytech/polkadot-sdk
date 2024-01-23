@@ -207,21 +207,21 @@
 	}
 }
 
-<span class="attr">#[derive(Serialize, Deserialize)]
+<span class="attr">#[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
 </span><span class="kw">struct </span>Prevotes {
 	current_weight: u32,
 	missing: BTreeSet&lt;AuthorityId&gt;,
 }
 
-<span class="attr">#[derive(Serialize, Deserialize)]
+<span class="attr">#[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
 </span><span class="kw">struct </span>Precommits {
 	current_weight: u32,
 	missing: BTreeSet&lt;AuthorityId&gt;,
 }
 
-<span class="attr">#[derive(Serialize, Deserialize)]
+<span class="attr">#[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
 </span><span class="kw">struct </span>RoundState {
 	round: u32,
@@ -261,7 +261,7 @@
 
 <span class="doccomment">/// The state of the current best round, as well as the background rounds in a
 /// form suitable for serialization.
-</span><span class="attr">#[derive(Serialize, Deserialize)]
+</span><span class="attr">#[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
 </span><span class="kw">pub struct </span>ReportedRoundStates {
 	set_id: u32,
