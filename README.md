@@ -44,7 +44,7 @@ The Polkadot-SDK has two release channels: `mainline` and `nightly`. Production 
 
 ### Mainline
 
-`mainline` releases have a support duration of **three months**. In this period, the release will not have any breaking changes but only receive bug and security fixes on a **two week** cadence.
+`mainline` releases have a support duration of **three months**. In this period, the release will not have any breaking changes. It will receive receive bug, security fixes, performance fixes and new non-breaking features on a **two week** cadence.
 
 ### Nightly
 
