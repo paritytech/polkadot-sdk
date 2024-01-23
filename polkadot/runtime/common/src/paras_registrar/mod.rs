@@ -667,7 +667,7 @@ impl<T: Config> Pallet<T> {
 		let per_byte_fee = T::DataDepositPerByte::get();
 		let deposit = T::ParaDeposit::get()
 			.saturating_add(per_byte_fee.saturating_mul((genesis_head.0.len() as u32).into()))
-			.saturating_add(per_byte_fee.saturating_mul((config.max_code_size).into()));
+			.saturating_add(per_byte_fee.saturating_mul(config.max_code_size.into()));
 
 		Ok((ParaGenesisArgs { genesis_head, validation_code, para_kind }, deposit))
 	}
