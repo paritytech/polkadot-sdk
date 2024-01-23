@@ -1,0 +1,14 @@
+[profile.default]
+solc_version = "0.8.23"
+optimizer = true
+optimizer_runs = 20_000
+via_ir = true
+test = 'test'
+fs_permissions = [{ access = "read-write", path = "test/data"}, { access = "read", path = "./"}]
+
+ignored_error_codes = [
+    # DeployScript.sol is never deployed
+    5574
+]
+
+# no_match_test = "testRegenerateBitField"

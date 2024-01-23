@@ -1,0 +1,39 @@
+{
+  "name": "@snowbridge/api",
+  "version": "1.0.0",
+  "description": "Snowbridge API client",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Snowfork/snowbridge.git",
+    "directory": "web/packages/api"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@types/node": "^18.13.0",
+    "@typescript-eslint/eslint-plugin": "^5.42.0",
+    "@typescript-eslint/parser": "^5.42.0",
+    "eslint": "^8.26.0",
+    "eslint-config-prettier": "^8.5.0",
+    "prettier": "^2.7.1",
+    "ts-node": "^10.9.1",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.1.6"
+  },
+  "dependencies": {
+    "@ethersproject/abi": "^5.7.0",
+    "@ethersproject/bytes": "^5.7.0",
+    "@ethersproject/providers": "^5.7.0",
+    "@ethersproject/units": "^5.7.0",
+    "@polkadot/api": "^10.10.1",
+    "@polkadot/types": "^10.10.1",
+    "@snowbridge/contract-types": "workspace:*",
+    "@typechain/ethers-v5": "^11.1.1",
+    "ethers": "^5.7.0"
+  }
+}
