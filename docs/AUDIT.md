@@ -13,5 +13,5 @@ There is no single one-fits-all rule. Generally we should audit important logic 
 
 1. Add the PR to the project `Security Audit (PRs) - SRLabs`
 2. Set status to Backlog
-3. Assign priority, considering the universe of PRs currently in the backlog, or just leave it as TBD
+3. Assign priority, considering the universe of PRs currently in the backlog
 4. Add the component
