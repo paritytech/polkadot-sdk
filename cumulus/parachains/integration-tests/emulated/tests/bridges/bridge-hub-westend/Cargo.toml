@@ -11,7 +11,6 @@ publish = false
 workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
 
 # Substrate
 frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false }
@@ -31,10 +30,8 @@ pallet-bridge-messages = { path = "../../../../../../../bridges/modules/messages
 bp-messages = { path = "../../../../../../../bridges/primitives/messages", default-features = false }
 
 # Cumulus
-asset-test-utils = { path = "../../../../../../parachains/runtimes/assets/test-utils" }
 parachains-common = { path = "../../../../../../parachains/common" }
 cumulus-pallet-xcmp-queue = { path = "../../../../../../pallets/xcmp-queue", default-features = false }
-cumulus-pallet-dmp-queue = { path = "../../../../../../pallets/dmp-queue", default-features = false }
 bridge-hub-westend-runtime = { path = "../../../../../../parachains/runtimes/bridge-hubs/bridge-hub-westend", default-features = false }
 emulated-integration-tests-common = { path = "../../../common", default-features = false }
 rococo-westend-system-emulated-network = { path = "../../../networks/rococo-westend-system" }
