@@ -40,9 +40,9 @@ impl<
 	> TransactAsset for NonFungibleTransferAdapter<Asset, Matcher, AccountIdConverter, AccountId>
 {
 	fn transfer_asset(
-		what: &MultiAsset,
-		from: &MultiLocation,
-		to: &MultiLocation,
+		what: &Asset,
+		from: &Location,
+		to: &Location,
 		context: &XcmContext,
 	) -> result::Result<xcm_executor::Assets, XcmError> {
 		log::trace!(
