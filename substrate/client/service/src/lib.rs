@@ -110,8 +110,14 @@ impl RpcHandlers {
 		&self,
 		json_query: &str,
 	) -> Result<(String, tokio::sync::mpsc::Receiver<String>), JsonRpseeError> {
+		// Because `tokio::sync::mpsc::channel` is used under the hood
+		// it will panic if it's set to usize::MAX.
+		//
+		// This limit is used to prevent panics and is large enough.
+		const TOKIO_MPSC_MAX_SIZE: usize = tokio::sync::Semaphore::MAX_PERMITS;
+
 		self.0
-			.raw_json_request(json_query, tokio::sync::Semaphore::MAX_PERMITS)
+			.raw_json_request(json_query, TOKIO_MPSC_MAX_SIZE)
 			.await
 			.map(|(method_res, recv)| (method_res.result, recv))
 	}
