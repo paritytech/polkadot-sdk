@@ -43,7 +43,7 @@ For the these networks, in addition to incrementing the `Cargo.toml` version we 
 sometimes the `transaction_version`. The spec version is also following the node version. Its schema is: `M_mmm_ppp` and
 for example `1_002_000` is the node release `1.2.0`. This versioning has no further meaning, and is only done to map
 from an on chain `spec_version` easily to the release in this repository.  
-The Westend testnet will be updated to the new runtime version immediately after a *Stable* release happened.
+The Westend testnet will be updated to a new runtime every two weeks with the latest `nightly` release.
 
 # Backports
 
