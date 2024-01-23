@@ -95,6 +95,7 @@ impl SessionGridTopology {
 		peer_id: PeerId,
 		ids: &HashSet<AuthorityDiscoveryId>,
 	) -> bool {
+		let mut updated = false;
 		if !self.peer_ids.contains(&peer_id) {
 			for peer in self
 				.canonical_shuffling
@@ -103,9 +104,10 @@ impl SessionGridTopology {
 			{
 				peer.peer_ids.push(peer_id);
 				self.peer_ids.insert(peer_id);
+				updated = true;
 			}
 		}
-		false
+		updated
 	}
 	/// Produces the outgoing routing logic for a particular peer.
 	///
