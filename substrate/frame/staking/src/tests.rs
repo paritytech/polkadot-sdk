@@ -7285,6 +7285,7 @@ mod stake_tracker {
 				150,
 				RewardDestination::Account(12),
 			));
+
 			assert_ok!(Staking::validate(RuntimeOrigin::signed(12), Default::default()));
 
 			// 12 is a validator and has 150 self-vote.
