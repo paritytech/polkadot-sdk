@@ -1962,14 +1962,15 @@ impl State {
 	}
 
 	// It is very important that aggression starts with oldest unfinalized block, rather than oldest
-	// unapproved block. We use approval checking lag just as a mean to trigger the aggression, but
-	// use finality lag to choose our aggression target.
+	// unapproved block. Using the gossip approach to distribute potentially
+	// missing votes to validators requires that we always trigger on finality lag, even if
+	// we have have the approval lag value. The reason for this, is to avoid finality stall
+	// when more than 1/3 nodes go offline for a period o time. When they come back
+	// there wouldn't get any of the approvals since the on-line nodes would never trigger
+	// aggression as they have approved all the candidates and don't detect any approval lag.
 	//
-	// We have GRANDPA consensus around the last finalized block, but we don't for approvals.
-	// Using GRANDPA as source of truth, we can reason that an unfinalized but approved block will
-	// never be finalized because at least 1/3 of the nodes haven't seen enough approvals for it. It
-	// becomes mandatory that we share them in an aggressive manner wrt topology to increase the
-	// chance that the approval messages reach those nodes.
+	// In order to switch to using approval lag as a trigger we need a request/response protocol
+	// to fetch votes from validators rather than use gossip.
 	async fn enable_aggression<Context>(
 		&mut self,
 		ctx: &mut Context,
