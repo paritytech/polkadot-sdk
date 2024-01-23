@@ -18,7 +18,6 @@ the form `stableYYMMDD`.
 
 We try to follow [SemVer 2.0.0](https://semver.org/) as best as possible for versioning our crates. SemVer requires a piece of software to first declare a public API. The public API of the Polkadot SDK is hereby declared as the sum of all crates' public APIs.
 
-- @bkchr the list of node internals please
 
 Inductively, the public API of our library crates is declared as all public items that are neither:
 - Inside a `__private` module
