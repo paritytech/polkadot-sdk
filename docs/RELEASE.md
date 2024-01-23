@@ -16,7 +16,7 @@ the form `stableYYMMDD`.
 
 ## Crate
 
-We try to follow SemVer<sup>1</sup> as best as possible for versioning our crates. SemVer requires a piece of software to first declare a public API. The public API of the Polkadot SDK is hereby declared as the sum of all crates' public APIs, with the exception of the following internal crates:
+We try to follow [SemVer 2.0.0](https://semver.org/) as best as possible for versioning our crates. SemVer requires a piece of software to first declare a public API. The public API of the Polkadot SDK is hereby declared as the sum of all crates' public APIs.
 
 - @bkchr the list of node internals please
 
