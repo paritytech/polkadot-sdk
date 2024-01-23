@@ -275,7 +275,6 @@ fn prepare_test_inner(
 
 	let network_bridge_rx =
 		network_bridge::MockNetworkBridgeRx::new(network_receiver, Some(chunk_req_cfg.clone()));
-	state.set_chunk_request_protocol(chunk_req_cfg);
 
 	let (overseer, overseer_handle) = match &state.config().objective {
 		TestObjective::DataAvailabilityRead(options) => {
@@ -380,8 +379,6 @@ pub struct TestState {
 	available_data: Vec<AvailableData>,
 	// Per candiadte index chunks
 	chunks: Vec<Vec<ErasureChunk>>,
-	// Availability distribution
-	chunk_request_protocol: Option<ProtocolConfig>,
 	// Per relay chain block - candidate backed by our backing group
 	backed_candidates: Vec<CandidateReceipt>,
 }
@@ -480,7 +477,6 @@ impl TestState {
 			pov_sizes: Vec::from(config.pov_sizes()).into_iter().cycle(),
 			candidate_hashes: HashMap::new(),
 			candidates: Vec::new().into_iter().cycle(),
-			chunk_request_protocol: None,
 			backed_candidates: Vec::new(),
 			config,
 		};
@@ -491,10 +487,6 @@ impl TestState {
 
 	pub fn backed_candidates(&mut self) -> &mut Vec<CandidateReceipt> {
 		&mut self.backed_candidates
-	}
-
-	pub fn set_chunk_request_protocol(&mut self, config: ProtocolConfig) {
-		self.chunk_request_protocol = Some(config);
 	}
 }
 
@@ -534,7 +526,7 @@ pub async fn benchmark_availability_read(env: &mut TestEnvironment, mut state: T
 			env.send_message(message).await;
 		}
 
-		gum::info!("{}", format!("{} recoveries pending", batch.len()).bright_black());
+		gum::info!(target: LOG_TARGET, "{}", format!("{} recoveries pending", batch.len()).bright_black());
 		while let Some(completed) = batch.next().await {
 			let available_data = completed.unwrap().unwrap();
 			env.metrics().on_pov_size(available_data.encoded_size());
@@ -543,17 +535,17 @@ pub async fn benchmark_availability_read(env: &mut TestEnvironment, mut state: T
 
 		let block_time = Instant::now().sub(block_start_ts).as_millis() as u64;
 		env.metrics().set_block_time(block_time);
-		gum::info!("All work for block completed in {}", format!("{:?}ms", block_time).cyan());
+		gum::info!(target: LOG_TARGET, "All work for block completed in {}", format!("{:?}ms", block_time).cyan());
 	}
 
 	let duration: u128 = test_start.elapsed().as_millis();
 	let availability_bytes = availability_bytes / 1024;
-	gum::info!("All blocks processed in {}", format!("{:?}ms", duration).cyan());
-	gum::info!(
+	gum::info!(target: LOG_TARGET, "All blocks processed in {}", format!("{:?}ms", duration).cyan());
+	gum::info!(target: LOG_TARGET,
 		"Throughput: {}",
 		format!("{} KiB/block", availability_bytes / env.config().num_blocks as u128).bright_red()
 	);
-	gum::info!(
+	gum::info!(target: LOG_TARGET,
 		"Avg block time: {}",
 		format!("{} ms", test_start.elapsed().as_millis() / env.config().num_blocks as u128).red()
 	);
@@ -569,7 +561,7 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 	env.metrics().set_n_validators(config.n_validators);
 	env.metrics().set_n_cores(config.n_cores);
 
-	gum::info!("Seeding availability store with candidates ...");
+	gum::info!(target: LOG_TARGET, "Seeding availability store with candidates ...");
 	for backed_candidate in state.backed_candidates().clone() {
 		let candidate_index = *state.candidate_hashes.get(&backed_candidate.hash()).unwrap();
 		let available_data = state.available_data[candidate_index].clone();
@@ -590,7 +582,7 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 			.expect("Test candidates are stored nicely in availability store");
 	}
 
-	gum::info!("Done");
+	gum::info!(target: LOG_TARGET, "Done");
 
 	let test_start = Instant::now();
 
@@ -648,7 +640,7 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 
 		let chunk_fetch_duration = Instant::now().sub(chunk_fetch_start_ts).as_millis();
 
-		gum::info!("All chunks received in {}ms", chunk_fetch_duration);
+		gum::info!(target: LOG_TARGET, "All chunks received in {}ms", chunk_fetch_duration);
 
 		let signing_context = SigningContext { session_index: 0, parent_hash: relay_block_hash };
 		let network = env.network().clone();
@@ -701,16 +693,16 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 		)
 		.await;
 
-		gum::info!("All bitfields processed");
+		gum::info!(target: LOG_TARGET, "All bitfields processed");
 
 		let block_time = Instant::now().sub(block_start_ts).as_millis() as u64;
 		env.metrics().set_block_time(block_time);
-		gum::info!("All work for block completed in {}", format!("{:?}ms", block_time).cyan());
+		gum::info!(target: LOG_TARGET, "All work for block completed in {}", format!("{:?}ms", block_time).cyan());
 	}
 
 	let duration: u128 = test_start.elapsed().as_millis();
-	gum::info!("All blocks processed in {}", format!("{:?}ms", duration).cyan());
-	gum::info!(
+	gum::info!(target: LOG_TARGET, "All blocks processed in {}", format!("{:?}ms", duration).cyan());
+	gum::info!(target: LOG_TARGET,
 		"Avg block time: {}",
 		format!("{} ms", test_start.elapsed().as_millis() / env.config().num_blocks as u128).red()
 	);

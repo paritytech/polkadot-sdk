@@ -31,6 +31,8 @@ pub(crate) mod cli;
 pub(crate) mod core;
 mod valgrind;
 
+const LOG_TARGET: &str = "subsystem-bench";
+
 use availability::{prepare_test, NetworkEmulation, TestState};
 use cli::TestObjective;
 
@@ -161,7 +163,7 @@ impl BenchCli {
 					format!("Sequence contains {} step(s)", num_steps).bright_purple()
 				);
 				for (index, test_config) in test_sequence.into_iter().enumerate() {
-					gum::info!("{}", format!("Step {}/{}", index + 1, num_steps).bright_purple(),);
+					gum::info!(target: LOG_TARGET, "{}", format!("Step {}/{}", index + 1, num_steps).bright_purple(),);
 					display_configuration(&test_config);
 
 					match test_config.objective {
