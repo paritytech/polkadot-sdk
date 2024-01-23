@@ -18,7 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 futures = "0.3.21"
-jsonrpsee = { version = "0.16.2", features = ["server"] }
+jsonrpsee = { version = "0.20.3", features = ["server"] }
 log = "0.4.17"
 parking_lot = "0.12.1"
 serde_json = "1.0.111"
@@ -40,7 +40,6 @@ sp-runtime = { path = "../../primitives/runtime" }
 sp-session = { path = "../../primitives/session" }
 sp-version = { path = "../../primitives/version" }
 sp-statement-store = { path = "../../primitives/statement-store" }
-
 tokio = "1.22.0"
 
 [dev-dependencies]
@@ -56,6 +55,7 @@ tokio = "1.22.0"
 sp-io = { path = "../../primitives/io" }
 substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
 pretty_assertions = "1.2.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [features]
 test-helpers = []
