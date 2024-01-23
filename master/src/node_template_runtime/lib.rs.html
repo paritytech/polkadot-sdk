@@ -563,10 +563,6 @@
 <a href="#563" id="563">563</a>
 <a href="#564" id="564">564</a>
 <a href="#565" id="565">565</a>
-<a href="#566" id="566">566</a>
-<a href="#567" id="567">567</a>
-<a href="#568" id="568">568</a>
-<a href="#569" id="569">569</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 </span><span class="comment">// `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 </span><span class="attr">#![recursion_limit = <span class="string">&quot;256&quot;</span>]
@@ -880,12 +876,8 @@
 &gt;;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-#[macro_use]
-</span><span class="kw">extern crate </span>frame_benchmarking;
-
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 </span><span class="kw">mod </span>benches {
-	<span class="macro">define_benchmarks!</span>(
+	<span class="macro">frame_benchmarking::define_benchmarks!</span>(
 		[frame_benchmarking, BaselineBench::&lt;Runtime&gt;]
 		[frame_system, SystemBench::&lt;Runtime&gt;]
 		[pallet_balances, Balances]

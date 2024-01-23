@@ -1768,10 +1768,6 @@
 <a href="#1768" id="1768">1768</a>
 <a href="#1769" id="1769">1769</a>
 <a href="#1770" id="1770">1770</a>
-<a href="#1771" id="1771">1771</a>
-<a href="#1772" id="1772">1772</a>
-<a href="#1773" id="1773">1773</a>
-<a href="#1774" id="1774">1774</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -2833,12 +2829,8 @@
 &gt;;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-#[macro_use]
-</span><span class="kw">extern crate </span>frame_benchmarking;
-
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 </span><span class="kw">mod </span>benches {
-	<span class="macro">define_benchmarks!</span>(
+	<span class="macro">frame_benchmarking::define_benchmarks!</span>(
 		[frame_system, SystemBench::&lt;Runtime&gt;]
 		[pallet_assets, Local]
 		[pallet_assets, Foreign]

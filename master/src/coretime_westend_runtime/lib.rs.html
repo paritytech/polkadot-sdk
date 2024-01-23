@@ -844,10 +844,6 @@
 <a href="#844" id="844">844</a>
 <a href="#845" id="845">845</a>
 <a href="#846" id="846">846</a>
-<a href="#847" id="847">847</a>
-<a href="#848" id="848">848</a>
-<a href="#849" id="849">849</a>
-<a href="#850" id="850">850</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1302,12 +1298,8 @@
 );
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-#[macro_use]
-</span><span class="kw">extern crate </span>frame_benchmarking;
-
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 </span><span class="kw">mod </span>benches {
-	<span class="macro">define_benchmarks!</span>(
+	<span class="macro">frame_benchmarking::define_benchmarks!</span>(
 		[frame_system, SystemBench::&lt;Runtime&gt;]
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[pallet_timestamp, Timestamp]

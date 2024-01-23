@@ -513,10 +513,6 @@
 <a href="#513" id="513">513</a>
 <a href="#514" id="514">514</a>
 <a href="#515" id="515">515</a>
-<a href="#516" id="516">516</a>
-<a href="#517" id="517">517</a>
-<a href="#518" id="518">518</a>
-<a href="#519" id="519">519</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -853,12 +849,8 @@
 &gt;;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-#[macro_use]
-</span><span class="kw">extern crate </span>frame_benchmarking;
-
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 </span><span class="kw">mod </span>benches {
-	<span class="macro">define_benchmarks!</span>(
+	<span class="macro">frame_benchmarking::define_benchmarks!</span>(
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[frame_system, SystemBench::&lt;Runtime&gt;]
 		[pallet_glutton, Glutton]
