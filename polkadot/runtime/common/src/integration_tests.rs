@@ -938,7 +938,7 @@ fn basic_swap_works() {
 		// Para 2000 has a genesis head size of 10.
 		assert_eq!(
 			Balances::reserved_balance(&account_id(1)),
-			crowdloan_depoist + para_id_deposit + code_deposit + 10
+			crowdloan_deposit + para_id_deposit + code_deposit + 10
 		);
 		// Para 2001 has a genesis head size of 20.
 		assert_eq!(Balances::reserved_balance(&account_id(2)), para_id_deposit + code_deposit + 20);
