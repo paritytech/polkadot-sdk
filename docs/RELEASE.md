@@ -81,13 +81,11 @@ This process aims to release the `stable` branch as a *Stable* release every two
 3. Update the `CHANGELOG.md` version, date and compile the content using the prdoc files.
 4. Open a Merge Request against `stable` for visibility.
 5. Check if there were any changes since the last release and abort, if not.
-6. Run `cargo semver-checks` and `cargo public-api` again to ensure that there are no SemVer breaks.
 7. Internal QA from the release team can happen here.
 8. Do a dry-run release to ensure that it *should* work.
 10. Comment that a *Stable* release will happen from the merged commit hash.
 11. Release all changed crates to crates.io.
 12. Create a release on GitHub.
-13. Notify Devops so that they can update Westend to the new runtime.
 
 ## Nightly Release
 
@@ -107,7 +105,7 @@ This process aims to release the `master` branch as a *Nightly* release. The pro
 
 Cadence: every 6th release (~3 months). Responsible: Release Team
 
-This process aims to bring branch `stable` in sync with the latest audited commit of `master`. It is not done via a Merge Request but rather by just copying files. It should be automated.  
+This process aims to bring branch `stable` in sync with the latest audited commit of `master`. It is not done via a Pull Request but rather by just copying files. It should be automated.  
 The following script is provided to do the clobbering. Note that it keeps the complete history of all past clobbering processes.
 
 ```bash
@@ -140,14 +138,9 @@ Describes how developers should merge bug and security fixes.
 
 ### Steps
 
-1. Developer opens a Merge Request with a bug or security fix.
-2. They have the possibility to mark the MR as such, and does so.
+1. Developer opens a Pull Request with a bug or security fix.
+2. They have the possibility to mark the PR as such, and does so.
 3. Audit happens with priority.
 4. It is merged into `master`.
 5. It is automatically back-ported to `stable`.
 6. The fix will be released in the next *Stable* release. In urgent cases, a release can happen earlier.
-
-# Footnotes
-
-1: `SemVer`: Semantic Versioning v2.0.0 as defined on https://semver.org/.  
-2: `RelEng`: The *RelEng: Polkadot Release Coordination* Matrix channel.  
