@@ -75,9 +75,8 @@ utilizes [`cargo-semver-checks`](https://github.com/obi1kenobi/cargo-semver-chec
 ### Steps
 
 1. Developer opens a Merge Request with changed crates against `master`.
-1. They bump all changed crates according to SemVer.
-1. They bump all crates that export any changed types in their *public API*.
-1. They also bump all crates that inherit logic changes from relying on one of the bumped crates.
+1. They bump all changed crates according to SemVer. Note that this includes any crates that expose the changed
+   behaviour in their *public API* and also transitive dependencies for whom the same rule applies.
 
 ## Stable Release
 
@@ -96,7 +95,7 @@ This process aims to release the `stable` branch as a *Stable* release every two
 1. Do a dry-run release to ensure that it *should* work.
 1. Comment in the Pull Request that a *Stable* release will happen from the merged commit hash.
 1. Release all changed crates to crates.io.
-1. Create a release on GitHub.
+1. Create the release `stableYYYYMMDD` on GitHub.
 
 ## Nightly Release
 
@@ -126,7 +125,7 @@ processes.
 ```bash
 # Ensure we have the latest remote data
 git fetch
-# Switch to the release stable
+# Switch to the stable branch
 git checkout stable
 
 # Delete all tracked files in the working directory
