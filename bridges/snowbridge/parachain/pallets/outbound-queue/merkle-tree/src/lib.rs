@@ -325,7 +325,7 @@ where
 mod tests {
 	use super::*;
 	use hex_literal::hex;
-	use sp_core::keccak_256;
+	use sp_crypto_hashing::keccak_256;
 	use sp_runtime::traits::Keccak256;
 
 	fn make_leaves(count: u64) -> Vec<H256> {
