@@ -57,7 +57,7 @@ The following processes are necessary to actualize our releases. Each process ha
 
 ## Crate Bumping
 
-Cadence: (possibly) each Merge Request. Responsible: Developer that opened the MR.
+Cadence: (possibly) each Merge Request. Responsible: Developer that opened the pull request.
 
 Following SemVer isn't easy, but there exists [a guide](https://doc.rust-lang.org/cargo/reference/semver.html) in the Rust documentation that explains the small details on when to bump what. This process should be augmented with CI checks that utilize [`cargo-semver-checks`](https://github.com/obi1kenobi/cargo-semver-checks) and/or [`cargo-public-api`](https://github.com/Enselic/cargo-public-api). They must also pay attention to downstream dependencies that require a version bump, because they export the changed API.
 
