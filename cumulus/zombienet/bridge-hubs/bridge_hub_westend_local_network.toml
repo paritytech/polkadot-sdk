@@ -1,14 +1,16 @@
 [settings]
+bootnode = true
 node_spawn_timeout = 240
 
 [relaychain]
 default_command = "{{POLKADOT_BINARY_PATH}}"
-default_args = [ "-lparachain=debug,xcm=trace" ]
+default_args = [ "-lparachain=debug,xcm=trace", "--discover-local" ]
 chain = "westend-local"
 
 	[[relaychain.nodes]]
 	name = "alice-westend-validator"
 	validator = true
+	invulnerable = true
 	rpc_port = 9935
 	ws_port = 9945
 	balance = 2000000000000
@@ -16,6 +18,7 @@ chain = "westend-local"
 	[[relaychain.nodes]]
 	name = "bob-westend-validator"
 	validator = true
+	invulnerable = true
 	rpc_port = 9936
 	ws_port = 9946
 	balance = 2000000000000
@@ -23,6 +26,7 @@ chain = "westend-local"
 	[[relaychain.nodes]]
 	name = "charlie-westend-validator"
 	validator = true
+	invulnerable = true
 	rpc_port = 9937
 	ws_port = 9947
 	balance = 2000000000000
@@ -41,7 +45,7 @@ cumulus_based = true
 	ws_port = 8945
 	args = [
 		"-lparachain=debug,runtime::mmr=info,substrate=info,runtime=info,runtime::bridge-hub=trace,runtime::bridge=trace,runtime::bridge-dispatch=trace,bridge=trace,runtime::bridge-messages=trace,xcm=trace,txpool=trace,basic-authorship=trace",
-		"--force-authoring"
+		"--discover-local"
 	]
 
 	# run bob as parachain collator
@@ -53,7 +57,7 @@ cumulus_based = true
 	ws_port = 8946
 	args = [
 		"-lparachain=trace,runtime::mmr=info,substrate=info,runtime=info,runtime::bridge-hub=trace,runtime::bridge=trace,runtime::bridge-dispatch=trace,bridge=trace,runtime::bridge-messages=trace,xcm=trace",
-		"--force-authoring"
+		"--discover-local"
 	]
 
 [[parachains]]
@@ -67,14 +71,16 @@ cumulus_based = true
 	ws_port = 9010
 	command = "{{POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND}}"
 	args = [
-		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace,txpool=trace,basic-authorship=trace"
+		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace,txpool=trace,basic-authorship=trace",
+		"--discover-local"
 	]
 
 	[[parachains.collators]]
 	name = "asset-hub-westend-collator2"
 	command = "{{POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND}}"
 	args = [
-		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace"
+		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace",
+		"--discover-local"
 	]
 
 #[[hrmp_channels]]
