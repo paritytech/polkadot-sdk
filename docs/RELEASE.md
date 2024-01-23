@@ -95,7 +95,8 @@ This process aims to release the `stable` branch as a *Stable* release every two
 7. Do a dry-run release to ensure that it *should* work.
 8. Comment in the Pull Request that a *Stable* release will happen from the merged commit hash.
 9. Release all changed crates to crates.io.
-10. Create the release `stableYYYYMMDD` on GitHub. Note that the Fellowship has a streamlined process that combines the two last steps. A similar approach should be taken here.
+10. Create the release `stableYYYYMMDD` on GitHub. Note that the Fellowship has a streamlined process that combines the
+    two last steps. A similar approach should be taken here.
 
 ## Nightly Release
 
