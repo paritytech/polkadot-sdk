@@ -40,11 +40,11 @@ Cumulus is a set of tools for writing Substrate-based Polkadot parachains.
 > [!NOTE]  
 > Our release process is still Work-In-Progress and may not yet reflect the aspired outline here.
 
-The Polkadot-SDK has two release channels: `mainline` and `nightly`. Production software is advised to only use `mainline`. `nightly` is meant for tinkerers to try out the latest features. The detailed release process is described in [RELEASE.md](docs/RELEASE.md).
+The Polkadot-SDK has two release channels: `stable` and `nightly`. Production software is advised to only use `stable`. `nightly` is meant for tinkerers to try out the latest features. The detailed release process is described in [RELEASE.md](docs/RELEASE.md).
 
-### Mainline
+### Stable
 
-`mainline` releases have a support duration of **three months**. In this period, the release will not have any breaking changes. It will receive receive bug, security fixes, performance fixes and new non-breaking features on a **two week** cadence.
+`stable` releases have a support duration of **three months**. In this period, the release will not have any breaking changes. It will receive receive bug, security fixes, performance fixes and new non-breaking features on a **two week** cadence.
 
 ### Nightly
 
