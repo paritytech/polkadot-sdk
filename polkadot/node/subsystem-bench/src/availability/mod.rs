@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 use crate::{core::mock::ChainApiState, TestEnvironment};
+use av_store::NetworkAvailabilityState;
 use bitvec::bitvec;
 use colored::Colorize;
 use itertools::Itertools;
@@ -25,7 +26,7 @@ use polkadot_node_subsystem_types::{
 	Span,
 };
 use polkadot_overseer::Handle as OverseerHandle;
-use sc_network::{request_responses::ProtocolConfig, PeerId, ProtocolName};
+use sc_network::{request_responses::ProtocolConfig, PeerId};
 use sp_core::H256;
 use std::{collections::HashMap, iter::Cycle, ops::Sub, sync::Arc, time::Instant};
 
@@ -42,13 +43,7 @@ use polkadot_node_primitives::{AvailableData, ErasureChunk};
 use crate::GENESIS_HASH;
 use parity_scale_codec::Encode;
 use polkadot_node_network_protocol::{
-	request_response::{
-		v1::{
-			AvailableDataFetchingResponse, ChunkFetchingRequest, ChunkFetchingResponse,
-			ChunkResponse,
-		},
-		IncomingRequest, ReqProtocolNames, Requests,
-	},
+	request_response::{v1::ChunkFetchingRequest, IncomingRequest, ReqProtocolNames},
 	OurView, Versioned, VersionedValidationProtocol,
 };
 use sc_network::request_responses::IncomingRequest as RawIncomingRequest;
@@ -133,74 +128,6 @@ fn build_overseer_for_availability_write(
 	(overseer, OverseerHandle::new(raw_handle))
 }
 
-/// The availability store state of all emulated peers.
-/// TODO: Move to common code.
-pub struct NetworkAvailabilityState {
-	pub candidate_hashes: HashMap<CandidateHash, usize>,
-	pub available_data: Vec<AvailableData>,
-	pub chunks: Vec<Vec<ErasureChunk>>,
-}
-
-impl HandleNetworkMessage for NetworkAvailabilityState {
-	fn handle(
-		&self,
-		message: NetworkMessage,
-		_node_sender: &mut futures::channel::mpsc::UnboundedSender<NetworkMessage>,
-	) -> Option<NetworkMessage> {
-		match message {
-			NetworkMessage::RequestFromNode(peer, request) => match request {
-				Requests::ChunkFetchingV1(outgoing_request) => {
-					gum::debug!(target: LOG_TARGET, request = ?outgoing_request, "Received `RequestFromNode`");
-					let validator_index: usize = outgoing_request.payload.index.0 as usize;
-					let candidate_hash = outgoing_request.payload.candidate_hash;
-
-					let candidate_index = self
-						.candidate_hashes
-						.get(&candidate_hash)
-						.expect("candidate was generated previously; qed");
-					gum::warn!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
-
-					let chunk: ChunkResponse =
-						self.chunks.get(*candidate_index).unwrap()[validator_index].clone().into();
-					let response = Ok((
-						ChunkFetchingResponse::from(Some(chunk)).encode(),
-						ProtocolName::Static("dummy"),
-					));
-
-					if let Err(err) = outgoing_request.pending_response.send(response) {
-						gum::error!(target: LOG_TARGET, ?err, "Failed to send `ChunkFetchingResponse`");
-					}
-
-					None
-				},
-				Requests::AvailableDataFetchingV1(outgoing_request) => {
-					let candidate_hash = outgoing_request.payload.candidate_hash;
-					let candidate_index = self
-						.candidate_hashes
-						.get(&candidate_hash)
-						.expect("candidate was generated previously; qed");
-					gum::debug!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
-
-					let available_data = self.available_data.get(*candidate_index).unwrap().clone();
-
-					let response = Ok((
-						AvailableDataFetchingResponse::from(Some(available_data)).encode(),
-						ProtocolName::Static("dummy"),
-					));
-					outgoing_request
-						.pending_response
-						.send(response)
-						.expect("Response is always sent succesfully");
-					None
-				},
-				_ => Some(NetworkMessage::RequestFromNode(peer, request)),
-			},
-
-			message => Some(message),
-		}
-	}
-}
-
 /// Takes a test configuration and uses it to create the `TestEnvironment`.
 pub fn prepare_test(
 	config: TestConfiguration,
@@ -221,7 +148,7 @@ fn prepare_test_inner(
 
 	// Prepare per block candidates.
 	// Genesis block is always finalized, so we start at 1.
-	for block_num in 0..=config.num_blocks {
+	for block_num in 1..=config.num_blocks {
 		for _ in 0..config.n_cores {
 			candidate_hashes
 				.entry(Hash::repeat_byte(block_num as u8))
@@ -611,7 +538,7 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 			let request = RawIncomingRequest {
 				peer: PeerId::random(),
 				payload: ChunkFetchingRequest {
-					candidate_hash: state.backed_candidates()[block_num].hash(),
+					candidate_hash: state.backed_candidates()[block_num - 1].hash(),
 					index: ValidatorIndex(index as u32),
 				}
 				.encode(),
