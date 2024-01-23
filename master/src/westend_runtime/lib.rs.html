@@ -2547,7 +2547,6 @@
 <a href="#2547" id="2547">2547</a>
 <a href="#2548" id="2548">2548</a>
 <a href="#2549" id="2549">2549</a>
-<a href="#2550" id="2550">2550</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2588,7 +2587,7 @@
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
 };
-<span class="kw">use </span>frame_system::EnsureRoot;
+<span class="kw">use </span>frame_system::{EnsureRoot, EnsureSigned};
 <span class="kw">use </span>pallet_grandpa::{fg_primitives, AuthorityId <span class="kw">as </span>GrandpaId};
 <span class="kw">use </span>pallet_identity::legacy::IdentityInfo;
 <span class="kw">use </span>pallet_session::historical <span class="kw">as </span>session_historical;
@@ -2697,7 +2696,7 @@
 	spec_name: <span class="macro">create_runtime_str!</span>(<span class="string">&quot;westend&quot;</span>),
 	impl_name: <span class="macro">create_runtime_str!</span>(<span class="string">&quot;parity-westend&quot;</span>),
 	authoring_version: <span class="number">2</span>,
-	spec_version: <span class="number">1_006_000</span>,
+	spec_version: <span class="number">1_006_001</span>,
 	impl_version: <span class="number">0</span>,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: <span class="number">24</span>,
@@ -3892,8 +3891,7 @@
 
 <span class="kw">impl </span>identity_migrator::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="comment">// To be changed to `EnsureSigned` once there is a People Chain to migrate to.
-	</span><span class="kw">type </span>Reaper = EnsureRoot&lt;AccountId&gt;;
+	<span class="kw">type </span>Reaper = EnsureSigned&lt;AccountId&gt;;
 	<span class="kw">type </span>ReapIdentityHandler = ToParachainIdentityReaper&lt;Runtime, <span class="self">Self</span>::AccountId&gt;;
 	<span class="kw">type </span>WeightInfo = weights::runtime_common_identity_migrator::WeightInfo&lt;Runtime&gt;;
 }
