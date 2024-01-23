@@ -668,7 +668,7 @@ impl State {
 	) {
 		match event {
 			NetworkBridgeEvent::PeerConnected(peer_id, role, version, authority_ids) => {
-				gum::debug!(target: LOG_TARGET, ?peer_id, ?role, ?authority_ids, "Peer connected");
+				gum::trace!(target: LOG_TARGET, ?peer_id, ?role, ?authority_ids, "Peer connected");
 				if let Some(authority_ids) = authority_ids {
 					self.topologies.update_authority_ids(peer_id, &authority_ids);
 				}
@@ -721,7 +721,7 @@ impl State {
 			},
 			NetworkBridgeEvent::UpdatedAuthorityIds(peer_id, authority_ids) => {
 				gum::debug!(target: LOG_TARGET, ?peer_id, ?authority_ids, "Update Authority Ids");
-				// If learnt about a new PeerId for an authority ids we need to try to route the
+				// If we learn about a new PeerId for an authority ids we need to try to route the
 				// messages that should have sent to that validator according to the topology.
 				if self.topologies.update_authority_ids(peer_id, &authority_ids) {
 					if let Some(PeerEntry { view, version }) = self.peer_views.get(&peer_id) {
