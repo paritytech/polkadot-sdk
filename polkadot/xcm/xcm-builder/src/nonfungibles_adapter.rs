@@ -29,6 +29,9 @@ use xcm_executor::traits::{
 
 const LOG_TARGET: &str = "xcm::nonfungibles_adapter";
 
+/// [`TransactAsset`] implementation that allows the use of a [`nonfungibles`] implementation for
+/// handling an asset in the XCM executor.
+/// Only works for transfers.
 pub struct NonFungiblesTransferAdapter<Assets, Matcher, AccountIdConverter, AccountId>(
 	PhantomData<(Assets, Matcher, AccountIdConverter, AccountId)>,
 );
@@ -63,6 +66,9 @@ impl<
 	}
 }
 
+/// [`TransactAsset`] implementation that allows the use of a [`nonfungibles`] implementation for
+/// handling an asset in the XCM executor.
+/// Only works for teleport bookkeeping.
 pub struct NonFungiblesMutateAdapter<
 	Assets,
 	Matcher,
@@ -245,6 +251,9 @@ impl<
 	}
 }
 
+/// [`TransactAsset`] implementation that allows the use of a [`nonfungibles`] implementation for
+/// handling an asset in the XCM executor.
+/// Works for everything.
 pub struct NonFungiblesAdapter<
 	Assets,
 	Matcher,
