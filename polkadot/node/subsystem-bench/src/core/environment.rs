@@ -311,7 +311,7 @@ impl TestEnvironment {
 		self.overseer_handle.stop().await;
 	}
 
-	/// Blocks until `metric_name` >= `value`
+	/// Blocks until `metric_name` == `value`
 	pub async fn wait_until_metric_eq(&self, metric_name: &str, value: usize) {
 		let value = value as f64;
 		loop {
