@@ -233,7 +233,7 @@ benchmarks! {
 		v09::store_old_dummy_code::<T>(c as usize);
 		let mut m = v09::Migration::<T>::default();
 	}: {
-		m.step();
+		m.step(&mut WeightMeter::new())
 	}
 
 	// This benchmarks the v10 migration step (use dedicated deposit_account).
@@ -246,7 +246,7 @@ benchmarks! {
 		v10::store_old_contract_info::<T, pallet_balances::Pallet<T>>(contract.account_id.clone(), contract.info()?);
 		let mut m = v10::Migration::<T, pallet_balances::Pallet<T>>::default();
 	}: {
-		m.step();
+		m.step(&mut WeightMeter::new());
 	}
 
 	// This benchmarks the v11 migration step (Don't rely on reserved balances keeping an account alive).
@@ -256,7 +256,7 @@ benchmarks! {
 		v11::fill_old_queue::<T>(k as usize);
 		let mut m = v11::Migration::<T>::default();
 	}: {
-		m.step();
+		m.step(&mut WeightMeter::new())
 	}
 
 	// This benchmarks the v12 migration step (Move `OwnerInfo` to `CodeInfo`,
@@ -271,7 +271,7 @@ benchmarks! {
 		>(c as usize, account::<T::AccountId>("account", 0, 0));
 		let mut m = v12::Migration::<T, pallet_balances::Pallet<T>>::default();
 	}: {
-		m.step();
+		m.step(&mut WeightMeter::new())
 	}
 
 	// This benchmarks the v13 migration step (Add delegate_dependencies field).
@@ -284,7 +284,7 @@ benchmarks! {
 		v13::store_old_contract_info::<T>(contract.account_id.clone(), contract.info()?);
 		let mut m = v13::Migration::<T>::default();
 	}: {
-		m.step();
+		m.step(&mut WeightMeter::new())
 	}
 
 	// This benchmarks the v14 migration step (Move code owners' reserved balance to be held instead).
@@ -295,7 +295,7 @@ benchmarks! {
 		v14::store_dummy_code::<T, pallet_balances::Pallet<T>>(account);
 		let mut m = v14::Migration::<T, pallet_balances::Pallet<T>>::default();
 	}: {
-		m.step();
+		m.step(&mut WeightMeter::new())
 	}
 
 	// This benchmarks the v15 migration step (remove deposit account).
@@ -308,7 +308,7 @@ benchmarks! {
 		v15::store_old_contract_info::<T>(contract.account_id.clone(), contract.info()?);
 		let mut m = v15::Migration::<T>::default();
 	}: {
-		m.step();
+		m.step(&mut WeightMeter::new())
 	}
 
 	// This benchmarks the weight of executing Migration::migrate to execute a noop migration.

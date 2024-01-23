@@ -113,8 +113,8 @@ pub trait MigrationStep: Codec + MaxEncodedLen + Default {
 
 	/// Process one step of the migration.
 	///
-	/// Returns whether the migration is finished and the weight consumed.
-	fn step(&mut self) -> (IsFinished, Weight);
+	/// Returns whether the migration is finished.
+	fn step(&mut self, meter: &mut WeightMeter) -> IsFinished;
 
 	/// Verify that the migration step fits into `Cursor`, and that `max_step_weight` is not greater
 	/// than `max_block_weight`.
@@ -162,9 +162,10 @@ impl<const N: u16> MigrationStep for NoopMigration<N> {
 	fn max_step_weight() -> Weight {
 		Weight::zero()
 	}
-	fn step(&mut self) -> (IsFinished, Weight) {
+	fn step(&mut self, meter: &mut WeightMeter) -> IsFinished {
 		log::debug!(target: LOG_TARGET, "Noop migration for version {}", N);
-		(IsFinished::Yes, Weight::zero())
+		meter.consume(Weight::zero());
+		IsFinished::Yes
 	}
 }
 
@@ -525,10 +526,8 @@ impl MigrateSequence for Tuple {
 					let max_weight = Tuple::max_step_weight();
 					let mut steps_done = 0;
 					while meter.can_consume(max_weight) {
-						let (finished, weight) = migration.step();
 						steps_done.saturating_accrue(1);
-						meter.consume(weight);
-						if matches!(finished, IsFinished::Yes) {
+						if matches!(migration.step(meter), IsFinished::Yes) {
 							return StepResult::Completed{ steps_done }
 						}
 					}
@@ -567,13 +566,14 @@ mod test {
 		fn max_step_weight() -> Weight {
 			Weight::from_all(1)
 		}
-		fn step(&mut self) -> (IsFinished, Weight) {
+		fn step(&mut self, meter: &mut WeightMeter) -> IsFinished {
 			assert!(self.count != N);
 			self.count += 1;
+			meter.consume(Weight::from_all(1));
 			if self.count == N {
-				(IsFinished::Yes, Weight::from_all(1))
+				IsFinished::Yes
 			} else {
-				(IsFinished::No, Weight::from_all(1))
+				IsFinished::No
 			}
 		}
 	}
