@@ -4,11 +4,11 @@ Creds: config
 
 # step 1: initialize Rococo AH
 asset-hub-rococo-collator1: run ../scripts/invoke-script.sh with "init-asset-hub-rococo-local" within 600 seconds
-sleep 33
+sleep 33 seconds
 
 # step 2: initialize Rococo bridge hub
 bridge-hub-rococo-collator1: run ../scripts/invoke-script.sh with "init-bridge-hub-rococo-local" within 600 seconds
-sleep 33
+sleep 33 seconds
 
 # step 3: ensure that the HRMP channel between AH and BH is opened
 asset-hub-rococo-collator1: js-script ../helpers/wait-hrmp-channel-opened.js with "1013" within 600 seconds
