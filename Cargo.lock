@@ -5065,8 +5065,8 @@ dependencies = [
 
 [[package]]
 name = "ethabi-decode"
-version = "1.4.0"
-source = "git+https://github.com/Snowfork/ethabi-decode.git?branch=master#7d215837b626650bd9a076821e57ad488101301f"
+version = "1.0.0"
+source = "git+https://github.com/Snowfork/ethabi-decode.git?branch=master#5c01c8a0f2d0e4eccf600507cd573b27555b1d9d"
 dependencies = [
  "ethereum-types",
  "tiny-keccak",
