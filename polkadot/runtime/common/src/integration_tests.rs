@@ -983,7 +983,7 @@ fn basic_swap_works() {
 		// Deregister on-demand parachain
 		assert_ok!(Registrar::deregister(para_origin(2000).into(), ParaId::from(2000)));
 		// Correct deposit is unreserved
-		assert_eq!(Balances::reserved_balance(&account_id(1)), crowdloan_depoist);
+		assert_eq!(Balances::reserved_balance(&account_id(1)), crowdloan_deposit);
 		assert_eq!(Balances::reserved_balance(&account_id(2)), para_id_deposit + code_deposit + 20);
 		// Crowdloan ownership is swapped
 		assert!(Crowdloan::funds(ParaId::from(2000)).is_none());
