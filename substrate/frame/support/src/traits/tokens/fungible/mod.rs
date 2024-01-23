@@ -67,7 +67,7 @@ pub use regular::{
 };
 use sp_arithmetic::traits::Zero;
 use sp_core::Get;
-use sp_runtime::{traits::Convert, DispatchError};
+use sp_runtime::{traits::Convert, DispatchError, TokenError};
 pub use union_of::{NativeFromLeft, NativeOrWithId, UnionOf};
 
 use crate::{
@@ -87,11 +87,12 @@ where
 {
 	/// Create a ticket for a `new` balance attributable to `who`. This ticket *must* ultimately
 	/// be consumed through `update` or `drop` once a footprint changes or is removed.
-	fn new_from_exact(_who: &A, _new: F::Balance) -> Result<Option<Self>, DispatchError>
+	fn new_from_exact(_who: &A, _new: F::Balance) -> Result<Self, DispatchError>
 	where
 		Self: Sized,
 	{
-		Ok(None)
+		// TODO: Choose the right error
+		Err(DispatchError::Token(TokenError::Unsupported))
 	}
 }
 
@@ -106,11 +107,12 @@ where
 {
 	/// Create a ticket for a `new` balance attributable to `who`. This ticket *must* ultimately
 	/// be consumed through `update` or `drop` once a footprint changes or is removed.
-	fn new_from_exact(_who: &A, _new: F::Balance) -> Result<Option<Self>, DispatchError>
+	fn new_from_exact(_who: &A, _new: F::Balance) -> Result<Self, DispatchError>
 	where
 		Self: Sized,
 	{
-		Ok(None)
+		// TODO: Choose the right error
+		Err(DispatchError::Other("Unsupported"))
 	}
 }
 
@@ -166,9 +168,9 @@ impl<
 		D: 'static + Convert<Footprint, F::Balance>,
 	> FreezeConsiderationFromLegacy<A, F> for FreezeConsideration<A, F, R, D>
 {
-	fn new_from_exact(who: &A, new: F::Balance) -> Result<Option<Self>, DispatchError> {
+	fn new_from_exact(who: &A, new: F::Balance) -> Result<Self, DispatchError> {
 		F::increase_frozen(&R::get(), who, new)?;
-		Ok(Some(Self(new, PhantomData)))
+		Ok(Self(new, PhantomData))
 	}
 }
 
@@ -225,9 +227,9 @@ impl<
 		D: 'static + Convert<Footprint, F::Balance>,
 	> HoldConsiderationFromLegacy<A, F> for HoldConsideration<A, F, R, D>
 {
-	fn new_from_exact(who: &A, new: F::Balance) -> Result<Option<Self>, DispatchError> {
+	fn new_from_exact(who: &A, new: F::Balance) -> Result<Self, DispatchError> {
 		F::hold(&R::get(), who, new)?;
-		Ok(Some(Self(new, PhantomData)))
+		Ok(Self(new, PhantomData))
 	}
 }
 
@@ -277,9 +279,9 @@ impl<
 		D: 'static + Convert<Footprint, Fx::Balance>,
 	> FreezeConsiderationFromLegacy<A, Fx> for LoneFreezeConsideration<A, Fx, Rx, D>
 {
-	fn new_from_exact(who: &A, new: Fx::Balance) -> Result<Option<Self>, DispatchError> {
+	fn new_from_exact(who: &A, new: Fx::Balance) -> Result<Self, DispatchError> {
 		ensure!(Fx::balance_frozen(&Rx::get(), who).is_zero(), DispatchError::Unavailable);
-		Fx::set_frozen(&Rx::get(), who, new, Polite).map(|_| Some(Self(PhantomData)))
+		Fx::set_frozen(&Rx::get(), who, new, Polite).map(|_| Self(PhantomData))
 	}
 }
 
@@ -332,8 +334,8 @@ impl<
 		D: 'static + Convert<Footprint, F::Balance>,
 	> HoldConsiderationFromLegacy<A, F> for LoneHoldConsideration<A, F, R, D>
 {
-	fn new_from_exact(who: &A, new: F::Balance) -> Result<Option<Self>, DispatchError> {
+	fn new_from_exact(who: &A, new: F::Balance) -> Result<Self, DispatchError> {
 		ensure!(F::balance_on_hold(&R::get(), who).is_zero(), DispatchError::Unavailable);
-		F::set_on_hold(&R::get(), who, new).map(|_| Some(Self(PhantomData)))
+		F::set_on_hold(&R::get(), who, new).map(|_| Self(PhantomData))
 	}
 }

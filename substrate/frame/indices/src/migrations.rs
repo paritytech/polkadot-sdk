@@ -103,7 +103,7 @@ pub mod v1 {
 						err
 					}).ok();
 
-					Accounts::<T>::set(account_index, Some((account_id, ticket.unwrap(), perm)));
+					Accounts::<T>::set(account_index, Some((account_id, ticket, perm)));
 				});
 
 				// TODO: Fix weight when lazy migration or multi block migration is in place
