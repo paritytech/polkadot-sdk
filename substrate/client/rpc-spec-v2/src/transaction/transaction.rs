@@ -34,17 +34,18 @@ use jsonrpsee::{
 	types::error::ErrorObject,
 	PendingSubscriptionSink,
 };
+use parking_lot::RwLock;
+use rand::{distributions::Alphanumeric, Rng};
+use sc_rpc::utils::pipe_from_stream;
 use sc_transaction_pool_api::{
 	error::IntoPoolError, BlockHash, TransactionFor, TransactionPool, TransactionSource,
 	TransactionStatus,
 };
-use std::sync::Arc;
-
-use sc_rpc::utils::pipe_from_stream;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_core::Bytes;
 use sp_runtime::traits::Block as BlockT;
+use std::{collections::HashSet, sync::Arc};
 
 use codec::Decode;
 use futures::{StreamExt, TryFutureExt};
@@ -57,12 +58,41 @@ pub struct Transaction<Pool, Client> {
 	pool: Arc<Pool>,
 	/// Executor to spawn subscriptions.
 	executor: SubscriptionTaskExecutor,
+	/// The brodcast operation IDs.
+	broadcast_ids: Arc<RwLock<HashSet<String>>>,
 }
 
 impl<Pool, Client> Transaction<Pool, Client> {
 	/// Creates a new [`Transaction`].
 	pub fn new(client: Arc<Client>, pool: Arc<Pool>, executor: SubscriptionTaskExecutor) -> Self {
-		Transaction { client, pool, executor }
+		Transaction { client, pool, executor, broadcast_ids: Default::default() }
+	}
+
+	/// Generate and track an unique operation ID for the `transaction_broadcast` RPC method.
+	pub fn insert_unique_id(&self) -> String {
+		let generate_operation_id = || {
+			// The lenght of the operation ID.
+			const OPERATION_ID_LEN: usize = 16;
+
+			let mut rng = rand::thread_rng();
+			(&mut rng)
+				.sample_iter(Alphanumeric)
+				.take(OPERATION_ID_LEN)
+				.map(char::from)
+				.collect::<String>()
+		};
+
+		let mut id = generate_operation_id();
+
+		let mut broadcast_ids = self.broadcast_ids.write();
+
+		while broadcast_ids.contains(&id) {
+			id = generate_operation_id();
+		}
+
+		broadcast_ids.insert(id.clone());
+
+		id
 	}
 }
 
@@ -141,6 +171,9 @@ where
 		let client = self.client.clone();
 		let pool = self.pool.clone();
 
+		// The ID is unique and has been inserted to the broadcast ID set.
+		let id = self.insert_unique_id();
+
 		let fut = async move {
 			// There is nothing we could do with an extrinsic of invalid format.
 			let Ok(decoded_extrinsic) = TransactionFor::<Pool>::decode(&mut &bytes[..]) else {
@@ -201,7 +234,7 @@ where
 
 		sc_rpc::utils::spawn_subscription_task(&self.executor, fut);
 
-		Ok(None)
+		Ok(Some(id))
 	}
 }
 
