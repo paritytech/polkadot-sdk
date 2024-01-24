@@ -3074,11 +3074,13 @@ fn claim_swap_should_work() {
 			Some(price_with_direction.clone()),
 		));
 
-		// validate the new owner
+		// validate the new owner and deposits
 		let item = Item::<Test>::get(collection_id, item_1).unwrap();
 		assert_eq!(item.owner, user_2.clone());
+		assert_eq!(item.deposit.account, user_2.clone());
 		let item = Item::<Test>::get(collection_id, item_2).unwrap();
 		assert_eq!(item.owner, user_1.clone());
+		assert_eq!(item.deposit.account, user_1.clone());
 
 		// validate the balances
 		assert_eq!(Balances::total_balance(&user_1), initial_balance + price);
