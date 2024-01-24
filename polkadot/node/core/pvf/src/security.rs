@@ -169,20 +169,6 @@ impl fmt::Display for SecureModeError {
 
 /// Print an error if Secure Validator Mode and some mandatory errors occurred, warn otherwise.
 fn print_secure_mode_error_or_warning(security_status: &FullSecurityStatus) {
-	// Trying to run securely and some mandatory errors occurred.
-	const SECURE_MODE_ERROR: &'static str = "🚨 Your system cannot securely run a validator. \
-		 \nRunning validation of malicious PVF code has a higher risk of compromising this machine.";
-	// Some errors occurred when running insecurely, or some optional errors occurred when running
-	// securely.
-	const SECURE_MODE_WARNING: &'static str = "🚨 Some security issues have been detected. \
-		 \nRunning validation of malicious PVF code has a higher risk of compromising this machine.";
-	// Message to be printed only when running securely and mandatory errors occurred.
-	const IGNORE_SECURE_MODE_TIP: &'static str =
-		"\nYou can ignore this error with the `--insecure-validator-i-know-what-i-do` \
-		 command line argument if you understand and accept the risks of running insecurely. \
-		 With this flag, security features are enabled on a best-effort basis, but not mandatory. \
-		 \nMore information: https://wiki.polkadot.network/docs/maintain-guides-secure-validator#secure-validator-mode";
-
 	let all_errs_allowed = security_status.all_errs_allowed();
 	let errs_string = security_status.errs_string();
 
@@ -190,16 +176,16 @@ fn print_secure_mode_error_or_warning(security_status: &FullSecurityStatus) {
 		gum::warn!(
 			target: LOG_TARGET,
 			"{}{}",
-			SECURE_MODE_WARNING,
+			crate::SECURE_MODE_WARNING,
 			errs_string,
 		);
 	} else {
 		gum::error!(
 			target: LOG_TARGET,
 			"{}{}{}",
-			SECURE_MODE_ERROR,
+			crate::SECURE_MODE_ERROR,
 			errs_string,
-			IGNORE_SECURE_MODE_TIP
+			crate::IGNORE_SECURE_MODE_TIP
 		);
 	}
 }
@@ -210,29 +196,25 @@ fn print_secure_mode_error_or_warning(security_status: &FullSecurityStatus) {
 /// to running the check in a worker, we try it... in a worker. The expected return status is 0 on
 /// success and -1 on failure.
 async fn check_can_unshare_user_namespace_and_change_root(
-	#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
 	prepare_worker_program_path: &Path,
-	#[cfg_attr(not(target_os = "linux"), allow(unused_variables))] cache_path: &Path,
+	cache_path: &Path,
 ) -> SecureModeResult {
-	cfg_if::cfg_if! {
-		if #[cfg(target_os = "linux")] {
-			let cache_dir_tempdir = tempfile::Builder::new()
-				.prefix("check-can-unshare-")
-				.tempdir_in(cache_path)
-				.map_err(|err| SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
-					format!("could not create a temporary directory in {:?}: {}", cache_path, err)
-				))?;
-			spawn_process_for_security_check(
-				prepare_worker_program_path,
-				"--check-can-unshare-user-namespace-and-change-root",
-				&[cache_dir_tempdir.path()],
-			).await.map_err(|err| SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(err))
-		} else {
-			Err(SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
-				"only available on Linux".into()
+	let cache_dir_tempdir = tempfile::Builder::new()
+		.prefix("check-can-unshare-")
+		.tempdir_in(cache_path)
+		.map_err(|err| {
+			SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(format!(
+				"could not create a temporary directory in {:?}: {}",
+				cache_path, err
 			))
-		}
-	}
+		})?;
+	spawn_process_for_security_check(
+		prepare_worker_program_path,
+		"--check-can-unshare-user-namespace-and-change-root",
+		&[cache_dir_tempdir.path()],
+	)
+	.await
+	.map_err(|err| SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(err))
 }
 
 /// Check if landlock is supported and return an error if not.
@@ -240,25 +222,15 @@ async fn check_can_unshare_user_namespace_and_change_root(
 /// We do this check by spawning a new process and trying to sandbox it. To get as close as possible
 /// to running the check in a worker, we try it... in a worker. The expected return status is 0 on
 /// success and -1 on failure.
-async fn check_landlock(
-	#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
-	prepare_worker_program_path: &Path,
-) -> SecureModeResult {
-	cfg_if::cfg_if! {
-		if #[cfg(target_os = "linux")] {
-			let abi = polkadot_node_core_pvf_common::worker::security::landlock::LANDLOCK_ABI as u8;
-			spawn_process_for_security_check(
-				prepare_worker_program_path,
-				"--check-can-enable-landlock",
-				std::iter::empty::<&str>(),
-			).await.map_err(|err| SecureModeError::CannotEnableLandlock { err, abi })
-		} else {
-			Err(SecureModeError::CannotEnableLandlock {
-				err: "only available on Linux".into(),
-				abi: 0,
-			})
-		}
-	}
+async fn check_landlock(prepare_worker_program_path: &Path) -> SecureModeResult {
+	let abi = polkadot_node_core_pvf_common::worker::security::landlock::LANDLOCK_ABI as u8;
+	spawn_process_for_security_check(
+		prepare_worker_program_path,
+		"--check-can-enable-landlock",
+		std::iter::empty::<&str>(),
+	)
+	.await
+	.map_err(|err| SecureModeError::CannotEnableLandlock { err, abi })
 }
 
 /// Check if seccomp is supported and return an error if not.
@@ -266,39 +238,23 @@ async fn check_landlock(
 /// We do this check by spawning a new process and trying to sandbox it. To get as close as possible
 /// to running the check in a worker, we try it... in a worker. The expected return status is 0 on
 /// success and -1 on failure.
-async fn check_seccomp(
-	#[cfg_attr(not(all(target_os = "linux", target_arch = "x86_64")), allow(unused_variables))]
-	prepare_worker_program_path: &Path,
-) -> SecureModeResult {
-	cfg_if::cfg_if! {
-		if #[cfg(target_os = "linux")] {
-			cfg_if::cfg_if! {
-				if #[cfg(target_arch = "x86_64")] {
-					spawn_process_for_security_check(
-						prepare_worker_program_path,
-						"--check-can-enable-seccomp",
-						std::iter::empty::<&str>(),
-					).await.map_err(|err| SecureModeError::CannotEnableSeccomp(err))
-				} else {
-					Err(SecureModeError::CannotEnableSeccomp(
-						"only supported on CPUs from the x86_64 family (usually Intel or AMD)".into()
-					))
-				}
-			}
-		} else {
-			cfg_if::cfg_if! {
-				if #[cfg(target_arch = "x86_64")] {
-					Err(SecureModeError::CannotEnableSeccomp(
-						"only supported on Linux".into()
-					))
-				} else {
-					Err(SecureModeError::CannotEnableSeccomp(
-						"only supported on Linux and on CPUs from the x86_64 family (usually Intel or AMD).".into()
-					))
-				}
-			}
-		}
-	}
+
+#[cfg(target_arch = "x86_64")]
+async fn check_seccomp(prepare_worker_program_path: &Path) -> SecureModeResult {
+	spawn_process_for_security_check(
+		prepare_worker_program_path,
+		"--check-can-enable-seccomp",
+		std::iter::empty::<&str>(),
+	)
+	.await
+	.map_err(|err| SecureModeError::CannotEnableSeccomp(err))
+}
+
+#[cfg(not(target_arch = "x86_64"))]
+async fn check_seccomp(_: &Path) -> SecureModeResult {
+	Err(SecureModeError::CannotEnableSeccomp(
+		"only supported on CPUs from the x86_64 family (usually Intel or AMD)".into(),
+	))
 }
 
 /// Check if we can call `clone` with all sandboxing flags, and return an error if not.
@@ -306,26 +262,16 @@ async fn check_seccomp(
 /// We do this check by spawning a new process and trying to sandbox it. To get as close as possible
 /// to running the check in a worker, we try it... in a worker. The expected return status is 0 on
 /// success and -1 on failure.
-async fn check_can_do_secure_clone(
-	#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
-	prepare_worker_program_path: &Path,
-) -> SecureModeResult {
-	cfg_if::cfg_if! {
-		if #[cfg(target_os = "linux")] {
-			spawn_process_for_security_check(
-				prepare_worker_program_path,
-				"--check-can-do-secure-clone",
-				std::iter::empty::<&str>(),
-			).await.map_err(|err| SecureModeError::CannotDoSecureClone(err))
-		} else {
-			Err(SecureModeError::CannotDoSecureClone(
-				"only available on Linux".into()
-			))
-		}
-	}
+async fn check_can_do_secure_clone(prepare_worker_program_path: &Path) -> SecureModeResult {
+	spawn_process_for_security_check(
+		prepare_worker_program_path,
+		"--check-can-do-secure-clone",
+		std::iter::empty::<&str>(),
+	)
+	.await
+	.map_err(|err| SecureModeError::CannotDoSecureClone(err))
 }
 
-#[cfg(target_os = "linux")]
 async fn spawn_process_for_security_check<I, S>(
 	prepare_worker_program_path: &Path,
 	check_arg: &'static str,
