@@ -22,7 +22,6 @@
 #![deny(missing_docs)]
 
 use crate::weights::Weight;
-use alloc::vec::Vec;
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_runtime::traits::AtLeast32BitUnsigned;
 

@@ -344,7 +344,7 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 					&self,
 					backend: &B,
 					parent_hash: Block::Hash,
-				) -> core::result::Result<
+				) -> ::core::result::Result<
 					#crate_::StorageChanges<Block>,
 				String
 					> where Self: Sized {
