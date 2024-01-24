@@ -35,7 +35,7 @@ use sp_trie::{
 	recorder::Recorder,
 	StorageProof,
 };
-use sp_trie::{ChildChangesetH, DBValue, MemoryDB, MerkleValue};
+use sp_trie::{ChildChangeset, DBValue, MemoryDB, MerkleValue};
 #[cfg(not(feature = "std"))]
 use sp_trie::{Error, NodeCodec};
 #[cfg(not(feature = "std"))]
@@ -556,7 +556,7 @@ where
 
 	fn storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangesetH<H::Out>>)>,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<H::Out>>)>,
 		state_version: StateVersion,
 	) -> TrieCommit<H::Out>
 	where

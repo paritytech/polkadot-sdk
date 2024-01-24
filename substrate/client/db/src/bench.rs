@@ -36,7 +36,7 @@ use sp_state_machine::{
 };
 use sp_trie::{
 	cache::{CacheSize, SharedTrieCache},
-	ChildChangesetH, MemoryDB, MerkleValue,
+	ChildChangeset, MemoryDB, MerkleValue,
 };
 use std::{
 	cell::{Cell, RefCell},
@@ -415,7 +415,7 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for BenchmarkingState<B> {
 
 	fn storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangesetH<B::Hash>>)>,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<B::Hash>>)>,
 		state_version: StateVersion,
 	) -> TrieCommit<B::Hash> {
 		self.state

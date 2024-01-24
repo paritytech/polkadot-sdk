@@ -29,7 +29,7 @@ use trie_db::node_db::Hasher;
 
 /// DB location hint for a trie node.
 pub type DBLocation = sp_trie::DBLocation;
-use sp_trie::{ChildChangesetH, MerkleValue};
+use sp_trie::{ChildChangeset, MerkleValue};
 
 /// A struct containing arguments for iterating over the storage.
 #[derive(Default)]
@@ -241,7 +241,7 @@ pub trait Backend<H: Hasher>: sp_std::fmt::Debug {
 	/// Does not include child storage updates.
 	fn storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangesetH<H::Out>>)>,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<H::Out>>)>,
 		state_version: StateVersion,
 	) -> TrieCommit<H::Out>
 	where

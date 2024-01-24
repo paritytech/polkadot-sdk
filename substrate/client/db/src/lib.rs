@@ -88,7 +88,7 @@ use sp_state_machine::{
 	OffchainChangesCollection, StateMachineStats, StorageCollection, StorageIterator, StorageKey,
 	StorageValue, TrieCommit, UsageInfo as StateUsageInfo,
 };
-use sp_trie::{cache::SharedTrieCache, prefixed_key, ChildChangesetH, MemoryDB, MerkleValue};
+use sp_trie::{cache::SharedTrieCache, prefixed_key, ChildChangeset, MemoryDB, MerkleValue};
 use trie_db::node_db::Prefix;
 
 // Re-export the Database trait so that one can pass an implementation of it.
@@ -249,7 +249,7 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 
 	fn storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangesetH<B::Hash>>)>,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<B::Hash>>)>,
 		state_version: StateVersion,
 	) -> TrieCommit<B::Hash> {
 		self.state.storage_root(delta, state_version)

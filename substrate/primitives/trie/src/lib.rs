@@ -198,12 +198,7 @@ pub type Lookup<'a, 'cache, L, Q> = trie_db::Lookup<'a, 'cache, L, Q>;
 /// Hash type for a trie layout.
 pub type TrieHash<L> = <<L as TrieLayout>::Hash as Hasher>::Out;
 /// Change set for child trie.
-pub type ChildChangesetH<H> = Box<trie_db::triedbmut::Changeset<H, DBLocation>>;
-/// Change set for child trie.
-pub type ChildChangeset<L> = trie_db::triedbmut::TreeRefChangeset<L>;
-/// Change set for child trie using LayoutV0. In practice it is identical to ChildChangeset,
-/// but can help with type resolution.
-pub type ChildChangesetV0<H> = trie_db::triedbmut::TreeRefChangeset<LayoutV0<H, DBLocation>>;
+pub type ChildChangeset<H> = Box<trie_db::triedbmut::Changeset<H, DBLocation>>;
 
 /// This module is for non generic definition of trie type.
 /// Only the `Hasher` trait is generic in this case.
@@ -291,7 +286,7 @@ pub fn delta_trie_root<L: TrieConfiguration, I, A, B, V>(
 	cache: Option<&mut dyn TrieCache<L::Codec, L::Location>>,
 ) -> Result<trie_db::Changeset<TrieHash<L>, L::Location>, Box<TrieError<L>>>
 where
-	I: IntoIterator<Item = (A, B, Option<ChildChangeset<L>>)>,
+	I: IntoIterator<Item = (A, B, Option<trie_db::triedbmut::TreeRefChangeset<L>>)>,
 	A: Borrow<[u8]>,
 	B: Borrow<Option<V>>,
 	V: Borrow<[u8]>,
