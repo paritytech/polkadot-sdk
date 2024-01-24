@@ -29,6 +29,9 @@ use crate::{
 	},
 	SubscriptionTaskExecutor,
 };
+use codec::Decode;
+use futures::{FutureExt, StreamExt, TryFutureExt};
+use futures_util::stream::AbortHandle;
 use jsonrpsee::{
 	core::{async_trait, RpcResult},
 	types::error::ErrorObject,
@@ -45,10 +48,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_core::Bytes;
 use sp_runtime::traits::Block as BlockT;
-use std::{collections::HashSet, sync::Arc};
-
-use codec::Decode;
-use futures::{StreamExt, TryFutureExt};
+use std::{collections::HashMap, sync::Arc};
 
 /// An API for transaction RPC calls.
 pub struct Transaction<Pool, Client> {
@@ -59,7 +59,12 @@ pub struct Transaction<Pool, Client> {
 	/// Executor to spawn subscriptions.
 	executor: SubscriptionTaskExecutor,
 	/// The brodcast operation IDs.
-	broadcast_ids: Arc<RwLock<HashSet<String>>>,
+	broadcast_ids: Arc<RwLock<HashMap<String, BroadcastState>>>,
+}
+
+struct BroadcastState {
+	/// Handle to abort the running future that broadcasts the transaction.
+	handle: AbortHandle,
 }
 
 impl<Pool, Client> Transaction<Pool, Client> {
@@ -68,8 +73,8 @@ impl<Pool, Client> Transaction<Pool, Client> {
 		Transaction { client, pool, executor, broadcast_ids: Default::default() }
 	}
 
-	/// Generate and track an unique operation ID for the `transaction_broadcast` RPC method.
-	pub fn insert_unique_id(&self) -> String {
+	/// Generate an unique operation ID for the `transaction_broadcast` RPC method.
+	pub fn generate_unique_id(&self) -> String {
 		let generate_operation_id = || {
 			// The lenght of the operation ID.
 			const OPERATION_ID_LEN: usize = 16;
@@ -84,13 +89,11 @@ impl<Pool, Client> Transaction<Pool, Client> {
 
 		let mut id = generate_operation_id();
 
-		let mut broadcast_ids = self.broadcast_ids.write();
+		let broadcast_ids = self.broadcast_ids.read();
 
-		while broadcast_ids.contains(&id) {
+		while broadcast_ids.contains_key(&id) {
 			id = generate_operation_id();
 		}
-
-		broadcast_ids.insert(id.clone());
 
 		id
 	}
@@ -171,10 +174,10 @@ where
 		let client = self.client.clone();
 		let pool = self.pool.clone();
 
-		// The ID is unique and has been inserted to the broadcast ID set.
-		let id = self.insert_unique_id();
+		// The unique ID of this operation.
+		let id = self.generate_unique_id();
 
-		let fut = async move {
+		let broadcast_transaction_fut = async move {
 			// There is nothing we could do with an extrinsic of invalid format.
 			let Ok(decoded_extrinsic) = TransactionFor::<Pool>::decode(&mut &bytes[..]) else {
 				return
@@ -231,6 +234,19 @@ where
 				}
 			}
 		};
+
+		// Convert the future into an abortable future, for easily terminating it from the
+		// `transaction_stop` method.
+		let (fut, handle) = futures::future::abortable(broadcast_transaction_fut);
+		// The future expected by the executor must be `Future<Output = ()>` instead of
+		// `Future<Output = Result<(), Aborted>>`.
+		let fut = fut.map(drop);
+
+		// Keep track of this entry and the abortable handle.
+		{
+			let mut broadcast_ids = self.broadcast_ids.write();
+			broadcast_ids.insert(id.clone(), BroadcastState { handle });
+		}
 
 		sc_rpc::utils::spawn_subscription_task(&self.executor, fut);
 
