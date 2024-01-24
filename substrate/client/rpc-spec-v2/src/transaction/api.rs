@@ -44,6 +44,14 @@ pub trait TransactionApi<Hash: Clone> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainHead_unstable_continue", blocking)]
+	#[method(name = "transaction_unstable_broadcast", blocking)]
 	fn broadcast(&self, bytes: Bytes) -> RpcResult<Option<String>>;
+
+	/// Broadcast an extrinsic to the chain.
+	///
+	/// # Unstable
+	///
+	/// This method is unstable and subject to change in the future.
+	#[method(name = "transaction_unstable_stop", blocking)]
+	fn stop_broadcast(&self, operation_id: String) -> RpcResult<()>;
 }

@@ -236,6 +236,10 @@ where
 
 		Ok(Some(id))
 	}
+
+	fn stop_broadcast(&self, _operation_id: String) -> RpcResult<()> {
+		Ok(())
+	}
 }
 
 /// The transaction's state that needs to be preserved between
