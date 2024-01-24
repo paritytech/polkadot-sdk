@@ -232,4 +232,68 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Ok(())
 		})
 	}
+
+	/// Move the item and metadata deposits to the new owner.
+	///
+	/// - `collection`: The ID of the collection to which the NFT belongs.
+	/// - `item`: The ID of the NFT to move the deposit for.
+	/// - `new_owner`: The new owner's account.
+	/// - `collection_details`: Collection details
+	/// - `item_details`: Item details
+	///
+	/// This function moves the item and metadata deposits to the new owner.
+	/// If the deposit was placed by the collection owner, it will update the `owner_deposit`
+	/// accumulator on collection details.
+	///
+	/// Note: Attributes deposit is not moved.
+	pub(crate) fn do_move_item_deposit(
+		collection: T::CollectionId,
+		item: T::ItemId,
+		new_owner: T::AccountId,
+		collection_details: &mut CollectionDetailsFor<T, I>,
+		item_details: &mut ItemDetailsFor<T, I>,
+	) -> DispatchResult {
+		let ItemDepositOf::<T, I> { amount: item_deposit, account: item_depositor } =
+			item_details.deposit.clone();
+
+		if new_owner != item_depositor {
+			T::Currency::unreserve(&item_depositor, item_deposit);
+			T::Currency::reserve(&new_owner, item_deposit)?;
+			item_details.deposit.account = new_owner.clone();
+		}
+
+		let mut maybe_metadata = ItemMetadataOf::<T, I>::get(&collection, &item);
+		if let Some(metadata) = maybe_metadata.as_mut() {
+			let metadata_deposit = metadata.deposit.amount;
+			let metadata_depositor =
+				metadata.deposit.account.as_ref().unwrap_or(&collection_details.owner);
+
+			if &new_owner != metadata_depositor {
+				T::Currency::unreserve(metadata_depositor, metadata_deposit);
+				T::Currency::reserve(&new_owner, metadata_deposit)?;
+			}
+
+			let new_owner_is_collection_owner = new_owner == collection_details.owner;
+			let collection_owner_is_depositor = metadata_depositor == &collection_details.owner;
+
+			match (new_owner_is_collection_owner, collection_owner_is_depositor) {
+				(true, true) => { /* Do nothing */ },
+				(true, false) => {
+					collection_details.owner_deposit.saturating_accrue(metadata_deposit);
+					metadata.deposit.account = None;
+				},
+				(false, true) => {
+					collection_details.owner_deposit.saturating_reduce(metadata_deposit);
+					metadata.deposit.account = Some(new_owner.clone());
+				},
+				(false, false) => {
+					metadata.deposit.account = Some(new_owner.clone());
+				},
+			}
+
+			ItemMetadataOf::<T, I>::insert(&collection, &item, metadata);
+		}
+
+		Ok(())
+	}
 }

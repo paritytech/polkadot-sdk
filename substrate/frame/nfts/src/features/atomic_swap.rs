@@ -208,14 +208,33 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 
 		// This also removes the swap.
-		Self::do_transfer(send_collection_id, send_item_id, receive_item.owner.clone(), |_, _| {
-			Ok(())
-		})?;
+		Self::do_transfer(
+			send_collection_id,
+			send_item_id,
+			receive_item.owner.clone(),
+			|collection_details, item_details| {
+				Self::do_move_item_deposit(
+					send_collection_id,
+					send_item_id,
+					receive_item.owner.clone(),
+					collection_details,
+					item_details,
+				)
+			},
+		)?;
 		Self::do_transfer(
 			receive_collection_id,
 			receive_item_id,
 			send_item.owner.clone(),
-			|_, _| Ok(()),
+			|collection_details, item_details| {
+				Self::do_move_item_deposit(
+					receive_collection_id,
+					receive_item_id,
+					send_item.owner.clone(),
+					collection_details,
+					item_details,
+				)
+			},
 		)?;
 
 		Self::deposit_event(Event::SwapClaimed {

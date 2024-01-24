@@ -157,55 +157,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		let old_owner = details.owner.clone();
 
-		Self::do_transfer(collection, item, buyer.clone(), |collection_details, details| {
-			// Here we move item deppsit and metadata deposit to the buyer. Attribute deposit is
-			// currently not moved.
-
-			let item_deposit = details.deposit.amount;
-			let item_depositor = &details.deposit.account;
-
-			if &buyer != item_depositor {
-				T::Currency::unreserve(item_depositor, item_deposit);
-				T::Currency::reserve(&buyer, item_deposit)?;
-				details.deposit.account = buyer.clone();
-			}
-
-			let mut maybe_metadata = ItemMetadataOf::<T, I>::get(&collection, &item);
-			let metadata = match maybe_metadata.as_mut() {
-				Some(metadata) => metadata,
-				None => return Ok(()),
-			};
-
-			let metadata_deposit = metadata.deposit.amount;
-			let metadata_depositor =
-				metadata.deposit.account.as_ref().unwrap_or(&collection_details.owner);
-
-			if &buyer != metadata_depositor {
-				T::Currency::unreserve(metadata_depositor, metadata_deposit);
-				T::Currency::reserve(&buyer, metadata_deposit)?;
-			}
-
-			let buyer_is_collection_owner = buyer == collection_details.owner;
-			let collection_owner_is_depositor = metadata_depositor == &collection_details.owner;
-
-			match (buyer_is_collection_owner, collection_owner_is_depositor) {
-				(true, true) => { /* Do nothing */ },
-				(true, false) => {
-					collection_details.owner_deposit.saturating_accrue(metadata_deposit);
-					metadata.deposit.account = None;
-				},
-				(false, true) => {
-					collection_details.owner_deposit.saturating_reduce(metadata_deposit);
-					metadata.deposit.account = Some(buyer.clone());
-				},
-				(false, false) => {
-					metadata.deposit.account = Some(buyer.clone());
-				},
-			}
-
-			ItemMetadataOf::<T, I>::insert(&collection, &item, metadata);
-
-			Ok(())
+		Self::do_transfer(collection, item, buyer.clone(), |collection_details, item_details| {
+			Self::do_move_item_deposit(
+				collection,
+				item,
+				buyer.clone(),
+				collection_details,
+				item_details,
+			)
 		})?;
 
 		Self::deposit_event(Event::ItemBought {

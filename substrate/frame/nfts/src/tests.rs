@@ -2529,7 +2529,7 @@ fn buy_item_should_work() {
 			price_1 + 1,
 		));
 
-		// validate the new owner, balances, and reserves
+		// validate the new owner, balances, and deposits
 		let item = Item::<Test>::get(collection_id, item_1).unwrap();
 		let metadata = ItemMetadataOf::<Test>::get(collection_id, item_1).unwrap();
 		let collection_details = Collection::<Test>::get(collection_id).unwrap();
