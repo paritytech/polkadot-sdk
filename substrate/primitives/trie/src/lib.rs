@@ -49,7 +49,7 @@ use trie_db::proof::{generate_proof, verify_proof};
 pub use trie_db::{
 	nibble_ops,
 	node::{NodePlan, ValuePlan},
-	CError, Changeset, ChangesetNodeRef, DBValue, ExistingChangesetNode, NewChangesetNode, Query,
+	CError, Changeset, DBValue, ExistingChangesetNode, NewChangesetNode, Query,
 	Recorder, Trie, TrieCache, TrieConfiguration, TrieDBIterator, TrieDBKeyIterator,
 	TrieDBRawIterator, TrieLayout, TrieRecorder, };
 pub use trie_db::{proof::VerifyError, MerkleValue};
@@ -87,7 +87,7 @@ where
 		A: AsRef<[u8]> + Ord,
 		B: AsRef<[u8]>,
 	{
-		trie_root::trie_root_no_extension::<H, TrieStream, _, _, _>(input, Self::MAX_INLINE_VALUE)
+		trie_db::trie_root::trie_root_no_extension::<H, TrieStream, _, _, _>(input, Self::MAX_INLINE_VALUE)
 	}
 
 	fn trie_root_unhashed<I, A, B>(input: I) -> Vec<u8>
@@ -96,7 +96,7 @@ where
 		A: AsRef<[u8]> + Ord,
 		B: AsRef<[u8]>,
 	{
-		trie_root::unhashed_trie_no_extension::<H, TrieStream, _, _, _>(
+		trie_db::trie_root::unhashed_trie_no_extension::<H, TrieStream, _, _, _>(
 			input,
 			Self::MAX_INLINE_VALUE,
 		)
@@ -132,7 +132,7 @@ where
 		A: AsRef<[u8]> + Ord,
 		B: AsRef<[u8]>,
 	{
-		trie_root::trie_root_no_extension::<H, TrieStream, _, _, _>(input, Self::MAX_INLINE_VALUE)
+		trie_db::trie_root::trie_root_no_extension::<H, TrieStream, _, _, _>(input, Self::MAX_INLINE_VALUE)
 	}
 
 	fn trie_root_unhashed<I, A, B>(input: I) -> Vec<u8>
@@ -141,7 +141,7 @@ where
 		A: AsRef<[u8]> + Ord,
 		B: AsRef<[u8]>,
 	{
-		trie_root::unhashed_trie_no_extension::<H, TrieStream, _, _, _>(
+		trie_db::trie_root::unhashed_trie_no_extension::<H, TrieStream, _, _, _>(
 			input,
 			Self::MAX_INLINE_VALUE,
 		)
@@ -186,7 +186,7 @@ pub type Lookup<'a, 'cache, L, Q> = trie_db::Lookup<'a, 'cache, L, Q>;
 /// Hash type for a trie layout.
 pub type TrieHash<L> = <<L as TrieLayout>::Hash as Hasher>::Out;
 /// Change set for child trie.
-pub type ChildChangeset<H> = Box<trie_db::triedbmut::TreeRefChangeset<H, DBLocation>>;
+pub type ChildChangeset<H> = Box<trie_db::triedbmut::Changeset<H, DBLocation>>;
 
 /// This module is for non generic definition of trie type.
 /// Only the `Hasher` trait is generic in this case.
@@ -274,7 +274,7 @@ pub fn delta_trie_root<L: TrieConfiguration, I, A, B, V>(
 	cache: Option<&mut dyn TrieCache<L::Codec, L::Location>>,
 ) -> Result<trie_db::Changeset<TrieHash<L>, L::Location>, Box<TrieError<L>>>
 where
-	I: IntoIterator<Item = (A, B, Option<trie_db::triedbmut::ChildChangeset<L>>)>,
+	I: IntoIterator<Item = (A, B, Option<ChildChangeset<TrieHash<L>>>)>,
 	A: Borrow<[u8]>,
 	B: Borrow<Option<V>>,
 	V: Borrow<[u8]>,

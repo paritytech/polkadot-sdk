@@ -1140,10 +1140,10 @@ impl<T: Clone> FrozenForDuration<T> {
 
 /// Apply trie commit to the database transaction.
 pub fn apply_tree_commit<H: Hash>(commit: TrieCommit<H::Out>, db_tree_support: bool, tx: &mut Transaction<DbHash>) {
-	fn convert<H: Hash>(node: sp_trie::ChangesetNodeRef<H::Out, DBLocation>) -> sp_database::NodeRef {
+	fn convert<H: Hash>(node: sp_trie::Changeset<H::Out, DBLocation>) -> sp_database::NodeRef {
 		match node {
-			sp_trie::ChangesetNodeRef::Existing(node) => sp_database::NodeRef::Existing(node.location),
-			sp_trie::ChangesetNodeRef::New(node) => sp_database::NodeRef::New(sp_database::NewNode {
+			sp_trie::Changeset::Existing(node) => sp_database::NodeRef::Existing(node.location),
+			sp_trie::Changeset::New(node) => sp_database::NodeRef::New(sp_database::NewNode {
 				data: node.data,
 				children: node.children.into_iter().map(|c| convert::<H>(c)).collect(),
 			})
@@ -1153,10 +1153,10 @@ pub fn apply_tree_commit<H: Hash>(commit: TrieCommit<H::Out>, db_tree_support: b
 	if db_tree_support {
 		let hash = commit.root_hash();
 		match commit.root {
-			sp_trie::ChangesetNodeRef::Existing(node) => {
+			sp_trie::Changeset::Existing(node) => {
 				tx.reference_tree(columns::STATE, DbHash::from_slice(node.hash.as_ref()));
 			}
-			new_node @ sp_trie::ChangesetNodeRef::New(_) => {
+			new_node @ sp_trie::Changeset::New(_) => {
 				if let sp_database::NodeRef::New(n) = convert::<H>(new_node) {
 					tx.insert_tree(columns::STATE, DbHash::from_slice(hash.as_ref()), n);
 				}
@@ -2945,7 +2945,7 @@ pub(crate) mod tests {
 
 			op.db_updates = TrieCommit {
 				main: sp_trie::Changeset {
-					root: sp_trie::ChangesetNodeRef::New(sp_trie::NewChangesetNode{
+					root: sp_trie::Changeset::New(sp_trie::NewChangesetNode{
 						hash: key.into(),
 						prefix: Default::default(),
 						data: data.to_vec(),
@@ -2992,7 +2992,7 @@ pub(crate) mod tests {
 
 			op.db_updates = TrieCommit {
 				main: sp_trie::Changeset {
-					root: sp_trie::ChangesetNodeRef::New(sp_trie::NewChangesetNode{
+					root: sp_trie::Changeset::New(sp_trie::NewChangesetNode{
 						hash: key.into(),
 						prefix: Default::default(),
 						data: data.to_vec(),
@@ -3039,7 +3039,7 @@ pub(crate) mod tests {
 
 			op.db_updates = TrieCommit {
 				main: sp_trie::Changeset {
-					root: sp_trie::ChangesetNodeRef::Existing(sp_trie::ExistingChangesetNode{
+					root: sp_trie::Changeset::Existing(sp_trie::ExistingChangesetNode{
 						hash: Default::default(),
 						prefix: Default::default(),
 						location: Default::default(),
