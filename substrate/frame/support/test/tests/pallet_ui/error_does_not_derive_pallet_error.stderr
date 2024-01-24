@@ -1,7 +1,7 @@
 error[E0277]: the trait bound `MyError: PalletError` is not satisfied
-  --> tests/pallet_ui/error_does_not_derive_pallet_error.rs:28:15
+  --> tests/pallet_ui/error_does_not_derive_pallet_error.rs:29:15
    |
-28 |         CustomError(crate::MyError),
+29 |         CustomError(crate::MyError),
    |                     ^^^^^^^^^^^^^^ the trait `PalletError` is not implemented for `MyError`
    |
    = help: the following other types implement trait `PalletError`:
