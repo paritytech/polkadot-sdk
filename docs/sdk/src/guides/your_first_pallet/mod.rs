@@ -428,8 +428,8 @@ pub mod pallet {
 			use crate::guides::your_first_pallet::pallet as pallet_currency;
 
 			construct_runtime!(
-				pub struct Runtime {
-					// ---^^^^^^ This is where `struct Runtime` is defined.
+				pub enum Runtime {
+					// ---^^^^^^ This is where `enum Runtime` is defined.
 					System: frame_system,
 					Currency: pallet_currency,
 				}
@@ -708,7 +708,7 @@ pub mod pallet_v2 {
 			use crate::guides::your_first_pallet::pallet_v2 as pallet_currency;
 
 			construct_runtime!(
-				pub struct Runtime {
+				pub enum Runtime {
 					System: frame_system,
 					Currency: pallet_currency,
 				}

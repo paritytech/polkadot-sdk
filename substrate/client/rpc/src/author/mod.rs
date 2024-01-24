@@ -202,7 +202,7 @@ where
 				},
 			};
 
-			pipe_from_stream(pending, stream, 16).await;
+			pipe_from_stream(pending, stream).await;
 		};
 
 		spawn_subscription_task(&self.executor, fut);

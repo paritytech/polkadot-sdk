@@ -77,7 +77,7 @@ pub use sc_chain_spec::{
 
 pub use sc_consensus::ImportQueue;
 pub use sc_executor::NativeExecutionDispatch;
-pub use sc_network_sync::warp::WarpSyncParams;
+pub use sc_network_sync::WarpSyncParams;
 #[doc(hidden)]
 pub use sc_network_transactions::config::{TransactionImport, TransactionImportFuture};
 pub use sc_rpc::{
@@ -110,8 +110,14 @@ impl RpcHandlers {
 		&self,
 		json_query: &str,
 	) -> Result<(String, tokio::sync::mpsc::Receiver<String>), serde_json::Error> {
+		// Because `tokio::sync::mpsc::channel` is used under the hood
+		// it will panic if it's set to usize::MAX.
+		//
+		// This limit is used to prevent panics and is large enough.
+		const TOKIO_MPSC_MAX_SIZE: usize = tokio::sync::Semaphore::MAX_PERMITS;
+
 		self.0
-			.raw_json_request(json_query, tokio::sync::Semaphore::MAX_PERMITS)
+			.raw_json_request(json_query, TOKIO_MPSC_MAX_SIZE)
 			.await
 			.map(|(method_res, recv)| (method_res.result, recv))
 	}

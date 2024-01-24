@@ -92,6 +92,9 @@ pub enum JobError {
 	TimedOut,
 	#[error("An unexpected panic has occurred in the execution job: {0}")]
 	Panic(String),
+	/// Some error occurred when interfacing with the kernel.
+	#[error("Error interfacing with the kernel: {0}")]
+	Kernel(String),
 	#[error("Could not spawn the requested thread: {0}")]
 	CouldNotSpawnThread(String),
 	#[error("An error occurred in the CPU time monitor thread: {0}")]

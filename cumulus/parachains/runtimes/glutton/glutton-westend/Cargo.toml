@@ -6,6 +6,9 @@ edition.workspace = true
 license = "Apache-2.0"
 description = "Glutton parachain runtime."
 
+[lints]
+workspace = true
+
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
@@ -134,5 +137,5 @@ experimental = ["pallet-aura/experimental"]
 
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
-# to make it smaller like logging for example.
+# to make it smaller, like logging for example.
 on-chain-release-build = ["sp-api/disable-logging"]

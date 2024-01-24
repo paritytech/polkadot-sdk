@@ -108,10 +108,7 @@ where
 			},
 		);
 
-		sc_rpc::utils::spawn_subscription_task(
-			&self.executor,
-			pipe_from_stream(pending, stream, 16),
-		);
+		sc_rpc::utils::spawn_subscription_task(&self.executor, pipe_from_stream(pending, stream));
 	}
 
 	async fn prove_finality(

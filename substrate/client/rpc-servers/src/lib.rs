@@ -44,7 +44,7 @@ use tokio::net::TcpListener;
 use tower::Service;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
-pub use crate::middleware::{MetricsLayer, RateLimitLayer, RpcMetrics};
+pub use middleware::{MetricsLayer, RateLimitLayer, RpcMetrics};
 pub use jsonrpsee::core::{
 	id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
 	traits::IdProvider,

@@ -98,9 +98,9 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Sudo: sudo::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Logger: logger::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		Sudo: sudo,
+		Logger: logger,
 	}
 );
 

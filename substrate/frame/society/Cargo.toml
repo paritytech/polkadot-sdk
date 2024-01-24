@@ -9,6 +9,9 @@ repository.workspace = true
 description = "FRAME society pallet"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
@@ -30,6 +33,7 @@ frame-system = { path = "../system", default-features = false }
 frame-support-test = { path = "../support/test" }
 pallet-balances = { path = "../balances" }
 sp-core = { path = "../../primitives/core" }
+sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
 sp-io = { path = "../../primitives/io" }
 
 [features]
