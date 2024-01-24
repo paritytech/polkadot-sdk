@@ -4,7 +4,7 @@ node_spawn_timeout = 240
 
 [relaychain]
 default_command = "{{POLKADOT_BINARY_PATH}}"
-default_args = [ "-lparachain=debug,xcm=trace", "--no-mdns", "--discover-local" ]
+default_args = [ "-lparachain=debug,xcm=trace", "--discover-local" ]
 chain = "rococo-local"
 
 	[[relaychain.nodes]]
@@ -45,7 +45,6 @@ cumulus_based = true
 	ws_port = 8943
 	args = [
 		"-lparachain=debug,runtime::bridge-hub=trace,runtime::bridge=trace,runtime::bridge-dispatch=trace,bridge=trace,runtime::bridge-messages=trace,xcm=trace,txpool=trace,basic-authorship=trace",
-		"--no-mdns",
 		"--discover-local"
 	]
 
@@ -58,7 +57,6 @@ cumulus_based = true
 	ws_port = 8944
 	args = [
 		"-lparachain=trace,runtime::bridge-hub=trace,runtime::bridge=trace,runtime::bridge-dispatch=trace,bridge=trace,runtime::bridge-messages=trace,xcm=trace",
-		"--no-mdns",
 		"--discover-local"
 	]
 
@@ -74,7 +72,6 @@ cumulus_based = true
 	command = "{{POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO}}"
 	args = [
 		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace,txpool=trace,basic-authorship=trace",
-		"--no-mdns",
 		"--discover-local"
 	]
 
@@ -83,7 +80,6 @@ cumulus_based = true
 	command = "{{POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO}}"
 	args = [
 		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace",
-		"--no-mdns",
 		"--discover-local"
 	]
 
