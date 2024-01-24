@@ -215,6 +215,8 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// This benchmark is short-circuited if `SpendOrigin` cannot provide
+	// a successful origin, in which case `spend` is un-callable and can use weight=0.
 	#[benchmark]
 	fn spend() -> Result<(), BenchmarkError> {
 		let origin =
@@ -248,9 +250,13 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// This benchmark is short-circuited if `SpendOrigin` cannot provide
+	// a successful origin, in which case there is no spend to payout
+	// and `payout` is un-callable and can use weight=0.
 	#[benchmark]
 	fn payout() -> Result<(), BenchmarkError> {
-		let origin = T::SpendOrigin::try_successful_origin().map_err(|_| "No origin")?;
+		let origin =
+			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let (asset_kind, amount, beneficiary, beneficiary_lookup) =
 			create_spend_arguments::<T, _>(SEED);
 		T::BalanceConverter::ensure_successful(asset_kind.clone());
@@ -279,9 +285,13 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// This benchmark is short-circuited if `SpendOrigin` cannot provide
+	// a successful origin, in which case there is no spend to check
+	// and `check_status` is un-callable and can use weight=0.
 	#[benchmark]
 	fn check_status() -> Result<(), BenchmarkError> {
-		let origin = T::SpendOrigin::try_successful_origin().map_err(|_| "No origin")?;
+		let origin =
+			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let (asset_kind, amount, beneficiary, beneficiary_lookup) =
 			create_spend_arguments::<T, _>(SEED);
 		T::BalanceConverter::ensure_successful(asset_kind.clone());
@@ -311,9 +321,13 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// This benchmark is short-circuited if `SpendOrigin` cannot provide
+	// a successful origin, in which case there is no spend to void
+	// and `void_spend` is un-callable and can use weight=0.
 	#[benchmark]
 	fn void_spend() -> Result<(), BenchmarkError> {
-		let origin = T::SpendOrigin::try_successful_origin().map_err(|_| "No origin")?;
+		let origin =
+			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let (asset_kind, amount, _, beneficiary_lookup) = create_spend_arguments::<T, _>(SEED);
 		T::BalanceConverter::ensure_successful(asset_kind.clone());
 		Treasury::<T, _>::spend(
