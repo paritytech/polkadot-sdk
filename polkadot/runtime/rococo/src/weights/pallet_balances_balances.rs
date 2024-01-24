@@ -48,119 +48,105 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_balances`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_balances::WeightInfo for WeightInfo<T> {
-	/// Storage: `NisCounterpartBalances::Account` (r:2 w:2)
-	/// Proof: `NisCounterpartBalances::Account` (`max_values`: None, `max_size`: Some(112), added: 2587, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	fn transfer_allow_death() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `103`
-		//  Estimated: `6164`
-		// Minimum execution time: 41_740_000 picoseconds.
-		Weight::from_parts(43_261_000, 0)
-			.saturating_add(Weight::from_parts(0, 6164))
-			.saturating_add(T::DbWeight::get().reads(3))
-			.saturating_add(T::DbWeight::get().writes(3))
+		//  Measured:  `0`
+		//  Estimated: `3593`
+		// Minimum execution time: 43_763_000 picoseconds.
+		Weight::from_parts(45_537_000, 0)
+			.saturating_add(Weight::from_parts(0, 3593))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	/// Storage: `NisCounterpartBalances::Account` (r:2 w:2)
-	/// Proof: `NisCounterpartBalances::Account` (`max_values`: None, `max_size`: Some(112), added: 2587, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	fn transfer_keep_alive() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `103`
-		//  Estimated: `6164`
-		// Minimum execution time: 32_058_000 picoseconds.
-		Weight::from_parts(33_286_000, 0)
-			.saturating_add(Weight::from_parts(0, 6164))
-			.saturating_add(T::DbWeight::get().reads(3))
-			.saturating_add(T::DbWeight::get().writes(3))
-	}
-	/// Storage: `NisCounterpartBalances::Account` (r:1 w:1)
-	/// Proof: `NisCounterpartBalances::Account` (`max_values`: None, `max_size`: Some(112), added: 2587, mode: `MaxEncodedLen`)
-	fn force_set_balance_creating() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `103`
-		//  Estimated: `3577`
-		// Minimum execution time: 9_921_000 picoseconds.
-		Weight::from_parts(10_384_000, 0)
-			.saturating_add(Weight::from_parts(0, 3577))
+		//  Measured:  `0`
+		//  Estimated: `3593`
+		// Minimum execution time: 34_250_000 picoseconds.
+		Weight::from_parts(35_761_000, 0)
+			.saturating_add(Weight::from_parts(0, 3593))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	/// Storage: `NisCounterpartBalances::Account` (r:1 w:1)
-	/// Proof: `NisCounterpartBalances::Account` (`max_values`: None, `max_size`: Some(112), added: 2587, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	fn force_set_balance_creating() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `174`
+		//  Estimated: `3593`
+		// Minimum execution time: 12_483_000 picoseconds.
+		Weight::from_parts(12_954_000, 0)
+			.saturating_add(Weight::from_parts(0, 3593))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	fn force_set_balance_killing() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `277`
+		//  Measured:  `174`
 		//  Estimated: `3593`
-		// Minimum execution time: 16_265_000 picoseconds.
-		Weight::from_parts(16_864_000, 0)
+		// Minimum execution time: 17_387_000 picoseconds.
+		Weight::from_parts(17_932_000, 0)
 			.saturating_add(Weight::from_parts(0, 3593))
-			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(2))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	/// Storage: `NisCounterpartBalances::Account` (r:2 w:2)
-	/// Proof: `NisCounterpartBalances::Account` (`max_values`: None, `max_size`: Some(112), added: 2587, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:2 w:2)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	fn force_transfer() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `206`
+		//  Measured:  `103`
 		//  Estimated: `6196`
-		// Minimum execution time: 43_708_000 picoseconds.
-		Weight::from_parts(45_288_000, 0)
+		// Minimum execution time: 44_935_000 picoseconds.
+		Weight::from_parts(46_883_000, 0)
 			.saturating_add(Weight::from_parts(0, 6196))
-			.saturating_add(T::DbWeight::get().reads(4))
-			.saturating_add(T::DbWeight::get().writes(4))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
-	/// Storage: `NisCounterpartBalances::Account` (r:2 w:2)
-	/// Proof: `NisCounterpartBalances::Account` (`max_values`: None, `max_size`: Some(112), added: 2587, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	fn transfer_all() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `103`
-		//  Estimated: `6164`
-		// Minimum execution time: 41_388_000 picoseconds.
-		Weight::from_parts(42_934_000, 0)
-			.saturating_add(Weight::from_parts(0, 6164))
-			.saturating_add(T::DbWeight::get().reads(3))
-			.saturating_add(T::DbWeight::get().writes(3))
+		//  Measured:  `0`
+		//  Estimated: `3593`
+		// Minimum execution time: 43_447_000 picoseconds.
+		Weight::from_parts(44_752_000, 0)
+			.saturating_add(Weight::from_parts(0, 3593))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	/// Storage: `NisCounterpartBalances::Account` (r:1 w:1)
-	/// Proof: `NisCounterpartBalances::Account` (`max_values`: None, `max_size`: Some(112), added: 2587, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	fn force_unreserve() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `277`
+		//  Measured:  `174`
 		//  Estimated: `3593`
-		// Minimum execution time: 15_128_000 picoseconds.
-		Weight::from_parts(15_539_000, 0)
+		// Minimum execution time: 15_188_000 picoseconds.
+		Weight::from_parts(15_550_000, 0)
 			.saturating_add(Weight::from_parts(0, 3593))
-			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(2))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	/// Storage: `NisCounterpartBalances::Account` (r:999 w:999)
-	/// Proof: `NisCounterpartBalances::Account` (`max_values`: None, `max_size`: Some(112), added: 2587, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:999 w:999)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// The range of component `u` is `[1, 1000]`.
 	/// The range of component `u` is `[1, 1000]`.
 	fn upgrade_accounts(u: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `0 + u * (256 ±0)`
+		//  Measured:  `0 + u * (135 ±0)`
 		//  Estimated: `990 + u * (2603 ±0)`
-		// Minimum execution time: 14_614_000 picoseconds.
-		Weight::from_parts(15_053_000, 0)
+		// Minimum execution time: 14_348_000 picoseconds.
+		Weight::from_parts(14_642_000, 0)
 			.saturating_add(Weight::from_parts(0, 990))
-			// Standard Error: 21_625
-			.saturating_add(Weight::from_parts(15_226_460, 0).saturating_mul(u.into()))
-			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(u.into())))
-			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(u.into())))
+			// Standard Error: 10_050
+			.saturating_add(Weight::from_parts(13_491_613, 0).saturating_mul(u.into()))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(u.into())))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(u.into())))
 			.saturating_add(Weight::from_parts(0, 2603).saturating_mul(u.into()))
 	}
 }
