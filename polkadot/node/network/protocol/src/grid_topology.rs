@@ -324,9 +324,9 @@ impl SessionGridTopologyEntry {
 		// neighbors_x and neighbors_y reflect the right peer ids.
 		if peer_id_updated {
 			if let Some(local_index) = self.local_index.as_ref() {
-				let grid_neighbors =
-					self.topology.compute_grid_neighbors_for(*local_index).unwrap();
-				self.local_neighbors = grid_neighbors;
+				if let Some(new_grid) = self.topology.compute_grid_neighbors_for(*local_index) {
+					self.local_neighbors = new_grid;
+				}
 			}
 		}
 		peer_id_updated
