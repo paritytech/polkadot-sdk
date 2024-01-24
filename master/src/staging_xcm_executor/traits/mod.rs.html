@@ -58,6 +58,9 @@
 <a href="#58" id="58">58</a>
 <a href="#59" id="59">59</a>
 <a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -99,6 +102,8 @@
 };
 <span class="kw">mod </span>on_response;
 <span class="kw">pub use </span>on_response::{OnResponse, QueryHandler, QueryResponseStatus, VersionChangeNotifier};
+<span class="kw">mod </span>process_transaction;
+<span class="kw">pub use </span>process_transaction::ProcessTransaction;
 <span class="kw">mod </span>should_execute;
 <span class="kw">pub use </span>should_execute::{CheckSuspension, Properties, ShouldExecute};
 <span class="kw">mod </span>transact_asset;
@@ -112,8 +117,9 @@
 	<span class="kw">pub use super</span>::{
 		export_xcm, validate_export, AssetExchange, AssetLock, ClaimAssets, ConvertOrigin,
 		DropAssets, Enact, Error, ExportXcm, FeeManager, FeeReason, LockError, MatchesFungible,
-		MatchesFungibles, MatchesNonFungible, MatchesNonFungibles, OnResponse, ShouldExecute,
-		TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader, WithOriginFilter,
+		MatchesFungibles, MatchesNonFungible, MatchesNonFungibles, OnResponse, ProcessTransaction,
+		ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
+		WithOriginFilter,
 	};
 	<span class="attr">#[allow(deprecated)]
 	</span><span class="kw">pub use super</span>::{Identity, JustTry};

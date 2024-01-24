@@ -366,6 +366,8 @@
 <a href="#366" id="366">366</a>
 <a href="#367" id="367">367</a>
 <a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -409,8 +411,9 @@
 </span><span class="kw">use </span>xcm_builder::CurrencyAdapter <span class="kw">as </span>XcmCurrencyAdapter;
 <span class="kw">use </span>xcm_builder::{
 	AccountId32Aliases, AllowUnpaidExecutionFrom, EnsureXcmOrigin, FixedRateOfFungible,
-	FixedWeightBounds, IsConcrete, NativeAsset, ParentIsPreset, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation,
+	FixedWeightBounds, FrameTransactionalProcessor, IsConcrete, NativeAsset, ParentIsPreset,
+	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation,
 };
 <span class="kw">use </span>xcm_executor::{Config, XcmExecutor};
 
@@ -534,6 +537,7 @@
 	<span class="kw">type </span>CallDispatcher = RuntimeCall;
 	<span class="kw">type </span>SafeCallFilter = Everything;
 	<span class="kw">type </span>Aliasers = Nothing;
+	<span class="kw">type </span>TransactionalProcessor = FrameTransactionalProcessor;
 }
 
 <span class="attr">#[frame_support::pallet]

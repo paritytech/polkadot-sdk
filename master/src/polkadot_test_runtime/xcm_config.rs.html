@@ -150,6 +150,8 @@
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
 <a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -174,8 +176,8 @@
 <span class="kw">use </span>frame_system::EnsureRoot;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{
-	AllowUnpaidExecutionFrom, EnsureXcmOrigin, FixedWeightBounds, SignedAccountId32AsNative,
-	SignedToAccountId32,
+	AllowUnpaidExecutionFrom, EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor,
+	SignedAccountId32AsNative, SignedToAccountId32,
 };
 <span class="kw">use </span>xcm_executor::{
 	traits::{TransactAsset, WeightTrader},
@@ -226,7 +228,8 @@
 	}
 }
 
-<span class="kw">pub struct </span>DummyWeightTrader;
+<span class="attr">#[derive(Clone)]
+</span><span class="kw">pub struct </span>DummyWeightTrader;
 <span class="kw">impl </span>WeightTrader <span class="kw">for </span>DummyWeightTrader {
 	<span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
 		DummyWeightTrader
@@ -273,6 +276,7 @@
 	<span class="kw">type </span>CallDispatcher = <span class="kw">super</span>::RuntimeCall;
 	<span class="kw">type </span>SafeCallFilter = Everything;
 	<span class="kw">type </span>Aliasers = Nothing;
+	<span class="kw">type </span>TransactionalProcessor = FrameTransactionalProcessor;
 }
 
 <span class="kw">impl </span>pallet_xcm::Config <span class="kw">for </span><span class="kw">crate</span>::Runtime {

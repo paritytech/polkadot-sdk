@@ -888,6 +888,7 @@
 <a href="#888" id="888">888</a>
 <a href="#889" id="889">889</a>
 <a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -941,14 +942,14 @@
 <span class="kw">use </span>xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, DenyReserveTransferToRelayChain,
-	DenyThenTry, DescribeFamily, DescribePalletTerminal, EnsureXcmOrigin, FungiblesAdapter,
-	GlobalConsensusParachainConvertsFor, HashedDescription, IsConcrete, LocalMint,
-	NetworkExportTableItem, NoChecking, NonFungiblesAdapter, ParentAsSuperuser, ParentIsPreset,
-	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, StartsWith,
-	StartsWithExplicitGlobalConsensus, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
-	XcmFeeToAccount,
+	DenyThenTry, DescribeFamily, DescribePalletTerminal, EnsureXcmOrigin,
+	FrameTransactionalProcessor, FungiblesAdapter, GlobalConsensusParachainConvertsFor,
+	HashedDescription, IsConcrete, LocalMint, NetworkExportTableItem, NoChecking,
+	NonFungiblesAdapter, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
+	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus,
+	TakeWeightCredit, TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin,
+	WithUniqueTopic, XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 <span class="kw">use </span>xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
@@ -1566,6 +1567,7 @@
 	<span class="kw">type </span>CallDispatcher = WithOriginFilter&lt;SafeCallFilter&gt;;
 	<span class="kw">type </span>SafeCallFilter = SafeCallFilter;
 	<span class="kw">type </span>Aliasers = Nothing;
+	<span class="kw">type </span>TransactionalProcessor = FrameTransactionalProcessor;
 }
 
 <span class="doccomment">/// Local origins on this chain are allowed to dispatch XCM sends/executions.

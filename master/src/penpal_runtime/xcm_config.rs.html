@@ -412,6 +412,7 @@
 <a href="#412" id="412">412</a>
 <a href="#413" id="413">413</a>
 <a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -464,11 +465,11 @@
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, AsPrefixedGeneralIndex,
 	ConvertedConcreteId, CurrencyAdapter, DenyReserveTransferToRelayChain, DenyThenTry,
-	EnsureXcmOrigin, FixedWeightBounds, FungiblesAdapter, IsConcrete, LocalMint, NativeAsset,
-	NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
-	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, StartsWith, TakeWeightCredit, TrailingSetTopicAsId,
-	UsingComponents, WithComputedOrigin, WithUniqueTopic,
+	EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor, FungiblesAdapter, IsConcrete,
+	LocalMint, NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
+	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, StartsWith, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WithComputedOrigin, WithUniqueTopic,
 };
 <span class="kw">use </span>xcm_executor::{traits::JustTry, XcmExecutor};
 
@@ -769,6 +770,7 @@
 	<span class="kw">type </span>CallDispatcher = RuntimeCall;
 	<span class="kw">type </span>SafeCallFilter = Everything;
 	<span class="kw">type </span>Aliasers = Nothing;
+	<span class="kw">type </span>TransactionalProcessor = FrameTransactionalProcessor;
 }
 
 <span class="doccomment">/// No local origins on this chain are allowed to dispatch XCM sends/executions.

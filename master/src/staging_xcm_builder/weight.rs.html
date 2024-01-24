@@ -257,6 +257,7 @@
 <a href="#257" id="257">257</a>
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -491,12 +492,13 @@
 	}
 
 	<span class="kw">fn </span>refund_weight(<span class="kw-2">&amp;mut </span><span class="self">self</span>, weight: Weight, context: <span class="kw-2">&amp;</span>XcmContext) -&gt; <span class="prelude-ty">Option</span>&lt;Asset&gt; {
-		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::weight&quot;</span>, <span class="string">&quot;UsingComponents::refund_weight weight: {:?}, context: {:?}&quot;</span>, weight, context);
+		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::weight&quot;</span>, <span class="string">&quot;UsingComponents::refund_weight weight: {:?}, context: {:?}, available weight: {:?}, available amount: {:?}&quot;</span>, weight, context, <span class="self">self</span>.<span class="number">0</span>, <span class="self">self</span>.<span class="number">1</span>);
 		<span class="kw">let </span>weight = weight.min(<span class="self">self</span>.<span class="number">0</span>);
 		<span class="kw">let </span>amount = WeightToFee::weight_to_fee(<span class="kw-2">&amp;</span>weight);
 		<span class="self">self</span>.<span class="number">0 </span>-= weight;
 		<span class="self">self</span>.<span class="number">1 </span>= <span class="self">self</span>.<span class="number">1</span>.saturating_sub(amount);
 		<span class="kw">let </span>amount: u128 = amount.saturated_into();
+		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::weight&quot;</span>, <span class="string">&quot;UsingComponents::refund_weight amount to refund: {:?}&quot;</span>, amount);
 		<span class="kw">if </span>amount &gt; <span class="number">0 </span>{
 			<span class="prelude-val">Some</span>((AssetIdValue::get(), amount).into())
 		} <span class="kw">else </span>{

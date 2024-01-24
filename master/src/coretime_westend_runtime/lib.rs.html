@@ -844,6 +844,13 @@
 <a href="#844" id="844">844</a>
 <a href="#845" id="845">845</a>
 <a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1635,6 +1642,13 @@
 					<span class="kw">let </span>assets: Assets = (AssetId(WndRelayLocation::get()), <span class="number">1_000 </span>* UNITS).into();
 					<span class="kw">let </span>ticket = Location { parents: <span class="number">0</span>, interior: Here };
 					<span class="prelude-val">Ok</span>((origin, ticket, assets))
+				}
+
+				<span class="kw">fn </span>fee_asset() -&gt; <span class="prelude-ty">Result</span>&lt;Asset, BenchmarkError&gt; {
+					<span class="prelude-val">Ok</span>(Asset {
+						id: AssetId(WndRelayLocation::get()),
+						fun: Fungible(<span class="number">1_000_000 </span>* UNITS),
+					})
 				}
 
 				<span class="kw">fn </span>unlockable_asset() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, Location, Asset), BenchmarkError&gt; {

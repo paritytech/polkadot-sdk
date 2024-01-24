@@ -848,6 +848,8 @@
 <a href="#848" id="848">848</a>
 <a href="#849" id="849">849</a>
 <a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -925,7 +927,8 @@
 };
 <span class="kw">use </span>xcm_builder::{
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AsPrefixedGeneralIndex, ConvertedConcreteId,
-	FungiblesAdapter, LocalMint, TrailingSetTopicAsId, WithUniqueTopic,
+	FrameTransactionalProcessor, FungiblesAdapter, LocalMint, TrailingSetTopicAsId,
+	WithUniqueTopic,
 };
 <span class="kw">use </span>xcm_executor::traits::JustTry;
 
@@ -1339,6 +1342,7 @@
 	<span class="kw">type </span>CallDispatcher = RuntimeCall;
 	<span class="kw">type </span>SafeCallFilter = Everything;
 	<span class="kw">type </span>Aliasers = Nothing;
+	<span class="kw">type </span>TransactionalProcessor = FrameTransactionalProcessor;
 }
 
 <span class="doccomment">/// Local origins on this chain are allowed to dispatch XCM sends/executions.

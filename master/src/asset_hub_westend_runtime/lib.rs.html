@@ -1704,6 +1704,13 @@
 <a href="#1704" id="1704">1704</a>
 <a href="#1705" id="1705">1705</a>
 <a href="#1706" id="1706">1706</a>
+<a href="#1707" id="1707">1707</a>
+<a href="#1708" id="1708">1708</a>
+<a href="#1709" id="1709">1709</a>
+<a href="#1710" id="1710">1710</a>
+<a href="#1711" id="1711">1711</a>
+<a href="#1712" id="1712">1712</a>
+<a href="#1713" id="1713">1713</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -3347,6 +3354,13 @@
 					<span class="kw">let </span>assets: xcm::v4::Assets = (AssetId(WestendLocation::get()), <span class="number">1_000 </span>* UNITS).into();
 					<span class="kw">let </span>ticket = Location { parents: <span class="number">0</span>, interior: Here };
 					<span class="prelude-val">Ok</span>((origin, ticket, assets))
+				}
+
+				<span class="kw">fn </span>fee_asset() -&gt; <span class="prelude-ty">Result</span>&lt;Asset, BenchmarkError&gt; {
+					<span class="prelude-val">Ok</span>(Asset {
+						id: AssetId(WestendLocation::get()),
+						fun: Fungible(<span class="number">1_000_000 </span>* UNITS),
+					})
 				}
 
 				<span class="kw">fn </span>unlockable_asset() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, Location, Asset), BenchmarkError&gt; {

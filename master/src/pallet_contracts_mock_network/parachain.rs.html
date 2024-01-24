@@ -348,6 +348,8 @@
 <a href="#348" id="348">348</a>
 <a href="#349" id="349">349</a>
 <a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -391,9 +393,10 @@
 </span><span class="kw">use </span>xcm_builder::CurrencyAdapter <span class="kw">as </span>XcmCurrencyAdapter;
 <span class="kw">use </span>xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowTopLevelPaidExecutionFrom,
-	ConvertedConcreteId, EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds, FungiblesAdapter,
-	IsConcrete, NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, WithComputedOrigin,
+	ConvertedConcreteId, EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds,
+	FrameTransactionalProcessor, FungiblesAdapter, IsConcrete, NativeAsset, NoChecking,
+	ParentAsSuperuser, ParentIsPreset, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, WithComputedOrigin,
 };
 <span class="kw">use </span>xcm_executor::{traits::JustTry, Config, XcmExecutor};
 
@@ -634,6 +637,7 @@
 	<span class="kw">type </span>CallDispatcher = RuntimeCall;
 	<span class="kw">type </span>SafeCallFilter = Everything;
 	<span class="kw">type </span>Aliasers = Nothing;
+	<span class="kw">type </span>TransactionalProcessor = FrameTransactionalProcessor;
 }
 
 <span class="kw">impl </span>mock_msg_queue::Config <span class="kw">for </span>Runtime {

@@ -112,6 +112,9 @@
 <a href="#112" id="112">112</a>
 <a href="#113" id="113">113</a>
 <a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -130,8 +133,8 @@
 
 </span><span class="kw">use </span><span class="kw">crate</span>::traits::{
 	AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin, DropAssets, ExportXcm,
-	FeeManager, OnResponse, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds,
-	WeightTrader,
+	FeeManager, OnResponse, ProcessTransaction, ShouldExecute, TransactAsset,
+	VersionChangeNotifier, WeightBounds, WeightTrader,
 };
 <span class="kw">use </span>frame_support::{
 	dispatch::{GetDispatchInfo, Parameter, PostDispatchInfo},
@@ -225,5 +228,8 @@
 	/// Use this type to explicitly whitelist calls that cannot undergo recursion. This is a
 	/// temporary measure until we properly account for proof size weights for XCM instructions.
 	</span><span class="kw">type </span>SafeCallFilter: Contains&lt;<span class="self">Self</span>::RuntimeCall&gt;;
+
+	<span class="doccomment">/// Transactional processor for XCM instructions.
+	</span><span class="kw">type </span>TransactionalProcessor: ProcessTransaction;
 }
 </code></pre></div></section></main></body></html>

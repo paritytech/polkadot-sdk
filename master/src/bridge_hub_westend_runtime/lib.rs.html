@@ -1145,6 +1145,13 @@
 <a href="#1145" id="1145">1145</a>
 <a href="#1146" id="1146">1146</a>
 <a href="#1147" id="1147">1147</a>
+<a href="#1148" id="1148">1148</a>
+<a href="#1149" id="1149">1149</a>
+<a href="#1150" id="1150">1150</a>
+<a href="#1151" id="1151">1151</a>
+<a href="#1152" id="1152">1152</a>
+<a href="#1153" id="1153">1153</a>
+<a href="#1154" id="1154">1154</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -2059,6 +2066,13 @@
 					<span class="kw">let </span>assets: Assets = (AssetId(WestendLocation::get()), <span class="number">1_000 </span>* UNITS).into();
 					<span class="kw">let </span>ticket = Location { parents: <span class="number">0</span>, interior: Here };
 					<span class="prelude-val">Ok</span>((origin, ticket, assets))
+				}
+
+				<span class="kw">fn </span>fee_asset() -&gt; <span class="prelude-ty">Result</span>&lt;Asset, BenchmarkError&gt; {
+					<span class="prelude-val">Ok</span>(Asset {
+						id: AssetId(WestendLocation::get()),
+						fun: Fungible(<span class="number">1_000_000 </span>* UNITS),
+					})
 				}
 
 				<span class="kw">fn </span>unlockable_asset() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, Location, Asset), BenchmarkError&gt; {

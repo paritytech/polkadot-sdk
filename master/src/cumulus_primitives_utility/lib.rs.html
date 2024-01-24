@@ -812,6 +812,8 @@
 <a href="#812" id="812">812</a>
 <a href="#813" id="813">813</a>
 <a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -839,6 +841,7 @@
 	defensive,
 	traits::{tokens::fungibles, Get, OnUnbalanced <span class="kw">as </span>OnUnbalancedT},
 	weights::{Weight, WeightToFee <span class="kw">as </span>WeightToFeeT},
+	CloneNoBound,
 };
 <span class="kw">use </span>pallet_asset_conversion::SwapCredit <span class="kw">as </span>SwapCreditT;
 <span class="kw">use </span>polkadot_runtime_common::xcm_sender::PriceForMessageDelivery;
@@ -920,6 +923,7 @@
 /// later refund purposes
 /// Important: Errors if the Trader is being called twice by 2 BuyExecution instructions
 /// Alternatively we could just return payment in the aforementioned case
+</span><span class="attr">#[derive(CloneNoBound)]
 </span><span class="kw">pub struct </span>TakeFirstAssetTrader&lt;
 	AccountId: Eq,
 	FeeCharger: ChargeWeightInFungibles&lt;AccountId, ConcreteAssets&gt;,

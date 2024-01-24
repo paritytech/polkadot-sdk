@@ -289,6 +289,7 @@
 <a href="#289" id="289">289</a>
 <a href="#290" id="290">290</a>
 <a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -327,9 +328,9 @@
 <span class="kw">use </span>xcm_builder::{
 	Account32Hash, AccountId32Aliases, AllowUnpaidExecutionFrom, AsPrefixedGeneralIndex,
 	ChildParachainAsNative, ChildParachainConvertsVia, ChildSystemParachainAsSuperuser,
-	ConvertedConcreteId, FixedRateOfFungible, FixedWeightBounds, FungibleAdapter, IsConcrete,
-	NoChecking, NonFungiblesAdapter, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation,
+	ConvertedConcreteId, FixedRateOfFungible, FixedWeightBounds, FrameTransactionalProcessor,
+	FungibleAdapter, IsConcrete, NoChecking, NonFungiblesAdapter, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation,
 };
 <span class="kw">use </span>xcm_executor::{traits::JustTry, Config, XcmExecutor};
 
@@ -489,6 +490,7 @@
 	<span class="kw">type </span>CallDispatcher = RuntimeCall;
 	<span class="kw">type </span>SafeCallFilter = Everything;
 	<span class="kw">type </span>Aliasers = Nothing;
+	<span class="kw">type </span>TransactionalProcessor = FrameTransactionalProcessor;
 }
 
 <span class="kw">pub type </span>LocalOriginToLocation = SignedToAccountId32&lt;RuntimeOrigin, AccountId, RelayNetwork&gt;;
