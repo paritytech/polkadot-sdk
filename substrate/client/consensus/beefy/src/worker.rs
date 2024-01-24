@@ -236,12 +236,10 @@ impl<B: Block> VoterOracle<B> {
 	/// Return `Some(number)` if we should be voting on block `number`,
 	/// return `None` if there is no block we should vote on.
 	pub fn voting_target(&self) -> Option<NumberFor<B>> {
-		let rounds = if let Some(r) = self.sessions.front() {
-			r
-		} else {
+		let rounds = self.sessions.front().or_else(|| {
 			debug!(target: LOG_TARGET, "🥩 No voting round started");
 			return None
-		};
+		})?;
 		let best_grandpa = *self.best_grandpa_block_header.number();
 		let best_beefy = self.best_beefy_block;
 
@@ -1028,7 +1026,7 @@ where
 
 /// Calculate next block number to vote on.
 ///
-/// Return `None` if there is no voteable target yet.
+/// Return `None` if there is no votable target yet.
 fn vote_target<N>(best_grandpa: N, best_beefy: N, session_start: N, min_delta: u32) -> Option<N>
 where
 	N: AtLeast32Bit + Copy + Debug,
