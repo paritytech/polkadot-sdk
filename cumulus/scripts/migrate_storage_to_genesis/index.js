@@ -86,7 +86,7 @@ const run = async () => {
 	const argv = yargs
 	.option('chain', {
 		alias: 'c',
-		describe: 'Endpoint to the chain to query sorage',
+		describe: 'Endpoint to the chain to query storage',
 		demandOption: true, // Requires the --chain option
 		type: 'string',
 	})
