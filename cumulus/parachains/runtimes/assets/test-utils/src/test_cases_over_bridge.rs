@@ -27,7 +27,7 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use parachains_common::{AccountId, Balance};
 use parachains_runtimes_test_utils::{
 	mock_open_hrmp_channel, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder, RuntimeHelper,
-	ValidatorIdOf, XcmReceivedFrom,
+	SlotDurations, ValidatorIdOf, XcmReceivedFrom,
 };
 use sp_runtime::{traits::StaticLookup, Saturating};
 use sp_std::ops::Mul;
@@ -52,6 +52,7 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 	LocationToAccountId,
 >(
 	collator_session_keys: CollatorSessionKeys<Runtime>,
+	slot_durations: SlotDurations,
 	existential_deposit: BalanceOf<Runtime>,
 	alice_account: AccountIdOf<Runtime>,
 	unwrap_pallet_xcm_event: Box<dyn Fn(Vec<u8>) -> Option<pallet_xcm::Event<Runtime>>>,
@@ -125,6 +126,7 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 				local_bridge_hub_para_id.into(),
 				included_head,
 				&alice,
+				&slot_durations,
 			);
 
 			// we calculate exact delivery fees _after_ sending the message by weighing the sent

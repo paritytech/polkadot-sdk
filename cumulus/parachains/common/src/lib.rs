@@ -19,7 +19,6 @@ pub mod impls;
 pub mod message_queue;
 pub mod rococo;
 pub mod westend;
-pub mod wococo;
 pub mod xcm_config;
 pub use constants::*;
 pub use opaque::*;
@@ -67,6 +66,12 @@ mod types {
 
 	// Id used for identifying assets.
 	pub type AssetIdForTrustBackedAssets = u32;
+
+	// Id used for identifying non-fungible collections.
+	pub type CollectionId = u32;
+
+	// Id used for identifying non-fungible items.
+	pub type ItemId = u32;
 }
 
 /// Common constants of parachains.

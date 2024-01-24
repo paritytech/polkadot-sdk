@@ -33,11 +33,9 @@ pub type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>},
-		TransactionStorage: pallet_transaction_storage::{
-			Pallet, Call, Storage, Config<T>, Inherent, Event<T>, HoldReason
-		},
+		System: frame_system,
+		Balances: pallet_balances,
+		TransactionStorage: pallet_transaction_storage,
 	}
 );
 

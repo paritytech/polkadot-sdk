@@ -17,7 +17,8 @@ use super::{
 	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, BaseDeliveryFee,
 	CollatorSelection, FeeAssetId, ForeignAssets, ForeignAssetsInstance, ParachainInfo,
 	ParachainSystem, PolkadotXcm, PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	ToWestendXcmRouter, TransactionByteFee, TrustBackedAssetsInstance, WeightToFee, XcmpQueue,
+	ToWestendXcmRouter, TransactionByteFee, TrustBackedAssetsInstance, Uniques, WeightToFee,
+	XcmpQueue,
 };
 use assets_common::{
 	local_and_foreign_assets::MatchesLocalAndForeignAssetsLocation,
@@ -54,12 +55,12 @@ use xcm_builder::{
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, DenyReserveTransferToRelayChain,
 	DenyThenTry, DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin, FungiblesAdapter,
 	GlobalConsensusParachainConvertsFor, HashedDescription, IsConcrete, LocalMint,
-	NetworkExportTableItem, NoChecking, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
-	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignPaidRemoteExporter, SovereignSignedViaLocation, StartsWith,
-	StartsWithExplicitGlobalConsensus, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
-	XcmFeeToAccount,
+	NetworkExportTableItem, NoChecking, NonFungiblesAdapter, ParentAsSuperuser, ParentIsPreset,
+	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignPaidRemoteExporter,
+	SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
@@ -80,6 +81,8 @@ parameter_types! {
 		PalletInstance(<ForeignAssets as PalletInfoAccess>::index() as u8).into();
 	pub PoolAssetsPalletLocation: Location =
 		PalletInstance(<PoolAssets as PalletInfoAccess>::index() as u8).into();
+	pub UniquesPalletLocation: Location =
+		PalletInstance(<Uniques as PalletInfoAccess>::index() as u8).into();
 	pub PoolAssetsPalletLocationV3: xcm::v3::Location =
 		xcm::v3::Junction::PalletInstance(<PoolAssets as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
@@ -145,6 +148,26 @@ pub type FungiblesTransactor = FungiblesAdapter<
 	CheckingAccount,
 >;
 
+/// Matcher for converting `ClassId`/`InstanceId` into a uniques asset.
+pub type UniquesConvertedConcreteId =
+	assets_common::UniquesConvertedConcreteId<UniquesPalletLocation>;
+
+/// Means for transacting unique assets.
+pub type UniquesTransactor = NonFungiblesAdapter<
+	// Use this non-fungibles implementation:
+	Uniques,
+	// This adapter will handle any non-fungible asset from the uniques pallet.
+	UniquesConvertedConcreteId,
+	// Convert an XCM Location into a local account id:
+	LocationToAccountId,
+	// Our chain's account ID type (we can't get away without mentioning it explicitly):
+	AccountId,
+	// Does not check teleports.
+	NoChecking,
+	// The account to use for tracking teleports.
+	CheckingAccount,
+>;
+
 /// `AssetId`/`Balance` converter for `ForeignAssets`.
 pub type ForeignAssetsConvertedConcreteId = assets_common::ForeignAssetsConvertedConcreteId<
 	(
@@ -198,8 +221,13 @@ pub type PoolFungiblesTransactor = FungiblesAdapter<
 >;
 
 /// Means for transacting assets on this chain.
-pub type AssetTransactors =
-	(CurrencyTransactor, FungiblesTransactor, ForeignFungiblesTransactor, PoolFungiblesTransactor);
+pub type AssetTransactors = (
+	CurrencyTransactor,
+	FungiblesTransactor,
+	ForeignFungiblesTransactor,
+	PoolFungiblesTransactor,
+	UniquesTransactor,
+);
 
 /// Simple `Location` matcher for Local and Foreign asset `Location`.
 pub struct LocalAndForeignAssetsLocationMatcher;
@@ -208,20 +236,14 @@ impl MatchesLocalAndForeignAssetsLocation<xcm::v3::Location>
 {
 	fn is_local(location: &xcm::v3::Location) -> bool {
 		use assets_common::fungible_conversion::MatchesLocation;
-		let latest_location: Location = if let Ok(location) = (*location).try_into() {
-			location
-		} else {
-			return false;
-		};
+		let latest_location: Location =
+			if let Ok(location) = (*location).try_into() { location } else { return false };
 		TrustBackedAssetsConvertedConcreteId::contains(&latest_location)
 	}
 	fn is_foreign(location: &xcm::v3::Location) -> bool {
 		use assets_common::fungible_conversion::MatchesLocation;
-		let latest_location: Location = if let Ok(location) = (*location).try_into() {
-			location
-		} else {
-			return false;
-		};
+		let latest_location: Location =
+			if let Ok(location) = (*location).try_into() { location } else { return false };
 		ForeignAssetsConvertedConcreteId::contains(&latest_location)
 	}
 }

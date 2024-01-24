@@ -274,14 +274,14 @@ pub mod migrations;
 pub mod signed;
 pub mod unsigned;
 pub mod weights;
-use unsigned::VoterOf;
-pub use weights::WeightInfo;
 
 pub use signed::{
 	BalanceOf, GeometricDepositBase, NegativeImbalanceOf, PositiveImbalanceOf, SignedSubmission,
 	SignedSubmissionOf, SignedSubmissions, SubmissionIndicesOf,
 };
+use unsigned::VoterOf;
 pub use unsigned::{Miner, MinerConfig};
+pub use weights::WeightInfo;
 
 /// The solution type used by this crate.
 pub type SolutionOf<T> = <T as MinerConfig>::Solution;
@@ -1275,6 +1275,7 @@ pub mod pallet {
 	/// Snapshot data of the round.
 	///
 	/// This is created at the beginning of the signed phase and cleared upon calling `elect`.
+	/// Note: This storage type must only be mutated through [`SnapshotWrapper`].
 	#[pallet::storage]
 	#[pallet::getter(fn snapshot)]
 	pub type Snapshot<T: Config> = StorageValue<_, RoundSnapshot<T::AccountId, VoterOf<T>>>;
@@ -1282,6 +1283,7 @@ pub mod pallet {
 	/// Desired number of targets to elect for this round.
 	///
 	/// Only exists when [`Snapshot`] is present.
+	/// Note: This storage type must only be mutated through [`SnapshotWrapper`].
 	#[pallet::storage]
 	#[pallet::getter(fn desired_targets)]
 	pub type DesiredTargets<T> = StorageValue<_, u32>;
@@ -1289,6 +1291,7 @@ pub mod pallet {
 	/// The metadata of the [`RoundSnapshot`]
 	///
 	/// Only exists when [`Snapshot`] is present.
+	/// Note: This storage type must only be mutated through [`SnapshotWrapper`].
 	#[pallet::storage]
 	#[pallet::getter(fn snapshot_metadata)]
 	pub type SnapshotMetadata<T: Config> = StorageValue<_, SolutionOrSnapshotSize>;
@@ -1351,6 +1354,39 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 }
 
+/// This wrapper is created for handling the synchronization of [`Snapshot`], [`SnapshotMetadata`]
+/// and [`DesiredTargets`] storage items.
+pub struct SnapshotWrapper<T>(sp_std::marker::PhantomData<T>);
+
+impl<T: Config> SnapshotWrapper<T> {
+	/// Kill all snapshot related storage items at the same time.
+	pub fn kill() {
+		<Snapshot<T>>::kill();
+		<SnapshotMetadata<T>>::kill();
+		<DesiredTargets<T>>::kill();
+	}
+	/// Set all snapshot related storage items at the same time.
+	pub fn set(metadata: SolutionOrSnapshotSize, desired_targets: u32, buffer: &[u8]) {
+		<SnapshotMetadata<T>>::put(metadata);
+		<DesiredTargets<T>>::put(desired_targets);
+		sp_io::storage::set(&<Snapshot<T>>::hashed_key(), &buffer);
+	}
+
+	/// Check if all of the storage items exist at the same time or all of the storage items do not
+	/// exist.
+	#[cfg(feature = "try-runtime")]
+	pub fn is_consistent() -> bool {
+		let snapshots = [
+			<Snapshot<T>>::exists(),
+			<SnapshotMetadata<T>>::exists(),
+			<DesiredTargets<T>>::exists(),
+		];
+
+		// All should either exist or not exist
+		snapshots.iter().skip(1).all(|v| snapshots[0] == *v)
+	}
+}
+
 impl<T: Config> Pallet<T> {
 	/// Internal logic of the offchain worker, to be executed only when the offchain lock is
 	/// acquired with success.
@@ -1402,9 +1438,6 @@ impl<T: Config> Pallet<T> {
 			SolutionOrSnapshotSize { voters: voters.len() as u32, targets: targets.len() as u32 };
 		log!(info, "creating a snapshot with metadata {:?}", metadata);
 
-		<SnapshotMetadata<T>>::put(metadata);
-		<DesiredTargets<T>>::put(desired_targets);
-
 		// instead of using storage APIs, we do a manual encoding into a fixed-size buffer.
 		// `encoded_size` encodes it without storing it anywhere, this should not cause any
 		// allocation.
@@ -1419,7 +1452,7 @@ impl<T: Config> Pallet<T> {
 		// buffer should have not re-allocated since.
 		debug_assert!(buffer.len() == size && size == buffer.capacity());
 
-		sp_io::storage::set(&<Snapshot<T>>::hashed_key(), &buffer);
+		SnapshotWrapper::<T>::set(metadata, desired_targets, &buffer);
 	}
 
 	/// Parts of [`create_snapshot`] that happen outside of this pallet.
@@ -1500,13 +1533,6 @@ impl<T: Config> Pallet<T> {
 		);
 	}
 
-	/// Kill everything created by [`Pallet::create_snapshot`].
-	pub fn kill_snapshot() {
-		<Snapshot<T>>::kill();
-		<SnapshotMetadata<T>>::kill();
-		<DesiredTargets<T>>::kill();
-	}
-
 	/// Checks the feasibility of a solution.
 	pub fn feasibility_check(
 		raw_solution: RawSolution<SolutionOf<T::MinerConfig>>,
@@ -1541,8 +1567,8 @@ impl<T: Config> Pallet<T> {
 		// Phase is off now.
 		Self::phase_transition(Phase::Off);
 
-		// Kill snapshots.
-		Self::kill_snapshot();
+		// Kill snapshot and relevant metadata (everything created by [`SnapshotMetadata::set`]).
+		SnapshotWrapper::<T>::kill();
 	}
 
 	fn do_elect() -> Result<BoundedSupportsOf<Self>, ElectionError<T>> {
@@ -1613,15 +1639,7 @@ impl<T: Config> Pallet<T> {
 	// - [`DesiredTargets`] exists if and only if [`Snapshot`] is present.
 	// - [`SnapshotMetadata`] exist if and only if [`Snapshot`] is present.
 	fn try_state_snapshot() -> Result<(), TryRuntimeError> {
-		if <Snapshot<T>>::exists() &&
-			<SnapshotMetadata<T>>::exists() &&
-			<DesiredTargets<T>>::exists()
-		{
-			Ok(())
-		} else if !<Snapshot<T>>::exists() &&
-			!<SnapshotMetadata<T>>::exists() &&
-			!<DesiredTargets<T>>::exists()
-		{
+		if SnapshotWrapper::<T>::is_consistent() {
 			Ok(())
 		} else {
 			Err("If snapshot exists, metadata and desired targets should be set too. Otherwise, none should be set.".into())
@@ -1756,18 +1774,14 @@ mod feasibility_check {
 			assert!(MultiPhase::current_phase().is_signed());
 			let solution = raw_solution();
 
-			// For whatever reason it might be:
-			<Snapshot<Runtime>>::kill();
+			// kill `Snapshot`, `SnapshotMetadata` and `DesiredTargets` for the storage state to
+			// be consistent, by using the `SnapshotWrapper` for the try_state checks to pass.
+			<SnapshotWrapper<Runtime>>::kill();
 
 			assert_noop!(
 				MultiPhase::feasibility_check(solution, COMPUTE),
 				FeasibilityError::SnapshotUnavailable
 			);
-
-			// kill also `SnapshotMetadata` and `DesiredTargets` for the storage state to be
-			// consistent for the try_state checks to pass.
-			<SnapshotMetadata<Runtime>>::kill();
-			<DesiredTargets<Runtime>>::kill();
 		})
 	}
 
