@@ -437,6 +437,8 @@
 <a href="#437" id="437">437</a>
 <a href="#438" id="438">438</a>
 <a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -758,10 +760,12 @@
 				</span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>activated) = activated {
 					<span class="kw">let </span>mode = prospective_parachains_mode(ctx.sender(), activated.hash).<span class="kw">await</span><span class="question-mark">?</span>;
 					<span class="kw">if let </span>ProspectiveParachainsMode::Enabled { .. } = mode {
-						<span class="comment">// Ensure we deactivate first, before we activate the new block.
-						// Activation can fail and then we would skip the deactivation.
+						<span class="kw">let </span>res =
+							v2::handle_active_leaves_update(ctx, state, activated, mode).<span class="kw">await</span>;
+						<span class="comment">// Regardless of the result of leaf activation, we always prune before
+						// handling it to avoid leaks.
 						</span>v2::handle_deactivate_leaves(state, <span class="kw-2">&amp;</span>deactivated);
-						v2::handle_active_leaves_update(ctx, state, activated, mode).<span class="kw">await</span><span class="question-mark">?</span>;
+						res<span class="question-mark">?</span>;
 					} <span class="kw">else if let </span>ProspectiveParachainsMode::Disabled = mode {
 						<span class="kw">for </span>deactivated <span class="kw">in </span><span class="kw-2">&amp;</span>deactivated {
 							<span class="kw">crate</span>::legacy_v1::handle_deactivate_leaf(legacy_v1_state, <span class="kw-2">*</span>deactivated);
