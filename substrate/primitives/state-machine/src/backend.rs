@@ -18,21 +18,18 @@
 
 #[cfg(feature = "std")]
 use crate::trie_backend::TrieBackend;
-use crate::{
-	ChildStorageCollection, StorageCollection,
-	StorageKey, StorageValue, UsageInfo,
-};
+use crate::{ChildStorageCollection, StorageCollection, StorageKey, StorageValue, UsageInfo};
 use codec::Encode;
 use core::marker::PhantomData;
-use trie_db::node_db::Hasher;
 use sp_core::storage::{ChildInfo, StateVersion, TrackedStorageKey};
 #[cfg(feature = "std")]
 use sp_core::traits::RuntimeCode;
 use sp_std::{boxed::Box, vec::Vec};
+use trie_db::node_db::Hasher;
 
 /// DB location hint for a trie node.
 pub type DBLocation = sp_trie::DBLocation;
-use sp_trie::{MerkleValue, ChildChangesetH};
+use sp_trie::{ChildChangesetH, MerkleValue};
 
 /// A struct containing arguments for iterating over the storage.
 #[derive(Default)]
@@ -307,16 +304,20 @@ pub trait Backend<H: Hasher>: sp_std::fmt::Debug {
 				child_roots.push((prefixed_storage_key.into_inner(), None, None));
 			} else {
 				let root = child_commit.root_hash();
-				child_roots.push((prefixed_storage_key.into_inner(), Some(root.encode()), Some(Box::new(child_commit))));
+				child_roots.push((
+					prefixed_storage_key.into_inner(),
+					Some(root.encode()),
+					Some(Box::new(child_commit)),
+				));
 			}
 		}
 		self.storage_root(
-			delta
-				.map(|(k, v)| (k, v.as_ref().map(|v| &v[..]), None))
-				.chain(child_roots.iter_mut().map(|(k, r, c)| {
+			delta.map(|(k, v)| (k, v.as_ref().map(|v| &v[..]), None)).chain(
+				child_roots.iter_mut().map(|(k, r, c)| {
 					let root = r.as_ref().map(|r| r.as_slice());
 					(k.as_slice(), root, core::mem::take(c))
-				})),
+				}),
+			),
 			state_version,
 		)
 	}
@@ -382,7 +383,7 @@ pub trait AsTrieBackend<H: Hasher, C = sp_trie::cache::LocalTrieCache<H, DBLocat
 	/// Return the type as [`TrieBackend`].
 	fn as_trie_backend(&self) -> &TrieBackend<H, C>;
 	/// Return the type as [`TrieBackend`].
-	fn as_trie_backend_mut (&mut self) -> &mut TrieBackend<H, C>;
+	fn as_trie_backend_mut(&mut self) -> &mut TrieBackend<H, C>;
 }
 
 /// Wrapper to create a [`RuntimeCode`] from a type that implements [`Backend`].

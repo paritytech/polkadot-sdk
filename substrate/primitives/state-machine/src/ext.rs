@@ -20,17 +20,16 @@
 #[cfg(feature = "std")]
 use crate::overlayed_changes::OverlayedExtensions;
 use crate::{
-	backend::Backend,
-	IndexOperation, IterArgs, OverlayedChanges, StorageKey, StorageValue,
+	backend::Backend, IndexOperation, IterArgs, OverlayedChanges, StorageKey, StorageValue,
 };
 use codec::{Encode, EncodeAppend};
-use trie_db::node_db::Hasher;
 #[cfg(feature = "std")]
 use sp_core::hexdisplay::HexDisplay;
 use sp_core::storage::{
 	well_known_keys::is_child_storage_key, ChildInfo, StateVersion, TrackedStorageKey,
 };
 use sp_externalities::{Extension, ExtensionStore, Externalities, MultiRemovalResults};
+use trie_db::node_db::Hasher;
 
 use crate::{log_error, trace, warn};
 use sp_std::{

@@ -19,7 +19,6 @@
 
 use crate::{Backend, StorageKey, StorageValue};
 use codec::Encode;
-use trie_db::node_db::Hasher;
 use sp_core::{
 	storage::{ChildInfo, StateVersion, TrackedStorageKey},
 	traits::Externalities,
@@ -29,6 +28,7 @@ use std::{
 	any::{Any, TypeId},
 	marker::PhantomData,
 };
+use trie_db::node_db::Hasher;
 
 /// Trait for inspecting state in any backend.
 ///

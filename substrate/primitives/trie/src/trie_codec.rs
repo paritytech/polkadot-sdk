@@ -20,7 +20,7 @@
 //! This uses compact proof from trie crate and extends
 //! it to substrate specific layout and child trie system.
 
-use crate::{CompactProof, NodeDBT, TrieConfiguration, TrieHash, EMPTY_PREFIX, MemoryDB};
+use crate::{CompactProof, MemoryDB, NodeDBT, TrieConfiguration, TrieHash, EMPTY_PREFIX};
 use sp_std::{boxed::Box, vec::Vec};
 use trie_db::{CError, Trie};
 
@@ -190,7 +190,12 @@ where
 	};
 
 	for child_root in child_tries {
-		if !NodeDBT::<L::Hash, _, _>::contains(partial_db, &child_root, EMPTY_PREFIX, Default::default()) {
+		if !NodeDBT::<L::Hash, _, _>::contains(
+			partial_db,
+			&child_root,
+			EMPTY_PREFIX,
+			Default::default(),
+		) {
 			// child proof are allowed to be missing (unused root can be included
 			// due to trie structure modification).
 			continue

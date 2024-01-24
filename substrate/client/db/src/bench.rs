@@ -30,12 +30,13 @@ use sp_runtime::{
 	StateVersion, Storage,
 };
 use sp_state_machine::{
-	backend::{Backend as StateBackend, DBLocation}, ChildStorageCollection, IterArgs, StorageCollection,
-	StorageIterator, StorageKey, StorageValue, TrieCommit,
+	backend::{Backend as StateBackend, DBLocation},
+	ChildStorageCollection, IterArgs, StorageCollection, StorageIterator, StorageKey, StorageValue,
+	TrieCommit,
 };
 use sp_trie::{
 	cache::{CacheSize, SharedTrieCache},
-	MemoryDB, MerkleValue, ChildChangesetH,
+	ChildChangesetH, MemoryDB, MerkleValue,
 };
 use std::{
 	cell::{Cell, RefCell},
@@ -119,7 +120,10 @@ impl<B: BlockT> BenchmarkingState<B> {
 	) -> Result<Self, String> {
 		let state_version = sp_runtime::StateVersion::default();
 		let mdb = MemoryDB::<HashingFor<B>>::default();
-		let root = sp_trie::trie_types::TrieDBMutBuilderV1::<HashingFor<B>>::new(&mdb).build().commit().root_hash();
+		let root = sp_trie::trie_types::TrieDBMutBuilderV1::<HashingFor<B>>::new(&mdb)
+			.build()
+			.commit()
+			.root_hash();
 
 		let mut state = BenchmarkingState {
 			state: RefCell::new(None),
@@ -140,9 +144,7 @@ impl<B: BlockT> BenchmarkingState<B> {
 
 		state.add_whitelist_to_tracker();
 
-		*state.state.borrow_mut() = Some(
-			DbStateBuilder::<B>::new(Box::new(mdb), root).build()
-		);
+		*state.state.borrow_mut() = Some(DbStateBuilder::<B>::new(Box::new(mdb), root).build());
 
 		let child_delta = genesis.children_default.values().map(|child_content| {
 			(
@@ -150,12 +152,11 @@ impl<B: BlockT> BenchmarkingState<B> {
 				child_content.data.iter().map(|(k, v)| (k.as_ref(), Some(v.as_ref()))),
 			)
 		});
-		let transaction =
-			state.state.borrow().as_ref().unwrap().full_storage_root(
-				genesis.top.iter().map(|(k, v)| (k.as_ref(), Some(v.as_ref()))),
-				child_delta,
-				state_version,
-			);
+		let transaction = state.state.borrow().as_ref().unwrap().full_storage_root(
+			genesis.top.iter().map(|(k, v)| (k.as_ref(), Some(v.as_ref()))),
+			child_delta,
+			state_version,
+		);
 		let mut genesis = MemoryDB::<HashingFor<B>>::default();
 		let genesis_root = transaction.apply_to(&mut genesis);
 		state.genesis = genesis;
@@ -420,7 +421,9 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for BenchmarkingState<B> {
 		self.state
 			.borrow()
 			.as_ref()
-			.map_or(TrieCommit::unchanged(self.genesis_root), |s| s.storage_root(delta, state_version))
+			.map_or(TrieCommit::unchanged(self.genesis_root), |s| {
+				s.storage_root(delta, state_version)
+			})
 	}
 
 	fn child_storage_root<'a>(
@@ -429,10 +432,10 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for BenchmarkingState<B> {
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
 	) -> (TrieCommit<B::Hash>, bool) {
-		self.state
-			.borrow()
-			.as_ref()
-			.map_or_else(|| (TrieCommit::unchanged(self.genesis_root), true), |s| s.child_storage_root(child_info, delta, state_version))
+		self.state.borrow().as_ref().map_or_else(
+			|| (TrieCommit::unchanged(self.genesis_root), true),
+			|s| s.child_storage_root(child_info, delta, state_version),
+		)
 	}
 
 	fn raw_iter(&self, args: IterArgs) -> Result<Self::RawIter, Self::Error> {
@@ -456,7 +459,6 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for BenchmarkingState<B> {
 		main_storage_changes: StorageCollection,
 		child_storage_changes: ChildStorageCollection,
 	) -> Result<(), Self::Error> {
-
 		if let Some(ref mut state) = *self.state.borrow_mut() {
 			if let Some(mut db) = state.backend_storage_mut().as_mem_db_mut() {
 				let root = transaction.apply_to(&mut db);
@@ -650,7 +652,7 @@ mod test {
 
 			bench_state
 				.commit(
-					TrieCommit::empty(Default::default()),
+					TrieCommit::unchanged(Default::default()),
 					vec![("foo".as_bytes().to_vec(), None)],
 					vec![("child1".as_bytes().to_vec(), vec![("foo".as_bytes().to_vec(), None)])],
 				)

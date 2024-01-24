@@ -25,10 +25,10 @@ use sp_runtime::{
 	StateVersion,
 };
 use sp_state_machine::{
-	backend::{AsTrieBackend, Backend as StateBackend}, TrieCommit,
-	IterArgs, StorageIterator, StorageKey, StorageValue, TrieBackend,
+	backend::{AsTrieBackend, Backend as StateBackend},
+	IterArgs, StorageIterator, StorageKey, StorageValue, TrieBackend, TrieCommit,
 };
-use sp_trie::{MerkleValue, ChildChangesetH};
+use sp_trie::{ChildChangesetH, MerkleValue};
 use std::sync::Arc;
 
 /// State abstraction for recording stats about state access.

@@ -20,14 +20,14 @@
 #[cfg(feature = "std")]
 use crate::backend::AsTrieBackend;
 use crate::{
-	backend::{IterArgs, StorageIterator, DBLocation, TrieCommit},
+	backend::{DBLocation, IterArgs, StorageIterator, TrieCommit},
 	trie_backend_essence::{RawIter, TrieBackendEssence},
 	Backend, StorageKey, StorageValue,
 };
 
+#[cfg(not(feature = "std"))]
+use alloc::boxed::Box;
 use codec::Codec;
-use trie_db::node_db::{NodeDB, Hasher};
-use sp_trie::{MemoryDB, DBValue, ChildChangesetH};
 use sp_core::storage::{ChildInfo, StateVersion};
 #[cfg(feature = "std")]
 use sp_trie::{
@@ -35,14 +35,15 @@ use sp_trie::{
 	recorder::Recorder,
 	StorageProof,
 };
+use sp_trie::{ChildChangesetH, DBValue, MemoryDB, MerkleValue};
 #[cfg(not(feature = "std"))]
 use sp_trie::{Error, NodeCodec};
-use sp_trie::MerkleValue;
-use trie_db::TrieCache as TrieCacheT;
-#[cfg(not(feature = "std"))]
-use alloc::boxed::Box;
 #[cfg(not(feature = "std"))]
 use trie_db::{node::NodeOwned, CachedValue};
+use trie_db::{
+	node_db::{Hasher, NodeDB},
+	TrieCache as TrieCacheT,
+};
 
 /// A provider of trie caches that are compatible with [`trie_db::TrieDB`].
 pub trait TrieCacheProvider<H: Hasher> {
@@ -128,7 +129,8 @@ impl<H: Hasher, L> trie_db::TrieCache<NodeCodec<H>, L> for UnimplementedCachePro
 		&mut self,
 		_hash: H::Out,
 		_location: L,
-		_fetch_node: &mut dyn FnMut() -> trie_db::Result<NodeOwned<H::Out, L>, H::Out, Error<H::Out>>,
+		_fetch_node: &mut dyn FnMut()
+			-> trie_db::Result<NodeOwned<H::Out, L>, H::Out, Error<H::Out>>,
 	) -> trie_db::Result<&NodeOwned<H::Out, L>, H::Out, Error<H::Out>> {
 		unimplemented!()
 	}
@@ -165,13 +167,16 @@ type DefaultCache<H, L> = LocalTrieCache<H, L>;
 #[cfg(not(feature = "std"))]
 type DefaultCache<H, L> = UnimplementedCacheProvider<H, L>;
 
-
 /// Optional features for the database backend.
 pub trait AsDB<H: Hasher>: NodeDB<H, DBValue, DBLocation> {
 	/// Returns the underlying `MemoryDB` if this is a `MemoryDB`.
-	fn as_mem_db(&self) -> Option<&MemoryDB<H>> { None }
+	fn as_mem_db(&self) -> Option<&MemoryDB<H>> {
+		None
+	}
 	/// Returns the underlying `MemoryDB` if this is a `MemoryDB`.
-	fn as_mem_db_mut(&mut self) -> Option<&mut MemoryDB<H>> { None }
+	fn as_mem_db_mut(&mut self) -> Option<&mut MemoryDB<H>> {
+		None
+	}
 	/// Returns the underlying `NodeDB`.
 	fn as_node_db(&self) -> &dyn NodeDB<H, DBValue, DBLocation>;
 }
@@ -344,8 +349,7 @@ pub struct TrieBackend<H: Hasher, C = DefaultCache<H, DBLocation>> {
 	next_storage_key_cache: CacheCell<Option<CachedIter<H, C>>>,
 }
 
-impl<H: Hasher, C: TrieCacheProvider<H> + Send + Sync>
-	TrieBackend<H, C>
+impl<H: Hasher, C: TrieCacheProvider<H> + Send + Sync> TrieBackend<H, C>
 where
 	H::Out: Codec,
 {
@@ -387,7 +391,7 @@ where
 
 	#[cfg(feature = "std")]
 	/// Set recorder. Returns the previous recorder.
-	pub fn set_recorder(&self, recorder: Option<Recorder<H>>) -> Option<Recorder<H>>{
+	pub fn set_recorder(&self, recorder: Option<Recorder<H>>) -> Option<Recorder<H>> {
 		self.essence.set_recorder(recorder)
 	}
 
@@ -452,16 +456,13 @@ where
 	}
 }
 
-impl<H: Hasher, C: TrieCacheProvider<H>> sp_std::fmt::Debug
-	for TrieBackend<H, C>
-{
+impl<H: Hasher, C: TrieCacheProvider<H>> sp_std::fmt::Debug for TrieBackend<H, C> {
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
 		write!(f, "TrieBackend")
 	}
 }
 
-impl<H: Hasher, C: TrieCacheProvider<H> + Send + Sync> Backend<H>
-	for TrieBackend<H, C>
+impl<H: Hasher, C: TrieCacheProvider<H> + Send + Sync> Backend<H> for TrieBackend<H, C>
 where
 	H::Out: Ord + Codec,
 {
@@ -1063,8 +1064,10 @@ pub mod tests {
 		cache: Option<Cache>,
 		recorder: Option<Recorder>,
 	) {
-		let tx = test_trie(state_version, cache, recorder)
-			.storage_root(iter::once((&b"new-key"[..], Some(&b"new-value"[..]), None)), state_version);
+		let tx = test_trie(state_version, cache, recorder).storage_root(
+			iter::once((&b"new-key"[..], Some(&b"new-value"[..]), None)),
+			state_version,
+		);
 		let mut mdb = MemoryDB::<BlakeTwo256>::default();
 		let new_root = tx.apply_to(&mut mdb);
 		assert!(!mdb.drain().is_empty());
@@ -1110,7 +1113,11 @@ pub mod tests {
 		recorder: Option<Recorder>,
 	) {
 		let trie_backend = test_trie(state_version, cache, recorder);
-		assert!(trie_backend.with_recorder(Recorder::default()).extract_proof().unwrap().is_empty());
+		assert!(trie_backend
+			.with_recorder(Recorder::default())
+			.extract_proof()
+			.unwrap()
+			.is_empty());
 	}
 
 	parameterized_test!(
@@ -1208,8 +1215,10 @@ pub mod tests {
 
 				let contents = (0..64).map(|i| (vec![i], Some(vec![i]))).collect::<Vec<_>>();
 				let in_memory = InMemoryBackend::<BlakeTwo256>::default();
-				let mut in_memory = in_memory.update(vec![(None, contents)], state_version).unwrap();
-				let in_memory_root = in_memory.storage_root(std::iter::empty(), state_version).root_hash();
+				let mut in_memory =
+					in_memory.update(vec![(None, contents)], state_version).unwrap();
+				let in_memory_root =
+					in_memory.storage_root(std::iter::empty(), state_version).root_hash();
 				(0..64)
 					.for_each(|i| assert_eq!(in_memory.storage(&[i]).unwrap().unwrap(), vec![i]));
 
@@ -1284,7 +1293,7 @@ pub mod tests {
 				}
 
 				let trie = in_memory.as_trie_backend_mut();
-				let trie_root = trie.storage_root(std::iter::empty(), state_version).root_hash()	;
+				let trie_root = trie.storage_root(std::iter::empty(), state_version).root_hash();
 				assert_eq!(in_memory_root, trie_root);
 				(0..64).for_each(|i| assert_eq!(trie.storage(&[i]).unwrap().unwrap(), vec![i]));
 
@@ -1359,17 +1368,18 @@ pub mod tests {
 		let in_memory = new_in_mem::<BlakeTwo256>();
 		let mut in_memory = in_memory.update(contents, state_version).unwrap();
 		let child_storage_keys = vec![child_info_1.to_owned()];
-		let commit = in_memory
-			.full_storage_root(
-				std::iter::empty(),
-				child_storage_keys.iter().map(|k| (k, std::iter::empty())),
-				state_version,
-			);
+		let commit = in_memory.full_storage_root(
+			std::iter::empty(),
+			child_storage_keys.iter().map(|k| (k, std::iter::empty())),
+			state_version,
+		);
 		let in_memory_root = commit.root_hash();
 		in_memory.apply_transaction(commit);
 
-		let child_1_root =
-			in_memory.child_storage_root(child_info_1, std::iter::empty(), state_version).0.root_hash();
+		let child_1_root = in_memory
+			.child_storage_root(child_info_1, std::iter::empty(), state_version)
+			.0
+			.root_hash();
 		let trie = in_memory.as_trie_backend_mut();
 		let nodes = {
 			let backend = trie.with_recorder(Default::default());
@@ -1409,7 +1419,9 @@ pub mod tests {
 
 			// Put the value/node into the cache.
 			for (hash, node) in nodes {
-				trie_cache.get_or_insert_node(hash, Default::default(), &mut || Ok(node.clone())).unwrap();
+				trie_cache
+					.get_or_insert_node(hash, Default::default(), &mut || Ok(node.clone()))
+					.unwrap();
 
 				if let Some(data) = node.data() {
 					trie_cache.cache_value_for_key(&[65], (data.clone(), hash).into());
@@ -1453,10 +1465,7 @@ pub mod tests {
 			&b"doesnotexist2"[..],
 		];
 
-		fn check_estimation(
-			backend: &TrieBackend<BlakeTwo256>,
-			has_cache: bool,
-		) {
+		fn check_estimation(backend: &TrieBackend<BlakeTwo256>, has_cache: bool) {
 			let estimation = backend.estimate_proof_size().unwrap();
 			let storage_proof = backend.extract_proof().unwrap();
 			let storage_proof_size =
@@ -1496,7 +1505,11 @@ pub mod tests {
 
 		let new_root = {
 			let trie = test_trie(StateVersion::V1, Some(shared_cache.local_cache()), None);
-			trie.storage_root(new_data.clone().into_iter().map(|(k, v)| (k, v, None)), StateVersion::V1).root_hash()
+			trie.storage_root(
+				new_data.clone().into_iter().map(|(k, v)| (k, v, None)),
+				StateVersion::V1,
+			)
+			.root_hash()
 		};
 
 		let local_cache = shared_cache.local_cache();

@@ -20,11 +20,11 @@
 use super::node_header::{NodeHeader, NodeKind};
 use crate::{error::Error, trie_constants};
 use codec::{Compact, Decode, Encode, Input};
-use trie_db::node_db::Hasher;
 use sp_std::{borrow::Borrow, marker::PhantomData, ops::Range, vec::Vec};
 use trie_db::{
 	nibble_ops,
 	node::{NibbleSlicePlan, NodeHandlePlan, NodePlan, Value, ValuePlan},
+	node_db::Hasher,
 	ChildReference, NodeCodec as NodeCodecT,
 };
 
@@ -185,7 +185,11 @@ where
 		&[trie_constants::EMPTY_TRIE]
 	}
 
-	fn leaf_node<L>(partial: impl Iterator<Item = u8>, number_nibble: usize, value: Value<L>) -> Vec<u8> {
+	fn leaf_node<L>(
+		partial: impl Iterator<Item = u8>,
+		number_nibble: usize,
+		value: Value<L>,
+	) -> Vec<u8> {
 		let contains_hash = matches!(&value, Value::Node(..));
 		let mut output = if contains_hash {
 			partial_from_iterator_encode(partial, number_nibble, NodeKind::HashedValueLeaf)

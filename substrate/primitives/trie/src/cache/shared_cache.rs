@@ -18,7 +18,6 @@
 ///! Provides the [`SharedNodeCache`], the [`SharedValueCache`] and the [`SharedTrieCache`]
 ///! that combines both caches and is exported to the outside.
 use super::{CacheSize, NodeCached};
-use trie_db::node_db::Hasher;
 use hashbrown::{hash_set::Entry as SetEntry, HashSet};
 use nohash_hasher::BuildNoHashHasher;
 use parking_lot::{Mutex, RwLock, RwLockWriteGuard};
@@ -27,7 +26,7 @@ use std::{
 	hash::{BuildHasher, Hasher as _},
 	sync::Arc,
 };
-use trie_db::{node::NodeOwned, CachedValue};
+use trie_db::{node::NodeOwned, node_db::Hasher, CachedValue};
 
 lazy_static::lazy_static! {
 	static ref RANDOM_STATE: ahash::RandomState = ahash::RandomState::default();
@@ -99,13 +98,15 @@ where
 		old_node: &mut (NodeOwned<H, L>, L),
 		new_node: &mut (NodeOwned<H, L>, L),
 	) -> bool {
-		let new_item_heap_size = new_node.0.size_in_bytes() - std::mem::size_of::<NodeOwned<H, L>>();
+		let new_item_heap_size =
+			new_node.0.size_in_bytes() - std::mem::size_of::<NodeOwned<H, L>>();
 		if new_item_heap_size > self.max_heap_size {
 			// Item's too big to add even if the cache's empty; bail.
 			return false
 		}
 
-		let old_item_heap_size = old_node.0.size_in_bytes() - std::mem::size_of::<NodeOwned<H, L>>();
+		let old_item_heap_size =
+			old_node.0.size_in_bytes() - std::mem::size_of::<NodeOwned<H, L>>();
 		self.heap_size = self.heap_size - old_item_heap_size + new_item_heap_size;
 		true
 	}
@@ -247,7 +248,9 @@ where
 	pub(super) lru: SharedNodeCacheMap<H, L>,
 }
 
-impl<H: AsRef<[u8]> + Eq + std::hash::Hash, L: Copy + Default + Eq + PartialEq> SharedNodeCache<H, L> {
+impl<H: AsRef<[u8]> + Eq + std::hash::Hash, L: Copy + Default + Eq + PartialEq>
+	SharedNodeCache<H, L>
+{
 	/// Create a new instance.
 	fn new(max_inline_size: usize, max_heap_size: usize) -> Self {
 		Self {
@@ -641,7 +644,9 @@ impl<H: Hasher, L: Copy + Default + Eq + PartialEq + std::hash::Hash> SharedTrie
 			);
 
 		let node_cache_max_inline_size =
-			SharedNodeCacheMap::<H::Out, L>::memory_usage_for_memory_budget(node_cache_inline_budget);
+			SharedNodeCacheMap::<H::Out, L>::memory_usage_for_memory_budget(
+				node_cache_inline_budget,
+			);
 
 		// And this is how much data we'll at most keep on the heap for each cache.
 		let value_cache_max_heap_size = value_cache_budget - value_cache_max_inline_size;
@@ -759,7 +764,9 @@ impl<H: Hasher, L: Copy + Default + Eq + PartialEq + std::hash::Hash> SharedTrie
 	}
 
 	/// Returns the write locked inner.
-	pub(super) fn write_lock_inner(&self) -> Option<RwLockWriteGuard<'_, SharedTrieCacheInner<H, L>>> {
+	pub(super) fn write_lock_inner(
+		&self,
+	) -> Option<RwLockWriteGuard<'_, SharedTrieCacheInner<H, L>>> {
 		// This should never happen, but we *really* don't want to deadlock. So let's have it
 		// timeout, just in case. At worst it'll do nothing, and at best it'll avert a catastrophe
 		// and notify us that there's a problem.

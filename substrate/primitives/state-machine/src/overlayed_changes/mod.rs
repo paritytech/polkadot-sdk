@@ -21,9 +21,12 @@ mod changeset;
 mod offchain;
 
 use self::changeset::OverlayedChangeSet;
-use crate::{backend::{Backend, TrieCommit}, stats::StateMachineStats, DefaultError};
+use crate::{
+	backend::{Backend, TrieCommit},
+	stats::StateMachineStats,
+	DefaultError,
+};
 use codec::{Decode, Encode};
-use trie_db::node_db::Hasher;
 pub use offchain::OffchainOverlayedChanges;
 use sp_core::{
 	offchain::OffchainOverlayedChange,
@@ -34,7 +37,7 @@ use sp_externalities::{Extension, Extensions};
 #[cfg(not(feature = "std"))]
 use sp_std::collections::btree_map::BTreeMap as Map;
 use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
-use sp_trie::{empty_child_trie_root, LayoutV1, DBLocation};
+use sp_trie::{empty_child_trie_root, DBLocation, LayoutV1};
 #[cfg(feature = "std")]
 use std::collections::{hash_map::Entry as MapEntry, HashMap as Map};
 #[cfg(feature = "std")]
@@ -42,6 +45,7 @@ use std::{
 	any::{Any, TypeId},
 	boxed::Box,
 };
+use trie_db::node_db::Hasher;
 
 pub use self::changeset::{AlreadyInRuntime, NoOpenTransaction, NotInRuntime, OverlayedValue};
 
@@ -628,8 +632,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 
 		let root = transaction.root_hash();
 
-		self.storage_transaction_cache =
-			Some(StorageTransactionCache { transaction });
+		self.storage_transaction_cache = Some(StorageTransactionCache { transaction });
 
 		(root, false)
 	}

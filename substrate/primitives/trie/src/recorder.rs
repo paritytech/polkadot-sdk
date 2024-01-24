@@ -22,7 +22,6 @@
 
 use crate::{NodeCodec, StorageProof};
 use codec::Encode;
-use trie_db::node_db::Hasher;
 use parking_lot::Mutex;
 use std::{
 	collections::{HashMap, HashSet},
@@ -34,7 +33,7 @@ use std::{
 		Arc,
 	},
 };
-use trie_db::{RecordedForKey, TrieAccess};
+use trie_db::{node_db::Hasher, RecordedForKey, TrieAccess};
 
 const LOG_TARGET: &str = "trie-recorder";
 
@@ -283,8 +282,8 @@ impl<H: Hasher, I: DerefMut<Target = RecorderInner<H::Out>>> TrieRecorder<H, I> 
 	}
 }
 
-impl<H: Hasher, I: DerefMut<Target = RecorderInner<H::Out>>, L: Copy + Default> trie_db::TrieRecorder<H::Out, L>
-	for TrieRecorder<H, I>
+impl<H: Hasher, I: DerefMut<Target = RecorderInner<H::Out>>, L: Copy + Default>
+	trie_db::TrieRecorder<H::Out, L> for TrieRecorder<H, I>
 {
 	fn record(&mut self, access: TrieAccess<H::Out, L>) {
 		let mut encoded_size_update = 0;

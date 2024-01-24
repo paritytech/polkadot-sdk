@@ -18,14 +18,15 @@
 //! State machine in memory backend.
 
 use crate::{
-	backend::{Backend, TrieCommit}, trie_backend::TrieBackend, StorageCollection, StorageKey, StorageValue,
-	TrieBackendBuilder,
+	backend::{Backend, TrieCommit},
+	trie_backend::TrieBackend,
+	StorageCollection, StorageKey, StorageValue, TrieBackendBuilder,
 };
 use codec::Codec;
-use trie_db::node_db::Hasher;
 use sp_core::storage::{ChildInfo, StateVersion, Storage};
 use sp_trie::{empty_trie_root, LayoutV1, MemoryDB};
 use std::collections::{BTreeMap, HashMap};
+use trie_db::node_db::Hasher;
 
 /// Create a new empty instance of in-memory backend.
 pub fn new_in_mem<H>() -> TrieBackend<H>
@@ -90,9 +91,9 @@ where
 	/// Clone this backend if it backed by in-memory storage.
 	/// Note that this will clone the underlying storage.
 	pub fn clone_in_mem(&self) -> Option<Self> {
-		self.backend_storage().as_mem_db().map(|memdb| {
-			TrieBackendBuilder::new(Box::new(memdb.clone()), *self.root()).build()
-		})
+		self.backend_storage()
+			.as_mem_db()
+			.map(|memdb| TrieBackendBuilder::new(Box::new(memdb.clone()), *self.root()).build())
 	}
 }
 
@@ -192,10 +193,12 @@ mod tests {
 		let storage = new_in_mem::<BlakeTwo256>();
 		let child_info = ChildInfo::new_default(b"1");
 		let child_info = &child_info;
-		let storage = storage.update(
-			vec![(Some(child_info.clone()), vec![(b"2".to_vec(), Some(b"3".to_vec()))])],
-			state_version,
-		).unwrap();
+		let storage = storage
+			.update(
+				vec![(Some(child_info.clone()), vec![(b"2".to_vec(), Some(b"3".to_vec()))])],
+				state_version,
+			)
+			.unwrap();
 		let trie_backend = storage.as_trie_backend();
 		assert_eq!(trie_backend.child_storage(child_info, b"2").unwrap(), Some(b"3".to_vec()));
 		let storage_key = child_info.prefixed_storage_key();

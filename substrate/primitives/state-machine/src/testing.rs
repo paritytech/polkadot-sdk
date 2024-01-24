@@ -27,7 +27,6 @@ use crate::{
 	TrieBackendBuilder,
 };
 
-use trie_db::node_db::{Hasher, EMPTY_PREFIX};
 use sp_core::{
 	offchain::testing::TestPersistentOffchainDB,
 	storage::{
@@ -37,6 +36,7 @@ use sp_core::{
 };
 use sp_externalities::{Extension, ExtensionStore, Extensions};
 use sp_trie::{MemoryDB, StorageProof};
+use trie_db::node_db::{Hasher, EMPTY_PREFIX};
 
 /// Simple HashMap-based Externalities impl.
 pub struct TestExternalities<H>
@@ -187,10 +187,7 @@ where
 	/// Note: This DB will be inoperable after this call.
 	pub fn into_raw_snapshot(mut self) -> (Vec<(H::Out, (Vec<u8>, i32))>, H::Out) {
 		if let Some(mdb) = self.backend.backend_storage_mut().as_mem_db_mut() {
-			let raw_key_values = mdb
-				.drain()
-				.into_iter()
-				.collect::<Vec<(H::Out, (Vec<u8>, i32))>>();
+			let raw_key_values = mdb.drain().into_iter().collect::<Vec<(H::Out, (Vec<u8>, i32))>>();
 
 			(raw_key_values, *self.backend.root())
 		} else {
@@ -225,8 +222,7 @@ where
 	pub fn commit_all(&mut self) -> Result<(), String> {
 		let changes = self.overlay.drain_storage_changes(&self.backend, self.state_version)?;
 
-		self.backend
-			.apply_transaction(changes.transaction);
+		self.backend.apply_transaction(changes.transaction);
 		Ok(())
 	}
 
@@ -245,11 +241,8 @@ where
 	/// get their own proof from scratch.
 	pub fn execute_and_prove<R>(&mut self, execute: impl FnOnce() -> R) -> (R, StorageProof) {
 		let proving_backend = self.backend.with_recorder(Default::default());
-		let mut proving_ext = Ext::new(
-			&mut self.overlay,
-			&*proving_backend,
-			Some(&mut self.extensions),
-		);
+		let mut proving_ext =
+			Ext::new(&mut self.overlay, &*proving_backend, Some(&mut self.extensions));
 
 		let outcome = sp_externalities::set_and_run_with_externalities(&mut proving_ext, execute);
 		let proof = proving_backend.extract_proof().expect("Failed to extract storage proof");
@@ -297,8 +290,9 @@ where
 		let this_backend = self.as_backend();
 		let other_backend = other.as_backend();
 		match (this_backend, other_backend) {
-			(Some(this_backend), Some(other_backend)) => other_backend.backend_storage().as_mem_db()
-				== this_backend.backend_storage().as_mem_db(),
+			(Some(this_backend), Some(other_backend)) =>
+				other_backend.backend_storage().as_mem_db() ==
+					this_backend.backend_storage().as_mem_db(),
 			_ => false,
 		}
 	}

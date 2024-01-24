@@ -35,20 +35,19 @@
 //! [`LocalTrieCache`] the actual memory usage could be above the allowed maximum.
 
 use crate::{Error, NodeCodec};
-use trie_db::node_db::Hasher;
 use nohash_hasher::BuildNoHashHasher;
 use parking_lot::{Mutex, MutexGuard};
 use schnellru::LruMap;
 use shared_cache::{ValueCacheKey, ValueCacheRef};
 use std::{
-	collections::{HashSet, HashMap},
+	collections::{HashMap, HashSet},
 	sync::{
 		atomic::{AtomicU64, Ordering},
 		Arc,
 	},
 	time::Duration,
 };
-use trie_db::{node::NodeOwned, CachedValue};
+use trie_db::{node::NodeOwned, node_db::Hasher, CachedValue};
 
 mod shared_cache;
 
@@ -306,7 +305,8 @@ impl<H, L> NodeCached<H, L> {
 	}
 }
 
-type NodeCacheMap<H, L> = LruMap<(H, L), NodeCached<H, L>, LocalNodeCacheLimiter, schnellru::RandomState>;
+type NodeCacheMap<H, L> =
+	LruMap<(H, L), NodeCached<H, L>, LocalNodeCacheLimiter, schnellru::RandomState>;
 
 type ValueCacheMap<H, L> = LruMap<
 	ValueCacheKey<H>,
@@ -392,7 +392,9 @@ impl<H: Hasher, L: Copy + Default + Eq + PartialEq + std::hash::Hash> LocalTrieC
 	}
 }
 
-impl<H: Hasher, L: Copy + Default + Eq + PartialEq + std::hash::Hash> Drop for LocalTrieCache<H, L> {
+impl<H: Hasher, L: Copy + Default + Eq + PartialEq + std::hash::Hash> Drop
+	for LocalTrieCache<H, L>
+{
 	fn drop(&mut self) {
 		tracing::debug!(
 			target: LOG_TARGET,
@@ -417,7 +419,9 @@ impl<H: Hasher, L: Copy + Default + Eq + PartialEq + std::hash::Hash> Drop for L
 			},
 		};
 
-		shared_inner.node_cache_mut().update(self.node_cache.get_mut().drain(), self.new_nodes.get_mut().drain());
+		shared_inner
+			.node_cache_mut()
+			.update(self.node_cache.get_mut().drain(), self.new_nodes.get_mut().drain());
 
 		shared_inner.value_cache_mut().update(
 			self.value_cache.get_mut().drain(),
@@ -548,12 +552,15 @@ impl<'a, H: Hasher, L: Copy + Default + Eq + PartialEq + std::hash::Hash> TrieCa
 	}
 }
 
-impl<'a, H: Hasher, L: Copy + Default + Eq + PartialEq + std::hash::Hash> trie_db::TrieCache<NodeCodec<H>, L> for TrieCache<'a, H, L> {
+impl<'a, H: Hasher, L: Copy + Default + Eq + PartialEq + std::hash::Hash>
+	trie_db::TrieCache<NodeCodec<H>, L> for TrieCache<'a, H, L>
+{
 	fn get_or_insert_node(
 		&mut self,
 		hash: H::Out,
 		location: L,
-		fetch_node: &mut dyn FnMut() -> trie_db::Result<NodeOwned<H::Out, L>, H::Out, Error<H::Out>>,
+		fetch_node: &mut dyn FnMut()
+			-> trie_db::Result<NodeOwned<H::Out, L>, H::Out, Error<H::Out>>,
 	) -> trie_db::Result<&NodeOwned<H::Out, L>, H::Out, Error<H::Out>> {
 		let mut is_local_cache_hit = true;
 		self.stats.node_cache.local_fetch_attempts.fetch_add(1, Ordering::Relaxed);
@@ -568,7 +575,10 @@ impl<'a, H: Hasher, L: Copy + Default + Eq + PartialEq + std::hash::Hash> trie_d
 				self.stats.node_cache.shared_hits.fetch_add(1, Ordering::Relaxed);
 				tracing::trace!(target: LOG_TARGET, ?hash, "Serving node from shared cache");
 
-				return Ok(NodeCached::<H::Out, L> { node: node.clone(), is_from_shared_cache: true })
+				return Ok(NodeCached::<H::Out, L> {
+					node: node.clone(),
+					is_from_shared_cache: true,
+				})
 			}
 
 			// It was not in the shared cache; try fetching it from the database.
@@ -753,9 +763,7 @@ mod tests {
 
 			trie.insert(&new_key, &new_value).unwrap();
 			let new_root = trie.commit().apply_to(&mut db);
-			let trie = TrieDBBuilder::<Layout>::new(&db, &new_root)
-				.with_cache(&mut cache)
-				.build();
+			let trie = TrieDBBuilder::<Layout>::new(&db, &new_root).with_cache(&mut cache).build();
 			trie.get(&new_key).unwrap().unwrap();
 
 			cache.merge_into(&local_cache, new_root);
@@ -855,9 +863,7 @@ mod tests {
 			let storage_proof = recorder.drain_storage_proof();
 			let mut memory_db: MemoryDB = storage_proof.into_memory_db();
 
-			let mut trie =
-				TrieDBMutBuilder::<Layout>::from_existing(&mut memory_db, root)
-					.build();
+			let mut trie = TrieDBMutBuilder::<Layout>::from_existing(&mut memory_db, root).build();
 
 			for (key, value) in DATA_TO_ADD {
 				trie.insert(key, value).unwrap();
@@ -966,10 +972,9 @@ mod tests {
 
 			{
 				let mut cache = local_cache.as_trie_db_cache(root);
-				let mut trie =
-					TrieDBMutBuilder::<Layout>::from_existing(&mut db, root)
-						.with_cache(&mut cache)
-						.build();
+				let mut trie = TrieDBMutBuilder::<Layout>::from_existing(&mut db, root)
+					.with_cache(&mut cache)
+					.build();
 
 				let value = vec![10u8; 100];
 				// Ensure we add enough data that would overflow the cache.

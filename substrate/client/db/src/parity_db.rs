@@ -15,13 +15,10 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-use crate::{
-	columns,
-	utils::NUM_COLUMNS,
-};
-/// A `Database` adapter for parity-db.
-use sp_database::{error::DatabaseError, Change, ColumnId, Database, Transaction, DBLocation};
+use crate::{columns, utils::NUM_COLUMNS};
 use parity_db::Operation;
+/// A `Database` adapter for parity-db.
+use sp_database::{error::DatabaseError, Change, ColumnId, DBLocation, Database, Transaction};
 
 struct DbAdapter(parity_db::Db);
 
@@ -105,7 +102,7 @@ impl<H: Clone + AsRef<[u8]>> Database<H> for DbAdapter {
 						}
 						return None
 					},
-				Change::Reference(col, key) => {
+				Change::Reference(col, key) =>
 					if ref_counted_column(col) {
 						(col as u8, Operation::Reference(key.as_ref().to_vec()))
 					} else {
@@ -113,11 +110,9 @@ impl<H: Clone + AsRef<[u8]>> Database<H> for DbAdapter {
 							not_ref_counted_column.push(col);
 						}
 						return None
-					}
-				},
-				Change::ReferenceTree(col, key) => {
-					(col as u8, Operation::ReferenceTree(key.as_ref().to_vec()))
-				},
+					},
+				Change::ReferenceTree(col, key) =>
+					(col as u8, Operation::ReferenceTree(key.as_ref().to_vec())),
 				Change::Release(col, key) =>
 					if ref_counted_column(col) {
 						(col as u8, Operation::Dereference(key.as_ref().to_vec()))
@@ -129,9 +124,8 @@ impl<H: Clone + AsRef<[u8]>> Database<H> for DbAdapter {
 					},
 				Change::ReleaseTree(col, key) =>
 					(col as u8, Operation::DereferenceTree(key.as_ref().to_vec())),
-				Change::StoreTree(col, key, tree) => {
-					(col as u8, Operation::InsertTree(key.as_ref().to_vec(), tree))
-				},
+				Change::StoreTree(col, key, tree) =>
+					(col as u8, Operation::InsertTree(key.as_ref().to_vec(), tree)),
 			})
 		}));
 
@@ -157,7 +151,12 @@ impl<H: Clone + AsRef<[u8]>> Database<H> for DbAdapter {
 		handle_err(self.0.get_size(col as u8, key)).map(|s| s as usize)
 	}
 
-	fn get_node(&self, col: ColumnId, key: &[u8], location: DBLocation) -> Option<(Vec<u8>, Vec<DBLocation>)> {
+	fn get_node(
+		&self,
+		col: ColumnId,
+		key: &[u8],
+		location: DBLocation,
+	) -> Option<(Vec<u8>, Vec<DBLocation>)> {
 		if location == 0 {
 			handle_err(self.0.get_root(col as u8, key))
 		} else {

@@ -32,11 +32,6 @@ mod trie_stream;
 
 /// Our `NodeCodec`-specific error.
 pub use error::Error;
-/// Various re-exports from the `node_db` module of `trie-db` crate.
-pub use trie_db::node_db::{NodeDB as NodeDBT, EMPTY_PREFIX};
-pub use trie_db::node_db::{Hasher, Prefix};
-/// Various re-exports from the `memory_db` module of `trie-db` crate.
-pub use trie_db::memory_db::{prefixed_key, HashKey, KeyFunction, PrefixedKey};
 /// The Substrate format implementation of `NodeCodec`.
 pub use node_codec::NodeCodec;
 use sp_std::{borrow::Borrow, boxed::Box, marker::PhantomData, vec::Vec};
@@ -44,15 +39,24 @@ pub use storage_proof::{CompactProof, StorageProof};
 /// Trie codec reexport, mainly child trie support
 /// for trie compact proof.
 pub use trie_codec::{decode_compact, encode_compact, Error as CompactProofError};
+/// Various re-exports from the `memory_db` module of `trie-db` crate.
+pub use trie_db::memory_db::{prefixed_key, HashKey, KeyFunction, PrefixedKey};
+/// Various re-exports from the `node_db` module of `trie-db` crate.
+pub use trie_db::node_db::{NodeDB as NodeDBT, EMPTY_PREFIX};
 use trie_db::proof::{generate_proof, verify_proof};
 /// Various re-exports from the `trie-db` crate.
 pub use trie_db::{
 	nibble_ops,
 	node::{NodePlan, ValuePlan},
-	CError, Changeset, DBValue, ExistingChangesetNode, NewChangesetNode, Query,
-	Recorder, Trie, TrieCache, TrieConfiguration, TrieDBIterator, TrieDBKeyIterator,
-	TrieDBRawIterator, TrieLayout, TrieRecorder, };
-pub use trie_db::{proof::VerifyError, MerkleValue};
+	CError, Changeset, DBValue, ExistingChangesetNode, NewChangesetNode, Query, Recorder, Trie,
+	TrieCache, TrieConfiguration, TrieDBIterator, TrieDBKeyIterator, TrieDBRawIterator, TrieLayout,
+	TrieRecorder,
+};
+pub use trie_db::{
+	node_db::{Hasher, Prefix},
+	proof::VerifyError,
+	MerkleValue,
+};
 /// The Substrate format implementation of `TrieStream`.
 pub use trie_stream::TrieStream;
 
@@ -87,7 +91,10 @@ where
 		A: AsRef<[u8]> + Ord,
 		B: AsRef<[u8]>,
 	{
-		trie_db::trie_root::trie_root_no_extension::<H, TrieStream, _, _, _>(input, Self::MAX_INLINE_VALUE)
+		trie_db::trie_root::trie_root_no_extension::<H, TrieStream, _, _, _>(
+			input,
+			Self::MAX_INLINE_VALUE,
+		)
 	}
 
 	fn trie_root_unhashed<I, A, B>(input: I) -> Vec<u8>
@@ -132,7 +139,10 @@ where
 		A: AsRef<[u8]> + Ord,
 		B: AsRef<[u8]>,
 	{
-		trie_db::trie_root::trie_root_no_extension::<H, TrieStream, _, _, _>(input, Self::MAX_INLINE_VALUE)
+		trie_db::trie_root::trie_root_no_extension::<H, TrieStream, _, _, _>(
+			input,
+			Self::MAX_INLINE_VALUE,
+		)
 	}
 
 	fn trie_root_unhashed<I, A, B>(input: I) -> Vec<u8>
@@ -166,10 +176,12 @@ pub type NodeDB<'a, H, L> = dyn trie_db::node_db::NodeDB<H, trie_db::DBValue, L>
 /// Reexport from `trie_db`, with genericity set for `Hasher` trait.
 /// This uses a noops `KeyFunction` (key addressing must be hashed or using
 /// an encoding scheme that avoid key conflict).
-pub type MemoryDB<H> = trie_db::memory_db::MemoryDB<H, trie_db::memory_db::HashKey<H>, trie_db::DBValue>;
+pub type MemoryDB<H> =
+	trie_db::memory_db::MemoryDB<H, trie_db::memory_db::HashKey<H>, trie_db::DBValue>;
 /// Reexport from `trie_db`, with genericity set for `Hasher` trait.
 /// This uses a prefixed `KeyFunction`
-pub type PrefixedMemoryDB<H> = trie_db::memory_db::MemoryDB<H, trie_db::memory_db::PrefixedKey<H>, trie_db::DBValue>;
+pub type PrefixedMemoryDB<H> =
+	trie_db::memory_db::MemoryDB<H, trie_db::memory_db::PrefixedKey<H>, trie_db::DBValue>;
 /// Reexport from `trie_db`, with genericity set for `Hasher` trait.
 pub type GenericMemoryDB<H, KF> = trie_db::memory_db::MemoryDB<H, KF, trie_db::DBValue>;
 
@@ -351,7 +363,6 @@ pub fn read_trie_value_with_location<
 	Ok(Some((root, location.unwrap_or_default())))
 }
 
-
 /// Read the [`trie_db::MerkleValue`] of the node that is the closest descendant for
 /// the provided key.
 pub fn read_trie_first_descendant_value<L: TrieLayout, DB>(
@@ -430,7 +441,13 @@ where
 	root.as_mut().copy_from_slice(root_data.as_ref());
 
 	let db = KeySpacedDB::new(db, keyspace);
-	delta_trie_root::<L, _, _, _, _>(&db, (root, root_location), delta.into_iter().map(|(k, v)| (k, v, None)), recorder, cache)
+	delta_trie_root::<L, _, _, _, _>(
+		&db,
+		(root, root_location),
+		delta.into_iter().map(|(k, v)| (k, v, None)),
+		recorder,
+		cache,
+	)
 }
 
 /// Read a value from the child trie.
@@ -567,15 +584,18 @@ mod trie_constants {
 mod tests {
 	use super::*;
 	use codec::{Compact, Decode, Encode};
-	use trie_db::node_db::{NodeDB, Hasher};
 	use sp_core::Blake2Hasher;
-	use trie_db::{DBValue, NodeCodec as NodeCodecT, Trie};
+	use trie_db::{
+		node_db::{Hasher, NodeDB},
+		DBValue, NodeCodec as NodeCodecT, Trie,
+	};
 	use trie_standardmap::{Alphabet, StandardMap, ValueMode};
 
 	type LayoutV0 = super::LayoutV0<Blake2Hasher, ()>;
 	type LayoutV1 = super::LayoutV1<Blake2Hasher, ()>;
 
-	type MemoryDBMeta<H> = trie_db::memory_db::MemoryDB<H, trie_db::memory_db::HashKey<H>, trie_db::DBValue>;
+	type MemoryDBMeta<H> =
+		trie_db::memory_db::MemoryDB<H, trie_db::memory_db::HashKey<H>, trie_db::DBValue>;
 
 	fn hashed_null_node<T: TrieConfiguration>() -> TrieHash<T> {
 		<T::Codec as NodeCodecT>::hashed_null_node()
@@ -987,7 +1007,9 @@ mod tests {
 		let first_storage_root = delta_trie_root::<LayoutV0, _, _, _, _>(
 			&mut proof_db.clone(),
 			(storage_root, Default::default()),
-			valid_delta.iter().map(|(k, v)| (k.as_slice(), v.as_ref().map(Vec::as_slice), None)),
+			valid_delta
+				.iter()
+				.map(|(k, v)| (k.as_slice(), v.as_ref().map(Vec::as_slice), None)),
 			None,
 			None,
 		)
@@ -996,7 +1018,9 @@ mod tests {
 		let second_storage_root = delta_trie_root::<LayoutV0, _, _, _, _>(
 			&mut proof_db.clone(),
 			(storage_root, Default::default()),
-			invalid_delta.iter().map(|(k, v)| (k.as_slice(), v.as_ref().map(Vec::as_slice), None)),
+			invalid_delta
+				.iter()
+				.map(|(k, v)| (k.as_slice(), v.as_ref().map(Vec::as_slice), None)),
 			None,
 			None,
 		)

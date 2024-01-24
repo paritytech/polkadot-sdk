@@ -128,7 +128,7 @@ impl sp_std::fmt::Display for DefaultError {
 }
 
 pub use crate::{
-	backend::{Backend, IterArgs, KeysIter, PairsIter, StorageIterator, DBLocation, TrieCommit},
+	backend::{Backend, DBLocation, IterArgs, KeysIter, PairsIter, StorageIterator, TrieCommit},
 	error::{Error, ExecutionError},
 	ext::Ext,
 	overlayed_changes::{
@@ -162,7 +162,6 @@ mod execution {
 
 	use super::*;
 	use codec::Codec;
-	use trie_db::node_db::Hasher;
 	use smallvec::SmallVec;
 	use sp_core::{
 		hexdisplay::HexDisplay,
@@ -171,6 +170,7 @@ mod execution {
 	};
 	use sp_externalities::Extensions;
 	use std::collections::{HashMap, HashSet};
+	use trie_db::node_db::Hasher;
 
 	pub(crate) type CallResult<E> = Result<Vec<u8>, E>;
 
@@ -775,7 +775,6 @@ mod execution {
 		I: IntoIterator,
 		I::Item: AsRef<[u8]>,
 	{
-
 		let proving_backend = trie_backend.with_recorder(Default::default());
 		for key in keys.into_iter() {
 			proving_backend
@@ -1207,7 +1206,8 @@ mod tests {
 
 		// fetch execution proof from 'remote' full node
 		let mut remote_backend = trie_backend::tests::test_trie(state_version, None, None);
-		let remote_root = remote_backend.storage_root(std::iter::empty(), state_version).root_hash();
+		let remote_root =
+			remote_backend.storage_root(std::iter::empty(), state_version).root_hash();
 		let (remote_result, remote_proof) = prove_execution(
 			&mut remote_backend,
 			&mut Default::default(),
@@ -1253,7 +1253,7 @@ mod tests {
 		overlay.set_storage(b"abd".to_vec(), Some(b"69".to_vec()));
 		overlay.set_storage(b"bbd".to_vec(), Some(b"42".to_vec()));
 
-		let overlay_limit = overlay. clone();
+		let overlay_limit = overlay.clone();
 		{
 			let mut ext = Ext::new(&mut overlay, backend, None);
 			let _ = ext.clear_prefix(b"ab", None, None);
@@ -1517,7 +1517,8 @@ mod tests {
 		let missing_child_info = &missing_child_info;
 		// fetch read proof from 'remote' full node
 		let remote_backend = trie_backend::tests::test_trie(state_version, None, None);
-		let remote_root = remote_backend.storage_root(std::iter::empty(), state_version).root_hash();
+		let remote_root =
+			remote_backend.storage_root(std::iter::empty(), state_version).root_hash();
 		let remote_proof = prove_read(remote_backend, &[b"value2"]).unwrap();
 		let remote_proof = test_compact(remote_proof, &remote_root);
 		// check proof locally
@@ -1534,7 +1535,8 @@ mod tests {
 		assert_eq!(local_result2, false);
 		// on child trie
 		let remote_backend = trie_backend::tests::test_trie(state_version, None, None);
-		let remote_root = remote_backend.storage_root(std::iter::empty(), state_version).root_hash();
+		let remote_root =
+			remote_backend.storage_root(std::iter::empty(), state_version).root_hash();
 		let remote_proof = prove_child_read(remote_backend, child_info, &[b"value3"]).unwrap();
 		let remote_proof = test_compact(remote_proof, &remote_root);
 		let local_result1 = read_child_proof_check::<BlakeTwo256, _>(
@@ -1664,7 +1666,8 @@ mod tests {
 	fn prove_read_with_size_limit_works() {
 		let state_version = StateVersion::V0;
 		let remote_backend = trie_backend::tests::test_trie(state_version, None, None);
-		let remote_root = remote_backend.storage_root(::std::iter::empty(), state_version).root_hash();
+		let remote_root =
+			remote_backend.storage_root(::std::iter::empty(), state_version).root_hash();
 		let (proof, count) =
 			prove_range_read_with_size(remote_backend, None, None, 0, None).unwrap();
 		// Always contains at least some nodes.
@@ -1722,11 +1725,10 @@ mod tests {
 			trie.commit().apply_to(&mut mdb)
 		};
 
-		let remote_backend: TrieBackend<BlakeTwo256> =
-			TrieBackendBuilder::new(Box::new(mdb), root)
-				.with_optional_cache(None)
-					.with_optional_recorder(None)
-				.build();
+		let remote_backend: TrieBackend<BlakeTwo256> = TrieBackendBuilder::new(Box::new(mdb), root)
+			.with_optional_cache(None)
+			.with_optional_recorder(None)
+			.build();
 
 		let (proof, count) =
 			prove_range_read_with_size(remote_backend, None, None, 1000, None).unwrap();
@@ -1752,7 +1754,8 @@ mod tests {
 
 		let check_proof = |mdb, root, state_version| -> StorageProof {
 			let remote_backend = TrieBackendBuilder::new(Box::new(mdb), root).build();
-			let remote_root = remote_backend.storage_root(std::iter::empty(), state_version).root_hash();
+			let remote_root =
+				remote_backend.storage_root(std::iter::empty(), state_version).root_hash();
 			let remote_proof = prove_read(remote_backend, &[b"foo222"]).unwrap();
 			// check proof locally
 			let local_result1 =
@@ -1796,7 +1799,8 @@ mod tests {
 	fn prove_range_with_child_works() {
 		let state_version = StateVersion::V0;
 		let remote_backend = trie_backend::tests::test_trie(state_version, None, None);
-		let remote_root = remote_backend.storage_root(std::iter::empty(), state_version).root_hash();
+		let remote_root =
+			remote_backend.storage_root(std::iter::empty(), state_version).root_hash();
 		let mut start_at = smallvec::SmallVec::<[Vec<u8>; 2]>::new();
 		let trie_backend = remote_backend.as_trie_backend();
 		let max_iter = 1000;

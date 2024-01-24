@@ -267,11 +267,7 @@ fn open_parity_db<Block: BlockT>(path: &Path, create: bool, archive: bool) -> Op
 }
 
 #[cfg(any(feature = "rocksdb", test))]
-fn open_kvdb_rocksdb<Block: BlockT>(
-	path: &Path,
-	create: bool,
-	cache_size: usize,
-) -> OpenDbResult {
+fn open_kvdb_rocksdb<Block: BlockT>(path: &Path, create: bool, cache_size: usize) -> OpenDbResult {
 	// first upgrade database to required version
 	match crate::upgrade::upgrade_db::<Block>(path) {
 		// in case of missing version file, assume that database simply does not exist at given

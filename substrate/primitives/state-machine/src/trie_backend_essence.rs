@@ -24,7 +24,6 @@ use crate::{
 	warn, StorageKey, StorageValue,
 };
 use codec::Codec;
-use trie_db::node_db::{NodeDB, Hasher, Prefix};
 #[cfg(feature = "std")]
 use parking_lot::RwLock;
 use sp_core::storage::{ChildInfo, ChildType, StateVersion};
@@ -34,12 +33,14 @@ use sp_trie::recorder::Recorder;
 use sp_trie::{
 	child_delta_trie_root, delta_trie_root, empty_child_trie_root,
 	read_child_trie_first_descedant_value, read_child_trie_hash, read_child_trie_value,
-	read_trie_first_descendant_value, read_trie_value, read_trie_value_with_location, ChildChangesetH,
+	read_trie_first_descendant_value, read_trie_value, read_trie_value_with_location,
 	trie_types::{TrieDBBuilder, TrieError},
-	DBValue, KeySpacedDB, MerkleValue, NodeCodec, Trie, TrieCache, TrieDBRawIterator, TrieRecorder,
+	ChildChangesetH, DBValue, KeySpacedDB, MerkleValue, NodeCodec, Trie, TrieCache,
+	TrieDBRawIterator, TrieRecorder,
 };
 #[cfg(feature = "std")]
 use std::collections::HashMap;
+use trie_db::node_db::{Hasher, NodeDB, Prefix};
 // In this module, we only use layout for read operation and empty root,
 // where V1 and V0 are equivalent.
 use sp_trie::LayoutV1 as Layout;
@@ -442,8 +443,14 @@ where
 
 		let map_e = |e| format!("Trie lookup with location error: {}", e);
 		let result = self.with_recorder_and_cache(None, |recorder, cache| {
-			read_trie_value_with_location::<Layout<H, DBLocation>, _>(self, &self.root, child_info.prefixed_storage_key().as_slice(), recorder, cache)
-				.map_err(map_e)
+			read_trie_value_with_location::<Layout<H, DBLocation>, _>(
+				self,
+				&self.root,
+				child_info.prefixed_storage_key().as_slice(),
+				recorder,
+				cache,
+			)
+			.map_err(map_e)
 		});
 
 		let result = result?.map(|r| {
@@ -674,19 +681,24 @@ where
 			let commit = match state_version {
 				StateVersion::V0 =>
 					delta_trie_root::<sp_trie::LayoutV0<H, DBLocation>, _, _, _, _>(
-						backend, (self.root, Default::default()), delta, recorder, cache,
+						backend,
+						(self.root, Default::default()),
+						delta,
+						recorder,
+						cache,
 					),
 				StateVersion::V1 =>
 					delta_trie_root::<sp_trie::LayoutV1<H, DBLocation>, _, _, _, _>(
-						backend, (self.root, Default::default()), delta, recorder, cache,
+						backend,
+						(self.root, Default::default()),
+						delta,
+						recorder,
+						cache,
 					),
 			};
 
 			match commit {
-				Ok(commit) => (
-					Some(commit.root_hash()),
-					commit,
-				),
+				Ok(commit) => (Some(commit.root_hash()), commit),
 				Err(e) => {
 					warn!(target: "trie", "Failed to write to trie: {}", e);
 					(None, TrieCommit::unchanged(self.root))
@@ -740,10 +752,7 @@ where
 							cache,
 						),
 				} {
-					Ok(commit) => (
-						Some(commit.root_hash()),
-						commit,
-					),
+					Ok(commit) => (Some(commit.root_hash()), commit),
 					Err(e) => {
 						warn!(target: "trie", "Failed to write to trie: {}", e);
 						(None, TrieCommit::unchanged(self.root))
