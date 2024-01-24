@@ -652,7 +652,7 @@ pub mod pallet {
 			);
 
 			// ensure they can pay more than the fee.
-			let deposit = T::SignedDepositPerItem::get().saturating_mul(limits.item.into());
+			let deposit = Self::calculate_deposit_for(limits.item);
 			ensure!(
 				T::Currency::can_hold(&HoldReason::SlashForContinueMigrate.into(), &who, deposit),
 				Error::<T>::NotEnoughFunds
@@ -726,9 +726,7 @@ pub mod pallet {
 			let who = T::SignedFilter::ensure_origin(origin)?;
 
 			// ensure they can pay more than the fee.
-			let deposit = T::SignedDepositBase::get().saturating_add(
-				T::SignedDepositPerItem::get().saturating_mul((keys.len() as u32).into()),
-			);
+			let deposit = Self::calculate_deposit_for(keys.len() as u32);
 			ensure!(
 				T::Currency::can_hold(&HoldReason::SlashForMigrateCustomTop.into(), &who, deposit),
 				Error::<T>::NotEnoughFunds
@@ -794,9 +792,7 @@ pub mod pallet {
 			let who = T::SignedFilter::ensure_origin(origin)?;
 
 			// ensure they can pay more than the fee.
-			let deposit = T::SignedDepositBase::get().saturating_add(
-				T::SignedDepositPerItem::get().saturating_mul((child_keys.len() as u32).into()),
-			);
+			let deposit = Self::calculate_deposit_for(child_keys.len() as u32);
 			ensure!(
 				T::Currency::can_hold(
 					&HoldReason::SlashForMigrateCustomChild.into(),
@@ -967,6 +963,12 @@ pub mod pallet {
 			string.extend_from_slice(root.as_ref());
 			string
 		}
+
+		/// Calculate the deposit required for migrating a specific number of keys.
+		pub fn calculate_deposit_for(keys_count: u32) -> BalanceOf<T> {
+			T::SignedDepositBase::get()
+				.saturating_add(T::SignedDepositPerItem::get().saturating_mul(keys_count.into()))
+		}
 	}
 }
 
@@ -985,8 +987,7 @@ mod benchmarks {
 	const KEY: &[u8] = b"key";
 
 	fn set_balance_for_deposit<T: Config>(caller: &T::AccountId, item: u32) -> BalanceOf<T> {
-		let deposit = T::SignedDepositBase::get()
-			.saturating_add(T::SignedDepositPerItem::get().saturating_mul(item.into()));
+		let deposit = StateTrieMigration::<T>::calculate_deposit_for(item);
 		let stash = T::Currency::minimum_balance() * BalanceOf::<T>::from(1000u32) + deposit;
 		T::Currency::set_balance(caller, stash);
 		stash
@@ -1056,8 +1057,7 @@ mod benchmarks {
 			frame_system::Pallet::<T>::assert_last_event(
 				<T as Config>::RuntimeEvent::from(crate::Event::Slashed {
 					who: caller.clone(),
-					amount: T::SignedDepositBase::get()
-						.saturating_add(T::SignedDepositPerItem::get().saturating_mul(1u32.into())),
+					amount: StateTrieMigration::<T>::calculate_deposit_for(1u32),
 				}).into(),
 			);
 		}
@@ -1591,7 +1591,10 @@ mod test {
 			// no funds should remain reserved.
 			assert_eq!(Balances::reserved_balance(&1), 0);
 			// user was slashed
-			assert_eq!(Balances::free_balance(&1), 1000 - (5 * SignedDepositPerItem::get()));
+			assert_eq!(
+				Balances::free_balance(&1),
+				1000 - StateTrieMigration::calculate_deposit_for(5)
+			);
 		});
 	}
 
@@ -1637,7 +1640,7 @@ mod test {
 			assert_eq!(Balances::reserved_balance(&1), 0);
 			assert_eq!(
 				Balances::free_balance(&1),
-				1000 - (3 * SignedDepositPerItem::get() + SignedDepositBase::get())
+				1000 - StateTrieMigration::calculate_deposit_for(3)
 			);
 		});
 	}
@@ -1672,7 +1675,7 @@ mod test {
 			assert_eq!(Balances::reserved_balance(&1), 0);
 			assert_eq!(
 				Balances::free_balance(&1),
-				1000 - (2 * SignedDepositPerItem::get() + SignedDepositBase::get())
+				1000 - StateTrieMigration::calculate_deposit_for(2)
 			);
 		});
 	}
