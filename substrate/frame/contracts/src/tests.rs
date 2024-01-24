@@ -71,13 +71,13 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-		Randomness: pallet_insecure_randomness_collective_flip::{Pallet, Storage},
-		Utility: pallet_utility::{Pallet, Call, Storage, Event},
-		Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>, HoldReason},
-		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		Timestamp: pallet_timestamp,
+		Randomness: pallet_insecure_randomness_collective_flip,
+		Utility: pallet_utility,
+		Contracts: pallet_contracts,
+		Proxy: pallet_proxy,
 		Dummy: pallet_dummy
 	}
 );

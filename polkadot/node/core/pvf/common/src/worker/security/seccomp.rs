@@ -110,7 +110,7 @@ pub fn enable_for_worker(worker_info: &WorkerInfo) -> Result<()> {
 
 /// Runs a check for seccomp in its own thread, and returns an error indicating whether seccomp with
 /// our rules is fully enabled on the current Linux environment.
-pub fn check_is_fully_enabled() -> Result<()> {
+pub fn check_can_fully_enable() -> Result<()> {
 	match std::thread::spawn(|| try_restrict()).join() {
 		Ok(Ok(())) => Ok(()),
 		Ok(Err(err)) => Err(err),
@@ -161,7 +161,7 @@ mod tests {
 	#[test]
 	fn sandboxed_thread_cannot_use_sockets() {
 		// TODO: This would be nice: <https://github.com/rust-lang/rust/issues/68007>.
-		if check_is_fully_enabled().is_err() {
+		if check_can_fully_enable().is_err() {
 			return
 		}
 

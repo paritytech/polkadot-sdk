@@ -357,10 +357,7 @@ use frame_support::{
 	pallet_prelude::{MaxEncodedLen, *},
 	storage::bounded_btree_map::BoundedBTreeMap,
 	traits::{
-		fungible::{
-			Inspect as FunInspect, InspectFreeze, Mutate as FunMutate,
-			MutateFreeze as FunMutateFreeze,
-		},
+		fungible::{Inspect, InspectFreeze, Mutate, MutateFreeze},
 		tokens::{Fortitude, Preservation},
 		Defensive, DefensiveOption, DefensiveResult, DefensiveSaturating, Get,
 	},
@@ -408,7 +405,7 @@ pub use weights::WeightInfo;
 
 /// The balance type used by the currency system.
 pub type BalanceOf<T> =
-	<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 /// Type used for unique identifier of each pool.
 pub type PoolId = u32;
 
@@ -1608,8 +1605,8 @@ pub mod pallet {
 		type WeightInfo: weights::WeightInfo;
 
 		/// The currency type used for nomination pool.
-		type Currency: FunMutate<Self::AccountId>
-			+ FunMutateFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>;
+		type Currency: Mutate<Self::AccountId>
+			+ MutateFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>;
 
 		/// The overarching freeze reason.
 		type RuntimeFreezeReason: From<FreezeReason>;

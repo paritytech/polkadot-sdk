@@ -23,7 +23,7 @@ use crate::{mock::*, *};
 
 use frame_support::{assert_noop, assert_ok, assert_storage_noop, StorageNoopGuard};
 use rand::{rngs::StdRng, Rng, SeedableRng};
-use sp_core::blake2_256;
+use sp_crypto_hashing::blake2_256;
 
 #[test]
 fn mocked_weight_works() {
