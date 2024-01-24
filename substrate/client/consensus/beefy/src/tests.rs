@@ -28,6 +28,7 @@ use crate::{
 		},
 		request_response::{on_demand_justifications_protocol_config, BeefyJustifsRequestHandler},
 	},
+	error::Error,
 	gossip_protocol_name,
 	justification::*,
 	load_or_init_voter_state, wait_for_runtime_pallet, BeefyRPCLinks, BeefyVoterLinks, KnownPeers,
@@ -363,7 +364,7 @@ async fn voter_init_setup(
 	net: &mut BeefyTestNet,
 	finality: &mut futures::stream::Fuse<FinalityNotifications<Block>>,
 	api: &TestApi,
-) -> sp_blockchain::Result<PersistedState<Block>> {
+) -> Result<PersistedState<Block>, Error> {
 	let backend = net.peer(0).client().as_backend();
 	let known_peers = Arc::new(Mutex::new(KnownPeers::new()));
 	let (gossip_validator, _) = GossipValidator::new(known_peers);

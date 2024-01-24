@@ -27,6 +27,7 @@ use crate::{
 			outgoing_requests_engine::OnDemandJustificationsEngine, BeefyJustifsRequestHandler,
 		},
 	},
+	error::Error,
 	import::BeefyBlockImport,
 	metrics::register_metrics,
 	round::Rounds,
@@ -374,7 +375,7 @@ async fn load_or_init_voter_state<B, BE, R>(
 	beefy_genesis: NumberFor<B>,
 	best_grandpa: <B as Block>::Header,
 	min_block_delta: u32,
-) -> ClientResult<PersistedState<B>>
+) -> Result<PersistedState<B>, Error>
 where
 	B: Block,
 	BE: Backend<B>,
@@ -415,7 +416,7 @@ async fn wait_for_parent_header<B, BC>(
 	blockchain: &BC,
 	current: <B as Block>::Header,
 	delay: Duration,
-) -> ClientResult<<B as Block>::Header>
+) -> Result<<B as Block>::Header, Error>
 where
 	B: Block,
 	BC: BlockchainBackend<B>,
@@ -423,10 +424,13 @@ where
 	if *current.number() == Zero::zero() {
 		let msg = format!("header {} is Genesis, there is no parent for it", current.hash());
 		warn!(target: LOG_TARGET, "{}", msg);
-		return Err(ClientError::UnknownBlock(msg))
+		return Err(Error::Backend(msg));
 	}
 	loop {
-		match blockchain.header(*current.parent_hash())? {
+		match blockchain
+			.header(*current.parent_hash())
+			.map_err(|e| Error::Backend(e.to_string()))?
+		{
 			Some(parent) => return Ok(parent),
 			None => {
 				info!(
@@ -451,7 +455,7 @@ async fn initialize_voter_state<B, BE, R>(
 	beefy_genesis: NumberFor<B>,
 	best_grandpa: <B as Block>::Header,
 	min_block_delta: u32,
-) -> ClientResult<PersistedState<B>>
+) -> Result<PersistedState<B>, Error>
 where
 	B: Block,
 	BE: Backend<B>,
@@ -466,7 +470,7 @@ where
 		.ok()
 		.flatten()
 		.filter(|genesis| *genesis == beefy_genesis)
-		.ok_or_else(|| ClientError::Backend("BEEFY pallet expected to be active.".into()))?;
+		.ok_or_else(|| Error::Backend("BEEFY pallet expected to be active.".into()))?;
 	// Walk back the imported blocks and initialize voter either, at the last block with
 	// a BEEFY justification, or at pallet genesis block; voter will resume from there.
 	let mut sessions = VecDeque::new();
@@ -499,7 +503,7 @@ where
 				min_block_delta,
 				beefy_genesis,
 			)
-			.ok_or_else(|| ClientError::Backend("Invalid BEEFY chain".into()))?;
+			.ok_or_else(|| Error::Backend("Invalid BEEFY chain".into()))?;
 			break state
 		}
 
@@ -522,7 +526,7 @@ where
 				min_block_delta,
 				beefy_genesis,
 			)
-			.ok_or_else(|| ClientError::Backend("Invalid BEEFY chain".into()))?
+			.ok_or_else(|| Error::Backend("Invalid BEEFY chain".into()))?
 		}
 
 		if let Some(active) = worker::find_authorities_change::<B>(&header) {
@@ -595,7 +599,7 @@ async fn expect_validator_set<B, BE, R>(
 	runtime: &R,
 	backend: &BE,
 	at_header: &B::Header,
-) -> ClientResult<ValidatorSet<AuthorityId>>
+) -> Result<ValidatorSet<AuthorityId>, Error>
 where
 	B: Block,
 	BE: Backend<B>,
@@ -618,7 +622,9 @@ where
 				// Move up the chain. Ultimately we'll get it from chain genesis state, or error out
 				// there.
 				None =>
-					header = wait_for_parent_header(blockchain, header, HEADER_SYNC_DELAY).await?,
+					header = wait_for_parent_header(blockchain, header, HEADER_SYNC_DELAY)
+						.await
+						.map_err(|e| Error::Backend(e.to_string()))?,
 			}
 		}
 	}
