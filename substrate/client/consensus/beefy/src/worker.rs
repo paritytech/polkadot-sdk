@@ -453,7 +453,7 @@ where
 	}
 
 	pub async fn load_or_init_state(
-		&self,
+		&mut self,
 		beefy_genesis: NumberFor<B>,
 		best_grandpa: <B as Block>::Header,
 		min_block_delta: u32,
@@ -470,11 +470,25 @@ where
 			info!(target: LOG_TARGET, "🥩 Loading BEEFY voter state from db: {:?}.", state);
 
 			// Make sure that all the headers that we need have been synced.
+			let mut new_sessions = vec![];
 			let mut header = best_grandpa.clone();
 			while *header.number() > state.best_beefy() {
+				if let Some(active) = find_authorities_change::<B>(&header) {
+					new_sessions.push((active, *header.number()));
+				}
 				header =
 					wait_for_parent_header(self.backend.blockchain(), header, HEADER_SYNC_DELAY)
 						.await?;
+			}
+
+			// Make sure we didn't miss any sessions during node restart.
+			for (validator_set, new_session_start) in new_sessions.drain(..).rev() {
+				info!(
+					target: LOG_TARGET,
+					"🥩 Handling missed BEEFY session after node restart: {:?}.",
+					new_session_start
+				);
+				self.init_session_at(&mut state, validator_set, new_session_start);
 			}
 			return Ok(state)
 		}

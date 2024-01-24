@@ -302,7 +302,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 			},
 		};
 
-		let worker_base = worker::BeefyWorkerBase {
+		let mut worker_base = worker::BeefyWorkerBase {
 			backend: backend.clone(),
 			runtime: runtime.clone(),
 			key_store: key_store.clone().into(),

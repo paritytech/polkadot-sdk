@@ -380,7 +380,7 @@ async fn voter_init_setup(
 	);
 	let (beefy_genesis, best_grandpa) =
 		wait_for_runtime_pallet(api, &mut gossip_engine, finality).await.unwrap();
-	let worker_base = BeefyWorkerBase {
+	let mut worker_base = BeefyWorkerBase {
 		backend,
 		runtime: Arc::new(api.clone()),
 		key_store: None.into(),
@@ -1081,7 +1081,7 @@ async fn should_initialize_voter_at_custom_genesis() {
 	);
 	let (beefy_genesis, best_grandpa) =
 		wait_for_runtime_pallet(&api, &mut gossip_engine, &mut finality).await.unwrap();
-	let worker_base = BeefyWorkerBase {
+	let mut worker_base = BeefyWorkerBase {
 		backend: backend.clone(),
 		runtime: Arc::new(api),
 		key_store: None.into(),
@@ -1122,7 +1122,7 @@ async fn should_initialize_voter_at_custom_genesis() {
 	// the network state persists and uses the old `GossipEngine` initialized for `peer(0)`
 	let (beefy_genesis, best_grandpa) =
 		wait_for_runtime_pallet(&api, &mut gossip_engine, &mut finality).await.unwrap();
-	let worker_base = BeefyWorkerBase {
+	let mut worker_base = BeefyWorkerBase {
 		backend: backend.clone(),
 		runtime: Arc::new(api),
 		key_store: None.into(),
