@@ -667,16 +667,7 @@ pub mod pallet {
 
 			// ensure that the migration witness data was correct.
 			if real_size_upper < task.dyn_size {
-				T::Currency::hold(&HoldReason::SlashForMigrate.into(), &who, deposit)?;
-				// let the imbalance burn.
-				let _burned = T::Currency::burn_all_held(
-					&HoldReason::SlashForMigrate.into(),
-					&who,
-					Precision::BestEffort,
-					Fortitude::Force,
-				)?;
-				debug_assert!(deposit.saturating_sub(_burned).is_zero());
-				Self::deposit_event(Event::<T>::Slashed { who, amount: deposit });
+				Self::slash(who, deposit)?;
 				return Ok(().into())
 			}
 
@@ -735,15 +726,7 @@ pub mod pallet {
 			}
 
 			if dyn_size > witness_size {
-				T::Currency::hold(&HoldReason::SlashForMigrate.into(), &who, deposit)?;
-				let _burned = T::Currency::burn_all_held(
-					&HoldReason::SlashForMigrate.into(),
-					&who,
-					Precision::BestEffort,
-					Fortitude::Force,
-				)?;
-				debug_assert!(deposit.saturating_sub(_burned).is_zero());
-				Self::deposit_event(Event::<T>::Slashed { who, amount: deposit });
+				Self::slash(who, deposit)?;
 				Ok(().into())
 			} else {
 				Self::deposit_event(Event::<T>::Migrated {
@@ -802,15 +785,7 @@ pub mod pallet {
 			}
 
 			if dyn_size != total_size {
-				T::Currency::hold(&HoldReason::SlashForMigrate.into(), &who, deposit)?;
-				let _burned = T::Currency::burn_all_held(
-					&HoldReason::SlashForMigrate.into(),
-					&who,
-					Precision::BestEffort,
-					Fortitude::Force,
-				)?;
-				debug_assert!(deposit.saturating_sub(_burned).is_zero());
-				Self::deposit_event(Event::<T>::Slashed { who, amount: deposit });
+				Self::slash(who, deposit)?;
 				Ok(PostDispatchInfo {
 					actual_weight: Some(T::WeightInfo::migrate_custom_child_fail()),
 					pays_fee: Pays::Yes,
@@ -955,9 +930,24 @@ pub mod pallet {
 		}
 
 		/// Calculate the deposit required for migrating a specific number of keys.
-		pub fn calculate_deposit_for(keys_count: u32) -> BalanceOf<T> {
+		pub(crate) fn calculate_deposit_for(keys_count: u32) -> BalanceOf<T> {
 			T::SignedDepositBase::get()
 				.saturating_add(T::SignedDepositPerItem::get().saturating_mul(keys_count.into()))
+		}
+
+		/// Slash an account for migration.
+		fn slash(who: T::AccountId, amount: BalanceOf<T>) -> Result<(), DispatchError> {
+			T::Currency::hold(&HoldReason::SlashForMigrate.into(), &who, amount)?;
+			// let the imbalance burn.
+			let _burned = T::Currency::burn_all_held(
+				&HoldReason::SlashForMigrate.into(),
+				&who,
+				Precision::BestEffort,
+				Fortitude::Force,
+			)?;
+			debug_assert!(amount.saturating_sub(_burned).is_zero());
+			Self::deposit_event(Event::<T>::Slashed { who, amount });
+			Ok(())
 		}
 	}
 }
@@ -965,11 +955,7 @@ pub mod pallet {
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarks {
 	use super::{pallet::Pallet as StateTrieMigration, *};
-	use frame_support::traits::{
-		fungible::{Inspect, Mutate},
-		Get,
-	};
-	use sp_runtime::traits::Saturating;
+	use frame_support::traits::fungible::{Inspect, Mutate};
 	use sp_std::prelude::*;
 
 	// The size of the key seemingly makes no difference in the read/write time, so we make it
