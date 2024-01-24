@@ -137,7 +137,70 @@ where
 		sc_rpc::utils::spawn_subscription_task(&self.executor, fut);
 	}
 
-	fn broadcast(&self, _bytes: Bytes) -> RpcResult<Option<String>> {
+	fn broadcast(&self, bytes: Bytes) -> RpcResult<Option<String>> {
+		let client = self.client.clone();
+		let pool = self.pool.clone();
+
+		let fut = async move {
+			// There is nothing we could do with an extrinsic of invalid format.
+			let Ok(decoded_extrinsic) = TransactionFor::<Pool>::decode(&mut &bytes[..]) else {
+				return
+			};
+
+			// Flag to determine if the we should broadcast the transaction again.
+			let mut is_done = false;
+
+			while !is_done {
+				let best_block_hash = client.info().best_hash;
+				let submit =
+					pool.submit_and_watch(best_block_hash, TX_SOURCE, decoded_extrinsic.clone());
+
+				// The transaction was not included to the pool, because it is invalid.
+				// However an invalid transaction can become valid at a later time.
+				let Ok(mut stream) = submit.await else { return };
+
+				while let Some(event) = stream.next().await {
+					match event {
+						// The transaction propagation stops when:
+						// - The transaction was included in a finalized block via
+						//   `TransactionStatus::Finalized`.
+						TransactionStatus::Finalized(_) |
+						// - The block in which the transaction was included could not be finalized for
+						//   more than 256 blocks via `TransactionStatus::FinalityTimeout`. This could
+						//   happen when:
+						//   - the finality gadget is lagging behing
+						//   - the finality gadget is not available for the chain
+						TransactionStatus::FinalityTimeout(_) |
+						// - The transaction has been replaced by another transaction with identical tags
+						// (same sender and same account nonce).
+						TransactionStatus::Usurped(_) => {
+							is_done = true;
+							break;
+						},
+
+						// Dropped transaction may renter the pool at a later time, when other
+						// transactions have been finalized and remove from the pool.
+						TransactionStatus::Dropped |
+						// An invalid transaction may become valid at a later time.
+						TransactionStatus::Invalid => {
+							break;
+						},
+
+						// The transaction is still in the pool, the ready or future queue.
+						TransactionStatus::Ready | TransactionStatus::Future |
+						// Transaction has been broadcasted as intended.
+						TransactionStatus::Broadcast(_) |
+						// Transaction has been included in a block, but the block is not finalized yet.
+						TransactionStatus::InBlock(_) |
+						// Transaction has been retracted, but it may be included in a block at a later time.
+						TransactionStatus::Retracted(_) => (),
+					}
+				}
+			}
+		};
+
+		sc_rpc::utils::spawn_subscription_task(&self.executor, fut);
+
 		Ok(None)
 	}
 }
