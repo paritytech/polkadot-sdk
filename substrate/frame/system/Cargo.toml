@@ -27,7 +27,7 @@ sp-io = { path = "../../primitives/io", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"] }
 sp-version = { path = "../../primitives/version", default-features = false, features = ["serde"] }
 sp-weights = { path = "../../primitives/weights", default-features = false, features = ["serde"] }
-docify = "0.2.6"
+docify = "0.2.7"
 
 [dev-dependencies]
 criterion = "0.4.0"

@@ -352,7 +352,6 @@ members = [
 	"substrate/frame/nft-fractionalization",
 	"substrate/frame/nfts",
 	"substrate/frame/nfts/runtime-api",
-	"substrate/frame/nicks",
 	"substrate/frame/nis",
 	"substrate/frame/node-authorization",
 	"substrate/frame/nomination-pools",

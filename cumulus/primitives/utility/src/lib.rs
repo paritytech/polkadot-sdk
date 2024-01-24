@@ -29,6 +29,7 @@ use frame_support::{
 	defensive,
 	traits::{tokens::fungibles, Get, OnUnbalanced as OnUnbalancedT},
 	weights::{Weight, WeightToFee as WeightToFeeT},
+	CloneNoBound,
 };
 use pallet_asset_conversion::SwapCredit as SwapCreditT;
 use polkadot_runtime_common::xcm_sender::PriceForMessageDelivery;
@@ -109,6 +110,7 @@ struct AssetTraderRefunder {
 /// later refund purposes
 /// Important: Errors if the Trader is being called twice by 2 BuyExecution instructions
 /// Alternatively we could just return payment in the aforementioned case
+#[derive(CloneNoBound)]
 pub struct TakeFirstAssetTrader<
 	AccountId: Eq,
 	FeeCharger: ChargeWeightInFungibles<AccountId, ConcreteAssets>,
