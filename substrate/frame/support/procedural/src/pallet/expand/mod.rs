@@ -119,7 +119,7 @@ storage item. Otherwise, all storage items are listed among [*Type Definitions*]
 		#validate_unsigned
 		#tt_default_parts
 		#doc_only
-		#composities
+		#composites
 	);
 
 	def.item
