@@ -63,7 +63,9 @@ use sc_rpc::{
 	system::SystemApiServer,
 	DenyUnsafe, SubscriptionTaskExecutor,
 };
-use sc_rpc_spec_v2::{chain_head::ChainHeadApiServer, transaction::TransactionApiServer};
+use sc_rpc_spec_v2::{
+	archive::ArchiveApiServer, chain_head::ChainHeadApiServer, transaction::TransactionApiServer,
+};
 use sc_telemetry::{telemetry, ConnectionMessage, Telemetry, TelemetryHandle, SUBSTRATE_INFO};
 use sc_transaction_pool_api::{MaintainedTransactionPool, TransactionPool};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
@@ -663,6 +665,26 @@ where
 		sc_rpc_spec_v2::chain_head::ChainHeadConfig::default(),
 	)
 	.into_rpc();
+
+	// Part of the RPC v2 spec.
+	// An archive node that can respond to the `archive` RPC-v2 queries is a node with:
+	// - state pruning in archive mode: The storage of blocks is kept around
+	// - block pruning in archive mode: The block's body is kept around
+	let is_archive_node = config.state_pruning.as_ref().map(|sp| sp.is_archive()).unwrap_or(false) &&
+		config.blocks_pruning.is_archive();
+	if is_archive_node {
+		let genesis_hash =
+			client.hash(Zero::zero()).ok().flatten().expect("Genesis block exists; qed");
+		let archive_v2 = sc_rpc_spec_v2::archive::Archive::new(
+			client.clone(),
+			backend.clone(),
+			genesis_hash,
+			// Defaults to sensible limits for the `Archive`.
+			sc_rpc_spec_v2::archive::ArchiveConfig::default(),
+		)
+		.into_rpc();
+		rpc_api.merge(archive_v2).map_err(|e| Error::Application(e.into()))?;
+	}
 
 	let author = sc_rpc::author::Author::new(
 		client.clone(),

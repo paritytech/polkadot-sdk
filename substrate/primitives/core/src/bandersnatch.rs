@@ -258,7 +258,7 @@ impl TraitPair for Pair {
 		_seed: Option<Seed>,
 	) -> Result<(Pair, Option<Seed>), DeriveError> {
 		let derive_hard = |seed, cc| -> Seed {
-			("bandersnatch-vrf-HDKD", seed, cc).using_encoded(sp_core_hashing::blake2_256)
+			("bandersnatch-vrf-HDKD", seed, cc).using_encoded(sp_crypto_hashing::blake2_256)
 		};
 
 		let mut seed = self.seed();

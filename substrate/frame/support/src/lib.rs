@@ -45,7 +45,7 @@ pub mod __private {
 	pub use scale_info;
 	pub use serde;
 	pub use sp_core::{OpaqueMetadata, Void};
-	pub use sp_core_hashing_proc_macro;
+	pub use sp_crypto_hashing_proc_macro;
 	pub use sp_inherents;
 	#[cfg(feature = "std")]
 	pub use sp_io::TestExternalities;
@@ -330,7 +330,7 @@ macro_rules! parameter_types {
 		impl< $($ty_params),* > $name< $($ty_params),* > {
 			/// Returns the key for this parameter type.
 			pub fn key() -> [u8; 16] {
-				$crate::__private::sp_core_hashing_proc_macro::twox_128!(b":", $name, b":")
+				$crate::__private::sp_crypto_hashing_proc_macro::twox_128!(b":", $name, b":")
 			}
 
 			/// Set the value of this parameter type in the storage.
