@@ -27,9 +27,7 @@ use crate::crypto::{
 	ByteArray, CryptoType, CryptoTypeId, Derive, Public as TraitPublic, UncheckedFrom,
 };
 #[cfg(feature = "full_crypto")]
-use crate::{
-	crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError},
-};
+use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError};
 #[cfg(feature = "full_crypto")]
 use alloc::vec::Vec;
 #[cfg(all(not(feature = "std"), feature = "serde"))]
