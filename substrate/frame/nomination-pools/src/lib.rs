@@ -1300,6 +1300,7 @@ impl<T: Config> BondedPool<T> {
 	fn withdraw_from_staking(&self, num_slashing_spans: u32) -> Result<bool, DispatchError> {
 		let bonded_account = self.bonded_account();
 
+		// TODO(fix): ?
 		let prev_total = T::Staking::total_stake(&bonded_account.clone()).unwrap_or_default();
 		let outcome = T::Staking::withdraw_unbonded(bonded_account.clone(), num_slashing_spans);
 		let diff = prev_total
@@ -1307,6 +1308,7 @@ impl<T: Config> BondedPool<T> {
 		TotalValueLocked::<T>::mutate(|tvl| {
 			tvl.saturating_reduce(diff);
 		});
+
 		outcome
 	}
 }
