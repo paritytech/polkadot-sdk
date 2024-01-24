@@ -197,8 +197,8 @@ impl generic::Config for Test {
 		Ok((Default::default(), ticket, assets))
 	}
 
-	fn fee_asset() -> Result<MultiAsset, BenchmarkError> {
-		Ok(MultiAsset { id: AssetId(Here.into()), fun: Fungible(1_000_000) })
+	fn fee_asset() -> Result<Asset, BenchmarkError> {
+		Ok(Asset { id: AssetId(Here.into()), fun: Fungible(1_000_000) })
 	}
 
 	fn unlockable_asset() -> Result<(Location, Location, Asset), BenchmarkError> {
