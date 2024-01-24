@@ -34,11 +34,13 @@ use sp_core::{ecdsa, Pair};
 use sp_keystore::{Keystore, KeystorePtr};
 use std::collections::HashMap;
 use strum::IntoEnumIterator;
+use std::marker::PhantomData;
+    
 
 /// Set of test accounts using [`crate::ecdsa_crypto`] types.
 #[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::Display, strum::EnumIter)]
-pub enum Keyring {
+pub enum Keyring<AuthorityId> {
 	Alice,
 	Bob,
 	Charlie,
@@ -46,7 +48,8 @@ pub enum Keyring {
 	Eve,
 	Ferdie,
 	One,
-	Two,
+    Two,
+    _Marker(PhantomData<AuthorityId>)
 }
 
 /// Trait representing BEEFY specific generation and signing behavior of authority id
@@ -79,52 +82,22 @@ where
 	}
 }
 
-/// Implement Keyring functionalities generically over AuthorityId
-pub trait GenericKeyring<AuthorityId: AuthorityIdBound>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
-{
-	///The key pair type which is used to perform crypto functionalities for the Keyring     
-	type KeyPair: AppPair;
 
-	/// Generate key pair in the given store using the provided seed
-	fn generate_in_store(
+	
+
+/// Generate key pair in the given store using the provided seed
+fn generate_in_store<AuthorityId>(
 		store: KeystorePtr,
 		key_type: sp_application_crypto::KeyTypeId,
-		owner: Option<Keyring>,
-	) -> AuthorityId;
-
-	/// Sign `msg`.
-	fn sign(self, msg: &[u8]) -> <AuthorityId as RuntimeAppPublic>::Signature;
-
-	/// Return key pair.
-	fn pair(self) -> Self::KeyPair;
-
-	/// Return public key.
-	fn public(self) -> AuthorityId;
-
-	/// Return seed string.
-	fn to_seed(self) -> String;
-
-	/// Get Keyring from public key.
-	fn from_public(who: &AuthorityId) -> Option<Keyring>;
-}
-
-impl<AuthorityId> GenericKeyring<AuthorityId> for Keyring
-where
+		owner: Option<Keyring<AuthorityId>>,
+    ) -> AuthorityId where
 	AuthorityId: AuthorityIdBound + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Public>,
 	<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<BeefySignatureHasher>,
 	<AuthorityId as RuntimeAppPublic>::Signature:
 		Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
 {
-	type KeyPair = <AuthorityId as AppCrypto>::Pair;
-	fn generate_in_store(
-		store: KeystorePtr,
-		key_type: sp_application_crypto::KeyTypeId,
-		owner: Option<Keyring>,
-	) -> AuthorityId {
-		let optional_seed: Option<String> = owner
-			.map(|owner| <Keyring as GenericKeyring<ecdsa_crypto::AuthorityId>>::to_seed(owner));
+    let optional_seed: Option<String> = owner
+			.map(|owner| owner.to_seed());
 
 		match <AuthorityId as AppCrypto>::CRYPTO_ID {
 			ecdsa::CRYPTO_ID => AuthorityId::decode(
@@ -154,17 +127,26 @@ where
 
 			_ => panic!("Requested CRYPTO_ID is not supported by the BEEFY Keyring"),
 		}
-	}
+}
+
+/// Implement Keyring functionalities generically over AuthorityId
+impl<AuthorityId> Keyring<AuthorityId>
+where
+	AuthorityId: AuthorityIdBound + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Public>,
+	<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<BeefySignatureHasher>,
+	<AuthorityId as RuntimeAppPublic>::Signature:
+		Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
+{
 	/// Sign `msg`.
 	fn sign(self, msg: &[u8]) -> <AuthorityId as RuntimeAppPublic>::Signature {
-		let key_pair: Self::KeyPair = <Keyring as GenericKeyring<AuthorityId>>::pair(self);
+		let key_pair: <AuthorityId as AppCrypto>::Pair = self.clone().pair();
 		key_pair.sign_with_hasher(&msg).into()
 	}
 
 	/// Return key pair.
-	fn pair(self) -> Self::KeyPair {
-		Self::KeyPair::from_string(
-			<Keyring as GenericKeyring<AuthorityId>>::to_seed(self).as_str(),
+	fn pair(self) -> <AuthorityId as AppCrypto>::Pair {
+		<AuthorityId as AppCrypto>::Pair::from_string(
+			self.to_seed().as_str(),
 			None,
 		)
 		.unwrap()
@@ -173,7 +155,7 @@ where
 
 	/// Return public key.
 	fn public(self) -> AuthorityId {
-		<Keyring as GenericKeyring<AuthorityId>>::pair(self).public().into()
+		self.clone().pair().public().into()
 	}
 
 	/// Return seed string.
@@ -182,53 +164,52 @@ where
 	}
 
 	/// Get Keyring from public key.
-	fn from_public(who: &AuthorityId) -> Option<Keyring> {
-		Self::iter().find(|&k| <Keyring as GenericKeyring<AuthorityId>>::public(k) == *who)
+	fn from_public(who: &AuthorityId) -> Option<Keyring<AuthorityId>> {
+		Self::iter().find(|k| k.clone().public() == *who)
 	}
 }
 
 lazy_static::lazy_static! {
-	static ref PRIVATE_KEYS: HashMap<Keyring, ecdsa_crypto::Pair> =
-		Keyring::iter().map(|i| (i, <Keyring as GenericKeyring<ecdsa_crypto::AuthorityId>>::pair(i))).collect();
-	static ref PUBLIC_KEYS: HashMap<Keyring, ecdsa_crypto::Public> =
-		PRIVATE_KEYS.iter().map(|(&name, pair)| (name, sp_application_crypto::Pair::public(pair))).collect();
+	static ref PRIVATE_KEYS: HashMap<Keyring<ecdsa_crypto::AuthorityId>, ecdsa_crypto::Pair> =
+		Keyring::iter().map(|i| (i.clone(), i.clone().pair())).collect();
+	static ref PUBLIC_KEYS: HashMap<Keyring<ecdsa_crypto::AuthorityId>, ecdsa_crypto::Public> =
+		PRIVATE_KEYS.iter().map(|(name, pair)| (name.clone(), sp_application_crypto::Pair::public(pair))).collect();
 }
 
-impl From<Keyring> for ecdsa_crypto::Pair {
-	fn from(k: Keyring) -> Self {
-		<Keyring as GenericKeyring<ecdsa_crypto::AuthorityId>>::pair(k)
+impl From<Keyring<ecdsa_crypto::AuthorityId>> for ecdsa_crypto::Pair {
+	fn from(k: Keyring<ecdsa_crypto::AuthorityId>) -> Self {
+		k.clone().pair()
 	}
 }
 
-impl From<Keyring> for ecdsa::Pair {
-	fn from(k: Keyring) -> Self {
-		<Keyring as GenericKeyring<ecdsa_crypto::AuthorityId>>::pair(k).into()
+impl From<Keyring<ecdsa_crypto::AuthorityId>> for ecdsa::Pair {
+	fn from(k: Keyring<ecdsa_crypto::AuthorityId>) -> Self {
+		k.clone().pair().into()
 	}
 }
 
-impl From<Keyring> for ecdsa_crypto::Public {
-	fn from(k: Keyring) -> Self {
+impl From<Keyring<ecdsa_crypto::AuthorityId>> for ecdsa_crypto::Public {
+	fn from(k: Keyring<ecdsa_crypto::AuthorityId>) -> Self {
 		(*PUBLIC_KEYS).get(&k).cloned().unwrap()
 	}
 }
 
 /// Create a new `EquivocationProof` based on given arguments.
 pub fn generate_equivocation_proof(
-	vote1: (u64, Payload, ValidatorSetId, &Keyring),
-	vote2: (u64, Payload, ValidatorSetId, &Keyring),
+	vote1: (u64, Payload, ValidatorSetId, &Keyring<ecdsa_crypto::AuthorityId>),
+	vote2: (u64, Payload, ValidatorSetId, &Keyring<ecdsa_crypto::AuthorityId>),
 ) -> EquivocationProof<u64, ecdsa_crypto::Public, ecdsa_crypto::Signature> {
 	let signed_vote = |block_number: u64,
 	                   payload: Payload,
 	                   validator_set_id: ValidatorSetId,
-	                   keyring: &Keyring| {
+	                   keyring: &Keyring<ecdsa_crypto::AuthorityId>| {
 		let commitment = Commitment { validator_set_id, block_number, payload };
-		let signature = <Keyring as GenericKeyring<ecdsa_crypto::AuthorityId>>::sign(
-			*keyring,
+		let signature = keyring.clone().sign(
 			&commitment.encode(),
 		);
 		VoteMessage {
 			commitment,
-			id: <Keyring as GenericKeyring<ecdsa_crypto::AuthorityId>>::public(*keyring),
+			id: keyring.clone().public(),
 			signature,
 		}
 	};
