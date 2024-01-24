@@ -174,6 +174,6 @@ impl<T: frame_system::Config> pallet_ranked_collective::WeightInfo for WeightInf
 	}
 
 	fn exchange_member() -> Weight {
-		todo!()
+		todo!() // FAIL-CI
 	}
 }

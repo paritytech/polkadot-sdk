@@ -391,7 +391,7 @@ pub mod pallet {
 		/// maximum rank *from which* the demotion/removal may be.
 		type DemoteOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Rank>;
 
-		/// The origin required to exchange an account for a member.
+		/// The origin that can swap the account of a member.
 		type ExchangeOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The polling system used for our voting.
@@ -455,7 +455,8 @@ pub mod pallet {
 		RankChanged { who: T::AccountId, rank: Rank },
 		/// The member `who` of given `rank` has been removed from the collective.
 		MemberRemoved { who: T::AccountId, rank: Rank },
-		/// The member `who` had their `AccountId` changed to `new_who`.
+		/// The member `who` has voted for the `poll` with the given `vote` leading to an updated
+		/// `tally`.
 		Voted { who: T::AccountId, poll: PollIndexOf<T, I>, vote: VoteRecord, tally: TallyOf<T, I> },
 		/// The member `who` had their `AccountId` changed to `new_who`.
 		MemberExchanged { who: T::AccountId, new_who: T::AccountId },
@@ -660,7 +661,7 @@ pub mod pallet {
 
 		/// Exchanges a member with a new account and the same existing rank.
 		///
-		/// - `origin`: Must be the `AdminOrigin`.
+		/// - `origin`: Must be the `ExchangeOrigin`.
 		/// - `who`: Account of existing member of rank greater than zero to be exchanged.
 		/// - `new_who`: New Account of existing member of rank greater than zero to exchanged to.
 		#[pallet::call_index(6)]
