@@ -8,7 +8,7 @@ doc:
     description: |
       The implementation of `VariantCount` trait for the result composite enums
       like `RuntimeHoldReason` and `RuntimeFreezeReason` was fixed
-      and is now calculated as sum of `VariantCount::VARIANT_COUNT` of all corespondent `#[pallet::composite_enum]`.
+      and is now calculated as the sum of the `VariantCount::VARIANT_COUNT` of all corresponding `#[pallet::composite_enum]`s.
       The Balances pallet's `Config` item `type MaxHolds` was removed
       and `type Holds` are now bounded to the composite enum `RuntimeHoldReason` variant count,
       so the runtime does not need to consider setting correct value for `MaxHolds`.
