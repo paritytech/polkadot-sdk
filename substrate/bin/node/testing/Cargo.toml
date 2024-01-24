@@ -35,15 +35,13 @@ sc-client-api = { path = "../../../client/api" }
 sc-client-db = { path = "../../../client/db", features = ["rocksdb"] }
 sc-consensus = { path = "../../../client/consensus/common" }
 sc-executor = { path = "../../../client/executor" }
-sc-service = { path = "../../../client/service", features = [
-	"rocksdb",
-	"test-helpers",
-] }
+sc-service = { path = "../../../client/service", features = ["rocksdb", "test-helpers"] }
 sp-api = { path = "../../../primitives/api" }
 sp-block-builder = { path = "../../../primitives/block-builder" }
 sp-blockchain = { path = "../../../primitives/blockchain" }
 sp-consensus = { path = "../../../primitives/consensus/common" }
 sp-core = { path = "../../../primitives/core" }
+sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
 sp-inherents = { path = "../../../primitives/inherents" }
 sp-io = { path = "../../../primitives/io" }
 sp-keyring = { path = "../../../primitives/keyring" }
