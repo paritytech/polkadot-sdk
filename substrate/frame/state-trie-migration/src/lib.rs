@@ -467,15 +467,9 @@ pub mod pallet {
 	/// The reason for this pallet placing a hold on funds.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
-		/// The funds are held as a deposit to slash for `continue_migrate`.
+		/// The funds are held as a deposit for slashing.
 		#[codec(index = 0)]
-		SlashForContinueMigrate,
-		/// The funds are held as a deposit to slash for `migrate_custom_top`.
-		#[codec(index = 1)]
-		SlashForMigrateCustomTop,
-		/// The funds are held as a deposit to slash for `migrate_custom_child`.
-		#[codec(index = 2)]
-		SlashForMigrateCustomChild,
+		SlashForMigrate,
 	}
 
 	/// Configurations of this pallet.
@@ -654,7 +648,7 @@ pub mod pallet {
 			// ensure they can pay more than the fee.
 			let deposit = Self::calculate_deposit_for(limits.item);
 			ensure!(
-				T::Currency::can_hold(&HoldReason::SlashForContinueMigrate.into(), &who, deposit),
+				T::Currency::can_hold(&HoldReason::SlashForMigrate.into(), &who, deposit),
 				Error::<T>::NotEnoughFunds
 			);
 
@@ -673,10 +667,10 @@ pub mod pallet {
 
 			// ensure that the migration witness data was correct.
 			if real_size_upper < task.dyn_size {
-				T::Currency::hold(&HoldReason::SlashForContinueMigrate.into(), &who, deposit)?;
+				T::Currency::hold(&HoldReason::SlashForMigrate.into(), &who, deposit)?;
 				// let the imbalance burn.
 				let _burned = T::Currency::burn_all_held(
-					&HoldReason::SlashForContinueMigrate.into(),
+					&HoldReason::SlashForMigrate.into(),
 					&who,
 					Precision::BestEffort,
 					Fortitude::Force,
@@ -728,7 +722,7 @@ pub mod pallet {
 			// ensure they can pay more than the fee.
 			let deposit = Self::calculate_deposit_for(keys.len() as u32);
 			ensure!(
-				T::Currency::can_hold(&HoldReason::SlashForMigrateCustomTop.into(), &who, deposit),
+				T::Currency::can_hold(&HoldReason::SlashForMigrate.into(), &who, deposit),
 				Error::<T>::NotEnoughFunds
 			);
 
@@ -741,9 +735,9 @@ pub mod pallet {
 			}
 
 			if dyn_size > witness_size {
-				T::Currency::hold(&HoldReason::SlashForMigrateCustomTop.into(), &who, deposit)?;
+				T::Currency::hold(&HoldReason::SlashForMigrate.into(), &who, deposit)?;
 				let _burned = T::Currency::burn_all_held(
-					&HoldReason::SlashForMigrateCustomTop.into(),
+					&HoldReason::SlashForMigrate.into(),
 					&who,
 					Precision::BestEffort,
 					Fortitude::Force,
@@ -794,11 +788,7 @@ pub mod pallet {
 			// ensure they can pay more than the fee.
 			let deposit = Self::calculate_deposit_for(child_keys.len() as u32);
 			ensure!(
-				T::Currency::can_hold(
-					&HoldReason::SlashForMigrateCustomChild.into(),
-					&who,
-					deposit
-				),
+				T::Currency::can_hold(&HoldReason::SlashForMigrate.into(), &who, deposit),
 				Error::<T>::NotEnoughFunds
 			);
 
@@ -812,9 +802,9 @@ pub mod pallet {
 			}
 
 			if dyn_size != total_size {
-				T::Currency::hold(&HoldReason::SlashForMigrateCustomChild.into(), &who, deposit)?;
+				T::Currency::hold(&HoldReason::SlashForMigrate.into(), &who, deposit)?;
 				let _burned = T::Currency::burn_all_held(
-					&HoldReason::SlashForMigrateCustomChild.into(),
+					&HoldReason::SlashForMigrate.into(),
 					&who,
 					Precision::BestEffort,
 					Fortitude::Force,
