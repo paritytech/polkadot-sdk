@@ -319,7 +319,8 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 				if let Some(ref activated) = activated {
 					let mode = prospective_parachains_mode(ctx.sender(), activated.hash).await?;
 					if let ProspectiveParachainsMode::Enabled { .. } = mode {
-						let res = v2::handle_active_leaves_update(ctx, state, activated, mode).await?;
+						let res =
+							v2::handle_active_leaves_update(ctx, state, activated, mode).await?;
 						// Regardless of the result of leaf activation, we always prune before
 						// handling it to avoid leaks.
 						v2::handle_deactivate_leaves(state, &deactivated);
