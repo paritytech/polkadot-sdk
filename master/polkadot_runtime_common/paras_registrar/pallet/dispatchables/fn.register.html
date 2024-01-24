@@ -11,8 +11,12 @@
 <li><code>validation_code</code>: The initial validation code of the parachain/thread.</li>
 </ul>
 <h3 id="depositsfees"><a href="#depositsfees">Deposits/Fees</a></h3>
-<p>The origin signed account must reserve a corresponding deposit for the registration.
-Anything already reserved previously for this para ID is accounted for.</p>
+<p>The account with the originating signature must reserve a deposit.</p>
+<p>The deposit is required to cover the costs associated with storing the genesis head
+data and the validation code.
+This accounts for the potential to store validation code of a size up to the
+<code>max_code_size</code>, as defined in the configuration pallet</p>
+<p>Anything already reserved previously for this para ID is accounted for.</p>
 <h3 id="events"><a href="#events">Events</a></h3>
 <p>The <code>Registered</code> event is emitted in case of success.</p>
 <h2 id="warning-doc-only"><a href="#warning-doc-only">Warning: Doc-Only</a></h2>
