@@ -93,7 +93,7 @@ mod nonfungibles_adapter;
 pub use nonfungibles_adapter::{
 	NonFungiblesAdapter, NonFungiblesMutateAdapter, NonFungiblesTransferAdapter,
 };
-  
+
 mod nonfungible_adapter;
 pub use nonfungible_adapter::{
 	NonFungibleAdapter, NonFungibleMutateAdapter, NonFungibleTransferAdapter,
