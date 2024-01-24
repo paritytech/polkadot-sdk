@@ -29,7 +29,11 @@ use crate::{
 	},
 	SubscriptionTaskExecutor,
 };
-use jsonrpsee::{core::async_trait, types::error::ErrorObject, PendingSubscriptionSink};
+use jsonrpsee::{
+	core::{async_trait, RpcResult},
+	types::error::ErrorObject,
+	PendingSubscriptionSink,
+};
 use sc_transaction_pool_api::{
 	error::IntoPoolError, BlockHash, TransactionFor, TransactionPool, TransactionSource,
 	TransactionStatus,
@@ -131,6 +135,10 @@ where
 		};
 
 		sc_rpc::utils::spawn_subscription_task(&self.executor, fut);
+	}
+
+	fn broadcast(&self, _bytes: Bytes) -> RpcResult<Option<String>> {
+		Ok(None)
 	}
 }
 
