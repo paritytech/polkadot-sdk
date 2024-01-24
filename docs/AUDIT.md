@@ -1,6 +1,6 @@
 # Audit
 
-Audits are conducted to ensure the absence of severe or exploitable bugs. Merge Requests are generally merged into the
+Audits are conducted to ensure the absence of severe or exploitable bugs. Pull Requests are generally merged into the
 `master` branch without audit. The `audited` tag is used to track the latest audited commit of the `master` branch. This
 means that audits need to happen in order of being merged.  
 This is an optimistic approach that lets us develop with greater speed, while requiring (possibly) large refactors in
