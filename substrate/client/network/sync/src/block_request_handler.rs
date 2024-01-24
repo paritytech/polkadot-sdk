@@ -190,7 +190,7 @@ where
 	/// Run [`BlockRequestHandler`].
 	async fn process_requests(&mut self) {
 		while let Some(request) = self.request_receiver.next().await {
-			let IncomingRequest { peer, payload, pending_response } = request;
+			let IncomingRequest { peer, payload, pending_response, .. } = request;
 
 			match self.handle_request(payload, pending_response, &peer) {
 				Ok(()) => debug!(target: LOG_TARGET, "Handled block request from {}.", peer),
