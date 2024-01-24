@@ -242,17 +242,19 @@ pub async fn initialize_collator_subsystems(
 	overseer_handle: &mut OverseerHandle,
 	key: CollatorPair,
 	para_id: ParaId,
+	reinitialize: bool,
 ) {
-	overseer_handle
-		.send_msg(
-			CollationGenerationMessage::Initialize(CollationGenerationConfig {
-				key,
-				para_id,
-				collator: None,
-			}),
-			"StartCollator",
-		)
-		.await;
+	let config = CollationGenerationConfig { key, para_id, collator: None };
+
+	if reinitialize {
+		overseer_handle
+			.send_msg(CollationGenerationMessage::Reinitialize(config), "StartCollator")
+			.await;
+	} else {
+		overseer_handle
+			.send_msg(CollationGenerationMessage::Initialize(config), "StartCollator")
+			.await;
+	}
 
 	overseer_handle
 		.send_msg(CollatorProtocolMessage::CollateOn(para_id), "StartCollator")

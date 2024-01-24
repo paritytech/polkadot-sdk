@@ -21,7 +21,7 @@
 //! order to get all the pallet parts for each pallet.
 //!
 //! Pallets can define their parts:
-//!  - Implicitely: `System: frame_system`
+//!  - Implicitly: `System: frame_system`
 //!  - Explicitly: `System: frame_system::{Pallet, Call}`
 //!
 //! The `construct_runtime` transitions from the implicit definition to the explict one.
@@ -172,7 +172,7 @@
 //!
 //! This call has no implicit pallet parts, thus it will expand to the runtime construction:
 //! ```ignore
-//! pub struct Runtime { ... }
+//! pub enum Runtime { ... }
 //! pub struct Call { ... }
 //! impl Call ...
 //! pub enum Origin { ... }
@@ -342,7 +342,7 @@ fn construct_runtime_final_expansion(
 			syn::Error::new(
 				pallets_token.span.join(),
 				"`System` pallet declaration is missing. \
-			 Please add this line: `System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},`",
+			 Please add this line: `System: frame_system,`",
 			)
 		})?;
 	if !system_pallet.cfg_pattern.is_empty() {

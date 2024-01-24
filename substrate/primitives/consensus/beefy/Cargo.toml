@@ -21,6 +21,7 @@ serde = { version = "1.0.195", default-features = false, optional = true, featur
 sp-api = { path = "../../api", default-features = false }
 sp-application-crypto = { path = "../../application-crypto", default-features = false }
 sp-core = { path = "../../core", default-features = false }
+sp-crypto-hashing = { path = "../../crypto/hashing", default-features = false }
 sp-io = { path = "../../io", default-features = false }
 sp-mmr-primitives = { path = "../../merkle-mountain-range", default-features = false }
 sp-runtime = { path = "../../runtime", default-features = false }
@@ -41,6 +42,7 @@ std = [
 	"sp-api/std",
 	"sp-application-crypto/std",
 	"sp-core/std",
+	"sp-crypto-hashing/std",
 	"sp-io/std",
 	"sp-mmr-primitives/std",
 	"sp-runtime/std",
