@@ -5,30 +5,30 @@ const migrateIdentity = async (key, data, api) => {
 	// Register the new `Registration` format type
 	api.registry.register({
 		IdentityInfoNew: {
-		_fallback: 'IdentityInfoTo198',
-		display: 'Data',
-		legal: 'Data',
-		web: 'Data',
-		matrix: 'Data',
-		email: 'Data',
-		pgpFingerprint: 'Option<H160>',
-		image: 'Data',
-		twitter: 'Data',
-		github: 'Data',
-		discord: 'Data',
+			_fallback: 'IdentityInfoTo198',
+			display: 'Data',
+			legal: 'Data',
+			web: 'Data',
+			matrix: 'Data',
+			email: 'Data',
+			pgpFingerprint: 'Option<H160>',
+			image: 'Data',
+			twitter: 'Data',
+			github: 'Data',
+			discord: 'Data',
 		},
 		RegistrationNew: {
-		_fallback: 'RegistrationTo198',
-		judgements: 'Vec<RegistrationJudgement>',
-		deposit: 'Balance',
-		info: 'IdentityInfoNew'
+			_fallback: 'RegistrationTo198',
+			judgements: 'Vec<RegistrationJudgement>',
+			deposit: 'Balance',
+			info: 'IdentityInfoNew'
 		},
 		Username: 'Vec<u8>',
 	});
 
 	// We want to migrate `IdentityOf` storage item
-	let IdentityOfkeyToMigrate = "IdentityOf";
-	let IdentityOfHexkeyToMigrate = xxhashAsHex(IdentityOfkeyToMigrate, 128);
+	let IdentityOfKeyToMigrate = "IdentityOf";
+	let IdentityOfHexkeyToMigrate = xxhashAsHex(IdentityOfKeyToMigrate, 128);
 
 	// We want to migrate `SubsOf` storage item
 	let SubsOfkeyToMigrate = "SubsOf";
