@@ -106,9 +106,9 @@ frame_support::construct_runtime!(
 		System: frame_system,
 		ModuleSingleInstance: module_single_instance,
 		ModuleMultiInstance0: module_multi_instance,
-		ModuleMultiInstance1: module_multi_instance::<Instance1>,
-		ModuleMultiInstance2: module_multi_instance::<Instance2>,
-		ModuleMultiInstance3: module_multi_instance::<Instance3>,
+		ModuleMultiInstance1: module_multi_instance<Instance1>,
+		ModuleMultiInstance2: module_multi_instance<Instance2>,
+		ModuleMultiInstance3: module_multi_instance<Instance3>,
 		ModuleCompositeEnumConsumer: module_composite_enum_consumer,
 	}
 );
