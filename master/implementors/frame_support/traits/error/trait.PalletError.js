@@ -51,7 +51,6 @@
 "pallet_multisig":[["impl&lt;T&gt; PalletError for <a class=\"enum\" href=\"pallet_multisig/pallet/enum.Error.html\" title=\"enum pallet_multisig::pallet::Error\">Error</a>&lt;T&gt;"]],
 "pallet_nft_fractionalization":[["impl&lt;T&gt; PalletError for <a class=\"enum\" href=\"pallet_nft_fractionalization/pallet/enum.Error.html\" title=\"enum pallet_nft_fractionalization::pallet::Error\">Error</a>&lt;T&gt;"]],
 "pallet_nfts":[["impl&lt;T, I&gt; PalletError for <a class=\"enum\" href=\"pallet_nfts/pallet/enum.Error.html\" title=\"enum pallet_nfts::pallet::Error\">Error</a>&lt;T, I&gt;"]],
-"pallet_nicks":[["impl&lt;T&gt; PalletError for <a class=\"enum\" href=\"pallet_nicks/pallet/enum.Error.html\" title=\"enum pallet_nicks::pallet::Error\">Error</a>&lt;T&gt;"]],
 "pallet_nis":[["impl&lt;T&gt; PalletError for <a class=\"enum\" href=\"pallet_nis/pallet/enum.Error.html\" title=\"enum pallet_nis::pallet::Error\">Error</a>&lt;T&gt;"]],
 "pallet_node_authorization":[["impl&lt;T&gt; PalletError for <a class=\"enum\" href=\"pallet_node_authorization/pallet/enum.Error.html\" title=\"enum pallet_node_authorization::pallet::Error\">Error</a>&lt;T&gt;"]],
 "pallet_nomination_pools":[["impl&lt;T&gt; PalletError for <a class=\"enum\" href=\"pallet_nomination_pools/pallet/enum.Error.html\" title=\"enum pallet_nomination_pools::pallet::Error\">Error</a>&lt;T&gt;"],["impl PalletError for <a class=\"enum\" href=\"pallet_nomination_pools/pallet/enum.DefensiveError.html\" title=\"enum pallet_nomination_pools::pallet::DefensiveError\">DefensiveError</a>"]],

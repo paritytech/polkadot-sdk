@@ -186,7 +186,6 @@ var srcIndex = JSON.parse('{\
 "pallet_nft_fractionalization":["",[],["lib.rs","types.rs","weights.rs"]],\
 "pallet_nfts":["",[["features",[],["approvals.rs","atomic_swap.rs","attributes.rs","buy_sell.rs","create_delete_collection.rs","create_delete_item.rs","lock.rs","metadata.rs","mod.rs","roles.rs","settings.rs","transfer.rs"]]],["common_functions.rs","impl_nonfungibles.rs","lib.rs","macros.rs","migration.rs","types.rs","weights.rs"]],\
 "pallet_nfts_runtime_api":["",[],["lib.rs"]],\
-"pallet_nicks":["",[],["lib.rs"]],\
 "pallet_nis":["",[],["lib.rs","weights.rs"]],\
 "pallet_node_authorization":["",[],["lib.rs","weights.rs"]],\
 "pallet_nomination_pools":["",[],["lib.rs","migration.rs","mock.rs","weights.rs"]],\

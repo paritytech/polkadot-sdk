@@ -1768,6 +1768,8 @@
 <a href="#1768" id="1768">1768</a>
 <a href="#1769" id="1769">1769</a>
 <a href="#1770" id="1770">1770</a>
+<a href="#1771" id="1771">1771</a>
+<a href="#1772" id="1772">1772</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -2013,7 +2015,8 @@
 	<span class="kw">type </span>FreezeIdentifier = ();
 	<span class="comment">// We allow each account to have holds on it from:
 	//   - `NftFractionalization`: 1
-	</span><span class="kw">type </span>MaxHolds = ConstU32&lt;<span class="number">1</span>&gt;;
+	//   - `StateTrieMigration`: 1
+	</span><span class="kw">type </span>MaxHolds = ConstU32&lt;<span class="number">2</span>&gt;;
 	<span class="kw">type </span>MaxFreezes = ConstU32&lt;<span class="number">0</span>&gt;;
 }
 
@@ -3444,6 +3447,7 @@
 </span><span class="kw">impl </span>pallet_state_trie_migration::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>Currency = Balances;
+	<span class="kw">type </span>RuntimeHoldReason = RuntimeHoldReason;
 	<span class="kw">type </span>SignedDepositPerItem = MigrationSignedDepositPerItem;
 	<span class="kw">type </span>SignedDepositBase = MigrationSignedDepositBase;
 	<span class="comment">// An origin that can control the whole pallet: should be Root, or a part of your council.

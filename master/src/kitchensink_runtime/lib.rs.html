@@ -2957,6 +2957,7 @@
 <a href="#2957" id="2957">2957</a>
 <a href="#2958" id="2958">2958</a>
 <a href="#2959" id="2959">2959</a>
+<a href="#2960" id="2960">2960</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3492,7 +3493,7 @@
 	<span class="kw">type </span>WeightInfo = pallet_balances::weights::SubstrateWeight&lt;Runtime&gt;;
 	<span class="kw">type </span>FreezeIdentifier = RuntimeFreezeReason;
 	<span class="kw">type </span>MaxFreezes = ConstU32&lt;<span class="number">1</span>&gt;;
-	<span class="kw">type </span>MaxHolds = ConstU32&lt;<span class="number">6</span>&gt;;
+	<span class="kw">type </span>MaxHolds = ConstU32&lt;<span class="number">7</span>&gt;;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -4860,6 +4861,7 @@
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>ControlOrigin = EnsureRoot&lt;AccountId&gt;;
 	<span class="kw">type </span>Currency = Balances;
+	<span class="kw">type </span>RuntimeHoldReason = RuntimeHoldReason;
 	<span class="kw">type </span>MaxKeyLen = MigrationMaxKeyLen;
 	<span class="kw">type </span>SignedDepositPerItem = MigrationSignedDepositPerItem;
 	<span class="kw">type </span>SignedDepositBase = MigrationSignedDepositBase;

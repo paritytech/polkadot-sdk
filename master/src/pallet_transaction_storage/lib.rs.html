@@ -452,9 +452,6 @@
 <a href="#452" id="452">452</a>
 <a href="#453" id="453">453</a>
 <a href="#454" id="454">454</a>
-<a href="#455" id="455">455</a>
-<a href="#456" id="456">456</a>
-<a href="#457" id="457">457</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -489,10 +486,7 @@
 <span class="kw">use </span>frame_support::{
 	dispatch::GetDispatchInfo,
 	traits::{
-		fungible::{
-			hold::Balanced <span class="kw">as </span>FnBalanced, Inspect <span class="kw">as </span>FnInspect, Mutate <span class="kw">as </span>FnMutate,
-			MutateHold <span class="kw">as </span>FnMutateHold,
-		},
+		fungible::{hold::Balanced, Inspect, Mutate, MutateHold},
 		tokens::fungible::Credit,
 		OnUnbalanced,
 	},
@@ -506,7 +500,7 @@
 
 <span class="doccomment">/// A type alias for the balance type from this pallet&#39;s point of view.
 </span><span class="kw">type </span>BalanceOf&lt;T&gt; =
-	&lt;&lt;T <span class="kw">as </span>Config&gt;::Currency <span class="kw">as </span>FnInspect&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance;
+	&lt;&lt;T <span class="kw">as </span>Config&gt;::Currency <span class="kw">as </span>Inspect&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance;
 <span class="kw">pub type </span>CreditOf&lt;T&gt; = Credit&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId, &lt;T <span class="kw">as </span>Config&gt;::Currency&gt;;
 
 <span class="comment">// Re-export pallet items so that they can be accessed from the crate namespace.
@@ -568,9 +562,9 @@
 			+ GetDispatchInfo
 			+ From&lt;frame_system::Call&lt;<span class="self">Self</span>&gt;&gt;;
 		<span class="doccomment">/// The fungible type for this pallet.
-		</span><span class="kw">type </span>Currency: FnMutate&lt;<span class="self">Self</span>::AccountId&gt;
-			+ FnMutateHold&lt;<span class="self">Self</span>::AccountId, Reason = <span class="self">Self</span>::RuntimeHoldReason&gt;
-			+ FnBalanced&lt;<span class="self">Self</span>::AccountId&gt;;
+		</span><span class="kw">type </span>Currency: Mutate&lt;<span class="self">Self</span>::AccountId&gt;
+			+ MutateHold&lt;<span class="self">Self</span>::AccountId, Reason = <span class="self">Self</span>::RuntimeHoldReason&gt;
+			+ Balanced&lt;<span class="self">Self</span>::AccountId&gt;;
 		<span class="doccomment">/// The overarching runtime hold reason.
 		</span><span class="kw">type </span>RuntimeHoldReason: From&lt;HoldReason&gt;;
 		<span class="doccomment">/// Handler for the unbalanced decrease when fees are burned.

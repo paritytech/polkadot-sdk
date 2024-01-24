@@ -1778,6 +1778,57 @@
 <a href="#1778" id="1778">1778</a>
 <a href="#1779" id="1779">1779</a>
 <a href="#1780" id="1780">1780</a>
+<a href="#1781" id="1781">1781</a>
+<a href="#1782" id="1782">1782</a>
+<a href="#1783" id="1783">1783</a>
+<a href="#1784" id="1784">1784</a>
+<a href="#1785" id="1785">1785</a>
+<a href="#1786" id="1786">1786</a>
+<a href="#1787" id="1787">1787</a>
+<a href="#1788" id="1788">1788</a>
+<a href="#1789" id="1789">1789</a>
+<a href="#1790" id="1790">1790</a>
+<a href="#1791" id="1791">1791</a>
+<a href="#1792" id="1792">1792</a>
+<a href="#1793" id="1793">1793</a>
+<a href="#1794" id="1794">1794</a>
+<a href="#1795" id="1795">1795</a>
+<a href="#1796" id="1796">1796</a>
+<a href="#1797" id="1797">1797</a>
+<a href="#1798" id="1798">1798</a>
+<a href="#1799" id="1799">1799</a>
+<a href="#1800" id="1800">1800</a>
+<a href="#1801" id="1801">1801</a>
+<a href="#1802" id="1802">1802</a>
+<a href="#1803" id="1803">1803</a>
+<a href="#1804" id="1804">1804</a>
+<a href="#1805" id="1805">1805</a>
+<a href="#1806" id="1806">1806</a>
+<a href="#1807" id="1807">1807</a>
+<a href="#1808" id="1808">1808</a>
+<a href="#1809" id="1809">1809</a>
+<a href="#1810" id="1810">1810</a>
+<a href="#1811" id="1811">1811</a>
+<a href="#1812" id="1812">1812</a>
+<a href="#1813" id="1813">1813</a>
+<a href="#1814" id="1814">1814</a>
+<a href="#1815" id="1815">1815</a>
+<a href="#1816" id="1816">1816</a>
+<a href="#1817" id="1817">1817</a>
+<a href="#1818" id="1818">1818</a>
+<a href="#1819" id="1819">1819</a>
+<a href="#1820" id="1820">1820</a>
+<a href="#1821" id="1821">1821</a>
+<a href="#1822" id="1822">1822</a>
+<a href="#1823" id="1823">1823</a>
+<a href="#1824" id="1824">1824</a>
+<a href="#1825" id="1825">1825</a>
+<a href="#1826" id="1826">1826</a>
+<a href="#1827" id="1827">1827</a>
+<a href="#1828" id="1828">1828</a>
+<a href="#1829" id="1829">1829</a>
+<a href="#1830" id="1830">1830</a>
+<a href="#1831" id="1831">1831</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1859,7 +1910,11 @@
 		dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
 		ensure,
 		pallet_prelude::<span class="kw-2">*</span>,
-		traits::{Currency, Get},
+		traits::{
+			fungible::{hold::Balanced, Inspect, InspectHold, Mutate, MutateHold},
+			tokens::{Fortitude, Precision},
+			Get,
+		},
 	};
 	<span class="kw">use </span>frame_system::{<span class="self">self</span>, pallet_prelude::<span class="kw-2">*</span>};
 	<span class="kw">use </span>sp_core::{
@@ -1872,7 +1927,7 @@
 	<span class="kw">use </span>sp_std::{ops::Deref, prelude::<span class="kw-2">*</span>};
 
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>BalanceOf&lt;T&gt; =
-		&lt;&lt;T <span class="kw">as </span>Config&gt;::Currency <span class="kw">as </span>Currency&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance;
+		&lt;&lt;T <span class="kw">as </span>Config&gt;::Currency <span class="kw">as </span>Inspect&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance;
 
 	<span class="doccomment">/// The progress of either the top or child keys.
 	</span><span class="attr">#[derive(
@@ -2221,20 +2276,58 @@
 	</span><span class="attr">#[pallet::pallet]
 	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
 
+	<span class="doccomment">/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
+	</span><span class="kw">pub mod </span>config_preludes {
+		<span class="kw">use super</span>::<span class="kw-2">*</span>;
+		<span class="kw">use </span>frame_support::derive_impl;
+
+		<span class="kw">pub struct </span>TestDefaultConfig;
+
+		<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig, no_aggregated_types)]
+		</span><span class="kw">impl </span>frame_system::DefaultConfig <span class="kw">for </span>TestDefaultConfig {}
+
+		<span class="attr">#[frame_support::register_default_impl(TestDefaultConfig)]
+		</span><span class="kw">impl </span>DefaultConfig <span class="kw">for </span>TestDefaultConfig {
+			<span class="attr">#[inject_runtime_type]
+			</span><span class="kw">type </span>RuntimeEvent = ();
+			<span class="attr">#[inject_runtime_type]
+			</span><span class="kw">type </span>RuntimeHoldReason = ();
+		}
+	}
+
+	<span class="doccomment">/// The reason for this pallet placing a hold on funds.
+	</span><span class="attr">#[pallet::composite_enum]
+	</span><span class="kw">pub enum </span>HoldReason {
+		<span class="doccomment">/// The funds are held as a deposit for slashing.
+		</span><span class="attr">#[codec(index = <span class="number">0</span>)]
+		</span>SlashForMigrate,
+	}
+
 	<span class="doccomment">/// Configurations of this pallet.
-	</span><span class="attr">#[pallet::config]
+	</span><span class="attr">#[pallet::config(with_default)]
 	</span><span class="kw">pub trait </span>Config: frame_system::Config {
 		<span class="doccomment">/// Origin that can control the configurations of this pallet.
-		</span><span class="kw">type </span>ControlOrigin: frame_support::traits::EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin&gt;;
+		</span><span class="attr">#[pallet::no_default]
+		</span><span class="kw">type </span>ControlOrigin: EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin&gt;;
 
 		<span class="doccomment">/// Filter on which origin that trigger the manual migrations.
+		</span><span class="attr">#[pallet::no_default]
 		</span><span class="kw">type </span>SignedFilter: EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin, Success = <span class="self">Self</span>::AccountId&gt;;
 
 		<span class="doccomment">/// The overarching event type.
+		</span><span class="attr">#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>&gt;&gt; + IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
 
 		<span class="doccomment">/// The currency provider type.
-		</span><span class="kw">type </span>Currency: Currency&lt;<span class="self">Self</span>::AccountId&gt;;
+		</span><span class="attr">#[pallet::no_default]
+		</span><span class="kw">type </span>Currency: InspectHold&lt;<span class="self">Self</span>::AccountId&gt;
+			+ Mutate&lt;<span class="self">Self</span>::AccountId&gt;
+			+ MutateHold&lt;<span class="self">Self</span>::AccountId, Reason = <span class="self">Self</span>::RuntimeHoldReason&gt;
+			+ Balanced&lt;<span class="self">Self</span>::AccountId&gt;;
+
+		<span class="doccomment">/// The overarching runtime hold reason.
+		</span><span class="attr">#[pallet::no_default_bounds]
+		</span><span class="kw">type </span>RuntimeHoldReason: From&lt;HoldReason&gt;;
 
 		<span class="doccomment">/// Maximal number of bytes that a key can have.
 		///
@@ -2259,19 +2352,23 @@
 		/// &lt;https://www.shawntabrizi.com/blog/substrate/querying-substrate-storage-via-rpc/&gt;
 
 		</span><span class="attr">#[pallet::constant]
+		#[pallet::no_default]
 		</span><span class="kw">type </span>MaxKeyLen: Get&lt;u32&gt;;
 
 		<span class="doccomment">/// The amount of deposit collected per item in advance, for signed migrations.
 		///
 		/// This should reflect the average storage value size in the worse case.
+		</span><span class="attr">#[pallet::no_default]
 		</span><span class="kw">type </span>SignedDepositPerItem: Get&lt;BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
 
 		<span class="doccomment">/// The base value of [`Config::SignedDepositPerItem`].
 		///
 		/// Final deposit is `items * SignedDepositPerItem + SignedDepositBase`.
+		</span><span class="attr">#[pallet::no_default]
 		</span><span class="kw">type </span>SignedDepositBase: Get&lt;BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
 
 		<span class="doccomment">/// The weight information of this pallet.
+		</span><span class="attr">#[pallet::no_default]
 		</span><span class="kw">type </span>WeightInfo: WeightInfo;
 	}
 
@@ -2380,8 +2477,11 @@
 			);
 
 			<span class="comment">// ensure they can pay more than the fee.
-			</span><span class="kw">let </span>deposit = T::SignedDepositPerItem::get().saturating_mul(limits.item.into());
-			<span class="macro">ensure!</span>(T::Currency::can_slash(<span class="kw-2">&amp;</span>who, deposit), Error::&lt;T&gt;::NotEnoughFunds);
+			</span><span class="kw">let </span>deposit = <span class="self">Self</span>::calculate_deposit_for(limits.item);
+			<span class="macro">ensure!</span>(
+				T::Currency::can_hold(<span class="kw-2">&amp;</span>HoldReason::SlashForMigrate.into(), <span class="kw-2">&amp;</span>who, deposit),
+				Error::&lt;T&gt;::NotEnoughFunds
+			);
 
 			<span class="kw">let </span><span class="kw-2">mut </span>task = <span class="self">Self</span>::migration_process();
 			<span class="macro">ensure!</span>(
@@ -2398,10 +2498,7 @@
 
 			<span class="comment">// ensure that the migration witness data was correct.
 			</span><span class="kw">if </span>real_size_upper &lt; task.dyn_size {
-				<span class="comment">// let the imbalance burn.
-				</span><span class="kw">let </span>(_imbalance, _remainder) = T::Currency::slash(<span class="kw-2">&amp;</span>who, deposit);
-				<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Slashed { who, amount: deposit });
-				<span class="macro">debug_assert!</span>(_remainder.is_zero());
+				<span class="self">Self</span>::slash(who, deposit)<span class="question-mark">?</span>;
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(().into())
 			}
 
@@ -2445,10 +2542,11 @@
 			<span class="kw">let </span>who = T::SignedFilter::ensure_origin(origin)<span class="question-mark">?</span>;
 
 			<span class="comment">// ensure they can pay more than the fee.
-			</span><span class="kw">let </span>deposit = T::SignedDepositBase::get().saturating_add(
-				T::SignedDepositPerItem::get().saturating_mul((keys.len() <span class="kw">as </span>u32).into()),
+			</span><span class="kw">let </span>deposit = <span class="self">Self</span>::calculate_deposit_for(keys.len() <span class="kw">as </span>u32);
+			<span class="macro">ensure!</span>(
+				T::Currency::can_hold(<span class="kw-2">&amp;</span>HoldReason::SlashForMigrate.into(), <span class="kw-2">&amp;</span>who, deposit),
+				Error::&lt;T&gt;::NotEnoughFunds
 			);
-			<span class="macro">ensure!</span>(T::Currency::can_slash(<span class="kw-2">&amp;</span>who, deposit), <span class="string">&quot;not enough funds&quot;</span>);
 
 			<span class="kw">let </span><span class="kw-2">mut </span>dyn_size = <span class="number">0u32</span>;
 			<span class="kw">for </span>key <span class="kw">in </span><span class="kw-2">&amp;</span>keys {
@@ -2459,9 +2557,7 @@
 			}
 
 			<span class="kw">if </span>dyn_size &gt; witness_size {
-				<span class="kw">let </span>(_imbalance, _remainder) = T::Currency::slash(<span class="kw-2">&amp;</span>who, deposit);
-				<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Slashed { who, amount: deposit });
-				<span class="macro">debug_assert!</span>(_remainder.is_zero());
+				<span class="self">Self</span>::slash(who, deposit)<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>(().into())
 			} <span class="kw">else </span>{
 				<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Migrated {
@@ -2504,13 +2600,11 @@
 			<span class="kw">let </span>who = T::SignedFilter::ensure_origin(origin)<span class="question-mark">?</span>;
 
 			<span class="comment">// ensure they can pay more than the fee.
-			</span><span class="kw">let </span>deposit = T::SignedDepositBase::get().saturating_add(
-				T::SignedDepositPerItem::get().saturating_mul((child_keys.len() <span class="kw">as </span>u32).into()),
+			</span><span class="kw">let </span>deposit = <span class="self">Self</span>::calculate_deposit_for(child_keys.len() <span class="kw">as </span>u32);
+			<span class="macro">ensure!</span>(
+				T::Currency::can_hold(<span class="kw-2">&amp;</span>HoldReason::SlashForMigrate.into(), <span class="kw-2">&amp;</span>who, deposit),
+				Error::&lt;T&gt;::NotEnoughFunds
 			);
-			<span class="macro">sp_std::if_std! </span>{
-				<span class="macro">println!</span>(<span class="string">&quot;+ {:?} / {:?} / {:?}&quot;</span>, who, deposit, T::Currency::free_balance(<span class="kw-2">&amp;</span>who));
-			}
-			<span class="macro">ensure!</span>(T::Currency::can_slash(<span class="kw-2">&amp;</span>who, deposit), <span class="string">&quot;not enough funds&quot;</span>);
 
 			<span class="kw">let </span><span class="kw-2">mut </span>dyn_size = <span class="number">0u32</span>;
 			<span class="kw">let </span>transformed_child_key = <span class="self">Self</span>::transform_child_key(<span class="kw-2">&amp;</span>root).ok_or(<span class="string">&quot;bad child key&quot;</span>)<span class="question-mark">?</span>;
@@ -2522,9 +2616,7 @@
 			}
 
 			<span class="kw">if </span>dyn_size != total_size {
-				<span class="kw">let </span>(_imbalance, _remainder) = T::Currency::slash(<span class="kw-2">&amp;</span>who, deposit);
-				<span class="macro">debug_assert!</span>(_remainder.is_zero());
-				<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Slashed { who, amount: deposit });
+				<span class="self">Self</span>::slash(who, deposit)<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>(PostDispatchInfo {
 					actual_weight: <span class="prelude-val">Some</span>(T::WeightInfo::migrate_custom_child_fail()),
 					pays_fee: Pays::Yes,
@@ -2667,19 +2759,46 @@
 			string.extend_from_slice(root.as_ref());
 			string
 		}
+
+		<span class="doccomment">/// Calculate the deposit required for migrating a specific number of keys.
+		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>calculate_deposit_for(keys_count: u32) -&gt; BalanceOf&lt;T&gt; {
+			T::SignedDepositBase::get()
+				.saturating_add(T::SignedDepositPerItem::get().saturating_mul(keys_count.into()))
+		}
+
+		<span class="doccomment">/// Slash an account for migration.
+		</span><span class="kw">fn </span>slash(who: T::AccountId, amount: BalanceOf&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
+			T::Currency::hold(<span class="kw-2">&amp;</span>HoldReason::SlashForMigrate.into(), <span class="kw-2">&amp;</span>who, amount)<span class="question-mark">?</span>;
+			<span class="comment">// let the imbalance burn.
+			</span><span class="kw">let </span>_burned = T::Currency::burn_all_held(
+				<span class="kw-2">&amp;</span>HoldReason::SlashForMigrate.into(),
+				<span class="kw-2">&amp;</span>who,
+				Precision::BestEffort,
+				Fortitude::Force,
+			)<span class="question-mark">?</span>;
+			<span class="macro">debug_assert!</span>(amount.saturating_sub(_burned).is_zero());
+			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Slashed { who, amount });
+			<span class="prelude-val">Ok</span>(())
+		}
 	}
 }
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 </span><span class="kw">mod </span>benchmarks {
 	<span class="kw">use super</span>::{pallet::Pallet <span class="kw">as </span>StateTrieMigration, <span class="kw-2">*</span>};
-	<span class="kw">use </span>frame_support::traits::{Currency, Get};
-	<span class="kw">use </span>sp_runtime::traits::Saturating;
+	<span class="kw">use </span>frame_support::traits::fungible::{Inspect, Mutate};
 	<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 	<span class="comment">// The size of the key seemingly makes no difference in the read/write time, so we make it
 	// constant.
 	</span><span class="kw">const </span>KEY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;key&quot;</span>;
+
+	<span class="kw">fn </span>set_balance_for_deposit&lt;T: Config&gt;(caller: <span class="kw-2">&amp;</span>T::AccountId, item: u32) -&gt; BalanceOf&lt;T&gt; {
+		<span class="kw">let </span>deposit = StateTrieMigration::&lt;T&gt;::calculate_deposit_for(item);
+		<span class="kw">let </span>stash = T::Currency::minimum_balance() * BalanceOf::&lt;T&gt;::from(<span class="number">1000u32</span>) + deposit;
+		T::Currency::set_balance(caller, stash);
+		stash
+	}
 
 	<span class="macro">frame_benchmarking::benchmarks! </span>{
 		continue_migrate {
@@ -2688,11 +2807,13 @@
 			// function.
 			</span><span class="kw">let </span>null = MigrationLimits::default();
 			<span class="kw">let </span>caller = frame_benchmarking::whitelisted_caller();
+			<span class="kw">let </span>stash = set_balance_for_deposit::&lt;T&gt;(<span class="kw-2">&amp;</span>caller, null.item);
 			<span class="comment">// Allow signed migrations.
 			</span>SignedMigrationMaxLimits::&lt;T&gt;::put(MigrationLimits { size: <span class="number">1024</span>, item: <span class="number">5 </span>});
-		}: <span class="kw">_</span>(frame_system::RawOrigin::Signed(caller), null, <span class="number">0</span>, StateTrieMigration::&lt;T&gt;::migration_process())
+		}: <span class="kw">_</span>(frame_system::RawOrigin::Signed(caller.clone()), null, <span class="number">0</span>, StateTrieMigration::&lt;T&gt;::migration_process())
 		verify {
-			<span class="macro">assert_eq!</span>(StateTrieMigration::&lt;T&gt;::migration_process(), Default::default())
+			<span class="macro">assert_eq!</span>(StateTrieMigration::&lt;T&gt;::migration_process(), Default::default());
+			<span class="macro">assert_eq!</span>(T::Currency::balance(<span class="kw-2">&amp;</span>caller), stash)
 		}
 
 		continue_migrate_wrong_witness {
@@ -2716,26 +2837,18 @@
 
 		migrate_custom_top_success {
 			<span class="kw">let </span>null = MigrationLimits::default();
-			<span class="kw">let </span>caller = frame_benchmarking::whitelisted_caller();
-			<span class="kw">let </span>deposit = T::SignedDepositBase::get().saturating_add(
-				T::SignedDepositPerItem::get().saturating_mul(<span class="number">1u32</span>.into()),
-			);
-			<span class="kw">let </span>stash = T::Currency::minimum_balance() * BalanceOf::&lt;T&gt;::from(<span class="number">1000u32</span>) + deposit;
-			T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>caller, stash);
+			<span class="kw">let </span>caller: T::AccountId = frame_benchmarking::whitelisted_caller();
+			<span class="kw">let </span>stash = set_balance_for_deposit::&lt;T&gt;(<span class="kw-2">&amp;</span>caller, null.item);
 		}: migrate_custom_top(frame_system::RawOrigin::Signed(caller.clone()), Default::default(), <span class="number">0</span>)
 		verify {
 			<span class="macro">assert_eq!</span>(StateTrieMigration::&lt;T&gt;::migration_process(), Default::default());
-			<span class="macro">assert_eq!</span>(T::Currency::free_balance(<span class="kw-2">&amp;</span>caller), stash)
+			<span class="macro">assert_eq!</span>(T::Currency::balance(<span class="kw-2">&amp;</span>caller), stash)
 		}
 
 		migrate_custom_top_fail {
 			<span class="kw">let </span>null = MigrationLimits::default();
-			<span class="kw">let </span>caller = frame_benchmarking::whitelisted_caller();
-			<span class="kw">let </span>deposit = T::SignedDepositBase::get().saturating_add(
-				T::SignedDepositPerItem::get().saturating_mul(<span class="number">1u32</span>.into()),
-			);
-			<span class="kw">let </span>stash = T::Currency::minimum_balance() * BalanceOf::&lt;T&gt;::from(<span class="number">1000u32</span>) + deposit;
-			T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>caller, stash);
+			<span class="kw">let </span>caller: T::AccountId = frame_benchmarking::whitelisted_caller();
+			<span class="kw">let </span>stash = set_balance_for_deposit::&lt;T&gt;(<span class="kw-2">&amp;</span>caller, null.item);
 			<span class="comment">// for tests, we need to make sure there is _something_ in storage that is being
 			// migrated.
 			</span>sp_io::storage::set(<span class="string">b&quot;foo&quot;</span>, <span class="macro">vec!</span>[<span class="number">1u8</span>;<span class="number">33</span>].as_ref());
@@ -2751,24 +2864,19 @@
 			frame_system::Pallet::&lt;T&gt;::assert_last_event(
 				&lt;T <span class="kw">as </span>Config&gt;::RuntimeEvent::from(<span class="kw">crate</span>::Event::Slashed {
 					who: caller.clone(),
-					amount: T::SignedDepositBase::get()
-						.saturating_add(T::SignedDepositPerItem::get().saturating_mul(<span class="number">1u32</span>.into())),
+					amount: StateTrieMigration::&lt;T&gt;::calculate_deposit_for(<span class="number">1u32</span>),
 				}).into(),
 			);
 		}
 		verify {
 			<span class="macro">assert_eq!</span>(StateTrieMigration::&lt;T&gt;::migration_process(), Default::default());
 			<span class="comment">// must have gotten slashed
-			</span><span class="macro">assert!</span>(T::Currency::free_balance(<span class="kw-2">&amp;</span>caller) &lt; stash)
+			</span><span class="macro">assert!</span>(T::Currency::balance(<span class="kw-2">&amp;</span>caller) &lt; stash)
 		}
 
 		migrate_custom_child_success {
-			<span class="kw">let </span>caller = frame_benchmarking::whitelisted_caller();
-			<span class="kw">let </span>deposit = T::SignedDepositBase::get().saturating_add(
-				T::SignedDepositPerItem::get().saturating_mul(<span class="number">1u32</span>.into()),
-			);
-			<span class="kw">let </span>stash = T::Currency::minimum_balance() * BalanceOf::&lt;T&gt;::from(<span class="number">1000u32</span>) + deposit;
-			T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>caller, stash);
+			<span class="kw">let </span>caller: T::AccountId = frame_benchmarking::whitelisted_caller();
+			<span class="kw">let </span>stash = set_balance_for_deposit::&lt;T&gt;(<span class="kw-2">&amp;</span>caller, <span class="number">0</span>);
 		}: migrate_custom_child(
 			frame_system::RawOrigin::Signed(caller.clone()),
 			StateTrieMigration::&lt;T&gt;::childify(Default::default()),
@@ -2777,16 +2885,12 @@
 		</span>)
 		verify {
 			<span class="macro">assert_eq!</span>(StateTrieMigration::&lt;T&gt;::migration_process(), Default::default());
-			<span class="macro">assert_eq!</span>(T::Currency::free_balance(<span class="kw-2">&amp;</span>caller), stash);
+			<span class="macro">assert_eq!</span>(T::Currency::balance(<span class="kw-2">&amp;</span>caller), stash);
 		}
 
 		migrate_custom_child_fail {
-			<span class="kw">let </span>caller = frame_benchmarking::whitelisted_caller();
-			<span class="kw">let </span>deposit = T::SignedDepositBase::get().saturating_add(
-				T::SignedDepositPerItem::get().saturating_mul(<span class="number">1u32</span>.into()),
-			);
-			<span class="kw">let </span>stash = T::Currency::minimum_balance() * BalanceOf::&lt;T&gt;::from(<span class="number">1000u32</span>) + deposit;
-			T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>caller, stash);
+			<span class="kw">let </span>caller: T::AccountId = frame_benchmarking::whitelisted_caller();
+			<span class="kw">let </span>stash = set_balance_for_deposit::&lt;T&gt;(<span class="kw-2">&amp;</span>caller, <span class="number">1</span>);
 			<span class="comment">// for tests, we need to make sure there is _something_ in storage that is being
 			// migrated.
 			</span>sp_io::default_child_storage::set(<span class="string">b&quot;top&quot;</span>, <span class="string">b&quot;foo&quot;</span>, <span class="macro">vec!</span>[<span class="number">1u8</span>;<span class="number">33</span>].as_ref());
@@ -2803,7 +2907,7 @@
 		verify {
 			<span class="macro">assert_eq!</span>(StateTrieMigration::&lt;T&gt;::migration_process(), Default::default());
 			<span class="comment">// must have gotten slashed
-			</span><span class="macro">assert!</span>(T::Currency::free_balance(<span class="kw-2">&amp;</span>caller) &lt; stash)
+			</span><span class="macro">assert!</span>(T::Currency::balance(<span class="kw-2">&amp;</span>caller) &lt; stash)
 		}
 
 		process_top_key {
@@ -2832,7 +2936,7 @@
 	<span class="kw">use crate as </span>pallet_state_trie_migration;
 	<span class="kw">use </span>frame_support::{
 		derive_impl, parameter_types,
-		traits::{ConstU32, ConstU64, Hooks},
+		traits::{ConstU32, Hooks},
 		weights::Weight,
 	};
 	<span class="kw">use </span>frame_system::{EnsureRoot, EnsureSigned};
@@ -2840,10 +2944,7 @@
 		storage::{ChildInfo, StateVersion},
 		H256,
 	};
-	<span class="kw">use </span>sp_runtime::{
-		traits::{BlakeTwo256, Header <span class="kw">as _</span>, IdentityLookup},
-		BuildStorage, StorageChild,
-	};
+	<span class="kw">use </span>sp_runtime::{traits::Header <span class="kw">as _</span>, BuildStorage, StorageChild};
 
 	<span class="kw">type </span>Block = frame_system::mocking::MockBlockU32&lt;Test&gt;;
 
@@ -2863,29 +2964,9 @@
 
 	<span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig)]
 	</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Test {
-		<span class="kw">type </span>BaseCallFilter = frame_support::traits::Everything;
-		<span class="kw">type </span>BlockWeights = ();
-		<span class="kw">type </span>BlockLength = ();
-		<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
-		<span class="kw">type </span>RuntimeCall = RuntimeCall;
-		<span class="kw">type </span>Nonce = u64;
-		<span class="kw">type </span>Hash = H256;
-		<span class="kw">type </span>Hashing = BlakeTwo256;
-		<span class="kw">type </span>AccountId = u64;
-		<span class="kw">type </span>Lookup = IdentityLookup&lt;<span class="self">Self</span>::AccountId&gt;;
 		<span class="kw">type </span>Block = Block;
-		<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 		<span class="kw">type </span>BlockHashCount = ConstU32&lt;<span class="number">250</span>&gt;;
-		<span class="kw">type </span>DbWeight = ();
-		<span class="kw">type </span>Version = ();
-		<span class="kw">type </span>PalletInfo = PalletInfo;
 		<span class="kw">type </span>AccountData = pallet_balances::AccountData&lt;u64&gt;;
-		<span class="kw">type </span>OnNewAccount = ();
-		<span class="kw">type </span>OnKilledAccount = ();
-		<span class="kw">type </span>SystemWeightInfo = ();
-		<span class="kw">type </span>SS58Prefix = SS58Prefix;
-		<span class="kw">type </span>OnSetCode = ();
-		<span class="kw">type </span>MaxConsumers = ConstU32&lt;<span class="number">16</span>&gt;;
 	}
 
 	<span class="macro">parameter_types! </span>{
@@ -2894,21 +2975,10 @@
 		<span class="kw">pub const </span>MigrationMaxKeyLen: u32 = <span class="number">512</span>;
 	}
 
-	<span class="kw">impl </span>pallet_balances::Config <span class="kw">for </span>Test {
-		<span class="kw">type </span>Balance = u64;
-		<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-		<span class="kw">type </span>DustRemoval = ();
-		<span class="kw">type </span>ExistentialDeposit = ConstU64&lt;<span class="number">1</span>&gt;;
-		<span class="kw">type </span>AccountStore = System;
-		<span class="kw">type </span>MaxLocks = ();
-		<span class="kw">type </span>MaxReserves = ();
+	<span class="attr">#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig <span class="kw">as </span>pallet_balances::DefaultConfig)]
+	</span><span class="kw">impl </span>pallet_balances::Config <span class="kw">for </span>Test {
 		<span class="kw">type </span>ReserveIdentifier = [u8; <span class="number">8</span>];
-		<span class="kw">type </span>WeightInfo = ();
-		<span class="kw">type </span>FreezeIdentifier = ();
-		<span class="kw">type </span>MaxFreezes = ();
-		<span class="kw">type </span>RuntimeHoldReason = ();
-		<span class="kw">type </span>RuntimeFreezeReason = ();
-		<span class="kw">type </span>MaxHolds = ();
+		<span class="kw">type </span>AccountStore = System;
 	}
 
 	<span class="doccomment">/// Test only Weights for state migration.
@@ -2938,8 +3008,8 @@
 		}
 	}
 
-	<span class="kw">impl </span>pallet_state_trie_migration::Config <span class="kw">for </span>Test {
-		<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+	<span class="attr">#[derive_impl(<span class="kw">super</span>::config_preludes::TestDefaultConfig <span class="kw">as </span>pallet_state_trie_migration::DefaultConfig)]
+	</span><span class="kw">impl </span>pallet_state_trie_migration::Config <span class="kw">for </span>Test {
 		<span class="kw">type </span>ControlOrigin = EnsureRoot&lt;u64&gt;;
 		<span class="kw">type </span>Currency = Balances;
 		<span class="kw">type </span>MaxKeyLen = MigrationMaxKeyLen;
@@ -3050,6 +3120,7 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>test {
 	<span class="kw">use super</span>::{mock::<span class="kw-2">*</span>, <span class="kw-2">*</span>};
+	<span class="kw">use </span>frame_support::assert_ok;
 	<span class="kw">use </span>sp_runtime::{bounded_vec, traits::Bounded, StateVersion};
 
 	<span class="attr">#[test]
@@ -3279,10 +3350,9 @@
 			</span><span class="kw">while </span>!MigrationProcess::&lt;Test&gt;::get().finished() {
 				<span class="comment">// first we compute the task to get the accurate consumption.
 				</span><span class="kw">let </span><span class="kw-2">mut </span>task = StateTrieMigration::migration_process();
-				<span class="kw">let </span>result = task.migrate_until_exhaustion(
+				<span class="macro">assert_ok!</span>(task.migrate_until_exhaustion(
 					StateTrieMigration::signed_migration_max_limits().unwrap(),
-				);
-				<span class="macro">assert!</span>(result.is_ok());
+				));
 
 				<span class="macro">frame_support::assert_ok!</span>(StateTrieMigration::continue_migrate(
 					RuntimeOrigin::signed(<span class="number">1</span>),
@@ -3293,6 +3363,7 @@
 
 				<span class="comment">// no funds should remain reserved.
 				</span><span class="macro">assert_eq!</span>(Balances::reserved_balance(<span class="kw-2">&amp;</span><span class="number">1</span>), <span class="number">0</span>);
+				<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="kw-2">&amp;</span><span class="number">1</span>), <span class="number">1000</span>);
 
 				<span class="comment">// and the task should be updated
 				</span><span class="macro">assert!</span>(<span class="macro">matches!</span>(
@@ -3300,6 +3371,37 @@
 					MigrationTask { size: x, .. } <span class="kw">if </span>x &gt; <span class="number">0</span>,
 				));
 			}
+		});
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>continue_migrate_slashing_works() {
+		new_test_ext(StateVersion::V0, <span class="bool-val">true</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>).execute_with(|| {
+			<span class="macro">assert_eq!</span>(MigrationProcess::&lt;Test&gt;::get(), Default::default());
+
+			<span class="comment">// Allow signed migrations.
+			</span>SignedMigrationMaxLimits::&lt;Test&gt;::put(MigrationLimits { size: <span class="number">1024</span>, item: <span class="number">5 </span>});
+
+			<span class="comment">// first we compute the task to get the accurate consumption.
+			</span><span class="kw">let </span><span class="kw-2">mut </span>task = StateTrieMigration::migration_process();
+			<span class="macro">assert_ok!</span>(task.migrate_until_exhaustion(
+				StateTrieMigration::signed_migration_max_limits().unwrap(),
+			));
+
+			<span class="comment">// can&#39;t submit with `real_size_upper` &lt; `task.dyn_size` expect slashing
+			</span><span class="macro">frame_support::assert_ok!</span>(StateTrieMigration::continue_migrate(
+				RuntimeOrigin::signed(<span class="number">1</span>),
+				StateTrieMigration::signed_migration_max_limits().unwrap(),
+				task.dyn_size - <span class="number">1</span>,
+				MigrationProcess::&lt;Test&gt;::get()
+			));
+			<span class="comment">// no funds should remain reserved.
+			</span><span class="macro">assert_eq!</span>(Balances::reserved_balance(<span class="kw-2">&amp;</span><span class="number">1</span>), <span class="number">0</span>);
+			<span class="comment">// user was slashed
+			</span><span class="macro">assert_eq!</span>(
+				Balances::free_balance(<span class="kw-2">&amp;</span><span class="number">1</span>),
+				<span class="number">1000 </span>- StateTrieMigration::calculate_deposit_for(<span class="number">5</span>)
+			);
 		});
 	}
 
@@ -3345,7 +3447,7 @@
 			</span><span class="macro">assert_eq!</span>(Balances::reserved_balance(<span class="kw-2">&amp;</span><span class="number">1</span>), <span class="number">0</span>);
 			<span class="macro">assert_eq!</span>(
 				Balances::free_balance(<span class="kw-2">&amp;</span><span class="number">1</span>),
-				<span class="number">1000 </span>- (<span class="number">3 </span>* SignedDepositPerItem::get() + SignedDepositBase::get())
+				<span class="number">1000 </span>- StateTrieMigration::calculate_deposit_for(<span class="number">3</span>)
 			);
 		});
 	}
@@ -3380,7 +3482,7 @@
 			</span><span class="macro">assert_eq!</span>(Balances::reserved_balance(<span class="kw-2">&amp;</span><span class="number">1</span>), <span class="number">0</span>);
 			<span class="macro">assert_eq!</span>(
 				Balances::free_balance(<span class="kw-2">&amp;</span><span class="number">1</span>),
-				<span class="number">1000 </span>- (<span class="number">2 </span>* SignedDepositPerItem::get() + SignedDepositBase::get())
+				<span class="number">1000 </span>- StateTrieMigration::calculate_deposit_for(<span class="number">2</span>)
 			);
 		});
 	}

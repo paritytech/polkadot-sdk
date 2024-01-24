@@ -3596,9 +3596,6 @@
 <a href="#3596" id="3596">3596</a>
 <a href="#3597" id="3597">3597</a>
 <a href="#3598" id="3598">3598</a>
-<a href="#3599" id="3599">3599</a>
-<a href="#3600" id="3600">3600</a>
-<a href="#3601" id="3601">3601</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3958,10 +3955,7 @@
 	pallet_prelude::{MaxEncodedLen, <span class="kw-2">*</span>},
 	storage::bounded_btree_map::BoundedBTreeMap,
 	traits::{
-		fungible::{
-			Inspect <span class="kw">as </span>FunInspect, InspectFreeze, Mutate <span class="kw">as </span>FunMutate,
-			MutateFreeze <span class="kw">as </span>FunMutateFreeze,
-		},
+		fungible::{Inspect, InspectFreeze, Mutate, MutateFreeze},
 		tokens::{Fortitude, Preservation},
 		Defensive, DefensiveOption, DefensiveResult, DefensiveSaturating, Get,
 	},
@@ -4009,7 +4003,7 @@
 
 <span class="doccomment">/// The balance type used by the currency system.
 </span><span class="kw">pub type </span>BalanceOf&lt;T&gt; =
-	&lt;&lt;T <span class="kw">as </span>Config&gt;::Currency <span class="kw">as </span>FunInspect&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance;
+	&lt;&lt;T <span class="kw">as </span>Config&gt;::Currency <span class="kw">as </span>Inspect&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance;
 <span class="doccomment">/// Type used for unique identifier of each pool.
 </span><span class="kw">pub type </span>PoolId = u32;
 
@@ -5209,8 +5203,8 @@
 		</span><span class="kw">type </span>WeightInfo: weights::WeightInfo;
 
 		<span class="doccomment">/// The currency type used for nomination pool.
-		</span><span class="kw">type </span>Currency: FunMutate&lt;<span class="self">Self</span>::AccountId&gt;
-			+ FunMutateFreeze&lt;<span class="self">Self</span>::AccountId, Id = <span class="self">Self</span>::RuntimeFreezeReason&gt;;
+		</span><span class="kw">type </span>Currency: Mutate&lt;<span class="self">Self</span>::AccountId&gt;
+			+ MutateFreeze&lt;<span class="self">Self</span>::AccountId, Id = <span class="self">Self</span>::RuntimeFreezeReason&gt;;
 
 		<span class="doccomment">/// The overarching freeze reason.
 		</span><span class="kw">type </span>RuntimeFreezeReason: From&lt;FreezeReason&gt;;
