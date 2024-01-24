@@ -1,5 +1,5 @@
 [settings]
-bootnode = true
+#bootnode = true
 node_spawn_timeout = 240
 
 [relaychain]
