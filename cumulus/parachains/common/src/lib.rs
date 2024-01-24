@@ -17,7 +17,9 @@
 
 pub mod impls;
 pub mod message_queue;
+#[cfg(feature = "rococo-native")]
 pub mod rococo;
+#[cfg(feature = "westend-native")]
 pub mod westend;
 pub mod xcm_config;
 pub use constants::*;
