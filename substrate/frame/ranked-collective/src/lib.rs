@@ -58,9 +58,6 @@ use frame_support::{
 	CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 
-#[cfg(any(feature = "try-runtime", test))]
-use sp_runtime::TryRuntimeError;
-
 #[cfg(test)]
 mod tests;
 
@@ -779,17 +776,18 @@ pub mod pallet {
 		#[cfg(any(feature = "try-runtime", test))]
 		pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::try_state_members()?;
+			Self::try_state_index()?;
 
 			Ok(())
 		}
 
 		/// ### Invariants of Member storage items
 		///
-		/// 1. Total number of [`Members`] in storage should be >= [`MemberIndex`] of a [`Rank`] in
+		/// Total number of [`Members`] in storage should be >= [`MemberIndex`] of a [`Rank`] in
 		///    [`MemberCount`].
 		#[cfg(any(feature = "try-runtime", test))]
 		fn try_state_members() -> Result<(), sp_runtime::TryRuntimeError> {
-			MemberCount::<T, I>::iter().try_for_each(|(rank, member_index)| -> DispatchResult {
+			MemberCount::<T, I>::iter().try_for_each(|(_rank, member_index)| -> DispatchResult {
 				let total_members = Members::<T, I>::iter().count();
 				ensure!(
 				total_members as u32 >= member_index,
@@ -798,6 +796,24 @@ pub mod pallet {
 
 				Ok(())
 			})?;
+
+			Ok(())
+		}
+
+		/// ### Invariants of Index storage items
+		/// [`Member`] in storage of [`IdToIndex`] should be the same as [`Member`] in [`IndexToId`]
+		fn try_state_index() -> Result<(), sp_runtime::TryRuntimeError> {
+			IdToIndex::<T, I>::iter().try_for_each(
+				|(rank, who, member_index)| -> DispatchResult {
+					let who_from_index = IndexToId::<T, I>::get(rank, member_index).unwrap();
+					ensure!(
+				who == who_from_index,
+				"`Member` in storage of `IdToIndex` should be the same as `Member` in `IndexToId`."
+				);
+
+					Ok(())
+				},
+			)?;
 
 			Ok(())
 		}
