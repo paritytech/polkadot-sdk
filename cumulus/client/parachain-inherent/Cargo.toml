@@ -15,7 +15,7 @@ tracing = { version = "0.1.37" }
 # Substrate
 sc-client-api = { path = "../../../substrate/client/api" }
 sp-api = { path = "../../../substrate/primitives/api" }
-sp-core = { path = "../../../substrate/primitives/core" }
+sp-crypto-hashing = { path = "../../../substrate/primitives/crypto/hashing" }
 sp-inherents = { path = "../../../substrate/primitives/inherents" }
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
 sp-state-machine = { path = "../../../substrate/primitives/state-machine" }

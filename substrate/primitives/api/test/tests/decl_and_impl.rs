@@ -26,7 +26,7 @@ use substrate_test_runtime_client::runtime::{Block, Hash};
 
 /// The declaration of the `Runtime` type is done by the `construct_runtime!` macro in a real
 /// runtime.
-pub struct Runtime {}
+pub enum Runtime {}
 
 decl_runtime_apis! {
 	pub trait Api {

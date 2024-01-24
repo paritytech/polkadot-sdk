@@ -74,25 +74,25 @@ frame_support::construct_runtime!(
 	pub enum Test
 	{
 		// System Stuff
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Babe: pallet_babe::{Pallet, Call, Storage, Config<T>, ValidateUnsigned},
+		System: frame_system,
+		Balances: pallet_balances,
+		Babe: pallet_babe,
 
 		// Parachains Runtime
-		Configuration: configuration::{Pallet, Call, Storage, Config<T>},
-		Paras: paras::{Pallet, Call, Storage, Event, Config<T>},
-		ParasShared: shared::{Pallet, Call, Storage},
-		ParachainsOrigin: origin::{Pallet, Origin},
+		Configuration: configuration,
+		Paras: paras,
+		ParasShared: shared,
+		ParachainsOrigin: origin,
 
 		// Para Onboarding Pallets
-		Registrar: paras_registrar::{Pallet, Call, Storage, Event<T>},
-		Auctions: auctions::{Pallet, Call, Storage, Event<T>},
-		Crowdloan: crowdloan::{Pallet, Call, Storage, Event<T>},
-		Slots: slots::{Pallet, Call, Storage, Event<T>},
+		Registrar: paras_registrar,
+		Auctions: auctions,
+		Crowdloan: crowdloan,
+		Slots: slots,
 
 		// Migrators
-		Identity: pallet_identity::{Pallet, Call, Storage, Event<T>},
-		IdentityMigrator: identity_migrator::{Pallet, Call, Event<T>},
+		Identity: pallet_identity,
+		IdentityMigrator: identity_migrator,
 	}
 );
 

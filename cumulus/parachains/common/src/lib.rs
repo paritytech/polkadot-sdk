@@ -21,7 +21,6 @@ pub mod impls;
 pub mod message_queue;
 pub mod rococo;
 pub mod westend;
-pub mod wococo;
 pub mod xcm_config;
 pub use constants::*;
 pub use opaque::*;

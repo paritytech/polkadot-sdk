@@ -254,10 +254,10 @@ pub fn migrate_from_pallet_version_to_storage_version<
 /// construct_runtime! {
 /// 	pub enum Runtime
 /// 	{
-/// 		System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>} = 0,
+/// 		System: frame_system = 0,
 ///
-/// 		SomePalletToRemove: pallet_something::{Pallet, Call, Storage, Event<T>} = 1,
-/// 		AnotherPalletToRemove: pallet_something_else::{Pallet, Call, Storage, Event<T>} = 2,
+/// 		SomePalletToRemove: pallet_something = 1,
+/// 		AnotherPalletToRemove: pallet_something_else = 2,
 ///
 /// 		YourOtherPallets...
 /// 	}

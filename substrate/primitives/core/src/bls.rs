@@ -428,7 +428,7 @@ trait HardJunctionId {
 /// Derive a single hard junction.
 #[cfg(feature = "full_crypto")]
 fn derive_hard_junction<T: HardJunctionId>(secret_seed: &Seed, cc: &[u8; 32]) -> Seed {
-	(T::ID, secret_seed, cc).using_encoded(sp_core_hashing::blake2_256)
+	(T::ID, secret_seed, cc).using_encoded(sp_crypto_hashing::blake2_256)
 }
 
 #[cfg(feature = "full_crypto")]

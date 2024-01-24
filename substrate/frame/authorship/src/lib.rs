@@ -109,8 +109,8 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-			Authorship: pallet_authorship::{Pallet, Storage},
+			System: frame_system,
+			Authorship: pallet_authorship,
 		}
 	);
 

@@ -30,6 +30,7 @@ sp-runtime = { path = "../../primitives/runtime", default-features = false }
 [dev-dependencies]
 array-bytes = "6.1"
 sp-core = { path = "../../primitives/core" }
+sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
 
 [features]
 default = ["std"]

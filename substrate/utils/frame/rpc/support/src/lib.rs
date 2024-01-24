@@ -42,8 +42,8 @@ use sp_storage::{StorageData, StorageKey};
 /// # construct_runtime!(
 /// # 	pub enum TestRuntime
 /// # 	{
-/// # 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-/// # 		Test: pallet_test::{Pallet, Storage},
+/// # 		System: frame_system,
+/// # 		Test: pallet_test,
 /// # 	}
 /// # );
 /// #
