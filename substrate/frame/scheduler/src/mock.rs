@@ -223,6 +223,15 @@ impl WeightInfo for TestWeightInfo {
 	fn cancel_named(_s: u32) -> Weight {
 		Weight::from_parts(50, 0)
 	}
+	fn check_retry(_s: u32) -> Weight {
+		Weight::from_parts(50, 0)
+	}
+	fn set_retry(_s: u32) -> Weight {
+		Weight::from_parts(50, 0)
+	}
+	fn set_retry_named(_s: u32) -> Weight {
+		Weight::from_parts(50, 0)
+	}
 }
 parameter_types! {
 	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *

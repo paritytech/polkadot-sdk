@@ -306,5 +306,59 @@ benchmarks! {
 		);
 	}
 
+	check_retry {
+		let s in 1 .. T::MaxScheduledPerBlock::get();
+		let when = BLOCK_NUMBER.into();
+
+		fill_schedule::<T>(when, s)?;
+		let name = u32_to_name(s - 1);
+		let address = Lookup::<T>::get(name).unwrap();
+		let period: BlockNumberFor<T> = 1u32.into();
+		let root: <T as Config>::PalletsOrigin = frame_system::RawOrigin::Root.into();
+		Retries::<T>::insert(address.clone(), RetryConfig { total_retries: 10, remaining: 10, period });
+		let (mut when, index) = address;
+		let task = Agenda::<T>::get(when)[index as usize].clone().unwrap();
+	}: {
+		Scheduler::<T>::check_retry(when, when, index, task);
+	} verify {
+		when = when + BlockNumberFor::<T>::one();
+		assert_eq!(
+			Retries::<T>::get((when, 0)),
+			Some(RetryConfig { total_retries: 10, remaining: 9, period })
+		);
+	}
+
+	set_retry {
+		let s in 1 .. T::MaxScheduledPerBlock::get();
+		let when = BLOCK_NUMBER.into();
+
+		fill_schedule::<T>(when, s)?;
+		let name = u32_to_name(s - 1);
+		let address = Lookup::<T>::get(name).unwrap();
+		let (when, index) = address;
+	}: _(RawOrigin::Root, when, index, 10, BlockNumberFor::<T>::one())
+	verify {
+		assert_eq!(
+			Retries::<T>::get((when, index)),
+			Some(RetryConfig { total_retries: 10, remaining: 10, period: BlockNumberFor::<T>::one() })
+		);
+	}
+
+	set_retry_named {
+		let s in 1 .. T::MaxScheduledPerBlock::get();
+		let when = BLOCK_NUMBER.into();
+
+		fill_schedule::<T>(when, s)?;
+		let name = u32_to_name(s - 1);
+		let address = Lookup::<T>::get(name).unwrap();
+		let (when, index) = address;
+	}: _(RawOrigin::Root, name, 10, BlockNumberFor::<T>::one())
+	verify {
+		assert_eq!(
+			Retries::<T>::get((when, index)),
+			Some(RetryConfig { total_retries: 10, remaining: 10, period: BlockNumberFor::<T>::one() })
+		);
+	}
+
 	impl_benchmark_test_suite!(Scheduler, crate::mock::new_test_ext(), crate::mock::Test);
 }

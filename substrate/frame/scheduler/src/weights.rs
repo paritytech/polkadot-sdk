@@ -64,6 +64,9 @@ pub trait WeightInfo {
 	fn cancel(s: u32, ) -> Weight;
 	fn schedule_named(s: u32, ) -> Weight;
 	fn cancel_named(s: u32, ) -> Weight;
+	fn check_retry(s: u32, ) -> Weight;
+	fn set_retry(s: u32, ) -> Weight;
+	fn set_retry_named(s: u32, ) -> Weight;
 }
 
 /// Weights for pallet_scheduler using the Substrate node and recommended hardware.
@@ -211,6 +214,27 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
+	/// Dummy impl
+	fn check_retry(s: u32, ) -> Weight {
+		Weight::from_parts(7_413_174, 110487)
+			.saturating_add(Weight::from_parts(348_077, 0).saturating_mul(s.into()))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Dummy impl
+	fn set_retry(s: u32, ) -> Weight {
+		Weight::from_parts(7_413_174, 110487)
+			.saturating_add(Weight::from_parts(348_077, 0).saturating_mul(s.into()))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Dummy impl
+	fn set_retry_named(s: u32, ) -> Weight {
+		Weight::from_parts(7_413_174, 110487)
+			.saturating_add(Weight::from_parts(348_077, 0).saturating_mul(s.into()))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 }
 
 // For backwards compatibility and tests
@@ -356,5 +380,26 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(557_691, 0).saturating_mul(s.into()))
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+	/// Dummy impl
+	fn check_retry(s: u32, ) -> Weight {
+		Weight::from_parts(7_413_174, 110487)
+			.saturating_add(Weight::from_parts(348_077, 0).saturating_mul(s.into()))
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Dummy impl
+	fn set_retry(s: u32, ) -> Weight {
+		Weight::from_parts(7_413_174, 110487)
+			.saturating_add(Weight::from_parts(348_077, 0).saturating_mul(s.into()))
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Dummy impl
+	fn set_retry_named(s: u32, ) -> Weight {
+		Weight::from_parts(7_413_174, 110487)
+			.saturating_add(Weight::from_parts(348_077, 0).saturating_mul(s.into()))
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }

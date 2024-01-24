@@ -465,7 +465,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(6)]
-		#[pallet::weight(<T as Config>::WeightInfo::schedule_named(T::MaxScheduledPerBlock::get()))]
+		#[pallet::weight(<T as Config>::WeightInfo::set_retry(T::MaxScheduledPerBlock::get()))]
 		pub fn set_retry(
 			origin: OriginFor<T>,
 			when: BlockNumberFor<T>,
@@ -494,7 +494,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(7)]
-		#[pallet::weight(<T as Config>::WeightInfo::schedule_named(T::MaxScheduledPerBlock::get()))]
+		#[pallet::weight(<T as Config>::WeightInfo::set_retry_named(T::MaxScheduledPerBlock::get()))]
 		pub fn set_retry_named(
 			origin: OriginFor<T>,
 			id: TaskName,
@@ -1213,6 +1213,8 @@ impl<T: Config> Pallet<T> {
 				});
 
 				let mut task = if failed {
+					let _ = weight
+						.try_consume(T::WeightInfo::check_retry(T::MaxScheduledPerBlock::get()));
 					match Self::check_retry(now, when, agenda_index, task) {
 						Some(task) => task,
 						None => return Ok(()),
