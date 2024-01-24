@@ -29,8 +29,8 @@ pub trait TransactionApi<Hash: Clone> {
 	/// See [`TransactionEvent`](crate::transaction::event::TransactionEvent) for details on
 	/// transaction life cycle.
 	#[subscription(
-		name = "transaction_unstable_submitAndWatch" => "transaction_unstable_watchEvent",
-		unsubscribe = "transaction_unstable_unwatch",
+		name = "transactionWatch_unstable_submitAndWatch" => "transactionWatch_unstable_watchEvent",
+		unsubscribe = "transactionWatch_unstable_unwatch",
 		item = TransactionEvent<Hash>,
 	)]
 	fn submit_and_watch(&self, bytes: Bytes);
