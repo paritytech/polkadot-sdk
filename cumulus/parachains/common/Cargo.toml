@@ -103,6 +103,6 @@ runtime-benchmarks = [
 	"xcm-executor/runtime-benchmarks",
 ]
 
-# Configure the native runtimes to use.
-rococo-native = ["rococo-runtime-constants"]
-westend-native = ["westend-runtime-constants"]
+# Test runtimes specific features.
+rococo = ["rococo-runtime-constants"]
+westend = ["westend-runtime-constants"]
