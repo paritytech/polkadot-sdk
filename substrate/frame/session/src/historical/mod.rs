@@ -295,7 +295,7 @@ impl<T: Config> ProvingTrie<T> {
 		&self.root
 	}
 
-	// Check a proof contained within the current memory-db. Returns `None` if the
+	// Check a proof contained within the current `MemoryDB`. Returns `None` if the
 	// nodes within the current `MemoryDB` are insufficient to query the item.
 	fn query(&self, key_id: KeyTypeId, key_data: &[u8]) -> Option<IdentificationTuple<T>> {
 		let trie = TrieDBBuilderV0::<T::Hashing, ()>::new(&self.db, &self.root).build();

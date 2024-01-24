@@ -25,7 +25,7 @@ use crate::{
 };
 use codec::Encode;
 use core::marker::PhantomData;
-use hash_db::Hasher;
+use trie_db::node_db::Hasher;
 use sp_core::storage::{ChildInfo, StateVersion, TrackedStorageKey};
 #[cfg(feature = "std")]
 use sp_core::traits::RuntimeCode;

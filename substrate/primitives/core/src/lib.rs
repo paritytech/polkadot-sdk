@@ -86,7 +86,7 @@ pub use crypto::{ByteArray, DeriveJunction, Pair, Public};
 pub use self::hasher::blake2::Blake2Hasher;
 #[cfg(feature = "std")]
 pub use self::hasher::keccak::KeccakHasher;
-pub use hash_db::Hasher;
+pub use trie_db::node_db::Hasher;
 
 pub use bounded_collections as bounded;
 #[cfg(feature = "std")]

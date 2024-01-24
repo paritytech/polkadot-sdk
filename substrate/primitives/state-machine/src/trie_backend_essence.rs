@@ -24,7 +24,7 @@ use crate::{
 	warn, StorageKey, StorageValue,
 };
 use codec::Codec;
-use hash_db::{self, HashDB, Hasher, Prefix};
+use trie_db::node_db::{self, NodeDB, Hasher, Prefix};
 #[cfg(feature = "std")]
 use parking_lot::RwLock;
 use sp_core::storage::{ChildInfo, ChildType, StateVersion};
@@ -404,11 +404,11 @@ where
 		child_info: Option<&ChildInfo>,
 		callback: impl FnOnce(&sp_trie::TrieDB<Layout<H, DBLocation>>) -> R,
 	) -> R {
-		let backend = self as &dyn HashDB<H, Vec<u8>, DBLocation>;
+		let backend = self as &dyn NodeDB<H, Vec<u8>, DBLocation>;
 		let db = child_info
 			.as_ref()
 			.map(|child_info| KeySpacedDB::new(backend, child_info.keyspace()));
-		let db = db.as_ref().map(|db| db as &dyn HashDB<_, _, _>).unwrap_or(backend);
+		let db = db.as_ref().map(|db| db as &dyn NodeDB<_, _, _>).unwrap_or(backend);
 
 		self.with_recorder_and_cache(Some(root.0), |recorder, cache| {
 			let trie = TrieDBBuilder::<H>::new_with_db_location(db, &root.0, root.1)
@@ -670,7 +670,7 @@ where
 		state_version: StateVersion,
 	) -> TrieCommit<H::Out> {
 		self.with_recorder_and_cache_for_storage_root(None, |recorder, cache| {
-			let backend = self as &dyn HashDB<H, Vec<u8>, DBLocation>;
+			let backend = self as &dyn NodeDB<H, Vec<u8>, DBLocation>;
 			let commit = match state_version {
 				StateVersion::V0 =>
 					delta_trie_root::<sp_trie::LayoutV0<H, DBLocation>, _, _, _, _>(
@@ -717,7 +717,7 @@ where
 
 		let commit =
 			self.with_recorder_and_cache_for_storage_root(Some(child_root.0), |recorder, cache| {
-				let backend = self as &dyn HashDB<H, Vec<u8>, DBLocation>;
+				let backend = self as &dyn NodeDB<H, Vec<u8>, DBLocation>;
 				match match state_version {
 					StateVersion::V0 =>
 						child_delta_trie_root::<sp_trie::LayoutV0<H, DBLocation>, _, _, _, _, _>(
@@ -757,7 +757,7 @@ where
 	}
 }
 
-impl<H: Hasher, C: TrieCacheProvider<H> + Send + Sync> HashDB<H, DBValue, DBLocation>
+impl<H: Hasher, C: TrieCacheProvider<H> + Send + Sync> NodeDB<H, DBValue, DBLocation>
 	for TrieBackendEssence<H, C>
 {
 	fn get(

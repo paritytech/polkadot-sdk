@@ -153,7 +153,7 @@ mod std_reexport {
 		trie_types::{TrieDBMutV0, TrieDBMutV1},
 		CompactProof, DBValue, LayoutV0, LayoutV1, MemoryDB, PrefixedMemoryDB, StorageProof,
 	};
-	pub use hash_db::HashDB;
+	pub use trie_db::node_db::NodeDB;
 }
 
 #[cfg(feature = "std")]
@@ -162,7 +162,7 @@ mod execution {
 
 	use super::*;
 	use codec::Codec;
-	use hash_db::Hasher;
+	use trie_db::node_db::Hasher;
 	use smallvec::SmallVec;
 	use sp_core::{
 		hexdisplay::HexDisplay,

@@ -19,7 +19,7 @@
 
 use crate::{Backend, StorageKey, StorageValue};
 use codec::Encode;
-use hash_db::Hasher;
+use trie_db::node_db::Hasher;
 use sp_core::{
 	storage::{ChildInfo, StateVersion, TrackedStorageKey},
 	traits::Externalities,

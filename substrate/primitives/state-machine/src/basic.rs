@@ -19,7 +19,7 @@
 
 use crate::{Backend, OverlayedChanges, StorageKey, StorageValue, DBLocation};
 use codec::Encode;
-use hash_db::Hasher;
+use trie_db::node_db::Hasher;
 use log::warn;
 use sp_core::{
 	storage::{

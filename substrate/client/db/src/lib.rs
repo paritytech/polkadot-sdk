@@ -58,7 +58,7 @@ use crate::{
 	utils::{meta_keys, read_db, read_meta, Meta},
 };
 use codec::{Decode, Encode};
-use hash_db::Prefix;
+use trie_db::node_db::Prefix;
 use sc_client_api::{
 	backend::NewBlockState,
 	leaves::{FinalizationOutcome, LeafSet},
@@ -87,7 +87,7 @@ use sp_state_machine::{
 	backend::{AsTrieBackend, Backend as StateBackend},
 	ChildStorageCollection, DBValue, IndexOperation, IterArgs, OffchainChangesCollection,
 	StateMachineStats, StorageCollection, StorageIterator, StorageKey, StorageValue,
-	UsageInfo as StateUsageInfo, DBLocation, HashDB, TrieCommit,
+	UsageInfo as StateUsageInfo, DBLocation, NodeDB, TrieCommit,
 };
 use sp_trie::{cache::SharedTrieCache, prefixed_key, MemoryDB, MerkleValue, ChildChangeset};
 
@@ -1024,12 +1024,12 @@ impl<Block: BlockT> StorageDb<Block> {
 }
 
 impl<Block: BlockT> sp_state_machine::AsDB<HashingFor<Block>> for StorageDb<Block> {
-	fn as_hash_db(&self) -> &dyn HashDB<HashingFor<Block>, DBValue, DBLocation> {
+	fn as_node_db(&self) -> &dyn NodeDB<HashingFor<Block>, DBValue, DBLocation> {
 		self
 	}
 }
 
-impl<Block: BlockT> sp_state_machine::HashDB<HashingFor<Block>, DBValue, DBLocation> for StorageDb<Block> {
+impl<Block: BlockT> sp_state_machine::NodeDB<HashingFor<Block>, DBValue, DBLocation> for StorageDb<Block> {
 	fn get(&self, key: &Block::Hash, prefix: Prefix, location: DBLocation) -> Option<(DBValue, Vec<DBLocation>)> {
 		if let Some(state_db) = &self.state_db {
 			let key = prefixed_key::<HashingFor<Block>>(key, prefix);
@@ -1068,14 +1068,14 @@ impl<Block: BlockT> DbGenesisStorage<Block> {
 	}
 }
 
-impl<Block: BlockT> HashDB<HashingFor<Block>, DBValue, DBLocation> for DbGenesisStorage<Block> {
+impl<Block: BlockT> NodeDB<HashingFor<Block>, DBValue, DBLocation> for DbGenesisStorage<Block> {
 	fn get(&self, key: &Block::Hash, prefix: Prefix, location: DBLocation) -> Option<(DBValue, Vec<DBLocation>)> {
-		HashDB::get(&*self.storage, key, prefix, location)
+		NodeDB::get(&*self.storage, key, prefix, location)
 	}
 }
 
 impl <Block: BlockT> sp_state_machine::AsDB<HashingFor<Block>> for DbGenesisStorage<Block> {
-	fn as_hash_db(&self) -> &dyn HashDB<HashingFor<Block>, DBValue, DBLocation> {
+	fn as_node_db(&self) -> &dyn NodeDB<HashingFor<Block>, DBValue, DBLocation> {
 		self
 	}
 }
@@ -1092,7 +1092,7 @@ impl<Block: BlockT> EmptyStorage<Block> {
 	}
 }
 
-impl<Block: BlockT> sp_state_machine::HashDB<HashingFor<Block>, DBValue, DBLocation> for EmptyStorage<Block> {
+impl<Block: BlockT> sp_state_machine::NodeDB<HashingFor<Block>, DBValue, DBLocation> for EmptyStorage<Block> {
 	fn get(&self, _key: &Block::Hash, _prefix: Prefix, _location: DBLocation) -> Option<(DBValue, Vec<DBLocation>)> {
 		None
 	}
@@ -2676,7 +2676,7 @@ impl<Block: BlockT> sc_client_api::backend::LocalBackend<Block> for Backend<Bloc
 pub(crate) mod tests {
 	use super::*;
 	use crate::columns;
-	use hash_db::EMPTY_PREFIX;
+	use trie_db::node_db::EMPTY_PREFIX;
 	use sc_client_api::{
 		backend::{Backend as BTrait, BlockImportOperation as Op},
 		blockchain::Backend as BLBTrait,

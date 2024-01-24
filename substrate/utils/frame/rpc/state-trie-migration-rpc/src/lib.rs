@@ -42,7 +42,7 @@ use trie_db::{
 };
 
 fn count_migrate<'a, H: Hasher>(
-	storage: &'a dyn trie_db::HashDB<H, Vec<u8>, sp_state_machine::DBLocation>,
+	storage: &'a dyn trie_db::NodeDB<H, Vec<u8>, sp_state_machine::DBLocation>,
 	root: &'a H::Out,
 	root_location: sp_state_machine::DBLocation,
 ) -> std::result::Result<(u64, u64, TrieDB<'a, 'a, H>), String> {
@@ -91,7 +91,7 @@ where
 	while let Some(item) = iter_node.next() {
 		let item = item.map_err(|e| format!("TrieDB node iterator error: {}", e))?;
 		let Some(key_value) = iter_node.item_from_raw(&item) else { continue };
-		let location = item.2.node_plan().attached_change_set_location(item.2.locations());
+		let location = item.2.node_plan().additional_ref_location(item.2.locations());
 		let (key, value) = key_value.map_err(|e| format!("TrieDB node iterator error: {}", e))?;
 		if key[..].starts_with(sp_core::storage::well_known_keys::DEFAULT_CHILD_STORAGE_KEY_PREFIX)
 		{

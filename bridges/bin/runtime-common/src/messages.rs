@@ -32,7 +32,7 @@ use bp_messages::{
 use bp_runtime::{Chain, RawStorageProof, Size, StorageProofChecker};
 use codec::{Decode, Encode};
 use frame_support::{traits::Get, weights::Weight};
-use hash_db::Hasher;
+use trie_db::node_db::Hasher;
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
 use sp_std::{convert::TryFrom, marker::PhantomData, vec::Vec};

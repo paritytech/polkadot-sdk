@@ -26,8 +26,7 @@ use crate::{
 };
 
 use codec::Codec;
-use hash_db::HashDB;
-use hash_db::Hasher;
+use trie_db::node_db::{NodeDB, Hasher};
 use sp_trie::{MemoryDB, DBValue, ChildChangeset};
 use sp_core::storage::{ChildInfo, StateVersion};
 #[cfg(feature = "std")]
@@ -168,13 +167,13 @@ type DefaultCache<H, L> = UnimplementedCacheProvider<H, L>;
 
 
 /// Optional features for the database backend.
-pub trait AsDB<H: Hasher>: HashDB<H, DBValue, DBLocation> {
+pub trait AsDB<H: Hasher>: NodeDB<H, DBValue, DBLocation> {
 	/// Returns the underlying `MemoryDB` if this is a `MemoryDB`.
 	fn as_mem_db(&self) -> Option<&MemoryDB<H>> { None }
 	/// Returns the underlying `MemoryDB` if this is a `MemoryDB`.
 	fn as_mem_db_mut(&mut self) -> Option<&mut MemoryDB<H>> { None }
-	/// Returns the underlying `HashDB`.
-	fn as_hash_db(&self) -> &dyn HashDB<H, DBValue, DBLocation>;
+	/// Returns the underlying `NodeDB`.
+	fn as_node_db(&self) -> &dyn NodeDB<H, DBValue, DBLocation>;
 }
 
 impl<H: Hasher> AsDB<H> for MemoryDB<H> {
@@ -186,7 +185,7 @@ impl<H: Hasher> AsDB<H> for MemoryDB<H> {
 		Some(self)
 	}
 
-	fn as_hash_db(&self) -> &dyn HashDB<H, DBValue, DBLocation> {
+	fn as_node_db(&self) -> &dyn NodeDB<H, DBValue, DBLocation> {
 		self
 	}
 }
@@ -612,7 +611,7 @@ where
 {
 	let db = proof.into_memory_db();
 
-	if db.contains(&root, hash_db::EMPTY_PREFIX) {
+	if db.contains(&root, trie_db::node_db::EMPTY_PREFIX) {
 		Ok(TrieBackendBuilder::new(Box::new(db), root).build())
 	} else {
 		Err(Box::new(crate::ExecutionError::InvalidProof))

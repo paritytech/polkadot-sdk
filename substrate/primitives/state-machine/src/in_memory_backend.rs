@@ -22,7 +22,7 @@ use crate::{
 	TrieBackendBuilder,
 };
 use codec::Codec;
-use hash_db::Hasher;
+use trie_db::node_db::Hasher;
 use sp_core::storage::{ChildInfo, StateVersion, Storage};
 use sp_trie::{empty_trie_root, LayoutV1, MemoryDB};
 use std::collections::{BTreeMap, HashMap};

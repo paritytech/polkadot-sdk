@@ -18,7 +18,7 @@
 ///! Provides the [`SharedNodeCache`], the [`SharedValueCache`] and the [`SharedTrieCache`]
 ///! that combines both caches and is exported to the outside.
 use super::{CacheSize, NodeCached};
-use hash_db::Hasher;
+use trie_db::node_db::Hasher;
 use hashbrown::{hash_set::Entry as SetEntry, HashSet};
 use nohash_hasher::BuildNoHashHasher;
 use parking_lot::{Mutex, RwLock, RwLockWriteGuard};

@@ -27,7 +27,7 @@ use crate::{
 	TrieBackendBuilder,
 };
 
-use hash_db::{Hasher, EMPTY_PREFIX};
+use trie_db::node_db::{Hasher, EMPTY_PREFIX};
 use sp_core::{
 	offchain::testing::TestPersistentOffchainDB,
 	storage::{
@@ -419,7 +419,7 @@ mod tests {
 		for _ in 0..expected_ref_count - 1 {
 			original_ext.backend.backend_storage_mut().as_mem_db_mut().unwrap().emplace(
 				ref_count_key,
-				hash_db::EMPTY_PREFIX,
+				trie_db::node_db::EMPTY_PREFIX,
 				// We can use anything for the 'value' because it does not affect behavior when
 				// emplacing an existing key.
 				(&[0u8; 32]).to_vec(),
@@ -430,7 +430,7 @@ mod tests {
 			.backend_storage()
 			.as_mem_db()
 			.unwrap()
-			.raw(&ref_count_key, hash_db::EMPTY_PREFIX)
+			.raw(&ref_count_key, trie_db::node_db::EMPTY_PREFIX)
 			.unwrap()
 			.1;
 		assert_eq!(refcount, expected_ref_count);
@@ -470,7 +470,7 @@ mod tests {
 			.backend_storage()
 			.as_mem_db()
 			.unwrap()
-			.raw(&ref_count_key, hash_db::EMPTY_PREFIX)
+			.raw(&ref_count_key, trie_db::node_db::EMPTY_PREFIX)
 			.unwrap()
 			.1;
 		assert_eq!(refcount, expected_ref_count);

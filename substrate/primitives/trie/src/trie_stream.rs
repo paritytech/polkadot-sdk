@@ -22,7 +22,7 @@ use crate::{
 	trie_constants,
 };
 use codec::{Compact, Encode};
-use hash_db::Hasher;
+use trie_db::node_db::Hasher;
 use sp_std::vec::Vec;
 use trie_root;
 

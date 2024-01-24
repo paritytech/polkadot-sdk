@@ -19,7 +19,7 @@
 use std::sync::Arc;
 
 use sp_core::H256;
-use hash_db::{HashDB, Prefix};
+use trie_db::node_db::{NodeDB, Prefix};
 use kvdb::KeyValueDB;
 use node_primitives::Hash;
 use sp_trie::{DBValue, DBLocation, MemoryDB};
@@ -32,7 +32,7 @@ pub struct SimpleTrie<'a> {
 	pub overlay: &'a mut MemoryDB<Hasher>,
 }
 
-impl<'a> HashDB<Hasher, DBValue, DBLocation> for SimpleTrie<'a> {
+impl<'a> NodeDB<Hasher, DBValue, DBLocation> for SimpleTrie<'a> {
 	fn get(&self, key: &H256, prefix: Prefix, _locaton: DBLocation) -> Option<(DBValue, Vec<DBLocation>)> {
 		if let Some(value) = self.overlay.get(&key, prefix) {
 			return Some((value.clone(), vec![]));

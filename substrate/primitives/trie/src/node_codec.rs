@@ -20,7 +20,7 @@
 use super::node_header::{NodeHeader, NodeKind};
 use crate::{error::Error, trie_constants};
 use codec::{Compact, Decode, Encode, Input};
-use hash_db::Hasher;
+use trie_db::node_db::Hasher;
 use sp_std::{borrow::Borrow, marker::PhantomData, ops::Range, vec::Vec};
 use trie_db::{
 	nibble_ops,

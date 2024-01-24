@@ -23,7 +23,7 @@ mod offchain;
 use self::changeset::OverlayedChangeSet;
 use crate::{backend::{Backend, TrieCommit}, stats::StateMachineStats, DefaultError};
 use codec::{Decode, Encode};
-use hash_db::Hasher;
+use trie_db::node_db::Hasher;
 pub use offchain::OffchainOverlayedChanges;
 use sp_core::{
 	offchain::OffchainOverlayedChange,

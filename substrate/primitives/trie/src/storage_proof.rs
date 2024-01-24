@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use codec::{Decode, Encode};
-use hash_db::Hasher;
+use trie_db::node_db::Hasher;
 use scale_info::TypeInfo;
 use sp_std::{
 	collections::btree_set::BTreeSet,

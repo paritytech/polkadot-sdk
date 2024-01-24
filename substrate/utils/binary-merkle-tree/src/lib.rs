@@ -37,7 +37,7 @@ use alloc::vec;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
-use hash_db::Hasher;
+use trie_db::node_db::Hasher;
 
 /// Construct a root hash of a Binary Merkle Tree created from given leaves.
 ///

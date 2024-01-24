@@ -34,7 +34,7 @@ sc-basic-authorship = { path = "../../../client/basic-authorship" }
 sp-inherents = { path = "../../../primitives/inherents" }
 sp-timestamp = { path = "../../../primitives/timestamp", default-features = false}
 sp-tracing = { path = "../../../primitives/tracing" }
-hash-db = "0.16.0"
+trie-db = "0.28.0"
 tempfile = "3.1.0"
 fs_extra = "1"
 rand = { version = "0.8.5", features = ["small_rng"] }

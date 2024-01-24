@@ -19,7 +19,7 @@
 use crate::StrippableError;
 use codec::{Decode, Encode};
 use frame_support::PalletError;
-use hash_db::{Hasher, EMPTY_PREFIX};
+use trie_db::node_db::{Hasher, EMPTY_PREFIX};
 use scale_info::TypeInfo;
 use sp_std::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 use sp_trie::{
@@ -189,7 +189,7 @@ pub fn craft_valid_storage_proof() -> (sp_core::H256, RawStorageProof) {
 
 /// Record all keys for a given root.
 pub fn record_all_keys<L: TrieConfiguration>(
-	db: &dyn hash_db::HashDB<L::Hash, trie_db::DBValue, L::Location>,
+	db: &dyn trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
 	root: &TrieHash<L>,
 ) -> Result<RawStorageProof, Box<TrieError<L>>> {
 	let mut recorder = Recorder::<L>::new();

@@ -24,7 +24,7 @@ use crate::{
 	IndexOperation, IterArgs, OverlayedChanges, StorageKey, StorageValue,
 };
 use codec::{Encode, EncodeAppend};
-use hash_db::Hasher;
+use trie_db::node_db::Hasher;
 #[cfg(feature = "std")]
 use sp_core::hexdisplay::HexDisplay;
 use sp_core::storage::{

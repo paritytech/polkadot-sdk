@@ -22,7 +22,7 @@ sp-externalities = { path = "../externalities", default-features = false, option
 sp-version = { path = "../version", default-features = false}
 sp-state-machine = { path = "../state-machine", default-features = false, optional = true}
 sp-trie = { path = "../trie", default-features = false, optional = true}
-hash-db = { version = "0.16.0", optional = true }
+trie-db = { version = "0.28.0", optional = true }
 thiserror = { version = "1.0.48", optional = true }
 scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
 sp-metadata-ir = { path = "../metadata-ir", default-features = false, optional = true}
@@ -35,7 +35,7 @@ sp-test-primitives = { path = "../test-primitives" }
 default = [ "std" ]
 std = [
 	"codec/std",
-	"hash-db",
+	"trie-db",
 	"log/std",
 	"scale-info/std",
 	"sp-api-proc-macro/std",

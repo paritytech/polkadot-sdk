@@ -22,7 +22,7 @@
 
 use crate::{NodeCodec, StorageProof};
 use codec::Encode;
-use hash_db::Hasher;
+use trie_db::node_db::Hasher;
 use parking_lot::Mutex;
 use std::{
 	collections::{HashMap, HashSet},

@@ -35,7 +35,7 @@
 //! [`LocalTrieCache`] the actual memory usage could be above the allowed maximum.
 
 use crate::{Error, NodeCodec};
-use hash_db::Hasher;
+use trie_db::node_db::Hasher;
 use nohash_hasher::BuildNoHashHasher;
 use parking_lot::{Mutex, MutexGuard};
 use schnellru::LruMap;

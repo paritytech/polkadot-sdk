@@ -20,7 +20,7 @@
 //! This uses compact proof from trie crate and extends
 //! it to substrate specific layout and child trie system.
 
-use crate::{CompactProof, HashDBT, TrieConfiguration, TrieHash, EMPTY_PREFIX, MemoryDB};
+use crate::{CompactProof, NodeDBT, TrieConfiguration, TrieHash, EMPTY_PREFIX, MemoryDB};
 use sp_std::{boxed::Box, vec::Vec};
 use trie_db::{CError, Trie};
 
@@ -108,7 +108,7 @@ where
 		}
 	}
 
-	if !HashDBT::<L::Hash, _, ()>::contains(db, &top_root, EMPTY_PREFIX, Default::default()) {
+	if !NodeDBT::<L::Hash, _, ()>::contains(db, &top_root, EMPTY_PREFIX, Default::default()) {
 		return Err(Error::IncompleteProof)
 	}
 
@@ -154,7 +154,7 @@ pub fn encode_compact<L, DB>(
 ) -> Result<CompactProof, Error<TrieHash<L>, CError<L>>>
 where
 	L: TrieConfiguration,
-	DB: HashDBT<L::Hash, trie_db::DBValue, L::Location>,
+	DB: NodeDBT<L::Hash, trie_db::DBValue, L::Location>,
 {
 	let mut child_tries = Vec::new();
 	let mut compact_proof = {
@@ -190,7 +190,7 @@ where
 	};
 
 	for child_root in child_tries {
-		if !HashDBT::<L::Hash, _, _>::contains(partial_db, &child_root, EMPTY_PREFIX, Default::default()) {
+		if !NodeDBT::<L::Hash, _, _>::contains(partial_db, &child_root, EMPTY_PREFIX, Default::default()) {
 			// child proof are allowed to be missing (unused root can be included
 			// due to trie structure modification).
 			continue

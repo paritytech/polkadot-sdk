@@ -74,7 +74,7 @@ extern crate self as sp_api;
 pub use codec::{self, Decode, DecodeLimit, Encode};
 #[doc(hidden)]
 #[cfg(feature = "std")]
-pub use hash_db::Hasher;
+pub use trie_db::node_db::Hasher;
 #[doc(hidden)]
 pub use scale_info;
 #[doc(hidden)]

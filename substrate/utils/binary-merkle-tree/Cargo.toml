@@ -11,7 +11,7 @@ homepage = "https://substrate.io"
 [dependencies]
 array-bytes = { version = "6.1", optional = true }
 log = { version = "0.4", default-features = false, optional = true }
-hash-db = { version = "0.16.0", default-features = false }
+trie-db = { version = "0.28.0", default-features = false }
 
 [dev-dependencies]
 array-bytes = "6.1"
@@ -22,4 +22,4 @@ sp-runtime = { path = "../../primitives/runtime" }
 [features]
 debug = [ "array-bytes", "log" ]
 default = [ "debug", "std" ]
-std = [ "hash-db/std", "log/std", "sp-core/std", "sp-runtime/std" ]
+std = [ "trie-db/std", "log/std", "sp-core/std", "sp-runtime/std" ]

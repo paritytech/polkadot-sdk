@@ -32,11 +32,11 @@ mod trie_stream;
 
 /// Our `NodeCodec`-specific error.
 pub use error::Error;
-/// Various re-exports from the `hash-db` crate.
-pub use hash_db::{HashDB as HashDBT, EMPTY_PREFIX};
-use hash_db::{Hasher, Prefix};
-/// Various re-exports from the `memory-db` crate.
-pub use memory_db::{prefixed_key, HashKey, KeyFunction, PrefixedKey};
+/// Various re-exports from the `node_db` module of `trie-db` crate.
+pub use trie_db::node_db::{NodeDB as NodeDBT, EMPTY_PREFIX};
+use trie_db::node_db::{Hasher, Prefix};
+/// Various re-exports from the `memory_db` module of `trie-db` crate.
+pub use trie_db::memory_db::{prefixed_key, HashKey, KeyFunction, PrefixedKey};
 /// The Substrate format implementation of `NodeCodec`.
 pub use node_codec::NodeCodec;
 use sp_std::{borrow::Borrow, boxed::Box, marker::PhantomData, vec::Vec};
@@ -161,17 +161,17 @@ pub type DBLocation = ();
 
 /// TrieDB error over `TrieConfiguration` trait.
 pub type TrieError<L> = trie_db::TrieError<TrieHash<L>, CError<L>>;
-/// Reexport from `hash_db`, with genericity set for `Hasher` trait.
-pub type HashDB<'a, H, L> = dyn hash_db::HashDB<H, trie_db::DBValue, L> + 'a;
-/// Reexport from `hash_db`, with genericity set for `Hasher` trait.
+/// Reexport from `trie_db`, with genericity set for `Hasher` trait.
+pub type NodeDB<'a, H, L> = dyn trie_db::node_db::NodeDB<H, trie_db::DBValue, L> + 'a;
+/// Reexport from `trie_db`, with genericity set for `Hasher` trait.
 /// This uses a noops `KeyFunction` (key addressing must be hashed or using
 /// an encoding scheme that avoid key conflict).
-pub type MemoryDB<H> = memory_db::MemoryDB<H, memory_db::HashKey<H>, trie_db::DBValue>;
-/// Reexport from `hash_db`, with genericity set for `Hasher` trait.
+pub type MemoryDB<H> = trie_db::memory_db::MemoryDB<H, trie_db::memory_db::HashKey<H>, trie_db::DBValue>;
+/// Reexport from `trie_db`, with genericity set for `Hasher` trait.
 /// This uses a prefixed `KeyFunction`
-pub type PrefixedMemoryDB<H> = memory_db::MemoryDB<H, memory_db::PrefixedKey<H>, trie_db::DBValue>;
-/// Reexport from `hash_db`, with genericity set for `Hasher` trait.
-pub type GenericMemoryDB<H, KF> = memory_db::MemoryDB<H, KF, trie_db::DBValue>;
+pub type PrefixedMemoryDB<H> = trie_db::memory_db::MemoryDB<H, trie_db::memory_db::PrefixedKey<H>, trie_db::DBValue>;
+/// Reexport from `trie_db`, with genericity set for `Hasher` trait.
+pub type GenericMemoryDB<H, KF> = trie_db::memory_db::MemoryDB<H, KF, trie_db::DBValue>;
 
 /// Persistent trie database read-access interface for the a given hasher.
 pub type TrieDB<'a, 'cache, L> = trie_db::TrieDB<'a, 'cache, L>;
@@ -186,7 +186,7 @@ pub type Lookup<'a, 'cache, L, Q> = trie_db::Lookup<'a, 'cache, L, Q>;
 /// Hash type for a trie layout.
 pub type TrieHash<L> = <<L as TrieLayout>::Hash as Hasher>::Out;
 /// Change set for child trie.
-pub type ChildChangeset<H> = Box<trie_db::triedbmut::ChangesetNodeRef<H, DBLocation>>;
+pub type ChildChangeset<H> = Box<trie_db::triedbmut::TreeRefChangeset<H, DBLocation>>;
 
 /// This module is for non generic definition of trie type.
 /// Only the `Hasher` trait is generic in this case.
@@ -238,7 +238,7 @@ where
 	L: TrieConfiguration,
 	I: IntoIterator<Item = &'a K>,
 	K: 'a + AsRef<[u8]>,
-	DB: hash_db::HashDB<L::Hash, trie_db::DBValue, L::Location>,
+	DB: trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
 {
 	generate_proof::<_, L, _, _>(db, &root, keys)
 }
@@ -267,7 +267,7 @@ where
 
 /// Determine a trie root given a hash DB and delta values.
 pub fn delta_trie_root<L: TrieConfiguration, I, A, B, V>(
-	db: &dyn hash_db::HashDB<L::Hash, trie_db::DBValue, L::Location>,
+	db: &dyn trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
 	root: Root<L>,
 	delta: I,
 	recorder: Option<&mut dyn trie_db::TrieRecorder<TrieHash<L>, L::Location>>,
@@ -289,8 +289,8 @@ where
 
 	for (key, change, set) in delta {
 		match change.borrow() {
-			Some(val) => trie.insert_with_child_changes(key.borrow(), val.borrow(), set)?,
-			None => trie.remove_with_child_changes(key.borrow(), set)?,
+			Some(val) => trie.insert_with_tree_ref(key.borrow(), val.borrow(), set)?,
+			None => trie.remove_with_tree_ref(key.borrow(), set)?,
 		};
 	}
 	Ok(trie.commit())
@@ -299,7 +299,7 @@ where
 /// Read a value from the trie.
 pub fn read_trie_value<
 	L: TrieLayout,
-	DB: hash_db::HashDB<L::Hash, trie_db::DBValue, L::Location>,
+	DB: trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
 >(
 	db: &DB,
 	root: &TrieHash<L>,
@@ -317,7 +317,7 @@ pub fn read_trie_value<
 /// Read a value from the trie, get db location if db uses it.
 pub fn read_trie_value_with_location<
 	L: TrieLayout,
-	DB: hash_db::HashDB<L::Hash, trie_db::DBValue, L::Location>,
+	DB: trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
 >(
 	db: &DB,
 	root: &TrieHash<L>,
@@ -336,7 +336,7 @@ pub fn read_trie_value_with_location<
 	let Some(item) = iter.next() else { return Ok(None) };
 	let item = item?;
 	let node = &item.2;
-	let location = node.node_plan().attached_change_set_location(node.locations());
+	let location = node.node_plan().additional_ref_location(node.locations());
 	let Some(root) = iter.item_from_raw(&item) else { return Ok(None) };
 	let (root_key2, root) = root?;
 	// TODO should be a debug_assert
@@ -357,7 +357,7 @@ pub fn read_trie_first_descendant_value<L: TrieLayout, DB>(
 	cache: Option<&mut dyn TrieCache<L::Codec, L::Location>>,
 ) -> Result<Option<MerkleValue<TrieHash<L>>>, Box<TrieError<L>>>
 where
-	DB: hash_db::HashDB<L::Hash, trie_db::DBValue, L::Location>,
+	DB: trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
 {
 	TrieDBBuilder::<L>::new(db, root)
 		.with_optional_cache(cache)
@@ -370,7 +370,7 @@ where
 pub fn read_trie_value_with<
 	L: TrieLayout,
 	Q: Query<L::Hash, Item = Vec<u8>>,
-	DB: hash_db::HashDB<L::Hash, trie_db::DBValue, L::Location>,
+	DB: trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
 >(
 	db: &DB,
 	root: &TrieHash<L>,
@@ -405,7 +405,7 @@ where
 /// but a generic implementation may ignore this type parameter and use other hashers.
 pub fn child_delta_trie_root<L: TrieConfiguration, I, A, B, RD, V>(
 	keyspace: &[u8],
-	db: &dyn hash_db::HashDB<L::Hash, trie_db::DBValue, L::Location>,
+	db: &dyn trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
 	root_data: RD,
 	root_location: L::Location,
 	delta: I,
@@ -431,7 +431,7 @@ where
 /// Read a value from the child trie.
 pub fn read_child_trie_value<L: TrieConfiguration>(
 	keyspace: &[u8],
-	db: &dyn hash_db::HashDB<L::Hash, trie_db::DBValue, L::Location>,
+	db: &dyn trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
 	root: &Root<L>,
 	key: &[u8],
 	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>, L::Location>>,
@@ -449,7 +449,7 @@ pub fn read_child_trie_value<L: TrieConfiguration>(
 /// Read a hash from the child trie.
 pub fn read_child_trie_hash<L: TrieConfiguration>(
 	keyspace: &[u8],
-	db: &dyn hash_db::HashDB<L::Hash, trie_db::DBValue, L::Location>,
+	db: &dyn trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
 	root: &Root<L>,
 	key: &[u8],
 	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>, L::Location>>,
@@ -474,7 +474,7 @@ pub fn read_child_trie_first_descedant_value<L: TrieConfiguration, DB>(
 	cache: Option<&mut dyn TrieCache<L::Codec, L::Location>>,
 ) -> Result<Option<MerkleValue<TrieHash<L>>>, Box<TrieError<L>>>
 where
-	DB: hash_db::HashDB<L::Hash, trie_db::DBValue, L::Location>,
+	DB: trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
 {
 	let db = KeySpacedDB::new(db, keyspace);
 	TrieDBBuilder::<L>::new_with_db_location(&db, &root.0, root.1)
@@ -487,7 +487,7 @@ where
 /// Read a value from the child trie with given query.
 pub fn read_child_trie_value_with<L, Q, DB>(
 	keyspace: &[u8],
-	db: &dyn hash_db::HashDB<L::Hash, trie_db::DBValue, L::Location>,
+	db: &dyn trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
 	root_slice: &[u8],
 	root_location: L::Location,
 	key: &[u8],
@@ -496,7 +496,7 @@ pub fn read_child_trie_value_with<L, Q, DB>(
 where
 	L: TrieConfiguration,
 	Q: Query<L::Hash, Item = DBValue>,
-	DB: hash_db::HashDB<L::Hash, trie_db::DBValue, L::Location>,
+	DB: trie_db::node_db::NodeDB<L::Hash, trie_db::DBValue, L::Location>,
 {
 	let mut root = TrieHash::<L>::default();
 	// root is fetched from DB, not writable by runtime, so it's always valid.
@@ -509,9 +509,9 @@ where
 		.map(|x| x.map(|val| val.to_vec()))
 }
 
-/// `HashDB` implementation that append a encoded prefix (unique id bytes) in addition to the
+/// `NodeDB` implementation that append a encoded prefix (unique id bytes) in addition to the
 /// prefix of every key value.
-pub struct KeySpacedDB<'a, H, T, DL>(&'a dyn hash_db::HashDB<H, T, DL>, &'a [u8]);
+pub struct KeySpacedDB<'a, H, T, DL>(&'a dyn trie_db::node_db::NodeDB<H, T, DL>, &'a [u8]);
 
 /// Utility function used to merge some byte data (keyspace) and `prefix` data
 /// before calling key value database primitives.
@@ -525,12 +525,12 @@ fn keyspace_as_prefix_alloc(ks: &[u8], prefix: Prefix) -> (Vec<u8>, Option<u8>) 
 impl<'a, H, T, DL> KeySpacedDB<'a, H, T, DL> {
 	/// instantiate new keyspaced db
 	#[inline]
-	pub fn new(db: &'a dyn hash_db::HashDB<H, T, DL>, ks: &'a [u8]) -> Self {
+	pub fn new(db: &'a dyn trie_db::node_db::NodeDB<H, T, DL>, ks: &'a [u8]) -> Self {
 		KeySpacedDB(db, ks)
 	}
 }
 
-impl<'a, H, T, L> hash_db::HashDB<H, T, L> for KeySpacedDB<'a, H, T, L>
+impl<'a, H, T, L> trie_db::node_db::NodeDB<H, T, L> for KeySpacedDB<'a, H, T, L>
 where
 	H: Hasher,
 	T: From<&'static [u8]>,
@@ -562,7 +562,7 @@ mod trie_constants {
 mod tests {
 	use super::*;
 	use codec::{Compact, Decode, Encode};
-	use hash_db::{HashDB, Hasher};
+	use trie_db::node_db::{NodeDB, Hasher};
 	use sp_core::Blake2Hasher;
 	use trie_db::{DBValue, NodeCodec as NodeCodecT, Trie};
 	use trie_standardmap::{Alphabet, StandardMap, ValueMode};
@@ -570,7 +570,7 @@ mod tests {
 	type LayoutV0 = super::LayoutV0<Blake2Hasher, ()>;
 	type LayoutV1 = super::LayoutV1<Blake2Hasher, ()>;
 
-	type MemoryDBMeta<H> = memory_db::MemoryDB<H, memory_db::HashKey<H>, trie_db::DBValue>;
+	type MemoryDBMeta<H> = trie_db::memory_db::MemoryDB<H, trie_db::memory_db::HashKey<H>, trie_db::DBValue>;
 
 	fn hashed_null_node<T: TrieConfiguration>() -> TrieHash<T> {
 		<T::Codec as NodeCodecT>::hashed_null_node()
@@ -723,7 +723,7 @@ mod tests {
 	}
 
 	fn populate_trie<'db, T: TrieConfiguration>(
-		db: &'db dyn HashDB<T::Hash, DBValue, T::Location>,
+		db: &'db dyn NodeDB<T::Hash, DBValue, T::Location>,
 		v: &[(Vec<u8>, Vec<u8>)],
 	) -> TrieDBMut<'db, T> {
 		let mut t = TrieDBMutBuilder::<T>::new(db).build();
