@@ -104,7 +104,7 @@ pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 frame_support::construct_runtime!(
 	pub struct Runtime
 	{
-		System: frame_system::{Pallet, Call, Event<T>, Origin<T>} = 30,
+		System: frame_system,
 		ModuleSingleInstance: module_single_instance::{HoldReason, FreezeReason},
 		ModuleMultiInstance0: module_multi_instance::{HoldReason, FreezeReason} = 50,
 		ModuleMultiInstance1: module_multi_instance::<Instance1>::{HoldReason, FreezeReason} = 51,
