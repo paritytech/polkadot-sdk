@@ -47,7 +47,7 @@ The Polkadot-SDK has two release channels: `stable` and `nightly`. Production so
 ### Stable
 
 `stable` releases have a support duration of **three months**. In this period, the release will not have any breaking
-changes. It will receive receive bug, security fixes, performance fixes and new non-breaking features on a **two week**
+changes. It will receive bug fixes, security fixes, performance fixes and new non-breaking features on a **two week**
 cadence.
 
 ### Nightly
