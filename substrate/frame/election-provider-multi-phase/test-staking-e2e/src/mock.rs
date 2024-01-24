@@ -317,7 +317,7 @@ impl pallet_staking::Config for Runtime {
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type MaxControllersInDeprecationBatch = ConstU32<100>;
 	type HistoryDepth = HistoryDepth;
-	type EventListeners = ();
+	type EventListeners = Pools;
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 }

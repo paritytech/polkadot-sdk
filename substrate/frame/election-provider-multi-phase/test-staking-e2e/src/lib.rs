@@ -389,6 +389,12 @@ fn ledger_consistency_active_balance_below_ed() {
 }
 
 #[test]
+/// Automatic withdraw of unlocking funds in staking propagates to the nomination pools and its
+/// state correctly.
+///
+/// The staking pallet may withdraw unlocking funds from a pool's bonded account without a pool
+/// member or operator calling explicitly `Call::withdraw*`. This test verifies that the member's
+/// are eventually paid and the `TotalValueLocked` is kept in sync in those cases.
 fn automatic_unbonding_pools() {
 	use pallet_nomination_pools::TotalValueLocked;
 
@@ -484,7 +490,8 @@ fn automatic_unbonding_pools() {
 		// but the locked amount in the pool's account decreases due to the auto-withdraw:
 		assert_eq!(locked_before_withdraw_pool - 10, locked_amount_for(pool_bonded_account));
 
-		assert_eq!(TotalValueLocked::<Runtime>::get(), 25);
+		// TVL correctly updated.
+		assert_eq!(TotalValueLocked::<Runtime>::get(), 25 - 10);
 
 		// however, note that the withdrawing from the pool still works for 2, the funds are taken
 		// from the pool's free balance.
@@ -493,11 +500,7 @@ fn automatic_unbonding_pools() {
 		assert_eq!(Balances::free_balance(pool_bonded_account), 16);
 
 		assert_eq!(Balances::free_balance(2), 20);
-		assert_eq!(TotalValueLocked::<Runtime>::get(), 25);
-
-		// TODO(fix): TVL is updated upon `bond` and `withdraw`. withdraw was not called yet
-		// (auto-withdraw), thus the TVL is out of sync.
-		assert_eq!(TotalValueLocked::<Runtime>::get(), 25);
+		assert_eq!(TotalValueLocked::<Runtime>::get(), 15);
 
 		// 3 cannot withdraw yet.
 		assert_err!(
@@ -519,9 +522,6 @@ fn automatic_unbonding_pools() {
 		assert_eq!(Balances::free_balance(2), init_free_balance_2);
 		assert_eq!(Balances::free_balance(3), init_free_balance_3);
 
-		// TODO(fix): TVL is 15? should be 5 only (bonded by the pool's creator).
-		assert!(TotalValueLocked::<Runtime>::get() > init_tvl);
-
-		// TODO(fix): try-state will fail due to TVL out of sync.
+		assert_eq!(TotalValueLocked::<Runtime>::get(), init_tvl);
 	});
 }
