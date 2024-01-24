@@ -29,7 +29,6 @@ use jsonrpsee::{
 use log::*;
 use serde::de::DeserializeOwned;
 use sp_core::{
-	hashing::twox_128,
 	hexdisplay::HexDisplay,
 	storage::{
 		well_known_keys::{is_default_child_storage_key, DEFAULT_CHILD_STORAGE_KEY_PREFIX},
@@ -190,7 +189,8 @@ impl Transport {
 				uri.clone()
 			};
 			let http_client = HttpClientBuilder::default()
-				.max_request_body_size(u32::MAX)
+				.max_request_size(u32::MAX)
+				.max_response_size(u32::MAX)
 				.request_timeout(std::time::Duration::from_secs(60 * 5))
 				.build(uri)
 				.map_err(|e| {
@@ -999,10 +999,11 @@ where
 
 		// Then, a few transformation that we want to perform in the online config:
 		let online_config = self.as_online_mut();
-		online_config
-			.pallets
-			.iter()
-			.for_each(|p| online_config.hashed_prefixes.push(twox_128(p.as_bytes()).to_vec()));
+		online_config.pallets.iter().for_each(|p| {
+			online_config
+				.hashed_prefixes
+				.push(sp_crypto_hashing::twox_128(p.as_bytes()).to_vec())
+		});
 
 		if online_config.child_trie {
 			online_config.hashed_prefixes.push(DEFAULT_CHILD_STORAGE_KEY_PREFIX.to_vec());

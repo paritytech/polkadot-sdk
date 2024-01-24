@@ -320,6 +320,16 @@ pub enum BlocksPruning {
 	Some(u32),
 }
 
+impl BlocksPruning {
+	/// True if this is an archive pruning mode (either KeepAll or KeepFinalized).
+	pub fn is_archive(&self) -> bool {
+		match *self {
+			BlocksPruning::KeepAll | BlocksPruning::KeepFinalized => true,
+			BlocksPruning::Some(_) => false,
+		}
+	}
+}
+
 /// Where to find the database..
 #[derive(Debug, Clone)]
 pub enum DatabaseSource {
