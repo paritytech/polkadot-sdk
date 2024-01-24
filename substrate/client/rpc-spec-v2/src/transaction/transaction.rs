@@ -253,7 +253,13 @@ where
 		Ok(Some(id))
 	}
 
-	fn stop_broadcast(&self, _operation_id: String) -> RpcResult<()> {
+	fn stop_broadcast(&self, operation_id: String) -> RpcResult<()> {
+		let mut broadcast_ids = self.broadcast_ids.write();
+
+		// TODO: Signal error on wrong operation ID.
+		let Some(broadcast_state) = broadcast_ids.remove(&operation_id) else { return Ok(()) };
+		broadcast_state.handle.abort();
+
 		Ok(())
 	}
 }
