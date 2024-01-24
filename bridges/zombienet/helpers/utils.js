@@ -33,6 +33,25 @@ module.exports = {
             0,
         );
     },
+    pollUntil: async function(
+        timeoutInSecs,
+        predicate,
+        cleanup,
+        onFailure,
+    )  {
+        const begin = new Date().getTime();
+        const end = begin + timeoutInSecs * 1000;
+        while (new Date().getTime() < end) {
+            if (predicate()) {
+                cleanup();
+                return;
+            }
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        cleanup();
+        onFailure();
+    },
     ensureOnlyMandatoryGrandpaHeadersImported: async function(
         bridgedChain,
         apiAtParent,

@@ -11,7 +11,7 @@ async function run(nodeName, networkInfo, args) {
     // start listening to new blocks
     let atLeastOneMessageReceived = false;
     let atLeastOneMessageDelivered = false;
-    api.rpc.chain.subscribeNewHeads(async function (header) {
+    const unsubscribe = await api.rpc.chain.subscribeNewHeads(async function (header) {
         const apiAtParent = await api.at(header.parentHash);
         const apiAtCurrent = await api.at(header.hash);
         const currentEvents = await apiAtCurrent.query.system.events();
@@ -60,22 +60,22 @@ async function run(nodeName, networkInfo, args) {
                 throw new Error("Unexpected parachain header import: " + newParachainHeaders + " / " + messageTransactions);
             }
         }
-
-        // if we have received message and confirmation => exit
-        if (atLeastOneMessageReceived && atLeastOneMessageDelivered) {
-            process.exit();
-        }
     });
 
-    // wait given time
-    await new Promise(resolve => setTimeout(resolve, exitAfterSeconds * 1000));
-    // if we haven't seen any new GRANDPA or parachain headers => fail
-    if (!atLeastOneMessageReceived) {
-        throw new Error("No messages received from bridged chain");
-    }
-    if (!atLeastOneMessageDelivered) {
-        throw new Error("No messages delivered to bridged chain");
-    }
+    // wait until we have received + delivered messages OR until timeout
+    await utils.pollUntil(
+        exitAfterSeconds,
+        () => { return atLeastOneMessageReceived && atLeastOneMessageDelivered; },
+        () => { unsubscribe(); },
+        () => {
+            if (!atLeastOneMessageReceived) {
+                throw new Error("No messages received from bridged chain");
+            }
+            if (!atLeastOneMessageDelivered) {
+                throw new Error("No messages delivered to bridged chain");
+            }
+        },
+    );
 }
 
 module.exports = { run }
