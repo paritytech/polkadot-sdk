@@ -241,6 +241,8 @@ impl crate::paras::Config for Test {
 	type UnsignedPriority = ParasUnsignedPriority;
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = TestNextSessionRotation;
+	type PreCodeUpgrade = ();
+	type OnCodeUpgraded = ();
 	type OnNewHead = ();
 	type AssignCoretime = ();
 }

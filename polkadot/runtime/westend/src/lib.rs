@@ -1143,6 +1143,8 @@ impl parachains_paras::Config for Runtime {
 	type UnsignedPriority = ParasUnsignedPriority;
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = Babe;
+	type PreCodeUpgrade = ();
+	type OnCodeUpgraded = ();
 	type OnNewHead = ();
 	type AssignCoretime = ();
 }
@@ -1273,6 +1275,7 @@ impl parachains_slashing::Config for Runtime {
 
 parameter_types! {
 	pub const ParaDeposit: Balance = 2000 * CENTS;
+	pub const UpgradeFee: Balance = 0;
 	pub const RegistrarDataDepositPerByte: Balance = deposit(0, 1);
 }
 
@@ -1283,6 +1286,7 @@ impl paras_registrar::Config for Runtime {
 	type OnSwap = (Crowdloan, Slots);
 	type ParaDeposit = ParaDeposit;
 	type DataDepositPerByte = RegistrarDataDepositPerByte;
+	type UpgradeFee = UpgradeFee;
 	type WeightInfo = weights::runtime_common_paras_registrar::WeightInfo<Runtime>;
 }
 
@@ -1644,7 +1648,7 @@ pub mod migrations {
 		parachains_scheduler::migration::MigrateV1ToV2<Runtime>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
-		paras_registrar::migration::MigrateToV1<Runtime, ()>,
+		paras_registrar::migration::v2::MigrateToV2<Runtime>,
 		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
 		pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
 		parachains_configuration::migration::v10::MigrateToV10<Runtime>,

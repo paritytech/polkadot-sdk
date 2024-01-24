@@ -942,6 +942,8 @@ impl parachains_paras::Config for Runtime {
 	type UnsignedPriority = ParasUnsignedPriority;
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = Babe;
+	type PreCodeUpgrade = Registrar;
+	type OnCodeUpgraded = Registrar;
 	type OnNewHead = Registrar;
 	type AssignCoretime = CoretimeAssignmentProvider;
 }
@@ -1076,6 +1078,7 @@ impl parachains_slashing::Config for Runtime {
 
 parameter_types! {
 	pub const ParaDeposit: Balance = 40 * UNITS;
+	pub const UpgradeFee: Balance = 2 * UNITS;
 }
 
 impl paras_registrar::Config for Runtime {
@@ -1084,6 +1087,7 @@ impl paras_registrar::Config for Runtime {
 	type Currency = Balances;
 	type OnSwap = (Crowdloan, Slots);
 	type ParaDeposit = ParaDeposit;
+	type UpgradeFee = UpgradeFee;
 	type DataDepositPerByte = DataDepositPerByte;
 	type WeightInfo = weights::runtime_common_paras_registrar::WeightInfo<Runtime>;
 }
@@ -1631,7 +1635,7 @@ pub mod migrations {
 		parachains_scheduler::migration::MigrateV1ToV2<Runtime>,
 		parachains_configuration::migration::v8::MigrateToV8<Runtime>,
 		parachains_configuration::migration::v9::MigrateToV9<Runtime>,
-		paras_registrar::migration::MigrateToV1<Runtime, ()>,
+		paras_registrar::migration::v2::MigrateToV2<Runtime>,
 		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
 		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, pallet_referenda::Instance2>,
 
@@ -2260,7 +2264,7 @@ sp_api::impl_runtime_apis! {
 			use sp_storage::TrackedStorageKey;
 			use xcm::latest::prelude::*;
 			use xcm_config::{
-				AssetHub, LocalCheckAccount, LocationConverter, TokenLocation, XcmConfig,
+				AssetHub, LocalCheckAccount, TokenLocation, XcmConfig,
 			};
 
 			parameter_types! {
@@ -2316,7 +2320,7 @@ sp_api::impl_runtime_apis! {
 			}
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = XcmConfig;
-				type AccountIdConverter = LocationConverter;
+				type AccountIdConverter = xcm_config::LocationConverter;
 				type DeliveryHelper = runtime_common::xcm_sender::ToParachainDeliveryHelper<
 					XcmConfig,
 					ExistentialDepositAsset,
