@@ -22,7 +22,7 @@ use sp_std::{
 	collections::btree_map::{BTreeMap, Entry},
 };
 use sp_trie::NodeCodec;
-use trie_db::{node::NodeOwned, Hasher};
+use trie_db::{node::NodeOwned, node_db::Hasher};
 
 /// Special purpose trie cache implementation that is able to cache an unlimited number
 /// of values. To be used in `validate_block` to serve values and nodes that

@@ -5916,7 +5916,7 @@ dependencies = [
 [[package]]
 name = "hash256-std-hasher"
 version = "0.15.2"
-source = "git+https://github.com/cheme/trie.git?branch=cheme/new-trie#fca95774cfc84124c5a22a4fe343f3fdf7e2e6e9"
+source = "git+https://github.com/cheme/trie.git?branch=cheme/new-trie#26e462da954036c11d253c0ca231844075a82515"
 dependencies = [
  "crunchy",
 ]
@@ -17558,7 +17558,7 @@ version = "22.0.0"
 dependencies = [
  "ahash 0.8.3",
  "array-bytes",
- "criterion 0.4.0",
+ "criterion 0.5.1",
  "hashbrown 0.13.2",
  "lazy_static",
  "nohash-hasher",
@@ -17572,7 +17572,6 @@ dependencies = [
  "thiserror",
  "tracing",
  "trie-db",
- "trie-root",
  "trie-standardmap",
 ]
 
@@ -19077,7 +19076,7 @@ dependencies = [
 [[package]]
 name = "trie-db"
 version = "0.28.0"
-source = "git+https://github.com/cheme/trie.git?branch=cheme/new-trie#fca95774cfc84124c5a22a4fe343f3fdf7e2e6e9"
+source = "git+https://github.com/cheme/trie.git?branch=cheme/new-trie#26e462da954036c11d253c0ca231844075a82515"
 dependencies = [
  "criterion 0.5.1",
  "hash256-std-hasher 0.15.2 (git+https://github.com/cheme/trie.git?branch=cheme/new-trie)",
@@ -19086,15 +19085,6 @@ dependencies = [
  "rustc-hex",
  "smallvec",
  "tiny-keccak",
-]
-
-[[package]]
-name = "trie-root"
-version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4ed310ef5ab98f5fa467900ed906cb9232dd5376597e00fd4cba2a449d06c0b"
-dependencies = [
- "hash-db",
 ]
 
 [[package]]

@@ -35,7 +35,7 @@ use sp_state_machine::{
 };
 use sp_trie::{
 	cache::{CacheSize, SharedTrieCache},
-	MemoryDB, MerkleValue, ChildChangeset,
+	MemoryDB, MerkleValue, ChildChangesetH,
 };
 use std::{
 	cell::{Cell, RefCell},
@@ -414,13 +414,13 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for BenchmarkingState<B> {
 
 	fn storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<B::Hash>>)>,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangesetH<B::Hash>>)>,
 		state_version: StateVersion,
 	) -> TrieCommit<B::Hash> {
 		self.state
 			.borrow()
 			.as_ref()
-			.map_or(TrieCommit::empty(self.genesis_root), |s| s.storage_root(delta, state_version))
+			.map_or(TrieCommit::unchanged(self.genesis_root), |s| s.storage_root(delta, state_version))
 	}
 
 	fn child_storage_root<'a>(
@@ -432,7 +432,7 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for BenchmarkingState<B> {
 		self.state
 			.borrow()
 			.as_ref()
-			.map_or_else(|| (TrieCommit::empty(self.genesis_root), true), |s| s.child_storage_root(child_info, delta, state_version))
+			.map_or_else(|| (TrieCommit::unchanged(self.genesis_root), true), |s| s.child_storage_root(child_info, delta, state_version))
 	}
 
 	fn raw_iter(&self, args: IterArgs) -> Result<Self::RawIter, Self::Error> {

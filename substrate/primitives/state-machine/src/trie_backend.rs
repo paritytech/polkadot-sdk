@@ -27,7 +27,7 @@ use crate::{
 
 use codec::Codec;
 use trie_db::node_db::{NodeDB, Hasher};
-use sp_trie::{MemoryDB, DBValue, ChildChangeset};
+use sp_trie::{MemoryDB, DBValue, ChildChangesetH};
 use sp_core::storage::{ChildInfo, StateVersion};
 #[cfg(feature = "std")]
 use sp_trie::{
@@ -555,7 +555,7 @@ where
 
 	fn storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<H::Out>>)>,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangesetH<H::Out>>)>,
 		state_version: StateVersion,
 	) -> TrieCommit<H::Out>
 	where

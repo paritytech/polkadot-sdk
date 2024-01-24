@@ -1,5 +1,4 @@
 // This file is part of Substrate.
-
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -29,11 +28,11 @@ use trie_db::node_db::Hasher;
 use sp_core::storage::{ChildInfo, StateVersion, TrackedStorageKey};
 #[cfg(feature = "std")]
 use sp_core::traits::RuntimeCode;
-use sp_std::vec::Vec;
+use sp_std::{boxed::Box, vec::Vec};
 
 /// DB location hint for a trie node.
 pub type DBLocation = sp_trie::DBLocation;
-use sp_trie::{MerkleValue, ChildChangeset};
+use sp_trie::{MerkleValue, ChildChangesetH};
 
 /// A struct containing arguments for iterating over the storage.
 #[derive(Default)]
@@ -245,7 +244,7 @@ pub trait Backend<H: Hasher>: sp_std::fmt::Debug {
 	/// Does not include child storage updates.
 	fn storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<H::Out>>)>,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangesetH<H::Out>>)>,
 		state_version: StateVersion,
 	) -> TrieCommit<H::Out>
 	where
@@ -308,8 +307,7 @@ pub trait Backend<H: Hasher>: sp_std::fmt::Debug {
 				child_roots.push((prefixed_storage_key.into_inner(), None, None));
 			} else {
 				let root = child_commit.root_hash();
-				let change_to_insert = child_commit.to_insert_in_other_trie(child_info.keyspace().to_vec());
-				child_roots.push((prefixed_storage_key.into_inner(), Some(root.encode()), Some(change_to_insert)));
+				child_roots.push((prefixed_storage_key.into_inner(), Some(root.encode()), Some(Box::new(child_commit))));
 			}
 		}
 		self.storage_root(
@@ -317,11 +315,7 @@ pub trait Backend<H: Hasher>: sp_std::fmt::Debug {
 				.map(|(k, v)| (k, v.as_ref().map(|v| &v[..]), None))
 				.chain(child_roots.iter_mut().map(|(k, r, c)| {
 					let root = r.as_ref().map(|r| r.as_slice());
-					if let Some(child_commit) = core::mem::take(c) {
-						(k.as_slice(), root, Some(child_commit))
-					} else {
-						(k.as_slice(), root, None)
-					}
+					(k.as_slice(), root, core::mem::take(c))
 				})),
 			state_version,
 		)

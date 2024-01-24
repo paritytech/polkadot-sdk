@@ -24,7 +24,7 @@ use crate::{
 use codec::{Compact, Encode};
 use trie_db::node_db::Hasher;
 use sp_std::vec::Vec;
-use trie_root;
+use trie_db::trie_root;
 
 /// Codec-flavored TrieStream.
 #[derive(Default, Clone)]
@@ -71,8 +71,8 @@ fn fuse_nibbles_node(nibbles: &[u8], kind: NodeKind) -> impl Iterator<Item = u8>
 		.chain(nibbles[nibbles.len() % 2..].chunks(2).map(|ch| ch[0] << 4 | ch[1]))
 }
 
-use trie_db::trie_root::Value as TrieStreamValue;
-impl trie_db::trie_root::TrieStream for TrieStream {
+use trie_root::Value as TrieStreamValue;
+impl trie_root::TrieStream for TrieStream {
 	fn new() -> Self {
 		Self { buffer: Vec::new() }
 	}

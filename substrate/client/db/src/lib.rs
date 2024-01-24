@@ -89,7 +89,7 @@ use sp_state_machine::{
 	StateMachineStats, StorageCollection, StorageIterator, StorageKey, StorageValue,
 	UsageInfo as StateUsageInfo, DBLocation, NodeDB, TrieCommit,
 };
-use sp_trie::{cache::SharedTrieCache, prefixed_key, MemoryDB, MerkleValue, ChildChangeset};
+use sp_trie::{cache::SharedTrieCache, prefixed_key, MemoryDB, MerkleValue, ChildChangesetH};
 
 // Re-export the Database trait so that one can pass an implementation of it.
 pub use sc_state_db::PruningMode;
@@ -250,7 +250,7 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 
 	fn storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<B::Hash>>)>,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangesetH<B::Hash>>)>,
 		state_version: StateVersion,
 	) -> TrieCommit<B::Hash> {
 		self.state.storage_root(delta, state_version)
@@ -1152,7 +1152,7 @@ pub fn apply_tree_commit<H: Hash>(commit: TrieCommit<H::Out>, db_tree_support: b
 
 	if db_tree_support {
 		let hash = commit.root_hash();
-		match commit.root {
+		match commit {
 			sp_trie::Changeset::Existing(node) => {
 				tx.reference_tree(columns::STATE, DbHash::from_slice(node.hash.as_ref()));
 			}
@@ -2199,7 +2199,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		Ok(BlockImportOperation {
 			pending_block: None,
 			old_state: self.empty_state(),
-			db_updates: TrieCommit::empty(Default::default()),
+			db_updates: TrieCommit::unchanged(Default::default()),
 			storage_updates: Default::default(),
 			child_storage_updates: Default::default(),
 			offchain_storage_updates: Default::default(),
@@ -2729,7 +2729,7 @@ pub(crate) mod tests {
 
 		// Insert some fake data to ensure that the block can be found in the state column.
 		let commit = op.old_state.storage_root(
-			vec![(block_hash.as_ref(), Some(block_hash.as_ref()))].into_iter(),
+			vec![(block_hash.as_ref(), Some(block_hash.as_ref()), None)].into_iter(),
 			StateVersion::V1,
 		);
 		let root = commit.root_hash();
@@ -2767,7 +2767,7 @@ pub(crate) mod tests {
 				}
 			})
 			.storage_root(
-				vec![(parent_hash.as_ref(), Some(parent_hash.as_ref()))].into_iter(),
+				vec![(parent_hash.as_ref(), Some(parent_hash.as_ref())), None].into_iter(),
 				StateVersion::V1,
 			)
 			.root_hash();
@@ -2851,7 +2851,7 @@ pub(crate) mod tests {
 
 			header.state_root = op
 				.old_state
-				.storage_root(storage.iter().map(|(x, y)| (&x[..], Some(&y[..]))), state_version)
+				.storage_root(storage.iter().map(|(x, y)| (&x[..], Some(&y[..]), None)), state_version)
 				.root_hash()
 				.into();
 			let hash = header.hash();
@@ -2892,7 +2892,7 @@ pub(crate) mod tests {
 			let storage = vec![(vec![1, 3, 5], None), (vec![5, 5, 5], Some(vec![4, 5, 6]))];
 
 			let commit = op.old_state.storage_root(
-				storage.iter().map(|(k, v)| (k.as_slice(), v.as_ref().map(|v| &v[..]))),
+				storage.iter().map(|(k, v)| (k.as_slice(), v.as_ref().map(|v| &v[..]), None)),
 				state_version,
 			);
 			let root = commit.root_hash();
@@ -2985,7 +2985,7 @@ pub(crate) mod tests {
 
 			header.state_root = op
 				.old_state
-				.storage_root(storage.iter().cloned().map(|(x, y)| (x, Some(y))), state_version)
+				.storage_root(storage.iter().cloned().map(|(x, y)| (x, Some(y), None)), state_version)
 				.root_hash()
 				.into();
 			let hash = header.hash();
@@ -3032,20 +3032,19 @@ pub(crate) mod tests {
 
 			header.state_root = op
 				.old_state
-				.storage_root(storage.iter().cloned().map(|(x, y)| (x, Some(y))), state_version)
+				.storage_root(storage.iter().cloned().map(|(x, y)| (x, Some(y), None)), state_version)
 				.root_hash()
 				.into();
 			let hash = header.hash();
 
 			op.db_updates = TrieCommit {
-				main: sp_trie::Changeset {
-					root: sp_trie::Changeset::Existing(sp_trie::ExistingChangesetNode{
+				main:
+				 sp_trie::Changeset::Existing(sp_trie::NewChangesetNode{
 						hash: Default::default(),
 						prefix: Default::default(),
 						location: Default::default(),
+						removed_keys: Some(None, vec![(key.into(), Default::default())]),
 					}),
-					removed: vec![(key.into(), Default::default())],
-				},
 				child: Default::default(),
 			};
 
@@ -3077,7 +3076,7 @@ pub(crate) mod tests {
 
 			header.state_root = op
 				.old_state
-				.storage_root(storage.iter().cloned().map(|(x, y)| (x, Some(y))), state_version)
+				.storage_root(storage.iter().cloned().map(|(x, y)| (x, Some(y), None)), state_version)
 				.root_hash()
 				.into();
 			let hash = header.hash();
@@ -3104,7 +3103,7 @@ pub(crate) mod tests {
 
 			header.state_root = op
 				.old_state
-				.storage_root(storage.iter().cloned().map(|(x, y)| (x, Some(y))), state_version)
+				.storage_root(storage.iter().cloned().map(|(x, y)| (x, Some(y), None)), state_version)
 				.root_hash()
 				.into();
 			let hash = header.hash();
@@ -3442,7 +3441,7 @@ pub(crate) mod tests {
 
 			header.state_root = op
 				.old_state
-				.storage_root(storage.iter().map(|(x, y)| (&x[..], Some(&y[..]))), state_version)
+				.storage_root(storage.iter().map(|(x, y)| (&x[..], Some(&y[..]), None)), state_version)
 				.root_hash()
 				.into();
 			let hash = header.hash();
@@ -3479,7 +3478,7 @@ pub(crate) mod tests {
 			let storage = vec![(b"test".to_vec(), Some(b"test2".to_vec()))];
 
 			let commit = op.old_state.storage_root(
-				storage.iter().map(|(k, v)| (k.as_slice(), v.as_ref().map(|v| &v[..]))),
+				storage.iter().map(|(k, v)| (k.as_slice(), v.as_ref().map(|v| &v[..]), None)),
 				state_version,
 			);
 			let root = commit.root_hash();
@@ -4157,7 +4156,7 @@ pub(crate) mod tests {
 				let storage = vec![(vec![1, 3, 5], None), (vec![5, 5, 5], Some(vec![4, 5, 6]))];
 
 				let commit = op.old_state.storage_root(
-					storage.iter().map(|(k, v)| (k.as_slice(), v.as_ref().map(|v| &v[..]))),
+					storage.iter().map(|(k, v)| (k.as_slice(), v.as_ref().map(|v| &v[..]), None)),
 					StateVersion::V1,
 				);
 				let root = commit.root_hash();
@@ -4203,7 +4202,7 @@ pub(crate) mod tests {
 				let storage = vec![(vec![5, 5, 5], Some(vec![4, 5, 6, 2]))];
 
 				let commit = op.old_state.storage_root(
-					storage.iter().map(|(k, v)| (k.as_slice(), v.as_ref().map(|v| &v[..]))),
+					storage.iter().map(|(k, v)| (k.as_slice(), v.as_ref().map(|v| &v[..]), None)),
 					StateVersion::V1,
 				);
 				let root = commit.root_hash();
@@ -4249,7 +4248,7 @@ pub(crate) mod tests {
 				let storage = vec![(vec![5, 5, 5], Some(vec![4, 5, 6, 3]))];
 
 				let commit = op.old_state.storage_root(
-					storage.iter().map(|(k, v)| (k.as_slice(), v.as_ref().map(|v| &v[..]))),
+					storage.iter().map(|(k, v)| (k.as_slice(), v.as_ref().map(|v| &v[..]), None)),
 					StateVersion::V1,
 				);
 				let root = commit.root_hash();
@@ -4287,7 +4286,7 @@ pub(crate) mod tests {
 				let storage = vec![(vec![5, 5, 5], Some(vec![4, 5, 6, 4]))];
 
 				let commit = op.old_state.storage_root(
-					storage.iter().map(|(k, v)| (k.as_slice(), v.as_ref().map(|v| &v[..]))),
+					storage.iter().map(|(k, v)| (k.as_slice(), v.as_ref().map(|v| &v[..]), None)),
 					StateVersion::V1,
 				);
 				let root = commit.root_hash();

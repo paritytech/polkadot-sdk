@@ -42,7 +42,7 @@ use trie_db::{
 };
 
 fn count_migrate<'a, H: Hasher>(
-	storage: &'a dyn trie_db::NodeDB<H, Vec<u8>, sp_state_machine::DBLocation>,
+	storage: &'a dyn trie_db::node_db::NodeDB<H, Vec<u8>, sp_state_machine::DBLocation>,
 	root: &'a H::Out,
 	root_location: sp_state_machine::DBLocation,
 ) -> std::result::Result<(u64, u64, TrieDB<'a, 'a, H>), String> {

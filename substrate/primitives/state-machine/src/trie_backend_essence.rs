@@ -24,7 +24,7 @@ use crate::{
 	warn, StorageKey, StorageValue,
 };
 use codec::Codec;
-use trie_db::node_db::{self, NodeDB, Hasher, Prefix};
+use trie_db::node_db::{NodeDB, Hasher, Prefix};
 #[cfg(feature = "std")]
 use parking_lot::RwLock;
 use sp_core::storage::{ChildInfo, ChildType, StateVersion};
@@ -34,7 +34,7 @@ use sp_trie::recorder::Recorder;
 use sp_trie::{
 	child_delta_trie_root, delta_trie_root, empty_child_trie_root,
 	read_child_trie_first_descedant_value, read_child_trie_hash, read_child_trie_value,
-	read_trie_first_descendant_value, read_trie_value, read_trie_value_with_location, ChildChangeset,
+	read_trie_first_descendant_value, read_trie_value, read_trie_value_with_location, ChildChangesetH,
 	trie_types::{TrieDBBuilder, TrieError},
 	DBValue, KeySpacedDB, MerkleValue, NodeCodec, Trie, TrieCache, TrieDBRawIterator, TrieRecorder,
 };
@@ -666,7 +666,7 @@ where
 	/// Return the storage root after applying the given `delta`.
 	pub fn storage_root<'a>(
 		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangeset<H::Out>>)>,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>, Option<ChildChangesetH<H::Out>>)>,
 		state_version: StateVersion,
 	) -> TrieCommit<H::Out> {
 		self.with_recorder_and_cache_for_storage_root(None, |recorder, cache| {
@@ -689,7 +689,7 @@ where
 				),
 				Err(e) => {
 					warn!(target: "trie", "Failed to write to trie: {}", e);
-					(None, TrieCommit::empty(self.root))
+					(None, TrieCommit::unchanged(self.root))
 				},
 			}
 		})
@@ -746,7 +746,7 @@ where
 					),
 					Err(e) => {
 						warn!(target: "trie", "Failed to write to trie: {}", e);
-						(None, TrieCommit::empty(self.root))
+						(None, TrieCommit::unchanged(self.root))
 					},
 				}
 			});
