@@ -31,7 +31,7 @@ sp-arithmetic = { path = "../../../../../substrate/primitives/arithmetic", defau
 
 snowbridge-beacon-primitives = { path = "../beacon", default-features = false }
 
-ethabi = { git = "https://github.com/Snowfork/ethabi-decode.git", package = "ethabi-decode", branch = "master", default-features = false }
+ethabi = { package = "ethabi-decode", version = "1.0.0", default-features = false }
 
 [dev-dependencies]
 hex = { version = "0.4.3" }

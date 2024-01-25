@@ -28,7 +28,7 @@ sp-std = { path = "../../../../../substrate/primitives/std", default-features = 
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
 sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
 
-ethabi = { git = "https://github.com/snowfork/ethabi-decode.git", package = "ethabi-decode", branch = "master", default-features = false }
+ethabi = { package = "ethabi-decode", version = "1.0.0", default-features = false }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.19"

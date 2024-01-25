@@ -230,15 +230,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4436e0292ab1bb631b42973c61205e704475fe8126af845c8d923c0996328127"
 
 [[package]]
-name = "amcl"
-version = "0.3.0"
-source = "git+https://github.com/snowfork/milagro_bls?rev=a6d66e4eb89015e352fb1c9f7b661ecdbb5b2176#a6d66e4eb89015e352fb1c9f7b661ecdbb5b2176"
-dependencies = [
- "parity-scale-codec",
- "scale-info",
-]
-
-[[package]]
 name = "android-tzdata"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5037,8 +5028,9 @@ dependencies = [
 
 [[package]]
 name = "ethabi-decode"
-version = "1.4.0"
-source = "git+https://github.com/snowfork/ethabi-decode.git?branch=master#7d215837b626650bd9a076821e57ad488101301f"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09d398648d65820a727d6a81e58b962f874473396a047e4c30bafe3240953417"
 dependencies = [
  "ethereum-types",
  "tiny-keccak",
@@ -8022,20 +8014,6 @@ dependencies = [
  "futures",
  "rand",
  "thrift",
-]
-
-[[package]]
-name = "milagro_bls"
-version = "1.5.0"
-source = "git+https://github.com/snowfork/milagro_bls?rev=a6d66e4eb89015e352fb1c9f7b661ecdbb5b2176#a6d66e4eb89015e352fb1c9f7b661ecdbb5b2176"
-dependencies = [
- "amcl",
- "hex",
- "lazy_static",
- "parity-scale-codec",
- "rand",
- "scale-info",
- "zeroize",
 ]
 
 [[package]]
@@ -17509,6 +17487,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "snowbridge-amcl"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "460a9ed63cdf03c1b9847e8a12a5f5ba19c4efd5869e4a737e05be25d7c427e5"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+]
+
+[[package]]
 name = "snowbridge-beacon-primitives"
 version = "0.9.0"
 dependencies = [
@@ -17517,12 +17505,12 @@ dependencies = [
  "frame-system",
  "hex",
  "hex-literal",
- "milagro_bls",
  "parity-scale-codec",
  "rlp",
  "scale-info",
  "serde",
  "snowbridge-ethereum",
+ "snowbridge-milagro-bls",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -17577,6 +17565,21 @@ dependencies = [
  "sp-runtime",
  "sp-std 8.0.0",
  "wasm-bindgen-test",
+]
+
+[[package]]
+name = "snowbridge-milagro-bls"
+version = "1.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "026aa8638f690a53e3f7676024b9e913b1cab0111d1b7b92669d40a188f9d7e6"
+dependencies = [
+ "hex",
+ "lazy_static",
+ "parity-scale-codec",
+ "rand",
+ "scale-info",
+ "snowbridge-amcl",
+ "zeroize",
 ]
 
 [[package]]
