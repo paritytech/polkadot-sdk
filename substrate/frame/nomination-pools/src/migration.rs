@@ -57,11 +57,9 @@ pub mod versioned {
 }
 
 pub mod v8 {
-	use super::*;
+	use super::{v7::V7BondedPoolInner, *};
 
-	use super::v7::BondedPoolInner as OldBondedPoolInner;
-
-	impl<T: Config> OldBondedPoolInner<T> {
+	impl<T: Config> V7BondedPoolInner<T> {
 		fn migrate_to_v8(self) -> BondedPoolInner<T> {
 			BondedPoolInner {
 				commission: Commission {
@@ -89,7 +87,7 @@ pub mod v8 {
 
 		fn on_runtime_upgrade() -> Weight {
 			let mut translated = 0u64;
-			BondedPools::<T>::translate::<OldBondedPoolInner<T>, _>(|_key, old_value| {
+			BondedPools::<T>::translate::<V7BondedPoolInner<T>, _>(|_key, old_value| {
 				translated.saturating_inc();
 				Some(old_value.migrate_to_v8())
 			});
@@ -119,7 +117,7 @@ pub(crate) mod v7 {
 	#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEq, Clone)]
 	#[codec(mel_bound(T: Config))]
 	#[scale_info(skip_type_params(T))]
-	pub struct Commission<T: Config> {
+	pub struct V7Commission<T: Config> {
 		pub current: Option<(Perbill, T::AccountId)>,
 		pub max: Option<Perbill>,
 		pub change_rate: Option<CommissionChangeRate<BlockNumberFor<T>>>,
@@ -129,7 +127,7 @@ pub(crate) mod v7 {
 	#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEq, Clone)]
 	#[codec(mel_bound(T: Config))]
 	#[scale_info(skip_type_params(T))]
-	pub struct BondedPoolInner<T: Config> {
+	pub struct V7BondedPoolInner<T: Config> {
 		pub commission: Commission<T>,
 		pub member_counter: u32,
 		pub points: BalanceOf<T>,
@@ -140,19 +138,20 @@ pub(crate) mod v7 {
 	#[allow(dead_code)]
 	#[derive(RuntimeDebugNoBound)]
 	#[cfg_attr(feature = "std", derive(Clone, PartialEq))]
-	pub struct BondedPool<T: Config> {
+	pub struct V7BondedPool<T: Config> {
 		/// The identifier of the pool.
 		id: PoolId,
 		/// The inner fields.
 		inner: BondedPoolInner<T>,
 	}
 
-	impl<T: Config> BondedPool<T> {
+	impl<T: Config> V7BondedPool<T> {
 		fn bonded_account(&self) -> T::AccountId {
 			Pallet::<T>::create_bonded_account(self.id)
 		}
 	}
 
+	// NOTE: We cannot put a V7 prefix here since that would change the storage key.
 	#[frame_support::storage_alias]
 	pub type BondedPools<T: Config> =
 		CountedStorageMap<Pallet<T>, Twox64Concat, PoolId, BondedPoolInner<T>>;
@@ -163,7 +162,7 @@ pub(crate) mod v7 {
 			BondedPools::<T>::iter()
 				.map(|(id, inner)| {
 					T::Staking::total_stake(
-						&BondedPool { id, inner: inner.clone() }.bonded_account(),
+						&V7BondedPool { id, inner: inner.clone() }.bonded_account(),
 					)
 					.unwrap_or_default()
 				})
