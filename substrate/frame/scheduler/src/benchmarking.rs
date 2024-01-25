@@ -315,7 +315,7 @@ benchmarks! {
 		let address = Lookup::<T>::get(name).unwrap();
 		let period: BlockNumberFor<T> = 1u32.into();
 		let root: <T as Config>::PalletsOrigin = frame_system::RawOrigin::Root.into();
-		Retries::<T>::insert(address.clone(), RetryConfig { total_retries: 10, remaining: 10, period });
+		Retries::<T>::insert(address, RetryConfig { total_retries: 10, remaining: 10, period });
 		let (mut when, index) = address;
 		let task = Agenda::<T>::get(when)[index as usize].clone().unwrap();
 	}: {
