@@ -533,7 +533,7 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = ConstU32<1>;
-	type MaxHolds = ConstU32<6>;
+	type MaxHolds = ConstU32<7>;
 }
 
 parameter_types! {
@@ -1901,6 +1901,7 @@ impl pallet_state_trie_migration::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ControlOrigin = EnsureRoot<AccountId>;
 	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type MaxKeyLen = MigrationMaxKeyLen;
 	type SignedDepositPerItem = MigrationSignedDepositPerItem;
 	type SignedDepositBase = MigrationSignedDepositBase;
