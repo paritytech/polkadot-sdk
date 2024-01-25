@@ -18,7 +18,7 @@
 
 //! API trait for transactions.
 
-use crate::transaction::event::TransactionEvent;
+use crate::transaction::{error::ErrorBroadcast, event::TransactionEvent};
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use sp_core::Bytes;
 
@@ -56,5 +56,5 @@ pub trait TransactionBroadcastApi<Hash: Clone> {
 	///
 	/// This method is unstable and subject to change in the future.
 	#[method(name = "transaction_unstable_stop", blocking)]
-	fn stop_broadcast(&self, operation_id: String) -> RpcResult<()>;
+	fn stop_broadcast(&self, operation_id: String) -> Result<(), ErrorBroadcast>;
 }

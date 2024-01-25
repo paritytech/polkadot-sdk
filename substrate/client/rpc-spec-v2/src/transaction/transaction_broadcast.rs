@@ -34,6 +34,8 @@ use sp_core::Bytes;
 use sp_runtime::traits::Block as BlockT;
 use std::{collections::HashMap, sync::Arc};
 
+use super::error::ErrorBroadcast;
+
 /// An API for transaction RPC calls.
 pub struct TransactionBroadcast<Pool, Client> {
 	/// Substrate client.
@@ -202,11 +204,14 @@ where
 		Ok(Some(id))
 	}
 
-	fn stop_broadcast(&self, operation_id: String) -> RpcResult<()> {
+	fn stop_broadcast(&self, operation_id: String) -> Result<(), ErrorBroadcast> {
 		let mut broadcast_ids = self.broadcast_ids.write();
 
 		// TODO: Signal error on wrong operation ID.
-		let Some(broadcast_state) = broadcast_ids.remove(&operation_id) else { return Ok(()) };
+		let Some(broadcast_state) = broadcast_ids.remove(&operation_id) else {
+			return Err(ErrorBroadcast::InvalidOperationID)
+		};
+
 		broadcast_state.handle.abort();
 
 		Ok(())
