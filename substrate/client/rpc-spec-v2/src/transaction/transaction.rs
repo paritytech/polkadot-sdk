@@ -37,6 +37,8 @@ use jsonrpsee::{
 	types::error::ErrorObject,
 	PendingSubscriptionSink,
 };
+use sc_client_api::BlockchainEvents;
+
 use parking_lot::RwLock;
 use rand::{distributions::Alphanumeric, Rng};
 use sc_rpc::utils::pipe_from_stream;
@@ -119,7 +121,12 @@ where
 	Pool: TransactionPool + Sync + Send + 'static,
 	Pool::Hash: Unpin,
 	<Pool::Block as BlockT>::Hash: Unpin,
-	Client: HeaderBackend<Pool::Block> + ProvideRuntimeApi<Pool::Block> + Send + Sync + 'static,
+	Client: HeaderBackend<Pool::Block>
+		+ BlockchainEvents<Pool::Block>
+		+ ProvideRuntimeApi<Pool::Block>
+		+ Send
+		+ Sync
+		+ 'static,
 {
 	fn submit_and_watch(&self, pending: PendingSubscriptionSink, xt: Bytes) {
 		let client = self.client.clone();
@@ -171,11 +178,15 @@ where
 	}
 
 	fn broadcast(&self, bytes: Bytes) -> RpcResult<Option<String>> {
-		let client = self.client.clone();
 		let pool = self.pool.clone();
 
 		// The unique ID of this operation.
 		let id = self.generate_unique_id();
+
+		let mut best_block_import_stream =
+			Box::pin(self.client.import_notification_stream().filter_map(
+				|notification| async move { notification.is_new_best.then_some(notification.hash) },
+			));
 
 		let broadcast_transaction_fut = async move {
 			// There is nothing we could do with an extrinsic of invalid format.
@@ -187,7 +198,8 @@ where
 			let mut is_done = false;
 
 			while !is_done {
-				let best_block_hash = client.info().best_hash;
+				let Some(best_block_hash) = best_block_import_stream.next().await else { return };
+
 				let submit =
 					pool.submit_and_watch(best_block_hash, TX_SOURCE, decoded_extrinsic.clone());
 
