@@ -50,6 +50,12 @@ pub(crate) struct Fisherman<B: Block, BE, P, R> {
 	pub _phantom: PhantomData<B>,
 }
 
+struct CanonicalHashHeaderPayload<B: Block> {
+	hash: B::Hash,
+	header: B::Header,
+	payload: Payload,
+}
+
 impl<B, BE, R, P> Fisherman<B, BE, P, R>
 where
 	B: Block,
@@ -58,10 +64,10 @@ where
 	R: ProvideRuntimeApi<B> + Send + Sync,
 	R::Api: BeefyApi<B, AuthorityId, MmrRootHash> + MmrApi<B, MmrRootHash, NumberFor<B>>,
 {
-	fn canonical_hash_header_payload_tuple(
+	fn canonical_hash_header_payload(
 		&self,
 		number: NumberFor<B>,
-	) -> Result<(B::Hash, B::Header, Payload), Error> {
+	) -> Result<CanonicalHashHeaderPayload<B>, Error> {
 		// This should be un-ambiguous since `number` is finalized.
 		let hash = self
 			.backend
@@ -75,7 +81,7 @@ where
 			.map_err(|e| Error::Backend(e.to_string()))?;
 		self.payload_provider
 			.payload(&header)
-			.map(|payload| (hash, header, payload))
+			.map(|payload| CanonicalHashHeaderPayload { hash, header, payload })
 			.ok_or_else(|| Error::Backend("BEEFY Payload not found".into()))
 	}
 
@@ -233,13 +239,12 @@ where
 			};
 			self.report_fork_equivocation(proof)?;
 		} else {
-			let (correct_hash, canonical_header, canonical_payload) =
-				self.canonical_hash_header_payload_tuple(number)?;
-			if vote.commitment.payload != canonical_payload {
+			let canonical_hhp = self.canonical_hash_header_payload(number)?;
+			if vote.commitment.payload != canonical_hhp.payload {
 				let ancestry_proof: Option<_> = match self
 					.runtime
 					.runtime_api()
-					.generate_ancestry_proof(correct_hash, number, None)
+					.generate_ancestry_proof(canonical_hhp.hash, number, None)
 				{
 					Ok(Ok(ancestry_proof)) => Some(ancestry_proof),
 					Ok(Err(e)) => {
@@ -254,7 +259,7 @@ where
 				let proof = ForkEquivocationProof {
 					commitment: vote.commitment,
 					signatories: vec![(vote.id, vote.signature)],
-					canonical_header: Some(canonical_header),
+					canonical_header: Some(canonical_hhp.header),
 					ancestry_proof,
 				};
 				self.report_fork_equivocation(proof)?;
@@ -309,11 +314,10 @@ where
 				self.report_fork_equivocation(proof)?;
 			}
 		} else {
-			let (correct_hash, canonical_header, canonical_payload) =
-				self.canonical_hash_header_payload_tuple(number)?;
-			if commitment.payload != canonical_payload {
+			let canonical_hhp = self.canonical_hash_header_payload(number)?;
+			if commitment.payload != canonical_hhp.payload {
 				let ancestry_proof = match self.runtime.runtime_api().generate_ancestry_proof(
-					correct_hash,
+					canonical_hhp.hash,
 					number,
 					None,
 				) {
@@ -327,7 +331,7 @@ where
 						None
 					},
 				};
-				let validator_set = self.active_validator_set_at(correct_hash)?;
+				let validator_set = self.active_validator_set_at(canonical_hhp.hash)?;
 				if signatures.len() != validator_set.validators().len() {
 					// invalid proof
 					return Ok(())
@@ -345,7 +349,7 @@ where
 					let proof = ForkEquivocationProof {
 						commitment,
 						signatories,
-						canonical_header: Some(canonical_header),
+						canonical_header: Some(canonical_hhp.header),
 						ancestry_proof,
 					};
 					self.report_fork_equivocation(proof)?;
