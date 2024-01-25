@@ -2876,7 +2876,7 @@
 				}
 			});
 
-			json_patch::merge(<span class="kw-2">&amp;mut </span>default_config, <span class="kw-2">&amp;</span>patch);
+			sc_chain_spec::json_merge(<span class="kw-2">&amp;mut </span>default_config, patch);
 
 			<span class="comment">// Build genesis config using custom json:
 			</span><span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new_empty();

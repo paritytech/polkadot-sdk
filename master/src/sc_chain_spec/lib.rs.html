@@ -421,6 +421,7 @@
 <a href="#421" id="421">421</a>
 <a href="#422" id="422">422</a>
 <a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -761,6 +762,7 @@
 		GenesisBlockBuilder,
 	},
 	genesis_config_builder::GenesisConfigBuilderRuntimeCaller,
+	json_patch::merge <span class="kw">as </span>json_merge,
 };
 <span class="kw">pub use </span>sc_chain_spec_derive::{ChainSpecExtension, ChainSpecGroup};
 
