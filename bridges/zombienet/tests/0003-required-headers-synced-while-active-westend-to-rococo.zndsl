@@ -3,10 +3,10 @@ Network: ../../../cumulus/zombienet/bridge-hubs/bridge_hub_rococo_local_network.
 Creds: config
 
 # step 1: initialize Rococo AH
-asset-hub-rococo-collator1: run ../scripts/invoke-script.sh with "init-asset-hub-rococo-local" within 600 seconds
+asset-hub-rococo-collator1: run ../scripts/invoke-script.sh with "init-asset-hub-rococo-local" within 60 seconds
 
 # step 2: initialize Rococo bridge hub
-bridge-hub-rococo-collator1: run ../scripts/invoke-script.sh with "init-bridge-hub-rococo-local" within 600 seconds
+bridge-hub-rococo-collator1: run ../scripts/invoke-script.sh with "init-bridge-hub-rococo-local" within 60 seconds
 
 # step 3: ensure that initialization has completed
 asset-hub-rococo-collator1: js-script ../helpers/wait-hrmp-channel-opened.js with "1013" within 600 seconds
@@ -14,7 +14,8 @@ asset-hub-rococo-collator1: js-script ../helpers/wait-account-nonce-finalized.js
 bridge-hub-rococo-collator1: js-script ../helpers/wait-account-nonce-finalized.js with "500,5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY,3" within 600 seconds
 
 # step 4: send message from Rococo to Westend
-asset-hub-rococo-collator1: run ../scripts/invoke-script.sh with "reserve-transfer-assets-from-asset-hub-rococo-local" within 120 seconds
+asset-hub-rococo-collator1: run ../scripts/invoke-script.sh with "reserve-transfer-assets-from-asset-hub-rococo-local" within 60 seconds
+asset-hub-rococo-collator1: js-script ../helpers/wait-account-nonce-finalized.js with "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY,2" within 600 seconds
 
 # step 5: start relayer
 # (we are starting it after sending the message to be sure that relayer won't relay messages before our js script

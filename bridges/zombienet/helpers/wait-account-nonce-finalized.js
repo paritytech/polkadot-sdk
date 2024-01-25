@@ -5,9 +5,8 @@ async function run(nodeName, networkInfo, args) {
     const api = await zombie.connect(wsUri, userDefinedTypes);
 
     // parse arguments
-    const exitAfterSeconds = Number(args[0]);
-    const account = args[1];
-    const expectedNonce = Number(args[2]);
+    const account = args[0];
+    const expectedNonce = Number(args[1]);
 
     // start listening to new finalized blocks
     let nonceMatches = false;
@@ -23,7 +22,7 @@ async function run(nodeName, networkInfo, args) {
 
     // wait until we have received + delivered messages OR until timeout
     await utils.pollUntil(
-        exitAfterSeconds,
+        60 * 60,
         () => { return nonceMatches; },
         () => { unsubscribe(); },
         () => { throw new Error("Account transactions are not included into finalized block. Too many reorgs?"); },
