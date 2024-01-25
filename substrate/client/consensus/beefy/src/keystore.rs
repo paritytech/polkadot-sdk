@@ -213,7 +213,7 @@ where
 
 #[cfg(test)]
 pub mod tests {
-	use sp_consensus_beefy::{ecdsa_crypto, test_utils::BeefySignerAuthority, test_utils::GenericKeyring, test_utils::Keyring};
+    use sp_consensus_beefy::{ecdsa_crypto, test_utils::{BeefySignerAuthority, Keyring, generate_in_store}};
 	use sp_core::Pair as PairT;
 	use sp_keystore::testing::MemoryKeystore;
 
@@ -233,17 +233,17 @@ pub mod tests {
 		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<sp_runtime::traits::Keccak256>,
 	{
 		let msg = b"I am Alice!";
-		let sig = <Keyring as GenericKeyring<AuthorityId>>::sign(Keyring::Alice, b"I am Alice!");
+		let sig = Keyring::<AuthorityId>::Alice.sign(b"I am Alice!");
 
 		assert!(<AuthorityId as BeefyAuthorityId<BeefySignatureHasher>>::verify(
-			&<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Alice),
+			&Keyring::Alice.public(),
 			&sig,
 			&msg.as_slice(),
 		));
 
 		// different public key -> fail
 		assert!(!<AuthorityId as BeefyAuthorityId<BeefySignatureHasher>>::verify(
-			&<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Bob),
+			&Keyring::Bob.public(),
 			&sig,
 			&msg.as_slice(),
 		));
@@ -252,7 +252,7 @@ pub mod tests {
 
 		// different msg -> fail
 		assert!(!<AuthorityId as BeefyAuthorityId<BeefySignatureHasher>>::verify(
-			&<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Alice),
+			&Keyring::Alice.public(),
 			&sig,
 			&msg.as_slice(),
 		));
@@ -277,53 +277,53 @@ pub mod tests {
 			Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
 		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<sp_runtime::traits::Keccak256>,
 	{
-		let want = <Keyring as GenericKeyring<AuthorityId>>::KeyPair::from_string("//Alice", None)
+		let want = <AuthorityId as AppCrypto>::Pair::from_string("//Alice", None)
 			.expect("Pair failed")
 			.to_raw_vec();
-		let got = <Keyring as GenericKeyring<AuthorityId>>::pair(Keyring::Alice).to_raw_vec();
+		let got = Keyring::<AuthorityId>::Alice.pair().to_raw_vec();
 		assert_eq!(want, got);
 
-		let want = <Keyring as GenericKeyring<AuthorityId>>::KeyPair::from_string("//Bob", None)
+		let want = <AuthorityId as AppCrypto>::Pair::from_string("//Bob", None)
 			.expect("Pair failed")
 			.to_raw_vec();
-		let got = <Keyring as GenericKeyring<AuthorityId>>::pair(Keyring::Bob).to_raw_vec();
+		let got = Keyring::<AuthorityId>::Bob.pair().to_raw_vec();
 		assert_eq!(want, got);
 
 		let want =
-			<Keyring as GenericKeyring<AuthorityId>>::KeyPair::from_string("//Charlie", None)
+			<AuthorityId as AppCrypto>::Pair::from_string("//Charlie", None)
 				.expect("Pair failed")
 				.to_raw_vec();
-		let got = <Keyring as GenericKeyring<AuthorityId>>::pair(Keyring::Charlie).to_raw_vec();
+		let got = Keyring::<AuthorityId>::Charlie.pair().to_raw_vec();
 		assert_eq!(want, got);
 
-		let want = <Keyring as GenericKeyring<AuthorityId>>::KeyPair::from_string("//Dave", None)
+		let want = <AuthorityId as AppCrypto>::Pair::from_string("//Dave", None)
 			.expect("Pair failed")
 			.to_raw_vec();
-		let got = <Keyring as GenericKeyring<AuthorityId>>::pair(Keyring::Dave).to_raw_vec();
+		let got = Keyring::<AuthorityId>::Dave.pair().to_raw_vec();
 		assert_eq!(want, got);
 
-		let want = <Keyring as GenericKeyring<AuthorityId>>::KeyPair::from_string("//Eve", None)
+		let want = <AuthorityId as AppCrypto>::Pair::from_string("//Eve", None)
 			.expect("Pair failed")
 			.to_raw_vec();
-		let got = <Keyring as GenericKeyring<AuthorityId>>::pair(Keyring::Eve).to_raw_vec();
+	    let got = Keyring::<AuthorityId>::Eve.pair().to_raw_vec();
 		assert_eq!(want, got);
 
-		let want = <Keyring as GenericKeyring<AuthorityId>>::KeyPair::from_string("//Ferdie", None)
+		let want = <AuthorityId as AppCrypto>::Pair::from_string("//Ferdie", None)
 			.expect("Pair failed")
 			.to_raw_vec();
-		let got = <Keyring as GenericKeyring<AuthorityId>>::pair(Keyring::Ferdie).to_raw_vec();
+		let got = Keyring::<AuthorityId>::Ferdie.pair().to_raw_vec();
 		assert_eq!(want, got);
 
-		let want = <Keyring as GenericKeyring<AuthorityId>>::KeyPair::from_string("//One", None)
+		let want = <AuthorityId as AppCrypto>::Pair::from_string("//One", None)
 			.expect("Pair failed")
 			.to_raw_vec();
-		let got = <Keyring as GenericKeyring<AuthorityId>>::pair(Keyring::One).to_raw_vec();
+		let got = Keyring::<AuthorityId>::One.pair().to_raw_vec();
 		assert_eq!(want, got);
 
-		let want = <Keyring as GenericKeyring<AuthorityId>>::KeyPair::from_string("//Two", None)
+		let want = <AuthorityId as AppCrypto>::Pair::from_string("//Two", None)
 			.expect("Pair failed")
 			.to_raw_vec();
-		let got = <Keyring as GenericKeyring<AuthorityId>>::pair(Keyring::Two).to_raw_vec();
+		let got = Keyring::<AuthorityId>::Two.pair().to_raw_vec();
 		assert_eq!(want, got);
 	}
 
@@ -348,16 +348,16 @@ pub mod tests {
 	{
 		let store = keystore();
 
-		<Keyring as GenericKeyring<AuthorityId>>::generate_in_store(
+		generate_in_store::<AuthorityId>(
 			store.clone(),
 			BEEFY_KEY_TYPE,
 			Some(Keyring::Alice),
 		);
 
-		let alice = <Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Alice);
+		let alice = Keyring::<AuthorityId>::Alice.public();
 
-		let bob = <Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Bob);
-		let charlie = <Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Charlie);
+		let bob = Keyring::Bob.public();
+		let charlie = Keyring::Charlie.public();
 
 		let beefy_store: BeefyKeystore<AuthorityId> = Some(store).into();
 
@@ -396,20 +396,20 @@ pub mod tests {
 	{
 		let store = keystore();
 
-		<Keyring as GenericKeyring<AuthorityId>>::generate_in_store(
+		generate_in_store::<AuthorityId>(
 			store.clone(),
 			BEEFY_KEY_TYPE,
 			Some(Keyring::Alice),
 		);
 
-		let alice = <Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Alice);
+		let alice = Keyring::Alice.public();
 
 		let store: BeefyKeystore<AuthorityId> = Some(store).into();
 
 		let msg = b"are you involved or commited?";
 
 		let sig1 = store.sign(&alice, msg).unwrap();
-		let sig2 = <Keyring as GenericKeyring<AuthorityId>>::sign(Keyring::Alice, msg);
+		let sig2 = Keyring::<AuthorityId>::Alice.sign( msg);
 
 		assert_eq!(sig1, sig2);
 	}
@@ -436,7 +436,7 @@ pub mod tests {
 	{
 		let store = keystore();
 
-		<Keyring as GenericKeyring<AuthorityId>>::generate_in_store(
+		generate_in_store::<AuthorityId>(
 			store.clone(),
 			BEEFY_KEY_TYPE,
 			Some(Keyring::Bob),
@@ -444,7 +444,7 @@ pub mod tests {
 
 		let store: BeefyKeystore<AuthorityId> = Some(store).into();
 
-		let alice = <Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Alice);
+		let alice = Keyring::Alice.public();
 
 		let msg = b"are you involved or commited?";
 		let sig = store.sign(&alice, msg).err().unwrap();
@@ -486,7 +486,7 @@ pub mod tests {
 	{
 		let store = keystore();
 
-		<Keyring as GenericKeyring<AuthorityId>>::generate_in_store(
+		generate_in_store::<AuthorityId>(
 			store.clone(),
 			BEEFY_KEY_TYPE,
 			Some(Keyring::Alice),
@@ -494,7 +494,7 @@ pub mod tests {
 
 		let store: BeefyKeystore<AuthorityId> = Some(store).into();
 
-		let alice = <Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Alice);
+		let alice = Keyring::Alice.public();
 
 		// `msg` and `sig` match
 		let msg = b"are you involved or commited?";
@@ -533,46 +533,46 @@ pub mod tests {
 		let store = keystore();
 
 		// test keys
-		let _ = <Keyring as GenericKeyring<AuthorityId>>::generate_in_store(
+		let _ = generate_in_store::<AuthorityId>(
 			store.clone(),
 			TEST_TYPE,
 			Some(Keyring::Alice),
 		);
-		let _ = <Keyring as GenericKeyring<AuthorityId>>::generate_in_store(
+		let _ = generate_in_store::<AuthorityId>(
 			store.clone(),
 			TEST_TYPE,
 			Some(Keyring::Bob),
 		);
 
 		// BEEFY keys
-		let _ = <Keyring as GenericKeyring<AuthorityId>>::generate_in_store(
+		let _ = generate_in_store::<AuthorityId>(
 			store.clone(),
 			BEEFY_KEY_TYPE,
 			Some(Keyring::Dave),
 		);
-		let _ = <Keyring as GenericKeyring<AuthorityId>>::generate_in_store(
+		let _ = generate_in_store::<AuthorityId>(
 			store.clone(),
 			BEEFY_KEY_TYPE,
 			Some(Keyring::Eve),
 		);
 
-		let _ = <Keyring as GenericKeyring<AuthorityId>>::generate_in_store(
+		let _ = generate_in_store::<AuthorityId>(
 			store.clone(),
 			TEST_TYPE,
 			None,
 		);
-		let _ = <Keyring as GenericKeyring<AuthorityId>>::generate_in_store(
+		let _ = generate_in_store::<AuthorityId>(
 			store.clone(),
 			TEST_TYPE,
 			None,
 		);
 
-		let key1 = <Keyring as GenericKeyring<AuthorityId>>::generate_in_store(
+		let key1 = generate_in_store::<AuthorityId>(
 			store.clone(),
 			BEEFY_KEY_TYPE,
 			None,
 		);
-		let key2 = <Keyring as GenericKeyring<AuthorityId>>::generate_in_store(
+		let key2 = generate_in_store::<AuthorityId>(
 			store.clone(),
 			BEEFY_KEY_TYPE,
 			None,
@@ -583,8 +583,8 @@ pub mod tests {
 		let keys = store.public_keys().ok().unwrap();
 
 		assert!(keys.len() == 4);
-		assert!(keys.contains(&<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Dave)));
-		assert!(keys.contains(&<Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Eve)));
+		assert!(keys.contains(&Keyring::Dave.public()));
+		assert!(keys.contains(&Keyring::Eve.public()));
 		assert!(keys.contains(&key1));
 		assert!(keys.contains(&key2));
 	}

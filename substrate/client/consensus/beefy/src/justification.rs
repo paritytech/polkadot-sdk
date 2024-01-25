@@ -93,7 +93,7 @@ pub(crate) fn verify_with_validator_set<Block: BlockT>(
 #[cfg(test)]
 pub(crate) mod tests {
 	use sp_consensus_beefy::{
-		known_payloads, Commitment, test_utils::GenericKeyring, test_utils::Keyring, Payload, SignedCommitment,
+		known_payloads, Commitment, test_utils::Keyring, Payload, SignedCommitment,
 		VersionedFinalityProof,
 	};
 	use substrate_test_runtime_client::runtime::Block;
@@ -104,7 +104,7 @@ pub(crate) mod tests {
 	pub(crate) fn new_finality_proof(
 		block_num: NumberFor<Block>,
 		validator_set: &ValidatorSet<AuthorityId>,
-		keys: &[Keyring],
+		keys: &[Keyring<AuthorityId>],
 	) -> BeefyVersionedFinalityProof<Block> {
 		let commitment = Commitment {
 			payload: Payload::from_single_entry(known_payloads::MMR_ROOT_ID, vec![]),
@@ -114,7 +114,7 @@ pub(crate) mod tests {
 		let message = commitment.encode();
 		let signatures = keys
 			.iter()
-			.map(|key| Some(<Keyring as GenericKeyring<AuthorityId>>::sign(*key, &message)))
+			.map(|key| Some(key.sign(&message)))
 			.collect();
 		VersionedFinalityProof::V1(SignedCommitment { commitment, signatures })
 	}
@@ -178,8 +178,7 @@ pub(crate) mod tests {
 		};
 		// change a signature to a different key
 		*bad_signed_commitment.signatures.first_mut().unwrap() =
-			Some(<Keyring as GenericKeyring<AuthorityId>>::sign(
-				Keyring::Dave,
+			Some(Keyring::<AuthorityId>::Dave.sign(
 				&bad_signed_commitment.commitment.encode(),
 			));
 		match verify_with_validator_set::<Block>(block_num, &validator_set, &bad_proof.into()) {

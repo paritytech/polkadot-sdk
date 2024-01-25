@@ -1077,7 +1077,7 @@ pub(crate) mod tests {
 	use sp_blockchain::Backend as BlockchainBackendT;
 	use sp_consensus_beefy::{
 		test_utils::generate_equivocation_proof, known_payloads, known_payloads::MMR_ROOT_ID,
-		mmr::MmrRootProvider, test_utils::GenericKeyring, test_utils::Keyring, Payload, SignedCommitment,
+		mmr::MmrRootProvider, test_utils::Keyring, Payload, SignedCommitment,
 	};
 	use sp_runtime::traits::{Header as HeaderT, One};
 	use substrate_test_runtime_client::{
@@ -1111,7 +1111,7 @@ pub(crate) mod tests {
 
 	fn create_beefy_worker(
 		peer: &mut BeefyPeer,
-		key: &Keyring,
+		key: &Keyring<AuthorityId>,
 		min_block_delta: u32,
 		genesis_validator_set: ValidatorSet<AuthorityId>,
 	) -> BeefyWorker<
@@ -1121,7 +1121,7 @@ pub(crate) mod tests {
 		TestApi,
 		Arc<SyncingService<Block>>,
 	> {
-		let keystore = create_beefy_keystore(*key);
+		let keystore = create_beefy_keystore(key);
 
 		let (to_rpc_justif_sender, from_voter_justif_stream) =
 			BeefyVersionedFinalityProofStream::<Block>::channel();
@@ -1659,7 +1659,7 @@ pub(crate) mod tests {
 
 		// now let's try with a bad proof
 		let mut bad_proof = good_proof.clone();
-		bad_proof.first.id = <Keyring as GenericKeyring<AuthorityId>>::public(Keyring::Charlie);
+		bad_proof.first.id = Keyring::Charlie.public();
 		// bad proofs are simply ignored
 		assert_eq!(worker.report_equivocation(bad_proof), Ok(()));
 		// verify nothing reported to runtime

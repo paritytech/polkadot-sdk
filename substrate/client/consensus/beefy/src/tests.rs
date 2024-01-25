@@ -55,7 +55,7 @@ use sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId, Signature},
 	known_payloads,
 	mmr::{find_mmr_root_digest, MmrRootProvider},
-	BeefyApi, Commitment, ConsensusLog, EquivocationProof, test_utils::GenericKeyring, test_utils::Keyring as BeefyKeyring,
+	BeefyApi, Commitment, ConsensusLog, EquivocationProof, test_utils::Keyring as BeefyKeyring,
 	MmrRootHash, OpaqueKeyOwnershipProof, Payload, SignedCommitment, ValidatorSet, ValidatorSetId,
 	VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
 };
@@ -347,18 +347,18 @@ fn add_auth_change_digest(builder: &mut impl BlockBuilderExt, new_auth_set: Beef
 		.unwrap();
 }
 
-pub(crate) fn make_beefy_ids(keys: &[BeefyKeyring]) -> Vec<AuthorityId> {
+pub(crate) fn make_beefy_ids(keys: &[BeefyKeyring<AuthorityId>]) -> Vec<AuthorityId> {
 	keys.iter()
-		.map(|&key| <BeefyKeyring as GenericKeyring<AuthorityId>>::public(key).into())
+		.map(|key| key.public().into())
 		.collect()
 }
 
-pub(crate) fn create_beefy_keystore(authority: BeefyKeyring) -> KeystorePtr {
+pub(crate) fn create_beefy_keystore(authority: &BeefyKeyring<AuthorityId>) -> KeystorePtr {
 	let keystore = MemoryKeystore::new();
 	keystore
 		.ecdsa_generate_new(
 			BEEFY_KEY_TYPE,
-			Some(&<BeefyKeyring as GenericKeyring<AuthorityId>>::to_seed(authority)),
+			Some(&authority.to_seed()),
 		)
 		.expect("Creates authority key");
 	keystore.into()
@@ -389,7 +389,7 @@ async fn voter_init_setup(
 // Spawns beefy voters. Returns a future to spawn on the runtime.
 fn initialize_beefy<API>(
 	net: &mut BeefyTestNet,
-	peers: Vec<(usize, &BeefyKeyring, Arc<API>)>,
+	peers: Vec<(usize, &BeefyKeyring<AuthorityId>, Arc<API>)>,
 	min_block_delta: u32,
 ) -> impl Future<Output = ()>
 where
@@ -409,7 +409,7 @@ where
 	for (peer_id, key, api) in peers.into_iter() {
 		let peer = &net.peers[peer_id];
 
-		let keystore = create_beefy_keystore(*key);
+		let keystore = create_beefy_keystore(key);
 
 		let (_, _, peer_data) = net.make_block_import(peer.client().clone());
 		let PeerData { beefy_rpc_links, beefy_voter_links, .. } = peer_data;
@@ -467,7 +467,7 @@ async fn run_for(duration: Duration, net: &Arc<Mutex<BeefyTestNet>>) {
 pub(crate) fn get_beefy_streams(
 	net: &mut BeefyTestNet,
 	// peer index and key
-	peers: impl Iterator<Item = (usize, BeefyKeyring)>,
+	peers: impl Iterator<Item = (usize, BeefyKeyring<AuthorityId>)>,
 ) -> (Vec<NotificationReceiver<H256>>, Vec<NotificationReceiver<BeefyVersionedFinalityProof<Block>>>)
 {
 	let mut best_block_streams = Vec::new();
@@ -565,7 +565,7 @@ async fn streams_empty_after_timeout<T>(
 async fn finalize_block_and_wait_for_beefy(
 	net: &Arc<Mutex<BeefyTestNet>>,
 	// peer index and key
-	peers: impl Iterator<Item = (usize, BeefyKeyring)> + Clone,
+	peers: impl Iterator<Item = (usize, BeefyKeyring<AuthorityId>)> + Clone,
 	finalize_target: &H256,
 	expected_beefy: &[u64],
 ) {

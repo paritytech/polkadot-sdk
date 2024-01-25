@@ -86,7 +86,7 @@ where
 	
 
 /// Generate key pair in the given store using the provided seed
-fn generate_in_store<AuthorityId>(
+pub fn generate_in_store<AuthorityId>(
 		store: KeystorePtr,
 		key_type: sp_application_crypto::KeyTypeId,
 		owner: Option<Keyring<AuthorityId>>,
@@ -138,13 +138,13 @@ where
 		Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
 {
 	/// Sign `msg`.
-	fn sign(self, msg: &[u8]) -> <AuthorityId as RuntimeAppPublic>::Signature {
-		let key_pair: <AuthorityId as AppCrypto>::Pair = self.clone().pair();
+	pub fn sign(&self, msg: &[u8]) -> <AuthorityId as RuntimeAppPublic>::Signature {
+		let key_pair: <AuthorityId as AppCrypto>::Pair = self.pair();
 		key_pair.sign_with_hasher(&msg).into()
 	}
 
 	/// Return key pair.
-	fn pair(self) -> <AuthorityId as AppCrypto>::Pair {
+	pub fn pair(&self) -> <AuthorityId as AppCrypto>::Pair {
 		<AuthorityId as AppCrypto>::Pair::from_string(
 			self.to_seed().as_str(),
 			None,
@@ -154,37 +154,37 @@ where
 	}
 
 	/// Return public key.
-	fn public(self) -> AuthorityId {
-		self.clone().pair().public().into()
+	pub fn public(&self) -> AuthorityId {
+		self.pair().public().into()
 	}
 
 	/// Return seed string.
-	fn to_seed(self) -> String {
+	pub fn to_seed(&self) -> String {
 		format!("//{}", self)
 	}
 
 	/// Get Keyring from public key.
-	fn from_public(who: &AuthorityId) -> Option<Keyring<AuthorityId>> {
-		Self::iter().find(|k| k.clone().public() == *who)
+	pub fn from_public(who: &AuthorityId) -> Option<Keyring<AuthorityId>> {
+		Self::iter().find(|k| k.public() == *who)
 	}
 }
 
 lazy_static::lazy_static! {
 	static ref PRIVATE_KEYS: HashMap<Keyring<ecdsa_crypto::AuthorityId>, ecdsa_crypto::Pair> =
-		Keyring::iter().map(|i| (i.clone(), i.clone().pair())).collect();
+		Keyring::iter().map(|i| (i.clone(), i.pair())).collect();
 	static ref PUBLIC_KEYS: HashMap<Keyring<ecdsa_crypto::AuthorityId>, ecdsa_crypto::Public> =
 		PRIVATE_KEYS.iter().map(|(name, pair)| (name.clone(), sp_application_crypto::Pair::public(pair))).collect();
 }
 
 impl From<Keyring<ecdsa_crypto::AuthorityId>> for ecdsa_crypto::Pair {
 	fn from(k: Keyring<ecdsa_crypto::AuthorityId>) -> Self {
-		k.clone().pair()
+		k.pair()
 	}
 }
 
 impl From<Keyring<ecdsa_crypto::AuthorityId>> for ecdsa::Pair {
 	fn from(k: Keyring<ecdsa_crypto::AuthorityId>) -> Self {
-		k.clone().pair().into()
+		k.pair().into()
 	}
 }
 
@@ -204,12 +204,12 @@ pub fn generate_equivocation_proof(
 	                   validator_set_id: ValidatorSetId,
 	                   keyring: &Keyring<ecdsa_crypto::AuthorityId>| {
 		let commitment = Commitment { validator_set_id, block_number, payload };
-		let signature = keyring.clone().sign(
+		let signature = keyring.sign(
 			&commitment.encode(),
 		);
 		VoteMessage {
 			commitment,
-			id: keyring.clone().public(),
+			id: keyring.public(),
 			signature,
 		}
 	};
