@@ -142,7 +142,7 @@ pub(crate) mod v7 {
 		/// The identifier of the pool.
 		id: PoolId,
 		/// The inner fields.
-		inner: BondedPoolInner<T>,
+		inner: V7BondedPoolInner<T>,
 	}
 
 	impl<T: Config> V7BondedPool<T> {
