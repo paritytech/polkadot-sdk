@@ -363,7 +363,7 @@ where
 }
 
 /// Obtain a prepared collator `Overseer`, that is initialized with all default values.
-pub fn collator_overseer<Spawner, RuntimeClient>(
+pub fn collator_overseer_builder<Spawner, RuntimeClient>(
 	OverseerGenArgs {
 		keystore,
 		runtime_client,
@@ -583,6 +583,6 @@ impl OverseerGen for CollatorOverseerGen {
 		RuntimeClient::Api: ParachainHost<Block> + BabeApi<Block> + AuthorityDiscoveryApi<Block>,
 		Spawner: 'static + SpawnNamed + Clone + Unpin,
 	{
-		collator_overseer(args)?.build_with_connector(connector).map_err(|e| e.into())
+		collator_overseer_builder(args)?.build_with_connector(connector).map_err(|e| e.into())
 	}
 }
