@@ -44,7 +44,8 @@ if one wants to manually inspect the performance characteristics. The `Schedule`
 RUST_LOG=runtime::contracts=info cargo run --features runtime-benchmarks --bin substrate-node -- benchmark pallet --extra -p pallet_contracts -e print_schedule
 ```
 
-Please note that the `Schedule` will be printed multiple times. This is because we are (ab)using a benchmark to print the struct.
+Please note that the `Schedule` will be printed multiple times. This is because we are (ab)using a benchmark to print
+the struct.
 
 ### Revert Behaviour
 
