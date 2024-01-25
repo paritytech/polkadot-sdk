@@ -5,15 +5,18 @@ use crate::{
 };
 use codec::Encode;
 use futures::Future;
-use jsonrpsee::rpc_params;
+use jsonrpsee::{rpc_params, RpcModule};
 use sc_transaction_pool::*;
 use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool, TransactionPool};
 use sp_core::testing::TaskExecutor;
 use std::{pin::Pin, sync::Arc, time::Duration};
-use substrate_test_runtime_client::{prelude::*, AccountKeyring::*};
+use substrate_test_runtime_client::{prelude::*, AccountKeyring::*, Client};
 use substrate_test_runtime_transaction_pool::{uxt, TestApi};
 
 type Block = substrate_test_runtime_client::runtime::Block;
+
+/// Initial Alice account nonce.
+const ALICE_NONCE: u64 = 209;
 
 fn create_basic_pool_with_genesis(
 	test_api: Arc<TestApi>,
@@ -31,7 +34,7 @@ fn create_basic_pool_with_genesis(
 }
 
 fn maintained_pool() -> (BasicPool<TestApi, Block>, Arc<TestApi>, futures::executor::ThreadPool) {
-	let api = Arc::new(TestApi::with_alice_nonce(209));
+	let api = Arc::new(TestApi::with_alice_nonce(ALICE_NONCE));
 	let (pool, background_task) = create_basic_pool_with_genesis(api.clone());
 
 	let thread_pool = futures::executor::ThreadPool::new().unwrap();
@@ -39,19 +42,21 @@ fn maintained_pool() -> (BasicPool<TestApi, Block>, Arc<TestApi>, futures::execu
 	(pool, api, thread_pool)
 }
 
-#[tokio::test]
-async fn tx_broadcast_enters_pool() {
-	let builder = TestClientBuilder::new();
-	let _backend = builder.backend();
-	let client = Arc::new(builder.build());
-
+fn setup_api() -> (
+	Arc<TestApi>,
+	Arc<BasicPool<TestApi, Block>>,
+	Arc<ChainHeadMockClient<Client<Backend>>>,
+	RpcModule<
+		TransactionBroadcast<BasicPool<TestApi, Block>, ChainHeadMockClient<Client<Backend>>>,
+	>,
+) {
 	let (pool, api, _) = maintained_pool();
 	let pool = Arc::new(pool);
 
-	let uxt = uxt(Alice, 209);
-	let xt = hex_string(&uxt.encode());
-
+	let builder = TestClientBuilder::new();
+	let client = Arc::new(builder.build());
 	let client_mock = Arc::new(ChainHeadMockClient::new(client.clone()));
+
 	let tx_api = RpcTransactionBroadcast::new(
 		client_mock.clone(),
 		pool.clone(),
@@ -59,8 +64,18 @@ async fn tx_broadcast_enters_pool() {
 	)
 	.into_rpc();
 
+	(api, pool, client_mock, tx_api)
+}
+
+#[tokio::test]
+async fn tx_broadcast_enters_pool() {
+	let (api, pool, client_mock, tx_api) = setup_api();
+
 	// Start at block 1.
 	let block_1_header = api.push_block(1, vec![], true);
+
+	let uxt = uxt(Alice, ALICE_NONCE);
+	let xt = hex_string(&uxt.encode());
 
 	let _operation_id: String =
 		tx_api.call("transaction_unstable_broadcast", rpc_params![&xt]).await.unwrap();
