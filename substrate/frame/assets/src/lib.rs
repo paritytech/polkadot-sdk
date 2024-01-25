@@ -756,6 +756,7 @@ pub mod pallet {
 		/// Mint assets of a particular class.
 		///
 		/// The origin must be Signed and the sender must be the Issuer of the asset `id`.
+		/// If the Asset or account is frozen then only the Owner of the entire asset can still mint. 
 		///
 		/// - `id`: The identifier of the asset to have some amount minted.
 		/// - `beneficiary`: The account to be credited with the minted assets.
