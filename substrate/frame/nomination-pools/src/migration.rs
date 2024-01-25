@@ -128,7 +128,7 @@ pub(crate) mod v7 {
 	#[codec(mel_bound(T: Config))]
 	#[scale_info(skip_type_params(T))]
 	pub struct V7BondedPoolInner<T: Config> {
-		pub commission: Commission<T>,
+		pub commission: V7Commission<T>,
 		pub member_counter: u32,
 		pub points: BalanceOf<T>,
 		pub roles: PoolRoles<T::AccountId>,
