@@ -46,7 +46,6 @@ use sc_transaction_pool_api::{
 	error::IntoPoolError, BlockHash, TransactionFor, TransactionPool, TransactionSource,
 	TransactionStatus,
 };
-use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_core::Bytes;
 use sp_runtime::traits::Block as BlockT;
@@ -121,12 +120,7 @@ where
 	Pool: TransactionPool + Sync + Send + 'static,
 	Pool::Hash: Unpin,
 	<Pool::Block as BlockT>::Hash: Unpin,
-	Client: HeaderBackend<Pool::Block>
-		+ BlockchainEvents<Pool::Block>
-		+ ProvideRuntimeApi<Pool::Block>
-		+ Send
-		+ Sync
-		+ 'static,
+	Client: HeaderBackend<Pool::Block> + BlockchainEvents<Pool::Block> + Send + Sync + 'static,
 {
 	fn submit_and_watch(&self, pending: PendingSubscriptionSink, xt: Bytes) {
 		let client = self.client.clone();
