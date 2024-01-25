@@ -50,6 +50,7 @@ impl crate::WeightInfo for () {
 			.saturating_add(DbWeight::get().reads(2))
 	}
 
+	// TODO: update weight calculation
 	fn report_fork_equivocation(
 		validator_count: u32,
 		max_nominators_per_validator: u32,

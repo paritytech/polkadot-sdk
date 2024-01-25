@@ -341,7 +341,6 @@ pub mod pallet {
 		/// block authors will call it (validated in `ValidateUnsigned`), as such
 		/// if the block author is defined it will be defined as the equivocation
 		/// reporter.
-		// TODO: fix key_owner_proofs[0].validator_count()
 		#[pallet::call_index(4)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::report_fork_equivocation(key_owner_proofs[0].validator_count(), T::MaxNominators::get(), key_owner_proofs.len()))]
 		pub fn report_fork_equivocation_unsigned(

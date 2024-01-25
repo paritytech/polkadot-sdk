@@ -77,7 +77,7 @@ pub(crate) enum RoundAction {
 pub(crate) struct VoterOracle<B: Block> {
 	/// Queue of known sessions. Keeps track of voting rounds (block numbers) within each session.
 	///
-	/// There are three voter states coresponding to three queue states:
+	/// There are three voter states corresponding to three queue states:
 	/// 1. voter uninitialized: queue empty,
 	/// 2. up-to-date - all mandatory blocks leading up to current GRANDPA finalized: queue has ONE
 	///    element, the 'current session' where `mandatory_done == true`,
@@ -575,7 +575,7 @@ where
 					target: LOG_TARGET,
 					"🥩 Round #{} concluded, finality_proof: {:?}.", block_number, finality_proof
 				);
-				// We created the `finality_proof` and know to be valid.
+				// We created the `finality_proof` and know it to be valid.
 				// New state is persisted after finalization.
 				self.finalize(finality_proof.clone())?;
 				metric_inc!(self, beefy_good_votes_processed);
