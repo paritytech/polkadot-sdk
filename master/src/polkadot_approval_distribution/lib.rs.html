@@ -2641,6 +2641,47 @@
 <a href="#2641" id="2641">2641</a>
 <a href="#2642" id="2642">2642</a>
 <a href="#2643" id="2643">2643</a>
+<a href="#2644" id="2644">2644</a>
+<a href="#2645" id="2645">2645</a>
+<a href="#2646" id="2646">2646</a>
+<a href="#2647" id="2647">2647</a>
+<a href="#2648" id="2648">2648</a>
+<a href="#2649" id="2649">2649</a>
+<a href="#2650" id="2650">2650</a>
+<a href="#2651" id="2651">2651</a>
+<a href="#2652" id="2652">2652</a>
+<a href="#2653" id="2653">2653</a>
+<a href="#2654" id="2654">2654</a>
+<a href="#2655" id="2655">2655</a>
+<a href="#2656" id="2656">2656</a>
+<a href="#2657" id="2657">2657</a>
+<a href="#2658" id="2658">2658</a>
+<a href="#2659" id="2659">2659</a>
+<a href="#2660" id="2660">2660</a>
+<a href="#2661" id="2661">2661</a>
+<a href="#2662" id="2662">2662</a>
+<a href="#2663" id="2663">2663</a>
+<a href="#2664" id="2664">2664</a>
+<a href="#2665" id="2665">2665</a>
+<a href="#2666" id="2666">2666</a>
+<a href="#2667" id="2667">2667</a>
+<a href="#2668" id="2668">2668</a>
+<a href="#2669" id="2669">2669</a>
+<a href="#2670" id="2670">2670</a>
+<a href="#2671" id="2671">2671</a>
+<a href="#2672" id="2672">2672</a>
+<a href="#2673" id="2673">2673</a>
+<a href="#2674" id="2674">2674</a>
+<a href="#2675" id="2675">2675</a>
+<a href="#2676" id="2676">2676</a>
+<a href="#2677" id="2677">2677</a>
+<a href="#2678" id="2678">2678</a>
+<a href="#2679" id="2679">2679</a>
+<a href="#2680" id="2680">2680</a>
+<a href="#2681" id="2681">2681</a>
+<a href="#2682" id="2682">2682</a>
+<a href="#2683" id="2683">2683</a>
+<a href="#2684" id="2684">2684</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3310,10 +3351,13 @@
 		rng: <span class="kw-2">&amp;mut </span>(<span class="kw">impl </span>CryptoRng + Rng),
 	) {
 		<span class="kw">match </span>event {
-			NetworkBridgeEvent::PeerConnected(peer_id, role, version, <span class="kw">_</span>) =&gt; {
+			NetworkBridgeEvent::PeerConnected(peer_id, role, version, authority_ids) =&gt; {
+				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer_id, <span class="question-mark">?</span>role, <span class="question-mark">?</span>authority_ids, <span class="string">&quot;Peer connected&quot;</span>);
+				<span class="kw">if let </span><span class="prelude-val">Some</span>(authority_ids) = authority_ids {
+					<span class="self">self</span>.topologies.update_authority_ids(peer_id, <span class="kw-2">&amp;</span>authority_ids);
+				}
 				<span class="comment">// insert a blank view if none already present
-				</span><span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer_id, <span class="question-mark">?</span>role, <span class="string">&quot;Peer connected&quot;</span>);
-				<span class="self">self</span>.peer_views
+				</span><span class="self">self</span>.peer_views
 					.entry(peer_id)
 					.or_insert(PeerEntry { view: Default::default(), version });
 			},
@@ -3359,9 +3403,42 @@
 			NetworkBridgeEvent::PeerMessage(peer_id, message) =&gt; {
 				<span class="self">self</span>.process_incoming_peer_message(ctx, metrics, peer_id, message, rng).<span class="kw">await</span>;
 			},
-			NetworkBridgeEvent::UpdatedAuthorityIds { .. } =&gt; {
-				<span class="comment">// The approval-distribution subsystem doesn&#39;t deal with `AuthorityDiscoveryId`s.
-			</span>},
+			NetworkBridgeEvent::UpdatedAuthorityIds(peer_id, authority_ids) =&gt; {
+				<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer_id, <span class="question-mark">?</span>authority_ids, <span class="string">&quot;Update Authority Ids&quot;</span>);
+				<span class="comment">// If we learn about a new PeerId for an authority ids we need to try to route the
+				// messages that should have sent to that validator according to the topology.
+				</span><span class="kw">if </span><span class="self">self</span>.topologies.update_authority_ids(peer_id, <span class="kw-2">&amp;</span>authority_ids) {
+					<span class="kw">if let </span><span class="prelude-val">Some</span>(PeerEntry { view, version }) = <span class="self">self</span>.peer_views.get(<span class="kw-2">&amp;</span>peer_id) {
+						<span class="kw">let </span>intersection = <span class="self">self
+							</span>.blocks_by_number
+							.iter()
+							.filter(|(block_number, <span class="kw">_</span>)| <span class="kw-2">*</span>block_number &gt; <span class="kw-2">&amp;</span>view.finalized_number)
+							.flat_map(|(<span class="kw">_</span>, hashes)| {
+								hashes.iter().filter(|hash| {
+									<span class="self">self</span>.blocks
+										.get(<span class="kw-2">&amp;</span>hash)
+										.map(|block| block.known_by.get(<span class="kw-2">&amp;</span>peer_id).is_some())
+										.unwrap_or_default()
+								})
+							});
+						<span class="kw">let </span>view_intersection =
+							View::new(intersection.cloned(), view.finalized_number);
+						<span class="self">Self</span>::unify_with_peer(
+							ctx.sender(),
+							metrics,
+							<span class="kw-2">&amp;mut </span><span class="self">self</span>.blocks,
+							<span class="kw-2">&amp;</span><span class="self">self</span>.topologies,
+							<span class="self">self</span>.peer_views.len(),
+							peer_id,
+							<span class="kw-2">*</span>version,
+							view_intersection,
+							rng,
+							<span class="bool-val">true</span>,
+						)
+						.<span class="kw">await</span>;
+					}
+				}
+			},
 		}
 	}
 
@@ -3432,6 +3509,7 @@
 					<span class="kw-2">*</span>version,
 					view_intersection,
 					rng,
+					<span class="bool-val">false</span>,
 				)
 				.<span class="kw">await</span>;
 			}
@@ -3744,6 +3822,7 @@
 			protocol_version,
 			view,
 			rng,
+			<span class="bool-val">false</span>,
 		)
 		.<span class="kw">await</span>;
 	}
@@ -4481,6 +4560,7 @@
 		protocol_version: ProtocolVersion,
 		view: View,
 		rng: <span class="kw-2">&amp;mut </span>(<span class="kw">impl </span>CryptoRng + Rng),
+		retry_known_blocks: bool,
 	) {
 		metrics.on_unify_with_peer();
 		<span class="kw">let </span>_timer = metrics.time_unify_with_peer();
@@ -4499,10 +4579,12 @@
 					<span class="kw">_ </span>=&gt; <span class="kw">break</span>,
 				};
 
-				<span class="comment">// Any peer which is in the `known_by` set has already been
-				// sent all messages it&#39;s meant to get for that block and all
-				// in-scope prior blocks.
-				</span><span class="kw">if </span>entry.known_by.contains_key(<span class="kw-2">&amp;</span>peer_id) {
+				<span class="comment">// Any peer which is in the `known_by` see and we know its peer_id authorithy id
+				// mapping has already been sent all messages it&#39;s meant to get for that block and
+				// all in-scope prior blocks. In case, we just learnt about its peer_id
+				// authorithy-id mapping we have to retry sending the messages that should be sent
+				// to it for all un-finalized blocks.
+				</span><span class="kw">if </span>entry.known_by.contains_key(<span class="kw-2">&amp;</span>peer_id) &amp;&amp; !retry_known_blocks {
 					<span class="kw">break
 				</span>}
 

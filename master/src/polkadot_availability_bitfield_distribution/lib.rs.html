@@ -978,6 +978,9 @@
 <a href="#978" id="978">978</a>
 <a href="#979" id="979">979</a>
 <a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1780,9 +1783,12 @@
 		},
 		NetworkBridgeEvent::PeerMessage(remote, message) =&gt;
 			process_incoming_peer_message(ctx, state, metrics, remote, message, rng).<span class="kw">await</span>,
-		NetworkBridgeEvent::UpdatedAuthorityIds { .. } =&gt; {
-			<span class="comment">// The bitfield-distribution subsystem doesn&#39;t deal with `AuthorityDiscoveryId`s.
-		</span>},
+		NetworkBridgeEvent::UpdatedAuthorityIds(peer_id, authority_ids) =&gt; {
+			state
+				.topologies
+				.get_current_topology_mut()
+				.update_authority_ids(peer_id, <span class="kw-2">&amp;</span>authority_ids);
+		},
 	}
 }
 

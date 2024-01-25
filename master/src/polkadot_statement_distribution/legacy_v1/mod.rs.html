@@ -2202,6 +2202,8 @@
 <a href="#2202" id="2202">2202</a>
 <a href="#2203" id="2203">2203</a>
 <a href="#2204" id="2204">2204</a>
+<a href="#2205" id="2205">2205</a>
+<a href="#2206" id="2206">2206</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4096,7 +4098,9 @@
 				<span class="question-mark">?</span>authority_ids,
 				<span class="string">&quot;Updated `AuthorityDiscoveryId`s&quot;
 			</span>);
-
+			topology_storage
+				.get_current_topology_mut()
+				.update_authority_ids(peer, <span class="kw-2">&amp;</span>authority_ids);
 			<span class="comment">// Remove the authority IDs which were previously mapped to the peer
 			// but aren&#39;t part of the new set.
 			</span>authorities.retain(|a, p| p != <span class="kw-2">&amp;</span>peer || authority_ids.contains(a));
