@@ -815,7 +815,7 @@ pub mod pallet {
 			let mut pubkeys: Vec<PublicKeyPrepared> = Vec::new();
 			for (bit, pubkey) in sync_committee_bits.iter().zip(sync_committee_pubkeys.iter()) {
 				if *bit == u8::from(participant) {
-					pubkeys.push(*pubkey);
+					pubkeys.push(pubkey.clone());
 				}
 			}
 			pubkeys
