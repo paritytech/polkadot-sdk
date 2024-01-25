@@ -16,7 +16,7 @@
 
 use super::{AuthorityDiscoveryApi, Block, Error, Hash, IsParachainNode, Registry};
 use polkadot_node_subsystem_types::DefaultSubsystemClient;
-use polkadot_overseer::DummySubsystem;
+use polkadot_overseer::{DummySubsystem, InitializedOverseerBuilder, SubsystemError};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_core::traits::SpawnNamed;
 
@@ -146,9 +146,8 @@ pub struct ExtendedOverseerGenArgs {
 	pub chain_selection_config: ChainSelectionConfig,
 }
 
-/// Obtain a prepared `Overseer`, that is initialized with all default values.
-pub fn prepared_overseer<Spawner, RuntimeClient>(
-	connector: OverseerConnector,
+/// Obtain a prepared validator `Overseer`, that is initialized with all default values.
+pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 	OverseerGenArgs {
 		keystore,
 		runtime_client,
@@ -182,7 +181,39 @@ pub fn prepared_overseer<Spawner, RuntimeClient>(
 		chain_selection_config,
 	}: ExtendedOverseerGenArgs,
 ) -> Result<
-	(Overseer<SpawnGlue<Spawner>, Arc<DefaultSubsystemClient<RuntimeClient>>>, OverseerHandle),
+	InitializedOverseerBuilder<
+		SpawnGlue<Spawner>,
+		Arc<DefaultSubsystemClient<RuntimeClient>>,
+		CandidateValidationSubsystem,
+		PvfCheckerSubsystem,
+		CandidateBackingSubsystem,
+		StatementDistributionSubsystem<rand::rngs::StdRng>,
+		AvailabilityDistributionSubsystem,
+		AvailabilityRecoverySubsystem,
+		BitfieldSigningSubsystem,
+		BitfieldDistributionSubsystem,
+		ProvisionerSubsystem,
+		RuntimeApiSubsystem<DefaultSubsystemClient<RuntimeClient>>,
+		AvailabilityStoreSubsystem,
+		NetworkBridgeRxSubsystem<
+			Arc<sc_network::NetworkService<Block, Hash>>,
+			AuthorityDiscoveryService,
+		>,
+		NetworkBridgeTxSubsystem<
+			Arc<sc_network::NetworkService<Block, Hash>>,
+			AuthorityDiscoveryService,
+		>,
+		ChainApiSubsystem<RuntimeClient>,
+		CollationGenerationSubsystem,
+		CollatorProtocolSubsystem,
+		ApprovalDistributionSubsystem,
+		ApprovalVotingSubsystem,
+		GossipSupportSubsystem<AuthorityDiscoveryService>,
+		DisputeCoordinatorSubsystem,
+		DisputeDistributionSubsystem<AuthorityDiscoveryService>,
+		ChainSelectionSubsystem,
+		ProspectiveParachainsSubsystem,
+	>,
 	Error,
 >
 where
@@ -328,13 +359,11 @@ where
 	} else {
 		builder
 	};
-	let overseer = builder.build_with_connector(connector)?;
-	Ok(overseer)
+	Ok(builder)
 }
 
-/// Obtain a prepared `Overseer`, that is initialized with all default values.
-pub fn minimal_overseer<Spawner, RuntimeClient>(
-	connector: OverseerConnector,
+/// Obtain a prepared collator `Overseer`, that is initialized with all default values.
+pub fn collator_overseer<Spawner, RuntimeClient>(
 	OverseerGenArgs {
 		keystore,
 		runtime_client,
@@ -354,7 +383,39 @@ pub fn minimal_overseer<Spawner, RuntimeClient>(
 		notification_services,
 	}: OverseerGenArgs<Spawner, RuntimeClient>,
 ) -> Result<
-	(Overseer<SpawnGlue<Spawner>, Arc<DefaultSubsystemClient<RuntimeClient>>>, OverseerHandle),
+	InitializedOverseerBuilder<
+		SpawnGlue<Spawner>,
+		Arc<DefaultSubsystemClient<RuntimeClient>>,
+		DummySubsystem,
+		DummySubsystem,
+		DummySubsystem,
+		DummySubsystem,
+		DummySubsystem,
+		AvailabilityRecoverySubsystem,
+		DummySubsystem,
+		DummySubsystem,
+		DummySubsystem,
+		RuntimeApiSubsystem<DefaultSubsystemClient<RuntimeClient>>,
+		DummySubsystem,
+		NetworkBridgeRxSubsystem<
+			Arc<sc_network::NetworkService<Block, Hash>>,
+			AuthorityDiscoveryService,
+		>,
+		NetworkBridgeTxSubsystem<
+			Arc<sc_network::NetworkService<Block, Hash>>,
+			AuthorityDiscoveryService,
+		>,
+		ChainApiSubsystem<RuntimeClient>,
+		CollationGenerationSubsystem,
+		CollatorProtocolSubsystem,
+		DummySubsystem,
+		DummySubsystem,
+		DummySubsystem,
+		DummySubsystem,
+		DummySubsystem,
+		DummySubsystem,
+		ProspectiveParachainsSubsystem,
+	>,
 	Error,
 >
 where
@@ -395,7 +456,7 @@ where
 			notification_sinks,
 		))
 		.availability_distribution(DummySubsystem)
-		.availability_recovery(AvailabilityRecoverySubsystem::with_chunks_if_pov_large(
+		.availability_recovery(AvailabilityRecoverySubsystem::for_collator(
 			available_data_req_receiver,
 			Metrics::register(registry)?,
 		))
@@ -451,14 +512,10 @@ where
 	} else {
 		builder
 	};
-	let overseer = builder.build_with_connector(connector)?;
-	Ok(overseer)
+	Ok(builder)
 }
 
 /// Trait for the `fn` generating the overseer.
-///
-/// Default behavior is to create an unmodified overseer, as `RealOverseerGen`
-/// would do.
 pub trait OverseerGen {
 	/// Overwrite the full generation of the overseer, including the subsystems.
 	fn generate<Spawner, RuntimeClient>(
@@ -473,20 +530,17 @@ pub trait OverseerGen {
 	where
 		RuntimeClient: 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block> + AuxStore,
 		RuntimeClient::Api: ParachainHost<Block> + BabeApi<Block> + AuthorityDiscoveryApi<Block>,
-		Spawner: 'static + SpawnNamed + Clone + Unpin,
-	{
-		let gen = RealOverseerGen;
-		RealOverseerGen::generate::<Spawner, RuntimeClient>(&gen, connector, args, ext_args)
-	}
+		Spawner: 'static + SpawnNamed + Clone + Unpin;
+
 	// It would be nice to make `create_subsystems` part of this trait,
 	// but the amount of generic arguments that would be required as
 	// as consequence make this rather annoying to implement and use.
 }
 
 /// The regular set of subsystems.
-pub struct RealOverseerGen;
+pub struct ValidatorOverseerGen;
 
-impl OverseerGen for RealOverseerGen {
+impl OverseerGen for ValidatorOverseerGen {
 	fn generate<Spawner, RuntimeClient>(
 		&self,
 		connector: OverseerConnector,
@@ -501,10 +555,34 @@ impl OverseerGen for RealOverseerGen {
 		RuntimeClient::Api: ParachainHost<Block> + BabeApi<Block> + AuthorityDiscoveryApi<Block>,
 		Spawner: 'static + SpawnNamed + Clone + Unpin,
 	{
-		if let Some(ext_args) = ext_args {
-			prepared_overseer(connector, args, ext_args)
-		} else {
-			minimal_overseer(connector, args)
-		}
+		let ext_args = ext_args.ok_or(Error::Overseer(SubsystemError::Context(
+			"create validator overseer as mandatory extended arguments were not provided"
+				.to_owned(),
+		)))?;
+		validator_overseer_builder(args, ext_args)?
+			.build_with_connector(connector)
+			.map_err(|e| e.into())
+	}
+}
+
+/// Reduced set of subsystems, to use in collator and collator's full node.
+pub struct CollatorOverseerGen;
+
+impl OverseerGen for CollatorOverseerGen {
+	fn generate<Spawner, RuntimeClient>(
+		&self,
+		connector: OverseerConnector,
+		args: OverseerGenArgs<Spawner, RuntimeClient>,
+		_ext_args: Option<ExtendedOverseerGenArgs>,
+	) -> Result<
+		(Overseer<SpawnGlue<Spawner>, Arc<DefaultSubsystemClient<RuntimeClient>>>, OverseerHandle),
+		Error,
+	>
+	where
+		RuntimeClient: 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block> + AuxStore,
+		RuntimeClient::Api: ParachainHost<Block> + BabeApi<Block> + AuthorityDiscoveryApi<Block>,
+		Spawner: 'static + SpawnNamed + Clone + Unpin,
+	{
+		collator_overseer(args)?.build_with_connector(connector).map_err(|e| e.into())
 	}
 }

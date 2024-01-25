@@ -299,7 +299,7 @@ pub fn run() -> Result<()> {
 	match &cli.subcommand {
 		None => run_node_inner(
 			cli,
-			service::RealOverseerGen,
+			service::ValidatorOverseerGen,
 			None,
 			polkadot_node_metrics::logger_hook(),
 		),

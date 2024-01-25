@@ -31,7 +31,10 @@ pub mod overseer;
 pub mod workers;
 
 #[cfg(feature = "full-node")]
-pub use self::overseer::{ExtendedOverseerGenArgs, OverseerGen, OverseerGenArgs, RealOverseerGen};
+pub use self::overseer::{
+	CollatorOverseerGen, ExtendedOverseerGenArgs, OverseerGen, OverseerGenArgs,
+	ValidatorOverseerGen,
+};
 
 #[cfg(test)]
 mod tests;

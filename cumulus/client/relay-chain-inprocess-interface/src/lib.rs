@@ -295,7 +295,7 @@ fn build_polkadot_full_node(
 			workers_path: None,
 			workers_names: None,
 
-			overseer_gen: polkadot_service::RealOverseerGen,
+			overseer_gen: polkadot_service::CollatorOverseerGen,
 			overseer_message_channel_capacity_override: None,
 			malus_finality_delay: None,
 			hwbench,

@@ -88,7 +88,7 @@ pub fn new_full(
 			secure_validator_mode: false,
 			workers_path,
 			workers_names: None,
-			overseer_gen: polkadot_service::RealOverseerGen,
+			overseer_gen: polkadot_service::ValidatorOverseerGen,
 			overseer_message_channel_capacity_override: None,
 			malus_finality_delay: None,
 			hwbench: None,
