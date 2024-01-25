@@ -154,7 +154,7 @@ pub(crate) mod v7 {
 	// NOTE: We cannot put a V7 prefix here since that would change the storage key.
 	#[frame_support::storage_alias]
 	pub type BondedPools<T: Config> =
-		CountedStorageMap<Pallet<T>, Twox64Concat, PoolId, BondedPoolInner<T>>;
+		CountedStorageMap<Pallet<T>, Twox64Concat, PoolId, V7BondedPoolInner<T>>;
 
 	pub struct VersionUncheckedMigrateV6ToV7<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> VersionUncheckedMigrateV6ToV7<T> {
