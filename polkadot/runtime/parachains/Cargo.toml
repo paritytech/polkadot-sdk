@@ -66,6 +66,7 @@ frame-support-test = { path = "../../../substrate/frame/support/test" }
 sc-keystore = { path = "../../../substrate/client/keystore" }
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../primitives/test-helpers" }
 sp-tracing = { path = "../../../substrate/primitives/tracing" }
+sp-crypto-hashing = { path = "../../../substrate/primitives/crypto/hashing" }
 thousands = "0.2.0"
 assert_matches = "1"
 serde_json = "1.0.111"

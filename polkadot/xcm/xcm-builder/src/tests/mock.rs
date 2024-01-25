@@ -742,6 +742,7 @@ impl Config for TestConfig {
 	type CallDispatcher = TestCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = AliasForeignAccountId32<SiblingPrefix>;
+	type TransactionalProcessor = ();
 }
 
 pub fn fungible_multi_asset(location: Location, amount: u128) -> Asset {

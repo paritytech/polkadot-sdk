@@ -40,11 +40,14 @@ use sp_std::{fmt::Debug, marker::PhantomData};
 use xcm::prelude::*;
 use xcm_builder::{DispatchBlob, DispatchBlobError};
 
-/// Message dispatch result type for single message
+/// Message dispatch result type for single message.
 #[derive(CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, Debug, TypeInfo)]
 pub enum XcmBlobMessageDispatchResult {
+	/// We've been unable to decode message payload.
 	InvalidPayload,
+	/// Message has been dispatched.
 	Dispatched,
+	/// Message has **NOT** been dispatched because of given error.
 	NotDispatched(#[codec(skip)] Option<DispatchBlobError>),
 }
 

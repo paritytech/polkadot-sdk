@@ -39,7 +39,7 @@ use bridge_runtime_common::{
 use frame_support::traits::{Get, OnFinalize, OnInitialize};
 use frame_system::pallet_prelude::BlockNumberFor;
 use parachains_runtimes_test_utils::{
-	AccountIdOf, BasicParachainRuntime, CollatorSessionKeys, RuntimeCallOf,
+	AccountIdOf, BasicParachainRuntime, CollatorSessionKeys, RuntimeCallOf, SlotDurations,
 };
 use sp_keyring::AccountKeyring::*;
 use sp_runtime::{traits::Header as HeaderT, AccountId32};
@@ -107,6 +107,7 @@ where
 /// Also verifies relayer transaction signed extensions work as intended.
 pub fn relayed_incoming_message_works<RuntimeHelper>(
 	collator_session_key: CollatorSessionKeys<RuntimeHelper::Runtime>,
+	slot_durations: SlotDurations,
 	runtime_para_id: u32,
 	bridged_chain_id: bp_runtime::ChainId,
 	sibling_parachain_id: u32,
@@ -136,6 +137,7 @@ pub fn relayed_incoming_message_works<RuntimeHelper>(
 		RuntimeHelper::MPI,
 	>(
 		collator_session_key,
+		slot_durations,
 		runtime_para_id,
 		sibling_parachain_id,
 		local_relay_chain_id,
@@ -205,6 +207,7 @@ pub fn relayed_incoming_message_works<RuntimeHelper>(
 /// Also verifies relayer transaction signed extensions work as intended.
 pub fn complex_relay_extrinsic_works<RuntimeHelper>(
 	collator_session_key: CollatorSessionKeys<RuntimeHelper::Runtime>,
+	slot_durations: SlotDurations,
 	runtime_para_id: u32,
 	sibling_parachain_id: u32,
 	bridged_chain_id: bp_runtime::ChainId,
@@ -237,6 +240,7 @@ pub fn complex_relay_extrinsic_works<RuntimeHelper>(
 		RuntimeHelper::MPI,
 	>(
 		collator_session_key,
+		slot_durations,
 		runtime_para_id,
 		sibling_parachain_id,
 		local_relay_chain_id,

@@ -24,9 +24,14 @@ use bridge_hub_rococo_runtime::{
 	Executive, ExistentialDeposit, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall,
 	RuntimeEvent, RuntimeOrigin, SessionKeys, SignedExtra, TransactionPayment, UncheckedExtrinsic,
 };
+use bridge_hub_test_utils::SlotDurations;
 use codec::{Decode, Encode};
 use frame_support::{dispatch::GetDispatchInfo, parameter_types, traits::ConstU8};
-use parachains_common::{rococo::fee::WeightToFee, AccountId, AuraId, Balance};
+use parachains_common::{
+	rococo::{consensus::RELAY_CHAIN_SLOT_DURATION_MILLIS, fee::WeightToFee},
+	AccountId, AuraId, Balance, SLOT_DURATION,
+};
+use sp_consensus_aura::SlotDuration;
 use sp_core::H160;
 use sp_keyring::AccountKeyring::Alice;
 use sp_runtime::{
@@ -95,6 +100,13 @@ fn collator_session_keys() -> bridge_hub_test_utils::CollatorSessionKeys<Runtime
 	)
 }
 
+fn slot_durations() -> SlotDurations {
+	SlotDurations {
+		relay: SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS.into()),
+		para: SlotDuration::from_millis(SLOT_DURATION),
+	}
+}
+
 bridge_hub_test_utils::test_cases::include_teleports_for_native_asset_works!(
 	Runtime,
 	AllPalletsWithoutSystem,
@@ -103,6 +115,7 @@ bridge_hub_test_utils::test_cases::include_teleports_for_native_asset_works!(
 	WeightToFee,
 	ParachainSystem,
 	collator_session_keys(),
+	slot_durations(),
 	ExistentialDeposit::get(),
 	Box::new(|runtime_event_encoded: Vec<u8>| {
 		match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
@@ -264,6 +277,7 @@ mod bridge_hub_westend_tests {
 			ConstU8<2>,
 		>(
 			collator_session_keys(),
+			slot_durations(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			SIBLING_PARACHAIN_ID,
 			Box::new(|runtime_event_encoded: Vec<u8>| {
@@ -288,6 +302,7 @@ mod bridge_hub_westend_tests {
 		// from Westend
 		from_parachain::relayed_incoming_message_works::<RuntimeTestsAdapter>(
 			collator_session_keys(),
+			slot_durations(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 			BridgeHubWestendChainId::get(),
@@ -304,6 +319,7 @@ mod bridge_hub_westend_tests {
 		// for Westend
 		from_parachain::complex_relay_extrinsic_works::<RuntimeTestsAdapter>(
 			collator_session_keys(),
+			slot_durations(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
 			SIBLING_PARACHAIN_ID,
@@ -459,6 +475,7 @@ mod bridge_hub_bulletin_tests {
 			ConstU8<2>,
 		>(
 			collator_session_keys(),
+			slot_durations(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			SIBLING_PARACHAIN_ID,
 			Box::new(|runtime_event_encoded: Vec<u8>| {
@@ -483,6 +500,7 @@ mod bridge_hub_bulletin_tests {
 		// from Bulletin
 		from_grandpa_chain::relayed_incoming_message_works::<RuntimeTestsAdapter>(
 			collator_session_keys(),
+			slot_durations(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			RococoBulletinChainId::get(),
 			SIBLING_PARACHAIN_ID,
@@ -498,6 +516,7 @@ mod bridge_hub_bulletin_tests {
 		// for Bulletin
 		from_grandpa_chain::complex_relay_extrinsic_works::<RuntimeTestsAdapter>(
 			collator_session_keys(),
+			slot_durations(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			SIBLING_PARACHAIN_ID,
 			RococoBulletinChainId::get(),
