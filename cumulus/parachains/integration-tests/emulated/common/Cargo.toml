@@ -12,7 +12,6 @@ workspace = true
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
 paste = "1.0.14"
-serde_json = "1.0.111"
 
 # Substrate
 grandpa = { package = "sc-consensus-grandpa", path = "../../../../../substrate/client/consensus/grandpa" }
@@ -24,8 +23,6 @@ sp-consensus-babe = { path = "../../../../../substrate/primitives/consensus/babe
 pallet-assets = { path = "../../../../../substrate/frame/assets" }
 pallet-balances = { path = "../../../../../substrate/frame/balances" }
 pallet-message-queue = { path = "../../../../../substrate/frame/message-queue" }
-pallet-im-online = { path = "../../../../../substrate/frame/im-online" }
-beefy-primitives = { package = "sp-consensus-beefy", path = "../../../../../substrate/primitives/consensus/beefy" }
 
 # Polkadot
 polkadot-service = { path = "../../../../../polkadot/node/service", default-features = false, features = ["full-node"] }

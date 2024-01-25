@@ -23,7 +23,7 @@ pallet-default-config-example = { path = "../../substrate/frame/examples/default
 
 # How we build docs in rust-docs
 simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", rev = "e48b187bcfd5cc75111acd9d241f1bd36604344b" }
-docify = "0.2.6"
+docify = "0.2.7"
 
 # Polkadot SDK deps, typically all should only be in scope such that we can link to their doc item.
 node-cli = { package = "staging-node-cli", path = "../../substrate/bin/node/cli" }

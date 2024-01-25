@@ -30,7 +30,7 @@ sp-std = { path = "../../primitives/std", default-features = false }
 sp-storage = { path = "../../primitives/storage", default-features = false }
 sp-timestamp = { path = "../../primitives/timestamp", default-features = false }
 
-docify = "0.2.6"
+docify = "0.2.7"
 
 [dev-dependencies]
 sp-core = { path = "../../primitives/core" }

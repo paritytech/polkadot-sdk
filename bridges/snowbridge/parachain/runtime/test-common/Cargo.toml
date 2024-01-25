@@ -63,7 +63,6 @@ xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkad
 
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../../../../cumulus/pallets/aura-ext", default-features = false }
-cumulus-pallet-dmp-queue = { path = "../../../../../cumulus/pallets/dmp-queue", default-features = false }
 cumulus-pallet-parachain-system = { path = "../../../../../cumulus/pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"] }
 cumulus-pallet-session-benchmarking = { path = "../../../../../cumulus/pallets/session-benchmarking", default-features = false }
 cumulus-pallet-xcm = { path = "../../../../../cumulus/pallets/xcm", default-features = false }
@@ -99,7 +98,6 @@ std = [
 	"assets-common/std",
 	"codec/std",
 	"cumulus-pallet-aura-ext/std",
-	"cumulus-pallet-dmp-queue/std",
 	"cumulus-pallet-parachain-system/std",
 	"cumulus-pallet-session-benchmarking/std",
 	"cumulus-pallet-xcm/std",
@@ -166,7 +164,6 @@ std = [
 runtime-benchmarks = [
 	"assets-common/runtime-benchmarks",
 	"bridge-runtime-common/runtime-benchmarks",
-	"cumulus-pallet-dmp-queue/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",

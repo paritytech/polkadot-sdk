@@ -24,7 +24,10 @@ use crate::{
 	hex_string, MethodResult,
 };
 
-use super::{archive::Archive, *};
+use super::{
+	archive::{Archive, ArchiveConfig},
+	*,
+};
 
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
@@ -60,7 +63,7 @@ type Header = substrate_test_runtime_client::runtime::Header;
 type Block = substrate_test_runtime_client::runtime::Block;
 
 fn setup_api(
-	max_returned_items: usize,
+	max_descendant_responses: usize,
 	max_queried_items: usize,
 ) -> (Arc<Client<Backend>>, RpcModule<Archive<Backend, Block, Client<Backend>>>) {
 	let child_info = ChildInfo::new_default(CHILD_STORAGE_KEY);
@@ -72,9 +75,13 @@ fn setup_api(
 	let backend = builder.backend();
 	let client = Arc::new(builder.build());
 
-	let api =
-		Archive::new(client.clone(), backend, CHAIN_GENESIS, max_returned_items, max_queried_items)
-			.into_rpc();
+	let api = Archive::new(
+		client.clone(),
+		backend,
+		CHAIN_GENESIS,
+		ArchiveConfig { max_descendant_responses, max_queried_items },
+	)
+	.into_rpc();
 
 	(client, api)
 }
