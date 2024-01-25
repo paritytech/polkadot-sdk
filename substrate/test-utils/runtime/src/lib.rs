@@ -845,11 +845,11 @@ pub mod storage_key_generator {
 	}
 
 	fn concat_hashes(input: &Vec<&[u8]>) -> String {
-		input.iter().map(|s| sp_core::hashing::twox_128(s)).map(hex).collect()
+		input.iter().map(|s| sp_crypto_hashing::twox_128(s)).map(hex).collect()
 	}
 
 	fn twox_64_concat(x: &[u8]) -> Vec<u8> {
-		sp_core::hashing::twox_64(x).iter().chain(x.iter()).cloned().collect::<Vec<_>>()
+		sp_crypto_hashing::twox_64(x).iter().chain(x.iter()).cloned().collect()
 	}
 
 	/// Generate the hashed storage keys from the raw literals. These keys are expected to be be in
@@ -890,7 +890,7 @@ pub mod storage_key_generator {
 				AccountKeyring::Charlie.public().to_vec(),
 			])
 			.map(|pubkey| {
-				sp_core::hashing::blake2_128(&pubkey)
+				sp_crypto_hashing::blake2_128(&pubkey)
 					.iter()
 					.chain(pubkey.iter())
 					.cloned()

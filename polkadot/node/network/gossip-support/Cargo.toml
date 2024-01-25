@@ -13,6 +13,7 @@ workspace = true
 sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto" }
 sp-keystore = { path = "../../../../substrate/primitives/keystore" }
 sp-core = { path = "../../../../substrate/primitives/core" }
+sp-crypto-hashing = { path = "../../../../substrate/primitives/crypto/hashing" }
 sc-network = { path = "../../../../substrate/client/network" }
 sc-network-common = { path = "../../../../substrate/client/network/common" }
 
