@@ -17,11 +17,13 @@
 //! Test configuration definition and helpers.
 use super::*;
 use keyring::Keyring;
-use std::{path::Path, time::Duration};
+use std::path::Path;
 
 pub use crate::cli::TestObjective;
 use polkadot_primitives::{AuthorityDiscoveryId, ValidatorId};
-use rand::{distributions::Uniform, prelude::Distribution, thread_rng};
+use rand::thread_rng;
+use rand_distr::{Distribution, Normal, Uniform};
+
 use serde::{Deserialize, Serialize};
 
 pub fn random_pov_size(min_pov_size: usize, max_pov_size: usize) -> usize {
@@ -34,13 +36,13 @@ fn random_uniform_sample<T: Into<usize> + From<usize>>(min_value: T, max_value: 
 		.into()
 }
 
-/// Peer response latency configuration.
+/// Peer networking latency configuration.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct PeerLatency {
-	/// Min latency for `NetworkAction` completion.
-	pub min_latency: Duration,
-	/// Max latency or `NetworkAction` completion.
-	pub max_latency: Duration,
+	/// The mean latency(milliseconds) of the peers.
+	pub mean_latency_ms: usize,
+	/// The standard deviation
+	pub std_dev: f64,
 }
 
 // Default PoV size in KiB.
@@ -58,6 +60,11 @@ fn default_connectivity() -> usize {
 	100
 }
 
+// Default backing group size
+fn default_backing_group_size() -> usize {
+	5
+}
+
 /// The test input parameters
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TestConfiguration {
@@ -67,6 +74,9 @@ pub struct TestConfiguration {
 	pub n_validators: usize,
 	/// Number of cores
 	pub n_cores: usize,
+	/// Maximum backing group size
+	#[serde(default = "default_backing_group_size")]
+	pub max_validators_per_core: usize,
 	/// The min PoV size
 	#[serde(default = "default_pov_size")]
 	pub min_pov_size: usize,
@@ -82,12 +92,9 @@ pub struct TestConfiguration {
 	/// The amount of bandiwdth our node has.
 	#[serde(default = "default_bandwidth")]
 	pub bandwidth: usize,
-	/// Optional peer emulation latency
+	/// Optional peer emulation latency (round trip time) wrt node under test
 	#[serde(default)]
 	pub latency: Option<PeerLatency>,
-	/// Error probability, applies to sending messages to the emulated network peers
-	#[serde(default)]
-	pub error: usize,
 	/// Connectivity ratio, the percentage of peers we are not connected to, but ar part of
 	/// the topology.
 	#[serde(default = "default_connectivity")]
@@ -129,7 +136,7 @@ impl TestSequence {
 /// Helper struct for authority related state.
 #[derive(Clone)]
 pub struct TestAuthorities {
-	pub keyrings: Vec<Keyring>,
+	pub keyring: Keyring,
 	pub validator_public: Vec<ValidatorId>,
 	pub validator_authority_id: Vec<AuthorityDiscoveryId>,
 }
@@ -146,25 +153,27 @@ impl TestConfiguration {
 	pub fn pov_sizes(&self) -> &[usize] {
 		&self.pov_sizes
 	}
+	/// Return the number of peers connected to our node.
+	pub fn connected_count(&self) -> usize {
+		((self.n_validators - 1) as f64 / (100.0 / self.connectivity as f64)) as usize
+	}
 
 	/// Generates the authority keys we need for the network emulation.
 	pub fn generate_authorities(&self) -> TestAuthorities {
-		let keyrings = (0..self.n_validators)
-			.map(|peer_index| Keyring::new(format!("Node{}", peer_index)))
+		let keyring = Keyring::default();
+
+		let keys = (0..self.n_validators)
+			.map(|peer_index| keyring.sr25519_new(format!("Node{}", peer_index)))
 			.collect::<Vec<_>>();
 
 		// Generate `AuthorityDiscoveryId`` for each peer
-		let validator_public: Vec<ValidatorId> = keyrings
-			.iter()
-			.map(|keyring: &Keyring| keyring.clone().public().into())
-			.collect::<Vec<_>>();
+		let validator_public: Vec<ValidatorId> =
+			keys.iter().map(|key| (*key).into()).collect::<Vec<_>>();
 
-		let validator_authority_id: Vec<AuthorityDiscoveryId> = keyrings
-			.iter()
-			.map(|keyring| keyring.clone().public().into())
-			.collect::<Vec<_>>();
+		let validator_authority_id: Vec<AuthorityDiscoveryId> =
+			keys.iter().map(|key| (*key).into()).collect::<Vec<_>>();
 
-		TestAuthorities { keyrings, validator_public, validator_authority_id }
+		TestAuthorities { keyring, validator_public, validator_authority_id }
 	}
 
 	/// An unconstrained standard configuration matching Polkadot/Kusama
@@ -180,12 +189,12 @@ impl TestConfiguration {
 			objective,
 			n_cores,
 			n_validators,
+			max_validators_per_core: 5,
 			pov_sizes: generate_pov_sizes(n_cores, min_pov_size, max_pov_size),
 			bandwidth: 50 * 1024 * 1024,
 			peer_bandwidth: 50 * 1024 * 1024,
 			// No latency
 			latency: None,
-			error: 0,
 			num_blocks,
 			min_pov_size,
 			max_pov_size,
@@ -205,14 +214,11 @@ impl TestConfiguration {
 			objective,
 			n_cores,
 			n_validators,
+			max_validators_per_core: 5,
 			pov_sizes: generate_pov_sizes(n_cores, min_pov_size, max_pov_size),
 			bandwidth: 50 * 1024 * 1024,
 			peer_bandwidth: 50 * 1024 * 1024,
-			latency: Some(PeerLatency {
-				min_latency: Duration::from_millis(1),
-				max_latency: Duration::from_millis(100),
-			}),
-			error: 3,
+			latency: Some(PeerLatency { mean_latency_ms: 50, std_dev: 12.5 }),
 			num_blocks,
 			min_pov_size,
 			max_pov_size,
@@ -232,14 +238,11 @@ impl TestConfiguration {
 			objective,
 			n_cores,
 			n_validators,
+			max_validators_per_core: 5,
 			pov_sizes: generate_pov_sizes(n_cores, min_pov_size, max_pov_size),
 			bandwidth: 50 * 1024 * 1024,
 			peer_bandwidth: 50 * 1024 * 1024,
-			latency: Some(PeerLatency {
-				min_latency: Duration::from_millis(10),
-				max_latency: Duration::from_millis(500),
-			}),
-			error: 33,
+			latency: Some(PeerLatency { mean_latency_ms: 150, std_dev: 40.0 }),
 			num_blocks,
 			min_pov_size,
 			max_pov_size,
@@ -248,15 +251,14 @@ impl TestConfiguration {
 	}
 }
 
-/// Produce a randomized duration between `min` and `max`.
-pub fn random_latency(maybe_peer_latency: Option<&PeerLatency>) -> Option<Duration> {
-	maybe_peer_latency.map(|peer_latency| {
-		Uniform::from(peer_latency.min_latency..=peer_latency.max_latency).sample(&mut thread_rng())
-	})
-}
-
-/// Generate a random error based on `probability`.
-/// `probability` should be a number between 0 and 100.
-pub fn random_error(probability: usize) -> bool {
-	Uniform::from(0..=99).sample(&mut thread_rng()) < probability
+/// Sample latency (in milliseconds) from a normal distribution with parameters
+/// specified in `maybe_peer_latency`.
+pub fn random_latency(maybe_peer_latency: Option<&PeerLatency>) -> usize {
+	maybe_peer_latency
+		.map(|latency_config| {
+			Normal::new(latency_config.mean_latency_ms as f64, latency_config.std_dev)
+				.expect("normal distribution parameters are good")
+				.sample(&mut thread_rng())
+		})
+		.unwrap_or(0.0) as usize
 }
