@@ -73,7 +73,7 @@ pub fn dynamic_pallet_params(attr: TokenStream, item: TokenStream) -> Result<Tok
 	let attrs = items
 		.iter()
 		.filter_map(|item| match item {
-			syn::Item::Static(static_item) => Some(static_item.attrs.first().clone()),
+			syn::Item::Static(static_item) => Some(static_item.attrs.first()),
 			_ => None,
 		})
 		.collect::<Vec<_>>();
