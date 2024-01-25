@@ -464,6 +464,17 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Set a retry configuration for a task so that, in case its scheduled run fails, it will
+		/// be retried after `period` blocks, for a total amount of `retries` retries or until it
+		/// succeeds.
+		///
+		/// If a retried task runs successfully before running out of retries, its remaining retry
+		/// counter will be reset to the initial value. If a retried task runs out of retries, it
+		/// will be removed from the schedule.
+		///
+		/// Tasks which need to be scheduled for a retry are still subject to weight metering and
+		/// agenda space, same as a regular task. Periodic tasks will have their periodic schedule
+		/// put on hold while the task is retrying.
 		#[pallet::call_index(6)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_retry(T::MaxScheduledPerBlock::get()))]
 		pub fn set_retry(
@@ -493,6 +504,17 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Set a retry configuration for a named task so that, in case its scheduled run fails, it
+		/// will be retried after `period` blocks, for a total amount of `retries` retries or until
+		/// it succeeds.
+		///
+		/// If a retried task runs successfully before running out of retries, its remaining retry
+		/// counter will be reset to the initial value. If a retried task runs out of retries, it
+		/// will be removed from the schedule.
+		///
+		/// Tasks which need to be scheduled for a retry are still subject to weight metering and
+		/// agenda space, same as a regular task. Periodic tasks will have their periodic schedule
+		/// put on hold while the task is retrying.
 		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_retry_named(T::MaxScheduledPerBlock::get()))]
 		pub fn set_retry_named(
@@ -1300,12 +1322,19 @@ impl<T: Config> Pallet<T> {
 		Ok(result)
 	}
 
+	/// Check if a task has a retry configutation in place and, if so, try to reschedule it.
+	///
+	/// If the task was successfully rescheduled for later, this function will return `None`.
+	/// Otherwise, if the task was not rescheduled, either because there was no retry configuration
+	/// in place, there were no more retry attempts left, or the agenda was full, this function
+	/// will return the task so it can be handled somewhere else.
 	fn check_retry(
 		now: BlockNumberFor<T>,
 		when: BlockNumberFor<T>,
 		agenda_index: u32,
 		task: ScheduledOf<T>,
 	) -> Option<ScheduledOf<T>> {
+		// Check if we have a retry configuration set.
 		match Retries::<T>::take((when, agenda_index)) {
 			Some(RetryConfig { total_retries, mut remaining, period }) => {
 				remaining = match remaining.checked_sub(1) {
