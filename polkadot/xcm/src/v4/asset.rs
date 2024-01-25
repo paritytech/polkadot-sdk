@@ -42,9 +42,20 @@ use scale_info::TypeInfo;
 
 /// A general identifier for an instance of a non-fungible asset class.
 #[derive(
-	Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, TypeInfo, MaxEncodedLen,
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Encode,
+	Decode,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
 )]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 pub enum AssetInstance {
 	/// Undefined - used if the non-fungible asset class has only one instance.
 	Undefined,
@@ -237,8 +248,19 @@ impl TryFrom<AssetInstance> for u128 {
 
 /// Classification of whether an asset is fungible or not, along with a mandatory amount or
 /// instance.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	Encode,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
+)]
 pub enum Fungibility {
 	/// A fungible asset; we record a number of units, as a `u128` in the inner item.
 	Fungible(#[codec(compact)] u128),
@@ -305,9 +327,20 @@ impl TryFrom<OldFungibility> for Fungibility {
 
 /// Classification of whether an asset is fungible or not.
 #[derive(
-	Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo, MaxEncodedLen,
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
 )]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 pub enum WildFungibility {
 	/// The asset is fungible.
 	Fungible,
@@ -327,8 +360,20 @@ impl TryFrom<OldWildFungibility> for WildFungibility {
 }
 
 /// Location to identify an asset.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
+)]
 pub struct AssetId(pub Location);
 
 impl<T: Into<Location>> From<T> for AssetId {
@@ -387,8 +432,18 @@ impl Reanchorable for AssetId {
 }
 
 /// Either an amount of a single fungible asset, or a single well-identified non-fungible asset.
-#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Debug,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
+)]
 pub struct Asset {
 	/// The overall asset identity (aka *class*, in the case of a non-fungible).
 	pub id: AssetId,
@@ -480,8 +535,19 @@ impl TryFrom<OldAsset> for Asset {
 /// - It may contain no items of duplicate asset class;
 /// - All items must be ordered;
 /// - The number of items should grow no larger than `MAX_ITEMS_IN_ASSETS`.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, TypeInfo, Default)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	Encode,
+	TypeInfo,
+	Default,
+	serde::Serialize,
+	serde::Deserialize,
+)]
 pub struct Assets(Vec<Asset>);
 
 /// Maximum number of items we expect in a single `Assets` value. Note this is not (yet)
@@ -681,8 +747,20 @@ impl Reanchorable for Assets {
 }
 
 /// A wildcard representing a set of assets.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
+)]
 pub enum WildAsset {
 	/// All assets in Holding.
 	All,
@@ -779,8 +857,20 @@ impl<A: Into<AssetId>, B: Into<WildFungibility>> From<(A, B)> for WildAsset {
 }
 
 /// `Asset` collection, defined either by a number of `Assets` or a single wildcard.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
+)]
 pub enum AssetFilter {
 	/// Specify the filter as being everything contained by the given `Assets` inner.
 	Definite(Assets),
