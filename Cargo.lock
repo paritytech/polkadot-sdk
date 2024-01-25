@@ -14555,7 +14555,8 @@ dependencies = [
 [[package]]
 name = "reed-solomon-novelpoly"
 version = "2.0.0"
-source = "git+https://github.com/paritytech/reed-solomon-novelpoly.git?branch=alindima/release-2.0.0#ae76ce85a43f3abc5bf2676b5f1e20e5da7c9ba2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "87413ebb313323d431e85d0afc5a68222aaed972843537cbfe5f061cf1b4bcab"
 dependencies = [
  "derive_more",
  "fs-err",
