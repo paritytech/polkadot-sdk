@@ -38,7 +38,10 @@ pub trait TransactionApi<Hash: Clone> {
 		item = TransactionEvent<Hash>,
 	)]
 	fn submit_and_watch(&self, bytes: Bytes);
+}
 
+#[rpc(client, server)]
+pub trait TransactionBroadcastApi<Hash: Clone> {
 	/// Broadcast an extrinsic to the chain.
 	///
 	/// # Unstable
