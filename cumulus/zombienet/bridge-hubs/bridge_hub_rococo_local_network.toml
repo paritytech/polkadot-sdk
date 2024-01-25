@@ -23,14 +23,14 @@ chain = "rococo-local"
 	rpc_port = 9933
 	ws_port = 9943
 	balance = 2000000000000
-#
-#	[[relaychain.nodes]]
-#	name = "charlie-rococo-validator"
-#	validator = true
-#	invulnerable = true
-#	rpc_port = 9934
-#	ws_port = 9944
-#	balance = 2000000000000
+
+	[[relaychain.nodes]]
+	name = "charlie-rococo-validator"
+	validator = true
+	invulnerable = true
+	rpc_port = 9934
+	ws_port = 9944
+	balance = 2000000000000
 
 [[parachains]]
 id = 1013
@@ -49,17 +49,17 @@ cumulus_based = true
 #		"--reserved-only"
 	]
 
-#	# run bob as parachain collator
-#	[[parachains.collators]]
-#	name = "bridge-hub-rococo-collator2"
-#	validator = true
-#	command = "{{POLKADOT_PARACHAIN_BINARY_PATH}}"
-#	rpc_port = 8934
-#	ws_port = 8944
-#	args = [
-#		"-lparachain=trace,runtime::bridge-hub=trace,runtime::bridge=trace,runtime::bridge-dispatch=trace,bridge=trace,runtime::bridge-messages=trace,xcm=trace",
-##		"--reserved-only"
-#	]
+	# run bob as parachain collator
+	[[parachains.collators]]
+	name = "bridge-hub-rococo-collator2"
+	validator = true
+	command = "{{POLKADOT_PARACHAIN_BINARY_PATH}}"
+	rpc_port = 8934
+	ws_port = 8944
+	args = [
+		"-lparachain=trace,runtime::bridge-hub=trace,runtime::bridge=trace,runtime::bridge-dispatch=trace,bridge=trace,runtime::bridge-messages=trace,xcm=trace",
+#		"--reserved-only"
+	]
 
 [[parachains]]
 id = 1000
@@ -77,14 +77,14 @@ cumulus_based = true
 #		"--reserved-only",
 	]
 
-#	[[parachains.collators]]
-#	name = "asset-hub-rococo-collator2"
-#	ws_port = 9912
-#	command = "{{POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO}}"
-#	args = [
-#		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace",
-##		"--reserved-only",
-#	]
+	[[parachains.collators]]
+	name = "asset-hub-rococo-collator2"
+	ws_port = 9912
+	command = "{{POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO}}"
+	args = [
+		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace",
+#		"--reserved-only",
+	]
 
 #[[hrmp_channels]]
 #sender = 1000
