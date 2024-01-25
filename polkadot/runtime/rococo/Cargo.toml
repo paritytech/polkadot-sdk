@@ -81,7 +81,6 @@ frame-support = { path = "../../../substrate/frame/support", default-features = 
 pallet-staking = { path = "../../../substrate/frame/staking", default-features = false }
 frame-system = { path = "../../../substrate/frame/system", default-features = false }
 frame-system-rpc-runtime-api = { path = "../../../substrate/frame/system/rpc/runtime-api", default-features = false }
-pallet-parameters = { path = "../../../substrate/frame/parameters", default-features = false }
 pallet-timestamp = { path = "../../../substrate/frame/timestamp", default-features = false }
 pallet-tips = { path = "../../../substrate/frame/tips", default-features = false }
 pallet-treasury = { path = "../../../substrate/frame/treasury", default-features = false }
@@ -161,7 +160,6 @@ std = [
 	"pallet-multisig/std",
 	"pallet-nis/std",
 	"pallet-offences/std",
-	"pallet-parameters/std",
 	"pallet-preimage/std",
 	"pallet-proxy/std",
 	"pallet-ranked-collective/std",
@@ -236,7 +234,6 @@ runtime-benchmarks = [
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-nis/runtime-benchmarks",
 	"pallet-offences/runtime-benchmarks",
-	"pallet-parameters/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-ranked-collective/runtime-benchmarks",
@@ -293,7 +290,6 @@ try-runtime = [
 	"pallet-multisig/try-runtime",
 	"pallet-nis/try-runtime",
 	"pallet-offences/try-runtime",
-	"pallet-parameters/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-ranked-collective/try-runtime",
