@@ -373,14 +373,12 @@ case "$1" in
   claim-rewards-bridge-hub-rococo-local)
       ensure_polkadot_js_api
       # bhwd -> [62, 68, 77, 64] -> 0x62687764
-      NOWAIT=1
       claim_rewards \
           "ws://127.0.0.1:8943" \
           "//Charlie" \
           "0x${LANE_ID}" \
           "0x62687764" \
           "ThisChain"
-      unset NOWAIT
       claim_rewards \
           "ws://127.0.0.1:8943" \
           "//Charlie" \
@@ -390,14 +388,12 @@ case "$1" in
       ;;
   claim-rewards-bridge-hub-westend-local)
       # bhro -> [62, 68, 72, 6f] -> 0x6268726f
-      NOWAIT=1
       claim_rewards \
           "ws://127.0.0.1:8945" \
           "//Charlie" \
           "0x${LANE_ID}" \
           "0x6268726f" \
           "ThisChain"
-      unset NOWAIT
       claim_rewards \
           "ws://127.0.0.1:8945" \
           "//Charlie" \

@@ -74,7 +74,7 @@ function call_polkadot_js_api() {
     #    extra="${extra} --noWait"
     #fi
     set -x
-    polkadot-js-api ${extra} "$@"
+    polkadot-js-api --noWait --nonce -1 "$@"
 }
 
 function transfer_balance() {
