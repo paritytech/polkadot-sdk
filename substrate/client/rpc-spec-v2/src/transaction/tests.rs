@@ -3,9 +3,10 @@ use crate::{
 	chain_head::test_utils::ChainHeadMockClient, hex_string,
 	transaction::TransactionBroadcast as RpcTransactionBroadcast,
 };
+use assert_matches::assert_matches;
 use codec::Encode;
 use futures::Future;
-use jsonrpsee::{rpc_params, RpcModule};
+use jsonrpsee::{core::error::Error, rpc_params, RpcModule};
 use sc_transaction_pool::*;
 use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool, TransactionPool};
 use sp_core::testing::TaskExecutor;
@@ -77,7 +78,7 @@ async fn tx_broadcast_enters_pool() {
 	let uxt = uxt(Alice, ALICE_NONCE);
 	let xt = hex_string(&uxt.encode());
 
-	let _operation_id: String =
+	let operation_id: String =
 		tx_api.call("transaction_unstable_broadcast", rpc_params![&xt]).await.unwrap();
 
 	// Announce block 1 to `transaction_unstable_broadcast`.
@@ -104,4 +105,44 @@ async fn tx_broadcast_enters_pool() {
 	pool.maintain(event).await;
 
 	assert_eq!(0, pool.status().ready);
+
+	// Stop call can still be made.
+	let _: () = tx_api
+		.call("transaction_unstable_stop", rpc_params![&operation_id])
+		.await
+		.unwrap();
+}
+
+#[tokio::test]
+async fn tx_broadcast_invalid_tx() {
+	let (_, _, _, tx_api) = setup_api();
+
+	// Invalid parameters.
+	let err = tx_api
+		.call::<_, serde_json::Value>("transaction_unstable_broadcast", [1u8])
+		.await
+		.unwrap_err();
+	assert_matches!(err,
+		Error::Call(err) if err.code() == super::error::json_rpc_spec::INVALID_PARAM_ERROR && err.message() == "Invalid params"
+	);
+
+	// Invalid transaction that cannot be decoded. The broadcast silently exits.
+	let xt = "0xdeadbeef";
+	let operation_id: String =
+		tx_api.call("transaction_unstable_broadcast", rpc_params![&xt]).await.unwrap();
+
+	// Make an invalid stop call.
+	let err = tx_api
+		.call::<_, serde_json::Value>("transaction_unstable_stop", ["invalid_operation_id"])
+		.await
+		.unwrap_err();
+	assert_matches!(err,
+		Error::Call(err) if err.code() == super::error::json_rpc_spec::INVALID_PARAM_ERROR && err.message() == "Invalid operation id"
+	);
+
+	// Ensure stop can be called, the tx was decoded and the broadcast future terminated.
+	let _: () = tx_api
+		.call("transaction_unstable_stop", rpc_params![&operation_id])
+		.await
+		.unwrap();
 }

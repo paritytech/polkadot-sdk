@@ -207,7 +207,6 @@ where
 	fn stop_broadcast(&self, operation_id: String) -> Result<(), ErrorBroadcast> {
 		let mut broadcast_ids = self.broadcast_ids.write();
 
-		// TODO: Signal error on wrong operation ID.
 		let Some(broadcast_state) = broadcast_ids.remove(&operation_id) else {
 			return Err(ErrorBroadcast::InvalidOperationID)
 		};
