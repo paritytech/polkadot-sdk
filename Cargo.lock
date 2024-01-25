@@ -347,9 +347,9 @@ dependencies = [
 
 [[package]]
 name = "arbitrary"
-version = "1.3.0"
+version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2d098ff73c1ca148721f37baad5ea6a465a13f9573aba8641fbbbae8164a54e"
+checksum = "7d5a26814d8dcb93b0e5a0ff3c6d80a8843bafb21b39e8e18a6f05471870e110"
 
 [[package]]
 name = "ark-bls12-377"
@@ -4688,18 +4688,18 @@ checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
 
 [[package]]
 name = "docify"
-version = "0.2.6"
+version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4235e9b248e2ba4b92007fe9c646f3adf0ffde16dc74713eacc92b8bc58d8d2f"
+checksum = "7cc4fd38aaa9fb98ac70794c82a00360d1e165a87fbf96a8a91f9dfc602aaee2"
 dependencies = [
  "docify_macros",
 ]
 
 [[package]]
 name = "docify_macros"
-version = "0.2.6"
+version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47020e12d7c7505670d1363dd53d6c23724f71a90a3ae32ff8eba40de8404626"
+checksum = "63fa215f3a0d40fb2a221b3aa90d8e1fbb8379785a990cb60d62ac71ebdc6460"
 dependencies = [
  "common-path",
  "derive-syn-parse",
@@ -4709,7 +4709,7 @@ dependencies = [
  "regex",
  "syn 2.0.48",
  "termcolor",
- "toml 0.7.8",
+ "toml 0.8.8",
  "walkdir",
 ]
 
@@ -20257,18 +20257,6 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.7.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd79e69d3b627db300ff956027cc6c3798cef26d22526befdfcd12feeb6d2257"
-dependencies = [
- "serde",
- "serde_spanned",
- "toml_datetime",
- "toml_edit 0.19.15",
-]
-
-[[package]]
-name = "toml"
 version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1a195ec8c9da26928f773888e0742ca3ca1040c6cd859c919c9f59c1954ab35"
@@ -20295,8 +20283,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b5bb770da30e5cbfde35a2d7b9b8a2c4b8ef89548a7a6aeab5c9a576e3e7421"
 dependencies = [
  "indexmap 2.0.0",
- "serde",
- "serde_spanned",
  "toml_datetime",
  "winnow",
 ]
