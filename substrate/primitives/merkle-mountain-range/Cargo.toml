@@ -19,7 +19,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 log = { version = "0.4.17", default-features = false }
 mmr-lib = { package = "ckb-merkle-mountain-range", version = "0.5.2", default-features = false }
-serde = { version = "1.0.194", features = ["alloc", "derive"], default-features = false, optional = true }
+serde = { version = "1.0.195", features = ["alloc", "derive"], default-features = false, optional = true }
 sp-api = { path = "../api", default-features = false }
 sp-core = { path = "../core", default-features = false }
 sp-debug-derive = { path = "../debug-derive", default-features = false }

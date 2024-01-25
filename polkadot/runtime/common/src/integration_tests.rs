@@ -45,9 +45,9 @@ use sp_io::TestExternalities;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup, One},
+	traits::{BlakeTwo256, IdentityLookup, One, Verify},
 	transaction_validity::TransactionPriority,
-	AccountId32, BuildStorage,
+	AccountId32, BuildStorage, MultiSignature,
 };
 use sp_std::sync::Arc;
 
@@ -74,25 +74,25 @@ frame_support::construct_runtime!(
 	pub enum Test
 	{
 		// System Stuff
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Babe: pallet_babe::{Pallet, Call, Storage, Config<T>, ValidateUnsigned},
+		System: frame_system,
+		Balances: pallet_balances,
+		Babe: pallet_babe,
 
 		// Parachains Runtime
-		Configuration: configuration::{Pallet, Call, Storage, Config<T>},
-		Paras: paras::{Pallet, Call, Storage, Event, Config<T>},
-		ParasShared: shared::{Pallet, Call, Storage},
-		ParachainsOrigin: origin::{Pallet, Origin},
+		Configuration: configuration,
+		Paras: paras,
+		ParasShared: shared,
+		ParachainsOrigin: origin,
 
 		// Para Onboarding Pallets
-		Registrar: paras_registrar::{Pallet, Call, Storage, Event<T>},
-		Auctions: auctions::{Pallet, Call, Storage, Event<T>},
-		Crowdloan: crowdloan::{Pallet, Call, Storage, Event<T>},
-		Slots: slots::{Pallet, Call, Storage, Event<T>},
+		Registrar: paras_registrar,
+		Auctions: auctions,
+		Crowdloan: crowdloan,
+		Slots: slots,
 
 		// Migrators
-		Identity: pallet_identity::{Pallet, Call, Storage, Event<T>},
-		IdentityMigrator: identity_migrator::{Pallet, Call, Event<T>},
+		Identity: pallet_identity,
+		IdentityMigrator: identity_migrator,
 	}
 );
 
@@ -197,7 +197,9 @@ impl configuration::Config for Test {
 	type WeightInfo = configuration::TestWeightInfo;
 }
 
-impl shared::Config for Test {}
+impl shared::Config for Test {
+	type DisabledValidators = ();
+}
 
 impl origin::Config for Test {}
 
@@ -293,6 +295,12 @@ impl pallet_identity::Config for Test {
 	type MaxRegistrars = ConstU32<20>;
 	type RegistrarOrigin = EnsureRoot<AccountId>;
 	type ForceOrigin = EnsureRoot<AccountId>;
+	type OffchainSignature = MultiSignature;
+	type SigningPublicKey = <MultiSignature as Verify>::Signer;
+	type UsernameAuthorityOrigin = EnsureRoot<AccountId>;
+	type PendingUsernameExpiration = ConstU32<100>;
+	type MaxSuffixLength = ConstU32<7>;
+	type MaxUsernameLength = ConstU32<32>;
 	type WeightInfo = ();
 }
 
@@ -922,8 +930,18 @@ fn basic_swap_works() {
 
 		// Deposit is appropriately taken
 		// ----------------------------------------- para deposit --- crowdloan
-		assert_eq!(Balances::reserved_balance(&account_id(1)), (500 + 10 * 2 * 1) + 100);
-		assert_eq!(Balances::reserved_balance(&account_id(2)), 500 + 20 * 2 * 1);
+		let crowdloan_deposit = 100;
+		let para_id_deposit = <Test as paras_registrar::Config>::ParaDeposit::get();
+		let code_deposit = configuration::Pallet::<Test>::config().max_code_size *
+			<Test as paras_registrar::Config>::DataDepositPerByte::get();
+
+		// Para 2000 has a genesis head size of 10.
+		assert_eq!(
+			Balances::reserved_balance(&account_id(1)),
+			crowdloan_deposit + para_id_deposit + code_deposit + 10
+		);
+		// Para 2001 has a genesis head size of 20.
+		assert_eq!(Balances::reserved_balance(&account_id(2)), para_id_deposit + code_deposit + 20);
 		assert_eq!(Balances::reserved_balance(&crowdloan_account), total);
 		// Crowdloan is appropriately set
 		assert!(Crowdloan::funds(ParaId::from(2000)).is_some());
@@ -965,8 +983,8 @@ fn basic_swap_works() {
 		// Deregister on-demand parachain
 		assert_ok!(Registrar::deregister(para_origin(2000).into(), ParaId::from(2000)));
 		// Correct deposit is unreserved
-		assert_eq!(Balances::reserved_balance(&account_id(1)), 100); // crowdloan deposit left over
-		assert_eq!(Balances::reserved_balance(&account_id(2)), 500 + 20 * 2 * 1);
+		assert_eq!(Balances::reserved_balance(&account_id(1)), crowdloan_deposit);
+		assert_eq!(Balances::reserved_balance(&account_id(2)), para_id_deposit + code_deposit + 20);
 		// Crowdloan ownership is swapped
 		assert!(Crowdloan::funds(ParaId::from(2000)).is_none());
 		assert!(Crowdloan::funds(ParaId::from(2001)).is_some());
@@ -997,7 +1015,7 @@ fn basic_swap_works() {
 		// Dissolve returns the balance of the person who put a deposit for crowdloan
 		assert_ok!(Crowdloan::dissolve(signed(1), ParaId::from(2001)));
 		assert_eq!(Balances::reserved_balance(&account_id(1)), 0);
-		assert_eq!(Balances::reserved_balance(&account_id(2)), 500 + 20 * 2 * 1);
+		assert_eq!(Balances::reserved_balance(&account_id(2)), para_id_deposit + code_deposit + 20);
 
 		// Final deregister sets everything back to the start
 		assert_ok!(Registrar::deregister(para_origin(2001).into(), ParaId::from(2001)));

@@ -112,7 +112,7 @@ pub fn enable_for_worker(worker_info: &WorkerInfo) -> Result<()> {
 // TODO: <https://github.com/landlock-lsm/rust-landlock/issues/36>
 /// Runs a check for landlock in its own thread, and returns an error indicating whether the given
 /// landlock ABI is fully enabled on the current Linux environment.
-pub fn check_is_fully_enabled() -> Result<()> {
+pub fn check_can_fully_enable() -> Result<()> {
 	match std::thread::spawn(|| try_restrict(std::iter::empty::<(PathBuf, AccessFs)>())).join() {
 		Ok(Ok(())) => Ok(()),
 		Ok(Err(err)) => Err(err),
@@ -165,7 +165,7 @@ mod tests {
 	#[test]
 	fn restricted_thread_cannot_read_file() {
 		// TODO: This would be nice: <https://github.com/rust-lang/rust/issues/68007>.
-		if check_is_fully_enabled().is_err() {
+		if check_can_fully_enable().is_err() {
 			return
 		}
 
@@ -230,7 +230,7 @@ mod tests {
 	#[test]
 	fn restricted_thread_cannot_write_file() {
 		// TODO: This would be nice: <https://github.com/rust-lang/rust/issues/68007>.
-		if check_is_fully_enabled().is_err() {
+		if check_can_fully_enable().is_err() {
 			return
 		}
 
@@ -289,7 +289,7 @@ mod tests {
 	#[test]
 	fn restricted_thread_can_truncate_file() {
 		// TODO: This would be nice: <https://github.com/rust-lang/rust/issues/68007>.
-		if check_is_fully_enabled().is_err() {
+		if check_can_fully_enable().is_err() {
 			return
 		}
 

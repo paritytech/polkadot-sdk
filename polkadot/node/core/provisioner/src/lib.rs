@@ -29,13 +29,13 @@ use polkadot_node_subsystem::{
 	jaeger,
 	messages::{
 		CandidateBackingMessage, ChainApiMessage, ProspectiveParachainsMessage, ProvisionableData,
-		ProvisionerInherentData, ProvisionerMessage, RuntimeApiMessage, RuntimeApiRequest,
+		ProvisionerInherentData, ProvisionerMessage, RuntimeApiRequest,
 	},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, PerLeafSpan,
-	RuntimeApiError, SpawnedSubsystem, SubsystemError,
+	SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_util::{
-	request_availability_cores, request_persisted_validation_data,
+	has_required_runtime, request_availability_cores, request_persisted_validation_data,
 	runtime::{prospective_parachains_mode, ProspectiveParachainsMode},
 	TimeoutExt,
 };
@@ -855,57 +855,4 @@ fn bitfields_indicate_availability(
 	}
 
 	3 * availability.count_ones() >= 2 * availability.len()
-}
-
-// If we have to be absolutely precise here, this method gets the version of the `ParachainHost`
-// api. For brevity we'll just call it 'runtime version'.
-async fn has_required_runtime(
-	sender: &mut impl overseer::ProvisionerSenderTrait,
-	relay_parent: Hash,
-	required_runtime_version: u32,
-) -> bool {
-	gum::trace!(target: LOG_TARGET, ?relay_parent, "Fetching ParachainHost runtime api version");
-
-	let (tx, rx) = oneshot::channel();
-	sender
-		.send_message(RuntimeApiMessage::Request(relay_parent, RuntimeApiRequest::Version(tx)))
-		.await;
-
-	match rx.await {
-		Result::Ok(Ok(runtime_version)) => {
-			gum::trace!(
-				target: LOG_TARGET,
-				?relay_parent,
-				?runtime_version,
-				?required_runtime_version,
-				"Fetched  ParachainHost runtime api version"
-			);
-			runtime_version >= required_runtime_version
-		},
-		Result::Ok(Err(RuntimeApiError::Execution { source: error, .. })) => {
-			gum::trace!(
-				target: LOG_TARGET,
-				?relay_parent,
-				?error,
-				"Execution error while fetching ParachainHost runtime api version"
-			);
-			false
-		},
-		Result::Ok(Err(RuntimeApiError::NotSupported { .. })) => {
-			gum::trace!(
-				target: LOG_TARGET,
-				?relay_parent,
-				"NotSupported error while fetching ParachainHost runtime api version"
-			);
-			false
-		},
-		Result::Err(_) => {
-			gum::trace!(
-				target: LOG_TARGET,
-				?relay_parent,
-				"Cancelled error while fetching ParachainHost runtime api version"
-			);
-			false
-		},
-	}
 }

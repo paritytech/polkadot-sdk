@@ -35,9 +35,9 @@ const SLOT_DURATION: u64 = 2;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-		Aura: pallet_aura::{Pallet, Storage, Config<T>},
+		System: frame_system,
+		Timestamp: pallet_timestamp,
+		Aura: pallet_aura,
 	}
 );
 
@@ -95,6 +95,10 @@ impl MockDisabledValidators {
 impl DisabledValidators for MockDisabledValidators {
 	fn is_disabled(index: AuthorityIndex) -> bool {
 		DisabledValidatorTestValue::get().binary_search(&index).is_ok()
+	}
+
+	fn disabled_validators() -> Vec<u32> {
+		DisabledValidatorTestValue::get()
 	}
 }
 
