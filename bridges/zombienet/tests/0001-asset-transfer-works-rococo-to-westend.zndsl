@@ -5,6 +5,16 @@ Creds: config
 # step 0: start relayer
 # (started by sibling 0001-asset-transfer-works-westend-to-rococo.zndsl test)
 
+#alice-westend-validator: js-script ../helpers/add-reserved-peers.js with "9946,9947,8945,8946,9010,9012" within 60 seconds
+#bob-westend-validator: js-script ../helpers/add-reserved-peers.js with "9945,9947,8945,8946,9010,9012" within 60 seconds
+#charlie-westend-validator: js-script ../helpers/add-reserved-peers.js with "9945,9946,8945,8946,9010,9012" within 60 seconds
+#
+#bridge-hub-westend-collator1: js-script ../helpers/add-reserved-peers.js with "8946,9945,9946,9947" within 60 seconds
+#bridge-hub-westend-collator2: js-script ../helpers/add-reserved-peers.js with "8945,9945,9946,9947" within 60 seconds
+#
+#asset-hub-westend-collator1: js-script ../helpers/add-reserved-peers.js with "9012,9945,9946,9947" within 60 seconds
+#asset-hub-westend-collator2: js-script ../helpers/add-reserved-peers.js with "9010,9945,9946,9947" within 60 seconds
+
 # step 1: initialize Westend AH
 asset-hub-westend-collator1: run ../scripts/invoke-script.sh with "init-asset-hub-westend-local" within 600 seconds
 
@@ -18,6 +28,8 @@ bridge-hub-westend-collator1: js-script ../helpers/wait-account-nonce-finalized.
 
 # step 4: relay is already started - let's wait until with-Rococo GRANPDA pallet is initialized at Westend
 bridge-hub-westend-collator1: js-script ../helpers/best-finalized-header-at-bridged-chain.js with "Rococo,0" within 400 seconds
+
+#sleep 60000 seconds
 
 # step 5: send WND to //Alice on Rococo AH
 # (that's a required part of a sibling 0001-asset-transfer-works-westend-to-rococo.zndsl test)

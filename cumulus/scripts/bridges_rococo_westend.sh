@@ -191,23 +191,6 @@ case "$1" in
     ;;
   init-asset-hub-rococo-local)
       ensure_polkadot_js_api
-      # create foreign assets for native Westend token (governance call on Rococo)
-      NOWAIT=1
-      force_create_foreign_asset \
-          "ws://127.0.0.1:9942" \
-          "//Alice" \
-          1000 \
-          "ws://127.0.0.1:9910" \
-          "$(jq --null-input '{ "parents": 2, "interior": { "X1": { "GlobalConsensus": "Westend" } } }')" \
-          "$GLOBAL_CONSENSUS_WESTEND_SOVEREIGN_ACCOUNT" \
-          10000000000 \
-          true
-      # drip SA which holds reserves
-      transfer_balance \
-          "ws://127.0.0.1:9910" \
-          "//Alice" \
-          "$GLOBAL_CONSENSUS_WESTEND_ASSET_HUB_WESTEND_1000_SOVEREIGN_ACCOUNT" \
-          $((1000000000000 + 50000000000 * 20))
       # HRMP
       open_hrmp_channels \
           "ws://127.0.0.1:9942" \
@@ -217,8 +200,17 @@ case "$1" in
           "ws://127.0.0.1:9942" \
           "//Alice" \
           1013 1000 4 524288
+      # create foreign assets for native Westend token (governance call on Rococo)
+      force_create_foreign_asset \
+          "ws://127.0.0.1:9942" \
+          "//Alice" \
+          1000 \
+          "ws://127.0.0.1:9910" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X1": { "GlobalConsensus": "Westend" } } }')" \
+          "$GLOBAL_CONSENSUS_WESTEND_SOVEREIGN_ACCOUNT" \
+          10000000000 \
+          true
       # set XCM version of remote AssetHubWestend
-      unset NOWAIT
       force_xcm_version \
           "ws://127.0.0.1:9942" \
           "//Alice" \
@@ -226,11 +218,26 @@ case "$1" in
           "ws://127.0.0.1:9910" \
           "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Westend" }, { "Parachain": 1000 } ] } }')" \
           $XCM_VERSION
+
+      # drip SA which holds reserves
+      transfer_balance \
+          "ws://127.0.0.1:9910" \
+          "//Alice" \
+          "$GLOBAL_CONSENSUS_WESTEND_ASSET_HUB_WESTEND_1000_SOVEREIGN_ACCOUNT" \
+          $((1000000000000 + 50000000000 * 20))
       ;;
   init-bridge-hub-rococo-local)
       ensure_polkadot_js_api
+      # set XCM version of remote BridgeHubWestend
+      force_xcm_version \
+          "ws://127.0.0.1:9942" \
+          "//Alice" \
+          1013 \
+          "ws://127.0.0.1:8943" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Westend" }, { "Parachain": 1002 } ] } }')" \
+          $XCM_VERSION
+
       # SA of sibling asset hub pays for the execution
-      NOWAIT=1
       transfer_balance \
           "ws://127.0.0.1:8943" \
           "//Alice" \
@@ -248,35 +255,9 @@ case "$1" in
           "//Alice" \
           "$ON_BRIDGE_HUB_ROCOCO_SOVEREIGN_ACCOUNT_FOR_LANE_00000002_bhwd_BridgedChain" \
           $((1000000000000 + 2000000000000))
-    unset NOWAIT
-      # set XCM version of remote BridgeHubWestend
-      force_xcm_version \
-          "ws://127.0.0.1:9942" \
-          "//Alice" \
-          1013 \
-          "ws://127.0.0.1:8943" \
-          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Westend" }, { "Parachain": 1002 } ] } }')" \
-          $XCM_VERSION
       ;;
   init-asset-hub-westend-local)
       ensure_polkadot_js_api
-      # create foreign assets for native Rococo token (governance call on Westend)
-      NOWAIT=1
-      force_create_foreign_asset \
-          "ws://127.0.0.1:9945" \
-          "//Alice" \
-          1000 \
-          "ws://127.0.0.1:9010" \
-          "$(jq --null-input '{ "parents": 2, "interior": { "X1": { "GlobalConsensus": "Rococo" } } }')" \
-          "$GLOBAL_CONSENSUS_ROCOCO_SOVEREIGN_ACCOUNT" \
-          10000000000 \
-          true
-      # drip SA which holds reserves
-      transfer_balance \
-          "ws://127.0.0.1:9010" \
-          "//Alice" \
-          "$GLOBAL_CONSENSUS_ROCOCO_ASSET_HUB_ROCOCO_1000_SOVEREIGN_ACCOUNT" \
-          $((1000000000000000 + 50000000000 * 20))
       # HRMP
       open_hrmp_channels \
           "ws://127.0.0.1:9945" \
@@ -286,8 +267,17 @@ case "$1" in
           "ws://127.0.0.1:9945" \
           "//Alice" \
           1002 1000 4 524288
+      # create foreign assets for native Rococo token (governance call on Westend)
+      force_create_foreign_asset \
+          "ws://127.0.0.1:9945" \
+          "//Alice" \
+          1000 \
+          "ws://127.0.0.1:9010" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X1": { "GlobalConsensus": "Rococo" } } }')" \
+          "$GLOBAL_CONSENSUS_ROCOCO_SOVEREIGN_ACCOUNT" \
+          10000000000 \
+          true
       # set XCM version of remote AssetHubRococo
-      unset NOWAIT
       force_xcm_version \
           "ws://127.0.0.1:9945" \
           "//Alice" \
@@ -295,10 +285,25 @@ case "$1" in
           "ws://127.0.0.1:9010" \
           "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Rococo" }, { "Parachain": 1000 } ] } }')" \
           $XCM_VERSION
+
+      # drip SA which holds reserves
+      transfer_balance \
+          "ws://127.0.0.1:9010" \
+          "//Alice" \
+          "$GLOBAL_CONSENSUS_ROCOCO_ASSET_HUB_ROCOCO_1000_SOVEREIGN_ACCOUNT" \
+          $((1000000000000000 + 50000000000 * 20))
       ;;
   init-bridge-hub-westend-local)
+      # set XCM version of remote BridgeHubRococo
+      force_xcm_version \
+          "ws://127.0.0.1:9945" \
+          "//Alice" \
+          1002 \
+          "ws://127.0.0.1:8945" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Rococo" }, { "Parachain": 1013 } ] } }')" \
+          $XCM_VERSION
+
       # SA of sibling asset hub pays for the execution
-      NOWAIT=1
       transfer_balance \
           "ws://127.0.0.1:8945" \
           "//Alice" \
@@ -316,15 +321,6 @@ case "$1" in
           "//Alice" \
           "$ON_BRIDGE_HUB_WESTEND_SOVEREIGN_ACCOUNT_FOR_LANE_00000002_bhro_BridgedChain" \
           $((1000000000000000 + 2000000000000))
-      # set XCM version of remote BridgeHubRococo
-      unset NOWAIT
-      force_xcm_version \
-          "ws://127.0.0.1:9945" \
-          "//Alice" \
-          1002 \
-          "ws://127.0.0.1:8945" \
-          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": "Rococo" }, { "Parachain": 1013 } ] } }')" \
-          $XCM_VERSION
       ;;
   reserve-transfer-assets-from-asset-hub-rococo-local)
       ensure_polkadot_js_api
