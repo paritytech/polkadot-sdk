@@ -583,6 +583,8 @@ impl OverseerGen for CollatorOverseerGen {
 		RuntimeClient::Api: ParachainHost<Block> + BabeApi<Block> + AuthorityDiscoveryApi<Block>,
 		Spawner: 'static + SpawnNamed + Clone + Unpin,
 	{
-		collator_overseer_builder(args)?.build_with_connector(connector).map_err(|e| e.into())
+		collator_overseer_builder(args)?
+			.build_with_connector(connector)
+			.map_err(|e| e.into())
 	}
 }
