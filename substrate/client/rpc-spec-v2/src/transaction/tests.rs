@@ -1,24 +1,17 @@
 use super::*;
 use crate::{
-	chain_head::test_utils::ChainHeadMockClient, transaction::Transaction as RpcTransaction,
+	chain_head::test_utils::ChainHeadMockClient, hex_string,
+	transaction::TransactionBroadcast as RpcTransactionBroadcast,
 };
 use codec::Encode;
 use futures::Future;
 use jsonrpsee::rpc_params;
 use sc_transaction_pool::*;
 use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool, TransactionPool};
-use sp_core::{
-	hexdisplay::{AsBytesRef, HexDisplay},
-	testing::TaskExecutor,
-};
+use sp_core::testing::TaskExecutor;
 use std::{pin::Pin, sync::Arc, time::Duration};
 use substrate_test_runtime_client::{prelude::*, AccountKeyring::*};
 use substrate_test_runtime_transaction_pool::{uxt, TestApi};
-
-/// Util function to encode a value as a hex string
-pub fn hex_string<Data: AsBytesRef>(data: &Data) -> String {
-	format!("0x{:?}", HexDisplay::from(data))
-}
 
 type Block = substrate_test_runtime_client::runtime::Block;
 
@@ -59,13 +52,15 @@ async fn tx_broadcast_enters_pool() {
 	let xt = hex_string(&uxt.encode());
 
 	let client_mock = Arc::new(ChainHeadMockClient::new(client.clone()));
-	let tx_api =
-		RpcTransaction::new(client_mock.clone(), pool.clone(), Arc::new(TaskExecutor::default()))
-			.into_rpc();
+	let tx_api = RpcTransactionBroadcast::new(
+		client_mock.clone(),
+		pool.clone(),
+		Arc::new(TaskExecutor::default()),
+	)
+	.into_rpc();
 
 	// Start at block 1.
 	let block_1_header = api.push_block(1, vec![], true);
-	let _block_1 = api.expect_hash_from_number(1);
 
 	let _operation_id: String =
 		tx_api.call("transaction_unstable_broadcast", rpc_params![&xt]).await.unwrap();

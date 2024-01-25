@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! API implementation for submitting transactions.
+//! API implementation for broadcasting transactions.
 
 use crate::{transaction::api::TransactionBroadcastApiServer, SubscriptionTaskExecutor};
 use codec::Decode;
