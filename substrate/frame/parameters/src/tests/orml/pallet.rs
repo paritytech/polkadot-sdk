@@ -25,9 +25,9 @@ use frame_system::pallet_prelude::*;
 
 use frame_support::traits::dynamic_params::ParameterStore;
 
-pub use pallet::{Pallet as OrmlPalletParams, *};
+pub use pallet::*;
 
-// This macro will be move to ORML:
+// This macro will be moved to ORML:
 frame_support::define_parameters! {
 	pub Parameters = {
 		DynamicMagicNumber: u32 = 0,
@@ -47,9 +47,7 @@ pub mod pallet {
 	}
 
 	#[pallet::event]
-	pub enum Event<T: Config> {
-		Stupid,
-	}
+	pub enum Event<T: Config> {}
 
 	#[pallet::error]
 	pub enum Error<T> {

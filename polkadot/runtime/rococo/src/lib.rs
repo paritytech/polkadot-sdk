@@ -80,7 +80,7 @@ use frame_support::{
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
 };
-use frame_system::{EnsureRoot, EnsureSigned, EnsureRootWithSuccess};
+use frame_system::{EnsureRoot, EnsureRootWithSuccess, EnsureSigned};
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_identity::legacy::IdentityInfo;
 use pallet_session::historical as session_historical;
