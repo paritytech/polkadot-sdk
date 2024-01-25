@@ -198,7 +198,21 @@ where
 			let mut is_done = false;
 
 			while !is_done {
-				let Some(best_block_hash) = best_block_import_stream.next().await else { return };
+				// Wait for the next block to become available.
+				let Some(mut best_block_hash) = best_block_import_stream.next().await else {
+					return
+				};
+				// We are effectively polling the stream for the last available item at this time.
+				// The `now_or_never` returns `None` if the stream is `Pending`.
+				//
+				// If the stream contains `Hash0x1 Hash0x2 Hash0x3 Hash0x4`, we want only `Hash0x4`.
+				while let Some(next) = best_block_import_stream.next().now_or_never() {
+					let Some(next) = next else {
+						// Nothing to do if the best block stream terminated.
+						return
+					};
+					best_block_hash = next;
+				}
 
 				let submit =
 					pool.submit_and_watch(best_block_hash, TX_SOURCE, decoded_extrinsic.clone());
