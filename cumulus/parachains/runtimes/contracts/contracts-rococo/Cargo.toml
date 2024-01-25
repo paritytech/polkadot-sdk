@@ -20,7 +20,6 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 hex-literal = { version = "0.4.1", optional = true }
 log = { version = "0.4.20", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-smallvec = "1.11.0"
 
 # Substrate
 sp-api = { path = "../../../../../substrate/primitives/api", default-features = false }
@@ -58,7 +57,6 @@ pallet-contracts = { path = "../../../../../substrate/frame/contracts", default-
 
 # Polkadot
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false }
-polkadot-core-primitives = { path = "../../../../../polkadot/core-primitives", default-features = false }
 polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false }
 polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false }
 rococo-runtime-constants = { path = "../../../../../polkadot/runtime/rococo/constants", default-features = false }
@@ -69,7 +67,6 @@ xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkad
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false }
 pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false }
-cumulus-pallet-dmp-queue = { path = "../../../../pallets/dmp-queue", default-features = false }
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"] }
 cumulus-pallet-session-benchmarking = { path = "../../../../pallets/session-benchmarking", default-features = false }
 cumulus-pallet-xcm = { path = "../../../../pallets/xcm", default-features = false }
@@ -78,14 +75,13 @@ cumulus-primitives-core = { path = "../../../../primitives/core", default-featur
 cumulus-primitives-utility = { path = "../../../../primitives/utility", default-features = false }
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
 parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false }
-parachains-common = { path = "../../../common", default-features = false }
+parachains-common = { path = "../../../common", default-features = false, features = ["rococo"] }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
 	"cumulus-pallet-aura-ext/std",
-	"cumulus-pallet-dmp-queue/std",
 	"cumulus-pallet-parachain-system/std",
 	"cumulus-pallet-session-benchmarking/std",
 	"cumulus-pallet-xcm/std",
@@ -117,7 +113,6 @@ std = [
 	"pallet-xcm/std",
 	"parachain-info/std",
 	"parachains-common/std",
-	"polkadot-core-primitives/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-common/std",
 	"rococo-runtime-constants/std",
@@ -142,7 +137,6 @@ std = [
 ]
 
 runtime-benchmarks = [
-	"cumulus-pallet-dmp-queue/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
@@ -172,7 +166,6 @@ runtime-benchmarks = [
 
 try-runtime = [
 	"cumulus-pallet-aura-ext/try-runtime",
-	"cumulus-pallet-dmp-queue/try-runtime",
 	"cumulus-pallet-parachain-system/try-runtime",
 	"cumulus-pallet-xcm/try-runtime",
 	"cumulus-pallet-xcmp-queue/try-runtime",
@@ -203,5 +196,5 @@ experimental = ["pallet-aura/experimental"]
 
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
-# to make it smaller like logging for example.
+# to make it smaller, like logging for example.
 on-chain-release-build = ["sp-api/disable-logging"]

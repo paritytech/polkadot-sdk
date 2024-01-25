@@ -32,6 +32,7 @@ sc-utils = { path = "../utils" }
 sp-api = { path = "../../primitives/api" }
 sp-blockchain = { path = "../../primitives/blockchain" }
 sp-core = { path = "../../primitives/core" }
+sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
 sp-runtime = { path = "../../primitives/runtime" }
 sp-tracing = { path = "../../primitives/tracing" }
 sp-transaction-pool = { path = "../../primitives/transaction-pool" }

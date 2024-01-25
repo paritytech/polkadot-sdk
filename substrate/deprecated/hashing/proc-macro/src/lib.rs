@@ -1,3 +1,5 @@
+// This file is part of Substrate.
+
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -13,5 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// re-export rococo
-pub use crate::rococo::{consensus, currency, fee};
+//! This package has been deprecated. Please use `sp-crypto-hashing-proc-macro`.
+//!
+//! Removal scheduled after June 2024.
+
+pub use sp_crypto_hashing_proc_macro::*;

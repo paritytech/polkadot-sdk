@@ -28,12 +28,13 @@ sc-network = { path = "../network" }
 sc-telemetry = { path = "../telemetry" }
 sp-blockchain = { path = "../../primitives/blockchain" }
 sp-core = { path = "../../primitives/core" }
+sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
 sp-genesis-builder = { path = "../../primitives/genesis-builder" }
 sp-runtime = { path = "../../primitives/runtime" }
 sp-state-machine = { path = "../../primitives/state-machine" }
 log = { version = "0.4.17", default-features = false }
 array-bytes = { version = "6.1" }
-docify = "0.2.0"
+docify = "0.2.7"
 
 [dev-dependencies]
 substrate-test-runtime = { path = "../../test-utils/runtime" }

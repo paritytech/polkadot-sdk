@@ -30,8 +30,7 @@ use frame_support::{
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
 	traits::{
-		ConstBool, ConstU32, ConstU64, ConstU8, Contains, EitherOfDiverse, EverythingBut,
-		TransformOrigin,
+		ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Everything, TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
@@ -124,7 +123,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("people-westend"),
 	impl_name: create_runtime_str!("people-westend"),
 	authoring_version: 1,
-	spec_version: 1_006_000,
+	spec_version: 1_006_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 0,
@@ -162,16 +161,9 @@ parameter_types! {
 	pub const SS58Prefix: u8 = 42;
 }
 
-pub struct IdentityCalls;
-impl Contains<RuntimeCall> for IdentityCalls {
-	fn contains(c: &RuntimeCall) -> bool {
-		matches!(c, RuntimeCall::Identity(_))
-	}
-}
-
 #[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
-	type BaseCallFilter = EverythingBut<IdentityCalls>;
+	type BaseCallFilter = Everything;
 	type BlockWeights = RuntimeBlockWeights;
 	type BlockLength = RuntimeBlockLength;
 	type AccountId = AccountId;
@@ -443,12 +435,8 @@ construct_runtime!(
 );
 
 #[cfg(feature = "runtime-benchmarks")]
-#[macro_use]
-extern crate frame_benchmarking;
-
-#[cfg(feature = "runtime-benchmarks")]
 mod benches {
-	define_benchmarks!(
+	frame_benchmarking::define_benchmarks!(
 		// Substrate
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
@@ -786,6 +774,13 @@ impl_runtime_apis! {
 					let assets: Assets = (AssetId(RelayLocation::get()), 1_000 * UNITS).into();
 					let ticket = Location { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
+				}
+
+				fn fee_asset() -> Result<Asset, BenchmarkError> {
+					Ok(Asset {
+						id: AssetId(RelayLocation::get()),
+						fun: Fungible(1_000_000 * UNITS),
+					})
 				}
 
 				fn unlockable_asset() -> Result<(Location, Location, Asset), BenchmarkError> {
