@@ -29,10 +29,6 @@ pub mod migrations;
 use codec::Codec;
 use frame_support::traits::{
 	fungible::{InspectHold, MutateHold, HoldConsiderationFromLegacy},
-	tokens::{
-		Fortitude,
-		Precision,
-	},
 	Consideration,
 	Footprint,
 	StorageVersion,
@@ -91,10 +87,6 @@ pub mod pallet {
 		/// A means of providing some cost while data is stored on-chain.
 		type Consideration: Consideration<Self::AccountId> + HoldConsiderationFromLegacy<Self::AccountId, Self::Currency>;
 
-		/// The deposit needed for reserving an index.
-		#[pallet::constant]
-		type Deposit: Get<BalanceOf<Self>>;
-
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -118,7 +110,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Assign an previously unassigned index.
 		///
-		/// Payment: `Deposit` is reserved from the sender account.
+		/// Payment: `Consideration` is held from the sender account.
 		///
 		/// The dispatch origin for this call must be _Signed_.
 		///
@@ -385,7 +377,7 @@ impl<T: Config> Pallet<T> {
 		let zero_held = Accounts::<T>::iter()
 			.filter(|(_, (_, _, perm))| *perm == true )
 			.all(
-				|(_, (account_id, ticket, _))|
+				|(_, (_, ticket, _))|
 					ticket.is_none()
 			);
 

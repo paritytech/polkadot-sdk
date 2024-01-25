@@ -191,16 +191,23 @@ impl pallet_babe::Config for Runtime {
 }
 
 parameter_types! {
-	pub storage IndexDeposit: Balance = 1 * DOLLARS;
+	pub const IndicesHoldReason: RuntimeHoldReason = RuntimeHoldReason::Indices(pallet_indices::HoldReason::ClaimedIndex);
+	pub const IndexDeposit: Balance = 1 * ;
 }
 
 impl pallet_indices::Config for Runtime {
 	type AccountIndex = AccountIndex;
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type Deposit = IndexDeposit;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		IndicesHoldReason,
+		// TODO: check if a different converter is needed
+		LinearStoragePrice<IndexDeposit, IndexDeposit, Balance>,
+	>;
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_indices::WeightInfo<Runtime>;
 }
 
 parameter_types! {

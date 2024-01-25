@@ -503,11 +503,21 @@ parameter_types! {
 	pub const IndexDeposit: Balance = 1 * DOLLARS;
 }
 
+parameter_types! {
+	pub const IndicesHoldReason: RuntimeHoldReason = RuntimeHoldReason::Indices(pallet_indices::HoldReason::ClaimedIndex);
+}
+
 impl pallet_indices::Config for Runtime {
 	type AccountIndex = AccountIndex;
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type Deposit = IndexDeposit;
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		IndicesHoldReason,
+		// TODO: check if a different converter is needed
+		LinearStoragePrice<IndexDeposit, IndexDeposit, Balance>,
+	>;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_indices::weights::SubstrateWeight<Runtime>;
 }
