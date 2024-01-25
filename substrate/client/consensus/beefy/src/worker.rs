@@ -17,18 +17,20 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{
+	aux_schema,
 	communication::{
 		gossip::{proofs_topic, votes_topic, GossipFilterCfg, GossipMessage, GossipValidator},
 		peers::PeerReport,
 		request_response::outgoing_requests_engine::{OnDemandJustificationsEngine, ResponseInfo},
 	},
 	error::Error,
+	expect_validator_set,
 	justification::BeefyVersionedFinalityProof,
 	keystore::{BeefyKeystore, BeefySignatureHasher},
 	metric_inc, metric_set,
 	metrics::VoterMetrics,
 	round::{Rounds, VoteImportResult},
-	BeefyVoterLinks, LOG_TARGET,
+	wait_for_parent_header, BeefyVoterLinks, HEADER_SYNC_DELAY, LOG_TARGET,
 };
 use codec::{Codec, Decode, DecodeAll, Encode};
 use futures::{stream::Fuse, FutureExt, StreamExt};
@@ -38,6 +40,7 @@ use sc_network_gossip::GossipEngine;
 use sc_utils::{mpsc::TracingUnboundedReceiver, notification::NotificationReceiver};
 use sp_api::ProvideRuntimeApi;
 use sp_arithmetic::traits::{AtLeast32Bit, Saturating};
+use sp_blockchain::Backend as BlockchainBackend;
 use sp_consensus::SyncOracle;
 use sp_consensus_beefy::{
 	check_equivocation_proof,
@@ -345,6 +348,141 @@ where
 	R: ProvideRuntimeApi<B>,
 	R::Api: BeefyApi<B, AuthorityId>,
 {
+	// If no persisted state present, walk back the chain from first GRANDPA notification to either:
+	//  - latest BEEFY finalized block, or if none found on the way,
+	//  - BEEFY pallet genesis;
+	// Enqueue any BEEFY mandatory blocks (session boundaries) found on the way, for voter to
+	// finalize.
+	async fn init_state(
+		&self,
+		beefy_genesis: NumberFor<B>,
+		best_grandpa: <B as Block>::Header,
+		min_block_delta: u32,
+	) -> Result<PersistedState<B>, Error> {
+		let blockchain = self.backend.blockchain();
+
+		let beefy_genesis = self
+			.runtime
+			.runtime_api()
+			.beefy_genesis(best_grandpa.hash())
+			.ok()
+			.flatten()
+			.filter(|genesis| {
+				// test
+				*genesis == beefy_genesis
+			})
+			.ok_or_else(|| Error::Backend("BEEFY pallet expected to be active.".into()))?;
+		// Walk back the imported blocks and initialize voter either, at the last block with
+		// a BEEFY justification, or at pallet genesis block; voter will resume from there.
+		let mut sessions = VecDeque::new();
+		let mut header = best_grandpa.clone();
+		let state = loop {
+			if let Some(true) = blockchain
+				.justifications(header.hash())
+				.ok()
+				.flatten()
+				.map(|justifs| justifs.get(BEEFY_ENGINE_ID).is_some())
+			{
+				info!(
+					target: LOG_TARGET,
+					"🥩 Initialize BEEFY voter at last BEEFY finalized block: {:?}.",
+					*header.number()
+				);
+				let best_beefy = *header.number();
+				// If no session boundaries detected so far, just initialize new rounds here.
+				if sessions.is_empty() {
+					let active_set =
+						expect_validator_set(self.runtime.as_ref(), self.backend.as_ref(), &header)
+							.await?;
+					let mut rounds = Rounds::new(best_beefy, active_set);
+					// Mark the round as already finalized.
+					rounds.conclude(best_beefy);
+					sessions.push_front(rounds);
+				}
+				let state = PersistedState::checked_new(
+					best_grandpa,
+					best_beefy,
+					sessions,
+					min_block_delta,
+					beefy_genesis,
+				)
+				.ok_or_else(|| Error::Backend("Invalid BEEFY chain".into()))?;
+				break state
+			}
+
+			if *header.number() == beefy_genesis {
+				// We've reached BEEFY genesis, initialize voter here.
+				let genesis_set =
+					expect_validator_set(self.runtime.as_ref(), self.backend.as_ref(), &header)
+						.await?;
+				info!(
+					target: LOG_TARGET,
+					"🥩 Loading BEEFY voter state from genesis on what appears to be first startup. \
+					Starting voting rounds at block {:?}, genesis validator set {:?}.",
+					beefy_genesis,
+					genesis_set,
+				);
+
+				sessions.push_front(Rounds::new(beefy_genesis, genesis_set));
+				break PersistedState::checked_new(
+					best_grandpa,
+					Zero::zero(),
+					sessions,
+					min_block_delta,
+					beefy_genesis,
+				)
+				.ok_or_else(|| Error::Backend("Invalid BEEFY chain".into()))?
+			}
+
+			if let Some(active) = find_authorities_change::<B>(&header) {
+				info!(
+					target: LOG_TARGET,
+					"🥩 Marking block {:?} as BEEFY Mandatory.",
+					*header.number()
+				);
+				sessions.push_front(Rounds::new(*header.number(), active));
+			}
+
+			// Move up the chain.
+			header = wait_for_parent_header(blockchain, header, HEADER_SYNC_DELAY).await?;
+		};
+
+		aux_schema::write_current_version(self.backend.as_ref())?;
+		aux_schema::write_voter_state(self.backend.as_ref(), &state)?;
+		Ok(state)
+	}
+
+	pub async fn load_or_init_state(
+		&self,
+		beefy_genesis: NumberFor<B>,
+		best_grandpa: <B as Block>::Header,
+		min_block_delta: u32,
+	) -> Result<PersistedState<B>, Error> {
+		// Initialize voter state from AUX DB if compatible.
+		if let Some(mut state) = crate::aux_schema::load_persistent(self.backend.as_ref())?
+			// Verify state pallet genesis matches runtime.
+			.filter(|state| state.pallet_genesis() == beefy_genesis)
+		{
+			// Overwrite persisted state with current best GRANDPA block.
+			state.set_best_grandpa(best_grandpa.clone());
+			// Overwrite persisted data with newly provided `min_block_delta`.
+			state.set_min_block_delta(min_block_delta);
+			info!(target: LOG_TARGET, "🥩 Loading BEEFY voter state from db: {:?}.", state);
+
+			// Make sure that all the headers that we need have been synced.
+			let mut header = best_grandpa.clone();
+			while *header.number() > state.best_beefy() {
+				header =
+					wait_for_parent_header(self.backend.blockchain(), header, HEADER_SYNC_DELAY)
+						.await?;
+			}
+			return Ok(state)
+		}
+
+		// No valid voter-state persisted, re-initialize from pallet genesis.
+		self.init_state(beefy_genesis, best_grandpa, min_block_delta).await
+	}
+
 	/// Verify `active` validator set for `block` against the key store
 	///
 	/// We want to make sure that we have _at least one_ key in our keystore that

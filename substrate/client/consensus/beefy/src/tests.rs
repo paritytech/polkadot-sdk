@@ -31,8 +31,9 @@ use crate::{
 	error::Error,
 	gossip_protocol_name,
 	justification::*,
-	load_or_init_voter_state, wait_for_runtime_pallet, BeefyRPCLinks, BeefyVoterLinks, KnownPeers,
-	PersistedState,
+	wait_for_runtime_pallet,
+	worker::{BeefyWorkerBase, PersistedState},
+	BeefyRPCLinks, BeefyVoterLinks, KnownPeers,
 };
 use futures::{future, stream::FuturesUnordered, Future, FutureExt, StreamExt};
 use parking_lot::Mutex;
@@ -379,7 +380,14 @@ async fn voter_init_setup(
 	);
 	let (beefy_genesis, best_grandpa) =
 		wait_for_runtime_pallet(api, &mut gossip_engine, finality).await.unwrap();
-	load_or_init_voter_state(&*backend, api, beefy_genesis, best_grandpa, 1).await
+	let worker_base = BeefyWorkerBase {
+		backend,
+		runtime: Arc::new(api.clone()),
+		key_store: None.into(),
+		metrics: None,
+		_phantom: Default::default(),
+	};
+	worker_base.load_or_init_state(beefy_genesis, best_grandpa, 1).await
 }
 
 // Spawns beefy voters. Returns a future to spawn on the runtime.
@@ -1073,9 +1081,15 @@ async fn should_initialize_voter_at_custom_genesis() {
 	);
 	let (beefy_genesis, best_grandpa) =
 		wait_for_runtime_pallet(&api, &mut gossip_engine, &mut finality).await.unwrap();
-	let persisted_state = load_or_init_voter_state(&*backend, &api, beefy_genesis, best_grandpa, 1)
-		.await
-		.unwrap();
+	let worker_base = BeefyWorkerBase {
+		backend: backend.clone(),
+		runtime: Arc::new(api),
+		key_store: None.into(),
+		metrics: None,
+		_phantom: Default::default(),
+	};
+	let persisted_state =
+		worker_base.load_or_init_state(beefy_genesis, best_grandpa, 1).await.unwrap();
 
 	// Test initialization at session boundary.
 	// verify voter initialized with single session starting at block `custom_pallet_genesis` (7)
@@ -1108,10 +1122,15 @@ async fn should_initialize_voter_at_custom_genesis() {
 	// the network state persists and uses the old `GossipEngine` initialized for `peer(0)`
 	let (beefy_genesis, best_grandpa) =
 		wait_for_runtime_pallet(&api, &mut gossip_engine, &mut finality).await.unwrap();
+	let worker_base = BeefyWorkerBase {
+		backend: backend.clone(),
+		runtime: Arc::new(api),
+		key_store: None.into(),
+		metrics: None,
+		_phantom: Default::default(),
+	};
 	let new_persisted_state =
-		load_or_init_voter_state(&*backend, &api, beefy_genesis, best_grandpa, 1)
-			.await
-			.unwrap();
+		worker_base.load_or_init_state(beefy_genesis, best_grandpa, 1).await.unwrap();
 
 	// verify voter initialized with single session starting at block `new_pallet_genesis` (10)
 	let sessions = new_persisted_state.voting_oracle().sessions();
