@@ -61,7 +61,7 @@ sc-executor-common = { path = "../../client/executor/common" }
 sp-consensus = { path = "../../primitives/consensus/common" }
 substrate-test-runtime-client = { path = "client" }
 sp-tracing = { path = "../../primitives/tracing" }
-json-patch = { version = "1.0.0", default-features = false }
+json-patch = { version = "1.2.0", default-features = false }
 serde = { version = "1.0.195", features = ["alloc", "derive"], default-features = false }
 serde_json = { version = "1.0.111", default-features = false, features = ["alloc"] }
 
