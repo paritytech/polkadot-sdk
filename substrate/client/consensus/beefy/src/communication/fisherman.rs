@@ -133,8 +133,7 @@ where
 		let offender_ids = proof.offender_ids();
 		if let Some(local_id) = self.key_store.authority_id(validator_set.validators()) {
 			if offender_ids.contains(&&local_id) {
-				debug!(target: LOG_TARGET, "🥩 Skip equivocation report for own equivocation");
-				// TODO: maybe error here instead?
+				warn!(target: LOG_TARGET, "🥩 Skip equivocation report for own equivocation");
 				return Ok(())
 			}
 		}
