@@ -34,9 +34,9 @@ pub trait RuntimeParameterStore {
 		KV: AggregratedKeyValue,
 		K: Key + Into<<KV as AggregratedKeyValue>::AggregratedKey>,
 		<KV as AggregratedKeyValue>::AggregratedKey:
-			Into2<<<Self as RuntimeParameterStore>::AggregratedKeyValue as AggregratedKeyValue>::AggregratedKey>,
+			IntoKey<<<Self as RuntimeParameterStore>::AggregratedKeyValue as AggregratedKeyValue>::AggregratedKey>,
 		<<Self as RuntimeParameterStore>::AggregratedKeyValue as AggregratedKeyValue>::AggregratedValue:
-			TryInto2<<KV as AggregratedKeyValue>::AggregratedValue>,
+			TryIntoKey<<KV as AggregratedKeyValue>::AggregratedValue>,
 		<KV as AggregratedKeyValue>::AggregratedValue: TryInto<K::WrappedValue>;
 }
 
@@ -66,9 +66,9 @@ where
 	PS: RuntimeParameterStore,
 	KV: AggregratedKeyValue,
 	<KV as AggregratedKeyValue>::AggregratedKey:
-		Into2<<<PS as RuntimeParameterStore>::AggregratedKeyValue as AggregratedKeyValue>::AggregratedKey>,
+		IntoKey<<<PS as RuntimeParameterStore>::AggregratedKeyValue as AggregratedKeyValue>::AggregratedKey>,
 	<KV as AggregratedKeyValue>::AggregratedValue:
-		TryFrom2<<<PS as RuntimeParameterStore>::AggregratedKeyValue as AggregratedKeyValue>::AggregratedValue>,
+		TryFromKey<<<PS as RuntimeParameterStore>::AggregratedKeyValue as AggregratedKeyValue>::AggregratedValue>,
 {
 	fn get<K>(key: K) -> Option<K::Value>
 	where
@@ -81,47 +81,47 @@ where
 
 // workaround for rust bug https://github.com/rust-lang/rust/issues/51445
 mod workaround {
-	pub trait From2<T>: Sized {
+	pub trait FromKey<T>: Sized {
 		#[must_use]
-		fn from2(value: T) -> Self;
+		fn from_key(value: T) -> Self;
 	}
 
-	pub trait Into2<T>: Sized {
+	pub trait IntoKey<T>: Sized {
 		#[must_use]
-		fn into2(self) -> T;
+		fn into_key(self) -> T;
 	}
 
-	impl<T, U> Into2<U> for T
+	impl<T, U> IntoKey<U> for T
 	where
-		U: From2<T>,
+		U: FromKey<T>,
 	{
 		#[inline]
-		fn into2(self) -> U {
-			U::from2(self)
+		fn into_key(self) -> U {
+			U::from_key(self)
 		}
 	}
 
-	pub trait TryInto2<T>: Sized {
+	pub trait TryIntoKey<T>: Sized {
 		type Error;
 
-		fn try_into2(self) -> Result<T, Self::Error>;
+		fn try_into_key(self) -> Result<T, Self::Error>;
 	}
 
-	pub trait TryFrom2<T>: Sized {
+	pub trait TryFromKey<T>: Sized {
 		type Error;
 
-		fn try_from2(value: T) -> Result<Self, Self::Error>;
+		fn try_from_key(value: T) -> Result<Self, Self::Error>;
 	}
 
-	impl<T, U> TryInto2<U> for T
+	impl<T, U> TryIntoKey<U> for T
 	where
-		U: TryFrom2<T>,
+		U: TryFromKey<T>,
 	{
 		type Error = U::Error;
 
 		#[inline]
-		fn try_into2(self) -> Result<U, U::Error> {
-			U::try_from2(self)
+		fn try_into_key(self) -> Result<U, U::Error> {
+			U::try_from_key(self)
 		}
 	}
 }
@@ -410,16 +410,16 @@ macro_rules! define_aggregrated_parameters {
 			}
 
 			$(
-				impl $crate::traits::dynamic_params::From2<<$parameter_type as $crate::traits::dynamic_params::AggregratedKeyValue>::AggregratedKey> for [<$name Key>] {
-					fn from2(key: <$parameter_type as $crate::traits::dynamic_params::AggregratedKeyValue>::AggregratedKey) -> Self {
+				impl $crate::traits::dynamic_params::FromKey<<$parameter_type as $crate::traits::dynamic_params::AggregratedKeyValue>::AggregratedKey> for [<$name Key>] {
+					fn from_key(key: <$parameter_type as $crate::traits::dynamic_params::AggregratedKeyValue>::AggregratedKey) -> Self {
 						[<$name Key>]::$parameter_name(key)
 					}
 				}
 
-				impl $crate::traits::dynamic_params::TryFrom2<[<$name Value>]> for <$parameter_type as $crate::traits::dynamic_params::AggregratedKeyValue>::AggregratedValue {
+				impl $crate::traits::dynamic_params::TryFromKey<[<$name Value>]> for <$parameter_type as $crate::traits::dynamic_params::AggregratedKeyValue>::AggregratedValue {
 					type Error = ();
 
-					fn try_from2(value: [<$name Value>]) -> Result<Self, Self::Error> {
+					fn try_from_key(value: [<$name Value>]) -> Result<Self, Self::Error> {
 						match value {
 							[<$name Value>]::$parameter_name(value) => Ok(value),
 							_ => Err(()),
@@ -511,19 +511,19 @@ mod tests {
 
 	#[test]
 	fn test_define_aggregrated_parameters_key_convert() {
-		use crate::parameters::workaround::Into2;
+		use crate::parameters::workaround::IntoKey;
 		use codec::Encode;
 
 		let key1 = pallet1::Key1;
 		let parameter_key: pallet1::ParametersKey = key1.clone().into();
-		let runtime_key: RuntimeParametersKey = parameter_key.clone().into2();
+		let runtime_key: RuntimeParametersKey = parameter_key.clone().into_key();
 
 		assert_eq!(runtime_key, RuntimeParametersKey::Pallet1(pallet1::ParametersKey::Key1(key1)));
 		assert_eq!(runtime_key.encode(), vec![0, 0]);
 
 		let key2 = pallet2::Key2(1);
 		let parameter_key: pallet2::ParametersKey = key2.clone().into();
-		let runtime_key: RuntimeParametersKey = parameter_key.clone().into2();
+		let runtime_key: RuntimeParametersKey = parameter_key.clone().into_key();
 
 		assert_eq!(runtime_key, RuntimeParametersKey::Pallet2(pallet2::ParametersKey::Key2(key2)));
 		assert_eq!(runtime_key.encode(), vec![3, 2, 1, 0, 0, 0]);
