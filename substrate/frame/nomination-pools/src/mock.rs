@@ -137,10 +137,9 @@ impl sp_staking::StakingInterface for StakingMock {
 
 		// closure to calculate the current unlocking funds across all eras/accounts.
 		let unlocking = |pair: &Vec<(EraIndex, Balance)>| -> Balance {
-			pair
-			.iter()
-			.try_fold(Zero::zero(), |acc: Balance, (_at, amount)| acc.checked_add(*amount))
-			.unwrap()
+			pair.iter()
+				.try_fold(Zero::zero(), |acc: Balance, (_at, amount)| acc.checked_add(*amount))
+				.unwrap()
 		};
 
 		let staker_map = unbonding_map.get_mut(&who).ok_or("Nothing to unbond")?;
@@ -284,7 +283,6 @@ impl Convert<U256, Balance> for U256ToBalance {
 		n.try_into().unwrap()
 	}
 }
-
 
 parameter_types! {
 	pub static PostUnbondingPoolsWindow: u32 = 2;
