@@ -13,10 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Benchmarking setup for pallet-session
-#![cfg_attr(not(feature = "std"), no_std)]
-#![cfg(feature = "runtime-benchmarks")]
-use alloc::vec;
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
+use core::primitive::str;
 
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;

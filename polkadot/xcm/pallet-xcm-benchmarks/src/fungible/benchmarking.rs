@@ -16,7 +16,7 @@
 
 use super::*;
 use crate::{account_and_location, new_executor, AssetTransactorOf, EnsureDelivery, XcmCallOf};
-use alloc::vec;
+use alloc::{vec, vec::Vec};
 use frame_benchmarking::{benchmarks_instance_pallet, BenchmarkError, BenchmarkResult};
 use frame_support::{
 	pallet_prelude::Get,

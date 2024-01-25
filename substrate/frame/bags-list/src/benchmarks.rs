@@ -19,6 +19,7 @@
 
 use super::*;
 use crate::list::List;
+use alloc::{vec, vec::Vec};
 use frame_benchmarking::v1::{
 	account, benchmarks_instance_pallet, whitelist_account, whitelisted_caller,
 };

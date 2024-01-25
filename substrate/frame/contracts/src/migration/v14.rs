@@ -27,10 +27,8 @@ use crate::{
 	BalanceOf, CodeHash, Config, Determinism, HoldReason, Pallet, Weight, LOG_TARGET,
 };
 #[cfg(feature = "try-runtime")]
-use alloc::collections::btree_map::BTreeMap;
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use codec::{Decode, Encode};
-#[cfg(feature = "try-runtime")]
-use environmental::Vec;
 #[cfg(feature = "try-runtime")]
 use frame_support::traits::fungible::{Inspect, InspectHold};
 use frame_support::{
@@ -79,7 +77,6 @@ where
 	T: Config,
 	OldCurrency: ReservableCurrency<<T as frame_system::Config>::AccountId> + 'static,
 {
-	use alloc::vec;
 	use sp_runtime::traits::Hash;
 
 	let len = T::MaxCodeLen::get();

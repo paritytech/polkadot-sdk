@@ -25,7 +25,7 @@ extern crate alloc;
 
 mod mock;
 
-use alloc::vec;
+use alloc::{vec, vec::Vec};
 use sp_runtime::traits::{One, StaticLookup, TrailingZeroInput};
 
 use codec::Decode;

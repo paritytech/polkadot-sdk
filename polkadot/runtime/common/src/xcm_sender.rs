@@ -16,6 +16,8 @@
 
 //! XCM sender for relay chain.
 
+#[cfg(feature = "runtime-benchmarks")]
+use alloc::vec;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use frame_support::traits::Get;

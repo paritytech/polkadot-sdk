@@ -958,6 +958,7 @@ pub mod pallet {
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarks {
 	use super::{pallet::Pallet as StateTrieMigration, *};
+	use alloc::vec;
 	use frame_support::traits::fungible::{Inspect, Mutate};
 
 	// The size of the key seemingly makes no difference in the read/write time, so we make it
