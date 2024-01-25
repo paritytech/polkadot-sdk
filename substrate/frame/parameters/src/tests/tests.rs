@@ -21,17 +21,15 @@
 
 use crate::tests::mock::{
 	dynamic_params::*, new_test_ext, PalletParameters, RuntimeOrigin as Origin, RuntimeParameters,
-	RuntimeParametersKey, RuntimeParametersValue,
+	RuntimeParameters::*, RuntimeParametersKey, RuntimeParametersValue,
 };
-use frame_support::{assert_noop, assert_ok, traits::AggregratedKeyValue};
+use frame_support::{assert_noop, assert_ok, traits::AggregratedKeyValue, StorageNoopGuard};
 use sp_core::Get;
 use sp_runtime::DispatchError;
 
 #[docify::export]
 #[test]
 fn set_parameters_example() {
-	use RuntimeParameters::*;
-
 	new_test_ext().execute_with(|| {
 		assert_eq!(pallet1::Key3::get(), 2, "Default works");
 
@@ -54,84 +52,71 @@ fn set_parameters_example() {
 }
 
 #[test]
-fn set_parameters() {
-	/*new_test_ext().execute_with(|| {
-		assert_eq!(
-			<PalletParameters as RuntimeParameterStore>::get::<pallet1::Parameters, _>(
-				pallet1::Key1
-			),
-			None
-		);
+fn set_parameters_same_is_noop() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(PalletParameters::set_parameter(
+			Origin::root(),
+			Pallet1(pallet1::Parameters::Key3(pallet1::Key3, Some(123))),
+		));
+
+		let _g = StorageNoopGuard::new();
+		assert_ok!(PalletParameters::set_parameter(
+			Origin::root(),
+			Pallet1(pallet1::Parameters::Key3(pallet1::Key3, Some(123))),
+		));
+
+		assert_eq!(pallet1::Key3::get(), 123, "Update works");
+	});
+}
+
+#[test]
+fn set_parameters_twice_works() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(PalletParameters::set_parameter(
+			Origin::root(),
+			Pallet1(pallet1::Parameters::Key3(pallet1::Key3, Some(123))),
+		));
+
+		assert_ok!(PalletParameters::set_parameter(
+			Origin::root(),
+			Pallet1(pallet1::Parameters::Key3(pallet1::Key3, Some(432))),
+		));
+
+		assert_eq!(pallet1::Key3::get(), 432, "Update works");
+	});
+}
+
+#[test]
+fn set_parameters_wrong_origin_errors() {
+	new_test_ext().execute_with(|| {
+		// Pallet1 is root origin only:
+		assert_ok!(PalletParameters::set_parameter(
+			Origin::root(),
+			Pallet1(pallet1::Parameters::Key3(pallet1::Key3, Some(123))),
+		));
 
 		assert_noop!(
 			PalletParameters::set_parameter(
-				RuntimeOrigin::signed(1),
-				RuntimeParameters::Pallet1(pallet1::Parameters::Key1(pallet1::Key1, Some(123))),
+				Origin::signed(1),
+				Pallet1(pallet1::Parameters::Key3(pallet1::Key3, Some(432))),
 			),
 			DispatchError::BadOrigin
 		);
 
+		// Pallet2 is signed origin only:
 		assert_ok!(PalletParameters::set_parameter(
-			RuntimeOrigin::root(),
-			RuntimeParameters::Pallet1(pallet1::Parameters::Key1(pallet1::Key1, Some(123))),
+			Origin::signed(1),
+			Pallet2(pallet2::Parameters::Key3(pallet2::Key3, Some(123))),
 		));
-
-		assert_eq!(
-			<PalletParameters as RuntimeParameterStore>::get::<pallet1::Parameters, _>(
-				pallet1::Key1
-			),
-			Some(123)
-		);
-
-		assert_ok!(PalletParameters::set_parameter(
-			RuntimeOrigin::root(),
-			RuntimeParameters::Pallet1(pallet1::Parameters::Key2(pallet1::Key2(234), Some(345))),
-		));
-
-		assert_eq!(
-			<PalletParameters as RuntimeParameterStore>::get::<pallet1::Parameters, _>(
-				pallet1::Key2(234)
-			),
-			Some(345)
-		);
-
-		assert_eq!(
-			<PalletParameters as RuntimeParameterStore>::get::<pallet1::Parameters, _>(
-				pallet1::Key2(235)
-			),
-			None
-		);
-
-		assert_eq!(
-			<PalletParameters as RuntimeParameterStore>::get::<pallet2::Parameters, _>(
-				pallet2::Key3((1, 2))
-			),
-			None
-		);
 
 		assert_noop!(
 			PalletParameters::set_parameter(
-				RuntimeOrigin::root(),
-				RuntimeParameters::Pallet2(pallet2::Parameters::Key3(
-					pallet2::Key3((1, 2)),
-					Some(123)
-				)),
+				Origin::root(),
+				Pallet2(pallet2::Parameters::Key3(pallet2::Key3, Some(432))),
 			),
 			DispatchError::BadOrigin
 		);
-
-		assert_ok!(PalletParameters::set_parameter(
-			RuntimeOrigin::signed(1),
-			RuntimeParameters::Pallet2(pallet2::Parameters::Key3(pallet2::Key3((1, 2)), Some(456))),
-		));
-
-		assert_eq!(
-			<PalletParameters as RuntimeParameterStore>::get::<pallet2::Parameters, _>(
-				pallet2::Key3((1, 2))
-			),
-			Some(456)
-		);
-	});*/
+	});
 }
 
 #[test]

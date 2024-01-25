@@ -125,7 +125,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The key value type for parameters. Usually created by
-		/// [`frame_support::dynamic_aggregated_params`].
+		/// [`frame_support::dynamic_params`].
 		type AggregratedKeyValue: AggregratedKeyValue;
 
 		/// The origin which may update the parameter.
