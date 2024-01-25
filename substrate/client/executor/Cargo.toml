@@ -40,6 +40,7 @@ assert_matches = "1.3.0"
 wat = "1.0"
 sc-runtime-test = { path = "runtime-test" }
 substrate-test-runtime = { path = "../../test-utils/runtime" }
+sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
 sp-state-machine = { path = "../../primitives/state-machine" }
 sp-runtime = { path = "../../primitives/runtime" }
 sp-maybe-compressed-blob = { path = "../../primitives/maybe-compressed-blob" }

@@ -33,11 +33,9 @@ pub type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>},
-		TransactionStorage: pallet_transaction_storage::{
-			Pallet, Call, Storage, Config<T>, Inherent, Event<T>, HoldReason
-		},
+		System: frame_system,
+		Balances: pallet_balances,
+		TransactionStorage: pallet_transaction_storage,
 	}
 );
 
@@ -52,12 +50,7 @@ impl frame_system::Config for Test {
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
 impl pallet_balances::Config for Test {
-	type Balance = u64;
-	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type MaxHolds = ConstU32<128>;
 }
 
 impl pallet_transaction_storage::Config for Test {
