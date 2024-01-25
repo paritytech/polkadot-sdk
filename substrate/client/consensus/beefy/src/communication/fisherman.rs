@@ -171,6 +171,7 @@ where
 
 		let runtime_api = self.runtime.runtime_api();
 
+		let mut filtered_signatories = Vec::new();
 		// generate key ownership proof at that block
 		let key_owner_proofs: Vec<_> = offender_ids
 			.iter()
@@ -187,11 +188,16 @@ where
 							target: LOG_TARGET,
 							"🥩 Invalid fork vote offender not part of the authority set."
 						);
+						// if signatory is not part of the authority set, we ignore the signatory
+						filtered_signatories.push(id);
 						None
 					},
 					Err(e) => {
 						debug!(target: LOG_TARGET,
 							   "🥩 Failed to generate key ownership proof for {:?}: {:?}", id, e);
+						// if a key ownership proof couldn't be generated for signatory, we ignore
+						// the signatory
+						filtered_signatories.push(id);
 						None
 					},
 				}
@@ -199,6 +205,16 @@ where
 			.collect::<Result<_, _>>()?;
 
 		if key_owner_proofs.len() > 0 {
+			// filter out the signatories that a key ownership proof could not be generated for
+			let proof = ForkEquivocationProof {
+				signatories: proof
+					.signatories
+					.clone()
+					.into_iter()
+					.filter(|(id, _)| !filtered_signatories.contains(&id))
+					.collect(),
+				..proof
+			};
 			// submit invalid fork vote report at **best** block
 			runtime_api
 				.submit_report_fork_equivocation_unsigned_extrinsic(
