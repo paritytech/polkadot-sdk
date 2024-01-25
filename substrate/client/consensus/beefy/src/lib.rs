@@ -310,6 +310,14 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 			},
 		};
 
+		let worker_base = worker::BeefyWorkerBase {
+			backend: backend.clone(),
+			runtime: runtime.clone(),
+			key_store: key_store.clone().into(),
+			metrics: metrics.clone(),
+			_phantom: Default::default(),
+		};
+
 		let persisted_state = match load_or_init_voter_state(
 			&*backend,
 			&*runtime,
@@ -335,14 +343,11 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 		}
 
 		let worker = worker::BeefyWorker {
-			backend: backend.clone(),
+			base: worker_base,
 			payload_provider: payload_provider.clone(),
-			runtime: runtime.clone(),
 			sync: sync.clone(),
-			key_store: key_store.clone().into(),
 			comms: beefy_comms,
 			links: links.clone(),
-			metrics: metrics.clone(),
 			pending_justifications: BTreeMap::new(),
 			persisted_state,
 		};
