@@ -178,7 +178,11 @@ pub fn dynamic_pallet_params(attr: TokenStream, item: TokenStream) -> Result<Tok
 
 				impl #scrate::__private::Get<#value_types> for #key_names {
 					fn get() -> #value_types {
-						match #parameter_pallet::get(RuntimeParametersKey::#aggregate_name(#key_ident::#key_names(#key_names))) {
+						match
+							<#parameter_pallet as
+								#scrate::storage::StorageMap<RuntimeParametersKey, RuntimeParametersValue>
+							>::get(RuntimeParametersKey::#aggregate_name(#key_ident::#key_names(#key_names)))
+						{
 							Some(RuntimeParametersValue::#aggregate_name(
 								#value_ident::#key_names(inner))) => inner,
 							Some(_) => {
