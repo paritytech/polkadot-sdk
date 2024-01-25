@@ -85,7 +85,6 @@ where
 			return Err(InvalidTransaction::Payment.into())
 		}
 		if self.0 != account.nonce {
-log::trace!(target: "xcm", "*** CheckNonce.pre_dispatch: Nonce: {:?} ExpectedNonce: {:?}", self.0, account.nonce);
 			return Err(if self.0 < account.nonce {
 				InvalidTransaction::Stale
 			} else {
@@ -111,7 +110,6 @@ log::trace!(target: "xcm", "*** CheckNonce.pre_dispatch: Nonce: {:?} ExpectedNon
 			return InvalidTransaction::Payment.into()
 		}
 		if self.0 < account.nonce {
-log::trace!(target: "xcm", "*** CheckNonce.validate: Nonce: {:?} ExpectedNonce: {:?}", self.0, account.nonce);
 			return InvalidTransaction::Stale.into()
 		}
 
