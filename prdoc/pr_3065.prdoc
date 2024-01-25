@@ -11,4 +11,4 @@ doc:
       Use the new reed-solomon-novelpoly release. Brings some performance improvements.
 
 crates:
-  - name = "erasure-coding"
+  - name: "erasure-coding"
