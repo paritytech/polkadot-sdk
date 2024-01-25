@@ -559,7 +559,7 @@ pub mod pallet {
 		/// The asset is a live asset and is actively being used. Usually emit for operations such
 		/// as `start_destroy` which require the asset to be in a destroying state.
 		LiveAsset,
-		/// The asset is not live, and likely being destroyed.
+		/// The asset is not live, and has been frozen or likely being destroyed.
 		AssetNotLive,
 		/// The asset status is not the expected status.
 		IncorrectStatus,
@@ -777,7 +777,7 @@ pub mod pallet {
 			let id: T::AssetId = id.into();
 			Self::do_mint(id, &beneficiary, amount, Some(origin))?;
 			Ok(())
-		}
+		} 
 
 		/// Reduce the balance of `who` by as much as possible up to `amount` assets of `id`.
 		///
