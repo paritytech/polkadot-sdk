@@ -338,6 +338,7 @@ pub use self::{
 		GenesisBlockBuilder,
 	},
 	genesis_config_builder::GenesisConfigBuilderRuntimeCaller,
+	json_patch::merge as json_merge,
 };
 pub use sc_chain_spec_derive::{ChainSpecExtension, ChainSpecGroup};
 
