@@ -145,7 +145,7 @@ impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for EnsureOriginIm
 construct_runtime!(
 	pub enum Runtime {
 		System: frame_system,
-		ModuleParameters: parameters,
+		PalletParameters: parameters,
 		Example: pallet_example_basic,
 		Balances: pallet_balances,
 	}

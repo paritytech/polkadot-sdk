@@ -57,16 +57,16 @@
 //! ### Example
 //!
 //! Here is an example of how to define some parameters, including their default values:
-#![doc = docify::embed!("src/tests/substrate/mock.rs", dynamic_params)]
+#![doc = docify::embed!("src/tests/mock.rs", dynamic_params)]
 //!
 //! Now the aggregated parameter needs to be injected into the pallet config:
-#![doc = docify::embed!("src/tests/substrate/mock.rs", impl_config)]
+#![doc = docify::embed!("src/tests/mock.rs", impl_config)]
 //!
 //! As last step, the parameters can now be used in other pallets 🙌
-#![doc = docify::embed!("src/tests/substrate/mock.rs", usage)]
+#![doc = docify::embed!("src/tests/mock.rs", usage)]
 //!
 //! Now to demonstrate how the values can be updated:
-#![doc = docify::embed!("src/tests/substrate/tests.rs", set_parameters_example)]
+#![doc = docify::embed!("src/tests/tests.rs", set_parameters_example)]
 //!
 //! ## Low Level / Implementation Details
 //!
@@ -79,7 +79,7 @@
 //! enum. This enum is then injected into the pallet. This allows it to be used without any changed
 //! to the pallet that the parameter will be utilized by.
 //!
-//! ### Design Goals (optional)
+//! ### Design Goals
 //!
 //! 1. Easy to update without runtime upgrade.
 //! 2. Exposes metadata and docs for user convenience.

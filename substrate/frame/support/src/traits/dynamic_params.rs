@@ -15,20 +15,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[doc(hidden)]
-pub use codec;
-pub use codec as parity_scale_codec;
-#[doc(hidden)]
-use frame_support::Parameter;
-#[doc(hidden)]
-pub use paste;
-#[doc(hidden)]
-pub use scale_info;
-pub use sp_runtime::{self, RuntimeDebug};
+//! Types and traits for dynamic parameters.
+//!
+//! Can be used by 3rd party macros to define dynamic parameters that are compatible with the the
+//! `parameters` pallet.
 
+use codec::MaxEncodedLen;
+use frame_support::Parameter;
+
+/// A dynamic parameter store across an aggregated KV type.
 pub trait RuntimeParameterStore {
 	type AggregratedKeyValue: AggregratedKeyValue;
 
+	/// Get the value of a parametrized key.
 	fn get<KV, K>(key: K) -> Option<K::Value>
 	where
 		KV: AggregratedKeyValue,
@@ -40,25 +39,40 @@ pub trait RuntimeParameterStore {
 		<KV as AggregratedKeyValue>::AggregratedValue: TryInto<K::WrappedValue>;
 }
 
-pub trait Key {
-	type Value;
-	type WrappedValue: Into<Self::Value>;
-}
-
-pub trait AggregratedKeyValue: Parameter {
-	type AggregratedKey: Parameter + codec::MaxEncodedLen;
-	type AggregratedValue: Parameter + codec::MaxEncodedLen;
-
-	fn into_parts(self) -> (Self::AggregratedKey, Option<Self::AggregratedValue>);
-}
-
+/// A dynamic parameter store across a concrete KV type.
 pub trait ParameterStore<KV: AggregratedKeyValue> {
+	/// Get the value of a parametrized key.
 	fn get<K>(key: K) -> Option<K::Value>
 	where
 		K: Key + Into<<KV as AggregratedKeyValue>::AggregratedKey>,
 		<KV as AggregratedKeyValue>::AggregratedValue: TryInto<K::WrappedValue>;
 }
 
+/// Key of a dynamic parameter.
+pub trait Key {
+	/// The value that the key is parametrized with.
+	type Value;
+
+	/// An opaque representation of `Self::Value`.
+	type WrappedValue: Into<Self::Value>;
+}
+
+/// The aggregated key-value type of a dynamic parameter store.
+pub trait AggregratedKeyValue: Parameter {
+	/// The aggregated key type.
+	type AggregratedKey: Parameter + MaxEncodedLen;
+
+	/// The aggregated value type.
+	type AggregratedValue: Parameter + MaxEncodedLen;
+
+	/// Split the aggregated key-value type into its parts.
+	fn into_parts(self) -> (Self::AggregratedKey, Option<Self::AggregratedValue>);
+}
+
+/// Allows create a `ParameterStore` from a `RuntimeParameterStore`.
+///
+/// This concretization is useful when configuring pallets, since a pallet will require a parameter
+/// store for its own KV type and not the aggregated runtime-wide KV type.
 pub struct ParameterStoreAdapter<PS, KV>(sp_std::marker::PhantomData<(PS, KV)>);
 
 impl<PS, KV> ParameterStore<KV> for ParameterStoreAdapter<PS, KV>
@@ -95,7 +109,6 @@ mod workaround {
 	where
 		U: FromKey<T>,
 	{
-		#[inline]
 		fn into_key(self) -> U {
 			U::from_key(self)
 		}
@@ -119,7 +132,6 @@ mod workaround {
 	{
 		type Error = U::Error;
 
-		#[inline]
 		fn try_into_key(self) -> Result<U, U::Error> {
 			U::try_from_key(self)
 		}

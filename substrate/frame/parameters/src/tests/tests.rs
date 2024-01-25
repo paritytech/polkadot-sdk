@@ -19,12 +19,13 @@
 
 #![cfg(test)]
 
-use crate::{
-	tests::substrate::mock::{dynamic_params::*, *},
-	*,
+use crate::tests::mock::{
+	dynamic_params::*, new_test_ext, PalletParameters, RuntimeOrigin as Origin, RuntimeParameters,
+	RuntimeParametersKey, RuntimeParametersValue,
 };
 use frame_support::{assert_noop, assert_ok, traits::AggregratedKeyValue};
-use RuntimeOrigin as Origin;
+use sp_core::Get;
+use sp_runtime::DispatchError;
 
 #[docify::export]
 #[test]
@@ -36,14 +37,14 @@ fn set_parameters_example() {
 
 		// This gets rejected since the origin is not root.
 		assert_noop!(
-			ModuleParameters::set_parameter(
+			PalletParameters::set_parameter(
 				Origin::signed(1),
 				Pallet1(pallet1::Parameters::Key3(pallet1::Key3, Some(123))),
 			),
 			DispatchError::BadOrigin
 		);
 
-		assert_ok!(ModuleParameters::set_parameter(
+		assert_ok!(PalletParameters::set_parameter(
 			Origin::root(),
 			Pallet1(pallet1::Parameters::Key3(pallet1::Key3, Some(123))),
 		));
@@ -56,60 +57,60 @@ fn set_parameters_example() {
 fn set_parameters() {
 	/*new_test_ext().execute_with(|| {
 		assert_eq!(
-			<ModuleParameters as RuntimeParameterStore>::get::<pallet1::Parameters, _>(
+			<PalletParameters as RuntimeParameterStore>::get::<pallet1::Parameters, _>(
 				pallet1::Key1
 			),
 			None
 		);
 
 		assert_noop!(
-			ModuleParameters::set_parameter(
+			PalletParameters::set_parameter(
 				RuntimeOrigin::signed(1),
 				RuntimeParameters::Pallet1(pallet1::Parameters::Key1(pallet1::Key1, Some(123))),
 			),
 			DispatchError::BadOrigin
 		);
 
-		assert_ok!(ModuleParameters::set_parameter(
+		assert_ok!(PalletParameters::set_parameter(
 			RuntimeOrigin::root(),
 			RuntimeParameters::Pallet1(pallet1::Parameters::Key1(pallet1::Key1, Some(123))),
 		));
 
 		assert_eq!(
-			<ModuleParameters as RuntimeParameterStore>::get::<pallet1::Parameters, _>(
+			<PalletParameters as RuntimeParameterStore>::get::<pallet1::Parameters, _>(
 				pallet1::Key1
 			),
 			Some(123)
 		);
 
-		assert_ok!(ModuleParameters::set_parameter(
+		assert_ok!(PalletParameters::set_parameter(
 			RuntimeOrigin::root(),
 			RuntimeParameters::Pallet1(pallet1::Parameters::Key2(pallet1::Key2(234), Some(345))),
 		));
 
 		assert_eq!(
-			<ModuleParameters as RuntimeParameterStore>::get::<pallet1::Parameters, _>(
+			<PalletParameters as RuntimeParameterStore>::get::<pallet1::Parameters, _>(
 				pallet1::Key2(234)
 			),
 			Some(345)
 		);
 
 		assert_eq!(
-			<ModuleParameters as RuntimeParameterStore>::get::<pallet1::Parameters, _>(
+			<PalletParameters as RuntimeParameterStore>::get::<pallet1::Parameters, _>(
 				pallet1::Key2(235)
 			),
 			None
 		);
 
 		assert_eq!(
-			<ModuleParameters as RuntimeParameterStore>::get::<pallet2::Parameters, _>(
+			<PalletParameters as RuntimeParameterStore>::get::<pallet2::Parameters, _>(
 				pallet2::Key3((1, 2))
 			),
 			None
 		);
 
 		assert_noop!(
-			ModuleParameters::set_parameter(
+			PalletParameters::set_parameter(
 				RuntimeOrigin::root(),
 				RuntimeParameters::Pallet2(pallet2::Parameters::Key3(
 					pallet2::Key3((1, 2)),
@@ -119,13 +120,13 @@ fn set_parameters() {
 			DispatchError::BadOrigin
 		);
 
-		assert_ok!(ModuleParameters::set_parameter(
+		assert_ok!(PalletParameters::set_parameter(
 			RuntimeOrigin::signed(1),
 			RuntimeParameters::Pallet2(pallet2::Parameters::Key3(pallet2::Key3((1, 2)), Some(456))),
 		));
 
 		assert_eq!(
-			<ModuleParameters as RuntimeParameterStore>::get::<pallet2::Parameters, _>(
+			<PalletParameters as RuntimeParameterStore>::get::<pallet2::Parameters, _>(
 				pallet2::Key3((1, 2))
 			),
 			Some(456)
