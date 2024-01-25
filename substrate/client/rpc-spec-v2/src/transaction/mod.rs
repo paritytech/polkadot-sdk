@@ -25,6 +25,9 @@
 //!
 //! Methods are prefixed by `transaction`.
 
+#[cfg(test)]
+mod tests;
+
 pub mod api;
 pub mod error;
 pub mod event;
