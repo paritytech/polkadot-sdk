@@ -199,11 +199,6 @@ impl pallet_core_fellowship::Config<FellowshipCoreInstance> for Runtime {
 		>,
 		EnsureCanPromoteTo,
 	>;
-	// Exchange is by any of:
-	// - Root can exchange arbitrarily.
-	// - the Fellows origin
-	type ExchangeOrigin =
-		EitherOf<EnsureRootWithSuccess<Self::AccountId, ConstU16<65535>>, Fellows>;
 	type EvidenceSize = ConstU32<65536>;
 }
 
