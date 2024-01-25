@@ -66,8 +66,8 @@
 	/// See [`TransactionEvent`](crate::transaction::event::TransactionEvent) for details on
 	/// transaction life cycle.
 	</span><span class="attr">#[subscription(
-		name = <span class="string">&quot;transaction_unstable_submitAndWatch&quot; </span>=&gt; <span class="string">&quot;transaction_unstable_watchEvent&quot;</span>,
-		unsubscribe = <span class="string">&quot;transaction_unstable_unwatch&quot;</span>,
+		name = <span class="string">&quot;transactionWatch_unstable_submitAndWatch&quot; </span>=&gt; <span class="string">&quot;transactionWatch_unstable_watchEvent&quot;</span>,
+		unsubscribe = <span class="string">&quot;transactionWatch_unstable_unwatch&quot;</span>,
 		item = TransactionEvent&lt;Hash&gt;,
 	)]
 	</span><span class="kw">fn </span>submit_and_watch(<span class="kw-2">&amp;</span><span class="self">self</span>, bytes: Bytes);

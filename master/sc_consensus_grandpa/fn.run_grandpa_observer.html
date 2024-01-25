@@ -5,7 +5,7 @@
     sync: S,
     notification_service: <a class="struct" href="https://doc.rust-lang.org/1.74.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn NotificationService&gt;
 ) -&gt; Result&lt;impl <a class="trait" href="https://doc.rust-lang.org/1.74.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="primitive" href="https://doc.rust-lang.org/1.74.0/std/primitive.unit.html">()</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.74.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>&gt;<span class="where fmt-newline">where
-    BE: <a class="trait" href="../sc_client_api/backend/trait.Backend.html" title="trait sc_client_api::backend::Backend">Backend</a>&lt;Block&gt; + <a class="trait" href="https://doc.rust-lang.org/1.74.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a> + 'static,
+    BE: Backend&lt;Block&gt; + <a class="trait" href="https://doc.rust-lang.org/1.74.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a> + 'static,
     N: NetworkT&lt;Block&gt;,
     S: SyncingT&lt;Block&gt;,
     SC: SelectChain&lt;Block&gt;,

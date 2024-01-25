@@ -10,10 +10,10 @@
     notification_service: <a class="struct" href="https://doc.rust-lang.org/1.74.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn NotificationService&gt;
 )<span class="where fmt-newline">where
     B: <a class="trait" href="../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">Block</a>,
-    C: <a class="trait" href="../sc_client_api/client/trait.BlockchainEvents.html" title="trait sc_client_api::client::BlockchainEvents">BlockchainEvents</a>&lt;B&gt; + ProvideRuntimeApi&lt;B&gt; + HeaderBackend&lt;B&gt;,
+    C: BlockchainEvents&lt;B&gt; + ProvideRuntimeApi&lt;B&gt; + HeaderBackend&lt;B&gt;,
     C::Api: MixnetApi&lt;B&gt;,
     S: SyncOracle,
     N: NetworkStateInfo + NetworkNotification + NetworkPeers,
-    P: <a class="trait" href="../sc_transaction_pool_api/trait.TransactionPool.html" title="trait sc_transaction_pool_api::TransactionPool">TransactionPool</a>&lt;Block = B&gt; + <a class="trait" href="../sc_transaction_pool_api/trait.LocalTransactionPool.html" title="trait sc_transaction_pool_api::LocalTransactionPool">LocalTransactionPool</a>&lt;Block = B&gt; + 'static,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Run the mixnet service. If <code>keystore</code> is <code>None</code>, the service will not attempt to register the
+    P: TransactionPool&lt;Block = B&gt; + LocalTransactionPool&lt;Block = B&gt; + 'static,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Run the mixnet service. If <code>keystore</code> is <code>None</code>, the service will not attempt to register the
 local node as a mixnode, even if <code>config.register</code> is <code>true</code>.</p>
 </div></details></section></div></main></body></html>
