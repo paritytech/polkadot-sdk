@@ -49,6 +49,7 @@ sp-arithmetic = { path = "../../../primitives/arithmetic" }
 sp-blockchain = { path = "../../../primitives/blockchain" }
 sp-consensus = { path = "../../../primitives/consensus/common" }
 sp-core = { path = "../../../primitives/core" }
+sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
 sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa" }
 sp-keystore = { path = "../../../primitives/keystore" }
 sp-runtime = { path = "../../../primitives/runtime" }

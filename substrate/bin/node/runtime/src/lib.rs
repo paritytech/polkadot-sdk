@@ -534,7 +534,7 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = ConstU32<1>;
-	type MaxHolds = ConstU32<6>;
+	type MaxHolds = ConstU32<7>;
 }
 
 parameter_types! {
@@ -880,7 +880,7 @@ parameter_types! {
 	pub const MaxPointsToBalance: u8 = 10;
 }
 
-use sp_runtime::traits::Convert;
+use sp_runtime::traits::{Convert, Keccak256};
 pub struct BalanceToU256;
 impl Convert<Balance, sp_core::U256> for BalanceToU256 {
 	fn convert(balance: Balance) -> sp_core::U256 {
@@ -1501,6 +1501,12 @@ impl pallet_identity::Config for Runtime {
 	type Slashed = Treasury;
 	type ForceOrigin = EnsureRootOrHalfCouncil;
 	type RegistrarOrigin = EnsureRootOrHalfCouncil;
+	type OffchainSignature = Signature;
+	type SigningPublicKey = <Signature as traits::Verify>::Signer;
+	type UsernameAuthorityOrigin = EnsureRoot<Self::AccountId>;
+	type PendingUsernameExpiration = ConstU32<{ 7 * DAYS }>;
+	type MaxSuffixLength = ConstU32<7>;
+	type MaxUsernameLength = ConstU32<32>;
 	type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
 }
 
@@ -1573,9 +1579,9 @@ impl pallet_vesting::Config for Runtime {
 
 impl pallet_mmr::Config for Runtime {
 	const INDEXING_PREFIX: &'static [u8] = b"mmr";
-	type Hashing = <Runtime as frame_system::Config>::Hashing;
+	type Hashing = Keccak256;
 	type LeafData = pallet_mmr::ParentNumberAndHash<Self>;
-	type OnNewRoot = ();
+	type OnNewRoot = pallet_beefy_mmr::DepositBeefyDigest<Runtime>;
 	type WeightInfo = ();
 }
 
@@ -1896,6 +1902,7 @@ impl pallet_state_trie_migration::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ControlOrigin = EnsureRoot<AccountId>;
 	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type MaxKeyLen = MigrationMaxKeyLen;
 	type SignedDepositPerItem = MigrationSignedDepositPerItem;
 	type SignedDepositBase = MigrationSignedDepositBase;
@@ -2096,8 +2103,7 @@ impl pallet_parameters::Config for Runtime {
 }
 
 construct_runtime!(
-	pub struct Runtime
-	{
+	pub enum Runtime {
 		System: frame_system,
 		Utility: pallet_utility,
 		Babe: pallet_babe,
@@ -2112,11 +2118,11 @@ construct_runtime!(
 		AssetConversionTxPayment: pallet_asset_conversion_tx_payment,
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase,
 		Staking: pallet_staking,
-		Beefy: pallet_beefy::{Pallet, Call, Storage, Config<T>, ValidateUnsigned},
+		Beefy: pallet_beefy,
 		// MMR leaf construction must be before session in order to have leaf contents
 		// refer to block<N-1> consistently. see substrate issue #11797 for details.
-		Mmr: pallet_mmr::{Pallet, Storage},
-		MmrLeaf: pallet_beefy_mmr::{Pallet, Storage},
+		Mmr: pallet_mmr,
+		MmrLeaf: pallet_beefy_mmr,
 		Session: pallet_session,
 		Democracy: pallet_democracy,
 		Council: pallet_collective::<Instance1>,
@@ -2131,7 +2137,7 @@ construct_runtime!(
 		ImOnline: pallet_im_online,
 		AuthorityDiscovery: pallet_authority_discovery,
 		Offences: pallet_offences,
-		Historical: pallet_session_historical::{Pallet},
+		Historical: pallet_session_historical,
 		RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip,
 		Identity: pallet_identity,
 		Society: pallet_society,
@@ -2228,6 +2234,9 @@ pub type Executive = frame_executive::Executive<
 	Migrations,
 >;
 
+// We don't have a limit in the Relay Chain.
+const IDENTITY_MIGRATION_KEY_LIMIT: u64 = u64::MAX;
+
 // All migrations executed on runtime upgrade as a nested tuple of types implementing
 // `OnRuntimeUpgrade`. Note: These are examples and do not need to be run directly
 // after the genesis block.
@@ -2235,6 +2244,7 @@ type Migrations = (
 	pallet_nomination_pools::migration::versioned::V6ToV7<Runtime>,
 	pallet_alliance::migration::Migration<Runtime>,
 	pallet_contracts::Migration<Runtime>,
+	pallet_identity::migration::versioned::V0ToV1<Runtime, IDENTITY_MIGRATION_KEY_LIMIT>,
 );
 
 type EventRecord = frame_system::EventRecord<

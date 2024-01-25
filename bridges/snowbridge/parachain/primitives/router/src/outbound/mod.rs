@@ -16,7 +16,7 @@ use snowbridge_core::{
 };
 use sp_core::{H160, H256};
 use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};
-use xcm::v3::prelude::*;
+use xcm::v4::prelude::*;
 use xcm_executor::traits::{ConvertLocation, ExportXcm};
 
 pub struct EthereumBlobExporter<
@@ -29,7 +29,7 @@ pub struct EthereumBlobExporter<
 impl<UniversalLocation, EthereumNetwork, OutboundQueue, AgentHashedDescription> ExportXcm
 	for EthereumBlobExporter<UniversalLocation, EthereumNetwork, OutboundQueue, AgentHashedDescription>
 where
-	UniversalLocation: Get<InteriorMultiLocation>,
+	UniversalLocation: Get<InteriorLocation>,
 	EthereumNetwork: Get<NetworkId>,
 	OutboundQueue: SendMessage<Balance = u128>,
 	AgentHashedDescription: ConvertLocation<H256>,
@@ -39,8 +39,8 @@ where
 	fn validate(
 		network: NetworkId,
 		_channel: u32,
-		universal_source: &mut Option<InteriorMultiLocation>,
-		destination: &mut Option<InteriorMultiLocation>,
+		universal_source: &mut Option<InteriorLocation>,
+		destination: &mut Option<InteriorLocation>,
 		message: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
 		let expected_network = EthereumNetwork::get();
@@ -74,8 +74,8 @@ where
 			return Err(SendError::NotApplicable)
 		}
 
-		let para_id = match local_sub {
-			X1(Parachain(para_id)) => para_id,
+		let para_id = match local_sub.as_slice() {
+			[Parachain(para_id)] => *para_id,
 			_ => {
 				log::error!(target: "xcm::ethereum_blob_exporter", "could not get parachain id from universal source '{local_sub:?}'.");
 				return Err(SendError::MissingArgument)
@@ -93,7 +93,7 @@ where
 			SendError::Unroutable
 		})?;
 
-		let source_location: MultiLocation = MultiLocation { parents: 1, interior: local_sub };
+		let source_location = Location::new(1, local_sub.clone());
 		let agent_id = match AgentHashedDescription::convert_location(&source_location) {
 			Some(id) => id,
 			None => {
@@ -116,8 +116,8 @@ where
 			SendError::Unroutable
 		})?;
 
-		// convert fee to MultiAsset
-		let fee = MultiAsset::from((MultiLocation::parent(), fee.total())).into();
+		// convert fee to Asset
+		let fee = Asset::from((Location::parent(), fee.total())).into();
 
 		Ok(((ticket.encode(), message_id), fee))
 	}
@@ -216,8 +216,8 @@ impl<'a, Call> XcmConverter<'a, Call> {
 
 		// assert that the beneficiary is AccountKey20.
 		let recipient = match_expression!(
-			beneficiary,
-			MultiLocation { parents: 0, interior: X1(AccountKey20 { network, key }) }
+			beneficiary.unpack(),
+			(0, [AccountKey20 { network, key }])
 				if self.network_matches(network),
 			H160(*key)
 		)
@@ -245,14 +245,15 @@ impl<'a, Call> XcmConverter<'a, Call> {
 			}
 		}
 
-		let (token, amount) = match_expression!(
-			reserve_asset,
-			MultiAsset {
-				id: Concrete(MultiLocation { parents: 0, interior: X1(AccountKey20 { network , key })}),
-				fun: Fungible(amount)
-			} if self.network_matches(network),
-			(H160(*key), *amount)
-		)
+		let (token, amount) = match reserve_asset {
+			Asset { id: AssetId(inner_location), fun: Fungible(amount) } =>
+				match inner_location.unpack() {
+					(0, [AccountKey20 { network, key }]) if self.network_matches(network) =>
+						Some((H160(*key), *amount)),
+					_ => None,
+				},
+			_ => None,
+		}
 		.ok_or(AssetResolutionFailed)?;
 
 		// transfer amount must be greater than 0.

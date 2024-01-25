@@ -20,7 +20,7 @@ use sc_chain_spec::{ChainSpec, ChainType};
 use std::{borrow::Cow, str::FromStr};
 
 /// Collects all supported Coretime configurations.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum CoretimeRuntimeType {
 	// Live
 	Rococo,
@@ -85,13 +85,13 @@ impl CoretimeRuntimeType {
 				&include_bytes!("../../../parachains/chain-specs/coretime-rococo.json")[..],
 			)?)),
 			CoretimeRuntimeType::RococoLocal =>
-				Ok(Box::new(rococo::local_config(self, "rococo-local"))),
+				Ok(Box::new(rococo::local_config(*self, "rococo-local"))),
 			CoretimeRuntimeType::RococoDevelopment =>
-				Ok(Box::new(rococo::local_config(self, "rococo-dev"))),
+				Ok(Box::new(rococo::local_config(*self, "rococo-dev"))),
 			CoretimeRuntimeType::WestendLocal =>
-				Ok(Box::new(westend::local_config(self, "westend-local"))),
+				Ok(Box::new(westend::local_config(*self, "westend-local"))),
 			CoretimeRuntimeType::WestendDevelopment =>
-				Ok(Box::new(westend::local_config(self, "westend-dev"))),
+				Ok(Box::new(westend::local_config(*self, "westend-dev"))),
 		}
 	}
 }
@@ -114,6 +114,7 @@ pub mod rococo {
 		get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
 	};
 	use parachains_common::{AccountId, AuraId, Balance};
+	use sc_chain_spec::ChainType;
 	use sp_core::sr25519;
 
 	pub(crate) const CORETIME_ROCOCO: &str = "coretime-rococo";
@@ -121,24 +122,31 @@ pub mod rococo {
 	pub(crate) const CORETIME_ROCOCO_DEVELOPMENT: &str = "coretime-rococo-dev";
 	const CORETIME_ROCOCO_ED: Balance = parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
 
-	pub fn local_config(runtime_type: &CoretimeRuntimeType, relay_chain: &str) -> GenericChainSpec {
+	pub fn local_config(runtime_type: CoretimeRuntimeType, relay_chain: &str) -> GenericChainSpec {
 		// Rococo defaults
 		let mut properties = sc_chain_spec::Properties::new();
 		properties.insert("ss58Format".into(), 42.into());
 		properties.insert("tokenSymbol".into(), "ROC".into());
 		properties.insert("tokenDecimals".into(), 12.into());
 
-		let chain_type = runtime_type.clone().into();
+		let chain_type = runtime_type.into();
 		let chain_name = format!("Coretime Rococo {}", chain_type_name(&chain_type));
 		let para_id = super::CORETIME_PARA_ID;
 
-		GenericChainSpec::builder(
+		let wasm_binary = if matches!(chain_type, ChainType::Local | ChainType::Development) {
+			coretime_rococo_runtime::fast_runtime_binary::WASM_BINARY
+				.expect("WASM binary was not built, please build it!")
+		} else {
 			coretime_rococo_runtime::WASM_BINARY
-				.expect("WASM binary was not built, please build it!"),
+				.expect("WASM binary was not built, please build it!")
+		};
+
+		GenericChainSpec::builder(
+			wasm_binary,
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
 		)
 		.with_name(&chain_name)
-		.with_id(runtime_type.clone().into())
+		.with_id(runtime_type.into())
 		.with_chain_type(chain_type)
 		.with_genesis_config_patch(genesis(
 			// initial collators.
@@ -209,14 +217,14 @@ pub mod westend {
 	pub(crate) const CORETIME_WESTEND_DEVELOPMENT: &str = "coretime-westend-dev";
 	const CORETIME_WESTEND_ED: Balance = parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
 
-	pub fn local_config(runtime_type: &CoretimeRuntimeType, relay_chain: &str) -> GenericChainSpec {
+	pub fn local_config(runtime_type: CoretimeRuntimeType, relay_chain: &str) -> GenericChainSpec {
 		// westend defaults
 		let mut properties = sc_chain_spec::Properties::new();
 		properties.insert("ss58Format".into(), 42.into());
 		properties.insert("tokenSymbol".into(), "WND".into());
 		properties.insert("tokenDecimals".into(), 12.into());
 
-		let chain_type = runtime_type.clone().into();
+		let chain_type = runtime_type.into();
 		let chain_name = format!("Coretime Westend {}", chain_type_name(&chain_type));
 		let para_id = super::CORETIME_PARA_ID;
 
@@ -226,7 +234,7 @@ pub mod westend {
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
 		)
 		.with_name(&chain_name)
-		.with_id(runtime_type.clone().into())
+		.with_id(runtime_type.into())
 		.with_chain_type(chain_type)
 		.with_genesis_config_patch(genesis(
 			// initial collators.

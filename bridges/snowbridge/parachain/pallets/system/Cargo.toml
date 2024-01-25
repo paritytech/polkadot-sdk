@@ -1,11 +1,15 @@
 [package]
-name = "snowbridge-system"
-description = "Snowbridge System"
-version = "0.1.1"
+name = "snowbridge-pallet-system"
+description = "Snowbridge System Pallet"
+version = "0.9.0"
 authors = ["Snowfork <contact@snowfork.com>"]
-edition = "2021"
-repository = "https://github.com/Snowfork/snowbridge"
+edition.workspace = true
+repository.workspace = true
 license = "Apache-2.0"
+categories = ["cryptography::cryptocurrencies"]
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -39,7 +43,7 @@ pallet-balances = { path = "../../../../../substrate/frame/balances" }
 sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
 polkadot-primitives = { path = "../../../../../polkadot/primitives" }
 pallet-message-queue = { path = "../../../../../substrate/frame/message-queue" }
-snowbridge-outbound-queue = { path = "../outbound-queue" }
+snowbridge-pallet-outbound-queue = { path = "../outbound-queue" }
 
 [features]
 default = ["std"]
@@ -68,7 +72,7 @@ runtime-benchmarks = [
 	"pallet-message-queue/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
-	"snowbridge-outbound-queue/runtime-benchmarks",
+	"snowbridge-pallet-outbound-queue/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
@@ -78,6 +82,6 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-message-queue/try-runtime",
-	"snowbridge-outbound-queue/try-runtime",
+	"snowbridge-pallet-outbound-queue/try-runtime",
 	"sp-runtime/try-runtime",
 ]

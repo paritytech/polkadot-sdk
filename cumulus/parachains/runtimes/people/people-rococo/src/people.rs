@@ -22,9 +22,12 @@ use frame_support::{
 	RuntimeDebugNoBound,
 };
 use pallet_identity::{Data, IdentityInformationProvider};
-use parachains_common::impls::ToParentTreasury;
+use parachains_common::{impls::ToParentTreasury, DAYS};
 use scale_info::TypeInfo;
-use sp_runtime::{traits::AccountIdConversion, RuntimeDebug};
+use sp_runtime::{
+	traits::{AccountIdConversion, Verify},
+	RuntimeDebug,
+};
 use sp_std::prelude::*;
 
 parameter_types! {
@@ -51,6 +54,12 @@ impl pallet_identity::Config for Runtime {
 	type Slashed = ToParentTreasury<RelayTreasuryAccount, LocationToAccountId, Runtime>;
 	type ForceOrigin = EnsureRoot<Self::AccountId>;
 	type RegistrarOrigin = EnsureRoot<Self::AccountId>;
+	type OffchainSignature = Signature;
+	type SigningPublicKey = <Signature as Verify>::Signer;
+	type UsernameAuthorityOrigin = EnsureRoot<Self::AccountId>;
+	type PendingUsernameExpiration = ConstU32<{ 7 * DAYS }>;
+	type MaxSuffixLength = ConstU32<7>;
+	type MaxUsernameLength = ConstU32<32>;
 	type WeightInfo = weights::pallet_identity::WeightInfo<Runtime>;
 }
 
@@ -84,7 +93,6 @@ pub enum IdentityField {
 	TypeInfo,
 )]
 #[codec(mel_bound())]
-#[cfg_attr(test, derive(frame_support::DefaultNoBound))]
 pub struct IdentityInfo {
 	/// A reasonable display name for the controller of the account. This should be whatever the  
 	/// account is typically known as and should not be confusable with other entities, given  
@@ -200,5 +208,23 @@ impl IdentityInfo {
 			res.insert(IdentityField::Discord);
 		}
 		res
+	}
+}
+
+/// A `Default` identity. This is given to users who get a username but have not set an identity.
+impl Default for IdentityInfo {
+	fn default() -> Self {
+		IdentityInfo {
+			display: Data::None,
+			legal: Data::None,
+			web: Data::None,
+			matrix: Data::None,
+			email: Data::None,
+			pgp_fingerprint: None,
+			image: Data::None,
+			twitter: Data::None,
+			github: Data::None,
+			discord: Data::None,
+		}
 	}
 }

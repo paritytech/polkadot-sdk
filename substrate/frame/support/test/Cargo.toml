@@ -31,7 +31,7 @@ sp-core = { path = "../../../primitives/core", default-features = false }
 sp-std = { path = "../../../primitives/std", default-features = false }
 sp-version = { path = "../../../primitives/version", default-features = false }
 sp-metadata-ir = { path = "../../../primitives/metadata-ir", default-features = false }
-trybuild = { version = "1.0.74", features = ["diff"] }
+trybuild = { version = "1.0.88", features = ["diff"] }
 pretty_assertions = "1.3.0"
 rustversion = "1.0.6"
 frame-system = { path = "../../system", default-features = false }

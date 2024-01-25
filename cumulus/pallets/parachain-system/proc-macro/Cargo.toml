@@ -16,7 +16,7 @@ proc-macro = true
 syn = "2.0.48"
 proc-macro2 = "1.0.64"
 quote = "1.0.33"
-proc-macro-crate = "2.0.1"
+proc-macro-crate = "3.0.0"
 
 [features]
 default = ["std"]

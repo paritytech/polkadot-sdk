@@ -40,6 +40,7 @@ use polkadot_service::chain_spec::get_authority_keys_from_seed_no_beefy;
 
 pub const XCM_V2: u32 = 2;
 pub const XCM_V3: u32 = 3;
+pub const XCM_V4: u32 = 4;
 pub const REF_TIME_THRESHOLD: u64 = 33;
 pub const PROOF_SIZE_THRESHOLD: u64 = 33;
 

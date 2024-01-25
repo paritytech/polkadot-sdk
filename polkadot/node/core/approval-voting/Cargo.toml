@@ -42,7 +42,7 @@ rand = "0.8.5"
 
 [dev-dependencies]
 async-trait = "0.1.74"
-parking_lot = "0.12.0"
+parking_lot = "0.12.1"
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 sp-keystore = { path = "../../../../substrate/primitives/keystore" }
 sp-core = { path = "../../../../substrate/primitives/core" }

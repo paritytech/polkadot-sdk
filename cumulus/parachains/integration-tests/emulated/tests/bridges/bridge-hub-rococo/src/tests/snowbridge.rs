@@ -17,12 +17,12 @@ use codec::{Decode, Encode};
 use emulated_integration_tests_common::xcm_emulator::ConvertLocation;
 use frame_support::pallet_prelude::TypeInfo;
 use hex_literal::hex;
+use parachains_common::rococo::snowbridge::EthereumNetwork;
 use snowbridge_core::outbound::OperatingMode;
-use snowbridge_rococo_common::EthereumNetwork;
+use snowbridge_pallet_system;
 use snowbridge_router_primitives::inbound::{
 	Command, Destination, GlobalConsensusEthereumConvertsFor, MessageV1, VersionedMessage,
 };
-use snowbridge_system;
 use sp_core::H256;
 
 const INITIAL_FUND: u128 = 5_000_000_000 * ROCOCO_ED;
@@ -61,7 +61,7 @@ fn create_agent() {
 
 	let remote_xcm = VersionedXcm::from(Xcm(vec![
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-		DescendOrigin(X1(Parachain(origin_para))),
+		DescendOrigin(Parachain(origin_para).into()),
 		Transact {
 			require_weight_at_most: 3000000000.into(),
 			origin_kind: OriginKind::Xcm,
@@ -94,7 +94,7 @@ fn create_agent() {
 		assert_expected_events!(
 			BridgeHubRococo,
 			vec![
-				RuntimeEvent::EthereumSystem(snowbridge_system::Event::CreateAgent {
+				RuntimeEvent::EthereumSystem(snowbridge_pallet_system::Event::CreateAgent {
 					..
 				}) => {},
 			]
@@ -109,14 +109,14 @@ fn create_channel() {
 	BridgeHubRococo::fund_para_sovereign(origin_para.into(), INITIAL_FUND);
 
 	let sudo_origin = <Rococo as Chain>::RuntimeOrigin::root();
-	let destination: VersionedMultiLocation =
+	let destination: VersionedLocation =
 		Rococo::child_location_of(BridgeHubRococo::para_id()).into();
 
 	let create_agent_call = SnowbridgeControl::Control(ControlCall::CreateAgent {});
 
 	let create_agent_xcm = VersionedXcm::from(Xcm(vec![
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-		DescendOrigin(X1(Parachain(origin_para))),
+		DescendOrigin(Parachain(origin_para).into()),
 		Transact {
 			require_weight_at_most: 3000000000.into(),
 			origin_kind: OriginKind::Xcm,
@@ -129,7 +129,7 @@ fn create_channel() {
 
 	let create_channel_xcm = VersionedXcm::from(Xcm(vec![
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-		DescendOrigin(X1(Parachain(origin_para))),
+		DescendOrigin(Parachain(origin_para).into()),
 		Transact {
 			require_weight_at_most: 3000000000.into(),
 			origin_kind: OriginKind::Xcm,
@@ -168,7 +168,7 @@ fn create_channel() {
 		assert_expected_events!(
 			BridgeHubRococo,
 			vec![
-				RuntimeEvent::EthereumSystem(snowbridge_system::Event::CreateChannel {
+				RuntimeEvent::EthereumSystem(snowbridge_pallet_system::Event::CreateChannel {
 					..
 				}) => {},
 			]
@@ -190,7 +190,10 @@ fn register_weth_token_from_ethereum_to_asset_hub() {
 			chain_id: CHAIN_ID,
 			command: Command::RegisterToken { token: WETH.into(), fee: XCM_FEE },
 		});
-		let (xcm, _) = EthereumInboundQueue::do_convert(message_id_, message).unwrap();
+		let (xcm, fee) = EthereumInboundQueue::do_convert(message_id_, message).unwrap();
+
+		assert_ok!(EthereumInboundQueue::burn_fees(AssetHubRococo::para_id().into(), fee));
+
 		let _ = EthereumInboundQueue::send_xcm(xcm, AssetHubRococo::para_id().into()).unwrap();
 
 		assert_expected_events!(
@@ -215,10 +218,10 @@ fn register_weth_token_from_ethereum_to_asset_hub() {
 
 #[test]
 fn send_token_from_ethereum_to_penpal() {
-	let asset_hub_sovereign = BridgeHubRococo::sovereign_account_id_of(MultiLocation {
-		parents: 1,
-		interior: X1(Parachain(AssetHubRococo::para_id().into())),
-	});
+	let asset_hub_sovereign = BridgeHubRococo::sovereign_account_id_of(Location::new(
+		1,
+		[Parachain(AssetHubRococo::para_id().into())],
+	));
 	BridgeHubRococo::fund_accounts(vec![(asset_hub_sovereign.clone(), INITIAL_FUND)]);
 
 	PenpalA::fund_accounts(vec![
@@ -226,9 +229,9 @@ fn send_token_from_ethereum_to_penpal() {
 		(PenpalASender::get(), INITIAL_FUND),
 	]);
 
-	let weth_asset_location: MultiLocation =
+	let weth_asset_location: Location =
 		(Parent, Parent, EthereumNetwork::get(), AccountKey20 { network: None, key: WETH }).into();
-	let weth_asset_id = weth_asset_location.into();
+	let weth_asset_id: v3::Location = weth_asset_location.try_into().unwrap();
 
 	let origin_location = (Parent, Parent, EthereumNetwork::get()).into();
 
@@ -372,18 +375,15 @@ fn send_token_from_ethereum_to_asset_hub() {
 #[test]
 fn send_weth_asset_from_asset_hub_to_ethereum() {
 	use asset_hub_rococo_runtime::xcm_config::bridging::to_ethereum::DefaultBridgeHubEthereumBaseFee;
-	let assethub_sovereign = BridgeHubRococo::sovereign_account_id_of(MultiLocation {
-		parents: 1,
-		interior: X1(Parachain(AssetHubRococo::para_id().into())),
-	});
+	let assethub_sovereign = BridgeHubRococo::sovereign_account_id_of(Location::new(
+		1,
+		[Parachain(AssetHubRococo::para_id().into())],
+	));
 
 	AssetHubRococo::force_default_xcm_version(Some(XCM_VERSION));
 	BridgeHubRococo::force_default_xcm_version(Some(XCM_VERSION));
 	AssetHubRococo::force_xcm_version(
-		MultiLocation {
-			parents: 2,
-			interior: X1(GlobalConsensus(Ethereum { chain_id: CHAIN_ID })),
-		},
+		Location::new(2, [GlobalConsensus(Ethereum { chain_id: CHAIN_ID })]),
 		XCM_VERSION,
 	);
 
@@ -434,27 +434,27 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 				RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { .. }) => {},
 			]
 		);
-		let assets = vec![MultiAsset {
-			id: Concrete(MultiLocation {
-				parents: 2,
-				interior: X2(
+		let assets = vec![Asset {
+			id: AssetId(Location::new(
+				2,
+				[
 					GlobalConsensus(Ethereum { chain_id: CHAIN_ID }),
 					AccountKey20 { network: None, key: WETH },
-				),
-			}),
+				],
+			)),
 			fun: Fungible(WETH_AMOUNT),
 		}];
-		let multi_assets = VersionedMultiAssets::V3(MultiAssets::from(assets));
+		let multi_assets = VersionedAssets::V4(Assets::from(assets));
 
-		let destination = VersionedMultiLocation::V3(MultiLocation {
-			parents: 2,
-			interior: X1(GlobalConsensus(Ethereum { chain_id: CHAIN_ID })),
-		});
+		let destination = VersionedLocation::V4(Location::new(
+			2,
+			[GlobalConsensus(Ethereum { chain_id: CHAIN_ID })],
+		));
 
-		let beneficiary = VersionedMultiLocation::V3(MultiLocation {
-			parents: 0,
-			interior: X1(AccountKey20 { network: None, key: ETHEREUM_DESTINATION_ADDRESS.into() }),
-		});
+		let beneficiary = VersionedLocation::V4(Location::new(
+			0,
+			[AccountKey20 { network: None, key: ETHEREUM_DESTINATION_ADDRESS.into() }],
+		));
 
 		let free_balance_before = <AssetHubRococo as AssetHubRococoPallet>::Balances::free_balance(
 			AssetHubRococoReceiver::get(),
@@ -481,7 +481,7 @@ fn send_weth_asset_from_asset_hub_to_ethereum() {
 		assert_expected_events!(
 			BridgeHubRococo,
 			vec![
-				RuntimeEvent::EthereumOutboundQueue(snowbridge_outbound_queue::Event::MessageQueued {..}) => {},
+				RuntimeEvent::EthereumOutboundQueue(snowbridge_pallet_outbound_queue::Event::MessageQueued {..}) => {},
 			]
 		);
 		let events = BridgeHubRococo::events();

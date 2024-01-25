@@ -583,9 +583,8 @@ impl<'a, E: Ext + 'a> Runtime<'a, E> {
 		ptr: u32,
 	) -> Result<D, DispatchError> {
 		let ptr = ptr as usize;
-		let mut bound_checked = memory
-			.get(ptr..ptr + D::max_encoded_len() as usize)
-			.ok_or_else(|| Error::<E::T>::OutOfBounds)?;
+		let mut bound_checked = memory.get(ptr..).ok_or_else(|| Error::<E::T>::OutOfBounds)?;
+
 		let decoded = D::decode_with_depth_limit(MAX_DECODE_NESTING, &mut bound_checked)
 			.map_err(|_| DispatchError::from(Error::<E::T>::DecodingFailed))?;
 		Ok(decoded)
@@ -2170,11 +2169,11 @@ pub mod env {
 		msg_len: u32,
 		output_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
-		use xcm::{VersionedMultiLocation, VersionedXcm};
+		use xcm::{VersionedLocation, VersionedXcm};
 		use xcm_builder::{SendController, SendControllerWeightInfo};
 
 		ctx.charge_gas(RuntimeCosts::CopyFromContract(msg_len))?;
-		let dest: VersionedMultiLocation = ctx.read_sandbox_memory_as(memory, dest_ptr)?;
+		let dest: VersionedLocation = ctx.read_sandbox_memory_as(memory, dest_ptr)?;
 
 		let message: VersionedXcm<()> =
 			ctx.read_sandbox_memory_as_unbounded(memory, msg_ptr, msg_len)?;
@@ -2230,7 +2229,6 @@ pub mod env {
 
 	/// Verify a sr25519 signature
 	/// See [`pallet_contracts_uapi::HostFn::sr25519_verify`].
-	#[unstable]
 	fn sr25519_verify(
 		ctx: _,
 		memory: _,

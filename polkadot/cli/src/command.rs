@@ -256,11 +256,13 @@ where
 		)
 		.map(|full| full.task_manager)?;
 
-		sc_storage_monitor::StorageMonitorService::try_spawn(
-			cli.storage_monitor,
-			database_source,
-			&task_manager.spawn_essential_handle(),
-		)?;
+		if let Some(path) = database_source.path() {
+			sc_storage_monitor::StorageMonitorService::try_spawn(
+				cli.storage_monitor,
+				path.to_path_buf(),
+				&task_manager.spawn_essential_handle(),
+			)?;
+		}
 
 		Ok(task_manager)
 	})

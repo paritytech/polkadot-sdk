@@ -31,7 +31,7 @@ sp-std = { path = "../std", default-features = false }
 [dev-dependencies]
 criterion = "0.4.0"
 primitive-types = "0.12.0"
-sp-core = { path = "../core", features = ["full_crypto"] }
+sp-crypto-hashing = { path = "../crypto/hashing" }
 rand = "0.8.5"
 
 [features]
@@ -41,7 +41,7 @@ std = [
 	"num-traits/std",
 	"scale-info/std",
 	"serde/std",
-	"sp-core/std",
+	"sp-crypto-hashing/std",
 	"sp-std/std",
 ]
 # Serde support without relying on std features.

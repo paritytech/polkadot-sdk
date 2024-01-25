@@ -1,10 +1,15 @@
 [package]
 name = "snowbridge-runtime-common"
 description = "Snowbridge Runtime Common"
-version = "0.1.1"
+version = "0.9.0"
 authors = ["Snowfork <contact@snowfork.com>"]
-edition = "2021"
+edition.workspace = true
+repository.workspace = true
 license = "Apache-2.0"
+categories = ["cryptography::cryptocurrencies"]
+
+[lints]
+workspace = true
 
 [dependencies]
 log = { version = "0.4.20", default-features = false }

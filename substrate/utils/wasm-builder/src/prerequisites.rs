@@ -17,15 +17,14 @@
 
 use crate::{write_file_if_changed, CargoCommand, CargoCommandVersioned};
 
+use console::style;
 use std::{fs, path::Path};
-
-use ansi_term::Color;
 use tempfile::tempdir;
 
 /// Print an error message.
 fn print_error_message(message: &str) -> String {
 	if super::color_output_enabled() {
-		Color::Red.bold().paint(message).to_string()
+		style(message).red().bold().to_string()
 	} else {
 		message.into()
 	}
@@ -117,10 +116,10 @@ fn check_wasm_toolchain_installed(
 			Ok(ref err) => Err(format!(
 				"{}\n\n{}\n{}\n{}{}\n",
 				err_msg,
-				Color::Yellow.bold().paint("Further error information:"),
-				Color::Yellow.bold().paint("-".repeat(60)),
+				style("Further error information:").yellow().bold(),
+				style("-".repeat(60)).yellow().bold(),
 				err,
-				Color::Yellow.bold().paint("-".repeat(60)),
+				style("-".repeat(60)).yellow().bold(),
 			)),
 
 			Err(_) => Err(err_msg),

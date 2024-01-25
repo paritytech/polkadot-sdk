@@ -362,8 +362,7 @@ pub mod pallet {
 		///
 		/// This resets `last_proof` to the current block, thereby delaying any automatic demotion.
 		///
-		/// If `who` is not already tracked by this pallet, then it will become tracked.
-		/// `last_promotion` will be set to zero.
+		/// `who` must already be tracked by this pallet for this to have an effect.
 		///
 		/// - `origin`: An origin which satisfies `ApproveOrigin` or root.
 		/// - `who`: A member (i.e. of non-zero rank).

@@ -153,7 +153,7 @@ fn pair_from_set_types_works() {
 		assert_eq!(First::<Assets>::total_issuance(()), 100);
 		assert_eq!(First::<Assets>::total_issuance(()), Assets::total_issuance(asset1));
 
-		let (debt, credit) = First::<Assets>::pair((), 100);
+		let (debt, credit) = First::<Assets>::pair((), 100).unwrap();
 		assert_eq!(First::<Assets>::total_issuance(()), 100);
 		assert_eq!(debt.peek(), 100);
 		assert_eq!(credit.peek(), 100);

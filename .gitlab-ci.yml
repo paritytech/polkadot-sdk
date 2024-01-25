@@ -275,16 +275,6 @@ cancel-pipeline-test-linux-stable3:
   needs:
     - job: "test-linux-stable 3/3"
 
-cancel-pipeline-test-linux-stable-additional-tests:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "test-linux-stable-additional-tests"
-
-cancel-pipeline-test-linux-stable-slow:
-  extends: .cancel-pipeline-template
-  needs:
-    - job: "test-linux-stable-slow"
-
 cancel-pipeline-cargo-check-benches1:
   extends: .cancel-pipeline-template
   needs:

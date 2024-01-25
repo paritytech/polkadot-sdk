@@ -27,7 +27,7 @@ sp-keystore = { path = "../../../../substrate/primitives/keystore" }
 thiserror = "1.0.48"
 fatality = "0.0.6"
 schnellru = "0.2.1"
-indexmap = "1.9.1"
+indexmap = "2.0.0"
 
 [dev-dependencies]
 async-channel = "1.8.0"

@@ -1,27 +1,21 @@
 #!/bin/bash
 
-function ensure_binaries() {
-    if [[ ! -f ~/local_bridge_testing/bin/polkadot ]]; then
-        echo "  Required polkadot binary '~/local_bridge_testing/bin/polkadot' does not exist!"
-        echo "  You need to build it and copy to this location!"
-        echo "  Please, check ./parachains/runtimes/bridge-hubs/README.md (Prepare/Build/Deploy)"
-        exit 1
-    fi
-    if [[ ! -f ~/local_bridge_testing/bin/polkadot-parachain ]]; then
-        echo "  Required polkadot-parachain binary '~/local_bridge_testing/bin/polkadot-parachain' does not exist!"
-        echo "  You need to build it and copy to this location!"
-        echo "  Please, check ./parachains/runtimes/bridge-hubs/README.md (Prepare/Build/Deploy)"
-        exit 1
-    fi
+function relayer_path() {
+    local default_path=~/local_bridge_testing/bin/substrate-relay
+    local path="${SUBSTRATE_RELAY_PATH:-$default_path}"
+    echo "$path"
 }
 
 function ensure_relayer() {
-    if [[ ! -f ~/local_bridge_testing/bin/substrate-relay ]]; then
-        echo "  Required substrate-relay binary '~/local_bridge_testing/bin/substrate-relay' does not exist!"
+    local path=$(relayer_path)
+    if [[ ! -f "$path" ]]; then
+        echo "  Required substrate-relay binary '$path' does not exist!"
         echo "  You need to build it and copy to this location!"
         echo "  Please, check ./parachains/runtimes/bridge-hubs/README.md (Prepare/Build/Deploy)"
         exit 1
     fi
+
+    echo $path
 }
 
 function ensure_polkadot_js_api() {
