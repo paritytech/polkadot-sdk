@@ -36,8 +36,9 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem::{
 	messages::{
-		CandidateBackingMessage, HypotheticalCandidate, HypotheticalFrontierRequest,
-		NetworkBridgeEvent, NetworkBridgeTxMessage, ProspectiveParachainsMessage,
+		network_bridge_event::NewGossipTopology, CandidateBackingMessage, HypotheticalCandidate,
+		HypotheticalFrontierRequest, NetworkBridgeEvent, NetworkBridgeTxMessage,
+		ProspectiveParachainsMessage,
 	},
 	overseer, ActivatedLeaf,
 };
@@ -283,6 +284,10 @@ pub(crate) struct State {
 	candidates: Candidates,
 	per_relay_parent: HashMap<Hash, PerRelayParentState>,
 	per_session: HashMap<SessionIndex, PerSessionState>,
+	// Topology might be received before first leaf update, where we
+	// initialize the per_session_state, so cache it here until we
+	// are able to use it.
+	unused_topologies: HashMap<SessionIndex, NewGossipTopology>,
 	peers: HashMap<PeerId, PeerState>,
 	keystore: KeystorePtr,
 	authorities: HashMap<AuthorityDiscoveryId, PeerId>,
@@ -303,6 +308,7 @@ impl State {
 			authorities: HashMap::new(),
 			request_manager: RequestManager::new(),
 			response_manager: ResponseManager::new(),
+			unused_topologies: HashMap::new(),
 		}
 	}
 
@@ -449,12 +455,14 @@ pub(crate) async fn handle_network_update<Context>(
 			}
 		},
 		NetworkBridgeEvent::NewGossipTopology(topology) => {
-			let new_session_index = topology.session;
-			let new_topology = topology.topology;
-			let local_index = topology.local_index;
+			let new_session_index = &topology.session;
+			let new_topology = &topology.topology;
+			let local_index = &topology.local_index;
 
-			if let Some(per_session) = state.per_session.get_mut(&new_session_index) {
-				per_session.supply_topology(&new_topology, local_index);
+			if let Some(per_session) = state.per_session.get_mut(new_session_index) {
+				per_session.supply_topology(new_topology, *local_index);
+			} else {
+				state.unused_topologies.insert(*new_session_index, topology);
 			}
 
 			// TODO [https://github.com/paritytech/polkadot/issues/6194]
@@ -599,11 +607,12 @@ pub(crate) async fn handle_active_leaves_update<Context>(
 
 			let minimum_backing_votes =
 				request_min_backing_votes(new_relay_parent, session_index, ctx.sender()).await?;
-
-			state.per_session.insert(
-				session_index,
-				PerSessionState::new(session_info, &state.keystore, minimum_backing_votes),
-			);
+			let mut per_session_state =
+				PerSessionState::new(session_info, &state.keystore, minimum_backing_votes);
+			if let Some(toplogy) = state.unused_topologies.remove(&session_index) {
+				per_session_state.supply_topology(&toplogy.topology, toplogy.local_index);
+			}
+			state.per_session.insert(session_index, per_session_state);
 		}
 
 		let per_session = state
@@ -760,6 +769,7 @@ pub(crate) fn handle_deactivate_leaves(state: &mut State, leaves: &[Hash]) {
 	// clean up sessions based on everything remaining.
 	let sessions: HashSet<_> = state.per_relay_parent.values().map(|r| r.session).collect();
 	state.per_session.retain(|s, _| sessions.contains(s));
+	state.unused_topologies.retain(|s, _| sessions.contains(s));
 }
 
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
