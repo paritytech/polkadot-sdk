@@ -45,6 +45,8 @@ env_logger = "0.9.0"
 rand = "0.8.5"
 # `rand` only supports uniform distribution, we need normal distribution for latency.
 rand_distr = "0.4.3"
+bitvec="1.0.1"
+kvdb-memorydb = "0.13.0"
 
 parity-scale-codec = { version = "3.6.1", features = ["std", "derive"] }
 tokio = "1.24.2"
@@ -54,6 +56,7 @@ sp-keyring = { path = "../../../substrate/primitives/keyring" }
 sp-application-crypto = { path = "../../../substrate/primitives/application-crypto" }
 sc-network = { path = "../../../substrate/client/network" }
 sc-service = { path = "../../../substrate/client/service" }
+sp-consensus = { path = "../../../substrate/primitives/consensus/common" }
 polkadot-node-metrics = { path = "../metrics" }
 itertools = "0.11.0"
 polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
