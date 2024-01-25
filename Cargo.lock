@@ -13465,6 +13465,7 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
+ "bitvec",
  "clap 4.4.18",
  "clap-num",
  "color-eyre",
@@ -13473,6 +13474,7 @@ dependencies = [
  "futures",
  "futures-timer",
  "itertools 0.11.0",
+ "kvdb-memorydb",
  "log",
  "orchestra",
  "parity-scale-codec",
@@ -13504,6 +13506,7 @@ dependencies = [
  "serde",
  "serde_yaml",
  "sp-application-crypto",
+ "sp-consensus",
  "sp-core",
  "sp-keyring",
  "sp-keystore",
