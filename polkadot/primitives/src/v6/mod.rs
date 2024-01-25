@@ -393,7 +393,7 @@ pub const MAX_POV_SIZE: u32 = 5 * 1024 * 1024;
 /// Default queue size we use for the on-demand order book.
 ///
 /// Can be adjusted in configuration.
-pub const ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE: u32 = 10_000;
+pub const ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE: u32 = 500;
 
 /// Backing votes threshold used from the host prior to runtime API version 6 and from the runtime
 /// prior to v9 configuration migration.
