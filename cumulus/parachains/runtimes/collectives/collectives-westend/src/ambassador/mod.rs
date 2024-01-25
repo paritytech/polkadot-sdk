@@ -99,6 +99,12 @@ pub type PromoteOrigin = EitherOf<
 	>,
 >;
 
+/// Exchange is by any of:
+/// - Root can exchange arbitrarily.
+/// - the Fellows origin
+pub type ExchangeOrigin =
+	EitherOf<EnsureRootWithSuccess<Self::AccountId, ConstU16<65535>>, Fellows>;
+
 impl pallet_ranked_collective::Config<AmbassadorCollectiveInstance> for Runtime {
 	type WeightInfo = weights::pallet_ranked_collective_ambassador_collective::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
