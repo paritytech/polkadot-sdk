@@ -27,6 +27,7 @@ use crate::{
 	RuntimeEvent, XcmOverRococoBulletin, XcmRouter,
 };
 use bp_messages::LaneId;
+use bp_runtime::Chain;
 use bridge_runtime_common::{
 	messages,
 	messages::{
@@ -63,7 +64,7 @@ parameter_types! {
 	pub const MaxUnconfirmedMessagesAtInboundLane: bp_messages::MessageNonce =
 		bp_polkadot_bulletin::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 	/// Bridge specific chain (network) identifier of the Rococo Bulletin Chain.
-	pub const RococoBulletinChainId: bp_runtime::ChainId = bp_runtime::POLKADOT_BULLETIN_CHAIN_ID;
+	pub const RococoBulletinChainId: bp_runtime::ChainId = bp_polkadot_bulletin::PolkadotBulletin::ID;
 	/// Interior location (relative to this runtime) of the with-RococoBulletin messages pallet.
 	pub BridgeRococoToRococoBulletinMessagesPalletInstance: InteriorLocation = [
 		PalletInstance(<BridgeRococoBulletinMessages as PalletInfoAccess>::index() as u8)
@@ -151,10 +152,6 @@ impl MessageBridge for WithRococoBulletinMessageBridge {
 	type BridgedHeaderChain = BridgeRococoBulletinGrandpa;
 }
 
-/// Message verifier for RococoBulletin messages sent from BridgeHubRococo.
-pub type ToRococoBulletinMessageVerifier =
-	messages::source::FromThisChainMessageVerifier<WithRococoBulletinMessageBridge>;
-
 /// Maximal outbound payload size of BridgeHubRococo -> RococoBulletin messages.
 pub type ToRococoBulletinMaximalOutboundPayloadSize =
 	messages::source::FromThisChainMaximalOutboundPayloadSize<WithRococoBulletinMessageBridge>;
@@ -205,7 +202,6 @@ impl pallet_bridge_messages::Config<WithRococoBulletinMessagesInstance> for Runt
 	type DeliveryPayments = ();
 
 	type TargetHeaderChain = TargetHeaderChainAdapter<WithRococoBulletinMessageBridge>;
-	type LaneMessageVerifier = ToRococoBulletinMessageVerifier;
 	type DeliveryConfirmationPayments = ();
 
 	type SourceHeaderChain = SourceHeaderChainAdapter<WithRococoBulletinMessageBridge>;

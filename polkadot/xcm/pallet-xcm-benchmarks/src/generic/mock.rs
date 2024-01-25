@@ -30,7 +30,7 @@ use xcm_builder::{
 		AssetsInHolding, TestAssetExchanger, TestAssetLocker, TestAssetTrap,
 		TestSubscriptionService, TestUniversalAliases,
 	},
-	AliasForeignAccountId32, AllowUnpaidExecutionFrom,
+	AliasForeignAccountId32, AllowUnpaidExecutionFrom, FrameTransactionalProcessor,
 };
 use xcm_executor::traits::ConvertOrigin;
 
@@ -39,9 +39,9 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		XcmGenericBenchmarks: generic::{Pallet},
+		System: frame_system,
+		Balances: pallet_balances,
+		XcmGenericBenchmarks: generic,
 	}
 );
 
@@ -134,6 +134,7 @@ impl xcm_executor::Config for XcmConfig {
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Aliasers;
+	type TransactionalProcessor = FrameTransactionalProcessor;
 }
 
 parameter_types! {
@@ -194,6 +195,10 @@ impl generic::Config for Test {
 		let assets: Assets = (AssetId(Here.into()), 100).into();
 		let ticket = Location { parents: 0, interior: [GeneralIndex(0)].into() };
 		Ok((Default::default(), ticket, assets))
+	}
+
+	fn fee_asset() -> Result<Asset, BenchmarkError> {
+		Ok(Asset { id: AssetId(Here.into()), fun: Fungible(1_000_000) })
 	}
 
 	fn unlockable_asset() -> Result<(Location, Location, Asset), BenchmarkError> {

@@ -42,6 +42,7 @@ sp-consensus = { path = "../../../primitives/consensus/common" }
 sp-consensus-babe = { path = "../../../primitives/consensus/babe" }
 sp-consensus-slots = { path = "../../../primitives/consensus/slots" }
 sp-core = { path = "../../../primitives/core" }
+sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
 sp-inherents = { path = "../../../primitives/inherents" }
 sp-keystore = { path = "../../../primitives/keystore" }
 sp-runtime = { path = "../../../primitives/runtime" }

@@ -48,7 +48,7 @@ use pallet_balances;
 use pallet_contracts_uapi::CallFlags;
 use sp_runtime::traits::{Bounded, Hash};
 use sp_std::prelude::*;
-use wasm_instrument::parity_wasm::elements::{BlockType, Instruction, ValueType};
+use wasm_instrument::parity_wasm::elements::{BlockType, Instruction, Local, ValueType};
 
 /// How many runs we do per API benchmark.
 ///
@@ -2582,19 +2582,45 @@ benchmarks! {
 		let origin = RawOrigin::Signed(instance.caller.clone());
 	}: call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![])
 
-	// We make the assumption that pushing a constant and dropping a value takes roughly
-	// the same amount of time. We call this weight `w_base`.
-	// The weight that would result from the respective benchmark we call: `w_bench`.
+	// We load `i64` values from random linear memory locations and store the loaded
+	// values back into yet another random linear memory location.
+	// The random addresses are uniformely distributed across the entire span of the linear memory.
+	// We do this to enforce random memory accesses which are particularly expensive.
 	//
-	// w_base = w_i{32,64}const = w_drop = w_bench / 2
+	// The combination of this computation is our weight base `w_base`.
 	#[pov_mode = Ignored]
-	instr_i64const {
+	instr_i64_load_store {
 		let r in 0 .. INSTR_BENCHMARK_RUNS;
+
+		use rand::prelude::*;
+
+		// We do not need to be secure here. Fixed seed allows for determinstic results.
+		let mut rng = rand_pcg::Pcg32::seed_from_u64(8446744073709551615);
+
+		let memory = ImportedMemory::max::<T>();
+		let bytes_per_page = 65536;
+		let bytes_per_memory = memory.max_pages * bytes_per_page;
 		let mut sbox = Sandbox::from(&WasmModule::<T>::from(ModuleDefinition {
-			call_body: Some(body::repeated_dyn(r, vec![
-				RandomI64Repeated(1),
-				Regular(Instruction::Drop),
-			])),
+			memory: Some(memory),
+			call_body: Some(body::repeated_with_locals_using(
+				&[Local::new(1, ValueType::I64)],
+				r,
+				|| {
+					// Instruction sequence to load a `i64` from linear memory
+					// at a random memory location and store it back into another
+					// location of the linear memory.
+					let c0: i32 = rng.gen_range(0..bytes_per_memory as i32);
+					let c1: i32 = rng.gen_range(0..bytes_per_memory as i32);
+					[
+						Instruction::I32Const(c0), // address for `i64.load_8s`
+						Instruction::I64Load8S(0, 0),
+						Instruction::SetLocal(0),  // temporarily store value loaded in `i64.load_8s`
+						Instruction::I32Const(c1), // address for `i64.store8`
+						Instruction::GetLocal(0),  // value to be stores in `i64.store8`
+						Instruction::I64Store8(0, 0),
+					]
+				}
+			)),
 			.. Default::default()
 		}));
 	}: {

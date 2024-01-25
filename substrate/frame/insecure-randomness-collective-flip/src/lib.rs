@@ -179,8 +179,8 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-			CollectiveFlip: pallet_insecure_randomness_collective_flip::{Pallet, Storage},
+			System: frame_system,
+			CollectiveFlip: pallet_insecure_randomness_collective_flip,
 		}
 	);
 

@@ -152,7 +152,7 @@ impl DeriveJunction {
 		let mut cc: [u8; JUNCTION_ID_LEN] = Default::default();
 		index.using_encoded(|data| {
 			if data.len() > JUNCTION_ID_LEN {
-				cc.copy_from_slice(&sp_core_hashing::blake2_256(data));
+				cc.copy_from_slice(&sp_crypto_hashing::blake2_256(data));
 			} else {
 				cc[0..data.len()].copy_from_slice(data);
 			}
@@ -593,14 +593,16 @@ impl std::fmt::Display for AccountId32 {
 }
 
 impl sp_std::fmt::Debug for AccountId32 {
-	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		let s = self.to_ss58check();
-		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.0), &s[0..8])
-	}
+		#[cfg(feature = "serde")]
+		{
+			let s = self.to_ss58check();
+			write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.0), &s[0..8])?;
+		}
 
-	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+		#[cfg(not(feature = "serde"))]
+		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.0))?;
+
 		Ok(())
 	}
 }

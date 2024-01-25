@@ -39,8 +39,8 @@ use xcm_builder::CurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, DenyReserveTransferToRelayChain,
-	DenyThenTry, DescribeTerminus, EnsureXcmOrigin, HashedDescription, IsConcrete,
-	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
+	DenyThenTry, DescribeTerminus, EnsureXcmOrigin, FrameTransactionalProcessor, HashedDescription,
+	IsConcrete, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
 	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
 	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
@@ -176,13 +176,17 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 
 		matches!(
 			call,
-			RuntimeCall::PolkadotXcm(pallet_xcm::Call::force_xcm_version { .. }) |
-				RuntimeCall::System(
-					frame_system::Call::set_heap_pages { .. } |
-						frame_system::Call::set_code { .. } |
-						frame_system::Call::set_code_without_checks { .. } |
-						frame_system::Call::kill_prefix { .. },
-				) | RuntimeCall::ParachainSystem(..) |
+			RuntimeCall::PolkadotXcm(
+				pallet_xcm::Call::force_xcm_version { .. } |
+					pallet_xcm::Call::force_default_xcm_version { .. }
+			) | RuntimeCall::System(
+				frame_system::Call::set_heap_pages { .. } |
+					frame_system::Call::set_code { .. } |
+					frame_system::Call::set_code_without_checks { .. } |
+					frame_system::Call::authorize_upgrade { .. } |
+					frame_system::Call::authorize_upgrade_without_checks { .. } |
+					frame_system::Call::kill_prefix { .. },
+			) | RuntimeCall::ParachainSystem(..) |
 				RuntimeCall::Timestamp(..) |
 				RuntimeCall::Balances(..) |
 				RuntimeCall::CollatorSelection(
@@ -273,6 +277,7 @@ impl xcm_executor::Config for XcmConfig {
 	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
 	type SafeCallFilter = SafeCallFilter;
 	type Aliasers = Nothing;
+	type TransactionalProcessor = FrameTransactionalProcessor;
 }
 
 /// Converts a local signed origin into an XCM location. Forms the basis for local origins
