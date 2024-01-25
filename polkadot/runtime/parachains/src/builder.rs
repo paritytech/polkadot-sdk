@@ -178,7 +178,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 
 	/// Maximum number of validators that may be part of a validator group.
 	pub(crate) fn fallback_max_validators() -> u32 {
-		configuration::Pallet::<T>::config().max_validators.unwrap_or(200)
+		configuration::Pallet::<T>::config().max_validators.unwrap_or(300)
 	}
 
 	/// Maximum number of validators participating in parachains consensus (a.k.a. active
@@ -217,7 +217,6 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 	}
 
 	/// Set maximum number of validators per core.
-	#[cfg(not(feature = "runtime-benchmarks"))]
 	pub(crate) fn set_max_validators_per_core(mut self, n: u32) -> Self {
 		self.max_validators_per_core = Some(n);
 		self
@@ -229,7 +228,6 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 	}
 
 	/// Set whether the claim queue should be filled.
-	#[cfg(not(feature = "runtime-benchmarks"))]
 	pub(crate) fn set_fill_claimqueue(mut self, f: bool) -> Self {
 		self.fill_claimqueue = f;
 		self
@@ -738,7 +736,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 							CoreIndex(i),
 							ParaId::from(i),
 						);
-					(CoreIndex(i), [ParasEntry::new(assignment, now + ttl)].into())
+					(CoreIndex(i), vec![ParasEntry::new(assignment, now + ttl); 5000].into())
 				})
 				.collect();
 			scheduler::ClaimQueue::<T>::set(cores);

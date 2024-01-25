@@ -38,6 +38,8 @@ pub trait WeightInfo {
 	fn enter_backed_candidates_variable(v: u32) -> Weight;
 	/// The weight of a single backed candidate with a code upgrade.
 	fn enter_backed_candidate_code_upgrade() -> Weight;
+	/// The weight of processing on-deman queue.
+	fn enter_on_demand_queue_processing() -> Weight;
 }
 
 pub struct TestWeightInfo;
@@ -60,6 +62,9 @@ impl WeightInfo for TestWeightInfo {
 	fn enter_backed_candidate_code_upgrade() -> Weight {
 		Weight::zero()
 	}
+	fn enter_on_demand_queue_processing() -> Weight {
+		Weight::zero()
+	}
 }
 // To simplify benchmarks running as tests, we set all the weights to 0. `enter` will exit early
 // when if the data causes it to be over weight, but we don't want that to block a benchmark from
@@ -78,6 +83,9 @@ impl WeightInfo for TestWeightInfo {
 	fn enter_backed_candidate_code_upgrade() -> Weight {
 		Weight::zero()
 	}
+	fn enter_on_demand_queue_processing() -> Weight {
+		Weight::zero()
+	}
 }
 
 pub fn paras_inherent_total_weight<T: Config>(
@@ -88,6 +96,7 @@ pub fn paras_inherent_total_weight<T: Config>(
 	backed_candidates_weight::<T>(backed_candidates)
 		.saturating_add(signed_bitfields_weight::<T>(bitfields))
 		.saturating_add(multi_dispute_statement_sets_weight::<T>(disputes))
+		.saturating_add(on_demand_queue_processing_weight::<T>())
 }
 
 pub fn multi_dispute_statement_sets_weight<T: Config>(
@@ -167,6 +176,10 @@ pub fn backed_candidates_weight<T: frame_system::Config + Config>(
 		.iter()
 		.map(|c| backed_candidate_weight::<T>(c))
 		.fold(Weight::zero(), |acc, x| acc.saturating_add(x))
+}
+
+pub fn on_demand_queue_processing_weight<T: Config>() -> Weight {
+	<<T as Config>::WeightInfo as WeightInfo>::enter_on_demand_queue_processing()
 }
 
 /// Set proof_size component of `Weight` to tx size.

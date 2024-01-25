@@ -218,6 +218,41 @@ benchmarks! {
 			cores_with_backed.len()
 		);
 	}
+	enter_on_demand_queue_processing {
+		let cores_with_backed: BTreeMap<_, _>
+			= (0..50).map(|i| (i, BenchBuilder::<T>::fallback_max_validators()))
+				.into_iter()
+				.collect();
+
+		let scenario = BenchBuilder::<T>::new()
+			.set_backed_and_concluding_cores(cores_with_backed)
+			.set_fill_claimqueue(true)
+			.set_max_validators_per_core(3)
+			.build();
+
+		let mut benchmark = scenario.data.clone();
+		let bitfield = benchmark.bitfields.pop().unwrap();
+
+		benchmark.bitfields.clear();
+		benchmark.backed_candidates.clear();
+		benchmark.disputes.clear();
+
+		benchmark.bitfields.push(bitfield);
+	}: enter(RawOrigin::None, benchmark)
+	verify {
+		// TODO
+
+		// Assert that the block was not discarded
+		assert!(Included::<T>::get().is_some());
+
+		// Assert that there are on-chain votes that got scraped
+		let onchain_votes = OnChainVotes::<T>::get();
+		assert!(onchain_votes.is_some());
+		let vote = onchain_votes.unwrap();
+
+		// Ensure that the votes are for the correct session
+		assert_eq!(vote.session, scenario._session);
+	}
 }
 
 impl_benchmark_test_suite!(
