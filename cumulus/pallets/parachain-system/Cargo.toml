@@ -55,6 +55,7 @@ futures = "0.3.28"
 # Substrate
 sc-client-api = { path = "../../../substrate/client/api" }
 sp-keyring = { path = "../../../substrate/primitives/keyring" }
+sp-crypto-hashing = { path = "../../../substrate/primitives/crypto/hashing" }
 sp-tracing = { path = "../../../substrate/primitives/tracing" }
 sp-version = { path = "../../../substrate/primitives/version" }
 

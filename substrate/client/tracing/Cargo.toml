@@ -21,7 +21,7 @@ is-terminal = "0.4.9"
 chrono = "0.4.31"
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 lazy_static = "1.4.0"
-libc = "0.2.121"
+libc = "0.2.152"
 log = { version = "0.4.17" }
 parking_lot = "0.12.1"
 regex = "1.6.0"

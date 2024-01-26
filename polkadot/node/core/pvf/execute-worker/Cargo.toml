@@ -12,9 +12,9 @@ workspace = true
 [dependencies]
 cpu-time = "1.0.0"
 gum = { package = "tracing-gum", path = "../../../gum" }
-os_pipe = "1.1.4"
-nix = { version = "0.27.1", features = ["process", "resource"] }
-libc = "0.2.139"
+cfg-if = "1.0"
+nix = { version = "0.27.1", features = ["process", "resource", "sched"] }
+libc = "0.2.152"
 
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 

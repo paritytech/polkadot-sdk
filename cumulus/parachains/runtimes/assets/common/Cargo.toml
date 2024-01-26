@@ -21,7 +21,6 @@ sp-api = { path = "../../../../../substrate/primitives/api", default-features = 
 sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
 sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
 pallet-asset-conversion = { path = "../../../../../substrate/frame/asset-conversion", default-features = false }
-pallet-asset-tx-payment = { path = "../../../../../substrate/frame/transaction-payment/asset-tx-payment", default-features = false }
 
 # Polkadot
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false }
@@ -44,7 +43,6 @@ std = [
 	"frame-support/std",
 	"log/std",
 	"pallet-asset-conversion/std",
-	"pallet-asset-tx-payment/std",
 	"pallet-xcm/std",
 	"parachains-common/std",
 	"scale-info/std",
@@ -60,7 +58,6 @@ runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"pallet-asset-conversion/runtime-benchmarks",
-	"pallet-asset-tx-payment/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",

@@ -180,14 +180,13 @@ impl crate::Config for Runtime {}
 type Block = frame_system::mocking::MockBlock<Runtime>;
 
 frame_support::construct_runtime!(
-	pub struct Runtime
-	{
-		System: frame_system::{Pallet, Call, Event<T>},
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Staking: pallet_staking::{Pallet, Call, Config<T>, Storage, Event<T>},
-		VoterList: pallet_bags_list::<Instance1>::{Pallet, Call, Storage, Event<T>},
-		Pools: pallet_nomination_pools::{Pallet, Call, Storage, Event<T>, FreezeReason},
+	pub enum Runtime {
+		System: frame_system,
+		Timestamp: pallet_timestamp,
+		Balances: pallet_balances,
+		Staking: pallet_staking,
+		VoterList: pallet_bags_list::<Instance1>,
+		Pools: pallet_nomination_pools,
 	}
 );
 

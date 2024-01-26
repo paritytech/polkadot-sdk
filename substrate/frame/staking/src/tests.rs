@@ -255,6 +255,20 @@ fn change_controller_works() {
 		assert_eq!(Staking::bonded(&stash), Some(stash));
 		mock::start_active_era(1);
 
+		// fetch the ledger from storage and check if the controller is correct.
+		let ledger = Staking::ledger(StakingAccount::Stash(stash)).unwrap();
+		assert_eq!(ledger.controller(), Some(stash));
+
+		// same if we fetch the ledger by controller.
+		let ledger = Staking::ledger(StakingAccount::Controller(stash)).unwrap();
+		assert_eq!(ledger.controller, Some(stash));
+		assert_eq!(ledger.controller(), Some(stash));
+
+		// the raw storage ledger's controller is always `None`. however, we can still fetch the
+		// correct controller with `ledger.controler()`.
+		let raw_ledger = <Ledger<Test>>::get(&stash).unwrap();
+		assert_eq!(raw_ledger.controller, None);
+
 		// `controller` is no longer in control. `stash` is now controller.
 		assert_noop!(
 			Staking::validate(RuntimeOrigin::signed(controller), ValidatorPrefs::default()),

@@ -14,8 +14,8 @@ workspace = true
 # Bridge Dependencies
 
 bp-bridge-hub-cumulus = { path = "../chain-bridge-hub-cumulus", default-features = false }
-bp-runtime = { path = "../../primitives/runtime", default-features = false }
-bp-messages = { path = "../../primitives/messages", default-features = false }
+bp-runtime = { path = "../runtime", default-features = false }
+bp-messages = { path = "../messages", default-features = false }
 
 # Substrate Based Dependencies
 
