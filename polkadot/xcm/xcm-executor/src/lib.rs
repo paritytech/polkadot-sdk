@@ -659,7 +659,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				self.holding.subsume_assets(to_weigh.clone());
 
 				let mut message_to_weigh =
-					vec![WithdrawAsset(to_weigh.clone().into()), ClearOrigin];
+					vec![WithdrawAsset(to_weigh.into()), ClearOrigin];
 				message_to_weigh.extend(xcm.0.clone().into_iter());
 				let (_, fee) = validate_send::<Config::XcmSender>(reserve, Xcm(message_to_weigh))?;
 				// set aside fee to be charged by XcmSender
@@ -687,7 +687,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				self.holding.subsume_assets(to_weigh.clone());
 
 				let mut message_to_weigh =
-					vec![ReceiveTeleportedAsset(to_weigh.clone().into()), ClearOrigin];
+					vec![ReceiveTeleportedAsset(to_weigh.into()), ClearOrigin];
 				message_to_weigh.extend(xcm.0.clone().into_iter());
 				let (_, fee) = validate_send::<Config::XcmSender>(dest, Xcm(message_to_weigh))?;
 				// set aside fee to be charged by XcmSender
