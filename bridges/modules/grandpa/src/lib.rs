@@ -32,9 +32,8 @@
 //! Shall the fork occur on the bridged chain governance intervention will be required to
 //! re-initialize the bridge and track the right fork.
 
+#![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
-// Runtime-generated enums
-#![allow(clippy::large_enum_variant)]
 
 pub use storage_types::StoredAuthoritySet;
 
@@ -408,7 +407,9 @@ pub mod pallet {
 	pub enum Event<T: Config<I>, I: 'static = ()> {
 		/// Best finalized chain header has been updated to the header with given number and hash.
 		UpdatedBestFinalizedHeader {
+			/// Number of the new best finalized header.
 			number: BridgedBlockNumber<T, I>,
+			/// Hash of the new best finalized header.
 			hash: BridgedBlockHash<T, I>,
 			/// The Grandpa info associated to the new best finalized header.
 			grandpa_info: StoredHeaderGrandpaInfo<BridgedHeader<T, I>>,

@@ -274,26 +274,24 @@ impl pallet_sudo::Config for Runtime {
 construct_runtime! {
 	pub enum Runtime
 	{
-		System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>} = 0,
-		ParachainSystem: cumulus_pallet_parachain_system::{
-			Pallet, Call, Config<T>, Storage, Inherent, Event<T>, ValidateUnsigned,
-		} = 1,
-		ParachainInfo: parachain_info::{Pallet, Storage, Config<T>} = 2,
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 3,
+		System: frame_system = 0,
+		ParachainSystem: cumulus_pallet_parachain_system = 1,
+		ParachainInfo: parachain_info = 2,
+		Timestamp: pallet_timestamp = 3,
 
 		// DMP handler.
-		CumulusXcm: cumulus_pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin} = 10,
-		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 11,
+		CumulusXcm: cumulus_pallet_xcm = 10,
+		MessageQueue: pallet_message_queue = 11,
 
 		// The main stage.
-		Glutton: pallet_glutton::{Pallet, Call, Storage, Event, Config<T>} = 20,
+		Glutton: pallet_glutton = 20,
 
 		// Collator support
-		Aura: pallet_aura::{Pallet, Storage, Config<T>} = 30,
-		AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config<T>} = 31,
+		Aura: pallet_aura = 30,
+		AuraExt: cumulus_pallet_aura_ext = 31,
 
 		// Sudo.
-		Sudo: pallet_sudo::{Pallet, Call, Storage, Event<T>, Config<T>} = 255,
+		Sudo: pallet_sudo = 255,
 	}
 }
 
@@ -336,12 +334,8 @@ pub type Executive = frame_executive::Executive<
 >;
 
 #[cfg(feature = "runtime-benchmarks")]
-#[macro_use]
-extern crate frame_benchmarking;
-
-#[cfg(feature = "runtime-benchmarks")]
 mod benches {
-	define_benchmarks!(
+	frame_benchmarking::define_benchmarks!(
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_glutton, Glutton]

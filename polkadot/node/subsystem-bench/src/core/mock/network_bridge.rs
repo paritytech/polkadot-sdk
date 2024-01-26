@@ -14,258 +14,59 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 //!
-//! A generic av store subsystem mockup suitable to be used in benchmarks.
+//! Mocked `network-bridge` subsystems that uses a `NetworkInterface` to access
+//! the emulated network.
+use futures::{channel::mpsc::UnboundedSender, FutureExt, StreamExt};
+use polkadot_node_subsystem_types::{
+	messages::{BitfieldDistributionMessage, NetworkBridgeEvent},
+	OverseerSignal,
+};
 
-use futures::Future;
-use parity_scale_codec::Encode;
-use polkadot_node_subsystem_types::OverseerSignal;
-use std::{collections::HashMap, pin::Pin};
-
-use futures::FutureExt;
-
-use polkadot_node_primitives::{AvailableData, ErasureChunk};
-
-use polkadot_primitives::{CandidateHash, ChunkIndex, CoreIndex};
-use sc_network::{OutboundFailure, RequestFailure};
+use sc_network::{request_responses::ProtocolConfig, PeerId, RequestFailure};
 
 use polkadot_node_subsystem::{
 	messages::NetworkBridgeTxMessage, overseer, SpawnedSubsystem, SubsystemError,
 };
 
-use polkadot_node_network_protocol::request_response::{
-	self as req_res, v1::AvailableDataFetchingRequest, IsRequest, Requests,
-};
-use polkadot_primitives::AuthorityDiscoveryId;
+use polkadot_node_network_protocol::Versioned;
 
-use crate::core::{
-	configuration::{random_error, random_latency, TestConfiguration},
-	network::{NetworkAction, NetworkEmulator, RateLimit},
+use crate::core::network::{
+	NetworkEmulatorHandle, NetworkInterfaceReceiver, NetworkMessage, RequestExt,
 };
 
-/// The availability store state of all emulated peers.
-/// The network bridge tx mock will respond to requests as if the request is being serviced
-/// by a remote peer on the network
-pub struct NetworkAvailabilityState {
-	pub candidate_hashes: HashMap<CandidateHash, usize>,
-	pub candidate_hash_to_core_index: HashMap<CandidateHash, CoreIndex>,
-	pub available_data: Vec<AvailableData>,
-	pub chunks: Vec<Vec<ErasureChunk>>,
-	pub chunk_indices: Vec<Vec<ChunkIndex>>,
-}
-
-const LOG_TARGET: &str = "subsystem-bench::network-bridge-tx-mock";
+const LOG_TARGET: &str = "subsystem-bench::network-bridge";
 
 /// A mock of the network bridge tx subsystem.
 pub struct MockNetworkBridgeTx {
-	/// The test configurationg
-	config: TestConfiguration,
-	/// The network availability state
-	availability: NetworkAvailabilityState,
-	/// A network emulator instance
-	network: NetworkEmulator,
+	/// A network emulator handle
+	network: NetworkEmulatorHandle,
+	/// A channel to the network interface,
+	to_network_interface: UnboundedSender<NetworkMessage>,
+}
+
+/// A mock of the network bridge tx subsystem.
+pub struct MockNetworkBridgeRx {
+	/// A network interface receiver
+	network_receiver: NetworkInterfaceReceiver,
+	/// Chunk request sender
+	chunk_request_sender: Option<ProtocolConfig>,
 }
 
 impl MockNetworkBridgeTx {
 	pub fn new(
-		config: TestConfiguration,
-		availability: NetworkAvailabilityState,
-		network: NetworkEmulator,
+		network: NetworkEmulatorHandle,
+		to_network_interface: UnboundedSender<NetworkMessage>,
 	) -> MockNetworkBridgeTx {
-		Self { config, availability, network }
+		Self { network, to_network_interface }
 	}
+}
 
-	fn not_connected_response(
-		&self,
-		authority_discovery_id: &AuthorityDiscoveryId,
-		future: Pin<Box<dyn Future<Output = ()> + Send>>,
-	) -> NetworkAction {
-		// The network action will send the error after a random delay expires.
-		return NetworkAction::new(
-			authority_discovery_id.clone(),
-			future,
-			0,
-			// Generate a random latency based on configuration.
-			random_latency(self.config.latency.as_ref()),
-		)
-	}
-	/// Returns an `NetworkAction` corresponding to the peer sending the response. If
-	/// the peer is connected, the error is sent with a randomized latency as defined in
-	/// configuration.
-	fn respond_to_send_request(
-		&mut self,
-		request: Requests,
-		ingress_tx: &mut tokio::sync::mpsc::UnboundedSender<NetworkAction>,
-	) -> NetworkAction {
-		let ingress_tx = ingress_tx.clone();
-
-		match request {
-			Requests::ChunkFetching(outgoing_request) => {
-				let authority_discovery_id = match outgoing_request.peer {
-					req_res::Recipient::Authority(authority_discovery_id) => authority_discovery_id,
-					_ => unimplemented!("Peer recipient not supported yet"),
-				};
-				// Account our sent request bytes.
-				self.network.peer_stats(0).inc_sent(outgoing_request.payload.encoded_size());
-
-				// If peer is disconnected return an error
-				if !self.network.is_peer_connected(&authority_discovery_id) {
-					// We always send `NotConnected` error and we ignore `IfDisconnected` value in
-					// the caller.
-					let future = async move {
-						let _ = outgoing_request
-							.pending_response
-							.send(Err(RequestFailure::NotConnected));
-					}
-					.boxed();
-					return self.not_connected_response(&authority_discovery_id, future)
-				}
-
-				// Account for remote received request bytes.
-				self.network
-					.peer_stats_by_id(&authority_discovery_id)
-					.inc_received(outgoing_request.payload.encoded_size());
-
-				let candidate_hash = outgoing_request.payload.candidate_hash;
-
-				let candidate_index = self
-					.availability
-					.candidate_hashes
-					.get(&candidate_hash)
-					.expect("candidate was generated previously; qed");
-				gum::warn!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
-
-				let validator_index = outgoing_request.payload.index;
-
-				let candidate_chunks = self.availability.chunks.get(*candidate_index).unwrap();
-				let core_index =
-					self.availability.candidate_hash_to_core_index.get(&candidate_hash).unwrap();
-				let chunk_index = self
-					.availability
-					.chunk_indices
-					.get(core_index.0 as usize)
-					.unwrap()
-					.get(validator_index.0 as usize)
-					.unwrap();
-
-				let chunk = candidate_chunks.get(chunk_index.0 as usize).unwrap().clone();
-
-				assert_eq!(chunk.index, *chunk_index);
-
-				let mut size = chunk.encoded_size();
-
-				let response = if random_error(self.config.error) {
-					// Error will not account to any bandwidth used.
-					size = 0;
-					Err(RequestFailure::Network(OutboundFailure::ConnectionClosed))
-				} else {
-					Ok((
-						req_res::v2::ChunkFetchingResponse::from(Some(chunk)).encode(),
-						self.network
-							.req_protocol_names()
-							.get_name(req_res::v2::ChunkFetchingRequest::PROTOCOL),
-					))
-				};
-
-				let authority_discovery_id_clone = authority_discovery_id.clone();
-
-				let future = async move {
-					let _ = outgoing_request.pending_response.send(response);
-				}
-				.boxed();
-
-				let future_wrapper = async move {
-					// Forward the response to the ingress channel of our node.
-					// On receive side we apply our node receiving rate limit.
-					let action =
-						NetworkAction::new(authority_discovery_id_clone, future, size, None);
-					ingress_tx.send(action).unwrap();
-				}
-				.boxed();
-
-				NetworkAction::new(
-					authority_discovery_id,
-					future_wrapper,
-					size,
-					// Generate a random latency based on configuration.
-					random_latency(self.config.latency.as_ref()),
-				)
-			},
-			Requests::AvailableDataFetchingV1(outgoing_request) => {
-				let candidate_hash = outgoing_request.payload.candidate_hash;
-				let candidate_index = self
-					.availability
-					.candidate_hashes
-					.get(&candidate_hash)
-					.expect("candidate was generated previously; qed");
-				gum::debug!(target: LOG_TARGET, ?candidate_hash, candidate_index, "Candidate mapped to index");
-
-				let authority_discovery_id = match outgoing_request.peer {
-					req_res::Recipient::Authority(authority_discovery_id) => authority_discovery_id,
-					_ => unimplemented!("Peer recipient not supported yet"),
-				};
-
-				// Account our sent request bytes.
-				self.network.peer_stats(0).inc_sent(outgoing_request.payload.encoded_size());
-
-				// If peer is disconnected return an error
-				if !self.network.is_peer_connected(&authority_discovery_id) {
-					let future = async move {
-						let _ = outgoing_request
-							.pending_response
-							.send(Err(RequestFailure::NotConnected));
-					}
-					.boxed();
-					return self.not_connected_response(&authority_discovery_id, future)
-				}
-
-				// Account for remote received request bytes.
-				self.network
-					.peer_stats_by_id(&authority_discovery_id)
-					.inc_received(outgoing_request.payload.encoded_size());
-
-				let available_data =
-					self.availability.available_data.get(*candidate_index).unwrap().clone();
-
-				let size = available_data.encoded_size();
-
-				let response = if random_error(self.config.error) {
-					Err(RequestFailure::Network(OutboundFailure::ConnectionClosed))
-				} else {
-					Ok((
-						req_res::v1::AvailableDataFetchingResponse::from(Some(available_data))
-							.encode(),
-						self.network
-							.req_protocol_names()
-							.get_name(AvailableDataFetchingRequest::PROTOCOL),
-					))
-				};
-
-				let future = async move {
-					let _ = outgoing_request.pending_response.send(response);
-				}
-				.boxed();
-
-				let authority_discovery_id_clone = authority_discovery_id.clone();
-
-				let future_wrapper = async move {
-					// Forward the response to the ingress channel of our node.
-					// On receive side we apply our node receiving rate limit.
-					let action =
-						NetworkAction::new(authority_discovery_id_clone, future, size, None);
-					ingress_tx.send(action).unwrap();
-				}
-				.boxed();
-
-				NetworkAction::new(
-					authority_discovery_id,
-					future_wrapper,
-					size,
-					// Generate a random latency based on configuration.
-					random_latency(self.config.latency.as_ref()),
-				)
-			},
-			_ => panic!("received an unexpected request"),
-		}
+impl MockNetworkBridgeRx {
+	pub fn new(
+		network_receiver: NetworkInterfaceReceiver,
+		chunk_request_sender: Option<ProtocolConfig>,
+	) -> MockNetworkBridgeRx {
+		Self { network_receiver, chunk_request_sender }
 	}
 }
 
@@ -274,43 +75,26 @@ impl<Context> MockNetworkBridgeTx {
 	fn start(self, ctx: Context) -> SpawnedSubsystem {
 		let future = self.run(ctx).map(|_| Ok(())).boxed();
 
-		SpawnedSubsystem { name: "test-environment", future }
+		SpawnedSubsystem { name: "network-bridge-tx", future }
+	}
+}
+
+#[overseer::subsystem(NetworkBridgeRx, error=SubsystemError, prefix=self::overseer)]
+impl<Context> MockNetworkBridgeRx {
+	fn start(self, ctx: Context) -> SpawnedSubsystem {
+		let future = self.run(ctx).map(|_| Ok(())).boxed();
+
+		SpawnedSubsystem { name: "network-bridge-rx", future }
 	}
 }
 
 #[overseer::contextbounds(NetworkBridgeTx, prefix = self::overseer)]
 impl MockNetworkBridgeTx {
-	async fn run<Context>(mut self, mut ctx: Context) {
-		let (mut ingress_tx, mut ingress_rx) =
-			tokio::sync::mpsc::unbounded_channel::<NetworkAction>();
-
-		// Initialize our node bandwidth limits.
-		let mut rx_limiter = RateLimit::new(10, self.config.bandwidth);
-
-		let our_network = self.network.clone();
-
-		// This task will handle node messages receipt from the simulated network.
-		ctx.spawn_blocking(
-			"network-receive",
-			async move {
-				while let Some(action) = ingress_rx.recv().await {
-					let size = action.size();
-
-					// account for our node receiving the data.
-					our_network.inc_received(size);
-					rx_limiter.reap(size).await;
-					action.run().await;
-				}
-			}
-			.boxed(),
-		)
-		.expect("We never fail to spawn tasks");
-
+	async fn run<Context>(self, mut ctx: Context) {
 		// Main subsystem loop.
 		loop {
-			let msg = ctx.recv().await.expect("Overseer never fails us");
-
-			match msg {
+			let subsystem_message = ctx.recv().await.expect("Overseer never fails us");
+			match subsystem_message {
 				orchestra::FromOrchestra::Signal(signal) =>
 					if signal == OverseerSignal::Conclude {
 						return
@@ -319,13 +103,26 @@ impl MockNetworkBridgeTx {
 					NetworkBridgeTxMessage::SendRequests(requests, _if_disconnected) => {
 						for request in requests {
 							gum::debug!(target: LOG_TARGET, request = ?request, "Processing request");
-							self.network.inc_sent(request_size(&request));
-							let action = self.respond_to_send_request(request, &mut ingress_tx);
+							let peer_id =
+								request.authority_id().expect("all nodes are authorities").clone();
 
-							// Will account for our node sending the request over the emulated
-							// network.
-							self.network.submit_peer_action(action.peer(), action);
+							if !self.network.is_peer_connected(&peer_id) {
+								// Attempting to send a request to a disconnected peer.
+								request
+									.into_response_sender()
+									.send(Err(RequestFailure::NotConnected))
+									.expect("send never fails");
+								continue
+							}
+
+							let peer_message =
+								NetworkMessage::RequestFromNode(peer_id.clone(), request);
+
+							let _ = self.to_network_interface.unbounded_send(peer_message);
 						}
+					},
+					NetworkBridgeTxMessage::ReportPeer(_) => {
+						// ingore rep changes
 					},
 					_ => {
 						unimplemented!("Unexpected network bridge message")
@@ -336,12 +133,59 @@ impl MockNetworkBridgeTx {
 	}
 }
 
-// A helper to determine the request payload size.
-fn request_size(request: &Requests) -> usize {
-	match request {
-		Requests::ChunkFetching(outgoing_request) => outgoing_request.payload.encoded_size(),
-		Requests::AvailableDataFetchingV1(outgoing_request) =>
-			outgoing_request.payload.encoded_size(),
-		_ => unimplemented!("received an unexpected request"),
+#[overseer::contextbounds(NetworkBridgeRx, prefix = self::overseer)]
+impl MockNetworkBridgeRx {
+	async fn run<Context>(mut self, mut ctx: Context) {
+		// Main subsystem loop.
+		let mut from_network_interface = self.network_receiver.0;
+		loop {
+			futures::select! {
+				maybe_peer_message = from_network_interface.next() => {
+					if let Some(message) = maybe_peer_message {
+						match message {
+							NetworkMessage::MessageFromPeer(message) => match message {
+								Versioned::V2(
+									polkadot_node_network_protocol::v2::ValidationProtocol::BitfieldDistribution(
+										bitfield,
+									),
+								) => {
+									ctx.send_message(
+										BitfieldDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(PeerId::random(), polkadot_node_network_protocol::Versioned::V2(bitfield)))
+									).await;
+								},
+								_ => {
+									unimplemented!("We only talk v2 network protocol")
+								},
+							},
+							NetworkMessage::RequestFromPeer(request) => {
+								if let Some(protocol) = self.chunk_request_sender.as_mut() {
+									if protocol.name == protocol.name {
+										if let Some(inbound_queue) = protocol.inbound_queue.as_ref() {
+											inbound_queue
+												.send(request)
+												.await
+												.expect("Forwarding requests to subsystem never fails");
+										}
+									} else {
+										unimplemented!("Unexpected request type");
+									}
+								}
+							},
+							_ => {
+								panic!("NetworkMessage::RequestFromNode is not expected to be received from a peer")
+							}
+						}
+					}
+				},
+				subsystem_message = ctx.recv().fuse() => {
+					match subsystem_message.expect("Overseer never fails us") {
+						orchestra::FromOrchestra::Signal(signal) => if signal == OverseerSignal::Conclude { return },
+						_ => {
+							unimplemented!("Unexpected network bridge rx message")
+						},
+					}
+				}
+			}
+		}
 	}
 }

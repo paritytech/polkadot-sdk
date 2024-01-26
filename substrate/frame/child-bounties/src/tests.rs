@@ -46,11 +46,11 @@ type BountiesError = pallet_bounties::Error<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Bounties: pallet_bounties::{Pallet, Call, Storage, Event<T>},
-		Treasury: pallet_treasury::{Pallet, Call, Storage, Config<T>, Event<T>},
-		ChildBounties: pallet_child_bounties::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		Bounties: pallet_bounties,
+		Treasury: pallet_treasury,
+		ChildBounties: pallet_child_bounties,
 	}
 );
 

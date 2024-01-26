@@ -29,7 +29,7 @@ sp-io = { path = "../../../../../substrate/primitives/io", default-features = fa
 sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
 sp-arithmetic = { path = "../../../../../substrate/primitives/arithmetic", default-features = false }
 
-snowbridge-beacon-primitives = { path = "../../primitives/beacon", default-features = false }
+snowbridge-beacon-primitives = { path = "../beacon", default-features = false }
 
 ethabi = { git = "https://github.com/Snowfork/ethabi-decode.git", package = "ethabi-decode", branch = "master", default-features = false }
 

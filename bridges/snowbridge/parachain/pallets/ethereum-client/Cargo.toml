@@ -38,7 +38,7 @@ snowbridge-core = { path = "../../primitives/core", default-features = false }
 snowbridge-ethereum = { path = "../../primitives/ethereum", default-features = false }
 primitives = { package = "snowbridge-beacon-primitives", path = "../../primitives/beacon", default-features = false }
 static_assertions = { version = "1.1.0", default-features = false }
-bp-runtime = { path = "../../../../../bridges/primitives/runtime", default-features = false }
+bp-runtime = { path = "../../../../primitives/runtime", default-features = false }
 pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false, optional = true }
 
 [dev-dependencies]

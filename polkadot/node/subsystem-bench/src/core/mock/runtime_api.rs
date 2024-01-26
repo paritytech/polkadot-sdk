@@ -18,36 +18,49 @@
 
 use polkadot_primitives::{
 	vstaging::{node_features, NodeFeatures},
-	ExecutorParams, GroupIndex, IndexedVec, SessionInfo, ValidatorIndex,
+	CandidateReceipt, CoreState, GroupIndex, IndexedVec, OccupiedCore, SessionInfo, ValidatorIndex,
 };
 
+use bitvec::prelude::BitVec;
 use polkadot_node_subsystem::{
 	messages::{RuntimeApiMessage, RuntimeApiRequest},
 	overseer, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_types::OverseerSignal;
+use sp_core::H256;
+use std::collections::HashMap;
 
 use crate::core::configuration::{TestAuthorities, TestConfiguration};
 use futures::FutureExt;
 
 const LOG_TARGET: &str = "subsystem-bench::runtime-api-mock";
 
+/// Minimal state to answer requests.
 pub struct RuntimeApiState {
+	// All authorities in the test,
 	authorities: TestAuthorities,
+	// Node features state in the runtime
 	node_features: NodeFeatures,
+	// Candidate
+	candidate_hashes: HashMap<H256, Vec<CandidateReceipt>>,
 }
 
+/// A mocked `runtime-api` subsystem.
 pub struct MockRuntimeApi {
 	state: RuntimeApiState,
 	config: TestConfiguration,
 }
 
 impl MockRuntimeApi {
-	pub fn new(config: TestConfiguration, authorities: TestAuthorities) -> MockRuntimeApi {
+	pub fn new(
+		config: TestConfiguration,
+		authorities: TestAuthorities,
+		candidate_hashes: HashMap<H256, Vec<CandidateReceipt>>,
+	) -> MockRuntimeApi {
 		// Enable chunk mapping feature to make systematic av-recovery possible.
 		let node_features = node_features_with_chunk_mapping_enabled();
 
-		Self { state: RuntimeApiState { authorities, node_features }, config }
+		Self { state: RuntimeApiState { authorities, node_features, candidate_hashes }, config }
 	}
 
 	fn session_info(&self) -> SessionInfo {
@@ -55,8 +68,10 @@ impl MockRuntimeApi {
 			.map(|i| ValidatorIndex(i as _))
 			.collect::<Vec<_>>();
 
-		let validator_groups = all_validators.chunks(5).map(Vec::from).collect::<Vec<_>>();
-
+		let validator_groups = all_validators
+			.chunks(self.config.max_validators_per_core)
+			.map(Vec::from)
+			.collect::<Vec<_>>();
 		SessionInfo {
 			validators: self.state.authorities.validator_public.clone().into(),
 			discovery_keys: self.state.authorities.validator_authority_id.clone(),
@@ -87,6 +102,8 @@ impl<Context> MockRuntimeApi {
 #[overseer::contextbounds(RuntimeApi, prefix = self::overseer)]
 impl MockRuntimeApi {
 	async fn run<Context>(self, mut ctx: Context) {
+		let validator_group_count = self.session_info().validator_groups.len();
+
 		loop {
 			let msg = ctx.recv().await.expect("Overseer never fails us");
 
@@ -100,26 +117,79 @@ impl MockRuntimeApi {
 
 					match msg {
 						RuntimeApiMessage::Request(
-							_hash,
+							_block_hash,
 							RuntimeApiRequest::SessionInfo(_session_index, sender),
 						) => {
 							let _ = sender.send(Ok(Some(self.session_info())));
 						},
 						RuntimeApiMessage::Request(
-							_hash,
-							RuntimeApiRequest::SessionExecutorParams(_session_index, sender),
-						) => {
-							let _ = sender.send(Ok(Some(ExecutorParams::new())));
-						},
-						RuntimeApiMessage::Request(
-							_hash,
+							_block_hash,
 							RuntimeApiRequest::NodeFeatures(_session_index, sender),
 						) => {
 							let _ = sender.send(Ok(self.state.node_features.clone()));
 						},
+						RuntimeApiMessage::Request(
+							_block_hash,
+							RuntimeApiRequest::SessionExecutorParams(_session_index, sender),
+						) => {
+							let _ = sender.send(Ok(Some(Default::default())));
+						},
+						RuntimeApiMessage::Request(
+							_block_hash,
+							RuntimeApiRequest::Validators(sender),
+						) => {
+							let _ =
+								sender.send(Ok(self.state.authorities.validator_public.clone()));
+						},
+						RuntimeApiMessage::Request(
+							_block_hash,
+							RuntimeApiRequest::CandidateEvents(sender),
+						) => {
+							let _ = sender.send(Ok(Default::default()));
+						},
+						RuntimeApiMessage::Request(
+							_block_hash,
+							RuntimeApiRequest::SessionIndexForChild(sender),
+						) => {
+							// Session is always the same.
+							let _ = sender.send(Ok(0));
+						},
+						RuntimeApiMessage::Request(
+							block_hash,
+							RuntimeApiRequest::AvailabilityCores(sender),
+						) => {
+							let candidate_hashes = self
+								.state
+								.candidate_hashes
+								.get(&block_hash)
+								.expect("Relay chain block hashes are generated at test start");
+
+							// All cores are always occupied.
+							let cores = candidate_hashes
+								.iter()
+								.enumerate()
+								.map(|(index, candidate_receipt)| {
+									// Ensure test breaks if badly configured.
+									assert!(index < validator_group_count);
+
+									CoreState::Occupied(OccupiedCore {
+										next_up_on_available: None,
+										occupied_since: 0,
+										time_out_at: 0,
+										next_up_on_time_out: None,
+										availability: BitVec::default(),
+										group_responsible: GroupIndex(index as u32),
+										candidate_hash: candidate_receipt.hash(),
+										candidate_descriptor: candidate_receipt.descriptor.clone(),
+									})
+								})
+								.collect::<Vec<_>>();
+
+							let _ = sender.send(Ok(cores));
+						},
 						// Long term TODO: implement more as needed.
-						_ => {
-							unimplemented!("Unexpected runtime-api message")
+						message => {
+							unimplemented!("Unexpected runtime-api message: {:?}", message)
 						},
 					}
 				},
