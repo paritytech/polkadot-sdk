@@ -19,9 +19,9 @@ function ensure_relayer() {
 }
 
 function ensure_polkadot_js_api() {
-    if ! which polkadot-js-api &> /dev/null; then
+    if ! which call_polkadot_js_api &> /dev/null; then
         echo ''
-        echo 'Required command `polkadot-js-api` not in PATH, please, install, e.g.:'
+        echo 'Required command `call_polkadot_js_api` not in PATH, please, install, e.g.:'
         echo "npm install -g @polkadot/api-cli@beta"
         echo "      or"
         echo "yarn global add @polkadot/api-cli"
@@ -46,6 +46,14 @@ function ensure_polkadot_js_api() {
         npm install
         popd
     fi
+}
+
+function call_polkadot_js_api() {
+    # --noWait: without that argument `polkadot-js-api` waits until transaction is included into the block.
+    #           With it, it just submits it to the tx pool and exits.
+    # --nonce -1: means to compute transaction nonce using `system_accountNextIndex` RPC, which includes all
+    #             transaction that are in the tx pool.
+    polkadot-js-api --noWait --nonce -1 "$@"
 }
 
 function generate_hex_encoded_call_data() {
@@ -80,7 +88,7 @@ function transfer_balance() {
     echo "      amount: ${amount}"
     echo "--------------------------------------------------"
 
-    polkadot-js-api \
+    call_polkadot_js_api \
         --ws "${runtime_para_endpoint}" \
         --seed "${seed?}" \
         tx.balances.transferAllowDeath \
@@ -145,7 +153,7 @@ function send_governance_transact() {
     echo ""
     echo "--------------------------------------------------"
 
-    polkadot-js-api \
+    call_polkadot_js_api \
         --ws "${relay_url?}" \
         --seed "${relay_chain_seed?}" \
         --sudo \
@@ -170,7 +178,7 @@ function open_hrmp_channels() {
     echo "      max_message_size: ${max_message_size}"
     echo "      params:"
     echo "--------------------------------------------------"
-    polkadot-js-api \
+    call_polkadot_js_api \
         --ws "${relay_url?}" \
         --seed "${relay_chain_seed?}" \
         --sudo \
@@ -254,7 +262,7 @@ function limited_reserve_transfer_assets() {
     echo ""
     echo "--------------------------------------------------"
 
-    polkadot-js-api \
+    call_polkadot_js_api \
         --ws "${url?}" \
         --seed "${seed?}" \
         tx.polkadotXcm.limitedReserveTransferAssets \
@@ -293,7 +301,7 @@ function claim_rewards() {
     echo "${rewards_account_params}"
     echo "--------------------------------------------------"
 
-    polkadot-js-api \
+    call_polkadot_js_api \
         --ws "${runtime_para_endpoint}" \
         --seed "${seed?}" \
         tx.bridgeRelayers.claimRewards \
