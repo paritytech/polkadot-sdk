@@ -508,6 +508,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				}
 				Ok(())
 			},
+			// This will fail unless `jit_withdraw` has been set and there are enough funds remaining in the
+			// origin account to pay for delivery fees.
 			TransferReserveAsset { mut assets, dest, xcm } => {
 				let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
 				// Take `assets` from the origin account (on-chain) and place into dest account.
@@ -653,17 +655,23 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				Ok(())
 			},
 			InitiateReserveWithdraw { assets, reserve, xcm } => {
-				// we need to do this take/put cycle to solve wildcards and get exact assets to be
-				// weighed
-				let to_weigh = self.holding.saturating_take(assets.clone());
-				self.holding.subsume_assets(to_weigh.clone());
+				// If fees mode is not JIT, then we take the delivery fee directly
+				// from the assets in holding.
+				let maybe_delivery_fee = if self.fees_mode.jit_withdraw {
+					None
+				} else {
+					// we need to do this take/put cycle to solve wildcards and get exact assets to be
+					// weighed
+					let to_weigh = self.holding.saturating_take(assets.clone());
+					self.holding.subsume_assets(to_weigh.clone());
 
-				let mut message_to_weigh =
-					vec![WithdrawAsset(to_weigh.into()), ClearOrigin];
-				message_to_weigh.extend(xcm.0.clone().into_iter());
-				let (_, fee) = validate_send::<Config::XcmSender>(reserve, Xcm(message_to_weigh))?;
-				// set aside fee to be charged by XcmSender
-				let parked_fee = self.holding.saturating_take(fee.into());
+					let mut message_to_weigh =
+						vec![WithdrawAsset(to_weigh.into()), ClearOrigin];
+					message_to_weigh.extend(xcm.0.clone().into_iter());
+					let (_, fee) = validate_send::<Config::XcmSender>(reserve, Xcm(message_to_weigh))?;
+					// set aside fee to be charged by XcmSender
+					Some(self.holding.saturating_take(fee.into()))
+				};
 
 				// now take assets to deposit (excluding parked_fee)
 				// Note that here we are able to place any assets which could not be reanchored
@@ -676,24 +684,30 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let mut message = vec![WithdrawAsset(assets), ClearOrigin];
 				message.extend(xcm.0.into_iter());
 				
-				// put back parked_fee in holding register to be charged by XcmSender
-				self.holding.subsume_assets(parked_fee);
+				if let Some(fee) = maybe_delivery_fee {
+					// put back delivery fee in holding register to be charged by XcmSender
+					self.holding.subsume_assets(fee);
+				}
 				self.send(reserve, Xcm(message), FeeReason::InitiateReserveWithdraw)?;
 				Ok(())
 			},
 			InitiateTeleport { assets, dest, xcm } => {
-				// We must do this first in order to resolve wildcards.
-				let to_weigh = self.holding.saturating_take(assets.clone());
-				self.holding.subsume_assets(to_weigh.clone());
+				let maybe_delivery_fee = if self.fees_mode.jit_withdraw {
+					None
+				} else {
+					// We must do this first in order to resolve wildcards.
+					let to_weigh = self.holding.saturating_take(assets.clone());
+					self.holding.subsume_assets(to_weigh.clone());
 
-				let mut message_to_weigh =
-					vec![ReceiveTeleportedAsset(to_weigh.into()), ClearOrigin];
-				message_to_weigh.extend(xcm.0.clone().into_iter());
-				let (_, fee) = validate_send::<Config::XcmSender>(dest, Xcm(message_to_weigh))?;
-				// set aside fee to be charged by XcmSender
-				let parked_fee = self.holding.saturating_take(fee.into());
+					let mut message_to_weigh =
+						vec![ReceiveTeleportedAsset(to_weigh.into()), ClearOrigin];
+					message_to_weigh.extend(xcm.0.clone().into_iter());
+					let (_, fee) = validate_send::<Config::XcmSender>(dest, Xcm(message_to_weigh))?;
+					// set aside fee to be charged by XcmSender
+					Some(self.holding.saturating_take(fee.into()))
+				};
 
-				// now take assets to deposit (excluding parked_fee)
+				// take assets to deposit (excluding parked_fee)
 				let assets = self.holding.saturating_take(assets);
 				for asset in assets.assets_iter() {
 					// We should check that the asset can actually be teleported out (for this to
@@ -711,8 +725,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let mut message = vec![ReceiveTeleportedAsset(assets), ClearOrigin];
 				message.extend(xcm.0.into_iter());
 
-				// put back parked_fee in holding register to be charged by XcmSender
-				self.holding.subsume_assets(parked_fee);
+				if let Some(fee) = maybe_delivery_fee {
+					// put back delivery fee in holding register to be charged by XcmSender
+					self.holding.subsume_assets(fee);
+				}
 				self.send(dest, Xcm(message), FeeReason::InitiateTeleport)?;
 				Ok(())
 			},
