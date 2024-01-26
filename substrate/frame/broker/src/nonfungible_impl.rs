@@ -51,4 +51,6 @@ impl<T: Config> Transfer<T::AccountId> for Pallet<T> {
 	}
 }
 
+// We don't allow any of the mutate operations, so the default implementation is used, which will
+// return `TokenError::Unsupported` in case any of the operations is called.
 impl<T: Config> Mutate<T::AccountId> for Pallet<T> {}
