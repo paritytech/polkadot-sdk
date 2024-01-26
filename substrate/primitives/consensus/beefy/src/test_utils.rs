@@ -32,10 +32,8 @@ use sp_application_crypto::{AppCrypto, AppPair, RuntimeAppPublic, Wraps};
 use sp_core::ecdsa_bls377;
 use sp_core::{ecdsa, Pair};
 use sp_keystore::{Keystore, KeystorePtr};
-use std::collections::HashMap;
+use std::{collections::HashMap, marker::PhantomData};
 use strum::IntoEnumIterator;
-use std::marker::PhantomData;
-    
 
 /// Set of test accounts using [`crate::ecdsa_crypto`] types.
 #[allow(missing_docs)]
@@ -48,8 +46,8 @@ pub enum Keyring<AuthorityId> {
 	Eve,
 	Ferdie,
 	One,
-    Two,
-    _Marker(PhantomData<AuthorityId>)
+	Two,
+	_Marker(PhantomData<AuthorityId>),
 }
 
 /// Trait representing BEEFY specific generation and signing behavior of authority id
@@ -82,51 +80,45 @@ where
 	}
 }
 
-
-	
-
 /// Generate key pair in the given store using the provided seed
 pub fn generate_in_store<AuthorityId>(
-		store: KeystorePtr,
-		key_type: sp_application_crypto::KeyTypeId,
-		owner: Option<Keyring<AuthorityId>>,
-    ) -> AuthorityId where
+	store: KeystorePtr,
+	key_type: sp_application_crypto::KeyTypeId,
+	owner: Option<Keyring<AuthorityId>>,
+) -> AuthorityId
+where
 	AuthorityId: AuthorityIdBound + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Public>,
 	<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<BeefySignatureHasher>,
 	<AuthorityId as RuntimeAppPublic>::Signature:
 		Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
 {
-    let optional_seed: Option<String> = owner
-			.map(|owner| owner.to_seed());
+	let optional_seed: Option<String> = owner.map(|owner| owner.to_seed());
 
-		match <AuthorityId as AppCrypto>::CRYPTO_ID {
-			ecdsa::CRYPTO_ID => AuthorityId::decode(
-				&mut Keystore::ecdsa_generate_new(&*store, key_type, optional_seed.as_deref())
-					.ok()
-					.unwrap()
-					.as_ref(),
-			)
-			.unwrap(),
-
-			#[cfg(feature = "bls-experimental")]
-			ecdsa_bls377::CRYPTO_ID => {
-				let pk = Keystore::ecdsa_bls377_generate_new(
-					&*store,
-					key_type,
-					optional_seed.as_deref(),
-				)
+	match <AuthorityId as AppCrypto>::CRYPTO_ID {
+		ecdsa::CRYPTO_ID => AuthorityId::decode(
+			&mut Keystore::ecdsa_generate_new(&*store, key_type, optional_seed.as_deref())
 				.ok()
-				.unwrap();
-				let decoded_pk = AuthorityId::decode(&mut pk.as_ref()).unwrap();
-				println!(
-					"Seed: {:?}, before decode: {:?}, after decode: {:?}",
-					optional_seed, pk, decoded_pk
-				);
-				decoded_pk
-			},
+				.unwrap()
+				.as_ref(),
+		)
+		.unwrap(),
 
-			_ => panic!("Requested CRYPTO_ID is not supported by the BEEFY Keyring"),
-		}
+		#[cfg(feature = "bls-experimental")]
+		ecdsa_bls377::CRYPTO_ID => {
+			let pk =
+				Keystore::ecdsa_bls377_generate_new(&*store, key_type, optional_seed.as_deref())
+					.ok()
+					.unwrap();
+			let decoded_pk = AuthorityId::decode(&mut pk.as_ref()).unwrap();
+			println!(
+				"Seed: {:?}, before decode: {:?}, after decode: {:?}",
+				optional_seed, pk, decoded_pk
+			);
+			decoded_pk
+		},
+
+		_ => panic!("Requested CRYPTO_ID is not supported by the BEEFY Keyring"),
+	}
 }
 
 /// Implement Keyring functionalities generically over AuthorityId
@@ -145,12 +137,9 @@ where
 
 	/// Return key pair.
 	pub fn pair(&self) -> <AuthorityId as AppCrypto>::Pair {
-		<AuthorityId as AppCrypto>::Pair::from_string(
-			self.to_seed().as_str(),
-			None,
-		)
-		.unwrap()
-		.into()
+		<AuthorityId as AppCrypto>::Pair::from_string(self.to_seed().as_str(), None)
+			.unwrap()
+			.into()
 	}
 
 	/// Return public key.
@@ -204,14 +193,8 @@ pub fn generate_equivocation_proof(
 	                   validator_set_id: ValidatorSetId,
 	                   keyring: &Keyring<ecdsa_crypto::AuthorityId>| {
 		let commitment = Commitment { validator_set_id, block_number, payload };
-		let signature = keyring.sign(
-			&commitment.encode(),
-		);
-		VoteMessage {
-			commitment,
-			id: keyring.public(),
-			signature,
-		}
+		let signature = keyring.sign(&commitment.encode());
+		VoteMessage { commitment, id: keyring.public(), signature }
 	};
 	let first = signed_vote(vote1.0, vote1.1, vote1.2, vote1.3);
 	let second = signed_vote(vote2.0, vote2.1, vote2.2, vote2.3);

@@ -34,7 +34,6 @@ use sp_consensus_beefy::ecdsa_bls_crypto;
 
 use crate::{error, LOG_TARGET};
 
-
 /// A BEEFY specific keystore implemented as a `Newtype`. This is basically a
 /// wrapper around [`sp_keystore::Keystore`] and allows to customize
 /// common cryptographic functionality.
@@ -213,7 +212,10 @@ where
 
 #[cfg(test)]
 pub mod tests {
-    use sp_consensus_beefy::{ecdsa_crypto, test_utils::{BeefySignerAuthority, Keyring, generate_in_store}};
+	use sp_consensus_beefy::{
+		ecdsa_crypto,
+		test_utils::{generate_in_store, BeefySignerAuthority, Keyring},
+	};
 	use sp_core::Pair as PairT;
 	use sp_keystore::testing::MemoryKeystore;
 
@@ -289,10 +291,9 @@ pub mod tests {
 		let got = Keyring::<AuthorityId>::Bob.pair().to_raw_vec();
 		assert_eq!(want, got);
 
-		let want =
-			<AuthorityId as AppCrypto>::Pair::from_string("//Charlie", None)
-				.expect("Pair failed")
-				.to_raw_vec();
+		let want = <AuthorityId as AppCrypto>::Pair::from_string("//Charlie", None)
+			.expect("Pair failed")
+			.to_raw_vec();
 		let got = Keyring::<AuthorityId>::Charlie.pair().to_raw_vec();
 		assert_eq!(want, got);
 
@@ -305,7 +306,7 @@ pub mod tests {
 		let want = <AuthorityId as AppCrypto>::Pair::from_string("//Eve", None)
 			.expect("Pair failed")
 			.to_raw_vec();
-	    let got = Keyring::<AuthorityId>::Eve.pair().to_raw_vec();
+		let got = Keyring::<AuthorityId>::Eve.pair().to_raw_vec();
 		assert_eq!(want, got);
 
 		let want = <AuthorityId as AppCrypto>::Pair::from_string("//Ferdie", None)
@@ -348,11 +349,7 @@ pub mod tests {
 	{
 		let store = keystore();
 
-		generate_in_store::<AuthorityId>(
-			store.clone(),
-			BEEFY_KEY_TYPE,
-			Some(Keyring::Alice),
-		);
+		generate_in_store::<AuthorityId>(store.clone(), BEEFY_KEY_TYPE, Some(Keyring::Alice));
 
 		let alice = Keyring::<AuthorityId>::Alice.public();
 
@@ -396,11 +393,7 @@ pub mod tests {
 	{
 		let store = keystore();
 
-		generate_in_store::<AuthorityId>(
-			store.clone(),
-			BEEFY_KEY_TYPE,
-			Some(Keyring::Alice),
-		);
+		generate_in_store::<AuthorityId>(store.clone(), BEEFY_KEY_TYPE, Some(Keyring::Alice));
 
 		let alice = Keyring::Alice.public();
 
@@ -409,7 +402,7 @@ pub mod tests {
 		let msg = b"are you involved or commited?";
 
 		let sig1 = store.sign(&alice, msg).unwrap();
-		let sig2 = Keyring::<AuthorityId>::Alice.sign( msg);
+		let sig2 = Keyring::<AuthorityId>::Alice.sign(msg);
 
 		assert_eq!(sig1, sig2);
 	}
@@ -436,11 +429,7 @@ pub mod tests {
 	{
 		let store = keystore();
 
-		generate_in_store::<AuthorityId>(
-			store.clone(),
-			BEEFY_KEY_TYPE,
-			Some(Keyring::Bob),
-		);
+		generate_in_store::<AuthorityId>(store.clone(), BEEFY_KEY_TYPE, Some(Keyring::Bob));
 
 		let store: BeefyKeystore<AuthorityId> = Some(store).into();
 
@@ -486,11 +475,7 @@ pub mod tests {
 	{
 		let store = keystore();
 
-		generate_in_store::<AuthorityId>(
-			store.clone(),
-			BEEFY_KEY_TYPE,
-			Some(Keyring::Alice),
-		);
+		generate_in_store::<AuthorityId>(store.clone(), BEEFY_KEY_TYPE, Some(Keyring::Alice));
 
 		let store: BeefyKeystore<AuthorityId> = Some(store).into();
 
@@ -533,50 +518,19 @@ pub mod tests {
 		let store = keystore();
 
 		// test keys
-		let _ = generate_in_store::<AuthorityId>(
-			store.clone(),
-			TEST_TYPE,
-			Some(Keyring::Alice),
-		);
-		let _ = generate_in_store::<AuthorityId>(
-			store.clone(),
-			TEST_TYPE,
-			Some(Keyring::Bob),
-		);
+		let _ = generate_in_store::<AuthorityId>(store.clone(), TEST_TYPE, Some(Keyring::Alice));
+		let _ = generate_in_store::<AuthorityId>(store.clone(), TEST_TYPE, Some(Keyring::Bob));
 
 		// BEEFY keys
-		let _ = generate_in_store::<AuthorityId>(
-			store.clone(),
-			BEEFY_KEY_TYPE,
-			Some(Keyring::Dave),
-		);
-		let _ = generate_in_store::<AuthorityId>(
-			store.clone(),
-			BEEFY_KEY_TYPE,
-			Some(Keyring::Eve),
-		);
+		let _ =
+			generate_in_store::<AuthorityId>(store.clone(), BEEFY_KEY_TYPE, Some(Keyring::Dave));
+		let _ = generate_in_store::<AuthorityId>(store.clone(), BEEFY_KEY_TYPE, Some(Keyring::Eve));
 
-		let _ = generate_in_store::<AuthorityId>(
-			store.clone(),
-			TEST_TYPE,
-			None,
-		);
-		let _ = generate_in_store::<AuthorityId>(
-			store.clone(),
-			TEST_TYPE,
-			None,
-		);
+		let _ = generate_in_store::<AuthorityId>(store.clone(), TEST_TYPE, None);
+		let _ = generate_in_store::<AuthorityId>(store.clone(), TEST_TYPE, None);
 
-		let key1 = generate_in_store::<AuthorityId>(
-			store.clone(),
-			BEEFY_KEY_TYPE,
-			None,
-		);
-		let key2 = generate_in_store::<AuthorityId>(
-			store.clone(),
-			BEEFY_KEY_TYPE,
-			None,
-		);
+		let key1 = generate_in_store::<AuthorityId>(store.clone(), BEEFY_KEY_TYPE, None);
+		let key2 = generate_in_store::<AuthorityId>(store.clone(), BEEFY_KEY_TYPE, None);
 
 		let store: BeefyKeystore<AuthorityId> = Some(store).into();
 

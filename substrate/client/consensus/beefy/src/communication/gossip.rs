@@ -481,7 +481,7 @@ pub(crate) mod tests {
 	use sc_network_test::Block;
 	use sp_application_crypto::key_types::BEEFY as BEEFY_KEY_TYPE;
 	use sp_consensus_beefy::{
-		ecdsa_crypto::Signature, known_payloads, Commitment, test_utils::Keyring, MmrRootHash,
+		ecdsa_crypto::Signature, known_payloads, test_utils::Keyring, Commitment, MmrRootHash,
 		Payload, SignedCommitment, VoteMessage,
 	};
 	use sp_keystore::{testing::MemoryKeystore, Keystore};
@@ -503,14 +503,12 @@ pub(crate) mod tests {
 		}
 	}
 
-	pub fn sign_commitment<BN: Encode>(who: &Keyring<AuthorityId>, commitment: &Commitment<BN>) -> Signature {
+	pub fn sign_commitment<BN: Encode>(
+		who: &Keyring<AuthorityId>,
+		commitment: &Commitment<BN>,
+	) -> Signature {
 		let store = MemoryKeystore::new();
-		store
-			.ecdsa_generate_new(
-				BEEFY_KEY_TYPE,
-				Some(&who.to_seed()),
-			)
-			.unwrap();
+		store.ecdsa_generate_new(BEEFY_KEY_TYPE, Some(&who.to_seed())).unwrap();
 		let beefy_keystore: BeefyKeystore<AuthorityId> = Some(store.into()).into();
 		beefy_keystore.sign(&who.public(), &commitment.encode()).unwrap()
 	}

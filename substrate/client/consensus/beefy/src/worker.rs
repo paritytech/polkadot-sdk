@@ -1076,8 +1076,11 @@ pub(crate) mod tests {
 	use sc_network_test::TestNetFactory;
 	use sp_blockchain::Backend as BlockchainBackendT;
 	use sp_consensus_beefy::{
-		test_utils::generate_equivocation_proof, known_payloads, known_payloads::MMR_ROOT_ID,
-		mmr::MmrRootProvider, test_utils::Keyring, Payload, SignedCommitment,
+		known_payloads,
+		known_payloads::MMR_ROOT_ID,
+		mmr::MmrRootProvider,
+		test_utils::{generate_equivocation_proof, Keyring},
+		Payload, SignedCommitment,
 	};
 	use sp_runtime::traits::{Header as HeaderT, One};
 	use substrate_test_runtime_client::{

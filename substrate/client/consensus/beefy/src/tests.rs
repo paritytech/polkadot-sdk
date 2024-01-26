@@ -55,9 +55,10 @@ use sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId, Signature},
 	known_payloads,
 	mmr::{find_mmr_root_digest, MmrRootProvider},
-	BeefyApi, Commitment, ConsensusLog, EquivocationProof, test_utils::Keyring as BeefyKeyring,
-	MmrRootHash, OpaqueKeyOwnershipProof, Payload, SignedCommitment, ValidatorSet, ValidatorSetId,
-	VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
+	test_utils::Keyring as BeefyKeyring,
+	BeefyApi, Commitment, ConsensusLog, EquivocationProof, MmrRootHash, OpaqueKeyOwnershipProof,
+	Payload, SignedCommitment, ValidatorSet, ValidatorSetId, VersionedFinalityProof, VoteMessage,
+	BEEFY_ENGINE_ID,
 };
 use sp_core::H256;
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystorePtr};
@@ -348,18 +349,13 @@ fn add_auth_change_digest(builder: &mut impl BlockBuilderExt, new_auth_set: Beef
 }
 
 pub(crate) fn make_beefy_ids(keys: &[BeefyKeyring<AuthorityId>]) -> Vec<AuthorityId> {
-	keys.iter()
-		.map(|key| key.public().into())
-		.collect()
+	keys.iter().map(|key| key.public().into()).collect()
 }
 
 pub(crate) fn create_beefy_keystore(authority: &BeefyKeyring<AuthorityId>) -> KeystorePtr {
 	let keystore = MemoryKeystore::new();
 	keystore
-		.ecdsa_generate_new(
-			BEEFY_KEY_TYPE,
-			Some(&authority.to_seed()),
-		)
+		.ecdsa_generate_new(BEEFY_KEY_TYPE, Some(&authority.to_seed()))
 		.expect("Creates authority key");
 	keystore.into()
 }
