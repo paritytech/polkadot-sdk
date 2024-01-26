@@ -19,9 +19,9 @@ function ensure_relayer() {
 }
 
 function ensure_polkadot_js_api() {
-    if ! which call_polkadot_js_api &> /dev/null; then
+    if ! which polkadot-js-api &> /dev/null; then
         echo ''
-        echo 'Required command `call_polkadot_js_api` not in PATH, please, install, e.g.:'
+        echo 'Required command `polkadot-js-api` not in PATH, please, install, e.g.:'
         echo "npm install -g @polkadot/api-cli@beta"
         echo "      or"
         echo "yarn global add @polkadot/api-cli"
