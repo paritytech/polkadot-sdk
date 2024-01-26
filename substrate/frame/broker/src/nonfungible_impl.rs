@@ -18,7 +18,7 @@
 use super::*;
 use frame_support::{
 	pallet_prelude::{DispatchResult, *},
-	traits::nonfungible::{Inspect, Transfer},
+	traits::nonfungible::{Inspect, Mutate, Transfer},
 };
 use sp_std::vec::Vec;
 
@@ -50,3 +50,5 @@ impl<T: Config> Transfer<T::AccountId> for Pallet<T> {
 		Self::do_transfer((*index).into(), None, dest.clone()).map_err(Into::into)
 	}
 }
+
+impl<T: Config> Mutate<T::AccountId> for Pallet<T> {}
