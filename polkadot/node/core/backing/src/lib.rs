@@ -106,7 +106,7 @@ use polkadot_node_subsystem_util::{
 use polkadot_primitives::{
 	BackedCandidate, CandidateCommitments, CandidateHash, CandidateReceipt,
 	CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, Hash, Id as ParaId,
-	PersistedValidationData, PvfExecTimeoutKind, SigningContext, ValidationCode, ValidatorId,
+	PersistedValidationData, PvfExecKind, SigningContext, ValidationCode, ValidatorId,
 	ValidatorIndex, ValidatorSignature, ValidityAttestation,
 };
 use sp_keystore::KeystorePtr;
@@ -551,8 +551,8 @@ async fn request_pov(
 
 async fn request_candidate_validation(
 	sender: &mut impl overseer::CandidateBackingSenderTrait,
-	pvd: PersistedValidationData,
-	code: ValidationCode,
+	validation_data: PersistedValidationData,
+	validation_code: ValidationCode,
 	candidate_receipt: CandidateReceipt,
 	pov: Arc<PoV>,
 	executor_params: ExecutorParams,
@@ -560,15 +560,15 @@ async fn request_candidate_validation(
 	let (tx, rx) = oneshot::channel();
 
 	sender
-		.send_message(CandidateValidationMessage::ValidateFromExhaustive(
-			pvd,
-			code,
+		.send_message(CandidateValidationMessage::ValidateFromExhaustive {
+			validation_data,
+			validation_code,
 			candidate_receipt,
 			pov,
 			executor_params,
-			PvfExecTimeoutKind::Backing,
-			tx,
-		))
+			exec_kind: PvfExecKind::Backing,
+			response_sender: tx,
+		})
 		.await;
 
 	match rx.await {
@@ -1574,7 +1574,7 @@ async fn post_import_statement_actions<Context>(
 	ctx: &mut Context,
 	rp_state: &mut PerRelayParentState,
 	summary: Option<&TableSummary>,
-) -> Result<(), Error> {
+) {
 	if let Some(attested) = summary.as_ref().and_then(|s| {
 		rp_state.table.attested_candidate(
 			&s.candidate,
@@ -1630,8 +1630,6 @@ async fn post_import_statement_actions<Context>(
 	}
 
 	issue_new_misbehaviors(ctx, rp_state.parent, &mut rp_state.table);
-
-	Ok(())
 }
 
 /// Check if there have happened any new misbehaviors and issue necessary messages.
@@ -1674,7 +1672,7 @@ async fn sign_import_and_distribute_statement<Context>(
 		let smsg = StatementDistributionMessage::Share(rp_state.parent, signed_statement.clone());
 		ctx.send_unbounded_message(smsg);
 
-		post_import_statement_actions(ctx, rp_state, summary.as_ref()).await?;
+		post_import_statement_actions(ctx, rp_state, summary.as_ref()).await;
 
 		Ok(Some(signed_statement))
 	} else {
@@ -1800,7 +1798,7 @@ async fn maybe_validate_and_import<Context>(
 	}
 
 	let summary = res?;
-	post_import_statement_actions(ctx, rp_state, summary.as_ref()).await?;
+	post_import_statement_actions(ctx, rp_state, summary.as_ref()).await;
 
 	if let Some(summary) = summary {
 		// import_statement already takes care of communicating with the

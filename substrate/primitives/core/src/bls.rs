@@ -17,7 +17,7 @@
 
 //! Simple BLS (Boneh–Lynn–Shacham) Signature API.
 
-#[cfg(feature = "std")]
+#[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 use crate::crypto::{ByteArray, CryptoType, Derive, Public as TraitPublic, UncheckedFrom};
 #[cfg(feature = "full_crypto")]
@@ -28,8 +28,12 @@ use sp_std::vec::Vec;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-#[cfg(feature = "std")]
+
+#[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+#[cfg(all(not(feature = "std"), feature = "serde"))]
+use sp_std::alloc::{format, string::String};
+
 use w3f_bls::{DoublePublicKey, DoubleSignature, EngineBLS, SerializableToBytes, TinyBLS381};
 #[cfg(feature = "full_crypto")]
 use w3f_bls::{DoublePublicKeyScheme, Keypair, Message, SecretKey};
@@ -39,6 +43,7 @@ use sp_std::{convert::TryFrom, marker::PhantomData, ops::Deref};
 
 /// BLS-377 specialized types
 pub mod bls377 {
+	pub use super::{PUBLIC_KEY_SERIALIZED_SIZE, SIGNATURE_SERIALIZED_SIZE};
 	use crate::crypto::CryptoTypeId;
 	use w3f_bls::TinyBLS377;
 
@@ -60,6 +65,7 @@ pub mod bls377 {
 
 /// BLS-381 specialized types
 pub mod bls381 {
+	pub use super::{PUBLIC_KEY_SERIALIZED_SIZE, SIGNATURE_SERIALIZED_SIZE};
 	use crate::crypto::CryptoTypeId;
 	use w3f_bls::TinyBLS381;
 
@@ -128,7 +134,7 @@ impl<T> Eq for Public<T> {}
 
 impl<T> PartialOrd for Public<T> {
 	fn partial_cmp(&self, other: &Self) -> Option<sp_std::cmp::Ordering> {
-		self.inner.partial_cmp(&other.inner)
+		Some(self.cmp(other))
 	}
 }
 
@@ -446,12 +452,12 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 	fn derive<Iter: Iterator<Item = DeriveJunction>>(
 		&self,
 		path: Iter,
-		_seed: Option<Seed>,
+		seed: Option<Seed>,
 	) -> Result<(Self, Option<Seed>), DeriveError> {
 		let mut acc: [u8; SECRET_KEY_SERIALIZED_SIZE] =
-			self.0.secret.to_bytes().try_into().expect(
-				"Secret key serializer returns a vector of SECRET_KEY_SERIALIZED_SIZE size",
-			);
+			seed.unwrap_or(self.0.secret.to_bytes().try_into().expect(
+				"Secret key serializer returns a vector of SECRET_KEY_SERIALIZED_SIZE size; qed",
+			));
 		for j in path {
 			match j {
 				DeriveJunction::Soft(_cc) => return Err(DeriveError::SoftKeyInPath),
@@ -583,12 +589,12 @@ mod test {
 		assert_eq!(
 			public,
 			Public::unchecked_from(array_bytes::hex2array_unchecked(
-				"6dc6be608fab3c6bd894a606be86db346cc170db85c733853a371f3db54ae1b12052c0888d472760c81b537572a26f00db865e5963aef8634f9917571c51b538b564b2a9ceda938c8b930969ee3b832448e08e33a79e9ddd28af419a3ce45300f5dbc768b067781f44f3fe05a19e6b07b1c4196151ec3f8ea37e4f89a8963030d2101e931276bb9ebe1f20102239d780"
+				"7a84ca8ce4c37c93c95ecee6a3c0c9a7b9c225093cf2f12dc4f69cbfb847ef9424a18f5755d5a742247d386ff2aabb806bcf160eff31293ea9616976628f77266c8a8cc1d8753be04197bd6cdd8c5c87a148f782c4c1568d599b48833fd539001e580cff64bbc71850605433fcd051f3afc3b74819786f815ffb5272030a8d03e5df61e6183f8fd8ea85f26defa83400"
 			))
 		);
 		let message = b"";
 		let signature =
-	array_bytes::hex2array_unchecked("bbb395bbdee1a35930912034f5fde3b36df2835a0536c865501b0675776a1d5931a3bea2e66eff73b2546c6af2061a8019223e4ebbbed661b2538e0f5823f2c708eb89c406beca8fcb53a5c13dbc7c0c42e4cf2be2942bba96ea29297915a06bd2b1b979c0e2ac8fd4ec684a6b5d110c"
+	array_bytes::hex2array_unchecked("d1e3013161991e142d8751017d4996209c2ff8a9ee160f373733eda3b4b785ba6edce9f45f87104bbe07aa6aa6eb2780aa705efb2c13d3b317d6409d159d23bdc7cdd5c2a832d1551cf49d811d49c901495e527dbd532e3a462335ce2686009104aba7bc11c5b22be78f3198d2727a0b"
 	);
 		let expected_signature = Signature::unchecked_from(signature);
 		println!("signature is {:?}", pair.sign(&message[..]));
@@ -640,6 +646,19 @@ mod test {
 		let (pair2, _) = Pair::from_phrase(&phrase, Some("password")).unwrap();
 
 		assert_eq!(pair1.public(), pair2.public());
+	}
+
+	#[test]
+	fn generate_with_phrase_should_be_recoverable_with_from_string() {
+		let (pair, phrase, seed) = Pair::generate_with_phrase(None);
+		let repair_seed = Pair::from_seed_slice(seed.as_ref()).expect("seed slice is valid");
+		assert_eq!(pair.public(), repair_seed.public());
+		let (repair_phrase, reseed) =
+			Pair::from_phrase(phrase.as_ref(), None).expect("seed slice is valid");
+		assert_eq!(seed, reseed);
+		assert_eq!(pair.public(), repair_phrase.public());
+		let repair_string = Pair::from_string(phrase.as_str(), None).expect("seed slice is valid");
+		assert_eq!(pair.public(), repair_string.public());
 	}
 
 	#[test]

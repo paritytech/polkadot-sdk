@@ -50,6 +50,7 @@ use scale_info::TypeInfo;
 /// The `MultiLocation` value of `Null` simply refers to the interpreting consensus system.
 #[derive(Clone, Decode, Encode, Eq, PartialEq, Ord, PartialOrd, Debug, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub struct MultiLocation {
 	/// The number of parent junctions at the beginning of this `MultiLocation`.
 	pub parents: u8,
@@ -465,6 +466,7 @@ const MAX_JUNCTIONS: usize = 8;
 /// instructions on constructing parent junctions.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum Junctions {
 	/// The interpreting consensus system.
 	Here,

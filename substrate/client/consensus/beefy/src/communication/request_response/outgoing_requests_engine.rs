@@ -27,7 +27,7 @@ use sc_network::{
 	NetworkRequest, PeerId, ProtocolName,
 };
 use sp_application_crypto::RuntimeAppPublic;
-use sp_consensus_beefy::ValidatorSet;
+use sp_consensus_beefy::{ValidatorSet,AuthorityIdBound,};
 use sp_runtime::traits::{Block, NumberFor};
 use std::{collections::VecDeque, result::Result, sync::Arc};
 
@@ -38,7 +38,7 @@ use crate::{
 		request_response::{Error, JustificationRequest, BEEFY_SYNC_LOG_TARGET},
 	},
 	justification::{decode_and_verify_finality_proof, BeefyVersionedFinalityProof},
-	keystore::AuthorityIdBound,
+	
 	metric_inc,
 	metrics::{register_metrics, OnDemandOutgoingRequestsMetrics},
 	KnownPeers,

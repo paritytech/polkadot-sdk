@@ -2,18 +2,11 @@
 title: PRdoc check
 
 doc:
-  - audience: Core Dev
+  - audience: Node Dev
     description: |
       This PRdoc is an **example**.
 
       This PR brings support and automated checks for documentation in the form of a
       [`prdoc`](https://github.com/paritytech/prdoc/) file.
 
-migrations:
-  db: []
-
-  runtime: []
-
-crates: []
-
-host_functions: []
+crates: [ ]

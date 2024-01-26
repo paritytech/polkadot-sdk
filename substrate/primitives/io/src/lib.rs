@@ -1139,7 +1139,7 @@ pub trait Crypto {
 			.map_err(|_| EcdsaVerifyError::BadV)?;
 		let sig = RecoverableSignature::from_compact(&sig[..64], rid)
 			.map_err(|_| EcdsaVerifyError::BadRS)?;
-		let msg = Message::from_slice(msg).expect("Message is 32 bytes; qed");
+		let msg = Message::from_digest_slice(msg).expect("Message is 32 bytes; qed");
 		let pubkey = SECP256K1
 			.recover_ecdsa(&msg, &sig)
 			.map_err(|_| EcdsaVerifyError::BadSignature)?;
@@ -1185,7 +1185,7 @@ pub trait Crypto {
 			.map_err(|_| EcdsaVerifyError::BadV)?;
 		let sig = RecoverableSignature::from_compact(&sig[..64], rid)
 			.map_err(|_| EcdsaVerifyError::BadRS)?;
-		let msg = Message::from_slice(msg).expect("Message is 32 bytes; qed");
+		let msg = Message::from_digest_slice(msg).expect("Message is 32 bytes; qed");
 		let pubkey = SECP256K1
 			.recover_ecdsa(&msg, &sig)
 			.map_err(|_| EcdsaVerifyError::BadSignature)?;
@@ -1208,14 +1208,18 @@ pub trait Crypto {
 			.expect("`bls377_generate` failed")
 	}
 
-    // Generate an pair of  `(ecdsa,bls12-377)` key for the given key type using an optional `seed` and
+	/// Generate an `(ecdsa,bls12-377)` key for the given key type using an optional `seed` and
 	/// store it in the keystore.
 	///
 	/// The `seed` needs to be a valid utf8.
 	///
 	/// Returns the public key.
 	#[cfg(feature = "bls-experimental")]
-	fn ecdsa_bls377_generate(&mut self, id: KeyTypeId, seed: Option<Vec<u8>>) -> ecdsa_bls377::Public {
+	fn ecdsa_bls377_generate(
+		&mut self,
+		id: KeyTypeId,
+		seed: Option<Vec<u8>>,
+	) -> ecdsa_bls377::Public {
 		let seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect("Seed is valid utf8!"));
 		self.extension::<KeystoreExt>()
 			.expect("No `keystore` associated for the current context!")

@@ -1,0 +1,16 @@
+[package]
+name = "westend-system-emulated-network"
+version = "0.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+description = "Westend System emulated network"
+publish = false
+
+[dependencies]
+# Cumulus
+emulated-integration-tests-common = { path = "../../common", default-features = false }
+westend-emulated-chain = { path = "../../chains/relays/westend", default-features = false }
+asset-hub-westend-emulated-chain = { path = "../../chains/parachains/assets/asset-hub-westend" }
+bridge-hub-westend-emulated-chain = { path = "../../chains/parachains/bridges/bridge-hub-westend" }
+penpal-emulated-chain = { path = "../../chains/parachains/testing/penpal" }

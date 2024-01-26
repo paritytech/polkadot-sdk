@@ -53,7 +53,7 @@ pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"ecds");
 /// The byte length of public key
 pub const PUBLIC_KEY_SERIALIZED_SIZE: usize = 33;
 
-/// The byte length of public key
+/// The byte length of signature
 pub const SIGNATURE_SERIALIZED_SIZE: usize = 65;
 
 /// A secret seed (which is bytewise essentially equivalent to a SecretKey).
@@ -318,7 +318,7 @@ impl Signature {
 	/// you are certain that the array actually is a signature. GIGO!
 	pub fn from_slice(data: &[u8]) -> Option<Self> {
 		if data.len() != SIGNATURE_SERIALIZED_SIZE {
-			return None;
+			return None
 		}
 		let mut r = [0u8; SIGNATURE_SERIALIZED_SIZE];
 		r.copy_from_slice(data);
@@ -336,7 +336,7 @@ impl Signature {
 	pub fn recover_prehashed(&self, message: &[u8; 32]) -> Option<Public> {
 		let rid = RecoveryId::from_i32(self.0[64] as i32).ok()?;
 		let sig = RecoverableSignature::from_compact(&self.0[..64], rid).ok()?;
-		let message = Message::from_slice(message).expect("Message is 32 bytes; qed");
+		let message = Message::from_digest_slice(message).expect("Message is 32 bytes; qed");
 
 		#[cfg(feature = "std")]
 		let context = SECP256K1;
@@ -458,7 +458,7 @@ impl Pair {
 
 	/// Sign a pre-hashed message
 	pub fn sign_prehashed(&self, message: &[u8; 32]) -> Signature {
-		let message = Message::from_slice(message).expect("Message is 32 bytes; qed");
+		let message = Message::from_digest_slice(message).expect("Message is 32 bytes; qed");
 
 		#[cfg(feature = "std")]
 		let context = SECP256K1;
@@ -508,12 +508,7 @@ impl Pair {
 #[cfg(feature = "full_crypto")]
 impl Drop for Pair {
 	fn drop(&mut self) {
-		let ptr = self.secret.as_mut_ptr();
-		for off in 0..self.secret.len() {
-			unsafe {
-				core::ptr::write_volatile(ptr.add(off), 0);
-			}
-		}
+		self.secret.non_secure_erase()
 	}
 }
 
@@ -652,6 +647,19 @@ mod test {
 	}
 
 	#[test]
+	fn generate_with_phrase_should_be_recoverable_with_from_string() {
+		let (pair, phrase, seed) = Pair::generate_with_phrase(None);
+		let repair_seed = Pair::from_seed_slice(seed.as_ref()).expect("seed slice is valid");
+		assert_eq!(pair.public(), repair_seed.public());
+		let (repair_phrase, reseed) =
+			Pair::from_phrase(phrase.as_ref(), None).expect("seed slice is valid");
+		assert_eq!(seed, reseed);
+		assert_eq!(pair.public(), repair_phrase.public());
+		let repair_string = Pair::from_string(phrase.as_str(), None).expect("seed slice is valid");
+		assert_eq!(pair.public(), repair_string.public());
+	}
+
+	#[test]
 	fn password_does_something() {
 		let (pair1, phrase, _) = Pair::generate_with_phrase(Some("password"));
 		let (pair2, _) = Pair::from_phrase(&phrase, None).unwrap();
@@ -760,7 +768,7 @@ mod test {
 		let msg = [0u8; 32];
 		let sig1 = pair.sign_prehashed(&msg);
 		let sig2: Signature = {
-			let message = Message::from_slice(&msg).unwrap();
+			let message = Message::from_digest_slice(&msg).unwrap();
 			SECP256K1.sign_ecdsa_recoverable(&message, &pair.secret).into()
 		};
 		assert_eq!(sig1, sig2);

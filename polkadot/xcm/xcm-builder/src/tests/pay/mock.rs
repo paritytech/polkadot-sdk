@@ -49,22 +49,12 @@ construct_runtime!(
 	}
 );
 
-parameter_types! {
-	pub const BlockHashCount: BlockNumber = 250;
-}
-
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
-	type BlockHashCount = BlockHashCount;
-	type BaseCallFilter = frame_support::traits::Everything;
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type RuntimeEvent = RuntimeEvent;
-	type PalletInfo = PalletInfo;
-	type OnSetCode = ();
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type AccountId = AccountId;
+	type BlockHashCount = ConstU32<256>;
 	type Lookup = sp_runtime::traits::IdentityLookup<AccountId>;
 }
 
@@ -85,6 +75,7 @@ impl pallet_balances::Config for Test {
 	type MaxReserves = ();
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
 	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<0>;
@@ -255,11 +246,6 @@ type SovereignAccountOf = (
 	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
 );
 
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parachain(1000).into());
-}
-
 impl pallet_xcm::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type SendXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
@@ -283,8 +269,6 @@ impl pallet_xcm::Config for Test {
 	type MaxRemoteLockConsumers = frame_support::traits::ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = pallet_xcm::TestWeightInfo;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReachableDest = ReachableDest;
 	type AdminOrigin = EnsureRoot<AccountId>;
 }
 

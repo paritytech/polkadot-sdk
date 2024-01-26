@@ -142,7 +142,7 @@ mod tests {
 		RpcModule,
 	};
 	use parity_scale_codec::{Decode, Encode};
-	use sc_block_builder::{BlockBuilder, RecordProof};
+	use sc_block_builder::BlockBuilderBuilder;
 	use sc_consensus_grandpa::{
 		report, AuthorityId, FinalityProof, GrandpaJustification, GrandpaJustificationSender,
 	};
@@ -335,21 +335,16 @@ mod tests {
 		let peers = &[Ed25519Keyring::Alice];
 
 		let builder = TestClientBuilder::new();
-		let backend = builder.backend();
 		let client = builder.build();
 		let client = Arc::new(client);
 
-		let built_block = BlockBuilder::new(
-			&*client,
-			client.info().best_hash,
-			client.info().best_number,
-			RecordProof::No,
-			Default::default(),
-			&*backend,
-		)
-		.unwrap()
-		.build()
-		.unwrap();
+		let built_block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.info().best_hash)
+			.with_parent_block_number(client.info().best_number)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap();
 
 		let block = built_block.block;
 		let block_hash = block.hash();

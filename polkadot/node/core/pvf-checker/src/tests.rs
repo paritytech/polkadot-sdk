@@ -267,11 +267,12 @@ impl TestState {
 		handle: &mut VirtualOverseer,
 	) -> ExpectCandidatePrecheck {
 		match self.recv_timeout(handle).await.expect("timeout waiting for a message") {
-			AllMessages::CandidateValidation(CandidateValidationMessage::PreCheck(
+			AllMessages::CandidateValidation(CandidateValidationMessage::PreCheck {
 				relay_parent,
 				validation_code_hash,
-				tx,
-			)) => ExpectCandidatePrecheck { relay_parent, validation_code_hash, tx },
+				response_sender,
+				..
+			}) => ExpectCandidatePrecheck { relay_parent, validation_code_hash, tx: response_sender },
 			msg => panic!("Unexpected message was received: {:#?}", msg),
 		}
 	}

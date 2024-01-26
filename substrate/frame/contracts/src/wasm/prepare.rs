@@ -79,8 +79,7 @@ impl LoadedModule {
 		}
 
 		let engine = Engine::new(&config);
-		let module =
-			Module::new(&engine, code.clone()).map_err(|_| "Can't load the module into wasmi!")?;
+		let module = Module::new(&engine, code).map_err(|_| "Can't load the module into wasmi!")?;
 
 		// Return a `LoadedModule` instance with
 		// __valid__ module.

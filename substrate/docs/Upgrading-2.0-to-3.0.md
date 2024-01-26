@@ -113,7 +113,7 @@ And update the overall definition for weights on frame and a few related types a
 ```diff=
 
 -const AVERAGE_ON_INITIALIZE_WEIGHT: Perbill = Perbill::from_percent(10);
-+/// We assume that ~10% of the block weight is consumed by `on_initalize` handlers.
++/// We assume that ~10% of the block weight is consumed by `on_initialize` handlers.
 +/// This is used to limit the maximal weight of a single extrinsic.
 +const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 +/// We allow `Normal` extrinsics to fill up the block up to 75%, the rest can be used
@@ -261,6 +261,7 @@ impl pallet_tips::Config for Runtime {
 	type TipCountdown = TipCountdown;
 	type TipFindersFee = TipFindersFee;
 	type TipReportDepositBase = TipReportDepositBase;
+	type MaxTipAmount = MaxTipAmount;
 	type WeightInfo = pallet_tips::weights::SubstrateWeight<Runtime>;
  }
 ```

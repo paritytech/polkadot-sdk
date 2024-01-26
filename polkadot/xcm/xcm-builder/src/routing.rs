@@ -49,8 +49,7 @@ impl<Inner: SendXcm> SendXcm for WithUniqueTopic<Inner> {
 			message.0.push(SetTopic(unique_id));
 			unique_id
 		};
-		let (ticket, assets) = Inner::validate(destination, &mut Some(message))
-			.map_err(|_| SendError::NotApplicable)?;
+		let (ticket, assets) = Inner::validate(destination, &mut Some(message))?;
 		Ok(((ticket, unique_id), assets))
 	}
 

@@ -16,6 +16,7 @@
 
 use super::*;
 use crate::mock::{new_test_ext, Configuration, ParasShared, RuntimeOrigin, Test};
+use bitvec::{bitvec, prelude::Lsb0};
 use frame_support::{assert_err, assert_noop, assert_ok};
 
 fn on_new_session(session_index: SessionIndex) -> (HostConfiguration<u32>, HostConfiguration<u32>) {
@@ -318,6 +319,7 @@ fn setting_pending_config_members() {
 			on_demand_target_queue_utilization: Perbill::from_percent(25),
 			on_demand_ttl: 5u32,
 			minimum_backing_votes: 5,
+			node_features: bitvec![u8, Lsb0; 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
 		};
 
 		Configuration::set_validation_upgrade_cooldown(
@@ -473,6 +475,12 @@ fn setting_pending_config_members() {
 			new_config.minimum_backing_votes,
 		)
 		.unwrap();
+		Configuration::set_node_feature(RuntimeOrigin::root(), 1, true).unwrap();
+		Configuration::set_node_feature(RuntimeOrigin::root(), 1, true).unwrap();
+		Configuration::set_node_feature(RuntimeOrigin::root(), 3, true).unwrap();
+		Configuration::set_node_feature(RuntimeOrigin::root(), 10, true).unwrap();
+		Configuration::set_node_feature(RuntimeOrigin::root(), 10, false).unwrap();
+		Configuration::set_node_feature(RuntimeOrigin::root(), 11, true).unwrap();
 
 		assert_eq!(PendingConfigs::<Test>::get(), vec![(shared::SESSION_DELAY, new_config)],);
 	})

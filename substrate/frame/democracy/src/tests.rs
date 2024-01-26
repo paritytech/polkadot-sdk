@@ -20,7 +20,7 @@
 use super::*;
 use crate as pallet_democracy;
 use frame_support::{
-	assert_noop, assert_ok, ord_parameter_types, parameter_types,
+	assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
 		ConstU32, ConstU64, Contains, EqualPrivilegeOnly, OnInitialize, SortedMembers,
 		StorePreimage,
@@ -77,6 +77,8 @@ parameter_types! {
 			Weight::from_parts(frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND, u64::MAX),
 		);
 }
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = BaseFilter;
 	type BlockWeights = BlockWeights;
@@ -140,6 +142,7 @@ impl pallet_balances::Config for Test {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
+	type RuntimeFreezeReason = ();
 	type MaxHolds = ();
 }
 parameter_types! {
@@ -277,7 +280,7 @@ fn tally(r: ReferendumIndex) -> Tally<u64> {
 }
 
 /// note a new preimage without registering.
-fn note_preimage(who: u64) -> PreimageHash {
+fn note_preimage(who: u64) -> <Test as frame_system::Config>::Hash {
 	use std::sync::atomic::{AtomicU8, Ordering};
 	// note a new preimage on every function invoke.
 	static COUNTER: AtomicU8 = AtomicU8::new(0);

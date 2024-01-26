@@ -20,7 +20,7 @@
 use std::collections::BTreeMap;
 
 use frame_support::{
-	assert_noop, assert_ok, ord_parameter_types,
+	assert_noop, assert_ok, derive_impl, ord_parameter_types,
 	pallet_prelude::Weight,
 	parameter_types,
 	traits::{tokens::GetSalary, ConstU32, ConstU64, Everything, IsInVec, TryMapSuccess},
@@ -50,6 +50,8 @@ parameter_types! {
 	pub BlockWeights: frame_system::limits::BlockWeights =
 		frame_system::limits::BlockWeights::simple_max(Weight::from_parts(1_000_000, u64::max_value()));
 }
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = Everything;
 	type BlockWeights = ();

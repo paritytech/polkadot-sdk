@@ -35,7 +35,7 @@ use sc_transaction_pool_api::{
 };
 use sp_consensus::{Environment, Proposer};
 use sp_inherents::InherentDataProvider;
-use sp_runtime::{generic::BlockId, traits::NumberFor, OpaqueExtrinsic};
+use sp_runtime::{traits::NumberFor, OpaqueExtrinsic};
 
 use crate::{
 	common::SizeType,
@@ -233,7 +233,7 @@ impl sc_transaction_pool_api::TransactionPool for Transactions {
 	/// Returns a future that imports a bunch of unverified transactions to the pool.
 	fn submit_at(
 		&self,
-		_at: &BlockId<Self::Block>,
+		_at: Self::Hash,
 		_source: TransactionSource,
 		_xts: Vec<TransactionFor<Self>>,
 	) -> PoolFuture<Vec<Result<node_primitives::Hash, Self::Error>>, Self::Error> {
@@ -243,7 +243,7 @@ impl sc_transaction_pool_api::TransactionPool for Transactions {
 	/// Returns a future that imports one unverified transaction to the pool.
 	fn submit_one(
 		&self,
-		_at: &BlockId<Self::Block>,
+		_at: Self::Hash,
 		_source: TransactionSource,
 		_xt: TransactionFor<Self>,
 	) -> PoolFuture<TxHash<Self>, Self::Error> {
@@ -252,7 +252,7 @@ impl sc_transaction_pool_api::TransactionPool for Transactions {
 
 	fn submit_and_watch(
 		&self,
-		_at: &BlockId<Self::Block>,
+		_at: Self::Hash,
 		_source: TransactionSource,
 		_xt: TransactionFor<Self>,
 	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {

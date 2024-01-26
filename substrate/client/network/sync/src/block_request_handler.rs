@@ -24,7 +24,6 @@ use crate::{
 		BlockResponse as BlockResponseSchema, BlockResponse, Direction,
 	},
 	service::network::NetworkServiceHandle,
-	MAX_BLOCKS_IN_RESPONSE,
 };
 
 use codec::{Decode, DecodeAll, Encode};
@@ -53,6 +52,9 @@ use std::{
 	sync::Arc,
 	time::Duration,
 };
+
+/// Maximum blocks per response.
+pub(crate) const MAX_BLOCKS_IN_RESPONSE: usize = 128;
 
 const LOG_TARGET: &str = "sync";
 const MAX_BODY_BYTES: usize = 8 * 1024 * 1024;

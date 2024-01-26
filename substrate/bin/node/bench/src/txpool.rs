@@ -27,7 +27,6 @@ use node_testing::bench::{BenchDb, BlockType, DatabaseType, KeyTypes};
 
 use sc_transaction_pool::BasicPool;
 use sc_transaction_pool_api::{TransactionPool, TransactionSource};
-use sp_runtime::generic::BlockId;
 
 use crate::core::{self, Mode, Path};
 
@@ -58,10 +57,11 @@ impl core::BenchmarkDescription for PoolBenchmarkDescription {
 impl core::Benchmark for PoolBenchmark {
 	fn run(&mut self, mode: Mode) -> std::time::Duration {
 		let context = self.database.create_context();
+		let genesis_hash = context.client.chain_info().genesis_hash;
 
 		let _ = context
 			.client
-			.runtime_version_at(context.client.chain_info().genesis_hash)
+			.runtime_version_at(genesis_hash)
 			.expect("Failed to get runtime version")
 			.spec_version;
 
@@ -90,7 +90,7 @@ impl core::Benchmark for PoolBenchmark {
 		let start = std::time::Instant::now();
 		let submissions = generated_transactions
 			.into_iter()
-			.map(|tx| txpool.submit_one(&BlockId::Number(0), TransactionSource::External, tx));
+			.map(|tx| txpool.submit_one(genesis_hash, TransactionSource::External, tx));
 		futures::executor::block_on(futures::future::join_all(submissions));
 		let elapsed = start.elapsed();
 

@@ -31,7 +31,7 @@ pub mod v1 {
 	/// checking, the version checking is not complete as it will begin failing after the upgrade is
 	/// enacted on-chain.
 	///
-	/// Use experimental [`VersionCheckedMigrateToV1`] instead.
+	/// Use experimental [`MigrateToV1`] instead.
 	pub struct VersionUncheckedMigrateToV1<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
@@ -65,7 +65,7 @@ pub mod v1 {
 	///
 	/// Wrapped in [`frame_support::migrations::VersionedMigration`] so the pre/post checks don't
 	/// begin failing after the upgrade is enacted on-chain.
-	pub type VersionCheckedMigrateToV1<T> = frame_support::migrations::VersionedMigration<
+	pub type MigrateToV1<T> = frame_support::migrations::VersionedMigration<
 		0,
 		1,
 		VersionUncheckedMigrateToV1<T>,

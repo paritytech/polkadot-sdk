@@ -84,6 +84,20 @@ impl DescribeLocation for DescribeAccountKey20Terminal {
 	}
 }
 
+/// Create a description of the remote treasury `location` if possible. No two locations should have
+/// the same descriptor.
+pub struct DescribeTreasuryVoiceTerminal;
+
+impl DescribeLocation for DescribeTreasuryVoiceTerminal {
+	fn describe_location(l: &MultiLocation) -> Option<Vec<u8>> {
+		match (l.parents, &l.interior) {
+			(0, X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice })) =>
+				Some((b"Treasury", b"Voice").encode()),
+			_ => None,
+		}
+	}
+}
+
 pub type DescribeAccountIdTerminal = (DescribeAccountId32Terminal, DescribeAccountKey20Terminal);
 
 pub struct DescribeBodyTerminal;
@@ -101,6 +115,7 @@ pub type DescribeAllTerminal = (
 	DescribePalletTerminal,
 	DescribeAccountId32Terminal,
 	DescribeAccountKey20Terminal,
+	DescribeTreasuryVoiceTerminal,
 	DescribeBodyTerminal,
 );
 
@@ -328,6 +343,25 @@ impl<Network: Get<Option<NetworkId>>, AccountId: From<[u8; 32]> + Into<[u8; 32]>
 	}
 }
 
+/// Returns specified `TreasuryAccount` as `AccountId32` if passed `location` matches Treasury
+/// plurality.
+pub struct LocalTreasuryVoiceConvertsVia<TreasuryAccount, AccountId>(
+	PhantomData<(TreasuryAccount, AccountId)>,
+);
+impl<TreasuryAccount: Get<AccountId>, AccountId: From<[u8; 32]> + Into<[u8; 32]> + Clone>
+	ConvertLocation<AccountId> for LocalTreasuryVoiceConvertsVia<TreasuryAccount, AccountId>
+{
+	fn convert_location(location: &MultiLocation) -> Option<AccountId> {
+		match *location {
+			MultiLocation {
+				parents: 0,
+				interior: X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }),
+			} => Some((TreasuryAccount::get().into() as [u8; 32]).into()),
+			_ => None,
+		}
+	}
+}
+
 /// Conversion implementation which converts from a `[u8; 32]`-based `AccountId` into a
 /// `MultiLocation` consisting solely of a `AccountId32` junction with a fixed value for its
 /// network (provided by `Network`) and the `AccountId`'s `[u8; 32]` datum for the `id`.
@@ -442,9 +476,12 @@ impl<UniversalLocation, AccountId>
 #[cfg(test)]
 mod tests {
 	use super::*;
-
+	use primitives::AccountId;
 	pub type ForeignChainAliasAccount<AccountId> =
 		HashedDescription<AccountId, LegacyDescribeForeignChainAccount>;
+
+	pub type ForeignChainAliasTreasuryAccount<AccountId> =
+		HashedDescription<AccountId, DescribeFamily<DescribeTreasuryVoiceTerminal>>;
 
 	use frame_support::parameter_types;
 	use xcm::latest::Junction;
@@ -935,5 +972,71 @@ mod tests {
 			interior: X1(AccountKey20 { network: None, key: [0u8; 20] }),
 		};
 		assert!(ForeignChainAliasAccount::<[u8; 32]>::convert_location(&mul).is_none());
+	}
+
+	#[test]
+	fn remote_account_convert_on_para_sending_from_remote_para_treasury() {
+		let relay_treasury_to_para_location = MultiLocation {
+			parents: 1,
+			interior: X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }),
+		};
+		let actual_description = ForeignChainAliasTreasuryAccount::<[u8; 32]>::convert_location(
+			&relay_treasury_to_para_location,
+		)
+		.unwrap();
+
+		assert_eq!(
+			[
+				18, 84, 93, 74, 187, 212, 254, 71, 192, 127, 112, 51, 3, 42, 54, 24, 220, 185, 161,
+				67, 205, 154, 108, 116, 108, 166, 226, 211, 29, 11, 244, 115
+			],
+			actual_description
+		);
+
+		let para_to_para_treasury_location = MultiLocation {
+			parents: 1,
+			interior: X2(
+				Parachain(1001),
+				Plurality { id: BodyId::Treasury, part: BodyPart::Voice },
+			),
+		};
+		let actual_description = ForeignChainAliasTreasuryAccount::<[u8; 32]>::convert_location(
+			&para_to_para_treasury_location,
+		)
+		.unwrap();
+
+		assert_eq!(
+			[
+				202, 52, 249, 30, 7, 99, 135, 128, 153, 139, 176, 141, 138, 234, 163, 150, 7, 36,
+				204, 92, 220, 137, 87, 57, 73, 91, 243, 189, 245, 200, 217, 204
+			],
+			actual_description
+		);
+	}
+
+	#[test]
+	fn local_account_convert_on_para_from_relay_treasury() {
+		let location = MultiLocation {
+			parents: 0,
+			interior: X1(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }),
+		};
+
+		parameter_types! {
+			pub TreasuryAccountId: AccountId = AccountId::new([42u8; 32]);
+		}
+
+		let actual_description =
+			LocalTreasuryVoiceConvertsVia::<TreasuryAccountId, [u8; 32]>::convert_location(
+				&location,
+			)
+			.unwrap();
+
+		assert_eq!(
+			[
+				42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
+				42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42
+			],
+			actual_description
+		);
 	}
 }

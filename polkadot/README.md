@@ -63,7 +63,6 @@ directory of the repo:
 
 ```bash
 git checkout <latest tagged release>
-./scripts/init.sh
 cargo build --release
 ```
 
@@ -213,7 +212,7 @@ that we currently maintain.
 
 ### Using Docker
 
-[Using Docker](../docs/docker.md)
+[Using Docker](../docs/contributor/docker.md)
 
 ### Shell Completion
 
@@ -223,11 +222,11 @@ that we currently maintain.
 
 ### Contributing Guidelines
 
-[Contribution Guidelines](https://github.com/paritytech/polkadot-sdk/blob/master/docs/CONTRIBUTING.md)
+[Contribution Guidelines](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md)
 
 ### Contributor Code of Conduct
 
-[Code of Conduct](https://github.com/paritytech/polkadot-sdk/blob/master/docs/CODE_OF_CONDUCT.md)
+[Code of Conduct](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CODE_OF_CONDUCT.md)
 
 ## License
 

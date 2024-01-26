@@ -16,7 +16,7 @@
 
 use std::sync::Arc;
 
-use polkadot_node_subsystem::{jaeger, ActivatedLeaf, LeafStatus};
+use polkadot_node_subsystem::{jaeger, ActivatedLeaf};
 use sc_client_api::UnpinHandle;
 use sc_keystore::LocalKeystore;
 use sc_utils::mpsc::tracing_unbounded;
@@ -55,7 +55,6 @@ pub fn new_leaf(hash: Hash, number: BlockNumber) -> ActivatedLeaf {
 	ActivatedLeaf {
 		hash,
 		number,
-		status: LeafStatus::Fresh,
 		unpin_handle: dummy_unpin_handle(hash),
 		span: Arc::new(jaeger::Span::Disabled),
 	}

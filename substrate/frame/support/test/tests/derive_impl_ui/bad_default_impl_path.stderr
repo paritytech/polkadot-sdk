@@ -1,7 +1,5 @@
-error: cannot find macro `__export_tokens_tt_tiger` in this scope
-  --> tests/derive_impl_ui/bad_default_impl_path.rs:59:1
+error: cannot find macro `Tiger` in this scope
+  --> tests/derive_impl_ui/bad_default_impl_path.rs:59:15
    |
 59 | #[derive_impl(Tiger as Animal)]
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = note: this error originates in the macro `frame_support::macro_magic::forward_tokens` (in Nightly builds, run with -Z macro-backtrace for more info)
+   |               ^^^^^

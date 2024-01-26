@@ -793,7 +793,7 @@ fn receiving_from_one_sends_to_another_and_to_candidate_backing() {
 		assert_matches!(
 			handle.recv().await,
 			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(r, RuntimeApiRequest::StagingAsyncBackingParams(tx))
+				RuntimeApiMessage::Request(r, RuntimeApiRequest::AsyncBackingParams(tx))
 			)
 				if r == hash_a
 			=> {
@@ -1033,7 +1033,7 @@ fn receiving_large_statement_from_one_sends_to_another_and_to_candidate_backing(
 		assert_matches!(
 			handle.recv().await,
 			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(r, RuntimeApiRequest::StagingAsyncBackingParams(tx))
+				RuntimeApiMessage::Request(r, RuntimeApiRequest::AsyncBackingParams(tx))
 			)
 				if r == hash_a
 			=> {
@@ -1563,7 +1563,7 @@ fn delay_reputation_changes() {
 		assert_matches!(
 			handle.recv().await,
 			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(r, RuntimeApiRequest::StagingAsyncBackingParams(tx))
+				RuntimeApiMessage::Request(r, RuntimeApiRequest::AsyncBackingParams(tx))
 			)
 				if r == hash_a
 			=> {
@@ -2043,7 +2043,7 @@ fn share_prioritizes_backing_group() {
 		assert_matches!(
 			handle.recv().await,
 			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(r, RuntimeApiRequest::StagingAsyncBackingParams(tx))
+				RuntimeApiMessage::Request(r, RuntimeApiRequest::AsyncBackingParams(tx))
 			)
 				if r == hash_a
 			=> {
@@ -2365,7 +2365,7 @@ fn peer_cant_flood_with_large_statements() {
 		assert_matches!(
 			handle.recv().await,
 			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(r, RuntimeApiRequest::StagingAsyncBackingParams(tx))
+				RuntimeApiMessage::Request(r, RuntimeApiRequest::AsyncBackingParams(tx))
 			)
 				if r == hash_a
 			=> {
@@ -2590,7 +2590,7 @@ fn handle_multiple_seconded_statements() {
 		assert_matches!(
 			handle.recv().await,
 			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(r, RuntimeApiRequest::StagingAsyncBackingParams(tx))
+				RuntimeApiMessage::Request(r, RuntimeApiRequest::AsyncBackingParams(tx))
 			)
 				if r == relay_parent_hash
 			=> {

@@ -33,23 +33,23 @@ use crate::{
 	worker::PersistedState,
 };
 use futures::{stream::Fuse, StreamExt};
-use log::{error, info};
+use log::{debug, error, info};
 use parking_lot::Mutex;
 use prometheus::Registry;
 use sc_client_api::{Backend, BlockBackend, BlockchainEvents, FinalityNotifications, Finalizer};
 use sc_consensus::BlockImport;
-use sc_network::{NetworkRequest, ProtocolName};
+use sc_network::{NetworkRequest, NotificationService, ProtocolName};
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork, Syncing as GossipSyncing};
-use sp_api::{HeaderT, NumberFor, ProvideRuntimeApi};
+use sp_api::{ProvideRuntimeApi};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_blockchain::{
 	Backend as BlockchainBackend, Error as ClientError, HeaderBackend, Result as ClientResult,
 };
 use sp_consensus::{Error as ConsensusError, SyncOracle};
-use sp_consensus_beefy::{BeefyApi, MmrRootHash, PayloadProvider, ValidatorSet, BEEFY_ENGINE_ID};
+use sp_consensus_beefy::{BeefyApi, MmrRootHash, PayloadProvider, ValidatorSet, BEEFY_ENGINE_ID, AuthorityIdBound};
 use sp_keystore::KeystorePtr;
 use sp_mmr_primitives::MmrApi;
-use sp_runtime::traits::{Block, Zero};
+use sp_runtime::traits::{Block, Header as HeaderT, NumberFor, Zero};
 use std::{
 	collections::{BTreeMap, VecDeque},
 	marker::PhantomData,
@@ -106,7 +106,7 @@ where
 /// Links between the block importer, the background voter and the RPC layer,
 /// to be used by the voter.
 #[derive(Clone)]
-pub struct BeefyVoterLinks<B: Block, AuthorityId: keystore::AuthorityIdBound>
+pub struct BeefyVoterLinks<B: Block, AuthorityId: AuthorityIdBound>
 where
 	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
@@ -123,7 +123,7 @@ where
 
 /// Links used by the BEEFY RPC layer, from the BEEFY background voter.
 #[derive(Clone)]
-pub struct BeefyRPCLinks<B: Block, AuthorityId: keystore::AuthorityIdBound>
+pub struct BeefyRPCLinks<B: Block, AuthorityId: AuthorityIdBound>
 where
 	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
@@ -134,7 +134,7 @@ where
 }
 
 /// Make block importer and link half necessary to tie the background voter to it.
-pub fn beefy_block_import_and_links<B, BE, RuntimeApi, I, AuthorityId: keystore::AuthorityIdBound>(
+pub fn beefy_block_import_and_links<B, BE, RuntimeApi, I, AuthorityId: AuthorityIdBound>(
 	wrapped_block_import: I,
 	backend: Arc<BE>,
 	runtime: Arc<RuntimeApi>,
@@ -150,7 +150,7 @@ where
 	I: BlockImport<B, Error = ConsensusError> + Send + Sync,
 	RuntimeApi: ProvideRuntimeApi<B> + Send + Sync,
 	RuntimeApi::Api: BeefyApi<B, AuthorityId>,
-	AuthorityId: keystore::AuthorityIdBound,
+	AuthorityId: AuthorityIdBound,
 	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	// Voter -> RPC links
@@ -188,6 +188,8 @@ pub struct BeefyNetworkParams<B: Block, N, S> {
 	pub network: Arc<N>,
 	/// Syncing service implementing a sync oracle and an event stream for peers.
 	pub sync: Arc<S>,
+	/// Handle for receiving notification events.
+	pub notification_service: Box<dyn NotificationService>,
 	/// Chain specific BEEFY gossip protocol name. See
 	/// [`communication::beefy_protocol_name::gossip_protocol_name`].
 	pub gossip_protocol_name: ProtocolName,
@@ -199,7 +201,7 @@ pub struct BeefyNetworkParams<B: Block, N, S> {
 }
 
 /// BEEFY gadget initialization parameters.
-pub struct BeefyParams<B: Block, BE, C, N, P, R, S, AuthorityId: keystore::AuthorityIdBound>
+pub struct BeefyParams<B: Block, BE, C, N, P, R, S, AuthorityId: AuthorityIdBound>
 where
 	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
@@ -239,7 +241,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S, AuthorityId>(
 	R::Api: BeefyApi<B, AuthorityId> + MmrApi<B, MmrRootHash, NumberFor<B>>,
 	N: GossipNetwork<B> + NetworkRequest + Send + Sync + 'static,
 	S: GossipSyncing<B> + SyncOracle + 'static,
-	AuthorityId: keystore::AuthorityIdBound,
+	AuthorityId: AuthorityIdBound,
 	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
 	let BeefyParams {
@@ -258,6 +260,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S, AuthorityId>(
 	let BeefyNetworkParams {
 		network,
 		sync,
+		notification_service,
 		gossip_protocol_name,
 		justifications_protocol_name,
 		..
@@ -279,6 +282,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S, AuthorityId>(
 	let gossip_engine = GossipEngine::new(
 		network.clone(),
 		sync.clone(),
+		notification_service,
 		gossip_protocol_name.clone(),
 		gossip_validator.clone(),
 		None,
@@ -368,7 +372,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S, AuthorityId>(
 	}
 }
 
-fn load_or_init_voter_state<B, BE, R, AuthorityId: keystore::AuthorityIdBound>(
+fn load_or_init_voter_state<B, BE, R, AuthorityId: AuthorityIdBound>(
 	backend: &BE,
 	runtime: &R,
 	beefy_genesis: NumberFor<B>,
@@ -404,7 +408,7 @@ where
 //  - latest BEEFY finalized block, or if none found on the way,
 //  - BEEFY pallet genesis;
 // Enqueue any BEEFY mandatory blocks (session boundaries) found on the way, for voter to finalize.
-fn initialize_voter_state<B, BE, R, AuthorityId: keystore::AuthorityIdBound>(
+fn initialize_voter_state<B, BE, R, AuthorityId: AuthorityIdBound>(
 	backend: &BE,
 	runtime: &R,
 	beefy_genesis: NumberFor<B>,
@@ -445,7 +449,7 @@ where
 			let best_beefy = *header.number();
 			// If no session boundaries detected so far, just initialize new rounds here.
 			if sessions.is_empty() {
-				let active_set = expect_validator_set(runtime, backend, &header, beefy_genesis)?;
+				let active_set = expect_validator_set(runtime, backend, &header)?;
 				let mut rounds = Rounds::new(best_beefy, active_set);
 				// Mark the round as already finalized.
 				rounds.conclude(best_beefy);
@@ -464,7 +468,7 @@ where
 
 		if *header.number() == beefy_genesis {
 			// We've reached BEEFY genesis, initialize voter here.
-			let genesis_set = expect_validator_set(runtime, backend, &header, beefy_genesis)?;
+			let genesis_set = expect_validator_set(runtime, backend, &header)?;
 			info!(
 				target: LOG_TARGET,
 				"🥩 Loading BEEFY voter state from genesis on what appears to be first startup. \
@@ -504,7 +508,7 @@ where
 
 /// Wait for BEEFY runtime pallet to be available, return active validator set.
 /// Should be called only once during worker initialization.
-async fn wait_for_runtime_pallet<B, R, AuthorityId: keystore::AuthorityIdBound>(
+async fn wait_for_runtime_pallet<B, R, AuthorityId: AuthorityIdBound>(
 	runtime: &R,
 	mut gossip_engine: &mut GossipEngine<B>,
 	finality: &mut Fuse<FinalityNotifications<B>>,
@@ -546,11 +550,10 @@ where
 	Err(ClientError::Backend(err_msg))
 }
 
-fn expect_validator_set<B, BE, R, AuthorityId: keystore::AuthorityIdBound>(
+fn expect_validator_set<B, BE, R, AuthorityId: AuthorityIdBound>(
 	runtime: &R,
 	backend: &BE,
 	at_header: &B::Header,
-	beefy_genesis: NumberFor<B>,
 ) -> ClientResult<ValidatorSet<AuthorityId>>
 where
 	B: Block,
@@ -559,6 +562,7 @@ where
 	R::Api: BeefyApi<B, AuthorityId>,
 	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
 {
+	debug!(target: LOG_TARGET, "🥩 Try to find validator set active at header: {:?}", at_header);
 	runtime
 		.runtime_api()
 		.validator_set(at_header.hash())
@@ -569,14 +573,14 @@ where
 			// Digest emitted when validator set active 'at_header' was enacted.
 			let blockchain = backend.blockchain();
 			let mut header = at_header.clone();
-			while *header.number() >= beefy_genesis {
+			loop {
+				debug!(target: LOG_TARGET, "🥩 look for auth set change digest in header number: {:?}", *header.number());
 				match worker::find_authorities_change::<B, AuthorityId>(&header) {
 					Some(active) => return Some(active),
 					// Move up the chain.
 					None => header = blockchain.expect_header(*header.parent_hash()).ok()?,
 				}
 			}
-			None
 		})
 		.ok_or_else(|| ClientError::Backend("Could not find initial validator set".into()))
 }

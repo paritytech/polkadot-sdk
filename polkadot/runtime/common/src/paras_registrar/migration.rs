@@ -60,11 +60,10 @@ impl<T: Config, UnlockParaIds: Contains<ParaId>> OnRuntimeUpgrade
 	}
 }
 
-pub type VersionCheckedMigrateToV1<T, UnlockParaIds> =
-	frame_support::migrations::VersionedMigration<
-		0,
-		1,
-		VersionUncheckedMigrateToV1<T, UnlockParaIds>,
-		super::Pallet<T>,
-		<T as frame_system::Config>::DbWeight,
-	>;
+pub type MigrateToV1<T, UnlockParaIds> = frame_support::migrations::VersionedMigration<
+	0,
+	1,
+	VersionUncheckedMigrateToV1<T, UnlockParaIds>,
+	super::Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;

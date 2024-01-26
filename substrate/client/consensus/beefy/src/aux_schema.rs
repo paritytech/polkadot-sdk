@@ -18,13 +18,13 @@
 
 //! Schema for BEEFY state persisted in the aux-db.
 
-use crate::{keystore::AuthorityIdBound, worker::PersistedState, LOG_TARGET};
+use crate::{worker::PersistedState, LOG_TARGET};
 use codec::{Decode, Encode};
 use log::{info, trace};
 use sc_client_api::{backend::AuxStore, Backend};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_blockchain::{Error as ClientError, Result as ClientResult};
-use sp_consensus_beefy::{BeefyApi, MmrRootHash, PayloadProvider, ValidatorSet, BEEFY_ENGINE_ID};
+use sp_consensus_beefy::{BeefyApi, MmrRootHash, PayloadProvider, ValidatorSet, BEEFY_ENGINE_ID, AuthorityIdBound};
 use sp_runtime::traits::Block as BlockT;
 
 const VERSION_KEY: &[u8] = b"beefy_auxschema_version";

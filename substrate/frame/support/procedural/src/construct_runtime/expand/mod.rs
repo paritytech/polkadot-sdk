@@ -16,6 +16,7 @@
 // limitations under the License
 
 mod call;
+pub mod composite_helper;
 mod config;
 mod freeze_reason;
 mod hold_reason;

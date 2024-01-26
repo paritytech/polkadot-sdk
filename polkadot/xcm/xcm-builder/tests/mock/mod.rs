@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use frame_support::{
-	construct_runtime, parameter_types,
+	construct_runtime, derive_impl, parameter_types,
 	traits::{ConstU32, Everything, Nothing},
 	weights::Weight,
 };
@@ -76,6 +76,7 @@ parameter_types! {
 	pub const BlockHashCount: u64 = 250;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
@@ -119,6 +120,7 @@ impl pallet_balances::Config for Runtime {
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
 	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<0>;
@@ -171,13 +173,13 @@ pub type Barrier = (
 );
 
 parameter_types! {
-	pub KusamaForStatemine: (MultiAssetFilter, MultiLocation) =
+	pub KusamaForAssetHub: (MultiAssetFilter, MultiLocation) =
 		(Wild(AllOf { id: Concrete(Here.into()), fun: WildFungible }), Parachain(1000).into());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 4;
 }
 
-pub type TrustedTeleporters = (xcm_builder::Case<KusamaForStatemine>,);
+pub type TrustedTeleporters = (xcm_builder::Case<KusamaForAssetHub>,);
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
@@ -209,11 +211,6 @@ impl xcm_executor::Config for XcmConfig {
 
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, KusamaNetwork>;
 
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Here.into());
-}
-
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type UniversalLocation = UniversalLocation;
@@ -238,8 +235,6 @@ impl pallet_xcm::Config for Runtime {
 	type MaxRemoteLockConsumers = frame_support::traits::ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = pallet_xcm::TestWeightInfo;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReachableDest = ReachableDest;
 	type AdminOrigin = EnsureRoot<AccountId>;
 }
 

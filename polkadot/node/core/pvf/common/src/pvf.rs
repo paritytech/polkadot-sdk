@@ -115,7 +115,7 @@ impl fmt::Debug for PvfPrepData {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		write!(
 			f,
-			"Pvf {{ code, code_hash: {:?}, executor_params: {:?}, prep_timeout: {:?} }}",
+			"Pvf {{ code: [...], code_hash: {:?}, executor_params: {:?}, prep_timeout: {:?} }}",
 			self.code_hash, self.executor_params, self.prep_timeout
 		)
 	}

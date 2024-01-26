@@ -15,7 +15,7 @@ default-target = "wasm32-unknown-unknown"
 # with the tracing enabled
 features = ["with-tracing"]
 # allowing for linux-gnu here, too, allows for `std` to show up as well
-targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
+targets = ["wasm32-unknown-unknown", "x86_64-unknown-linux-gnu"]
 
 [dependencies]
 sp-std = { path = "../std", default-features = false }
@@ -29,8 +29,8 @@ tracing-subscriber = { version = "0.2.25", optional = true, features = [
 ] }
 
 [features]
-default = [ "std" ]
-with-tracing = [ "codec/derive", "codec/full" ]
+default = ["std"]
+with-tracing = ["codec/derive", "codec/full"]
 std = [
 	"codec/std",
 	"sp-std/std",

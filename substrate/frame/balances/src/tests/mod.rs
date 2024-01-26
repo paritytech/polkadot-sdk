@@ -22,12 +22,12 @@
 use crate::{self as pallet_balances, AccountData, Config, CreditOf, Error, Pallet};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-	assert_err, assert_noop, assert_ok, assert_storage_noop,
+	assert_err, assert_noop, assert_ok, assert_storage_noop, derive_impl,
 	dispatch::{DispatchInfo, GetDispatchInfo},
 	parameter_types,
 	traits::{
-		tokens::fungible, ConstU32, ConstU64, ConstU8, Imbalance as ImbalanceT, OnUnbalanced,
-		StorageMapShim, StoredMap, WhitelistedStorageKeys,
+		fungible, ConstU32, ConstU64, ConstU8, Imbalance as ImbalanceT, OnUnbalanced,
+		StorageMapShim, StoredMap, VariantCount, WhitelistedStorageKeys,
 	},
 	weights::{IdentityFee, Weight},
 };
@@ -70,6 +70,10 @@ pub enum TestId {
 	Baz,
 }
 
+impl VariantCount for TestId {
+	const VARIANT_COUNT: u32 = 3;
+}
+
 frame_support::construct_runtime!(
 	pub struct Test
 	{
@@ -86,6 +90,8 @@ parameter_types! {
 		);
 	pub static ExistentialDeposit: u64 = 1;
 }
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;
@@ -132,9 +138,10 @@ impl Config for Test {
 	type ReserveIdentifier = TestId;
 	type WeightInfo = ();
 	type RuntimeHoldReason = TestId;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = TestId;
 	type MaxFreezes = ConstU32<2>;
-	type MaxHolds = ConstU32<2>;
+	type MaxHolds = ConstU32<3>;
 }
 
 #[derive(Clone)]

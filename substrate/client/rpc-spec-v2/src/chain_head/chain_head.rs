@@ -48,6 +48,7 @@ use sc_client_api::{
 use sp_api::CallApiAt;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_core::{traits::CallContext, Bytes};
+use sp_rpc::list::ListOrValue;
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
@@ -106,8 +107,6 @@ pub struct ChainHead<BE: Backend<Block>, Block: BlockT, Client> {
 	executor: SubscriptionTaskExecutor,
 	/// Keep track of the pinned blocks for each subscription.
 	subscriptions: Arc<SubscriptionManagement<Block, BE>>,
-	/// The hexadecimal encoded hash of the genesis block.
-	genesis_hash: String,
 	/// The maximum number of items reported by the `chainHead_storage` before
 	/// pagination is required.
 	operation_max_storage_items: usize,
@@ -117,14 +116,12 @@ pub struct ChainHead<BE: Backend<Block>, Block: BlockT, Client> {
 
 impl<BE: Backend<Block>, Block: BlockT, Client> ChainHead<BE, Block, Client> {
 	/// Create a new [`ChainHead`].
-	pub fn new<GenesisHash: AsRef<[u8]>>(
+	pub fn new(
 		client: Arc<Client>,
 		backend: Arc<BE>,
 		executor: SubscriptionTaskExecutor,
-		genesis_hash: GenesisHash,
 		config: ChainHeadConfig,
 	) -> Self {
-		let genesis_hash = hex_string(&genesis_hash.as_ref());
 		Self {
 			client,
 			backend: backend.clone(),
@@ -136,7 +133,6 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHead<BE, Block, Client> {
 				backend,
 			)),
 			operation_max_storage_items: config.operation_max_storage_items,
-			genesis_hash,
 			_phantom: PhantomData,
 		}
 	}
@@ -202,7 +198,9 @@ where
 		let sub_id = match self.accept_subscription(&mut sink) {
 			Ok(sub_id) => sub_id,
 			Err(err) => {
-				sink.close(ChainHeadRpcError::InvalidSubscriptionID);
+				sink.close(ChainHeadRpcError::InternalError(
+					"Cannot generate subscription ID".into(),
+				));
 				return Err(err)
 			},
 		};
@@ -310,12 +308,8 @@ where
 		self.client
 			.header(hash)
 			.map(|opt_header| opt_header.map(|h| hex_string(&h.encode())))
-			.map_err(ChainHeadRpcError::FetchBlockHeader)
+			.map_err(|err| ChainHeadRpcError::InternalError(err.to_string()))
 			.map_err(Into::into)
-	}
-
-	fn chain_head_unstable_genesis_hash(&self) -> RpcResult<String> {
-		Ok(self.genesis_hash.clone())
 	}
 
 	fn chain_head_unstable_storage(
@@ -401,7 +395,7 @@ where
 
 		// Reject subscription if with_runtime is false.
 		if !block_guard.has_runtime() {
-			return Err(ChainHeadRpcError::InvalidParam(
+			return Err(ChainHeadRpcError::InvalidRuntimeCall(
 				"The runtime updates flag must be set".to_string(),
 			)
 			.into())
@@ -432,9 +426,16 @@ where
 	fn chain_head_unstable_unpin(
 		&self,
 		follow_subscription: String,
-		hash: Block::Hash,
+		hash_or_hashes: ListOrValue<Block::Hash>,
 	) -> RpcResult<()> {
-		match self.subscriptions.unpin_block(&follow_subscription, hash) {
+		let result = match hash_or_hashes {
+			ListOrValue::Value(hash) =>
+				self.subscriptions.unpin_blocks(&follow_subscription, [hash]),
+			ListOrValue::List(hashes) =>
+				self.subscriptions.unpin_blocks(&follow_subscription, hashes),
+		};
+
+		match result {
 			Ok(()) => Ok(()),
 			Err(SubscriptionManagementError::SubscriptionAbsent) => {
 				// Invalid invalid subscription ID.

@@ -23,7 +23,7 @@ use log::debug;
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_consensus::Error as ConsensusError;
-use sp_consensus_beefy::{ecdsa_crypto::AuthorityId, BeefyApi, BEEFY_ENGINE_ID};
+use sp_consensus_beefy::{ecdsa_crypto::AuthorityId, BeefyApi, BEEFY_ENGINE_ID, AuthorityIdBound,};
 use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, NumberFor},
 	EncodedJustification,
@@ -35,7 +35,7 @@ use sc_consensus::{BlockCheckParams, BlockImport, BlockImportParams, ImportResul
 use crate::{
 	communication::notification::BeefyVersionedFinalityProofSender,
 	justification::{decode_and_verify_finality_proof, BeefyVersionedFinalityProof},
-	keystore::AuthorityIdBound,
+
 	metric_inc,
 	metrics::BlockImportMetrics,
 	LOG_TARGET,

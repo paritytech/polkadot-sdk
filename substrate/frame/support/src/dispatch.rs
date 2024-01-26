@@ -36,7 +36,8 @@ use sp_weights::Weight;
 /// returned from a dispatch.
 pub type DispatchResultWithPostInfo = sp_runtime::DispatchResultWithInfo<PostDispatchInfo>;
 
-/// Unaugmented version of `DispatchResultWithPostInfo` that can be returned from
+#[docify::export]
+/// Un-augmented version of `DispatchResultWithPostInfo` that can be returned from
 /// dispatchable functions and is automatically converted to the augmented type. Should be
 /// used whenever the `PostDispatchInfo` does not need to be overwritten. As this should
 /// be the common case it is the implicit return type when none is specified.
@@ -53,6 +54,20 @@ pub trait Callable<T> {
 // dirty hack to work around serde_derive issue
 // https://github.com/rust-lang/rust/issues/51331
 pub type CallableCallFor<A, R> = <A as Callable<R>>::RuntimeCall;
+
+/// Means to checks if the dispatchable is feeless.
+///
+/// This is automatically implemented for all dispatchables during pallet expansion.
+/// If a call is marked by [`#[pallet::feeless_if]`](`macro@frame_support_procedural::feeless_if`)
+/// attribute, the corresponding closure is checked.
+pub trait CheckIfFeeless {
+	/// The Origin type of the runtime.
+	type Origin;
+
+	/// Checks if the dispatchable satisfies the feeless condition as defined by
+	/// [`#[pallet::feeless_if]`](`macro@frame_support_procedural::feeless_if`)
+	fn is_feeless(&self, origin: &Self::Origin) -> bool;
+}
 
 /// Origin for the System pallet.
 #[derive(PartialEq, Eq, Clone, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
@@ -390,7 +405,7 @@ impl<Call: Encode + GetDispatchInfo, Extra: Encode> GetDispatchInfo
 }
 
 /// A struct holding value for each `DispatchClass`.
-#[derive(Clone, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Eq, PartialEq, Default, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub struct PerDispatchClass<T> {
 	/// Value for `Normal` extrinsics.
 	normal: T,

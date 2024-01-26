@@ -19,10 +19,10 @@
 use super::*;
 
 use polkadot_node_subsystem::messages::{ChainApiMessage, ProspectiveParachainsMessage};
-use polkadot_primitives::{vstaging as vstaging_primitives, Header, OccupiedCore};
+use polkadot_primitives::{AsyncBackingParams, Header, OccupiedCore};
 
-const ASYNC_BACKING_PARAMETERS: vstaging_primitives::AsyncBackingParams =
-	vstaging_primitives::AsyncBackingParams { max_candidate_depth: 4, allowed_ancestry_len: 3 };
+const ASYNC_BACKING_PARAMETERS: AsyncBackingParams =
+	AsyncBackingParams { max_candidate_depth: 4, allowed_ancestry_len: 3 };
 
 fn get_parent_hash(hash: Hash) -> Hash {
 	Hash::from_low_u64_be(hash.to_low_u64_be() + 1)
@@ -52,7 +52,7 @@ async fn update_view(
 			overseer_recv(virtual_overseer).await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				parent,
-				RuntimeApiRequest::StagingAsyncBackingParams(tx),
+				RuntimeApiRequest::AsyncBackingParams(tx),
 			)) => {
 				tx.send(Ok(ASYNC_BACKING_PARAMETERS)).unwrap();
 				(parent, new_view.get(&parent).copied().expect("Unknown parent requested"))
@@ -124,7 +124,7 @@ async fn update_view(
 }
 
 /// Check that the next received message is a `Declare` message.
-pub(super) async fn expect_declare_msg_vstaging(
+pub(super) async fn expect_declare_msg_v2(
 	virtual_overseer: &mut VirtualOverseer,
 	test_state: &TestState,
 	peer: &PeerId,
@@ -133,20 +133,20 @@ pub(super) async fn expect_declare_msg_vstaging(
 		overseer_recv(virtual_overseer).await,
 		AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendCollationMessage(
 			to,
-			Versioned::VStaging(protocol_vstaging::CollationProtocol::CollatorProtocol(
+			Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(
 				wire_message,
 			)),
 		)) => {
 			assert_eq!(to[0], *peer);
 			assert_matches!(
 				wire_message,
-				protocol_vstaging::CollatorProtocolMessage::Declare(
+				protocol_v2::CollatorProtocolMessage::Declare(
 					collator_id,
 					para_id,
 					signature,
 				) => {
 					assert!(signature.verify(
-						&*protocol_vstaging::declare_signature_payload(&test_state.local_peer_id),
+						&*protocol_v2::declare_signature_payload(&test_state.local_peer_id),
 						&collator_id),
 					);
 					assert_eq!(collator_id, test_state.collator_pair.public());
@@ -203,13 +203,12 @@ fn distribute_collation_from_implicit_view() {
 				.into_iter()
 				.zip(validator_peer_ids.clone())
 			{
-				connect_peer(virtual_overseer, peer, CollationVersion::VStaging, Some(val.clone()))
-					.await;
+				connect_peer(virtual_overseer, peer, CollationVersion::V2, Some(val.clone())).await;
 			}
 
 			// Collator declared itself to each peer.
 			for peer_id in &validator_peer_ids {
-				expect_declare_msg_vstaging(virtual_overseer, &test_state, peer_id).await;
+				expect_declare_msg_v2(virtual_overseer, &test_state, peer_id).await;
 			}
 
 			let pov = PoV { block_data: BlockData(vec![1, 2, 3]) };
@@ -386,7 +385,7 @@ fn advertise_and_send_collation_by_hash() {
 		|test_harness| async move {
 			let mut virtual_overseer = test_harness.virtual_overseer;
 			let req_v1_cfg = test_harness.req_v1_cfg;
-			let mut req_vstaging_cfg = test_harness.req_vstaging_cfg;
+			let mut req_v2_cfg = test_harness.req_v2_cfg;
 
 			let head_a = Hash::from_low_u64_be(128);
 			let head_a_num: u32 = 64;
@@ -435,11 +434,11 @@ fn advertise_and_send_collation_by_hash() {
 			connect_peer(
 				&mut virtual_overseer,
 				peer,
-				CollationVersion::VStaging,
+				CollationVersion::V2,
 				Some(validator_id.clone()),
 			)
 			.await;
-			expect_declare_msg_vstaging(&mut virtual_overseer, &test_state, &peer).await;
+			expect_declare_msg_v2(&mut virtual_overseer, &test_state, &peer).await;
 
 			// Head `b` is not a leaf, but both advertisements are still relevant.
 			send_peer_view_change(&mut virtual_overseer, &peer, vec![head_b]).await;
@@ -449,13 +448,13 @@ fn advertise_and_send_collation_by_hash() {
 
 			for (candidate, pov_block) in candidates {
 				let (pending_response, rx) = oneshot::channel();
-				req_vstaging_cfg
+				req_v2_cfg
 					.inbound_queue
 					.as_mut()
 					.unwrap()
 					.send(RawIncomingRequest {
 						peer,
-						payload: request_vstaging::CollationFetchingRequest {
+						payload: request_v2::CollationFetchingRequest {
 							relay_parent: head_b,
 							para_id: test_state.para_id,
 							candidate_hash: candidate.hash(),
@@ -469,7 +468,7 @@ fn advertise_and_send_collation_by_hash() {
 				assert_matches!(
 					rx.await,
 					Ok(full_response) => {
-						// Response is the same for vstaging.
+						// Response is the same for v2.
 						let request_v1::CollationFetchingResponse::Collation(receipt, pov): request_v1::CollationFetchingResponse
 							= request_v1::CollationFetchingResponse::decode(
 								&mut full_response.result
@@ -482,7 +481,7 @@ fn advertise_and_send_collation_by_hash() {
 				);
 			}
 
-			TestHarness { virtual_overseer, req_v1_cfg, req_vstaging_cfg }
+			TestHarness { virtual_overseer, req_v1_cfg, req_v2_cfg }
 		},
 	)
 }
@@ -552,11 +551,11 @@ fn advertise_core_occupied() {
 			connect_peer(
 				virtual_overseer,
 				peer_ids[0],
-				CollationVersion::VStaging,
+				CollationVersion::V2,
 				Some(validators[0].clone()),
 			)
 			.await;
-			expect_declare_msg_vstaging(virtual_overseer, &test_state, &peer_ids[0]).await;
+			expect_declare_msg_v2(virtual_overseer, &test_state, &peer_ids[0]).await;
 			// Peer is aware of the leaf.
 			send_peer_view_change(virtual_overseer, &peer_ids[0], vec![head_a]).await;
 

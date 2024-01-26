@@ -24,13 +24,13 @@ mod runtime;
 #[cfg(doc)]
 pub use crate::wasm::runtime::api_doc;
 
-#[cfg(test)]
-pub use tests::MockExt;
-
 pub use crate::wasm::runtime::{
-	AllowDeprecatedInterface, AllowUnstableInterface, CallFlags, Environment, ReturnCode, Runtime,
+	AllowDeprecatedInterface, AllowUnstableInterface, Environment, ReturnErrorCode, Runtime,
 	RuntimeCosts,
 };
+pub use pallet_contracts_uapi::ReturnFlags;
+#[cfg(test)]
+pub use tests::MockExt;
 
 use crate::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
@@ -436,6 +436,7 @@ mod tests {
 	use crate::{
 		exec::{AccountIdOf, ErrorOrigin, ExecError, Executable, Ext, Key, SeedOf},
 		gas::GasMeter,
+		primitives::ExecReturnValue,
 		storage::WriteOutcome,
 		tests::{RuntimeCall, Test, ALICE, BOB},
 		BalanceOf, CodeHash, Error, Origin, Pallet as Contracts,
@@ -445,7 +446,7 @@ mod tests {
 		assert_err, assert_ok, dispatch::DispatchResultWithPostInfo, weights::Weight,
 	};
 	use frame_system::pallet_prelude::BlockNumberFor;
-	use pallet_contracts_primitives::{ExecReturnValue, ReturnFlags};
+	use pallet_contracts_uapi::ReturnFlags;
 	use pretty_assertions::assert_eq;
 	use sp_core::H256;
 	use sp_runtime::DispatchError;
@@ -1506,7 +1507,7 @@ mod tests {
 	(func $assert (param i32)
 		(block $ok
 			(br_if $ok
-				(get_local 0)
+				(local.get 0)
 			)
 			(unreachable)
 		)
@@ -1531,7 +1532,7 @@ mod tests {
 		)
 
 		;; Find out the size of the buffer
-		(set_local $buf_size
+		(local.set $buf_size
 			(i32.load (i32.const 32))
 		)
 
@@ -1539,7 +1540,7 @@ mod tests {
 		(call $seal_return
 			(i32.const 0)
 			(i32.const 36)
-			(get_local $buf_size)
+			(local.get $buf_size)
 		)
 
 		;; env:seal_return doesn't return, so this is effectively unreachable.
@@ -1575,7 +1576,7 @@ mod tests {
 	(func $assert (param i32)
 		(block $ok
 			(br_if $ok
-				(get_local 0)
+				(local.get 0)
 			)
 			(unreachable)
 		)
@@ -1633,7 +1634,7 @@ mod tests {
 	(func $assert (param i32)
 		(block $ok
 			(br_if $ok
-				(get_local 0)
+				(local.get 0)
 			)
 			(unreachable)
 		)
@@ -1680,7 +1681,7 @@ mod tests {
 	(func $assert (param i32)
 		(block $ok
 			(br_if $ok
-				(get_local 0)
+				(local.get 0)
 			)
 			(unreachable)
 		)
@@ -1726,7 +1727,7 @@ mod tests {
 	(func $assert (param i32)
 		(block $ok
 			(br_if $ok
-				(get_local 0)
+				(local.get 0)
 			)
 			(unreachable)
 		)
@@ -1773,7 +1774,7 @@ mod tests {
 	(func $assert (param i32)
 		(block $ok
 			(br_if $ok
-				(get_local 0)
+				(local.get 0)
 			)
 			(unreachable)
 		)
@@ -1836,7 +1837,7 @@ mod tests {
 	(func $assert (param i32)
 		(block $ok
 			(br_if $ok
-				(get_local 0)
+				(local.get 0)
 			)
 			(unreachable)
 		)
@@ -1925,7 +1926,7 @@ mod tests {
 	(func $assert (param i32)
 		(block $ok
 			(br_if $ok
-				(get_local 0)
+				(local.get 0)
 			)
 			(unreachable)
 		)
@@ -1966,7 +1967,7 @@ mod tests {
 	(func $assert (param i32)
 		(block $ok
 			(br_if $ok
-				(get_local 0)
+				(local.get 0)
 			)
 			(unreachable)
 		)
@@ -2013,7 +2014,7 @@ mod tests {
 	(func $assert (param i32)
 		(block $ok
 			(br_if $ok
-				(get_local 0)
+				(local.get 0)
 			)
 			(unreachable)
 		)
@@ -2067,7 +2068,7 @@ mod tests {
 	(func $assert (param i32)
 		(block $ok
 			(br_if $ok
-				(get_local 0)
+				(local.get 0)
 			)
 			(unreachable)
 		)
@@ -2137,7 +2138,7 @@ mod tests {
 	(func $assert (param i32)
 		(block $ok
 			(br_if $ok
-				(get_local 0)
+				(local.get 0)
 			)
 			(unreachable)
 		)
@@ -2327,7 +2328,7 @@ mod tests {
 	(func $assert (param i32)
 		(block $ok
 			(br_if $ok
-				(get_local 0)
+				(local.get 0)
 			)
 			(unreachable)
 		)
@@ -2739,7 +2740,7 @@ mod tests {
 		let result = execute(CODE, input, &mut ext).unwrap();
 		assert_eq!(
 			u32::from_le_bytes(result.data[0..4].try_into().unwrap()),
-			ReturnCode::KeyNotFound as u32
+			ReturnErrorCode::KeyNotFound as u32
 		);
 
 		// value exists
@@ -2747,7 +2748,7 @@ mod tests {
 		let result = execute(CODE, input, &mut ext).unwrap();
 		assert_eq!(
 			u32::from_le_bytes(result.data[0..4].try_into().unwrap()),
-			ReturnCode::Success as u32
+			ReturnErrorCode::Success as u32
 		);
 		assert_eq!(ext.storage.get(&[1u8; 64].to_vec()).unwrap(), &[42u8]);
 		assert_eq!(&result.data[4..], &[42u8]);
@@ -2757,7 +2758,7 @@ mod tests {
 		let result = execute(CODE, input, &mut ext).unwrap();
 		assert_eq!(
 			u32::from_le_bytes(result.data[0..4].try_into().unwrap()),
-			ReturnCode::Success as u32
+			ReturnErrorCode::Success as u32
 		);
 		assert_eq!(ext.storage.get(&[2u8; 19].to_vec()), Some(&vec![]));
 		assert_eq!(&result.data[4..], &([] as [u8; 0]));
@@ -2920,7 +2921,7 @@ mod tests {
 		let result = execute(CODE, input, &mut ext).unwrap();
 		assert_eq!(
 			u32::from_le_bytes(result.data[0..4].try_into().unwrap()),
-			ReturnCode::KeyNotFound as u32
+			ReturnErrorCode::KeyNotFound as u32
 		);
 
 		// value did exist -> value returned
@@ -2928,7 +2929,7 @@ mod tests {
 		let result = execute(CODE, input, &mut ext).unwrap();
 		assert_eq!(
 			u32::from_le_bytes(result.data[0..4].try_into().unwrap()),
-			ReturnCode::Success as u32
+			ReturnErrorCode::Success as u32
 		);
 		assert_eq!(ext.storage.get(&[1u8; 64].to_vec()), None);
 		assert_eq!(&result.data[4..], &[42u8]);
@@ -2938,7 +2939,7 @@ mod tests {
 		let result = execute(CODE, input, &mut ext).unwrap();
 		assert_eq!(
 			u32::from_le_bytes(result.data[0..4].try_into().unwrap()),
-			ReturnCode::Success as u32
+			ReturnErrorCode::Success as u32
 		);
 		assert_eq!(ext.storage.get(&[2u8; 19].to_vec()), None);
 		assert_eq!(&result.data[4..], &[0u8; 0]);
@@ -2995,7 +2996,7 @@ mod tests {
 	(func $assert (param i32)
 		(block $ok
 			(br_if $ok
-				(get_local 0)
+				(local.get 0)
 			)
 			(unreachable)
 		)
@@ -3047,7 +3048,7 @@ mod tests {
 	(func $assert (param i32)
 		(block $ok
 			(br_if $ok
-				(get_local 0)
+				(local.get 0)
 			)
 			(unreachable)
 		)
@@ -3162,18 +3163,18 @@ mod tests {
 	(func $assert (param i32)
 		(block $ok
 			(br_if $ok
-				(get_local 0)
+				(local.get 0)
 			)
 			(unreachable)
 		)
 	)
 	(func (export "call")
 		(local $exit_code i32)
-		(set_local $exit_code
+		(local.set $exit_code
 			(call $seal_set_code_hash (i32.const 0))
 		)
 		(call $assert
-			(i32.eq (get_local $exit_code) (i32.const 0)) ;; ReturnCode::Success
+			(i32.eq (local.get $exit_code) (i32.const 0)) ;; ReturnCode::Success
 		)
 	)
 
@@ -3202,18 +3203,18 @@ mod tests {
 	(func $assert (param i32)
 		(block $ok
 			(br_if $ok
-				(get_local 0)
+				(local.get 0)
 			)
 			(unreachable)
 		)
 	)
 	(func (export "call")
 		(local $return_val i32)
-		(set_local $return_val
+		(local.set $return_val
 			(call $reentrance_count)
 		)
 		(call $assert
-			(i32.eq (get_local $return_val) (i32.const 12))
+			(i32.eq (local.get $return_val) (i32.const 12))
 		)
 	)
 
@@ -3234,18 +3235,18 @@ mod tests {
 	(func $assert (param i32)
 		(block $ok
 			(br_if $ok
-				(get_local 0)
+				(local.get 0)
 			)
 			(unreachable)
 		)
 	)
 	(func (export "call")
 		(local $return_val i32)
-		(set_local $return_val
+		(local.set $return_val
 			(call $account_reentrance_count (i32.const 0))
 		)
 		(call $assert
-			(i32.eq (get_local $return_val) (i32.const 12))
+			(i32.eq (local.get $return_val) (i32.const 12))
 		)
 	)
 
@@ -3267,7 +3268,7 @@ mod tests {
 	(func $assert (param i32)
 		(block $ok
 			(br_if $ok
-				(get_local 0)
+				(local.get 0)
 			)
 			(unreachable)
 		)

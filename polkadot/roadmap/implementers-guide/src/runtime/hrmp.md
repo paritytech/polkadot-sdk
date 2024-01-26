@@ -108,7 +108,7 @@ HrmpEgressChannelsIndex: map ParaId => Vec<ParaId>;
 /// Invariant: cannot be non-empty if the corresponding channel in `HrmpChannels` is `None`.
 HrmpChannelContents: map HrmpChannelId => Vec<InboundHrmpMessage>;
 /// Maintains a mapping that can be used to answer the question:
-/// What paras sent a message at the given block number for a given reciever.
+/// What paras sent a message at the given block number for a given receiver.
 /// Invariants:
 /// - The inner `Vec<ParaId>` is never empty.
 /// - The inner `Vec<ParaId>` cannot store two same `ParaId`.

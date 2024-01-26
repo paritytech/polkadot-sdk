@@ -24,8 +24,6 @@ mod cli;
 mod command;
 #[cfg(feature = "cli")]
 mod error;
-#[cfg(all(feature = "hostperfcheck", build_type = "release"))]
-mod host_perf_check;
 
 #[cfg(feature = "service")]
 pub use service::{self, Block, CoreApi, IdentifyVariant, ProvideRuntimeApi, TFullClient};

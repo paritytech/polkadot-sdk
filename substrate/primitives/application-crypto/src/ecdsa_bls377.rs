@@ -15,7 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! BLS12-377 crypto applications.
+//! ECDSA and BLS12-377 paired crypto applications.
+
 use crate::{KeyTypeId, RuntimePublic};
 
 pub use sp_core::paired_crypto::ecdsa_bls377::*;
@@ -54,3 +55,4 @@ impl RuntimePublic for Public {
 		sp_core::crypto::ByteArray::to_raw_vec(self)
 	}
 }
+

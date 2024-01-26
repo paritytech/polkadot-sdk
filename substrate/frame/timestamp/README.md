@@ -73,7 +73,7 @@ pub mod pallet {
 
 ### Example from the FRAME
 
-The [Session module](https://github.com/paritytech/substrate/blob/master/frame/session/src/lib.rs) uses
+The [Session module](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/frame/session/src/lib.rs) uses
 the Timestamp module for session management.
 
 ## Related Modules

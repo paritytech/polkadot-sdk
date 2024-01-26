@@ -219,7 +219,7 @@ impl<
 impl<
 		F: fungibles::Mutate<AccountId>,
 		A: Get<<F as fungibles::Inspect<AccountId>>::AssetId>,
-		AccountId,
+		AccountId: Eq,
 	> Mutate<AccountId> for ItemOf<F, A, AccountId>
 {
 	fn mint_into(who: &AccountId, amount: Self::Balance) -> Result<Self::Balance, DispatchError> {
@@ -354,7 +354,7 @@ impl<
 		Balance,
 		AssetIdType,
 		AssetId: Get<AssetIdType>,
-		Handler: crate::traits::tokens::fungibles::HandleImbalanceDrop<AssetIdType, Balance>,
+		Handler: crate::traits::fungibles::HandleImbalanceDrop<AssetIdType, Balance>,
 	> HandleImbalanceDrop<Balance>
 	for ConvertImbalanceDropHandler<AccountId, Balance, AssetIdType, AssetId, Handler>
 {

@@ -17,7 +17,9 @@
 //! Procedural macros used in XCM.
 
 use proc_macro::TokenStream;
+use syn::{parse_macro_input, DeriveInput};
 
+mod builder_pattern;
 mod v2;
 mod v3;
 mod weight_info;
@@ -44,6 +46,21 @@ pub fn impl_conversion_functions_for_multilocation_v3(input: TokenStream) -> Tok
 #[proc_macro]
 pub fn impl_conversion_functions_for_junctions_v3(input: TokenStream) -> TokenStream {
 	v3::junctions::generate_conversion_functions(input)
+		.unwrap_or_else(syn::Error::into_compile_error)
+		.into()
+}
+
+/// This is called on the `Instruction` enum, not on the `Xcm` struct,
+/// and allows for the following syntax for building XCMs:
+/// let message = Xcm::builder()
+/// 	.withdraw_asset(assets)
+/// 	.buy_execution(fees, weight_limit)
+/// 	.deposit_asset(assets, beneficiary)
+/// 	.build();
+#[proc_macro_derive(Builder, attributes(builder))]
+pub fn derive_builder(input: TokenStream) -> TokenStream {
+	let input = parse_macro_input!(input as DeriveInput);
+	builder_pattern::derive(input)
 		.unwrap_or_else(syn::Error::into_compile_error)
 		.into()
 }

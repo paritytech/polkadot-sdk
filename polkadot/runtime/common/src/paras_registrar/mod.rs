@@ -29,7 +29,7 @@ use frame_system::{self, ensure_root, ensure_signed};
 use primitives::{HeadData, Id as ParaId, ValidationCode, LOWEST_PUBLIC_ID};
 use runtime_parachains::{
 	configuration, ensure_parachain,
-	paras::{self, ParaGenesisArgs},
+	paras::{self, ParaGenesisArgs, SetGoAhead},
 	Origin, ParaLifecycle,
 };
 use sp_std::{prelude::*, result};
@@ -412,7 +412,7 @@ pub mod pallet {
 			new_code: ValidationCode,
 		) -> DispatchResult {
 			Self::ensure_root_para_or_owner(origin, para)?;
-			runtime_parachains::schedule_code_upgrade::<T>(para, new_code)?;
+			runtime_parachains::schedule_code_upgrade::<T>(para, new_code, SetGoAhead::No)?;
 			Ok(())
 		}
 
@@ -699,7 +699,7 @@ mod tests {
 		mock::conclude_pvf_checking, paras_registrar, traits::Registrar as RegistrarTrait,
 	};
 	use frame_support::{
-		assert_noop, assert_ok,
+		assert_noop, assert_ok, derive_impl,
 		error::BadOrigin,
 		parameter_types,
 		traits::{ConstU32, OnFinalize, OnInitialize},
@@ -751,6 +751,7 @@ mod tests {
 			limits::BlockLength::max_with_normal_ratio(4 * 1024 * 1024, NORMAL_RATIO);
 	}
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type RuntimeOrigin = RuntimeOrigin;
@@ -792,6 +793,7 @@ mod tests {
 		type ReserveIdentifier = [u8; 8];
 		type WeightInfo = ();
 		type RuntimeHoldReason = RuntimeHoldReason;
+		type RuntimeFreezeReason = RuntimeFreezeReason;
 		type FreezeIdentifier = ();
 		type MaxHolds = ConstU32<1>;
 		type MaxFreezes = ConstU32<1>;

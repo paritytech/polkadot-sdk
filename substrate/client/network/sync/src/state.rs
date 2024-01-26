@@ -18,12 +18,14 @@
 
 //! State sync support.
 
-use crate::schema::v1::{StateEntry, StateRequest, StateResponse};
+use crate::{
+	schema::v1::{StateEntry, StateRequest, StateResponse},
+	types::StateDownloadProgress,
+};
 use codec::{Decode, Encode};
 use log::debug;
 use sc_client_api::{CompactProof, ProofProvider};
 use sc_consensus::ImportedState;
-use sc_network_common::sync::StateDownloadProgress;
 use smallvec::SmallVec;
 use sp_core::storage::well_known_keys;
 use sp_runtime::{

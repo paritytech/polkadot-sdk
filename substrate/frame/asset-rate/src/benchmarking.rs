@@ -25,7 +25,6 @@ use frame_benchmarking::v2::*;
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use sp_core::crypto::FromEntropy;
-use sp_std::vec;
 
 /// Trait describing the factory function for the `AssetKind` parameter.
 pub trait AssetKindFactory<AssetKind> {

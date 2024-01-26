@@ -28,10 +28,10 @@ sc-utils = { path = "../utils" }
 sp-api = { path = "../../primitives/api" }
 sp-blockchain = { path = "../../primitives/blockchain" }
 sp-consensus = { path = "../../primitives/consensus/common" }
-sp-core = { path = "../../primitives/core", default-features = false}
+sp-core = { path = "../../primitives/core", default-features = false }
 sp-database = { path = "../../primitives/database" }
 sp-externalities = { path = "../../primitives/externalities" }
-sp-runtime = { path = "../../primitives/runtime", default-features = false}
+sp-runtime = { path = "../../primitives/runtime", default-features = false }
 sp-state-machine = { path = "../../primitives/state-machine" }
 sp-statement-store = { path = "../../primitives/statement-store" }
 sp-storage = { path = "../../primitives/storage" }

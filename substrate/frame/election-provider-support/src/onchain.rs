@@ -182,7 +182,7 @@ impl<T: Config> ElectionProvider for OnChainExecution<T> {
 mod tests {
 	use super::*;
 	use crate::{ElectionProvider, PhragMMS, SequentialPhragmen};
-	use frame_support::{assert_noop, parameter_types};
+	use frame_support::{assert_noop, derive_impl, parameter_types};
 	use sp_npos_elections::Support;
 	use sp_runtime::Perbill;
 	type AccountId = u64;
@@ -200,6 +200,7 @@ mod tests {
 		}
 	);
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Runtime {
 		type SS58Prefix = ();
 		type BaseCallFilter = frame_support::traits::Everything;

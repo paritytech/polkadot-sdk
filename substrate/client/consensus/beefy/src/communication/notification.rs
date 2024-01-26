@@ -18,8 +18,9 @@
 
 use sc_utils::notification::{NotificationSender, NotificationStream, TracingKeyStr};
 use sp_runtime::traits::Block as BlockT;
+use sp_consensus_beefy::AuthorityIdBound;
 
-use crate::{justification::BeefyVersionedFinalityProof, keystore::AuthorityIdBound};
+use crate::{justification::BeefyVersionedFinalityProof, };
 
 /// The sending half of the notifications channel(s) used to send
 /// notifications about best BEEFY block from the gadget side.
@@ -32,12 +33,12 @@ pub type BeefyBestBlockStream<Block> =
 
 /// The sending half of the notifications channel(s) used to send notifications
 /// about versioned finality proof generated at the end of a BEEFY round.
-pub type BeefyVersionedFinalityProofSender<Block, AuthorityId: AuthorityIdBound> =
+pub type BeefyVersionedFinalityProofSender<Block, AuthorityId> =
 	NotificationSender<BeefyVersionedFinalityProof<Block, AuthorityId>>;
 
 /// The receiving half of a notifications channel used to receive notifications
 /// about versioned finality proof generated at the end of a BEEFY round.
-pub type BeefyVersionedFinalityProofStream<Block, AuthorityId: AuthorityIdBound> =
+pub type BeefyVersionedFinalityProofStream<Block, AuthorityId> =
 	NotificationStream<
 		BeefyVersionedFinalityProof<Block, AuthorityId>,
 		BeefyVersionedFinalityProofTracingKey,

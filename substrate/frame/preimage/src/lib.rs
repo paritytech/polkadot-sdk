@@ -49,8 +49,8 @@ use frame_support::{
 	ensure,
 	pallet_prelude::Get,
 	traits::{
-		Consideration, Currency, Defensive, FetchResult, Footprint, Hash as PreimageHash,
-		PreimageProvider, PreimageRecipient, QueryPreimage, ReservableCurrency, StorePreimage,
+		Consideration, Currency, Defensive, FetchResult, Footprint, PreimageProvider,
+		PreimageRecipient, QueryPreimage, ReservableCurrency, StorePreimage,
 	},
 	BoundedSlice, BoundedVec,
 };
@@ -531,7 +531,9 @@ impl<T: Config> PreimageRecipient<T::Hash> for Pallet<T> {
 	}
 }
 
-impl<T: Config<Hash = PreimageHash>> QueryPreimage for Pallet<T> {
+impl<T: Config> QueryPreimage for Pallet<T> {
+	type H = T::Hashing;
+
 	fn len(hash: &T::Hash) -> Option<u32> {
 		Pallet::<T>::len(hash)
 	}
@@ -555,7 +557,7 @@ impl<T: Config<Hash = PreimageHash>> QueryPreimage for Pallet<T> {
 	}
 }
 
-impl<T: Config<Hash = PreimageHash>> StorePreimage for Pallet<T> {
+impl<T: Config> StorePreimage for Pallet<T> {
 	const MAX_LENGTH: usize = MAX_SIZE as usize;
 
 	fn note(bytes: Cow<[u8]>) -> Result<T::Hash, DispatchError> {

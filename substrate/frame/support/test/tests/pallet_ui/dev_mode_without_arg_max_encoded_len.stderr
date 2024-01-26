@@ -30,13 +30,13 @@ error[E0277]: the trait bound `Vec<u8>: MaxEncodedLen` is not satisfied
    |               ^^^^^^ the trait `MaxEncodedLen` is not implemented for `Vec<u8>`
    |
    = help: the following other types implement trait `MaxEncodedLen`:
-             ()
-             (TupleElement0, TupleElement1)
-             (TupleElement0, TupleElement1, TupleElement2)
-             (TupleElement0, TupleElement1, TupleElement2, TupleElement3)
-             (TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4)
-             (TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5)
-             (TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6)
-             (TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5, TupleElement6, TupleElement7)
+             bool
+             i8
+             i16
+             i32
+             i64
+             i128
+             u8
+             u16
            and $N others
    = note: required for `frame_support::pallet_prelude::StorageValue<_GeneratedPrefixForStorageMyStorage<T>, Vec<u8>>` to implement `StorageInfoTrait`

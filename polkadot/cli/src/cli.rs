@@ -16,18 +16,10 @@
 
 //! Polkadot CLI library.
 
+pub use polkadot_node_primitives::NODE_VERSION;
+
 use clap::Parser;
 use std::path::PathBuf;
-
-/// The version of the node.
-///
-/// This is the version that is used for versioning this node binary.
-/// By default the `minor` version is bumped in every release. `Major` or `patch` releases are only
-/// expected in very rare cases.
-///
-/// The worker binaries associated to the node binary should ensure that they are using the same
-/// version as the main node that started them.
-pub const NODE_VERSION: &'static str = "1.1.0";
 
 #[allow(missing_docs)]
 #[derive(Debug, Parser)]
@@ -57,10 +49,6 @@ pub enum Subcommand {
 	/// The pallet benchmarking moved to the `pallet` sub-command.
 	#[command(subcommand)]
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
-
-	/// Runs performance checks such as PVF compilation in order to measure machine
-	/// capabilities of running a validator.
-	HostPerfCheck,
 
 	/// Try-runtime has migrated to a standalone CLI
 	/// (<https://github.com/paritytech/try-runtime-cli>). The subcommand exists as a stub and
@@ -94,31 +82,31 @@ pub struct RunCmd {
 	#[arg(long = "force-rococo")]
 	pub force_rococo: bool,
 
-	/// Setup a GRANDPA scheduled voting pause.
+	/// Disable the BEEFY gadget.
 	///
-	/// This parameter takes two values, namely a block number and a delay (in
-	/// blocks). After the given block number is finalized the GRANDPA voter
-	/// will temporarily stop voting for new blocks until the given delay has
-	/// elapsed (i.e. until a block at height `pause_block + delay` is imported).
-	#[arg(long = "grandpa-pause", num_args = 2)]
-	pub grandpa_pause: Vec<u32>,
-
-	/// Disable the BEEFY gadget
-	/// (currently enabled by default on Rococo, Wococo and Versi).
+	/// Currently enabled by default on 'Rococo', 'Wococo' and 'Versi'.
 	#[arg(long)]
 	pub no_beefy: bool,
 
-	/// Add the destination address to the jaeger agent.
+	/// Allows a validator to run insecurely outside of Secure Validator Mode. Security features
+	/// are still enabled on a best-effort basis, but missing features are no longer required. For
+	/// more information see <https://github.com/w3f/polkadot-wiki/issues/4881>.
+	#[arg(long = "insecure-validator-i-know-what-i-do", requires = "validator")]
+	pub insecure_validator: bool,
+
+	/// Enable the block authoring backoff that is triggered when finality is lagging.
+	#[arg(long)]
+	pub force_authoring_backoff: bool,
+
+	/// Add the destination address to the 'Jaeger' agent.
 	///
-	/// Must be valid socket address, of format `IP:Port`
-	/// commonly `127.0.0.1:6831`.
+	/// Must be valid socket address, of format `IP:Port` (commonly `127.0.0.1:6831`).
 	#[arg(long)]
 	pub jaeger_agent: Option<String>,
 
 	/// Add the destination address to the `pyroscope` agent.
 	///
-	/// Must be valid socket address, of format `IP:Port`
-	/// commonly `127.0.0.1:4040`.
+	/// Must be valid socket address, of format `IP:Port` (commonly `127.0.0.1:4040`).
 	#[arg(long)]
 	pub pyroscope_server: Option<String>,
 
@@ -138,10 +126,13 @@ pub struct RunCmd {
 	#[arg(long)]
 	pub overseer_channel_capacity_override: Option<usize>,
 
-	/// Path to the directory where auxiliary worker binaries reside. If not specified, the main
-	/// binary's directory is searched first, then `/usr/lib/polkadot` is searched. TESTING ONLY:
-	/// if the path points to an executable rather then directory, that executable is used both as
-	/// preparation and execution worker.
+	/// Path to the directory where auxiliary worker binaries reside.
+	///
+	/// If not specified, the main binary's directory is searched first, then
+	/// `/usr/lib/polkadot` is searched.
+	///
+	/// TESTING ONLY: if the path points to an executable rather then directory,
+	/// that executable is used both as preparation and execution worker.
 	#[arg(long, value_name = "PATH")]
 	pub workers_path: Option<PathBuf>,
 
