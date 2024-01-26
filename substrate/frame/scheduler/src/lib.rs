@@ -1237,8 +1237,8 @@ impl<T: Config> Pallet<T> {
 					let _ = weight
 						.try_consume(T::WeightInfo::schedule_retry(T::MaxScheduledPerBlock::get()));
 					match Self::schedule_retry(now, when, agenda_index, task) {
-						Some(task) => task,
-						None => return Ok(()),
+						Ok(()) => return Ok(()),
+						Err(task) => task,
 					}
 				} else {
 					task
@@ -1323,7 +1323,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Check if a task has a retry configuration in place and, if so, try to reschedule it.
 	///
-	/// If the task was successfully rescheduled for later, this function will return `None`.
+	/// If the task was successfully rescheduled for later, this function will return `Ok`.
 	/// Otherwise, if the task was not rescheduled, either because there was no retry configuration
 	/// in place, there were no more retry attempts left, or the agenda was full, this function
 	/// will return the task so it can be handled somewhere else.
@@ -1332,13 +1332,13 @@ impl<T: Config> Pallet<T> {
 		when: BlockNumberFor<T>,
 		agenda_index: u32,
 		task: ScheduledOf<T>,
-	) -> Option<ScheduledOf<T>> {
+	) -> Result<(), ScheduledOf<T>> {
 		// Check if we have a retry configuration set.
 		match Retries::<T>::take((when, agenda_index)) {
 			Some(RetryConfig { total_retries, mut remaining, period }) => {
 				remaining = match remaining.checked_sub(1) {
 					Some(n) => n,
-					None => return Some(task),
+					None => return Err(task),
 				};
 				let wake = now.saturating_add(period);
 				match Self::place_task(wake, task) {
@@ -1349,7 +1349,7 @@ impl<T: Config> Pallet<T> {
 							address,
 							RetryConfig { total_retries, remaining, period },
 						);
-						None
+						Ok(())
 					},
 					Err((_, task)) => {
 						// TODO: Leave task in storage somewhere for it to be
@@ -1359,11 +1359,11 @@ impl<T: Config> Pallet<T> {
 							task: (when, agenda_index),
 							id: task.maybe_id,
 						});
-						Some(task)
+						Err(task)
 					},
 				}
 			},
-			None => Some(task),
+			None => Err(task),
 		}
 	}
 }
