@@ -480,16 +480,6 @@
 <a href="#480" id="480">480</a>
 <a href="#481" id="481">481</a>
 <a href="#482" id="482">482</a>
-<a href="#483" id="483">483</a>
-<a href="#484" id="484">484</a>
-<a href="#485" id="485">485</a>
-<a href="#486" id="486">486</a>
-<a href="#487" id="487">487</a>
-<a href="#488" id="488">488</a>
-<a href="#489" id="489">489</a>
-<a href="#490" id="490">490</a>
-<a href="#491" id="491">491</a>
-<a href="#492" id="492">492</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -514,11 +504,9 @@
 
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{weights::Weight, DefaultNoBound};
-<span class="kw">use </span>pallet_contracts_proc_macro::{ScheduleDebug, WeightDebug};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>sp_runtime::RuntimeDebug;
 <span class="kw">use </span>sp_std::marker::PhantomData;
 
 <span class="doccomment">/// Definition of the cost schedule and other parameterizations for the wasm vm.
@@ -549,7 +537,8 @@
 /// ```
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Serialize, Deserialize))]
 #[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, serde(bound(serialize = <span class="string">&quot;&quot;</span>, deserialize = <span class="string">&quot;&quot;</span>)))]
-#[derive(Clone, Encode, Decode, PartialEq, Eq, ScheduleDebug, DefaultNoBound, TypeInfo)]
+#[cfg_attr(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, derive(frame_support::DebugNoBound))]
+#[derive(Clone, Encode, Decode, PartialEq, Eq, DefaultNoBound, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 </span><span class="kw">pub struct </span>Schedule&lt;T: Config&gt; {
 	<span class="doccomment">/// Describes the upper limits on various metrics.
@@ -564,7 +553,8 @@
 
 <span class="doccomment">/// Describes the upper limits on various metrics.
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Serialize, Deserialize))]
-#[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[cfg_attr(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, derive(Debug))]
+#[derive(Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
 </span><span class="kw">pub struct </span>Limits {
 	<span class="doccomment">/// The maximum number of topics supported by an event.
 	</span><span class="kw">pub </span>event_topics: u32,
@@ -622,7 +612,8 @@
 <span class="doccomment">/// Gas metering of Wasm executed instructions is being done on the engine side.
 /// This struct holds a reference value used to gas units scaling between host and engine.
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Serialize, Deserialize))]
-#[derive(Clone, Encode, Decode, PartialEq, Eq, ScheduleDebug, TypeInfo)]
+#[cfg_attr(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, derive(frame_support::DebugNoBound))]
+#[derive(Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 </span><span class="kw">pub struct </span>InstructionWeights&lt;T: Config&gt; {
 	<span class="doccomment">/// Base instruction `ref_time` Weight.
@@ -635,7 +626,8 @@
 
 <span class="doccomment">/// Describes the weight for each imported function that a contract is allowed to call.
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Serialize, Deserialize))]
-#[derive(Clone, Encode, Decode, PartialEq, Eq, WeightDebug, TypeInfo)]
+#[cfg_attr(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, derive(pallet_contracts_proc_macro::WeightDebug))]
+#[derive(Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 </span><span class="kw">pub struct </span>HostFnWeights&lt;T: Config&gt; {
 	<span class="doccomment">/// Weight of calling `seal_caller`.
@@ -968,18 +960,6 @@
 			remove_delegate_dependency: <span class="macro">cost!</span>(remove_delegate_dependency),
 			_phantom: PhantomData,
 		}
-	}
-}
-
-<span class="attr">#[cfg(test)]
-</span><span class="kw">mod </span>test {
-	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="kw">use </span><span class="kw">crate</span>::tests::Test;
-
-	<span class="attr">#[test]
-	</span><span class="kw">fn </span>print_test_schedule() {
-		<span class="kw">let </span>schedule = Schedule::&lt;Test&gt;::default();
-		<span class="macro">println!</span>(<span class="string">&quot;{:#?}&quot;</span>, schedule);
 	}
 }
 </code></pre></div></section></main></body></html>

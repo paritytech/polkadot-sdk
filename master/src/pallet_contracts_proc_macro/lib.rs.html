@@ -823,43 +823,6 @@
 <a href="#823" id="823">823</a>
 <a href="#824" id="824">824</a>
 <a href="#825" id="825">825</a>
-<a href="#826" id="826">826</a>
-<a href="#827" id="827">827</a>
-<a href="#828" id="828">828</a>
-<a href="#829" id="829">829</a>
-<a href="#830" id="830">830</a>
-<a href="#831" id="831">831</a>
-<a href="#832" id="832">832</a>
-<a href="#833" id="833">833</a>
-<a href="#834" id="834">834</a>
-<a href="#835" id="835">835</a>
-<a href="#836" id="836">836</a>
-<a href="#837" id="837">837</a>
-<a href="#838" id="838">838</a>
-<a href="#839" id="839">839</a>
-<a href="#840" id="840">840</a>
-<a href="#841" id="841">841</a>
-<a href="#842" id="842">842</a>
-<a href="#843" id="843">843</a>
-<a href="#844" id="844">844</a>
-<a href="#845" id="845">845</a>
-<a href="#846" id="846">846</a>
-<a href="#847" id="847">847</a>
-<a href="#848" id="848">848</a>
-<a href="#849" id="849">849</a>
-<a href="#850" id="850">850</a>
-<a href="#851" id="851">851</a>
-<a href="#852" id="852">852</a>
-<a href="#853" id="853">853</a>
-<a href="#854" id="854">854</a>
-<a href="#855" id="855">855</a>
-<a href="#856" id="856">856</a>
-<a href="#857" id="857">857</a>
-<a href="#858" id="858">858</a>
-<a href="#859" id="859">859</a>
-<a href="#860" id="860">860</a>
-<a href="#861" id="861">861</a>
-<a href="#862" id="862">862</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -882,23 +845,13 @@
 //! Most likely you should use the [`#[define_env]`][`macro@define_env`] attribute macro which hides
 //! boilerplate of defining external environment for a wasm module.
 
-</span><span class="attr">#![no_std]
-
-</span><span class="kw">extern crate </span>alloc;
-
-<span class="kw">use </span>alloc::{
-	collections::BTreeMap,
-	format,
-	string::{String, ToString},
-	vec::Vec,
-};
-<span class="kw">use </span>core::cmp::Reverse;
+</span><span class="kw">use </span>core::cmp::Reverse;
 <span class="kw">use </span>proc_macro::TokenStream;
 <span class="kw">use </span>proc_macro2::{Span, TokenStream <span class="kw">as </span>TokenStream2};
 <span class="kw">use </span>quote::{quote, quote_spanned, ToTokens};
 <span class="kw">use </span>syn::{
 	parse_macro_input, punctuated::Punctuated, spanned::Spanned, token::Comma, Data, DeriveInput,
-	FnArg, Ident,
+	Fields, FnArg, Ident,
 };
 
 <span class="doccomment">/// This derives `Debug` for a struct where each field must be of some numeric type.
@@ -906,17 +859,6 @@
 /// it is readable by humans.
 </span><span class="attr">#[proc_macro_derive(WeightDebug)]
 </span><span class="kw">pub fn </span>derive_weight_debug(input: TokenStream) -&gt; TokenStream {
-	derive_debug(input, format_weight)
-}
-
-<span class="doccomment">/// This is basically identical to the std libs Debug derive but without adding any
-/// bounds to existing generics.
-</span><span class="attr">#[proc_macro_derive(ScheduleDebug)]
-</span><span class="kw">pub fn </span>derive_schedule_debug(input: TokenStream) -&gt; TokenStream {
-	derive_debug(input, format_default)
-}
-
-<span class="kw">fn </span>derive_debug(input: TokenStream, fmt: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>Ident) -&gt; TokenStream2) -&gt; TokenStream {
 	<span class="kw">let </span>input = <span class="macro">parse_macro_input!</span>(input <span class="kw">as </span>DeriveInput);
 	<span class="kw">let </span>name = <span class="kw-2">&amp;</span>input.ident;
 	<span class="kw">let </span>(impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -930,45 +872,15 @@
 		.into()
 	};
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;full&quot;</span>)]
-	</span><span class="kw">let </span>fields = iterate_fields(data, fmt);
-
-	<span class="attr">#[cfg(not(feature = <span class="string">&quot;full&quot;</span>))]
-	</span><span class="kw">let </span>fields = {
-		drop(fmt);
-		<span class="kw">let _ </span>= data;
-		TokenStream2::new()
-	};
-
-	<span class="kw">let </span>tokens = <span class="macro">quote! </span>{
-		<span class="kw">impl </span>#impl_generics core::fmt::Debug <span class="kw">for </span>#name #ty_generics #where_clause {
-			<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, formatter: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
-				<span class="kw">use </span>::sp_runtime::{FixedPointNumber, FixedU128 <span class="kw">as </span>Fixed};
-				<span class="kw">let </span><span class="kw-2">mut </span>formatter = formatter.debug_struct(<span class="macro">stringify!</span>(#name));
-				#fields
-				formatter.finish()
-			}
-		}
-	};
-
-	tokens.into()
-}
-
-<span class="doccomment">/// This is only used then the `full` feature is activated.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;full&quot;</span>)]
-</span><span class="kw">fn </span>iterate_fields(data: <span class="kw-2">&amp;</span>syn::DataStruct, fmt: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>Ident) -&gt; TokenStream2) -&gt; TokenStream2 {
-	<span class="kw">use </span>syn::Fields;
-
-	<span class="kw">match </span><span class="kw-2">&amp;</span>data.fields {
+	<span class="kw">let </span>fields = <span class="kw">match </span><span class="kw-2">&amp;</span>data.fields {
 		Fields::Named(fields) =&gt; {
 			<span class="kw">let </span>recurse = fields.named.iter().filter_map(|f| {
 				<span class="kw">let </span>name = f.ident.as_ref()<span class="question-mark">?</span>;
 				<span class="kw">if </span>name.to_string().starts_with(<span class="string">&#39;_&#39;</span>) {
 					<span class="kw">return </span><span class="prelude-val">None
 				</span>}
-				<span class="kw">let </span>value = fmt(name);
 				<span class="kw">let </span>ret = <span class="macro">quote_spanned! </span>{ f.span() =&gt;
-					formatter.field(<span class="macro">stringify!</span>(#name), #value);
+					formatter.field(<span class="macro">stringify!</span>(#name), <span class="kw-2">&amp;</span>HumanWeight(<span class="self">self</span>.#name));
 				};
 				<span class="prelude-val">Some</span>(ret)
 			});
@@ -981,39 +893,53 @@
 			<span class="macro">compile_error!</span>(<span class="string">&quot;Unnamed fields are not supported&quot;</span>)
 		},
 		Fields::Unit =&gt; <span class="macro">quote!</span>(),
-	}
-}
+	};
 
-<span class="kw">fn </span>format_weight(field: <span class="kw-2">&amp;</span>Ident) -&gt; TokenStream2 {
-	<span class="macro">quote_spanned! </span>{ field.span() =&gt;
-		<span class="kw-2">&amp;</span><span class="kw">if </span><span class="self">self</span>.#field.ref_time() &gt; <span class="number">1_000_000_000 </span>{
-			<span class="macro">format!</span>(
-				<span class="string">&quot;{:.1?} ms, {} bytes&quot;</span>,
-				Fixed::saturating_from_rational(<span class="self">self</span>.#field.ref_time(), <span class="number">1_000_000_000</span>).to_float(),
-				<span class="self">self</span>.#field.proof_size()
-			)
-		} <span class="kw">else if </span><span class="self">self</span>.#field.ref_time() &gt; <span class="number">1_000_000 </span>{
-			<span class="macro">format!</span>(
-				<span class="string">&quot;{:.1?} µs, {} bytes&quot;</span>,
-				Fixed::saturating_from_rational(<span class="self">self</span>.#field.ref_time(), <span class="number">1_000_000</span>).to_float(),
-				<span class="self">self</span>.#field.proof_size()
-			)
-		} <span class="kw">else if </span><span class="self">self</span>.#field.ref_time() &gt; <span class="number">1_000 </span>{
-			<span class="macro">format!</span>(
-				<span class="string">&quot;{:.1?} ns, {} bytes&quot;</span>,
-				Fixed::saturating_from_rational(<span class="self">self</span>.#field.ref_time(), <span class="number">1_000</span>).to_float(),
-				<span class="self">self</span>.#field.proof_size()
-			)
-		} <span class="kw">else </span>{
-			<span class="macro">format!</span>(<span class="string">&quot;{} ps, {} bytes&quot;</span>, <span class="self">self</span>.#field.ref_time(), <span class="self">self</span>.#field.proof_size())
+	<span class="kw">let </span>tokens = <span class="macro">quote! </span>{
+		<span class="kw">impl </span>#impl_generics ::core::fmt::Debug <span class="kw">for </span>#name #ty_generics #where_clause {
+			<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, formatter: <span class="kw-2">&amp;mut </span>::core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+				<span class="kw">use </span>::sp_runtime::{FixedPointNumber, FixedU128 <span class="kw">as </span>Fixed};
+				<span class="kw">use </span>::core::{fmt, write};
+
+				<span class="kw">struct </span>HumanWeight(Weight);
+
+				<span class="kw">impl </span>fmt::Debug <span class="kw">for </span>HumanWeight {
+					<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, formatter: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+						<span class="kw">if </span><span class="self">self</span>.<span class="number">0</span>.ref_time() &gt; <span class="number">1_000_000_000 </span>{
+							<span class="macro">write!</span>(
+								formatter,
+								<span class="string">&quot;{} ms, {} bytes&quot;</span>,
+								Fixed::saturating_from_rational(<span class="self">self</span>.<span class="number">0</span>.ref_time(), <span class="number">1_000_000_000</span>).into_inner() / Fixed::accuracy(),
+								<span class="self">self</span>.<span class="number">0</span>.proof_size()
+							)
+						} <span class="kw">else if </span><span class="self">self</span>.<span class="number">0</span>.ref_time() &gt; <span class="number">1_000_000 </span>{
+							<span class="macro">write!</span>(
+								formatter,
+								<span class="string">&quot;{} µs, {} bytes&quot;</span>,
+								Fixed::saturating_from_rational(<span class="self">self</span>.<span class="number">0</span>.ref_time(), <span class="number">1_000_000</span>).into_inner() / Fixed::accuracy(),
+								<span class="self">self</span>.<span class="number">0</span>.proof_size()
+							)
+						} <span class="kw">else if </span><span class="self">self</span>.<span class="number">0</span>.ref_time() &gt; <span class="number">1_000 </span>{
+							<span class="macro">write!</span>(
+								formatter,
+								<span class="string">&quot;{} ns, {} bytes&quot;</span>,
+								Fixed::saturating_from_rational(<span class="self">self</span>.<span class="number">0</span>.ref_time(), <span class="number">1_000</span>).into_inner() / Fixed::accuracy(),
+								<span class="self">self</span>.<span class="number">0</span>.proof_size()
+							)
+						} <span class="kw">else </span>{
+							<span class="macro">write!</span>(formatter, <span class="string">&quot;{} ps, {} bytes&quot;</span>, <span class="self">self</span>.<span class="number">0</span>.ref_time(), <span class="self">self</span>.<span class="number">0</span>.proof_size())
+						}
+					}
+				}
+
+				<span class="kw">let </span><span class="kw-2">mut </span>formatter = formatter.debug_struct(<span class="macro">stringify!</span>(#name));
+				#fields
+				formatter.finish()
+			}
 		}
-	}
-}
+	};
 
-<span class="kw">fn </span>format_default(field: <span class="kw-2">&amp;</span>Ident) -&gt; TokenStream2 {
-	<span class="macro">quote_spanned! </span>{ field.span() =&gt;
-		<span class="kw-2">&amp;</span><span class="self">self</span>.#field
-	}
+	tokens.into()
 }
 
 <span class="doccomment">/// Parsed environment definition.
@@ -1342,7 +1268,7 @@
 </span><span class="kw">fn </span>expand_docs(def: <span class="kw-2">&amp;</span>EnvDef) -&gt; TokenStream2 {
 	<span class="comment">// Create the `Current` trait with only the newest versions
 	// we sort so that only the newest versions make it into `docs`
-	</span><span class="kw">let </span><span class="kw-2">mut </span>current_docs = BTreeMap::new();
+	</span><span class="kw">let </span><span class="kw-2">mut </span>current_docs = std::collections::HashMap::new();
 	<span class="kw">let </span><span class="kw-2">mut </span>funcs: Vec&lt;<span class="kw">_</span>&gt; = def.host_funcs.iter().filter(|f| f.alias_to.is_none()).collect();
 	funcs.sort_unstable_by_key(|func| Reverse(func.version));
 	<span class="kw">for </span>func <span class="kw">in </span>funcs {
@@ -1355,7 +1281,7 @@
 
 	<span class="comment">// Create the `legacy` module with all functions
 	// Maps from version to list of functions that have this version
-	</span><span class="kw">let </span><span class="kw-2">mut </span>legacy_doc = BTreeMap::&lt;u8, Vec&lt;TokenStream2&gt;&gt;::new();
+	</span><span class="kw">let </span><span class="kw-2">mut </span>legacy_doc = std::collections::BTreeMap::&lt;u8, Vec&lt;TokenStream2&gt;&gt;::new();
 	<span class="kw">for </span>func <span class="kw">in </span>def.host_funcs.iter() {
 		legacy_doc.entry(func.version).or_default().push(expand_func_doc(<span class="kw-2">&amp;</span>func));
 	}
