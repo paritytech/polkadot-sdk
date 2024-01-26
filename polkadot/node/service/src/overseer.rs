@@ -84,8 +84,6 @@ where
 	RuntimeClient::Api: ParachainHost<Block> + BabeApi<Block> + AuthorityDiscoveryApi<Block>,
 	Spawner: 'static + SpawnNamed + Clone + Unpin,
 {
-	/// The keystore to use for i.e. validator keys.
-	pub keystore: Arc<LocalKeystore>,
 	/// Runtime client generic, providing the `ProvieRuntimeApi` trait besides others.
 	pub runtime_client: Arc<RuntimeClient>,
 	/// Underlying network service implementation.
@@ -120,6 +118,8 @@ where
 }
 
 pub struct ExtendedOverseerGenArgs {
+	/// The keystore to use for i.e. validator keys.
+	pub keystore: Arc<LocalKeystore>,
 	/// The underlying key value store for the parachains.
 	pub parachains_db: Arc<dyn polkadot_node_subsystem_util::database::Database>,
 	/// Configuration for the candidate validation subsystem.
@@ -147,13 +147,12 @@ pub struct ExtendedOverseerGenArgs {
 /// Obtain a prepared validator `Overseer`, that is initialized with all default values.
 pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 	OverseerGenArgs {
-		keystore,
 		runtime_client,
 		network_service,
 		sync_service,
 		authority_discovery_service,
-		collation_req_v1_receiver,
-		collation_req_v2_receiver,
+		collation_req_v1_receiver: _,
+		collation_req_v2_receiver: _,
 		available_data_req_receiver,
 		registry,
 		spawner,
@@ -165,6 +164,7 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		notification_services,
 	}: OverseerGenArgs<Spawner, RuntimeClient>,
 	ExtendedOverseerGenArgs {
+		keystore,
 		parachains_db,
 		candidate_validation_config,
 		availability_config,
@@ -284,14 +284,10 @@ where
 		.collation_generation(CollationGenerationSubsystem::new(Metrics::register(registry)?))
 		.collator_protocol({
 			let side = match is_parachain_node {
-				IsParachainNode::Collator(collator_pair) => ProtocolSide::Collator {
-					peer_id: network_service.local_peer_id(),
-					collator_pair,
-					request_receiver_v1: collation_req_v1_receiver,
-					request_receiver_v2: collation_req_v2_receiver,
-					metrics: Metrics::register(registry)?,
-				},
-				IsParachainNode::FullNode => ProtocolSide::None,
+				IsParachainNode::Collator(_) | IsParachainNode::FullNode =>
+					return Err(Error::Overseer(SubsystemError::Context(
+						"build validator overseer for parachain node".to_owned(),
+					))),
 				IsParachainNode::No => ProtocolSide::Validator {
 					keystore: keystore.clone(),
 					eviction_policy: Default::default(),
@@ -358,7 +354,6 @@ where
 /// Obtain a prepared collator `Overseer`, that is initialized with all default values.
 pub fn collator_overseer_builder<Spawner, RuntimeClient>(
 	OverseerGenArgs {
-		keystore,
 		runtime_client,
 		network_service,
 		sync_service,
@@ -463,6 +458,10 @@ where
 		.collation_generation(CollationGenerationSubsystem::new(Metrics::register(registry)?))
 		.collator_protocol({
 			let side = match is_parachain_node {
+				IsParachainNode::No =>
+					return Err(Error::Overseer(SubsystemError::Context(
+						"build parachain node overseer for validator".to_owned(),
+					))),
 				IsParachainNode::Collator(collator_pair) => ProtocolSide::Collator {
 					peer_id: network_service.local_peer_id(),
 					collator_pair,
@@ -471,11 +470,6 @@ where
 					metrics: Metrics::register(registry)?,
 				},
 				IsParachainNode::FullNode => ProtocolSide::None,
-				IsParachainNode::No => ProtocolSide::Validator {
-					keystore: keystore.clone(),
-					eviction_policy: Default::default(),
-					metrics: Metrics::register(registry)?,
-				},
 			};
 			CollatorProtocolSubsystem::new(side)
 		})

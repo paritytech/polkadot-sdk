@@ -942,6 +942,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 			stagnant_check_mode: chain_selection_subsystem::StagnantCheckMode::PruneOnly,
 		};
 		Some(ExtendedOverseerGenArgs {
+			keystore,
 			parachains_db,
 			candidate_validation_config,
 			availability_config: AVAILABILITY_CONFIG,
@@ -1085,7 +1086,6 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 			.generate::<service::SpawnTaskHandle, FullClient>(
 				overseer_connector,
 				OverseerGenArgs {
-					keystore,
 					runtime_client: overseer_client.clone(),
 					network_service: network.clone(),
 					sync_service: sync_service.clone(),
