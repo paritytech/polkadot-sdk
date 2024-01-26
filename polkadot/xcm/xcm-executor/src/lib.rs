@@ -511,20 +511,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			TransferReserveAsset { mut assets, dest, xcm } => {
 				let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
 
-				// we need to do this take/put cycle to solve wildcards and get exact assets to be
-				// weighed
-				let to_weigh = self.holding.saturating_take(assets.clone());
-				self.holding.subsume_assets(to_weigh.clone());
-
-				let mut message_to_weigh =
-					vec![ReserveAssetDeposited(to_weigh.into()), ClearOrigin];
-				message_to_weigh.extend(xcm.0.clone().into_iter());
-				let (_, fee) = validate_send::<Config::XcmSender>(dest, Xcm(message_to_weigh))?;
-				// set aside fee to be charged by XcmSender
-				let parked_fee = self.holding.saturating_take(fee.into());
-
-				// now take assets to deposit (excluding parked_fee)
-				let assets = self.holding.saturating_take(assets);
 				// Take `assets` from the origin account (on-chain) and place into dest account.
 				for asset in assets.inner() {
 					Config::AssetTransactor::transfer_asset(asset, origin, &dest, &self.context)?;
