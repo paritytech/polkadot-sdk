@@ -51,7 +51,6 @@ pub const ASSETS_PALLET_ID: u8 = 50;
 pub type RelayToSystemParaTest = Test<Rococo, AssetHubRococo>;
 pub type SystemParaToRelayTest = Test<AssetHubRococo, Rococo>;
 pub type SystemParaToParaTest = Test<AssetHubRococo, PenpalRococoA>;
-pub type ParaToSystemParaTest = Test<PenpalRococoA, AssetHubRococo>;
 pub type ParaToParaTest = Test<PenpalRococoA, PenpalRococoB, Rococo>;
 
 /// Returns a `TestArgs` instance to de used for the Relay Chain accross integraton tests
