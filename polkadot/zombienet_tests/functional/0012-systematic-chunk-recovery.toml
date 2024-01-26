@@ -3,8 +3,10 @@ timeout = 1000
 bootnode = true
 
 [relaychain.genesis.runtimeGenesis.patch.configuration.config]
-  max_validators_per_core = 2
-  needed_approvals = 4
+  max_validators_per_core = 5
+  needed_approvals = 10
+  # TODO: this test won't pass for now, we don't yet have support for modifying a bitvec here
+  #   node_features = "1"
 
 [relaychain]
 default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
@@ -16,16 +18,9 @@ limits = { memory = "4G", cpu = "2" }
 requests = { memory = "2G", cpu = "1" }
 
   [[relaychain.node_groups]]
-  # An image that doesn't speak /req_chunk/2 protocol.
-  image = "{{POLKADOT_IMAGE}}:v1.0.0"
-  name = "old"
-  count = 2
+  name = "validator"
+  count = 10
   args = ["-lparachain=debug,parachain::availability-recovery=trace,parachain::availability-distribution=trace"]
-
-  [[relaychain.node_groups]]
-  name = "new"
-  count = 2
-  args = ["-lparachain=debug,parachain::availability-recovery=trace,parachain::availability-distribution=trace,sub-libp2p=trace"]
 
 {% for id in range(2000,2002) %}
 [[parachains]]
@@ -33,7 +28,6 @@ id = {{id}}
 addToGenesis = true
 cumulus_based = true
 chain = "glutton-westend-local-{{id}}"
-
     [parachains.genesis.runtimeGenesis.patch.glutton]
     compute = "50000000"
     storage = "1310000000"
