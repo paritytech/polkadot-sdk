@@ -508,8 +508,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				}
 				Ok(())
 			},
-			// This will fail unless `jit_withdraw` has been set and there are enough funds remaining in the
-			// origin account to pay for delivery fees.
+			// This will fail unless `jit_withdraw` has been set and there are enough funds
+			// remaining in the origin account to pay for delivery fees.
 			TransferReserveAsset { mut assets, dest, xcm } => {
 				let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
 				// Take `assets` from the origin account (on-chain) and place into dest account.
@@ -660,15 +660,15 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let maybe_delivery_fee = if self.fees_mode.jit_withdraw {
 					None
 				} else {
-					// we need to do this take/put cycle to solve wildcards and get exact assets to be
-					// weighed
+					// we need to do this take/put cycle to solve wildcards and get exact assets to
+					// be weighed
 					let to_weigh = self.holding.saturating_take(assets.clone());
 					self.holding.subsume_assets(to_weigh.clone());
 
-					let mut message_to_weigh =
-						vec![WithdrawAsset(to_weigh.into()), ClearOrigin];
+					let mut message_to_weigh = vec![WithdrawAsset(to_weigh.into()), ClearOrigin];
 					message_to_weigh.extend(xcm.0.clone().into_iter());
-					let (_, fee) = validate_send::<Config::XcmSender>(reserve, Xcm(message_to_weigh))?;
+					let (_, fee) =
+						validate_send::<Config::XcmSender>(reserve, Xcm(message_to_weigh))?;
 					// set aside fee to be charged by XcmSender
 					Some(self.holding.saturating_take(fee.into()))
 				};
@@ -683,7 +683,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				);
 				let mut message = vec![WithdrawAsset(assets), ClearOrigin];
 				message.extend(xcm.0.into_iter());
-				
+
 				if let Some(fee) = maybe_delivery_fee {
 					// put back delivery fee in holding register to be charged by XcmSender
 					self.holding.subsume_assets(fee);

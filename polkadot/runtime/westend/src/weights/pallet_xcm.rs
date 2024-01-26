@@ -48,7 +48,7 @@ use core::marker::PhantomData;
 
 /// Weight functions for `pallet_xcm`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> WeightInfo<T> {
+impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 	/// Storage: `Dmp::DeliveryFeeFactor` (r:1 w:0)
 	/// Proof: `Dmp::DeliveryFeeFactor` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `XcmPallet::SupportedVersion` (r:1 w:0)
@@ -57,7 +57,7 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	/// Proof: `Dmp::DownwardMessageQueues` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Dmp::DownwardMessageQueueHeads` (r:1 w:1)
 	/// Proof: `Dmp::DownwardMessageQueueHeads` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	pub(crate) fn send() -> Weight {
+	fn send() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `109`
 		//  Estimated: `3574`
@@ -66,14 +66,14 @@ impl<T: frame_system::Config> WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
-	pub(crate) fn teleport_assets() -> Weight {
+	fn teleport_assets() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 17_191_000 picoseconds.
 		Weight::from_parts(17_470_000, 0)
 	}
-	pub(crate) fn reserve_transfer_assets() -> Weight {
+	fn reserve_transfer_assets() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -82,7 +82,7 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	}
 	/// Storage: `Benchmark::Override` (r:0 w:0)
 	/// Proof: `Benchmark::Override` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	pub(crate) fn execute() -> Weight {
+	fn execute() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -91,7 +91,7 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	}
 	/// Storage: `XcmPallet::SupportedVersion` (r:0 w:1)
 	/// Proof: `XcmPallet::SupportedVersion` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	pub(crate) fn force_xcm_version() -> Weight {
+	fn force_xcm_version() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -99,7 +99,7 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		Weight::from_parts(7_854_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	pub(crate) fn force_default_xcm_version() -> Weight {
+	fn force_default_xcm_version() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -120,7 +120,7 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	/// Proof: `Dmp::DownwardMessageQueueHeads` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `XcmPallet::Queries` (r:0 w:1)
 	/// Proof: `XcmPallet::Queries` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	pub(crate) fn force_subscribe_version_notify() -> Weight {
+	fn force_subscribe_version_notify() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `109`
 		//  Estimated: `3574`
@@ -141,7 +141,7 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	/// Proof: `Dmp::DownwardMessageQueueHeads` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `XcmPallet::Queries` (r:0 w:1)
 	/// Proof: `XcmPallet::Queries` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	pub(crate) fn force_unsubscribe_version_notify() -> Weight {
+	fn force_unsubscribe_version_notify() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `289`
 		//  Estimated: `3754`
@@ -152,7 +152,7 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	}
 	/// Storage: `XcmPallet::XcmExecutionSuspended` (r:0 w:1)
 	/// Proof: `XcmPallet::XcmExecutionSuspended` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	pub(crate) fn force_suspension() -> Weight {
+	fn force_suspension() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -162,7 +162,7 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	}
 	/// Storage: `XcmPallet::SupportedVersion` (r:4 w:2)
 	/// Proof: `XcmPallet::SupportedVersion` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	pub(crate) fn migrate_supported_version() -> Weight {
+	fn migrate_supported_version() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `26`
 		//  Estimated: `10916`
@@ -173,7 +173,7 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	}
 	/// Storage: `XcmPallet::VersionNotifiers` (r:4 w:2)
 	/// Proof: `XcmPallet::VersionNotifiers` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	pub(crate) fn migrate_version_notifiers() -> Weight {
+	fn migrate_version_notifiers() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `30`
 		//  Estimated: `10920`
@@ -184,7 +184,7 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	}
 	/// Storage: `XcmPallet::VersionNotifyTargets` (r:5 w:0)
 	/// Proof: `XcmPallet::VersionNotifyTargets` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	pub(crate) fn already_notified_target() -> Weight {
+	fn already_notified_target() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `40`
 		//  Estimated: `13405`
@@ -202,7 +202,7 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	/// Proof: `Dmp::DownwardMessageQueues` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Dmp::DownwardMessageQueueHeads` (r:1 w:1)
 	/// Proof: `Dmp::DownwardMessageQueueHeads` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	pub(crate) fn notify_current_targets() -> Weight {
+	fn notify_current_targets() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `145`
 		//  Estimated: `6085`
@@ -213,7 +213,7 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	}
 	/// Storage: `XcmPallet::VersionNotifyTargets` (r:3 w:0)
 	/// Proof: `XcmPallet::VersionNotifyTargets` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	pub(crate) fn notify_target_migration_fail() -> Weight {
+	fn notify_target_migration_fail() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `69`
 		//  Estimated: `8484`
@@ -223,7 +223,7 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	}
 	/// Storage: `XcmPallet::VersionNotifyTargets` (r:4 w:2)
 	/// Proof: `XcmPallet::VersionNotifyTargets` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	pub(crate) fn migrate_version_notify_targets() -> Weight {
+	fn migrate_version_notify_targets() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `37`
 		//  Estimated: `10927`
@@ -242,7 +242,7 @@ impl<T: frame_system::Config> WeightInfo<T> {
 	/// Proof: `Dmp::DownwardMessageQueues` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Dmp::DownwardMessageQueueHeads` (r:1 w:1)
 	/// Proof: `Dmp::DownwardMessageQueueHeads` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	pub(crate) fn migrate_and_notify_old_targets() -> Weight {
+	fn migrate_and_notify_old_targets() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `149`
 		//  Estimated: `11039`
