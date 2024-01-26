@@ -59,11 +59,11 @@ module.exports = {
         currentEvents,
     ) {
         // remember id of bridged relay chain GRANDPA authorities set at parent block
-        const authoritySetAtParent = await bridgedChain.bestBridgedRelayChainGrandpaAuthoritySet(apiAtParent);
+        const authoritySetAtParent = await apiAtParent.query[bridgedChain.grandpaPalletName].currentAuthoritySet();
         const authoritySetIdAtParent = authoritySetAtParent["setId"];
 
         // now read the id of bridged relay chain GRANDPA authorities set at current block
-        const authoritySetAtCurrent = await bridgedChain.bestBridgedRelayChainGrandpaAuthoritySet(apiAtCurrent);
+        const authoritySetAtCurrent = await apiAtCurrent.query[bridgedChain.grandpaPalletName].currentAuthoritySet();
         const authoritySetIdAtCurrent = authoritySetAtCurrent["setId"];
 
         // we expect to see no more than `authoritySetIdAtCurrent - authoritySetIdAtParent` new GRANDPA headers
@@ -85,7 +85,7 @@ module.exports = {
         currentEvents,
     ) {
         // remember whether we already know bridged parachain header at a parent block
-        const bestBridgedParachainHeader = await bridgedChain.bestBridgedParachainInfo(apiAtParent);
+        const bestBridgedParachainHeader = await apiAtParent.query[bridgedChain.parachainsPalletName].parasInfo(bridgedChain.bridgedBridgeHubParaId);;
         const hasBestBridgedParachainHeader = bestBridgedParachainHeader.isSome;
 
         // we expect to see: no more than `1` bridged parachain header if there were no parachain header before.
