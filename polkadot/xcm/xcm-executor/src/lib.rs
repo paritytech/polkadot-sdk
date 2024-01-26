@@ -659,9 +659,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				self.holding.subsume_assets(to_weigh.clone());
 
 				let mut message_to_weigh =
-					vec![WithdrawAsset(to_weigh.clone()), ClearOrigin];
+					vec![WithdrawAsset(to_weigh.clone().into()), ClearOrigin];
 				message_to_weigh.extend(xcm.0.clone().into_iter());
-				let (_, fee) = validate_send::<Config::XcmSender>(dest, Xcm(message_to_weigh))?;
+				let (_, fee) = validate_send::<Config::XcmSender>(reserve, Xcm(message_to_weigh))?;
 				// set aside fee to be charged by XcmSender
 				let parked_fee = self.holding.saturating_take(fee.into());
 
@@ -683,11 +683,11 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			},
 			InitiateTeleport { assets, dest, xcm } => {
 				// We must do this first in order to resolve wildcards.
-				let to_weigh = self.holding.saturating_take(assets);
+				let to_weigh = self.holding.saturating_take(assets.clone());
 				self.holding.subsume_assets(to_weigh.clone());
 
 				let mut message_to_weigh =
-					vec![ReceiveTeleportedAsset(to_weigh.clone()), ClearOrigin];
+					vec![ReceiveTeleportedAsset(to_weigh.clone().into()), ClearOrigin];
 				message_to_weigh.extend(xcm.0.clone().into_iter());
 				let (_, fee) = validate_send::<Config::XcmSender>(dest, Xcm(message_to_weigh))?;
 				// set aside fee to be charged by XcmSender
