@@ -364,7 +364,7 @@ impl<T: frame_system::Config> runtime_parachains::paras_inherent::WeightInfo for
 	/// Proof: `ParaInclusion::PendingAvailability` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `ParaInclusion::PendingAvailabilityCommitments` (r:50 w:50)
 	/// Proof: `ParaInclusion::PendingAvailabilityCommitments` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Dmp::DownwardMessageQueues` (r:1 w:1)
+	/// Storage: `Dmp::DownwardMessageQueues` (r:50 w:1)
 	/// Proof: `Dmp::DownwardMessageQueues` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Dmp::DeliveryFeeFactor` (r:1 w:1)
 	/// Proof: `Dmp::DeliveryFeeFactor` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -382,30 +382,36 @@ impl<T: frame_system::Config> runtime_parachains::paras_inherent::WeightInfo for
 	/// Proof: `ParaScheduler::ValidatorGroups` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `ParaScheduler::ClaimQueue` (r:1 w:1)
 	/// Proof: `ParaScheduler::ClaimQueue` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Paras::CurrentCodeHash` (r:50 w:0)
+	/// Proof: `Paras::CurrentCodeHash` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Paras::ParaLifecycles` (r:50 w:0)
+	/// Proof: `Paras::ParaLifecycles` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `MessageQueue::BookStateFor` (r:50 w:0)
+	/// Proof: `MessageQueue::BookStateFor` (`max_values`: None, `max_size`: Some(55), added: 2530, mode: `MaxEncodedLen`)
+	/// Storage: `Paras::MostRecentContext` (r:49 w:1)
+	/// Proof: `Paras::MostRecentContext` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Paras::Heads` (r:49 w:1)
+	/// Proof: `Paras::Heads` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `ParasShared::ActiveValidatorIndices` (r:1 w:0)
 	/// Proof: `ParasShared::ActiveValidatorIndices` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Session::DisabledValidators` (r:1 w:0)
 	/// Proof: `Session::DisabledValidators` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `ParaInclusion::AvailabilityBitfields` (r:0 w:1)
+	/// Storage: `ParaInclusion::AvailabilityBitfields` (r:0 w:300)
 	/// Proof: `ParaInclusion::AvailabilityBitfields` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `ParasDisputes::Included` (r:0 w:50)
 	/// Proof: `ParasDisputes::Included` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Hrmp::HrmpWatermarks` (r:0 w:1)
 	/// Proof: `Hrmp::HrmpWatermarks` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Paras::Heads` (r:0 w:1)
-	/// Proof: `Paras::Heads` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Paras::UpgradeGoAheadSignal` (r:0 w:1)
 	/// Proof: `Paras::UpgradeGoAheadSignal` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Paras::MostRecentContext` (r:0 w:1)
-	/// Proof: `Paras::MostRecentContext` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn enter_on_demand_queue_processing() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `4920870`
-		//  Estimated: `5048085`
-		// Minimum execution time: 19_953_000_000 picoseconds.
-		Weight::from_parts(20_976_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 5048085))
-			.saturating_add(T::DbWeight::get().reads(174))
-			.saturating_add(T::DbWeight::get().writes(164))
+		//  Measured:  `6536142`
+		//  Estimated: `6663357`
+		// Minimum execution time: 345_500_000_000 picoseconds.
+		Weight::from_parts(387_888_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 6663357))
+			.saturating_add(T::DbWeight::get().reads(467))
+			.saturating_add(T::DbWeight::get().writes(462))
 	}
 }

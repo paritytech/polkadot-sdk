@@ -230,14 +230,8 @@ benchmarks! {
 			.set_max_validators_per_core(3)
 			.build();
 
-		let mut benchmark = scenario.data.clone();
-		let bitfield = benchmark.bitfields.pop().unwrap();
-
-		benchmark.bitfields.clear();
-		benchmark.backed_candidates.clear();
+		let mut benchmark = scenario.data;
 		benchmark.disputes.clear();
-
-		benchmark.bitfields.push(bitfield);
 	}: enter(RawOrigin::None, benchmark)
 	verify {
 		// TODO
