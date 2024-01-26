@@ -73,8 +73,6 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 			#frame_support::CloneNoBound,
 			#frame_support::EqNoBound,
 			#frame_support::PartialEqNoBound,
-			#frame_support::OrdNoBound,
-			#frame_support::PartialOrdNoBound,
 			#frame_support::RuntimeDebugNoBound,
 		)]
 	));
