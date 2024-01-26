@@ -57,26 +57,9 @@ pub mod versioned {
 }
 
 pub mod v8 {
-	use super::*;
+	use super::{v7::V7BondedPoolInner, *};
 
-	#[derive(Decode)]
-	pub struct OldCommission<T: Config> {
-		pub current: Option<(Perbill, T::AccountId)>,
-		pub max: Option<Perbill>,
-		pub change_rate: Option<CommissionChangeRate<BlockNumberFor<T>>>,
-		pub throttle_from: Option<BlockNumberFor<T>>,
-	}
-
-	#[derive(Decode)]
-	pub struct OldBondedPoolInner<T: Config> {
-		pub commission: OldCommission<T>,
-		pub member_counter: u32,
-		pub points: BalanceOf<T>,
-		pub roles: PoolRoles<T::AccountId>,
-		pub state: PoolState,
-	}
-
-	impl<T: Config> OldBondedPoolInner<T> {
+	impl<T: Config> V7BondedPoolInner<T> {
 		fn migrate_to_v8(self) -> BondedPoolInner<T> {
 			BondedPoolInner {
 				commission: Commission {
@@ -104,7 +87,7 @@ pub mod v8 {
 
 		fn on_runtime_upgrade() -> Weight {
 			let mut translated = 0u64;
-			BondedPools::<T>::translate::<OldBondedPoolInner<T>, _>(|_key, old_value| {
+			BondedPools::<T>::translate::<V7BondedPoolInner<T>, _>(|_key, old_value| {
 				translated.saturating_inc();
 				Some(old_value.migrate_to_v8())
 			});
@@ -128,8 +111,50 @@ pub mod v8 {
 ///
 /// WARNING: This migration works under the assumption that the [`BondedPools`] cannot be inflated
 /// arbitrarily. Otherwise this migration could fail due to too high weight.
-mod v7 {
+pub(crate) mod v7 {
 	use super::*;
+
+	#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEq, Clone)]
+	#[codec(mel_bound(T: Config))]
+	#[scale_info(skip_type_params(T))]
+	pub struct V7Commission<T: Config> {
+		pub current: Option<(Perbill, T::AccountId)>,
+		pub max: Option<Perbill>,
+		pub change_rate: Option<CommissionChangeRate<BlockNumberFor<T>>>,
+		pub throttle_from: Option<BlockNumberFor<T>>,
+	}
+
+	#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEq, Clone)]
+	#[codec(mel_bound(T: Config))]
+	#[scale_info(skip_type_params(T))]
+	pub struct V7BondedPoolInner<T: Config> {
+		pub commission: V7Commission<T>,
+		pub member_counter: u32,
+		pub points: BalanceOf<T>,
+		pub roles: PoolRoles<T::AccountId>,
+		pub state: PoolState,
+	}
+
+	#[allow(dead_code)]
+	#[derive(RuntimeDebugNoBound)]
+	#[cfg_attr(feature = "std", derive(Clone, PartialEq))]
+	pub struct V7BondedPool<T: Config> {
+		/// The identifier of the pool.
+		id: PoolId,
+		/// The inner fields.
+		inner: V7BondedPoolInner<T>,
+	}
+
+	impl<T: Config> V7BondedPool<T> {
+		fn bonded_account(&self) -> T::AccountId {
+			Pallet::<T>::create_bonded_account(self.id)
+		}
+	}
+
+	// NOTE: We cannot put a V7 prefix here since that would change the storage key.
+	#[frame_support::storage_alias]
+	pub type BondedPools<T: Config> =
+		CountedStorageMap<Pallet<T>, Twox64Concat, PoolId, V7BondedPoolInner<T>>;
 
 	pub struct VersionUncheckedMigrateV6ToV7<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> VersionUncheckedMigrateV6ToV7<T> {
@@ -137,7 +162,7 @@ mod v7 {
 			BondedPools::<T>::iter()
 				.map(|(id, inner)| {
 					T::Staking::total_stake(
-						&BondedPool { id, inner: inner.clone() }.bonded_account(),
+						&V7BondedPool { id, inner: inner.clone() }.bonded_account(),
 					)
 					.unwrap_or_default()
 				})
