@@ -165,7 +165,7 @@ where
 							break;
 						},
 
-						// Dropped transaction may renter the pool at a later time, when other
+						// Dropped transaction may enter the pool at a later time, when other
 						// transactions have been finalized and remove from the pool.
 						TransactionStatus::Dropped |
 						// An invalid transaction may become valid at a later time.
