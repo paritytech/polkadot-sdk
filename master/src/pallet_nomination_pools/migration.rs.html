@@ -952,6 +952,31 @@
 <a href="#952" id="952">952</a>
 <a href="#953" id="953">953</a>
 <a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1011,26 +1036,9 @@
 }
 
 <span class="kw">pub mod </span>v8 {
-	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+	<span class="kw">use super</span>::{v7::V7BondedPoolInner, <span class="kw-2">*</span>};
 
-	<span class="attr">#[derive(Decode)]
-	</span><span class="kw">pub struct </span>OldCommission&lt;T: Config&gt; {
-		<span class="kw">pub </span>current: <span class="prelude-ty">Option</span>&lt;(Perbill, T::AccountId)&gt;,
-		<span class="kw">pub </span>max: <span class="prelude-ty">Option</span>&lt;Perbill&gt;,
-		<span class="kw">pub </span>change_rate: <span class="prelude-ty">Option</span>&lt;CommissionChangeRate&lt;BlockNumberFor&lt;T&gt;&gt;&gt;,
-		<span class="kw">pub </span>throttle_from: <span class="prelude-ty">Option</span>&lt;BlockNumberFor&lt;T&gt;&gt;,
-	}
-
-	<span class="attr">#[derive(Decode)]
-	</span><span class="kw">pub struct </span>OldBondedPoolInner&lt;T: Config&gt; {
-		<span class="kw">pub </span>commission: OldCommission&lt;T&gt;,
-		<span class="kw">pub </span>member_counter: u32,
-		<span class="kw">pub </span>points: BalanceOf&lt;T&gt;,
-		<span class="kw">pub </span>roles: PoolRoles&lt;T::AccountId&gt;,
-		<span class="kw">pub </span>state: PoolState,
-	}
-
-	<span class="kw">impl</span>&lt;T: Config&gt; OldBondedPoolInner&lt;T&gt; {
+	<span class="kw">impl</span>&lt;T: Config&gt; V7BondedPoolInner&lt;T&gt; {
 		<span class="kw">fn </span>migrate_to_v8(<span class="self">self</span>) -&gt; BondedPoolInner&lt;T&gt; {
 			BondedPoolInner {
 				commission: Commission {
@@ -1058,7 +1066,7 @@
 
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 			<span class="kw">let </span><span class="kw-2">mut </span>translated = <span class="number">0u64</span>;
-			BondedPools::&lt;T&gt;::translate::&lt;OldBondedPoolInner&lt;T&gt;, <span class="kw">_</span>&gt;(|_key, old_value| {
+			BondedPools::&lt;T&gt;::translate::&lt;V7BondedPoolInner&lt;T&gt;, <span class="kw">_</span>&gt;(|_key, old_value| {
 				translated.saturating_inc();
 				<span class="prelude-val">Some</span>(old_value.migrate_to_v8())
 			});
@@ -1082,8 +1090,50 @@
 ///
 /// WARNING: This migration works under the assumption that the [`BondedPools`] cannot be inflated
 /// arbitrarily. Otherwise this migration could fail due to too high weight.
-</span><span class="kw">mod </span>v7 {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>v7 {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+	<span class="attr">#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEq, Clone)]
+	#[codec(mel_bound(T: Config))]
+	#[scale_info(skip_type_params(T))]
+	</span><span class="kw">pub struct </span>V7Commission&lt;T: Config&gt; {
+		<span class="kw">pub </span>current: <span class="prelude-ty">Option</span>&lt;(Perbill, T::AccountId)&gt;,
+		<span class="kw">pub </span>max: <span class="prelude-ty">Option</span>&lt;Perbill&gt;,
+		<span class="kw">pub </span>change_rate: <span class="prelude-ty">Option</span>&lt;CommissionChangeRate&lt;BlockNumberFor&lt;T&gt;&gt;&gt;,
+		<span class="kw">pub </span>throttle_from: <span class="prelude-ty">Option</span>&lt;BlockNumberFor&lt;T&gt;&gt;,
+	}
+
+	<span class="attr">#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEq, Clone)]
+	#[codec(mel_bound(T: Config))]
+	#[scale_info(skip_type_params(T))]
+	</span><span class="kw">pub struct </span>V7BondedPoolInner&lt;T: Config&gt; {
+		<span class="kw">pub </span>commission: V7Commission&lt;T&gt;,
+		<span class="kw">pub </span>member_counter: u32,
+		<span class="kw">pub </span>points: BalanceOf&lt;T&gt;,
+		<span class="kw">pub </span>roles: PoolRoles&lt;T::AccountId&gt;,
+		<span class="kw">pub </span>state: PoolState,
+	}
+
+	<span class="attr">#[allow(dead_code)]
+	#[derive(RuntimeDebugNoBound)]
+	#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Clone, PartialEq))]
+	</span><span class="kw">pub struct </span>V7BondedPool&lt;T: Config&gt; {
+		<span class="doccomment">/// The identifier of the pool.
+		</span>id: PoolId,
+		<span class="doccomment">/// The inner fields.
+		</span>inner: V7BondedPoolInner&lt;T&gt;,
+	}
+
+	<span class="kw">impl</span>&lt;T: Config&gt; V7BondedPool&lt;T&gt; {
+		<span class="kw">fn </span>bonded_account(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; T::AccountId {
+			Pallet::&lt;T&gt;::create_bonded_account(<span class="self">self</span>.id)
+		}
+	}
+
+	<span class="comment">// NOTE: We cannot put a V7 prefix here since that would change the storage key.
+	</span><span class="attr">#[frame_support::storage_alias]
+	</span><span class="kw">pub type </span>BondedPools&lt;T: Config&gt; =
+		CountedStorageMap&lt;Pallet&lt;T&gt;, Twox64Concat, PoolId, V7BondedPoolInner&lt;T&gt;&gt;;
 
 	<span class="kw">pub struct </span>VersionUncheckedMigrateV6ToV7&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
 	<span class="kw">impl</span>&lt;T: Config&gt; VersionUncheckedMigrateV6ToV7&lt;T&gt; {
@@ -1091,7 +1141,7 @@
 			BondedPools::&lt;T&gt;::iter()
 				.map(|(id, inner)| {
 					T::Staking::total_stake(
-						<span class="kw-2">&amp;</span>BondedPool { id, inner: inner.clone() }.bonded_account(),
+						<span class="kw-2">&amp;</span>V7BondedPool { id, inner: inner.clone() }.bonded_account(),
 					)
 					.unwrap_or_default()
 				})
