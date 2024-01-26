@@ -128,6 +128,11 @@
 <a href="#128" id="128">128</a>
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -222,6 +227,11 @@
 <span class="kw">mod </span>nonfungibles_adapter;
 <span class="kw">pub use </span>nonfungibles_adapter::{
 	NonFungiblesAdapter, NonFungiblesMutateAdapter, NonFungiblesTransferAdapter,
+};
+
+<span class="kw">mod </span>nonfungible_adapter;
+<span class="kw">pub use </span>nonfungible_adapter::{
+	NonFungibleAdapter, NonFungibleMutateAdapter, NonFungibleTransferAdapter,
 };
 
 <span class="kw">mod </span>origin_aliases;
