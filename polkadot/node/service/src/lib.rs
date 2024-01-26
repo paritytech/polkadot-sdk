@@ -947,7 +947,6 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 			availability_config: AVAILABILITY_CONFIG,
 			pov_req_receiver,
 			chunk_req_receiver,
-			pvf_checker_enabled: role.is_authority(),
 			statement_req_receiver,
 			candidate_req_v2_receiver,
 			approval_voting_config,

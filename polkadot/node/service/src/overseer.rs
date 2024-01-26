@@ -130,8 +130,6 @@ pub struct ExtendedOverseerGenArgs {
 	pub pov_req_receiver: IncomingRequestReceiver<request_v1::PoVFetchingRequest>,
 	/// Erasure chunks request receiver.
 	pub chunk_req_receiver: IncomingRequestReceiver<request_v1::ChunkFetchingRequest>,
-	/// Enable PVF pre-checking
-	pub pvf_checker_enabled: bool,
 	/// Receiver for incoming large statement requests.
 	pub statement_req_receiver: IncomingRequestReceiver<request_v1::StatementFetchingRequest>,
 	/// Receiver for incoming candidate requests.
@@ -172,7 +170,6 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		availability_config,
 		pov_req_receiver,
 		chunk_req_receiver,
-		pvf_checker_enabled,
 		statement_req_receiver,
 		candidate_req_v2_receiver,
 		approval_voting_config,
@@ -282,11 +279,7 @@ where
 			Metrics::register(registry)?, // candidate-validation metrics
 			Metrics::register(registry)?, // validation host metrics
 		))
-		.pvf_checker(PvfCheckerSubsystem::new(
-			pvf_checker_enabled,
-			keystore.clone(),
-			Metrics::register(registry)?,
-		))
+		.pvf_checker(PvfCheckerSubsystem::new(keystore.clone(), Metrics::register(registry)?))
 		.chain_api(ChainApiSubsystem::new(runtime_client.clone(), Metrics::register(registry)?))
 		.collation_generation(CollationGenerationSubsystem::new(Metrics::register(registry)?))
 		.collator_protocol({
