@@ -18,6 +18,7 @@ frame-system = { path = "../../../../../../substrate/frame/system", default-feat
 pallet-balances = { path = "../../../../../../substrate/frame/balances", default-features = false, version = "25.0.0" }
 pallet-assets = { path = "../../../../../../substrate/frame/assets", default-features = false, version = "26.0.0" }
 pallet-asset-conversion = { path = "../../../../../../substrate/frame/asset-conversion", default-features = false, version = "7.0.0" }
+pallet-message-queue = { path = "../../../../../../substrate/frame/message-queue", default-features = false }
 
 # Polkadot
 polkadot-core-primitives = { path = "../../../../../../polkadot/core-primitives", default-features = false, version = "4.0.0" }
@@ -29,9 +30,13 @@ xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../pol
 rococo-runtime = { path = "../../../../../../polkadot/runtime/rococo", default-features = false, version = "4.0.0" }
 
 # Cumulus
-asset-test-utils = { path = "../../../../runtimes/assets/test-utils", default-features = false, version = "4.0.0" }
-parachains-common = { version = "4.0.0", path = "../../../../common" }
-asset-hub-rococo-runtime = { version = "0.9.420", path = "../../../../runtimes/assets/asset-hub-rococo" }
+asset-test-utils = { path = "../../../../runtimes/assets/test-utils", default-features = false }
+parachains-common = { path = "../../../../common" }
+asset-hub-rococo-runtime = { path = "../../../../runtimes/assets/asset-hub-rococo" }
+penpal-runtime = { path = "../../../../runtimes/testing/penpal" }
+cumulus-pallet-dmp-queue = { path = "../../../../../pallets/dmp-queue", default-features = false}
+cumulus-pallet-parachain-system = { path = "../../../../../pallets/parachain-system", default-features = false }
+cumulus-pallet-xcmp-queue = { path = "../../../../../pallets/xcmp-queue", default-features = false}
 
 # Local
 xcm-emulator = { path = "../../../../../xcm/xcm-emulator", default-features = false, version = "0.2.0" }
