@@ -214,10 +214,10 @@ struct GapSync<B: BlockT> {
 pub enum ChainSyncAction<B: BlockT> {
 	/// Send block request to peer. Always implies dropping a stale block request to the same peer.
 	SendBlockRequest { peer_id: PeerId, request: BlockRequest<B> },
-	/// Drop stale block request.
-	CancelBlockRequest { peer_id: PeerId },
 	/// Send state request to peer.
 	SendStateRequest { peer_id: PeerId, request: OpaqueStateRequest },
+	/// Drop stale request.
+	CancelRequest { peer_id: PeerId },
 	/// Peer misbehaved. Disconnect, report it and cancel the block request to it.
 	DropPeer(BadPeer),
 	/// Import blocks.
@@ -1361,9 +1361,10 @@ where
 				PeerSyncState::AncestorSearch { .. } |
 				PeerSyncState::DownloadingNew(_) |
 				PeerSyncState::DownloadingStale(_) |
-				PeerSyncState::DownloadingGap(_) => {
+				PeerSyncState::DownloadingGap(_) |
+				PeerSyncState::DownloadingState => {
 					self.add_peer(peer_id, peer_sync.best_hash, peer_sync.best_number);
-					self.actions.push(ChainSyncAction::CancelBlockRequest { peer_id });
+					self.actions.push(ChainSyncAction::CancelRequest { peer_id });
 					self.peer_pool.lock().free_peer(&peer_id);
 				},
 				PeerSyncState::DownloadingJustification(_) => {
@@ -1379,11 +1380,6 @@ where
 					);
 					peer_sync.common_number = self.best_queued_number;
 					self.peers.insert(peer_id, peer_sync);
-				},
-				PeerSyncState::DownloadingState => {
-					self.add_peer(peer_id, peer_sync.best_hash, peer_sync.best_number);
-					self.peer_pool.lock().free_peer(&peer_id);
-					// FIXME: is it safe to not cancel state request here?
 				},
 			}
 		});

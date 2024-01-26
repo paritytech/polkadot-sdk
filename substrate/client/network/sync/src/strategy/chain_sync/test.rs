@@ -177,7 +177,7 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 	let actions = sync.actions().collect::<Vec<_>>();
 	assert_eq!(actions.len(), 4);
 	assert!(actions.iter().take(2).all(|action| match action {
-		ChainSyncAction::CancelBlockRequest { peer_id, .. } =>
+		ChainSyncAction::CancelRequest { peer_id, .. } =>
 			peer_id == &peer_id1 || peer_id == &peer_id2,
 		_ => false,
 	}));
@@ -875,7 +875,7 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 	let actions = sync.actions().collect::<Vec<_>>();
 	for action in actions.iter() {
 		match action {
-			ChainSyncAction::CancelBlockRequest { peer_id } => {
+			ChainSyncAction::CancelRequest { peer_id } => {
 				pending_responses.remove(&peer_id);
 			},
 			ChainSyncAction::SendBlockRequest { peer_id, .. } => {
