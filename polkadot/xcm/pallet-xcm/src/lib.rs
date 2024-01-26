@@ -1010,7 +1010,8 @@ pub mod pallet {
 			message: Box<VersionedXcm<<T as Config>::RuntimeCall>>,
 			max_weight: Weight,
 		) -> DispatchResultWithPostInfo {
-			let weight_used = <Self as ExecuteController<_, _>>::execute(origin, message, max_weight)?;
+			let weight_used =
+				<Self as ExecuteController<_, _>>::execute(origin, message, max_weight)?;
 			Ok(Some(weight_used.saturating_add(T::WeightInfo::execute())).into())
 		}
 
