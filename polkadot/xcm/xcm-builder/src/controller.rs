@@ -140,7 +140,6 @@ impl<Origin, RuntimeCall> ExecuteController<Origin, RuntimeCall> for () {
 		_max_weight: Weight,
 	) -> Result<Weight, DispatchError> {
 		Err(DispatchError::Other("ExecuteController::execute not implemented"))
-
 	}
 }
 
