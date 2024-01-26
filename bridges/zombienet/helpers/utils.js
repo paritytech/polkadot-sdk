@@ -1,13 +1,13 @@
 module.exports = {
     logEvents: function(events) {
-        let sevents = "";
+        let stringifiedEvents = "";
         events.forEach((record) => {
-            if (sevents != "") {
-                sevents += ", ";
+            if (stringifiedEvents != "") {
+                stringifiedEvents += ", ";
             }
-            sevents += record.event.section + "::" + record.event.method;
+            stringifiedEvents += record.event.section + "::" + record.event.method;
         });
-        console.log("Block events: " + sevents);
+        console.log("Block events: " + stringifiedEvents);
     },
     countGrandpaHeaderImports: function(bridgedChain, events) {
         return events.reduce(
