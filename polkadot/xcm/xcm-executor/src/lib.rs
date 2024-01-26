@@ -822,8 +822,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			DepositReserveAsset { assets, dest, xcm } => {
 				let old_holding = self.holding.clone();
 				let result = Config::TransactionalProcessor::process(|| {
-					// we need to do this take/put cycle to solve wildcards and get exact assets to be
-					// weighed
+					// we need to do this take/put cycle to solve wildcards and get exact assets to
+					// be weighed
 					let to_weigh = self.holding.saturating_take(assets.clone());
 					self.holding.subsume_assets(to_weigh.clone());
 
@@ -845,7 +845,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let assets = Self::reanchored(deposited, &dest, None);
 					let mut message = vec![ReserveAssetDeposited(assets), ClearOrigin];
 					message.extend(xcm.0.into_iter());
-					
+
 					// put back parked_fee in holding register to be charged by XcmSender
 					self.holding.subsume_assets(parked_fee);
 					self.send(dest, Xcm(message), FeeReason::DepositReserveAsset)?;
