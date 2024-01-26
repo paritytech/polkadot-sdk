@@ -490,12 +490,7 @@ pub mod pallet {
 				.get(index as usize)
 				.and_then(Option::as_ref)
 				.ok_or(Error::<T>::NotFound)?;
-			if matches!(
-				T::OriginPrivilegeCmp::cmp_privilege(origin.caller(), &task.origin),
-				Some(Ordering::Less) | None
-			) {
-				return Err(BadOrigin.into())
-			}
+			Self::ensure_privilege(origin.caller(), &task.origin)?;
 			Retries::<T>::insert(
 				(when, index),
 				RetryConfig { total_retries: retries, remaining: retries, period },
@@ -530,12 +525,7 @@ pub mod pallet {
 				.get(agenda_index as usize)
 				.and_then(Option::as_ref)
 				.ok_or(Error::<T>::NotFound)?;
-			if matches!(
-				T::OriginPrivilegeCmp::cmp_privilege(origin.caller(), &task.origin),
-				Some(Ordering::Less) | None
-			) {
-				return Err(BadOrigin.into())
-			}
+			Self::ensure_privilege(origin.caller(), &task.origin)?;
 			Retries::<T>::insert(
 				(when, agenda_index),
 				RetryConfig { total_retries: retries, remaining: retries, period },
@@ -940,12 +930,7 @@ impl<T: Config> Pallet<T> {
 				Ok(None),
 				|s| -> Result<Option<Scheduled<_, _, _, _, _>>, DispatchError> {
 					if let (Some(ref o), Some(ref s)) = (origin, s.borrow()) {
-						if matches!(
-							T::OriginPrivilegeCmp::cmp_privilege(o, &s.origin),
-							Some(Ordering::Less) | None
-						) {
-							return Err(BadOrigin.into())
-						}
+						Self::ensure_privilege(o, &s.origin)?;
 					};
 					Ok(s.take())
 				},
@@ -1033,12 +1018,7 @@ impl<T: Config> Pallet<T> {
 				Agenda::<T>::try_mutate(when, |agenda| -> DispatchResult {
 					if let Some(s) = agenda.get_mut(i) {
 						if let (Some(ref o), Some(ref s)) = (origin, s.borrow()) {
-							if matches!(
-								T::OriginPrivilegeCmp::cmp_privilege(o, &s.origin),
-								Some(Ordering::Less) | None
-							) {
-								return Err(BadOrigin.into())
-							}
+							Self::ensure_privilege(o, &s.origin)?;
 							T::Preimages::drop(&s.call);
 						}
 						*s = None;
@@ -1365,6 +1345,20 @@ impl<T: Config> Pallet<T> {
 			},
 			None => Err(task),
 		}
+	}
+
+	/// Ensure that `left` has at least the same level of privilege or higher than `right`.
+	///
+	/// Returns an error if `left` has a lower level of privilege or the two cannot be compared.
+	fn ensure_privilege(
+		left: &<T as Config>::PalletsOrigin,
+		right: &<T as Config>::PalletsOrigin,
+	) -> Result<(), DispatchError> {
+		if matches!(T::OriginPrivilegeCmp::cmp_privilege(left, right), Some(Ordering::Less) | None)
+		{
+			return Err(BadOrigin.into());
+		}
+		Ok(())
 	}
 }
 
