@@ -154,7 +154,7 @@ impl FetchChunks {
 				}),
 			Err(err) => {
 				recovery_duration.map(|rd| rd.stop_and_discard());
-				gum::trace!(
+				gum::debug!(
 					target: LOG_TARGET,
 					candidate_hash = ?common_params.candidate_hash,
 					erasure_root = ?common_params.erasure_root,

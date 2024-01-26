@@ -473,8 +473,8 @@ pub enum AvailabilityRecoveryMessage {
 		CandidateReceipt,
 		SessionIndex,
 		Option<GroupIndex>, // Optional backing group to request from first.
-		Option<CoreIndex>,  /* Optional core index that the candidate was occupying. Needed for
-		                     * systematic recovery. */
+		Option<CoreIndex>,  /* A `CoreIndex` needs to be specified for the recovery process to
+		                     * prefer systematic chunk recovery. */
 		oneshot::Sender<Result<AvailableData, crate::errors::RecoveryError>>,
 	),
 }
@@ -546,7 +546,7 @@ pub enum AvailabilityStoreMessage {
 		available_data: AvailableData,
 		/// Erasure root we expect to get after chunking.
 		expected_erasure_root: Hash,
-		/// Core index that the candidate will begin occupying (that the para is scheduled on).
+		/// Core index where the candidate was backed.
 		core_index: CoreIndex,
 		/// Node features at the candidate relay parent. Used for computing the validator->chunk
 		/// mapping.

@@ -49,7 +49,7 @@ pub struct FetchSystematicChunks {
 	threshold: usize,
 	/// Validators that hold the systematic chunks.
 	validators: Vec<(ChunkIndex, ValidatorIndex)>,
-	/// Backers. to be used as a backup.
+	/// Backers to be used as a backup.
 	backers: Vec<ValidatorIndex>,
 	/// Collection of in-flight requests.
 	requesting_chunks: OngoingRequests,
@@ -148,7 +148,7 @@ impl FetchSystematicChunks {
 				reconstruct_duration.map(|rd| rd.stop_and_discard());
 				recovery_duration.map(|rd| rd.stop_and_discard());
 
-				gum::trace!(
+				gum::debug!(
 					target: LOG_TARGET,
 					candidate_hash = ?common_params.candidate_hash,
 					erasure_root = ?common_params.erasure_root,

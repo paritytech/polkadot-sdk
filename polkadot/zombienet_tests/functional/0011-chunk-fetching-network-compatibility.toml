@@ -16,7 +16,7 @@ limits = { memory = "4G", cpu = "2" }
 requests = { memory = "2G", cpu = "1" }
 
   [[relaychain.node_groups]]
-  # Fix this to an image that doesn't speak /req_chunk/2 protocol.
+  # An image that doesn't speak /req_chunk/2 protocol.
   image = "{{POLKADOT_IMAGE}}:v1.0.0"
   name = "old"
   count = 2
