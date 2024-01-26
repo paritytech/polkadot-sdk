@@ -56,12 +56,12 @@ log = { version = "0.4.17", default-features = false }
 [dev-dependencies]
 futures = "0.3.21"
 sc-block-builder = { path = "../../client/block-builder" }
+sc-chain-spec = { path = "../../client/chain-spec" }
 sc-executor = { path = "../../client/executor" }
 sc-executor-common = { path = "../../client/executor/common" }
 sp-consensus = { path = "../../primitives/consensus/common" }
 substrate-test-runtime-client = { path = "client" }
 sp-tracing = { path = "../../primitives/tracing" }
-json-patch = { version = "1.0.0", default-features = false }
 serde = { version = "1.0.195", features = ["alloc", "derive"], default-features = false }
 serde_json = { version = "1.0.111", default-features = false, features = ["alloc"] }
 
