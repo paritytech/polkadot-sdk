@@ -3,7 +3,7 @@ process and foster better contributions, we have merged three separate repositor
 this repository. Read more about the changes [
 here](https://polkadot-public.notion.site/Polkadot-SDK-FAQ-fbc4cecc2c46443fb37b9eeec2f0d85f).
 
-# Polkadot SDK
+# Polkadot SDK 
 
 ![](https://cms.polkadot.network/content/images/2021/06/1-xPcVR_fkITd0ssKBvJ3GMw.png)
 
