@@ -18,16 +18,18 @@
 
 use crate::{
 	request_metrics::Metrics,
-	strategy::chain_sync::{PeerSync, PeerSyncState},
+	strategy::{chain_sync::PeerSync, PeerPool},
 	LOG_TARGET,
 };
 use fork_tree::ForkTree;
 use libp2p::PeerId;
-use log::{debug, trace, warn};
+use log::{debug, error, trace, warn};
+use parking_lot::Mutex;
 use sp_blockchain::Error as ClientError;
 use sp_runtime::traits::{Block as BlockT, NumberFor, Zero};
 use std::{
 	collections::{HashMap, HashSet, VecDeque},
+	sync::Arc,
 	time::{Duration, Instant},
 };
 
@@ -288,6 +290,7 @@ impl<'a, B: BlockT> Matcher<'a, B> {
 	pub(crate) fn next(
 		&mut self,
 		peers: &HashMap<PeerId, PeerSync<B>>,
+		peer_pool: &Arc<Mutex<PeerPool>>,
 	) -> Option<(PeerId, ExtraRequest<B>)> {
 		if self.remaining == 0 {
 			return None
@@ -299,16 +302,19 @@ impl<'a, B: BlockT> Matcher<'a, B> {
 		}
 
 		while let Some(request) = self.extras.pending_requests.pop_front() {
-			for (peer, sync) in
-				peers.iter().filter(|(_, sync)| sync.state == PeerSyncState::Available)
-			{
+			for mut available_peer in peer_pool.lock().available_peers() {
+				let peer_id = available_peer.peer_id();
+				let Some(sync) = peers.get(peer_id) else {
+					error!(
+						target: LOG_TARGET,
+						"Peer {peer_id} is available, but not known to `ChainSync`",
+					);
+					debug_assert!(false);
+					continue
+				};
 				// only ask peers that have synced at least up to the block number that we're asking
 				// the extra for
 				if sync.best_number < request.1 {
-					continue
-				}
-				// don't request to any peers that already have pending requests
-				if self.extras.active_requests.contains_key(peer) {
 					continue
 				}
 				// only ask if the same request has not failed for this peer before
@@ -316,19 +322,21 @@ impl<'a, B: BlockT> Matcher<'a, B> {
 					.extras
 					.failed_requests
 					.get(&request)
-					.map(|rr| rr.iter().any(|i| &i.0 == peer))
+					.map(|rr| rr.iter().any(|i| &i.0 == peer_id))
 					.unwrap_or(false)
 				{
 					continue
 				}
-				self.extras.active_requests.insert(*peer, request);
+
+				available_peer.reserve();
+				self.extras.active_requests.insert(*peer_id, request);
 
 				trace!(target: LOG_TARGET,
 					"Sending {} request to {:?} for {:?}",
-					self.extras.request_type_name, peer, request,
+					self.extras.request_type_name, peer_id, request,
 				);
 
-				return Some((*peer, request))
+				return Some((*peer_id, request))
 			}
 
 			self.extras.pending_requests.push_back(request);
@@ -346,19 +354,26 @@ impl<'a, B: BlockT> Matcher<'a, B> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::strategy::chain_sync::PeerSync;
+	use crate::strategy::{
+		chain_sync::{PeerSync, PeerSyncState},
+		PeerPool,
+	};
+	use parking_lot::Mutex;
 	use quickcheck::{Arbitrary, Gen, QuickCheck};
 	use sp_blockchain::Error as ClientError;
 	use sp_test_primitives::{Block, BlockNumber, Hash};
-	use std::collections::{HashMap, HashSet};
+	use std::{
+		collections::{HashMap, HashSet},
+		sync::Arc,
+	};
 
 	#[test]
 	fn requests_are_processed_in_order() {
-		fn property(mut peers: ArbitraryPeers) {
+		fn property(mut ap: ArbitraryPeers) {
 			let mut requests = ExtraRequests::<Block>::new("test");
 
 			let num_peers_available =
-				peers.0.values().filter(|s| s.state == PeerSyncState::Available).count();
+				ap.peers.values().filter(|s| s.state == PeerSyncState::Available).count();
 
 			for i in 0..num_peers_available {
 				requests.schedule((Hash::random(), i as u64), |a, b| Ok(a[0] >= b[0]))
@@ -368,9 +383,9 @@ mod tests {
 			let mut m = requests.matcher();
 
 			for p in &pending {
-				let (peer, r) = m.next(&peers.0).unwrap();
+				let (peer, r) = m.next(&ap.peers, &ap.peer_pool).unwrap();
 				assert_eq!(p, &r);
-				peers.0.get_mut(&peer).unwrap().state =
+				ap.peers.get_mut(&peer).unwrap().state =
 					PeerSyncState::DownloadingJustification(r.0);
 			}
 		}
@@ -397,19 +412,19 @@ mod tests {
 
 	#[test]
 	fn disconnecting_implies_rescheduling() {
-		fn property(mut peers: ArbitraryPeers) -> bool {
+		fn property(mut ap: ArbitraryPeers) -> bool {
 			let mut requests = ExtraRequests::<Block>::new("test");
 
 			let num_peers_available =
-				peers.0.values().filter(|s| s.state == PeerSyncState::Available).count();
+				ap.peers.values().filter(|s| s.state == PeerSyncState::Available).count();
 
 			for i in 0..num_peers_available {
 				requests.schedule((Hash::random(), i as u64), |a, b| Ok(a[0] >= b[0]))
 			}
 
 			let mut m = requests.matcher();
-			while let Some((peer, r)) = m.next(&peers.0) {
-				peers.0.get_mut(&peer).unwrap().state =
+			while let Some((peer, r)) = m.next(&ap.peers, &ap.peer_pool) {
+				ap.peers.get_mut(&peer).unwrap().state =
 					PeerSyncState::DownloadingJustification(r.0);
 			}
 
@@ -433,19 +448,19 @@ mod tests {
 
 	#[test]
 	fn no_response_reschedules() {
-		fn property(mut peers: ArbitraryPeers) {
+		fn property(mut ap: ArbitraryPeers) {
 			let mut requests = ExtraRequests::<Block>::new("test");
 
 			let num_peers_available =
-				peers.0.values().filter(|s| s.state == PeerSyncState::Available).count();
+				ap.peers.values().filter(|s| s.state == PeerSyncState::Available).count();
 
 			for i in 0..num_peers_available {
 				requests.schedule((Hash::random(), i as u64), |a, b| Ok(a[0] >= b[0]))
 			}
 
 			let mut m = requests.matcher();
-			while let Some((peer, r)) = m.next(&peers.0) {
-				peers.0.get_mut(&peer).unwrap().state =
+			while let Some((peer, r)) = m.next(&ap.peers, &ap.peer_pool) {
+				ap.peers.get_mut(&peer).unwrap().state =
 					PeerSyncState::DownloadingJustification(r.0);
 			}
 
@@ -570,16 +585,22 @@ mod tests {
 	}
 
 	#[derive(Debug, Clone)]
-	struct ArbitraryPeers(HashMap<PeerId, PeerSync<Block>>);
+	struct ArbitraryPeers {
+		peers: HashMap<PeerId, PeerSync<Block>>,
+		peer_pool: Arc<Mutex<PeerPool>>,
+	}
 
 	impl Arbitrary for ArbitraryPeers {
 		fn arbitrary(g: &mut Gen) -> Self {
 			let mut peers = HashMap::with_capacity(g.size());
+			let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
 			for _ in 0..g.size() {
 				let ps = ArbitraryPeerSync::arbitrary(g).0;
-				peers.insert(ps.peer_id, ps);
+				let peer_id = ps.peer_id;
+				peers.insert(peer_id, ps);
+				peer_pool.lock().add_peer(peer_id);
 			}
-			ArbitraryPeers(peers)
+			ArbitraryPeers { peers, peer_pool }
 		}
 	}
 }

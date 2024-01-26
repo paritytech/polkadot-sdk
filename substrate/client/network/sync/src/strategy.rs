@@ -84,7 +84,7 @@ impl PeerStatus {
 	}
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct PeerPool {
 	peers: HashMap<PeerId, PeerStatus>,
 }
@@ -105,21 +105,21 @@ impl<'a> AvailablePeer<'a> {
 }
 
 impl PeerPool {
-	fn add_peer(&mut self, peer_id: PeerId) {
+	pub fn add_peer(&mut self, peer_id: PeerId) {
 		self.peers.insert(peer_id, PeerStatus::Available);
 	}
 
-	fn remove_peer(&mut self, peer_id: &PeerId) {
+	pub fn remove_peer(&mut self, peer_id: &PeerId) {
 		self.peers.remove(peer_id);
 	}
 
-	fn available_peers<'a>(&'a mut self) -> impl Iterator<Item = AvailablePeer> + 'a {
+	pub fn available_peers<'a>(&'a mut self) -> impl Iterator<Item = AvailablePeer> + 'a {
 		self.peers.iter_mut().filter_map(|(peer_id, status)| {
 			status.is_available().then_some(AvailablePeer::<'a> { peer_id, status })
 		})
 	}
 
-	fn try_reserve_peer(&mut self, peer_id: &PeerId) -> bool {
+	pub fn try_reserve_peer(&mut self, peer_id: &PeerId) -> bool {
 		match self.peers.get_mut(peer_id) {
 			Some(peer_status) => match peer_status {
 				PeerStatus::Available => {
@@ -135,7 +135,7 @@ impl PeerPool {
 		}
 	}
 
-	fn free_peer(&mut self, peer_id: &PeerId) {
+	pub fn free_peer(&mut self, peer_id: &PeerId) {
 		match self.peers.get_mut(peer_id) {
 			Some(peer_status) => match peer_status {
 				PeerStatus::Available => {

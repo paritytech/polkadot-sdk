@@ -1534,11 +1534,10 @@ where
 	/// Get justification requests scheduled by sync to be sent out.
 	fn justification_requests(&mut self) -> Vec<(PeerId, BlockRequest<B>)> {
 		let peers = &mut self.peers;
-		// TODO: filter peers to only include `self.peer_pool.available_peers()`.
-		// As an option, pass available peers to `matcher()`.
+		let peer_pool = &self.peer_pool;
 		let mut matcher = self.extra_justifications.matcher();
 		std::iter::from_fn(move || {
-			if let Some((peer_id, request)) = matcher.next(peers) {
+			if let Some((peer_id, request)) = matcher.next(peers, peer_pool) {
 				// TODO: reserve the peer in `PeerPool`.
 				peers
 					.get_mut(&peer_id)
@@ -2343,6 +2342,3 @@ pub fn validate_blocks<Block: BlockT>(
 
 	Ok(blocks.first().and_then(|b| b.header.as_ref()).map(|h| *h.number()))
 }
-
-// TODO: make state requests respect `PeerPool`.
-// TODO: make (extra) justification requests respect `PeerPool`.
