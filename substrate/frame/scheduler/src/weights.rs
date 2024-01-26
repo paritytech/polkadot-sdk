@@ -61,7 +61,7 @@ pub trait WeightInfo {
 	fn cancel(s: u32, ) -> Weight;
 	fn schedule_named(s: u32, ) -> Weight;
 	fn cancel_named(s: u32, ) -> Weight;
-	fn check_retry(s: u32, ) -> Weight;
+	fn schedule_retry(s: u32, ) -> Weight;
 	fn set_retry(s: u32, ) -> Weight;
 	fn set_retry_named(s: u32, ) -> Weight;
 }
@@ -225,7 +225,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Scheduler::Lookup` (r:0 w:1)
 	/// Proof: `Scheduler::Lookup` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
 	/// The range of component `s` is `[1, 512]`.
-	fn check_retry(s: u32, ) -> Weight {
+	fn schedule_retry(s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `159`
 		//  Estimated: `110487`
@@ -430,7 +430,7 @@ impl WeightInfo for () {
 	/// Storage: `Scheduler::Lookup` (r:0 w:1)
 	/// Proof: `Scheduler::Lookup` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
 	/// The range of component `s` is `[1, 512]`.
-	fn check_retry(s: u32, ) -> Weight {
+	fn schedule_retry(s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `159`
 		//  Estimated: `110487`

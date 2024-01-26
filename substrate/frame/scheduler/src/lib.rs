@@ -488,8 +488,7 @@ pub mod pallet {
 			let agenda = Agenda::<T>::get(when);
 			let task = agenda
 				.get(index as usize)
-				.map(Option::as_ref)
-				.flatten()
+				.and_then(Option::as_ref)
 				.ok_or(Error::<T>::NotFound)?;
 			if matches!(
 				T::OriginPrivilegeCmp::cmp_privilege(origin.caller(), &task.origin),
@@ -529,8 +528,7 @@ pub mod pallet {
 			let agenda = Agenda::<T>::get(when);
 			let task = agenda
 				.get(agenda_index as usize)
-				.map(Option::as_ref)
-				.flatten()
+				.and_then(Option::as_ref)
 				.ok_or(Error::<T>::NotFound)?;
 			if matches!(
 				T::OriginPrivilegeCmp::cmp_privilege(origin.caller(), &task.origin),
@@ -1237,8 +1235,8 @@ impl<T: Config> Pallet<T> {
 
 				let mut task = if failed {
 					let _ = weight
-						.try_consume(T::WeightInfo::check_retry(T::MaxScheduledPerBlock::get()));
-					match Self::check_retry(now, when, agenda_index, task) {
+						.try_consume(T::WeightInfo::schedule_retry(T::MaxScheduledPerBlock::get()));
+					match Self::schedule_retry(now, when, agenda_index, task) {
 						Some(task) => task,
 						None => return Ok(()),
 					}
@@ -1323,13 +1321,13 @@ impl<T: Config> Pallet<T> {
 		Ok(result)
 	}
 
-	/// Check if a task has a retry configutation in place and, if so, try to reschedule it.
+	/// Check if a task has a retry configuration in place and, if so, try to reschedule it.
 	///
 	/// If the task was successfully rescheduled for later, this function will return `None`.
 	/// Otherwise, if the task was not rescheduled, either because there was no retry configuration
 	/// in place, there were no more retry attempts left, or the agenda was full, this function
 	/// will return the task so it can be handled somewhere else.
-	fn check_retry(
+	fn schedule_retry(
 		now: BlockNumberFor<T>,
 		when: BlockNumberFor<T>,
 		agenda_index: u32,

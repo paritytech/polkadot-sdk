@@ -306,7 +306,7 @@ benchmarks! {
 		);
 	}
 
-	check_retry {
+	schedule_retry {
 		let s in 1 .. T::MaxScheduledPerBlock::get();
 		let when = BLOCK_NUMBER.into();
 
@@ -319,7 +319,7 @@ benchmarks! {
 		let (mut when, index) = address;
 		let task = Agenda::<T>::get(when)[index as usize].clone().unwrap();
 	}: {
-		Scheduler::<T>::check_retry(when, when, index, task);
+		Scheduler::<T>::schedule_retry(when, when, index, task);
 	} verify {
 		when = when + BlockNumberFor::<T>::one();
 		assert_eq!(

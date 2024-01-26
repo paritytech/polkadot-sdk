@@ -211,7 +211,7 @@ impl<T: frame_system::Config> pallet_scheduler::WeightInfo for WeightInfo<T> {
 	/// Storage: `Scheduler::Lookup` (r:0 w:1)
 	/// Proof: `Scheduler::Lookup` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
 	/// The range of component `s` is `[1, 50]`.
-	fn check_retry(s: u32, ) -> Weight {
+	fn schedule_retry(s: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `196`
 		//  Estimated: `42428`
