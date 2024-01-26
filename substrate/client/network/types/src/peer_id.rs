@@ -97,6 +97,7 @@ impl PeerId {
 	/// Convert `PeerId` into ed25519 public key bytes.
 	pub fn into_ed25519(&self) -> Option<[u8; 32]> {
 		let hash = &self.multihash;
+		// https://www.ietf.org/id/draft-multiformats-multihash-07.html#name-the-multihash-identifier-re
 		if hash.code() != 0 {
 			// Hash is not identity
 			return None
@@ -123,56 +124,56 @@ impl AsRef<Multihash> for PeerId {
 }
 
 impl From<PeerId> for Multihash {
-	fn from(peer: PeerId) -> Self {
-		peer.multihash
+	fn from(peer_id: PeerId) -> Self {
+		peer_id.multihash
 	}
 }
 
 impl From<libp2p_identity::PeerId> for PeerId {
-	fn from(peer: libp2p_identity::PeerId) -> Self {
-		PeerId { multihash: Multihash::from_bytes(&peer.to_bytes()).expect("to succeed") }
+	fn from(peer_id: libp2p_identity::PeerId) -> Self {
+		PeerId { multihash: Multihash::from_bytes(&peer_id.to_bytes()).expect("to succeed") }
 	}
 }
 
 impl From<PeerId> for libp2p_identity::PeerId {
-	fn from(peer: PeerId) -> Self {
-		libp2p_identity::PeerId::from_bytes(&peer.to_bytes()).expect("to succeed")
+	fn from(peer_id: PeerId) -> Self {
+		libp2p_identity::PeerId::from_bytes(&peer_id.to_bytes()).expect("to succeed")
 	}
 }
 
 impl From<&libp2p_identity::PeerId> for PeerId {
-	fn from(peer: &libp2p_identity::PeerId) -> Self {
-		PeerId { multihash: Multihash::from_bytes(&peer.to_bytes()).expect("to succeed") }
+	fn from(peer_id: &libp2p_identity::PeerId) -> Self {
+		PeerId { multihash: Multihash::from_bytes(&peer_id.to_bytes()).expect("to succeed") }
 	}
 }
 
 impl From<&PeerId> for libp2p_identity::PeerId {
-	fn from(peer: &PeerId) -> Self {
-		libp2p_identity::PeerId::from_bytes(&peer.to_bytes()).expect("to succeed")
+	fn from(peer_id: &PeerId) -> Self {
+		libp2p_identity::PeerId::from_bytes(&peer_id.to_bytes()).expect("to succeed")
 	}
 }
 
 impl From<litep2p::PeerId> for PeerId {
-	fn from(peer: litep2p::PeerId) -> Self {
-		PeerId { multihash: Multihash::from_bytes(&peer.to_bytes()).expect("to succeed") }
+	fn from(peer_id: litep2p::PeerId) -> Self {
+		PeerId { multihash: Multihash::from_bytes(&peer_id.to_bytes()).expect("to succeed") }
 	}
 }
 
 impl From<PeerId> for litep2p::PeerId {
-	fn from(peer: PeerId) -> Self {
-		litep2p::PeerId::from_bytes(&peer.to_bytes()).expect("to succeed")
+	fn from(peer_id: PeerId) -> Self {
+		litep2p::PeerId::from_bytes(&peer_id.to_bytes()).expect("to succeed")
 	}
 }
 
 impl From<&litep2p::PeerId> for PeerId {
-	fn from(peer: &litep2p::PeerId) -> Self {
-		PeerId { multihash: Multihash::from_bytes(&peer.to_bytes()).expect("to succeed") }
+	fn from(peer_id: &litep2p::PeerId) -> Self {
+		PeerId { multihash: Multihash::from_bytes(&peer_id.to_bytes()).expect("to succeed") }
 	}
 }
 
 impl From<&PeerId> for litep2p::PeerId {
-	fn from(peer: &PeerId) -> Self {
-		litep2p::PeerId::from_bytes(&peer.to_bytes()).expect("to succeed")
+	fn from(peer_id: &PeerId) -> Self {
+		litep2p::PeerId::from_bytes(&peer_id.to_bytes()).expect("to succeed")
 	}
 }
 
@@ -238,10 +239,10 @@ mod tests {
 			&litep2p::crypto::PublicKey::Ed25519(keypair.public()),
 		);
 
-		let peer: PeerId = original_peer_id.into();
-		assert_eq!(original_peer_id.to_bytes(), peer.to_bytes());
+		let peer_id: PeerId = original_peer_id.into();
+		assert_eq!(original_peer_id.to_bytes(), peer_id.to_bytes());
 
-		let key = peer.into_ed25519().unwrap();
+		let key = peer_id.into_ed25519().unwrap();
 		assert_eq!(PeerId::from_ed25519(&key).unwrap(), original_peer_id.into());
 	}
 }

@@ -19,88 +19,31 @@
 //! Fuzz test emulates network events and peer connection handling by `Peerset`
 //! and `PeerStore` to discover possible inconsistencies in peer management.
 
-#![allow(unused)]
-
 use crate::{
 	litep2p::{
-		peerstore::{peerstore_handle_test, Peerstore},
-		shim::notification::peerset::{Peerset, PeersetCommand, PeersetNotificationCommand},
+		peerstore::Peerstore,
+		shim::notification::peerset::{
+			OpenResult, Peerset, PeersetCommand, PeersetNotificationCommand,
+		},
 	},
-	peer_store::PeerStoreProvider,
-	protocol_controller::IncomingIndex,
 	service::traits::{Direction, PeerStore, ValidationResult},
-	ProtocolName, ReputationChange,
+	ProtocolName,
 };
 
-use futures::prelude::*;
+use futures::{FutureExt, StreamExt};
 use litep2p::protocol::notification::NotificationError;
 use rand::{
 	distributions::{Distribution, Uniform, WeightedIndex},
 	seq::IteratorRandom,
 };
 
+use sc_network_common::types::ReputationChange;
 use sc_network_types::PeerId;
-use sc_utils::mpsc::tracing_unbounded;
 
 use std::{
 	collections::{HashMap, HashSet},
 	sync::Arc,
-	time::Instant,
 };
-
-/// Peer events as observed by `Notifications` / fuzz test.
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-enum Event {
-	/// Either API requested to disconnect from the peer, or the peer dropped.
-	Disconnected,
-
-	/// Incoming request.
-	Incoming,
-
-	/// Answer from PSM: accept.
-	PsmAccept,
-
-	/// Answer from PSM: reject.
-	PsmReject,
-
-	/// Command from PSM: connect.
-	PsmConnect,
-
-	/// Command from PSM: drop connection.
-	PsmDrop,
-}
-
-/// Simplified peer state as thought by `Notifications` / fuzz test.
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-enum State {
-	/// Peer is not connected.
-	Disconnected,
-
-	/// We have an inbound connection, but have not decided yet whether to accept it.
-	Incoming(usize),
-
-	/// Peer is connected via an inbound connection.
-	Inbound,
-
-	/// Peer is connected via an outbound connection.
-	Outbound,
-}
-
-/// Bare simplified state without incoming index.
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-enum BareState {
-	/// Peer is not connected.
-	Disconnected,
-
-	/// We have an inbound connection, but have not decided yet whether to accept it.
-	Incoming,
-
-	/// Peer is connected via an inbound connection.
-	Inbound,
-
-	/// Peer is connected via an outbound connection.
-	Outbound,
-}
 
 #[tokio::test]
 #[cfg(debug_assertions)]
@@ -112,49 +55,25 @@ async fn run() {
 	}
 }
 
+#[cfg(debug_assertions)]
 async fn test_once() {
-	// Allowed events that can be received in a specific state.
-	let allowed_events: HashMap<BareState, HashSet<Event>> = [
-		(
-			BareState::Disconnected,
-			[Event::Incoming, Event::PsmConnect, Event::PsmDrop /* must be ignored */]
-				.into_iter()
-				.collect::<HashSet<_>>(),
-		),
-		(
-			BareState::Incoming,
-			[Event::PsmAccept, Event::PsmReject].into_iter().collect::<HashSet<_>>(),
-		),
-		(
-			BareState::Inbound,
-			[Event::Disconnected, Event::PsmDrop, Event::PsmConnect /* must be ignored */]
-				.into_iter()
-				.collect::<HashSet<_>>(),
-		),
-		(
-			BareState::Outbound,
-			[Event::Disconnected, Event::PsmDrop, Event::PsmConnect /* must be ignored */]
-				.into_iter()
-				.collect::<HashSet<_>>(),
-		),
-	]
-	.into_iter()
-	.collect();
-
 	// PRNG to use.
 	let mut rng = rand::thread_rng();
 
-	// Nodes that the peerset knows about.
-	let mut known_nodes = HashMap::<PeerId, State>::new();
+	// peers that the peerset knows about.
+	let mut known_peers = HashSet::<PeerId>::new();
 
-	// Nodes that we have reserved. Always a subset of `known_nodes`.
-	let mut reserved_nodes = HashSet::<PeerId>::new();
+	// peers that we have reserved. Always a subset of `known_peers`.
+	let mut reserved_peers = HashSet::<PeerId>::new();
+
+	// reserved only mode
+	let mut reserved_only = Uniform::new_inclusive(0, 10).sample(&mut rng) == 0;
 
 	// Bootnodes for `PeerStore` initialization.
 	let bootnodes = (0..Uniform::new_inclusive(0, 4).sample(&mut rng))
 		.map(|_| {
 			let id = PeerId::random();
-			known_nodes.insert(id, State::Disconnected);
+			known_peers.insert(id);
 			id
 		})
 		.collect();
@@ -166,193 +85,289 @@ async fn test_once() {
 		ProtocolName::from("/notif/1"),
 		Uniform::new_inclusive(0, 25).sample(&mut rng),
 		Uniform::new_inclusive(0, 25).sample(&mut rng),
-		Uniform::new_inclusive(0, 10).sample(&mut rng) == 0,
+		reserved_only,
 		(0..Uniform::new_inclusive(0, 2).sample(&mut rng))
 			.map(|_| {
 				let id = PeerId::random();
-				known_nodes.insert(id, State::Disconnected);
-				reserved_nodes.insert(id);
+				known_peers.insert(id);
+				reserved_peers.insert(id);
 				id
 			})
 			.collect(),
 		Default::default(),
-		Arc::new(peerstore_handle_test()),
+		Arc::clone(&peer_store_handle),
 	);
 
 	tokio::spawn(peerstore.run());
 
-	// list of nodes the user of `peerset` assumes it's connected to
+	// opening substreams
+	let mut opening = HashMap::<PeerId, Direction>::new();
+
+	// open substreams
+	let mut open = HashMap::<PeerId, Direction>::new();
+
+	// closing substreams
+	let mut closing = HashSet::<PeerId>::new();
+
+	// closed substreams
+	let mut closed = HashSet::<PeerId>::new();
+
+	// perform a certain number of actions while checking that the state is consistent.
 	//
-	// always a subset of `known_nodes`.
-	let mut connected_nodes = HashSet::<PeerId>::new();
-
-	// list of nodes the user of `peerset` called `incoming` with and that haven't been
-	// accepted or rejected yet.
-	let mut incoming_nodes = HashMap::<usize, PeerId>::new();
-
-	// next id for incoming connections.
-	let mut next_incoming_id = 0usize;
-
-	// peers for whom substreams are opening
-	let mut opening: HashSet<PeerId> = HashSet::new();
-
-	// peers for whom substream is closing
-	let mut closing: HashSet<PeerId> = HashSet::new();
-
-	// peers who are connected
-	let mut connected: HashSet<PeerId> = HashSet::new();
-
-	// peers who are backed off
-	let mut backed_off: HashMap<PeerId, Instant> = HashMap::new();
-
-	// The loop below is effectively synchronous, so for `PeerStore` & `ProtocolController`
-	// runners, spawned above, to advance, we use `spawn_blocking`.
+	// if we reach the end of the loop, the run has succeeded
 	let _ = tokio::task::spawn_blocking(move || {
 		// PRNG to use in `spawn_blocking` context.
 		let mut rng = rand::thread_rng();
 
-		// perform a certain number of actions while checking that the state is consistent.
-		//
-		// if we reach the end of the loop, the run has succeeded
-		for _ in 0..5000 {
-			// peer we are working with
-			let mut current_peer = None;
-
-			// current event for state transition validation
-			let mut current_event = None;
-
-			// last peer state for allowed event validation
-			let mut last_state = None;
-
+		for _ in 0..2500 {
 			// each of these weights corresponds to an action that we may perform
-			let action_weights = [150, 90, 90, 30, 30, 1, 1, 4, 4, 90];
+			let action_weights =
+				[300, 110, 110, 110, 110, 90, 70, 30, 110, 110, 110, 110, 20, 110, 50];
 
 			match WeightedIndex::new(&action_weights).unwrap().sample(&mut rng) {
 				0 => match peerset.next().now_or_never() {
-					Some(Some(PeersetNotificationCommand::OpenSubstream { peers })) => {
+					// open substreams to `peers`
+					Some(Some(PeersetNotificationCommand::OpenSubstream { peers })) =>
 						for peer in peers {
-							assert!(opening.insert(peer));
-						}
-					},
-					Some(Some(PeersetNotificationCommand::CloseSubstream { peers })) => {
+							opening.insert(peer, Direction::Outbound);
+							assert!(!closing.contains(&peer));
+							assert!(!open.contains_key(&peer));
+						},
+					// close substreams to `peers`
+					Some(Some(PeersetNotificationCommand::CloseSubstream { peers })) =>
 						for peer in peers {
 							assert!(closing.insert(peer));
-						}
-					},
+							if open.remove(&peer).is_none() {
+								panic!("peer {peer:?} doesn't exist in `open`");
+							}
+							// assert!(open.remove(&peer).is_some());
+							assert!(!opening.contains_key(&peer));
+						},
 					Some(None) => panic!("peerset exited"),
 					None => {},
 				},
-
-				// If we generate 1, discover a new node.
+				// get inbound connection from an unknown peer
 				1 => {
-					let new_id = PeerId::random();
-					known_nodes.insert(new_id, State::Disconnected);
-					peer_store_handle.add_known_peer(new_id);
+					let new_peer = PeerId::random();
+					peer_store_handle.add_known_peer(new_peer);
+
+					match peerset.report_inbound_substream(new_peer) {
+						ValidationResult::Accept => {
+							opening.insert(new_peer, Direction::Inbound);
+						},
+						ValidationResult::Reject => {},
+					}
 				},
-
-				// If we generate 2, adjust a random reputation.
+				// substream opened successfully
+				//
+				// remove peer from `opening` (which contains its direction), report the open
+				// substream to `Peerset` and move peer state to `open`.
+				//
+				// if the substream was canceled while it was opening, move peer to `closing`
 				2 =>
-					if let Some(peer) = known_nodes.keys().choose(&mut rng) {
-						let val = Uniform::new_inclusive(i32::MIN, i32::MAX).sample(&mut rng);
-						peer_store_handle.report_peer(*peer, ReputationChange::new(val, ""));
+					if let Some(peer) = opening.keys().choose(&mut rng).copied() {
+						let direction = opening.remove(&peer).unwrap();
+						match peerset.report_substream_opened(peer, direction) {
+							OpenResult::Accept { .. } => {
+								assert!(open.insert(peer, direction).is_none());
+							},
+							OpenResult::Reject => {
+								assert!(closing.insert(peer));
+							},
+						}
 					},
-
-				// If we generate 3, disconnect from a random node.
+				// substream failed to open
 				3 =>
-					if let Some(peer) = connected_nodes.iter().choose(&mut rng).cloned() {
-						log::info!("Disconnected from {}", peer);
-						connected_nodes.remove(&peer);
-
-						let state = known_nodes.get_mut(&peer).unwrap();
-						last_state = Some(*state);
-						*state = State::Disconnected;
-
-						peerset.report_substream_closed(peer);
-
-						current_peer = Some(peer);
-						current_event = Some(Event::Disconnected);
+					if let Some(peer) = opening.keys().choose(&mut rng).copied() {
+						let _ = opening.remove(&peer).unwrap();
+						peerset.report_substream_open_failure(peer, NotificationError::Rejected);
 					},
+				// substream was closed by remote peer
+				4 =>
+					if let Some(peer) = open.keys().choose(&mut rng).copied() {
+						let _ = open.remove(&peer).unwrap();
+						peerset.report_substream_closed(peer);
+						assert!(closed.insert(peer));
+					},
+				// substream was closed by local node
+				5 =>
+					if let Some(peer) = closing.iter().choose(&mut rng).copied() {
+						assert!(closing.remove(&peer));
+						peerset.report_substream_closed(peer);
+					},
+				// random connected peer was disconnected by the protocol
+				6 =>
+					if let Some(peer) = open.keys().choose(&mut rng).copied() {
+						to_peerset.unbounded_send(PeersetCommand::DisconnectPeer { peer }).unwrap();
+					},
+				// ban random peer
+				7 =>
+					if let Some(peer) = known_peers.iter().choose(&mut rng).copied() {
+						peer_store_handle.report_peer(peer, ReputationChange::new_fatal(""));
+					},
+				// inbound substream is received for a peer that was considered
+				// outbound
+				8 => {
+					let outbound_peers = opening
+						.iter()
+						.filter_map(|(peer, direction)| {
+							std::matches!(direction, Direction::Outbound).then_some(*peer)
+						})
+						.collect::<HashSet<_>>();
 
-				// If we generate 4, get an inbound connection from a random node
-				4 => {
-					if let Some(peer) = known_nodes
-						.keys()
-						.filter(|n| opening.iter().all(|m| m != *n) && !connected.contains(*n))
-						.choose(&mut rng)
-						.cloned()
-					{
-						log::info!("Incoming connection from {peer}, index {next_incoming_id}");
-
+					if let Some(peer) = outbound_peers.iter().choose(&mut rng).copied() {
 						match peerset.report_inbound_substream(peer) {
 							ValidationResult::Accept => {
-								opening.insert(peer);
+								opening.insert(peer, Direction::Inbound);
 							},
 							ValidationResult::Reject => {},
 						}
 					}
 				},
+				// set reserved peers
+				//
+				// choose peers from all available sets (open, opening, closing, closed) + some new
+				// peers
+				9 => {
+					let num_open = Uniform::new_inclusive(0, open.len()).sample(&mut rng);
+					let num_opening = Uniform::new_inclusive(0, opening.len()).sample(&mut rng);
+					let num_closing = Uniform::new_inclusive(0, closing.len()).sample(&mut rng);
+					let num_closed = Uniform::new_inclusive(0, closed.len()).sample(&mut rng);
 
-				// 5 and 6 are the reserved-only mode.
-				5 => {
-					log::info!("Set reserved only");
+					let peers = open
+						.keys()
+						.copied()
+						.choose_multiple(&mut rng, num_open)
+						.into_iter()
+						.chain(
+							opening
+								.keys()
+								.copied()
+								.choose_multiple(&mut rng, num_opening)
+								.into_iter(),
+						)
+						.chain(
+							closing
+								.iter()
+								.copied()
+								.choose_multiple(&mut rng, num_closing)
+								.into_iter(),
+						)
+						.chain(
+							closed
+								.iter()
+								.copied()
+								.choose_multiple(&mut rng, num_closed)
+								.into_iter(),
+						)
+						.chain((0..5).map(|_| {
+							let peer = PeerId::random();
+							known_peers.insert(peer);
+							peer_store_handle.add_known_peer(peer);
+							peer
+						}))
+						.filter(|peer| !reserved_peers.contains(peer))
+						.collect::<HashSet<_>>();
+
+					reserved_peers.extend(peers.clone().into_iter());
+					to_peerset.unbounded_send(PeersetCommand::SetReservedPeers { peers }).unwrap();
+				},
+				// add reserved peers
+				10 => {
+					let num_open = Uniform::new_inclusive(0, open.len()).sample(&mut rng);
+					let num_opening = Uniform::new_inclusive(0, opening.len()).sample(&mut rng);
+					let num_closing = Uniform::new_inclusive(0, closing.len()).sample(&mut rng);
+					let num_closed = Uniform::new_inclusive(0, closed.len()).sample(&mut rng);
+
+					let peers = open
+						.keys()
+						.copied()
+						.choose_multiple(&mut rng, num_open)
+						.into_iter()
+						.chain(
+							opening
+								.keys()
+								.copied()
+								.choose_multiple(&mut rng, num_opening)
+								.into_iter(),
+						)
+						.chain(
+							closing
+								.iter()
+								.copied()
+								.choose_multiple(&mut rng, num_closing)
+								.into_iter(),
+						)
+						.chain(
+							closed
+								.iter()
+								.copied()
+								.choose_multiple(&mut rng, num_closed)
+								.into_iter(),
+						)
+						.chain((0..5).map(|_| {
+							let peer = PeerId::random();
+							known_peers.insert(peer);
+							peer_store_handle.add_known_peer(peer);
+							peer
+						}))
+						.filter(|peer| !reserved_peers.contains(peer))
+						.collect::<HashSet<_>>();
+
+					reserved_peers.extend(peers.clone().into_iter());
+					to_peerset.unbounded_send(PeersetCommand::AddReservedPeers { peers }).unwrap();
+				},
+				// remove reserved peers
+				11 => {
+					let num_to_remove =
+						Uniform::new_inclusive(0, reserved_peers.len()).sample(&mut rng);
+					let peers = reserved_peers
+						.iter()
+						.copied()
+						.choose_multiple(&mut rng, num_to_remove)
+						.into_iter()
+						.collect::<HashSet<_>>();
+
+					peers.iter().for_each(|peer| {
+						assert!(reserved_peers.remove(peer));
+					});
+
+					to_peerset
+						.unbounded_send(PeersetCommand::RemoveReservedPeers { peers })
+						.unwrap();
+				},
+				// set reserved only
+				12 => {
+					reserved_only = !reserved_only;
 
 					let _ = to_peerset
-						.unbounded_send(PeersetCommand::SetReservedOnly { reserved_only: true });
+						.unbounded_send(PeersetCommand::SetReservedOnly { reserved_only });
 				},
-				6 => {
-					log::info!("Unset reserved only");
-
-					let _ = to_peerset
-						.unbounded_send(PeersetCommand::SetReservedOnly { reserved_only: false });
+				//
+				// discover a new node.
+				13 => {
+					let new_peer = PeerId::random();
+					known_peers.insert(new_peer);
+					peer_store_handle.add_known_peer(new_peer);
 				},
+				// protocol rejected a substream that was accepted by `Peerset`
+				14 => {
+					let inbound_peers = opening
+						.iter()
+						.filter_map(|(peer, direction)| {
+							std::matches!(direction, Direction::Inbound).then_some(*peer)
+						})
+						.collect::<HashSet<_>>();
 
-				// 7 and 8 are about switching a random node in or out of reserved mode.
-				7 => {
-					if let Some(peer) =
-						known_nodes.keys().filter(|n| !reserved_nodes.contains(*n)).choose(&mut rng)
-					{
-						log::info!("Add reserved: {peer}");
-
-						let _ = to_peerset.unbounded_send(PeersetCommand::AddReservedPeers {
-							peers: HashSet::from_iter([*peer]),
-						});
-						assert!(reserved_nodes.insert(*peer));
+					if let Some(peer) = inbound_peers.iter().choose(&mut rng).copied() {
+						peerset.report_substream_rejected(peer);
+						opening.remove(&peer);
 					}
 				},
-				8 =>
-					if let Some(peer) = reserved_nodes.iter().choose(&mut rng).cloned() {
-						log::info!("Remove reserved: {}", peer);
-
-						let _ = to_peerset.unbounded_send(PeersetCommand::RemoveReservedPeers {
-							peers: HashSet::from_iter([peer]),
-						});
-						assert!(reserved_nodes.remove(&peer));
-					},
-				// 9 is about substream open result for peers who had been accepted by `Peerset`
-				9 =>
-					if let Some(peer) = opening.iter().choose(&mut rng).cloned() {
-						let open_success = Uniform::new_inclusive(0, 1).sample(&mut rng) == 0;
-
-						log::info!("substream opened successfully: {open_success}");
-						opening.remove(&peer);
-
-						match open_success {
-							true => {
-								peerset.report_substream_opened(peer, Direction::Inbound);
-								assert!(connected.insert(peer));
-							},
-							false => {
-								peerset.report_substream_open_failure(
-									peer,
-									NotificationError::Rejected,
-								);
-								assert!(backed_off.insert(peer, Instant::now()).is_none());
-							},
-						}
-					},
 				_ => unreachable!(),
 			}
 		}
 	})
-	.await;
+	.await
+	.unwrap();
 }

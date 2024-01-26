@@ -50,7 +50,7 @@ pub fn peers_set_config<Block: BlockT, Network: NetworkBackend<Block, <Block as 
 			in_peers: config.substrate.num_gateway_slots,
 			out_peers: 0,
 			reserved_nodes: Vec::new(),
-			non_reserved_mode: NonReservedPeerMode::Deny,
+			non_reserved_mode: NonReservedPeerMode::Accept,
 		}
 	} else {
 		SetConfig {

@@ -29,16 +29,11 @@ use futures::{
 	sink::SinkExt,
 	task::LocalSpawn,
 };
-use libp2p::{
-	core::multiaddr,
-	identity::{Keypair, SigningError},
-	kad::record::Key as KademliaKey,
-	PeerId,
-};
+use libp2p::{core::multiaddr, identity::SigningError, kad::record::Key as KademliaKey, PeerId};
 use prometheus_endpoint::prometheus::default_registry;
 
 use sc_client_api::HeaderBackend;
-use sc_network::Signature;
+use sc_network::{service::signature::Keypair, Signature};
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_keystore::{testing::MemoryKeystore, Keystore};
 use sp_runtime::traits::{Block as BlockT, NumberFor, Zero};
@@ -122,7 +117,7 @@ pub enum TestNetworkEvent {
 }
 
 pub struct TestNetwork {
-	peer_id: PeerId,
+	peer_id: sc_network_types::PeerId,
 	identity: Keypair,
 	external_addresses: Vec<Multiaddr>,
 	// Whenever functions on `TestNetwork` are called, the function arguments are added to the

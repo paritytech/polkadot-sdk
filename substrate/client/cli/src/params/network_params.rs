@@ -171,6 +171,9 @@ pub struct NetworkParams {
 	pub max_blocks_per_request: u32,
 
 	/// Network backend used for P2P networking.
+	///
+	/// litep2p network backend is considered experimental and isn't as stable as the libp2p
+	/// network backend.
 	#[arg(
 		long,
 		value_enum,

@@ -546,8 +546,7 @@ mod tests {
 	use futures::prelude::*;
 	use sc_network::{
 		config::MultiaddrWithPeerId, event::Event, service::traits::NotificationEvent, MessageSink,
-		NetworkBlock, NetworkEventStream, NetworkNotification, NetworkPeers,
-		NotificationSenderError, NotificationSenderT as NotificationSender, ReputationChange,
+		NetworkBlock, NetworkEventStream, NetworkPeers, ReputationChange,
 	};
 	use sp_runtime::{
 		testing::{Block as RawBlock, ExtrinsicWrapper, H256},
@@ -689,24 +688,6 @@ mod tests {
 
 	impl NetworkEventStream for NoOpNetwork {
 		fn event_stream(&self, _name: &'static str) -> Pin<Box<dyn Stream<Item = Event> + Send>> {
-			unimplemented!();
-		}
-	}
-
-	impl NetworkNotification for NoOpNetwork {
-		fn write_notification(&self, _target: PeerId, _protocol: ProtocolName, _message: Vec<u8>) {
-			unimplemented!();
-		}
-
-		fn notification_sender(
-			&self,
-			_target: PeerId,
-			_protocol: ProtocolName,
-		) -> Result<Box<dyn NotificationSender>, NotificationSenderError> {
-			unimplemented!();
-		}
-
-		fn set_notification_handshake(&self, _protocol: ProtocolName, _handshake: Vec<u8>) {
 			unimplemented!();
 		}
 	}

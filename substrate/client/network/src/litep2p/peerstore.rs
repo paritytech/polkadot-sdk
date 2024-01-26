@@ -28,7 +28,6 @@ use crate::{
 };
 
 use parking_lot::Mutex;
-use rand::{seq::SliceRandom, thread_rng};
 use wasm_timer::Delay;
 
 use sc_network_types::PeerId;
@@ -221,7 +220,6 @@ impl PeerStoreProvider for PeerstoreHandle {
 				(!ignored.contains(&peer) && !info.is_banned()).then_some((*peer, info.reputation))
 			})
 			.collect::<Vec<(PeerId, _)>>();
-		candidates.shuffle(&mut thread_rng());
 		candidates.sort_by(|(_, a), (_, b)| b.cmp(a));
 		candidates
 			.into_iter()

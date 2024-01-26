@@ -26,7 +26,8 @@ use polkadot_node_subsystem_types::{
 	Span,
 };
 use polkadot_overseer::Handle as OverseerHandle;
-use sc_network::{request_responses::ProtocolConfig, PeerId};
+use sc_network::request_responses::ProtocolConfig;
+use sc_network_types::PeerId;
 use sp_core::H256;
 use std::{collections::HashMap, iter::Cycle, ops::Sub, sync::Arc, time::Instant};
 

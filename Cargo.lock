@@ -7823,7 +7823,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.2.0"
-source = "git+https://github.com/altonen/litep2p?branch=master#4a8cfa1b5d769b8634685ba955b90eaff290a764"
+source = "git+https://github.com/altonen/litep2p?branch=master#19c735a17d1b374f64acfe4e26f1d1fead7f8688"
 dependencies = [
  "async-trait",
  "bs58 0.4.0",
@@ -12381,7 +12381,6 @@ dependencies = [
  "rand_chacha 0.3.1",
  "sc-network",
  "sc-network-common",
- "sc-network-types",
  "sp-application-crypto",
  "sp-authority-discovery",
  "sp-consensus-babe",
@@ -13647,6 +13646,7 @@ dependencies = [
  "rand_distr",
  "sc-keystore",
  "sc-network",
+ "sc-network-types",
  "sc-service",
  "serde",
  "serde_yaml",
@@ -16203,6 +16203,7 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus",
  "sp-core",
+ "sp-crypto-hashing",
  "sp-runtime",
  "sp-test-primitives",
  "sp-tracing 10.0.0",

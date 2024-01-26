@@ -417,5 +417,6 @@ async fn test_once() {
 			}
 		}
 	})
-	.await;
+	.await
+	.unwrap();
 }

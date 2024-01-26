@@ -23,8 +23,7 @@ use sc_network::{
 	config::MultiaddrWithPeerId,
 	request_responses::{IfDisconnected, RequestFailure},
 	types::ProtocolName,
-	Multiaddr, NetworkNotification, NetworkPeers, NetworkRequest, NetworkSyncForkRequest,
-	NotificationSenderError, NotificationSenderT, ReputationChange,
+	Multiaddr, NetworkPeers, NetworkRequest, NetworkSyncForkRequest, ReputationChange,
 };
 use sc_network_common::role::ObservedRole;
 use sc_network_types::PeerId;
@@ -131,15 +130,5 @@ mockall::mock! {
 			tx: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
 			connect: IfDisconnected,
 		);
-	}
-
-	impl NetworkNotification for Network {
-		fn write_notification(&self, target: PeerId, protocol: ProtocolName, message: Vec<u8>);
-		fn notification_sender(
-			&self,
-			target: PeerId,
-			protocol: ProtocolName,
-		) -> Result<Box<dyn NotificationSenderT>, NotificationSenderError>;
-		fn set_notification_handshake(&self, protocol: ProtocolName, handshake: Vec<u8>);
 	}
 }

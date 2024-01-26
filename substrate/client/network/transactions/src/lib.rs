@@ -43,7 +43,7 @@ use sc_network::{
 	},
 	types::ProtocolName,
 	utils::{interval, LruHashSet},
-	NetworkBackend, NetworkEventStream, NetworkNotification, NetworkPeers,
+	NetworkBackend, NetworkEventStream, NetworkPeers,
 };
 use sc_network_common::{role::ObservedRole, ExHashT};
 use sc_network_sync::{SyncEvent, SyncEventStream};
@@ -172,7 +172,7 @@ impl TransactionsHandlerPrototype {
 	pub fn build<
 		B: BlockT + 'static,
 		H: ExHashT,
-		N: NetworkPeers + NetworkEventStream + NetworkNotification,
+		N: NetworkPeers + NetworkEventStream,
 		S: SyncEventStream + sp_consensus::SyncOracle,
 	>(
 		self,
@@ -243,7 +243,7 @@ enum ToHandler<H: ExHashT> {
 pub struct TransactionsHandler<
 	B: BlockT + 'static,
 	H: ExHashT,
-	N: NetworkPeers + NetworkEventStream + NetworkNotification,
+	N: NetworkPeers + NetworkEventStream,
 	S: SyncEventStream + sp_consensus::SyncOracle,
 > {
 	protocol_name: ProtocolName,
@@ -284,7 +284,7 @@ impl<B, H, N, S> TransactionsHandler<B, H, N, S>
 where
 	B: BlockT + 'static,
 	H: ExHashT,
-	N: NetworkPeers + NetworkEventStream + NetworkNotification,
+	N: NetworkPeers + NetworkEventStream,
 	S: SyncEventStream + sp_consensus::SyncOracle,
 {
 	/// Turns the [`TransactionsHandler`] into a future that should run forever and not be
@@ -357,9 +357,6 @@ where
 			},
 			NotificationEvent::NotificationStreamClosed { peer } => {
 				let _peer = self.peers.remove(&peer);
-				if _peer.is_none() {
-					panic!("peer doesn't exist {peer:?}");
-				}
 				debug_assert!(_peer.is_some());
 			},
 			NotificationEvent::NotificationReceived { peer, notification } => {

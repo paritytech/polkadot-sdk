@@ -76,6 +76,7 @@ tokio-test = "0.4.2"
 sc-block-builder = { path = "../block-builder" }
 sc-network-light = { path = "light" }
 sc-network-sync = { path = "sync" }
+sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
 sp-consensus = { path = "../../primitives/consensus/common" }
 sp-test-primitives = { path = "../../primitives/test-primitives" }
 sp-tracing = { path = "../../primitives/tracing" }

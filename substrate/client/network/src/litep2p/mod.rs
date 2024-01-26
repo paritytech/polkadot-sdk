@@ -86,7 +86,7 @@ use std::{
 		atomic::{AtomicUsize, Ordering},
 		Arc,
 	},
-	time::Duration,
+	time::{Duration, Instant},
 };
 
 mod discovery;
@@ -143,10 +143,10 @@ pub struct Litep2pNetworkBackend {
 	peerset_handles: HashMap<ProtocolName, ProtocolControlHandle>,
 
 	/// Pending `GET_VALUE` queries.
-	pending_get_values: HashMap<QueryId, RecordKey>,
+	pending_get_values: HashMap<QueryId, (RecordKey, Instant)>,
 
 	/// Pending `PUT_VALUE` queries.
-	pending_put_values: HashMap<QueryId, RecordKey>,
+	pending_put_values: HashMap<QueryId, (RecordKey, Instant)>,
 
 	/// Discovery.
 	discovery: Discovery,
@@ -238,7 +238,6 @@ impl Litep2pNetworkBackend {
 			})?
 			.secret();
 
-		// TODO: zzz
 		let mut secret = secret.as_ref().iter().cloned().collect::<Vec<_>>();
 		let secret = SecretKey::from_bytes(&mut secret)
 			.map_err(|_| Error::Io(io::ErrorKind::InvalidInput.into()))?;
@@ -659,11 +658,11 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 					Some(command) => match command {
 						NetworkServiceCommand::GetValue{ key } => {
 							let query_id = self.discovery.get_value(key.clone()).await;
-							self.pending_get_values.insert(query_id, key);
+							self.pending_get_values.insert(query_id, (key, Instant::now()));
 						}
 						NetworkServiceCommand::PutValue { key, value } => {
 							let query_id = self.discovery.put_value(key.clone(), value).await;
-							self.pending_put_values.insert(query_id, key);
+							self.pending_put_values.insert(query_id, (key, Instant::now()));
 						}
 						NetworkServiceCommand::EventStream { tx } => {
 							self.event_streams.push(tx);
@@ -770,7 +769,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 								target: LOG_TARGET,
 								"`GET_VALUE` succeeded for a non-existent query",
 							),
-							Some(_key) => {
+							Some((_key, started)) => {
 								log::trace!(
 									target: LOG_TARGET,
 									"`GET_VALUE` for {:?} ({query_id:?}) succeeded",
@@ -782,6 +781,13 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 										(libp2p::kad::RecordKey::new(&record.key), record.value)
 									])
 								));
+
+								if let Some(ref metrics) = self.metrics {
+									metrics
+										.kademlia_query_duration
+										.with_label_values(&["value-get"])
+										.observe(started.elapsed().as_secs_f64());
+								}
 							}
 						}
 					}
@@ -791,10 +797,19 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 								target: LOG_TARGET,
 								"`PUT_VALUE` succeeded for a non-existent query",
 							),
-							Some(key) => log::trace!(
-								target: LOG_TARGET,
-								"`PUT_VALUE` for {key:?} ({query_id:?}) succeeded",
-							),
+							Some((key, started)) => {
+								log::trace!(
+									target: LOG_TARGET,
+									"`PUT_VALUE` for {key:?} ({query_id:?}) succeeded",
+								);
+
+								if let Some(ref metrics) = self.metrics {
+									metrics
+										.kademlia_query_duration
+										.with_label_values(&["value-put"])
+										.observe(started.elapsed().as_secs_f64());
+								}
+							}
 						}
 					}
 					Some(DiscoveryEvent::QueryFailed { query_id }) => {
@@ -804,7 +819,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 									target: LOG_TARGET,
 									"non-existent query failed ({query_id:?})",
 								),
-								Some(key) => {
+								Some((key, started)) => {
 									log::debug!(
 										target: LOG_TARGET,
 										"`PUT_VALUE` ({query_id:?}) failed for key {key:?}",
@@ -813,9 +828,16 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 									self.event_streams.send(Event::Dht(
 										DhtEvent::ValuePutFailed(libp2p::kad::RecordKey::new(&key))
 									));
+
+									if let Some(ref metrics) = self.metrics {
+										metrics
+											.kademlia_query_duration
+											.with_label_values(&["value-put-failed"])
+											.observe(started.elapsed().as_secs_f64());
+									}
 								}
 							}
-							Some(key) => {
+							Some((key, started)) => {
 								log::debug!(
 									target: LOG_TARGET,
 									"`GET_VALUE` ({query_id:?}) failed for key {key:?}",
@@ -824,6 +846,13 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 								self.event_streams.send(Event::Dht(
 									DhtEvent::ValueNotFound(libp2p::kad::RecordKey::new(&key))
 								));
+
+								if let Some(ref metrics) = self.metrics {
+									metrics
+										.kademlia_query_duration
+										.with_label_values(&["value-get-failed"])
+										.observe(started.elapsed().as_secs_f64());
+								}
 							}
 						}
 					}

@@ -20,7 +20,8 @@ use crate::{
 	litep2p::{
 		peerstore::peerstore_handle_test,
 		shim::notification::peerset::{
-			Direction, PeerState, Peerset, PeersetCommand, PeersetNotificationCommand, Reserved,
+			Direction, OpenResult, PeerState, Peerset, PeersetCommand, PeersetNotificationCommand,
+			Reserved,
 		},
 	},
 	service::traits::{self, ValidationResult},
@@ -83,11 +84,11 @@ async fn inbound_substream_for_outbound_peer() {
 	//
 	// verify that the peer state and inbound/outbound counts are updated correctly
 	assert_eq!(peerset.report_inbound_substream(inbound_peer), ValidationResult::Accept);
-	assert_eq!(peerset.num_in(), 1usize);
-	assert_eq!(peerset.num_out(), 2usize);
+	assert_eq!(peerset.num_in(), 0usize);
+	assert_eq!(peerset.num_out(), 3usize);
 	assert_eq!(
 		peerset.peers().get(&inbound_peer),
-		Some(&PeerState::Opening { direction: Direction::Inbound(Reserved::No) })
+		Some(&PeerState::Opening { direction: Direction::Outbound(Reserved::No) })
 	);
 }
 
@@ -102,8 +103,8 @@ async fn canceled_peer_gets_banned() {
 
 	let (mut peerset, to_peerset) = Peerset::new(
 		ProtocolName::from("/notif/1"),
-		25,
-		25,
+		0,
+		0,
 		true,
 		peers.clone(),
 		Default::default(),
@@ -153,8 +154,8 @@ async fn peer_added_and_removed_from_peerset() {
 	let peerstore_handle = Arc::new(peerstore_handle_test());
 	let (mut peerset, to_peerset) = Peerset::new(
 		ProtocolName::from("/notif/1"),
-		25,
-		25,
+		0,
+		0,
 		true,
 		Default::default(),
 		Default::default(),
@@ -188,7 +189,10 @@ async fn peer_added_and_removed_from_peerset() {
 
 	// report that all substreams were opened
 	for peer in &peers {
-		assert!(peerset.report_substream_opened(*peer, traits::Direction::Outbound));
+		assert!(std::matches!(
+			peerset.report_substream_opened(*peer, traits::Direction::Outbound),
+			OpenResult::Accept { .. }
+		));
 		assert_eq!(
 			peerset.peers().get(peer),
 			Some(&PeerState::Connected { direction: Direction::Outbound(Reserved::Yes) })
@@ -293,7 +297,10 @@ async fn set_reserved_peers() {
 
 	// report that all substreams were opened
 	for peer in &reserved {
-		assert!(peerset.report_substream_opened(*peer, traits::Direction::Outbound));
+		assert!(std::matches!(
+			peerset.report_substream_opened(*peer, traits::Direction::Outbound),
+			OpenResult::Accept { .. }
+		));
 		assert_eq!(
 			peerset.peers().get(peer),
 			Some(&PeerState::Connected { direction: Direction::Outbound(Reserved::Yes) })
@@ -382,7 +389,10 @@ async fn set_reserved_peers_one_peer_already_in_the_set() {
 
 	// report that all substreams were opened
 	for peer in &reserved {
-		assert!(peerset.report_substream_opened(*peer, traits::Direction::Outbound));
+		assert!(std::matches!(
+			peerset.report_substream_opened(*peer, traits::Direction::Outbound),
+			OpenResult::Accept { .. }
+		));
 		assert_eq!(
 			peerset.peers().get(peer),
 			Some(&PeerState::Connected { direction: Direction::Outbound(Reserved::Yes) })
@@ -491,7 +501,10 @@ async fn add_reserved_peers_one_peer_already_in_the_set() {
 
 	// report that all substreams were opened
 	for peer in &reserved {
-		assert!(peerset.report_substream_opened(*peer, traits::Direction::Outbound));
+		assert!(std::matches!(
+			peerset.report_substream_opened(*peer, traits::Direction::Outbound),
+			OpenResult::Accept { .. }
+		));
 		assert_eq!(
 			peerset.peers().get(peer),
 			Some(&PeerState::Connected { direction: Direction::Outbound(Reserved::Yes) })
@@ -591,7 +604,10 @@ async fn opening_peer_gets_canceled_and_disconnected() {
 	assert_eq!(peerset.num_out(), 1);
 
 	// report to `Peerset` that the substream was opened, verify that it gets closed
-	assert!(!peerset.report_substream_opened(peer, traits::Direction::Outbound));
+	assert!(std::matches!(
+		peerset.report_substream_opened(peer, traits::Direction::Outbound),
+		OpenResult::Reject { .. }
+	));
 	assert_eq!(
 		peerset.peers().get(&peer),
 		Some(&PeerState::Closing { direction: Direction::Outbound(Reserved::No) })
@@ -680,14 +696,7 @@ async fn peer_disconnected_when_being_validated_then_rejected() {
 	sp_tracing::try_init_simple();
 
 	let peerstore_handle = Arc::new(peerstore_handle_test());
-	let _known_peers = (0..1)
-		.map(|_| {
-			let peer = PeerId::random();
-			peerstore_handle.add_known_peer(peer);
-			peer
-		})
-		.collect::<Vec<_>>();
-	let (mut peerset, to_peerset) = Peerset::new(
+	let (mut peerset, _to_peerset) = Peerset::new(
 		ProtocolName::from("/notif/1"),
 		25,
 		25,
@@ -699,116 +708,71 @@ async fn peer_disconnected_when_being_validated_then_rejected() {
 	assert_eq!(peerset.num_in(), 0usize);
 	assert_eq!(peerset.num_out(), 0usize);
 
-	let peer = match peerset.next().await {
-		Some(PeersetNotificationCommand::OpenSubstream { peers: out_peers }) => {
-			assert_eq!(peerset.num_in(), 0usize);
-			assert_eq!(peerset.num_out(), 1usize);
-			assert_eq!(out_peers.len(), 1);
+	// inbound substream received
+	let peer = PeerId::random();
+	assert_eq!(peerset.report_inbound_substream(peer), ValidationResult::Accept);
 
-			for peer in &out_peers {
-				assert_eq!(
-					peerset.peers().get(&peer),
-					Some(&PeerState::Opening { direction: Direction::Outbound(Reserved::No) })
-				);
-			}
-
-			out_peers[0]
-		},
-		event => panic!("invalid event: {event:?}"),
-	};
-
-	// disconnect the now-opening peer
-	to_peerset.unbounded_send(PeersetCommand::DisconnectPeer { peer }).unwrap();
-
-	// poll `Peerset` to register the command and verify the peer is now in state `Canceled`
-	futures::future::poll_fn(|cx| match peerset.poll_next_unpin(cx) {
-		Poll::Pending => Poll::Ready(()),
-		_ => panic!("unexpected event"),
-	})
-	.await;
-
-	assert_eq!(
-		peerset.peers().get(&peer),
-		Some(&PeerState::Canceled { direction: Direction::Outbound(Reserved::No) })
-	);
-
-	// the substream failed to open, verify that peer state is now `Backoff`
-	// and that `Peerset` doesn't emit any events
+	// substream failed to open while it was being validated by the protocol
 	peerset.report_substream_open_failure(peer, NotificationError::NoConnection);
 	assert_eq!(peerset.peers().get(&peer), Some(&PeerState::Backoff));
 
-	futures::future::poll_fn(|cx| match peerset.poll_next_unpin(cx) {
-		Poll::Pending => Poll::Ready(()),
-		_ => panic!("unexpected event"),
-	})
-	.await;
+	// protocol rejected substream, verify
+	peerset.report_substream_rejected(peer);
+	assert_eq!(peerset.peers().get(&peer), Some(&PeerState::Backoff));
 }
 
 #[tokio::test]
-async fn peer_disconnected_when_being_validated_then_accepted() {
+async fn removed_reserved_peer_kept_due_to_free_slots() {
 	sp_tracing::try_init_simple();
 
 	let peerstore_handle = Arc::new(peerstore_handle_test());
-	let _known_peers = (0..1)
-		.map(|_| {
-			let peer = PeerId::random();
-			peerstore_handle.add_known_peer(peer);
-			peer
-		})
-		.collect::<Vec<_>>();
+	let peers = HashSet::from_iter([PeerId::random(), PeerId::random(), PeerId::random()]);
+
 	let (mut peerset, to_peerset) = Peerset::new(
 		ProtocolName::from("/notif/1"),
 		25,
 		25,
-		false,
-		Default::default(),
+		true,
+		peers.clone(),
 		Default::default(),
 		peerstore_handle,
 	);
 	assert_eq!(peerset.num_in(), 0usize);
 	assert_eq!(peerset.num_out(), 0usize);
 
-	let peer = match peerset.next().await {
+	match peerset.next().await {
 		Some(PeersetNotificationCommand::OpenSubstream { peers: out_peers }) => {
 			assert_eq!(peerset.num_in(), 0usize);
-			assert_eq!(peerset.num_out(), 1usize);
-			assert_eq!(out_peers.len(), 1);
+			assert_eq!(peerset.num_out(), 0usize);
 
-			for peer in &out_peers {
+			for outbound_peer in &out_peers {
+				assert!(peers.contains(outbound_peer));
 				assert_eq!(
-					peerset.peers().get(&peer),
-					Some(&PeerState::Opening { direction: Direction::Outbound(Reserved::No) })
+					peerset.peers().get(&outbound_peer),
+					Some(&PeerState::Opening { direction: Direction::Outbound(Reserved::Yes) })
 				);
 			}
-
-			out_peers[0]
 		},
 		event => panic!("invalid event: {event:?}"),
-	};
+	}
 
-	// disconnect the now-opening peer
-	to_peerset.unbounded_send(PeersetCommand::DisconnectPeer { peer }).unwrap();
+	// remove all reserved peers
+	to_peerset
+		.unbounded_send(PeersetCommand::RemoveReservedPeers { peers: peers.clone() })
+		.unwrap();
 
-	// poll `Peerset` to register the command and verify the peer is now in state `Canceled`
-	futures::future::poll_fn(|cx| match peerset.poll_next_unpin(cx) {
-		Poll::Pending => Poll::Ready(()),
-		_ => panic!("unexpected event"),
-	})
-	.await;
+	match peerset.next().await {
+		Some(PeersetNotificationCommand::CloseSubstream { peers: out_peers }) => {
+			assert!(out_peers.is_empty());
+		},
+		event => panic!("invalid event: {event:?}"),
+	}
 
-	assert_eq!(
-		peerset.peers().get(&peer),
-		Some(&PeerState::Canceled { direction: Direction::Outbound(Reserved::No) })
-	);
+	// verify all reserved peers are canceled
+	for (_, state) in peerset.peers() {
+		assert_eq!(state, &PeerState::Opening { direction: Direction::Outbound(Reserved::No) });
+	}
 
-	// the substream failed to open, verify that peer state is now `Backoff`
-	// and that `Peerset` doesn't emit any events
-	peerset.report_substream_open_failure(peer, NotificationError::NoConnection);
-	assert_eq!(peerset.peers().get(&peer), Some(&PeerState::Backoff));
-
-	futures::future::poll_fn(|cx| match peerset.poll_next_unpin(cx) {
-		Poll::Pending => Poll::Ready(()),
-		_ => panic!("unexpected event"),
-	})
-	.await;
+	assert_eq!(peerset.num_in(), 0usize);
+	assert_eq!(peerset.num_out(), 3usize);
 }

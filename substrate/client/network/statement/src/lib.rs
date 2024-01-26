@@ -41,7 +41,7 @@ use sc_network::{
 	},
 	types::ProtocolName,
 	utils::{interval, LruHashSet},
-	NetworkBackend, NetworkEventStream, NetworkNotification, NetworkPeers,
+	NetworkBackend, NetworkEventStream, NetworkPeers,
 };
 use sc_network_common::role::ObservedRole;
 use sc_network_sync::{SyncEvent, SyncEventStream};
@@ -151,7 +151,7 @@ impl StatementHandlerPrototype {
 	/// Important: the statements handler is initially disabled and doesn't gossip statements.
 	/// Gossiping is enabled when major syncing is done.
 	pub fn build<
-		N: NetworkPeers + NetworkEventStream + NetworkNotification,
+		N: NetworkPeers + NetworkEventStream,
 		S: SyncEventStream + sp_consensus::SyncOracle,
 	>(
 		self,
@@ -214,7 +214,7 @@ impl StatementHandlerPrototype {
 
 /// Handler for statements. Call [`StatementHandler::run`] to start the processing.
 pub struct StatementHandler<
-	N: NetworkPeers + NetworkEventStream + NetworkNotification,
+	N: NetworkPeers + NetworkEventStream,
 	S: SyncEventStream + sp_consensus::SyncOracle,
 > {
 	protocol_name: ProtocolName,
@@ -254,7 +254,7 @@ struct Peer {
 
 impl<N, S> StatementHandler<N, S>
 where
-	N: NetworkPeers + NetworkEventStream + NetworkNotification,
+	N: NetworkPeers + NetworkEventStream,
 	S: SyncEventStream + sp_consensus::SyncOracle,
 {
 	/// Turns the [`StatementHandler`] into a future that should run forever and not be
@@ -472,8 +472,7 @@ where
 
 			if !to_send.is_empty() {
 				log::trace!(target: LOG_TARGET, "Sending {} statements to {}", to_send.len(), who);
-				self.network
-					.write_notification(*who, self.protocol_name.clone(), to_send.encode());
+				self.notification_service.send_sync_notification(who, to_send.encode());
 			}
 		}
 

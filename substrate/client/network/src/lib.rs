@@ -277,9 +277,9 @@ pub use service::{
 	signature::Signature,
 	traits::{
 		KademliaKey, MessageSink, NetworkBackend, NetworkBlock, NetworkDHTProvider,
-		NetworkEventStream, NetworkNotification, NetworkPeers, NetworkRequest, NetworkSigner,
-		NetworkStateInfo, NetworkStatus, NetworkStatusProvider, NetworkSyncForkRequest,
-		NotificationConfig, NotificationSender as NotificationSenderT, NotificationSenderError,
+		NetworkEventStream, NetworkPeers, NetworkRequest, NetworkSigner, NetworkStateInfo,
+		NetworkStatus, NetworkStatusProvider, NetworkSyncForkRequest, NotificationConfig,
+		NotificationSender as NotificationSenderT, NotificationSenderError,
 		NotificationSenderReady, NotificationService,
 	},
 	DecodingError, Keypair, NetworkService, NetworkWorker, NotificationSender, OutboundFailure,

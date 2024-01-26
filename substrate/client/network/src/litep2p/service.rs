@@ -27,10 +27,10 @@ use crate::{
 	multiaddr::Protocol,
 	network_state::NetworkState,
 	peer_store::PeerStoreProvider,
-	service::{out_events, traits::NotificationSender},
-	Event, IfDisconnected, NetworkDHTProvider, NetworkEventStream, NetworkNotification,
-	NetworkPeers, NetworkRequest, NetworkSigner, NetworkStateInfo, NetworkStatus,
-	NetworkStatusProvider, NotificationSenderError, ProtocolName, RequestFailure, Signature,
+	service::out_events,
+	Event, IfDisconnected, NetworkDHTProvider, NetworkEventStream, NetworkPeers, NetworkRequest,
+	NetworkSigner, NetworkStateInfo, NetworkStatus, NetworkStatusProvider, ProtocolName,
+	RequestFailure, Signature,
 };
 
 use codec::DecodeAll;
@@ -465,23 +465,5 @@ impl NetworkRequest for Litep2pNetworkService {
 				"{protocol} doesn't exist, cannot send request to {peer:?}"
 			),
 		}
-	}
-}
-
-impl NetworkNotification for Litep2pNetworkService {
-	fn write_notification(&self, _: PeerId, _: ProtocolName, _: Vec<u8>) {
-		unimplemented!();
-	}
-
-	fn notification_sender(
-		&self,
-		_: PeerId,
-		_: ProtocolName,
-	) -> Result<Box<dyn NotificationSender>, NotificationSenderError> {
-		unimplemented!();
-	}
-
-	fn set_notification_handshake(&self, _: ProtocolName, _: Vec<u8>) {
-		unimplemented!();
 	}
 }

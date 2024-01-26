@@ -22,7 +22,8 @@ use polkadot_node_subsystem_types::{
 	OverseerSignal,
 };
 
-use sc_network::{request_responses::ProtocolConfig, PeerId, RequestFailure};
+use sc_network::{request_responses::ProtocolConfig, RequestFailure};
+use sc_network_types::PeerId;
 
 use polkadot_node_subsystem::{
 	messages::NetworkBridgeTxMessage, overseer, SpawnedSubsystem, SubsystemError,

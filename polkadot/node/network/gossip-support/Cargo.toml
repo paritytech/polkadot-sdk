@@ -16,7 +16,6 @@ sp-core = { path = "../../../../substrate/primitives/core" }
 sp-crypto-hashing = { path = "../../../../substrate/primitives/crypto/hashing" }
 sc-network = { path = "../../../../substrate/client/network" }
 sc-network-common = { path = "../../../../substrate/client/network/common" }
-sc-network-types = { path = "../../../../substrate/client/network/types" }
 
 polkadot-node-network-protocol = { path = "../protocol" }
 polkadot-node-subsystem = { path = "../../subsystem" }

@@ -55,6 +55,7 @@ polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
 sp-keyring = { path = "../../../substrate/primitives/keyring" }
 sp-application-crypto = { path = "../../../substrate/primitives/application-crypto" }
 sc-network = { path = "../../../substrate/client/network" }
+sc-network-types = { path = "../../../substrate/client/network/types" }
 sc-service = { path = "../../../substrate/client/service" }
 sp-consensus = { path = "../../../substrate/primitives/consensus/common" }
 polkadot-node-metrics = { path = "../metrics" }

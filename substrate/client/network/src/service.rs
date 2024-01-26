@@ -47,11 +47,10 @@ use crate::{
 	service::{
 		signature::{Signature, SigningError},
 		traits::{
-			BandwidthSink, NetworkBackend, NetworkDHTProvider, NetworkEventStream,
-			NetworkNotification, NetworkPeers, NetworkRequest, NetworkService as NetworkServiceT,
-			NetworkSigner, NetworkStateInfo, NetworkStatus, NetworkStatusProvider,
-			NotificationSender as NotificationSenderT, NotificationSenderError,
-			NotificationSenderReady as NotificationSenderReadyT,
+			BandwidthSink, NetworkBackend, NetworkDHTProvider, NetworkEventStream, NetworkPeers,
+			NetworkRequest, NetworkService as NetworkServiceT, NetworkSigner, NetworkStateInfo,
+			NetworkStatus, NetworkStatusProvider, NotificationSender as NotificationSenderT,
+			NotificationSenderError, NotificationSenderReady as NotificationSenderReadyT,
 		},
 	},
 	transport,
@@ -970,7 +969,17 @@ where
 	}
 
 	async fn network_state(&self) -> Result<NetworkState, ()> {
-		todo!();
+		let (tx, rx) = oneshot::channel();
+
+		let _ = self
+			.to_worker
+			.unbounded_send(ServiceToWorkerMsg::NetworkState { pending_response: tx });
+
+		match rx.await {
+			Ok(v) => v.map_err(|_| ()),
+			// The channel can only be closed if the network worker no longer exists.
+			Err(_) => Err(()),
+		}
 	}
 }
 
@@ -1164,33 +1173,6 @@ where
 		let (tx, rx) = out_events::channel(name, 100_000);
 		let _ = self.to_worker.unbounded_send(ServiceToWorkerMsg::EventStream(tx));
 		Box::pin(rx)
-	}
-}
-
-impl<B, H> NetworkNotification for NetworkService<B, H>
-where
-	B: BlockT + 'static,
-	H: ExHashT,
-{
-	fn write_notification(
-		&self,
-		_target: sc_network_types::PeerId,
-		_protocol: ProtocolName,
-		_message: Vec<u8>,
-	) {
-		unimplemented!()
-	}
-
-	fn notification_sender(
-		&self,
-		_target: sc_network_types::PeerId,
-		_protocol: ProtocolName,
-	) -> Result<Box<dyn NotificationSenderT>, NotificationSenderError> {
-		unimplemented!();
-	}
-
-	fn set_notification_handshake(&self, _protocol: ProtocolName, _handshake: Vec<u8>) {
-		unimplemented!();
 	}
 }
 

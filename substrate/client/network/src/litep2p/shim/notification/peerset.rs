@@ -118,6 +118,19 @@ pub enum Direction {
 	Outbound(Reserved),
 }
 
+/// Open result for a fully-opened connection.
+#[derive(PartialEq, Eq)]
+pub enum OpenResult {
+	/// Accept the connection.
+	Accept {
+		/// Direction which [`Peerset`] considers to be correct.
+		direction: traits::Direction,
+	},
+
+	/// Reject the connection because it was canceled while it was opening.
+	Reject,
+}
+
 /// Commands emitted by other subsystems of the blockchain to [`Peerset`].
 #[derive(Debug)]
 pub enum PeersetCommand {
@@ -330,7 +343,7 @@ pub struct Peerset {
 	next_slot_allocation: Delay,
 }
 
-macro_rules! adjust_or_warn {
+macro_rules! decrement_or_warn {
     ($slot:expr, $protocol:expr, $peer:expr, $direction:expr) => {{
 		match $slot.checked_sub(1) {
 			Some(value) => {
@@ -410,7 +423,11 @@ impl Peerset {
 	///
 	/// Returns `true` if the substream should be kept open and `false` if the substream had been
 	/// canceled while it was opening and litep2p should close the substream.
-	pub fn report_substream_opened(&mut self, peer: PeerId, direction: traits::Direction) -> bool {
+	pub fn report_substream_opened(
+		&mut self,
+		peer: PeerId,
+		direction: traits::Direction,
+	) -> OpenResult {
 		log::trace!(
 			target: LOG_TARGET,
 			"{}: substream opened to {peer:?}, direction {direction:?}, reserved peer {}",
@@ -421,19 +438,20 @@ impl Peerset {
 		let Some(state) = self.peers.get_mut(&peer) else {
 			log::warn!(target: LOG_TARGET, "{}: substream opened for unknown peer {peer:?}", self.protocol);
 			debug_assert!(false);
-			return false
+			return OpenResult::Reject
 		};
 
 		match state {
-			PeerState::Opening { direction } => {
-				*state = PeerState::Connected { direction: *direction };
+			PeerState::Opening { direction: substream_direction } => {
+				*state = PeerState::Connected { direction: *substream_direction };
 				self.connected_peers.fetch_add(1usize, Ordering::Relaxed);
-				true
+
+				return OpenResult::Accept { direction: direction.into() }
 			},
 			// litep2p doesn't support the ability to cancel an opening substream so if the
 			// substream was closed while it was opening, it was marked as canceled and if the
 			// substream opens succesfully, it will be closed
-			PeerState::Canceled { direction } => {
+			PeerState::Canceled { direction: substream_direction } => {
 				log::trace!(
 					target: LOG_TARGET,
 					"{}: substream to {peer:?} is canceled, issue disconnection request",
@@ -441,8 +459,9 @@ impl Peerset {
 				);
 
 				self.connected_peers.fetch_add(1usize, Ordering::Relaxed);
-				*state = PeerState::Closing { direction: *direction };
-				false
+				*state = PeerState::Closing { direction: *substream_direction };
+
+				return OpenResult::Reject
 			},
 			state => {
 				panic!("{}: invalid state for open substream {peer:?} {state:?}", self.protocol);
@@ -456,9 +475,6 @@ impl Peerset {
 	/// for the disconnected peer. After the connection is closed, the peer is chilled for a
 	/// duration of [`DEFAULT_BACKOFF`] which prevens [`Peerset`] from establishing/accepting new
 	/// connections for that time period.
-	///
-	/// Reserved peers cannot be disconnected using this method and they can be disconnected only if
-	/// they're banned.
 	pub fn report_substream_closed(&mut self, peer: PeerId) {
 		log::trace!(target: LOG_TARGET, "{}: substream closed to {peer:?}", self.protocol);
 
@@ -479,7 +495,12 @@ impl Peerset {
 					self.protocol,
 				);
 
-				adjust_or_warn!(self.num_in, peer, self.protocol, Direction::Inbound(Reserved::No));
+				decrement_or_warn!(
+					self.num_in,
+					peer,
+					self.protocol,
+					Direction::Inbound(Reserved::No)
+				);
 			},
 			// close was initiated either by remote ([`PeerState::Connected`]) or local node
 			// ([`PeerState::Closing`]) and it was a non-reserved peer
@@ -491,7 +512,7 @@ impl Peerset {
 					self.protocol,
 				);
 
-				adjust_or_warn!(
+				decrement_or_warn!(
 					self.num_out,
 					peer,
 					self.protocol,
@@ -540,46 +561,26 @@ impl Peerset {
 				}
 			},
 			// `Peerset` had initiated an outbound substream but litep2p had received an inbound
-			// substream before the command was received. As litep2p is the source of truth as far
-			// as substream states go, `Peerset` must update its own state and attempt to accept the
-			// peer as inbound if there are enough slots.
+			// substream before the command to open the substream was received, meaning local and
+			// remote desired to open a connection at the same time. Since outbound substreams
+			// cannot be canceled with litep2p and the command has already been registered, accept
+			// the inbound peer since the local node had wished a connection to be opened either way
+			// but keep the direction of the substream as it was (outbound).
+			//
+			// litep2p doesn't care what `Peerset` considers the substream direction to be and since
+			// it's used for bookkeeping for substream counts, keeping the substream direction
+			// unmodified simplies the implementation a lot. The direction would otherwise be
+			// irrelevant for protocols but because `SyncingEngine` has a hack to reject excess
+			// inbound substreams, that system has to be kept working for the time being. Once that
+			// issue is fixed, this approach can be re-evaluated if need be.
 			PeerState::Opening { direction: Direction::Outbound(reserved) } => {
 				log::trace!(
 					target: LOG_TARGET,
-					"{}: inbound substream received for {peer:?} that was marked outbound",
+					"{}: inbound substream received for {peer:?} ({reserved:?}) that was marked outbound",
 					self.protocol,
 				);
 
-				match (reserved_peer, &reserved) {
-					(true, &Reserved::Yes) => {},
-					(false, &Reserved::No) => {},
-					_ => panic!(
-						"{}: state mismatch for {peer:?}, {reserved_peer} {reserved:?}",
-						self.protocol
-					),
-				}
-
-				// since the peer was not a reserved peer when the outbound substream was opened and
-				// there are no free inbound slots, adjust outbound slot count and reject the peer
-				if std::matches!(reserved, Reserved::No) {
-					adjust_or_warn!(
-						self.num_out,
-						self.protocol,
-						peer,
-						Direction::Outbound(Reserved::No)
-					);
-
-					if self.num_in >= self.max_in {
-						log::debug!(
-							target: LOG_TARGET,
-							"{}: inbound substream for {peer:?} cannot be accepted because there aren't any free slots",
-							self.protocol,
-						);
-
-						*state = PeerState::Disconnected;
-						return ValidationResult::Reject
-					}
-				}
+				return ValidationResult::Accept;
 			},
 			PeerState::Canceled { direction } => {
 				log::trace!(
@@ -588,27 +589,7 @@ impl Peerset {
 					self.protocol,
 				);
 
-				match direction {
-					Direction::Outbound(reserved) => match reserved {
-						Reserved::Yes => {},
-						Reserved::No => {
-							adjust_or_warn!(
-								self.num_out,
-								self.protocol,
-								peer,
-								Direction::Outbound(Reserved::No)
-							);
-						},
-					},
-					direction => {
-						panic!(
-							"{}: invalid direction for canceled inbound substream {peer:?}: {direction:?}",
-							self.protocol
-						);
-					},
-				}
-
-				*state = PeerState::Disconnected;
+				*state = PeerState::Canceled { direction: *direction };
 				return ValidationResult::Reject
 			},
 			state => {
@@ -666,7 +647,7 @@ impl Peerset {
 
 		match self.peers.get(&peer) {
 			Some(PeerState::Opening { direction: Direction::Outbound(Reserved::No) }) => {
-				adjust_or_warn!(
+				decrement_or_warn!(
 					self.num_out,
 					self.protocol,
 					peer,
@@ -674,11 +655,16 @@ impl Peerset {
 				);
 			},
 			Some(PeerState::Opening { direction: Direction::Inbound(Reserved::No) }) => {
-				adjust_or_warn!(self.num_in, self.protocol, peer, Direction::Inbound(Reserved::No));
+				decrement_or_warn!(
+					self.num_in,
+					self.protocol,
+					peer,
+					Direction::Inbound(Reserved::No)
+				);
 			},
 			Some(PeerState::Canceled { direction }) => match direction {
 				Direction::Inbound(Reserved::No) => {
-					adjust_or_warn!(
+					decrement_or_warn!(
 						self.num_in,
 						self.protocol,
 						peer,
@@ -686,7 +672,7 @@ impl Peerset {
 					);
 				},
 				Direction::Outbound(Reserved::No) => {
-					adjust_or_warn!(
+					decrement_or_warn!(
 						self.num_out,
 						self.protocol,
 						peer,
@@ -737,7 +723,7 @@ impl Peerset {
 					self.peers.insert(peer, PeerState::Disconnected);
 				},
 				Direction::Inbound(Reserved::No) => {
-					adjust_or_warn!(
+					decrement_or_warn!(
 						self.num_in,
 						peer,
 						self.protocol,
@@ -746,7 +732,7 @@ impl Peerset {
 					self.peers.insert(peer, PeerState::Disconnected);
 				},
 				Direction::Outbound(Reserved::No) => {
-					adjust_or_warn!(
+					decrement_or_warn!(
 						self.num_out,
 						peer,
 						self.protocol,
@@ -755,18 +741,65 @@ impl Peerset {
 					self.peers.insert(peer, PeerState::Disconnected);
 				},
 			},
-			None => {},
-			Some(state) => {
-				log::warn!(
+			Some(state @ PeerState::Canceled { .. }) => {
+				log::debug!(
 					target: LOG_TARGET,
-					"{}: {peer:?} rejected by the protocol but in invalid state: {state:?}",
+					"{}: substream to {peer:?} rejected by protocol but already canceled",
 					self.protocol,
 				);
-				debug_assert!(false);
 
 				self.peers.insert(peer, state);
 			},
+			Some(state) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"{}: {peer:?} rejected by the protocol but not opening anymore: {state:?}",
+					self.protocol,
+				);
+
+				self.peers.insert(peer, state);
+			},
+			None => {},
 		}
+	}
+
+	/// Calculate how many of the connected peers were counted as normal inbound/outbound peers
+	/// which is needed to adjust slot counts when new reserved peers are added
+	fn calculate_slot_adjustment<'a>(
+		&'a mut self,
+		peers: impl Iterator<Item = &'a PeerId>,
+	) -> (usize, usize) {
+		let mut num_in = 0;
+		let mut num_out = 0;
+
+		for peer in peers {
+			match self.peers.get_mut(peer) {
+				Some(PeerState::Disconnected | PeerState::Backoff) => {},
+				Some(
+					PeerState::Opening { ref mut direction } |
+					PeerState::Connected { ref mut direction } |
+					PeerState::Canceled { ref mut direction } |
+					PeerState::Closing { ref mut direction },
+				) => {
+					*direction = match direction {
+						Direction::Inbound(Reserved::No) => {
+							num_in += 1;
+							Direction::Inbound(Reserved::Yes)
+						},
+						Direction::Outbound(Reserved::No) => {
+							num_out += 1;
+							Direction::Outbound(Reserved::Yes)
+						},
+						ref direction => **direction,
+					};
+				},
+				None => {
+					self.peers.insert(*peer, PeerState::Disconnected);
+				},
+			}
+		}
+
+		(num_in, num_out)
 	}
 
 	/// Get the number of inbound peers.
@@ -839,6 +872,12 @@ impl Stream for Peerset {
 					// if the substream opens successfully, close it immediately and mark the peer
 					// as `Disconnected`
 					Some(PeerState::Opening { direction }) => {
+						log::trace!(
+							target: LOG_TARGET,
+							"{}: canceling substream to disconnect peer {peer:?}",
+							self.protocol,
+						);
+
 						self.peers.insert(peer, PeerState::Canceled { direction });
 					},
 					// protocol had issued two disconnection requests in rapid succession and the
@@ -890,38 +929,15 @@ impl Stream for Peerset {
 				PeersetCommand::SetReservedPeers { peers } => {
 					log::debug!(target: LOG_TARGET, "{}: set reserved peers {peers:?}", self.protocol);
 
-					for peer in &peers {
-						let mut num_out = 0;
-						let mut num_in = 0;
-
-						match self.peers.get_mut(&peer) {
-							Some(PeerState::Disconnected | PeerState::Backoff) => {},
-							Some(
-								PeerState::Opening { ref mut direction } |
-								PeerState::Connected { ref mut direction } |
-								PeerState::Canceled { ref mut direction } |
-								PeerState::Closing { ref mut direction },
-							) => {
-								*direction = match direction {
-									Direction::Inbound(Reserved::No) => {
-										num_in += 1;
-										Direction::Inbound(Reserved::Yes)
-									},
-									Direction::Outbound(Reserved::No) => {
-										num_out += 1;
-										Direction::Outbound(Reserved::Yes)
-									},
-									ref direction => **direction,
-								};
-							},
-							None => {
-								self.peers.insert(*peer, PeerState::Disconnected);
-							},
-						}
-
-						self.num_in -= num_in;
-						self.num_out -= num_out;
-					}
+					// reserved peers don't consume any slots so if there are any regular connected
+					// peers, inbound/outbound slot count must be adjusted to not account for these
+					// peers anymore
+					//
+					// calculate how many of the previously connected peers were counted as regular
+					// peers and substract these counts from `num_out`/`num_in`
+					let (in_peers, out_peers) = self.calculate_slot_adjustment(peers.iter());
+					self.num_out -= out_peers;
+					self.num_in -= in_peers;
 
 					// collect reserved peers that are not in the new set and then overwrite
 					// the old reserved peers with the new set
@@ -933,76 +949,65 @@ impl Stream for Peerset {
 
 					self.reserved_peers = peers;
 
-					return Poll::Ready(Some(PeersetNotificationCommand::CloseSubstream {
-						peers: peers_to_remove
-							.into_iter()
-							.filter(|peer| {
-								match self.peers.remove(&peer) {
-									Some(PeerState::Connected { direction }) => {
-										log::trace!(
-											target: LOG_TARGET,
-											"{}: close connection to {peer:?}, direction {direction:?}",
-											self.protocol,
-										);
+					let peers = peers_to_remove
+						.into_iter()
+						.filter(|peer| {
+							match self.peers.remove(&peer) {
+								Some(PeerState::Connected { direction }) => {
+									log::trace!(
+										target: LOG_TARGET,
+										"{}: close connection to {peer:?}, direction {direction:?}",
+										self.protocol,
+									);
 
-										self.peers.insert(*peer, PeerState::Closing { direction });
-										true
-									},
-									// substream might have been opening but not yet fully open when
-									// the protocol request the reserved set to be changed
-									Some(PeerState::Opening { direction }) => {
-										self.peers.insert(*peer, PeerState::Canceled { direction });
-										false
-									},
-									Some(state) => {
-										self.peers.insert(*peer, state);
-										false
-									},
-									None => {
-										log::debug!(target: LOG_TARGET, "{}: {peer:?} doesn't exist", self.protocol);
-										debug_assert!(false);
-										false
-									},
-								}
-							})
-							.collect(),
-					}))
+									self.peers.insert(*peer, PeerState::Closing { direction });
+									true
+								},
+								// substream might have been opening but not yet fully open when
+								// the protocol request the reserved set to be changed
+								Some(PeerState::Opening { direction }) => {
+									log::trace!(
+										target: LOG_TARGET,
+										"{}: cancel substream to {peer:?}, direction {direction:?}",
+										self.protocol,
+									);
+
+									self.peers.insert(*peer, PeerState::Canceled { direction });
+									false
+								},
+								Some(state) => {
+									self.peers.insert(*peer, state);
+									false
+								},
+								None => {
+									log::debug!(target: LOG_TARGET, "{}: {peer:?} doesn't exist", self.protocol);
+									debug_assert!(false);
+									false
+								},
+							}
+						})
+						.collect();
+
+					log::trace!(
+						target: LOG_TARGET,
+						"{}: close substreams to {peers:?}",
+						self.protocol,
+					);
+
+					return Poll::Ready(Some(PeersetNotificationCommand::CloseSubstream { peers }))
 				},
 				PeersetCommand::AddReservedPeers { peers } => {
 					log::debug!(target: LOG_TARGET, "{}: add reserved peers {peers:?}", self.protocol);
 
-					for peer in &peers {
-						let mut num_out = 0;
-						let mut num_in = 0;
-
-						match self.peers.get_mut(&peer) {
-							Some(PeerState::Disconnected | PeerState::Backoff) => {},
-							Some(
-								PeerState::Opening { ref mut direction } |
-								PeerState::Connected { ref mut direction } |
-								PeerState::Canceled { ref mut direction } |
-								PeerState::Closing { ref mut direction },
-							) => {
-								*direction = match direction {
-									Direction::Inbound(Reserved::No) => {
-										num_in += 1;
-										Direction::Inbound(Reserved::Yes)
-									},
-									Direction::Outbound(Reserved::No) => {
-										num_out += 1;
-										Direction::Outbound(Reserved::Yes)
-									},
-									ref direction => **direction,
-								};
-							},
-							None => {
-								self.peers.insert(*peer, PeerState::Disconnected);
-							},
-						}
-
-						self.num_in -= num_in;
-						self.num_out -= num_out;
-					}
+					// reserved peers don't consume any slots so if there are any regular connected
+					// peers, inbound/outbound slot count must be adjusted to not account for these
+					// peers anymore
+					//
+					// calculate how many of the previously connected peers were counted as regular
+					// peers and substract these counts from `num_out`/`num_in`
+					let (in_peers, out_peers) = self.calculate_slot_adjustment(peers.iter());
+					self.num_out -= out_peers;
+					self.num_in -= in_peers;
 
 					let peers = peers
 						.iter()
@@ -1039,123 +1044,230 @@ impl Stream for Peerset {
 				PeersetCommand::RemoveReservedPeers { peers } => {
 					log::debug!(target: LOG_TARGET, "{}: remove reserved peers {peers:?}", self.protocol);
 
-					return Poll::Ready(Some(PeersetNotificationCommand::CloseSubstream {
-						peers: peers
-							.iter()
-							.filter_map(|peer| {
-								if !self.reserved_peers.remove(peer) {
-									log::debug!(
+					let peers_to_remove = peers
+						.iter()
+						.filter_map(|peer| {
+							if !self.reserved_peers.remove(peer) {
+								log::debug!(
+									target: LOG_TARGET,
+									"{}: {peer} is not a reserved peer",
+									self.protocol,
+								);
+								return None
+							}
+
+							match self.peers.remove(peer)? {
+								// peer might have already disconnected by the time request to
+								// disconnect them was received and the peer was backed off but
+								// it had no expired by the time the request to disconnect the
+								// peer was received
+								PeerState::Backoff => {
+									log::trace!(
 										target: LOG_TARGET,
-										"{}: {peer} is not a reserved peer",
+										"{}: cannot disconnect removed reserved peer {peer:?}, already backed-off",
 										self.protocol,
 									);
-									return None
-								}
 
-								let protocol = self.protocol.clone();
-								let peer_state = self.peers.get_mut(peer)?;
+									self.peers.insert(*peer, PeerState::Backoff);
+									None
+								},
+								// if there is a rapid change in substream state, the peer may
+								// be canceled when the substream is asked to be closed.
+								//
+								// this can happen if substream is first opened and the very
+								// soon after canceled. The substream may not have had time to
+								// open yet and second open is ignored. If the substream is now
+								// closed again before it has had time to open, it will be in
+								// canceled state since `Peerset` is still waiting to hear
+								// either success/failure on the original substream it tried to
+								// cancel.
+								PeerState::Canceled { direction } => {
+									log::trace!(
+										target: LOG_TARGET,
+										"{}: cannot disconnect removed reserved peer {peer:?}, already canceled",
+										self.protocol,
+									);
 
-								match std::mem::replace(peer_state, PeerState::Disconnected) {
-									PeerState::Connected { direction } => {
-										*peer_state = PeerState::Closing { direction };
-										return Some(*peer)
+									self.peers.insert(*peer, PeerState::Canceled { direction });
+									None
+								},
+								// substream to the peer might have failed to open which caused
+								// the peer to be backed off
+								//
+								// the back-off might've expired by the time the peer was
+								// disconnected at which point the peer is already disconnected
+								// when the protocol asked the peer to be disconnected
+								PeerState::Disconnected => {
+									log::trace!(
+										target: LOG_TARGET,
+										"{}: cannot disconnect removed reserved peer {peer:?}, already disconnected",
+										self.protocol,
+									);
+
+									self.peers.insert(*peer, PeerState::Disconnected);
+									None
+								},
+								// if a node disconnects, it's put into `PeerState::Closing`
+								// which indicates that `Peerset` wants the substream closed and
+								// has asked litep2p to close it but it hasn't yet received a
+								// confirmation. If the peer is added as a reserved peer while
+								// the substream is closing, the peer will remain in the closing
+								// state as `Peerset` can't do anything with the peer until it
+								// has heard from litep2p. It's possible that the peer is then
+								// removed from the reserved set before substream close event
+								// has been reported to `Peerset` (which the code below is
+								// handling) and it will once again be ignored until the close
+								// event is heard from litep2p.
+								PeerState::Closing { direction } => {
+									log::trace!(
+										target: LOG_TARGET,
+										"{}: cannot disconnect removed reserved peer {peer:?}, already closing",
+										self.protocol,
+									);
+
+									self.peers.insert(*peer, PeerState::Closing { direction });
+									None
+								},
+								// peer is currently connected as a reserved peer
+								//
+								// check if the peer can be accepted as a regular peer based on its
+								// substream direction and available slots
+								//
+								// if there are enough slots, the peer is just converted to
+								// a regular peer and the used slot count is increased and if the
+								// peer cannot be accepted, litep2p is asked to close the substream.
+								PeerState::Connected { direction } => match direction {
+									Direction::Inbound(_) => match self.num_in < self.max_in {
+										true => {
+											log::trace!(
+												target: LOG_TARGET,
+												"{}: {peer:?} converted to regular inbound peer",
+												self.protocol,
+											);
+
+											self.num_in += 1;
+											self.peers.insert(
+												*peer,
+												PeerState::Connected {
+													direction: Direction::Inbound(Reserved::No),
+												},
+											);
+
+											None
+										},
+										false => {
+											self.peers.insert(
+												*peer,
+												PeerState::Closing {
+													direction: Direction::Inbound(Reserved::Yes),
+												},
+											);
+
+											Some(*peer)
+										},
 									},
-									PeerState::Opening { direction } => {
-										log::trace!(
-											target: LOG_TARGET,
-											"{}: {:?} removed from reserved peers but was not connected, canceling",
-											protocol,
-											peer,
-										);
+									Direction::Outbound(_) => match self.num_out < self.max_out {
+										true => {
+											log::trace!(
+												target: LOG_TARGET,
+												"{}: {peer:?} converted to regular outbound peer",
+												self.protocol,
+											);
 
-										match direction {
-											Direction::Inbound(Reserved::Yes) |
-											Direction::Outbound(Reserved::Yes) => {},
-											_state => {
-												// TODO: explain this state
-											},
-										}
+											self.num_out += 1;
+											self.peers.insert(
+												*peer,
+												PeerState::Connected {
+													direction: Direction::Outbound(Reserved::No),
+												},
+											);
 
-										*peer_state = PeerState::Canceled { direction };
-										None
-									},
-									// peer might have already disconnected by the time request to
-									// disconnect them was received and the peer was backed off but
-									// it had no expired by the time the request to disconnect the
-									// peer was received
-									PeerState::Backoff => {
-										log::trace!(
-											target: LOG_TARGET,
-											"{}: cannot disconnect removed reserved peer {:?}, already backed-off",
-											protocol,
-											peer,
-										);
+											None
+										},
+										false => {
+											self.peers.insert(
+												*peer,
+												PeerState::Closing {
+													direction: Direction::Outbound(Reserved::Yes),
+												},
+											);
 
-										*peer_state = PeerState::Backoff;
-										None
+											Some(*peer)
+										},
 									},
-									// if there is a rapid change in substream state, the peer may
-									// be canceled when the substream is asked to be closed.
-									//
-									// this can happen if substream is first opened and the very
-									// soon after canceled. The substream may not have had time to
-									// open yet and second open is ignored. If the substream is now
-									// closed again before it has had time to open, it will be in
-									// canceled state since `Peerset` is still waiting to hear
-									// either success/failure on the original substream it tried to
-									// cancel.
-									PeerState::Canceled { direction } => {
-										log::trace!(
-											target: LOG_TARGET,
-											"{}: cannot disconnect removed reserved peer {:?}, already canceled",
-											protocol,
-											peer,
-										);
-										*peer_state = PeerState::Canceled { direction };
-										None
-									},
-									// substream to the peer might have failed to open which caused
-									// the peer to be backed off
-									//
-									// the back-off might've expired by the time the peer was
-									// disconnected at which point the peer is already disconnected
-									// when the protocol asked the peer to be disconnected
-									PeerState::Disconnected => {
-										log::trace!(
-											target: LOG_TARGET,
-											"{}: cannot disconnect removed reserved peer {:?}, already disconnected",
-											protocol,
-											peer,
-										);
+								},
+								PeerState::Opening { direction } => match direction {
+									Direction::Inbound(_) => match self.num_in < self.max_in {
+										true => {
+											log::trace!(
+												target: LOG_TARGET,
+												"{}: {peer:?} converted to regular inbound peer (opening)",
+												self.protocol,
+											);
 
-										*peer_state = PeerState::Disconnected;
-										None
-									},
-									// if a node disconnects, it's put into `PeerState::Closing`
-									// which indicates that `Peerset` wants the substream closed and
-									// has asked litep2p to close it but it hasn't yet received a
-									// confirmation. If the peer is added as a reserved peer while
-									// the substream is closing, the peer will remain in the closing
-									// state as `Peerset` can't do anything with the peer until it
-									// has heard from litep2p. It's possible that the peer is then
-									// removed from the reserved set before substream close event
-									// has been reported to `Peerset` (which the code below is
-									// handling) and it will once again be ignored until the close
-									// event is heard from litep2p.
-									PeerState::Closing { direction } => {
-										log::trace!(
-											target: LOG_TARGET,
-											"{}: cannot disconnect removed reserved peer {:?}, already closing",
-											protocol,
-											peer,
-										);
+											self.num_in += 1;
+											self.peers.insert(
+												*peer,
+												PeerState::Opening {
+													direction: Direction::Inbound(Reserved::No),
+												},
+											);
 
-										*peer_state = PeerState::Closing { direction };
-										None
+											None
+										},
+										false => {
+											self.peers.insert(
+												*peer,
+												PeerState::Canceled {
+													direction: Direction::Inbound(Reserved::Yes),
+												},
+											);
+
+											None
+										},
 									},
-								}
-							})
-							.collect(),
+									Direction::Outbound(_) => match self.num_out < self.max_out {
+										true => {
+											log::trace!(
+												target: LOG_TARGET,
+												"{}: {peer:?} converted to regular outbound peer (opening)",
+												self.protocol,
+											);
+
+											self.num_out += 1;
+											self.peers.insert(
+												*peer,
+												PeerState::Opening {
+													direction: Direction::Outbound(Reserved::No),
+												},
+											);
+
+											None
+										},
+										false => {
+											self.peers.insert(
+												*peer,
+												PeerState::Canceled {
+													direction: Direction::Outbound(Reserved::Yes),
+												},
+											);
+
+											None
+										},
+									},
+								},
+							}
+						})
+						.collect();
+
+					log::debug!(
+						target: LOG_TARGET,
+						"{}: close substreams to {peers_to_remove:?}",
+						self.protocol,
+					);
+
+					return Poll::Ready(Some(PeersetNotificationCommand::CloseSubstream {
+						peers: peers_to_remove,
 					}))
 				},
 				PeersetCommand::SetReservedOnly { reserved_only } => {

@@ -39,6 +39,38 @@ impl PublicKey {
 			Self::Litep2p(public) => public.to_protobuf_encoding(),
 		}
 	}
+
+	/// Get `PeerId` of the [`PublicKey`].
+	pub fn to_peer_id(&self) -> sc_network_types::PeerId {
+		match self {
+			Self::Libp2p(public) => public.to_peer_id().into(),
+			Self::Litep2p(public) => public.to_peer_id().into(),
+		}
+	}
+}
+
+/// Keypair.
+pub enum Keypair {
+	/// Litep2p keypair.
+	Libp2p(libp2p::identity::Keypair),
+
+	/// Libp2p keypair.
+	Litep2p(litep2p::crypto::ed25519::Keypair),
+}
+
+impl Keypair {
+	/// Generate ed25519 keypair.
+	pub fn generate_ed25519() -> Self {
+		Keypair::Litep2p(litep2p::crypto::ed25519::Keypair::generate())
+	}
+
+	/// Get [`Keypair`]'s public key.
+	pub fn public(&self) -> PublicKey {
+		match self {
+			Keypair::Libp2p(keypair) => PublicKey::Libp2p(keypair.public()),
+			Keypair::Litep2p(keypair) => PublicKey::Litep2p(keypair.public().into()),
+		}
+	}
 }
 
 /// A result of signing a message with a network identity. Since `PeerId` is potentially a hash of a
@@ -61,11 +93,21 @@ impl Signature {
 	/// Create a signature for a message with a given network identity.
 	pub fn sign_message(
 		message: impl AsRef<[u8]>,
-		keypair: &libp2p::identity::Keypair,
+		keypair: &Keypair,
 	) -> Result<Self, SigningError> {
-		let public_key = keypair.public();
-		let bytes = keypair.sign(message.as_ref())?;
+		match keypair {
+			Keypair::Libp2p(keypair) => {
+				let public_key = keypair.public();
+				let bytes = keypair.sign(message.as_ref())?;
 
-		Ok(Signature { public_key: PublicKey::Libp2p(public_key), bytes })
+				Ok(Signature { public_key: PublicKey::Libp2p(public_key), bytes })
+			},
+			Keypair::Litep2p(keypair) => {
+				let public_key = keypair.public();
+				let bytes = keypair.sign(message.as_ref());
+
+				Ok(Signature { public_key: PublicKey::Litep2p(public_key.into()), bytes })
+			},
+		}
 	}
 }

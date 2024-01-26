@@ -52,7 +52,6 @@ pub trait NetworkService:
 	+ NetworkEventStream
 	+ NetworkStateInfo
 	+ NetworkRequest
-	+ NetworkNotification
 	+ Send
 	+ Sync
 	+ 'static
@@ -67,7 +66,6 @@ impl<T> NetworkService for T where
 		+ NetworkEventStream
 		+ NetworkStateInfo
 		+ NetworkRequest
-		+ NetworkNotification
 		+ Send
 		+ Sync
 		+ 'static
@@ -582,127 +580,6 @@ pub enum NotificationSenderError {
 	/// Protocol name hasn't been registered.
 	#[error("Protocol name hasn't been registered")]
 	BadProtocol,
-}
-
-/// Provides ability to send network notifications.
-pub trait NetworkNotification {
-	/// Appends a notification to the buffer of pending outgoing notifications with the given peer.
-	/// Has no effect if the notifications channel with this protocol name is not open.
-	///
-	/// If the buffer of pending outgoing notifications with that peer is full, the notification
-	/// is silently dropped and the connection to the remote will start being shut down. This
-	/// happens if you call this method at a higher rate than the rate at which the peer processes
-	/// these notifications, or if the available network bandwidth is too low.
-	///
-	/// For this reason, this method is considered soft-deprecated. You are encouraged to use
-	/// [`NetworkNotification::notification_sender`] instead.
-	///
-	/// > **Note**: The reason why this is a no-op in the situation where we have no channel is
-	/// >			that we don't guarantee message delivery anyway. Networking issues can cause
-	/// >			connections to drop at any time, and higher-level logic shouldn't differentiate
-	/// >			between the remote voluntarily closing a substream or a network error
-	/// >			preventing the message from being delivered.
-	///
-	/// The protocol must have been registered with
-	/// `crate::config::NetworkConfiguration::notifications_protocols`.
-	fn write_notification(&self, target: PeerId, protocol: ProtocolName, message: Vec<u8>);
-
-	/// Obtains a [`NotificationSender`] for a connected peer, if it exists.
-	///
-	/// A `NotificationSender` is scoped to a particular connection to the peer that holds
-	/// a receiver. With a `NotificationSender` at hand, sending a notification is done in two
-	/// steps:
-	///
-	/// 1. [`NotificationSender::ready`] is used to wait for the sender to become ready
-	/// for another notification, yielding a [`NotificationSenderReady`] token.
-	/// 2. [`NotificationSenderReady::send`] enqueues the notification for sending. This operation
-	/// can only fail if the underlying notification substream or connection has suddenly closed.
-	///
-	/// An error is returned by [`NotificationSenderReady::send`] if there exists no open
-	/// notifications substream with that combination of peer and protocol, or if the remote
-	/// has asked to close the notifications substream. If that happens, it is guaranteed that an
-	/// [`Event::NotificationStreamClosed`] has been generated on the stream returned by
-	/// [`NetworkEventStream::event_stream`].
-	///
-	/// If the remote requests to close the notifications substream, all notifications successfully
-	/// enqueued using [`NotificationSenderReady::send`] will finish being sent out before the
-	/// substream actually gets closed, but attempting to enqueue more notifications will now
-	/// return an error. It is however possible for the entire connection to be abruptly closed,
-	/// in which case enqueued notifications will be lost.
-	///
-	/// The protocol must have been registered with
-	/// `crate::config::NetworkConfiguration::notifications_protocols`.
-	///
-	/// # Usage
-	///
-	/// This method returns a struct that allows waiting until there is space available in the
-	/// buffer of messages towards the given peer. If the peer processes notifications at a slower
-	/// rate than we send them, this buffer will quickly fill up.
-	///
-	/// As such, you should never do something like this:
-	///
-	/// ```ignore
-	/// // Do NOT do this
-	/// for peer in peers {
-	/// 	if let Ok(n) = network.notification_sender(peer, ...) {
-	/// 			if let Ok(s) = n.ready().await {
-	/// 				let _ = s.send(...);
-	/// 			}
-	/// 	}
-	/// }
-	/// ```
-	///
-	/// Doing so would slow down all peers to the rate of the slowest one. A malicious or
-	/// malfunctioning peer could intentionally process notifications at a very slow rate.
-	///
-	/// Instead, you are encouraged to maintain your own buffer of notifications on top of the one
-	/// maintained by `sc-network`, and use `notification_sender` to progressively send out
-	/// elements from your buffer. If this additional buffer is full (which will happen at some
-	/// point if the peer is too slow to process notifications), appropriate measures can be taken,
-	/// such as removing non-critical notifications from the buffer or disconnecting the peer
-	/// using [`NetworkPeers::disconnect_peer`].
-	///
-	///
-	/// Notifications              Per-peer buffer
-	///   broadcast    +------->   of notifications   +-->  `notification_sender`  +-->  Internet
-	///                    ^       (not covered by
-	///                    |         sc-network)
-	///                    +
-	///      Notifications should be dropped
-	///             if buffer is full
-	///
-	///
-	/// See also the `sc-network-gossip` crate for a higher-level way to send notifications.
-	fn notification_sender(
-		&self,
-		target: PeerId,
-		protocol: ProtocolName,
-	) -> Result<Box<dyn NotificationSender>, NotificationSenderError>;
-
-	/// Set handshake for the notification protocol.
-	fn set_notification_handshake(&self, protocol: ProtocolName, handshake: Vec<u8>);
-}
-
-impl<T> NetworkNotification for Arc<T>
-where
-	T: ?Sized,
-	T: NetworkNotification,
-{
-	fn write_notification(&self, target: PeerId, protocol: ProtocolName, message: Vec<u8>) {
-		T::write_notification(self, target, protocol, message)
-	}
-
-	fn notification_sender(
-		&self,
-		target: PeerId,
-		protocol: ProtocolName,
-	) -> Result<Box<dyn NotificationSender>, NotificationSenderError> {
-		T::notification_sender(self, target, protocol)
-	}
-
-	fn set_notification_handshake(&self, protocol: ProtocolName, handshake: Vec<u8>) {
-		T::set_notification_handshake(self, protocol, handshake)
-	}
 }
 
 /// Provides ability to send network requests.

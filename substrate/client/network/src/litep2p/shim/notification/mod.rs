@@ -21,7 +21,7 @@
 
 use crate::{
 	error::Error,
-	litep2p::shim::notification::peerset::{Peerset, PeersetNotificationCommand},
+	litep2p::shim::notification::peerset::{OpenResult, Peerset, PeersetNotificationCommand},
 	service::{
 		metrics::NotificationMetrics,
 		traits::{NotificationEvent as SubstrateNotificationEvent, ValidationResult},
@@ -229,11 +229,10 @@ impl NotificationService for NotificationProtocol {
 		Ok(())
 	}
 
-	/// Non-blocking variant of `set_handshake()` that attempts to update the handshake
-	/// and returns an error if the channel is blocked.
+	/// Set handshake for the notification protocol replacing the old handshake.
 	///
-	/// Technically the function can return an error if the channel to `Notifications` is closed
-	/// but that doesn't happen under normal operation.
+	/// For `litep2p` this is identical to `NotificationService::set_handshake()` since `litep2p`
+	/// allows updating the handshake synchronously.
 	fn try_set_handshake(&mut self, handshake: Vec<u8>) -> Result<(), ()> {
 		self.handle.set_handshake(handshake);
 
@@ -268,6 +267,8 @@ impl NotificationService for NotificationProtocol {
 	async fn next_event(&mut self) -> Option<SubstrateNotificationEvent> {
 		loop {
 			tokio::select! {
+				biased;
+
 				event = self.handle.next() => match event? {
 					NotificationEvent::ValidateSubstream { peer, handshake, .. } => {
 						if let ValidationResult::Reject = self.peerset.report_inbound_substream(peer.into()) {
@@ -295,21 +296,24 @@ impl NotificationService for NotificationProtocol {
 					} => {
 						self.metrics.register_substream_opened(&self.protocol);
 
-						if !self.peerset.report_substream_opened(peer.into(), direction.into()) {
-							let _ = self.handle.close_substream_batch(vec![peer].into_iter().map(From::from)).await;
-							self.pending_cancels.insert(peer);
+						match self.peerset.report_substream_opened(peer.into(), direction.into()) {
+							OpenResult::Reject => {
+								let _ = self.handle.close_substream_batch(vec![peer].into_iter().map(From::from)).await;
+								self.pending_cancels.insert(peer);
 
-							continue
+								continue
+							}
+							OpenResult::Accept { direction } => {
+								log::trace!(target: LOG_TARGET, "{}: substream opened for {peer:?}", self.protocol);
+
+								return Some(SubstrateNotificationEvent::NotificationStreamOpened {
+									peer: peer.into(),
+									handshake,
+									direction,
+									negotiated_fallback: fallback.map(From::from),
+								});
+							}
 						}
-
-						log::trace!(target: LOG_TARGET, "{}: substream opened for {peer:?}", self.protocol);
-
-						return Some(SubstrateNotificationEvent::NotificationStreamOpened {
-							peer: peer.into(),
-							handshake,
-							direction: direction.into(),
-							negotiated_fallback: fallback.map(From::from),
-						});
 					}
 					NotificationEvent::NotificationStreamClosed {
 						peer,

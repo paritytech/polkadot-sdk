@@ -218,7 +218,7 @@ impl Discovery {
 	) -> (Self, PingConfig, IdentifyConfig, KademliaConfig, Option<MdnsConfig>) {
 		let (ping_config, ping_event_stream) = PingConfig::default();
 		let (identify_config, identify_event_stream) =
-			IdentifyConfig::new(config.listen_addresses.clone());
+			IdentifyConfig::new(config.public_addresses.clone());
 
 		let (mdns_config, mdns_event_stream) = match config.transport {
 			crate::config::TransportConfig::Normal { enable_mdns, .. } => match enable_mdns {
@@ -303,6 +303,11 @@ impl Discovery {
 				Some(address)
 			})
 			.collect();
+
+		log::trace!(
+			target: LOG_TARGET,
+			"add self-reported addresses for {peer:?}: {addresses:?}",
+		);
 
 		self.kademlia_handle.add_known_peer(peer, addresses).await;
 	}

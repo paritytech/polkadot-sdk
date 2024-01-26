@@ -359,9 +359,7 @@ mod tests {
 	use sc_network::{
 		config::MultiaddrWithPeerId,
 		service::traits::{Direction, MessageSink, NotificationEvent},
-		Event, NetworkBlock, NetworkEventStream, NetworkNotification, NetworkPeers,
-		NotificationSenderError, NotificationSenderT as NotificationSender, NotificationService,
-		Roles,
+		Event, NetworkBlock, NetworkEventStream, NetworkPeers, NotificationService, Roles,
 	};
 	use sc_network_common::role::ObservedRole;
 	use sc_network_sync::SyncEventStream;
@@ -462,24 +460,6 @@ mod tests {
 
 	impl NetworkEventStream for TestNetwork {
 		fn event_stream(&self, _name: &'static str) -> Pin<Box<dyn Stream<Item = Event> + Send>> {
-			unimplemented!();
-		}
-	}
-
-	impl NetworkNotification for TestNetwork {
-		fn write_notification(&self, _target: PeerId, _protocol: ProtocolName, _message: Vec<u8>) {
-			unimplemented!();
-		}
-
-		fn notification_sender(
-			&self,
-			_target: PeerId,
-			_protocol: ProtocolName,
-		) -> Result<Box<dyn NotificationSender>, NotificationSenderError> {
-			unimplemented!();
-		}
-
-		fn set_notification_handshake(&self, _protocol: ProtocolName, _handshake: Vec<u8>) {
 			unimplemented!();
 		}
 	}

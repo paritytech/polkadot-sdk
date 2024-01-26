@@ -30,8 +30,7 @@ use sc_network::{
 	event::Event as NetworkEvent,
 	service::traits::{Direction, MessageSink, NotificationEvent, NotificationService},
 	types::ProtocolName,
-	Multiaddr, NetworkBlock, NetworkEventStream, NetworkNotification, NetworkPeers,
-	NetworkSyncForkRequest, NotificationSenderError, NotificationSenderT as NotificationSender,
+	Multiaddr, NetworkBlock, NetworkEventStream, NetworkPeers, NetworkSyncForkRequest,
 	ReputationChange,
 };
 use sc_network_common::role::{ObservedRole, Roles};
@@ -153,24 +152,6 @@ impl NetworkEventStream for TestNetwork {
 	}
 }
 
-impl NetworkNotification for TestNetwork {
-	fn write_notification(&self, target: PeerId, _protocol: ProtocolName, message: Vec<u8>) {
-		let _ = self.sender.unbounded_send(Event::WriteNotification(target, message));
-	}
-
-	fn notification_sender(
-		&self,
-		_target: PeerId,
-		_protocol: ProtocolName,
-	) -> Result<Box<dyn NotificationSender>, NotificationSenderError> {
-		unimplemented!();
-	}
-
-	fn set_notification_handshake(&self, _protocol: ProtocolName, _handshake: Vec<u8>) {
-		unimplemented!();
-	}
-}
-
 impl NetworkBlock<Hash, NumberFor<Block>> for TestNetwork {
 	fn announce_block(&self, hash: Hash, _data: Option<Vec<u8>>) {
 		let _ = self.sender.unbounded_send(Event::Announce(hash));
@@ -191,12 +172,7 @@ impl sc_network_gossip::ValidatorContext<Block> for TestNetwork {
 	fn broadcast_message(&mut self, _: Hash, _: Vec<u8>, _: bool) {}
 
 	fn send_message(&mut self, who: &PeerId, data: Vec<u8>) {
-		<Self as NetworkNotification>::write_notification(
-			self,
-			*who,
-			grandpa_protocol_name::NAME.into(),
-			data,
-		);
+		let _ = self.sender.unbounded_send(Event::WriteNotification(*who, data));
 	}
 
 	fn send_topic(&mut self, _: &PeerId, _: Hash, _: bool) {}

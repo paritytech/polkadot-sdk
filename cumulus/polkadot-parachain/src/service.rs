@@ -1297,7 +1297,7 @@ where
 }
 
 /// Start an aura powered parachain node. Collectives uses this.
-pub async fn start_generic_aura_node<RuntimeApi, AuraId: AppCrypto>(
+pub async fn start_generic_aura_node<RuntimeApi, AuraId: AppCrypto, Net>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
@@ -1543,7 +1543,11 @@ where
 ///
 /// Uses the lookahead collator to support async backing.
 #[sc_tracing::logging::prefix_logs_with("Parachain")]
-pub async fn start_asset_hub_lookahead_node<RuntimeApi, AuraId: AppCrypto + Send + Codec + Sync>(
+pub async fn start_asset_hub_lookahead_node<
+	RuntimeApi,
+	AuraId: AppCrypto + Send + Codec + Sync,
+	Network,
+>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
 	collator_options: CollatorOptions,
@@ -1565,8 +1569,9 @@ where
 		+ cumulus_primitives_aura::AuraUnincludedSegmentApi<Block>,
 	<<AuraId as AppCrypto>::Pair as Pair>::Signature:
 		TryFrom<Vec<u8>> + std::hash::Hash + sp_runtime::traits::Member + Codec,
+	Network: sc_network::NetworkBackend<Block, Hash>,
 {
-	start_node_impl::<RuntimeApi, _, _, _>(
+	start_node_impl::<RuntimeApi, _, _, _, Network>(
 		parachain_config,
 		polkadot_config,
 		collator_options,
