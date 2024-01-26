@@ -478,13 +478,13 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::set_retry(T::MaxScheduledPerBlock::get()))]
 		pub fn set_retry(
 			origin: OriginFor<T>,
-			when: BlockNumberFor<T>,
-			index: u32,
+			task: TaskAddress<BlockNumberFor<T>>,
 			retries: u8,
 			period: BlockNumberFor<T>,
 		) -> DispatchResult {
 			T::ScheduleOrigin::ensure_origin(origin.clone())?;
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
+			let (when, index) = task;
 			let agenda = Agenda::<T>::get(when);
 			match agenda.get(index as usize) {
 				Some(Some(task)) =>

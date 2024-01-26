@@ -199,7 +199,7 @@ fn retry_scheduling_works() {
 		));
 		assert!(Agenda::<Test>::get(4)[0].is_some());
 		// retry 10 times every 3 blocks
-		assert_ok!(Scheduler::set_retry(root().into(), 4, 0, 10, 3));
+		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, 3));
 		assert_eq!(Retries::<Test>::iter().count(), 1);
 		run_to_block(3);
 		assert!(logger::log().is_empty());
@@ -329,9 +329,9 @@ fn retry_scheduling_multiple_tasks_works() {
 
 		assert_eq!(Agenda::<Test>::get(4).len(), 2);
 		// task 20 will be retried 3 times every block
-		assert_ok!(Scheduler::set_retry(root().into(), 4, 0, 3, 1));
+		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 3, 1));
 		// task 42 will be retried 10 times every 3 blocks
-		assert_ok!(Scheduler::set_retry(root().into(), 4, 1, 10, 3));
+		assert_ok!(Scheduler::set_retry(root().into(), (4, 1), 10, 3));
 		assert_eq!(Retries::<Test>::iter().count(), 2);
 		run_to_block(3);
 		assert!(logger::log().is_empty());
@@ -493,7 +493,7 @@ fn retry_scheduling_with_period_works() {
 
 		assert!(Agenda::<Test>::get(4)[0].is_some());
 		// 42 will be retried 10 times every 2 blocks
-		assert_ok!(Scheduler::set_retry(root().into(), 4, 0, 10, 2));
+		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, 2));
 		assert_eq!(Retries::<Test>::iter().count(), 1);
 		run_to_block(3);
 		assert!(logger::log().is_empty());
@@ -679,7 +679,7 @@ fn retry_scheduling_expires() {
 		));
 		assert!(Agenda::<Test>::get(4)[0].is_some());
 		// task 42 will be retried 3 times every block
-		assert_ok!(Scheduler::set_retry(root().into(), 4, 0, 3, 1));
+		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 3, 1));
 		assert_eq!(Retries::<Test>::iter().count(), 1);
 		run_to_block(3);
 		assert!(logger::log().is_empty());
@@ -737,7 +737,7 @@ fn set_retry_bad_origin() {
 		assert!(Agenda::<Test>::get(4)[0].is_some());
 		// try to change the retry config with a different (non-root) account
 		let res: Result<(), DispatchError> =
-			Scheduler::set_retry(RuntimeOrigin::signed(102), 4, 0, 10, 2);
+			Scheduler::set_retry(RuntimeOrigin::signed(102), (4, 0), 10, 2);
 		assert_eq!(res, Err(BadOrigin.into()));
 	});
 }
@@ -785,7 +785,7 @@ fn set_retry_works() {
 
 		assert!(Agenda::<Test>::get(4)[0].is_some());
 		// make sure the retry configuration was stored
-		assert_ok!(Scheduler::set_retry(root().into(), 4, 0, 10, 2));
+		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, 2));
 		assert_eq!(
 			Retries::<Test>::get((4, 0)),
 			Some(RetryConfig { total_retries: 10, remaining: 10, period: 2 })
@@ -1096,7 +1096,7 @@ fn retry_respects_weight_limits() {
 			Preimage::bound(call).unwrap(),
 		));
 		// set a retry config for 20 for 10 retries every block
-		assert_ok!(Scheduler::set_retry(root().into(), 4, 0, 10, 1));
+		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, 1));
 		// 20 should fail and be retried later
 		run_to_block(4);
 		assert!(Agenda::<Test>::get(5)[0].is_some());

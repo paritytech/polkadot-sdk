@@ -336,7 +336,7 @@ benchmarks! {
 		let name = u32_to_name(s - 1);
 		let address = Lookup::<T>::get(name).unwrap();
 		let (when, index) = address;
-	}: _(RawOrigin::Root, when, index, 10, BlockNumberFor::<T>::one())
+	}: _(RawOrigin::Root, (when, index), 10, BlockNumberFor::<T>::one())
 	verify {
 		assert_eq!(
 			Retries::<T>::get((when, index)),
