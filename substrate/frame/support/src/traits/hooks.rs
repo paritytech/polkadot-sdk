@@ -26,7 +26,7 @@ use impl_trait_for_tuples::impl_for_tuples;
 use sp_runtime::traits::AtLeast32BitUnsigned;
 
 #[cfg(feature = "try-runtime")]
-use sp_runtime::TryRuntimeError;
+use {alloc::vec::Vec, sp_runtime::TryRuntimeError};
 
 /// See [`Hooks::on_initialize`].
 pub trait OnInitialize<BlockNumber> {

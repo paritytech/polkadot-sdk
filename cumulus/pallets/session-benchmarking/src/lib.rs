@@ -16,7 +16,6 @@
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
-use core::primitive::str;
 
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
