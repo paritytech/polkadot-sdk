@@ -6,7 +6,7 @@ title: "[frame] `#[pallet::composite_enum]` improved variant count handling + re
 doc:
   - audience: Runtime Dev
     description: |
-      The implementation of `VariantCount` trait for the result composite enums
+      The implementation of `VariantCount` trait for the aggregate composite enums
       like `RuntimeHoldReason` and `RuntimeFreezeReason` was fixed
       and is now calculated as the sum of the `VariantCount::VARIANT_COUNT` of all corresponding `#[pallet::composite_enum]`s.
       The Balances pallet's `Config` item `type MaxHolds` was removed
