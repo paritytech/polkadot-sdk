@@ -66,7 +66,11 @@ pub mod node_features {
 		/// Tells if tranch0 assignments could be sent in a single certificate.
 		/// Reserved for: `<https://github.com/paritytech/polkadot-sdk/issues/628>`
 		EnableAssignmentsV2 = 0,
-		/// Index of the availability chunk mapping feature bit.
+		/// Tells if the chunk mapping feature is enabled.
+		/// Enables the implementation of
+		/// [RFC-47](https://github.com/polkadot-fellows/RFCs/blob/main/text/0047-assignment-of-availability-chunks.md).
+		/// Must not be enabled unless all validators and collators have stopped using `req_chunk`
+		/// protocol version 1. If it is enabled, validators can start systematic chunk recovery.
 		AvailabilityChunkMapping = 1,
 		/// First unassigned feature bit.
 		/// Every time a new feature flag is assigned it should take this value.

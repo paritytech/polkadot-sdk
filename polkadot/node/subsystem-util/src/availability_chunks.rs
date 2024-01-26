@@ -45,11 +45,11 @@ pub fn availability_chunk_index(
 	Ok(validator_index.into())
 }
 
-/// Compute the per-core availability chunk indices. Item on position i corresponds to the i-th
-/// validator.
+/// Compute the per-core availability chunk indices. Returns a Vec which maps ValidatorIndex to
+/// ChunkIndex for a given availability core index
 /// WARNING: THIS FUNCTION IS CRITICAL TO PARACHAIN CONSENSUS.
-/// Any modification to the output of the function needs to be coordinated via the runtime.
-/// It's best to use minimal/no external dependencies.
+/// Any modification to the output of the function needs to be coordinated via the
+/// runtime. It's best to use minimal/no external dependencies.
 pub fn availability_chunk_indices(
 	maybe_node_features: Option<&NodeFeatures>,
 	n_validators: usize,
