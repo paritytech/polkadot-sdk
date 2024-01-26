@@ -35,6 +35,8 @@ use crate::core::network::{
 };
 
 const LOG_TARGET: &str = "subsystem-bench::network-bridge";
+const CHUNK_REQ_PROTOCOL_NAME_V2: &str =
+	"/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/req_chunk/2";
 
 /// A mock of the network bridge tx subsystem.
 pub struct MockNetworkBridgeTx {
@@ -159,15 +161,12 @@ impl MockNetworkBridgeRx {
 							},
 							NetworkMessage::RequestFromPeer(request) => {
 								if let Some(protocol) = self.chunk_request_sender.as_mut() {
-									if protocol.name == protocol.name {
-										if let Some(inbound_queue) = protocol.inbound_queue.as_ref() {
-											inbound_queue
-												.send(request)
-												.await
-												.expect("Forwarding requests to subsystem never fails");
-										}
-									} else {
-										unimplemented!("Unexpected request type");
+									assert_eq!(&*protocol.name, CHUNK_REQ_PROTOCOL_NAME_V2);
+									if let Some(inbound_queue) = protocol.inbound_queue.as_ref() {
+										inbound_queue
+											.send(request)
+											.await
+											.expect("Forwarding requests to subsystem never fails");
 									}
 								}
 							},
