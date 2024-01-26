@@ -39,6 +39,8 @@ func generateBeaconDataCmd() *cobra.Command {
 
 	cmd.Flags().String("url", "http://127.0.0.1:9596", "Beacon URL")
 	cmd.Flags().Bool("wait_until_next_period", true, "Waiting until next period")
+	cmd.Flags().Uint32("nonce", 1, "Nonce of the inbound message")
+	cmd.Flags().String("test_case", "register_token", "Inbound test case")
 	return cmd
 }
 
@@ -83,11 +85,11 @@ type InboundMessageTest struct {
 }
 
 const (
-	pathToBeaconBenchmarkData          = "parachain/pallets/ethereum-client/src/benchmarking"
-	pathToInboundQueueBenchmarkData    = "parachain/pallets/inbound-queue/src/benchmarking"
-	pathToBenchmarkDataTemplate        = "parachain/templates/benchmarking-fixtures.mustache"
-	pathToInboundBenchmarkDataTemplate = "parachain/templates/inbound-fixtures.mustache"
-	pathToBeaconTestFixtureFiles       = "parachain/pallets/ethereum-client/tests/fixtures"
+	pathToBeaconBenchmarkData         = "parachain/pallets/ethereum-client/src/benchmarking/fixtures.rs"
+	pathToBenchmarkDataTemplate       = "parachain/templates/benchmarking-fixtures.mustache"
+	pathToBeaconTestFixtureFiles      = "parachain/pallets/ethereum-client/tests/fixtures"
+	pathToInboundQueueFixtureTemplate = "parachain/templates/%s.mustache"
+	pathToInboundQueueFixtureData     = "parachain/pallets/inbound-queue/fixtures/src/%s.rs"
 )
 
 // Only print the hex encoded call as output of this command
@@ -113,7 +115,10 @@ func generateBeaconCheckpoint(cmd *cobra.Command, _ []string) error {
 		if err != nil {
 			return fmt.Errorf("get initial sync: %w", err)
 		}
-		exportJson, err := cmd.Flags().GetBool("export-json")
+		exportJson, err := cmd.Flags().GetBool("export_json")
+		if err != nil {
+			return err
+		}
 		if exportJson {
 			initialSync := checkPointScale.ToJSON()
 			err = writeJSONToFile(initialSync, "dump-initial-checkpoint.json")
@@ -137,15 +142,18 @@ func generateBeaconTestFixture(cmd *cobra.Command, _ []string) error {
 	err := func() error {
 		ctx := context.Background()
 
-		endpoint, _ := cmd.Flags().GetString("url")
+		endpoint, err := cmd.Flags().GetString("url")
+		if err != nil {
+			return err
+		}
 
 		viper.SetConfigFile("web/packages/test/config/beacon-relay.json")
-		if err := viper.ReadInConfig(); err != nil {
+		if err = viper.ReadInConfig(); err != nil {
 			return err
 		}
 
 		var conf beaconConf.Config
-		err := viper.Unmarshal(&conf)
+		err = viper.Unmarshal(&conf)
 		if err != nil {
 			return err
 		}
@@ -155,7 +163,7 @@ func generateBeaconTestFixture(cmd *cobra.Command, _ []string) error {
 
 		viper.SetConfigFile("/tmp/snowbridge/execution-relay-asset-hub.json")
 
-		if err := viper.ReadInConfig(); err != nil {
+		if err = viper.ReadInConfig(); err != nil {
 			return err
 		}
 
@@ -184,7 +192,10 @@ func generateBeaconTestFixture(cmd *cobra.Command, _ []string) error {
 			return fmt.Errorf("get initial sync: %w", err)
 		}
 		initialSync := initialSyncScale.ToJSON()
-		writeJSONToFile(initialSync, fmt.Sprintf("%s/%s", pathToBeaconTestFixtureFiles, "initial-checkpoint.json"))
+		err = writeJSONToFile(initialSync, fmt.Sprintf("%s/%s", pathToBeaconTestFixtureFiles, "initial-checkpoint.json"))
+		if err != nil {
+			return err
+		}
 		initialSyncHeaderSlot := initialSync.Header.Slot
 		initialSyncPeriod := s.ComputeSyncPeriodAtSlot(initialSyncHeaderSlot)
 		initialEpoch := s.ComputeEpochAtSlot(initialSyncHeaderSlot)
@@ -199,7 +210,10 @@ func generateBeaconTestFixture(cmd *cobra.Command, _ []string) error {
 			return fmt.Errorf("get sync committee update: %w", err)
 		}
 		syncCommitteeUpdate := syncCommitteeUpdateScale.Payload.ToJSON()
-		writeJSONToFile(syncCommitteeUpdate, fmt.Sprintf("%s/%s", pathToBeaconTestFixtureFiles, "sync-committee-update.json"))
+		err = writeJSONToFile(syncCommitteeUpdate, fmt.Sprintf("%s/%s", pathToBeaconTestFixtureFiles, "sync-committee-update.json"))
+		if err != nil {
+			return err
+		}
 		log.Info("created sync committee update file")
 
 		// get inbound message data
@@ -210,20 +224,31 @@ func generateBeaconTestFixture(cmd *cobra.Command, _ []string) error {
 			return err
 		}
 
-		event, err := getEthereumEvent(ctx, gatewayContract, channelID)
+		nonce, err := cmd.Flags().GetUint32("nonce")
+		if err != nil {
+			return err
+		}
+
+		event, err := getEthereumEvent(ctx, gatewayContract, channelID, nonce)
 		if err != nil {
 			return err
 		}
 
 		receiptTrie, err := headerCache.GetReceiptTrie(ctx, event.Raw.BlockHash)
+		if err != nil {
+			return err
+		}
 		inboundMessage, err := ethereum.MakeMessageFromEvent(&event.Raw, receiptTrie)
+		if err != nil {
+			return err
+		}
 		messageBlockNumber := event.Raw.BlockNumber
 
 		log.WithFields(log.Fields{
 			"message":     inboundMessage,
 			"blockHash":   event.Raw.BlockHash.Hex(),
 			"blockNumber": messageBlockNumber,
-		}).WithError(err).Error("event is at block")
+		}).Info("event is at block")
 
 		finalizedUpdateAfterMessage, err := getFinalizedUpdate(*s, messageBlockNumber)
 		if err != nil {
@@ -237,7 +262,7 @@ func generateBeaconTestFixture(cmd *cobra.Command, _ []string) error {
 			return fmt.Errorf("get beacon block containing header: %w", err)
 		}
 
-		beaconBlockSlot, err := strconv.ParseUint(beaconBlock.Data.Message.Body.ExecutionPayload.BlockNumber, 10, 64)
+		beaconBlockSlot, err := strconv.ParseUint(beaconBlock.Data.Message.Slot, 10, 64)
 		if err != nil {
 			return err
 		}
@@ -249,7 +274,7 @@ func generateBeaconTestFixture(cmd *cobra.Command, _ []string) error {
 				"slot":        beaconBlock.Data.Message.Slot,
 				"blockHash":   beaconBlock.Data.Message.Body.ExecutionPayload.BlockHash,
 				"blockNumber": blockNumber,
-			}).WithError(err).Error("found execution header containing event")
+			}).WithError(err).Info("found execution header containing event")
 		}
 
 		checkPoint := cache.Proof{
@@ -335,8 +360,6 @@ func generateBeaconTestFixture(cmd *cobra.Command, _ []string) error {
 			InboundMessageTest:    inboundMessageTest,
 		}
 
-		filename := fmt.Sprintf("fixtures.rs")
-
 		// writing beacon fixtures
 		rendered, err := mustache.RenderFile(pathToBenchmarkDataTemplate, data)
 		if err != nil {
@@ -345,26 +368,34 @@ func generateBeaconTestFixture(cmd *cobra.Command, _ []string) error {
 
 		log.WithFields(log.Fields{
 			"location": pathToBeaconBenchmarkData,
-			"filename": filename,
 		}).Info("writing result file")
 
-		err = writeBenchmarkDataFile(fmt.Sprintf("%s/%s", pathToBeaconBenchmarkData, filename), rendered)
+		err = writeBenchmarkDataFile(fmt.Sprintf("%s", pathToBeaconBenchmarkData), rendered)
 		if err != nil {
 			return err
 		}
 
 		// writing inbound queue fixtures
-		rendered, err = mustache.RenderFile(pathToInboundBenchmarkDataTemplate, data)
+		testCase, err := cmd.Flags().GetString("test_case")
+		if err != nil {
+			return err
+		}
+		if testCase != "register_token" || testCase != "send_token" {
+			return fmt.Errorf("invalid test case: %s", testCase)
+		}
+		pathToInboundQueueFixtureTemplate := fmt.Sprintf(pathToInboundQueueFixtureTemplate, testCase)
+		pathToInboundQueueFixtureData := fmt.Sprintf(pathToInboundQueueFixtureData, testCase)
+
+		rendered, err = mustache.RenderFile(pathToInboundQueueFixtureTemplate, data)
 		if err != nil {
 			return fmt.Errorf("render inbound queue benchmark fixture: %w", err)
 		}
 
 		log.WithFields(log.Fields{
-			"location": pathToInboundQueueBenchmarkData,
-			"filename": filename,
+			"location": pathToInboundQueueFixtureData,
 		}).Info("writing result file")
 
-		err = writeBenchmarkDataFile(fmt.Sprintf("%s/%s", pathToInboundQueueBenchmarkData, filename), rendered)
+		err = writeBenchmarkDataFile(fmt.Sprintf("%s", pathToInboundQueueFixtureData), rendered)
 		if err != nil {
 			return err
 		}
@@ -484,7 +515,10 @@ func generateExecutionUpdate(cmd *cobra.Command, _ []string) error {
 			return fmt.Errorf("get header update: %w", err)
 		}
 		headerUpdate := headerUpdateScale.ToJSON()
-		writeJSONToFile(headerUpdate, "tmp/snowbridge/execution-header-update.json")
+		err = writeJSONToFile(headerUpdate, "tmp/snowbridge/execution-header-update.json")
+		if err != nil {
+			return err
+		}
 		log.Info("created execution update file")
 
 		return nil
@@ -501,7 +535,7 @@ func generateInboundTestFixture(ctx context.Context, beaconEndpoint string) erro
 	return nil
 }
 
-func getEthereumEvent(ctx context.Context, gatewayContract *contracts.Gateway, channelID executionConf.ChannelID) (*contracts.GatewayOutboundMessageAccepted, error) {
+func getEthereumEvent(ctx context.Context, gatewayContract *contracts.Gateway, channelID executionConf.ChannelID, nonce uint32) (*contracts.GatewayOutboundMessageAccepted, error) {
 	maxBlockNumber := uint64(10000)
 
 	opts := bind.FilterOpts{
@@ -529,7 +563,7 @@ func getEthereumEvent(ctx context.Context, gatewayContract *contracts.Gateway, c
 				}
 				break
 			}
-			if iter.Event.Nonce >= 1 {
+			if iter.Event.Nonce >= uint64(nonce) {
 				event = iter.Event
 				iter.Close()
 				break

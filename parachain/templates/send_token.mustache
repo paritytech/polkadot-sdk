@@ -1,17 +1,16 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 // Generated, do not edit!
 // See ethereum client README.md for instructions to generate
+
+use crate::InboundQueueFixture;
 use hex_literal::hex;
 use snowbridge_beacon_primitives::CompactExecutionHeader;
 use snowbridge_core::inbound::{Log, Message, Proof};
 use sp_std::vec;
 
-pub struct InboundQueueTest {
-    pub execution_header: CompactExecutionHeader,
-    pub message: Message,
-}
-
-pub fn make_create_message() -> InboundQueueTest {
-    InboundQueueTest {
+pub fn make_send_token_message() -> InboundQueueFixture {
+    InboundQueueFixture {
         execution_header: CompactExecutionHeader{
             parent_hash: hex!("{{InboundMessageTest.ExecutionHeader.ParentHash}}").into(),
             block_number: {{InboundMessageTest.ExecutionHeader.BlockNumber}},

@@ -13,4 +13,5 @@ extend-exclude = [
     "lodestar/**",
     "go-ethereum/**",
     "go.work.sum",
+    "parachain/Cargo.toml",
 ]

@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
-mod fixtures;
 mod util;
 
 use crate::Pallet as EthereumBeaconClient;
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 
-use fixtures::*;
+use snowbridge_pallet_ethereum_client_fixtures::*;
 
 use primitives::{
 	fast_aggregate_verify, prepare_aggregate_pubkey, prepare_aggregate_signature,

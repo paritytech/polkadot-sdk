@@ -86,7 +86,7 @@ dependencies = [
  "rand 0.8.5",
  "ruint",
  "serde",
- "tiny-keccak 2.0.2",
+ "tiny-keccak",
 ]
 
 [[package]]
@@ -126,7 +126,7 @@ dependencies = [
  "quote",
  "syn 2.0.48",
  "syn-solidity",
- "tiny-keccak 2.0.2",
+ "tiny-keccak",
 ]
 
 [[package]]
@@ -139,15 +139,6 @@ dependencies = [
  "alloy-sol-macro",
  "const-hex",
  "serde",
-]
-
-[[package]]
-name = "amcl"
-version = "0.3.0"
-source = "git+https://github.com/snowfork/milagro_bls?rev=a6d66e4eb89015e352fb1c9f7b661ecdbb5b2176#a6d66e4eb89015e352fb1c9f7b661ecdbb5b2176"
-dependencies = [
- "parity-scale-codec",
- "scale-info",
 ]
 
 [[package]]
@@ -1331,7 +1322,7 @@ checksum = "f9d839f2a20b0aee515dc581a6172f2321f96cab76c1a38a4c584a194955390e"
 dependencies = [
  "getrandom 0.2.11",
  "once_cell",
- "tiny-keccak 2.0.2",
+ "tiny-keccak",
 ]
 
 [[package]]
@@ -2092,11 +2083,12 @@ dependencies = [
 
 [[package]]
 name = "ethabi-decode"
-version = "1.3.3"
-source = "git+https://github.com/snowfork/ethabi-decode.git?branch=master#6f63405bb33ef4365a1c62b72d499fa0f448118e"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09d398648d65820a727d6a81e58b962f874473396a047e4c30bafe3240953417"
 dependencies = [
  "ethereum-types",
- "tiny-keccak 1.5.0",
+ "tiny-keccak",
 ]
 
 [[package]]
@@ -2111,7 +2103,7 @@ dependencies = [
  "impl-rlp",
  "impl-serde",
  "scale-info",
- "tiny-keccak 2.0.2",
+ "tiny-keccak",
 ]
 
 [[package]]
@@ -3220,20 +3212,6 @@ dependencies = [
  "byteorder",
  "keccak",
  "rand_core 0.6.4",
- "zeroize",
-]
-
-[[package]]
-name = "milagro_bls"
-version = "1.5.0"
-source = "git+https://github.com/snowfork/milagro_bls?rev=a6d66e4eb89015e352fb1c9f7b661ecdbb5b2176#a6d66e4eb89015e352fb1c9f7b661ecdbb5b2176"
-dependencies = [
- "amcl",
- "hex",
- "lazy_static",
- "parity-scale-codec",
- "rand 0.8.5",
- "scale-info",
  "zeroize",
 ]
 
@@ -5179,6 +5157,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "snowbridge-amcl"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "460a9ed63cdf03c1b9847e8a12a5f5ba19c4efd5869e4a737e05be25d7c427e5"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+]
+
+[[package]]
 name = "snowbridge-beacon-primitives"
 version = "0.9.0"
 dependencies = [
@@ -5187,12 +5175,12 @@ dependencies = [
  "frame-system",
  "hex",
  "hex-literal",
- "milagro_bls",
  "parity-scale-codec",
  "rlp",
  "scale-info",
  "serde",
  "snowbridge-ethereum",
+ "snowbridge-milagro-bls",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -5250,6 +5238,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "snowbridge-milagro-bls"
+version = "1.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "026aa8638f690a53e3f7676024b9e913b1cab0111d1b7b92669d40a188f9d7e6"
+dependencies = [
+ "hex",
+ "lazy_static",
+ "parity-scale-codec",
+ "rand 0.8.5",
+ "scale-info",
+ "snowbridge-amcl",
+ "zeroize",
+]
+
+[[package]]
 name = "snowbridge-outbound-queue-merkle-tree"
 version = "0.9.0"
 dependencies = [
@@ -5299,6 +5302,7 @@ dependencies = [
  "snowbridge-beacon-primitives",
  "snowbridge-core",
  "snowbridge-ethereum",
+ "snowbridge-pallet-ethereum-client-fixtures",
  "sp-core",
  "sp-io",
  "sp-keyring",
@@ -5307,6 +5311,20 @@ dependencies = [
  "ssz_rs",
  "ssz_rs_derive",
  "static_assertions",
+]
+
+[[package]]
+name = "snowbridge-pallet-ethereum-client-fixtures"
+version = "0.9.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex-literal",
+ "snowbridge-beacon-primitives",
+ "snowbridge-core",
+ "sp-core",
+ "sp-std 8.0.0",
 ]
 
 [[package]]
@@ -5330,6 +5348,7 @@ dependencies = [
  "snowbridge-core",
  "snowbridge-ethereum",
  "snowbridge-pallet-ethereum-client",
+ "snowbridge-pallet-inbound-queue-fixtures",
  "snowbridge-router-primitives",
  "sp-core",
  "sp-io",
@@ -5339,6 +5358,20 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+]
+
+[[package]]
+name = "snowbridge-pallet-inbound-queue-fixtures"
+version = "0.9.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex-literal",
+ "snowbridge-beacon-primitives",
+ "snowbridge-core",
+ "sp-core",
+ "sp-std 8.0.0",
 ]
 
 [[package]]
@@ -5483,6 +5516,7 @@ dependencies = [
  "snowbridge-core",
  "snowbridge-outbound-queue-runtime-api",
  "snowbridge-pallet-ethereum-client",
+ "snowbridge-pallet-ethereum-client-fixtures",
  "snowbridge-pallet-inbound-queue",
  "snowbridge-pallet-outbound-queue",
  "snowbridge-pallet-system",
@@ -6516,15 +6550,6 @@ checksum = "3fdd6f064ccff2d6567adcb3873ca630700f00b5ad3f060c25b5dcfd9a4ce152"
 dependencies = [
  "cfg-if",
  "once_cell",
-]
-
-[[package]]
-name = "tiny-keccak"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d8a021c69bb74a44ccedb824a046447e2c84a01df9e5c20779750acb38e11b2"
-dependencies = [
- "crunchy",
 ]
 
 [[package]]

@@ -70,14 +70,16 @@ set_slot_time() {
 }
 
 build_lodestar() {
-    pushd $root_dir/lodestar
-    if [ "$eth_fast_mode" == "true" ]; then
-        set_slot_time 1
-    else
-        set_slot_time 12
+    if [ "$rebuild_lodestar" == "true" ]; then
+        pushd $root_dir/lodestar
+        if [ "$eth_fast_mode" == "true" ]; then
+            set_slot_time 1
+        else
+            set_slot_time 12
+        fi
+        yarn install && yarn run build
+        popd
     fi
-    yarn install && yarn run build
-    popd
 }
 
 install_binary() {

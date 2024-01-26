@@ -46,6 +46,8 @@ pub const PENPAL_SOVEREIGN: [u8; 32] =
 pub const FERDIE: [u8; 32] =
 	hex!("1cbd2d43530a44705ad088af313e18f80b53ef16b36177cd4b77b846f2a5f07c");
 
+pub const BOB: [u8; 32] = hex!("8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48");
+
 lazy_static! {
 	pub static ref REGISTER_TOKEN_FEE: u64 = env::var("REGISTER_TOKEN_FEE")
 		.unwrap_or("200000000000000000".to_string())

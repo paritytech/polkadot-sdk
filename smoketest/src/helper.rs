@@ -4,7 +4,7 @@ use crate::{
 	parachains::{
 		bridgehub::{self, api::runtime_types::snowbridge_core::outbound::v1::OperatingMode},
 		penpal::{
-			api::runtime_types as penpalTypes,
+			api::{runtime_types as penpalTypes, runtime_types::xcm::VersionedLocation},
 			{self},
 		},
 		relaychain,
@@ -43,7 +43,7 @@ use penpalTypes::{
 	staging_xcm::v3::multilocation::MultiLocation,
 	xcm::{
 		v3::{junction::Junction, junctions::Junctions},
-		VersionedMultiLocation, VersionedXcm,
+		VersionedXcm,
 	},
 };
 use sp_core::{sr25519::Pair, Pair as PairT, H160};
@@ -184,7 +184,7 @@ pub async fn send_sudo_xcm_transact(
 	penpal_client: &Box<OnlineClient<PenpalConfig>>,
 	message: Box<VersionedXcm>,
 ) -> Result<ExtrinsicEvents<PenpalConfig>, Box<dyn std::error::Error>> {
-	let dest = Box::new(VersionedMultiLocation::V3(MultiLocation {
+	let dest = Box::new(VersionedLocation::V3(MultiLocation {
 		parents: 1,
 		interior: Junctions::X1(Junction::Parachain(BRIDGE_HUB_PARA_ID)),
 	}));

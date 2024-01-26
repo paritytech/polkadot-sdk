@@ -54,9 +54,10 @@ func MakeMessageFromEvent(event *etypes.Log, receiptsTrie *etrie.Trie) (*paracha
 	}
 
 	log.WithFields(logrus.Fields{
-		"EventLog": m.EventLog,
-		"Proof":    m.Proof,
-		"txHash":   event.TxHash.Hex(),
+		"EventLog":    m.EventLog,
+		"Proof":       m.Proof,
+		"txHash":      event.TxHash.Hex(),
+		"BlockNumber": event.BlockNumber,
 	}).Debug("Generated message from Ethereum log")
 
 	return &m, nil
