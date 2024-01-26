@@ -486,15 +486,16 @@ pub mod pallet {
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
 			let (when, index) = task;
 			let agenda = Agenda::<T>::get(when);
-			match agenda.get(index as usize) {
-				Some(Some(task)) =>
-					if matches!(
-						T::OriginPrivilegeCmp::cmp_privilege(origin.caller(), &task.origin),
-						Some(Ordering::Less) | None
-					) {
-						return Err(BadOrigin.into())
-					},
-				_ => return Err(Error::<T>::NotFound.into()),
+			let task = agenda
+				.get(index as usize)
+				.map(Option::as_ref)
+				.flatten()
+				.ok_or(Error::<T>::NotFound)?;
+			if matches!(
+				T::OriginPrivilegeCmp::cmp_privilege(origin.caller(), &task.origin),
+				Some(Ordering::Less) | None
+			) {
+				return Err(BadOrigin.into())
 			}
 			Retries::<T>::insert(
 				(when, index),
@@ -526,15 +527,16 @@ pub mod pallet {
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
 			let (when, agenda_index) = Lookup::<T>::get(&id).ok_or(Error::<T>::NotFound)?;
 			let agenda = Agenda::<T>::get(when);
-			match agenda.get(agenda_index as usize) {
-				Some(Some(task)) =>
-					if matches!(
-						T::OriginPrivilegeCmp::cmp_privilege(origin.caller(), &task.origin),
-						Some(Ordering::Less) | None
-					) {
-						return Err(BadOrigin.into())
-					},
-				_ => return Err(Error::<T>::NotFound.into()),
+			let task = agenda
+				.get(agenda_index as usize)
+				.map(Option::as_ref)
+				.flatten()
+				.ok_or(Error::<T>::NotFound)?;
+			if matches!(
+				T::OriginPrivilegeCmp::cmp_privilege(origin.caller(), &task.origin),
+				Some(Ordering::Less) | None
+			) {
+				return Err(BadOrigin.into())
 			}
 			Retries::<T>::insert(
 				(when, agenda_index),
