@@ -159,7 +159,6 @@ members = [
 	"polkadot/node/gum/proc-macro",
 	"polkadot/node/jaeger",
 	"polkadot/node/malus",
-	"polkadot/node/subsystem-bench",
 	"polkadot/node/metrics",
 	"polkadot/node/network/approval-distribution",
 	"polkadot/node/network/availability-distribution",
