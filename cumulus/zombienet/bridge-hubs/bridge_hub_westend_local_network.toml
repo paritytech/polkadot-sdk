@@ -45,7 +45,7 @@ cumulus_based = true
 	ws_port = 8945
 	args = [
 		"-lparachain=debug,runtime::mmr=info,substrate=info,runtime=info,runtime::bridge-hub=trace,runtime::bridge=trace,runtime::bridge-dispatch=trace,bridge=trace,runtime::bridge-messages=trace,xcm=trace,txpool=trace,basic-authorship=trace",
-		"--force-authoring",
+#		"--force-authoring",
 #		"--reserved-only",
 	]
 
@@ -73,7 +73,7 @@ cumulus_based = true
 	command = "{{POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND}}"
 	args = [
 		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace,txpool=trace,basic-authorship=trace",
-		"--force-authoring",
+#		"--force-authoring",
 #		"--reserved-only",
 	]
 
