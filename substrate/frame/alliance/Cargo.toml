@@ -24,7 +24,7 @@ scale-info = { version = "2.10.0", default-features = false, features = ["derive
 
 sp-std = { path = "../../primitives/std", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false }
-sp-core-hashing = { path = "../../primitives/core/hashing", default-features = false, optional = true }
+sp-crypto-hashing = { path = "../../primitives/crypto/hashing", default-features = false, optional = true }
 sp-io = { path = "../../primitives/io", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
 
@@ -37,7 +37,7 @@ pallet-collective = { path = "../collective", default-features = false, optional
 
 [dev-dependencies]
 array-bytes = "6.1"
-sp-core-hashing = { path = "../../primitives/core/hashing", default-features = false }
+sp-crypto-hashing = { path = "../../primitives/crypto/hashing", default-features = false }
 pallet-balances = { path = "../balances" }
 pallet-collective = { path = "../collective" }
 
@@ -53,8 +53,8 @@ std = [
 	"pallet-collective?/std",
 	"pallet-identity/std",
 	"scale-info/std",
-	"sp-core-hashing?/std",
 	"sp-core/std",
+	"sp-crypto-hashing?/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
@@ -67,7 +67,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
-	"sp-core-hashing",
+	"sp-crypto-hashing",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [

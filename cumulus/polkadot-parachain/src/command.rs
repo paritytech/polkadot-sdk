@@ -727,7 +727,7 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 		.map(|r| r.0)
 		.map_err(Into::into),
 
-		Runtime::AssetHubKusama | Runtime::AssetHubRococo | Runtime::AssetHubWestend =>
+		Runtime::AssetHubKusama | Runtime::AssetHubWestend =>
 			crate::service::start_asset_hub_node::<RuntimeApi, AuraId, Network>(
 				config,
 				polkadot_config,
@@ -738,6 +738,14 @@ async fn start_node<Network: sc_network::NetworkBackend<Block, Hash>>(
 			.await
 			.map(|r| r.0)
 			.map_err(Into::into),
+		Runtime::AssetHubRococo => crate::service::start_asset_hub_lookahead_node::<
+			RuntimeApi,
+			AuraId,
+			Network,
+		>(config, polkadot_config, collator_options, id, hwbench)
+		.await
+		.map(|r| r.0)
+		.map_err(Into::into),
 
 		Runtime::CollectivesPolkadot | Runtime::CollectivesWestend =>
 			crate::service::start_generic_aura_node::<RuntimeApi, AuraId, Network>(
