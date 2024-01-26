@@ -3,6 +3,7 @@ title: Add availability-recovery from systematic chunks
 doc:
   - audience: Node Dev
     description: |
-      ...
+      Implements https://github.com/polkadot-fellows/RFCs/pull/47 and adds the logic for availability recovery from systematic chunks.
+      The /req_chunk/1 req-response protocol is now considered deprecated in favour of /req_chunk/2.
 
-crates: [ ]
+crates: []
