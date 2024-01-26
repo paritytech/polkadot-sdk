@@ -1836,12 +1836,13 @@ impl<T: Config> Pallet<T> {
 	/// * A bonded ledger should always have an assigned `Payee`.
 	/// * The number of entries in `Payee` and of bonded staking ledgers *must* match.
 	fn check_payees() -> Result<(), TryRuntimeError> {
-		for (acc, _) in Ledger::<T>::iter() {
-			ensure!(Payee::<T>::get(&acc).is_some(), "bonded ledger does not have payee set");
+		for (stash, _) in Bonded::<T>::iter() {
+			ensure!(Payee::<T>::get(&stash).is_some(), "bonded ledger does not have payee set");
 		}
 
 		ensure!(
-			Ledger::<T>::iter().count() == Payee::<T>::iter().count(),
+			(Ledger::<T>::iter().count() == Payee::<T>::iter().count()) &&
+				(Ledger::<T>::iter().count() == Bonded::<T>::iter().count()),
 			"number of entries in payee storage items does not match the number of bonded ledgers",
 		);
 
