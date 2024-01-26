@@ -510,7 +510,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			},
 			TransferReserveAsset { mut assets, dest, xcm } => {
 				let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
-
 				// Take `assets` from the origin account (on-chain) and place into dest account.
 				for asset in assets.inner() {
 					Config::AssetTransactor::transfer_asset(asset, origin, &dest, &self.context)?;
