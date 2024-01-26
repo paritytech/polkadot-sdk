@@ -40,14 +40,9 @@ use crate::{error, LOG_TARGET};
 pub(crate) struct BeefyKeystore<AuthorityId: AuthorityIdBound>(
 	Option<KeystorePtr>,
 	PhantomData<fn() -> AuthorityId>,
-)
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync;
+);
 
-impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId>
-where
-	<AuthorityId as RuntimeAppPublic>::Signature: Send + Sync,
-{
+impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 	/// Check if the keystore contains a private key for one of the public keys
 	/// contained in `keys`. A public key with a matching private key is known
 	/// as a local authority id.

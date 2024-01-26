@@ -71,9 +71,6 @@ pub trait AuthorityIdBound:
 	Codec
 	+ Debug
 	+ Clone
-	+ Ord
-	+ Sync
-	+ Send
 	+ AsRef<[u8]>
 	+ ByteArray
 	+ AppPublic
@@ -81,8 +78,6 @@ pub trait AuthorityIdBound:
 	+ RuntimeAppPublic
 	+ Display
 	+ BeefyAuthorityId<BeefySignatureHasher>
-where
-	<Self as RuntimeAppPublic>::Signature: Send + Sync,
 {
 }
 
