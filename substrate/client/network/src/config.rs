@@ -784,7 +784,7 @@ pub struct FullNetworkConfiguration<B: BlockT + 'static, H: ExHashT, N: NetworkB
 	/// [`PeerStore`](crate::peer_store::PeerStore),
 	peer_store: Option<N::PeerStore>,
 
-	/// Hndle to [`PeerStore`](crate::peer_store::PeerStore).
+	/// Handle to [`PeerStore`](crate::peer_store::PeerStore).
 	peer_store_handle: Arc<dyn PeerStoreProvider>,
 }
 

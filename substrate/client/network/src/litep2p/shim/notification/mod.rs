@@ -322,7 +322,7 @@ impl NotificationService for NotificationProtocol {
 						if self.pending_cancels.remove(&peer) {
 							log::debug!(
 								target: LOG_TARGET,
-								"{}: substream opened to canceled peer ({peer:?})",
+								"{}: substream closed to canceled peer ({peer:?})",
 								self.protocol
 							);
 							continue

@@ -178,7 +178,7 @@ pub struct Discovery {
 	/// External address confirmations.
 	address_confirmations: LruMap<Multiaddr, usize>,
 
-	/// Next to `FIND_NODE` query.
+	/// Delay to next `FIND_NODE` query.
 	duration_to_next_find_query: Duration,
 }
 

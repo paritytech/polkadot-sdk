@@ -38,7 +38,7 @@ use std::sync::{atomic::AtomicUsize, Arc};
 /// Handle for controlling the notification protocol.
 #[derive(Debug, Clone)]
 pub struct ProtocolControlHandle {
-	/// TX channel for sending commands to `Peerset` the notification protocol.
+	/// TX channel for sending commands to `Peerset` of the notification protocol.
 	pub tx: TracingUnboundedSender<PeersetCommand>,
 
 	/// Peers currently connected to this protocol.

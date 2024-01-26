@@ -125,7 +125,7 @@ pub enum PeersetCommand {
 	///
 	/// This command removes all reserved peers that are not in `peers`.
 	SetReservedPeers {
-		/// New seserved peer set.
+		/// New reserved peer set.
 		peers: HashSet<PeerId>,
 	},
 
@@ -405,7 +405,7 @@ impl Peerset {
 
 	/// Report to [`Peerset`] that a substream was opened.
 	///
-	/// Slot for the stream was "preallocated" when the it was initiated (outbound) or accepted
+	/// Slot for the stream was "preallocated" when it was initiated (outbound) or accepted
 	/// (inbound) by the local node which is why this function doesn't allocate a slot for the peer.
 	///
 	/// Returns `true` if the substream should be kept open and `false` if the substream had been
@@ -656,7 +656,7 @@ impl Peerset {
 		return ValidationResult::Reject
 	}
 
-	/// Report to [`Peerset`] that an inbound substream was opened and that it should validate it.
+	/// Report to [`Peerset`] that there was an error opening a substream.
 	pub fn report_substream_open_failure(&mut self, peer: PeerId, error: NotificationError) {
 		log::trace!(
 			target: LOG_TARGET,
@@ -1161,7 +1161,7 @@ impl Stream for Peerset {
 				PeersetCommand::SetReservedOnly { reserved_only } => {
 					log::debug!(target: LOG_TARGET, "{}: set reserved only mode to {reserved_only}", self.protocol);
 
-					// update mode and if it's set to false, disconnect all non-reserved peers
+					// update mode and if it's set to true, disconnect all non-reserved peers
 					self.reserved_only = reserved_only;
 
 					if reserved_only {
@@ -1177,7 +1177,7 @@ impl Stream for Peerset {
 
 						// set peers to correct states
 
-						// peers who are who are connected are move to [`PeerState::Closing`]
+						// peers who are connected are move to [`PeerState::Closing`]
 						// and peers who are already opening are moved to [`PeerState::Canceled`]
 						// and if the substream for them opens, it will be closed right after.
 						self.peers.iter_mut().for_each(|(_, state)| match state {
@@ -1227,7 +1227,7 @@ impl Stream for Peerset {
 				);
 			});
 
-			// if the number of outbound peers is lower than the desired amount of oubound peers,
+			// if the number of outbound peers is lower than the desired amount of outbound peers,
 			// query `PeerStore` and try to get a new outbound candidated.
 			if self.num_out < self.max_out && !self.reserved_only {
 				let ignore: HashSet<PeerId> = self

@@ -40,7 +40,7 @@ pub struct BitswapServer<Block: BlockT> {
 }
 
 impl<Block: BlockT> BitswapServer<Block> {
-	/// Create new [`BitwapServer`].
+	/// Create new [`BitswapServer`].
 	pub fn new(
 		client: Arc<dyn BlockBackend<Block> + Send + Sync>,
 	) -> (Pin<Box<dyn Future<Output = ()> + Send>>, Config) {

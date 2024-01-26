@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Fuzz test emulates network events and peer connection handling by `ProtocolController`
+//! Fuzz test emulates network events and peer connection handling by `Peerset`
 //! and `PeerStore` to discover possible inconsistencies in peer management.
 
 #![allow(unused)]

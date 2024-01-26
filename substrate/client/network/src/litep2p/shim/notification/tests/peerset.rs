@@ -389,7 +389,7 @@ async fn set_reserved_peers_one_peer_already_in_the_set() {
 		);
 	}
 
-	// add a totally new set of reserved peers
+	// add a new set of reserved peers with one peer from the original set
 	let new_reserved_peers = HashSet::from_iter([PeerId::random(), PeerId::random(), common_peer]);
 	to_peerset
 		.unbounded_send(PeersetCommand::SetReservedPeers { peers: new_reserved_peers.clone() })
@@ -408,6 +408,8 @@ async fn set_reserved_peers_one_peer_already_in_the_set() {
 						peerset.peers().get(peer),
 						Some(&PeerState::Closing { direction: Direction::Outbound(Reserved::Yes) }),
 					);
+				} else {
+					panic!("common peer disconnected");
 				}
 			}
 
@@ -496,7 +498,7 @@ async fn add_reserved_peers_one_peer_already_in_the_set() {
 		);
 	}
 
-	// add a totally new set of reserved peers
+	// add a new set of reserved peers with one peer from the original set
 	let new_reserved_peers = HashSet::from_iter([PeerId::random(), PeerId::random(), common_peer]);
 	to_peerset
 		.unbounded_send(PeersetCommand::AddReservedPeers { peers: new_reserved_peers.clone() })
@@ -534,7 +536,7 @@ async fn opening_peer_gets_canceled_and_disconnected() {
 	sp_tracing::try_init_simple();
 
 	let peerstore_handle = Arc::new(peerstore_handle_test());
-	let _reserved = (0..1)
+	let _known_peers = (0..1)
 		.map(|_| {
 			let peer = PeerId::random();
 			peerstore_handle.add_known_peer(peer);
@@ -609,7 +611,7 @@ async fn open_failure_for_canceled_peer() {
 	sp_tracing::try_init_simple();
 
 	let peerstore_handle = Arc::new(peerstore_handle_test());
-	let _reserved = (0..1)
+	let _known_peers = (0..1)
 		.map(|_| {
 			let peer = PeerId::random();
 			peerstore_handle.add_known_peer(peer);
@@ -674,11 +676,11 @@ async fn open_failure_for_canceled_peer() {
 }
 
 #[tokio::test]
-async fn peer_disconneced_when_being_validated_then_rejected() {
+async fn peer_disconnected_when_being_validated_then_rejected() {
 	sp_tracing::try_init_simple();
 
 	let peerstore_handle = Arc::new(peerstore_handle_test());
-	let _reserved = (0..1)
+	let _known_peers = (0..1)
 		.map(|_| {
 			let peer = PeerId::random();
 			peerstore_handle.add_known_peer(peer);
@@ -747,7 +749,7 @@ async fn peer_disconnected_when_being_validated_then_accepted() {
 	sp_tracing::try_init_simple();
 
 	let peerstore_handle = Arc::new(peerstore_handle_test());
-	let _reserved = (0..1)
+	let _known_peers = (0..1)
 		.map(|_| {
 			let peer = PeerId::random();
 			peerstore_handle.add_known_peer(peer);

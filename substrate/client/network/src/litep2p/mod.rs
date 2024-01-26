@@ -203,7 +203,7 @@ impl Litep2pNetworkBackend {
 			})
 	}
 
-	/// Add new known addresses to `litep2p` and returned the parsed peer IDs.
+	/// Add new known addresses to `litep2p` and return the parsed peer IDs.
 	fn add_addresses(&mut self, peers: impl Iterator<Item = Multiaddr>) -> HashSet<PeerId> {
 		Self::parse_addresses(peers.into_iter())
 			.into_iter()
