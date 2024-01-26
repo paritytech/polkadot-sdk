@@ -52,7 +52,8 @@ pub trait ExecuteController<Origin, RuntimeCall> {
 	/// Weight information for ExecuteController functions.
 	type WeightInfo: ExecuteControllerWeightInfo;
 
-	/// Attempt to execute an XCM locally, and return the outcome.
+	/// Attempt to execute an XCM locally, returns Ok with the weight consumed if the execution
+	/// complete successfully, Err otherwise.
 	///
 	/// # Parameters
 	///
@@ -63,7 +64,7 @@ pub trait ExecuteController<Origin, RuntimeCall> {
 		origin: Origin,
 		message: Box<VersionedXcm<RuntimeCall>>,
 		max_weight: Weight,
-	) -> Result<Outcome, DispatchError>;
+	) -> Result<Weight, DispatchError>;
 }
 
 /// Weight functions needed for [`SendController`].
@@ -137,8 +138,9 @@ impl<Origin, RuntimeCall> ExecuteController<Origin, RuntimeCall> for () {
 		_origin: Origin,
 		_message: Box<VersionedXcm<RuntimeCall>>,
 		_max_weight: Weight,
-	) -> Result<Outcome, DispatchError> {
-		Ok(Outcome::Error { error: XcmError::Unimplemented })
+	) -> Result<Weight, DispatchError> {
+		Err(DispatchError::Other("ExecuteController::execute not implemented"))
+
 	}
 }
 

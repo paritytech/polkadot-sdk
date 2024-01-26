@@ -21,15 +21,14 @@ use crate::{
 	primitives::{AccountId, CENTS},
 	relay_chain, MockNet, ParaA, ParachainBalances, Relay, ALICE, BOB, INITIAL_BALANCE,
 };
-use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use frame_support::{
-	assert_err,
+	assert_err, assert_ok,
 	pallet_prelude::Weight,
 	traits::{fungibles::Mutate, Currency},
 };
 use pallet_balances::{BalanceLock, Reasons};
-use pallet_contracts::{Code, CollectEvents, DebugInfo, Determinism};
+use pallet_contracts::{Code, CollectEvents, DebugInfo, Determinism, Error};
 use pallet_contracts_fixtures::compile_module;
 use xcm::{v4::prelude::*, VersionedLocation, VersionedXcm};
 use xcm_simulator::TestExt;
@@ -100,19 +99,16 @@ fn test_xcm_execute() {
 			DebugInfo::UnsafeDebug,
 			CollectEvents::UnsafeCollect,
 			Determinism::Enforced,
-		)
-		.result
-		.unwrap();
+		);
 
-		let mut data = &result.data[..];
-		let outcome = Outcome::decode(&mut data).expect("Failed to decode xcm_execute Outcome");
-		assert_matches!(outcome, Outcome::Complete { .. });
+		assert_eq!(result.gas_consumed, result.gas_required);
+		assert_ok!(result.result);
 
 		// Check if the funds are subtracted from the account of Alice and added to the account of
 		// Bob.
 		let initial = INITIAL_BALANCE;
-		assert_eq!(parachain::Assets::balance(0, contract_addr), initial);
 		assert_eq!(ParachainBalances::free_balance(BOB), initial + amount);
+		assert_eq!(ParachainBalances::free_balance(&contract_addr), initial - amount);
 	});
 }
 
@@ -183,15 +179,10 @@ fn test_xcm_execute_reentrant_call() {
 			CollectEvents::UnsafeCollect,
 			Determinism::Enforced,
 		)
-		.result
-		.unwrap();
+		.result;
 
-		let mut data = &result.data[..];
-		let outcome = Outcome::decode(&mut data).expect("Failed to decode xcm_execute Outcome");
-		assert_matches!(
-			outcome,
-			Outcome::Incomplete { used: _, error: XcmError::ExpectationFalse }
-		);
+		// Since we don't refund the precharged gas, the call fails with an out of gas error.
+		assert_err!(result, Error::<parachain::Runtime>::OutOfGas);
 
 		// Funds should not change hands as the XCM transact failed.
 		assert_eq!(ParachainBalances::free_balance(BOB), INITIAL_BALANCE);
