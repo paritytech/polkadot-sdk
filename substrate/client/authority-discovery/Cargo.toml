@@ -30,7 +30,7 @@ multihash = { version = "0.18.1", default-features = false, features = [
 	"std",
 ] }
 log = "0.4.17"
-prost = "0.11"
+prost = "0.12"
 rand = "0.8.5"
 thiserror = "1.0"
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }

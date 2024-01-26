@@ -635,64 +635,62 @@ construct_runtime!(
 	pub enum Runtime
 	{
 		// System support stuff.
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 0,
-		ParachainSystem: cumulus_pallet_parachain_system::{
-			Pallet, Call, Config<T>, Storage, Inherent, Event<T>, ValidateUnsigned,
-		} = 1,
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 2,
-		ParachainInfo: parachain_info::{Pallet, Storage, Config<T>} = 3,
+		System: frame_system = 0,
+		ParachainSystem: cumulus_pallet_parachain_system = 1,
+		Timestamp: pallet_timestamp = 2,
+		ParachainInfo: parachain_info = 3,
 
 		// Monetary stuff.
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 11,
+		Balances: pallet_balances = 10,
+		TransactionPayment: pallet_transaction_payment = 11,
 
 		// Collator support. the order of these 5 are important and shall not change.
-		Authorship: pallet_authorship::{Pallet, Storage} = 20,
-		CollatorSelection: pallet_collator_selection::{Pallet, Call, Storage, Event<T>, Config<T>} = 21,
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 22,
-		Aura: pallet_aura::{Pallet, Storage, Config<T>} = 23,
-		AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config<T>} = 24,
+		Authorship: pallet_authorship = 20,
+		CollatorSelection: pallet_collator_selection = 21,
+		Session: pallet_session = 22,
+		Aura: pallet_aura = 23,
+		AuraExt: cumulus_pallet_aura_ext = 24,
 
 		// XCM helpers.
-		XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>} = 30,
-		PolkadotXcm: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config<T>} = 31,
-		CumulusXcm: cumulus_pallet_xcm::{Pallet, Event<T>, Origin} = 32,
-		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 34,
+		XcmpQueue: cumulus_pallet_xcmp_queue = 30,
+		PolkadotXcm: pallet_xcm = 31,
+		CumulusXcm: cumulus_pallet_xcm = 32,
+		MessageQueue: pallet_message_queue = 34,
 
 		// Handy utilities.
-		Utility: pallet_utility::{Pallet, Call, Event} = 40,
-		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 41,
-		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 42,
-		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>, HoldReason} = 43,
-		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 44,
-		AssetRate: pallet_asset_rate::{Pallet, Call, Storage, Event<T>} = 45,
+		Utility: pallet_utility = 40,
+		Multisig: pallet_multisig = 41,
+		Proxy: pallet_proxy = 42,
+		Preimage: pallet_preimage = 43,
+		Scheduler: pallet_scheduler = 44,
+		AssetRate: pallet_asset_rate = 45,
 
 		// The main stage.
 
 		// The Alliance.
-		Alliance: pallet_alliance::{Pallet, Call, Storage, Event<T>, Config<T>} = 50,
-		AllianceMotion: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 51,
+		Alliance: pallet_alliance = 50,
+		AllianceMotion: pallet_collective::<Instance1> = 51,
 
 		// The Fellowship.
 		// pub type FellowshipCollectiveInstance = pallet_ranked_collective::Instance1;
-		FellowshipCollective: pallet_ranked_collective::<Instance1>::{Pallet, Call, Storage, Event<T>} = 60,
+		FellowshipCollective: pallet_ranked_collective::<Instance1> = 60,
 		// pub type FellowshipReferendaInstance = pallet_referenda::Instance1;
-		FellowshipReferenda: pallet_referenda::<Instance1>::{Pallet, Call, Storage, Event<T>} = 61,
-		FellowshipOrigins: pallet_fellowship_origins::{Origin} = 62,
+		FellowshipReferenda: pallet_referenda::<Instance1> = 61,
+		FellowshipOrigins: pallet_fellowship_origins = 62,
 		// pub type FellowshipCoreInstance = pallet_core_fellowship::Instance1;
-		FellowshipCore: pallet_core_fellowship::<Instance1>::{Pallet, Call, Storage, Event<T>} = 63,
+		FellowshipCore: pallet_core_fellowship::<Instance1> = 63,
 		// pub type FellowshipSalaryInstance = pallet_salary::Instance1;
-		FellowshipSalary: pallet_salary::<Instance1>::{Pallet, Call, Storage, Event<T>} = 64,
+		FellowshipSalary: pallet_salary::<Instance1> = 64,
 		// pub type FellowshipTreasuryInstance = pallet_treasury::Instance1;
-		FellowshipTreasury: pallet_treasury::<Instance1>::{Pallet, Call, Storage, Event<T>} = 65,
+		FellowshipTreasury: pallet_treasury::<Instance1> = 65,
 
 		// Ambassador Program.
-		AmbassadorCollective: pallet_ranked_collective::<Instance2>::{Pallet, Call, Storage, Event<T>} = 70,
-		AmbassadorReferenda: pallet_referenda::<Instance2>::{Pallet, Call, Storage, Event<T>} = 71,
-		AmbassadorOrigins: pallet_ambassador_origins::{Origin} = 72,
-		AmbassadorCore: pallet_core_fellowship::<Instance2>::{Pallet, Call, Storage, Event<T>} = 73,
-		AmbassadorSalary: pallet_salary::<Instance2>::{Pallet, Call, Storage, Event<T>} = 74,
-		AmbassadorContent: pallet_collective_content::<Instance1>::{Pallet, Call, Storage, Event<T>} = 75,
+		AmbassadorCollective: pallet_ranked_collective::<Instance2> = 70,
+		AmbassadorReferenda: pallet_referenda::<Instance2> = 71,
+		AmbassadorOrigins: pallet_ambassador_origins = 72,
+		AmbassadorCore: pallet_core_fellowship::<Instance2> = 73,
+		AmbassadorSalary: pallet_salary::<Instance2> = 74,
+		AmbassadorContent: pallet_collective_content::<Instance1> = 75,
 	}
 );
 

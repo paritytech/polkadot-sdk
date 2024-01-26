@@ -312,15 +312,15 @@ impl TestEnvironment {
 			});
 	}
 
+	/// Stop overseer and subsystems.
+	pub async fn stop(&mut self) {
+		self.overseer_handle.stop().await;
+	}
+
 	/// Tells if entries in bucket metric is lower than `value`
 	pub fn metric_lower_than(registry: &Registry, metric_name: &str, value: f64) -> bool {
 		let test_metrics = super::display::parse_metrics(registry);
 		test_metrics.metric_lower_than(metric_name, value)
-	}
-
-	/// Stop overseer and subsystems.
-	pub async fn stop(&mut self) {
-		self.overseer_handle.stop().await;
 	}
 
 	/// Blocks until `metric_name` >= `value`

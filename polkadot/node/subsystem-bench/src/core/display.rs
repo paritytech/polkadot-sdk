@@ -166,8 +166,8 @@ pub fn parse_metrics(registry: &Registry) -> MetricCollection {
 					let h_name = name.clone() + "_count";
 					test_metrics.push(TestMetric {
 						name: h_name,
-						label_names: label_names.clone(),
-						label_values: label_values.clone(),
+						label_names,
+						label_values,
 						value: h.get_sample_count() as f64,
 					});
 				},

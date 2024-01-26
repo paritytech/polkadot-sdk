@@ -567,7 +567,7 @@ impl TryFrom<NewMultiAsset> for MultiAsset {
 /// A `Vec` of `MultiAsset`s.
 ///
 /// There are a number of invariants which the construction and mutation functions must ensure are
-/// maintained:
+/// maintained in order to maintain polynomial time complexity during iteration:
 /// - It may contain no items of duplicate asset class;
 /// - All items must be ordered;
 /// - The number of items should grow no larger than `MAX_ITEMS_IN_MULTIASSETS`.

@@ -22,7 +22,7 @@ use migrations::old;
 use mock::*;
 
 use frame_support::{assert_noop, assert_ok};
-use sp_core::blake2_256;
+use sp_crypto_hashing::blake2_256;
 use sp_runtime::traits::BadOrigin;
 use BidKind::*;
 use VouchingStatus::*;

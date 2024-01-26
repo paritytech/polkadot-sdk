@@ -45,7 +45,6 @@ use std::sync::{atomic::AtomicU64, Arc};
 /// A fake system clock used for driving the approval voting and make
 /// it process blocks, assignments and approvals from the past.
 #[derive(Clone)]
-
 pub struct PastSystemClock {
 	/// The real system clock
 	real_system_clock: SystemClock,

@@ -1,6 +1,6 @@
 TestConfiguration:
 # Test 1
-- objective: !ApprovalsTest
+- objective: !ApprovalVoting
     last_considered_tranche: 89
     coalesce_mean: 3.0
     coalesce_std_dev: 1.0
@@ -8,6 +8,7 @@ TestConfiguration:
     coalesce_tranche_diff: 12
     workdir_prefix: "/tmp/"
     num_no_shows_per_candidate: 10
+    enable_assignments_v2: true
   n_validators: 500
   n_cores: 100
   min_pov_size: 1120

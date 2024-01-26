@@ -15,7 +15,6 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 # Substrate
 frame-support = { path = "../../../../substrate/frame/support", default-features = false }
 frame-system = { path = "../../../../substrate/frame/system", default-features = false }
-pallet-assets = { path = "../../../../substrate/frame/assets", default-features = false }
 pallet-balances = { path = "../../../../substrate/frame/balances", default-features = false }
 pallet-session = { path = "../../../../substrate/frame/session", default-features = false }
 sp-consensus-aura = { path = "../../../../substrate/primitives/consensus/aura", default-features = false }
@@ -29,9 +28,7 @@ sp-core = { path = "../../../../substrate/primitives/core", default-features = f
 cumulus-pallet-parachain-system = { path = "../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"] }
 cumulus-pallet-xcmp-queue = { path = "../../../pallets/xcmp-queue", default-features = false }
 pallet-collator-selection = { path = "../../../pallets/collator-selection", default-features = false }
-parachains-common = { path = "../../common", default-features = false }
 parachain-info = { package = "staging-parachain-info", path = "../../pallets/parachain-info", default-features = false }
-assets-common = { path = "../assets/common", default-features = false }
 cumulus-primitives-core = { path = "../../../primitives/core", default-features = false }
 cumulus-primitives-parachain-inherent = { path = "../../../primitives/parachain-inherent", default-features = false }
 cumulus-test-relay-sproof-builder = { path = "../../../test/relay-sproof-builder", default-features = false }
@@ -51,7 +48,6 @@ substrate-wasm-builder = { path = "../../../../substrate/utils/wasm-builder" }
 [features]
 default = ["std"]
 std = [
-	"assets-common/std",
 	"codec/std",
 	"cumulus-pallet-parachain-system/std",
 	"cumulus-pallet-xcmp-queue/std",
@@ -60,13 +56,11 @@ std = [
 	"cumulus-test-relay-sproof-builder/std",
 	"frame-support/std",
 	"frame-system/std",
-	"pallet-assets/std",
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
 	"pallet-session/std",
 	"pallet-xcm/std",
 	"parachain-info/std",
-	"parachains-common/std",
 	"polkadot-parachain-primitives/std",
 	"sp-consensus-aura/std",
 	"sp-core/std",

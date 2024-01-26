@@ -32,6 +32,8 @@ pub(crate) mod cli;
 pub(crate) mod core;
 mod valgrind;
 
+const LOG_TARGET: &str = "subsystem-bench";
+
 use availability::{prepare_test, NetworkEmulation, TestState};
 use cli::TestObjective;
 
@@ -162,7 +164,7 @@ impl BenchCli {
 					format!("Sequence contains {} step(s)", num_steps).bright_purple()
 				);
 				for (index, test_config) in test_sequence.into_iter().enumerate() {
-					gum::info!("{}", format!("Step {}/{}", index + 1, num_steps).bright_purple(),);
+					gum::info!(target: LOG_TARGET, "{}", format!("Step {}/{}", index + 1, num_steps).bright_purple(),);
 					display_configuration(&test_config);
 
 					match test_config.objective {
@@ -177,12 +179,8 @@ impl BenchCli {
 							let (mut env, state) =
 								approval::prepare_test(test_config.clone(), options.clone());
 
-							env.runtime().block_on(async {
-								bench_approvals(&mut env, state).await;
-							});
+							env.runtime().block_on(bench_approvals(&mut env, state));
 						},
-						TestObjective::TestSequence(_) => todo!(),
-						TestObjective::Unimplemented => todo!(),
 						TestObjective::DataAvailabilityWrite => {
 							let mut state = TestState::new(&test_config);
 							let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
@@ -190,6 +188,8 @@ impl BenchCli {
 								&mut env, state,
 							));
 						},
+						TestObjective::TestSequence(_) => todo!(),
+						TestObjective::Unimplemented => todo!(),
 					}
 				}
 				return Ok(())

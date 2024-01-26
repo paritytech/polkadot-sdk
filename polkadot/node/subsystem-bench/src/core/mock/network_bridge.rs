@@ -36,15 +36,17 @@ use crate::core::{
 };
 
 const LOG_TARGET: &str = "subsystem-bench::network-bridge";
+const CHUNK_REQ_PROTOCOL_NAME_V1: &str =
+	"/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/req_chunk/1";
 
 /// A mock of the network bridge tx subsystem.
 pub struct MockNetworkBridgeTx {
-	/// A network emulator handle.
+	/// A network emulator handle
 	network: NetworkEmulatorHandle,
-	/// TestAuthortiees used for translating between peer id and authority id.
-	test_authorithies: TestAuthorities,
 	/// A channel to the network interface,
 	to_network_interface: UnboundedSender<NetworkMessage>,
+	/// Test authorithies
+	test_authorithies: TestAuthorities,
 }
 
 /// A mock of the network bridge tx subsystem.
@@ -182,6 +184,7 @@ impl MockNetworkBridgeRx {
 							},
 							NetworkMessage::RequestFromPeer(request) => {
 								if let Some(protocol) = self.chunk_request_sender.as_mut() {
+									assert_eq!(&*protocol.name, CHUNK_REQ_PROTOCOL_NAME_V1);
 									if let Some(inbound_queue) = protocol.inbound_queue.as_ref() {
 										inbound_queue
 											.send(request)
