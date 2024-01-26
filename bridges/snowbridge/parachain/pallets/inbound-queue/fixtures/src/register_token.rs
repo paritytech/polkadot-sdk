@@ -1,21 +1,20 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 // Generated, do not edit!
 // See ethereum client README.md for instructions to generate
+
+use crate::InboundQueueFixture;
 use hex_literal::hex;
 use snowbridge_beacon_primitives::CompactExecutionHeader;
 use snowbridge_core::inbound::{Log, Message, Proof};
 use sp_std::vec;
 
-pub struct InboundQueueTest {
-	pub execution_header: CompactExecutionHeader,
-	pub message: Message,
-}
-
-pub fn make_create_message() -> InboundQueueTest {
-	InboundQueueTest {
+pub fn make_register_token_message() -> InboundQueueFixture {
+	InboundQueueFixture {
         execution_header: CompactExecutionHeader{
-            parent_hash: hex!("d82ec63f5c5e6ba61d62f09c188f158e6449b94bdcc31941e68639eec3c4cf7a").into(),
-            block_number: 215,
-            state_root: hex!("8b65545fe5f3216b47b6339b9c91ca2b7f1032a970b04246d9e9fb4460ee34c3").into(),
+            parent_hash: hex!("d5de3dd02c96dbdc8aaa4db70a1e9fdab5ded5f4d52f18798acd56a3d37d1ad6").into(),
+            block_number: 772,
+            state_root: hex!("49cba2a79b23ad74cefe80c3a96699825d1cda0f75bfceb587c5549211c86245").into(),
             receipts_root: hex!("7b1f61b9714c080ef0be014e01657a15f45f0304b477beebc7ca5596c8033095").into(),
         },
         message: Message {
@@ -29,7 +28,7 @@ pub fn make_create_message() -> InboundQueueTest {
                 data: hex!("00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000002e00a736aa00000000000087d1f7fdfee7f651fabc8bfcb6e086c278b77a7d00e40b54020000000000000000000000000000000000000000000000000000000000").into(),
             },
             proof: Proof {
-                block_hash: hex!("48498dbfbcfae53a7f4c289ee00747aceea925f6260c50ead5a33e1c55c40f98").into(),
+                block_hash: hex!("392182a385b3a417e8ddea8b252953ee81e6ec0fb09d9056c96c89fbeb703a3f").into(),
                 tx_index: 0,
                 data: (vec![
                     hex!("7b1f61b9714c080ef0be014e01657a15f45f0304b477beebc7ca5596c8033095").to_vec(),
