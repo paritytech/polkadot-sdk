@@ -1,5 +1,5 @@
 > NOTE: We have recently made significant changes to our repository structure. In order to streamline our development
-process and foster better contributions, we have merged three separate repositories Cumulus, Substrate and Polkadot into
+process and foster better contributions, we have merged three separate repositories Cumulus, Substrate and Polkadot into1
 this repository. Read more about the changes [
 here](https://polkadot-public.notion.site/Polkadot-SDK-FAQ-fbc4cecc2c46443fb37b9eeec2f0d85f).
 
