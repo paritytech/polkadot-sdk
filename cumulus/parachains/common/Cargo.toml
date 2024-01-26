@@ -16,7 +16,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"], default-features = false }
 log = { version = "0.4.19", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-num-traits = { version = "0.2", default-features = false }
 smallvec = "1.11.0"
 
 # Substrate
@@ -35,13 +34,14 @@ sp-std = { path = "../../../substrate/primitives/std", default-features = false 
 
 # Polkadot
 pallet-xcm = { path = "../../../polkadot/xcm/pallet-xcm", default-features = false }
-rococo-runtime-constants = { path = "../../../polkadot/runtime/rococo/constants", default-features = false }
-westend-runtime-constants = { path = "../../../polkadot/runtime/westend/constants", default-features = false }
 polkadot-core-primitives = { path = "../../../polkadot/core-primitives", default-features = false }
 polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false }
 xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false }
+
+# Polkadot - only for testnets
+rococo-runtime-constants = { path = "../../../polkadot/runtime/rococo/constants", default-features = false, optional = true }
+westend-runtime-constants = { path = "../../../polkadot/runtime/westend/constants", default-features = false, optional = true }
 
 # Cumulus
 pallet-collator-selection = { path = "../../pallets/collator-selection", default-features = false }
@@ -65,7 +65,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"num-traits/std",
 	"pallet-asset-tx-payment/std",
 	"pallet-assets/std",
 	"pallet-authorship/std",
@@ -76,15 +75,14 @@ std = [
 	"parachain-info/std",
 	"polkadot-core-primitives/std",
 	"polkadot-primitives/std",
-	"rococo-runtime-constants/std",
+	"rococo-runtime-constants?/std",
 	"scale-info/std",
 	"sp-consensus-aura/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"westend-runtime-constants/std",
-	"xcm-builder/std",
+	"westend-runtime-constants?/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]
@@ -102,6 +100,9 @@ runtime-benchmarks = [
 	"pallet-xcm/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 ]
+
+# Test runtimes specific features.
+rococo = ["rococo-runtime-constants"]
+westend = ["westend-runtime-constants"]

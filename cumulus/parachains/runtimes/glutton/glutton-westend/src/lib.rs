@@ -334,12 +334,8 @@ pub type Executive = frame_executive::Executive<
 >;
 
 #[cfg(feature = "runtime-benchmarks")]
-#[macro_use]
-extern crate frame_benchmarking;
-
-#[cfg(feature = "runtime-benchmarks")]
 mod benches {
-	define_benchmarks!(
+	frame_benchmarking::define_benchmarks!(
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_glutton, Glutton]
