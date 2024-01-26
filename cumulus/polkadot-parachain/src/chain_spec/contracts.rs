@@ -15,15 +15,14 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::chain_spec::{
-	get_account_id_from_seed, get_collator_keys_from_seed, Extensions, SAFE_XCM_VERSION,
+	get_account_id_from_seed, get_collator_keys_from_seed, Extensions, GenericChainSpec,
+	SAFE_XCM_VERSION,
 };
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
 use parachains_common::{AccountId, AuraId};
 use sc_service::ChainType;
 use sp_core::{crypto::UncheckedInto, sr25519};
-
-pub type ContractsRococoChainSpec = sc_service::GenericChainSpec<(), Extensions>;
 
 /// No relay chain suffix because the id is the same over all relay chains.
 const CONTRACTS_PARACHAIN_ID: u32 = 1002;
@@ -32,12 +31,12 @@ const CONTRACTS_PARACHAIN_ID: u32 = 1002;
 const CONTRACTS_ROCOCO_ED: contracts_rococo_runtime::Balance =
 	parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
 
-pub fn contracts_rococo_development_config() -> ContractsRococoChainSpec {
+pub fn contracts_rococo_development_config() -> GenericChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "ROC".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 
-	ContractsRococoChainSpec::builder(
+	GenericChainSpec::builder(
 		contracts_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions {
 			relay_chain: "rococo-local".into(), // You MUST set this to the correct network!
@@ -79,12 +78,12 @@ pub fn contracts_rococo_development_config() -> ContractsRococoChainSpec {
 	.build()
 }
 
-pub fn contracts_rococo_local_config() -> ContractsRococoChainSpec {
+pub fn contracts_rococo_local_config() -> GenericChainSpec {
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "ROC".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 
-	ContractsRococoChainSpec::builder(
+	GenericChainSpec::builder(
 		contracts_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 		Extensions {
 			relay_chain: "rococo-local".into(), // You MUST set this to the correct network!
@@ -126,13 +125,13 @@ pub fn contracts_rococo_local_config() -> ContractsRococoChainSpec {
 	.build()
 }
 
-pub fn contracts_rococo_config() -> ContractsRococoChainSpec {
+pub fn contracts_rococo_config() -> GenericChainSpec {
 	// Give your base currency a unit name and decimal places
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "ROC".into());
 	properties.insert("tokenDecimals".into(), 12.into());
 
-	ContractsRococoChainSpec::builder(
+	GenericChainSpec::builder(
 	 		contracts_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 			Extensions { relay_chain: "rococo".into(), para_id: CONTRACTS_PARACHAIN_ID }
 		)

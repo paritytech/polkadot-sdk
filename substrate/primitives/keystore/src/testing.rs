@@ -113,14 +113,14 @@ impl MemoryKeystore {
 		Ok(sig)
 	}
 
-	fn vrf_output<T: Pair + VrfSecret>(
+	fn vrf_pre_output<T: Pair + VrfSecret>(
 		&self,
 		key_type: KeyTypeId,
 		public: &T::Public,
 		input: &T::VrfInput,
-	) -> Result<Option<T::VrfOutput>, Error> {
-		let preout = self.pair::<T>(key_type, public).map(|pair| pair.vrf_output(input));
-		Ok(preout)
+	) -> Result<Option<T::VrfPreOutput>, Error> {
+		let pre_output = self.pair::<T>(key_type, public).map(|pair| pair.vrf_pre_output(input));
+		Ok(pre_output)
 	}
 }
 
@@ -155,13 +155,13 @@ impl Keystore for MemoryKeystore {
 		self.vrf_sign::<sr25519::Pair>(key_type, public, data)
 	}
 
-	fn sr25519_vrf_output(
+	fn sr25519_vrf_pre_output(
 		&self,
 		key_type: KeyTypeId,
 		public: &sr25519::Public,
 		input: &sr25519::vrf::VrfInput,
-	) -> Result<Option<sr25519::vrf::VrfOutput>, Error> {
-		self.vrf_output::<sr25519::Pair>(key_type, public, input)
+	) -> Result<Option<sr25519::vrf::VrfPreOutput>, Error> {
+		self.vrf_pre_output::<sr25519::Pair>(key_type, public, input)
 	}
 
 	fn ed25519_public_keys(&self, key_type: KeyTypeId) -> Vec<ed25519::Public> {
@@ -265,13 +265,13 @@ impl Keystore for MemoryKeystore {
 	}
 
 	#[cfg(feature = "bandersnatch-experimental")]
-	fn bandersnatch_vrf_output(
+	fn bandersnatch_vrf_pre_output(
 		&self,
 		key_type: KeyTypeId,
 		public: &bandersnatch::Public,
 		input: &bandersnatch::vrf::VrfInput,
-	) -> Result<Option<bandersnatch::vrf::VrfOutput>, Error> {
-		self.vrf_output::<bandersnatch::Pair>(key_type, public, input)
+	) -> Result<Option<bandersnatch::vrf::VrfPreOutput>, Error> {
+		self.vrf_pre_output::<bandersnatch::Pair>(key_type, public, input)
 	}
 
 	#[cfg(feature = "bls-experimental")]
@@ -443,7 +443,7 @@ mod tests {
 	}
 
 	#[test]
-	fn sr25519_vrf_output() {
+	fn sr25519_vrf_pre_output() {
 		let store = MemoryKeystore::new();
 
 		let secret_uri = "//Alice";
@@ -458,16 +458,17 @@ mod tests {
 			],
 		);
 
-		let result = store.sr25519_vrf_output(SR25519, &pair.public(), &input);
+		let result = store.sr25519_vrf_pre_output(SR25519, &pair.public(), &input);
 		assert!(result.unwrap().is_none());
 
 		store
 			.insert(SR25519, secret_uri, pair.public().as_ref())
 			.expect("Inserts unknown key");
 
-		let preout = store.sr25519_vrf_output(SR25519, &pair.public(), &input).unwrap().unwrap();
+		let pre_output =
+			store.sr25519_vrf_pre_output(SR25519, &pair.public(), &input).unwrap().unwrap();
 
-		let result = preout.make_bytes::<32>(b"rand", &input, &pair.public());
+		let result = pre_output.make_bytes::<32>(b"rand", &input, &pair.public());
 		assert!(result.is_ok());
 	}
 
@@ -478,16 +479,17 @@ mod tests {
 		let suri = "//Alice";
 		let pair = ecdsa::Pair::from_string(suri, None).unwrap();
 
-		let msg = sp_core::keccak_256(b"this should be a hashed message");
+		// Let's pretend this to be the hash output as content doesn't really matter here.
+		let hash = [0xff; 32];
 
 		// no key in key store
-		let res = store.ecdsa_sign_prehashed(ECDSA, &pair.public(), &msg).unwrap();
+		let res = store.ecdsa_sign_prehashed(ECDSA, &pair.public(), &hash).unwrap();
 		assert!(res.is_none());
 
 		// insert key, sign again
 		store.insert(ECDSA, suri, pair.public().as_ref()).unwrap();
 
-		let res = store.ecdsa_sign_prehashed(ECDSA, &pair.public(), &msg).unwrap();
+		let res = store.ecdsa_sign_prehashed(ECDSA, &pair.public(), &hash).unwrap();
 		assert!(res.is_some());
 	}
 
@@ -525,7 +527,7 @@ mod tests {
 
 		let store = MemoryKeystore::new();
 
-		let ring_ctx = bandersnatch::ring_vrf::RingContext::new_testing();
+		let ring_ctx = bandersnatch::ring_vrf::RingContext::<1024>::new_testing();
 
 		let mut pks: Vec<_> = (0..16)
 			.map(|i| bandersnatch::Pair::from_seed(&[i as u8; 32]).public())

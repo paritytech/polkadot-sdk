@@ -603,6 +603,43 @@ fn interlace_works() {
 }
 
 #[test]
+fn cant_assign_unowned_region() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let (region1, region2) =
+			Broker::do_interlace(region, Some(1), CoreMask::from_chunk(0, 30)).unwrap();
+
+		// Transfer the interlaced region to account 2.
+		assert_ok!(Broker::do_transfer(region2, Some(1), 2));
+
+		// The initial owner should not be able to assign the non-interlaced region, since they have
+		// just transferred an interlaced part of it to account 2.
+		assert_noop!(Broker::do_assign(region, Some(1), 1001, Final), Error::<Test>::UnknownRegion);
+
+		// Account 1 can assign only the interlaced region that they did not transfer.
+		assert_ok!(Broker::do_assign(region1, Some(1), 1001, Final));
+		// Account 2 can assign the region they received.
+		assert_ok!(Broker::do_assign(region2, Some(2), 1002, Final));
+
+		advance_to(10);
+		assert_eq!(
+			CoretimeTrace::get(),
+			vec![(
+				6,
+				AssignCore {
+					core: 0,
+					begin: 8,
+					assignment: vec![(Task(1001), 21600), (Task(1002), 36000)],
+					end_hint: None
+				}
+			),]
+		);
+	});
+}
+
+#[test]
 fn interlace_then_partition_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 1));

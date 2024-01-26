@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "pallet-election-provider-multi-phase: Removes `BetterUnsignedThreshold` from pallet config"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Removes thresholding for accepting solutions better than the last queued for unsigned phase. This is unnecessary
+      as even without thresholding, the number of solutions that can be submitted to on-chain which is better than the
+      previous one is limited.
+
+crates:
+  - name: "pallet-election-provider-multi-phase"

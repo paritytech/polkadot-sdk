@@ -10,6 +10,9 @@ description = "Substrate database trait."
 documentation = "https://docs.rs/sp-database"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [dependencies]
 kvdb = "0.13.0"
 parking_lot = "0.12.1"

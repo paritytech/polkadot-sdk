@@ -14,6 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+//! Primitives of the Polkadot-like chains.
+
+#![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use bp_messages::MessageNonce;
@@ -24,7 +27,7 @@ use bp_runtime::{
 		CheckSpecVersion, CheckTxVersion, CheckWeight, GenericSignedExtension,
 		SignedExtensionSchema,
 	},
-	Chain, EncodedOrDecodedCall, StorageMapKeyProvider, TransactionEra,
+	EncodedOrDecodedCall, StorageMapKeyProvider, TransactionEra,
 };
 use frame_support::{
 	dispatch::DispatchClass,
@@ -40,7 +43,7 @@ use sp_core::{storage::StorageKey, Hasher as HasherT};
 use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, IdentifyAccount, Verify},
-	MultiAddress, MultiSignature, OpaqueExtrinsic, RuntimeDebug,
+	MultiAddress, MultiSignature, OpaqueExtrinsic,
 };
 use sp_std::prelude::Vec;
 
@@ -64,30 +67,28 @@ pub const MAX_AUTHORITIES_COUNT: u32 = 1_256;
 ///
 /// See [`bp-header-chain::ChainWithGrandpa`] for more details.
 ///
-/// This value comes from recent (February, 2023) Kusama and Polkadot headers. There are no
+/// This value comes from recent (December, 2023) Kusama and Polkadot headers. There are no
 /// justifications with any additional headers in votes ancestry, so reasonable headers may
 /// be set to zero. But we assume that there may be small GRANDPA lags, so we're leaving some
 /// reserve here.
 pub const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 2;
 
-/// Approximate average header size in `votes_ancestries` field of justification on Polkadot-like
+/// Average header size in `votes_ancestries` field of justification on Polkadot-like
 /// chains.
 ///
 /// See [`bp-header-chain::ChainWithGrandpa`] for more details.
 ///
-/// This value comes from recent (February, 2023) Kusama headers. Average is `336` there, but some
-/// non-mandatory headers has size `40kb` (they contain the BABE epoch descriptor with all
-/// authorities - just like our mandatory header). Since we assume `2` headers in justification
-/// votes ancestry, let's set average header to `40kb / 2`.
-pub const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = 20 * 1024;
+/// This value comes from recent (December, 2023) Kusama headers. Most of headers are `327` bytes
+/// there, but let's have some reserve and make it 1024.
+pub const AVERAGE_HEADER_SIZE: u32 = 1024;
 
 /// Approximate maximal header size on Polkadot-like chains.
 ///
 /// See [`bp-header-chain::ChainWithGrandpa`] for more details.
 ///
-/// This value comes from recent (February, 2023) Kusama headers. Maximal header is a mandatory
-/// header. In its SCALE-encoded form it is `80348` bytes. Let's have some reserve here.
-pub const MAX_HEADER_SIZE: u32 = 90_000;
+/// This value comes from recent (December, 2023) Kusama headers. Maximal header is a mandatory
+/// header. In its SCALE-encoded form it is `113407` bytes. Let's have some reserve here.
+pub const MAX_MANDATORY_HEADER_SIZE: u32 = 120 * 1024;
 
 /// Number of extra bytes (excluding size of storage value itself) of storage proof, built at
 /// Polkadot-like chain. This mostly depends on number of entries in the storage trie.
@@ -175,11 +176,16 @@ pub use time_units::*;
 pub mod time_units {
 	use super::BlockNumber;
 
+	/// Milliseconds between Polkadot-like chain blocks.
 	pub const MILLISECS_PER_BLOCK: u64 = 6000;
+	/// Slot duration in Polkadot-like chain consensus algorithms.
 	pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 
+	/// A minute, expressed in Polkadot-like chain blocks.
 	pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
+	/// A hour, expressed in Polkadot-like chain blocks.
 	pub const HOURS: BlockNumber = MINUTES * 60;
+	/// A day, expressed in Polkadot-like chain blocks.
 	pub const DAYS: BlockNumber = HOURS * 24;
 }
 
@@ -229,31 +235,17 @@ pub type UncheckedExtrinsic<Call, SignedExt> =
 /// Account address, used by the Polkadot-like chain.
 pub type Address = MultiAddress<AccountId, ()>;
 
-/// Polkadot-like chain.
-#[derive(RuntimeDebug)]
-pub struct PolkadotLike;
+/// Returns maximal extrinsic size on all Polkadot-like chains.
+pub fn max_extrinsic_size() -> u32 {
+	*BlockLength::get().max.get(DispatchClass::Normal)
+}
 
-impl Chain for PolkadotLike {
-	type BlockNumber = BlockNumber;
-	type Hash = Hash;
-	type Hasher = Hasher;
-	type Header = Header;
-
-	type AccountId = AccountId;
-	type Balance = Balance;
-	type Nonce = Nonce;
-	type Signature = Signature;
-
-	fn max_extrinsic_size() -> u32 {
-		*BlockLength::get().max.get(DispatchClass::Normal)
-	}
-
-	fn max_extrinsic_weight() -> Weight {
-		BlockWeights::get()
-			.get(DispatchClass::Normal)
-			.max_extrinsic
-			.unwrap_or(Weight::MAX)
-	}
+/// Returns maximal extrinsic weight on all Polkadot-like chains.
+pub fn max_extrinsic_weight() -> Weight {
+	BlockWeights::get()
+		.get(DispatchClass::Normal)
+		.max_extrinsic
+		.unwrap_or(Weight::MAX)
 }
 
 /// Provides a storage key for account data.
@@ -273,8 +265,10 @@ impl StorageMapKeyProvider for AccountInfoStorageMapKeyProvider {
 }
 
 impl AccountInfoStorageMapKeyProvider {
+	/// Name of the system pallet.
 	const PALLET_NAME: &'static str = "System";
 
+	/// Return storage key for given account data.
 	pub fn final_key(id: &AccountId) -> StorageKey {
 		<Self as StorageMapKeyProvider>::final_key(Self::PALLET_NAME, id)
 	}

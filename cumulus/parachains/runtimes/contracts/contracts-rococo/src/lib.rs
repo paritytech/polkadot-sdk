@@ -35,7 +35,7 @@ use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT},
+	traits::Block as BlockT,
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Perbill,
 };
@@ -46,11 +46,11 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 use frame_support::{
-	construct_runtime,
+	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
-	traits::{ConstBool, ConstU128, ConstU16, ConstU32, ConstU64, ConstU8, Everything},
+	traits::{ConstBool, ConstU128, ConstU16, ConstU32, ConstU64, ConstU8},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
 };
@@ -100,9 +100,11 @@ pub type UncheckedExtrinsic =
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
 	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
-	cumulus_pallet_xcmp_queue::migration::MigrationToV3<Runtime>,
+	cumulus_pallet_xcmp_queue::migration::v2::MigrationToV2<Runtime>,
+	cumulus_pallet_xcmp_queue::migration::v3::MigrationToV3<Runtime>,
 	pallet_contracts::Migration<Runtime>,
 	// unreleased
+	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 );
 
 type EventRecord = frame_system::EventRecord<
@@ -131,7 +133,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("contracts-rococo"),
 	impl_name: create_runtime_str!("contracts-rococo"),
 	authoring_version: 1,
-	spec_version: 10001,
+	spec_version: 1_006_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -169,25 +171,17 @@ parameter_types! {
 }
 
 // Configure FRAME pallets to include in runtime.
+#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
-	type BaseCallFilter = Everything;
 	type BlockWeights = RuntimeBlockWeights;
 	type BlockLength = RuntimeBlockLength;
 	type AccountId = AccountId;
-	type RuntimeCall = RuntimeCall;
-	type Lookup = AccountIdLookup<AccountId, ()>;
 	type Nonce = Nonce;
 	type Hash = Hash;
-	type Hashing = BlakeTwo256;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeOrigin = RuntimeOrigin;
 	type BlockHashCount = BlockHashCount;
 	type DbWeight = RocksDbWeight;
 	type Version = Version;
-	type PalletInfo = PalletInfo;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
 	type AccountData = pallet_balances::AccountData<Balance>;
 	type SystemWeightInfo = frame_system::weights::SubstrateWeight<Runtime>;
 	type SS58Prefix = ConstU16<42>;
@@ -382,40 +376,38 @@ construct_runtime!(
 	pub enum Runtime
 	{
 		// System support stuff.
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 0,
-		ParachainSystem: cumulus_pallet_parachain_system::{
-			Pallet, Call, Config<T>, Storage, Inherent, Event<T>, ValidateUnsigned,
-		} = 1,
-		RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip::{Pallet, Storage} = 2,
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 3,
-		ParachainInfo: parachain_info::{Pallet, Storage, Config<T>} = 4,
+		System: frame_system = 0,
+		ParachainSystem: cumulus_pallet_parachain_system = 1,
+		RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip = 2,
+		Timestamp: pallet_timestamp = 3,
+		ParachainInfo: parachain_info = 4,
 
 		// Monetary stuff.
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 11,
+		Balances: pallet_balances = 10,
+		TransactionPayment: pallet_transaction_payment = 11,
 
 		// Collator support. The order of these 5 are important and shall not change.
-		Authorship: pallet_authorship::{Pallet, Storage} = 20,
-		CollatorSelection: pallet_collator_selection::{Pallet, Call, Storage, Event<T>, Config<T>} = 21,
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 22,
-		Aura: pallet_aura::{Pallet, Storage, Config<T>} = 23,
-		AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config<T>} = 24,
+		Authorship: pallet_authorship = 20,
+		CollatorSelection: pallet_collator_selection = 21,
+		Session: pallet_session = 22,
+		Aura: pallet_aura = 23,
+		AuraExt: cumulus_pallet_aura_ext = 24,
 
 		// XCM helpers.
-		XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>} = 30,
-		PolkadotXcm: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config<T>} = 31,
-		CumulusXcm: cumulus_pallet_xcm::{Pallet, Event<T>, Origin} = 32,
-		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 34,
+		XcmpQueue: cumulus_pallet_xcmp_queue = 30,
+		PolkadotXcm: pallet_xcm = 31,
+		CumulusXcm: cumulus_pallet_xcm = 32,
+		MessageQueue: pallet_message_queue = 34,
 
 		// Smart Contracts.
-		Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>, HoldReason} = 40,
+		Contracts: pallet_contracts = 40,
 
 		// Handy utilities.
-		Utility: pallet_utility::{Pallet, Call, Event} = 50,
-		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 51,
+		Utility: pallet_utility = 50,
+		Multisig: pallet_multisig = 51,
 
 		// Sudo
-		Sudo: pallet_sudo::{Pallet, Call, Config<T>, Event<T>, Storage} = 100,
+		Sudo: pallet_sudo = 100,
 	}
 );
 
@@ -588,7 +580,7 @@ impl_runtime_apis! {
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,
 			input_data: Vec<u8>,
-		) -> pallet_contracts_primitives::ContractExecResult<Balance, EventRecord> {
+		) -> pallet_contracts::ContractExecResult<Balance, EventRecord> {
 			let gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
 			Contracts::bare_call(
 				origin,
@@ -608,10 +600,10 @@ impl_runtime_apis! {
 			value: Balance,
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,
-			code: pallet_contracts_primitives::Code<Hash>,
+			code: pallet_contracts::Code<Hash>,
 			data: Vec<u8>,
 			salt: Vec<u8>,
-		) -> pallet_contracts_primitives::ContractInstantiateResult<AccountId, Balance, EventRecord> {
+		) -> pallet_contracts::ContractInstantiateResult<AccountId, Balance, EventRecord> {
 			let gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
 			Contracts::bare_instantiate(
 				origin,
@@ -631,7 +623,7 @@ impl_runtime_apis! {
 			code: Vec<u8>,
 			storage_deposit_limit: Option<Balance>,
 			determinism: pallet_contracts::Determinism,
-		) -> pallet_contracts_primitives::CodeUploadResult<Hash, Balance> {
+		) -> pallet_contracts::CodeUploadResult<Hash, Balance> {
 			Contracts::bare_upload_code(
 				origin,
 				code,
@@ -643,7 +635,7 @@ impl_runtime_apis! {
 		fn get_storage(
 			address: AccountId,
 			key: Vec<u8>,
-		) -> pallet_contracts_primitives::GetStorageResult {
+		) -> pallet_contracts::GetStorageResult {
 			Contracts::get_storage(address, key)
 		}
 	}
@@ -710,24 +702,36 @@ impl_runtime_apis! {
 			use xcm::latest::prelude::*;
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
-				fn reachable_dest() -> Option<MultiLocation> {
+				fn reachable_dest() -> Option<Location> {
 					Some(Parent.into())
 				}
 
-				fn teleportable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
+				fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
 					// Relay/native token can be teleported between Contracts-System-Para and Relay.
 					Some((
-						MultiAsset {
+						Asset {
 							fun: Fungible(EXISTENTIAL_DEPOSIT),
-							id: Concrete(Parent.into())
+							id: AssetId(Parent.into())
 						},
 						Parent.into(),
 					))
 				}
 
-				fn reserve_transferable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
+				fn reserve_transferable_asset_and_dest() -> Option<(Asset, Location)> {
 					// Reserve transfers are disabled on Contracts-System-Para.
 					None
+				}
+
+				fn set_up_complex_asset_transfer(
+				) -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
+					// Contracts-System-Para only supports teleports to system parachain.
+					// Relay/native token can be teleported between Contracts-System-Para and Relay.
+					let native_location = Parent.into();
+					let dest = Parent.into();
+					pallet_xcm::benchmarking::helpers::native_teleport_as_asset_transfer::<Runtime>(
+						native_location,
+						dest
+					)
 				}
 			}
 

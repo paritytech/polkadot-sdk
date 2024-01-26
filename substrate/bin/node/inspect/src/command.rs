@@ -23,18 +23,20 @@ use crate::{
 	Inspector,
 };
 use sc_cli::{CliConfiguration, ImportParams, Result, SharedParams};
-use sc_service::{Configuration, NativeExecutionDispatch};
+use sc_service::Configuration;
 use sp_runtime::traits::Block;
+
+type HostFunctions =
+	(sp_io::SubstrateHostFunctions, sp_statement_store::runtime_api::HostFunctions);
 
 impl InspectCmd {
 	/// Run the inspect command, passing the inspector.
-	pub fn run<B, RA, D>(&self, config: Configuration) -> Result<()>
+	pub fn run<B, RA>(&self, config: Configuration) -> Result<()>
 	where
 		B: Block,
 		RA: Send + Sync + 'static,
-		D: NativeExecutionDispatch + 'static,
 	{
-		let executor = sc_service::new_native_or_wasm_executor::<D>(&config);
+		let executor = sc_service::new_wasm_executor::<HostFunctions>(&config);
 		let client = sc_service::new_full_client::<B, RA, _>(&config, None, executor)?;
 		let inspect = Inspector::<B>::new(client);
 

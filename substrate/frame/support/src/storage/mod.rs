@@ -1583,7 +1583,7 @@ pub trait StorageTryAppend<Item>: StorageDecodeLength + private::Sealed {
 	fn bound() -> usize;
 }
 
-/// Storage value that is capable of [`StorageTryAppend`](crate::storage::StorageTryAppend).
+/// Storage value that is capable of [`StorageTryAppend`].
 pub trait TryAppendValue<T: StorageTryAppend<I>, I: Encode> {
 	/// Try and append the `item` into the storage item.
 	///
@@ -1612,7 +1612,7 @@ where
 	}
 }
 
-/// Storage map that is capable of [`StorageTryAppend`](crate::storage::StorageTryAppend).
+/// Storage map that is capable of [`StorageTryAppend`].
 pub trait TryAppendMap<K: Encode, T: StorageTryAppend<I>, I: Encode> {
 	/// Try and append the `item` into the storage map at the given `key`.
 	///
@@ -1646,7 +1646,7 @@ where
 	}
 }
 
-/// Storage double map that is capable of [`StorageTryAppend`](crate::storage::StorageTryAppend).
+/// Storage double map that is capable of [`StorageTryAppend`].
 pub trait TryAppendDoubleMap<K1: Encode, K2: Encode, T: StorageTryAppend<I>, I: Encode> {
 	/// Try and append the `item` into the storage double map at the given `key`.
 	///
@@ -1712,7 +1712,7 @@ mod test {
 	use bounded_vec::BoundedVec;
 	use frame_support::traits::ConstU32;
 	use generator::StorageValue as _;
-	use sp_core::hashing::twox_128;
+	use sp_crypto_hashing::twox_128;
 	use sp_io::TestExternalities;
 	use weak_bounded_vec::WeakBoundedVec;
 

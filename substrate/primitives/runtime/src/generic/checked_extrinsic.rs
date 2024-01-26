@@ -26,9 +26,11 @@ use crate::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 };
 
-/// Definition of something that the external world might want to say; its
-/// existence implies that it has been checked and is good, particularly with
-/// regards to the signature.
+/// Definition of something that the external world might want to say; its existence implies that it
+/// has been checked and is good, particularly with regards to the signature.
+///
+/// This is typically passed into [`traits::Applyable::apply`], which should execute
+/// [`CheckedExtrinsic::function`], alongside all other bits and bobs.
 #[derive(PartialEq, Eq, Clone, sp_core::RuntimeDebug)]
 pub struct CheckedExtrinsic<AccountId, Call, Extra> {
 	/// Who this purports to be from and the number of extrinsics have come before

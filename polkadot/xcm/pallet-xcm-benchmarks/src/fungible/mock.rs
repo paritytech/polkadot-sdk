@@ -26,7 +26,7 @@ use frame_support::{
 use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, IdentityLookup};
 use xcm::latest::prelude::*;
-use xcm_builder::{AllowUnpaidExecutionFrom, MintLocation};
+use xcm_builder::{AllowUnpaidExecutionFrom, FrameTransactionalProcessor, MintLocation};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -34,9 +34,9 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		XcmBalancesBenchmark: xcm_balances_benchmark::{Pallet},
+		System: frame_system,
+		Balances: pallet_balances,
+		XcmBalancesBenchmark: xcm_balances_benchmark,
 	}
 );
 
@@ -45,6 +45,8 @@ parameter_types! {
 	pub BlockWeights: frame_system::limits::BlockWeights =
 		frame_system::limits::BlockWeights::simple_max(Weight::from_parts(1024, u64::MAX));
 }
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = Everything;
 	type BlockWeights = ();
@@ -91,16 +93,17 @@ parameter_types! {
 
 pub struct MatchAnyFungible;
 impl xcm_executor::traits::MatchesFungible<u64> for MatchAnyFungible {
-	fn matches_fungible(m: &MultiAsset) -> Option<u64> {
+	fn matches_fungible(m: &Asset) -> Option<u64> {
 		use sp_runtime::traits::SaturatedConversion;
 		match m {
-			MultiAsset { fun: Fungible(amount), .. } => Some((*amount).saturated_into::<u64>()),
+			Asset { fun: Fungible(amount), .. } => Some((*amount).saturated_into::<u64>()),
 			_ => None,
 		}
 	}
 }
 
 // Use balances as the asset transactor.
+#[allow(deprecated)]
 pub type AssetTransactor = xcm_builder::CurrencyAdapter<
 	Balances,
 	MatchAnyFungible,
@@ -142,19 +145,19 @@ impl xcm_executor::Config for XcmConfig {
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
+	type TransactionalProcessor = FrameTransactionalProcessor;
 }
 
 impl crate::Config for Test {
 	type XcmConfig = XcmConfig;
 	type AccountIdConverter = AccountIdConverter;
 	type DeliveryHelper = ();
-	fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
-		let valid_destination: MultiLocation =
-			X1(AccountId32 { network: None, id: [0u8; 32] }).into();
+	fn valid_destination() -> Result<Location, BenchmarkError> {
+		let valid_destination: Location = [AccountId32 { network: None, id: [0u8; 32] }].into();
 
 		Ok(valid_destination)
 	}
-	fn worst_case_holding(depositable_count: u32) -> MultiAssets {
+	fn worst_case_holding(depositable_count: u32) -> Assets {
 		crate::mock_worst_case_holding(
 			depositable_count,
 			<XcmConfig as xcm_executor::Config>::MaxAssetsIntoHolding::get(),
@@ -167,19 +170,19 @@ pub type TrustedReserves = xcm_builder::Case<ReserveConcreteFungible>;
 
 parameter_types! {
 	pub const CheckingAccount: Option<(u64, MintLocation)> = Some((100, MintLocation::Local));
-	pub const ChildTeleporter: MultiLocation = Parachain(1000).into_location();
-	pub const TrustedTeleporter: Option<(MultiLocation, MultiAsset)> = Some((
+	pub ChildTeleporter: Location = Parachain(1000).into_location();
+	pub TrustedTeleporter: Option<(Location, Asset)> = Some((
 		ChildTeleporter::get(),
-		MultiAsset { id: Concrete(Here.into_location()), fun: Fungible(100) },
+		Asset { id: AssetId(Here.into_location()), fun: Fungible(100) },
 	));
-	pub const TrustedReserve: Option<(MultiLocation, MultiAsset)> = Some((
+	pub TrustedReserve: Option<(Location, Asset)> = Some((
 		ChildTeleporter::get(),
-		MultiAsset { id: Concrete(Here.into_location()), fun: Fungible(100) },
+		Asset { id: AssetId(Here.into_location()), fun: Fungible(100) },
 	));
-	pub const TeleportConcreteFungible: (MultiAssetFilter, MultiLocation) =
-		(Wild(AllOf { fun: WildFungible, id: Concrete(Here.into_location()) }), ChildTeleporter::get());
-	pub const ReserveConcreteFungible: (MultiAssetFilter, MultiLocation) =
-		(Wild(AllOf { fun: WildFungible, id: Concrete(Here.into_location()) }), ChildTeleporter::get());
+	pub TeleportConcreteFungible: (AssetFilter, Location) =
+		(Wild(AllOf { fun: WildFungible, id: AssetId(Here.into_location()) }), ChildTeleporter::get());
+	pub ReserveConcreteFungible: (AssetFilter, Location) =
+		(Wild(AllOf { fun: WildFungible, id: AssetId(Here.into_location()) }), ChildTeleporter::get());
 }
 
 impl xcm_balances_benchmark::Config for Test {
@@ -188,10 +191,10 @@ impl xcm_balances_benchmark::Config for Test {
 	type TrustedTeleporter = TrustedTeleporter;
 	type TrustedReserve = TrustedReserve;
 
-	fn get_multi_asset() -> MultiAsset {
+	fn get_asset() -> Asset {
 		let amount =
 			<Balances as frame_support::traits::fungible::Inspect<u64>>::minimum_balance() as u128;
-		MultiAsset { id: Concrete(Here.into()), fun: Fungible(amount) }
+		Asset { id: AssetId(Here.into()), fun: Fungible(amount) }
 	}
 }
 

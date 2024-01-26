@@ -1,0 +1,6 @@
+error: No BuyExecution instruction
+  --> tests/ui/builder_pattern/no_buy_execution.rs:25:5
+   |
+25 | /     UnpaidExecution { weight_limit: (u32, u32) },
+26 | |     Transact { call: Call },
+   | |____________________________^

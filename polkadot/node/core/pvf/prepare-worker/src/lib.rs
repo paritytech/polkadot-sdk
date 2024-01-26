@@ -18,8 +18,6 @@
 
 mod memory_stats;
 
-use polkadot_node_core_pvf_common::executor_intf::{prepare, prevalidate};
-
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-prepare-worker=trace`.
 const LOG_TARGET: &str = "parachain::pvf-prepare-worker";
@@ -37,30 +35,34 @@ use nix::{
 	},
 	unistd::{ForkResult, Pid},
 };
-use os_pipe::{self, PipeReader, PipeWriter};
+use polkadot_node_core_pvf_common::{
+	executor_interface::{prepare, prevalidate},
+	worker::{pipe2_cloexec, PipeFd, WorkerInfo},
+};
+
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_core_pvf_common::{
-	error::{PrepareError, PrepareResult},
-	executor_intf::create_runtime_from_artifact_bytes,
+	error::{PrepareError, PrepareWorkerResult},
+	executor_interface::create_runtime_from_artifact_bytes,
 	framed_recv_blocking, framed_send_blocking,
-	prepare::{MemoryStats, PrepareJobKind, PrepareStats},
+	prepare::{MemoryStats, PrepareJobKind, PrepareStats, PrepareWorkerSuccess},
 	pvf::PvfPrepData,
 	worker::{
 		cpu_time_monitor_loop, run_worker, stringify_panic_payload,
 		thread::{self, spawn_worker_thread, WaitOutcome},
 		WorkerKind,
 	},
-	worker_dir, ProcessTime, SecurityStatus,
+	worker_dir, ProcessTime,
 };
 use polkadot_primitives::ExecutorParams;
 use std::{
 	fs,
 	io::{self, Read},
 	os::{
-		fd::{AsRawFd, RawFd},
+		fd::{AsRawFd, FromRawFd, RawFd},
 		unix::net::UnixStream,
 	},
-	path::PathBuf,
+	path::{Path, PathBuf},
 	process,
 	sync::{mpsc::channel, Arc},
 	time::Duration,
@@ -75,6 +77,16 @@ static ALLOC: TrackingAllocator<tikv_jemallocator::Jemalloc> =
 #[cfg(not(any(target_os = "linux", feature = "jemalloc-allocator")))]
 #[global_allocator]
 static ALLOC: TrackingAllocator<std::alloc::System> = TrackingAllocator(std::alloc::System);
+
+/// The number of threads for the child process:
+/// 1 - Main thread
+/// 2 - Cpu monitor thread
+/// 3 - Memory tracker thread
+/// 4 - Prepare thread
+///
+/// NOTE: The correctness of this value is enforced by a test. If the number of threads inside
+/// the child process changes in the future, this value must be changed as well.
+pub const PREPARE_WORKER_THREAD_NUMBER: u32 = 4;
 
 /// Contains the bytes for a successfully compiled artifact.
 #[derive(Encode, Decode)]
@@ -106,7 +118,7 @@ fn recv_request(stream: &mut UnixStream) -> io::Result<PvfPrepData> {
 }
 
 /// Send a worker response.
-fn send_response(stream: &mut UnixStream, result: PrepareResult) -> io::Result<()> {
+fn send_response(stream: &mut UnixStream, result: PrepareWorkerResult) -> io::Result<()> {
 	framed_send_blocking(stream, &result.encode())
 }
 
@@ -186,14 +198,13 @@ fn end_memory_tracking() -> isize {
 ///
 /// 7. If compilation succeeded, write the compiled artifact into a temporary file.
 ///
-/// 8. Send the result of preparation back to the host. If any error occurred in the above steps, we
-///    send that in the `PrepareResult`.
+/// 8. Send the result of preparation back to the host, including the checksum of the artifact. If
+///    any error occurred in the above steps, we send that in the `PrepareWorkerResult`.
 pub fn worker_entrypoint(
 	socket_path: PathBuf,
 	worker_dir_path: PathBuf,
 	node_version: Option<&str>,
 	worker_version: Option<&str>,
-	security_status: SecurityStatus,
 ) {
 	run_worker(
 		WorkerKind::Prepare,
@@ -201,16 +212,15 @@ pub fn worker_entrypoint(
 		worker_dir_path,
 		node_version,
 		worker_version,
-		&security_status,
-		|mut stream, worker_dir_path| {
-			let worker_pid = process::id();
-			let temp_artifact_dest = worker_dir::prepare_tmp_artifact(&worker_dir_path);
+		|mut stream, worker_info, security_status| {
+			let temp_artifact_dest = worker_dir::prepare_tmp_artifact(&worker_info.worker_dir_path);
 
 			loop {
 				let pvf = recv_request(&mut stream)?;
 				gum::debug!(
 					target: LOG_TARGET,
-					%worker_pid,
+					?worker_info,
+					?security_status,
 					"worker: preparing artifact",
 				);
 
@@ -218,7 +228,7 @@ pub fn worker_entrypoint(
 				let prepare_job_kind = pvf.prep_kind();
 				let executor_params = pvf.executor_params();
 
-				let (pipe_reader, pipe_writer) = os_pipe::pipe()?;
+				let (pipe_read_fd, pipe_write_fd) = pipe2_cloexec()?;
 
 				let usage_before = match nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
 					Ok(usage) => usage,
@@ -229,46 +239,58 @@ pub fn worker_entrypoint(
 					},
 				};
 
-				// SAFETY: new process is spawned within a single threaded process. This invariant
-				// is enforced by tests.
-				let result = match unsafe { nix::unistd::fork() } {
-					Err(errno) => Err(error_from_errno("fork", errno)),
-					Ok(ForkResult::Child) => {
-						// Dropping the stream closes the underlying socket. We want to make sure
-						// that the sandboxed child can't get any kind of information from the
-						// outside world. The only IPC it should be able to do is sending its
-						// response over the pipe.
-						drop(stream);
-						// Drop the read end so we don't have too many FDs open.
-						drop(pipe_reader);
+				let stream_fd = stream.as_raw_fd();
 
-						handle_child_process(
-							pvf,
-							pipe_writer,
+				cfg_if::cfg_if! {
+					if #[cfg(target_os = "linux")] {
+						let result = if security_status.can_do_secure_clone {
+							handle_clone(
+								&pvf,
+								pipe_write_fd,
+								pipe_read_fd,
+								stream_fd,
+								preparation_timeout,
+								prepare_job_kind,
+								&executor_params,
+								worker_info,
+								security_status.can_unshare_user_namespace_and_change_root,
+								&temp_artifact_dest,
+								usage_before,
+							)
+						} else {
+							// Fall back to using fork.
+							handle_fork(
+								&pvf,
+								pipe_write_fd,
+								pipe_read_fd,
+								stream_fd,
+								preparation_timeout,
+								prepare_job_kind,
+								&executor_params,
+								worker_info,
+								&temp_artifact_dest,
+								usage_before,
+							)
+						};
+					} else {
+						let result = handle_fork(
+							&pvf,
+							pipe_write_fd,
+							pipe_read_fd,
+							stream_fd,
 							preparation_timeout,
 							prepare_job_kind,
-							executor_params,
-						)
-					},
-					Ok(ForkResult::Parent { child }) => {
-						// the read end will wait until all write ends have been closed,
-						// this drop is necessary to avoid deadlock
-						drop(pipe_writer);
-
-						handle_parent_process(
-							pipe_reader,
-							child,
-							temp_artifact_dest.clone(),
-							worker_pid,
+							&executor_params,
+							worker_info,
+							&temp_artifact_dest,
 							usage_before,
-							preparation_timeout,
-						)
-					},
-				};
+						);
+					}
+				}
 
 				gum::trace!(
 					target: LOG_TARGET,
-					%worker_pid,
+					?worker_info,
 					"worker: sending result to host: {:?}",
 					result
 				);
@@ -308,21 +330,94 @@ struct JobResponse {
 	memory_stats: MemoryStats,
 }
 
+#[cfg(target_os = "linux")]
+fn handle_clone(
+	pvf: &PvfPrepData,
+	pipe_write_fd: i32,
+	pipe_read_fd: i32,
+	stream_fd: i32,
+	preparation_timeout: Duration,
+	prepare_job_kind: PrepareJobKind,
+	executor_params: &Arc<ExecutorParams>,
+	worker_info: &WorkerInfo,
+	have_unshare_newuser: bool,
+	temp_artifact_dest: &Path,
+	usage_before: Usage,
+) -> Result<PrepareWorkerSuccess, PrepareError> {
+	use polkadot_node_core_pvf_common::worker::security;
+
+	// SAFETY: new process is spawned within a single threaded process. This invariant
+	// is enforced by tests. Stack size being specified to ensure child doesn't overflow
+	match unsafe {
+		security::clone::clone_on_worker(
+			worker_info,
+			have_unshare_newuser,
+			Box::new(|| {
+				handle_child_process(
+					pvf.clone(),
+					pipe_write_fd,
+					pipe_read_fd,
+					stream_fd,
+					preparation_timeout,
+					prepare_job_kind,
+					Arc::clone(&executor_params),
+				)
+			}),
+		)
+	} {
+		Ok(child) => handle_parent_process(
+			pipe_read_fd,
+			pipe_write_fd,
+			worker_info,
+			child,
+			temp_artifact_dest,
+			usage_before,
+			preparation_timeout,
+		),
+		Err(security::clone::Error::Clone(errno)) => Err(error_from_errno("clone", errno)),
+	}
+}
+
+fn handle_fork(
+	pvf: &PvfPrepData,
+	pipe_write_fd: i32,
+	pipe_read_fd: i32,
+	stream_fd: i32,
+	preparation_timeout: Duration,
+	prepare_job_kind: PrepareJobKind,
+	executor_params: &Arc<ExecutorParams>,
+	worker_info: &WorkerInfo,
+	temp_artifact_dest: &Path,
+	usage_before: Usage,
+) -> Result<PrepareWorkerSuccess, PrepareError> {
+	// SAFETY: new process is spawned within a single threaded process. This invariant
+	// is enforced by tests.
+	match unsafe { nix::unistd::fork() } {
+		Ok(ForkResult::Child) => handle_child_process(
+			pvf.clone(),
+			pipe_write_fd,
+			pipe_read_fd,
+			stream_fd,
+			preparation_timeout,
+			prepare_job_kind,
+			Arc::clone(executor_params),
+		),
+		Ok(ForkResult::Parent { child }) => handle_parent_process(
+			pipe_read_fd,
+			pipe_write_fd,
+			worker_info,
+			child,
+			temp_artifact_dest,
+			usage_before,
+			preparation_timeout,
+		),
+		Err(errno) => Err(error_from_errno("fork", errno)),
+	}
+}
+
 /// This is used to handle child process during pvf prepare worker.
 /// It prepares the artifact and tracks memory stats during preparation
-/// and pipes back the response to the parent process
-///
-/// # Arguments
-///
-/// - `pvf`: `PvfPrepData` structure, containing data to prepare the artifact
-///
-/// - `pipe_write`: A `PipeWriter` structure, the writing end of a pipe.
-///
-/// - `preparation_timeout`: The timeout in `Duration`.
-///
-/// - `prepare_job_kind`: The kind of prepare job.
-///
-/// - `executor_params`: Deterministically serialized execution environment semantics.
+/// and pipes back the response to the parent process.
 ///
 /// # Returns
 ///
@@ -331,11 +426,35 @@ struct JobResponse {
 /// - If success, pipe back `JobResponse`.
 fn handle_child_process(
 	pvf: PvfPrepData,
-	mut pipe_write: PipeWriter,
+	pipe_write_fd: i32,
+	pipe_read_fd: i32,
+	stream_fd: i32,
 	preparation_timeout: Duration,
 	prepare_job_kind: PrepareJobKind,
 	executor_params: Arc<ExecutorParams>,
 ) -> ! {
+	// SAFETY: pipe_writer is an open and owned file descriptor at this point.
+	let mut pipe_write = unsafe { PipeFd::from_raw_fd(pipe_write_fd) };
+
+	// Drop the read end so we don't have too many FDs open.
+	if let Err(errno) = nix::unistd::close(pipe_read_fd) {
+		send_child_response(
+			&mut pipe_write,
+			JobResult::Err(error_from_errno("closing pipe", errno)),
+		);
+	}
+
+	// Dropping the stream closes the underlying socket. We want to make sure
+	// that the sandboxed child can't get any kind of information from the
+	// outside world. The only IPC it should be able to do is sending its
+	// response over the pipe.
+	if let Err(errno) = nix::unistd::close(stream_fd) {
+		send_child_response(
+			&mut pipe_write,
+			JobResult::Err(error_from_errno("error closing stream", errno)),
+		);
+	}
+
 	let worker_job_pid = process::id();
 	gum::debug!(
 		target: LOG_TARGET,
@@ -439,11 +558,11 @@ fn handle_child_process(
 				Err(err) => Err(err),
 				Ok(ok) => {
 					cfg_if::cfg_if! {
-					if #[cfg(target_os = "linux")] {
-						let (artifact, max_rss) = ok;
-					} else {
-						let artifact = ok;
-					}
+						if #[cfg(target_os = "linux")] {
+							let (artifact, max_rss) = ok;
+						} else {
+							let artifact = ok;
+						}
 					}
 
 					// Stop the memory stats worker and get its observed memory stats.
@@ -482,20 +601,6 @@ fn handle_child_process(
 
 /// Waits for child process to finish and handle child response from pipe.
 ///
-/// # Arguments
-///
-/// - `pipe_read`: A `PipeReader` used to read data from the child process.
-///
-/// - `child`: The child pid.
-///
-/// - `temp_artifact_dest`: The destination `PathBuf` to write the temporary artifact file.
-///
-/// - `worker_pid`: The PID of the child process.
-///
-/// - `usage_before`: Resource usage statistics before executing the child process.
-///
-/// - `timeout`: The maximum allowed time for the child process to finish, in `Duration`.
-///
 /// # Returns
 ///
 /// - If the child send response without an error, this function returns `Ok(PrepareStats)`
@@ -505,23 +610,34 @@ fn handle_child_process(
 ///
 /// - If the child process timeout, it returns `PrepareError::TimedOut`.
 fn handle_parent_process(
-	mut pipe_read: PipeReader,
-	child: Pid,
-	temp_artifact_dest: PathBuf,
-	worker_pid: u32,
+	pipe_read_fd: i32,
+	pipe_write_fd: i32,
+	worker_info: &WorkerInfo,
+	job_pid: Pid,
+	temp_artifact_dest: &Path,
 	usage_before: Usage,
 	timeout: Duration,
-) -> Result<PrepareStats, PrepareError> {
+) -> Result<PrepareWorkerSuccess, PrepareError> {
+	// the read end will wait until all write ends have been closed,
+	// this drop is necessary to avoid deadlock
+	if let Err(errno) = nix::unistd::close(pipe_write_fd) {
+		return Err(error_from_errno("closing pipe write fd", errno));
+	};
+
+	// SAFETY: this is an open and owned file descriptor at this point.
+	let mut pipe_read = unsafe { PipeFd::from_raw_fd(pipe_read_fd) };
+
 	// Read from the child. Don't decode unless the process exited normally, which we check later.
 	let mut received_data = Vec::new();
 	pipe_read
 		.read_to_end(&mut received_data)
 		.map_err(|err| PrepareError::IoErr(err.to_string()))?;
 
-	let status = nix::sys::wait::waitpid(child, None);
+	let status = nix::sys::wait::waitpid(job_pid, None);
 	gum::trace!(
 		target: LOG_TARGET,
-		%worker_pid,
+		?worker_info,
+		%job_pid,
 		"prepare worker received wait status from job: {:?}",
 		status,
 	);
@@ -538,7 +654,8 @@ fn handle_parent_process(
 	if cpu_tv >= timeout {
 		gum::warn!(
 			target: LOG_TARGET,
-			%worker_pid,
+			?worker_info,
+			%job_pid,
 			"prepare job took {}ms cpu time, exceeded prepare timeout {}ms",
 			cpu_tv.as_millis(),
 			timeout.as_millis(),
@@ -554,7 +671,7 @@ fn handle_parent_process(
 
 			match result {
 				Err(err) => Err(err),
-				Ok(response) => {
+				Ok(JobResponse { artifact, memory_stats }) => {
 					// The exit status should have been zero if no error occurred.
 					if exit_status != 0 {
 						return Err(PrepareError::JobError(format!(
@@ -572,18 +689,20 @@ fn handle_parent_process(
 					// success.
 					gum::debug!(
 						target: LOG_TARGET,
-						%worker_pid,
+						?worker_info,
+						%job_pid,
 						"worker: writing artifact to {}",
 						temp_artifact_dest.display(),
 					);
 					// Write to the temp file created by the host.
-					if let Err(err) = fs::write(&temp_artifact_dest, &response.artifact) {
+					if let Err(err) = fs::write(temp_artifact_dest, &artifact) {
 						return Err(PrepareError::IoErr(err.to_string()))
 					};
 
-					Ok(PrepareStats {
-						memory_stats: response.memory_stats,
-						cpu_time_elapsed: cpu_tv,
+					let checksum = blake3::hash(&artifact.as_ref()).to_hex().to_string();
+					Ok(PrepareWorkerSuccess {
+						checksum,
+						stats: PrepareStats { memory_stats, cpu_time_elapsed: cpu_tv },
 					})
 				},
 			}
@@ -592,15 +711,18 @@ fn handle_parent_process(
 		//
 		// The job gets SIGSYS on seccomp violations, but this signal may have been sent for some
 		// other reason, so we still need to check for seccomp violations elsewhere.
-		Ok(WaitStatus::Signaled(_pid, signal, _core_dump)) =>
-			Err(PrepareError::JobDied(format!("received signal: {signal:?}"))),
+		Ok(WaitStatus::Signaled(_pid, signal, _core_dump)) => Err(PrepareError::JobDied {
+			err: format!("received signal: {signal:?}"),
+			job_pid: job_pid.as_raw(),
+		}),
 		Err(errno) => Err(error_from_errno("waitpid", errno)),
 
 		// An attacker can make the child process return any exit status it wants. So we can treat
 		// all unexpected cases the same way.
-		Ok(unexpected_wait_status) => Err(PrepareError::JobDied(format!(
-			"unexpected status from wait: {unexpected_wait_status:?}"
-		))),
+		Ok(unexpected_wait_status) => Err(PrepareError::JobDied {
+			err: format!("unexpected status from wait: {unexpected_wait_status:?}"),
+			job_pid: job_pid.as_raw(),
+		}),
 	}
 }
 
@@ -637,10 +759,10 @@ fn recv_child_response(received_data: &mut io::BufReader<&[u8]>) -> io::Result<J
 ///
 /// # Arguments
 ///
-/// - `pipe_write`: A `PipeWriter` structure, the writing end of a pipe.
+/// - `pipe_write`: A `PipeFd` structure, the writing end of a pipe.
 ///
 /// - `response`: Child process response
-fn send_child_response(pipe_write: &mut PipeWriter, response: JobResult) -> ! {
+fn send_child_response(pipe_write: &mut PipeFd, response: JobResult) -> ! {
 	framed_send_blocking(pipe_write, response.encode().as_slice())
 		.unwrap_or_else(|_| process::exit(libc::EXIT_FAILURE));
 
@@ -657,13 +779,13 @@ fn error_from_errno(context: &'static str, errno: Errno) -> PrepareError {
 
 type JobResult = Result<JobResponse, PrepareError>;
 
-/// Pre-encoded length-prefixed `Result::Err(PrepareError::OutOfMemory)`
+/// Pre-encoded length-prefixed `JobResult::Err(PrepareError::OutOfMemory)`
 const OOM_PAYLOAD: &[u8] = b"\x02\x00\x00\x00\x00\x00\x00\x00\x01\x08";
 
 #[test]
 fn pre_encoded_payloads() {
 	// NOTE: This must match the type of `response` in `send_child_response`.
-	let oom_unencoded: JobResult = Result::Err(PrepareError::OutOfMemory);
+	let oom_unencoded: JobResult = JobResult::Err(PrepareError::OutOfMemory);
 	let oom_encoded = oom_unencoded.encode();
 	// The payload is prefixed with	its length in `framed_send`.
 	let mut oom_payload = oom_encoded.len().to_le_bytes().to_vec();

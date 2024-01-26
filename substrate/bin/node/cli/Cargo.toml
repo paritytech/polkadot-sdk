@@ -11,6 +11,9 @@ homepage = "https://substrate.io"
 repository.workspace = true
 publish = false
 
+[lints]
+workspace = true
+
 [package.metadata.wasm-pack.profile.release]
 # `wasm-opt` has some problems on linux, see
 # https://github.com/rustwasm/wasm-pack/issues/781 etc.
@@ -38,10 +41,10 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 # third-party dependencies
 array-bytes = "6.1"
-clap = { version = "4.4.6", features = ["derive"], optional = true }
+clap = { version = "4.4.18", features = ["derive"], optional = true }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
-serde = { version = "1.0.188", features = ["derive"] }
-jsonrpsee = { version = "0.16.2", features = ["server"] }
+serde = { version = "1.0.195", features = ["derive"] }
+jsonrpsee = { version = "0.20.3", features = ["server"] }
 futures = "0.3.21"
 log = "0.4.17"
 rand = "0.8"
@@ -49,6 +52,7 @@ rand = "0.8"
 # primitives
 sp-authority-discovery = { path = "../../../primitives/authority-discovery" }
 sp-consensus-babe = { path = "../../../primitives/consensus/babe" }
+beefy-primitives = { package = "sp-consensus-beefy", path = "../../../primitives/consensus/beefy" }
 grandpa-primitives = { package = "sp-consensus-grandpa", path = "../../../primitives/consensus/grandpa" }
 sp-api = { path = "../../../primitives/api" }
 sp-core = { path = "../../../primitives/core" }
@@ -61,6 +65,7 @@ sp-consensus = { path = "../../../primitives/consensus/common" }
 sp-transaction-storage-proof = { path = "../../../primitives/transaction-storage-proof" }
 sp-io = { path = "../../../primitives/io" }
 sp-mixnet = { path = "../../../primitives/mixnet" }
+sp-mmr-primitives = { path = "../../../primitives/merkle-mountain-range" }
 sp-statement-store = { path = "../../../primitives/statement-store" }
 
 # client dependencies
@@ -76,10 +81,12 @@ sc-network-sync = { path = "../../../client/network/sync" }
 sc-network-statement = { path = "../../../client/network/statement" }
 sc-consensus-slots = { path = "../../../client/consensus/slots" }
 sc-consensus-babe = { path = "../../../client/consensus/babe" }
+beefy = { package = "sc-consensus-beefy", path = "../../../client/consensus/beefy" }
 grandpa = { package = "sc-consensus-grandpa", path = "../../../client/consensus/grandpa" }
+mmr-gadget = { path = "../../../client/merkle-mountain-range" }
 sc-rpc = { path = "../../../client/rpc" }
 sc-basic-authorship = { path = "../../../client/basic-authorship" }
-sc-service = { path = "../../../client/service", default-features = false}
+sc-service = { path = "../../../client/service", default-features = false }
 sc-telemetry = { path = "../../../client/telemetry" }
 sc-executor = { path = "../../../client/executor" }
 sc-authority-discovery = { path = "../../../client/authority-discovery" }
@@ -90,26 +97,26 @@ sc-storage-monitor = { path = "../../../client/storage-monitor" }
 sc-offchain = { path = "../../../client/offchain" }
 
 # frame dependencies
+frame-benchmarking = { path = "../../../frame/benchmarking" }
 frame-system = { path = "../../../frame/system" }
 frame-system-rpc-runtime-api = { path = "../../../frame/system/rpc/runtime-api" }
 pallet-assets = { path = "../../../frame/assets" }
 pallet-asset-conversion-tx-payment = { path = "../../../frame/transaction-payment/asset-conversion-tx-payment" }
 pallet-asset-tx-payment = { path = "../../../frame/transaction-payment/asset-tx-payment" }
-pallet-im-online = { path = "../../../frame/im-online", default-features = false}
-pallet-skip-feeless-payment = { path = "../../../frame/transaction-payment/skip-feeless-payment", default-features = false}
+pallet-im-online = { path = "../../../frame/im-online", default-features = false }
+pallet-skip-feeless-payment = { path = "../../../frame/transaction-payment/skip-feeless-payment", default-features = false }
 
 # node-specific dependencies
 kitchensink-runtime = { path = "../runtime" }
 node-rpc = { path = "../rpc" }
 node-primitives = { path = "../primitives" }
-node-executor = { package = "staging-node-executor", path = "../executor" }
 
 # CLI-specific dependencies
-sc-cli = { path = "../../../client/cli", optional = true}
-frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true}
-node-inspect = { package = "staging-node-inspect", path = "../inspect", optional = true}
-try-runtime-cli = { path = "../../../utils/frame/try-runtime/cli", optional = true}
-serde_json = "1.0.108"
+sc-cli = { path = "../../../client/cli", optional = true }
+frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true }
+node-inspect = { package = "staging-node-inspect", path = "../inspect", optional = true }
+try-runtime-cli = { path = "../../../utils/frame/try-runtime/cli", optional = true }
+serde_json = "1.0.111"
 
 [dev-dependencies]
 sc-keystore = { path = "../../../client/keystore" }
@@ -121,6 +128,7 @@ sc-service-test = { path = "../../../client/service/test" }
 sc-block-builder = { path = "../../../client/block-builder" }
 sp-tracing = { path = "../../../primitives/tracing" }
 sp-blockchain = { path = "../../../primitives/blockchain" }
+sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
 futures = "0.3.21"
 tempfile = "3.1.0"
 assert_cmd = "2.0.2"
@@ -129,27 +137,47 @@ regex = "1.6.0"
 platforms = "3.0"
 soketto = "0.7.1"
 criterion = { version = "0.4.0", features = ["async_tokio"] }
-tokio = { version = "1.22.0", features = ["macros", "time", "parking_lot"] }
+tokio = { version = "1.22.0", features = ["macros", "parking_lot", "time"] }
 tokio-util = { version = "0.7.4", features = ["compat"] }
 wait-timeout = "0.2"
 substrate-rpc-client = { path = "../../../utils/frame/rpc/client" }
 pallet-timestamp = { path = "../../../frame/timestamp" }
 substrate-cli-test-utils = { path = "../../../test-utils/cli" }
 
+wat = "1.0"
+frame-support = { path = "../../../frame/support" }
+node-testing = { path = "../testing" }
+pallet-balances = { path = "../../../frame/balances" }
+pallet-contracts = { path = "../../../frame/contracts" }
+pallet-glutton = { path = "../../../frame/glutton" }
+pallet-sudo = { path = "../../../frame/sudo" }
+pallet-treasury = { path = "../../../frame/treasury" }
+pallet-transaction-payment = { path = "../../../frame/transaction-payment" }
+sp-application-crypto = { path = "../../../primitives/application-crypto" }
+pallet-root-testing = { path = "../../../frame/root-testing" }
+sp-consensus-babe = { path = "../../../primitives/consensus/babe" }
+sp-externalities = { path = "../../../primitives/externalities" }
+sp-keyring = { path = "../../../primitives/keyring" }
+sp-runtime = { path = "../../../primitives/runtime" }
+serde_json = "1.0.111"
+scale-info = { version = "2.10.0", features = ["derive", "serde"] }
+sp-trie = { path = "../../../primitives/trie" }
+sp-state-machine = { path = "../../../primitives/state-machine" }
+
 [build-dependencies]
-clap = { version = "4.4.6", optional = true }
+clap = { version = "4.4.18", optional = true }
 clap_complete = { version = "4.0.2", optional = true }
-node-inspect = { package = "staging-node-inspect", path = "../inspect", optional = true}
-frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true}
-substrate-build-script-utils = { path = "../../../utils/build-script-utils", optional = true}
-substrate-frame-cli = { path = "../../../utils/frame/frame-utilities-cli", optional = true}
-try-runtime-cli = { path = "../../../utils/frame/try-runtime/cli", optional = true}
+node-inspect = { package = "staging-node-inspect", path = "../inspect", optional = true }
+frame-benchmarking-cli = { path = "../../../utils/frame/benchmarking-cli", optional = true }
+substrate-build-script-utils = { path = "../../../utils/build-script-utils", optional = true }
+substrate-frame-cli = { path = "../../../utils/frame/frame-utilities-cli", optional = true }
+try-runtime-cli = { path = "../../../utils/frame/try-runtime/cli", optional = true }
 sc-cli = { path = "../../../client/cli", optional = true }
 pallet-balances = { path = "../../../frame/balances" }
 sc-storage-monitor = { path = "../../../client/storage-monitor" }
 
 [features]
-default = [ "cli" ]
+default = ["cli"]
 cli = [
 	"clap",
 	"clap_complete",
@@ -163,14 +191,21 @@ cli = [
 ]
 runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"kitchensink-runtime/runtime-benchmarks",
+	"node-inspect?/runtime-benchmarks",
 	"pallet-asset-tx-payment/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-contracts/runtime-benchmarks",
+	"pallet-glutton/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
 	"pallet-skip-feeless-payment/runtime-benchmarks",
+	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"pallet-treasury/runtime-benchmarks",
 	"sc-client-db/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
@@ -178,15 +213,22 @@ runtime-benchmarks = [
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
 # in the near future.
 try-runtime = [
+	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"kitchensink-runtime/try-runtime",
 	"pallet-asset-conversion-tx-payment/try-runtime",
 	"pallet-asset-tx-payment/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-contracts/try-runtime",
+	"pallet-glutton/try-runtime",
 	"pallet-im-online/try-runtime",
+	"pallet-root-testing/try-runtime",
 	"pallet-skip-feeless-payment/try-runtime",
+	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",
+	"pallet-transaction-payment/try-runtime",
+	"pallet-treasury/try-runtime",
 	"sp-runtime/try-runtime",
 	"substrate-cli-test-utils/try-runtime",
 	"try-runtime-cli/try-runtime",
@@ -198,4 +240,8 @@ harness = false
 
 [[bench]]
 name = "block_production"
+harness = false
+
+[[bench]]
+name = "executor"
 harness = false

@@ -53,5 +53,12 @@ where
 	// to call into the runtime.
 	// `module.merge(YourRpcTrait::into_rpc(YourRpcStruct::new(ReferenceToClient, ...)))?;`
 
+	// You probably want to enable the `rpc v2 chainSpec` API as well
+	//
+	// let chain_name = chain_spec.name().to_string();
+	// let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
+	// let properties = chain_spec.properties();
+	// module.merge(ChainSpec::new(chain_name, genesis_hash, properties).into_rpc())?;
+
 	Ok(module)
 }

@@ -10,6 +10,9 @@ description = "Utility library for managing tree-like ordered data with logic fo
 documentation = "https://docs.rs/fork-tree"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 

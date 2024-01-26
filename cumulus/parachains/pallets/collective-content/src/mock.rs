@@ -18,7 +18,7 @@
 pub use crate as pallet_collective_content;
 use crate::WeightInfo;
 use frame_support::{
-	ord_parameter_types, parameter_types,
+	derive_impl, ord_parameter_types, parameter_types,
 	traits::{ConstU32, ConstU64},
 	weights::Weight,
 };
@@ -55,6 +55,7 @@ impl pallet_collective_content::Config for Test {
 	type WeightInfo = CCWeightInfo;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = ();
 	type BlockWeights = ();

@@ -24,8 +24,8 @@ use super::{
 use crate::governance::StakingAdmin;
 
 use frame_support::{
-	match_types, parameter_types,
-	traits::{Everything, Nothing},
+	parameter_types,
+	traits::{Contains, Equals, Everything, Nothing},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
@@ -36,11 +36,13 @@ use runtime_common::{
 };
 use sp_core::ConstU32;
 use xcm::latest::prelude::*;
+#[allow(deprecated)]
+use xcm_builder::CurrencyAdapter as XcmCurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, ChildParachainAsNative,
-	ChildParachainConvertsVia, CurrencyAdapter as XcmCurrencyAdapter, DescribeBodyTerminal,
-	DescribeFamily, FixedWeightBounds, HashedDescription, IsChildSystemParachain, IsConcrete,
+	ChildParachainConvertsVia, DescribeBodyTerminal, DescribeFamily, FixedWeightBounds,
+	FrameTransactionalProcessor, HashedDescription, IsChildSystemParachain, IsConcrete,
 	MintLocation, OriginToPluralityVoice, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
 	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
@@ -49,9 +51,10 @@ use xcm_builder::{
 use xcm_executor::XcmExecutor;
 
 parameter_types! {
-	pub const TokenLocation: MultiLocation = Here.into_location();
+	pub TokenLocation: Location = Here.into_location();
+	pub RootLocation: Location = Location::here();
 	pub const ThisNetwork: NetworkId = NetworkId::Rococo;
-	pub UniversalLocation: InteriorMultiLocation = ThisNetwork::get().into();
+	pub UniversalLocation: InteriorLocation = ThisNetwork::get().into();
 	pub CheckAccount: AccountId = XcmPallet::check_account();
 	pub LocalCheckAccount: (AccountId, MintLocation) = (CheckAccount::get(), MintLocation::Local);
 	pub TreasuryAccount: AccountId = Treasury::account_id();
@@ -67,15 +70,16 @@ pub type LocationConverter = (
 );
 
 /// Our asset transactor. This is what allows us to interest with the runtime facilities from the
-/// point of view of XCM-only concepts like `MultiLocation` and `MultiAsset`.
+/// point of view of XCM-only concepts like `Location` and `Asset`.
 ///
 /// Ours is only aware of the Balances pallet, which is mapped to `RocLocation`.
+#[allow(deprecated)]
 pub type LocalAssetTransactor = XcmCurrencyAdapter<
 	// Use this currency:
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
 	IsConcrete<TokenLocation>,
-	// We can convert the MultiLocations with our converter above:
+	// We can convert the Locations with our converter above:
 	LocationConverter,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
@@ -97,7 +101,7 @@ parameter_types! {
 	/// The amount of weight an XCM operation takes. This is a safe overestimate.
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000_000_000, 64 * 1024);
 	/// The asset ID for the asset that we use to pay for message delivery fees.
-	pub FeeAssetId: AssetId = Concrete(TokenLocation::get());
+	pub FeeAssetId: AssetId = AssetId(TokenLocation::get());
 	/// The base fee for the message delivery fees.
 	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
 }
@@ -113,21 +117,25 @@ pub type XcmRouter = WithUniqueTopic<
 >;
 
 parameter_types! {
-	pub const Roc: MultiAssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
-	pub const AssetHub: MultiLocation = Parachain(ASSET_HUB_ID).into_location();
-	pub const Contracts: MultiLocation = Parachain(CONTRACTS_ID).into_location();
-	pub const Encointer: MultiLocation = Parachain(ENCOINTER_ID).into_location();
-	pub const BridgeHub: MultiLocation = Parachain(BRIDGE_HUB_ID).into_location();
-	pub const Tick: MultiLocation = Parachain(100).into_location();
-	pub const Trick: MultiLocation = Parachain(110).into_location();
-	pub const Track: MultiLocation = Parachain(120).into_location();
-	pub const RocForTick: (MultiAssetFilter, MultiLocation) = (Roc::get(), Tick::get());
-	pub const RocForTrick: (MultiAssetFilter, MultiLocation) = (Roc::get(), Trick::get());
-	pub const RocForTrack: (MultiAssetFilter, MultiLocation) = (Roc::get(), Track::get());
-	pub const RocForAssetHub: (MultiAssetFilter, MultiLocation) = (Roc::get(), AssetHub::get());
-	pub const RocForContracts: (MultiAssetFilter, MultiLocation) = (Roc::get(), Contracts::get());
-	pub const RocForEncointer: (MultiAssetFilter, MultiLocation) = (Roc::get(), Encointer::get());
-	pub const RocForBridgeHub: (MultiAssetFilter, MultiLocation) = (Roc::get(), BridgeHub::get());
+	pub Roc: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) });
+	pub AssetHub: Location = Parachain(ASSET_HUB_ID).into_location();
+	pub Contracts: Location = Parachain(CONTRACTS_ID).into_location();
+	pub Encointer: Location = Parachain(ENCOINTER_ID).into_location();
+	pub BridgeHub: Location = Parachain(BRIDGE_HUB_ID).into_location();
+	pub People: Location = Parachain(PEOPLE_ID).into_location();
+	pub Broker: Location = Parachain(BROKER_ID).into_location();
+	pub Tick: Location = Parachain(100).into_location();
+	pub Trick: Location = Parachain(110).into_location();
+	pub Track: Location = Parachain(120).into_location();
+	pub RocForTick: (AssetFilter, Location) = (Roc::get(), Tick::get());
+	pub RocForTrick: (AssetFilter, Location) = (Roc::get(), Trick::get());
+	pub RocForTrack: (AssetFilter, Location) = (Roc::get(), Track::get());
+	pub RocForAssetHub: (AssetFilter, Location) = (Roc::get(), AssetHub::get());
+	pub RocForContracts: (AssetFilter, Location) = (Roc::get(), Contracts::get());
+	pub RocForEncointer: (AssetFilter, Location) = (Roc::get(), Encointer::get());
+	pub RocForBridgeHub: (AssetFilter, Location) = (Roc::get(), BridgeHub::get());
+	pub RocForPeople: (AssetFilter, Location) = (Roc::get(), People::get());
+	pub RocForBroker: (AssetFilter, Location) = (Roc::get(), Broker::get());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
@@ -139,12 +147,22 @@ pub type TrustedTeleporters = (
 	xcm_builder::Case<RocForContracts>,
 	xcm_builder::Case<RocForEncointer>,
 	xcm_builder::Case<RocForBridgeHub>,
+	xcm_builder::Case<RocForPeople>,
+	xcm_builder::Case<RocForBroker>,
 );
 
-match_types! {
-	pub type OnlyParachains: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 0, interior: X1(Parachain(_)) }
-	};
+pub struct OnlyParachains;
+impl Contains<Location> for OnlyParachains {
+	fn contains(loc: &Location) -> bool {
+		matches!(loc.unpack(), (0, [Parachain(_)]))
+	}
+}
+
+pub struct LocalPlurality;
+impl Contains<Location> for LocalPlurality {
+	fn contains(loc: &Location) -> bool {
+		matches!(loc.unpack(), (0, [Plurality { .. }]))
+	}
 }
 
 /// The barriers one of which must be passed for an XCM message to be executed.
@@ -166,6 +184,10 @@ pub type Barrier = TrailingSetTopicAsId<(
 		ConstU32<8>,
 	>,
 )>;
+
+/// Locations that will not be charged fees in the executor, neither for execution nor delivery.
+/// We only waive fees for system functions, which these locations represent.
+pub type WaivedLocations = (SystemParachains, Equals<RootLocation>, LocalPlurality);
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
@@ -193,7 +215,7 @@ impl xcm_executor::Config for XcmConfig {
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type FeeManager = XcmFeeManagerFromComponents<
-		SystemParachains,
+		WaivedLocations,
 		XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
 	>;
 	type MessageExporter = ();
@@ -201,6 +223,7 @@ impl xcm_executor::Config for XcmConfig {
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
+	type TransactionalProcessor = FrameTransactionalProcessor;
 }
 
 parameter_types! {
@@ -211,26 +234,26 @@ parameter_types! {
 	pub const FellowsBodyId: BodyId = BodyId::Technical;
 }
 
-/// Type to convert an `Origin` type value into a `MultiLocation` value which represents an interior
+/// Type to convert an `Origin` type value into a `Location` value which represents an interior
 /// location of this chain.
 pub type LocalOriginToLocation = (
 	// And a usual Signed origin to be used in XCM as a corresponding AccountId32
 	SignedToAccountId32<RuntimeOrigin, AccountId, ThisNetwork>,
 );
 
-/// Type to convert the `StakingAdmin` origin to a Plurality `MultiLocation` value.
+/// Type to convert the `StakingAdmin` origin to a Plurality `Location` value.
 pub type StakingAdminToPlurality =
 	OriginToPluralityVoice<RuntimeOrigin, StakingAdmin, StakingAdminBodyId>;
 
-/// Type to convert the Fellows origin to a Plurality `MultiLocation` value.
+/// Type to convert the Fellows origin to a Plurality `Location` value.
 pub type FellowsToPlurality = OriginToPluralityVoice<RuntimeOrigin, Fellows, FellowsBodyId>;
 
-/// Type to convert a pallet `Origin` type value into a `MultiLocation` value which represents an
+/// Type to convert a pallet `Origin` type value into a `Location` value which represents an
 /// interior location of this chain for a destination chain.
 pub type LocalPalletOriginToLocation = (
-	// StakingAdmin origin to be used in XCM as a corresponding Plurality `MultiLocation` value.
+	// StakingAdmin origin to be used in XCM as a corresponding Plurality `Location` value.
 	StakingAdminToPlurality,
-	// Fellows origin to be used in XCM as a corresponding Plurality `MultiLocation` value.
+	// Fellows origin to be used in XCM as a corresponding Plurality `Location` value.
 	FellowsToPlurality,
 );
 

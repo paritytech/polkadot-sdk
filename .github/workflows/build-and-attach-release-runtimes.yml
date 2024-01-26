@@ -3,7 +3,7 @@ name: Build and Attach Runtimes to Releases/RC
 on:
   release:
     types:
-      - created
+      - published
 
 env:
   PROFILE: production
@@ -23,7 +23,7 @@ jobs:
           - { name: glutton-westend, package: glutton-westend-runtime, path: cumulus/parachains/runtimes/glutton/glutton-westend }
         build_config:
           # Release build has logging disabled and no dev features
-          - { type: on-chain-release, opts: --features on-chain-release-build } 
+          - { type: on-chain-release, opts: --features on-chain-release-build }
           # Debug build has logging enabled and developer features
           - { type: dev-debug-build, opts: --features try-runtime }
 
@@ -31,11 +31,11 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
     - name: Build ${{ matrix.runtime.name }} ${{ matrix.build_config.type }}
       id: srtool_build
-      uses: chevdor/srtool-actions@v0.9.0
+      uses: chevdor/srtool-actions@v0.9.2
       env:
         BUILD_OPTS: ${{ matrix.build_config.opts }}
       with:
@@ -43,12 +43,6 @@ jobs:
         package: ${{ matrix.runtime.package }}
         runtime_dir: ${{ matrix.runtime.path }}
         profile: ${{ env.PROFILE }}
-
-    - name: Build Summary
-      run: |
-        echo "${{ steps.srtool_build.outputs.json }}" | jq . > ${{ matrix.runtime.name }}-srtool-digest.json
-        cat ${{ matrix.runtime.name }}-srtool-digest.json
-        echo "Runtime location: ${{ steps.srtool_build.outputs.wasm }}"
 
     - name: Set up paths and runtime names
       id: setup

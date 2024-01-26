@@ -22,7 +22,10 @@
     "/dns/statemine-boot-ng.dwellir.com/tcp/30343/p2p/12D3KooWQNJKBaNfW6Nn7HZDi5pSSEFmHL2Qz7chr9RksQUDR1Wk",
     "/dns/statemine-boot-ng.dwellir.com/tcp/443/wss/p2p/12D3KooWQNJKBaNfW6Nn7HZDi5pSSEFmHL2Qz7chr9RksQUDR1Wk",
     "/dns/statemine-bootnode.radiumblock.com/tcp/30333/p2p/12D3KooWCKUrE5uaXQ288ko3Ex3zCyozyJLG47KEYTopinnXNtYL",
-    "/dns/statemine-bootnode.radiumblock.com/tcp/30336/wss/p2p/12D3KooWCKUrE5uaXQ288ko3Ex3zCyozyJLG47KEYTopinnXNtYL"
+    "/dns/statemine-bootnode.radiumblock.com/tcp/30336/wss/p2p/12D3KooWCKUrE5uaXQ288ko3Ex3zCyozyJLG47KEYTopinnXNtYL",
+    "/dns/mine14.rotko.net/tcp/33524/p2p/12D3KooWJUFnjR2PNbsJhudwPVaWCoZy1acPGKjM2cSuGj345BBu",
+    "/dns/mine14.rotko.net/tcp/34524/ws/p2p/12D3KooWJUFnjR2PNbsJhudwPVaWCoZy1acPGKjM2cSuGj345BBu",
+    "/dns/mine14.rotko.net/tcp/35524/wss/p2p/12D3KooWJUFnjR2PNbsJhudwPVaWCoZy1acPGKjM2cSuGj345BBu"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

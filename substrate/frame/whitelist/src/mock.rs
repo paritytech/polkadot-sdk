@@ -22,7 +22,7 @@
 use crate as pallet_whitelist;
 
 use frame_support::{
-	construct_runtime,
+	construct_runtime, derive_impl,
 	traits::{ConstU32, ConstU64, Nothing},
 };
 use frame_system::EnsureRoot;
@@ -44,6 +44,7 @@ construct_runtime!(
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = Nothing;
 	type BlockWeights = ();

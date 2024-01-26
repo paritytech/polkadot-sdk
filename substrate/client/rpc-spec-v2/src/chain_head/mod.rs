@@ -42,10 +42,3 @@ pub use event::{
 	BestBlockChanged, ErrorEvent, Finalized, FollowEvent, Initialized, NewBlock, RuntimeEvent,
 	RuntimeVersionEvent,
 };
-
-use sp_core::hexdisplay::{AsBytesRef, HexDisplay};
-
-/// Util function to print the results of `chianHead` as hex string
-pub(crate) fn hex_string<Data: AsBytesRef>(data: &Data) -> String {
-	format!("0x{:?}", HexDisplay::from(data))
-}

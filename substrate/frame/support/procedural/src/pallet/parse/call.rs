@@ -26,6 +26,7 @@ use syn::{spanned::Spanned, ExprClosure};
 mod keyword {
 	syn::custom_keyword!(Call);
 	syn::custom_keyword!(OriginFor);
+	syn::custom_keyword!(RuntimeOrigin);
 	syn::custom_keyword!(weight);
 	syn::custom_keyword!(call_index);
 	syn::custom_keyword!(compact);
@@ -84,6 +85,8 @@ pub struct CallVariantDef {
 	pub docs: Vec<syn::Expr>,
 	/// Attributes annotated at the top of the dispatchable function.
 	pub attrs: Vec<syn::Attribute>,
+	/// The `cfg` attributes.
+	pub cfg_attrs: Vec<syn::Attribute>,
 	/// The optional `feeless_if` attribute on the `pallet::call`.
 	pub feeless_check: Option<syn::ExprClosure>,
 }
@@ -158,10 +161,10 @@ impl syn::parse::Parse for ArgAttrIsCompact {
 	}
 }
 
-/// Check the syntax is `OriginFor<T>` or `&OriginFor<T>`.
+/// Check the syntax is `OriginFor<T>`, `&OriginFor<T>` or `T::RuntimeOrigin`.
 pub fn check_dispatchable_first_arg_type(ty: &syn::Type, is_ref: bool) -> syn::Result<()> {
-	pub struct CheckDispatchableFirstArg(bool);
-	impl syn::parse::Parse for CheckDispatchableFirstArg {
+	pub struct CheckOriginFor(bool);
+	impl syn::parse::Parse for CheckOriginFor {
 		fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
 			let is_ref = input.parse::<syn::Token![&]>().is_ok();
 			input.parse::<keyword::OriginFor>()?;
@@ -173,14 +176,27 @@ pub fn check_dispatchable_first_arg_type(ty: &syn::Type, is_ref: bool) -> syn::R
 		}
 	}
 
-	let result = syn::parse2::<CheckDispatchableFirstArg>(ty.to_token_stream());
-	return match result {
-		Ok(CheckDispatchableFirstArg(has_ref)) if is_ref == has_ref => Ok(()),
-		_ => {
+	pub struct CheckRuntimeOrigin;
+	impl syn::parse::Parse for CheckRuntimeOrigin {
+		fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+			input.parse::<keyword::T>()?;
+			input.parse::<syn::Token![::]>()?;
+			input.parse::<keyword::RuntimeOrigin>()?;
+
+			Ok(Self)
+		}
+	}
+
+	let result_origin_for = syn::parse2::<CheckOriginFor>(ty.to_token_stream());
+	let result_runtime_origin = syn::parse2::<CheckRuntimeOrigin>(ty.to_token_stream());
+	return match (result_origin_for, result_runtime_origin) {
+		(Ok(CheckOriginFor(has_ref)), _) if is_ref == has_ref => Ok(()),
+		(_, Ok(_)) => Ok(()),
+		(_, _) => {
 			let msg = if is_ref {
 				"Invalid type: expected `&OriginFor<T>`"
 			} else {
-				"Invalid type: expected `OriginFor<T>`"
+				"Invalid type: expected `OriginFor<T>` or `T::RuntimeOrigin`"
 			};
 			return Err(syn::Error::new(ty.span(), msg))
 		},
@@ -252,6 +268,7 @@ impl CallDef {
 					return Err(syn::Error::new(method.sig.span(), msg))
 				}
 
+				let cfg_attrs: Vec<syn::Attribute> = helper::get_item_cfg_attrs(&method.attrs);
 				let mut call_idx_attrs = vec![];
 				let mut weight_attrs = vec![];
 				let mut feeless_attrs = vec![];
@@ -272,8 +289,7 @@ impl CallDef {
 				if weight_attrs.is_empty() && dev_mode {
 					// inject a default O(1) weight when dev mode is enabled and no weight has
 					// been specified on the call
-					let empty_weight: syn::Expr = syn::parse(quote::quote!(0).into())
-						.expect("we are parsing a quoted string; qed");
+					let empty_weight: syn::Expr = syn::parse_quote!(0);
 					weight_attrs.push(FunctionAttr::Weight(empty_weight));
 				}
 
@@ -282,8 +298,8 @@ impl CallDef {
 					0 if dev_mode => CallWeightDef::DevModeDefault,
 					0 => return Err(syn::Error::new(
 						method.sig.span(),
-						"A pallet::call requires either a concrete `#[pallet::weight($expr)]` or an 
-						inherited weight from the `#[pallet:call(weight($type))]` attribute, but 
+						"A pallet::call requires either a concrete `#[pallet::weight($expr)]` or an
+						inherited weight from the `#[pallet:call(weight($type))]` attribute, but
 						none were given.",
 					)),
 					1 => match weight_attrs.pop().unwrap() {
@@ -429,6 +445,7 @@ impl CallDef {
 					args,
 					docs,
 					attrs: method.attrs.clone(),
+					cfg_attrs,
 					feeless_check,
 				});
 			} else {

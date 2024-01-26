@@ -16,7 +16,7 @@
 use super::*;
 use crate as collator_selection;
 use frame_support::{
-	ord_parameter_types, parameter_types,
+	derive_impl, ord_parameter_types, parameter_types,
 	traits::{ConstBool, ConstU32, ConstU64, FindAuthor, ValidatorRegistration},
 	PalletId,
 };
@@ -50,6 +50,7 @@ parameter_types! {
 	pub const SS58Prefix: u8 = 42;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();

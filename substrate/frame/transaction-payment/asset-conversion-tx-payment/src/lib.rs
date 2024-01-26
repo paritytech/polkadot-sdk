@@ -69,7 +69,6 @@ mod tests;
 
 mod payment;
 use frame_support::traits::tokens::AssetId;
-use pallet_asset_conversion::MultiAssetIdConverter;
 pub use payment::*;
 
 /// Type aliases used for interaction with `OnChargeTransaction`.

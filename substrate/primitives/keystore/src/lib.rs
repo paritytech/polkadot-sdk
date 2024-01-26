@@ -92,19 +92,19 @@ pub trait Keystore: Send + Sync {
 		data: &sr25519::vrf::VrfSignData,
 	) -> Result<Option<sr25519::vrf::VrfSignature>, Error>;
 
-	/// Generate an sr25519 VRF output for a given input data.
+	/// Generate an sr25519 VRF pre-output for a given input data.
 	///
 	/// Receives [`KeyTypeId`] and an [`sr25519::Public`] key to be able to map
 	/// them to a private key that exists in the keystore.
 	///
 	/// Returns `None` if the given `key_type` and `public` combination doesn't
 	/// exist in the keystore or an `Err` when something failed.
-	fn sr25519_vrf_output(
+	fn sr25519_vrf_pre_output(
 		&self,
 		key_type: KeyTypeId,
 		public: &sr25519::Public,
 		input: &sr25519::vrf::VrfInput,
-	) -> Result<Option<sr25519::vrf::VrfOutput>, Error>;
+	) -> Result<Option<sr25519::vrf::VrfPreOutput>, Error>;
 
 	/// Returns all ed25519 public keys for the given key type.
 	fn ed25519_public_keys(&self, key_type: KeyTypeId) -> Vec<ed25519::Public>;
@@ -223,7 +223,7 @@ pub trait Keystore: Send + Sync {
 		input: &bandersnatch::vrf::VrfSignData,
 	) -> Result<Option<bandersnatch::vrf::VrfSignature>, Error>;
 
-	/// Generate a bandersnatch VRF (pre)output for a given input data.
+	/// Generate a bandersnatch VRF pre-output for a given input data.
 	///
 	/// Receives [`KeyTypeId`] and an [`bandersnatch::Public`] key to be able to map
 	/// them to a private key that exists in the keystore.
@@ -231,12 +231,12 @@ pub trait Keystore: Send + Sync {
 	/// Returns `None` if the given `key_type` and `public` combination doesn't
 	/// exist in the keystore or an `Err` when something failed.
 	#[cfg(feature = "bandersnatch-experimental")]
-	fn bandersnatch_vrf_output(
+	fn bandersnatch_vrf_pre_output(
 		&self,
 		key_type: KeyTypeId,
 		public: &bandersnatch::Public,
 		input: &bandersnatch::vrf::VrfInput,
-	) -> Result<Option<bandersnatch::vrf::VrfOutput>, Error>;
+	) -> Result<Option<bandersnatch::vrf::VrfPreOutput>, Error>;
 
 	/// Generate a bandersnatch ring-VRF signature for the given data.
 	///
@@ -474,13 +474,13 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 		(**self).sr25519_vrf_sign(key_type, public, data)
 	}
 
-	fn sr25519_vrf_output(
+	fn sr25519_vrf_pre_output(
 		&self,
 		key_type: KeyTypeId,
 		public: &sr25519::Public,
 		input: &sr25519::vrf::VrfInput,
-	) -> Result<Option<sr25519::vrf::VrfOutput>, Error> {
-		(**self).sr25519_vrf_output(key_type, public, input)
+	) -> Result<Option<sr25519::vrf::VrfPreOutput>, Error> {
+		(**self).sr25519_vrf_pre_output(key_type, public, input)
 	}
 
 	fn ed25519_public_keys(&self, key_type: KeyTypeId) -> Vec<ed25519::Public> {
@@ -569,13 +569,13 @@ impl<T: Keystore + ?Sized> Keystore for Arc<T> {
 	}
 
 	#[cfg(feature = "bandersnatch-experimental")]
-	fn bandersnatch_vrf_output(
+	fn bandersnatch_vrf_pre_output(
 		&self,
 		key_type: KeyTypeId,
 		public: &bandersnatch::Public,
 		input: &bandersnatch::vrf::VrfInput,
-	) -> Result<Option<bandersnatch::vrf::VrfOutput>, Error> {
-		(**self).bandersnatch_vrf_output(key_type, public, input)
+	) -> Result<Option<bandersnatch::vrf::VrfPreOutput>, Error> {
+		(**self).bandersnatch_vrf_pre_output(key_type, public, input)
 	}
 
 	#[cfg(feature = "bandersnatch-experimental")]

@@ -40,8 +40,8 @@ use sp_core::Pair;
 
 use jsonrpsee::RpcModule;
 
-use crate::rpc;
-pub use parachains_common::{AccountId, Balance, Block, BlockNumber, Hash, Header, Nonce};
+use crate::{fake_runtime_api::aura::RuntimeApi, rpc};
+pub use parachains_common::{AccountId, Balance, Block, Hash, Header, Nonce};
 
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use futures::{lock::Mutex, prelude::*};
@@ -96,39 +96,8 @@ impl sc_executor::NativeExecutionDispatch for ShellRuntimeExecutor {
 	}
 }
 
-/// Native Asset Hub Polkadot (Statemint) executor instance.
-pub struct AssetHubPolkadotRuntimeExecutor;
-
-impl sc_executor::NativeExecutionDispatch for AssetHubPolkadotRuntimeExecutor {
-	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
-
-	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		asset_hub_polkadot_runtime::api::dispatch(method, data)
-	}
-
-	fn native_version() -> sc_executor::NativeVersion {
-		asset_hub_polkadot_runtime::native_version()
-	}
-}
-
-/// Native Asset Hub Kusama (Statemine) executor instance.
-pub struct AssetHubKusamaExecutor;
-
-impl sc_executor::NativeExecutionDispatch for AssetHubKusamaExecutor {
-	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
-
-	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		asset_hub_kusama_runtime::api::dispatch(method, data)
-	}
-
-	fn native_version() -> sc_executor::NativeVersion {
-		asset_hub_kusama_runtime::native_version()
-	}
-}
-
 /// Native Asset Hub Westend (Westmint) executor instance.
 pub struct AssetHubWestendExecutor;
-
 impl sc_executor::NativeExecutionDispatch for AssetHubWestendExecutor {
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 
@@ -138,21 +107,6 @@ impl sc_executor::NativeExecutionDispatch for AssetHubWestendExecutor {
 
 	fn native_version() -> sc_executor::NativeVersion {
 		asset_hub_westend_runtime::native_version()
-	}
-}
-
-/// Native Polkadot Collectives executor instance.
-pub struct CollectivesPolkadotRuntimeExecutor;
-
-impl sc_executor::NativeExecutionDispatch for CollectivesPolkadotRuntimeExecutor {
-	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
-
-	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		collectives_polkadot_runtime::api::dispatch(method, data)
-	}
-
-	fn native_version() -> sc_executor::NativeVersion {
-		collectives_polkadot_runtime::native_version()
 	}
 }
 
@@ -171,39 +125,8 @@ impl sc_executor::NativeExecutionDispatch for CollectivesWestendRuntimeExecutor 
 	}
 }
 
-/// Native BridgeHubPolkadot executor instance.
-pub struct BridgeHubPolkadotRuntimeExecutor;
-
-impl sc_executor::NativeExecutionDispatch for BridgeHubPolkadotRuntimeExecutor {
-	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
-
-	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		bridge_hub_polkadot_runtime::api::dispatch(method, data)
-	}
-
-	fn native_version() -> sc_executor::NativeVersion {
-		bridge_hub_polkadot_runtime::native_version()
-	}
-}
-
-/// Native BridgeHubKusama executor instance.
-pub struct BridgeHubKusamaRuntimeExecutor;
-
-impl sc_executor::NativeExecutionDispatch for BridgeHubKusamaRuntimeExecutor {
-	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
-
-	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		bridge_hub_kusama_runtime::api::dispatch(method, data)
-	}
-
-	fn native_version() -> sc_executor::NativeVersion {
-		bridge_hub_kusama_runtime::native_version()
-	}
-}
-
 /// Native BridgeHubRococo executor instance.
 pub struct BridgeHubRococoRuntimeExecutor;
-
 impl sc_executor::NativeExecutionDispatch for BridgeHubRococoRuntimeExecutor {
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 
@@ -216,9 +139,32 @@ impl sc_executor::NativeExecutionDispatch for BridgeHubRococoRuntimeExecutor {
 	}
 }
 
+/// Native `CoretimeRococo` executor instance.
+pub struct CoretimeRococoRuntimeExecutor;
+impl sc_executor::NativeExecutionDispatch for CoretimeRococoRuntimeExecutor {
+	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+		coretime_rococo_runtime::api::dispatch(method, data)
+	}
+	fn native_version() -> sc_executor::NativeVersion {
+		coretime_rococo_runtime::native_version()
+	}
+}
+
+/// Native `CoretimeWestend` executor instance.
+pub struct CoretimeWestendRuntimeExecutor;
+impl sc_executor::NativeExecutionDispatch for CoretimeWestendRuntimeExecutor {
+	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+		coretime_westend_runtime::api::dispatch(method, data)
+	}
+	fn native_version() -> sc_executor::NativeVersion {
+		coretime_westend_runtime::native_version()
+	}
+}
+
 /// Native contracts executor instance.
 pub struct ContractsRococoRuntimeExecutor;
-
 impl sc_executor::NativeExecutionDispatch for ContractsRococoRuntimeExecutor {
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
 
@@ -246,20 +192,39 @@ impl sc_executor::NativeExecutionDispatch for GluttonWestendRuntimeExecutor {
 	}
 }
 
-/// Native Glutton executor instance.
-pub struct GluttonRuntimeExecutor;
-
-impl sc_executor::NativeExecutionDispatch for GluttonRuntimeExecutor {
+/// Native `PeopleWestend` executor instance.
+pub struct PeopleWestendRuntimeExecutor;
+impl sc_executor::NativeExecutionDispatch for PeopleWestendRuntimeExecutor {
 	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
-
 	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		shell_runtime::api::dispatch(method, data)
+		people_westend_runtime::api::dispatch(method, data)
 	}
-
 	fn native_version() -> sc_executor::NativeVersion {
-		shell_runtime::native_version()
+		people_westend_runtime::native_version()
 	}
 }
+
+/// Native `PeopleRococo` executor instance.
+pub struct PeopleRococoRuntimeExecutor;
+impl sc_executor::NativeExecutionDispatch for PeopleRococoRuntimeExecutor {
+	type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
+		people_rococo_runtime::api::dispatch(method, data)
+	}
+	fn native_version() -> sc_executor::NativeVersion {
+		people_rococo_runtime::native_version()
+	}
+}
+
+/// Assembly of PartialComponents (enough to run chain ops subcommands)
+pub type Service<RuntimeApi> = PartialComponents<
+	ParachainClient<RuntimeApi>,
+	ParachainBackend,
+	(),
+	sc_consensus::DefaultImportQueue<Block>,
+	sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>,
+	(ParachainBlockImport<RuntimeApi>, Option<Telemetry>, Option<TelemetryWorkerHandle>),
+>;
 
 /// Starts a `ServiceBuilder` for a full service.
 ///
@@ -268,17 +233,7 @@ impl sc_executor::NativeExecutionDispatch for GluttonRuntimeExecutor {
 pub fn new_partial<RuntimeApi, BIQ>(
 	config: &Configuration,
 	build_import_queue: BIQ,
-) -> Result<
-	PartialComponents<
-		ParachainClient<RuntimeApi>,
-		ParachainBackend,
-		(),
-		sc_consensus::DefaultImportQueue<Block>,
-		sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>,
-		(ParachainBlockImport<RuntimeApi>, Option<Telemetry>, Option<TelemetryWorkerHandle>),
-	>,
-	sc_service::Error,
->
+) -> Result<Service<RuntimeApi>, sc_service::Error>
 where
 	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
 	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
@@ -590,6 +545,7 @@ where
 		CollatorPair,
 		OverseerHandle,
 		Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
+		Arc<ParachainBackend>,
 	) -> Result<(), sc_service::Error>,
 {
 	let parachain_config = prepare_node_config(parachain_config);
@@ -723,6 +679,7 @@ where
 			collator_key.expect("Command line arguments do not allow this. qed"),
 			overseer_handle,
 			announce_block,
+			backend.clone(),
 		)?;
 	}
 
@@ -915,8 +872,8 @@ where
 
 /// Build the import queue for the rococo parachain runtime.
 pub fn rococo_parachain_build_import_queue(
-	client: Arc<ParachainClient<rococo_parachain_runtime::RuntimeApi>>,
-	block_import: ParachainBlockImport<rococo_parachain_runtime::RuntimeApi>,
+	client: Arc<ParachainClient<RuntimeApi>>,
+	block_import: ParachainBlockImport<RuntimeApi>,
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	task_manager: &TaskManager,
@@ -958,11 +915,8 @@ pub async fn start_rococo_parachain_node(
 	collator_options: CollatorOptions,
 	para_id: ParaId,
 	hwbench: Option<sc_sysinfo::HwBench>,
-) -> sc_service::error::Result<(
-	TaskManager,
-	Arc<ParachainClient<rococo_parachain_runtime::RuntimeApi>>,
-)> {
-	start_node_impl::<rococo_parachain_runtime::RuntimeApi, _, _, _>(
+) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<RuntimeApi>>)> {
+	start_node_impl::<RuntimeApi, _, _, _>(
 		parachain_config,
 		polkadot_config,
 		collator_options,
@@ -983,7 +937,8 @@ pub async fn start_rococo_parachain_node(
 		 para_id,
 		 collator_key,
 		 overseer_handle,
-		 announce_block| {
+		 announce_block,
+		 backend| {
 			let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
 
 			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
@@ -1002,11 +957,15 @@ pub async fn start_rococo_parachain_node(
 				client.clone(),
 			);
 
-			let params = BasicAuraParams {
+			let params = AuraParams {
 				create_inherent_data_providers: move |_, ()| async move { Ok(()) },
 				block_import,
-				para_client: client,
+				para_client: client.clone(),
+				para_backend: backend.clone(),
 				relay_client: relay_chain_interface,
+				code_hash_provider: move |block_hash| {
+					client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
+				},
 				sync_oracle,
 				keystore,
 				collator_key,
@@ -1016,14 +975,15 @@ pub async fn start_rococo_parachain_node(
 				relay_chain_slot_duration,
 				proposer,
 				collator_service,
-				// Very limited proposal time.
-				authoring_duration: Duration::from_millis(500),
-				collation_request_receiver: None,
+				authoring_duration: Duration::from_millis(1500),
+				reinitialize: false,
 			};
 
-			let fut = basic_aura::run::<
+			let fut = aura::run::<
 				Block,
 				sp_consensus_aura::sr25519::AuthorityPair,
+				_,
+				_,
 				_,
 				_,
 				_,
@@ -1126,7 +1086,7 @@ where
 						let relay_chain_interface = relay_chain_interface.clone();
 						async move {
 							let parachain_inherent =
-							cumulus_primitives_parachain_inherent::ParachainInherentData::create_at(
+							cumulus_client_parachain_inherent::ParachainInherentDataProvider::create_at(
 								relay_parent,
 								&relay_chain_interface,
 								&validation_data,
@@ -1332,7 +1292,7 @@ where
 	Ok(BasicQueue::new(verifier, Box::new(block_import), None, &spawner, registry))
 }
 
-/// Start an aura powered parachain node. Asset Hub and Collectives use this.
+/// Start an aura powered parachain node. Collectives uses this.
 pub async fn start_generic_aura_node<RuntimeApi, AuraId: AppCrypto>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
@@ -1376,7 +1336,8 @@ where
 		 para_id,
 		 collator_key,
 		 overseer_handle,
-		 announce_block| {
+		 announce_block,
+		 _backend| {
 			let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
 
 			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
@@ -1471,7 +1432,8 @@ where
 		 para_id,
 		 collator_key,
 		 overseer_handle,
-		 announce_block| {
+		 announce_block,
+		 _backend| {
 			let relay_chain_interface2 = relay_chain_interface.clone();
 
 			let collator_service = CollatorService::new(
@@ -1569,6 +1531,159 @@ where
 	.await
 }
 
+/// Start a shell node which should later transition into an Aura powered parachain node. Asset Hub
+/// uses this because at genesis, Asset Hub was on the `shell` runtime which didn't have Aura and
+/// needs to sync and upgrade before it can run `AuraApi` functions.
+///
+/// Uses the lookahead collator to support async backing.
+#[sc_tracing::logging::prefix_logs_with("Parachain")]
+pub async fn start_asset_hub_lookahead_node<RuntimeApi, AuraId: AppCrypto + Send + Codec + Sync>(
+	parachain_config: Configuration,
+	polkadot_config: Configuration,
+	collator_options: CollatorOptions,
+	para_id: ParaId,
+	hwbench: Option<sc_sysinfo::HwBench>,
+) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<RuntimeApi>>)>
+where
+	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
+	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
+		+ sp_api::Metadata<Block>
+		+ sp_session::SessionKeys<Block>
+		+ sp_api::ApiExt<Block>
+		+ sp_offchain::OffchainWorkerApi<Block>
+		+ sp_block_builder::BlockBuilder<Block>
+		+ cumulus_primitives_core::CollectCollationInfo<Block>
+		+ sp_consensus_aura::AuraApi<Block, <<AuraId as AppCrypto>::Pair as Pair>::Public>
+		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
+		+ frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
+		+ cumulus_primitives_aura::AuraUnincludedSegmentApi<Block>,
+	<<AuraId as AppCrypto>::Pair as Pair>::Signature:
+		TryFrom<Vec<u8>> + std::hash::Hash + sp_runtime::traits::Member + Codec,
+{
+	start_node_impl::<RuntimeApi, _, _, _>(
+		parachain_config,
+		polkadot_config,
+		collator_options,
+		CollatorSybilResistance::Resistant, // Aura
+		para_id,
+		|_| Ok(RpcModule::new(())),
+		aura_build_import_queue::<_, AuraId>,
+		|client,
+		 block_import,
+		 prometheus_registry,
+		 telemetry,
+		 task_manager,
+		 relay_chain_interface,
+		 transaction_pool,
+		 sync_oracle,
+		 keystore,
+		 relay_chain_slot_duration,
+		 para_id,
+		 collator_key,
+		 overseer_handle,
+		 announce_block,
+		 backend| {
+			let relay_chain_interface2 = relay_chain_interface.clone();
+
+			let collator_service = CollatorService::new(
+				client.clone(),
+				Arc::new(task_manager.spawn_handle()),
+				announce_block,
+				client.clone(),
+			);
+
+			let spawner = task_manager.spawn_handle();
+
+			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
+				spawner,
+				client.clone(),
+				transaction_pool,
+				prometheus_registry,
+				telemetry.clone(),
+			);
+
+			let collation_future = Box::pin(async move {
+				// Start collating with the `shell` runtime while waiting for an upgrade to an Aura
+				// compatible runtime.
+				let mut request_stream = cumulus_client_collator::relay_chain_driven::init(
+					collator_key.clone(),
+					para_id,
+					overseer_handle.clone(),
+				)
+				.await;
+				while let Some(request) = request_stream.next().await {
+					let pvd = request.persisted_validation_data().clone();
+					let last_head_hash =
+						match <Block as BlockT>::Header::decode(&mut &pvd.parent_head.0[..]) {
+							Ok(header) => header.hash(),
+							Err(e) => {
+								log::error!("Could not decode the head data: {e}");
+								request.complete(None);
+								continue
+							},
+						};
+
+					// Check if we have upgraded to an Aura compatible runtime and transition if
+					// necessary.
+					if client
+						.runtime_api()
+						.has_api::<dyn AuraApi<Block, AuraId>>(last_head_hash)
+						.unwrap_or(false)
+					{
+						// Respond to this request before transitioning to Aura.
+						request.complete(None);
+						break
+					}
+				}
+
+				// Move to Aura consensus.
+				let slot_duration = match cumulus_client_consensus_aura::slot_duration(&*client) {
+					Ok(d) => d,
+					Err(e) => {
+						log::error!("Could not get Aura slot duration: {e}");
+						return
+					},
+				};
+
+				let proposer = Proposer::new(proposer_factory);
+
+				let params = AuraParams {
+					create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+					block_import,
+					para_client: client.clone(),
+					para_backend: backend,
+					relay_client: relay_chain_interface2,
+					code_hash_provider: move |block_hash| {
+						client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
+					},
+					sync_oracle,
+					keystore,
+					collator_key,
+					para_id,
+					overseer_handle,
+					slot_duration,
+					relay_chain_slot_duration,
+					proposer,
+					collator_service,
+					authoring_duration: Duration::from_millis(1500),
+					reinitialize: true, /* we need to always re-initialize for asset-hub moving
+					                     * to aura */
+				};
+
+				aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(params)
+					.await
+			});
+
+			let spawner = task_manager.spawn_essential_handle();
+			spawner.spawn_essential("cumulus-asset-hub-collator", None, collation_future);
+
+			Ok(())
+		},
+		hwbench,
+	)
+	.await
+}
+
 /// Start an aura powered parachain node which uses the lookahead collator to support async backing.
 /// This node is basic in the sense that its runtime api doesn't include common contents such as
 /// transaction payment. Used for aura glutton.
@@ -1642,7 +1757,7 @@ where
 				para_backend: backend.clone(),
 				relay_client: relay_chain_interface,
 				code_hash_provider: move |block_hash| {
-					client.code_at(block_hash).ok().map(ValidationCode).map(|c| c.hash())
+					client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
 				},
 				sync_oracle,
 				keystore,
@@ -1654,6 +1769,7 @@ where
 				proposer,
 				collator_service,
 				authoring_duration: Duration::from_millis(1500),
+				reinitialize: false,
 			};
 
 			let fut =
@@ -1713,6 +1829,7 @@ where
 		CollatorPair,
 		OverseerHandle,
 		Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
+		Arc<ParachainBackend>,
 	) -> Result<(), sc_service::Error>,
 {
 	let parachain_config = prepare_node_config(parachain_config);
@@ -1845,6 +1962,7 @@ where
 			collator_key.expect("Command line arguments do not allow this. qed"),
 			overseer_handle,
 			announce_block,
+			backend.clone(),
 		)?;
 	}
 
@@ -1855,8 +1973,8 @@ where
 
 #[allow(clippy::type_complexity)]
 pub fn contracts_rococo_build_import_queue(
-	client: Arc<ParachainClient<contracts_rococo_runtime::RuntimeApi>>,
-	block_import: ParachainBlockImport<contracts_rococo_runtime::RuntimeApi>,
+	client: Arc<ParachainClient<RuntimeApi>>,
+	block_import: ParachainBlockImport<RuntimeApi>,
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	task_manager: &TaskManager,
@@ -1898,11 +2016,8 @@ pub async fn start_contracts_rococo_node(
 	collator_options: CollatorOptions,
 	para_id: ParaId,
 	hwbench: Option<sc_sysinfo::HwBench>,
-) -> sc_service::error::Result<(
-	TaskManager,
-	Arc<ParachainClient<contracts_rococo_runtime::RuntimeApi>>,
-)> {
-	start_contracts_rococo_node_impl::<contracts_rococo_runtime::RuntimeApi, _, _, _>(
+) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<RuntimeApi>>)> {
+	start_contracts_rococo_node_impl::<RuntimeApi, _, _, _>(
 		parachain_config,
 		polkadot_config,
 		collator_options,
@@ -1923,7 +2038,8 @@ pub async fn start_contracts_rococo_node(
 		 para_id,
 		 collator_key,
 		 overseer_handle,
-		 announce_block| {
+		 announce_block,
+		 _backend| {
 			let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
 
 			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(

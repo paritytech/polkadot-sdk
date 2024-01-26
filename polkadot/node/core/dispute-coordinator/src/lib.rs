@@ -370,8 +370,10 @@ impl DisputeCoordinatorSubsystem {
 					},
 				};
 			let vote_state = CandidateVoteState::new(votes, &env, now);
-
-			let potential_spam = is_potential_spam(&scraper, &vote_state, candidate_hash);
+			let onchain_disabled = env.disabled_indices();
+			let potential_spam = is_potential_spam(&scraper, &vote_state, candidate_hash, |v| {
+				onchain_disabled.contains(v)
+			});
 			let is_included =
 				scraper.is_candidate_included(&vote_state.votes().candidate_receipt.hash());
 
@@ -462,17 +464,20 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> Result<Option<Activa
 /// Check wheter a dispute for the given candidate could be spam.
 ///
 /// That is the candidate could be made up.
-pub fn is_potential_spam<V>(
+pub fn is_potential_spam(
 	scraper: &ChainScraper,
-	vote_state: &CandidateVoteState<V>,
+	vote_state: &CandidateVoteState<CandidateVotes>,
 	candidate_hash: &CandidateHash,
+	is_disabled: impl FnMut(&ValidatorIndex) -> bool,
 ) -> bool {
 	let is_disputed = vote_state.is_disputed();
 	let is_included = scraper.is_candidate_included(candidate_hash);
 	let is_backed = scraper.is_candidate_backed(candidate_hash);
 	let is_confirmed = vote_state.is_confirmed();
+	let all_invalid_votes_disabled = vote_state.invalid_votes_all_disabled(is_disabled);
+	let ignore_disabled = !is_confirmed && all_invalid_votes_disabled;
 
-	is_disputed && !is_included && !is_backed && !is_confirmed
+	(is_disputed && !is_included && !is_backed && !is_confirmed) || ignore_disabled
 }
 
 /// Tell dispute-distribution to send all our votes.
@@ -576,7 +581,7 @@ pub fn make_dispute_message(
 				.next()
 				.ok_or(DisputeMessageCreationError::NoOppositeVote)?;
 			let other_vote = SignedDisputeStatement::new_checked(
-				DisputeStatement::Valid(*statement_kind),
+				DisputeStatement::Valid(statement_kind.clone()),
 				*our_vote.candidate_hash(),
 				our_vote.session_index(),
 				validators

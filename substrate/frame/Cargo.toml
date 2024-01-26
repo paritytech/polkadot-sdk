@@ -9,6 +9,9 @@ repository.workspace = true
 description = "The single package to get you started with building frame pallets and runtimes"
 publish = false
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 # enable `experimental` feature for docs
 features = ["experimental"]
@@ -17,7 +20,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 # external deps
 parity-scale-codec = { version = "3.2.2", default-features = false, features = ["derive"] }
-scale-info = {  version = "2.6.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.6.0", default-features = false, features = ["derive"] }
 
 # primitive deps, used for developing FRAME pallets.
 sp-runtime = { default-features = false, path = "../primitives/runtime" }
@@ -27,8 +30,8 @@ sp-core = { default-features = false, path = "../primitives/core" }
 sp-arithmetic = { default-features = false, path = "../primitives/arithmetic" }
 
 # frame deps, for developing FRAME pallets.
-frame-support = { default-features = false,  path = "support" }
-frame-system = { default-features = false,  path = "system" }
+frame-support = { default-features = false, path = "support" }
+frame-system = { default-features = false, path = "system" }
 
 # primitive types used for developing FRAME runtimes.
 sp-version = { default-features = false, path = "../primitives/version", optional = true }
@@ -44,16 +47,16 @@ sp-inherents = { default-features = false, path = "../primitives/inherents", opt
 frame-executive = { default-features = false, path = "../frame/executive", optional = true }
 frame-system-rpc-runtime-api = { default-features = false, path = "../frame/system/rpc/runtime-api", optional = true }
 
-docify = "0.2.0"
-simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", rev = "e48b187bcfd5cc75111acd9d241f1bd36604344b" }
+docify = "0.2.7"
+simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", rev = "e48b187bcfd5cc75111acd9d241f1bd36604344b", optional = true }
 log = { version = "0.4.20", default-features = false }
 
 [dev-dependencies]
 pallet-examples = { path = "./examples" }
 
 [features]
-default = [ "runtime", "std" ]
-experimental = [ "frame-support/experimental", "frame-system/experimental" ]
+default = ["runtime", "std"]
+experimental = ["frame-support/experimental"]
 runtime = [
 	"frame-executive",
 	"frame-system-rpc-runtime-api",
@@ -75,6 +78,7 @@ std = [
 	"log/std",
 	"parity-scale-codec/std",
 	"scale-info/std",
+	"simple-mermaid",
 	"sp-api?/std",
 	"sp-arithmetic/std",
 	"sp-block-builder?/std",

@@ -1,27 +1,21 @@
 #!/bin/bash
 
-function ensure_binaries() {
-    if [[ ! -f ~/local_bridge_testing/bin/polkadot ]]; then
-        echo "  Required polkadot binary '~/local_bridge_testing/bin/polkadot' does not exist!"
-        echo "  You need to build it and copy to this location!"
-        echo "  Please, check ./parachains/runtimes/bridge-hubs/README.md (Prepare/Build/Deploy)"
-        exit 1
-    fi
-    if [[ ! -f ~/local_bridge_testing/bin/polkadot-parachain ]]; then
-        echo "  Required polkadot-parachain binary '~/local_bridge_testing/bin/polkadot-parachain' does not exist!"
-        echo "  You need to build it and copy to this location!"
-        echo "  Please, check ./parachains/runtimes/bridge-hubs/README.md (Prepare/Build/Deploy)"
-        exit 1
-    fi
+function relayer_path() {
+    local default_path=~/local_bridge_testing/bin/substrate-relay
+    local path="${SUBSTRATE_RELAY_PATH:-$default_path}"
+    echo "$path"
 }
 
 function ensure_relayer() {
-    if [[ ! -f ~/local_bridge_testing/bin/substrate-relay ]]; then
-        echo "  Required substrate-relay binary '~/local_bridge_testing/bin/substrate-relay' does not exist!"
+    local path=$(relayer_path)
+    if [[ ! -f "$path" ]]; then
+        echo "  Required substrate-relay binary '$path' does not exist!"
         echo "  You need to build it and copy to this location!"
         echo "  Please, check ./parachains/runtimes/bridge-hubs/README.md (Prepare/Build/Deploy)"
         exit 1
     fi
+
+    echo $path
 }
 
 function ensure_polkadot_js_api() {
@@ -187,23 +181,25 @@ function open_hrmp_channels() {
             ${max_message_size}
 }
 
-function set_storage() {
+function force_xcm_version() {
     local relay_url=$1
     local relay_chain_seed=$2
     local runtime_para_id=$3
     local runtime_para_endpoint=$4
-    local items=$5
-    echo "  calling set_storage:"
+    local dest=$5
+    local xcm_version=$6
+    echo "  calling force_xcm_version:"
     echo "      relay_url: ${relay_url}"
     echo "      relay_chain_seed: ${relay_chain_seed}"
     echo "      runtime_para_id: ${runtime_para_id}"
     echo "      runtime_para_endpoint: ${runtime_para_endpoint}"
-    echo "      items: ${items}"
+    echo "      dest: ${dest}"
+    echo "      xcm_version: ${xcm_version}"
     echo "      params:"
 
-    # 1. generate data for Transact (System::set_storage)
+    # 1. generate data for Transact (PolkadotXcm::force_xcm_version)
     local tmp_output_file=$(mktemp)
-    generate_hex_encoded_call_data "set-storage" "${runtime_para_endpoint}" "${tmp_output_file}" "$items"
+    generate_hex_encoded_call_data "force-xcm-version" "${runtime_para_endpoint}" "${tmp_output_file}" "$dest" "$xcm_version"
     local hex_encoded_data=$(cat $tmp_output_file)
 
     # 2. trigger governance call

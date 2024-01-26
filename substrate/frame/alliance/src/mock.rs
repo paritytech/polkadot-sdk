@@ -20,15 +20,14 @@
 pub use sp_core::H256;
 use sp_runtime::traits::Hash;
 pub use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
+	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Lazy, Verify},
+	BuildStorage, MultiSignature,
 };
 use sp_std::convert::{TryFrom, TryInto};
 
 pub use frame_support::{
 	assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
-	traits::{EitherOfDiverse, SortedMembers},
-	BoundedVec,
+	traits::EitherOfDiverse, BoundedVec,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use pallet_identity::{
@@ -52,7 +51,7 @@ parameter_types! {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
-	type AccountData = pallet_balances::AccountData<AccountId>;
+	type AccountData = pallet_balances::AccountData<u64>;
 }
 
 parameter_types! {
@@ -105,6 +104,7 @@ parameter_types! {
 	pub const MaxSubAccounts: u32 = 2;
 	pub const MaxAdditionalFields: u32 = 2;
 	pub const MaxRegistrars: u32 = 20;
+	pub const PendingUsernameExpiration: u64 = 100;
 }
 ord_parameter_types! {
 	pub const One: u64 = 1;
@@ -128,7 +128,32 @@ impl pallet_identity::Config for Test {
 	type Slashed = ();
 	type RegistrarOrigin = EnsureOneOrRoot;
 	type ForceOrigin = EnsureTwoOrRoot;
+	type OffchainSignature = AccountU64;
+	type SigningPublicKey = AccountU64;
+	type UsernameAuthorityOrigin = EnsureOneOrRoot;
+	type PendingUsernameExpiration = PendingUsernameExpiration;
+	type MaxSuffixLength = ConstU32<7>;
+	type MaxUsernameLength = ConstU32<32>;
 	type WeightInfo = ();
+}
+
+#[derive(Clone, Debug, Encode, Decode, PartialEq, Eq, TypeInfo)]
+pub struct AccountU64(u64);
+impl IdentifyAccount for AccountU64 {
+	type AccountId = u64;
+	fn into_account(self) -> u64 {
+		0u64
+	}
+}
+impl Verify for AccountU64 {
+	type Signer = AccountU64;
+	fn verify<L: Lazy<[u8]>>(
+		&self,
+		_msg: L,
+		_signer: &<Self::Signer as IdentifyAccount>::AccountId,
+	) -> bool {
+		false
+	}
 }
 
 pub struct AllianceIdentityVerifier;
@@ -139,7 +164,7 @@ impl IdentityVerifier<AccountId> for AllianceIdentityVerifier {
 
 	fn has_good_judgement(who: &AccountId) -> bool {
 		if let Some(judgements) =
-			Identity::identity(who).map(|registration| registration.judgements)
+			Identity::identity(who).map(|(registration, _)| registration.judgements)
 		{
 			judgements
 				.iter()
@@ -363,7 +388,7 @@ pub fn new_bench_ext() -> sp_io::TestExternalities {
 }
 
 pub fn test_cid() -> Cid {
-	let result = sp_core_hashing::sha2_256(b"hello world");
+	let result = sp_crypto_hashing::sha2_256(b"hello world");
 	Cid::new_v0(result)
 }
 
