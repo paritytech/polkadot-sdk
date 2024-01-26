@@ -30,7 +30,20 @@ substrate-test-utils = { path = "../../test-utils" }
 [features]
 default = ["std"]
 bench = []
-std = ["codec/std", "scale-info/std", "serde/std", "sp-arithmetic/std", "sp-core/std", "sp-runtime/std"]
+std = [
+	"codec/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-arithmetic/std",
+	"sp-core/std",
+	"sp-runtime/std",
+]
 
 # Serde support without relying on std features.
-serde = ["dep:serde", "scale-info/serde", "sp-arithmetic/serde", "sp-core/serde", "sp-runtime/serde"]
+serde = [
+	"dep:serde",
+	"scale-info/serde",
+	"sp-arithmetic/serde",
+	"sp-core/serde",
+	"sp-runtime/serde",
+]

@@ -89,4 +89,10 @@ runtime-benchmarks = [
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 ]
-try-runtime = ["frame-support/try-runtime", "frame-system/try-runtime", "pallet-balances/try-runtime", "snowbridge-pallet-ethereum-client/try-runtime", "sp-runtime/try-runtime"]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
+	"snowbridge-pallet-ethereum-client/try-runtime",
+	"sp-runtime/try-runtime",
+]

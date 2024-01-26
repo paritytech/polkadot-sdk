@@ -59,4 +59,8 @@ std = [
 	"sp-runtime/std",
 	"sp-storage/std",
 ]
-runtime-benchmarks = ["frame-support/runtime-benchmarks", "frame-system/runtime-benchmarks", "sp-runtime/runtime-benchmarks"]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

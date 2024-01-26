@@ -52,4 +52,8 @@ std = [
 	"sp-keystore",
 	"sp-staking/std",
 ]
-runtime-benchmarks = ["polkadot-parachain-primitives/runtime-benchmarks", "runtime_primitives/runtime-benchmarks", "sp-staking/runtime-benchmarks"]
+runtime-benchmarks = [
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"runtime_primitives/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
+]

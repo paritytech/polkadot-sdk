@@ -24,6 +24,20 @@ cumulus-pallet-xcm = { path = "../../../pallets/xcm", default-features = false }
 
 [features]
 default = ["std"]
-std = ["codec/std", "cumulus-pallet-xcm/std", "cumulus-primitives-core/std", "frame-support/std", "frame-system/std", "scale-info/std", "sp-runtime/std", "xcm/std"]
+std = [
+	"codec/std",
+	"cumulus-pallet-xcm/std",
+	"cumulus-primitives-core/std",
+	"frame-support/std",
+	"frame-system/std",
+	"scale-info/std",
+	"sp-runtime/std",
+	"xcm/std",
+]
 
-try-runtime = ["cumulus-pallet-xcm/try-runtime", "frame-support/try-runtime", "frame-system/try-runtime", "sp-runtime/try-runtime"]
+try-runtime = [
+	"cumulus-pallet-xcm/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
+]

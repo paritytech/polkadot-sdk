@@ -26,4 +26,12 @@ sp-trie = { path = "../trie", optional = true }
 
 [features]
 default = ["std"]
-std = ["async-trait", "codec/std", "scale-info/std", "sp-core/std", "sp-inherents/std", "sp-runtime/std", "sp-trie/std"]
+std = [
+	"async-trait",
+	"codec/std",
+	"scale-info/std",
+	"sp-core/std",
+	"sp-inherents/std",
+	"sp-runtime/std",
+	"sp-trie/std",
+]

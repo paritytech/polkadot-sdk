@@ -24,7 +24,14 @@ sp-runtime = { path = "../../../primitives/runtime", default-features = false }
 
 [features]
 default = ["std"]
-std = ["codec/std", "frame-benchmarking?/std", "frame-election-provider-support/std", "frame-system/std", "sp-npos-elections/std", "sp-runtime/std"]
+std = [
+	"codec/std",
+	"frame-benchmarking?/std",
+	"frame-election-provider-support/std",
+	"frame-system/std",
+	"sp-npos-elections/std",
+	"sp-runtime/std",
+]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-election-provider-support/runtime-benchmarks",

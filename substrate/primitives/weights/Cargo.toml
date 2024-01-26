@@ -27,12 +27,24 @@ schemars = { version = "0.8.3", default-features = false, optional = true }
 
 [features]
 default = ["std"]
-std = ["bounded-collections/std", "codec/std", "scale-info/std", "serde/std", "sp-arithmetic/std", "sp-debug-derive/std"]
+std = [
+	"bounded-collections/std",
+	"codec/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-arithmetic/std",
+	"sp-debug-derive/std",
+]
 # By default some types have documentation, `full-metadata-docs` allows to add documentation to
 # more types in the metadata.
 full-metadata-docs = ["scale-info/docs"]
 
 # Serde support without relying on std features.
-serde = ["bounded-collections/serde", "dep:serde", "scale-info/serde", "sp-arithmetic/serde"]
+serde = [
+	"bounded-collections/serde",
+	"dep:serde",
+	"scale-info/serde",
+	"sp-arithmetic/serde",
+]
 
 json-schema = ["dep:schemars"]

@@ -24,4 +24,10 @@ sp-runtime = { path = "../runtime", default-features = false }
 
 [features]
 default = ["std"]
-std = ["async-trait", "codec/std", "sp-inherents/std", "sp-runtime/std", "thiserror"]
+std = [
+	"async-trait",
+	"codec/std",
+	"sp-inherents/std",
+	"sp-runtime/std",
+	"thiserror",
+]

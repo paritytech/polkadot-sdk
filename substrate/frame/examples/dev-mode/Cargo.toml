@@ -30,5 +30,20 @@ sp-core = { path = "../../../primitives/core", default-features = false }
 
 [features]
 default = ["std"]
-std = ["codec/std", "frame-support/std", "frame-system/std", "log/std", "pallet-balances/std", "scale-info/std", "sp-core/std", "sp-io/std", "sp-runtime/std"]
-try-runtime = ["frame-support/try-runtime", "frame-system/try-runtime", "pallet-balances/try-runtime", "sp-runtime/try-runtime"]
+std = [
+	"codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"pallet-balances/std",
+	"scale-info/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
+	"sp-runtime/try-runtime",
+]

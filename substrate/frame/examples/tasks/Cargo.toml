@@ -29,7 +29,26 @@ frame-benchmarking = { path = "../../benchmarking", default-features = false, op
 
 [features]
 default = ["std"]
-std = ["codec/std", "frame-benchmarking?/std", "frame-support/std", "frame-system/std", "log/std", "scale-info/std", "sp-core/std", "sp-io/std", "sp-runtime/std"]
-runtime-benchmarks = ["frame-benchmarking/runtime-benchmarks", "frame-support/runtime-benchmarks", "frame-system/runtime-benchmarks", "sp-runtime/runtime-benchmarks"]
-try-runtime = ["frame-support/try-runtime", "frame-system/try-runtime", "sp-runtime/try-runtime"]
+std = [
+	"codec/std",
+	"frame-benchmarking?/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"scale-info/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
+]
 experimental = ["frame-support/experimental", "frame-system/experimental"]

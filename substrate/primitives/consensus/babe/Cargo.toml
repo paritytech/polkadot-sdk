@@ -45,4 +45,11 @@ std = [
 ]
 
 # Serde support without relying on std features.
-serde = ["dep:serde", "scale-info/serde", "sp-application-crypto/serde", "sp-consensus-slots/serde", "sp-core/serde", "sp-runtime/serde"]
+serde = [
+	"dep:serde",
+	"scale-info/serde",
+	"sp-application-crypto/serde",
+	"sp-consensus-slots/serde",
+	"sp-core/serde",
+	"sp-runtime/serde",
+]

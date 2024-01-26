@@ -24,5 +24,15 @@ sp-runtime = { path = "../runtime", default-features = false }
 
 [features]
 default = ["std"]
-std = ["codec/std", "scale-info/std", "sp-api/std", "sp-application-crypto/std", "sp-runtime/std"]
-serde = ["scale-info/serde", "sp-application-crypto/serde", "sp-runtime/serde"]
+std = [
+	"codec/std",
+	"scale-info/std",
+	"sp-api/std",
+	"sp-application-crypto/std",
+	"sp-runtime/std",
+]
+serde = [
+	"scale-info/serde",
+	"sp-application-crypto/serde",
+	"sp-runtime/serde",
+]

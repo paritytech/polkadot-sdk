@@ -60,7 +60,12 @@ std = [
 	"test-pallet/std",
 ]
 experimental = ["frame-support/experimental", "frame-system/experimental"]
-try-runtime = ["frame-executive/try-runtime", "frame-support/try-runtime", "frame-system/try-runtime", "sp-runtime/try-runtime"]
+try-runtime = [
+	"frame-executive/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
+]
 # WARNING:
 # Only CI runs with this feature enabled. This feature is for testing stuff related to the FRAME macros
 # in conjunction with rust features.

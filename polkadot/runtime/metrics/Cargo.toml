@@ -19,5 +19,11 @@ bs58 = { version = "0.5.0", default-features = false, features = ["alloc"] }
 
 [features]
 default = ["std"]
-std = ["bs58/std", "frame-benchmarking?/std", "parity-scale-codec/std", "primitives/std", "sp-tracing/std"]
+std = [
+	"bs58/std",
+	"frame-benchmarking?/std",
+	"parity-scale-codec/std",
+	"primitives/std",
+	"sp-tracing/std",
+]
 runtime-metrics = ["frame-benchmarking", "sp-tracing/with-tracing"]

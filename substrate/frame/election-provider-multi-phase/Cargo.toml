@@ -77,4 +77,10 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"strum",
 ]
-try-runtime = ["frame-election-provider-support/try-runtime", "frame-support/try-runtime", "frame-system/try-runtime", "pallet-balances/try-runtime", "sp-runtime/try-runtime"]
+try-runtime = [
+	"frame-election-provider-support/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
+	"sp-runtime/try-runtime",
+]

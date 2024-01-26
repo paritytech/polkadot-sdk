@@ -26,7 +26,14 @@ sp-io = { path = "../io", default-features = false }
 
 [features]
 default = ["std"]
-std = ["codec/std", "full_crypto", "scale-info/std", "serde/std", "sp-core/std", "sp-io/std"]
+std = [
+	"codec/std",
+	"full_crypto",
+	"scale-info/std",
+	"serde/std",
+	"sp-core/std",
+	"sp-io/std",
+]
 
 # Serde support without relying on std features.
 serde = ["dep:serde", "scale-info/serde", "sp-core/serde"]
@@ -50,4 +57,7 @@ bls-experimental = ["sp-core/bls-experimental", "sp-io/bls-experimental"]
 # This feature adds Bandersnatch crypto primitives.
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.
-bandersnatch-experimental = ["sp-core/bandersnatch-experimental", "sp-io/bandersnatch-experimental"]
+bandersnatch-experimental = [
+	"sp-core/bandersnatch-experimental",
+	"sp-io/bandersnatch-experimental",
+]

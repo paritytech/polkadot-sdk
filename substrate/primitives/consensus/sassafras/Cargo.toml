@@ -29,7 +29,23 @@ sp-runtime = { path = "../../runtime", default-features = false }
 
 [features]
 default = ["std"]
-std = ["scale-codec/std", "scale-info/std", "serde/std", "sp-api/std", "sp-application-crypto/std", "sp-consensus-slots/std", "sp-core/std", "sp-runtime/std"]
+std = [
+	"scale-codec/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-api/std",
+	"sp-application-crypto/std",
+	"sp-consensus-slots/std",
+	"sp-core/std",
+	"sp-runtime/std",
+]
 
 # Serde support without relying on std features.
-serde = ["dep:serde", "scale-info/serde", "sp-application-crypto/serde", "sp-consensus-slots/serde", "sp-core/serde", "sp-runtime/serde"]
+serde = [
+	"dep:serde",
+	"scale-info/serde",
+	"sp-application-crypto/serde",
+	"sp-consensus-slots/serde",
+	"sp-core/serde",
+	"sp-runtime/serde",
+]

@@ -28,5 +28,14 @@ serde = { version = "1.0.195", default-features = false, features = ["alloc", "d
 [features]
 default = ["std"]
 wasm-api = []
-std = ["bounded-collections/std", "parity-scale-codec/std", "polkadot-core-primitives/std", "scale-info/std", "serde/std", "sp-core/std", "sp-runtime/std", "sp-weights/std"]
+std = [
+	"bounded-collections/std",
+	"parity-scale-codec/std",
+	"polkadot-core-primitives/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"sp-weights/std",
+]
 runtime-benchmarks = ["sp-runtime/runtime-benchmarks"]

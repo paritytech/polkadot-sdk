@@ -59,5 +59,17 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
-try-runtime = ["frame-support/try-runtime", "frame-system/try-runtime", "pallet-balances/try-runtime", "sp-runtime/try-runtime"]
-remote-test = ["remote-externalities", "serde", "std", "substrate-state-trie-migration-rpc", "thousands", "zstd"]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
+	"sp-runtime/try-runtime",
+]
+remote-test = [
+	"remote-externalities",
+	"serde",
+	"std",
+	"substrate-state-trie-migration-rpc",
+	"thousands",
+	"zstd",
+]

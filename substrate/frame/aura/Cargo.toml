@@ -45,5 +45,10 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 ]
-try-runtime = ["frame-support/try-runtime", "frame-system/try-runtime", "pallet-timestamp/try-runtime", "sp-runtime/try-runtime"]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"sp-runtime/try-runtime",
+]
 experimental = []

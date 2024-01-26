@@ -45,7 +45,12 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 ]
-try-runtime = ["frame-support/try-runtime", "frame-system/try-runtime", "pallet-balances/try-runtime", "sp-runtime/try-runtime"]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
+	"sp-runtime/try-runtime",
+]
 
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
