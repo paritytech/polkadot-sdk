@@ -240,7 +240,7 @@ where
 
 	let payload_bytes = params.make_encoder().reconstruct(received_shards)?;
 
-	Decode::decode(&mut &payload_bytes[..]).map_err(|err| Error::Decode(err))
+	Decode::decode(&mut &payload_bytes[..]).map_err(|_| Error::BadPayload)
 }
 
 /// An iterator that yields merkle branches and chunk data for all chunks to
