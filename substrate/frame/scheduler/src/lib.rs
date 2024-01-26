@@ -315,6 +315,12 @@ pub mod pallet {
 			id: Option<TaskName>,
 			result: DispatchResult,
 		},
+		/// Set a retry configuration for some task.
+		RetrySet {
+			task: TaskAddress<BlockNumberFor<T>>,
+			id: Option<TaskName>,
+			period: BlockNumberFor<T>,
+		},
 		/// The call for the provided hash was not found so the task has been aborted.
 		CallUnavailable { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
 		/// The given task was unable to be renewed since the agenda is full at that block.
@@ -486,15 +492,16 @@ pub mod pallet {
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
 			let (when, index) = task;
 			let agenda = Agenda::<T>::get(when);
-			let task = agenda
+			let scheduled = agenda
 				.get(index as usize)
 				.and_then(Option::as_ref)
 				.ok_or(Error::<T>::NotFound)?;
-			Self::ensure_privilege(origin.caller(), &task.origin)?;
+			Self::ensure_privilege(origin.caller(), &scheduled.origin)?;
 			Retries::<T>::insert(
 				(when, index),
 				RetryConfig { total_retries: retries, remaining: retries, period },
 			);
+			Self::deposit_event(Event::RetrySet { task, id: None, period });
 			Ok(())
 		}
 
@@ -521,15 +528,20 @@ pub mod pallet {
 			let origin = <T as Config>::RuntimeOrigin::from(origin);
 			let (when, agenda_index) = Lookup::<T>::get(&id).ok_or(Error::<T>::NotFound)?;
 			let agenda = Agenda::<T>::get(when);
-			let task = agenda
+			let scheduled = agenda
 				.get(agenda_index as usize)
 				.and_then(Option::as_ref)
 				.ok_or(Error::<T>::NotFound)?;
-			Self::ensure_privilege(origin.caller(), &task.origin)?;
+			Self::ensure_privilege(origin.caller(), &scheduled.origin)?;
 			Retries::<T>::insert(
 				(when, agenda_index),
 				RetryConfig { total_retries: retries, remaining: retries, period },
 			);
+			Self::deposit_event(Event::RetrySet {
+				task: (when, agenda_index),
+				id: Some(id),
+				period,
+			});
 			Ok(())
 		}
 	}

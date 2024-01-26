@@ -27,13 +27,21 @@ use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_std::{prelude::*, vec};
 
 use crate::Pallet as Scheduler;
-use frame_system::Call as SystemCall;
+use frame_system::{Call as SystemCall, EventRecord};
 
 const SEED: u32 = 0;
 
 const BLOCK_NUMBER: u32 = 2;
 
 type SystemOrigin<T> = <T as frame_system::Config>::RuntimeOrigin;
+
+fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+	let events = frame_system::Pallet::<T>::events();
+	let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
+	// compare to the last event record
+	let EventRecord { event, .. } = &events[events.len() - 1];
+	assert_eq!(event, &system_event);
+}
 
 /// Add `n` items to the schedule.
 ///
@@ -336,11 +344,15 @@ benchmarks! {
 		let name = u32_to_name(s - 1);
 		let address = Lookup::<T>::get(name).unwrap();
 		let (when, index) = address;
-	}: _(RawOrigin::Root, (when, index), 10, BlockNumberFor::<T>::one())
+		let period = BlockNumberFor::<T>::one();
+	}: _(RawOrigin::Root, (when, index), 10, period)
 	verify {
 		assert_eq!(
 			Retries::<T>::get((when, index)),
-			Some(RetryConfig { total_retries: 10, remaining: 10, period: BlockNumberFor::<T>::one() })
+			Some(RetryConfig { total_retries: 10, remaining: 10, period })
+		);
+		assert_last_event::<T>(
+			Event::RetrySet { task: address, id: None, period }.into(),
 		);
 	}
 
@@ -352,11 +364,15 @@ benchmarks! {
 		let name = u32_to_name(s - 1);
 		let address = Lookup::<T>::get(name).unwrap();
 		let (when, index) = address;
-	}: _(RawOrigin::Root, name, 10, BlockNumberFor::<T>::one())
+		let period = BlockNumberFor::<T>::one();
+	}: _(RawOrigin::Root, name, 10, period)
 	verify {
 		assert_eq!(
 			Retries::<T>::get((when, index)),
-			Some(RetryConfig { total_retries: 10, remaining: 10, period: BlockNumberFor::<T>::one() })
+			Some(RetryConfig { total_retries: 10, remaining: 10, period })
+		);
+		assert_last_event::<T>(
+			Event::RetrySet { task: address, id: Some(name), period }.into(),
 		);
 	}
 
