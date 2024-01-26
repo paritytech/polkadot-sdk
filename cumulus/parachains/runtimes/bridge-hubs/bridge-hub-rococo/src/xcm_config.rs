@@ -34,6 +34,7 @@ use bp_runtime::ChainId;
 use frame_support::{
 	parameter_types,
 	traits::{ConstU32, Contains, Equals, Everything, Nothing},
+	StoragePrefixedMap,
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
@@ -167,6 +168,17 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 				return true,
 			_ => (),
 		};
+
+		// Allow to removed dedicated storage items (called by governance-like)
+		if let RuntimeCall::System(frame_system::Call::kill_storage { keys }) = call {
+			return keys.iter().all(|k| {
+				// Allow resetting of Ethereum nonces in Rococo only.
+				k.starts_with(&snowbridge_pallet_inbound_queue::Nonce::<Runtime>::final_prefix()) ||
+					k.starts_with(
+						&snowbridge_pallet_outbound_queue::Nonce::<Runtime>::final_prefix(),
+					)
+			});
+		}
 
 		matches!(
 			call,
