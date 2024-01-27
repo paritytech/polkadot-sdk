@@ -94,6 +94,7 @@ pub type CurrencyTransactor = CurrencyAdapter<
 	(),
 >;
 
+/// Means for transacting coretime regions on this chain.
 pub type RegionTransactor = NonFungibleAdapter<
 	// Use this non-fungible implementation:
 	Broker,
@@ -107,6 +108,7 @@ pub type RegionTransactor = NonFungibleAdapter<
 	(),
 >;
 
+/// Means for transacting assets on this chain.
 pub type AssetTransactors = (CurrencyTransactor, RegionTransactor);
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
