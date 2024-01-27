@@ -380,7 +380,7 @@
 	/// default reward destination.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>reward_destination(
 		account: StakingAccount&lt;T::AccountId&gt;,
-	) -&gt; RewardDestination&lt;T::AccountId&gt; {
+	) -&gt; <span class="prelude-ty">Option</span>&lt;RewardDestination&lt;T::AccountId&gt;&gt; {
 		<span class="kw">let </span>stash = <span class="kw">match </span>account {
 			StakingAccount::Stash(stash) =&gt; <span class="prelude-val">Some</span>(stash),
 			StakingAccount::Controller(controller) =&gt;
@@ -391,8 +391,8 @@
 			&lt;Payee&lt;T&gt;&gt;::get(stash)
 		} <span class="kw">else </span>{
 			<span class="macro">defensive!</span>(<span class="string">&quot;fetched reward destination from unbonded stash {}&quot;</span>, stash);
-			RewardDestination::default()
-		}
+			<span class="prelude-val">None
+		</span>}
 	}
 
 	<span class="doccomment">/// Returns the controller account of a staking ledger.

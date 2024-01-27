@@ -2024,6 +2024,22 @@
 <a href="#2024" id="2024">2024</a>
 <a href="#2025" id="2025">2025</a>
 <a href="#2026" id="2026">2026</a>
+<a href="#2027" id="2027">2027</a>
+<a href="#2028" id="2028">2028</a>
+<a href="#2029" id="2029">2029</a>
+<a href="#2030" id="2030">2030</a>
+<a href="#2031" id="2031">2031</a>
+<a href="#2032" id="2032">2032</a>
+<a href="#2033" id="2033">2033</a>
+<a href="#2034" id="2034">2034</a>
+<a href="#2035" id="2035">2035</a>
+<a href="#2036" id="2036">2036</a>
+<a href="#2037" id="2037">2037</a>
+<a href="#2038" id="2038">2038</a>
+<a href="#2039" id="2039">2039</a>
+<a href="#2040" id="2040">2040</a>
+<a href="#2041" id="2041">2041</a>
+<a href="#2042" id="2042">2042</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2101,7 +2117,7 @@
 		StakingLedger::&lt;T&gt;::get(account)
 	}
 
-	<span class="kw">pub fn </span>payee(account: StakingAccount&lt;T::AccountId&gt;) -&gt; RewardDestination&lt;T::AccountId&gt; {
+	<span class="kw">pub fn </span>payee(account: StakingAccount&lt;T::AccountId&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;RewardDestination&lt;T::AccountId&gt;&gt; {
 		StakingLedger::&lt;T&gt;::reward_destination(account)
 	}
 
@@ -2362,11 +2378,10 @@
 		</span><span class="kw">if </span>amount.is_zero() {
 			<span class="kw">return </span><span class="prelude-val">None
 		</span>}
+		<span class="kw">let </span>dest = <span class="self">Self</span>::payee(StakingAccount::Stash(stash.clone()))<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>dest = <span class="self">Self</span>::payee(StakingAccount::Stash(stash.clone()));
 		<span class="kw">let </span>maybe_imbalance = <span class="kw">match </span>dest {
-			RewardDestination::Stash  =&gt;
-				T::Currency::deposit_into_existing(stash, amount).ok(),
+			RewardDestination::Stash =&gt; T::Currency::deposit_into_existing(stash, amount).ok(),
 			RewardDestination::Staked =&gt; <span class="self">Self</span>::ledger(Stash(stash.clone()))
 				.and_then(|<span class="kw-2">mut </span>ledger| {
 					ledger.active += amount;
@@ -2380,7 +2395,7 @@
 					<span class="prelude-val">Ok</span>(r)
 				})
 				.unwrap_or_default(),
-			RewardDestination::Account(dest_account) =&gt;
+			RewardDestination::Account(<span class="kw-2">ref </span>dest_account) =&gt;
 				<span class="prelude-val">Some</span>(T::Currency::deposit_creating(<span class="kw-2">&amp;</span>dest_account, amount)),
 			RewardDestination::None =&gt; <span class="prelude-val">None</span>,
 			<span class="attr">#[allow(deprecated)]
@@ -2392,8 +2407,7 @@
 						</span>T::Currency::deposit_creating(<span class="kw-2">&amp;</span>controller, amount)
 		}),
 		};
-		maybe_imbalance
-			.map(|imbalance| (imbalance, <span class="self">Self</span>::payee(StakingAccount::Stash(stash.clone()))))
+		maybe_imbalance.map(|imbalance| (imbalance, dest))
 	}
 
 	<span class="doccomment">/// Plan a new session potentially trigger a new era.
@@ -3852,11 +3866,29 @@
 			<span class="string">&quot;VoterList contains non-staker&quot;
 		</span>);
 
+		<span class="self">Self</span>::check_payees()<span class="question-mark">?</span>;
 		<span class="self">Self</span>::check_nominators()<span class="question-mark">?</span>;
 		<span class="self">Self</span>::check_exposures()<span class="question-mark">?</span>;
 		<span class="self">Self</span>::check_paged_exposures()<span class="question-mark">?</span>;
 		<span class="self">Self</span>::check_ledgers()<span class="question-mark">?</span>;
 		<span class="self">Self</span>::check_count()
+	}
+
+	<span class="doccomment">/// Invariants:
+	/// * A bonded ledger should always have an assigned `Payee`.
+	/// * The number of entries in `Payee` and of bonded staking ledgers *must* match.
+	</span><span class="kw">fn </span>check_payees() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
+		<span class="kw">for </span>(stash, <span class="kw">_</span>) <span class="kw">in </span>Bonded::&lt;T&gt;::iter() {
+			<span class="macro">ensure!</span>(Payee::&lt;T&gt;::get(<span class="kw-2">&amp;</span>stash).is_some(), <span class="string">&quot;bonded ledger does not have payee set&quot;</span>);
+		}
+
+		<span class="macro">ensure!</span>(
+			(Ledger::&lt;T&gt;::iter().count() == Payee::&lt;T&gt;::iter().count()) &amp;&amp;
+				(Ledger::&lt;T&gt;::iter().count() == Bonded::&lt;T&gt;::iter().count()),
+			<span class="string">&quot;number of entries in payee storage items does not match the number of bonded ledgers&quot;</span>,
+		);
+
+		<span class="prelude-val">Ok</span>(())
 	}
 
 	<span class="kw">fn </span>check_count() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {

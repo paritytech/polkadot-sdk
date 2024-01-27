@@ -2318,7 +2318,7 @@
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub type </span>Payee&lt;T: Config&gt; =
-		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, T::AccountId, RewardDestination&lt;T::AccountId&gt;, ValueQuery&gt;;
+		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, T::AccountId, RewardDestination&lt;T::AccountId&gt;, OptionQuery&gt;;
 
 	<span class="doccomment">/// The map from (wannabe) validator stash key to the preferences of that validator.
 	///
@@ -3890,7 +3890,7 @@
 			<span class="macro">ensure!</span>(
 				(Payee::&lt;T&gt;::get(<span class="kw-2">&amp;</span>ledger.stash) == {
 					<span class="attr">#[allow(deprecated)]
-					</span>RewardDestination::Controller
+					</span><span class="prelude-val">Some</span>(RewardDestination::Controller)
 				}),
 				Error::&lt;T&gt;::NotController
 			);
@@ -3927,7 +3927,7 @@
 						// `Controller` variant, skip deprecating this account.
 						</span><span class="kw">let </span>payee_deprecated = Payee::&lt;T&gt;::get(<span class="kw-2">&amp;</span>ledger.stash) == {
 							<span class="attr">#[allow(deprecated)]
-							</span>RewardDestination::Controller
+							</span><span class="prelude-val">Some</span>(RewardDestination::Controller)
 						};
 
 						<span class="kw">if </span>ledger.stash != <span class="kw-2">*</span>controller &amp;&amp; !payee_deprecated {

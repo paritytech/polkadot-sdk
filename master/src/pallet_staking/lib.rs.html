@@ -1217,12 +1217,6 @@
 <a href="#1217" id="1217">1217</a>
 <a href="#1218" id="1218">1218</a>
 <a href="#1219" id="1219">1219</a>
-<a href="#1220" id="1220">1220</a>
-<a href="#1221" id="1221">1221</a>
-<a href="#1222" id="1222">1222</a>
-<a href="#1223" id="1223">1223</a>
-<a href="#1224" id="1224">1224</a>
-<a href="#1225" id="1225">1225</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1630,12 +1624,6 @@
 	</span>Account(AccountId),
 	<span class="doccomment">/// Receive no reward.
 	</span><span class="prelude-val">None</span>,
-}
-
-<span class="kw">impl</span>&lt;AccountId&gt; Default <span class="kw">for </span>RewardDestination&lt;AccountId&gt; {
-	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-		RewardDestination::Staked
-	}
 }
 
 <span class="doccomment">/// Preference of what happens regarding validation.

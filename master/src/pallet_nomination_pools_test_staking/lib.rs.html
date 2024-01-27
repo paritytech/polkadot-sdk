@@ -691,6 +691,9 @@
 <a href="#691" id="691">691</a>
 <a href="#692" id="692">692</a>
 <a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -907,7 +910,10 @@
 			]
 		);
 
-		<span class="macro">assert_eq!</span>(Payee::&lt;Runtime&gt;::get(POOL1_BONDED), RewardDestination::Account(POOL1_REWARD));
+		<span class="macro">assert_eq!</span>(
+			Payee::&lt;Runtime&gt;::get(POOL1_BONDED),
+			<span class="prelude-val">Some</span>(RewardDestination::Account(POOL1_REWARD))
+		);
 
 		<span class="comment">// have two members join
 		</span><span class="macro">assert_ok!</span>(Pools::join(RuntimeOrigin::signed(<span class="number">20</span>), <span class="number">20</span>, <span class="number">1</span>));
