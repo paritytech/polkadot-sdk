@@ -124,8 +124,6 @@ default:
     - mkdir .forklift
     - cp $FL_FORKLIFT_CONFIG_ALT .forklift/config.toml
     - mkdir ~/.forklift
-    - cp $FL_FORKLIFT_CONFIG_ALT ~/.forklift/config.toml
-    - export FORKLIFT_PACKAGE_SUFFIX=${CI_JOB_NAME/ [0-9 \/]*}
     - shopt -s expand_aliases
     - export PATH=$PATH:$(pwd)
     - |
@@ -134,7 +132,6 @@ default:
       alias cargo="forklift cargo"
       fi
     - rm -f forklift.sock
-    - forklift clean
     #
     - echo "FL_FORKLIFT_VERSION_ALT ${FL_FORKLIFT_VERSION_ALT}"
     - echo "FORKLIFT_PACKAGE_SUFFIX $FORKLIFT_PACKAGE_SUFFIX"  
