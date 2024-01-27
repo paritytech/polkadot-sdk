@@ -50,6 +50,10 @@
 <a href="#50" id="50">50</a>
 <a href="#51" id="51">51</a>
 <a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -70,7 +74,7 @@
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span>frame_support::{
 	pallet_prelude::{DispatchResult, <span class="kw-2">*</span>},
-	traits::nonfungible::{Inspect, Transfer},
+	traits::nonfungible::{Inspect, Mutate, Transfer},
 };
 <span class="kw">use </span>sp_std::vec::Vec;
 
@@ -102,4 +106,8 @@
 		<span class="self">Self</span>::do_transfer((<span class="kw-2">*</span>index).into(), <span class="prelude-val">None</span>, dest.clone()).map_err(Into::into)
 	}
 }
+
+<span class="comment">// We don&#39;t allow any of the mutate operations, so the default implementation is used, which will
+// return `TokenError::Unsupported` in case any of the operations is called.
+</span><span class="kw">impl</span>&lt;T: Config&gt; Mutate&lt;T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T&gt; {}
 </code></pre></div></section></main></body></html>
