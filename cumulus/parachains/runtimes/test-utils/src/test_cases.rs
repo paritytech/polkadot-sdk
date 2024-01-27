@@ -92,12 +92,12 @@ pub fn change_storage_constant_by_governance_works<Runtime, StorageConstant, Sto
 		})
 }
 
-/// Test-case makes sure that `Runtime` can kill storage constant via governance-like call
-pub fn kill_storage_keys_by_governance_works<Runtime>(
+/// Test-case makes sure that `Runtime` can change storage constant via governance-like call
+pub fn set_storage_keys_by_governance_works<Runtime>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
 	runtime_call_encode: Box<dyn Fn(frame_system::Call<Runtime>) -> Vec<u8>>,
-	storage_constant_key: Vec<u8>,
+	storage_items: Vec<(Vec<u8>, Vec<u8>)>,
 	initialize_storage: impl FnOnce() -> (),
 	assert_storage: impl FnOnce() -> (),
 ) where
@@ -121,14 +121,16 @@ pub fn kill_storage_keys_by_governance_works<Runtime>(
 	});
 	runtime.execute_with(|| {
 		// encode `kill_storage` call
-		let kill_storage_call = runtime_call_encode(frame_system::Call::<Runtime>::kill_storage {
-			keys: vec![storage_constant_key.clone()],
+		let kill_storage_call = runtime_call_encode(frame_system::Call::<Runtime>::set_storage {
+			items: storage_items.clone(),
 		});
 
 		// estimate - storing just 1 value
 		use frame_system::WeightInfo;
 		let require_weight_at_most =
-			<Runtime as frame_system::Config>::SystemWeightInfo::kill_storage(1);
+			<Runtime as frame_system::Config>::SystemWeightInfo::set_storage(
+				storage_items.len().try_into().unwrap(),
+			);
 
 		// execute XCM with Transact to `set_storage` as governance does
 		assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(

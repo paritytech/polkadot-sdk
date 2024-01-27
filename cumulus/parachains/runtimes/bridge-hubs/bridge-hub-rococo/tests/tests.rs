@@ -26,9 +26,7 @@ use bridge_hub_rococo_runtime::{
 };
 use bridge_hub_test_utils::SlotDurations;
 use codec::{Decode, Encode};
-use frame_support::{
-	dispatch::GetDispatchInfo, parameter_types, traits::ConstU8, StoragePrefixedMap,
-};
+use frame_support::{dispatch::GetDispatchInfo, parameter_types, traits::ConstU8};
 use parachains_common::{
 	rococo::{consensus::RELAY_CHAIN_SLOT_DURATION_MILLIS, fee::WeightToFee},
 	AccountId, AuraId, Balance, SLOT_DURATION,
@@ -226,68 +224,65 @@ mod bridge_hub_westend_tests {
 	}
 
 	#[test]
-	fn kill_ethereum_nonces_by_governance_works() {
+	fn change_ethereum_nonces_by_governance_works() {
 		let channel_id_one: ChannelId = [1; 32].into();
 		let channel_id_two: ChannelId = [2; 32].into();
 		let nonce = 42;
 
 		// Reset a single inbound channel
-		bridge_hub_test_utils::test_cases::kill_storage_keys_by_governance_works::<Runtime>(
+		bridge_hub_test_utils::test_cases::set_storage_keys_by_governance_works::<Runtime>(
 			collator_session_keys(),
 			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
 			Box::new(|call| RuntimeCall::System(call).encode()),
-			snowbridge_pallet_inbound_queue::Nonce::<Runtime>::hashed_key_for::<ChannelId>(
-				channel_id_one,
-			)
-			.to_vec(),
+			vec![
+				(snowbridge_pallet_outbound_queue::Nonce::<Runtime>::hashed_key_for::<ChannelId>(
+					channel_id_one,
+				)
+				.to_vec(), 0u64.encode()),
+				(snowbridge_pallet_inbound_queue::Nonce::<Runtime>::hashed_key_for::<ChannelId>(
+					channel_id_one,
+				)
+				.to_vec(), 0u64.encode()),
+			],
 			|| {
-				snowbridge_pallet_inbound_queue::Nonce::<Runtime>::insert::<ChannelId, u64>(
+				// Outbound
+				snowbridge_pallet_outbound_queue::Nonce::<Runtime>::insert::<ChannelId, u64>(
 					channel_id_one,
 					nonce,
 				);
-				snowbridge_pallet_inbound_queue::Nonce::<Runtime>::insert::<ChannelId, u64>(
+				snowbridge_pallet_outbound_queue::Nonce::<Runtime>::insert::<ChannelId, u64>(
 					channel_id_two,
 					nonce,
 				);
-			},
-			|| {
-				assert_eq!(
-					snowbridge_pallet_inbound_queue::Nonce::<Runtime>::get(channel_id_one),
-					0
-				);
-				assert_eq!(
-					snowbridge_pallet_inbound_queue::Nonce::<Runtime>::get(channel_id_two),
-					nonce
-				);
-			},
-		);
 
-		// Reset a single outbound channel
-		bridge_hub_test_utils::test_cases::kill_storage_keys_by_governance_works::<Runtime>(
-			collator_session_keys(),
-			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
-			Box::new(|call| RuntimeCall::System(call).encode()),
-			snowbridge_pallet_outbound_queue::Nonce::<Runtime>::hashed_key_for::<ChannelId>(
-				channel_id_one,
-			)
-			.to_vec(),
-			|| {
-				snowbridge_pallet_outbound_queue::Nonce::<Runtime>::insert::<ChannelId, u64>(
+				// Inbound
+				snowbridge_pallet_inbound_queue::Nonce::<Runtime>::insert::<ChannelId, u64>(
 					channel_id_one,
 					nonce,
 				);
-				snowbridge_pallet_outbound_queue::Nonce::<Runtime>::insert::<ChannelId, u64>(
+				snowbridge_pallet_inbound_queue::Nonce::<Runtime>::insert::<ChannelId, u64>(
 					channel_id_two,
 					nonce,
 				);
 			},
 			|| {
+				// Outbound
 				assert_eq!(
 					snowbridge_pallet_outbound_queue::Nonce::<Runtime>::get(channel_id_one),
 					0
 				);
 				assert_eq!(
 					snowbridge_pallet_outbound_queue::Nonce::<Runtime>::get(channel_id_two),
+					nonce
+				);
+
+				// Inbound
+				assert_eq!(
+					snowbridge_pallet_inbound_queue::Nonce::<Runtime>::get(channel_id_one),
+					0
+				);
+				assert_eq!(
+					snowbridge_pallet_inbound_queue::Nonce::<Runtime>::get(channel_id_two),
 					nonce
 				);
 			},

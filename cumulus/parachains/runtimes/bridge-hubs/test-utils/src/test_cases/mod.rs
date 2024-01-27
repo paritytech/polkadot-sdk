@@ -73,7 +73,7 @@ pub type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
 
 // Re-export test_case from `parachains-runtimes-test-utils`
 pub use parachains_runtimes_test_utils::test_cases::{
-	change_storage_constant_by_governance_works, kill_storage_keys_by_governance_works,
+	change_storage_constant_by_governance_works, set_storage_keys_by_governance_works,
 };
 
 /// Prepare default runtime storage and run test within this context.

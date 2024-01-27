@@ -161,24 +161,16 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 		match call {
 			RuntimeCall::System(frame_system::Call::set_storage { items })
 				if items.iter().all(|(k, _)| {
-					k.eq(&DeliveryRewardInBalance::key()) |
-						k.eq(&RequiredStakeForStakeAndSlash::key()) |
-						k.eq(&EthereumGatewayAddress::key())
+					k.eq(&DeliveryRewardInBalance::key()) ||
+						k.eq(&RequiredStakeForStakeAndSlash::key()) ||
+						k.eq(&EthereumGatewayAddress::key()) ||
+						// Allow resetting of Ethereum nonces in Rococo only.
+						k.starts_with(&snowbridge_pallet_inbound_queue::Nonce::<Runtime>::final_prefix()) ||
+						k.starts_with(&snowbridge_pallet_outbound_queue::Nonce::<Runtime>::final_prefix())
 				}) =>
 				return true,
 			_ => (),
 		};
-
-		// Allow to removed dedicated storage items (called by governance-like)
-		if let RuntimeCall::System(frame_system::Call::kill_storage { keys }) = call {
-			return keys.iter().all(|k| {
-				// Allow resetting of Ethereum nonces in Rococo only.
-				k.starts_with(&snowbridge_pallet_inbound_queue::Nonce::<Runtime>::final_prefix()) ||
-					k.starts_with(
-						&snowbridge_pallet_outbound_queue::Nonce::<Runtime>::final_prefix(),
-					)
-			});
-		}
 
 		matches!(
 			call,
