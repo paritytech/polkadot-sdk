@@ -15,11 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Derive macros to derive traits without bounding generic parameters.
+trait Config {
+	type C;
+}
 
-pub mod clone;
-pub mod debug;
-pub mod default;
-pub mod ord;
-pub mod partial_eq;
-pub mod partial_ord;
+#[derive(frame_support::PartialOrdNoBound, frame_support::PartialEqNoBound)]
+struct Foo<T: Config> {
+	c: T::C,
+}
+
+fn main() {}
