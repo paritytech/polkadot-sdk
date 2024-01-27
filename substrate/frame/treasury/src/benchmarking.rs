@@ -108,8 +108,8 @@ fn create_spend_arguments<T: Config<I>, I: 'static>(
 mod benchmarks {
 	use super::*;
 
-	// This benchmark is short-circuited if `SpendOrigin` cannot provide
-	// a successful origin, in which case `spend` is un-callable and can use weight=0.
+	/// This benchmark is short-circuited if `SpendOrigin` cannot provide
+	/// a successful origin, in which case `spend` is un-callable and can use weight=0.
 	#[benchmark]
 	fn spend_local() -> Result<(), BenchmarkError> {
 		let (_, value, beneficiary_lookup) = setup_proposal::<T, _>(SEED);
@@ -215,8 +215,8 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// This benchmark is short-circuited if `SpendOrigin` cannot provide
-	// a successful origin, in which case `spend` is un-callable and can use weight=0.
+	/// This benchmark is short-circuited if `SpendOrigin` cannot provide
+	/// a successful origin, in which case `spend` is un-callable and can use weight=0.
 	#[benchmark]
 	fn spend() -> Result<(), BenchmarkError> {
 		let origin =
@@ -250,9 +250,9 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// This benchmark is short-circuited if `SpendOrigin` cannot provide
-	// a successful origin, in which case there is no spend to payout
-	// and `payout` is un-callable and can use weight=0.
+	/// This benchmark is short-circuited if `SpendOrigin` cannot provide
+	/// a successful origin, in which case there is no spend to payout
+	/// and `payout` is un-callable and can use weight=0.
 	#[benchmark]
 	fn payout() -> Result<(), BenchmarkError> {
 		let origin =
@@ -285,9 +285,9 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// This benchmark is short-circuited if `SpendOrigin` cannot provide
-	// a successful origin, in which case there is no spend to check
-	// and `check_status` is un-callable and can use weight=0.
+	/// This benchmark is short-circuited if `SpendOrigin` cannot provide
+	/// a successful origin, in which case there is no spend to check
+	/// and `check_status` is un-callable and can use weight=0.
 	#[benchmark]
 	fn check_status() -> Result<(), BenchmarkError> {
 		let origin =
@@ -321,9 +321,9 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// This benchmark is short-circuited if `SpendOrigin` cannot provide
-	// a successful origin, in which case there is no spend to void
-	// and `void_spend` is un-callable and can use weight=0.
+	/// This benchmark is short-circuited if `SpendOrigin` cannot provide
+	/// a successful origin, in which case there is no spend to void
+	/// and `void_spend` is un-callable and can use weight=0.
 	#[benchmark]
 	fn void_spend() -> Result<(), BenchmarkError> {
 		let origin =
