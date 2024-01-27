@@ -1,6 +1,6 @@
 [package]
 name = "substrate-wasm-builder"
-version = "5.0.0-dev"
+version = "17.0.0"
 authors.workspace = true
 description = "Utility for building WASM binaries"
 edition.workspace = true
