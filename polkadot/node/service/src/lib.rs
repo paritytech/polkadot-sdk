@@ -877,6 +877,10 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	let (available_data_req_receiver, cfg) =
 		IncomingRequest::get_config_receiver(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
+	let (pov_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
+	net_config.add_request_response_protocol(cfg);
+	let (chunk_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
+	net_config.add_request_response_protocol(cfg);
 
 	let grandpa_hard_forks = if config.chain_spec.is_kusama() {
 		grandpa_support::kusama_hard_forks()
@@ -917,10 +921,6 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 		} else {
 			None
 		};
-		let (pov_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
-		net_config.add_request_response_protocol(cfg);
-		let (chunk_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
-		net_config.add_request_response_protocol(cfg);
 		let (statement_req_receiver, cfg) =
 			IncomingRequest::get_config_receiver(&req_protocol_names);
 		net_config.add_request_response_protocol(cfg);
