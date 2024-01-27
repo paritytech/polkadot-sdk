@@ -5,7 +5,7 @@
     select_chain: SC,
     telemetry: <a class="enum" href="https://doc.rust-lang.org/1.74.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../sc_telemetry/struct.TelemetryHandle.html" title="struct sc_telemetry::TelemetryHandle">TelemetryHandle</a>&gt;
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.74.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(<a class="struct" href="struct.GrandpaBlockImport.html" title="struct sc_consensus_grandpa::GrandpaBlockImport">GrandpaBlockImport</a>&lt;BE, Block, Client, SC&gt;, <a class="struct" href="struct.LinkHalf.html" title="struct sc_consensus_grandpa::LinkHalf">LinkHalf</a>&lt;Block, Client, SC&gt;), Error&gt;<span class="where fmt-newline">where
-    SC: <a class="trait" href="../sp_consensus/select_chain/trait.SelectChain.html" title="trait sp_consensus::select_chain::SelectChain">SelectChain</a>&lt;Block&gt;,
+    SC: SelectChain&lt;Block&gt;,
     BE: Backend&lt;Block&gt; + 'static,
     Client: <a class="trait" href="trait.ClientForGrandpa.html" title="trait sc_consensus_grandpa::ClientForGrandpa">ClientForGrandpa</a>&lt;Block, BE&gt; + 'static,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Make block importer and link half necessary to tie the background voter
 to it.</p>

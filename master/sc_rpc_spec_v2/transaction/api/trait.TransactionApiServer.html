@@ -3,7 +3,7 @@
     fn <a href="#tymethod.submit_and_watch" class="fn">submit_and_watch</a>(
         &amp;self,
         subscription_sink: PendingSubscriptionSink,
-        bytes: Bytes
+        bytes: <a class="struct" href="../../../sp_core/struct.Bytes.html" title="struct sp_core::Bytes">Bytes</a>
     );
 
     // Provided method
@@ -13,7 +13,7 @@
 </div></details><h2 id="required-methods" class="small-section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.submit_and_watch" class="method"><a class="src rightside" href="../../../src/sc_rpc_spec_v2/transaction/api.rs.html#36">source</a><h4 class="code-header">fn <a href="#tymethod.submit_and_watch" class="fn">submit_and_watch</a>(
     &amp;self,
     subscription_sink: PendingSubscriptionSink,
-    bytes: Bytes
+    bytes: <a class="struct" href="../../../sp_core/struct.Bytes.html" title="struct sp_core::Bytes">Bytes</a>
 )</h4></section></summary><div class="docblock"><p>Submit an extrinsic to watch.</p>
 <p>See <a href="../event/enum.TransactionEvent.html" title="enum sc_rpc_spec_v2::transaction::event::TransactionEvent"><code>TransactionEvent</code></a> for details on
 transaction life cycle.</p>
@@ -23,4 +23,4 @@ transaction life cycle.</p>
     Pool: TransactionPool + <a class="trait" href="https://doc.rust-lang.org/1.74.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + <a class="trait" href="https://doc.rust-lang.org/1.74.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static,
     Pool::Hash: <a class="trait" href="https://doc.rust-lang.org/1.74.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,
     &lt;Pool::Block as <a class="trait" href="../../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a>&gt;::<a class="associatedtype" href="../../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>: <a class="trait" href="https://doc.rust-lang.org/1.74.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,
-    Client: HeaderBackend&lt;Pool::Block&gt; + <a class="trait" href="../../../sp_api/trait.ProvideRuntimeApi.html" title="trait sp_api::ProvideRuntimeApi">ProvideRuntimeApi</a>&lt;Pool::Block&gt; + <a class="trait" href="https://doc.rust-lang.org/1.74.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.74.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,</span></h3></section></div><script src="../../../implementors/sc_rpc_spec_v2/transaction/api/trait.TransactionApiServer.js" async></script></section></div></main></body></html>
+    Client: HeaderBackend&lt;Pool::Block&gt; + ProvideRuntimeApi&lt;Pool::Block&gt; + <a class="trait" href="https://doc.rust-lang.org/1.74.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.74.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,</span></h3></section></div><script src="../../../implementors/sc_rpc_spec_v2/transaction/api/trait.TransactionApiServer.js" async></script></section></div></main></body></html>

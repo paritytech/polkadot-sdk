@@ -1677,6 +1677,19 @@
 <a href="#1677" id="1677">1677</a>
 <a href="#1678" id="1678">1678</a>
 <a href="#1679" id="1679">1679</a>
+<a href="#1680" id="1680">1680</a>
+<a href="#1681" id="1681">1681</a>
+<a href="#1682" id="1682">1682</a>
+<a href="#1683" id="1683">1683</a>
+<a href="#1684" id="1684">1684</a>
+<a href="#1685" id="1685">1685</a>
+<a href="#1686" id="1686">1686</a>
+<a href="#1687" id="1687">1687</a>
+<a href="#1688" id="1688">1688</a>
+<a href="#1689" id="1689">1689</a>
+<a href="#1690" id="1690">1690</a>
+<a href="#1691" id="1691">1691</a>
+<a href="#1692" id="1692">1692</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2139,7 +2152,7 @@
 	no_bound::partial_eq::derive_partial_eq_no_bound(input)
 }
 
-<span class="doccomment">/// derive Eq but do no bound any generic. Docs are at `frame_support::EqNoBound`.
+<span class="doccomment">/// Derive [`Eq`] but do no bound any generic. Docs are at `frame_support::EqNoBound`.
 </span><span class="attr">#[proc_macro_derive(EqNoBound)]
 </span><span class="kw">pub fn </span>derive_eq_no_bound(input: TokenStream) -&gt; TokenStream {
 	<span class="kw">let </span>input: syn::DeriveInput = <span class="kw">match </span>syn::parse(input) {
@@ -2156,6 +2169,19 @@
 		};
 	)
 	.into()
+}
+
+<span class="doccomment">/// Derive [`PartialOrd`] but do not bound any generic. Docs are at
+/// `frame_support::PartialOrdNoBound`.
+</span><span class="attr">#[proc_macro_derive(PartialOrdNoBound)]
+</span><span class="kw">pub fn </span>derive_partial_ord_no_bound(input: TokenStream) -&gt; TokenStream {
+	no_bound::partial_ord::derive_partial_ord_no_bound(input)
+}
+
+<span class="doccomment">/// Derive [`Ord`] but do no bound any generic. Docs are at `frame_support::OrdNoBound`.
+</span><span class="attr">#[proc_macro_derive(OrdNoBound)]
+</span><span class="kw">pub fn </span>derive_ord_no_bound(input: TokenStream) -&gt; TokenStream {
+	no_bound::ord::derive_ord_no_bound(input)
 }
 
 <span class="doccomment">/// derive `Default` but do no bound any generic. Docs are at `frame_support::DefaultNoBound`.

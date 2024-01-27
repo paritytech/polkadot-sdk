@@ -2840,6 +2840,42 @@
 <a href="#2840" id="2840">2840</a>
 <a href="#2841" id="2841">2841</a>
 <a href="#2842" id="2842">2842</a>
+<a href="#2843" id="2843">2843</a>
+<a href="#2844" id="2844">2844</a>
+<a href="#2845" id="2845">2845</a>
+<a href="#2846" id="2846">2846</a>
+<a href="#2847" id="2847">2847</a>
+<a href="#2848" id="2848">2848</a>
+<a href="#2849" id="2849">2849</a>
+<a href="#2850" id="2850">2850</a>
+<a href="#2851" id="2851">2851</a>
+<a href="#2852" id="2852">2852</a>
+<a href="#2853" id="2853">2853</a>
+<a href="#2854" id="2854">2854</a>
+<a href="#2855" id="2855">2855</a>
+<a href="#2856" id="2856">2856</a>
+<a href="#2857" id="2857">2857</a>
+<a href="#2858" id="2858">2858</a>
+<a href="#2859" id="2859">2859</a>
+<a href="#2860" id="2860">2860</a>
+<a href="#2861" id="2861">2861</a>
+<a href="#2862" id="2862">2862</a>
+<a href="#2863" id="2863">2863</a>
+<a href="#2864" id="2864">2864</a>
+<a href="#2865" id="2865">2865</a>
+<a href="#2866" id="2866">2866</a>
+<a href="#2867" id="2867">2867</a>
+<a href="#2868" id="2868">2868</a>
+<a href="#2869" id="2869">2869</a>
+<a href="#2870" id="2870">2870</a>
+<a href="#2871" id="2871">2871</a>
+<a href="#2872" id="2872">2872</a>
+<a href="#2873" id="2873">2873</a>
+<a href="#2874" id="2874">2874</a>
+<a href="#2875" id="2875">2875</a>
+<a href="#2876" id="2876">2876</a>
+<a href="#2877" id="2877">2877</a>
+<a href="#2878" id="2878">2878</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3398,6 +3434,42 @@
 /// }
 /// ```
 </span><span class="kw">pub use </span>frame_support_procedural::PartialEqNoBound;
+
+<span class="doccomment">/// Derive [`Ord`] but do not bound any generic.
+///
+/// This is useful for type generic over runtime:
+/// ```
+/// # use frame_support::{OrdNoBound, PartialOrdNoBound, EqNoBound, PartialEqNoBound};
+/// trait Config {
+/// 		type C: Ord;
+/// }
+///
+/// // Foo implements [`Ord`] because `C` bounds [`Ord`].
+/// // Otherwise compilation will fail with an output telling `c` doesn&#39;t implement [`Ord`].
+/// #[derive(EqNoBound, OrdNoBound, PartialEqNoBound, PartialOrdNoBound)]
+/// struct Foo&lt;T: Config&gt; {
+/// 		c: T::C,
+/// }
+/// ```
+</span><span class="kw">pub use </span>frame_support_procedural::OrdNoBound;
+
+<span class="doccomment">/// Derive [`PartialOrd`] but do not bound any generic.
+///
+/// This is useful for type generic over runtime:
+/// ```
+/// # use frame_support::{OrdNoBound, PartialOrdNoBound, EqNoBound, PartialEqNoBound};
+/// trait Config {
+/// 		type C: PartialOrd;
+/// }
+///
+/// // Foo implements [`PartialOrd`] because `C` bounds [`PartialOrd`].
+/// // Otherwise compilation will fail with an output telling `c` doesn&#39;t implement [`PartialOrd`].
+/// #[derive(PartialOrdNoBound, PartialEqNoBound, EqNoBound)]
+/// struct Foo&lt;T: Config&gt; {
+/// 		c: T::C,
+/// }
+/// ```
+</span><span class="kw">pub use </span>frame_support_procedural::PartialOrdNoBound;
 
 <span class="doccomment">/// Derive [`Debug`] but do not bound any generic.
 ///
