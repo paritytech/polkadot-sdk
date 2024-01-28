@@ -20,23 +20,13 @@
 //! Most likely you should use the [`#[define_env]`][`macro@define_env`] attribute macro which hides
 //! boilerplate of defining external environment for a wasm module.
 
-#![no_std]
-
-extern crate alloc;
-
-use alloc::{
-	collections::BTreeMap,
-	format,
-	string::{String, ToString},
-	vec::Vec,
-};
 use core::cmp::Reverse;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{quote, quote_spanned, ToTokens};
 use syn::{
 	parse_macro_input, punctuated::Punctuated, spanned::Spanned, token::Comma, Data, DeriveInput,
-	FnArg, Ident,
+	Fields, FnArg, Ident,
 };
 
 /// This derives `Debug` for a struct where each field must be of some numeric type.
@@ -44,17 +34,6 @@ use syn::{
 /// it is readable by humans.
 #[proc_macro_derive(WeightDebug)]
 pub fn derive_weight_debug(input: TokenStream) -> TokenStream {
-	derive_debug(input, format_weight)
-}
-
-/// This is basically identical to the std libs Debug derive but without adding any
-/// bounds to existing generics.
-#[proc_macro_derive(ScheduleDebug)]
-pub fn derive_schedule_debug(input: TokenStream) -> TokenStream {
-	derive_debug(input, format_default)
-}
-
-fn derive_debug(input: TokenStream, fmt: impl Fn(&Ident) -> TokenStream2) -> TokenStream {
 	let input = parse_macro_input!(input as DeriveInput);
 	let name = &input.ident;
 	let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -68,45 +47,15 @@ fn derive_debug(input: TokenStream, fmt: impl Fn(&Ident) -> TokenStream2) -> Tok
 		.into()
 	};
 
-	#[cfg(feature = "full")]
-	let fields = iterate_fields(data, fmt);
-
-	#[cfg(not(feature = "full"))]
-	let fields = {
-		drop(fmt);
-		let _ = data;
-		TokenStream2::new()
-	};
-
-	let tokens = quote! {
-		impl #impl_generics core::fmt::Debug for #name #ty_generics #where_clause {
-			fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-				use ::sp_runtime::{FixedPointNumber, FixedU128 as Fixed};
-				let mut formatter = formatter.debug_struct(stringify!(#name));
-				#fields
-				formatter.finish()
-			}
-		}
-	};
-
-	tokens.into()
-}
-
-/// This is only used then the `full` feature is activated.
-#[cfg(feature = "full")]
-fn iterate_fields(data: &syn::DataStruct, fmt: impl Fn(&Ident) -> TokenStream2) -> TokenStream2 {
-	use syn::Fields;
-
-	match &data.fields {
+	let fields = match &data.fields {
 		Fields::Named(fields) => {
 			let recurse = fields.named.iter().filter_map(|f| {
 				let name = f.ident.as_ref()?;
 				if name.to_string().starts_with('_') {
 					return None
 				}
-				let value = fmt(name);
 				let ret = quote_spanned! { f.span() =>
-					formatter.field(stringify!(#name), #value);
+					formatter.field(stringify!(#name), &HumanWeight(self.#name));
 				};
 				Some(ret)
 			});
@@ -119,39 +68,53 @@ fn iterate_fields(data: &syn::DataStruct, fmt: impl Fn(&Ident) -> TokenStream2) 
 			compile_error!("Unnamed fields are not supported")
 		},
 		Fields::Unit => quote!(),
-	}
-}
+	};
 
-fn format_weight(field: &Ident) -> TokenStream2 {
-	quote_spanned! { field.span() =>
-		&if self.#field.ref_time() > 1_000_000_000 {
-			format!(
-				"{:.1?} ms, {} bytes",
-				Fixed::saturating_from_rational(self.#field.ref_time(), 1_000_000_000).to_float(),
-				self.#field.proof_size()
-			)
-		} else if self.#field.ref_time() > 1_000_000 {
-			format!(
-				"{:.1?} µs, {} bytes",
-				Fixed::saturating_from_rational(self.#field.ref_time(), 1_000_000).to_float(),
-				self.#field.proof_size()
-			)
-		} else if self.#field.ref_time() > 1_000 {
-			format!(
-				"{:.1?} ns, {} bytes",
-				Fixed::saturating_from_rational(self.#field.ref_time(), 1_000).to_float(),
-				self.#field.proof_size()
-			)
-		} else {
-			format!("{} ps, {} bytes", self.#field.ref_time(), self.#field.proof_size())
+	let tokens = quote! {
+		impl #impl_generics ::core::fmt::Debug for #name #ty_generics #where_clause {
+			fn fmt(&self, formatter: &mut ::core::fmt::Formatter<'_>) -> core::fmt::Result {
+				use ::sp_runtime::{FixedPointNumber, FixedU128 as Fixed};
+				use ::core::{fmt, write};
+
+				struct HumanWeight(Weight);
+
+				impl fmt::Debug for HumanWeight {
+					fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+						if self.0.ref_time() > 1_000_000_000 {
+							write!(
+								formatter,
+								"{} ms, {} bytes",
+								Fixed::saturating_from_rational(self.0.ref_time(), 1_000_000_000).into_inner() / Fixed::accuracy(),
+								self.0.proof_size()
+							)
+						} else if self.0.ref_time() > 1_000_000 {
+							write!(
+								formatter,
+								"{} µs, {} bytes",
+								Fixed::saturating_from_rational(self.0.ref_time(), 1_000_000).into_inner() / Fixed::accuracy(),
+								self.0.proof_size()
+							)
+						} else if self.0.ref_time() > 1_000 {
+							write!(
+								formatter,
+								"{} ns, {} bytes",
+								Fixed::saturating_from_rational(self.0.ref_time(), 1_000).into_inner() / Fixed::accuracy(),
+								self.0.proof_size()
+							)
+						} else {
+							write!(formatter, "{} ps, {} bytes", self.0.ref_time(), self.0.proof_size())
+						}
+					}
+				}
+
+				let mut formatter = formatter.debug_struct(stringify!(#name));
+				#fields
+				formatter.finish()
+			}
 		}
-	}
-}
+	};
 
-fn format_default(field: &Ident) -> TokenStream2 {
-	quote_spanned! { field.span() =>
-		&self.#field
-	}
+	tokens.into()
 }
 
 /// Parsed environment definition.
@@ -480,7 +443,7 @@ fn expand_func_doc(func: &HostFn) -> TokenStream2 {
 fn expand_docs(def: &EnvDef) -> TokenStream2 {
 	// Create the `Current` trait with only the newest versions
 	// we sort so that only the newest versions make it into `docs`
-	let mut current_docs = BTreeMap::new();
+	let mut current_docs = std::collections::HashMap::new();
 	let mut funcs: Vec<_> = def.host_funcs.iter().filter(|f| f.alias_to.is_none()).collect();
 	funcs.sort_unstable_by_key(|func| Reverse(func.version));
 	for func in funcs {
@@ -493,7 +456,7 @@ fn expand_docs(def: &EnvDef) -> TokenStream2 {
 
 	// Create the `legacy` module with all functions
 	// Maps from version to list of functions that have this version
-	let mut legacy_doc = BTreeMap::<u8, Vec<TokenStream2>>::new();
+	let mut legacy_doc = std::collections::BTreeMap::<u8, Vec<TokenStream2>>::new();
 	for func in def.host_funcs.iter() {
 		legacy_doc.entry(func.version).or_default().push(expand_func_doc(&func));
 	}

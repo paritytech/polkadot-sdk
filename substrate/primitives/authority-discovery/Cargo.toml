@@ -1,6 +1,6 @@
 [package]
 name = "sp-authority-discovery"
-version = "4.0.0-dev"
+version = "26.0.0"
 authors.workspace = true
 description = "Authority discovery primitives"
 edition.workspace = true

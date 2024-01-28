@@ -1,6 +1,6 @@
 [package]
 name = "shell-runtime"
-version = "0.1.0"
+version = "0.7.0"
 description = "A minimal runtime to test Relay Chain consensus."
 authors.workspace = true
 edition.workspace = true

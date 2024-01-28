@@ -96,6 +96,11 @@ pub use nonfungibles_adapter::{
 	NonFungiblesAdapter, NonFungiblesMutateAdapter, NonFungiblesTransferAdapter,
 };
 
+mod nonfungible_adapter;
+pub use nonfungible_adapter::{
+	NonFungibleAdapter, NonFungibleMutateAdapter, NonFungibleTransferAdapter,
+};
+
 mod origin_aliases;
 pub use origin_aliases::AliasForeignAccountId32;
 

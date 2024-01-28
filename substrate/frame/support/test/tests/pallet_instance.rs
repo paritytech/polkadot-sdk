@@ -29,6 +29,7 @@ use frame_support::{
 		UnfilteredDispatchable,
 	},
 	weights::Weight,
+	OrdNoBound, PartialOrdNoBound,
 };
 use sp_io::{
 	hashing::{blake2_128, twox_128, twox_64},
@@ -210,6 +211,8 @@ pub mod pallet {
 		RuntimeDebugNoBound,
 		CloneNoBound,
 		PartialEqNoBound,
+		PartialOrdNoBound,
+		OrdNoBound,
 		Encode,
 		Decode,
 		scale_info::TypeInfo,

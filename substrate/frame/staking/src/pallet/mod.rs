@@ -338,7 +338,7 @@ pub mod pallet {
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
 	#[pallet::storage]
 	pub type Payee<T: Config> =
-		StorageMap<_, Twox64Concat, T::AccountId, RewardDestination<T::AccountId>, ValueQuery>;
+		StorageMap<_, Twox64Concat, T::AccountId, RewardDestination<T::AccountId>, OptionQuery>;
 
 	/// The map from (wannabe) validator stash key to the preferences of that validator.
 	///
@@ -1910,7 +1910,7 @@ pub mod pallet {
 			ensure!(
 				(Payee::<T>::get(&ledger.stash) == {
 					#[allow(deprecated)]
-					RewardDestination::Controller
+					Some(RewardDestination::Controller)
 				}),
 				Error::<T>::NotController
 			);
@@ -1947,7 +1947,7 @@ pub mod pallet {
 						// `Controller` variant, skip deprecating this account.
 						let payee_deprecated = Payee::<T>::get(&ledger.stash) == {
 							#[allow(deprecated)]
-							RewardDestination::Controller
+							Some(RewardDestination::Controller)
 						};
 
 						if ledger.stash != *controller && !payee_deprecated {

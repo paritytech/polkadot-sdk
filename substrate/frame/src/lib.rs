@@ -303,8 +303,8 @@ pub mod primitives {
 pub mod derive {
 	pub use core::fmt::Debug;
 	pub use frame_support::{
-		CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound,
-		RuntimeDebugNoBound,
+		CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, OrdNoBound, PartialEqNoBound,
+		PartialOrdNoBound, RuntimeDebugNoBound,
 	};
 	pub use parity_scale_codec::{Decode, Encode};
 	pub use scale_info::TypeInfo;
