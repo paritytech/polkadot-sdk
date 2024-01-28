@@ -1723,6 +1723,7 @@ pub mod pallet {
 			max_validator_count: ConfigOp<u32>,
 			chill_threshold: ConfigOp<Percent>,
 			min_commission: ConfigOp<Perbill>,
+			max_staked_rewards: ConfigOp<Percent>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
@@ -1742,6 +1743,7 @@ pub mod pallet {
 			config_op_exp!(MaxValidatorsCount<T>, max_validator_count);
 			config_op_exp!(ChillThreshold<T>, chill_threshold);
 			config_op_exp!(MinCommission<T>, min_commission);
+			config_op_exp!(MaxStakedRewards<T>, max_staked_rewards);
 			Ok(())
 		}
 		/// Declare a `controller` to stop participating as either a validator or nominator.
@@ -1975,15 +1977,6 @@ pub mod pallet {
 				<Ledger<T>>::insert(stash, ledger);
 			}
 			Ok(Some(T::WeightInfo::deprecate_controller_batch(controllers.len() as u32)).into())
-		}
-
-		/// Sets the fraction of the maximum staked rewards of the era's inflation.
-		#[pallet::call_index(29)]
-		#[pallet::weight(T::WeightInfo::set_max_staked_rewards())]
-		pub fn set_max_staked_rewards(origin: OriginFor<T>, new: Percent) -> DispatchResult {
-			T::AdminOrigin::ensure_origin(origin)?;
-			MaxStakedRewards::<T>::put(new);
-			Ok(())
 		}
 	}
 }

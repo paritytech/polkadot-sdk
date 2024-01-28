@@ -80,7 +80,6 @@ pub trait WeightInfo {
 	fn chill_other() -> Weight;
 	fn force_apply_min_commission() -> Weight;
 	fn set_min_commission() -> Weight;
-	fn set_max_staked_rewards() -> Weight;
 }
 
 /// Weights for `pallet_staking` using the Substrate node and recommended hardware.
@@ -803,16 +802,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(3_334_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: `Staking::MaxStakedRewards` (r:0 w:1)
-	/// Proof: `Staking::MaxStakedRewards` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
-	fn set_max_staked_rewards() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 3_097_000 picoseconds.
-		Weight::from_parts(3_245_000, 0)
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
 }
 
 // For backwards compatibility and tests.
@@ -1532,16 +1521,6 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 3_071_000 picoseconds.
 		Weight::from_parts(3_334_000, 0)
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Staking::MaxStakedRewards` (r:0 w:1)
-	/// Proof: `Staking::MaxStakedRewards` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
-	fn set_max_staked_rewards() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 3_097_000 picoseconds.
-		Weight::from_parts(3_245_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
