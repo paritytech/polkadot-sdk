@@ -25,6 +25,8 @@ pub mod people;
 mod weights;
 pub mod xcm_config;
 
+#[cfg(feature = "runtime-benchmarks")]
+use alloc::vec;
 use alloc::{boxed::Box, vec::Vec};
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};

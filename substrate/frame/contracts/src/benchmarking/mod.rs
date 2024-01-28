@@ -35,6 +35,7 @@ use crate::{
 	},
 	Pallet as Contracts, *,
 };
+use alloc::{vec, vec::Vec};
 use codec::{Encode, MaxEncodedLen};
 use frame_benchmarking::v1::{account, benchmarks, whitelisted_caller};
 use frame_support::{

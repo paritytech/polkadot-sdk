@@ -3846,7 +3846,6 @@ name = "cumulus-pallet-session-benchmarking"
 version = "3.0.0"
 dependencies = [
  "frame-benchmarking",
- "frame-support",
  "frame-system",
  "pallet-session",
  "parity-scale-codec",

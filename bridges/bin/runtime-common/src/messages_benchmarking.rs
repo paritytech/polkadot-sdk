@@ -30,6 +30,7 @@ use crate::{
 	},
 };
 
+use alloc::vec;
 use bp_messages::MessagePayload;
 use bp_polkadot_core::parachains::ParaHash;
 use bp_runtime::{Chain, Parachain, StorageProofSize, UnderlyingChainOf};

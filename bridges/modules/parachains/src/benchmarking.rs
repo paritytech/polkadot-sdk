@@ -20,7 +20,7 @@ use crate::{
 	weights_ext::DEFAULT_PARACHAIN_HEAD_SIZE, Call, RelayBlockHash, RelayBlockHasher,
 	RelayBlockNumber,
 };
-
+use alloc::{vec, vec::Vec};
 use bp_polkadot_core::parachains::{ParaHash, ParaHeadsProof, ParaId};
 use bp_runtime::StorageProofSize;
 use frame_benchmarking::{account, benchmarks_instance_pallet};

@@ -13,17 +13,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
 extern crate alloc;
 
-use alloc::{vec, vec::Vec};
+#[cfg(feature = "runtime-benchmarks")]
+use {
+	alloc::{vec, vec::Vec},
+	frame_benchmarking::{benchmarks, whitelisted_caller},
+	frame_system::RawOrigin,
+	pallet_session::*,
+	parity_scale_codec::Decode,
+};
 
-use frame_benchmarking::{benchmarks, whitelisted_caller};
-use frame_system::RawOrigin;
-use pallet_session::*;
-use parity_scale_codec::Decode;
 pub struct Pallet<T: Config>(pallet_session::Pallet<T>);
 pub trait Config: pallet_session::Config {}
 
+#[cfg(feature = "runtime-benchmarks")]
 benchmarks! {
 	set_keys {
 		let caller: T::AccountId = whitelisted_caller();

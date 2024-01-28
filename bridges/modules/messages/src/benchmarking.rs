@@ -20,7 +20,7 @@ use crate::{
 	inbound_lane::InboundLaneStorage, outbound_lane, weights_ext::EXPECTED_DEFAULT_MESSAGE_LENGTH,
 	Call, OutboundLanes, RuntimeInboundLaneStorage,
 };
-
+use alloc::vec;
 use bp_messages::{
 	source_chain::TargetHeaderChain, target_chain::SourceHeaderChain, DeliveredMessages,
 	InboundLaneData, LaneId, MessageNonce, OutboundLaneData, UnrewardedRelayer,
