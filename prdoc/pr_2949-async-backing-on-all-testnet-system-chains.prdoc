@@ -7,6 +7,8 @@ doc:
       bridge-hub-westend, bridge-hub-rococo, collectives-westend, contracts-rococo,
       coretime-westend, coretime-rococo, people-westend, and people-rococo. These now target 6s
       block times.
+      For the running coretime chains, that requires updating the configuration after the runtime
+      upgrade but before the end of the current region.
 
 crates:
   - name: asset-hub-westend-runtime
