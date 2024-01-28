@@ -1,6 +1,6 @@
 [package]
 name = "sc-consensus-pow"
-version = "0.10.0-dev"
+version = "0.33.0"
 authors.workspace = true
 description = "PoW consensus algorithm for substrate"
 edition.workspace = true
