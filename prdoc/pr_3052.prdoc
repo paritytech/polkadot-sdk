@@ -1,4 +1,4 @@
-title: "Fixes the nomination `TotalLockedValue` out of sync due to staking's implicit withdraw"
+title: "Fixes a scenario where a nomination pool's `TotalValueLocked` is out of sync due to staking's implicit withdraw"
 
 doc:
   - audience: Runtime Dev
