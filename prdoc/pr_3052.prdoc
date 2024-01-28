@@ -6,7 +6,7 @@ doc:
       The nomination pools pallet `TotalLockedValue` may get out of sync if the staking pallet
       does implicit withdrawal of unlocking chunks belonging to a bonded pool stash. This fix
       is based on a new method on the `OnStakingUpdate` traits, `on_withdraw`, which allows the
-      nomination pools pallet to adjust the `TotalLockedValue` every time there is an implicit or
+      nomination pools pallet to adjust the `TotalValueLocked` every time there is an implicit or
       explicit withdrawal from a bonded pool's stash.
 
 crates: 
