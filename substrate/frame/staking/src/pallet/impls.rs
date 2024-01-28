@@ -1875,7 +1875,7 @@ impl<T: Config> Pallet<T> {
 					Ledger::<T>::get(ctrl.clone())
 						.expect("try_check: bonded stash/ctrl does not have an associated ledger")
 				});
-				ensure!(raw.controller.is_none(), "raw storage controller should be None");
+				ensure!(raw.controller().is_none(), "raw storage controller should be None");
 
 				// ensure ledger consistency.
 				Self::ensure_ledger_consistent(ctrl)

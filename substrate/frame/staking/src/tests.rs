@@ -261,13 +261,12 @@ fn change_controller_works() {
 
 		// same if we fetch the ledger by controller.
 		let ledger = Staking::ledger(StakingAccount::Controller(stash)).unwrap();
-		assert_eq!(ledger.controller, Some(stash));
 		assert_eq!(ledger.controller(), Some(stash));
 
 		// the raw storage ledger's controller is always `None`. however, we can still fetch the
 		// correct controller with `ledger.controler()`.
 		let raw_ledger = <Ledger<Test>>::get(&stash).unwrap();
-		assert_eq!(raw_ledger.controller, None);
+		assert_eq!(raw_ledger.controller(), None);
 
 		// `controller` is no longer in control. `stash` is now controller.
 		assert_noop!(
@@ -6836,7 +6835,7 @@ mod ledger {
 			assert!(!StakingLedger::<Test>::is_bonded(StakingAccount::Stash(42)));
 			assert!(<Bonded<Test>>::get(&42).is_none());
 
-			let mut ledger: StakingLedger<Test> = StakingLedger::default_from(42);
+			let mut ledger: StakingLedger<Test> = StakingLedger::default_from(42, Some(42));
 			let reward_dest = RewardDestination::Account(10);
 
 			assert_ok!(ledger.clone().bond(reward_dest));
@@ -6916,15 +6915,11 @@ mod ledger {
 				let ctlr: u64 = n.into();
 				let stash: u64 = (n + 10000).into();
 
-				Ledger::<Test>::insert(
-					ctlr,
-					StakingLedger {
-						controller: None,
-						total: (10 + ctlr).into(),
-						active: (10 + ctlr).into(),
-						..StakingLedger::default_from(stash)
-					},
-				);
+				let mut ledger = StakingLedger::default_from(stash, None);
+				ledger.total = (10 + ctlr).into();
+				ledger.active = (10 + ctlr).into();
+
+				Ledger::<Test>::insert(ctlr, ledger);
 				Bonded::<Test>::insert(stash, ctlr);
 				Payee::<Test>::insert(stash, RewardDestination::Staked);
 
@@ -6992,10 +6987,7 @@ mod ledger {
 				// Only half of entries are unique pairs.
 				let stash: u64 = if n % 2 == 0 { (n + 10000).into() } else { ctlr };
 
-				Ledger::<Test>::insert(
-					ctlr,
-					StakingLedger { controller: None, ..StakingLedger::default_from(stash) },
-				);
+				Ledger::<Test>::insert(ctlr, StakingLedger::default_from(stash, None));
 				Bonded::<Test>::insert(stash, ctlr);
 				Payee::<Test>::insert(stash, RewardDestination::Staked);
 
@@ -7045,10 +7037,7 @@ mod ledger {
 			let stash: u64 = 1000;
 			let ctlr: u64 = 1001;
 
-			Ledger::<Test>::insert(
-				ctlr,
-				StakingLedger { controller: None, ..StakingLedger::default_from(stash) },
-			);
+			Ledger::<Test>::insert(ctlr, StakingLedger::default_from(stash, None));
 			Bonded::<Test>::insert(stash, ctlr);
 			#[allow(deprecated)]
 			Payee::<Test>::insert(stash, RewardDestination::Controller);

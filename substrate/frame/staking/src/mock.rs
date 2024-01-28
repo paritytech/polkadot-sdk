@@ -809,7 +809,7 @@ pub(crate) fn bond_controller_stash(controller: AccountId, stash: AccountId) -> 
 	<Ledger<Test>>::get(&controller).map_or(Ok(()), |_| Err("controller already bonded"))?;
 
 	<Bonded<Test>>::insert(stash, controller);
-	<Ledger<Test>>::insert(controller, StakingLedger::<Test>::default_from(stash));
+	<Ledger<Test>>::insert(controller, StakingLedger::<Test>::default_from(stash, Some(stash)));
 
 	Ok(())
 }
