@@ -104,6 +104,33 @@ fn create_spend_arguments<T: Config<I>, I: 'static>(
 	(asset_kind, 100u32.into(), beneficiary, beneficiary_lookup)
 }
 
+// Use this `spend` insertion to bypass the `SpendOrigin` check. This is helpful
+// for benchmarking `payout`, `check_status`, and `void_spend`, which require
+// a spend in storage even if `SpendOrigin` cannot provide a successful origin.
+fn force_add_spend<T: Config<I>, I: 'static>(
+	asset_kind: Box<T::AssetKind>,
+	amount: AssetBalanceOf<T, I>,
+	beneficiary: Box<BeneficiaryLookupOf<T, I>>,
+) -> Result<(), &'static str> {
+	let valid_from = frame_system::Pallet::<T>::block_number();
+	let expire_at = valid_from.saturating_add(T::PayoutPeriod::get());
+	let beneficiary = T::BeneficiaryLookup::lookup(*beneficiary)?;
+	let index = SpendCount::<T, I>::get();
+	Spends::<T, I>::insert(
+		index,
+		SpendStatus {
+			asset_kind: *asset_kind.clone(),
+			amount,
+			beneficiary: beneficiary.clone(),
+			valid_from,
+			expire_at,
+			status: PaymentState::Pending,
+		},
+	);
+	SpendCount::<T, I>::put(index + 1);
+	Ok(())
+}
+
 #[instance_benchmarks]
 mod benchmarks {
 	use super::*;
@@ -250,22 +277,15 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// This benchmark is short-circuited if `SpendOrigin` cannot provide
-	/// a successful origin, in which case there is no spend to payout
-	/// and `payout` is un-callable and can use weight=0.
 	#[benchmark]
 	fn payout() -> Result<(), BenchmarkError> {
-		let origin =
-			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let (asset_kind, amount, beneficiary, beneficiary_lookup) =
 			create_spend_arguments::<T, _>(SEED);
 		T::BalanceConverter::ensure_successful(asset_kind.clone());
-		Treasury::<T, _>::spend(
-			origin,
+		force_add_spend::<T, _>(
 			Box::new(asset_kind.clone()),
 			amount,
 			Box::new(beneficiary_lookup),
-			None,
 		)?;
 		T::Paymaster::ensure_successful(&beneficiary, asset_kind, amount);
 		let caller: T::AccountId = account("caller", 0, SEED);
@@ -285,22 +305,15 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// This benchmark is short-circuited if `SpendOrigin` cannot provide
-	/// a successful origin, in which case there is no spend to check
-	/// and `check_status` is un-callable and can use weight=0.
 	#[benchmark]
 	fn check_status() -> Result<(), BenchmarkError> {
-		let origin =
-			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let (asset_kind, amount, beneficiary, beneficiary_lookup) =
 			create_spend_arguments::<T, _>(SEED);
 		T::BalanceConverter::ensure_successful(asset_kind.clone());
-		Treasury::<T, _>::spend(
-			origin,
+		force_add_spend::<T, _>(
 			Box::new(asset_kind.clone()),
 			amount,
 			Box::new(beneficiary_lookup),
-			None,
 		)?;
 		T::Paymaster::ensure_successful(&beneficiary, asset_kind, amount);
 		let caller: T::AccountId = account("caller", 0, SEED);
@@ -321,21 +334,14 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// This benchmark is short-circuited if `SpendOrigin` cannot provide
-	/// a successful origin, in which case there is no spend to void
-	/// and `void_spend` is un-callable and can use weight=0.
 	#[benchmark]
 	fn void_spend() -> Result<(), BenchmarkError> {
-		let origin =
-			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let (asset_kind, amount, _, beneficiary_lookup) = create_spend_arguments::<T, _>(SEED);
 		T::BalanceConverter::ensure_successful(asset_kind.clone());
-		Treasury::<T, _>::spend(
-			origin,
+		force_add_spend::<T, _>(
 			Box::new(asset_kind.clone()),
 			amount,
 			Box::new(beneficiary_lookup),
-			None,
 		)?;
 		assert!(Spends::<T, I>::get(0).is_some());
 		let origin =
