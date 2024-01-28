@@ -855,7 +855,8 @@ benchmarks! {
 		ConfigOp::Set(u32::MAX),
 		ConfigOp::Set(u32::MAX),
 		ConfigOp::Set(Percent::max_value()),
-		ConfigOp::Set(Perbill::max_value())
+		ConfigOp::Set(Perbill::max_value()),
+		ConfigOp::Set(Percent::max_value())
 	) verify {
 		assert_eq!(MinNominatorBond::<T>::get(), BalanceOf::<T>::max_value());
 		assert_eq!(MinValidatorBond::<T>::get(), BalanceOf::<T>::max_value());
@@ -863,11 +864,13 @@ benchmarks! {
 		assert_eq!(MaxValidatorsCount::<T>::get(), Some(u32::MAX));
 		assert_eq!(ChillThreshold::<T>::get(), Some(Percent::from_percent(100)));
 		assert_eq!(MinCommission::<T>::get(), Perbill::from_percent(100));
+		assert_eq!(MaxStakedRewards::<T>::get(), Some(Percent::from_percent(100)));
 	}
 
 	set_staking_configs_all_remove {
 	}: set_staking_configs(
 		RawOrigin::Root,
+		ConfigOp::Remove,
 		ConfigOp::Remove,
 		ConfigOp::Remove,
 		ConfigOp::Remove,
@@ -881,6 +884,7 @@ benchmarks! {
 		assert!(!MaxValidatorsCount::<T>::exists());
 		assert!(!ChillThreshold::<T>::exists());
 		assert!(!MinCommission::<T>::exists());
+		assert!(!MaxStakedRewards::<T>::exists());
 	}
 
 	chill_other {
@@ -904,6 +908,7 @@ benchmarks! {
 			ConfigOp::Set(0),
 			ConfigOp::Set(Percent::from_percent(0)),
 			ConfigOp::Set(Zero::zero()),
+			ConfigOp::Noop,
 		)?;
 
 		let caller = whitelisted_caller();
