@@ -152,7 +152,7 @@ impl<T: Config> Pallet<T> {
 			Self::deposit_event(Event::<T>::Withdrawn { stash, amount: value });
 
 			// notify listeners.
-			T::EventListeners::on_withdraw(controller, old_total.saturating_sub(new_total));
+			T::EventListeners::on_withdraw(controller, value);
 		}
 
 		Ok(used_weight)
