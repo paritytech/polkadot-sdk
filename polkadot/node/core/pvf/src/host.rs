@@ -249,6 +249,7 @@ pub async fn start(
 			crate::SECURE_MODE_WARNING,
 			crate::SECURE_LINUX_NOTE,
 		);
+		SecurityStatus::default()
 	};
 
 	let (to_host_tx, to_host_rx) = mpsc::channel(HOST_MESSAGE_QUEUE_SIZE);
