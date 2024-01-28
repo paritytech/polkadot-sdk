@@ -27,7 +27,7 @@
 <span class="item-spacer"></span>    fn <a href="#tymethod.chain_head_unstable_unpin" class="fn">chain_head_unstable_unpin</a>(
         &amp;self,
         follow_subscription: <a class="struct" href="https://doc.rust-lang.org/1.74.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>,
-        hash_or_hashes: ListOrValue&lt;Hash&gt;
+        hash_or_hashes: <a class="enum" href="../../../sp_rpc/list/enum.ListOrValue.html" title="enum sp_rpc::list::ListOrValue">ListOrValue</a>&lt;Hash&gt;
     ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.74.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.74.0/std/primitive.unit.html">()</a>, <a class="enum" href="../error/enum.Error.html" title="enum sc_rpc_spec_v2::chain_head::error::Error">Error</a>&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.chain_head_unstable_continue" class="fn">chain_head_unstable_continue</a>(
         &amp;self,
@@ -93,7 +93,7 @@ block.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.chain_head_unstable_unpin" class="method"><a class="src rightside" href="../../../src/sc_rpc_spec_v2/chain_head/api.rs.html#122-126">source</a><h4 class="code-header">fn <a href="#tymethod.chain_head_unstable_unpin" class="fn">chain_head_unstable_unpin</a>(
     &amp;self,
     follow_subscription: <a class="struct" href="https://doc.rust-lang.org/1.74.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>,
-    hash_or_hashes: ListOrValue&lt;Hash&gt;
+    hash_or_hashes: <a class="enum" href="../../../sp_rpc/list/enum.ListOrValue.html" title="enum sp_rpc::list::ListOrValue">ListOrValue</a>&lt;Hash&gt;
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.74.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.74.0/std/primitive.unit.html">()</a>, <a class="enum" href="../error/enum.Error.html" title="enum sc_rpc_spec_v2::chain_head::error::Error">Error</a>&gt;</h4></section></summary><div class="docblock"><p>Unpin a block or multiple blocks reported by the <code>follow</code> method.</p>
 <p>Ongoing operations that require the provided block
 will continue normally.</p>
