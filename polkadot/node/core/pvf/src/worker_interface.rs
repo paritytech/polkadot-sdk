@@ -105,9 +105,9 @@ pub async fn spawn_with_program_path(
 		gum::warn!(
 			target: LOG_TARGET,
 			%debug_id,
-			?program_path_clone,
-			?extra_args_clone,
-			?worker_dir_clone,
+			program_path = ?program_path_clone,
+			extra_args = ?extra_args_clone,
+			worker_dir = ?worker_dir_clone,
 			"error spawning worker: {}",
 			err,
 		);
@@ -384,10 +384,12 @@ pub struct WorkerDir {
 	tempdir: tempfile::TempDir,
 }
 
+pub const WORKER_DIR_PREFIX: &str = "worker-dir";
+
 impl WorkerDir {
 	/// Creates a new, empty worker dir with a random name in the given cache dir.
 	pub async fn new(debug_id: &'static str, cache_dir: &Path) -> Result<Self, SpawnErr> {
-		let prefix = format!("worker-dir-{}-", debug_id);
+		let prefix = format!("{WORKER_DIR_PREFIX}-{debug_id}-");
 		let tempdir = tempfile::Builder::new()
 			.prefix(&prefix)
 			.tempdir_in(cache_dir)

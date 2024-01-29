@@ -38,7 +38,8 @@ pub use frame_system::{Config as SystemConfig, Pallet as SystemPallet};
 pub use pallet_balances::AccountData;
 pub use pallet_message_queue;
 pub use sp_arithmetic::traits::Bounded;
-pub use sp_core::{blake2_256, parameter_types, sr25519, storage::Storage, Pair};
+pub use sp_core::{parameter_types, sr25519, storage::Storage, Pair};
+pub use sp_crypto_hashing::blake2_256;
 pub use sp_io::TestExternalities;
 pub use sp_runtime::BoundedSlice;
 pub use sp_std::{cell::RefCell, collections::vec_deque::VecDeque, fmt::Debug};
@@ -59,9 +60,10 @@ pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueu
 
 // Polkadot
 pub use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
-pub use xcm::v3::prelude::{
-	Ancestor, MultiAssets, MultiLocation, Parachain as ParachainJunction, Parent, WeightLimit,
-	XcmHash, X1,
+use sp_core::crypto::AccountId32;
+pub use xcm::latest::prelude::{
+	AccountId32 as AccountId32Junction, Ancestor, Assets, Here, Location,
+	Parachain as ParachainJunction, Parent, WeightLimit, XcmHash,
 };
 pub use xcm_executor::traits::ConvertLocation;
 
@@ -227,11 +229,11 @@ pub trait RelayChain: Chain {
 
 	fn init();
 
-	fn child_location_of(id: ParaId) -> MultiLocation {
+	fn child_location_of(id: ParaId) -> Location {
 		(Ancestor(0), ParachainJunction(id.into())).into()
 	}
 
-	fn sovereign_account_id_of(location: MultiLocation) -> AccountIdOf<Self::Runtime> {
+	fn sovereign_account_id_of(location: Location) -> AccountIdOf<Self::Runtime> {
 		Self::SovereignAccountOf::convert_location(&location).unwrap()
 	}
 
@@ -259,15 +261,15 @@ pub trait Parachain: Chain {
 		Self::ext_wrapper(|| Self::ParachainInfo::get())
 	}
 
-	fn parent_location() -> MultiLocation {
+	fn parent_location() -> Location {
 		(Parent).into()
 	}
 
-	fn sibling_location_of(para_id: ParaId) -> MultiLocation {
-		(Parent, X1(ParachainJunction(para_id.into()))).into()
+	fn sibling_location_of(para_id: ParaId) -> Location {
+		(Parent, ParachainJunction(para_id.into())).into()
 	}
 
-	fn sovereign_account_id_of(location: MultiLocation) -> AccountIdOf<Self::Runtime> {
+	fn sovereign_account_id_of(location: Location) -> AccountIdOf<Self::Runtime> {
 		Self::LocationToAccountId::convert_location(&location).unwrap()
 	}
 }
@@ -1428,13 +1430,48 @@ pub struct TestAccount<R: Chain> {
 /// Default `Args` provided by xcm-emulator to be stored in a `Test` instance
 #[derive(Clone)]
 pub struct TestArgs {
-	pub dest: MultiLocation,
-	pub beneficiary: MultiLocation,
+	pub dest: Location,
+	pub beneficiary: Location,
 	pub amount: Balance,
-	pub assets: MultiAssets,
+	pub assets: Assets,
 	pub asset_id: Option<u32>,
 	pub fee_asset_item: u32,
 	pub weight_limit: WeightLimit,
+}
+
+impl TestArgs {
+	/// Returns a [`TestArgs`] instance to be used for the Relay Chain across integration tests.
+	pub fn new_relay(dest: Location, beneficiary_id: AccountId32, amount: Balance) -> Self {
+		Self {
+			dest,
+			beneficiary: AccountId32Junction { network: None, id: beneficiary_id.into() }.into(),
+			amount,
+			assets: (Here, amount).into(),
+			asset_id: None,
+			fee_asset_item: 0,
+			weight_limit: WeightLimit::Unlimited,
+		}
+	}
+
+	/// Returns a [`TestArgs`] instance to be used for parachains across integration tests.
+	pub fn new_para(
+		dest: Location,
+		beneficiary_id: AccountId32,
+		amount: Balance,
+		assets: Assets,
+		asset_id: Option<u32>,
+		fee_asset_item: u32,
+	) -> Self {
+		Self {
+			dest,
+			beneficiary: AccountId32Junction { network: None, id: beneficiary_id.into() }.into(),
+			amount,
+			assets,
+			asset_id,
+			fee_asset_item,
+			weight_limit: WeightLimit::Unlimited,
+		}
+	}
 }
 
 /// Auxiliar struct to help creating a new `Test` instance

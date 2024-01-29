@@ -16,7 +16,7 @@
 
 //! Module contains tests code, that is shared by all types of bridges
 
-use crate::test_cases::{run_test, RuntimeHelper};
+use crate::test_cases::{bridges_prelude::*, run_test, RuntimeHelper};
 
 use asset_test_utils::BasicParachainRuntime;
 use bp_messages::{LaneId, MessageNonce};
@@ -30,13 +30,16 @@ use frame_support::{
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_bridge_grandpa::{BridgedBlockHash, BridgedHeader};
 use parachains_common::AccountId;
-use parachains_runtimes_test_utils::{mock_open_hrmp_channel, AccountIdOf, CollatorSessionKeys};
+use parachains_runtimes_test_utils::{
+	mock_open_hrmp_channel, AccountIdOf, CollatorSessionKeys, RuntimeCallOf, SlotDurations,
+};
 use sp_core::Get;
 use sp_keyring::AccountKeyring::*;
 use sp_runtime::{traits::TrailingZeroInput, AccountId32};
 use sp_std::marker::PhantomData;
 use xcm::latest::prelude::*;
 
+/// Verify that the transaction has succeeded.
 #[impl_trait_for_tuples::impl_for_tuples(30)]
 pub trait VerifyTransactionOutcome {
 	fn verify_outcome(&self);
@@ -51,7 +54,7 @@ impl VerifyTransactionOutcome for Box<dyn VerifyTransactionOutcome> {
 /// Checks that the best finalized header hash in the bridge GRANDPA pallet equals to given one.
 pub struct VerifySubmitGrandpaFinalityProofOutcome<Runtime, GPI>
 where
-	Runtime: pallet_bridge_grandpa::Config<GPI>,
+	Runtime: BridgeGrandpaConfig<GPI>,
 	GPI: 'static,
 {
 	expected_best_hash: BridgedBlockHash<Runtime, GPI>,
@@ -59,7 +62,7 @@ where
 
 impl<Runtime, GPI> VerifySubmitGrandpaFinalityProofOutcome<Runtime, GPI>
 where
-	Runtime: pallet_bridge_grandpa::Config<GPI>,
+	Runtime: BridgeGrandpaConfig<GPI>,
 	GPI: 'static,
 {
 	/// Expect given header hash to be the best after transaction.
@@ -73,7 +76,7 @@ where
 impl<Runtime, GPI> VerifyTransactionOutcome
 	for VerifySubmitGrandpaFinalityProofOutcome<Runtime, GPI>
 where
-	Runtime: pallet_bridge_grandpa::Config<GPI>,
+	Runtime: BridgeGrandpaConfig<GPI>,
 	GPI: 'static,
 {
 	fn verify_outcome(&self) {
@@ -96,7 +99,7 @@ pub struct VerifySubmitParachainHeaderProofOutcome<Runtime, PPI> {
 
 impl<Runtime, PPI> VerifySubmitParachainHeaderProofOutcome<Runtime, PPI>
 where
-	Runtime: pallet_bridge_parachains::Config<PPI>,
+	Runtime: BridgeParachainsConfig<PPI>,
 	PPI: 'static,
 {
 	/// Expect given header hash to be the best after transaction.
@@ -111,7 +114,7 @@ where
 impl<Runtime, PPI> VerifyTransactionOutcome
 	for VerifySubmitParachainHeaderProofOutcome<Runtime, PPI>
 where
-	Runtime: pallet_bridge_parachains::Config<PPI>,
+	Runtime: BridgeParachainsConfig<PPI>,
 	PPI: 'static,
 {
 	fn verify_outcome(&self) {
@@ -132,7 +135,7 @@ pub struct VerifySubmitMessagesProofOutcome<Runtime, MPI> {
 
 impl<Runtime, MPI> VerifySubmitMessagesProofOutcome<Runtime, MPI>
 where
-	Runtime: pallet_bridge_messages::Config<MPI>,
+	Runtime: BridgeMessagesConfig<MPI>,
 	MPI: 'static,
 {
 	/// Expect given delivered nonce to be the latest after transaction.
@@ -146,7 +149,7 @@ where
 
 impl<Runtime, MPI> VerifyTransactionOutcome for VerifySubmitMessagesProofOutcome<Runtime, MPI>
 where
-	Runtime: pallet_bridge_messages::Config<MPI>,
+	Runtime: BridgeMessagesConfig<MPI>,
 	MPI: 'static,
 {
 	fn verify_outcome(&self) {
@@ -194,7 +197,7 @@ where
 pub(crate) fn initialize_bridge_grandpa_pallet<Runtime, GPI>(
 	init_data: bp_header_chain::InitializationData<BridgedHeader<Runtime, GPI>>,
 ) where
-	Runtime: pallet_bridge_grandpa::Config<GPI>,
+	Runtime: BridgeGrandpaConfig<GPI>,
 {
 	pallet_bridge_grandpa::Pallet::<Runtime, GPI>::initialize(
 		RuntimeHelper::<Runtime>::root_origin(),
@@ -205,7 +208,7 @@ pub(crate) fn initialize_bridge_grandpa_pallet<Runtime, GPI>(
 
 /// Runtime calls and their verifiers.
 pub type CallsAndVerifiers<Runtime> =
-	Vec<(<Runtime as frame_system::Config>::RuntimeCall, Box<dyn VerifyTransactionOutcome>)>;
+	Vec<(RuntimeCallOf<Runtime>, Box<dyn VerifyTransactionOutcome>)>;
 
 /// Returns relayer id at the bridged chain.
 pub fn relayer_id_at_bridged_chain<Runtime: pallet_bridge_messages::Config<MPI>, MPI>(
@@ -217,24 +220,23 @@ pub fn relayer_id_at_bridged_chain<Runtime: pallet_bridge_messages::Config<MPI>,
 /// with proofs (finality, message) independently submitted.
 pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
+	slot_durations: SlotDurations,
 	runtime_para_id: u32,
 	sibling_parachain_id: u32,
 	local_relay_chain_id: NetworkId,
 	construct_and_apply_extrinsic: fn(
 		sp_keyring::AccountKeyring,
-		<Runtime as frame_system::Config>::RuntimeCall,
+		RuntimeCallOf<Runtime>,
 	) -> sp_runtime::DispatchOutcome,
 	prepare_message_proof_import: impl FnOnce(
 		Runtime::AccountId,
 		Runtime::InboundRelayer,
-		InteriorMultiLocation,
+		InteriorLocation,
 		MessageNonce,
 		Xcm<()>,
 	) -> CallsAndVerifiers<Runtime>,
 ) where
-	Runtime: BasicParachainRuntime
-		+ cumulus_pallet_xcmp_queue::Config
-		+ pallet_bridge_messages::Config<MPI>,
+	Runtime: BasicParachainRuntime + cumulus_pallet_xcmp_queue::Config + BridgeMessagesConfig<MPI>,
 	AllPalletsWithoutSystem:
 		OnInitialize<BlockNumberFor<Runtime>> + OnFinalize<BlockNumberFor<Runtime>>,
 	MPI: 'static,
@@ -251,7 +253,12 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 		runtime_para_id,
 		vec![(
 			relayer_id_on_target.clone().into(),
-			Runtime::ExistentialDeposit::get() * 100000u32.into(),
+			// this value should be enough to cover all transaction costs, but computing the actual
+			// value here is tricky - there are several transaction payment pallets and we don't
+			// want to introduce additional bounds and traits here just for that, so let's just
+			// select some presumably large value
+			sp_std::cmp::max::<Runtime::Balance>(Runtime::ExistentialDeposit::get(), 1u32.into()) *
+				100_000_000u32.into(),
 		)],
 		|| {
 			let mut alice = [0u8; 32];
@@ -266,25 +273,26 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 				sibling_parachain_id.into(),
 				included_head,
 				&alice,
+				&slot_durations,
 			);
 
 			// set up relayer details and proofs
 
-			let message_destination =
-				X2(GlobalConsensus(local_relay_chain_id), Parachain(sibling_parachain_id));
+			let message_destination: InteriorLocation =
+				[GlobalConsensus(local_relay_chain_id), Parachain(sibling_parachain_id)].into();
 			// some random numbers (checked by test)
 			let message_nonce = 1;
 
-			let xcm = vec![xcm::v3::Instruction::<()>::ClearOrigin; 42];
+			let xcm = vec![Instruction::<()>::ClearOrigin; 42];
 			let expected_dispatch = xcm::latest::Xcm::<()>({
 				let mut expected_instructions = xcm.clone();
 				// dispatch prepends bridge pallet instance
 				expected_instructions.insert(
 					0,
-					DescendOrigin(X1(PalletInstance(
+					DescendOrigin([PalletInstance(
 						<pallet_bridge_messages::Pallet<Runtime, MPI> as PalletInfoAccess>::index()
 							as u8,
-					))),
+					)].into()),
 				);
 				expected_instructions
 			});
@@ -327,7 +335,7 @@ fn execute_and_verify_calls<Runtime: frame_system::Config>(
 	submitter: sp_keyring::AccountKeyring,
 	construct_and_apply_extrinsic: fn(
 		sp_keyring::AccountKeyring,
-		<Runtime as frame_system::Config>::RuntimeCall,
+		RuntimeCallOf<Runtime>,
 	) -> sp_runtime::DispatchOutcome,
 	calls_and_verifiers: CallsAndVerifiers<Runtime>,
 ) {

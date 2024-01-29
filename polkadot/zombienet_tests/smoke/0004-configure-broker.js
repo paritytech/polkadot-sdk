@@ -13,29 +13,30 @@ async function run(nodeName, networkInfo, _jsArgs) {
   const calls = [
     // Default broker configuration
     api.tx.broker.configure({
-      advanceNotice: 2,
+      advanceNotice: 5,
       interludeLength: 1,
       leadinLength: 1,
-      regionLength: 3,
+      regionLength: 1,
       idealBulkProportion: 100,
       limitCoresOffered: null,
       renewalBump: 10,
       contributionTimeout: 5,
     }),
-    // Make reservation for ParaId 100 (adder-a) every other block
-    // and ParaId 101 (adder-b) every other block.
-    api.tx.broker.reserve([
-      {
-        mask: [255, 0, 255, 0, 255, 0, 255, 0, 255, 0],
-        assignment: { Task: 100 },
-      },
-      {
-        mask: [0, 255, 0, 255, 0, 255, 0, 255, 0, 255],
-        assignment: { Task: 101 },
-      },
-    ]),
-    // Start sale with 1 core starting at 1 planck
-    api.tx.broker.startSales(1, 1),
+    // We need MOARE cores.
+    api.tx.broker.requestCoreCount(2),
+    // Set a lease for the broker chain itself.
+    api.tx.broker.setLease(
+      1005,
+      1000,
+    ),
+    // Set a lease for parachain 100
+    api.tx.broker.setLease(
+      100,
+      1000,
+    ),
+    // Start sale to make the broker "work", but we don't offer any cores
+    // as we have fixed leases only anyway.
+    api.tx.broker.startSales(1, 0),
   ];
   const sudo_batch = api.tx.sudo.sudo(api.tx.utility.batch(calls));
 

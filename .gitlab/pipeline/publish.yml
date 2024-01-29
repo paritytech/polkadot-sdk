@@ -71,8 +71,7 @@ publish-rustdoc:
     IMAGE_NAME: "" # docker.io/paritypr/image_name
   script:
     # Dockertag should differ in a merge queue
-    # TODO: test this
-    # - if [[ $CI_COMMIT_REF_NAME == *"gh-readonly-queue"* ]]; export DOCKER_IMAGES_VERSION="${CI_COMMIT_SHORT_SHA}"; fi
+    - if [[ $CI_COMMIT_REF_NAME == *"gh-readonly-queue"* ]]; then export DOCKER_IMAGES_VERSION="${CI_COMMIT_SHORT_SHA}"; fi
     - $BUILDAH_COMMAND build
       --format=docker
       --build-arg VCS_REF="${CI_COMMIT_SHA}"

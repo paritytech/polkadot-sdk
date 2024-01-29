@@ -87,12 +87,12 @@ pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 pub type PricingParametersOf<T> = PricingParametersRecord<BalanceOf<T>>;
 
 /// Ensure origin location is a sibling
-fn ensure_sibling<T>(location: &MultiLocation) -> Result<(ParaId, H256), DispatchError>
+fn ensure_sibling<T>(location: &Location) -> Result<(ParaId, H256), DispatchError>
 where
 	T: Config,
 {
-	match location {
-		MultiLocation { parents: 1, interior: X1(Parachain(para_id)) } => {
+	match location.unpack() {
+		(1, [Parachain(para_id)]) => {
 			let agent_id = agent_id_of::<T>(location)?;
 			Ok(((*para_id).into(), agent_id))
 		},
@@ -101,7 +101,7 @@ where
 }
 
 /// Hash the location to produce an agent id
-fn agent_id_of<T: Config>(location: &MultiLocation) -> Result<H256, DispatchError> {
+fn agent_id_of<T: Config>(location: &Location) -> Result<H256, DispatchError> {
 	T::AgentIdOf::convert_location(location).ok_or(Error::<T>::LocationConversionFailed.into())
 }
 
@@ -110,7 +110,7 @@ pub trait BenchmarkHelper<O>
 where
 	O: OriginTrait,
 {
-	fn make_xcm_origin(location: MultiLocation) -> O;
+	fn make_xcm_origin(location: Location) -> O;
 }
 
 /// Whether a fee should be withdrawn to an account for sending an outbound message
@@ -145,9 +145,9 @@ pub mod pallet {
 		type OutboundQueue: SendMessage<Balance = BalanceOf<Self>>;
 
 		/// Origin check for XCM locations that can create agents
-		type SiblingOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = MultiLocation>;
+		type SiblingOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Location>;
 
-		/// Converts MultiLocation to AgentId
+		/// Converts Location to AgentId
 		type AgentIdOf: ConvertLocation<AgentId>;
 
 		/// Token reserved for control operations
@@ -180,7 +180,7 @@ pub mod pallet {
 		},
 		/// An CreateAgent message was sent to the Gateway
 		CreateAgent {
-			location: Box<MultiLocation>,
+			location: Box<Location>,
 			agent_id: AgentId,
 		},
 		/// An CreateChannel message was sent to the Gateway
@@ -299,7 +299,7 @@ pub mod pallet {
 		///
 		/// Fee required: No
 		///
-		/// - `origin`: Must be `MultiLocation`
+		/// - `origin`: Must be `Location`
 		#[pallet::call_index(1)]
 		#[pallet::weight((T::WeightInfo::set_operating_mode(), DispatchClass::Operational))]
 		pub fn set_operating_mode(origin: OriginFor<T>, mode: OperatingMode) -> DispatchResult {
@@ -342,11 +342,11 @@ pub mod pallet {
 		///
 		/// Fee required: Yes
 		///
-		/// - `origin`: Must be `MultiLocation` of a sibling parachain
+		/// - `origin`: Must be `Location` of a sibling parachain
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::create_agent())]
 		pub fn create_agent(origin: OriginFor<T>) -> DispatchResult {
-			let origin_location: MultiLocation = T::SiblingOrigin::ensure_origin(origin)?;
+			let origin_location: Location = T::SiblingOrigin::ensure_origin(origin)?;
 
 			// Ensure that origin location is some consensus system on a sibling parachain
 			let (para_id, agent_id) = ensure_sibling::<T>(&origin_location)?;
@@ -375,12 +375,12 @@ pub mod pallet {
 		///
 		/// The message is sent over the bridge on BridgeHub's own channel to the Gateway.
 		///
-		/// - `origin`: Must be `MultiLocation`
+		/// - `origin`: Must be `Location`
 		/// - `mode`: Initial operating mode of the channel
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::create_channel())]
 		pub fn create_channel(origin: OriginFor<T>, mode: OperatingMode) -> DispatchResult {
-			let origin_location: MultiLocation = T::SiblingOrigin::ensure_origin(origin)?;
+			let origin_location: Location = T::SiblingOrigin::ensure_origin(origin)?;
 
 			// Ensure that origin location is a sibling parachain
 			let (para_id, agent_id) = ensure_sibling::<T>(&origin_location)?;
@@ -407,12 +407,12 @@ pub mod pallet {
 		///
 		/// A partial fee will be charged for local processing only.
 		///
-		/// - `origin`: Must be `MultiLocation`
+		/// - `origin`: Must be `Location`
 		/// - `mode`: Initial operating mode of the channel
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::update_channel())]
 		pub fn update_channel(origin: OriginFor<T>, mode: OperatingMode) -> DispatchResult {
-			let origin_location: MultiLocation = T::SiblingOrigin::ensure_origin(origin)?;
+			let origin_location: Location = T::SiblingOrigin::ensure_origin(origin)?;
 
 			// Ensure that origin location is a sibling parachain
 			let (para_id, _) = ensure_sibling::<T>(&origin_location)?;
@@ -461,7 +461,7 @@ pub mod pallet {
 		///
 		/// A partial fee will be charged for local processing only.
 		///
-		/// - `origin`: Must be `MultiLocation`
+		/// - `origin`: Must be `Location`
 		#[pallet::call_index(7)]
 		#[pallet::weight(T::WeightInfo::transfer_native_from_agent())]
 		pub fn transfer_native_from_agent(
@@ -469,7 +469,7 @@ pub mod pallet {
 			recipient: H160,
 			amount: u128,
 		) -> DispatchResult {
-			let origin_location: MultiLocation = T::SiblingOrigin::ensure_origin(origin)?;
+			let origin_location: Location = T::SiblingOrigin::ensure_origin(origin)?;
 
 			// Ensure that origin location is some consensus system on a sibling parachain
 			let (para_id, agent_id) = ensure_sibling::<T>(&origin_location)?;
@@ -501,14 +501,14 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::force_transfer_native_from_agent())]
 		pub fn force_transfer_native_from_agent(
 			origin: OriginFor<T>,
-			location: Box<VersionedMultiLocation>,
+			location: Box<VersionedLocation>,
 			recipient: H160,
 			amount: u128,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
 			// Ensure that location is some consensus system on a sibling parachain
-			let location: MultiLocation =
+			let location: Location =
 				(*location).try_into().map_err(|_| Error::<T>::UnsupportedLocationVersion)?;
 			let (_, agent_id) =
 				ensure_sibling::<T>(&location).map_err(|_| Error::<T>::InvalidLocation)?;
@@ -621,8 +621,8 @@ pub mod pallet {
 		/// Initializes agents and channels.
 		pub fn initialize(para_id: ParaId, asset_hub_para_id: ParaId) -> Result<(), DispatchError> {
 			// Asset Hub
-			let asset_hub_location: MultiLocation =
-				ParentThen(X1(Parachain(asset_hub_para_id.into()))).into();
+			let asset_hub_location: Location =
+				ParentThen(Parachain(asset_hub_para_id.into()).into()).into();
 			let asset_hub_agent_id = agent_id_of::<T>(&asset_hub_location)?;
 			let asset_hub_channel_id: ChannelId = asset_hub_para_id.into();
 			Agents::<T>::insert(asset_hub_agent_id, ());
@@ -632,7 +632,7 @@ pub mod pallet {
 			);
 
 			// Governance channels
-			let bridge_hub_agent_id = agent_id_of::<T>(&MultiLocation::here())?;
+			let bridge_hub_agent_id = agent_id_of::<T>(&Location::here())?;
 			// Agent for BridgeHub
 			Agents::<T>::insert(bridge_hub_agent_id, ());
 

@@ -20,14 +20,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use bp_header_chain::ChainWithGrandpa;
-use bp_messages::MessageNonce;
+use bp_messages::{ChainWithMessages, MessageNonce};
 use bp_runtime::{
 	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis,
 	extensions::{
 		CheckEra, CheckGenesis, CheckNonZeroSender, CheckNonce, CheckSpecVersion, CheckTxVersion,
 		CheckWeight, GenericSignedExtension, GenericSignedExtensionSchema,
 	},
-	Chain, TransactionEra,
+	Chain, ChainId, TransactionEra,
 };
 use codec::{Decode, Encode};
 use frame_support::{
@@ -177,6 +177,8 @@ parameter_types! {
 pub struct PolkadotBulletin;
 
 impl Chain for PolkadotBulletin {
+	const ID: ChainId = *b"pdbc";
+
 	type BlockNumber = BlockNumber;
 	type Hash = Hash;
 	type Hasher = Hasher;
@@ -209,6 +211,16 @@ impl ChainWithGrandpa for PolkadotBulletin {
 		REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY;
 	const MAX_MANDATORY_HEADER_SIZE: u32 = MAX_MANDATORY_HEADER_SIZE;
 	const AVERAGE_HEADER_SIZE: u32 = AVERAGE_HEADER_SIZE;
+}
+
+impl ChainWithMessages for PolkadotBulletin {
+	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str =
+		WITH_POLKADOT_BULLETIN_MESSAGES_PALLET_NAME;
+
+	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce =
+		MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
+	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce =
+		MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 }
 
 decl_bridge_finality_runtime_apis!(polkadot_bulletin, grandpa);

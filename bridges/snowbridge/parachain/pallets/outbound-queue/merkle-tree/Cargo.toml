@@ -2,10 +2,14 @@
 name = "snowbridge-outbound-queue-merkle-tree"
 description = "Snowbridge Outbound Queue Merkle Tree"
 version = "0.1.1"
-edition = "2021"
 authors = ["Snowfork <contact@snowfork.com>"]
-repository = "https://github.com/Snowfork/snowbridge"
+edition.workspace = true
+repository.workspace = true
 license = "Apache-2.0"
+categories = ["cryptography::cryptocurrencies"]
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -22,6 +26,7 @@ hex-literal = { version = "0.4.1" }
 env_logger = "0.9"
 hex = "0.4"
 array-bytes = "4.1"
+sp-crypto-hashing = { path = "../../../../../../substrate/primitives/crypto/hashing" }
 
 [features]
 default = ["std"]

@@ -129,14 +129,14 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Timestamp: pallet_timestamp::{Call, Inherent},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		RootTesting: pallet_root_testing::{Pallet, Call, Storage,  Event<T>},
+		System: frame_system,
+		Timestamp: pallet_timestamp,
+		Balances: pallet_balances,
+		RootTesting: pallet_root_testing,
 		Council: pallet_collective::<Instance1>,
-		Utility: utility::{Pallet, Call, Event},
-		Example: example::{Pallet, Call},
-		Democracy: mock_democracy::{Pallet, Call, Event<T>},
+		Utility: utility,
+		Example: example,
+		Democracy: mock_democracy,
 	}
 );
 

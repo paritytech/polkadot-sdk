@@ -19,9 +19,8 @@
 mod origins;
 mod tracks;
 use crate::{
-	impls::ToParentTreasury,
 	weights,
-	xcm_config::{FellowshipAdminBodyId, TreasurerBodyId, UsdtAssetHub},
+	xcm_config::{FellowshipAdminBodyId, LocationToAccountId, TreasurerBodyId, UsdtAssetHub},
 	AccountId, AssetRate, Balance, Balances, FellowshipReferenda, GovernanceLocation, Preimage,
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler, WestendTreasuryAccount, DAYS,
 };
@@ -39,15 +38,16 @@ pub use origins::{
 };
 use pallet_ranked_collective::EnsureOfRank;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
-use parachains_common::westend::{account, currency::GRAND};
+use parachains_common::{
+	impls::ToParentTreasury,
+	westend::{account, currency::GRAND},
+};
 use polkadot_runtime_common::impls::{
-	LocatableAssetConverter, VersionedLocatableAsset, VersionedMultiLocationConverter,
+	LocatableAssetConverter, VersionedLocatableAsset, VersionedLocationConverter,
 };
 use sp_arithmetic::Permill;
 use sp_core::{ConstU128, ConstU32};
-use sp_runtime::traits::{
-	AccountIdConversion, ConstU16, ConvertToValue, IdentityLookup, Replace, TakeFirst,
-};
+use sp_runtime::traits::{ConstU16, ConvertToValue, IdentityLookup, Replace, TakeFirst};
 use westend_runtime_constants::time::HOURS;
 use xcm::prelude::*;
 use xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
@@ -70,11 +70,6 @@ pub mod ranks {
 	pub const DAN_7: Rank = 7; // aka Masters.
 	pub const DAN_8: Rank = 8;
 	pub const DAN_9: Rank = 9;
-}
-
-parameter_types! {
-	// Referenda pallet account, used to temporarily deposit slashed imbalance before teleporting.
-	pub ReferendaPalletAccount: AccountId = account::REFERENDA_PALLET_ID.into_account_truncating();
 }
 
 impl pallet_fellowship_origins::Config for Runtime {}
@@ -103,7 +98,7 @@ impl pallet_referenda::Config<FellowshipReferendaInstance> for Runtime {
 	>;
 	type CancelOrigin = Architects;
 	type KillOrigin = Masters;
-	type Slash = ToParentTreasury<WestendTreasuryAccount, ReferendaPalletAccount, Runtime>;
+	type Slash = ToParentTreasury<WestendTreasuryAccount, LocationToAccountId, Runtime>;
 	type Votes = pallet_ranked_collective::Votes;
 	type Tally = pallet_ranked_collective::TallyOf<Runtime, FellowshipCollectiveInstance>;
 	type SubmissionDeposit = ConstU128<0>;
@@ -207,7 +202,7 @@ pub type FellowshipSalaryInstance = pallet_salary::Instance1;
 parameter_types! {
 	// The interior location on AssetHub for the paying account. This is the Fellowship Salary
 	// pallet instance (which sits at index 64). This sovereign account will need funding.
-	pub Interior: InteriorMultiLocation = PalletInstance(64).into();
+	pub Interior: InteriorLocation = PalletInstance(64).into();
 }
 
 const USDT_UNITS: u128 = 1_000_000;
@@ -255,7 +250,7 @@ parameter_types! {
 	pub const MaxBalance: Balance = Balance::max_value();
 	// The asset's interior location for the paying account. This is the Fellowship Treasury
 	// pallet instance (which sits at index 65).
-	pub FellowshipTreasuryInteriorLocation: InteriorMultiLocation = PalletInstance(65).into();
+	pub FellowshipTreasuryInteriorLocation: InteriorLocation = PalletInstance(65).into();
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -274,10 +269,10 @@ pub type FellowshipTreasuryPaymaster = PayOverXcm<
 	crate::xcm_config::XcmRouter,
 	crate::PolkadotXcm,
 	ConstU32<{ 6 * HOURS }>,
-	VersionedMultiLocation,
+	VersionedLocation,
 	VersionedLocatableAsset,
 	LocatableAssetConverter,
-	VersionedMultiLocationConverter,
+	VersionedLocationConverter,
 >;
 
 pub type FellowshipTreasuryInstance = pallet_treasury::Instance1;
@@ -332,7 +327,7 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 		>,
 	>;
 	type AssetKind = VersionedLocatableAsset;
-	type Beneficiary = VersionedMultiLocation;
+	type Beneficiary = VersionedLocation;
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Paymaster = FellowshipTreasuryPaymaster;

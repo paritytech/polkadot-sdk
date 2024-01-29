@@ -57,6 +57,8 @@ rm -rf $SNOWBRIDGE_FOLDER/codecov.yml
 rm -rf $SNOWBRIDGE_FOLDER/docs
 rm -rf $SNOWBRIDGE_FOLDER/hooks
 rm -rf $SNOWBRIDGE_FOLDER/relayer
+rm -rf $SNOWBRIDGE_FOLDER/scripts
+rm -rf $SNOWBRIDGE_FOLDER/SECURITY.md
 rm -rf $SNOWBRIDGE_FOLDER/smoketest
 rm -rf $SNOWBRIDGE_FOLDER/web
 rm -rf $SNOWBRIDGE_FOLDER/.envrc-example
@@ -74,8 +76,9 @@ rm -rf $SNOWBRIDGE_FOLDER/rust-toolchain.toml
 rm -rf $SNOWBRIDGE_FOLDER/parachain/rustfmt.toml
 rm -rf $SNOWBRIDGE_FOLDER/parachain/.gitignore
 rm -rf $SNOWBRIDGE_FOLDER/parachain/templates
+rm -rf $SNOWBRIDGE_FOLDER/parachain/.cargo
 rm -rf $SNOWBRIDGE_FOLDER/parachain/.config
-rm -rf $SNOWBRIDGE_FOLDER/parachain/pallets/ethereum-beacon-client/fuzz
+rm -rf $SNOWBRIDGE_FOLDER/parachain/pallets/ethereum-client/fuzz
 
 cd bridges/snowbridge/parachain
 
@@ -90,18 +93,18 @@ find "." -name 'Cargo.toml' | while read -r file; do
 done
 
 # let's test if everything we need compiles
-cargo check -p snowbridge-ethereum-beacon-client
-cargo check -p snowbridge-ethereum-beacon-client --features runtime-benchmarks
-cargo check -p snowbridge-ethereum-beacon-client --features try-runtime
-cargo check -p snowbridge-inbound-queue
-cargo check -p snowbridge-inbound-queue --features runtime-benchmarks
-cargo check -p snowbridge-inbound-queue --features try-runtime
-cargo check -p snowbridge-outbound-queue
-cargo check -p snowbridge-outbound-queue --features runtime-benchmarks
-cargo check -p snowbridge-outbound-queue --features try-runtime
-cargo check -p snowbridge-system
-cargo check -p snowbridge-system --features runtime-benchmarks
-cargo check -p snowbridge-system --features try-runtime
+cargo check -p snowbridge-pallet-ethereum-client
+cargo check -p snowbridge-pallet-ethereum-client --features runtime-benchmarks
+cargo check -p snowbridge-pallet-ethereum-client --features try-runtime
+cargo check -p snowbridge-pallet-inbound-queue
+cargo check -p snowbridge-pallet-inbound-queue --features runtime-benchmarks
+cargo check -p snowbridge-pallet-inbound-queue --features try-runtime
+cargo check -p snowbridge-pallet-outbound-queue
+cargo check -p snowbridge-pallet-outbound-queue --features runtime-benchmarks
+cargo check -p snowbridge-pallet-outbound-queue --features try-runtime
+cargo check -p snowbridge-pallet-system
+cargo check -p snowbridge-pallet-system --features runtime-benchmarks
+cargo check -p snowbridge-pallet-system --features try-runtime
 
 cd -
 
