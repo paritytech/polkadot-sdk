@@ -211,7 +211,6 @@ fn register_weth_token_from_ethereum_to_asset_hub() {
 
 	BridgeHubRococo::execute_with(|| {
 		type RuntimeEvent = <BridgeHubRococo as Chain>::RuntimeEvent;
-		type Runtime = <BridgeHubRococo as Chain>::Runtime;
 
 		// Construct RegisterToken message and sent to inbound queue
 		let register_token_message = make_register_token_message();
