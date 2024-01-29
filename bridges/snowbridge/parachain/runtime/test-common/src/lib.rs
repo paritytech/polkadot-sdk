@@ -49,38 +49,36 @@ where
 		+ snowbridge_pallet_outbound_queue::Config,
 	XcmConfig: xcm_executor::Config,
 {
-	let assethub_parachain_location = MultiLocation::new(1, Parachain(assethub_parachain_id));
-	let asset = MultiAsset {
-		id: Concrete(MultiLocation {
-			parents: 0,
-			interior: X1(AccountKey20 { network: None, key: weth_contract_address.into() }),
-		}),
+	let assethub_parachain_location = Location::new(1, Parachain(assethub_parachain_id));
+	let asset = Asset {
+		id: AssetId(Location::new(
+			0,
+			[AccountKey20 { network: None, key: weth_contract_address.into() }],
+		)),
 		fun: Fungible(1000000000),
 	};
 	let assets = vec![asset.clone()];
 
 	let inner_xcm = Xcm(vec![
-		WithdrawAsset(MultiAssets::from(assets.clone())),
+		WithdrawAsset(Assets::from(assets.clone())),
 		ClearOrigin,
 		BuyExecution { fees: asset, weight_limit: Unlimited },
 		DepositAsset {
 			assets: Wild(All),
-			beneficiary: MultiLocation {
-				parents: 0,
-				interior: X1(AccountKey20 { network: None, key: destination_address.into() }),
-			},
+			beneficiary: Location::new(
+				0,
+				[AccountKey20 { network: None, key: destination_address.into() }],
+			),
 		},
 		SetTopic([0; 32]),
 	]);
 
-	let fee = MultiAsset {
-		id: Concrete(MultiLocation { parents: 1, interior: Here }),
-		fun: Fungible(fee_amount),
-	};
+	let fee =
+		Asset { id: AssetId(Location { parents: 1, interior: Here }), fun: Fungible(fee_amount) };
 
 	// prepare transfer token message
 	let xcm = Xcm(vec![
-		WithdrawAsset(MultiAssets::from(vec![fee.clone()])),
+		WithdrawAsset(Assets::from(vec![fee.clone()])),
 		BuyExecution { fees: fee, weight_limit: Unlimited },
 		ExportMessage {
 			network: Ethereum { chain_id: 11155111 },
@@ -90,12 +88,13 @@ where
 	]);
 
 	// execute XCM
-	let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-	XcmExecutor::<XcmConfig>::execute_xcm(
+	let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+	XcmExecutor::<XcmConfig>::prepare_and_execute(
 		assethub_parachain_location,
 		xcm,
-		hash,
+		&mut hash,
 		RuntimeHelper::<Runtime>::xcm_max_weight(XcmReceivedFrom::Sibling),
+		Weight::zero(),
 	)
 }
 
@@ -176,7 +175,7 @@ pub fn send_unpaid_transfer_token_message<Runtime, XcmConfig>(
 	XcmConfig: xcm_executor::Config,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
 {
-	let assethub_parachain_location = MultiLocation::new(1, Parachain(assethub_parachain_id));
+	let assethub_parachain_location = Location::new(1, Parachain(assethub_parachain_id));
 
 	ExtBuilder::<Runtime>::default()
 		.with_collators(collator_session_key.collators())
@@ -194,28 +193,25 @@ pub fn send_unpaid_transfer_token_message<Runtime, XcmConfig>(
 			)
 			.unwrap();
 
-			let asset = MultiAsset {
-				id: Concrete(MultiLocation {
-					parents: 0,
-					interior: X1(AccountKey20 { network: None, key: weth_contract_address.into() }),
-				}),
+			let asset = Asset {
+				id: AssetId(Location::new(
+					0,
+					[AccountKey20 { network: None, key: weth_contract_address.into() }],
+				)),
 				fun: Fungible(1000000000),
 			};
 			let assets = vec![asset.clone()];
 
 			let inner_xcm = Xcm(vec![
-				WithdrawAsset(MultiAssets::from(assets.clone())),
+				WithdrawAsset(Assets::from(assets.clone())),
 				ClearOrigin,
 				BuyExecution { fees: asset, weight_limit: Unlimited },
 				DepositAsset {
 					assets: Wild(AllCounted(1)),
-					beneficiary: MultiLocation {
-						parents: 0,
-						interior: X1(AccountKey20 {
-							network: None,
-							key: destination_contract.into(),
-						}),
-					},
+					beneficiary: Location::new(
+						0,
+						[AccountKey20 { network: None, key: destination_contract.into() }],
+					),
 				},
 				SetTopic([0; 32]),
 			]);
@@ -231,12 +227,13 @@ pub fn send_unpaid_transfer_token_message<Runtime, XcmConfig>(
 			]);
 
 			// execute XCM
-			let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
-			let outcome = XcmExecutor::<XcmConfig>::execute_xcm(
+			let mut hash = xcm.using_encoded(sp_io::hashing::blake2_256);
+			let outcome = XcmExecutor::<XcmConfig>::prepare_and_execute(
 				assethub_parachain_location,
 				xcm,
-				hash,
+				&mut hash,
 				RuntimeHelper::<Runtime>::xcm_max_weight(XcmReceivedFrom::Sibling),
+				Weight::zero(),
 			);
 			// check error is barrier
 			assert_err!(outcome.ensure_complete(), Barrier);

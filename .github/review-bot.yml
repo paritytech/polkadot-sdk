@@ -20,23 +20,6 @@ rules:
         teams:
           - core-devs
 
-  - name: Audit rules
-    type: basic
-    condition:
-      include:
-        - ^polkadot/runtime/common/.*
-        - ^polkadot/primitives/src\/.+\.rs$
-        - ^substrate/primitives/.*
-        - ^substrate/frame/.*
-      exclude:
-        - ^substrate\/frame\/.+\.md$
-    minApprovals: 1
-    allowedToSkipRule:
-      teams:
-        - core-devs
-    teams:
-      - srlabs
-
   - name: Core developers
     countAuthor: true
     condition:

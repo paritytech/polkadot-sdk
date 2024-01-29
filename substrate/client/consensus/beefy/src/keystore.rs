@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use sp_application_crypto::{key_types::BEEFY as BEEFY_KEY_TYPE, RuntimeAppPublic};
-use sp_core::keccak_256;
+use sp_crypto_hashing::keccak_256;
 use sp_keystore::KeystorePtr;
 
 use log::warn;

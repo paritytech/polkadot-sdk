@@ -533,7 +533,7 @@ where
 				Some(res) => {
 					info!(
 						target: LOG_TARGET,
-						"Warp sync finished, continuing with state sync."
+						"Warp sync is complete, continuing with state sync.",
 					);
 					let state_sync = StateStrategy::new(
 						self.client.clone(),
@@ -554,7 +554,7 @@ where
 				None => {
 					error!(
 						target: LOG_TARGET,
-						"Warp sync failed. Continuing with full sync."
+						"Warp sync failed. Falling back to full sync.",
 					);
 					let mut chain_sync = match ChainSync::new(
 						chain_sync_mode(self.config.mode),

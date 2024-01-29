@@ -1,6 +1,6 @@
 # Subsystem benchmark client
 
-Run parachain consensus stress and performance tests on your development machine.
+Run parachain consensus stress and performance tests on your development machine.  
 
 ## Motivation
 
@@ -111,29 +111,28 @@ Commands:
 ```
 
 Note: `test-sequence` is a special test objective that wraps up an arbitrary number of test objectives. It is tipically
-used to run a suite of tests defined in a `yaml` file like in this [example](examples/availability_read.yaml).
+ used to run a suite of tests defined in a `yaml` file like in this [example](examples/availability_read.yaml).
 
 ### Standard test options
-
+  
 ```
-Options:
-      --network <NETWORK>                              The type of network to be emulated [default: ideal] [possible values:
-                                                       ideal, healthy, degraded]
+      --network <NETWORK>                              The type of network to be emulated [default: ideal] [possible values: ideal, healthy,
+                                                       degraded]
       --n-cores <N_CORES>                              Number of cores to fetch availability for [default: 100]
       --n-validators <N_VALIDATORS>                    Number of validators to fetch chunks from [default: 500]
       --min-pov-size <MIN_POV_SIZE>                    The minimum pov size in KiB [default: 5120]
       --max-pov-size <MAX_POV_SIZE>                    The maximum pov size bytes [default: 5120]
   -n, --num-blocks <NUM_BLOCKS>                        The number of blocks the test is going to run [default: 1]
-  -p, --peer-bandwidth <PEER_BANDWIDTH>                The bandwidth of simulated remote peers in KiB
-  -b, --bandwidth <BANDWIDTH>                          The bandwidth of our simulated node in KiB
-      --peer-error <PEER_ERROR>                        Simulated conection error ratio [0-100]
-      --peer-min-latency <PEER_MIN_LATENCY>            Minimum remote peer latency in milliseconds [0-5000]
-      --peer-max-latency <PEER_MAX_LATENCY>            Maximum remote peer latency in milliseconds [0-5000]
+  -p, --peer-bandwidth <PEER_BANDWIDTH>                The bandwidth of emulated remote peers in KiB
+  -b, --bandwidth <BANDWIDTH>                          The bandwidth of our node in KiB
+      --connectivity <CONNECTIVITY>                    Emulated peer connection ratio [0-100]
+      --peer-mean-latency <PEER_MEAN_LATENCY>          Mean remote peer latency in milliseconds [0-5000]
+      --peer-latency-std-dev <PEER_LATENCY_STD_DEV>    Remote peer latency standard deviation
       --profile                                        Enable CPU Profiling with Pyroscope
       --pyroscope-url <PYROSCOPE_URL>                  Pyroscope Server URL [default: http://localhost:4040]
       --pyroscope-sample-rate <PYROSCOPE_SAMPLE_RATE>  Pyroscope Sample Rate [default: 113]
+      --cache-misses                                   Enable Cache Misses Profiling with Valgrind. Linux only, Valgrind must be in the PATH
   -h, --help                                           Print help
-  -V, --version                                        Print version
 ```
 
 These apply to all test objectives, except `test-sequence` which relies on the values being specified in a file.
@@ -151,8 +150,8 @@ Benchmark availability recovery strategies
 Usage: subsystem-bench data-availability-read [OPTIONS]
 
 Options:
-  -f, --fetch-from-backers  Turbo boost AD Read by fetching the full availability datafrom backers first. Saves CPU
-                            as we don't need to re-construct from chunks. Tipically this is only faster if nodes
+  -f, --fetch-from-backers  Turbo boost AD Read by fetching the full availability datafrom backers first. Saves CPU 
+                            as we don't need to re-construct from chunks. Tipically this is only faster if nodes 
                             have enough bandwidth
   -h, --help                Print help
 ```
@@ -180,9 +179,9 @@ Let's run an availabilty read test which will recover availability for 10 cores 
 node validator network.
 
 ```
- target/testnet/subsystem-bench --n-cores 10 data-availability-read
-[2023-11-28T09:01:59Z INFO  subsystem_bench::core::display] n_validators = 500, n_cores = 10, pov_size = 5120 - 5120,
-                                                            error = 0, latency = None
+ target/testnet/subsystem-bench --n-cores 10 data-availability-read 
+[2023-11-28T09:01:59Z INFO  subsystem_bench::core::display] n_validators = 500, n_cores = 10, pov_size = 5120 - 5120, 
+                                                            latency = None
 [2023-11-28T09:01:59Z INFO  subsystem-bench::availability] Generating template candidate index=0 pov_size=5242880
 [2023-11-28T09:01:59Z INFO  subsystem-bench::availability] Created test environment.
 [2023-11-28T09:01:59Z INFO  subsystem-bench::availability] Pre-generating 10 candidates.
@@ -195,8 +194,8 @@ node validator network.
 [2023-11-28T09:02:07Z INFO  subsystem_bench::availability] All blocks processed in 6001ms
 [2023-11-28T09:02:07Z INFO  subsystem_bench::availability] Throughput: 51200 KiB/block
 [2023-11-28T09:02:07Z INFO  subsystem_bench::availability] Block time: 6001 ms
-[2023-11-28T09:02:07Z INFO  subsystem_bench::availability]
-
+[2023-11-28T09:02:07Z INFO  subsystem_bench::availability] 
+    
     Total received from network: 66 MiB
     Total sent to network: 58 KiB
     Total subsystem CPU usage 4.16s
@@ -221,6 +220,48 @@ view the test progress in real time by accessing [this link](http://localhost:30
 Now run
 `target/testnet/subsystem-bench test-sequence --path polkadot/node/subsystem-bench/examples/availability_read.yaml`
 and view the metrics in real time and spot differences between different `n_validators` values.
+
+### Profiling cache misses
+
+Cache misses are profiled using Cachegrind, part of Valgrind. Cachegrind runs slowly, and its cache simulation is basic
+and unlikely to reflect the behavior of a modern machine. However, it still represents the general situation with cache
+usage, and more importantly it doesn't require a bare-metal machine to run on, which means it could be run in CI or in
+a remote virtual installation.
+
+To profile cache misses use the `--cache-misses` flag. Cache simulation of current runs tuned for Intel Ice Lake CPU.
+Since the execution will be very slow, it's recommended not to run it together with other profiling and not to take
+benchmark results into account. A report is saved in a file `cachegrind_report.txt`.
+
+Example run results:
+```
+$ target/testnet/subsystem-bench --n-cores 10 --cache-misses data-availability-read
+$ cat cachegrind_report.txt
+I refs:        64,622,081,485
+I1  misses:         3,018,168
+LLi misses:           437,654
+I1  miss rate:           0.00%
+LLi miss rate:           0.00%
+
+D refs:        12,161,833,115  (9,868,356,364 rd   + 2,293,476,751 wr)
+D1  misses:       167,940,701  (   71,060,073 rd   +    96,880,628 wr)
+LLd misses:        33,550,018  (   16,685,853 rd   +    16,864,165 wr)
+D1  miss rate:            1.4% (          0.7%     +           4.2%  )
+LLd miss rate:            0.3% (          0.2%     +           0.7%  )
+
+LL refs:          170,958,869  (   74,078,241 rd   +    96,880,628 wr)
+LL misses:         33,987,672  (   17,123,507 rd   +    16,864,165 wr)
+LL miss rate:             0.0% (          0.0%     +           0.7%  )
+```
+
+The results show that 1.4% of the L1 data cache missed, but the last level cache only missed 0.3% of the time.
+Instruction data of the L1 has 0.00%.
+
+Cachegrind writes line-by-line cache profiling information to a file named `cachegrind.out.<pid>`.
+This file is best interpreted with `cg_annotate --auto=yes cachegrind.out.<pid>`. For more information see the
+[cachegrind manual](https://www.cs.cmu.edu/afs/cs.cmu.edu/project/cmt-40/Nice/RuleRefinement/bin/valgrind-3.2.0/docs/html/cg-manual.html).
+
+For finer profiling of cache misses, better use `perf` on a bare-metal machine.
+
 ## Create new test objectives
 
 This tool is intended to make it easy to write new test objectives that focus individual subsystems,

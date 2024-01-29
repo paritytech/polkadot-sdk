@@ -43,7 +43,7 @@ use parachains_common::{
 	westend::{account, currency::GRAND},
 };
 use polkadot_runtime_common::impls::{
-	LocatableAssetConverter, VersionedLocatableAsset, VersionedMultiLocationConverter,
+	LocatableAssetConverter, VersionedLocatableAsset, VersionedLocationConverter,
 };
 use sp_arithmetic::Permill;
 use sp_core::{ConstU128, ConstU32};
@@ -202,7 +202,7 @@ pub type FellowshipSalaryInstance = pallet_salary::Instance1;
 parameter_types! {
 	// The interior location on AssetHub for the paying account. This is the Fellowship Salary
 	// pallet instance (which sits at index 64). This sovereign account will need funding.
-	pub Interior: InteriorMultiLocation = PalletInstance(64).into();
+	pub Interior: InteriorLocation = PalletInstance(64).into();
 }
 
 const USDT_UNITS: u128 = 1_000_000;
@@ -250,7 +250,7 @@ parameter_types! {
 	pub const MaxBalance: Balance = Balance::max_value();
 	// The asset's interior location for the paying account. This is the Fellowship Treasury
 	// pallet instance (which sits at index 65).
-	pub FellowshipTreasuryInteriorLocation: InteriorMultiLocation = PalletInstance(65).into();
+	pub FellowshipTreasuryInteriorLocation: InteriorLocation = PalletInstance(65).into();
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -269,10 +269,10 @@ pub type FellowshipTreasuryPaymaster = PayOverXcm<
 	crate::xcm_config::XcmRouter,
 	crate::PolkadotXcm,
 	ConstU32<{ 6 * HOURS }>,
-	VersionedMultiLocation,
+	VersionedLocation,
 	VersionedLocatableAsset,
 	LocatableAssetConverter,
-	VersionedMultiLocationConverter,
+	VersionedLocationConverter,
 >;
 
 pub type FellowshipTreasuryInstance = pallet_treasury::Instance1;
@@ -327,7 +327,7 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 		>,
 	>;
 	type AssetKind = VersionedLocatableAsset;
-	type Beneficiary = VersionedMultiLocation;
+	type Beneficiary = VersionedLocation;
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Paymaster = FellowshipTreasuryPaymaster;

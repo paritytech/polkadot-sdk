@@ -46,43 +46,38 @@ impl<Balance, AccountId, FeeAssetLocation, EthereumNetwork, AssetTransactor, Fee
 	> where
 	Balance: BaseArithmetic + Unsigned + Copy + From<u128> + Into<u128>,
 	AccountId: Clone + Into<[u8; 32]> + From<[u8; 32]>,
-	FeeAssetLocation: Get<MultiLocation>,
+	FeeAssetLocation: Get<Location>,
 	EthereumNetwork: Get<NetworkId>,
 	AssetTransactor: TransactAsset,
 	FeeProvider: SendMessageFeeProvider<Balance = Balance>,
 {
-	fn handle_fee(
-		fees: MultiAssets,
-		context: Option<&XcmContext>,
-		reason: FeeReason,
-	) -> MultiAssets {
+	fn handle_fee(fees: Assets, context: Option<&XcmContext>, reason: FeeReason) -> Assets {
 		let token_location = FeeAssetLocation::get();
 
 		// Check the reason to see if this export is for snowbridge.
 		if !matches!(
 			reason,
-			FeeReason::Export { network: bridged_network, destination }
-				if bridged_network == EthereumNetwork::get() && destination == Here
+			FeeReason::Export { network: bridged_network, ref destination }
+				if bridged_network == EthereumNetwork::get() && destination == &Here
 		) {
 			return fees
 		}
 
 		// Get the parachain sovereign from the `context`.
-		let para_sovereign = if let Some(XcmContext {
-			origin: Some(MultiLocation { parents: 1, interior }),
-			..
-		}) = context
-		{
-			if let Some(Parachain(sibling_para_id)) = interior.first() {
-				let account: AccountId =
-					sibling_sovereign_account_raw((*sibling_para_id).into()).into();
-				account
+		let para_sovereign =
+			if let Some(XcmContext { origin: Some(Location { parents: 1, interior }), .. }) =
+				context
+			{
+				if let Some(Parachain(sibling_para_id)) = interior.first() {
+					let account: AccountId =
+						sibling_sovereign_account_raw((*sibling_para_id).into()).into();
+					account
+				} else {
+					return fees
+				}
 			} else {
 				return fees
-			}
-		} else {
-			return fees
-		};
+			};
 
 		// Get the total fee offered by export message.
 		let maybe_total_supplied_fee: Option<(usize, Balance)> = fees
@@ -90,8 +85,8 @@ impl<Balance, AccountId, FeeAssetLocation, EthereumNetwork, AssetTransactor, Fee
 			.iter()
 			.enumerate()
 			.filter_map(|(index, asset)| {
-				if let MultiAsset { id: Concrete(location), fun: Fungible(amount) } = asset {
-					if *location == token_location {
+				if let Asset { id: location, fun: Fungible(amount) } = asset {
+					if location.0 == token_location {
 						return Some((index, (*amount).into()))
 					}
 				}
@@ -104,7 +99,7 @@ impl<Balance, AccountId, FeeAssetLocation, EthereumNetwork, AssetTransactor, Fee
 			if remote_fee > (0u128).into() {
 				// Refund remote component of fee to physical origin
 				deposit_or_burn_fee::<AssetTransactor, _>(
-					MultiAsset { id: Concrete(token_location), fun: Fungible(remote_fee.into()) }
+					Asset { id: AssetId(token_location.clone()), fun: Fungible(remote_fee.into()) }
 						.into(),
 					context,
 					para_sovereign,
@@ -112,8 +107,8 @@ impl<Balance, AccountId, FeeAssetLocation, EthereumNetwork, AssetTransactor, Fee
 				// Return remaining fee to the next fee handler in the chain.
 				let mut modified_fees = fees.inner().clone();
 				modified_fees.remove(fee_index);
-				modified_fees.push(MultiAsset {
-					id: Concrete(token_location),
+				modified_fees.push(Asset {
+					id: AssetId(token_location),
 					fun: Fungible((total_fee - remote_fee).into()),
 				});
 				return modified_fees.into()

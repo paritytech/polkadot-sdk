@@ -457,10 +457,13 @@ async fn all_security_features_work() {
 	assert_eq!(
 		host.security_status().await,
 		SecurityStatus {
+			// Disabled in tests to not enforce the presence of security features. This CI-only test
+			// is the only one that tests them.
 			secure_validator_mode: false,
 			can_enable_landlock,
 			can_enable_seccomp: true,
 			can_unshare_user_namespace_and_change_root: true,
+			can_do_secure_clone: true,
 		}
 	);
 }
