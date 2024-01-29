@@ -161,13 +161,13 @@ where
 {
 	fn convert_register_token(chain_id: u64, token: H160, fee: u128) -> (Xcm<()>, Balance) {
 		let network = Ethereum { chain_id };
-		let xcm_fee: MultiAsset = (MultiLocation::parent(), fee).into();
-		let deposit: MultiAsset = (MultiLocation::parent(), CreateAssetDeposit::get()).into();
+		let xcm_fee: Asset = (Location::parent(), fee).into();
+		let deposit: Asset = (Location::parent(), CreateAssetDeposit::get()).into();
 
 		let total_amount = fee + CreateAssetDeposit::get();
-		let total: MultiAsset = (MultiLocation::parent(), total_amount).into();
+		let total: Asset = (Location::parent(), total_amount).into();
 
-		let bridge_location: MultiLocation = (Parent, Parent, GlobalConsensus(network)).into();
+		let bridge_location: Location = (Parent, Parent, GlobalConsensus(network)).into();
 
 		let owner = GlobalConsensusEthereumConvertsFor::<[u8; 32]>::from_chain_id(&chain_id);
 		let asset_id = Self::convert_token_address(network, token);
@@ -182,7 +182,7 @@ where
 			// Fund the snowbridge sovereign with the required deposit for creation.
 			DepositAsset { assets: Definite(deposit.into()), beneficiary: bridge_location },
 			// Only our inbound-queue pallet is allowed to invoke `UniversalOrigin`
-			DescendOrigin(X1(PalletInstance(inbound_queue_pallet_index))),
+			DescendOrigin(PalletInstance(inbound_queue_pallet_index).into()),
 			// Change origin to the bridge.
 			UniversalOrigin(GlobalConsensus(network)),
 			// Call create_asset on foreign assets pallet.
@@ -216,40 +216,37 @@ where
 		asset_hub_fee: u128,
 	) -> (Xcm<()>, Balance) {
 		let network = Ethereum { chain_id };
-		let asset_hub_fee_asset: MultiAsset = (MultiLocation::parent(), asset_hub_fee).into();
-		let asset: MultiAsset = (Self::convert_token_address(network, token), amount).into();
+		let asset_hub_fee_asset: Asset = (Location::parent(), asset_hub_fee).into();
+		let asset: Asset = (Self::convert_token_address(network, token), amount).into();
 
 		let (dest_para_id, beneficiary, dest_para_fee) = match destination {
 			// Final destination is a 32-byte account on AssetHub
-			Destination::AccountId32 { id } => (
-				None,
-				MultiLocation { parents: 0, interior: X1(AccountId32 { network: None, id }) },
-				0,
-			),
+			Destination::AccountId32 { id } =>
+				(None, Location::new(0, [AccountId32 { network: None, id }]), 0),
 			// Final destination is a 32-byte account on a sibling of AssetHub
 			Destination::ForeignAccountId32 { para_id, id, fee } => (
 				Some(para_id),
-				MultiLocation { parents: 0, interior: X1(AccountId32 { network: None, id }) },
+				Location::new(0, [AccountId32 { network: None, id }]),
 				// Total fee needs to cover execution on AssetHub and Sibling
 				fee,
 			),
 			// Final destination is a 20-byte account on a sibling of AssetHub
 			Destination::ForeignAccountId20 { para_id, id, fee } => (
 				Some(para_id),
-				MultiLocation { parents: 0, interior: X1(AccountKey20 { network: None, key: id }) },
+				Location::new(0, [AccountKey20 { network: None, key: id }]),
 				// Total fee needs to cover execution on AssetHub and Sibling
 				fee,
 			),
 		};
 
 		let total_fees = asset_hub_fee.saturating_add(dest_para_fee);
-		let total_fee_asset: MultiAsset = (MultiLocation::parent(), total_fees).into();
+		let total_fee_asset: Asset = (Location::parent(), total_fees).into();
 		let inbound_queue_pallet_index = InboundQueuePalletInstance::get();
 
 		let mut instructions = vec![
 			ReceiveTeleportedAsset(total_fee_asset.into()),
 			BuyExecution { fees: asset_hub_fee_asset, weight_limit: Unlimited },
-			DescendOrigin(X1(PalletInstance(inbound_queue_pallet_index))),
+			DescendOrigin(PalletInstance(inbound_queue_pallet_index).into()),
 			UniversalOrigin(GlobalConsensus(network)),
 			ReserveAssetDeposited(asset.clone().into()),
 			ClearOrigin,
@@ -257,14 +254,13 @@ where
 
 		match dest_para_id {
 			Some(dest_para_id) => {
-				let dest_para_fee_asset: MultiAsset =
-					(MultiLocation::parent(), dest_para_fee).into();
+				let dest_para_fee_asset: Asset = (Location::parent(), dest_para_fee).into();
 
 				instructions.extend(vec![
 					// Perform a deposit reserve to send to destination chain.
 					DepositReserveAsset {
 						assets: Definite(vec![dest_para_fee_asset.clone(), asset.clone()].into()),
-						dest: MultiLocation { parents: 1, interior: X1(Parachain(dest_para_id)) },
+						dest: Location::new(1, [Parachain(dest_para_id)]),
 						xcm: vec![
 							// Buy execution on target.
 							BuyExecution { fees: dest_para_fee_asset, weight_limit: Unlimited },
@@ -286,15 +282,12 @@ where
 		(instructions.into(), total_fees.into())
 	}
 
-	// Convert ERC20 token address to a Multilocation that can be understood by Assets Hub.
-	fn convert_token_address(network: NetworkId, token: H160) -> MultiLocation {
-		MultiLocation {
-			parents: 2,
-			interior: X2(
-				GlobalConsensus(network),
-				AccountKey20 { network: None, key: token.into() },
-			),
-		}
+	// Convert ERC20 token address to a location that can be understood by Assets Hub.
+	fn convert_token_address(network: NetworkId, token: H160) -> Location {
+		Location::new(
+			2,
+			[GlobalConsensus(network), AccountKey20 { network: None, key: token.into() }],
+		)
 	}
 }
 
@@ -303,12 +296,11 @@ impl<AccountId> ConvertLocation<AccountId> for GlobalConsensusEthereumConvertsFo
 where
 	AccountId: From<[u8; 32]> + Clone,
 {
-	fn convert_location(location: &MultiLocation) -> Option<AccountId> {
-		if let MultiLocation { interior: X1(GlobalConsensus(Ethereum { chain_id })), .. } = location
-		{
-			Some(Self::from_chain_id(chain_id).into())
-		} else {
-			None
+	fn convert_location(location: &Location) -> Option<AccountId> {
+		match location.unpack() {
+			(_, [GlobalConsensus(Ethereum { chain_id })]) =>
+				Some(Self::from_chain_id(chain_id).into()),
+			_ => None,
 		}
 	}
 }

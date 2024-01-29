@@ -24,8 +24,8 @@ use pallet_asset_tx_payment::HandleCredit;
 use sp_runtime::traits::Zero;
 use sp_std::{marker::PhantomData, prelude::*};
 use xcm::latest::{
-	AssetId, Fungibility, Fungibility::Fungible, Junction, Junctions::Here, MultiAsset,
-	MultiLocation, Parent, WeightLimit,
+	Asset, AssetId, Fungibility, Fungibility::Fungible, Junction, Junctions::Here, Location,
+	Parent, WeightLimit,
 };
 use xcm_executor::traits::ConvertLocation;
 
@@ -113,11 +113,11 @@ where
 
 /// Asset filter that allows all assets from a certain location.
 pub struct AssetsFrom<T>(PhantomData<T>);
-impl<T: Get<MultiLocation>> ContainsPair<MultiAsset, MultiLocation> for AssetsFrom<T> {
-	fn contains(asset: &MultiAsset, origin: &MultiLocation) -> bool {
+impl<T: Get<Location>> ContainsPair<Asset, Location> for AssetsFrom<T> {
+	fn contains(asset: &Asset, origin: &Location) -> bool {
 		let loc = T::get();
 		&loc == origin &&
-			matches!(asset, MultiAsset { id: AssetId::Concrete(asset_loc), fun: Fungible(_a) }
+			matches!(asset, Asset { id: AssetId(asset_loc), fun: Fungible(_a) }
 			if asset_loc.match_and_split(&loc).is_some())
 	}
 }
@@ -148,7 +148,7 @@ where
 			Err(amount) => amount,
 		};
 		let imbalance = amount.peek();
-		let root_location: MultiLocation = Here.into();
+		let root_location: Location = Here.into();
 		let root_account: AccountIdOf<T> =
 			match AccountIdConverter::convert_location(&root_location) {
 				Some(a) => a,
@@ -329,13 +329,13 @@ mod tests {
 	#[test]
 	fn assets_from_filters_correctly() {
 		parameter_types! {
-			pub SomeSiblingParachain: MultiLocation = MultiLocation::new(1, X1(Parachain(1234)));
+			pub SomeSiblingParachain: Location = (Parent, Parachain(1234)).into();
 		}
 
 		let asset_location = SomeSiblingParachain::get()
 			.pushed_with_interior(GeneralIndex(42))
-			.expect("multilocation will only have 2 junctions; qed");
-		let asset = MultiAsset { id: Concrete(asset_location), fun: 1_000_000u128.into() };
+			.expect("location will only have 2 junctions; qed");
+		let asset = Asset { id: AssetId(asset_location), fun: 1_000_000u128.into() };
 		assert!(
 			AssetsFrom::<SomeSiblingParachain>::contains(&asset, &SomeSiblingParachain::get()),
 			"AssetsFrom should allow assets from any of its interior locations"

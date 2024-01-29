@@ -2,7 +2,7 @@ use super::GlobalConsensusEthereumConvertsFor;
 use crate::inbound::CallIndex;
 use frame_support::parameter_types;
 use hex_literal::hex;
-use xcm::v3::prelude::*;
+use xcm::v4::prelude::*;
 use xcm_executor::traits::ConvertLocation;
 
 const NETWORK: NetworkId = Ethereum { chain_id: 11155111 };
@@ -20,7 +20,7 @@ parameter_types! {
 fn test_contract_location_with_network_converts_successfully() {
 	let expected_account: [u8; 32] =
 		hex!("ce796ae65569a670d0c1cc1ac12515a3ce21b5fbf729d63d7b289baad070139d");
-	let contract_location = MultiLocation { parents: 2, interior: X1(GlobalConsensus(NETWORK)) };
+	let contract_location = Location::new(2, [GlobalConsensus(NETWORK)]);
 
 	let account =
 		GlobalConsensusEthereumConvertsFor::<[u8; 32]>::convert_location(&contract_location)
@@ -31,8 +31,7 @@ fn test_contract_location_with_network_converts_successfully() {
 
 #[test]
 fn test_contract_location_with_incorrect_location_fails_convert() {
-	let contract_location =
-		MultiLocation { parents: 2, interior: X2(GlobalConsensus(Polkadot), Parachain(1000)) };
+	let contract_location = Location::new(2, [GlobalConsensus(Polkadot), Parachain(1000)]);
 
 	assert_eq!(
 		GlobalConsensusEthereumConvertsFor::<[u8; 32]>::convert_location(&contract_location),

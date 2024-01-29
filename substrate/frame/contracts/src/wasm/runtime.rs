@@ -2169,11 +2169,11 @@ pub mod env {
 		msg_len: u32,
 		output_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
-		use xcm::{VersionedMultiLocation, VersionedXcm};
+		use xcm::{VersionedLocation, VersionedXcm};
 		use xcm_builder::{SendController, SendControllerWeightInfo};
 
 		ctx.charge_gas(RuntimeCosts::CopyFromContract(msg_len))?;
-		let dest: VersionedMultiLocation = ctx.read_sandbox_memory_as(memory, dest_ptr)?;
+		let dest: VersionedLocation = ctx.read_sandbox_memory_as(memory, dest_ptr)?;
 
 		let message: VersionedXcm<()> =
 			ctx.read_sandbox_memory_as_unbounded(memory, msg_ptr, msg_len)?;

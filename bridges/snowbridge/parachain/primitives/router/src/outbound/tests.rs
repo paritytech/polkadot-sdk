@@ -11,7 +11,7 @@ use super::*;
 parameter_types! {
 	const MaxMessageSize: u32 = u32::MAX;
 	const RelayNetwork: NetworkId = Polkadot;
-	const UniversalLocation: InteriorMultiLocation = X2(GlobalConsensus(RelayNetwork::get()), Parachain(1013));
+	UniversalLocation: InteriorLocation = [GlobalConsensus(RelayNetwork::get()), Parachain(1013)].into();
 	const BridgedNetwork: NetworkId =  Ethereum{ chain_id: 1 };
 	const NonBridgedNetwork: NetworkId =  Ethereum{ chain_id: 2 };
 }
@@ -61,8 +61,8 @@ impl SendMessageFeeProvider for MockErrOutboundQueue {
 fn exporter_validate_with_unknown_network_yields_not_applicable() {
 	let network = Ethereum { chain_id: 1337 };
 	let channel: u32 = 0;
-	let mut universal_source: Option<InteriorMultiLocation> = None;
-	let mut destination: Option<InteriorMultiLocation> = None;
+	let mut universal_source: Option<InteriorLocation> = None;
+	let mut destination: Option<InteriorLocation> = None;
 	let mut message: Option<Xcm<()>> = None;
 
 	let result = EthereumBlobExporter::<
@@ -80,8 +80,8 @@ fn exporter_validate_with_unknown_network_yields_not_applicable() {
 fn exporter_validate_with_invalid_destination_yields_missing_argument() {
 	let network = BridgedNetwork::get();
 	let channel: u32 = 0;
-	let mut universal_source: Option<InteriorMultiLocation> = None;
-	let mut destination: Option<InteriorMultiLocation> = None;
+	let mut universal_source: Option<InteriorLocation> = None;
+	let mut destination: Option<InteriorLocation> = None;
 	let mut message: Option<Xcm<()>> = None;
 
 	let result = EthereumBlobExporter::<
@@ -99,10 +99,11 @@ fn exporter_validate_with_invalid_destination_yields_missing_argument() {
 fn exporter_validate_with_x8_destination_yields_not_applicable() {
 	let network = BridgedNetwork::get();
 	let channel: u32 = 0;
-	let mut universal_source: Option<InteriorMultiLocation> = None;
-	let mut destination: Option<InteriorMultiLocation> = Some(X8(
-		OnlyChild, OnlyChild, OnlyChild, OnlyChild, OnlyChild, OnlyChild, OnlyChild, OnlyChild,
-	));
+	let mut universal_source: Option<InteriorLocation> = None;
+	let mut destination: Option<InteriorLocation> = Some(
+		[OnlyChild, OnlyChild, OnlyChild, OnlyChild, OnlyChild, OnlyChild, OnlyChild, OnlyChild]
+			.into(),
+	);
 	let mut message: Option<Xcm<()>> = None;
 
 	let result = EthereumBlobExporter::<
@@ -120,8 +121,8 @@ fn exporter_validate_with_x8_destination_yields_not_applicable() {
 fn exporter_validate_without_universal_source_yields_missing_argument() {
 	let network = BridgedNetwork::get();
 	let channel: u32 = 0;
-	let mut universal_source: Option<InteriorMultiLocation> = None;
-	let mut destination: Option<InteriorMultiLocation> = Here.into();
+	let mut universal_source: Option<InteriorLocation> = None;
+	let mut destination: Option<InteriorLocation> = Here.into();
 	let mut message: Option<Xcm<()>> = None;
 
 	let result = EthereumBlobExporter::<
@@ -139,8 +140,8 @@ fn exporter_validate_without_universal_source_yields_missing_argument() {
 fn exporter_validate_without_global_universal_location_yields_unroutable() {
 	let network = BridgedNetwork::get();
 	let channel: u32 = 0;
-	let mut universal_source: Option<InteriorMultiLocation> = Here.into();
-	let mut destination: Option<InteriorMultiLocation> = Here.into();
+	let mut universal_source: Option<InteriorLocation> = Here.into();
+	let mut destination: Option<InteriorLocation> = Here.into();
 	let mut message: Option<Xcm<()>> = None;
 
 	let result = EthereumBlobExporter::<
@@ -158,8 +159,8 @@ fn exporter_validate_without_global_universal_location_yields_unroutable() {
 fn exporter_validate_without_global_bridge_location_yields_not_applicable() {
 	let network = NonBridgedNetwork::get();
 	let channel: u32 = 0;
-	let mut universal_source: Option<InteriorMultiLocation> = Here.into();
-	let mut destination: Option<InteriorMultiLocation> = Here.into();
+	let mut universal_source: Option<InteriorLocation> = Here.into();
+	let mut destination: Option<InteriorLocation> = Here.into();
 	let mut message: Option<Xcm<()>> = None;
 
 	let result = EthereumBlobExporter::<
@@ -177,9 +178,9 @@ fn exporter_validate_without_global_bridge_location_yields_not_applicable() {
 fn exporter_validate_with_remote_universal_source_yields_not_applicable() {
 	let network = BridgedNetwork::get();
 	let channel: u32 = 0;
-	let mut universal_source: Option<InteriorMultiLocation> =
-		Some(X2(GlobalConsensus(Kusama), Parachain(1000)));
-	let mut destination: Option<InteriorMultiLocation> = Here.into();
+	let mut universal_source: Option<InteriorLocation> =
+		Some([GlobalConsensus(Kusama), Parachain(1000)].into());
+	let mut destination: Option<InteriorLocation> = Here.into();
 	let mut message: Option<Xcm<()>> = None;
 
 	let result = EthereumBlobExporter::<
@@ -197,8 +198,8 @@ fn exporter_validate_with_remote_universal_source_yields_not_applicable() {
 fn exporter_validate_without_para_id_in_source_yields_missing_argument() {
 	let network = BridgedNetwork::get();
 	let channel: u32 = 0;
-	let mut universal_source: Option<InteriorMultiLocation> = Some(X1(GlobalConsensus(Polkadot)));
-	let mut destination: Option<InteriorMultiLocation> = Here.into();
+	let mut universal_source: Option<InteriorLocation> = Some(GlobalConsensus(Polkadot).into());
+	let mut destination: Option<InteriorLocation> = Here.into();
 	let mut message: Option<Xcm<()>> = None;
 
 	let result = EthereumBlobExporter::<
@@ -216,9 +217,9 @@ fn exporter_validate_without_para_id_in_source_yields_missing_argument() {
 fn exporter_validate_complex_para_id_in_source_yields_missing_argument() {
 	let network = BridgedNetwork::get();
 	let channel: u32 = 0;
-	let mut universal_source: Option<InteriorMultiLocation> =
-		Some(X3(GlobalConsensus(Polkadot), Parachain(1000), PalletInstance(12)));
-	let mut destination: Option<InteriorMultiLocation> = Here.into();
+	let mut universal_source: Option<InteriorLocation> =
+		Some([GlobalConsensus(Polkadot), Parachain(1000), PalletInstance(12)].into());
+	let mut destination: Option<InteriorLocation> = Here.into();
 	let mut message: Option<Xcm<()>> = None;
 
 	let result = EthereumBlobExporter::<
@@ -236,9 +237,9 @@ fn exporter_validate_complex_para_id_in_source_yields_missing_argument() {
 fn exporter_validate_without_xcm_message_yields_missing_argument() {
 	let network = BridgedNetwork::get();
 	let channel: u32 = 0;
-	let mut universal_source: Option<InteriorMultiLocation> =
-		Some(X2(GlobalConsensus(Polkadot), Parachain(1000)));
-	let mut destination: Option<InteriorMultiLocation> = Here.into();
+	let mut universal_source: Option<InteriorLocation> =
+		Some([GlobalConsensus(Polkadot), Parachain(1000)].into());
+	let mut destination: Option<InteriorLocation> = Here.into();
 	let mut message: Option<Xcm<()>> = None;
 
 	let result = EthereumBlobExporter::<
@@ -255,23 +256,23 @@ fn exporter_validate_without_xcm_message_yields_missing_argument() {
 #[test]
 fn exporter_validate_with_max_target_fee_yields_unroutable() {
 	let network = BridgedNetwork::get();
-	let mut destination: Option<InteriorMultiLocation> = Here.into();
+	let mut destination: Option<InteriorLocation> = Here.into();
 
-	let mut universal_source: Option<InteriorMultiLocation> =
-		Some(X2(GlobalConsensus(Polkadot), Parachain(1000)));
+	let mut universal_source: Option<InteriorLocation> =
+		Some([GlobalConsensus(Polkadot), Parachain(1000)].into());
 
 	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
 	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
 
 	let channel: u32 = 0;
-	let fee = MultiAsset { id: Concrete(Here.into()), fun: Fungible(1000) };
-	let fees: MultiAssets = vec![fee.clone()].into();
-	let assets: MultiAssets = vec![MultiAsset {
-		id: Concrete(X1(AccountKey20 { network: None, key: token_address }).into()),
+	let fee = Asset { id: AssetId(Here.into()), fun: Fungible(1000) };
+	let fees: Assets = vec![fee.clone()].into();
+	let assets: Assets = vec![Asset {
+		id: AssetId(AccountKey20 { network: None, key: token_address }.into()),
 		fun: Fungible(1000),
 	}]
 	.into();
-	let filter: MultiAssetFilter = assets.clone().into();
+	let filter: AssetFilter = assets.clone().into();
 
 	let mut message: Option<Xcm<()>> = Some(
 		vec![
@@ -280,7 +281,7 @@ fn exporter_validate_with_max_target_fee_yields_unroutable() {
 			WithdrawAsset(assets),
 			DepositAsset {
 				assets: filter,
-				beneficiary: X1(AccountKey20 { network: Some(network), key: beneficiary_address })
+				beneficiary: AccountKey20 { network: Some(network), key: beneficiary_address }
 					.into(),
 			},
 			SetTopic([0; 32]),
@@ -303,14 +304,14 @@ fn exporter_validate_with_max_target_fee_yields_unroutable() {
 #[test]
 fn exporter_validate_with_unparsable_xcm_yields_unroutable() {
 	let network = BridgedNetwork::get();
-	let mut destination: Option<InteriorMultiLocation> = Here.into();
+	let mut destination: Option<InteriorLocation> = Here.into();
 
-	let mut universal_source: Option<InteriorMultiLocation> =
-		Some(X2(GlobalConsensus(Polkadot), Parachain(1000)));
+	let mut universal_source: Option<InteriorLocation> =
+		Some([GlobalConsensus(Polkadot), Parachain(1000)].into());
 
 	let channel: u32 = 0;
-	let fee = MultiAsset { id: Concrete(Here.into()), fun: Fungible(1000) };
-	let fees: MultiAssets = vec![fee.clone()].into();
+	let fee = Asset { id: AssetId(Here.into()), fun: Fungible(1000) };
+	let fees: Assets = vec![fee.clone()].into();
 
 	let mut message: Option<Xcm<()>> =
 		Some(vec![WithdrawAsset(fees), BuyExecution { fees: fee, weight_limit: Unlimited }].into());
@@ -330,22 +331,22 @@ fn exporter_validate_with_unparsable_xcm_yields_unroutable() {
 #[test]
 fn exporter_validate_xcm_success_case_1() {
 	let network = BridgedNetwork::get();
-	let mut destination: Option<InteriorMultiLocation> = Here.into();
+	let mut destination: Option<InteriorLocation> = Here.into();
 
-	let mut universal_source: Option<InteriorMultiLocation> =
-		Some(X2(GlobalConsensus(Polkadot), Parachain(1000)));
+	let mut universal_source: Option<InteriorLocation> =
+		Some([GlobalConsensus(Polkadot), Parachain(1000)].into());
 
 	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
 	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
 
 	let channel: u32 = 0;
-	let assets: MultiAssets = vec![MultiAsset {
-		id: Concrete(X1(AccountKey20 { network: None, key: token_address }).into()),
+	let assets: Assets = vec![Asset {
+		id: AssetId([AccountKey20 { network: None, key: token_address }].into()),
 		fun: Fungible(1000),
 	}]
 	.into();
 	let fee = assets.clone().get(0).unwrap().clone();
-	let filter: MultiAssetFilter = assets.clone().into();
+	let filter: AssetFilter = assets.clone().into();
 
 	let mut message: Option<Xcm<()>> = Some(
 		vec![
@@ -354,7 +355,7 @@ fn exporter_validate_xcm_success_case_1() {
 			BuyExecution { fees: fee, weight_limit: Unlimited },
 			DepositAsset {
 				assets: filter,
-				beneficiary: X1(AccountKey20 { network: None, key: beneficiary_address }).into(),
+				beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
 			},
 			SetTopic([0; 32]),
 		]
@@ -391,12 +392,12 @@ fn xcm_converter_convert_success() {
 	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
 	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
 
-	let assets: MultiAssets = vec![MultiAsset {
-		id: Concrete(X1(AccountKey20 { network: None, key: token_address }).into()),
+	let assets: Assets = vec![Asset {
+		id: AssetId([AccountKey20 { network: None, key: token_address }].into()),
 		fun: Fungible(1000),
 	}]
 	.into();
-	let filter: MultiAssetFilter = assets.clone().into();
+	let filter: AssetFilter = assets.clone().into();
 
 	let message: Xcm<()> = vec![
 		WithdrawAsset(assets.clone()),
@@ -404,7 +405,7 @@ fn xcm_converter_convert_success() {
 		BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
 		DepositAsset {
 			assets: filter,
-			beneficiary: X1(AccountKey20 { network: None, key: beneficiary_address }).into(),
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
 		},
 		SetTopic([0; 32]),
 	]
@@ -426,18 +427,18 @@ fn xcm_converter_convert_without_buy_execution_yields_success() {
 	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
 	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
 
-	let assets: MultiAssets = vec![MultiAsset {
-		id: Concrete(X1(AccountKey20 { network: None, key: token_address }).into()),
+	let assets: Assets = vec![Asset {
+		id: AssetId([AccountKey20 { network: None, key: token_address }].into()),
 		fun: Fungible(1000),
 	}]
 	.into();
-	let filter: MultiAssetFilter = assets.clone().into();
+	let filter: AssetFilter = assets.clone().into();
 
 	let message: Xcm<()> = vec![
 		WithdrawAsset(assets.clone()),
 		DepositAsset {
 			assets: filter,
-			beneficiary: X1(AccountKey20 { network: None, key: beneficiary_address }).into(),
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
 		},
 		SetTopic([0; 32]),
 	]
@@ -459,12 +460,12 @@ fn xcm_converter_convert_with_wildcard_all_asset_filter_succeeds() {
 	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
 	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
 
-	let assets: MultiAssets = vec![MultiAsset {
-		id: Concrete(X1(AccountKey20 { network: None, key: token_address }).into()),
+	let assets: Assets = vec![Asset {
+		id: AssetId([AccountKey20 { network: None, key: token_address }].into()),
 		fun: Fungible(1000),
 	}]
 	.into();
-	let filter: MultiAssetFilter = Wild(All);
+	let filter: AssetFilter = Wild(All);
 
 	let message: Xcm<()> = vec![
 		WithdrawAsset(assets.clone()),
@@ -472,7 +473,7 @@ fn xcm_converter_convert_with_wildcard_all_asset_filter_succeeds() {
 		BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
 		DepositAsset {
 			assets: filter,
-			beneficiary: X1(AccountKey20 { network: None, key: beneficiary_address }).into(),
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
 		},
 		SetTopic([0; 32]),
 	]
@@ -494,13 +495,12 @@ fn xcm_converter_convert_with_fees_less_than_reserve_yields_success() {
 	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
 	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
 
-	let asset_location = X1(AccountKey20 { network: None, key: token_address }).into();
-	let fee_asset = MultiAsset { id: Concrete(asset_location), fun: Fungible(500) };
+	let asset_location: Location = [AccountKey20 { network: None, key: token_address }].into();
+	let fee_asset = Asset { id: AssetId(asset_location.clone()), fun: Fungible(500) };
 
-	let assets: MultiAssets =
-		vec![MultiAsset { id: Concrete(asset_location), fun: Fungible(1000) }].into();
+	let assets: Assets = vec![Asset { id: AssetId(asset_location), fun: Fungible(1000) }].into();
 
-	let filter: MultiAssetFilter = assets.clone().into();
+	let filter: AssetFilter = assets.clone().into();
 
 	let message: Xcm<()> = vec![
 		WithdrawAsset(assets.clone()),
@@ -508,7 +508,7 @@ fn xcm_converter_convert_with_fees_less_than_reserve_yields_success() {
 		BuyExecution { fees: fee_asset, weight_limit: Unlimited },
 		DepositAsset {
 			assets: filter,
-			beneficiary: X1(AccountKey20 { network: None, key: beneficiary_address }).into(),
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
 		},
 		SetTopic([0; 32]),
 	]
@@ -530,19 +530,19 @@ fn xcm_converter_convert_without_set_topic_yields_set_topic_expected() {
 	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
 	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
 
-	let assets: MultiAssets = vec![MultiAsset {
-		id: Concrete(X1(AccountKey20 { network: None, key: token_address }).into()),
+	let assets: Assets = vec![Asset {
+		id: AssetId([AccountKey20 { network: None, key: token_address }].into()),
 		fun: Fungible(1000),
 	}]
 	.into();
-	let filter: MultiAssetFilter = assets.clone().into();
+	let filter: AssetFilter = assets.clone().into();
 
 	let message: Xcm<()> = vec![
 		WithdrawAsset(assets.clone()),
 		BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
 		DepositAsset {
 			assets: filter,
-			beneficiary: X1(AccountKey20 { network: None, key: beneficiary_address }).into(),
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
 		},
 		ClearTopic,
 	]
@@ -557,8 +557,8 @@ fn xcm_converter_convert_with_partial_message_yields_unexpected_end_of_xcm() {
 	let network = BridgedNetwork::get();
 
 	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
-	let assets: MultiAssets = vec![MultiAsset {
-		id: Concrete(X1(AccountKey20 { network: None, key: token_address }).into()),
+	let assets: Assets = vec![Asset {
+		id: AssetId([AccountKey20 { network: None, key: token_address }].into()),
 		fun: Fungible(1000),
 	}]
 	.into();
@@ -576,16 +576,13 @@ fn xcm_converter_with_different_fee_asset_fails() {
 	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
 	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
 
-	let asset_location = X1(AccountKey20 { network: None, key: token_address }).into();
-	let fee_asset = MultiAsset {
-		id: Concrete(MultiLocation { parents: 0, interior: Here }),
-		fun: Fungible(1000),
-	};
+	let asset_location = [AccountKey20 { network: None, key: token_address }].into();
+	let fee_asset =
+		Asset { id: AssetId(Location { parents: 0, interior: Here }), fun: Fungible(1000) };
 
-	let assets: MultiAssets =
-		vec![MultiAsset { id: Concrete(asset_location), fun: Fungible(1000) }].into();
+	let assets: Assets = vec![Asset { id: AssetId(asset_location), fun: Fungible(1000) }].into();
 
-	let filter: MultiAssetFilter = assets.clone().into();
+	let filter: AssetFilter = assets.clone().into();
 
 	let message: Xcm<()> = vec![
 		WithdrawAsset(assets.clone()),
@@ -593,7 +590,7 @@ fn xcm_converter_with_different_fee_asset_fails() {
 		BuyExecution { fees: fee_asset, weight_limit: Unlimited },
 		DepositAsset {
 			assets: filter,
-			beneficiary: X1(AccountKey20 { network: None, key: beneficiary_address }).into(),
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
 		},
 		SetTopic([0; 32]),
 	]
@@ -610,13 +607,12 @@ fn xcm_converter_with_fees_greater_than_reserve_fails() {
 	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
 	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
 
-	let asset_location = X1(AccountKey20 { network: None, key: token_address }).into();
-	let fee_asset = MultiAsset { id: Concrete(asset_location), fun: Fungible(1001) };
+	let asset_location: Location = [AccountKey20 { network: None, key: token_address }].into();
+	let fee_asset = Asset { id: AssetId(asset_location.clone()), fun: Fungible(1001) };
 
-	let assets: MultiAssets =
-		vec![MultiAsset { id: Concrete(asset_location), fun: Fungible(1000) }].into();
+	let assets: Assets = vec![Asset { id: AssetId(asset_location), fun: Fungible(1000) }].into();
 
-	let filter: MultiAssetFilter = assets.clone().into();
+	let filter: AssetFilter = assets.clone().into();
 
 	let message: Xcm<()> = vec![
 		WithdrawAsset(assets.clone()),
@@ -624,7 +620,7 @@ fn xcm_converter_with_fees_greater_than_reserve_fails() {
 		BuyExecution { fees: fee_asset, weight_limit: Unlimited },
 		DepositAsset {
 			assets: filter,
-			beneficiary: X1(AccountKey20 { network: None, key: beneficiary_address }).into(),
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
 		},
 		SetTopic([0; 32]),
 	]
@@ -653,12 +649,12 @@ fn xcm_converter_convert_with_extra_instructions_yields_end_of_xcm_message_expec
 	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
 	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
 
-	let assets: MultiAssets = vec![MultiAsset {
-		id: Concrete(X1(AccountKey20 { network: None, key: token_address }).into()),
+	let assets: Assets = vec![Asset {
+		id: AssetId([AccountKey20 { network: None, key: token_address }].into()),
 		fun: Fungible(1000),
 	}]
 	.into();
-	let filter: MultiAssetFilter = assets.clone().into();
+	let filter: AssetFilter = assets.clone().into();
 
 	let message: Xcm<()> = vec![
 		WithdrawAsset(assets.clone()),
@@ -666,7 +662,7 @@ fn xcm_converter_convert_with_extra_instructions_yields_end_of_xcm_message_expec
 		BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
 		DepositAsset {
 			assets: filter,
-			beneficiary: X1(AccountKey20 { network: None, key: beneficiary_address }).into(),
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
 		},
 		SetTopic([0; 32]),
 		ClearError,
@@ -685,19 +681,19 @@ fn xcm_converter_convert_without_withdraw_asset_yields_withdraw_expected() {
 	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
 	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
 
-	let assets: MultiAssets = vec![MultiAsset {
-		id: Concrete(X1(AccountKey20 { network: None, key: token_address }).into()),
+	let assets: Assets = vec![Asset {
+		id: AssetId([AccountKey20 { network: None, key: token_address }].into()),
 		fun: Fungible(1000),
 	}]
 	.into();
-	let filter: MultiAssetFilter = assets.clone().into();
+	let filter: AssetFilter = assets.clone().into();
 
 	let message: Xcm<()> = vec![
 		ClearOrigin,
 		BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
 		DepositAsset {
 			assets: filter,
-			beneficiary: X1(AccountKey20 { network: None, key: beneficiary_address }).into(),
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
 		},
 		SetTopic([0; 32]),
 	]
@@ -714,8 +710,8 @@ fn xcm_converter_convert_without_withdraw_asset_yields_deposit_expected() {
 
 	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
 
-	let assets: MultiAssets = vec![MultiAsset {
-		id: Concrete(X1(AccountKey20 { network: None, key: token_address }).into()),
+	let assets: Assets = vec![Asset {
+		id: AssetId(AccountKey20 { network: None, key: token_address }.into()),
 		fun: Fungible(1000),
 	}]
 	.into();
@@ -741,11 +737,11 @@ fn xcm_converter_convert_without_assets_yields_no_reserve_assets() {
 
 	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
 
-	let assets: MultiAssets = vec![].into();
-	let filter: MultiAssetFilter = assets.clone().into();
+	let assets: Assets = vec![].into();
+	let filter: AssetFilter = assets.clone().into();
 
-	let fee = MultiAsset {
-		id: Concrete(X1(AccountKey20 { network: None, key: token_address }).into()),
+	let fee = Asset {
+		id: AssetId(AccountKey20 { network: None, key: token_address }.into()),
 		fun: Fungible(1000),
 	};
 
@@ -755,7 +751,7 @@ fn xcm_converter_convert_without_assets_yields_no_reserve_assets() {
 		BuyExecution { fees: fee, weight_limit: Unlimited },
 		DepositAsset {
 			assets: filter,
-			beneficiary: X1(AccountKey20 { network: None, key: beneficiary_address }).into(),
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
 		},
 		SetTopic([0; 32]),
 	]
@@ -774,18 +770,18 @@ fn xcm_converter_convert_with_two_assets_yields_too_many_assets() {
 	let token_address_2: [u8; 20] = hex!("1100000000000000000000000000000000000000");
 	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
 
-	let assets: MultiAssets = vec![
-		MultiAsset {
-			id: Concrete(X1(AccountKey20 { network: None, key: token_address_1 }).into()),
+	let assets: Assets = vec![
+		Asset {
+			id: AssetId(AccountKey20 { network: None, key: token_address_1 }.into()),
 			fun: Fungible(1000),
 		},
-		MultiAsset {
-			id: Concrete(X1(AccountKey20 { network: None, key: token_address_2 }).into()),
+		Asset {
+			id: AssetId(AccountKey20 { network: None, key: token_address_2 }.into()),
 			fun: Fungible(500),
 		},
 	]
 	.into();
-	let filter: MultiAssetFilter = assets.clone().into();
+	let filter: AssetFilter = assets.clone().into();
 
 	let message: Xcm<()> = vec![
 		WithdrawAsset(assets.clone()),
@@ -793,7 +789,7 @@ fn xcm_converter_convert_with_two_assets_yields_too_many_assets() {
 		BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
 		DepositAsset {
 			assets: filter,
-			beneficiary: X1(AccountKey20 { network: None, key: beneficiary_address }).into(),
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
 		},
 		SetTopic([0; 32]),
 	]
@@ -811,12 +807,12 @@ fn xcm_converter_convert_without_consuming_filter_yields_filter_does_not_consume
 	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
 	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
 
-	let assets: MultiAssets = vec![MultiAsset {
-		id: Concrete(X1(AccountKey20 { network: None, key: token_address }).into()),
+	let assets: Assets = vec![Asset {
+		id: AssetId(AccountKey20 { network: None, key: token_address }.into()),
 		fun: Fungible(1000),
 	}]
 	.into();
-	let filter: MultiAssetFilter = Wild(WildMultiAsset::AllCounted(0));
+	let filter: AssetFilter = Wild(WildAsset::AllCounted(0));
 
 	let message: Xcm<()> = vec![
 		WithdrawAsset(assets.clone()),
@@ -824,7 +820,7 @@ fn xcm_converter_convert_without_consuming_filter_yields_filter_does_not_consume
 		BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
 		DepositAsset {
 			assets: filter,
-			beneficiary: X1(AccountKey20 { network: None, key: beneficiary_address }).into(),
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
 		},
 		SetTopic([0; 32]),
 	]
@@ -842,12 +838,12 @@ fn xcm_converter_convert_with_zero_amount_asset_yields_zero_asset_transfer() {
 	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
 	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
 
-	let assets: MultiAssets = vec![MultiAsset {
-		id: Concrete(X1(AccountKey20 { network: None, key: token_address }).into()),
+	let assets: Assets = vec![Asset {
+		id: AssetId(AccountKey20 { network: None, key: token_address }.into()),
 		fun: Fungible(0),
 	}]
 	.into();
-	let filter: MultiAssetFilter = Wild(WildMultiAsset::AllCounted(1));
+	let filter: AssetFilter = Wild(WildAsset::AllCounted(1));
 
 	let message: Xcm<()> = vec![
 		WithdrawAsset(assets.clone()),
@@ -855,7 +851,7 @@ fn xcm_converter_convert_with_zero_amount_asset_yields_zero_asset_transfer() {
 		BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
 		DepositAsset {
 			assets: filter,
-			beneficiary: X1(AccountKey20 { network: None, key: beneficiary_address }).into(),
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
 		},
 		SetTopic([0; 32]),
 	]
@@ -872,12 +868,12 @@ fn xcm_converter_convert_non_ethereum_asset_yields_asset_resolution_failed() {
 
 	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
 
-	let assets: MultiAssets = vec![MultiAsset {
-		id: Concrete(X3(GlobalConsensus(Polkadot), Parachain(1000), GeneralIndex(0)).into()),
+	let assets: Assets = vec![Asset {
+		id: AssetId([GlobalConsensus(Polkadot), Parachain(1000), GeneralIndex(0)].into()),
 		fun: Fungible(1000),
 	}]
 	.into();
-	let filter: MultiAssetFilter = Wild(WildMultiAsset::AllCounted(1));
+	let filter: AssetFilter = Wild(WildAsset::AllCounted(1));
 
 	let message: Xcm<()> = vec![
 		WithdrawAsset(assets.clone()),
@@ -885,7 +881,7 @@ fn xcm_converter_convert_non_ethereum_asset_yields_asset_resolution_failed() {
 		BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
 		DepositAsset {
 			assets: filter,
-			beneficiary: X1(AccountKey20 { network: None, key: beneficiary_address }).into(),
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
 		},
 		SetTopic([0; 32]),
 	]
@@ -903,14 +899,14 @@ fn xcm_converter_convert_non_ethereum_chain_asset_yields_asset_resolution_failed
 	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
 	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
 
-	let assets: MultiAssets = vec![MultiAsset {
-		id: Concrete(
-			X1(AccountKey20 { network: Some(Ethereum { chain_id: 2 }), key: token_address }).into(),
+	let assets: Assets = vec![Asset {
+		id: AssetId(
+			AccountKey20 { network: Some(Ethereum { chain_id: 2 }), key: token_address }.into(),
 		),
 		fun: Fungible(1000),
 	}]
 	.into();
-	let filter: MultiAssetFilter = Wild(WildMultiAsset::AllCounted(1));
+	let filter: AssetFilter = Wild(WildAsset::AllCounted(1));
 
 	let message: Xcm<()> = vec![
 		WithdrawAsset(assets.clone()),
@@ -918,7 +914,7 @@ fn xcm_converter_convert_non_ethereum_chain_asset_yields_asset_resolution_failed
 		BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
 		DepositAsset {
 			assets: filter,
-			beneficiary: X1(AccountKey20 { network: None, key: beneficiary_address }).into(),
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
 		},
 		SetTopic([0; 32]),
 	]
@@ -936,14 +932,14 @@ fn xcm_converter_convert_non_ethereum_chain_yields_asset_resolution_failed() {
 	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
 	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
 
-	let assets: MultiAssets = vec![MultiAsset {
-		id: Concrete(
-			X1(AccountKey20 { network: Some(NonBridgedNetwork::get()), key: token_address }).into(),
+	let assets: Assets = vec![Asset {
+		id: AssetId(
+			[AccountKey20 { network: Some(NonBridgedNetwork::get()), key: token_address }].into(),
 		),
 		fun: Fungible(1000),
 	}]
 	.into();
-	let filter: MultiAssetFilter = Wild(WildMultiAsset::AllCounted(1));
+	let filter: AssetFilter = Wild(WildAsset::AllCounted(1));
 
 	let message: Xcm<()> = vec![
 		WithdrawAsset(assets.clone()),
@@ -951,7 +947,7 @@ fn xcm_converter_convert_non_ethereum_chain_yields_asset_resolution_failed() {
 		BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
 		DepositAsset {
 			assets: filter,
-			beneficiary: X1(AccountKey20 { network: None, key: beneficiary_address }).into(),
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
 		},
 		SetTopic([0; 32]),
 	]
@@ -971,23 +967,23 @@ fn xcm_converter_convert_with_non_ethereum_beneficiary_yields_beneficiary_resolu
 	let beneficiary_address: [u8; 32] =
 		hex!("2000000000000000000000000000000000000000000000000000000000000000");
 
-	let assets: MultiAssets = vec![MultiAsset {
-		id: Concrete(X1(AccountKey20 { network: None, key: token_address }).into()),
+	let assets: Assets = vec![Asset {
+		id: AssetId(AccountKey20 { network: None, key: token_address }.into()),
 		fun: Fungible(1000),
 	}]
 	.into();
-	let filter: MultiAssetFilter = Wild(WildMultiAsset::AllCounted(1));
+	let filter: AssetFilter = Wild(WildAsset::AllCounted(1));
 	let message: Xcm<()> = vec![
 		WithdrawAsset(assets.clone()),
 		ClearOrigin,
 		BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
 		DepositAsset {
 			assets: filter,
-			beneficiary: X3(
+			beneficiary: [
 				GlobalConsensus(Polkadot),
 				Parachain(1000),
 				AccountId32 { network: Some(Polkadot), id: beneficiary_address },
-			)
+			]
 			.into(),
 		},
 		SetTopic([0; 32]),
@@ -1007,12 +1003,12 @@ fn xcm_converter_convert_with_non_ethereum_chain_beneficiary_yields_beneficiary_
 	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
 	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
 
-	let assets: MultiAssets = vec![MultiAsset {
-		id: Concrete(X1(AccountKey20 { network: None, key: token_address }).into()),
+	let assets: Assets = vec![Asset {
+		id: AssetId(AccountKey20 { network: None, key: token_address }.into()),
 		fun: Fungible(1000),
 	}]
 	.into();
-	let filter: MultiAssetFilter = Wild(WildMultiAsset::AllCounted(1));
+	let filter: AssetFilter = Wild(WildAsset::AllCounted(1));
 
 	let message: Xcm<()> = vec![
 		WithdrawAsset(assets.clone()),
@@ -1020,10 +1016,10 @@ fn xcm_converter_convert_with_non_ethereum_chain_beneficiary_yields_beneficiary_
 		BuyExecution { fees: assets.get(0).unwrap().clone(), weight_limit: Unlimited },
 		DepositAsset {
 			assets: filter,
-			beneficiary: X1(AccountKey20 {
+			beneficiary: AccountKey20 {
 				network: Some(Ethereum { chain_id: 2 }),
 				key: beneficiary_address,
-			})
+			}
 			.into(),
 		},
 		SetTopic([0; 32]),
@@ -1037,14 +1033,13 @@ fn xcm_converter_convert_with_non_ethereum_chain_beneficiary_yields_beneficiary_
 
 #[test]
 fn test_describe_asset_hub() {
-	let legacy_location: MultiLocation =
-		MultiLocation { parents: 0, interior: X1(Parachain(1000)) };
+	let legacy_location: Location = Location::new(0, [Parachain(1000)]);
 	let legacy_agent_id = AgentIdOf::convert_location(&legacy_location).unwrap();
 	assert_eq!(
 		legacy_agent_id,
 		hex!("72456f48efed08af20e5b317abf8648ac66e86bb90a411d9b0b713f7364b75b4").into()
 	);
-	let location: MultiLocation = MultiLocation { parents: 1, interior: X1(Parachain(1000)) };
+	let location: Location = Location::new(1, [Parachain(1000)]);
 	let agent_id = AgentIdOf::convert_location(&location).unwrap();
 	assert_eq!(
 		agent_id,
@@ -1054,7 +1049,7 @@ fn test_describe_asset_hub() {
 
 #[test]
 fn test_describe_here() {
-	let location: MultiLocation = MultiLocation { parents: 0, interior: Here };
+	let location: Location = Location::new(0, []);
 	let agent_id = AgentIdOf::convert_location(&location).unwrap();
 	assert_eq!(
 		agent_id,

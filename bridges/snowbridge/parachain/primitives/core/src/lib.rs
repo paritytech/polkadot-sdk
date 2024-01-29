@@ -28,11 +28,7 @@ use sp_core::H256;
 use sp_io::hashing::keccak_256;
 use sp_runtime::{traits::AccountIdConversion, RuntimeDebug};
 use sp_std::prelude::*;
-use xcm::prelude::{
-	Junction::Parachain,
-	Junctions::{Here, X1},
-	MultiLocation,
-};
+use xcm::prelude::{Junction::Parachain, Location};
 use xcm_builder::{DescribeAllTerminal, DescribeFamily, DescribeLocation, HashedDescription};
 
 /// The ID of an agent contract
@@ -53,9 +49,9 @@ pub fn sibling_sovereign_account_raw(para_id: ParaId) -> [u8; 32] {
 }
 
 pub struct AllowSiblingsOnly;
-impl Contains<MultiLocation> for AllowSiblingsOnly {
-	fn contains(location: &MultiLocation) -> bool {
-		matches!(location, MultiLocation { parents: 1, interior: X1(Parachain(_)) })
+impl Contains<Location> for AllowSiblingsOnly {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (1, [Parachain(_)]))
 	}
 }
 
@@ -161,14 +157,14 @@ pub const SECONDARY_GOVERNANCE_CHANNEL: ChannelId =
 
 pub struct DescribeHere;
 impl DescribeLocation for DescribeHere {
-	fn describe_location(l: &MultiLocation) -> Option<Vec<u8>> {
-		match (l.parents, l.interior) {
-			(0, Here) => Some(Vec::<u8>::new().encode()),
+	fn describe_location(l: &Location) -> Option<Vec<u8>> {
+		match l.unpack() {
+			(0, []) => Some(Vec::<u8>::new().encode()),
 			_ => None,
 		}
 	}
 }
 
-/// Creates an AgentId from a MultiLocation. An AgentId is a unique mapping to a Agent contract on
-/// Ethereum which acts as the sovereign account for the MultiLocation.
+/// Creates an AgentId from a Location. An AgentId is a unique mapping to a Agent contract on
+/// Ethereum which acts as the sovereign account for the Location.
 pub type AgentIdOf = HashedDescription<H256, (DescribeHere, DescribeFamily<DescribeAllTerminal>)>;

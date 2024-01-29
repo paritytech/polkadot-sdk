@@ -17,7 +17,7 @@
 use polkadot_node_core_pvf_common::error::{InternalValidationError, PrepareError};
 
 /// A error raised during validation of the candidate.
-#[derive(Debug, Clone)]
+#[derive(thiserror::Error, Debug, Clone)]
 pub enum ValidationError {
 	/// Deterministic preparation issue. In practice, most of the problems should be caught by
 	/// prechecking, so this may be a sign of internal conditions.
@@ -27,35 +27,42 @@ pub enum ValidationError {
 	/// pre-checking enabled only valid runtimes should ever get enacted, so we can be
 	/// reasonably sure that this is some local problem on the current node. However, as this
 	/// particular error *seems* to indicate a deterministic error, we raise a warning.
+	#[error("candidate validation: {0}")]
 	Preparation(PrepareError),
 	/// The error was raised because the candidate is invalid. Should vote against.
-	Invalid(InvalidCandidate),
+	#[error("candidate validation: {0}")]
+	Invalid(#[from] InvalidCandidate),
 	/// Possibly transient issue that may resolve after retries. Should vote against when retries
 	/// fail.
-	PossiblyInvalid(PossiblyInvalidError),
+	#[error("candidate validation: {0}")]
+	PossiblyInvalid(#[from] PossiblyInvalidError),
 	/// Preparation or execution issue caused by an internal condition. Should not vote against.
-	Internal(InternalValidationError),
+	#[error("candidate validation: internal: {0}")]
+	Internal(#[from] InternalValidationError),
 }
 
 /// A description of an error raised during executing a PVF and can be attributed to the combination
 /// of the candidate [`polkadot_parachain_primitives::primitives::ValidationParams`] and the PVF.
-#[derive(Debug, Clone)]
+#[derive(thiserror::Error, Debug, Clone)]
 pub enum InvalidCandidate {
 	/// The candidate is reported to be invalid by the execution worker. The string contains the
 	/// error message.
+	#[error("invalid: worker reported: {0}")]
 	WorkerReportedInvalid(String),
 	/// PVF execution (compilation is not included) took more time than was allotted.
+	#[error("invalid: hard timeout")]
 	HardTimeout,
 }
 
 /// Possibly transient issue that may resolve after retries.
-#[derive(Debug, Clone)]
+#[derive(thiserror::Error, Debug, Clone)]
 pub enum PossiblyInvalidError {
 	/// The worker process (not the job) has died during validation of a candidate.
 	///
 	/// It's unlikely that this is caused by malicious code since workers spawn separate job
 	/// processes, and those job processes are sandboxed. But, it is possible. We retry in this
 	/// case, and if the error persists, we assume it's caused by the candidate and vote against.
+	#[error("possibly invalid: ambiguous worker death")]
 	AmbiguousWorkerDeath,
 	/// The job process (not the worker) has died for one of the following reasons:
 	///
@@ -69,6 +76,7 @@ pub enum PossiblyInvalidError {
 	/// (c) Some other reason, perhaps transient or perhaps caused by malicious code.
 	///
 	/// We cannot treat this as an internal error because malicious code may have caused this.
+	#[error("possibly invalid: ambiguous job death: {0}")]
 	AmbiguousJobDeath(String),
 	/// An unexpected error occurred in the job process and we can't be sure whether the candidate
 	/// is really invalid or some internal glitch occurred. Whenever we are unsure, we can never
@@ -76,13 +84,8 @@ pub enum PossiblyInvalidError {
 	/// issue was due to the candidate, then all validators would abstain, stalling finality on the
 	/// chain. So we will first retry the candidate, and if the issue persists we are forced to
 	/// vote invalid.
+	#[error("possibly invalid: job error: {0}")]
 	JobError(String),
-}
-
-impl From<InternalValidationError> for ValidationError {
-	fn from(error: InternalValidationError) -> Self {
-		Self::Internal(error)
-	}
 }
 
 impl From<PrepareError> for ValidationError {

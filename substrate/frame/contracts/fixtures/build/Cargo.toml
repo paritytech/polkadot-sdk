@@ -1,6 +1,6 @@
 [package]
 name = "contracts"
-version = "0.1.0"
+version = "0.6.3"
 edition = "2021"
 
 # Binary targets are injected dynamically by the build script.
@@ -10,7 +10,7 @@ edition = "2021"
 [dependencies]
 uapi = { package = 'pallet-contracts-uapi', path = "", default-features = false }
 common = { package = 'pallet-contracts-fixtures-common', path = "" }
-polkavm-derive = '0.4.0'
+polkavm-derive = '0.5.0'
 
 [profile.release]
 opt-level = 3

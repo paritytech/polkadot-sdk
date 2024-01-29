@@ -22,7 +22,8 @@ use crate::{
 		BodyId as OldBodyId, BodyPart as OldBodyPart, Junction as OldJunction,
 		NetworkId as OldNetworkId,
 	},
-	VersionedMultiLocation,
+	v4::{Junction as NewJunction, NetworkId as NewNetworkId},
+	VersionedLocation,
 };
 use bounded_collections::{BoundedSlice, BoundedVec, ConstU32};
 use core::convert::{TryFrom, TryInto};
@@ -100,6 +101,31 @@ impl TryFrom<OldNetworkId> for NetworkId {
 			Any | Named(_) => Err(()),
 			Polkadot => Ok(NetworkId::Polkadot),
 			Kusama => Ok(NetworkId::Kusama),
+		}
+	}
+}
+
+impl From<NewNetworkId> for Option<NetworkId> {
+	fn from(new: NewNetworkId) -> Self {
+		Some(NetworkId::from(new))
+	}
+}
+
+impl From<NewNetworkId> for NetworkId {
+	fn from(new: NewNetworkId) -> Self {
+		use NewNetworkId::*;
+		match new {
+			ByGenesis(hash) => Self::ByGenesis(hash),
+			ByFork { block_number, block_hash } => Self::ByFork { block_number, block_hash },
+			Polkadot => Self::Polkadot,
+			Kusama => Self::Kusama,
+			Westend => Self::Westend,
+			Rococo => Self::Rococo,
+			Wococo => Self::Wococo,
+			Ethereum { chain_id } => Self::Ethereum { chain_id },
+			BitcoinCore => Self::BitcoinCore,
+			BitcoinCash => Self::BitcoinCash,
+			PolkadotBulletin => Self::PolkadotBulletin,
 		}
 	}
 }
@@ -414,6 +440,29 @@ impl TryFrom<OldJunction> for Junction {
 	}
 }
 
+impl TryFrom<NewJunction> for Junction {
+	type Error = ();
+
+	fn try_from(value: NewJunction) -> Result<Self, Self::Error> {
+		use NewJunction::*;
+		Ok(match value {
+			Parachain(id) => Self::Parachain(id),
+			AccountId32 { network: maybe_network, id } =>
+				Self::AccountId32 { network: maybe_network.map(|network| network.into()), id },
+			AccountIndex64 { network: maybe_network, index } =>
+				Self::AccountIndex64 { network: maybe_network.map(|network| network.into()), index },
+			AccountKey20 { network: maybe_network, key } =>
+				Self::AccountKey20 { network: maybe_network.map(|network| network.into()), key },
+			PalletInstance(index) => Self::PalletInstance(index),
+			GeneralIndex(id) => Self::GeneralIndex(id),
+			GeneralKey { length, data } => Self::GeneralKey { length, data },
+			OnlyChild => Self::OnlyChild,
+			Plurality { id, part } => Self::Plurality { id, part },
+			GlobalConsensus(network) => Self::GlobalConsensus(network.into()),
+		})
+	}
+}
+
 impl Junction {
 	/// Convert `self` into a `MultiLocation` containing 0 parents.
 	///
@@ -430,10 +479,10 @@ impl Junction {
 		MultiLocation { parents: n, interior: Junctions::X1(self) }
 	}
 
-	/// Convert `self` into a `VersionedMultiLocation` containing 0 parents.
+	/// Convert `self` into a `VersionedLocation` containing 0 parents.
 	///
 	/// Similar to `Into::into`, except that this method can be used in a const evaluation context.
-	pub const fn into_versioned(self) -> VersionedMultiLocation {
+	pub const fn into_versioned(self) -> VersionedLocation {
 		self.into_location().into_versioned()
 	}
 

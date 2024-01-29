@@ -48,13 +48,13 @@ pub const BLOCK_TIME: u64 = 1000;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Staking: pallet_staking::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
-		RootOffences: root_offences::{Pallet, Call, Storage, Event<T>},
-		Historical: pallet_session::historical::{Pallet, Storage},
+		System: frame_system,
+		Timestamp: pallet_timestamp,
+		Balances: pallet_balances,
+		Staking: pallet_staking,
+		Session: pallet_session,
+		RootOffences: root_offences,
+		Historical: pallet_session::historical,
 	}
 );
 
