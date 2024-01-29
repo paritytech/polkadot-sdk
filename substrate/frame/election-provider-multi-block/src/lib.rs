@@ -77,7 +77,7 @@
 //! ```ignore
 //! // ----------      ----------   --------------   -----------
 //! //            |  |            |                |             |
-//! 	//    Snapshot Signed  SignedValidation    Unsigned       elect()
+//! //    Snapshot Signed  SignedValidation    Unsigned       elect()
 //! ```
 //!
 //! > to-finish
@@ -281,16 +281,29 @@ pub mod pallet {
 			);
 
 			// closure that tries to progress paged snapshot creation.
+			// TODO(gpestana): weights
 			let try_snapshot_next = |remaining_pages: PageIndex| {
-				match Self::create_targets_snapshot()
-					.and_then(|t| Self::create_voters_snapshot(remaining_pages).map(|v| (t, v)))
-				{
-					Ok((target_count, voter_count)) => {
+				let target_snapshot_weight = if !Snapshot::<T>::targets_snapshot_exists() {
+					match Self::create_targets_snapshot() {
+						Ok(target_count) => {
+							log!(info, "target snapshot created with {} targets", target_count);
+							Weight::default()
+						},
+						Err(err) => {
+							log!(error, "error preparing targets snapshot: {:?}", err);
+							Weight::default()
+						},
+					}
+				} else {
+					Weight::default()
+				};
+
+				let voter_snapshot_weight = match Self::create_voters_snapshot(remaining_pages) {
+					Ok(voter_count) => {
 						log!(
 							info,
-							"snapshot progressed: page {} with {} targets and {} voters",
+							"voter snapshot progressed: page {} with {} voters",
 							remaining_pages,
-							target_count,
 							voter_count,
 						);
 
@@ -298,11 +311,12 @@ pub mod pallet {
 						Weight::default() // weights
 					},
 					Err(err) => {
-						log!(error, "error building snapshot: {:?}", err);
-						// TODO(gpestana): what exactly do here?
+						log!(error, "error preparing voter snapshot: {:?}", err);
 						Weight::default() // weights
 					},
-				}
+				};
+
+				target_snapshot_weight.saturating_add(voter_snapshot_weight)
 			};
 
 			match current_phase {
@@ -346,7 +360,6 @@ pub mod pallet {
 					if now > started_at + T::ExportPhaseLimit::get() {
 						// TODO: test the edge case where the export phase saturates. maybe do not
 						// enter in emergency phase?
-
 						log!(
 					    error,
 					    "phase `Export` has been open for too long ({} blocks). entering emergency mode",
@@ -409,6 +422,10 @@ impl<T: Config> Snapshot<T> {
 	/// Sets a page of targets in the snapshot's storage.
 	fn set_targets(page: PageIndex, targets: BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>) {
 		PagedTargetSnapshot::<T>::insert(page, targets);
+	}
+
+	fn targets_snapshot_exists() -> bool {
+		!PagedTargetSnapshot::<T>::iter_keys().count().is_zero()
 	}
 
 	/// Return the number of desired targets, which is defined by [`T::DataProvider`].
