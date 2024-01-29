@@ -4,11 +4,11 @@ Run parachain consensus stress and performance tests on your development machine
 
 ## Motivation
 
-The parachain consensus node implementation spans across many modules which we call subsystems. Each subsystem is 
-responsible for a small part of logic of the parachain consensus pipeline, but in general the most load and 
-performance issues are localized in just a few core subsystems like `availability-recovery`, `approval-voting` or 
-`dispute-coordinator`. In the absence of such a tool, we would run large test nets to load/stress test these parts of 
-the system. Setting up and making sense of the amount of data produced by such a large test is very expensive, hard 
+The parachain consensus node implementation spans across many modules which we call subsystems. Each subsystem is
+responsible for a small part of logic of the parachain consensus pipeline, but in general the most load and
+performance issues are localized in just a few core subsystems like `availability-recovery`, `approval-voting` or
+`dispute-coordinator`. In the absence of such a tool, we would run large test nets to load/stress test these parts of
+the system. Setting up and making sense of the amount of data produced by such a large test is very expensive, hard
 to orchestrate and is a huge development time sink.
 
 This tool aims to solve the problem by making it easy to:
@@ -168,9 +168,9 @@ usage:
 - for how many blocks the test should run (`num_blocks`)
 
 From the perspective of the subsystem under test, this means that it will receive an `ActiveLeavesUpdate` signal
-followed by an arbitrary amount of messages. This process repeats itself for `num_blocks`. The messages are generally 
-test payloads pre-generated before the test run, or constructed on pre-genereated payloads. For example the 
-`AvailabilityRecoveryMessage::RecoverAvailableData` message includes a `CandidateReceipt` which is generated before 
+followed by an arbitrary amount of messages. This process repeats itself for `num_blocks`. The messages are generally
+test payloads pre-generated before the test run, or constructed on pre-genereated payloads. For example the
+`AvailabilityRecoveryMessage::RecoverAvailableData` message includes a `CandidateReceipt` which is generated before
 the test is started.
 
 ### Example run
@@ -204,12 +204,12 @@ node validator network.
     CPU usage per block 0.00s
 ```
 
-`Block time` in the context of `data-availability-read` has a different meaning. It measures the amount of time it 
+`Block time` in the context of `data-availability-read` has a different meaning. It measures the amount of time it
 took the subsystem to finish processing all of the messages sent in the context of the current test block.
 
 ### Test logs
 
-You can select log target, subtarget and verbosity just like with Polkadot node CLI, simply setting 
+You can select log target, subtarget and verbosity just like with Polkadot node CLI, simply setting
 `RUST_LOOG="parachain=debug"` turns on debug logs for all parachain consensus subsystems in the test.
 
 ### View test metrics
@@ -268,17 +268,17 @@ This tool is intended to make it easy to write new test objectives that focus in
 or even multiple subsystems (for example `approval-distribution` and `approval-voting`).
 
 A special kind of test objectives are performance regression tests for the CI pipeline. These should be sequences
-of tests that check the performance characteristics (such as CPU usage, speed) of the subsystem under test in both 
+of tests that check the performance characteristics (such as CPU usage, speed) of the subsystem under test in both
 happy and negative scenarios (low bandwidth, network errors and low connectivity).
 
 ### Reusable test components
 
-To faster write a new test objective you need to use some higher level wrappers and logic: `TestEnvironment`, 
+To faster write a new test objective you need to use some higher level wrappers and logic: `TestEnvironment`,
 `TestConfiguration`, `TestAuthorities`, `NetworkEmulator`. To create the `TestEnvironment` you will
 need to also build an `Overseer`, but that should be easy using the mockups for subsystems in`core::mock`.
 
 ### Mocking
 
 Ideally we want to have a single mock implementation for subsystems that can be minimally configured to
-be used in different tests. A good example is `runtime-api` which currently only responds to session information 
+be used in different tests. A good example is `runtime-api` which currently only responds to session information
 requests based on static data. It can be easily extended to service other requests.

@@ -144,7 +144,7 @@ impl MockNetworkBridgeTx {
 								.expect("Should not fail");
 						}
 					},
-					_ => todo!(),
+					_ => unimplemented!("Unexpected network bridge message"),
 				},
 			}
 		}
