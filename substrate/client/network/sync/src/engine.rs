@@ -758,6 +758,8 @@ where
 						number,
 					)
 				},
+				// Nothing to do, this is handled internally by `SyncingStrategy`.
+				SyncingAction::Finished => {},
 			}
 		}
 
