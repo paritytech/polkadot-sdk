@@ -20,9 +20,9 @@
 //! request-response API.
 
 use crate::{
-	config::{IncomingRequest, OutgoingResponse},
 	litep2p::shim::request_response::metrics::RequestResponseMetrics,
 	peer_store::PeerStoreProvider,
+	request_responses::{IncomingRequest, OutgoingResponse},
 	service::{metrics::Metrics, traits::RequestResponseConfig as RequestResponseConfigT},
 	IfDisconnected, ProtocolName, RequestFailure,
 };
@@ -205,8 +205,7 @@ impl RequestResponseProtocol {
 		&mut self,
 		peer: PeerId,
 		request: Vec<u8>,
-		// TODO: discuss the design of fallback requests
-		_fallback_request: Option<(Vec<u8>, ProtocolName)>,
+		fallback_request: Option<(Vec<u8>, ProtocolName)>,
 		tx: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
 		connect: IfDisconnected,
 	) {
@@ -215,8 +214,27 @@ impl RequestResponseProtocol {
 			IfDisconnected::ImmediateError => DialOptions::Reject,
 		};
 
-		// sending the request only fails if the protocol has exited
-		match self.handle.try_send_request(peer.into(), request, dial_options) {
+		log::trace!(
+			target: LOG_TARGET,
+			"{}: send request to {:?} (fallback {:?}) (dial options: {:?})",
+			peer,
+			fallback_request,
+			dial_options,
+			self.protocol,
+		);
+
+		match {
+			match fallback_request {
+				Some((fallback_request, fallback_protocol)) =>
+					self.handle.try_send_request_with_fallback(
+						peer.into(),
+						request,
+						(fallback_protocol.into(), fallback_request),
+						dial_options,
+					),
+				None => self.handle.try_send_request(peer.into(), request, dial_options),
+			}
+		} {
 			Ok(request_id) => {
 				self.pending_inbound_responses.insert(request_id, (tx, Instant::now()));
 			},
@@ -290,6 +308,7 @@ impl RequestResponseProtocol {
 		&mut self,
 		peer: litep2p::PeerId,
 		request_id: RequestId,
+		fallback: Option<litep2p::ProtocolName>,
 		response: Vec<u8>,
 	) {
 		match self.pending_inbound_responses.remove(&request_id) {
@@ -306,7 +325,10 @@ impl RequestResponseProtocol {
 					response.len(),
 				);
 
-				let _ = tx.send(Ok((response, self.protocol.clone())));
+				let _ = tx.send(Ok((
+					response,
+					fallback.map_or_else(|| self.protocol.clone(), Into::into),
+				)));
 				self.metrics.register_outbound_request_success(started.elapsed());
 			},
 		}
@@ -420,8 +442,8 @@ impl RequestResponseProtocol {
 						request_id,
 						request,
 					}) => self.on_inbound_request(peer, fallback, request_id, request),
-					Some(RequestResponseEvent::ResponseReceived { peer, request_id, response }) => {
-						self.on_inbound_response(peer, request_id, response);
+					Some(RequestResponseEvent::ResponseReceived { peer, request_id, fallback, response }) => {
+						self.on_inbound_response(peer, request_id, fallback, response);
 					},
 					Some(RequestResponseEvent::RequestFailed { peer, request_id, error }) => {
 						self.on_request_failed(peer, request_id, error);

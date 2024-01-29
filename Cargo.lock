@@ -7823,7 +7823,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.2.0"
-source = "git+https://github.com/altonen/litep2p?branch=master#19c735a17d1b374f64acfe4e26f1d1fead7f8688"
+source = "git+https://github.com/altonen/litep2p?branch=master#54cd70384f329590714e765a2ade7e25fd72f4fc"
 dependencies = [
  "async-trait",
  "bs58 0.4.0",
