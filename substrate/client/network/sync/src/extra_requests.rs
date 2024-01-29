@@ -17,9 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{
-	request_metrics::Metrics,
-	strategy::{chain_sync::PeerSync, PeerPool},
-	LOG_TARGET,
+	peer_pool::PeerPool, request_metrics::Metrics, strategy::chain_sync::PeerSync, LOG_TARGET,
 };
 use fork_tree::ForkTree;
 use libp2p::PeerId;
@@ -354,9 +352,9 @@ impl<'a, B: BlockT> Matcher<'a, B> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::strategy::{
-		chain_sync::{PeerSync, PeerSyncState},
-		PeerPool,
+	use crate::{
+		peer_pool::PeerPool,
+		strategy::chain_sync::{PeerSync, PeerSyncState},
 	};
 	use parking_lot::Mutex;
 	use quickcheck::{Arbitrary, Gen, QuickCheck};

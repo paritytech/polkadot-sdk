@@ -25,6 +25,7 @@ pub use types::{SyncEvent, SyncEventStream, SyncState, SyncStatus, SyncStatusPro
 mod block_announce_validator;
 mod extra_requests;
 mod futures_stream;
+mod peer_pool;
 mod pending_responses;
 mod request_metrics;
 mod schema;

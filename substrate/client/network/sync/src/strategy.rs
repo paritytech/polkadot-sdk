@@ -25,12 +25,13 @@ pub mod state_sync;
 pub mod warp;
 
 use crate::{
+	peer_pool::PeerPool,
 	types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse, SyncStatus},
 	LOG_TARGET,
 };
 use chain_sync::{ChainSync, ChainSyncAction, ChainSyncMode};
 use libp2p::PeerId;
-use log::{error, info, warn};
+use log::{error, info};
 use parking_lot::Mutex;
 use prometheus_endpoint::Registry;
 use sc_client_api::{BlockBackend, ProofProvider};
@@ -70,86 +71,6 @@ pub struct SyncingConfig {
 	pub max_blocks_per_request: u32,
 	/// Prometheus metrics registry.
 	pub metrics_registry: Option<Registry>,
-}
-
-#[derive(Debug)]
-enum PeerStatus {
-	Available,
-	Reserved,
-}
-
-impl PeerStatus {
-	fn is_available(&self) -> bool {
-		matches!(self, PeerStatus::Available)
-	}
-}
-
-#[derive(Default, Debug)]
-pub struct PeerPool {
-	peers: HashMap<PeerId, PeerStatus>,
-}
-
-pub struct AvailablePeer<'a> {
-	peer_id: &'a PeerId,
-	status: &'a mut PeerStatus,
-}
-
-impl<'a> AvailablePeer<'a> {
-	pub fn peer_id(&self) -> &'a PeerId {
-		self.peer_id
-	}
-
-	pub fn reserve(&mut self) {
-		*self.status = PeerStatus::Reserved;
-	}
-}
-
-impl PeerPool {
-	pub fn add_peer(&mut self, peer_id: PeerId) {
-		self.peers.insert(peer_id, PeerStatus::Available);
-	}
-
-	pub fn remove_peer(&mut self, peer_id: &PeerId) {
-		self.peers.remove(peer_id);
-	}
-
-	pub fn available_peers<'a>(&'a mut self) -> impl Iterator<Item = AvailablePeer> + 'a {
-		self.peers.iter_mut().filter_map(|(peer_id, status)| {
-			status.is_available().then_some(AvailablePeer::<'a> { peer_id, status })
-		})
-	}
-
-	pub fn try_reserve_peer(&mut self, peer_id: &PeerId) -> bool {
-		match self.peers.get_mut(peer_id) {
-			Some(peer_status) => match peer_status {
-				PeerStatus::Available => {
-					*peer_status = PeerStatus::Reserved;
-					true
-				},
-				PeerStatus::Reserved => false,
-			},
-			None => {
-				warn!(target: LOG_TARGET, "Trying to reserve unknown peer {peer_id}.");
-				false
-			},
-		}
-	}
-
-	pub fn free_peer(&mut self, peer_id: &PeerId) {
-		match self.peers.get_mut(peer_id) {
-			Some(peer_status) => match peer_status {
-				PeerStatus::Available => {
-					warn!(target: LOG_TARGET, "Trying to free available peer {peer_id}.")
-				},
-				PeerStatus::Reserved => {
-					*peer_status = PeerStatus::Available;
-				},
-			},
-			None => {
-				warn!(target: LOG_TARGET, "Trying to free unknown peer {peer_id}.");
-			},
-		}
-	}
 }
 
 #[derive(Debug)]

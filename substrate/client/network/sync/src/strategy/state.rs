@@ -18,8 +18,8 @@
 
 //! State sync strategy.
 
-use super::PeerPool;
 use crate::{
+	peer_pool::PeerPool,
 	schema::v1::StateResponse,
 	strategy::state_sync::{ImportResult, StateSync, StateSyncProvider},
 	types::{BadPeer, OpaqueStateRequest, OpaqueStateResponse, SyncState, SyncStatus},

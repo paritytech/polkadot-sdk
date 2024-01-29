@@ -20,8 +20,8 @@
 
 pub use sp_consensus_grandpa::{AuthorityList, SetId};
 
-use super::PeerPool;
 use crate::{
+	peer_pool::PeerPool,
 	strategy::chain_sync::validate_blocks,
 	types::{BadPeer, SyncState, SyncStatus},
 	LOG_TARGET,
