@@ -1,3 +1,5 @@
+// This file is part of Substrate.
+
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -13,5 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// re-export rococo
-pub use crate::rococo::{consensus, currency, fee};
+trait Config {
+	type C;
+}
+
+#[derive(frame_support::OrdNoBound, frame_support::EqNoBound)]
+struct Foo<T: Config> {
+	c: T::C,
+}
+
+fn main() {}

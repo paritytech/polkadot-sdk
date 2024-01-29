@@ -1,6 +1,6 @@
 [package]
 name = "sp-consensus-slots"
-version = "0.10.0-dev"
+version = "0.32.0"
 authors.workspace = true
 description = "Primitives for slots-based consensus"
 edition.workspace = true
