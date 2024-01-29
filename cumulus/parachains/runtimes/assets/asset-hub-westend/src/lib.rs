@@ -1379,7 +1379,7 @@ impl_runtime_apis! {
 				}
 
 				fn fee_asset() -> Result<MultiAsset, BenchmarkError> {
-					Ok(Asset {
+					Ok(MultiAsset {
 						id: AssetId::Concrete(WestendLocation::get()),
 						fun: Fungible(1_000_000 * UNITS),
 					})

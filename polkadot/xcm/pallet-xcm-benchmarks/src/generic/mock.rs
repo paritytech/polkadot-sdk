@@ -200,11 +200,11 @@ impl generic::Config for Test {
 	}
 
 	fn fee_asset() -> Result<MultiAsset, BenchmarkError> {
-		Ok(Asset { id: AssetId::Concrete(Here.into()), fun: Fungible(1_000_000) })
+		Ok(MultiAsset { id: AssetId::Concrete(Here.into()), fun: Fungible(1_000_000) })
 	}
 
 	fn unlockable_asset() -> Result<(MultiLocation, MultiLocation, MultiAsset), BenchmarkError> {
-		let assets: Asset = (AssetId(Here.into()), 100).into();
+		let assets: MultiAsset = (AssetId::Concrete(Here.into()), 100).into();
 		Ok((Default::default(), account_id_junction::<Test>(1).into(), assets))
 	}
 
