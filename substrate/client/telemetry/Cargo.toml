@@ -1,6 +1,6 @@
 [package]
 name = "sc-telemetry"
-version = "4.0.0-dev"
+version = "15.0.0"
 authors.workspace = true
 description = "Telemetry utils"
 edition.workspace = true

@@ -1,6 +1,6 @@
 [package]
 name = "sc-consensus-aura"
-version = "0.10.0-dev"
+version = "0.34.0"
 authors.workspace = true
 description = "Aura consensus algorithm for substrate"
 edition.workspace = true
