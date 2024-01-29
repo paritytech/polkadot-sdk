@@ -1331,13 +1331,6 @@ construct_runtime! {
 		Offences: pallet_offences = 7,
 		Historical: session_historical = 34,
 
-		// BEEFY Bridges support.
-		Beefy: pallet_beefy = 240,
-		// MMR leaf construction must be before session in order to have leaf contents
-		// refer to block<N-1> consistently. see substrate issue #11797 for details.
-		Mmr: pallet_mmr = 241,
-		MmrLeaf: pallet_beefy_mmr = 242,
-
 		Session: pallet_session = 8,
 		Grandpa: pallet_grandpa = 10,
 		AuthorityDiscovery: pallet_authority_discovery = 12,
@@ -1422,6 +1415,13 @@ construct_runtime! {
 
 		// Pallet for sending XCM.
 		XcmPallet: pallet_xcm = 99,
+
+		// BEEFY Bridges support.
+		Beefy: pallet_beefy = 240,
+		// MMR leaf construction must be after session in order to have a leaf's next_auth_set
+		// refer to block<N>. See issue #160 for details.
+		Mmr: pallet_mmr = 241,
+		MmrLeaf: pallet_beefy_mmr = 242,
 
 		// Pallet for migrating Identity to a parachain. To be removed post-migration.
 		IdentityMigrator: identity_migrator = 248,
