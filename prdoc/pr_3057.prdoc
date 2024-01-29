@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Serialize/Deserialize trait implemented in no-std for XCM assets types
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Serialize/Deserialize trait implemented in no-std for XCM v3 and v4
+      assets types
+
+crates:
+  - name: staging-xcm
