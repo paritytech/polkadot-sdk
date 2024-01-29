@@ -493,6 +493,7 @@
 <a href="#493" id="493">493</a>
 <a href="#494" id="494">494</a>
 <a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -586,6 +587,7 @@
 			<span class="string">&quot;polkadot&quot; </span>=&gt; Box::new(service::chain_spec::polkadot_config()<span class="question-mark">?</span>),
 			name <span class="kw">if </span>name.starts_with(<span class="string">&quot;polkadot-&quot;</span>) &amp;&amp; !name.ends_with(<span class="string">&quot;.json&quot;</span>) =&gt;
 				<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;`{name}` is not supported anymore as the polkadot native runtime no longer part of the node.&quot;</span>))<span class="question-mark">?</span>,
+			<span class="string">&quot;paseo&quot; </span>=&gt; Box::new(service::chain_spec::paseo_config()<span class="question-mark">?</span>),
 			<span class="string">&quot;rococo&quot; </span>=&gt; Box::new(service::chain_spec::rococo_config()<span class="question-mark">?</span>),
 			<span class="attr">#[cfg(feature = <span class="string">&quot;rococo-native&quot;</span>)]
 			</span><span class="string">&quot;dev&quot; </span>| <span class="string">&quot;rococo-dev&quot; </span>=&gt; Box::new(service::chain_spec::rococo_development_config()<span class="question-mark">?</span>),

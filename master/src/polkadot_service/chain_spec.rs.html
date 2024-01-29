@@ -1078,6 +1078,10 @@
 <a href="#1078" id="1078">1078</a>
 <a href="#1079" id="1079">1079</a>
 <a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1180,6 +1184,10 @@
 
 <span class="kw">pub fn </span>westend_config() -&gt; <span class="prelude-ty">Result</span>&lt;WestendChainSpec, String&gt; {
 	WestendChainSpec::from_json_bytes(<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/westend.json&quot;</span>)[..])
+}
+
+<span class="kw">pub fn </span>paseo_config() -&gt; <span class="prelude-ty">Result</span>&lt;GenericChainSpec, String&gt; {
+	GenericChainSpec::from_json_bytes(<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/paseo.json&quot;</span>)[..])
 }
 
 <span class="kw">pub fn </span>rococo_config() -&gt; <span class="prelude-ty">Result</span>&lt;RococoChainSpec, String&gt; {
