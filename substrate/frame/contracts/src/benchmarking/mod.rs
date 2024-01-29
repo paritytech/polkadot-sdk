@@ -2628,25 +2628,19 @@ benchmarks! {
 	}
 
 	// This is no benchmark. It merely exist to have an easy way to pretty print the currently
-	// configured `Schedule` during benchmark development.
-	// It can be outputted using the following command:
-	// cargo run --manifest-path=bin/node/cli/Cargo.toml \
-	//     --features runtime-benchmarks -- benchmark pallet --extra --dev --execution=native \
-	//     -p pallet_contracts -e print_schedule --no-median-slopes --no-min-squares
+	// configured `Schedule` during benchmark development. Check the README on how to print this.
 	#[extra]
 	#[pov_mode = Ignored]
 	print_schedule {
-		#[cfg(feature = "std")]
-		{
-			let max_weight = <T as frame_system::Config>::BlockWeights::get().max_block;
-			let (weight_per_key, key_budget) = ContractInfo::<T>::deletion_budget(max_weight);
-			println!("{:#?}", Schedule::<T>::default());
-			println!("###############################################");
-			println!("Lazy deletion weight per key: {weight_per_key}");
-			println!("Lazy deletion throughput per block: {key_budget}");
-		}
-		#[cfg(not(feature = "std"))]
-		Err("Run this bench with a native runtime in order to see the schedule.")?;
+		let max_weight = <T as frame_system::Config>::BlockWeights::get().max_block;
+		let (weight_per_key, key_budget) = ContractInfo::<T>::deletion_budget(max_weight);
+		let schedule = T::Schedule::get();
+		log::info!(target: LOG_TARGET, "
+		{schedule:#?}
+		###############################################
+		Lazy deletion weight per key: {weight_per_key}
+		Lazy deletion keys per block: {key_budget}
+		");
 	}: {}
 
 	// Execute one erc20 transfer using the ink! erc20 example contract.
