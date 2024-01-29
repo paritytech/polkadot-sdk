@@ -41,6 +41,7 @@ use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
 /// # Example
 ///
 /// ```
+/// # extern crate alloc;
 /// #[frame_support::pallet]
 /// mod pallet {
 ///     # use frame_support::pallet_prelude::*;

@@ -477,6 +477,7 @@ macro_rules! ord_parameter_types {
 /// # Example
 ///
 /// ```
+/// # extern crate alloc;
 /// frame_support::runtime_print!("my value is {}", 3);
 /// ```
 #[macro_export]
@@ -1735,6 +1736,7 @@ pub mod pallet_prelude {
 /// # Example of a non-instantiable pallet
 ///
 /// ```
+/// # extern crate alloc;
 /// pub use pallet::*; // reexport in crate namespace for `construct_runtime!`
 ///
 /// #[frame_support::pallet]
@@ -1939,6 +1941,7 @@ pub mod pallet_prelude {
 /// # Example of an instantiable pallet
 ///
 /// ```
+/// # extern crate alloc;
 /// pub use pallet::*;
 ///
 /// #[frame_support::pallet]
@@ -2292,6 +2295,7 @@ pub mod pallet_macros {
 	/// correct function.
 	///
 	/// ```
+	/// # extern crate alloc;
 	/// #[frame_support::pallet(dev_mode)]
 	/// pub mod custom_pallet {
 	/// #   use frame_support::pallet_prelude::*;
@@ -2401,6 +2405,7 @@ pub mod pallet_macros {
 	/// allows. In all such cases, using `compact` is sensible.
 	///
 	/// ```
+	/// # extern crate alloc;
 	/// #[frame_support::pallet(dev_mode)]
 	/// pub mod custom_pallet {
 	/// #   use frame_support::pallet_prelude::*;
@@ -2436,6 +2441,7 @@ pub mod pallet_macros {
 	/// ## Example
 	///
 	/// ```
+	/// # extern crate alloc;
 	/// #[frame_support::pallet]
 	/// pub mod pallet {
 	/// # 	#[pallet::config]
@@ -2466,6 +2472,7 @@ pub mod pallet_macros {
 	/// This is deprecated and will soon be removed.
 	///
 	/// ```
+	/// # extern crate alloc;
 	/// #[frame_support::pallet]
 	/// pub mod pallet {
 	/// #     #[pallet::config]
@@ -2496,6 +2503,7 @@ pub mod pallet_macros {
 	/// ## Example
 	///
 	/// ```
+	/// # extern crate alloc;
 	/// #[frame_support::pallet]
 	/// mod pallet {
 	///     use frame_support::pallet_prelude::*;
@@ -2567,6 +2575,7 @@ pub mod pallet_macros {
 	/// #### Example
 	///
 	/// ```
+	/// # extern crate alloc;
 	/// #[frame_support::pallet]
 	/// mod pallet {
 	///     # use frame_support::pallet_prelude::*;
@@ -2696,6 +2705,7 @@ pub mod pallet_macros {
 	///
 	/// #### Example
 	/// ```
+	/// # extern crate alloc;
 	/// #[frame_support::pallet]
 	/// mod pallet {
 	///     # use frame_support::pallet_prelude::*;
@@ -2763,8 +2773,10 @@ pub mod pallet_macros {
 	/// submit such tasks via an extrinsic defined in `frame_system` called `do_task`.
 	///
 	/// ## Example
+	/// # extern crate alloc;
 	#[doc = docify::embed!("src/tests/tasks.rs", tasks_example)]
 	/// Now, this can be executed as follows:
+	/// # extern crate alloc;
 	#[doc = docify::embed!("src/tests/tasks.rs", tasks_work)]
 	pub use frame_support_procedural::tasks_experimental;
 }

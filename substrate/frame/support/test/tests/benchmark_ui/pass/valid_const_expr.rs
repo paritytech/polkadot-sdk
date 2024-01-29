@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+extern crate alloc;
+
 use frame_benchmarking::v2::*;
 use frame_support_test::Config;
 use frame_support::parameter_types;

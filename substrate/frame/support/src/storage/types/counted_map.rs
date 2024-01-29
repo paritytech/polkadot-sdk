@@ -59,6 +59,7 @@ use sp_runtime::traits::Saturating;
 /// Declaring a counted map:
 ///
 /// ```
+/// # extern crate alloc;
 /// #[frame_support::pallet]
 /// mod pallet {
 /// # 	use frame_support::pallet_prelude::*;

@@ -17,6 +17,8 @@
 
 //! Proc macro for a npos solution type.
 
+extern crate alloc;
+
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
 use proc_macro_crate::{crate_name, FoundCrate};
@@ -63,6 +65,7 @@ pub(crate) fn syn_err(message: &'static str) -> syn::Error {
 /// type, `u8` target type and `Perbill` accuracy with maximum of 4 edges per voter.
 ///
 /// ```
+/// # extern crate alloc;
 /// # use frame_election_provider_solution_type::generate_solution_type;
 /// # use sp_arithmetic::per_things::Perbill;
 /// # use frame_support::traits::ConstU32;
@@ -108,6 +111,7 @@ pub(crate) fn syn_err(message: &'static str) -> syn::Error {
 /// for numbers will be used, similar to how `parity-scale-codec`'s `Compact` works.
 ///
 /// ```
+/// # extern crate alloc;
 /// # use frame_election_provider_solution_type::generate_solution_type;
 /// # use frame_election_provider_support::NposSolution;
 /// # use sp_arithmetic::per_things::Perbill;
