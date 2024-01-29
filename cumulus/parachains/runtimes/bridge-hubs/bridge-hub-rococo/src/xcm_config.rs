@@ -227,7 +227,14 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 				snowbridge_pallet_inbound_queue::Call::set_operating_mode { .. },
 			) | RuntimeCall::EthereumOutboundQueue(
 				snowbridge_pallet_outbound_queue::Call::set_operating_mode { .. },
-			) | RuntimeCall::EthereumSystem(..)
+			) | RuntimeCall::EthereumSystem(
+				snowbridge_pallet_system::Call::upgrade { .. } |
+					snowbridge_pallet_system::Call::set_operating_mode { .. } |
+					snowbridge_pallet_system::Call::set_pricing_parameters { .. } |
+					snowbridge_pallet_system::Call::force_update_channel { .. } |
+					snowbridge_pallet_system::Call::force_transfer_native_from_agent { .. } |
+					snowbridge_pallet_system::Call::set_token_transfer_fees { .. },
+			)
 		)
 	}
 }
