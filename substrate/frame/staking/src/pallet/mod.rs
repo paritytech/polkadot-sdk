@@ -692,6 +692,14 @@ pub mod pallet {
 	pub(crate) type ElectableStashes<T: Config> =
 		StorageValue<_, BoundedVec<T::AccountId, T::MaxValidatorSet>, ValueQuery>;
 
+	/// Lock for election data provider.
+	///
+	/// While the lock is set, the data to build a snapshot is frozen, i.e. the returned data from
+	/// `ElectionDataProvider` implementation will not change.
+	#[pallet::storage]
+	#[pallet::getter(fn election_data_lock)]
+	pub(crate) type ElectionDataLock<T: Config> = StorageValue<_, (), OptionQuery>;
+
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {

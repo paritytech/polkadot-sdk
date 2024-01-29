@@ -122,6 +122,7 @@ pub use crate::verifier::Verifier;
 pub mod pallet {
 	use super::*;
 	use codec::EncodeLike;
+	use frame_election_provider_support::LockableElectionDataProvider;
 	use frame_support::{
 		pallet_prelude::{ValueQuery, *},
 		sp_runtime::Saturating,
@@ -189,7 +190,7 @@ pub mod pallet {
 			+ MaxEncodedLen;
 
 		/// Something that will provide the election data.
-		type DataProvider: ElectionDataProvider<
+		type DataProvider: LockableElectionDataProvider<
 			AccountId = Self::AccountId,
 			BlockNumber = BlockNumberFor<Self>,
 		>;
@@ -283,6 +284,8 @@ pub mod pallet {
 			// closure that tries to progress paged snapshot creation.
 			// TODO(gpestana): weights
 			let try_snapshot_next = |remaining_pages: PageIndex| {
+				let _ = <T::DataProvider as LockableElectionDataProvider>::set_lock();
+
 				let target_snapshot_weight = if !Snapshot::<T>::targets_snapshot_exists() {
 					match Self::create_targets_snapshot() {
 						Ok(target_count) => {
@@ -334,6 +337,9 @@ pub mod pallet {
 					if remaining_blocks <= signed_deadline &&
 						remaining_blocks > signed_validation_deadline =>
 				{
+					// done with the snapshot, release the electiondata provider lock.
+					<T::DataProvider as LockableElectionDataProvider>::unlock();
+
 					Self::phase_transition(Phase::Signed);
 					Weight::default()
 				},

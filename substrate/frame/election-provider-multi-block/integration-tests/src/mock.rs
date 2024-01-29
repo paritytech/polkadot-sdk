@@ -701,9 +701,12 @@ pub fn roll_to_with_ocw(n: BlockNumber, pool: Arc<RwLock<PoolState>>, delay_solu
 	}
 }
 // helper to progress one block ahead.
-pub fn roll_one(pool: Arc<RwLock<PoolState>>, delay_solution: bool) {
+pub fn roll_one(pool: Option<Arc<RwLock<PoolState>>>, delay_solution: bool) {
 	let bn = System::block_number().saturating_add(1);
-	roll_to_with_ocw(bn, pool, delay_solution);
+	match pool {
+		None => roll_to(bn, delay_solution),
+		Some(pool) => roll_to_with_ocw(bn, pool, delay_solution),
+	}
 }
 
 /// Progresses from the current block number (whatever that may be) to the block where the session

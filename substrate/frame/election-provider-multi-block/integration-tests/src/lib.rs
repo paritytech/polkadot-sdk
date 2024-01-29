@@ -85,6 +85,22 @@ mod staking_integration {
 
 			let export_starts_at = election_prediction() - Pages::get();
 
+			assert!(Staking::election_data_lock().is_none());
+
+			// check that the election data provider lock is set during the snapshot phase and
+			// released afterwards.
+			roll_to_phase(Phase::Snapshot(Pages::get() - 1), false);
+			assert!(Staking::election_data_lock().is_some());
+
+			roll_one(None, false);
+			assert!(Staking::election_data_lock().is_some());
+			roll_one(None, false);
+			assert!(Staking::election_data_lock().is_some());
+			// snapshot phase done, election data lock was released.
+			roll_one(None, false);
+			assert_eq!(ElectionProvider::current_phase(), Phase::Signed);
+			assert!(Staking::election_data_lock().is_none());
+
 			// last block where phase is waiting for unsignned submissions.
 			roll_to(election_prediction() - 4, false);
 			assert_eq!(ElectionProvider::current_phase(), Phase::Unsigned(17));

@@ -259,7 +259,9 @@ pub struct IndexAssignment<VoterIndex, TargetIndex, P: PerThing> {
 	pub distribution: Vec<(TargetIndex, P)>,
 }
 
-impl<VoterIndex: core::fmt::Debug, TargetIndex: core::fmt::Debug, P: PerThing> IndexAssignment<VoterIndex, TargetIndex, P> {
+impl<VoterIndex: core::fmt::Debug, TargetIndex: core::fmt::Debug, P: PerThing>
+	IndexAssignment<VoterIndex, TargetIndex, P>
+{
 	pub fn new<AccountId: IdentifierT>(
 		assignment: &Assignment<AccountId, P>,
 		voter_index: impl Fn(&AccountId) -> Option<VoterIndex>,
@@ -374,6 +376,13 @@ pub trait ElectionDataProvider {
 	/// Clear all voters and targets.
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn clear() {}
+}
+
+/// An [`ElectionDataProvider`] that exposes for an external entity to request a lock/unlock on
+/// updates in the election data.
+pub trait LockableElectionDataProvider: ElectionDataProvider {
+	fn set_lock() -> data_provider::Result<()>;
+	fn unlock();
 }
 
 /// Something that can compute the result of an election and pass it back to the caller in a paged

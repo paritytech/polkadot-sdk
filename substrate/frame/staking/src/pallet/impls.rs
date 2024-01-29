@@ -20,7 +20,8 @@
 use frame_election_provider_support::{
 	bounds::{CountBound, SizeBound},
 	data_provider, BoundedSupportsOf, DataProviderBounds, ElectionDataProvider, ElectionProvider,
-	PageIndex, ScoreProvider, SortedListProvider, VoteWeight, VoterOf,
+	LockableElectionDataProvider, PageIndex, ScoreProvider, SortedListProvider, VoteWeight,
+	VoterOf,
 };
 use frame_support::{
 	defensive,
@@ -49,9 +50,10 @@ use sp_std::prelude::*;
 
 use crate::{
 	election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
-	BalanceOf, EraInfo, EraPayout, Exposure, ExposureOf, Forcing, IndividualExposure,
-	MaxExposuresPerPageOf, MaxNominationsOf, Nominations, NominationsQuota, PositiveImbalanceOf,
-	RewardDestination, SessionInterface, SnapshotStatus, StakingLedger, ValidatorPrefs,
+	BalanceOf, ElectionDataLock, EraInfo, EraPayout, Exposure, ExposureOf, Forcing,
+	IndividualExposure, MaxExposuresPerPageOf, MaxNominationsOf, Nominations, NominationsQuota,
+	PositiveImbalanceOf, RewardDestination, SessionInterface, SnapshotStatus, StakingLedger,
+	ValidatorPrefs,
 };
 
 use super::pallet::*;
@@ -1252,6 +1254,23 @@ impl<T: Config> Pallet<T> {
 
 	pub fn api_eras_stakers_page_count(era: EraIndex, account: T::AccountId) -> Page {
 		EraInfo::<T>::get_page_count(era, &account)
+	}
+}
+
+// TODO(gpestana): add unit tests.
+impl<T: Config> LockableElectionDataProvider for Pallet<T> {
+	fn set_lock() -> data_provider::Result<()> {
+		match ElectionDataLock::<T>::get() {
+			Some(_) => Err("lock already set"),
+			None => {
+				ElectionDataLock::<T>::set(Some(()));
+				Ok(())
+			},
+		}
+	}
+
+	fn unlock() {
+		ElectionDataLock::<T>::set(None);
 	}
 }
 
