@@ -1,6 +1,6 @@
 [package]
 name = "sc-authority-discovery"
-version = "0.10.0-dev"
+version = "0.34.0"
 authors.workspace = true
 edition.workspace = true
 build = "build.rs"
