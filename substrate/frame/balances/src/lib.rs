@@ -909,6 +909,16 @@ pub mod pallet {
 			who: &T::AccountId,
 			f: impl FnOnce(&mut AccountData<T::Balance>, bool) -> Result<R, E>,
 		) -> Result<(R, Option<T::Balance>), E> {
+			frame_support::storage::transactional::with_storage_layer(|| {
+				Self::try_mutate_account_inner(who, f)
+			})
+		}
+
+		/// Implementation of [`Self::try_mutate_account`].
+		fn try_mutate_account_inner<R, E: From<DispatchError>>(
+			who: &T::AccountId,
+			f: impl FnOnce(&mut AccountData<T::Balance>, bool) -> Result<R, E>,
+		) -> Result<(R, Option<T::Balance>), E> {
 			Self::ensure_upgraded(who);
 			let result = T::AccountStore::try_mutate_exists(who, |maybe_account| {
 				let is_new = maybe_account.is_none();

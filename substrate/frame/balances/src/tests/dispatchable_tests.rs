@@ -222,3 +222,24 @@ fn upgrade_accounts_should_work() {
 			assert_eq!(System::consumers(&7), 0);
 		});
 }
+
+#[test]
+fn withdraw_error_does_not_modify_issuance() {
+	use frame_support::traits::{Currency, ExistenceRequirement::AllowDeath, WithdrawReasons};
+
+	ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
+		let _ = Balances::deposit_creating(&1, 100);
+		let ti = Balances::total_issuance();
+
+		System::inc_consumers(&1).unwrap();
+		assert_noop!(
+			<Balances as frame_support::traits::Currency<u64>>::withdraw(
+				&1,
+				95,
+				WithdrawReasons::TRANSFER,
+				AllowDeath
+			),
+			DispatchError::ConsumerRemaining,
+		);
+	});
+}
