@@ -975,6 +975,72 @@ mod test {
 	}
 
 	#[test]
+	fn warp_proof_request_reserves_peer() {
+		let client = mock_client_without_state();
+		let mut provider = MockWarpSyncProvider::<Block>::new();
+		provider
+			.expect_current_authorities()
+			.once()
+			.return_const(AuthorityList::default());
+		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
+		let peer_pool = Arc::new(Mutex::new(Default::default()));
+		let mut warp_sync = WarpSync::new(Arc::new(client), config, peer_pool.clone());
+
+		// Make sure we have enough peers to make a request.
+		for best_number in 1..11 {
+			let peer_id = PeerId::random();
+			peer_pool.lock().add_peer(peer_id);
+			warp_sync.add_peer(peer_id, Hash::random(), best_number);
+		}
+		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
+
+		let (peer_id, _request) = warp_sync.warp_proof_request().unwrap();
+
+		// The peer is reserved.
+		assert!(!peer_pool.lock().available_peers().any(|p| *p.peer_id() == peer_id));
+	}
+
+	#[test]
+	fn warp_proof_response_frees_peer() {
+		let client = mock_client_without_state();
+		let mut provider = MockWarpSyncProvider::<Block>::new();
+		provider
+			.expect_current_authorities()
+			.once()
+			.return_const(AuthorityList::default());
+		// It doesn't matter in this test if the warp proof verification succeeds.
+		provider.expect_verify().return_once(|_proof, _set_id, _authorities| {
+			Err(Box::new(std::io::Error::new(ErrorKind::Other, "test-verification-failure")))
+		});
+		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
+		let peer_pool = Arc::new(Mutex::new(Default::default()));
+		let mut warp_sync = WarpSync::new(Arc::new(client), config, peer_pool.clone());
+
+		// Make sure we have enough peers to make a request.
+		for best_number in 1..11 {
+			let peer_id = PeerId::random();
+			peer_pool.lock().add_peer(peer_id);
+			warp_sync.add_peer(peer_id, Hash::random(), best_number);
+		}
+		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
+
+		// Consume `SendWarpProofRequest` action.
+		let actions = warp_sync.actions().collect::<Vec<_>>();
+		assert_eq!(actions.len(), 1);
+		let WarpSyncAction::SendWarpProofRequest { peer_id: request_peer_id, .. } = actions[0]
+		else {
+			panic!("Invalid action");
+		};
+		// Peer we sent request to is now reserved.
+		assert!(!peer_pool.lock().available_peers().any(|p| *p.peer_id() == request_peer_id));
+
+		warp_sync.on_warp_proof_response(&request_peer_id, EncodedProof(Vec::new()));
+
+		// The peer we sent a request to and received a response from is now available.
+		assert!(peer_pool.lock().available_peers().any(|p| *p.peer_id() == request_peer_id));
+	}
+
+	#[test]
 	fn bad_warp_proof_response_drops_peer() {
 		let client = mock_client_without_state();
 		let mut provider = MockWarpSyncProvider::<Block>::new();
@@ -1228,11 +1294,6 @@ mod test {
 			.build()
 			.unwrap()
 			.block;
-		let target_header = target_block.header().clone();
-		// Warp proof is complete.
-		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header))
-		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let peer_pool = Arc::new(Mutex::new(Default::default()));
 		let mut warp_sync = WarpSync::new(client, config, peer_pool.clone());
@@ -1269,11 +1330,6 @@ mod test {
 			.build()
 			.unwrap()
 			.block;
-		let target_header = target_block.header().clone();
-		// Warp proof is complete.
-		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header))
-		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let peer_pool = Arc::new(Mutex::new(Default::default()));
 		let mut warp_sync = WarpSync::new(client, config, peer_pool.clone());
@@ -1326,11 +1382,6 @@ mod test {
 			.unwrap();
 		let extra_block = extra_block_builder.build().unwrap().block;
 
-		let target_header = target_block.header().clone();
-		// Warp proof is complete.
-		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header))
-		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let peer_pool = Arc::new(Mutex::new(Default::default()));
 		let mut warp_sync = WarpSync::new(client, config, peer_pool.clone());
@@ -1406,11 +1457,6 @@ mod test {
 			.unwrap();
 		let wrong_block = wrong_block_builder.build().unwrap().block;
 
-		let target_header = target_block.header().clone();
-		// Warp proof is complete.
-		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header))
-		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let peer_pool = Arc::new(Mutex::new(Default::default()));
 		let mut warp_sync = WarpSync::new(client, config, peer_pool.clone());
@@ -1462,11 +1508,6 @@ mod test {
 			.push_storage_change(vec![1, 2, 3], Some(vec![4, 5, 6]))
 			.unwrap();
 		let target_block = target_block_builder.build().unwrap().block;
-		let target_header = target_block.header().clone();
-		// Warp proof is complete.
-		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header))
-		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let peer_pool = Arc::new(Mutex::new(Default::default()));
 		let mut warp_sync = WarpSync::new(client, config, peer_pool.clone());
@@ -1511,5 +1552,82 @@ mod test {
 		assert_eq!(result.target_justifications, justifications);
 	}
 
-	// TODO: test that peers are freed from `PeerPool` when responses are received.
+	#[test]
+	fn target_block_request_reserves_peer() {
+		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
+		let target_block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let target_header = target_block.header().clone();
+		let config = WarpSyncConfig::WaitForTarget;
+		let peer_pool = Arc::new(Mutex::new(Default::default()));
+		let mut warp_sync = WarpSync::new(client, config, peer_pool.clone());
+
+		// Make sure we have enough peers to make a request.
+		for best_number in 1..11 {
+			let peer_id = PeerId::random();
+			peer_pool.lock().add_peer(peer_id);
+			warp_sync.add_peer(peer_id, Hash::random(), best_number);
+		}
+
+		// No actions generated so far.
+		assert_eq!(warp_sync.actions().count(), 0);
+
+		warp_sync.set_target_block(target_header);
+		assert!(matches!(warp_sync.phase, Phase::TargetBlock(_)));
+
+		let (peer_id, _request) = warp_sync.target_block_request().unwrap();
+
+		// The peer requested is reserved.
+		assert!(!peer_pool.lock().available_peers().any(|p| *p.peer_id() == peer_id));
+	}
+
+	#[test]
+	fn target_block_response_frees_peer() {
+		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
+		let mut provider = MockWarpSyncProvider::<Block>::new();
+		provider
+			.expect_current_authorities()
+			.once()
+			.return_const(AuthorityList::default());
+		let target_block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
+		let peer_pool = Arc::new(Mutex::new(Default::default()));
+		let mut warp_sync = WarpSync::new(client, config, peer_pool.clone());
+
+		// Make sure we have enough peers to make a request.
+		for best_number in 1..11 {
+			let peer_id = PeerId::random();
+			peer_pool.lock().add_peer(peer_id);
+			warp_sync.add_peer(peer_id, Hash::random(), best_number);
+		}
+
+		// Manually set `TargetBlock` phase.
+		warp_sync.phase = Phase::TargetBlock(target_block.header().clone());
+
+		let (peer_id, request) = warp_sync.target_block_request().unwrap();
+
+		// The peer requested is reserved.
+		assert!(!peer_pool.lock().available_peers().any(|p| *p.peer_id() == peer_id));
+
+		// Dummy (empty) block response received.
+		let response = Vec::new();
+
+		let _ = warp_sync.on_block_response_inner(peer_id, request, response);
+
+		// The peer we sent a request to and received a response from is now available.
+		assert!(peer_pool.lock().available_peers().any(|p| *p.peer_id() == peer_id));
+	}
 }
