@@ -2,7 +2,7 @@
 authors.workspace = true
 edition.workspace = true
 name = "pallet-message-queue"
-version = "7.0.0-dev"
+version = "31.0.0"
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
@@ -30,6 +30,7 @@ frame-support = { path = "../support", default-features = false }
 frame-system = { path = "../system", default-features = false }
 
 [dev-dependencies]
+sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
 sp-tracing = { path = "../../primitives/tracing" }
 rand = "0.8.5"
 rand_distr = "0.4.3"
