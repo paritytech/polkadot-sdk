@@ -1152,6 +1152,13 @@
 <a href="#1152" id="1152">1152</a>
 <a href="#1153" id="1153">1153</a>
 <a href="#1154" id="1154">1154</a>
+<a href="#1155" id="1155">1155</a>
+<a href="#1156" id="1156">1156</a>
+<a href="#1157" id="1157">1157</a>
+<a href="#1158" id="1158">1158</a>
+<a href="#1159" id="1159">1159</a>
+<a href="#1160" id="1160">1160</a>
+<a href="#1161" id="1161">1161</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1277,8 +1284,8 @@
 	pallet_collator_selection::migration::v1::MigrateToV1&lt;Runtime&gt;,
 	pallet_multisig::migrations::v1::MigrateToV1&lt;Runtime&gt;,
 	InitStorageVersions,
-	<span class="comment">// unreleased
-	</span>cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4&lt;Runtime&gt;,
+	cumulus_pallet_xcmp_queue::migration::v4::MigrateV3ToV4&lt;Runtime&gt;,
+	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5&lt;Runtime&gt;,
 );
 
 <span class="doccomment">/// Migration to initialize storage versions for pallets added after genesis.
@@ -1525,11 +1532,18 @@
 	<span class="kw">type </span>ChannelInfo = ParachainSystem;
 	<span class="kw">type </span>VersionWrapper = PolkadotXcm;
 	<span class="kw">type </span>XcmpQueue = TransformOrigin&lt;MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling&gt;;
-	<span class="kw">type </span>MaxInboundSuspended = sp_core::ConstU32&lt;<span class="number">1_000</span>&gt;;
+	<span class="kw">type </span>MaxInboundSuspended = ConstU32&lt;<span class="number">1_000</span>&gt;;
+	<span class="kw">type </span>MaxActiveOutboundChannels = ConstU32&lt;<span class="number">128</span>&gt;;
+	<span class="kw">type </span>MaxPageSize = ConstU32&lt;{ <span class="number">1 </span>&lt;&lt; <span class="number">16 </span>}&gt;;
 	<span class="kw">type </span>ControllerOrigin = EnsureRoot&lt;AccountId&gt;;
 	<span class="kw">type </span>ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	<span class="kw">type </span>WeightInfo = weights::cumulus_pallet_xcmp_queue::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
+}
+
+<span class="kw">impl </span>cumulus_pallet_xcmp_queue::migration::v5::V5Config <span class="kw">for </span>Runtime {
+	<span class="comment">// This must be the same as the `ChannelInfo` from the `Config`:
+	</span><span class="kw">type </span>ChannelList = ParachainSystem;
 }
 
 <span class="macro">parameter_types! </span>{

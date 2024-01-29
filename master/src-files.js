@@ -66,7 +66,7 @@ var srcIndex = JSON.parse('{\
 "cumulus_pallet_session_benchmarking":["",[],["lib.rs"]],\
 "cumulus_pallet_solo_to_para":["",[],["lib.rs"]],\
 "cumulus_pallet_xcm":["",[],["lib.rs"]],\
-"cumulus_pallet_xcmp_queue":["",[],["bridging.rs","lib.rs","migration.rs","weights.rs"]],\
+"cumulus_pallet_xcmp_queue":["",[["migration",[],["v5.rs"]]],["bridging.rs","lib.rs","migration.rs","weights.rs"]],\
 "cumulus_ping":["",[],["lib.rs"]],\
 "cumulus_primitives_aura":["",[],["lib.rs"]],\
 "cumulus_primitives_core":["",[],["lib.rs"]],\

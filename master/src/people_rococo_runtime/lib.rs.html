@@ -836,6 +836,13 @@
 <a href="#836" id="836">836</a>
 <a href="#837" id="837">837</a>
 <a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1139,11 +1146,18 @@
 	<span class="kw">type </span>ChannelInfo = ParachainSystem;
 	<span class="kw">type </span>VersionWrapper = PolkadotXcm;
 	<span class="kw">type </span>XcmpQueue = TransformOrigin&lt;MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling&gt;;
-	<span class="kw">type </span>MaxInboundSuspended = sp_core::ConstU32&lt;<span class="number">1_000</span>&gt;;
+	<span class="kw">type </span>MaxInboundSuspended = ConstU32&lt;<span class="number">1_000</span>&gt;;
+	<span class="kw">type </span>MaxActiveOutboundChannels = ConstU32&lt;<span class="number">128</span>&gt;;
+	<span class="kw">type </span>MaxPageSize = ConstU32&lt;{ <span class="number">1 </span>&lt;&lt; <span class="number">16 </span>}&gt;;
 	<span class="kw">type </span>ControllerOrigin = RootOrFellows;
 	<span class="kw">type </span>ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	<span class="kw">type </span>PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
 	<span class="kw">type </span>WeightInfo = weights::cumulus_pallet_xcmp_queue::WeightInfo&lt;Runtime&gt;;
+}
+
+<span class="kw">impl </span>cumulus_pallet_xcmp_queue::migration::v5::V5Config <span class="kw">for </span>Runtime {
+	<span class="comment">// This must be the same as the `ChannelInfo` from the `Config`:
+	</span><span class="kw">type </span>ChannelList = ParachainSystem;
 }
 
 <span class="kw">pub const </span>PERIOD: u32 = <span class="number">6 </span>* HOURS;

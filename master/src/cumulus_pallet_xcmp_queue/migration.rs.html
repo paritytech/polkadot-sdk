@@ -419,6 +419,8 @@
 <a href="#419" id="419">419</a>
 <a href="#420" id="420">420</a>
 <a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -437,7 +439,9 @@
 
 </span><span class="doccomment">//! A module that is responsible for migration of storage.
 
-</span><span class="kw">use crate</span>::{Config, OverweightIndex, Pallet, QueueConfig, QueueConfigData, DEFAULT_POV_SIZE};
+</span><span class="kw">pub mod </span>v5;
+
+<span class="kw">use crate</span>::{Config, OverweightIndex, Pallet, QueueConfig, QueueConfigData, DEFAULT_POV_SIZE};
 <span class="kw">use </span>cumulus_primitives_core::XcmpMessageFormat;
 <span class="kw">use </span>frame_support::{
 	pallet_prelude::<span class="kw-2">*</span>,
@@ -446,7 +450,7 @@
 };
 
 <span class="doccomment">/// The current storage version.
-</span><span class="kw">pub const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">4</span>);
+</span><span class="kw">pub const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">5</span>);
 
 <span class="kw">pub const </span>LOG: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::xcmp-queue-migration&quot;</span>;
 
@@ -685,9 +689,9 @@
 
 	<span class="doccomment">/// Migrates `QueueConfigData` to v4, removing deprecated fields and bumping page
 	/// thresholds to at least the default values.
-	</span><span class="kw">pub struct </span>UncheckedMigrationToV4&lt;T: Config&gt;(PhantomData&lt;T&gt;);
+	</span><span class="kw">pub struct </span>UncheckedMigrateV3ToV4&lt;T: Config&gt;(PhantomData&lt;T&gt;);
 
-	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>UncheckedMigrationToV4&lt;T&gt; {
+	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>UncheckedMigrateV3ToV4&lt;T&gt; {
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 			<span class="kw">let </span>translate = |pre: v2::QueueConfigData| -&gt; QueueConfigData {
 				<span class="kw">let </span>pre_default = v2::QueueConfigData::default();
@@ -720,13 +724,13 @@
 		}
 	}
 
-	<span class="doccomment">/// [`UncheckedMigrationToV4`] wrapped in a
+	<span class="doccomment">/// [`UncheckedMigrateV3ToV4`] wrapped in a
 	/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the
 	/// migration is only performed when on-chain version is 3.
-	</span><span class="kw">pub type </span>MigrationToV4&lt;T&gt; = frame_support::migrations::VersionedMigration&lt;
+	</span><span class="kw">pub type </span>MigrateV3ToV4&lt;T&gt; = frame_support::migrations::VersionedMigration&lt;
 		<span class="number">3</span>,
 		<span class="number">4</span>,
-		UncheckedMigrationToV4&lt;T&gt;,
+		UncheckedMigrateV3ToV4&lt;T&gt;,
 		Pallet&lt;T&gt;,
 		&lt;T <span class="kw">as </span>frame_system::Config&gt;::DbWeight,
 	&gt;;
@@ -793,10 +797,10 @@
 				<span class="kw-2">&amp;</span>v2.encode(),
 			);
 
-			<span class="kw">let </span>bytes = v4::MigrationToV4::&lt;Test&gt;::pre_upgrade();
+			<span class="kw">let </span>bytes = v4::MigrateV3ToV4::&lt;Test&gt;::pre_upgrade();
 			<span class="macro">assert!</span>(bytes.is_ok());
-			v4::MigrationToV4::&lt;Test&gt;::on_runtime_upgrade();
-			<span class="macro">assert!</span>(v4::MigrationToV4::&lt;Test&gt;::post_upgrade(bytes.unwrap()).is_ok());
+			v4::MigrateV3ToV4::&lt;Test&gt;::on_runtime_upgrade();
+			<span class="macro">assert!</span>(v4::MigrateV3ToV4::&lt;Test&gt;::post_upgrade(bytes.unwrap()).is_ok());
 
 			<span class="kw">let </span>v4 = QueueConfig::&lt;Test&gt;::get();
 
@@ -822,10 +826,10 @@
 				<span class="kw-2">&amp;</span>v2.encode(),
 			);
 
-			<span class="kw">let </span>bytes = v4::MigrationToV4::&lt;Test&gt;::pre_upgrade();
+			<span class="kw">let </span>bytes = v4::MigrateV3ToV4::&lt;Test&gt;::pre_upgrade();
 			<span class="macro">assert!</span>(bytes.is_ok());
-			v4::MigrationToV4::&lt;Test&gt;::on_runtime_upgrade();
-			<span class="macro">assert!</span>(v4::MigrationToV4::&lt;Test&gt;::post_upgrade(bytes.unwrap()).is_ok());
+			v4::MigrateV3ToV4::&lt;Test&gt;::on_runtime_upgrade();
+			<span class="macro">assert!</span>(v4::MigrateV3ToV4::&lt;Test&gt;::post_upgrade(bytes.unwrap()).is_ok());
 
 			<span class="kw">let </span>v4 = QueueConfig::&lt;Test&gt;::get();
 

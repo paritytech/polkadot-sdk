@@ -294,6 +294,13 @@
 <a href="#294" id="294">294</a>
 <a href="#295" id="295">295</a>
 <a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -577,7 +584,9 @@
 		cumulus_primitives_core::ParaId,
 		parachains_common::message_queue::ParaIdToSibling,
 	&gt;;
-	<span class="kw">type </span>MaxInboundSuspended = sp_core::ConstU32&lt;<span class="number">1_000</span>&gt;;
+	<span class="kw">type </span>MaxInboundSuspended = ConstU32&lt;<span class="number">1_000</span>&gt;;
+	<span class="kw">type </span>MaxActiveOutboundChannels = ConstU32&lt;<span class="number">128</span>&gt;;
+	<span class="kw">type </span>MaxPageSize = ConstU32&lt;{ <span class="number">1 </span>&lt;&lt; <span class="number">16 </span>}&gt;;
 	<span class="kw">type </span>ControllerOrigin = EitherOfDiverse&lt;
 		EnsureRoot&lt;AccountId&gt;,
 		EnsureXcm&lt;IsMajorityOfBody&lt;RelayLocation, ExecutiveBody&gt;&gt;,
@@ -585,6 +594,11 @@
 	<span class="kw">type </span>ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	<span class="kw">type </span>WeightInfo = cumulus_pallet_xcmp_queue::weights::SubstrateWeight&lt;Runtime&gt;;
 	<span class="kw">type </span>PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
+}
+
+<span class="kw">impl </span>cumulus_pallet_xcmp_queue::migration::v5::V5Config <span class="kw">for </span>Runtime {
+	<span class="comment">// This must be the same as the `ChannelInfo` from the `Config`:
+	</span><span class="kw">type </span>ChannelList = ParachainSystem;
 }
 
 <span class="macro">parameter_types! </span>{

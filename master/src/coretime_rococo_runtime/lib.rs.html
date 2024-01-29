@@ -864,6 +864,16 @@
 <a href="#864" id="864">864</a>
 <a href="#865" id="865">865</a>
 <a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -972,7 +982,10 @@
 	generic::UncheckedExtrinsic&lt;Address, RuntimeCall, Signature, SignedExtra&gt;;
 
 <span class="doccomment">/// Migrations to apply on runtime upgrade.
-</span><span class="kw">pub type </span>Migrations = (cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4&lt;Runtime&gt;,);
+</span><span class="kw">pub type </span>Migrations = (
+	cumulus_pallet_xcmp_queue::migration::v4::MigrateV3ToV4&lt;Runtime&gt;,
+	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5&lt;Runtime&gt;,
+);
 
 <span class="doccomment">/// Executive: handles dispatch to the various modules.
 </span><span class="kw">pub type </span>Executive = frame_executive::Executive&lt;
@@ -1198,11 +1211,18 @@
 	<span class="kw">type </span>ChannelInfo = ParachainSystem;
 	<span class="kw">type </span>VersionWrapper = PolkadotXcm;
 	<span class="kw">type </span>XcmpQueue = TransformOrigin&lt;MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling&gt;;
-	<span class="kw">type </span>MaxInboundSuspended = sp_core::ConstU32&lt;<span class="number">1_000</span>&gt;;
+	<span class="kw">type </span>MaxInboundSuspended = ConstU32&lt;<span class="number">1_000</span>&gt;;
+	<span class="kw">type </span>MaxActiveOutboundChannels = ConstU32&lt;<span class="number">128</span>&gt;;
+	<span class="kw">type </span>MaxPageSize = ConstU32&lt;{ <span class="number">1 </span>&lt;&lt; <span class="number">16 </span>}&gt;;
 	<span class="kw">type </span>ControllerOrigin = RootOrFellows;
 	<span class="kw">type </span>ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	<span class="kw">type </span>WeightInfo = weights::cumulus_pallet_xcmp_queue::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
+}
+
+<span class="kw">impl </span>cumulus_pallet_xcmp_queue::migration::v5::V5Config <span class="kw">for </span>Runtime {
+	<span class="comment">// This must be the same as the `ChannelInfo` from the `Config`:
+	</span><span class="kw">type </span>ChannelList = ParachainSystem;
 }
 
 <span class="kw">pub const </span>PERIOD: u32 = <span class="number">6 </span>* HOURS;

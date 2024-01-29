@@ -1777,6 +1777,13 @@
 <a href="#1777" id="1777">1777</a>
 <a href="#1778" id="1778">1778</a>
 <a href="#1779" id="1779">1779</a>
+<a href="#1780" id="1780">1780</a>
+<a href="#1781" id="1781">1781</a>
+<a href="#1782" id="1782">1782</a>
+<a href="#1783" id="1783">1783</a>
+<a href="#1784" id="1784">1784</a>
+<a href="#1785" id="1785">1785</a>
+<a href="#1786" id="1786">1786</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -2495,10 +2502,17 @@
 	<span class="kw">type </span>ChannelInfo = ParachainSystem;
 	<span class="kw">type </span>VersionWrapper = PolkadotXcm;
 	<span class="kw">type </span>XcmpQueue = TransformOrigin&lt;MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling&gt;;
-	<span class="kw">type </span>MaxInboundSuspended = sp_core::ConstU32&lt;<span class="number">1_000</span>&gt;;
+	<span class="kw">type </span>MaxInboundSuspended = ConstU32&lt;<span class="number">1_000</span>&gt;;
+	<span class="kw">type </span>MaxActiveOutboundChannels = ConstU32&lt;<span class="number">128</span>&gt;;
+	<span class="kw">type </span>MaxPageSize = ConstU32&lt;{ <span class="number">1 </span>&lt;&lt; <span class="number">16 </span>}&gt;;
 	<span class="kw">type </span>ControllerOrigin = EnsureRoot&lt;AccountId&gt;;
 	<span class="kw">type </span>ControllerOriginConverter = xcm_config::XcmOriginToTransactDispatchOrigin;
 	<span class="kw">type </span>PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
+}
+
+<span class="kw">impl </span>cumulus_pallet_xcmp_queue::migration::v5::V5Config <span class="kw">for </span>Runtime {
+	<span class="comment">// This must be the same as the `ChannelInfo` from the `Config`:
+	</span><span class="kw">type </span>ChannelList = ParachainSystem;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -2772,8 +2786,8 @@
 </span><span class="kw">pub type </span>Migrations = (
 	pallet_collator_selection::migration::v1::MigrateToV1&lt;Runtime&gt;,
 	InitStorageVersions,
-	<span class="comment">// unreleased
-	</span>cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4&lt;Runtime&gt;,
+	cumulus_pallet_xcmp_queue::migration::v4::MigrateV3ToV4&lt;Runtime&gt;,
+	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5&lt;Runtime&gt;,
 );
 
 <span class="doccomment">/// Migration to initialize storage versions for pallets added after genesis.

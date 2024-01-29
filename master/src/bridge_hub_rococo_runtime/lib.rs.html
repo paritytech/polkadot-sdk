@@ -1494,6 +1494,14 @@
 <a href="#1494" id="1494">1494</a>
 <a href="#1495" id="1495">1495</a>
 <a href="#1496" id="1496">1496</a>
+<a href="#1497" id="1497">1497</a>
+<a href="#1498" id="1498">1498</a>
+<a href="#1499" id="1499">1499</a>
+<a href="#1500" id="1500">1500</a>
+<a href="#1501" id="1501">1501</a>
+<a href="#1502" id="1502">1502</a>
+<a href="#1503" id="1503">1503</a>
+<a href="#1504" id="1504">1504</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1640,9 +1648,10 @@
 	pallet_collator_selection::migration::v1::MigrateToV1&lt;Runtime&gt;,
 	pallet_multisig::migrations::v1::MigrateToV1&lt;Runtime&gt;,
 	InitStorageVersions,
-	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4&lt;Runtime&gt;,
 	<span class="comment">// unreleased
-	</span>snowbridge_pallet_system::migration::v0::InitializeOnUpgrade&lt;
+	</span>cumulus_pallet_xcmp_queue::migration::v4::MigrateV3ToV4&lt;Runtime&gt;,
+	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5&lt;Runtime&gt;,
+	snowbridge_pallet_system::migration::v0::InitializeOnUpgrade&lt;
 		Runtime,
 		ConstU32&lt;BRIDGE_HUB_ID&gt;,
 		ConstU32&lt;ASSET_HUB_ID&gt;,
@@ -1901,11 +1910,18 @@
 	<span class="kw">type </span>VersionWrapper = PolkadotXcm;
 	<span class="comment">// Enqueue XCMP messages from siblings for later processing.
 	</span><span class="kw">type </span>XcmpQueue = TransformOrigin&lt;MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling&gt;;
-	<span class="kw">type </span>MaxInboundSuspended = sp_core::ConstU32&lt;<span class="number">1_000</span>&gt;;
+	<span class="kw">type </span>MaxInboundSuspended = ConstU32&lt;<span class="number">1_000</span>&gt;;
+	<span class="kw">type </span>MaxActiveOutboundChannels = ConstU32&lt;<span class="number">128</span>&gt;;
+	<span class="kw">type </span>MaxPageSize = ConstU32&lt;{ <span class="number">1 </span>&lt;&lt; <span class="number">16 </span>}&gt;;
 	<span class="kw">type </span>ControllerOrigin = EnsureRoot&lt;AccountId&gt;;
 	<span class="kw">type </span>ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	<span class="kw">type </span>WeightInfo = weights::cumulus_pallet_xcmp_queue::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
+}
+
+<span class="kw">impl </span>cumulus_pallet_xcmp_queue::migration::v5::V5Config <span class="kw">for </span>Runtime {
+	<span class="comment">// This must be the same as the `ChannelInfo` from the `Config`:
+	</span><span class="kw">type </span>ChannelList = ParachainSystem;
 }
 
 <span class="macro">parameter_types! </span>{
