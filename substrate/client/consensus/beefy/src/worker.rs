@@ -42,8 +42,8 @@ use sp_consensus::SyncOracle;
 use sp_consensus_beefy::{
 	check_equivocation_proof,
 	ecdsa_crypto::{AuthorityId, Signature},
-	BeefyApi, Commitment, ConsensusLog, EquivocationProof, PayloadProvider, ValidatorSet,
-	VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
+	BeefyApi, Commitment, ConsensusLog, MmrRootHash, PayloadProvider, SignedCommitment,
+	ValidatorSet, VersionedFinalityProof, EquivocationProof, VoteMessage, BEEFY_ENGINE_ID,
 };
 use sp_runtime::{
 	generic::{BlockId, OpaqueDigestItemId},
@@ -398,6 +398,60 @@ where
 			Err(Error::Keystore(msg))
 		} else {
 			Ok(())
+		}
+	}
+
+	pub fn cosign_signed_commitment(
+		&self,
+		signed_commitment: SignedCommitment<NumberFor<B>, Signature>,
+	) -> Result<SignedCommitment<NumberFor<B>, Signature>, Error> {
+		let block_number = signed_commitment.commitment.block_number;
+		let block_hash = self
+			.backend
+			.blockchain()
+			.expect_block_hash_from_id(&BlockId::Number(block_number))
+			.map_err(|e| {
+				debug!(
+					target: LOG_TARGET,
+					"🥩 Error {:?} on fetching block hash for block: {:?}.", e, block_number
+				);
+				Error::Backend(e.to_string())
+			})?;
+		let validator_set = self
+			.runtime
+			.runtime_api()
+			.validator_set(block_hash)
+			.map_err(|e| {
+				debug!(
+					target: LOG_TARGET,
+					"🥩 Error {:?} on fetching validator set for block: {:?}.", e, block_number
+				);
+				Error::Backend(e.to_string())
+			})?
+			.unwrap();
+		let authority_id = self.key_store.authority_id(validator_set.validators());
+
+		if let Some(authority_id) = authority_id {
+			let encoded_commitment = signed_commitment.commitment.encode();
+			let signature = self.key_store.sign(&authority_id, &encoded_commitment)?;
+			// get position of authority in validator set
+			let position =
+				validator_set.validators().iter().position(|id| id == &authority_id).ok_or(
+					Error::Keystore("authority id not found in validator set".to_string()),
+				)?;
+			let mut signatures = signed_commitment.signatures.clone();
+			let old_sig = std::mem::replace(&mut signatures[position], Some(signature));
+			match old_sig {
+				None => {},
+				Some(sig) => {
+					warn!(target: LOG_TARGET, "🥩 replaced signature {:?} for authority {:?}", sig, authority_id);
+				},
+			}
+			let signed_commitment =
+				SignedCommitment { commitment: signed_commitment.commitment, signatures };
+			Ok(signed_commitment)
+		} else {
+			Err(Error::Keystore("no authority id found in store".to_string()))
 		}
 	}
 
@@ -1684,4 +1738,56 @@ pub(crate) mod tests {
 		// verify nothing reported to runtime
 		assert!(api_alice.reported_equivocations.as_ref().unwrap().lock().is_empty());
 	}
+
+	#[tokio::test]
+	async fn cosigning_reproduces_valid_proof() {
+		let peers = [Keyring::Alice, Keyring::Bob, Keyring::Charlie];
+		let validator_set = ValidatorSet::new(make_beefy_ids(&peers), 0).unwrap();
+		let api = Arc::new(TestApi::with_validator_set(&validator_set));
+
+		// instantiate network with Alice and Bob running full voters.
+		let mut net = BeefyTestNet::new(3);
+
+		let session_len = 10;
+		let _ = net.generate_blocks_and_sync(50, session_len, &validator_set, true).await;
+		let mut alice_worker = create_beefy_worker(
+			net.peer(0),
+			&peers[0],
+			1,
+			validator_set.clone(),
+			Some(api.clone()),
+		);
+		let charlie_worker =
+			create_beefy_worker(net.peer(2), &peers[2], 1, validator_set.clone(), Some(api));
+
+		let block_number = 1;
+		let payload = Payload::from_single_entry(MMR_ROOT_ID, "amievil".encode());
+
+		let commitment = Commitment {
+			payload: payload.clone(),
+			block_number: block_number as u64,
+			validator_set_id: validator_set.id(),
+		};
+
+		let mut sc =
+			SignedCommitment { commitment: commitment.clone(), signatures: vec![None, None, None] };
+
+		// Alice signs the commitment
+		sc = alice_worker.cosign_signed_commitment(sc.clone()).unwrap();
+
+		// verify that only one signature is present
+		assert_eq!(sc.no_of_signatures(), 1);
+
+		// Bob signs the commitment
+		sc = charlie_worker.cosign_signed_commitment(sc.clone()).unwrap();
+
+		// verify that two signatures are present
+		assert_eq!(sc.no_of_signatures(), 2);
+		assert!(sc.signatures[0].is_some());
+		assert!(sc.signatures[1].is_none());
+		assert!(sc.signatures[2].is_some());
+
+		// Alice wraps the signed commitment in a finality proof and processes it
+		let finality_proof = VersionedFinalityProof::V1(sc.clone());
+		alice_worker.triage_incoming_justif(finality_proof.clone()).unwrap();
 }
