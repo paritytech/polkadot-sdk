@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Share peers between syncing strategies
+
+doc:
+  - audience: Node Dev
+    description: |
+      New struct `PeerPool` is added to `SyncingStrategy` to allow running syncing strategies
+      in parellel and sharing peers. Available peers (with no active requests) are retrieved by
+      calling `PeerPool::available_peers()`, and a peer is reserved for a request by a syncing
+      strategy using `AvailablePeer::reserve()`.
+
+crates: 
+  - name: sc-network-sync
