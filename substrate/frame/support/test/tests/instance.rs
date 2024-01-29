@@ -112,7 +112,7 @@ mod module1 {
 	}
 
 	#[pallet::origin]
-	#[derive(Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]
+	#[derive(Clone, PartialEq, Eq, Debug,  Encode, Decode, MaxEncodedLen, TypeInfo)]
 	#[scale_info(skip_type_params(I))]
 	pub enum Origin<T, I = ()> {
 		Members(u32),
@@ -217,7 +217,7 @@ mod module2 {
 	}
 
 	#[pallet::origin]
-	#[derive(Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]
+	#[derive(Clone, PartialEq, Eq, Debug,  Encode, Decode, MaxEncodedLen, TypeInfo)]
 	#[scale_info(skip_type_params(I))]
 	pub enum Origin<T, I = ()> {
 		Members(u32),

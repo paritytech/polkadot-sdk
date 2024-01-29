@@ -106,7 +106,7 @@ pub mod pallet {
 	/// This is not to be confused with `CoreState` which is an enriched variant of this and exposed
 	/// to the node side. It also provides information about scheduled/upcoming assignments for
 	/// example and is computed on the fly in the `availability_cores` runtime call.
-	#[derive(Encode, Decode, TypeInfo, RuntimeDebug, PartialEq)]
+	#[derive(Encode, Decode, TypeInfo, Debug,  PartialEq)]
 	pub enum CoreOccupied<N> {
 		/// No candidate is waiting availability on this core right now (the core is not occupied).
 		Free,
@@ -155,7 +155,7 @@ pub mod pallet {
 		StorageValue<_, BTreeMap<CoreIndex, VecDeque<ParasEntryType<T>>>, ValueQuery>;
 
 	/// Assignments as tracked in the claim queue.
-	#[derive(Encode, Decode, TypeInfo, RuntimeDebug, PartialEq, Clone)]
+	#[derive(Encode, Decode, TypeInfo, Debug,  PartialEq, Clone)]
 	pub struct ParasEntry<N> {
 		/// The underlying [`Assignment`].
 		pub assignment: Assignment,

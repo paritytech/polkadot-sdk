@@ -40,7 +40,7 @@ pub trait PalletInfo {
 }
 
 /// Information regarding an instance of a pallet.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, RuntimeDebug)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct PalletInfoData {
 	/// Index of the pallet as configured in the runtime.
 	pub index: usize,
@@ -95,7 +95,7 @@ impl PalletsInfoAccess for Tuple {
 }
 
 /// The function and pallet name of the Call.
-#[derive(Clone, Eq, PartialEq, Default, RuntimeDebug)]
+#[derive(Clone, Eq, PartialEq, Default, Debug)]
 pub struct CallMetadata {
 	/// Name of the function.
 	pub function_name: &'static str,

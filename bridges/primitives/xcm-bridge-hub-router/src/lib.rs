@@ -42,7 +42,7 @@ impl XcmChannelStatusProvider for () {
 }
 
 /// Current status of the bridge.
-#[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(Clone, Decode, Encode, Eq, PartialEq, TypeInfo, MaxEncodedLen, Debug)]
 pub struct BridgeState {
 	/// Current delivery fee factor.
 	pub delivery_fee_factor: FixedU128,

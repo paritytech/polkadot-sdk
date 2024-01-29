@@ -36,7 +36,7 @@ const TARGET: &'static str = "runtime::preimage::migration::v1";
 mod v0 {
 	use super::*;
 
-	#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+	#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, Debug)]
 	pub enum OldRequestStatus<AccountId, Balance> {
 		Unrequested(Option<(AccountId, Balance)>),
 		Requested(u32),

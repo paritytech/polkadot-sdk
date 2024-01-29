@@ -52,7 +52,7 @@ pub enum HeaderChainError {
 ///
 /// Even though we may store full header, our applications (XCM) only use couple of header
 /// fields. Extracting those values makes on-chain storage and PoV smaller, which is good.
-#[derive(Clone, Decode, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Decode, Encode, Eq, MaxEncodedLen, PartialEq, Debug,  TypeInfo)]
 pub struct StoredHeaderData<Number, Hash> {
 	/// Header number.
 	pub number: Number,
@@ -94,7 +94,7 @@ pub trait Parameter: Codec + EncodeLike + Clone + Eq + Debug + TypeInfo {}
 impl<T> Parameter for T where T: Codec + EncodeLike + Clone + Eq + Debug + TypeInfo {}
 
 /// A GRANDPA Authority List and ID.
-#[derive(Default, Encode, Eq, Decode, RuntimeDebug, PartialEq, Clone, TypeInfo)]
+#[derive(Default, Encode, Eq, Decode, Debug,  PartialEq, Clone, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct AuthoritySet {
 	/// List of GRANDPA authorities for the current round.

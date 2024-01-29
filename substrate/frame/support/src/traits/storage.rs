@@ -161,7 +161,7 @@ impl WhitelistedStorageKeys for Tuple {
 
 /// The resource footprint of a bunch of blobs. We assume only the number of blobs and their total
 /// size in bytes matter.
-#[derive(Default, Copy, Clone, Eq, PartialEq, RuntimeDebug)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Debug)]
 pub struct Footprint {
 	/// The number of blobs.
 	pub count: u64,

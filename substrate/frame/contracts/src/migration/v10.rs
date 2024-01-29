@@ -51,7 +51,7 @@ mod old {
 		<T as frame_system::Config>::AccountId,
 	>>::Balance;
 
-	#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug,  TypeInfo, MaxEncodedLen)]
 	#[scale_info(skip_type_params(T, OldCurrency))]
 	pub struct ContractInfo<T: Config, OldCurrency>
 	where
@@ -106,7 +106,7 @@ impl<T: Config> Deref for DepositAccount<T> {
 	}
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug,  TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T, OldCurrency))]
 pub struct ContractInfo<T: Config, OldCurrency>
 where

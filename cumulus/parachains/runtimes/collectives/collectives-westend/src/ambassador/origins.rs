@@ -28,7 +28,7 @@ pub mod pallet_origins {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {}
 
-	#[derive(PartialEq, Eq, Clone, MaxEncodedLen, Encode, Decode, TypeInfo, RuntimeDebug)]
+	#[derive(PartialEq, Eq, Clone, MaxEncodedLen, Encode, Decode, TypeInfo, Debug)]
 	#[pallet::origin]
 	pub enum Origin {
 		/// Plurality voice of the [ranks::AMBASSADOR_TIER_1] members or above given via

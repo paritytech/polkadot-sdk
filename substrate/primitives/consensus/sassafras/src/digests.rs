@@ -31,7 +31,7 @@ use sp_std::vec::Vec;
 /// Epoch slot claim digest entry.
 ///
 /// This is mandatory for each block.
-#[derive(Clone, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Debug,  Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct SlotClaim {
 	/// Authority index that claimed the slot.
 	pub authority_idx: AuthorityIndex,
@@ -46,7 +46,7 @@ pub struct SlotClaim {
 /// Information about the next epoch.
 ///
 /// This is mandatory in the first block of each epoch.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
 pub struct NextEpochDescriptor {
 	/// Randomness value.
 	pub randomness: Randomness,

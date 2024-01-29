@@ -69,7 +69,7 @@ impl BlockLength {
 	}
 }
 
-#[derive(Default, RuntimeDebug)]
+#[derive(Default, Debug)]
 pub struct ValidationErrors {
 	pub has_errors: bool,
 	#[cfg(feature = "std")]

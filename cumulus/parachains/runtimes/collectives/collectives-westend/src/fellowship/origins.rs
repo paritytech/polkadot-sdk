@@ -31,7 +31,7 @@ pub mod pallet_origins {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
-	#[derive(PartialEq, Eq, Clone, MaxEncodedLen, Encode, Decode, TypeInfo, RuntimeDebug)]
+	#[derive(PartialEq, Eq, Clone, MaxEncodedLen, Encode, Decode, TypeInfo, Debug)]
 	#[pallet::origin]
 	pub enum Origin {
 		/// Origin aggregated through weighted votes of those with rank 1 or above; `Success` is 1.

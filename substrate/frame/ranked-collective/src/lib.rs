@@ -170,7 +170,7 @@ impl<T: Config<I>, I: 'static, M: GetMaxVoters<Class = ClassOf<T, I>>>
 }
 
 /// Record needed for every member.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug,  TypeInfo, MaxEncodedLen)]
 pub struct MemberRecord {
 	/// The rank of the member.
 	rank: Rank,
@@ -184,7 +184,7 @@ impl MemberRecord {
 }
 
 /// Record needed for every vote.
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, Debug,  TypeInfo, MaxEncodedLen)]
 pub enum VoteRecord {
 	/// Vote was an aye with given vote weight.
 	Aye(Votes),
