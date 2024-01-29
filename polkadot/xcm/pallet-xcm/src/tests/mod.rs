@@ -25,6 +25,7 @@ use crate::{
 use frame_support::{
 	assert_noop, assert_ok,
 	traits::{Currency, Hooks},
+	assert_err,
 	weights::Weight,
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
@@ -449,8 +450,8 @@ fn trapped_assets_can_be_claimed() {
 		assert_eq!(Balances::total_balance(&BOB), INITIAL_BALANCE + SEND_AMOUNT);
 		assert_eq!(AssetTraps::<Test>::iter().collect::<Vec<_>>(), vec![]);
 
-		let weight = BaseXcmWeight::get() * 3;
-		assert_ok!(<XcmPallet as xcm_builder::ExecuteController<_, _>>::execute(
+		// Can't claim twice.
+		assert_err!(XcmPallet::execute(
 			RuntimeOrigin::signed(ALICE),
 			Box::new(VersionedXcm::from(Xcm(vec![
 				ClaimAsset { assets: (Here, SEND_AMOUNT).into(), ticket: Here.into() },
@@ -458,10 +459,7 @@ fn trapped_assets_can_be_claimed() {
 				DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
 			]))),
 			weight
-		));
-		let outcome =
-			Outcome::Incomplete { used: BaseXcmWeight::get(), error: XcmError::UnknownClaim };
-		assert_eq!(last_event(), RuntimeEvent::XcmPallet(crate::Event::Attempted { outcome }));
+		), Error::<Test>::LocalExecutionIncomplete);
 	});
 }
 
