@@ -1,6 +1,6 @@
 [package]
 name = "sc-sync-state-rpc"
-version = "0.10.0-dev"
+version = "0.34.0"
 authors.workspace = true
 description = "A RPC handler to create sync states for light clients."
 edition.workspace = true
