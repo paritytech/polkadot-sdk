@@ -325,7 +325,8 @@ pub mod pallet {
 		CallUnavailable { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
 		/// The given task was unable to be renewed since the agenda is full at that block.
 		PeriodicFailed { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
-		/// The given task was unable to be retried since the agenda is full at that block.
+		/// The given task was unable to be retried since the agenda is full at that block or there
+		/// was not enough weigth to reschedule it.
 		RetryFailed { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
 		/// The given task can never be executed since it is overweight.
 		PermanentlyOverweight { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
@@ -1226,9 +1227,7 @@ impl<T: Config> Pallet<T> {
 				});
 
 				let mut task = if failed {
-					let _ = weight
-						.try_consume(T::WeightInfo::schedule_retry(T::MaxScheduledPerBlock::get()));
-					match Self::schedule_retry(now, when, agenda_index, task) {
+					match Self::try_schedule_retry(weight, now, when, agenda_index, task) {
 						Ok(()) => return Ok(()),
 						Err(task) => task,
 					}
@@ -1311,6 +1310,32 @@ impl<T: Config> Pallet<T> {
 		let _ = weight.try_consume(base_weight);
 		let _ = weight.try_consume(call_weight);
 		Ok(result)
+	}
+
+	/// If there is enough weight, try to run the task reschedule logic.
+	///
+	/// If the task was successfully rescheduled for later, this function will return `Ok`.
+	/// Otherwise, if the task was not rescheduled, either because there was not enough weight left
+	/// over, there was no retry configuration in place, there were no more retry attempts left, or
+	/// the agenda was full, this function will return the task so it can be handled somewhere else.
+	fn try_schedule_retry(
+		weight: &mut WeightMeter,
+		now: BlockNumberFor<T>,
+		when: BlockNumberFor<T>,
+		agenda_index: u32,
+		task: ScheduledOf<T>,
+	) -> Result<(), ScheduledOf<T>> {
+		if let Err(()) =
+			weight.try_consume(T::WeightInfo::schedule_retry(T::MaxScheduledPerBlock::get()))
+		{
+			Self::deposit_event(Event::RetryFailed {
+				task: (when, agenda_index),
+				id: task.maybe_id,
+			});
+			return Err(task);
+		}
+
+		Self::schedule_retry(now, when, agenda_index, task)
 	}
 
 	/// Check if a task has a retry configuration in place and, if so, try to reschedule it.
