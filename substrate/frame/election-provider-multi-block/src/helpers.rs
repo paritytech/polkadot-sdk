@@ -135,7 +135,6 @@ pub fn generate_target_page_fn<T: Config>(
 				debug_assert!(_existed.is_none());
 			});
 		});
-
 	move |who| cache.get(who).copied()
 }
 
@@ -309,8 +308,23 @@ mod tests {
 			let all_targets = all_target_pages.iter().cloned().flatten().collect::<Vec<_>>();
 
 			// `targets_index_fn` get the snapshot page of the target.
-			let _targets_index_fn = generate_target_page_fn::<T>(&all_target_pages);
-			let _page2_cache = generate_target_cache::<T>(&all_target_pages[2]);
+			let targets_index_fn = generate_target_page_fn::<T>(&all_target_pages);
+			let all_targets_cache = generate_target_cache::<T>(&all_targets);
+			let target_index = target_index_fn_usize::<T>(&all_targets_cache);
+
+			// check that the `targets_index_page` is correct.
+			for (page, targets) in all_target_pages.iter().enumerate() {
+				for t in targets {
+					assert_eq!(targets_index_fn(&t), Some(page as PageIndex));
+				}
+			}
+
+			// check that the `generate_target_cache` ad `target_index_fn_usize` return the correct
+			// btree cache/idx.
+			for (idx, target) in all_targets.iter().enumerate() {
+				assert_eq!(all_targets_cache.get(target), Some(idx).as_ref());
+				assert_eq!(target_index(target), Some(idx));
+			}
 		})
 	}
 }

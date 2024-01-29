@@ -146,15 +146,11 @@ where
 		let all_voters: Vec<VoterOf<T>> =
 			all_voter_pages.iter().cloned().flatten().collect::<Vec<_>>();
 
-		// these closures generate an effiient index mapping of each target or voter -> the snaphot
+		// these closures generate an efficient index mapping of each target or voter -> the snaphot
 		// that they are part of. this needs to be the same indexing fn in the verifier side to
 		// sync when reconstructing the assingments page from a solution.
 		let targets_page_fn = helpers::generate_target_page_fn::<T>(&all_target_pages);
 		let voters_page_fn = helpers::generate_voter_page_fn::<T>(&all_voter_pages);
-
-		// TODO: later
-		//let voters_page_fn = helpers::generate_voter_page_stake_fn::<T>(&all_voter_pages);
-		//let targets_index_fn = helpers::target_index_fn::<T>(&all_targets);
 
 		// run the election with all voters and targets.
 		let ElectionResult { winners: _, assignments } =
@@ -169,6 +165,7 @@ where
 
 		paged_assignments.bounded_resize(pages as usize, vec![]);
 
+		// adds assignment to the correct page, based on the voter's snapshot page.
 		for assignment in assignments {
 			let page = voters_page_fn(&assignment.who).ok_or(MinerError::InvalidPage)?;
 			let assignment_page =
@@ -183,11 +180,6 @@ where
 			.enumerate()
 			.map(|(page_index, assignment_page)| {
 				let page: PageIndex = page_index.saturated_into();
-
-				// for stake-idx based
-				//let voter_snapshot_page = all_voter_pages.iter().flatten().collect::<Vec<_>>();
-
-				// for snapshot-based idx only
 				let voter_snapshot_page = all_voter_pages
 					.get(page as usize)
 					.ok_or(MinerError::SnapshotUnAvailable(SnapshotType::Voters(page)))?;
@@ -197,7 +189,6 @@ where
 					.ok_or(MinerError::SnapshotUnAvailable(SnapshotType::Targets(page)))?;
 
 				let voters_index_fn = {
-					//let cache = helpers::generate_voter_staked_cache::<T>(&voter_snapshot_page);
 					let cache = helpers::generate_voter_cache::<T, _>(&voter_snapshot_page);
 					helpers::voter_index_fn_owned::<T>(cache)
 				};
