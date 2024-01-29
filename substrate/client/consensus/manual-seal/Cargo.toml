@@ -1,6 +1,6 @@
 [package]
 name = "sc-consensus-manual-seal"
-version = "0.10.0-dev"
+version = "0.35.0"
 authors.workspace = true
 description = "Manual sealing engine for Substrate"
 edition.workspace = true
