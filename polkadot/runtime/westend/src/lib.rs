@@ -2262,7 +2262,7 @@ sp_api::impl_runtime_apis! {
 
 				fn fee_asset() -> Result<MultiAsset, BenchmarkError> {
 					Ok(MultiAsset {
-						id: AssetId::Concrete(TokenLocation::get()),
+						id: Concrete(TokenLocation::get()),
 						fun: Fungible(1_000_000 * UNITS),
 					})
 				}
