@@ -564,7 +564,47 @@ mod test {
 	}
 
 	#[test]
-	fn received_state_response_makes_peer_available_again() {
+	fn state_request_reserves_peer() {
+		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
+		let target_block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+
+		let initial_peers =
+			(1..=10).map(|best_number| (PeerId::random(), best_number)).collect::<Vec<_>>();
+		let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+		initial_peers
+			.iter()
+			.for_each(|(peer_id, _)| peer_pool.lock().add_peer(*peer_id));
+
+		let mut state_strategy = StateStrategy::new(
+			client.clone(),
+			target_block.header().clone(),
+			None,
+			None,
+			false,
+			initial_peers.into_iter(),
+			peer_pool.clone(),
+		);
+
+		let (peer_id, _opaque_request) = state_strategy.state_request().unwrap();
+
+		// The peer requested is reserved.
+		assert!(matches!(
+			state_strategy.peers.get(&peer_id).unwrap().state,
+			PeerState::DownloadingState,
+		));
+		// Also in `PeerPool`.
+		assert!(!peer_pool.lock().available_peers().any(|p| *p.peer_id() == peer_id));
+	}
+
+	#[test]
+	fn state_response_makes_peer_available_again() {
 		let mut state_sync_provider = MockStateSync::<Block>::new();
 		state_sync_provider.expect_import().return_once(|_| ImportResult::Continue);
 		let peer_id = PeerId::random();
