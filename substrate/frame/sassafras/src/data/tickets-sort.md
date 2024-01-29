@@ -1,4 +1,4 @@
-egments Incremental Sorting Strategy Empirical Results
+# Segments Incremental Sorting Strategy Empirical Results
 
 Parameters:
 - 128 segments
