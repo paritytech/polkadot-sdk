@@ -210,6 +210,7 @@ fn register_weth_token_from_ethereum_to_asset_hub() {
 	BridgeHubRococo::fund_para_sovereign(AssetHubRococo::para_id().into(), INITIAL_FUND);
 
 	BridgeHubRococo::execute_with(|| {
+		type RuntimeEvent = <BridgeHubRococo as Chain>::RuntimeEvent;
 		type Runtime = <BridgeHubRococo as Chain>::Runtime;
 
 		// Construct RegisterToken message and sent to inbound queue
