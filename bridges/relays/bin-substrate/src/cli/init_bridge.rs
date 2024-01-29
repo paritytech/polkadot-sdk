@@ -42,7 +42,7 @@ use bp_runtime::Chain as ChainBase;
 use relay_substrate_client::{AccountKeyPairOf, Chain, UnsignedTransaction};
 use sp_core::Pair;
 use structopt::StructOpt;
-use strum::{EnumString, EnumVariantNames, VariantNames};
+use strum::{EnumString, VariantNames};
 use substrate_relay_helper::finality_base::engine::{Engine, Grandpa as GrandpaFinalityEngine};
 
 /// Initialize bridge pallet.
@@ -62,7 +62,7 @@ pub struct InitBridge {
 	dry_run: bool,
 }
 
-#[derive(Debug, EnumString, EnumVariantNames)]
+#[derive(Debug, EnumString, VariantNames)]
 #[strum(serialize_all = "kebab_case")]
 /// Bridge to initialize.
 pub enum InitBridgeName {
