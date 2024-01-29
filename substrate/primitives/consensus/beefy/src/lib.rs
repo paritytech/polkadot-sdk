@@ -32,8 +32,9 @@
 //! while GRANDPA uses `ed25519`.
 
 mod commitment;
-pub mod mmr;
 mod payload;
+
+pub mod mmr;
 #[cfg(feature = "std")]
 pub mod test_utils;
 pub mod witness;

@@ -209,10 +209,10 @@ where
 pub mod tests {
 	use sp_consensus_beefy::{
 		ecdsa_crypto,
-		test_utils::{generate_in_store, BeefySignerAuthority, Keyring},
+		test_utils::{BeefySignerAuthority, Keyring},
 	};
 	use sp_core::Pair as PairT;
-	use sp_keystore::testing::MemoryKeystore;
+	use sp_keystore::{testing::MemoryKeystore, Keystore};
 
 	use super::*;
 	use crate::error::Error;
@@ -253,6 +253,38 @@ pub mod tests {
 			&sig,
 			&msg.as_slice(),
 		));
+	}
+
+	/// Generate key pair in the given store using the provided seed
+	fn generate_in_store<AuthorityId>(
+		store: KeystorePtr,
+		key_type: sp_application_crypto::KeyTypeId,
+		owner: Option<Keyring<AuthorityId>>,
+	) -> AuthorityId
+	where
+		AuthorityId:
+			AuthorityIdBound + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Public>,
+		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<BeefySignatureHasher>,
+		<AuthorityId as RuntimeAppPublic>::Signature:
+			Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
+	{
+		let optional_seed: Option<String> = owner.map(|owner| owner.to_seed());
+
+		match <AuthorityId as AppCrypto>::CRYPTO_ID {
+			ecdsa::CRYPTO_ID => {
+				let pk = store.ecdsa_generate_new(key_type, optional_seed.as_deref()).ok().unwrap();
+				AuthorityId::decode(&mut pk.as_ref()).unwrap()
+			},
+			#[cfg(feature = "bls-experimental")]
+			ecdsa_bls377::CRYPTO_ID => {
+				let pk = store
+					.ecdsa_bls377_generate_new(key_type, optional_seed.as_deref())
+					.ok()
+					.unwrap();
+				AuthorityId::decode(&mut pk.as_ref()).unwrap()
+			},
+			_ => panic!("Requested CRYPTO_ID is not supported by the BEEFY Keyring"),
+		}
 	}
 
 	#[test]
@@ -364,16 +396,13 @@ pub mod tests {
 		assert_eq!(id, alice);
 	}
 
-	#[cfg(feature = "bls-experimental")]
 	#[test]
-
 	fn authority_id_works_for_ecdsa() {
 		authority_id_works::<ecdsa_crypto::AuthorityId>();
 	}
 
 	#[cfg(feature = "bls-experimental")]
 	#[test]
-
 	fn authority_id_works_for_ecdsa_n_bls() {
 		authority_id_works::<ecdsa_bls_crypto::AuthorityId>();
 	}

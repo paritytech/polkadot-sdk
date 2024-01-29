@@ -31,7 +31,7 @@ use sp_application_crypto::{AppCrypto, AppPair, RuntimeAppPublic, Wraps};
 #[cfg(feature = "bls-experimental")]
 use sp_core::ecdsa_bls377;
 use sp_core::{ecdsa, Pair};
-use sp_keystore::{Keystore, KeystorePtr};
+use sp_keystore::KeystorePtr;
 use std::{collections::HashMap, marker::PhantomData};
 use strum::IntoEnumIterator;
 
@@ -77,47 +77,6 @@ where
 {
 	fn sign_with_hasher(&self, message: &[u8]) -> <Self as AppCrypto>::Signature {
 		self.as_inner_ref().sign_with_hasher::<MsgHash>(&message).into()
-	}
-}
-
-/// Generate key pair in the given store using the provided seed
-pub fn generate_in_store<AuthorityId>(
-	store: KeystorePtr,
-	key_type: sp_application_crypto::KeyTypeId,
-	owner: Option<Keyring<AuthorityId>>,
-) -> AuthorityId
-where
-	AuthorityId: AuthorityIdBound + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Public>,
-	<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<BeefySignatureHasher>,
-	<AuthorityId as RuntimeAppPublic>::Signature:
-		Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
-{
-	let optional_seed: Option<String> = owner.map(|owner| owner.to_seed());
-
-	match <AuthorityId as AppCrypto>::CRYPTO_ID {
-		ecdsa::CRYPTO_ID => AuthorityId::decode(
-			&mut Keystore::ecdsa_generate_new(&*store, key_type, optional_seed.as_deref())
-				.ok()
-				.unwrap()
-				.as_ref(),
-		)
-		.unwrap(),
-
-		#[cfg(feature = "bls-experimental")]
-		ecdsa_bls377::CRYPTO_ID => {
-			let pk =
-				Keystore::ecdsa_bls377_generate_new(&*store, key_type, optional_seed.as_deref())
-					.ok()
-					.unwrap();
-			let decoded_pk = AuthorityId::decode(&mut pk.as_ref()).unwrap();
-			println!(
-				"Seed: {:?}, before decode: {:?}, after decode: {:?}",
-				optional_seed, pk, decoded_pk
-			);
-			decoded_pk
-		},
-
-		_ => panic!("Requested CRYPTO_ID is not supported by the BEEFY Keyring"),
 	}
 }
 
