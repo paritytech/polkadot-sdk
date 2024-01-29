@@ -1124,6 +1124,65 @@ fn retry_respects_weight_limits() {
 	});
 }
 
+#[test]
+fn try_schedule_retry_respects_weight_limits() {
+	let max_weight: Weight = <Test as Config>::MaximumWeight::get();
+	new_test_ext().execute_with(|| {
+		let service_agendas_weight = <Test as Config>::WeightInfo::service_agendas_base();
+		let service_agenda_weight = <Test as Config>::WeightInfo::service_agenda_base(
+			<Test as Config>::MaxScheduledPerBlock::get(),
+		);
+		let actual_service_agenda_weight = <Test as Config>::WeightInfo::service_agenda_base(1);
+		// Some weight for `service_agenda` will be refunded, so we need to make sure the weight
+		// `try_schedule_retry` is going to ask for is greater than this difference, and we take a
+		// safety factor of 10 to make sure we're over that limit.
+		let meter = WeightMeter::with_limit(
+			<Test as Config>::WeightInfo::schedule_retry(
+				<Test as Config>::MaxScheduledPerBlock::get(),
+			) / 10,
+		);
+		assert!(meter.can_consume(service_agenda_weight - actual_service_agenda_weight));
+
+		let reference_call =
+			RuntimeCall::Logger(LoggerCall::timed_log { i: 20, weight: max_weight / 3 * 2 });
+		let bounded = <Test as Config>::Preimages::bound(reference_call).unwrap();
+		let base_weight = <Test as Config>::WeightInfo::service_task(
+			bounded.lookup_len().map(|x| x as usize),
+			false,
+			false,
+		);
+		// we make the call cost enough so that all checks have enough weight to run aside from
+		// `try_schedule_retry`
+		let call_weight = max_weight - service_agendas_weight - service_agenda_weight - base_weight;
+		let call = RuntimeCall::Logger(LoggerCall::timed_log { i: 20, weight: call_weight });
+		// schedule 20 with a call that will fail until we reach block 8
+		Threshold::<Test>::put((8, 100));
+
+		assert_ok!(Scheduler::do_schedule(
+			DispatchTime::At(4),
+			None,
+			127,
+			root(),
+			Preimage::bound(call).unwrap(),
+		));
+		// set a retry config for 20 for 10 retries every block
+		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, 1));
+		// 20 should fail and, because of insufficient weight, it should not be scheduled again
+		run_to_block(4);
+		// nothing else should be scheduled
+		assert_eq!(Agenda::<Test>::iter().count(), 0);
+		assert_eq!(Retries::<Test>::iter().count(), 0);
+		assert_eq!(logger::log(), vec![]);
+		// check the `RetryFailed` event happened
+		let events = frame_system::Pallet::<Test>::events();
+		let system_event: <Test as frame_system::Config>::RuntimeEvent =
+			Event::RetryFailed { task: (4, 0), id: None }.into();
+		// compare to the last event record
+		let frame_system::EventRecord { event, .. } = &events[events.len() - 1];
+		assert_eq!(event, &system_event);
+	});
+}
+
 /// Permanently overweight calls are not deleted but also not executed.
 #[test]
 fn scheduler_does_not_delete_permanently_overweight_call() {

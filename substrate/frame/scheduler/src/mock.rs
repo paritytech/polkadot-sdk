@@ -224,7 +224,7 @@ impl WeightInfo for TestWeightInfo {
 		Weight::from_parts(50, 0)
 	}
 	fn schedule_retry(_s: u32) -> Weight {
-		Weight::from_parts(50, 0)
+		Weight::from_parts(100000, 0)
 	}
 	fn set_retry() -> Weight {
 		Weight::from_parts(50, 0)
