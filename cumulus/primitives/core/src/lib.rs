@@ -64,6 +64,8 @@ pub enum MessageSendError {
 	TooBig,
 	/// Some other error.
 	Other,
+	/// There are too many channels open at once.
+	TooManyChannels,
 }
 
 impl From<MessageSendError> for &'static str {
@@ -74,6 +76,7 @@ impl From<MessageSendError> for &'static str {
 			NoChannel => "NoChannel",
 			TooBig => "TooBig",
 			Other => "Other",
+			TooManyChannels => "TooManyChannels",
 		}
 	}
 }
@@ -133,6 +136,11 @@ pub struct ChannelInfo {
 pub trait GetChannelInfo {
 	fn get_channel_status(id: ParaId) -> ChannelStatus;
 	fn get_channel_info(id: ParaId) -> Option<ChannelInfo>;
+}
+
+/// List all open outgoing channels.
+pub trait ListChannelInfos {
+	fn outgoing_channels() -> Vec<ParaId>;
 }
 
 /// Something that should be called when sending an upward message.
