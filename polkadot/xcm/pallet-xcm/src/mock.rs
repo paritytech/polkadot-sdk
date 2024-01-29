@@ -41,7 +41,6 @@ use xcm_executor::{
 	traits::{Identity, JustTry},
 	XcmExecutor,
 };
-use xcm_executor::XcmExecutor;
 
 use crate::{self as pallet_xcm, TestWeightInfo};
 

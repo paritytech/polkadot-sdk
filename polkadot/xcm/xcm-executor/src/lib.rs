@@ -31,11 +31,14 @@ use xcm::latest::prelude::*;
 pub mod traits;
 use traits::{
 	validate_export, AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin,
+<<<<<<< HEAD
 	DropAssets, Enact, ExportXcm, FeeManager, FeeReason, OnResponse, Properties, ShouldExecute,
 	TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
+=======
 	DropAssets, Enact, ExportXcm, FeeManager, FeeReason, OnResponse, ProcessTransaction,
 	Properties, ShouldExecute, TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
 	XcmAssetTransfers,
+>>>>>>> 50eb12cf2fd (Transactional processing for XCM (#1222))
 };
 
 mod assets;

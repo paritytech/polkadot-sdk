@@ -41,12 +41,6 @@ pub use barriers::{
 	WithComputedOrigin,
 };
 
-mod controller;
-pub use controller::{
-	Controller, ExecuteController, ExecuteControllerWeightInfo, QueryController,
-	QueryControllerWeightInfo, QueryHandler, SendController, SendControllerWeightInfo,
-};
-
 mod currency_adapter;
 pub use currency_adapter::CurrencyAdapter;
 

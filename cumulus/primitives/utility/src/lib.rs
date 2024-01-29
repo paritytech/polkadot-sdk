@@ -22,13 +22,11 @@
 use codec::Encode;
 use cumulus_primitives_core::{MessageSendError, UpwardMessageSender};
 use frame_support::{
+	defensive,
 	traits::{
 		tokens::{fungibles, fungibles::Inspect},
-		Get,
+		Get, OnUnbalanced as OnUnbalancedT,
 	},
-	weights::Weight,
-	defensive,
-	traits::{tokens::fungibles, Get, OnUnbalanced as OnUnbalancedT},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 	CloneNoBound,
 };

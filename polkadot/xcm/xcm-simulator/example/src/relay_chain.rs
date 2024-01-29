@@ -37,10 +37,9 @@ use xcm_builder::{
 	Account32Hash, AccountId32Aliases, AllowUnpaidExecutionFrom, AsPrefixedGeneralIndex,
 	ChildParachainAsNative, ChildParachainConvertsVia, ChildSystemParachainAsSuperuser,
 	ConvertedConcreteId, CurrencyAdapter as XcmCurrencyAdapter, FixedRateOfFungible,
-	FixedWeightBounds, IsConcrete, NoChecking, NonFungiblesAdapter, SignedAccountId32AsNative,
-	ConvertedConcreteId, FixedRateOfFungible, FixedWeightBounds, FrameTransactionalProcessor,
-	FungibleAdapter, IsConcrete, NoChecking, NonFungiblesAdapter, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation,
+	FixedWeightBounds, FrameTransactionalProcessor, FungibleAdapter, IsConcrete, NoChecking,
+	NonFungiblesAdapter, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation,
 };
 use xcm_executor::{traits::JustTry, Config, XcmExecutor};
 

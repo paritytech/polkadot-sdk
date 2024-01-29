@@ -36,11 +36,9 @@ use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowUnpaidExecutionFrom, ChildParachainAsNative,
 	ChildParachainConvertsVia, ChildSystemParachainAsSuperuser,
-	CurrencyAdapter as XcmCurrencyAdapter, FixedRateOfFungible, FixedWeightBounds, IsConcrete,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation,
-	ChildParachainConvertsVia, ChildSystemParachainAsSuperuser, FixedRateOfFungible,
-	FixedWeightBounds, FrameTransactionalProcessor, IsConcrete, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation,
+	CurrencyAdapter as XcmCurrencyAdapter, FixedRateOfFungible, FixedWeightBounds,
+	FrameTransactionalProcessor, IsConcrete, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation,
 };
 use xcm_executor::{Config, XcmExecutor};
 

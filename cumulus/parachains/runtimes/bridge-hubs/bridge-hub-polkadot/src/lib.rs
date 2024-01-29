@@ -758,7 +758,7 @@ impl_runtime_apis! {
 					let ticket = MultiLocation { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
 				}
-				
+
 				fn fee_asset() -> Result<Asset, BenchmarkError> {
 					Ok(Asset {
 						id: AssetId(RelayLocation::get()),
