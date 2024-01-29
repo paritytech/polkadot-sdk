@@ -604,3 +604,7 @@ wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
+
+[patch.crates-io]
+orchestra = { git = "https://github.com/paritytech/orchestra", branch = "alexaggh/fix_signal_receive", default-features = false, features = ["futures_channel"] }
+metered = { package = "prioritized-metered-channel", git = "https://github.com/paritytech/orchestra", branch = "alexaggh/fix_signal_receive", default-features = false, features = ["futures_channel"] }

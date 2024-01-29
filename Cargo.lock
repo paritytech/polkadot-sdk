@@ -8932,8 +8932,7 @@ checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 [[package]]
 name = "orchestra"
 version = "0.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5edee0c1917703f8a28cd229cf6a5c91a7ee34be139ced16509ac5b53b9d0c51"
+source = "git+https://github.com/paritytech/orchestra?branch=alexaggh/fix_signal_receive#abd02e9e7fefc4f099908dc2779bb5d069328919"
 dependencies = [
  "async-trait",
  "dyn-clonable",
@@ -8949,8 +8948,7 @@ dependencies = [
 [[package]]
 name = "orchestra-proc-macro"
 version = "0.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f60e64a3808b5bb2786b9da09fc70714952aabcdd0eeba6f1718e3dbc34ad5b"
+source = "git+https://github.com/paritytech/orchestra?branch=alexaggh/fix_signal_receive#abd02e9e7fefc4f099908dc2779bb5d069328919"
 dependencies = [
  "expander 2.0.0",
  "indexmap 2.0.0",
@@ -13928,8 +13926,7 @@ dependencies = [
 [[package]]
 name = "prioritized-metered-channel"
 version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a172e6cc603231f2cf004232eabcecccc0da53ba576ab286ef7baa0cfc7927ad"
+source = "git+https://github.com/paritytech/orchestra?branch=alexaggh/fix_signal_receive#abd02e9e7fefc4f099908dc2779bb5d069328919"
 dependencies = [
  "coarsetime",
  "crossbeam-queue",
