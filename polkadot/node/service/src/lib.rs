@@ -31,7 +31,10 @@ pub mod overseer;
 pub mod workers;
 
 #[cfg(feature = "full-node")]
-pub use self::overseer::{OverseerGen, OverseerGenArgs, RealOverseerGen};
+pub use self::overseer::{
+	CollatorOverseerGen, ExtendedOverseerGenArgs, OverseerGen, OverseerGenArgs,
+	ValidatorOverseerGen,
+};
 
 #[cfg(test)]
 mod tests;
@@ -775,8 +778,6 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 
 	let keystore = basics.keystore_container.local_keystore();
 	let auth_or_collator = role.is_authority() || is_parachain_node.is_collator();
-	// We only need to enable the pvf checker when this is a validator.
-	let pvf_checker_enabled = role.is_authority();
 
 	let select_chain = if auth_or_collator {
 		let metrics =
@@ -867,10 +868,6 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 
 	let req_protocol_names = ReqProtocolNames::new(&genesis_hash, config.chain_spec.fork_id());
 
-	let (pov_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
-	net_config.add_request_response_protocol(cfg);
-	let (chunk_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
-	net_config.add_request_response_protocol(cfg);
 	let (collation_req_v1_receiver, cfg) =
 		IncomingRequest::get_config_receiver(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
@@ -880,12 +877,9 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	let (available_data_req_receiver, cfg) =
 		IncomingRequest::get_config_receiver(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
-	let (statement_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
+	let (pov_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
-	let (candidate_req_v2_receiver, cfg) =
-		IncomingRequest::get_config_receiver(&req_protocol_names);
-	net_config.add_request_response_protocol(cfg);
-	let (dispute_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
+	let (chunk_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
 
 	let grandpa_hard_forks = if config.chain_spec.is_kusama() {
@@ -899,6 +893,69 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 		import_setup.1.shared_authority_set().clone(),
 		grandpa_hard_forks,
 	));
+
+	let ext_overseer_args = if is_parachain_node.is_running_alongside_parachain_node() {
+		None
+	} else {
+		let parachains_db = open_database(&config.database)?;
+		let candidate_validation_config = if role.is_authority() {
+			let (prep_worker_path, exec_worker_path) = workers::determine_workers_paths(
+				workers_path,
+				workers_names,
+				node_version.clone(),
+			)?;
+			log::info!("🚀 Using prepare-worker binary at: {:?}", prep_worker_path);
+			log::info!("🚀 Using execute-worker binary at: {:?}", exec_worker_path);
+
+			Some(CandidateValidationConfig {
+				artifacts_cache_path: config
+					.database
+					.path()
+					.ok_or(Error::DatabasePathRequired)?
+					.join("pvf-artifacts"),
+				node_version,
+				secure_validator_mode,
+				prep_worker_path,
+				exec_worker_path,
+			})
+		} else {
+			None
+		};
+		let (statement_req_receiver, cfg) =
+			IncomingRequest::get_config_receiver(&req_protocol_names);
+		net_config.add_request_response_protocol(cfg);
+		let (candidate_req_v2_receiver, cfg) =
+			IncomingRequest::get_config_receiver(&req_protocol_names);
+		net_config.add_request_response_protocol(cfg);
+		let (dispute_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
+		net_config.add_request_response_protocol(cfg);
+		let approval_voting_config = ApprovalVotingConfig {
+			col_approval_data: parachains_db::REAL_COLUMNS.col_approval_data,
+			slot_duration_millis: slot_duration.as_millis() as u64,
+		};
+		let dispute_coordinator_config = DisputeCoordinatorConfig {
+			col_dispute_data: parachains_db::REAL_COLUMNS.col_dispute_coordinator_data,
+		};
+		let chain_selection_config = ChainSelectionConfig {
+			col_data: parachains_db::REAL_COLUMNS.col_chain_selection_data,
+			stagnant_check_interval: Default::default(),
+			stagnant_check_mode: chain_selection_subsystem::StagnantCheckMode::PruneOnly,
+		};
+		Some(ExtendedOverseerGenArgs {
+			keystore,
+			parachains_db,
+			candidate_validation_config,
+			availability_config: AVAILABILITY_CONFIG,
+			pov_req_receiver,
+			chunk_req_receiver,
+			statement_req_receiver,
+			candidate_req_v2_receiver,
+			approval_voting_config,
+			dispute_req_receiver,
+			dispute_coordinator_config,
+			chain_selection_config,
+		})
+	};
 
 	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
 		service::build_network(service::BuildNetworkParams {
@@ -935,44 +992,6 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 			.boxed(),
 		);
 	}
-
-	let parachains_db = open_database(&config.database)?;
-
-	let approval_voting_config = ApprovalVotingConfig {
-		col_approval_data: parachains_db::REAL_COLUMNS.col_approval_data,
-		slot_duration_millis: slot_duration.as_millis() as u64,
-	};
-
-	let candidate_validation_config = if role.is_authority() {
-		let (prep_worker_path, exec_worker_path) =
-			workers::determine_workers_paths(workers_path, workers_names, node_version.clone())?;
-		log::info!("🚀 Using prepare-worker binary at: {:?}", prep_worker_path);
-		log::info!("🚀 Using execute-worker binary at: {:?}", exec_worker_path);
-
-		Some(CandidateValidationConfig {
-			artifacts_cache_path: config
-				.database
-				.path()
-				.ok_or(Error::DatabasePathRequired)?
-				.join("pvf-artifacts"),
-			node_version,
-			secure_validator_mode,
-			prep_worker_path,
-			exec_worker_path,
-		})
-	} else {
-		None
-	};
-
-	let chain_selection_config = ChainSelectionConfig {
-		col_data: parachains_db::REAL_COLUMNS.col_chain_selection_data,
-		stagnant_check_interval: Default::default(),
-		stagnant_check_mode: chain_selection_subsystem::StagnantCheckMode::PruneOnly,
-	};
-
-	let dispute_coordinator_config = DisputeCoordinatorConfig {
-		col_dispute_data: parachains_db::REAL_COLUMNS.col_dispute_coordinator_data,
-	};
 
 	let rpc_handlers = service::spawn_tasks(service::SpawnTasksParams {
 		config,
@@ -1067,29 +1086,16 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 			.generate::<service::SpawnTaskHandle, FullClient>(
 				overseer_connector,
 				OverseerGenArgs {
-					keystore,
 					runtime_client: overseer_client.clone(),
-					parachains_db,
 					network_service: network.clone(),
 					sync_service: sync_service.clone(),
 					authority_discovery_service,
-					pov_req_receiver,
-					chunk_req_receiver,
 					collation_req_v1_receiver,
 					collation_req_v2_receiver,
 					available_data_req_receiver,
-					statement_req_receiver,
-					candidate_req_v2_receiver,
-					dispute_req_receiver,
 					registry: prometheus_registry.as_ref(),
 					spawner,
 					is_parachain_node,
-					approval_voting_config,
-					availability_config: AVAILABILITY_CONFIG,
-					candidate_validation_config,
-					chain_selection_config,
-					dispute_coordinator_config,
-					pvf_checker_enabled,
 					overseer_message_channel_capacity_override,
 					req_protocol_names,
 					peerset_protocol_names,
@@ -1098,6 +1104,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					),
 					notification_services,
 				},
+				ext_overseer_args,
 			)
 			.map_err(|e| {
 				gum::error!("Failed to init overseer: {}", e);

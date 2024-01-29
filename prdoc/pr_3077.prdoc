@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Enable cross-chain Coretime region transfers on Rococo Coretime chain
+
+doc:
+  - audience: Runtime User
+    description: |
+      This PR allows Coretime regions to be cross-chain transferred from the Rococo Coretime chain.
+
+crates: 
+  - name: pallet-broker
+  - name: coretime-rococo-runtime

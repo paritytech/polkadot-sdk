@@ -1,6 +1,6 @@
 [package]
 name = "sc-allocator"
-version = "4.1.0-dev"
+version = "23.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"

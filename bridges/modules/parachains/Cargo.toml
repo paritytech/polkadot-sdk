@@ -1,6 +1,6 @@
 [package]
 name = "pallet-bridge-parachains"
-version = "0.1.0"
+version = "0.7.0"
 description = "Module that allows bridged relay chains to exchange information on their parachains' heads."
 authors.workspace = true
 edition.workspace = true

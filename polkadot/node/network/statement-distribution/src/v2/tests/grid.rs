@@ -437,6 +437,7 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 			validator_count,
 			group_size,
 			&peers_to_connect,
+			false,
 		)
 		.await;
 		let [_, _, peer_c, peer_d, _] = peers[..] else { panic!() };
@@ -608,6 +609,7 @@ fn receive_ack_for_unconfirmed_candidate() {
 				validator_count,
 				group_size,
 				&peers_to_connect,
+				false,
 			)
 			.await;
 		let [_, _, peer_c, _] = peers[..] else { panic!() };
@@ -676,6 +678,7 @@ fn received_acknowledgements_for_locally_confirmed() {
 			validator_count,
 			group_size,
 			&peers_to_connect,
+			true,
 		)
 		.await;
 		let [peer_a, peer_b, peer_c, peer_d] = peers[..] else { panic!() };
@@ -837,6 +840,7 @@ fn received_acknowledgements_for_externally_confirmed() {
 			validator_count,
 			group_size,
 			&peers_to_connect,
+			false,
 		)
 		.await;
 		let [peer_a, _, peer_c, peer_d, _] = peers[..] else { panic!() };

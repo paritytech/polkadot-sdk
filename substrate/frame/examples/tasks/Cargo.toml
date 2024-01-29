@@ -1,6 +1,6 @@
 [package]
 name = "pallet-example-tasks"
-version = "1.0.0-dev"
+version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -24,7 +24,7 @@ frame-system = { path = "../../system", default-features = false }
 sp-io = { path = "../../../primitives/io", default-features = false }
 sp-runtime = { path = "../../../primitives/runtime", default-features = false }
 sp-std = { path = "../../../primitives/std", default-features = false }
-sp-core = { version = "21.0.0", default-features = false, path = "../../../primitives/core" }
+sp-core = { default-features = false, path = "../../../primitives/core" }
 
 frame-benchmarking = { path = "../../benchmarking", default-features = false, optional = true }
 

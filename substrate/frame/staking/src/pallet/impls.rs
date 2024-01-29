@@ -75,7 +75,7 @@ impl<T: Config> Pallet<T> {
 		StakingLedger::<T>::get(account)
 	}
 
-	pub fn payee(account: StakingAccount<T::AccountId>) -> RewardDestination<T::AccountId> {
+	pub fn payee(account: StakingAccount<T::AccountId>) -> Option<RewardDestination<T::AccountId>> {
 		StakingLedger::<T>::reward_destination(account)
 	}
 
@@ -336,11 +336,10 @@ impl<T: Config> Pallet<T> {
 		if amount.is_zero() {
 			return None
 		}
+		let dest = Self::payee(StakingAccount::Stash(stash.clone()))?;
 
-		let dest = Self::payee(StakingAccount::Stash(stash.clone()));
 		let maybe_imbalance = match dest {
-			RewardDestination::Stash  =>
-				T::Currency::deposit_into_existing(stash, amount).ok(),
+			RewardDestination::Stash => T::Currency::deposit_into_existing(stash, amount).ok(),
 			RewardDestination::Staked => Self::ledger(Stash(stash.clone()))
 				.and_then(|mut ledger| {
 					ledger.active += amount;
@@ -354,7 +353,7 @@ impl<T: Config> Pallet<T> {
 					Ok(r)
 				})
 				.unwrap_or_default(),
-			RewardDestination::Account(dest_account) =>
+			RewardDestination::Account(ref dest_account) =>
 				Some(T::Currency::deposit_creating(&dest_account, amount)),
 			RewardDestination::None => None,
 			#[allow(deprecated)]
@@ -366,8 +365,7 @@ impl<T: Config> Pallet<T> {
 						T::Currency::deposit_creating(&controller, amount)
 		}),
 		};
-		maybe_imbalance
-			.map(|imbalance| (imbalance, Self::payee(StakingAccount::Stash(stash.clone()))))
+		maybe_imbalance.map(|imbalance| (imbalance, dest))
 	}
 
 	/// Plan a new session potentially trigger a new era.
@@ -1826,11 +1824,29 @@ impl<T: Config> Pallet<T> {
 			"VoterList contains non-staker"
 		);
 
+		Self::check_payees()?;
 		Self::check_nominators()?;
 		Self::check_exposures()?;
 		Self::check_paged_exposures()?;
 		Self::check_ledgers()?;
 		Self::check_count()
+	}
+
+	/// Invariants:
+	/// * A bonded ledger should always have an assigned `Payee`.
+	/// * The number of entries in `Payee` and of bonded staking ledgers *must* match.
+	fn check_payees() -> Result<(), TryRuntimeError> {
+		for (stash, _) in Bonded::<T>::iter() {
+			ensure!(Payee::<T>::get(&stash).is_some(), "bonded ledger does not have payee set");
+		}
+
+		ensure!(
+			(Ledger::<T>::iter().count() == Payee::<T>::iter().count()) &&
+				(Ledger::<T>::iter().count() == Bonded::<T>::iter().count()),
+			"number of entries in payee storage items does not match the number of bonded ledgers",
+		);
+
+		Ok(())
 	}
 
 	fn check_count() -> Result<(), TryRuntimeError> {
