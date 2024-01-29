@@ -87,7 +87,7 @@ pub fn framed_recv_blocking(r: &mut (impl Read + Unpin)) -> io::Result<Vec<u8>> 
 	Ok(buf)
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "test-utils")))]
 mod tests {
 	use super::*;
 
