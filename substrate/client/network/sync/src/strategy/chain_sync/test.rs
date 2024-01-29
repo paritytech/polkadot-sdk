@@ -1033,3 +1033,98 @@ fn request_across_forks() {
 		assert!(sync.is_known(&block.header.parent_hash()));
 	}
 }
+
+#[test]
+fn block_request_at_genesis_reserves_peer_in_peer_pool() {
+	let client = Arc::new(TestClientBuilder::new().build());
+	let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+	let mut sync =
+		ChainSync::new(ChainSyncMode::Full, client.clone(), 1, 64, None, peer_pool.clone())
+			.unwrap();
+
+	// Add a peer.
+	let peer_id = PeerId::random();
+	peer_pool.lock().add_peer(peer_id);
+	sync.add_peer(peer_id, Hash::random(), 10);
+
+	// A request is sent to our peer.
+	let actions = sync.actions().collect::<Vec<_>>();
+	assert_eq!(actions.len(), 1);
+	assert!(actions.iter().all(|action| match action {
+		ChainSyncAction::SendBlockRequest { peer_id: requested_peer_id, .. } =>
+			requested_peer_id == &peer_id,
+		_ => false,
+	}));
+
+	// The peer is reserved in `PeerPool`.
+	assert_eq!(peer_pool.lock().available_peers().count(), 0);
+}
+
+#[test]
+fn block_response_frees_peer_in_peer_pool() {
+	let client = Arc::new(TestClientBuilder::new().build());
+	let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+	let mut sync =
+		ChainSync::new(ChainSyncMode::Full, client.clone(), 1, 64, None, peer_pool.clone())
+			.unwrap();
+
+	// Create blocks.
+	let blocks = {
+		let mut client = Arc::new(TestClientBuilder::new().build());
+		(0..10).map(|_| build_block(&mut client, None, false)).collect::<Vec<_>>()
+	};
+	let best_block = blocks.last().unwrap().clone();
+
+	// Add a peer.
+	let peer_id = PeerId::random();
+	peer_pool.lock().add_peer(peer_id);
+	sync.add_peer(peer_id, best_block.hash(), *best_block.header().number());
+
+	// Transit peers into requestable state
+	let _ = sync.handle_new_peers().collect::<Vec<_>>();
+
+	// A request is sent to our peer.
+	let request = get_block_request(&mut sync, FromBlock::Hash(best_block.hash()), 10, &peer_id);
+
+	// The peer is reserved in `PeerPool`.
+	assert_eq!(peer_pool.lock().available_peers().count(), 0);
+
+	// Receive response.
+	let mut response_blocks = blocks.clone();
+	response_blocks.reverse();
+	let response = create_block_response(response_blocks);
+	sync.on_block_data(&peer_id, Some(request), response).unwrap();
+
+	// The peer is now available again.
+	assert!(peer_pool.lock().available_peers().any(|p| *p.peer_id() == peer_id));
+}
+
+#[test]
+fn new_peer_ancestry_search_reserves_peer_in_peer_pool() {
+	todo!();
+}
+
+#[test]
+fn forced_ancestry_search_reserves_peer_in_peer_pool() {
+	todo!();
+}
+
+#[test]
+fn peer_block_request_reserves_peer_in_peer_pool() {
+	todo!();
+}
+
+#[test]
+fn fork_sync_request_reserves_peer_in_peer_pool() {
+	todo!();
+}
+
+#[test]
+fn justification_request_reserves_peer_in_peer_pool() {
+	todo!();
+}
+
+#[test]
+fn justification_response_frees_peer_in_peer_pool() {
+	todo!();
+}
