@@ -83,17 +83,19 @@ mod staking_integration {
 			assert_eq!(ElectionProvider::current_round(), 0);
 			assert_eq!(Staking::current_era(), Some(0));
 
+			let export_starts_at = election_prediction() - Pages::get();
+
 			// last block where phase is waiting for unsignned submissions.
 			roll_to(election_prediction() - 4, false);
 			assert_eq!(ElectionProvider::current_phase(), Phase::Unsigned(17));
 
 			// staking prepares first page of exposures.
-			roll_to(election_prediction() - 3, false);
-			assert_eq!(ElectionProvider::current_phase(), Phase::Export);
+			roll_to(export_starts_at, false);
+			assert_eq!(ElectionProvider::current_phase(), Phase::Export(export_starts_at));
 
 			// staking prepares second page of exposures.
 			roll_to(election_prediction() - 2, false);
-			assert_eq!(ElectionProvider::current_phase(), Phase::Export);
+			assert_eq!(ElectionProvider::current_phase(), Phase::Export(export_starts_at));
 
 			// staking prepares third page of exposures.
 			roll_to(election_prediction() - 1, false);

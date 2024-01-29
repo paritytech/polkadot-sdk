@@ -168,6 +168,12 @@ pub mod pallet {
 		#[pallet::constant]
 		type Pages: Get<PageIndex>;
 
+		/// The limit number of blocks that the `Phase::Export` will be open for.
+		///
+		/// The export phase will terminate if it has been open for `T::ExportPhaseLimit` blocks or
+		/// the `EPM::call(0)` is called.
+		type ExportPhaseLimit: Get<BlockNumberFor<Self>>;
+
 		/// The solution type.
 		type Solution: codec::Codec
 			+ sp_std::fmt::Debug
@@ -333,6 +339,24 @@ pub mod pallet {
 				{
 					Self::phase_transition(Phase::Unsigned(now));
 					Weight::default() // weights
+				},
+
+				// EPM is "serving" the staking pallet with the election results.
+				Phase::Export(started_at) => {
+					if now > started_at + T::ExportPhaseLimit::get() {
+						// TODO: test the edge case where the export phase saturates. maybe do not
+						// enter in emergency phase?
+
+						log!(
+					    error,
+					    "phase `Export` has been open for too long ({} blocks). entering emergency mode",
+					    T::ExportPhaseLimit::get(),
+				    );
+
+						Self::phase_transition(Phase::Emergency)
+					}
+
+					Weight::default()
 				},
 
 				_ => Weight::default(), // TODO(gpestana): T::WeightInfo::on_initialize_nothing()
@@ -532,6 +556,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 	type Pages = T::Pages;
 	type DataProvider = T::DataProvider;
 
+	/// Important note: we do exect the caller of `elect` to reach page 0.
 	fn elect(remaining: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		T::Verifier::get_queued_solution(remaining)
 			.ok_or(ElectionError::<T>::SupportPageNotAvailable(remaining))
@@ -544,7 +569,11 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 					log!(info, "provided the last supports page, rotating round.");
 					Self::rotate_round();
 				} else {
-					Self::phase_transition(Phase::Export);
+					// Phase::Export is on while the election is calling all pages of `elect`.
+					if !Self::current_phase().is_export() {
+						let now = <frame_system::Pallet<T>>::block_number();
+						Self::phase_transition(Phase::Export(now));
+					}
 				}
 				supports.into()
 			})

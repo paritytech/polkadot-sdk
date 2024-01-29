@@ -92,6 +92,7 @@ parameter_types! {
 	pub static VoterSnapshotPerBlock: VoterIndex = 4;
 	pub static TargetSnapshotPerBlock: TargetIndex = 8;
 	pub static Pages: PageIndex = 3;
+	pub static ExportPhaseLimit: BlockNumber = (Pages::get() * 2u32).into();
 }
 
 impl Config for Runtime {
@@ -103,6 +104,7 @@ impl Config for Runtime {
 	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
 	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
 	type Pages = Pages;
+	type ExportPhaseLimit = ExportPhaseLimit;
 	type DataProvider = MockStaking;
 	type Solution = TestNposSolution;
 	type Fallback = MockFallback;

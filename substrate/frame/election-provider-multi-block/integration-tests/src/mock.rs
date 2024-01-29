@@ -182,6 +182,7 @@ parameter_types! {
 	pub static VoterSnapshotPerBlock: VoterIndex = 4;
 	pub static TargetSnapshotPerBlock: TargetIndex = 8;
 	pub static Pages: PageIndex = 3;
+	pub static ExportPhaseLimit: BlockNumber = (Pages::get() * 2u32).into();
 
 	// TODO: remove what's not needed from here down:
 
@@ -205,6 +206,7 @@ impl epm_core_pallet::Config for Runtime {
 	type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
 	type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
 	type Pages = Pages;
+	type ExportPhaseLimit = ExportPhaseLimit;
 	type Solution = MockNposSolution;
 	type Fallback = frame_election_provider_support::NoElection<(
 		AccountId,

@@ -92,8 +92,9 @@ pub enum Phase<Bn> {
 	Unsigned(Bn),
 	/// Preparing the paged target and voter snapshots.
 	Snapshot(PageIndex),
-	/// Exporting a paged election result.
-	Export,
+	/// Exporting the paged election result (i.e. most likely staking is requesting election
+	/// pages). It includes the block at which the export phase started.
+	Export(Bn),
 	/// Emergency phase, something went wrong and the election is halted.
 	Emergency,
 }
@@ -119,6 +120,10 @@ impl<Bn: PartialEq + Eq> Phase<Bn> {
 
 	pub(crate) fn is_unsigned_open_at(&self, at: Bn) -> bool {
 		matches!(self, Phase::Unsigned(real) if *real == at)
+	}
+
+	pub(crate) fn is_export(&self) -> bool {
+		matches!(self, Phase::Export(_))
 	}
 }
 
