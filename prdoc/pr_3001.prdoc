@@ -1,4 +1,4 @@
-title: Introduce `Balances::force_adjust_total_issuance`
+title: "Introduce `Balances::force_adjust_total_issuance`"
 
 doc:
   - audience: Runtime Dev
