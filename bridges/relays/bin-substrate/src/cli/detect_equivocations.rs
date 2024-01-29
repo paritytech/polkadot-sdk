@@ -31,7 +31,7 @@ use crate::{
 use async_trait::async_trait;
 use relay_substrate_client::ChainWithTransactions;
 use structopt::StructOpt;
-use strum::{EnumString, EnumVariantNames, VariantNames};
+use strum::{EnumString, VariantNames};
 use substrate_relay_helper::{equivocation, equivocation::SubstrateEquivocationDetectionPipeline};
 
 /// Start equivocation detection loop.
@@ -49,7 +49,7 @@ pub struct DetectEquivocations {
 	prometheus_params: PrometheusParams,
 }
 
-#[derive(Debug, EnumString, EnumVariantNames)]
+#[derive(Debug, EnumString, VariantNames)]
 #[strum(serialize_all = "kebab_case")]
 /// Equivocations detection bridge.
 pub enum DetectEquivocationsBridge {
