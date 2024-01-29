@@ -557,11 +557,6 @@
 <a href="#557" id="557">557</a>
 <a href="#558" id="558">558</a>
 <a href="#559" id="559">559</a>
-<a href="#560" id="560">560</a>
-<a href="#561" id="561">561</a>
-<a href="#562" id="562">562</a>
-<a href="#563" id="563">563</a>
-<a href="#564" id="564">564</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -613,29 +608,24 @@
 
 <span class="doccomment">/// PVF pre-checking subsystem.
 </span><span class="kw">pub struct </span>PvfCheckerSubsystem {
-	enabled: bool,
 	keystore: KeystorePtr,
 	metrics: Metrics,
 }
 
 <span class="kw">impl </span>PvfCheckerSubsystem {
-	<span class="kw">pub fn </span>new(enabled: bool, keystore: KeystorePtr, metrics: Metrics) -&gt; <span class="self">Self </span>{
-		PvfCheckerSubsystem { enabled, keystore, metrics }
+	<span class="kw">pub fn </span>new(keystore: KeystorePtr, metrics: Metrics) -&gt; <span class="self">Self </span>{
+		PvfCheckerSubsystem { keystore, metrics }
 	}
 }
 
 <span class="attr">#[overseer::subsystem(PvfChecker, error=SubsystemError, prefix = <span class="self">self</span>::overseer)]
 </span><span class="kw">impl</span>&lt;Context&gt; PvfCheckerSubsystem {
 	<span class="kw">fn </span>start(<span class="self">self</span>, ctx: Context) -&gt; SpawnedSubsystem {
-		<span class="kw">if </span><span class="self">self</span>.enabled {
-			<span class="kw">let </span>future = run(ctx, <span class="self">self</span>.keystore, <span class="self">self</span>.metrics)
-				.map_err(|e| SubsystemError::with_origin(<span class="string">&quot;pvf-checker&quot;</span>, e))
-				.boxed();
+		<span class="kw">let </span>future = run(ctx, <span class="self">self</span>.keystore, <span class="self">self</span>.metrics)
+			.map_err(|e| SubsystemError::with_origin(<span class="string">&quot;pvf-checker&quot;</span>, e))
+			.boxed();
 
-			SpawnedSubsystem { name: <span class="string">&quot;pvf-checker-subsystem&quot;</span>, future }
-		} <span class="kw">else </span>{
-			polkadot_overseer::DummySubsystem.start(ctx)
-		}
+		SpawnedSubsystem { name: <span class="string">&quot;pvf-checker-subsystem&quot;</span>, future }
 	}
 }
 

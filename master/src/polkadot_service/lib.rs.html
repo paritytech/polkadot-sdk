@@ -1446,6 +1446,13 @@
 <a href="#1446" id="1446">1446</a>
 <a href="#1447" id="1447">1447</a>
 <a href="#1448" id="1448">1448</a>
+<a href="#1449" id="1449">1449</a>
+<a href="#1450" id="1450">1450</a>
+<a href="#1451" id="1451">1451</a>
+<a href="#1452" id="1452">1452</a>
+<a href="#1453" id="1453">1453</a>
+<a href="#1454" id="1454">1454</a>
+<a href="#1455" id="1455">1455</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1479,7 +1486,10 @@
 </span><span class="kw">pub mod </span>workers;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
-</span><span class="kw">pub use </span><span class="self">self</span>::overseer::{OverseerGen, OverseerGenArgs, RealOverseerGen};
+</span><span class="kw">pub use </span><span class="self">self</span>::overseer::{
+	CollatorOverseerGen, ExtendedOverseerGenArgs, OverseerGen, OverseerGenArgs,
+	ValidatorOverseerGen,
+};
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
@@ -2223,8 +2233,6 @@
 
 	<span class="kw">let </span>keystore = basics.keystore_container.local_keystore();
 	<span class="kw">let </span>auth_or_collator = role.is_authority() || is_parachain_node.is_collator();
-	<span class="comment">// We only need to enable the pvf checker when this is a validator.
-	</span><span class="kw">let </span>pvf_checker_enabled = role.is_authority();
 
 	<span class="kw">let </span>select_chain = <span class="kw">if </span>auth_or_collator {
 		<span class="kw">let </span>metrics =
@@ -2315,10 +2323,6 @@
 
 	<span class="kw">let </span>req_protocol_names = ReqProtocolNames::new(<span class="kw-2">&amp;</span>genesis_hash, config.chain_spec.fork_id());
 
-	<span class="kw">let </span>(pov_req_receiver, cfg) = IncomingRequest::get_config_receiver(<span class="kw-2">&amp;</span>req_protocol_names);
-	net_config.add_request_response_protocol(cfg);
-	<span class="kw">let </span>(chunk_req_receiver, cfg) = IncomingRequest::get_config_receiver(<span class="kw-2">&amp;</span>req_protocol_names);
-	net_config.add_request_response_protocol(cfg);
 	<span class="kw">let </span>(collation_req_v1_receiver, cfg) =
 		IncomingRequest::get_config_receiver(<span class="kw-2">&amp;</span>req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
@@ -2328,12 +2332,9 @@
 	<span class="kw">let </span>(available_data_req_receiver, cfg) =
 		IncomingRequest::get_config_receiver(<span class="kw-2">&amp;</span>req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
-	<span class="kw">let </span>(statement_req_receiver, cfg) = IncomingRequest::get_config_receiver(<span class="kw-2">&amp;</span>req_protocol_names);
+	<span class="kw">let </span>(pov_req_receiver, cfg) = IncomingRequest::get_config_receiver(<span class="kw-2">&amp;</span>req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
-	<span class="kw">let </span>(candidate_req_v2_receiver, cfg) =
-		IncomingRequest::get_config_receiver(<span class="kw-2">&amp;</span>req_protocol_names);
-	net_config.add_request_response_protocol(cfg);
-	<span class="kw">let </span>(dispute_req_receiver, cfg) = IncomingRequest::get_config_receiver(<span class="kw-2">&amp;</span>req_protocol_names);
+	<span class="kw">let </span>(chunk_req_receiver, cfg) = IncomingRequest::get_config_receiver(<span class="kw-2">&amp;</span>req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
 
 	<span class="kw">let </span>grandpa_hard_forks = <span class="kw">if </span>config.chain_spec.is_kusama() {
@@ -2347,6 +2348,69 @@
 		import_setup.<span class="number">1</span>.shared_authority_set().clone(),
 		grandpa_hard_forks,
 	));
+
+	<span class="kw">let </span>ext_overseer_args = <span class="kw">if </span>is_parachain_node.is_running_alongside_parachain_node() {
+		<span class="prelude-val">None
+	</span>} <span class="kw">else </span>{
+		<span class="kw">let </span>parachains_db = open_database(<span class="kw-2">&amp;</span>config.database)<span class="question-mark">?</span>;
+		<span class="kw">let </span>candidate_validation_config = <span class="kw">if </span>role.is_authority() {
+			<span class="kw">let </span>(prep_worker_path, exec_worker_path) = workers::determine_workers_paths(
+				workers_path,
+				workers_names,
+				node_version.clone(),
+			)<span class="question-mark">?</span>;
+			<span class="macro">log::info!</span>(<span class="string">&quot;🚀 Using prepare-worker binary at: {:?}&quot;</span>, prep_worker_path);
+			<span class="macro">log::info!</span>(<span class="string">&quot;🚀 Using execute-worker binary at: {:?}&quot;</span>, exec_worker_path);
+
+			<span class="prelude-val">Some</span>(CandidateValidationConfig {
+				artifacts_cache_path: config
+					.database
+					.path()
+					.ok_or(Error::DatabasePathRequired)<span class="question-mark">?
+					</span>.join(<span class="string">&quot;pvf-artifacts&quot;</span>),
+				node_version,
+				secure_validator_mode,
+				prep_worker_path,
+				exec_worker_path,
+			})
+		} <span class="kw">else </span>{
+			<span class="prelude-val">None
+		</span>};
+		<span class="kw">let </span>(statement_req_receiver, cfg) =
+			IncomingRequest::get_config_receiver(<span class="kw-2">&amp;</span>req_protocol_names);
+		net_config.add_request_response_protocol(cfg);
+		<span class="kw">let </span>(candidate_req_v2_receiver, cfg) =
+			IncomingRequest::get_config_receiver(<span class="kw-2">&amp;</span>req_protocol_names);
+		net_config.add_request_response_protocol(cfg);
+		<span class="kw">let </span>(dispute_req_receiver, cfg) = IncomingRequest::get_config_receiver(<span class="kw-2">&amp;</span>req_protocol_names);
+		net_config.add_request_response_protocol(cfg);
+		<span class="kw">let </span>approval_voting_config = ApprovalVotingConfig {
+			col_approval_data: parachains_db::REAL_COLUMNS.col_approval_data,
+			slot_duration_millis: slot_duration.as_millis() <span class="kw">as </span>u64,
+		};
+		<span class="kw">let </span>dispute_coordinator_config = DisputeCoordinatorConfig {
+			col_dispute_data: parachains_db::REAL_COLUMNS.col_dispute_coordinator_data,
+		};
+		<span class="kw">let </span>chain_selection_config = ChainSelectionConfig {
+			col_data: parachains_db::REAL_COLUMNS.col_chain_selection_data,
+			stagnant_check_interval: Default::default(),
+			stagnant_check_mode: chain_selection_subsystem::StagnantCheckMode::PruneOnly,
+		};
+		<span class="prelude-val">Some</span>(ExtendedOverseerGenArgs {
+			keystore,
+			parachains_db,
+			candidate_validation_config,
+			availability_config: AVAILABILITY_CONFIG,
+			pov_req_receiver,
+			chunk_req_receiver,
+			statement_req_receiver,
+			candidate_req_v2_receiver,
+			approval_voting_config,
+			dispute_req_receiver,
+			dispute_coordinator_config,
+			chain_selection_config,
+		})
+	};
 
 	<span class="kw">let </span>(network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
 		service::build_network(service::BuildNetworkParams {
@@ -2383,44 +2447,6 @@
 			.boxed(),
 		);
 	}
-
-	<span class="kw">let </span>parachains_db = open_database(<span class="kw-2">&amp;</span>config.database)<span class="question-mark">?</span>;
-
-	<span class="kw">let </span>approval_voting_config = ApprovalVotingConfig {
-		col_approval_data: parachains_db::REAL_COLUMNS.col_approval_data,
-		slot_duration_millis: slot_duration.as_millis() <span class="kw">as </span>u64,
-	};
-
-	<span class="kw">let </span>candidate_validation_config = <span class="kw">if </span>role.is_authority() {
-		<span class="kw">let </span>(prep_worker_path, exec_worker_path) =
-			workers::determine_workers_paths(workers_path, workers_names, node_version.clone())<span class="question-mark">?</span>;
-		<span class="macro">log::info!</span>(<span class="string">&quot;🚀 Using prepare-worker binary at: {:?}&quot;</span>, prep_worker_path);
-		<span class="macro">log::info!</span>(<span class="string">&quot;🚀 Using execute-worker binary at: {:?}&quot;</span>, exec_worker_path);
-
-		<span class="prelude-val">Some</span>(CandidateValidationConfig {
-			artifacts_cache_path: config
-				.database
-				.path()
-				.ok_or(Error::DatabasePathRequired)<span class="question-mark">?
-				</span>.join(<span class="string">&quot;pvf-artifacts&quot;</span>),
-			node_version,
-			secure_validator_mode,
-			prep_worker_path,
-			exec_worker_path,
-		})
-	} <span class="kw">else </span>{
-		<span class="prelude-val">None
-	</span>};
-
-	<span class="kw">let </span>chain_selection_config = ChainSelectionConfig {
-		col_data: parachains_db::REAL_COLUMNS.col_chain_selection_data,
-		stagnant_check_interval: Default::default(),
-		stagnant_check_mode: chain_selection_subsystem::StagnantCheckMode::PruneOnly,
-	};
-
-	<span class="kw">let </span>dispute_coordinator_config = DisputeCoordinatorConfig {
-		col_dispute_data: parachains_db::REAL_COLUMNS.col_dispute_coordinator_data,
-	};
 
 	<span class="kw">let </span>rpc_handlers = service::spawn_tasks(service::SpawnTasksParams {
 		config,
@@ -2515,29 +2541,16 @@
 			.generate::&lt;service::SpawnTaskHandle, FullClient&gt;(
 				overseer_connector,
 				OverseerGenArgs {
-					keystore,
 					runtime_client: overseer_client.clone(),
-					parachains_db,
 					network_service: network.clone(),
 					sync_service: sync_service.clone(),
 					authority_discovery_service,
-					pov_req_receiver,
-					chunk_req_receiver,
 					collation_req_v1_receiver,
 					collation_req_v2_receiver,
 					available_data_req_receiver,
-					statement_req_receiver,
-					candidate_req_v2_receiver,
-					dispute_req_receiver,
 					registry: prometheus_registry.as_ref(),
 					spawner,
 					is_parachain_node,
-					approval_voting_config,
-					availability_config: AVAILABILITY_CONFIG,
-					candidate_validation_config,
-					chain_selection_config,
-					dispute_coordinator_config,
-					pvf_checker_enabled,
 					overseer_message_channel_capacity_override,
 					req_protocol_names,
 					peerset_protocol_names,
@@ -2546,6 +2559,7 @@
 					),
 					notification_services,
 				},
+				ext_overseer_args,
 			)
 			.map_err(|e| {
 				<span class="macro">gum::error!</span>(<span class="string">&quot;Failed to init overseer: {}&quot;</span>, e);

@@ -937,6 +937,7 @@
 <a href="#937" id="937">937</a>
 <a href="#938" id="938">938</a>
 <a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1210,6 +1211,7 @@
 				polkadot_service::IsParachainNode::Collator(CollatorPair::generate().<span class="number">0</span>)
 			},
 			<span class="prelude-val">None</span>,
+			polkadot_service::CollatorOverseerGen,
 		)
 		.map_err(|e| RelayChainError::Application(Box::new(e) <span class="kw">as </span>Box&lt;<span class="kw">_</span>&gt;))<span class="question-mark">?</span>,
 		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) =&gt;

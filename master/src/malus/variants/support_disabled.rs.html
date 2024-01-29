@@ -96,6 +96,9 @@
 <a href="#96" id="96">96</a>
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -116,13 +119,12 @@
 //! to always return an empty set of disabled validators.
 
 </span><span class="kw">use </span>polkadot_cli::{
-	prepared_overseer_builder,
 	service::{
-		AuthorityDiscoveryApi, AuxStore, BabeApi, Block, Error, HeaderBackend, Overseer,
-		OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle, ParachainHost,
-		ProvideRuntimeApi,
+		AuthorityDiscoveryApi, AuxStore, BabeApi, Block, Error, ExtendedOverseerGenArgs,
+		HeaderBackend, Overseer, OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle,
+		ParachainHost, ProvideRuntimeApi,
 	},
-	Cli,
+	validator_overseer_builder, Cli,
 };
 <span class="kw">use </span>polkadot_node_subsystem::SpawnGlue;
 <span class="kw">use </span>polkadot_node_subsystem_types::DefaultSubsystemClient;
@@ -148,6 +150,7 @@
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		connector: OverseerConnector,
 		args: OverseerGenArgs&lt;<span class="lifetime">&#39;_</span>, Spawner, RuntimeClient&gt;,
+		ext_args: <span class="prelude-ty">Option</span>&lt;ExtendedOverseerGenArgs&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;
 		(Overseer&lt;SpawnGlue&lt;Spawner&gt;, Arc&lt;DefaultSubsystemClient&lt;RuntimeClient&gt;&gt;&gt;, OverseerHandle),
 		Error,
@@ -157,12 +160,15 @@
 		RuntimeClient::Api: ParachainHost&lt;Block&gt; + BabeApi&lt;Block&gt; + AuthorityDiscoveryApi&lt;Block&gt;,
 		Spawner: <span class="lifetime">&#39;static </span>+ SpawnNamed + Clone + Unpin,
 	{
-		prepared_overseer_builder(args)<span class="question-mark">?
-			</span>.replace_runtime_api(<span class="kw">move </span>|ra_subsystem| {
-				InterceptedSubsystem::new(ra_subsystem, IgnoreDisabled)
-			})
-			.build_with_connector(connector)
-			.map_err(|e| e.into())
+		validator_overseer_builder(
+			args,
+			ext_args.expect(<span class="string">&quot;Extended arguments required to build validator overseer are provided&quot;</span>),
+		)<span class="question-mark">?
+		</span>.replace_runtime_api(<span class="kw">move </span>|ra_subsystem| {
+			InterceptedSubsystem::new(ra_subsystem, IgnoreDisabled)
+		})
+		.build_with_connector(connector)
+		.map_err(|e| e.into())
 	}
 }
 

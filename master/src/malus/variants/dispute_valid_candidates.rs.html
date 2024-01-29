@@ -105,6 +105,9 @@
 <a href="#105" id="105">105</a>
 <a href="#106" id="106">106</a>
 <a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -130,13 +133,12 @@
 </span><span class="attr">#![allow(missing_docs)]
 
 </span><span class="kw">use </span>polkadot_cli::{
-	prepared_overseer_builder,
 	service::{
-		AuthorityDiscoveryApi, AuxStore, BabeApi, Block, Error, HeaderBackend, Overseer,
-		OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle, ParachainHost,
-		ProvideRuntimeApi,
+		AuthorityDiscoveryApi, AuxStore, BabeApi, Block, Error, ExtendedOverseerGenArgs,
+		HeaderBackend, Overseer, OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle,
+		ParachainHost, ProvideRuntimeApi,
 	},
-	Cli,
+	validator_overseer_builder, Cli,
 };
 <span class="kw">use </span>polkadot_node_subsystem::SpawnGlue;
 <span class="kw">use </span>polkadot_node_subsystem_types::DefaultSubsystemClient;
@@ -187,6 +189,7 @@
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		connector: OverseerConnector,
 		args: OverseerGenArgs&lt;<span class="lifetime">&#39;_</span>, Spawner, RuntimeClient&gt;,
+		ext_args: <span class="prelude-ty">Option</span>&lt;ExtendedOverseerGenArgs&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;
 		(Overseer&lt;SpawnGlue&lt;Spawner&gt;, Arc&lt;DefaultSubsystemClient&lt;RuntimeClient&gt;&gt;&gt;, OverseerHandle),
 		Error,
@@ -204,12 +207,15 @@
 			SpawnGlue(spawner.clone()),
 		);
 
-		prepared_overseer_builder(args)<span class="question-mark">?
-			</span>.replace_candidate_validation(<span class="kw">move </span>|cv_subsystem| {
-				InterceptedSubsystem::new(cv_subsystem, validation_filter)
-			})
-			.build_with_connector(connector)
-			.map_err(|e| e.into())
+		validator_overseer_builder(
+			args,
+			ext_args.expect(<span class="string">&quot;Extended arguments required to build validator overseer are provided&quot;</span>),
+		)<span class="question-mark">?
+		</span>.replace_candidate_validation(<span class="kw">move </span>|cv_subsystem| {
+			InterceptedSubsystem::new(cv_subsystem, validation_filter)
+		})
+		.build_with_connector(connector)
+		.map_err(|e| e.into())
 	}
 }
 </code></pre></div></section></main></body></html>

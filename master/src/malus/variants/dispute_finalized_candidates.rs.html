@@ -263,6 +263,9 @@
 <a href="#263" id="263">263</a>
 <a href="#264" id="264">264</a>
 <a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -298,13 +301,12 @@
 
 </span><span class="kw">use </span>futures::channel::oneshot;
 <span class="kw">use </span>polkadot_cli::{
-	prepared_overseer_builder,
 	service::{
-		AuthorityDiscoveryApi, AuxStore, BabeApi, Block, Error, HeaderBackend, Overseer,
-		OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle, ParachainHost,
-		ProvideRuntimeApi,
+		AuthorityDiscoveryApi, AuxStore, BabeApi, Block, Error, ExtendedOverseerGenArgs,
+		HeaderBackend, Overseer, OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle,
+		ParachainHost, ProvideRuntimeApi,
 	},
-	Cli,
+	validator_overseer_builder, Cli,
 };
 <span class="kw">use </span>polkadot_node_subsystem::{messages::ApprovalVotingMessage, SpawnGlue};
 <span class="kw">use </span>polkadot_node_subsystem_types::{DefaultSubsystemClient, OverseerSignal};
@@ -502,6 +504,7 @@
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		connector: OverseerConnector,
 		args: OverseerGenArgs&lt;<span class="lifetime">&#39;_</span>, Spawner, RuntimeClient&gt;,
+		ext_args: <span class="prelude-ty">Option</span>&lt;ExtendedOverseerGenArgs&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;
 		(Overseer&lt;SpawnGlue&lt;Spawner&gt;, Arc&lt;DefaultSubsystemClient&lt;RuntimeClient&gt;&gt;&gt;, OverseerHandle),
 		Error,
@@ -522,10 +525,13 @@
 			dispute_offset: <span class="self">self</span>.dispute_offset,
 		};
 
-		prepared_overseer_builder(args)<span class="question-mark">?
-			</span>.replace_approval_voting(<span class="kw">move </span>|cb| InterceptedSubsystem::new(cb, ancestor_disputer))
-			.build_with_connector(connector)
-			.map_err(|e| e.into())
+		validator_overseer_builder(
+			args,
+			ext_args.expect(<span class="string">&quot;Extended arguments required to build validator overseer are provided&quot;</span>),
+		)<span class="question-mark">?
+		</span>.replace_approval_voting(<span class="kw">move </span>|cb| InterceptedSubsystem::new(cb, ancestor_disputer))
+		.build_with_connector(connector)
+		.map_err(|e| e.into())
 	}
 }
 </code></pre></div></section></main></body></html>
