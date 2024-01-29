@@ -149,7 +149,7 @@ pub mod pallet {
 
 	/// Creates an empty on demand queue if one isn't present in storage already.
 	#[pallet::type_value]
-	pub(super) fn OnDemandQueueOnEmpty<T: Config>() -> VecDeque<EnqueuedOrder> {
+	pub(crate) fn OnDemandQueueOnEmpty<T: Config>() -> VecDeque<EnqueuedOrder> {
 		VecDeque::new()
 	}
 
@@ -162,7 +162,7 @@ pub mod pallet {
 	/// The order storage entry. Uses a VecDeque to be able to push to the front of the
 	/// queue from the scheduler on session boundaries.
 	#[pallet::storage]
-	pub(super) type OnDemandQueue<T: Config> =
+	pub(crate) type OnDemandQueue<T: Config> =
 		StorageValue<_, VecDeque<EnqueuedOrder>, ValueQuery, OnDemandQueueOnEmpty<T>>;
 
 	/// Maps a `ParaId` to `CoreIndex` and keeps track of how many assignments the scheduler has in

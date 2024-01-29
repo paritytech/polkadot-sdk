@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
+	assigner_on_demand::{EnqueuedOrder, QueuePushDirection},
 	configuration, inclusion, initializer, paras,
 	paras::ParaKind,
 	paras_inherent,
@@ -26,7 +27,8 @@ use crate::{
 	session_info, shared,
 };
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
-use frame_support::pallet_prelude::*;
+use frame_benchmarking::whitelisted_caller;
+use frame_support::{pallet_prelude::*, traits::Currency};
 use frame_system::pallet_prelude::*;
 use primitives::{
 	collator_signature_payload, AvailabilityBitfield, BackedCandidate, CandidateCommitments,
@@ -39,7 +41,7 @@ use primitives::{
 use sp_core::{sr25519, H256};
 use sp_runtime::{
 	generic::Digest,
-	traits::{Header as HeaderT, One, TrailingZeroInput, Zero},
+	traits::{Bounded, Header as HeaderT, One, TrailingZeroInput, Zero},
 	RuntimeAppPublic,
 };
 use sp_std::{collections::btree_map::BTreeMap, prelude::Vec, vec};
@@ -108,6 +110,10 @@ pub(crate) struct Bench<T: paras_inherent::Config> {
 	pub(crate) _session: u32,
 	pub(crate) _block_number: BlockNumberFor<T>,
 }
+
+type BalanceOf<T> = <<T as crate::assigner_on_demand::pallet::Config>::Currency as Currency<
+	<T as frame_system::Config>::AccountId,
+>>::Balance;
 
 impl<T: paras_inherent::Config> BenchBuilder<T> {
 	/// Create a new `BenchBuilder` with some opinionated values that should work with the rest
@@ -228,7 +234,6 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 	}
 
 	/// Set whether the claim queue should be filled.
-	#[cfg(not(feature = "runtime-benchmarks"))]
 	pub(crate) fn set_fill_claimqueue(mut self, f: bool) -> Self {
 		self.fill_claimqueue = f;
 		self
@@ -374,6 +379,23 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		}
 	}
 
+	fn fill_on_demand_queue(&mut self, id: u32) {
+		let caller = whitelisted_caller();
+		let para_id = ParaId::from(id);
+		let balance = BalanceOf::<T>::max_value();
+		<T as crate::assigner_on_demand::pallet::Config>::Currency::make_free_balance_be(
+			&caller, balance,
+		);
+		let order = EnqueuedOrder::new(para_id);
+		for _ in 0..5000 {
+			crate::assigner_on_demand::Pallet::<T>::add_on_demand_order(
+				order.clone(),
+				QueuePushDirection::Back,
+			)
+			.unwrap();
+		}
+	}
+
 	/// Generate validator key pairs and account ids.
 	fn generate_validator_pairs(validator_count: u32) -> Vec<(T::AccountId, ValidatorId)> {
 		(0..validator_count)
@@ -406,7 +428,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		mut self,
 		target_session: SessionIndex,
 		validators: Vec<(T::AccountId, ValidatorId)>,
-		_total_cores: u32,
+		total_cores: u32,
 	) -> Self {
 		let mut block = 1;
 		for session in 0..=target_session {
@@ -424,6 +446,10 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		let header = Self::header(block_number);
 
 		frame_system::Pallet::<T>::reset_events();
+
+		let para_id = total_cores / 2;
+		self.fill_on_demand_queue(para_id);
+
 		frame_system::Pallet::<T>::initialize(
 			&header.number(),
 			&header.hash(),
