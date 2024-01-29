@@ -229,9 +229,8 @@ fn withdraw_error_does_not_modify_issuance() {
 
 	ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
 		let _ = Balances::deposit_creating(&1, 100);
-		let ti = Balances::total_issuance();
-
 		System::inc_consumers(&1).unwrap();
+
 		assert_noop!(
 			<Balances as frame_support::traits::Currency<u64>>::withdraw(
 				&1,
