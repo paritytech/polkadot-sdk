@@ -276,7 +276,7 @@ pub mod pallet {
 
 			// closure that tries to progress paged snapshot creation.
 			let try_snapshot_next = |remaining_pages: PageIndex| {
-				match Self::create_targets_snapshot(remaining_pages)
+				match Self::create_targets_snapshot()
 					.and_then(|t| Self::create_voters_snapshot(remaining_pages).map(|v| (t, v)))
 				{
 					Ok((target_count, voter_count)) => {
@@ -373,9 +373,13 @@ pub mod pallet {
 /// private.
 pub(crate) struct Snapshot<T>(sp_std::marker::PhantomData<T>);
 impl<T: Config> Snapshot<T> {
-	/// Returns the targets of a specific `page` index in the current snapshot.
-	fn targets(page: PageIndex) -> Option<BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>> {
-		PagedTargetSnapshot::<T>::get(page)
+	/// Returns the targets snapshot.
+	///
+	/// TODO(gpestana): paginate targets too? (update: a lot of shenenigans on the assignments
+	/// converstion and target/voter index. Hard to ensure that no more than 1 snapshot page is
+	/// fetched when both voter and target snapshots are paged.)
+	fn targets() -> Option<BoundedVec<T::AccountId, T::TargetSnapshotPerBlock>> {
+		PagedTargetSnapshot::<T>::get(Pallet::<T>::lsp())
 	}
 
 	/// Sets a page of targets in the snapshot's storage.
@@ -458,9 +462,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Creates the target snapshot.
-	fn create_targets_snapshot(remaining_pages: u32) -> Result<u32, ElectionError<T>> {
-		ensure!(remaining_pages < T::Pages::get(), ElectionError::<T>::RequestedPageExceeded);
-
+	fn create_targets_snapshot() -> Result<u32, ElectionError<T>> {
 		// set target count bound as the max number of targets per page.
 		let bounds = ElectionBoundsBuilder::default()
 			.targets_count(T::TargetSnapshotPerBlock::get().into())
@@ -468,7 +470,7 @@ impl<T: Config> Pallet<T> {
 			.targets;
 
 		let targets: BoundedVec<_, T::TargetSnapshotPerBlock> =
-			T::DataProvider::electable_targets(bounds, remaining_pages)
+			T::DataProvider::electable_targets(bounds, Zero::zero())
 				.and_then(|t| {
 					t.try_into().map_err(|_| "too many targets returned by the data provider.")
 				})
@@ -480,7 +482,7 @@ impl<T: Config> Pallet<T> {
 		let count = targets.len() as u32;
 		log!(info, "created target snapshot with {} targets.", count);
 
-		Snapshot::<T>::set_targets(remaining_pages, targets);
+		Snapshot::<T>::set_targets(Zero::zero(), targets);
 
 		Ok(count)
 	}
@@ -641,20 +643,15 @@ mod snapshot {
 		ExtBuilder::default().build_and_execute(|| {
 			let v = BoundedVec::<_, _>::try_from(vec![]).unwrap();
 
-			assert!(Snapshot::<T>::targets(0).is_none());
-			assert!(Snapshot::<T>::targets(1).is_none());
+			assert!(Snapshot::<T>::targets().is_none());
 			assert!(Snapshot::<T>::voters(0).is_none());
 			assert!(Snapshot::<T>::voters(1).is_none());
 
 			Snapshot::<T>::set_targets(0, v.clone());
-			assert!(Snapshot::<T>::targets(0).is_some());
-			assert!(Snapshot::<T>::targets(1).is_none());
-			Snapshot::<T>::set_targets(1, v.clone());
-			assert!(Snapshot::<T>::targets(1).is_some());
+			assert!(Snapshot::<T>::targets().is_some());
 
 			Snapshot::<T>::kill();
-			assert!(Snapshot::<T>::targets(0).is_none());
-			assert!(Snapshot::<T>::targets(1).is_none());
+			assert!(Snapshot::<T>::targets().is_none());
 			assert!(Snapshot::<T>::voters(0).is_none());
 			assert!(Snapshot::<T>::voters(1).is_none());
 		})
@@ -667,18 +664,7 @@ mod snapshot {
 			assert_eq!(MultiPhase::msp(), 2);
 			assert_eq!(MultiPhase::lsp(), 0);
 
-			assert_ok!(MultiPhase::create_targets_snapshot(2));
-			assert_ok!(MultiPhase::create_targets_snapshot(1));
-			assert_ok!(MultiPhase::create_targets_snapshot(0));
-
-			assert_noop!(
-				MultiPhase::create_targets_snapshot(3),
-				ElectionError::<T>::RequestedPageExceeded
-			);
-			assert_noop!(
-				MultiPhase::create_targets_snapshot(10),
-				ElectionError::<T>::RequestedPageExceeded
-			);
+			assert_ok!(MultiPhase::create_targets_snapshot());
 
 			assert_ok!(MultiPhase::create_voters_snapshot(2));
 			assert_ok!(MultiPhase::create_voters_snapshot(1));
@@ -709,45 +695,24 @@ mod snapshot {
 			// sets max targets per page to 2.
 			TargetSnapshotPerBlock::set(2);
 
-			// page `msp`.
-			let result_and_count = MultiPhase::create_targets_snapshot(MultiPhase::msp());
+			let result_and_count = MultiPhase::create_targets_snapshot();
 			assert_eq!(result_and_count.unwrap(), 2);
-			assert_eq!(Snapshot::<T>::targets(MultiPhase::msp()).unwrap().to_vec(), vec![10, 20]);
+			assert_eq!(Snapshot::<T>::targets().unwrap().to_vec(), vec![10, 20]);
 
-			let result_and_count = MultiPhase::create_targets_snapshot(1);
-			assert_eq!(result_and_count.unwrap(), 2);
-			assert_eq!(Snapshot::<T>::targets(1).unwrap().to_vec(), vec![30, 40]);
+			// sets max targets per page to 4.
+			TargetSnapshotPerBlock::set(4);
 
-			// page `lsp`.
-			let result_and_count = MultiPhase::create_targets_snapshot(MultiPhase::lsp());
-			assert_eq!(result_and_count.unwrap(), 2);
-			assert_eq!(Snapshot::<T>::targets(MultiPhase::lsp()).unwrap().to_vec(), vec![50, 60]);
+			let result_and_count = MultiPhase::create_targets_snapshot();
+			assert_eq!(result_and_count.unwrap(), 4);
+			assert_eq!(Snapshot::<T>::targets().unwrap().to_vec(), vec![10, 20, 30, 40]);
 
-			// reset storage.
 			Snapshot::<T>::kill();
 
-			// set new max snapshot per block. Since the election data provider has only 8 targets,
-			// only the 2 first pages will have targets.
 			TargetSnapshotPerBlock::set(6);
 
-			let result_and_count = MultiPhase::create_targets_snapshot(MultiPhase::msp());
+			let result_and_count = MultiPhase::create_targets_snapshot();
 			assert_eq!(result_and_count.unwrap(), 6);
-			assert_eq!(
-				Snapshot::<T>::targets(MultiPhase::msp()).unwrap().to_vec(),
-				vec![10, 20, 30, 40, 50, 60]
-			);
-
-			let result_and_count = MultiPhase::create_targets_snapshot(1);
-			assert_eq!(result_and_count.unwrap(), 2);
-			assert_eq!(Snapshot::<T>::targets(1).unwrap().to_vec(), vec![70, 80]);
-
-			// page `lsp`.
-			let result_and_count = MultiPhase::create_targets_snapshot(MultiPhase::lsp());
-			assert_eq!(result_and_count.unwrap(), 0);
-			assert_eq!(
-				Snapshot::<T>::targets(MultiPhase::lsp()).unwrap().to_vec(),
-				Vec::<u64>::new()
-			);
+			assert_eq!(Snapshot::<T>::targets().unwrap().to_vec(), vec![10, 20, 30, 40, 50, 60]);
 
 			// reset storage.
 			Snapshot::<T>::kill();

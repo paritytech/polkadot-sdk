@@ -75,8 +75,8 @@ impl From<SnapshotType> for MinerError {
 pub enum SnapshotType {
 	/// Voters at the given page missing.
 	Voters(PageIndex),
-	/// Targets at the given page missing.
-	Targets(PageIndex),
+	/// Targets are missing.
+	Targets,
 	// Desired targets are missing.
 	DesiredTargets,
 }
@@ -119,17 +119,6 @@ where
 		// prepare range to fetch all pages of the target and voter snapshot.
 		let paged_range = (0..EPM::<T>::msp() + 1).take(pages as usize);
 
-		// fetch all pages of the target snapshot and collect them in a bounded vec.
-		let all_target_pages: BoundedVec<_, T::Pages> = paged_range
-			.clone()
-			.map(|page| {
-				Snapshot::<T>::targets(page)
-					.ok_or(MinerError::SnapshotUnAvailable(SnapshotType::Targets(page)))
-			})
-			.collect::<Result<Vec<_>, _>>()?
-			.try_into()
-			.expect("range was constructed from the bounded vec bounds; qed.");
-
 		// fetch all pages of the voter snapshot and collect them in a bounded vec.
 		let all_voter_pages: BoundedVec<_, T::Pages> = paged_range
 			.map(|page| {
@@ -140,17 +129,19 @@ where
 			.try_into()
 			.expect("range was constructed from the bounded vec bounds; qed.");
 
+		// fetch all pages of the target snapshot and collect them in a bounded vec.
+		let all_targets = Snapshot::<T>::targets()
+			.ok_or(MinerError::SnapshotUnAvailable(SnapshotType::Targets))?;
+
 		// flatten pages of voters and target snapshots.
-		let all_targets: Vec<T::AccountId> =
-			all_target_pages.iter().cloned().flatten().collect::<Vec<_>>();
 		let all_voters: Vec<VoterOf<T>> =
 			all_voter_pages.iter().cloned().flatten().collect::<Vec<_>>();
 
-		// these closures generate an efficient index mapping of each target or voter -> the snaphot
+		// these closures generate an efficient index mapping of each tvoter -> the snaphot
 		// that they are part of. this needs to be the same indexing fn in the verifier side to
 		// sync when reconstructing the assingments page from a solution.
-		let targets_page_fn = helpers::generate_target_page_fn::<T>(&all_target_pages);
 		let voters_page_fn = helpers::generate_voter_page_fn::<T>(&all_voter_pages);
+		let targets_index_fn = helpers::target_index_fn::<T>(&all_targets);
 
 		// run the election with all voters and targets.
 		let ElectionResult { winners: _, assignments } =
@@ -184,19 +175,9 @@ where
 					.get(page as usize)
 					.ok_or(MinerError::SnapshotUnAvailable(SnapshotType::Voters(page)))?;
 
-				let target_snapshot_page = all_target_pages
-					.get(page as usize)
-					.ok_or(MinerError::SnapshotUnAvailable(SnapshotType::Targets(page)))?;
-
 				let voters_index_fn = {
 					let cache = helpers::generate_voter_cache::<T, _>(&voter_snapshot_page);
 					helpers::voter_index_fn_owned::<T>(cache)
-				};
-
-				// note: needs all targets when processing each page.
-				let targets_index_fn = {
-					let cache = helpers::generate_target_cache::<T>(&all_targets);
-					helpers::target_index_fn_owned::<T>(cache)
 				};
 
 				<SolutionOf<T>>::from_assignment(
@@ -239,8 +220,7 @@ where
 			.ok_or::<MinerError>(SnapshotType::DesiredTargets.into())?;
 		let voters =
 			Snapshot::<T>::voters(page).ok_or::<MinerError>(SnapshotType::Voters(page).into())?;
-		let targets =
-			Snapshot::<T>::targets(page).ok_or::<MinerError>(SnapshotType::Targets(page).into())?;
+		let targets = Snapshot::<T>::targets().ok_or::<MinerError>(SnapshotType::Targets.into())?;
 
 		S::solve(desired_targets as usize, targets.to_vec(), voters.to_vec())
 			.map_err(|e| MinerError::Solver)
@@ -614,7 +594,7 @@ mod tests {
 
 				for page in (0..Pages::get()).rev() {
 					all_voter_pages.push(Snapshot::<T>::voters(page).unwrap());
-					all_target_pages.push(Snapshot::<T>::targets(page).unwrap());
+					all_target_pages.push(Snapshot::<T>::targets().unwrap());
 				}
 			})
 		}

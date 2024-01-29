@@ -570,18 +570,15 @@ impl<T: impls::pallet::Config> Pallet<T> {
 	) -> Result<SupportsOf<Self>, FeasibilityError> {
 		// Read the corresponding snapshots.
 		let snapshot_targets =
-			crate::Snapshot::<T>::targets(page).ok_or(FeasibilityError::SnapshotUnavailable)?;
+			crate::Snapshot::<T>::targets().ok_or(FeasibilityError::SnapshotUnavailable)?;
 		let snapshot_voters =
 			crate::Snapshot::<T>::voters(page).ok_or(FeasibilityError::SnapshotUnavailable)?;
 
 		// ----- Start building. First, we need some closures.
 		let voter_cache = helpers::generate_voter_cache::<T, _>(&snapshot_voters);
 		let voter_at = helpers::voter_at_fn::<T>(&snapshot_voters);
-		let voter_index = helpers::voter_index_fn_usize::<T>(&voter_cache);
-
-		let target_cache = helpers::generate_target_cache::<T>(&snapshot_targets);
 		let target_at = helpers::target_at_fn::<T>(&snapshot_targets);
-		let target_index = helpers::target_index_fn_usize::<T>(&target_cache);
+		let voter_index = helpers::voter_index_fn_usize::<T>(&voter_cache);
 
 		// Then convert solution -> assignment. This will fail if any of the indices are
 		// gibberish.
