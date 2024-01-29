@@ -20,11 +20,11 @@
 use crate::{core_mask::*, mock::*, *};
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::nonfungible::{Inspect as NftInspect, Transfer},
+	traits::nonfungible::{Inspect as NftInspect, Mutate, Transfer},
 	BoundedVec,
 };
 use frame_system::RawOrigin::Root;
-use sp_runtime::traits::Get;
+use sp_runtime::{traits::Get, TokenError};
 use CoreAssignment::*;
 use CoretimeTraceItem::*;
 use Finality::*;
@@ -194,6 +194,26 @@ fn transfer_works() {
 		assert_eq!(<Broker as NftInspect<_>>::owner(&region.into()), Some(2));
 		assert_noop!(Broker::do_assign(region, Some(1), 1001, Final), Error::<Test>::NotOwner);
 		assert_ok!(Broker::do_assign(region, Some(2), 1002, Final));
+	});
+}
+
+#[test]
+fn mutate_operations_unsupported_for_regions() {
+	TestExt::new().execute_with(|| {
+		let region_id = RegionId { begin: 0, core: 0, mask: CoreMask::complete() };
+		assert_noop!(
+			<Broker as Mutate<_>>::mint_into(&region_id.into(), &2),
+			TokenError::Unsupported
+		);
+		assert_noop!(<Broker as Mutate<_>>::burn(&region_id.into(), None), TokenError::Unsupported);
+		assert_noop!(
+			<Broker as Mutate<_>>::set_attribute(&region_id.into(), &[], &[]),
+			TokenError::Unsupported
+		);
+		assert_noop!(
+			<Broker as Mutate<_>>::set_typed_attribute::<u8, u8>(&region_id.into(), &0, &0),
+			TokenError::Unsupported
+		);
 	});
 }
 

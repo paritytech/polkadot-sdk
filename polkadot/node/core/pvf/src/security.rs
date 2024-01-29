@@ -32,14 +32,20 @@ use std::{fmt, path::Path};
 pub async fn check_security_status(config: &Config) -> Result<SecurityStatus, String> {
 	let Config { prepare_worker_program_path, secure_validator_mode, cache_path, .. } = config;
 
-	let (landlock, seccomp, change_root) = join!(
+	let (landlock, seccomp, change_root, secure_clone) = join!(
 		check_landlock(prepare_worker_program_path),
 		check_seccomp(prepare_worker_program_path),
-		check_can_unshare_user_namespace_and_change_root(prepare_worker_program_path, cache_path)
+		check_can_unshare_user_namespace_and_change_root(prepare_worker_program_path, cache_path),
+		check_can_do_secure_clone(prepare_worker_program_path),
 	);
 
-	let full_security_status =
-		FullSecurityStatus::new(*secure_validator_mode, landlock, seccomp, change_root);
+	let full_security_status = FullSecurityStatus::new(
+		*secure_validator_mode,
+		landlock,
+		seccomp,
+		change_root,
+		secure_clone,
+	);
 	let security_status = full_security_status.as_partial();
 
 	if full_security_status.err_occurred() {
@@ -73,6 +79,7 @@ impl FullSecurityStatus {
 		landlock: SecureModeResult,
 		seccomp: SecureModeResult,
 		change_root: SecureModeResult,
+		secure_clone: SecureModeResult,
 	) -> Self {
 		Self {
 			partial: SecurityStatus {
@@ -80,8 +87,9 @@ impl FullSecurityStatus {
 				can_enable_landlock: landlock.is_ok(),
 				can_enable_seccomp: seccomp.is_ok(),
 				can_unshare_user_namespace_and_change_root: change_root.is_ok(),
+				can_do_secure_clone: secure_clone.is_ok(),
 			},
-			errs: [landlock, seccomp, change_root]
+			errs: [landlock, seccomp, change_root, secure_clone]
 				.into_iter()
 				.filter_map(|result| result.err())
 				.collect(),
@@ -120,9 +128,10 @@ type SecureModeResult = std::result::Result<(), SecureModeError>;
 /// Errors related to enabling Secure Validator Mode.
 #[derive(Debug)]
 enum SecureModeError {
-	CannotEnableLandlock(String),
+	CannotEnableLandlock { err: String, abi: u8 },
 	CannotEnableSeccomp(String),
 	CannotUnshareUserNamespaceAndChangeRoot(String),
+	CannotDoSecureClone(String),
 }
 
 impl SecureModeError {
@@ -132,12 +141,16 @@ impl SecureModeError {
 		match self {
 			// Landlock is present on relatively recent Linuxes. This is optional if the unshare
 			// capability is present, providing FS sandboxing a different way.
-			CannotEnableLandlock(_) => security_status.can_unshare_user_namespace_and_change_root,
+			CannotEnableLandlock { .. } =>
+				security_status.can_unshare_user_namespace_and_change_root,
 			// seccomp should be present on all modern Linuxes unless it's been disabled.
 			CannotEnableSeccomp(_) => false,
 			// Should always be present on modern Linuxes. If not, Landlock also provides FS
 			// sandboxing, so don't enforce this.
 			CannotUnshareUserNamespaceAndChangeRoot(_) => security_status.can_enable_landlock,
+			// We have not determined the kernel requirements for this capability, and it's also not
+			// necessary for FS or networking restrictions.
+			CannotDoSecureClone(_) => true,
 		}
 	}
 }
@@ -146,9 +159,10 @@ impl fmt::Display for SecureModeError {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		use SecureModeError::*;
 		match self {
-			CannotEnableLandlock(err) => write!(f, "Cannot enable landlock, a Linux 5.13+ kernel security feature: {err}"),
+			CannotEnableLandlock{err, abi} => write!(f, "Cannot enable landlock (ABI {abi}), a Linux 5.13+ kernel security feature: {err}"),
 			CannotEnableSeccomp(err) => write!(f, "Cannot enable seccomp, a Linux-specific kernel security feature: {err}"),
 			CannotUnshareUserNamespaceAndChangeRoot(err) => write!(f, "Cannot unshare user namespace and change root, which are Linux-specific kernel security features: {err}"),
+			CannotDoSecureClone(err) => write!(f, "Cannot call clone with all sandboxing flags, a Linux-specific kernel security features: {err}"),
 		}
 	}
 }
@@ -208,32 +222,11 @@ async fn check_can_unshare_user_namespace_and_change_root(
 				.map_err(|err| SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
 					format!("could not create a temporary directory in {:?}: {}", cache_path, err)
 				))?;
-			match tokio::process::Command::new(prepare_worker_program_path)
-				.arg("--check-can-unshare-user-namespace-and-change-root")
-				.arg(cache_dir_tempdir.path())
-				.output()
-				.await
-			{
-				Ok(output) if output.status.success() => Ok(()),
-				Ok(output) => {
-					let stderr = std::str::from_utf8(&output.stderr)
-						.expect("child process writes a UTF-8 string to stderr; qed")
-						.trim();
-					if stderr.is_empty() {
-						Err(SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
-							"not available".into()
-						))
-					} else {
-						Err(SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
-							format!("not available: {}", stderr)
-						))
-					}
-				},
-				Err(err) =>
-					Err(SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
-						format!("could not start child process: {}", err)
-					)),
-			}
+			spawn_process_for_security_check(
+				prepare_worker_program_path,
+				"--check-can-unshare-user-namespace-and-change-root",
+				&[cache_dir_tempdir.path()],
+			).await.map_err(|err| SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(err))
 		} else {
 			Err(SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
 				"only available on Linux".into()
@@ -253,37 +246,17 @@ async fn check_landlock(
 ) -> SecureModeResult {
 	cfg_if::cfg_if! {
 		if #[cfg(target_os = "linux")] {
-			match tokio::process::Command::new(prepare_worker_program_path)
-				.arg("--check-can-enable-landlock")
-				.output()
-				.await
-			{
-				Ok(output) if output.status.success() => Ok(()),
-				Ok(output) => {
-					let abi =
-						polkadot_node_core_pvf_common::worker::security::landlock::LANDLOCK_ABI as u8;
-					let stderr = std::str::from_utf8(&output.stderr)
-						.expect("child process writes a UTF-8 string to stderr; qed")
-						.trim();
-					if stderr.is_empty() {
-						Err(SecureModeError::CannotEnableLandlock(
-							format!("landlock ABI {} not available", abi)
-						))
-					} else {
-						Err(SecureModeError::CannotEnableLandlock(
-							format!("not available: {}", stderr)
-						))
-					}
-				},
-				Err(err) =>
-					Err(SecureModeError::CannotEnableLandlock(
-						format!("could not start child process: {}", err)
-					)),
-			}
+			let abi = polkadot_node_core_pvf_common::worker::security::landlock::LANDLOCK_ABI as u8;
+			spawn_process_for_security_check(
+				prepare_worker_program_path,
+				"--check-can-enable-landlock",
+				std::iter::empty::<&str>(),
+			).await.map_err(|err| SecureModeError::CannotEnableLandlock { err, abi })
 		} else {
-			Err(SecureModeError::CannotEnableLandlock(
-				"only available on Linux".into()
-			))
+			Err(SecureModeError::CannotEnableLandlock {
+				err: "only available on Linux".into(),
+				abi: 0,
+			})
 		}
 	}
 }
@@ -301,31 +274,11 @@ async fn check_seccomp(
 		if #[cfg(target_os = "linux")] {
 			cfg_if::cfg_if! {
 				if #[cfg(target_arch = "x86_64")] {
-					match tokio::process::Command::new(prepare_worker_program_path)
-						.arg("--check-can-enable-seccomp")
-						.output()
-						.await
-					{
-						Ok(output) if output.status.success() => Ok(()),
-						Ok(output) => {
-							let stderr = std::str::from_utf8(&output.stderr)
-								.expect("child process writes a UTF-8 string to stderr; qed")
-								.trim();
-							if stderr.is_empty() {
-								Err(SecureModeError::CannotEnableSeccomp(
-									"not available".into()
-								))
-							} else {
-								Err(SecureModeError::CannotEnableSeccomp(
-									format!("not available: {}", stderr)
-								))
-							}
-						},
-						Err(err) =>
-							Err(SecureModeError::CannotEnableSeccomp(
-								format!("could not start child process: {}", err)
-							)),
-					}
+					spawn_process_for_security_check(
+						prepare_worker_program_path,
+						"--check-can-enable-seccomp",
+						std::iter::empty::<&str>(),
+					).await.map_err(|err| SecureModeError::CannotEnableSeccomp(err))
 				} else {
 					Err(SecureModeError::CannotEnableSeccomp(
 						"only supported on CPUs from the x86_64 family (usually Intel or AMD)".into()
@@ -348,24 +301,85 @@ async fn check_seccomp(
 	}
 }
 
+/// Check if we can call `clone` with all sandboxing flags, and return an error if not.
+///
+/// We do this check by spawning a new process and trying to sandbox it. To get as close as possible
+/// to running the check in a worker, we try it... in a worker. The expected return status is 0 on
+/// success and -1 on failure.
+async fn check_can_do_secure_clone(
+	#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
+	prepare_worker_program_path: &Path,
+) -> SecureModeResult {
+	cfg_if::cfg_if! {
+		if #[cfg(target_os = "linux")] {
+			spawn_process_for_security_check(
+				prepare_worker_program_path,
+				"--check-can-do-secure-clone",
+				std::iter::empty::<&str>(),
+			).await.map_err(|err| SecureModeError::CannotDoSecureClone(err))
+		} else {
+			Err(SecureModeError::CannotDoSecureClone(
+				"only available on Linux".into()
+			))
+		}
+	}
+}
+
+#[cfg(target_os = "linux")]
+async fn spawn_process_for_security_check<I, S>(
+	prepare_worker_program_path: &Path,
+	check_arg: &'static str,
+	extra_args: I,
+) -> Result<(), String>
+where
+	I: IntoIterator<Item = S>,
+	S: AsRef<std::ffi::OsStr>,
+{
+	let mut command = tokio::process::Command::new(prepare_worker_program_path);
+	// Clear env vars. (In theory, running checks with different env vars could result in different
+	// outcomes of the checks.)
+	command.env_clear();
+	// Add back any env vars we want to keep.
+	if let Ok(value) = std::env::var("RUST_LOG") {
+		command.env("RUST_LOG", value);
+	}
+
+	match command.arg(check_arg).args(extra_args).output().await {
+		Ok(output) if output.status.success() => Ok(()),
+		Ok(output) => {
+			let stderr = std::str::from_utf8(&output.stderr)
+				.expect("child process writes a UTF-8 string to stderr; qed")
+				.trim();
+			if stderr.is_empty() {
+				Err("not available".into())
+			} else {
+				Err(format!("not available: {}", stderr))
+			}
+		},
+		Err(err) => Err(format!("could not start child process: {}", err)),
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
 
 	#[test]
 	fn test_secure_mode_error_optionality() {
-		let err = SecureModeError::CannotEnableLandlock(String::new());
+		let err = SecureModeError::CannotEnableLandlock { err: String::new(), abi: 3 };
 		assert!(err.is_allowed_in_secure_mode(&SecurityStatus {
 			secure_validator_mode: true,
 			can_enable_landlock: false,
 			can_enable_seccomp: false,
-			can_unshare_user_namespace_and_change_root: true
+			can_unshare_user_namespace_and_change_root: true,
+			can_do_secure_clone: true,
 		}));
 		assert!(!err.is_allowed_in_secure_mode(&SecurityStatus {
 			secure_validator_mode: true,
 			can_enable_landlock: false,
 			can_enable_seccomp: true,
-			can_unshare_user_namespace_and_change_root: false
+			can_unshare_user_namespace_and_change_root: false,
+			can_do_secure_clone: false,
 		}));
 
 		let err = SecureModeError::CannotEnableSeccomp(String::new());
@@ -373,13 +387,15 @@ mod tests {
 			secure_validator_mode: true,
 			can_enable_landlock: false,
 			can_enable_seccomp: false,
-			can_unshare_user_namespace_and_change_root: true
+			can_unshare_user_namespace_and_change_root: true,
+			can_do_secure_clone: true,
 		}));
 		assert!(!err.is_allowed_in_secure_mode(&SecurityStatus {
 			secure_validator_mode: true,
 			can_enable_landlock: false,
 			can_enable_seccomp: true,
-			can_unshare_user_namespace_and_change_root: false
+			can_unshare_user_namespace_and_change_root: false,
+			can_do_secure_clone: false,
 		}));
 
 		let err = SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(String::new());
@@ -387,13 +403,31 @@ mod tests {
 			secure_validator_mode: true,
 			can_enable_landlock: true,
 			can_enable_seccomp: false,
-			can_unshare_user_namespace_and_change_root: false
+			can_unshare_user_namespace_and_change_root: false,
+			can_do_secure_clone: false,
 		}));
 		assert!(!err.is_allowed_in_secure_mode(&SecurityStatus {
 			secure_validator_mode: true,
 			can_enable_landlock: false,
 			can_enable_seccomp: true,
-			can_unshare_user_namespace_and_change_root: false
+			can_unshare_user_namespace_and_change_root: false,
+			can_do_secure_clone: false,
+		}));
+
+		let err = SecureModeError::CannotDoSecureClone(String::new());
+		assert!(err.is_allowed_in_secure_mode(&SecurityStatus {
+			secure_validator_mode: true,
+			can_enable_landlock: true,
+			can_enable_seccomp: true,
+			can_unshare_user_namespace_and_change_root: true,
+			can_do_secure_clone: true,
+		}));
+		assert!(err.is_allowed_in_secure_mode(&SecurityStatus {
+			secure_validator_mode: false,
+			can_enable_landlock: false,
+			can_enable_seccomp: false,
+			can_unshare_user_namespace_and_change_root: false,
+			can_do_secure_clone: false,
 		}));
 	}
 }
