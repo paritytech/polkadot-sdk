@@ -482,7 +482,7 @@ pub mod pallet {
 		/// agenda space, same as a regular task. Periodic tasks will have their periodic schedule
 		/// put on hold while the task is retrying.
 		#[pallet::call_index(6)]
-		#[pallet::weight(<T as Config>::WeightInfo::set_retry(T::MaxScheduledPerBlock::get()))]
+		#[pallet::weight(<T as Config>::WeightInfo::set_retry())]
 		pub fn set_retry(
 			origin: OriginFor<T>,
 			task: TaskAddress<BlockNumberFor<T>>,
@@ -518,7 +518,7 @@ pub mod pallet {
 		/// agenda space, same as a regular task. Periodic tasks will have their periodic schedule
 		/// put on hold while the task is retrying.
 		#[pallet::call_index(7)]
-		#[pallet::weight(<T as Config>::WeightInfo::set_retry_named(T::MaxScheduledPerBlock::get()))]
+		#[pallet::weight(<T as Config>::WeightInfo::set_retry_named())]
 		pub fn set_retry_named(
 			origin: OriginFor<T>,
 			id: TaskName,

@@ -62,8 +62,8 @@ pub trait WeightInfo {
 	fn schedule_named(s: u32, ) -> Weight;
 	fn cancel_named(s: u32, ) -> Weight;
 	fn schedule_retry(s: u32, ) -> Weight;
-	fn set_retry(s: u32, ) -> Weight;
-	fn set_retry_named(s: u32, ) -> Weight;
+	fn set_retry() -> Weight;
+	fn set_retry_named() -> Weight;
 }
 
 /// Weights for `pallet_scheduler` using the Substrate node and recommended hardware.
@@ -240,15 +240,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(107022), added: 109497, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Retries` (r:0 w:1)
 	/// Proof: `Scheduler::Retries` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
-	/// The range of component `s` is `[1, 512]`.
-	fn set_retry(s: u32, ) -> Weight {
+	fn set_retry() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `81 + s * (177 ±0)`
 		//  Estimated: `110487`
 		// Minimum execution time: 8_130_000 picoseconds.
 		Weight::from_parts(9_047_554, 110487)
-			// Standard Error: 522
-			.saturating_add(Weight::from_parts(237_209, 0).saturating_mul(s.into()))
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -258,15 +255,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(107022), added: 109497, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Retries` (r:0 w:1)
 	/// Proof: `Scheduler::Retries` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
-	/// The range of component `s` is `[1, 512]`.
-	fn set_retry_named(s: u32, ) -> Weight {
+	fn set_retry_named() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `647 + s * (178 ±0)`
 		//  Estimated: `110487`
 		// Minimum execution time: 10_838_000 picoseconds.
 		Weight::from_parts(12_804_076, 110487)
-			// Standard Error: 539
-			.saturating_add(Weight::from_parts(245_338, 0).saturating_mul(s.into()))
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -445,15 +439,12 @@ impl WeightInfo for () {
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(107022), added: 109497, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Retries` (r:0 w:1)
 	/// Proof: `Scheduler::Retries` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
-	/// The range of component `s` is `[1, 512]`.
-	fn set_retry(s: u32, ) -> Weight {
+	fn set_retry() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `81 + s * (177 ±0)`
 		//  Estimated: `110487`
 		// Minimum execution time: 8_130_000 picoseconds.
 		Weight::from_parts(9_047_554, 110487)
-			// Standard Error: 522
-			.saturating_add(Weight::from_parts(237_209, 0).saturating_mul(s.into()))
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
@@ -463,15 +454,12 @@ impl WeightInfo for () {
 	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(107022), added: 109497, mode: `MaxEncodedLen`)
 	/// Storage: `Scheduler::Retries` (r:0 w:1)
 	/// Proof: `Scheduler::Retries` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
-	/// The range of component `s` is `[1, 512]`.
-	fn set_retry_named(s: u32, ) -> Weight {
+	fn set_retry_named() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `647 + s * (178 ±0)`
 		//  Estimated: `110487`
 		// Minimum execution time: 10_838_000 picoseconds.
 		Weight::from_parts(12_804_076, 110487)
-			// Standard Error: 539
-			.saturating_add(Weight::from_parts(245_338, 0).saturating_mul(s.into()))
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}

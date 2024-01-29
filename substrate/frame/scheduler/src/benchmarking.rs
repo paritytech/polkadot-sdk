@@ -337,7 +337,7 @@ benchmarks! {
 	}
 
 	set_retry {
-		let s in 1 .. T::MaxScheduledPerBlock::get();
+		let s = T::MaxScheduledPerBlock::get();
 		let when = BLOCK_NUMBER.into();
 
 		fill_schedule::<T>(when, s)?;
@@ -357,7 +357,7 @@ benchmarks! {
 	}
 
 	set_retry_named {
-		let s in 1 .. T::MaxScheduledPerBlock::get();
+		let s = T::MaxScheduledPerBlock::get();
 		let when = BLOCK_NUMBER.into();
 
 		fill_schedule::<T>(when, s)?;
