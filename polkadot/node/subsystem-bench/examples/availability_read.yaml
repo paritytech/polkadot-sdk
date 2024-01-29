@@ -1,0 +1,45 @@
+TestConfiguration:
+# Test 1
+- objective: !DataAvailabilityRead
+    fetch_from_backers: true
+  n_validators: 300
+  n_cores: 20
+  min_pov_size: 5120
+  max_pov_size: 5120
+  peer_bandwidth: 52428800
+  bandwidth: 52428800
+  latency:
+    mean_latency_ms: 100
+    std_dev: 1
+  num_blocks: 3
+  connectivity: 90
+
+# Test 2
+- objective: !DataAvailabilityRead
+    fetch_from_backers: true
+  n_validators: 500
+  n_cores: 20
+  min_pov_size: 5120
+  max_pov_size: 5120
+  peer_bandwidth: 52428800
+  bandwidth: 52428800
+  latency:
+    mean_latency_ms: 100
+    std_dev: 1
+  num_blocks: 3
+  connectivity: 90
+
+# Test 3
+- objective: !DataAvailabilityRead
+    fetch_from_backers: true
+  n_validators: 1000
+  n_cores: 20
+  min_pov_size: 5120
+  max_pov_size: 5120
+  peer_bandwidth: 52428800
+  bandwidth: 52428800
+  latency:
+    mean_latency_ms: 100
+    std_dev: 1
+  num_blocks: 3
+  connectivity: 90

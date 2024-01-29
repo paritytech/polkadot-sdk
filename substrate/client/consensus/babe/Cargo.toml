@@ -1,6 +1,6 @@
 [package]
 name = "sc-consensus-babe"
-version = "0.10.0-dev"
+version = "0.34.0"
 authors.workspace = true
 description = "BABE consensus algorithm for substrate"
 edition.workspace = true
@@ -10,17 +10,20 @@ repository.workspace = true
 documentation = "https://docs.rs/sc-consensus-babe"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-async-trait = "0.1.57"
+async-trait = "0.1.74"
 codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
 futures = "0.3.21"
 log = "0.4.17"
 num-bigint = "0.4.3"
 num-rational = "0.4.1"
-num-traits = "0.2.8"
+num-traits = "0.2.17"
 parking_lot = "0.12.1"
 thiserror = "1.0"
 fork-tree = { path = "../../../utils/fork-tree" }
@@ -39,6 +42,7 @@ sp-consensus = { path = "../../../primitives/consensus/common" }
 sp-consensus-babe = { path = "../../../primitives/consensus/babe" }
 sp-consensus-slots = { path = "../../../primitives/consensus/slots" }
 sp-core = { path = "../../../primitives/core" }
+sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
 sp-inherents = { path = "../../../primitives/inherents" }
 sp-keystore = { path = "../../../primitives/keystore" }
 sp-runtime = { path = "../../../primitives/runtime" }

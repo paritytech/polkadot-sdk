@@ -1,10 +1,13 @@
 [package]
 name = "polkadot-node-core-chain-selection"
 description = "Chain Selection Subsystem"
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+
+[lints]
+workspace = true
 
 [dependencies]
 futures = "0.3.21"
@@ -21,6 +24,6 @@ parity-scale-codec = "3.6.1"
 [dev-dependencies]
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 sp-core = { path = "../../../../substrate/primitives/core" }
-parking_lot = "0.12.0"
+parking_lot = "0.12.1"
 assert_matches = "1"
 kvdb-memorydb = "0.13.0"

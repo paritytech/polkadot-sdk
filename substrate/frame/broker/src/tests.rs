@@ -20,11 +20,11 @@
 use crate::{core_mask::*, mock::*, *};
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::nonfungible::{Inspect as NftInspect, Transfer},
+	traits::nonfungible::{Inspect as NftInspect, Mutate, Transfer},
 	BoundedVec,
 };
 use frame_system::RawOrigin::Root;
-use sp_runtime::traits::Get;
+use sp_runtime::{traits::Get, TokenError};
 use CoreAssignment::*;
 use CoretimeTraceItem::*;
 use Finality::*;
@@ -194,6 +194,26 @@ fn transfer_works() {
 		assert_eq!(<Broker as NftInspect<_>>::owner(&region.into()), Some(2));
 		assert_noop!(Broker::do_assign(region, Some(1), 1001, Final), Error::<Test>::NotOwner);
 		assert_ok!(Broker::do_assign(region, Some(2), 1002, Final));
+	});
+}
+
+#[test]
+fn mutate_operations_unsupported_for_regions() {
+	TestExt::new().execute_with(|| {
+		let region_id = RegionId { begin: 0, core: 0, mask: CoreMask::complete() };
+		assert_noop!(
+			<Broker as Mutate<_>>::mint_into(&region_id.into(), &2),
+			TokenError::Unsupported
+		);
+		assert_noop!(<Broker as Mutate<_>>::burn(&region_id.into(), None), TokenError::Unsupported);
+		assert_noop!(
+			<Broker as Mutate<_>>::set_attribute(&region_id.into(), &[], &[]),
+			TokenError::Unsupported
+		);
+		assert_noop!(
+			<Broker as Mutate<_>>::set_typed_attribute::<u8, u8>(&region_id.into(), &0, &0),
+			TokenError::Unsupported
+		);
 	});
 }
 
@@ -595,6 +615,43 @@ fn interlace_works() {
 					core: 0,
 					begin: 8,
 					assignment: vec![(Task(1001), 21600), (Task(1002), 21600), (Task(1003), 14400),],
+					end_hint: None
+				}
+			),]
+		);
+	});
+}
+
+#[test]
+fn cant_assign_unowned_region() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let (region1, region2) =
+			Broker::do_interlace(region, Some(1), CoreMask::from_chunk(0, 30)).unwrap();
+
+		// Transfer the interlaced region to account 2.
+		assert_ok!(Broker::do_transfer(region2, Some(1), 2));
+
+		// The initial owner should not be able to assign the non-interlaced region, since they have
+		// just transferred an interlaced part of it to account 2.
+		assert_noop!(Broker::do_assign(region, Some(1), 1001, Final), Error::<Test>::UnknownRegion);
+
+		// Account 1 can assign only the interlaced region that they did not transfer.
+		assert_ok!(Broker::do_assign(region1, Some(1), 1001, Final));
+		// Account 2 can assign the region they received.
+		assert_ok!(Broker::do_assign(region2, Some(2), 1002, Final));
+
+		advance_to(10);
+		assert_eq!(
+			CoretimeTrace::get(),
+			vec![(
+				6,
+				AssignCore {
+					core: 0,
+					begin: 8,
+					assignment: vec![(Task(1001), 21600), (Task(1002), 36000)],
 					end_hint: None
 				}
 			),]

@@ -1,10 +1,13 @@
 [package]
 name = "polkadot-runtime-metrics"
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Runtime metric interface for the Polkadot node"
+
+[lints]
+workspace = true
 
 [dependencies]
 sp-std = { package = "sp-std", path = "../../../substrate/primitives/std", default-features = false }

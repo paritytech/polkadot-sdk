@@ -1,10 +1,13 @@
 [package]
 name = "polkadot-core-primitives"
-version = "1.0.0"
+version = "7.0.0"
 description = "Core Polkadot types used by Relay Chains and parachains."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+
+[lints]
+workspace = true
 
 [dependencies]
 sp-core = { path = "../../substrate/primitives/core", default-features = false }

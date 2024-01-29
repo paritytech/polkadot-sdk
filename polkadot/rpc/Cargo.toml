@@ -1,13 +1,16 @@
 [package]
 name = "polkadot-rpc"
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Polkadot specific RPC functionality."
 
+[lints]
+workspace = true
+
 [dependencies]
-jsonrpsee = { version = "0.16.2", features = ["server"] }
+jsonrpsee = { version = "0.20.3", features = ["server"] }
 polkadot-primitives = { path = "../primitives" }
 sc-client-api = { path = "../../substrate/client/api" }
 sp-blockchain = { path = "../../substrate/primitives/blockchain" }
@@ -18,6 +21,7 @@ sp-consensus = { path = "../../substrate/primitives/consensus/common" }
 sp-consensus-babe = { path = "../../substrate/primitives/consensus/babe" }
 sc-chain-spec = { path = "../../substrate/client/chain-spec" }
 sc-rpc = { path = "../../substrate/client/rpc" }
+sc-rpc-spec-v2 = { path = "../../substrate/client/rpc-spec-v2" }
 sc-consensus-babe = { path = "../../substrate/client/consensus/babe" }
 sc-consensus-babe-rpc = { path = "../../substrate/client/consensus/babe/rpc" }
 sc-consensus-beefy = { path = "../../substrate/client/consensus/beefy" }

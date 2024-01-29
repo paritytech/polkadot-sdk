@@ -1,10 +1,13 @@
 [package]
 name = "polkadot-collator-protocol"
-version = "1.0.0"
+version = "7.0.0"
 description = "Polkadot Collator Protocol subsystem. Allows collators and validators to talk to each other."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+
+[lints]
+workspace = true
 
 [dependencies]
 bitvec = { version = "1.0.1", default-features = false, features = ["alloc"] }

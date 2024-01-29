@@ -16,7 +16,7 @@
 
 use bp_header_chain::ChainWithGrandpa;
 use bp_polkadot_core::parachains::ParaId;
-use bp_runtime::{Chain, Parachain};
+use bp_runtime::{Chain, ChainId, Parachain};
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types, traits::ConstU32, weights::Weight,
 };
@@ -49,6 +49,8 @@ pub type BigParachainHeader = sp_runtime::generic::Header<u128, BlakeTwo256>;
 pub struct Parachain1;
 
 impl Chain for Parachain1 {
+	const ID: ChainId = *b"pch1";
+
 	type BlockNumber = u64;
 	type Hash = H256;
 	type Hasher = RegularParachainHasher;
@@ -73,6 +75,8 @@ impl Parachain for Parachain1 {
 pub struct Parachain2;
 
 impl Chain for Parachain2 {
+	const ID: ChainId = *b"pch2";
+
 	type BlockNumber = u64;
 	type Hash = H256;
 	type Hasher = RegularParachainHasher;
@@ -97,6 +101,8 @@ impl Parachain for Parachain2 {
 pub struct Parachain3;
 
 impl Chain for Parachain3 {
+	const ID: ChainId = *b"pch3";
+
 	type BlockNumber = u64;
 	type Hash = H256;
 	type Hasher = RegularParachainHasher;
@@ -122,6 +128,8 @@ impl Parachain for Parachain3 {
 pub struct BigParachain;
 
 impl Chain for BigParachain {
+	const ID: ChainId = *b"bpch";
+
 	type BlockNumber = u128;
 	type Hash = H256;
 	type Hasher = RegularParachainHasher;
@@ -229,6 +237,8 @@ impl pallet_bridge_parachains::benchmarking::Config<()> for TestRuntime {
 pub struct TestBridgedChain;
 
 impl Chain for TestBridgedChain {
+	const ID: ChainId = *b"tbch";
+
 	type BlockNumber = crate::RelayBlockNumber;
 	type Hash = crate::RelayBlockHash;
 	type Hasher = crate::RelayBlockHasher;
@@ -252,14 +262,16 @@ impl ChainWithGrandpa for TestBridgedChain {
 	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = "";
 	const MAX_AUTHORITIES_COUNT: u32 = 16;
 	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 8;
-	const MAX_HEADER_SIZE: u32 = 256;
-	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = 64;
+	const MAX_MANDATORY_HEADER_SIZE: u32 = 256;
+	const AVERAGE_HEADER_SIZE: u32 = 64;
 }
 
 #[derive(Debug)]
 pub struct OtherBridgedChain;
 
 impl Chain for OtherBridgedChain {
+	const ID: ChainId = *b"obch";
+
 	type BlockNumber = u64;
 	type Hash = crate::RelayBlockHash;
 	type Hasher = crate::RelayBlockHasher;
@@ -283,8 +295,8 @@ impl ChainWithGrandpa for OtherBridgedChain {
 	const WITH_CHAIN_GRANDPA_PALLET_NAME: &'static str = "";
 	const MAX_AUTHORITIES_COUNT: u32 = 16;
 	const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 8;
-	const MAX_HEADER_SIZE: u32 = 256;
-	const AVERAGE_HEADER_SIZE_IN_JUSTIFICATION: u32 = 64;
+	const MAX_MANDATORY_HEADER_SIZE: u32 = 256;
+	const AVERAGE_HEADER_SIZE: u32 = 64;
 }
 
 /// Return test externalities to use in tests.

@@ -276,6 +276,7 @@ impl From<FinalityNotification<Block>> for BlockInfo {
 
 /// An event from outside the overseer scope, such
 /// as the substrate framework or user interaction.
+#[derive(Debug)]
 pub enum Event {
 	/// A new block was imported.
 	///
@@ -300,6 +301,7 @@ pub enum Event {
 }
 
 /// Some request from outer world.
+#[derive(Debug)]
 pub enum ExternalRequest {
 	/// Wait for the activation of a particular hash
 	/// and be notified by means of the return channel.

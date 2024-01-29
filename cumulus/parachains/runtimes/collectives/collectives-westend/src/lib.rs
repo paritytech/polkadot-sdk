@@ -46,7 +46,7 @@ pub use ambassador::pallet_ambassador_origins;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use fellowship::{pallet_fellowship_origins, Fellows};
-use impls::{AllianceProposalProvider, EqualOrGreatestRootCmp, ToParentTreasury};
+use impls::{AllianceProposalProvider, EqualOrGreatestRootCmp};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
@@ -81,20 +81,26 @@ use frame_system::{
 };
 pub use parachains_common as common;
 use parachains_common::{
-	impls::DealWithFees, message_queue::*, AccountId, AuraId, Balance, BlockNumber, Hash, Header,
-	Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, MAXIMUM_BLOCK_WEIGHT, MINUTES,
-	NORMAL_DISPATCH_RATIO, SLOT_DURATION,
+	impls::{DealWithFees, ToParentTreasury},
+	message_queue::*,
+	westend::{account::*, consensus::*, currency::*, fee::WeightToFee},
+	AccountId, AuraId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
+	AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, MAXIMUM_BLOCK_WEIGHT, MINUTES, NORMAL_DISPATCH_RATIO,
+	SLOT_DURATION,
 };
 use sp_runtime::RuntimeDebug;
-use testnets_common::westend::{account::*, consensus::*, currency::*, fee::WeightToFee};
-use xcm_config::{GovernanceLocation, XcmOriginToTransactDispatchOrigin};
+use xcm_config::{
+	GovernanceLocation, LocationToAccountId, TreasurerBodyId, XcmOriginToTransactDispatchOrigin,
+};
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 
 // Polkadot imports
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
-use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
+use polkadot_runtime_common::{
+	impls::VersionedLocatableAsset, BlockHashCount, SlowAdjustingFeeUpdate,
+};
 use xcm::latest::{prelude::*, BodyId};
 
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
@@ -110,7 +116,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("collectives-westend"),
 	impl_name: create_runtime_str!("collectives-westend"),
 	authoring_version: 1,
-	spec_version: 1_004_000,
+	spec_version: 1_006_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 5,
@@ -323,6 +329,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 					RuntimeCall::FellowshipReferenda { .. } |
 					RuntimeCall::FellowshipCore { .. } |
 					RuntimeCall::FellowshipSalary { .. } |
+					RuntimeCall::FellowshipTreasury { .. } |
 					RuntimeCall::Utility { .. } |
 					RuntimeCall::Multisig { .. }
 			),
@@ -420,7 +427,7 @@ impl cumulus_pallet_aura_ext::Config for Runtime {}
 
 parameter_types! {
 	/// The asset ID for the asset that we use to pay for message delivery fees.
-	pub FeeAssetId: AssetId = Concrete(xcm_config::WndLocation::get());
+	pub FeeAssetId: AssetId = AssetId(xcm_config::WndLocation::get());
 	/// The base fee for the message delivery fees.
 	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
 }
@@ -532,9 +539,6 @@ pub const MAX_ALLIES: u32 = 100;
 
 parameter_types! {
 	pub const AllyDeposit: Balance = 1_000 * UNITS; // 1,000 WND bond to join as an Ally
-	// The Alliance pallet account, used as a temporary place to deposit a slashed imbalance
-	// before the teleport to the Treasury.
-	pub AlliancePalletAccount: AccountId = ALLIANCE_PALLET_ID.into_account_truncating();
 	pub WestendTreasuryAccount: AccountId = WESTEND_TREASURY_PALLET_ID.into_account_truncating();
 	// The number of blocks a member must wait between giving a retirement notice and retiring.
 	// Supposed to be greater than time required to `kick_member` with alliance motion.
@@ -548,7 +552,7 @@ impl pallet_alliance::Config for Runtime {
 	type MembershipManager = RootOrAllianceTwoThirdsMajority;
 	type AnnouncementOrigin = RootOrAllianceTwoThirdsMajority;
 	type Currency = Balances;
-	type Slashed = ToParentTreasury<WestendTreasuryAccount, AlliancePalletAccount, Runtime>;
+	type Slashed = ToParentTreasury<WestendTreasuryAccount, LocationToAccountId, Runtime>;
 	type InitializeMembers = AllianceMotion;
 	type MembershipChanged = AllianceMotion;
 	type RetirementPeriod = AllianceRetirementPeriod;
@@ -611,66 +615,82 @@ impl pallet_preimage::Config for Runtime {
 	>;
 }
 
+impl pallet_asset_rate::Config for Runtime {
+	type WeightInfo = weights::pallet_asset_rate::WeightInfo<Runtime>;
+	type RuntimeEvent = RuntimeEvent;
+	type CreateOrigin = EitherOfDiverse<
+		EnsureRoot<AccountId>,
+		EitherOfDiverse<EnsureXcm<IsVoiceOfBody<GovernanceLocation, TreasurerBodyId>>, Fellows>,
+	>;
+	type RemoveOrigin = Self::CreateOrigin;
+	type UpdateOrigin = Self::CreateOrigin;
+	type Currency = Balances;
+	type AssetKind = VersionedLocatableAsset;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::AssetRateArguments;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
 	{
 		// System support stuff.
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 0,
-		ParachainSystem: cumulus_pallet_parachain_system::{
-			Pallet, Call, Config<T>, Storage, Inherent, Event<T>, ValidateUnsigned,
-		} = 1,
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 2,
-		ParachainInfo: parachain_info::{Pallet, Storage, Config<T>} = 3,
+		System: frame_system = 0,
+		ParachainSystem: cumulus_pallet_parachain_system = 1,
+		Timestamp: pallet_timestamp = 2,
+		ParachainInfo: parachain_info = 3,
 
 		// Monetary stuff.
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 11,
+		Balances: pallet_balances = 10,
+		TransactionPayment: pallet_transaction_payment = 11,
 
 		// Collator support. the order of these 5 are important and shall not change.
-		Authorship: pallet_authorship::{Pallet, Storage} = 20,
-		CollatorSelection: pallet_collator_selection::{Pallet, Call, Storage, Event<T>, Config<T>} = 21,
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 22,
-		Aura: pallet_aura::{Pallet, Storage, Config<T>} = 23,
-		AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config<T>} = 24,
+		Authorship: pallet_authorship = 20,
+		CollatorSelection: pallet_collator_selection = 21,
+		Session: pallet_session = 22,
+		Aura: pallet_aura = 23,
+		AuraExt: cumulus_pallet_aura_ext = 24,
 
 		// XCM helpers.
-		XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>} = 30,
-		PolkadotXcm: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config<T>} = 31,
-		CumulusXcm: cumulus_pallet_xcm::{Pallet, Event<T>, Origin} = 32,
-		MessageQueue: pallet_message_queue::{Pallet, Call, Storage, Event<T>} = 34,
+		XcmpQueue: cumulus_pallet_xcmp_queue = 30,
+		PolkadotXcm: pallet_xcm = 31,
+		CumulusXcm: cumulus_pallet_xcm = 32,
+		MessageQueue: pallet_message_queue = 34,
 
 		// Handy utilities.
-		Utility: pallet_utility::{Pallet, Call, Event} = 40,
-		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 41,
-		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 42,
-		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>, HoldReason} = 43,
-		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 44,
+		Utility: pallet_utility = 40,
+		Multisig: pallet_multisig = 41,
+		Proxy: pallet_proxy = 42,
+		Preimage: pallet_preimage = 43,
+		Scheduler: pallet_scheduler = 44,
+		AssetRate: pallet_asset_rate = 45,
 
 		// The main stage.
 
 		// The Alliance.
-		Alliance: pallet_alliance::{Pallet, Call, Storage, Event<T>, Config<T>} = 50,
-		AllianceMotion: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 51,
+		Alliance: pallet_alliance = 50,
+		AllianceMotion: pallet_collective::<Instance1> = 51,
 
 		// The Fellowship.
 		// pub type FellowshipCollectiveInstance = pallet_ranked_collective::Instance1;
-		FellowshipCollective: pallet_ranked_collective::<Instance1>::{Pallet, Call, Storage, Event<T>} = 60,
+		FellowshipCollective: pallet_ranked_collective::<Instance1> = 60,
 		// pub type FellowshipReferendaInstance = pallet_referenda::Instance1;
-		FellowshipReferenda: pallet_referenda::<Instance1>::{Pallet, Call, Storage, Event<T>} = 61,
-		FellowshipOrigins: pallet_fellowship_origins::{Origin} = 62,
+		FellowshipReferenda: pallet_referenda::<Instance1> = 61,
+		FellowshipOrigins: pallet_fellowship_origins = 62,
 		// pub type FellowshipCoreInstance = pallet_core_fellowship::Instance1;
-		FellowshipCore: pallet_core_fellowship::<Instance1>::{Pallet, Call, Storage, Event<T>} = 63,
+		FellowshipCore: pallet_core_fellowship::<Instance1> = 63,
 		// pub type FellowshipSalaryInstance = pallet_salary::Instance1;
-		FellowshipSalary: pallet_salary::<Instance1>::{Pallet, Call, Storage, Event<T>} = 64,
+		FellowshipSalary: pallet_salary::<Instance1> = 64,
+		// pub type FellowshipTreasuryInstance = pallet_treasury::Instance1;
+		FellowshipTreasury: pallet_treasury::<Instance1> = 65,
 
 		// Ambassador Program.
-		AmbassadorCollective: pallet_ranked_collective::<Instance2>::{Pallet, Call, Storage, Event<T>} = 70,
-		AmbassadorReferenda: pallet_referenda::<Instance2>::{Pallet, Call, Storage, Event<T>} = 71,
-		AmbassadorOrigins: pallet_ambassador_origins::{Origin} = 72,
-		AmbassadorCore: pallet_core_fellowship::<Instance2>::{Pallet, Call, Storage, Event<T>} = 73,
-		AmbassadorSalary: pallet_salary::<Instance2>::{Pallet, Call, Storage, Event<T>} = 74,
-		AmbassadorContent: pallet_collective_content::<Instance1>::{Pallet, Call, Storage, Event<T>} = 75,
+		AmbassadorCollective: pallet_ranked_collective::<Instance2> = 70,
+		AmbassadorReferenda: pallet_referenda::<Instance2> = 71,
+		AmbassadorOrigins: pallet_ambassador_origins = 72,
+		AmbassadorCore: pallet_core_fellowship::<Instance2> = 73,
+		AmbassadorSalary: pallet_salary::<Instance2> = 74,
+		AmbassadorContent: pallet_collective_content::<Instance1> = 75,
 	}
 );
 
@@ -742,6 +762,8 @@ mod benches {
 		[pallet_collective_content, AmbassadorContent]
 		[pallet_core_fellowship, AmbassadorCore]
 		[pallet_salary, AmbassadorSalary]
+		[pallet_treasury, FellowshipTreasury]
+		[pallet_asset_rate, AssetRate]
 	);
 }
 
@@ -950,24 +972,36 @@ impl_runtime_apis! {
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
-				fn reachable_dest() -> Option<MultiLocation> {
+				fn reachable_dest() -> Option<Location> {
 					Some(Parent.into())
 				}
 
-				fn teleportable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
+				fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
 					// Relay/native token can be teleported between Collectives and Relay.
 					Some((
-						MultiAsset {
+						Asset {
 							fun: Fungible(EXISTENTIAL_DEPOSIT),
-							id: Concrete(Parent.into())
+							id: AssetId(Parent.into())
 						}.into(),
 						Parent.into(),
 					))
 				}
 
-				fn reserve_transferable_asset_and_dest() -> Option<(MultiAsset, MultiLocation)> {
+				fn reserve_transferable_asset_and_dest() -> Option<(Asset, Location)> {
 					// Reserve transfers are disabled on Collectives.
 					None
+				}
+
+				fn set_up_complex_asset_transfer(
+				) -> Option<(Assets, u32, Location, Box<dyn FnOnce()>)> {
+					// Collectives only supports teleports to system parachain.
+					// Relay/native token can be teleported between Collectives and Relay.
+					let native_location = Parent.into();
+					let dest = Parent.into();
+					pallet_xcm::benchmarking::helpers::native_teleport_as_asset_transfer::<Runtime>(
+						native_location,
+						dest
+					)
 				}
 			}
 

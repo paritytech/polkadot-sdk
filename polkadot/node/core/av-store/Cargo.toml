@@ -1,10 +1,13 @@
 [package]
 name = "polkadot-node-core-av-store"
 description = "The Availability Store subsystem. Wrapper over the DB that stores availability data and chunks."
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+
+[lints]
+workspace = true
 
 [dependencies]
 futures = "0.3.21"
@@ -34,5 +37,5 @@ sp-core = { path = "../../../../substrate/primitives/core" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
-parking_lot = "0.12.0"
+parking_lot = "0.12.1"
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../../primitives/test-helpers" }

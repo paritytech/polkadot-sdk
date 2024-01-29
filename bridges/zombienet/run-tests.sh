@@ -1,18 +1,49 @@
 #!/bin/bash
 #set -eu
+set -x
 shopt -s nullglob
 
-trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
+trap "trap - SIGINT SIGTERM EXIT && kill -- -$$" SIGINT SIGTERM EXIT
+
+# whether to use paths for zombienet+bridges tests container or for local testing
+ZOMBIENET_DOCKER_PATHS=0
+while [ $# -ne 0 ]
+do
+    arg="$1"
+    case "$arg" in
+        --docker)
+            ZOMBIENET_DOCKER_PATHS=1
+            ;;
+    esac
+    shift
+done
 
 # assuming that we'll be using native provide && all processes will be executing locally
 # (we need absolute paths here, because they're used when scripts are called by zombienet from tmp folders)
 export POLKADOT_SDK_FOLDER=`realpath $(dirname "$0")/../..`
 export BRIDGE_TESTS_FOLDER=$POLKADOT_SDK_FOLDER/bridges/zombienet/tests
-export POLKADOT_BINARY_PATH=$POLKADOT_SDK_FOLDER/target/release/polkadot
-export POLKADOT_PARACHAIN_BINARY_PATH=$POLKADOT_SDK_FOLDER/target/release/polkadot-parachain
-export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO=$POLKADOT_PARACHAIN_BINARY_PATH
-export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND=$POLKADOT_PARACHAIN_BINARY_PATH
-export ZOMBIENET_BINARY_PATH=~/local_bridge_testing/bin/zombienet-linux
+
+# set pathc to binaries
+if [ "$ZOMBIENET_DOCKER_PATHS" -eq 1 ]; then
+    export POLKADOT_BINARY_PATH=/usr/local/bin/polkadot
+    export POLKADOT_PARACHAIN_BINARY_PATH=/usr/local/bin/polkadot-parachain
+    export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO=/usr/local/bin/polkadot-parachain
+    export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND=/usr/local/bin/polkadot-parachain
+
+    export SUBSTRATE_RELAY_PATH=/usr/local/bin/substrate-relay
+    export ZOMBIENET_BINARY_PATH=/usr/local/bin/zombie
+else
+    export POLKADOT_BINARY_PATH=$POLKADOT_SDK_FOLDER/target/release/polkadot
+    export POLKADOT_PARACHAIN_BINARY_PATH=$POLKADOT_SDK_FOLDER/target/release/polkadot-parachain
+    export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO=$POLKADOT_PARACHAIN_BINARY_PATH
+    export POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND=$POLKADOT_PARACHAIN_BINARY_PATH
+
+    export SUBSTRATE_RELAY_PATH=~/local_bridge_testing/bin/substrate-relay
+    export ZOMBIENET_BINARY_PATH=~/local_bridge_testing/bin/zombienet-linux
+fi
+
+# check if `wait` supports -p flag
+if [ `printf "$BASH_VERSION\n5.1" | sort -V | head -n 1` = "5.1" ]; then IS_BASH_5_1=1; else IS_BASH_5_1=0; fi
 
 # check if `wait` supports -p flag
 if [ `printf "$BASH_VERSION\n5.1" | sort -V | head -n 1` = "5.1" ]; then IS_BASH_5_1=1; else IS_BASH_5_1=0; fi
@@ -21,13 +52,17 @@ if [ `printf "$BASH_VERSION\n5.1" | sort -V | head -n 1` = "5.1" ]; then IS_BASH
 export LANE_ID="00000002"
 
 # tests configuration
-ALL_TESTS_FOLDER=`mktemp -d`
+ALL_TESTS_FOLDER=`mktemp -d /tmp/bridges-zombienet-tests.XXXXX`
 
 function start_coproc() {
     local command=$1
     local name=$2
     local coproc_log=`mktemp -p $TEST_FOLDER`
     coproc COPROC {
+        # otherwise zombienet uses some hardcoded paths
+        unset RUN_IN_CONTAINER
+        unset ZOMBIENET_IMAGE
+
         $command >$coproc_log 2>&1
     }
     TEST_COPROCS[$COPROC_PID, 0]=$name
@@ -90,6 +125,7 @@ do
             echo "=== Shutting down. Log of failed process below                    ==="
             echo "====================================================================="
             echo $coproc_stdout
+
             exit 1
         fi
 

@@ -12,77 +12,29 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use crate::*;
+use crate::tests::*;
 
-fn send_asset_from_asset_hub_westend_to_asset_hub_rococo(id: MultiLocation, amount: u128) {
-	let signed_origin =
-		<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get().into());
-	let asset_hub_rococo_para_id = AssetHubRococo::para_id().into();
-	let destination = MultiLocation {
-		parents: 2,
-		interior: X2(GlobalConsensus(NetworkId::Rococo), Parachain(asset_hub_rococo_para_id)),
-	};
-	let beneficiary_id = AssetHubRococoReceiver::get();
-	let beneficiary: MultiLocation =
-		AccountId32Junction { network: None, id: beneficiary_id.into() }.into();
-	let assets: MultiAssets = (id, amount).into();
-	let fee_asset_item = 0;
+fn send_asset_from_asset_hub_westend_to_asset_hub_rococo(id: Location, amount: u128) {
+	let destination = asset_hub_rococo_location();
 
 	// fund the AHW's SA on BHW for paying bridge transport fees
-	let ahw_as_seen_by_bhw = BridgeHubWestend::sibling_location_of(AssetHubWestend::para_id());
-	let sov_ahw_on_bhw = BridgeHubWestend::sovereign_account_id_of(ahw_as_seen_by_bhw);
-	BridgeHubWestend::fund_accounts(vec![(sov_ahw_on_bhw.into(), 10_000_000_000_000u128)]);
+	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id(), 10_000_000_000_000u128);
 
-	AssetHubWestend::execute_with(|| {
-		assert_ok!(
-			<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::limited_reserve_transfer_assets(
-				signed_origin,
-				bx!(destination.into()),
-				bx!(beneficiary.into()),
-				bx!(assets.into()),
-				fee_asset_item,
-				WeightLimit::Unlimited,
-			)
-		);
-	});
+	// set XCM versions
+	AssetHubWestend::force_xcm_version(destination.clone(), XCM_VERSION);
+	BridgeHubWestend::force_xcm_version(bridge_hub_rococo_location(), XCM_VERSION);
 
-	BridgeHubWestend::execute_with(|| {
-		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
-		assert_expected_events!(
-			BridgeHubWestend,
-			vec![
-				// pay for bridge fees
-				RuntimeEvent::Balances(pallet_balances::Event::Withdraw { .. }) => {},
-				// message exported
-				RuntimeEvent::BridgeRococoMessages(
-					pallet_bridge_messages::Event::MessageAccepted { .. }
-				) => {},
-				// message processed successfully
-				RuntimeEvent::MessageQueue(
-					pallet_message_queue::Event::Processed { success: true, .. }
-				) => {},
-			]
-		);
-	});
-	BridgeHubRococo::execute_with(|| {
-		type RuntimeEvent = <BridgeHubRococo as Chain>::RuntimeEvent;
-		assert_expected_events!(
-			BridgeHubRococo,
-			vec![
-				// message dispatched successfully
-				RuntimeEvent::XcmpQueue(
-					cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }
-				) => {},
-			]
-		);
-	});
+	// send message over bridge
+	assert_ok!(send_asset_from_asset_hub_westend(destination, (id, amount)));
+	assert_bridge_hub_westend_message_accepted(true);
+	assert_bridge_hub_rococo_message_received();
 }
 
 #[test]
 fn send_wnds_from_asset_hub_westend_to_asset_hub_rococo() {
-	let wnd_at_asset_hub_westend: MultiLocation = Parent.into();
+	let wnd_at_asset_hub_westend: Location = Parent.into();
 	let wnd_at_asset_hub_rococo =
-		MultiLocation { parents: 2, interior: X1(GlobalConsensus(NetworkId::Westend)) };
+		v3::Location::new(2, [v3::Junction::GlobalConsensus(v3::NetworkId::Westend)]);
 	let owner: AccountId = AssetHubRococo::account_id_of(ALICE);
 	AssetHubRococo::force_create_foreign_asset(
 		wnd_at_asset_hub_rococo,
@@ -95,6 +47,49 @@ fn send_wnds_from_asset_hub_westend_to_asset_hub_rococo() {
 		NetworkId::Rococo,
 		AssetHubRococo::para_id(),
 	);
+
+	AssetHubRococo::execute_with(|| {
+		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
+
+		// setup a pool to pay xcm fees with `wnd_at_asset_hub_rococo` tokens
+		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::ForeignAssets::mint(
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			wnd_at_asset_hub_rococo.into(),
+			AssetHubRococoSender::get().into(),
+			3_000_000_000_000,
+		));
+
+		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::create_pool(
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			Box::new(xcm::v3::Parent.into()),
+			Box::new(wnd_at_asset_hub_rococo),
+		));
+
+		assert_expected_events!(
+			AssetHubRococo,
+			vec![
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::PoolCreated { .. }) => {},
+			]
+		);
+
+		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::add_liquidity(
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			Box::new(xcm::v3::Parent.into()),
+			Box::new(wnd_at_asset_hub_rococo),
+			1_000_000_000_000,
+			2_000_000_000_000,
+			1,
+			1,
+			AssetHubRococoSender::get().into()
+		));
+
+		assert_expected_events!(
+			AssetHubRococo,
+			vec![
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded {..}) => {},
+			]
+		);
+	});
 
 	let wnds_in_reserve_on_ahw_before =
 		<AssetHubWestend as Chain>::account_data_of(sov_ahr_on_ahw.clone()).free;
@@ -146,7 +141,7 @@ fn send_wnds_from_asset_hub_westend_to_asset_hub_rococo() {
 fn send_rocs_from_asset_hub_westend_to_asset_hub_rococo() {
 	let prefund_amount = 10_000_000_000_000u128;
 	let roc_at_asset_hub_westend =
-		MultiLocation { parents: 2, interior: X1(GlobalConsensus(NetworkId::Rococo)) };
+		v3::Location::new(2, [v3::Junction::GlobalConsensus(v3::NetworkId::Rococo)]);
 	let owner: AccountId = AssetHubWestend::account_id_of(ALICE);
 	AssetHubWestend::force_create_foreign_asset(
 		roc_at_asset_hub_westend,
@@ -174,8 +169,12 @@ fn send_rocs_from_asset_hub_westend_to_asset_hub_rococo() {
 	let receiver_rocs_before =
 		<AssetHubRococo as Chain>::account_data_of(AssetHubRococoReceiver::get()).free;
 
+	let roc_at_asset_hub_westend_latest: Location = roc_at_asset_hub_westend.try_into().unwrap();
 	let amount_to_send = ASSET_HUB_ROCOCO_ED * 1_000;
-	send_asset_from_asset_hub_westend_to_asset_hub_rococo(roc_at_asset_hub_westend, amount_to_send);
+	send_asset_from_asset_hub_westend_to_asset_hub_rococo(
+		roc_at_asset_hub_westend_latest.clone(),
+		amount_to_send,
+	);
 	AssetHubRococo::execute_with(|| {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 		assert_expected_events!(

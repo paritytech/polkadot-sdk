@@ -87,7 +87,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn process_core_count(status: &mut StatusRecord) -> bool {
-		if let Some(core_count) = T::Coretime::check_notify_core_count() {
+		if let Some(core_count) = CoreCountInbox::<T>::take() {
 			status.core_count = core_count;
 			Self::deposit_event(Event::<T>::CoreCountChanged { core_count });
 			return true
@@ -112,10 +112,16 @@ impl<T: Config> Pallet<T> {
 		}
 		// Payout system InstaPool Cores.
 		let total_contrib = r.system_contributions.saturating_add(r.private_contributions);
-		let system_payout =
-			revenue.saturating_mul(r.system_contributions.into()) / total_contrib.into();
-		let _ = Self::charge(&Self::account_id(), system_payout);
-		revenue.saturating_reduce(system_payout);
+		let system_payout = if !total_contrib.is_zero() {
+			let system_payout =
+				revenue.saturating_mul(r.system_contributions.into()) / total_contrib.into();
+			let _ = Self::charge(&Self::account_id(), system_payout);
+			revenue.saturating_reduce(system_payout);
+
+			system_payout
+		} else {
+			Zero::zero()
+		};
 
 		if !revenue.is_zero() && r.private_contributions > 0 {
 			r.maybe_payout = Some(revenue);

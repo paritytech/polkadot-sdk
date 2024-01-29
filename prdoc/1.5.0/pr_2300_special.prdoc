@@ -1,0 +1,9 @@
+title: '[testnet] Remove Wococo stuff from BridgeHubRococo/AssetHubRococo'
+author: bkontur 
+topic: Bridges
+
+doc:
+  - audience: Runtime Dev
+    description: n/a
+
+crates: []

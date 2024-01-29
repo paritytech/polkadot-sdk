@@ -452,9 +452,9 @@ impl<T: Config> Leaser<BlockNumberFor<T>> for Pallet<T> {
 		// Note that blocks before `LeaseOffset` do not count as any lease period.
 		let offset_block_now = b.checked_sub(&T::LeaseOffset::get())?;
 		let lease_period = offset_block_now / T::LeasePeriod::get();
-		let first_block = (offset_block_now % T::LeasePeriod::get()).is_zero();
+		let at_begin = (offset_block_now % T::LeasePeriod::get()).is_zero();
 
-		Some((lease_period, first_block))
+		Some((lease_period, at_begin))
 	}
 
 	fn already_leased(
@@ -520,9 +520,9 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-			Slots: slots::{Pallet, Call, Storage, Event<T>},
+			System: frame_system,
+			Balances: pallet_balances,
+			Slots: slots,
 		}
 	);
 

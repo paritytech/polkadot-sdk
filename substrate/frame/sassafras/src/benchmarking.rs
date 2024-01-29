@@ -260,7 +260,7 @@ mod benchmarks {
 		// Update metadata
 		let mut meta = TicketsMeta::<T>::get();
 		meta.unsorted_tickets_count = tickets_count;
-		TicketsMeta::<T>::set(meta.clone());
+		TicketsMeta::<T>::set(meta);
 
 		log::debug!(target: LOG_TARGET, "Before sort: {:?}", meta);
 		#[block]

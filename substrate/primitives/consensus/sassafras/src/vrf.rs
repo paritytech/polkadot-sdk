@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Utilities related to VRF input, output and signatures.
+//! Utilities related to VRF input, pre-output and signatures.
 
 use crate::{Randomness, TicketBody, TicketId};
 use scale_codec::Encode;
@@ -24,7 +24,7 @@ use sp_std::vec::Vec;
 
 pub use sp_core::bandersnatch::{
 	ring_vrf::{RingProver, RingVerifier, RingVerifierData, RingVrfSignature},
-	vrf::{VrfInput, VrfOutput, VrfSignData, VrfSignature},
+	vrf::{VrfInput, VrfPreOutput, VrfSignData, VrfSignature},
 };
 
 /// Ring VRF domain size for Sassafras consensus.
@@ -90,21 +90,21 @@ pub fn ticket_body_sign_data(ticket_body: &TicketBody, ticket_id_input: VrfInput
 	)
 }
 
-/// Make ticket-id from the given VRF input and output.
+/// Make ticket-id from the given VRF input and pre-output.
 ///
 /// Input should have been obtained via [`ticket_id_input`].
-/// Output should have been obtained from the input directly using the vrf secret key
-/// or from the vrf signature outputs.
-pub fn make_ticket_id(input: &VrfInput, output: &VrfOutput) -> TicketId {
-	let bytes = output.make_bytes::<16>(b"ticket-id", input);
+/// Pre-output should have been obtained from the input directly using the vrf
+/// secret key or from the vrf signature pre-outputs.
+pub fn make_ticket_id(input: &VrfInput, pre_output: &VrfPreOutput) -> TicketId {
+	let bytes = pre_output.make_bytes::<16>(b"ticket-id", input);
 	u128::from_le_bytes(bytes)
 }
 
-/// Make revealed key seed from a given VRF input and ouput.
+/// Make revealed key seed from a given VRF input and pre-ouput.
 ///
 /// Input should have been obtained via [`revealed_key_input`].
-/// Output should have been obtained from the input directly using the vrf secret key
-/// or from the vrf signature outputs.
-pub fn make_revealed_key_seed(input: &VrfInput, output: &VrfOutput) -> [u8; 32] {
-	output.make_bytes::<32>(b"revealed-seed", input)
+/// Pre-output should have been obtained from the input directly using the vrf
+/// secret key or from the vrf signature pre-outputs.
+pub fn make_revealed_key_seed(input: &VrfInput, pre_output: &VrfPreOutput) -> [u8; 32] {
+	pre_output.make_bytes::<32>(b"revealed-seed", input)
 }

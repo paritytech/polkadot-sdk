@@ -17,6 +17,7 @@ jobs:
         channel:
           - name: "RelEng: Polkadot Release Coordination"
             room: '!cqAmzdIcbOFwrdrubV:parity.io'
+    environment: release
 
     steps:
       - name: Checkout sources

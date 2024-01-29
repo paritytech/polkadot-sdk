@@ -260,7 +260,11 @@ where
 	///
 	/// Only votes for `set_id` and rounds `start <= round <= end` will be accepted.
 	pub(crate) fn update_filter(&self, filter: GossipFilterCfg<B>) {
-		debug!(target: LOG_TARGET, "🥩 New gossip filter {:?}", filter);
+		debug!(
+			target: LOG_TARGET,
+			"🥩 New gossip filter: start {:?}, end {:?}, validator set id {:?}",
+			filter.start, filter.end, filter.validator_set.id()
+		);
 		self.gossip_filter.write().update(filter);
 	}
 

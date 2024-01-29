@@ -1,10 +1,13 @@
 [package]
 name = "polkadot-availability-distribution"
 description = "The Availability Distribution subsystem. Requests the required availability data. Also distributes availability data and chunks to requesters."
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+
+[lints]
+workspace = true
 
 [dependencies]
 futures = "0.3.21"

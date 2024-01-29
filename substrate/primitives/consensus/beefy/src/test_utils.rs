@@ -15,20 +15,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![cfg(feature = "std")]
-
-use core::fmt::Debug;
-use sp_runtime::traits::Hash;
-
 #[cfg(feature = "bls-experimental")]
 use crate::ecdsa_bls_crypto;
 use crate::{
 	ecdsa_crypto, AuthorityIdBound, BeefySignatureHasher, Commitment, EquivocationProof, Payload,
 	ValidatorSetId, VoteMessage,
 };
-use codec::Encode;
 use sp_application_crypto::{AppCrypto, AppPair, RuntimeAppPublic, Wraps};
 use sp_core::{ecdsa, Pair};
+use sp_runtime::traits::Hash;
+
+use codec::Encode;
 use std::{collections::HashMap, marker::PhantomData};
 use strum::IntoEnumIterator;
 

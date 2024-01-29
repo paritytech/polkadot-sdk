@@ -224,7 +224,7 @@ impl TestNetworkHandle {
 				PeerSet::Validation => Some(ProtocolName::from("/polkadot/validation/1")),
 				PeerSet::Collation => Some(ProtocolName::from("/polkadot/collation/1")),
 			},
-			ValidationVersion::VStaging => match peer_set {
+			ValidationVersion::V3 => match peer_set {
 				PeerSet::Validation => Some(ProtocolName::from("/polkadot/validation/3")),
 				PeerSet::Collation => unreachable!(),
 			},
@@ -1433,8 +1433,8 @@ fn network_protocol_versioning_view_update() {
 				ValidationVersion::V2 =>
 					WireMessage::<protocol_v2::ValidationProtocol>::ViewUpdate(view.clone())
 						.encode(),
-				ValidationVersion::VStaging =>
-					WireMessage::<protocol_vstaging::ValidationProtocol>::ViewUpdate(view.clone())
+				ValidationVersion::V3 =>
+					WireMessage::<protocol_v3::ValidationProtocol>::ViewUpdate(view.clone())
 						.encode(),
 			};
 			assert_network_actions_contains(
@@ -1469,7 +1469,7 @@ fn network_protocol_versioning_subsystem_msg() {
 				NetworkBridgeEvent::PeerConnected(
 					peer,
 					ObservedRole::Full,
-					ValidationVersion::V2.into(),
+					ValidationVersion::V3.into(),
 					None,
 				),
 				&mut virtual_overseer,
@@ -1484,9 +1484,9 @@ fn network_protocol_versioning_subsystem_msg() {
 		}
 
 		let approval_distribution_message =
-			protocol_v2::ApprovalDistributionMessage::Approvals(Vec::new());
+			protocol_v3::ApprovalDistributionMessage::Approvals(Vec::new());
 
-		let msg = protocol_v2::ValidationProtocol::ApprovalDistribution(
+		let msg = protocol_v3::ValidationProtocol::ApprovalDistribution(
 			approval_distribution_message.clone(),
 		);
 
@@ -1502,7 +1502,7 @@ fn network_protocol_versioning_subsystem_msg() {
 			virtual_overseer.recv().await,
 			AllMessages::ApprovalDistribution(
 				ApprovalDistributionMessage::NetworkBridgeUpdate(
-					NetworkBridgeEvent::PeerMessage(p, Versioned::V2(m))
+					NetworkBridgeEvent::PeerMessage(p, Versioned::V3(m))
 				)
 			) => {
 				assert_eq!(p, peer);
@@ -1536,7 +1536,7 @@ fn network_protocol_versioning_subsystem_msg() {
 			virtual_overseer.recv().await,
 			AllMessages::StatementDistribution(
 				StatementDistributionMessage::NetworkBridgeUpdate(
-					NetworkBridgeEvent::PeerMessage(p, Versioned::V2(m))
+					NetworkBridgeEvent::PeerMessage(p, Versioned::V3(m))
 				)
 			) => {
 				assert_eq!(p, peer);

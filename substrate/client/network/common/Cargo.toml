@@ -1,13 +1,16 @@
 [package]
 description = "Substrate network common"
 name = "sc-network-common"
-version = "0.10.0-dev"
+version = "0.33.0"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 authors.workspace = true
 edition.workspace = true
 homepage = "https://substrate.io"
 repository.workspace = true
 documentation = "https://docs.rs/sc-network-sync"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -16,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 prost-build = "0.11"
 
 [dependencies]
-async-trait = "0.1.57"
+async-trait = "0.1.74"
 bitflags = "1.3.2"
 codec = { package = "parity-scale-codec", version = "3.6.1", features = [
 	"derive",

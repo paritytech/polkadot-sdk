@@ -1,11 +1,14 @@
 [package]
 name = "cumulus-pallet-dmp-queue"
-version = "0.1.0"
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
 repository.workspace = true
 description = "Migrates messages from the old DMP queue pallet."
 license = "Apache-2.0"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]

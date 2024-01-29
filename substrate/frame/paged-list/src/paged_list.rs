@@ -407,13 +407,11 @@ where
 #[allow(dead_code)]
 pub(crate) mod mock {
 	pub use super::*;
-	pub use frame_support::{
-		parameter_types,
-		storage::{types::ValueQuery, StorageList as _},
-		StorageNoopGuard,
-	};
-	pub use sp_io::{hashing::twox_128, TestExternalities};
-	pub use sp_metadata_ir::{StorageEntryModifierIR, StorageEntryTypeIR, StorageHasherIR};
+	pub use frame_support::parameter_types;
+	#[cfg(test)]
+	pub use frame_support::{storage::StorageList as _, StorageNoopGuard};
+	#[cfg(test)]
+	pub use sp_io::TestExternalities;
 
 	parameter_types! {
 		pub const ValuesPerNewPage: u32 = 5;

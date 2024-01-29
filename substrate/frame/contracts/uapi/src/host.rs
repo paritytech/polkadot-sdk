@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use crate::{CallFlags, Result, ReturnFlags, SENTINEL};
+use crate::{CallFlags, Result, ReturnFlags};
 use paste::paste;
 
 #[cfg(target_arch = "wasm32")]
@@ -36,23 +36,30 @@ macro_rules! hash_fn {
 	};
 }
 
+// TODO remove cfg once used by all targets
+#[cfg(target_arch = "wasm32")]
+#[inline(always)]
 fn extract_from_slice(output: &mut &mut [u8], new_len: usize) {
 	debug_assert!(new_len <= output.len());
 	let tmp = core::mem::take(output);
 	*output = &mut tmp[..new_len];
 }
 
-fn ptr_len_or_sentinel(data: &mut Option<&mut [u8]>) -> (*mut u8, u32) {
+#[cfg(target_arch = "wasm32")]
+#[inline(always)]
+fn ptr_len_or_sentinel(data: &mut Option<&mut &mut [u8]>) -> (*mut u8, u32) {
 	match data {
 		Some(ref mut data) => (data.as_mut_ptr(), data.len() as _),
-		None => (SENTINEL as _, 0),
+		None => (crate::SENTINEL as _, 0),
 	}
 }
 
+#[cfg(target_arch = "wasm32")]
+#[inline(always)]
 fn ptr_or_sentinel(data: &Option<&[u8]>) -> *const u8 {
 	match data {
 		Some(ref data) => data.as_ptr(),
-		None => SENTINEL as _,
+		None => crate::SENTINEL as _,
 	}
 }
 
@@ -128,7 +135,7 @@ pub trait HostFn {
 		gas: u64,
 		value: &[u8],
 		input_data: &[u8],
-		output: Option<&mut [u8]>,
+		output: Option<&mut &mut [u8]>,
 	) -> Result;
 
 	/// Make a call to another contract.
@@ -141,7 +148,7 @@ pub trait HostFn {
 		gas: u64,
 		value: &[u8],
 		input_data: &[u8],
-		output: Option<&mut [u8]>,
+		output: Option<&mut &mut [u8]>,
 	) -> Result;
 
 	/// Call (possibly transferring some amount of funds) into the specified account.
@@ -182,7 +189,7 @@ pub trait HostFn {
 		deposit: Option<&[u8]>,
 		value: &[u8],
 		input_data: &[u8],
-		output: Option<&mut [u8]>,
+		output: Option<&mut &mut [u8]>,
 	) -> Result;
 
 	/// Call into the chain extension provided by the chain if any.
@@ -201,12 +208,13 @@ pub trait HostFn {
 	///
 	/// - `func_id`: The function id of the chain extension.
 	/// - `input`: The input data buffer.
-	/// - `output`: A reference to the output data buffer to write the output data.
+	/// - `output`: A reference to the output data buffer to write the call output buffer. If `None`
+	///   is provided then the output buffer is not copied.
 	///
 	/// # Return
 	///
 	/// The chain extension returned value, if executed successfully.
-	fn call_chain_extension(func_id: u32, input: &[u8], output: &mut &mut [u8]) -> u32;
+	fn call_chain_extension(func_id: u32, input: &[u8], output: Option<&mut &mut [u8]>) -> u32;
 
 	/// Call some dispatchable of the runtime.
 	///
@@ -324,6 +332,25 @@ pub trait HostFn {
 	/// Returns the size of the pre-existing value at the specified key if any.
 	fn contains_storage_v1(key: &[u8]) -> Option<u32>;
 
+	/// Emit a custom debug message.
+	///
+	/// No newlines are added to the supplied message.
+	/// Specifying invalid UTF-8 just drops the message with no trap.
+	///
+	/// This is a no-op if debug message recording is disabled which is always the case
+	/// when the code is executing on-chain. The message is interpreted as UTF-8 and
+	/// appended to the debug buffer which is then supplied to the calling RPC client.
+	///
+	/// # Note
+	///
+	/// Even though no action is taken when debug message recording is disabled there is still
+	/// a non trivial overhead (and weight cost) associated with calling this function. Contract
+	/// languages should remove calls to this function (either at runtime or compile time) when
+	/// not being executed as an RPC. For example, they could allow users to disable logging
+	/// through compile time flags (cargo features) for on-chain deployment. Additionally, the
+	/// return value of this function can be cached in order to prevent further calls at runtime.
+	fn debug_message(str: &[u8]) -> Result;
+
 	/// Execute code in the context (storage, caller, value) of the current contract.
 	///
 	/// Reentrancy protection is always disabled since the callee is allowed
@@ -350,7 +377,7 @@ pub trait HostFn {
 		flags: CallFlags,
 		code_hash: &[u8],
 		input_data: &[u8],
-		output: Option<&mut [u8]>,
+		output: Option<&mut &mut [u8]>,
 	) -> Result;
 
 	/// Deposit a contract event with the data buffer and optional list of topics. There is a limit
@@ -461,8 +488,8 @@ pub trait HostFn {
 		gas: u64,
 		value: &[u8],
 		input: &[u8],
-		address: Option<&mut [u8]>,
-		output: Option<&mut [u8]>,
+		address: Option<&mut &mut [u8]>,
+		output: Option<&mut &mut [u8]>,
 		salt: &[u8],
 	) -> Result;
 
@@ -510,8 +537,8 @@ pub trait HostFn {
 		deposit: Option<&[u8]>,
 		value: &[u8],
 		input: &[u8],
-		address: Option<&mut [u8]>,
-		output: Option<&mut [u8]>,
+		address: Option<&mut &mut [u8]>,
+		output: Option<&mut &mut [u8]>,
 		salt: &[u8],
 	) -> Result;
 
@@ -789,5 +816,5 @@ pub trait HostFn {
 	#[deprecated(
 		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
 	)]
-	fn xcm_send(dest: &[u8], msg: &[u8], output: &mut &mut [u8]) -> Result;
+	fn xcm_send(dest: &[u8], msg: &[u8], output: &mut [u8; 32]) -> Result;
 }

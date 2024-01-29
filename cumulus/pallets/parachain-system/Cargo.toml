@@ -1,10 +1,13 @@
 [package]
 name = "cumulus-pallet-parachain-system"
-version = "0.1.0"
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
 description = "Base pallet for cumulus-based parachains"
 license = "Apache-2.0"
+
+[lints]
+workspace = true
 
 [dependencies]
 bytes = { version = "1.4.0", default-features = false }
@@ -52,6 +55,7 @@ futures = "0.3.28"
 # Substrate
 sc-client-api = { path = "../../../substrate/client/api" }
 sp-keyring = { path = "../../../substrate/primitives/keyring" }
+sp-crypto-hashing = { path = "../../../substrate/primitives/crypto/hashing" }
 sp-tracing = { path = "../../../substrate/primitives/tracing" }
 sp-version = { path = "../../../substrate/primitives/version" }
 

@@ -4,7 +4,10 @@ description = "Types and utilities for creating and working with parachains"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "1.0.0"
+version = "6.0.0"
+
+[lints]
+workspace = true
 
 [dependencies]
 # note: special care is taken to avoid inclusion of `sp-io` externals when compiling
@@ -21,7 +24,7 @@ derive_more = "0.99.11"
 bounded-collections = { version = "0.1.8", default-features = false, features = ["serde"] }
 
 # all optional crates.
-serde = { version = "1.0.193", default-features = false, features = ["alloc", "derive"] }
+serde = { version = "1.0.195", default-features = false, features = ["alloc", "derive"] }
 
 [features]
 default = ["std"]

@@ -38,7 +38,7 @@ use frame_support::weights::Weight;
 use pallet_bridge_messages::benchmarking::{MessageDeliveryProofParams, MessageProofParams};
 use sp_runtime::traits::{Header, Zero};
 use sp_std::prelude::*;
-use xcm::v3::prelude::*;
+use xcm::latest::prelude::*;
 
 /// Prepare inbound bridge message according to given message proof parameters.
 fn prepare_inbound_message(
@@ -266,19 +266,19 @@ where
 /// Returns callback which generates `BridgeMessage` from Polkadot XCM builder based on
 /// `expected_message_size` for benchmark.
 pub fn generate_xcm_builder_bridge_message_sample(
-	destination: InteriorMultiLocation,
+	destination: InteriorLocation,
 ) -> impl Fn(usize) -> MessagePayload {
 	move |expected_message_size| -> MessagePayload {
 		// For XCM bridge hubs, it is the message that
 		// will be pushed further to some XCM queue (XCMP/UMP)
-		let location = xcm::VersionedInteriorMultiLocation::V3(destination);
+		let location = xcm::VersionedInteriorLocation::V4(destination.clone());
 		let location_encoded_size = location.encoded_size();
 
 		// we don't need to be super-precise with `expected_size` here
 		let xcm_size = expected_message_size.saturating_sub(location_encoded_size);
 		let xcm_data_size = xcm_size.saturating_sub(
 			// minus empty instruction size
-			xcm::v3::Instruction::<()>::ExpectPallet {
+			Instruction::<()>::ExpectPallet {
 				index: 0,
 				name: vec![],
 				module_name: vec![],
@@ -294,8 +294,8 @@ pub fn generate_xcm_builder_bridge_message_sample(
 			expected_message_size, location_encoded_size, xcm_size, xcm_data_size,
 		);
 
-		let xcm = xcm::VersionedXcm::<()>::V3(
-			vec![xcm::v3::Instruction::<()>::ExpectPallet {
+		let xcm = xcm::VersionedXcm::<()>::V4(
+			vec![Instruction::<()>::ExpectPallet {
 				index: 0,
 				name: vec![42; xcm_data_size],
 				module_name: vec![],

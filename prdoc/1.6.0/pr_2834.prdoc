@@ -1,0 +1,13 @@
+title: "proposer: return optional block"
+
+doc:
+  - audience: Node Dev
+    description: |
+      The `ProposerInterface` trait now returns an optional `Proposal`, allowing
+      for no block to be created. This is a breaking change that only impacts custom
+      `ProposerInterface` implementations. The change allows more flexibility in choosing
+      when to create blocks.
+
+crates:
+  - name: "cumulus-client-consensus-aura"
+  - name: "cumulus-client-consensus-proposer"

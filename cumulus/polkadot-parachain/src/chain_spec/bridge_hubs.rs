@@ -231,6 +231,10 @@ pub mod rococo {
 			"bridgeWestendMessages": {
 				"owner": bridges_pallet_owner.clone(),
 			},
+			"ethereumSystem": {
+				"paraId": id,
+				"assetHubParaId": 1000
+			}
 		})
 	}
 }

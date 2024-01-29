@@ -15,19 +15,18 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-use codec::Decode;
 
 use sp_application_crypto::{key_types::BEEFY as BEEFY_KEY_TYPE, AppCrypto, RuntimeAppPublic};
+use sp_consensus_beefy::{AuthorityIdBound, BeefyAuthorityId, BeefySignatureHasher};
+use sp_core::ecdsa;
 #[cfg(feature = "bls-experimental")]
 use sp_core::ecdsa_bls377;
-use sp_core::{ecdsa, keccak_256};
-
+use sp_crypto_hashing::keccak_256;
 use sp_keystore::KeystorePtr;
-use std::marker::PhantomData;
 
+use codec::Decode;
 use log::warn;
-
-use sp_consensus_beefy::{AuthorityIdBound, BeefyAuthorityId, BeefySignatureHasher};
+use std::marker::PhantomData;
 
 use crate::{error, LOG_TARGET};
 

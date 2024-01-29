@@ -1,18 +1,22 @@
 [package]
 name = "polkadot-availability-recovery"
 description = "The Availability Recovery subsystem. Handles requests for recovering the availability data of included candidates."
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
 futures = "0.3.21"
+tokio = "1.24.2"
 schnellru = "0.2.1"
 rand = "0.8.5"
 fatality = "0.0.6"
 thiserror = "1.0.48"
-async-trait = "0.1.73"
+async-trait = "0.1.74"
 gum = { package = "tracing-gum", path = "../../gum" }
 
 polkadot-erasure-coding = { path = "../../../erasure-coding" }
@@ -37,3 +41,6 @@ sc-network = { path = "../../../../substrate/client/network" }
 
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
+
+[features]
+subsystem-benchmarks = []

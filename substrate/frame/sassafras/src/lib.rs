@@ -272,11 +272,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type RingVerifierData<T: Config> = StorageValue<_, vrf::RingVerifierData>;
 
-	/// Slot claim vrf-preoutput used to generate per-slot randomness.
+	/// Slot claim VRF pre-output used to generate per-slot randomness.
 	///
 	/// The value is ephemeral and is cleared on block finalization.
 	#[pallet::storage]
-	pub(crate) type ClaimTemporaryData<T> = StorageValue<_, vrf::VrfOutput>;
+	pub(crate) type ClaimTemporaryData<T> = StorageValue<_, vrf::VrfPreOutput>;
 
 	/// Genesis configuration for Sassafras protocol.
 	#[pallet::genesis_config]
@@ -324,12 +324,12 @@ pub mod pallet {
 				Self::post_genesis_initialize(claim.slot);
 			}
 
-			let randomness_output = claim
+			let randomness_pre_output = claim
 				.vrf_signature
-				.outputs
+				.pre_outputs
 				.get(0)
-				.expect("Valid claim must have vrf signature; qed");
-			ClaimTemporaryData::<T>::put(randomness_output);
+				.expect("Valid claim must have VRF signature; qed");
+			ClaimTemporaryData::<T>::put(randomness_pre_output);
 
 			let trigger_weight = T::EpochChangeTrigger::trigger::<T>(block_num);
 
@@ -346,9 +346,9 @@ pub mod pallet {
 				CurrentSlot::<T>::get(),
 				EpochIndex::<T>::get(),
 			);
-			let randomness_output = ClaimTemporaryData::<T>::take()
+			let randomness_pre_output = ClaimTemporaryData::<T>::take()
 				.expect("Unconditionally populated in `on_initialize`; `on_finalize` is always called after; qed");
-			let randomness = randomness_output
+			let randomness = randomness_pre_output
 				.make_bytes::<RANDOMNESS_LENGTH>(RANDOMNESS_VRF_CONTEXT, &randomness_input);
 			Self::deposit_slot_randomness(&randomness);
 
@@ -422,15 +422,15 @@ pub mod pallet {
 			for ticket in tickets {
 				debug!(target: LOG_TARGET, "Checking ring proof");
 
-				let Some(ticket_id_output) = ticket.signature.outputs.get(0) else {
-					debug!(target: LOG_TARGET, "Missing ticket vrf output from ring signature");
+				let Some(ticket_id_pre_output) = ticket.signature.pre_outputs.get(0) else {
+					debug!(target: LOG_TARGET, "Missing ticket VRF pre-output from ring signature");
 					continue
 				};
 				let ticket_id_input =
 					vrf::ticket_id_input(&randomness, ticket.body.attempt_idx, epoch_idx);
 
 				// Check threshold constraint
-				let ticket_id = vrf::make_ticket_id(&ticket_id_input, &ticket_id_output);
+				let ticket_id = vrf::make_ticket_id(&ticket_id_input, &ticket_id_pre_output);
 				if ticket_id >= ticket_threshold {
 					debug!(target: LOG_TARGET, "Ignoring ticket over threshold ({:032x} >= {:032x})", ticket_id, ticket_threshold);
 					continue

@@ -460,7 +460,7 @@ pub fn derive_partial_eq_no_bound(input: TokenStream) -> TokenStream {
 	no_bound::partial_eq::derive_partial_eq_no_bound(input)
 }
 
-/// derive Eq but do no bound any generic. Docs are at `frame_support::EqNoBound`.
+/// Derive [`Eq`] but do no bound any generic. Docs are at `frame_support::EqNoBound`.
 #[proc_macro_derive(EqNoBound)]
 pub fn derive_eq_no_bound(input: TokenStream) -> TokenStream {
 	let input: syn::DeriveInput = match syn::parse(input) {
@@ -477,6 +477,19 @@ pub fn derive_eq_no_bound(input: TokenStream) -> TokenStream {
 		};
 	)
 	.into()
+}
+
+/// Derive [`PartialOrd`] but do not bound any generic. Docs are at
+/// `frame_support::PartialOrdNoBound`.
+#[proc_macro_derive(PartialOrdNoBound)]
+pub fn derive_partial_ord_no_bound(input: TokenStream) -> TokenStream {
+	no_bound::partial_ord::derive_partial_ord_no_bound(input)
+}
+
+/// Derive [`Ord`] but do no bound any generic. Docs are at `frame_support::OrdNoBound`.
+#[proc_macro_derive(OrdNoBound)]
+pub fn derive_ord_no_bound(input: TokenStream) -> TokenStream {
+	no_bound::ord::derive_ord_no_bound(input)
 }
 
 /// derive `Default` but do no bound any generic. Docs are at `frame_support::DefaultNoBound`.
@@ -646,7 +659,6 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 /// ```
 ///
 /// where `TestDefaultConfig` was defined and registered as follows:
-///
 /// ```ignore
 /// pub struct TestDefaultConfig;
 ///
@@ -673,7 +685,6 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 /// ```
 ///
 /// The above call to `derive_impl` would expand to roughly the following:
-///
 /// ```ignore
 /// impl frame_system::Config for Test {
 ///     use frame_system::config_preludes::TestDefaultConfig;
@@ -881,6 +892,7 @@ pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
 	let item = syn::parse_macro_input!(item as TraitItemType);
 	if item.ident != "RuntimeCall" &&
 		item.ident != "RuntimeEvent" &&
+		item.ident != "RuntimeTask" &&
 		item.ident != "RuntimeOrigin" &&
 		item.ident != "RuntimeHoldReason" &&
 		item.ident != "RuntimeFreezeReason" &&
@@ -888,10 +900,11 @@ pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
 	{
 		return syn::Error::new_spanned(
 			item,
-			"`#[inject_runtime_type]` can only be attached to `RuntimeCall`, `RuntimeEvent`, `RuntimeOrigin` or `PalletInfo`",
+			"`#[inject_runtime_type]` can only be attached to `RuntimeCall`, `RuntimeEvent`, \
+			`RuntimeTask`, `RuntimeOrigin` or `PalletInfo`",
 		)
 		.to_compile_error()
-		.into();
+		.into()
 	}
 	tokens
 }
@@ -1515,6 +1528,56 @@ pub fn origin(_: TokenStream, _: TokenStream) -> TokenStream {
 /// will automatically be derived for it.
 #[proc_macro_attribute]
 pub fn composite_enum(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+///
+/// ---
+///
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::tasks_experimental`.
+#[proc_macro_attribute]
+pub fn tasks_experimental(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+///
+/// ---
+///
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::task_list`.
+#[proc_macro_attribute]
+pub fn task_list(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+///
+/// ---
+///
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::task_condition`.
+#[proc_macro_attribute]
+pub fn task_condition(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+///
+/// ---
+///
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::task_weight`.
+#[proc_macro_attribute]
+pub fn task_weight(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+///
+/// ---
+///
+/// **Rust-Analyzer users**: See the documentation of the Rust item in
+/// `frame_support::pallet_macros::task_index`.
+#[proc_macro_attribute]
+pub fn task_index(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 
