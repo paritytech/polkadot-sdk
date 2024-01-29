@@ -68,6 +68,7 @@ std = [
 	"snowbridge-beacon-primitives/std",
 	"snowbridge-core/std",
 	"snowbridge-ethereum/std",
+	"snowbridge-pallet-inbound-queue-fixtures?/std",
 	"snowbridge-router-primitives/std",
 	"sp-core/std",
 	"sp-io/std",
