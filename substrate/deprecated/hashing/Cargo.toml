@@ -1,0 +1,23 @@
+[package]
+name = "sp-core-hashing"
+version = "15.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage = "https://substrate.io"
+repository.workspace = true
+description = "Hashing primitives (deprecated: use sp-crypto-hashing for new applications)"
+documentation = "https://docs.rs/sp-crypto-hashing"
+
+[badges]
+maintenance = { status = "deprecated" }
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
+
+[features]
+default = ["std"]
+std = ["sp-crypto-hashing/std"]

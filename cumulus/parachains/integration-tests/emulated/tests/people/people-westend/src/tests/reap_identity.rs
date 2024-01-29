@@ -291,7 +291,7 @@ fn assert_reap_id_relay(total_deposit: Balance, id: &Identity) {
 		assert_eq!(reserved_balance, total_deposit);
 
 		assert_ok!(WestendIdentityMigrator::reap_identity(
-			WestendOrigin::root(),
+			WestendOrigin::signed(WestendRelaySender::get()),
 			WestendRelaySender::get()
 		));
 

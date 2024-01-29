@@ -11,11 +11,9 @@ publish = false
 workspace = true
 
 [dependencies]
-serde_json = "1.0.111"
 
 # Substrate
 sp-core = { path = "../../../../../../../../substrate/primitives/core", default-features = false }
-sp-runtime = { path = "../../../../../../../../substrate/primitives/runtime", default-features = false }
 frame-support = { path = "../../../../../../../../substrate/frame/support", default-features = false }
 
 # Polakadot
