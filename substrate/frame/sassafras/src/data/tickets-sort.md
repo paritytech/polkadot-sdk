@@ -1,4 +1,4 @@
-# Segments Incremental Sorting Strategy Empirical Results
+egments Incremental Sorting Strategy Empirical Results
 
 Parameters:
 - 128 segments
@@ -267,7 +267,7 @@ buffer (i.e. how many tickets we retain from the last processed segment)
 | 3 | 14 |
 | 2 | 17 |
 | 1 | 9 |
-| 0 | 13
+| 0 | 13 |
 
 # Graph of the same data
 
