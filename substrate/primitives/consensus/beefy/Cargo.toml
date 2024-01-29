@@ -47,6 +47,7 @@ std = [
 	"sp-io/std",
 	"sp-mmr-primitives/std",
 	"sp-runtime/std",
+	"sp-keystore/std",
 	"sp-std/std",
 	"strum/std",
 ]
