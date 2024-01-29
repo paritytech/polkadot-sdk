@@ -17,14 +17,14 @@
 
 use relay_substrate_client::{AccountKeyPairOf, ChainWithTransactions};
 use structopt::StructOpt;
-use strum::{EnumString, EnumVariantNames};
+use strum::{EnumString, VariantNames};
 
 use crate::cli::CliChain;
 pub use relay_substrate_client::{ChainRuntimeVersion, SimpleRuntimeVersion};
 use substrate_relay_helper::TransactionParams;
 
 #[doc = "Runtime version params."]
-#[derive(StructOpt, Debug, PartialEq, Eq, Clone, Copy, EnumString, EnumVariantNames)]
+#[derive(StructOpt, Debug, PartialEq, Eq, Clone, Copy, EnumString, VariantNames)]
 pub enum RuntimeVersionType {
 	/// Auto query version from chain
 	Auto,

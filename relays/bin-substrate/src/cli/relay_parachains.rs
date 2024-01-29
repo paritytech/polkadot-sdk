@@ -33,7 +33,7 @@ use relay_substrate_client::Parachain;
 use relay_utils::metrics::{GlobalMetrics, StandaloneMetric};
 use std::sync::Arc;
 use structopt::StructOpt;
-use strum::{EnumString, EnumVariantNames, VariantNames};
+use strum::{EnumString, VariantNames};
 use substrate_relay_helper::{
 	parachains::{source::ParachainsSource, target::ParachainsTarget, ParachainsPipelineAdapter},
 	TransactionParams,
@@ -62,7 +62,7 @@ pub struct RelayParachains {
 }
 
 /// Parachain heads relay bridge.
-#[derive(Debug, EnumString, EnumVariantNames)]
+#[derive(Debug, EnumString, VariantNames)]
 #[strum(serialize_all = "kebab_case")]
 pub enum RelayParachainsBridge {
 	KusamaToBridgeHubPolkadot,
