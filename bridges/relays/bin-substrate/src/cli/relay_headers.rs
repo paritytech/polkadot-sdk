@@ -16,7 +16,7 @@
 
 use async_trait::async_trait;
 use structopt::StructOpt;
-use strum::{EnumString, EnumVariantNames, VariantNames};
+use strum::{EnumString, VariantNames};
 
 use crate::bridges::{
 	kusama_polkadot::{
@@ -57,7 +57,7 @@ pub struct RelayHeaders {
 	prometheus_params: PrometheusParams,
 }
 
-#[derive(Debug, EnumString, EnumVariantNames)]
+#[derive(Debug, EnumString, VariantNames)]
 #[strum(serialize_all = "kebab_case")]
 /// Headers relay bridge.
 pub enum RelayHeadersBridge {
