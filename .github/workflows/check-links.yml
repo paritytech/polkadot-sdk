@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.0 (22. Sep 2023)
 
       - name: Lychee link checker
-        uses: lycheeverse/lychee-action@eeb9cb63fe093e4d17e5853314dbf862bb35f28d # for v1.9.1 (10. Jan 2024)
+        uses: lycheeverse/lychee-action@eeb9cb63fe093e4d17e5853314dbf862bb35f28d # for v1.9.2
         with:
           args: >-
             --config .config/lychee.toml
