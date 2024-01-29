@@ -437,7 +437,7 @@ benchmarks! {
 			index: 0,
 			name: b"System".to_vec(),
 			module_name: b"frame_system".to_vec(),
-			crate_major: 4,
+			crate_major: 25,
 			min_crate_minor: 0,
 		};
 		let xcm = Xcm(vec![instruction]);
