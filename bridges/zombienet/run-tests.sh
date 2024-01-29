@@ -124,7 +124,7 @@ do
             echo "====================================================================="
             echo "=== Shutting down. Log of failed process below                    ==="
             echo "====================================================================="
-            echo ""$coproc_stdout""
+            echo "$coproc_stdout"
 
             exit 1
         fi
