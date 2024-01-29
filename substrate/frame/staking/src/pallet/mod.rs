@@ -889,6 +889,8 @@ pub mod pallet {
 					pages.saturating_sub(One::one()).saturating_sub(now.saturating_sub(started_at));
 
 				if remaining_pages == Zero::zero() {
+					Self::do_elect_paged(Zero::zero());
+
 					// last page, reset elect status and update era.
 					crate::log!(info, "elect(): finished fetching all paged solutions");
 					CurrentEra::<T>::set(Some(planning_era));

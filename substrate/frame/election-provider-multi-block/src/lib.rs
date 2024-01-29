@@ -541,7 +541,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 			})
 			.map(|supports| {
 				if remaining.is_zero() {
-					log!(info, "last supports page received, rotating round.");
+					log!(info, "provided the last supports page, rotating round.");
 					Self::rotate_round();
 				} else {
 					Self::phase_transition(Phase::Export);

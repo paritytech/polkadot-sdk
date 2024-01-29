@@ -596,9 +596,12 @@ impl<T: Config> Pallet<T> {
 				.unwrap_or_default()
 		} else {
 			ElectableStashes::<T>::get()
+
 			// TODO: add status to the election in case it fails in any of the elect() calls.
 			//Self::deposit_event(Event::StakingElectionFailed);
 		};
+
+		log!(info, "electable validators for session {:?}: {:?}", start_session_index, validators);
 
 		if (validators.len() as u32) < Self::minimum_validator_count().max(1) {
 			// Session will panic if we ever return an empty validator set, thus max(1) ^^.

@@ -1243,43 +1243,41 @@ impl<T: Config> EraInfo<T> {
 		defensive_assert!(exposure_pages.len() == expected_page_count, "unexpected page count");
 
 		// get previous exposure and metadata, if it exists.
-		let (metadata, exposures, start_from) =
-			if let Some(mut stored_metadata) = <ErasStakersOverview<T>>::get(era, &validator) {
-				// how many individual exposures should be crammed into the last stored exposure
-				// page of this validator until its full.
-				let fill_in_count = (page_size * stored_metadata.page_count)
-					.saturating_sub(stored_metadata.nominator_count);
+		let (metadata, exposures, start_from) = if let Some(mut stored_metadata) =
+			<ErasStakersOverview<T>>::get(era, &validator)
+		{
+			// how many individual exposures should be crammed into the last stored exposure
+			// page of this validator until its full.
+			let fill_in_count = (page_size * stored_metadata.page_count)
+				.saturating_sub(stored_metadata.nominator_count);
 
-				// *take* first `fill_in_count` individual exposures from the exposure pages to add
-				// them to the last stored exposures page.
-				let fill_in_exposures = if let Some(page) = exposure_pages.get_mut(0) {
-					page.from_split_others(fill_in_count as usize)
-				} else {
-					Default::default()
-				};
-
-				// TODO: this can probably be optimized so that the paged_exposure.others don't
-				// need to be decoded/encoded. However, the codec is bounded per max exposures per
-				// page (do not touch ALL the exposed validator pages).
-				<ErasStakersPaged<T>>::mutate(
-					(era, &validator, stored_metadata.page_count - 1),
-					|page| {
-						if let Some(page) = page {
-							(*page).page_total += fill_in_exposures.page_total;
-							(*page).others.extend(fill_in_exposures.others);
-						} else {
-							// defensive?
-						}
-					},
-				);
-				stored_metadata.update(exposure_metadata, page_size);
-
-				let start_from = stored_metadata.page_count.saturating_sub(1);
-				(stored_metadata, exposure_pages, start_from)
+			// *take* first `fill_in_count` individual exposures from the exposure pages to add
+			// them to the last stored exposures page.
+			let fill_in_exposures = if let Some(page) = exposure_pages.get_mut(0) {
+				page.from_split_others(fill_in_count as usize)
 			} else {
-				// new exposure, insert exposure pages, metadata and start from page idx 0.
-				(exposure_metadata, exposure_pages, 0)
+				Default::default()
 			};
+
+			// TODO: this can probably be optimized so that the paged_exposure.others don't
+			// need to be decoded/encoded. However, the codec is bounded per max exposures per
+			// page (do not touch ALL the exposed validator pages).
+			<ErasStakersPaged<T>>::mutate((era, &validator, stored_metadata.page_count), |page| {
+				if let Some(page) = page {
+					(*page).page_total += fill_in_exposures.page_total;
+					(*page).others.extend(fill_in_exposures.others);
+				} else {
+					// defensive?
+				}
+			});
+			stored_metadata.update(exposure_metadata, page_size);
+
+			let start_from = stored_metadata.page_count.saturating_sub(1);
+			(stored_metadata, exposure_pages, start_from)
+		} else {
+			// new exposure, insert exposure pages, metadata and start from page idx 0.
+			(exposure_metadata, exposure_pages, 0)
+		};
 
 		exposures.iter().enumerate().for_each(|(page, paged_exposure)| {
 			<ErasStakersPaged<T>>::insert(

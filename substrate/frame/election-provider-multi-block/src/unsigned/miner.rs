@@ -198,9 +198,8 @@ where
 		let mut paged_solution =
 			PagedRawSolution { solution_pages, score: Default::default(), round };
 
-		// TODO: this fails due to the feasibility check implemented by the Verifier, which does not
-		// use the same caching fn so tha indices are wrong.
-		Self::compute_score(&paged_solution).unwrap();
+		// everytthing's ready - calculate final solution score.
+		paged_solution.score = Self::compute_score(&paged_solution)?;
 
 		Ok((paged_solution, trimming_status))
 	}

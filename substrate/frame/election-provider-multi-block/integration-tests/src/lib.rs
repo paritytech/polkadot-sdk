@@ -74,6 +74,7 @@ fn verify_snapshot() {
 
 mod staking_integration {
 	use super::*;
+	use pallet_election_provider_multi_block::Phase;
 
 	#[test]
 	fn call_elect_multi_block() {
@@ -82,19 +83,25 @@ mod staking_integration {
 			assert_eq!(ElectionProvider::current_round(), 0);
 			assert_eq!(Staking::current_era(), Some(0));
 
+			// last block where phase is waiting for unsignned submissions.
+			roll_to(election_prediction() - 4, false);
+			assert_eq!(ElectionProvider::current_phase(), Phase::Unsigned(17));
+
 			// staking prepares first page of exposures.
 			roll_to(election_prediction() - 3, false);
+			assert_eq!(ElectionProvider::current_phase(), Phase::Export);
 
 			// staking prepares second page of exposures.
 			roll_to(election_prediction() - 2, false);
+			assert_eq!(ElectionProvider::current_phase(), Phase::Export);
 
 			// staking prepares third page of exposures.
 			roll_to(election_prediction() - 1, false);
 
 			// election successfully, round & era progressed.
-			//assert_eq!(ElectionProvider::current_phase(), Phase::Off);
-			//assert_eq!(ElectionProvider::current_round(), 1);
-			//assert_eq!(Staking::current_era(), Some(1));
+			assert_eq!(ElectionProvider::current_phase(), Phase::Off);
+			assert_eq!(ElectionProvider::current_round(), 1);
+			assert_eq!(Staking::current_era(), Some(1));
 		})
 	}
 }
