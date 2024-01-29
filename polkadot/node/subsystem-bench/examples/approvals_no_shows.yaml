@@ -7,8 +7,8 @@ TestConfiguration:
     stop_when_approved: true
     coalesce_tranche_diff: 12
     workdir_prefix: "/tmp/"
-    num_no_shows_per_candidate: 10
     enable_assignments_v2: true
+    num_no_shows_per_candidate: 10
   n_validators: 500
   n_cores: 100
   min_pov_size: 1120

@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-network-bridge"
-version = "1.0.0"
+version = "7.0.0"
 description = "The Network Bridge Subsystem — protocol multiplexer for Polkadot."
 authors.workspace = true
 edition.workspace = true
