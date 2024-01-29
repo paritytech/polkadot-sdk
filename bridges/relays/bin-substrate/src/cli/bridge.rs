@@ -17,7 +17,7 @@
 use crate::cli::CliChain;
 use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 use relay_substrate_client::{Chain, ChainWithTransactions, Parachain, RelayChain};
-use strum::{EnumString, EnumVariantNames};
+use strum::{EnumString, VariantNames};
 use substrate_relay_helper::{
 	equivocation::SubstrateEquivocationDetectionPipeline,
 	finality::SubstrateFinalitySyncPipeline,
@@ -25,7 +25,7 @@ use substrate_relay_helper::{
 	parachains::SubstrateParachainsPipeline,
 };
 
-#[derive(Debug, PartialEq, Eq, EnumString, EnumVariantNames)]
+#[derive(Debug, PartialEq, Eq, EnumString, VariantNames)]
 #[strum(serialize_all = "kebab_case")]
 /// Supported full bridges (headers + messages).
 pub enum FullBridge {
