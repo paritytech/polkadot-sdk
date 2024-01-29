@@ -1,0 +1,17 @@
+title: Migrate Fee Payment from Currency to fungible traits
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Deprecates the `CurrencyAdapter` and introduces `FungibleAdapter`
+      Deprecates `ToStakingPot` and replaces usage with `ResolveTo`
+      Updated `DealWithFees`, `ToAuthor`, `AssetsToBlockAuthor` to all use `fungible` traits
+      Updated runtime XCM Weight Traders to use `ResolveTo`
+      Updated runtime TransactionPayment pallets to use `FungibleAdapter` instead of `CurrencyAdapter`
+
+      Runtime Migration Guide:
+      - Replace usage of `CurrencyAdapter` with `FungibleAdapter`
+      - Replace usage of `ToStakingPot<Runtime>` with `ResolveTo<pallet_collator_selection::StakingPotAccountId<Runtime>, Balances>`
+
+crates: [ ]
+
