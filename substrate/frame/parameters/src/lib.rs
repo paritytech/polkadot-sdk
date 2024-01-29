@@ -20,7 +20,7 @@
 //! # **⚠️ WARNING ⚠️**
 //!  
 //! <br>  
-//! <b>THIS CRATE IS NOT AUDITED AND SHOULD NOT BE USED IN VALUE BEARING CHAINS.</b>  
+//! <b>THIS CRATE IS NOT AUDITED AND SHOULD NOT BE USED IN PRODUCTION.</b>  
 //! <br>  
 //!
 //! # Parameters
@@ -30,19 +30,26 @@
 //! ## Pallet API
 //!
 //! This pallet exposes two APIs; one *inbound* side to update parameters, and one *outbound* side
-//! to access said parameters.
+//! to access said parameters. Parameters themselves are defined in the runtime config and will be
+//! aggregated into an enum. Each parameter is addressed by a `key` and can have a default value.
+//! This is not done by the pallet but through the [`frame_support::dynamic_params`] macro or
+//! alternatives.
+//!
+//! Note that this is incurring one storage read per access. This should not be a problem in most
+//! cases but must be considered in weight-restrained code.
 //!
 //! ### Inbound
 //!
-//! This solely consists of the `set_parameter` extrinsic, which allows to update a parameter. Each
-//! parameter can have their own admin origin.
+//! The inbound side solely consists of the `set_parameter` extrinsic to update the value of a
+//! parameter. Each parameter can have their own admin origin as given by the
+//! [`Config::AdminOrigin`].
 //!
 //! ### Outbound
 //!
 //! The outbound side is runtime facing for the most part. More general, it provides a `Get`
 //! implementation and can be used in every spot where that is accepted. Two macros are in place:
-//! `define_parameters` and `define_aggregrated_parameters` to define and expose parameters in a
-//! typed manner.
+//! `define_parameters` and `dynamic_pallet_params` to define and expose parameters in a typed
+//! manner.
 //!
 //! See the [`pallet`] module for more information about the interfaces this pallet exposes,
 //! including its configuration trait, dispatchables, storage items, events and errors.
@@ -54,16 +61,21 @@
 //! performance with convenience and should therefore only be used in places where that is proven to
 //! be uncritical.
 //!
-//! ### Example
+//! ### Example Configuration
 //!
 //! Here is an example of how to define some parameters, including their default values:
 #![doc = docify::embed!("src/tests/mock.rs", dynamic_params)]
+//!
+//! A permissioned origin can be define on a per-key basis like this:
+#![doc = docify::embed!("src/tests/mock.rs", custom_origin)]
 //!
 //! Now the aggregated parameter needs to be injected into the pallet config:
 #![doc = docify::embed!("src/tests/mock.rs", impl_config)]
 //!
 //! As last step, the parameters can now be used in other pallets 🙌
 #![doc = docify::embed!("src/tests/mock.rs", usage)]
+//!
+//! ### Examples Usage
 //!
 //! Now to demonstrate how the values can be updated:
 #![doc = docify::embed!("src/tests/tests.rs", set_parameters_example)]
@@ -124,11 +136,15 @@ pub mod pallet {
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		/// The key value type for parameters. Usually created by
-		/// [`frame_support::dynamic_params`].
+		/// The overarching KV type of the parameters.
+		///
+		/// Usually created by [`frame_support::dynamic_params`] or equivalent.
 		type AggregratedKeyValue: AggregratedKeyValue;
 
-		/// The origin which may update the parameter.
+		/// The origin which may update a parameter.
+		///
+		/// The key of the parameter is passed in as second argument to allow for fine grained
+		/// control.
 		type AdminOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, KeyOf<Self>>;
 
 		/// Weight information for extrinsics in this module.

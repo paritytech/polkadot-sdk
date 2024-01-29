@@ -458,9 +458,6 @@ impl pallet_glutton::Config for Runtime {
 }
 
 parameter_types! {
-	pub const PreimageBaseDeposit: Balance = 1 * DOLLARS;
-	// One cent: $10,000 / MB
-	pub const PreimageByteDeposit: Balance = 1 * CENTS;
 	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 }
 
@@ -473,7 +470,11 @@ impl pallet_preimage::Config for Runtime {
 		AccountId,
 		Balances,
 		PreimageHoldReason,
-		LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
+		LinearStoragePrice<
+			dynamic_params::storage::BaseDeposit,
+			dynamic_params::storage::ByteDeposit,
+			Balance,
+		>,
 	>;
 }
 
@@ -1322,9 +1323,6 @@ impl pallet_tips::Config for Runtime {
 }
 
 parameter_types! {
-	pub const DepositPerItem: Balance = deposit(1, 0);
-	pub const DepositPerByte: Balance = deposit(0, 1);
-	pub const DefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
 	pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
 	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
 }
@@ -1342,9 +1340,9 @@ impl pallet_contracts::Config for Runtime {
 	/// change because that would break already deployed contracts. The `Call` structure itself
 	/// is not allowed to change the indices of existing pallets, too.
 	type CallFilter = Nothing;
-	type DepositPerItem = DepositPerItem;
-	type DepositPerByte = DepositPerByte;
-	type DefaultDepositLimit = DefaultDepositLimit;
+	type DepositPerItem = dynamic_params::contracts::DepositPerItem;
+	type DepositPerByte = dynamic_params::contracts::DepositPerByte;
+	type DefaultDepositLimit = dynamic_params::contracts::DefaultDepositLimit;
 	type CallStack = [pallet_contracts::Frame<Self>; 5];
 	type WeightPrice = pallet_transaction_payment::Pallet<Self>;
 	type WeightInfo = pallet_contracts::weights::SubstrateWeight<Self>;
@@ -2084,20 +2082,65 @@ impl pallet_mixnet::Config for Runtime {
 	type MinMixnodes = ConstU32<7>; // Low to allow small testing networks
 }
 
+/// Dynamic parameters that can be changed at runtime through the `pallet_parametes::set_parameter`.
 #[dynamic_params(RuntimeParameters)]
 pub mod dynamic_params {
 	use super::*;
 
-	#[dynamic_pallet_params(pallet_parameters::Parameters::<Runtime>, Basic)]
-	pub mod kitchensink {
+	#[dynamic_pallet_params(pallet_parameters::Parameters::<Runtime>)]
+	pub mod storage {
+		/// Configures the base deposit of storing some data.
 		#[codec(index = 0)]
-		pub static MagicNumber: u64 = 42;
+		pub static BaseDeposit: Balance = 1 * DOLLARS;
+
+		/// Configures the per-byte deposit of storing some data.
+		#[codec(index = 1)]
+		pub static ByteDeposit: Balance = 1 * CENTS;
+	}
+
+	#[dynamic_pallet_params(pallet_parameters::Parameters::<Runtime>)]
+	pub mod contracts {
+		#[codec(index = 0)]
+		pub static DepositPerItem: Balance = deposit(1, 0);
+
+		#[codec(index = 1)]
+		pub static DepositPerByte: Balance = deposit(0, 1);
+
+		#[codec(index = 2)]
+		pub static DefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
+	}
+}
+
+pub struct DynamicParametersManagerOrigin;
+use frame_support::traits::EnsureOriginWithArg;
+impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParametersManagerOrigin {
+	type Success = ();
+
+	fn try_origin(
+		origin: RuntimeOrigin,
+		key: &RuntimeParametersKey,
+	) -> Result<Self::Success, RuntimeOrigin> {
+		match key {
+			RuntimeParametersKey::Storage(_) => {
+				frame_system::ensure_root(origin.clone()).map_err(|_| origin)?;
+				return Ok(())
+			},
+			RuntimeParametersKey::Contract(_) => {
+				frame_system::ensure_root(origin.clone()).map_err(|_| origin)?;
+				return Ok(())
+			},
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin(_key: &RuntimeParametersKey) -> Result<RuntimeOrigin, ()> {
+		Err(())
 	}
 }
 
 impl pallet_parameters::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type AdminOrigin = EnsureRoot<Self::AccountId>;
+	type AdminOrigin = DynamicParametersManagerOrigin;
 	type WeightInfo = ();
 	type AggregratedKeyValue = RuntimeParameters;
 }
