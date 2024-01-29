@@ -259,7 +259,7 @@ impl GetDispatchInfo for () {
 	}
 }
 
-/// Extensionct the actual weight from a dispatch result if any or fall back to the default weight.
+/// Extract the actual weight from a dispatch result if any or fall back to the default weight.
 pub fn extract_actual_weight(result: &DispatchResultWithPostInfo, info: &DispatchInfo) -> Weight {
 	match result {
 		Ok(post_info) => post_info,
@@ -268,7 +268,7 @@ pub fn extract_actual_weight(result: &DispatchResultWithPostInfo, info: &Dispatc
 	.calc_actual_weight(info)
 }
 
-/// Extensionct the actual pays_fee from a dispatch result if any or fall back to the default
+/// Extract the actual pays_fee from a dispatch result if any or fall back to the default
 /// weight.
 pub fn extract_actual_pays_fee(result: &DispatchResultWithPostInfo, info: &DispatchInfo) -> Pays {
 	match result {

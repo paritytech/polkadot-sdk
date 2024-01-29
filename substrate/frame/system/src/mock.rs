@@ -107,7 +107,6 @@ impl Config for Test {
 	type OnNewAccount = ();
 	type OnKilledAccount = RecordKilled;
 	type SystemWeightInfo = ();
-	type ExtensionsWeightInfo = ();
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;

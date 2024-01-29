@@ -27,6 +27,7 @@ use sp_runtime::{
 	transaction_validity::{
 		InvalidTransaction, TransactionLongevity, TransactionValidityError, ValidTransaction,
 	},
+	Saturating,
 };
 use sp_std::vec;
 
@@ -100,7 +101,7 @@ where
 
 		let provides = vec![Encode::encode(&(who.clone(), self.0))];
 		let requires = if account.nonce < self.0 {
-			vec![Encode::encode(&(who.clone(), self.0 - One::one()))]
+			vec![Encode::encode(&(who.clone(), self.0.saturating_sub(One::one())))]
 		} else {
 			vec![]
 		};
@@ -129,7 +130,7 @@ where
 		if self.0 > account.nonce {
 			return Err(InvalidTransaction::Future.into())
 		}
-		account.nonce += T::Nonce::one();
+		account.nonce.saturating_inc();
 		crate::Account::<T>::insert(who, account);
 		Ok(())
 	}
