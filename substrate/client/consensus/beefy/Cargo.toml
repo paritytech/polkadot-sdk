@@ -58,6 +58,6 @@ substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
 # the BLS implementation and interface may still be subject to significant change.
 bls-experimental = [
 	"sp-application-crypto/bls-experimental",
+	"sp-consensus-beefy/bls-experimental",
 	"sp-core/bls-experimental",
-	"sp-consensus-beefy/bls-experimental"
 ]
