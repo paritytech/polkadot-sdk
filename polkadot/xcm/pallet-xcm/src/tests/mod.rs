@@ -23,9 +23,8 @@ use crate::{
 	VersionDiscoveryQueue, VersionMigrationStage, VersionNotifiers, VersionNotifyTargets,
 };
 use frame_support::{
-	assert_noop, assert_ok,
+	assert_err, assert_noop, assert_ok,
 	traits::{Currency, Hooks},
-	assert_err,
 	weights::Weight,
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
@@ -451,15 +450,18 @@ fn trapped_assets_can_be_claimed() {
 		assert_eq!(AssetTraps::<Test>::iter().collect::<Vec<_>>(), vec![]);
 
 		// Can't claim twice.
-		assert_err!(XcmPallet::execute(
-			RuntimeOrigin::signed(ALICE),
-			Box::new(VersionedXcm::from(Xcm(vec![
-				ClaimAsset { assets: (Here, SEND_AMOUNT).into(), ticket: Here.into() },
-				buy_execution((Here, SEND_AMOUNT)),
-				DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
-			]))),
-			weight
-		), Error::<Test>::LocalExecutionIncomplete);
+		assert_err!(
+			XcmPallet::execute(
+				RuntimeOrigin::signed(ALICE),
+				Box::new(VersionedXcm::from(Xcm(vec![
+					ClaimAsset { assets: (Here, SEND_AMOUNT).into(), ticket: Here.into() },
+					buy_execution((Here, SEND_AMOUNT)),
+					DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
+				]))),
+				weight
+			),
+			Error::<Test>::LocalExecutionIncomplete
+		);
 	});
 }
 
