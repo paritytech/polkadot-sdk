@@ -20,6 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
+use alloc::vec;
 use frame_benchmarking::v1::{benchmarks, whitelisted_caller};
 use frame_system::{EventRecord, Pallet as System, RawOrigin};
 

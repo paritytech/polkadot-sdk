@@ -25,6 +25,8 @@
 //! interface.
 
 use crate::Config;
+
+#[allow(unused_imports)]
 use alloc::{
 	boxed::Box,
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
