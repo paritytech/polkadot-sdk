@@ -380,7 +380,7 @@ func generateBeaconTestFixture(cmd *cobra.Command, _ []string) error {
 		if err != nil {
 			return err
 		}
-		if testCase != "register_token" || testCase != "send_token" {
+		if testCase != "register_token" && testCase != "send_token" {
 			return fmt.Errorf("invalid test case: %s", testCase)
 		}
 		pathToInboundQueueFixtureTemplate := fmt.Sprintf(pathToInboundQueueFixtureTemplate, testCase)
