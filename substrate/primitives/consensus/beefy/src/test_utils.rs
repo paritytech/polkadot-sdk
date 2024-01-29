@@ -28,10 +28,7 @@ use crate::{
 };
 use codec::Encode;
 use sp_application_crypto::{AppCrypto, AppPair, RuntimeAppPublic, Wraps};
-#[cfg(feature = "bls-experimental")]
-use sp_core::ecdsa_bls377;
 use sp_core::{ecdsa, Pair};
-use sp_keystore::KeystorePtr;
 use std::{collections::HashMap, marker::PhantomData};
 use strum::IntoEnumIterator;
 

@@ -35,9 +35,11 @@ mod commitment;
 mod payload;
 
 pub mod mmr;
+pub mod witness;
+
+/// Test utilities
 #[cfg(feature = "std")]
 pub mod test_utils;
-pub mod witness;
 
 pub use commitment::{Commitment, SignedCommitment, VersionedFinalityProof};
 pub use payload::{known_payloads, BeefyPayloadId, Payload, PayloadProvider};

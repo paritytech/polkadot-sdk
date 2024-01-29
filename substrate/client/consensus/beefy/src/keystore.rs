@@ -29,9 +29,6 @@ use log::warn;
 
 use sp_consensus_beefy::{AuthorityIdBound, BeefyAuthorityId, BeefySignatureHasher};
 
-#[cfg(feature = "bls-experimental")]
-use sp_consensus_beefy::ecdsa_bls_crypto;
-
 use crate::{error, LOG_TARGET};
 
 /// A BEEFY specific keystore implemented as a `Newtype`. This is basically a
@@ -207,6 +204,8 @@ where
 
 #[cfg(test)]
 pub mod tests {
+	#[cfg(feature = "bls-experimental")]
+	use sp_consensus_beefy::ecdsa_bls_crypto;
 	use sp_consensus_beefy::{
 		ecdsa_crypto,
 		test_utils::{BeefySignerAuthority, Keyring},
