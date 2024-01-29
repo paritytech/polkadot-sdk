@@ -3302,6 +3302,16 @@
 <a href="#3302" id="3302">3302</a>
 <a href="#3303" id="3303">3303</a>
 <a href="#3304" id="3304">3304</a>
+<a href="#3305" id="3305">3305</a>
+<a href="#3306" id="3306">3306</a>
+<a href="#3307" id="3307">3307</a>
+<a href="#3308" id="3308">3308</a>
+<a href="#3309" id="3309">3309</a>
+<a href="#3310" id="3310">3310</a>
+<a href="#3311" id="3311">3311</a>
+<a href="#3312" id="3312">3312</a>
+<a href="#3313" id="3313">3313</a>
+<a href="#3314" id="3314">3314</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3340,8 +3350,9 @@
 };
 <span class="kw">use </span>polkadot_node_subsystem::{
 	messages::{
-		CandidateBackingMessage, HypotheticalCandidate, HypotheticalFrontierRequest,
-		NetworkBridgeEvent, NetworkBridgeTxMessage, ProspectiveParachainsMessage,
+		network_bridge_event::NewGossipTopology, CandidateBackingMessage, HypotheticalCandidate,
+		HypotheticalFrontierRequest, NetworkBridgeEvent, NetworkBridgeTxMessage,
+		ProspectiveParachainsMessage,
 	},
 	overseer, ActivatedLeaf,
 };
@@ -3587,6 +3598,10 @@
 	candidates: Candidates,
 	per_relay_parent: HashMap&lt;Hash, PerRelayParentState&gt;,
 	per_session: HashMap&lt;SessionIndex, PerSessionState&gt;,
+	<span class="comment">// Topology might be received before first leaf update, where we
+	// initialize the per_session_state, so cache it here until we
+	// are able to use it.
+	</span>unused_topologies: HashMap&lt;SessionIndex, NewGossipTopology&gt;,
 	peers: HashMap&lt;PeerId, PeerState&gt;,
 	keystore: KeystorePtr,
 	authorities: HashMap&lt;AuthorityDiscoveryId, PeerId&gt;,
@@ -3607,6 +3622,7 @@
 			authorities: HashMap::new(),
 			request_manager: RequestManager::new(),
 			response_manager: ResponseManager::new(),
+			unused_topologies: HashMap::new(),
 		}
 	}
 
@@ -3753,12 +3769,14 @@
 			}
 		},
 		NetworkBridgeEvent::NewGossipTopology(topology) =&gt; {
-			<span class="kw">let </span>new_session_index = topology.session;
-			<span class="kw">let </span>new_topology = topology.topology;
-			<span class="kw">let </span>local_index = topology.local_index;
+			<span class="kw">let </span>new_session_index = <span class="kw-2">&amp;</span>topology.session;
+			<span class="kw">let </span>new_topology = <span class="kw-2">&amp;</span>topology.topology;
+			<span class="kw">let </span>local_index = <span class="kw-2">&amp;</span>topology.local_index;
 
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(per_session) = state.per_session.get_mut(<span class="kw-2">&amp;</span>new_session_index) {
-				per_session.supply_topology(<span class="kw-2">&amp;</span>new_topology, local_index);
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(per_session) = state.per_session.get_mut(new_session_index) {
+				per_session.supply_topology(new_topology, <span class="kw-2">*</span>local_index);
+			} <span class="kw">else </span>{
+				state.unused_topologies.insert(<span class="kw-2">*</span>new_session_index, topology);
 			}
 
 			<span class="comment">// TODO [https://github.com/paritytech/polkadot/issues/6194]
@@ -3903,11 +3921,12 @@
 
 			<span class="kw">let </span>minimum_backing_votes =
 				request_min_backing_votes(new_relay_parent, session_index, ctx.sender()).<span class="kw">await</span><span class="question-mark">?</span>;
-
-			state.per_session.insert(
-				session_index,
-				PerSessionState::new(session_info, <span class="kw-2">&amp;</span>state.keystore, minimum_backing_votes),
-			);
+			<span class="kw">let </span><span class="kw-2">mut </span>per_session_state =
+				PerSessionState::new(session_info, <span class="kw-2">&amp;</span>state.keystore, minimum_backing_votes);
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(toplogy) = state.unused_topologies.remove(<span class="kw-2">&amp;</span>session_index) {
+				per_session_state.supply_topology(<span class="kw-2">&amp;</span>toplogy.topology, toplogy.local_index);
+			}
+			state.per_session.insert(session_index, per_session_state);
 		}
 
 		<span class="kw">let </span>per_session = state
@@ -4064,6 +4083,7 @@
 	<span class="comment">// clean up sessions based on everything remaining.
 	</span><span class="kw">let </span>sessions: HashSet&lt;<span class="kw">_</span>&gt; = state.per_relay_parent.values().map(|r| r.session).collect();
 	state.per_session.retain(|s, <span class="kw">_</span>| sessions.contains(s));
+	state.unused_topologies.retain(|s, <span class="kw">_</span>| sessions.contains(s));
 }
 
 <span class="attr">#[overseer::contextbounds(StatementDistribution, prefix=<span class="self">self</span>::overseer)]
