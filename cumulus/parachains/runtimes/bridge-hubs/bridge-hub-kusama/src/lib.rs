@@ -761,7 +761,7 @@ impl_runtime_apis! {
 
 				fn fee_asset() -> Result<MultiAsset, BenchmarkError> {
 					Ok(MultiAsset {
-						id: AssetId::Concrete(WndRelayLocation::get()),
+						id: Concrete(KsmRelayLocation::get()),
 						fun: Fungible(1_000_000 * UNITS),
 					})
 				}
