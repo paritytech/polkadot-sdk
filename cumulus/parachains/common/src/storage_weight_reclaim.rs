@@ -18,7 +18,7 @@
 use codec::{Decode, Encode};
 use cumulus_primitives_core::Weight;
 use cumulus_primitives_proof_size_hostfunction::storage_proof_size::storage_proof_size;
-use frame_support::dispatch::{DispatchClass, DispatchInfo, PerDispatchClass, PostDispatchInfo};
+use frame_support::dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo};
 use frame_system::{BlockWeight, Config};
 use scale_info::TypeInfo;
 use sp_runtime::{

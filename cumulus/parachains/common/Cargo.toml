@@ -51,8 +51,8 @@ parachain-info = { package = "staging-parachain-info", path = "../pallets/parach
 cumulus-primitives-proof-size-hostfunction = { path = "../../primitives/proof-size-hostfunction", default-features = false }
 
 [dev-dependencies]
-pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false}
-sp-io = { path = "../../../substrate/primitives/io", default-features = false}
+pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false }
+sp-io = { path = "../../../substrate/primitives/io", default-features = false }
 sp-trie = { path = "../../../substrate/primitives/trie", default-features = false }
 
 [build-dependencies]
@@ -63,8 +63,8 @@ default = ["std"]
 std = [
 	"codec/std",
 	"cumulus-primitives-core/std",
-	"cumulus-primitives-utility/std",
 	"cumulus-primitives-proof-size-hostfunction/std",
+	"cumulus-primitives-utility/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
@@ -83,9 +83,9 @@ std = [
 	"sp-consensus-aura/std",
 	"sp-core/std",
 	"sp-io/std",
-	"sp-trie/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"sp-trie/std",
 	"westend-runtime-constants?/std",
 	"xcm-executor/std",
 	"xcm/std",
