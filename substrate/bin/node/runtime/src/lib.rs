@@ -533,7 +533,7 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = ConstU32<1>;
-	type MaxHolds = ConstU32<6>;
+	type MaxHolds = ConstU32<7>;
 }
 
 parameter_types! {
@@ -1900,6 +1900,7 @@ impl pallet_state_trie_migration::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ControlOrigin = EnsureRoot<AccountId>;
 	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type MaxKeyLen = MigrationMaxKeyLen;
 	type SignedDepositPerItem = MigrationSignedDepositPerItem;
 	type SignedDepositBase = MigrationSignedDepositBase;
@@ -2082,8 +2083,7 @@ impl pallet_mixnet::Config for Runtime {
 }
 
 construct_runtime!(
-	pub struct Runtime
-	{
+	pub enum Runtime {
 		System: frame_system,
 		Utility: pallet_utility,
 		Babe: pallet_babe,
@@ -2098,11 +2098,11 @@ construct_runtime!(
 		AssetConversionTxPayment: pallet_asset_conversion_tx_payment,
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase,
 		Staking: pallet_staking,
-		Beefy: pallet_beefy::{Pallet, Call, Storage, Config<T>, ValidateUnsigned},
+		Beefy: pallet_beefy,
 		// MMR leaf construction must be before session in order to have leaf contents
 		// refer to block<N-1> consistently. see substrate issue #11797 for details.
-		Mmr: pallet_mmr::{Pallet, Storage},
-		MmrLeaf: pallet_beefy_mmr::{Pallet, Storage},
+		Mmr: pallet_mmr,
+		MmrLeaf: pallet_beefy_mmr,
 		Session: pallet_session,
 		Democracy: pallet_democracy,
 		Council: pallet_collective::<Instance1>,
@@ -2117,7 +2117,7 @@ construct_runtime!(
 		ImOnline: pallet_im_online,
 		AuthorityDiscovery: pallet_authority_discovery,
 		Offences: pallet_offences,
-		Historical: pallet_session_historical::{Pallet},
+		Historical: pallet_session_historical,
 		RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip,
 		Identity: pallet_identity,
 		Society: pallet_society,

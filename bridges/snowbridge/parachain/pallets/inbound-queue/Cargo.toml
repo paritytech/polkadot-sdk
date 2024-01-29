@@ -1,7 +1,7 @@
 [package]
 name = "snowbridge-pallet-inbound-queue"
 description = "Snowbridge Inbound Queue Pallet"
-version = "0.9.0"
+version = "0.0.0"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
 repository.workspace = true
@@ -47,7 +47,7 @@ snowbridge-beacon-primitives = { path = "../../primitives/beacon", default-featu
 frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking" }
 sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
 snowbridge-beacon-primitives = { path = "../../primitives/beacon" }
-snowbridge-pallet-ethereum-client = { path = "../../pallets/ethereum-client" }
+snowbridge-pallet-ethereum-client = { path = "../ethereum-client" }
 hex-literal = { version = "0.4.1" }
 
 [features]

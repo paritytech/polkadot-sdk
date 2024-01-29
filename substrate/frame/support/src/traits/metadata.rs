@@ -302,7 +302,7 @@ pub trait GetStorageVersion {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_core::twox_128;
+	use sp_crypto_hashing::twox_128;
 
 	struct Pallet1;
 	impl PalletInfoAccess for Pallet1 {
