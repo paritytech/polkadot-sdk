@@ -7,7 +7,9 @@ use snowbridge_core::inbound::Message;
 use sp_core::RuntimeDebug;
 
 pub mod register_token;
+pub mod register_token_with_insufficient_fee;
 pub mod send_token;
+pub mod send_token_to_penpal;
 
 #[derive(Clone, RuntimeDebug)]
 pub struct InboundQueueFixture {
