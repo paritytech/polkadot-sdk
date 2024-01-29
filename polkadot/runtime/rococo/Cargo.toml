@@ -25,6 +25,7 @@ beefy-primitives = { package = "sp-consensus-beefy", path = "../../../substrate/
 binary-merkle-tree = { path = "../../../substrate/utils/binary-merkle-tree", default-features = false }
 rococo-runtime-constants = { package = "rococo-runtime-constants", path = "constants", default-features = false }
 sp-api = { path = "../../../substrate/primitives/api", default-features = false }
+sp-debug-derive = { path = "../../../substrate/primitives/debug-derive", default-features = false, features = ["force-debug"] }
 sp-genesis-builder = { path = "../../../substrate/primitives/genesis-builder", default-features = false }
 inherents = { package = "sp-inherents", path = "../../../substrate/primitives/inherents", default-features = false }
 offchain-primitives = { package = "sp-offchain", path = "../../../substrate/primitives/offchain", default-features = false }
@@ -194,6 +195,7 @@ std = [
 	"sp-api/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
+	"sp-debug-derive/std",
 	"sp-genesis-builder/std",
 	"sp-io/std",
 	"sp-mmr-primitives/std",

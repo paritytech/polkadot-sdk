@@ -228,6 +228,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 	}
 
 	/// Set whether the claim queue should be filled.
+	#[cfg(not(feature = "runtime-benchmarks"))]
 	pub(crate) fn set_fill_claimqueue(mut self, f: bool) -> Self {
 		self.fill_claimqueue = f;
 		self
@@ -361,7 +362,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 				paras::ParaGenesisArgs {
 					genesis_head: Self::mock_head_data(),
 					validation_code: validation_code.clone(),
-					para_kind: ParaKind::Parachain,
+					para_kind: ParaKind::Parathread,
 				},
 			)
 			.unwrap();
@@ -405,7 +406,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		mut self,
 		target_session: SessionIndex,
 		validators: Vec<(T::AccountId, ValidatorId)>,
-		total_cores: u32,
+		_total_cores: u32,
 	) -> Self {
 		let mut block = 1;
 		for session in 0..=target_session {
@@ -440,7 +441,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		self.validators = Some(validators_shuffled);
 		self.block_number = block_number;
 		self.session = target_session;
-		assert_eq!(paras::Pallet::<T>::parachains().len(), total_cores as usize);
+		// assert_eq!(paras::Pallet::<T>::parachains().len(), total_cores as usize);
 
 		self
 	}
@@ -736,7 +737,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 							CoreIndex(i),
 							ParaId::from(i),
 						);
-					(CoreIndex(i), vec![ParasEntry::new(assignment, now + ttl); 5000].into())
+					(CoreIndex(i), vec![ParasEntry::new(assignment, now + ttl)].into())
 				})
 				.collect();
 			scheduler::ClaimQueue::<T>::set(cores);

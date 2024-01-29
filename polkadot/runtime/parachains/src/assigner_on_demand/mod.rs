@@ -106,7 +106,7 @@ pub enum SpotTrafficCalculationErr {
 
 /// Internal representation of an order after it has been enqueued already.
 #[derive(Encode, Decode, TypeInfo, Debug, PartialEq, Clone)]
-pub(super) struct EnqueuedOrder {
+pub struct EnqueuedOrder {
 	pub para_id: ParaId,
 }
 
@@ -439,7 +439,7 @@ where
 	/// Errors:
 	/// - `InvalidParaId`
 	/// - `QueueFull`
-	fn add_on_demand_order(
+	pub fn add_on_demand_order(
 		order: EnqueuedOrder,
 		location: QueuePushDirection,
 	) -> Result<(), DispatchError> {

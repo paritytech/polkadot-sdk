@@ -15,14 +15,23 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use crate::{inclusion, ParaId};
-use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
+use crate::{
+	assigner_on_demand::{EnqueuedOrder, Pallet as OnDemandPallet, QueuePushDirection},
+	inclusion, ParaId,
+};
+use frame_benchmarking::{benchmarks, impl_benchmark_test_suite, whitelisted_caller};
+use frame_support::traits::Currency;
 use frame_system::RawOrigin;
+use sp_runtime::traits::Bounded;
 use sp_std::{cmp::min, collections::btree_map::BTreeMap};
 
 use primitives::v6::GroupIndex;
 
 use crate::builder::BenchBuilder;
+
+type BalanceOf<T> = <<T as crate::assigner_on_demand::pallet::Config>::Currency as Currency<
+	<T as frame_system::Config>::AccountId,
+>>::Balance;
 
 benchmarks! {
 	// Variant over `v`, the number of dispute statements in a dispute statement set. This gives the
@@ -226,9 +235,18 @@ benchmarks! {
 
 		let scenario = BenchBuilder::<T>::new()
 			.set_backed_and_concluding_cores(cores_with_backed)
-			.set_fill_claimqueue(true)
+			// .set_fill_claimqueue(true)
 			.set_max_validators_per_core(3)
 			.build();
+
+		let caller = whitelisted_caller();
+		let para_id = ParaId::from(43_u32);
+		let balance = BalanceOf::<T>::max_value();
+		<T as crate::assigner_on_demand::pallet::Config>::Currency::make_free_balance_be(&caller, balance);
+		let order = EnqueuedOrder::new(para_id);
+		for _ in 0..5000 {
+			OnDemandPallet::<T>::add_on_demand_order(order.clone(), QueuePushDirection::Back).unwrap();
+		}
 
 		let mut benchmark = scenario.data;
 		benchmark.disputes.clear();

@@ -406,11 +406,11 @@ impl<T: frame_system::Config> runtime_parachains::paras_inherent::WeightInfo for
 	/// Proof: `Paras::UpgradeGoAheadSignal` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn enter_on_demand_queue_processing() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `6536142`
-		//  Estimated: `6663357`
-		// Minimum execution time: 345_500_000_000 picoseconds.
-		Weight::from_parts(387_888_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 6663357))
+		//  Measured:  `3286831`
+		//  Estimated: `3414046`
+		// Minimum execution time: 57_325_000_000 picoseconds.
+		Weight::from_parts(58_244_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 3414046))
 			.saturating_add(T::DbWeight::get().reads(467))
 			.saturating_add(T::DbWeight::get().writes(462))
 	}
