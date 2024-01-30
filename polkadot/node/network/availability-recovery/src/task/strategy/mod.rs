@@ -29,10 +29,7 @@ use crate::{
 	futures_undead::FuturesUndead, ErasureTask, PostRecoveryCheck, RecoveryParams, LOG_TARGET,
 };
 
-use futures::{
-	channel::{mpsc, oneshot},
-	SinkExt,
-};
+use futures::{channel::oneshot, SinkExt};
 use parity_scale_codec::Decode;
 use polkadot_erasure_coding::branch_hash;
 #[cfg(not(test))]
@@ -127,8 +124,8 @@ fn is_chunk_valid(params: &RecoveryParams, chunk: &ErasureChunk) -> bool {
 async fn do_post_recovery_check(
 	params: &RecoveryParams,
 	data: AvailableData,
-	erasure_task_tx: &mut mpsc::Sender<ErasureTask>,
 ) -> Result<AvailableData, RecoveryError> {
+	let mut erasure_task_tx = params.erasure_task_tx.clone();
 	match params.post_recovery_check {
 		PostRecoveryCheck::Reencode => {
 			// Send request to re-encode the chunks and check merkle root.
@@ -624,7 +621,8 @@ mod tests {
 	use crate::{tests::*, Metrics, RecoveryStrategy, RecoveryTask};
 	use assert_matches::assert_matches;
 	use futures::{
-		channel::mpsc::UnboundedReceiver, executor, future, Future, FutureExt, StreamExt,
+		channel::mpsc::{self, UnboundedReceiver},
+		executor, future, Future, FutureExt, StreamExt,
 	};
 	use parity_scale_codec::Error as DecodingError;
 	use polkadot_erasure_coding::{recovery_threshold, systematic_recovery_threshold};
@@ -652,6 +650,7 @@ mod tests {
 				Sr25519Keyring::One,
 				Sr25519Keyring::Two,
 			];
+			let (erasure_task_tx, _erasure_task_rx) = mpsc::channel(10);
 
 			Self {
 				validator_authority_keys: validator_authority_id(&validators),
@@ -667,6 +666,7 @@ mod tests {
 				req_v1_protocol_name: "/req_chunk/1".into(),
 				req_v2_protocol_name: "/req_chunk/2".into(),
 				chunk_mapping_enabled: true,
+				erasure_task_tx,
 			}
 		}
 	}

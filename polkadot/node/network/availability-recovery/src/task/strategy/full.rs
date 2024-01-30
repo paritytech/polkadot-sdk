@@ -34,8 +34,6 @@ use rand::seq::SliceRandom;
 pub struct FetchFullParams {
 	/// Validators that will be used for fetching the data.
 	pub validators: Vec<ValidatorIndex>,
-	/// Channel to the erasure task handler.
-	pub erasure_task_tx: futures::channel::mpsc::Sender<ErasureTask>,
 }
 
 /// `RecoveryStrategy` that sequentially tries to fetch the full `AvailableData` from
@@ -101,8 +99,9 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 					let maybe_data = match common_params.post_recovery_check {
 						PostRecoveryCheck::Reencode => {
 							let (reencode_tx, reencode_rx) = oneshot::channel();
-							self.params
-								.erasure_task_tx
+							let mut erasure_task_tx = common_params.erasure_task_tx.clone();
+
+							erasure_task_tx
 								.send(ErasureTask::Reencode(
 									common_params.n_validators,
 									common_params.erasure_root,

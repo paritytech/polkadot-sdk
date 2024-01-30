@@ -458,12 +458,10 @@ async fn handle_recover<Context>(
 							RecoveryStrategyKind::BackersFirstIfSizeLowerThenSystematicChunks(_),
 							true,
 						) |
-						(RecoveryStrategyKind::BackersThenSystematicChunks, _) => recovery_strategies.push_back(
-							Box::new(FetchFull::new(FetchFullParams {
-								validators: backing_validators.to_vec(),
-								erasure_task_tx: erasure_task_tx.clone(),
-							})),
-						),
+						(RecoveryStrategyKind::BackersThenSystematicChunks, _) =>
+							recovery_strategies.push_back(Box::new(FetchFull::new(
+								FetchFullParams { validators: backing_validators.to_vec() },
+							))),
 						_ => {},
 					};
 
@@ -522,7 +520,6 @@ async fn handle_recover<Context>(
 						FetchSystematicChunksParams {
 							validators,
 							backers: backer_group.map(|v| v.to_vec()).unwrap_or_else(|| vec![]),
-							erasure_task_tx: erasure_task_tx.clone(),
 						},
 					)));
 				}
@@ -530,7 +527,6 @@ async fn handle_recover<Context>(
 
 			recovery_strategies.push_back(Box::new(FetchChunks::new(FetchChunksParams {
 				n_validators: session_info.validators.len(),
-				erasure_task_tx,
 			})));
 
 			let session_info = session_info.clone();
@@ -556,6 +552,7 @@ async fn handle_recover<Context>(
 					req_v1_protocol_name,
 					req_v2_protocol_name,
 					chunk_mapping_enabled,
+					erasure_task_tx,
 				},
 			)
 			.await

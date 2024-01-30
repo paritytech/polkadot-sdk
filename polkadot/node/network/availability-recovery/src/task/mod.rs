@@ -26,7 +26,7 @@ pub use self::strategy::{
 	SYSTEMATIC_CHUNKS_REQ_RETRY_LIMIT,
 };
 
-use crate::{metrics::Metrics, PostRecoveryCheck, LOG_TARGET};
+use crate::{metrics::Metrics, ErasureTask, PostRecoveryCheck, LOG_TARGET};
 
 use parity_scale_codec::Encode;
 use polkadot_node_primitives::AvailableData;
@@ -34,7 +34,7 @@ use polkadot_node_subsystem::{messages::AvailabilityStoreMessage, overseer, Reco
 use polkadot_primitives::{AuthorityDiscoveryId, CandidateHash, Hash};
 use sc_network::ProtocolName;
 
-use futures::channel::oneshot;
+use futures::channel::{mpsc, oneshot};
 use std::collections::VecDeque;
 
 /// Recovery parameters common to all strategies in a `RecoveryTask`.
@@ -78,6 +78,9 @@ pub struct RecoveryParams {
 
 	/// Whether or not chunk mapping is enabled.
 	pub chunk_mapping_enabled: bool,
+
+	/// Channel to the erasure task handler.
+	pub erasure_task_tx: mpsc::Sender<ErasureTask>,
 }
 
 /// A stateful reconstruction of availability data in reference to

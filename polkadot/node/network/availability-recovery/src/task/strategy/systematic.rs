@@ -23,7 +23,7 @@ use crate::{
 		},
 		RecoveryParams, RecoveryStrategy, State,
 	},
-	ErasureTask, LOG_TARGET,
+	LOG_TARGET,
 };
 
 use polkadot_node_primitives::AvailableData;
@@ -38,8 +38,6 @@ pub struct FetchSystematicChunksParams {
 	pub validators: Vec<(ChunkIndex, ValidatorIndex)>,
 	/// Validators in the backing group, to be used as a backup for requesting systematic chunks.
 	pub backers: Vec<ValidatorIndex>,
-	/// Channel to the erasure task handler.
-	pub erasure_task_tx: futures::channel::mpsc::Sender<ErasureTask>,
 }
 
 /// `RecoveryStrategy` that attempts to recover the systematic chunks from the validators that
@@ -53,8 +51,6 @@ pub struct FetchSystematicChunks {
 	backers: Vec<ValidatorIndex>,
 	/// Collection of in-flight requests.
 	requesting_chunks: OngoingRequests,
-	/// Channel to the erasure task handler.
-	erasure_task_tx: futures::channel::mpsc::Sender<ErasureTask>,
 }
 
 impl FetchSystematicChunks {
@@ -65,7 +61,6 @@ impl FetchSystematicChunks {
 			validators: params.validators,
 			backers: params.backers,
 			requesting_chunks: FuturesUndead::new(),
-			erasure_task_tx: params.erasure_task_tx,
 		}
 	}
 
@@ -128,7 +123,7 @@ impl FetchSystematicChunks {
 				drop(reconstruct_duration);
 
 				// Attempt post-recovery check.
-				do_post_recovery_check(common_params, data, &mut self.erasure_task_tx)
+				do_post_recovery_check(common_params, data)
 					.await
 					.map_err(|e| {
 						recovery_duration.map(|rd| rd.stop_and_discard());
@@ -331,12 +326,10 @@ mod tests {
 	fn test_get_desired_request_count() {
 		let num_validators = 100;
 		let threshold = systematic_recovery_threshold(num_validators).unwrap();
-		let (erasure_task_tx, _erasure_task_rx) = futures::channel::mpsc::channel(16);
 
 		let systematic_chunks_task = FetchSystematicChunks::new(FetchSystematicChunksParams {
 			validators: vec![(1.into(), 1.into()); num_validators],
 			backers: vec![],
-			erasure_task_tx,
 		});
 		assert_eq!(systematic_chunks_task.get_desired_request_count(0, threshold), threshold);
 		assert_eq!(systematic_chunks_task.get_desired_request_count(5, threshold), threshold - 5);

@@ -76,6 +76,8 @@ struct RecoveryParams {
   pub req_v2_protocol_name: ProtocolName,
   /// Whether or not chunk mapping is enabled.
   pub chunk_mapping_enabled: bool,
+  /// Channel to the erasure task handler.
+	pub erasure_task_tx: mpsc::Sender<ErasureTask>,
 }
 
 pub struct RecoveryTask<Sender: overseer::AvailabilityRecoverySenderTrait> {

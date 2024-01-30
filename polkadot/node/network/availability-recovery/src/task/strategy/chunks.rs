@@ -37,8 +37,6 @@ use std::collections::VecDeque;
 /// Parameters specific to the `FetchChunks` strategy.
 pub struct FetchChunksParams {
 	pub n_validators: usize,
-	/// Channel to the erasure task handler.
-	pub erasure_task_tx: futures::channel::mpsc::Sender<ErasureTask>,
 }
 
 /// `RecoveryStrategy` that requests chunks from validators, in parallel.
@@ -51,8 +49,6 @@ pub struct FetchChunks {
 	validators: VecDeque<ValidatorIndex>,
 	/// Collection of in-flight requests.
 	requesting_chunks: OngoingRequests,
-	/// Channel to the erasure task handler.
-	erasure_task_tx: futures::channel::mpsc::Sender<ErasureTask>,
 }
 
 impl FetchChunks {
@@ -69,7 +65,6 @@ impl FetchChunks {
 			total_received_responses: 0,
 			validators,
 			requesting_chunks: FuturesUndead::new(),
-			erasure_task_tx: params.erasure_task_tx,
 		}
 	}
 
@@ -118,7 +113,9 @@ impl FetchChunks {
 
 		// Send request to reconstruct available data from chunks.
 		let (avilable_data_tx, available_data_rx) = oneshot::channel();
-		self.erasure_task_tx
+
+		let mut erasure_task_tx = common_params.erasure_task_tx.clone();
+		erasure_task_tx
 			.send(ErasureTask::Reconstruct(
 				common_params.n_validators,
 				// Safe to leave an empty vec in place, as we're stopping the recovery process if
@@ -137,7 +134,7 @@ impl FetchChunks {
 
 		match available_data_response {
 			// Attempt post-recovery check.
-			Ok(data) => do_post_recovery_check(common_params, data, &mut self.erasure_task_tx)
+			Ok(data) => do_post_recovery_check(common_params, data)
 				.await
 				.map_err(|e| {
 					recovery_duration.map(|rd| rd.stop_and_discard());
@@ -307,12 +304,10 @@ mod tests {
 
 	#[test]
 	fn test_get_desired_request_count() {
-		let num_validators = 100;
-		let threshold = recovery_threshold(num_validators).unwrap();
-		let (erasure_task_tx, _erasure_task_rx) = futures::channel::mpsc::channel(16);
+		let n_validators = 100;
+		let threshold = recovery_threshold(n_validators).unwrap();
 
-		let mut fetch_chunks_task =
-			FetchChunks::new(FetchChunksParams { n_validators: num_validators, erasure_task_tx });
+		let mut fetch_chunks_task = FetchChunks::new(FetchChunksParams { n_validators });
 		assert_eq!(fetch_chunks_task.get_desired_request_count(0, threshold), threshold);
 		fetch_chunks_task.error_count = 1;
 		fetch_chunks_task.total_received_responses = 1;
