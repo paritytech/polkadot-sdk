@@ -18,7 +18,10 @@
 use codec::{Decode, Encode};
 use cumulus_primitives_core::Weight;
 use cumulus_primitives_proof_size_hostfunction::storage_proof_size::storage_proof_size;
-use frame_support::dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo};
+use frame_support::{
+	dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo},
+	weights::WeightMeter,
+};
 use frame_system::{BlockWeight, Config};
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -88,6 +91,16 @@ impl<T: Config> StorageWeightReclaimer<T> {
 		self.previous_proof_weight = current_weight.saturating_sub(reclaimable);
 		self.previous_reported_proof_size = Some(current_storage_proof_size);
 		Some(Weight::from_parts(0, reclaimable))
+	}
+
+	/// Check the consumed storage weight and reclaim any consumed excess weight. Adds the reclaimed
+	/// weight budget back to `weight_meter`.
+	pub fn reclaim_with_meter(&mut self, weight_meter: &mut WeightMeter) -> Option<Weight> {
+		let reclaimed = self.reclaim();
+		if let Some(ref weight) = reclaimed {
+			weight_meter.reclaim_proof_size(weight.proof_size());
+		}
+		reclaimed
 	}
 }
 
@@ -178,7 +191,11 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use frame_support::{assert_ok, dispatch::DispatchClass, weights::Weight};
+	use frame_support::{
+		assert_ok,
+		dispatch::DispatchClass,
+		weights::{Weight, WeightMeter},
+	};
 	use frame_system::{
 		mock::{new_test_ext, Test, CALL},
 		BlockWeight,
@@ -471,6 +488,30 @@ mod tests {
 				BlockWeight::<Test>::get().total(),
 				Weight::from_parts(base_block_weight().ref_time(), 1200)
 			);
+		});
+	}
+
+	#[test]
+	fn test_reclaim_helper_works_with_meter() {
+		let mut test_ext = setup_test_externalities(&[10, 12]);
+
+		test_ext.execute_with(|| {
+			let mut remaining_weight_counter = WeightMeter::with_limit(Weight::from_parts(10, 10));
+
+			set_current_storage_weight(10);
+			let mut reclaim_helper = StorageWeightReclaimer::<Test>::start();
+
+			//substract benchmarked weight
+			remaining_weight_counter.consume(Weight::from_parts(0, 5));
+			set_current_storage_weight(15);
+			let reclaimed = reclaim_helper.reclaim_with_meter(&mut remaining_weight_counter);
+
+			assert_eq!(reclaimed, Some(Weight::from_parts(0, 3)));
+			assert_eq!(
+				BlockWeight::<Test>::get().total(),
+				Weight::from_parts(base_block_weight().ref_time(), 12)
+			);
+			assert_eq!(remaining_weight_counter.remaining(), Weight::from_parts(10, 8));
 		});
 	}
 }
