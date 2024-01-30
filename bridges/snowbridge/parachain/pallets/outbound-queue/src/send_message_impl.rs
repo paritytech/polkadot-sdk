@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //! Implementation for [`snowbridge_core::outbound::SendMessage`]
 use super::*;
 use bridge_hub_common::AggregateMessageOrigin;
