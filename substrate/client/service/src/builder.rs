@@ -657,7 +657,7 @@ where
 	)
 	.into_rpc();
 
-	let chain_head_v2 = sc_rpc_spec_v2::chain_head::ChainHead::new(
+	let mut chain_head_v2 = sc_rpc_spec_v2::chain_head::ChainHead::new(
 		client.clone(),
 		backend.clone(),
 		task_executor.clone(),

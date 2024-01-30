@@ -44,11 +44,11 @@ use tokio::net::TcpListener;
 use tower::Service;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
-pub use middleware::{MetricsLayer, RateLimitLayer, RpcMetrics};
 pub use jsonrpsee::core::{
 	id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
 	traits::IdProvider,
 };
+pub use middleware::{MetricsLayer, RateLimitLayer, RpcMetrics};
 
 const MEGABYTE: u32 = 1024 * 1024;
 

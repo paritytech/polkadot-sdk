@@ -36,7 +36,11 @@ use crate::{
 use codec::Encode;
 use futures::future::FutureExt;
 use jsonrpsee::{
-	core::async_trait, types::SubscriptionId, PendingSubscriptionSink, SubscriptionSink,
+	core::async_trait,
+	server::ResponsePayloadV2 as RpcResponse,
+	types::SubscriptionId,
+	PendingSubscriptionSink, SubscriptionSink,
+	response_channel
 };
 use log::debug;
 use sc_client_api::{
@@ -294,7 +298,7 @@ where
 		hash: Block::Hash,
 		items: Vec<StorageQuery<String>>,
 		child_trie: Option<String>,
-	) -> Result<MethodResponse, ChainHeadRpcError> {
+	) -> RpcResponse<'static, MethodResponse> {
 		// Gain control over parameter parsing and returned error.
 		let items = items
 			.into_iter()
@@ -302,23 +306,25 @@ where
 				let key = StorageKey(parse_hex_param(query.key)?);
 				Ok(StorageQuery { key, query_type: query.query_type })
 			})
-			.collect::<Result<Vec<_>, ChainHeadRpcError>>()?;
+			.collect::<Result<Vec<_>, ChainHeadRpcError>>()
+			.unwrap();
 
 		let child_trie = child_trie
 			.map(|child_trie| parse_hex_param(child_trie))
-			.transpose()?
+			.transpose()
+			.unwrap()
 			.map(ChildInfo::new_default_from_vec);
 
 		let mut block_guard =
 			match self.subscriptions.lock_block(&follow_subscription, hash, items.len()) {
 				Ok(block) => block,
 				Err(SubscriptionManagementError::SubscriptionAbsent) |
-				Err(SubscriptionManagementError::ExceededLimits) => return Ok(MethodResponse::LimitReached),
+				Err(SubscriptionManagementError::ExceededLimits) => todo!(),
 				Err(SubscriptionManagementError::BlockHashAbsent) => {
 					// Block is not part of the subscription.
-					return Err(ChainHeadRpcError::InvalidBlock.into())
+					return RpcResponse::error(ChainHeadRpcError::InvalidBlock)
 				},
-				Err(_) => return Err(ChainHeadRpcError::InvalidBlock.into()),
+				Err(_) => return RpcResponse::error(ChainHeadRpcError::InvalidBlock),
 			};
 
 		let mut storage_client = ChainHeadStorage::<Client, Block, BE>::new(
@@ -334,16 +340,24 @@ where
 		let mut items = items;
 		items.truncate(num_operations);
 
+		let (tx, rx) = response_channel();
+
 		let fut = async move {
+			if rx.is_sent().await.is_err() {
+				return;
+			}
 			storage_client.generate_events(block_guard, hash, items, child_trie).await;
 		};
 
 		self.executor
 			.spawn_blocking("substrate-rpc-subscription", Some("rpc"), fut.boxed());
-		Ok(MethodResponse::Started(MethodResponseStarted {
+
+		let r = MethodResponse::Started(MethodResponseStarted {
 			operation_id,
 			discarded_items: Some(discarded),
-		}))
+		});
+
+		RpcResponse::result(r).notify_on_success(tx)
 	}
 
 	fn chain_head_unstable_call(
