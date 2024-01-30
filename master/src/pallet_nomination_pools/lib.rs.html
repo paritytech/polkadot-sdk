@@ -3596,6 +3596,39 @@
 <a href="#3596" id="3596">3596</a>
 <a href="#3597" id="3597">3597</a>
 <a href="#3598" id="3598">3598</a>
+<a href="#3599" id="3599">3599</a>
+<a href="#3600" id="3600">3600</a>
+<a href="#3601" id="3601">3601</a>
+<a href="#3602" id="3602">3602</a>
+<a href="#3603" id="3603">3603</a>
+<a href="#3604" id="3604">3604</a>
+<a href="#3605" id="3605">3605</a>
+<a href="#3606" id="3606">3606</a>
+<a href="#3607" id="3607">3607</a>
+<a href="#3608" id="3608">3608</a>
+<a href="#3609" id="3609">3609</a>
+<a href="#3610" id="3610">3610</a>
+<a href="#3611" id="3611">3611</a>
+<a href="#3612" id="3612">3612</a>
+<a href="#3613" id="3613">3613</a>
+<a href="#3614" id="3614">3614</a>
+<a href="#3615" id="3615">3615</a>
+<a href="#3616" id="3616">3616</a>
+<a href="#3617" id="3617">3617</a>
+<a href="#3618" id="3618">3618</a>
+<a href="#3619" id="3619">3619</a>
+<a href="#3620" id="3620">3620</a>
+<a href="#3621" id="3621">3621</a>
+<a href="#3622" id="3622">3622</a>
+<a href="#3623" id="3623">3623</a>
+<a href="#3624" id="3624">3624</a>
+<a href="#3625" id="3625">3625</a>
+<a href="#3626" id="3626">3626</a>
+<a href="#3627" id="3627">3627</a>
+<a href="#3628" id="3628">3628</a>
+<a href="#3629" id="3629">3629</a>
+<a href="#3630" id="3630">3630</a>
+<a href="#3631" id="3631">3631</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4076,8 +4109,16 @@
 }
 
 <span class="doccomment">/// A member in a pool.
-</span><span class="attr">#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebugNoBound, CloneNoBound)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(frame_support::PartialEqNoBound, DefaultNoBound))]
+</span><span class="attr">#[derive(
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	TypeInfo,
+	RuntimeDebugNoBound,
+	CloneNoBound,
+	frame_support::PartialEqNoBound,
+)]
+#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(DefaultNoBound))]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
 </span><span class="kw">pub struct </span>PoolMember&lt;T: Config&gt; {
@@ -5738,7 +5779,12 @@
 				bonded_pool.points,
 				bonded_pool.commission.current(),
 			)<span class="question-mark">?</span>;
-			<span class="kw">let _ </span>= <span class="self">Self</span>::do_reward_payout(<span class="kw-2">&amp;</span>who, <span class="kw-2">&amp;mut </span>member, <span class="kw-2">&amp;mut </span>bonded_pool, <span class="kw-2">&amp;mut </span>reward_pool)<span class="question-mark">?</span>;
+			<span class="kw">let _ </span>= <span class="self">Self</span>::do_reward_payout(
+				<span class="kw-2">&amp;</span>member_account,
+				<span class="kw-2">&amp;mut </span>member,
+				<span class="kw-2">&amp;mut </span>bonded_pool,
+				<span class="kw-2">&amp;mut </span>reward_pool,
+			)<span class="question-mark">?</span>;
 
 			<span class="kw">let </span>current_era = T::Staking::current_era();
 			<span class="kw">let </span>unbond_era = T::Staking::bonding_duration().saturating_add(current_era);
@@ -6527,6 +6573,11 @@
 		bonded_pool: BondedPool&lt;T&gt;,
 		reward_pool: RewardPool&lt;T&gt;,
 	) {
+		<span class="comment">// The pool id of a member cannot change in any case, so we use it to make sure
+		// `member_account` is the right one.
+		</span><span class="macro">debug_assert_eq!</span>(PoolMembers::&lt;T&gt;::get(member_account).unwrap().pool_id, member.pool_id);
+		<span class="macro">debug_assert_eq!</span>(member.pool_id, bonded_pool.id);
+
 		bonded_pool.put();
 		RewardPools::insert(member.pool_id, reward_pool);
 		PoolMembers::&lt;T&gt;::insert(member_account, member);
@@ -6593,6 +6644,7 @@
 		reward_pool: <span class="kw-2">&amp;mut </span>RewardPool&lt;T&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, DispatchError&gt; {
 		<span class="macro">debug_assert_eq!</span>(member.pool_id, bonded_pool.id);
+		<span class="macro">debug_assert_eq!</span>(<span class="kw-2">&amp;mut </span>PoolMembers::&lt;T&gt;::get(member_account).unwrap(), member);
 
 		<span class="comment">// a member who has no skin in the game anymore cannot claim any rewards.
 		</span><span class="macro">ensure!</span>(!member.active_points().is_zero(), Error::&lt;T&gt;::FullyUnbonding);
@@ -6709,18 +6761,19 @@
 
 	<span class="kw">fn </span>do_bond_extra(
 		signer: T::AccountId,
-		who: T::AccountId,
+		member_account: T::AccountId,
 		extra: BondExtra&lt;BalanceOf&lt;T&gt;&gt;,
 	) -&gt; DispatchResult {
-		<span class="kw">if </span>signer != who {
+		<span class="kw">if </span>signer != member_account {
 			<span class="macro">ensure!</span>(
-				ClaimPermissions::&lt;T&gt;::get(<span class="kw-2">&amp;</span>who).can_bond_extra(),
+				ClaimPermissions::&lt;T&gt;::get(<span class="kw-2">&amp;</span>member_account).can_bond_extra(),
 				Error::&lt;T&gt;::DoesNotHavePermission
 			);
 			<span class="macro">ensure!</span>(extra == BondExtra::Rewards, Error::&lt;T&gt;::BondExtraRestricted);
 		}
 
-		<span class="kw">let </span>(<span class="kw-2">mut </span>member, <span class="kw-2">mut </span>bonded_pool, <span class="kw-2">mut </span>reward_pool) = <span class="self">Self</span>::get_member_with_pools(<span class="kw-2">&amp;</span>who)<span class="question-mark">?</span>;
+		<span class="kw">let </span>(<span class="kw-2">mut </span>member, <span class="kw-2">mut </span>bonded_pool, <span class="kw-2">mut </span>reward_pool) =
+			<span class="self">Self</span>::get_member_with_pools(<span class="kw-2">&amp;</span>member_account)<span class="question-mark">?</span>;
 
 		<span class="comment">// payout related stuff: we must claim the payouts, and updated recorded payout data
 		// before updating the bonded pool points, similar to that of `join` transaction.
@@ -6729,14 +6782,18 @@
 			bonded_pool.points,
 			bonded_pool.commission.current(),
 		)<span class="question-mark">?</span>;
-		<span class="kw">let </span>claimed =
-			<span class="self">Self</span>::do_reward_payout(<span class="kw-2">&amp;</span>who, <span class="kw-2">&amp;mut </span>member, <span class="kw-2">&amp;mut </span>bonded_pool, <span class="kw-2">&amp;mut </span>reward_pool)<span class="question-mark">?</span>;
+		<span class="kw">let </span>claimed = <span class="self">Self</span>::do_reward_payout(
+			<span class="kw-2">&amp;</span>member_account,
+			<span class="kw-2">&amp;mut </span>member,
+			<span class="kw-2">&amp;mut </span>bonded_pool,
+			<span class="kw-2">&amp;mut </span>reward_pool,
+		)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>(points_issued, bonded) = <span class="kw">match </span>extra {
 			BondExtra::FreeBalance(amount) =&gt;
-				(bonded_pool.try_bond_funds(<span class="kw-2">&amp;</span>who, amount, BondType::Later)<span class="question-mark">?</span>, amount),
+				(bonded_pool.try_bond_funds(<span class="kw-2">&amp;</span>member_account, amount, BondType::Later)<span class="question-mark">?</span>, amount),
 			BondExtra::Rewards =&gt;
-				(bonded_pool.try_bond_funds(<span class="kw-2">&amp;</span>who, claimed, BondType::Later)<span class="question-mark">?</span>, claimed),
+				(bonded_pool.try_bond_funds(<span class="kw-2">&amp;</span>member_account, claimed, BondType::Later)<span class="question-mark">?</span>, claimed),
 		};
 
 		bonded_pool.ok_to_be_open()<span class="question-mark">?</span>;
@@ -6744,12 +6801,12 @@
 			member.points.checked_add(<span class="kw-2">&amp;</span>points_issued).ok_or(Error::&lt;T&gt;::OverflowRisk)<span class="question-mark">?</span>;
 
 		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Bonded {
-			member: who.clone(),
+			member: member_account.clone(),
 			pool_id: member.pool_id,
 			bonded,
 			joined: <span class="bool-val">false</span>,
 		});
-		<span class="self">Self</span>::put_member_with_pools(<span class="kw-2">&amp;</span>who, member, bonded_pool, reward_pool);
+		<span class="self">Self</span>::put_member_with_pools(<span class="kw-2">&amp;</span>member_account, member, bonded_pool, reward_pool);
 
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -6798,18 +6855,27 @@
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="kw">fn </span>do_claim_payout(signer: T::AccountId, who: T::AccountId) -&gt; DispatchResult {
-		<span class="kw">if </span>signer != who {
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_claim_payout(
+		signer: T::AccountId,
+		member_account: T::AccountId,
+	) -&gt; DispatchResult {
+		<span class="kw">if </span>signer != member_account {
 			<span class="macro">ensure!</span>(
-				ClaimPermissions::&lt;T&gt;::get(<span class="kw-2">&amp;</span>who).can_claim_payout(),
+				ClaimPermissions::&lt;T&gt;::get(<span class="kw-2">&amp;</span>member_account).can_claim_payout(),
 				Error::&lt;T&gt;::DoesNotHavePermission
 			);
 		}
-		<span class="kw">let </span>(<span class="kw-2">mut </span>member, <span class="kw-2">mut </span>bonded_pool, <span class="kw-2">mut </span>reward_pool) = <span class="self">Self</span>::get_member_with_pools(<span class="kw-2">&amp;</span>who)<span class="question-mark">?</span>;
+		<span class="kw">let </span>(<span class="kw-2">mut </span>member, <span class="kw-2">mut </span>bonded_pool, <span class="kw-2">mut </span>reward_pool) =
+			<span class="self">Self</span>::get_member_with_pools(<span class="kw-2">&amp;</span>member_account)<span class="question-mark">?</span>;
 
-		<span class="kw">let _ </span>= <span class="self">Self</span>::do_reward_payout(<span class="kw-2">&amp;</span>who, <span class="kw-2">&amp;mut </span>member, <span class="kw-2">&amp;mut </span>bonded_pool, <span class="kw-2">&amp;mut </span>reward_pool)<span class="question-mark">?</span>;
+		<span class="kw">let _ </span>= <span class="self">Self</span>::do_reward_payout(
+			<span class="kw-2">&amp;</span>member_account,
+			<span class="kw-2">&amp;mut </span>member,
+			<span class="kw-2">&amp;mut </span>bonded_pool,
+			<span class="kw-2">&amp;mut </span>reward_pool,
+		)<span class="question-mark">?</span>;
 
-		<span class="self">Self</span>::put_member_with_pools(<span class="kw-2">&amp;</span>who, member, bonded_pool, reward_pool);
+		<span class="self">Self</span>::put_member_with_pools(<span class="kw-2">&amp;</span>member_account, member, bonded_pool, reward_pool);
 		<span class="prelude-val">Ok</span>(())
 	}
 
