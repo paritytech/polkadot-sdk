@@ -264,6 +264,7 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
+	"pallet-parameters/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking-pallet-pov/runtime-benchmarks",
@@ -337,6 +338,7 @@ runtime-benchmarks = [
 	"pallet-whitelist/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"pallet-parameters/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-benchmarking-pallet-pov/try-runtime",
@@ -415,6 +417,7 @@ try-runtime = [
 	"pallet-vesting/try-runtime",
 	"pallet-whitelist/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-parameters/try-runtime"
 ]
 experimental = [
 	"frame-support/experimental",
