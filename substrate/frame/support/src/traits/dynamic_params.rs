@@ -69,6 +69,15 @@ pub trait AggregratedKeyValue: Parameter {
 	fn into_parts(self) -> (Self::AggregratedKey, Option<Self::AggregratedValue>);
 }
 
+impl AggregratedKeyValue for () {
+	type AggregratedKey = ();
+	type AggregratedValue = ();
+
+	fn into_parts(self) -> (Self::AggregratedKey, Option<Self::AggregratedValue>) {
+		((), None)
+	}
+}
+
 /// Allows create a `ParameterStore` from a `RuntimeParameterStore`.
 ///
 /// This concretization is useful when configuring pallets, since a pallet will require a parameter

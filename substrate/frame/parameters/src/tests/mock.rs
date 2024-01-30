@@ -22,7 +22,7 @@
 use frame_support::{
 	construct_runtime, derive_impl,
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
-	traits::{ConstU32, ConstU64, EnsureOriginWithArg},
+	traits::EnsureOriginWithArg,
 };
 
 use crate::*;
@@ -40,11 +40,11 @@ impl pallet_balances::Config for Runtime {
 }
 
 #[docify::export]
-#[dynamic_params(RuntimeParameters)]
+#[dynamic_params(RuntimeParameters, crate::Parameters::<Runtime>)]
 pub mod dynamic_params {
 	use super::*;
 
-	#[dynamic_pallet_params(crate::Parameters::<Runtime>)]
+	#[dynamic_pallet_params]
 	pub mod pallet1 {
 		#[codec(index = 0)]
 		pub static Key1: u64 = 0;
@@ -54,7 +54,7 @@ pub mod dynamic_params {
 		pub static Key3: u128 = 2;
 	}
 
-	#[dynamic_pallet_params(crate::Parameters::<Runtime>)]
+	#[dynamic_pallet_params]
 	pub mod pallet2 {
 		#[codec(index = 0)]
 		pub static Key1: u64 = 0;
@@ -77,6 +77,12 @@ mod custom_origin {
 			origin: RuntimeOrigin,
 			key: &RuntimeParametersKey,
 		) -> Result<Self::Success, RuntimeOrigin> {
+			// Account 123 is allowed to set parameters in benchmarking only:
+			#[cfg(feature = "runtime-benchmarks")]
+			if ensure_signed(origin.clone()).map_or(false, |acc| acc == 123) {
+				return Ok(());
+			}
+
 			match key {
 				RuntimeParametersKey::Pallet1(_) => ensure_root(origin.clone()),
 				RuntimeParametersKey::Pallet2(_) => ensure_signed(origin.clone()).map(|_| ()),
@@ -86,8 +92,7 @@ mod custom_origin {
 
 		#[cfg(feature = "runtime-benchmarks")]
 		fn try_successful_origin(_key: &RuntimeParametersKey) -> Result<RuntimeOrigin, ()> {
-			// FAIL-CI
-			Ok(RuntimeOrigin::Root)
+			Ok(RuntimeOrigin::signed(123))
 		}
 	}
 }

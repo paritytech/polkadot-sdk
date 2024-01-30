@@ -83,12 +83,10 @@ impl Config for Test {
 	fn some_function() -> u32 {
 		5u32
 	}
-	// Here we are using the new dynamic parameter:
-	type DynamicParam = dynamic_params::kitchensink::MagicNumber;
 }
 
 impl pallet_parameters::Config for Test {
-	type AggregratedKeyValue = RuntimeParameters;
+	type AggregratedKeyValue = ();
 	type RuntimeEvent = RuntimeEvent;
 	type AdminOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = ();
@@ -99,11 +97,11 @@ impl pallet_parameters::Config for Test {
 pub mod dynamic_params {
 	use super::*;
 
-	#[dynamic_pallet_params(pallet_parameters::Parameters::<Test>, Basic)]
+	/*#[dynamic_pallet_params(pallet_parameters::Parameters::<Test>)]
 	pub mod kitchensink {
 		#[codec(index = 0)]
 		pub static MagicNumber: u64 = 42;
-	}
+	}*/
 }
 
 // This function basically just builds a genesis storage key/value store according to

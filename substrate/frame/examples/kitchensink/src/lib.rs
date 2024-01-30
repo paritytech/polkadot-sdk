@@ -86,8 +86,6 @@ pub mod pallet {
 		/// therefore can be queried by offchain applications.
 		#[pallet::constant]
 		type InMetadata: Get<u32>;
-
-		type DynamicParam: Get<u64>;
 	}
 
 	/// Allows you to define some extra constants to be added into constant metadata.

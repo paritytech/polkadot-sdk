@@ -23,7 +23,7 @@ use inflector::Inflector;
 use itertools::multiunzip;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
-use syn::{parse2, token, Result, Token};
+use syn::{parse2, token, visit_mut, visit_mut::VisitMut, Result, Token};
 
 /// Parse and expand a `#[dynamic_params(..)]` module.
 pub fn dynamic_params(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
@@ -51,6 +51,9 @@ pub struct DynamicParamModAttr {
 #[derive(derive_syn_parse::Parse)]
 pub struct DynamicParamModAttrMeta {
 	name: syn::Ident,
+	_comma: Option<Token![,]>, // FAIL-CI check peek
+	#[parse_if(_comma.is_some())]
+	params_pallet: Option<syn::Type>,
 }
 
 impl DynamicParamModAttr {
@@ -80,7 +83,8 @@ impl ToTokens for DynamicParamModAttr {
 			Ok(path) => path,
 			Err(err) => return tokens.extend(err),
 		};
-		let (params_mod, name) = (&self.params_mod, &self.meta.name);
+		let (mut params_mod, name) = (self.params_mod.clone(), &self.meta.name);
+		let params_pallet = self.meta.params_pallet.clone();
 		let dynam_params_ident = &params_mod.ident;
 
 		let mut quoted_enum = quote! {};
@@ -93,6 +97,42 @@ impl ToTokens for DynamicParamModAttr {
 				#aggregate_name(#dynam_params_ident::#mod_name::Parameters),
 			});
 		}
+
+		struct MacroInjectArgs(Option<syn::Type>);
+		impl VisitMut for MacroInjectArgs {
+			fn visit_item_mod_mut(&mut self, item: &mut syn::ItemMod) {
+				// Check if the mod has a `#[dynamic_pallet_params(..)]` attribute.
+				let mut attr = item
+					.attrs
+					.iter_mut()
+					.find(|attr| attr.path().is_ident("dynamic_pallet_params"));
+
+				if let Some(attr) = attr {
+					match &attr.meta {
+						syn::Meta::Path(path) =>
+							assert_eq!(path.to_token_stream().to_string(), "dynamic_pallet_params"),
+						_ => {
+							//panic!("Unexpected meta on `dynamic_pallet_params`");
+							return
+						},
+					}
+
+					// Now inject the parameter pallet type.
+					if let Some(params_pallet) = self.0.as_ref() {
+						attr.meta = syn::parse2::<syn::Meta>(quote! {
+							dynamic_pallet_params(#params_pallet)
+						})
+						.unwrap()
+						.into();
+					}
+				}
+
+				visit_mut::visit_item_mod_mut(self, item);
+			}
+		}
+
+		// Inject `#[dynamic_pallet_params(..)]` attribute on all inner mods.
+		MacroInjectArgs(self.meta.params_pallet.clone()).visit_item_mod_mut(&mut params_mod);
 
 		tokens.extend(quote! {
 			#params_mod
