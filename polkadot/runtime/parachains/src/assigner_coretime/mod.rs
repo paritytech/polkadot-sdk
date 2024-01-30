@@ -258,8 +258,6 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Assignment> {
 		let now = <frame_system::Pallet<T>>::block_number();
 
-		log::info!(target: "runtime", "before reading core descriptor {:?}", core_idx);
-
 		CoreDescriptors::<T>::mutate(core_idx, |core_state| {
 			Self::ensure_workload(now, core_idx, core_state);
 
