@@ -1014,14 +1014,12 @@ mod tests {
 		let reanchor_context: Junctions = Parachain(2000).into();
 		let dest = Location::new(1, []);
 
-		let asset_1: Asset =
-			(Location::new(0, [PalletInstance(50), GeneralIndex(1)]), 10).into();
+		let asset_1: Asset = (Location::new(0, [PalletInstance(50), GeneralIndex(1)]), 10).into();
 		let mut asset_1_reanchored = asset_1.clone();
 		assert!(asset_1_reanchored.reanchor(&dest, &reanchor_context).is_ok());
 		assert_eq!(
 			asset_1_reanchored,
-			(Location::new(0, [Parachain(2000), PalletInstance(50), GeneralIndex(1)]), 10)
-				.into()
+			(Location::new(0, [Parachain(2000), PalletInstance(50), GeneralIndex(1)]), 10).into()
 		);
 
 		let asset_2: Asset = (Location::new(1, []), 10).into();
@@ -1034,8 +1032,7 @@ mod tests {
 		assert!(asset_3_reanchored.reanchor(&dest, &reanchor_context).is_ok());
 		assert_eq!(asset_3_reanchored, (Location::new(0, [Parachain(1000)]), 10).into());
 
-		let mut assets: Assets =
-			vec![asset_1.clone(), asset_2.clone(), asset_3.clone()].into();
+		let mut assets: Assets = vec![asset_1.clone(), asset_2.clone(), asset_3.clone()].into();
 		assert_eq!(assets.clone(), vec![asset_1.clone(), asset_2.clone(), asset_3.clone()].into());
 
 		assert!(assets.reanchor(&dest, &reanchor_context).is_ok());
