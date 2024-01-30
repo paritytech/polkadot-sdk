@@ -197,6 +197,16 @@ fn run_input(xcm_messages: [XcmMessage; 5]) {
 		}
 		#[cfg(not(fuzzing))]
 		println!();
+		use frame_support::traits::{TryState, TryStateSelect};
+		use polkadot_core_primitives::BlockNumber;
+		<crate::parachain::AllPalletsWithSystem as TryState<BlockNumber>>::try_state(
+			0.into(),
+			TryStateSelect::All,
+		)
+		.unwrap();
+		use frame_support::traits::IntegrityTest;
+		<crate::parachain::AllPalletsWithSystem as IntegrityTest>::integrity_test();
+		<crate::relay_chain::AllPalletsWithSystem as IntegrityTest>::integrity_test();
 	}
 	Relay::execute_with(|| {});
 }

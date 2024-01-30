@@ -46,9 +46,22 @@ use xcm_builder::{
 	SovereignSignedViaLocation,
 };
 use xcm_executor::{Config, XcmExecutor};
+use sp_runtime::create_runtime_str;
 
 pub type AccountId = AccountId32;
 pub type Balance = u128;
+
+#[allow(unused_parens)]
+type Migrations = ();
+
+pub type Executive = frame_executive::Executive<
+	Runtime,
+	Block,
+	frame_system::ChainContext<Runtime>,
+	Runtime,
+	AllPalletsWithSystem,
+	Migrations,
+>;
 
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
@@ -368,3 +381,62 @@ construct_runtime!(
 		PolkadotXcm: pallet_xcm,
 	}
 );
+
+use sp_version::RuntimeVersion;
+
+// To learn more about runtime versioning, see:
+// https://docs.substrate.io/main-docs/build/upgrade#runtime-versioning
+#[sp_version::runtime_version]
+pub const VERSION: RuntimeVersion = RuntimeVersion {
+	spec_name: create_runtime_str!("node-template"),
+	impl_name: create_runtime_str!("node-template"),
+	authoring_version: 1,
+	// The version of the runtime specification. A full node will not attempt to use its native
+	//   runtime in substitute for the on-chain Wasm runtime unless all of `spec_name`,
+	//   `spec_version`, and `authoring_version` are the same between Wasm and native.
+	// This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
+	//   the compatible custom types.
+	spec_version: 100,
+	impl_version: 1,
+	apis: RUNTIME_API_VERSIONS,
+	transaction_version: 1,
+	state_version: 1,
+};
+
+impl_runtime_apis! {
+	impl sp_api::Core<Block> for Runtime {
+		fn version() -> RuntimeVersion {
+			VERSION
+		}
+
+		fn execute_block(block: Block) {
+			Executive::execute_block(block);
+		}
+
+		fn initialize_block(header: &<Block as sp_runtime::traits::Block>::Header) {
+			Executive::initialize_block(header)
+		}
+	}
+
+	#[cfg(feature = "try-runtime")]
+	impl frame_try_runtime::TryRuntime<Block> for Runtime {
+		fn on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -> (Weight, Weight) {
+			// NOTE: intentional unwrap: we don't want to propagate the error backwards, and want to
+			// have a backtrace here. If any of the pre/post migration checks fail, we shall stop
+			// right here and right now.
+			let weight = Executive::try_runtime_upgrade(checks).unwrap();
+			(weight, 0.into()) // BlockWeights::get().max_block)
+		}
+
+		fn execute_block(
+			block: Block,
+			state_root_check: bool,
+			signature_check: bool,
+			select: frame_try_runtime::TryStateSelect
+		) -> Weight {
+			// NOTE: intentional unwrap: we don't want to propagate the error backwards, and want to
+			// have a backtrace here.
+			Executive::try_execute_block(block, state_root_check, signature_check, select).expect("execute-block failed")
+		}
+	}
+}
