@@ -4,7 +4,7 @@
     verifier: V,
     block_import: <a class="type" href="type.BoxBlockImport.html" title="type sc_consensus::import_queue::BoxBlockImport">BoxBlockImport</a>&lt;B&gt;,
     justification_import: <a class="enum" href="https://doc.rust-lang.org/1.74.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="type" href="type.BoxJustificationImport.html" title="type sc_consensus::import_queue::BoxJustificationImport">BoxJustificationImport</a>&lt;B&gt;&gt;,
-    spawner: &amp;impl SpawnEssentialNamed,
+    spawner: &amp;impl <a class="trait" href="../../sp_core/traits/trait.SpawnEssentialNamed.html" title="trait sp_core::traits::SpawnEssentialNamed">SpawnEssentialNamed</a>,
     prometheus_registry: <a class="enum" href="https://doc.rust-lang.org/1.74.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;Registry&gt;
 ) -&gt; Self</h4></section></summary><div class="docblock"><p>Instantiate a new basic queue, with given verifier.</p>
 <p>This creates a background task, and calls <code>on_start</code> on the justification importer.</p>

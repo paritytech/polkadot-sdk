@@ -980,61 +980,6 @@
 <a href="#980" id="980">980</a>
 <a href="#981" id="981">981</a>
 <a href="#982" id="982">982</a>
-<a href="#983" id="983">983</a>
-<a href="#984" id="984">984</a>
-<a href="#985" id="985">985</a>
-<a href="#986" id="986">986</a>
-<a href="#987" id="987">987</a>
-<a href="#988" id="988">988</a>
-<a href="#989" id="989">989</a>
-<a href="#990" id="990">990</a>
-<a href="#991" id="991">991</a>
-<a href="#992" id="992">992</a>
-<a href="#993" id="993">993</a>
-<a href="#994" id="994">994</a>
-<a href="#995" id="995">995</a>
-<a href="#996" id="996">996</a>
-<a href="#997" id="997">997</a>
-<a href="#998" id="998">998</a>
-<a href="#999" id="999">999</a>
-<a href="#1000" id="1000">1000</a>
-<a href="#1001" id="1001">1001</a>
-<a href="#1002" id="1002">1002</a>
-<a href="#1003" id="1003">1003</a>
-<a href="#1004" id="1004">1004</a>
-<a href="#1005" id="1005">1005</a>
-<a href="#1006" id="1006">1006</a>
-<a href="#1007" id="1007">1007</a>
-<a href="#1008" id="1008">1008</a>
-<a href="#1009" id="1009">1009</a>
-<a href="#1010" id="1010">1010</a>
-<a href="#1011" id="1011">1011</a>
-<a href="#1012" id="1012">1012</a>
-<a href="#1013" id="1013">1013</a>
-<a href="#1014" id="1014">1014</a>
-<a href="#1015" id="1015">1015</a>
-<a href="#1016" id="1016">1016</a>
-<a href="#1017" id="1017">1017</a>
-<a href="#1018" id="1018">1018</a>
-<a href="#1019" id="1019">1019</a>
-<a href="#1020" id="1020">1020</a>
-<a href="#1021" id="1021">1021</a>
-<a href="#1022" id="1022">1022</a>
-<a href="#1023" id="1023">1023</a>
-<a href="#1024" id="1024">1024</a>
-<a href="#1025" id="1025">1025</a>
-<a href="#1026" id="1026">1026</a>
-<a href="#1027" id="1027">1027</a>
-<a href="#1028" id="1028">1028</a>
-<a href="#1029" id="1029">1029</a>
-<a href="#1030" id="1030">1030</a>
-<a href="#1031" id="1031">1031</a>
-<a href="#1032" id="1032">1032</a>
-<a href="#1033" id="1033">1033</a>
-<a href="#1034" id="1034">1034</a>
-<a href="#1035" id="1035">1035</a>
-<a href="#1036" id="1036">1036</a>
-<a href="#1037" id="1037">1037</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1088,7 +1033,7 @@
 <span class="kw">pub use </span>weights::WeightInfo;
 
 <span class="kw">use </span>bounded_collections::BoundedBTreeSet;
-<span class="kw">use </span>codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
+<span class="kw">use </span>codec::{Decode, DecodeLimit, Encode};
 <span class="kw">use </span>cumulus_primitives_core::{
 	relay_chain::BlockNumber <span class="kw">as </span>RelayBlockNumber, ChannelStatus, GetChannelInfo, MessageSendError,
 	ParaId, XcmpMessageFormat, XcmpMessageHandler, XcmpMessageSource,
@@ -1142,6 +1087,7 @@
 
 	<span class="attr">#[pallet::pallet]
 	#[pallet::storage_version(migration::STORAGE_VERSION)]
+	#[pallet::without_storage_info]
 	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
 
 	<span class="attr">#[pallet::config]
@@ -1167,25 +1113,6 @@
 		/// [`InboundXcmpSuspended`] still applies at that scale.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>MaxInboundSuspended: Get&lt;u32&gt;;
-
-		<span class="doccomment">/// Maximal number of outbound XCMP channels that can have messages queued at the same time.
-		///
-		/// If this is reached, then no further messages can be sent to channels that do not yet
-		/// have a message queued. This should be set to the expected maximum of outbound channels
-		/// which is determined by [`Self::ChannelInfo`]. It is important to set this correctly,
-		/// since otherwise the congestion control protocol will not work as intended and messages
-		/// may be dropped. This value increases the PoV and should therefore not be picked too
-		/// high.
-		</span><span class="attr">#[pallet::constant]
-		</span><span class="kw">type </span>MaxActiveOutboundChannels: Get&lt;u32&gt;;
-
-		<span class="doccomment">/// The maximal page size for HRMP message pages.
-		///
-		/// A lower limit can be set dynamically, but this is the hard-limit for the PoV worst case
-		/// benchmarking. The limit for the size of a message is slightly below this, since some
-		/// overhead is incurred for encoding the format.
-		</span><span class="attr">#[pallet::constant]
-		</span><span class="kw">type </span>MaxPageSize: Get&lt;u32&gt;;
 
 		<span class="doccomment">/// The origin that is allowed to resume or suspend the XCMP queue.
 		</span><span class="kw">type </span>ControllerOrigin: EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin&gt;;
@@ -1331,10 +1258,6 @@
 		</span>AlreadySuspended,
 		<span class="doccomment">/// The execution is already resumed.
 		</span>AlreadyResumed,
-		<span class="doccomment">/// There are too many active outbound channels.
-		</span>TooManyOutboundChannels,
-		<span class="doccomment">/// The message is too big.
-		</span>TooBig,
 	}
 
 	<span class="doccomment">/// The suspended inbound XCMP channels. All others are not suspended.
@@ -1356,28 +1279,19 @@
 	/// case of the need to send a high-priority signal message this block.
 	/// The bool is true if there is a signal message waiting to be sent.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>OutboundXcmpStatus&lt;T: Config&gt; = StorageValue&lt;
-		<span class="kw">_</span>,
-		BoundedVec&lt;OutboundChannelDetails, T::MaxActiveOutboundChannels&gt;,
-		ValueQuery,
-	&gt;;
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>OutboundXcmpStatus&lt;T: Config&gt; =
+		StorageValue&lt;<span class="kw">_</span>, Vec&lt;OutboundChannelDetails&gt;, ValueQuery&gt;;
 
-	<span class="doccomment">/// The messages outbound in a given XCMP channel.
+	<span class="comment">// The new way of doing it:
+	</span><span class="doccomment">/// The messages outbound in a given XCMP channel.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>OutboundXcmpMessages&lt;T: Config&gt; = StorageDoubleMap&lt;
-		<span class="kw">_</span>,
-		Blake2_128Concat,
-		ParaId,
-		Twox64Concat,
-		u16,
-		BoundedVec&lt;u8, T::MaxPageSize&gt;,
-		ValueQuery,
-	&gt;;
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>OutboundXcmpMessages&lt;T: Config&gt; =
+		StorageDoubleMap&lt;<span class="kw">_</span>, Blake2_128Concat, ParaId, Twox64Concat, u16, Vec&lt;u8&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Any signal messages waiting to be sent.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>SignalMessages&lt;T: Config&gt; =
-		StorageMap&lt;<span class="kw">_</span>, Blake2_128Concat, ParaId, BoundedVec&lt;u8, T::MaxPageSize&gt;, ValueQuery&gt;;
+		StorageMap&lt;<span class="kw">_</span>, Blake2_128Concat, ParaId, Vec&lt;u8&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// The configuration which controls the dynamics of the outbound queue.
 	</span><span class="attr">#[pallet::storage]
@@ -1399,14 +1313,15 @@
 		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, ParaId, FixedU128, ValueQuery, InitialFactor&gt;;
 }
 
-<span class="attr">#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+<span class="attr">#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 </span><span class="kw">pub enum </span>OutboundState {
 	<span class="prelude-val">Ok</span>,
 	Suspended,
 }
 
 <span class="doccomment">/// Struct containing detailed information about the outbound channel.
-</span><span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, RuntimeDebug, MaxEncodedLen)]
+</span><span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
+#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Debug))]
 </span><span class="kw">pub struct </span>OutboundChannelDetails {
 	<span class="doccomment">/// The `ParaId` of the parachain that this channel is connected with.
 	</span>recipient: ParaId,
@@ -1442,7 +1357,7 @@
 	</span>}
 }
 
-<span class="attr">#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+<span class="attr">#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 </span><span class="kw">pub struct </span>QueueConfigData {
 	<span class="doccomment">/// The number of pages which must be in the queue for the other side to be told to suspend
 	/// their sending.
@@ -1545,9 +1460,7 @@
 		{
 			details
 		} <span class="kw">else </span>{
-			all_channels
-				.try_push(OutboundChannelDetails::new(recipient))
-				.map_err(|<span class="kw">_</span>| MessageSendError::TooManyChannels)<span class="question-mark">?</span>;
+			all_channels.push(OutboundChannelDetails::new(recipient));
 			all_channels
 				.last_mut()
 				.expect(<span class="string">&quot;can&#39;t be empty; a new element was just pushed; qed&quot;</span>)
@@ -1572,7 +1485,7 @@
 						<span class="kw">if </span>page.len() + encoded_fragment.len() &gt; max_message_size {
 							<span class="kw">return </span><span class="prelude-val">None
 						</span>}
-						page.try_extend(encoded_fragment.iter().cloned()).ok()<span class="question-mark">?</span>;
+						page.extend_from_slice(<span class="kw-2">&amp;</span>encoded_fragment[..]);
 						<span class="prelude-val">Some</span>(page.len())
 					},
 				)
@@ -1590,9 +1503,7 @@
 			new_page.extend_from_slice(<span class="kw-2">&amp;</span>encoded_fragment[..]);
 			<span class="kw">let </span>last_page_size = new_page.len();
 			<span class="kw">let </span>number_of_pages = (channel_details.last_index - channel_details.first_index) <span class="kw">as </span>u32;
-			<span class="kw">let </span>bounded_page =
-				BoundedVec::try_from(new_page).map_err(|<span class="kw">_</span>| MessageSendError::TooBig)<span class="question-mark">?</span>;
-			&lt;OutboundXcmpMessages&lt;T&gt;&gt;::insert(recipient, page_index, bounded_page);
+			&lt;OutboundXcmpMessages&lt;T&gt;&gt;::insert(recipient, page_index, new_page);
 			&lt;OutboundXcmpStatus&lt;T&gt;&gt;::put(all_channels);
 			(number_of_pages, last_page_size)
 		};
@@ -1614,21 +1525,17 @@
 
 	<span class="doccomment">/// Sends a signal to the `dest` chain over XCMP. This is guaranteed to be dispatched on this
 	/// block.
-	</span><span class="kw">fn </span>send_signal(dest: ParaId, signal: ChannelSignal) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&lt;T&gt;&gt; {
+	</span><span class="kw">fn </span>send_signal(dest: ParaId, signal: ChannelSignal) {
 		<span class="kw">let </span><span class="kw-2">mut </span>s = &lt;OutboundXcmpStatus&lt;T&gt;&gt;::get();
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(details) = s.iter_mut().find(|item| item.recipient == dest) {
 			details.signals_exist = <span class="bool-val">true</span>;
 		} <span class="kw">else </span>{
-			s.try_push(OutboundChannelDetails::new(dest).with_signals())
-				.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::TooManyOutboundChannels)<span class="question-mark">?</span>;
+			s.push(OutboundChannelDetails::new(dest).with_signals());
 		}
-
-		<span class="kw">let </span>page = BoundedVec::try_from((XcmpMessageFormat::Signals, signal).encode())
-			.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::TooBig)<span class="question-mark">?</span>;
-
-		&lt;SignalMessages&lt;T&gt;&gt;::insert(dest, page);
+		&lt;SignalMessages&lt;T&gt;&gt;::mutate(dest, |page| {
+			<span class="kw-2">*</span>page = (XcmpMessageFormat::Signals, signal).encode();
+		});
 		&lt;OutboundXcmpStatus&lt;T&gt;&gt;::put(s);
-		<span class="prelude-val">Ok</span>(())
 	}
 
 	<span class="kw">fn </span>suspend_channel(target: ParaId) {
@@ -1638,13 +1545,7 @@
 				<span class="macro">defensive_assert!</span>(ok, <span class="string">&quot;WARNING: Attempt to suspend channel that was not Ok.&quot;</span>);
 				details.state = OutboundState::Suspended;
 			} <span class="kw">else </span>{
-				<span class="kw">if </span>s.try_push(OutboundChannelDetails::new(target).with_suspended_state()).is_err() {
-					<span class="comment">// Nothing that we can do here. The outbound channel does not exist either, so
-					// there should be no message going out as well. The next time that the channel
-					// can be created it will again get the suspension from the remote side. It can
-					// therefore result in a few lost messages, but should eventually self-repair.
-					</span><span class="macro">defensive!</span>(<span class="string">&quot;Cannot pause channel; too many outbound channels&quot;</span>);
-				}
+				s.push(OutboundChannelDetails::new(target).with_suspended_state());
 			}
 		});
 	}
@@ -1745,17 +1646,13 @@
 		<span class="kw">let </span>suspended = suspended_channels.contains(<span class="kw-2">&amp;</span>para);
 
 		<span class="kw">if </span>suspended &amp;&amp; fp.pages &lt;= resume_threshold {
-			<span class="comment">// If the resuming fails then it is not critical. We will retry in the future.
-			</span><span class="kw">let _ </span>= <span class="self">Self</span>::send_signal(para, ChannelSignal::Resume);
+			<span class="self">Self</span>::send_signal(para, ChannelSignal::Resume);
 
 			suspended_channels.remove(<span class="kw-2">&amp;</span>para);
 			&lt;InboundXcmpSuspended&lt;T&gt;&gt;::put(suspended_channels);
 		} <span class="kw">else if </span>!suspended &amp;&amp; fp.pages &gt;= suspend_threshold {
 			<span class="macro">log::warn!</span>(<span class="string">&quot;XCMP queue for sibling {:?} is full; suspending channel.&quot;</span>, para);
-			<span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw">_</span>) = <span class="self">Self</span>::send_signal(para, ChannelSignal::Suspend) {
-				<span class="comment">// It will retry if `drop_threshold` is not reached, but it could be too late.
-				</span><span class="macro">defensive!</span>(<span class="string">&quot;Could not send suspension signal; future messages may be dropped.&quot;</span>);
-			}
+			<span class="self">Self</span>::send_signal(para, ChannelSignal::Suspend);
 
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = suspended_channels.try_insert(para) {
 				<span class="macro">log::error!</span>(<span class="string">&quot;Too many channels suspended; cannot suspend sibling {:?}: {:?}; further messages may be dropped.&quot;</span>, para, err);
@@ -1927,7 +1824,7 @@
 				//   since it&#39;s so unlikely then for now we just drop it.
 				</span><span class="macro">defensive!</span>(<span class="string">&quot;WARNING: oversize message in queue - dropping&quot;</span>);
 			} <span class="kw">else </span>{
-				result.push((para_id, page.into_inner()));
+				result.push((para_id, page));
 			}
 
 			<span class="kw">let </span>max_total_size = <span class="kw">match </span>T::ChannelInfo::get_channel_info(para_id) {
@@ -1975,14 +1872,7 @@
 		</span><span class="kw">let </span>pruned = old_statuses_len - statuses.len();
 		<span class="comment">// removing an item from status implies a message being sent, so the result messages must
 		// be no less than the pruned channels.
-
-		// TODO &lt;https://github.com/paritytech/parity-common/pull/800&gt;
-		</span>{
-			<span class="kw">let </span><span class="kw-2">mut </span>statuses_inner = statuses.into_inner();
-			statuses_inner.rotate_left(result.len().saturating_sub(pruned));
-			statuses = BoundedVec::try_from(statuses_inner)
-				.expect(<span class="string">&quot;Rotating does not change the length; it still fits; qed&quot;</span>);
-		}
+		</span>statuses.rotate_left(result.len().saturating_sub(pruned));
 
 		&lt;OutboundXcmpStatus&lt;T&gt;&gt;::put(statuses);
 

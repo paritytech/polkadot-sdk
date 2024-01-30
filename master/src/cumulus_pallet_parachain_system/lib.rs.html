@@ -1752,13 +1752,6 @@
 <a href="#1752" id="1752">1752</a>
 <a href="#1753" id="1753">1753</a>
 <a href="#1754" id="1754">1754</a>
-<a href="#1755" id="1755">1755</a>
-<a href="#1756" id="1756">1756</a>
-<a href="#1757" id="1757">1757</a>
-<a href="#1758" id="1758">1758</a>
-<a href="#1759" id="1759">1759</a>
-<a href="#1760" id="1760">1760</a>
-<a href="#1761" id="1761">1761</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1791,7 +1784,7 @@
 </span><span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo,
-	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, ListChannelInfos, MessageSendError,
+	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, MessageSendError,
 	OutboundHrmpMessage, ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender,
 	XcmpMessageHandler, XcmpMessageSource,
 };
@@ -2781,13 +2774,6 @@
 				UpwardInitialDeliveryFeeFactor::get().max(<span class="kw-2">*</span>f / ump_constants::EXPONENTIAL_FEE_BASE);
 			<span class="kw-2">*</span>f
 		})
-	}
-}
-
-<span class="kw">impl</span>&lt;T: Config&gt; ListChannelInfos <span class="kw">for </span>Pallet&lt;T&gt; {
-	<span class="kw">fn </span>outgoing_channels() -&gt; Vec&lt;ParaId&gt; {
-		<span class="kw">let </span><span class="prelude-val">Some</span>(state) = <span class="self">Self</span>::relevant_messaging_state() <span class="kw">else </span>{ <span class="kw">return </span>Vec::new() };
-		state.egress_channels.into_iter().map(|(id, <span class="kw">_</span>)| id).collect()
 	}
 }
 

@@ -1711,13 +1711,6 @@
 <a href="#1711" id="1711">1711</a>
 <a href="#1712" id="1712">1712</a>
 <a href="#1713" id="1713">1713</a>
-<a href="#1714" id="1714">1714</a>
-<a href="#1715" id="1715">1715</a>
-<a href="#1716" id="1716">1716</a>
-<a href="#1717" id="1717">1717</a>
-<a href="#1718" id="1718">1718</a>
-<a href="#1719" id="1719">1719</a>
-<a href="#1720" id="1720">1720</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -2388,18 +2381,11 @@
 	<span class="kw">type </span>VersionWrapper = PolkadotXcm;
 	<span class="comment">// Enqueue XCMP messages from siblings for later processing.
 	</span><span class="kw">type </span>XcmpQueue = TransformOrigin&lt;MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling&gt;;
-	<span class="kw">type </span>MaxInboundSuspended = ConstU32&lt;<span class="number">1_000</span>&gt;;
-	<span class="kw">type </span>MaxActiveOutboundChannels = ConstU32&lt;<span class="number">128</span>&gt;;
-	<span class="kw">type </span>MaxPageSize = ConstU32&lt;{ <span class="number">1 </span>&lt;&lt; <span class="number">16 </span>}&gt;;
+	<span class="kw">type </span>MaxInboundSuspended = sp_core::ConstU32&lt;<span class="number">1_000</span>&gt;;
 	<span class="kw">type </span>ControllerOrigin = EnsureRoot&lt;AccountId&gt;;
 	<span class="kw">type </span>ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	<span class="kw">type </span>WeightInfo = weights::cumulus_pallet_xcmp_queue::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
-}
-
-<span class="kw">impl </span>cumulus_pallet_xcmp_queue::migration::v5::V5Config <span class="kw">for </span>Runtime {
-	<span class="comment">// This must be the same as the `ChannelInfo` from the `Config`:
-	</span><span class="kw">type </span>ChannelList = ParachainSystem;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -2674,8 +2660,8 @@
 	</span>InitStorageVersions,
 	<span class="comment">// unreleased
 	</span>DeleteUndecodableStorage,
-	cumulus_pallet_xcmp_queue::migration::v4::MigrateV3ToV4&lt;Runtime&gt;,
-	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5&lt;Runtime&gt;,
+	<span class="comment">// unreleased
+	</span>cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4&lt;Runtime&gt;,
 );
 
 <span class="doccomment">/// Asset Hub Westend has some undecodable storage, delete it.

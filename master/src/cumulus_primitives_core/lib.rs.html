@@ -386,14 +386,6 @@
 <a href="#386" id="386">386</a>
 <a href="#387" id="387">387</a>
 <a href="#388" id="388">388</a>
-<a href="#389" id="389">389</a>
-<a href="#390" id="390">390</a>
-<a href="#391" id="391">391</a>
-<a href="#392" id="392">392</a>
-<a href="#393" id="393">393</a>
-<a href="#394" id="394">394</a>
-<a href="#395" id="395">395</a>
-<a href="#396" id="396">396</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -460,8 +452,6 @@
 	</span>TooBig,
 	<span class="doccomment">/// Some other error.
 	</span>Other,
-	<span class="doccomment">/// There are too many channels open at once.
-	</span>TooManyChannels,
 }
 
 <span class="kw">impl </span>From&lt;MessageSendError&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
@@ -472,7 +462,6 @@
 			NoChannel =&gt; <span class="string">&quot;NoChannel&quot;</span>,
 			TooBig =&gt; <span class="string">&quot;TooBig&quot;</span>,
 			Other =&gt; <span class="string">&quot;Other&quot;</span>,
-			TooManyChannels =&gt; <span class="string">&quot;TooManyChannels&quot;</span>,
 		}
 	}
 }
@@ -532,11 +521,6 @@
 <span class="kw">pub trait </span>GetChannelInfo {
 	<span class="kw">fn </span>get_channel_status(id: ParaId) -&gt; ChannelStatus;
 	<span class="kw">fn </span>get_channel_info(id: ParaId) -&gt; <span class="prelude-ty">Option</span>&lt;ChannelInfo&gt;;
-}
-
-<span class="doccomment">/// List all open outgoing channels.
-</span><span class="kw">pub trait </span>ListChannelInfos {
-	<span class="kw">fn </span>outgoing_channels() -&gt; Vec&lt;ParaId&gt;;
 }
 
 <span class="doccomment">/// Something that should be called when sending an upward message.

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["UncheckedMigrateV3ToV4"],"type":["MigrateV3ToV4"]};
+window.SIDEBAR_ITEMS = {"struct":["UncheckedMigrationToV4"],"type":["MigrationToV4"]};
