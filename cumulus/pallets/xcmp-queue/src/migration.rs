@@ -16,6 +16,8 @@
 
 //! A module that is responsible for migration of storage.
 
+pub mod v5;
+
 use crate::{Config, OverweightIndex, Pallet, QueueConfig, QueueConfigData, DEFAULT_POV_SIZE};
 use cumulus_primitives_core::XcmpMessageFormat;
 use frame_support::{
@@ -25,7 +27,7 @@ use frame_support::{
 };
 
 /// The current storage version.
-pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
 pub const LOG: &str = "runtime::xcmp-queue-migration";
 
@@ -264,9 +266,9 @@ pub mod v4 {
 
 	/// Migrates `QueueConfigData` to v4, removing deprecated fields and bumping page
 	/// thresholds to at least the default values.
-	pub struct UncheckedMigrationToV4<T: Config>(PhantomData<T>);
+	pub struct UncheckedMigrateV3ToV4<T: Config>(PhantomData<T>);
 
-	impl<T: Config> OnRuntimeUpgrade for UncheckedMigrationToV4<T> {
+	impl<T: Config> OnRuntimeUpgrade for UncheckedMigrateV3ToV4<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let translate = |pre: v2::QueueConfigData| -> QueueConfigData {
 				let pre_default = v2::QueueConfigData::default();
@@ -299,13 +301,13 @@ pub mod v4 {
 		}
 	}
 
-	/// [`UncheckedMigrationToV4`] wrapped in a
+	/// [`UncheckedMigrateV3ToV4`] wrapped in a
 	/// [`VersionedMigration`](frame_support::migrations::VersionedMigration), ensuring the
 	/// migration is only performed when on-chain version is 3.
-	pub type MigrationToV4<T> = frame_support::migrations::VersionedMigration<
+	pub type MigrateV3ToV4<T> = frame_support::migrations::VersionedMigration<
 		3,
 		4,
-		UncheckedMigrationToV4<T>,
+		UncheckedMigrateV3ToV4<T>,
 		Pallet<T>,
 		<T as frame_system::Config>::DbWeight,
 	>;
@@ -372,10 +374,10 @@ mod tests {
 				&v2.encode(),
 			);
 
-			let bytes = v4::MigrationToV4::<Test>::pre_upgrade();
+			let bytes = v4::MigrateV3ToV4::<Test>::pre_upgrade();
 			assert!(bytes.is_ok());
-			v4::MigrationToV4::<Test>::on_runtime_upgrade();
-			assert!(v4::MigrationToV4::<Test>::post_upgrade(bytes.unwrap()).is_ok());
+			v4::MigrateV3ToV4::<Test>::on_runtime_upgrade();
+			assert!(v4::MigrateV3ToV4::<Test>::post_upgrade(bytes.unwrap()).is_ok());
 
 			let v4 = QueueConfig::<Test>::get();
 
@@ -401,10 +403,10 @@ mod tests {
 				&v2.encode(),
 			);
 
-			let bytes = v4::MigrationToV4::<Test>::pre_upgrade();
+			let bytes = v4::MigrateV3ToV4::<Test>::pre_upgrade();
 			assert!(bytes.is_ok());
-			v4::MigrationToV4::<Test>::on_runtime_upgrade();
-			assert!(v4::MigrationToV4::<Test>::post_upgrade(bytes.unwrap()).is_ok());
+			v4::MigrateV3ToV4::<Test>::on_runtime_upgrade();
+			assert!(v4::MigrateV3ToV4::<Test>::post_upgrade(bytes.unwrap()).is_ok());
 
 			let v4 = QueueConfig::<Test>::get();
 
