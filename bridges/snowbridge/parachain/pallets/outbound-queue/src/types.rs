@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use codec::{Decode, Encode};
 use ethabi::Token;
 use frame_support::traits::ProcessMessage;

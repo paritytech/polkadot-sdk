@@ -30,7 +30,7 @@ xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkad
 
 snowbridge-core = { path = "../core", default-features = false }
 
-ethabi = { git = "https://github.com/Snowfork/ethabi-decode.git", package = "ethabi-decode", branch = "master", default-features = false }
+ethabi = { package = "ethabi-decode", version = "1.0.0", default-features = false }
 
 hex-literal = { version = "0.4.1" }
 
