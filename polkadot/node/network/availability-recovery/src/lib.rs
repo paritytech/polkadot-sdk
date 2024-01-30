@@ -415,7 +415,7 @@ async fn handle_recover<Context>(
 			let systematic_threshold = systematic_recovery_threshold(n_validators)?;
 			let mut recovery_strategies: VecDeque<
 				Box<dyn RecoveryStrategy<<Context as SubsystemContext>::Sender>>,
-			> = VecDeque::with_capacity(2);
+			> = VecDeque::with_capacity(3);
 
 			if let Some(backing_group) = backing_group {
 				if let Some(backing_validators) = session_info.validator_groups.get(backing_group) {
