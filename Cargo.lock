@@ -13022,6 +13022,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "substrate-state-trie-migration-rpc",
  "tempfile",
+ "testnet-system-parachains-constants",
  "tokio",
  "wait-timeout",
 ]
