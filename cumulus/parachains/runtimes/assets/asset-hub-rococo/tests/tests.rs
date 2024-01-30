@@ -50,7 +50,7 @@ use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance}
 use sp_consensus_aura::SlotDuration;
 use sp_runtime::traits::MaybeEquivalence;
 use std::convert::Into;
-use testnet_system_parachains_constants::rococo::{
+use testnet_parachains_constants::rococo::{
 	consensus::RELAY_CHAIN_SLOT_DURATION_MILLIS, currency::UNITS, fee::WeightToFee,
 };
 use xcm::latest::prelude::{Assets as XcmAssets, *};

@@ -21,4 +21,4 @@ parachains-common = { path = "../../../../../../../parachains/common" }
 emulated-integration-tests-common = { path = "../../../../common", default-features = false }
 bridge-hub-westend-runtime = { path = "../../../../../../runtimes/bridge-hubs/bridge-hub-westend" }
 bridge-hub-common = { path = "../../../../../../runtimes/bridge-hubs/common", default-features = false }
-testnet-system-parachains-constants = { path = "../../../../../../runtimes/constants", features = ["westend"] }
+testnet-parachains-constants = { path = "../../../../../../runtimes/constants", features = ["westend"] }

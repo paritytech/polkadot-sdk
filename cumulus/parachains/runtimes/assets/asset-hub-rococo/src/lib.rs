@@ -43,7 +43,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Permill,
 };
-use testnet_system_parachains_constants::rococo::snowbridge::EthereumNetwork;
+use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -79,7 +79,7 @@ use parachains_common::{
 	NORMAL_DISPATCH_RATIO,
 };
 use sp_runtime::{Perbill, RuntimeDebug};
-use testnet_system_parachains_constants::rococo::{consensus::*, currency::*, fee::WeightToFee};
+use testnet_parachains_constants::rococo::{consensus::*, currency::*, fee::WeightToFee};
 use xcm_config::{
 	ForeignAssetsConvertedConcreteId, ForeignCreatorsSovereignAccountOf, GovernanceLocation,
 	PoolAssetsConvertedConcreteId, TokenLocation, TokenLocationV3,
@@ -1723,7 +1723,7 @@ mod tests {
 	use crate::{CENTS, MILLICENTS};
 	use sp_runtime::traits::Zero;
 	use sp_weights::WeightToFee;
-	use testnet_system_parachains_constants::rococo::fee;
+	use testnet_parachains_constants::rococo::fee;
 
 	/// We can fit at least 1000 transfers in a block.
 	#[test]

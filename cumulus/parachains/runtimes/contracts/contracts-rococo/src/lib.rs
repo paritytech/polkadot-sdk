@@ -62,7 +62,7 @@ use parachains_common::{
 	SLOT_DURATION,
 };
 pub use parachains_common::{AuraId, Balance};
-use testnet_system_parachains_constants::rococo::{consensus::*, currency::*, fee::WeightToFee};
+use testnet_parachains_constants::rococo::{consensus::*, currency::*, fee::WeightToFee};
 use xcm_config::CollatorSelectionUpdateOrigin;
 
 #[cfg(any(feature = "std", test))]

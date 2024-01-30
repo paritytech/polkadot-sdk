@@ -88,7 +88,7 @@ use parachains_common::{
 	SLOT_DURATION,
 };
 use sp_runtime::RuntimeDebug;
-use testnet_system_parachains_constants::westend::{
+use testnet_parachains_constants::westend::{
 	account::*, consensus::*, currency::*, fee::WeightToFee,
 };
 use xcm_config::{

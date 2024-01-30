@@ -1,9 +1,9 @@
 [package]
-name = "testnet-system-parachains-constants"
+name = "testnet-parachains-constants"
 version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
-description = "Common constants for Testnet System Parachains runtimes"
+description = "Common constants for Testnet Parachains runtimes"
 license = "Apache-2.0"
 
 [lints]

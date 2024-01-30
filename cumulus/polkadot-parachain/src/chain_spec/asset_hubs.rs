@@ -66,7 +66,7 @@ pub fn asset_hub_westend_development_config() -> GenericChainSpec {
 			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
 			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
 		],
-		testnet_system_parachains_constants::westend::currency::UNITS * 1_000_000,
+		testnet_parachains_constants::westend::currency::UNITS * 1_000_000,
 		1000.into(),
 	))
 	.with_properties(properties)
@@ -112,7 +112,7 @@ pub fn asset_hub_westend_local_config() -> GenericChainSpec {
 			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 		],
-		testnet_system_parachains_constants::westend::currency::UNITS * 1_000_000,
+		testnet_parachains_constants::westend::currency::UNITS * 1_000_000,
 		1000.into(),
 	))
 	.with_properties(properties)
@@ -241,7 +241,7 @@ fn asset_hub_rococo_like_development_config(
 			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
 			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
 		],
-		testnet_system_parachains_constants::rococo::currency::UNITS * 1_000_000,
+		testnet_parachains_constants::rococo::currency::UNITS * 1_000_000,
 		para_id.into(),
 	))
 	.with_properties(properties)
@@ -300,7 +300,7 @@ fn asset_hub_rococo_like_local_config(
 			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 		],
-		testnet_system_parachains_constants::rococo::currency::UNITS * 1_000_000,
+		testnet_parachains_constants::rococo::currency::UNITS * 1_000_000,
 		para_id.into(),
 	))
 	.with_properties(properties)

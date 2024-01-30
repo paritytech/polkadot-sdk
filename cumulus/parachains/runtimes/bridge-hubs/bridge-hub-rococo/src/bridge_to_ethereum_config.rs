@@ -16,7 +16,7 @@
 
 use crate::{xcm_config::UniversalLocation, Runtime};
 use snowbridge_router_primitives::outbound::EthereumBlobExporter;
-use testnet_system_parachains_constants::rococo::snowbridge::EthereumNetwork;
+use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 
 /// Exports message to the Ethereum Gateway contract.
 pub type SnowbridgeExporter = EthereumBlobExporter<

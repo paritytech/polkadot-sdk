@@ -22,4 +22,4 @@ cumulus-primitives-core = { path = "../../../../../../../primitives/core", defau
 emulated-integration-tests-common = { path = "../../../../common", default-features = false }
 asset-hub-westend-runtime = { path = "../../../../../../runtimes/assets/asset-hub-westend" }
 westend-emulated-chain = { path = "../../../relays/westend" }
-testnet-system-parachains-constants = { path = "../../../../../../runtimes/constants", features = ["westend"] }
+testnet-parachains-constants = { path = "../../../../../../runtimes/constants", features = ["westend"] }

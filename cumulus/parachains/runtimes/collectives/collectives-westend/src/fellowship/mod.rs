@@ -45,15 +45,13 @@ use polkadot_runtime_common::impls::{
 use sp_arithmetic::Permill;
 use sp_core::{ConstU128, ConstU32};
 use sp_runtime::traits::{ConstU16, ConvertToValue, IdentityLookup, Replace, TakeFirst};
-use testnet_system_parachains_constants::westend::{account, currency::GRAND};
+use testnet_parachains_constants::westend::{account, currency::GRAND};
 use westend_runtime_constants::time::HOURS;
 use xcm::prelude::*;
 use xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::impls::benchmarks::{OpenHrmpChannel, PayWithEnsure};
-#[cfg(feature = "runtime-benchmarks")]
-use parachains_common::westend::currency::DOLLARS;
 
 /// The Fellowship members' ranks.
 pub mod ranks {
@@ -256,9 +254,9 @@ parameter_types! {
 	// Benchmark bond. Needed to make `propose_spend` work.
 	pub const TenPercent: Permill = Permill::from_percent(10);
 	// Benchmark minimum. Needed to make `propose_spend` work.
-	pub const BenchmarkProposalBondMinimum: Balance = 1 * DOLLARS;
+	pub const BenchmarkProposalBondMinimum: Balance = 1 * testnet_parachains_constants::westend::currency::DOLLARS;
 	// Benchmark maximum. Needed to make `propose_spend` work.
-	pub const BenchmarkProposalBondMaximum: Balance = 10 * DOLLARS;
+	pub const BenchmarkProposalBondMaximum: Balance = 10 * testnet_parachains_constants::westend::currency::DOLLARS;
 }
 
 /// [`PayOverXcm`] setup to pay the Fellowship Treasury.

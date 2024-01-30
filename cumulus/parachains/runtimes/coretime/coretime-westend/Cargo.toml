@@ -74,7 +74,7 @@ cumulus-primitives-utility = { path = "../../../../primitives/utility", default-
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
 parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false }
 parachains-common = { path = "../../../common", default-features = false }
-testnet-system-parachains-constants = { path = "../../constants", default-features = false, features = ["westend"] }
+testnet-parachains-constants = { path = "../../constants", default-features = false, features = ["westend"] }
 
 [features]
 default = ["std"]
@@ -130,7 +130,7 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
-	"testnet-system-parachains-constants/std",
+	"testnet-parachains-constants/std",
 	"westend-runtime-constants/std",
 	"xcm-builder/std",
 	"xcm-executor/std",

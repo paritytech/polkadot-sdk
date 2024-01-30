@@ -22,4 +22,4 @@ cumulus-primitives-core = { path = "../../../../../../../primitives/core", defau
 emulated-integration-tests-common = { path = "../../../../common", default-features = false }
 asset-hub-rococo-runtime = { path = "../../../../../../runtimes/assets/asset-hub-rococo" }
 rococo-emulated-chain = { path = "../../../relays/rococo" }
-testnet-system-parachains-constants = { path = "../../../../../../runtimes/constants", features = ["rococo"] }
+testnet-parachains-constants = { path = "../../../../../../runtimes/constants", features = ["rococo"] }
