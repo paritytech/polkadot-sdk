@@ -100,7 +100,7 @@ pub mod accounts {
 	pub const CHARLIE: &str = "Charlie";
 	pub const DAVE: &str = "Dave";
 	pub const EVE: &str = "Eve";
-	pub const FERDIE: &str = "Ferdei";
+	pub const FERDIE: &str = "Ferdie";
 	pub const ALICE_STASH: &str = "Alice//stash";
 	pub const BOB_STASH: &str = "Bob//stash";
 	pub const CHARLIE_STASH: &str = "Charlie//stash";
