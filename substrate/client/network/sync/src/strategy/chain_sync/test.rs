@@ -288,7 +288,7 @@ fn unwrap_from_block_number(from: FromBlock<Hash, u64>) -> u64 {
 /// announcement from this node in its sync process. Meaning our common number didn't change. It
 /// is now expected that we start an ancestor search to find the common number.
 #[test]
-fn do_ancestor_search_when_common_block_to_best_qeued_gap_is_to_big() {
+fn do_ancestor_search_when_common_block_to_best_queued_gap_is_to_big() {
 	sp_tracing::try_init_simple();
 
 	let blocks = {
@@ -1101,30 +1101,244 @@ fn block_response_frees_peer_in_peer_pool() {
 
 #[test]
 fn new_peer_ancestry_search_reserves_peer_in_peer_pool() {
-	todo!();
+	let mut client = Arc::new(TestClientBuilder::new().build());
+
+	// Import blocks to make sure we are not at genesis to kick in ancestry search.
+	let block = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().best_hash)
+		.with_parent_block_number(client.chain_info().best_number)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+
+	let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+	let mut sync =
+		ChainSync::new(ChainSyncMode::Full, client.clone(), 1, 64, None, peer_pool.clone())
+			.unwrap();
+
+	// Check that we are not at genesis, so ancestry search will be started.
+	assert!(!sync.best_queued_number.is_zero());
+
+	// Add a peer.
+	let peer_id = PeerId::random();
+	peer_pool.lock().add_peer(peer_id);
+	assert!(peer_pool.lock().available_peers().any(|p| *p.peer_id() == peer_id));
+	sync.add_peer(peer_id, Hash::random(), 10);
+
+	// Initiate ancestry search request to our peer.
+	let _ = sync.handle_new_peers().collect::<Vec<_>>();
+
+	// Make sure we are in fact doing ancestry search.
+	assert!(matches!(
+			sync.peers.get(&peer_id).unwrap(),
+			PeerSync { state, .. } if matches!(state, PeerSyncState::AncestorSearch { .. })));
+
+	// The peer is reserved in `PeerPool`.
+	assert_eq!(peer_pool.lock().available_peers().count(), 0);
 }
 
 #[test]
 fn forced_ancestry_search_reserves_peer_in_peer_pool() {
-	todo!();
+	let mut client = Arc::new(TestClientBuilder::new().build());
+
+	let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+	let mut sync =
+		ChainSync::new(ChainSyncMode::Full, client.clone(), 1, 64, None, peer_pool.clone())
+			.unwrap();
+
+	// Add a peer that will be higher than our queued number (see below).
+	let peer_id = PeerId::random();
+	peer_pool.lock().add_peer(peer_id);
+	assert!(peer_pool.lock().available_peers().any(|p| *p.peer_id() == peer_id));
+	sync.add_peer(peer_id, Hash::random(), (MAX_BLOCKS_TO_LOOK_BACKWARDS + 2).into());
+
+	// Make sure adding peer doesn't generate ancestry request in `handle_new_peers`.
+	assert_eq!(sync.handle_new_peers().count(), 0);
+	assert!(matches!(
+		sync.peers.get(&peer_id).unwrap(),
+		PeerSync { state, .. } if matches!(state, PeerSyncState::Available)));
+
+	// To trigger desired branch in `ChainSync` we must be more than `MAX_BLOCKS_TO_LOOK_BACKWARDS`
+	// above the common number (genesis), the peer best number should be higher than our best queud,
+	// and the common number must be smaller than the last finalized number.
+	let blocks = (0..MAX_BLOCKS_TO_LOOK_BACKWARDS + 1)
+		.map(|_| build_block(&mut client, None, false))
+		.collect::<Vec<_>>();
+
+	// Manually update best queued.
+	let info = client.info();
+	sync.best_queued_hash = info.best_hash;
+	sync.best_queued_number = info.best_number;
+
+	// Finalize block 1.
+	let just = (*b"TEST", Vec::new());
+	client.finalize_block(blocks[0].hash(), Some(just)).unwrap();
+
+	// Now the desired branch in `block_requests` should be triggered.
+	let _ = sync.block_requests();
+
+	// Make sure we are in fact doing ancestry search.
+	assert!(matches!(
+		sync.peers.get(&peer_id).unwrap(),
+		PeerSync { state, .. } if matches!(state, PeerSyncState::AncestorSearch { .. })));
+
+	// The peer is reserved in `PeerPool`.
+	assert_eq!(peer_pool.lock().available_peers().count(), 0);
 }
 
 #[test]
 fn peer_block_request_reserves_peer_in_peer_pool() {
-	todo!();
+	let client = Arc::new(TestClientBuilder::new().build());
+
+	let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+	let mut sync =
+		ChainSync::new(ChainSyncMode::Full, client.clone(), 1, 64, None, peer_pool.clone())
+			.unwrap();
+
+	// Add a peer that will be higher than our queued number (see below).
+	let peer_id = PeerId::random();
+	peer_pool.lock().add_peer(peer_id);
+	assert!(peer_pool.lock().available_peers().any(|p| *p.peer_id() == peer_id));
+	sync.add_peer(peer_id, Hash::random(), 10);
+
+	// Make sure adding peer doesn't generate fork request in `handle_new_peers`.
+	assert_eq!(sync.handle_new_peers().count(), 0);
+	assert!(matches!(
+		sync.peers.get(&peer_id).unwrap(),
+		PeerSync { state, .. } if matches!(state, PeerSyncState::Available)));
+
+	// Now we should be downloading new blocks.
+	let _ = sync.block_requests();
+	assert!(matches!(
+		sync.peers.get(&peer_id).unwrap(),
+		PeerSync { state, .. } if matches!(state, PeerSyncState::DownloadingNew(_))));
+
+	// The peer is reserved in `PeerPool`.
+	assert_eq!(peer_pool.lock().available_peers().count(), 0);
 }
 
 #[test]
 fn fork_sync_request_reserves_peer_in_peer_pool() {
-	todo!();
+	let client = Arc::new(TestClientBuilder::new().build());
+
+	let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+	let mut sync =
+		ChainSync::new(ChainSyncMode::Full, client.clone(), 1, 64, None, peer_pool.clone())
+			.unwrap();
+
+	// Add a peer that will be higher than our queued number (see below).
+	let peer_id = PeerId::random();
+	peer_pool.lock().add_peer(peer_id);
+	assert!(peer_pool.lock().available_peers().any(|p| *p.peer_id() == peer_id));
+	let fork_hash = Hash::random();
+	let fork_number = 10;
+	sync.add_peer(peer_id, fork_hash, fork_number);
+
+	// Make sure adding peer doesn't generate fork request in `handle_new_peers`.
+	assert_eq!(sync.handle_new_peers().count(), 0);
+	assert!(matches!(
+		sync.peers.get(&peer_id).unwrap(),
+		PeerSync { state, .. } if matches!(state, PeerSyncState::Available)));
+
+	// Add a fork target.
+	sync.set_sync_fork_request(vec![peer_id], &fork_hash, fork_number);
+
+	// Manually patch `best_queued` to be > `peer.best_number` to trigger fork request.
+	sync.best_queued_number = 20;
+
+	// Now we should be downloading an old fork.
+	let _ = sync.block_requests();
+	assert!(matches!(
+		sync.peers.get(&peer_id).unwrap(),
+		PeerSync { state, .. } if matches!(state, PeerSyncState::DownloadingStale(_))));
+
+	// The peer is reserved in `PeerPool`.
+	assert_eq!(peer_pool.lock().available_peers().count(), 0);
 }
 
 #[test]
 fn justification_request_reserves_peer_in_peer_pool() {
-	todo!();
+	let mut client = Arc::new(TestClientBuilder::new().build());
+
+	let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+	let mut sync =
+		ChainSync::new(ChainSyncMode::Full, client.clone(), 1, 64, None, peer_pool.clone())
+			.unwrap();
+
+	// Add a peer that will be higher than our queued number (see below).
+	let peer_id = PeerId::random();
+	peer_pool.lock().add_peer(peer_id);
+	assert!(peer_pool.lock().available_peers().any(|p| *p.peer_id() == peer_id));
+	sync.add_peer(peer_id, Hash::random(), (MAX_BLOCKS_TO_LOOK_BACKWARDS + 2).into());
+
+	// Make sure adding peer doesn't generate ancestry request in `handle_new_peers`.
+	assert_eq!(sync.handle_new_peers().count(), 0);
+	assert!(matches!(
+		sync.peers.get(&peer_id).unwrap(),
+		PeerSync { state, .. } if matches!(state, PeerSyncState::Available)));
+
+	// Import some blocks to request justifications for.
+	let blocks = (0..10).map(|_| build_block(&mut client, None, false)).collect::<Vec<_>>();
+
+	let best_block = blocks.last().unwrap();
+
+	// Request an extra justification for block 10.
+	sync.request_justification(&best_block.hash(), *best_block.header().number());
+
+	// Generate request.
+	let _ = sync.justification_requests();
+	assert!(matches!(
+		sync.peers.get(&peer_id).unwrap(),
+		PeerSync { state, .. } if matches!(state, PeerSyncState::DownloadingJustification(_))));
+
+	// The peer is reserved in `PeerPool`.
+	assert_eq!(peer_pool.lock().available_peers().count(), 0);
 }
 
 #[test]
 fn justification_response_frees_peer_in_peer_pool() {
-	todo!();
+	let mut client = Arc::new(TestClientBuilder::new().build());
+
+	let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+	let mut sync =
+		ChainSync::new(ChainSyncMode::Full, client.clone(), 1, 64, None, peer_pool.clone())
+			.unwrap();
+
+	// Add a peer that will be higher than our queued number (see below).
+	let peer_id = PeerId::random();
+	peer_pool.lock().add_peer(peer_id);
+	assert!(peer_pool.lock().available_peers().any(|p| *p.peer_id() == peer_id));
+	sync.add_peer(peer_id, Hash::random(), (MAX_BLOCKS_TO_LOOK_BACKWARDS + 2).into());
+
+	// Make sure adding peer doesn't generate ancestry request in `handle_new_peers`.
+	assert_eq!(sync.handle_new_peers().count(), 0);
+	assert!(matches!(
+		sync.peers.get(&peer_id).unwrap(),
+		PeerSync { state, .. } if matches!(state, PeerSyncState::Available)));
+
+	// Import some blocks to request justifications for.
+	let blocks = (0..10).map(|_| build_block(&mut client, None, false)).collect::<Vec<_>>();
+
+	let best_block = blocks.last().unwrap();
+
+	// Request an extra justification for block 10.
+	sync.request_justification(&best_block.hash(), *best_block.header().number());
+
+	// Generate request.
+	let (_peer_id, request) = sync.justification_requests().pop().unwrap();
+	assert!(matches!(
+		sync.peers.get(&peer_id).unwrap(),
+		PeerSync { state, .. } if matches!(state, PeerSyncState::DownloadingJustification(_))));
+
+	// The peer is reserved in `PeerPool`.
+	assert_eq!(peer_pool.lock().available_peers().count(), 0);
+
+	// We receive a justification response (dummy payload doesn't matter).
+	sync.on_block_response(peer_id, request, Vec::new());
+
+	// The peer is freed in `PeerPool`.
+	assert!(peer_pool.lock().available_peers().any(|p| *p.peer_id() == peer_id));
 }
