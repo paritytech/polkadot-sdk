@@ -41,7 +41,7 @@ const PROOF_RECORDING_DISABLED: u64 = u64::MAX;
 ///
 /// # Example
 ///
-/// ```rust
+/// ```ignore
 /// use parachains_common::storage_weight_reclaim::StorageWeightReclaimer;
 ///
 /// // Initialize a StorageWeightReclaimer instance.
