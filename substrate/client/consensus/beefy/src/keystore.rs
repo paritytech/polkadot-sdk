@@ -111,24 +111,7 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 				sig_ref.to_vec()
 			},
 
-			_ => {
-				let sig = store
-					.sign_with(
-						<AuthorityId as AppCrypto>::ID,
-						<AuthorityId as AppCrypto>::CRYPTO_ID,
-						public.as_slice(),
-						message,
-					)
-					.map_err(|e| error::Error::Signature(format!("{}. Key: {:?}", e, public)))?
-					.ok_or_else(|| {
-						error::Error::Signature(format!(
-							"Could not find key in keystore. Key: {:?}",
-							public
-						))
-					})?;
-
-				sig
-			},
+			_ => Err(error::Error::Keystore("key type is not supported by BEEFY Keystore".into()))?,
 		};
 
 		//check that `sig` has the expected result type
