@@ -209,6 +209,8 @@ default:
 include:
   # check jobs
   - .gitlab/pipeline/check.yml
+  # subsystem-bench jobs
+  - .gitlab/pipeline/subsystem-bench.yml
   # test jobs
   - .gitlab/pipeline/test.yml
   # build jobs
