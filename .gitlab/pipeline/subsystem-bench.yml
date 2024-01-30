@@ -3,6 +3,9 @@ subsystem-bench:
   extends:
     - .docker-env
     - .common-refs
+  tags:
+    - benchmark
   script:
     - cargo build --profile=testnet --bin subsystem-bench -p polkadot-subsystem-bench
     - target/testnet/subsystem-bench test-sequence --path polkadot/node/subsystem-bench/examples/availability_read.yaml
+    - target/testnet/subsystem-bench test-sequence --path polkadot/node/subsystem-bench/examples/availability_write.yaml
