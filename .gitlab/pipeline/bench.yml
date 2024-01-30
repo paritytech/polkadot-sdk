@@ -1,0 +1,8 @@
+subsystem-bench:
+  stage: check
+  extends:
+    - .docker-env
+    - .common-refs
+  script:
+    - cargo build --profile=testnet --bin subsystem-bench -p polkadot-subsystem-bench
+    - target/testnet/subsystem-bench test-sequence --path polkadot/node/subsystem-bench/examples/availability_read.yaml
