@@ -91,7 +91,6 @@ cd <polkadot-sdk-git-repo-dir>
 # Rococo + BridgeHubRococo + AssetHub for Rococo (mirroring Kusama)
 POLKADOT_BINARY_PATH=~/local_bridge_testing/bin/polkadot \
 POLKADOT_PARACHAIN_BINARY_PATH=~/local_bridge_testing/bin/polkadot-parachain \
-POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO=~/local_bridge_testing/bin/polkadot-parachain-asset-hub \
 	~/local_bridge_testing/bin/zombienet-linux --provider native spawn ./cumulus/zombienet/bridge-hubs/bridge_hub_rococo_local_network.toml
 ```
 
@@ -101,7 +100,6 @@ cd <polkadot-sdk-git-repo-dir>
 # Westend + BridgeHubWestend + AssetHub for Westend (mirroring Polkadot)
 POLKADOT_BINARY_PATH=~/local_bridge_testing/bin/polkadot \
 POLKADOT_PARACHAIN_BINARY_PATH=~/local_bridge_testing/bin/polkadot-parachain \
-POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND=~/local_bridge_testing/bin/polkadot-parachain-asset-hub \
 	~/local_bridge_testing/bin/zombienet-linux --provider native spawn ./cumulus/zombienet/bridge-hubs/bridge_hub_westend_local_network.toml
 ```
 
