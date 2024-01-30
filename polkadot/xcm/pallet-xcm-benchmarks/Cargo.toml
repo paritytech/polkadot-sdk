@@ -3,7 +3,7 @@ name = "pallet-xcm-benchmarks"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "4.0.0"
+version = "4.0.1"
 description = "pallet-xcm-benchmarks"
 
 [package.metadata.docs.rs]
