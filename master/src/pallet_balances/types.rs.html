@@ -152,6 +152,15 @@
 <a href="#152" id="152">152</a>
 <a href="#153" id="153">153</a>
 <a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -305,5 +314,14 @@
 			T::DustRemoval::on_unbalanced(dust);
 		}
 	}
+}
+
+<span class="doccomment">/// Whether something should be interpreted as an increase or a decrease.
+</span><span class="attr">#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+</span><span class="kw">pub enum </span>AdjustmentDirection {
+	<span class="doccomment">/// Increase the amount.
+	</span>Increase,
+	<span class="doccomment">/// Decrease the amount.
+	</span>Decrease,
 }
 </code></pre></div></section></main></body></html>

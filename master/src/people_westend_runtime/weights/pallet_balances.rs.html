@@ -148,6 +148,14 @@
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -281,10 +289,18 @@
 			.saturating_add(T::DbWeight::get().reads(<span class="number">1</span>))
 			.saturating_add(T::DbWeight::get().writes(<span class="number">1</span>))
 	}
-	<span class="doccomment">/// Storage: System Account (r:999 w:999)
-	/// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
-	/// The range of component `u` is `[1, 1000]`.
-	</span><span class="kw">fn </span>upgrade_accounts(u: u32, ) -&gt; Weight {
+	<span class="doccomment">/// Storage: `Balances::InactiveIssuance` (r:1 w:0)
+	/// Proof: `Balances::InactiveIssuance` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
+	</span><span class="kw">fn </span>force_adjust_total_issuance() -&gt; Weight {
+		<span class="comment">// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `1501`
+		// Minimum execution time: 5_132_000 picoseconds.
+		</span>Weight::from_parts(<span class="number">5_467_000</span>, <span class="number">0</span>)
+			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">1501</span>))
+			.saturating_add(T::DbWeight::get().reads(<span class="number">1</span>))
+	}
+	<span class="kw">fn </span>upgrade_accounts(u: u32, ) -&gt; Weight {
 		<span class="comment">// Proof Size summary in bytes:
 		//  Measured:  `0 + u * (136 ±0)`
 		//  Estimated: `990 + u * (2603 ±0)`
