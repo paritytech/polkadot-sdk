@@ -42,6 +42,7 @@
 //! ### Example - Get random seed for the current block
 //!
 //! ```
+//! # extern crate alloc;
 //! use frame_support::traits::Randomness;
 //!
 //! #[frame_support::pallet]

@@ -159,6 +159,7 @@
 //! ### Example: Rewarding a validator by id.
 //!
 //! ```
+//! # extern crate alloc;
 //! use pallet_staking::{self as staking};
 //!
 //! #[frame_support::pallet(dev_mode)]

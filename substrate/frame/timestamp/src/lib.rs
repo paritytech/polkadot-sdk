@@ -51,6 +51,7 @@
 //! To get the current time for the current block in another pallet:
 //!
 //! ```
+//! extern crate alloc;
 //! use pallet_timestamp::{self as timestamp};
 //!
 //! #[frame_support::pallet]

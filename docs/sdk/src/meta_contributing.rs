@@ -81,6 +81,7 @@
 //!
 //!
 //! ```
+//! # extern crate alloc;
 //! #[frame::pallet(dev_mode)]
 //! pub mod pallet {
 //! #   use frame::prelude::*;

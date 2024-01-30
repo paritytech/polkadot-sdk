@@ -42,6 +42,7 @@
 //! ## Usage
 //!
 //! ```
+//! # extern crate alloc;
 //! use pallet_im_online::{self as im_online};
 //!
 //! #[frame_support::pallet]

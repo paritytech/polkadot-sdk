@@ -54,6 +54,7 @@
 //! ## Usage
 //!
 //! ```
+//! # extern crate alloc;
 //! use pallet_scored_pool::{self as scored_pool};
 //!
 //! #[frame_support::pallet]

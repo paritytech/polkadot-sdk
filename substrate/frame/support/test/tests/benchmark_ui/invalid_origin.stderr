@@ -1,7 +1,7 @@
 error[E0277]: the trait bound `<T as frame_support_test::Config>::RuntimeOrigin: From<{integer}>` is not satisfied
-  --> tests/benchmark_ui/invalid_origin.rs:23:1
+  --> tests/benchmark_ui/invalid_origin.rs:25:1
    |
-23 | #[benchmarks]
+25 | #[benchmarks]
    | ^^^^^^^^^^^^^ the trait `From<{integer}>` is not implemented for `<T as frame_support_test::Config>::RuntimeOrigin`
    |
    = note: required for `{integer}` to implement `Into<<T as frame_support_test::Config>::RuntimeOrigin>`
