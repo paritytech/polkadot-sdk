@@ -3732,7 +3732,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-primitives-utility"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
@@ -9857,7 +9857,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nomination-pools"
-version = "22.0.1"
+version = "22.0.2"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -10679,7 +10679,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm-benchmarks"
-version = "4.0.0"
+version = "4.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -11108,7 +11108,7 @@ dependencies = [
 
 [[package]]
 name = "penpal-runtime"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",
@@ -17558,7 +17558,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-builder"
-version = "4.0.0"
+version = "4.0.1"
 dependencies = [
  "assert_matches",
  "frame-support",
@@ -17588,7 +17588,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-executor"
-version = "4.0.1"
+version = "4.0.2"
 dependencies = [
  "environmental",
  "frame-benchmarking",
