@@ -41,12 +41,12 @@ xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkad
 snowbridge-core = { path = "../../primitives/core", default-features = false }
 snowbridge-ethereum = { path = "../../primitives/ethereum", default-features = false }
 snowbridge-router-primitives = { path = "../../primitives/router", default-features = false }
-snowbridge-beacon-primitives = { path = "../../primitives/beacon", default-features = false, optional = true }
+snowbridge-beacon-primitives = { path = "../../primitives/beacon", default-features = false }
+snowbridge-pallet-inbound-queue-fixtures = { path = "./fixtures", default-features = false, optional = true }
 
 [dev-dependencies]
 frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking" }
 sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
-snowbridge-beacon-primitives = { path = "../../primitives/beacon" }
 snowbridge-pallet-ethereum-client = { path = "../ethereum-client" }
 hex-literal = { version = "0.4.1" }
 
@@ -65,8 +65,10 @@ std = [
 	"pallet-balances/std",
 	"scale-info/std",
 	"serde",
+	"snowbridge-beacon-primitives/std",
 	"snowbridge-core/std",
 	"snowbridge-ethereum/std",
+	"snowbridge-pallet-inbound-queue-fixtures?/std",
 	"snowbridge-router-primitives/std",
 	"sp-core/std",
 	"sp-io/std",
@@ -83,9 +85,9 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"hex-literal",
 	"pallet-balances/runtime-benchmarks",
-	"snowbridge-beacon-primitives",
 	"snowbridge-core/runtime-benchmarks",
 	"snowbridge-pallet-ethereum-client/runtime-benchmarks",
+	"snowbridge-pallet-inbound-queue-fixtures/runtime-benchmarks",
 	"snowbridge-router-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",

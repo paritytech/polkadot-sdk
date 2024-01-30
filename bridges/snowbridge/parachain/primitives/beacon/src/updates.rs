@@ -6,7 +6,7 @@ use scale_info::TypeInfo;
 use sp_core::H256;
 use sp_std::prelude::*;
 
-use crate::types::{BeaconHeader, ExecutionPayloadHeader, SyncAggregate, SyncCommittee};
+use crate::types::{BeaconHeader, SyncAggregate, SyncCommittee, VersionedExecutionPayloadHeader};
 
 #[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo)]
 #[cfg_attr(
@@ -91,7 +91,7 @@ pub struct ExecutionHeaderUpdate {
 	/// Proof that `header` is an ancestor of a finalized header
 	pub ancestry_proof: Option<AncestryProof>,
 	/// Execution header to be imported
-	pub execution_header: ExecutionPayloadHeader,
+	pub execution_header: VersionedExecutionPayloadHeader,
 	/// Merkle proof that execution payload is contained within `header`
 	pub execution_branch: Vec<H256>,
 }
