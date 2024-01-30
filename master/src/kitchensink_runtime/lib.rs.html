@@ -5059,11 +5059,6 @@
 		AssetConversionTxPayment: pallet_asset_conversion_tx_payment,
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase,
 		Staking: pallet_staking,
-		Beefy: pallet_beefy,
-		<span class="comment">// MMR leaf construction must be before session in order to have leaf contents
-		// refer to block&lt;N-1&gt; consistently. see substrate issue #11797 for details.
-		</span>Mmr: pallet_mmr,
-		MmrLeaf: pallet_beefy_mmr,
 		Session: pallet_session,
 		Democracy: pallet_democracy,
 		Council: pallet_collective::&lt;Instance1&gt;,
@@ -5093,6 +5088,11 @@
 		Tips: pallet_tips,
 		Assets: pallet_assets::&lt;Instance1&gt;,
 		PoolAssets: pallet_assets::&lt;Instance2&gt;,
+		Beefy: pallet_beefy,
+		<span class="comment">// MMR leaf construction must be after session in order to have a leaf&#39;s next_auth_set
+		// refer to block&lt;N&gt;. See issue polkadot-fellows/runtimes#160 for details.
+		</span>Mmr: pallet_mmr,
+		MmrLeaf: pallet_beefy_mmr,
 		Lottery: pallet_lottery,
 		Nis: pallet_nis,
 		Uniques: pallet_uniques,

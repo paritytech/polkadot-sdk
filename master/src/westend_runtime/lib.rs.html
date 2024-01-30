@@ -3969,13 +3969,6 @@
 		Offences: pallet_offences = <span class="number">7</span>,
 		Historical: session_historical = <span class="number">27</span>,
 
-		<span class="comment">// BEEFY Bridges support.
-		</span>Beefy: pallet_beefy = <span class="number">200</span>,
-		<span class="comment">// MMR leaf construction must be before session in order to have leaf contents refer to
-		// block&lt;N-1&gt; consistently. see substrate issue #11797 for details.
-		</span>Mmr: pallet_mmr = <span class="number">201</span>,
-		BeefyMmrLeaf: pallet_beefy_mmr = <span class="number">202</span>,
-
 		Session: pallet_session = <span class="number">8</span>,
 		Grandpa: pallet_grandpa = <span class="number">10</span>,
 		AuthorityDiscovery: pallet_authority_discovery = <span class="number">12</span>,
@@ -4064,6 +4057,13 @@
 
 		<span class="comment">// Root testing pallet.
 		</span>RootTesting: pallet_root_testing = <span class="number">102</span>,
+
+		<span class="comment">// BEEFY Bridges support.
+		</span>Beefy: pallet_beefy = <span class="number">200</span>,
+		<span class="comment">// MMR leaf construction must be after session in order to have a leaf&#39;s next_auth_set
+		// refer to block&lt;N&gt;. See issue polkadot-fellows/runtimes#160 for details.
+		</span>Mmr: pallet_mmr = <span class="number">201</span>,
+		BeefyMmrLeaf: pallet_beefy_mmr = <span class="number">202</span>,
 
 		<span class="comment">// Pallet for migrating Identity to a parachain. To be removed post-migration.
 		</span>IdentityMigrator: identity_migrator = <span class="number">248</span>,
