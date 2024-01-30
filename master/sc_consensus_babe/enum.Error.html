@@ -7,7 +7,7 @@
     FetchEpoch(B::Hash),
     TooFarInFuture(B::Hash),
     ParentUnavailable(B::Hash, B::Hash),
-    SlotMustIncrease(<a class="struct" href="../sp_consensus_slots/struct.Slot.html" title="struct sp_consensus_slots::Slot">Slot</a>, <a class="struct" href="../sp_consensus_slots/struct.Slot.html" title="struct sp_consensus_slots::Slot">Slot</a>),
+    SlotMustIncrease(Slot, Slot),
     HeaderBadSeal(B::Hash),
     HeaderUnsealed(B::Hash),
     SlotAuthorNotFound,
@@ -18,7 +18,7 @@
     VrfVerificationFailed,
     VrfThresholdExceeded(<a class="primitive" href="https://doc.rust-lang.org/1.74.0/std/primitive.u128.html">u128</a>),
     FetchParentHeader(Error),
-    ExpectedEpochChange(B::Hash, <a class="struct" href="../sp_consensus_slots/struct.Slot.html" title="struct sp_consensus_slots::Slot">Slot</a>),
+    ExpectedEpochChange(B::Hash, Slot),
     UnexpectedConfigChange,
     UnexpectedEpochChange,
     ParentBlockNoAssociatedWeight(B::Hash),
@@ -38,7 +38,7 @@
 </div><section id="variant.FetchEpoch" class="variant"><a href="#variant.FetchEpoch" class="anchor">§</a><h3 class="code-header">FetchEpoch(B::Hash)</h3></section><div class="docblock"><p>Could not fetch epoch</p>
 </div><section id="variant.TooFarInFuture" class="variant"><a href="#variant.TooFarInFuture" class="anchor">§</a><h3 class="code-header">TooFarInFuture(B::Hash)</h3></section><div class="docblock"><p>Header rejected: too far in the future</p>
 </div><section id="variant.ParentUnavailable" class="variant"><a href="#variant.ParentUnavailable" class="anchor">§</a><h3 class="code-header">ParentUnavailable(B::Hash, B::Hash)</h3></section><div class="docblock"><p>Parent unavailable. Cannot import</p>
-</div><section id="variant.SlotMustIncrease" class="variant"><a href="#variant.SlotMustIncrease" class="anchor">§</a><h3 class="code-header">SlotMustIncrease(<a class="struct" href="../sp_consensus_slots/struct.Slot.html" title="struct sp_consensus_slots::Slot">Slot</a>, <a class="struct" href="../sp_consensus_slots/struct.Slot.html" title="struct sp_consensus_slots::Slot">Slot</a>)</h3></section><div class="docblock"><p>Slot number must increase</p>
+</div><section id="variant.SlotMustIncrease" class="variant"><a href="#variant.SlotMustIncrease" class="anchor">§</a><h3 class="code-header">SlotMustIncrease(Slot, Slot)</h3></section><div class="docblock"><p>Slot number must increase</p>
 </div><section id="variant.HeaderBadSeal" class="variant"><a href="#variant.HeaderBadSeal" class="anchor">§</a><h3 class="code-header">HeaderBadSeal(B::Hash)</h3></section><div class="docblock"><p>Header has a bad seal</p>
 </div><section id="variant.HeaderUnsealed" class="variant"><a href="#variant.HeaderUnsealed" class="anchor">§</a><h3 class="code-header">HeaderUnsealed(B::Hash)</h3></section><div class="docblock"><p>Header is unsealed</p>
 </div><section id="variant.SlotAuthorNotFound" class="variant"><a href="#variant.SlotAuthorNotFound" class="anchor">§</a><h3 class="code-header">SlotAuthorNotFound</h3></section><div class="docblock"><p>Slot author not found</p>
@@ -49,7 +49,7 @@
 </div><section id="variant.VrfVerificationFailed" class="variant"><a href="#variant.VrfVerificationFailed" class="anchor">§</a><h3 class="code-header">VrfVerificationFailed</h3></section><div class="docblock"><p>VRF verification failed</p>
 </div><section id="variant.VrfThresholdExceeded" class="variant"><a href="#variant.VrfThresholdExceeded" class="anchor">§</a><h3 class="code-header">VrfThresholdExceeded(<a class="primitive" href="https://doc.rust-lang.org/1.74.0/std/primitive.u128.html">u128</a>)</h3></section><div class="docblock"><p>Primary slot threshold too low</p>
 </div><section id="variant.FetchParentHeader" class="variant"><a href="#variant.FetchParentHeader" class="anchor">§</a><h3 class="code-header">FetchParentHeader(Error)</h3></section><div class="docblock"><p>Could not fetch parent header</p>
-</div><section id="variant.ExpectedEpochChange" class="variant"><a href="#variant.ExpectedEpochChange" class="anchor">§</a><h3 class="code-header">ExpectedEpochChange(B::Hash, <a class="struct" href="../sp_consensus_slots/struct.Slot.html" title="struct sp_consensus_slots::Slot">Slot</a>)</h3></section><div class="docblock"><p>Expected epoch change to happen.</p>
+</div><section id="variant.ExpectedEpochChange" class="variant"><a href="#variant.ExpectedEpochChange" class="anchor">§</a><h3 class="code-header">ExpectedEpochChange(B::Hash, Slot)</h3></section><div class="docblock"><p>Expected epoch change to happen.</p>
 </div><section id="variant.UnexpectedConfigChange" class="variant"><a href="#variant.UnexpectedConfigChange" class="anchor">§</a><h3 class="code-header">UnexpectedConfigChange</h3></section><div class="docblock"><p>Unexpected config change.</p>
 </div><section id="variant.UnexpectedEpochChange" class="variant"><a href="#variant.UnexpectedEpochChange" class="anchor">§</a><h3 class="code-header">UnexpectedEpochChange</h3></section><div class="docblock"><p>Unexpected epoch change</p>
 </div><section id="variant.ParentBlockNoAssociatedWeight" class="variant"><a href="#variant.ParentBlockNoAssociatedWeight" class="anchor">§</a><h3 class="code-header">ParentBlockNoAssociatedWeight(B::Hash)</h3></section><div class="docblock"><p>Parent block has no associated weight</p>

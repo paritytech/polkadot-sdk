@@ -1416,7 +1416,7 @@
 	message_capacity=<span class="number">2048</span>,
 )]
 </span><span class="kw">pub struct </span>Overseer&lt;SupportsParachains&gt; {
-	<span class="attr">#[subsystem(CandidateValidationMessage, sends: [
+	<span class="attr">#[subsystem(blocking, CandidateValidationMessage, sends: [
 		RuntimeApiMessage,
 	]</span>)]
 	candidate_validation: CandidateValidation,
