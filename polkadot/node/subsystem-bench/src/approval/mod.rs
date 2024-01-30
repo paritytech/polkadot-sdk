@@ -934,15 +934,10 @@ pub async fn bench_approvals_run(
 				.await;
 		}
 
-		// let block_time_delta = Duration::from_millis(
-		// 	(*current_slot + 1) * SLOT_DURATION_MILLIS - Timestamp::current().as_millis(),
-		// );
 		let block_time = Instant::now().sub(block_start_ts).as_millis() as u64;
 		env.metrics().set_block_time(block_time);
 		gum::info!("Block time {}", format!("{:?}ms", block_time).cyan());
-		// gum::info!(target: LOG_TARGET,"{}", format!("Sleeping till end of block ({}ms)",
-		// block_time_delta.as_millis()).bright_black()); tokio::time::sleep(block_time_delta).
-		// await;
+
 		system_clock
 			.wait(slot_number_to_tick(SLOT_DURATION_MILLIS, current_slot + 1))
 			.await;
