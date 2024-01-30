@@ -15,7 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Simple BLS (Boneh–Lynn–Shacham) Signature API.
+//! BLS (Boneh–Lynn–Shacham) Signature along with efficiently verifiable Chaum-Pedersen proof API.
+//! Signatures are implemented according to
+//! [Efficient Aggregatable BLS Signatures with Chaum-Pedersen Proofs](https://eprint.iacr.org/2022/1611)
+//! Hash-to-BLS-curve is using Simplified SWU for AB == 0
+//! [RFC 9380](https://datatracker.ietf.org/doc/rfc9380/) Sect 6.6.3.
+//! Chaum-Pedersen proof uses the same hash to field specified in RFC 9380 for the field of the BLS curve.
 
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
