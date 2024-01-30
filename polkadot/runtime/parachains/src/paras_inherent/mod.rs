@@ -125,6 +125,7 @@ pub mod pallet {
 		inclusion::Config + scheduler::Config + initializer::Config + pallet_babe::Config
 		// HACK
 		+ crate::assigner_on_demand::Config
+		+ crate::assigner_coretime::Config
 	{
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;

@@ -536,6 +536,7 @@ impl<T: Config> Pallet<T> {
 	/// Parameters:
 	/// - `core_idx`: The core index
 	pub fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Assignment> {
+		log::info!(target: LOG_TARGET, "HERE, [core_index] {:?}", core_idx);
 		let mut queue: VecDeque<EnqueuedOrder> = OnDemandQueue::<T>::get();
 
 		let mut invalidated_para_id_indexes: Vec<usize> = vec![];

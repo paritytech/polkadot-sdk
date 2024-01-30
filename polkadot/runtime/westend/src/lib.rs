@@ -65,6 +65,7 @@ use runtime_common::{
 	BlockLength, CurrencyToVote, SlowAdjustingFeeUpdate, U256ToBalance,
 };
 use runtime_parachains::{
+	assigner_coretime as parachains_assigner_coretime,
 	assigner_on_demand as parachains_assigner_on_demand,
 	assigner_parachains as parachains_assigner_parachains,
 	configuration as parachains_configuration, disputes as parachains_disputes,
@@ -1222,6 +1223,8 @@ impl parachains_assigner_on_demand::Config for Runtime {
 	type WeightInfo = weights::runtime_parachains_assigner_on_demand::WeightInfo<Runtime>;
 }
 
+impl parachains_assigner_coretime::Config for Runtime {}
+
 impl parachains_scheduler::Config for Runtime {
 	// If you change this, make sure the `Assignment` type of the new provider is binary compatible,
 	// otherwise provide a migration.
@@ -1501,6 +1504,7 @@ construct_runtime! {
 		ParasSlashing: parachains_slashing = 54,
 		ParachainsAssignmentProvider: parachains_assigner_parachains = 55,
 		OnDemandAssignmentProvider: parachains_assigner_on_demand = 56,
+		CoretimeAssignmentProvider: parachains_assigner_coretime = 57,
 
 		// Parachain Onboarding Pallets. Start indices at 60 to leave room.
 		Registrar: paras_registrar = 60,

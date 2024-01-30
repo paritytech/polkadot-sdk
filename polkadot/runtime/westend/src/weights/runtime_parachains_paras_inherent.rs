@@ -382,6 +382,8 @@ impl<T: frame_system::Config> runtime_parachains::paras_inherent::WeightInfo for
 	/// Proof: `ParaScheduler::ValidatorGroups` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `ParaScheduler::ClaimQueue` (r:1 w:1)
 	/// Proof: `ParaScheduler::ClaimQueue` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `OnDemandAssignmentProvider::ParaIdAffinity` (r:50 w:50)
+	/// Proof: `OnDemandAssignmentProvider::ParaIdAffinity` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `CoretimeAssignmentProvider::CoreDescriptors` (r:50 w:50)
 	/// Proof: `CoretimeAssignmentProvider::CoreDescriptors` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Paras::CurrentCodeHash` (r:50 w:0)
@@ -408,12 +410,12 @@ impl<T: frame_system::Config> runtime_parachains::paras_inherent::WeightInfo for
 	/// Proof: `Paras::UpgradeGoAheadSignal` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn enter_on_demand_queue_processing() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `3286749`
-		//  Estimated: `3413964`
-		// Minimum execution time: 56_898_000_000 picoseconds.
-		Weight::from_parts(58_110_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 3413964))
-			.saturating_add(T::DbWeight::get().reads(517))
-			.saturating_add(T::DbWeight::get().writes(512))
+		//  Measured:  `3287362`
+		//  Estimated: `3414577`
+		// Minimum execution time: 60_840_000_000 picoseconds.
+		Weight::from_parts(61_316_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 3414577))
+			.saturating_add(T::DbWeight::get().reads(567))
+			.saturating_add(T::DbWeight::get().writes(562))
 	}
 }

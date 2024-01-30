@@ -624,7 +624,8 @@ impl<T: Config> Pallet<T> {
 
 			log::info!(target: LOG_TARGET, "[n_lookahead_used] {}, [n_lookahead] {}", n_lookahead_used, n_lookahead);
 
-			for _ in n_lookahead_used..n_lookahead {
+			for i in n_lookahead_used..n_lookahead {
+				log::info!(target: LOG_TARGET, "loop [i] {}", i);
 				if let Some(assignment) = T::AssignmentProvider::pop_assignment_for_core(core_idx) {
 					Self::add_to_claimqueue(core_idx, ParasEntry::new(assignment, now + ttl));
 				}

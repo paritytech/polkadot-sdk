@@ -258,6 +258,8 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Assignment> {
 		let now = <frame_system::Pallet<T>>::block_number();
 
+		log::info!(target: "runtime", "before reading core descriptor {:?}", core_idx);
+
 		CoreDescriptors::<T>::mutate(core_idx, |core_state| {
 			Self::ensure_workload(now, core_idx, core_state);
 
@@ -279,6 +281,8 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 				// Reset to ratio + still remaining "credits":
 				a_state.remaining = a_state.remaining.saturating_add(a_state.ratio);
 			}
+
+			log::info!(target: "runtime", "pop assignment {:?}", a_type);
 
 			match a_type {
 				CoreAssignment::Idle => None,
@@ -325,10 +329,8 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
-	fn get_mock_assignment(_: CoreIndex, para_id: primitives::Id) -> Assignment {
-		// Given that we are not tracking anything in `Bulk` assignments, it is safe to always
-		// return a bulk assignment.
-		Assignment::Bulk(para_id)
+	fn get_mock_assignment(core_index: CoreIndex, para_id: primitives::Id) -> Assignment {
+		Assignment::Pool { para_id, core_index }
 	}
 
 	fn session_core_count() -> u32 {

@@ -226,7 +226,7 @@ benchmarks! {
 
 		let scenario = BenchBuilder::<T>::new()
 			.set_backed_and_concluding_cores(cores_with_backed)
-			.set_fill_claimqueue(true)
+			// .set_fill_claimqueue(true)
 			.set_max_validators_per_core(3)
 			.build();
 

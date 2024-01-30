@@ -379,9 +379,8 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		}
 	}
 
-	fn fill_on_demand_queue(&mut self, id: u32) {
+	fn fill_on_demand_queue(&mut self, para_id: ParaId) {
 		let caller = whitelisted_caller();
-		let para_id = ParaId::from(id);
 		let balance = BalanceOf::<T>::max_value();
 		<T as crate::assigner_on_demand::pallet::Config>::Currency::make_free_balance_be(
 			&caller, balance,
@@ -394,6 +393,21 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			)
 			.unwrap();
 		}
+	}
+
+	fn assign_coretime(&mut self, core: u32) {
+		let current_block = frame_system::Pallet::<T>::block_number();
+		let assignment = vec![(
+			pallet_broker::CoreAssignment::Pool,
+			crate::assigner_coretime::PartsOf57600::FULL,
+		)];
+		crate::assigner_coretime::Pallet::<T>::assign_core(
+			CoreIndex(core),
+			current_block,
+			assignment,
+			None,
+		)
+		.unwrap();
 	}
 
 	/// Generate validator key pairs and account ids.
@@ -447,7 +461,9 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 
 		frame_system::Pallet::<T>::reset_events();
 
-		let para_id = total_cores / 2;
+		let core_idx = total_cores / 2;
+		let para_id = ParaId::from(core_idx);
+		self.assign_coretime(core_idx);
 		self.fill_on_demand_queue(para_id);
 
 		frame_system::Pallet::<T>::initialize(
