@@ -1,5 +1,3 @@
-mod fixtures;
-
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
@@ -8,17 +6,17 @@ use crate::Pallet as InboundQueue;
 use frame_benchmarking::v2::*;
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
+use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
 
 #[benchmarks]
 mod benchmarks {
 	use super::*;
-	use crate::benchmarking::fixtures::make_create_message;
 
 	#[benchmark]
 	fn submit() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 
-		let create_message = make_create_message();
+		let create_message = make_register_token_message();
 
 		T::Helper::initialize_storage(
 			create_message.message.proof.block_hash,
