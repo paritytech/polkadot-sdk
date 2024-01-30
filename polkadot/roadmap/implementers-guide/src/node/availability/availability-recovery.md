@@ -5,7 +5,7 @@ This subsystem is responsible for recovering the data made available via the
 approval/disputes processes. Additionally, it is also being used by collators to recover PoVs in adversarial scenarios
 where the other collators of the para are censoring blocks.
 
-According to the polkadot protocol, in order to recover any given `AvailableData`, we generally must recover at least
+According to the Polkadot protocol, in order to recover any given `AvailableData`, we generally must recover at least
 `f + 1` pieces from validators of the session. Thus, we should connect to and query randomly chosen validators until we
 have received `f + 1` pieces.
 
