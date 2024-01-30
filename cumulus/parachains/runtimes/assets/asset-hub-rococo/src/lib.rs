@@ -35,7 +35,6 @@ use assets_common::{
 };
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::AggregateMessageOrigin;
-use parachains_common::rococo::snowbridge::EthereumNetwork;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
@@ -44,6 +43,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Permill,
 };
+use testnet_system_parachains_constants::rococo::snowbridge::EthereumNetwork;
 
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -74,12 +74,12 @@ use pallet_nfts::PalletFeatures;
 use parachains_common::{
 	impls::DealWithFees,
 	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
-	rococo::{consensus::*, currency::*, fee::WeightToFee},
 	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, BlockNumber, CollectionId, Hash,
 	Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS,
 	NORMAL_DISPATCH_RATIO,
 };
 use sp_runtime::{Perbill, RuntimeDebug};
+use testnet_system_parachains_constants::rococo::{consensus::*, currency::*, fee::WeightToFee};
 use xcm_config::{
 	ForeignAssetsConvertedConcreteId, ForeignCreatorsSovereignAccountOf, GovernanceLocation,
 	PoolAssetsConvertedConcreteId, TokenLocation, TokenLocationV3,
@@ -1728,9 +1728,9 @@ fn ensure_key_ss58() {
 mod tests {
 	use super::*;
 	use crate::{CENTS, MILLICENTS};
-	use parachains_common::rococo::fee;
 	use sp_runtime::traits::Zero;
 	use sp_weights::WeightToFee;
+	use testnet_system_parachains_constants::rococo::fee;
 
 	/// We can fit at least 1000 transfers in a block.
 	#[test]
