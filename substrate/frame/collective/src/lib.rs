@@ -226,11 +226,12 @@ pub mod deposit {
 	impl<Slope, Offset, Balance> GetDeposit<Balance> for Linear<Slope, Offset>
 	where
 		Slope: Get<u32>,
-		Offset: Get<u32>,
+		Offset: Get<Balance>,
 		Balance: frame_support::traits::tokens::Balance,
 	{
 		fn get_deposit(proposal_count: u32) -> Option<Balance> {
-			Some(Offset::get().saturating_add(Slope::get().saturating_mul(proposal_count)).into())
+			let base: Balance = Slope::get().saturating_mul(proposal_count).into();
+			Some(Offset::get().saturating_add(base))
 		}
 	}
 
@@ -322,7 +323,7 @@ pub mod pallet {
 		type RuntimeOrigin: From<RawOrigin<Self::AccountId, I>>;
 
 		/// Overarching hold reason.
-		type RuntimeHoldReason: From<HoldReason>;
+		type RuntimeHoldReason: From<HoldReason<I>>;
 
 		/// The currency used for deposit.
 		type Currency: MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
@@ -842,7 +843,7 @@ pub mod pallet {
 		///
 		/// Emits `Killed` and `ProposalDepositSlashed` if a deposit was present.
 		#[pallet::call_index(7)]
-		#[pallet::weight(1)] // TODO
+		#[pallet::weight({1})] // TODO
 		pub fn kill(origin: OriginFor<T>, proposal_hash: T::Hash) -> DispatchResultWithPostInfo {
 			T::KillOrigin::ensure_origin(origin)?;
 			let proposal_count = Self::do_kill_proposal(proposal_hash)?;
@@ -857,7 +858,7 @@ pub mod pallet {
 		///
 		/// Emits `ProposalDepositReleased`.
 		#[pallet::call_index(8)]
-		#[pallet::weight(1)] // TODO
+		#[pallet::weight({1})] // TODO
 		pub fn release_proposal_deposit(
 			origin: OriginFor<T>,
 			proposal_hash: T::Hash,

@@ -1556,7 +1556,7 @@ fn migration_v4() {
 
 #[test]
 fn deposit_types_with_linear_work() {
-	type LinearWithSlop2 = crate::deposit::Linear<ConstU32<2>, ConstU32<10>>;
+	type LinearWithSlop2 = crate::deposit::Linear<ConstU32<2>, ConstU128<10>>;
 	assert_eq!(LinearWithSlop2::get_deposit(0), Some(10u128));
 	assert_eq!(LinearWithSlop2::get_deposit(1), Some(12u128));
 	assert_eq!(LinearWithSlop2::get_deposit(2), Some(14u128));
