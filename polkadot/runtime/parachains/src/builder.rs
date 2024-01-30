@@ -709,6 +709,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		Self::setup_para_ids(used_cores);
 		configuration::ActiveConfig::<T>::mutate(|c| {
 			c.coretime_cores = used_cores;
+			c.scheduling_lookahead = 10;
 		});
 
 		let validator_ids = Self::generate_validator_pairs(self.max_validators());

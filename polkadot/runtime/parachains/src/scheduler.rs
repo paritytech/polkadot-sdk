@@ -589,6 +589,8 @@ impl<T: Config> Pallet<T> {
 		let cq = ClaimQueue::<T>::get();
 		let ttl = <configuration::Pallet<T>>::config().on_demand_ttl;
 
+		log::info!(target: LOG_TARGET, "[concluded] {:?}, cores: {}", concluded_paras.len(), n_session_cores);
+
 		for core_idx in 0..n_session_cores {
 			let core_idx = CoreIndex::from(core_idx);
 
@@ -619,6 +621,9 @@ impl<T: Config> Pallet<T> {
 			// We consider occupied cores to be part of the claimqueue
 			let n_lookahead_used = cq.get(&core_idx).map_or(0, |v| v.len() as u32) +
 				if Self::is_core_occupied(core_idx) { 1 } else { 0 };
+
+			log::info!(target: LOG_TARGET, "[n_lookahead_used] {}, [n_lookahead] {}", n_lookahead_used, n_lookahead);
+
 			for _ in n_lookahead_used..n_lookahead {
 				if let Some(assignment) = T::AssignmentProvider::pop_assignment_for_core(core_idx) {
 					Self::add_to_claimqueue(core_idx, ParasEntry::new(assignment, now + ttl));
