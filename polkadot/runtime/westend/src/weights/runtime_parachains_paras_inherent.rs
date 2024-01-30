@@ -386,10 +386,14 @@ impl<T: frame_system::Config> runtime_parachains::paras_inherent::WeightInfo for
 	/// Proof: `OnDemandAssignmentProvider::ParaIdAffinity` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `CoretimeAssignmentProvider::CoreDescriptors` (r:50 w:50)
 	/// Proof: `CoretimeAssignmentProvider::CoreDescriptors` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Paras::CurrentCodeHash` (r:50 w:0)
-	/// Proof: `Paras::CurrentCodeHash` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `CoretimeAssignmentProvider::CoreSchedules` (r:1 w:1)
+	/// Proof: `CoretimeAssignmentProvider::CoreSchedules` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `OnDemandAssignmentProvider::OnDemandQueue` (r:1 w:1)
+	/// Proof: `OnDemandAssignmentProvider::OnDemandQueue` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Paras::ParaLifecycles` (r:50 w:0)
 	/// Proof: `Paras::ParaLifecycles` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Paras::CurrentCodeHash` (r:50 w:0)
+	/// Proof: `Paras::CurrentCodeHash` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `MessageQueue::BookStateFor` (r:50 w:0)
 	/// Proof: `MessageQueue::BookStateFor` (`max_values`: None, `max_size`: Some(55), added: 2530, mode: `MaxEncodedLen`)
 	/// Storage: `Paras::MostRecentContext` (r:49 w:1)
@@ -410,12 +414,12 @@ impl<T: frame_system::Config> runtime_parachains::paras_inherent::WeightInfo for
 	/// Proof: `Paras::UpgradeGoAheadSignal` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn enter_on_demand_queue_processing() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `3287362`
-		//  Estimated: `3414577`
-		// Minimum execution time: 60_840_000_000 picoseconds.
-		Weight::from_parts(61_316_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 3414577))
-			.saturating_add(T::DbWeight::get().reads(567))
-			.saturating_add(T::DbWeight::get().writes(562))
+		//  Measured:  `3307484`
+		//  Estimated: `3434699`
+		// Minimum execution time: 61_042_000_000 picoseconds.
+		Weight::from_parts(61_399_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 3434699))
+			.saturating_add(T::DbWeight::get().reads(569))
+			.saturating_add(T::DbWeight::get().writes(564))
 	}
 }
