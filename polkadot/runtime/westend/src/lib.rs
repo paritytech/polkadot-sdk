@@ -1412,13 +1412,6 @@ construct_runtime! {
 		Offences: pallet_offences = 7,
 		Historical: session_historical = 27,
 
-		// BEEFY Bridges support.
-		Beefy: pallet_beefy = 200,
-		// MMR leaf construction must be before session in order to have leaf contents refer to
-		// block<N-1> consistently. see substrate issue #11797 for details.
-		Mmr: pallet_mmr = 201,
-		BeefyMmrLeaf: pallet_beefy_mmr = 202,
-
 		Session: pallet_session = 8,
 		Grandpa: pallet_grandpa = 10,
 		AuthorityDiscovery: pallet_authority_discovery = 12,
@@ -1507,6 +1500,13 @@ construct_runtime! {
 
 		// Root testing pallet.
 		RootTesting: pallet_root_testing = 102,
+
+		// BEEFY Bridges support.
+		Beefy: pallet_beefy = 200,
+		// MMR leaf construction must be after session in order to have a leaf's next_auth_set
+		// refer to block<N>. See issue polkadot-fellows/runtimes#160 for details.
+		Mmr: pallet_mmr = 201,
+		BeefyMmrLeaf: pallet_beefy_mmr = 202,
 
 		// Pallet for migrating Identity to a parachain. To be removed post-migration.
 		IdentityMigrator: identity_migrator = 248,
