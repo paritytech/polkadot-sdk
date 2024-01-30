@@ -1419,7 +1419,7 @@ construct_runtime! {
 		// BEEFY Bridges support.
 		Beefy: pallet_beefy = 240,
 		// MMR leaf construction must be after session in order to have a leaf's next_auth_set
-		// refer to block<N>. See issue #160 for details.
+		// refer to block<N>. See issue polkadot-fellows/runtimes#160 for details.
 		Mmr: pallet_mmr = 241,
 		MmrLeaf: pallet_beefy_mmr = 242,
 
