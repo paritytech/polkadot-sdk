@@ -52,6 +52,8 @@ use xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::impls::benchmarks::{OpenHrmpChannel, PayWithEnsure};
+#[cfg(feature = "runtime-benchmarks")]
+use testnet_parachains_constants::westend::currency::DOLLARS;
 
 /// The Fellowship members' ranks.
 pub mod ranks {
@@ -259,9 +261,9 @@ parameter_types! {
 	// Benchmark bond. Needed to make `propose_spend` work.
 	pub const TenPercent: Permill = Permill::from_percent(10);
 	// Benchmark minimum. Needed to make `propose_spend` work.
-	pub const BenchmarkProposalBondMinimum: Balance = 1 * testnet_parachains_constants::westend::currency::DOLLARS;
+	pub const BenchmarkProposalBondMinimum: Balance = 1 * DOLLARS;
 	// Benchmark maximum. Needed to make `propose_spend` work.
-	pub const BenchmarkProposalBondMaximum: Balance = 10 * testnet_parachains_constants::westend::currency::DOLLARS;
+	pub const BenchmarkProposalBondMaximum: Balance = 10 * DOLLARS;
 }
 
 /// [`PayOverXcm`] setup to pay the Fellowship Treasury.

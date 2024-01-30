@@ -45,7 +45,9 @@ use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use snowbridge_router_primitives::inbound::GlobalConsensusEthereumConvertsFor;
 use sp_runtime::traits::{AccountIdConversion, ConvertInto};
-use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
+use testnet_parachains_constants::rococo::snowbridge::{
+	EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX,
+};
 use xcm::latest::prelude::*;
 #[allow(deprecated)]
 use xcm_builder::CurrencyAdapter;
@@ -850,7 +852,7 @@ pub mod bridging {
 				1,
 				[
 					Parachain(SiblingBridgeHubParaId::get()),
-					PalletInstance(testnet_parachains_constants::rococo::snowbridge::INBOUND_QUEUE_PALLET_INDEX)
+					PalletInstance(INBOUND_QUEUE_PALLET_INDEX)
 				]
 			);
 

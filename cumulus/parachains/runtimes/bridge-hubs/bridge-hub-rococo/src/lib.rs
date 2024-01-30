@@ -96,7 +96,9 @@ use parachains_common::{
 	impls::DealWithFees, AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
 	AVERAGE_ON_INITIALIZE_RATIO, HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
-use testnet_parachains_constants::rococo::{consensus::*, currency::*, fee::WeightToFee};
+use testnet_parachains_constants::rococo::{
+	consensus::*, currency::*, fee::WeightToFee, snowbridge::INBOUND_QUEUE_PALLET_INDEX,
+};
 
 use polkadot_runtime_common::prod_or_fast;
 
@@ -496,7 +498,6 @@ parameter_types! {
 parameter_types! {
 	pub const CreateAssetCall: [u8;2] = [53, 0];
 	pub const CreateAssetDeposit: u128 = (UNITS / 10) + EXISTENTIAL_DEPOSIT;
-	pub const InboundQueuePalletInstance: u8 = testnet_parachains_constants::rococo::snowbridge::INBOUND_QUEUE_PALLET_INDEX;
 	pub Parameters: PricingParameters<u128> = PricingParameters {
 		exchange_rate: FixedU128::from_rational(1, 400),
 		fee_per_gas: gwei(20),
@@ -557,7 +558,7 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type MessageConverter = MessageToXcm<
 		CreateAssetCall,
 		CreateAssetDeposit,
-		InboundQueuePalletInstance,
+		ConstU8<INBOUND_QUEUE_PALLET_INDEX>,
 		AccountId,
 		Balance,
 	>;
