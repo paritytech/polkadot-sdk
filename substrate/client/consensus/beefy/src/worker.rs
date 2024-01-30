@@ -180,6 +180,13 @@ impl<B: Block> VoterOracle<B> {
 		}
 	}
 
+	// Check if an observed session can be added to the Oracle.
+	fn can_add_session(&self, session_start: NumberFor<B>) -> bool {
+		let latest_known_session_start =
+			self.sessions.back().map(|session| session.session_start());
+		Some(session_start) > latest_known_session_start
+	}
+
 	/// Add new observed session to the Oracle.
 	pub fn add_session(&mut self, rounds: Rounds<B>) {
 		self.sessions.push_back(rounds);
@@ -242,7 +249,7 @@ impl<B: Block> VoterOracle<B> {
 	pub fn voting_target(&self) -> Option<NumberFor<B>> {
 		let rounds = self.sessions.front().or_else(|| {
 			debug!(target: LOG_TARGET, "🥩 No voting round started");
-			return None
+			None
 		})?;
 		let best_grandpa = *self.best_grandpa_block_header.number();
 		let best_beefy = self.best_beefy_block;
@@ -367,10 +374,7 @@ where
 			.beefy_genesis(best_grandpa.hash())
 			.ok()
 			.flatten()
-			.filter(|genesis| {
-				// test
-				*genesis == beefy_genesis
-			})
+			.filter(|genesis| *genesis == beefy_genesis)
 			.ok_or_else(|| Error::Backend("BEEFY pallet expected to be active.".into()))?;
 		// Walk back the imported blocks and initialize voter either, at the last block with
 		// a BEEFY justification, or at pallet genesis block; voter will resume from there.
@@ -473,8 +477,10 @@ where
 			let mut new_sessions = vec![];
 			let mut header = best_grandpa.clone();
 			while *header.number() > state.best_beefy() {
-				if let Some(active) = find_authorities_change::<B>(&header) {
-					new_sessions.push((active, *header.number()));
+				if state.voting_oracle.can_add_session(*header.number()) {
+					if let Some(active) = find_authorities_change::<B>(&header) {
+						new_sessions.push((active, *header.number()));
+					}
 				}
 				header =
 					wait_for_parent_header(self.backend.blockchain(), header, HEADER_SYNC_DELAY)
@@ -566,7 +572,7 @@ where
 	}
 }
 
-/// A BEEFY worker plays the BEEFY protocol
+/// A BEEFY worker/voter that follows the BEEFY protocol
 pub(crate) struct BeefyWorker<B: Block, BE, P, RuntimeApi, S> {
 	pub base: BeefyWorkerBase<B, BE, RuntimeApi>,
 
