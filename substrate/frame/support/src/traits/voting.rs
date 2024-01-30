@@ -33,10 +33,13 @@ pub trait VoteTally<Votes, Class> {
 	fn support(&self, class: Class) -> Perbill;
 	/// Retrieves the ratio of approval (positive / total) votes for the tally
 	fn approval(&self, class: Class) -> Perbill;
+	/// Returns an instance of the tally representing an unanumous approval, for benchmarking purposes
 	#[cfg(feature = "runtime-benchmarks")]
 	fn unanimity(class: Class) -> Self;
+	/// Returns an instance of the tally representing an rejecting state, for benchmarking purposes
 	#[cfg(feature = "runtime-benchmarks")]
 	fn rejection(class: Class) -> Self;
+	/// Returns an instance of the tally given some `approval` and `support`, for benchmarking purposes
 	#[cfg(feature = "runtime-benchmarks")]
 	fn from_requirements(support: Perbill, approval: Perbill, class: Class) -> Self;
 	#[cfg(feature = "runtime-benchmarks")]
