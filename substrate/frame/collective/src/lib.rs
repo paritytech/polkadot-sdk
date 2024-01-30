@@ -57,8 +57,11 @@ use frame_support::{
 	},
 	ensure, impl_ensure_origin_with_arg_ignoring_arg,
 	traits::{
-		Backing, ChangeMembers, EnsureOrigin, EnsureOriginWithArg, Get, GetBacking,
-		InitializeMembers, StorageVersion,
+		fungible,
+		fungible::{BalancedHold, MutateHold},
+		tokens::Precision,
+		Backing, ChangeMembers, EnsureOrigin, EnsureOriginWithArg, Get, GetBacking, Imbalance,
+		InitializeMembers, OnUnbalanced, StorageVersion,
 	},
 	weights::Weight,
 };
@@ -87,6 +90,10 @@ pub type ProposalIndex = u32;
 /// This also serves as a number of voting members, and since for motions, each member may
 /// vote exactly once, therefore also the number of votes for any given motion.
 pub type MemberCount = u32;
+
+type BalanceOf<T, I> = <<T as Config<I>>::Currency as fungible::Inspect<
+	<T as frame_system::Config>::AccountId,
+>>::Balance;
 
 /// Default voting strategy when a member is inactive.
 pub trait DefaultVote {
@@ -171,11 +178,135 @@ pub struct Votes<AccountId, BlockNumber> {
 	end: BlockNumber,
 }
 
+/// Determines the deposit amount for a proposal submission.
+pub trait GetDeposit<Balance> {
+	/// Determines the required deposit for a proposal submission. The `proposal_count` parameter
+	/// reflects the total number of active proposals in the system, exclusive of the one currently
+	/// being proposed. The deposit may vary based on this count. If `None` is returned, this
+	/// indicates that no deposit is required.
+	fn get_deposit(proposal_count: u32) -> Option<Balance>;
+}
+
+/// Default implementation for [`GetDeposit`] that implies no deposit is required.
+impl<Balance> GetDeposit<Balance> for () {
+	fn get_deposit(_: u32) -> Option<Balance> {
+		None
+	}
+}
+
+/// Types implementing [`GetDeposit`] trait.
+/// Look for use examples to [`crate::tests::deposit_types_with_linear_work`],
+/// [`crate::tests::deposit_types_with_geometric_work`] and [`crate::tests::constant_deposit_work`].
+pub mod deposit {
+	use super::GetDeposit;
+	use sp_core::Get;
+	use sp_std::marker::PhantomData;
+
+	/// Constant deposit amount regardless of current proposal count.
+	/// Returns `None` if configured with zero deposit.
+	pub struct Constant<Deposit>(PhantomData<Deposit>);
+	impl<Deposit, Balance> GetDeposit<Balance> for Constant<Deposit>
+	where
+		Deposit: Get<Balance>,
+		Balance: frame_support::traits::tokens::Balance,
+	{
+		fn get_deposit(_: u32) -> Option<Balance> {
+			let deposit = Deposit::get();
+			if deposit == Balance::zero() {
+				None
+			} else {
+				Some(deposit)
+			}
+		}
+	}
+
+	/// Linear increasing with some offset.
+	/// f(x) = ax + b, a = `Slope`, x = `proposal_count`, b = `Offset`.
+	pub struct Linear<Slope, Offset>(PhantomData<(Slope, Offset)>);
+	impl<Slope, Offset, Balance> GetDeposit<Balance> for Linear<Slope, Offset>
+	where
+		Slope: Get<u32>,
+		Offset: Get<u32>,
+		Balance: frame_support::traits::tokens::Balance,
+	{
+		fn get_deposit(proposal_count: u32) -> Option<Balance> {
+			Some(Offset::get().saturating_add(Slope::get().saturating_mul(proposal_count)).into())
+		}
+	}
+
+	/// Geometrically increasing.
+	/// f(x) = a * r^x, a = `Base`, x = `proposal_count`, r = `Ratio`.
+	pub struct Geometric<Ratio, Base>(PhantomData<(Ratio, Base)>);
+	impl<Ratio, Base, Balance> GetDeposit<Balance> for Geometric<Ratio, Base>
+	where
+		Ratio: Get<Balance>,
+		Base: Get<Balance>,
+		Balance: frame_support::traits::tokens::Balance,
+	{
+		fn get_deposit(proposal_count: u32) -> Option<Balance> {
+			let m = Ratio::get().saturating_pow(proposal_count as usize);
+			Some(m.saturating_mul(Base::get()))
+		}
+	}
+
+	/// Defines `Period` for supplied `Step` implementing [`GetDeposit`] trait.
+	pub struct Stepped<Period, Step>(PhantomData<(Period, Step)>);
+	impl<Period, Step, Balance> GetDeposit<Balance> for Stepped<Period, Step>
+	where
+		Period: Get<u32>,
+		Step: GetDeposit<Balance>,
+		Balance: frame_support::traits::tokens::Balance,
+	{
+		fn get_deposit(proposal_count: u32) -> Option<Balance> {
+			let step_num = proposal_count / Period::get();
+			Step::get_deposit(step_num)
+		}
+	}
+
+	/// Defines `Delay` for supplied `Step` implementing [`GetDeposit`] trait.
+	pub struct Delayed<Delay, Deposit>(PhantomData<(Delay, Deposit)>);
+	impl<Delay, Deposit, Balance> GetDeposit<Balance> for Delayed<Delay, Deposit>
+	where
+		Delay: Get<u32>,
+		Deposit: GetDeposit<Balance>,
+		Balance: frame_support::traits::tokens::Balance,
+	{
+		fn get_deposit(proposal_count: u32) -> Option<Balance> {
+			let delay = Delay::get();
+			if delay > proposal_count {
+				return None
+			}
+			let pos = proposal_count.saturating_sub(delay);
+			Deposit::get_deposit(pos)
+		}
+	}
+
+	/// Defines `Ceil` for supplied `Step` implementing [`GetDeposit`] trait.
+	pub struct WithCeil<Ceil, Deposit>(PhantomData<(Ceil, Deposit)>);
+	impl<Ceil, Deposit, Balance> GetDeposit<Balance> for WithCeil<Ceil, Deposit>
+	where
+		Ceil: Get<u32>,
+		Deposit: GetDeposit<Balance>,
+		Balance: frame_support::traits::tokens::Balance,
+	{
+		fn get_deposit(proposal_count: u32) -> Option<Balance> {
+			if let Some(deposit) = Deposit::get_deposit(proposal_count) {
+				Some(deposit.min(Ceil::get().into()))
+			} else {
+				None
+			}
+		}
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
+	use frame_support::{
+		pallet_prelude::*,
+		traits::{fungible::Credit, OnUnbalanced},
+	};
+	use frame_system::pallet_prelude::{OriginFor, *};
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
@@ -189,6 +320,13 @@ pub mod pallet {
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The runtime origin type.
 		type RuntimeOrigin: From<RawOrigin<Self::AccountId, I>>;
+
+		/// Overarching hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
+
+		/// The currency used for deposit.
+		type Currency: MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ BalancedHold<Self::AccountId>;
 
 		/// The runtime call dispatch type.
 		type Proposal: Parameter
@@ -227,6 +365,19 @@ pub mod pallet {
 		/// The maximum weight of a dispatch call that can be proposed and executed.
 		#[pallet::constant]
 		type MaxProposalWeight: Get<Weight>;
+
+		/// Mechanism to assess the necessity and amount of the deposit required for publishing and
+		/// storing a proposal.
+		type ProposalDeposit: GetDeposit<BalanceOf<Self, I>>;
+
+		/// Handler for a slashed funds.
+		type Slash: OnUnbalanced<Credit<Self::AccountId, Self::Currency>>;
+
+		/// Origin from which any proposal may be disapproved.
+		type DisapproveOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
+
+		/// Origin from which any proposal may be killed.
+		type KillOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
 	}
 
 	#[pallet::genesis_config]
@@ -271,6 +422,12 @@ pub mod pallet {
 	#[pallet::getter(fn proposal_of)]
 	pub type ProposalOf<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, T::Hash, <T as Config<I>>::Proposal, OptionQuery>;
+
+	/// Deposit taken for publishing and storing a proposal. Determined by [Config::ProposalDeposit]
+	/// and may not be applicable for certain proposals.
+	#[pallet::storage]
+	pub type DepositOf<T: Config<I>, I: 'static = ()> =
+		StorageMap<_, Identity, T::Hash, (T::AccountId, BalanceOf<T, I>), OptionQuery>;
 
 	/// Votes on a given proposal, if it is ongoing.
 	#[pallet::storage]
@@ -324,6 +481,20 @@ pub mod pallet {
 		MemberExecuted { proposal_hash: T::Hash, result: DispatchResult },
 		/// A proposal was closed because its threshold was reached or after its duration was up.
 		Closed { proposal_hash: T::Hash, yes: MemberCount, no: MemberCount },
+		/// A motion was killed and deposit slashed.
+		Killed { proposal_hash: T::Hash },
+		/// A proposal deposit was slashed.
+		ProposalDepositSlashed {
+			proposal_hash: T::Hash,
+			who: T::AccountId,
+			amount: BalanceOf<T, I>,
+		},
+		/// A proposal deposit was released.
+		ProposalDepositReleased {
+			proposal_hash: T::Hash,
+			who: T::AccountId,
+			amount: BalanceOf<T, I>,
+		},
 	}
 
 	#[pallet::error]
@@ -350,6 +521,8 @@ pub mod pallet {
 		WrongProposalLength,
 		/// Prime account is not a member
 		PrimeAccountNotMember,
+		/// Proposal is still active.
+		ProposalActive,
 	}
 
 	#[pallet::hooks]
@@ -358,6 +531,14 @@ pub mod pallet {
 		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 			Self::do_try_state()
 		}
+	}
+
+	/// A reason for the pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason<I: 'static = ()> {
+		/// Funds are held for submitting and storing a proposal.
+		#[codec(index = 0)]
+		ProposalSubmission,
 	}
 
 	// Note that councillor operations are assigned to the operational class.
@@ -597,7 +778,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			proposal_hash: T::Hash,
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			T::DisapproveOrigin::ensure_origin(origin)?;
 			let proposal_count = Self::do_disapprove_proposal(proposal_hash);
 			Ok(Some(T::WeightInfo::disapprove_proposal(proposal_count)).into())
 		}
@@ -651,6 +832,39 @@ pub mod pallet {
 			let _ = ensure_signed(origin)?;
 
 			Self::do_close(proposal_hash, index, proposal_weight_bound, length_bound)
+		}
+
+		/// Disapprove a proposal and slash the deposits.
+		///
+		/// Parameters:
+		/// - `origin`: must be the `KillOrigin`.
+		/// - `proposal_hash`: The hash of the proposal that should be disapproved.
+		///
+		/// Emits `Killed` and `ProposalDepositSlashed` if a deposit was present.
+		#[pallet::call_index(7)]
+		#[pallet::weight(1)] // TODO
+		pub fn kill(origin: OriginFor<T>, proposal_hash: T::Hash) -> DispatchResultWithPostInfo {
+			T::KillOrigin::ensure_origin(origin)?;
+			let proposal_count = Self::do_kill_proposal(proposal_hash)?;
+			Ok(Some(T::WeightInfo::disapprove_proposal(proposal_count)).into())
+		}
+
+		/// Release the deposit of a completed proposal
+		///
+		/// Parameters:
+		/// - `origin`: must be `Signed` or `Root`.
+		/// - `proposal_hash`: The hash of the proposal that should be disapproved.
+		///
+		/// Emits `ProposalDepositReleased`.
+		#[pallet::call_index(8)]
+		#[pallet::weight(1)] // TODO
+		pub fn release_proposal_deposit(
+			origin: OriginFor<T>,
+			proposal_hash: T::Hash,
+		) -> DispatchResult {
+			let _ = ensure_signed_or_root(origin)?;
+			let _ = Self::do_release_proposal_deposit(proposal_hash)?;
+			Ok(())
 		}
 	}
 }
@@ -721,6 +935,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				proposals.try_push(proposal_hash).map_err(|_| Error::<T, I>::TooManyProposals)?;
 				Ok(proposals.len())
 			})?;
+
+		if let Some(deposit) = T::ProposalDeposit::get_deposit(active_proposals as u32 - 1) {
+			T::Currency::hold(&HoldReason::ProposalSubmission.into(), &who, deposit)?;
+			<DepositOf<T, I>>::insert(proposal_hash, (who.clone(), deposit));
+		}
 
 		let index = Self::proposal_count();
 		<ProposalCount<T, I>>::mutate(|i| *i += 1);
@@ -935,6 +1154,42 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// disapproved
 		Self::deposit_event(Event::Disapproved { proposal_hash });
 		Self::remove_proposal(proposal_hash)
+	}
+
+	/// Releases a proposal deposit, if one exists.
+	fn do_release_proposal_deposit(
+		proposal_hash: T::Hash,
+	) -> Result<Option<BalanceOf<T, I>>, DispatchError> {
+		ensure!(ProposalOf::<T, I>::get(&proposal_hash).is_none(), Error::<T, I>::ProposalActive);
+		if let Some((who, deposit)) = <DepositOf<T, I>>::take(proposal_hash) {
+			T::Currency::release(
+				&HoldReason::ProposalSubmission.into(),
+				&who,
+				deposit,
+				Precision::Exact,
+			)
+			.map(|amount| {
+				Self::deposit_event(Event::ProposalDepositReleased { proposal_hash, who, amount });
+				Some(amount)
+			})?;
+		}
+		Ok(None)
+	}
+
+	/// Removes a proposal, slashes it's deposit if one exists and emits the `Killed` event.
+	fn do_kill_proposal(proposal_hash: T::Hash) -> Result<u32, DispatchError> {
+		if let Some((who, deposit)) = <DepositOf<T, I>>::take(proposal_hash) {
+			let (credit, _) =
+				T::Currency::slash(&HoldReason::ProposalSubmission.into(), &who, deposit);
+			Self::deposit_event(Event::ProposalDepositSlashed {
+				proposal_hash,
+				who,
+				amount: credit.peek(),
+			});
+			T::Slash::on_unbalanced(credit);
+		}
+		Self::deposit_event(Event::Killed { proposal_hash });
+		Ok(Self::remove_proposal(proposal_hash))
 	}
 
 	// Removes a proposal from the pallet, cleaning up votes and the vector of proposals.

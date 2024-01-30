@@ -25,7 +25,7 @@ use frame_support::{
 	Hashable,
 };
 use frame_system::{EnsureRoot, EventRecord, Phase};
-use sp_core::H256;
+use sp_core::{ConstU128, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
@@ -39,6 +39,7 @@ frame_support::construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
+		Balances: pallet_balances,
 		Collective: pallet_collective::<Instance1>,
 		CollectiveMajority: pallet_collective::<Instance2>,
 		DefaultCollective: pallet_collective,
@@ -109,7 +110,7 @@ impl frame_system::Config for Test {
 	type BlockHashCount = ConstU64<250>;
 	type Version = ();
 	type PalletInfo = PalletInfo;
-	type AccountData = ();
+	type AccountData = pallet_balances::AccountData<u64>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
@@ -117,8 +118,18 @@ impl frame_system::Config for Test {
 	type OnSetCode = ();
 	type MaxConsumers = ConstU32<16>;
 }
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
+impl pallet_balances::Config for Test {
+	type ReserveIdentifier = [u8; 8];
+	type AccountStore = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
+}
+
 impl Config<Instance1> for Test {
 	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type Currency = Balances;
 	type Proposal = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type MotionDuration = ConstU64<3>;
@@ -128,9 +139,15 @@ impl Config<Instance1> for Test {
 	type WeightInfo = ();
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxProposalWeight;
+	type ProposalDeposit = ();
+	type DisapproveOrigin = EnsureRoot<AccountId>;
+	type KillOrigin = EnsureRoot<AccountId>;
+	type Slash = ();
 }
 impl Config<Instance2> for Test {
 	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type Currency = Balances;
 	type Proposal = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type MotionDuration = ConstU64<3>;
@@ -140,6 +157,10 @@ impl Config<Instance2> for Test {
 	type WeightInfo = ();
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxProposalWeight;
+	type ProposalDeposit = ();
+	type DisapproveOrigin = EnsureRoot<AccountId>;
+	type KillOrigin = EnsureRoot<AccountId>;
+	type Slash = ();
 }
 impl mock_democracy::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
@@ -147,6 +168,8 @@ impl mock_democracy::Config for Test {
 }
 impl Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type Currency = Balances;
 	type Proposal = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type MotionDuration = ConstU64<3>;
@@ -156,6 +179,10 @@ impl Config for Test {
 	type WeightInfo = ();
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxProposalWeight;
+	type ProposalDeposit = ();
+	type DisapproveOrigin = EnsureRoot<AccountId>;
+	type KillOrigin = EnsureRoot<AccountId>;
+	type Slash = ();
 }
 
 pub struct ExtBuilder {
@@ -177,6 +204,7 @@ impl ExtBuilder {
 	pub fn build(self) -> sp_io::TestExternalities {
 		let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
 			system: frame_system::GenesisConfig::default(),
+			balances: pallet_balances::GenesisConfig::default(),
 			collective: pallet_collective::GenesisConfig {
 				members: self.collective_members,
 				phantom: Default::default(),
@@ -1524,4 +1552,103 @@ fn migration_v4() {
 		crate::migrations::v4::migrate::<Test, DefaultCollective, _>(old_pallet);
 		crate::migrations::v4::post_migrate::<DefaultCollective, _>(old_pallet);
 	});
+}
+
+#[test]
+fn deposit_types_with_linear_work() {
+	type LinearWithSlop2 = crate::deposit::Linear<ConstU32<2>, ConstU32<10>>;
+	assert_eq!(LinearWithSlop2::get_deposit(0), Some(10u128));
+	assert_eq!(LinearWithSlop2::get_deposit(1), Some(12u128));
+	assert_eq!(LinearWithSlop2::get_deposit(2), Some(14u128));
+	assert_eq!(LinearWithSlop2::get_deposit(3), Some(16u128));
+	assert_eq!(LinearWithSlop2::get_deposit(4), Some(18u128));
+
+	type SteppedWithStep3 = crate::deposit::Stepped<ConstU32<3>, LinearWithSlop2>;
+	assert_eq!(SteppedWithStep3::get_deposit(0), Some(10u128));
+	assert_eq!(SteppedWithStep3::get_deposit(1), Some(10u128));
+	assert_eq!(SteppedWithStep3::get_deposit(2), Some(10u128));
+	assert_eq!(SteppedWithStep3::get_deposit(3), Some(12u128));
+	assert_eq!(SteppedWithStep3::get_deposit(4), Some(12u128));
+	assert_eq!(SteppedWithStep3::get_deposit(5), Some(12u128));
+	assert_eq!(SteppedWithStep3::get_deposit(6), Some(14u128));
+
+	type DelayedWithDelay4 = crate::deposit::Delayed<ConstU32<4>, SteppedWithStep3>;
+	assert_eq!(DelayedWithDelay4::get_deposit(0), None::<u128>);
+	assert_eq!(DelayedWithDelay4::get_deposit(3), None::<u128>);
+	assert_eq!(DelayedWithDelay4::get_deposit(4), Some(10u128));
+	assert_eq!(DelayedWithDelay4::get_deposit(5), Some(10u128));
+	assert_eq!(DelayedWithDelay4::get_deposit(6), Some(10u128));
+	assert_eq!(DelayedWithDelay4::get_deposit(7), Some(12u128));
+	assert_eq!(DelayedWithDelay4::get_deposit(9), Some(12u128));
+	assert_eq!(DelayedWithDelay4::get_deposit(10), Some(14u128));
+	assert_eq!(DelayedWithDelay4::get_deposit(13), Some(16u128));
+
+	type WithCeil13 = crate::deposit::WithCeil<ConstU32<13>, DelayedWithDelay4>;
+	assert_eq!(WithCeil13::get_deposit(0), None::<u128>);
+	assert_eq!(WithCeil13::get_deposit(4), Some(10u128));
+	assert_eq!(WithCeil13::get_deposit(9), Some(12u128));
+	assert_eq!(WithCeil13::get_deposit(10), Some(13u128));
+	assert_eq!(WithCeil13::get_deposit(11), Some(13u128));
+	assert_eq!(WithCeil13::get_deposit(13), Some(13u128));
+}
+
+#[test]
+fn deposit_types_with_geometric_work() {
+	type WithRatio2Base10 = crate::deposit::Geometric<ConstU128<2>, ConstU128<10>>;
+	assert_eq!(WithRatio2Base10::get_deposit(0), Some(10u128));
+	assert_eq!(WithRatio2Base10::get_deposit(1), Some(20u128));
+	assert_eq!(WithRatio2Base10::get_deposit(2), Some(40u128));
+	assert_eq!(WithRatio2Base10::get_deposit(3), Some(80u128));
+	assert_eq!(WithRatio2Base10::get_deposit(4), Some(160u128));
+	assert_eq!(WithRatio2Base10::get_deposit(5), Some(320u128));
+	assert_eq!(WithRatio2Base10::get_deposit(6), Some(640u128));
+	assert_eq!(WithRatio2Base10::get_deposit(7), Some(1280u128));
+	assert_eq!(WithRatio2Base10::get_deposit(8), Some(2560u128));
+	assert_eq!(WithRatio2Base10::get_deposit(9), Some(5120u128));
+
+	type SteppedWithStep3 = crate::deposit::Stepped<ConstU32<3>, WithRatio2Base10>;
+	assert_eq!(SteppedWithStep3::get_deposit(0), Some(10u128));
+	assert_eq!(SteppedWithStep3::get_deposit(1), Some(10u128));
+	assert_eq!(SteppedWithStep3::get_deposit(2), Some(10u128));
+	assert_eq!(SteppedWithStep3::get_deposit(3), Some(20u128));
+	assert_eq!(SteppedWithStep3::get_deposit(4), Some(20u128));
+	assert_eq!(SteppedWithStep3::get_deposit(5), Some(20u128));
+	assert_eq!(SteppedWithStep3::get_deposit(6), Some(40u128));
+
+	type DelayedWithDelay4 = crate::deposit::Delayed<ConstU32<4>, SteppedWithStep3>;
+	assert_eq!(DelayedWithDelay4::get_deposit(0), None::<u128>);
+	assert_eq!(DelayedWithDelay4::get_deposit(3), None::<u128>);
+	assert_eq!(DelayedWithDelay4::get_deposit(4), Some(10u128));
+	assert_eq!(DelayedWithDelay4::get_deposit(5), Some(10u128));
+	assert_eq!(DelayedWithDelay4::get_deposit(6), Some(10u128));
+	assert_eq!(DelayedWithDelay4::get_deposit(7), Some(20u128));
+	assert_eq!(DelayedWithDelay4::get_deposit(9), Some(20u128));
+	assert_eq!(DelayedWithDelay4::get_deposit(10), Some(40u128));
+	assert_eq!(DelayedWithDelay4::get_deposit(13), Some(80u128));
+
+	type WithCeil21 = crate::deposit::WithCeil<ConstU32<21>, DelayedWithDelay4>;
+	assert_eq!(WithCeil21::get_deposit(0), None::<u128>);
+	assert_eq!(WithCeil21::get_deposit(4), Some(10u128));
+	assert_eq!(WithCeil21::get_deposit(9), Some(20u128));
+	assert_eq!(WithCeil21::get_deposit(10), Some(21u128));
+	assert_eq!(WithCeil21::get_deposit(11), Some(21u128));
+	assert_eq!(WithCeil21::get_deposit(13), Some(21u128));
+}
+
+#[test]
+fn constant_deposit_work() {
+	type Constant0 = crate::deposit::Constant<ConstU128<0>>;
+	assert_eq!(Constant0::get_deposit(0), None::<u128>);
+	assert_eq!(Constant0::get_deposit(1), None::<u128>);
+	assert_eq!(Constant0::get_deposit(2), None::<u128>);
+
+	type Constant1 = crate::deposit::Constant<ConstU128<1>>;
+	assert_eq!(Constant1::get_deposit(0), Some(1u128));
+	assert_eq!(Constant1::get_deposit(1), Some(1u128));
+	assert_eq!(Constant1::get_deposit(2), Some(1u128));
+
+	type Constant12 = crate::deposit::Constant<ConstU128<12>>;
+	assert_eq!(Constant12::get_deposit(0), Some(12u128));
+	assert_eq!(Constant12::get_deposit(1), Some(12u128));
+	assert_eq!(Constant12::get_deposit(2), Some(12u128));
 }
