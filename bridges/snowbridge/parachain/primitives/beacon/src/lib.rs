@@ -18,6 +18,7 @@ pub use types::{
 	BeaconHeader, CompactBeaconState, CompactExecutionHeader, ExecutionHeaderState,
 	ExecutionPayloadHeader, FinalizedHeaderState, Fork, ForkData, ForkVersion, ForkVersions, Mode,
 	PublicKey, Signature, SigningData, SyncAggregate, SyncCommittee, SyncCommitteePrepared,
+	VersionedExecutionPayloadHeader,
 };
 pub use updates::{CheckpointUpdate, ExecutionHeaderUpdate, NextSyncCommitteeUpdate, Update};
 

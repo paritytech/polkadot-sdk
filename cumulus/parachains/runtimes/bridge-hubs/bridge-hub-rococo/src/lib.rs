@@ -144,8 +144,9 @@ pub type Migrations = (
 	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
 	pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
 	InitStorageVersions,
-	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 	// unreleased
+	cumulus_pallet_xcmp_queue::migration::v4::MigrateV3ToV4<Runtime>,
+	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
 	snowbridge_pallet_system::migration::v0::InitializeOnUpgrade<
 		Runtime,
 		ConstU32<BRIDGE_HUB_ID>,
@@ -405,11 +406,18 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type VersionWrapper = PolkadotXcm;
 	// Enqueue XCMP messages from siblings for later processing.
 	type XcmpQueue = TransformOrigin<MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling>;
-	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
+	type MaxInboundSuspended = ConstU32<1_000>;
+	type MaxActiveOutboundChannels = ConstU32<128>;
+	type MaxPageSize = ConstU32<{ 1 << 16 }>;
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	type WeightInfo = weights::cumulus_pallet_xcmp_queue::WeightInfo<Runtime>;
 	type PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
+}
+
+impl cumulus_pallet_xcmp_queue::migration::v5::V5Config for Runtime {
+	// This must be the same as the `ChannelInfo` from the `Config`:
+	type ChannelList = ParachainSystem;
 }
 
 parameter_types! {
@@ -490,13 +498,6 @@ impl pallet_utility::Config for Runtime {
 }
 
 // Ethereum Bridge
-
-#[cfg(not(feature = "runtime-benchmarks"))]
-parameter_types! {
-	pub storage EthereumGatewayAddress: H160 = H160::zero();
-}
-
-#[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
 	pub storage EthereumGatewayAddress: H160 = H160(hex_literal::hex!("EDa338E4dC46038493b885327842fD3E301CaB39"));
 }
@@ -592,29 +593,33 @@ impl snowbridge_pallet_outbound_queue::Config for Runtime {
 	type Channels = EthereumSystem;
 }
 
-#[cfg(feature = "fast-runtime")]
+#[cfg(any(feature = "std", feature = "fast-runtime", feature = "runtime-benchmarks", test))]
 parameter_types! {
 	pub const ChainForkVersions: ForkVersions = ForkVersions {
 		genesis: Fork {
-			version: [0, 0, 0, 1], // 0x00000001
+			version: [0, 0, 0, 0], // 0x00000000
 			epoch: 0,
 		},
 		altair: Fork {
-			version: [1, 0, 0, 1], // 0x01000001
+			version: [1, 0, 0, 0], // 0x01000000
 			epoch: 0,
 		},
 		bellatrix: Fork {
-			version: [2, 0, 0, 1], // 0x02000001
+			version: [2, 0, 0, 0], // 0x02000000
 			epoch: 0,
 		},
 		capella: Fork {
-			version: [3, 0, 0, 1], // 0x03000001
+			version: [3, 0, 0, 0], // 0x03000000
 			epoch: 0,
 		},
+		deneb: Fork {
+			version: [4, 0, 0, 0], // 0x04000000
+			epoch: 0,
+		}
 	};
 }
 
-#[cfg(not(feature = "fast-runtime"))]
+#[cfg(not(any(feature = "std", feature = "fast-runtime", feature = "runtime-benchmarks", test)))]
 parameter_types! {
 	pub const ChainForkVersions: ForkVersions = ForkVersions {
 		genesis: Fork {
@@ -632,6 +637,10 @@ parameter_types! {
 		capella: Fork {
 			version: [144, 0, 0, 114], // 0x90000072
 			epoch: 56832,
+		},
+		deneb: Fork {
+			version: [144, 0, 0, 115], // 0x90000073
+			epoch: 132608,
 		},
 	};
 }

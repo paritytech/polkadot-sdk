@@ -226,6 +226,7 @@ pub mod pallet {
 		Send(SendError),
 		InvalidTokenTransferFees,
 		InvalidPricingParameters,
+		InvalidUpgradeParameters,
 	}
 
 	/// The set of registered agents
@@ -281,6 +282,11 @@ pub mod pallet {
 			initializer: Option<Initializer>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
+
+			ensure!(
+				!impl_address.eq(&H160::zero()) && !impl_code_hash.eq(&H256::zero()),
+				Error::<T>::InvalidUpgradeParameters
+			);
 
 			let initializer_params_hash: Option<H256> =
 				initializer.as_ref().map(|i| H256::from(blake2_256(i.params.as_ref())));
