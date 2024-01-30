@@ -232,6 +232,7 @@ benchmarks! {
 
 		let mut benchmark = scenario.data;
 		benchmark.disputes.clear();
+		benchmark.bitfields.clear();
 
 		let q = assigner_on_demand::OnDemandQueue::<T>::get().len();
 		assert_eq!(q, 5000);

@@ -234,6 +234,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 	}
 
 	/// Set whether the claim queue should be filled.
+	#[cfg(test)]
 	pub(crate) fn set_fill_claimqueue(mut self, f: bool) -> Self {
 		self.fill_claimqueue = f;
 		self
@@ -461,9 +462,10 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 
 		frame_system::Pallet::<T>::reset_events();
 
-		let core_idx = total_cores / 2;
-		let para_id = ParaId::from(core_idx);
-		self.assign_coretime(core_idx);
+		for core in 0..total_cores {
+			self.assign_coretime(core);
+		}
+		let para_id = ParaId::from(total_cores / 2);
 		self.fill_on_demand_queue(para_id);
 
 		frame_system::Pallet::<T>::initialize(
