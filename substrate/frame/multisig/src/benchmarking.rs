@@ -23,6 +23,7 @@ use super::*;
 use frame_benchmarking::v1::{account, benchmarks};
 use frame_system::RawOrigin;
 use sp_runtime::traits::Bounded;
+use frame_support::traits::fungible::Unbalanced;
 
 use crate::Pallet as Multisig;
 
@@ -37,7 +38,7 @@ fn setup_multi<T: Config>(
 		let signatory = account("signatory", i, SEED);
 		// Give them some balance for a possible deposit
 		let balance = BalanceOf::<T>::max_value();
-		T::Currency::make_free_balance_be(&signatory, balance);
+		let _ = T::NativeBalance::write_balance(&signatory, balance);
 		signatories.push(signatory);
 	}
 	signatories.sort();

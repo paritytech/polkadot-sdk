@@ -55,7 +55,11 @@ use frame_support::{
 		PostDispatchInfo,
 	},
 	ensure,
-	traits::{Currency, Get, ReservableCurrency},
+	traits::{
+		fungible::{Inspect, MutateHold},
+		tokens::Precision::BestEffort,
+		Get,
+	},
 	weights::Weight,
 	BoundedVec,
 };
@@ -63,7 +67,7 @@ use frame_system::{self as system, pallet_prelude::BlockNumberFor, RawOrigin};
 use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-	traits::{Dispatchable, TrailingZeroInput, Zero},
+	traits::{Dispatchable, TrailingZeroInput},
 	DispatchError, RuntimeDebug,
 };
 use sp_std::prelude::*;
@@ -85,8 +89,8 @@ macro_rules! log {
 	};
 }
 
-type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub type BalanceOf<T> =
+	<<T as Config>::NativeBalance as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// A global extrinsic index, formed as the extrinsic index within a block, together with that
 /// block's height. This allows a transaction in which a multisig operation of a particular
@@ -142,8 +146,9 @@ pub mod pallet {
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>;
 
-		/// The currency mechanism.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		/// The fungible in which multisig balances are held.
+		type NativeBalance: Inspect<Self::AccountId>
+			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
 		/// The base amount of currency needed to reserve for creating a multisig execution or to
 		/// store a dispatch call for later.
@@ -166,6 +171,9 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// The hold reason when holding funds for starting a multisig operation.
+		type RuntimeHoldReason: From<HoldReason>;
 	}
 
 	/// The current storage version.
@@ -245,6 +253,13 @@ pub mod pallet {
 			multisig: T::AccountId,
 			call_hash: CallHash,
 		},
+	}
+
+	/// A reason for this pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// The funds are held as deposit for the multisig
+		MultisigHold,
 	}
 
 	#[pallet::hooks]
@@ -481,8 +496,12 @@ pub mod pallet {
 			ensure!(m.when == timepoint, Error::<T>::WrongTimepoint);
 			ensure!(m.depositor == who, Error::<T>::NotOwner);
 
-			let err_amount = T::Currency::unreserve(&m.depositor, m.deposit);
-			debug_assert!(err_amount.is_zero());
+			T::NativeBalance::release(
+				&HoldReason::MultisigHold.into(),
+				&m.depositor,
+				m.deposit,
+				BestEffort,
+			)?;
 			<Multisigs<T>>::remove(&id, &call_hash);
 
 			Self::deposit_event(Event::MultisigCancelled {
@@ -559,7 +578,12 @@ impl<T: Config> Pallet<T> {
 				// Clean up storage before executing call to avoid an possibility of reentrancy
 				// attack.
 				<Multisigs<T>>::remove(&id, call_hash);
-				T::Currency::unreserve(&m.depositor, m.deposit);
+				T::NativeBalance::release(
+					&HoldReason::MultisigHold.into(),
+					&m.depositor,
+					m.deposit,
+					BestEffort,
+				)?;
 
 				let result = call.dispatch(RawOrigin::Signed(id.clone()).into());
 				Self::deposit_event(Event::MultisigExecuted {
@@ -612,7 +636,7 @@ impl<T: Config> Pallet<T> {
 			// Just start the operation by recording it in storage.
 			let deposit = T::DepositBase::get() + T::DepositFactor::get() * threshold.into();
 
-			T::Currency::reserve(&who, deposit)?;
+			T::NativeBalance::hold(&HoldReason::MultisigHold.into(), &who, deposit)?;
 
 			let initial_approvals =
 				vec![who.clone()].try_into().map_err(|_| Error::<T>::TooManySignatories)?;

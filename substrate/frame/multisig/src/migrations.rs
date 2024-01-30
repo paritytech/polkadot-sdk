@@ -56,12 +56,17 @@ pub mod v1 {
 
 			if onchain > 0 {
 				log!(info, "MigrateToV1 should be removed");
-				return T::DbWeight::get().reads(1)
+				return T::DbWeight::get().reads(1);
 			}
 
 			let mut call_count = 0u64;
 			Calls::<T>::drain().for_each(|(_call_hash, (_data, caller, deposit))| {
-				T::Currency::unreserve(&caller, deposit);
+				let _ = T::NativeBalance::release(
+					&HoldReason::MultisigHold.into(),
+					&caller,
+					deposit,
+					BestEffort,
+				);
 				call_count.saturating_inc();
 			});
 

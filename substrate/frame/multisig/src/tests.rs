@@ -67,11 +67,12 @@ impl Contains<RuntimeCall> for TestBaseCallFilter {
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
-	type Currency = Balances;
+	type NativeBalance = Balances;
 	type DepositBase = ConstU64<1>;
 	type DepositFactor = ConstU64<1>;
 	type MaxSignatories = ConstU32<3>;
 	type WeightInfo = ();
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 use pallet_balances::Call as BalancesCall;
