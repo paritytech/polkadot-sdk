@@ -79,8 +79,8 @@ pub struct SubmitTransaction<T: SendTransactionTypes<OverarchingCall>, Overarchi
 	_phantom: sp_std::marker::PhantomData<(T, OverarchingCall)>,
 }
 
-// TODO: Avoid splitting call and the totally opaque `signature`; `CreateTransaction` trait should
-// provide something which impls `Encode`, which can be sent onwards to
+// TODO [#2415]: Avoid splitting call and the totally opaque `signature`; `CreateTransaction` trait
+// should provide something which impls `Encode`, which can be sent onwards to
 // `sp_io::offchain::submit_transaction`. There's no great need to split things up as in here.
 impl<T, LocalCall> SubmitTransaction<T, LocalCall>
 where
