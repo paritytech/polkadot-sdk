@@ -898,7 +898,7 @@ pub mod v3 {
 		///
 		/// TODO at next protocol upgrade opportunity:
 		/// - remove redundancy `candidate_index` vs `core_index`
-		/// - https://github.com/paritytech/polkadot-sdk/issues/675
+		/// - `https://github.com/paritytech/polkadot-sdk/issues/675`
 		#[codec(index = 0)]
 		Assignments(Vec<(IndirectAssignmentCertV2, CandidateBitfield)>),
 		/// Approvals for candidates in some recent, unfinalized block.
