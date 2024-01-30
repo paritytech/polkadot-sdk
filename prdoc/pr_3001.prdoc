@@ -5,4 +5,5 @@ doc:
     description: |
       Introduce a root extrinsic to forcefully adjust the Total Issuance. Should only be used to fix historic errors.
 
-crates: [ "pallet-balances" ]
+crates:
+  - name: "pallet-balances"
