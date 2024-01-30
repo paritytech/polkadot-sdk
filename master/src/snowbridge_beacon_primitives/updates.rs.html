@@ -116,7 +116,7 @@
 <span class="kw">use </span>sp_core::H256;
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
-<span class="kw">use </span><span class="kw">crate</span>::types::{BeaconHeader, ExecutionPayloadHeader, SyncAggregate, SyncCommittee};
+<span class="kw">use </span><span class="kw">crate</span>::types::{BeaconHeader, SyncAggregate, SyncCommittee, VersionedExecutionPayloadHeader};
 
 <span class="attr">#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo)]
 #[cfg_attr(
@@ -201,7 +201,7 @@
 	<span class="doccomment">/// Proof that `header` is an ancestor of a finalized header
 	</span><span class="kw">pub </span>ancestry_proof: <span class="prelude-ty">Option</span>&lt;AncestryProof&gt;,
 	<span class="doccomment">/// Execution header to be imported
-	</span><span class="kw">pub </span>execution_header: ExecutionPayloadHeader,
+	</span><span class="kw">pub </span>execution_header: VersionedExecutionPayloadHeader,
 	<span class="doccomment">/// Merkle proof that execution payload is contained within `header`
 	</span><span class="kw">pub </span>execution_branch: Vec&lt;H256&gt;,
 }

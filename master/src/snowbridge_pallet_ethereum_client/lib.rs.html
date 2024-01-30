@@ -839,6 +839,8 @@
 <a href="#839" id="839">839</a>
 <a href="#840" id="840">840</a>
 <a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
 </pre></div><pre class="rust"><code><span class="comment">// SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
 </span><span class="doccomment">//! Ethereum Beacon Client
@@ -1393,7 +1395,7 @@
 			</span><span class="kw">let </span>latest_execution_state: ExecutionHeaderState = <span class="self">Self</span>::latest_execution_state();
 			<span class="macro">ensure!</span>(
 				latest_execution_state.block_number == <span class="number">0 </span>||
-					update.execution_header.block_number ==
+					update.execution_header.block_number() ==
 						latest_execution_state.block_number + <span class="number">1</span>,
 				Error::&lt;T&gt;::ExecutionHeaderSkippedBlock
 			);
@@ -1444,7 +1446,7 @@
 			}
 
 			<span class="self">Self</span>::store_execution_header(
-				update.execution_header.block_hash,
+				update.execution_header.block_hash(),
 				update.execution_header.clone().into(),
 				update.header.slot,
 				block_root,
@@ -1627,6 +1629,9 @@
 
 		<span class="doccomment">/// Returns the fork version based on the current epoch.
 		</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>select_fork_version(fork_versions: <span class="kw-2">&amp;</span>ForkVersions, epoch: u64) -&gt; ForkVersion {
+			<span class="kw">if </span>epoch &gt;= fork_versions.deneb.epoch {
+				<span class="kw">return </span>fork_versions.deneb.version
+			}
 			<span class="kw">if </span>epoch &gt;= fork_versions.capella.epoch {
 				<span class="kw">return </span>fork_versions.capella.version
 			}
@@ -1636,7 +1641,6 @@
 			<span class="kw">if </span>epoch &gt;= fork_versions.altair.epoch {
 				<span class="kw">return </span>fork_versions.altair.version
 			}
-
 			fork_versions.genesis.version
 		}
 
@@ -1654,7 +1658,7 @@
 			<span class="kw">let </span><span class="kw-2">mut </span>pubkeys: Vec&lt;PublicKeyPrepared&gt; = Vec::new();
 			<span class="kw">for </span>(bit, pubkey) <span class="kw">in </span>sync_committee_bits.iter().zip(sync_committee_pubkeys.iter()) {
 				<span class="kw">if </span><span class="kw-2">*</span>bit == u8::from(participant) {
-					pubkeys.push(<span class="kw-2">*</span>pubkey);
+					pubkeys.push(pubkey.clone());
 				}
 			}
 			pubkeys

@@ -646,6 +646,8 @@
 <a href="#646" id="646">646</a>
 <a href="#647" id="647">647</a>
 <a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -720,7 +722,9 @@
 	parachains_runtimes_test_utils::RuntimeHelper&lt;Runtime, AllPalletsWithoutSystem&gt;;
 
 <span class="comment">// Re-export test_case from `parachains-runtimes-test-utils`
-</span><span class="kw">pub use </span>parachains_runtimes_test_utils::test_cases::change_storage_constant_by_governance_works;
+</span><span class="kw">pub use </span>parachains_runtimes_test_utils::test_cases::{
+	change_storage_constant_by_governance_works, set_storage_keys_by_governance_works,
+};
 
 <span class="doccomment">/// Prepare default runtime storage and run test within this context.
 </span><span class="kw">pub fn </span>run_test&lt;Runtime, T&gt;(

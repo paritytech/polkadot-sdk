@@ -386,8 +386,10 @@ var srcIndex = JSON.parse('{\
 "snowbridge_ethereum":["",[],["header.rs","lib.rs","log.rs","mpt.rs","receipt.rs"]],\
 "snowbridge_outbound_queue_merkle_tree":["",[],["lib.rs"]],\
 "snowbridge_outbound_queue_runtime_api":["",[],["lib.rs"]],\
-"snowbridge_pallet_ethereum_client":["",[["config",[],["mainnet.rs","minimal.rs","mod.rs"]]],["functions.rs","impls.rs","lib.rs","types.rs","weights.rs"]],\
+"snowbridge_pallet_ethereum_client":["",[["config",[],["mod.rs"]]],["functions.rs","impls.rs","lib.rs","types.rs","weights.rs"]],\
+"snowbridge_pallet_ethereum_client_fixtures":["",[],["lib.rs"]],\
 "snowbridge_pallet_inbound_queue":["",[],["envelope.rs","lib.rs","weights.rs"]],\
+"snowbridge_pallet_inbound_queue_fixtures":["",[],["lib.rs","register_token.rs","register_token_with_insufficient_fee.rs","send_token.rs","send_token_to_penpal.rs"]],\
 "snowbridge_pallet_outbound_queue":["",[],["api.rs","lib.rs","process_message_impl.rs","send_message_impl.rs","types.rs","weights.rs"]],\
 "snowbridge_pallet_system":["",[],["api.rs","lib.rs","migration.rs","weights.rs"]],\
 "snowbridge_router_primitives":["",[["inbound",[],["mod.rs"]],["outbound",[],["mod.rs"]]],["lib.rs"]],\

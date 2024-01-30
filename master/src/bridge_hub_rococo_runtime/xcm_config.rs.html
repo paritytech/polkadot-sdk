@@ -490,6 +490,17 @@
 <a href="#490" id="490">490</a>
 <a href="#491" id="491">491</a>
 <a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -526,6 +537,7 @@
 <span class="kw">use </span>frame_support::{
 	parameter_types,
 	traits::{ConstU32, Contains, Equals, Everything, Nothing},
+	StoragePrefixedMap,
 };
 <span class="kw">use </span>frame_system::EnsureRoot;
 <span class="kw">use </span>pallet_xcm::XcmPassthrough;
@@ -653,9 +665,12 @@
 		</span><span class="kw">match </span>call {
 			RuntimeCall::System(frame_system::Call::set_storage { items })
 				<span class="kw">if </span>items.iter().all(|(k, <span class="kw">_</span>)| {
-					k.eq(<span class="kw-2">&amp;</span>DeliveryRewardInBalance::key()) |
-						k.eq(<span class="kw-2">&amp;</span>RequiredStakeForStakeAndSlash::key()) |
-						k.eq(<span class="kw-2">&amp;</span>EthereumGatewayAddress::key())
+					k.eq(<span class="kw-2">&amp;</span>DeliveryRewardInBalance::key()) ||
+						k.eq(<span class="kw-2">&amp;</span>RequiredStakeForStakeAndSlash::key()) ||
+						k.eq(<span class="kw-2">&amp;</span>EthereumGatewayAddress::key()) ||
+						<span class="comment">// Allow resetting of Ethereum nonces in Rococo only.
+						</span>k.starts_with(<span class="kw-2">&amp;</span>snowbridge_pallet_inbound_queue::Nonce::&lt;Runtime&gt;::final_prefix()) ||
+						k.starts_with(<span class="kw-2">&amp;</span>snowbridge_pallet_outbound_queue::Nonce::&lt;Runtime&gt;::final_prefix())
 				}) =&gt;
 				<span class="kw">return </span><span class="bool-val">true</span>,
 			<span class="kw">_ </span>=&gt; (),
@@ -715,7 +730,14 @@
 				snowbridge_pallet_inbound_queue::Call::set_operating_mode { .. },
 			) | RuntimeCall::EthereumOutboundQueue(
 				snowbridge_pallet_outbound_queue::Call::set_operating_mode { .. },
-			) | RuntimeCall::EthereumSystem(..)
+			) | RuntimeCall::EthereumSystem(
+				snowbridge_pallet_system::Call::upgrade { .. } |
+					snowbridge_pallet_system::Call::set_operating_mode { .. } |
+					snowbridge_pallet_system::Call::set_pricing_parameters { .. } |
+					snowbridge_pallet_system::Call::force_update_channel { .. } |
+					snowbridge_pallet_system::Call::force_transfer_native_from_agent { .. } |
+					snowbridge_pallet_system::Call::set_token_transfer_fees { .. },
+			)
 		)
 	}
 }

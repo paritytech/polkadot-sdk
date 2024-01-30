@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["XcmExportFeeToSibling"]};
+window.SIDEBAR_ITEMS = {"constant":["LOG_TARGET"],"struct":["XcmExportFeeToSibling"]};

@@ -122,6 +122,33 @@
 <a href="#122" id="122">122</a>
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
 </pre></div><pre class="rust"><code><span class="comment">// SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
 </span><span class="doccomment">//! # Runtime Common
@@ -129,13 +156,20 @@
 //! Common traits and types shared by runtimes.
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
-</span><span class="kw">use </span>core::marker::PhantomData;
+#[cfg(test)]
+</span><span class="kw">mod </span>tests;
+
+<span class="kw">use </span>codec::FullCodec;
+<span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>frame_support::traits::Get;
-<span class="kw">use </span>snowbridge_core::{outbound::SendMessageFeeProvider, sibling_sovereign_account_raw};
+<span class="kw">use </span>snowbridge_core::outbound::SendMessageFeeProvider;
 <span class="kw">use </span>sp_arithmetic::traits::{BaseArithmetic, Unsigned};
+<span class="kw">use </span>sp_std::fmt::Debug;
 <span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>xcm_builder::{deposit_or_burn_fee, HandleFee};
+<span class="kw">use </span>xcm_builder::HandleFee;
 <span class="kw">use </span>xcm_executor::traits::{FeeReason, TransactAsset};
+
+<span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;xcm::export-fee-to-sibling&quot;</span>;
 
 <span class="doccomment">/// A `HandleFee` implementation that takes fees from `ExportMessage` XCM instructions
 /// to Snowbridge and splits off the remote fee and deposits it to the origin
@@ -168,8 +202,8 @@
 		AssetTransactor,
 		FeeProvider,
 	&gt; <span class="kw">where
-	</span>Balance: BaseArithmetic + Unsigned + Copy + From&lt;u128&gt; + Into&lt;u128&gt;,
-	AccountId: Clone + Into&lt;[u8; <span class="number">32</span>]&gt; + From&lt;[u8; <span class="number">32</span>]&gt;,
+	</span>Balance: BaseArithmetic + Unsigned + Copy + From&lt;u128&gt; + Into&lt;u128&gt; + Debug,
+	AccountId: Clone + FullCodec,
 	FeeAssetLocation: Get&lt;Location&gt;,
 	EthereumNetwork: Get&lt;NetworkId&gt;,
 	AssetTransactor: TransactAsset,
@@ -188,20 +222,27 @@
 		}
 
 		<span class="comment">// Get the parachain sovereign from the `context`.
-		</span><span class="kw">let </span>para_sovereign =
+		</span><span class="kw">let </span>maybe_para_id: <span class="prelude-ty">Option</span>&lt;u32&gt; =
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(XcmContext { origin: <span class="prelude-val">Some</span>(Location { parents: <span class="number">1</span>, interior }), .. }) =
 				context
 			{
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(Parachain(sibling_para_id)) = interior.first() {
-					<span class="kw">let </span>account: AccountId =
-						sibling_sovereign_account_raw((<span class="kw-2">*</span>sibling_para_id).into()).into();
-					account
+					<span class="prelude-val">Some</span>(<span class="kw-2">*</span>sibling_para_id)
 				} <span class="kw">else </span>{
-					<span class="kw">return </span>fees
-				}
+					<span class="prelude-val">None
+				</span>}
 			} <span class="kw">else </span>{
-				<span class="kw">return </span>fees
-			};
+				<span class="prelude-val">None
+			</span>};
+		<span class="kw">if </span>maybe_para_id.is_none() {
+			<span class="macro">log::error!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;invalid location in context {:?}&quot;</span>,
+				context,
+			);
+			<span class="kw">return </span>fees
+		}
+		<span class="kw">let </span>para_id = maybe_para_id.unwrap();
 
 		<span class="comment">// Get the total fee offered by export message.
 		</span><span class="kw">let </span>maybe_total_supplied_fee: <span class="prelude-ty">Option</span>&lt;(usize, Balance)&gt; = fees
@@ -217,33 +258,46 @@
 				<span class="prelude-val">None
 			</span>})
 			.next();
-
-		<span class="kw">if let </span><span class="prelude-val">Some</span>((fee_index, total_fee)) = maybe_total_supplied_fee {
-			<span class="kw">let </span>remote_fee = total_fee.saturating_sub(FeeProvider::local_fee());
-			<span class="kw">if </span>remote_fee &gt; (<span class="number">0u128</span>).into() {
-				<span class="comment">// Refund remote component of fee to physical origin
-				</span>deposit_or_burn_fee::&lt;AssetTransactor, <span class="kw">_</span>&gt;(
-					Asset { id: AssetId(token_location.clone()), fun: Fungible(remote_fee.into()) }
-						.into(),
-					context,
-					para_sovereign,
-				);
-				<span class="comment">// Return remaining fee to the next fee handler in the chain.
-				</span><span class="kw">let </span><span class="kw-2">mut </span>modified_fees = fees.inner().clone();
-				modified_fees.remove(fee_index);
-				modified_fees.push(Asset {
-					id: AssetId(token_location),
-					fun: Fungible((total_fee - remote_fee).into()),
-				});
-				<span class="kw">return </span>modified_fees.into()
-			}
+		<span class="kw">if </span>maybe_total_supplied_fee.is_none() {
+			<span class="macro">log::error!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;could not find fee asset item in fees: {:?}&quot;</span>,
+				fees,
+			);
+			<span class="kw">return </span>fees
+		}
+		<span class="kw">let </span>(fee_index, total_fee) = maybe_total_supplied_fee.unwrap();
+		<span class="kw">let </span>local_fee = FeeProvider::local_fee();
+		<span class="kw">let </span>remote_fee = total_fee.saturating_sub(local_fee);
+		<span class="kw">if </span>local_fee == Balance::zero() || remote_fee == Balance::zero() {
+			<span class="macro">log::error!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;calculated refund incorrect with local_fee: {:?} and remote_fee: {:?}&quot;</span>,
+				local_fee,
+				remote_fee,
+			);
+			<span class="kw">return </span>fees
+		}
+		<span class="comment">// Refund remote component of fee to physical origin
+		</span><span class="kw">let </span>result = AssetTransactor::deposit_asset(
+			<span class="kw-2">&amp;</span>Asset { id: AssetId(token_location.clone()), fun: Fungible(remote_fee.into()) },
+			<span class="kw-2">&amp;</span>Location::new(<span class="number">1</span>, [Parachain(para_id)]),
+			context,
+		);
+		<span class="kw">if </span>result.is_err() {
+			<span class="macro">log::error!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;transact fee asset failed: {:?}&quot;</span>,
+				result.unwrap_err()
+			);
+			<span class="kw">return </span>fees
 		}
 
-		<span class="macro">log::info!</span>(
-			target: <span class="string">&quot;xcm::fees&quot;</span>,
-			<span class="string">&quot;XcmExportFeeToSibling skipped: {fees:?}, context: {context:?}, reason: {reason:?}&quot;</span>,
-		);
-		fees
+		<span class="comment">// Return remaining fee to the next fee handler in the chain.
+		</span><span class="kw">let </span><span class="kw-2">mut </span>modified_fees = fees.inner().clone();
+		modified_fees.remove(fee_index);
+		modified_fees.push(Asset { id: AssetId(token_location), fun: Fungible(local_fee.into()) });
+		modified_fees.into()
 	}
 }
 </code></pre></div></section></main></body></html>

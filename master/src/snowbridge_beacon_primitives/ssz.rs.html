@@ -192,6 +192,90 @@
 <a href="#192" id="192">192</a>
 <a href="#193" id="193">193</a>
 <a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
 </pre></div><pre class="rust"><code><span class="comment">// SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
 </span><span class="kw">use crate</span>::{
@@ -384,6 +468,90 @@
 			<span class="prelude-val">Ok</span>(fixed_bytes.into())
 		},
 		<span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(err.into()),
+	}
+}
+
+<span class="kw">pub mod </span>deneb {
+	<span class="kw">use crate</span>::{
+		config::{EXTRA_DATA_SIZE, FEE_RECIPIENT_SIZE, LOGS_BLOOM_SIZE},
+		ssz::hash_tree_root,
+		types::deneb::ExecutionPayloadHeader,
+	};
+	<span class="kw">use </span>byte_slice_cast::AsByteSlice;
+	<span class="kw">use </span>sp_core::H256;
+	<span class="kw">use </span>sp_std::{vec, vec::Vec};
+	<span class="kw">use </span>ssz_rs::{
+		prelude::{List, Vector},
+		Deserialize, DeserializeError, SimpleSerializeError, Sized, U256,
+	};
+	<span class="kw">use </span>ssz_rs_derive::SimpleSerialize <span class="kw">as </span>SimpleSerializeDerive;
+
+	<span class="attr">#[derive(Default, SimpleSerializeDerive, Clone, Debug)]
+	</span><span class="kw">pub struct </span>SSZExecutionPayloadHeader {
+		<span class="kw">pub </span>parent_hash: [u8; <span class="number">32</span>],
+		<span class="kw">pub </span>fee_recipient: Vector&lt;u8, FEE_RECIPIENT_SIZE&gt;,
+		<span class="kw">pub </span>state_root: [u8; <span class="number">32</span>],
+		<span class="kw">pub </span>receipts_root: [u8; <span class="number">32</span>],
+		<span class="kw">pub </span>logs_bloom: Vector&lt;u8, LOGS_BLOOM_SIZE&gt;,
+		<span class="kw">pub </span>prev_randao: [u8; <span class="number">32</span>],
+		<span class="kw">pub </span>block_number: u64,
+		<span class="kw">pub </span>gas_limit: u64,
+		<span class="kw">pub </span>gas_used: u64,
+		<span class="kw">pub </span>timestamp: u64,
+		<span class="kw">pub </span>extra_data: List&lt;u8, EXTRA_DATA_SIZE&gt;,
+		<span class="kw">pub </span>base_fee_per_gas: U256,
+		<span class="kw">pub </span>block_hash: [u8; <span class="number">32</span>],
+		<span class="kw">pub </span>transactions_root: [u8; <span class="number">32</span>],
+		<span class="kw">pub </span>withdrawals_root: [u8; <span class="number">32</span>],
+		<span class="kw">pub </span>blob_gas_used: u64,
+		<span class="kw">pub </span>excess_blob_gas: u64,
+	}
+
+	<span class="kw">impl </span>TryFrom&lt;ExecutionPayloadHeader&gt; <span class="kw">for </span>SSZExecutionPayloadHeader {
+		<span class="kw">type </span>Error = SimpleSerializeError;
+
+		<span class="kw">fn </span>try_from(payload: ExecutionPayloadHeader) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
+			<span class="prelude-val">Ok</span>(SSZExecutionPayloadHeader {
+				parent_hash: payload.parent_hash.to_fixed_bytes(),
+				fee_recipient: Vector::&lt;u8, FEE_RECIPIENT_SIZE&gt;::try_from(
+					payload.fee_recipient.to_fixed_bytes().to_vec(),
+				)
+				.expect(<span class="string">&quot;checked statically; qed&quot;</span>),
+				state_root: payload.state_root.to_fixed_bytes(),
+				receipts_root: payload.receipts_root.to_fixed_bytes(),
+				<span class="comment">// Logs bloom bytes size is not constrained, so here we do need to check the
+				// try_from error
+				</span>logs_bloom: Vector::&lt;u8, LOGS_BLOOM_SIZE&gt;::try_from(payload.logs_bloom)
+					.map_err(|(<span class="kw">_</span>, err)| err)<span class="question-mark">?</span>,
+				prev_randao: payload.prev_randao.to_fixed_bytes(),
+				block_number: payload.block_number,
+				gas_limit: payload.gas_limit,
+				gas_used: payload.gas_used,
+				timestamp: payload.timestamp,
+				<span class="comment">// Extra data bytes size is not constrained, so here we do need to check the
+				// try_from error
+				</span>extra_data: List::&lt;u8, EXTRA_DATA_SIZE&gt;::try_from(payload.extra_data)
+					.map_err(|(<span class="kw">_</span>, err)| err)<span class="question-mark">?</span>,
+				base_fee_per_gas: U256::from_bytes_le(
+					payload
+						.base_fee_per_gas
+						.as_byte_slice()
+						.try_into()
+						.expect(<span class="string">&quot;checked in prep; qed&quot;</span>),
+				),
+				block_hash: payload.block_hash.to_fixed_bytes(),
+				transactions_root: payload.transactions_root.to_fixed_bytes(),
+				withdrawals_root: payload.withdrawals_root.to_fixed_bytes(),
+				blob_gas_used: payload.blob_gas_used,
+				excess_blob_gas: payload.excess_blob_gas,
+			})
+		}
+	}
+
+	<span class="kw">impl </span>ExecutionPayloadHeader {
+		<span class="kw">pub fn </span>hash_tree_root(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;H256, SimpleSerializeError&gt; {
+			hash_tree_root::&lt;SSZExecutionPayloadHeader&gt;(<span class="self">self</span>.clone().try_into()<span class="question-mark">?</span>)
+		}
 	}
 }
 </code></pre></div></section></main></body></html>

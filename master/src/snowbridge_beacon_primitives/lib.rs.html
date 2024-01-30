@@ -29,6 +29,7 @@
 <a href="#29" id="29">29</a>
 <a href="#30" id="30">30</a>
 <a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
 </pre></div><pre class="rust"><code><span class="comment">// SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
@@ -49,6 +50,7 @@
 	BeaconHeader, CompactBeaconState, CompactExecutionHeader, ExecutionHeaderState,
 	ExecutionPayloadHeader, FinalizedHeaderState, Fork, ForkData, ForkVersion, ForkVersions, Mode,
 	PublicKey, Signature, SigningData, SyncAggregate, SyncCommittee, SyncCommitteePrepared,
+	VersionedExecutionPayloadHeader,
 };
 <span class="kw">pub use </span>updates::{CheckpointUpdate, ExecutionHeaderUpdate, NextSyncCommitteeUpdate, Update};
 

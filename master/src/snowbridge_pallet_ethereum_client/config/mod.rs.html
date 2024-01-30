@@ -54,60 +54,80 @@
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
 <a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
 </pre></div><pre class="rust"><code><span class="comment">// SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork &lt;hello@snowfork.com&gt;
 </span><span class="kw">use </span>primitives::merkle_proof::{generalized_index_length, subtree_index};
 <span class="kw">use </span>static_assertions::const_assert;
 
-<span class="kw">pub mod </span>mainnet;
-<span class="kw">pub mod </span>minimal;
-
-<span class="attr">#[cfg(feature = <span class="string">&quot;beacon-spec-minimal&quot;</span>)]
-</span><span class="kw">pub use </span>minimal::<span class="kw-2">*</span>;
-
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;beacon-spec-minimal&quot;</span>))]
-</span><span class="kw">pub use </span>mainnet::<span class="kw-2">*</span>;
-
-<span class="comment">// Generalized Indices
-
-// get_generalized_index(BeaconState, &#39;block_roots&#39;)
+<span class="doccomment">/// Generalized Indices
+/// related to Merkle proofs
+/// get_generalized_index(BeaconState, &#39;block_roots&#39;)
 </span><span class="kw">pub const </span>BLOCK_ROOTS_INDEX: usize = <span class="number">37</span>;
 <span class="kw">pub const </span>BLOCK_ROOTS_SUBTREE_INDEX: usize = subtree_index(BLOCK_ROOTS_INDEX);
 <span class="kw">pub const </span>BLOCK_ROOTS_DEPTH: usize = generalized_index_length(BLOCK_ROOTS_INDEX);
 
-<span class="comment">// get_generalized_index(BeaconState, &#39;finalized_checkpoint&#39;, &#39;root&#39;)
+<span class="doccomment">/// get_generalized_index(BeaconState, &#39;finalized_checkpoint&#39;, &#39;root&#39;)
 </span><span class="kw">pub const </span>FINALIZED_ROOT_INDEX: usize = <span class="number">105</span>;
 <span class="kw">pub const </span>FINALIZED_ROOT_SUBTREE_INDEX: usize = subtree_index(FINALIZED_ROOT_INDEX);
 <span class="kw">pub const </span>FINALIZED_ROOT_DEPTH: usize = generalized_index_length(FINALIZED_ROOT_INDEX);
 
-<span class="comment">// get_generalized_index(BeaconState, &#39;current_sync_committee&#39;)
+<span class="doccomment">/// get_generalized_index(BeaconState, &#39;current_sync_committee&#39;)
 </span><span class="kw">pub const </span>CURRENT_SYNC_COMMITTEE_INDEX: usize = <span class="number">54</span>;
 <span class="kw">pub const </span>CURRENT_SYNC_COMMITTEE_SUBTREE_INDEX: usize = subtree_index(CURRENT_SYNC_COMMITTEE_INDEX);
 <span class="kw">pub const </span>CURRENT_SYNC_COMMITTEE_DEPTH: usize =
 	generalized_index_length(CURRENT_SYNC_COMMITTEE_INDEX);
 
-<span class="comment">// get_generalized_index(BeaconState, &#39;next_sync_committee&#39;)
+<span class="doccomment">/// get_generalized_index(BeaconState, &#39;next_sync_committee&#39;)
 </span><span class="kw">pub const </span>NEXT_SYNC_COMMITTEE_INDEX: usize = <span class="number">55</span>;
 <span class="kw">pub const </span>NEXT_SYNC_COMMITTEE_SUBTREE_INDEX: usize = subtree_index(NEXT_SYNC_COMMITTEE_INDEX);
 <span class="kw">pub const </span>NEXT_SYNC_COMMITTEE_DEPTH: usize = generalized_index_length(NEXT_SYNC_COMMITTEE_INDEX);
 
-<span class="comment">//  get_generalized_index(BeaconBlockBody, &#39;execution_payload&#39;)
+<span class="doccomment">///  get_generalized_index(BeaconBlockBody, &#39;execution_payload&#39;)
 </span><span class="kw">pub const </span>EXECUTION_HEADER_INDEX: usize = <span class="number">25</span>;
 <span class="kw">pub const </span>EXECUTION_HEADER_SUBTREE_INDEX: usize = subtree_index(EXECUTION_HEADER_INDEX);
 <span class="kw">pub const </span>EXECUTION_HEADER_DEPTH: usize = generalized_index_length(EXECUTION_HEADER_INDEX);
 
-<span class="kw">pub const </span>MAX_EXTRA_DATA_BYTES: usize = <span class="number">32</span>;
+<span class="doccomment">/// Sizes related to SSZ encoding
+</span><span class="kw">pub const </span>MAX_EXTRA_DATA_BYTES: usize = <span class="number">32</span>;
 <span class="kw">pub const </span>MAX_LOGS_BLOOM_SIZE: usize = <span class="number">256</span>;
 <span class="kw">pub const </span>MAX_FEE_RECIPIENT_SIZE: usize = <span class="number">20</span>;
 
-<span class="kw">pub const </span>MAX_BRANCH_PROOF_SIZE: usize = <span class="number">20</span>;
+<span class="doccomment">/// Sanity value to constrain the max size of a merkle branch proof.
+</span><span class="kw">pub const </span>MAX_BRANCH_PROOF_SIZE: usize = <span class="number">20</span>;
 
 <span class="doccomment">/// DomainType(&#39;0x07000000&#39;)
 /// &lt;https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/beacon-chain.md#domain-types&gt;
 </span><span class="kw">pub const </span>DOMAIN_SYNC_COMMITTEE: [u8; <span class="number">4</span>] = [<span class="number">7</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>];
+<span class="doccomment">/// Validators public keys are 48 bytes.
+</span><span class="kw">pub const </span>PUBKEY_SIZE: usize = <span class="number">48</span>;
+<span class="doccomment">/// Signatures produced by validators are 96 bytes.
+</span><span class="kw">pub const </span>SIGNATURE_SIZE: usize = <span class="number">96</span>;
 
-<span class="kw">pub const </span>PUBKEY_SIZE: usize = <span class="number">48</span>;
-<span class="kw">pub const </span>SIGNATURE_SIZE: usize = <span class="number">96</span>;
+<span class="comment">// Sanity check for the sync committee bits (see SYNC_COMMITTEE_BITS_SIZE).
+</span><span class="macro">const_assert!</span>(SYNC_COMMITTEE_BITS_SIZE == SYNC_COMMITTEE_SIZE / <span class="number">8</span>);
 
-<span class="macro">const_assert!</span>(SYNC_COMMITTEE_BITS_SIZE == SYNC_COMMITTEE_SIZE / <span class="number">8</span>);
+<span class="doccomment">/// Defined in &lt;https://github.com/ethereum/consensus-specs/tree/f1dff5f6768608d890fc0b347e548297fc3e1f1c/presets/mainnet&gt;
+/// There are 32 slots in an epoch. An epoch is 6.4 minutes long.
+</span><span class="kw">pub const </span>SLOTS_PER_EPOCH: usize = <span class="number">32</span>;
+<span class="doccomment">/// 256 epochs in a sync committee period. Frequency of sync committee (subset of Ethereum
+/// validators) change is every ~27 hours.
+</span><span class="kw">pub const </span>EPOCHS_PER_SYNC_COMMITTEE_PERIOD: usize = <span class="number">256</span>;
+<span class="doccomment">/// A sync committee contains 512 randomly selected validators.
+</span><span class="kw">pub const </span>SYNC_COMMITTEE_SIZE: usize = <span class="number">512</span>;
+<span class="doccomment">/// An array of sync committee block votes, one bit representing the vote of one validator.
+</span><span class="kw">pub const </span>SYNC_COMMITTEE_BITS_SIZE: usize = SYNC_COMMITTEE_SIZE / <span class="number">8</span>;
+<span class="doccomment">/// The size of the block root array in the beacon state, used for ancestry proofs.
+</span><span class="kw">pub const </span>SLOTS_PER_HISTORICAL_ROOT: usize = <span class="number">8192</span>;
+<span class="doccomment">/// The index of the block_roots field in the beacon state tree.
+</span><span class="kw">pub const </span>BLOCK_ROOT_AT_INDEX_DEPTH: usize = <span class="number">13</span>;
 </code></pre></div></section></main></body></html>

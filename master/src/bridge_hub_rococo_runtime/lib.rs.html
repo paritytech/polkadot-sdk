@@ -1502,6 +1502,7 @@
 <a href="#1502" id="1502">1502</a>
 <a href="#1503" id="1503">1503</a>
 <a href="#1504" id="1504">1504</a>
+<a href="#1505" id="1505">1505</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -2002,13 +2003,6 @@
 }
 
 <span class="comment">// Ethereum Bridge
-
-</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
-</span><span class="macro">parameter_types! </span>{
-	<span class="kw">pub </span>storage EthereumGatewayAddress: H160 = H160::zero();
-}
-
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 </span><span class="macro">parameter_types! </span>{
 	<span class="kw">pub </span>storage EthereumGatewayAddress: H160 = H160(<span class="macro">hex_literal::hex!</span>(<span class="string">&quot;EDa338E4dC46038493b885327842fD3E301CaB39&quot;</span>));
 }
@@ -2104,29 +2098,33 @@
 	<span class="kw">type </span>Channels = EthereumSystem;
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;fast-runtime&quot;</span>)]
+<span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;fast-runtime&quot;</span>, feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
 </span><span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>ChainForkVersions: ForkVersions = ForkVersions {
 		genesis: Fork {
-			version: [<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>], <span class="comment">// 0x00000001
+			version: [<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>], <span class="comment">// 0x00000000
 			</span>epoch: <span class="number">0</span>,
 		},
 		altair: Fork {
-			version: [<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>], <span class="comment">// 0x01000001
+			version: [<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>], <span class="comment">// 0x01000000
 			</span>epoch: <span class="number">0</span>,
 		},
 		bellatrix: Fork {
-			version: [<span class="number">2</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>], <span class="comment">// 0x02000001
+			version: [<span class="number">2</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>], <span class="comment">// 0x02000000
 			</span>epoch: <span class="number">0</span>,
 		},
 		capella: Fork {
-			version: [<span class="number">3</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>], <span class="comment">// 0x03000001
+			version: [<span class="number">3</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>], <span class="comment">// 0x03000000
 			</span>epoch: <span class="number">0</span>,
 		},
+		deneb: Fork {
+			version: [<span class="number">4</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>], <span class="comment">// 0x04000000
+			</span>epoch: <span class="number">0</span>,
+		}
 	};
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;fast-runtime&quot;</span>))]
+<span class="attr">#[cfg(not(any(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;fast-runtime&quot;</span>, feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test)))]
 </span><span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>ChainForkVersions: ForkVersions = ForkVersions {
 		genesis: Fork {
@@ -2144,6 +2142,10 @@
 		capella: Fork {
 			version: [<span class="number">144</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">114</span>], <span class="comment">// 0x90000072
 			</span>epoch: <span class="number">56832</span>,
+		},
+		deneb: Fork {
+			version: [<span class="number">144</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">115</span>], <span class="comment">// 0x90000073
+			</span>epoch: <span class="number">132608</span>,
 		},
 	};
 }
