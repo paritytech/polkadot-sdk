@@ -23,7 +23,10 @@
 //! recipient of notifications should receive the chance to act upon them. In addition, notification
 //! listeners can hold onto a [`sc_client_api::UnpinHandle`] to keep a block pinned. Once the handle
 //! is dropped, a message is sent and the worker unpins the respective block.
-use std::{marker::PhantomData, sync::Weak};
+use std::{
+	marker::PhantomData,
+	sync::{Arc, Weak},
+};
 
 use futures::StreamExt;
 use sc_client_api::{Backend, UnpinWorkerMessage};
@@ -115,7 +118,7 @@ impl<Block: BlockT, B: Backend<Block>> Limiter<Block::Hash, u32>
 
 /// Worker for the handling of notification pinning.
 ///
-/// It receives messages from a receiver and pins/unping based on the incoming messages.
+/// It receives messages from a receiver and pins/unpins based on the incoming messages.
 /// All notification related unpinning should go through this worker. If the maximum number of
 /// notification pins is reached, the block from the oldest notification is unpinned.
 pub struct NotificationPinningWorker<Block: BlockT, Back: Backend<Block>> {
@@ -128,13 +131,16 @@ impl<Block: BlockT, Back: Backend<Block>> NotificationPinningWorker<Block, Back>
 	/// Creates a new `NotificationPinningWorker`.
 	pub fn new(
 		unpin_message_rx: TracingUnboundedReceiver<UnpinWorkerMessage<Block>>,
-		task_backend: Weak<Back>,
+		task_backend: Arc<Back>,
 	) -> Self {
 		let pinned_blocks =
 			schnellru::LruMap::<Block::Hash, u32, UnpinningByLengthLimiter<Block, Back>>::new(
-				UnpinningByLengthLimiter::new(NOTIFICATION_PINNING_LIMIT, task_backend.clone()),
+				UnpinningByLengthLimiter::new(
+					NOTIFICATION_PINNING_LIMIT,
+					Arc::downgrade(&task_backend),
+				),
 			);
-		Self { unpin_message_rx, task_backend, pinned_blocks }
+		Self { unpin_message_rx, task_backend: Arc::downgrade(&task_backend), pinned_blocks }
 	}
 
 	fn handle_announce_message(&mut self, hash: Block::Hash) {
@@ -143,7 +149,7 @@ impl<Block: BlockT, Back: Backend<Block>> NotificationPinningWorker<Block, Back>
 		}
 	}
 
-	fn handle_unpin_message(&mut self, hash: Block::Hash) {
+	fn handle_unpin_message(&mut self, hash: Block::Hash) -> Result<(), ()> {
 		if let Some(refcount) = self.pinned_blocks.peek_mut(&hash) {
 			*refcount = *refcount - 1;
 			if *refcount == 0 {
@@ -154,22 +160,26 @@ impl<Block: BlockT, Back: Backend<Block>> NotificationPinningWorker<Block, Back>
 				backend.unpin_block(hash);
 			} else {
 				log::debug!(target: LOG_TARGET, "Terminating unpin-worker, backend reference was dropped.");
-				return
+				return Err(())
 			}
 		} else {
 			log::debug!(target: LOG_TARGET, "Received unpin message for already unpinned block. hash = {hash:?}");
-		};
+		}
+		Ok(())
 	}
 
 	/// Start working on the received messages.
 	///
 	/// The worker maintains a map which keeps track of the pinned blocks and their reference count.
 	/// Depending upon the received message, it acts to pin/unpin the block.
-	pub async fn work(mut self) {
+	pub async fn run(mut self) {
 		while let Some(message) = self.unpin_message_rx.next().await {
 			match message {
 				UnpinWorkerMessage::AnnouncePin(hash) => self.handle_announce_message(hash),
-				UnpinWorkerMessage::Unpin(hash) => self.handle_unpin_message(hash),
+				UnpinWorkerMessage::Unpin(hash) =>
+					if self.handle_unpin_message(hash).is_err() {
+						return
+					},
 			}
 		}
 		log::debug!(target: LOG_TARGET, "Terminating unpin-worker, stream terminated.")
@@ -177,35 +187,37 @@ impl<Block: BlockT, Back: Backend<Block>> NotificationPinningWorker<Block, Back>
 }
 
 #[cfg(test)]
-impl<Block: BlockT, Back: Backend<Block>> NotificationPinningWorker<Block, Back> {
-	fn new_with_limit(
-		unpin_message_rx: TracingUnboundedReceiver<UnpinWorkerMessage<Block>>,
-		task_backend: Weak<Back>,
-		limit: usize,
-	) -> Self {
-		let pinned_blocks =
-			schnellru::LruMap::<Block::Hash, u32, UnpinningByLengthLimiter<Block, Back>>::new(
-				UnpinningByLengthLimiter::new(limit, task_backend.clone()),
-			);
-		Self { unpin_message_rx, task_backend, pinned_blocks }
-	}
-
-	fn lru(&self) -> &schnellru::LruMap<Block::Hash, u32, UnpinningByLengthLimiter<Block, Back>> {
-		&self.pinned_blocks
-	}
-}
-
-#[cfg(test)]
 mod tests {
 	use std::sync::Arc;
 
-	use sc_client_api::Backend;
-	use sc_utils::mpsc::tracing_unbounded;
+	use sc_client_api::{Backend, UnpinWorkerMessage};
+	use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver};
 	use sp_core::H256;
+	use sp_runtime::traits::Block as BlockT;
 
 	type Block = substrate_test_runtime_client::runtime::Block;
 
-	use super::NotificationPinningWorker;
+	use super::{NotificationPinningWorker, UnpinningByLengthLimiter};
+
+	impl<Block: BlockT, Back: Backend<Block>> NotificationPinningWorker<Block, Back> {
+		fn new_with_limit(
+			unpin_message_rx: TracingUnboundedReceiver<UnpinWorkerMessage<Block>>,
+			task_backend: Arc<Back>,
+			limit: usize,
+		) -> Self {
+			let pinned_blocks =
+				schnellru::LruMap::<Block::Hash, u32, UnpinningByLengthLimiter<Block, Back>>::new(
+					UnpinningByLengthLimiter::new(limit, Arc::downgrade(&task_backend)),
+				);
+			Self { unpin_message_rx, task_backend: Arc::downgrade(&task_backend), pinned_blocks }
+		}
+
+		fn lru(
+			&self,
+		) -> &schnellru::LruMap<Block::Hash, u32, UnpinningByLengthLimiter<Block, Back>> {
+			&self.pinned_blocks
+		}
+	}
 
 	#[test]
 	fn pinning_worker_handles_base_case() {
@@ -215,7 +227,7 @@ mod tests {
 
 		let hash = H256::random();
 
-		let mut worker = NotificationPinningWorker::new(rx, Arc::downgrade(&backend));
+		let mut worker = NotificationPinningWorker::new(rx, backend.clone());
 
 		// Block got pinned and unpin message should unpin in the backend.
 		let _ = backend.pin_block(hash);
@@ -224,7 +236,7 @@ mod tests {
 		worker.handle_announce_message(hash);
 		assert_eq!(worker.lru().len(), 1);
 
-		worker.handle_unpin_message(hash);
+		let _ = worker.handle_unpin_message(hash);
 
 		assert_eq!(backend.pin_refs(&hash), Some(0));
 		assert!(worker.lru().is_empty());
@@ -238,7 +250,7 @@ mod tests {
 
 		let hash = H256::random();
 
-		let mut worker = NotificationPinningWorker::new(rx, Arc::downgrade(&backend));
+		let mut worker = NotificationPinningWorker::new(rx, backend.clone());
 		// Block got pinned multiple times.
 		let _ = backend.pin_block(hash);
 		let _ = backend.pin_block(hash);
@@ -250,15 +262,15 @@ mod tests {
 		worker.handle_announce_message(hash);
 		assert_eq!(worker.lru().len(), 1);
 
-		worker.handle_unpin_message(hash);
+		let _ = worker.handle_unpin_message(hash);
 		assert_eq!(backend.pin_refs(&hash), Some(2));
-		worker.handle_unpin_message(hash);
+		let _ = worker.handle_unpin_message(hash);
 		assert_eq!(backend.pin_refs(&hash), Some(1));
-		worker.handle_unpin_message(hash);
+		let _ = worker.handle_unpin_message(hash);
 		assert_eq!(backend.pin_refs(&hash), Some(0));
 		assert!(worker.lru().is_empty());
 
-		worker.handle_unpin_message(hash);
+		let _ = worker.handle_unpin_message(hash);
 		assert_eq!(backend.pin_refs(&hash), Some(0));
 	}
 
@@ -271,7 +283,7 @@ mod tests {
 		let hash = H256::random();
 		let hash2 = H256::random();
 
-		let mut worker = NotificationPinningWorker::new(rx, Arc::downgrade(&backend));
+		let mut worker = NotificationPinningWorker::new(rx, backend.clone());
 		// Block was announced once but unpinned multiple times. The worker should ignore the
 		// additional unpins.
 		let _ = backend.pin_block(hash);
@@ -282,13 +294,13 @@ mod tests {
 		worker.handle_announce_message(hash);
 		assert_eq!(worker.lru().len(), 1);
 
-		worker.handle_unpin_message(hash);
+		let _ = worker.handle_unpin_message(hash);
 		assert_eq!(backend.pin_refs(&hash), Some(2));
-		worker.handle_unpin_message(hash);
+		let _ = worker.handle_unpin_message(hash);
 		assert_eq!(backend.pin_refs(&hash), Some(2));
 		assert!(worker.lru().is_empty());
 
-		worker.handle_unpin_message(hash2);
+		let _ = worker.handle_unpin_message(hash2);
 		assert!(worker.lru().is_empty());
 		assert_eq!(backend.pin_refs(&hash2), None);
 	}
@@ -305,7 +317,7 @@ mod tests {
 		let hash4 = H256::random();
 
 		// Only two items fit into the cache.
-		let mut worker = NotificationPinningWorker::new_with_limit(rx, Arc::downgrade(&backend), 2);
+		let mut worker = NotificationPinningWorker::new_with_limit(rx, backend.clone(), 2);
 
 		// Multiple blocks are announced but the cache size is too small. We expect that blocks
 		// are evicted by the cache and unpinned in the backend.

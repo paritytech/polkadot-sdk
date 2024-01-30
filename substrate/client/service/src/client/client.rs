@@ -19,6 +19,7 @@
 //! Substrate Client
 
 use super::block_rules::{BlockRules, LookupResult as BlockLookupResult};
+use crate::client::notification_pinning::NotificationPinningWorker;
 use log::{debug, info, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use prometheus_endpoint::Registry;
@@ -334,7 +335,7 @@ where
 						.unpin_worker_sender
 						.unbounded_send(UnpinWorkerMessage::AnnouncePin(notification.hash))
 						.map_err(|e| {
-							log::debug!(
+							log::error!(
 								"Unable to send AnnouncePin worker message for finality: {e}"
 							)
 						});
@@ -352,7 +353,7 @@ where
 						.unpin_worker_sender
 						.unbounded_send(UnpinWorkerMessage::AnnouncePin(notification.hash))
 						.map_err(|e| {
-							log::debug!("Unable to send AnnouncePin worker message for import: {e}")
+							log::error!("Unable to send AnnouncePin worker message for import: {e}")
 						});
 				};
 			}
@@ -435,12 +436,8 @@ where
 			"notification-pinning-worker-channel",
 			10_000,
 		);
-		let task_backend = Arc::downgrade(&backend);
-		let unpin_worker = crate::client::notification_pinning::NotificationPinningWorker::new(
-			rx,
-			task_backend.clone(),
-		);
-		spawn_handle.spawn("notification-pinning-worker", None, Box::pin(unpin_worker.work()));
+		let unpin_worker = NotificationPinningWorker::new(rx, backend.clone());
+		spawn_handle.spawn("notification-pinning-worker", None, Box::pin(unpin_worker.run()));
 
 		Ok(Client {
 			backend,
