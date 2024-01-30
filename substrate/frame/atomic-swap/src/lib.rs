@@ -48,7 +48,7 @@ use frame_support::{
 	pallet_prelude::MaxEncodedLen,
 	traits::{BalanceStatus, Currency, Get, ReservableCurrency},
 	weights::Weight,
-	RuntimeDebugNoBound,
+	CloneNoBound, RuntimeDebugNoBound,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
@@ -61,9 +61,8 @@ use sp_std::{
 };
 
 /// Pending atomic swap operation.
-#[derive(Clone, Eq, PartialEq, RuntimeDebugNoBound, Encode, Decode, TypeInfo, MaxEncodedLen)]
-#[scale_info(skip_type_params(T))]
-#[codec(mel_bound())]
+#[derive(Eq, PartialEq, RuntimeDebugNoBound, CloneNoBound)]
+#[frame_support::stored(skip(T))]
 pub struct PendingSwap<T: Config> {
 	/// Source of the swap.
 	pub source: T::AccountId,
@@ -96,9 +95,8 @@ pub trait SwapAction<AccountId, T: Config> {
 }
 
 /// A swap action that only allows transferring balances.
-#[derive(Clone, RuntimeDebug, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen)]
-#[scale_info(skip_type_params(C))]
-#[codec(mel_bound())]
+#[derive(Clone, RuntimeDebug, Eq, PartialEq)]
+#[frame_support::stored(skip(C))]
 pub struct BalanceSwapAction<AccountId, C: ReservableCurrency<AccountId>> {
 	value: <C as Currency<AccountId>>::Balance,
 	_marker: PhantomData<C>,

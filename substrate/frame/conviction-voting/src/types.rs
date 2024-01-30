@@ -32,18 +32,8 @@ use super::*;
 use crate::{AccountVote, Conviction, Vote};
 
 /// Info regarding an ongoing referendum.
-#[derive(
-	CloneNoBound,
-	PartialEqNoBound,
-	EqNoBound,
-	RuntimeDebugNoBound,
-	TypeInfo,
-	Encode,
-	Decode,
-	MaxEncodedLen,
-)]
-#[scale_info(skip_type_params(Total))]
-#[codec(mel_bound(Votes: MaxEncodedLen))]
+#[derive(CloneNoBound, PartialEqNoBound, EqNoBound, RuntimeDebugNoBound)]
+#[frame_support::stored(skip(Total), mel(Votes))]
 pub struct Tally<Votes: Clone + PartialEq + Eq + Debug + TypeInfo + Codec, Total> {
 	/// The number of aye votes, expressed in terms of post-conviction lock-vote.
 	pub ayes: Votes,

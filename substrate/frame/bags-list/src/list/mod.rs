@@ -609,9 +609,8 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 /// desirable to ensure that there is some element of first-come, first-serve to the list's
 /// iteration so that there's no incentive to churn ids positioning to improve the chances of
 /// appearing within the ids set.
-#[derive(DefaultNoBound, Encode, Decode, MaxEncodedLen, TypeInfo)]
-#[codec(mel_bound())]
-#[scale_info(skip_type_params(T, I))]
+#[derive(DefaultNoBound)]
+#[frame_support::stored(skip(T, I))]
 #[cfg_attr(feature = "std", derive(frame_support::DebugNoBound, Clone, PartialEq))]
 pub struct Bag<T: Config<I>, I: 'static = ()> {
 	head: Option<T::AccountId>,
@@ -809,9 +808,7 @@ impl<T: Config<I>, I: 'static> Bag<T, I> {
 }
 
 /// A Node is the fundamental element comprising the doubly-linked list described by `Bag`.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
-#[codec(mel_bound())]
-#[scale_info(skip_type_params(T, I))]
+#[frame_support::stored(skip(T, I))]
 #[cfg_attr(feature = "std", derive(frame_support::DebugNoBound, Clone, PartialEq))]
 pub struct Node<T: Config<I>, I: 'static = ()> {
 	pub(crate) id: T::AccountId,

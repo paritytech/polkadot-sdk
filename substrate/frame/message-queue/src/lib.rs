@@ -240,11 +240,8 @@ pub struct ItemHeader<Size> {
 }
 
 /// A page of messages. Pages always contain at least one item.
-#[derive(
-	CloneNoBound, Encode, Decode, RuntimeDebugNoBound, DefaultNoBound, TypeInfo, MaxEncodedLen,
-)]
-#[scale_info(skip_type_params(HeapSize))]
-#[codec(mel_bound(Size: MaxEncodedLen))]
+#[derive(CloneNoBound, DefaultNoBound, RuntimeDebugNoBound)]
+#[frame_support::stored(skip(HeapSize), mel(Size))]
 pub struct Page<Size: Into<u32> + Debug + Clone + Default, HeapSize: Get<Size>> {
 	/// Messages remaining to be processed; this includes overweight messages which have been
 	/// skipped.

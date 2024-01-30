@@ -557,6 +557,9 @@ pub use frame_support_procedural::EqNoBound;
 /// ```
 pub use frame_support_procedural::PartialEqNoBound;
 
+// FAIL-CI cleanup
+pub use frame_support_procedural::stored;
+
 /// Derive [`Debug`] but do not bound any generic.
 ///
 /// This is useful for type generic over runtime:

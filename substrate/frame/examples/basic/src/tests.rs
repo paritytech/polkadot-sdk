@@ -18,6 +18,7 @@
 //! Tests for pallet-example-basic.
 
 use crate::*;
+use codec::MaxEncodedLen;
 use frame_support::{
 	assert_ok, derive_impl,
 	dispatch::{DispatchInfo, GetDispatchInfo},

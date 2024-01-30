@@ -692,11 +692,8 @@ pub enum CommissionClaimPermission<AccountId> {
 ///
 /// An optional commission `change_rate` allows the pool to set strict limits to how much commission
 /// can change in each update, and how often updates can take place.
-#[derive(
-	Encode, Decode, DefaultNoBound, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEq, Copy, Clone,
-)]
-#[codec(mel_bound(T: Config))]
-#[scale_info(skip_type_params(T))]
+#[derive(DefaultNoBound, DebugNoBound, PartialEq, Copy, Clone)]
+#[frame_support::stored(skip(T), mel_bound(T: Config))]
 pub struct Commission<T: Config> {
 	/// Optional commission rate of the pool along with the account commission is paid to.
 	pub current: Option<(Perbill, T::AccountId)>,

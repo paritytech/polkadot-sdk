@@ -166,9 +166,8 @@ pub struct Delegating<Balance, AccountId, BlockNumber> {
 }
 
 /// Information concerning the direct vote-casting of some voting power.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-#[scale_info(skip_type_params(MaxVotes))]
-#[codec(mel_bound(Balance: MaxEncodedLen, BlockNumber: MaxEncodedLen, PollIndex: MaxEncodedLen))]
+#[derive(Clone, Eq, PartialEq, RuntimeDebug)]
+#[frame_support::stored(skip(MaxVotes), mel(Balance, AccountId, BlockNumber, PollIndex))]
 pub struct Casting<Balance, BlockNumber, PollIndex, MaxVotes>
 where
 	MaxVotes: Get<u32>,
@@ -182,12 +181,8 @@ where
 }
 
 /// An indicator for what an account is doing; it can either be delegating or voting.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-#[scale_info(skip_type_params(MaxVotes))]
-#[codec(mel_bound(
-	Balance: MaxEncodedLen, AccountId: MaxEncodedLen, BlockNumber: MaxEncodedLen,
-	PollIndex: MaxEncodedLen,
-))]
+#[derive(Clone, Eq, PartialEq, RuntimeDebug)]
+#[frame_support::stored(skip(MaxVotes), mel(Balance, AccountId, BlockNumber, PollIndex))]
 pub enum Voting<Balance, AccountId, BlockNumber, PollIndex, MaxVotes>
 where
 	MaxVotes: Get<u32>,

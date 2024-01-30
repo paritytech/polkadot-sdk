@@ -23,6 +23,7 @@ mod benchmark;
 mod construct_runtime;
 mod crate_version;
 mod derive_impl;
+mod derive_stored;
 mod dummy_part_checker;
 mod key_prefix;
 mod match_and_insert;
@@ -1293,6 +1294,25 @@ pub fn generate_deposit(_: TokenStream, _: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn storage(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
+}
+
+/// Annotate a type to be storable in `#[frame_support::stored]` attribute.
+///
+/// This attribute macro ensures that all traits that are necessary for a type to be placed in FRAME
+/// storage are implemented.
+///
+/// # Example
+///
+/// ```rust
+/// #[frame_support::stored(skip(T))]
+/// pub struct Nested<T> {
+///     counter: u32,
+///     _phantom: PhantomData<T>,
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn stored(attrs: TokenStream, input: TokenStream) -> TokenStream {
+	derive_stored::derive_frame_stored(attrs, input)
 }
 
 /// The optional attribute `#[pallet::getter(fn $my_getter_fn_name)]` allows you to define a
