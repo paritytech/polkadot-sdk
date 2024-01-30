@@ -294,9 +294,7 @@ try-runtime = [
 ]
 
 experimental = ["pallet-aura/experimental"]
-fast-runtime = [
-	"snowbridge-pallet-ethereum-client/beacon-spec-minimal",
-]
+fast-runtime = []
 
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
