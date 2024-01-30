@@ -249,7 +249,7 @@ fn remote_reserve_transfer_program(
 			let fee2 = amount.saturating_sub(fee1);
 			assert!(fee1 > 0);
 			assert!(fee2 > 0);
-			(MultiAsset::from((fees.id.clone(), fee1)), MultiAsset::from((fees.id.clone(), fee2)))
+			(MultiAsset::from((fees.id, fee1)), MultiAsset::from((fees.id, fee2)))
 		},
 		NonFungible(_) => unreachable!(),
 	};
