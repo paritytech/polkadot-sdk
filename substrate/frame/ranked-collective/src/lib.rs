@@ -552,10 +552,7 @@ pub mod pallet {
 			ensure!(min_rank >= rank, Error::<T, I>::InvalidWitness);
 			ensure!(max_rank >= rank, Error::<T, I>::NoPermission);
 
-			for r in 0..=rank {
-				Self::remove_from_rank(&who, r)?;
-			}
-			Members::<T, I>::remove(&who);
+			Self::do_remove_member_from_rank(&who, rank)?;
 			Self::deposit_event(Event::MemberRemoved { who, rank });
 			Ok(PostDispatchInfo {
 				actual_weight: Some(T::WeightInfo::remove_member(rank as u32)),
@@ -679,11 +676,7 @@ pub mod pallet {
 
 			let MemberRecord { rank, .. } = Self::ensure_member(&who)?;
 
-			for r in 0..=rank {
-				Self::remove_from_rank(&who, r)?;
-			}
-			Members::<T, I>::remove(&who);
-
+			Self::do_remove_member_from_rank(&who, rank)?;
 			Self::do_add_member_to_rank(new_who.clone(), rank, false)?;
 
 			Self::deposit_event(Event::MemberExchanged { who, new_who });
@@ -810,6 +803,15 @@ pub mod pallet {
 		) -> Option<u16> {
 			use frame_support::traits::CallerTrait;
 			o.as_signed().and_then(Self::rank_of)
+		}
+
+		/// Removes a member from the rank collective
+		pub fn do_remove_member_from_rank(who: &T::AccountId, rank: Rank) -> DispatchResult {
+			for r in 0..=rank {
+				Self::remove_from_rank(&who, r)?;
+			}
+			Members::<T, I>::remove(&who);
+			Ok(())
 		}
 	}
 

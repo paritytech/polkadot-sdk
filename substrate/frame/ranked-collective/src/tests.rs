@@ -592,5 +592,13 @@ fn exchange_member_works() {
 
 		assert_eq!(Members::<Test>::get(1), None);
 		assert_eq!(Members::<Test>::get(2), Some(member_record));
+
+		assert_ok!(Club::add_member(RuntimeOrigin::root(), 3));
+		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 3));
+
+		assert_noop!(
+			Club::exchange_member(RuntimeOrigin::signed(3), 2, 1),
+			DispatchError::BadOrigin
+		);
 	});
 }
