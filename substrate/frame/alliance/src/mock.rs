@@ -51,7 +51,7 @@ parameter_types! {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
-	type AccountData = pallet_balances::AccountData<AccountId>;
+	type AccountData = pallet_balances::AccountData<u64>;
 }
 
 parameter_types! {
@@ -388,7 +388,7 @@ pub fn new_bench_ext() -> sp_io::TestExternalities {
 }
 
 pub fn test_cid() -> Cid {
-	let result = sp_core_hashing::sha2_256(b"hello world");
+	let result = sp_crypto_hashing::sha2_256(b"hello world");
 	Cid::new_v0(result)
 }
 

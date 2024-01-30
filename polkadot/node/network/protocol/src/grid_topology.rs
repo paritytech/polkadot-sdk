@@ -89,6 +89,26 @@ impl SessionGridTopology {
 		SessionGridTopology { shuffled_indices, canonical_shuffling, peer_ids }
 	}
 
+	/// Updates the known peer ids for the passed authorithies ids.
+	pub fn update_authority_ids(
+		&mut self,
+		peer_id: PeerId,
+		ids: &HashSet<AuthorityDiscoveryId>,
+	) -> bool {
+		let mut updated = false;
+		if !self.peer_ids.contains(&peer_id) {
+			for peer in self
+				.canonical_shuffling
+				.iter_mut()
+				.filter(|peer| ids.contains(&peer.discovery_id))
+			{
+				peer.peer_ids.push(peer_id);
+				self.peer_ids.insert(peer_id);
+				updated = true;
+			}
+		}
+		updated
+	}
 	/// Produces the outgoing routing logic for a particular peer.
 	///
 	/// Returns `None` if the validator index is out of bounds.
@@ -269,6 +289,7 @@ impl GridNeighbors {
 pub struct SessionGridTopologyEntry {
 	topology: SessionGridTopology,
 	local_neighbors: GridNeighbors,
+	local_index: Option<ValidatorIndex>,
 }
 
 impl SessionGridTopologyEntry {
@@ -291,6 +312,25 @@ impl SessionGridTopologyEntry {
 	pub fn is_validator(&self, peer: &PeerId) -> bool {
 		self.topology.is_validator(peer)
 	}
+
+	/// Updates the known peer ids for the passed authorithies ids.
+	pub fn update_authority_ids(
+		&mut self,
+		peer_id: PeerId,
+		ids: &HashSet<AuthorityDiscoveryId>,
+	) -> bool {
+		let peer_id_updated = self.topology.update_authority_ids(peer_id, ids);
+		// If we added a new peer id we need to recompute the grid neighbors, so that
+		// neighbors_x and neighbors_y reflect the right peer ids.
+		if peer_id_updated {
+			if let Some(local_index) = self.local_index.as_ref() {
+				if let Some(new_grid) = self.topology.compute_grid_neighbors_for(*local_index) {
+					self.local_neighbors = new_grid;
+				}
+			}
+		}
+		peer_id_updated
+	}
 }
 
 /// A set of topologies indexed by session
@@ -303,6 +343,20 @@ impl SessionGridTopologies {
 	/// Returns a topology for the specific session index
 	pub fn get_topology(&self, session: SessionIndex) -> Option<&SessionGridTopologyEntry> {
 		self.inner.get(&session).and_then(|val| val.0.as_ref())
+	}
+
+	/// Updates the known peer ids for the passed authorithies ids.
+	pub fn update_authority_ids(
+		&mut self,
+		peer_id: PeerId,
+		ids: &HashSet<AuthorityDiscoveryId>,
+	) -> bool {
+		self.inner
+			.iter_mut()
+			.map(|(_, topology)| {
+				topology.0.as_mut().map(|topology| topology.update_authority_ids(peer_id, ids))
+			})
+			.any(|updated| updated.unwrap_or_default())
 	}
 
 	/// Increase references counter for a specific topology
@@ -333,7 +387,7 @@ impl SessionGridTopologies {
 				.and_then(|l| topology.compute_grid_neighbors_for(l))
 				.unwrap_or_else(GridNeighbors::empty);
 
-			entry.0 = Some(SessionGridTopologyEntry { topology, local_neighbors });
+			entry.0 = Some(SessionGridTopologyEntry { topology, local_neighbors, local_index });
 		}
 	}
 }
@@ -368,6 +422,7 @@ impl Default for SessionBoundGridTopologyStorage {
 						peer_ids: Default::default(),
 					},
 					local_neighbors: GridNeighbors::empty(),
+					local_index: None,
 				},
 			},
 			prev_topology: None,
@@ -412,7 +467,7 @@ impl SessionBoundGridTopologyStorage {
 		let old_current = std::mem::replace(
 			&mut self.current_topology,
 			GridTopologySessionBound {
-				entry: SessionGridTopologyEntry { topology, local_neighbors },
+				entry: SessionGridTopologyEntry { topology, local_neighbors, local_index },
 				session_index,
 			},
 		);

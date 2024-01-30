@@ -930,8 +930,18 @@ fn basic_swap_works() {
 
 		// Deposit is appropriately taken
 		// ----------------------------------------- para deposit --- crowdloan
-		assert_eq!(Balances::reserved_balance(&account_id(1)), (500 + 10 * 2 * 1) + 100);
-		assert_eq!(Balances::reserved_balance(&account_id(2)), 500 + 20 * 2 * 1);
+		let crowdloan_deposit = 100;
+		let para_id_deposit = <Test as paras_registrar::Config>::ParaDeposit::get();
+		let code_deposit = configuration::Pallet::<Test>::config().max_code_size *
+			<Test as paras_registrar::Config>::DataDepositPerByte::get();
+
+		// Para 2000 has a genesis head size of 10.
+		assert_eq!(
+			Balances::reserved_balance(&account_id(1)),
+			crowdloan_deposit + para_id_deposit + code_deposit + 10
+		);
+		// Para 2001 has a genesis head size of 20.
+		assert_eq!(Balances::reserved_balance(&account_id(2)), para_id_deposit + code_deposit + 20);
 		assert_eq!(Balances::reserved_balance(&crowdloan_account), total);
 		// Crowdloan is appropriately set
 		assert!(Crowdloan::funds(ParaId::from(2000)).is_some());
@@ -973,8 +983,8 @@ fn basic_swap_works() {
 		// Deregister on-demand parachain
 		assert_ok!(Registrar::deregister(para_origin(2000).into(), ParaId::from(2000)));
 		// Correct deposit is unreserved
-		assert_eq!(Balances::reserved_balance(&account_id(1)), 100); // crowdloan deposit left over
-		assert_eq!(Balances::reserved_balance(&account_id(2)), 500 + 20 * 2 * 1);
+		assert_eq!(Balances::reserved_balance(&account_id(1)), crowdloan_deposit);
+		assert_eq!(Balances::reserved_balance(&account_id(2)), para_id_deposit + code_deposit + 20);
 		// Crowdloan ownership is swapped
 		assert!(Crowdloan::funds(ParaId::from(2000)).is_none());
 		assert!(Crowdloan::funds(ParaId::from(2001)).is_some());
@@ -1005,7 +1015,7 @@ fn basic_swap_works() {
 		// Dissolve returns the balance of the person who put a deposit for crowdloan
 		assert_ok!(Crowdloan::dissolve(signed(1), ParaId::from(2001)));
 		assert_eq!(Balances::reserved_balance(&account_id(1)), 0);
-		assert_eq!(Balances::reserved_balance(&account_id(2)), 500 + 20 * 2 * 1);
+		assert_eq!(Balances::reserved_balance(&account_id(2)), para_id_deposit + code_deposit + 20);
 
 		// Final deregister sets everything back to the start
 		assert_ok!(Registrar::deregister(para_origin(2001).into(), ParaId::from(2001)));

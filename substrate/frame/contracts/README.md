@@ -34,6 +34,19 @@ calls are reverted. Assuming correct error handling by contract A, A's other cal
 
 One `ref_time` `Weight` is defined as one picosecond of execution time on the runtime's reference machine.
 
+#### Schedule
+
+The `Schedule` is where, among other things, the cost of every action a contract can do is defined. These costs are derived
+from the benchmarks of this pallet. Instead of looking at the raw benchmark results it is advised to look at the `Schedule`
+if one wants to manually inspect the performance characteristics. The `Schedule` can be printed like this:
+
+```sh
+RUST_LOG=runtime::contracts=info cargo run --features runtime-benchmarks --bin substrate-node -- benchmark pallet --extra -p pallet_contracts -e print_schedule
+```
+
+Please note that the `Schedule` will be printed multiple times. This is because we are (ab)using a benchmark to print
+the struct.
+
 ### Revert Behaviour
 
 Contract call failures are not cascading. When failures occur in a sub-call, they do not "bubble up", and the call will

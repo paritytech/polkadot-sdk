@@ -31,6 +31,7 @@ use parachains_common::{
 	rococo::{consensus::RELAY_CHAIN_SLOT_DURATION_MILLIS, fee::WeightToFee},
 	AccountId, AuraId, Balance, SLOT_DURATION,
 };
+use snowbridge_core::ChannelId;
 use sp_consensus_aura::SlotDuration;
 use sp_core::H160;
 use sp_keyring::AccountKeyring::Alice;
@@ -220,6 +221,72 @@ mod bridge_hub_westend_tests {
 			|| (EthereumGatewayAddress::key().to_vec(), EthereumGatewayAddress::get()),
 			|_| [1; 20].into(),
 		)
+	}
+
+	#[test]
+	fn change_ethereum_nonces_by_governance_works() {
+		let channel_id_one: ChannelId = [1; 32].into();
+		let channel_id_two: ChannelId = [2; 32].into();
+		let nonce = 42;
+
+		// Reset a single inbound channel
+		bridge_hub_test_utils::test_cases::set_storage_keys_by_governance_works::<Runtime>(
+			collator_session_keys(),
+			bp_bridge_hub_rococo::BRIDGE_HUB_ROCOCO_PARACHAIN_ID,
+			Box::new(|call| RuntimeCall::System(call).encode()),
+			vec![
+				(snowbridge_pallet_outbound_queue::Nonce::<Runtime>::hashed_key_for::<ChannelId>(
+					channel_id_one,
+				)
+				.to_vec(), 0u64.encode()),
+				(snowbridge_pallet_inbound_queue::Nonce::<Runtime>::hashed_key_for::<ChannelId>(
+					channel_id_one,
+				)
+				.to_vec(), 0u64.encode()),
+			],
+			|| {
+				// Outbound
+				snowbridge_pallet_outbound_queue::Nonce::<Runtime>::insert::<ChannelId, u64>(
+					channel_id_one,
+					nonce,
+				);
+				snowbridge_pallet_outbound_queue::Nonce::<Runtime>::insert::<ChannelId, u64>(
+					channel_id_two,
+					nonce,
+				);
+
+				// Inbound
+				snowbridge_pallet_inbound_queue::Nonce::<Runtime>::insert::<ChannelId, u64>(
+					channel_id_one,
+					nonce,
+				);
+				snowbridge_pallet_inbound_queue::Nonce::<Runtime>::insert::<ChannelId, u64>(
+					channel_id_two,
+					nonce,
+				);
+			},
+			|| {
+				// Outbound
+				assert_eq!(
+					snowbridge_pallet_outbound_queue::Nonce::<Runtime>::get(channel_id_one),
+					0
+				);
+				assert_eq!(
+					snowbridge_pallet_outbound_queue::Nonce::<Runtime>::get(channel_id_two),
+					nonce
+				);
+
+				// Inbound
+				assert_eq!(
+					snowbridge_pallet_inbound_queue::Nonce::<Runtime>::get(channel_id_one),
+					0
+				);
+				assert_eq!(
+					snowbridge_pallet_inbound_queue::Nonce::<Runtime>::get(channel_id_two),
+					nonce
+				);
+			},
+		);
 	}
 
 	#[test]
