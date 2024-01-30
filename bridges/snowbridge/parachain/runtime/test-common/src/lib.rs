@@ -184,7 +184,7 @@ pub fn send_transfer_token_message_success<Runtime, XcmConfig>(
 			<snowbridge_pallet_outbound_queue::Pallet<Runtime>>::on_finalize(next_block_number);
 			let included_head = <frame_system::Pallet<Runtime>>::finalize();
 
-			let origin: ParaId = (assethub_parachain_id as u32).into();
+			let origin: ParaId = assethub_parachain_id.into();
 			let channel_id: ChannelId = origin.into();
 
 			let nonce = snowbridge_pallet_outbound_queue::Nonce::<Runtime>::try_get(channel_id);
