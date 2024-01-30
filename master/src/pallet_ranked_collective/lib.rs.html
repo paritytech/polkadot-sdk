@@ -790,6 +790,56 @@
 <a href="#790" id="790">790</a>
 <a href="#791" id="791">791</a>
 <a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -953,6 +1003,7 @@
 				<span class="kw">crate</span>::Pallet::&lt;T, I&gt;::do_add_member_to_rank(
 					who,
 					T::MinRankOfClass::convert(class.clone()),
+					<span class="bool-val">true</span>,
 				)
 				.expect(<span class="string">&quot;could not add members for benchmarks&quot;</span>);
 			}
@@ -1091,7 +1142,7 @@
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 	</span><span class="kw">fn </span>try_successful_origin(min_rank: <span class="kw-2">&amp;</span>Rank) -&gt; <span class="prelude-ty">Result</span>&lt;T::RuntimeOrigin, ()&gt; {
 		<span class="kw">let </span>who = frame_benchmarking::account::&lt;T::AccountId&gt;(<span class="string">&quot;successful_origin&quot;</span>, <span class="number">0</span>, <span class="number">0</span>);
-		<span class="kw">crate</span>::Pallet::&lt;T, I&gt;::do_add_member_to_rank(who.clone(), <span class="kw-2">*</span>min_rank)
+		<span class="kw">crate</span>::Pallet::&lt;T, I&gt;::do_add_member_to_rank(who.clone(), <span class="kw-2">*</span>min_rank, <span class="bool-val">true</span>)
 			.expect(<span class="string">&quot;Could not add members for benchmarks&quot;</span>);
 		<span class="prelude-val">Ok</span>(frame_system::RawOrigin::Signed(who).into())
 	}
@@ -1144,7 +1195,7 @@
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
 	</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;T::RuntimeOrigin, ()&gt; {
 		<span class="kw">let </span>who = frame_benchmarking::account::&lt;T::AccountId&gt;(<span class="string">&quot;successful_origin&quot;</span>, <span class="number">0</span>, <span class="number">0</span>);
-		<span class="kw">crate</span>::Pallet::&lt;T, I&gt;::do_add_member_to_rank(who.clone(), MIN_RANK)
+		<span class="kw">crate</span>::Pallet::&lt;T, I&gt;::do_add_member_to_rank(who.clone(), MIN_RANK, <span class="bool-val">true</span>)
 			.expect(<span class="string">&quot;Could not add members for benchmarks&quot;</span>);
 		<span class="prelude-val">Ok</span>(frame_system::RawOrigin::Signed(who).into())
 	}
@@ -1181,6 +1232,9 @@
 		<span class="doccomment">/// The origin required to demote or remove a member. The success value indicates the
 		/// maximum rank *from which* the demotion/removal may be.
 		</span><span class="kw">type </span>DemoteOrigin: EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin, Success = Rank&gt;;
+
+		<span class="doccomment">/// The origin that can swap the account of a member.
+		</span><span class="kw">type </span>ExchangeOrigin: EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin&gt;;
 
 		<span class="doccomment">/// The polling system used for our voting.
 		</span><span class="kw">type </span>Polls: Polling&lt;TallyOf&lt;<span class="self">Self</span>, I&gt;, Votes = Votes, Moment = BlockNumberFor&lt;<span class="self">Self</span>&gt;&gt;;
@@ -1246,6 +1300,8 @@
 		<span class="doccomment">/// The member `who` has voted for the `poll` with the given `vote` leading to an updated
 		/// `tally`.
 		</span>Voted { who: T::AccountId, poll: PollIndexOf&lt;T, I&gt;, vote: VoteRecord, tally: TallyOf&lt;T, I&gt; },
+		<span class="doccomment">/// The member `who` had their `AccountId` changed to `new_who`.
+		</span>MemberExchanged { who: T::AccountId, new_who: T::AccountId },
 	}
 
 	<span class="attr">#[pallet::error]
@@ -1268,6 +1324,8 @@
 		</span>InvalidWitness,
 		<span class="doccomment">/// The origin is not sufficiently privileged to do the operation.
 		</span>NoPermission,
+		<span class="doccomment">/// The new member to exchange is the same as the old member
+		</span>SameMember,
 	}
 
 	<span class="attr">#[pallet::call]
@@ -1284,7 +1342,7 @@
 		</span><span class="kw">pub fn </span>add_member(origin: OriginFor&lt;T&gt;, who: AccountIdLookupOf&lt;T&gt;) -&gt; DispatchResult {
 			<span class="kw">let _ </span>= T::PromoteOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 			<span class="kw">let </span>who = T::Lookup::lookup(who)<span class="question-mark">?</span>;
-			<span class="self">Self</span>::do_add_member(who)
+			<span class="self">Self</span>::do_add_member(who, <span class="bool-val">true</span>)
 		}
 
 		<span class="doccomment">/// Increment the rank of an existing member by one.
@@ -1298,7 +1356,7 @@
 		</span><span class="kw">pub fn </span>promote_member(origin: OriginFor&lt;T&gt;, who: AccountIdLookupOf&lt;T&gt;) -&gt; DispatchResult {
 			<span class="kw">let </span>max_rank = T::PromoteOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 			<span class="kw">let </span>who = T::Lookup::lookup(who)<span class="question-mark">?</span>;
-			<span class="self">Self</span>::do_promote_member(who, <span class="prelude-val">Some</span>(max_rank))
+			<span class="self">Self</span>::do_promote_member(who, <span class="prelude-val">Some</span>(max_rank), <span class="bool-val">true</span>)
 		}
 
 		<span class="doccomment">/// Decrement the rank of an existing member by one. If the member is already at rank zero,
@@ -1336,10 +1394,7 @@
 			<span class="macro">ensure!</span>(min_rank &gt;= rank, Error::&lt;T, I&gt;::InvalidWitness);
 			<span class="macro">ensure!</span>(max_rank &gt;= rank, Error::&lt;T, I&gt;::NoPermission);
 
-			<span class="kw">for </span>r <span class="kw">in </span><span class="number">0</span>..=rank {
-				<span class="self">Self</span>::remove_from_rank(<span class="kw-2">&amp;</span>who, r)<span class="question-mark">?</span>;
-			}
-			Members::&lt;T, I&gt;::remove(<span class="kw-2">&amp;</span>who);
+			<span class="self">Self</span>::do_remove_member_from_rank(<span class="kw-2">&amp;</span>who, rank)<span class="question-mark">?</span>;
 			<span class="self">Self</span>::deposit_event(Event::MemberRemoved { who, rank });
 			<span class="prelude-val">Ok</span>(PostDispatchInfo {
 				actual_weight: <span class="prelude-val">Some</span>(T::WeightInfo::remove_member(rank <span class="kw">as </span>u32)),
@@ -1442,6 +1497,33 @@
 				pays_fee: Pays::No,
 			})
 		}
+
+		<span class="doccomment">/// Exchanges a member with a new account and the same existing rank.
+		///
+		/// - `origin`: Must be the `ExchangeOrigin`.
+		/// - `who`: Account of existing member of rank greater than zero to be exchanged.
+		/// - `new_who`: New Account of existing member of rank greater than zero to exchanged to.
+		</span><span class="attr">#[pallet::call_index(<span class="number">6</span>)]
+		#[pallet::weight(T::WeightInfo::exchange_member())]
+		</span><span class="kw">pub fn </span>exchange_member(
+			origin: OriginFor&lt;T&gt;,
+			who: AccountIdLookupOf&lt;T&gt;,
+			new_who: AccountIdLookupOf&lt;T&gt;,
+		) -&gt; DispatchResult {
+			T::ExchangeOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
+			<span class="kw">let </span>who = T::Lookup::lookup(who)<span class="question-mark">?</span>;
+			<span class="kw">let </span>new_who = T::Lookup::lookup(new_who)<span class="question-mark">?</span>;
+
+			<span class="macro">ensure!</span>(who != new_who, Error::&lt;T, I&gt;::SameMember);
+
+			<span class="kw">let </span>MemberRecord { rank, .. } = <span class="self">Self</span>::ensure_member(<span class="kw-2">&amp;</span>who)<span class="question-mark">?</span>;
+
+			<span class="self">Self</span>::do_remove_member_from_rank(<span class="kw-2">&amp;</span>who, rank)<span class="question-mark">?</span>;
+			<span class="self">Self</span>::do_add_member_to_rank(new_who.clone(), rank, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
+
+			<span class="self">Self</span>::deposit_event(Event::MemberExchanged { who, new_who });
+			<span class="prelude-val">Ok</span>(())
+		}
 	}
 
 	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
@@ -1475,7 +1557,7 @@
 		<span class="doccomment">/// Adds a member into the ranked collective at level 0.
 		///
 		/// No origin checks are executed.
-		</span><span class="kw">pub fn </span>do_add_member(who: T::AccountId) -&gt; DispatchResult {
+		</span><span class="kw">pub fn </span>do_add_member(who: T::AccountId, emit_event: bool) -&gt; DispatchResult {
 			<span class="macro">ensure!</span>(!Members::&lt;T, I&gt;::contains_key(<span class="kw-2">&amp;</span>who), Error::&lt;T, I&gt;::AlreadyMember);
 			<span class="kw">let </span>index = MemberCount::&lt;T, I&gt;::get(<span class="number">0</span>);
 			<span class="kw">let </span>count = index.checked_add(<span class="number">1</span>).ok_or(Overflow)<span class="question-mark">?</span>;
@@ -1484,7 +1566,9 @@
 			IdToIndex::&lt;T, I&gt;::insert(<span class="number">0</span>, <span class="kw-2">&amp;</span>who, index);
 			IndexToId::&lt;T, I&gt;::insert(<span class="number">0</span>, index, <span class="kw-2">&amp;</span>who);
 			MemberCount::&lt;T, I&gt;::insert(<span class="number">0</span>, count);
-			<span class="self">Self</span>::deposit_event(Event::MemberAdded { who });
+			<span class="kw">if </span>emit_event {
+				<span class="self">Self</span>::deposit_event(Event::MemberAdded { who });
+			}
 			<span class="prelude-val">Ok</span>(())
 		}
 
@@ -1495,6 +1579,7 @@
 		</span><span class="kw">pub fn </span>do_promote_member(
 			who: T::AccountId,
 			maybe_max_rank: <span class="prelude-ty">Option</span>&lt;Rank&gt;,
+			emit_event: bool,
 		) -&gt; DispatchResult {
 			<span class="kw">let </span>record = <span class="self">Self</span>::ensure_member(<span class="kw-2">&amp;</span>who)<span class="question-mark">?</span>;
 			<span class="kw">let </span>rank = record.rank.checked_add(<span class="number">1</span>).ok_or(Overflow)<span class="question-mark">?</span>;
@@ -1506,7 +1591,9 @@
 			IdToIndex::&lt;T, I&gt;::insert(rank, <span class="kw-2">&amp;</span>who, index);
 			IndexToId::&lt;T, I&gt;::insert(rank, index, <span class="kw-2">&amp;</span>who);
 			Members::&lt;T, I&gt;::insert(<span class="kw-2">&amp;</span>who, MemberRecord { rank });
-			<span class="self">Self</span>::deposit_event(Event::RankChanged { who, rank });
+			<span class="kw">if </span>emit_event {
+				<span class="self">Self</span>::deposit_event(Event::RankChanged { who, rank });
+			}
 			<span class="prelude-val">Ok</span>(())
 		}
 
@@ -1539,10 +1626,14 @@
 
 		<span class="doccomment">/// Add a member to the rank collective, and continue to promote them until a certain rank
 		/// is reached.
-		</span><span class="kw">pub fn </span>do_add_member_to_rank(who: T::AccountId, rank: Rank) -&gt; DispatchResult {
-			<span class="self">Self</span>::do_add_member(who.clone())<span class="question-mark">?</span>;
+		</span><span class="kw">pub fn </span>do_add_member_to_rank(
+			who: T::AccountId,
+			rank: Rank,
+			emit_event: bool,
+		) -&gt; DispatchResult {
+			<span class="self">Self</span>::do_add_member(who.clone(), emit_event)<span class="question-mark">?</span>;
 			<span class="kw">for _ in </span><span class="number">0</span>..rank {
-				<span class="self">Self</span>::do_promote_member(who.clone(), <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
+				<span class="self">Self</span>::do_promote_member(who.clone(), <span class="prelude-val">None</span>, emit_event)<span class="question-mark">?</span>;
 			}
 			<span class="prelude-val">Ok</span>(())
 		}
@@ -1554,6 +1645,15 @@
 		) -&gt; <span class="prelude-ty">Option</span>&lt;u16&gt; {
 			<span class="kw">use </span>frame_support::traits::CallerTrait;
 			o.as_signed().and_then(<span class="self">Self</span>::rank_of)
+		}
+
+		<span class="doccomment">/// Removes a member from the rank collective
+		</span><span class="kw">pub fn </span>do_remove_member_from_rank(who: <span class="kw-2">&amp;</span>T::AccountId, rank: Rank) -&gt; DispatchResult {
+			<span class="kw">for </span>r <span class="kw">in </span><span class="number">0</span>..=rank {
+				<span class="self">Self</span>::remove_from_rank(<span class="kw-2">&amp;</span>who, r)<span class="question-mark">?</span>;
+			}
+			Members::&lt;T, I&gt;::remove(<span class="kw-2">&amp;</span>who);
+			<span class="prelude-val">Ok</span>(())
 		}
 	}
 
@@ -1570,11 +1670,11 @@
 		}
 
 		<span class="kw">fn </span>induct(who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; DispatchResult {
-			<span class="self">Self</span>::do_add_member(who.clone())
+			<span class="self">Self</span>::do_add_member(who.clone(), <span class="bool-val">true</span>)
 		}
 
 		<span class="kw">fn </span>promote(who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; DispatchResult {
-			<span class="self">Self</span>::do_promote_member(who.clone(), <span class="prelude-val">None</span>)
+			<span class="self">Self</span>::do_promote_member(who.clone(), <span class="prelude-val">None</span>, <span class="bool-val">true</span>)
 		}
 
 		<span class="kw">fn </span>demote(who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; DispatchResult {

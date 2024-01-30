@@ -175,6 +175,9 @@
 <a href="#175" id="175">175</a>
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -350,6 +353,9 @@
 			.saturating_add(T::DbWeight::get().reads((<span class="number">1_u64</span>).saturating_mul(n.into())))
 			.saturating_add(T::DbWeight::get().writes((<span class="number">1_u64</span>).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">2550</span>).saturating_mul(n.into()))
+	}
+	<span class="kw">fn </span>exchange_member() -&gt; Weight {
+		<span class="macro">todo!</span>()
 	}
 }
 </code></pre></div></section></main></body></html>
