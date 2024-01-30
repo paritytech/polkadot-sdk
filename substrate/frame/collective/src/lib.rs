@@ -843,11 +843,11 @@ pub mod pallet {
 		///
 		/// Emits `Killed` and `ProposalDepositSlashed` if a deposit was present.
 		#[pallet::call_index(7)]
-		#[pallet::weight({1})] // TODO
+		#[pallet::weight(T::WeightInfo::kill(1, T::MaxProposals::get()))]
 		pub fn kill(origin: OriginFor<T>, proposal_hash: T::Hash) -> DispatchResultWithPostInfo {
 			T::KillOrigin::ensure_origin(origin)?;
-			let proposal_count = Self::do_kill_proposal(proposal_hash)?;
-			Ok(Some(T::WeightInfo::disapprove_proposal(proposal_count)).into())
+			let (slashed, proposal_count) = Self::do_kill_proposal(proposal_hash)?;
+			Ok(Some(T::WeightInfo::kill(slashed as u32, proposal_count)).into())
 		}
 
 		/// Release the deposit of a completed proposal
@@ -858,14 +858,14 @@ pub mod pallet {
 		///
 		/// Emits `ProposalDepositReleased`.
 		#[pallet::call_index(8)]
-		#[pallet::weight({1})] // TODO
+		#[pallet::weight(T::WeightInfo::release_proposal_deposit(1))]
 		pub fn release_proposal_deposit(
 			origin: OriginFor<T>,
 			proposal_hash: T::Hash,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed_or_root(origin)?;
-			let _ = Self::do_release_proposal_deposit(proposal_hash)?;
-			Ok(())
+			let slashed = Self::do_release_proposal_deposit(proposal_hash)?;
+			Ok(Some(T::WeightInfo::release_proposal_deposit(slashed.is_some() as u32)).into())
 		}
 	}
 }
@@ -1178,8 +1178,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Removes a proposal, slashes it's deposit if one exists and emits the `Killed` event.
-	fn do_kill_proposal(proposal_hash: T::Hash) -> Result<u32, DispatchError> {
-		if let Some((who, deposit)) = <DepositOf<T, I>>::take(proposal_hash) {
+	fn do_kill_proposal(proposal_hash: T::Hash) -> Result<(bool, u32), DispatchError> {
+		let slashed = if let Some((who, deposit)) = <DepositOf<T, I>>::take(proposal_hash) {
 			let (credit, _) =
 				T::Currency::slash(&HoldReason::ProposalSubmission.into(), &who, deposit);
 			Self::deposit_event(Event::ProposalDepositSlashed {
@@ -1188,9 +1188,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				amount: credit.peek(),
 			});
 			T::Slash::on_unbalanced(credit);
-		}
+			true
+		} else {
+			false
+		};
 		Self::deposit_event(Event::Killed { proposal_hash });
-		Ok(Self::remove_proposal(proposal_hash))
+		Ok((slashed, Self::remove_proposal(proposal_hash)))
 	}
 
 	// Removes a proposal from the pallet, cleaning up votes and the vector of proposals.
