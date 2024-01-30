@@ -16,7 +16,7 @@ use snowbridge_core::{
 };
 use sp_core::{H160, H256};
 use sp_std::{iter::Peekable, marker::PhantomData, prelude::*};
-use xcm::v4::prelude::*;
+use xcm::prelude::*;
 use xcm_executor::traits::{ConvertLocation, ExportXcm};
 
 pub struct EthereumBlobExporter<

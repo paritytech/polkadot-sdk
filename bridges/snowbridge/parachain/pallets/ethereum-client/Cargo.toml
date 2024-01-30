@@ -36,6 +36,7 @@ sp-io = { path = "../../../../../substrate/primitives/io", default-features = fa
 
 snowbridge-core = { path = "../../primitives/core", default-features = false }
 snowbridge-ethereum = { path = "../../primitives/ethereum", default-features = false }
+snowbridge-pallet-ethereum-client-fixtures = { path = "./fixtures", default-features = false, optional = true }
 primitives = { package = "snowbridge-beacon-primitives", path = "../../primitives/beacon", default-features = false }
 static_assertions = { version = "1.1.0", default-features = false }
 bp-runtime = { path = "../../../../primitives/runtime", default-features = false }
@@ -47,6 +48,7 @@ sp-keyring = { path = "../../../../../substrate/primitives/keyring" }
 serde_json = "1.0.111"
 hex-literal = "0.4.1"
 pallet-timestamp = { path = "../../../../../substrate/frame/timestamp" }
+snowbridge-pallet-ethereum-client-fixtures = { path = "./fixtures" }
 sp-io = { path = "../../../../../substrate/primitives/io" }
 serde = "1.0.195"
 
@@ -73,6 +75,7 @@ std = [
 	"serde",
 	"snowbridge-core/std",
 	"snowbridge-ethereum/std",
+	"snowbridge-pallet-ethereum-client-fixtures/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
@@ -87,6 +90,7 @@ runtime-benchmarks = [
 	"hex-literal",
 	"pallet-timestamp?/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
+	"snowbridge-pallet-ethereum-client-fixtures/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
@@ -95,5 +99,3 @@ try-runtime = [
 	"pallet-timestamp?/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-beacon-spec-minimal = []
-fast-runtime = ["beacon-spec-minimal"]
