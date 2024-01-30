@@ -164,6 +164,12 @@ impl Config for Test {
 		// Members can demote up to the rank of 3 below them.
 		MapSuccess<EnsureRanked<Test, (), 3>, ReduceBy<ConstU16<3>>>,
 	>;
+	type ExchangeOrigin = EitherOf<
+		// Root can exchange arbitrarily.
+		frame_system::EnsureRootWithSuccess<Self::AccountId, ConstU16<65535>>,
+		// Members can exchange up to the rank of 2 below them.
+		MapSuccess<EnsureRanked<Test, (), 2>, ReduceBy<ConstU16<2>>>,
+	>;
 	type Polls = TestPolls;
 	type MinRankOfClass = MinRankOfClass<MinRankOfClassDelta>;
 	type VoteWeight = Geometric;
@@ -516,8 +522,8 @@ fn ensure_ranked_works() {
 fn do_add_member_to_rank_works() {
 	new_test_ext().execute_with(|| {
 		let max_rank = 9u16;
-		assert_ok!(Club::do_add_member_to_rank(69, max_rank / 2));
-		assert_ok!(Club::do_add_member_to_rank(1337, max_rank));
+		assert_ok!(Club::do_add_member_to_rank(69, max_rank / 2, true));
+		assert_ok!(Club::do_add_member_to_rank(1337, max_rank, true));
 		for i in 0..=max_rank {
 			if i <= max_rank / 2 {
 				assert_eq!(member_count(i), 2);
@@ -566,5 +572,33 @@ fn tally_support_correct() {
 
 		// reset back.
 		MinRankOfClassDelta::set(0);
+	});
+}
+
+#[test]
+fn exchange_member_works() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
+		assert_eq!(member_count(0), 1);
+
+		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 1));
+
+		let member_record = MemberRecord { rank: 1 };
+		assert_eq!(Members::<Test>::get(1), Some(member_record.clone()));
+		assert_eq!(Members::<Test>::get(2), None);
+
+		assert_ok!(Club::exchange_member(RuntimeOrigin::root(), 1, 2));
+		assert_eq!(member_count(0), 1);
+
+		assert_eq!(Members::<Test>::get(1), None);
+		assert_eq!(Members::<Test>::get(2), Some(member_record));
+
+		assert_ok!(Club::add_member(RuntimeOrigin::root(), 3));
+		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 3));
+
+		assert_noop!(
+			Club::exchange_member(RuntimeOrigin::signed(3), 2, 1),
+			DispatchError::BadOrigin
+		);
 	});
 }

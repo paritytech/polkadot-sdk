@@ -136,6 +136,11 @@ impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime 
 			Replace<ConstU16<{ ranks::DAN_9 }>>,
 		>,
 	>;
+	// Exchange is by any of:
+	// - Root can exchange arbitrarily.
+	// - the Fellows origin
+	type ExchangeOrigin =
+		EitherOf<EnsureRootWithSuccess<Self::AccountId, ConstU16<65535>>, Fellows>;
 	type Polls = FellowshipReferenda;
 	type MinRankOfClass = tracks::MinRankOfClass;
 	type VoteWeight = pallet_ranked_collective::Geometric;
