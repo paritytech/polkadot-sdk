@@ -386,7 +386,7 @@ impl<T: frame_system::Config> runtime_parachains::paras_inherent::WeightInfo for
 	/// Proof: `OnDemandAssignmentProvider::ParaIdAffinity` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `CoretimeAssignmentProvider::CoreDescriptors` (r:50 w:50)
 	/// Proof: `CoretimeAssignmentProvider::CoreDescriptors` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `CoretimeAssignmentProvider::CoreSchedules` (r:1 w:1)
+	/// Storage: `CoretimeAssignmentProvider::CoreSchedules` (r:50 w:50)
 	/// Proof: `CoretimeAssignmentProvider::CoreSchedules` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `OnDemandAssignmentProvider::OnDemandQueue` (r:1 w:1)
 	/// Proof: `OnDemandAssignmentProvider::OnDemandQueue` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -404,8 +404,6 @@ impl<T: frame_system::Config> runtime_parachains::paras_inherent::WeightInfo for
 	/// Proof: `ParasShared::ActiveValidatorIndices` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Session::DisabledValidators` (r:1 w:0)
 	/// Proof: `Session::DisabledValidators` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `ParaInclusion::AvailabilityBitfields` (r:0 w:300)
-	/// Proof: `ParaInclusion::AvailabilityBitfields` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `ParasDisputes::Included` (r:0 w:50)
 	/// Proof: `ParasDisputes::Included` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Hrmp::HrmpWatermarks` (r:0 w:1)
@@ -414,12 +412,12 @@ impl<T: frame_system::Config> runtime_parachains::paras_inherent::WeightInfo for
 	/// Proof: `Paras::UpgradeGoAheadSignal` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn enter_on_demand_queue_processing() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `3307484`
-		//  Estimated: `3434699`
-		// Minimum execution time: 61_042_000_000 picoseconds.
-		Weight::from_parts(61_399_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 3434699))
-			.saturating_add(T::DbWeight::get().reads(569))
-			.saturating_add(T::DbWeight::get().writes(564))
+		//  Measured:  `3311896`
+		//  Estimated: `3439111`
+		// Minimum execution time: 5_150_305_000_000 picoseconds.
+		Weight::from_parts(5_237_879_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 3439111))
+			.saturating_add(T::DbWeight::get().reads(618))
+			.saturating_add(T::DbWeight::get().writes(313))
 	}
 }
