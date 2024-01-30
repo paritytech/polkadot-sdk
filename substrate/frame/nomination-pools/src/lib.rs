@@ -2885,7 +2885,7 @@ impl<T: Config> Pallet<T> {
 		reward_pool: RewardPool<T>,
 	) {
 		// The pool id of a member cannot change in any case, so we use it to make sure
-		// "member_account" is the right one.
+		// `member_account` is the right one.
 		debug_assert_eq!(PoolMembers::<T>::get(member_account).unwrap().pool_id, member.pool_id);
 		debug_assert_eq!(member.pool_id, bonded_pool.id);
 
