@@ -84,7 +84,7 @@ impl<Call> Decode for Xcm<Call> {
 				}
 				Ok(())
 			})
-			.unwrap_or(Ok(()))?;
+			.expect("Called in `using` context and thus can not return `None`; qed")?;
 			let decoded_instructions = decode_vec_with_len(input, number_of_instructions as usize)?;
 			Ok(Self(decoded_instructions))
 		})
