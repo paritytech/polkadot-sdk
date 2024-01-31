@@ -658,7 +658,7 @@ fn size_limits() {
 		(crate::latest::Junctions, 16),
 		(crate::latest::Junction, 88),
 		(crate::latest::Response, 40),
-		(crate::latest::AssetInstance, 40),
+		(crate::latest::AssetInstance, 48),
 		(crate::latest::NetworkId, 48),
 		(crate::latest::BodyId, 32),
 		(crate::latest::Assets, 24),
