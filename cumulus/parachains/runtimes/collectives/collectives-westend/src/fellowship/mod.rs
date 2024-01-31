@@ -141,7 +141,10 @@ impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime 
 		EitherOf<EnsureRootWithSuccess<Self::AccountId, ConstU16<65535>>, Fellows>;
 	type Polls = FellowshipReferenda;
 	type MinRankOfClass = tracks::MinRankOfClass;
+	type MemberSwappedHandler = (crate::FellowshipCore, crate::FellowshipSalary);
 	type VoteWeight = pallet_ranked_collective::Geometric;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkSetup = (crate::FellowshipCore, crate::FellowshipSalary);
 }
 
 pub type FellowshipCoreInstance = pallet_core_fellowship::Instance1;
