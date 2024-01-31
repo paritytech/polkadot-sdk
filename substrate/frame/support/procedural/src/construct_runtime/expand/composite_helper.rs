@@ -86,7 +86,7 @@ pub(crate) fn expand_variant_count(
 		// This is used for pallets without instance support or pallets with instance support when
 		// we don't specify instance:
 		//
-		// ```nocompile
+		// ```
 		// pub struct Pallet<T, I = ()>{..}
 		//
 		// #[pallet::composite_enum]

@@ -18,7 +18,7 @@
 use crate::pallet::Def;
 use proc_macro2::TokenStream;
 
-/// Expands `composite_enum` and adds the `VariantCount` implementation for it."
+/// Expands `composite_enum` and adds the `VariantCount` implementation for it.
 pub fn expand_composites(def: &mut Def) -> TokenStream {
 	let mut expand = quote::quote!();
 	let frame_support = &def.frame_support;
