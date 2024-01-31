@@ -634,6 +634,7 @@ impl<T: Config<I>, I: 'static> RankedMembersSwapHandler<T::AccountId, u16> for P
 	}
 }
 
+#[cfg(feature = "runtime-benchmarks")]
 impl<T: Config<I>, I: 'static>
 	pallet_ranked_collective::BenchmarkSetup<<T as frame_system::Config>::AccountId> for Pallet<T, I>
 {
