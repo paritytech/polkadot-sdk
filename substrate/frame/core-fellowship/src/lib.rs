@@ -47,7 +47,7 @@
 //! this explicitly when external factors to this pallet have caused the tracked account to become
 //! unranked. At rank 0, there is not a "demotion" period after which the account may be bumped to
 //! become offboarded but rather an "offboard timeout".
-//!>
+//!
 //! Candidates may be introduced (i.e. an account to go from unranked to rank of 0) by an origin
 //! of a different privilege to that for promotion. This allows the possibility for even a single
 //! existing member to introduce a new candidate without payment.
