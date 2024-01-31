@@ -354,7 +354,7 @@ impl TestEnvironment {
 			},
 			ResourceUsage {
 				resource: "Sent to peers".to_string(),
-				total: total_node_sent as f64,
+				total: total_node_sent,
 				per_block: total_node_sent / num_blocks,
 			},
 		]
