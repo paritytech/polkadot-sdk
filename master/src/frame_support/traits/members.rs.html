@@ -391,6 +391,13 @@
 <a href="#391" id="391">391</a>
 <a href="#392" id="392">392</a>
 <a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -688,6 +695,13 @@
 	<span class="doccomment">/// Demote a member to the next lower rank; demoting beyond the `min_rank` removes the
 	/// member entirely.
 	</span><span class="kw">fn </span>demote(who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; DispatchResult;
+}
+
+<span class="doccomment">/// Handler that can deal with the swap of two members.
+</span><span class="attr">#[impl_trait_for_tuples::impl_for_tuples(<span class="number">16</span>)]
+</span><span class="kw">pub trait </span>RankedMembersSwapHandler&lt;AccountId, Rank&gt; {
+	<span class="doccomment">/// Member `old` was swapped with `new` at `rank`.
+	</span><span class="kw">fn </span>swapped(who: <span class="kw-2">&amp;</span>AccountId, new_who: <span class="kw-2">&amp;</span>AccountId, rank: Rank);
 }
 
 <span class="doccomment">/// Trait for type that can handle the initialization of account IDs at genesis.

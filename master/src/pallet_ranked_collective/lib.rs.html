@@ -840,6 +840,31 @@
 <a href="#840" id="840">840</a>
 <a href="#841" id="841">841</a>
 <a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -896,7 +921,10 @@
 <span class="kw">use </span>frame_support::{
 	dispatch::{DispatchResultWithPostInfo, PostDispatchInfo},
 	ensure, impl_ensure_origin_with_arg_ignoring_arg,
-	traits::{EnsureOrigin, EnsureOriginWithArg, PollStatus, Polling, RankedMembers, VoteTally},
+	traits::{
+		EnsureOrigin, EnsureOriginWithArg, PollStatus, Polling, RankedMembers,
+		RankedMembersSwapHandler, VoteTally,
+	},
 	CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 
@@ -1207,6 +1235,13 @@
 	{}
 }
 
+<span class="doccomment">/// Helper functions to setup benchmarking.
+</span><span class="attr">#[impl_trait_for_tuples::impl_for_tuples(<span class="number">8</span>)]
+</span><span class="kw">pub trait </span>BenchmarkSetup&lt;AccountId&gt; {
+	<span class="doccomment">/// Ensure that this member is registered correctly.
+	</span><span class="kw">fn </span>ensure_member(acc: <span class="kw-2">&amp;</span>AccountId);
+}
+
 <span class="attr">#[frame_support::pallet]
 </span><span class="kw">pub mod </span>pallet {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -1244,11 +1279,21 @@
 		/// &quot;a rank of at least the poll class&quot;.
 		</span><span class="kw">type </span>MinRankOfClass: Convert&lt;ClassOf&lt;<span class="self">Self</span>, I&gt;, Rank&gt;;
 
+		<span class="doccomment">/// An external handler that will be notified when two members are swapped.
+		</span><span class="kw">type </span>MemberSwappedHandler: RankedMembersSwapHandler&lt;
+			&lt;Pallet&lt;<span class="self">Self</span>, I&gt; <span class="kw">as </span>RankedMembers&gt;::AccountId,
+			&lt;Pallet&lt;<span class="self">Self</span>, I&gt; <span class="kw">as </span>RankedMembers&gt;::Rank,
+		&gt;;
+
 		<span class="doccomment">/// Convert a rank_delta into a number of votes the rank gets.
 		///
 		/// Rank_delta is defined as the number of ranks above the minimum required to take part
 		/// in the poll.
 		</span><span class="kw">type </span>VoteWeight: Convert&lt;Rank, Votes&gt;;
+
+		<span class="doccomment">/// Setup a member for benchmarking.
+		</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+		</span><span class="kw">type </span>BenchmarkSetup: BenchmarkSetup&lt;<span class="self">Self</span>::AccountId&gt;;
 	}
 
 	<span class="doccomment">/// The number of members in the collective who have at least the rank according to the index
@@ -1521,7 +1566,12 @@
 			<span class="self">Self</span>::do_remove_member_from_rank(<span class="kw-2">&amp;</span>who, rank)<span class="question-mark">?</span>;
 			<span class="self">Self</span>::do_add_member_to_rank(new_who.clone(), rank, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
 
-			<span class="self">Self</span>::deposit_event(Event::MemberExchanged { who, new_who });
+			<span class="self">Self</span>::deposit_event(Event::MemberExchanged {
+				who: who.clone(),
+				new_who: new_who.clone(),
+			});
+			T::MemberSwappedHandler::swapped(<span class="kw-2">&amp;</span>who, <span class="kw-2">&amp;</span>new_who, rank);
+
 			<span class="prelude-val">Ok</span>(())
 		}
 	}

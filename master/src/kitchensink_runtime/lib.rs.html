@@ -2958,6 +2958,9 @@
 <a href="#2958" id="2958">2958</a>
 <a href="#2959" id="2959">2959</a>
 <a href="#2960" id="2960">2960</a>
+<a href="#2961" id="2961">2961</a>
+<a href="#2962" id="2962">2962</a>
+<a href="#2963" id="2963">2963</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3979,6 +3982,9 @@
 	<span class="kw">type </span>Polls = RankedPolls;
 	<span class="kw">type </span>MinRankOfClass = traits::Identity;
 	<span class="kw">type </span>VoteWeight = pallet_ranked_collective::Geometric;
+	<span class="kw">type </span>MemberSwappedHandler = (CoreFellowship, Salary);
+	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">type </span>BenchmarkSetup = (CoreFellowship, Salary);
 }
 
 <span class="kw">impl </span>pallet_remark::Config <span class="kw">for </span>Runtime {

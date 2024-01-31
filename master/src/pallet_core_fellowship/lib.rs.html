@@ -603,6 +603,45 @@
 <a href="#603" id="603">603</a>
 <a href="#604" id="604">604</a>
 <a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -670,10 +709,12 @@
 <span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>};
 
 <span class="kw">use </span>frame_support::{
+	defensive,
 	dispatch::DispatchResultWithPostInfo,
 	ensure, impl_ensure_origin_with_arg_ignoring_arg,
 	traits::{
 		tokens::Balance <span class="kw">as </span>BalanceTrait, EnsureOrigin, EnsureOriginWithArg, Get, RankedMembers,
+		RankedMembersSwapHandler,
 	},
 	BoundedVec,
 };
@@ -854,6 +895,8 @@
 		},
 		<span class="doccomment">/// Pre-ranked account has been inducted at their current rank.
 		</span>Imported { who: T::AccountId, rank: RankOf&lt;T, I&gt; },
+		<span class="doccomment">/// A member had its AccountId swapped.
+		</span>Swapped { who: T::AccountId, new_who: T::AccountId },
 	}
 
 	<span class="attr">#[pallet::error]
@@ -1207,5 +1250,40 @@
 	<span class="kw">impl</span>&lt; { T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>, <span class="kw">const </span>MIN_RANK: u16, A } &gt;
 		EnsureOriginWithArg&lt;T::RuntimeOrigin, A&gt; <span class="kw">for </span>EnsureInducted&lt;T, I, MIN_RANK&gt;
 	{}
+}
+
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; RankedMembersSwapHandler&lt;T::AccountId, u16&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+	<span class="kw">fn </span>swapped(old: <span class="kw-2">&amp;</span>T::AccountId, new: <span class="kw-2">&amp;</span>T::AccountId, _rank: u16) {
+		<span class="kw">if </span>old == new {
+			<span class="macro">defensive!</span>(<span class="string">&quot;Should not try to swap with self&quot;</span>);
+			<span class="kw">return
+		</span>}
+		<span class="kw">if </span>!Member::&lt;T, I&gt;::contains_key(old) {
+			<span class="macro">defensive!</span>(<span class="string">&quot;Should not try to swap non-member&quot;</span>);
+			<span class="kw">return
+		</span>}
+		<span class="kw">if </span>Member::&lt;T, I&gt;::contains_key(new) {
+			<span class="macro">defensive!</span>(<span class="string">&quot;Should not try to overwrite existing member&quot;</span>);
+			<span class="kw">return
+		</span>}
+
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(member) = Member::&lt;T, I&gt;::take(old) {
+			Member::&lt;T, I&gt;::insert(new, member);
+		}
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(we) = MemberEvidence::&lt;T, I&gt;::take(old) {
+			MemberEvidence::&lt;T, I&gt;::insert(new, we);
+		}
+
+		<span class="self">Self</span>::deposit_event(Event::&lt;T, I&gt;::Swapped { who: old.clone(), new_who: new.clone() });
+	}
+}
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;
+	pallet_ranked_collective::BenchmarkSetup&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt; <span class="kw">for </span>Pallet&lt;T, I&gt;
+{
+	<span class="kw">fn </span>ensure_member(who: <span class="kw-2">&amp;</span>&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId) {
+		<span class="self">Self</span>::import(frame_system::RawOrigin::Signed(who.clone()).into()).unwrap();
+	}
 }
 </code></pre></div></section></main></body></html>
