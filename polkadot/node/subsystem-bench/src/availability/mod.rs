@@ -417,7 +417,11 @@ impl TestState {
 	}
 }
 
-pub async fn benchmark_availability_read(benchmark_name: &str, env: &mut TestEnvironment, mut state: TestState) {
+pub async fn benchmark_availability_read(
+	benchmark_name: &str,
+	env: &mut TestEnvironment,
+	mut state: TestState,
+) {
 	let config = env.config().clone();
 
 	env.import_block(new_block_import_info(Hash::repeat_byte(1), 1)).await;
@@ -481,7 +485,11 @@ pub async fn benchmark_availability_read(benchmark_name: &str, env: &mut TestEnv
 	env.stop().await;
 }
 
-pub async fn benchmark_availability_write(benchmark_name: &str, env: &mut TestEnvironment, mut state: TestState) {
+pub async fn benchmark_availability_write(
+	benchmark_name: &str,
+	env: &mut TestEnvironment,
+	mut state: TestState,
+) {
 	let config = env.config().clone();
 
 	env.metrics().set_n_validators(config.n_validators);
@@ -633,11 +641,13 @@ pub async fn benchmark_availability_write(benchmark_name: &str, env: &mut TestEn
 		format!("{} ms", test_start.elapsed().as_millis() / env.config().num_blocks as u128).red()
 	);
 
-	println!("{}", env.collect_resource_usage(benchmark_name, &[
-		"availability-distribution",
-		"bitfield-distribution",
-		"availability-store",
-	]));
+	println!(
+		"{}",
+		env.collect_resource_usage(
+			benchmark_name,
+			&["availability-distribution", "bitfield-distribution", "availability-store",]
+		)
+	);
 	env.stop().await;
 }
 
