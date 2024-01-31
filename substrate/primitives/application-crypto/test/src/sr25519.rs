@@ -40,9 +40,7 @@ fn sr25519_works_in_runtime() {
 			.register_extension(KeystoreExt::new(keystore.clone()))
 			.build();
 
-	let (signature, public) = runtime_api
-		.test_sr25519_crypto()
-		.expect("Tests `sr25519` crypto.");
+	let (signature, public) = runtime_api.test_sr25519_crypto().expect("Tests `sr25519` crypto.");
 
 	let supported_keys = keystore.keys(SR25519).unwrap();
 	assert!(supported_keys.contains(&public.to_raw_vec()));

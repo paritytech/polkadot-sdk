@@ -679,10 +679,16 @@ pub fn run() -> Result<()> {
 					.map(|r| r.0)
 					.map_err(Into::into),
 
-					AssetHubKusama |
-					AssetHubRococo |
-					AssetHubWestend =>
+					AssetHubKusama | AssetHubWestend =>
 						crate::service::start_asset_hub_node::<
+							AuraId,
+						>(config, polkadot_config, collator_options, id, hwbench)
+						.await
+						.map(|r| r.0)
+						.map_err(Into::into),
+
+					AssetHubRococo =>
+						crate::service::start_asset_hub_lookahead_node::<
 							AuraId,
 						>(config, polkadot_config, collator_options, id, hwbench)
 						.await

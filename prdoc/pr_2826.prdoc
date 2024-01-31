@@ -1,0 +1,10 @@
+title: Enable async backing on asset-hub-rococo
+
+doc:
+  - audience: Runtime User
+    description: |
+      Async backing has been enabled on Asset Hub Rococo, which now targets 6s block times.
+
+crates:
+  - name: asset-hub-rococo-runtime
+  - name: polkadot-parachain-bin

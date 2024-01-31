@@ -54,8 +54,8 @@ use scale_info::TypeInfo;
 use sp_core::{H160, H256};
 use sp_std::{convert::TryFrom, vec};
 use xcm::prelude::{
-	send_xcm, Instruction::SetTopic, Junction::*, Junctions::*, MultiLocation,
-	SendError as XcmpSendError, SendXcm, Xcm, XcmContext, XcmHash,
+	send_xcm, Instruction::SetTopic, Junction::*, Location, SendError as XcmpSendError, SendXcm,
+	Xcm, XcmContext, XcmHash,
 };
 use xcm_executor::traits::TransactAsset;
 
@@ -324,7 +324,7 @@ pub mod pallet {
 		}
 
 		pub fn send_xcm(xcm: Xcm<()>, dest: ParaId) -> Result<XcmHash, Error<T>> {
-			let dest = MultiLocation { parents: 1, interior: X1(Parachain(dest.into())) };
+			let dest = Location::new(1, [Parachain(dest.into())]);
 			let (xcm_hash, _) = send_xcm::<T::XcmSender>(dest, xcm).map_err(Error::<T>::from)?;
 			Ok(xcm_hash)
 		}
@@ -341,8 +341,8 @@ pub mod pallet {
 		pub fn burn_fees(para_id: ParaId, fee: BalanceOf<T>) -> DispatchResult {
 			let dummy_context =
 				XcmContext { origin: None, message_id: Default::default(), topic: None };
-			let dest = MultiLocation { parents: 1, interior: X1(Parachain(para_id.into())) };
-			let fees = (MultiLocation::parent(), fee.saturated_into::<u128>()).into();
+			let dest = Location::new(1, [Parachain(para_id.into())]);
+			let fees = (Location::parent(), fee.saturated_into::<u128>()).into();
 			T::AssetTransactor::can_check_out(&dest, &fees, &dummy_context).map_err(|error| {
 				log::error!(
 					target: LOG_TARGET,

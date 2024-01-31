@@ -95,7 +95,9 @@ where
 	let mut module = RpcExtension::new(());
 	let FullDeps { client, pool, deny_unsafe } = deps;
 
-	module.merge(System::<_, _, _, Nonce, AccountId>::new(client.clone(), pool, deny_unsafe).into_rpc())?;
+	module.merge(
+		System::<_, _, _, Nonce, AccountId>::new(client.clone(), pool, deny_unsafe).into_rpc(),
+	)?;
 	module.merge(TransactionPayment::<_, _, Balance>::new(client.clone()).into_rpc())?;
 	module.merge(Dev::new(client, deny_unsafe).into_rpc())?;
 

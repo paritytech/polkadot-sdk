@@ -18,12 +18,11 @@
 //! to always return an empty set of disabled validators.
 
 use polkadot_cli::{
-	prepared_overseer_builder,
 	service::{
-		AuxStore, Block, Error, HeaderBackend, Overseer, OverseerConnector, OverseerGen,
-		OverseerGenArgs, OverseerHandle,
+		AuxStore, Block, Error, ExtendedOverseerGenArgs, HeaderBackend, Overseer,
+		OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle,
 	},
-	Cli,
+	validator_overseer_builder, Cli,
 };
 use polkadot_node_subsystem::SpawnGlue;
 use polkadot_node_subsystem_types::DefaultSubsystemClient;
@@ -50,6 +49,7 @@ impl OverseerGen for SupportDisabled {
 		&self,
 		connector: OverseerConnector,
 		args: OverseerGenArgs<'_, Spawner, RuntimeClient>,
+		ext_args: Option<ExtendedOverseerGenArgs>,
 	) -> Result<
 		(Overseer<SpawnGlue<Spawner>, Arc<DefaultSubsystemClient<RuntimeClient>>>, OverseerHandle),
 		Error,
@@ -58,12 +58,15 @@ impl OverseerGen for SupportDisabled {
 		RuntimeClient: 'static + HeaderBackend<Block> + AuxStore + CallApiAt<Block>,
 		Spawner: 'static + SpawnNamed + Clone + Unpin,
 	{
-		prepared_overseer_builder(args)?
-			.replace_runtime_api(move |ra_subsystem| {
-				InterceptedSubsystem::new(ra_subsystem, IgnoreDisabled)
-			})
-			.build_with_connector(connector)
-			.map_err(|e| e.into())
+		validator_overseer_builder(
+			args,
+			ext_args.expect("Extended arguments required to build validator overseer are provided"),
+		)?
+		.replace_runtime_api(move |ra_subsystem| {
+			InterceptedSubsystem::new(ra_subsystem, IgnoreDisabled)
+		})
+		.build_with_connector(connector)
+		.map_err(|e| e.into())
 	}
 }
 

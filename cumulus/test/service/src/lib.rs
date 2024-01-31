@@ -268,6 +268,7 @@ async fn build_relay_chain_interface(
 				polkadot_service::IsParachainNode::Collator(CollatorPair::generate().0)
 			},
 			None,
+			polkadot_service::CollatorOverseerGen,
 		)
 		.map_err(|e| RelayChainError::Application(Box::new(e) as Box<_>))?,
 		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) =>
@@ -796,6 +797,7 @@ pub fn node_config(
 		rpc_id_provider: None,
 		rpc_max_subs_per_conn: Default::default(),
 		rpc_port: 9945,
+		rpc_message_buffer_capacity: Default::default(),
 		prometheus_config: None,
 		telemetry_endpoints: None,
 		default_heap_pages: None,

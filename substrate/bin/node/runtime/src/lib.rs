@@ -533,7 +533,6 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = ConstU32<1>;
-	type MaxHolds = ConstU32<6>;
 }
 
 parameter_types! {
@@ -1016,9 +1015,13 @@ impl pallet_ranked_collective::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type PromoteOrigin = EnsureRootWithSuccess<AccountId, ConstU16<65535>>;
 	type DemoteOrigin = EnsureRootWithSuccess<AccountId, ConstU16<65535>>;
+	type ExchangeOrigin = EnsureRootWithSuccess<AccountId, ConstU16<65535>>;
 	type Polls = RankedPolls;
 	type MinRankOfClass = traits::Identity;
 	type VoteWeight = pallet_ranked_collective::Geometric;
+	type MemberSwappedHandler = (CoreFellowship, Salary);
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkSetup = (CoreFellowship, Salary);
 }
 
 impl pallet_remark::Config for Runtime {
@@ -1901,6 +1904,7 @@ impl pallet_state_trie_migration::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ControlOrigin = EnsureRoot<AccountId>;
 	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type MaxKeyLen = MigrationMaxKeyLen;
 	type SignedDepositPerItem = MigrationSignedDepositPerItem;
 	type SignedDepositBase = MigrationSignedDepositBase;
@@ -2083,8 +2087,7 @@ impl pallet_mixnet::Config for Runtime {
 }
 
 construct_runtime!(
-	pub struct Runtime
-	{
+	pub enum Runtime {
 		System: frame_system,
 		Utility: pallet_utility,
 		Babe: pallet_babe,
@@ -2099,11 +2102,6 @@ construct_runtime!(
 		AssetConversionTxPayment: pallet_asset_conversion_tx_payment,
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase,
 		Staking: pallet_staking,
-		Beefy: pallet_beefy::{Pallet, Call, Storage, Config<T>, ValidateUnsigned},
-		// MMR leaf construction must be before session in order to have leaf contents
-		// refer to block<N-1> consistently. see substrate issue #11797 for details.
-		Mmr: pallet_mmr::{Pallet, Storage},
-		MmrLeaf: pallet_beefy_mmr::{Pallet, Storage},
 		Session: pallet_session,
 		Democracy: pallet_democracy,
 		Council: pallet_collective::<Instance1>,
@@ -2118,7 +2116,7 @@ construct_runtime!(
 		ImOnline: pallet_im_online,
 		AuthorityDiscovery: pallet_authority_discovery,
 		Offences: pallet_offences,
-		Historical: pallet_session_historical::{Pallet},
+		Historical: pallet_session_historical,
 		RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip,
 		Identity: pallet_identity,
 		Society: pallet_society,
@@ -2133,6 +2131,11 @@ construct_runtime!(
 		Tips: pallet_tips,
 		Assets: pallet_assets::<Instance1>,
 		PoolAssets: pallet_assets::<Instance2>,
+		Beefy: pallet_beefy,
+		// MMR leaf construction must be after session in order to have a leaf's next_auth_set
+		// refer to block<N>. See issue polkadot-fellows/runtimes#160 for details.
+		Mmr: pallet_mmr,
+		MmrLeaf: pallet_beefy_mmr,
 		Lottery: pallet_lottery,
 		Nis: pallet_nis,
 		Uniques: pallet_uniques,

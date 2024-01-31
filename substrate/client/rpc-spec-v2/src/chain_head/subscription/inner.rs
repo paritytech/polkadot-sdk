@@ -825,9 +825,7 @@ mod tests {
 	use sp_consensus::BlockOrigin;
 	use sp_core::{testing::TaskExecutor, H256};
 	use substrate_test_runtime_client::{
-		prelude::*,
-		runtime::{Block},
-		Client, ClientBlockImportExt, GenesisInit,
+		prelude::*, runtime::Block, Client, ClientBlockImportExt, GenesisInit,
 	};
 
 	/// Maximum number of ongoing operations per subscription ID.

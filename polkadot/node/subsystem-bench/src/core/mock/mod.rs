@@ -18,11 +18,13 @@ use polkadot_node_subsystem::HeadSupportsParachains;
 use polkadot_node_subsystem_types::Hash;
 
 pub mod av_store;
+pub mod chain_api;
 pub mod dummy;
 pub mod network_bridge;
 pub mod runtime_api;
 
 pub use av_store::*;
+pub use chain_api::*;
 pub use runtime_api::*;
 
 pub struct AlwaysSupportsParachains {}

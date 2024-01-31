@@ -23,12 +23,11 @@
 #![allow(missing_docs)]
 
 use polkadot_cli::{
-	prepared_overseer_builder,
 	service::{
-		AuxStore, Block, Error, HeaderBackend, Overseer, OverseerConnector, OverseerGen,
-		OverseerGenArgs, OverseerHandle,
+		AuxStore, Block, Error, ExtendedOverseerGenArgs, HeaderBackend, Overseer,
+		OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle,
 	},
-	Cli,
+	validator_overseer_builder, Cli,
 };
 use polkadot_node_core_candidate_validation::find_validation_data;
 use polkadot_node_primitives::{AvailableData, BlockData, PoV};
@@ -266,6 +265,7 @@ impl OverseerGen for SuggestGarbageCandidates {
 		&self,
 		connector: OverseerConnector,
 		args: OverseerGenArgs<'_, Spawner, RuntimeClient>,
+		ext_args: Option<ExtendedOverseerGenArgs>,
 	) -> Result<
 		(Overseer<SpawnGlue<Spawner>, Arc<DefaultSubsystemClient<RuntimeClient>>>, OverseerHandle),
 		Error,
@@ -292,12 +292,13 @@ impl OverseerGen for SuggestGarbageCandidates {
 			SpawnGlue(args.spawner.clone()),
 		);
 
-		prepared_overseer_builder(args)?
-			.replace_candidate_backing(move |cb| InterceptedSubsystem::new(cb, note_candidate))
-			.replace_candidate_validation(move |cb| {
-				InterceptedSubsystem::new(cb, validation_filter)
-			})
-			.build_with_connector(connector)
-			.map_err(|e| e.into())
+		validator_overseer_builder(
+			args,
+			ext_args.expect("Extended arguments required to build validator overseer are provided"),
+		)?
+		.replace_candidate_backing(move |cb| InterceptedSubsystem::new(cb, note_candidate))
+		.replace_candidate_validation(move |cb| InterceptedSubsystem::new(cb, validation_filter))
+		.build_with_connector(connector)
+		.map_err(|e| e.into())
 	}
 }

@@ -34,6 +34,7 @@ mod tracks;
 use super::*;
 use crate::xcm_config::{FellowshipAdminBodyId, LocationToAccountId, WndAssetHub};
 use frame_support::traits::{EitherOf, MapSuccess, TryMapSuccess};
+use frame_system::EnsureRootWithSuccess;
 pub use origins::pallet_origins as pallet_ambassador_origins;
 use origins::pallet_origins::{
 	EnsureAmbassadorsVoice, EnsureAmbassadorsVoiceFrom, EnsureHeadAmbassadorsVoice, Origin,
@@ -99,14 +100,23 @@ pub type PromoteOrigin = EitherOf<
 	>,
 >;
 
+/// Exchange is by any of:
+/// - Root can exchange arbitrarily.
+/// - the Fellows origin
+pub type ExchangeOrigin = EitherOf<EnsureRootWithSuccess<AccountId, ConstU16<65535>>, Fellows>;
+
 impl pallet_ranked_collective::Config<AmbassadorCollectiveInstance> for Runtime {
 	type WeightInfo = weights::pallet_ranked_collective_ambassador_collective::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
 	type PromoteOrigin = PromoteOrigin;
 	type DemoteOrigin = DemoteOrigin;
+	type ExchangeOrigin = ExchangeOrigin;
 	type Polls = AmbassadorReferenda;
 	type MinRankOfClass = sp_runtime::traits::Identity;
+	type MemberSwappedHandler = (crate::AmbassadorCore, crate::AmbassadorSalary);
 	type VoteWeight = pallet_ranked_collective::Linear;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkSetup = (crate::AmbassadorCore, crate::AmbassadorSalary);
 }
 
 parameter_types! {
@@ -215,7 +225,7 @@ pub type AmbassadorSalaryInstance = pallet_salary::Instance2;
 parameter_types! {
 	// The interior location on AssetHub for the paying account. This is the Ambassador Salary
 	// pallet instance (which sits at index 74). This sovereign account will need funding.
-	pub AmbassadorSalaryLocation: InteriorMultiLocation = PalletInstance(74).into();
+	pub AmbassadorSalaryLocation: InteriorLocation = PalletInstance(74).into();
 }
 
 /// [`PayOverXcm`] setup to pay the Ambassador salary on the AssetHub in WND.

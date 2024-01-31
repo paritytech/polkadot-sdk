@@ -40,9 +40,7 @@ fn ed25519_works_in_runtime() {
 			.register_extension(KeystoreExt::new(keystore.clone()))
 			.build();
 
-	let (signature, public) = runtime_api
-		.test_ed25519_crypto()
-		.expect("Tests `ed25519` crypto.");
+	let (signature, public) = runtime_api.test_ed25519_crypto().expect("Tests `ed25519` crypto.");
 
 	let supported_keys = keystore.keys(ED25519).unwrap();
 	assert!(supported_keys.contains(&public.to_raw_vec()));

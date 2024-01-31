@@ -78,9 +78,10 @@ mod tests {
 			log::set_max_level(log::LevelFilter::from_str(&env::var("RUST_LOG").unwrap()).unwrap());
 
 			let client = TestClientBuilder::new().build();
-			let mut runtime_api = RuntimeInstance::builder(&client, client.chain_info().genesis_hash)
-				.off_chain_context()
-				.build();
+			let mut runtime_api =
+				RuntimeInstance::builder(&client, client.chain_info().genesis_hash)
+					.off_chain_context()
+					.build();
 			runtime_api.do_trace_log().expect("Logging should not fail");
 		} else {
 			for (level, should_print) in &[("trace", true), ("info", false)] {
