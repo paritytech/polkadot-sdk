@@ -178,6 +178,8 @@ impl pallet_ranked_collective::Config for Test {
 	type MinRankOfClass = MinRankOfClass<MinRankOfClassDelta>;
 	type MemberSwappedHandler = Salary;
 	type VoteWeight = Geometric;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkSetup = Salary;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

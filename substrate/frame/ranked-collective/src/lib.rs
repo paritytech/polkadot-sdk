@@ -368,6 +368,13 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 	{}
 }
 
+/// Helper functions to setup benchmarking.
+#[impl_trait_for_tuples::impl_for_tuples(8)]
+pub trait BenchmarkSetup<AccountId> {
+	/// Ensure that this member is registered correctly.
+	fn ensure_member(acc: &AccountId);
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -416,6 +423,10 @@ pub mod pallet {
 		/// Rank_delta is defined as the number of ranks above the minimum required to take part
 		/// in the poll.
 		type VoteWeight: Convert<Rank, Votes>;
+
+		/// Setup a member for benchmarking.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkSetup: BenchmarkSetup<Self::AccountId>;
 	}
 
 	/// The number of members in the collective who have at least the rank according to the index

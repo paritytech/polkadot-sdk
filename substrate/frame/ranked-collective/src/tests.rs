@@ -174,6 +174,8 @@ impl Config for Test {
 	type MinRankOfClass = MinRankOfClass<MinRankOfClassDelta>;
 	type MemberSwappedHandler = ();
 	type VoteWeight = Geometric;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkSetup = ();
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

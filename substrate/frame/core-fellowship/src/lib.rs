@@ -633,3 +633,11 @@ impl<T: Config<I>, I: 'static> RankedMembersSwapHandler<T::AccountId, u16> for P
 		Self::deposit_event(Event::<T, I>::Swapped { who: old.clone(), new_who: new.clone() });
 	}
 }
+
+impl<T: Config<I>, I: 'static>
+	pallet_ranked_collective::BenchmarkSetup<<T as frame_system::Config>::AccountId> for Pallet<T, I>
+{
+	fn ensure_member(who: &<T as frame_system::Config>::AccountId) {
+		Self::induct(frame_system::RawOrigin::Root.into(), who.clone()).unwrap();
+	}
+}

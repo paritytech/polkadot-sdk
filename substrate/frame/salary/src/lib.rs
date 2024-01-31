@@ -477,3 +477,12 @@ impl<T: Config<I>, I: 'static>
 		Self::deposit_event(Event::<T, I>::Swapped { who: who.clone(), new_who: new_who.clone() });
 	}
 }
+
+impl<T: Config<I>, I: 'static>
+	pallet_ranked_collective::BenchmarkSetup<<T as frame_system::Config>::AccountId> for Pallet<T, I>
+{
+	fn ensure_member(who: &<T as frame_system::Config>::AccountId) {
+		Self::init(frame_system::RawOrigin::Signed(who.clone()).into()).unwrap();
+		Self::induct(frame_system::RawOrigin::Signed(who.clone()).into()).unwrap();
+	}
+}
