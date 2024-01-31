@@ -63,7 +63,7 @@ pub struct AssignmentProviderConfig<BlockNumber> {
 pub trait AssignmentProvider<BlockNumber> {
 	/// Pops an [`Assignment`] from the provider for a specified [`CoreIndex`].
 	///
-	/// This is where assignments come into existance.
+	/// This is where assignments come into existence.
 	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Assignment>;
 
 	/// A previously popped `Assignment` has been fully processed.
@@ -77,7 +77,7 @@ pub trait AssignmentProvider<BlockNumber> {
 	/// Push back a previously popped assignment.
 	///
 	/// If the assignment could not be processed within the current session, it can be pushed back
-	/// to the assignment provider in order to be poppped again later.
+	/// to the assignment provider in order to be popped again later.
 	///
 	/// This is the second way the life of an assignment can come to an end.
 	fn push_back_assignment(assignment: Assignment);
