@@ -17,8 +17,6 @@
 
 //! Integration test together with the ranked-collective pallet.
 
-use std::collections::BTreeMap;
-
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, hypothetically, ord_parameter_types,
 	pallet_prelude::Weight,
@@ -26,7 +24,7 @@ use frame_support::{
 	traits::{ConstU16, EitherOf, IsInVec, MapSuccess, PollStatus, Polling, TryMapSuccess},
 };
 use frame_system::EnsureSignedBy;
-use pallet_ranked_collective::{EnsureRanked, Geometric, Rank, Tally, TallyOf, Votes};
+use pallet_ranked_collective::{EnsureRanked, Geometric, Rank, TallyOf, Votes};
 use sp_core::Get;
 use sp_runtime::{
 	traits::{Convert, ReduceBy, TryMorphInto},
@@ -82,27 +80,13 @@ impl Config for Test {
 	type EvidenceSize = EvidenceSize;
 }
 
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub enum TestPollState {
-	Ongoing(TallyOf<Test>, Rank),
-	Completed(u64, bool),
-}
-use TestPollState::*;
-
-parameter_types! {
-	pub static Polls: BTreeMap<u8, TestPollState> = vec![
-		(1, Completed(1, true)),
-		(2, Completed(2, false)),
-		(3, Ongoing(Tally::from_parts(0, 0, 0), 1)),
-	].into_iter().collect();
-}
-
 pub struct TestPolls;
 impl Polling<TallyOf<Test>> for TestPolls {
 	type Index = u8;
 	type Votes = Votes;
 	type Moment = u64;
 	type Class = Class;
+
 	fn classes() -> Vec<Self::Class> {
 		unimplemented!()
 	}

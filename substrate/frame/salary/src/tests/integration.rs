@@ -17,21 +17,18 @@
 
 //! The crate's tests.
 
-use std::collections::BTreeMap;
-
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, hypothetically,
 	pallet_prelude::Weight,
 	parameter_types,
 	traits::{ConstU64, EitherOf, MapSuccess, PollStatus, Polling},
 };
-use pallet_ranked_collective::{EnsureRanked, Geometric, Tally, TallyOf, Votes};
+use pallet_ranked_collective::{EnsureRanked, Geometric, TallyOf, Votes};
 use sp_core::{ConstU16, Get};
 use sp_runtime::{
 	traits::{Convert, ReduceBy},
 	BuildStorage, DispatchError,
 };
-use sp_std::cell::RefCell;
 
 use crate as pallet_salary;
 use crate::*;
@@ -56,21 +53,6 @@ parameter_types! {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
-}
-
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub enum TestPollState {
-	Ongoing(TallyOf<Test>, Rank),
-	Completed(u64, bool),
-}
-use TestPollState::*;
-
-parameter_types! {
-	pub static Polls: BTreeMap<u8, TestPollState> = vec![
-		(1, Completed(1, true)),
-		(2, Completed(2, false)),
-		(3, Ongoing(Tally::from_parts(0, 0, 0), 1)),
-	].into_iter().collect();
 }
 
 pub struct TestPolls;
@@ -119,17 +101,6 @@ impl<Delta: Get<Rank>> Convert<u16, Rank> for MinRankOfClass<Delta> {
 	}
 }
 
-thread_local! {
-	pub static PAID: RefCell<BTreeMap<u64, u64>> = RefCell::new(BTreeMap::new());
-	pub static STATUS: RefCell<BTreeMap<u64, PaymentStatus>> = RefCell::new(BTreeMap::new());
-	pub static LAST_ID: RefCell<u64> = RefCell::new(0u64);
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-fn set_status(id: u64, s: PaymentStatus) {
-	STATUS.with(|m| m.borrow_mut().insert(id, s));
-}
-
 pub struct TestPay;
 impl Pay for TestPay {
 	type Beneficiary = u64;
@@ -139,25 +110,20 @@ impl Pay for TestPay {
 	type Error = ();
 
 	fn pay(
-		who: &Self::Beneficiary,
+		_: &Self::Beneficiary,
 		_: Self::AssetKind,
-		amount: Self::Balance,
+		_: Self::Balance,
 	) -> Result<Self::Id, Self::Error> {
-		PAID.with(|paid| *paid.borrow_mut().entry(*who).or_default() += amount);
-		Ok(LAST_ID.with(|lid| {
-			let x = *lid.borrow();
-			lid.replace(x + 1);
-			x
-		}))
+		unreachable!()
 	}
-	fn check_payment(id: Self::Id) -> PaymentStatus {
-		STATUS.with(|s| s.borrow().get(&id).cloned().unwrap_or(PaymentStatus::Unknown))
+	fn check_payment(_: Self::Id) -> PaymentStatus {
+		unreachable!()
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(_: &Self::Beneficiary, _: Self::AssetKind, _: Self::Balance) {}
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_concluded(id: Self::Id) {
-		set_status(id, PaymentStatus::Failure)
+	fn ensure_concluded(_: Self::Id) {
+		unreachable!()
 	}
 }
 
