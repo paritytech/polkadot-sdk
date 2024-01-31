@@ -1685,11 +1685,6 @@
 <a href="#1685" id="1685">1685</a>
 <a href="#1686" id="1686">1686</a>
 <a href="#1687" id="1687">1687</a>
-<a href="#1688" id="1688">1688</a>
-<a href="#1689" id="1689">1689</a>
-<a href="#1690" id="1690">1690</a>
-<a href="#1691" id="1691">1691</a>
-<a href="#1692" id="1692">1692</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2124,10 +2119,7 @@
 	<span class="kw">if </span><span class="macro">cfg!</span>(any(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;try-runtime&quot;</span>)) {
 		no_bound::debug::derive_debug_no_bound(input)
 	} <span class="kw">else </span>{
-		<span class="kw">let </span>input: syn::DeriveInput = <span class="kw">match </span>syn::parse(input) {
-			<span class="prelude-val">Ok</span>(input) =&gt; input,
-			<span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span>e.to_compile_error().into(),
-		};
+		<span class="kw">let </span>input = <span class="macro">syn::parse_macro_input!</span>(input <span class="kw">as </span>syn::DeriveInput);
 
 		<span class="kw">let </span>name = <span class="kw-2">&amp;</span>input.ident;
 		<span class="kw">let </span>(impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -2155,10 +2147,7 @@
 <span class="doccomment">/// Derive [`Eq`] but do no bound any generic. Docs are at `frame_support::EqNoBound`.
 </span><span class="attr">#[proc_macro_derive(EqNoBound)]
 </span><span class="kw">pub fn </span>derive_eq_no_bound(input: TokenStream) -&gt; TokenStream {
-	<span class="kw">let </span>input: syn::DeriveInput = <span class="kw">match </span>syn::parse(input) {
-		<span class="prelude-val">Ok</span>(input) =&gt; input,
-		<span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span>e.to_compile_error().into(),
-	};
+	<span class="kw">let </span>input = <span class="macro">syn::parse_macro_input!</span>(input <span class="kw">as </span>syn::DeriveInput);
 
 	<span class="kw">let </span>name = <span class="kw-2">&amp;</span>input.ident;
 	<span class="kw">let </span>(impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -3211,13 +3200,14 @@
 ///
 /// ```ignore
 /// Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, TypeInfo,
-/// RuntimeDebug
+/// RuntimeDebug,
 /// ```
 ///
 /// For ease of usage, when no `#[derive]` attributes are found for the enum under
 /// `#[pallet::composite_enum]`, the aforementioned traits are automatically derived for it. The
 /// inverse is also true: if there are any `#[derive]` attributes found for the enum, then no traits
-/// will automatically be derived for it.
+/// will automatically be derived for it (this implies that you need to provide the
+/// `frame_support::traits::VariantCount` implementation).
 </span><span class="attr">#[proc_macro_attribute]
 </span><span class="kw">pub fn </span>composite_enum(<span class="kw">_</span>: TokenStream, <span class="kw">_</span>: TokenStream) -&gt; TokenStream {
 	pallet_macro_stub()

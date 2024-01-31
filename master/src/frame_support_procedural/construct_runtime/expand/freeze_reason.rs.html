@@ -67,6 +67,12 @@
 <a href="#67" id="67">67</a>
 <a href="#68" id="68">68</a>
 <a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -92,6 +98,7 @@
 <span class="kw">pub fn </span>expand_outer_freeze_reason(pallet_decls: <span class="kw-2">&amp;</span>[Pallet], scrate: <span class="kw-2">&amp;</span>TokenStream) -&gt; TokenStream {
 	<span class="kw">let </span><span class="kw-2">mut </span>conversion_fns = Vec::new();
 	<span class="kw">let </span><span class="kw-2">mut </span>freeze_reason_variants = Vec::new();
+	<span class="kw">let </span><span class="kw-2">mut </span>freeze_reason_variants_count = Vec::new();
 	<span class="kw">for </span>decl <span class="kw">in </span>pallet_decls {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw">_</span>) = decl.find_part(<span class="string">&quot;FreezeReason&quot;</span>) {
 			<span class="kw">let </span>variant_name = <span class="kw-2">&amp;</span>decl.name;
@@ -113,9 +120,14 @@
 				instance,
 				variant_name,
 			));
+
+			freeze_reason_variants_count.push(composite_helper::expand_variant_count(
+				<span class="string">&quot;FreezeReason&quot;</span>,
+				path,
+				instance,
+			));
 		}
 	}
-	<span class="kw">let </span>freeze_reason_variants_count = freeze_reason_variants.len() <span class="kw">as </span>u32;
 
 	<span class="macro">quote! </span>{
 		<span class="doccomment">/// A reason for placing a freeze on funds.
@@ -130,7 +142,7 @@
 		}
 
 		<span class="kw">impl </span>#scrate::traits::VariantCount <span class="kw">for </span>RuntimeFreezeReason {
-			<span class="kw">const </span>VARIANT_COUNT: u32 = #freeze_reason_variants_count;
+			<span class="kw">const </span>VARIANT_COUNT: u32 = <span class="number">0 </span>#( + #freeze_reason_variants_count )<span class="kw-2">*</span>;
 		}
 
 		#( #conversion_fns )*

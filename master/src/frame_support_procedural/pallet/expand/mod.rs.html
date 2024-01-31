@@ -128,6 +128,9 @@
 <a href="#128" id="128">128</a>
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -146,6 +149,7 @@
 // limitations under the License.
 
 </span><span class="kw">mod </span>call;
+<span class="kw">mod </span>composite;
 <span class="kw">mod </span>config;
 <span class="kw">mod </span>constants;
 <span class="kw">mod </span>doc_only;
@@ -206,6 +210,7 @@
 	<span class="kw">let </span>validate_unsigned = validate_unsigned::expand_validate_unsigned(<span class="kw-2">&amp;mut </span>def);
 	<span class="kw">let </span>tt_default_parts = tt_default_parts::expand_tt_default_parts(<span class="kw-2">&amp;mut </span>def);
 	<span class="kw">let </span>doc_only = doc_only::expand_doc_only(<span class="kw-2">&amp;mut </span>def);
+	<span class="kw">let </span>composites = composite::expand_composites(<span class="kw-2">&amp;mut </span>def);
 
 	def.item.attrs.insert(
 		<span class="number">0</span>,
@@ -247,6 +252,7 @@ storage item. Otherwise, all storage items are listed among [*Type Definitions*]
 		#validate_unsigned
 		#tt_default_parts
 		#doc_only
+		#composites
 	);
 
 	def.item

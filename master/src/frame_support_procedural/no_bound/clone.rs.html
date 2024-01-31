@@ -105,9 +105,6 @@
 <a href="#105" id="105">105</a>
 <a href="#106" id="106">106</a>
 <a href="#107" id="107">107</a>
-<a href="#108" id="108">108</a>
-<a href="#109" id="109">109</a>
-<a href="#110" id="110">110</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -129,10 +126,7 @@
 
 <span class="doccomment">/// Derive Clone but do not bound any generic.
 </span><span class="kw">pub fn </span>derive_clone_no_bound(input: proc_macro::TokenStream) -&gt; proc_macro::TokenStream {
-	<span class="kw">let </span>input: syn::DeriveInput = <span class="kw">match </span>syn::parse(input) {
-		<span class="prelude-val">Ok</span>(input) =&gt; input,
-		<span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span>e.to_compile_error().into(),
-	};
+	<span class="kw">let </span>input = <span class="macro">syn::parse_macro_input!</span>(input <span class="kw">as </span>syn::DeriveInput);
 
 	<span class="kw">let </span>name = <span class="kw-2">&amp;</span>input.ident;
 	<span class="kw">let </span>(impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();

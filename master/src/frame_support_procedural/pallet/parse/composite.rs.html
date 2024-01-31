@@ -163,6 +163,34 @@
 <a href="#163" id="163">163</a>
 <a href="#164" id="164">164</a>
 <a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -256,8 +284,16 @@
 	</span><span class="kw">pub </span>index: usize,
 	<span class="doccomment">/// The composite keyword used (contains span).
 	</span><span class="kw">pub </span>composite_keyword: keyword::CompositeKeyword,
+
+	<span class="doccomment">/// Name of the associated type.
+	</span><span class="kw">pub </span>ident: syn::Ident,
+	<span class="doccomment">/// Type parameters and where clause attached to a declaration of the pallet::composite_enum.
+	</span><span class="kw">pub </span>generics: syn::Generics,
 	<span class="doccomment">/// The span of the pallet::composite_enum attribute.
 	</span><span class="kw">pub </span>attr_span: proc_macro2::Span,
+
+	<span class="doccomment">/// Variant count of the pallet::composite_enum.
+	</span><span class="kw">pub </span>variant_count: u32,
 }
 
 <span class="kw">impl </span>CompositeDef {
@@ -268,6 +304,19 @@
 		item: <span class="kw-2">&amp;mut </span>syn::Item,
 	) -&gt; syn::Result&lt;<span class="self">Self</span>&gt; {
 		<span class="kw">let </span>item = <span class="kw">if let </span>syn::Item::Enum(item) = item {
+			<span class="comment">// check variants: composite enums support only field-less enum variants. This is
+			// because fields can introduce too many possibilities, making it challenging to compute
+			// a fixed variant count.
+			</span><span class="kw">for </span>variant <span class="kw">in </span><span class="kw-2">&amp;</span>item.variants {
+				<span class="kw">match </span>variant.fields {
+					syn::Fields::Named(<span class="kw">_</span>) | syn::Fields::Unnamed(<span class="kw">_</span>) =&gt;
+						<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(
+							variant.ident.span(),
+							<span class="string">&quot;The composite enum does not support variants with fields!&quot;</span>,
+						)),
+					syn::Fields::Unit =&gt; (),
+				}
+			}
 			item
 		} <span class="kw">else </span>{
 			<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(
@@ -325,7 +374,14 @@
 		<span class="kw">let </span>composite_keyword =
 			syn::parse2::&lt;keyword::CompositeKeyword&gt;(item.ident.to_token_stream())<span class="question-mark">?</span>;
 
-		<span class="prelude-val">Ok</span>(CompositeDef { index, composite_keyword, attr_span })
+		<span class="prelude-val">Ok</span>(CompositeDef {
+			index,
+			composite_keyword,
+			attr_span,
+			generics: item.generics.clone(),
+			variant_count: item.variants.len() <span class="kw">as </span>u32,
+			ident: item.ident.clone(),
+		})
 	}
 }
 </code></pre></div></section></main></body></html>

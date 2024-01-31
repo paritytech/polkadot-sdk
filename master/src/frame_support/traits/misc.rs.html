@@ -1476,6 +1476,12 @@
 <a href="#1476" id="1476">1476</a>
 <a href="#1477" id="1477">1477</a>
 <a href="#1478" id="1478">1478</a>
+<a href="#1479" id="1479">1479</a>
+<a href="#1480" id="1480">1480</a>
+<a href="#1481" id="1481">1481</a>
+<a href="#1482" id="1482">1482</a>
+<a href="#1483" id="1483">1483</a>
+<a href="#1484" id="1484">1484</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1515,8 +1521,6 @@
 </span><span class="kw">pub const </span>DEFENSIVE_OP_INTERNAL_ERROR: <span class="kw-2">&amp;</span>str = <span class="string">&quot;Defensive failure has been triggered!&quot;</span>;
 
 <span class="doccomment">/// Trait to get the number of variants in any enum.
-///
-/// NOTE: can be removed once &lt;https://doc.rust-lang.org/std/mem/fn.variant_count.html&gt; is stable.
 </span><span class="kw">pub trait </span>VariantCount {
 	<span class="doccomment">/// Get the number of variants.
 	</span><span class="kw">const </span>VARIANT_COUNT: u32;
@@ -1524,6 +1528,14 @@
 
 <span class="kw">impl </span>VariantCount <span class="kw">for </span>() {
 	<span class="kw">const </span>VARIANT_COUNT: u32 = <span class="number">0</span>;
+}
+
+<span class="doccomment">/// Adapter for `Get&lt;u32&gt;` to access `VARIANT_COUNT` from `trait pub trait VariantCount {`.
+</span><span class="kw">pub struct </span>VariantCountOf&lt;T: VariantCount&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+<span class="kw">impl</span>&lt;T: VariantCount&gt; Get&lt;u32&gt; <span class="kw">for </span>VariantCountOf&lt;T&gt; {
+	<span class="kw">fn </span>get() -&gt; u32 {
+		T::VARIANT_COUNT
+	}
 }
 
 <span class="doccomment">/// Generic function to mark an execution path as ONLY defensive.

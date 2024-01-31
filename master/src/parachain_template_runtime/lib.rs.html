@@ -767,7 +767,6 @@
 <a href="#767" id="767">767</a>
 <a href="#768" id="768">768</a>
 <a href="#769" id="769">769</a>
-<a href="#770" id="770">770</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 </span><span class="comment">// `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 </span><span class="attr">#![recursion_limit = <span class="string">&quot;256&quot;</span>]
@@ -1107,7 +1106,6 @@
 	<span class="kw">type </span>RuntimeHoldReason = RuntimeHoldReason;
 	<span class="kw">type </span>RuntimeFreezeReason = RuntimeFreezeReason;
 	<span class="kw">type </span>FreezeIdentifier = ();
-	<span class="kw">type </span>MaxHolds = ConstU32&lt;<span class="number">0</span>&gt;;
 	<span class="kw">type </span>MaxFreezes = ConstU32&lt;<span class="number">0</span>&gt;;
 }
 
