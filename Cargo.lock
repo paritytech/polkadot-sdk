@@ -813,6 +813,7 @@ dependencies = [
  "parachains-common",
  "rococo-emulated-chain",
  "sp-core",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -822,6 +823,7 @@ dependencies = [
  "assert_matches",
  "asset-hub-rococo-runtime",
  "asset-test-utils",
+ "cumulus-pallet-parachain-system",
  "emulated-integration-tests-common",
  "frame-support",
  "pallet-asset-conversion",
@@ -836,6 +838,7 @@ dependencies = [
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -915,6 +918,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -927,6 +931,7 @@ dependencies = [
  "frame-support",
  "parachains-common",
  "sp-core",
+ "testnet-parachains-constants",
  "westend-emulated-chain",
 ]
 
@@ -953,6 +958,7 @@ dependencies = [
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
+ "testnet-parachains-constants",
  "westend-runtime",
  "westend-system-emulated-network",
 ]
@@ -1029,6 +1035,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
  "westend-runtime-constants",
 ]
 
@@ -1582,9 +1589,9 @@ dependencies = [
 
 [[package]]
 name = "bounded-collections"
-version = "0.1.9"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca548b6163b872067dc5eb82fd130c56881435e30367d2073594a3d9744120dd"
+checksum = "d32385ecb91a31bddaf908e8dcf4a15aef1bcd3913cc03ebfad02ff6d568abc1"
 dependencies = [
  "log",
  "parity-scale-codec",
@@ -1922,6 +1929,7 @@ dependencies = [
  "frame-support",
  "parachains-common",
  "sp-core",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -1956,6 +1964,7 @@ dependencies = [
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -2052,6 +2061,7 @@ dependencies = [
  "staging-xcm-executor",
  "static_assertions",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -2102,6 +2112,7 @@ dependencies = [
  "frame-support",
  "parachains-common",
  "sp-core",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -2206,6 +2217,7 @@ dependencies = [
  "staging-xcm-executor",
  "static_assertions",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
  "westend-runtime-constants",
 ]
 
@@ -2694,6 +2706,7 @@ dependencies = [
  "frame-support",
  "parachains-common",
  "sp-core",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -2765,6 +2778,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
  "westend-runtime-constants",
 ]
 
@@ -3008,6 +3022,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -3102,6 +3117,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -3163,6 +3179,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
  "westend-runtime-constants",
 ]
 
@@ -6131,6 +6148,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -9230,6 +9248,7 @@ dependencies = [
 name = "pallet-balances"
 version = "28.0.0"
 dependencies = [
+ "docify",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -9638,6 +9657,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-ranked-collective",
  "parity-scale-codec",
  "scale-info",
  "sp-arithmetic",
@@ -10443,6 +10463,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -10570,6 +10591,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-ranked-collective",
  "parity-scale-codec",
  "scale-info",
  "sp-arithmetic",
@@ -11282,11 +11304,8 @@ dependencies = [
  "pallet-message-queue",
  "pallet-xcm",
  "parity-scale-codec",
- "polkadot-core-primitives",
  "polkadot-primitives",
- "rococo-runtime-constants",
  "scale-info",
- "smallvec",
  "sp-consensus-aura",
  "sp-core",
  "sp-io",
@@ -11296,7 +11315,6 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-executor",
  "substrate-wasm-builder",
- "westend-runtime-constants",
 ]
 
 [[package]]
@@ -11595,6 +11613,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -11607,6 +11626,7 @@ dependencies = [
  "parachains-common",
  "people-rococo-runtime",
  "sp-core",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -11691,6 +11711,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -11703,6 +11724,7 @@ dependencies = [
  "parachains-common",
  "people-westend-runtime",
  "sp-core",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -11786,6 +11808,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
  "westend-runtime-constants",
 ]
 
@@ -13004,6 +13027,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "substrate-state-trie-migration-rpc",
  "tempfile",
+ "testnet-parachains-constants",
  "tokio",
  "wait-timeout",
 ]
@@ -14764,6 +14788,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -19967,6 +19992,19 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "sp-weights",
+]
+
+[[package]]
+name = "testnet-parachains-constants"
+version = "1.0.0"
+dependencies = [
+ "frame-support",
+ "polkadot-core-primitives",
+ "rococo-runtime-constants",
+ "smallvec",
+ "sp-runtime",
+ "staging-xcm",
+ "westend-runtime-constants",
 ]
 
 [[package]]
