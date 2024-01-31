@@ -251,11 +251,13 @@ where
 		} else {
 			Some((announce.header.hash(), *announce.header.number()))
 		};
+
 		if let Some(new_best) = new_best {
 			if let Some(best) = self.peer_best_blocks.get_mut(&peer_id) {
 				*best = new_best;
 			}
 		}
+
 		new_best
 	}
 
