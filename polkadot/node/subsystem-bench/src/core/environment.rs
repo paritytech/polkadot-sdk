@@ -328,9 +328,13 @@ impl TestEnvironment {
 		}
 	}
 
-	pub fn collect_resource_usage(&self, subsystems_under_test: &[&str]) -> CollectedResourceUsage {
+	pub fn collect_resource_usage(
+		&self,
+		benchmark_name: &str,
+		subsystems_under_test: &[&str],
+	) -> CollectedResourceUsage {
 		CollectedResourceUsage {
-			benchmark: "Subsystem benchmarks".to_string(),
+			benchmark_name: benchmark_name.to_string(),
 			network: self.network_usage(),
 			cpu: self.cpu_usage(subsystems_under_test),
 		}
@@ -388,7 +392,7 @@ impl TestEnvironment {
 
 #[derive(Debug)]
 pub struct CollectedResourceUsage {
-	benchmark: String,
+	benchmark_name: String,
 	network: Vec<ResourceUsage>,
 	cpu: Vec<ResourceUsage>,
 }
@@ -398,7 +402,7 @@ impl std::fmt::Display for CollectedResourceUsage {
 		write!(
 			f,
 			"\n{}\n\n{}\n{}\n\n{}\n{}\n",
-			self.benchmark.blue(),
+			self.benchmark_name.purple(),
 			format!("{:<32}{:>12}{:>12}", "Network usage, KiB", "total", "per block").blue(),
 			self.network.iter().map(|v| v.to_string()).collect::<Vec<String>>().join("\n"),
 			format!("{:<32}{:>12}{:>12}", "CPU usage, s", "total", "per block").blue(),
