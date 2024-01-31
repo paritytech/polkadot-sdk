@@ -206,7 +206,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{
 		pallet_prelude::*,
-		traits::{fungible::Credit, tokens::Precision, VariantCount},
+		traits::{fungible::Credit, tokens::Precision, VariantCount, VariantCountOf},
 	};
 	use frame_system::pallet_prelude::*;
 
@@ -242,7 +242,6 @@ pub mod pallet {
 			type MaxLocks = ConstU32<100>;
 			type MaxReserves = ConstU32<100>;
 			type MaxFreezes = ConstU32<100>;
-			type MaxHolds = ConstU32<100>;
 
 			type WeightInfo = ();
 		}
@@ -315,10 +314,6 @@ pub mod pallet {
 		/// The maximum number of named reserves that can exist on an account.
 		#[pallet::constant]
 		type MaxReserves: Get<u32>;
-
-		/// The maximum number of holds that can exist on an account at any time.
-		#[pallet::constant]
-		type MaxHolds: Get<u32>;
 
 		/// The maximum number of individual freeze locks that can exist on an account at any time.
 		#[pallet::constant]
@@ -407,7 +402,7 @@ pub mod pallet {
 		DeadAccount,
 		/// Number of named reserves exceed `MaxReserves`.
 		TooManyReserves,
-		/// Number of holds exceed `MaxHolds`.
+		/// Number of holds exceed `VariantCountOf<T::RuntimeHoldReason>`.
 		TooManyHolds,
 		/// Number of freezes exceed `MaxFreezes`.
 		TooManyFreezes,
@@ -487,7 +482,10 @@ pub mod pallet {
 		_,
 		Blake2_128Concat,
 		T::AccountId,
-		BoundedVec<IdAmount<T::RuntimeHoldReason, T::Balance>, T::MaxHolds>,
+		BoundedVec<
+			IdAmount<T::RuntimeHoldReason, T::Balance>,
+			VariantCountOf<T::RuntimeHoldReason>,
+		>,
 		ValueQuery,
 	>;
 
@@ -554,13 +552,6 @@ pub mod pallet {
 			assert!(
 				!<T as Config<I>>::ExistentialDeposit::get().is_zero(),
 				"The existential deposit must be greater than zero!"
-			);
-
-			assert!(
-				T::MaxHolds::get() >= <T::RuntimeHoldReason as VariantCount>::VARIANT_COUNT,
-				"MaxHolds should be greater than or equal to the number of hold reasons: {} < {}",
-				T::MaxHolds::get(),
-				<T::RuntimeHoldReason as VariantCount>::VARIANT_COUNT
 			);
 
 			assert!(
