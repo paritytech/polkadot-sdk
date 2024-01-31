@@ -11962,7 +11962,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot"
-version = "6.0.0"
+version = "1.7.0"
 dependencies = [
  "assert_cmd",
  "color-eyre",
