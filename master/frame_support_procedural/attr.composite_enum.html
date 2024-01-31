@@ -10,7 +10,7 @@ respectively.</p>
 the pallet enum to the aggregate enum, and automatically derives the following traits:</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, TypeInfo,
-RuntimeDebug,</code></pre></div>
+RuntimeDebug</code></pre></div>
 <p>For ease of usage, when no <code>#[derive]</code> attributes are found for the enum under
 <code>#[pallet::composite_enum]</code>, the aforementioned traits are automatically derived for it. The
 inverse is also true: if there are any <code>#[derive]</code> attributes found for the enum, then no traits
