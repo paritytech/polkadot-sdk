@@ -23,16 +23,13 @@ use frame_support::{
 	assert_noop, assert_ok, derive_impl, hypothetically,
 	pallet_prelude::Weight,
 	parameter_types,
-	traits::{
-		tokens::ConvertRank, ConstU32, ConstU64, EitherOf, Everything, MapSuccess, PollStatus,
-		Polling,
-	},
+	traits::{ConstU32, ConstU64, EitherOf, Everything, MapSuccess, PollStatus, Polling},
 };
 use pallet_ranked_collective::{EnsureRanked, Geometric, Tally, TallyOf, Votes};
 use sp_core::{ConstU16, Get, H256};
 use sp_runtime::{
-	traits::{BlakeTwo256, Convert, Identity, IdentityLookup, ReduceBy},
-	BuildStorage, DispatchError, DispatchResult,
+	traits::{BlakeTwo256, Convert, IdentityLookup, ReduceBy},
+	BuildStorage, DispatchError,
 };
 use sp_std::cell::RefCell;
 
@@ -108,18 +105,18 @@ impl Polling<TallyOf<Test>> for TestPolls {
 	fn classes() -> Vec<Self::Class> {
 		unimplemented!()
 	}
-	fn as_ongoing(index: u8) -> Option<(TallyOf<Test>, Self::Class)> {
+	fn as_ongoing(_index: u8) -> Option<(TallyOf<Test>, Self::Class)> {
 		unimplemented!()
 	}
 	fn access_poll<R>(
-		index: Self::Index,
-		f: impl FnOnce(PollStatus<&mut TallyOf<Test>, Self::Moment, Self::Class>) -> R,
+		_index: Self::Index,
+		_f: impl FnOnce(PollStatus<&mut TallyOf<Test>, Self::Moment, Self::Class>) -> R,
 	) -> R {
 		unimplemented!()
 	}
 	fn try_access_poll<R>(
-		index: Self::Index,
-		f: impl FnOnce(
+		_index: Self::Index,
+		_f: impl FnOnce(
 			PollStatus<&mut TallyOf<Test>, Self::Moment, Self::Class>,
 		) -> Result<R, DispatchError>,
 	) -> Result<R, DispatchError> {
@@ -127,12 +124,12 @@ impl Polling<TallyOf<Test>> for TestPolls {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn create_ongoing(class: Self::Class) -> Result<Self::Index, ()> {
+	fn create_ongoing(_class: Self::Class) -> Result<Self::Index, ()> {
 		unimplemented!()
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn end_ongoing(index: Self::Index, approved: bool) -> Result<(), ()> {
+	fn end_ongoing(_index: Self::Index, _approved: bool) -> Result<(), ()> {
 		unimplemented!()
 	}
 }
@@ -150,12 +147,7 @@ thread_local! {
 	pub static LAST_ID: RefCell<u64> = RefCell::new(0u64);
 }
 
-fn paid(who: u64) -> u64 {
-	PAID.with(|p| p.borrow().get(&who).cloned().unwrap_or(0))
-}
-fn unpay(who: u64, amount: u64) {
-	PAID.with(|p| p.borrow_mut().entry(who).or_default().saturating_reduce(amount))
-}
+#[cfg(feature = "runtime-benchmarks")]
 fn set_status(id: u64, s: PaymentStatus) {
 	STATUS.with(|m| m.borrow_mut().insert(id, s));
 }
@@ -240,8 +232,8 @@ impl pallet_ranked_collective::Config for Test {
 	>;
 	type Polls = TestPolls;
 	type MinRankOfClass = MinRankOfClass<MinRankOfClassDelta>;
-	type VoteWeight = Geometric;
 	type MemberSwappedHandler = Salary;
+	type VoteWeight = Geometric;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

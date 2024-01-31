@@ -19,5 +19,5 @@
 
 //! Tests for this crate.
 
-mod integration;
-mod unit;
+pub(crate) mod integration;
+pub(crate) mod unit;

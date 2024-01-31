@@ -113,6 +113,7 @@ impl pallet_ranked_collective::Config<AmbassadorCollectiveInstance> for Runtime 
 	type ExchangeOrigin = ExchangeOrigin;
 	type Polls = AmbassadorReferenda;
 	type MinRankOfClass = sp_runtime::traits::Identity;
+	type MemberSwappedHandler = (crate::AmbassadorCore, crate::AmbassadorSalary);
 	type VoteWeight = pallet_ranked_collective::Linear;
 }
 

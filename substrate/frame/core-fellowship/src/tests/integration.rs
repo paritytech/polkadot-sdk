@@ -36,7 +36,6 @@ use sp_runtime::{
 	BuildStorage, DispatchError, DispatchResult,
 };
 type Class = Rank;
-use sp_std::cell::RefCell;
 
 use crate as pallet_core_fellowship;
 use crate::*;
@@ -176,11 +175,7 @@ impl Polling<TallyOf<Test>> for TestPolls {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn create_ongoing(class: Self::Class) -> Result<Self::Index, ()> {
-		let mut polls = Polls::get();
-		let i = polls.keys().rev().next().map_or(0, |x| x + 1);
-		polls.insert(i, Ongoing(Tally::new(class), class));
-		Polls::set(polls);
-		Ok(i)
+		unimplemented!()
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -229,8 +224,8 @@ impl pallet_ranked_collective::Config for Test {
 	>;
 	type Polls = TestPolls;
 	type MinRankOfClass = MinRankOfClass<MinRankOfClassDelta>;
-	type VoteWeight = Geometric;
 	type MemberSwappedHandler = CoreFellowship;
+	type VoteWeight = Geometric;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

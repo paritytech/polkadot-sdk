@@ -172,8 +172,8 @@ impl Config for Test {
 	>;
 	type Polls = TestPolls;
 	type MinRankOfClass = MinRankOfClass<MinRankOfClassDelta>;
-	type VoteWeight = Geometric;
 	type MemberSwappedHandler = ();
+	type VoteWeight = Geometric;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
