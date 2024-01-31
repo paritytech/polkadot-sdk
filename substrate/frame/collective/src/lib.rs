@@ -195,7 +195,7 @@ impl<Balance> GetDeposit<Balance> for () {
 }
 
 /// Types implementing [`GetDeposit`] trait.
-/// 
+///
 /// ### Example:
 ///
 /// 1. Linear increasing with helper types.
