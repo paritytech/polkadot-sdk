@@ -1639,6 +1639,7 @@ fn kill_proposal_with_deposit() {
 	})
 }
 
+#[docify::export]
 #[test]
 fn deposit_types_with_linear_work() {
 	type LinearWithSlop2 = crate::deposit::Linear<ConstU32<2>, ConstU128<10>>;
@@ -1677,6 +1678,7 @@ fn deposit_types_with_linear_work() {
 	assert_eq!(WithCeil13::get_deposit(13), Some(13u128));
 }
 
+#[docify::export]
 #[test]
 fn deposit_types_with_geometric_work() {
 	type WithRatio2Base10 = crate::deposit::Geometric<ConstU32<2>, ConstU128<10>>;

@@ -195,8 +195,14 @@ impl<Balance> GetDeposit<Balance> for () {
 }
 
 /// Types implementing [`GetDeposit`] trait.
-/// Look for use examples to [`crate::tests::deposit_types_with_linear_work`],
-/// [`crate::tests::deposit_types_with_geometric_work`] and [`crate::tests::constant_deposit_work`].
+/// 
+/// ### Example:
+///
+/// 1. Linear increasing with helper types.
+#[doc = docify::embed!("src/tests.rs", deposit_types_with_linear_work)]
+///
+/// 2. Geometrically increasing with helper types.
+#[doc = docify::embed!("src/tests.rs", deposit_types_with_geometric_work)]
 pub mod deposit {
 	use super::GetDeposit;
 	use sp_core::Get;

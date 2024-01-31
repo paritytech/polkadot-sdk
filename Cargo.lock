@@ -9484,6 +9484,7 @@ dependencies = [
 name = "pallet-collective"
 version = "28.0.0"
 dependencies = [
+ "docify",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
