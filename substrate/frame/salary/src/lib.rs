@@ -31,7 +31,7 @@ use frame_support::{
 	ensure,
 	traits::{
 		tokens::{GetSalary, Pay, PaymentStatus},
-		RankedMembers,
+		RankedMembers, RankedMembersSwapHandler,
 	},
 };
 
@@ -173,6 +173,8 @@ pub mod pallet {
 		},
 		/// The next cycle begins.
 		CycleStarted { index: CycleIndexOf<T> },
+		/// A member swapped their account.
+		Swapped { who: T::AccountId, new_who: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -445,5 +447,23 @@ pub mod pallet {
 			Self::deposit_event(Event::<T, I>::Paid { who, beneficiary, amount: payout, id });
 			Ok(())
 		}
+	}
+}
+
+impl<T: Config<I>, I: 'static>
+	RankedMembersSwapHandler<T::AccountId, <T::Members as RankedMembers>::Rank> for Pallet<T, I>
+{
+	fn swapped(
+		who: &T::AccountId,
+		new_who: &T::AccountId,
+		_rank: <T::Members as RankedMembers>::Rank,
+	) {
+		let Some(claimant) = Claimant::<T, I>::take(&who) else {
+			frame_support::defensive!("Claimant should exist when swapping");
+			return;
+		};
+
+		Claimant::<T, I>::insert(&new_who, &claimant);
+		Self::deposit_event(Event::<T, I>::Swapped { who: who.clone(), new_who: new_who.clone() });
 	}
 }

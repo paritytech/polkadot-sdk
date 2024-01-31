@@ -15,46 +15,45 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Integration test together with the ranked-collective pallet.
+//! The crate's tests.
 
 use std::collections::BTreeMap;
 
 use frame_support::{
-	assert_noop, assert_ok, derive_impl, hypothetically, ord_parameter_types,
+	assert_noop, assert_ok, derive_impl, hypothetically,
 	pallet_prelude::Weight,
 	parameter_types,
 	traits::{
-		ConstU16, ConstU32, ConstU64, EitherOf, Everything, IsInVec, MapSuccess, PollStatus,
-		Polling, TryMapSuccess,
+		tokens::ConvertRank, ConstU32, ConstU64, EitherOf, Everything, MapSuccess, PollStatus,
+		Polling,
 	},
 };
-use frame_system::EnsureSignedBy;
-use pallet_ranked_collective::{EnsureRanked, Geometric, Rank, Tally, TallyOf, Votes};
-use sp_core::{Get, H256};
+use pallet_ranked_collective::{EnsureRanked, Geometric, Tally, TallyOf, Votes};
+use sp_core::{ConstU16, Get, H256};
 use sp_runtime::{
-	traits::{BlakeTwo256, Convert, IdentityLookup, ReduceBy, TryMorphInto},
+	traits::{BlakeTwo256, Convert, Identity, IdentityLookup, ReduceBy},
 	BuildStorage, DispatchError, DispatchResult,
 };
-type Class = Rank;
 use sp_std::cell::RefCell;
 
-use crate as pallet_core_fellowship;
+use crate as pallet_salary;
 use crate::*;
 
+type Rank = u16;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
-		CoreFellowship: pallet_core_fellowship,
+		Salary: pallet_salary,
 		Club: pallet_ranked_collective,
 	}
 );
 
 parameter_types! {
 	pub BlockWeights: frame_system::limits::BlockWeights =
-		frame_system::limits::BlockWeights::simple_max(Weight::from_parts(1_000_000, u64::max_value()));
+		frame_system::limits::BlockWeights::simple_max(Weight::from_parts(1_000_000, 0));
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
@@ -84,30 +83,6 @@ impl frame_system::Config for Test {
 	type MaxConsumers = ConstU32<16>;
 }
 
-parameter_types! {
-	pub static MinRankOfClassDelta: Rank = 0;
-}
-
-parameter_types! {
-	pub ZeroToNine: Vec<u64> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-	pub EvidenceSize: u32 = 1024;
-}
-ord_parameter_types! {
-	pub const One: u64 = 1;
-}
-
-impl Config for Test {
-	type WeightInfo = ();
-	type RuntimeEvent = RuntimeEvent;
-	type Members = Club;
-	type Balance = u64;
-	type ParamsOrigin = EnsureSignedBy<One, u64>;
-	type InductOrigin = EnsureInducted<Test, (), 1>;
-	type ApproveOrigin = TryMapSuccess<EnsureSignedBy<IsInVec<ZeroToNine>, u64>, TryMorphInto<u16>>;
-	type PromoteOrigin = TryMapSuccess<EnsureSignedBy<IsInVec<ZeroToNine>, u64>, TryMorphInto<u16>>;
-	type EvidenceSize = EvidenceSize;
-}
-
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum TestPollState {
 	Ongoing(TallyOf<Test>, Rank),
@@ -128,33 +103,19 @@ impl Polling<TallyOf<Test>> for TestPolls {
 	type Index = u8;
 	type Votes = Votes;
 	type Moment = u64;
-	type Class = Class;
+	type Class = Rank;
+
 	fn classes() -> Vec<Self::Class> {
-		vec![0, 1, 2]
+		unimplemented!()
 	}
 	fn as_ongoing(index: u8) -> Option<(TallyOf<Test>, Self::Class)> {
-		Polls::get().remove(&index).and_then(|x| {
-			if let TestPollState::Ongoing(t, c) = x {
-				Some((t, c))
-			} else {
-				None
-			}
-		})
+		unimplemented!()
 	}
 	fn access_poll<R>(
 		index: Self::Index,
 		f: impl FnOnce(PollStatus<&mut TallyOf<Test>, Self::Moment, Self::Class>) -> R,
 	) -> R {
-		let mut polls = Polls::get();
-		let entry = polls.get_mut(&index);
-		let r = match entry {
-			Some(Ongoing(ref mut tally_mut_ref, class)) =>
-				f(PollStatus::Ongoing(tally_mut_ref, *class)),
-			Some(Completed(when, succeeded)) => f(PollStatus::Completed(*when, *succeeded)),
-			None => f(PollStatus::None),
-		};
-		Polls::set(polls);
-		r
+		unimplemented!()
 	}
 	fn try_access_poll<R>(
 		index: Self::Index,
@@ -162,48 +123,98 @@ impl Polling<TallyOf<Test>> for TestPolls {
 			PollStatus<&mut TallyOf<Test>, Self::Moment, Self::Class>,
 		) -> Result<R, DispatchError>,
 	) -> Result<R, DispatchError> {
-		let mut polls = Polls::get();
-		let entry = polls.get_mut(&index);
-		let r = match entry {
-			Some(Ongoing(ref mut tally_mut_ref, class)) =>
-				f(PollStatus::Ongoing(tally_mut_ref, *class)),
-			Some(Completed(when, succeeded)) => f(PollStatus::Completed(*when, *succeeded)),
-			None => f(PollStatus::None),
-		}?;
-		Polls::set(polls);
-		Ok(r)
+		unimplemented!()
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn create_ongoing(class: Self::Class) -> Result<Self::Index, ()> {
-		let mut polls = Polls::get();
-		let i = polls.keys().rev().next().map_or(0, |x| x + 1);
-		polls.insert(i, Ongoing(Tally::new(class), class));
-		Polls::set(polls);
-		Ok(i)
+		unimplemented!()
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn end_ongoing(index: Self::Index, approved: bool) -> Result<(), ()> {
-		let mut polls = Polls::get();
-		match polls.get(&index) {
-			Some(Ongoing(..)) => {},
-			_ => return Err(()),
-		}
-		let now = frame_system::Pallet::<Test>::block_number();
-		polls.insert(index, Completed(now, approved));
-		Polls::set(polls);
-		Ok(())
+		unimplemented!()
 	}
 }
 
-/// Convert the tally class into the minimum rank required to vote on the poll.
-/// MinRank(Class) = Class - Delta
 pub struct MinRankOfClass<Delta>(PhantomData<Delta>);
-impl<Delta: Get<Rank>> Convert<Class, Rank> for MinRankOfClass<Delta> {
-	fn convert(a: Class) -> Rank {
+impl<Delta: Get<Rank>> Convert<u16, Rank> for MinRankOfClass<Delta> {
+	fn convert(a: u16) -> Rank {
 		a.saturating_sub(Delta::get())
 	}
+}
+
+thread_local! {
+	pub static PAID: RefCell<BTreeMap<u64, u64>> = RefCell::new(BTreeMap::new());
+	pub static STATUS: RefCell<BTreeMap<u64, PaymentStatus>> = RefCell::new(BTreeMap::new());
+	pub static LAST_ID: RefCell<u64> = RefCell::new(0u64);
+}
+
+fn paid(who: u64) -> u64 {
+	PAID.with(|p| p.borrow().get(&who).cloned().unwrap_or(0))
+}
+fn unpay(who: u64, amount: u64) {
+	PAID.with(|p| p.borrow_mut().entry(who).or_default().saturating_reduce(amount))
+}
+fn set_status(id: u64, s: PaymentStatus) {
+	STATUS.with(|m| m.borrow_mut().insert(id, s));
+}
+
+pub struct TestPay;
+impl Pay for TestPay {
+	type Beneficiary = u64;
+	type Balance = u64;
+	type Id = u64;
+	type AssetKind = ();
+	type Error = ();
+
+	fn pay(
+		who: &Self::Beneficiary,
+		_: Self::AssetKind,
+		amount: Self::Balance,
+	) -> Result<Self::Id, Self::Error> {
+		PAID.with(|paid| *paid.borrow_mut().entry(*who).or_default() += amount);
+		Ok(LAST_ID.with(|lid| {
+			let x = *lid.borrow();
+			lid.replace(x + 1);
+			x
+		}))
+	}
+	fn check_payment(id: Self::Id) -> PaymentStatus {
+		STATUS.with(|s| s.borrow().get(&id).cloned().unwrap_or(PaymentStatus::Unknown))
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(_: &Self::Beneficiary, _: Self::AssetKind, _: Self::Balance) {}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_concluded(id: Self::Id) {
+		set_status(id, PaymentStatus::Failure)
+	}
+}
+
+parameter_types! {
+	pub static Budget: u64 = 10;
+}
+
+impl Config for Test {
+	type WeightInfo = ();
+	type RuntimeEvent = RuntimeEvent;
+	type Paymaster = TestPay;
+	type Members = Club;
+	type Salary = FixedSalary;
+	type RegistrationPeriod = ConstU64<2>;
+	type PayoutPeriod = ConstU64<2>;
+	type Budget = Budget;
+}
+
+pub struct FixedSalary;
+impl GetSalary<u16, u64, u64> for FixedSalary {
+	fn get_salary(_rank: u16, _who: &u64) -> u64 {
+		123
+	}
+}
+
+parameter_types! {
+	pub static MinRankOfClassDelta: Rank = 0;
 }
 
 impl pallet_ranked_collective::Config for Test {
@@ -230,34 +241,14 @@ impl pallet_ranked_collective::Config for Test {
 	type Polls = TestPolls;
 	type MinRankOfClass = MinRankOfClass<MinRankOfClassDelta>;
 	type VoteWeight = Geometric;
-	type MemberSwappedHandler = CoreFellowship;
+	type MemberSwappedHandler = Salary;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let mut ext = sp_io::TestExternalities::new(t);
-	ext.execute_with(|| {
-		let params = ParamsType {
-			active_salary: [10, 20, 30, 40, 50, 60, 70, 80, 90],
-			passive_salary: [1, 2, 3, 4, 5, 6, 7, 8, 9],
-			demotion_period: [2, 4, 6, 8, 10, 12, 14, 16, 18],
-			min_promotion_period: [3, 6, 9, 12, 15, 18, 21, 24, 27],
-			offboard_timeout: 1,
-		};
-		assert_ok!(CoreFellowship::set_params(signed(1), Box::new(params)));
-		System::set_block_number(1);
-	});
+	ext.execute_with(|| System::set_block_number(1));
 	ext
-}
-
-fn promote_n_times(acc: u64, r: u16) {
-	for _ in 0..r {
-		assert_ok!(Club::promote_member(RuntimeOrigin::root(), acc));
-	}
-}
-
-fn signed(who: u64) -> RuntimeOrigin {
-	RuntimeOrigin::signed(who)
 }
 
 fn assert_last_event(generic_event: <Test as Config>::RuntimeEvent) {
@@ -267,14 +258,10 @@ fn assert_last_event(generic_event: <Test as Config>::RuntimeEvent) {
 	assert_eq!(event, &system_event.into());
 }
 
-fn evidence(e: u32) -> Evidence<Test, ()> {
-	e.encode()
-		.into_iter()
-		.cycle()
-		.take(1024)
-		.collect::<Vec<_>>()
-		.try_into()
-		.expect("Static length matches")
+fn promote_n_times(acc: u64, r: u16) {
+	for _ in 0..r {
+		assert_ok!(Club::promote_member(RuntimeOrigin::root(), acc));
+	}
 }
 
 #[test]
@@ -285,7 +272,8 @@ fn swap_simple_works() {
 
 			assert_ok!(Club::add_member(RuntimeOrigin::root(), acc));
 			promote_n_times(acc, i);
-			assert_ok!(CoreFellowship::import(signed(acc)));
+			let _ = Salary::init(RuntimeOrigin::signed(acc));
+			assert_ok!(Salary::induct(RuntimeOrigin::signed(acc)));
 
 			// Swapping normally works:
 			assert_ok!(Club::exchange_member(RuntimeOrigin::root(), acc, acc + 10));
@@ -294,17 +282,14 @@ fn swap_simple_works() {
 	});
 }
 
-/// Exhaustively test that adding member `1` is equivalent to adding member `0` and then swapping.
-///
-/// The member also submits evidence before the swap.
 #[test]
 fn swap_exhaustive_works() {
 	new_test_ext().execute_with(|| {
 		let root_add = hypothetically!({
 			assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
-			promote_n_times(1, 4);
-			assert_ok!(CoreFellowship::import(signed(1)));
-			assert_ok!(CoreFellowship::submit_evidence(signed(1), Wish::Retention, evidence(1)));
+			assert_ok!(Club::promote_member(RuntimeOrigin::root(), 1));
+			assert_ok!(Salary::init(RuntimeOrigin::signed(1)));
+			assert_ok!(Salary::induct(RuntimeOrigin::signed(1)));
 
 			// The events mess up the storage root:
 			System::reset_events();
@@ -313,13 +298,13 @@ fn swap_exhaustive_works() {
 
 		let root_swap = hypothetically!({
 			assert_ok!(Club::add_member(RuntimeOrigin::root(), 0));
-			promote_n_times(0, 4);
-			assert_ok!(CoreFellowship::import(signed(0)));
-			assert_ok!(CoreFellowship::submit_evidence(signed(0), Wish::Retention, evidence(1)));
+			assert_ok!(Club::promote_member(RuntimeOrigin::root(), 0));
+			assert_ok!(Salary::init(RuntimeOrigin::signed(0)));
+			assert_ok!(Salary::induct(RuntimeOrigin::signed(0)));
 
-			// Now we swap:
 			assert_ok!(Club::exchange_member(RuntimeOrigin::root(), 0, 1));
 
+			// The events mess up the storage root:
 			System::reset_events();
 			sp_io::storage::root(sp_runtime::StateVersion::V1)
 		});
@@ -335,10 +320,11 @@ fn swap_bad_noops() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 0));
 		promote_n_times(0, 0);
-		assert_ok!(CoreFellowship::import(signed(0)));
+		assert_ok!(Salary::init(RuntimeOrigin::signed(0)));
+		assert_ok!(Salary::induct(RuntimeOrigin::signed(0)));
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
 		promote_n_times(1, 1);
-		assert_ok!(CoreFellowship::import(signed(1)));
+		assert_ok!(Salary::induct(RuntimeOrigin::signed(1)));
 
 		// Swapping for another member is a noop:
 		assert_noop!(

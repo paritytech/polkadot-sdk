@@ -10589,6 +10589,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-ranked-collective",
  "parity-scale-codec",
  "scale-info",
  "sp-arithmetic",

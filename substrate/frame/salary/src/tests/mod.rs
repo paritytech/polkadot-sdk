@@ -17,7 +17,7 @@
 
 #![cfg(test)]
 
-//! Tests for this crate.
+//! Unit and integration tests for the salary pallet.
 
-mod integration;
-mod unit;
+pub(crate) mod integration;
+pub(crate) mod unit;

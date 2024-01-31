@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The crate's unit tests.
+//! The crate's tests.
 
 use std::collections::BTreeMap;
 
