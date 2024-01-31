@@ -38,16 +38,14 @@ pub use origins::{
 };
 use pallet_ranked_collective::EnsureOfRank;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
-use parachains_common::{
-	impls::ToParentTreasury,
-	westend::{account, currency::GRAND},
-};
+use parachains_common::impls::ToParentTreasury;
 use polkadot_runtime_common::impls::{
 	LocatableAssetConverter, VersionedLocatableAsset, VersionedLocationConverter,
 };
 use sp_arithmetic::Permill;
 use sp_core::{ConstU128, ConstU32};
 use sp_runtime::traits::{ConstU16, ConvertToValue, IdentityLookup, Replace, TakeFirst};
+use testnet_parachains_constants::westend::{account, currency::GRAND};
 use westend_runtime_constants::time::HOURS;
 use xcm::prelude::*;
 use xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
@@ -55,7 +53,7 @@ use xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
 #[cfg(feature = "runtime-benchmarks")]
 use crate::impls::benchmarks::{OpenHrmpChannel, PayWithEnsure};
 #[cfg(feature = "runtime-benchmarks")]
-use parachains_common::westend::currency::DOLLARS;
+use testnet_parachains_constants::westend::currency::DOLLARS;
 
 /// The Fellowship members' ranks.
 pub mod ranks {
@@ -143,7 +141,10 @@ impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime 
 		EitherOf<EnsureRootWithSuccess<Self::AccountId, ConstU16<65535>>, Fellows>;
 	type Polls = FellowshipReferenda;
 	type MinRankOfClass = tracks::MinRankOfClass;
+	type MemberSwappedHandler = (crate::FellowshipCore, crate::FellowshipSalary);
 	type VoteWeight = pallet_ranked_collective::Geometric;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkSetup = (crate::FellowshipCore, crate::FellowshipSalary);
 }
 
 pub type FellowshipCoreInstance = pallet_core_fellowship::Instance1;
