@@ -477,8 +477,7 @@ pub async fn benchmark_availability_read(env: &mut TestEnvironment, mut state: T
 		format!("{} ms", test_start.elapsed().as_millis() / env.config().num_blocks as u128).red()
 	);
 
-	env.display_network_usage();
-	env.display_cpu_usage(&["availability-recovery"]);
+	println!("{}", env.collect_resource_usage(&["availability-recovery"]));
 	env.stop().await;
 }
 
@@ -634,14 +633,11 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 		format!("{} ms", test_start.elapsed().as_millis() / env.config().num_blocks as u128).red()
 	);
 
-	env.display_network_usage();
-
-	env.display_cpu_usage(&[
+	println!("{}", env.collect_resource_usage(&[
 		"availability-distribution",
 		"bitfield-distribution",
 		"availability-store",
-	]);
-
+	]));
 	env.stop().await;
 }
 

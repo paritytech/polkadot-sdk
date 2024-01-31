@@ -328,57 +328,94 @@ impl TestEnvironment {
 		}
 	}
 
-	/// Display network usage stats.
-	pub fn display_network_usage(&self) {
-		let stats = self.network().peer_stats(0);
-
-		let total_node_received = stats.received() / 1024;
-		let total_node_sent = stats.sent() / 1024;
-
-		println!(
-			"\nPayload bytes received from peers: {}, {}",
-			format!("{:.2} KiB total", total_node_received).blue(),
-			format!("{:.2} KiB/block", total_node_received / self.config().num_blocks)
-				.bright_blue()
-		);
-
-		println!(
-			"Payload bytes sent to peers: {}, {}",
-			format!("{:.2} KiB total", total_node_sent).blue(),
-			format!("{:.2} KiB/block", total_node_sent / self.config().num_blocks).bright_blue()
-		);
+	pub fn collect_resource_usage(&self, subsystems_under_test: &[&str]) -> CollectedResourceUsage {
+		CollectedResourceUsage {
+			benchmark: "Subsystem benchmarks".to_string(),
+			network: self.network_usage(),
+			cpu: self.cpu_usage(subsystems_under_test),
+		}
 	}
 
-	/// Print CPU usage stats in the CLI.
-	pub fn display_cpu_usage(&self, subsystems_under_test: &[&str]) {
+	fn network_usage(&self) -> Vec<ResourceUsage> {
+		let stats = self.network().peer_stats(0);
+		let total_node_received = (stats.received() / 1024) as f64;
+		let total_node_sent = (stats.sent() / 1024) as f64;
+		let num_blocks = self.config().num_blocks as f64;
+
+		vec![
+			ResourceUsage {
+				resource: "Received from peers".to_string(),
+				total: total_node_received,
+				per_block: total_node_received / num_blocks,
+			},
+			ResourceUsage {
+				resource: "Sent to peers".to_string(),
+				total: total_node_sent as f64,
+				per_block: total_node_sent / num_blocks,
+			},
+		]
+	}
+
+	fn cpu_usage(&self, subsystems_under_test: &[&str]) -> Vec<ResourceUsage> {
 		let test_metrics = super::display::parse_metrics(self.registry());
+		let mut usage = vec![];
+		let num_blocks = self.config().num_blocks as f64;
 
 		for subsystem in subsystems_under_test.iter() {
 			let subsystem_cpu_metrics =
 				test_metrics.subset_with_label_value("task_group", subsystem);
 			let total_cpu = subsystem_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
-			println!(
-				"{} CPU usage {}",
-				subsystem.to_string().bright_green(),
-				format!("{:.3}s", total_cpu).bright_purple()
-			);
-			println!(
-				"{} CPU usage per block {}",
-				subsystem.to_string().bright_green(),
-				format!("{:.3}s", total_cpu / self.config().num_blocks as f64).bright_purple()
-			);
+			usage.push(ResourceUsage {
+				resource: subsystem.to_string(),
+				total: total_cpu,
+				per_block: total_cpu / num_blocks,
+			});
 		}
 
 		let test_env_cpu_metrics =
 			test_metrics.subset_with_label_value("task_group", "test-environment");
 		let total_cpu = test_env_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
-		println!(
-			"Total test environment CPU usage {}",
-			format!("{:.3}s", total_cpu).bright_purple()
-		);
-		println!(
-			"Test environment CPU usage per block {}",
-			format!("{:.3}s", total_cpu / self.config().num_blocks as f64).bright_purple()
+
+		usage.push(ResourceUsage {
+			resource: "Test environment".to_string(),
+			total: total_cpu,
+			per_block: total_cpu / num_blocks,
+		});
+
+		usage
+	}
+}
+
+#[derive(Debug)]
+pub struct CollectedResourceUsage {
+	benchmark: String,
+	network: Vec<ResourceUsage>,
+	cpu: Vec<ResourceUsage>,
+}
+
+impl std::fmt::Display for CollectedResourceUsage {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		write!(
+			f,
+			"\n{}\n\n{}\n{}\n\n{}\n{}\n",
+			self.benchmark.blue(),
+			format!("{:<32}{:>12}{:>12}", "Network usage, KiB", "total", "per block").blue(),
+			self.network.iter().map(|v| v.to_string()).collect::<Vec<String>>().join("\n"),
+			format!("{:<32}{:>12}{:>12}", "CPU usage, s", "total", "per block").blue(),
+			self.cpu.iter().map(|v| v.to_string()).collect::<Vec<String>>().join("\n")
 		)
+	}
+}
+
+#[derive(Debug)]
+pub struct ResourceUsage {
+	resource: String,
+	total: f64,
+	per_block: f64,
+}
+
+impl std::fmt::Display for ResourceUsage {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		write!(f, "{:<32}{:>12.3}{:>12.3}", self.resource.cyan(), self.total, self.per_block)
 	}
 }
