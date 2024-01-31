@@ -47,7 +47,7 @@
 //! this explicitly when external factors to this pallet have caused the tracked account to become
 //! unranked. At rank 0, there is not a "demotion" period after which the account may be bumped to
 //! become offboarded but rather an "offboard timeout".
-//!
+//!>
 //! Candidates may be introduced (i.e. an account to go from unranked to rank of 0) by an origin
 //! of a different privilege to that for promotion. This allows the possibility for even a single
 //! existing member to introduce a new candidate without payment.
@@ -65,13 +65,16 @@ use sp_runtime::RuntimeDebug;
 use sp_std::{marker::PhantomData, prelude::*};
 
 use frame_support::{
+	defensive,
 	dispatch::DispatchResultWithPostInfo,
 	ensure, impl_ensure_origin_with_arg_ignoring_arg,
 	traits::{
 		tokens::Balance as BalanceTrait, EnsureOrigin, EnsureOriginWithArg, Get, RankedMembers,
+		RankedMembersSwapHandler,
 	},
 	BoundedVec,
 };
+use pallet_ranked_collective::Rank;
 
 #[cfg(test)]
 mod tests;
@@ -249,6 +252,8 @@ pub mod pallet {
 		},
 		/// Pre-ranked account has been inducted at their current rank.
 		Imported { who: T::AccountId, rank: RankOf<T, I> },
+		/// A member had its AccountId swapped.
+		Swapped { who: T::AccountId, new_who: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -602,4 +607,30 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 	impl< { T: Config<I>, I: 'static, const MIN_RANK: u16, A } >
 		EnsureOriginWithArg<T::RuntimeOrigin, A> for EnsureInducted<T, I, MIN_RANK>
 	{}
+}
+
+impl<T: Config<I>, I: 'static> RankedMembersSwapHandler<T::AccountId, Rank> for Pallet<T, I> {
+	fn swapped(old: &T::AccountId, new: &T::AccountId, _rank: Rank) {
+		if old == new {
+			defensive!("Should not try to swap with self");
+			return
+		}
+		if !Member::<T, I>::contains_key(old) {
+			defensive!("Should not try to swap non-member");
+			return
+		}
+		if Member::<T, I>::contains_key(new) {
+			defensive!("Should not try to overwrite existing member");
+			return
+		}
+
+		if let Some(member) = Member::<T, I>::take(old) {
+			Member::<T, I>::insert(new, member);
+		}
+		if let Some(we) = MemberEvidence::<T, I>::take(old) {
+			MemberEvidence::<T, I>::insert(new, we);
+		}
+
+		Self::deposit_event(Event::<T, I>::Swapped { who: old.clone(), new_who: new.clone() });
+	}
 }

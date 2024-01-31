@@ -173,6 +173,7 @@ impl Config for Test {
 	type Polls = TestPolls;
 	type MinRankOfClass = MinRankOfClass<MinRankOfClassDelta>;
 	type VoteWeight = Geometric;
+	type MemberSwappedHandler = ();
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
@@ -599,6 +600,24 @@ fn exchange_member_works() {
 		assert_noop!(
 			Club::exchange_member(RuntimeOrigin::signed(3), 2, 1),
 			DispatchError::BadOrigin
+		);
+	});
+}
+
+#[test]
+fn exchange_member_same_noops() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
+		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 1));
+		assert_ok!(Club::add_member(RuntimeOrigin::root(), 2));
+		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 2));
+
+		// Swapping the same accounts is a noop:
+		assert_noop!(Club::exchange_member(RuntimeOrigin::root(), 1, 1), Error::<Test>::SameMember);
+		// Swapping with a different member is a noop:
+		assert_noop!(
+			Club::exchange_member(RuntimeOrigin::root(), 1, 2),
+			Error::<Test>::AlreadyMember
 		);
 	});
 }

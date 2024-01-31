@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The crate's tests.
+//! The crate's unit tests.
 
 use std::collections::BTreeMap;
 
@@ -33,8 +33,8 @@ use sp_runtime::{
 };
 use sp_std::cell::RefCell;
 
-use super::*;
 use crate as pallet_core_fellowship;
+use crate::*;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

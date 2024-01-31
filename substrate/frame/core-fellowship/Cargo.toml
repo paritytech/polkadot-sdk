@@ -27,6 +27,7 @@ sp-core = { path = "../../primitives/core", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
 sp-std = { path = "../../primitives/std", default-features = false }
+pallet-ranked-collective = { path = "../ranked-collective", default-features = false }
 
 [features]
 default = ["std"]
@@ -34,6 +35,7 @@ std = [
 	"codec/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
+	"frame-support/experimental",
 	"frame-system/std",
 	"log/std",
 	"scale-info/std",
@@ -42,15 +44,18 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"pallet-ranked-collective/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"pallet-ranked-collective/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-ranked-collective/try-runtime"
 ]

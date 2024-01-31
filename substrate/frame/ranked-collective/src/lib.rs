@@ -54,7 +54,10 @@ use sp_std::{marker::PhantomData, prelude::*};
 use frame_support::{
 	dispatch::{DispatchResultWithPostInfo, PostDispatchInfo},
 	ensure, impl_ensure_origin_with_arg_ignoring_arg,
-	traits::{EnsureOrigin, EnsureOriginWithArg, PollStatus, Polling, RankedMembers, VoteTally},
+	traits::{
+		EnsureOrigin, EnsureOriginWithArg, PollStatus, Polling, RankedMembers,
+		RankedMembersSwapHandler, VoteTally,
+	},
 	CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 
@@ -402,6 +405,12 @@ pub mod pallet {
 		/// "a rank of at least the poll class".
 		type MinRankOfClass: Convert<ClassOf<Self, I>, Rank>;
 
+		/// An external handler that will be notified when two members are swapped.
+		type MemberSwappedHandler: RankedMembersSwapHandler<
+			<Pallet<Self, I> as RankedMembers>::AccountId,
+			<Pallet<Self, I> as RankedMembers>::Rank,
+		>;
+
 		/// Convert a rank_delta into a number of votes the rank gets.
 		///
 		/// Rank_delta is defined as the number of ranks above the minimum required to take part
@@ -679,7 +688,12 @@ pub mod pallet {
 			Self::do_remove_member_from_rank(&who, rank)?;
 			Self::do_add_member_to_rank(new_who.clone(), rank, false)?;
 
-			Self::deposit_event(Event::MemberExchanged { who, new_who });
+			Self::deposit_event(Event::MemberExchanged {
+				who: who.clone(),
+				new_who: new_who.clone(),
+			});
+			T::MemberSwappedHandler::swapped(&who, &new_who, rank);
+
 			Ok(())
 		}
 	}
