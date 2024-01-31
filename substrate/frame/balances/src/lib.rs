@@ -194,7 +194,8 @@ use sp_runtime::{
 	ArithmeticError, DispatchError, FixedPointOperand, Perbill, RuntimeDebug, TokenError,
 };
 pub use types::{
-	AccountData, BalanceLock, DustCleaner, ExtraFlags, IdAmount, Reasons, ReserveData,
+	AccountData, AdjustmentDirection, BalanceLock, DustCleaner, ExtraFlags, IdAmount, Reasons,
+	ReserveData,
 };
 pub use weights::WeightInfo;
 
@@ -209,7 +210,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{
 		pallet_prelude::*,
-		traits::{fungible::Credit, tokens::Precision, VariantCount},
+		traits::{fungible::Credit, tokens::Precision, VariantCount, VariantCountOf},
 	};
 	use frame_system::pallet_prelude::*;
 
@@ -245,7 +246,6 @@ pub mod pallet {
 			type MaxLocks = ConstU32<100>;
 			type MaxReserves = ConstU32<100>;
 			type MaxFreezes = ConstU32<100>;
-			type MaxHolds = ConstU32<100>;
 
 			type WeightInfo = ();
 		}
@@ -319,10 +319,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxReserves: Get<u32>;
 
-		/// The maximum number of holds that can exist on an account at any time.
-		#[pallet::constant]
-		type MaxHolds: Get<u32>;
-
 		/// The maximum number of individual freeze locks that can exist on an account at any time.
 		#[pallet::constant]
 		type MaxFreezes: Get<u32>;
@@ -388,6 +384,8 @@ pub mod pallet {
 		Frozen { who: T::AccountId, amount: T::Balance },
 		/// Some balance was thawed.
 		Thawed { who: T::AccountId, amount: T::Balance },
+		/// The `TotalIssuance` was forcefully changed.
+		TotalIssuanceForced { old: T::Balance, new: T::Balance },
 	}
 
 	#[pallet::error]
@@ -408,10 +406,14 @@ pub mod pallet {
 		DeadAccount,
 		/// Number of named reserves exceed `MaxReserves`.
 		TooManyReserves,
-		/// Number of holds exceed `MaxHolds`.
+		/// Number of holds exceed `VariantCountOf<T::RuntimeHoldReason>`.
 		TooManyHolds,
 		/// Number of freezes exceed `MaxFreezes`.
 		TooManyFreezes,
+		/// The issuance cannot be modified since it is already deactivated.
+		IssuanceDeactivated,
+		/// The delta cannot be zero.
+		DeltaZero,
 	}
 
 	/// The total units issued in the system.
@@ -484,7 +486,10 @@ pub mod pallet {
 		_,
 		Blake2_128Concat,
 		T::AccountId,
-		BoundedVec<IdAmount<T::RuntimeHoldReason, T::Balance>, T::MaxHolds>,
+		BoundedVec<
+			IdAmount<T::RuntimeHoldReason, T::Balance>,
+			VariantCountOf<T::RuntimeHoldReason>,
+		>,
 		ValueQuery,
 	>;
 
@@ -551,13 +556,6 @@ pub mod pallet {
 			assert!(
 				!<T as Config<I>>::ExistentialDeposit::get().is_zero(),
 				"The existential deposit must be greater than zero!"
-			);
-
-			assert!(
-				T::MaxHolds::get() >= <T::RuntimeHoldReason as VariantCount>::VARIANT_COUNT,
-				"MaxHolds should be greater than or equal to the number of hold reasons: {} < {}",
-				T::MaxHolds::get(),
-				<T::RuntimeHoldReason as VariantCount>::VARIANT_COUNT
 			);
 
 			assert!(
@@ -745,6 +743,37 @@ pub mod pallet {
 			}
 
 			Self::deposit_event(Event::BalanceSet { who, free: new_free });
+			Ok(())
+		}
+
+		/// Adjust the total issuance in a saturating way.
+		///
+		/// Can only be called by root and always needs a positive `delta`.
+		///
+		/// # Example
+		#[doc = docify::embed!("./src/tests/dispatchable_tests.rs", force_adjust_total_issuance_example)]
+		#[pallet::call_index(9)]
+		#[pallet::weight(T::WeightInfo::force_adjust_total_issuance())]
+		pub fn force_adjust_total_issuance(
+			origin: OriginFor<T>,
+			direction: AdjustmentDirection,
+			#[pallet::compact] delta: T::Balance,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			ensure!(delta > Zero::zero(), Error::<T, I>::DeltaZero);
+
+			let old = TotalIssuance::<T, I>::get();
+			let new = match direction {
+				AdjustmentDirection::Increase => old.saturating_add(delta),
+				AdjustmentDirection::Decrease => old.saturating_sub(delta),
+			};
+
+			ensure!(InactiveIssuance::<T, I>::get() <= new, Error::<T, I>::IssuanceDeactivated);
+			TotalIssuance::<T, I>::set(new);
+
+			Self::deposit_event(Event::<T, I>::TotalIssuanceForced { old, new });
+
 			Ok(())
 		}
 	}

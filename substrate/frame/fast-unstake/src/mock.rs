@@ -76,7 +76,6 @@ impl pallet_balances::Config for Runtime {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-	type MaxHolds = ();
 }
 
 pallet_staking_reward_curve::build! {

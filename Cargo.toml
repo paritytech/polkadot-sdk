@@ -175,7 +175,6 @@ members = [
 	"polkadot/node/service",
 	"polkadot/node/subsystem",
 	"polkadot/node/subsystem-bench",
-	"polkadot/node/subsystem-bench",
 	"polkadot/node/subsystem-test-helpers",
 	"polkadot/node/subsystem-types",
 	"polkadot/node/subsystem-util",

@@ -1365,7 +1365,6 @@ mod tests {
 		type MaxFreezes = ();
 		type RuntimeHoldReason = ();
 		type RuntimeFreezeReason = ();
-		type MaxHolds = ();
 	}
 
 	frame_support::parameter_types! {

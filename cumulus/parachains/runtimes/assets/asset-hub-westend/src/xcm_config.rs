@@ -21,7 +21,6 @@ use super::{
 	XcmpQueue,
 };
 use assets_common::{
-	local_and_foreign_assets::MatchesLocalAndForeignAssetsLocation,
 	matching::{FromSiblingParachain, IsForeignConcreteAsset},
 	TrustBackedAssetsAsLocation,
 };
@@ -223,31 +222,6 @@ pub type AssetTransactors = (
 	PoolFungiblesTransactor,
 	UniquesTransactor,
 );
-
-/// Simple `Location` matcher for Local and Foreign asset `Location`.
-pub struct LocalAndForeignAssetsLocationMatcher;
-impl MatchesLocalAndForeignAssetsLocation<xcm::v3::Location>
-	for LocalAndForeignAssetsLocationMatcher
-{
-	fn is_local(location: &xcm::v3::Location) -> bool {
-		use assets_common::fungible_conversion::MatchesLocation;
-		let latest_location: Location =
-			if let Ok(location) = (*location).try_into() { location } else { return false };
-		TrustBackedAssetsConvertedConcreteId::contains(&latest_location)
-	}
-
-	fn is_foreign(location: &xcm::v3::Location) -> bool {
-		use assets_common::fungible_conversion::MatchesLocation;
-		let latest_location: Location =
-			if let Ok(location) = (*location).try_into() { location } else { return false };
-		ForeignAssetsConvertedConcreteId::contains(&latest_location)
-	}
-}
-impl Contains<xcm::v3::Location> for LocalAndForeignAssetsLocationMatcher {
-	fn contains(location: &xcm::v3::Location) -> bool {
-		Self::is_local(location) || Self::is_foreign(location)
-	}
-}
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
 /// ready for dispatching a transaction with Xcm's `Transact`. There is an `OriginKind` which can

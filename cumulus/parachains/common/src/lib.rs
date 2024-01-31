@@ -19,10 +19,6 @@ extern crate alloc;
 
 pub mod impls;
 pub mod message_queue;
-#[cfg(feature = "rococo")]
-pub mod rococo;
-#[cfg(feature = "westend")]
-pub mod westend;
 pub mod xcm_config;
 pub use constants::*;
 pub use opaque::*;

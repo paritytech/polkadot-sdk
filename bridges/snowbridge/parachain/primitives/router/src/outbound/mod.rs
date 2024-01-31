@@ -14,7 +14,7 @@ use snowbridge_core::{
 	ChannelId, ParaId,
 };
 use sp_core::{H160, H256};
-use xcm::v4::prelude::*;
+use xcm::prelude::*;
 use xcm_executor::traits::{ConvertLocation, ExportXcm};
 
 pub struct EthereumBlobExporter<

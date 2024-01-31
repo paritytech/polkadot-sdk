@@ -61,13 +61,12 @@ use frame_support::{
 use frame_system::limits::{BlockLength, BlockWeights};
 pub use parachains_common as common;
 use parachains_common::{
-	impls::DealWithFees,
-	message_queue::*,
-	rococo::{consensus::*, currency::*, fee::WeightToFee},
-	AccountId, BlockNumber, Hash, Header, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
-	MAXIMUM_BLOCK_WEIGHT, MINUTES, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
+	impls::DealWithFees, message_queue::*, AccountId, BlockNumber, Hash, Header, Nonce, Signature,
+	AVERAGE_ON_INITIALIZE_RATIO, MAXIMUM_BLOCK_WEIGHT, MINUTES, NORMAL_DISPATCH_RATIO,
+	SLOT_DURATION,
 };
 pub use parachains_common::{AuraId, Balance};
+use testnet_parachains_constants::rococo::{consensus::*, currency::*, fee::WeightToFee};
 use xcm_config::CollatorSelectionUpdateOrigin;
 
 #[cfg(any(feature = "std", test))]
@@ -221,7 +220,6 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<1>;
 	type MaxFreezes = ConstU32<0>;
 }
 

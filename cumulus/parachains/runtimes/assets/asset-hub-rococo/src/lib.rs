@@ -38,7 +38,6 @@ use assets_common::{
 };
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::AggregateMessageOrigin;
-use parachains_common::rococo::snowbridge::EthereumNetwork;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
@@ -47,6 +46,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Permill,
 };
+use testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -76,12 +76,12 @@ use pallet_nfts::PalletFeatures;
 use parachains_common::{
 	impls::DealWithFees,
 	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
-	rococo::{consensus::*, currency::*, fee::WeightToFee},
 	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, BlockNumber, CollectionId, Hash,
 	Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS,
 	NORMAL_DISPATCH_RATIO,
 };
 use sp_runtime::{Perbill, RuntimeDebug};
+use testnet_parachains_constants::rococo::{consensus::*, currency::*, fee::WeightToFee};
 use xcm_config::{
 	ForeignAssetsConvertedConcreteId, ForeignCreatorsSovereignAccountOf, GovernanceLocation,
 	PoolAssetsConvertedConcreteId, TokenLocation, TokenLocationV3,
@@ -243,10 +243,6 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
-	// We allow each account to have holds on it from:
-	//   - `NftFractionalization`: 1
-	//   - `StateTrieMigration`: 1
-	type MaxHolds = ConstU32<2>;
 	type MaxFreezes = ConstU32<0>;
 }
 
@@ -1723,9 +1719,9 @@ fn ensure_key_ss58() {
 mod tests {
 	use super::*;
 	use crate::{CENTS, MILLICENTS};
-	use parachains_common::rococo::fee;
 	use sp_runtime::traits::Zero;
 	use sp_weights::WeightToFee;
+	use testnet_parachains_constants::rococo::fee;
 
 	/// We can fit at least 1000 transfers in a block.
 	#[test]

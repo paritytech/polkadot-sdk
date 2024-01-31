@@ -21,8 +21,8 @@ use core::convert::{TryFrom, TryInto};
 pub use sp_core::H256;
 use sp_runtime::traits::Hash;
 pub use sp_runtime::{
-	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Lazy, Verify},
-	BuildStorage, MultiSignature,
+	traits::{BlakeTwo256, IdentifyAccount, Lazy, Verify},
+	BuildStorage,
 };
 
 pub use frame_support::{
@@ -72,7 +72,6 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-	type MaxHolds = ();
 }
 
 const MOTION_DURATION_IN_BLOCKS: BlockNumber = 3;

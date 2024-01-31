@@ -23,6 +23,7 @@ frame-benchmarking = { path = "../benchmarking", default-features = false, optio
 frame-support = { path = "../support", default-features = false }
 frame-system = { path = "../system", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
+docify = "0.2.6"
 
 [dev-dependencies]
 pallet-transaction-payment = { path = "../transaction-payment" }
