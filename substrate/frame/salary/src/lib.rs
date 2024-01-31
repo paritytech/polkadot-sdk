@@ -27,6 +27,7 @@ use sp_runtime::{Perbill, RuntimeDebug};
 use sp_std::{marker::PhantomData, prelude::*};
 
 use frame_support::{
+	defensive,
 	dispatch::DispatchResultWithPostInfo,
 	ensure,
 	traits::{
@@ -458,12 +459,21 @@ impl<T: Config<I>, I: 'static>
 		new_who: &T::AccountId,
 		_rank: <T::Members as RankedMembers>::Rank,
 	) {
-		let Some(claimant) = Claimant::<T, I>::take(&who) else {
+		if who == new_who {
+			defensive!("Should not try to swap with self");
+			return
+		}
+		if Claimant::<T, I>::contains_key(new_who) {
+			defensive!("Should not try to overwrite existing claimant");
+			return
+		}
+
+		let Some(claimant) = Claimant::<T, I>::take(who) else {
 			frame_support::defensive!("Claimant should exist when swapping");
 			return;
 		};
 
-		Claimant::<T, I>::insert(&new_who, &claimant);
+		Claimant::<T, I>::insert(new_who, claimant);
 		Self::deposit_event(Event::<T, I>::Swapped { who: who.clone(), new_who: new_who.clone() });
 	}
 }
