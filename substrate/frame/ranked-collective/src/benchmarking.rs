@@ -33,6 +33,10 @@ fn assert_last_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 
+fn assert_has_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::RuntimeEvent) {
+	frame_system::Pallet::<T>::assert_has_event(generic_event.into());
+}
+
 fn make_member<T: Config<I>, I: 'static>(rank: Rank) -> T::AccountId {
 	let who = account::<T::AccountId>("member", MemberCount::<T, I>::get(0), SEED);
 	let who_lookup = T::Lookup::unlookup(who.clone());
@@ -175,17 +179,18 @@ benchmarks_instance_pallet! {
 
 	exchange_member {
 		let who = make_member::<T, I>(1);
+		T::BenchmarkSetup::ensure_member(&who);
 		let who_lookup = T::Lookup::unlookup(who.clone());
 		let new_who = account::<T::AccountId>("new-member", 0, SEED);
 		let new_who_lookup = T::Lookup::unlookup(new_who.clone());
 		let origin =
 			T::ExchangeOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		let call = Call::<T, I>::exchange_member { who: who_lookup, new_who:new_who_lookup};
+		let call = Call::<T, I>::exchange_member { who: who_lookup, new_who: new_who_lookup };
 	}: { call.dispatch_bypass_filter(origin)? }
 	verify {
 		assert_eq!(Members::<T, I>::get(&new_who).unwrap().rank, 1);
 		assert_eq!(Members::<T, I>::get(&who), None);
-		assert_last_event::<T, I>(Event::MemberExchanged { who, new_who }.into());
+		assert_has_event::<T, I>(Event::MemberExchanged { who, new_who }.into());
 	}
 
 	impl_benchmark_test_suite!(RankedCollective, crate::tests::new_test_ext(), crate::tests::Test);
