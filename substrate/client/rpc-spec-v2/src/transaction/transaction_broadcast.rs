@@ -66,8 +66,7 @@ impl<Pool, Client> TransactionBroadcast<Pool, Client> {
 			// The lenght of the operation ID.
 			const OPERATION_ID_LEN: usize = 16;
 
-			let mut rng = rand::thread_rng();
-			(&mut rng)
+			rand::thread_rng()
 				.sample_iter(Alphanumeric)
 				.take(OPERATION_ID_LEN)
 				.map(char::from)
