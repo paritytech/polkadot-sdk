@@ -58,7 +58,7 @@ use frame_support::{
 	ensure, impl_ensure_origin_with_arg_ignoring_arg,
 	traits::{
 		fungible,
-		fungible::{BalancedHold, MutateHold},
+		fungible::{BalancedHold, Credit, MutateHold},
 		tokens::Precision,
 		Backing, ChangeMembers, EnsureOrigin, EnsureOriginWithArg, Get, GetBacking, Imbalance,
 		InitializeMembers, OnUnbalanced, StorageVersion,
@@ -303,11 +303,8 @@ pub mod deposit {
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{
-		pallet_prelude::*,
-		traits::{fungible::Credit, OnUnbalanced},
-	};
-	use frame_system::pallet_prelude::{OriginFor, *};
+	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
