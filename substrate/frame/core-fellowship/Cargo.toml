@@ -27,7 +27,9 @@ sp-core = { path = "../../primitives/core", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
 sp-std = { path = "../../primitives/std", default-features = false }
-pallet-ranked-collective = { path = "../ranked-collective", default-features = false }
+
+[dev-dependencies]
+pallet-ranked-collective = { path = "../ranked-collective" }
 
 [features]
 default = ["std"]
@@ -44,7 +46,6 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"pallet-ranked-collective/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
