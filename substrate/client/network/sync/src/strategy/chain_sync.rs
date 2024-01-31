@@ -380,10 +380,24 @@ where
 		max_blocks_per_request: u32,
 		metrics_registry: Option<Registry>,
 		peer_pool: Arc<Mutex<PeerPool>>,
+		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
 	) -> Result<Self, ClientError> {
 		let mut sync = Self {
 			client,
-			peers: HashMap::new(),
+			peers: initial_peers
+				.map(|(peer_id, best_hash, best_number)| {
+					(
+						peer_id,
+						PeerSync {
+							peer_id,
+							common_number: Zero::zero(),
+							best_hash,
+							best_number,
+							state: PeerSyncState::New,
+						},
+					)
+				})
+				.collect(),
 			blocks: BlockCollection::new(),
 			best_queued_hash: Default::default(),
 			best_queued_number: Zero::zero(),

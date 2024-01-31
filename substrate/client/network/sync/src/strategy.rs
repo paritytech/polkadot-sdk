@@ -198,6 +198,7 @@ where
 				config.max_blocks_per_request,
 				config.metrics_registry.clone(),
 				peer_pool.clone(),
+				std::iter::empty(),
 			)?;
 			Ok(Self {
 				config,
@@ -216,18 +217,16 @@ where
 		self.peer_pool.lock().add_peer(peer_id);
 		self.peer_best_blocks.insert(peer_id, (best_hash, best_number));
 
-		self.warp.iter_mut().for_each(|s| s.add_peer(peer_id, best_hash, best_number));
-		self.state.iter_mut().for_each(|s| s.add_peer(peer_id, best_hash, best_number));
-		self.chain_sync
-			.iter_mut()
-			.for_each(|s| s.add_peer(peer_id, best_hash, best_number));
+		self.warp.as_mut().map(|s| s.add_peer(peer_id, best_hash, best_number));
+		self.state.as_mut().map(|s| s.add_peer(peer_id, best_hash, best_number));
+		self.chain_sync.as_mut().map(|s| s.add_peer(peer_id, best_hash, best_number));
 	}
 
 	/// Notify that a peer has disconnected.
 	pub fn remove_peer(&mut self, peer_id: &PeerId) {
-		self.warp.iter_mut().for_each(|s| s.remove_peer(peer_id));
-		self.state.iter_mut().for_each(|s| s.remove_peer(peer_id));
-		self.chain_sync.iter_mut().for_each(|s| s.remove_peer(peer_id));
+		self.warp.as_mut().map(|s| s.remove_peer(peer_id));
+		self.state.as_mut().map(|s| s.remove_peer(peer_id));
+		self.chain_sync.as_mut().map(|s| s.remove_peer(peer_id));
 
 		self.peer_pool.lock().remove_peer(peer_id);
 		self.peer_best_blocks.remove(peer_id);
@@ -418,16 +417,19 @@ where
 		&mut self,
 		target_header: B::Header,
 	) -> Result<(), ()> {
-		if let Some(ref mut warp) = self.warp {
-			warp.set_target_block(target_header);
-			Ok(())
-		} else {
-			error!(
-				target: LOG_TARGET,
-				"Cannot set warp sync target block: no warp sync strategy is active."
-			);
-			debug_assert!(false);
-			Err(())
+		match self.warp {
+			Some(ref mut warp) => {
+				warp.set_target_block(target_header);
+				Ok(())
+			},
+			None => {
+				error!(
+					target: LOG_TARGET,
+					"Cannot set warp sync target block: no warp sync strategy is active."
+				);
+				debug_assert!(false);
+				Err(())
+			},
 		}
 	}
 
@@ -477,6 +479,7 @@ where
 
 					self.warp = None;
 					self.state = Some(state_sync);
+
 					Ok(())
 				},
 				None => {
@@ -484,13 +487,16 @@ where
 						target: LOG_TARGET,
 						"Warp sync failed. Falling back to full sync.",
 					);
-					let mut chain_sync = match ChainSync::new(
+					let chain_sync = match ChainSync::new(
 						chain_sync_mode(self.config.mode),
 						self.client.clone(),
 						self.config.max_parallel_downloads,
 						self.config.max_blocks_per_request,
 						self.config.metrics_registry.clone(),
 						self.peer_pool.clone(),
+						self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
+							(*peer_id, *best_hash, *best_number)
+						}),
 					) {
 						Ok(chain_sync) => chain_sync,
 						Err(e) => {
@@ -498,13 +504,10 @@ where
 							return Err(e)
 						},
 					};
-					// Let `ChainSync` know about connected peers.
-					self.peer_best_blocks.iter().for_each(|(peer_id, (best_hash, best_number))| {
-						chain_sync.add_peer(*peer_id, *best_hash, *best_number)
-					});
 
 					self.warp = None;
 					self.chain_sync = Some(chain_sync);
+
 					Ok(())
 				},
 			}
@@ -514,13 +517,16 @@ where
 			} else {
 				error!(target: LOG_TARGET, "State sync failed. Falling back to full sync.");
 			}
-			let mut chain_sync = match ChainSync::new(
+			let chain_sync = match ChainSync::new(
 				chain_sync_mode(self.config.mode),
 				self.client.clone(),
 				self.config.max_parallel_downloads,
 				self.config.max_blocks_per_request,
 				self.config.metrics_registry.clone(),
 				self.peer_pool.clone(),
+				self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
+					(*peer_id, *best_hash, *best_number)
+				}),
 			) {
 				Ok(chain_sync) => chain_sync,
 				Err(e) => {
@@ -528,13 +534,10 @@ where
 					return Err(e);
 				},
 			};
-			// Let `ChainSync` know about connected peers.
-			self.peer_best_blocks.iter().for_each(|(peer_id, (best_hash, best_number))| {
-				chain_sync.add_peer(*peer_id, *best_hash, *best_number)
-			});
 
 			self.state = None;
 			self.chain_sync = Some(chain_sync);
+
 			Ok(())
 		} else {
 			unreachable!("Only warp & state strategies can finish; qed")
