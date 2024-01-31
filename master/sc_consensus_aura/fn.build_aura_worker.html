@@ -7,7 +7,7 @@
     PF: Environment&lt;B, Error = Error&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,
     PF::Proposer: Proposer&lt;B, Error = Error&gt;,
     P: Pair,
-    P::Public: <a class="trait" href="../sp_application_crypto/traits/trait.AppPublic.html" title="trait sp_application_crypto::traits::AppPublic">AppPublic</a> + Member,
+    P::Public: AppPublic + Member,
     P::Signature: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>&gt;&gt; + Member + Codec,
     I: BlockImport&lt;B&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,
     Error: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/error/trait.Error.html" title="trait core::error::Error">Error</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;Error&gt; + 'static,
