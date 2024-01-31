@@ -74,7 +74,6 @@ use frame_support::{
 	},
 	BoundedVec,
 };
-use pallet_ranked_collective::Rank;
 
 #[cfg(test)]
 mod tests;
@@ -609,8 +608,8 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 	{}
 }
 
-impl<T: Config<I>, I: 'static> RankedMembersSwapHandler<T::AccountId, Rank> for Pallet<T, I> {
-	fn swapped(old: &T::AccountId, new: &T::AccountId, _rank: Rank) {
+impl<T: Config<I>, I: 'static> RankedMembersSwapHandler<T::AccountId, u16> for Pallet<T, I> {
+	fn swapped(old: &T::AccountId, new: &T::AccountId, _rank: u16) {
 		if old == new {
 			defensive!("Should not try to swap with self");
 			return
