@@ -1160,7 +1160,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	) -> Result<Option<BalanceOf<T, I>>, DispatchError> {
 		ensure!(ProposalOf::<T, I>::get(&proposal_hash).is_none(), Error::<T, I>::ProposalActive);
 		if let Some((who, deposit)) = <DepositOf<T, I>>::take(proposal_hash) {
-			T::Currency::release(
+			return T::Currency::release(
 				&HoldReason::ProposalSubmission.into(),
 				&who,
 				deposit,
@@ -1169,7 +1169,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			.map(|amount| {
 				Self::deposit_event(Event::ProposalDepositReleased { proposal_hash, who, amount });
 				Some(amount)
-			})?;
+			});
 		}
 		Ok(None)
 	}
