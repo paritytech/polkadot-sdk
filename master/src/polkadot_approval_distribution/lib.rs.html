@@ -2682,6 +2682,62 @@
 <a href="#2682" id="2682">2682</a>
 <a href="#2683" id="2683">2683</a>
 <a href="#2684" id="2684">2684</a>
+<a href="#2685" id="2685">2685</a>
+<a href="#2686" id="2686">2686</a>
+<a href="#2687" id="2687">2687</a>
+<a href="#2688" id="2688">2688</a>
+<a href="#2689" id="2689">2689</a>
+<a href="#2690" id="2690">2690</a>
+<a href="#2691" id="2691">2691</a>
+<a href="#2692" id="2692">2692</a>
+<a href="#2693" id="2693">2693</a>
+<a href="#2694" id="2694">2694</a>
+<a href="#2695" id="2695">2695</a>
+<a href="#2696" id="2696">2696</a>
+<a href="#2697" id="2697">2697</a>
+<a href="#2698" id="2698">2698</a>
+<a href="#2699" id="2699">2699</a>
+<a href="#2700" id="2700">2700</a>
+<a href="#2701" id="2701">2701</a>
+<a href="#2702" id="2702">2702</a>
+<a href="#2703" id="2703">2703</a>
+<a href="#2704" id="2704">2704</a>
+<a href="#2705" id="2705">2705</a>
+<a href="#2706" id="2706">2706</a>
+<a href="#2707" id="2707">2707</a>
+<a href="#2708" id="2708">2708</a>
+<a href="#2709" id="2709">2709</a>
+<a href="#2710" id="2710">2710</a>
+<a href="#2711" id="2711">2711</a>
+<a href="#2712" id="2712">2712</a>
+<a href="#2713" id="2713">2713</a>
+<a href="#2714" id="2714">2714</a>
+<a href="#2715" id="2715">2715</a>
+<a href="#2716" id="2716">2716</a>
+<a href="#2717" id="2717">2717</a>
+<a href="#2718" id="2718">2718</a>
+<a href="#2719" id="2719">2719</a>
+<a href="#2720" id="2720">2720</a>
+<a href="#2721" id="2721">2721</a>
+<a href="#2722" id="2722">2722</a>
+<a href="#2723" id="2723">2723</a>
+<a href="#2724" id="2724">2724</a>
+<a href="#2725" id="2725">2725</a>
+<a href="#2726" id="2726">2726</a>
+<a href="#2727" id="2727">2727</a>
+<a href="#2728" id="2728">2728</a>
+<a href="#2729" id="2729">2729</a>
+<a href="#2730" id="2730">2730</a>
+<a href="#2731" id="2731">2731</a>
+<a href="#2732" id="2732">2732</a>
+<a href="#2733" id="2733">2733</a>
+<a href="#2734" id="2734">2734</a>
+<a href="#2735" id="2735">2735</a>
+<a href="#2736" id="2736">2736</a>
+<a href="#2737" id="2737">2737</a>
+<a href="#2738" id="2738">2738</a>
+<a href="#2739" id="2739">2739</a>
+<a href="#2740" id="2740">2740</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2720,7 +2776,9 @@
 	UnifiedReputationChange <span class="kw">as </span>Rep, Versioned, View,
 };
 <span class="kw">use </span>polkadot_node_primitives::approval::{
-	v1::{AssignmentCertKind, BlockApprovalMeta, IndirectAssignmentCert},
+	v1::{
+		AssignmentCertKind, BlockApprovalMeta, IndirectAssignmentCert, IndirectSignedApprovalVote,
+	},
 	v2::{
 		AsBitIndex, AssignmentCertKindV2, CandidateBitfield, IndirectAssignmentCertV2,
 		IndirectSignedApprovalVoteV2,
@@ -3747,17 +3805,17 @@
 				.<span class="kw">await</span>;
 			},
 			Versioned::V3(protocol_v3::ApprovalDistributionMessage::Approvals(approvals)) =&gt; {
-				<span class="self">self</span>.process_incoming_approvals(ctx, metrics, peer_id, approvals).<span class="kw">await</span>;
+				<span class="kw">let </span>sanitized_approvals =
+					<span class="self">self</span>.sanitize_v2_approvals(peer_id, ctx.sender(), approvals).<span class="kw">await</span>;
+				<span class="self">self</span>.process_incoming_approvals(ctx, metrics, peer_id, sanitized_approvals)
+					.<span class="kw">await</span>;
 			},
 			Versioned::V1(protocol_v1::ApprovalDistributionMessage::Approvals(approvals)) |
 			Versioned::V2(protocol_v2::ApprovalDistributionMessage::Approvals(approvals)) =&gt; {
-				<span class="self">self</span>.process_incoming_approvals(
-					ctx,
-					metrics,
-					peer_id,
-					approvals.into_iter().map(|approval| approval.into()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-				)
-				.<span class="kw">await</span>;
+				<span class="kw">let </span>sanitized_approvals =
+					<span class="self">self</span>.sanitize_v1_approvals(peer_id, ctx.sender(), approvals).<span class="kw">await</span>;
+				<span class="self">self</span>.process_incoming_approvals(ctx, metrics, peer_id, sanitized_approvals)
+					.<span class="kw">await</span>;
 			},
 		}
 	}
@@ -4879,6 +4937,60 @@
 		}
 
 		sanitized_assignments
+	}
+
+	<span class="comment">// Filter out obviously invalid candidate indicies.
+	</span><span class="kw">async fn </span>sanitize_v1_approvals(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		peer_id: PeerId,
+		sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::ApprovalDistributionSenderTrait,
+		approval: Vec&lt;IndirectSignedApprovalVote&gt;,
+	) -&gt; Vec&lt;IndirectSignedApprovalVoteV2&gt; {
+		<span class="kw">let </span><span class="kw-2">mut </span>sanitized_approvals = Vec::new();
+		<span class="kw">for </span>approval <span class="kw">in </span>approval.into_iter() {
+			<span class="kw">if </span>approval.candidate_index <span class="kw">as </span>usize &gt; MAX_BITFIELD_SIZE {
+				<span class="comment">// Punish the peer for the invalid message.
+				</span>modify_reputation(<span class="kw-2">&amp;mut </span><span class="self">self</span>.reputation, sender, peer_id, COST_OVERSIZED_BITFIELD)
+					.<span class="kw">await</span>;
+				<span class="macro">gum::debug!</span>(
+					target: LOG_TARGET,
+					block_hash = <span class="question-mark">?</span>approval.block_hash,
+					candidate_index = <span class="question-mark">?</span>approval.candidate_index,
+					<span class="string">&quot;Bad approval v1, invalid candidate index&quot;
+				</span>);
+			} <span class="kw">else </span>{
+				sanitized_approvals.push(approval.into())
+			}
+		}
+
+		sanitized_approvals
+	}
+
+	<span class="comment">// Filter out obviously invalid candidate indicies.
+	</span><span class="kw">async fn </span>sanitize_v2_approvals(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		peer_id: PeerId,
+		sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::ApprovalDistributionSenderTrait,
+		approval: Vec&lt;IndirectSignedApprovalVoteV2&gt;,
+	) -&gt; Vec&lt;IndirectSignedApprovalVoteV2&gt; {
+		<span class="kw">let </span><span class="kw-2">mut </span>sanitized_approvals = Vec::new();
+		<span class="kw">for </span>approval <span class="kw">in </span>approval.into_iter() {
+			<span class="kw">if </span>approval.candidate_indices.len() <span class="kw">as </span>usize &gt; MAX_BITFIELD_SIZE {
+				<span class="comment">// Punish the peer for the invalid message.
+				</span>modify_reputation(<span class="kw-2">&amp;mut </span><span class="self">self</span>.reputation, sender, peer_id, COST_OVERSIZED_BITFIELD)
+					.<span class="kw">await</span>;
+				<span class="macro">gum::debug!</span>(
+					target: LOG_TARGET,
+					block_hash = <span class="question-mark">?</span>approval.block_hash,
+					candidate_indices_len = <span class="question-mark">?</span>approval.candidate_indices.len(),
+					<span class="string">&quot;Bad approval v2, invalid candidate indices size&quot;
+				</span>);
+			} <span class="kw">else </span>{
+				sanitized_approvals.push(approval)
+			}
+		}
+
+		sanitized_approvals
 	}
 }
 
