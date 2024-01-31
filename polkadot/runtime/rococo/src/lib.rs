@@ -1662,6 +1662,8 @@ pub mod migrations {
 		parachains_configuration::migration::v11::MigrateToV11<Runtime>,
 		// This needs to come after the `parachains_configuration` above as we are reading the configuration.
 		coretime::migration::MigrateToCoretime<Runtime, crate::xcm_config::XcmRouter, GetLegacyLeaseImpl>,
+		// Change on demand max queue size.
+		parachains_configuration::migration::v12::MigrateToV12<Runtime>,
 	);
 }
 
