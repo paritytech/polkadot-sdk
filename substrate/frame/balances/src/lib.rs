@@ -190,7 +190,8 @@ use sp_runtime::{
 };
 use sp_std::{cmp, fmt::Debug, mem, prelude::*, result};
 pub use types::{
-	AccountData, BalanceLock, DustCleaner, ExtraFlags, IdAmount, Reasons, ReserveData,
+	AccountData, AdjustmentDirection, BalanceLock, DustCleaner, ExtraFlags, IdAmount, Reasons,
+	ReserveData,
 };
 pub use weights::WeightInfo;
 
@@ -384,6 +385,8 @@ pub mod pallet {
 		Frozen { who: T::AccountId, amount: T::Balance },
 		/// Some balance was thawed.
 		Thawed { who: T::AccountId, amount: T::Balance },
+		/// The `TotalIssuance` was forcefully changed.
+		TotalIssuanceForced { old: T::Balance, new: T::Balance },
 	}
 
 	#[pallet::error]
@@ -408,6 +411,10 @@ pub mod pallet {
 		TooManyHolds,
 		/// Number of freezes exceed `MaxFreezes`.
 		TooManyFreezes,
+		/// The issuance cannot be modified since it is already deactivated.
+		IssuanceDeactivated,
+		/// The delta cannot be zero.
+		DeltaZero,
 	}
 
 	/// The total units issued in the system.
@@ -741,6 +748,37 @@ pub mod pallet {
 			}
 
 			Self::deposit_event(Event::BalanceSet { who, free: new_free });
+			Ok(())
+		}
+
+		/// Adjust the total issuance in a saturating way.
+		///
+		/// Can only be called by root and always needs a positive `delta`.
+		///
+		/// # Example
+		#[doc = docify::embed!("./src/tests/dispatchable_tests.rs", force_adjust_total_issuance_example)]
+		#[pallet::call_index(9)]
+		#[pallet::weight(T::WeightInfo::force_adjust_total_issuance())]
+		pub fn force_adjust_total_issuance(
+			origin: OriginFor<T>,
+			direction: AdjustmentDirection,
+			#[pallet::compact] delta: T::Balance,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			ensure!(delta > Zero::zero(), Error::<T, I>::DeltaZero);
+
+			let old = TotalIssuance::<T, I>::get();
+			let new = match direction {
+				AdjustmentDirection::Increase => old.saturating_add(delta),
+				AdjustmentDirection::Decrease => old.saturating_sub(delta),
+			};
+
+			ensure!(InactiveIssuance::<T, I>::get() <= new, Error::<T, I>::IssuanceDeactivated);
+			TotalIssuance::<T, I>::set(new);
+
+			Self::deposit_event(Event::<T, I>::TotalIssuanceForced { old, new });
+
 			Ok(())
 		}
 	}

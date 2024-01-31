@@ -21,7 +21,8 @@ workflow:
     - if: $CI_COMMIT_BRANCH
 
 variables:
-  CI_IMAGE: !reference [.ci-unified, variables, CI_IMAGE]
+  # CI_IMAGE: !reference [.ci-unified, variables, CI_IMAGE]
+  CI_IMAGE: "docker.io/paritytech/ci-unified:bullseye-1.75.0-2024-01-22-v20240109"
   # BUILDAH_IMAGE is defined in group variables
   BUILDAH_COMMAND: "buildah --storage-driver overlay2"
   RELENG_SCRIPTS_BRANCH: "master"
@@ -133,7 +134,6 @@ default:
       fi
     - ls -al
     - rm -f forklift.sock
-    - forklift clean
     #
     - echo "FL_FORKLIFT_VERSION ${FL_FORKLIFT_VERSION}"
     - echo "FORKLIFT_PACKAGE_SUFFIX $FORKLIFT_PACKAGE_SUFFIX"
