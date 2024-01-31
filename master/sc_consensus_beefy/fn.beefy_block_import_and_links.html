@@ -4,7 +4,7 @@
     runtime: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;RuntimeApi&gt;,
     prometheus_registry: <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Registry&gt;
 ) -&gt; (<a class="struct" href="import/struct.BeefyBlockImport.html" title="struct sc_consensus_beefy::import::BeefyBlockImport">BeefyBlockImport</a>&lt;B, BE, RuntimeApi, I&gt;, <a class="struct" href="struct.BeefyVoterLinks.html" title="struct sc_consensus_beefy::BeefyVoterLinks">BeefyVoterLinks</a>&lt;B&gt;, <a class="struct" href="struct.BeefyRPCLinks.html" title="struct sc_consensus_beefy::BeefyRPCLinks">BeefyRPCLinks</a>&lt;B&gt;)<span class="where fmt-newline">where
-    B: Block,
+    B: <a class="trait" href="../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">Block</a>,
     BE: Backend&lt;B&gt;,
     I: BlockImport&lt;B, Error = Error&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a>,
     RuntimeApi: ProvideRuntimeApi&lt;B&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a>,
