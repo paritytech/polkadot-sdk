@@ -313,7 +313,6 @@
 	AccountId, AllPalletsWithSystem, Balances, ParachainInfo, ParachainSystem, PolkadotXcm,
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, TransactionByteFee, WeightToFee, XcmpQueue,
 };
-<span class="kw">use </span><span class="kw">crate</span>::common::rococo::currency::CENTS;
 <span class="kw">use </span>cumulus_primitives_core::AggregateMessageOrigin;
 <span class="kw">use </span>frame_support::{
 	parameter_types,
@@ -332,6 +331,7 @@
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::Sibling;
 <span class="kw">use </span>polkadot_runtime_common::xcm_sender::ExponentialPrice;
 <span class="kw">use </span>sp_runtime::traits::AccountIdConversion;
+<span class="kw">use </span>testnet_parachains_constants::rococo::currency::CENTS;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="attr">#[allow(deprecated)]
 </span><span class="kw">use </span>xcm_builder::CurrencyAdapter;

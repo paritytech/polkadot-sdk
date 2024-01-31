@@ -270,7 +270,7 @@
 
 <span class="doccomment">/// The existential deposit is determined by the runtime &quot;contracts-rococo&quot;.
 </span><span class="kw">const </span>CONTRACTS_ROCOCO_ED: contracts_rococo_runtime::Balance =
-	parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
+	testnet_parachains_constants::rococo::currency::EXISTENTIAL_DEPOSIT;
 
 <span class="kw">pub fn </span>contracts_rococo_development_config() -&gt; GenericChainSpec {
 	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();

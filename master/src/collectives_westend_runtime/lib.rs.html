@@ -1042,6 +1042,8 @@
 <a href="#1042" id="1042">1042</a>
 <a href="#1043" id="1043">1043</a>
 <a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1127,12 +1129,14 @@
 <span class="kw">use </span>parachains_common::{
 	impls::{DealWithFees, ToParentTreasury},
 	message_queue::<span class="kw-2">*</span>,
-	westend::{account::<span class="kw-2">*</span>, consensus::<span class="kw-2">*</span>, currency::<span class="kw-2">*</span>, fee::WeightToFee},
 	AccountId, AuraId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
 	AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, MAXIMUM_BLOCK_WEIGHT, MINUTES, NORMAL_DISPATCH_RATIO,
 	SLOT_DURATION,
 };
 <span class="kw">use </span>sp_runtime::RuntimeDebug;
+<span class="kw">use </span>testnet_parachains_constants::westend::{
+	account::<span class="kw-2">*</span>, consensus::<span class="kw-2">*</span>, currency::<span class="kw-2">*</span>, fee::WeightToFee,
+};
 <span class="kw">use </span>xcm_config::{
 	GovernanceLocation, LocationToAccountId, TreasurerBodyId, XcmOriginToTransactDispatchOrigin,
 };

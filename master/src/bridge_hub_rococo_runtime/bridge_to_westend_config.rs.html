@@ -331,6 +331,7 @@
 <a href="#331" id="331">331</a>
 <a href="#332" id="332">332</a>
 <a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -585,7 +586,8 @@
 			AssertCompleteBridgeConstants,
 		},
 	};
-	<span class="kw">use </span>parachains_common::{rococo, Balance};
+	<span class="kw">use </span>parachains_common::Balance;
+	<span class="kw">use </span>testnet_parachains_constants::rococo;
 
 	<span class="doccomment">/// Every additional message in the message delivery transaction boosts its priority.
 	/// So the priority of transaction with `N+1` messages is larger than priority of

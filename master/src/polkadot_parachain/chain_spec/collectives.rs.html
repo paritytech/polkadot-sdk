@@ -181,7 +181,7 @@
 <span class="kw">use </span>sp_core::sr25519;
 
 <span class="kw">const </span>COLLECTIVES_WESTEND_ED: CollectivesBalance =
-	parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
+	collectives_westend_runtime::ExistentialDeposit::get();
 
 <span class="doccomment">/// Generate the session keys from individual elements.
 ///

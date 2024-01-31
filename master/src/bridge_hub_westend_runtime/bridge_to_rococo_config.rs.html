@@ -365,6 +365,7 @@
 <a href="#365" id="365">365</a>
 <a href="#366" id="366">366</a>
 <a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -654,7 +655,8 @@
 			AssertCompleteBridgeConstants,
 		},
 	};
-	<span class="kw">use </span>parachains_common::{westend, Balance};
+	<span class="kw">use </span>parachains_common::Balance;
+	<span class="kw">use </span>testnet_parachains_constants::westend;
 
 	<span class="doccomment">/// Every additional message in the message delivery transaction boosts its priority.
 	/// So the priority of transaction with `N+1` messages is larger than priority of

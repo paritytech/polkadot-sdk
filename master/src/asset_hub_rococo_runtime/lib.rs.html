@@ -1814,7 +1814,6 @@
 };
 <span class="kw">use </span>cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 <span class="kw">use </span>cumulus_primitives_core::AggregateMessageOrigin;
-<span class="kw">use </span>parachains_common::rococo::snowbridge::EthereumNetwork;
 <span class="kw">use </span>sp_api::impl_runtime_apis;
 <span class="kw">use </span>sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 <span class="kw">use </span>sp_runtime::{
@@ -1823,6 +1822,7 @@
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Permill,
 };
+<span class="kw">use </span>testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
@@ -1853,12 +1853,12 @@
 <span class="kw">use </span>parachains_common::{
 	impls::DealWithFees,
 	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
-	rococo::{consensus::<span class="kw-2">*</span>, currency::<span class="kw-2">*</span>, fee::WeightToFee},
 	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, BlockNumber, CollectionId, Hash,
 	Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS,
 	NORMAL_DISPATCH_RATIO,
 };
 <span class="kw">use </span>sp_runtime::{Perbill, RuntimeDebug};
+<span class="kw">use </span>testnet_parachains_constants::rococo::{consensus::<span class="kw-2">*</span>, currency::<span class="kw-2">*</span>, fee::WeightToFee};
 <span class="kw">use </span>xcm_config::{
 	ForeignAssetsConvertedConcreteId, ForeignCreatorsSovereignAccountOf, GovernanceLocation,
 	PoolAssetsConvertedConcreteId, TokenLocation, TokenLocationV3,
@@ -3500,9 +3500,9 @@
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use crate</span>::{CENTS, MILLICENTS};
-	<span class="kw">use </span>parachains_common::rococo::fee;
 	<span class="kw">use </span>sp_runtime::traits::Zero;
 	<span class="kw">use </span>sp_weights::WeightToFee;
+	<span class="kw">use </span>testnet_parachains_constants::rococo::fee;
 
 	<span class="doccomment">/// We can fit at least 1000 transfers in a block.
 	</span><span class="attr">#[test]

@@ -911,29 +911,6 @@
 <a href="#911" id="911">911</a>
 <a href="#912" id="912">912</a>
 <a href="#913" id="913">913</a>
-<a href="#914" id="914">914</a>
-<a href="#915" id="915">915</a>
-<a href="#916" id="916">916</a>
-<a href="#917" id="917">917</a>
-<a href="#918" id="918">918</a>
-<a href="#919" id="919">919</a>
-<a href="#920" id="920">920</a>
-<a href="#921" id="921">921</a>
-<a href="#922" id="922">922</a>
-<a href="#923" id="923">923</a>
-<a href="#924" id="924">924</a>
-<a href="#925" id="925">925</a>
-<a href="#926" id="926">926</a>
-<a href="#927" id="927">927</a>
-<a href="#928" id="928">928</a>
-<a href="#929" id="929">929</a>
-<a href="#930" id="930">930</a>
-<a href="#931" id="931">931</a>
-<a href="#932" id="932">932</a>
-<a href="#933" id="933">933</a>
-<a href="#934" id="934">934</a>
-<a href="#935" id="935">935</a>
-<a href="#936" id="936">936</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -957,7 +934,6 @@
 	XcmpQueue,
 };
 <span class="kw">use </span>assets_common::{
-	local_and_foreign_assets::MatchesLocalAndForeignAssetsLocation,
 	matching::{FromNetwork, FromSiblingParachain, IsForeignConcreteAsset},
 	TrustBackedAssetsAsLocation,
 };
@@ -972,7 +948,6 @@
 <span class="kw">use </span>pallet_xcm::XcmPassthrough;
 <span class="kw">use </span>parachains_common::{
 	impls::ToStakingPot,
-	rococo::snowbridge::EthereumNetwork,
 	xcm_config::{
 		AllSiblingSystemParachains, AssetFeeAsExistentialDepositMultiplier,
 		ConcreteAssetFromSystem, ParentRelayOrSiblingParachains, RelayOrOtherSystemParachains,
@@ -983,6 +958,9 @@
 <span class="kw">use </span>polkadot_runtime_common::xcm_sender::ExponentialPrice;
 <span class="kw">use </span>snowbridge_router_primitives::inbound::GlobalConsensusEthereumConvertsFor;
 <span class="kw">use </span>sp_runtime::traits::{AccountIdConversion, ConvertInto};
+<span class="kw">use </span>testnet_parachains_constants::rococo::snowbridge::{
+	EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX,
+};
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="attr">#[allow(deprecated)]
 </span><span class="kw">use </span>xcm_builder::CurrencyAdapter;
@@ -1164,30 +1142,6 @@
 	PoolFungiblesTransactor,
 	UniquesTransactor,
 );
-
-<span class="doccomment">/// Simple `Location` matcher for Local and Foreign asset `Location`.
-</span><span class="kw">pub struct </span>LocalAndForeignAssetsLocationMatcher;
-<span class="kw">impl </span>MatchesLocalAndForeignAssetsLocation&lt;xcm::v3::Location&gt;
-	<span class="kw">for </span>LocalAndForeignAssetsLocationMatcher
-{
-	<span class="kw">fn </span>is_local(location: <span class="kw-2">&amp;</span>xcm::v3::Location) -&gt; bool {
-		<span class="kw">use </span>assets_common::fungible_conversion::MatchesLocation;
-		<span class="kw">let </span>latest_location: Location =
-			<span class="kw">if let </span><span class="prelude-val">Ok</span>(location) = (<span class="kw-2">*</span>location).try_into() { location } <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
-		TrustBackedAssetsConvertedConcreteId::contains(<span class="kw-2">&amp;</span>latest_location)
-	}
-	<span class="kw">fn </span>is_foreign(location: <span class="kw-2">&amp;</span>xcm::v3::Location) -&gt; bool {
-		<span class="kw">use </span>assets_common::fungible_conversion::MatchesLocation;
-		<span class="kw">let </span>latest_location: Location =
-			<span class="kw">if let </span><span class="prelude-val">Ok</span>(location) = (<span class="kw-2">*</span>location).try_into() { location } <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
-		ForeignAssetsConvertedConcreteId::contains(<span class="kw-2">&amp;</span>latest_location)
-	}
-}
-<span class="kw">impl </span>Contains&lt;xcm::v3::Location&gt; <span class="kw">for </span>LocalAndForeignAssetsLocationMatcher {
-	<span class="kw">fn </span>contains(location: <span class="kw-2">&amp;</span>xcm::v3::Location) -&gt; bool {
-		<span class="self">Self</span>::is_local(location) || <span class="self">Self</span>::is_foreign(location)
-	}
-}
 
 <span class="doccomment">/// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
 /// ready for dispatching a transaction with Xcm&#39;s `Transact`. There is an `OriginKind` which can
@@ -1811,7 +1765,7 @@
 				<span class="number">1</span>,
 				[
 					Parachain(SiblingBridgeHubParaId::get()),
-					PalletInstance(parachains_common::rococo::snowbridge::INBOUND_QUEUE_PALLET_INDEX)
+					PalletInstance(INBOUND_QUEUE_PALLET_INDEX)
 				]
 			);
 

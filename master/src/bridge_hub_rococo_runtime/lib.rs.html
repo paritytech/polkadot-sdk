@@ -1590,10 +1590,11 @@
 <span class="kw">use </span>weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
 <span class="kw">use </span>parachains_common::{
-	impls::DealWithFees,
-	rococo::{consensus::<span class="kw-2">*</span>, currency::<span class="kw-2">*</span>, fee::WeightToFee},
-	AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
-	HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
+	impls::DealWithFees, AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
+	AVERAGE_ON_INITIALIZE_RATIO, HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
+};
+<span class="kw">use </span>testnet_parachains_constants::rococo::{
+	consensus::<span class="kw-2">*</span>, currency::<span class="kw-2">*</span>, fee::WeightToFee, snowbridge::INBOUND_QUEUE_PALLET_INDEX,
 };
 
 <span class="kw">use </span>polkadot_runtime_common::prod_or_fast;
@@ -1994,7 +1995,6 @@
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>CreateAssetCall: [u8;<span class="number">2</span>] = [<span class="number">53</span>, <span class="number">0</span>];
 	<span class="kw">pub const </span>CreateAssetDeposit: u128 = (UNITS / <span class="number">10</span>) + EXISTENTIAL_DEPOSIT;
-	<span class="kw">pub const </span>InboundQueuePalletInstance: u8 = parachains_common::rococo::snowbridge::INBOUND_QUEUE_PALLET_INDEX;
 	<span class="kw">pub </span>Parameters: PricingParameters&lt;u128&gt; = PricingParameters {
 		exchange_rate: FixedU128::from_rational(<span class="number">1</span>, <span class="number">400</span>),
 		fee_per_gas: gwei(<span class="number">20</span>),
@@ -2055,7 +2055,7 @@
 	<span class="kw">type </span>MessageConverter = MessageToXcm&lt;
 		CreateAssetCall,
 		CreateAssetDeposit,
-		InboundQueuePalletInstance,
+		ConstU8&lt;INBOUND_QUEUE_PALLET_INDEX&gt;,
 		AccountId,
 		Balance,
 	&gt;;

@@ -410,7 +410,7 @@
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_ROCOCO: <span class="kw-2">&amp;</span>str = <span class="string">&quot;coretime-rococo&quot;</span>;
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_ROCOCO_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;coretime-rococo-local&quot;</span>;
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_ROCOCO_DEVELOPMENT: <span class="kw-2">&amp;</span>str = <span class="string">&quot;coretime-rococo-dev&quot;</span>;
-	<span class="kw">const </span>CORETIME_ROCOCO_ED: Balance = parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
+	<span class="kw">const </span>CORETIME_ROCOCO_ED: Balance = coretime_rococo_runtime::ExistentialDeposit::get();
 
 	<span class="kw">pub fn </span>local_config(runtime_type: CoretimeRuntimeType, relay_chain: <span class="kw-2">&amp;</span>str) -&gt; GenericChainSpec {
 		<span class="comment">// Rococo defaults
@@ -505,7 +505,7 @@
 
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_WESTEND_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;coretime-westend-local&quot;</span>;
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_WESTEND_DEVELOPMENT: <span class="kw-2">&amp;</span>str = <span class="string">&quot;coretime-westend-dev&quot;</span>;
-	<span class="kw">const </span>CORETIME_WESTEND_ED: Balance = parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
+	<span class="kw">const </span>CORETIME_WESTEND_ED: Balance = coretime_westend_runtime::ExistentialDeposit::get();
 
 	<span class="kw">pub fn </span>local_config(runtime_type: CoretimeRuntimeType, relay_chain: <span class="kw-2">&amp;</span>str) -&gt; GenericChainSpec {
 		<span class="comment">// westend defaults

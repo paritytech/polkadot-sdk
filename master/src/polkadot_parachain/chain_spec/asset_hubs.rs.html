@@ -396,8 +396,6 @@
 <a href="#396" id="396">396</a>
 <a href="#397" id="397">397</a>
 <a href="#398" id="398">398</a>
-<a href="#399" id="399">399</a>
-<a href="#400" id="400">400</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -424,10 +422,8 @@
 <span class="kw">use </span>sc_service::ChainType;
 <span class="kw">use </span>sp_core::{crypto::UncheckedInto, sr25519};
 
-<span class="kw">const </span>ASSET_HUB_WESTEND_ED: AssetHubBalance =
-	parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
-<span class="kw">const </span>ASSET_HUB_ROCOCO_ED: AssetHubBalance =
-	parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
+<span class="kw">const </span>ASSET_HUB_WESTEND_ED: AssetHubBalance = asset_hub_westend_runtime::ExistentialDeposit::get();
+<span class="kw">const </span>ASSET_HUB_ROCOCO_ED: AssetHubBalance = asset_hub_rococo_runtime::ExistentialDeposit::get();
 
 <span class="doccomment">/// Generate the session keys from individual elements.
 ///
@@ -468,7 +464,7 @@
 			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
 			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
 		],
-		parachains_common::westend::currency::UNITS * <span class="number">1_000_000</span>,
+		testnet_parachains_constants::westend::currency::UNITS * <span class="number">1_000_000</span>,
 		<span class="number">1000</span>.into(),
 	))
 	.with_properties(properties)
@@ -514,7 +510,7 @@
 			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve//stash&quot;</span>),
 			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie//stash&quot;</span>),
 		],
-		parachains_common::westend::currency::UNITS * <span class="number">1_000_000</span>,
+		testnet_parachains_constants::westend::currency::UNITS * <span class="number">1_000_000</span>,
 		<span class="number">1000</span>.into(),
 	))
 	.with_properties(properties)
@@ -643,7 +639,7 @@
 			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
 			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
 		],
-		parachains_common::rococo::currency::UNITS * <span class="number">1_000_000</span>,
+		testnet_parachains_constants::rococo::currency::UNITS * <span class="number">1_000_000</span>,
 		para_id.into(),
 	))
 	.with_properties(properties)
@@ -702,7 +698,7 @@
 			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve//stash&quot;</span>),
 			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie//stash&quot;</span>),
 		],
-		parachains_common::rococo::currency::UNITS * <span class="number">1_000_000</span>,
+		testnet_parachains_constants::rococo::currency::UNITS * <span class="number">1_000_000</span>,
 		para_id.into(),
 	))
 	.with_properties(properties)

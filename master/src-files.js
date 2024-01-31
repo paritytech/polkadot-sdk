@@ -240,7 +240,7 @@ var srcIndex = JSON.parse('{\
 "pallet_xcm_bridge_hub_router":["",[],["lib.rs","weights.rs"]],\
 "parachain_template_node":["",[],["chain_spec.rs","cli.rs","command.rs","main.rs","rpc.rs","service.rs"]],\
 "parachain_template_runtime":["",[["weights",[],["block_weights.rs","extrinsic_weights.rs","mod.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["lib.rs","xcm_config.rs"]],\
-"parachains_common":["",[],["impls.rs","lib.rs","message_queue.rs","rococo.rs","westend.rs","xcm_config.rs"]],\
+"parachains_common":["",[],["impls.rs","lib.rs","message_queue.rs","xcm_config.rs"]],\
 "parachains_runtimes_test_utils":["",[],["lib.rs","test_cases.rs"]],\
 "penpal_emulated_chain":["",[],["genesis.rs","lib.rs"]],\
 "penpal_runtime":["",[["weights",[],["block_weights.rs","extrinsic_weights.rs","mod.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["lib.rs","xcm_config.rs"]],\
@@ -488,6 +488,7 @@ var srcIndex = JSON.parse('{\
 "test_parachain_undying_collator":["",[],["lib.rs"]],\
 "test_parachains":["",[],["lib.rs"]],\
 "test_runtime_constants":["",[["weights",[],["block_weights.rs","extrinsic_weights.rs","mod.rs","paritydb_weights.rs","rocksdb_weights.rs"]]],["lib.rs"]],\
+"testnet_parachains_constants":["",[],["lib.rs","rococo.rs","westend.rs"]],\
 "tracing_gum":["",[],["lib.rs"]],\
 "tracing_gum_proc_macro":["",[],["lib.rs","types.rs"]],\
 "try_runtime_cli":["",[["commands",[],["create_snapshot.rs","execute_block.rs","fast_forward.rs","follow_chain.rs","mod.rs","offchain_worker.rs","on_runtime_upgrade.rs"]]],["block_building_info.rs","lib.rs","parse.rs"]],\

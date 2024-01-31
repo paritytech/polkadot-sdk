@@ -543,7 +543,6 @@
 <span class="kw">use </span>pallet_xcm::XcmPassthrough;
 <span class="kw">use </span>parachains_common::{
 	impls::ToStakingPot,
-	rococo::snowbridge::EthereumNetwork,
 	xcm_config::{
 		AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains,
 		RelayOrOtherSystemParachains,
@@ -556,6 +555,7 @@
 <span class="kw">use </span>sp_core::Get;
 <span class="kw">use </span>sp_runtime::traits::AccountIdConversion;
 <span class="kw">use </span>sp_std::marker::PhantomData;
+<span class="kw">use </span>testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 <span class="kw">use </span>xcm::latest::prelude::<span class="kw-2">*</span>;
 <span class="attr">#[allow(deprecated)]
 </span><span class="kw">use </span>xcm_builder::{

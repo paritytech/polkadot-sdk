@@ -42,8 +42,8 @@
 // along with Cumulus.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
 </span><span class="kw">use crate</span>::{xcm_config::UniversalLocation, Runtime};
-<span class="kw">use </span>parachains_common::rococo::snowbridge::EthereumNetwork;
 <span class="kw">use </span>snowbridge_router_primitives::outbound::EthereumBlobExporter;
+<span class="kw">use </span>testnet_parachains_constants::rococo::snowbridge::EthereumNetwork;
 
 <span class="doccomment">/// Exports message to the Ethereum Gateway contract.
 </span><span class="kw">pub type </span>SnowbridgeExporter = EthereumBlobExporter&lt;

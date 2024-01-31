@@ -494,7 +494,7 @@
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_ROCOCO_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;bridge-hub-rococo-local&quot;</span>;
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_ROCOCO_DEVELOPMENT: <span class="kw-2">&amp;</span>str = <span class="string">&quot;bridge-hub-rococo-dev&quot;</span>;
 	<span class="kw">const </span>BRIDGE_HUB_ROCOCO_ED: BridgeHubBalance =
-		parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
+		bridge_hub_rococo_runtime::ExistentialDeposit::get();
 
 	<span class="kw">pub fn </span>local_config&lt;ModifyProperties: Fn(<span class="kw-2">&amp;mut </span>sc_chain_spec::Properties)&gt;(
 		id: <span class="kw-2">&amp;</span>str,
@@ -618,7 +618,7 @@
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_WESTEND_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;bridge-hub-westend-local&quot;</span>;
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_WESTEND_DEVELOPMENT: <span class="kw-2">&amp;</span>str = <span class="string">&quot;bridge-hub-westend-dev&quot;</span>;
 	<span class="kw">const </span>BRIDGE_HUB_WESTEND_ED: BridgeHubBalance =
-		parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
+		bridge_hub_westend_runtime::ExistentialDeposit::get();
 
 	<span class="kw">pub fn </span>local_config(
 		id: <span class="kw-2">&amp;</span>str,
