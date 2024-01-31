@@ -813,6 +813,7 @@ dependencies = [
  "parachains-common",
  "rococo-emulated-chain",
  "sp-core",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -837,6 +838,7 @@ dependencies = [
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -916,6 +918,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -928,6 +931,7 @@ dependencies = [
  "frame-support",
  "parachains-common",
  "sp-core",
+ "testnet-parachains-constants",
  "westend-emulated-chain",
 ]
 
@@ -954,6 +958,7 @@ dependencies = [
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
+ "testnet-parachains-constants",
  "westend-runtime",
  "westend-system-emulated-network",
 ]
@@ -1030,6 +1035,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
  "westend-runtime-constants",
 ]
 
@@ -1923,6 +1929,7 @@ dependencies = [
  "frame-support",
  "parachains-common",
  "sp-core",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -1957,6 +1964,7 @@ dependencies = [
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -2053,6 +2061,7 @@ dependencies = [
  "staging-xcm-executor",
  "static_assertions",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -2103,6 +2112,7 @@ dependencies = [
  "frame-support",
  "parachains-common",
  "sp-core",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -2207,6 +2217,7 @@ dependencies = [
  "staging-xcm-executor",
  "static_assertions",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
  "westend-runtime-constants",
 ]
 
@@ -2695,6 +2706,7 @@ dependencies = [
  "frame-support",
  "parachains-common",
  "sp-core",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -2766,6 +2778,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
  "westend-runtime-constants",
 ]
 
@@ -3009,6 +3022,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -3103,6 +3117,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -3164,6 +3179,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
  "westend-runtime-constants",
 ]
 
@@ -6132,6 +6148,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -9231,6 +9248,7 @@ dependencies = [
 name = "pallet-balances"
 version = "28.0.0"
 dependencies = [
+ "docify",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -11283,11 +11301,8 @@ dependencies = [
  "pallet-message-queue",
  "pallet-xcm",
  "parity-scale-codec",
- "polkadot-core-primitives",
  "polkadot-primitives",
- "rococo-runtime-constants",
  "scale-info",
- "smallvec",
  "sp-consensus-aura",
  "sp-core",
  "sp-io",
@@ -11297,7 +11312,6 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-executor",
  "substrate-wasm-builder",
- "westend-runtime-constants",
 ]
 
 [[package]]
@@ -11596,6 +11610,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -11608,6 +11623,7 @@ dependencies = [
  "parachains-common",
  "people-rococo-runtime",
  "sp-core",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -11692,6 +11708,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -11704,6 +11721,7 @@ dependencies = [
  "parachains-common",
  "people-westend-runtime",
  "sp-core",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -11787,6 +11805,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
  "westend-runtime-constants",
 ]
 
@@ -13005,6 +13024,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "substrate-state-trie-migration-rpc",
  "tempfile",
+ "testnet-parachains-constants",
  "tokio",
  "wait-timeout",
 ]
@@ -14765,6 +14785,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -19968,6 +19989,19 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "sp-weights",
+]
+
+[[package]]
+name = "testnet-parachains-constants"
+version = "1.0.0"
+dependencies = [
+ "frame-support",
+ "polkadot-core-primitives",
+ "rococo-runtime-constants",
+ "smallvec",
+ "sp-runtime",
+ "staging-xcm",
+ "westend-runtime-constants",
 ]
 
 [[package]]
