@@ -36,8 +36,8 @@ default = ["std"]
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",
-	"frame-support/std",
 	"frame-support/experimental",
+	"frame-support/std",
 	"frame-system/std",
 	"log/std",
 	"scale-info/std",
@@ -51,12 +51,12 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-ranked-collective/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"pallet-ranked-collective/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-ranked-collective/try-runtime",
 	"sp-runtime/try-runtime",
-	"pallet-ranked-collective/try-runtime"
 ]
