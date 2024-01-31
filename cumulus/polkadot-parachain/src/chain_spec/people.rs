@@ -112,7 +112,7 @@ pub mod rococo {
 
 	pub(crate) const PEOPLE_ROCOCO: &str = "people-rococo";
 	pub(crate) const PEOPLE_ROCOCO_LOCAL: &str = "people-rococo-local";
-	pub(crate) const PEOPLE_ROCOCO_DEVELOPMENT: &str = "people-rococo-development";
+	pub(crate) const PEOPLE_ROCOCO_DEVELOPMENT: &str = "people-rococo-dev";
 	const PEOPLE_ROCOCO_ED: PeopleBalance = people_rococo_runtime::ExistentialDeposit::get();
 
 	pub fn local_config(
@@ -222,7 +222,7 @@ pub mod westend {
 
 	pub(crate) const PEOPLE_WESTEND: &str = "people-westend";
 	pub(crate) const PEOPLE_WESTEND_LOCAL: &str = "people-westend-local";
-	pub(crate) const PEOPLE_WESTEND_DEVELOPMENT: &str = "people-westend-development";
+	pub(crate) const PEOPLE_WESTEND_DEVELOPMENT: &str = "people-westend-dev";
 	const PEOPLE_WESTEND_ED: PeopleBalance = people_westend_runtime::ExistentialDeposit::get();
 
 	pub fn local_config(
