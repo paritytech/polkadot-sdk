@@ -142,7 +142,6 @@ impl Config for Test {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = TestId;
 	type MaxFreezes = ConstU32<2>;
-	type MaxHolds = ConstU32<3>;
 }
 
 #[derive(Clone)]
