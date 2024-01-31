@@ -47,8 +47,8 @@ use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, AsPrefixedGeneralIndex,
-	ConvertedConcreteId, CurrencyAdapter, DenyReserveTransferToRelayChain, DenyThenTry,
-	EnsureXcmOrigin, FixedWeightBounds, FungiblesAdapter, IsConcrete, LocalMint, NativeAsset,
+	ConvertedConcreteId, CurrencyAdapter, EnsureXcmOrigin, FixedWeightBounds,
+	FrameTransactionalProcessor, FungiblesAdapter, IsConcrete, LocalMint, NativeAsset,
 	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
 	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
@@ -167,34 +167,29 @@ match_types! {
 	};
 }
 
-pub type Barrier = TrailingSetTopicAsId<
-	DenyThenTry<
-		DenyReserveTransferToRelayChain,
+pub type Barrier = TrailingSetTopicAsId<(
+	TakeWeightCredit,
+	// Expected responses are OK.
+	AllowKnownQueryResponses<PolkadotXcm>,
+	// Allow XCMs with some computed origins to pass through.
+	WithComputedOrigin<
 		(
-			TakeWeightCredit,
-			// Expected responses are OK.
-			AllowKnownQueryResponses<PolkadotXcm>,
-			// Allow XCMs with some computed origins to pass through.
-			WithComputedOrigin<
-				(
-					// If the message is one that immediately attempts to pay for execution, then
-					// allow it.
-					AllowTopLevelPaidExecutionFrom<Everything>,
-					// System Assets parachain, parent and its exec plurality get free
-					// execution
-					AllowExplicitUnpaidExecutionFrom<(
-						CommonGoodAssetsParachain,
-						ParentOrParentsExecutivePlurality,
-					)>,
-					// Subscriptions for version tracking are OK.
-					AllowSubscriptionsFrom<Everything>,
-				),
-				UniversalLocation,
-				ConstU32<8>,
-			>,
+			// If the message is one that immediately attempts to pay for execution, then
+			// allow it.
+			AllowTopLevelPaidExecutionFrom<Everything>,
+			// System Assets parachain, parent and its exec plurality get free
+			// execution
+			AllowExplicitUnpaidExecutionFrom<(
+				CommonGoodAssetsParachain,
+				ParentOrParentsExecutivePlurality,
+			)>,
+			// Subscriptions for version tracking are OK.
+			AllowSubscriptionsFrom<Everything>,
 		),
+		UniversalLocation,
+		ConstU32<8>,
 	>,
->;
+)>;
 
 /// Type alias to conveniently refer to `frame_system`'s `Config::AccountId`.
 pub type AccountIdOf<R> = <R as frame_system::Config>::AccountId;
