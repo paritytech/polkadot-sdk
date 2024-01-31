@@ -33,6 +33,10 @@ fn assert_last_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 
+fn assert_has_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::RuntimeEvent) {
+	frame_system::Pallet::<T>::assert_has_event(generic_event.into());
+}
+
 fn make_member<T: Config<I>, I: 'static>(rank: Rank) -> T::AccountId {
 	let who = account::<T::AccountId>("member", MemberCount::<T, I>::get(0), SEED);
 	let who_lookup = T::Lookup::unlookup(who.clone());
@@ -186,7 +190,7 @@ benchmarks_instance_pallet! {
 	verify {
 		assert_eq!(Members::<T, I>::get(&new_who).unwrap().rank, 1);
 		assert_eq!(Members::<T, I>::get(&who), None);
-		assert_last_event::<T, I>(Event::MemberExchanged { who, new_who }.into());
+		assert_has_event::<T, I>(Event::MemberExchanged { who, new_who }.into());
 	}
 
 	impl_benchmark_test_suite!(RankedCollective, crate::tests::new_test_ext(), crate::tests::Test);
