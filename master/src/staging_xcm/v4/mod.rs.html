@@ -1455,6 +1455,58 @@
 <a href="#1455" id="1455">1455</a>
 <a href="#1456" id="1456">1456</a>
 <a href="#1457" id="1457">1457</a>
+<a href="#1458" id="1458">1458</a>
+<a href="#1459" id="1459">1459</a>
+<a href="#1460" id="1460">1460</a>
+<a href="#1461" id="1461">1461</a>
+<a href="#1462" id="1462">1462</a>
+<a href="#1463" id="1463">1463</a>
+<a href="#1464" id="1464">1464</a>
+<a href="#1465" id="1465">1465</a>
+<a href="#1466" id="1466">1466</a>
+<a href="#1467" id="1467">1467</a>
+<a href="#1468" id="1468">1468</a>
+<a href="#1469" id="1469">1469</a>
+<a href="#1470" id="1470">1470</a>
+<a href="#1471" id="1471">1471</a>
+<a href="#1472" id="1472">1472</a>
+<a href="#1473" id="1473">1473</a>
+<a href="#1474" id="1474">1474</a>
+<a href="#1475" id="1475">1475</a>
+<a href="#1476" id="1476">1476</a>
+<a href="#1477" id="1477">1477</a>
+<a href="#1478" id="1478">1478</a>
+<a href="#1479" id="1479">1479</a>
+<a href="#1480" id="1480">1480</a>
+<a href="#1481" id="1481">1481</a>
+<a href="#1482" id="1482">1482</a>
+<a href="#1483" id="1483">1483</a>
+<a href="#1484" id="1484">1484</a>
+<a href="#1485" id="1485">1485</a>
+<a href="#1486" id="1486">1486</a>
+<a href="#1487" id="1487">1487</a>
+<a href="#1488" id="1488">1488</a>
+<a href="#1489" id="1489">1489</a>
+<a href="#1490" id="1490">1490</a>
+<a href="#1491" id="1491">1491</a>
+<a href="#1492" id="1492">1492</a>
+<a href="#1493" id="1493">1493</a>
+<a href="#1494" id="1494">1494</a>
+<a href="#1495" id="1495">1495</a>
+<a href="#1496" id="1496">1496</a>
+<a href="#1497" id="1497">1497</a>
+<a href="#1498" id="1498">1498</a>
+<a href="#1499" id="1499">1499</a>
+<a href="#1500" id="1500">1500</a>
+<a href="#1501" id="1501">1501</a>
+<a href="#1502" id="1502">1502</a>
+<a href="#1503" id="1503">1503</a>
+<a href="#1504" id="1504">1504</a>
+<a href="#1505" id="1505">1505</a>
+<a href="#1506" id="1506">1506</a>
+<a href="#1507" id="1507">1507</a>
+<a href="#1508" id="1508">1508</a>
+<a href="#1509" id="1509">1509</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1487,7 +1539,10 @@
 	result,
 };
 <span class="kw">use </span>derivative::Derivative;
-<span class="kw">use </span>parity_scale_codec::{<span class="self">self</span>, Decode, Encode, MaxEncodedLen};
+<span class="kw">use </span>parity_scale_codec::{
+	<span class="self">self</span>, decode_vec_with_len, Compact, Decode, Encode, Error <span class="kw">as </span>CodecError, Input <span class="kw">as </span>CodecInput,
+	MaxEncodedLen,
+};
 <span class="kw">use </span>scale_info::TypeInfo;
 
 <span class="kw">mod </span>asset;
@@ -1516,7 +1571,7 @@
 <span class="doccomment">/// An identifier for a query.
 </span><span class="kw">pub type </span>QueryId = u64;
 
-<span class="attr">#[derive(Derivative, Default, Encode, Decode, TypeInfo)]
+<span class="attr">#[derive(Derivative, Default, Encode, TypeInfo)]
 #[derivative(Clone(bound = <span class="string">&quot;&quot;</span>), Eq(bound = <span class="string">&quot;&quot;</span>), PartialEq(bound = <span class="string">&quot;&quot;</span>), Debug(bound = <span class="string">&quot;&quot;</span>))]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
@@ -1524,6 +1579,26 @@
 </span><span class="kw">pub struct </span>Xcm&lt;Call&gt;(<span class="kw">pub </span>Vec&lt;Instruction&lt;Call&gt;&gt;);
 
 <span class="kw">pub const </span>MAX_INSTRUCTIONS_TO_DECODE: u8 = <span class="number">100</span>;
+
+<span class="macro">environmental::environmental!</span>(instructions_count: u8);
+
+<span class="kw">impl</span>&lt;Call&gt; Decode <span class="kw">for </span>Xcm&lt;Call&gt; {
+	<span class="kw">fn </span>decode&lt;I: CodecInput&gt;(input: <span class="kw-2">&amp;mut </span>I) -&gt; core::result::Result&lt;<span class="self">Self</span>, CodecError&gt; {
+		instructions_count::using_once(<span class="kw-2">&amp;mut </span><span class="number">0</span>, || {
+			<span class="kw">let </span>number_of_instructions: u32 = &lt;Compact&lt;u32&gt;&gt;::decode(input)<span class="question-mark">?</span>.into();
+			instructions_count::with(|count| {
+				<span class="kw-2">*</span>count = count.saturating_add(number_of_instructions <span class="kw">as </span>u8);
+				<span class="kw">if </span><span class="kw-2">*</span>count &gt; MAX_INSTRUCTIONS_TO_DECODE {
+					<span class="kw">return </span><span class="prelude-val">Err</span>(CodecError::from(<span class="string">&quot;Max instructions exceeded&quot;</span>))
+				}
+				<span class="prelude-val">Ok</span>(())
+			})
+			.expect(<span class="string">&quot;Called in `using` context and thus can not return `None`; qed&quot;</span>)<span class="question-mark">?</span>;
+			<span class="kw">let </span>decoded_instructions = decode_vec_with_len(input, number_of_instructions <span class="kw">as </span>usize)<span class="question-mark">?</span>;
+			<span class="prelude-val">Ok</span>(<span class="self">Self</span>(decoded_instructions))
+		})
+	}
+}
 
 <span class="kw">impl</span>&lt;Call&gt; Xcm&lt;Call&gt; {
 	<span class="doccomment">/// Create an empty instance.
@@ -2910,6 +2985,35 @@
 		<span class="macro">assert_eq!</span>(old_xcm, OldXcm::&lt;()&gt;::try_from(xcm.clone()).unwrap());
 		<span class="kw">let </span>new_xcm: Xcm&lt;()&gt; = old_xcm.try_into().unwrap();
 		<span class="macro">assert_eq!</span>(new_xcm, xcm);
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>decoding_respects_limit() {
+		<span class="kw">let </span>max_xcm = Xcm::&lt;()&gt;(<span class="macro">vec!</span>[ClearOrigin; MAX_INSTRUCTIONS_TO_DECODE <span class="kw">as </span>usize]);
+		<span class="kw">let </span>encoded = max_xcm.encode();
+		<span class="macro">assert!</span>(Xcm::&lt;()&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]).is_ok());
+
+		<span class="kw">let </span>big_xcm = Xcm::&lt;()&gt;(<span class="macro">vec!</span>[ClearOrigin; MAX_INSTRUCTIONS_TO_DECODE <span class="kw">as </span>usize + <span class="number">1</span>]);
+		<span class="kw">let </span>encoded = big_xcm.encode();
+		<span class="macro">assert!</span>(Xcm::&lt;()&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]).is_err());
+
+		<span class="kw">let </span>nested_xcm = Xcm::&lt;()&gt;(<span class="macro">vec!</span>[
+			DepositReserveAsset {
+				assets: All.into(),
+				dest: Here.into(),
+				xcm: max_xcm,
+			};
+			(MAX_INSTRUCTIONS_TO_DECODE / <span class="number">2</span>) <span class="kw">as </span>usize
+		]);
+		<span class="kw">let </span>encoded = nested_xcm.encode();
+		<span class="macro">assert!</span>(Xcm::&lt;()&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]).is_err());
+
+		<span class="kw">let </span>even_more_nested_xcm = Xcm::&lt;()&gt;(<span class="macro">vec!</span>[SetAppendix(nested_xcm); <span class="number">64</span>]);
+		<span class="kw">let </span>encoded = even_more_nested_xcm.encode();
+		<span class="macro">assert_eq!</span>(encoded.len(), <span class="number">342530</span>);
+		<span class="comment">// This should not decode since the limit is 100
+		</span><span class="macro">assert_eq!</span>(MAX_INSTRUCTIONS_TO_DECODE, <span class="number">100</span>, <span class="string">&quot;precondition&quot;</span>);
+		<span class="macro">assert!</span>(Xcm::&lt;()&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]).is_err());
 	}
 }
 </code></pre></div></section></main></body></html>

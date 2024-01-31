@@ -1718,7 +1718,6 @@
 <a href="#1718" id="1718">1718</a>
 <a href="#1719" id="1719">1719</a>
 <a href="#1720" id="1720">1720</a>
-<a href="#1721" id="1721">1721</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1790,8 +1789,7 @@
 <span class="doccomment">/// An identifier for a query.
 </span><span class="kw">pub type </span>QueryId = u64;
 
-<span class="comment">// TODO (v4): Use `BoundedVec` instead of `Vec`
-</span><span class="attr">#[derive(Derivative, Default, Encode, TypeInfo)]
+<span class="attr">#[derive(Derivative, Default, Encode, TypeInfo)]
 #[derivative(Clone(bound = <span class="string">&quot;&quot;</span>), Eq(bound = <span class="string">&quot;&quot;</span>), PartialEq(bound = <span class="string">&quot;&quot;</span>), Debug(bound = <span class="string">&quot;&quot;</span>))]
 #[codec(encode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]

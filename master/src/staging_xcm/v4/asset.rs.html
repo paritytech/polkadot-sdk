@@ -1003,6 +1003,69 @@
 <a href="#1003" id="1003">1003</a>
 <a href="#1004" id="1004">1004</a>
 <a href="#1005" id="1005">1005</a>
+<a href="#1006" id="1006">1006</a>
+<a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
+<a href="#1009" id="1009">1009</a>
+<a href="#1010" id="1010">1010</a>
+<a href="#1011" id="1011">1011</a>
+<a href="#1012" id="1012">1012</a>
+<a href="#1013" id="1013">1013</a>
+<a href="#1014" id="1014">1014</a>
+<a href="#1015" id="1015">1015</a>
+<a href="#1016" id="1016">1016</a>
+<a href="#1017" id="1017">1017</a>
+<a href="#1018" id="1018">1018</a>
+<a href="#1019" id="1019">1019</a>
+<a href="#1020" id="1020">1020</a>
+<a href="#1021" id="1021">1021</a>
+<a href="#1022" id="1022">1022</a>
+<a href="#1023" id="1023">1023</a>
+<a href="#1024" id="1024">1024</a>
+<a href="#1025" id="1025">1025</a>
+<a href="#1026" id="1026">1026</a>
+<a href="#1027" id="1027">1027</a>
+<a href="#1028" id="1028">1028</a>
+<a href="#1029" id="1029">1029</a>
+<a href="#1030" id="1030">1030</a>
+<a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
+<a href="#1033" id="1033">1033</a>
+<a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
+<a href="#1048" id="1048">1048</a>
+<a href="#1049" id="1049">1049</a>
+<a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
+<a href="#1052" id="1052">1052</a>
+<a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
+<a href="#1055" id="1055">1055</a>
+<a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
+<a href="#1059" id="1059">1059</a>
+<a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
+<a href="#1063" id="1063">1063</a>
+<a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
+<a href="#1066" id="1066">1066</a>
+<a href="#1067" id="1067">1067</a>
+<a href="#1068" id="1068">1068</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1038,6 +1101,7 @@
 	WildFungibility <span class="kw">as </span>OldWildFungibility, WildMultiAsset <span class="kw">as </span>OldWildAsset,
 };
 <span class="kw">use </span>alloc::{vec, vec::Vec};
+<span class="kw">use </span>bounded_collections::{BoundedVec, ConstU32};
 <span class="kw">use </span>core::{
 	cmp::Ordering,
 	convert::{TryFrom, TryInto},
@@ -1567,7 +1631,9 @@
 
 <span class="kw">impl </span>Decode <span class="kw">for </span>Assets {
 	<span class="kw">fn </span>decode&lt;I: codec::Input&gt;(input: <span class="kw-2">&amp;mut </span>I) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, parity_scale_codec::Error&gt; {
-		<span class="self">Self</span>::from_sorted_and_deduplicated(Vec::&lt;Asset&gt;::decode(input)<span class="question-mark">?</span>)
+		<span class="kw">let </span>bounded_instructions =
+			BoundedVec::&lt;Asset, ConstU32&lt;{ MAX_ITEMS_IN_ASSETS <span class="kw">as </span>u32 }&gt;&gt;::decode(input)<span class="question-mark">?</span>;
+		<span class="self">Self</span>::from_sorted_and_deduplicated(bounded_instructions.into_inner())
 			.map_err(|()| <span class="string">&quot;Out of order&quot;</span>.into())
 	}
 }
@@ -2006,6 +2072,66 @@
 		<span class="kw">let </span>mixed_bad = <span class="macro">vec!</span>[(Here, <span class="kw-2">*</span><span class="string">b&quot;bad!&quot;</span>).into(), (Here, <span class="number">10</span>).into()];
 		<span class="kw">let </span>r = Assets::from_sorted_and_deduplicated(mixed_bad);
 		<span class="macro">assert!</span>(r.is_err());
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>reanchor_preserves_sorting() {
+		<span class="kw">use super</span>::<span class="kw-2">*</span>;
+		<span class="kw">use </span>alloc::vec;
+
+		<span class="kw">let </span>reanchor_context: Junctions = Parachain(<span class="number">2000</span>).into();
+		<span class="kw">let </span>dest = Location::new(<span class="number">1</span>, []);
+
+		<span class="kw">let </span>asset_1: Asset = (Location::new(<span class="number">0</span>, [PalletInstance(<span class="number">50</span>), GeneralIndex(<span class="number">1</span>)]), <span class="number">10</span>).into();
+		<span class="kw">let </span><span class="kw-2">mut </span>asset_1_reanchored = asset_1.clone();
+		<span class="macro">assert!</span>(asset_1_reanchored.reanchor(<span class="kw-2">&amp;</span>dest, <span class="kw-2">&amp;</span>reanchor_context).is_ok());
+		<span class="macro">assert_eq!</span>(
+			asset_1_reanchored,
+			(Location::new(<span class="number">0</span>, [Parachain(<span class="number">2000</span>), PalletInstance(<span class="number">50</span>), GeneralIndex(<span class="number">1</span>)]), <span class="number">10</span>).into()
+		);
+
+		<span class="kw">let </span>asset_2: Asset = (Location::new(<span class="number">1</span>, []), <span class="number">10</span>).into();
+		<span class="kw">let </span><span class="kw-2">mut </span>asset_2_reanchored = asset_2.clone();
+		<span class="macro">assert!</span>(asset_2_reanchored.reanchor(<span class="kw-2">&amp;</span>dest, <span class="kw-2">&amp;</span>reanchor_context).is_ok());
+		<span class="macro">assert_eq!</span>(asset_2_reanchored, (Location::new(<span class="number">0</span>, []), <span class="number">10</span>).into());
+
+		<span class="kw">let </span>asset_3: Asset = (Location::new(<span class="number">1</span>, [Parachain(<span class="number">1000</span>)]), <span class="number">10</span>).into();
+		<span class="kw">let </span><span class="kw-2">mut </span>asset_3_reanchored = asset_3.clone();
+		<span class="macro">assert!</span>(asset_3_reanchored.reanchor(<span class="kw-2">&amp;</span>dest, <span class="kw-2">&amp;</span>reanchor_context).is_ok());
+		<span class="macro">assert_eq!</span>(asset_3_reanchored, (Location::new(<span class="number">0</span>, [Parachain(<span class="number">1000</span>)]), <span class="number">10</span>).into());
+
+		<span class="kw">let </span><span class="kw-2">mut </span>assets: Assets = <span class="macro">vec!</span>[asset_1.clone(), asset_2.clone(), asset_3.clone()].into();
+		<span class="macro">assert_eq!</span>(assets.clone(), <span class="macro">vec!</span>[asset_1.clone(), asset_2.clone(), asset_3.clone()].into());
+
+		<span class="macro">assert!</span>(assets.reanchor(<span class="kw-2">&amp;</span>dest, <span class="kw-2">&amp;</span>reanchor_context).is_ok());
+		<span class="macro">assert_eq!</span>(assets, <span class="macro">vec!</span>[asset_2_reanchored, asset_3_reanchored, asset_1_reanchored].into());
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>decoding_respects_limit() {
+		<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+		<span class="comment">// Having lots of one asset will work since they are deduplicated
+		</span><span class="kw">let </span>lots_of_one_asset: Assets =
+			<span class="macro">vec!</span>[(GeneralIndex(<span class="number">1</span>), <span class="number">1u128</span>).into(); MAX_ITEMS_IN_ASSETS + <span class="number">1</span>].into();
+		<span class="kw">let </span>encoded = lots_of_one_asset.encode();
+		<span class="macro">assert!</span>(Assets::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]).is_ok());
+
+		<span class="comment">// Fewer assets than the limit works
+		</span><span class="kw">let </span><span class="kw-2">mut </span>few_assets: Assets = Vec::new().into();
+		<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..MAX_ITEMS_IN_ASSETS {
+			few_assets.push((GeneralIndex(i <span class="kw">as </span>u128), <span class="number">1u128</span>).into());
+		}
+		<span class="kw">let </span>encoded = few_assets.encode();
+		<span class="macro">assert!</span>(Assets::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]).is_ok());
+
+		<span class="comment">// Having lots of different assets will not work
+		</span><span class="kw">let </span><span class="kw-2">mut </span>too_many_different_assets: Assets = Vec::new().into();
+		<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..MAX_ITEMS_IN_ASSETS + <span class="number">1 </span>{
+			too_many_different_assets.push((GeneralIndex(i <span class="kw">as </span>u128), <span class="number">1u128</span>).into());
+		}
+		<span class="kw">let </span>encoded = too_many_different_assets.encode();
+		<span class="macro">assert!</span>(Assets::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]).is_err());
 	}
 }
 </code></pre></div></section></main></body></html>
