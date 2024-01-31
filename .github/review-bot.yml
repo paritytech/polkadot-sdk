@@ -55,14 +55,11 @@ rules:
     condition:
       include:
         - ^substrate/frame/(?!.*(nfts/.*|uniques/.*|babe/.*|grandpa/.*|beefy|merkle-mountain-range/.*|contracts/.*|election|nomination-pools/.*|staking/.*|aura/.*))
-    type: "and"
+    type: basic
     reviewers:
-      - minApprovals: 2
-        teams:
-          - core-devs
-      - minApprovals: 1
-        teams:
-          - frame-coders
+    minApprovals: 2
+    teams:
+      - core-devs
 
   # Protection of THIS file
   - name: Review Bot
