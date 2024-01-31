@@ -124,7 +124,6 @@ mod tx_pause;
 pub use tx_pause::{TransactionPause, TransactionPauseError};
 
 pub mod dynamic_params;
-pub use dynamic_params::{AggregratedKeyValue, Key};
 
 pub mod tasks;
 pub use tasks::Task;

@@ -23,7 +23,9 @@ use crate::tests::mock::{
 	dynamic_params::*, new_test_ext, PalletParameters, RuntimeOrigin as Origin, RuntimeParameters,
 	RuntimeParameters::*, RuntimeParametersKey, RuntimeParametersValue,
 };
-use frame_support::{assert_noop, assert_ok, traits::AggregratedKeyValue, StorageNoopGuard};
+use frame_support::{
+	assert_noop, assert_ok, traits::dynamic_params::AggregratedKeyValue, StorageNoopGuard,
+};
 use sp_core::Get;
 use sp_runtime::DispatchError;
 

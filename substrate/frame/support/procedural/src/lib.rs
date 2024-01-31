@@ -18,7 +18,7 @@
 //! Proc macro of Support code for the runtime.
 
 #![recursion_limit = "512"]
-#![deny(broken_intra_doc_links)]
+#![deny(rustdoc::broken_intra_doc_links)]
 
 mod benchmark;
 mod construct_runtime;

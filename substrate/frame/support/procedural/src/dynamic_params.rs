@@ -23,7 +23,7 @@ use inflector::Inflector;
 use itertools::multiunzip;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
-use syn::{parse2, token, visit_mut, visit_mut::VisitMut, Result, Token};
+use syn::{parse2, visit_mut, visit_mut::VisitMut, Result, Token};
 
 /// Parse and expand a `#[dynamic_params(..)]` module.
 pub fn dynamic_params(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
@@ -51,7 +51,7 @@ pub struct DynamicParamModAttr {
 #[derive(derive_syn_parse::Parse)]
 pub struct DynamicParamModAttrMeta {
 	name: syn::Ident,
-	_comma: Option<Token![,]>, // FAIL-CI check peek
+	_comma: Option<Token![,]>,
 	#[parse_if(_comma.is_some())]
 	params_pallet: Option<syn::Type>,
 }
@@ -84,7 +84,6 @@ impl ToTokens for DynamicParamModAttr {
 			Err(err) => return tokens.extend(err),
 		};
 		let (mut params_mod, name) = (self.params_mod.clone(), &self.meta.name);
-		let params_pallet = self.meta.params_pallet.clone();
 		let dynam_params_ident = &params_mod.ident;
 
 		let mut quoted_enum = quote! {};
@@ -98,41 +97,10 @@ impl ToTokens for DynamicParamModAttr {
 			});
 		}
 
-		struct MacroInjectArgs(Option<syn::Type>);
-		impl VisitMut for MacroInjectArgs {
-			fn visit_item_mod_mut(&mut self, item: &mut syn::ItemMod) {
-				// Check if the mod has a `#[dynamic_pallet_params(..)]` attribute.
-				let mut attr = item
-					.attrs
-					.iter_mut()
-					.find(|attr| attr.path().is_ident("dynamic_pallet_params"));
-
-				if let Some(attr) = attr {
-					match &attr.meta {
-						syn::Meta::Path(path) =>
-							assert_eq!(path.to_token_stream().to_string(), "dynamic_pallet_params"),
-						_ => {
-							//panic!("Unexpected meta on `dynamic_pallet_params`");
-							return
-						},
-					}
-
-					// Now inject the parameter pallet type.
-					if let Some(params_pallet) = self.0.as_ref() {
-						attr.meta = syn::parse2::<syn::Meta>(quote! {
-							dynamic_pallet_params(#params_pallet)
-						})
-						.unwrap()
-						.into();
-					}
-				}
-
-				visit_mut::visit_item_mod_mut(self, item);
-			}
+		// Inject the outer args into the inner `#[dynamic_pallet_params(..)]` attribute.
+		if let Some(params_pallet) = &self.meta.params_pallet {
+			MacroInjectArgs(params_pallet.clone()).visit_item_mod_mut(&mut params_mod);
 		}
-
-		// Inject `#[dynamic_pallet_params(..)]` attribute on all inner mods.
-		MacroInjectArgs(self.meta.params_pallet.clone()).visit_item_mod_mut(&mut params_mod);
 
 		tokens.extend(quote! {
 			#params_mod
@@ -145,36 +113,34 @@ impl ToTokens for DynamicParamModAttr {
 	}
 }
 
-pub struct DynamicParamParametersMod {
-	aggregate_name: String,
-	mod_name: syn::Ident,
-	parameter_name: syn::Ident,
-}
+/// Used to inject arguments into the inner `#[dynamic_pallet_params(..)]` attribute.
+///
+/// This allows the outer `#[dynamic_params(..)]` attribute to specify some arguments that dont need
+/// to be repeated every time.
+struct MacroInjectArgs(syn::Type);
+impl VisitMut for MacroInjectArgs {
+	fn visit_item_mod_mut(&mut self, item: &mut syn::ItemMod) {
+		// Check if the mod has a `#[dynamic_pallet_params(..)]` attribute.
+		let attr = item.attrs.iter_mut().find(|attr| attr.path().is_ident("dynamic_pallet_params"));
 
-/// A parsed `#[dynamic_pallet_params(..)]` attribute.
-#[derive(derive_syn_parse::Parse)]
-pub struct DynamicPalletParamModAttr {
-	_pound: Token![#],
-	#[bracket]
-	_bracket: token::Bracket,
-	#[inside(_bracket)]
-	meta: DynamicPalletParamModAttrMeta,
-}
+		if let Some(attr) = attr {
+			match &attr.meta {
+				syn::Meta::Path(path) =>
+					assert_eq!(path.to_token_stream().to_string(), "dynamic_pallet_params"),
+				_ => (),
+			}
 
-mod keyword {
-	syn::custom_keyword!(dynamic_pallet_params);
-}
+			let params_pallet = &self.0;
+			attr.meta = syn::parse2::<syn::Meta>(quote! {
+				dynamic_pallet_params(#params_pallet)
+			})
+			.unwrap()
+			.into();
+		}
 
-/// The inner meta of a `#[dynamic_pallet_params(..)]` attribute.
-#[derive(derive_syn_parse::Parse)]
-pub struct DynamicPalletParamModAttrMeta {
-	_keyword: keyword::dynamic_pallet_params,
-	#[paren]
-	_paren: token::Paren,
-	#[inside(_paren)]
-	pallet_param_attr: DynamicPalletParamAttr,
+		visit_mut::visit_item_mod_mut(self, item);
+	}
 }
-
 /// The helper attribute of a `#[dynamic_pallet_params(parameter_pallet, parameter_name)]`
 /// attribute.
 #[derive(derive_syn_parse::Parse)]
@@ -289,7 +255,7 @@ impl ToTokens for DynamicPalletParamAttr {
 					)*
 				}
 
-				impl #scrate::traits::AggregratedKeyValue for Parameters {
+				impl #scrate::traits::dynamic_params::AggregratedKeyValue for Parameters {
 					type AggregratedKey = #key_ident;
 					type AggregratedValue = #value_ident;
 
@@ -336,7 +302,7 @@ impl ToTokens for DynamicPalletParamAttr {
 						}
 					}
 
-					impl #scrate::traits::Key for #key_names {
+					impl #scrate::traits::dynamic_params::Key for #key_names {
 						type Value = #value_types;
 						type WrappedValue = #key_values;
 					}
@@ -472,7 +438,7 @@ impl ToTokens for DynamicParamAggregatedEnum {
 			#vis enum #params_key_ident {
 				#(
 					#[codec(index = #indices)]
-					#param_names(<#param_types as #scrate::traits::AggregratedKeyValue>::AggregratedKey),
+					#param_names(<#param_types as #scrate::traits::dynamic_params::AggregratedKeyValue>::AggregratedKey),
 				)*
 			}
 
@@ -490,11 +456,11 @@ impl ToTokens for DynamicParamAggregatedEnum {
 			#vis enum #params_value_ident {
 				#(
 					#[codec(index = #indices)]
-					#param_names(<#param_types as #scrate::traits::AggregratedKeyValue>::AggregratedValue),
+					#param_names(<#param_types as #scrate::traits::dynamic_params::AggregratedKeyValue>::AggregratedValue),
 				)*
 			}
 
-			impl #scrate::traits::AggregratedKeyValue for #name {
+			impl #scrate::traits::dynamic_params::AggregratedKeyValue for #name {
 				type AggregratedKey = #params_key_ident;
 				type AggregratedValue = #params_value_ident;
 
@@ -511,13 +477,13 @@ impl ToTokens for DynamicParamAggregatedEnum {
 			}
 
 			#(
-				impl ::core::convert::From<<#param_types as #scrate::traits::AggregratedKeyValue>::AggregratedKey> for #params_key_ident {
-					fn from(key: <#param_types as #scrate::traits::AggregratedKeyValue>::AggregratedKey) -> Self {
+				impl ::core::convert::From<<#param_types as #scrate::traits::dynamic_params::AggregratedKeyValue>::AggregratedKey> for #params_key_ident {
+					fn from(key: <#param_types as #scrate::traits::dynamic_params::AggregratedKeyValue>::AggregratedKey) -> Self {
 						#params_key_ident::#param_names(key)
 					}
 				}
 
-				impl ::core::convert::TryFrom<#params_value_ident> for <#param_types as #scrate::traits::AggregratedKeyValue>::AggregratedValue {
+				impl ::core::convert::TryFrom<#params_value_ident> for <#param_types as #scrate::traits::dynamic_params::AggregratedKeyValue>::AggregratedValue {
 					type Error = ();
 
 					fn try_from(value: #params_value_ident) -> Result<Self, Self::Error> {
@@ -535,13 +501,4 @@ impl ToTokens for DynamicParamAggregatedEnum {
 /// Get access to the current crate and convert the error to a compile error.
 fn crate_access() -> core::result::Result<syn::Path, TokenStream> {
 	generate_access_from_frame_or_crate("frame-support").map_err(|e| e.to_compile_error())
-}
-
-#[test]
-fn test_mod_attr_parser() {
-	let attr = quote! {
-		#[dynamic_pallet_params(pallet_parameters::Parameters::<Test>, Basic)]
-	};
-	let attr = syn::parse2::<DynamicPalletParamModAttr>(attr).unwrap();
-	assert_eq!(attr.meta.pallet_param_attr.parameter_name.to_string(), "Basic");
 }

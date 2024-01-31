@@ -110,8 +110,8 @@ use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 
 use frame_support::traits::{
-	dynamic_params::{IntoKey, Key, RuntimeParameterStore, TryIntoKey},
-	AggregratedKeyValue, EnsureOriginWithArg,
+	dynamic_params::{AggregratedKeyValue, IntoKey, Key, RuntimeParameterStore, TryIntoKey},
+	EnsureOriginWithArg,
 };
 
 #[cfg(test)]
