@@ -1299,9 +1299,18 @@ pub fn storage(_: TokenStream, _: TokenStream) -> TokenStream {
 /// Annotate a type to be storable in `#[frame_support::stored]` attribute.
 ///
 /// This attribute macro ensures that all traits that are necessary for a type to be placed in FRAME
-/// storage are implemented.
+/// storage are implemented. In particular, it derives `MaxEncodedLen`, `Encode`, `Decode` and
+/// `TypeInfo`.
 ///
-/// # Example
+/// # Attribute helpers
+///
+/// The following attribute helpers can be used to customize the behavior of the macro:
+///
+/// ## `skip(T)`
+///
+/// Can be applied to one or more types and will skip all bounds for the given types.
+///
+/// **Example**
 ///
 /// ```rust
 /// #[frame_support::stored(skip(T))]

@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Decode, Encode, MaxEncodedLen};
 #[cfg(feature = "runtime-benchmarks")]
 use enumflags2::BitFlag;
 use enumflags2::{bitflags, BitFlags};
@@ -64,18 +63,8 @@ impl TypeInfo for IdentityField {
 ///
 /// NOTE: This should be stored at the end of the storage item to facilitate the addition of extra
 /// fields in a backwards compatible way through a specialized `Decode` impl.
-#[derive(
-	CloneNoBound,
-	Encode,
-	Decode,
-	EqNoBound,
-	MaxEncodedLen,
-	PartialEqNoBound,
-	RuntimeDebugNoBound,
-	TypeInfo,
-)]
-#[codec(mel_bound())]
-#[scale_info(skip_type_params(FieldLimit))]
+#[derive(CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound)]
+#[frame_support::stored(skip(FieldLimit), mel_bound())]
 pub struct IdentityInfo<FieldLimit: Get<u32>> {
 	/// Additional fields of the identity that are not catered for with the struct's explicit
 	/// fields.

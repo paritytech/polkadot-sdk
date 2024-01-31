@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Implements the `#[frame_support::stored]` attribute.
+//! Implements the `#[frame_support::stored]` attribute macro.
 
 use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use proc_macro::TokenStream;
@@ -33,17 +33,15 @@ use syn::{
 /// This function only parses the inputs and then delegates the actual work to
 /// `derive_frame_stored_inner`.
 pub fn derive_frame_stored(attrs: TokenStream, input: TokenStream) -> TokenStream {
+	let frame_support = match generate_access_from_frame_or_crate("frame-support") {
+		Ok(path) => path,
+		Err(err) => return err.to_compile_error().into(),
+	};
+
 	let input = parse_macro_input!(input as DeriveInput);
 	let attrs = parse_macro_input!(attrs as CustomAttributes);
 
-	derive_frame_stored_inner(input, attrs).unwrap_or_else(|e| e.to_compile_error().into())
-}
-
-/// Actual implementation of the derive logic.
-fn derive_frame_stored_inner(input: DeriveInput, attrs: CustomAttributes) -> Result<TokenStream> {
-	let frame_support = generate_access_from_frame_or_crate("frame-support")?;
-
-	Ok(quote::quote! {
+	quote::quote! {
 		#[derive(
 			::#frame_support::__private::codec::MaxEncodedLen,
 			::#frame_support::__private::codec::Encode,
@@ -53,7 +51,7 @@ fn derive_frame_stored_inner(input: DeriveInput, attrs: CustomAttributes) -> Res
 		#attrs
 		#input
 	}
-	.into())
+	.into()
 }
 
 mod keywords {
@@ -62,6 +60,7 @@ mod keywords {
 	syn::custom_keyword!(mel);
 }
 
+/// Custom meta attributes for the `#[frame_support::stored(..)]` macro.
 pub struct CustomAttributes(Vec<CustomAttribute>);
 
 impl Parse for CustomAttributes {
@@ -89,7 +88,7 @@ impl ToTokens for CustomAttributes {
 #[derive(Debug, Clone)]
 pub enum CustomAttribute {
 	/// Skip trait bounds for the given types.
-	NoBound(NoBoundAttribute),
+	Skip(SkipAttribute),
 	/// Set explicit MEL bounds for a type.
 	MelBound(MelBoundAttribute),
 	/// Use the default `MaxEncodedLen` bound for MEL fulfillment.
@@ -101,7 +100,7 @@ impl Parse for CustomAttribute {
 		let lookahead = input.lookahead1();
 
 		if lookahead.peek(keywords::skip) {
-			input.parse().map(CustomAttribute::NoBound)
+			input.parse().map(CustomAttribute::Skip)
 		} else if lookahead.peek(keywords::mel) {
 			input.parse().map(CustomAttribute::Mel)
 		} else if lookahead.peek(keywords::mel_bound) {
@@ -115,7 +114,7 @@ impl Parse for CustomAttribute {
 impl ToTokens for CustomAttribute {
 	fn to_tokens(&self, tokens: &mut TokenStream2) {
 		match self {
-			CustomAttribute::NoBound(attr) => attr.to_tokens(tokens),
+			CustomAttribute::Skip(attr) => attr.to_tokens(tokens),
 			CustomAttribute::MelBound(attr) => attr.to_tokens(tokens),
 			CustomAttribute::Mel(attr) => attr.to_tokens(tokens),
 		}
@@ -124,11 +123,11 @@ impl ToTokens for CustomAttribute {
 
 /// Do not apply any trait bounds to the given types.
 #[derive(Debug, Clone)]
-pub struct NoBoundAttribute {
+pub struct SkipAttribute {
 	types: Punctuated<Type, Token![,]>,
 }
 
-impl Parse for NoBoundAttribute {
+impl Parse for SkipAttribute {
 	fn parse(input: &ParseBuffer) -> Result<Self> {
 		input.parse::<keywords::skip>()?;
 
@@ -140,25 +139,14 @@ impl Parse for NoBoundAttribute {
 	}
 }
 
-impl ToTokens for NoBoundAttribute {
+impl ToTokens for SkipAttribute {
 	fn to_tokens(&self, tokens: &mut TokenStream2) {
-		let tys = self.types.clone().into_iter();
+		let tys = self.types.iter().collect::<Vec<_>>();
+
 		tokens.extend(quote::quote! {
 			#[scale_info(skip_type_params(#(#tys),*))]
-		});
-
-		let tys = self.types.clone().into_iter();
-		tokens.extend(quote::quote! {
 			#[codec(encode_bound(skip_type_params(#(#tys),*)))]
-		});
-
-		let tys = self.types.clone().into_iter();
-		tokens.extend(quote::quote! {
 			#[codec(decode_bound(skip_type_params(#(#tys),*)))]
-		});
-
-		let tys = self.types.clone().into_iter();
-		tokens.extend(quote::quote! {
 			#[codec(mel_bound(skip_type_params(#(#tys),*)))]
 		});
 	}
@@ -204,7 +192,7 @@ impl ToTokens for MelBoundAttribute {
 	}
 }
 
-// Type : Bounds + ...
+/// Require `ty` to fullfil the given bounds to be eligible for MEL.
 #[derive(Debug, Clone)]
 pub struct MelBound {
 	ty: Type,
@@ -247,18 +235,17 @@ impl Parse for MelBound {
 impl ToTokens for MelBound {
 	fn to_tokens(&self, tokens: &mut TokenStream2) {
 		let ty = &self.ty;
-		let bounds1 = self.bounds.clone().into_iter();
-		let bounds2 = self.bounds.clone().into_iter();
-		let bounds3 = self.bounds.clone().into_iter();
+		let bounds = self.bounds.iter().collect::<Vec<_>>();
 
 		tokens.extend(quote::quote! {
-			#[codec(mel_bound(#ty: #(#bounds1)+*))]
-			#[codec(encode_bound(#ty: #(#bounds2)+*))]
-			#[codec(decode_bound(#ty: #(#bounds3)+*))]
+			#[codec(mel_bound(#ty: #(#bounds)+*))]
+			#[codec(encode_bound(#ty: #(#bounds)+*))]
+			#[codec(decode_bound(#ty: #(#bounds)+*))]
 		});
 	}
 }
 
+/// Require all `tys` to fullfil the `MaxEncodedLen` bound.
 #[derive(Debug, Clone)]
 pub struct MelAttribute {
 	tys: Punctuated<Type, Token![,]>,
@@ -278,10 +265,11 @@ impl Parse for MelAttribute {
 
 impl ToTokens for MelAttribute {
 	fn to_tokens(&self, tokens: &mut TokenStream2) {
-		// FAIL-CI error
-		let frame_support = generate_access_from_frame_or_crate("frame-support")
-			.expect("Expecting frame-support to be available");
-		let tys = self.tys.clone().into_iter();
+		let frame_support = match generate_access_from_frame_or_crate("frame-support") {
+			Ok(path) => path,
+			Err(err) => return tokens.extend(err.to_compile_error()),
+		};
+		let tys = self.tys.iter();
 
 		tokens.extend(quote::quote! {
 			#[codec(mel_bound(
