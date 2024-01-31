@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Dynamic deposit based on number proposals 
+
+doc:
+  - audience: Runtime User
+    description: |
+      Introduce a dynamic proposal deposit mechanism influenced by the total number of active proposals, with the option to set the deposit to none.
+
+      This is achieved through the introduction of the `GetDeposit` trait, and the corresponding implementation should be supplied to the pallet's configuration. The pallet provides basic implementations for this trait.
+      Two new calls are introduced:
+      - kill(origin, proposal_hash): the cancellation of a proposal, accompanied by the slashing of the associated deposit.
+      - release_proposal_deposit(origin, proposal_hash): the release of the deposit for a non-active proposal.
+      Additionally, benchmarks have been upgraded to benchmarks::v2.
+
+crates:
+  - name: pallet-collective
+
