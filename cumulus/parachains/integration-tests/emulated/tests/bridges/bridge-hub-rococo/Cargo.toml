@@ -35,6 +35,7 @@ bp-messages = { path = "../../../../../../../bridges/primitives/messages", defau
 
 # Cumulus
 parachains-common = { path = "../../../../../../parachains/common" }
+testnet-parachains-constants = { path = "../../../../../runtimes/constants", features = ["rococo"] }
 cumulus-pallet-xcmp-queue = { path = "../../../../../../pallets/xcmp-queue", default-features = false }
 bridge-hub-rococo-runtime = { path = "../../../../../../parachains/runtimes/bridge-hubs/bridge-hub-rococo", default-features = false }
 emulated-integration-tests-common = { path = "../../../common", default-features = false }

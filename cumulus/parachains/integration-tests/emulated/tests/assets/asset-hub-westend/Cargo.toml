@@ -32,6 +32,7 @@ westend-runtime = { path = "../../../../../../../polkadot/runtime/westend" }
 
 # Cumulus
 parachains-common = { path = "../../../../../../parachains/common" }
+testnet-parachains-constants = { path = "../../../../../runtimes/constants", features = ["westend"] }
 asset-hub-westend-runtime = { path = "../../../../../runtimes/assets/asset-hub-westend" }
 asset-test-utils = { path = "../../../../../runtimes/assets/test-utils" }
 cumulus-pallet-xcmp-queue = { default-features = false, path = "../../../../../../pallets/xcmp-queue" }
