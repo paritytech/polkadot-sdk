@@ -10409,6 +10409,7 @@ name = "pallet-parameters"
 version = "0.0.1"
 dependencies = [
  "docify",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-balances",

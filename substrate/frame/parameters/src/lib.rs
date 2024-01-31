@@ -114,6 +114,7 @@ use frame_support::traits::{
 	EnsureOriginWithArg,
 };
 
+mod benchmarking;
 #[cfg(test)]
 mod tests;
 mod weights;
@@ -149,6 +150,10 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this module.
 		type WeightInfo: WeightInfo;
+
+		/// Provides a default KV since the type is otherwise in-constructable.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkingDefault: Get<Self::AggregratedKeyValue>;
 	}
 
 	#[pallet::event]

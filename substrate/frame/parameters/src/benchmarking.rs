@@ -20,30 +20,33 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
+#[cfg(test)]
 use crate::Pallet as Parameters;
 
 use frame_benchmarking::v2::*;
-use frame_system::{Pallet as System, RawOrigin};
 use sp_core::Get;
 
-#[instance_benchmarks]
+#[benchmarks]
 mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn init() {
-		let acc =
-			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+	fn set_parameter() -> Result<(), BenchmarkError> {
+		let kv = T::BenchmarkingDefault::get();
+		let k = kv.clone().into_parts().0;
+
+		let origin =
+			T::AdminOrigin::try_successful_origin(&k).map_err(|_| BenchmarkError::Weightless)?;
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(acc, Default::default()));
+		_(origin as T::RuntimeOrigin, kv);
 
-		assert!(Salary::<T, I>::status().is_some());
+		Ok(())
 	}
 
 	impl_benchmark_test_suite! {
-		Salary,
-		crate::tests::new_test_ext(),
-		crate::tests::Test,
+		Parameters,
+		crate::tests::mock::new_test_ext(),
+		crate::tests::mock::Runtime,
 	}
 }

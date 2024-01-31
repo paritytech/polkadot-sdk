@@ -19,7 +19,7 @@ sp-core = { path = "../../primitives/core", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
 sp-std = { path = "../../primitives/std", default-features = false }
 docify = "0.2.5"
-#orml-traits = { version = "0.6.7", default-features = false }
+frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
 
 [dev-dependencies]
 sp-core = { path = "../../primitives/core", features = ["std"] }
@@ -38,6 +38,7 @@ std = [
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"frame-benchmarking?/std"
 	#"orml-traits/std",
 ]
 runtime-benchmarks = [
@@ -46,6 +47,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-example-basic/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",

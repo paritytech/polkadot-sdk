@@ -15,13 +15,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![cfg(test)]
+#![cfg(any(test, feature = "runtime-benchmarks"))]
 
 //! Test that the `pallet_example_basic` can use the parameters pallet as storage.
 
 use frame_support::{
 	construct_runtime, derive_impl,
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
+	parameter_types,
 	traits::EnsureOriginWithArg,
 };
 
@@ -97,6 +98,10 @@ mod custom_origin {
 	}
 }
 
+parameter_types! {
+	pub BenchmarkingDefault: RuntimeParameters = RuntimeParameters::Pallet1(dynamic_params::pallet1::Parameters::Key1(dynamic_params::pallet1::Key1, Some(123)));
+}
+
 #[docify::export(impl_config)]
 impl Config for Runtime {
 	type AggregratedKeyValue = RuntimeParameters;
@@ -104,6 +109,8 @@ impl Config for Runtime {
 
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkingDefault = BenchmarkingDefault;
 }
 
 #[docify::export(usage)]
