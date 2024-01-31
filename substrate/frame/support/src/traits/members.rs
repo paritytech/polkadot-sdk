@@ -17,6 +17,9 @@
 
 //! Traits for dealing with the idea of membership.
 
+use core::num::NonZeroU8;
+
+use crate::Parameter;
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_arithmetic::traits::AtLeast16BitUnsigned;
 use sp_runtime::DispatchResult;
@@ -390,4 +393,142 @@ impl<T: Clone + Ord> ChangeMembers<T> for () {
 	fn change_members_sorted(_: &[T], _: &[T], _: &[T]) {}
 	fn set_members_sorted(_: &[T], _: &[T]) {}
 	fn set_prime(_: Option<T>) {}
+}
+
+/// Access data associated to a unique membership
+pub trait MembershipInspect<M, AccountId, MembershipId>
+where
+	M: Membership<Id = MembershipId>,
+	MembershipId: Parameter,
+{
+	type MembershipsIter: Iterator<Item = MembershipId>;
+
+	/// Retrieve membership data that is expected to belong to member
+	fn get_membership(id: impl Into<MembershipId>, member: &AccountId) -> Option<M>;
+
+	/// Retrieve all memberships belonging to member
+	fn account_memberships(member: &AccountId) -> Self::MembershipsIter;
+
+	/// Check membership is owned by the given account
+	fn has_membership(id: impl Into<MembershipId>, member: &AccountId) -> bool {
+		Self::get_membership(id, member).is_some()
+	}
+}
+
+/// Change data related to a unique membership
+pub trait MembershipMutate<M, AccountId, MembershipId>
+where
+	M: Membership<Id = MembershipId>,
+	MembershipId: Parameter,
+{
+	/// Update the membership possibly changing its owner
+	fn update(
+		id: impl Into<MembershipId>,
+		membership: M,
+		maybe_member: Option<AccountId>,
+	) -> DispatchResult;
+}
+
+/// A unique membership
+pub trait Membership: codec::Decode + codec::Encode {
+	type Id;
+
+	fn id(&self) -> &Self::Id;
+
+	fn has_expired(&self) -> bool {
+		false
+	}
+}
+
+/// A membership with a rating system
+pub trait RankedMembership<Rank = GenericRank>: Membership
+where
+	Rank: Eq + Ord,
+{
+	fn rank(&self) -> &Rank;
+	fn rank_mut(&mut self) -> &mut Rank;
+}
+
+/// A generic rank in the range 0 to 100
+#[derive(
+	Clone,
+	Copy,
+	Debug,
+	Default,
+	Eq,
+	Ord,
+	PartialEq,
+	PartialOrd,
+	codec::Decode,
+	codec::Encode,
+	codec::MaxEncodedLen,
+	scale_info::TypeInfo,
+)]
+pub struct GenericRank(u8);
+impl GenericRank {
+	pub const MIN: Self = GenericRank(0);
+	pub const MAX: Self = GenericRank(100);
+	pub const ADMIN: Self = Self::MAX;
+
+	pub fn set(&mut self, n: u8) {
+		*self = Self(n.min(Self::MAX.0))
+	}
+	pub fn promote_by(&mut self, n: NonZeroU8) {
+		*self = Self(self.0.saturating_add(n.get()).min(Self::MAX.0))
+	}
+	pub fn demote_by(&mut self, n: NonZeroU8) {
+		*self = Self(self.0.saturating_sub(n.get()).max(Self::MIN.0))
+	}
+}
+impl From<u8> for GenericRank {
+	fn from(value: u8) -> Self {
+		Self(value)
+	}
+}
+
+const MEMBERSHIP_INFO_ATTRIBUTE: [u8; 10] = *b"memberinfo";
+
+impl<T, M, AccountId> MembershipInspect<M, AccountId, T::ItemId> for T
+where
+	T: super::tokens::nonfungible_v2::Inspect<AccountId>
+		+ super::tokens::nonfungible_v2::InspectEnumerable<
+			AccountId,
+			OwnedIterator = crate::storage::KeyPrefixIterator<
+				<T as super::tokens::nonfungible_v2::Inspect<AccountId>>::ItemId,
+			>,
+		>,
+	M: Membership<Id = T::ItemId>,
+	AccountId: Eq,
+{
+	type MembershipsIter = crate::storage::KeyPrefixIterator<T::ItemId>;
+
+	fn get_membership(id: impl Into<T::ItemId>, member: &AccountId) -> Option<M> {
+		let id = id.into();
+		T::owner(&id).and_then(|o| member.eq(&o).then_some(()))?;
+		T::typed_system_attribute(&id, &MEMBERSHIP_INFO_ATTRIBUTE)
+	}
+
+	fn account_memberships(member: &AccountId) -> Self::MembershipsIter {
+		T::owned(member)
+	}
+}
+
+impl<T, M, AccountId> MembershipMutate<M, AccountId, T::ItemId> for T
+where
+	T: super::tokens::nonfungible_v2::Mutate<AccountId>
+		+ super::tokens::nonfungible_v2::Transfer<AccountId>,
+	M: Membership<Id = T::ItemId>,
+	AccountId: Eq,
+{
+	fn update(
+		id: impl Into<T::ItemId>,
+		membership: M,
+		maybe_member: Option<AccountId>,
+	) -> DispatchResult {
+		let id = id.into();
+		if let Some(new_owner) = maybe_member {
+			T::transfer(&id, &new_owner)?;
+		}
+		T::set_typed_attribute(&id, &MEMBERSHIP_INFO_ATTRIBUTE, &membership)
+	}
 }
