@@ -15,7 +15,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-serde = { version = "1.0.195", optional = true }
+serde = { version = "1.0.196", optional = true }
 codec = { version = "3.6.1", package = "parity-scale-codec", default-features = false, features = ["derive"] }
 scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
 hex-literal = { version = "0.4.1", optional = true }
