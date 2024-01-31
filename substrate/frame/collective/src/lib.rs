@@ -240,12 +240,12 @@ pub mod deposit {
 	pub struct Geometric<Ratio, Base>(PhantomData<(Ratio, Base)>);
 	impl<Ratio, Base, Balance> GetDeposit<Balance> for Geometric<Ratio, Base>
 	where
-		Ratio: Get<Balance>,
+		Ratio: Get<u32>,
 		Base: Get<Balance>,
 		Balance: frame_support::traits::tokens::Balance,
 	{
 		fn get_deposit(proposal_count: u32) -> Option<Balance> {
-			let m = Ratio::get().saturating_pow(proposal_count as usize);
+			let m: Balance = Ratio::get().saturating_pow(proposal_count).into();
 			Some(m.saturating_mul(Base::get()))
 		}
 	}

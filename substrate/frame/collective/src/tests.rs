@@ -21,7 +21,10 @@ use frame_support::{
 	assert_noop, assert_ok, derive_impl,
 	dispatch::Pays,
 	parameter_types,
-	traits::{ConstU32, ConstU64, StorageVersion},
+	traits::{
+		fungible::{Inspect, Mutate},
+		ConstU32, ConstU64, StorageVersion,
+	},
 	Hashable,
 };
 use frame_system::{EnsureRoot, EventRecord, Phase};
@@ -126,6 +129,14 @@ impl pallet_balances::Config for Test {
 	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
+parameter_types! {
+	pub ProposalDepositBase: u64 = Balances::minimum_balance() + Balances::minimum_balance();
+	pub const ProposalDepositDelay: u32 = 2;
+}
+
+type CollectiveDeposit =
+	deposit::Delayed<ProposalDepositDelay, deposit::Constant<ProposalDepositBase>>;
+
 impl Config<Instance1> for Test {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeHoldReason = RuntimeHoldReason;
@@ -139,11 +150,14 @@ impl Config<Instance1> for Test {
 	type WeightInfo = ();
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxProposalWeight;
-	type ProposalDeposit = ();
+	type ProposalDeposit = CollectiveDeposit;
 	type DisapproveOrigin = EnsureRoot<AccountId>;
 	type KillOrigin = EnsureRoot<AccountId>;
 	type Slash = ();
 }
+
+type CollectiveMajorityDeposit = deposit::Linear<ConstU32<2>, ProposalDepositBase>;
+
 impl Config<Instance2> for Test {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeHoldReason = RuntimeHoldReason;
@@ -157,7 +171,7 @@ impl Config<Instance2> for Test {
 	type WeightInfo = ();
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxProposalWeight;
-	type ProposalDeposit = ();
+	type ProposalDeposit = CollectiveMajorityDeposit;
 	type DisapproveOrigin = EnsureRoot<AccountId>;
 	type KillOrigin = EnsureRoot<AccountId>;
 	type Slash = ();
@@ -179,7 +193,7 @@ impl Config for Test {
 	type WeightInfo = ();
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxProposalWeight;
-	type ProposalDeposit = ();
+	type ProposalDeposit = deposit::Geometric<ConstU32<2>, ProposalDepositBase>;
 	type DisapproveOrigin = EnsureRoot<AccountId>;
 	type KillOrigin = EnsureRoot<AccountId>;
 	type Slash = ();
@@ -604,15 +618,27 @@ fn close_with_no_prime_but_majority_works() {
 			MaxMembers::get()
 		));
 
+		let deposit = <CollectiveMajorityDeposit as GetDeposit<u64>>::get_deposit(0).unwrap();
+		let ed = Balances::minimum_balance();
+		let _ = Balances::mint_into(&1, ed + deposit);
+		System::reset_events();
+
 		assert_ok!(CollectiveMajority::propose(
 			RuntimeOrigin::signed(1),
 			5,
 			Box::new(proposal.clone()),
 			proposal_len
 		));
+		assert_eq!(Balances::balance(&1), ed);
+
 		assert_ok!(CollectiveMajority::vote(RuntimeOrigin::signed(1), hash, 0, true));
 		assert_ok!(CollectiveMajority::vote(RuntimeOrigin::signed(2), hash, 0, true));
 		assert_ok!(CollectiveMajority::vote(RuntimeOrigin::signed(3), hash, 0, true));
+
+		assert_noop!(
+			CollectiveMajority::release_proposal_deposit(RuntimeOrigin::signed(1), hash),
+			Error::<Test, Instance2>::ProposalActive
+		);
 
 		System::set_block_number(4);
 		assert_ok!(CollectiveMajority::close(
@@ -622,6 +648,9 @@ fn close_with_no_prime_but_majority_works() {
 			proposal_weight,
 			proposal_len
 		));
+
+		assert_ok!(CollectiveMajority::release_proposal_deposit(RuntimeOrigin::signed(1), hash));
+		assert_eq!(Balances::balance(&1), ed + deposit);
 
 		assert_eq!(
 			System::events(),
@@ -664,7 +693,14 @@ fn close_with_no_prime_but_majority_works() {
 				record(RuntimeEvent::CollectiveMajority(CollectiveEvent::Executed {
 					proposal_hash: hash,
 					result: Err(DispatchError::BadOrigin)
-				}))
+				})),
+				record(RuntimeEvent::CollectiveMajority(
+					CollectiveEvent::ProposalDepositReleased {
+						proposal_hash: hash,
+						who: 1,
+						amount: deposit,
+					}
+				))
 			]
 		);
 	});
@@ -811,9 +847,14 @@ fn propose_works() {
 #[test]
 fn limit_active_proposals() {
 	ExtBuilder::default().build_and_execute(|| {
+		let ed = Balances::minimum_balance();
+		assert_ok!(Balances::mint_into(&1, ed));
 		for i in 0..MaxProposals::get() {
 			let proposal = make_proposal(i as u64);
 			let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+			if let Some(deposit) = <CollectiveMajorityDeposit as GetDeposit<u64>>::get_deposit(0) {
+				assert_ok!(Balances::mint_into(&1, deposit));
+			}
 			assert_ok!(Collective::propose(
 				RuntimeOrigin::signed(1),
 				3,
@@ -1555,6 +1596,50 @@ fn migration_v4() {
 }
 
 #[test]
+fn kill_proposal_with_deposit() {
+	ExtBuilder::default().build_and_execute(|| {
+		let ed = Balances::minimum_balance();
+		assert_ok!(Balances::mint_into(&1, ed));
+		let mut last_deposit = None;
+		let mut last_hash = None;
+		for i in 0..=ProposalDepositDelay::get() {
+			let proposal = make_proposal(i as u64);
+			let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+			last_hash = Some(BlakeTwo256::hash_of(&proposal));
+			if let Some(deposit) = <CollectiveDeposit as GetDeposit<u64>>::get_deposit(i) {
+				assert_ok!(Balances::mint_into(&1, deposit));
+				last_deposit = Some(deposit);
+			}
+			assert_ok!(Collective::propose(
+				RuntimeOrigin::signed(1),
+				3,
+				Box::new(proposal.clone()),
+				proposal_len
+			));
+		}
+		let balance = Balances::total_balance(&1);
+		System::reset_events();
+
+		assert_ok!(Collective::kill(RuntimeOrigin::root(), last_hash.unwrap()));
+		assert_eq!(Balances::total_balance(&1), balance - last_deposit.unwrap());
+
+		assert_eq!(
+			System::events(),
+			vec![
+				record(RuntimeEvent::Collective(CollectiveEvent::ProposalDepositSlashed {
+					proposal_hash: last_hash.unwrap(),
+					who: 1,
+					amount: last_deposit.unwrap(),
+				})),
+				record(RuntimeEvent::Collective(CollectiveEvent::Killed {
+					proposal_hash: last_hash.unwrap(),
+				})),
+			]
+		);
+	})
+}
+
+#[test]
 fn deposit_types_with_linear_work() {
 	type LinearWithSlop2 = crate::deposit::Linear<ConstU32<2>, ConstU128<10>>;
 	assert_eq!(LinearWithSlop2::get_deposit(0), Some(10u128));
@@ -1594,7 +1679,7 @@ fn deposit_types_with_linear_work() {
 
 #[test]
 fn deposit_types_with_geometric_work() {
-	type WithRatio2Base10 = crate::deposit::Geometric<ConstU128<2>, ConstU128<10>>;
+	type WithRatio2Base10 = crate::deposit::Geometric<ConstU32<2>, ConstU128<10>>;
 	assert_eq!(WithRatio2Base10::get_deposit(0), Some(10u128));
 	assert_eq!(WithRatio2Base10::get_deposit(1), Some(20u128));
 	assert_eq!(WithRatio2Base10::get_deposit(2), Some(40u128));
