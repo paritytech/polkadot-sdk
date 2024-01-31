@@ -23,17 +23,14 @@ use frame_support::{
 	assert_noop, assert_ok, derive_impl, hypothetically, ord_parameter_types,
 	pallet_prelude::Weight,
 	parameter_types,
-	traits::{
-		ConstU16, ConstU32, ConstU64, EitherOf, Everything, IsInVec, MapSuccess, PollStatus,
-		Polling, TryMapSuccess,
-	},
+	traits::{ConstU16, EitherOf, IsInVec, MapSuccess, PollStatus, Polling, TryMapSuccess},
 };
 use frame_system::EnsureSignedBy;
 use pallet_ranked_collective::{EnsureRanked, Geometric, Rank, Tally, TallyOf, Votes};
-use sp_core::{Get, H256};
+use sp_core::Get;
 use sp_runtime::{
-	traits::{BlakeTwo256, Convert, IdentityLookup, ReduceBy, TryMorphInto},
-	BuildStorage, DispatchError, DispatchResult,
+	traits::{Convert, ReduceBy, TryMorphInto},
+	BuildStorage, DispatchError,
 };
 type Class = Rank;
 
@@ -58,29 +55,7 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {
@@ -129,66 +104,34 @@ impl Polling<TallyOf<Test>> for TestPolls {
 	type Moment = u64;
 	type Class = Class;
 	fn classes() -> Vec<Self::Class> {
-		vec![0, 1, 2]
+		unimplemented!()
 	}
-	fn as_ongoing(index: u8) -> Option<(TallyOf<Test>, Self::Class)> {
-		Polls::get().remove(&index).and_then(|x| {
-			if let TestPollState::Ongoing(t, c) = x {
-				Some((t, c))
-			} else {
-				None
-			}
-		})
+	fn as_ongoing(_: u8) -> Option<(TallyOf<Test>, Self::Class)> {
+		unimplemented!()
 	}
 	fn access_poll<R>(
-		index: Self::Index,
-		f: impl FnOnce(PollStatus<&mut TallyOf<Test>, Self::Moment, Self::Class>) -> R,
+		_: Self::Index,
+		_: impl FnOnce(PollStatus<&mut TallyOf<Test>, Self::Moment, Self::Class>) -> R,
 	) -> R {
-		let mut polls = Polls::get();
-		let entry = polls.get_mut(&index);
-		let r = match entry {
-			Some(Ongoing(ref mut tally_mut_ref, class)) =>
-				f(PollStatus::Ongoing(tally_mut_ref, *class)),
-			Some(Completed(when, succeeded)) => f(PollStatus::Completed(*when, *succeeded)),
-			None => f(PollStatus::None),
-		};
-		Polls::set(polls);
-		r
+		unimplemented!()
 	}
 	fn try_access_poll<R>(
-		index: Self::Index,
-		f: impl FnOnce(
+		_: Self::Index,
+		_: impl FnOnce(
 			PollStatus<&mut TallyOf<Test>, Self::Moment, Self::Class>,
 		) -> Result<R, DispatchError>,
 	) -> Result<R, DispatchError> {
-		let mut polls = Polls::get();
-		let entry = polls.get_mut(&index);
-		let r = match entry {
-			Some(Ongoing(ref mut tally_mut_ref, class)) =>
-				f(PollStatus::Ongoing(tally_mut_ref, *class)),
-			Some(Completed(when, succeeded)) => f(PollStatus::Completed(*when, *succeeded)),
-			None => f(PollStatus::None),
-		}?;
-		Polls::set(polls);
-		Ok(r)
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn create_ongoing(class: Self::Class) -> Result<Self::Index, ()> {
 		unimplemented!()
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn end_ongoing(index: Self::Index, approved: bool) -> Result<(), ()> {
-		let mut polls = Polls::get();
-		match polls.get(&index) {
-			Some(Ongoing(..)) => {},
-			_ => return Err(()),
-		}
-		let now = frame_system::Pallet::<Test>::block_number();
-		polls.insert(index, Completed(now, approved));
-		Polls::set(polls);
-		Ok(())
+	fn create_ongoing(_: Self::Class) -> Result<Self::Index, ()> {
+		unimplemented!()
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn end_ongoing(_: Self::Index, _: bool) -> Result<(), ()> {
+		unimplemented!()
 	}
 }
 

@@ -23,12 +23,12 @@ use frame_support::{
 	assert_noop, assert_ok, derive_impl, hypothetically,
 	pallet_prelude::Weight,
 	parameter_types,
-	traits::{ConstU32, ConstU64, EitherOf, Everything, MapSuccess, PollStatus, Polling},
+	traits::{ConstU64, EitherOf, MapSuccess, PollStatus, Polling},
 };
 use pallet_ranked_collective::{EnsureRanked, Geometric, Tally, TallyOf, Votes};
-use sp_core::{ConstU16, Get, H256};
+use sp_core::{ConstU16, Get};
 use sp_runtime::{
-	traits::{BlakeTwo256, Convert, IdentityLookup, ReduceBy},
+	traits::{Convert, ReduceBy},
 	BuildStorage, DispatchError,
 };
 use sp_std::cell::RefCell;
@@ -55,29 +55,7 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
