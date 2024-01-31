@@ -75,6 +75,8 @@
 <a href="#75" id="75">75</a>
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -133,7 +135,8 @@
 	AssetHubWestendPara <span class="kw">as </span>AssetHubWestend, AssetHubWestendParaReceiver <span class="kw">as </span>AssetHubWestendReceiver,
 	AssetHubWestendParaSender <span class="kw">as </span>AssetHubWestendSender, BridgeHubWestendPara <span class="kw">as </span>BridgeHubWestend,
 	BridgeHubWestendParaReceiver <span class="kw">as </span>BridgeHubWestendReceiver,
-	CollectivesWestendPara <span class="kw">as </span>CollectivesWestend, PenpalBPara <span class="kw">as </span>PenpalB,
+	CollectivesWestendPara <span class="kw">as </span>CollectivesWestend, PenpalAPara <span class="kw">as </span>PenpalA,
+	PenpalAParaReceiver <span class="kw">as </span>PenpalAReceiver, PenpalBPara <span class="kw">as </span>PenpalB,
 	PenpalBParaReceiver <span class="kw">as </span>PenpalBReceiver, PenpalBParaSender <span class="kw">as </span>PenpalBSender,
 	WestendRelay <span class="kw">as </span>Westend, WestendRelayReceiver <span class="kw">as </span>WestendReceiver,
 	WestendRelaySender <span class="kw">as </span>WestendSender,
@@ -149,6 +152,7 @@
 <span class="kw">pub type </span>SystemParaToRelayTest = Test&lt;AssetHubWestend, Westend&gt;;
 <span class="kw">pub type </span>SystemParaToParaTest = Test&lt;AssetHubWestend, PenpalB&gt;;
 <span class="kw">pub type </span>ParaToSystemParaTest = Test&lt;PenpalB, AssetHubWestend&gt;;
+<span class="kw">pub type </span>ParaToParaTest = Test&lt;PenpalB, PenpalA, Westend&gt;;
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
