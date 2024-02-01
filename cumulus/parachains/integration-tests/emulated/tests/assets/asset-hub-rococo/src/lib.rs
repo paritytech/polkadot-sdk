@@ -35,7 +35,7 @@ pub use emulated_integration_tests_common::{
 	test_parachain_is_trusted_teleporter,
 	xcm_emulator::{
 		assert_expected_events, bx, helpers::weight_within_threshold, Chain, Parachain as Para,
-		RelayChain as Relay, Test, TestArgs, TestContext, TestExt,
+		RelayChain as Relay, Test, TestArgs, TestContext, TestExt, Parachain as ParachainTrait,
 	},
 	xcm_helpers::{xcm_transact_paid_execution, xcm_transact_unpaid_execution},
 	PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD, XCM_V3,
@@ -53,6 +53,8 @@ pub use rococo_system_emulated_network::{
 	PenpalAParaReceiver as PenpalAReceiver, PenpalAParaSender as PenpalASender,
 	RococoRelay as Rococo, RococoRelayReceiver as RococoReceiver,
 	RococoRelaySender as RococoSender,
+	PenpalBParaReceiver as PenpalBReceiver, PenpalBParaSender as PenpalBSender,
+	PenpalBPara as PenpalB,
 };
 
 pub const ASSET_ID: u32 = 1;
@@ -65,6 +67,7 @@ pub type RelayToParaTest = Test<Rococo, PenpalA>;
 pub type SystemParaToRelayTest = Test<AssetHubRococo, Rococo>;
 pub type SystemParaToParaTest = Test<AssetHubRococo, PenpalA>;
 pub type ParaToSystemParaTest = Test<PenpalA, AssetHubRococo>;
+pub type ParaToParaTest = Test<PenpalA, PenpalB, Rococo>;
 
 /// Returns a `TestArgs` instance to be used for the Relay Chain across integration tests
 pub fn relay_test_args(

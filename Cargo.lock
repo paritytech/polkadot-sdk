@@ -868,6 +868,7 @@ dependencies = [
  "assert_matches",
  "asset-hub-rococo-runtime",
  "asset-test-utils",
+ "cumulus-pallet-parachain-system",
  "emulated-integration-tests-common",
  "frame-support",
  "pallet-asset-conversion",
@@ -10828,7 +10829,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking"
-version = "26.0.0"
+version = "26.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -18252,7 +18253,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-executor"
-version = "5.0.0"
+version = "5.0.1"
 dependencies = [
  "environmental",
  "frame-benchmarking",
