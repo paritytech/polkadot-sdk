@@ -53,9 +53,6 @@ pub trait Context {
 	/// get the digest of a candidate.
 	fn candidate_digest(candidate: &Self::Candidate) -> Self::Digest;
 
-	/// get the group of a candidate.
-	fn candidate_group(candidate: &Self::Candidate) -> Self::GroupId;
-
 	/// Whether a authority is a member of a group.
 	/// Members are meant to submit candidates and vote on validity.
 	fn is_member_of(&self, authority: &Self::AuthorityId, group: &Self::GroupId) -> bool;
@@ -342,13 +339,13 @@ impl<Ctx: Context> Table<Ctx> {
 	pub fn import_statement(
 		&mut self,
 		context: &Ctx,
+		group_id: Ctx::GroupId,
 		statement: SignedStatement<Ctx::Candidate, Ctx::Digest, Ctx::AuthorityId, Ctx::Signature>,
 	) -> Option<Summary<Ctx::Digest, Ctx::GroupId>> {
 		let SignedStatement { statement, signature, sender: signer } = statement;
-
 		let res = match statement {
 			Statement::Seconded(candidate) =>
-				self.import_candidate(context, signer.clone(), candidate, signature),
+				self.import_candidate(context, signer.clone(), candidate, signature, group_id),
 			Statement::Valid(digest) =>
 				self.validity_vote(context, signer.clone(), digest, ValidityVote::Valid(signature)),
 		};
@@ -387,8 +384,8 @@ impl<Ctx: Context> Table<Ctx> {
 		authority: Ctx::AuthorityId,
 		candidate: Ctx::Candidate,
 		signature: Ctx::Signature,
+		group: Ctx::GroupId,
 	) -> ImportResult<Ctx> {
-		let group = Ctx::candidate_group(&candidate);
 		if !context.is_member_of(&authority, &group) {
 			return Err(Misbehavior::UnauthorizedStatement(UnauthorizedStatement {
 				statement: SignedStatement {
@@ -632,10 +629,6 @@ mod tests {
 
 		fn candidate_digest(candidate: &Candidate) -> Digest {
 			Digest(candidate.1)
-		}
-
-		fn candidate_group(candidate: &Candidate) -> GroupId {
-			GroupId(candidate.0)
 		}
 
 		fn is_member_of(&self, authority: &AuthorityId, group: &GroupId) -> bool {

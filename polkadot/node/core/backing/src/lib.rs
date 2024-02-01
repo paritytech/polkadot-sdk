@@ -105,9 +105,9 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_primitives::{
 	BackedCandidate, CandidateCommitments, CandidateHash, CandidateReceipt,
-	CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, Hash, Id as ParaId,
-	PersistedValidationData, PvfExecKind, SigningContext, ValidationCode, ValidatorId,
-	ValidatorIndex, ValidatorSignature, ValidityAttestation,
+	CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, GroupIndex, Hash,
+	Id as ParaId, PersistedValidationData, PvfExecKind, SigningContext, ValidationCode,
+	ValidatorId, ValidatorIndex, ValidatorSignature, ValidityAttestation,
 };
 use sp_keystore::KeystorePtr;
 use statement_table::{
@@ -208,8 +208,10 @@ struct PerRelayParentState {
 	prospective_parachains_mode: ProspectiveParachainsMode,
 	/// The hash of the relay parent on top of which this job is doing it's work.
 	parent: Hash,
-	/// The `ParaId` assigned to the local validator at this relay parent.
-	assignment: Option<ParaId>,
+	/// The `CoreIndex` assigned to the local validator at this relay parent.
+	assigned_para: Option<ParaId>,
+	/// The `CoreIndex` assigned to the local validator at this relay parent.
+	assigned_core: Option<CoreIndex>,
 	/// The candidates that are backed by enough validators in their group, by hash.
 	backed: HashSet<CandidateHash>,
 	/// The table of candidates and statements under this relay-parent.
@@ -382,7 +384,7 @@ struct AttestingData {
 #[derive(Default)]
 struct TableContext {
 	validator: Option<Validator>,
-	groups: HashMap<ParaId, Vec<ValidatorIndex>>,
+	groups: HashMap<CoreIndex, Vec<ValidatorIndex>>,
 	validators: Vec<ValidatorId>,
 	disabled_validators: Vec<ValidatorIndex>,
 }
@@ -404,7 +406,7 @@ impl TableContext {
 impl TableContextTrait for TableContext {
 	type AuthorityId = ValidatorIndex;
 	type Digest = CandidateHash;
-	type GroupId = ParaId;
+	type GroupId = CoreIndex;
 	type Signature = ValidatorSignature;
 	type Candidate = CommittedCandidateReceipt;
 
@@ -412,15 +414,11 @@ impl TableContextTrait for TableContext {
 		candidate.hash()
 	}
 
-	fn candidate_group(candidate: &CommittedCandidateReceipt) -> ParaId {
-		candidate.descriptor().para_id
+	fn is_member_of(&self, authority: &ValidatorIndex, core: &CoreIndex) -> bool {
+		self.groups.get(core).map_or(false, |g| g.iter().any(|a| a == authority))
 	}
 
-	fn is_member_of(&self, authority: &ValidatorIndex, group: &ParaId) -> bool {
-		self.groups.get(group).map_or(false, |g| g.iter().any(|a| a == authority))
-	}
-
-	fn get_group_size(&self, group: &ParaId) -> Option<usize> {
+	fn get_group_size(&self, group: &CoreIndex) -> Option<usize> {
 		self.groups.get(group).map(|g| g.len())
 	}
 }
@@ -442,20 +440,22 @@ fn primitive_statement_to_table(s: &SignedFullStatementWithPVD) -> TableSignedSt
 
 fn table_attested_to_backed(
 	attested: TableAttestedCandidate<
-		ParaId,
+		CoreIndex,
 		CommittedCandidateReceipt,
 		ValidatorIndex,
 		ValidatorSignature,
 	>,
 	table_context: &TableContext,
 ) -> Option<BackedCandidate> {
-	let TableAttestedCandidate { candidate, validity_votes, group_id: para_id } = attested;
+	let TableAttestedCandidate { candidate, validity_votes, group_id: core_index } = attested;
 
 	let (ids, validity_votes): (Vec<_>, Vec<ValidityAttestation>) =
 		validity_votes.into_iter().map(|(id, vote)| (id, vote.into())).unzip();
 
-	let group = table_context.groups.get(&para_id)?;
+	let group = table_context.groups.get(&core_index)?;
 
+	// TODO: This si a temporary fix and will not work if a para is assigned to
+	// different sized backing groups. We need core index in the candidate descriptor
 	let mut validator_indices = BitVec::with_capacity(group.len());
 
 	validator_indices.resize(group.len(), false);
@@ -981,6 +981,56 @@ async fn handle_active_leaves_update<Context>(
 	Ok(())
 }
 
+macro_rules! try_runtime_api {
+	($x: expr) => {
+		match $x {
+			Ok(x) => x,
+			Err(err) => {
+				// Only bubble up fatal errors.
+				error::log_error(Err(Into::<runtime::Error>::into(err).into()))?;
+
+				// We can't do candidate validation work if we don't have the
+				// requisite runtime API data. But these errors should not take
+				// down the node.
+				return Ok(None)
+			},
+		}
+	};
+}
+
+#[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
+async fn core_index_from_statement<Context>(
+	ctx: &mut Context,
+	relay_parent: Hash,
+	statement: &SignedFullStatementWithPVD,
+) -> Result<Option<CoreIndex>, Error> {
+	let parent = relay_parent;
+
+	let (groups, cores) = futures::try_join!(
+		request_validator_groups(parent, ctx.sender()).await,
+		request_from_runtime(parent, ctx.sender(), |tx| {
+			RuntimeApiRequest::AvailabilityCores(tx)
+		},)
+		.await,
+	)
+	.map_err(Error::JoinMultiple)?;
+	let (validator_groups, group_rotation_info) = try_runtime_api!(groups);
+	let cores = try_runtime_api!(cores);
+
+	let statement_validator_index = statement.validator_index();
+	for (group_index, group) in validator_groups.iter().enumerate() {
+		for validator_index in group {
+			if *validator_index == statement_validator_index {
+				return Ok(Some(
+					group_rotation_info.core_for_group(GroupIndex(group_index as u32), cores.len()),
+				))
+			}
+		}
+	}
+
+	Ok(None)
+}
+
 /// Load the data necessary to do backing work on top of a relay-parent.
 #[overseer::contextbounds(CandidateBacking, prefix = self::overseer)]
 async fn construct_per_relay_parent_state<Context>(
@@ -989,23 +1039,6 @@ async fn construct_per_relay_parent_state<Context>(
 	keystore: &KeystorePtr,
 	mode: ProspectiveParachainsMode,
 ) -> Result<Option<PerRelayParentState>, Error> {
-	macro_rules! try_runtime_api {
-		($x: expr) => {
-			match $x {
-				Ok(x) => x,
-				Err(err) => {
-					// Only bubble up fatal errors.
-					error::log_error(Err(Into::<runtime::Error>::into(err).into()))?;
-
-					// We can't do candidate validation work if we don't have the
-					// requisite runtime API data. But these errors should not take
-					// down the node.
-					return Ok(None)
-				},
-			}
-		};
-	}
-
 	let parent = relay_parent;
 
 	let (session_index, validators, groups, cores) = futures::try_join!(
@@ -1055,9 +1088,11 @@ async fn construct_per_relay_parent_state<Context>(
 		},
 	};
 
-	let mut groups = HashMap::new();
 	let n_cores = cores.len();
-	let mut assignment = None;
+
+	let mut groups = HashMap::<CoreIndex, Vec<ValidatorIndex>>::new();
+	let mut assigned_core = None;
+	let mut assigned_para = None;
 
 	for (idx, core) in cores.into_iter().enumerate() {
 		let core_para_id = match core {
@@ -1077,11 +1112,13 @@ async fn construct_per_relay_parent_state<Context>(
 		let group_index = group_rotation_info.group_for_core(core_index, n_cores);
 		if let Some(g) = validator_groups.get(group_index.0 as usize) {
 			if validator.as_ref().map_or(false, |v| g.contains(&v.index())) {
-				assignment = Some(core_para_id);
+				assigned_para = Some(core_para_id);
+				assigned_core = Some(core_index);
 			}
-			groups.insert(core_para_id, g.clone());
+			groups.insert(core_index, g.clone());
 		}
 	}
+	gum::debug!(target: LOG_TARGET, ?groups, "TableContext" );
 
 	let table_context = TableContext { validator, groups, validators, disabled_validators };
 	let table_config = TableConfig {
@@ -1094,7 +1131,8 @@ async fn construct_per_relay_parent_state<Context>(
 	Ok(Some(PerRelayParentState {
 		prospective_parachains_mode: mode,
 		parent,
-		assignment,
+		assigned_core,
+		assigned_para,
 		backed: HashSet::new(),
 		table: Table::new(table_config),
 		table_context,
@@ -1519,14 +1557,15 @@ async fn import_statement<Context>(
 	per_candidate: &mut HashMap<CandidateHash, PerCandidateState>,
 	statement: &SignedFullStatementWithPVD,
 ) -> Result<Option<TableSummary>, Error> {
+	let candidate_hash = statement.payload().candidate_hash();
+
 	gum::debug!(
 		target: LOG_TARGET,
 		statement = ?statement.payload().to_compact(),
 		validator_index = statement.validator_index().0,
+		?candidate_hash,
 		"Importing statement",
 	);
-
-	let candidate_hash = statement.payload().candidate_hash();
 
 	// If this is a new candidate (statement is 'seconded' and candidate is unknown),
 	// we need to create an entry in the `PerCandidateState` map.
@@ -1593,7 +1632,11 @@ async fn import_statement<Context>(
 
 	let stmt = primitive_statement_to_table(statement);
 
-	Ok(rp_state.table.import_statement(&rp_state.table_context, stmt))
+	let core = core_index_from_statement(ctx, rp_state.parent, statement)
+		.await
+		.unwrap()
+		.unwrap();
+	Ok(rp_state.table.import_statement(&rp_state.table_context, core, stmt))
 }
 
 /// Handles a summary received from [`import_statement`] and dispatches `Backed` notifications and
@@ -1654,8 +1697,14 @@ async fn post_import_statement_actions<Context>(
 					);
 					ctx.send_unbounded_message(message);
 				}
+			} else {
+				gum::debug!(target: LOG_TARGET, ?candidate_hash, "Cannot get BackedCandidate");
 			}
+		} else {
+			gum::debug!(target: LOG_TARGET, ?candidate_hash, "Candidate already known");
 		}
+	} else {
+		gum::debug!(target: LOG_TARGET, "No attested candidate");
 	}
 
 	issue_new_misbehaviors(ctx, rp_state.parent, &mut rp_state.table);
@@ -1859,9 +1908,10 @@ async fn maybe_validate_and_import<Context>(
 
 		let candidate_hash = summary.candidate;
 
-		if Some(summary.group_id) != rp_state.assignment {
+		if Some(summary.group_id) != rp_state.assigned_core {
 			return Ok(())
 		}
+
 		let attesting = match statement.payload() {
 			StatementWithPVD::Seconded(receipt, _) => {
 				let attesting = AttestingData {
@@ -2004,10 +2054,11 @@ async fn handle_second_message<Context>(
 	}
 
 	// Sanity check that candidate is from our assignment.
-	if Some(candidate.descriptor().para_id) != rp_state.assignment {
+	if Some(candidate.descriptor().para_id) != rp_state.assigned_para {
 		gum::debug!(
 			target: LOG_TARGET,
-			our_assignment = ?rp_state.assignment,
+			our_assignment_core = ?rp_state.assigned_core,
+			our_assignment_para = ?rp_state.assigned_para,
 			collation = ?candidate.descriptor().para_id,
 			"Subsystem asked to second for para outside of our assignment",
 		);
