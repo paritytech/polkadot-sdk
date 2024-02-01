@@ -32,7 +32,6 @@ use crate::{
 use chain_sync::{ChainSync, ChainSyncAction, ChainSyncMode};
 use libp2p::PeerId;
 use log::{error, info};
-use parking_lot::Mutex;
 use prometheus_endpoint::Registry;
 use sc_client_api::{BlockBackend, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
@@ -154,7 +153,7 @@ pub struct SyncingStrategy<B: BlockT, Client> {
 	warp: Option<WarpSync<B, Client>>,
 	state: Option<StateStrategy<B>>,
 	chain_sync: Option<ChainSync<B, Client>>,
-	peer_pool: Arc<Mutex<PeerPool>>,
+	peer_pool: PeerPool,
 	peer_best_blocks: HashMap<PeerId, (B::Hash, NumberFor<B>)>,
 }
 
@@ -178,7 +177,7 @@ where
 		if let SyncMode::Warp = config.mode {
 			let warp_sync_config = warp_sync_config
 				.expect("Warp sync configuration must be supplied in warp sync mode.");
-			let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+			let peer_pool = PeerPool::default();
 			let warp_sync = WarpSync::new(client.clone(), warp_sync_config, peer_pool.clone());
 			Ok(Self {
 				config,
@@ -190,7 +189,7 @@ where
 				peer_best_blocks: Default::default(),
 			})
 		} else {
-			let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+			let peer_pool = PeerPool::default();
 			let chain_sync = ChainSync::new(
 				chain_sync_mode(config.mode),
 				client.clone(),
@@ -214,7 +213,7 @@ where
 
 	/// Notify that a new peer has connected.
 	pub fn add_peer(&mut self, peer_id: PeerId, best_hash: B::Hash, best_number: NumberFor<B>) {
-		self.peer_pool.lock().add_peer(peer_id);
+		self.peer_pool.add_peer(peer_id);
 		self.peer_best_blocks.insert(peer_id, (best_hash, best_number));
 
 		self.warp.as_mut().map(|s| s.add_peer(peer_id, best_hash, best_number));
@@ -228,7 +227,7 @@ where
 		self.state.as_mut().map(|s| s.remove_peer(peer_id));
 		self.chain_sync.as_mut().map(|s| s.remove_peer(peer_id));
 
-		self.peer_pool.lock().remove_peer(peer_id);
+		self.peer_pool.remove_peer(peer_id);
 		self.peer_best_blocks.remove(peer_id);
 	}
 

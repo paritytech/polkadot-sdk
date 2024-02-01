@@ -26,12 +26,10 @@ use crate::{
 use fork_tree::ForkTree;
 use libp2p::PeerId;
 use log::{debug, error, trace, warn};
-use parking_lot::Mutex;
 use sp_blockchain::Error as ClientError;
 use sp_runtime::traits::{Block as BlockT, NumberFor, Zero};
 use std::{
 	collections::{HashMap, HashSet, VecDeque},
-	sync::Arc,
 	time::{Duration, Instant},
 };
 
@@ -292,7 +290,7 @@ impl<'a, B: BlockT> Matcher<'a, B> {
 	pub(crate) fn next(
 		&mut self,
 		peers: &HashMap<PeerId, PeerSync<B>>,
-		peer_pool: &Arc<Mutex<PeerPool>>,
+		peer_pool: &PeerPool,
 	) -> Option<(PeerId, ExtraRequest<B>)> {
 		if self.remaining == 0 {
 			return None
@@ -360,14 +358,10 @@ mod tests {
 		peer_pool::PeerPool,
 		strategy::chain_sync::{PeerSync, PeerSyncState},
 	};
-	use parking_lot::Mutex;
 	use quickcheck::{Arbitrary, Gen, QuickCheck};
 	use sp_blockchain::Error as ClientError;
 	use sp_test_primitives::{Block, BlockNumber, Hash};
-	use std::{
-		collections::{HashMap, HashSet},
-		sync::Arc,
-	};
+	use std::collections::{HashMap, HashSet};
 
 	#[test]
 	fn requests_are_processed_in_order() {
@@ -589,18 +583,18 @@ mod tests {
 	#[derive(Debug, Clone)]
 	struct ArbitraryPeers {
 		peers: HashMap<PeerId, PeerSync<Block>>,
-		peer_pool: Arc<Mutex<PeerPool>>,
+		peer_pool: PeerPool,
 	}
 
 	impl Arbitrary for ArbitraryPeers {
 		fn arbitrary(g: &mut Gen) -> Self {
 			let mut peers = HashMap::with_capacity(g.size());
-			let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+			let peer_pool = PeerPool::default();
 			for _ in 0..g.size() {
 				let ps = ArbitraryPeerSync::arbitrary(g).0;
 				let peer_id = ps.peer_id;
 				peers.insert(peer_id, ps);
-				peer_pool.lock().add_peer(peer_id);
+				peer_pool.add_peer(peer_id);
 			}
 			ArbitraryPeers { peers, peer_pool }
 		}

@@ -20,7 +20,6 @@
 
 use super::*;
 use futures::executor::block_on;
-use parking_lot::Mutex;
 use sc_block_builder::BlockBuilderBuilder;
 use sc_network_common::sync::message::{BlockAnnounce, BlockData, BlockState, FromBlock};
 use sp_blockchain::HeaderBackend;
@@ -38,7 +37,7 @@ fn processes_empty_response_on_justification_request_for_unknown_block() {
 
 	let client = Arc::new(TestClientBuilder::new().build());
 	let peer_id = PeerId::random();
-	let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+	let peer_pool = PeerPool::default();
 
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
@@ -64,7 +63,7 @@ fn processes_empty_response_on_justification_request_for_unknown_block() {
 	};
 
 	// add a new peer with the same best block
-	peer_pool.lock().add_peer(peer_id);
+	peer_pool.add_peer(peer_id);
 	sync.add_peer(peer_id, a1_hash, a1_number);
 	// Transit the peer into a requestable state
 	let _ = sync.handle_new_peers().collect::<Vec<_>>();
@@ -104,7 +103,7 @@ fn processes_empty_response_on_justification_request_for_unknown_block() {
 #[test]
 fn restart_doesnt_affect_peers_downloading_finality_data() {
 	let mut client = Arc::new(TestClientBuilder::new().build());
-	let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+	let peer_pool = PeerPool::default();
 
 	// we request max 8 blocks to always initiate block requests to both peers for the test to be
 	// deterministic
@@ -143,8 +142,8 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 	let (b1_hash, b1_number) = new_blocks(50);
 
 	// add 2 peers at blocks that we don't have locally
-	peer_pool.lock().add_peer(peer_id1);
-	peer_pool.lock().add_peer(peer_id2);
+	peer_pool.add_peer(peer_id1);
+	peer_pool.add_peer(peer_id2);
 	// note peer 2 is at block 10 > 8, so we always have something to request from it, even if the
 	// first request went to peer 1
 	sync.add_peer(peer_id1, Hash::random(), 42);
@@ -161,7 +160,7 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 	}));
 
 	// add a new peer at a known block
-	peer_pool.lock().add_peer(peer_id3);
+	peer_pool.add_peer(peer_id3);
 	sync.add_peer(peer_id3, b1_hash, b1_number);
 	// transit the peer into a requestable state
 	let _ = sync.handle_new_peers().collect::<Vec<_>>();
@@ -315,7 +314,7 @@ fn do_ancestor_search_when_common_block_to_best_queued_gap_is_to_big() {
 
 	let mut client = Arc::new(TestClientBuilder::new().build());
 	let info = client.info();
-	let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+	let peer_pool = PeerPool::default();
 
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
@@ -334,8 +333,8 @@ fn do_ancestor_search_when_common_block_to_best_queued_gap_is_to_big() {
 	let best_block = blocks.last().unwrap().clone();
 	let max_blocks_to_request = sync.max_blocks_per_request;
 	// Connect the node we will sync from
-	peer_pool.lock().add_peer(peer_id1);
-	peer_pool.lock().add_peer(peer_id2);
+	peer_pool.add_peer(peer_id1);
+	peer_pool.add_peer(peer_id2);
 	sync.add_peer(peer_id1, best_block.hash(), *best_block.header().number());
 	sync.add_peer(peer_id2, info.best_hash, 0);
 	// Transit peers into requestable state
@@ -475,7 +474,7 @@ fn can_sync_huge_fork() {
 	};
 
 	let info = client.info();
-	let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+	let peer_pool = PeerPool::default();
 
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
@@ -497,7 +496,7 @@ fn can_sync_huge_fork() {
 
 	let common_block = blocks[MAX_BLOCKS_TO_LOOK_BACKWARDS as usize / 2].clone();
 	// Connect the node we will sync from
-	peer_pool.lock().add_peer(peer_id1);
+	peer_pool.add_peer(peer_id1);
 	sync.add_peer(peer_id1, common_block.hash(), *common_block.header().number());
 
 	send_block_announce(fork_blocks.last().unwrap().header().clone(), peer_id1, &mut sync);
@@ -619,7 +618,7 @@ fn syncs_fork_without_duplicate_requests() {
 	};
 
 	let info = client.info();
-	let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+	let peer_pool = PeerPool::default();
 
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
@@ -641,7 +640,7 @@ fn syncs_fork_without_duplicate_requests() {
 
 	let common_block = blocks[MAX_BLOCKS_TO_LOOK_BACKWARDS as usize / 2].clone();
 	// Connect the node we will sync from
-	peer_pool.lock().add_peer(peer_id1);
+	peer_pool.add_peer(peer_id1);
 	sync.add_peer(peer_id1, common_block.hash(), *common_block.header().number());
 
 	send_block_announce(fork_blocks.last().unwrap().header().clone(), peer_id1, &mut sync);
@@ -765,7 +764,7 @@ fn removes_target_fork_on_disconnect() {
 	sp_tracing::try_init_simple();
 	let mut client = Arc::new(TestClientBuilder::new().build());
 	let blocks = (0..3).map(|_| build_block(&mut client, None, false)).collect::<Vec<_>>();
-	let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+	let peer_pool = PeerPool::default();
 
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
@@ -781,7 +780,7 @@ fn removes_target_fork_on_disconnect() {
 	let peer_id1 = PeerId::random();
 	let common_block = blocks[1].clone();
 	// Connect the node we will sync from
-	peer_pool.lock().add_peer(peer_id1);
+	peer_pool.add_peer(peer_id1);
 	sync.add_peer(peer_id1, common_block.hash(), *common_block.header().number());
 
 	// Create a "new" header and announce it
@@ -801,7 +800,7 @@ fn can_import_response_with_missing_blocks() {
 	let blocks = (0..4).map(|_| build_block(&mut client2, None, false)).collect::<Vec<_>>();
 
 	let empty_client = Arc::new(TestClientBuilder::new().build());
-	let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+	let peer_pool = PeerPool::default();
 
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
@@ -816,7 +815,7 @@ fn can_import_response_with_missing_blocks() {
 
 	let peer_id1 = PeerId::random();
 	let best_block = blocks[3].clone();
-	peer_pool.lock().add_peer(peer_id1);
+	peer_pool.add_peer(peer_id1);
 	sync.add_peer(peer_id1, best_block.hash(), *best_block.header().number());
 
 	// Manually prepare the peer for a block request.
@@ -846,7 +845,7 @@ fn ancestor_search_repeat() {
 #[test]
 fn sync_restart_removes_block_but_not_justification_requests() {
 	let mut client = Arc::new(TestClientBuilder::new().build());
-	let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+	let peer_pool = PeerPool::default();
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
 		client.clone(),
@@ -883,7 +882,7 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 	let mut pending_responses = HashSet::new();
 
 	// add new peer and request blocks from them
-	peer_pool.lock().add_peer(peers[0]);
+	peer_pool.add_peer(peers[0]);
 	sync.add_peer(peers[0], Hash::random(), 42);
 	sync.handle_new_peers().for_each(|result| {
 		pending_responses.insert(result.unwrap().0);
@@ -897,7 +896,7 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 	}
 
 	// add a new peer at a known block
-	peer_pool.lock().add_peer(peers[1]);
+	peer_pool.add_peer(peers[1]);
 	sync.add_peer(peers[1], b1_hash, b1_number);
 	sync.handle_new_peers().for_each(|result| {
 		pending_responses.insert(result.unwrap().0);
@@ -1006,7 +1005,7 @@ fn request_across_forks() {
 		fork_blocks
 	};
 
-	let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+	let peer_pool = PeerPool::default();
 
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
@@ -1022,10 +1021,10 @@ fn request_across_forks() {
 	// Add the peers, all at the common ancestor 100.
 	let common_block = blocks.last().unwrap();
 	let peer_id1 = PeerId::random();
-	peer_pool.lock().add_peer(peer_id1);
+	peer_pool.add_peer(peer_id1);
 	sync.add_peer(peer_id1, common_block.hash(), *common_block.header().number());
 	let peer_id2 = PeerId::random();
-	peer_pool.lock().add_peer(peer_id2);
+	peer_pool.add_peer(peer_id2);
 	sync.add_peer(peer_id2, common_block.hash(), *common_block.header().number());
 
 	// Peer 1 announces 107 from fork 1, 100-107 get downloaded.
@@ -1101,7 +1100,7 @@ fn request_across_forks() {
 #[test]
 fn block_request_at_genesis_reserves_peer_in_peer_pool() {
 	let client = Arc::new(TestClientBuilder::new().build());
-	let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+	let peer_pool = PeerPool::default();
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
 		client.clone(),
@@ -1115,7 +1114,7 @@ fn block_request_at_genesis_reserves_peer_in_peer_pool() {
 
 	// Add a peer.
 	let peer_id = PeerId::random();
-	peer_pool.lock().add_peer(peer_id);
+	peer_pool.add_peer(peer_id);
 	sync.add_peer(peer_id, Hash::random(), 10);
 
 	// A request is sent to our peer.
@@ -1134,7 +1133,7 @@ fn block_request_at_genesis_reserves_peer_in_peer_pool() {
 #[test]
 fn block_response_frees_peer_in_peer_pool() {
 	let client = Arc::new(TestClientBuilder::new().build());
-	let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+	let peer_pool = PeerPool::default();
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
 		client.clone(),
@@ -1155,7 +1154,7 @@ fn block_response_frees_peer_in_peer_pool() {
 
 	// Add a peer.
 	let peer_id = PeerId::random();
-	peer_pool.lock().add_peer(peer_id);
+	peer_pool.add_peer(peer_id);
 	sync.add_peer(peer_id, best_block.hash(), *best_block.header().number());
 
 	// Transit peers into requestable state
@@ -1192,7 +1191,7 @@ fn new_peer_ancestry_search_reserves_peer_in_peer_pool() {
 		.block;
 	block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
 
-	let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+	let peer_pool = PeerPool::default();
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
 		client.clone(),
@@ -1209,7 +1208,7 @@ fn new_peer_ancestry_search_reserves_peer_in_peer_pool() {
 
 	// Add a peer.
 	let peer_id = PeerId::random();
-	peer_pool.lock().add_peer(peer_id);
+	peer_pool.add_peer(peer_id);
 	assert!(peer_pool.lock().available_peers().any(|p| *p.peer_id() == peer_id));
 	sync.add_peer(peer_id, Hash::random(), 10);
 
@@ -1229,7 +1228,7 @@ fn new_peer_ancestry_search_reserves_peer_in_peer_pool() {
 fn forced_ancestry_search_reserves_peer_in_peer_pool() {
 	let mut client = Arc::new(TestClientBuilder::new().build());
 
-	let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+	let peer_pool = PeerPool::default();
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
 		client.clone(),
@@ -1243,7 +1242,7 @@ fn forced_ancestry_search_reserves_peer_in_peer_pool() {
 
 	// Add a peer that will be higher than our queued number (see below).
 	let peer_id = PeerId::random();
-	peer_pool.lock().add_peer(peer_id);
+	peer_pool.add_peer(peer_id);
 	assert!(peer_pool.lock().available_peers().any(|p| *p.peer_id() == peer_id));
 	sync.add_peer(peer_id, Hash::random(), (MAX_BLOCKS_TO_LOOK_BACKWARDS + 2).into());
 
@@ -1285,7 +1284,7 @@ fn forced_ancestry_search_reserves_peer_in_peer_pool() {
 fn peer_block_request_reserves_peer_in_peer_pool() {
 	let client = Arc::new(TestClientBuilder::new().build());
 
-	let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+	let peer_pool = PeerPool::default();
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
 		client.clone(),
@@ -1299,7 +1298,7 @@ fn peer_block_request_reserves_peer_in_peer_pool() {
 
 	// Add a peer that will be higher than our queued number (see below).
 	let peer_id = PeerId::random();
-	peer_pool.lock().add_peer(peer_id);
+	peer_pool.add_peer(peer_id);
 	assert!(peer_pool.lock().available_peers().any(|p| *p.peer_id() == peer_id));
 	sync.add_peer(peer_id, Hash::random(), 10);
 
@@ -1323,7 +1322,7 @@ fn peer_block_request_reserves_peer_in_peer_pool() {
 fn fork_sync_request_reserves_peer_in_peer_pool() {
 	let client = Arc::new(TestClientBuilder::new().build());
 
-	let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+	let peer_pool = PeerPool::default();
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
 		client.clone(),
@@ -1337,7 +1336,7 @@ fn fork_sync_request_reserves_peer_in_peer_pool() {
 
 	// Add a peer that will be higher than our queued number (see below).
 	let peer_id = PeerId::random();
-	peer_pool.lock().add_peer(peer_id);
+	peer_pool.add_peer(peer_id);
 	assert!(peer_pool.lock().available_peers().any(|p| *p.peer_id() == peer_id));
 	let fork_hash = Hash::random();
 	let fork_number = 10;
@@ -1369,7 +1368,7 @@ fn fork_sync_request_reserves_peer_in_peer_pool() {
 fn justification_request_reserves_peer_in_peer_pool() {
 	let mut client = Arc::new(TestClientBuilder::new().build());
 
-	let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+	let peer_pool = PeerPool::default();
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
 		client.clone(),
@@ -1383,7 +1382,7 @@ fn justification_request_reserves_peer_in_peer_pool() {
 
 	// Add a peer that will be higher than our queued number (see below).
 	let peer_id = PeerId::random();
-	peer_pool.lock().add_peer(peer_id);
+	peer_pool.add_peer(peer_id);
 	assert!(peer_pool.lock().available_peers().any(|p| *p.peer_id() == peer_id));
 	sync.add_peer(peer_id, Hash::random(), (MAX_BLOCKS_TO_LOOK_BACKWARDS + 2).into());
 
@@ -1415,7 +1414,7 @@ fn justification_request_reserves_peer_in_peer_pool() {
 fn justification_response_frees_peer_in_peer_pool() {
 	let mut client = Arc::new(TestClientBuilder::new().build());
 
-	let peer_pool = Arc::new(Mutex::new(PeerPool::default()));
+	let peer_pool = PeerPool::default();
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
 		client.clone(),
@@ -1429,7 +1428,7 @@ fn justification_response_frees_peer_in_peer_pool() {
 
 	// Add a peer that will be higher than our queued number (see below).
 	let peer_id = PeerId::random();
-	peer_pool.lock().add_peer(peer_id);
+	peer_pool.add_peer(peer_id);
 	assert!(peer_pool.lock().available_peers().any(|p| *p.peer_id() == peer_id));
 	sync.add_peer(peer_id, Hash::random(), (MAX_BLOCKS_TO_LOOK_BACKWARDS + 2).into());
 

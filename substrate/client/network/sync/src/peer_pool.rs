@@ -21,7 +21,8 @@
 use crate::LOG_TARGET;
 use libp2p::PeerId;
 use log::warn;
-use std::collections::HashMap;
+use parking_lot::{Mutex, MutexGuard};
+use std::{collections::HashMap, sync::Arc};
 
 #[derive(Debug)]
 enum PeerStatus {
@@ -35,8 +36,13 @@ impl PeerStatus {
 	}
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct PeerPool {
+	inner: Arc<Mutex<PeerPoolInner>>,
+}
+
+#[derive(Default, Debug)]
+pub struct PeerPoolInner {
 	peers: HashMap<PeerId, PeerStatus>,
 }
 
@@ -55,23 +61,29 @@ impl<'a> AvailablePeer<'a> {
 	}
 }
 
-impl PeerPool {
-	pub fn add_peer(&mut self, peer_id: PeerId) {
-		self.peers.insert(peer_id, PeerStatus::Available);
-	}
-
-	pub fn remove_peer(&mut self, peer_id: &PeerId) {
-		self.peers.remove(peer_id);
-	}
-
+impl PeerPoolInner {
 	pub fn available_peers<'a>(&'a mut self) -> impl Iterator<Item = AvailablePeer> + 'a {
 		self.peers.iter_mut().filter_map(|(peer_id, status)| {
 			status.is_available().then_some(AvailablePeer::<'a> { peer_id, status })
 		})
 	}
+}
 
-	pub fn try_reserve_peer(&mut self, peer_id: &PeerId) -> bool {
-		match self.peers.get_mut(peer_id) {
+impl PeerPool {
+	pub fn lock<'a>(&'a self) -> MutexGuard<'a, PeerPoolInner> {
+		self.inner.lock()
+	}
+
+	pub fn add_peer(&self, peer_id: PeerId) {
+		self.inner.lock().peers.insert(peer_id, PeerStatus::Available);
+	}
+
+	pub fn remove_peer(&self, peer_id: &PeerId) {
+		self.inner.lock().peers.remove(peer_id);
+	}
+
+	pub fn try_reserve_peer(&self, peer_id: &PeerId) -> bool {
+		match self.inner.lock().peers.get_mut(peer_id) {
 			Some(peer_status) => match peer_status {
 				PeerStatus::Available => {
 					*peer_status = PeerStatus::Reserved;
@@ -86,8 +98,8 @@ impl PeerPool {
 		}
 	}
 
-	pub fn free_peer(&mut self, peer_id: &PeerId) {
-		match self.peers.get_mut(peer_id) {
+	pub fn free_peer(&self, peer_id: &PeerId) {
+		match self.inner.lock().peers.get_mut(peer_id) {
 			Some(peer_status) => match peer_status {
 				PeerStatus::Available => {
 					warn!(target: LOG_TARGET, "Trying to free available peer {peer_id}.")
@@ -109,94 +121,94 @@ mod test {
 
 	#[test]
 	fn adding_peer() {
-		let mut peer_pool = PeerPool::default();
-		assert_eq!(peer_pool.available_peers().count(), 0);
+		let peer_pool = PeerPool::default();
+		assert_eq!(peer_pool.lock().available_peers().count(), 0);
 
 		// Add peer.
 		let peer_id = PeerId::random();
 		peer_pool.add_peer(peer_id);
 
 		// Peer is available.
-		assert_eq!(peer_pool.available_peers().count(), 1);
-		assert!(peer_pool.available_peers().any(|p| *p.peer_id() == peer_id));
+		assert_eq!(peer_pool.lock().available_peers().count(), 1);
+		assert!(peer_pool.lock().available_peers().any(|p| *p.peer_id() == peer_id));
 	}
 
 	#[test]
 	fn removing_peer() {
-		let mut peer_pool = PeerPool::default();
-		assert_eq!(peer_pool.available_peers().count(), 0);
+		let peer_pool = PeerPool::default();
+		assert_eq!(peer_pool.lock().available_peers().count(), 0);
 
 		// Add peer.
 		let peer_id = PeerId::random();
 		peer_pool.add_peer(peer_id);
-		assert_eq!(peer_pool.available_peers().count(), 1);
-		assert!(peer_pool.available_peers().any(|p| *p.peer_id() == peer_id));
+		assert_eq!(peer_pool.lock().available_peers().count(), 1);
+		assert!(peer_pool.lock().available_peers().any(|p| *p.peer_id() == peer_id));
 
 		// Remove peer.
 		peer_pool.remove_peer(&peer_id);
-		assert_eq!(peer_pool.available_peers().count(), 0);
+		assert_eq!(peer_pool.lock().available_peers().count(), 0);
 	}
 
 	#[test]
 	fn reserving_peer_via_available_peers() {
-		let mut peer_pool = PeerPool::default();
-		assert_eq!(peer_pool.available_peers().count(), 0);
+		let peer_pool = PeerPool::default();
+		assert_eq!(peer_pool.lock().available_peers().count(), 0);
 
 		let peer_id = PeerId::random();
 		peer_pool.add_peer(peer_id);
-		assert_eq!(peer_pool.available_peers().count(), 1);
-		assert!(peer_pool.available_peers().any(|p| *p.peer_id() == peer_id));
+		assert_eq!(peer_pool.lock().available_peers().count(), 1);
+		assert!(peer_pool.lock().available_peers().any(|p| *p.peer_id() == peer_id));
 
 		// Reserve via `available_peers()`.
-		peer_pool.available_peers().for_each(|mut available_peer| {
+		peer_pool.lock().available_peers().for_each(|mut available_peer| {
 			assert_eq!(*available_peer.peer_id(), peer_id);
 			available_peer.reserve();
 		});
 
 		// Peer is reserved.
-		assert_eq!(peer_pool.available_peers().count(), 0);
+		assert_eq!(peer_pool.lock().available_peers().count(), 0);
 		assert!(!peer_pool.try_reserve_peer(&peer_id));
 	}
 
 	#[test]
 	fn reserving_peer_via_try_reserve() {
-		let mut peer_pool = PeerPool::default();
-		assert_eq!(peer_pool.available_peers().count(), 0);
+		let peer_pool = PeerPool::default();
+		assert_eq!(peer_pool.lock().available_peers().count(), 0);
 
 		let peer_id = PeerId::random();
 		peer_pool.add_peer(peer_id);
-		assert_eq!(peer_pool.available_peers().count(), 1);
-		assert!(peer_pool.available_peers().any(|p| *p.peer_id() == peer_id));
+		assert_eq!(peer_pool.lock().available_peers().count(), 1);
+		assert!(peer_pool.lock().available_peers().any(|p| *p.peer_id() == peer_id));
 
 		// Reserve via `try_reserve_peer()`.
 		assert!(peer_pool.try_reserve_peer(&peer_id));
 
 		// Peer is reserved.
-		assert_eq!(peer_pool.available_peers().count(), 0);
+		assert_eq!(peer_pool.lock().available_peers().count(), 0);
 		assert!(!peer_pool.try_reserve_peer(&peer_id));
 	}
 
 	#[test]
 	fn freeing_peer() {
-		let mut peer_pool = PeerPool::default();
-		assert_eq!(peer_pool.available_peers().count(), 0);
+		let peer_pool = PeerPool::default();
+		assert_eq!(peer_pool.lock().available_peers().count(), 0);
 
 		let peer_id = PeerId::random();
 		peer_pool.add_peer(peer_id);
-		assert_eq!(peer_pool.available_peers().count(), 1);
-		assert!(peer_pool.available_peers().any(|p| *p.peer_id() == peer_id));
+		assert_eq!(peer_pool.lock().available_peers().count(), 1);
+		assert!(peer_pool.lock().available_peers().any(|p| *p.peer_id() == peer_id));
 
 		// Reserve via `try_reserve_peer()`.
 		assert!(peer_pool.try_reserve_peer(&peer_id));
-		assert_eq!(peer_pool.available_peers().count(), 0);
+		assert_eq!(peer_pool.lock().available_peers().count(), 0);
 		assert!(!peer_pool.try_reserve_peer(&peer_id));
 
 		// Free peer.
 		peer_pool.free_peer(&peer_id);
 
 		// Peer is available.
-		assert_eq!(peer_pool.available_peers().count(), 1);
-		assert!(peer_pool.available_peers().any(|p| *p.peer_id() == peer_id));
+		assert_eq!(peer_pool.lock().available_peers().count(), 1);
+		assert!(peer_pool.lock().available_peers().any(|p| *p.peer_id() == peer_id));
 
 		// And can be reserved again.
 		assert!(peer_pool.try_reserve_peer(&peer_id));
@@ -204,8 +216,8 @@ mod test {
 
 	#[test]
 	fn reserving_unknown_peer_fails() {
-		let mut peer_pool = PeerPool::default();
-		assert_eq!(peer_pool.available_peers().count(), 0);
+		let peer_pool = PeerPool::default();
+		assert_eq!(peer_pool.lock().available_peers().count(), 0);
 
 		let peer_id = PeerId::random();
 		assert!(!peer_pool.try_reserve_peer(&peer_id));

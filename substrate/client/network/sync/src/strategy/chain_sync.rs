@@ -44,7 +44,6 @@ use crate::{
 use codec::Encode;
 use libp2p::PeerId;
 use log::{debug, error, info, trace, warn};
-use parking_lot::Mutex;
 use prometheus_endpoint::{register, Gauge, GaugeVec, Opts, PrometheusError, Registry, U64};
 use sc_client_api::{BlockBackend, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
@@ -287,7 +286,7 @@ pub struct ChainSync<B: BlockT, Client> {
 	/// Prometheus metrics.
 	metrics: Option<Metrics>,
 	/// Peer pool to reserve peers for requests from.
-	peer_pool: Arc<Mutex<PeerPool>>,
+	peer_pool: PeerPool,
 }
 
 /// All the data we have about a Peer that we are trying to sync with
@@ -379,7 +378,7 @@ where
 		max_parallel_downloads: u32,
 		max_blocks_per_request: u32,
 		metrics_registry: Option<Registry>,
-		peer_pool: Arc<Mutex<PeerPool>>,
+		peer_pool: PeerPool,
 		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
 	) -> Result<Self, ClientError> {
 		let mut sync = Self {
@@ -573,7 +572,7 @@ where
 
 						(Some(PeerSyncState::Available), None)
 					} else {
-						if self.peer_pool.lock().try_reserve_peer(&peer_id) {
+						if self.peer_pool.try_reserve_peer(&peer_id) {
 							let common_best = std::cmp::min(self.best_queued_number, best_number);
 
 							debug!(
@@ -742,7 +741,7 @@ where
 				blocks.reverse()
 			}
 			self.allowed_requests.add(peer_id);
-			self.peer_pool.lock().free_peer(peer_id);
+			self.peer_pool.free_peer(peer_id);
 			if let Some(request) = request {
 				match &mut peer.state {
 					PeerSyncState::DownloadingNew(_) => {
@@ -997,7 +996,7 @@ where
 		};
 
 		self.allowed_requests.add(&peer_id);
-		self.peer_pool.lock().free_peer(&peer_id);
+		self.peer_pool.free_peer(&peer_id);
 		if let PeerSyncState::DownloadingJustification(hash) = peer.state {
 			peer.state = PeerSyncState::Available;
 
@@ -1379,7 +1378,7 @@ where
 				PeerSyncState::DownloadingState => {
 					self.add_peer(peer_id, peer_sync.best_hash, peer_sync.best_number);
 					self.actions.push(ChainSyncAction::CancelRequest { peer_id });
-					self.peer_pool.lock().free_peer(&peer_id);
+					self.peer_pool.free_peer(&peer_id);
 				},
 				PeerSyncState::DownloadingJustification(_) => {
 					// Peers that were downloading justifications
@@ -1771,7 +1770,7 @@ where
 			if let PeerSyncState::DownloadingState = peer.state {
 				peer.state = PeerSyncState::Available;
 				self.allowed_requests.set_all();
-				self.peer_pool.lock().free_peer(peer_id);
+				self.peer_pool.free_peer(peer_id);
 			}
 		}
 		let import_result = if let Some(sync) = &mut self.state_sync {

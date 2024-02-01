@@ -30,7 +30,6 @@ use codec::{Decode, Encode};
 use futures::channel::oneshot;
 use libp2p::PeerId;
 use log::{debug, error, trace, warn};
-use parking_lot::Mutex;
 use sc_network_common::sync::message::{
 	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, Direction, FromBlock,
 };
@@ -238,7 +237,7 @@ pub struct WarpSync<B: BlockT, Client> {
 	peers: HashMap<PeerId, Peer<B>>,
 	actions: Vec<WarpSyncAction<B>>,
 	result: Option<WarpSyncResult<B>>,
-	peer_pool: Arc<Mutex<PeerPool>>,
+	peer_pool: PeerPool,
 }
 
 impl<B, Client> WarpSync<B, Client>
@@ -252,7 +251,7 @@ where
 	pub fn new(
 		client: Arc<Client>,
 		warp_sync_config: WarpSyncConfig<B>,
-		peer_pool: Arc<Mutex<PeerPool>>,
+		peer_pool: PeerPool,
 	) -> Self {
 		if client.info().finalized_state.is_some() {
 			error!(
@@ -358,7 +357,7 @@ where
 		if let Some(peer) = self.peers.get_mut(peer_id) {
 			peer.state = PeerState::Available;
 		}
-		self.peer_pool.lock().free_peer(&peer_id);
+		self.peer_pool.free_peer(&peer_id);
 
 		let Phase::WarpProof { set_id, authorities, last_hash, warp_sync_provider } =
 			&mut self.phase
@@ -417,7 +416,7 @@ where
 		if let Some(peer) = self.peers.get_mut(&peer_id) {
 			peer.state = PeerState::Available;
 		}
-		self.peer_pool.lock().free_peer(&peer_id);
+		self.peer_pool.free_peer(&peer_id);
 
 		let Phase::TargetBlock(header) = &mut self.phase else {
 			debug!(target: LOG_TARGET, "Unexpected target block response from {peer_id}");
@@ -663,7 +662,6 @@ where
 #[cfg(test)]
 mod test {
 	use super::*;
-	use parking_lot::Mutex;
 	use sc_block_builder::BlockBuilderBuilder;
 	use sp_blockchain::{BlockStatus, Error as BlockchainError, HeaderBackend, Info};
 	use sp_consensus_grandpa::{AuthorityList, SetId};
@@ -803,20 +801,20 @@ mod test {
 			.once()
 			.return_const(AuthorityList::default());
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let peer_pool = Arc::new(Mutex::new(Default::default()));
+		let peer_pool = PeerPool::default();
 		let mut warp_sync = WarpSync::new(Arc::new(client), config, peer_pool.clone());
 
 		// Warp sync is not started when there is not enough peers.
 		for _ in 0..(MIN_PEERS_TO_START_WARP_SYNC - 1) {
 			let peer_id = PeerId::random();
-			peer_pool.lock().add_peer(peer_id);
+			peer_pool.add_peer(peer_id);
 			warp_sync.add_peer(peer_id, Hash::random(), 10);
 			assert!(matches!(warp_sync.phase, Phase::WaitingForPeers { .. }))
 		}
 
 		// Now we have enough peers and warp sync is started.
 		let peer_id = PeerId::random();
-		peer_pool.lock().add_peer(peer_id);
+		peer_pool.add_peer(peer_id);
 		warp_sync.add_peer(peer_id, Hash::random(), 10);
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }))
 	}
@@ -850,12 +848,12 @@ mod test {
 				.once()
 				.return_const(AuthorityList::default());
 			let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-			let peer_pool = Arc::new(Mutex::new(Default::default()));
+			let peer_pool = PeerPool::default();
 			let mut warp_sync = WarpSync::new(Arc::new(client), config, peer_pool.clone());
 
 			for best_number in 1..11 {
 				let peer_id = PeerId::random();
-				peer_pool.lock().add_peer(peer_id);
+				peer_pool.add_peer(peer_id);
 				warp_sync.add_peer(peer_id, Hash::random(), best_number);
 			}
 
@@ -874,12 +872,12 @@ mod test {
 				.once()
 				.return_const(AuthorityList::default());
 			let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-			let peer_pool = Arc::new(Mutex::new(Default::default()));
+			let peer_pool = PeerPool::default();
 			let mut warp_sync = WarpSync::new(Arc::new(client), config, peer_pool.clone());
 
 			for best_number in 1..11 {
 				let peer_id = PeerId::random();
-				peer_pool.lock().add_peer(peer_id);
+				peer_pool.add_peer(peer_id);
 				warp_sync.add_peer(peer_id, Hash::random(), best_number);
 			}
 
@@ -897,13 +895,13 @@ mod test {
 			.once()
 			.return_const(AuthorityList::default());
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let peer_pool = Arc::new(Mutex::new(Default::default()));
+		let peer_pool = PeerPool::default();
 		let mut warp_sync = WarpSync::new(Arc::new(client), config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
 			let peer_id = PeerId::random();
-			peer_pool.lock().add_peer(peer_id);
+			peer_pool.add_peer(peer_id);
 			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 
@@ -923,13 +921,13 @@ mod test {
 			.once()
 			.return_const(AuthorityList::default());
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let peer_pool = Arc::new(Mutex::new(Default::default()));
+		let peer_pool = PeerPool::default();
 		let mut warp_sync = WarpSync::new(Arc::new(client), config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
 			let peer_id = PeerId::random();
-			peer_pool.lock().add_peer(peer_id);
+			peer_pool.add_peer(peer_id);
 			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
@@ -957,13 +955,13 @@ mod test {
 			.once()
 			.return_const(AuthorityList::default());
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let peer_pool = Arc::new(Mutex::new(Default::default()));
+		let peer_pool = PeerPool::default();
 		let mut warp_sync = WarpSync::new(Arc::new(client), config, peer_pool.clone());
 
 		// Make sure we have enough peers to make requests.
 		for best_number in 1..11 {
 			let peer_id = PeerId::random();
-			peer_pool.lock().add_peer(peer_id);
+			peer_pool.add_peer(peer_id);
 			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
@@ -983,13 +981,13 @@ mod test {
 			.once()
 			.return_const(AuthorityList::default());
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let peer_pool = Arc::new(Mutex::new(Default::default()));
+		let peer_pool = PeerPool::default();
 		let mut warp_sync = WarpSync::new(Arc::new(client), config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
 			let peer_id = PeerId::random();
-			peer_pool.lock().add_peer(peer_id);
+			peer_pool.add_peer(peer_id);
 			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
@@ -1013,13 +1011,13 @@ mod test {
 			Err(Box::new(std::io::Error::new(ErrorKind::Other, "test-verification-failure")))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let peer_pool = Arc::new(Mutex::new(Default::default()));
+		let peer_pool = PeerPool::default();
 		let mut warp_sync = WarpSync::new(Arc::new(client), config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
 			let peer_id = PeerId::random();
-			peer_pool.lock().add_peer(peer_id);
+			peer_pool.add_peer(peer_id);
 			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
@@ -1053,13 +1051,13 @@ mod test {
 			Err(Box::new(std::io::Error::new(ErrorKind::Other, "test-verification-failure")))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let peer_pool = Arc::new(Mutex::new(Default::default()));
+		let peer_pool = PeerPool::default();
 		let mut warp_sync = WarpSync::new(Arc::new(client), config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
 			let peer_id = PeerId::random();
-			peer_pool.lock().add_peer(peer_id);
+			peer_pool.add_peer(peer_id);
 			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
@@ -1097,13 +1095,13 @@ mod test {
 			Ok(VerificationResult::Partial(set_id, authorities, Hash::random()))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let peer_pool = Arc::new(Mutex::new(Default::default()));
+		let peer_pool = PeerPool::default();
 		let mut warp_sync = WarpSync::new(Arc::new(client), config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
 			let peer_id = PeerId::random();
-			peer_pool.lock().add_peer(peer_id);
+			peer_pool.add_peer(peer_id);
 			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
@@ -1144,13 +1142,13 @@ mod test {
 			Ok(VerificationResult::Complete(set_id, authorities, target_header))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let peer_pool = Arc::new(Mutex::new(Default::default()));
+		let peer_pool = PeerPool::default();
 		let mut warp_sync = WarpSync::new(client, config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
 			let peer_id = PeerId::random();
-			peer_pool.lock().add_peer(peer_id);
+			peer_pool.add_peer(peer_id);
 			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
@@ -1180,13 +1178,13 @@ mod test {
 			.once()
 			.return_const(AuthorityList::default());
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let peer_pool = Arc::new(Mutex::new(Default::default()));
+		let peer_pool = PeerPool::default();
 		let mut warp_sync = WarpSync::new(Arc::new(client), config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
 			let peer_id = PeerId::random();
-			peer_pool.lock().add_peer(peer_id);
+			peer_pool.add_peer(peer_id);
 			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 		// We are not in `Phase::TargetBlock`
@@ -1218,13 +1216,13 @@ mod test {
 			Ok(VerificationResult::Complete(set_id, authorities, target_header))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let peer_pool = Arc::new(Mutex::new(Default::default()));
+		let peer_pool = PeerPool::default();
 		let mut warp_sync = WarpSync::new(client, config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
 			let peer_id = PeerId::random();
-			peer_pool.lock().add_peer(peer_id);
+			peer_pool.add_peer(peer_id);
 			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 
@@ -1253,13 +1251,13 @@ mod test {
 			.block;
 		let target_header = target_block.header().clone();
 		let config = WarpSyncConfig::WaitForTarget;
-		let peer_pool = Arc::new(Mutex::new(Default::default()));
+		let peer_pool = PeerPool::default();
 		let mut warp_sync = WarpSync::new(client, config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
 			let peer_id = PeerId::random();
-			peer_pool.lock().add_peer(peer_id);
+			peer_pool.add_peer(peer_id);
 			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 
@@ -1295,13 +1293,13 @@ mod test {
 			.unwrap()
 			.block;
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let peer_pool = Arc::new(Mutex::new(Default::default()));
+		let peer_pool = PeerPool::default();
 		let mut warp_sync = WarpSync::new(client, config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
 			let peer_id = PeerId::random();
-			peer_pool.lock().add_peer(peer_id);
+			peer_pool.add_peer(peer_id);
 			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 
@@ -1331,13 +1329,13 @@ mod test {
 			.unwrap()
 			.block;
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let peer_pool = Arc::new(Mutex::new(Default::default()));
+		let peer_pool = PeerPool::default();
 		let mut warp_sync = WarpSync::new(client, config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
 			let peer_id = PeerId::random();
-			peer_pool.lock().add_peer(peer_id);
+			peer_pool.add_peer(peer_id);
 			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 
@@ -1383,13 +1381,13 @@ mod test {
 		let extra_block = extra_block_builder.build().unwrap().block;
 
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let peer_pool = Arc::new(Mutex::new(Default::default()));
+		let peer_pool = PeerPool::default();
 		let mut warp_sync = WarpSync::new(client, config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
 			let peer_id = PeerId::random();
-			peer_pool.lock().add_peer(peer_id);
+			peer_pool.add_peer(peer_id);
 			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 
@@ -1458,13 +1456,13 @@ mod test {
 		let wrong_block = wrong_block_builder.build().unwrap().block;
 
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let peer_pool = Arc::new(Mutex::new(Default::default()));
+		let peer_pool = PeerPool::default();
 		let mut warp_sync = WarpSync::new(client, config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
 			let peer_id = PeerId::random();
-			peer_pool.lock().add_peer(peer_id);
+			peer_pool.add_peer(peer_id);
 			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 
@@ -1509,13 +1507,13 @@ mod test {
 			.unwrap();
 		let target_block = target_block_builder.build().unwrap().block;
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let peer_pool = Arc::new(Mutex::new(Default::default()));
+		let peer_pool = PeerPool::default();
 		let mut warp_sync = WarpSync::new(client, config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
 			let peer_id = PeerId::random();
-			peer_pool.lock().add_peer(peer_id);
+			peer_pool.add_peer(peer_id);
 			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 
@@ -1565,13 +1563,13 @@ mod test {
 			.block;
 		let target_header = target_block.header().clone();
 		let config = WarpSyncConfig::WaitForTarget;
-		let peer_pool = Arc::new(Mutex::new(Default::default()));
+		let peer_pool = PeerPool::default();
 		let mut warp_sync = WarpSync::new(client, config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
 			let peer_id = PeerId::random();
-			peer_pool.lock().add_peer(peer_id);
+			peer_pool.add_peer(peer_id);
 			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 
@@ -1604,13 +1602,13 @@ mod test {
 			.unwrap()
 			.block;
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
-		let peer_pool = Arc::new(Mutex::new(Default::default()));
+		let peer_pool = PeerPool::default();
 		let mut warp_sync = WarpSync::new(client, config, peer_pool.clone());
 
 		// Make sure we have enough peers to make a request.
 		for best_number in 1..11 {
 			let peer_id = PeerId::random();
-			peer_pool.lock().add_peer(peer_id);
+			peer_pool.add_peer(peer_id);
 			warp_sync.add_peer(peer_id, Hash::random(), best_number);
 		}
 
