@@ -29,7 +29,7 @@ use primitives::{
 	vstaging::{ApprovalVotingParams, NodeFeatures},
 	AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams, SessionIndex,
 	LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
-	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
+	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE, ON_DEMAND_MAX_QUEUE_MAX_SIZE,
 };
 use sp_runtime::{traits::Zero, Perbill};
 use sp_std::prelude::*;
@@ -359,6 +359,8 @@ pub enum InconsistentError<BlockNumber> {
 	ZeroMinimumBackingVotes,
 	/// `executor_params` are inconsistent.
 	InconsistentExecutorParams { inner: ExecutorParamError },
+	/// Passed in queue size for on-demand was too large.
+	OnDemandQueueSizeTooLarge,
 }
 
 impl<BlockNumber> HostConfiguration<BlockNumber>
@@ -445,6 +447,10 @@ where
 
 		if let Err(inner) = self.executor_params.check_consistency() {
 			return Err(InconsistentExecutorParams { inner })
+		}
+
+		if self.on_demand_queue_max_size > ON_DEMAND_MAX_QUEUE_MAX_SIZE {
+			return Err(OnDemandQueueSizeTooLarge)
 		}
 
 		Ok(())
@@ -667,7 +673,7 @@ pub mod pallet {
 
 		/// Set the number of coretime execution cores.
 		///
-		/// Note that this configuration is managed by the coretime chain. Only manually change
+		/// NOTE: that this configuration is managed by the coretime chain. Only manually change
 		/// this, if you really know what you are doing!
 		#[pallet::call_index(6)]
 		#[pallet::weight((
