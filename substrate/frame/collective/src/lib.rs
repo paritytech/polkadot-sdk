@@ -203,9 +203,13 @@ impl<Balance> GetDeposit<Balance> for () {
 ///
 /// 2. Geometrically increasing with helper types.
 #[doc = docify::embed!("src/tests.rs", deposit_types_with_geometric_work)]
+///
+/// 3. Geometrically increasing with rounding.
+#[doc = docify::embed!("src/tests.rs", deposit_round_with_geometric_work)]
 pub mod deposit {
 	use super::GetDeposit;
 	use sp_core::Get;
+	use sp_runtime::{FixedPointNumber, FixedU128, Saturating};
 	use sp_std::marker::PhantomData;
 
 	/// Constant deposit amount regardless of current proposal count.
@@ -246,13 +250,39 @@ pub mod deposit {
 	pub struct Geometric<Ratio, Base>(PhantomData<(Ratio, Base)>);
 	impl<Ratio, Base, Balance> GetDeposit<Balance> for Geometric<Ratio, Base>
 	where
-		Ratio: Get<u32>,
+		Ratio: Get<FixedU128>,
 		Base: Get<Balance>,
 		Balance: frame_support::traits::tokens::Balance,
 	{
 		fn get_deposit(proposal_count: u32) -> Option<Balance> {
-			let m: Balance = Ratio::get().saturating_pow(proposal_count).into();
-			Some(m.saturating_mul(Base::get()))
+			let deposit = Ratio::get()
+				.saturating_pow(proposal_count as usize)
+				.saturating_mul_int(Base::get());
+			if deposit > Balance::zero() {
+				Some(deposit)
+			} else {
+				None
+			}
+		}
+	}
+
+	/// Rounds a `Deposit` result with `Precision`.
+	/// Particularly useful for types like [`Geometric`] that might produce deposits with high
+	/// precision.
+	pub struct Round<Precision, Deposit>(PhantomData<(Precision, Deposit)>);
+	impl<Precision, Deposit, Balance> GetDeposit<Balance> for Round<Precision, Deposit>
+	where
+		Precision: Get<u32>,
+		Deposit: GetDeposit<Balance>,
+		Balance: frame_support::traits::tokens::Balance,
+	{
+		fn get_deposit(proposal_count: u32) -> Option<Balance> {
+			if let Some(deposit) = Deposit::get_deposit(proposal_count) {
+				let factor: Balance = 10u32.pow(Precision::get()).into();
+				Some((deposit / factor) * factor)
+			} else {
+				None
+			}
 		}
 	}
 
@@ -292,13 +322,13 @@ pub mod deposit {
 	pub struct WithCeil<Ceil, Deposit>(PhantomData<(Ceil, Deposit)>);
 	impl<Ceil, Deposit, Balance> GetDeposit<Balance> for WithCeil<Ceil, Deposit>
 	where
-		Ceil: Get<u32>,
+		Ceil: Get<Balance>,
 		Deposit: GetDeposit<Balance>,
 		Balance: frame_support::traits::tokens::Balance,
 	{
 		fn get_deposit(proposal_count: u32) -> Option<Balance> {
 			if let Some(deposit) = Deposit::get_deposit(proposal_count) {
-				Some(deposit.min(Ceil::get().into()))
+				Some(deposit.min(Ceil::get()))
 			} else {
 				None
 			}
@@ -372,6 +402,10 @@ pub mod pallet {
 
 		/// Mechanism to assess the necessity and amount of the deposit required for publishing and
 		/// storing a proposal.
+		///
+		/// Note: If resulting deposits are excessively high and cause benchmark failures, consider
+		/// supplying the [`crate::deposit::Constant`] type with a deposit equal to the minimum
+		/// balance.
 		type ProposalDeposit: GetDeposit<BalanceOf<Self, I>>;
 
 		/// Handler for a slashed funds.

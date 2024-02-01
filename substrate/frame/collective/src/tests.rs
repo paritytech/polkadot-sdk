@@ -32,7 +32,7 @@ use sp_core::{ConstU128, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
+	BuildStorage, FixedU128,
 };
 
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
@@ -180,6 +180,10 @@ impl mock_democracy::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ExternalMajorityOrigin = EnsureProportionAtLeast<u64, Instance1, 3, 4>;
 }
+parameter_types! {
+	pub const Ratio2: FixedU128 = FixedU128::from_u32(2);
+	pub ProposalDepositCeil: u64 = Balances::minimum_balance() * 100;
+}
 impl Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeHoldReason = RuntimeHoldReason;
@@ -193,7 +197,8 @@ impl Config for Test {
 	type WeightInfo = ();
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 	type MaxProposalWeight = MaxProposalWeight;
-	type ProposalDeposit = deposit::Geometric<ConstU32<2>, ProposalDepositBase>;
+	type ProposalDeposit =
+		deposit::WithCeil<ProposalDepositCeil, deposit::Geometric<Ratio2, ProposalDepositBase>>;
 	type DisapproveOrigin = EnsureRoot<AccountId>;
 	type KillOrigin = EnsureRoot<AccountId>;
 	type Slash = ();
@@ -1669,7 +1674,7 @@ fn deposit_types_with_linear_work() {
 	assert_eq!(DelayedWithDelay4::get_deposit(10), Some(14u128));
 	assert_eq!(DelayedWithDelay4::get_deposit(13), Some(16u128));
 
-	type WithCeil13 = crate::deposit::WithCeil<ConstU32<13>, DelayedWithDelay4>;
+	type WithCeil13 = crate::deposit::WithCeil<ConstU128<13>, DelayedWithDelay4>;
 	assert_eq!(WithCeil13::get_deposit(0), None::<u128>);
 	assert_eq!(WithCeil13::get_deposit(4), Some(10u128));
 	assert_eq!(WithCeil13::get_deposit(9), Some(12u128));
@@ -1681,7 +1686,10 @@ fn deposit_types_with_linear_work() {
 #[docify::export]
 #[test]
 fn deposit_types_with_geometric_work() {
-	type WithRatio2Base10 = crate::deposit::Geometric<ConstU32<2>, ConstU128<10>>;
+	parameter_types! {
+		pub const Ratio2: FixedU128 = FixedU128::from_u32(2);
+	}
+	type WithRatio2Base10 = crate::deposit::Geometric<Ratio2, ConstU128<10>>;
 	assert_eq!(WithRatio2Base10::get_deposit(0), Some(10u128));
 	assert_eq!(WithRatio2Base10::get_deposit(1), Some(20u128));
 	assert_eq!(WithRatio2Base10::get_deposit(2), Some(40u128));
@@ -1713,13 +1721,36 @@ fn deposit_types_with_geometric_work() {
 	assert_eq!(DelayedWithDelay4::get_deposit(10), Some(40u128));
 	assert_eq!(DelayedWithDelay4::get_deposit(13), Some(80u128));
 
-	type WithCeil21 = crate::deposit::WithCeil<ConstU32<21>, DelayedWithDelay4>;
+	type WithCeil21 = crate::deposit::WithCeil<ConstU128<21>, DelayedWithDelay4>;
 	assert_eq!(WithCeil21::get_deposit(0), None::<u128>);
 	assert_eq!(WithCeil21::get_deposit(4), Some(10u128));
 	assert_eq!(WithCeil21::get_deposit(9), Some(20u128));
 	assert_eq!(WithCeil21::get_deposit(10), Some(21u128));
 	assert_eq!(WithCeil21::get_deposit(11), Some(21u128));
 	assert_eq!(WithCeil21::get_deposit(13), Some(21u128));
+}
+
+#[docify::export]
+#[test]
+fn deposit_round_with_geometric_work() {
+	parameter_types! {
+		pub const Ratio1_5: FixedU128 = FixedU128::from_rational(3, 2);
+	}
+	type WithRatio1_5Base10 = crate::deposit::Geometric<Ratio1_5, ConstU128<10000>>;
+	assert_eq!(WithRatio1_5Base10::get_deposit(0), Some(10000u128));
+	assert_eq!(WithRatio1_5Base10::get_deposit(1), Some(15000u128));
+	assert_eq!(WithRatio1_5Base10::get_deposit(2), Some(22500u128));
+	assert_eq!(WithRatio1_5Base10::get_deposit(3), Some(33750u128));
+	assert_eq!(WithRatio1_5Base10::get_deposit(4), Some(50625u128));
+	assert_eq!(WithRatio1_5Base10::get_deposit(5), Some(75937u128));
+
+	type RoundWithPrecision3 = crate::deposit::Round<ConstU32<3>, WithRatio1_5Base10>;
+	assert_eq!(RoundWithPrecision3::get_deposit(0), Some(10000u128));
+	assert_eq!(RoundWithPrecision3::get_deposit(1), Some(15000u128));
+	assert_eq!(RoundWithPrecision3::get_deposit(2), Some(22000u128));
+	assert_eq!(RoundWithPrecision3::get_deposit(3), Some(33000u128));
+	assert_eq!(RoundWithPrecision3::get_deposit(4), Some(50000u128));
+	assert_eq!(RoundWithPrecision3::get_deposit(5), Some(75000u128));
 }
 
 #[test]
