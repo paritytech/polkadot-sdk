@@ -1,6 +1,6 @@
 [package]
 name = "pallet-scheduler"
-version = "4.0.0-dev"
+version = "29.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -23,7 +23,7 @@ sp-io = { path = "../../primitives/io", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
 sp-std = { path = "../../primitives/std", default-features = false }
 sp-weights = { path = "../../primitives/weights", default-features = false }
-docify = "0.2.6"
+docify = "0.2.7"
 
 [dev-dependencies]
 pallet-preimage = { path = "../preimage" }

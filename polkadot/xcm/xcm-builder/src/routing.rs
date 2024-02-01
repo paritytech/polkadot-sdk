@@ -38,7 +38,7 @@ impl<Inner: SendXcm> SendXcm for WithUniqueTopic<Inner> {
 	type Ticket = (Inner::Ticket, [u8; 32]);
 
 	fn validate(
-		destination: &mut Option<MultiLocation>,
+		destination: &mut Option<Location>,
 		message: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
 		let mut message = message.take().ok_or(SendError::MissingArgument)?;
@@ -82,7 +82,7 @@ impl<Inner: SendXcm, TopicSource: SourceTopic> SendXcm for WithTopicSource<Inner
 	type Ticket = (Inner::Ticket, [u8; 32]);
 
 	fn validate(
-		destination: &mut Option<MultiLocation>,
+		destination: &mut Option<Location>,
 		message: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
 		let mut message = message.take().ok_or(SendError::MissingArgument)?;

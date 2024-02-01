@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-client-collator"
-version = "0.1.0"
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
 description = "Common node-side functionality and glue code to collate parachain blocks."

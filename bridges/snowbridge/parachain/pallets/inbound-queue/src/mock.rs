@@ -21,8 +21,8 @@ use sp_runtime::{
 	BuildStorage, FixedU128, MultiSignature,
 };
 use sp_std::convert::From;
-use xcm::v3::{prelude::*, MultiAssets, SendXcm};
-use xcm_executor::Assets;
+use xcm::{latest::SendXcm, prelude::*};
+use xcm_executor::AssetsInHolding;
 
 use crate::{self as inbound_queue};
 
@@ -88,7 +88,6 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-	type MaxHolds = ();
 }
 
 parameter_types! {
@@ -110,6 +109,10 @@ parameter_types! {
 			version: [3, 0, 0, 1], // 0x03000001
 			epoch: 0,
 		},
+		deneb: Fork {
+			version: [4, 0, 0, 1], // 0x04000001
+			epoch: 4294967295,
+		}
 	};
 }
 
@@ -155,17 +158,16 @@ impl SendXcm for MockXcmSender {
 	type Ticket = Xcm<()>;
 
 	fn validate(
-		dest: &mut Option<MultiLocation>,
-		xcm: &mut Option<xcm::v3::Xcm<()>>,
+		dest: &mut Option<Location>,
+		xcm: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
-		match dest {
-			Some(MultiLocation { interior, .. }) => {
-				if let X1(Parachain(1001)) = interior {
-					return Err(XcmpSendError::NotApplicable)
-				}
-				Ok((xcm.clone().unwrap(), MultiAssets::default()))
-			},
-			_ => Ok((xcm.clone().unwrap(), MultiAssets::default())),
+		if let Some(location) = dest {
+			match location.unpack() {
+				(_, [Parachain(1001)]) => return Err(XcmpSendError::NotApplicable),
+				_ => Ok((xcm.clone().unwrap(), Assets::default())),
+			}
+		} else {
+			Ok((xcm.clone().unwrap(), Assets::default()))
 		}
 	}
 
@@ -203,45 +205,33 @@ impl StaticLookup for MockChannelLookup {
 
 pub struct SuccessfulTransactor;
 impl TransactAsset for SuccessfulTransactor {
-	fn can_check_in(
-		_origin: &MultiLocation,
-		_what: &MultiAsset,
-		_context: &XcmContext,
-	) -> XcmResult {
+	fn can_check_in(_origin: &Location, _what: &Asset, _context: &XcmContext) -> XcmResult {
 		Ok(())
 	}
 
-	fn can_check_out(
-		_dest: &MultiLocation,
-		_what: &MultiAsset,
-		_context: &XcmContext,
-	) -> XcmResult {
+	fn can_check_out(_dest: &Location, _what: &Asset, _context: &XcmContext) -> XcmResult {
 		Ok(())
 	}
 
-	fn deposit_asset(
-		_what: &MultiAsset,
-		_who: &MultiLocation,
-		_context: Option<&XcmContext>,
-	) -> XcmResult {
+	fn deposit_asset(_what: &Asset, _who: &Location, _context: Option<&XcmContext>) -> XcmResult {
 		Ok(())
 	}
 
 	fn withdraw_asset(
-		_what: &MultiAsset,
-		_who: &MultiLocation,
+		_what: &Asset,
+		_who: &Location,
 		_context: Option<&XcmContext>,
-	) -> Result<Assets, XcmError> {
-		Ok(Assets::default())
+	) -> Result<AssetsInHolding, XcmError> {
+		Ok(AssetsInHolding::default())
 	}
 
 	fn internal_transfer_asset(
-		_what: &MultiAsset,
-		_from: &MultiLocation,
-		_to: &MultiLocation,
+		_what: &Asset,
+		_from: &Location,
+		_to: &Location,
 		_context: &XcmContext,
-	) -> Result<Assets, XcmError> {
-		Ok(Assets::default())
+	) -> Result<AssetsInHolding, XcmError> {
+		Ok(AssetsInHolding::default())
 	}
 }
 

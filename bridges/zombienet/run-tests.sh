@@ -1,10 +1,12 @@
 #!/bin/bash
-#set -eu
 set -x
 shopt -s nullglob
 
-trap "trap - SIGINT SIGTERM EXIT && kill -- -$$" SIGINT SIGTERM EXIT
+trap "trap - SIGINT SIGTERM EXIT && killall -q -9 substrate-relay && kill -- -$$" SIGINT SIGTERM EXIT
 
+# run tests in range [TESTS_BEGIN; TESTS_END)
+TESTS_BEGIN=1
+TESTS_END=1000
 # whether to use paths for zombienet+bridges tests container or for local testing
 ZOMBIENET_DOCKER_PATHS=0
 while [ $# -ne 0 ]
@@ -13,6 +15,11 @@ do
     case "$arg" in
         --docker)
             ZOMBIENET_DOCKER_PATHS=1
+            ;;
+        --test)
+            shift
+            TESTS_BEGIN="$1"
+            TESTS_END="$1"
             ;;
     esac
     shift
@@ -57,7 +64,8 @@ ALL_TESTS_FOLDER=`mktemp -d /tmp/bridges-zombienet-tests.XXXXX`
 function start_coproc() {
     local command=$1
     local name=$2
-    local coproc_log=`mktemp -p $TEST_FOLDER`
+    local logname=`basename $name`
+    local coproc_log=`mktemp -p $TEST_FOLDER $logname.XXXXX`
     coproc COPROC {
         # otherwise zombienet uses some hardcoded paths
         unset RUN_IN_CONTAINER
@@ -73,7 +81,7 @@ function start_coproc() {
 }
 
 # execute every test from tests folder
-TEST_INDEX=1
+TEST_INDEX=$TESTS_BEGIN
 while true
 do
     declare -A TEST_COPROCS
@@ -81,7 +89,7 @@ do
     TEST_PREFIX=$(printf "%04d" $TEST_INDEX)
 
     # it'll be used by the `sync-exit.sh` script
-    export TEST_FOLDER=`mktemp -d -p $ALL_TESTS_FOLDER`
+    export TEST_FOLDER=`mktemp -d -p $ALL_TESTS_FOLDER test-$TEST_PREFIX.XXXXX`
 
     # check if there are no more tests
     zndsl_files=($BRIDGE_TESTS_FOLDER/$TEST_PREFIX-*.zndsl)
@@ -89,12 +97,6 @@ do
         break
     fi
 
-    # start relay
-    if [ -f $BRIDGE_TESTS_FOLDER/$TEST_PREFIX-start-relay.sh ]; then
-        start_coproc "${BRIDGE_TESTS_FOLDER}/${TEST_PREFIX}-start-relay.sh" "relay"
-        RELAY_COPROC=$COPROC_PID
-        ((TEST_COPROCS_COUNT++))
-    fi
     # start tests
     for zndsl_file in "${zndsl_files[@]}"; do
         start_coproc "$ZOMBIENET_BINARY_PATH --provider native test $zndsl_file" "$zndsl_file"
@@ -102,7 +104,6 @@ do
         ((TEST_COPROCS_COUNT++))
     done
     # wait until all tests are completed
-    relay_exited=0
     for n in `seq 1 $TEST_COPROCS_COUNT`; do
         if [ "$IS_BASH_5_1" -eq 1 ]; then
             wait -n -p COPROC_PID
@@ -110,7 +111,6 @@ do
             coproc_name=${TEST_COPROCS[$COPROC_PID, 0]}
             coproc_log=${TEST_COPROCS[$COPROC_PID, 1]}
             coproc_stdout=$(cat $coproc_log)
-            relay_exited=$(expr "${coproc_name}" == "relay")
         else
             wait -n
             exit_code=$?
@@ -124,18 +124,20 @@ do
             echo "====================================================================="
             echo "=== Shutting down. Log of failed process below                    ==="
             echo "====================================================================="
-            echo $coproc_stdout
+            echo "$coproc_stdout"
 
             exit 1
         fi
-
-        # if last test has exited, exit relay too
-        if [ $n -eq $(($TEST_COPROCS_COUNT - 1)) ] && [ $relay_exited -eq 0 ]; then
-            kill $RELAY_COPROC
-            break
-        fi
     done
+
+    # proceed to next index
     ((TEST_INDEX++))
+    if [ "$TEST_INDEX" -ge "$TESTS_END" ]; then
+        break
+    fi
+
+    # kill relay here - it is started manually by tests
+    killall substrate-relay
 done
 
 echo "====================================================================="
