@@ -95,7 +95,7 @@ pub mod pallet {
 
 		/// Returns a valid pallet info for `ExpectPallet` or `QueryPallet` benchmark.
 		///
-		/// By default returns `frame_system::Pallet` info with expected pallet index `0`.
+		/// By default, returns `frame_system::Pallet` info with expected pallet index `0`.
 		fn valid_pallet() -> frame_support::traits::PalletInfoData {
 			frame_support::traits::PalletInfoData {
 				index: <frame_system::Pallet<Self> as frame_support::traits::PalletInfoAccess>::index(),

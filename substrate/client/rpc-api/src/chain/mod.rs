@@ -36,7 +36,7 @@ pub trait ChainApi<Number, Hash, Header, SignedBlock> {
 
 	/// Get hash of the n-th block in the canon chain.
 	///
-	/// By default returns latest block hash.
+	/// By default, returns the latest block hash.
 	#[method(name = "chain_getBlockHash", aliases = ["chain_getHead"], blocking)]
 	fn block_hash(
 		&self,

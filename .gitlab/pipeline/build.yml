@@ -311,7 +311,7 @@ build-linux-substrate:
     CARGO_TARGET_DIR: "$CI_PROJECT_DIR/target"
   before_script:
     - mkdir -p ./artifacts/substrate/
-    # tldr: we need to checkout the branch HEAD explicitly because of our dynamic versioning approach while building the substrate binary
+    # tldr: we need to check out the branch HEAD explicitly because of our dynamic versioning approach while building the substrate binary
     # see https://github.com/paritytech/ci_cd/issues/682#issuecomment-1340953589
     - git checkout -B "$CI_COMMIT_REF_NAME" "$CI_COMMIT_SHA"
   script:
@@ -363,7 +363,7 @@ build-subkey-linux:
 # build-subkey-macos:
 #   extends: .build-subkey
 #   # duplicating before_script & script sections from .build-subkey hidden job
-#   # to overwrite rusty-cachier integration as it doesn't work on macos
+#   # to overwrite rusty-cachier integration as it doesn't work on macoOS
 #   before_script:
 #     # skip timestamp script, the osx bash doesn't support printf %()T
 #     - !reference [.job-switcher, before_script]

@@ -268,7 +268,7 @@ pub mod pallet {
 			Pallet::<T>::do_place_order(sender, max_amount, para_id, AllowDeath)
 		}
 
-		/// Same as the [`place_order_allow_death`](Self::place_order_allow_death) call , but with a
+		/// Same as the [`place_order_allow_death`](Self::place_order_allow_death) call, but with a
 		/// check that placing the order will not reap the account.
 		///
 		/// Parameters:
@@ -302,7 +302,7 @@ where
 	BalanceOf<T>: FixedPointOperand,
 {
 	/// Helper function for `place_order_*` calls. Used to differentiate between placing orders
-	/// with a keep alive check or to allow the account to be reaped.
+	/// with a keep-alive check or to allow the account to be reaped.
 	///
 	/// Parameters:
 	/// - `sender`: The sender of the call, funds will be withdrawn from this account.
@@ -333,7 +333,7 @@ where
 		let spot_price: BalanceOf<T> =
 			traffic.saturating_mul_int(config.on_demand_base_fee.saturated_into::<BalanceOf<T>>());
 
-		// Is the current price higher than `max_amount`
+		// Is the current price higher than `max_amount`?
 		ensure!(spot_price.le(&max_amount), Error::<T>::SpotPriceHigherThanMaxAmount);
 
 		// Charge the sending account the spot price
@@ -370,7 +370,7 @@ where
 	///   0.05/(20*(1-0.25)) = 0.0033.
 	///
 	/// Returns:
-	/// - A `FixedU128` in the range of  `Config::TrafficDefaultValue` - `FixedU128::MAX` on
+	/// - A `FixedU128` in the range of `Config::TrafficDefaultValue` - `FixedU128::MAX` on
 	///   success.
 	///
 	/// Errors:
@@ -384,7 +384,7 @@ where
 		target_queue_utilisation: Perbill,
 		variability: Perbill,
 	) -> Result<FixedU128, SpotTrafficCalculationErr> {
-		// Return early if queue has no capacity.
+		// Return early if the queue has no capacity.
 		if queue_capacity == 0 {
 			return Err(SpotTrafficCalculationErr::QueueCapacityIsZero)
 		}
@@ -509,7 +509,7 @@ where
 
 	/// Increases the affinity of a `ParaId` to a specified `CoreIndex`.
 	/// Adds to the count of the `CoreAffinityCount` if an entry is found and the core_idx matches.
-	/// A non-existant entry will be initialized with a count of 1 and uses the  supplied
+	/// A non-existant entry will be initialized with a count of 1 and uses the supplied
 	/// `CoreIndex`.
 	fn increase_affinity(para_id: ParaId, core_idx: CoreIndex) {
 		ParaIdAffinity::<T>::mutate(para_id, |maybe_affinity| match maybe_affinity {

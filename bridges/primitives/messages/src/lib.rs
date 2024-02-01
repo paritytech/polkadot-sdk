@@ -174,7 +174,7 @@ pub struct InboundLaneData<RelayerId> {
 	/// `proof-of(outbound-lane.state)`; 2) all incoming messages are rejected if
 	/// `proof-of(outbound-lane.state).last_delivered_nonce` is    equal to
 	/// `self.last_confirmed_nonce`. Given what is said above, all nonces in this queue are in
-	/// range: `(self.last_confirmed_nonce; self.last_delivered_nonce()]`.
+	/// range: `(self.last_confirmed_nonce; self.last_delivered_nonce())`.
 	///
 	/// When a relayer sends a single message, both of MessageNonces are the same.
 	/// When relayer sends messages in a batch, the first arg is the lowest nonce, second arg the

@@ -132,7 +132,7 @@
 //! FRAME `Call` enums are automatically generated, and end up looking something like this:
 #![doc = docify::embed!("./src/reference_docs/extrinsic_encoding.rs", call_data)]
 //!
-//! In pseudo-code, this `Call` enum encodes equivalently to:
+//! In pseudocode, this `Call` enum encodes equivalently to:
 //!
 //! ```text
 //! call_data = concat(
@@ -158,7 +158,7 @@
 //!
 //! All extrinsics submitted to a node from the outside world (also known as _transactions_) need to
 //! be _signed_. The data that needs to be signed for some extrinsic is called the _signed payload_,
-//! and its shape is described by the following pseudo-code:
+//! and its shape is described by the following pseudocode:
 //!
 //! ```text
 //! signed_payload = concat(

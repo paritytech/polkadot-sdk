@@ -85,7 +85,7 @@ pub mod vstaging;
 
 /// Nested message sending
 ///
-/// Useful for having mostly synchronous code, with submodules spawning short lived asynchronous
+/// Useful for having mostly synchronous code, with submodules spawning short-lived asynchronous
 /// tasks, sending messages back.
 pub mod nesting_sender;
 

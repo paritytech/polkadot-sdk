@@ -22,7 +22,7 @@
 //! then captured/processed by the `TraceHandler` implementation.
 //!
 //! Don't add logs in this file because it gets executed before the logger is
-//! initialized and they won't be delivered. Add println! statements if you need
+//! initialized, and they won't be delivered. Add println! statements if you need
 //! to debug this code.
 
 #![cfg(feature = "runtime-metrics")]

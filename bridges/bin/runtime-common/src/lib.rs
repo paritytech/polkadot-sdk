@@ -44,7 +44,7 @@ const LOG_TARGET_BRIDGE_DISPATCH: &str = "runtime::bridge-dispatch";
 /// A duplication of the `FilterCall` trait.
 ///
 /// We need this trait in order to be able to implement it for the messages pallet,
-/// since the implementation is done outside of the pallet crate.
+/// since the implementation is done outside the pallet crate.
 pub trait BridgeRuntimeFilterCall<Call> {
 	/// Checks if a runtime call is valid.
 	fn validate(call: &Call) -> TransactionValidity;

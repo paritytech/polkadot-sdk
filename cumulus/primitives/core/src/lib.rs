@@ -187,7 +187,7 @@ pub enum ServiceQuality {
 
 /// The parachain block that is created by a collator.
 ///
-/// This is send as PoV (proof of validity block) to the relay-chain validators. There it will be
+/// This is sent as PoV (proof of validity block) to the relay-chain validators. There it will be
 /// passed to the parachain validation Wasm blob to be validated.
 #[derive(codec::Encode, codec::Decode, Clone)]
 pub struct ParachainBlockData<B: BlockT> {

@@ -182,7 +182,7 @@ impl Handle {
 		Self(raw)
 	}
 
-	/// Inform the `Overseer` that that some block was imported.
+	/// Inform the `Overseer` that some block was imported.
 	pub async fn block_imported(&mut self, block: BlockInfo) {
 		self.send_and_log_error(Event::BlockImported(block)).await
 	}
@@ -221,7 +221,7 @@ impl Handle {
 		.await;
 	}
 
-	/// Tell `Overseer` to shutdown.
+	/// Tell `Overseer` to shut down.
 	pub async fn stop(&mut self) {
 		self.send_and_log_error(Event::Stop).await;
 	}
@@ -846,7 +846,7 @@ where
 
 		// If there are no leaves being deactivated, we don't need to send an update.
 		//
-		// Our peers will be informed about our finalized block the next time we
+		// Our peers will be informed about our finalized block the next time we're
 		// activating/deactivating some leaf.
 		if !update.is_empty() {
 			self.broadcast_signal(OverseerSignal::ActiveLeaves(update)).await?;

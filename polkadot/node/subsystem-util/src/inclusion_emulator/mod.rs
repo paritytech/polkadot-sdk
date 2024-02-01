@@ -82,7 +82,7 @@
 ///    "prediction came true" case.
 ///
 /// 3. The root fragment is invalid under the new constraints because a competing parachain
-///    block has been included or it would never be accepted for some other reason. In this
+///    block has been included, or it would never be accepted for some other reason. In this
 ///    case we can discard the entire fragment tree. This is the "prediction came false" case.
 ///
 /// This is all a bit of a simplification because it assumes that the relay-chain advances
@@ -104,7 +104,7 @@
 /// ### Code Upgrades
 ///
 /// Code upgrades are the main place where this emulation fails. The on-chain PVF upgrade
-/// scheduling logic is very path-dependent and intricate so we just assume that code upgrades
+/// scheduling logic is very path-dependent and intricate, so we just assume that code upgrades
 /// can't be initiated and applied within a single fragment-tree. Fragment-trees aren't deep,
 /// in practice and code upgrades are fairly rare. So what's likely to happen around code
 /// upgrades is that the entire fragment-tree has to get discarded at some point.

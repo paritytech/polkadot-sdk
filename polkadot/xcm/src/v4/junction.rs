@@ -59,7 +59,7 @@ pub enum Junction {
 	/// An 8-byte index for an account of a specific network that is respected as a sovereign
 	/// endpoint within the context.
 	///
-	/// May be used when the context is a Frame-based chain and includes e.g. an indices pallet.
+	/// May be used when the context is a Frame-based chain and includes e.g. an indices' pallet.
 	AccountIndex64 {
 		network: Option<NetworkId>,
 		#[codec(compact)]
@@ -100,7 +100,7 @@ pub enum Junction {
 	/// used to represent things such as multisigs also.
 	Plurality { id: BodyId, part: BodyPart },
 	/// A global network capable of externalizing its own consensus. This is not generally
-	/// meaningful outside of the universal level.
+	/// meaningful outside the universal level.
 	GlobalConsensus(NetworkId),
 }
 

@@ -49,7 +49,7 @@
 //!   <tbody>
 //!     <tr>
 //!       <td>name</td>
-//!       <td>The human readable name of the chain.</td>
+//!       <td>The human-readable name of the chain.</td>
 //!     </tr>
 //!     <tr>
 //!       <td>id</td>
@@ -350,7 +350,7 @@ use sp_runtime::BuildStorage;
 
 /// The type of a chain.
 ///
-/// This can be used by tools to determine the type of a chain for displaying
+/// Tools can use this to determine the type of a chain for displaying
 /// additional information or enabling additional features.
 #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq, Clone)]
 pub enum ChainType {

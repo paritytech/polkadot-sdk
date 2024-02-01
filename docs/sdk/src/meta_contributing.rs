@@ -7,7 +7,7 @@
 //!
 //! We acknowledge that blockchain based systems, particularly a cutting-edge one like Polkadot SDK
 //! is a software artifact that is complex, and rapidly evolving. This makes the task of documenting
-//! it externally extremely difficult, especially with regards to making sure it is up-to-date.
+//! it externally extremely difficult, especially in regards to making sure it is up-to-date.
 //!
 //! Consequently, we argue that the best hedge against this is to move as much of the documentation
 //! near the source code as possible. This would further incentivize developers to keep the
@@ -114,7 +114,7 @@
 //! 1. Try and create and they are going along.
 //! 2. Back-link to if they already exist.
 //!
-//! Of course, all of this is not set in stone as a either/or rule. Sometimes, it is necessary to
+//! Of course, all of this is not set in stone as an either/or rule. Sometimes, it is necessary to
 //! rephrase a concept in a new context.
 //!
 //! </details>

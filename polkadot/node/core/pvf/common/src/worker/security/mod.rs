@@ -56,7 +56,7 @@ pub fn check_env_vars_were_cleared(worker_info: &WorkerInfo) -> bool {
 		if key == "RUST_LOG" {
 			continue
 		}
-		// An exception for MacOS. This is not a secure platform anyway, so we let it slide.
+		// An exception for macOS. This is not a secure platform anyway, so we let it slide.
 		#[cfg(target_os = "macos")]
 		if key == "__CF_USER_TEXT_ENCODING" {
 			continue

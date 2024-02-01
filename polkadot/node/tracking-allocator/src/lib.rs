@@ -37,7 +37,7 @@ struct SpinlockGuard<'a, T: 'a> {
 	lock: &'a Spinlock<T>,
 }
 
-// SAFETY: We require that the data inside of the `SpinLock` is `Send`, so it can be sent
+// SAFETY: We require that the data inside the `SpinLock` is `Send`, so it can be sent
 // and accessed by any thread as long as it's accessed by only one thread at a time.
 // The `SpinLock` provides an exclusive lock over it, so it guarantees that multiple
 // threads cannot access it at the same time, hence it implements `Sync` (that is, it can be

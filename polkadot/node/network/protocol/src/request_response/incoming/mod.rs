@@ -147,7 +147,7 @@ where
 {
 	/// Send the response back.
 	///
-	/// On success we return `Ok(())`, on error we return the not sent `Response`.
+	/// On success, we return `Ok(())`, on error we return the not sent `Response`.
 	///
 	/// `netconfig::OutgoingResponse` exposes a way of modifying the peer's reputation. If needed we
 	/// can change this function to expose this feature as well.

@@ -23,9 +23,9 @@
 //! 5) messages are processed in order (ordered by assigned nonce);
 //! 6) relay may send proof-of-delivery back to this chain.
 //!
-//! Once message is sent, its progress can be tracked by looking at module events.
-//! The assigned nonce is reported using `MessageAccepted` event. When message is
-//! delivered to the the bridged chain, it is reported using `MessagesDelivered` event.
+//! Once the message is sent, its progress can be tracked by looking at module events.
+//! The assigned nonce is reported using `MessageAccepted` event. When the message is
+//! delivered to the bridged chain, it is reported using `MessagesDelivered` event.
 //!
 //! **IMPORTANT NOTE**: after generating weights (custom `WeighInfo` implementation) for
 //! your runtime (where this module is plugged to), please add test for these weights.
@@ -288,7 +288,7 @@ pub mod pallet {
 			// why do we need to know the weight of this (`receive_messages_proof`) call? Because
 			// we may want to return some funds for not-dispatching (or partially dispatching) some
 			// messages to the call origin (relayer). And this is done by returning actual weight
-			// from the call. But we only know dispatch weight of every messages. So to refund
+			// from the call. But we only know dispatch weight of every message. So to refund
 			// relayer because we have not dispatched Message, we need to:
 			//
 			// ActualWeight = DeclaredWeight - Message.DispatchWeight
@@ -608,7 +608,7 @@ pub mod pallet {
 	/// **bridges-v1**: this map is a temporary hack and will be dropped in the `v2`. We can emulate
 	/// a storage map using `sp_io::unhashed` storage functions, but then benchmarks are not
 	/// accounting its `proof_size`, so it is missing from the final weights. So we need to make it
-	/// a map inside some pallet. We could use a simply value instead of map here, because
+	/// a map inside some pallet. We could use a simple value instead of map here, because
 	/// in `v1` we'll only have a single lane. But in the case of adding another lane before `v2`,
 	/// it'll be easier to deal with the isolated storage map instead.
 	#[pallet::storage]

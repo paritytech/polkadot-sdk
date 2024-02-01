@@ -36,10 +36,10 @@ the source chain headers which have been finalized. This is useful for higher le
 The pallet tracks current GRANDPA authorities set and only accepts finality proofs (GRANDPA justifications), generated
 by the current authorities set. The GRANDPA protocol itself requires current authorities set to generate explicit
 justification for the header that enacts next authorities set. Such headers and their finality proofs are called
-mandatory in the pallet and relayer pays no fee for such headers submission.
+mandatory in the pallet and relayer pays no fee for such headers' submission.
 
 The pallet does not require all headers to be imported or provided. The relayer itself chooses which headers he wants to
-submit (with the exception of mandatory headers).
+submit (except for mandatory headers).
 
 More: [pallet level documentation and code](../modules/grandpa/).
 
@@ -84,20 +84,20 @@ that have delivered the message.
 Many things are abstracted by the pallet:
 - the message itself may mean anything, the pallet doesn't care about its content;
 - the message dispatch happens during delivery, but it is decoupled from the pallet code;
-- the messages proof and messages delivery proof are verified outside of the pallet;
-- the relayers incentivization scheme is defined outside of the pallet.
+- the messages proof and messages delivery proof are verified outside the pallet;
+- the relayers incentivization scheme is defined outside the pallet.
 
-Outside of the messaging pallet, we have a set of adapters, where messages and delivery proofs are regular storage
+Outside the messaging pallet, we have a set of adapters, where messages and delivery proofs are regular storage
 proofs. The proofs are generated at the bridged chain and require bridged chain finality. So messages pallet, in this
-case, depends on one of the finality pallets. The messages are XCM messages and we are using XCM executor to dispatch
-them on receival. You may find more info in [Polkadot <> Kusama Bridge](./polkadot-kusama-bridge-overview.md) document.
+case, depends on one of the finality pallets. The messages are XCM messages; we use the XCM executor to dispatch them 
+on receival. You may find more info in [Polkadot <> Kusama Bridge](./polkadot-kusama-bridge-overview.md) document.
 
 More: [pallet level documentation and code](../modules/messages/).
 
 ### Bridge Relayers Pallet
 
 The pallet is quite simple. It just registers relayer rewards and has an entrypoint to collect them. When the rewards
-are registered and the reward amount is configured outside of the pallet.
+are registered and the reward amount is configured outside the pallet.
 
 More: [pallet level documentation and code](../modules/relayers/).
 

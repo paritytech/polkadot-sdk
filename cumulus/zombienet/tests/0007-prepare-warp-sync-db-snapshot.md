@@ -3,7 +3,7 @@
 For this guide we will be taking a snapshot of a parachain and relay chain. Please note we are using a local chain here
 `rococo_local_testnet` and `local_testnet`. Live chains will have different values
 
-*Please ensure that the database is not in current use, i.e no nodes are writing to it*
+*Please ensure that the database is not in current use, i.e. no nodes are writing to it*
 
 # How to prepare database for a relaychain
 To prepare snapshot for a relay chain we need to copy the database.
@@ -35,6 +35,6 @@ tar -C parachain-snapshot/charlie/ -czf parachain.tgz data relay-data
 ```
 
 # Restoring a snapshot
-Zombienet will automatically download the `*.tgz` file to the respective folder for a run. However you can also download
+Zombienet will automatically download the `*.tgz` file to the respective folder for a run. However, you can also download
 it manually, just ensure you extract the tar file in the correct directory, i.e. the root directory
 `chain-data/charlie/`

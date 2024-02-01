@@ -15,8 +15,6 @@ Three bridge nodes are also available. The nodes can be used to run test network
 - [High-Level Architecture](#high-level-architecture)
 - [Project Layout](#project-layout)
 - [Running the Bridge](#running-the-bridge)
-- [How to send a message](#how-to-send-a-message)
-- [Community](#community)
 
 ## Installation
 

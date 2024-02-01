@@ -18,7 +18,7 @@
 #![deny(missing_docs)]
 #![deny(clippy::dbg_macro)]
 
-//! A wrapper around `tracing` macros, to provide semi automatic
+//! A wrapper around `tracing` macros, to provide semi-automatic
 //! `traceID` annotation without codebase turnover.
 //!
 //! # Usage
@@ -40,7 +40,7 @@
 //!
 //! ### Log levels
 //!
-//! All of the the [`tracing` macros](https://docs.rs/tracing/latest/tracing/index.html#macros) are available.
+//! All the [`tracing` macros](https://docs.rs/tracing/latest/tracing/index.html#macros) are available.
 //! In decreasing order of priority they are:
 //!
 //! - `error!`

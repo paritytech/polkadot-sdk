@@ -29,7 +29,7 @@
 //! It works in the following way:
 //!
 //! 1. For every included relay chain block we note the backed candidate of our parachain. If the
-//!    block belonging to the PoV is already known, we do nothing. Otherwise we start a timer that
+//!    block belonging to the PoV is already known, we do nothing. Otherwise, we start a timer that
 //!    waits for a randomized time inside a specified interval before starting to
 //! recover    the PoV.
 //!
@@ -574,7 +574,7 @@ where
 					if let Some(imported) = imported {
 						self.clear_waiting_recovery(&imported.hash);
 
-						// We need to double check that no blocks are waiting for this block.
+						// We need to double-check that no blocks are waiting for this block.
 						// Can happen when a waiting child block is queued to wait for parent while the parent block is still
 						// in the import queue.
 						if let Some(waiting_blocks) = self.waiting_for_parent.remove(&imported.hash) {

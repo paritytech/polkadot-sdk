@@ -64,7 +64,7 @@ pub fn warn_if_frequent(item: proc_macro::TokenStream) -> proc_macro::TokenStrea
 	stream.into()
 }
 
-/// Print a info level message.
+/// Print an info level message.
 #[proc_macro]
 pub fn info(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	gum(item, Level::Info)
@@ -88,7 +88,7 @@ pub(crate) fn gum(item: proc_macro::TokenStream, level: Level) -> proc_macro::To
 
 	let res = expander::Expander::new("gum")
 		.add_comment("Generated overseer code by `gum::warn!(..)`".to_owned())
-		// `dry=true` until rust-analyzer can selectively disable features so it's
+		// `dry=true` until rust-analyzer can selectively disable features, so it's
 		// not all red squiggles. Originally: `!cfg!(feature = "expand")`
 		// ISSUE: <https://github.com/rust-analyzer/rust-analyzer/issues/11777>
 		.dry(true)

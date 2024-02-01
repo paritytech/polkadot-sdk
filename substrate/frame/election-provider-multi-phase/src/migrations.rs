@@ -39,7 +39,7 @@ pub mod v1 {
 
 			if current == 1 && onchain == 0 {
 				if SignedSubmissionIndices::<T>::exists() {
-					// This needs to be tested at a both a block height where this value exists, and
+					// This needs to be tested at a both; the block height where this value exists, and
 					// when it doesn't.
 					let now = frame_system::Pallet::<T>::block_number();
 					let map = unhashed::get::<BTreeMap<ElectionScore, u32>>(

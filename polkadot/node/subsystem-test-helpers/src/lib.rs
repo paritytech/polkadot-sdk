@@ -272,7 +272,7 @@ pub struct TestSubsystemContextHandle<M> {
 	/// Direct access to sender of messages.
 	///
 	/// Useful for shared ownership situations (one can have multiple senders, but only one
-	/// receiver.
+	/// receiver).
 	pub tx: mpsc::Sender<FromOrchestra<M>>,
 
 	/// Direct access to the receiver.

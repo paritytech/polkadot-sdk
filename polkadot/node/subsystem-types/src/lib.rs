@@ -16,7 +16,7 @@
 
 //! Subsystem trait definitions and message types.
 //!
-//! Node-side logic for Polkadot is mostly comprised of Subsystems, which are discrete components
+//! Node-side logic for Polkadot is mostly composed of Subsystems, which are discrete components
 //! that communicate via message-passing. They are coordinated by an overseer, provided by a
 //! separate crate.
 

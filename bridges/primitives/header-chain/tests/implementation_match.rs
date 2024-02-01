@@ -18,7 +18,7 @@
 //! implementation works similar to the [`finality_grandpa::validate_commit`] and explicitly
 //! show where we behave different.
 //!
-//! Some of tests in this module may partially duplicate tests from `justification.rs`,
+//! Some of the tests in this module may partially duplicate tests from `justification.rs`,
 //! but their purpose is different.
 
 use bp_header_chain::justification::{

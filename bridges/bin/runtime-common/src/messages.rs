@@ -74,7 +74,7 @@ pub type AccountIdOf<C> = bp_runtime::AccountIdOf<UnderlyingChainOf<C>>;
 /// Type of balances that is used on the chain.
 pub type BalanceOf<C> = bp_runtime::BalanceOf<UnderlyingChainOf<C>>;
 
-/// Sub-module that is declaring types required for processing This -> Bridged chain messages.
+/// Submodule that is declaring types required for processing This -> Bridged chain messages.
 pub mod source {
 	use super::*;
 
@@ -156,7 +156,7 @@ pub mod source {
 		// IMPORTANT: any error that is returned here is fatal for the bridge, because
 		// this code is executed at the bridge hub and message sender actually lives
 		// at some sibling parachain. So we are failing **after** the message has been
-		// sent and we can't report it back to sender (unless error report mechanism is
+		// sent, and we can't report it back to sender (unless error report mechanism is
 		// embedded into message and its dispatcher).
 
 		// apart from maximal message size check (see below), we should also check the message
@@ -166,13 +166,13 @@ pub mod source {
 		// The maximal size of extrinsic at Substrate-based chain depends on the
 		// `frame_system::Config::MaximumBlockLength` and
 		// `frame_system::Config::AvailableBlockRatio` constants. This check is here to be sure that
-		// the lane won't stuck because message is too large to fit into delivery transaction.
+		// the lane won't get stuck because message is too large to fit into delivery transaction.
 		//
 		// **IMPORTANT NOTE**: the delivery transaction contains storage proof of the message, not
 		// the message itself. The proof is always larger than the message. But unless chain state
 		// is enormously large, it should be several dozens/hundreds of bytes. The delivery
 		// transaction also contains signatures and signed extensions. Because of this, we reserve
-		// 1/3 of the the maximal extrinsic size for this data.
+		// 1/3 of the maximal extrinsic size for this data.
 		if payload.len() > maximal_message_size::<B>() as usize {
 			return Err(VerificationError::MessageTooLarge)
 		}
@@ -209,7 +209,7 @@ pub mod source {
 	}
 }
 
-/// Sub-module that is declaring types required for processing Bridged -> This chain messages.
+/// Submodule that is declaring types required for processing Bridged -> This chain messages.
 pub mod target {
 	use super::*;
 

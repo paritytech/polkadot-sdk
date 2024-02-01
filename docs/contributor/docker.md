@@ -155,7 +155,7 @@ published. It has the benefit of relying on the GPG signatures embedded in the D
 ### Generic injected
 
 For simple testing purposes, the easiest option for Polkadot and also random binaries, is to use the
-`binary_injected.Dockerfile` container spec. This option is less secure since the injected binary is not checked at all
+`binary_injected.Dockerfile` container spec. This option is less secure since the injected binary is not checked at all,
 but it has the benefit to be simple. This option requires to already have a valid `polkadot` binary, compiled for Linux.
 
 This binary is then simply copied inside the `parity/base-bin` image.

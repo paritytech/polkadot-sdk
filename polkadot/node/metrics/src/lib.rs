@@ -51,7 +51,7 @@ pub mod metrics {
 	///
 	/// Usually implemented as a wrapper for `Option<ActualMetrics>`
 	/// to ensure `Default` bounds or as a dummy type ().
-	/// Prometheus metrics internally hold an `Arc` reference, so cloning them is fine.
+	/// Prometheus' metrics internally hold an `Arc` reference, so cloning them is fine.
 	pub trait Metrics: Default + Clone {
 		/// Try to register metrics in the Prometheus registry.
 		fn try_register(

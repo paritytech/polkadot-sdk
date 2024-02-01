@@ -117,7 +117,7 @@ parameter_types! {
 impl pallet_message_queue::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	// NOTE that normally for benchmarking we should use the No-OP message processor, but in this
-	// case its a mocked runtime and will only be used to generate insecure default weights.
+	// case it's a mocked runtime and will only be used to generate insecure default weights.
 	type MessageProcessor = SaveIntoThreadLocal;
 	type Size = u32;
 	type QueueChangeHandler = ();

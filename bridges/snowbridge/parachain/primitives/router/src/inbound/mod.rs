@@ -18,9 +18,9 @@ use xcm_executor::traits::ConvertLocation;
 
 const MINIMUM_DEPOSIT: u128 = 1;
 
-/// Messages from Ethereum are versioned. This is because in future,
+/// Messages from Ethereum are versioned. This is because in the future,
 /// we may want to evolve the protocol so that the ethereum side sends XCM messages directly.
-/// Instead having BridgeHub transcode the messages into XCM.
+/// Instead of having BridgeHub transcode the messages into XCM.
 #[derive(Clone, Encode, Decode, RuntimeDebug)]
 pub enum VersionedMessage {
 	V1(MessageV1),
@@ -63,7 +63,7 @@ pub enum Command {
 pub enum Destination {
 	/// The funds will be deposited into account `id` on AssetHub
 	AccountId32 { id: [u8; 32] },
-	/// The funds will deposited into the sovereign account of destination parachain `para_id` on
+	/// The funds will be deposited into the sovereign account of destination parachain `para_id` on
 	/// AssetHub, Account `id` on the destination parachain will receive the funds via a
 	/// reserve-backed transfer. See <https://github.com/paritytech/xcm-format#depositreserveasset>
 	ForeignAccountId32 {
@@ -72,7 +72,7 @@ pub enum Destination {
 		/// XCM execution fee on final destination
 		fee: u128,
 	},
-	/// The funds will deposited into the sovereign account of destination parachain `para_id` on
+	/// The funds will be deposited into the sovereign account of destination parachain `para_id` on
 	/// AssetHub, Account `id` on the destination parachain will receive the funds via a
 	/// reserve-backed transfer. See <https://github.com/paritytech/xcm-format#depositreserveasset>
 	ForeignAccountId20 {
@@ -185,7 +185,7 @@ where
 			DescendOrigin(PalletInstance(inbound_queue_pallet_index).into()),
 			// Change origin to the bridge.
 			UniversalOrigin(GlobalConsensus(network)),
-			// Call create_asset on foreign assets pallet.
+			// Call create_asset on foreign assets' pallet.
 			Transact {
 				origin_kind: OriginKind::Xcm,
 				require_weight_at_most: Weight::from_parts(400_000_000, 8_000),

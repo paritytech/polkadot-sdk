@@ -376,7 +376,7 @@ impl TryFrom<NewResponse> for Response {
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub struct QueryResponseInfo {
-	/// The destination to which the query response message should be send.
+	/// The destination to which the query response message should be sent.
 	pub destination: MultiLocation,
 	/// The `query_id` field of the `QueryResponse` message.
 	#[codec(compact)]
@@ -536,7 +536,7 @@ pub enum Instruction<Call> {
 	///
 	/// Safety: Since this is information only, there are no immediate concerns. However, it should
 	/// be remembered that even if the Origin behaves reasonably, it can always be asked to make
-	/// a response to a third-party chain who may or may not be expecting the response. Therefore
+	/// a response to a third-party chain who may or may not be expecting the response. Therefore,
 	/// the `querier` should be checked to match the expected value.
 	///
 	/// Kind: *Information*.
@@ -630,8 +630,9 @@ pub enum Instruction<Call> {
 	///
 	/// Errors:
 	HrmpChannelAccepted {
-		// NOTE: We keep this as a structured item to a) keep it consistent with the other Hrmp
-		// items; and b) because the field's meaning is not obvious/mentioned from the item name.
+		// NOTE: We keep this as a structured item to
+		//   a) keep it consistent with the other Hrmp items; and
+		//   b) because the field's meaning is not obvious/mentioned from the item name.
 		#[codec(compact)]
 		recipient: u32,
 	},
@@ -770,7 +771,7 @@ pub enum Instruction<Call> {
 	///
 	/// - `response_info`: Information for making the response.
 	/// - `assets`: A filter for the assets that should be reported back. The assets reported back
-	///   will be, asset-wise, *the lesser of this value and the holding register*. No wildcards
+	///   will be, asset-wise, *the lessest of this value and the holding register*. No wildcards
 	///   will be used when reporting assets back.
 	///
 	/// Kind: *Command*

@@ -9,6 +9,6 @@
 //! - signed origin
 //! - unsigned origin, link to [`fee_less_runtime`]
 //! - Root origin, how no one can obtain it.
-//! - Abstract origin: how FRAME allows you to express "origin is 2/3 of the this body or 1/2 of
+//! - Abstract origin: how FRAME allows you to express "origin is 2/3 of the body or 1/2 of
 //!   that body or half of the token holders".
 //! - `type CustomOrigin: EnsureOrigin<_>` in pallets.

@@ -377,7 +377,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	fn ensure_can_subsume_assets(&self, assets_length: usize) -> Result<(), XcmError> {
 		// worst-case, holding.len becomes 2 * holding_limit.
 		// this guarantees that if holding.len() == holding_limit and you have more than
-		// `holding_limit` items (which has a best case outcome of holding.len() == holding_limit),
+		// `holding_limit` items (which has a best-case outcome of holding.len() == holding_limit),
 		// then the operation is guaranteed to succeed.
 		let worst_case_holding_len = self.holding.len() + assets_length;
 		log::trace!(target: "xcm::ensure_can_subsume_assets", "worst_case_holding_len: {:?}, holding_limit: {:?}", worst_case_holding_len, self.holding_limit);
@@ -756,7 +756,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					};
 				let actual_weight = maybe_actual_weight.unwrap_or(weight);
 				let surplus = weight.saturating_sub(actual_weight);
-				// We assume that the `Config::Weigher` will counts the `require_weight_at_most`
+				// We assume that the `Config::Weigher` will count the `require_weight_at_most`
 				// for the estimate of how much weight this instruction will take. Now that we know
 				// that it's less, we credit it.
 				//
@@ -884,7 +884,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					for asset in assets.assets_iter() {
 						// We should check that the asset can actually be teleported out (for this
 						// to be in error, there would need to be an accounting violation by
-						// ourselves, so it's unlikely, but we don't want to allow that kind of bug
+						// ourselves, so it's unlikely), but we don't want to allow that kind of bug
 						// to leak into a trusted chain.
 						Config::AssetTransactor::can_check_out(&dest, &asset, &self.context)?;
 					}

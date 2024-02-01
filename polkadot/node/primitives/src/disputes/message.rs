@@ -109,7 +109,7 @@ impl DisputeMessage {
 	///   `SessionInfo`.
 	///
 	/// We don't check whether the given `SessionInfo` matches the `SessionIndex` in the
-	/// statements, because we can't without doing a runtime query. Nevertheless this smart
+	/// statements, because we can't without doing a runtime query. Nevertheless, this smart
 	/// constructor gives relative strong guarantees that the resulting `SignedDisputeStatement` is
 	/// valid and good.  Even the passed `SessionInfo` is most likely right if this function
 	/// returns `Some`, because otherwise the passed `ValidatorId`s in the `SessionInfo` at

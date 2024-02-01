@@ -28,7 +28,7 @@ const LOG_TARGET: &str = "level-monitor";
 /// that ships with Substrate. This value may change in the future.
 pub const MAX_LEAVES_PER_LEVEL_SENSIBLE_DEFAULT: usize = 32;
 
-// Counter threshold after which we are going to eventually cleanup our internal data.
+// Counter threshold after which we are going to eventually clean up our internal data.
 const CLEANUP_THRESHOLD: u32 = 32;
 
 /// Upper bound to the number of leaves allowed for each level of the blockchain.
@@ -202,7 +202,7 @@ where
 	//
 	// Given a set of blocks with height equal to `number` (potential candidates)
 	// 1. For each candidate fetch all the leaves that are descending from it.
-	// 2. Set the candidate freshness equal to the fresher of its descending leaves.
+	// 2. Set the candidate freshness equal to the freshest of its descending leaves.
 	// 3. The target is set as the candidate that is less fresh.
 	//
 	// Input `leaves` are assumed to be already ordered by "freshness" (less fresh first).
@@ -301,7 +301,7 @@ where
 				let early_stop = candidate_info.freshest_leaf_idx == 0;
 				target_info = Some(candidate_info);
 				if early_stop {
-					// We will never find a candidate with an worst freshest leaf than this.
+					// We will never find a candidate with a worst freshest leaf than this.
 					break
 				}
 			}
@@ -334,7 +334,7 @@ where
 		invalidated_leaves.insert(target.freshest_leaf_idx);
 
 		// Takes care of route removal. Starts from the leaf and stops as soon as an error is
-		// encountered. In this case an error is interpreted as the block being not a leaf
+		// encountered. In this case an error is interpreted as the block being not a leaf,
 		// and it will be removed while removing another route from the same block but to a
 		// different leaf.
 		let mut remove_route = |route: TreeRoute<Block>| {

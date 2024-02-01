@@ -27,8 +27,8 @@
 //! `struct OutgoingRequest` .... wrapper for outgoing requests, containing a sender used by the
 //! networking code for delivering responses/delivery errors.
 //!
-//! `trait IsRequest` .... A trait describing a particular request. It is used for gathering meta
-//! data, like what is the corresponding response type.
+//! `trait IsRequest` .... A trait describing a particular request. It is used for gathering
+//! metadata, like what is the corresponding response type.
 //!
 //!  ## Versioning
 //!  
@@ -38,7 +38,7 @@
 //! `fallback_name` to the protocol config.
 //!
 //! One way in which versioning has historically been achieved for req-response protocols is to
-//! bundle the new req-resp version with an upgrade of a notifications protocol. The subsystem would
+//! bundle the new req-resp version with an upgrade of a notifications' protocol. The subsystem would
 //! then know which request version to use based on stored data about the peer's notifications
 //! protocol version.
 //!
@@ -117,8 +117,8 @@ const DEFAULT_REQUEST_TIMEOUT_CONNECTED: Duration = Duration::from_secs(1);
 /// Timeout for requesting availability chunks.
 pub const CHUNK_REQUEST_TIMEOUT: Duration = DEFAULT_REQUEST_TIMEOUT_CONNECTED;
 
-/// This timeout is based on what seems sensible from a time budget perspective, considering 6
-/// second block time. This is going to be tough, if we have multiple forks and large PoVs, but we
+/// This timeout is based on what seems sensible from a time budget perspective, considering
+/// 6-second block time. This is going to be tough, if we have multiple forks and large PoVs, but we
 /// only have so much time.
 const POV_REQUEST_TIMEOUT_CONNECTED: Duration = Duration::from_millis(1200);
 

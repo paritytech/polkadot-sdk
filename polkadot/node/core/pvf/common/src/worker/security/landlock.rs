@@ -58,7 +58,7 @@ use std::path::{Path, PathBuf};
 ///
 /// You may wonder whether we could always use the latest ABI instead of only the ABI supported
 /// by the reference kernel version. It seems plausible, since landlock provides a best-effort
-/// approach to enabling sandboxing. For example, if the reference version only supported V1 and
+/// approach to enabling sandboxing. For example, if the reference version only supported V1, and
 /// we were on V2, then landlock would use V2 if it was supported on the current machine, and
 /// just fall back to V1 if not.
 ///

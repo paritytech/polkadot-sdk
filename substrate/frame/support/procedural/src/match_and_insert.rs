@@ -137,7 +137,7 @@ fn expand_in_stream(
 			},
 		}
 	}
-	// if we reach this point, it means the stream is empty and we haven't found a matching pattern
+	// if we reach this point, it means the stream is empty, and we haven't found a matching pattern
 	let msg = format!("Cannot find pattern `{:?}` in given token stream", pattern);
 	Err(syn::Error::new(stream_span, msg))
 }

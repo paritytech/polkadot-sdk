@@ -21,7 +21,7 @@ accept = [
 exclude_path = ["./target"]
 
 exclude = [
-	# Place holders (no need to fix these):
+	# Placeholders (no need to fix these):
 	"http://visitme/",
 	"https://visitme/",
 

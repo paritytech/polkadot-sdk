@@ -209,7 +209,7 @@ impl Requester {
 				.with_stage(jaeger::Stage::AvailabilityDistribution);
 			match self.fetches.entry(core.candidate_hash) {
 				Entry::Occupied(mut e) =>
-				// Just book keeping - we are already requesting that chunk:
+				// Just bookkeeping - we are already requesting that chunk:
 				{
 					span.add_string_tag("already-requested-chunk", "true");
 					e.get_mut().add_leaf(leaf);

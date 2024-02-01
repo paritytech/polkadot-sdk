@@ -521,7 +521,7 @@ unit_arg = { level = "allow", priority = 2 }                         # stylistic
 option-map-unit-fn = { level = "allow", priority = 2 }               # stylistic
 bind_instead_of_map = { level = "allow", priority = 2 }              # stylistic
 erasing_op = { level = "allow", priority = 2 }                       # E.g. 0 * DOLLARS
-eq_op = { level = "allow", priority = 2 }                            # In tests we test equality.
+eq_op = { level = "allow", priority = 2 }                            # In tests, we test equality.
 while_immutable_condition = { level = "allow", priority = 2 }        # false positives
 needless_option_as_deref = { level = "allow", priority = 2 }         # false positives
 derivable_impls = { level = "allow", priority = 2 }                  # false positives

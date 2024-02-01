@@ -45,7 +45,7 @@ use xcm_executor::{
 mod tests;
 
 /// Xcm router which recognises the `Parent` destination and handles it by sending the message into
-/// the given UMP `UpwardMessageSender` implementation. Thus this essentially adapts an
+/// the given UMP `UpwardMessageSender` implementation. Thus, this essentially adapts an
 /// `UpwardMessageSender` trait impl into a `SendXcm` trait impl.
 ///
 /// NOTE: This is a pretty dumb "just send it" router; we will probably want to introduce queuing
@@ -101,7 +101,7 @@ struct AssetTraderRefunder {
 
 /// Charges for execution in the first asset of those selected for fee payment
 /// Only succeeds for Concrete Fungible Assets
-/// First tries to convert the this Asset into a local assetId
+/// First tries to convert this Asset into a local assetId
 /// Then charges for this assetId as described by FeeCharger
 /// Weight, paid balance, local asset Id and the location is stored for
 /// later refund purposes
@@ -141,7 +141,7 @@ impl<
 	) -> Result<xcm_executor::AssetsInHolding, XcmError> {
 		log::trace!(target: "xcm::weight", "TakeFirstAssetTrader::buy_weight weight: {:?}, payment: {:?}, context: {:?}", weight, payment, context);
 
-		// Make sure we dont enter twice
+		// Make sure we don't enter twice
 		if self.0.is_some() {
 			return Err(XcmError::NotWithdrawable)
 		}
@@ -202,7 +202,7 @@ impl<
 			let minimum_balance = ConcreteAssets::minimum_balance(local_asset_id.clone());
 
 			// Calculate asset_balance
-			// This read should have already be cached in buy_weight
+			// This read should have already been cached in buy_weight
 			let (asset_balance, outstanding_minus_substracted) =
 				FeeCharger::charge_weight_in_fungibles(local_asset_id, weight).ok().map(
 					|asset_balance| {
@@ -752,10 +752,10 @@ mod test_trader {
 		let payment = AssetsInHolding::from(asset);
 		let weight_to_buy = Weight::from_parts(1_000, 1_000);
 
-		// lets do first call (success)
+		// let's do first call (success)
 		assert_ok!(trader.buy_weight(weight_to_buy, payment.clone(), &ctx));
 
-		// lets do second call (error)
+		// let's do second call (error)
 		assert_eq!(trader.buy_weight(weight_to_buy, payment, &ctx), Err(XcmError::NotWithdrawable));
 	}
 }

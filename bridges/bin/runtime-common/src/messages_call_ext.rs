@@ -86,7 +86,7 @@ impl ReceiveMessagesProofInfo {
 			return true
 		}
 
-		// transactions with zero bundled nonces are not allowed, unless they're message
+		// transactions with zero bundled nonces are not allowed, unless they are message
 		// delivery transactions, which brings reward confirmations required to unblock
 		// the lane
 		if self.base.bundled_range.is_empty() {
@@ -174,7 +174,7 @@ impl<T: Config<I>, I: 'static> CallHelper<T, I> {
 	}
 }
 
-/// Trait representing a call that is a sub type of `pallet_bridge_messages::Call`.
+/// Trait representing a call that is a subtype of `pallet_bridge_messages::Call`.
 pub trait MessagesCallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 	IsSubType<CallableCallFor<Pallet<T, I>, T>>
 {
@@ -239,7 +239,7 @@ impl<
 			return Some(ReceiveMessagesProofInfo {
 				base: BaseMessagesProofInfo {
 					lane_id: proof.lane,
-					// we want all messages in this range to be new for us. Otherwise transaction
+					// we want all messages in this range to be new for us. Otherwise, transaction
 					// will be considered obsolete.
 					bundled_range: proof.nonces_start..=proof.nonces_end,
 					best_stored_nonce: inbound_lane_data.last_delivered_nonce(),
@@ -434,7 +434,7 @@ mod tests {
 	#[test]
 	fn extension_rejects_obsolete_messages() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			// when current best delivered is message#10 and we're trying to deliver messages 8..=9
+			// when current best delivered is message#10, and we're trying to deliver messages 8..=9
 			// => tx is rejected
 			deliver_message_10();
 			assert!(!validate_message_delivery(8, 9));
@@ -444,7 +444,7 @@ mod tests {
 	#[test]
 	fn extension_rejects_same_message() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			// when current best delivered is message#10 and we're trying to import messages 10..=10
+			// when current best delivered is message#10, and we're trying to import messages 10..=10
 			// => tx is rejected
 			deliver_message_10();
 			assert!(!validate_message_delivery(8, 10));
@@ -454,7 +454,7 @@ mod tests {
 	#[test]
 	fn extension_rejects_call_with_some_obsolete_messages() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			// when current best delivered is message#10 and we're trying to deliver messages
+			// when current best delivered is message#10, and we're trying to deliver messages
 			// 10..=15 => tx is rejected
 			deliver_message_10();
 			assert!(!validate_message_delivery(10, 15));
@@ -464,7 +464,7 @@ mod tests {
 	#[test]
 	fn extension_rejects_call_with_future_messages() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			// when current best delivered is message#10 and we're trying to deliver messages
+			// when current best delivered is message#10, and we're trying to deliver messages
 			// 13..=15 => tx is rejected
 			deliver_message_10();
 			assert!(!validate_message_delivery(13, 15));
@@ -474,7 +474,7 @@ mod tests {
 	#[test]
 	fn extension_reject_call_when_dispatcher_is_inactive() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			// when current best delivered is message#10 and we're trying to deliver message 11..=15
+			// when current best delivered is message#10, and we're trying to deliver message 11..=15
 			// => tx is accepted, but we have inactive dispatcher, so...
 			deliver_message_10();
 
@@ -556,7 +556,7 @@ mod tests {
 	#[test]
 	fn extension_rejects_obsolete_confirmations() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			// when current best confirmed is message#10 and we're trying to confirm message#5 => tx
+			// when current best confirmed is message#10, and we're trying to confirm message#5 => tx
 			// is rejected
 			confirm_message_10();
 			assert!(!validate_message_confirmation(5));
@@ -566,7 +566,7 @@ mod tests {
 	#[test]
 	fn extension_rejects_same_confirmation() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			// when current best confirmed is message#10 and we're trying to confirm message#10 =>
+			// when current best confirmed is message#10, and we're trying to confirm message#10 =>
 			// tx is rejected
 			confirm_message_10();
 			assert!(!validate_message_confirmation(10));
@@ -585,7 +585,7 @@ mod tests {
 	#[test]
 	fn extension_accepts_new_confirmation() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			// when current best confirmed is message#10 and we're trying to confirm message#15 =>
+			// when current best confirmed is message#10, and we're trying to confirm message#15 =>
 			// tx is accepted
 			confirm_message_10();
 			assert!(validate_message_confirmation(15));

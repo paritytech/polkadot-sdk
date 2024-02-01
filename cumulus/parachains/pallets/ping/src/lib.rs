@@ -69,7 +69,7 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type PingCount<T: Config> = StorageValue<_, u32, ValueQuery>;
 
-	/// The sent pings.
+	/// The pings sent.
 	#[pallet::storage]
 	pub(super) type Pings<T: Config> =
 		StorageMap<_, Blake2_128Concat, u32, BlockNumberFor<T>, OptionQuery>;

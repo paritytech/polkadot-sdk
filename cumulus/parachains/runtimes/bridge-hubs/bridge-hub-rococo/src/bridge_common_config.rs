@@ -91,7 +91,7 @@ impl pallet_bridge_grandpa::Config<BridgeGrandpaRococoBulletinInstance> for Runt
 	type BridgedChain = bp_polkadot_bulletin::PolkadotBulletin;
 	type MaxFreeMandatoryHeadersPerBlock = ConstU32<4>;
 	type HeadersToKeep = RelayChainHeadersToKeep;
-	// Technically this is incorrect - we have two pallet instances and ideally we shall
+	// Technically this is incorrect - we have two pallet instances, and ideally, we shall
 	// benchmark every instance separately. But the benchmarking engine has a flaw - it
 	// messes with components. E.g. in Kusama maximal validators count is 1024 and in
 	// Bulletin chain it is 100. But benchmarking engine runs Bulletin benchmarks using

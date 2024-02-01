@@ -202,14 +202,14 @@ impl<Local: Get<Junctions>, Remote: Get<Junctions>, RemoteExporter: ExportXcm> S
 	}
 
 	fn deliver(message: Xcm<()>) -> Result<XcmHash, SendError> {
-		// We now pretend that the message was delivered from `Local` to `Remote`, and execute
+		// We now pretend that the message was delivered from `Local` to `Remote`, and execute,
 		// so we need to ensure that the `TestConfig` is set up properly for executing as
 		// though it is `Remote`.
 		ExecutorUniversalLocation::set(Remote::get());
 		let origin = Local::get().relative_to(&Remote::get());
 		AllowUnpaidFrom::set(vec![origin.clone()]);
 		set_exporter_override(price::<RemoteExporter>, deliver::<RemoteExporter>);
-		// The we execute it:
+		// Then we execute it:
 		let mut id = fake_id();
 		let outcome = XcmExecutor::<TestConfig>::prepare_and_execute(
 			origin,
@@ -252,7 +252,7 @@ impl<Local: Get<Junctions>, Remote: Get<Junctions>, RemoteExporter: ExportXcm> S
 	}
 
 	fn deliver(message: Xcm<()>) -> Result<XcmHash, SendError> {
-		// We now pretend that the message was delivered from `Local` to `Remote`, and execute
+		// We now pretend that the message was delivered from `Local` to `Remote`, and execute,
 		// so we need to ensure that the `TestConfig` is set up properly for executing as
 		// though it is `Remote`.
 		ExecutorUniversalLocation::set(Remote::get());

@@ -3,7 +3,7 @@
 Using containers via **Podman** or **Docker** brings benefit, whether it is to build a container image or run a node
 while keeping a minimum footprint on your local system.
 
-This document mentions using `podman` or `docker`. Those are usually interchangeable and it is encouraged using
+This document mentions using `podman` or `docker`. Those are usually interchangeable, and it is encouraged using
 preferably **Podman**. If you have podman installed and want to use all the commands mentioned below, you can simply
 create an alias with `alias docker=podman`.
 

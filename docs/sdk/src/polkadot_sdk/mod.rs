@@ -1,7 +1,7 @@
 //! # Polkadot SDK
 //!
 //! [Polkadot SDK](https://github.com/paritytech/polkadot-sdk) provides the main resources needed to
-//! start building on the [Polkadot network](https://polkadot.network), a scalable, multi-chain
+//! start building on the [Polkadot network](https://polkadot.network), a scalable, multichain
 //! blockchain platform that enables different blockchains to securely interoperate.
 //!
 //! [![StackExchange](https://img.shields.io/badge/StackExchange-Polkadot%20and%20Substrate-222222?logo=stackexchange)](https://substrate.stackexchange.com/)
@@ -91,7 +91,7 @@
 //! specialized logic in both the node and the runtime side, but it is not "special" in any way.
 //!
 //! A parachain is a "special" Substrate-based chain, whereby both the node and the runtime
-//! components have became "Polkadot-aware" using Cumulus.
+//! components have become "Polkadot-aware" using Cumulus.
 #![doc = simple_mermaid::mermaid!("../../../mermaid/polkadot_sdk_parachain.mmd")]
 //!
 //! ## Notable Upstream Crates

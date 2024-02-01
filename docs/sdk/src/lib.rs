@@ -12,8 +12,8 @@
 //!
 //! We suggest the following reading sequence:
 //!
-//! - Start by learning about the the [`polkadot_sdk`], its structure and context.
-//! - Then, head over the [`guides`]. This modules contains in-depth guides about the most important
+//! - Start by learning about the [`polkadot_sdk`], its structure and context.
+//! - Then, head over the [`guides`]. This module contains in-depth guides about the most important
 //!   user-journeys of the Polkadot SDK.
 //! - Whilst reading the guides, you might find back-links to [`crate::reference_docs`].
 //! - Finally, <https://paritytech.github.io> is the parent website of this crate that contains the

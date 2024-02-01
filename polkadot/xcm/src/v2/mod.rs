@@ -222,7 +222,7 @@ pub enum BodyPart {
 		#[codec(compact)]
 		denom: u32,
 	},
-	/// More than than the given proportion of members of the body.
+	/// More than the given proportion of members of the body.
 	MoreThanProportion {
 		#[codec(compact)]
 		nom: u32,
@@ -576,8 +576,9 @@ pub enum Instruction<RuntimeCall> {
 	///
 	/// Errors:
 	HrmpChannelAccepted {
-		// NOTE: We keep this as a structured item to a) keep it consistent with the other Hrmp
-		// items; and b) because the field's meaning is not obvious/mentioned from the item name.
+		// NOTE: We keep this as a structured item to
+		//   a. keep it consistent with the other Hrmp items; and
+		//   b. because the field's meaning is not obvious/mentioned from the item name.
 		#[codec(compact)]
 		recipient: u32,
 	},
@@ -742,7 +743,7 @@ pub enum Instruction<RuntimeCall> {
 	/// - `dest`: A valid destination for the returned XCM message. This may be limited to the
 	///   current origin.
 	/// - `assets`: A filter for the assets that should be reported back. The assets reported back
-	///   will be, asset-wise, *the lesser of this value and the holding register*. No wildcards
+	///   will be, asset-wise, *the lessest of this value and the holding register*. No wildcards
 	///   will be used when reporting assets back.
 	/// - `max_response_weight`: The maximum amount of weight that the `QueryResponse` item which
 	///   is sent as a reply may take to execute. NOTE: If this is unexpectedly large then the

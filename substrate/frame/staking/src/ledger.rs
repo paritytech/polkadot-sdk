@@ -101,7 +101,7 @@ impl<T: Config> StakingLedger<T> {
 		}
 	}
 
-	/// Returns a staking ledger, if it is bonded and it exists in storage.
+	/// Returns a staking ledger, if it is bonded, and it exists in storage.
 	///
 	/// This getter can be called with either a controller or stash account, provided that the
 	/// account is properly wrapped in the respective [`StakingAccount`] variant. This is meant to
@@ -143,7 +143,7 @@ impl<T: Config> StakingLedger<T> {
 
 	/// Returns the controller account of a staking ledger.
 	///
-	/// Note: it will fallback into querying the [`Bonded`] storage with the ledger stash if the
+	/// Note: it will fall back into querying the [`Bonded`] storage with the ledger stash if the
 	/// controller is not set in `self`, which most likely means that self was fetched directly from
 	/// [`Ledger`] instead of through the methods exposed in [`StakingLedger`]. If the ledger does
 	/// not exist in storage, it returns `None`.
@@ -225,8 +225,8 @@ use {
 	scale_info::TypeInfo,
 };
 
-// This structs makes it easy to write tests to compare staking ledgers fetched from storage. This
-// is required because the controller field is not stored in storage and it is private.
+// These structs makes it easy to write tests to compare staking ledgers fetched from storage. This
+// is required because the controller field is not stored in storage, and it is private.
 #[cfg(test)]
 #[derive(frame_support::DebugNoBound, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub struct StakingLedgerInspect<T: Config> {

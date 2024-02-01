@@ -1,6 +1,6 @@
 # Using Parity Bridges Common dependency (`git subtree`)
 
-In `./bridges` sub-directory you can find a `git subtree` imported version of:
+In `./bridges` subdirectory you can find a `git subtree` imported version of:
 [`parity-bridges-common`](https://github.com/paritytech/parity-bridges-common/) repository.
 
 (For regular Cumulus contributor 1. is relevant) \
@@ -10,10 +10,10 @@ In `./bridges` sub-directory you can find a `git subtree` imported version of:
 ## How to fix broken Bridges code?
 
 To fix Bridges code simply create a commit in current (`Cumulus`) repo. Best if
-the commit is isolated to changes in `./bridges` sub-directory, because it makes
+the commit is isolated to changes in `./bridges` subdirectory, because it makes
 it easier to import that change back to upstream repo.
 
-(Any changes to `bridges` subtree require Bridges team approve and they should manage backport to Bridges repo)
+(Any changes to `bridges` subtree require Bridges team approve, and they should manage backport to Bridges repo)
 
 
 ## How to pull latest Bridges code to the `bridges` subtree
@@ -63,7 +63,7 @@ current (`polkadot`) repo.
 git remote add -f bridges git@github.com:paritytech/parity-bridges-common.git
 ```
 
-If you plan to contribute back, consider forking the repository on Github and adding
+If you plan to contribute back, consider forking the repository on GitHub and adding
 your personal fork as a remote as well.
 ```
 git remote add -f my-bridges git@github.com:tomusdrw/parity-bridges-common.git

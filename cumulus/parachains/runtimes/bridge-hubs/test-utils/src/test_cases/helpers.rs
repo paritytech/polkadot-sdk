@@ -254,7 +254,7 @@ pub fn relayed_incoming_message_works<Runtime, AllPalletsWithoutSystem, MPI>(
 		vec![(
 			relayer_id_on_target.clone().into(),
 			// this value should be enough to cover all transaction costs, but computing the actual
-			// value here is tricky - there are several transaction payment pallets and we don't
+			// value here is tricky - there are several transaction payment pallets, and we don't
 			// want to introduce additional bounds and traits here just for that, so let's just
 			// select some presumably large value
 			sp_std::cmp::max::<Runtime::Balance>(Runtime::ExistentialDeposit::get(), 1u32.into()) *

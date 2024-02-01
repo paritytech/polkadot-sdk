@@ -114,7 +114,7 @@ struct RunningTask {
 	/// The request to send.
 	request: ChunkFetchingRequest,
 
-	/// Root hash, for verifying the chunks validity.
+	/// Root hash, for verifying the chunks' validity.
 	erasure_root: Hash,
 
 	/// Relay parent of the candidate to fetch.
@@ -123,7 +123,7 @@ struct RunningTask {
 	/// Sender for communicating with other subsystems and reporting results.
 	sender: mpsc::Sender<FromFetchTask>,
 
-	/// Prometheus metrics for reporting results.
+	/// Prometheus' metrics for reporting results.
 	metrics: Metrics,
 
 	/// Span tracking the fetching of this chunk.
@@ -201,7 +201,7 @@ impl FetchTask {
 
 	/// Add the given leaf to the relay parents which are making this task relevant.
 	///
-	/// This is for book keeping, so we know we are already fetching a given chunk.
+	/// This is for bookkeeping, so we know we are already fetching a given chunk.
 	pub fn add_leaf(&mut self, leaf: Hash) {
 		self.live_in.insert(leaf);
 	}

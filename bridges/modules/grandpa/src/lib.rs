@@ -107,7 +107,7 @@ pub mod pallet {
 		/// changing GRANDPA authorities set at the bridged chain (we call them mandatory).
 		/// So it is a common good deed to submit mandatory headers to the pallet. However, if the
 		/// bridged chain gets compromised, its validators may generate as many mandatory headers
-		/// as they want. And they may fill the whole block (at this chain) for free. This constants
+		/// as they want. And they may fill the whole block (at this chain) for free. This constant
 		/// limits number of calls that we may refund in a single block. All calls above this
 		/// limit are accepted, but are not refunded.
 		#[pallet::constant]
@@ -116,7 +116,7 @@ pub mod pallet {
 		/// Maximal number of finalized headers to keep in the storage.
 		///
 		/// The setting is there to prevent growing the on-chain state indefinitely. Note
-		/// the setting does not relate to block numbers - we will simply keep as much items
+		/// the setting does not relate to block numbers - we will simply keep as meny items
 		/// in the storage, so it doesn't guarantee any fixed timeframe for finality headers.
 		///
 		/// Incautious change of this constant may lead to orphan entries in the runtime storage.
@@ -222,7 +222,7 @@ pub mod pallet {
 			// We don't want to charge extra costs for mandatory operations. So relayer is not
 			// paying fee for mandatory headers import transactions.
 			//
-			// If size/weight of the call is exceeds our estimated limits, the relayer still needs
+			// If size/weight of the call exceeds our estimated limits, the relayer still needs
 			// to pay for the transaction.
 			let pays_fee = if may_refund_call_fee { Pays::No } else { Pays::Yes };
 
@@ -426,7 +426,7 @@ pub mod pallet {
 		OldHeader,
 		/// The scheduled authority set change found in the header is unsupported by the pallet.
 		///
-		/// This is the case for non-standard (e.g forced) authority set changes.
+		/// This is the case for non-standard (e.g. forced) authority set changes.
 		UnsupportedScheduledChange,
 		/// The pallet is not yet initialized.
 		NotInitialized,
@@ -474,7 +474,7 @@ pub mod pallet {
 				set_id: current_set_id + 1,
 			};
 
-			// Since our header schedules a change and we know the delay is 0, it must also enact
+			// Since our header schedules a change, and we know the delay is 0, it must also enact
 			// the change.
 			<CurrentAuthoritySet<T, I>>::put(&next_authorities);
 
@@ -496,7 +496,7 @@ pub mod pallet {
 	///
 	/// Will use the GRANDPA current authorities known to the pallet.
 	///
-	/// If successful it returns the decoded GRANDPA justification so we can refund any weight which
+	/// If successful it returns the decoded GRANDPA justification, so we can refund any weight which
 	/// was overcharged in the initial call.
 	pub(crate) fn verify_justification<T: Config<I>, I: 'static>(
 		justification: &GrandpaJustification<BridgedHeader<T, I>>,
@@ -910,7 +910,7 @@ mod tests {
 			let result = submit_finality_proof(header_number);
 			assert_ok!(result);
 			assert_eq!(result.unwrap().pays_fee, frame_support::dispatch::Pays::Yes);
-			// our test config assumes 2048 max authorities and we are just using couple
+			// our test config assumes 2048 max authorities, and we are just using couple
 			let pre_dispatch_proof_size = pre_dispatch_weight.proof_size();
 			let actual_proof_size = result.unwrap().actual_weight.unwrap().proof_size();
 			assert!(actual_proof_size > 0);
@@ -1296,7 +1296,7 @@ mod tests {
 				assert_err!(submit_invalid_request(), <Error<TestRuntime>>::InvalidJustification);
 			}
 
-			// Can still submit free mandatory headers afterwards
+			// Can still submit free mandatory headers afterward
 			let result = submit_mandatory_finality_proof(1, 1);
 			assert_eq!(result.expect("call failed").pays_fee, Pays::No);
 

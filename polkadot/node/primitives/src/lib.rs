@@ -74,17 +74,17 @@ pub const VALIDATION_CODE_BOMB_LIMIT: usize = (MAX_CODE_SIZE * 4u32) as usize;
 pub const POV_BOMB_LIMIT: usize = (MAX_POV_SIZE * 4u32) as usize;
 
 /// How many blocks after finalization an information about backed/included candidate should be
-/// pre-loaded (when scraoing onchain votes) and kept locally (when pruning).
+/// preloaded (when scraoing onchain votes) and kept locally (when pruning).
 ///
 /// We don't want to remove scraped candidates on finalization because we want to
 /// be sure that disputes will conclude on abandoned forks.
 /// Removing the candidate on finalization creates a possibility for an attacker to
 /// avoid slashing. If a bad fork is abandoned too quickly because another
-/// better one gets finalized the entries for the bad fork will be pruned and we
+/// better one gets finalized the entries for the bad fork will be pruned, and we
 /// might never participate in a dispute for it.
 ///
-/// Why pre-load finalized blocks? I dispute might be raised against finalized candidate. In most
-/// of the cases it will conclude valid (otherwise we are in big trouble) but never the less the
+/// Why preload finalized blocks? I dispute might be raised against finalized candidate. In most
+/// of the cases it will conclude valid (otherwise we are in big trouble) but nevertheless the
 /// node must participate. It's possible to see a vote for such dispute onchain before we have it
 /// imported by `dispute-distribution`. In this case we won't have `CandidateReceipt` and the import
 /// will fail unless we keep them preloaded.
@@ -101,7 +101,7 @@ pub const DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION: BlockNumber = 10;
 /// `MAX_BATCH_SCRAPE_ANCESTORS` in `dispute-coordinator`
 pub const MAX_FINALITY_LAG: u32 = 500;
 
-/// Type of a session window size.
+/// Type of session window size.
 ///
 /// We are not using `NonZeroU32` here because `expect` and `unwrap` are not yet const, so global
 /// constants of `SessionWindowSize` would require `lazy_static` in that case.
@@ -471,7 +471,7 @@ impl CollationResult {
 
 /// Collation function.
 ///
-/// Will be called with the hash of the relay chain block the parachain block should be build on and
+/// Will be called with the hash of the relay chain block the parachain block should be built on and
 /// the [`PersistedValidationData`] that provides information about the state of the parachain on
 /// the relay chain.
 ///

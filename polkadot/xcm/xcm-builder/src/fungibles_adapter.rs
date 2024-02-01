@@ -81,7 +81,7 @@ pub enum MintLocation {
 /// where the `asset` is not minted locally).
 pub trait AssetChecking<AssetId> {
 	/// Return the teleportation asset-checking policy for the given `asset`. `None` implies no
-	/// checking. Otherwise the policy detailed by the inner `MintLocation` should be respected by
+	/// checking. Otherwise, the policy detailed by the inner `MintLocation` should be respected by
 	/// teleportation.
 	fn asset_checking(asset: &AssetId) -> Option<MintLocation>;
 }

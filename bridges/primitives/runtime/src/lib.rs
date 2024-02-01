@@ -247,7 +247,7 @@ pub fn storage_value_key(pallet_prefix: &str, value_name: &str) -> StorageKey {
 	StorageKey(final_key)
 }
 
-/// Can be use to access the runtime storage key of a `StorageMap`.
+/// Can be used to access the runtime storage key of a `StorageMap`.
 pub trait StorageMapKeyProvider {
 	/// The name of the variable that holds the `StorageMap`.
 	const MAP_NAME: &'static str;
@@ -269,7 +269,7 @@ pub trait StorageMapKeyProvider {
 	}
 }
 
-/// Can be use to access the runtime storage key of a `StorageDoubleMap`.
+/// Can be used to access the runtime storage key of a `StorageDoubleMap`.
 pub trait StorageDoubleMapKeyProvider {
 	/// The name of the variable that holds the `StorageDoubleMap`.
 	const MAP_NAME: &'static str;

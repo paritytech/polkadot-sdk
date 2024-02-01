@@ -239,7 +239,7 @@ pub mod pallet {
 
 		/// Slash and `deregister` relayer. This function slashes all staked balance.
 		///
-		/// It may fail inside, but error is swallowed and we only log it.
+		/// It may fail inside, but the error is swallowed, and we only log it.
 		pub fn slash_and_deregister(
 			relayer: &T::AccountId,
 			slash_destination: RewardsAccountParams,
@@ -285,8 +285,8 @@ pub mod pallet {
 				Err(e) => {
 					// TODO: document this. Where?
 
-					// it may fail if there's no beneficiary account. For us it means that this
-					// account must exists before we'll deploy the bridge
+					// it may fail if there's no beneficiary account. For us, it means that this
+					// account must exist before we'll deploy the bridge
 					log::debug!(
 						target: crate::LOG_TARGET,
 						"Failed to slash relayer account {:?}: {:?}. Maybe beneficiary account doesn't exist? \

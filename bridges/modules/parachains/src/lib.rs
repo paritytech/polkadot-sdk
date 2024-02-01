@@ -205,9 +205,9 @@ pub mod pallet {
 		/// Parachain head data builder.
 		///
 		/// We never store parachain heads here, since they may be too big (e.g. because of large
-		/// digest items). Instead we're using the same approach as `pallet-bridge-grandpa`
+		/// digest items). Instead, we're using the same approach as `pallet-bridge-grandpa`
 		/// pallet - we are only storing `bp_messages::StoredHeaderData` (number and state root),
-		/// which is enough for our applications. However, we work with different parachains here
+		/// which is enough for our applications. However, we work with different parachains here,
 		/// and they can use different primitives (for block numbers and hash). So we can't store
 		/// it directly. Instead, we're storing `bp_messages::StoredHeaderData` in SCALE-encoded
 		/// form, wrapping it into `bp_parachains::ParaStoredHeaderData`.
@@ -218,7 +218,7 @@ pub mod pallet {
 		/// Maximal number of single parachain heads to keep in the storage.
 		///
 		/// The setting is there to prevent growing the on-chain state indefinitely. Note
-		/// the setting does not relate to parachain block numbers - we will simply keep as much
+		/// the setting does not relate to parachain block numbers - we will simply keep as many
 		/// items in the storage, so it doesn't guarantee any fixed timeframe for heads.
 		///
 		/// Incautious change of this constant may lead to orphan entries in the runtime storage.
@@ -322,8 +322,8 @@ pub mod pallet {
 		/// - the relay chain block `at_relay_block` is not imported by the associated bridge
 		///   GRANDPA pallet.
 		///
-		/// The call may succeed, but some heads may not be updated e.g. because pallet knows
-		/// better head or it isn't tracked by the pallet.
+		/// The call may succeed, but some heads may not be updated e.g. because the pallet knows
+		/// better head, or it isn't tracked by the pallet.
 		#[pallet::call_index(0)]
 		#[pallet::weight(WeightInfoOf::<T, I>::submit_parachain_heads_weight(
 			T::DbWeight::get(),

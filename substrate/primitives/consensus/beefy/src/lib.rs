@@ -136,7 +136,7 @@ pub mod bls_crypto {
 			// `w3f-bls` library uses IETF hashing standard and as such does not expose
 			// a choice of hash to field function.
 			// We are directly calling into the library to avoid introducing new host call.
-			// and because BeefyAuthorityId::verify is being called in the runtime so we don't have
+			// And because BeefyAuthorityId::verify is being called in the runtime, so we don't have to
 
 			BlsPair::verify(signature.as_inner_ref(), msg, self.as_inner_ref())
 		}

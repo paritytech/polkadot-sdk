@@ -42,11 +42,13 @@ const BEST_EFFORT_QUEUE_SIZE: usize = 100;
 #[cfg(test)]
 const BEST_EFFORT_QUEUE_SIZE: usize = 3;
 
-/// How many priority disputes can be queued.
+/// How many priority disputes can be queued?
 ///
 /// Once the queue exceeds that size, we will start to drop the newest participation requests in
-/// the queue. Note that for each vote import the request will be re-added, if there is free
-/// capacity. This limit just serves as a safe guard, it is not expected to ever really be reached.
+/// the queue.
+/// Note that for each vote import, the request will be re-added if there is free
+/// capacity.
+/// This limit just serves as a safeguard, it is not expected to ever really be reached.
 ///
 /// For 100 parachains, this would allow for every single candidate in 100 blocks on
 /// two forks to get disputed, which should be plenty to deal with any realistic attack.
@@ -56,7 +58,7 @@ const PRIORITY_QUEUE_SIZE: usize = 20_000;
 const PRIORITY_QUEUE_SIZE: usize = 2;
 
 /// Queues for dispute participation.
-/// In both queues we have a strict ordering of candidates and participation will
+/// In both queues, we have a strict ordering of candidates and participation will
 /// happen in that order. Refer to `CandidateComparator` for details on the ordering.
 pub struct Queues {
 	/// Set of best effort participation requests.
@@ -185,7 +187,7 @@ impl Queues {
 		Self { best_effort: BTreeMap::new(), priority: BTreeMap::new(), metrics }
 	}
 
-	/// Will put message in queue, either priority or best effort depending on priority.
+	/// Will put the message in queue, either priority or best effort depending on priority.
 	///
 	/// If the message was already previously present on best effort, it will be moved to priority
 	/// if it is considered priority now.
@@ -245,7 +247,7 @@ impl Queues {
 		Ok(())
 	}
 
-	/// Will put message in queue, either priority or best effort depending on priority.
+	/// Will put the message in queue, either priority or best effort depending on priority.
 	///
 	/// If the message was already previously present on best effort, it will be moved to priority
 	/// if it is considered priority now.
@@ -289,8 +291,8 @@ impl Queues {
 			self.metrics.report_best_effort_queue_size(self.best_effort.len() as u64);
 		} else {
 			if self.priority.contains_key(&comparator) {
-				// The candidate is already in priority queue - don't
-				// add in in best effort too.
+				// The candidate is already in the priority queue - don't
+				// add it in best effort too.
 				return Ok(())
 			}
 			if self.best_effort.len() >= BEST_EFFORT_QUEUE_SIZE {
@@ -346,14 +348,14 @@ impl Queues {
 /// This `comparator` makes it possible to order disputes based on age and to ensure some fairness
 /// between chains in case of equally old disputes.
 ///
-/// Objective ordering between nodes is important in case of lots disputes, so nodes will pull in
+/// Objective ordering between nodes is important in case of lots of disputes, so nodes will pull in
 /// the same direction and work on resolving the same disputes first. This ensures that we will
 /// conclude some disputes, even if there are lots of them. While any objective ordering would
 /// suffice for this goal, ordering by age ensures we are not only resolving disputes, but also
 /// resolve the oldest one first, which are also the most urgent and important ones to resolve.
 ///
 /// Note: That by `oldest` we mean oldest in terms of relay chain block number, for any block
-/// number that has not yet been finalized. If a block has been finalized already it should be
+/// number that has not yet been finalized. If a block has been finalized already, it should be
 /// treated as low priority when it comes to disputes, as even in the case of a negative outcome,
 /// we are already too late. The ordering mechanism here serves to prevent this from happening in
 /// the first place.
@@ -361,16 +363,16 @@ impl Queues {
 #[cfg_attr(test, derive(Debug))]
 struct CandidateComparator {
 	/// Block number of the relay parent. It's wrapped in an `Option<>` because there are cases
-	/// when it can't be obtained. For example when the node is lagging behind and new leaves are
+	/// when it can't be obtained. For example, when the node is lagging behind and new leaves are
 	/// received with a slight delay. Candidates with unknown relay parent are treated with the
 	/// lowest priority.
 	///
 	/// The order enforced by `CandidateComparator` is important because we want to participate in
 	/// the oldest disputes first.
 	///
-	/// Note: In theory it would make more sense to use the `BlockNumber` of the including
+	/// Note: In theory, it would make more sense to use the `BlockNumber` of the including
 	/// block, as inclusion time is the actual relevant event when it comes to ordering. The
-	/// problem is, that a candidate can get included multiple times on forks, so the `BlockNumber`
+	/// problem is that a candidate can get included multiple times on forks, so the `BlockNumber`
 	/// of the including block is not unique. We could theoretically work around that problem, by
 	/// just using the lowest `BlockNumber` of all available including blocks - the problem is,
 	/// that is not stable. If a new fork appears after the fact, we would start ordering the same
@@ -396,7 +398,7 @@ impl CandidateComparator {
 	///
 	/// Returns:
 	/// 	- `Ok(CandidateComparator{Some(relay_parent_block_number), candidate_hash})` when the
-	/// 	relay parent can be obtained. This is the happy case.
+	/// 	relay parent can be obtained. This is the happy path.
 	/// - `Ok(CandidateComparator{None, candidate_hash})` in case the candidate's relay parent
 	/// 	can't be obtained.
 	/// 	- `FatalError` in case the chain API call fails with an unexpected error.

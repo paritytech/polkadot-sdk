@@ -47,7 +47,7 @@ use polkadot_node_subsystem_util::{runtime, runtime::RuntimeInfo};
 /// participating in the dispute and to each authority currently authoring blocks. The sending can
 /// be initiated by sending `DisputeDistributionMessage::SendDispute` message to this subsystem.
 ///
-/// In addition the `DisputeSender` will query the coordinator for active disputes on each
+/// In addition, the `DisputeSender` will query the coordinator for active disputes on each
 /// [`DisputeSender::update_leaves`] call and will initiate sending (start a `SendTask`) for every,
 /// to this subsystem, unknown dispute. This is to make sure, we get our vote out, even on
 /// restarts.
@@ -60,7 +60,7 @@ use self::sender::{DisputeSender, DisputeSenderMessage};
 
 /// ## The receiver [`DisputesReceiver`]
 ///
-/// The receiving side is implemented as `DisputesReceiver` and is run as a separate long running
+/// The receiving side is implemented as `DisputesReceiver` and is run as a separate long-running
 /// task within this subsystem ([`DisputesReceiver::run`]).
 ///
 /// Conceptually all the receiver has to do, is waiting for incoming requests which are passed in
@@ -194,7 +194,7 @@ where
 
 		// Process messages for sending side.
 		//
-		// Note: We want the sender to be rate limited and we are currently taking advantage of the
+		// Note: We want the sender to be rate limited, and we are currently taking advantage of the
 		// fact that the root task of this subsystem is only concerned with sending: Functions of
 		// `DisputeSender` might back pressure if the rate limit is hit, which will slow down this
 		// loop. If this fact ever changes, we will likely need another task.

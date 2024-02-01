@@ -9,7 +9,6 @@ module and the final goal is to hand message to the message dispatch mechanism.
 - [Message Workflow](#message-workflow)
 - [Integrating Message Lane Module into Runtime](#integrating-messages-module-into-runtime)
 - [Non-Essential Functionality](#non-essential-functionality)
-- [Weights of Module Extrinsics](#weights-of-module-extrinsics)
 
 ## Overview
 

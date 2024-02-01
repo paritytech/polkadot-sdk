@@ -23,12 +23,12 @@ use serde::{Deserialize, Serialize};
 ///
 /// For some RPCs it's convenient to call them with either
 /// a single value or a whole list of values to get a proper response.
-/// In theory you could do a batch query, but it's:
+/// In theory, you could do a batch query, but it's:
 /// 1. Less convenient in client libraries
 /// 2. If the response value is small, the protocol overhead might be dominant.
 ///
-/// Also it's nice to be able to maintain backward compatibility for methods that
-/// were initially taking a value and now we want to expand them to take a list.
+/// Also, it's nice to be able to maintain backward compatibility for methods that
+/// were initially taking a value, and now we want to expand them to take a list.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(untagged)]
 pub enum ListOrValue<T> {
