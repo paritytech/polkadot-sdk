@@ -1700,7 +1700,7 @@ where
 					warn!(
 						target: LOG_TARGET,
 						"State inconsistency: peer {peer_id} is in the pool of connected peers, \
-						 but not known to `WarpSync`.",
+						 but not known to `ChainSync`.",
 					);
 					debug_assert!(false);
 					None
