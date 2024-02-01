@@ -348,7 +348,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use sp_core::storage::Storage;
 use sp_runtime::BuildStorage;
 
-/// The type of a chain.
+/// The type of chain.
 ///
 /// Tools can use this to determine the type of a chain for displaying
 /// additional information or enabling additional features.

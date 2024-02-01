@@ -1296,7 +1296,7 @@ mod tests {
 				assert_err!(submit_invalid_request(), <Error<TestRuntime>>::InvalidJustification);
 			}
 
-			// Can still submit free mandatory headers afterward
+			// Can still submit free mandatory headers afterwards
 			let result = submit_mandatory_finality_proof(1, 1);
 			assert_eq!(result.expect("call failed").pays_fee, Pays::No);
 
