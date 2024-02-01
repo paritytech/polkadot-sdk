@@ -239,7 +239,13 @@ pub mod pallet {
 		/// - `validation_code`: The initial validation code of the parachain/thread.
 		///
 		/// ## Deposits/Fees
-		/// The origin signed account must reserve a corresponding deposit for the registration.
+		/// The account with the originating signature must reserve a deposit.
+		///
+		/// The deposit is required to cover the costs associated with storing the genesis head
+		/// data and the validation code.
+		/// This accounts for the potential to store validation code of a size up to the
+		/// `max_code_size`, as defined in the configuration pallet
+		///
 		/// Anything already reserved previously for this para ID is accounted for.
 		///
 		/// ## Events
@@ -661,7 +667,7 @@ impl<T: Config> Pallet<T> {
 		let per_byte_fee = T::DataDepositPerByte::get();
 		let deposit = T::ParaDeposit::get()
 			.saturating_add(per_byte_fee.saturating_mul((genesis_head.0.len() as u32).into()))
-			.saturating_add(per_byte_fee.saturating_mul((validation_code.0.len() as u32).into()));
+			.saturating_add(per_byte_fee.saturating_mul(config.max_code_size.into()));
 
 		Ok((ParaGenesisArgs { genesis_head, validation_code, para_kind }, deposit))
 	}
@@ -724,13 +730,13 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-			Configuration: configuration::{Pallet, Call, Storage, Config<T>},
-			Parachains: paras::{Pallet, Call, Storage, Config<T>, Event},
-			ParasShared: shared::{Pallet, Call, Storage},
-			Registrar: paras_registrar::{Pallet, Call, Storage, Event<T>},
-			ParachainsOrigin: origin::{Pallet, Origin},
+			System: frame_system,
+			Balances: pallet_balances,
+			Configuration: configuration,
+			Parachains: paras,
+			ParasShared: shared,
+			Registrar: paras_registrar,
+			ParachainsOrigin: origin,
 		}
 	);
 
@@ -795,7 +801,6 @@ mod tests {
 		type RuntimeHoldReason = RuntimeHoldReason;
 		type RuntimeFreezeReason = RuntimeFreezeReason;
 		type FreezeIdentifier = ();
-		type MaxHolds = ConstU32<1>;
 		type MaxFreezes = ConstU32<1>;
 	}
 
@@ -1013,10 +1018,16 @@ mod tests {
 
 			run_to_session(START_SESSION_INDEX + 2);
 			assert!(Parachains::is_parathread(para_id));
+			// Even though the registered validation code has a smaller size than the maximum the
+			// para manager's deposit is reserved as though they registered the maximum-sized code.
+			// Consequently, they can upgrade their code to the maximum size at any point without
+			// additional cost.
+			let validation_code_deposit =
+				max_code_size() as BalanceOf<Test> * <Test as Config>::DataDepositPerByte::get();
+			let head_deposit = 32 * <Test as Config>::DataDepositPerByte::get();
 			assert_eq!(
 				Balances::reserved_balance(&1),
-				<Test as Config>::ParaDeposit::get() +
-					64 * <Test as Config>::DataDepositPerByte::get()
+				<Test as Config>::ParaDeposit::get() + head_deposit + validation_code_deposit
 			);
 		});
 	}

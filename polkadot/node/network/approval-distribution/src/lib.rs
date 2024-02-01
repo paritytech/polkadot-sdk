@@ -36,7 +36,9 @@ use polkadot_node_network_protocol::{
 	UnifiedReputationChange as Rep, Versioned, View,
 };
 use polkadot_node_primitives::approval::{
-	v1::{AssignmentCertKind, BlockApprovalMeta, IndirectAssignmentCert},
+	v1::{
+		AssignmentCertKind, BlockApprovalMeta, IndirectAssignmentCert, IndirectSignedApprovalVote,
+	},
 	v2::{
 		AsBitIndex, AssignmentCertKindV2, CandidateBitfield, IndirectAssignmentCertV2,
 		IndirectSignedApprovalVoteV2,
@@ -284,12 +286,12 @@ struct AggressionConfig {
 }
 
 impl AggressionConfig {
-	/// Returns `true` if lag is past threshold depending on the aggression level
-	fn should_trigger_aggression(&self, approval_checking_lag: BlockNumber) -> bool {
+	/// Returns `true` if age is past threshold depending on the aggression level
+	fn should_trigger_aggression(&self, age: BlockNumber) -> bool {
 		if let Some(t) = self.l1_threshold {
-			approval_checking_lag >= t
+			age >= t
 		} else if let Some(t) = self.resend_unfinalized_period {
-			approval_checking_lag > 0 && approval_checking_lag % t == 0
+			age > 0 && age % t == 0
 		} else {
 			false
 		}
@@ -299,7 +301,7 @@ impl AggressionConfig {
 impl Default for AggressionConfig {
 	fn default() -> Self {
 		AggressionConfig {
-			l1_threshold: Some(13),
+			l1_threshold: Some(16),
 			l2_threshold: Some(28),
 			resend_unfinalized_period: Some(8),
 		}
@@ -667,9 +669,12 @@ impl State {
 		rng: &mut (impl CryptoRng + Rng),
 	) {
 		match event {
-			NetworkBridgeEvent::PeerConnected(peer_id, role, version, _) => {
+			NetworkBridgeEvent::PeerConnected(peer_id, role, version, authority_ids) => {
+				gum::trace!(target: LOG_TARGET, ?peer_id, ?role, ?authority_ids, "Peer connected");
+				if let Some(authority_ids) = authority_ids {
+					self.topologies.update_authority_ids(peer_id, &authority_ids);
+				}
 				// insert a blank view if none already present
-				gum::trace!(target: LOG_TARGET, ?peer_id, ?role, "Peer connected");
 				self.peer_views
 					.entry(peer_id)
 					.or_insert(PeerEntry { view: Default::default(), version });
@@ -716,8 +721,41 @@ impl State {
 			NetworkBridgeEvent::PeerMessage(peer_id, message) => {
 				self.process_incoming_peer_message(ctx, metrics, peer_id, message, rng).await;
 			},
-			NetworkBridgeEvent::UpdatedAuthorityIds { .. } => {
-				// The approval-distribution subsystem doesn't deal with `AuthorityDiscoveryId`s.
+			NetworkBridgeEvent::UpdatedAuthorityIds(peer_id, authority_ids) => {
+				gum::debug!(target: LOG_TARGET, ?peer_id, ?authority_ids, "Update Authority Ids");
+				// If we learn about a new PeerId for an authority ids we need to try to route the
+				// messages that should have sent to that validator according to the topology.
+				if self.topologies.update_authority_ids(peer_id, &authority_ids) {
+					if let Some(PeerEntry { view, version }) = self.peer_views.get(&peer_id) {
+						let intersection = self
+							.blocks_by_number
+							.iter()
+							.filter(|(block_number, _)| *block_number > &view.finalized_number)
+							.flat_map(|(_, hashes)| {
+								hashes.iter().filter(|hash| {
+									self.blocks
+										.get(&hash)
+										.map(|block| block.known_by.get(&peer_id).is_some())
+										.unwrap_or_default()
+								})
+							});
+						let view_intersection =
+							View::new(intersection.cloned(), view.finalized_number);
+						Self::unify_with_peer(
+							ctx.sender(),
+							metrics,
+							&mut self.blocks,
+							&self.topologies,
+							self.peer_views.len(),
+							peer_id,
+							*version,
+							view_intersection,
+							rng,
+							true,
+						)
+						.await;
+					}
+				}
 			},
 		}
 	}
@@ -789,6 +827,7 @@ impl State {
 					*version,
 					view_intersection,
 					rng,
+					false,
 				)
 				.await;
 			}
@@ -1026,17 +1065,17 @@ impl State {
 				.await;
 			},
 			Versioned::V3(protocol_v3::ApprovalDistributionMessage::Approvals(approvals)) => {
-				self.process_incoming_approvals(ctx, metrics, peer_id, approvals).await;
+				let sanitized_approvals =
+					self.sanitize_v2_approvals(peer_id, ctx.sender(), approvals).await;
+				self.process_incoming_approvals(ctx, metrics, peer_id, sanitized_approvals)
+					.await;
 			},
 			Versioned::V1(protocol_v1::ApprovalDistributionMessage::Approvals(approvals)) |
 			Versioned::V2(protocol_v2::ApprovalDistributionMessage::Approvals(approvals)) => {
-				self.process_incoming_approvals(
-					ctx,
-					metrics,
-					peer_id,
-					approvals.into_iter().map(|approval| approval.into()).collect::<Vec<_>>(),
-				)
-				.await;
+				let sanitized_approvals =
+					self.sanitize_v1_approvals(peer_id, ctx.sender(), approvals).await;
+				self.process_incoming_approvals(ctx, metrics, peer_id, sanitized_approvals)
+					.await;
 			},
 		}
 	}
@@ -1101,6 +1140,7 @@ impl State {
 			protocol_version,
 			view,
 			rng,
+			false,
 		)
 		.await;
 	}
@@ -1838,6 +1878,7 @@ impl State {
 		protocol_version: ProtocolVersion,
 		view: View,
 		rng: &mut (impl CryptoRng + Rng),
+		retry_known_blocks: bool,
 	) {
 		metrics.on_unify_with_peer();
 		let _timer = metrics.time_unify_with_peer();
@@ -1856,10 +1897,12 @@ impl State {
 					_ => break,
 				};
 
-				// Any peer which is in the `known_by` set has already been
-				// sent all messages it's meant to get for that block and all
-				// in-scope prior blocks.
-				if entry.known_by.contains_key(&peer_id) {
+				// Any peer which is in the `known_by` see and we know its peer_id authorithy id
+				// mapping has already been sent all messages it's meant to get for that block and
+				// all in-scope prior blocks. In case, we just learnt about its peer_id
+				// authorithy-id mapping we have to retry sending the messages that should be sent
+				// to it for all un-finalized blocks.
+				if entry.known_by.contains_key(&peer_id) && !retry_known_blocks {
 					break
 				}
 
@@ -1961,6 +2004,16 @@ impl State {
 		}
 	}
 
+	// It is very important that aggression starts with oldest unfinalized block, rather than oldest
+	// unapproved block. Using the gossip approach to distribute potentially
+	// missing votes to validators requires that we always trigger on finality lag, even if
+	// we have have the approval lag value. The reason for this, is to avoid finality stall
+	// when more than 1/3 nodes go offline for a period o time. When they come back
+	// there wouldn't get any of the approvals since the on-line nodes would never trigger
+	// aggression as they have approved all the candidates and don't detect any approval lag.
+	//
+	// In order to switch to using approval lag as a trigger we need a request/response protocol
+	// to fetch votes from validators rather than use gossip.
 	async fn enable_aggression<Context>(
 		&mut self,
 		ctx: &mut Context,
@@ -1968,27 +2021,27 @@ impl State {
 		metrics: &Metrics,
 	) {
 		let config = self.aggression_config.clone();
+		let min_age = self.blocks_by_number.iter().next().map(|(num, _)| num);
+		let max_age = self.blocks_by_number.iter().rev().next().map(|(num, _)| num);
 
-		if !self.aggression_config.should_trigger_aggression(self.approval_checking_lag) {
+		// Return if we don't have at least 1 block.
+		let (min_age, max_age) = match (min_age, max_age) {
+			(Some(min), Some(max)) => (*min, *max),
+			_ => return, // empty.
+		};
+
+		let age = max_age.saturating_sub(min_age);
+
+		// Trigger on approval checking lag.
+		if !self.aggression_config.should_trigger_aggression(age) {
 			gum::trace!(
 				target: LOG_TARGET,
 				approval_checking_lag = self.approval_checking_lag,
+				age,
 				"Aggression not enabled",
 			);
 			return
 		}
-
-		let max_age = self.blocks_by_number.iter().rev().next().map(|(num, _)| num);
-
-		let max_age = match max_age {
-			Some(max) => *max,
-			_ => return, // empty.
-		};
-
-		// Since we have the approval checking lag, we need to set the `min_age` accordingly to
-		// enable aggresion for the oldest block that is not approved.
-		let min_age = max_age.saturating_sub(self.approval_checking_lag);
-
 		gum::debug!(target: LOG_TARGET, min_age, max_age, "Aggression enabled",);
 
 		adjust_required_routing_and_propagate(
@@ -2044,8 +2097,7 @@ impl State {
 
 				let mut new_required_routing = *required_routing;
 
-				if config.l1_threshold.as_ref().map_or(false, |t| &self.approval_checking_lag >= t)
-				{
+				if config.l1_threshold.as_ref().map_or(false, |t| &age >= t) {
 					// Message originator sends to everyone.
 					if local && new_required_routing != RequiredRouting::All {
 						metrics.on_aggression_l1();
@@ -2053,8 +2105,7 @@ impl State {
 					}
 				}
 
-				if config.l2_threshold.as_ref().map_or(false, |t| &self.approval_checking_lag >= t)
-				{
+				if config.l2_threshold.as_ref().map_or(false, |t| &age >= t) {
 					// Message originator sends to everyone. Everyone else sends to XY.
 					if !local && new_required_routing != RequiredRouting::GridXY {
 						metrics.on_aggression_l2();
@@ -2146,6 +2197,60 @@ impl State {
 		}
 
 		sanitized_assignments
+	}
+
+	// Filter out obviously invalid candidate indicies.
+	async fn sanitize_v1_approvals(
+		&mut self,
+		peer_id: PeerId,
+		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
+		approval: Vec<IndirectSignedApprovalVote>,
+	) -> Vec<IndirectSignedApprovalVoteV2> {
+		let mut sanitized_approvals = Vec::new();
+		for approval in approval.into_iter() {
+			if approval.candidate_index as usize > MAX_BITFIELD_SIZE {
+				// Punish the peer for the invalid message.
+				modify_reputation(&mut self.reputation, sender, peer_id, COST_OVERSIZED_BITFIELD)
+					.await;
+				gum::debug!(
+					target: LOG_TARGET,
+					block_hash = ?approval.block_hash,
+					candidate_index = ?approval.candidate_index,
+					"Bad approval v1, invalid candidate index"
+				);
+			} else {
+				sanitized_approvals.push(approval.into())
+			}
+		}
+
+		sanitized_approvals
+	}
+
+	// Filter out obviously invalid candidate indicies.
+	async fn sanitize_v2_approvals(
+		&mut self,
+		peer_id: PeerId,
+		sender: &mut impl overseer::ApprovalDistributionSenderTrait,
+		approval: Vec<IndirectSignedApprovalVoteV2>,
+	) -> Vec<IndirectSignedApprovalVoteV2> {
+		let mut sanitized_approvals = Vec::new();
+		for approval in approval.into_iter() {
+			if approval.candidate_indices.len() as usize > MAX_BITFIELD_SIZE {
+				// Punish the peer for the invalid message.
+				modify_reputation(&mut self.reputation, sender, peer_id, COST_OVERSIZED_BITFIELD)
+					.await;
+				gum::debug!(
+					target: LOG_TARGET,
+					block_hash = ?approval.block_hash,
+					candidate_indices_len = ?approval.candidate_indices.len(),
+					"Bad approval v2, invalid candidate indices size"
+				);
+			} else {
+				sanitized_approvals.push(approval)
+			}
+		}
+
+		sanitized_approvals
 	}
 }
 
