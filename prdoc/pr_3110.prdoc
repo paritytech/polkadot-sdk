@@ -1,0 +1,12 @@
+title: Nomination pools Fix payout destination in permissionless unbond
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR fixes an issue whereby when a nomination pool allowed for permissionless unbonding of
+      funds, the implicit claimed rewards were mistakenly sent to the caller of the `unbond`, and
+      not the actual member. A nomination pool only allows permissionless unbonding when its state
+      was set into `Destroying` by the operator
+
+crates:
+  - name: pallet-nomination-pools

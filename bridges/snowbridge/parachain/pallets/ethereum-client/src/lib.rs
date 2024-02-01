@@ -552,7 +552,7 @@ pub mod pallet {
 			let latest_execution_state: ExecutionHeaderState = Self::latest_execution_state();
 			ensure!(
 				latest_execution_state.block_number == 0 ||
-					update.execution_header.block_number ==
+					update.execution_header.block_number() ==
 						latest_execution_state.block_number + 1,
 				Error::<T>::ExecutionHeaderSkippedBlock
 			);
@@ -603,7 +603,7 @@ pub mod pallet {
 			}
 
 			Self::store_execution_header(
-				update.execution_header.block_hash,
+				update.execution_header.block_hash(),
 				update.execution_header.clone().into(),
 				update.header.slot,
 				block_root,
@@ -786,6 +786,9 @@ pub mod pallet {
 
 		/// Returns the fork version based on the current epoch.
 		pub(super) fn select_fork_version(fork_versions: &ForkVersions, epoch: u64) -> ForkVersion {
+			if epoch >= fork_versions.deneb.epoch {
+				return fork_versions.deneb.version
+			}
 			if epoch >= fork_versions.capella.epoch {
 				return fork_versions.capella.version
 			}
@@ -795,7 +798,6 @@ pub mod pallet {
 			if epoch >= fork_versions.altair.epoch {
 				return fork_versions.altair.version
 			}
-
 			fork_versions.genesis.version
 		}
 
@@ -813,7 +815,7 @@ pub mod pallet {
 			let mut pubkeys: Vec<PublicKeyPrepared> = Vec::new();
 			for (bit, pubkey) in sync_committee_bits.iter().zip(sync_committee_pubkeys.iter()) {
 				if *bit == u8::from(participant) {
-					pubkeys.push(*pubkey);
+					pubkeys.push(pubkey.clone());
 				}
 			}
 			pubkeys

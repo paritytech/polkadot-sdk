@@ -287,7 +287,8 @@ mod tests {
 			AssertCompleteBridgeConstants,
 		},
 	};
-	use parachains_common::{westend, Balance};
+	use parachains_common::Balance;
+	use testnet_parachains_constants::westend;
 
 	/// Every additional message in the message delivery transaction boosts its priority.
 	/// So the priority of transaction with `N+1` messages is larger than priority of

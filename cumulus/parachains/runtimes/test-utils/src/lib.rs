@@ -33,7 +33,7 @@ use polkadot_parachain_primitives::primitives::{
 	HeadData, HrmpChannelId, RelayChainBlockNumber, XcmpMessageFormat,
 };
 use sp_consensus_aura::{SlotDuration, AURA_ENGINE_ID};
-use sp_core::Encode;
+use sp_core::{Encode, U256};
 use sp_runtime::{traits::Header, BuildStorage, Digest, DigestItem};
 use xcm::{
 	latest::{Asset, Location, XcmContext, XcmHash},
@@ -298,6 +298,10 @@ where
 
 	pub fn root_origin() -> <Runtime as frame_system::Config>::RuntimeOrigin {
 		<Runtime as frame_system::Config>::RuntimeOrigin::root()
+	}
+
+	pub fn block_number() -> U256 {
+		frame_system::Pallet::<Runtime>::block_number().into()
 	}
 
 	pub fn origin_of(

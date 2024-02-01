@@ -81,13 +81,12 @@ use xcm::latest::prelude::*;
 
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
-pub use parachains_common::westend::consensus::RELAY_CHAIN_SLOT_DURATION_MILLIS;
 use parachains_common::{
 	impls::DealWithFees,
-	westend::{currency::*, fee::WeightToFee},
 	AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
 	HOURS, NORMAL_DISPATCH_RATIO,
 };
+use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee};
 
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;
@@ -306,7 +305,6 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<0>;
 }
 

@@ -59,11 +59,11 @@ pub use parachains_common as common;
 use parachains_common::{
 	impls::DealWithFees,
 	message_queue::*,
-	rococo::{consensus::RELAY_CHAIN_SLOT_DURATION_MILLIS, currency::*, fee::WeightToFee},
 	AccountId, BlockNumber, Hash, Header, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO, MINUTES,
 	NORMAL_DISPATCH_RATIO,
 };
 pub use parachains_common::{AuraId, Balance};
+use testnet_parachains_constants::rococo::{consensus::*, currency::*, fee::WeightToFee};
 use xcm_config::CollatorSelectionUpdateOrigin;
 
 #[cfg(any(feature = "std", test))]
@@ -242,7 +242,6 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<1>;
 	type MaxFreezes = ConstU32<0>;
 }
 
