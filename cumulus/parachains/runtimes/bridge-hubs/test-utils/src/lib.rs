@@ -23,9 +23,10 @@ pub use bp_test_utils::test_header;
 pub use parachains_runtimes_test_utils::*;
 use sp_runtime::Perbill;
 
-/// Helper function for checking fee constant actual value with actual estimated value.
-/// The estimated value can be overestimated (`overestimate_in_percent`) and if diff to actual value
-/// is bellow `margin_overestimate_diff_in_percent_for_lowering` we should lower actual value.
+/// A helper function for comparing the actual value of a fee constant with its estimated value. The
+/// estimated value can be overestimated (`overestimate_in_percent`), and if the difference to the
+/// actual value is below `margin_overestimate_diff_in_percent_for_lowering`, we should lower the
+/// actual value.
 pub fn check_sane_fees_values(
 	const_name: &str,
 	actual: u128,
