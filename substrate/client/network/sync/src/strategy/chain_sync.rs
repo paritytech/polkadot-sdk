@@ -31,7 +31,7 @@
 use super::PeerPool;
 use crate::{
 	blocks::BlockCollection,
-	extra_requests::ExtraRequests,
+	justification_requests::ExtraRequests,
 	schema::v1::StateResponse,
 	strategy::{
 		state_sync::{ImportResult, StateSync, StateSyncProvider},
