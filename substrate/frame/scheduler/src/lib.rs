@@ -954,6 +954,7 @@ impl<T: Config> Pallet<T> {
 			if let Some(id) = s.maybe_id {
 				Lookup::<T>::remove(id);
 			}
+			let _entry = Retries::<T>::take((when, index));
 			Self::cleanup_agenda(when);
 			Self::deposit_event(Event::Canceled { when, index });
 			Ok(())
@@ -1032,6 +1033,7 @@ impl<T: Config> Pallet<T> {
 					if let Some(s) = agenda.get_mut(i) {
 						if let (Some(ref o), Some(ref s)) = (origin, s.borrow()) {
 							Self::ensure_privilege(o, &s.origin)?;
+							let _ = Retries::<T>::take((when, index));
 							T::Preimages::drop(&s.call);
 						}
 						*s = None;

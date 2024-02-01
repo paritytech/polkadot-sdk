@@ -1631,6 +1631,81 @@ fn should_check_origin_for_cancel() {
 }
 
 #[test]
+fn cancel_removes_retry_entry() {
+	new_test_ext().execute_with(|| {
+		// task fails until block 99 is reached
+		Threshold::<Test>::put((99, 100));
+		// task 20 at #4
+		assert_ok!(Scheduler::do_schedule(
+			DispatchTime::At(4),
+			None,
+			127,
+			root(),
+			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+				i: 20,
+				weight: Weight::from_parts(10, 0)
+			}))
+			.unwrap()
+		));
+		// named task 42 at #4
+		assert_ok!(Scheduler::do_schedule_named(
+			[1u8; 32],
+			DispatchTime::At(4),
+			None,
+			127,
+			root(),
+			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+				i: 42,
+				weight: Weight::from_parts(10, 0)
+			}))
+			.unwrap()
+		));
+
+		assert_eq!(Agenda::<Test>::get(4).len(), 2);
+		// task 20 will be retried 3 times every block
+		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, 1));
+		// task 42 will be retried 10 times every 3 blocks
+		assert_ok!(Scheduler::set_retry_named(root().into(), [1u8; 32], 10, 1));
+		assert_eq!(Retries::<Test>::iter().count(), 2);
+		run_to_block(3);
+		assert!(logger::log().is_empty());
+		assert_eq!(Agenda::<Test>::get(4).len(), 2);
+		// both tasks fail
+		run_to_block(4);
+		assert!(Agenda::<Test>::get(4).is_empty());
+		// 42 and 20 are rescheduled for next block
+		assert_eq!(Agenda::<Test>::get(5).len(), 2);
+		assert!(logger::log().is_empty());
+		// 42 and 20 still fail
+		run_to_block(5);
+		// 42 and 20 rescheduled for next block
+		assert_eq!(Agenda::<Test>::get(6).len(), 2);
+		assert_eq!(Retries::<Test>::iter().count(), 2);
+		assert!(logger::log().is_empty());
+
+		// 20 should be (6, 0), so 42 should have address (6, 1)
+		assert_eq!(Lookup::<Test>::get([1u8; 32]), Some((6, 1)));
+		assert!(Scheduler::cancel(root().into(), 6, 0).is_ok());
+
+		// 20 is removed, 42 still fails
+		run_to_block(6);
+		// 42 rescheduled for next block
+		assert_eq!(Agenda::<Test>::get(7).len(), 1);
+		// 20's retry entry is removed
+		assert!(!Retries::<Test>::contains_key((4, 0)));
+		assert_eq!(Retries::<Test>::iter().count(), 1);
+		assert!(logger::log().is_empty());
+
+		assert!(Scheduler::cancel_named(root().into(), [1u8; 32]).is_ok());
+
+		// both tasks are canceled, everything is removed now
+		run_to_block(7);
+		assert!(Agenda::<Test>::get(8).is_empty());
+		assert_eq!(Retries::<Test>::iter().count(), 0);
+	});
+}
+
+#[test]
 fn migration_to_v4_works() {
 	new_test_ext().execute_with(|| {
 		for i in 0..3u64 {
