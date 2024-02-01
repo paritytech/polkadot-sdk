@@ -1312,7 +1312,7 @@ async fn should_catch_up_when_loading_saved_voter_state() {
 	let mut net = BeefyTestNet::new(1);
 	let backend = net.peer(0).client().as_backend();
 
-	// push 15 blocks with `AuthorityChange` digests every 10 blocks
+	// push 30 blocks with `AuthorityChange` digests every 10 blocks
 	let hashes = net.generate_blocks_and_sync(30, 10, &validator_set, false).await;
 	let mut finality = net.peer(0).client().as_client().finality_notification_stream().fuse();
 	// finalize 13 without justifications
