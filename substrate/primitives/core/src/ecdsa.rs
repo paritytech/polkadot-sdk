@@ -649,12 +649,15 @@ mod test {
 		let (pair, phrase, seed) = Pair::generate_with_phrase(None);
 		let repair_seed = Pair::from_seed_slice(seed.as_ref()).expect("seed slice is valid");
 		assert_eq!(pair.public(), repair_seed.public());
+		assert_eq!(pair.secret, repair_seed.secret);
 		let (repair_phrase, reseed) =
 			Pair::from_phrase(phrase.as_ref(), None).expect("seed slice is valid");
 		assert_eq!(seed, reseed);
 		assert_eq!(pair.public(), repair_phrase.public());
+		assert_eq!(pair.secret, repair_phrase.secret);
 		let repair_string = Pair::from_string(phrase.as_str(), None).expect("seed slice is valid");
 		assert_eq!(pair.public(), repair_string.public());
+		assert_eq!(pair.secret, repair_string.secret);
 	}
 
 	#[test]
