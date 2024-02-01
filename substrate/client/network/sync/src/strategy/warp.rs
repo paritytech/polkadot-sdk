@@ -29,7 +29,7 @@ use crate::{
 use codec::{Decode, Encode};
 use futures::channel::oneshot;
 use libp2p::PeerId;
-use log::{debug, error, trace, warn};
+use log::{debug, error, trace};
 use sc_network_common::sync::message::{
 	BlockAnnounce, BlockAttributes, BlockData, BlockRequest, Direction, FromBlock,
 };
@@ -493,21 +493,10 @@ where
 		let threshold = std::cmp::max(median, min_best_number.unwrap_or(Zero::zero()));
 		// Find a random available peer that is synced as much as peer majority and is above
 		// `min_best_number`.
-		for mut available_peer in self.peer_pool.lock().available_peers() {
-			let peer_id = available_peer.peer_id();
-			if let Some(peer) = self.peers.get_mut(peer_id) {
-				if peer.best_number >= threshold {
-					available_peer.reserve();
-					peer.state = new_state;
-					return Some(*peer_id)
-				}
-			} else {
-				warn!(
-					target: LOG_TARGET,
-					"State inconsistency: peer {peer_id} is in the pool of connected peers, \
-					but not known to `WarpSync`.",
-				);
-				debug_assert!(false);
+		for (peer_id, peer) in self.peers.iter_mut() {
+			if peer.best_number >= threshold && self.peer_pool.try_reserve_peer(peer_id) {
+				peer.state = new_state;
+				return Some(*peer_id)
 			}
 		}
 		None
