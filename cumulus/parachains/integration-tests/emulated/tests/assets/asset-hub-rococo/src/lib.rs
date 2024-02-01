@@ -51,8 +51,8 @@ pub use rococo_system_emulated_network::{
 	AssetHubRococoParaSender as AssetHubRococoSender, BridgeHubRococoPara as BridgeHubRococo,
 	BridgeHubRococoParaReceiver as BridgeHubRococoReceiver, PenpalAPara as PenpalA,
 	PenpalAParaReceiver as PenpalAReceiver, PenpalAParaSender as PenpalASender,
-	RococoRelay as Rococo, RococoRelayReceiver as RococoReceiver,
-	RococoRelaySender as RococoSender,
+	PenpalBPara as PenpalB, PenpalBParaReceiver as PenpalBReceiver, RococoRelay as Rococo,
+	RococoRelayReceiver as RococoReceiver, RococoRelaySender as RococoSender,
 };
 
 pub const ASSET_ID: u32 = 1;
@@ -65,6 +65,7 @@ pub type RelayToParaTest = Test<Rococo, PenpalA>;
 pub type SystemParaToRelayTest = Test<AssetHubRococo, Rococo>;
 pub type SystemParaToParaTest = Test<AssetHubRococo, PenpalA>;
 pub type ParaToSystemParaTest = Test<PenpalA, AssetHubRococo>;
+pub type ParaToParaTest = Test<PenpalA, PenpalB, Rococo>;
 
 #[cfg(test)]
 mod tests;

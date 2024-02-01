@@ -37,7 +37,7 @@ pub use members::{AllowAll, DenyAll, Filter};
 pub use members::{
 	AsContains, ChangeMembers, Contains, ContainsLengthBound, ContainsPair, Equals, Everything,
 	EverythingBut, FromContainsPair, InitializeMembers, InsideBoth, IsInVec, Nothing,
-	RankedMembers, SortedMembers, TheseExcept,
+	RankedMembers, RankedMembersSwapHandler, SortedMembers, TheseExcept,
 };
 
 mod validation;
@@ -61,7 +61,8 @@ pub use misc::{
 	DefensiveTruncateFrom, EnsureInherentsAreFirst, EqualPrivilegeOnly, EstimateCallFee,
 	ExecuteBlock, ExtrinsicCall, Get, GetBacking, GetDefault, HandleLifetime, IsSubType, IsType,
 	Len, OffchainWorker, OnKilledAccount, OnNewAccount, PrivilegeCmp, SameOrOther, Time,
-	TryCollect, TryDrop, TypedGet, UnixTime, VariantCount, WrapperKeepOpaque, WrapperOpaque,
+	TryCollect, TryDrop, TypedGet, UnixTime, VariantCount, VariantCountOf, WrapperKeepOpaque,
+	WrapperOpaque,
 };
 #[allow(deprecated)]
 pub use misc::{PreimageProvider, PreimageRecipient};

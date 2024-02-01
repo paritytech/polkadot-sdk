@@ -120,7 +120,7 @@ pub mod rococo {
 	pub(crate) const CORETIME_ROCOCO: &str = "coretime-rococo";
 	pub(crate) const CORETIME_ROCOCO_LOCAL: &str = "coretime-rococo-local";
 	pub(crate) const CORETIME_ROCOCO_DEVELOPMENT: &str = "coretime-rococo-dev";
-	const CORETIME_ROCOCO_ED: Balance = parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
+	const CORETIME_ROCOCO_ED: Balance = coretime_rococo_runtime::ExistentialDeposit::get();
 
 	pub fn local_config(runtime_type: CoretimeRuntimeType, relay_chain: &str) -> GenericChainSpec {
 		// Rococo defaults
@@ -215,7 +215,7 @@ pub mod westend {
 
 	pub(crate) const CORETIME_WESTEND_LOCAL: &str = "coretime-westend-local";
 	pub(crate) const CORETIME_WESTEND_DEVELOPMENT: &str = "coretime-westend-dev";
-	const CORETIME_WESTEND_ED: Balance = parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
+	const CORETIME_WESTEND_ED: Balance = coretime_westend_runtime::ExistentialDeposit::get();
 
 	pub fn local_config(runtime_type: CoretimeRuntimeType, relay_chain: &str) -> GenericChainSpec {
 		// westend defaults
