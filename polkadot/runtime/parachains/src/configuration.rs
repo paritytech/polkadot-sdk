@@ -174,8 +174,8 @@ pub struct HostConfiguration<BlockNumber> {
 	pub code_retention_period: BlockNumber,
 	/// How many cores are managed by the coretime chain.
 	pub coretime_cores: u32,
-	/// The number of retries that a on demand author has to submit their block.
-	pub on_demand_retries: u32,
+	/// The max number of times a claim can time out in availability
+	pub coretime_max_availability_timeouts: u32,
 	/// The maximum queue size of the pay as you go module.
 	pub on_demand_queue_max_size: u32,
 	/// The target utilization of the spot price queue in percentages.
@@ -185,10 +185,10 @@ pub struct HostConfiguration<BlockNumber> {
 	pub on_demand_fee_variability: Perbill,
 	/// The minimum amount needed to claim a slot in the spot pricing queue.
 	pub on_demand_base_fee: Balance,
-	/// The number of blocks an on demand claim stays in the scheduler's claimqueue before getting
-	/// cleared. This number should go reasonably higher than the number of blocks in the async
-	/// backing lookahead.
-	pub on_demand_ttl: BlockNumber,
+	/// The number of blocks a claim stays in the scheduler's claimqueue before getting cleared.
+	/// This number should go reasonably higher than the number of blocks in the async backing
+	/// lookahead.
+	pub coretime_ttl: BlockNumber,
 	/// How often parachain groups should be rotated across parachains.
 	///
 	/// Must be non-zero.
@@ -285,7 +285,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			max_pov_size: Default::default(),
 			max_head_data_size: Default::default(),
 			coretime_cores: Default::default(),
-			on_demand_retries: Default::default(),
+			coretime_max_availability_timeouts: Default::default(),
 			scheduling_lookahead: 1,
 			max_validators_per_core: Default::default(),
 			max_validators: None,
@@ -316,7 +316,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			on_demand_base_fee: 10_000_000u128,
 			on_demand_fee_variability: Perbill::from_percent(3),
 			on_demand_target_queue_utilization: Perbill::from_percent(25),
-			on_demand_ttl: 5u32.into(),
+			coretime_ttl: 5u32.into(),
 			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
 			node_features: NodeFeatures::EMPTY,
 		}
@@ -688,7 +688,7 @@ pub mod pallet {
 		pub fn set_on_demand_retries(origin: OriginFor<T>, new: u32) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.on_demand_retries = new;
+				config.coretime_max_availability_timeouts = new;
 			})
 		}
 
@@ -1194,7 +1194,7 @@ pub mod pallet {
 		pub fn set_on_demand_ttl(origin: OriginFor<T>, new: BlockNumberFor<T>) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.on_demand_ttl = new;
+				config.coretime_ttl = new;
 			})
 		}
 

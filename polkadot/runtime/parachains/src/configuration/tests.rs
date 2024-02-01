@@ -284,7 +284,7 @@ fn setting_pending_config_members() {
 			max_pov_size: 1024,
 			max_head_data_size: 1_000,
 			coretime_cores: 2,
-			on_demand_retries: 5,
+			coretime_max_availability_timeouts: 5,
 			group_rotation_frequency: 20,
 			paras_availability_period: 10,
 			scheduling_lookahead: 3,
@@ -318,7 +318,7 @@ fn setting_pending_config_members() {
 			on_demand_base_fee: 10_000_000u128,
 			on_demand_fee_variability: Perbill::from_percent(3),
 			on_demand_target_queue_utilization: Perbill::from_percent(25),
-			on_demand_ttl: 5u32,
+			coretime_ttl: 5u32,
 			minimum_backing_votes: 5,
 			node_features: bitvec![u8, Lsb0; 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
 		};
@@ -344,8 +344,11 @@ fn setting_pending_config_members() {
 			.unwrap();
 		Configuration::set_coretime_cores(RuntimeOrigin::root(), new_config.coretime_cores)
 			.unwrap();
-		Configuration::set_on_demand_retries(RuntimeOrigin::root(), new_config.on_demand_retries)
-			.unwrap();
+		Configuration::set_on_demand_retries(
+			RuntimeOrigin::root(),
+			new_config.coretime_max_availability_timeouts,
+		)
+		.unwrap();
 		Configuration::set_group_rotation_frequency(
 			RuntimeOrigin::root(),
 			new_config.group_rotation_frequency,
