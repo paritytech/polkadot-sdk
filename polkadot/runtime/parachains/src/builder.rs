@@ -18,11 +18,7 @@ use crate::{
 	configuration, inclusion, initializer, paras,
 	paras::ParaKind,
 	paras_inherent,
-	scheduler::{
-		self,
-		common::{AssignmentProvider, AssignmentProviderConfig},
-		CoreOccupied, ParasEntry,
-	},
+	scheduler::{self, common::AssignmentProvider, CoreOccupied, ParasEntry},
 	session_info, shared,
 };
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
@@ -714,8 +710,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		let cores = (0..used_cores)
 			.into_iter()
 			.map(|i| {
-				let AssignmentProviderConfig { ttl, .. } =
-					scheduler::Pallet::<T>::assignment_provider_config(CoreIndex(i));
+				let ttl = configuration::Pallet::<T>::config().on_demand_ttl;
 				// Load an assignment into provider so that one is present to pop
 				let assignment = <T as scheduler::Config>::AssignmentProvider::get_mock_assignment(
 					CoreIndex(i),
@@ -730,8 +725,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			let cores = (0..used_cores)
 				.into_iter()
 				.map(|i| {
-					let AssignmentProviderConfig { ttl, .. } =
-						scheduler::Pallet::<T>::assignment_provider_config(CoreIndex(i));
+					let ttl = configuration::Pallet::<T>::config().on_demand_ttl;
 					// Load an assignment into provider so that one is present to pop
 					let assignment =
 						<T as scheduler::Config>::AssignmentProvider::get_mock_assignment(

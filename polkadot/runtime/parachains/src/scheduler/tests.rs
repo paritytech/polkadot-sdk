@@ -112,6 +112,7 @@ fn default_config() -> HostConfiguration<BlockNumber> {
 		// `minimum_validation_upgrade_delay` is greater than `chain_availability_period` and
 		// `thread_availability_period`.
 		minimum_validation_upgrade_delay: 6,
+		on_demand_retries: 1,
 		..Default::default()
 	}
 }
@@ -163,7 +164,7 @@ fn claimqueue_ttl_drop_fn_works() {
 	let mut now = 10;
 
 	new_test_ext(genesis_config).execute_with(|| {
-		let assignment_provider_ttl = MockAssigner::get_provider_config(CoreIndex::from(0)).ttl;
+		let assignment_provider_ttl = config.on_demand_ttl;
 		assert!(assignment_provider_ttl == 5);
 		// Register and run to a blockheight where the para is in a valid state.
 		schedule_blank_para(para_id);
@@ -330,7 +331,8 @@ fn session_change_takes_only_max_per_core() {
 
 #[test]
 fn fill_claimqueue_fills() {
-	let genesis_config = genesis_config(&default_config());
+	let config = default_config();
+	let genesis_config = genesis_config(&config);
 
 	let para_a = ParaId::from(3_u32);
 	let para_b = ParaId::from(4_u32);
@@ -342,8 +344,7 @@ fn fill_claimqueue_fills() {
 
 	new_test_ext(genesis_config).execute_with(|| {
 		MockAssigner::set_core_count(2);
-		let AssignmentProviderConfig { ttl: config_ttl, .. } =
-			MockAssigner::get_provider_config(CoreIndex(0));
+		let config_ttl = config.on_demand_ttl;
 
 		// Add 3 paras
 		schedule_blank_para(para_a);
@@ -745,6 +746,9 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 	let max_retries = 20;
 	let mut config = default_config();
 	config.scheduling_lookahead = 1;
+	// Need more timeouts for this test
+	config.on_demand_retries = max_retries;
+	config.on_demand_ttl = BlockNumber::from(5u32);
 	let genesis_config = genesis_config(&config);
 
 	let para_a = ParaId::from(1_u32);
@@ -753,11 +757,6 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 
 	new_test_ext(genesis_config).execute_with(|| {
 		MockAssigner::set_core_count(2);
-		// Need more timeouts for this test
-		MockAssigner::set_assignment_provider_config(AssignmentProviderConfig {
-			max_availability_timeouts: max_retries,
-			ttl: BlockNumber::from(5u32),
-		});
 		schedule_blank_para(para_a);
 
 		// #1
@@ -1056,7 +1055,7 @@ fn session_change_requires_reschedule_dropping_removed_paras() {
 	new_test_ext(genesis_config).execute_with(|| {
 		// Setting explicit core count
 		MockAssigner::set_core_count(5);
-		let assignment_provider_ttl = MockAssigner::get_provider_config(CoreIndex::from(0)).ttl;
+		let assignment_provider_ttl = <configuration::Pallet<Test>>::config().on_demand_ttl;
 
 		schedule_blank_para(para_a);
 		schedule_blank_para(para_b);

@@ -30,7 +30,7 @@ mod tests;
 use crate::{
 	assigner_on_demand, configuration,
 	paras::AssignCoretime,
-	scheduler::common::{Assignment, AssignmentProvider, AssignmentProviderConfig},
+	scheduler::common::{Assignment, AssignmentProvider},
 	ParaId,
 };
 
@@ -313,14 +313,6 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 				// likely lead to other assignments not getting served at the "end" (when our
 				// assignment set gets replaced).
 			},
-		}
-	}
-
-	fn get_provider_config(_core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumberFor<T>> {
-		let config = <configuration::Pallet<T>>::config();
-		AssignmentProviderConfig {
-			max_availability_timeouts: config.on_demand_retries,
-			ttl: config.on_demand_ttl,
 		}
 	}
 

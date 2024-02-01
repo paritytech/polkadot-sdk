@@ -51,7 +51,7 @@ use sp_std::{
 
 pub mod common;
 
-use common::{Assignment, AssignmentProvider, AssignmentProviderConfig};
+use common::{Assignment, AssignmentProvider};
 
 pub use pallet::*;
 
@@ -352,6 +352,7 @@ impl<T: Config> Pallet<T> {
 	fn drop_expired_claims_from_claimqueue() {
 		let now = <frame_system::Pallet<T>>::block_number();
 		let availability_cores = AvailabilityCores::<T>::get();
+		let ttl = <configuration::Pallet<T>>::config().on_demand_ttl;
 
 		ClaimQueue::<T>::mutate(|cq| {
 			for (idx, _) in (0u32..).zip(availability_cores) {
@@ -384,8 +385,6 @@ impl<T: Config> Pallet<T> {
 						if let Some(assignment) =
 							T::AssignmentProvider::pop_assignment_for_core(core_idx)
 						{
-							let AssignmentProviderConfig { ttl, .. } =
-								T::AssignmentProvider::get_provider_config(core_idx);
 							core_claimqueue.push_back(ParasEntry::new(assignment, now + ttl));
 						}
 					}
@@ -510,6 +509,7 @@ impl<T: Config> Pallet<T> {
 	/// Return the next thing that will be scheduled on this core assuming it is currently
 	/// occupied and the candidate occupying it times out.
 	pub(crate) fn next_up_on_time_out(core: CoreIndex) -> Option<ScheduledCore> {
+		let max_availability_timeouts = <configuration::Pallet<T>>::config().on_demand_retries;
 		Self::next_up_on_available(core).or_else(|| {
 			// Or, if none, the claim currently occupying the core,
 			// as it would be put back on the queue after timing out if number of retries is not at
@@ -517,16 +517,12 @@ impl<T: Config> Pallet<T> {
 			let cores = AvailabilityCores::<T>::get();
 			cores.get(core.0 as usize).and_then(|c| match c {
 				CoreOccupied::Free => None,
-				CoreOccupied::Paras(pe) => {
-					let AssignmentProviderConfig { max_availability_timeouts, .. } =
-						T::AssignmentProvider::get_provider_config(core);
-
+				CoreOccupied::Paras(pe) =>
 					if pe.availability_timeouts < max_availability_timeouts {
 						Some(Self::paras_entry_to_scheduled_core(pe))
 					} else {
 						None
-					}
-				},
+					},
 			})
 		})
 	}
@@ -587,15 +583,15 @@ impl<T: Config> Pallet<T> {
 		let n_lookahead = Self::claimqueue_lookahead().max(1);
 		let n_session_cores = T::AssignmentProvider::session_core_count();
 		let cq = ClaimQueue::<T>::get();
-		let ttl = <configuration::Pallet<T>>::config().on_demand_ttl;
+		let config = <configuration::Pallet<T>>::config();
+		let max_availability_timeouts = config.on_demand_retries;
+		let ttl = config.on_demand_ttl;
 
 		for core_idx in 0..n_session_cores {
 			let core_idx = CoreIndex::from(core_idx);
 
 			// add previously timedout paras back into the queue
 			if let Some(mut entry) = timedout_paras.remove(&core_idx) {
-				let AssignmentProviderConfig { max_availability_timeouts, .. } =
-					T::AssignmentProvider::get_provider_config(core_idx);
 				if entry.availability_timeouts < max_availability_timeouts {
 					// Increment the timeout counter.
 					entry.availability_timeouts += 1;
@@ -668,13 +664,6 @@ impl<T: Config> Pallet<T> {
 		claimqueue
 			.into_iter()
 			.filter_map(|(core_idx, v)| v.front().map(|e| (core_idx, e.assignment.para_id())))
-	}
-
-	#[cfg(any(feature = "runtime-benchmarks", test))]
-	pub(crate) fn assignment_provider_config(
-		core_idx: CoreIndex,
-	) -> AssignmentProviderConfig<BlockNumberFor<T>> {
-		T::AssignmentProvider::get_provider_config(core_idx)
 	}
 
 	#[cfg(any(feature = "try-runtime", test))]
