@@ -1327,8 +1327,9 @@ impl<T: Config> Pallet<T> {
 		agenda_index: u32,
 		task: ScheduledOf<T>,
 	) -> Result<(), ScheduledOf<T>> {
-		if let Err(()) =
-			weight.try_consume(T::WeightInfo::schedule_retry(T::MaxScheduledPerBlock::get()))
+		if weight
+			.try_consume(T::WeightInfo::schedule_retry(T::MaxScheduledPerBlock::get()))
+			.is_err()
 		{
 			Self::deposit_event(Event::RetryFailed {
 				task: (when, agenda_index),
