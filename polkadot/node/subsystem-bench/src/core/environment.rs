@@ -22,6 +22,7 @@ use colored::Colorize;
 use core::time::Duration;
 use futures::{Future, FutureExt};
 use polkadot_overseer::{BlockInfo, Handle as OverseerHandle};
+use serde::{Deserialize, Serialize};
 
 use polkadot_node_subsystem::{messages::AllMessages, Overseer, SpawnGlue, TimeoutExt};
 use polkadot_node_subsystem_types::Hash;
@@ -390,7 +391,7 @@ impl TestEnvironment {
 	}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CollectedResourceUsage {
 	benchmark_name: String,
 	network: Vec<ResourceUsage>,
@@ -411,7 +412,7 @@ impl std::fmt::Display for CollectedResourceUsage {
 	}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ResourceUsage {
 	resource: String,
 	total: f64,

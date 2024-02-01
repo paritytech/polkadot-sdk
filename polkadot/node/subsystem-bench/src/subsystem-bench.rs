@@ -99,6 +99,10 @@ struct BenchCli {
 	/// Enable Cache Misses Profiling with Valgrind. Linux only, Valgrind must be in the PATH
 	pub cache_misses: bool,
 
+	#[clap(long, default_value_t = false)]
+	/// Shows the output in YAML format
+	pub ci: bool,
+
 	#[command(subcommand)]
 	pub objective: cli::TestObjective,
 }
@@ -167,7 +171,7 @@ impl BenchCli {
 					gum::info!(target: LOG_TARGET, "{}", format!("Step {}/{}", index + 1, num_steps).bright_purple(),);
 					display_configuration(&test_config);
 
-					match test_config.objective {
+					let usage = match test_config.objective {
 						TestObjective::DataAvailabilityRead(ref _opts) => {
 							let mut state = TestState::new(&test_config);
 							let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
@@ -175,7 +179,7 @@ impl BenchCli {
 								&benchmark_name,
 								&mut env,
 								state,
-							));
+							))
 						},
 						TestObjective::DataAvailabilityWrite => {
 							let mut state = TestState::new(&test_config);
@@ -184,11 +188,22 @@ impl BenchCli {
 								&benchmark_name,
 								&mut env,
 								state,
-							));
+							))
 						},
-						_ => gum::error!("Invalid test objective in sequence"),
-					}
+						_ => {
+							gum::error!("Invalid test objective in sequence");
+							continue;
+						},
+					};
+
+					let output = if self.ci {
+						serde_yaml::to_string(&vec![usage])?
+					} else {
+						usage.to_string()
+					};
+					println!("{}", output);
 				}
+
 				return Ok(())
 			},
 			TestObjective::DataAvailabilityRead(ref _options) => self.create_test_configuration(),
@@ -227,28 +242,29 @@ impl BenchCli {
 		let mut state = TestState::new(&test_config);
 		let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
 
-		match self.objective {
-			TestObjective::DataAvailabilityRead(_options) => {
+		let usage = match self.objective {
+			TestObjective::DataAvailabilityRead(_options) =>
 				env.runtime().block_on(availability::benchmark_availability_read(
 					"benchmark_availability_read",
 					&mut env,
 					state,
-				));
-			},
-			TestObjective::DataAvailabilityWrite => {
+				)),
+			TestObjective::DataAvailabilityWrite =>
 				env.runtime().block_on(availability::benchmark_availability_write(
 					"benchmark_availability_write",
 					&mut env,
 					state,
-				));
-			},
-			TestObjective::TestSequence(_options) => {},
-		}
+				)),
+			TestObjective::TestSequence(_options) => todo!(),
+		};
 
 		if let Some(agent_running) = agent_running {
 			let agent_ready = agent_running.stop()?;
 			agent_ready.shutdown();
 		}
+
+		let output = if self.ci { serde_yaml::to_string(&vec![usage])? } else { usage.to_string() };
+		println!("{}", output);
 
 		Ok(())
 	}
