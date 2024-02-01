@@ -33,16 +33,14 @@ use bridge_to_rococo_config::{
 };
 use codec::{Decode, Encode};
 use frame_support::{dispatch::GetDispatchInfo, parameter_types, traits::ConstU8};
-use parachains_common::{AccountId, AuraId, Balance, SLOT_DURATION};
+use parachains_common::{AccountId, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
 use sp_keyring::AccountKeyring::Alice;
 use sp_runtime::{
 	generic::{Era, SignedPayload},
 	AccountId32,
 };
-use testnet_parachains_constants::westend::{
-	consensus::RELAY_CHAIN_SLOT_DURATION_MILLIS, fee::WeightToFee,
-};
+use testnet_parachains_constants::westend::{consensus::*, fee::WeightToFee};
 use xcm::latest::prelude::*;
 
 // Para id of sibling chain used in tests.
