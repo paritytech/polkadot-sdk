@@ -6,6 +6,6 @@ subsystem-bench:
   tags:
     - benchmark
   script:
-    - cargo build --profile=testnet --bin subsystem-bench -p polkadot-subsystem-bench
-    - target/testnet/subsystem-bench test-sequence --path polkadot/node/subsystem-bench/examples/availability_read.yaml
-    - target/testnet/subsystem-bench test-sequence --path polkadot/node/subsystem-bench/examples/availability_write.yaml
+    - cargo build --profile=testnet -p polkadot-subsystem-bench --bin subsystem-bench 
+    - target/testnet/subsystem-bench --ci test-sequence --path polkadot/node/subsystem-bench/examples/availability_read.yaml | tee -a output.yaml
+    - target/testnet/subsystem-bench --ci test-sequence --path polkadot/node/subsystem-bench/examples/availability_write.yaml | tee -a output.yaml
