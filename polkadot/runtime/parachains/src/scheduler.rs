@@ -584,8 +584,7 @@ impl<T: Config> Pallet<T> {
 			return
 		}
 		// If there exists a core, ensure we schedule at least one job onto it.
-		// TODO (now): Add a test for this. This wax `max` and nobody noticed.
-		let n_lookahead = Self::claimqueue_lookahead().min(1);
+		let n_lookahead = Self::claimqueue_lookahead().max(1);
 		let n_session_cores = T::AssignmentProvider::session_core_count();
 		let cq = ClaimQueue::<T>::get();
 		let ttl = <configuration::Pallet<T>>::config().on_demand_ttl;
