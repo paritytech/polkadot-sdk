@@ -32,7 +32,8 @@ rpassword = "7.0.0"
 serde = "1.0.195"
 serde_json = "1.0.111"
 thiserror = "1.0.48"
-bip39 = { version = "2.0.0", features = ["rand"] }
+# personal fork here as workaround for: https://github.com/rust-bitcoin/rust-bip39/pull/64
+bip39 = { features = ["rand"], git = "https://github.com/michalkucharczyk/rust-bip39.git", branch = "mku-unicode-normalization-in-no-std" }
 tokio = { version = "1.22.0", features = ["parking_lot", "rt-multi-thread", "signal"] }
 sc-client-api = { path = "../api" }
 sc-client-db = { path = "../db", default-features = false }
