@@ -34,7 +34,7 @@ use sp_core::H160;
 use sp_keyring::AccountKeyring::Alice;
 use sp_runtime::{
 	generic::{Era, SignedPayload},
-	AccountId32,
+	AccountId32, Perbill,
 };
 use testnet_parachains_constants::rococo::{
 	consensus::RELAY_CHAIN_SLOT_DURATION_MILLIS, fee::WeightToFee,
@@ -400,53 +400,61 @@ mod bridge_hub_westend_tests {
 
 	#[test]
 	pub fn can_calculate_weight_for_paid_export_message_with_reserve_transfer() {
-		let estimated = bridge_hub_test_utils::test_cases::can_calculate_weight_for_paid_export_message_with_reserve_transfer::<
-			Runtime,
-			XcmConfig,
-			WeightToFee,
-		>();
-
-		// check if estimated value is sane
-		let max_expected = bp_bridge_hub_rococo::BridgeHubRococoBaseXcmFeeInRocs::get();
-		assert!(
-			estimated <= max_expected,
-			"calculated: {:?}, max_expected: {:?}, please adjust `bp_bridge_hub_rococo::BridgeHubRococoBaseXcmFeeInRocs` value",
-			estimated,
-			max_expected
-		);
+		bridge_hub_test_utils::check_sane_fees_values(
+			"bp_bridge_hub_rococo::BridgeHubRococoBaseXcmFeeInRocs",
+			bp_bridge_hub_rococo::BridgeHubRococoBaseXcmFeeInRocs::get(),
+			|| {
+				bridge_hub_test_utils::test_cases::can_calculate_weight_for_paid_export_message_with_reserve_transfer::<
+					Runtime,
+					XcmConfig,
+					WeightToFee,
+				>()
+			},
+			Perbill::from_percent(33),
+			Some(-33),
+			&format!(
+				"Estimate fee for `ExportMessage` for runtime: {:?}",
+				<Runtime as frame_system::Config>::Version::get()
+			),
+		)
 	}
 
 	#[test]
 	pub fn can_calculate_fee_for_complex_message_delivery_transaction() {
-		let estimated = from_parachain::can_calculate_fee_for_complex_message_delivery_transaction::<
-			RuntimeTestsAdapter,
-		>(collator_session_keys(), construct_and_estimate_extrinsic_fee);
-
-		// check if estimated value is sane
-		let max_expected = bp_bridge_hub_rococo::BridgeHubRococoBaseDeliveryFeeInRocs::get();
-		assert!(
-			estimated <= max_expected,
-			"calculated: {:?}, max_expected: {:?}, please adjust `bp_bridge_hub_rococo::BridgeHubRococoBaseDeliveryFeeInRocs` value",
-			estimated,
-			max_expected
-		);
+		bridge_hub_test_utils::check_sane_fees_values(
+			"bp_bridge_hub_rococo::BridgeHubRococoBaseDeliveryFeeInRocs",
+			bp_bridge_hub_rococo::BridgeHubRococoBaseDeliveryFeeInRocs::get(),
+			|| {
+				from_parachain::can_calculate_fee_for_complex_message_delivery_transaction::<
+					RuntimeTestsAdapter,
+				>(collator_session_keys(), construct_and_estimate_extrinsic_fee)
+			},
+			Perbill::from_percent(33),
+			Some(-33),
+			&format!(
+				"Estimate fee for `ExportMessage` for runtime: {:?}",
+				<Runtime as frame_system::Config>::Version::get()
+			),
+		)
 	}
 
 	#[test]
 	pub fn can_calculate_fee_for_complex_message_confirmation_transaction() {
-		let estimated =
-			from_parachain::can_calculate_fee_for_complex_message_confirmation_transaction::<
-				RuntimeTestsAdapter,
-			>(collator_session_keys(), construct_and_estimate_extrinsic_fee);
-
-		// check if estimated value is sane
-		let max_expected = bp_bridge_hub_rococo::BridgeHubRococoBaseConfirmationFeeInRocs::get();
-		assert!(
-			estimated <= max_expected,
-			"calculated: {:?}, max_expected: {:?}, please adjust `bp_bridge_hub_rococo::BridgeHubRococoBaseConfirmationFeeInRocs` value",
-			estimated,
-			max_expected
-		);
+		bridge_hub_test_utils::check_sane_fees_values(
+			"bp_bridge_hub_rococo::BridgeHubRococoBaseConfirmationFeeInRocs",
+			bp_bridge_hub_rococo::BridgeHubRococoBaseConfirmationFeeInRocs::get(),
+			|| {
+				from_parachain::can_calculate_fee_for_complex_message_confirmation_transaction::<
+					RuntimeTestsAdapter,
+				>(collator_session_keys(), construct_and_estimate_extrinsic_fee)
+			},
+			Perbill::from_percent(33),
+			Some(-33),
+			&format!(
+				"Estimate fee for `ExportMessage` for runtime: {:?}",
+				<Runtime as frame_system::Config>::Version::get()
+			),
+		)
 	}
 }
 
@@ -595,54 +603,40 @@ mod bridge_hub_bulletin_tests {
 	}
 
 	#[test]
-	pub fn can_calculate_weight_for_paid_export_message_with_reserve_transfer() {
-		let estimated = bridge_hub_test_utils::test_cases::can_calculate_weight_for_paid_export_message_with_reserve_transfer::<
-			Runtime,
-			XcmConfig,
-			WeightToFee,
-		>();
-
-		// check if estimated value is sane
-		let max_expected = bp_bridge_hub_rococo::BridgeHubRococoBaseXcmFeeInRocs::get();
-		assert!(
-			estimated <= max_expected,
-			"calculated: {:?}, max_expected: {:?}, please adjust `bp_bridge_hub_rococo::BridgeHubRococoBaseXcmFeeInRocs` value",
-			estimated,
-			max_expected
-		);
-	}
-
-	#[test]
 	pub fn can_calculate_fee_for_complex_message_delivery_transaction() {
-		let estimated =
-			from_grandpa_chain::can_calculate_fee_for_complex_message_delivery_transaction::<
-				RuntimeTestsAdapter,
-			>(collator_session_keys(), construct_and_estimate_extrinsic_fee);
-
-		// check if estimated value is sane
-		let max_expected = bp_bridge_hub_rococo::BridgeHubRococoBaseDeliveryFeeInRocs::get();
-		assert!(
-			estimated <= max_expected,
-			"calculated: {:?}, max_expected: {:?}, please adjust `bp_bridge_hub_rococo::BridgeHubRococoBaseDeliveryFeeInRocs` value",
-			estimated,
-			max_expected
-		);
+		bridge_hub_test_utils::check_sane_fees_values(
+			"bp_bridge_hub_rococo::BridgeHubRococoBaseDeliveryFeeInRocs",
+			bp_bridge_hub_rococo::BridgeHubRococoBaseDeliveryFeeInRocs::get(),
+			|| {
+				from_grandpa_chain::can_calculate_fee_for_complex_message_delivery_transaction::<
+					RuntimeTestsAdapter,
+				>(collator_session_keys(), construct_and_estimate_extrinsic_fee)
+			},
+			Perbill::from_percent(33),
+			Some(-33),
+			&format!(
+				"Estimate fee for `ExportMessage` for runtime: {:?}",
+				<Runtime as frame_system::Config>::Version::get()
+			),
+		)
 	}
 
 	#[test]
 	pub fn can_calculate_fee_for_complex_message_confirmation_transaction() {
-		let estimated =
-			from_grandpa_chain::can_calculate_fee_for_complex_message_confirmation_transaction::<
-				RuntimeTestsAdapter,
-			>(collator_session_keys(), construct_and_estimate_extrinsic_fee);
-
-		// check if estimated value is sane
-		let max_expected = bp_bridge_hub_rococo::BridgeHubRococoBaseConfirmationFeeInRocs::get();
-		assert!(
-			estimated <= max_expected,
-			"calculated: {:?}, max_expected: {:?}, please adjust `bp_bridge_hub_rococo::BridgeHubRococoBaseConfirmationFeeInRocs` value",
-			estimated,
-			max_expected
-		);
+		bridge_hub_test_utils::check_sane_fees_values(
+			"bp_bridge_hub_rococo::BridgeHubRococoBaseConfirmationFeeInRocs",
+			bp_bridge_hub_rococo::BridgeHubRococoBaseConfirmationFeeInRocs::get(),
+			|| {
+				from_grandpa_chain::can_calculate_fee_for_complex_message_confirmation_transaction::<
+					RuntimeTestsAdapter,
+				>(collator_session_keys(), construct_and_estimate_extrinsic_fee)
+			},
+			Perbill::from_percent(33),
+			Some(-33),
+			&format!(
+				"Estimate fee for `ExportMessage` for runtime: {:?}",
+				<Runtime as frame_system::Config>::Version::get()
+			),
+		)
 	}
 }
