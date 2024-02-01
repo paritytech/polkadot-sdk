@@ -103,6 +103,7 @@ parameter_types! {
 		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
 		.build_or_panic();
 
+	/// Weight limit of the Cumulus-based bridge hub blocks when async backing is enabled.
 	pub BlockWeightsForAsyncBacking: limits::BlockWeights = limits::BlockWeights::builder()
 		.base_block(BlockExecutionWeight::get())
 		.for_class(DispatchClass::all(), |weights| {
