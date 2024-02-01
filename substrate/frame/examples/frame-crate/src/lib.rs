@@ -49,7 +49,7 @@ mod tests {
 	use frame::testing_prelude::*;
 
 	construct_runtime!(
-		pub struct Runtime {
+		pub enum Runtime {
 			System: frame_system,
 			MyPallet: my_pallet,
 		}

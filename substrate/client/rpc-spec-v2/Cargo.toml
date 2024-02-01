@@ -1,6 +1,6 @@
 [package]
 name = "sc-rpc-spec-v2"
-version = "0.10.0-dev"
+version = "0.34.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -16,7 +16,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-jsonrpsee = { version = "0.16.2", features = ["client-core", "macros", "server"] }
+jsonrpsee = { version = "0.20.3", features = ["client-core", "macros", "server"] }
 # Internal chain structures for "chain_spec".
 sc-chain-spec = { path = "../chain-spec" }
 # Pool for submitting extrinsics required by "transaction"
@@ -29,6 +29,7 @@ sp-blockchain = { path = "../../primitives/blockchain" }
 sp-version = { path = "../../primitives/version" }
 sc-client-api = { path = "../api" }
 sc-utils = { path = "../utils" }
+sc-rpc = { path = "../rpc" }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 thiserror = "1.0"
 serde = "1.0"
@@ -39,7 +40,7 @@ tokio-stream = { version = "0.1.14", features = ["sync"] }
 tokio = { version = "1.22.0", features = ["sync"] }
 array-bytes = "6.1"
 log = "0.4.17"
-futures-util = { version = "0.3.19", default-features = false }
+futures-util = { version = "0.3.30", default-features = false }
 
 [dev-dependencies]
 serde_json = "1.0.111"

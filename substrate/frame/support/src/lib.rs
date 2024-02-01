@@ -45,7 +45,7 @@ pub mod __private {
 	pub use scale_info;
 	pub use serde;
 	pub use sp_core::{OpaqueMetadata, Void};
-	pub use sp_core_hashing_proc_macro;
+	pub use sp_crypto_hashing_proc_macro;
 	pub use sp_inherents;
 	#[cfg(feature = "std")]
 	pub use sp_io::TestExternalities;
@@ -330,7 +330,7 @@ macro_rules! parameter_types {
 		impl< $($ty_params),* > $name< $($ty_params),* > {
 			/// Returns the key for this parameter type.
 			pub fn key() -> [u8; 16] {
-				$crate::__private::sp_core_hashing_proc_macro::twox_128!(b":", $name, b":")
+				$crate::__private::sp_crypto_hashing_proc_macro::twox_128!(b":", $name, b":")
 			}
 
 			/// Set the value of this parameter type in the storage.
@@ -556,6 +556,42 @@ pub use frame_support_procedural::EqNoBound;
 /// }
 /// ```
 pub use frame_support_procedural::PartialEqNoBound;
+
+/// Derive [`Ord`] but do not bound any generic.
+///
+/// This is useful for type generic over runtime:
+/// ```
+/// # use frame_support::{OrdNoBound, PartialOrdNoBound, EqNoBound, PartialEqNoBound};
+/// trait Config {
+/// 		type C: Ord;
+/// }
+///
+/// // Foo implements [`Ord`] because `C` bounds [`Ord`].
+/// // Otherwise compilation will fail with an output telling `c` doesn't implement [`Ord`].
+/// #[derive(EqNoBound, OrdNoBound, PartialEqNoBound, PartialOrdNoBound)]
+/// struct Foo<T: Config> {
+/// 		c: T::C,
+/// }
+/// ```
+pub use frame_support_procedural::OrdNoBound;
+
+/// Derive [`PartialOrd`] but do not bound any generic.
+///
+/// This is useful for type generic over runtime:
+/// ```
+/// # use frame_support::{OrdNoBound, PartialOrdNoBound, EqNoBound, PartialEqNoBound};
+/// trait Config {
+/// 		type C: PartialOrd;
+/// }
+///
+/// // Foo implements [`PartialOrd`] because `C` bounds [`PartialOrd`].
+/// // Otherwise compilation will fail with an output telling `c` doesn't implement [`PartialOrd`].
+/// #[derive(PartialOrdNoBound, PartialEqNoBound, EqNoBound)]
+/// struct Foo<T: Config> {
+/// 		c: T::C,
+/// }
+/// ```
+pub use frame_support_procedural::PartialOrdNoBound;
 
 /// Derive [`Debug`] but do not bound any generic.
 ///
@@ -2291,7 +2327,7 @@ pub mod pallet_macros {
 	/// #        type Block = frame_system::mocking::MockBlock<Self>;
 	/// #    }
 	///     construct_runtime! {
-	///         pub struct Runtime {
+	///         pub enum Runtime {
 	///             System: frame_system,
 	///             Custom: custom_pallet
 	///         }

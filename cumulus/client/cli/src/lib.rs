@@ -127,6 +127,27 @@ impl sc_cli::CliConfiguration for PurgeChainCmd {
 	}
 }
 
+/// Get the SCALE encoded genesis header of the parachain.
+pub fn get_raw_genesis_header<B, C>(client: Arc<C>) -> sc_cli::Result<Vec<u8>>
+where
+	B: BlockT,
+	C: HeaderBackend<B> + 'static,
+{
+	let genesis_hash =
+		client
+			.hash(Zero::zero())?
+			.ok_or(sc_cli::Error::Client(sp_blockchain::Error::Backend(
+				"Failed to lookup genesis block hash when exporting genesis head data.".into(),
+			)))?;
+	let genesis_header = client.header(genesis_hash)?.ok_or(sc_cli::Error::Client(
+		sp_blockchain::Error::Backend(
+			"Failed to lookup genesis header by hash when exporting genesis head data.".into(),
+		),
+	))?;
+
+	Ok(genesis_header.encode())
+}
+
 /// Command for exporting the genesis head data of the parachain
 #[derive(Debug, clap::Parser)]
 pub struct ExportGenesisHeadCommand {
@@ -150,22 +171,11 @@ impl ExportGenesisHeadCommand {
 		B: BlockT,
 		C: HeaderBackend<B> + 'static,
 	{
-		let genesis_hash = client.hash(Zero::zero())?.ok_or(sc_cli::Error::Client(
-			sp_blockchain::Error::Backend(
-				"Failed to lookup genesis block hash when exporting genesis head data.".into(),
-			),
-		))?;
-		let genesis_header = client.header(genesis_hash)?.ok_or(sc_cli::Error::Client(
-			sp_blockchain::Error::Backend(
-				"Failed to lookup genesis header by hash when exporting genesis head data.".into(),
-			),
-		))?;
-
-		let raw_header = genesis_header.encode();
+		let raw_header = get_raw_genesis_header(client)?;
 		let output_buf = if self.raw {
 			raw_header
 		} else {
-			format!("0x{:?}", HexDisplay::from(&genesis_header.encode())).into_bytes()
+			format!("0x{:?}", HexDisplay::from(&raw_header)).into_bytes()
 		};
 
 		if let Some(output) = &self.output {

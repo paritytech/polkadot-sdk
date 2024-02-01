@@ -17,6 +17,7 @@
 use super::*;
 use assert_matches::assert_matches;
 use futures::{executor, future, Future};
+use sc_network::ProtocolName;
 use sp_core::{crypto::Pair, Encode};
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::Keystore;
@@ -559,11 +560,11 @@ fn act_on_advertisement_v2() {
 		.await;
 
 		response_channel
-			.send(Ok(request_v1::CollationFetchingResponse::Collation(
-				candidate_a.clone(),
-				pov.clone(),
-			)
-			.encode()))
+			.send(Ok((
+				request_v1::CollationFetchingResponse::Collation(candidate_a.clone(), pov.clone())
+					.encode(),
+				ProtocolName::from(""),
+			)))
 			.expect("Sending response should succeed");
 
 		assert_candidate_backing_second(
@@ -761,11 +762,11 @@ fn fetch_one_collation_at_a_time() {
 		candidate_a.descriptor.relay_parent = test_state.relay_parent;
 		candidate_a.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
 		response_channel
-			.send(Ok(request_v1::CollationFetchingResponse::Collation(
-				candidate_a.clone(),
-				pov.clone(),
-			)
-			.encode()))
+			.send(Ok((
+				request_v1::CollationFetchingResponse::Collation(candidate_a.clone(), pov.clone())
+					.encode(),
+				ProtocolName::from(""),
+			)))
 			.expect("Sending response should succeed");
 
 		assert_candidate_backing_second(
@@ -885,19 +886,19 @@ fn fetches_next_collation() {
 
 		// First request finishes now:
 		response_channel_non_exclusive
-			.send(Ok(request_v1::CollationFetchingResponse::Collation(
-				candidate_a.clone(),
-				pov.clone(),
-			)
-			.encode()))
+			.send(Ok((
+				request_v1::CollationFetchingResponse::Collation(candidate_a.clone(), pov.clone())
+					.encode(),
+				ProtocolName::from(""),
+			)))
 			.expect("Sending response should succeed");
 
 		response_channel
-			.send(Ok(request_v1::CollationFetchingResponse::Collation(
-				candidate_a.clone(),
-				pov.clone(),
-			)
-			.encode()))
+			.send(Ok((
+				request_v1::CollationFetchingResponse::Collation(candidate_a.clone(), pov.clone())
+					.encode(),
+				ProtocolName::from(""),
+			)))
 			.expect("Sending response should succeed");
 
 		assert_candidate_backing_second(
@@ -1023,11 +1024,11 @@ fn fetch_next_collation_on_invalid_collation() {
 		candidate_a.descriptor.relay_parent = test_state.relay_parent;
 		candidate_a.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
 		response_channel
-			.send(Ok(request_v1::CollationFetchingResponse::Collation(
-				candidate_a.clone(),
-				pov.clone(),
-			)
-			.encode()))
+			.send(Ok((
+				request_v1::CollationFetchingResponse::Collation(candidate_a.clone(), pov.clone())
+					.encode(),
+				ProtocolName::from(""),
+			)))
 			.expect("Sending response should succeed");
 
 		let receipt = assert_candidate_backing_second(

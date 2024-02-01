@@ -1,6 +1,6 @@
 [package]
 name = "sp-runtime-interface"
-version = "17.0.0"
+version = "24.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -35,7 +35,7 @@ sp-state-machine = { path = "../state-machine" }
 sp-core = { path = "../core" }
 sp-io = { path = "../io" }
 rustversion = "1.0.6"
-trybuild = "1.0.74"
+trybuild = "1.0.88"
 
 [features]
 default = ["std"]

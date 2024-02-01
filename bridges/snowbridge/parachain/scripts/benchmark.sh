@@ -7,9 +7,9 @@ cargo run --release --bin polkadot-parachain \
 -- \
 benchmark pallet \
 --chain=bridge-hub-rococo-dev \
---pallet=snowbridge_ethereum_beacon_client \
+--pallet=snowbridge_pallet_ethereum_client \
 --extrinsic="*" \
 --execution=wasm --wasm-execution=compiled \
 --steps 50 --repeat 20 \
---output ./parachains/runtimes/bridge-hubs/bridge-hub-rococo/src/weights/snowbridge_ethereum_beacon_client.rs
+--output ./parachains/runtimes/bridge-hubs/bridge-hub-rococo/src/weights/snowbridge_pallet_ethereum_client.rs
 popd

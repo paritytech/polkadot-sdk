@@ -1,0 +1,22 @@
+title: "Use clone instead of fork on pvf"
+
+doc:
+  - audience: Node Operator
+    description: |
+      For validators: Adds a new, optional security capability.
+      Most modern Linux machines should support it, otherwise you will get a warning like:
+      "- Optional: Cannot call clone with all sandboxing flags, a Linux-specific kernel security features: not available"
+      If you are already running in a secure environment such as a container, this may conflict with our security features; your only option may be to ignore the warning.
+      Otherwise, it is recommended to upgrade your Linux version!
+
+migrations:
+  db: []
+
+  runtime: []
+
+crates:
+  - name: polkadot-node-core-pvf
+  - name: polkadot-node-core-pvf-prepare-worker
+  - name: polkadot-node-core-pvf-execute-worker
+
+host_functions: []

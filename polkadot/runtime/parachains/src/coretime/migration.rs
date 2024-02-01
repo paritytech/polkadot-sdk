@@ -46,9 +46,7 @@ mod v_coretime {
 	#[cfg(feature = "try-runtime")]
 	use sp_std::vec::Vec;
 	use sp_std::{iter, prelude::*, result};
-	use xcm::v3::{
-		send_xcm, Instruction, Junction, Junctions, MultiLocation, SendError, WeightLimit, Xcm,
-	};
+	use xcm::v4::{send_xcm, Instruction, Junction, Location, SendError, WeightLimit, Xcm};
 
 	/// Return information about a legacy lease of a parachain.
 	pub trait GetLegacyLease<N> {
@@ -64,7 +62,7 @@ mod v_coretime {
 		sp_std::marker::PhantomData<(T, SendXcm, LegacyLease)>,
 	);
 
-	impl<T: Config, SendXcm: xcm::v3::SendXcm, LegacyLease: GetLegacyLease<BlockNumberFor<T>>>
+	impl<T: Config, SendXcm: xcm::v4::SendXcm, LegacyLease: GetLegacyLease<BlockNumberFor<T>>>
 		MigrateToCoretime<T, SendXcm, LegacyLease>
 	{
 		fn already_migrated() -> bool {
@@ -95,7 +93,7 @@ mod v_coretime {
 
 	impl<
 			T: Config + crate::dmp::Config,
-			SendXcm: xcm::v3::SendXcm,
+			SendXcm: xcm::v4::SendXcm,
 			LegacyLease: GetLegacyLease<BlockNumberFor<T>>,
 		> OnRuntimeUpgrade for MigrateToCoretime<T, SendXcm, LegacyLease>
 	{
@@ -142,8 +140,8 @@ mod v_coretime {
 			let new_core_count = assigner_coretime::Pallet::<T>::session_core_count();
 			ensure!(new_core_count == prev_core_count, "Total number of cores need to not change.");
 			ensure!(
-				dmp_queue_size == prev_dmp_queue_size + 1,
-				"There should have been enqueued one DMP message."
+				dmp_queue_size > prev_dmp_queue_size,
+				"There should have been enqueued at least one DMP messages."
 			);
 
 			Ok(())
@@ -155,7 +153,7 @@ mod v_coretime {
 	// NOTE: Also migrates coretime_cores config value in configuration::ActiveConfig.
 	fn migrate_to_coretime<
 		T: Config,
-		SendXcm: xcm::v3::SendXcm,
+		SendXcm: xcm::v4::SendXcm,
 		LegacyLease: GetLegacyLease<BlockNumberFor<T>>,
 	>() -> Weight {
 		let legacy_paras = paras::Pallet::<T>::parachains();
@@ -209,7 +207,7 @@ mod v_coretime {
 
 	fn migrate_send_assignments_to_coretime_chain<
 		T: Config,
-		SendXcm: xcm::v3::SendXcm,
+		SendXcm: xcm::v4::SendXcm,
 		LegacyLease: GetLegacyLease<BlockNumberFor<T>>,
 	>() -> result::Result<(), SendError> {
 		let legacy_paras = paras::Pallet::<T>::parachains();
@@ -264,22 +262,27 @@ mod v_coretime {
 		let message_content = iter::once(Instruction::UnpaidExecution {
 			weight_limit: WeightLimit::Unlimited,
 			check_origin: None,
-		})
-		.chain(reservations)
-		.chain(pool)
-		.chain(leases)
-		.chain(set_core_count)
-		.collect();
+		});
 
-		let message = Xcm(message_content);
+		let reservation_content = message_content.clone().chain(reservations).collect();
+		let pool_content = message_content.clone().chain(pool).collect();
+		let leases_content = message_content.clone().chain(leases).collect();
+		let set_core_count_content = message_content.clone().chain(set_core_count).collect();
 
-		send_xcm::<SendXcm>(
-			MultiLocation {
-				parents: 0,
-				interior: Junctions::X1(Junction::Parachain(T::BrokerId::get())),
-			},
-			message,
-		)?;
+		let messages = vec![
+			Xcm(reservation_content),
+			Xcm(pool_content),
+			Xcm(leases_content),
+			Xcm(set_core_count_content),
+		];
+
+		for message in messages {
+			send_xcm::<SendXcm>(
+				Location::new(0, Junction::Parachain(T::BrokerId::get())),
+				message,
+			)?;
+		}
+
 		Ok(())
 	}
 }

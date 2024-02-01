@@ -43,7 +43,7 @@
 //! The following guidelines are meant to be the guiding torch of those who contribute to this
 //! crate.
 //!
-//! 1. 🔺 Ground Up: Information should be layed out in the most ground-up fashion. The lowest level
+//! 1. 🔺 Ground Up: Information should be laid out in the most ground-up fashion. The lowest level
 //!    (i.e. "ground") is Rust-docs. The highest level (i.e. "up") is "outside of this crate". In
 //!    between lies [`reference_docs`] and [`guides`], from low to high. The point of this principle
 //!    is to document as much of the information as possible in the lower level media, as it is

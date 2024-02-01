@@ -48,7 +48,7 @@ macro_rules! test_parachain_is_trusted_teleporter {
 						<$receiver_para as $crate::macros::Chain>::account_data_of(receiver.clone()).free;
 					let para_destination =
 						<$sender_para>::sibling_location_of(<$receiver_para>::para_id());
-					let beneficiary: MultiLocation =
+					let beneficiary: Location =
 						$crate::macros::AccountId32 { network: None, id: receiver.clone().into() }.into();
 
 					// Send XCM message from Origin Parachain
@@ -57,8 +57,8 @@ macro_rules! test_parachain_is_trusted_teleporter {
 					<$sender_para>::execute_with(|| {
 						assert_ok!(<$sender_para as [<$sender_para Pallet>]>::PolkadotXcm::limited_teleport_assets(
 							origin.clone(),
-							bx!(para_destination.into()),
-							bx!(beneficiary.into()),
+							bx!(para_destination.clone().into()),
+							bx!(beneficiary.clone().into()),
 							bx!($assets.clone().into()),
 							fee_asset_item,
 							weight_limit.clone(),
@@ -127,8 +127,8 @@ macro_rules! include_penpal_create_foreign_asset_on_asset_hub {
 		$crate::impls::paste::paste! {
 			pub fn penpal_create_foreign_asset_on_asset_hub(
 				asset_id_on_penpal: u32,
-				foreign_asset_at_asset_hub: MultiLocation,
-				ah_as_seen_by_penpal: MultiLocation,
+				foreign_asset_at_asset_hub: v3::Location,
+				ah_as_seen_by_penpal: Location,
 				is_sufficient: bool,
 				asset_owner: AccountId,
 				prefund_amount: u128,
@@ -144,14 +144,14 @@ macro_rules! include_penpal_create_foreign_asset_on_asset_hub {
 				// prefund SA of Penpal on AssetHub with enough native tokens to pay for creating
 				// new foreign asset, also prefund CheckingAccount with ED, because teleported asset
 				// itself might not be sufficient and CheckingAccount cannot be created otherwise
-				let sov_penpal_on_ah = $asset_hub::sovereign_account_id_of(penpal_as_seen_by_ah);
+				let sov_penpal_on_ah = $asset_hub::sovereign_account_id_of(penpal_as_seen_by_ah.clone());
 				$asset_hub::fund_accounts(vec![
 					(sov_penpal_on_ah.clone().into(), $relay_ed * 100_000_000_000),
 					(ah_check_account.clone().into(), $relay_ed * 1000),
 				]);
 
 				// prefund SA of AssetHub on Penpal with native asset
-				let sov_ah_on_penpal = $penpal::sovereign_account_id_of(ah_as_seen_by_penpal);
+				let sov_ah_on_penpal = $penpal::sovereign_account_id_of(ah_as_seen_by_penpal.clone());
 				$penpal::fund_accounts(vec![
 					(sov_ah_on_penpal.into(), $relay_ed * 1_000_000_000),
 					(penpal_check_account.clone().into(), $relay_ed * 1000),
@@ -183,8 +183,8 @@ macro_rules! include_penpal_create_foreign_asset_on_asset_hub {
 				let buy_execution_fee_amount = $weight_to_fee::weight_to_fee(
 					&Weight::from_parts(10_100_000_000_000, 300_000),
 				);
-				let buy_execution_fee = MultiAsset {
-					id: Concrete(MultiLocation { parents: 1, interior: Here }),
+				let buy_execution_fee = Asset {
+					id: AssetId(Location { parents: 1, interior: Here }),
 					fun: Fungible(buy_execution_fee_amount),
 				};
 				let xcm = VersionedXcm::from(Xcm(vec![
