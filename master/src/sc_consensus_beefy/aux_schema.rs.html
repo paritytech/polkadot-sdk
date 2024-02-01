@@ -124,11 +124,10 @@
 
 </span><span class="doccomment">//! Schema for BEEFY state persisted in the aux-db.
 
-</span><span class="kw">use crate</span>::{worker::PersistedState, LOG_TARGET};
+</span><span class="kw">use crate</span>::{error::Error, worker::PersistedState, LOG_TARGET};
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>log::{info, trace};
 <span class="kw">use </span>sc_client_api::{backend::AuxStore, Backend};
-<span class="kw">use </span>sp_blockchain::{Error <span class="kw">as </span>ClientError, <span class="prelude-ty">Result </span><span class="kw">as </span>ClientResult};
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 
 <span class="kw">const </span>VERSION_KEY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;beefy_auxschema_version&quot;</span>;
@@ -136,31 +135,33 @@
 
 <span class="kw">const </span>CURRENT_VERSION: u32 = <span class="number">4</span>;
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>write_current_version&lt;BE: AuxStore&gt;(backend: <span class="kw-2">&amp;</span>BE) -&gt; ClientResult&lt;()&gt; {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>write_current_version&lt;BE: AuxStore&gt;(backend: <span class="kw-2">&amp;</span>BE) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 	<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 write aux schema version {:?}&quot;</span>, CURRENT_VERSION);
 	AuxStore::insert_aux(backend, <span class="kw-2">&amp;</span>[(VERSION_KEY, CURRENT_VERSION.encode().as_slice())], <span class="kw-2">&amp;</span>[])
+		.map_err(|e| Error::Backend(e.to_string()))
 }
 
 <span class="doccomment">/// Write voter state.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>write_voter_state&lt;B: BlockT, BE: AuxStore&gt;(
 	backend: <span class="kw-2">&amp;</span>BE,
 	state: <span class="kw-2">&amp;</span>PersistedState&lt;B&gt;,
-) -&gt; ClientResult&lt;()&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 	<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 persisting {:?}&quot;</span>, state);
 	AuxStore::insert_aux(backend, <span class="kw-2">&amp;</span>[(WORKER_STATE_KEY, state.encode().as_slice())], <span class="kw-2">&amp;</span>[])
+		.map_err(|e| Error::Backend(e.to_string()))
 }
 
-<span class="kw">fn </span>load_decode&lt;BE: AuxStore, T: Decode&gt;(backend: <span class="kw-2">&amp;</span>BE, key: <span class="kw-2">&amp;</span>[u8]) -&gt; ClientResult&lt;<span class="prelude-ty">Option</span>&lt;T&gt;&gt; {
-	<span class="kw">match </span>backend.get_aux(key)<span class="question-mark">? </span>{
+<span class="kw">fn </span>load_decode&lt;BE: AuxStore, T: Decode&gt;(backend: <span class="kw-2">&amp;</span>BE, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;T&gt;, Error&gt; {
+	<span class="kw">match </span>backend.get_aux(key).map_err(|e| Error::Backend(e.to_string()))<span class="question-mark">? </span>{
 		<span class="prelude-val">None </span>=&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
 		<span class="prelude-val">Some</span>(t) =&gt; T::decode(<span class="kw-2">&amp;mut &amp;</span>t[..])
-			.map_err(|e| ClientError::Backend(<span class="macro">format!</span>(<span class="string">&quot;BEEFY DB is corrupted: {}&quot;</span>, e)))
+			.map_err(|e| Error::Backend(<span class="macro">format!</span>(<span class="string">&quot;BEEFY DB is corrupted: {}&quot;</span>, e)))
 			.map(<span class="prelude-val">Some</span>),
 	}
 }
 
 <span class="doccomment">/// Load or initialize persistent data from backend.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>load_persistent&lt;B, BE&gt;(backend: <span class="kw-2">&amp;</span>BE) -&gt; ClientResult&lt;<span class="prelude-ty">Option</span>&lt;PersistedState&lt;B&gt;&gt;&gt;
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>load_persistent&lt;B, BE&gt;(backend: <span class="kw-2">&amp;</span>BE) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;PersistedState&lt;B&gt;&gt;, Error&gt;
 <span class="kw">where
 	</span>B: BlockT,
 	BE: Backend&lt;B&gt;,
@@ -171,8 +172,7 @@
 		<span class="prelude-val">None </span>=&gt; (),
 		<span class="prelude-val">Some</span>(<span class="number">1</span>) | <span class="prelude-val">Some</span>(<span class="number">2</span>) | <span class="prelude-val">Some</span>(<span class="number">3</span>) =&gt; (), <span class="comment">// versions 1, 2 &amp; 3 are obsolete and should be ignored
 		</span><span class="prelude-val">Some</span>(<span class="number">4</span>) =&gt; <span class="kw">return </span>load_decode::&lt;<span class="kw">_</span>, PersistedState&lt;B&gt;&gt;(backend, WORKER_STATE_KEY),
-		other =&gt;
-			<span class="kw">return </span><span class="prelude-val">Err</span>(ClientError::Backend(<span class="macro">format!</span>(<span class="string">&quot;Unsupported BEEFY DB version: {:?}&quot;</span>, other))),
+		other =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::Backend(<span class="macro">format!</span>(<span class="string">&quot;Unsupported BEEFY DB version: {:?}&quot;</span>, other))),
 	}
 
 	<span class="comment">// No persistent state found in DB.

@@ -650,10 +650,10 @@
 // if expr does not derive `Display`.
 </span><span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>metric_set {
-	(<span class="macro-nonterminal">$self</span>:ident, <span class="macro-nonterminal">$m</span>:ident, <span class="macro-nonterminal">$v</span>:expr) =&gt; {{
+	(<span class="macro-nonterminal">$metrics</span>:expr, <span class="macro-nonterminal">$m</span>:ident, <span class="macro-nonterminal">$v</span>:expr) =&gt; {{
 		<span class="kw">let </span>val: u64 = <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="macro-nonterminal">$v</span>).parse().unwrap();
 
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="macro-nonterminal">$self</span>.metrics.as_ref() {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="macro-nonterminal">$metrics</span>.as_ref() {
 			metrics.<span class="macro-nonterminal">$m</span>.set(val);
 		}
 	}};
@@ -661,8 +661,8 @@
 
 <span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>metric_inc {
-	(<span class="macro-nonterminal">$self</span>:ident, <span class="macro-nonterminal">$m</span>:ident) =&gt; {{
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="macro-nonterminal">$self</span>.metrics.as_ref() {
+	(<span class="macro-nonterminal">$metrics</span>:expr, <span class="macro-nonterminal">$m</span>:ident) =&gt; {{
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="macro-nonterminal">$metrics</span>.as_ref() {
 			metrics.<span class="macro-nonterminal">$m</span>.inc();
 		}
 	}};
@@ -670,8 +670,8 @@
 
 <span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>metric_get {
-	(<span class="macro-nonterminal">$self</span>:ident, <span class="macro-nonterminal">$m</span>:ident) =&gt; {{
-		<span class="macro-nonterminal">$self</span>.metrics.as_ref().map(|metrics| metrics.<span class="macro-nonterminal">$m</span>.clone())
+	(<span class="macro-nonterminal">$metrics</span>:expr, <span class="macro-nonterminal">$m</span>:ident) =&gt; {{
+		<span class="macro-nonterminal">$metrics</span>.as_ref().map(|metrics| metrics.<span class="macro-nonterminal">$m</span>.clone())
 	}};
 }
 

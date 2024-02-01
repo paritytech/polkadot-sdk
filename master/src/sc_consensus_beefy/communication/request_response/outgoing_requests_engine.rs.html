@@ -422,7 +422,7 @@
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = <span class="self">self</span>.try_next_peer() {
 			<span class="self">self</span>.request_from_peer(peer, RequestInfo { block, active_set });
 		} <span class="kw">else </span>{
-			<span class="macro">metric_inc!</span>(<span class="self">self</span>, beefy_on_demand_justification_no_peer_to_request_from);
+			<span class="macro">metric_inc!</span>(<span class="self">self</span>.metrics, beefy_on_demand_justification_no_peer_to_request_from);
 			<span class="macro">debug!</span>(
 				target: BEEFY_SYNC_LOG_TARGET,
 				<span class="string">&quot;🥩 no good peers to request justif #{:?} from&quot;</span>, block
@@ -468,13 +468,13 @@
 				);
 				<span class="kw">match </span>e {
 					RequestFailure::Refused =&gt; {
-						<span class="macro">metric_inc!</span>(<span class="self">self</span>, beefy_on_demand_justification_peer_refused);
+						<span class="macro">metric_inc!</span>(<span class="self">self</span>.metrics, beefy_on_demand_justification_peer_refused);
 						<span class="kw">let </span>peer_report =
 							PeerReport { who: <span class="kw-2">*</span>peer, cost_benefit: cost::REFUSAL_RESPONSE };
 						Error::InvalidResponse(peer_report)
 					},
 					<span class="kw">_ </span>=&gt; {
-						<span class="macro">metric_inc!</span>(<span class="self">self</span>, beefy_on_demand_justification_peer_error);
+						<span class="macro">metric_inc!</span>(<span class="self">self</span>.metrics, beefy_on_demand_justification_peer_error);
 						Error::ResponseError
 					},
 				}
@@ -486,7 +486,7 @@
 					<span class="kw-2">&amp;</span>req_info.active_set,
 				)
 				.map_err(|(err, signatures_checked)| {
-					<span class="macro">metric_inc!</span>(<span class="self">self</span>, beefy_on_demand_justification_invalid_proof);
+					<span class="macro">metric_inc!</span>(<span class="self">self</span>.metrics, beefy_on_demand_justification_invalid_proof);
 					<span class="macro">debug!</span>(
 						target: BEEFY_SYNC_LOG_TARGET,
 						<span class="string">&quot;🥩 for on demand justification #{:?}, peer {:?} responded with invalid proof: {:?}&quot;</span>,
@@ -535,7 +535,7 @@
 				}
 			},
 			<span class="prelude-val">Ok</span>(proof) =&gt; {
-				<span class="macro">metric_inc!</span>(<span class="self">self</span>, beefy_on_demand_justification_good_proof);
+				<span class="macro">metric_inc!</span>(<span class="self">self</span>.metrics, beefy_on_demand_justification_good_proof);
 				<span class="macro">debug!</span>(
 					target: BEEFY_SYNC_LOG_TARGET,
 					<span class="string">&quot;🥩 received valid on-demand justif #{:?} from {:?}&quot;</span>, block, peer

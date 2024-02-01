@@ -423,7 +423,7 @@
 			<span class="kw">let </span>peer = request.peer;
 			<span class="kw">match </span><span class="self">self</span>.handle_request(request) {
 				<span class="prelude-val">Ok</span>(()) =&gt; {
-					<span class="macro">metric_inc!</span>(<span class="self">self</span>, beefy_successful_justification_responses);
+					<span class="macro">metric_inc!</span>(<span class="self">self</span>.metrics, beefy_successful_justification_responses);
 					<span class="macro">debug!</span>(
 						target: BEEFY_SYNC_LOG_TARGET,
 						<span class="string">&quot;🥩 Handled BEEFY justification request from {:?}.&quot;</span>, peer
@@ -431,7 +431,7 @@
 				},
 				<span class="prelude-val">Err</span>(e) =&gt; {
 					<span class="comment">// peer reputation changes already applied in `self.handle_request()`
-					</span><span class="macro">metric_inc!</span>(<span class="self">self</span>, beefy_failed_justification_responses);
+					</span><span class="macro">metric_inc!</span>(<span class="self">self</span>.metrics, beefy_failed_justification_responses);
 					<span class="macro">debug!</span>(
 						target: BEEFY_SYNC_LOG_TARGET,
 						<span class="string">&quot;🥩 Failed to handle BEEFY justification request from {:?}: {}&quot;</span>, peer, e,
