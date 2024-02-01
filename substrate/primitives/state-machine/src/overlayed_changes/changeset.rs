@@ -1387,4 +1387,42 @@ mod test {
 		assert_eq!(changeset.exit_runtime(), Ok(()));
 		assert_eq!(changeset.exit_runtime(), Err(NotInRuntime));
 	}
+
+	#[test]
+	fn restore_append_to_parent() {
+		use codec::{Compact, Encode};
+		let mut changeset = OverlayedChangeSet::default();
+		let key: Vec<u8> = b"akey".into();
+
+		let from = 50; // 1 byte len
+		let to = 100; // 2 byte len
+			  //
+		for i in 0..from {
+			changeset.append_storage(key.clone(), vec![i], None);
+		}
+
+		// materialized
+		let encoded = changeset.get(&key).unwrap().value().unwrap();
+		let encoded_from_len = Compact(from as u32).encode();
+		assert_eq!(encoded_from_len.len(), 1);
+		assert!(encoded.starts_with(&encoded_from_len[..]));
+		let encoded_from = encoded.clone();
+
+		changeset.start_transaction();
+
+		for i in from..to {
+			changeset.append_storage(key.clone(), vec![i], None);
+		}
+
+		// materialized
+		let encoded = changeset.get(&key).unwrap().value().unwrap();
+		let encoded_to_len = Compact(to as u32).encode();
+		assert_eq!(encoded_to_len.len(), 2);
+		assert!(encoded.starts_with(&encoded_to_len[..]));
+
+		changeset.rollback_transaction().unwrap();
+
+		let encoded = changeset.get(&key).unwrap().value().unwrap();
+		assert_eq!(&encoded_from, encoded);
+	}
 }
