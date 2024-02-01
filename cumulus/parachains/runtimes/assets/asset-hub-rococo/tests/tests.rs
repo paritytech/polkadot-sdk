@@ -28,7 +28,7 @@ use asset_hub_rococo_runtime::{
 	AllPalletsWithoutSystem, AssetConversion, AssetDeposit, Assets, Balances, CollatorSelection,
 	ExistentialDeposit, ForeignAssets, ForeignAssetsInstance, MetadataDepositBase,
 	MetadataDepositPerByte, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent, SessionKeys,
-	ToWestendXcmRouterInstance, TrustBackedAssetsInstance, XcmpQueue, SLOT_DURATION,
+	ToWestendXcmRouterInstance, TrustBackedAssetsInstance, XcmpQueue,
 };
 use asset_test_utils::{
 	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
@@ -50,9 +50,7 @@ use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance}
 use sp_consensus_aura::SlotDuration;
 use sp_runtime::traits::MaybeEquivalence;
 use std::convert::Into;
-use testnet_parachains_constants::rococo::{
-	consensus::RELAY_CHAIN_SLOT_DURATION_MILLIS, currency::UNITS, fee::WeightToFee,
-};
+use testnet_parachains_constants::rococo::{consensus::*, currency::UNITS, fee::WeightToFee};
 use xcm::latest::prelude::{Assets as XcmAssets, *};
 use xcm_builder::V4V3LocationConverter;
 use xcm_executor::traits::{JustTry, WeightTrader};

@@ -20007,6 +20007,7 @@ dependencies = [
 name = "testnet-parachains-constants"
 version = "1.0.0"
 dependencies = [
+ "cumulus-primitives-core",
  "frame-support",
  "polkadot-core-primitives",
  "rococo-runtime-constants",
