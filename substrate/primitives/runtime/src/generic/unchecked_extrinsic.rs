@@ -463,8 +463,156 @@ where
 }
 
 #[cfg(test)]
+mod legacy {
+	use codec::{Compact, Decode, Encode, EncodeLike, Error, Input};
+	use scale_info::{
+		build::Fields, meta_type, Path, StaticTypeInfo, Type, TypeInfo, TypeParameter,
+	};
+
+	pub type OldUncheckedSignaturePayload<Address, Signature, Extra> = (Address, Signature, Extra);
+
+	#[derive(PartialEq, Eq, Clone, Debug)]
+	pub struct OldUncheckedExtrinsic<Address, Call, Signature, Extra> {
+		pub signature: Option<OldUncheckedSignaturePayload<Address, Signature, Extra>>,
+		pub function: Call,
+	}
+
+	impl<Address, Call, Signature, Extra> TypeInfo
+		for OldUncheckedExtrinsic<Address, Call, Signature, Extra>
+	where
+		Address: StaticTypeInfo,
+		Call: StaticTypeInfo,
+		Signature: StaticTypeInfo,
+		Extra: StaticTypeInfo,
+	{
+		type Identity = OldUncheckedExtrinsic<Address, Call, Signature, Extra>;
+
+		fn type_info() -> Type {
+			Type::builder()
+				.path(Path::new("UncheckedExtrinsic", module_path!()))
+				// Include the type parameter types, even though they are not used directly in any
+				// of the described fields. These type definitions can be used by downstream
+				// consumers to help construct the custom decoding from the opaque bytes (see
+				// below).
+				.type_params(vec![
+					TypeParameter::new("Address", Some(meta_type::<Address>())),
+					TypeParameter::new("Call", Some(meta_type::<Call>())),
+					TypeParameter::new("Signature", Some(meta_type::<Signature>())),
+					TypeParameter::new("Extra", Some(meta_type::<Extra>())),
+				])
+				.docs(&["OldUncheckedExtrinsic raw bytes, requires custom decoding routine"])
+				// Because of the custom encoding, we can only accurately describe the encoding as
+				// an opaque `Vec<u8>`. Downstream consumers will need to manually implement the
+				// codec to encode/decode the `signature` and `function` fields.
+				.composite(Fields::unnamed().field(|f| f.ty::<Vec<u8>>()))
+		}
+	}
+
+	impl<Address, Call, Signature, Extra> OldUncheckedExtrinsic<Address, Call, Signature, Extra> {
+		pub fn new_signed(
+			function: Call,
+			signed: Address,
+			signature: Signature,
+			extra: Extra,
+		) -> Self {
+			Self { signature: Some((signed, signature, extra)), function }
+		}
+
+		pub fn new_unsigned(function: Call) -> Self {
+			Self { signature: None, function }
+		}
+	}
+
+	impl<Address, Call, Signature, Extra> Decode
+		for OldUncheckedExtrinsic<Address, Call, Signature, Extra>
+	where
+		Address: Decode,
+		Signature: Decode,
+		Call: Decode,
+		Extra: Decode,
+	{
+		fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+			// This is a little more complicated than usual since the binary format must be
+			// compatible with SCALE's generic `Vec<u8>` type. Basically this just means accepting
+			// that there will be a prefix of vector length.
+			let expected_length: Compact<u32> = Decode::decode(input)?;
+			let before_length = input.remaining_len()?;
+
+			let version = input.read_byte()?;
+
+			let is_signed = version & 0b1000_0000 != 0;
+			let version = version & 0b0111_1111;
+			if version != 4u8 {
+				return Err("Invalid transaction version".into())
+			}
+
+			let signature = is_signed.then(|| Decode::decode(input)).transpose()?;
+			let function = Decode::decode(input)?;
+
+			if let Some((before_length, after_length)) =
+				input.remaining_len()?.and_then(|a| before_length.map(|b| (b, a)))
+			{
+				let length = before_length.saturating_sub(after_length);
+
+				if length != expected_length.0 as usize {
+					return Err("Invalid length prefix".into())
+				}
+			}
+
+			Ok(Self { signature, function })
+		}
+	}
+
+	#[docify::export(unchecked_extrinsic_encode_impl)]
+	impl<Address, Call, Signature, Extra> Encode
+		for OldUncheckedExtrinsic<Address, Call, Signature, Extra>
+	where
+		Address: Encode,
+		Signature: Encode,
+		Call: Encode,
+		Extra: Encode,
+	{
+		fn encode(&self) -> Vec<u8> {
+			let mut tmp = Vec::with_capacity(sp_std::mem::size_of::<Self>());
+
+			// 1 byte version id.
+			match self.signature.as_ref() {
+				Some(s) => {
+					tmp.push(4u8 | 0b1000_0000);
+					s.encode_to(&mut tmp);
+				},
+				None => {
+					tmp.push(4u8 & 0b0111_1111);
+				},
+			}
+			self.function.encode_to(&mut tmp);
+
+			let compact_len = codec::Compact::<u32>(tmp.len() as u32);
+
+			// Allocate the output buffer with the correct length
+			let mut output = Vec::with_capacity(compact_len.size_hint() + tmp.len());
+
+			compact_len.encode_to(&mut output);
+			output.extend(tmp);
+
+			output
+		}
+	}
+
+	impl<Address, Call, Signature, Extra> EncodeLike
+		for OldUncheckedExtrinsic<Address, Call, Signature, Extra>
+	where
+		Address: Encode,
+		Signature: Encode,
+		Call: Encode,
+		Extra: Encode,
+	{
+	}
+}
+
+#[cfg(test)]
 mod tests {
-	use super::*;
+	use super::{legacy::OldUncheckedExtrinsic, *};
 	use crate::{
 		codec::{Decode, Encode},
 		impl_tx_ext_default,
@@ -627,5 +775,60 @@ mod tests {
 	fn large_bad_prefix_should_work() {
 		let encoded = (Compact::<u32>::from(u32::MAX), Preamble::<(), (), ()>::Bare).encode();
 		assert!(Ex::decode(&mut &encoded[..]).is_err());
+	}
+
+	#[test]
+	fn legacy_signed_encode_decode() {
+		let call: TestCall = vec![0u8; 0].into();
+		let signed = TEST_ACCOUNT;
+		let signature = TestSig(TEST_ACCOUNT, (vec![0u8; 0], DummyExtension).encode());
+		let extension = DummyExtension;
+
+		let new_ux = Ex::new_signed(call.clone(), signed, signature.clone(), extension.clone());
+		let old_ux =
+			OldUncheckedExtrinsic::<TestAccountId, TestCall, TestSig, DummyExtension>::new_signed(
+				call, signed, signature, extension,
+			);
+
+		let encoded_new_ux = new_ux.encode();
+		let encoded_old_ux = old_ux.encode();
+
+		assert_eq!(encoded_new_ux, encoded_old_ux);
+
+		let decoded_new_ux = Ex::decode(&mut &encoded_new_ux[..]).unwrap();
+		let decoded_old_ux =
+			OldUncheckedExtrinsic::<TestAccountId, TestCall, TestSig, DummyExtension>::decode(
+				&mut &encoded_old_ux[..],
+			)
+			.unwrap();
+
+		assert_eq!(new_ux, decoded_new_ux);
+		assert_eq!(old_ux, decoded_old_ux);
+	}
+
+	#[test]
+	fn legacy_unsigned_encode_decode() {
+		let call: TestCall = vec![0u8; 0].into();
+
+		let new_ux = Ex::new_bare(call.clone());
+		let old_ux =
+			OldUncheckedExtrinsic::<TestAccountId, TestCall, TestSig, DummyExtension>::new_unsigned(
+				call,
+			);
+
+		let encoded_new_ux = new_ux.encode();
+		let encoded_old_ux = old_ux.encode();
+
+		assert_eq!(encoded_new_ux, encoded_old_ux);
+
+		let decoded_new_ux = Ex::decode(&mut &encoded_new_ux[..]).unwrap();
+		let decoded_old_ux =
+			OldUncheckedExtrinsic::<TestAccountId, TestCall, TestSig, DummyExtension>::decode(
+				&mut &encoded_old_ux[..],
+			)
+			.unwrap();
+
+		assert_eq!(new_ux, decoded_new_ux);
+		assert_eq!(old_ux, decoded_old_ux);
 	}
 }
