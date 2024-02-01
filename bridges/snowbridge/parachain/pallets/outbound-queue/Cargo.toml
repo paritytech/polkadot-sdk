@@ -33,7 +33,7 @@ bridge-hub-common = { path = "../../../../../cumulus/parachains/runtimes/bridge-
 
 snowbridge-core = { path = "../../primitives/core", default-features = false, features = ["serde"] }
 snowbridge-outbound-queue-merkle-tree = { path = "merkle-tree", default-features = false }
-ethabi = { git = "https://github.com/snowfork/ethabi-decode.git", package = "ethabi-decode", branch = "master", default-features = false }
+ethabi = { package = "ethabi-decode", version = "1.0.0", default-features = false }
 
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
 

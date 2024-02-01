@@ -27,6 +27,7 @@ def main(root, exclude):
 	all_crates = get_crates(root, exclude)
 	print(f'📦 Found {len(all_crates)} crates in total')
 	
+	check_duplicates(workspace_crates)
 	check_missing(workspace_crates, all_crates)
 	check_links(all_crates)
 
@@ -88,6 +89,16 @@ def get_crates(workspace_dir, exclude_crates) -> dict:
 			crates[name] = (path, manifest)
 	
 	return crates
+
+# Check that there are no duplicate entries in the workspace.
+def check_duplicates(workspace_crates):
+	print(f'🔎 Checking for duplicate crates')
+	found = {}
+	for path in workspace_crates:
+		if path in found:
+			print(f'❌ crate is listed twice in the workspace {path}')
+			sys.exit(1)
+		found[path] = True
 
 # Check that all crates are in the workspace.
 def check_missing(workspace_crates, all_crates):
