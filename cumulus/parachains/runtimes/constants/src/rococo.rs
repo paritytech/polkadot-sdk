@@ -135,6 +135,17 @@ pub mod consensus {
 	pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 }
 
+/// Time-related
+pub mod time {
+	use polkadot_core_primitives::BlockNumber;
+
+	// Time is measured by number of blocks.
+	pub const MINUTES: BlockNumber =
+		60_000 / (super::consensus::MILLISECS_PER_BLOCK as BlockNumber);
+	pub const HOURS: BlockNumber = MINUTES * 60;
+	pub const DAYS: BlockNumber = HOURS * 24;
+}
+
 pub mod snowbridge {
 	use frame_support::parameter_types;
 	use xcm::opaque::lts::NetworkId;

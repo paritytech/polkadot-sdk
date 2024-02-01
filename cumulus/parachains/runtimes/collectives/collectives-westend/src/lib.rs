@@ -84,11 +84,11 @@ use parachains_common::{
 	impls::{DealWithFees, ToParentTreasury},
 	message_queue::*,
 	AccountId, AuraId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
-	AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, MINUTES, NORMAL_DISPATCH_RATIO,
+	AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
 use sp_runtime::RuntimeDebug;
 use testnet_parachains_constants::westend::{
-	account::*, consensus::*, currency::*, fee::WeightToFee,
+	account::*, consensus::*, currency::*, fee::WeightToFee, time::*,
 };
 use xcm_config::{
 	GovernanceLocation, LocationToAccountId, TreasurerBodyId, XcmOriginToTransactDispatchOrigin,
