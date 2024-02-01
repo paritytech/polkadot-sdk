@@ -615,7 +615,10 @@ impl ExtBuilder {
 		ext.execute_with(|| {
 			if !SkipTryStateCheck::get() {
 				let _ = Staking::do_try_state(System::block_number())
-					.map_err(|err| println!(" 🕵️‍♂️  try_state failure: {:?}", err))
+					.map_err(|err| {
+						println!(" 🕵️‍♂️  try_state failure: {:?}", err);
+						err
+					})
 					.unwrap();
 			}
 		});

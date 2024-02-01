@@ -5018,7 +5018,7 @@ mod sorted_list_provider_integration {
 			assert_eq!(TargetBagsList::score(&21), 1500);
 
 			// bond and nominate (11, 21) with stash 42.
-			assert_ok!(Staking::bond(RuntimeOrigin::signed(42), 25, Default::default()));
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(42), 25, RewardDestination::Staked));
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(42), vec![11, 21]));
 
 			// stash 42 is now a voter with a score.
@@ -5083,7 +5083,7 @@ mod sorted_list_provider_integration {
 			assert!(!TargetBagsList::contains(&42));
 
 			// bond and set intention to validate. stash 42 is both target and voter.
-			assert_ok!(Staking::bond(RuntimeOrigin::signed(42), 25, Default::default()));
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(42), 25, RewardDestination::Staked));
 			assert_ok!(Staking::validate(RuntimeOrigin::signed(42), Default::default()));
 			assert_eq!(Staking::status(&42), Ok(StakerStatus::Validator));
 
@@ -7397,7 +7397,7 @@ mod stake_tracker {
 		// * Call::unbond()
 		ExtBuilder::default().build_and_execute(|| {
 			// bond and nominate with stash 61.
-			assert_ok!(Staking::bond(RuntimeOrigin::signed(61), 500, Default::default()));
+			assert_ok!(Staking::bond(RuntimeOrigin::signed(61), 500, RewardDestination::Staked));
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(61), vec![31]));
 
 			assert_ok!(stake_tracker_sanity_tests());
