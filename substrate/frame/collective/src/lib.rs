@@ -405,7 +405,7 @@ pub mod pallet {
 		///
 		/// Note: If resulting deposits are excessively high and cause benchmark failures, consider
 		/// supplying the [`crate::deposit::Constant`] type with a deposit equal to the minimum
-		/// balance.
+		/// balance under `runtime-benchmarks` feature.
 		type ProposalDeposit: GetDeposit<BalanceOf<Self, I>>;
 
 		/// Handler for a slashed funds.
