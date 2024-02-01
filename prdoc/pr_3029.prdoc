@@ -1,0 +1,10 @@
+title: "Snowbridge Ethereum Deneb fork preparation"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Changes the Rococo runtime Ethereum fork config to include the Deneb hard-fork. Updates the Snowbridge
+      subtree with preparation for Deneb. Removes the `beacon-minimal-spec` feature.
+
+crates:
+  - name: bridge-hub-rococo-runtime

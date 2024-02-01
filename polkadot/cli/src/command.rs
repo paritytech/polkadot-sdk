@@ -91,6 +91,7 @@ impl SubstrateCli for Cli {
 			"polkadot" => Box::new(service::chain_spec::polkadot_config()?),
 			name if name.starts_with("polkadot-") && !name.ends_with(".json") =>
 				Err(format!("`{name}` is not supported anymore as the polkadot native runtime no longer part of the node."))?,
+			"paseo" => Box::new(service::chain_spec::paseo_config()?),
 			"rococo" => Box::new(service::chain_spec::rococo_config()?),
 			#[cfg(feature = "rococo-native")]
 			"dev" | "rococo-dev" => Box::new(service::chain_spec::rococo_development_config()?),
