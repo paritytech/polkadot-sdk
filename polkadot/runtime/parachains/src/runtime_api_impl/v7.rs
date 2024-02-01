@@ -95,6 +95,11 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 						.expect("Occupied core always has pending availability; qed");
 
 				let backed_in_number = *pending_availability.backed_in_number();
+
+				// Use the same block number for determining the responsible group as what the
+				// backing subsystem would use when it calls validator_groups api.
+				let backing_group_allocation_time =
+					pending_availability.relay_parent_number() + One::one();
 				CoreState::Occupied(OccupiedCore {
 					next_up_on_available: <scheduler::Pallet<T>>::next_up_on_available(CoreIndex(
 						i as u32,
@@ -106,7 +111,7 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 					)),
 					availability: pending_availability.availability_votes().clone(),
 					group_responsible: group_responsible_for(
-						backed_in_number,
+						backing_group_allocation_time,
 						pending_availability.core_occupied(),
 					),
 					candidate_hash: pending_availability.candidate_hash(),
