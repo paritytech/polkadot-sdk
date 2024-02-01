@@ -2111,6 +2111,10 @@ pub mod dynamic_params {
 	}
 }
 
+parameter_types! {
+	pub BenchmarkingDefault: RuntimeParameters = RuntimeParameters::Storage(dynamic_params::storage::Parameters::BaseDeposit(dynamic_params::storage::BaseDeposit, Some(1 * DOLLARS)));
+}
+
 pub struct DynamicParametersManagerOrigin;
 use frame_support::traits::EnsureOriginWithArg;
 impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParametersManagerOrigin {
@@ -2143,6 +2147,8 @@ impl pallet_parameters::Config for Runtime {
 	type AdminOrigin = DynamicParametersManagerOrigin;
 	type WeightInfo = ();
 	type AggregratedKeyValue = RuntimeParameters;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkingDefault = BenchmarkingDefault;
 }
 
 construct_runtime!(
