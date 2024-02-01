@@ -284,6 +284,7 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	/// Retry configurations for items to be executed, indexed by task address.
 	#[pallet::storage]
 	pub type Retries<T: Config> = StorageMap<
 		_,
