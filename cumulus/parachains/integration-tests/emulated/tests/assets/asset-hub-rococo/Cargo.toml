@@ -30,3 +30,4 @@ asset-hub-rococo-runtime = { version = "0.10.0", path = "../../../../../runtimes
 emulated-integration-tests-common = { path = "../../../common", default-features = false, version = "1.0.0" }
 penpal-runtime = { version = "0.12.0", path = "../../../../../runtimes/testing/penpal" }
 rococo-system-emulated-network = { version = "0.1.0", path = "../../../networks/rococo-system" }
+cumulus-pallet-parachain-system = { path = "../../../../../../pallets/parachain-system", default-features = false }
