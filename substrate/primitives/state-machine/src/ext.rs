@@ -741,17 +741,7 @@ impl<'a> StorageAppend<'a> {
 	pub fn replace_nb_appends(&mut self, old_length: Option<u32>, new_length: u32) {
 		let encoded_len = old_length.map(|l| Compact::<u32>::compact_len(&l)).unwrap_or(0);
 		let encoded_new = Compact::<u32>(new_length).encode();
-		if encoded_len > encoded_new.len() {
-			let diff = encoded_len - encoded_new.len();
-			*self.0 = self.0.split_off(diff);
-		} else if encoded_len < encoded_new.len() {
-			let diff = encoded_new.len() - encoded_len;
-			// Non constant change
-			for _ in 0..diff {
-				self.0.insert(0, 0);
-			}
-		}
-		self.0[0..encoded_new.len()].copy_from_slice(&encoded_new);
+		let _ = self.0.splice(0..encoded_len, encoded_new);
 	}
 
 	/// Append the given `value` to the storage item.
@@ -791,11 +781,7 @@ impl<'a> StorageAppend<'a> {
 	pub fn diff_materialized(previous: Option<u32>, new: Option<u32>) -> (usize, bool) {
 		let prev = previous.map(|l| Compact::<u32>::compact_len(&l)).unwrap_or(0);
 		let new = new.map(|l| Compact::<u32>::compact_len(&l)).unwrap_or(0);
-		if new > prev {
-			(new - prev, false)
-		} else {
-			(prev - new, true)
-		}
+		(new.abs_diff(prev), prev >= new)
 	}
 }
 
