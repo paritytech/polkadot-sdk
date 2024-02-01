@@ -1046,29 +1046,19 @@ impl<T: Config> Pallet<T> {
 	/// NOTE: you must ALWAYS use this function to remove a nominator from the system. Any access
 	/// to `Nominators` or `VoterList` outside of this function is almost certainly wrong.
 	pub fn do_remove_nominator(who: &T::AccountId) -> bool {
-		let nominations = Self::nominations(who).unwrap_or_default();
-
-		let outcome = match (Nominators::<T>::contains_key(who), T::VoterList::contains(who)) {
-			// ensure that the voter is idle before removing it.
-			(true, true) => {
-				// first chill nominator.
-				Self::do_chill_nominator(who);
+		let outcome = match Self::status(who) {
+			Ok(StakerStatus::Nominator(nominations)) => {
+				let outcome = Self::do_chill_nominator(who);
 				T::EventListeners::on_nominator_remove(who, nominations);
-				true
+				outcome
 			},
-			// nominator is idle already, remove it.
-			(false, true) => {
-				T::EventListeners::on_nominator_remove(who, nominations);
-				true
+			Ok(StakerStatus::Validator) => {
+				let outcome = Self::do_chill_nominator(who);
+				T::EventListeners::on_nominator_remove(who, vec![]);
+				outcome
 			},
-			(true, false) => {
-				defensive!(
-					"inconsistent state: staker is in nominators list but not in voter list"
-				);
-				false
-			},
-			// nominator has been already removed.
-			(false, false) => false,
+			// not an active nomination, do nothing.
+			_ => false,
 		};
 
 		debug_assert_eq!(
@@ -1127,27 +1117,28 @@ impl<T: Config> Pallet<T> {
 	/// `Validators` or `VoterList` outside of this function is almost certainly
 	/// wrong.
 	pub fn do_remove_validator(who: &T::AccountId) -> bool {
-		let outcome = match (Validators::<T>::contains_key(who), T::TargetList::contains(who)) {
-			// ensure the validator is idle before removing it.
-			(true, true) => {
-				// first chill validator.
-				Self::do_chill_validator(who);
+		let outcome = match Self::status(who) {
+			Ok(StakerStatus::Validator) => {
+				// make sure the validator is chilled before removing it.
+				let outcome = Self::do_chill_validator(who);
 				T::EventListeners::on_validator_remove(who);
-				true
+				outcome
 			},
-			// validator is idle, remove it.
-			(false, true) => {
-				T::EventListeners::on_validator_remove(who);
-				true
-			},
-			(true, false) => {
-				defensive!(
-					"inconsistent state: staker is in validators list but not in targets list"
-				);
+			Ok(StakerStatus::Nominator(_)) => {
+				defensive!("called do_validator_remove on a nominator stash.");
 				false
 			},
-			// validator has been already removed.
-			(false, false) => false,
+			Ok(StakerStatus::Idle) | Err(_) if T::TargetList::contains(who) => {
+				// try to remove "dangling" target. A dangling target does not have a bonded stash
+				// but is still part of the target list because a previously removed stash still has
+				// nominations from active nominators.
+				T::EventListeners::on_validator_remove(who);
+				false
+			},
+			_ => {
+				// validator has been already removed.
+				false
+			},
 		};
 
 		debug_assert_eq!(
@@ -1857,6 +1848,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 			validator == *who || exposure_page.others.iter().any(|i| i.who == *who)
 		})
 	}
+
 	fn status(
 		who: &Self::AccountId,
 	) -> Result<sp_staking::StakerStatus<Self::AccountId>, DispatchError> {
