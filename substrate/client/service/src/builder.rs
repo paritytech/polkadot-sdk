@@ -460,7 +460,7 @@ where
 	spawn_handle.spawn(
 		"on-transaction-imported",
 		Some("transaction-pool"),
-		transaction_notifications(
+		propagate_transaction_notifications(
 			transaction_pool.clone(),
 			tx_handler_controller,
 			telemetry.clone(),
@@ -532,7 +532,7 @@ where
 	Ok(rpc_handlers)
 }
 
-async fn transaction_notifications<Block, ExPool>(
+pub async fn propagate_transaction_notifications<Block, ExPool>(
 	transaction_pool: Arc<ExPool>,
 	tx_handler_controller: sc_network_transactions::TransactionsHandlerController<
 		<Block as BlockT>::Hash,
@@ -560,7 +560,8 @@ async fn transaction_notifications<Block, ExPool>(
 		.await;
 }
 
-fn init_telemetry<Block, Client, Network>(
+/// Initialize telemetry with provided configuration and return telemetry handle
+pub fn init_telemetry<Block, Client, Network>(
 	config: &mut Configuration,
 	network: Network,
 	client: Arc<Client>,
@@ -598,7 +599,8 @@ where
 	Ok(telemetry.handle())
 }
 
-fn gen_rpc_module<TBl, TBackend, TCl, TRpc, TExPool>(
+/// Generate RPC module using provided configuration
+pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc, TExPool>(
 	deny_unsafe: DenyUnsafe,
 	spawn_handle: SpawnTaskHandle,
 	client: Arc<TCl>,
