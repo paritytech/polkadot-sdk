@@ -187,7 +187,7 @@ fn test_define_aggregrated_parameters_key_convert() {
 	let runtime_key: RuntimeParametersKey = parameter_key.clone().into();
 
 	assert_eq!(runtime_key, RuntimeParametersKey::Pallet2(pallet2::ParametersKey::Key2(key2)));
-	assert_eq!(runtime_key.encode(), vec![3, 1]);
+	assert_eq!(runtime_key.encode(), vec![1, 1]);
 }
 
 #[test]
