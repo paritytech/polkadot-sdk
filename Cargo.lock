@@ -230,15 +230,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4436e0292ab1bb631b42973c61205e704475fe8126af845c8d923c0996328127"
 
 [[package]]
-name = "amcl"
-version = "0.3.0"
-source = "git+https://github.com/snowfork/milagro_bls?rev=a6d66e4eb89015e352fb1c9f7b661ecdbb5b2176#a6d66e4eb89015e352fb1c9f7b661ecdbb5b2176"
-dependencies = [
- "parity-scale-codec",
- "scale-info",
-]
-
-[[package]]
 name = "android-tzdata"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -270,9 +261,9 @@ dependencies = [
 
 [[package]]
 name = "anstream"
-version = "0.6.7"
+version = "0.6.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4cd2405b3ac1faab2990b74d728624cd9fd115651fcecc7c2d8daf01376275ba"
+checksum = "6e2e1ebcb11de5c03c67de28a7df593d32191b44939c482e97702baaaa6ab6a5"
 dependencies = [
  "anstyle",
  "anstyle-parse",
@@ -822,6 +813,7 @@ dependencies = [
  "parachains-common",
  "rococo-emulated-chain",
  "sp-core",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -831,6 +823,7 @@ dependencies = [
  "assert_matches",
  "asset-hub-rococo-runtime",
  "asset-test-utils",
+ "cumulus-pallet-parachain-system",
  "emulated-integration-tests-common",
  "frame-support",
  "pallet-asset-conversion",
@@ -845,6 +838,7 @@ dependencies = [
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -924,6 +918,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -936,6 +931,7 @@ dependencies = [
  "frame-support",
  "parachains-common",
  "sp-core",
+ "testnet-parachains-constants",
  "westend-emulated-chain",
 ]
 
@@ -962,6 +958,7 @@ dependencies = [
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
+ "testnet-parachains-constants",
  "westend-runtime",
  "westend-system-emulated-network",
 ]
@@ -1038,6 +1035,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
  "westend-runtime-constants",
 ]
 
@@ -1591,9 +1589,9 @@ dependencies = [
 
 [[package]]
 name = "bounded-collections"
-version = "0.1.9"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca548b6163b872067dc5eb82fd130c56881435e30367d2073594a3d9744120dd"
+checksum = "d32385ecb91a31bddaf908e8dcf4a15aef1bcd3913cc03ebfad02ff6d568abc1"
 dependencies = [
  "log",
  "parity-scale-codec",
@@ -1931,6 +1929,7 @@ dependencies = [
  "frame-support",
  "parachains-common",
  "sp-core",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -1956,6 +1955,8 @@ dependencies = [
  "rococo-westend-system-emulated-network",
  "scale-info",
  "snowbridge-core",
+ "snowbridge-pallet-inbound-queue",
+ "snowbridge-pallet-inbound-queue-fixtures",
  "snowbridge-pallet-outbound-queue",
  "snowbridge-pallet-system",
  "snowbridge-router-primitives",
@@ -1963,6 +1964,7 @@ dependencies = [
  "sp-runtime",
  "staging-xcm",
  "staging-xcm-executor",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -2059,6 +2061,7 @@ dependencies = [
  "staging-xcm-executor",
  "static_assertions",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -2109,6 +2112,7 @@ dependencies = [
  "frame-support",
  "parachains-common",
  "sp-core",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -2213,6 +2217,7 @@ dependencies = [
  "staging-xcm-executor",
  "static_assertions",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
  "westend-runtime-constants",
 ]
 
@@ -2701,6 +2706,7 @@ dependencies = [
  "frame-support",
  "parachains-common",
  "sp-core",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -2772,6 +2778,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
  "westend-runtime-constants",
 ]
 
@@ -3015,6 +3022,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -3109,6 +3117,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -3170,6 +3179,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
  "westend-runtime-constants",
 ]
 
@@ -5036,8 +5046,9 @@ dependencies = [
 
 [[package]]
 name = "ethabi-decode"
-version = "1.4.0"
-source = "git+https://github.com/snowfork/ethabi-decode.git?branch=master#7d215837b626650bd9a076821e57ad488101301f"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09d398648d65820a727d6a81e58b962f874473396a047e4c30bafe3240953417"
 dependencies = [
  "ethereum-types",
  "tiny-keccak",
@@ -6137,6 +6148,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -8013,20 +8025,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "milagro_bls"
-version = "1.5.0"
-source = "git+https://github.com/snowfork/milagro_bls?rev=a6d66e4eb89015e352fb1c9f7b661ecdbb5b2176#a6d66e4eb89015e352fb1c9f7b661ecdbb5b2176"
-dependencies = [
- "amcl",
- "hex",
- "lazy_static",
- "parity-scale-codec",
- "rand",
- "scale-info",
- "zeroize",
-]
-
-[[package]]
 name = "mime"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8931,9 +8929,9 @@ checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
 name = "orchestra"
-version = "0.3.4"
+version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5edee0c1917703f8a28cd229cf6a5c91a7ee34be139ced16509ac5b53b9d0c51"
+checksum = "2356622ffdfe72362a45a1e5e87bb113b8327e596e39b91f11f0ef4395c8da79"
 dependencies = [
  "async-trait",
  "dyn-clonable",
@@ -8948,9 +8946,9 @@ dependencies = [
 
 [[package]]
 name = "orchestra-proc-macro"
-version = "0.3.4"
+version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f60e64a3808b5bb2786b9da09fc70714952aabcdd0eeba6f1718e3dbc34ad5b"
+checksum = "eedb646674596266dc9bb2b5c7eea7c36b32ecc7777eba0d510196972d72c4fd"
 dependencies = [
  "expander 2.0.0",
  "indexmap 2.0.0",
@@ -9250,6 +9248,7 @@ dependencies = [
 name = "pallet-balances"
 version = "28.0.0"
 dependencies = [
+ "docify",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -9658,6 +9657,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-ranked-collective",
  "parity-scale-codec",
  "scale-info",
  "sp-arithmetic",
@@ -10463,6 +10463,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -10590,6 +10591,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-ranked-collective",
  "parity-scale-codec",
  "scale-info",
  "sp-arithmetic",
@@ -11302,11 +11304,8 @@ dependencies = [
  "pallet-message-queue",
  "pallet-xcm",
  "parity-scale-codec",
- "polkadot-core-primitives",
  "polkadot-primitives",
- "rococo-runtime-constants",
  "scale-info",
- "smallvec",
  "sp-consensus-aura",
  "sp-core",
  "sp-io",
@@ -11316,7 +11315,6 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-executor",
  "substrate-wasm-builder",
- "westend-runtime-constants",
 ]
 
 [[package]]
@@ -11615,6 +11613,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -11627,6 +11626,7 @@ dependencies = [
  "parachains-common",
  "people-rococo-runtime",
  "sp-core",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -11711,6 +11711,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -11723,6 +11724,7 @@ dependencies = [
  "parachains-common",
  "people-westend-runtime",
  "sp-core",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -11806,6 +11808,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
  "westend-runtime-constants",
 ]
 
@@ -13024,6 +13027,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "substrate-state-trie-migration-rpc",
  "tempfile",
+ "testnet-parachains-constants",
  "tokio",
  "wait-timeout",
 ]
@@ -14784,6 +14788,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "substrate-wasm-builder",
+ "testnet-parachains-constants",
 ]
 
 [[package]]
@@ -17483,6 +17488,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "snowbridge-amcl"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "460a9ed63cdf03c1b9847e8a12a5f5ba19c4efd5869e4a737e05be25d7c427e5"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+]
+
+[[package]]
 name = "snowbridge-beacon-primitives"
 version = "0.0.0"
 dependencies = [
@@ -17491,12 +17506,12 @@ dependencies = [
  "frame-system",
  "hex",
  "hex-literal",
- "milagro_bls",
  "parity-scale-codec",
  "rlp",
  "scale-info",
  "serde",
  "snowbridge-ethereum",
+ "snowbridge-milagro-bls",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -17554,6 +17569,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "snowbridge-milagro-bls"
+version = "1.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "026aa8638f690a53e3f7676024b9e913b1cab0111d1b7b92669d40a188f9d7e6"
+dependencies = [
+ "hex",
+ "lazy_static",
+ "parity-scale-codec",
+ "rand",
+ "scale-info",
+ "snowbridge-amcl",
+ "zeroize",
+]
+
+[[package]]
 name = "snowbridge-outbound-queue-merkle-tree"
 version = "0.1.1"
 dependencies = [
@@ -17603,6 +17633,7 @@ dependencies = [
  "snowbridge-beacon-primitives",
  "snowbridge-core",
  "snowbridge-ethereum",
+ "snowbridge-pallet-ethereum-client-fixtures",
  "sp-core",
  "sp-io",
  "sp-keyring",
@@ -17611,6 +17642,20 @@ dependencies = [
  "ssz_rs",
  "ssz_rs_derive",
  "static_assertions",
+]
+
+[[package]]
+name = "snowbridge-pallet-ethereum-client-fixtures"
+version = "0.9.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex-literal",
+ "snowbridge-beacon-primitives",
+ "snowbridge-core",
+ "sp-core",
+ "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -17634,6 +17679,7 @@ dependencies = [
  "snowbridge-core",
  "snowbridge-ethereum",
  "snowbridge-pallet-ethereum-client",
+ "snowbridge-pallet-inbound-queue-fixtures",
  "snowbridge-router-primitives",
  "sp-core",
  "sp-io",
@@ -17643,6 +17689,20 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+]
+
+[[package]]
+name = "snowbridge-pallet-inbound-queue-fixtures"
+version = "0.9.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex-literal",
+ "snowbridge-beacon-primitives",
+ "snowbridge-core",
+ "sp-core",
+ "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -17728,8 +17788,10 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "parity-scale-codec",
  "snowbridge-core",
  "sp-arithmetic",
+ "sp-std 14.0.0",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
@@ -17784,6 +17846,7 @@ dependencies = [
  "snowbridge-core",
  "snowbridge-outbound-queue-runtime-api",
  "snowbridge-pallet-ethereum-client",
+ "snowbridge-pallet-ethereum-client-fixtures",
  "snowbridge-pallet-inbound-queue",
  "snowbridge-pallet-outbound-queue",
  "snowbridge-pallet-system",
@@ -19932,6 +19995,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "testnet-parachains-constants"
+version = "1.0.0"
+dependencies = [
+ "frame-support",
+ "polkadot-core-primitives",
+ "rococo-runtime-constants",
+ "smallvec",
+ "sp-runtime",
+ "staging-xcm",
+ "westend-runtime-constants",
+]
+
+[[package]]
 name = "textwrap"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -20592,9 +20668,9 @@ dependencies = [
 
 [[package]]
 name = "trybuild"
-version = "1.0.88"
+version = "1.0.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76de4f783e610194f6c98bfd53f9fc52bb2e0d02c947621e8a0f4ecc799b2880"
+checksum = "9a9d3ba662913483d6722303f619e75ea10b7855b0f8e0d72799cf8621bb488f"
 dependencies = [
  "basic-toml",
  "dissimilar",
