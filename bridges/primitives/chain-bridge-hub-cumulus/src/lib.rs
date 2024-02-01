@@ -58,8 +58,6 @@ const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(constants::WEIGHT_REF_TI
 	.set_proof_size(polkadot_primitives::MAX_POV_SIZE as u64);
 
 /// We allow for 2 seconds of compute with a 6 second average block.
-///
-/// This is a copy-paste of system parachain runtimes switched to async backing (https://github.com/paritytech/polkadot-sdk/pull/2949).
 const MAXIMUM_BLOCK_WEIGHT_FOR_ASYNC_BACKING: Weight = Weight::from_parts(
 	constants::WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2),
 	polkadot_primitives::MAX_POV_SIZE as u64,
