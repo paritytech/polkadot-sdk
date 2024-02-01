@@ -16,4 +16,4 @@
 // limitations under the License.
 
 pub(crate) mod mock;
-mod tests;
+mod unit;

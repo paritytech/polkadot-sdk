@@ -78,7 +78,7 @@
 //! ### Examples Usage
 //!
 //! Now to demonstrate how the values can be updated:
-#![doc = docify::embed!("src/tests/tests.rs", set_parameters_example)]
+#![doc = docify::embed!("src/tests/unit.rs", set_parameters_example)]
 //!
 //! ## Low Level / Implementation Details
 //!
