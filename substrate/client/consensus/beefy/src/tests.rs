@@ -1306,6 +1306,104 @@ async fn should_initialize_voter_at_custom_genesis_when_state_unavailable() {
 }
 
 #[tokio::test]
+async fn should_catch_up_when_loading_saved_voter_state() {
+	let keys = &[BeefyKeyring::Alice];
+	let validator_set = ValidatorSet::new(make_beefy_ids(keys), 0).unwrap();
+	let mut net = BeefyTestNet::new(1);
+	let backend = net.peer(0).client().as_backend();
+
+	// push 15 blocks with `AuthorityChange` digests every 10 blocks
+	let hashes = net.generate_blocks_and_sync(30, 10, &validator_set, false).await;
+	let mut finality = net.peer(0).client().as_client().finality_notification_stream().fuse();
+	// finalize 13 without justifications
+	net.peer(0).client().as_client().finalize_block(hashes[13], None).unwrap();
+
+	let api = TestApi::with_validator_set(&validator_set);
+
+	// load persistent state - nothing in DB, should init at genesis
+	//
+	// NOTE: code from `voter_init_setup()` is moved here because the new network event system
+	// doesn't allow creating a new `GossipEngine` as the notification handle is consumed by the
+	// first `GossipEngine`
+	let known_peers = Arc::new(Mutex::new(KnownPeers::new()));
+	let (gossip_validator, _) = GossipValidator::new(known_peers);
+	let gossip_validator = Arc::new(gossip_validator);
+	let mut gossip_engine = sc_network_gossip::GossipEngine::new(
+		net.peer(0).network_service().clone(),
+		net.peer(0).sync_service().clone(),
+		net.peer(0).take_notification_service(&beefy_gossip_proto_name()).unwrap(),
+		"/beefy/whatever",
+		gossip_validator,
+		None,
+	);
+	let (beefy_genesis, best_grandpa) =
+		wait_for_runtime_pallet(&api, &mut gossip_engine, &mut finality).await.unwrap();
+	let mut worker_base = BeefyWorkerBase {
+		backend: backend.clone(),
+		runtime: Arc::new(api.clone()),
+		key_store: None.into(),
+		metrics: None,
+		_phantom: Default::default(),
+	};
+	let persisted_state =
+		worker_base.load_or_init_state(beefy_genesis, best_grandpa, 1).await.unwrap();
+
+	// Test initialization at session boundary.
+	// verify voter initialized with two sessions starting at blocks 1 and 10
+	let sessions = persisted_state.voting_oracle().sessions();
+	assert_eq!(sessions.len(), 2);
+	assert_eq!(sessions[0].session_start(), 1);
+	assert_eq!(sessions[1].session_start(), 10);
+	let rounds = persisted_state.active_round().unwrap();
+	assert_eq!(rounds.session_start(), 1);
+	assert_eq!(rounds.validator_set_id(), validator_set.id());
+
+	// verify next vote target is mandatory block 1
+	assert_eq!(persisted_state.best_beefy(), 0);
+	assert_eq!(persisted_state.best_grandpa_number(), 13);
+	assert_eq!(persisted_state.voting_oracle().voting_target(), Some(1));
+
+	// verify state also saved to db
+	assert!(verify_persisted_version(&*backend));
+	let state = load_persistent(&*backend).unwrap().unwrap();
+	assert_eq!(state, persisted_state);
+
+	// now let's consider that the node goes offline, and then it restarts after a while
+
+	// finalize 25 without justifications
+	net.peer(0).client().as_client().finalize_block(hashes[25], None).unwrap();
+	// load persistent state - state preset in DB
+	// the network state persists and uses the old `GossipEngine` initialized for `peer(0)`
+	let (beefy_genesis, best_grandpa) =
+		wait_for_runtime_pallet(&api, &mut gossip_engine, &mut finality).await.unwrap();
+	let mut worker_base = BeefyWorkerBase {
+		backend: backend.clone(),
+		runtime: Arc::new(api),
+		key_store: None.into(),
+		metrics: None,
+		_phantom: Default::default(),
+	};
+	let persisted_state =
+		worker_base.load_or_init_state(beefy_genesis, best_grandpa, 1).await.unwrap();
+
+	// Verify voter initialized with old sessions plus a new one starting at block 20.
+	// There shouldn't be any duplicates.
+	let sessions = persisted_state.voting_oracle().sessions();
+	assert_eq!(sessions.len(), 3);
+	assert_eq!(sessions[0].session_start(), 1);
+	assert_eq!(sessions[1].session_start(), 10);
+	assert_eq!(sessions[2].session_start(), 20);
+	let rounds = persisted_state.active_round().unwrap();
+	assert_eq!(rounds.session_start(), 1);
+	assert_eq!(rounds.validator_set_id(), validator_set.id());
+
+	// verify next vote target is mandatory block 1
+	assert_eq!(persisted_state.best_beefy(), 0);
+	assert_eq!(persisted_state.best_grandpa_number(), 25);
+	assert_eq!(persisted_state.voting_oracle().voting_target(), Some(1));
+}
+
+#[tokio::test]
 async fn beefy_finalizing_after_pallet_genesis() {
 	sp_tracing::try_init_simple();
 
