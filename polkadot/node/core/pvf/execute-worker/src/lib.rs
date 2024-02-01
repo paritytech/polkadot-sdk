@@ -16,7 +16,8 @@
 
 //! Contains the logic for executing PVFs. Used by the polkadot-execute-worker binary.
 
-pub use polkadot_node_core_pvf_common::executor_interface::execute_artifact;
+pub use polkadot_node_core_pvf_common::{
+	executor_interface::execute_artifact, error::ExecuteError};
 
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-execute-worker=trace`.
@@ -237,6 +238,7 @@ fn validate_using_artifact(
 		//         [`executor_interface::prepare`].
 		execute_artifact(compiled_artifact_blob, executor_params, params)
 	} {
+		Err(ExecuteError::RuntimeConstruction(wasmerr)) => return JobResponse::may_retry("execute", &wasmerr),
 		Err(err) => return JobResponse::format_invalid("execute", &err),
 		Ok(d) => d,
 	};
@@ -550,6 +552,7 @@ fn handle_parent_process(
 					Ok(WorkerResponse::Ok { result_descriptor, duration: cpu_tv })
 				},
 				Ok(JobResponse::InvalidCandidate(err)) => Ok(WorkerResponse::InvalidCandidate(err)),
+				Ok(JobResponse::MayRetry(err)) => Ok(WorkerResponse::MayRetry(err)),
 				Err(job_error) => {
 					gum::warn!(
 						target: LOG_TARGET,

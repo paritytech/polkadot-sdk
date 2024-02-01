@@ -68,6 +68,8 @@ pub enum JobResponse {
 		/// The result of parachain validation.
 		result_descriptor: ValidationResult,
 	},
+	/// A possibly transient error happend during the execution; maybe retried
+	MayRetry(String),
 	/// The candidate is invalid.
 	InvalidCandidate(String),
 }
@@ -79,6 +81,15 @@ impl JobResponse {
 			Self::InvalidCandidate(ctx.to_string())
 		} else {
 			Self::InvalidCandidate(format!("{}: {}", ctx, msg))
+		}
+	}
+
+	/// Creates a may retry response from a context `ctx` and a message `msg` (which can be empty).
+	pub fn may_retry(ctx: &'static str, msg: &str) -> Self {
+		if msg.is_empty() {
+			Self::MayRetry(ctx.to_string())
+		} else {
+			Self::MayRetry(format!("{}: {}", ctx, msg))
 		}
 	}
 }
