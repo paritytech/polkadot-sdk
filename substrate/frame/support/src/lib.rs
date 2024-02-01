@@ -179,7 +179,7 @@ pub use frame_support_procedural::derive_impl;
 #[cfg(feature = "experimental")]
 pub mod dynamic_params {
 	pub use frame_support_procedural::{
-		dynamic_aggregated_params, dynamic_pallet_params, dynamic_params,
+		dynamic_aggregated_params_internal, dynamic_pallet_params, dynamic_params,
 	};
 }
 

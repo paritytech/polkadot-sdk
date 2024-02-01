@@ -23,6 +23,7 @@ use crate::tests::mock::{
 	dynamic_params::*, new_test_ext, PalletParameters, RuntimeOrigin as Origin, RuntimeParameters,
 	RuntimeParameters::*, RuntimeParametersKey, RuntimeParametersValue,
 };
+use codec::Encode;
 use frame_support::{
 	assert_noop, assert_ok, traits::dynamic_params::AggregratedKeyValue, StorageNoopGuard,
 };
@@ -179,14 +180,14 @@ fn test_define_aggregrated_parameters_key_convert() {
 	let runtime_key: RuntimeParametersKey = parameter_key.clone().into();
 
 	assert_eq!(runtime_key, RuntimeParametersKey::Pallet1(pallet1::ParametersKey::Key1(key1)));
-	assert_eq!(runtime_key.encode(), vec![0, 0]);
+	assert_eq!(runtime_key.encode(), vec![3, 0]);
 
 	let key2 = pallet2::Key2;
 	let parameter_key: pallet2::ParametersKey = key2.clone().into();
 	let runtime_key: RuntimeParametersKey = parameter_key.clone().into();
 
 	assert_eq!(runtime_key, RuntimeParametersKey::Pallet2(pallet2::ParametersKey::Key2(key2)));
-	assert_eq!(runtime_key.encode(), vec![1, 1]);
+	assert_eq!(runtime_key.encode(), vec![3, 1]);
 }
 
 #[test]
@@ -202,4 +203,21 @@ fn test_define_aggregrated_parameters_aggregrated_key_value() {
 
 	assert_eq!(key2, RuntimeParametersKey::Pallet2(pallet2::ParametersKey::Key2(pallet2::Key2)));
 	assert_eq!(value2, Some(RuntimeParametersValue::Pallet2(pallet2::ParametersValue::Key2(2))));
+}
+
+#[test]
+fn codec_index_works() {
+	let enc = RuntimeParametersKey::Pallet1(pallet1::ParametersKey::Key1(pallet1::Key1)).encode();
+	assert_eq!(enc, vec![3, 0]);
+	let enc = RuntimeParametersKey::Pallet1(pallet1::ParametersKey::Key2(pallet1::Key2)).encode();
+	assert_eq!(enc, vec![3, 1]);
+	let enc = RuntimeParametersKey::Pallet1(pallet1::ParametersKey::Key3(pallet1::Key3)).encode();
+	assert_eq!(enc, vec![3, 2]);
+
+	let enc = RuntimeParametersKey::Pallet2(pallet2::ParametersKey::Key1(pallet2::Key1)).encode();
+	assert_eq!(enc, vec![1, 2]);
+	let enc = RuntimeParametersKey::Pallet2(pallet2::ParametersKey::Key2(pallet2::Key2)).encode();
+	assert_eq!(enc, vec![1, 1]);
+	let enc = RuntimeParametersKey::Pallet2(pallet2::ParametersKey::Key3(pallet2::Key3)).encode();
+	assert_eq!(enc, vec![1, 0]);
 }

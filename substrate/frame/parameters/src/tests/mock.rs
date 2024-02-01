@@ -46,6 +46,7 @@ pub mod dynamic_params {
 	use super::*;
 
 	#[dynamic_pallet_params]
+	#[codec(index = 3)]
 	pub mod pallet1 {
 		#[codec(index = 0)]
 		pub static Key1: u64 = 0;
@@ -56,12 +57,13 @@ pub mod dynamic_params {
 	}
 
 	#[dynamic_pallet_params]
+	#[codec(index = 1)]
 	pub mod pallet2 {
-		#[codec(index = 0)]
+		#[codec(index = 2)]
 		pub static Key1: u64 = 0;
 		#[codec(index = 1)]
 		pub static Key2: u32 = 2;
-		#[codec(index = 2)]
+		#[codec(index = 0)]
 		pub static Key3: u128 = 4;
 	}
 }

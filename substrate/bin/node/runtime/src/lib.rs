@@ -2086,11 +2086,12 @@ impl pallet_mixnet::Config for Runtime {
 }
 
 /// Dynamic parameters that can be changed at runtime through the `pallet_parametes::set_parameter`.
-#[dynamic_params(RuntimeParameters)]
+#[dynamic_params(RuntimeParameters, pallet_parameters::Parameters::<Runtime>)]
 pub mod dynamic_params {
 	use super::*;
 
-	#[dynamic_pallet_params(pallet_parameters::Parameters::<Runtime>)]
+	#[dynamic_pallet_params]
+	#[codec(index = 0)]
 	pub mod storage {
 		/// Configures the base deposit of storing some data.
 		#[codec(index = 0)]
@@ -2101,7 +2102,8 @@ pub mod dynamic_params {
 		pub static ByteDeposit: Balance = 1 * CENTS;
 	}
 
-	#[dynamic_pallet_params(pallet_parameters::Parameters::<Runtime>)]
+	#[dynamic_pallet_params]
+	#[codec(index = 1)]
 	pub mod contracts {
 		#[codec(index = 0)]
 		pub static DepositPerItem: Balance = deposit(1, 0);

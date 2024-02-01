@@ -15,15 +15,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Code for the `#[dynamic_params]`, `#[dynamic_pallet_params]` and `#[dynamic_aggregated_params]`
-//! macros.
+//! Code for the `#[dynamic_params]`, `#[dynamic_pallet_params]` and
+//! `#[dynamic_aggregated_params_internal]` macros.
 
 use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use inflector::Inflector;
-use itertools::multiunzip;
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, ToTokens};
-use syn::{parse2, visit_mut, visit_mut::VisitMut, Result, Token};
+use syn::{parse2, spanned::Spanned, visit_mut, visit_mut::VisitMut, Result, Token};
 
 /// Parse and expand a `#[dynamic_params(..)]` module.
 pub fn dynamic_params(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
@@ -35,8 +34,11 @@ pub fn dynamic_pallet_params(attr: TokenStream, item: TokenStream) -> Result<Tok
 	DynamicPalletParamAttr::parse(attr, item).map(ToTokens::into_token_stream)
 }
 
-/// Parse and expand `#[dynamic_aggregated_params]` attribute.
-pub fn dynamic_aggregated_params(_attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
+/// Parse and expand `#[dynamic_aggregated_params_internal]` attribute.
+pub fn dynamic_aggregated_params_internal(
+	_attr: TokenStream,
+	item: TokenStream,
+) -> Result<TokenStream> {
 	parse2::<DynamicParamAggregatedEnum>(item).map(ToTokens::into_token_stream)
 }
 
@@ -92,7 +94,15 @@ impl ToTokens for DynamicParamModAttr {
 				syn::Ident::new(&m.ident.to_string().to_class_case(), m.ident.span());
 			let mod_name = &m.ident;
 
+			let mut attrs = m.attrs.clone();
+			attrs.retain(|attr| !attr.path().is_ident("dynamic_pallet_params"));
+			if let Err(err) = ensure_codec_index(&attrs, m.span()) {
+				tokens.extend(err.into_compile_error());
+				return
+			}
+
 			quoted_enum.extend(quote! {
+				#(#attrs)*
 				#aggregate_name(#dynam_params_ident::#mod_name::Parameters),
 			});
 		}
@@ -105,11 +115,32 @@ impl ToTokens for DynamicParamModAttr {
 		tokens.extend(quote! {
 			#params_mod
 
-			#[#scrate::dynamic_params::dynamic_aggregated_params]
+			#[#scrate::dynamic_params::dynamic_aggregated_params_internal]
 			pub enum #name {
 				#quoted_enum
 			}
 		});
+	}
+}
+
+/// Ensure there is a `#[codec(index = ..)]` attribute.
+fn ensure_codec_index(attrs: &Vec<syn::Attribute>, span: Span) -> Result<()> {
+	let mut found = false;
+
+	for attr in attrs.iter() {
+		if attr.path().is_ident("codec") {
+			let meta: syn::ExprAssign = attr.parse_args()?;
+			if meta.left.to_token_stream().to_string() == "index" {
+				found = true;
+				break
+			}
+		}
+	}
+
+	if !found {
+		Err(syn::Error::new(span, "Missing explicit `#[codec(index = ..)]` attribute"))
+	} else {
+		Ok(())
 	}
 }
 
@@ -184,15 +215,26 @@ impl ToTokens for DynamicPalletParamAttr {
 		let (mod_name, vis) = (&params_mod.ident, &params_mod.vis);
 		let statics = self.statics();
 
-		let (key_names, key_values, defaults, attrs, value_types): (
+		let (mut key_names, mut key_values, mut defaults, mut attrs, mut value_types): (
 			Vec<_>,
 			Vec<_>,
 			Vec<_>,
 			Vec<_>,
 			Vec<_>,
-		) = multiunzip(statics.iter().map(|s| {
-			(&s.ident, format_ident!("{}Value", s.ident), &s.expr, s.attrs.first(), &s.ty)
-		}));
+		) = Default::default();
+
+		for s in statics.iter() {
+			if let Err(err) = ensure_codec_index(&s.attrs, s.span()) {
+				tokens.extend(err.into_compile_error());
+				return
+			}
+
+			key_names.push(&s.ident);
+			key_values.push(format_ident!("{}Value", &s.ident));
+			defaults.push(&s.expr);
+			attrs.push(&s.attrs);
+			value_types.push(&s.ty);
+		}
 
 		let key_ident = syn::Ident::new("ParametersKey", params_mod.ident.span());
 		let value_ident = syn::Ident::new("ParametersValue", params_mod.ident.span());
@@ -214,7 +256,7 @@ impl ToTokens for DynamicPalletParamAttr {
 				)]
 				#vis enum Parameters {
 					#(
-						#attrs
+						#(#attrs)*
 						#key_names(#key_names, Option<#value_types>),
 					)*
 				}
@@ -232,7 +274,7 @@ impl ToTokens for DynamicPalletParamAttr {
 				)]
 				#vis enum #key_ident {
 					#(
-						#attrs
+						#(#attrs)*
 						#key_names(#key_names),
 					)*
 				}
@@ -250,7 +292,7 @@ impl ToTokens for DynamicPalletParamAttr {
 				)]
 				#vis enum #value_ident {
 					#(
-						#attrs
+						#(#attrs)*
 						#key_names(#value_types),
 					)*
 				}
@@ -389,9 +431,11 @@ impl ToTokens for DynamicParamAggregatedEnum {
 
 		let (mut indices, mut param_names, mut param_types): (Vec<_>, Vec<_>, Vec<_>) =
 			Default::default();
+		let mut attributes = Vec::new();
 		for (i, variant) in params_enum.variants.iter().enumerate() {
 			indices.push(i);
 			param_names.push(&variant.ident);
+			attributes.push(&variant.attrs);
 
 			param_types.push(match &variant.fields {
 				syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => &fields.unnamed[0].ty,
@@ -419,7 +463,8 @@ impl ToTokens for DynamicParamAggregatedEnum {
 			)]
 			#vis enum #name {
 				#(
-					#[codec(index = #indices)]
+					//#[codec(index = #indices)]
+					#(#attributes)*
 					#param_names(#param_types),
 				)*
 			}
@@ -437,7 +482,7 @@ impl ToTokens for DynamicParamAggregatedEnum {
 			)]
 			#vis enum #params_key_ident {
 				#(
-					#[codec(index = #indices)]
+					#(#attributes)*
 					#param_names(<#param_types as #scrate::traits::dynamic_params::AggregratedKeyValue>::AggregratedKey),
 				)*
 			}
@@ -455,7 +500,7 @@ impl ToTokens for DynamicParamAggregatedEnum {
 			)]
 			#vis enum #params_value_ident {
 				#(
-					#[codec(index = #indices)]
+					#(#attributes)*
 					#param_names(<#param_types as #scrate::traits::dynamic_params::AggregratedKeyValue>::AggregratedValue),
 				)*
 			}

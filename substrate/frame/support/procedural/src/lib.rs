@@ -1688,11 +1688,27 @@ pub fn import_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 	.into()
 }
 
-/// Internally used by [`dynamic_params`].
-#[doc(hidden)]
+/// Mark a module that contains dynamic parameters.
+///
+/// See the [`pallet_parameters`] for a full example.
+///
+/// # Arguments
+///
+/// The macro accepts two positional arguments, of which the second is optional.
+///
+/// ## Aggregated Enum Name
+///
+/// This sets the name that the aggregated Key-Value enum will be named after. Common names would be
+/// `RuntimeParameters`, akin to `RuntimeCall`, `RuntimeOrigin` etc. There is no default value for
+/// this argument.
+///
+/// ## Parameter Storage Backend
+///
+/// The second argument provides access to the storage of the parameters. It can either be set on
+/// on this attribute, or on the inner ones. If set on both, the inner one takes precedence.
 #[proc_macro_attribute]
-pub fn dynamic_aggregated_params(attrs: TokenStream, input: TokenStream) -> TokenStream {
-	dynamic_params::dynamic_aggregated_params(attrs.into(), input.into())
+pub fn dynamic_params(attrs: TokenStream, input: TokenStream) -> TokenStream {
+	dynamic_params::dynamic_params(attrs.into(), input.into())
 		.unwrap_or_else(|r| r.into_compile_error())
 		.into()
 }
@@ -1700,6 +1716,11 @@ pub fn dynamic_aggregated_params(attrs: TokenStream, input: TokenStream) -> Toke
 /// Define a module inside a [`dynamic_params`] module that contains dynamic parameters.
 ///
 /// See the [`pallet_parameters`] for a full example.
+///
+/// # Argument
+///
+/// This attribute takes one optional argument. The argument can either be put here or on the
+/// surrounding  `#[dynamic_params]` attribute. If set on both, the inner one takes precedence.
 #[proc_macro_attribute]
 pub fn dynamic_pallet_params(attrs: TokenStream, input: TokenStream) -> TokenStream {
 	dynamic_params::dynamic_pallet_params(attrs.into(), input.into())
@@ -1707,12 +1728,11 @@ pub fn dynamic_pallet_params(attrs: TokenStream, input: TokenStream) -> TokenStr
 		.into()
 }
 
-/// Mark a module that contains dynamic parameters.
-///
-/// See the [`pallet_parameters`] for a full example.
+/// Used internally by [`dynamic_params`].
+#[doc(hidden)]
 #[proc_macro_attribute]
-pub fn dynamic_params(attrs: TokenStream, input: TokenStream) -> TokenStream {
-	dynamic_params::dynamic_params(attrs.into(), input.into())
+pub fn dynamic_aggregated_params_internal(attrs: TokenStream, input: TokenStream) -> TokenStream {
+	dynamic_params::dynamic_aggregated_params_internal(attrs.into(), input.into())
 		.unwrap_or_else(|r| r.into_compile_error())
 		.into()
 }
