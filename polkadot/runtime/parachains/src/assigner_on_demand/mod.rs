@@ -16,21 +16,30 @@
 
 //! The parachain on demand assignment module.
 //!
-//! Implements a mechanism for taking in orders for pay as you go (PAYG) or on demand
-//! parachain (previously parathreads) assignments. This module is not handled by the
-//! initializer but is instead instantiated in the `construct_runtime` macro.
+//! Implements a mechanism for taking in orders for on-demand parachain (previously parathreads)
+//! assignments. This module is not handled by the initializer but is instead instantiated in the
+//! `construct_runtime` macro.
 //!
 //! The module currently limits parallel execution of blocks from the same `ParaId` via
 //! a core affinity mechanism. As long as there exists an affinity for a `CoreIndex` for
 //! a specific `ParaId`, orders for blockspace for that `ParaId` will only be assigned to
-//! that `CoreIndex`. This affinity mechanism can be removed if it can be shown that parallel
-//! execution is valid.
+//! that `CoreIndex`.
+//!
+//! NOTE: Once we have elastic scaling implemented we might want to extend this module to support
+//! ignoring core affinity up to a certain extend. This should be opt-in though as the parachain
+//! needs to support multiple cores in the same block. If we want to enable a single parachain
+//! occupying multiple cores in on-demand, we will likely add a separate order type, where the
+//! intent can be made explicit.
 
 mod benchmarking;
 mod mock_helpers;
 
+extern crate alloc;
+
 #[cfg(test)]
 mod tests;
+
+use core::ops::{Deref, DerefMut};
 
 use crate::{configuration, paras, scheduler::common::Assignment};
 
@@ -43,13 +52,15 @@ use frame_support::{
 	},
 };
 use frame_system::pallet_prelude::*;
-use primitives::{CoreIndex, Id as ParaId};
+use parity_scale_codec::{EncodeLike, WrapperTypeEncode};
+use primitives::{CoreIndex, Id as ParaId, ON_DEMAND_MAX_QUEUE_MAX_SIZE};
 use sp_runtime::{
 	traits::{One, SaturatedConversion},
 	FixedPointNumber, FixedPointOperand, FixedU128, Perbill, Saturating,
 };
 
-use sp_std::{collections::vec_deque::VecDeque, prelude::*};
+use sp_std::{prelude::*, cmp::{Ordering, Reverse}, cmp::PartialOrd, cmp::Ord};
+use alloc::collections::BinaryHeap;
 
 const LOG_TARGET: &str = "runtime::parachains::assigner-on-demand";
 
@@ -73,12 +84,99 @@ impl WeightInfo for TestWeightInfo {
 	}
 }
 
+/// Meta data for full queue.
+///
+/// This includes elements with affinity and free entries.
+///
+/// The actual queue is implemented via multiple priority queues. One for each core, for entries
+/// which currently have a core affinity and one free queue, with entries without any affinity yet.
+///
+/// The design aims to have most queue accessess be O(1) or O(log(N)). Absolute worst case is O(N).
+/// Importantly this includes all accessess that happen in a single block. Even with 50 cores, the
+/// total complexity of all operations in the block should maintain above complexities. In
+/// particular O(N) stays O(N), it should never be O(N*cores).
+///
+/// More concrete rundown on complexity:
+///
+///  - insert: O(1) for placing an order, O(log(N)) for push backs.
+///  - pop_assignment_for_core: O(log(N)), O(N) worst case: Can only happen for one core, next core
+///  is already less work.
+///  - report_processed & push back: If affinity dropped to 0, then O(N) in the worst case. Again
+///  this divides per core.
+///
+///  Reads still exist, also improved slightly, but worst case we fetch all entries. This
+///  technically should mean worst complexity is still O(N*cores), but constant factors should be
+///  really small. Benchmarks will show.
+///
+///  TODO: Add benchmark results.
+#[derive(Encode, Decode, TypeInfo)]
+struct QueueStatusType {
+	/// Last calculated traffic value.
+	traffic: FixedU128,
+	/// The next index to use.
+	next_index: QueueIndex,
+	/// Smallest index still in use.
+	///
+	/// In case of a completely empty queue (free + affinity queues), `next_index - smallest_index == 0`.
+	smallest_index: QueueIndex,
+	/// Indices that have been freed already.
+	///
+	/// But have a hole to `smallest_index`, so we can not yet bump `smallest_index`. This binary
+	/// heap is roughly bounded in the number of on demand cores:
+	///
+	/// For a single core, elements will always be processed in order. With each core added, a
+	/// level of of out of order execution is added.
+	freed_indices: BinaryHeap<Reverse<QueueIndex>>,
+}
+
+impl QueueStatusType {
+	/// How many orders are queued in total?
+	///
+	/// This includes entries which have core affinity.
+	fn size(&self) -> u32 {
+		self.next_index.0.overflowing_sub(self.smallest_index.0).0.saturating_sub(self.freed_indices.len() as u32)
+	}
+
+	/// Get current next index
+	///
+	/// to use for an element newly pushed to the back of the queue.
+	fn push_back(&mut self) -> QueueIndex {
+		let QueueIndex(next_index) = self.next_index;
+		self.next_index = QueueIndex(next_index.overflowing_add(1).0);
+		QueueIndex(next_index)
+	}
+
+	/// Push something to the front of the queue
+	fn push_front(&mut self) -> QueueIndex {
+		self.smallest_index = QueueIndex(self.next_index.0.overflowing_sub(1).0);
+		self.smallest_index
+	}
+
+	/// The given index is no longer part of the queue.
+	///
+	/// This updates `smallest_index` if need be.
+	fn consume_index(&mut self, removed_index: QueueIndex) {
+		if removed_index != self.smallest_index {
+			self.freed_indices.push(Reverse(removed_index));
+			return
+		}
+		let mut index = self.smallest_index.0.overflowing_add(1).0;
+		// Even more to advance?
+		while self.freed_indices.peek() == Some(&Reverse(QueueIndex(index))) {
+			index = index.overflowing_add(1).0;
+			self.freed_indices.pop();
+		}
+		self.smallest_index = QueueIndex(index);
+	}
+}
+
+
 /// Keeps track of how many assignments a scheduler currently has at a specific `CoreIndex` for a
 /// specific `ParaId`.
 #[derive(Encode, Decode, Default, Clone, Copy, TypeInfo)]
 #[cfg_attr(test, derive(PartialEq, RuntimeDebug))]
 pub struct CoreAffinityCount {
-	core_idx: CoreIndex,
+	core_index: CoreIndex,
 	count: u32,
 }
 
@@ -93,8 +191,7 @@ type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// Errors that can happen during spot traffic calculation.
-#[derive(PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(PartialEq, RuntimeDebug)]
 pub enum SpotTrafficCalculationErr {
 	/// The order queue capacity is at 0.
 	QueueCapacityIsZero,
@@ -104,17 +201,80 @@ pub enum SpotTrafficCalculationErr {
 	Division,
 }
 
+// Type used for priority indices.
+#[derive(Encode, Decode, TypeInfo, Debug, PartialEq, Clone, Eq)]
+struct QueueIndex(u32);
+
+impl Ord for QueueIndex {
+	fn cmp(&self, other: &Self) -> Ordering {
+		let diff = self.0.overflowing_sub(other.0).0;
+		if diff == 0 {
+			Ordering::Equal
+		} else if diff <= ON_DEMAND_MAX_QUEUE_MAX_SIZE {
+			Ordering::Greater
+		} else {
+			Ordering::Less
+		}
+	}
+}
+
+impl PartialOrd for QueueIndex {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		Some(self.cmp(other))
+	}
+}
+
 /// Internal representation of an order after it has been enqueued already.
-#[derive(Encode, Decode, TypeInfo, Debug, PartialEq, Clone)]
+///
+/// This data structure is provided for a min BinaryHeap (Ord compares in reverse order with regards to its elements)
+#[derive(Encode, Decode, TypeInfo, Debug, PartialEq, Clone, Eq)]
 pub(super) struct EnqueuedOrder {
-	pub para_id: ParaId,
+	para_id: ParaId,
+	idx: QueueIndex,
 }
 
 impl EnqueuedOrder {
-	pub fn new(para_id: ParaId) -> Self {
-		Self { para_id }
+	pub fn new(idx: QueueIndex, para_id: ParaId) -> Self {
+		Self { idx, para_id }
 	}
 }
+
+impl PartialOrd for EnqueuedOrder {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		match other.idx.partial_cmp(&self.idx) {
+			None => return None,
+			Some(Ordering::Equal) => other.para_id.partial_cmp(&self.para_id),
+			Some(o) => Some(o),
+		}
+	}
+}
+
+impl Ord for EnqueuedOrder {
+	fn cmp(&self, other: &Self) -> Ordering {
+		match other.idx.cmp(&self.idx) {
+			Ordering::Equal => other.para_id.cmp(&self.para_id),
+			o => o,
+		}
+	}
+}
+
+#[derive(Decode,TypeInfo)]
+struct EncodeableBinaryHeap<T>(BinaryHeap<T>);
+
+impl<T> Deref for EncodeableBinaryHeap<T> {
+	type Target = BinaryHeap<T>;
+	fn deref(&self) -> &Self::Target { &self.0 }
+}
+impl<T> DerefMut for EncodeableBinaryHeap<T> {
+    // Required method
+    fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.0
+	}
+}
+
+impl<T> WrapperTypeEncode for EncodeableBinaryHeap<T> {}
+impl<T: Encode> EncodeLike<&[T]> for EncodeableBinaryHeap<T> {}
+
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -141,36 +301,41 @@ pub mod pallet {
 		type TrafficDefaultValue: Get<FixedU128>;
 	}
 
-	/// Creates an empty spot traffic value if one isn't present in storage already.
+	/// Creates an empty queue status for an empty queue with initial traffic value.
 	#[pallet::type_value]
-	pub fn SpotTrafficOnEmpty<T: Config>() -> FixedU128 {
-		T::TrafficDefaultValue::get()
+	pub fn QueueStatusOnEmpty<T: Config>() -> QueueStatusType {
+		QueueStatusType {
+			traffic: T::TrafficDefaultValue::get(),
+			next_index: QueueIndex(0),
+			smallest_index: QueueIndex(0),
+			freed_indices: BinaryHeap::new(),
+		}
 	}
 
-	/// Creates an empty on demand queue if one isn't present in storage already.
 	#[pallet::type_value]
-	pub(super) fn OnDemandQueueOnEmpty<T: Config>() -> VecDeque<EnqueuedOrder> {
-		VecDeque::new()
+	pub(super) fn EntriesOnEmpty<T: Config>() -> BinaryHeap<EnqueuedOrder> {
+		BinaryHeap::new()
 	}
-
-	/// Keeps track of the multiplier used to calculate the current spot price for the on demand
-	/// assigner.
-	#[pallet::storage]
-	pub(super) type SpotTraffic<T: Config> =
-		StorageValue<_, FixedU128, ValueQuery, SpotTrafficOnEmpty<T>>;
-
-	/// The order storage entry. Uses a VecDeque to be able to push to the front of the
-	/// queue from the scheduler on session boundaries.
-	#[pallet::storage]
-	pub(super) type OnDemandQueue<T: Config> =
-		StorageValue<_, VecDeque<EnqueuedOrder>, ValueQuery, OnDemandQueueOnEmpty<T>>;
 
 	/// Maps a `ParaId` to `CoreIndex` and keeps track of how many assignments the scheduler has in
 	/// it's lookahead. Keeping track of this affinity prevents parallel execution of the same
 	/// `ParaId` on two or more `CoreIndex`es.
 	#[pallet::storage]
-	pub(super) type ParaIdAffinity<T: Config> =
-		StorageMap<_, Twox256, ParaId, CoreAffinityCount, OptionQuery>;
+	pub(super) type ParaIdAffinity<T: Config> = StorageMap<_, Twox64Concat, ParaId, CoreAffinityCount, OptionQuery>;
+
+	/// Overall status of queue (both free + affinity entries)
+	#[pallet::storage]
+	pub(super) type QueueStatus<T: Config> = StorageValue<_, QueueStatusType, QueueStatusOnEmpty<T>, ValueQuery>;
+
+
+	/// Priority queue for all orders which don't yet (or not any more) have any core affinity.
+	#[pallet::storage]
+	pub(super) type FreeEntries<T: Config> = StorageValue<_, BinaryHeap<EnqueuedOrder>, EntriesOnEmpty<T>, ValueQuery>;
+
+	/// Queue entries that are currently bound to a particular core due to core affinity.
+	#[pallet::storage]
+	pub(super) type AffinityEntries<T: Config> = StorageMap<_, Twox64Concat, CoreIndex, BinaryHeap<EnqueuedOrder>, EntriesOnEmpty<T>, ValueQuery>;
+
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -183,60 +348,11 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// The `ParaId` supplied to the `place_order` call is not a valid `ParaThread`, making the
-		/// call is invalid.
-		InvalidParaId,
 		/// The order queue is full, `place_order` will not continue.
 		QueueFull,
 		/// The current spot price is higher than the max amount specified in the `place_order`
 		/// call, making it invalid.
 		SpotPriceHigherThanMaxAmount,
-	}
-
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
-			let config = <configuration::Pallet<T>>::config();
-			// Calculate spot price multiplier and store it.
-			let old_traffic = SpotTraffic::<T>::get();
-			match Self::calculate_spot_traffic(
-				old_traffic,
-				config.on_demand_queue_max_size,
-				Self::queue_size(),
-				config.on_demand_target_queue_utilization,
-				config.on_demand_fee_variability,
-			) {
-				Ok(new_traffic) => {
-					// Only update storage on change
-					if new_traffic != old_traffic {
-						SpotTraffic::<T>::set(new_traffic);
-						Pallet::<T>::deposit_event(Event::<T>::SpotTrafficSet {
-							traffic: new_traffic,
-						});
-						return T::DbWeight::get().reads_writes(2, 1)
-					}
-				},
-				Err(SpotTrafficCalculationErr::QueueCapacityIsZero) => {
-					log::debug!(
-						target: LOG_TARGET,
-						"Error calculating spot traffic: The order queue capacity is at 0."
-					);
-				},
-				Err(SpotTrafficCalculationErr::QueueSizeLargerThanCapacity) => {
-					log::debug!(
-						target: LOG_TARGET,
-						"Error calculating spot traffic: The queue size is larger than the queue capacity."
-					);
-				},
-				Err(SpotTrafficCalculationErr::Division) => {
-					log::debug!(
-						target: LOG_TARGET,
-						"Error calculating spot traffic: Arithmetic error during division, either division by 0 or over/underflow."
-					);
-				},
-			};
-			T::DbWeight::get().reads_writes(2, 0)
-		}
 	}
 
 	#[pallet::call]
@@ -258,7 +374,7 @@ pub mod pallet {
 		/// Events:
 		/// - `SpotOrderPlaced`
 		#[pallet::call_index(0)]
-		#[pallet::weight(<T as Config>::WeightInfo::place_order_allow_death(OnDemandQueue::<T>::get().len() as u32))]
+		#[pallet::weight(<T as Config>::WeightInfo::place_order_allow_death(QueueStatus::<T>::get().size()))]
 		pub fn place_order_allow_death(
 			origin: OriginFor<T>,
 			max_amount: BalanceOf<T>,
@@ -285,7 +401,7 @@ pub mod pallet {
 		/// Events:
 		/// - `SpotOrderPlaced`
 		#[pallet::call_index(1)]
-		#[pallet::weight(<T as Config>::WeightInfo::place_order_keep_alive(OnDemandQueue::<T>::get().len() as u32))]
+		#[pallet::weight(<T as Config>::WeightInfo::place_order_keep_alive(QueueStatus::<T>::get().size()))]
 		pub fn place_order_keep_alive(
 			origin: OriginFor<T>,
 			max_amount: BalanceOf<T>,
@@ -297,10 +413,80 @@ pub mod pallet {
 	}
 }
 
+// Internal functions and interface to scheduler/wrapping assignment provider.
 impl<T: Config> Pallet<T>
 where
 	BalanceOf<T>: FixedPointOperand,
 {
+	/// Take the next queued entry that is available for a given core index.
+	/// Invalidates and removes orders with a `para_id` that is not `ParaLifecycle::Parathread`
+	/// but only in [0..P] range slice of the order queue, where P is the element that is
+	/// removed from the order queue.
+	///
+	/// Parameters:
+	/// - `core_index`: The core index
+	pub fn pop_assignment_for_core(core_index: CoreIndex) -> Option<Assignment> {
+
+		let entry = QueueStatus::<T>::mutate(|queue_status| {
+			AffinityEntries::<T>::mutate(core_index, |affinity_entries| {
+				FreeEntries::<T>::mutate(|free_entries| {
+					let affinity_next = affinity_entries.peek();
+					let free_next = free_entries.peek();
+					let pick_free = match (affinity_next, free_next) {
+						(None, _) => true,
+						(Some(_), None) => false,
+						(Some(a), Some(f)) => f < a,
+					};
+					let entry = if pick_free {
+						let entry = free_entries.pop()?;
+						let (affinities, free): (BinaryHeap<_>, BinaryHeap<_>) = free_entries.into_iter().partition(|e| e.para_id == entry.para_id);
+						affinity_entries.append(affinities);
+						*free_entries = free;
+						entry
+					} else {
+						affinity_entries.pop()?
+					};
+					queue_status.consume_index(entry.idx);
+				});
+			});
+		});
+
+		// TODO: Test for invariant: If affinity count was zero before (is 1 now) then the entry
+		// must have come from free_entries.
+		Pallet::<T>::increase_affinity(entry.para_id, core_index);
+
+		let mut invalidated_para_id_indexes: Vec<usize> = vec![];
+
+		entry.map(|e| Assignment::Pool { para_id: e.para_id, core_index })
+	}
+
+	/// Report that the `para_id` & `core_index` combination was processed.
+	///
+	/// This should be called once it is clear that the assignment won't get pushed back anymore.
+	///
+	/// In other words for each `pop_assignment_for_core` a call to this function or
+	/// `push_back_assignment` must follow, but only one.
+	pub fn report_processed(para_id: ParaId, core_index: CoreIndex) {
+		Pallet::<T>::decrease_affinity_update_queue(para_id, core_index);
+	}
+
+	/// Push an assignment back to the front of the queue.
+	///
+	/// The assignment has not been processed yet. Typically used on session boundaries.
+	///
+	/// NOTE: We are not checking queue size here. So due to push backs it is possible that we
+	/// exceed the maximum queue size slightly.
+	///
+	/// Parameters:
+	/// - `para_id`: The para that did not make it.
+	/// - `core_index`: The core the para was scheduled on.
+	pub fn push_back_assignment(para_id: ParaId, core_index: CoreIndex) {
+		Pallet::<T>::decrease_affinity_update_queue(para_id, core_index);
+		QueueStatus::<T>::mutate(|queue_status| {
+			Pallet::<T>::add_on_demand_order(queue_status, para_id, QueuePushDirection::Front);
+		});
+	}
+
 	/// Helper function for `place_order_*` calls. Used to differentiate between placing orders
 	/// with a keep alive check or to allow the account to be reaped.
 	///
@@ -326,34 +512,58 @@ where
 	) -> DispatchResult {
 		let config = <configuration::Pallet<T>>::config();
 
-		// Traffic always falls back to 1.0
-		let traffic = SpotTraffic::<T>::get();
+		QueueStatus::<T>::mutate(|queue_status| {
+			Self::update_spot_traffic(&config, queue_status);
+			let traffic = queue_status.traffic;
 
-		// Calculate spot price
-		let spot_price: BalanceOf<T> =
-			traffic.saturating_mul_int(config.on_demand_base_fee.saturated_into::<BalanceOf<T>>());
+			// Calculate spot price
+			let spot_price: BalanceOf<T> =
+				traffic.saturating_mul_int(config.on_demand_base_fee.saturated_into::<BalanceOf<T>>());
 
-		// Is the current price higher than `max_amount`
-		ensure!(spot_price.le(&max_amount), Error::<T>::SpotPriceHigherThanMaxAmount);
+			// Is the current price higher than `max_amount`
+			ensure!(spot_price.le(&max_amount), Error::<T>::SpotPriceHigherThanMaxAmount);
 
-		// Charge the sending account the spot price
-		let _ = T::Currency::withdraw(
-			&sender,
-			spot_price,
-			WithdrawReasons::FEE,
-			existence_requirement,
-		)?;
+			// Charge the sending account the spot price
+			let _ = T::Currency::withdraw(
+				&sender,
+				spot_price,
+				WithdrawReasons::FEE,
+				existence_requirement,
+				)?;
 
-		let order = EnqueuedOrder::new(para_id);
-
-		let res = Pallet::<T>::add_on_demand_order(order, QueuePushDirection::Back);
-
-		if res.is_ok() {
-			Pallet::<T>::deposit_event(Event::<T>::OnDemandOrderPlaced { para_id, spot_price });
-		}
-
-		res
+			ensure!(queue_status.size() < config.on_demand_queue_max_size, Error::<T>::QueueFull);
+			Pallet::<T>::add_on_demand_order(queue_status, para_id, QueuePushDirection::Back);
+			Ok(())
+		})
 	}
+
+	/// Calculate and update spot traffic.
+    fn update_spot_traffic(config: &configuration::HostConfiguration<BlockNumberFor<T>>, queue_status: &mut QueueStatusType) {
+			let old_traffic = queue_status.traffic;
+			match Self::_calculate_spot_traffic(
+				old_traffic,
+				config.on_demand_queue_max_size,
+				queue_status.size(),
+				config.on_demand_target_queue_utilization,
+				config.on_demand_fee_variability,
+			) {
+				Ok(new_traffic) => {
+					// Only update storage on change
+					if new_traffic != old_traffic {
+						queue_status.traffic = new_traffic;
+						Pallet::<T>::deposit_event(Event::<T>::SpotTrafficSet {
+							traffic: new_traffic,
+						});
+					}
+				},
+				Err(err) => {
+					log::debug!(
+						target: LOG_TARGET,
+						"Error calculating spot traffic: {:?}", err
+					);
+				},
+			};
+    }
 
 	/// The spot price multiplier. This is based on the transaction fee calculations defined in:
 	/// https://research.web3.foundation/Polkadot/overview/token-economics#setting-transaction-fees
@@ -379,8 +589,8 @@ where
 	/// - `SpotTrafficCalculationErr::Division`
 	pub(crate) fn calculate_spot_traffic(
 		traffic: FixedU128,
-		queue_capacity: u32,
-		queue_size: u32,
+		queue_capacity: QueueIndex,
+		queue_size: QueueIndex,
 		target_queue_utilisation: Perbill,
 		variability: Perbill,
 	) -> Result<FixedU128, SpotTrafficCalculationErr> {
@@ -429,172 +639,95 @@ where
 	/// Adds an order to the on demand queue.
 	///
 	/// Paramenters:
-	/// - `order`: The `EnqueuedOrder` to add to the queue.
 	/// - `location`: Whether to push this entry to the back or the front of the queue. Pushing an
 	///   entry to the front of the queue is only used when the scheduler wants to push back an
 	///   entry it has already popped.
-	/// Returns:
-	/// - The unit type on success.
-	///
-	/// Errors:
-	/// - `InvalidParaId`
-	/// - `QueueFull`
 	fn add_on_demand_order(
-		order: EnqueuedOrder,
+		queue_status: &mut QueueStatusType,
+		para_id: ParaId,
 		location: QueuePushDirection,
-	) -> Result<(), DispatchError> {
-		// Only parathreads are valid paraids for on the go parachains.
-		ensure!(<paras::Pallet<T>>::is_parathread(order.para_id), Error::<T>::InvalidParaId);
+	) {
 
-		let config = <configuration::Pallet<T>>::config();
+		let idx = match location {
+			QueuePushDirection::Back => queue_status.push_back(),
+			QueuePushDirection::Front => queue_status.push_front(),
+		};
 
-		OnDemandQueue::<T>::try_mutate(|queue| {
-			// Abort transaction if queue is too large
-			ensure!(Self::queue_size() < config.on_demand_queue_max_size, Error::<T>::QueueFull);
-			match location {
-				QueuePushDirection::Back => queue.push_back(order),
-				QueuePushDirection::Front => queue.push_front(order),
-			};
-			Ok(())
-		})
-	}
-
-	/// Get the size of the on demand queue.
-	///
-	/// Returns:
-	/// - The size of the on demand queue.
-	fn queue_size() -> u32 {
-		let config = <configuration::Pallet<T>>::config();
-		match OnDemandQueue::<T>::get().len().try_into() {
-			Ok(size) => return size,
-			Err(_) => {
-				log::debug!(
-					target: LOG_TARGET,
-					"Failed to fetch the on demand queue size, returning the max size."
-				);
-				return config.on_demand_queue_max_size
-			},
+		let affinity = ParaIdAffinity::<T>::get(para_id);
+		let order = EnqueuedOrder::new(idx, para_id);
+		match affinity {
+			None => FreeEntries::<T>::mutate(|entries| entries.push(order)),
+			Some(affinity) => AffinityEntries::<T>::mutate(affinity.core_index, |entries| entries.push(order)),
 		}
 	}
 
-	/// Getter for the order queue.
-	#[cfg(test)]
-	fn get_queue() -> VecDeque<EnqueuedOrder> {
-		OnDemandQueue::<T>::get()
-	}
-
-	/// Getter for the affinity tracker.
-	pub fn get_affinity_map(para_id: ParaId) -> Option<CoreAffinityCount> {
-		ParaIdAffinity::<T>::get(para_id)
-	}
-
-	/// Decreases the affinity of a `ParaId` to a specified `CoreIndex`.
-	/// Subtracts from the count of the `CoreAffinityCount` if an entry is found and the core_idx
-	/// matches. When the count reaches 0, the entry is removed.
-	/// A non-existant entry is a no-op.
-	fn decrease_affinity(para_id: ParaId, core_idx: CoreIndex) {
-		ParaIdAffinity::<T>::mutate(para_id, |maybe_affinity| {
-			if let Some(affinity) = maybe_affinity {
-				if affinity.core_idx == core_idx {
-					let new_count = affinity.count.saturating_sub(1);
-					if new_count > 0 {
-						*maybe_affinity = Some(CoreAffinityCount { core_idx, count: new_count });
-					} else {
-						*maybe_affinity = None;
-					}
-				}
-			}
+	/// Decrease core affinity for para and update queue
+	///
+	/// if affinity dropped to 0, moving entries back to `FreeEntries`.
+	fn decrease_affinity_update_queue(para_id: ParaId, core_index: CoreIndex) {
+		let affinity = Pallet::<T>::decrease_affinity(para_id, core_index);
+		debug_assert_ne!(affinity, None, "Decreased affinity for a para that has not been served on a core?");
+		if affinity != Some(0) {
+			return
+		}
+		// No affinity more for entries on this core, free any entries:
+		//
+		// This is necessary to ensure them being served as the core might no longer exist at all.
+		AffinityEntries::<T>::mutate(core_index, |affinity_entries| {
+			FreeEntries::<T>::mutate(|free_entries| {
+				let (freed, affinities): (BinaryHeap<_>, BinaryHeap<_>) = affinity_entries.into_iter().partition(|e| e.para_id == para_id);
+				free_entries.append(freed);
+				*affinity_entries = affinities;
+			})
 		});
 	}
 
+	/// Decreases the affinity of a `ParaId` to a specified `CoreIndex`.
+	///
+	/// Subtracts from the count of the `CoreAffinityCount` if an entry is found and the core_index
+	/// matches. When the count reaches 0, the entry is removed.
+	/// A non-existant entry is a no-op.
+	///
+	/// Returns: The new affinity of the para on that core. `None` if there is no affinity on this
+	/// core.
+	fn decrease_affinity(para_id: ParaId, core_index: CoreIndex) -> Option<u32> {
+		ParaIdAffinity::<T>::mutate(para_id, |maybe_affinity| {
+			let affinity = maybe_affinity.as_mut()?;
+			if affinity.core_index == core_index {
+				let new_count = affinity.count.saturating_sub(1);
+				if new_count > 0 {
+					*maybe_affinity = Some(CoreAffinityCount { core_index, count: new_count });
+				} else {
+					*maybe_affinity = None;
+				}
+				return Some(new_count)
+			} else {
+				None
+			}
+		})
+	}
+
 	/// Increases the affinity of a `ParaId` to a specified `CoreIndex`.
-	/// Adds to the count of the `CoreAffinityCount` if an entry is found and the core_idx matches.
+	/// Adds to the count of the `CoreAffinityCount` if an entry is found and the core_index matches.
 	/// A non-existant entry will be initialized with a count of 1 and uses the  supplied
 	/// `CoreIndex`.
-	fn increase_affinity(para_id: ParaId, core_idx: CoreIndex) {
+	fn increase_affinity(para_id: ParaId, core_index: CoreIndex) {
 		ParaIdAffinity::<T>::mutate(para_id, |maybe_affinity| match maybe_affinity {
 			Some(affinity) =>
-				if affinity.core_idx == core_idx {
+				if affinity.core_index == core_index {
 					*maybe_affinity = Some(CoreAffinityCount {
-						core_idx,
+						core_index,
 						count: affinity.count.saturating_add(1),
 					});
 				},
 			None => {
-				*maybe_affinity = Some(CoreAffinityCount { core_idx, count: 1 });
+				*maybe_affinity = Some(CoreAffinityCount { core_index, count: 1 });
 			},
 		})
 	}
-}
 
-impl<T: Config> Pallet<T> {
-	/// Take the next queued entry that is available for a given core index.
-	/// Invalidates and removes orders with a `para_id` that is not `ParaLifecycle::Parathread`
-	/// but only in [0..P] range slice of the order queue, where P is the element that is
-	/// removed from the order queue.
-	///
-	/// Parameters:
-	/// - `core_idx`: The core index
-	pub fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Assignment> {
-		let mut queue: VecDeque<EnqueuedOrder> = OnDemandQueue::<T>::get();
-
-		let mut invalidated_para_id_indexes: Vec<usize> = vec![];
-
-		// Get the position of the next `ParaId`. Select either a valid `ParaId` that has an
-		// affinity to the same `CoreIndex` as the scheduler asks for or a valid `ParaId` with no
-		// affinity at all.
-		let pos = queue.iter().enumerate().position(|(index, assignment)| {
-			if <paras::Pallet<T>>::is_parathread(assignment.para_id) {
-				match ParaIdAffinity::<T>::get(&assignment.para_id) {
-					Some(affinity) => return affinity.core_idx == core_idx,
-					None => return true,
-				}
-			}
-			// Record no longer valid para_ids.
-			invalidated_para_id_indexes.push(index);
-			return false
-		});
-
-		// Collect the popped value.
-		let popped = pos.and_then(|p: usize| {
-			if let Some(assignment) = queue.remove(p) {
-				Pallet::<T>::increase_affinity(assignment.para_id, core_idx);
-				return Some(assignment)
-			};
-			None
-		});
-
-		// Only remove the invalid indexes *after* using the index.
-		// Removed in reverse order so that the indexes don't shift.
-		invalidated_para_id_indexes.iter().rev().for_each(|idx| {
-			queue.remove(*idx);
-		});
-
-		// Write changes to storage.
-		OnDemandQueue::<T>::set(queue);
-
-		popped.map(|p| Assignment::Pool { para_id: p.para_id, core_index: core_idx })
-	}
-
-	/// Report that the `para_id` & `core_index` combination was processed.
-	pub fn report_processed(para_id: ParaId, core_index: CoreIndex) {
-		Pallet::<T>::decrease_affinity(para_id, core_index)
-	}
-
-	/// Push an assignment back to the front of the queue.
-	///
-	/// The assignment has not been processed yet. Typically used on session boundaries.
-	/// Parameters:
-	/// - `assignment`: The on demand assignment.
-	pub fn push_back_assignment(para_id: ParaId, core_index: CoreIndex) {
-		Pallet::<T>::decrease_affinity(para_id, core_index);
-		// Skip the queue on push backs from scheduler
-		match Pallet::<T>::add_on_demand_order(
-			EnqueuedOrder::new(para_id),
-			QueuePushDirection::Front,
-		) {
-			Ok(_) => {},
-			Err(_) => {},
-		}
+	/// Getter for the affinity tracker.
+	fn get_affinity_map(para_id: ParaId) -> Option<CoreAffinityCount> {
+		ParaIdAffinity::<T>::get(para_id)
 	}
 }

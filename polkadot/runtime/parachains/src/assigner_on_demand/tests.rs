@@ -570,6 +570,14 @@ fn affinity_prohibits_parallel_scheduling() {
 
 		OnDemandAssigner::add_on_demand_order(order_a.clone(), QueuePushDirection::Back)
 			.expect("Invalid paraid or queue full");
+		OnDemandAssigner::report_processed(assignment_b_core_0.clone());
+
+		// Add 2 assignments for para_a for every para_b.
+		OnDemandAssigner::add_on_demand_order(order_a.clone(), QueuePushDirection::Back)
+			.expect("Invalid paraid or queue full");
+
+		OnDemandAssigner::add_on_demand_order(order_a.clone(), QueuePushDirection::Back)
+			.expect("Invalid paraid or queue full");
 
 		OnDemandAssigner::add_on_demand_order(order_b.clone(), QueuePushDirection::Back)
 			.expect("Invalid paraid or queue full");
@@ -588,9 +596,9 @@ fn affinity_prohibits_parallel_scheduling() {
 		assert_eq!(OnDemandAssigner::get_affinity_map(para_b).unwrap().core_idx, CoreIndex(1));
 
 		// Clear affinity
-		OnDemandAssigner::report_processed(para_a, 0.into());
-		OnDemandAssigner::report_processed(para_a, 0.into());
-		OnDemandAssigner::report_processed(para_b, 1.into());
+		OnDemandAssigner::report_processed(assignment_a.clone());
+		OnDemandAssigner::report_processed(assignment_a.clone());
+		OnDemandAssigner::report_processed(assignment_b_core_1.clone());
 
 		// There should be no affinity after clearing.
 		assert!(OnDemandAssigner::get_affinity_map(para_a).is_none());
@@ -603,6 +611,7 @@ fn on_demand_orders_cannot_be_popped_if_lifecycle_changes() {
 	let para_id = ParaId::from(10);
 	let core_index = CoreIndex(0);
 	let order = EnqueuedOrder::new(para_id);
+	let assignment = OnDemandAssignment::new(para_id, core_index);
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		// Register the para_id as a parathread
@@ -617,10 +626,7 @@ fn on_demand_orders_cannot_be_popped_if_lifecycle_changes() {
 		assert_ok!(OnDemandAssigner::add_on_demand_order(order.clone(), QueuePushDirection::Back));
 
 		// First pop is fine
-		assert!(
-			OnDemandAssigner::pop_assignment_for_core(core_index) ==
-				Some(Assignment::Pool { para_id, core_index })
-		);
+		assert_eq!(OnDemandAssigner::pop_assignment_for_core(core_index), Some(assignment.clone()));
 
 		// Deregister para
 		assert_ok!(Paras::schedule_para_cleanup(para_id));
@@ -631,7 +637,7 @@ fn on_demand_orders_cannot_be_popped_if_lifecycle_changes() {
 		assert!(!Paras::is_parathread(para_id));
 
 		// Second pop should be None.
-		OnDemandAssigner::report_processed(para_id, core_index);
+		OnDemandAssigner::report_processed(assignment.clone());
 		assert_eq!(OnDemandAssigner::pop_assignment_for_core(core_index), None);
 	});
 }
