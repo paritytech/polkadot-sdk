@@ -12,7 +12,7 @@ alice: parachain 2001 is registered within 60 seconds
 # Ensure parachains made progress.
 alice: reports substrate_block_height{status="finalized"} is at least 10 within 100 seconds
 
-# This parachains should produce blocks at 6s clip, let's assume and 8s rate, allowing for
+# This parachains should produce blocks at 6s clip, let's assume an 8s rate, allowing for
 # some slots to be missed on slower machines
 alice: parachain 2000 block height is at least 30 within 240 seconds
 # This should already have produced the needed blocks
