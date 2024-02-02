@@ -156,7 +156,7 @@ pub(crate) fn create_and_compile(
 		RuntimeTarget::Riscv => {
 			let out_name = bloaty_blob_out_name_override
 				.unwrap_or_else(|| get_blob_name(target, project_cargo_toml));
-			let out_path = project.join(format!("{}.polkavm", out_name));
+			let out_path = project.join(format!("{out_name}.polkavm"));
 			fs::copy(raw_blob_path, &out_path).expect("copying the runtime blob should never fail");
 			(None, WasmBinaryBloaty(out_path))
 		},
