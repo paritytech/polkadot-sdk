@@ -1987,6 +1987,9 @@
 <a href="#1987" id="1987">1987</a>
 <a href="#1988" id="1988">1988</a>
 <a href="#1989" id="1989">1989</a>
+<a href="#1990" id="1990">1990</a>
+<a href="#1991" id="1991">1991</a>
+<a href="#1992" id="1992">1992</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2191,7 +2194,10 @@
 	<span class="doccomment">/// Note that an existing candidate has been backed.
 	</span><span class="kw">pub fn </span>mark_backed(<span class="kw-2">&amp;mut </span><span class="self">self</span>, candidate_hash: <span class="kw-2">&amp;</span>CandidateHash) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(entry) = <span class="self">self</span>.by_candidate_hash.get_mut(candidate_hash) {
+			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="string">&quot;Candidate marked as backed&quot;</span>);
 			entry.state = CandidateState::Backed;
+		} <span class="kw">else </span>{
+			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="string">&quot;Candidate not found while marking as backed&quot;</span>);
 		}
 	}
 

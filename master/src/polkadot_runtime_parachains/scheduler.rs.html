@@ -695,8 +695,6 @@
 <a href="#695" id="695">695</a>
 <a href="#696" id="696">696</a>
 <a href="#697" id="697">697</a>
-<a href="#698" id="698">698</a>
-<a href="#699" id="699">699</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -813,7 +811,7 @@
 		</span>Paras(ParasEntry&lt;N&gt;),
 	}
 
-	<span class="doccomment">/// Conveninece type alias for `CoreOccupied`.
+	<span class="doccomment">/// Convenience type alias for `CoreOccupied`.
 	</span><span class="kw">pub type </span>CoreOccupiedType&lt;T&gt; = CoreOccupied&lt;BlockNumberFor&lt;T&gt;&gt;;
 
 	<span class="kw">impl</span>&lt;N&gt; CoreOccupied&lt;N&gt; {
@@ -844,9 +842,7 @@
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>SessionStartBlock&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, BlockNumberFor&lt;T&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// One entry for each availability core. The `VecDeque` represents the assignments to be
-	/// scheduled on that core. `None` is used to signal to not schedule the next para of the core
-	/// as there is one currently being scheduled. Not using `None` here would overwrite the
-	/// `CoreState` in the runtime API. The value contained here will not be valid after the end of
+	/// scheduled on that core. The value contained here will not be valid after the end of
 	/// a block. Runtime APIs should be used to determine scheduled cores/ for the upcoming block.
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>claimqueue)]

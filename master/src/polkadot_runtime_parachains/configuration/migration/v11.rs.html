@@ -582,7 +582,7 @@ approval_voting_params                   : ApprovalVotingParams {
 
 		new_test_ext(Default::default()).execute_with(|| {
 			<span class="comment">// Implant the v10 version in the state.
-			</span>v10::ActiveConfig::&lt;Test&gt;::set(<span class="prelude-val">Some</span>(v10));
+			</span>v10::ActiveConfig::&lt;Test&gt;::set(<span class="prelude-val">Some</span>(v10.clone()));
 			v10::PendingConfigs::&lt;Test&gt;::set(<span class="prelude-val">Some</span>(pending_configs));
 
 			migrate_to_v11::&lt;Test&gt;();
@@ -593,7 +593,7 @@ approval_voting_params                   : ApprovalVotingParams {
 			<span class="kw">let </span><span class="kw-2">mut </span>configs_to_check = v11::PendingConfigs::&lt;Test&gt;::get().unwrap();
 			configs_to_check.push((<span class="number">0</span>, v11.clone()));
 
-			<span class="kw">for </span>(<span class="kw">_</span>, v10) <span class="kw">in </span>configs_to_check {
+			<span class="kw">for </span>(<span class="kw">_</span>, v11) <span class="kw">in </span>configs_to_check {
 				<span class="attr">#[rustfmt::skip]
 				</span>{
 					<span class="macro">assert_eq!</span>(v10.max_code_size                            , v11.max_code_size);
@@ -615,7 +615,7 @@ approval_voting_params                   : ApprovalVotingParams {
 					<span class="macro">assert_eq!</span>(v10.hrmp_max_parachain_inbound_channels      , v11.hrmp_max_parachain_inbound_channels);
 					<span class="macro">assert_eq!</span>(v10.hrmp_channel_max_message_size            , v11.hrmp_channel_max_message_size);
 					<span class="macro">assert_eq!</span>(v10.code_retention_period                    , v11.code_retention_period);
-					<span class="macro">assert_eq!</span>(v10.coretime_cores                           , v11.coretime_cores);
+					<span class="macro">assert_eq!</span>(v10.on_demand_cores                          , v11.coretime_cores);
 					<span class="macro">assert_eq!</span>(v10.on_demand_retries                        , v11.on_demand_retries);
 					<span class="macro">assert_eq!</span>(v10.group_rotation_frequency                 , v11.group_rotation_frequency);
 					<span class="macro">assert_eq!</span>(v10.paras_availability_period                , v11.paras_availability_period);
@@ -632,8 +632,8 @@ approval_voting_params                   : ApprovalVotingParams {
 					<span class="macro">assert_eq!</span>(v10.minimum_validation_upgrade_delay         , v11.minimum_validation_upgrade_delay);
 					<span class="macro">assert_eq!</span>(v10.async_backing_params.allowed_ancestry_len, v11.async_backing_params.allowed_ancestry_len);
 					<span class="macro">assert_eq!</span>(v10.async_backing_params.max_candidate_depth , v11.async_backing_params.max_candidate_depth);
-					<span class="macro">assert_eq!</span>(v10.executor_params						   , v11.executor_params);
-				    <span class="macro">assert_eq!</span>(v10.minimum_backing_votes					   , v11.minimum_backing_votes);
+					<span class="macro">assert_eq!</span>(v10.executor_params						    , v11.executor_params);
+				    <span class="macro">assert_eq!</span>(v10.minimum_backing_votes					, v11.minimum_backing_votes);
 				}; <span class="comment">// ; makes this a statement. `rustfmt::skip` cannot be put on an expression.
 			</span>}
 		});

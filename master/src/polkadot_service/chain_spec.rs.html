@@ -1082,6 +1082,11 @@
 <a href="#1082" id="1082">1082</a>
 <a href="#1083" id="1083">1083</a>
 <a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1204,7 +1209,7 @@
 </span><span class="kw">fn </span>default_parachains_host_configuration(
 ) -&gt; polkadot_runtime_parachains::configuration::HostConfiguration&lt;polkadot_primitives::BlockNumber&gt;
 {
-	<span class="kw">use </span>polkadot_primitives::{MAX_CODE_SIZE, MAX_POV_SIZE};
+	<span class="kw">use </span>polkadot_primitives::{AsyncBackingParams, MAX_CODE_SIZE, MAX_POV_SIZE};
 
 	polkadot_runtime_parachains::configuration::HostConfiguration {
 		validation_upgrade_cooldown: <span class="number">2u32</span>,
@@ -1235,6 +1240,11 @@
 		relay_vrf_modulo_samples: <span class="number">2</span>,
 		zeroth_delay_tranche_width: <span class="number">0</span>,
 		minimum_validation_upgrade_delay: <span class="number">5</span>,
+		scheduling_lookahead: <span class="number">2</span>,
+		async_backing_params: AsyncBackingParams {
+			max_candidate_depth: <span class="number">3</span>,
+			allowed_ancestry_len: <span class="number">2</span>,
+		},
 		..Default::default()
 	}
 }
