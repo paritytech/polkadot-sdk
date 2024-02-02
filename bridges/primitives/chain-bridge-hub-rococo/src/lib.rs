@@ -50,7 +50,7 @@ impl Chain for BridgeHubRococo {
 	}
 
 	fn max_extrinsic_weight() -> Weight {
-		BlockWeights::get()
+		BlockWeightsForAsyncBacking::get()
 			.get(DispatchClass::Normal)
 			.max_extrinsic
 			.unwrap_or(Weight::MAX)
