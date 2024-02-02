@@ -532,6 +532,7 @@ where
 	Ok(rpc_handlers)
 }
 
+/// Returns a future that forwards imported transactions to the transaction networking protocol.
 pub async fn propagate_transaction_notifications<Block, ExPool>(
 	transaction_pool: Arc<ExPool>,
 	tx_handler_controller: sc_network_transactions::TransactionsHandlerController<
