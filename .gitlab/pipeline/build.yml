@@ -363,7 +363,7 @@ build-subkey-linux:
 # build-subkey-macos:
 #   extends: .build-subkey
 #   # duplicating before_script & script sections from .build-subkey hidden job
-#   # to overwrite rusty-cachier integration as it doesn't work on macoOS
+#   # to overwrite rusty-cachier integration as it doesn't work on macOS
 #   before_script:
 #     # skip timestamp script, the osx bash doesn't support printf %()T
 #     - !reference [.job-switcher, before_script]

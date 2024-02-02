@@ -91,7 +91,7 @@ macro_rules! input {
 		input!(@size $size + 4, $($rest)*)
 	};
 
-	// Match an u8 slice with the remaining bytes.
+	// Match a u8 slice with the remaining bytes.
 	// e.g. input!(512, var1: [u8; 32], var2: [u8], );
 	(@inner $input:expr, $cursor:expr, $var:ident: [u8],) => {
 		let $var = &$input[$cursor..];

@@ -185,7 +185,7 @@ where
 			DescendOrigin(PalletInstance(inbound_queue_pallet_index).into()),
 			// Change origin to the bridge.
 			UniversalOrigin(GlobalConsensus(network)),
-			// Call create_asset on foreign assets' pallet.
+			// Call create_asset on the foreign assets pallet.
 			Transact {
 				origin_kind: OriginKind::Xcm,
 				require_weight_at_most: Weight::from_parts(400_000_000, 8_000),

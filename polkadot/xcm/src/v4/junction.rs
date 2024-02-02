@@ -59,7 +59,7 @@ pub enum Junction {
 	/// An 8-byte index for an account of a specific network that is respected as a sovereign
 	/// endpoint within the context.
 	///
-	/// May be used when the context is a Frame-based chain and includes e.g. an indices' pallet.
+	/// May be used when the context is a Frame-based chain and includes e.g. an indices pallet.
 	AccountIndex64 {
 		network: Option<NetworkId>,
 		#[codec(compact)]

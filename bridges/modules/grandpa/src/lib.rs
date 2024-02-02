@@ -116,7 +116,7 @@ pub mod pallet {
 		/// Maximal number of finalized headers to keep in the storage.
 		///
 		/// The setting is there to prevent growing the on-chain state indefinitely. Note
-		/// the setting does not relate to block numbers - we will simply keep as meny items
+		/// the setting does not relate to block numbers - we will simply keep as many items
 		/// in the storage, so it doesn't guarantee any fixed timeframe for finality headers.
 		///
 		/// Incautious change of this constant may lead to orphan entries in the runtime storage.

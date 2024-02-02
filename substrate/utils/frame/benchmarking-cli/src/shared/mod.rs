@@ -69,7 +69,7 @@ where
 	s
 }
 
-/// Returns a rng and the seed used to create it.
+/// Returns an rng and the seed used to create it.
 ///
 /// Uses a random seed if none is provided.
 pub fn new_rng(seed: Option<u64>) -> (impl rand::Rng, u64) {

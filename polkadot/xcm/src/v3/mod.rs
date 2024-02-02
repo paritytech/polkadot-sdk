@@ -771,7 +771,7 @@ pub enum Instruction<Call> {
 	///
 	/// - `response_info`: Information for making the response.
 	/// - `assets`: A filter for the assets that should be reported back. The assets reported back
-	///   will be, asset-wise, *the lessest of this value and the holding register*. No wildcards
+	///   will be, asset-wise, *the least of this value and the holding register*. No wildcards
 	///   will be used when reporting assets back.
 	///
 	/// Kind: *Command*

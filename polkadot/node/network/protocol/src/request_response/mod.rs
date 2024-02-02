@@ -38,7 +38,7 @@
 //! `fallback_name` to the protocol config.
 //!
 //! One way in which versioning has historically been achieved for req-response protocols is to
-//! bundle the new req-resp version with an upgrade of a notifications' protocol. The subsystem would
+//! bundle the new req-resp version with an upgrade of a notifications protocol. The subsystem would
 //! then know which request version to use based on stored data about the peer's notifications
 //! protocol version.
 //!

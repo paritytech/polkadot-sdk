@@ -42,7 +42,7 @@ const BEST_EFFORT_QUEUE_SIZE: usize = 100;
 #[cfg(test)]
 const BEST_EFFORT_QUEUE_SIZE: usize = 3;
 
-/// How many priority disputes can be queued?
+/// The number of priority disputes that can be queued.
 ///
 /// Once the queue exceeds that size, we will start to drop the newest participation requests in
 /// the queue.

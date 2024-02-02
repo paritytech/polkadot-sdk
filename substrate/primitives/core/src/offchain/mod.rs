@@ -140,7 +140,7 @@ impl From<HttpError> for u32 {
 /// Status of the HTTP request
 #[derive(Clone, Copy, PartialEq, Eq, RuntimeDebug, Encode, Decode, PassByCodec)]
 pub enum HttpRequestStatus {
-	/// The Deadline was reached while we waited for this request to finish.
+	/// The deadline was reached while we waited for this request to finish.
 	///
 	/// Note the deadline is controlled by the calling part, which not necessarily
 	/// means that the request has timed out.

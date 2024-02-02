@@ -743,7 +743,7 @@ pub enum Instruction<RuntimeCall> {
 	/// - `dest`: A valid destination for the returned XCM message. This may be limited to the
 	///   current origin.
 	/// - `assets`: A filter for the assets that should be reported back. The assets reported back
-	///   will be, asset-wise, *the lessest of this value and the holding register*. No wildcards
+	///   will be, asset-wise, *the least of this value and the holding register*. No wildcards
 	///   will be used when reporting assets back.
 	/// - `max_response_weight`: The maximum amount of weight that the `QueryResponse` item which
 	///   is sent as a reply may take to execute. NOTE: If this is unexpectedly large then the

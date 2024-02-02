@@ -77,7 +77,7 @@ pub trait Destroy<AccountId>: Inspect<AccountId> {
 	/// Complete destroying asset and unreserve currency.
 	/// `finish_destroy` should only be called after `start_destroy` has been called, and the
 	/// asset is in a `Destroying` state. All accounts or approvals should be destroyed
-	/// beforeand.
+	/// beforehand.
 	///
 	/// * `id`: The identifier of the asset to be destroyed. This must identify an existing asset.
 	fn finish_destroy(id: Self::AssetId) -> DispatchResult;

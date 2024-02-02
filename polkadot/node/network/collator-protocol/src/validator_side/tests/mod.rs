@@ -712,7 +712,7 @@ fn fetch_one_collation_at_a_time() {
 		)
 		.await;
 
-		// Iter over our_view since the order may change due to sorted invariant.
+		// Iter over `our_view` since the order may change due to sorted invariant.
 		for hash in our_view.iter() {
 			assert_async_backing_params_request(&mut virtual_overseer, *hash).await;
 			respond_to_core_info_queries(&mut virtual_overseer, &test_state).await;
