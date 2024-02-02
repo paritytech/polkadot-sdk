@@ -74,8 +74,6 @@ pub use pallet_balances::Call as BalancesCall;
 pub type AuraId = sp_consensus_aura::sr25519::AuthorityId;
 #[cfg(feature = "std")]
 pub use extrinsic::{ExtrinsicBuilder, Transfer};
-use sp_application_crypto::Ss58Codec;
-use sp_keyring::AccountKeyring;
 
 const LOG_TARGET: &str = "substrate-test-runtime";
 
