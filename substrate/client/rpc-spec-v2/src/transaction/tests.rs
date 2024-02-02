@@ -133,7 +133,7 @@ async fn tx_broadcast_enters_pool() {
 
 #[tokio::test]
 async fn tx_broadcast_invalid_tx() {
-	let (_, _, _, tx_api) = setup_api();
+	let (_, pool, _, tx_api) = setup_api();
 
 	// Invalid parameters.
 	let err = tx_api
@@ -143,6 +143,8 @@ async fn tx_broadcast_invalid_tx() {
 	assert_matches!(err,
 		Error::Call(err) if err.code() == super::error::json_rpc_spec::INVALID_PARAM_ERROR && err.message() == "Invalid params"
 	);
+
+	assert_eq!(0, pool.status().ready);
 
 	// Invalid transaction that cannot be decoded. The broadcast silently exits.
 	let xt = "0xdeadbeef";
@@ -157,6 +159,8 @@ async fn tx_broadcast_invalid_tx() {
 	assert_matches!(err,
 		Error::Call(err) if err.code() == super::error::json_rpc_spec::INVALID_PARAM_ERROR && err.message() == "Invalid operation id"
 	);
+
+	assert_eq!(0, pool.status().ready);
 
 	// Ensure stop can be called, the tx was decoded and the broadcast future terminated.
 	let _: () = tx_api
