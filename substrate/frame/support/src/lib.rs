@@ -557,7 +557,24 @@ pub use frame_support_procedural::EqNoBound;
 /// ```
 pub use frame_support_procedural::PartialEqNoBound;
 
-// FAIL-CI cleanup
+/// Derive everything that an in-storage type needs.
+///
+/// This derives the `MaxEncodedLen`, `Encode`, `Decode` and `TypeInfo` traits. It can be
+/// configured with the following attributes:
+///
+/// - `skip(T, ..)`: Skip these types from all trait bounds.
+/// - `mel_bound(T: .. + .., ..)`: Add explicit trait bounds for these types to fulfill *MEL*.
+/// - `mel(T, ..)`: Add the default `MaxEncodedLen` bound for these types to fulfill *MEL*.
+///
+/// # Example
+///
+/// ```rust
+/// # use frame_support::stored;
+/// #[stored(skip(T))]
+/// struct MyStruct<T: Config> {
+/// 	_phantom: core::marker::PhantomData<T>,
+/// }
+/// ```
 pub use frame_support_procedural::stored;
 
 /// Derive [`Debug`] but do not bound any generic.
