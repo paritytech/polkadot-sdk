@@ -17,7 +17,7 @@
 
 //! Little util for parsing an address URI. Replaces regular expressions.
 
-#[cfg(all(not(feature = "std")))]
+#[cfg(not(feature = "std"))]
 use sp_std::{
 	alloc::string::{String, ToString},
 	vec::Vec,
