@@ -151,6 +151,19 @@ async fn tx_broadcast_invalid_tx() {
 	let operation_id: String =
 		tx_api.call("transaction_unstable_broadcast", rpc_params![&xt]).await.unwrap();
 
+	assert_eq!(0, pool.status().ready);
+
+	// Ensure stop can be called, the tx was decoded and the broadcast future terminated.
+	let _: () = tx_api
+		.call("transaction_unstable_stop", rpc_params![&operation_id])
+		.await
+		.unwrap();
+}
+
+#[tokio::test]
+async fn tx_invalid_stop() {
+	let (_, _, _, tx_api) = setup_api();
+
 	// Make an invalid stop call.
 	let err = tx_api
 		.call::<_, serde_json::Value>("transaction_unstable_stop", ["invalid_operation_id"])
@@ -159,12 +172,4 @@ async fn tx_broadcast_invalid_tx() {
 	assert_matches!(err,
 		Error::Call(err) if err.code() == super::error::json_rpc_spec::INVALID_PARAM_ERROR && err.message() == "Invalid operation id"
 	);
-
-	assert_eq!(0, pool.status().ready);
-
-	// Ensure stop can be called, the tx was decoded and the broadcast future terminated.
-	let _: () = tx_api
-		.call("transaction_unstable_stop", rpc_params![&operation_id])
-		.await
-		.unwrap();
 }
