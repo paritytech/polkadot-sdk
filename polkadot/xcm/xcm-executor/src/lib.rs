@@ -326,7 +326,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		);
 		if current_surplus.any_gt(Weight::zero()) {
 			if let Some(w) = self.trader.refund_weight(current_surplus, &self.context) {
-				if !self.holding.contains_asset(&(w.id.clone(), 1).into()) &&
+				if !self.holding.contains_asset(&(w.id, 1).into()) &&
 					self.ensure_can_subsume_assets(1).is_err()
 				{
 					let _ = self
@@ -696,7 +696,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						vec![ReserveAssetDeposited(to_weigh.into()), ClearOrigin];
 					message_to_weigh.extend(xcm.0.clone().into_iter());
 					let (_, fee) =
-						validate_send::<Config::XcmSender>(dest.clone(), Xcm(message_to_weigh))?;
+						validate_send::<Config::XcmSender>(dest, Xcm(message_to_weigh))?;
 					// set aside fee to be charged by XcmSender
 					let transport_fee = self.holding.saturating_take(fee.into());
 
@@ -759,7 +759,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let reanchored_assets = Self::reanchored(assets.clone(), &dest, None);
 					let mut message = vec![ReceiveTeleportedAsset(reanchored_assets), ClearOrigin];
 					message.extend(xcm.0.into_iter());
-					self.send(dest.clone(), Xcm(message), FeeReason::InitiateTeleport)?;
+					self.send(dest, Xcm(message), FeeReason::InitiateTeleport)?;
 
 					for asset in assets.assets_iter() {
 						Config::AssetTransactor::check_out(&dest, &asset, &self.context);
@@ -977,7 +977,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let origin = self.cloned_origin().ok_or(XcmError::BadOrigin)?;
 					let (remote_asset, context) = Self::try_reanchor(asset.clone(), &unlocker)?;
 					let lock_ticket =
-						Config::AssetLocker::prepare_lock(unlocker.clone(), asset, origin.clone())?;
+						Config::AssetLocker::prepare_lock(unlocker, asset, origin)?;
 					let owner = origin
 						.reanchored(&unlocker, context)
 						.map_err(|_| XcmError::ReanchorFailed)?;
