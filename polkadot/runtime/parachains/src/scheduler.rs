@@ -114,7 +114,7 @@ pub mod pallet {
 		Paras(ParasEntry<N>),
 	}
 
-	/// Conveninece type alias for `CoreOccupied`.
+	/// Convenience type alias for `CoreOccupied`.
 	pub type CoreOccupiedType<T> = CoreOccupied<BlockNumberFor<T>>;
 
 	impl<N> CoreOccupied<N> {
