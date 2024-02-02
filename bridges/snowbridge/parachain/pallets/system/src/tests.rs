@@ -3,7 +3,7 @@
 use crate::{mock::*, *};
 use frame_support::{assert_noop, assert_ok};
 use hex_literal::hex;
-use snowbridge_core::{eth, sibling_sovereign_account_raw};
+use snowbridge_core::eth;
 use sp_core::H256;
 use sp_runtime::{AccountId32, DispatchError::BadOrigin, TokenError};
 
@@ -84,8 +84,8 @@ fn create_agent_bad_origin() {
 fn upgrade_as_root() {
 	new_test_ext(true).execute_with(|| {
 		let origin = RuntimeOrigin::root();
-		let address: H160 = Default::default();
-		let code_hash: H256 = Default::default();
+		let address: H160 = [1_u8; 20].into();
+		let code_hash: H256 = [1_u8; 32].into();
 
 		assert_ok!(EthereumSystem::upgrade(origin, address, code_hash, None));
 
@@ -112,8 +112,8 @@ fn upgrade_as_signed_fails() {
 fn upgrade_with_params() {
 	new_test_ext(true).execute_with(|| {
 		let origin = RuntimeOrigin::root();
-		let address: H160 = Default::default();
-		let code_hash: H256 = Default::default();
+		let address: H160 = [1_u8; 20].into();
+		let code_hash: H256 = [1_u8; 32].into();
 		let initializer: Option<Initializer> =
 			Some(Initializer { params: [0; 256].into(), maximum_required_gas: 10000 });
 		assert_ok!(EthereumSystem::upgrade(origin, address, code_hash, initializer));
@@ -536,22 +536,6 @@ fn force_transfer_native_from_agent_bad_origin() {
 // conversions for devops purposes. They need to be removed here and incorporated into a command
 // line utility.
 
-#[ignore]
-#[test]
-fn check_sibling_sovereign_account() {
-	new_test_ext(true).execute_with(|| {
-		let para_id = 1001;
-		let sovereign_account = sibling_sovereign_account::<Test>(para_id.into());
-		let sovereign_account_raw = sibling_sovereign_account_raw(para_id.into());
-		println!(
-			"Sovereign account for parachain {}: {:#?}",
-			para_id,
-			hex::encode(sovereign_account.clone())
-		);
-		assert_eq!(sovereign_account, sovereign_account_raw.into());
-	});
-}
-
 #[test]
 fn charge_fee_for_create_agent() {
 	new_test_ext(true).execute_with(|| {
@@ -621,8 +605,8 @@ fn charge_fee_for_upgrade() {
 	new_test_ext(true).execute_with(|| {
 		let para_id: u32 = TestParaId::get();
 		let origin = RuntimeOrigin::root();
-		let address: H160 = Default::default();
-		let code_hash: H256 = Default::default();
+		let address: H160 = [1_u8; 20].into();
+		let code_hash: H256 = [1_u8; 32].into();
 		let initializer: Option<Initializer> =
 			Some(Initializer { params: [0; 256].into(), maximum_required_gas: 10000 });
 		assert_ok!(EthereumSystem::upgrade(origin, address, code_hash, initializer.clone()));

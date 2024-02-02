@@ -17,7 +17,7 @@ polkadot-node-primitives = { path = "../primitives" }
 polkadot-node-network-protocol = { path = "../network/protocol" }
 polkadot-statement-table = { path = "../../statement-table" }
 polkadot-node-jaeger = { path = "../jaeger" }
-orchestra = { version = "0.3.4", default-features = false, features = ["futures_channel"] }
+orchestra = { version = "0.3.5", default-features = false, features = ["futures_channel"] }
 sc-network = { path = "../../../substrate/client/network" }
 sc-network-types = { path = "../../../substrate/client/network/types" }
 sp-api = { path = "../../../substrate/primitives/api" }

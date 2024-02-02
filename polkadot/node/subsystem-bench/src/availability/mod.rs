@@ -162,7 +162,7 @@ fn prepare_test_inner(
 			candidate_hashes
 				.get(&Hash::repeat_byte(block_num as u8))
 				.expect("just inserted above")
-				.get(0)
+				.first()
 				.expect("just inserted above")
 				.clone(),
 		);

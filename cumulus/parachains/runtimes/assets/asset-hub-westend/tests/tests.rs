@@ -47,13 +47,13 @@ use frame_support::{
 	},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
-use parachains_common::{
-	westend::{consensus::RELAY_CHAIN_SLOT_DURATION_MILLIS, currency::UNITS, fee::WeightToFee},
-	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, SLOT_DURATION,
-};
+use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, SLOT_DURATION};
 use sp_consensus_aura::SlotDuration;
 use sp_runtime::traits::MaybeEquivalence;
 use std::convert::Into;
+use testnet_parachains_constants::westend::{
+	consensus::RELAY_CHAIN_SLOT_DURATION_MILLIS, currency::UNITS, fee::WeightToFee,
+};
 use xcm::latest::prelude::{Assets as XcmAssets, *};
 use xcm_builder::V4V3LocationConverter;
 use xcm_executor::traits::{JustTry, WeightTrader};

@@ -896,7 +896,10 @@ pub mod v3 {
 		/// candidate index.
 		///
 		/// Actually checking the assignment may yield a different result.
-		/// TODO: Look at getting rid of bitfield in the future.
+		///
+		/// TODO at next protocol upgrade opportunity:
+		/// - remove redundancy `candidate_index` vs `core_index`
+		/// - `<https://github.com/paritytech/polkadot-sdk/issues/675>`
 		#[codec(index = 0)]
 		Assignments(Vec<(IndirectAssignmentCertV2, CandidateBitfield)>),
 		/// Approvals for candidates in some recent, unfinalized block.
