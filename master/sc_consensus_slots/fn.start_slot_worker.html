@@ -5,7 +5,7 @@
     sync_oracle: SO,
     create_inherent_data_providers: CIDP
 )<span class="where fmt-newline">where
-    B: BlockT,
+    B: <a class="trait" href="../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a>,
     C: SelectChain&lt;B&gt;,
     W: <a class="trait" href="trait.SlotWorker.html" title="trait sc_consensus_slots::SlotWorker">SlotWorker</a>&lt;B, Proof&gt;,
     SO: SyncOracle + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>,
