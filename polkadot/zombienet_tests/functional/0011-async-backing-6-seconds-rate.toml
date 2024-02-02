@@ -40,8 +40,8 @@ id = 2001
 cumulus_based = true
 
   [parachains.collator]
-  name = "collator08"
-  image = "{{COL_IMAGE}}"
+  name = "collator02"
+  image = "{{CUMULUS_IMAGE}}"
   command = "polkadot-parachain"
   args = ["-lparachain=debug"]
 
