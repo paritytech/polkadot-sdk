@@ -396,7 +396,7 @@ mod tests {
 					assert_eq!(v10.hrmp_channel_max_message_size            , v11.hrmp_channel_max_message_size);
 					assert_eq!(v10.code_retention_period                    , v11.code_retention_period);
 					assert_eq!(v10.coretime_cores                           , v11.coretime_cores);
-					assert_eq!(v10.coretime_max_availability_timeouts, v11.coretime_max_availability_timeouts);
+					assert_eq!(v10.on_demand_retries                        , v11.on_demand_retries);
 					assert_eq!(v10.group_rotation_frequency                 , v11.group_rotation_frequency);
 					assert_eq!(v10.paras_availability_period                , v11.paras_availability_period);
 					assert_eq!(v10.scheduling_lookahead                     , v11.scheduling_lookahead);

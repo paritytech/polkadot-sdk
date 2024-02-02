@@ -283,8 +283,6 @@ fn setting_pending_config_members() {
 			max_code_size: 100_000,
 			max_pov_size: 1024,
 			max_head_data_size: 1_000,
-			coretime_cores: 2,
-			coretime_max_availability_timeouts: 5,
 			group_rotation_frequency: 20,
 			paras_availability_period: 10,
 			scheduling_lookahead: 3,
@@ -314,13 +312,17 @@ fn setting_pending_config_members() {
 			minimum_validation_upgrade_delay: 20,
 			executor_params: Default::default(),
 			approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: 1 },
-			on_demand_queue_max_size: 10_000u32,
-			on_demand_base_fee: 10_000_000u128,
-			on_demand_fee_variability: Perbill::from_percent(3),
-			on_demand_target_queue_utilization: Perbill::from_percent(25),
-			coretime_ttl: 5u32,
 			minimum_backing_votes: 5,
 			node_features: bitvec![u8, Lsb0; 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
+			coretime_params: CoretimeParams {
+				coretime_cores: 2,
+				coretime_max_availability_timeouts: 5,
+				on_demand_queue_max_size: 10_000u32,
+				on_demand_base_fee: 10_000_000u128,
+				on_demand_fee_variability: Perbill::from_percent(3),
+				on_demand_target_queue_utilization: Perbill::from_percent(25),
+				coretime_ttl: 5u32,
+			},
 		};
 
 		Configuration::set_validation_upgrade_cooldown(
@@ -342,11 +344,14 @@ fn setting_pending_config_members() {
 		Configuration::set_max_pov_size(RuntimeOrigin::root(), new_config.max_pov_size).unwrap();
 		Configuration::set_max_head_data_size(RuntimeOrigin::root(), new_config.max_head_data_size)
 			.unwrap();
-		Configuration::set_coretime_cores(RuntimeOrigin::root(), new_config.coretime_cores)
-			.unwrap();
+		Configuration::set_coretime_cores(
+			RuntimeOrigin::root(),
+			new_config.coretime_params.coretime_cores,
+		)
+		.unwrap();
 		Configuration::set_on_demand_retries(
 			RuntimeOrigin::root(),
-			new_config.coretime_max_availability_timeouts,
+			new_config.coretime_params.coretime_max_availability_timeouts,
 		)
 		.unwrap();
 		Configuration::set_group_rotation_frequency(

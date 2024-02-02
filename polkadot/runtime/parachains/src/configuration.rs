@@ -29,7 +29,6 @@ use primitives::{
 	vstaging::{ApprovalVotingParams, NodeFeatures},
 	AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams, SessionIndex,
 	LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, MAX_POV_SIZE,
-	ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 };
 use sp_runtime::{traits::Zero, Perbill};
 use sp_std::prelude::*;
@@ -43,6 +42,7 @@ mod benchmarking;
 pub mod migration;
 
 pub use pallet::*;
+use primitives::vstaging::CoretimeParams;
 
 const LOG_TARGET: &str = "runtime::configuration";
 
@@ -172,23 +172,7 @@ pub struct HostConfiguration<BlockNumber> {
 	/// How long to keep code on-chain, in blocks. This should be sufficiently long that disputes
 	/// have concluded.
 	pub code_retention_period: BlockNumber,
-	/// How many cores are managed by the coretime chain.
-	pub coretime_cores: u32,
-	/// The max number of times a claim can time out in availability
-	pub coretime_max_availability_timeouts: u32,
-	/// The maximum queue size of the pay as you go module.
-	pub on_demand_queue_max_size: u32,
-	/// The target utilization of the spot price queue in percentages.
-	pub on_demand_target_queue_utilization: Perbill,
-	/// How quickly the fee rises in reaction to increased utilization.
-	/// The lower the number the slower the increase.
-	pub on_demand_fee_variability: Perbill,
-	/// The minimum amount needed to claim a slot in the spot pricing queue.
-	pub on_demand_base_fee: Balance,
-	/// The number of blocks a claim stays in the scheduler's claimqueue before getting cleared.
-	/// This number should go reasonably higher than the number of blocks in the async backing
-	/// lookahead.
-	pub coretime_ttl: BlockNumber,
+
 	/// How often parachain groups should be rotated across parachains.
 	///
 	/// Must be non-zero.
@@ -266,6 +250,8 @@ pub struct HostConfiguration<BlockNumber> {
 	pub node_features: NodeFeatures,
 	/// Params used by approval-voting
 	pub approval_voting_params: ApprovalVotingParams,
+	/// Core time parameters
+	pub coretime_params: CoretimeParams<BlockNumber>,
 }
 
 impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber> {
@@ -284,8 +270,6 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			max_code_size: Default::default(),
 			max_pov_size: Default::default(),
 			max_head_data_size: Default::default(),
-			coretime_cores: Default::default(),
-			coretime_max_availability_timeouts: Default::default(),
 			scheduling_lookahead: 1,
 			max_validators_per_core: Default::default(),
 			max_validators: None,
@@ -312,13 +296,9 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			minimum_validation_upgrade_delay: 2.into(),
 			executor_params: Default::default(),
 			approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: 1 },
-			on_demand_queue_max_size: ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
-			on_demand_base_fee: 10_000_000u128,
-			on_demand_fee_variability: Perbill::from_percent(3),
-			on_demand_target_queue_utilization: Perbill::from_percent(25),
-			coretime_ttl: 5u32.into(),
 			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
 			node_features: NodeFeatures::EMPTY,
+			coretime_params: Default::default(),
 		}
 	}
 }
@@ -520,7 +500,8 @@ pub mod pallet {
 	/// v8-v9:  <https://github.com/paritytech/polkadot/pull/7577>
 	/// v9-v10: <https://github.com/paritytech/polkadot-sdk/pull/2177>
 	/// v10-11: <https://github.com/paritytech/polkadot-sdk/pull/1191>
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(11);
+	/// v11-12: <https://github.com/paritytech/polkadot-sdk/pull/3181>
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(12);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -688,7 +669,7 @@ pub mod pallet {
 		pub fn set_on_demand_retries(origin: OriginFor<T>, new: u32) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.coretime_max_availability_timeouts = new;
+				config.coretime_params.coretime_max_availability_timeouts = new;
 			})
 		}
 
@@ -1141,7 +1122,7 @@ pub mod pallet {
 		pub fn set_on_demand_base_fee(origin: OriginFor<T>, new: Balance) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.on_demand_base_fee = new;
+				config.coretime_params.on_demand_base_fee = new;
 			})
 		}
 
@@ -1154,7 +1135,7 @@ pub mod pallet {
 		pub fn set_on_demand_fee_variability(origin: OriginFor<T>, new: Perbill) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.on_demand_fee_variability = new;
+				config.coretime_params.on_demand_fee_variability = new;
 			})
 		}
 
@@ -1167,7 +1148,7 @@ pub mod pallet {
 		pub fn set_on_demand_queue_max_size(origin: OriginFor<T>, new: u32) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.on_demand_queue_max_size = new;
+				config.coretime_params.on_demand_queue_max_size = new;
 			})
 		}
 		/// Set the on demand (parathreads) fee variability.
@@ -1182,7 +1163,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.on_demand_target_queue_utilization = new;
+				config.coretime_params.on_demand_target_queue_utilization = new;
 			})
 		}
 		/// Set the on demand (parathreads) ttl in the claimqueue.
@@ -1194,7 +1175,7 @@ pub mod pallet {
 		pub fn set_on_demand_ttl(origin: OriginFor<T>, new: BlockNumberFor<T>) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.coretime_ttl = new;
+				config.coretime_params.coretime_ttl = new;
 			})
 		}
 
@@ -1252,7 +1233,7 @@ pub mod pallet {
 		/// To be used if authorization is checked otherwise.
 		pub fn set_coretime_cores_unchecked(new: u32) -> DispatchResult {
 			Self::schedule_config_update(|config| {
-				config.coretime_cores = new;
+				config.coretime_params.coretime_cores = new;
 			})
 		}
 	}

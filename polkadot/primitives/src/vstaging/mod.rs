@@ -23,6 +23,7 @@ use sp_std::prelude::*;
 use parity_scale_codec::{Decode, Encode};
 use primitives::RuntimeDebug;
 use scale_info::TypeInfo;
+use sp_arithmetic::Perbill;
 
 /// Approval voting configuration parameters
 #[derive(
@@ -47,6 +48,52 @@ pub struct ApprovalVotingParams {
 impl Default for ApprovalVotingParams {
 	fn default() -> Self {
 		Self { max_approval_coalesce_count: 1 }
+	}
+}
+
+/// Coretime configuration parameters
+#[derive(
+	RuntimeDebug,
+	Copy,
+	Clone,
+	PartialEq,
+	Encode,
+	Decode,
+	TypeInfo,
+	serde::Serialize,
+	serde::Deserialize,
+)]
+pub struct CoretimeParams<BlockNumber> {
+	/// How many cores are managed by the coretime chain.
+	pub coretime_cores: u32,
+	/// The max number of times a claim can time out in availability
+	pub coretime_max_availability_timeouts: u32,
+	/// The maximum queue size of the pay as you go module.
+	pub on_demand_queue_max_size: u32,
+	/// The target utilization of the spot price queue in percentages.
+	pub on_demand_target_queue_utilization: Perbill,
+	/// How quickly the fee rises in reaction to increased utilization.
+	/// The lower the number the slower the increase.
+	pub on_demand_fee_variability: Perbill,
+	/// The minimum amount needed to claim a slot in the spot pricing queue.
+	pub on_demand_base_fee: Balance,
+	/// The number of blocks a claim stays in the scheduler's claimqueue before getting cleared.
+	/// This number should go reasonably higher than the number of blocks in the async backing
+	/// lookahead.
+	pub coretime_ttl: BlockNumber,
+}
+
+impl<BlockNumber: Default + From<u32>> Default for CoretimeParams<BlockNumber> {
+	fn default() -> Self {
+		Self {
+			coretime_cores: Default::default(),
+			coretime_max_availability_timeouts: Default::default(),
+			on_demand_queue_max_size: ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
+			on_demand_target_queue_utilization: Perbill::from_percent(25),
+			on_demand_fee_variability: Perbill::from_percent(3),
+			on_demand_base_fee: 10_000_000u128,
+			coretime_ttl: 5u32.into(),
+		}
 	}
 }
 

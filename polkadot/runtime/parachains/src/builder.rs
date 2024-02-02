@@ -679,7 +679,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		// We are currently in Session 0, so these changes will take effect in Session 2.
 		Self::setup_para_ids(used_cores);
 		configuration::ActiveConfig::<T>::mutate(|c| {
-			c.coretime_cores = used_cores;
+			c.coretime_params.coretime_cores = used_cores;
 		});
 
 		let validator_ids = Self::generate_validator_pairs(self.max_validators());
@@ -710,7 +710,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		let cores = (0..used_cores)
 			.into_iter()
 			.map(|i| {
-				let ttl = configuration::Pallet::<T>::config().coretime_ttl;
+				let ttl = configuration::Pallet::<T>::config().coretime_params.coretime_ttl;
 				// Load an assignment into provider so that one is present to pop
 				let assignment = <T as scheduler::Config>::AssignmentProvider::get_mock_assignment(
 					CoreIndex(i),
@@ -725,7 +725,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			let cores = (0..used_cores)
 				.into_iter()
 				.map(|i| {
-					let ttl = configuration::Pallet::<T>::config().coretime_ttl;
+					let ttl = configuration::Pallet::<T>::config().coretime_params.coretime_ttl;
 					// Load an assignment into provider so that one is present to pop
 					let assignment =
 						<T as scheduler::Config>::AssignmentProvider::get_mock_assignment(

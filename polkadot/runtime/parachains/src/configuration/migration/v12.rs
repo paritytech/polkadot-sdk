@@ -23,6 +23,7 @@ use frame_support::{
 	traits::{Defensive, OnRuntimeUpgrade},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
+use primitives::vstaging::CoretimeParams;
 use sp_core::Get;
 use sp_staking::SessionIndex;
 
@@ -125,8 +126,6 @@ fn migrate_to_v12<T: Config>() -> Weight {
 					hrmp_max_parachain_outbound_channels     : pre.hrmp_max_parachain_outbound_channels,
 					hrmp_channel_max_message_size            : pre.hrmp_channel_max_message_size,
 					code_retention_period                    : pre.code_retention_period,
-					coretime_cores                           : pre.coretime_cores,
-					coretime_max_availability_timeouts       : pre.on_demand_retries,
 					group_rotation_frequency                 : pre.group_rotation_frequency,
 					paras_availability_period                : pre.paras_availability_period,
 					scheduling_lookahead                     : pre.scheduling_lookahead,
@@ -143,14 +142,18 @@ fn migrate_to_v12<T: Config>() -> Weight {
 					minimum_validation_upgrade_delay         : pre.minimum_validation_upgrade_delay,
 					async_backing_params                     : pre.async_backing_params,
 					executor_params                          : pre.executor_params,
-					on_demand_queue_max_size                 : pre.on_demand_queue_max_size,
-					on_demand_base_fee                       : pre.on_demand_base_fee,
-					on_demand_fee_variability                : pre.on_demand_fee_variability,
-					on_demand_target_queue_utilization       : pre.on_demand_target_queue_utilization,
-					coretime_ttl                             : pre.on_demand_ttl,
 					minimum_backing_votes                    : pre.minimum_backing_votes,
 					node_features							 : pre.node_features,
 					approval_voting_params                   : pre.approval_voting_params,
+					coretime_params: CoretimeParams {
+							coretime_cores                       : pre.coretime_cores,
+							coretime_max_availability_timeouts   : pre.on_demand_retries,
+							on_demand_queue_max_size             : pre.on_demand_queue_max_size,
+							on_demand_target_queue_utilization   : pre.on_demand_target_queue_utilization,
+							on_demand_fee_variability            : pre.on_demand_fee_variability,
+							on_demand_base_fee                   : pre.on_demand_base_fee,
+							coretime_ttl                         : pre.on_demand_ttl,
+					}
 				}
 			};
 
@@ -252,7 +255,7 @@ mod tests {
 
 		new_test_ext(Default::default()).execute_with(|| {
 			// Implant the v10 version in the state.
-			v11::ActiveConfig::<Test>::set(Some(v11));
+			v11::ActiveConfig::<Test>::set(Some(v11.clone()));
 			v11::PendingConfigs::<Test>::set(Some(pending_configs));
 
 			migrate_to_v12::<Test>();
@@ -285,8 +288,6 @@ mod tests {
 					assert_eq!(v11.hrmp_max_parachain_inbound_channels      , v12.hrmp_max_parachain_inbound_channels);
 					assert_eq!(v11.hrmp_channel_max_message_size            , v12.hrmp_channel_max_message_size);
 					assert_eq!(v11.code_retention_period                    , v12.code_retention_period);
-					assert_eq!(v11.coretime_cores                           , v12.coretime_cores);
-					assert_eq!(v11.on_demand_retries                        , v12.coretime_max_availability_timeouts);
 					assert_eq!(v11.group_rotation_frequency                 , v12.group_rotation_frequency);
 					assert_eq!(v11.paras_availability_period                , v12.paras_availability_period);
 					assert_eq!(v11.scheduling_lookahead                     , v12.scheduling_lookahead);
@@ -304,7 +305,13 @@ mod tests {
 					assert_eq!(v11.async_backing_params.max_candidate_depth , v12.async_backing_params.max_candidate_depth);
 					assert_eq!(v11.executor_params						    , v12.executor_params);
 				    assert_eq!(v11.minimum_backing_votes					, v12.minimum_backing_votes);
-					assert_eq!(v11.on_demand_ttl            				, v12.coretime_ttl);
+					assert_eq!(v11.coretime_cores                           , v12.coretime_params.coretime_cores);
+					assert_eq!(v11.on_demand_retries                        , v12.coretime_params.coretime_max_availability_timeouts);
+					assert_eq!(v11.on_demand_queue_max_size                 , v12.coretime_params.on_demand_queue_max_size);
+					assert_eq!(v11.on_demand_target_queue_utilization       , v12.coretime_params.on_demand_target_queue_utilization);
+					assert_eq!(v11.on_demand_fee_variability            	, v12.coretime_params.on_demand_fee_variability);
+					assert_eq!(v11.on_demand_base_fee            			, v12.coretime_params.on_demand_base_fee);
+					assert_eq!(v11.on_demand_ttl            				, v12.coretime_params.coretime_ttl);
 				}; // ; makes this a statement. `rustfmt::skip` cannot be put on an expression.
 			}
 		});
