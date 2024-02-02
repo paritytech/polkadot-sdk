@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 use crate::{
-	core::{environment::CollectedResourceUsage, mock::ChainApiState},
+	core::{environment::BenchmarkUsage, mock::ChainApiState},
 	TestEnvironment,
 };
 use av_store::NetworkAvailabilityState;
@@ -424,7 +424,7 @@ pub async fn benchmark_availability_read(
 	benchmark_name: &str,
 	env: &mut TestEnvironment,
 	mut state: TestState,
-) -> CollectedResourceUsage {
+) -> BenchmarkUsage {
 	let config = env.config().clone();
 
 	env.import_block(new_block_import_info(Hash::repeat_byte(1), 1)).await;
@@ -492,7 +492,7 @@ pub async fn benchmark_availability_write(
 	benchmark_name: &str,
 	env: &mut TestEnvironment,
 	mut state: TestState,
-) -> CollectedResourceUsage {
+) -> BenchmarkUsage {
 	let config = env.config().clone();
 
 	env.metrics().set_n_validators(config.n_validators);

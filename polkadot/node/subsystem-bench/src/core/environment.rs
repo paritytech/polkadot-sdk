@@ -333,11 +333,11 @@ impl TestEnvironment {
 		&self,
 		benchmark_name: &str,
 		subsystems_under_test: &[&str],
-	) -> CollectedResourceUsage {
-		CollectedResourceUsage {
+	) -> BenchmarkUsage {
+		BenchmarkUsage {
 			benchmark_name: benchmark_name.to_string(),
-			network: self.network_usage(),
-			cpu: self.cpu_usage(subsystems_under_test),
+			network_usage: self.network_usage(),
+			cpu_usage: self.cpu_usage(subsystems_under_test),
 		}
 	}
 
@@ -349,12 +349,12 @@ impl TestEnvironment {
 
 		vec![
 			ResourceUsage {
-				resource: "Received from peers".to_string(),
+				resource_name: "Received from peers".to_string(),
 				total: total_node_received,
 				per_block: total_node_received / num_blocks,
 			},
 			ResourceUsage {
-				resource: "Sent to peers".to_string(),
+				resource_name: "Sent to peers".to_string(),
 				total: total_node_sent,
 				per_block: total_node_sent / num_blocks,
 			},
@@ -371,7 +371,7 @@ impl TestEnvironment {
 				test_metrics.subset_with_label_value("task_group", subsystem);
 			let total_cpu = subsystem_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
 			usage.push(ResourceUsage {
-				resource: subsystem.to_string(),
+				resource_name: subsystem.to_string(),
 				total: total_cpu,
 				per_block: total_cpu / num_blocks,
 			});
@@ -382,7 +382,7 @@ impl TestEnvironment {
 		let total_cpu = test_env_cpu_metrics.sum_by("substrate_tasks_polling_duration_sum");
 
 		usage.push(ResourceUsage {
-			resource: "Test environment".to_string(),
+			resource_name: "Test environment".to_string(),
 			total: total_cpu,
 			per_block: total_cpu / num_blocks,
 		});
@@ -392,35 +392,39 @@ impl TestEnvironment {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct CollectedResourceUsage {
+pub struct BenchmarkUsage {
 	benchmark_name: String,
-	network: Vec<ResourceUsage>,
-	cpu: Vec<ResourceUsage>,
+	network_usage: Vec<ResourceUsage>,
+	cpu_usage: Vec<ResourceUsage>,
 }
 
-impl std::fmt::Display for CollectedResourceUsage {
+impl std::fmt::Display for BenchmarkUsage {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		write!(
 			f,
 			"\n{}\n\n{}\n{}\n\n{}\n{}\n",
 			self.benchmark_name.purple(),
 			format!("{:<32}{:>12}{:>12}", "Network usage, KiB", "total", "per block").blue(),
-			self.network.iter().map(|v| v.to_string()).collect::<Vec<String>>().join("\n"),
+			self.network_usage
+				.iter()
+				.map(|v| v.to_string())
+				.collect::<Vec<String>>()
+				.join("\n"),
 			format!("{:<32}{:>12}{:>12}", "CPU usage, s", "total", "per block").blue(),
-			self.cpu.iter().map(|v| v.to_string()).collect::<Vec<String>>().join("\n")
+			self.cpu_usage.iter().map(|v| v.to_string()).collect::<Vec<String>>().join("\n")
 		)
 	}
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ResourceUsage {
-	resource: String,
+	resource_name: String,
 	total: f64,
 	per_block: f64,
 }
 
 impl std::fmt::Display for ResourceUsage {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(f, "{:<32}{:>12.3}{:>12.3}", self.resource.cyan(), self.total, self.per_block)
+		write!(f, "{:<32}{:>12.3}{:>12.3}", self.resource_name.cyan(), self.total, self.per_block)
 	}
 }

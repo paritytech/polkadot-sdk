@@ -101,7 +101,7 @@ struct BenchCli {
 
 	#[clap(long, default_value_t = false)]
 	/// Shows the output in YAML format
-	pub ci: bool,
+	pub yaml_output: bool,
 
 	#[command(subcommand)]
 	pub objective: cli::TestObjective,
@@ -196,7 +196,7 @@ impl BenchCli {
 						},
 					};
 
-					let output = if self.ci {
+					let output = if self.yaml_output {
 						serde_yaml::to_string(&vec![usage])?
 					} else {
 						usage.to_string()
@@ -263,7 +263,8 @@ impl BenchCli {
 			agent_ready.shutdown();
 		}
 
-		let output = if self.ci { serde_yaml::to_string(&vec![usage])? } else { usage.to_string() };
+		let output =
+			if self.yaml_output { serde_yaml::to_string(&vec![usage])? } else { usage.to_string() };
 		println!("{}", output);
 
 		Ok(())
