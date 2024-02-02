@@ -19,10 +19,10 @@ use codec::{Decode, Encode};
 use cumulus_primitives_core::Weight;
 use cumulus_primitives_proof_size_hostfunction::storage_proof_size::storage_proof_size;
 use frame_support::{
-	dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo},
+	dispatch::{DispatchInfo, PostDispatchInfo},
 	weights::WeightMeter,
 };
-use frame_system::{BlockWeight, Config};
+use frame_system::Config;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
@@ -45,58 +45,54 @@ const PROOF_RECORDING_DISABLED: u64 = u64::MAX;
 /// # Example
 ///
 /// ```ignore
-/// use parachains_common::storage_weight_reclaim::StorageWeightReclaimer;
+/// 	use parachains_common::storage_weight_reclaim::StorageWeightReclaimer;
 ///
-/// // Initialize a StorageWeightReclaimer instance.
-/// let mut storage_reclaim = StorageWeightReclaimer::<Runtime>::start();
-///
-/// // Perform some operations that consume storage weight.
-///
-/// // Reclaim unused storage weight.
-/// if let Some(reclaimed_weight) = storage_reclaim.reclaim() {
-///     log::info!("Reclaimed {} weight", reclaimed_weight);
-/// }
+/// 	let mut remaining_weight_meter = WeightMeter::with_limit(Weight::from_parts(10, 10));
+/// 	let mut reclaim_helper = StorageWeightReclaimer::start(&remaining_weight_meter);
+/// 	remaining_weight_meter.try_consume(get_weight_for_work()).is_ok() {
+/// 		do_work();
+/// 		if let Some(relaimed) = reclaim_helper.reclaim_with_meter(&mut remaining_weight_meter) {
+/// 			log::info!("Reclaimed {} weight", reclaimed_weight);
+/// 		}
+/// 	}
 /// ```
-pub struct StorageWeightReclaimer<T: Config> {
-	previous_proof_weight: u64,
+pub struct StorageWeightReclaimer {
+	previous_remaining_proof_weight: u64,
 	previous_reported_proof_size: Option<u64>,
-	_phantom: PhantomData<T>,
 }
 
-impl<T: Config> StorageWeightReclaimer<T> {
+impl StorageWeightReclaimer {
 	/// Creates a new `StorageWeightReclaimer` instance and initializes it with the current storage
 	/// weight and reported proof size from the node.
-	pub fn start() -> StorageWeightReclaimer<T> {
-		let previous_proof_weight = BlockWeight::<T>::get().total().proof_size();
+	pub fn start(weight_meter: &WeightMeter) -> StorageWeightReclaimer {
+		let previous_remaining_proof_weight = weight_meter.remaining().proof_size();
 		let previous_reported_proof_size = get_proof_size();
-		Self { previous_proof_weight, previous_reported_proof_size, _phantom: Default::default() }
+		Self { previous_remaining_proof_weight, previous_reported_proof_size }
 	}
 
-	/// Check the consumed storage weight and reclaim any consumed excess weight.
-	pub fn reclaim(&mut self) -> Option<Weight> {
-		let current_weight = BlockWeight::<T>::get().total().proof_size();
+	/// Check the consumed storage weight and calculate the consumed excess weight.
+	fn reclaim(&mut self, remaining_weight: Weight) -> Option<Weight> {
+		let current_remaining_weight = remaining_weight.proof_size();
 		let (Some(current_storage_proof_size), Some(initial_proof_size)) =
 			(get_proof_size(), self.previous_reported_proof_size)
 		else {
 			return None;
 		};
-		let used_weight = current_weight.saturating_sub(self.previous_proof_weight);
+		let used_weight =
+			self.previous_remaining_proof_weight.saturating_sub(current_remaining_weight);
 		let used_storage_proof = current_storage_proof_size.saturating_sub(initial_proof_size);
 		let reclaimable = used_weight.saturating_sub(used_storage_proof);
-		log::trace!(target: LOG_TARGET, "Reclaiming storage weight. benchmarked_weight: {used_weight}, consumed_weight: {used_storage_proof}, reclaimable: {reclaimable}");
-		frame_system::BlockWeight::<T>::mutate(|current| {
-			current.reduce(Weight::from_parts(0, reclaimable), DispatchClass::Normal);
-		});
+		log::trace!(target: LOG_TARGET, "Found reclaimable storage weight. benchmarked_weight: {used_weight}, consumed_weight: {used_storage_proof}, reclaimable: {reclaimable}");
 
-		self.previous_proof_weight = current_weight.saturating_sub(reclaimable);
+		self.previous_remaining_proof_weight = current_remaining_weight.saturating_add(reclaimable);
 		self.previous_reported_proof_size = Some(current_storage_proof_size);
 		Some(Weight::from_parts(0, reclaimable))
 	}
 
-	/// Check the consumed storage weight and reclaim any consumed excess weight. Adds the reclaimed
+	/// Check the consumed storage weight and add the reclaimed
 	/// weight budget back to `weight_meter`.
 	pub fn reclaim_with_meter(&mut self, weight_meter: &mut WeightMeter) -> Option<Weight> {
-		let reclaimed = self.reclaim();
+		let reclaimed = self.reclaim(weight_meter.remaining());
 		if let Some(ref weight) = reclaimed {
 			weight_meter.reclaim_proof_size(weight.proof_size());
 		}
@@ -436,24 +432,17 @@ mod tests {
 		let mut test_ext = setup_test_externalities(&[1000, 1300, 1800]);
 
 		test_ext.execute_with(|| {
-			set_current_storage_weight(1000);
-			let mut reclaim_helper = StorageWeightReclaimer::<Test>::start();
-			set_current_storage_weight(1500);
-			let reclaimed = reclaim_helper.reclaim();
+			let mut remaining_weight_meter = WeightMeter::with_limit(Weight::from_parts(0, 2000));
+			let mut reclaim_helper = StorageWeightReclaimer::start(&remaining_weight_meter);
+			remaining_weight_meter.consume(Weight::from_parts(0, 500));
+			let reclaimed = reclaim_helper.reclaim_with_meter(&mut remaining_weight_meter);
 
 			assert_eq!(reclaimed, Some(Weight::from_parts(0, 200)));
-			assert_eq!(
-				BlockWeight::<Test>::get().total(),
-				Weight::from_parts(base_block_weight().ref_time(), 1300)
-			);
 
-			set_current_storage_weight(2100);
-			let reclaimed = reclaim_helper.reclaim();
+			remaining_weight_meter.consume(Weight::from_parts(0, 800));
+			let reclaimed = reclaim_helper.reclaim_with_meter(&mut remaining_weight_meter);
 			assert_eq!(reclaimed, Some(Weight::from_parts(0, 300)));
-			assert_eq!(
-				BlockWeight::<Test>::get().total(),
-				Weight::from_parts(base_block_weight().ref_time(), 1800)
-			);
+			assert_eq!(remaining_weight_meter.remaining(), Weight::from_parts(0, 1200));
 		});
 	}
 
@@ -463,31 +452,24 @@ mod tests {
 		let mut test_ext = setup_test_externalities(&[1000, 1300]);
 
 		test_ext.execute_with(|| {
-			set_current_storage_weight(1000);
-			let mut reclaim_helper = StorageWeightReclaimer::<Test>::start();
-			let reclaimed = reclaim_helper.reclaim();
+			let mut remaining_weight_meter = WeightMeter::with_limit(Weight::from_parts(0, 1000));
+			let mut reclaim_helper = StorageWeightReclaimer::start(&remaining_weight_meter);
+			let reclaimed = reclaim_helper.reclaim_with_meter(&mut remaining_weight_meter);
 
 			assert_eq!(reclaimed, Some(Weight::from_parts(0, 0)));
-			assert_eq!(
-				BlockWeight::<Test>::get().total(),
-				Weight::from_parts(base_block_weight().ref_time(), 1000)
-			);
+			assert_eq!(remaining_weight_meter.remaining(), Weight::from_parts(0, 1000));
 		});
 
 		// Benchmarked weight increases less than storage proof consumes
 		let mut test_ext = setup_test_externalities(&[1000, 1300]);
 
 		test_ext.execute_with(|| {
-			set_current_storage_weight(1000);
-			let mut reclaim_helper = StorageWeightReclaimer::<Test>::start();
-			set_current_storage_weight(1200);
-			let reclaimed = reclaim_helper.reclaim();
+			let mut remaining_weight_meter = WeightMeter::with_limit(Weight::from_parts(0, 1000));
+			let mut reclaim_helper = StorageWeightReclaimer::start(&remaining_weight_meter);
+			remaining_weight_meter.consume(Weight::from_parts(0, 0));
+			let reclaimed = reclaim_helper.reclaim_with_meter(&mut remaining_weight_meter);
 
 			assert_eq!(reclaimed, Some(Weight::from_parts(0, 0)));
-			assert_eq!(
-				BlockWeight::<Test>::get().total(),
-				Weight::from_parts(base_block_weight().ref_time(), 1200)
-			);
 		});
 	}
 
@@ -496,22 +478,21 @@ mod tests {
 		let mut test_ext = setup_test_externalities(&[10, 12]);
 
 		test_ext.execute_with(|| {
-			let mut remaining_weight_counter = WeightMeter::with_limit(Weight::from_parts(10, 10));
+			let mut remaining_weight_meter = WeightMeter::with_limit(Weight::from_parts(10, 10));
 
 			set_current_storage_weight(10);
-			let mut reclaim_helper = StorageWeightReclaimer::<Test>::start();
+			let mut reclaim_helper = StorageWeightReclaimer::start(&remaining_weight_meter);
 
-			//substract benchmarked weight
-			remaining_weight_counter.consume(Weight::from_parts(0, 5));
-			set_current_storage_weight(15);
-			let reclaimed = reclaim_helper.reclaim_with_meter(&mut remaining_weight_counter);
+			// Substract benchmarked weight
+			remaining_weight_meter.consume(Weight::from_parts(0, 5));
+			let reclaimed = reclaim_helper.reclaim_with_meter(&mut remaining_weight_meter);
 
 			assert_eq!(reclaimed, Some(Weight::from_parts(0, 3)));
 			assert_eq!(
 				BlockWeight::<Test>::get().total(),
-				Weight::from_parts(base_block_weight().ref_time(), 12)
+				Weight::from_parts(base_block_weight().ref_time(), 10)
 			);
-			assert_eq!(remaining_weight_counter.remaining(), Weight::from_parts(10, 8));
+			assert_eq!(remaining_weight_meter.remaining(), Weight::from_parts(10, 8));
 		});
 	}
 }
