@@ -606,4 +606,4 @@ yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }
 
 [patch.crates-io]
-scale-info = { git = 'https://github.com/paritytech/scale-info.git', branch="binary_heap" }
+scale-info = { git = 'https://github.com/paritytech/scale-info.git', branch="master" }
