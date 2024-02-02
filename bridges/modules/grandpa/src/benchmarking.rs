@@ -22,7 +22,7 @@
 //! 1. The number of `votes-ancestries` in the justification
 //! 2. The number of `pre-commits` in the justification
 //!
-//! Vote ancestries are the headers between (`finality_target`, `head_of_chain`], where
+//! Vote ancestries are the headers between (`finality_target`, `head_of_chain`), where
 //! `header_of_chain` is a descendant of `finality_target`.
 //!
 //! Pre-commits are messages which are signed by validators at the head of the chain they think is
@@ -36,7 +36,7 @@
 //! The common ancestor of both forks is block A, so this is what GRANDPA will finalize. In order to
 //! verify this we will have vote ancestries of `[B, C, B', C']` and pre-commits `[C, C']`.
 //!
-//! Note that the worst case scenario here would be a justification where each validator has it's
+//! Note that the worst case scenario here would be a justification where each validator has its
 //! own fork which is `SESSION_LENGTH` blocks long.
 
 use crate::*;
@@ -66,7 +66,7 @@ const MAX_VOTE_ANCESTRIES_RANGE_BEGIN: u32 = MAX_VOTE_ANCESTRIES / 20;
 const MAX_VOTE_ANCESTRIES_RANGE_END: u32 =
 	MAX_VOTE_ANCESTRIES_RANGE_BEGIN + MAX_VOTE_ANCESTRIES_RANGE_BEGIN;
 
-// the same with validators - if there are too much validators, let's run benchmarks on subrange
+// the same with validators - if there are too many validators, let's run benchmarks on subrange
 fn precommits_range_end<T: Config<I>, I: 'static>() -> u32 {
 	let max_bridged_authorities = T::BridgedChain::MAX_AUTHORITIES_COUNT;
 	if max_bridged_authorities > 128 {

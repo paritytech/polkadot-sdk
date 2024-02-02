@@ -154,7 +154,7 @@ where
 
 	gum::trace!(target: LOG_TARGET, ?leaf, "Filtering recent disputes");
 
-	// Filter out unconfirmed disputes. However if the dispute is already onchain - don't skip it.
+	// Filter out unconfirmed disputes. However, if the dispute is already onchain - don't skip it.
 	// In this case we'd better push as much fresh votes as possible to bring it to conclusion
 	// faster.
 	let recent_disputes = recent_disputes
@@ -276,7 +276,7 @@ pub(crate) struct PartitionedDisputes {
 	/// Hopefully this should never happen.
 	/// Will be sent to the Runtime with FIRST priority.
 	pub inactive_unknown_onchain: Vec<(SessionIndex, CandidateHash)>,
-	/// Disputes which are INACTIVE locally but they are unconcluded for the Runtime.
+	/// Disputes which are INACTIVE locally, but they are unconcluded for the Runtime.
 	/// A dispute can have enough local vote to conclude and at the same time the
 	/// Runtime knows nothing about them at treats it as unconcluded. This discrepancy
 	/// should be treated with high priority.

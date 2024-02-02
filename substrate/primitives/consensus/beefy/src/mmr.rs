@@ -91,7 +91,7 @@ impl MmrLeafVersion {
 		Self(version)
 	}
 
-	/// Split the version into `major` and `minor` sub-components.
+	/// Split the version into `major` and `minor` subcomponents.
 	pub fn split(&self) -> (u8, u8) {
 		let major = self.0 >> 5;
 		let minor = self.0 & 0b11111;

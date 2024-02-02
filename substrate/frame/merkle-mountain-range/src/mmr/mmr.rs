@@ -82,7 +82,7 @@ where
 	L: primitives::FullLeaf,
 	Storage<StorageType, T, I, L>: mmr_lib::MMRStore<NodeOf<T, I, L>>,
 {
-	/// Create a pointer to an existing MMR with given number of leaves.
+	/// Create a pointer to an existing MMR with a given number of leaves.
 	pub fn new(leaves: NodeIndex) -> Self {
 		let size = NodesUtils::new(leaves).size();
 		Self { mmr: mmr_lib::MMR::new(size, Default::default()), leaves }
@@ -143,7 +143,7 @@ where
 		Some(position)
 	}
 
-	/// Commit the changes to underlying storage, return current number of leaves and
+	/// Commit the changes to underlying storage, return the current number of leaves and
 	/// calculate the new MMR's root hash.
 	pub fn finalize(self) -> Result<(NodeIndex, HashOf<T, I>), Error> {
 		let root = self.mmr.get_root().map_err(|e| Error::GetRoot.log_error(e))?;

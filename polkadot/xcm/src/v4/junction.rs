@@ -100,7 +100,7 @@ pub enum Junction {
 	/// used to represent things such as multisigs also.
 	Plurality { id: BodyId, part: BodyPart },
 	/// A global network capable of externalizing its own consensus. This is not generally
-	/// meaningful outside of the universal level.
+	/// meaningful outside the universal level.
 	GlobalConsensus(NetworkId),
 }
 

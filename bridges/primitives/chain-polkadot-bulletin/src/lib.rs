@@ -159,7 +159,7 @@ impl SignedExtension {
 }
 
 parameter_types! {
-	/// We allow for 2 seconds of compute with a 6 second average block time.
+	/// We allow for 2 seconds of compute with a 6-second average block time.
 	pub BlockWeights: limits::BlockWeights = limits::BlockWeights::with_sensible_defaults(
 			Weight::from_parts(2u64 * WEIGHT_REF_TIME_PER_SECOND, u64::MAX),
 			NORMAL_DISPATCH_RATIO,
@@ -186,8 +186,8 @@ impl Chain for PolkadotBulletin {
 
 	type AccountId = AccountId;
 	// The Bulletin Chain is a permissioned blockchain without any balances. Our `Chain` trait
-	// requires balance type, which is then used by various bridge infrastructure code. However
-	// this code is optional and we are not planning to use it in our bridge.
+	// requires balance type, which is then used by various bridge infrastructure code. However,
+	// this code is optional, and we are not planning to use it in our bridge.
 	type Balance = Balance;
 	type Nonce = Nonce;
 	type Signature = Signature;

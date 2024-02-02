@@ -145,7 +145,7 @@ The following are a set of notes that may not necessarily hold in all circumstan
 
 You should make sure that your code is properly-named and well-organized so that your code functions as a form of
 documentation. However, within the complexity of our projects in Polkadot/Substrate that is not enough. Particularly,
-things like examples, errors and panics cannot be documented only through properly- named and well-organized code.
+things like examples, errors and panics cannot be documented only through properly-named and well-organized code.
 
 > Our north star is self-documenting code that also happens to be well-documented and littered with examples.
 

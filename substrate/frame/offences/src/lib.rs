@@ -212,7 +212,7 @@ struct TriageOutcome<T: Config> {
 /// kind (specified by the `O` type parameter).
 ///
 /// This struct is responsible for aggregating storage writes and the underlying storage should not
-/// accessed directly meanwhile.
+/// access directly meanwhile.
 #[must_use = "The changes are not saved without called `save`"]
 struct ReportIndexStorage<T: Config, O: Offence<T::IdentificationTuple>> {
 	opaque_time_slot: OpaqueTimeSlot,

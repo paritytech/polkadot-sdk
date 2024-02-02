@@ -218,8 +218,8 @@ pub type BlockAnnounceValidator<Block, RCInterface> =
 /// statement is checked to be a [`CompactStatement::Seconded`] and that it is signed by an active
 /// parachain validator.
 ///
-/// If no justification was provided we check if the block announcement is at the tip of the known
-/// chain. If it is at the tip, it is required to provide a justification or otherwise we reject
+/// If no justification was provided, we check if the block announcement is at the tip of the known
+/// chain. If it is at the tip, it is required to provide a justification, or otherwise we reject
 /// it. However, if the announcement is for a block below the tip the announcement is accepted
 /// as it probably comes from a node that is currently syncing the chain.
 #[derive(Clone)]

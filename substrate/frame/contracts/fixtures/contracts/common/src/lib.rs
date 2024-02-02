@@ -92,13 +92,13 @@ macro_rules! input {
 	};
 
 	// Match a u8 slice with the remaining bytes.
-	// e.g input!(512, var1: [u8; 32], var2: [u8], );
+	// e.g. input!(512, var1: [u8; 32], var2: [u8], );
 	(@inner $input:expr, $cursor:expr, $var:ident: [u8],) => {
 		let $var = &$input[$cursor..];
 	};
 
 	// Match a u8 slice of the given size.
-	// e.g input!(var1: [u8; 32], );
+	// e.g. input!(var1: [u8; 32], );
 	(@inner $input:expr, $cursor:expr, $var:ident: [u8; $n:expr], $($rest:tt)*) => {
 		let $var = &$input[$cursor..$cursor+$n];
 		input!(@inner $input, $cursor + $n, $($rest)*);
@@ -109,8 +109,8 @@ macro_rules! input {
 		input!(@size $size + $n, $($rest)*)
 	};
 
-	// Entry point, with the buffer and it's size specified first.
-	// e.g input!(buffer, 512, var1: u32, var2: [u8], );
+	// Entry point, with the buffer and its size specified first.
+	// e.g. input!(buffer, 512, var1: u32, var2: [u8], );
 	($buffer:ident, $size:expr, $($rest:tt)*) => {
 		let mut $buffer = [0u8; $size];
 		let $buffer = &mut &mut $buffer[..];
@@ -118,20 +118,20 @@ macro_rules! input {
 		input!(@inner $buffer, 0, $($rest)*);
 	};
 
-	// Entry point, with the name of the buffer specified and size of the input buffer computed.
-	// e.g input!(buffer, var1: u32, var2: u64, );
+	// Entry point, with the name of the buffer specified and the size of the input buffer computed.
+	// e.g. input!(buffer, var1: u32, var2: u64, );
 	($buffer: ident, $($rest:tt)*) => {
 		input!($buffer, input!(@size 0, $($rest)*), $($rest)*);
 	};
 
 	// Entry point, with the size of the input buffer computed.
-	// e.g input!(var1: u32, var2: u64, );
+	// e.g. input!(var1: u32, var2: u64, );
 	($($rest:tt)*) => {
 		input!(buffer, $($rest)*);
 	};
 }
 
-/// Utility macro to invoke a host function that expect a `output: &mut &mut [u8]` as last argument.
+/// Utility macro to invoke a host function that expect an argument `output: &mut &mut [u8]` as last argument.
 ///
 /// Example:
 /// ```

@@ -44,7 +44,7 @@ pub struct BestParaHeadHash {
 	/// Parachain head is opaque to relay chain. So we can't simply decode it as a header of
 	/// parachains and call `block_number()` on it. Instead, we're using the fact that parachain
 	/// head is always built on top of previous head (because it is blockchain) and relay chain
-	/// always imports parachain heads in order. What it means for us is that at any given
+	/// always imports parachain heads in order. What it means is that at any given
 	/// **finalized** relay block `B`, head of parachain will be ancestor (or the same) of all
 	/// parachain heads available at descendants of `B`.
 	pub at_relay_block_number: RelayBlockNumber,
@@ -71,7 +71,7 @@ pub fn parachain_head_storage_key_at_source(
 	bp_runtime::storage_map_final_key::<Twox64Concat>(paras_pallet_name, "Heads", &para_id.encode())
 }
 
-/// Can be use to access the runtime storage key of the parachains info at the target chain.
+/// Can be used to access the runtime storage key of the parachains info at the target chain.
 ///
 /// The info is stored by the `pallet-bridge-parachains` pallet in the `ParasInfo` map.
 pub struct ParasInfoKeyProvider;
@@ -83,7 +83,7 @@ impl StorageMapKeyProvider for ParasInfoKeyProvider {
 	type Value = ParaInfo;
 }
 
-/// Can be use to access the runtime storage key of the parachain head at the target chain.
+/// Can be used to access the runtime storage key of the parachain head at the target chain.
 ///
 /// The head is stored by the `pallet-bridge-parachains` pallet in the `ImportedParaHeads` map.
 pub struct ImportedParaHeadsKeyProvider;

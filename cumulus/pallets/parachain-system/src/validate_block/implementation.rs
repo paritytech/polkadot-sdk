@@ -70,7 +70,7 @@ fn with_externalities<F: FnOnce(&mut dyn Externalities) -> R, R>(f: F) -> R {
 /// 5. We are going to run `check_inherents`. This is important to check stuff like the timestamp
 /// matching the real world time.
 ///
-/// 6. The last step is to execute the entire block in the machinery we just have setup. Executing
+/// 6. The last step is to execute the entire block in the machinery we just have set up. Executing
 /// the blocks include running all transactions in the block against our in-memory database and
 /// ensuring that the final storage root matches the storage root in the header of the block. In the
 /// end we return back the [`ValidationResult`] with all the required information for the validator.

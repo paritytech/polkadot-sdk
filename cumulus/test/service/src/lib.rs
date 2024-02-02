@@ -576,7 +576,7 @@ impl TestNodeBuilder {
 
 	/// Make the node connect to the given parachain node.
 	///
-	/// By default the node will not be connected to any node or will be able to discover any other
+	/// By default, the node will not be connected to any node or will be able to discover any other
 	/// node.
 	pub fn connect_to_parachain_node(mut self, node: &TestNode) -> Self {
 		self.parachain_nodes.push(node.addr.clone());
@@ -585,7 +585,7 @@ impl TestNodeBuilder {
 
 	/// Make the node connect to the given parachain nodes.
 	///
-	/// By default the node will not be connected to any node or will be able to discover any other
+	/// By default, the node will not be connected to any node or will be able to discover any other
 	/// node.
 	pub fn connect_to_parachain_nodes<'a>(
 		mut self,
@@ -597,7 +597,7 @@ impl TestNodeBuilder {
 
 	/// Make the node connect to the given relay chain node.
 	///
-	/// By default the node will not be connected to any node or will be able to discover any other
+	/// By default, the node will not be connected to any node or will be able to discover any other
 	/// node.
 	pub fn connect_to_relay_chain_node(
 		mut self,
@@ -609,7 +609,7 @@ impl TestNodeBuilder {
 
 	/// Make the node connect to the given relay chain nodes.
 	///
-	/// By default the node will not be connected to any node or will be able to discover any other
+	/// By default, the node will not be connected to any node or will be able to discover any other
 	/// node.
 	pub fn connect_to_relay_chain_nodes<'a>(
 		mut self,
@@ -726,7 +726,7 @@ impl TestNodeBuilder {
 
 /// Create a Cumulus `Configuration`.
 ///
-/// By default an in-memory socket will be used, therefore you need to provide nodes if you want the
+/// By default, an in-memory socket will be used, therefore you need to provide nodes if you want the
 /// node to be connected to other nodes. If `nodes_exclusive` is `true`, the node will only connect
 /// to the given `nodes` and not to any other node. The `storage_update_func` can be used to make
 /// adjustments to the runtime genesis.

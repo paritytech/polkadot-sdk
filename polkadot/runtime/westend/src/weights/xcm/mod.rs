@@ -50,7 +50,7 @@ trait WeighAssets {
 	fn weigh_assets(&self, balances_weight: Weight) -> Weight;
 }
 
-// Westend only knows about one asset, the balances pallet.
+// Westend only knows about one asset, the balances' pallet.
 const MAX_ASSETS: u64 = 1;
 
 impl WeighAssets for AssetFilter {

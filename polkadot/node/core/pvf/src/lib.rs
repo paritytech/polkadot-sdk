@@ -50,7 +50,7 @@
 //! PVF execution requests can specify the [priority][`Priority`] with which the given request
 //! should be handled. Different priority levels have different effects. This is discussed below.
 //!
-//! Preparation started by a heads up signal always starts with the background priority. If there
+//! Preparation started by a heads-up signal always starts with the background priority. If there
 //! is already a request for that PVF preparation under way the priority is inherited. If after
 //! heads up, a new PVF execution request comes in with a higher priority, then the original task's
 //! priority will be adjusted to match the new one if it's larger.
@@ -82,7 +82,7 @@
 //! and some associated data. If the artifact failed to process, this also includes the error.
 //!
 //! A pruning task will run at a fixed interval of time. This task will remove all artifacts that
-//! weren't used or received a heads up signal for a while.
+//! weren't used or received a heads-up signal for a while.
 //!
 //! ## Execution
 //!

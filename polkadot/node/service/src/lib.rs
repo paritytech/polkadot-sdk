@@ -715,7 +715,7 @@ pub const AVAILABILITY_CONFIG: AvailabilityConfig = AvailabilityConfig {
 ///
 /// `workers_path` is used to get the path to the directory where auxiliary worker binaries reside.
 /// If not specified, the main binary's directory is searched first, then `/usr/lib/polkadot` is
-/// searched. If the path points to an executable rather then directory, that executable is used
+/// searched. If the path points to an executable rather than directory, that executable is used
 /// both as preparation and execution worker (supposed to be used for tests only).
 #[cfg(feature = "full-node")]
 pub fn new_full<OverseerGenerator: OverseerGen>(
@@ -756,7 +756,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 			config.chain_spec.is_dev()
 		{
 			// on testnets that are in flux (like rococo or versi), finality has stalled
-			// sometimes due to operational issues and it's annoying to slow down block
+			// sometimes due to operational issues, and it's annoying to slow down block
 			// production to 1 block per hour.
 			backoff.max_interval = 10;
 		}

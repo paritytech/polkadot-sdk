@@ -325,7 +325,7 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 		let dest_ref = dest.as_ref().ok_or(SendError::MissingArgument)?;
 		let xcm_ref = xcm.as_ref().ok_or(SendError::MissingArgument)?;
 
-		// we won't have an access to `dest` and `xcm` in the `deliver` method, so precompute
+		// we won't have access to `dest` and `xcm` in the `deliver` method, so precompute
 		// everything required here
 		let message_size = xcm_ref.encoded_size() as _;
 
@@ -432,7 +432,7 @@ mod tests {
 				XcmBridgeHubRouter::on_initialize(One::one());
 			}
 
-			// verify that it doesn't decreases anymore
+			// verify that it doesn't decrease anymore
 			XcmBridgeHubRouter::on_initialize(One::one());
 			assert_eq!(
 				XcmBridgeHubRouter::bridge(),

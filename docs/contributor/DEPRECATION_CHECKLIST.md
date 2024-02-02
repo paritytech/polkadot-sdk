@@ -43,7 +43,7 @@ We also need [https://docs.substrate.io/](https://docs.substrate.io/) to be upda
 
 ## Announce the deprecation and removal
 
-**At minimum they should be noted in the release log.** Please see how to document a PR [here](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#documentation).
+**At minimum, they should be noted in the release log.** Please see how to document a PR [here](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#documentation).
 There you can give instructions based on the audience and tell them what they need to do to upgrade the code.
 
 Some breaking changes have a bigger impact than others. When the impact is big the release note is not enough, though

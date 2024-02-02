@@ -22,7 +22,7 @@
 //! - `resident` memory stat provided by `tikv-malloc-ctl`.
 //! - `allocated` memory stat also from `tikv-malloc-ctl`.
 //!
-//! Currently we are only logging these for the purposes of gathering data. In the future, we may
+//! Currently, we are only logging these for the purposes of gathering data. In the future, we may
 //! use these stats to reject PVFs during pre-checking. See
 //! <https://github.com/paritytech/polkadot/issues/6472#issuecomment-1381941762> for more
 //! background.
@@ -151,7 +151,7 @@ pub mod memory_tracker {
 /// Module for dealing with the `ru_maxrss` (peak resident memory) stat from `getrusage`.
 ///
 /// NOTE: `getrusage` with the `RUSAGE_THREAD` parameter is only supported on Linux. `RUSAGE_SELF`
-/// works on MacOS, but we need to get the max rss only for the preparation thread. Getting it for
+/// works on macOS, but we need to get the max rss only for the preparation thread. Getting it for
 /// the current process would conflate the stats of previous jobs run by the process.
 #[cfg(target_os = "linux")]
 pub mod max_rss_stat {

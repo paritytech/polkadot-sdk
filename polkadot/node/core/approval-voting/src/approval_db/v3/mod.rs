@@ -35,7 +35,7 @@ use std::collections::BTreeMap;
 
 use super::common::{block_entry_key, candidate_entry_key, load_decode, Config};
 
-/// Re-export this structs as v3 since they did not change between v2 and v3.
+/// Re-export these structs as v3 since they did not change between v2 and v3.
 pub use super::v2::{Bitfield, OurAssignment, Tick, TrancheEntry};
 
 pub mod migration_helpers;
@@ -96,7 +96,7 @@ pub struct BlockEntry {
 	// block. The block can be considered approved if the bitfield has all bits set to `true`.
 	pub approved_bitfield: Bitfield,
 	pub children: Vec<Hash>,
-	// A list of candidates we have checked, but didn't not sign and
+	// A list of candidates we have checked, but did not sign and
 	// advertise the vote yet.
 	pub candidates_pending_signature: BTreeMap<CandidateIndex, CandidateSigningContext>,
 	// Assignments we already distributed. A 1 bit means the candidate index for which

@@ -147,7 +147,7 @@ pub mod pallet {
 }
 
 /// Require payment for transaction inclusion and optionally include a tip to gain additional
-/// priority in the queue. Allows paying via both `Currency` as well as `fungibles::Balanced`.
+/// priority in the queue. Allows paying via both `Currency` and `fungibles::Balanced`.
 ///
 /// Wraps the transaction logic in [`pallet_transaction_payment`] and extends it with assets.
 /// An asset ID of `None` falls back to the underlying transaction payment logic via the native

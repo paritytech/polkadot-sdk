@@ -86,7 +86,7 @@ pub type BridgeRejectObsoleteHeadersAndMessages = GenericSignedExtensionSchema<(
 /// The `SignedExtensionSchema` for `RefundBridgedParachainMessages`.
 /// This schema is dedicated for `RefundBridgedParachainMessages` signed extension as
 /// wildcard/placeholder, which relies on the scale encoding for `()` or `((), ())`, or `((), (),
-/// ())` is the same. So runtime can contains any kind of tuple:
+/// ())` is the same. So runtime can contain any kind of tuple:
 /// `(BridgeRefundBridgeHubRococoMessages)`
 /// `(BridgeRefundBridgeHubRococoMessages, BridgeRefundBridgeHubWestendMessages)`
 /// `(BridgeRefundParachainMessages1, ..., BridgeRefundParachainMessagesN)`
@@ -133,7 +133,7 @@ where
 
 	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
 		// we shall not ever see this error in relay, because we are never signing decoded
-		// transactions. Instead we're constructing and signing new transactions. So the error code
+		// transactions. Instead, we're constructing and signing new transactions. So the error code
 		// is kinda random here
 		self.additional_signed.clone().ok_or(
 			frame_support::unsigned::TransactionValidityError::Unknown(

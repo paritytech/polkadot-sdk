@@ -61,7 +61,7 @@ where
 
 		// Skip checks that include execution, if being told so, or when importing only state.
 		//
-		// This is done for example when gap syncing and it is expected that the block after the gap
+		// This is done for example when gap syncing, and it is expected that the block after the gap
 		// was checked/chosen properly, e.g. by warp syncing to this block using a finality proof.
 		if block_params.state_action.skip_execution_checks() || block_params.with_state() {
 			return Ok(block_params)
@@ -108,7 +108,7 @@ where
 	}
 }
 
-/// Start an import queue for a Cumulus collator that does not uses any special authoring logic.
+/// Start an import queue for a Cumulus collator that does not use any special authoring logic.
 pub fn import_queue<Client, Block: BlockT, I, CIDP>(
 	client: Arc<Client>,
 	block_import: I,

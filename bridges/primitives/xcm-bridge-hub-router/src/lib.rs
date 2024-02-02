@@ -28,7 +28,7 @@ pub const MINIMAL_DELIVERY_FEE_FACTOR: FixedU128 = FixedU128::from_u32(1);
 
 /// XCM channel status provider that may report whether it is congested or not.
 ///
-/// By channel we mean the physical channel that is used to deliver messages of one
+/// By channel, we mean the physical channel that is used to deliver messages of one
 /// of the bridge queues.
 pub trait XcmChannelStatusProvider {
 	/// Returns true if the channel is currently congested.

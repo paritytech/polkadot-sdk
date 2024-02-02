@@ -72,7 +72,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// A empty method.
+		/// An empty method.
 		pub fn deposit_event(_event: impl Into<T::RuntimeEvent>) {}
 	}
 

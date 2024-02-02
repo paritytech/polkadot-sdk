@@ -96,7 +96,7 @@ impl ZombienetBackchannel {
 
 			// validate port
 			backchannel_port.parse::<u16>().map_err(|_| BackchannelError::InvalidPort)?;
-			// validate non empty string for host
+			// validate non-empty string for host
 			if backchannel_host.trim().is_empty() {
 				return Err(BackchannelError::InvalidHost)
 			};

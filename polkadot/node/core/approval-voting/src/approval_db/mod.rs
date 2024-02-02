@@ -17,7 +17,7 @@
 //! Approval DB accessors and writers for on-disk persisted approval storage
 //! data.
 //!
-//! We persist data to disk although it is not intended to be used across runs of the
+//! We persist data to disk, although it is not intended to be used across runs of the
 //! program. This is because under medium to long periods of finality stalling, for whatever
 //! reason that may be, the amount of data we'd need to keep would be potentially too large
 //! for memory.

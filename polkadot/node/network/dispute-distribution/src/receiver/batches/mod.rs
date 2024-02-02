@@ -43,9 +43,9 @@ mod batch;
 /// Queue events in time and wait for them to become ready.
 mod waiting_queue;
 
-/// Safe-guard in case votes trickle in real slow.
+/// Safeguard in case votes trickle in real slow.
 ///
-/// If the batch life time exceeded the time the sender is willing to wait for a confirmation, we
+/// If the batch lifetime exceeded the time the sender is willing to wait for a confirmation, we
 /// would trigger pointless re-sends.
 const MAX_BATCH_LIFETIME: Duration = DISPUTE_REQUEST_TIMEOUT.saturating_sub(Duration::from_secs(2));
 
@@ -72,7 +72,7 @@ pub struct Batches {
 	waiting_queue: WaitingQueue<CandidateHash>,
 }
 
-/// A found batch is either really found or got created so it can be found.
+/// A found batch is either really found or got created, so it can be found.
 pub enum FoundBatch<'a> {
 	/// Batch just got created.
 	Created(&'a mut Batch),
@@ -119,9 +119,9 @@ impl Batches {
 	///
 	/// This function blocks (returns `Poll::Pending`) until at least one batch can be
 	/// checked for readiness meaning that `BATCH_COLLECTING_INTERVAL` has passed since the last
-	/// check for that batch or it reached end of life.
+	/// check for that batch, or it reached end of life.
 	///
-	/// If this `Batches` instance is empty (does not actually contain any batches), then this
+	/// If this `Batches` instance is empty (does not contain any batches), then this
 	/// function will always return `Poll::Pending`.
 	///
 	/// Returns: A `Vec` of all `PreparedImport`s from batches that became ready.

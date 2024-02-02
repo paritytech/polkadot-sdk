@@ -51,7 +51,7 @@ struct Opt {
 	#[arg(short, long)]
 	list: bool,
 
-	/// Machine readable json output.
+	/// Machine-readable json output.
 	///
 	/// This also suppresses all regular output (except to stderr)
 	#[arg(short, long)]

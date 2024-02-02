@@ -108,7 +108,7 @@ pub(crate) fn simulate_message_exporter_on_bridged_chain<
 ) -> Vec<u8> {
 	grab_haul_blob!(GrabbingHaulBlob, GRABBED_HAUL_BLOB_PAYLOAD);
 
-	// lets pretend that some parachain on bridged chain exported the message
+	// let's pretend that some parachain on bridged chain exported the message
 	let universal_source_on_bridged_chain: Junctions =
 		[GlobalConsensus(SourceNetwork::get()), Parachain(5678)].into();
 	let channel = 1_u32;

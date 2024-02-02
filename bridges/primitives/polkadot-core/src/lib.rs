@@ -67,7 +67,7 @@ pub const MAX_AUTHORITIES_COUNT: u32 = 1_256;
 ///
 /// See [`bp-header-chain::ChainWithGrandpa`] for more details.
 ///
-/// This value comes from recent (December, 2023) Kusama and Polkadot headers. There are no
+/// This value comes from recent (December 2023) Kusama and Polkadot headers. There are no
 /// justifications with any additional headers in votes ancestry, so reasonable headers may
 /// be set to zero. But we assume that there may be small GRANDPA lags, so we're leaving some
 /// reserve here.
@@ -78,7 +78,7 @@ pub const REASONABLE_HEADERS_IN_JUSTIFICATON_ANCESTRY: u32 = 2;
 ///
 /// See [`bp-header-chain::ChainWithGrandpa`] for more details.
 ///
-/// This value comes from recent (December, 2023) Kusama headers. Most of headers are `327` bytes
+/// This value comes from recent (December 2023) Kusama headers. Most of the headers are `327` bytes
 /// there, but let's have some reserve and make it 1024.
 pub const AVERAGE_HEADER_SIZE: u32 = 1024;
 
@@ -86,7 +86,7 @@ pub const AVERAGE_HEADER_SIZE: u32 = 1024;
 ///
 /// See [`bp-header-chain::ChainWithGrandpa`] for more details.
 ///
-/// This value comes from recent (December, 2023) Kusama headers. Maximal header is a mandatory
+/// This value comes from recent (December 2023) Kusama headers. Maximal header is a mandatory
 /// header. In its SCALE-encoded form it is `113407` bytes. Let's have some reserve here.
 pub const MAX_MANDATORY_HEADER_SIZE: u32 = 120 * 1024;
 
@@ -172,7 +172,7 @@ pub const TX_EXTRA_BYTES: u32 = 256;
 /// Re-export `time_units` to make usage easier.
 pub use time_units::*;
 
-/// Human readable time units defined in terms of number of blocks.
+/// Human-readable time units defined in terms of number of blocks.
 pub mod time_units {
 	use super::BlockNumber;
 
@@ -183,7 +183,7 @@ pub mod time_units {
 
 	/// A minute, expressed in Polkadot-like chain blocks.
 	pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
-	/// A hour, expressed in Polkadot-like chain blocks.
+	/// An hour, expressed in Polkadot-like chain blocks.
 	pub const HOURS: BlockNumber = MINUTES * 60;
 	/// A day, expressed in Polkadot-like chain blocks.
 	pub const DAYS: BlockNumber = HOURS * 24;

@@ -228,7 +228,7 @@ impl<'a, Call> XcmConverter<'a, Call> {
 			return Err(NoReserveAssets)
 		}
 
-		// Check the the deposit asset filter matches what was reserved.
+		// Check the deposit asset filter matches what was reserved.
 		if reserve_assets.inner().iter().any(|asset| !deposit_assets.matches(asset)) {
 			return Err(FilterDoesNotConsumeAllAssets)
 		}

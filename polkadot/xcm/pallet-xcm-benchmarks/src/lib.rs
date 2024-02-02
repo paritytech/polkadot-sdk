@@ -121,7 +121,7 @@ pub trait EnsureDelivery {
 	/// Prepare all requirements for successful `XcmSender: SendXcm` passing (accounts, balances,
 	/// channels ...). Returns:
 	/// - possible `FeesMode` which is expected to be set to executor
-	/// - possible `Assets` which are expected to be subsume to the Holding Register
+	/// - possible `Assets` which are expected to be subsumed to the Holding Register
 	fn ensure_successful_delivery(
 		origin_ref: &Location,
 		dest: &Location,

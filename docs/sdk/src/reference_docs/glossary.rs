@@ -62,7 +62,7 @@
 //!
 //! #### Extrinsic
 //!
-//! An extrinsic is a general term for a piece of data that is originated outside of the runtime,
+//! An extrinsic is a general term for a piece of data that is originated outside the runtime,
 //! included into a block and leads to some action. This includes user-initiated transactions as
 //! well as inherents which are placed into the block by the block-builder.
 //!

@@ -49,7 +49,7 @@ struct PvfData {
 }
 
 impl PvfData {
-	/// Initialize a new `PvfData` which is awaiting for the initial judgement.
+	/// Initialize a new `PvfData` which is waiting for the initial judgement.
 	fn pending(origin: Hash) -> Self {
 		// Preallocate the hashset with 5 items. This is the anticipated maximum leaves we can
 		// deal at the same time. In the vast majority of the cases it will have length of 1.
@@ -58,7 +58,7 @@ impl PvfData {
 		Self { judgement: None, seen_in }
 	}
 
-	/// Mark a the `PvfData` as seen in the provided relay-chain block referenced by `relay_hash`.
+	/// Mark the `PvfData` as seen in the provided relay-chain block referenced by `relay_hash`.
 	pub fn seen_in(&mut self, relay_hash: Hash) {
 		self.seen_in.insert(relay_hash);
 	}
@@ -72,7 +72,7 @@ impl PvfData {
 
 /// The result of [`InterestView::on_leaves_update`].
 pub struct OnLeavesUpdateOutcome {
-	/// The list of PVFs that we first seen in the activated block.
+	/// The list of PVFs that we have first seen in the activated block.
 	pub newcomers: Vec<ValidationCodeHash>,
 	/// The number of PVFs that were removed from the view.
 	pub left_num: usize,

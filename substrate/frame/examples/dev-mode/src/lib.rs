@@ -105,7 +105,7 @@ pub mod pallet {
 	/// The MEL requirement for bounded pallets is skipped by `dev_mode`.
 	/// This means that all storages are marked as unbounded.
 	/// This is equivalent to specifying `#[pallet::unbounded]` on this type definitions.
-	/// When the dev_mode is removed, we would need to implement implement `MaxEncodedLen`.
+	/// When the dev_mode is removed, we would need to implement `MaxEncodedLen`.
 	#[pallet::storage]
 	pub type Dummy<T: Config> = StorageValue<_, Vec<T::AccountId>>;
 

@@ -43,7 +43,7 @@ use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 /// your parachain's configuration in order to mock the MQC heads properly.
 /// See [`MockXcmConfig`] for more information
 pub struct MockValidationDataInherentDataProvider<R = ()> {
-	/// The current block number of the local block chain (the parachain)
+	/// The current block number of the local blockchain (the parachain)
 	pub current_para_block: u32,
 	/// The relay block in which this parachain appeared to start. This will be the relay block
 	/// number in para block #P1

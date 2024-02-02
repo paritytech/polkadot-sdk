@@ -97,7 +97,7 @@ impl<T: Config<I>, I: 'static> SubmitFinalityProofHelper<T, I> {
 	}
 }
 
-/// Trait representing a call that is a sub type of this pallet's call.
+/// Trait representing a call that is a subtype of this pallet's call.
 pub trait CallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 	IsSubType<CallableCallFor<Pallet<T, I>, T>>
 {
@@ -228,7 +228,7 @@ mod tests {
 	#[test]
 	fn extension_rejects_obsolete_header() {
 		run_test(|| {
-			// when current best finalized is #10 and we're trying to import header#5 => tx is
+			// when current best finalized is #10, and we're trying to import header#5 => tx is
 			// rejected
 			sync_to_header_10();
 			assert!(!validate_block_submit(5));
@@ -238,7 +238,7 @@ mod tests {
 	#[test]
 	fn extension_rejects_same_header() {
 		run_test(|| {
-			// when current best finalized is #10 and we're trying to import header#10 => tx is
+			// when current best finalized is #10, and we're trying to import header#10 => tx is
 			// rejected
 			sync_to_header_10();
 			assert!(!validate_block_submit(10));
@@ -259,7 +259,7 @@ mod tests {
 	#[test]
 	fn extension_accepts_new_header() {
 		run_test(|| {
-			// when current best finalized is #10 and we're trying to import header#15 => tx is
+			// when current best finalized is #10, and we're trying to import header#15 => tx is
 			// accepted
 			sync_to_header_10();
 			assert!(validate_block_submit(15));

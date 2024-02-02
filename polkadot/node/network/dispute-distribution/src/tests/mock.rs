@@ -96,7 +96,7 @@ pub static ref MOCK_SESSION_INFO: SessionInfo =
 		random_seed: [0u8; 32],
 	};
 
-/// `SessionInfo` for the second session. (No more validators, but two more authorities.
+/// `SessionInfo` for the second session (no more validators, but two more authorities).
 pub static ref MOCK_NEXT_SESSION_INFO: SessionInfo =
 	SessionInfo {
 		discovery_keys:

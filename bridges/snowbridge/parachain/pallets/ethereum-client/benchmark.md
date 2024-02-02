@@ -68,12 +68,12 @@ benchmark pallet \
 
 ### [Weights](https://github.com/Snowfork/cumulus/blob/ron/benchmark-beacon-bridge/parachains/runtimes/bridge-hubs/bridge-hub-rococo/src/weights/snowbridge_pallet_ethereum_client.rs)
 
-|extrinsic       | minimum execution time benchmarked(us) |
-| --------------------------------------- |----------------------------------------|
-|sync_committee_period_update | 123_126                                |
-|bls_fast_aggregate_verify| 121_083                                |
-|bls_aggregate_pubkey | 90_306                                  |
-|bls_verify_message | 28_000                                  |
+| extrinsic                    | minimum execution time benchmarked(us) |
+|------------------------------|----------------------------------------|
+| sync_committee_period_update | 123_126                                |
+| bls_fast_aggregate_verify    | 121_083                                |
+| bls_aggregate_pubkey         | 90_306                                 |
+| bls_verify_message           | 28_000                                 |
 
 - [bls_fast_aggregate_verify](#bls_fast_aggregate_verify) consumes 98% execution time of [sync_committee_period_update](#sync_committee_period_update)
 

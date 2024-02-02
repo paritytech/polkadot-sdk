@@ -91,7 +91,7 @@ impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 	}
 }
 
-/// Trait representing a call that is a sub type of this pallet's call.
+/// Trait representing a call that is a subtype of this pallet's call.
 pub trait CallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 	IsSubType<CallableCallFor<Pallet<T, I>, T>>
 {
@@ -200,7 +200,7 @@ mod tests {
 	#[test]
 	fn extension_rejects_header_from_the_obsolete_relay_block() {
 		run_test(|| {
-			// when current best finalized is #10 and we're trying to import header#5 => tx is
+			// when current best finalized is #10, and we're trying to import header#5 => tx is
 			// rejected
 			sync_to_relay_header_10();
 			assert!(!validate_submit_parachain_heads(5, vec![(ParaId(1), [1u8; 32].into())]));
@@ -210,7 +210,7 @@ mod tests {
 	#[test]
 	fn extension_rejects_header_from_the_same_relay_block() {
 		run_test(|| {
-			// when current best finalized is #10 and we're trying to import header#10 => tx is
+			// when current best finalized is #10, and we're trying to import header#10 => tx is
 			// rejected
 			sync_to_relay_header_10();
 			assert!(!validate_submit_parachain_heads(10, vec![(ParaId(1), [1u8; 32].into())]));
@@ -220,7 +220,7 @@ mod tests {
 	#[test]
 	fn extension_rejects_header_from_new_relay_block_with_same_hash() {
 		run_test(|| {
-			// when current best finalized is #10 and we're trying to import header#10 => tx is
+			// when current best finalized is #10, and we're trying to import header#10 => tx is
 			// rejected
 			sync_to_relay_header_10();
 			assert!(!validate_submit_parachain_heads(20, vec![(ParaId(1), [1u8; 32].into())]));
@@ -241,7 +241,7 @@ mod tests {
 	#[test]
 	fn extension_accepts_new_header() {
 		run_test(|| {
-			// when current best finalized is #10 and we're trying to import header#15 => tx is
+			// when current best finalized is #10, and we're trying to import header#15 => tx is
 			// accepted
 			sync_to_relay_header_10();
 			assert!(validate_submit_parachain_heads(15, vec![(ParaId(1), [2u8; 32].into())]));
@@ -251,7 +251,7 @@ mod tests {
 	#[test]
 	fn extension_accepts_if_more_than_one_parachain_is_submitted() {
 		run_test(|| {
-			// when current best finalized is #10 and we're trying to import header#5, but another
+			// when current best finalized is #10, and we're trying to import header#5, but another
 			// parachain head is also supplied => tx is accepted
 			sync_to_relay_header_10();
 			assert!(validate_submit_parachain_heads(

@@ -97,7 +97,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	sp_io::TestExternalities::new(Default::default())
 }
 
-/// Return test within default test externalities context.
+/// Return test within default test externalities' context.
 pub fn run_test<T>(test: impl FnOnce() -> T) -> T {
 	new_test_ext().execute_with(|| {
 		let _ = Grandpa::on_initialize(0);

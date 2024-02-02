@@ -20,7 +20,7 @@ struct MyCoolStruct {
 	field: u32,
 }
 
-// create a test receiver since `proc_support` isn't enabled so we're on our own in terms of
+// create a test receiver since `proc_support` isn't enabled, so we're on our own in terms of
 // what we can call
 macro_rules! receiver {
 	($_tokens_var:ident, $($tokens:tt)*) => {

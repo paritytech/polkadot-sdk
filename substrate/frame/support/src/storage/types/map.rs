@@ -272,8 +272,8 @@ where
 	///
 	/// `Value` is required to implement [`StorageDecodeLength`].
 	///
-	/// If the value does not exists or it fails to decode the length, `None` is returned.
-	/// Otherwise `Some(len)` is returned.
+	/// If the value does not exist or it fails to decode the length, `None` is returned.
+	/// Otherwise, `Some(len)` is returned.
 	///
 	/// # Warning
 	///
@@ -290,8 +290,8 @@ where
 	///
 	/// `Value` is required to implement [`StorageDecodeNonDedupLength`].
 	///
-	/// If the value does not exists or it fails to decode the length, `None` is returned.
-	/// Otherwise `Some(len)` is returned.
+	/// If the value does not exist or it fails to decode the length, `None` is returned.
+	/// Otherwise, `Some(len)` is returned.
 	///
 	/// # Warning
 	///

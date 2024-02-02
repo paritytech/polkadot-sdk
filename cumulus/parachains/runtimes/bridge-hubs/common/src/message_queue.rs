@@ -53,7 +53,7 @@ impl From<AggregateMessageOrigin> for Location {
 			Here => Location::here(),
 			Parent => Location::parent(),
 			Sibling(id) => Location::new(1, Junction::Parachain(id.into())),
-			// NOTE: We don't need this conversion for Snowbridge. However we have to
+			// NOTE: We don't need this conversion for Snowbridge. However, we have to
 			// implement it anyway as xcm_builder::ProcessXcmMessage requires it.
 			Snowbridge(_) => Location::default(),
 		}

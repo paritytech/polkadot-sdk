@@ -80,7 +80,7 @@ pub fn generate_access_from_frame_or_crate(def_crate: &str) -> Result<syn::Path,
 	}
 }
 
-/// Generates the hidden includes that are required to make the macro independent from its scope.
+/// Generates the hidden includes that are required to make the macro independent of its scope.
 pub fn generate_hidden_includes(unique_id: &str, def_crate: &str) -> TokenStream {
 	let mod_name = generate_hidden_includes_mod_name(unique_id);
 

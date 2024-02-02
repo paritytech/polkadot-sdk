@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Storage types to build abstraction on storage, they implements storage traits such as
+//! Storage types to build abstraction on storage, they implement storage traits such as
 //! StorageMap and others.
 
 use codec::FullCodec;

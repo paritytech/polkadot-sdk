@@ -17,7 +17,7 @@
 //!
 //! It is now deprecated and has been refactored to simply drain any remaining messages into
 //! something implementing `HandleMessage`. It proceeds in the state of
-//! [`MigrationState`] one by one by their listing in the source code. The pallet can be removed
+//! [`MigrationState`] one by one their listing in the source code. The pallet can be removed
 //! from the runtime once `Completed` was emitted.
 
 #![cfg_attr(not(feature = "std"), no_std)]

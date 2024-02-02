@@ -271,7 +271,7 @@ mod tests {
 	#[test]
 	fn authorities_returns_current_and_next_authority_set() {
 		// The whole authority discovery pallet ignores account ids, but we still need them for
-		// `pallet_session::OneSessionHandler::on_new_session`, thus its safe to use the same value
+		// `pallet_session::OneSessionHandler::on_new_session`, thus it's safe to use the same value
 		// everywhere.
 		let account_id = AuthorityPair::from_seed_slice(vec![10; 32].as_ref()).unwrap().public();
 

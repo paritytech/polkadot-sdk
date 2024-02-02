@@ -136,7 +136,7 @@ pub mod pallet {
 		Noted { hash: T::Hash },
 		/// A preimage has been requested.
 		Requested { hash: T::Hash },
-		/// A preimage has ben cleared.
+		/// A preimage has been cleared.
 		Cleared { hash: T::Hash },
 	}
 
@@ -216,7 +216,7 @@ pub mod pallet {
 
 		/// Request a preimage be uploaded to the chain without paying any fees or deposits.
 		///
-		/// If the preimage requests has already been provided on-chain, we unreserve any deposit
+		/// If the preimage requests have already been provided on-chain, we must un-reserve any deposit
 		/// a user may have paid, and take the control of the preimage out of their hands.
 		#[pallet::call_index(2)]
 		pub fn request_preimage(origin: OriginFor<T>, hash: T::Hash) -> DispatchResult {
@@ -234,7 +234,7 @@ pub mod pallet {
 			Self::do_unrequest_preimage(&hash)
 		}
 
-		/// Ensure that the a bulk of pre-images is upgraded.
+		/// Ensure that the bulk of pre-images is upgraded.
 		///
 		/// The caller pays no fee if at least 90% of pre-images were successfully updated.
 		#[pallet::call_index(4)]
@@ -444,7 +444,7 @@ impl<T: Config> Pallet<T> {
 						RequestStatusFor::<T>::remove(hash);
 						Self::deposit_event(Event::Cleared { hash: *hash });
 					},
-					// Preimage was noted with owner - move to unrequested so they can get refund.
+					// Preimage was noted with owner - move to unrequested, so they can get refund.
 					(Some(len), Some(ticket)) => {
 						RequestStatusFor::<T>::insert(
 							hash,

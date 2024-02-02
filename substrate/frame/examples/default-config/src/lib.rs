@@ -60,10 +60,10 @@ pub mod pallet {
 		type OverwrittenDefaultValue: Get<u32>;
 
 		/// An input parameter that relies on `<Self as frame_system::Config>::AccountId`. This can
-		/// too have a default, as long as as it is present in `frame_system::DefaultConfig`.
+		/// too have a default, as long as it is present in `frame_system::DefaultConfig`.
 		type CanDeriveDefaultFromSystem: Get<Self::AccountId>;
 
-		/// We might chose to declare as one that doesn't have a default, for whatever semantical
+		/// We might want to declare as one that doesn't have a default, for whatever semantical
 		/// reason.
 		#[pallet::no_default]
 		type HasNoDefault: Get<u32>;
@@ -111,7 +111,7 @@ pub mod pallet {
 		/// could be a parachain, or a solo-chain.
 		///
 		/// Appropriate derive for `frame_system::DefaultConfig` needs to be provided. In this
-		/// example, we simple derive `frame_system::config_preludes::TestDefaultConfig` again.
+		/// example, we simply derive `frame_system::config_preludes::TestDefaultConfig` again.
 		pub struct OtherDefaultConfig;
 
 		#[derive_impl(SystemTestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]

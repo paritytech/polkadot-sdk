@@ -48,7 +48,7 @@ impl Error {
 	}
 }
 
-/// A type alias for easily referring to the type of a proposal produced by a specific
+/// A type alias for easily referring to the type of proposal produced by a specific
 /// [`Proposer`].
 pub type ProposalOf<B> = Proposal<B, StorageProof>;
 
@@ -64,7 +64,7 @@ pub trait ProposerInterface<Block: BlockT> {
 	///
 	/// The `InherentData` and `Digest` are left deliberately general in order to accommodate
 	/// all possible collator selection algorithms or inherent creation mechanisms,
-	/// while the `ParachainInherentData` is made explicit so it will be constructed appropriately.
+	/// while the `ParachainInherentData` is made explicit, so it will be constructed appropriately.
 	///
 	/// If the `InherentData` passed into this function already has a `ParachainInherentData`,
 	/// this should throw an error.

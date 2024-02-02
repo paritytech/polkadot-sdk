@@ -249,7 +249,7 @@ pub fn resign_candidate_descriptor_with_collator<H: AsRef<[u8]>>(
 	descriptor.signature = signature;
 }
 
-/// Extracts validators's public keus (`ValidatorId`) from `Sr25519Keyring`
+/// Extracts validators' public keys (`ValidatorId`) from `Sr25519Keyring`
 pub fn validator_pubkeys(val_ids: &[Sr25519Keyring]) -> Vec<ValidatorId> {
 	val_ids.iter().map(|v| v.public().into()).collect()
 }

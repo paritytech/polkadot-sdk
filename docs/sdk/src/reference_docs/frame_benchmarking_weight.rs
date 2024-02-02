@@ -11,7 +11,7 @@
 //! 	- you can manually refund using `DispatchResultWithPostInfo`.
 //! - Technically you can have weights with any benchmarking framework. You just need one number to
 //!   be computed pre-dispatch. But FRAME gives you a framework for this.
-//! - improve documentation of `#[weight = ..]` and `#[pallet::weight(..)]`. All syntax variation
+//! - improve documentation of `#[weight = ...]` and `#[pallet::weight(...)]`. All syntax variation
 //!   should be covered.
 //!
 //! on FRAME benchmarking machinery:

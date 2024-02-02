@@ -378,7 +378,7 @@ impl Junctions {
 		tail
 	}
 
-	/// Mutates `self` to be appended with `new` or returns an `Err` with `new` if would overflow.
+	/// Mutates `self` to be appended with `new` or returns an `Err` with `new` if it would overflow.
 	pub fn push(&mut self, new: impl Into<Junction>) -> result::Result<(), Junction> {
 		let new = new.into();
 		let mut dummy = Junctions::Here;
@@ -395,7 +395,7 @@ impl Junctions {
 		}
 	}
 
-	/// Mutates `self` to be prepended with `new` or returns an `Err` with `new` if would overflow.
+	/// Mutates `self` to be prepended with `new` or returns an `Err` with `new` if it would overflow.
 	pub fn push_front(&mut self, new: impl Into<Junction>) -> result::Result<(), Junction> {
 		let new = new.into();
 		let mut dummy = Junctions::Here;

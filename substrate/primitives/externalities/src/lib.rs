@@ -145,7 +145,7 @@ pub trait Externalities: ExtensionStore {
 	/// Deletes all keys from the overlay and up to `maybe_limit` keys from the backend. No
 	/// limit is applied if `maybe_limit` is `None`. Returns the cursor for the next call as `Some`
 	/// if the child trie deletion operation is incomplete. In this case, it should be passed into
-	/// the next call to avoid unaccounted iterations on the backend. Returns also the the number
+	/// the next call to avoid unaccounted iterations on the backend. Returns also the number
 	/// of keys that were removed from the backend, the number of unique keys removed in total
 	/// (including from the overlay) and the number of backend iterations done.
 	///
@@ -212,7 +212,7 @@ pub trait Externalities: ExtensionStore {
 
 	/// Append storage item.
 	///
-	/// This assumes specific format of the storage item. Also there is no way to undo this
+	/// This assumes specific format of the storage item. Also, there is no way to undo this
 	/// operation.
 	fn storage_append(&mut self, key: Vec<u8>, value: Vec<u8>);
 

@@ -49,7 +49,7 @@ pub trait InboundLaneStorage {
 /// Inbound lane data wrapper that implements `MaxEncodedLen`.
 ///
 /// We have already had `MaxEncodedLen`-like functionality before, but its usage has
-/// been localized and we haven't been passing bounds (maximal count of unrewarded relayer entries,
+/// been localized, and we haven't been passing bounds (maximal count of unrewarded relayer entries,
 /// maximal count of unconfirmed messages) everywhere. This wrapper allows us to avoid passing
 /// these generic bounds all over the code.
 ///
@@ -141,7 +141,7 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 
 		let new_confirmed_nonce = outbound_lane_data.latest_received_nonce;
 		data.last_confirmed_nonce = new_confirmed_nonce;
-		// Firstly, remove all of the records where higher nonce <= new confirmed nonce
+		// Firstly, remove all the records where higher nonce <= new confirmed nonce
 		while data
 			.relayers
 			.front()
@@ -384,7 +384,7 @@ mod tests {
 					ReceivalResult::Dispatched(dispatch_result(0))
 				);
 			}
-			// Fails to dispatch new message from different than latest relayer.
+			// Fails to dispatch new message from a different relayer than latest.
 			assert_eq!(
 				lane.receive_message::<TestMessageDispatch>(
 					&(TEST_RELAYER_A + max_nonce + 1),
@@ -420,7 +420,7 @@ mod tests {
 					ReceivalResult::Dispatched(dispatch_result(0))
 				);
 			}
-			// Fails to dispatch new message from different than latest relayer.
+			// Fails to dispatch new message from a different relayer than latest.
 			assert_eq!(
 				lane.receive_message::<TestMessageDispatch>(
 					&TEST_RELAYER_B,

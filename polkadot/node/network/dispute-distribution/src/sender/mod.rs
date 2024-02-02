@@ -363,7 +363,7 @@ async fn get_active_session_indices<Context>(
 	active_heads: &Vec<Hash>,
 ) -> Result<HashMap<SessionIndex, Hash>> {
 	let mut indeces = HashMap::new();
-	// Iterate all heads we track as active and fetch the child' session indices.
+	// Iterate all heads we track as active and fetch the child's session indices.
 	for head in active_heads {
 		let session_index = runtime.get_session_index_for_child(ctx.sender(), *head).await?;
 		// Cache session info

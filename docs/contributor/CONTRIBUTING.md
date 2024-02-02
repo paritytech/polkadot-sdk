@@ -81,9 +81,9 @@ Reviews should finish with approval unless there are issues that would result in
 The reviewers are also responsible to check:
 
 1. if a changelog is necessary and attached
-1. the quality of information in the changelog file
-1. the PR has an impact on docs
-1. that the docs team was included in the review process of a docs update
+2. the quality of information in the changelog file
+3. the PR has an impact on docs
+4. that the docs team was included in the review process of a docs update
 
 **Reviews may not be used as an effective veto for a PR because**:
 1. There exists a somewhat cleaner/better/faster way of accomplishing the same feature/fix.
@@ -114,7 +114,7 @@ and get in contact with the mentor offering their support on that larger task.
 ### Issues
 
 If what you are looking for is an answer rather than proposing a new feature or fix, search
-[https://substrate.stackexchange.com](https://substrate.stackexchange.com/) to see if an post already
+[https://substrate.stackexchange.com](https://substrate.stackexchange.com/) to see if a post already
 exists, and ask if not. Please do not file support issues here.
 Before opening a new issue search to see if a similar one already exists and leave a comment that you
 also experienced this issue or add your specifics that are related to an existing issue.
@@ -132,12 +132,12 @@ Declaring formal releases remains the prerogative of the project maintainer(s).
 UI tests are used for macros to ensure that the output of a macro doesn’t change and is in the expected format.
 These UI tests are sensible to any changes in the macro generated code or to switching the rust stable version.
 The tests are only run when the `RUN_UI_TESTS` environment variable is set. So, when the CI is for example complaining
-about failing UI tests and it is expected that they fail these tests need to be executed locally.
+about failing UI tests, and it is expected that they fail these tests need to be executed locally.
 To simplify the updating of the UI test output there is a script
 - `./scripts/update-ui-tests.sh`   to update the tests for a current rust version locally
 - `./scripts/update-ui-tests.sh 1.70` # to update the tests for a specific rust version locally
 
-Or if you have opened PR and you're member of `paritytech` - you can use command-bot to run the tests for you in CI:
+Or if you have opened PR, and you're member of `paritytech` - you can use command-bot to run the tests for you in CI:
 - `bot update-ui` - will run the tests for the current rust version
 - `bot update-ui latest --rust_version=1.70.0` - will run the tests for the specified rust version
 - `bot update-ui latest -v CMD_IMAGE=paritytech/ci-unified:bullseye-1.70.0-2023-05-23 --rust_version=1.70.0` -

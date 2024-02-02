@@ -63,7 +63,7 @@ pub mod v1 {
 
 	/// Version checked migration to v1.
 	///
-	/// Wrapped in [`frame_support::migrations::VersionedMigration`] so the pre/post checks don't
+	/// Wrapped in [`frame_support::migrations::VersionedMigration`] so the pre/post-checks don't
 	/// begin failing after the upgrade is enacted on-chain.
 	pub type MigrateToV1<T> = frame_support::migrations::VersionedMigration<
 		0,

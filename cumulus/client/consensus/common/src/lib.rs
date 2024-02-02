@@ -112,7 +112,7 @@ impl<B: BlockT> ParachainConsensus<B> for Box<dyn ParachainConsensus<B> + Send +
 /// Parachain specific block import.
 ///
 /// Specialized block import for parachains. It supports to delay setting the best block until the
-/// relay chain has included a candidate in its best block. By default the delayed best block
+/// relay chain has included a candidate in its best block. By default, the delayed best block
 /// setting is disabled. The block import also monitors the imported blocks and prunes by default if
 /// there are too many blocks at the same height. Too many blocks at the same height can for example
 /// happen if the relay chain is rejecting the parachain blocks in the validation.
@@ -195,7 +195,7 @@ where
 		if params.with_state() {
 			// Force imported state finality.
 			// Required for warp sync. We assume that preconditions have been
-			// checked properly and we are importing a finalized block with state.
+			// checked properly, and we are importing a finalized block with state.
 			params.finalized = true;
 		}
 
@@ -366,7 +366,7 @@ pub async fn find_potential_parents<B: BlockT>(
 		let is_included = entry.depth == 0;
 
 		// note: even if the pending block or included block have a relay parent
-		// outside of the expected part of the relay chain, they are always allowed
+		// outside the expected part of the relay chain, they are always allowed
 		// because they have already been posted on chain.
 		let is_potential = is_pending || is_included || {
 			let digest = entry.header.digest();

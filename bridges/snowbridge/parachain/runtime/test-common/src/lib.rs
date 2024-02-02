@@ -29,7 +29,7 @@ pub fn initial_fund<Runtime>(assethub_parachain_id: u32, initial_amount: u128)
 where
 	Runtime: frame_system::Config + pallet_balances::Config,
 {
-	// fund asset hub sovereign account enough so it can pay fees
+	// fund asset hub sovereign account enough, so it can pay fees
 	let asset_hub_sovereign_account =
 		snowbridge_core::sibling_sovereign_account::<Runtime>(assethub_parachain_id.into());
 	<pallet_balances::Pallet<Runtime>>::mint_into(
@@ -143,7 +143,7 @@ pub fn send_transfer_token_message_success<Runtime, XcmConfig>(
 			)
 			.unwrap();
 
-			// fund asset hub sovereign account enough so it can pay fees
+			// fund asset hub sovereign account enough, so it can pay fees
 			initial_fund::<Runtime>(assethub_parachain_id, 5_000_000_000_000);
 
 			let outcome = send_transfer_token_message::<Runtime, XcmConfig>(
@@ -318,7 +318,7 @@ pub fn send_transfer_token_message_failure<Runtime, XcmConfig>(
 			)
 			.unwrap();
 
-			// fund asset hub sovereign account enough so it can pay fees
+			// fund asset hub sovereign account enough, so it can pay fees
 			initial_fund::<Runtime>(assethub_parachain_id, initial_amount);
 
 			let outcome = send_transfer_token_message::<Runtime, XcmConfig>(

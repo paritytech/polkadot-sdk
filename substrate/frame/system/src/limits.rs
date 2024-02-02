@@ -146,7 +146,7 @@ pub struct WeightsPerClass {
 /// The remaining capacity can be used to dispatch extrinsics. Note that each dispatch class
 /// is being tracked separately, but the sum can't exceed `max_block` (except for `reserved`).
 /// Below you can see a picture representing full block with 3 extrinsics (two `Operational` and
-/// one `Normal`). Each class has it's own limit `max_total`, but also the sum cannot exceed
+/// one `Normal`). Each class has its own limit `max_total`, but also the sum cannot exceed
 /// `max_block` value.
 ///
 /// ```text,ignore
@@ -160,7 +160,7 @@ pub struct WeightsPerClass {
 /// |NOM|                 |NOM|
 /// ```
 ///
-/// It should be obvious now that it's possible for one class to reach it's limit (say `Normal`),
+/// It should be obvious now that it's possible for one class to reach its limit (say `Normal`),
 /// while the block has still capacity to process more transactions (`max_block` not reached,
 /// `Operational` transactions can still go in). Setting `max_total` to `None` disables the
 /// per-class limit. This is generally highly recommended for `Mandatory` dispatch class, while it
@@ -337,7 +337,7 @@ impl BlockWeights {
 
 	/// Start constructing new `BlockWeights` object.
 	///
-	/// By default all kinds except of `Mandatory` extrinsics are disallowed.
+	/// By default, all kinds except of `Mandatory` extrinsics are disallowed.
 	pub fn builder() -> BlockWeightsBuilder {
 		BlockWeightsBuilder {
 			weights: BlockWeights {

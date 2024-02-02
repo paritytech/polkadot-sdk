@@ -50,7 +50,7 @@ pub enum HeaderChainError {
 
 /// Header data that we're storing on-chain.
 ///
-/// Even though we may store full header, our applications (XCM) only use couple of header
+/// Even though we may store full header, our applications (XCM) only use a couple of header
 /// fields. Extracting those values makes on-chain storage and PoV smaller, which is good.
 #[derive(Clone, Decode, Encode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct StoredHeaderData<Number, Hash> {
@@ -285,7 +285,7 @@ pub trait ChainWithGrandpa: Chain {
 
 	/// Average size of the chain header. We don't expect to see there headers that change GRANDPA
 	/// authorities set (GRANDPA will probably be able to finalize at least one additional header
-	/// per session on non test chains), so this is average size of headers that aren't changing the
+	/// per session on non-test chains), so this is average size of headers that aren't changing the
 	/// set.
 	///
 	/// This isn't a strict limit. The relay may submit justifications with larger headers and the

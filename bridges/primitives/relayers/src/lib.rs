@@ -134,7 +134,7 @@ where
 	}
 }
 
-/// Can be use to access the runtime storage key within the `RelayerRewards` map of the relayers
+/// Can be used to access the runtime storage key within the `RelayerRewards` map of the relayers
 /// pallet.
 pub struct RelayerRewardsKeyProvider<AccountId, Reward>(PhantomData<(AccountId, Reward)>);
 

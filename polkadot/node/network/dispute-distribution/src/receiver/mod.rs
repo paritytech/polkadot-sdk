@@ -132,7 +132,7 @@ enum MuxedMessage {
 	/// A new request has arrived and should be handled.
 	NewRequest(IncomingRequest<DisputeRequest>),
 
-	/// Rate limit timer hit - is is time to process one row of messages.
+	/// Rate limit timer hit - is time to process one row of messages.
 	///
 	/// This is the result of calling `self.peer_queues.pop_reqs()`.
 	WakePeerQueuesPopReqs(Vec<IncomingRequest<DisputeRequest>>),
@@ -491,7 +491,7 @@ async fn send_responses_to_requesters(import_result: ImportResult) -> JfyiResult
 /// This future is used on `dispute-coordinator` import messages for the oneshot response receiver
 /// to:
 /// - Keep track of concerned `CandidateHash` for reporting errors.
-/// - Keep track of requesting peers so we can confirm the import/punish them on invalid imports.
+/// - Keep track of requesting peers, so we can confirm the import/punish them on invalid imports.
 struct PendingImport {
 	candidate_hash: CandidateHash,
 	requesters: Vec<(PeerId, OutgoingResponseSender<DisputeRequest>)>,

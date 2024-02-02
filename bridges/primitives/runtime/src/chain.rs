@@ -33,7 +33,7 @@ use sp_std::{convert::TryFrom, fmt::Debug, hash::Hash, str::FromStr, vec, vec::V
 pub enum EncodedOrDecodedCall<ChainCall> {
 	/// The call that is SCALE-encoded.
 	///
-	/// This variant is used when we the chain runtime is not bundled with the relay, but
+	/// This variant is used when the chain runtime is not bundled with the relay, but
 	/// we still need the represent call in some RPC calls or transactions.
 	Encoded(Vec<u8>),
 	/// The decoded call.

@@ -315,7 +315,7 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type QueueConfig<T: Config> = StorageValue<_, QueueConfigData, ValueQuery>;
 
-	/// Whether or not the XCMP queue is suspended from executing incoming XCMs or not.
+	/// Whether the XCMP queue is suspended from executing incoming XCMs or not.
 	#[pallet::storage]
 	pub(super) type QueueSuspended<T: Config> = StorageValue<_, bool, ValueQuery>;
 
@@ -345,7 +345,7 @@ pub struct OutboundChannelDetails {
 	recipient: ParaId,
 	/// The state of the channel.
 	state: OutboundState,
-	/// Whether or not any signals exist in this channel.
+	/// Whether any signals exist in this channel or not.
 	signals_exist: bool,
 	/// The index of the first outbound message.
 	first_index: u16,
@@ -438,7 +438,7 @@ impl<T: Config> Pallet<T> {
 	/// For the sake of clarity, we distinguish between them as message AGGREGATEs versus
 	/// message FRAGMENTs.
 	///
-	/// So each AGGREGATE is comprised of one or more concatenated SCALE-encoded `Vec<u8>`
+	/// So each AGGREGATE is composed of one or more concatenated SCALE-encoded `Vec<u8>`
 	/// FRAGMENTs. Though each fragment is already probably a SCALE-encoded Xcm, we can't be
 	/// certain, so we SCALE encode each `Vec<u8>` fragment in order to ensure we have the
 	/// length prefixed and can thus decode each fragment from the aggregate stream. With this,
@@ -485,7 +485,7 @@ impl<T: Config> Pallet<T> {
 		};
 		let have_active = channel_details.last_index > channel_details.first_index;
 		// Try to append fragment to the last page, if there is enough space.
-		// We return the size of the last page inside of the option, to not calculate it again.
+		// We return the size of the last page inside the option, to not calculate it again.
 		let appended_to_last_page = have_active
 			.then(|| {
 				<OutboundXcmpMessages<T>>::mutate(
@@ -949,7 +949,7 @@ impl<T: Config> SendXcm for Pallet<T> {
 
 /// Checks that the XCM is decodable with `MAX_XCM_DECODE_DEPTH`.
 ///
-/// Note that this uses the limit of the sender - not the receiver. It it best effort.
+/// Note that this uses the limit of the sender - not the receiver. It is best effort.
 pub(crate) fn validate_xcm_nesting(xcm: &VersionedXcm<()>) -> Result<(), ()> {
 	xcm.using_encoded(|mut enc| {
 		VersionedXcm::<()>::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut enc).map(|_| ())

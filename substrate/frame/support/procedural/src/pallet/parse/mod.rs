@@ -516,7 +516,7 @@ impl GenericKind {
 		}
 	}
 
-	/// Return the generic to be used in `impl<..>` when implementing on the type.
+	/// Return the generic to be used in `impl<...>` when implementing on the type.
 	pub fn type_impl_gen(&self, span: proc_macro2::Span) -> proc_macro2::TokenStream {
 		match self {
 			GenericKind::None => quote::quote!(),
