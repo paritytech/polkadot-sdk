@@ -764,4 +764,12 @@ where
 	fn get_affinity_map(para_id: ParaId) -> Option<CoreAffinityCount> {
 		ParaIdAffinity::<T>::get(para_id)
 	}
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn populate_queue(para_id: ParaId, num: u32) {
+		QueueStatus::<T>::mutate(|queue_status| {
+			for _ in 0..num {
+				Pallet::<T>::add_on_demand_order(queue_status, para_id, QueuePushDirection::Back);
+			}
+		});
+	}
 }
