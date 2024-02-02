@@ -252,7 +252,7 @@ pub async fn start(
 		from_prepare_pool,
 	);
 
-	let (to_execute_queue_tx, run_execute_queue) = execute::start(
+	let (to_execute_queue_tx, from_execute_queue_rx, run_execute_queue) = execute::start(
 		metrics,
 		config.execute_worker_program_path.to_owned(),
 		config.cache_path.clone(),
@@ -274,6 +274,7 @@ pub async fn start(
 			to_prepare_queue_tx,
 			from_prepare_queue_rx,
 			to_execute_queue_tx,
+			from_execute_queue_rx,
 			to_sweeper_tx,
 			awaiting_prepare: AwaitingPrepare::default(),
 		})
@@ -320,6 +321,8 @@ struct Inner {
 	from_prepare_queue_rx: mpsc::UnboundedReceiver<prepare::FromQueue>,
 
 	to_execute_queue_tx: mpsc::Sender<execute::ToQueue>,
+	from_execute_queue_rx: mpsc::UnboundedReceiver<execute::FromQueue>,
+
 	to_sweeper_tx: mpsc::Sender<PathBuf>,
 
 	awaiting_prepare: AwaitingPrepare,
@@ -336,6 +339,7 @@ async fn run(
 		to_host_rx,
 		from_prepare_queue_rx,
 		mut to_prepare_queue_tx,
+		from_execute_queue_rx,
 		mut to_execute_queue_tx,
 		mut to_sweeper_tx,
 		mut awaiting_prepare,
@@ -362,10 +366,22 @@ async fn run(
 
 	let mut to_host_rx = to_host_rx.fuse();
 	let mut from_prepare_queue_rx = from_prepare_queue_rx.fuse();
+	let mut from_execute_queue_rx = from_execute_queue_rx.fuse();
 
 	loop {
 		// biased to make it behave deterministically for tests.
+		// and also any request from execute queue should be handled first
+		// to provide consistency with message from other channels
 		futures::select_biased! {
+			from_execute_queue_rx = from_execute_queue_rx.next() => {
+				let from_queue = break_if_fatal!(from_execute_queue_rx.ok_or(Fatal));
+				let execute::FromQueue::RemoveArtifact { artifact } = from_queue;
+				break_if_fatal!(handle_artifact_removal(
+					&mut to_sweeper_tx,
+					&mut artifacts,
+					artifact
+				).await);
+			},
 			() = cleanup_pulse.select_next_some() => {
 				// `select_next_some` because we don't expect this to fail, but if it does, we
 				// still don't fail. The trade-off is that the compiled cache will start growing
@@ -839,6 +855,23 @@ async fn handle_cleanup_pulse(
 	Ok(())
 }
 
+async fn handle_artifact_removal(
+	sweeper_tx: &mut mpsc::Sender<PathBuf>,
+	artifacts: &mut Artifacts,
+	artifact_id: ArtifactId,
+) -> Result<(), Fatal> {
+	let (artifact_id, path) = artifacts
+		.remove(artifact_id)
+		.expect("artifact sent by the execute queue for removal exists; qed");
+	gum::debug!(
+		target: LOG_TARGET,
+		validation_code_hash = ?artifact_id.code_hash,
+		"PVF pruning: pruning artifact by request from the execute queue",
+	);
+	sweeper_tx.send(path).await.map_err(|_| Fatal)?;
+	Ok(())
+}
+
 /// A simple task which sole purpose is to delete files thrown at it.
 async fn sweeper_task(mut sweeper_rx: mpsc::Receiver<PathBuf>) {
 	loop {
@@ -946,6 +979,7 @@ pub(crate) mod tests {
 		to_prepare_queue_rx: mpsc::Receiver<prepare::ToQueue>,
 		from_prepare_queue_tx: mpsc::UnboundedSender<prepare::FromQueue>,
 		to_execute_queue_rx: mpsc::Receiver<execute::ToQueue>,
+		from_execute_queue_tx: mpsc::UnboundedSender<execute::FromQueue>,
 		to_sweeper_rx: mpsc::Receiver<PathBuf>,
 
 		run: BoxFuture<'static, ()>,
@@ -957,6 +991,7 @@ pub(crate) mod tests {
 			let (to_prepare_queue_tx, to_prepare_queue_rx) = mpsc::channel(10);
 			let (from_prepare_queue_tx, from_prepare_queue_rx) = mpsc::unbounded();
 			let (to_execute_queue_tx, to_execute_queue_rx) = mpsc::channel(10);
+			let (from_execute_queue_tx, from_execute_queue_rx) = mpsc::unbounded();
 			let (to_sweeper_tx, to_sweeper_rx) = mpsc::channel(10);
 
 			let run = run(Inner {
@@ -967,6 +1002,7 @@ pub(crate) mod tests {
 				to_prepare_queue_tx,
 				from_prepare_queue_rx,
 				to_execute_queue_tx,
+				from_execute_queue_rx,
 				to_sweeper_tx,
 				awaiting_prepare: AwaitingPrepare::default(),
 			})
@@ -977,6 +1013,7 @@ pub(crate) mod tests {
 				to_prepare_queue_rx,
 				from_prepare_queue_tx,
 				to_execute_queue_rx,
+				from_execute_queue_tx,
 				to_sweeper_rx,
 				run,
 			}

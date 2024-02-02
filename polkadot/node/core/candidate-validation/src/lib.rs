@@ -695,6 +695,8 @@ async fn validate_candidate_exhaustive(
 			))),
 		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(err))) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
+		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::RuntimeConstruction(err))) =>
+			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
 
 		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err))) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(format!(
@@ -780,40 +782,46 @@ trait ValidationBackend {
 			return validation_result
 		}
 
+		macro_rules! break_if_no_retries_left {
+			($counter:ident) => {
+				if $counter > 0 {
+					$counter -= 1;
+				} else {
+					break
+				}
+			};
+		}
+
 		// Allow limited retries for each kind of error.
 		let mut num_death_retries_left = 1;
 		let mut num_job_error_retries_left = 1;
 		let mut num_internal_retries_left = 1;
+		let mut num_runtime_construction_retries_left = 1;
 		loop {
 			// Stop retrying if we exceeded the timeout.
 			if total_time_start.elapsed() + retry_delay > exec_timeout {
 				break
 			}
-
+			let mut wait_retry_delay = true;
 			match validation_result {
 				Err(ValidationError::PossiblyInvalid(
 					PossiblyInvalidError::AmbiguousWorkerDeath |
 					PossiblyInvalidError::AmbiguousJobDeath(_),
-				)) =>
-					if num_death_retries_left > 0 {
-						num_death_retries_left -= 1;
-					} else {
-						break
-					},
+				)) => break_if_no_retries_left!(num_death_retries_left),
 
 				Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(_))) =>
-					if num_job_error_retries_left > 0 {
-						num_job_error_retries_left -= 1;
-					} else {
-						break
-					},
+					break_if_no_retries_left!(num_job_error_retries_left),
 
 				Err(ValidationError::Internal(_)) =>
-					if num_internal_retries_left > 0 {
-						num_internal_retries_left -= 1;
-					} else {
-						break
-					},
+					break_if_no_retries_left!(num_internal_retries_left),
+
+				Err(ValidationError::PossiblyInvalid(
+					PossiblyInvalidError::RuntimeConstruction(_),
+				)) => {
+					break_if_no_retries_left!(num_runtime_construction_retries_left);
+					self.precheck_pvf(pvf.clone()).await?;
+					wait_retry_delay = false;
+				},
 
 				Ok(_) | Err(ValidationError::Invalid(_) | ValidationError::Preparation(_)) => break,
 			}
@@ -822,7 +830,9 @@ trait ValidationBackend {
 			// assumption that the conditions that caused this error may have resolved on their own.
 			{
 				// Wait a brief delay before retrying.
-				futures_timer::Delay::new(retry_delay).await;
+				if wait_retry_delay {
+					futures_timer::Delay::new(retry_delay).await;
+				}
 
 				let new_timeout = exec_timeout.saturating_sub(total_time_start.elapsed());
 

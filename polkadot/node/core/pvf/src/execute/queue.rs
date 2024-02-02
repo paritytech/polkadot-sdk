@@ -54,6 +54,12 @@ pub enum ToQueue {
 	Enqueue { artifact: ArtifactPathId, pending_execution_request: PendingExecutionRequest },
 }
 
+/// A response from queue.
+#[derive(Debug)]
+pub enum FromQueue {
+	RemoveArtifact { artifact: ArtifactId },
+}
+
 /// An execution request that should execute the PVF (known in the context) and send the results
 /// to the given result sender.
 #[derive(Debug)]
@@ -137,6 +143,8 @@ struct Queue {
 
 	/// The receiver that receives messages to the pool.
 	to_queue_rx: mpsc::Receiver<ToQueue>,
+	/// The sender tto send messages back to validation host.
+	from_queue_tx: mpsc::UnboundedSender<FromQueue>,
 
 	// Some variables related to the current session.
 	program_path: PathBuf,
@@ -161,6 +169,7 @@ impl Queue {
 		node_version: Option<String>,
 		security_status: SecurityStatus,
 		to_queue_rx: mpsc::Receiver<ToQueue>,
+		from_queue_tx: mpsc::UnboundedSender<FromQueue>,
 	) -> Self {
 		Self {
 			metrics,
@@ -170,6 +179,7 @@ impl Queue {
 			node_version,
 			security_status,
 			to_queue_rx,
+			from_queue_tx,
 			queue: VecDeque::new(),
 			mux: Mux::new(),
 			workers: Workers {
@@ -345,6 +355,19 @@ fn handle_job_finish(
 			Err(ValidationError::Invalid(InvalidCandidate::WorkerReportedInvalid(err))),
 			None,
 		),
+		Outcome::RuntimeConstruction { err, idle_worker } => {
+			queue
+				.from_queue_tx
+				.unbounded_send(FromQueue::RemoveArtifact { artifact: artifact_id.clone() })
+				.expect("from execute queue receiver is listened by the host; qed");
+			(
+				Some(idle_worker),
+				Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::RuntimeConstruction(
+					err,
+				))),
+				None,
+			)
+		},
 		Outcome::InternalError { err } => (None, Err(ValidationError::Internal(err)), None),
 		// Either the worker or the job timed out. Kill the worker in either case. Treated as
 		// definitely-invalid, because if we timed out, there's no time left for a retry.
@@ -521,8 +544,10 @@ pub fn start(
 	spawn_timeout: Duration,
 	node_version: Option<String>,
 	security_status: SecurityStatus,
-) -> (mpsc::Sender<ToQueue>, impl Future<Output = ()>) {
+) -> (mpsc::Sender<ToQueue>, mpsc::UnboundedReceiver<FromQueue>, impl Future<Output = ()>) {
 	let (to_queue_tx, to_queue_rx) = mpsc::channel(20);
+	let (from_queue_tx, from_queue_rx) = mpsc::unbounded();
+
 	let run = Queue::new(
 		metrics,
 		program_path,
@@ -532,7 +557,8 @@ pub fn start(
 		node_version,
 		security_status,
 		to_queue_rx,
+		from_queue_tx,
 	)
 	.run();
-	(to_queue_tx, run)
+	(to_queue_tx, from_queue_rx, run)
 }

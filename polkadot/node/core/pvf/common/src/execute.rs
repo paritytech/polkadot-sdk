@@ -40,6 +40,9 @@ pub enum WorkerResponse {
 	},
 	/// The candidate is invalid.
 	InvalidCandidate(String),
+	/// Instantiation of the WASM module instance failed during an execution.
+	/// Possibly related to local issues or dirty node update. May be retried with re-preparation.
+	RuntimeConstruction(String),
 	/// The job timed out.
 	JobTimedOut,
 	/// The job process has died. We must kill the worker just in case.
@@ -68,8 +71,9 @@ pub enum JobResponse {
 		/// The result of parachain validation.
 		result_descriptor: ValidationResult,
 	},
-	/// A possibly transient error happend during the execution; maybe retried
-	MayRetry(String),
+	/// A possibly transient runtime instantion error happend during the execution; maybe retried
+	/// with preparation
+	RuntimeConstruction(String),
 	/// The candidate is invalid.
 	InvalidCandidate(String),
 }
@@ -85,11 +89,11 @@ impl JobResponse {
 	}
 
 	/// Creates a may retry response from a context `ctx` and a message `msg` (which can be empty).
-	pub fn may_retry(ctx: &'static str, msg: &str) -> Self {
+	pub fn runtime_construction(ctx: &'static str, msg: &str) -> Self {
 		if msg.is_empty() {
-			Self::MayRetry(ctx.to_string())
+			Self::RuntimeConstruction(ctx.to_string())
 		} else {
-			Self::MayRetry(format!("{}: {}", ctx, msg))
+			Self::RuntimeConstruction(format!("{}: {}", ctx, msg))
 		}
 	}
 }

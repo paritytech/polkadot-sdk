@@ -16,6 +16,7 @@
 
 //! Interface to the Substrate Executor
 
+use crate::error::ExecuteError;
 use polkadot_primitives::{
 	executor_params::{DEFAULT_LOGICAL_STACK_MAX, DEFAULT_NATIVE_STACK_MAX},
 	ExecutorParam, ExecutorParams,
@@ -29,7 +30,6 @@ use sc_executor_wasmtime::{Config, DeterministicStackLimit, Semantics, WasmtimeR
 use sp_core::storage::{ChildInfo, TrackedStorageKey};
 use sp_externalities::MultiRemovalResults;
 use std::any::{Any, TypeId};
-use crate::error::ExecuteError;
 
 // Memory configuration
 //
