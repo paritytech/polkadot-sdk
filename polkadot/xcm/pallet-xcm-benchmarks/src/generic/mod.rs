@@ -78,7 +78,7 @@ pub mod pallet {
 
 		/// Asset used to pay for fees. Used to buy weight in benchmarks, for example in
 		/// `refund_surplus`.
-		fn fee_asset() -> Result<Asset, BenchmarkError>;
+		fn fee_asset() -> Result<MultiAsset, BenchmarkError>;
 
 		/// Return an unlocker, owner and assets that can be locked and unlocked.
 		fn unlockable_asset() -> Result<(MultiLocation, MultiLocation, MultiAsset), BenchmarkError>;

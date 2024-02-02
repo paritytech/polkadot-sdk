@@ -82,6 +82,9 @@ pub use matches_token::{IsAbstract, IsConcrete};
 mod matcher;
 pub use matcher::{CreateMatcher, MatchXcm, Matcher};
 
+mod filter_asset_location;
+pub use filter_asset_location::{AllAssets, Case, LocationWithAssetFilters, NativeAsset};
+
 mod nonfungibles_adapter;
 pub use nonfungibles_adapter::{
 	NonFungiblesAdapter, NonFungiblesMutateAdapter, NonFungiblesTransferAdapter,

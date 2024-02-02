@@ -581,7 +581,7 @@ fn reserve_transfer_native_asset_from_para_to_para() {
 	let test_args = TestContext {
 		sender: PenpalASender::get(),
 		receiver: PenpalBReceiver::get(),
-		args: TestArgs::new_para(destination, beneficiary_id, amount_to_send, assets, None, 0),
+		args: para_test_args(destination, beneficiary_id, amount_to_send, assets, None, 0),
 	};
 
 	let mut test = ParaToParaTest::new(test_args);

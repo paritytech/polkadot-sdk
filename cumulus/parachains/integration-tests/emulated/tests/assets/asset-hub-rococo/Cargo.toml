@@ -29,7 +29,6 @@ rococo-runtime = { version = "6.0.0", path = "../../../../../../../polkadot/runt
 asset-test-utils = { version = "6.0.0", path = "../../../../../runtimes/assets/test-utils" }
 parachains-common = { version = "6.0.0", path = "../../../../../../parachains/common" }
 cumulus-pallet-parachain-system = { path = "../../../../../../pallets/parachain-system", default-features = false }
-testnet-parachains-constants = { path = "../../../../../runtimes/constants", features = ["rococo"] }
 asset-hub-rococo-runtime = { version = "0.11.0", path = "../../../../../runtimes/assets/asset-hub-rococo" }
 emulated-integration-tests-common = { path = "../../../common", default-features = false, version = "2.0.0" }
 rococo-system-emulated-network = { version = "0.1.0", path = "../../../networks/rococo-system" }

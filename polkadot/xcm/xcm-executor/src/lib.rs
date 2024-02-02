@@ -581,7 +581,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					}
 					let reanchor_context = Config::UniversalLocation::get();
 					assets
-						.reanchor(&dest, &reanchor_context)
+						.reanchor(&dest, reanchor_context)
 						.map_err(|()| XcmError::LocationFull)?;
 					let mut message = vec![ReserveAssetDeposited(assets), ClearOrigin];
 					message.extend(xcm.0.into_iter());
@@ -614,7 +614,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					self.holding.subsume_assets(assets.into());
 					Ok(())
 				})
->>>>>>> 50eb12cf2f (Transactional processing for XCM (#1222))
 			},
 			Transact { origin_kind, require_weight_at_most, mut call } => {
 				// We assume that the Relay-chain is allowed to use transact on this parachain.
@@ -998,7 +997,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let lock_ticket =
 						Config::AssetLocker::prepare_lock(unlocker.clone(), asset, origin.clone())?;
 					let owner = origin
-						.reanchored(&unlocker, &context)
+						.reanchored(&unlocker, context)
 						.map_err(|_| XcmError::ReanchorFailed)?;
 					let msg = Xcm::<()>(vec![NoteUnlockable { asset: remote_asset, owner }]);
 					let (ticket, price) = validate_send::<Config::XcmSender>(unlocker, msg)?;
