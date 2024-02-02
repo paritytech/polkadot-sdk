@@ -26,6 +26,7 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use primitives::vstaging::CoretimeParams;
 use sp_core::Get;
 use sp_staking::SessionIndex;
+use sp_std::vec::Vec;
 
 type V12HostConfiguration<BlockNumber> = configuration::HostConfiguration<BlockNumber>;
 mod v11 {
