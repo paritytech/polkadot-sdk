@@ -97,19 +97,19 @@ macro_rules! input {
 		let $var = &$input[$cursor..];
 	};
 
-	// Match an u8 slice of the given size.
+	// Match a u8 slice of the given size.
 	// e.g. input!(var1: [u8; 32], );
 	(@inner $input:expr, $cursor:expr, $var:ident: [u8; $n:expr], $($rest:tt)*) => {
 		let $var = &$input[$cursor..$cursor+$n];
 		input!(@inner $input, $cursor + $n, $($rest)*);
 	};
 
-	// Size of an u8 slice.
+	// Size of a u8 slice.
 	(@size $size:expr, $var:ident: [u8; $n:expr], $($rest:tt)*) => {
 		input!(@size $size + $n, $($rest)*)
 	};
 
-	// Entry point, with the buffer and, it's size specified first.
+	// Entry point, with the buffer and its size specified first.
 	// e.g. input!(buffer, 512, var1: u32, var2: [u8], );
 	($buffer:ident, $size:expr, $($rest:tt)*) => {
 		let mut $buffer = [0u8; $size];
@@ -131,7 +131,7 @@ macro_rules! input {
 	};
 }
 
-/// Utility macro to invoke a host function that expect an `output: &mut &mut [u8]` as last argument.
+/// Utility macro to invoke a host function that expect an argument `output: &mut &mut [u8]` as last argument.
 ///
 /// Example:
 /// ```
