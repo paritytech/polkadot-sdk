@@ -352,7 +352,7 @@ benchmarks! {
 			Some(RetryConfig { total_retries: 10, remaining: 10, period })
 		);
 		assert_last_event::<T>(
-			Event::RetrySet { task: address, id: None, period }.into(),
+			Event::RetrySet { task: address, id: None, period, retries: 10 }.into(),
 		);
 	}
 
@@ -372,7 +372,7 @@ benchmarks! {
 			Some(RetryConfig { total_retries: 10, remaining: 10, period })
 		);
 		assert_last_event::<T>(
-			Event::RetrySet { task: address, id: Some(name), period }.into(),
+			Event::RetrySet { task: address, id: Some(name), period, retries: 10 }.into(),
 		);
 	}
 

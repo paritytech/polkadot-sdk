@@ -321,6 +321,7 @@ pub mod pallet {
 			task: TaskAddress<BlockNumberFor<T>>,
 			id: Option<TaskName>,
 			period: BlockNumberFor<T>,
+			retries: u8,
 		},
 		/// The call for the provided hash was not found so the task has been aborted.
 		CallUnavailable { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
@@ -503,7 +504,7 @@ pub mod pallet {
 				(when, index),
 				RetryConfig { total_retries: retries, remaining: retries, period },
 			);
-			Self::deposit_event(Event::RetrySet { task, id: None, period });
+			Self::deposit_event(Event::RetrySet { task, id: None, period, retries });
 			Ok(())
 		}
 
@@ -543,6 +544,7 @@ pub mod pallet {
 				task: (when, agenda_index),
 				id: Some(id),
 				period,
+				retries,
 			});
 			Ok(())
 		}
