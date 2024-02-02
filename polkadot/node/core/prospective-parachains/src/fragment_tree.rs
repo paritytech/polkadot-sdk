@@ -1058,6 +1058,7 @@ mod tests {
 	use polkadot_node_subsystem_util::inclusion_emulator::InboundHrmpLimitations;
 	use polkadot_primitives::{BlockNumber, CandidateCommitments, CandidateDescriptor, HeadData};
 	use polkadot_primitives_test_helpers as test_helpers;
+	use std::iter;
 
 	fn make_constraints(
 		min_relay_parent_number: BlockNumber,
@@ -1595,6 +1596,21 @@ mod tests {
 		assert_eq!(tree.nodes[2].candidate_hash, candidate_a_hash);
 		assert_eq!(tree.nodes[3].candidate_hash, candidate_a_hash);
 		assert_eq!(tree.nodes[4].candidate_hash, candidate_a_hash);
+
+		for count in 1..10 {
+			assert_eq!(
+				tree.select_children(&[], count, |_| true),
+				iter::repeat(candidate_a_hash)
+					.take(std::cmp::min(count as usize, max_depth + 1))
+					.collect::<Vec<_>>()
+			);
+			assert_eq!(
+				tree.select_children(&[candidate_a_hash], count - 1, |_| true),
+				iter::repeat(candidate_a_hash)
+					.take(std::cmp::min(count as usize - 1, max_depth))
+					.collect::<Vec<_>>()
+			);
+		}
 	}
 
 	#[test]
@@ -1662,6 +1678,35 @@ mod tests {
 		assert_eq!(tree.nodes[2].candidate_hash, candidate_a_hash);
 		assert_eq!(tree.nodes[3].candidate_hash, candidate_b_hash);
 		assert_eq!(tree.nodes[4].candidate_hash, candidate_a_hash);
+
+		assert_eq!(tree.select_children(&[], 1, |_| true), vec![candidate_a_hash],);
+		assert_eq!(
+			tree.select_children(&[], 2, |_| true),
+			vec![candidate_a_hash, candidate_b_hash],
+		);
+		assert_eq!(
+			tree.select_children(&[], 3, |_| true),
+			vec![candidate_a_hash, candidate_b_hash, candidate_a_hash],
+		);
+		assert_eq!(
+			tree.select_children(&[candidate_a_hash], 2, |_| true),
+			vec![candidate_b_hash, candidate_a_hash],
+		);
+
+		assert_eq!(
+			tree.select_children(&[], 6, |_| true),
+			vec![
+				candidate_a_hash,
+				candidate_b_hash,
+				candidate_a_hash,
+				candidate_b_hash,
+				candidate_a_hash
+			],
+		);
+		assert_eq!(
+			tree.select_children(&[candidate_a_hash, candidate_b_hash], 6, |_| true),
+			vec![candidate_a_hash, candidate_b_hash, candidate_a_hash,],
+		);
 	}
 
 	#[test]
