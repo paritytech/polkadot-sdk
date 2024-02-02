@@ -389,6 +389,82 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	pub(crate) fn do_purchase_voucher(
+		who: T::AccountId,
+		amount: BalanceOf<T>,
+		expiry: Timeslice,
+		owner: Option<T::AccountId>,
+	) -> Result<VoucherId, DispatchError> {
+		let voucher_id = NextVoucherId::<T>::get();
+		let voucher = Voucher { benefactor: who.clone(), amount, owner: owner.clone(), expiry };
+
+		T::Currency::transfer(&who, &Self::account_id(), amount, Expendable)?;
+		NextVoucherId::<T>::mutate(|v| *v = v.saturating_add(1));
+		Vouchers::<T>::insert(voucher_id, voucher);
+
+		Self::deposit_event(Event::<T>::VoucherPurchased {
+			voucher_id,
+			benefactor: who,
+			amount,
+			expiry,
+			owner,
+		});
+		Ok(voucher_id)
+	}
+
+	pub(crate) fn do_assign_voucher(
+		who: T::AccountId,
+		voucher_id: VoucherId,
+		owner: T::AccountId,
+	) -> DispatchResult {
+		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+		let voucher = Vouchers::<T>::get(&voucher_id).ok_or(Error::<T>::UnknownVoucher)?;
+		ensure!(voucher.benefactor == who, Error::<T>::NotBenefactor);
+		ensure!(voucher.owner.is_none(), Error::<T>::AlreadyAssigned);
+		ensure!(status.last_committed_timeslice < voucher.expiry, Error::<T>::AlreadyExpired);
+
+		Vouchers::<T>::mutate(voucher_id, |v| {
+			if let Some(voucher) = v {
+				voucher.owner = Some(owner.clone())
+			}
+		});
+		Self::deposit_event(Event::<T>::VoucherAssigned {
+			voucher_id,
+			benefactor: who,
+			amount: voucher.amount,
+			expiry: voucher.expiry,
+			owner,
+		});
+		Ok(())
+	}
+
+	pub(crate) fn do_exchange_voucher(
+		who: T::AccountId,
+		voucher_id: VoucherId,
+		beneficiary: RelayAccountIdOf<T>,
+	) -> DispatchResult {
+		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+		let voucher = Vouchers::<T>::get(&voucher_id).ok_or(Error::<T>::UnknownVoucher)?;
+		ensure!(voucher.owner == Some(who.clone()), Error::<T>::NotOwner);
+		ensure!(status.last_committed_timeslice < voucher.expiry, Error::<T>::AlreadyExpired);
+
+		let amount = voucher.amount;
+		let rc_amount = T::ConvertBalance::convert(amount);
+		T::Coretime::credit_account(beneficiary.clone(), rc_amount);
+		Self::deposit_event(Event::<T>::CreditPurchased { who, beneficiary, amount });
+		Ok(())
+	}
+
+	pub(crate) fn do_drop_voucher(voucher_id: VoucherId) -> DispatchResult {
+		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+		let voucher = Vouchers::<T>::get(&voucher_id).ok_or(Error::<T>::UnknownVoucher)?;
+		ensure!(status.last_committed_timeslice >= voucher.expiry, Error::<T>::StillValid);
+
+		Vouchers::<T>::remove(&voucher_id);
+		Self::deposit_event(Event::VoucherDropped { voucher_id, amount: voucher.amount });
+		Ok(())
+	}
+
 	pub(crate) fn do_drop_region(region_id: RegionId) -> DispatchResult {
 		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let region = Regions::<T>::get(&region_id).ok_or(Error::<T>::UnknownRegion)?;

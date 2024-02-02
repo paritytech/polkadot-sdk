@@ -75,6 +75,10 @@ pub trait WeightInfo {
 	fn process_core_schedule() -> Weight;
 	fn request_revenue_info_at() -> Weight;
 	fn notify_core_count() -> Weight;
+	fn purchase_voucher() -> Weight;
+	fn assign_voucher() -> Weight;
+	fn exchange_voucher() -> Weight;
+	fn drop_voucher() -> Weight;
 	fn do_tick_base() -> Weight;
 }
 
@@ -450,6 +454,50 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	fn notify_core_count() -> Weight {
 		T::DbWeight::get().reads_writes(1, 1)
+	}
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	fn purchase_voucher() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `103`
+		//  Estimated: `3593`
+		// Minimum execution time: 46_383_000 picoseconds.
+		Weight::from_parts(47_405_000, 3593)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	fn assign_voucher() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `103`
+		//  Estimated: `3593`
+		// Minimum execution time: 46_383_000 picoseconds.
+		Weight::from_parts(47_405_000, 3593)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	fn exchange_voucher() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `103`
+		//  Estimated: `3593`
+		// Minimum execution time: 46_383_000 picoseconds.
+		Weight::from_parts(47_405_000, 3593)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	fn drop_voucher() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `103`
+		//  Estimated: `3593`
+		// Minimum execution time: 46_383_000 picoseconds.
+		Weight::from_parts(47_405_000, 3593)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Broker::Status` (r:1 w:1)
 	/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)
@@ -842,6 +890,50 @@ impl WeightInfo for () {
 	fn notify_core_count() -> Weight {
 		RocksDbWeight::get().reads(1)
 			.saturating_add(RocksDbWeight::get().writes(1))
+	}
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	fn purchase_voucher() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `103`
+		//  Estimated: `3593`
+		// Minimum execution time: 46_383_000 picoseconds.
+		Weight::from_parts(47_405_000, 3593)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	fn assign_voucher() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `103`
+		//  Estimated: `3593`
+		// Minimum execution time: 46_383_000 picoseconds.
+		Weight::from_parts(47_405_000, 3593)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	fn exchange_voucher() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `103`
+		//  Estimated: `3593`
+		// Minimum execution time: 46_383_000 picoseconds.
+		Weight::from_parts(47_405_000, 3593)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	fn drop_voucher() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `103`
+		//  Estimated: `3593`
+		// Minimum execution time: 46_383_000 picoseconds.
+		Weight::from_parts(47_405_000, 3593)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Broker::Status` (r:1 w:1)
 	/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)

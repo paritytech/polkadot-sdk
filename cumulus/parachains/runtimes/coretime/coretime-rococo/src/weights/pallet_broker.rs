@@ -495,6 +495,17 @@ impl<T: frame_system::Config> pallet_broker::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	fn purchase_voucher() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `103`
+		//  Estimated: `3593`
+		// Minimum execution time: 46_383_000 picoseconds.
+		Weight::from_parts(47_405_000, 3593)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 	/// Storage: `Broker::Status` (r:1 w:1)
 	/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)
 	/// Storage: `Broker::Configuration` (r:1 w:0)

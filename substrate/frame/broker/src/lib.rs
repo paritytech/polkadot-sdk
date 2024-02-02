@@ -50,7 +50,7 @@ pub mod pallet {
 	use frame_support::{
 		pallet_prelude::{DispatchResult, DispatchResultWithPostInfo, *},
 		traits::{
-			fungible::{Balanced, Credit, Mutate},
+			fungible::{hold, Balanced, Credit, Mutate},
 			EnsureOrigin, OnUnbalanced,
 		},
 		PalletId,
@@ -70,7 +70,9 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// Currency used to pay for Coretime.
-		type Currency: Mutate<Self::AccountId> + Balanced<Self::AccountId>;
+		type Currency: Mutate<Self::AccountId>
+			+ hold::Mutate<Self::AccountId>
+			+ Balanced<Self::AccountId>;
 
 		/// The origin test needed for administrating this pallet.
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -162,6 +164,14 @@ pub mod pallet {
 	/// Received core count change from the relay chain.
 	#[pallet::storage]
 	pub type CoreCountInbox<T> = StorageValue<_, CoreIndex, OptionQuery>;
+
+	/// The next available coretime voucher ID.
+	#[pallet::storage]
+	pub type NextVoucherId<T> = StorageValue<_, VoucherId, ValueQuery>;
+
+	/// Coretime Vouchers which can be exchanged for credits.
+	#[pallet::storage]
+	pub type Vouchers<T> = StorageMap<_, Blake2_128Concat, VoucherId, VoucherOf<T>, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -348,6 +358,37 @@ pub mod pallet {
 			/// The amount of credit purchased.
 			amount: BalanceOf<T>,
 		},
+		/// A voucher for on-demand credits has been purchased.
+		VoucherPurchased {
+			/// The voucher ID.
+			voucher_id: VoucherId,
+			/// The account which purchased the voucher.
+			benefactor: T::AccountId,
+			/// The amount of credit purchased.
+			amount: BalanceOf<T>,
+			/// The timeslice at which the voucher expires.
+			expiry: Timeslice,
+			/// The owner of this voucher (if assigned).
+			owner: Option<T::AccountId>,
+		},
+		VoucherAssigned {
+			/// The voucher ID.
+			voucher_id: VoucherId,
+			/// The account which purchased the voucher.
+			benefactor: T::AccountId,
+			/// The amount of credit purchased.
+			amount: BalanceOf<T>,
+			/// The timeslice at which the voucher expires.
+			expiry: Timeslice,
+			/// The owner of this voucher.
+			owner: T::AccountId,
+		},
+		VoucherDropped {
+			/// The voucher ID.
+			voucher_id: VoucherId,
+			/// The amount of credit the voucher is worth.
+			amount: BalanceOf<T>,
+		},
 		/// A Region has been dropped due to being out of date.
 		RegionDropped {
 			/// The Region which no longer exists.
@@ -474,6 +515,12 @@ pub mod pallet {
 		AlreadyExpired,
 		/// The configuration could not be applied because it is invalid.
 		InvalidConfig,
+		/// The voucher does not exist.
+		UnknownVoucher,
+		/// The voucher's benefactor is not the origin.
+		NotBenefactor,
+		/// The voucher has already been assigned.
+		AlreadyAssigned,
 	}
 
 	#[pallet::hooks]
@@ -785,6 +832,74 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_notify_core_count(core_count)?;
 			Ok(())
+		}
+
+		/// Purchase voucher to be swapped for coretime credits at a later point.
+		///
+		/// - `origin`: Must be a Signed origin with a free balance of at least `amount`.
+		/// - `amount`: The amount of credit the voucher will entitle the holder to.
+		/// - `expiry`: The timeslice at which the voucher will expire.
+		/// - `owner`: The owner assigned to this voucher (optional). Once assigned, the voucher
+		///   cannot be transferred or reassigned.
+		#[pallet::call_index(20)]
+		pub fn purchase_voucher(
+			origin: OriginFor<T>,
+			amount: BalanceOf<T>,
+			expiry: Timeslice,
+			owner: Option<T::AccountId>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_purchase_voucher(who, amount, expiry, owner)?;
+			Ok(())
+		}
+
+		/// Assign a voucher to the intended recipient.
+		///
+		/// - `origin`: Must be the Signed origin which bought the voucher.
+		/// - `voucher_id`: The voucher id to be assigned to `owner`. Must not have been assigned at
+		///   purchase or after.
+		/// - `owner`: The owner assigned to this voucher. Once assigned, the voucher cannot be
+		///   transferred or reassigned.
+		#[pallet::call_index(21)]
+		pub fn assign_voucher(
+			origin: OriginFor<T>,
+			voucher_id: VoucherId,
+			owner: T::AccountId,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_assign_voucher(who, voucher_id, owner)?;
+			Ok(())
+		}
+
+		/// Exchange a coretime voucher for on-demand coretime.
+		///
+		/// - `origin`: Must be the assigned owner of the voucher.
+		/// - `voucher_id`: The voucher id to be assigned to `owner`. Must not have been assigned at
+		///   purchase or after.
+		/// - `beneficiary`: The account on the Relay-chain which controls the credit (generally
+		///   this will be the collator's hot wallet).
+		#[pallet::call_index(22)]
+		pub fn exchange_voucher(
+			origin: OriginFor<T>,
+			voucher_id: VoucherId,
+			beneficiary: RelayAccountIdOf<T>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_exchange_voucher(who, voucher_id, beneficiary)?;
+			Ok(())
+		}
+
+		/// Drop an expired coretime voucher from the chain.
+		///
+		/// - `origin`: Can be any kind of origin.
+		/// - `voucher_id`: The voucher ID which has expired and is to be dropped.
+		#[pallet::call_index(23)]
+		pub fn drop_voucher(
+			_origin: OriginFor<T>,
+			voucher_id: VoucherId,
+		) -> DispatchResultWithPostInfo {
+			Self::do_drop_voucher(voucher_id)?;
+			Ok(Pays::No.into())
 		}
 	}
 }
