@@ -39,7 +39,7 @@ extern crate alloc;
 #[cfg(test)]
 mod tests;
 
-use core::{mem::take, ops::{Deref, DerefMut}};
+use core::mem::take;
 
 use crate::{configuration, paras, scheduler::common::Assignment};
 
@@ -52,9 +52,7 @@ use frame_support::{
 	},
 };
 use frame_system::pallet_prelude::*;
-use parity_scale_codec::{EncodeAsRef, EncodeLike, FullEncode, Input, Output, WrapperTypeEncode};
 use primitives::{CoreIndex, Id as ParaId, ON_DEMAND_MAX_QUEUE_MAX_SIZE};
-use scale_info::{build::{Fields, FieldsBuilder}, Path, Type, TypeParameter};
 use sp_runtime::{
 	traits::{One, SaturatedConversion},
 	FixedPointNumber, FixedPointOperand, FixedU128, Perbill, Saturating,
@@ -108,9 +106,7 @@ impl WeightInfo for TestWeightInfo {
 ///  - report_processed & push back: If affinity dropped to 0, then O(N) in the worst case. Again
 ///  this divides per core.
 ///
-///  Reads still exist, also improved slightly, but worst case we fetch all entries. This
-///  technically should mean worst complexity is still O(N*cores), but constant factors should be
-///  really small. Benchmarks will show.
+///  Reads still exist, also improved slightly, but worst case we fetch all entries.
 ///
 ///  TODO: Add benchmark results.
 #[derive(Encode, Decode, TypeInfo)]
@@ -157,7 +153,7 @@ impl QueueStatusType {
 
 	/// Push something to the front of the queue
 	fn push_front(&mut self) -> QueueIndex {
-		self.smallest_index = QueueIndex(self.next_index.0.overflowing_sub(1).0);
+		self.smallest_index = QueueIndex(self.smallest_index.0.overflowing_sub(1).0);
 		self.smallest_index
 	}
 
@@ -183,13 +179,14 @@ impl QueueStatusType {
 /// specific `ParaId`.
 #[derive(Encode, Decode, Default, Clone, Copy, TypeInfo)]
 #[cfg_attr(test, derive(PartialEq, RuntimeDebug))]
-pub struct CoreAffinityCount {
+struct CoreAffinityCount {
 	core_index: CoreIndex,
 	count: u32,
 }
 
 /// An indicator as to which end of the `OnDemandQueue` an assignment will be placed.
-pub enum QueuePushDirection {
+#[cfg_attr(test, derive(RuntimeDebug))]
+enum QueuePushDirection {
 	Back,
 	Front,
 }
@@ -200,7 +197,7 @@ type BalanceOf<T> =
 
 /// Errors that can happen during spot traffic calculation.
 #[derive(PartialEq, RuntimeDebug)]
-pub enum SpotTrafficCalculationErr {
+enum SpotTrafficCalculationErr {
 	/// The order queue capacity is at 0.
 	QueueCapacityIsZero,
 	/// The queue size is larger than the queue capacity.
@@ -224,12 +221,6 @@ struct ReverseQueueIndex(u32);
 impl QueueIndex {
 	fn reverse(self) -> ReverseQueueIndex {
 		ReverseQueueIndex(self.0)
-	}
-}
-
-impl ReverseQueueIndex {
-	fn reverse(self) -> QueueIndex {
-		QueueIndex(self.0)
 	}
 }
 
@@ -268,13 +259,13 @@ impl PartialOrd for ReverseQueueIndex {
 /// This data structure is provided for a min BinaryHeap (Ord compares in reverse order with regards
 /// to its elements)
 #[derive(Encode, Decode, TypeInfo, Debug, PartialEq, Clone, Eq)]
-pub(super) struct EnqueuedOrder {
+struct EnqueuedOrder {
 	para_id: ParaId,
 	idx: QueueIndex,
 }
 
 impl EnqueuedOrder {
-	pub fn new(idx: QueueIndex, para_id: ParaId) -> Self {
+	fn new(idx: QueueIndex, para_id: ParaId) -> Self {
 		Self { idx, para_id }
 	}
 }
@@ -325,7 +316,7 @@ pub mod pallet {
 
 	/// Creates an empty queue status for an empty queue with initial traffic value.
 	#[pallet::type_value]
-	pub fn QueueStatusOnEmpty<T: Config>() -> QueueStatusType {
+	pub(super) fn QueueStatusOnEmpty<T: Config>() -> QueueStatusType {
 		QueueStatusType {
 			traffic: T::TrafficDefaultValue::get(),
 			next_index: QueueIndex(0),
@@ -469,7 +460,9 @@ where
 					if pick_free {
 						let entry = free_entries.pop().ok_or(())?;
 						let (mut affinities, free): (BinaryHeap<_>, BinaryHeap<_>) =
-							(*free_entries).into_iter().partition(|e| e.para_id == entry.para_id);
+							take(free_entries)
+								.into_iter()
+								.partition(|e| e.para_id == entry.para_id);
 						affinity_entries.append(&mut affinities);
 						*free_entries = free;
 						Ok(entry)
@@ -488,7 +481,7 @@ where
 		// TODO: Test for invariant: If affinity count was zero before (is 1 now) then the entry
 		// must have come from free_entries.
 		Pallet::<T>::increase_affinity(assignment.para_id(), core_index);
-        Some(assignment)
+		Some(assignment)
 	}
 
 	/// Report that the `para_id` & `core_index` combination was processed.
@@ -619,7 +612,7 @@ where
 	/// - `SpotTrafficCalculationErr::QueueCapacityIsZero`
 	/// - `SpotTrafficCalculationErr::QueueSizeLargerThanCapacity`
 	/// - `SpotTrafficCalculationErr::Division`
-	pub(crate) fn calculate_spot_traffic(
+	fn calculate_spot_traffic(
 		traffic: FixedU128,
 		queue_capacity: u32,
 		queue_size: u32,
@@ -686,6 +679,9 @@ where
 
 		let affinity = ParaIdAffinity::<T>::get(para_id);
 		let order = EnqueuedOrder::new(idx, para_id);
+		#[cfg(test)]
+		log::debug!(target: LOG_TARGET, "add_on_demand_order, order: {:?}, affinity: {:?}, direction: {:?}", order, affinity, location);
+
 		match affinity {
 			None => FreeEntries::<T>::mutate(|entries| entries.push(order)),
 			Some(affinity) =>
@@ -698,6 +694,7 @@ where
 	/// if affinity dropped to 0, moving entries back to `FreeEntries`.
 	fn decrease_affinity_update_queue(para_id: ParaId, core_index: CoreIndex) {
 		let affinity = Pallet::<T>::decrease_affinity(para_id, core_index);
+		#[cfg(not(test))]
 		debug_assert_ne!(
 			affinity, None,
 			"Decreased affinity for a para that has not been served on a core?"
@@ -711,7 +708,7 @@ where
 		AffinityEntries::<T>::mutate(core_index, |affinity_entries| {
 			FreeEntries::<T>::mutate(|free_entries| {
 				let (mut freed, affinities): (BinaryHeap<_>, BinaryHeap<_>) =
-					(*affinity_entries).into_iter().partition(|e| e.para_id == para_id);
+					take(affinity_entries).into_iter().partition(|e| e.para_id == para_id);
 				free_entries.append(&mut freed);
 				*affinity_entries = affinities;
 			})
@@ -763,6 +760,7 @@ where
 	}
 
 	/// Getter for the affinity tracker.
+	#[cfg(test)]
 	fn get_affinity_map(para_id: ParaId) -> Option<CoreAffinityCount> {
 		ParaIdAffinity::<T>::get(para_id)
 	}

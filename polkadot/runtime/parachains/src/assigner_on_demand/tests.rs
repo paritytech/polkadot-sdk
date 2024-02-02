@@ -78,6 +78,16 @@ fn run_to_block(
 	}
 }
 
+fn place_order(para_id: ParaId) {
+	let alice = 100u64;
+	let amt = 10_000_000u128;
+
+	Balances::make_free_balance_be(&alice, amt);
+
+	run_to_block(101, |n| if n == 101 { Some(Default::default()) } else { None });
+	OnDemandAssigner::place_order_allow_death(RuntimeOrigin::signed(alice), amt, para_id).unwrap()
+}
+
 #[test]
 fn spot_traffic_capacity_zero_returns_none() {
 	match OnDemandAssigner::calculate_spot_traffic(
@@ -279,74 +289,6 @@ fn place_order_keep_alive_keeps_alive() {
 }
 
 #[test]
-fn add_on_demand_order_works() {
-	let para_a = ParaId::from(111);
-	let order = EnqueuedOrder::new(para_a);
-
-	let mut genesis = GenesisConfigBuilder::default();
-	genesis.on_demand_max_queue_size = 1;
-	new_test_ext(genesis.build()).execute_with(|| {
-		// Initialize the parathread and wait for it to be ready.
-		schedule_blank_para(para_a, ParaKind::Parathread);
-
-		// `para_a` is not onboarded as a parathread yet.
-		assert_noop!(
-			OnDemandAssigner::add_on_demand_order(order.clone(), QueuePushDirection::Back),
-			Error::<Test>::InvalidParaId
-		);
-
-		assert!(!Paras::is_parathread(para_a));
-		run_to_block(100, |n| if n == 100 { Some(Default::default()) } else { None });
-		assert!(Paras::is_parathread(para_a));
-
-		// `para_a` is now onboarded as a valid parathread.
-		assert_ok!(OnDemandAssigner::add_on_demand_order(order.clone(), QueuePushDirection::Back));
-
-		// Max queue size is 1, queue should be full.
-		assert_noop!(
-			OnDemandAssigner::add_on_demand_order(order, QueuePushDirection::Back),
-			Error::<Test>::QueueFull
-		);
-	});
-}
-
-#[test]
-fn spotqueue_push_directions() {
-	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
-		let para_a = ParaId::from(111);
-		let para_b = ParaId::from(222);
-		let para_c = ParaId::from(333);
-
-		schedule_blank_para(para_a, ParaKind::Parathread);
-		schedule_blank_para(para_b, ParaKind::Parathread);
-		schedule_blank_para(para_c, ParaKind::Parathread);
-
-		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
-
-		let order_a = EnqueuedOrder::new(para_a);
-		let order_b = EnqueuedOrder::new(para_b);
-		let order_c = EnqueuedOrder::new(para_c);
-
-		assert_ok!(OnDemandAssigner::add_on_demand_order(
-			order_a.clone(),
-			QueuePushDirection::Front
-		));
-		assert_ok!(OnDemandAssigner::add_on_demand_order(
-			order_b.clone(),
-			QueuePushDirection::Front
-		));
-
-		assert_ok!(OnDemandAssigner::add_on_demand_order(
-			order_c.clone(),
-			QueuePushDirection::Back
-		));
-
-		assert_eq!(OnDemandAssigner::queue_size(), 3);
-		assert_eq!(OnDemandAssigner::get_queue(), VecDeque::from(vec![order_b, order_a, order_c]))
-	});
-}
-
-#[test]
 fn pop_assignment_for_core_works() {
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		let para_a = ParaId::from(111);
@@ -356,51 +298,32 @@ fn pop_assignment_for_core_works() {
 
 		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
 
-		let order_a = EnqueuedOrder::new(para_a);
-		let order_b = EnqueuedOrder::new(para_b);
-		let assignment_a = Assignment::Pool { para_id: para_a, core_index: CoreIndex(0) };
-		let assignment_b = Assignment::Pool { para_id: para_b, core_index: CoreIndex(1) };
-
 		// Pop should return none with empty queue
 		assert_eq!(OnDemandAssigner::pop_assignment_for_core(CoreIndex(0)), None);
 
 		// Add enough assignments to the order queue.
 		for _ in 0..2 {
-			OnDemandAssigner::add_on_demand_order(order_a.clone(), QueuePushDirection::Back)
-				.expect("Invalid paraid or queue full");
-
-			OnDemandAssigner::add_on_demand_order(order_b.clone(), QueuePushDirection::Back)
-				.expect("Invalid paraid or queue full");
-		}
-
-		// Queue should contain orders a, b, a, b
-		{
-			let queue: Vec<EnqueuedOrder> = OnDemandQueue::<Test>::get().into_iter().collect();
-			assert_eq!(
-				queue,
-				vec![order_a.clone(), order_b.clone(), order_a.clone(), order_b.clone()]
-			);
+			place_order(para_a);
+			place_order(para_b);
 		}
 
 		// Popped assignments should be for the correct paras and cores
 		assert_eq!(
-			OnDemandAssigner::pop_assignment_for_core(CoreIndex(0)),
-			Some(assignment_a.clone())
+			OnDemandAssigner::pop_assignment_for_core(CoreIndex(0)).map(|a| a.para_id()),
+			Some(para_a)
 		);
 		assert_eq!(
-			OnDemandAssigner::pop_assignment_for_core(CoreIndex(1)),
-			Some(assignment_b.clone())
+			OnDemandAssigner::pop_assignment_for_core(CoreIndex(1)).map(|a| a.para_id()),
+			Some(para_b)
 		);
 		assert_eq!(
-			OnDemandAssigner::pop_assignment_for_core(CoreIndex(0)),
-			Some(assignment_a.clone())
+			OnDemandAssigner::pop_assignment_for_core(CoreIndex(0)).map(|a| a.para_id()),
+			Some(para_a)
 		);
-
-		// Queue should contain one left over order
-		{
-			let queue: Vec<EnqueuedOrder> = OnDemandQueue::<Test>::get().into_iter().collect();
-			assert_eq!(queue, vec![order_b.clone(),]);
-		}
+		assert_eq!(
+			OnDemandAssigner::pop_assignment_for_core(CoreIndex(1)).map(|a| a.para_id()),
+			Some(para_b)
+		);
 	});
 }
 
@@ -414,28 +337,19 @@ fn push_back_assignment_works() {
 
 		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
 
-		let order_a = EnqueuedOrder::new(para_a);
-		let order_b = EnqueuedOrder::new(para_b);
-
 		// Add enough assignments to the order queue.
-		OnDemandAssigner::add_on_demand_order(order_a.clone(), QueuePushDirection::Back)
-			.expect("Invalid paraid or queue full");
-
-		OnDemandAssigner::add_on_demand_order(order_b.clone(), QueuePushDirection::Back)
-			.expect("Invalid paraid or queue full");
+		place_order(para_a);
+		place_order(para_b);
 
 		// Pop order a
-		OnDemandAssigner::pop_assignment_for_core(CoreIndex(0));
+		assert_eq!(
+			OnDemandAssigner::pop_assignment_for_core(CoreIndex(0)).unwrap().para_id(),
+			para_a
+		);
 
 		// Para a should have affinity for core 0
 		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).unwrap().count, 1);
-		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).unwrap().core_idx, CoreIndex(0));
-
-		// Queue should still contain order b
-		{
-			let queue: Vec<EnqueuedOrder> = OnDemandQueue::<Test>::get().into_iter().collect();
-			assert_eq!(queue, vec![order_b.clone()]);
-		}
+		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).unwrap().core_index, CoreIndex(0));
 
 		// Push back order a
 		OnDemandAssigner::push_back_assignment(para_a, CoreIndex(0));
@@ -444,10 +358,82 @@ fn push_back_assignment_works() {
 		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).is_none(), true);
 
 		// Queue should contain orders a, b. A in front of b.
-		{
-			let queue: Vec<EnqueuedOrder> = OnDemandQueue::<Test>::get().into_iter().collect();
-			assert_eq!(queue, vec![order_a.clone(), order_b.clone()]);
+		assert_eq!(
+			OnDemandAssigner::pop_assignment_for_core(CoreIndex(0)).unwrap().para_id(),
+			para_a
+		);
+		assert_eq!(
+			OnDemandAssigner::pop_assignment_for_core(CoreIndex(0)).unwrap().para_id(),
+			para_b
+		);
+	});
+}
+
+#[test]
+fn affinity_prohibits_parallel_scheduling() {
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		let para_a = ParaId::from(111);
+		let para_b = ParaId::from(222);
+
+		schedule_blank_para(para_a, ParaKind::Parathread);
+		schedule_blank_para(para_b, ParaKind::Parathread);
+
+		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
+
+		// There should be no affinity before starting.
+		assert!(OnDemandAssigner::get_affinity_map(para_a).is_none());
+		assert!(OnDemandAssigner::get_affinity_map(para_b).is_none());
+
+		// Add 2 assignments for para_a for every para_b.
+		place_order(para_a);
+		place_order(para_a);
+		place_order(para_b);
+
+		// Approximate having 1 core.
+		for _ in 0..3 {
+			assert!(OnDemandAssigner::pop_assignment_for_core(CoreIndex(0)).is_some());
 		}
+		assert!(OnDemandAssigner::pop_assignment_for_core(CoreIndex(0)).is_none());
+
+		// Affinity on one core is meaningless.
+		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).unwrap().count, 2);
+		assert_eq!(OnDemandAssigner::get_affinity_map(para_b).unwrap().count, 1);
+		assert_eq!(
+			OnDemandAssigner::get_affinity_map(para_a).unwrap().core_index,
+			OnDemandAssigner::get_affinity_map(para_b).unwrap().core_index,
+		);
+
+		// Clear affinity
+		OnDemandAssigner::report_processed(para_a, 0.into());
+		OnDemandAssigner::report_processed(para_a, 0.into());
+		OnDemandAssigner::report_processed(para_b, 0.into());
+
+		// Add 2 assignments for para_a for every para_b.
+		place_order(para_a);
+		place_order(para_a);
+		place_order(para_b);
+
+		// Approximate having 3 cores. CoreIndex 2 should be unable to obtain an assignment
+		for _ in 0..3 {
+			OnDemandAssigner::pop_assignment_for_core(CoreIndex(0));
+			OnDemandAssigner::pop_assignment_for_core(CoreIndex(1));
+			assert!(OnDemandAssigner::pop_assignment_for_core(CoreIndex(2)).is_none());
+		}
+
+		// Affinity should be the same as before, but on different cores.
+		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).unwrap().count, 2);
+		assert_eq!(OnDemandAssigner::get_affinity_map(para_b).unwrap().count, 1);
+		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).unwrap().core_index, CoreIndex(0));
+		assert_eq!(OnDemandAssigner::get_affinity_map(para_b).unwrap().core_index, CoreIndex(1));
+
+		// Clear affinity
+		OnDemandAssigner::report_processed(para_a, CoreIndex(0));
+		OnDemandAssigner::report_processed(para_a, CoreIndex(0));
+		OnDemandAssigner::report_processed(para_b, CoreIndex(1));
+
+		// There should be no affinity after clearing.
+		assert!(OnDemandAssigner::get_affinity_map(para_a).is_none());
+		assert!(OnDemandAssigner::get_affinity_map(para_b).is_none());
 	});
 }
 
@@ -458,7 +444,6 @@ fn affinity_changes_work() {
 		let core_index = CoreIndex(0);
 		schedule_blank_para(para_a, ParaKind::Parathread);
 
-		let order_a = EnqueuedOrder::new(para_a);
 		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
 
 		// There should be no affinity before starting.
@@ -466,8 +451,7 @@ fn affinity_changes_work() {
 
 		// Add enough assignments to the order queue.
 		for _ in 0..10 {
-			OnDemandAssigner::add_on_demand_order(order_a.clone(), QueuePushDirection::Front)
-				.expect("Invalid paraid or queue full");
+			place_order(para_a);
 		}
 
 		// There should be no affinity before the scheduler pops.
@@ -483,7 +467,6 @@ fn affinity_changes_work() {
 
 		// Affinity count is 1 after popping with a previous para.
 		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).unwrap().count, 1);
-		assert_eq!(OnDemandAssigner::queue_size(), 8);
 
 		for _ in 0..3 {
 			OnDemandAssigner::pop_assignment_for_core(core_index);
@@ -491,153 +474,26 @@ fn affinity_changes_work() {
 
 		// Affinity count is 4 after popping 3 times without a previous para.
 		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).unwrap().count, 4);
-		assert_eq!(OnDemandAssigner::queue_size(), 5);
 
 		for _ in 0..5 {
 			OnDemandAssigner::report_processed(para_a, 0.into());
-			OnDemandAssigner::pop_assignment_for_core(core_index);
+			assert!(OnDemandAssigner::pop_assignment_for_core(core_index).is_some());
 		}
 
 		// Affinity count should still be 4 but queue should be empty.
+		assert!(OnDemandAssigner::pop_assignment_for_core(core_index).is_none());
 		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).unwrap().count, 4);
-		assert_eq!(OnDemandAssigner::queue_size(), 0);
 
 		// Pop 4 times and get to exactly 0 (None) affinity.
 		for _ in 0..4 {
 			OnDemandAssigner::report_processed(para_a, 0.into());
-			OnDemandAssigner::pop_assignment_for_core(core_index);
+			assert!(OnDemandAssigner::pop_assignment_for_core(core_index).is_none());
 		}
 		assert!(OnDemandAssigner::get_affinity_map(para_a).is_none());
 
 		// Decreasing affinity beyond 0 should still be None.
 		OnDemandAssigner::report_processed(para_a, 0.into());
-		OnDemandAssigner::pop_assignment_for_core(core_index);
+		assert!(OnDemandAssigner::pop_assignment_for_core(core_index).is_none());
 		assert!(OnDemandAssigner::get_affinity_map(para_a).is_none());
-	});
-}
-
-#[test]
-fn affinity_prohibits_parallel_scheduling() {
-	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
-		let para_a = ParaId::from(111);
-		let para_b = ParaId::from(222);
-
-		schedule_blank_para(para_a, ParaKind::Parathread);
-		schedule_blank_para(para_b, ParaKind::Parathread);
-
-		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
-
-		let order_a = EnqueuedOrder::new(para_a);
-		let order_b = EnqueuedOrder::new(para_b);
-
-		// There should be no affinity before starting.
-		assert!(OnDemandAssigner::get_affinity_map(para_a).is_none());
-		assert!(OnDemandAssigner::get_affinity_map(para_b).is_none());
-
-		// Add 2 assignments for para_a for every para_b.
-		OnDemandAssigner::add_on_demand_order(order_a.clone(), QueuePushDirection::Back)
-			.expect("Invalid paraid or queue full");
-
-		OnDemandAssigner::add_on_demand_order(order_a.clone(), QueuePushDirection::Back)
-			.expect("Invalid paraid or queue full");
-
-		OnDemandAssigner::add_on_demand_order(order_b.clone(), QueuePushDirection::Back)
-			.expect("Invalid paraid or queue full");
-
-		assert_eq!(OnDemandAssigner::queue_size(), 3);
-
-		// Approximate having 1 core.
-		for _ in 0..3 {
-			OnDemandAssigner::pop_assignment_for_core(CoreIndex(0));
-		}
-
-		// Affinity on one core is meaningless.
-		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).unwrap().count, 2);
-		assert_eq!(OnDemandAssigner::get_affinity_map(para_b).unwrap().count, 1);
-		assert_eq!(
-			OnDemandAssigner::get_affinity_map(para_a).unwrap().core_idx,
-			OnDemandAssigner::get_affinity_map(para_b).unwrap().core_idx
-		);
-
-		// Clear affinity
-		OnDemandAssigner::report_processed(para_a, 0.into());
-		OnDemandAssigner::report_processed(para_a, 0.into());
-		OnDemandAssigner::report_processed(para_b, 0.into());
-
-		// Add 2 assignments for para_a for every para_b.
-		OnDemandAssigner::add_on_demand_order(order_a.clone(), QueuePushDirection::Back)
-			.expect("Invalid paraid or queue full");
-
-		OnDemandAssigner::add_on_demand_order(order_a.clone(), QueuePushDirection::Back)
-			.expect("Invalid paraid or queue full");
-		OnDemandAssigner::report_processed(assignment_b_core_0.clone());
-
-		// Add 2 assignments for para_a for every para_b.
-		OnDemandAssigner::add_on_demand_order(order_a.clone(), QueuePushDirection::Back)
-			.expect("Invalid paraid or queue full");
-
-		OnDemandAssigner::add_on_demand_order(order_a.clone(), QueuePushDirection::Back)
-			.expect("Invalid paraid or queue full");
-
-		OnDemandAssigner::add_on_demand_order(order_b.clone(), QueuePushDirection::Back)
-			.expect("Invalid paraid or queue full");
-
-		// Approximate having 3 cores. CoreIndex 2 should be unable to obtain an assignment
-		for _ in 0..3 {
-			OnDemandAssigner::pop_assignment_for_core(CoreIndex(0));
-			OnDemandAssigner::pop_assignment_for_core(CoreIndex(1));
-			assert_eq!(None, OnDemandAssigner::pop_assignment_for_core(CoreIndex(2)));
-		}
-
-		// Affinity should be the same as before, but on different cores.
-		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).unwrap().count, 2);
-		assert_eq!(OnDemandAssigner::get_affinity_map(para_b).unwrap().count, 1);
-		assert_eq!(OnDemandAssigner::get_affinity_map(para_a).unwrap().core_idx, CoreIndex(0));
-		assert_eq!(OnDemandAssigner::get_affinity_map(para_b).unwrap().core_idx, CoreIndex(1));
-
-		// Clear affinity
-		OnDemandAssigner::report_processed(assignment_a.clone());
-		OnDemandAssigner::report_processed(assignment_a.clone());
-		OnDemandAssigner::report_processed(assignment_b_core_1.clone());
-
-		// There should be no affinity after clearing.
-		assert!(OnDemandAssigner::get_affinity_map(para_a).is_none());
-		assert!(OnDemandAssigner::get_affinity_map(para_b).is_none());
-	});
-}
-
-#[test]
-fn on_demand_orders_cannot_be_popped_if_lifecycle_changes() {
-	let para_id = ParaId::from(10);
-	let core_index = CoreIndex(0);
-	let order = EnqueuedOrder::new(para_id);
-	let assignment = OnDemandAssignment::new(para_id, core_index);
-
-	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
-		// Register the para_id as a parathread
-		schedule_blank_para(para_id, ParaKind::Parathread);
-
-		assert!(!Paras::is_parathread(para_id));
-		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
-		assert!(Paras::is_parathread(para_id));
-
-		// Add two assignments for a para_id with a valid lifecycle.
-		assert_ok!(OnDemandAssigner::add_on_demand_order(order.clone(), QueuePushDirection::Back));
-		assert_ok!(OnDemandAssigner::add_on_demand_order(order.clone(), QueuePushDirection::Back));
-
-		// First pop is fine
-		assert_eq!(OnDemandAssigner::pop_assignment_for_core(core_index), Some(assignment.clone()));
-
-		// Deregister para
-		assert_ok!(Paras::schedule_para_cleanup(para_id));
-
-		// Run to new session and verify that para_id is no longer a valid parathread.
-		assert!(Paras::is_parathread(para_id));
-		run_to_block(20, |n| if n == 20 { Some(Default::default()) } else { None });
-		assert!(!Paras::is_parathread(para_id));
-
-		// Second pop should be None.
-		OnDemandAssigner::report_processed(assignment.clone());
-		assert_eq!(OnDemandAssigner::pop_assignment_for_core(core_index), None);
 	});
 }
