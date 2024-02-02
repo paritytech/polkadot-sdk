@@ -31,7 +31,6 @@ use polkadot_cli::{
 	},
 	validator_overseer_builder, Cli,
 };
-use polkadot_node_core_candidate_validation::find_validation_data;
 use polkadot_node_primitives::{AvailableData, BlockData, PoV};
 use polkadot_node_subsystem_types::DefaultSubsystemClient;
 use polkadot_primitives::{CandidateDescriptor, CandidateReceipt};
