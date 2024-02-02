@@ -27,7 +27,7 @@ use bridge_hub_rococo_runtime::{
 use bridge_hub_test_utils::SlotDurations;
 use codec::{Decode, Encode};
 use frame_support::{dispatch::GetDispatchInfo, parameter_types, traits::ConstU8};
-use parachains_common::{AccountId, AuraId, Balance, SLOT_DURATION};
+use parachains_common::{AccountId, AuraId, Balance};
 use snowbridge_core::ChannelId;
 use sp_consensus_aura::SlotDuration;
 use sp_core::H160;
@@ -36,9 +36,7 @@ use sp_runtime::{
 	generic::{Era, SignedPayload},
 	AccountId32, Perbill,
 };
-use testnet_parachains_constants::rococo::{
-	consensus::RELAY_CHAIN_SLOT_DURATION_MILLIS, fee::WeightToFee,
-};
+use testnet_parachains_constants::rococo::{consensus::*, fee::WeightToFee};
 use xcm::latest::prelude::*;
 
 parameter_types! {
