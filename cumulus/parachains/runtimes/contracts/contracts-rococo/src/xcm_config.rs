@@ -17,7 +17,6 @@ use super::{
 	AccountId, AllPalletsWithSystem, Balances, ParachainInfo, ParachainSystem, PolkadotXcm,
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, TransactionByteFee, WeightToFee, XcmpQueue,
 };
-use crate::common::rococo::currency::CENTS;
 use cumulus_primitives_core::AggregateMessageOrigin;
 use frame_support::{
 	parameter_types,
@@ -36,6 +35,7 @@ use parachains_common::{
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use sp_runtime::traits::AccountIdConversion;
+use testnet_parachains_constants::rococo::currency::CENTS;
 use xcm::latest::prelude::*;
 #[allow(deprecated)]
 use xcm_builder::CurrencyAdapter;

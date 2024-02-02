@@ -21,7 +21,7 @@ use sp_runtime::{
 	BuildStorage, FixedU128, MultiSignature,
 };
 use sp_std::convert::From;
-use xcm::v4::{prelude::*, SendXcm};
+use xcm::{latest::SendXcm, prelude::*};
 use xcm_executor::AssetsInHolding;
 
 use crate::{self as inbound_queue};
@@ -88,7 +88,6 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-	type MaxHolds = ();
 }
 
 parameter_types! {
@@ -110,6 +109,10 @@ parameter_types! {
 			version: [3, 0, 0, 1], // 0x03000001
 			epoch: 0,
 		},
+		deneb: Fork {
+			version: [4, 0, 0, 1], // 0x04000001
+			epoch: 4294967295,
+		}
 	};
 }
 
