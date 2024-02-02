@@ -835,6 +835,20 @@
 <a href="#835" id="835">835</a>
 <a href="#836" id="836">836</a>
 <a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -859,7 +873,7 @@
 <span class="kw">mod </span>weights;
 <span class="kw">pub mod </span>xcm_config;
 
-<span class="kw">use </span>cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+<span class="kw">use </span>cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 <span class="kw">use </span>cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 <span class="kw">use </span>frame_support::{
 	construct_runtime, derive_impl,
@@ -881,7 +895,7 @@
 	impls::DealWithFees,
 	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
 	AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
-	HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
+	NORMAL_DISPATCH_RATIO,
 };
 <span class="kw">use </span>polkadot_runtime_common::{identity_migrator, BlockHashCount, SlowAdjustingFeeUpdate};
 <span class="kw">use </span>sp_api::impl_runtime_apis;
@@ -900,7 +914,7 @@
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>sp_version::NativeVersion;
 <span class="kw">use </span>sp_version::RuntimeVersion;
-<span class="kw">use </span>testnet_parachains_constants::westend::{consensus::<span class="kw-2">*</span>, currency::<span class="kw-2">*</span>, fee::WeightToFee};
+<span class="kw">use </span>testnet_parachains_constants::westend::{consensus::<span class="kw-2">*</span>, currency::<span class="kw-2">*</span>, fee::WeightToFee, time::<span class="kw-2">*</span>};
 <span class="kw">use </span>weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 <span class="kw">use </span>xcm::latest::prelude::BodyId;
 <span class="kw">use </span>xcm_config::{
@@ -1021,7 +1035,10 @@
 	<span class="doccomment">/// A timestamp: milliseconds since the unix epoch.
 	</span><span class="kw">type </span>Moment = u64;
 	<span class="kw">type </span>OnTimestampSet = Aura;
-	<span class="kw">type </span>MinimumPeriod = ConstU64&lt;{ SLOT_DURATION / <span class="number">2 </span>}&gt;;
+	<span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
+	</span><span class="kw">type </span>MinimumPeriod = ConstU64&lt;<span class="number">0</span>&gt;;
+	<span class="attr">#[cfg(not(feature = <span class="string">&quot;experimental&quot;</span>))]
+	</span><span class="kw">type </span>MinimumPeriod = ConstU64&lt;{ SLOT_DURATION / <span class="number">2 </span>}&gt;;
 	<span class="kw">type </span>WeightInfo = weights::pallet_timestamp::WeightInfo&lt;Runtime&gt;;
 }
 
@@ -1080,15 +1097,17 @@
 	<span class="kw">type </span>ReservedDmpWeight = ReservedDmpWeight;
 	<span class="kw">type </span>XcmpMessageHandler = XcmpQueue;
 	<span class="kw">type </span>ReservedXcmpWeight = ReservedXcmpWeight;
-	<span class="kw">type </span>CheckAssociatedRelayNumber = RelayNumberStrictlyIncreases;
-	<span class="kw">type </span>ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook&lt;
-		Runtime,
-		RELAY_CHAIN_SLOT_DURATION_MILLIS,
-		BLOCK_PROCESSING_VELOCITY,
-		UNINCLUDED_SEGMENT_CAPACITY,
-	&gt;;
+	<span class="kw">type </span>CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
+	<span class="kw">type </span>ConsensusHook = ConsensusHook;
 	<span class="kw">type </span>WeightInfo = weights::cumulus_pallet_parachain_system::WeightInfo&lt;Runtime&gt;;
 }
+
+<span class="kw">type </span>ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook&lt;
+	Runtime,
+	RELAY_CHAIN_SLOT_DURATION_MILLIS,
+	BLOCK_PROCESSING_VELOCITY,
+	UNINCLUDED_SEGMENT_CAPACITY,
+&gt;;
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub </span>MessageQueueServiceWeight: Weight =
@@ -1165,9 +1184,9 @@
 	<span class="kw">type </span>AuthorityId = AuraId;
 	<span class="kw">type </span>DisabledValidators = ();
 	<span class="kw">type </span>MaxAuthorities = ConstU32&lt;<span class="number">100_000</span>&gt;;
-	<span class="kw">type </span>AllowMultipleBlocksPerSlot = ConstBool&lt;<span class="bool-val">false</span>&gt;;
+	<span class="kw">type </span>AllowMultipleBlocksPerSlot = ConstBool&lt;<span class="bool-val">true</span>&gt;;
 	<span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
-	</span><span class="kw">type </span>SlotDuration = pallet_aura::MinimumPeriodTimesTwo&lt;<span class="self">Self</span>&gt;;
+	</span><span class="kw">type </span>SlotDuration = ConstU64&lt;SLOT_DURATION&gt;;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -1296,11 +1315,20 @@
 <span class="macro">impl_runtime_apis! </span>{
 	<span class="kw">impl </span>sp_consensus_aura::AuraApi&lt;Block, AuraId&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>slot_duration() -&gt; sp_consensus_aura::SlotDuration {
-			sp_consensus_aura::SlotDuration::from_millis(Aura::slot_duration())
+			sp_consensus_aura::SlotDuration::from_millis(SLOT_DURATION)
 		}
 
 		<span class="kw">fn </span>authorities() -&gt; Vec&lt;AuraId&gt; {
 			Aura::authorities().into_inner()
+		}
+	}
+
+	<span class="kw">impl </span>cumulus_primitives_aura::AuraUnincludedSegmentApi&lt;Block&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>can_build_upon(
+			included_hash: &lt;Block <span class="kw">as </span>BlockT&gt;::Hash,
+			slot: cumulus_primitives_aura::Slot,
+		) -&gt; bool {
+			ConsensusHook::can_build_upon(included_hash, slot)
 		}
 	}
 

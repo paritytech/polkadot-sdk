@@ -1066,6 +1066,15 @@
 <a href="#1066" id="1066">1066</a>
 <a href="#1067" id="1067">1067</a>
 <a href="#1068" id="1068">1068</a>
+<a href="#1069" id="1069">1069</a>
+<a href="#1070" id="1070">1070</a>
+<a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1763,7 +1772,7 @@
 					</span>.map(|r| r.<span class="number">0</span>)
 					.map_err(Into::into),
 
-					AssetHubKusama | AssetHubWestend =&gt;
+					AssetHubKusama =&gt;
 						<span class="kw">crate</span>::service::start_asset_hub_node::&lt;
 							RuntimeApi,
 							AuraId,
@@ -1772,7 +1781,7 @@
 						</span>.map(|r| r.<span class="number">0</span>)
 						.map_err(Into::into),
 
-				    AssetHubRococo =&gt;
+				    AssetHubRococo | AssetHubWestend =&gt;
 						<span class="kw">crate</span>::service::start_asset_hub_lookahead_node::&lt;
 						RuntimeApi,
 							AuraId,
@@ -1781,8 +1790,17 @@
 						</span>.map(|r| r.<span class="number">0</span>)
 						.map_err(Into::into),
 
-					CollectivesPolkadot | CollectivesWestend =&gt;
+					CollectivesPolkadot =&gt;
 						<span class="kw">crate</span>::service::start_generic_aura_node::&lt;
+							RuntimeApi,
+							AuraId,
+						&gt;(config, polkadot_config, collator_options, id, hwbench)
+						.<span class="kw">await
+						</span>.map(|r| r.<span class="number">0</span>)
+						.map_err(Into::into),
+
+					CollectivesWestend =&gt;
+						<span class="kw">crate</span>::service::start_generic_aura_lookahead_node::&lt;
 							RuntimeApi,
 							AuraId,
 						&gt;(config, polkadot_config, collator_options, id, hwbench)
@@ -1831,7 +1849,7 @@
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::Westend |
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendLocal |
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::WestendDevelopment =&gt;
-							<span class="kw">crate</span>::service::start_generic_aura_node::&lt;
+							<span class="kw">crate</span>::service::start_generic_aura_lookahead_node::&lt;
 								RuntimeApi,
 								AuraId,
 							&gt;(config, polkadot_config, collator_options, id, hwbench)
@@ -1840,7 +1858,7 @@
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::Rococo |
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoLocal |
 						chain_spec::bridge_hubs::BridgeHubRuntimeType::RococoDevelopment =&gt;
-							<span class="kw">crate</span>::service::start_generic_aura_node::&lt;
+							<span class="kw">crate</span>::service::start_generic_aura_lookahead_node::&lt;
 								RuntimeApi,
 								AuraId,
 							&gt;(config, polkadot_config, collator_options, id, hwbench)
@@ -1855,7 +1873,7 @@
 						chain_spec::coretime::CoretimeRuntimeType::RococoDevelopment |
 						chain_spec::coretime::CoretimeRuntimeType::WestendLocal |
 						chain_spec::coretime::CoretimeRuntimeType::WestendDevelopment =&gt;
-							<span class="kw">crate</span>::service::start_generic_aura_node::&lt;
+							<span class="kw">crate</span>::service::start_generic_aura_lookahead_node::&lt;
 								RuntimeApi,
 								AuraId,
 							&gt;(config, polkadot_config, collator_options, id, hwbench)
@@ -1892,7 +1910,7 @@
 						chain_spec::people::PeopleRuntimeType::Westend |
 						chain_spec::people::PeopleRuntimeType::WestendLocal |
 						chain_spec::people::PeopleRuntimeType::WestendDevelopment =&gt;
-							<span class="kw">crate</span>::service::start_generic_aura_node::&lt;
+							<span class="kw">crate</span>::service::start_generic_aura_lookahead_node::&lt;
 								RuntimeApi,
 								AuraId,
 							&gt;(config, polkadot_config, collator_options, id, hwbench)

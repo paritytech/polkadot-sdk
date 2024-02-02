@@ -770,6 +770,19 @@
 <a href="#770" id="770">770</a>
 <a href="#771" id="771">771</a>
 <a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 //
@@ -801,7 +814,7 @@
 <span class="kw">mod </span>weights;
 <span class="kw">mod </span>xcm_config;
 
-<span class="kw">use </span>cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+<span class="kw">use </span>cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 <span class="kw">use </span>cumulus_primitives_core::AggregateMessageOrigin;
 <span class="kw">use </span>sp_api::impl_runtime_apis;
 <span class="kw">use </span>sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -830,8 +843,7 @@
 <span class="kw">pub use </span>parachains_common <span class="kw">as </span>common;
 <span class="kw">use </span>parachains_common::{
 	impls::DealWithFees, message_queue::<span class="kw-2">*</span>, AccountId, BlockNumber, Hash, Header, Nonce, Signature,
-	AVERAGE_ON_INITIALIZE_RATIO, MAXIMUM_BLOCK_WEIGHT, MINUTES, NORMAL_DISPATCH_RATIO,
-	SLOT_DURATION,
+	AVERAGE_ON_INITIALIZE_RATIO, MINUTES, NORMAL_DISPATCH_RATIO,
 };
 <span class="kw">pub use </span>parachains_common::{AuraId, Balance};
 <span class="kw">use </span>testnet_parachains_constants::rococo::{consensus::<span class="kw-2">*</span>, currency::<span class="kw-2">*</span>, fee::WeightToFee};
@@ -964,7 +976,10 @@
 	<span class="doccomment">/// A timestamp: milliseconds since the unix epoch.
 	</span><span class="kw">type </span>Moment = u64;
 	<span class="kw">type </span>OnTimestampSet = Aura;
-	<span class="kw">type </span>MinimumPeriod = ConstU64&lt;{ SLOT_DURATION / <span class="number">2 </span>}&gt;;
+	<span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
+	</span><span class="kw">type </span>MinimumPeriod = ConstU64&lt;<span class="number">0</span>&gt;;
+	<span class="attr">#[cfg(not(feature = <span class="string">&quot;experimental&quot;</span>))]
+	</span><span class="kw">type </span>MinimumPeriod = ConstU64&lt;{ SLOT_DURATION / <span class="number">2 </span>}&gt;;
 	<span class="kw">type </span>WeightInfo = pallet_timestamp::weights::SubstrateWeight&lt;Runtime&gt;;
 }
 
@@ -1046,14 +1061,16 @@
 	<span class="kw">type </span>OutboundXcmpMessageSource = XcmpQueue;
 	<span class="kw">type </span>XcmpMessageHandler = XcmpQueue;
 	<span class="kw">type </span>ReservedXcmpWeight = ReservedXcmpWeight;
-	<span class="kw">type </span>CheckAssociatedRelayNumber = RelayNumberStrictlyIncreases;
-	<span class="kw">type </span>ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook&lt;
-		Runtime,
-		RELAY_CHAIN_SLOT_DURATION_MILLIS,
-		BLOCK_PROCESSING_VELOCITY,
-		UNINCLUDED_SEGMENT_CAPACITY,
-	&gt;;
+	<span class="kw">type </span>CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
+	<span class="kw">type </span>ConsensusHook = ConsensusHook;
 }
+
+<span class="kw">type </span>ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook&lt;
+	Runtime,
+	RELAY_CHAIN_SLOT_DURATION_MILLIS,
+	BLOCK_PROCESSING_VELOCITY,
+	UNINCLUDED_SEGMENT_CAPACITY,
+&gt;;
 
 <span class="kw">impl </span>pallet_insecure_randomness_collective_flip::Config <span class="kw">for </span>Runtime {}
 
@@ -1110,9 +1127,9 @@
 	<span class="kw">type </span>AuthorityId = AuraId;
 	<span class="kw">type </span>DisabledValidators = ();
 	<span class="kw">type </span>MaxAuthorities = ConstU32&lt;<span class="number">100_000</span>&gt;;
-	<span class="kw">type </span>AllowMultipleBlocksPerSlot = ConstBool&lt;<span class="bool-val">false</span>&gt;;
+	<span class="kw">type </span>AllowMultipleBlocksPerSlot = ConstBool&lt;<span class="bool-val">true</span>&gt;;
 	<span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
-	</span><span class="kw">type </span>SlotDuration = pallet_aura::MinimumPeriodTimesTwo&lt;<span class="self">Self</span>&gt;;
+	</span><span class="kw">type </span>SlotDuration = ConstU64&lt;SLOT_DURATION&gt;;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -1201,11 +1218,20 @@
 <span class="macro">impl_runtime_apis! </span>{
 	<span class="kw">impl </span>sp_consensus_aura::AuraApi&lt;Block, AuraId&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>slot_duration() -&gt; sp_consensus_aura::SlotDuration {
-			sp_consensus_aura::SlotDuration::from_millis(Aura::slot_duration())
+			sp_consensus_aura::SlotDuration::from_millis(SLOT_DURATION)
 		}
 
 		<span class="kw">fn </span>authorities() -&gt; Vec&lt;AuraId&gt; {
 			Aura::authorities().into_inner()
+		}
+	}
+
+	<span class="kw">impl </span>cumulus_primitives_aura::AuraUnincludedSegmentApi&lt;Block&gt; <span class="kw">for </span>Runtime {
+		<span class="kw">fn </span>can_build_upon(
+			included_hash: &lt;Block <span class="kw">as </span>BlockT&gt;::Hash,
+			slot: cumulus_primitives_aura::Slot,
+		) -&gt; bool {
+			ConsensusHook::can_build_upon(included_hash, slot)
 		}
 	}
 

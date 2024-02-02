@@ -1750,29 +1750,6 @@
 <a href="#1750" id="1750">1750</a>
 <a href="#1751" id="1751">1751</a>
 <a href="#1752" id="1752">1752</a>
-<a href="#1753" id="1753">1753</a>
-<a href="#1754" id="1754">1754</a>
-<a href="#1755" id="1755">1755</a>
-<a href="#1756" id="1756">1756</a>
-<a href="#1757" id="1757">1757</a>
-<a href="#1758" id="1758">1758</a>
-<a href="#1759" id="1759">1759</a>
-<a href="#1760" id="1760">1760</a>
-<a href="#1761" id="1761">1761</a>
-<a href="#1762" id="1762">1762</a>
-<a href="#1763" id="1763">1763</a>
-<a href="#1764" id="1764">1764</a>
-<a href="#1765" id="1765">1765</a>
-<a href="#1766" id="1766">1766</a>
-<a href="#1767" id="1767">1767</a>
-<a href="#1768" id="1768">1768</a>
-<a href="#1769" id="1769">1769</a>
-<a href="#1770" id="1770">1770</a>
-<a href="#1771" id="1771">1771</a>
-<a href="#1772" id="1772">1772</a>
-<a href="#1773" id="1773">1773</a>
-<a href="#1774" id="1774">1774</a>
-<a href="#1775" id="1775">1775</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1837,7 +1814,7 @@
 		ConstU128, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Equals, InstanceFilter,
 		TransformOrigin,
 	},
-	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight},
+	weights::{ConstantMultiplier, Weight},
 	BoundedVec, PalletId,
 };
 <span class="kw">use </span>frame_system::{
@@ -1850,11 +1827,10 @@
 	impls::DealWithFees,
 	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
 	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, BlockNumber, CollectionId, Hash,
-	Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS,
-	NORMAL_DISPATCH_RATIO,
+	Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
 <span class="kw">use </span>sp_runtime::{Perbill, RuntimeDebug};
-<span class="kw">use </span>testnet_parachains_constants::rococo::{consensus::<span class="kw-2">*</span>, currency::<span class="kw-2">*</span>, fee::WeightToFee};
+<span class="kw">use </span>testnet_parachains_constants::rococo::{consensus::<span class="kw-2">*</span>, currency::<span class="kw-2">*</span>, fee::WeightToFee, time::<span class="kw-2">*</span>};
 <span class="kw">use </span>xcm_config::{
 	ForeignAssetsConvertedConcreteId, ForeignCreatorsSovereignAccountOf, GovernanceLocation,
 	PoolAssetsConvertedConcreteId, TokenLocation, TokenLocationV3,
@@ -1914,28 +1890,6 @@
 </span><span class="kw">pub fn </span>native_version() -&gt; NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
-
-<span class="doccomment">/// We allow for 2 seconds of compute with a 6 second average block.
-</span><span class="kw">const </span>MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
-	WEIGHT_REF_TIME_PER_SECOND.saturating_mul(<span class="number">2</span>),
-	cumulus_primitives_core::relay_chain::MAX_POV_SIZE <span class="kw">as </span>u64,
-);
-
-<span class="doccomment">/// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
-/// into the relay chain.
-</span><span class="kw">const </span>UNINCLUDED_SEGMENT_CAPACITY: u32 = <span class="number">3</span>;
-<span class="doccomment">/// How many parachain blocks are processed by the relay chain per parent. Limits the
-/// number of blocks authored per slot.
-</span><span class="kw">const </span>BLOCK_PROCESSING_VELOCITY: u32 = <span class="number">1</span>;
-
-<span class="doccomment">/// This determines the average expected block time that we are targeting.
-/// Blocks will be produced at a minimum duration defined by `SLOT_DURATION`.
-/// `SLOT_DURATION` is picked up by `pallet_timestamp` which is in turn picked
-/// up by `pallet_aura` to implement `fn slot_duration()`.
-///
-/// Change this to adjust the block time.
-</span><span class="kw">pub const </span>MILLISECS_PER_BLOCK: u64 = <span class="number">6000</span>;
-<span class="kw">pub const </span>SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>Version: RuntimeVersion = VERSION;
