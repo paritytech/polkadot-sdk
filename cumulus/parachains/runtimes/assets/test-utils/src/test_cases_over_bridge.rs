@@ -244,6 +244,11 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 						_ => Err(ProcessMessageError::BadFormat),
 					})
 					.expect("contains BuyExecution")
+					.match_next_inst(|instr| match instr {
+						SetAppendix(_) => Ok(()),
+						_ => Err(ProcessMessageError::BadFormat),
+					})
+					.expect("contains SetAppendix")
 			} else {
 				xcm_sent
 					.0

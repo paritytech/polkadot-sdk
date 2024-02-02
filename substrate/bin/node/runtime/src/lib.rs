@@ -1022,6 +1022,9 @@ impl pallet_ranked_collective::Config for Runtime {
 	type Polls = RankedPolls;
 	type MinRankOfClass = traits::Identity;
 	type VoteWeight = pallet_ranked_collective::Geometric;
+	type MemberSwappedHandler = (CoreFellowship, Salary);
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkSetup = (CoreFellowship, Salary);
 }
 
 impl pallet_remark::Config for Runtime {

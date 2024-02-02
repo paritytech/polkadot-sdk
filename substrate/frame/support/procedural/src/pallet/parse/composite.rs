@@ -91,14 +91,12 @@ pub struct CompositeDef {
 	pub index: usize,
 	/// The composite keyword used (contains span).
 	pub composite_keyword: keyword::CompositeKeyword,
-
 	/// Name of the associated type.
 	pub ident: syn::Ident,
 	/// Type parameters and where clause attached to a declaration of the pallet::composite_enum.
 	pub generics: syn::Generics,
 	/// The span of the pallet::composite_enum attribute.
 	pub attr_span: proc_macro2::Span,
-
 	/// Variant count of the pallet::composite_enum.
 	pub variant_count: u32,
 }
