@@ -753,12 +753,15 @@ impl FragmentTree {
 		depths.iter_ones().collect()
 	}
 
-	/// Select a candidate after the given `required_path` which passes
-	/// the predicate.
+	/// Select `count` candidates after the given `required_path` which pass
+	/// the predicate and have not already been backed on chain.
 	///
-	/// If there are multiple possibilities, this will select the first one.
-	///
-	/// This returns `None` if there is no candidate meeting those criteria.
+	/// Does an exhaustive search into the tree starting after `required_path`.
+	/// If there are multiple possibilities of size `count`, this will select the first one.
+	/// If there is no chain of size `count` that matches the criteria, this will return the largest
+	/// chain it could find with the criteria.
+	/// If there are no candidates meeting those criteria, returns an empty `Vec`.
+	/// Cycles are accepted, see module docs for the `Cycles` section.
 	///
 	/// The intention of the `required_path` is to allow queries on the basis of
 	/// one or more candidates which were previously pending availability becoming
@@ -792,9 +795,25 @@ impl FragmentTree {
 	}
 
 	// Try finding a candidate chain starting from `base_node` of length `expected_count`.
-	// If not possible, return the longest we could find.
+	// If not possible, return the longest one we could find.
 	// Does a depth-first search, since we're optimistic that there won't be more than one such
-	// chains. Assumes that the chain must be acyclic.
+	// chains (parachains shouldn't usually have forks). So in the usual case, this will conclude
+	// in `O(expected_count)`.
+	// Cycles are accepted, but this doesn't allow for infinite execution time, because the maximum
+	// depth we'll reach is `expected_count`.
+	//
+	// Worst case performance is `O(num_forks ^ expected_count)`.
+	// Although an exponential function, this is actually a constant that can only be altered via
+	// sudo/governance, because:
+	// 1. `num_forks` at a given level is at most `max_candidate_depth * max_validators_per_core`
+	//    (because each validator in the assigned group can second `max_candidate_depth`
+	//    candidates). The prospective-parachains subsystem assumes that the number of para forks is
+	//    limited by collator-protocol and backing subsystems. In practice, this is a constant which
+	//    can only be altered by sudo or governance.
+	// 2. `expected_count` is equal to the number of cores a para is scheduled on (in an elastic
+	//    scaling scenario). For non-elastic-scaling, this is just 1. In practice, this should be a
+	//    small number (1-3), capped by the total number of available cores (a constant alterable
+	//    only via governance/sudo).
 	fn select_children_inner(
 		&self,
 		base_node: NodePointer,
@@ -833,25 +852,17 @@ impl FragmentTree {
 
 		let mut best_result = accumulator.clone();
 		for (child_ptr, child_hash) in children {
-			// We could use a HashSet/BTreeSet for tracking the visited nodes but realistically,
-			// accumulator will not hold more than 2-3 elements (the max number of cores for a
-			// parachain).
-			if accumulator.contains(&child_hash) {
-				// We've already visited this node. There's a cycle in the tree, ignore it.
-				continue
-			}
-
-			let mut accumulator_copy = accumulator.clone();
-
-			accumulator_copy.push(child_hash);
+			accumulator.push(child_hash);
 
 			let result = self.select_children_inner(
 				child_ptr,
 				expected_count,
 				remaining_count - 1,
 				&pred,
-				&mut accumulator_copy,
+				accumulator,
 			);
+
+			accumulator.pop();
 
 			// Short-circuit the search if we've found the right length. Otherwise, we'll
 			// search for a max.

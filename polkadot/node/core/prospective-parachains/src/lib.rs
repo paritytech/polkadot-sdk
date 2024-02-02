@@ -149,14 +149,14 @@ async fn run_iteration<Context>(
 				ProspectiveParachainsMessage::GetBackableCandidates(
 					relay_parent,
 					para,
-					n_cores,
+					count,
 					required_path,
 					tx,
 				) => answer_get_backable_candidate(
 					&view,
 					relay_parent,
 					para,
-					n_cores,
+					count,
 					required_path,
 					tx,
 				),
@@ -564,7 +564,7 @@ fn answer_get_backable_candidate(
 	view: &View,
 	relay_parent: Hash,
 	para: ParaId,
-	n_cores: u32,
+	count: u32,
 	required_path: Vec<CandidateHash>,
 	tx: oneshot::Sender<Vec<(CandidateHash, Hash)>>,
 ) {
@@ -614,7 +614,7 @@ fn answer_get_backable_candidate(
 	};
 
 	let backable_children = tree
-		.select_children(&required_path, n_cores, |candidate| storage.is_backed(candidate))
+		.select_children(&required_path, count, |candidate| storage.is_backed(candidate))
 		.into_iter()
 		.filter_map(|child_hash| {
 			storage.relay_parent_by_candidate_hash(&child_hash).map_or_else(
