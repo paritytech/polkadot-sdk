@@ -99,7 +99,7 @@ impl PeerMessagesGenerator {
 	/// Generates messages by spawning a blocking task in the background which begins creating
 	/// the assignments/approvals and peer view changes at the begining of each block.
 	pub fn generate_messages(mut self, spawn_task_handle: &SpawnTaskHandle) {
-		spawn_task_handle.spawn_blocking("generate-messages", "generate-messages", async move {
+		spawn_task_handle.spawn("generate-messages", "generate-messages", async move {
 			for block_info in &self.blocks {
 				let assignments = self.generate_assignments(block_info);
 

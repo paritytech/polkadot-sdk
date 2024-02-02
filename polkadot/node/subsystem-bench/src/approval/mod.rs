@@ -31,8 +31,9 @@ use crate::{
 		configuration::{TestAuthorities, TestConfiguration},
 		environment::{TestEnvironment, TestEnvironmentDependencies, MAX_TIME_OF_FLIGHT},
 		mock::{
-			dummy_builder, network_bridge::MockNetworkBridgeTx, AlwaysSupportsParachains,
-			ChainApiState, MockChainApi, MockNetworkBridgeRx, MockRuntimeApi, TestSyncOracle,
+			dummy_builder,
+			network_bridge::{MockNetworkBridgeRx, MockNetworkBridgeTx},
+			AlwaysSupportsParachains, ChainApiState, MockChainApi, MockRuntimeApi, TestSyncOracle,
 		},
 		network::{
 			new_network, HandleNetworkMessage, NetworkEmulatorHandle, NetworkInterface,
@@ -88,7 +89,7 @@ mod message_generator;
 mod mock_chain_selection;
 mod test_message;
 
-pub const LOG_TARGET: &str = "bench::approval";
+pub const LOG_TARGET: &str = "subsystem-bench::approval";
 const DATA_COL: u32 = 0;
 pub(crate) const NUM_COLUMNS: u32 = 1;
 pub(crate) const SLOT_DURATION_MILLIS: u64 = 6000;
@@ -125,6 +126,7 @@ pub struct ApprovalsOptions {
 	pub stop_when_approved: bool,
 	#[clap(short, long)]
 	/// Work directory.
+	#[clap(short, long, default_value_t = format!("/tmp"))]
 	pub workdir_prefix: String,
 	/// The number of no shows per candidate
 	#[clap(short, long, default_value_t = 0)]
