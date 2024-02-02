@@ -405,10 +405,7 @@ fn get_bool_environment_variable(name: &str) -> Option<bool> {
 
 /// Returns whether we need to also compile the standard library when compiling the runtime.
 fn build_std_required() -> bool {
-	let default = match runtime_target() {
-		RuntimeTarget::Wasm => true,
-		RuntimeTarget::Riscv => false,
-	};
+	let default = runtime_target() == RuntimeTarget::Wasm;
 
 	crate::get_bool_environment_variable(crate::WASM_BUILD_STD).unwrap_or(default)
 }
