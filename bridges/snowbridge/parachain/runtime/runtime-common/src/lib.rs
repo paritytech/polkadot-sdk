@@ -5,13 +5,20 @@
 //! Common traits and types shared by runtimes.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(test)]
+mod tests;
+
+use codec::FullCodec;
 use core::marker::PhantomData;
 use frame_support::traits::Get;
-use snowbridge_core::{outbound::SendMessageFeeProvider, sibling_sovereign_account_raw};
+use snowbridge_core::outbound::SendMessageFeeProvider;
 use sp_arithmetic::traits::{BaseArithmetic, Unsigned};
+use sp_std::fmt::Debug;
 use xcm::prelude::*;
-use xcm_builder::{deposit_or_burn_fee, HandleFee};
+use xcm_builder::HandleFee;
 use xcm_executor::traits::{FeeReason, TransactAsset};
+
+pub const LOG_TARGET: &str = "xcm::export-fee-to-sibling";
 
 /// A `HandleFee` implementation that takes fees from `ExportMessage` XCM instructions
 /// to Snowbridge and splits off the remote fee and deposits it to the origin
@@ -44,8 +51,8 @@ impl<Balance, AccountId, FeeAssetLocation, EthereumNetwork, AssetTransactor, Fee
 		AssetTransactor,
 		FeeProvider,
 	> where
-	Balance: BaseArithmetic + Unsigned + Copy + From<u128> + Into<u128>,
-	AccountId: Clone + Into<[u8; 32]> + From<[u8; 32]>,
+	Balance: BaseArithmetic + Unsigned + Copy + From<u128> + Into<u128> + Debug,
+	AccountId: Clone + FullCodec,
 	FeeAssetLocation: Get<Location>,
 	EthereumNetwork: Get<NetworkId>,
 	AssetTransactor: TransactAsset,
@@ -64,20 +71,27 @@ impl<Balance, AccountId, FeeAssetLocation, EthereumNetwork, AssetTransactor, Fee
 		}
 
 		// Get the parachain sovereign from the `context`.
-		let para_sovereign =
+		let maybe_para_id: Option<u32> =
 			if let Some(XcmContext { origin: Some(Location { parents: 1, interior }), .. }) =
 				context
 			{
 				if let Some(Parachain(sibling_para_id)) = interior.first() {
-					let account: AccountId =
-						sibling_sovereign_account_raw((*sibling_para_id).into()).into();
-					account
+					Some(*sibling_para_id)
 				} else {
-					return fees
+					None
 				}
 			} else {
-				return fees
+				None
 			};
+		if maybe_para_id.is_none() {
+			log::error!(
+				target: LOG_TARGET,
+				"invalid location in context {:?}",
+				context,
+			);
+			return fees
+		}
+		let para_id = maybe_para_id.unwrap();
 
 		// Get the total fee offered by export message.
 		let maybe_total_supplied_fee: Option<(usize, Balance)> = fees
@@ -93,32 +107,45 @@ impl<Balance, AccountId, FeeAssetLocation, EthereumNetwork, AssetTransactor, Fee
 				None
 			})
 			.next();
-
-		if let Some((fee_index, total_fee)) = maybe_total_supplied_fee {
-			let remote_fee = total_fee.saturating_sub(FeeProvider::local_fee());
-			if remote_fee > (0u128).into() {
-				// Refund remote component of fee to physical origin
-				deposit_or_burn_fee::<AssetTransactor, _>(
-					Asset { id: AssetId(token_location.clone()), fun: Fungible(remote_fee.into()) }
-						.into(),
-					context,
-					para_sovereign,
-				);
-				// Return remaining fee to the next fee handler in the chain.
-				let mut modified_fees = fees.inner().clone();
-				modified_fees.remove(fee_index);
-				modified_fees.push(Asset {
-					id: AssetId(token_location),
-					fun: Fungible((total_fee - remote_fee).into()),
-				});
-				return modified_fees.into()
-			}
+		if maybe_total_supplied_fee.is_none() {
+			log::error!(
+				target: LOG_TARGET,
+				"could not find fee asset item in fees: {:?}",
+				fees,
+			);
+			return fees
+		}
+		let (fee_index, total_fee) = maybe_total_supplied_fee.unwrap();
+		let local_fee = FeeProvider::local_fee();
+		let remote_fee = total_fee.saturating_sub(local_fee);
+		if local_fee == Balance::zero() || remote_fee == Balance::zero() {
+			log::error!(
+				target: LOG_TARGET,
+				"calculated refund incorrect with local_fee: {:?} and remote_fee: {:?}",
+				local_fee,
+				remote_fee,
+			);
+			return fees
+		}
+		// Refund remote component of fee to physical origin
+		let result = AssetTransactor::deposit_asset(
+			&Asset { id: AssetId(token_location.clone()), fun: Fungible(remote_fee.into()) },
+			&Location::new(1, [Parachain(para_id)]),
+			context,
+		);
+		if result.is_err() {
+			log::error!(
+				target: LOG_TARGET,
+				"transact fee asset failed: {:?}",
+				result.unwrap_err()
+			);
+			return fees
 		}
 
-		log::info!(
-			target: "xcm::fees",
-			"XcmExportFeeToSibling skipped: {fees:?}, context: {context:?}, reason: {reason:?}",
-		);
-		fees
+		// Return remaining fee to the next fee handler in the chain.
+		let mut modified_fees = fees.inner().clone();
+		modified_fees.remove(fee_index);
+		modified_fees.push(Asset { id: AssetId(token_location), fun: Fungible(local_fee.into()) });
+		modified_fees.into()
 	}
 }

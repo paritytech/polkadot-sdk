@@ -133,7 +133,6 @@ default:
       fi
     - ls -al
     - rm -f forklift.sock
-    - forklift clean
     #
     - echo "FL_FORKLIFT_VERSION ${FL_FORKLIFT_VERSION}"
     - echo "FORKLIFT_PACKAGE_SUFFIX $FORKLIFT_PACKAGE_SUFFIX"

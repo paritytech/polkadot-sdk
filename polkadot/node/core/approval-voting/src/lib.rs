@@ -2583,7 +2583,7 @@ where
 			_ => {},
 		}
 
-		gum::debug!(
+		gum::trace!(
 			target: LOG_TARGET,
 			validator_index = approval.validator.0,
 			candidate_hash = ?approved_candidate_hash,
@@ -2700,7 +2700,7 @@ where
 		let is_approved = check.is_approved(tick_now.saturating_sub(APPROVAL_DELAY));
 		if status.last_no_shows != 0 {
 			metrics.on_observed_no_shows(status.last_no_shows);
-			gum::debug!(
+			gum::trace!(
 				target: LOG_TARGET,
 				?candidate_hash,
 				?block_hash,
@@ -3343,7 +3343,7 @@ async fn issue_approval<Context>(
 		);
 	}
 
-	gum::info!(
+	gum::debug!(
 		target: LOG_TARGET,
 		?candidate_hash,
 		?block_hash,

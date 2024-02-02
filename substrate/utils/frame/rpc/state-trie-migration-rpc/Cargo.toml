@@ -1,6 +1,6 @@
 [package]
 name = "substrate-state-trie-migration-rpc"
-version = "4.0.0-dev"
+version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -23,8 +23,7 @@ sp-core = { path = "../../../../primitives/core" }
 sp-state-machine = { path = "../../../../primitives/state-machine" }
 sp-trie = { path = "../../../../primitives/trie" }
 trie-db = "0.28.0"
-
-jsonrpsee = { version = "0.16.2", features = ["client-core", "macros", "server"] }
+jsonrpsee = { version = "0.20.3", features = ["client-core", "macros", "server"] }
 
 # Substrate Dependencies
 sc-client-api = { path = "../../../../client/api" }

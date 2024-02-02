@@ -1,6 +1,6 @@
 [package]
 name = "sc-transaction-pool"
-version = "4.0.0-dev"
+version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -32,6 +32,7 @@ sc-utils = { path = "../utils" }
 sp-api = { path = "../../primitives/api" }
 sp-blockchain = { path = "../../primitives/blockchain" }
 sp-core = { path = "../../primitives/core" }
+sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
 sp-runtime = { path = "../../primitives/runtime" }
 sp-tracing = { path = "../../primitives/tracing" }
 sp-transaction-pool = { path = "../../primitives/transaction-pool" }

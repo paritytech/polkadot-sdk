@@ -1,6 +1,6 @@
 [package]
 name = "contracts"
-version = "0.1.0"
+version = "0.6.3"
 edition = "2021"
 
 # Binary targets are injected dynamically by the build script.
