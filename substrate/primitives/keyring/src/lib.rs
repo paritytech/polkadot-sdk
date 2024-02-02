@@ -15,9 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![cfg_attr(not(feature = "std"), no_std)]
-
 //! Support code for the runtime. A set of test accounts.
+
+#![cfg_attr(not(feature = "std"), no_std)]
 
 /// Test account crypto for sr25519.
 pub mod sr25519;
