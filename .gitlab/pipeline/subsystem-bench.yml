@@ -3,9 +3,13 @@ subsystem-bench:
   extends:
     - .docker-env
     - .common-refs
+    - .collect-artifacts
   tags:
     - benchmark
   script:
     - cargo build --profile=testnet -p polkadot-subsystem-bench --bin subsystem-bench 
     - target/testnet/subsystem-bench --ci test-sequence --path polkadot/node/subsystem-bench/examples/availability_read.yaml | tee -a output.yaml
     - target/testnet/subsystem-bench --ci test-sequence --path polkadot/node/subsystem-bench/examples/availability_write.yaml | tee -a output.yaml
+    - echo "___Packing the artifacts___"
+    - mkdir -p ./artifacts
+    - mv output.yaml ./artifacts/
