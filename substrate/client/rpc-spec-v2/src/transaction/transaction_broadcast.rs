@@ -27,6 +27,7 @@ use parking_lot::RwLock;
 use rand::{distributions::Alphanumeric, Rng};
 use sc_client_api::BlockchainEvents;
 use sc_transaction_pool_api::{
+	error::{Error as PoolError, IntoPoolError},
 	BlockHash, TransactionFor, TransactionPool, TransactionSource, TransactionStatus,
 };
 use sp_blockchain::HeaderBackend;
@@ -97,6 +98,7 @@ impl<Pool, Client> TransactionBroadcastApiServer<BlockHash<Pool>>
 	for TransactionBroadcast<Pool, Client>
 where
 	Pool: TransactionPool + Sync + Send + 'static,
+	Pool::Error: IntoPoolError,
 	Pool::Hash: Unpin,
 	<Pool::Block as BlockT>::Hash: Unpin,
 	Client: HeaderBackend<Pool::Block> + BlockchainEvents<Pool::Block> + Send + Sync + 'static,
@@ -115,7 +117,7 @@ where
 		let broadcast_transaction_fut = async move {
 			// There is nothing we could do with an extrinsic of invalid format.
 			let Ok(decoded_extrinsic) = TransactionFor::<Pool>::decode(&mut &bytes[..]) else {
-				return
+				return;
 			};
 
 			// Flag to determine if the we should broadcast the transaction again.
@@ -126,15 +128,27 @@ where
 				let Some(best_block_hash) =
 					last_stream_element(&mut best_block_import_stream).await
 				else {
-					return
+					return;
 				};
 
-				let submit =
-					pool.submit_and_watch(best_block_hash, TX_SOURCE, decoded_extrinsic.clone());
+				let mut stream = match pool
+					.submit_and_watch(best_block_hash, TX_SOURCE, decoded_extrinsic.clone())
+					.await
+				{
+					Ok(stream) => stream,
+					// The transaction was not included to the pool.
+					Err(e) => {
+						let Ok(pool_err) = e.into_pool_error() else { return };
 
-				// The transaction was not included to the pool, because it is invalid.
-				// However an invalid transaction can become valid at a later time.
-				let Ok(mut stream) = submit.await else { return };
+						if is_pool_error_recoverable(&pool_err) {
+							// Try to resubmit the transaction at a later block for recoverable
+							// errors.
+							continue;
+						} else {
+							return;
+						}
+					},
+				};
 
 				while let Some(event) = stream.next().await {
 					match event {
@@ -227,6 +241,26 @@ where
 	}
 
 	Some(element)
+}
+
+/// Returns true if the pool error could be recoverable by resubmitting the transaction
+/// at a later time.
+fn is_pool_error_recoverable(err: &PoolError) -> bool {
+	match err {
+		// An invalid transaction is temporarily banned, however it can
+		// become valid at a later time.
+		PoolError::TemporarilyBanned |
+		// The pool is full at the moment.
+		PoolError::ImmediatelyDropped |
+		// The block id is not known to the pool.
+		// The node might be lagging behind, or during a warp sync.
+		PoolError::InvalidBlockId(_) |
+		// The pool is configured to not accept future transactions.
+		PoolError::RejectedFutureTransaction => {
+			true
+		}
+		_ => false
+	}
 }
 
 #[cfg(test)]
