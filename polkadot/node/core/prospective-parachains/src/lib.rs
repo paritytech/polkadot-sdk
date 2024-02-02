@@ -607,6 +607,14 @@ fn answer_get_backable_candidate(
 	let Some(child_hash) =
 		tree.select_child(&required_path, |candidate| storage.is_backed(candidate))
 	else {
+		gum::trace!(
+			target: LOG_TARGET,
+			?required_path,
+			para_id = ?para,
+			%relay_parent,
+			"Could not find any backable candidate",
+		);
+
 		let _ = tx.send(None);
 		return
 	};
@@ -620,6 +628,14 @@ fn answer_get_backable_candidate(
 		let _ = tx.send(None);
 		return
 	};
+
+	gum::trace!(
+		target: LOG_TARGET,
+		?relay_parent,
+		candidate_hash = ?child_hash,
+		?candidate_relay_parent,
+		"Found backable candidate",
+	);
 
 	let _ = tx.send(Some((child_hash, candidate_relay_parent)));
 }
