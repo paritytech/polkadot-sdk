@@ -177,7 +177,7 @@ mod v_coretime {
 
 		let config = <configuration::Pallet<T>>::config();
 		// coretime_cores was on_demand_cores until now:
-		for on_demand in 0..config.coretime_params.coretime_cores {
+		for on_demand in 0..config.coretime_params.cores {
 			let core = CoreIndex(legacy_count.saturating_add(on_demand as _));
 			let r = assigner_coretime::Pallet::<T>::assign_core(
 				core,
@@ -189,9 +189,9 @@ mod v_coretime {
 				log::error!("Creating assignment for existing on-demand core, failed: {:?}", err);
 			}
 		}
-		let total_cores = config.coretime_params.coretime_cores + legacy_count;
+		let total_cores = config.coretime_params.cores + legacy_count;
 		configuration::ActiveConfig::<T>::mutate(|c| {
-			c.coretime_params.coretime_cores = total_cores;
+			c.coretime_params.cores = total_cores;
 		});
 
 		if let Err(err) = migrate_send_assignments_to_coretime_chain::<T, SendXcm, LegacyLease>() {
@@ -200,9 +200,7 @@ mod v_coretime {
 
 		let single_weight = <T as Config>::WeightInfo::assign_core(1);
 		single_weight
-			.saturating_mul(u64::from(
-				legacy_count.saturating_add(config.coretime_params.coretime_cores),
-			))
+			.saturating_mul(u64::from(legacy_count.saturating_add(config.coretime_params.cores)))
 			// Second read from sending assignments to the coretime chain.
 			.saturating_add(T::DbWeight::get().reads_writes(2, 1))
 	}
@@ -246,10 +244,8 @@ mod v_coretime {
 			Some(mk_coretime_call(crate::coretime::CoretimeCalls::SetLease(p.into(), time_slice)))
 		});
 
-		let core_count: u16 = configuration::Pallet::<T>::config()
-			.coretime_params
-			.coretime_cores
-			.saturated_into();
+		let core_count: u16 =
+			configuration::Pallet::<T>::config().coretime_params.cores.saturated_into();
 		let set_core_count = iter::once(mk_coretime_call(
 			crate::coretime::CoretimeCalls::NotifyCoreCount(core_count),
 		));

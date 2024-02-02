@@ -352,7 +352,7 @@ impl<T: Config> Pallet<T> {
 	fn drop_expired_claims_from_claimqueue() {
 		let now = <frame_system::Pallet<T>>::block_number();
 		let availability_cores = AvailabilityCores::<T>::get();
-		let ttl = <configuration::Pallet<T>>::config().coretime_params.coretime_ttl;
+		let ttl = <configuration::Pallet<T>>::config().coretime_params.ttl;
 
 		ClaimQueue::<T>::mutate(|cq| {
 			for (idx, _) in (0u32..).zip(availability_cores) {
@@ -509,9 +509,8 @@ impl<T: Config> Pallet<T> {
 	/// Return the next thing that will be scheduled on this core assuming it is currently
 	/// occupied and the candidate occupying it times out.
 	pub(crate) fn next_up_on_time_out(core: CoreIndex) -> Option<ScheduledCore> {
-		let max_availability_timeouts = <configuration::Pallet<T>>::config()
-			.coretime_params
-			.coretime_max_availability_timeouts;
+		let max_availability_timeouts =
+			<configuration::Pallet<T>>::config().coretime_params.max_availability_timeouts;
 		Self::next_up_on_available(core).or_else(|| {
 			// Or, if none, the claim currently occupying the core,
 			// as it would be put back on the queue after timing out if number of retries is not at
@@ -586,8 +585,8 @@ impl<T: Config> Pallet<T> {
 		let n_session_cores = T::AssignmentProvider::session_core_count();
 		let cq = ClaimQueue::<T>::get();
 		let config = <configuration::Pallet<T>>::config();
-		let max_availability_timeouts = config.coretime_params.coretime_max_availability_timeouts;
-		let ttl = config.coretime_params.coretime_ttl;
+		let max_availability_timeouts = config.coretime_params.max_availability_timeouts;
+		let ttl = config.coretime_params.ttl;
 
 		for core_idx in 0..n_session_cores {
 			let core_idx = CoreIndex::from(core_idx);

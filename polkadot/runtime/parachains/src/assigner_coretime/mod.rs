@@ -325,7 +325,7 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 
 	fn session_core_count() -> u32 {
 		let config = <configuration::Pallet<T>>::config();
-		config.coretime_params.coretime_cores
+		config.coretime_params.cores
 	}
 }
 
@@ -474,8 +474,8 @@ impl<T: Config> AssignCoretime for Pallet<T> {
 
 		// Add a new core and assign the para to it.
 		let mut config = <configuration::Pallet<T>>::config();
-		let core = config.coretime_params.coretime_cores;
-		config.coretime_params.coretime_cores.saturating_inc();
+		let core = config.coretime_params.cores;
+		config.coretime_params.cores.saturating_inc();
 
 		// `assign_coretime` is only called at genesis or by root, so setting the active
 		// config here is fine.

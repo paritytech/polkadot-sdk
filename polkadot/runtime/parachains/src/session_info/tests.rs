@@ -64,7 +64,7 @@ fn default_config() -> HostConfiguration<BlockNumber> {
 	HostConfiguration {
 		dispute_period: 2,
 		needed_approvals: 3,
-		coretime_params: CoretimeParams { coretime_cores: 1, ..Default::default() },
+		coretime_params: CoretimeParams { cores: 1, ..Default::default() },
 		..Default::default()
 	}
 }
