@@ -228,3 +228,31 @@ where
 
 	Some(element)
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use tokio_stream::wrappers::ReceiverStream;
+
+	#[tokio::test]
+	async fn check_last_stream_element() {
+		let (tx, rx) = tokio::sync::mpsc::channel(16);
+
+		let mut stream = ReceiverStream::new(rx);
+		// Check the stream with one element queued.
+		tx.send(1).await.unwrap();
+		assert_eq!(last_stream_element(&mut stream).await, Some(1));
+
+		// Check the stream with multiple elements.
+		tx.send(1).await.unwrap();
+		tx.send(2).await.unwrap();
+		tx.send(3).await.unwrap();
+		assert_eq!(last_stream_element(&mut stream).await, Some(3));
+
+		// Drop the stream with some elements
+		tx.send(1).await.unwrap();
+		tx.send(2).await.unwrap();
+		drop(tx);
+		assert_eq!(last_stream_element(&mut stream).await, None);
+	}
+}
