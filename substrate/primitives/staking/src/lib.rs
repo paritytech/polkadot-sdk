@@ -299,7 +299,7 @@ pub trait StakingInterface {
 }
 
 /// The amount of exposure for an era that an individual nominator has (susceptible to slashing).
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, Debug,  TypeInfo)]
 pub struct IndividualExposure<AccountId, Balance: HasCompact> {
 	/// The stash account of the nominator in question.
 	pub who: AccountId,
@@ -309,7 +309,7 @@ pub struct IndividualExposure<AccountId, Balance: HasCompact> {
 }
 
 /// A snapshot of the stake backing a single validator in the system.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, Debug,  TypeInfo)]
 pub struct Exposure<AccountId, Balance: HasCompact> {
 	/// The total balance backing this validator.
 	#[codec(compact)]
@@ -370,7 +370,7 @@ impl<
 }
 
 /// A snapshot of the stake backing a single validator in the system.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, Debug,  TypeInfo)]
 pub struct ExposurePage<AccountId, Balance: HasCompact> {
 	/// The total balance of this chunk/page.
 	#[codec(compact)]

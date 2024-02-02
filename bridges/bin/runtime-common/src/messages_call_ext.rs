@@ -31,7 +31,7 @@ use sp_runtime::{transaction_validity::TransactionValidity, RuntimeDebug};
 use sp_std::ops::RangeInclusive;
 
 /// Generic info about a messages delivery/confirmation proof.
-#[derive(PartialEq, RuntimeDebug)]
+#[derive(PartialEq, Debug)]
 pub struct BaseMessagesProofInfo {
 	/// Message lane, used by the call.
 	pub lane_id: LaneId,
@@ -55,7 +55,7 @@ impl BaseMessagesProofInfo {
 }
 
 /// Occupation state of the unrewarded relayers vector.
-#[derive(PartialEq, RuntimeDebug)]
+#[derive(PartialEq, Debug)]
 #[cfg_attr(test, derive(Default))]
 pub struct UnrewardedRelayerOccupation {
 	/// The number of remaining unoccupied entries for new relayers.
@@ -65,7 +65,7 @@ pub struct UnrewardedRelayerOccupation {
 }
 
 /// Info about a `ReceiveMessagesProof` call which tries to update a single lane.
-#[derive(PartialEq, RuntimeDebug)]
+#[derive(PartialEq, Debug)]
 pub struct ReceiveMessagesProofInfo {
 	/// Base messages proof info
 	pub base: BaseMessagesProofInfo,
@@ -105,7 +105,7 @@ impl ReceiveMessagesProofInfo {
 }
 
 /// Info about a `ReceiveMessagesDeliveryProof` call which tries to update a single lane.
-#[derive(PartialEq, RuntimeDebug)]
+#[derive(PartialEq, Debug)]
 pub struct ReceiveMessagesDeliveryProofInfo(pub BaseMessagesProofInfo);
 
 impl ReceiveMessagesDeliveryProofInfo {
@@ -117,7 +117,7 @@ impl ReceiveMessagesDeliveryProofInfo {
 
 /// Info about a `ReceiveMessagesProof` or a `ReceiveMessagesDeliveryProof` call
 /// which tries to update a single lane.
-#[derive(PartialEq, RuntimeDebug)]
+#[derive(PartialEq, Debug)]
 pub enum CallInfo {
 	/// Messages delivery call info.
 	ReceiveMessagesProof(ReceiveMessagesProofInfo),

@@ -109,7 +109,7 @@ struct Schedule<N> {
 /// Contains pointers to first and last schedule into `CoreSchedules` for that core and keeps track
 /// of the currently active work as well.
 #[derive(Encode, Decode, TypeInfo, Default)]
-#[cfg_attr(test, derive(PartialEq, RuntimeDebug, Clone))]
+#[cfg_attr(test, derive(PartialEq, Debug,  Clone))]
 struct CoreDescriptor<N> {
 	/// Meta data about the queued schedules for this core.
 	queue: Option<QueueDescriptor<N>>,
@@ -131,7 +131,7 @@ struct QueueDescriptor<N> {
 }
 
 #[derive(Encode, Decode, TypeInfo)]
-#[cfg_attr(test, derive(PartialEq, RuntimeDebug, Clone))]
+#[cfg_attr(test, derive(PartialEq, Debug,  Clone))]
 struct WorkState<N> {
 	/// Assignments with current state.
 	///
@@ -156,7 +156,7 @@ struct WorkState<N> {
 }
 
 #[derive(Encode, Decode, TypeInfo)]
-#[cfg_attr(test, derive(PartialEq, RuntimeDebug, Clone, Copy))]
+#[cfg_attr(test, derive(PartialEq, Debug,  Clone, Copy))]
 struct AssignmentState {
 	/// Ratio of the core this assignment has.
 	///

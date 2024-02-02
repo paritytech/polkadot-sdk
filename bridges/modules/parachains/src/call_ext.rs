@@ -25,7 +25,7 @@ use sp_runtime::{
 };
 
 /// Info about a `SubmitParachainHeads` call which tries to update a single parachain.
-#[derive(PartialEq, RuntimeDebug)]
+#[derive(PartialEq, Debug)]
 pub struct SubmitParachainHeadsInfo {
 	/// Number of the finalized relay block that has been used to prove parachain finality.
 	pub at_relay_block_number: RelayBlockNumber,

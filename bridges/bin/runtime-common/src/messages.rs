@@ -95,7 +95,7 @@ pub mod source {
 	/// - hash of finalized header;
 	/// - storage proof of inbound lane state;
 	/// - lane id.
-	#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+	#[derive(Clone, Decode, Encode, Eq, PartialEq, Debug,  TypeInfo)]
 	pub struct FromBridgedChainMessagesDeliveryProof<BridgedHeaderHash> {
 		/// Hash of the bridge header the proof is for.
 		pub bridged_header_hash: BridgedHeaderHash,
@@ -222,7 +222,7 @@ pub mod target {
 	/// - storage proof of messages and (optionally) outbound lane state;
 	/// - lane id;
 	/// - nonces (inclusive range) of messages which are included in this proof.
-	#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+	#[derive(Clone, Decode, Encode, Eq, PartialEq, Debug,  TypeInfo)]
 	pub struct FromBridgedChainMessagesProof<BridgedHeaderHash> {
 		/// Hash of the finalized bridged header the proof is for.
 		pub bridged_header_hash: BridgedHeaderHash,

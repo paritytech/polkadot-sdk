@@ -88,7 +88,7 @@ pub type ParaHash = crate::Hash;
 pub type ParaHasher = crate::Hasher;
 
 /// Raw storage proof of parachain heads, stored in polkadot-like chain runtime.
-#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Decode, Encode, Eq, PartialEq, Debug,  TypeInfo)]
 pub struct ParaHeadsProof {
 	/// Unverified storage proof of finalized parachain heads.
 	pub storage_proof: RawStorageProof,

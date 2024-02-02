@@ -243,7 +243,7 @@ pub mod pallet {
 	}
 
 	/// The reason why the safe-mode was deactivated.
-	#[derive(Copy, Clone, PartialEq, Eq, RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
+	#[derive(Copy, Clone, PartialEq, Eq, Debug,  Encode, Decode, TypeInfo, MaxEncodedLen)]
 	pub enum ExitReason {
 		/// The safe-mode was automatically deactivated after it's duration ran out.
 		Timeout,

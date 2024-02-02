@@ -29,7 +29,7 @@ use milagro_bls::PublicKey as PublicKeyPrepared;
 pub type ValidatorIndex = u64;
 pub type ForkVersion = [u8; 4];
 
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, PartialEq, Debug,  TypeInfo)]
 pub struct ForkVersions {
 	pub genesis: Fork,
 	pub altair: Fork,
@@ -38,13 +38,13 @@ pub struct ForkVersions {
 	pub deneb: Fork,
 }
 
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, PartialEq, Debug,  TypeInfo)]
 pub struct Fork {
 	pub version: [u8; 4],
 	pub epoch: u64,
 }
 
-#[derive(Copy, Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, Encode, Decode, PartialEq, Debug,  TypeInfo)]
 pub struct PublicKey(pub [u8; PUBKEY_SIZE]);
 
 impl Default for PublicKey {
@@ -85,7 +85,7 @@ impl Serialize for PublicKey {
 	}
 }
 
-#[derive(Copy, Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, Encode, Decode, PartialEq, Debug,  TypeInfo)]
 pub struct Signature(pub [u8; SIGNATURE_SIZE]);
 
 impl Default for Signature {
@@ -124,7 +124,7 @@ pub struct FinalizedHeaderState {
 	pub beacon_slot: u64,
 }
 
-#[derive(Clone, Default, Encode, Decode, PartialEq, RuntimeDebug)]
+#[derive(Clone, Default, Encode, Decode, PartialEq, Debug)]
 pub struct ForkData {
 	// 1 or 0 bit, indicates whether a sync committee participated in a vote
 	pub current_version: [u8; 4],
@@ -137,7 +137,7 @@ impl ForkData {
 	}
 }
 
-#[derive(Clone, Default, Encode, Decode, PartialEq, RuntimeDebug)]
+#[derive(Clone, Default, Encode, Decode, PartialEq, Debug)]
 pub struct SigningData {
 	pub object_root: H256,
 	pub domain: H256,
@@ -569,7 +569,7 @@ mod tests {
 }
 
 /// Operating modes for beacon client
-#[derive(Encode, Decode, Copy, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Debug,  TypeInfo)]
 pub enum Mode {
 	Active,
 	Blocked,

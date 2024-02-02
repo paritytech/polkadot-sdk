@@ -109,7 +109,7 @@ pub use sp_storage as storage;
 pub use sp_std;
 
 /// Hex-serialized shim for `Vec<u8>`.
-#[derive(PartialEq, Eq, Clone, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize, Hash, PartialOrd, Ord))]
 pub struct Bytes(#[cfg_attr(feature = "serde", serde(with = "bytes"))] pub Vec<u8>);
 
@@ -322,7 +322,7 @@ pub fn to_substrate_wasm_fn_return_value(value: &impl Encode) -> u64 {
 
 /// The void type - it cannot exist.
 // Oh rust, you crack me up...
-#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Decode, Encode, Eq, PartialEq, Debug,  TypeInfo, MaxEncodedLen)]
 pub enum Void {}
 
 /// Macro for creating `Maybe*` marker traits.

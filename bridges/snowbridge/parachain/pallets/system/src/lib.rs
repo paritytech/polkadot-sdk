@@ -112,7 +112,7 @@ where
 }
 
 /// Whether a fee should be withdrawn to an account for sending an outbound message
-#[derive(Clone, PartialEq, RuntimeDebug)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum PaysFee<T>
 where
 	T: Config,

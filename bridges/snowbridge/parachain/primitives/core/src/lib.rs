@@ -126,7 +126,7 @@ impl AsRef<[u8]> for ChannelId {
 	}
 }
 
-#[derive(Clone, Encode, Decode, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(Clone, Encode, Decode, Debug,  MaxEncodedLen, TypeInfo)]
 pub struct Channel {
 	/// ID of the agent contract deployed on Ethereum
 	pub agent_id: AgentId,

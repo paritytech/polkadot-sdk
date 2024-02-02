@@ -33,7 +33,7 @@ use sp_std::{
 };
 
 /// Storage key.
-#[derive(PartialEq, Eq, RuntimeDebug)]
+#[derive(PartialEq, Eq, Debug)]
 #[cfg_attr(
 	feature = "serde",
 	derive(Serialize, Deserialize, Hash, PartialOrd, Ord, Clone, Encode, Decode)
@@ -99,7 +99,7 @@ impl From<Vec<u8>> for TrackedStorageKey {
 }
 
 /// Storage key of a child trie, it contains the prefix to the key.
-#[derive(PartialEq, Eq, RuntimeDebug)]
+#[derive(PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize, Hash, PartialOrd, Ord, Clone))]
 #[repr(transparent)]
 #[derive(RefCast)]
@@ -140,7 +140,7 @@ impl PrefixedStorageKey {
 }
 
 /// Storage data associated to a [`StorageKey`].
-#[derive(PartialEq, Eq, RuntimeDebug)]
+#[derive(PartialEq, Eq, Debug)]
 #[cfg_attr(
 	feature = "serde",
 	derive(Serialize, Deserialize, Hash, PartialOrd, Ord, Clone, Encode, Decode, Default)
