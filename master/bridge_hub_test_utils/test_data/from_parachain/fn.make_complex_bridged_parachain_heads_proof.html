@@ -4,7 +4,7 @@
     relay_header_number: BlockNumberOf&lt;BridgedRelayChain&gt;,
     bridged_para_id: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u32.html">u32</a>
 ) -&gt; (HeaderOf&lt;BridgedRelayChain&gt;, GrandpaJustification&lt;HeaderOf&lt;BridgedRelayChain&gt;&gt;, ParaHead, <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(ParaId, ParaHash)&gt;, ParaHeadsProof)<span class="where fmt-newline">where
-    BridgedRelayChain: Chain&lt;Hash = RelayBlockHash, BlockNumber = RelayBlockNumber&gt; + ChainWithGrandpa,
+    BridgedRelayChain: Chain&lt;Hash = <a class="type" href="../../../pallet_bridge_parachains/type.RelayBlockHash.html" title="type pallet_bridge_parachains::RelayBlockHash">RelayBlockHash</a>, BlockNumber = <a class="type" href="../../../pallet_bridge_parachains/type.RelayBlockNumber.html" title="type pallet_bridge_parachains::RelayBlockNumber">RelayBlockNumber</a>&gt; + ChainWithGrandpa,
     MB: MessageBridge,
     &lt;MB as MessageBridge&gt;::BridgedChain: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,
     &lt;MB as MessageBridge&gt;::ThisChain: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,
