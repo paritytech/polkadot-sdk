@@ -141,12 +141,8 @@ impl MockRuntimeApi {
 							request,
 							RuntimeApiRequest::CandidateEvents(sender),
 						) => {
-							let candidate_events = self
-								.state
-								.included_candidates
-								.get(&request)
-								.expect("Unknown block hash");
-							let _ = sender.send(Ok(candidate_events.clone()));
+							let candidate_events = self.state.included_candidates.get(&request);
+							let _ = sender.send(Ok(candidate_events.cloned().unwrap_or_default()));
 						},
 						RuntimeApiMessage::Request(
 							_block_hash,
