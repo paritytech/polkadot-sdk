@@ -489,24 +489,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		r
 	}
 
-	fn subsume_asset(&mut self, asset: MultiAsset) -> Result<(), XcmError> {
-		// worst-case, holding.len becomes 2 * holding_limit.
-		ensure!(self.holding.len() < self.holding_limit * 2, XcmError::HoldingWouldOverflow);
-		self.holding.subsume(asset);
-		Ok(())
-	}
-
-	fn subsume_assets(&mut self, assets: Assets) -> Result<(), XcmError> {
-		// worst-case, holding.len becomes 2 * holding_limit.
-		// this guarantees that if holding.len() == holding_limit and you have holding_limit more
-		// items (which has a best case outcome of holding.len() == holding_limit), then you'll
-		// be guaranteed of making the operation.
-		let worst_case_holding_len = self.holding.len() + assets.len();
-		ensure!(worst_case_holding_len <= self.holding_limit * 2, XcmError::HoldingWouldOverflow);
-		self.holding.subsume_assets(assets);
-		Ok(())
-	}
-
 	/// Process a single XCM instruction, mutating the state of the XCM virtual machine.
 	fn process_instruction(
 		&mut self,

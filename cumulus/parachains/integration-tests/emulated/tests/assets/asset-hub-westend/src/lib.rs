@@ -52,7 +52,7 @@ pub use westend_system_emulated_network::{
 	AssetHubWestendPara as AssetHubWestend, AssetHubWestendParaReceiver as AssetHubWestendReceiver,
 	AssetHubWestendParaSender as AssetHubWestendSender, BridgeHubWestendPara as BridgeHubWestend,
 	BridgeHubWestendParaReceiver as BridgeHubWestendReceiver,
-	CollectivesWestendPara as CollectivesWestend, PenpalAPara as PenpalA,
+	PenpalAPara as PenpalA,
 	PenpalAParaReceiver as PenpalAReceiver, PenpalBPara as PenpalB,
 	PenpalBParaReceiver as PenpalBReceiver, PenpalBParaSender as PenpalBSender,
 	WestendRelay as Westend, WestendRelayReceiver as WestendReceiver,
