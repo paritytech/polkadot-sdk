@@ -48,6 +48,7 @@ std = [
 	"sp-externalities?/std",
 	"sp-metadata-ir?/std",
 	"sp-runtime/std",
+	"sp-runtime-interface/std",
 	"sp-state-machine/std",
 	"sp-std/std",
 	"sp-test-primitives/std",
