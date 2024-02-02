@@ -29,17 +29,14 @@ use syn::{
 };
 
 /// Derive all traits that are needed to place a type into FRAME storage.
-///
-/// This function only parses the inputs and then delegates the actual work to
-/// `derive_frame_stored_inner`.
 pub fn derive_frame_stored(attrs: TokenStream, input: TokenStream) -> TokenStream {
+	let input = parse_macro_input!(input as DeriveInput);
+	let attrs = parse_macro_input!(attrs as CustomAttributes);
+
 	let frame_support = match generate_access_from_frame_or_crate("frame-support") {
 		Ok(path) => path,
 		Err(err) => return err.to_compile_error().into(),
 	};
-
-	let input = parse_macro_input!(input as DeriveInput);
-	let attrs = parse_macro_input!(attrs as CustomAttributes);
 
 	quote::quote! {
 		#[derive(
@@ -61,16 +58,11 @@ mod keywords {
 }
 
 /// Custom meta attributes for the `#[frame_support::stored(..)]` macro.
-pub struct CustomAttributes(Vec<CustomAttribute>);
+pub struct CustomAttributes(Punctuated<CustomAttribute, Token![,]>);
 
 impl Parse for CustomAttributes {
 	fn parse(input: &ParseBuffer) -> Result<Self> {
-		if input.is_empty() {
-			return Ok(Self(Vec::new()))
-		}
-
-		let attrs = input.parse_terminated(CustomAttribute::parse, Token![,])?;
-		Ok(Self(attrs.into_iter().collect()))
+		Punctuated::parse_terminated(input).map(Self)
 	}
 }
 
@@ -82,7 +74,7 @@ impl ToTokens for CustomAttributes {
 	}
 }
 
-/// A custom attribute helper for the `#[frame_support::stored]` attribute.
+/// A custom attribute helper for the `#[frame_support::stored(..)]` attribute.
 ///
 /// Can be used to tweak the behaviour of the attribute.
 #[derive(Debug, Clone)]
@@ -123,9 +115,7 @@ impl ToTokens for CustomAttribute {
 
 /// Do not apply any trait bounds to the given types.
 #[derive(Debug, Clone)]
-pub struct SkipAttribute {
-	types: Punctuated<Type, Token![,]>,
-}
+pub struct SkipAttribute(Punctuated<Type, Token![,]>);
 
 impl Parse for SkipAttribute {
 	fn parse(input: &ParseBuffer) -> Result<Self> {
@@ -134,29 +124,26 @@ impl Parse for SkipAttribute {
 		let content;
 		syn::parenthesized!(content in input);
 
-		let types = content.parse_terminated(Type::parse, Token![,])?;
-		Ok(Self { types })
+		content.parse_terminated(Type::parse, Token![,]).map(Self)
 	}
 }
 
 impl ToTokens for SkipAttribute {
 	fn to_tokens(&self, tokens: &mut TokenStream2) {
-		let tys = self.types.iter().collect::<Vec<_>>();
+		let tys = self.0.iter().collect::<Vec<_>>();
 
 		tokens.extend(quote::quote! {
-			#[scale_info(skip_type_params(#(#tys),*))]
-			#[codec(encode_bound(skip_type_params(#(#tys),*)))]
-			#[codec(decode_bound(skip_type_params(#(#tys),*)))]
-			#[codec(mel_bound(skip_type_params(#(#tys),*)))]
+			#[scale_info(			skip_type_params(#( #tys ),*))]
+			#[codec(encode_bound(	skip_type_params(#( #tys ),*)))]
+			#[codec(decode_bound(	skip_type_params(#( #tys ),*)))]
+			#[codec(mel_bound(		skip_type_params(#( #tys ),*)))]
 		});
 	}
 }
 
 /// Apply a specific bound to each type.
 #[derive(Debug, Clone)]
-pub struct MelBoundAttribute {
-	bounds: Vec<MelBound>,
-}
+pub struct MelBoundAttribute(Punctuated<MelBound, Token![,]>);
 
 impl Parse for MelBoundAttribute {
 	fn parse(input: &ParseBuffer) -> Result<Self> {
@@ -165,28 +152,13 @@ impl Parse for MelBoundAttribute {
 		let content;
 		syn::parenthesized!(content in input);
 
-		let mut bounds = Vec::new();
-		loop {
-			if content.is_empty() {
-				break
-			}
-
-			let bound: MelBound = content.parse()?;
-			bounds.push(bound);
-
-			let lookahead = content.lookahead1();
-			if lookahead.peek(Token![,]) {
-				content.parse::<Token![,]>()?;
-			}
-		}
-
-		Ok(Self { bounds })
+		content.parse_terminated(MelBound::parse, Token![,]).map(Self)
 	}
 }
 
 impl ToTokens for MelBoundAttribute {
 	fn to_tokens(&self, tokens: &mut TokenStream2) {
-		for bound in &self.bounds {
+		for bound in &self.0 {
 			bound.to_tokens(tokens);
 		}
 	}
@@ -195,61 +167,40 @@ impl ToTokens for MelBoundAttribute {
 /// Require `ty` to fullfil the given bounds to be eligible for MEL.
 #[derive(Debug, Clone)]
 pub struct MelBound {
-	ty: Type,
+	typ: Type,
 	bounds: Punctuated<Type, Token![+]>,
 }
 
 impl Parse for MelBound {
 	fn parse(input: &ParseBuffer) -> Result<Self> {
-		let ty = input.parse().unwrap();
-		let lookahead = input.lookahead1();
+		let typ = input.parse().unwrap();
 
-		if lookahead.peek(Token![:]) {
-			input.parse::<Token![:]>().unwrap();
+		let bounds = if input.parse::<Token![:]>().is_ok() {
+			Punctuated::parse_separated_nonempty(input)?
 		} else {
-			return Ok(Self { ty, bounds: Punctuated::new() })
-		}
+			Punctuated::new()
+		};
 
-		let mut bounds = Punctuated::new();
-		loop {
-			bounds.push(input.parse().unwrap());
-			if input.is_empty() {
-				break
-			}
-
-			let lookahead = input.lookahead1();
-
-			if lookahead.peek(Token![+]) {
-				input.parse::<Token![+]>().unwrap();
-			} else if lookahead.peek(Token![,]) {
-				break
-			} else {
-				break
-			}
-		}
-
-		Ok(Self { ty, bounds })
+		Ok(Self { typ, bounds })
 	}
 }
 
 impl ToTokens for MelBound {
 	fn to_tokens(&self, tokens: &mut TokenStream2) {
-		let ty = &self.ty;
+		let typ = &self.typ;
 		let bounds = self.bounds.iter().collect::<Vec<_>>();
 
 		tokens.extend(quote::quote! {
-			#[codec(mel_bound(#ty: #(#bounds)+*))]
-			#[codec(encode_bound(#ty: #(#bounds)+*))]
-			#[codec(decode_bound(#ty: #(#bounds)+*))]
+			#[codec(mel_bound(	 	#typ: #( #bounds )+*))]
+			#[codec(encode_bound(	#typ: #( #bounds )+*))]
+			#[codec(decode_bound(	#typ: #( #bounds )+*))]
 		});
 	}
 }
 
 /// Require all `tys` to fullfil the `MaxEncodedLen` bound.
 #[derive(Debug, Clone)]
-pub struct MelAttribute {
-	tys: Punctuated<Type, Token![,]>,
-}
+pub struct MelAttribute(Punctuated<Type, Token![,]>);
 
 impl Parse for MelAttribute {
 	fn parse(input: &ParseBuffer) -> Result<Self> {
@@ -258,18 +209,17 @@ impl Parse for MelAttribute {
 		let content;
 		syn::parenthesized!(content in input);
 
-		let tys = content.parse_terminated(Type::parse, Token![,])?;
-		Ok(Self { tys })
+		content.parse_terminated(Type::parse, Token![,]).map(Self)
 	}
 }
 
 impl ToTokens for MelAttribute {
 	fn to_tokens(&self, tokens: &mut TokenStream2) {
+		let tys = self.0.iter();
 		let frame_support = match generate_access_from_frame_or_crate("frame-support") {
 			Ok(path) => path,
 			Err(err) => return tokens.extend(err.to_compile_error()),
 		};
-		let tys = self.tys.iter();
 
 		tokens.extend(quote::quote! {
 			#[codec(mel_bound(
