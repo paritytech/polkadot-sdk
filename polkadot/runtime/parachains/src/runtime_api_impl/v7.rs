@@ -45,6 +45,8 @@ pub fn validators<T: initializer::Config>() -> Vec<ValidatorId> {
 /// Implementation for the `validator_groups` function of the runtime API.
 pub fn validator_groups<T: initializer::Config>(
 ) -> (Vec<Vec<ValidatorIndex>>, GroupRotationInfo<BlockNumberFor<T>>) {
+	// This formula needs to be the same as the one we use
+	// when populating group_responsible in `availability_cores`
 	let now = <frame_system::Pallet<T>>::block_number() + One::one();
 
 	let groups = <scheduler::Pallet<T>>::validator_groups();
