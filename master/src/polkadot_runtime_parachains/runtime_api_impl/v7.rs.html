@@ -488,6 +488,13 @@
 <a href="#488" id="488">488</a>
 <a href="#489" id="489">489</a>
 <a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -535,7 +542,9 @@
 <span class="doccomment">/// Implementation for the `validator_groups` function of the runtime API.
 </span><span class="kw">pub fn </span>validator_groups&lt;T: initializer::Config&gt;(
 ) -&gt; (Vec&lt;Vec&lt;ValidatorIndex&gt;&gt;, GroupRotationInfo&lt;BlockNumberFor&lt;T&gt;&gt;) {
-	<span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number() + One::one();
+	<span class="comment">// This formula needs to be the same as the one we use
+	// when populating group_responsible in `availability_cores`
+	</span><span class="kw">let </span>now = &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number() + One::one();
 
 	<span class="kw">let </span>groups = &lt;scheduler::Pallet&lt;T&gt;&gt;::validator_groups();
 	<span class="kw">let </span>rotation_info = &lt;scheduler::Pallet&lt;T&gt;&gt;::group_rotation_info(now);
@@ -585,6 +594,11 @@
 						.expect(<span class="string">&quot;Occupied core always has pending availability; qed&quot;</span>);
 
 				<span class="kw">let </span>backed_in_number = <span class="kw-2">*</span>pending_availability.backed_in_number();
+
+				<span class="comment">// Use the same block number for determining the responsible group as what the
+				// backing subsystem would use when it calls validator_groups api.
+				</span><span class="kw">let </span>backing_group_allocation_time =
+					pending_availability.relay_parent_number() + One::one();
 				CoreState::Occupied(OccupiedCore {
 					next_up_on_available: &lt;scheduler::Pallet&lt;T&gt;&gt;::next_up_on_available(CoreIndex(
 						i <span class="kw">as </span>u32,
@@ -596,7 +610,7 @@
 					)),
 					availability: pending_availability.availability_votes().clone(),
 					group_responsible: group_responsible_for(
-						backed_in_number,
+						backing_group_allocation_time,
 						pending_availability.core_occupied(),
 					),
 					candidate_hash: pending_availability.candidate_hash(),
