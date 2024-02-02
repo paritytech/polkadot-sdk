@@ -327,7 +327,7 @@ pub fn can_calculate_fee_for_complex_message_delivery_transaction() {
 		Perbill::from_percent(33),
 		Some(-33),
 		&format!(
-			"Estimate fee for `complex_message_delivery` for runtime: {:?}",
+			"Estimate fee for `single message delivery` for runtime: {:?}",
 			<Runtime as frame_system::Config>::Version::get()
 		),
 	)
@@ -346,7 +346,7 @@ pub fn can_calculate_fee_for_complex_message_confirmation_transaction() {
 		Perbill::from_percent(33),
 		Some(-33),
 		&format!(
-			"Estimate fee for `complex_message_confirmation_` for runtime: {:?}",
+			"Estimate fee for `single message confirmation` for runtime: {:?}",
 			<Runtime as frame_system::Config>::Version::get()
 		),
 	)

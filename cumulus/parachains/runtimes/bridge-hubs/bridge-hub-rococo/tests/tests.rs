@@ -432,7 +432,7 @@ mod bridge_hub_westend_tests {
 			Perbill::from_percent(33),
 			Some(-33),
 			&format!(
-				"Estimate fee for `ExportMessage` for runtime: {:?}",
+				"Estimate fee for `single message delivery` for runtime: {:?}",
 				<Runtime as frame_system::Config>::Version::get()
 			),
 		)
@@ -451,7 +451,7 @@ mod bridge_hub_westend_tests {
 			Perbill::from_percent(33),
 			Some(-33),
 			&format!(
-				"Estimate fee for `ExportMessage` for runtime: {:?}",
+				"Estimate fee for `single message confirmation` for runtime: {:?}",
 				<Runtime as frame_system::Config>::Version::get()
 			),
 		)
@@ -613,9 +613,10 @@ mod bridge_hub_bulletin_tests {
 				>(collator_session_keys(), construct_and_estimate_extrinsic_fee)
 			},
 			Perbill::from_percent(33),
-			Some(-33),
+			None, /* we don't want lowering according to the Bulletin setup, because
+			       * `from_grandpa_chain` is cheaper then `from_parachain_chain` */
 			&format!(
-				"Estimate fee for `ExportMessage` for runtime: {:?}",
+				"Estimate fee for `single message delivery` for runtime: {:?}",
 				<Runtime as frame_system::Config>::Version::get()
 			),
 		)
@@ -632,9 +633,10 @@ mod bridge_hub_bulletin_tests {
 				>(collator_session_keys(), construct_and_estimate_extrinsic_fee)
 			},
 			Perbill::from_percent(33),
-			Some(-33),
+			None, /* we don't want lowering according to the Bulletin setup, because
+			       * `from_grandpa_chain` is cheaper then `from_parachain_chain` */
 			&format!(
-				"Estimate fee for `ExportMessage` for runtime: {:?}",
+				"Estimate fee for `single message confirmation` for runtime: {:?}",
 				<Runtime as frame_system::Config>::Version::get()
 			),
 		)
