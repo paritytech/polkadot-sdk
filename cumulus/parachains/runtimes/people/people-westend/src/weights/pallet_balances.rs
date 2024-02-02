@@ -131,9 +131,17 @@ impl<T: frame_system::Config> pallet_balances::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	/// Storage: System Account (r:999 w:999)
-	/// Proof: System Account (max_values: None, max_size: Some(128), added: 2603, mode: MaxEncodedLen)
-	/// The range of component `u` is `[1, 1000]`.
+	/// Storage: `Balances::InactiveIssuance` (r:1 w:0)
+	/// Proof: `Balances::InactiveIssuance` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
+	fn force_adjust_total_issuance() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `1501`
+		// Minimum execution time: 5_132_000 picoseconds.
+		Weight::from_parts(5_467_000, 0)
+			.saturating_add(Weight::from_parts(0, 1501))
+			.saturating_add(T::DbWeight::get().reads(1))
+	}
 	fn upgrade_accounts(u: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0 + u * (136 ±0)`

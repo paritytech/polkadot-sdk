@@ -2,7 +2,7 @@ use super::GlobalConsensusEthereumConvertsFor;
 use crate::inbound::CallIndex;
 use frame_support::parameter_types;
 use hex_literal::hex;
-use xcm::v4::prelude::*;
+use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
 
 const NETWORK: NetworkId = Ethereum { chain_id: 11155111 };

@@ -148,7 +148,7 @@ impl<B: Block> OnDemandJustificationsEngine<B> {
 		if let Some(peer) = self.try_next_peer() {
 			self.request_from_peer(peer, RequestInfo { block, active_set });
 		} else {
-			metric_inc!(self, beefy_on_demand_justification_no_peer_to_request_from);
+			metric_inc!(self.metrics, beefy_on_demand_justification_no_peer_to_request_from);
 			debug!(
 				target: BEEFY_SYNC_LOG_TARGET,
 				"🥩 no good peers to request justif #{:?} from", block
@@ -194,13 +194,13 @@ impl<B: Block> OnDemandJustificationsEngine<B> {
 				);
 				match e {
 					RequestFailure::Refused => {
-						metric_inc!(self, beefy_on_demand_justification_peer_refused);
+						metric_inc!(self.metrics, beefy_on_demand_justification_peer_refused);
 						let peer_report =
 							PeerReport { who: *peer, cost_benefit: cost::REFUSAL_RESPONSE };
 						Error::InvalidResponse(peer_report)
 					},
 					_ => {
-						metric_inc!(self, beefy_on_demand_justification_peer_error);
+						metric_inc!(self.metrics, beefy_on_demand_justification_peer_error);
 						Error::ResponseError
 					},
 				}
@@ -212,7 +212,7 @@ impl<B: Block> OnDemandJustificationsEngine<B> {
 					&req_info.active_set,
 				)
 				.map_err(|(err, signatures_checked)| {
-					metric_inc!(self, beefy_on_demand_justification_invalid_proof);
+					metric_inc!(self.metrics, beefy_on_demand_justification_invalid_proof);
 					debug!(
 						target: BEEFY_SYNC_LOG_TARGET,
 						"🥩 for on demand justification #{:?}, peer {:?} responded with invalid proof: {:?}",
@@ -261,7 +261,7 @@ impl<B: Block> OnDemandJustificationsEngine<B> {
 				}
 			},
 			Ok(proof) => {
-				metric_inc!(self, beefy_on_demand_justification_good_proof);
+				metric_inc!(self.metrics, beefy_on_demand_justification_good_proof);
 				debug!(
 					target: BEEFY_SYNC_LOG_TARGET,
 					"🥩 received valid on-demand justif #{:?} from {:?}", block, peer
