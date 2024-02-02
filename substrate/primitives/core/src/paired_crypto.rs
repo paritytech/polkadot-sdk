@@ -19,8 +19,10 @@
 
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
-use crate::crypto::{ByteArray, CryptoType, Derive, Public as PublicT, UncheckedFrom};
-use crate::crypto::{DeriveError, DeriveJunction, Pair as PairT, SecretStringError};
+use crate::crypto::{
+	ByteArray, CryptoType, Derive, DeriveError, DeriveJunction, Pair as PairT, Public as PublicT,
+	SecretStringError, UncheckedFrom,
+};
 
 use sp_std::vec::Vec;
 
@@ -37,12 +39,11 @@ use sp_std::convert::TryFrom;
 /// ECDSA and BLS12-377 paired crypto scheme
 #[cfg(feature = "bls-experimental")]
 pub mod ecdsa_bls377 {
+	use crate::{bls377, crypto::CryptoTypeId, ecdsa};
 	#[cfg(feature = "full_crypto")]
-	use crate::{Hasher, crypto::{Pair as PairT, UncheckedFrom}};
 	use crate::{
-		bls377,
-		crypto::{CryptoTypeId},
-		ecdsa,
+		crypto::{Pair as PairT, UncheckedFrom},
+		Hasher,
 	};
 
 	/// An identifier used to match public keys against BLS12-377 keys

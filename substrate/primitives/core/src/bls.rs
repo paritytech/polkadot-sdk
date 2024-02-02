@@ -19,8 +19,10 @@
 
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
-use crate::crypto::{ByteArray, CryptoType, Derive, Public as TraitPublic, UncheckedFrom};
-use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError};
+use crate::crypto::{
+	ByteArray, CryptoType, Derive, DeriveError, DeriveJunction, Pair as TraitPair,
+	Public as TraitPublic, SecretStringError, UncheckedFrom,
+};
 
 use sp_std::vec::Vec;
 
@@ -32,8 +34,10 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(all(not(feature = "std"), feature = "serde"))]
 use sp_std::alloc::{format, string::String};
 
-use w3f_bls::{DoublePublicKey, DoubleSignature, EngineBLS, SerializableToBytes, TinyBLS381};
-use w3f_bls::{DoublePublicKeyScheme, Keypair, Message, SecretKey};
+use w3f_bls::{
+	DoublePublicKey, DoublePublicKeyScheme, DoubleSignature, EngineBLS, Keypair, Message,
+	SecretKey, SerializableToBytes, TinyBLS381,
+};
 
 use sp_runtime_interface::pass_by::{self, PassBy, PassByInner};
 use sp_std::{convert::TryFrom, marker::PhantomData, ops::Deref};
