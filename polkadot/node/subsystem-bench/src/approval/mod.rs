@@ -805,6 +805,7 @@ fn build_overseer(
 		state.candidate_hashes_by_block(),
 		state.candidate_events_by_block(),
 		Some(state.babe_epoch.clone()),
+		1,
 	);
 	let mock_tx_bridge = MockNetworkBridgeTx::new(
 		network.clone(),

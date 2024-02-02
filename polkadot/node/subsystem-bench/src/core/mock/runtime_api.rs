@@ -19,7 +19,7 @@
 use itertools::Itertools;
 use polkadot_primitives::{
 	vstaging::NodeFeatures, CandidateEvent, CandidateReceipt, CoreState, GroupIndex, IndexedVec,
-	OccupiedCore, SessionInfo, ValidatorIndex,
+	OccupiedCore, SessionIndex, SessionInfo, ValidatorIndex,
 };
 
 use bitvec::prelude::BitVec;
@@ -46,6 +46,8 @@ pub struct RuntimeApiState {
 	// Included candidates per bock
 	included_candidates: HashMap<H256, Vec<CandidateEvent>>,
 	babe_epoch: Option<BabeEpoch>,
+	// The session child index,
+	session_index: SessionIndex,
 }
 
 /// A mocked `runtime-api` subsystem.
@@ -61,6 +63,7 @@ impl MockRuntimeApi {
 		candidate_hashes: HashMap<H256, Vec<CandidateReceipt>>,
 		included_candidates: HashMap<H256, Vec<CandidateEvent>>,
 		babe_epoch: Option<BabeEpoch>,
+		session_index: SessionIndex,
 	) -> MockRuntimeApi {
 		Self {
 			state: RuntimeApiState {
@@ -68,6 +71,7 @@ impl MockRuntimeApi {
 				candidate_hashes,
 				included_candidates,
 				babe_epoch,
+				session_index,
 			},
 			config,
 		}
@@ -174,7 +178,7 @@ impl MockRuntimeApi {
 							RuntimeApiRequest::SessionIndexForChild(sender),
 						) => {
 							// Session is always the same.
-							let _ = sender.send(Ok(1));
+							let _ = sender.send(Ok(self.state.session_index));
 						},
 						RuntimeApiMessage::Request(
 							block_hash,

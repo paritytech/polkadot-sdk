@@ -180,6 +180,7 @@ fn prepare_test_inner(
 		candidate_hashes,
 		Default::default(),
 		Default::default(),
+		0,
 	);
 
 	let availability_state = NetworkAvailabilityState {
@@ -251,7 +252,7 @@ fn prepare_test_inner(
 				Metrics::try_register(&dependencies.registry).unwrap(),
 			);
 
-			let block_headers = (0..=config.num_blocks)
+			let block_headers = (1..=config.num_blocks)
 				.map(|block_number| {
 					(
 						Hash::repeat_byte(block_number as u8),
