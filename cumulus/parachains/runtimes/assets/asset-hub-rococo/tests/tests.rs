@@ -1263,6 +1263,12 @@ fn change_xcm_bridge_hub_router_base_fee_by_governance_works() {
 		1000,
 		Box::new(|call| RuntimeCall::System(call).encode()),
 		|| {
+			log::error!(
+				target: "bridges::estimate",
+				"`bridging::XcmBridgeHubRouterBaseFee` actual value: {} for runtime: {}",
+				bridging::XcmBridgeHubRouterBaseFee::get(),
+				<Runtime as frame_system::Config>::Version::get(),
+			);
 			(
 				bridging::XcmBridgeHubRouterBaseFee::key().to_vec(),
 				bridging::XcmBridgeHubRouterBaseFee::get(),
@@ -1289,6 +1295,12 @@ fn change_xcm_bridge_hub_ethereum_base_fee_by_governance_works() {
 		1000,
 		Box::new(|call| RuntimeCall::System(call).encode()),
 		|| {
+			log::error!(
+				target: "bridges::estimate",
+				"`bridging::BridgeHubEthereumBaseFee` actual value: {} for runtime: {}",
+				bridging::to_ethereum::BridgeHubEthereumBaseFee::get(),
+				<Runtime as frame_system::Config>::Version::get(),
+			);
 			(
 				bridging::to_ethereum::BridgeHubEthereumBaseFee::key().to_vec(),
 				bridging::to_ethereum::BridgeHubEthereumBaseFee::get(),
