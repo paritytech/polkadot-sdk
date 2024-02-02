@@ -65,6 +65,9 @@ pub mod config;
 /// A set of transactions.
 pub type Transactions<E> = Vec<E>;
 
+/// Logging target for the file.
+const LOG_TARGET: &str = "sync";
+
 mod rep {
 	use sc_network::ReputationChange as Rep;
 	/// Reputation change when a peer sends us any transaction.
@@ -381,7 +384,7 @@ where
 					iter::once(addr).collect(),
 				);
 				if let Err(err) = result {
-					log::error!(target: "transactions", "Add reserved peer failed: {}", err);
+					log::error!(target: LOG_TARGET, "Add reserved peer failed: {}", err);
 				}
 			},
 			SyncEvent::PeerDisconnected(remote) => {
@@ -390,7 +393,7 @@ where
 					iter::once(remote).collect(),
 				);
 				if let Err(err) = result {
-					log::error!(target: "transactions", "Remove reserved peer failed: {}", err);
+					log::error!(target: LOG_TARGET, "Remove reserved peer failed: {}", err);
 				}
 			},
 		}
@@ -400,16 +403,16 @@ where
 	fn on_transactions(&mut self, who: PeerId, transactions: Transactions<B::Extrinsic>) {
 		// Accept transactions only when node is not major syncing
 		if self.sync.is_major_syncing() {
-			trace!(target: "transactions", "{} Ignoring transactions while major syncing", who);
+			trace!(target: LOG_TARGET, "{} Ignoring transactions while major syncing", who);
 			return
 		}
 
-		trace!(target: "transactions", "Received {} transactions from {}", transactions.len(), who);
+		trace!(target: LOG_TARGET, "Received {} transactions from {}", transactions.len(), who);
 		if let Some(ref mut peer) = self.peers.get_mut(&who) {
 			for t in transactions {
 				if self.pending_transactions.len() > MAX_PENDING_TRANSACTIONS {
 					debug!(
-						target: "transactions",
+						target: LOG_TARGET,
 						"Ignoring any further transactions that exceed `MAX_PENDING_TRANSACTIONS`({}) limit",
 						MAX_PENDING_TRANSACTIONS,
 					);
@@ -454,7 +457,7 @@ where
 			return
 		}
 
-		debug!(target: "transactions", "Propagating transaction [{:?}]", hash);
+		debug!(target: LOG_TARGET, "Propagating transaction [{:?}]", hash);
 		if let Some(transaction) = self.transaction_pool.transaction(hash) {
 			let propagated_to = self.do_propagate_transactions(&[(hash.clone(), transaction)]);
 			self.transaction_pool.on_broadcasted(propagated_to);
@@ -518,7 +521,7 @@ where
 			return
 		}
 
-		debug!(target: "transactions", "Propagating transactions");
+		debug!(target: LOG_TARGET, "Propagating transactions");
 		let transactions = self.transaction_pool.transactions();
 		let propagated_to = self.do_propagate_transactions(&transactions);
 		self.transaction_pool.on_broadcasted(propagated_to);

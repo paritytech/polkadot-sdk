@@ -776,3 +776,116 @@ async fn removed_reserved_peer_kept_due_to_free_slots() {
 	assert_eq!(peerset.num_in(), 0usize);
 	assert_eq!(peerset.num_out(), 3usize);
 }
+
+#[tokio::test]
+async fn set_reserved_peers_but_available_slots() {
+	sp_tracing::try_init_simple();
+
+	let peerstore_handle = Arc::new(peerstore_handle_test());
+	let known_peers = (0..3)
+		.map(|_| {
+			let peer = PeerId::random();
+			peerstore_handle.add_known_peer(peer);
+			peer
+		})
+		.collect::<Vec<_>>();
+
+	// one peer is common across operations meaning an outbound substream will be opened to them
+	// when `Peerset` is polled (along with two random peers) and later on `SetReservedPeers`
+	// is called with the common peer and with two new random peers
+	let common_peer = *known_peers.iter().next().unwrap();
+	let disconnected_peers = known_peers.iter().skip(1).copied().collect::<HashSet<_>>();
+	assert_eq!(disconnected_peers.len(), 2);
+
+	let (mut peerset, to_peerset) = Peerset::new(
+		ProtocolName::from("/notif/1"),
+		25,
+		25,
+		false,
+		Default::default(),
+		Default::default(),
+		peerstore_handle,
+	);
+	assert_eq!(peerset.num_in(), 0usize);
+	assert_eq!(peerset.num_out(), 0usize);
+
+	match peerset.next().await {
+		Some(PeersetNotificationCommand::OpenSubstream { peers: out_peers }) => {
+			assert_eq!(out_peers.len(), 3);
+
+			for peer in &out_peers {
+				assert_eq!(
+					peerset.peers().get(&peer),
+					Some(&PeerState::Opening { direction: Direction::Outbound(Reserved::No) })
+				);
+			}
+		},
+		event => panic!("invalid event: {event:?}"),
+	}
+
+	// verify all three peers are counted as outbound peers
+	assert_eq!(peerset.num_in(), 0usize);
+	assert_eq!(peerset.num_out(), 3usize);
+
+	// report that all substreams were opened
+	for peer in &known_peers {
+		assert!(std::matches!(
+			peerset.report_substream_opened(*peer, traits::Direction::Outbound),
+			OpenResult::Accept { .. }
+		));
+		assert_eq!(
+			peerset.peers().get(peer),
+			Some(&PeerState::Connected { direction: Direction::Outbound(Reserved::No) })
+		);
+	}
+
+	// set reserved peers with `common_peer` being one of them
+	let reserved_peers = HashSet::from_iter([common_peer, PeerId::random(), PeerId::random()]);
+	to_peerset
+		.unbounded_send(PeersetCommand::SetReservedPeers { peers: reserved_peers.clone() })
+		.unwrap();
+
+	match peerset.next().await {
+		Some(PeersetNotificationCommand::CloseSubstream { peers: out_peers }) => {
+			assert_eq!(out_peers.len(), 2);
+
+			for peer in &out_peers {
+				assert!(disconnected_peers.contains(peer));
+				assert_eq!(
+					peerset.peers().get(peer),
+					Some(&PeerState::Closing { direction: Direction::Outbound(Reserved::No) }),
+				);
+			}
+		},
+		event => panic!("invalid event: {event:?}"),
+	}
+
+	// verify that `Peerset` is aware of five peers, with two of them as outbound
+	// (the two disconnected peers)
+	assert_eq!(peerset.peers().len(), 5);
+	assert_eq!(peerset.num_in(), 0usize);
+	assert_eq!(peerset.num_out(), 2usize);
+
+	match peerset.next().await {
+		Some(PeersetNotificationCommand::OpenSubstream { peers }) => {
+			assert_eq!(peers.len(), 2);
+			assert!(!peers.contains(&common_peer));
+
+			for peer in &peers {
+				assert!(reserved_peers.contains(peer));
+				assert!(peerset.reserved_peers().contains(peer));
+				assert_eq!(
+					peerset.peers().get(peer),
+					Some(&PeerState::Opening { direction: Direction::Outbound(Reserved::Yes) }),
+				);
+			}
+		},
+		event => panic!("invalid event: {event:?}"),
+	}
+
+	assert_eq!(peerset.peers().len(), 5);
+	assert_eq!(peerset.num_in(), 0usize);
+
+	// two substreams are closing still closing
+	assert_eq!(peerset.num_out(), 2usize);
+}

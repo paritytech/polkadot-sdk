@@ -119,10 +119,10 @@ async fn test_once() {
 		// PRNG to use in `spawn_blocking` context.
 		let mut rng = rand::thread_rng();
 
-		for _ in 0..2500 {
+		for _ in 0..10000 {
 			// each of these weights corresponds to an action that we may perform
 			let action_weights =
-				[300, 110, 110, 110, 110, 90, 70, 30, 110, 110, 110, 110, 20, 110, 50];
+				[300, 110, 110, 110, 110, 90, 70, 30, 110, 110, 110, 110, 20, 110, 50, 110];
 
 			match WeightedIndex::new(&action_weights).unwrap().sample(&mut rng) {
 				0 => match peerset.next().now_or_never() {
@@ -130,6 +130,8 @@ async fn test_once() {
 					Some(Some(PeersetNotificationCommand::OpenSubstream { peers })) =>
 						for peer in peers {
 							opening.insert(peer, Direction::Outbound);
+							closed.remove(&peer);
+
 							assert!(!closing.contains(&peer));
 							assert!(!open.contains_key(&peer));
 						},
@@ -137,10 +139,7 @@ async fn test_once() {
 					Some(Some(PeersetNotificationCommand::CloseSubstream { peers })) =>
 						for peer in peers {
 							assert!(closing.insert(peer));
-							if open.remove(&peer).is_none() {
-								panic!("peer {peer:?} doesn't exist in `open`");
-							}
-							// assert!(open.remove(&peer).is_some());
+							assert!(open.remove(&peer).is_some());
 							assert!(!opening.contains_key(&peer));
 						},
 					Some(None) => panic!("peerset exited"),
@@ -193,6 +192,7 @@ async fn test_once() {
 				5 =>
 					if let Some(peer) = closing.iter().choose(&mut rng).copied() {
 						assert!(closing.remove(&peer));
+						assert!(closed.insert(peer));
 						peerset.report_substream_closed(peer);
 					},
 				// random connected peer was disconnected by the protocol
@@ -364,6 +364,17 @@ async fn test_once() {
 						opening.remove(&peer);
 					}
 				},
+				// inbound substream received for a peer in `closed`
+				15 =>
+					if let Some(peer) = closed.iter().choose(&mut rng).copied() {
+						match peerset.report_inbound_substream(peer) {
+							ValidationResult::Accept => {
+								assert!(closed.remove(&peer));
+								opening.insert(peer, Direction::Inbound);
+							},
+							ValidationResult::Reject => {},
+						}
+					},
 				_ => unreachable!(),
 			}
 		}
