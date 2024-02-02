@@ -643,14 +643,6 @@
 <a href="#643" id="643">643</a>
 <a href="#644" id="644">644</a>
 <a href="#645" id="645">645</a>
-<a href="#646" id="646">646</a>
-<a href="#647" id="647">647</a>
-<a href="#648" id="648">648</a>
-<a href="#649" id="649">649</a>
-<a href="#650" id="650">650</a>
-<a href="#651" id="651">651</a>
-<a href="#652" id="652">652</a>
-<a href="#653" id="653">653</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -1293,14 +1285,6 @@
 	<span class="comment">// check fee, should not be 0
 	</span><span class="kw">let </span>estimated_fee = WeightToFee::weight_to_fee(<span class="kw-2">&amp;</span>weight);
 	<span class="macro">assert!</span>(estimated_fee &gt; BalanceOf::&lt;Runtime&gt;::zero());
-
-	sp_tracing::try_init_simple();
-	<span class="macro">log::error!</span>(
-		target: <span class="string">&quot;bridges::estimate&quot;</span>,
-		<span class="string">&quot;Estimate fee: {:?} for `ExportMessage` for runtime: {:?}&quot;</span>,
-		estimated_fee,
-		Runtime::Version::get(),
-	);
 
 	estimated_fee.into()
 }
