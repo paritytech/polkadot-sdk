@@ -26,13 +26,10 @@ use crate::{
 	},
 	common::events::StorageQuery,
 };
-use jsonrpsee::{
-	proc_macros::rpc,
-	server::ResponsePayloadV2 as RpcResponse,
-};
+use jsonrpsee::{proc_macros::rpc, server::ResponsePayload};
 use sp_rpc::list::ListOrValue;
 
-#[rpc(server)]
+#[rpc(client, server)]
 pub trait ChainHeadApi<Hash> {
 	/// Track the state of the head of the chain: the finalized, non-finalized, and best blocks.
 	///
@@ -88,14 +85,14 @@ pub trait ChainHeadApi<Hash> {
 	/// # Unstable
 	///
 	/// This method is unstable and subject to change in the future.
-	#[method(name = "chainHead_unstable_storage")]
+	#[method(name = "chainHead_unstable_storage", blocking)]
 	fn chain_head_unstable_storage(
 		&self,
 		follow_subscription: String,
 		hash: Hash,
 		items: Vec<StorageQuery<String>>,
 		child_trie: Option<String>,
-	) -> RpcResponse<'static, MethodResponse>;
+	) -> ResponsePayload<'static, MethodResponse>;
 
 	/// Call into the Runtime API at a specified block's state.
 	///

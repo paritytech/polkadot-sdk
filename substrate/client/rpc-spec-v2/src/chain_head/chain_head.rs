@@ -36,11 +36,8 @@ use crate::{
 use codec::Encode;
 use futures::future::FutureExt;
 use jsonrpsee::{
-	core::async_trait,
-	server::ResponsePayloadV2 as RpcResponse,
-	types::SubscriptionId,
+	core::async_trait, response_channel, server::ResponsePayload, types::SubscriptionId,
 	PendingSubscriptionSink, SubscriptionSink,
-	response_channel
 };
 use log::debug;
 use sc_client_api::{
@@ -298,16 +295,21 @@ where
 		hash: Block::Hash,
 		items: Vec<StorageQuery<String>>,
 		child_trie: Option<String>,
-	) -> RpcResponse<'static, MethodResponse> {
+	) -> ResponsePayload<'static, MethodResponse> {
 		// Gain control over parameter parsing and returned error.
-		let items = items
+		let items = match items
 			.into_iter()
 			.map(|query| {
 				let key = StorageKey(parse_hex_param(query.key)?);
 				Ok(StorageQuery { key, query_type: query.query_type })
 			})
 			.collect::<Result<Vec<_>, ChainHeadRpcError>>()
-			.unwrap();
+		{
+			Ok(items) => items,
+			Err(err) => {
+				return ResponsePayload::error(err);
+			},
+		};
 
 		let child_trie = child_trie
 			.map(|child_trie| parse_hex_param(child_trie))
@@ -319,12 +321,14 @@ where
 			match self.subscriptions.lock_block(&follow_subscription, hash, items.len()) {
 				Ok(block) => block,
 				Err(SubscriptionManagementError::SubscriptionAbsent) |
-				Err(SubscriptionManagementError::ExceededLimits) => todo!(),
+				Err(SubscriptionManagementError::ExceededLimits) => {
+					return ResponsePayload::result(MethodResponse::LimitReached);
+				},
 				Err(SubscriptionManagementError::BlockHashAbsent) => {
 					// Block is not part of the subscription.
-					return RpcResponse::error(ChainHeadRpcError::InvalidBlock)
+					return ResponsePayload::error(ChainHeadRpcError::InvalidBlock)
 				},
-				Err(_) => return RpcResponse::error(ChainHeadRpcError::InvalidBlock),
+				Err(_) => return ResponsePayload::error(ChainHeadRpcError::InvalidBlock),
 			};
 
 		let mut storage_client = ChainHeadStorage::<Client, Block, BE>::new(
@@ -340,10 +344,12 @@ where
 		let mut items = items;
 		items.truncate(num_operations);
 
-		let (tx, rx) = response_channel();
+		let (rp_tx, rp_rx) = response_channel();
 
 		let fut = async move {
-			if rx.is_sent().await.is_err() {
+			// Don't generate events unless the method was
+			// successfully executed.
+			if rp_rx.await.is_err() {
 				return;
 			}
 			storage_client.generate_events(block_guard, hash, items, child_trie).await;
@@ -352,12 +358,12 @@ where
 		self.executor
 			.spawn_blocking("substrate-rpc-subscription", Some("rpc"), fut.boxed());
 
-		let r = MethodResponse::Started(MethodResponseStarted {
+		let rp = MethodResponse::Started(MethodResponseStarted {
 			operation_id,
 			discarded_items: Some(discarded),
 		});
 
-		RpcResponse::result(r).notify_on_success(tx)
+		ResponsePayload::result(rp).notify_on_success(rp_tx)
 	}
 
 	fn chain_head_unstable_call(

@@ -6813,7 +6813,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee"
 version = "0.21.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=low-level-api-v1#f71d046834b365ac32af1da5c87e6f76afcce5f0"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=low-level-api-v1#51ce17e72d7615308d89bdf056eb5bee90f4d20e"
 dependencies = [
  "jsonrpsee-core 0.21.0",
  "jsonrpsee-http-client",
@@ -6848,7 +6848,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-client-transport"
 version = "0.21.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=low-level-api-v1#f71d046834b365ac32af1da5c87e6f76afcce5f0"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=low-level-api-v1#51ce17e72d7615308d89bdf056eb5bee90f4d20e"
 dependencies = [
  "futures-util",
  "http",
@@ -6889,7 +6889,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-core"
 version = "0.21.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=low-level-api-v1#f71d046834b365ac32af1da5c87e6f76afcce5f0"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=low-level-api-v1#51ce17e72d7615308d89bdf056eb5bee90f4d20e"
 dependencies = [
  "anyhow",
  "async-lock 3.3.0",
@@ -6914,7 +6914,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-http-client"
 version = "0.21.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=low-level-api-v1#f71d046834b365ac32af1da5c87e6f76afcce5f0"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=low-level-api-v1#51ce17e72d7615308d89bdf056eb5bee90f4d20e"
 dependencies = [
  "async-trait",
  "hyper",
@@ -6933,7 +6933,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-proc-macros"
 version = "0.21.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=low-level-api-v1#f71d046834b365ac32af1da5c87e6f76afcce5f0"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=low-level-api-v1#51ce17e72d7615308d89bdf056eb5bee90f4d20e"
 dependencies = [
  "heck",
  "proc-macro-crate 3.0.0",
@@ -6945,7 +6945,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-server"
 version = "0.21.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=low-level-api-v1#f71d046834b365ac32af1da5c87e6f76afcce5f0"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=low-level-api-v1#51ce17e72d7615308d89bdf056eb5bee90f4d20e"
 dependencies = [
  "futures-util",
  "http",
@@ -6982,7 +6982,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-types"
 version = "0.21.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=low-level-api-v1#f71d046834b365ac32af1da5c87e6f76afcce5f0"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=low-level-api-v1#51ce17e72d7615308d89bdf056eb5bee90f4d20e"
 dependencies = [
  "anyhow",
  "beef",
@@ -7007,7 +7007,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-ws-client"
 version = "0.21.0"
-source = "git+https://github.com/paritytech/jsonrpsee?branch=low-level-api-v1#f71d046834b365ac32af1da5c87e6f76afcce5f0"
+source = "git+https://github.com/paritytech/jsonrpsee?branch=low-level-api-v1#51ce17e72d7615308d89bdf056eb5bee90f4d20e"
 dependencies = [
  "http",
  "jsonrpsee-client-transport 0.21.0",
