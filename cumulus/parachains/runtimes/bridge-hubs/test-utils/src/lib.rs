@@ -49,11 +49,11 @@ pub fn check_sane_fees_values(
 	// check if estimated value is sane
 	assert!(
 		estimated <= actual,
-		"estimated: {estimated}, actual: {actual}, please adjust `{const_name}` value",
+		"estimated: {estimated}, actual: {actual}, please adjust `{const_name}` to the value: {estimated_plus_overestimate}",
 	);
 	assert!(
-        estimated_plus_overestimate <= actual,
-        "estimated_plus_overestimate: {estimated_plus_overestimate}, actual: {actual}, please adjust `{const_name}` value",
+		estimated_plus_overestimate <= actual,
+		"estimated_plus_overestimate: {estimated_plus_overestimate}, actual: {actual}, please adjust `{const_name}` to the value: {estimated_plus_overestimate}",
 	);
 
 	if let Some(margin_overestimate_diff_in_percent_for_lowering) =
@@ -61,7 +61,7 @@ pub fn check_sane_fees_values(
 	{
 		assert!(
             diff_to_estimated_plus_overestimate > margin_overestimate_diff_in_percent_for_lowering as f64,
-            "diff_to_estimated_plus_overestimate: {diff_to_estimated_plus_overestimate:.2}, overestimate_diff_in_percent_for_lowering: {margin_overestimate_diff_in_percent_for_lowering}, please adjust `{const_name}` with the new value: {estimated_plus_overestimate}",
+            "diff_to_estimated_plus_overestimate: {diff_to_estimated_plus_overestimate:.2}, overestimate_diff_in_percent_for_lowering: {margin_overestimate_diff_in_percent_for_lowering}, please adjust `{const_name}` to the value: {estimated_plus_overestimate}",
         );
 	}
 }
