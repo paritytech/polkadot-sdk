@@ -1013,4 +1013,29 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			})
 			.collect::<Vec<_>>()
 	}
+
+	/// Reset the team for the asset with the given `id`.
+	///
+	/// ### Parameters
+	///
+	/// - `id`: The identifier of the asset for which the team is being reset.
+	/// - `owner`: The new `owner` account for the asset.
+	/// - `admin`: The new `admin` account for the asset.
+	/// - `issuer`: The new `issuer` account for the asset.
+	/// - `freezer`: The new `freezer` account for the asset.
+	pub(crate) fn do_reset_team(
+		id: T::AssetId,
+		owner: T::AccountId,
+		admin: T::AccountId,
+		issuer: T::AccountId,
+		freezer: T::AccountId,
+	) -> DispatchResult {
+		let mut d = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
+		d.owner = owner;
+		d.admin = admin;
+		d.issuer = issuer;
+		d.freezer = freezer;
+		Asset::<T, I>::insert(&id, d);
+		Ok(())
+	}
 }

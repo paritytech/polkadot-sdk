@@ -35,7 +35,7 @@ pub use hold::{
 	Unbalanced as UnbalancedHold,
 };
 pub use imbalance::{Credit, Debt, HandleImbalanceDrop, Imbalance};
-pub use lifetime::{Create, Destroy};
+pub use lifetime::{Create, Destroy, ResetTeam};
 pub use regular::{
 	Balanced, DecreaseIssuance, Dust, IncreaseIssuance, Inspect, Mutate, Unbalanced,
 };

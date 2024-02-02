@@ -56,6 +56,7 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+pub mod migration;
 #[cfg(test)]
 mod mock;
 mod swap;

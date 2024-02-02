@@ -308,3 +308,15 @@ impl<T: Config<I>, I: 'static> fungibles::InspectEnumerable<T::AccountId> for Pa
 		Asset::<T, I>::iter_keys()
 	}
 }
+
+impl<T: Config<I>, I: 'static> fungibles::ResetTeam<T::AccountId> for Pallet<T, I> {
+	fn reset_team(
+		id: T::AssetId,
+		owner: T::AccountId,
+		admin: T::AccountId,
+		issuer: T::AccountId,
+		freezer: T::AccountId,
+	) -> DispatchResult {
+		Self::do_reset_team(id, owner, admin, issuer, freezer)
+	}
+}

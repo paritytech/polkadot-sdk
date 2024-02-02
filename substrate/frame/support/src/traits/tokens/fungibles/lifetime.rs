@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Traits for creating and destroying assets.
+//! Traits for creating, editing and destroying assets.
 
 use sp_runtime::{DispatchError, DispatchResult};
 
@@ -29,6 +29,26 @@ pub trait Create<AccountId>: Inspect<AccountId> {
 		admin: AccountId,
 		is_sufficient: bool,
 		min_balance: Self::Balance,
+	) -> DispatchResult;
+}
+
+/// Trait for resetting the team configuration of an existing fungible asset.
+pub trait ResetTeam<AccountId>: Inspect<AccountId> {
+	/// Reset the team for the asset with the given `id`.
+	///
+	/// ### Parameters
+	///
+	/// - `id`: The identifier of the asset for which the team is being reset.
+	/// - `owner`: The new `owner` account for the asset.
+	/// - `admin`: The new `admin` account for the asset.
+	/// - `issuer`: The new `issuer` account for the asset.
+	/// - `freezer`: The new `freezer` account for the asset.
+	fn reset_team(
+		id: Self::AssetId,
+		owner: AccountId,
+		admin: AccountId,
+		issuer: AccountId,
+		freezer: AccountId,
 	) -> DispatchResult;
 }
 
