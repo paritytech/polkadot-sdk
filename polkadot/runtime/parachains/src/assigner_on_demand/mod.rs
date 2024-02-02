@@ -131,7 +131,7 @@ struct QueueStatusType {
 	///
 	/// For a single core, elements will always be processed in order. With each core added, a
 	/// level of of out of order execution is added.
-	freed_indices: EncodeableBinaryHeap<ReverseQueueIndex>,
+	freed_indices: BinaryHeap<ReverseQueueIndex>,
 }
 
 impl QueueStatusType {
@@ -298,65 +298,6 @@ impl Ord for EnqueuedOrder {
 	}
 }
 
-struct EncodeableBinaryHeap<T: Ord>(BinaryHeap<T>);
-
-impl<T: Ord + 'static> TypeInfo for EncodeableBinaryHeap<T> {
-    type Identity = Self;
-	// TODO: Do we really have to do this by hand? Better add `BinaryHeap` to scale directly.
-    fn type_info() -> Type {
-        Type::builder().path(Path::new("EncodeableBinaryHeap", module_path!())).type_params([TypeParameter { name: "T", ty: None }])
-			.composite(Fields::unnamed())
-    }
-}
-
-impl<T: Ord> EncodeableBinaryHeap<T> {
-	pub fn new() -> Self {
-		Self(BinaryHeap::new())
-	}
-}
-
-impl<T: Ord> Deref for EncodeableBinaryHeap<T> {
-	type Target = BinaryHeap<T>;
-	fn deref(&self) -> &Self::Target {
-		&self.0
-	}
-}
-
-impl<T: Ord> DerefMut for EncodeableBinaryHeap<T> {
-	// Required method
-	fn deref_mut(&mut self) -> &mut Self::Target {
-		&mut self.0
-	}
-}
-
-impl<T: Ord> From<Vec<T>> for EncodeableBinaryHeap<T> {
-	fn from(other: Vec<T>) -> Self {
-		EncodeableBinaryHeap(BinaryHeap::from(other))
-	}
-}
-
-impl<T: Ord + Encode> Encode for EncodeableBinaryHeap<T> {
-	fn encode_to<A: Output + ?Sized>(&self, dest: &mut A) {
-		take(&mut self.0).into_vec().encode_to(dest);
-	}
-
-	fn encode(&self) -> Vec<u8> {
-		self.0.into_vec().encode()
-	}
-
-	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
-		self.0.into_vec().using_encoded(f)
-	}
-}
-
-impl<T: Ord + Decode> Decode for EncodeableBinaryHeap<T> {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
-		<Vec<T> as Decode>::decode(input).map(Self::from)
-	}
-}
-
-impl<T: Encode + Ord> EncodeLike for EncodeableBinaryHeap<T> {}
-
 #[frame_support::pallet]
 pub mod pallet {
 
@@ -389,13 +330,13 @@ pub mod pallet {
 			traffic: T::TrafficDefaultValue::get(),
 			next_index: QueueIndex(0),
 			smallest_index: QueueIndex(0),
-			freed_indices: EncodeableBinaryHeap::new(),
+			freed_indices: BinaryHeap::new(),
 		}
 	}
 
 	#[pallet::type_value]
-	pub(super) fn EntriesOnEmpty<T: Config>() -> EncodeableBinaryHeap<EnqueuedOrder> {
-		EncodeableBinaryHeap::new()
+	pub(super) fn EntriesOnEmpty<T: Config>() -> BinaryHeap<EnqueuedOrder> {
+		BinaryHeap::new()
 	}
 
 	/// Maps a `ParaId` to `CoreIndex` and keeps track of how many assignments the scheduler has in
@@ -413,7 +354,7 @@ pub mod pallet {
 	/// Priority queue for all orders which don't yet (or not any more) have any core affinity.
 	#[pallet::storage]
 	pub(super) type FreeEntries<T: Config> =
-		StorageValue<_, EncodeableBinaryHeap<EnqueuedOrder>, ValueQuery, EntriesOnEmpty<T>>;
+		StorageValue<_, BinaryHeap<EnqueuedOrder>, ValueQuery, EntriesOnEmpty<T>>;
 
 	/// Queue entries that are currently bound to a particular core due to core affinity.
 	#[pallet::storage]
@@ -421,7 +362,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		CoreIndex,
-		EncodeableBinaryHeap<EnqueuedOrder>,
+		BinaryHeap<EnqueuedOrder>,
 		ValueQuery,
 		EntriesOnEmpty<T>,
 	>;
@@ -530,7 +471,7 @@ where
 						let (mut affinities, free): (BinaryHeap<_>, BinaryHeap<_>) =
 							(*free_entries).into_iter().partition(|e| e.para_id == entry.para_id);
 						affinity_entries.append(&mut affinities);
-						*free_entries = EncodeableBinaryHeap(free);
+						*free_entries = free;
 						Ok(entry)
 					} else {
 						Err(())
@@ -772,7 +713,7 @@ where
 				let (mut freed, affinities): (BinaryHeap<_>, BinaryHeap<_>) =
 					(*affinity_entries).into_iter().partition(|e| e.para_id == para_id);
 				free_entries.append(&mut freed);
-				*affinity_entries = EncodeableBinaryHeap(affinities);
+				*affinity_entries = affinities;
 			})
 		});
 	}
