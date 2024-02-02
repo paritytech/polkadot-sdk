@@ -114,7 +114,7 @@ mod v_coretime {
 
 			let legacy_paras = paras::Parachains::<T>::get();
 			let config = <configuration::Pallet<T>>::config();
-			let total_core_count = config.coretime_cores + legacy_paras.len() as u32;
+			let total_core_count = config.coretime_params.cores + legacy_paras.len() as u32;
 
 			let dmp_queue_size =
 				crate::dmp::Pallet::<T>::dmq_contents(T::BrokerId::get().into()).len() as u32;
