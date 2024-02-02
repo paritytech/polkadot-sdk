@@ -1,4 +1,4 @@
-// Copyright (C) Parity Technologies (UK) Ltd.
+// Copyright (C) Parit (UK) Ltd.
 // This file is part of Polkadot.
 
 // Polkadot is free software: you can redistribute it and/or modify
@@ -39,7 +39,7 @@ extern crate alloc;
 #[cfg(test)]
 mod tests;
 
-use core::ops::{Deref, DerefMut};
+use core::{mem::take, ops::{Deref, DerefMut}};
 
 use crate::{configuration, paras, scheduler::common::Assignment};
 
@@ -52,15 +52,19 @@ use frame_support::{
 	},
 };
 use frame_system::pallet_prelude::*;
-use parity_scale_codec::{EncodeLike, WrapperTypeEncode};
+use parity_scale_codec::{EncodeAsRef, EncodeLike, FullEncode, Input, Output, WrapperTypeEncode};
 use primitives::{CoreIndex, Id as ParaId, ON_DEMAND_MAX_QUEUE_MAX_SIZE};
+use scale_info::{build::{Fields, FieldsBuilder}, Path, Type, TypeParameter};
 use sp_runtime::{
 	traits::{One, SaturatedConversion},
 	FixedPointNumber, FixedPointOperand, FixedU128, Perbill, Saturating,
 };
 
-use sp_std::{prelude::*, cmp::{Ordering, Reverse}, cmp::PartialOrd, cmp::Ord};
 use alloc::collections::BinaryHeap;
+use sp_std::{
+	cmp::{Ord, Ordering, PartialOrd},
+	prelude::*,
+};
 
 const LOG_TARGET: &str = "runtime::parachains::assigner-on-demand";
 
@@ -117,7 +121,8 @@ struct QueueStatusType {
 	next_index: QueueIndex,
 	/// Smallest index still in use.
 	///
-	/// In case of a completely empty queue (free + affinity queues), `next_index - smallest_index == 0`.
+	/// In case of a completely empty queue (free + affinity queues), `next_index - smallest_index
+	/// == 0`.
 	smallest_index: QueueIndex,
 	/// Indices that have been freed already.
 	///
@@ -126,7 +131,7 @@ struct QueueStatusType {
 	///
 	/// For a single core, elements will always be processed in order. With each core added, a
 	/// level of of out of order execution is added.
-	freed_indices: BinaryHeap<Reverse<QueueIndex>>,
+	freed_indices: EncodeableBinaryHeap<ReverseQueueIndex>,
 }
 
 impl QueueStatusType {
@@ -134,7 +139,11 @@ impl QueueStatusType {
 	///
 	/// This includes entries which have core affinity.
 	fn size(&self) -> u32 {
-		self.next_index.0.overflowing_sub(self.smallest_index.0).0.saturating_sub(self.freed_indices.len() as u32)
+		self.next_index
+			.0
+			.overflowing_sub(self.smallest_index.0)
+			.0
+			.saturating_sub(self.freed_indices.len() as u32)
 	}
 
 	/// Get current next index
@@ -157,19 +166,18 @@ impl QueueStatusType {
 	/// This updates `smallest_index` if need be.
 	fn consume_index(&mut self, removed_index: QueueIndex) {
 		if removed_index != self.smallest_index {
-			self.freed_indices.push(Reverse(removed_index));
+			self.freed_indices.push(removed_index.reverse());
 			return
 		}
 		let mut index = self.smallest_index.0.overflowing_add(1).0;
 		// Even more to advance?
-		while self.freed_indices.peek() == Some(&Reverse(QueueIndex(index))) {
+		while self.freed_indices.peek() == Some(&ReverseQueueIndex(index)) {
 			index = index.overflowing_add(1).0;
 			self.freed_indices.pop();
 		}
 		self.smallest_index = QueueIndex(index);
 	}
 }
-
 
 /// Keeps track of how many assignments a scheduler currently has at a specific `CoreIndex` for a
 /// specific `ParaId`.
@@ -202,8 +210,28 @@ pub enum SpotTrafficCalculationErr {
 }
 
 // Type used for priority indices.
-#[derive(Encode, Decode, TypeInfo, Debug, PartialEq, Clone, Eq)]
+#[derive(Encode, Decode, TypeInfo, Debug, PartialEq, Clone, Eq, Copy)]
 struct QueueIndex(u32);
+
+/// QueueIndex with reverse ordering.
+///
+/// Same as `Reverse(QueueIndex)`, but with all the needed traits implemented.
+///
+/// TODO: Add basic ordering tests.
+#[derive(Encode, Decode, TypeInfo, Debug, PartialEq, Clone, Eq, Copy)]
+struct ReverseQueueIndex(u32);
+
+impl QueueIndex {
+	fn reverse(self) -> ReverseQueueIndex {
+		ReverseQueueIndex(self.0)
+	}
+}
+
+impl ReverseQueueIndex {
+	fn reverse(self) -> QueueIndex {
+		QueueIndex(self.0)
+	}
+}
 
 impl Ord for QueueIndex {
 	fn cmp(&self, other: &Self) -> Ordering {
@@ -224,9 +252,21 @@ impl PartialOrd for QueueIndex {
 	}
 }
 
+impl Ord for ReverseQueueIndex {
+	fn cmp(&self, other: &Self) -> Ordering {
+		QueueIndex(other.0).cmp(&QueueIndex(self.0))
+	}
+}
+impl PartialOrd for ReverseQueueIndex {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		Some(self.cmp(&other))
+	}
+}
+
 /// Internal representation of an order after it has been enqueued already.
 ///
-/// This data structure is provided for a min BinaryHeap (Ord compares in reverse order with regards to its elements)
+/// This data structure is provided for a min BinaryHeap (Ord compares in reverse order with regards
+/// to its elements)
 #[derive(Encode, Decode, TypeInfo, Debug, PartialEq, Clone, Eq)]
 pub(super) struct EnqueuedOrder {
 	para_id: ParaId,
@@ -258,23 +298,64 @@ impl Ord for EnqueuedOrder {
 	}
 }
 
-#[derive(Decode,TypeInfo)]
-struct EncodeableBinaryHeap<T>(BinaryHeap<T>);
+struct EncodeableBinaryHeap<T: Ord>(BinaryHeap<T>);
 
-impl<T> Deref for EncodeableBinaryHeap<T> {
-	type Target = BinaryHeap<T>;
-	fn deref(&self) -> &Self::Target { &self.0 }
+impl<T: Ord + 'static> TypeInfo for EncodeableBinaryHeap<T> {
+    type Identity = Self;
+	// TODO: Do we really have to do this by hand? Better add `BinaryHeap` to scale directly.
+    fn type_info() -> Type {
+        Type::builder().path(Path::new("EncodeableBinaryHeap", module_path!())).type_params([TypeParameter { name: "T", ty: None }])
+			.composite(Fields::unnamed())
+    }
 }
-impl<T> DerefMut for EncodeableBinaryHeap<T> {
-    // Required method
-    fn deref_mut(&mut self) -> &mut Self::Target {
+
+impl<T: Ord> EncodeableBinaryHeap<T> {
+	pub fn new() -> Self {
+		Self(BinaryHeap::new())
+	}
+}
+
+impl<T: Ord> Deref for EncodeableBinaryHeap<T> {
+	type Target = BinaryHeap<T>;
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
+
+impl<T: Ord> DerefMut for EncodeableBinaryHeap<T> {
+	// Required method
+	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.0
 	}
 }
 
-impl<T> WrapperTypeEncode for EncodeableBinaryHeap<T> {}
-impl<T: Encode> EncodeLike<&[T]> for EncodeableBinaryHeap<T> {}
+impl<T: Ord> From<Vec<T>> for EncodeableBinaryHeap<T> {
+	fn from(other: Vec<T>) -> Self {
+		EncodeableBinaryHeap(BinaryHeap::from(other))
+	}
+}
 
+impl<T: Ord + Encode> Encode for EncodeableBinaryHeap<T> {
+	fn encode_to<A: Output + ?Sized>(&self, dest: &mut A) {
+		take(&mut self.0).into_vec().encode_to(dest);
+	}
+
+	fn encode(&self) -> Vec<u8> {
+		self.0.into_vec().encode()
+	}
+
+	fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+		self.0.into_vec().using_encoded(f)
+	}
+}
+
+impl<T: Ord + Decode> Decode for EncodeableBinaryHeap<T> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
+		<Vec<T> as Decode>::decode(input).map(Self::from)
+	}
+}
+
+impl<T: Encode + Ord> EncodeLike for EncodeableBinaryHeap<T> {}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -308,34 +389,42 @@ pub mod pallet {
 			traffic: T::TrafficDefaultValue::get(),
 			next_index: QueueIndex(0),
 			smallest_index: QueueIndex(0),
-			freed_indices: BinaryHeap::new(),
+			freed_indices: EncodeableBinaryHeap::new(),
 		}
 	}
 
 	#[pallet::type_value]
-	pub(super) fn EntriesOnEmpty<T: Config>() -> BinaryHeap<EnqueuedOrder> {
-		BinaryHeap::new()
+	pub(super) fn EntriesOnEmpty<T: Config>() -> EncodeableBinaryHeap<EnqueuedOrder> {
+		EncodeableBinaryHeap::new()
 	}
 
 	/// Maps a `ParaId` to `CoreIndex` and keeps track of how many assignments the scheduler has in
 	/// it's lookahead. Keeping track of this affinity prevents parallel execution of the same
 	/// `ParaId` on two or more `CoreIndex`es.
 	#[pallet::storage]
-	pub(super) type ParaIdAffinity<T: Config> = StorageMap<_, Twox64Concat, ParaId, CoreAffinityCount, OptionQuery>;
+	pub(super) type ParaIdAffinity<T: Config> =
+		StorageMap<_, Twox64Concat, ParaId, CoreAffinityCount, OptionQuery>;
 
 	/// Overall status of queue (both free + affinity entries)
 	#[pallet::storage]
-	pub(super) type QueueStatus<T: Config> = StorageValue<_, QueueStatusType, QueueStatusOnEmpty<T>, ValueQuery>;
-
+	pub(super) type QueueStatus<T: Config> =
+		StorageValue<_, QueueStatusType, ValueQuery, QueueStatusOnEmpty<T>>;
 
 	/// Priority queue for all orders which don't yet (or not any more) have any core affinity.
 	#[pallet::storage]
-	pub(super) type FreeEntries<T: Config> = StorageValue<_, BinaryHeap<EnqueuedOrder>, EntriesOnEmpty<T>, ValueQuery>;
+	pub(super) type FreeEntries<T: Config> =
+		StorageValue<_, EncodeableBinaryHeap<EnqueuedOrder>, ValueQuery, EntriesOnEmpty<T>>;
 
 	/// Queue entries that are currently bound to a particular core due to core affinity.
 	#[pallet::storage]
-	pub(super) type AffinityEntries<T: Config> = StorageMap<_, Twox64Concat, CoreIndex, BinaryHeap<EnqueuedOrder>, EntriesOnEmpty<T>, ValueQuery>;
-
+	pub(super) type AffinityEntries<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		CoreIndex,
+		EncodeableBinaryHeap<EnqueuedOrder>,
+		ValueQuery,
+		EntriesOnEmpty<T>,
+	>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -426,10 +515,9 @@ where
 	/// Parameters:
 	/// - `core_index`: The core index
 	pub fn pop_assignment_for_core(core_index: CoreIndex) -> Option<Assignment> {
-
-		let entry = QueueStatus::<T>::mutate(|queue_status| {
-			AffinityEntries::<T>::mutate(core_index, |affinity_entries| {
-				FreeEntries::<T>::mutate(|free_entries| {
+		let entry: Result<EnqueuedOrder, ()> = QueueStatus::<T>::try_mutate(|queue_status| {
+			AffinityEntries::<T>::try_mutate(core_index, |affinity_entries| {
+				let free_entry = FreeEntries::<T>::try_mutate(|free_entries| {
 					let affinity_next = affinity_entries.peek();
 					let free_next = free_entries.peek();
 					let pick_free = match (affinity_next, free_next) {
@@ -437,27 +525,29 @@ where
 						(Some(_), None) => false,
 						(Some(a), Some(f)) => f < a,
 					};
-					let entry = if pick_free {
-						let entry = free_entries.pop()?;
-						let (affinities, free): (BinaryHeap<_>, BinaryHeap<_>) = free_entries.into_iter().partition(|e| e.para_id == entry.para_id);
-						affinity_entries.append(affinities);
-						*free_entries = free;
-						entry
+					if pick_free {
+						let entry = free_entries.pop().ok_or(())?;
+						let (mut affinities, free): (BinaryHeap<_>, BinaryHeap<_>) =
+							(*free_entries).into_iter().partition(|e| e.para_id == entry.para_id);
+						affinity_entries.append(&mut affinities);
+						*free_entries = EncodeableBinaryHeap(free);
+						Ok(entry)
 					} else {
-						affinity_entries.pop()?
-					};
-					queue_status.consume_index(entry.idx);
+						Err(())
+					}
 				});
-			});
+				let entry = free_entry.or_else(|()| affinity_entries.pop().ok_or(()))?;
+				queue_status.consume_index(entry.idx);
+				Ok(entry)
+			})
 		});
+
+		let assignment = entry.map(|e| Assignment::Pool { para_id: e.para_id, core_index }).ok()?;
 
 		// TODO: Test for invariant: If affinity count was zero before (is 1 now) then the entry
 		// must have come from free_entries.
-		Pallet::<T>::increase_affinity(entry.para_id, core_index);
-
-		let mut invalidated_para_id_indexes: Vec<usize> = vec![];
-
-		entry.map(|e| Assignment::Pool { para_id: e.para_id, core_index })
+		Pallet::<T>::increase_affinity(assignment.para_id(), core_index);
+        Some(assignment)
 	}
 
 	/// Report that the `para_id` & `core_index` combination was processed.
@@ -517,8 +607,8 @@ where
 			let traffic = queue_status.traffic;
 
 			// Calculate spot price
-			let spot_price: BalanceOf<T> =
-				traffic.saturating_mul_int(config.on_demand_base_fee.saturated_into::<BalanceOf<T>>());
+			let spot_price: BalanceOf<T> = traffic
+				.saturating_mul_int(config.on_demand_base_fee.saturated_into::<BalanceOf<T>>());
 
 			// Is the current price higher than `max_amount`
 			ensure!(spot_price.le(&max_amount), Error::<T>::SpotPriceHigherThanMaxAmount);
@@ -529,7 +619,7 @@ where
 				spot_price,
 				WithdrawReasons::FEE,
 				existence_requirement,
-				)?;
+			)?;
 
 			ensure!(queue_status.size() < config.on_demand_queue_max_size, Error::<T>::QueueFull);
 			Pallet::<T>::add_on_demand_order(queue_status, para_id, QueuePushDirection::Back);
@@ -538,32 +628,33 @@ where
 	}
 
 	/// Calculate and update spot traffic.
-    fn update_spot_traffic(config: &configuration::HostConfiguration<BlockNumberFor<T>>, queue_status: &mut QueueStatusType) {
-			let old_traffic = queue_status.traffic;
-			match Self::_calculate_spot_traffic(
-				old_traffic,
-				config.on_demand_queue_max_size,
-				queue_status.size(),
-				config.on_demand_target_queue_utilization,
-				config.on_demand_fee_variability,
-			) {
-				Ok(new_traffic) => {
-					// Only update storage on change
-					if new_traffic != old_traffic {
-						queue_status.traffic = new_traffic;
-						Pallet::<T>::deposit_event(Event::<T>::SpotTrafficSet {
-							traffic: new_traffic,
-						});
-					}
-				},
-				Err(err) => {
-					log::debug!(
-						target: LOG_TARGET,
-						"Error calculating spot traffic: {:?}", err
-					);
-				},
-			};
-    }
+	fn update_spot_traffic(
+		config: &configuration::HostConfiguration<BlockNumberFor<T>>,
+		queue_status: &mut QueueStatusType,
+	) {
+		let old_traffic = queue_status.traffic;
+		match Self::calculate_spot_traffic(
+			old_traffic,
+			config.on_demand_queue_max_size,
+			queue_status.size(),
+			config.on_demand_target_queue_utilization,
+			config.on_demand_fee_variability,
+		) {
+			Ok(new_traffic) => {
+				// Only update storage on change
+				if new_traffic != old_traffic {
+					queue_status.traffic = new_traffic;
+					Pallet::<T>::deposit_event(Event::<T>::SpotTrafficSet { traffic: new_traffic });
+				}
+			},
+			Err(err) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Error calculating spot traffic: {:?}", err
+				);
+			},
+		};
+	}
 
 	/// The spot price multiplier. This is based on the transaction fee calculations defined in:
 	/// https://research.web3.foundation/Polkadot/overview/token-economics#setting-transaction-fees
@@ -589,8 +680,8 @@ where
 	/// - `SpotTrafficCalculationErr::Division`
 	pub(crate) fn calculate_spot_traffic(
 		traffic: FixedU128,
-		queue_capacity: QueueIndex,
-		queue_size: QueueIndex,
+		queue_capacity: u32,
+		queue_size: u32,
 		target_queue_utilisation: Perbill,
 		variability: Perbill,
 	) -> Result<FixedU128, SpotTrafficCalculationErr> {
@@ -647,7 +738,6 @@ where
 		para_id: ParaId,
 		location: QueuePushDirection,
 	) {
-
 		let idx = match location {
 			QueuePushDirection::Back => queue_status.push_back(),
 			QueuePushDirection::Front => queue_status.push_front(),
@@ -657,7 +747,8 @@ where
 		let order = EnqueuedOrder::new(idx, para_id);
 		match affinity {
 			None => FreeEntries::<T>::mutate(|entries| entries.push(order)),
-			Some(affinity) => AffinityEntries::<T>::mutate(affinity.core_index, |entries| entries.push(order)),
+			Some(affinity) =>
+				AffinityEntries::<T>::mutate(affinity.core_index, |entries| entries.push(order)),
 		}
 	}
 
@@ -666,7 +757,10 @@ where
 	/// if affinity dropped to 0, moving entries back to `FreeEntries`.
 	fn decrease_affinity_update_queue(para_id: ParaId, core_index: CoreIndex) {
 		let affinity = Pallet::<T>::decrease_affinity(para_id, core_index);
-		debug_assert_ne!(affinity, None, "Decreased affinity for a para that has not been served on a core?");
+		debug_assert_ne!(
+			affinity, None,
+			"Decreased affinity for a para that has not been served on a core?"
+		);
 		if affinity != Some(0) {
 			return
 		}
@@ -675,9 +769,10 @@ where
 		// This is necessary to ensure them being served as the core might no longer exist at all.
 		AffinityEntries::<T>::mutate(core_index, |affinity_entries| {
 			FreeEntries::<T>::mutate(|free_entries| {
-				let (freed, affinities): (BinaryHeap<_>, BinaryHeap<_>) = affinity_entries.into_iter().partition(|e| e.para_id == para_id);
-				free_entries.append(freed);
-				*affinity_entries = affinities;
+				let (mut freed, affinities): (BinaryHeap<_>, BinaryHeap<_>) =
+					(*affinity_entries).into_iter().partition(|e| e.para_id == para_id);
+				free_entries.append(&mut freed);
+				*affinity_entries = EncodeableBinaryHeap(affinities);
 			})
 		});
 	}
@@ -708,8 +803,8 @@ where
 	}
 
 	/// Increases the affinity of a `ParaId` to a specified `CoreIndex`.
-	/// Adds to the count of the `CoreAffinityCount` if an entry is found and the core_index matches.
-	/// A non-existant entry will be initialized with a count of 1 and uses the  supplied
+	/// Adds to the count of the `CoreAffinityCount` if an entry is found and the core_index
+	/// matches. A non-existant entry will be initialized with a count of 1 and uses the  supplied
 	/// `CoreIndex`.
 	fn increase_affinity(para_id: ParaId, core_index: CoreIndex) {
 		ParaIdAffinity::<T>::mutate(para_id, |maybe_affinity| match maybe_affinity {
