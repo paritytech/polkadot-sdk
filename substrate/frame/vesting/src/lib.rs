@@ -422,7 +422,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			if schedule1_index == schedule2_index {
-				return Ok(());
+				return Ok(())
 			};
 			let schedule1_index = schedule1_index as usize;
 			let schedule2_index = schedule2_index as usize;
@@ -530,7 +530,7 @@ impl<T: Config> Pallet<T> {
 		// Validate user inputs.
 		ensure!(schedule.locked() >= T::MinVestedTransfer::get(), Error::<T>::AmountLow);
 		if !schedule.is_valid() {
-			return Err(Error::<T>::InvalidScheduleParams.into());
+			return Err(Error::<T>::InvalidScheduleParams.into())
 		};
 		let target = T::Lookup::lookup(target)?;
 		let source = T::Lookup::lookup(source)?;
@@ -709,21 +709,50 @@ impl<T: Config> Pallet<T> {
 #[cfg(any(feature = "try-runtime", test))]
 impl<T: Config> Pallet<T> {
 	pub fn do_try_state() -> Result<(), TryRuntimeError> {
-		for (_, d) in Vesting::<T>::iter() {
-			let infos = d.to_vec();
+		for who in Vesting::<T>::iter_keys() {
+			if let Some(infos) = Vesting::<T>::get(who.clone()) {
+				// Accumulate the total locked
+				let mut total_locked_amount: BalanceOf<T> = Zero::zero();
 
-			for info in infos.iter() {
-				let schedules_left: BalanceOf<T> =
-					info.ending_block_as_balance::<T::BlockNumberToBalance>();
-				let starting_block = T::BlockNumberToBalance::convert(info.starting_block());
-				let current_block_to_balance = T::BlockNumberToBalance::convert(
-					T::BlockNumberProvider::current_block_number(),
-				);
+				for info in infos.iter() {
+					let schedules_left: BalanceOf<T> =
+						info.ending_block_as_balance::<T::BlockNumberToBalance>();
+					let starting_block = T::BlockNumberToBalance::convert(info.starting_block());
+					let current_block_to_balance = T::BlockNumberToBalance::convert(
+						T::BlockNumberProvider::current_block_number(),
+					);
 
-				if current_block_to_balance < starting_block {
-					Self::handle_before_schedule_starts(info, starting_block, schedules_left)?;
+					if current_block_to_balance < starting_block {
+						// handle the case when vesting has not started for this schedule
+						match Self::handle_before_schedule_starts(
+							info,
+							starting_block,
+							schedules_left,
+						) {
+							Ok(schedule_locked_amount) =>
+								total_locked_amount += schedule_locked_amount,
+							Err(e) => return Err(e),
+						}
+					} else {
+						match Self::handle_during_schedule(
+							info,
+							current_block_to_balance,
+							schedules_left,
+						) {
+							Ok(schedule_locked_amount) =>
+								total_locked_amount += schedule_locked_amount,
+							Err(e) => return Err(e),
+						}
+					}
+				}
+
+				if let Some(vesting_balance) = Self::vesting_balance(&who) {
+					ensure!(
+						vesting_balance == total_locked_amount,
+						TryRuntimeError::Other("inconsistent locked amount")
+					);
 				} else {
-					Self::handle_during_schedule(info, current_block_to_balance, schedules_left)?;
+					TryRuntimeError::Other("Account has no schedules");
 				}
 			}
 		}
@@ -734,14 +763,18 @@ impl<T: Config> Pallet<T> {
 		info: &VestingInfo<BalanceOf<T>, BlockNumberFor<T>>,
 		starting_block: BalanceOf<T>,
 		schedules_left: BalanceOf<T>,
-	) -> Result<(), TryRuntimeError> {
+	) -> Result<BalanceOf<T>, TryRuntimeError> {
 		let count = schedules_left.saturating_sub(starting_block);
+
+		let still_vesting = info
+			.locked_at::<T::BlockNumberToBalance>(T::BlockNumberProvider::current_block_number());
 
 		if (info.locked() % info.per_block()).is_zero() {
 			ensure!(
-                info.locked_at::<T::BlockNumberToBalance>(T::BlockNumberProvider::current_block_number()) == (count * info.per_block()),
+                still_vesting == (count * info.per_block()),
                 TryRuntimeError::Other("Before schedule starts, the vesting balance should be equal to the total per block releases")
             );
+			return Ok(still_vesting)
 		} else {
 			let re = info.locked() % info.per_block();
 
@@ -762,25 +795,24 @@ impl<T: Config> Pallet<T> {
 				no_locks == Zero::zero(),
 				TryRuntimeError::Other("After all schedules, all amounts should be unlocked")
 			);
+			return Ok(still_vesting)
 		}
-
-		Ok(())
 	}
 
 	fn handle_during_schedule(
 		info: &VestingInfo<BalanceOf<T>, BlockNumberFor<T>>,
 		current_block_to_balance: BalanceOf<T>,
 		schedules_left: BalanceOf<T>,
-	) -> Result<(), TryRuntimeError> {
-		let current_block = T::BlockNumberProvider::current_block_number();
-
-		let still_vesting = info.locked_at::<T::BlockNumberToBalance>(current_block);
+	) -> Result<BalanceOf<T>, TryRuntimeError> {
+		let still_vesting = info
+			.locked_at::<T::BlockNumberToBalance>(T::BlockNumberProvider::current_block_number());
 
 		if (info.locked() % info.per_block()).is_zero() {
 			ensure!(
                 still_vesting == (schedules_left.saturating_sub(current_block_to_balance) * info.per_block()),
                 TryRuntimeError::Other("during schedules, the vesting balance should be equal to the total per block releases")
             );
+			return Ok(still_vesting)
 		} else {
 			let re = info.locked() % info.per_block();
 
@@ -794,8 +826,8 @@ impl<T: Config> Pallet<T> {
 					TryRuntimeError::Other("Schedule ended, no more vesting balance")
 				);
 			}
+			return Ok(still_vesting)
 		}
-		Ok(())
 	}
 }
 
@@ -838,13 +870,13 @@ where
 		starting_block: BlockNumberFor<T>,
 	) -> DispatchResult {
 		if locked.is_zero() {
-			return Ok(());
+			return Ok(())
 		}
 
 		let vesting_schedule = VestingInfo::new(locked, per_block, starting_block);
 		// Check for `per_block` or `locked` of 0.
 		if !vesting_schedule.is_valid() {
-			return Err(Error::<T>::InvalidScheduleParams.into());
+			return Err(Error::<T>::InvalidScheduleParams.into())
 		};
 
 		let mut schedules = Self::vesting(who).unwrap_or_default();
@@ -872,7 +904,7 @@ where
 	) -> DispatchResult {
 		// Check for `per_block` or `locked` of 0.
 		if !VestingInfo::new(locked, per_block, starting_block).is_valid() {
-			return Err(Error::<T>::InvalidScheduleParams.into());
+			return Err(Error::<T>::InvalidScheduleParams.into())
 		}
 
 		ensure!(
