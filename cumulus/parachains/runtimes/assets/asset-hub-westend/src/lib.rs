@@ -315,6 +315,11 @@ pub type NativeAndAssets = fungible::UnionOf<
 	AccountId,
 >;
 
+pub type PoolIdToAccountId = pallet_asset_conversion::AccountIdConverter<
+	AssetConversionPalletId,
+	(xcm::v3::Location, xcm::v3::Location),
+>;
+
 impl pallet_asset_conversion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
@@ -322,8 +327,12 @@ impl pallet_asset_conversion::Config for Runtime {
 	type AssetKind = xcm::v3::Location;
 	type Assets = NativeAndAssets;
 	type PoolId = (Self::AssetKind, Self::AssetKind);
-	type PoolLocator =
-		pallet_asset_conversion::WithFirstAsset<WestendLocationV3, AccountId, Self::AssetKind>;
+	type PoolLocator = pallet_asset_conversion::WithFirstAsset<
+		WestendLocationV3,
+		AccountId,
+		Self::AssetKind,
+		PoolIdToAccountId,
+	>;
 	type PoolAssetId = u32;
 	type PoolAssets = PoolAssets;
 	type PoolSetupFee = ConstU128<0>; // Asset class deposit fees are sufficient to prevent spam

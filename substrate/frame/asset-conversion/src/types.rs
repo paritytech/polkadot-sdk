@@ -18,6 +18,7 @@
 use super::*;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
+use sp_runtime::traits::TryConvert;
 use sp_std::marker::PhantomData;
 
 /// Represents a swap path with associated asset amounts indicating how much of the asset needs to
@@ -68,15 +69,17 @@ pub trait PoolLocator<AccountId, AssetKind, PoolId> {
 ///
 /// The `PoolId` is represented as a tuple of `AssetKind`s with `FirstAsset` always positioned as
 /// the first element.
-pub struct WithFirstAsset<FirstAsset, AccountId, AssetKind>(
-	PhantomData<(FirstAsset, AccountId, AssetKind)>,
+pub struct WithFirstAsset<FirstAsset, AccountId, AssetKind, AccountIdConverter>(
+	PhantomData<(FirstAsset, AccountId, AssetKind, AccountIdConverter)>,
 );
-impl<FirstAsset, AccountId, AssetKind> PoolLocator<AccountId, AssetKind, (AssetKind, AssetKind)>
-	for WithFirstAsset<FirstAsset, AccountId, AssetKind>
+impl<FirstAsset, AccountId, AssetKind, AccountIdConverter>
+	PoolLocator<AccountId, AssetKind, (AssetKind, AssetKind)>
+	for WithFirstAsset<FirstAsset, AccountId, AssetKind, AccountIdConverter>
 where
 	AssetKind: Eq + Clone + Encode,
 	AccountId: Decode,
 	FirstAsset: Get<AssetKind>,
+	AccountIdConverter: for<'a> TryConvert<&'a (AssetKind, AssetKind), AccountId>,
 {
 	fn pool_id(asset1: &AssetKind, asset2: &AssetKind) -> Result<(AssetKind, AssetKind), ()> {
 		let first = FirstAsset::get();
@@ -88,18 +91,21 @@ where
 		}
 	}
 	fn address(id: &(AssetKind, AssetKind)) -> Result<AccountId, ()> {
-		let encoded = sp_io::hashing::blake2_256(&Encode::encode(id)[..]);
-		Decode::decode(&mut TrailingZeroInput::new(encoded.as_ref())).map_err(|_| ())
+		AccountIdConverter::try_convert(id).map_err(|_| ())
 	}
 }
 
 /// Pool locator where the `PoolId` is a tuple of `AssetKind`s arranged in ascending order.
-pub struct Ascending<AccountId, AssetKind>(PhantomData<(AccountId, AssetKind)>);
-impl<AccountId, AssetKind> PoolLocator<AccountId, AssetKind, (AssetKind, AssetKind)>
-	for Ascending<AccountId, AssetKind>
+pub struct Ascending<AccountId, AssetKind, AccountIdConverter>(
+	PhantomData<(AccountId, AssetKind, AccountIdConverter)>,
+);
+impl<AccountId, AssetKind, AccountIdConverter>
+	PoolLocator<AccountId, AssetKind, (AssetKind, AssetKind)>
+	for Ascending<AccountId, AssetKind, AccountIdConverter>
 where
 	AssetKind: Ord + Clone + Encode,
 	AccountId: Decode,
+	AccountIdConverter: for<'a> TryConvert<&'a (AssetKind, AssetKind), AccountId>,
 {
 	fn pool_id(asset1: &AssetKind, asset2: &AssetKind) -> Result<(AssetKind, AssetKind), ()> {
 		match true {
@@ -109,8 +115,7 @@ where
 		}
 	}
 	fn address(id: &(AssetKind, AssetKind)) -> Result<AccountId, ()> {
-		let encoded = sp_io::hashing::blake2_256(&Encode::encode(id)[..]);
-		Decode::decode(&mut TrailingZeroInput::new(encoded.as_ref())).map_err(|_| ())
+		AccountIdConverter::try_convert(id).map_err(|_| ())
 	}
 }
 
@@ -129,5 +134,20 @@ where
 	}
 	fn address(id: &(AssetKind, AssetKind)) -> Result<AccountId, ()> {
 		First::address(id).or(Second::address(id))
+	}
+}
+
+/// `PoolId` to `AccountId` conversion.
+pub struct AccountIdConverter<GetPalletId, PoolId>(PhantomData<(GetPalletId, PoolId)>);
+impl<GetPalletId, PoolId, AccountId> TryConvert<&PoolId, AccountId>
+	for AccountIdConverter<GetPalletId, PoolId>
+where
+	PoolId: Encode,
+	AccountId: Decode,
+	GetPalletId: Get<PalletId>,
+{
+	fn try_convert(id: &PoolId) -> Result<AccountId, &PoolId> {
+		let encoded = sp_io::hashing::blake2_256(&Encode::encode(&(GetPalletId::get(), id))[..]);
+		Decode::decode(&mut TrailingZeroInput::new(encoded.as_ref())).map_err(|_| id)
 	}
 }
