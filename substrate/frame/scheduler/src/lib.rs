@@ -579,115 +579,115 @@ impl<T: Config> Pallet<T> {
 		weight + T::DbWeight::get().writes(2)
 	}
 
-	/// Migrate storage format from V3 to V4.
-	///
-	/// Returns the weight consumed by this migration.
-	#[allow(deprecated)]
-	pub fn migrate_v3_to_v4() -> Weight {
-		use migration::v3 as old;
-		let mut weight = T::DbWeight::get().reads_writes(2, 1);
+	// /// Migrate storage format from V3 to V4.
+	// ///
+	// /// Returns the weight consumed by this migration.
+	// #[allow(deprecated)]
+	// pub fn migrate_v3_to_v4() -> Weight {
+	// 	use migration::v3 as old;
+	// 	let mut weight = T::DbWeight::get().reads_writes(2, 1);
 
-		// Delete all undecodable values.
-		// `StorageMap::translate` is not enough since it just skips them and leaves the keys in.
-		let blocks = old::Agenda::<T>::iter_keys().collect::<Vec<_>>();
-		for block in blocks {
-			weight.saturating_accrue(T::DbWeight::get().reads(1));
-			if let Err(_) = old::Agenda::<T>::try_get(&block) {
-				weight.saturating_accrue(T::DbWeight::get().writes(1));
-				old::Agenda::<T>::remove(&block);
-				log::warn!("Deleted undecodable agenda of block: {:?}", block);
-			}
-		}
+	// 	// Delete all undecodable values.
+	// 	// `StorageMap::translate` is not enough since it just skips them and leaves the keys in.
+	// 	let blocks = old::Agenda::<T>::iter_keys().collect::<Vec<_>>();
+	// 	for block in blocks {
+	// 		weight.saturating_accrue(T::DbWeight::get().reads(1));
+	// 		if let Err(_) = old::Agenda::<T>::try_get(&block) {
+	// 			weight.saturating_accrue(T::DbWeight::get().writes(1));
+	// 			old::Agenda::<T>::remove(&block);
+	// 			log::warn!("Deleted undecodable agenda of block: {:?}", block);
+	// 		}
+	// 	}
 
-		Agenda::<T>::translate::<Vec<Option<ScheduledV3Of<T>>>, _>(|block, agenda| {
-			log::info!("Migrating agenda of block: {:?}", &block);
-			Some(BoundedVec::truncate_from(
-				agenda
-					.into_iter()
-					.map(|schedule| {
-						weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
-						schedule
-							.and_then(|schedule| {
-								if let Some(id) = schedule.maybe_id.as_ref() {
-									let name = blake2_256(id);
-									if let Some(item) = old::Lookup::<T>::take(id) {
-										Lookup::<T>::insert(name, item);
-										log::info!("Migrated name for id: {:?}", id);
-									} else {
-										log::error!("No name in Lookup for id: {:?}", &id);
-									}
-									weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
-								} else {
-									log::info!("Schedule is unnamed");
-								}
+	// 	Agenda::<T>::translate::<Vec<Option<ScheduledV3Of<T>>>, _>(|block, agenda| {
+	// 		log::info!("Migrating agenda of block: {:?}", &block);
+	// 		Some(BoundedVec::truncate_from(
+	// 			agenda
+	// 				.into_iter()
+	// 				.map(|schedule| {
+	// 					weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+	// 					schedule
+	// 						.and_then(|schedule| {
+	// 							if let Some(id) = schedule.maybe_id.as_ref() {
+	// 								let name = blake2_256(id);
+	// 								if let Some(item) = old::Lookup::<T>::take(id) {
+	// 									Lookup::<T>::insert(name, item);
+	// 									log::info!("Migrated name for id: {:?}", id);
+	// 								} else {
+	// 									log::error!("No name in Lookup for id: {:?}", &id);
+	// 								}
+	// 								weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+	// 							} else {
+	// 								log::info!("Schedule is unnamed");
+	// 							}
 
-								let call = match schedule.call {
-									MaybeHashed::Hash(h) => {
-										let bounded = Bounded::from_legacy_hash(h);
-										// Check that the call can be decoded in the new runtime.
-										if let Err(err) = T::Preimages::peek::<
-											<T as Config>::RuntimeCall,
-										>(&bounded)
-										{
-											log::error!(
-												"Dropping undecodable call {:?}: {:?}",
-												&h,
-												&err
-											);
-											return None
-										}
-										weight.saturating_accrue(T::DbWeight::get().reads(1));
-										log::info!("Migrated call by hash, hash: {:?}", h);
-										bounded
-									},
-									MaybeHashed::Value(v) => {
-										let call = T::Preimages::bound(v)
-											.map_err(|e| {
-												log::error!("Could not bound Call: {:?}", e)
-											})
-											.ok()?;
-										if call.lookup_needed() {
-											weight.saturating_accrue(
-												T::DbWeight::get().reads_writes(0, 1),
-											);
-										}
-										log::info!(
-											"Migrated call by value, hash: {:?}",
-											call.hash()
-										);
-										call
-									},
-								};
+	// 							let call = match schedule.call {
+	// 								MaybeHashed::Hash(h) => {
+	// 									let bounded = Bounded::from_legacy_hash(h);
+	// 									// Check that the call can be decoded in the new runtime.
+	// 									if let Err(err) = T::Preimages::peek::<
+	// 										<T as Config>::RuntimeCall,
+	// 									>(&bounded)
+	// 									{
+	// 										log::error!(
+	// 											"Dropping undecodable call {:?}: {:?}",
+	// 											&h,
+	// 											&err
+	// 										);
+	// 										return None
+	// 									}
+	// 									weight.saturating_accrue(T::DbWeight::get().reads(1));
+	// 									log::info!("Migrated call by hash, hash: {:?}", h);
+	// 									bounded
+	// 								},
+	// 								MaybeHashed::Value(v) => {
+	// 									let call = T::Preimages::bound(v)
+	// 										.map_err(|e| {
+	// 											log::error!("Could not bound Call: {:?}", e)
+	// 										})
+	// 										.ok()?;
+	// 									if call.lookup_needed() {
+	// 										weight.saturating_accrue(
+	// 											T::DbWeight::get().reads_writes(0, 1),
+	// 										);
+	// 									}
+	// 									log::info!(
+	// 										"Migrated call by value, hash: {:?}",
+	// 										call.hash()
+	// 									);
+	// 									call
+	// 								},
+	// 							};
 
-								Some(Scheduled {
-									maybe_id: schedule.maybe_id.map(|x| blake2_256(&x[..])),
-									priority: schedule.priority,
-									call,
-									maybe_periodic: schedule.maybe_periodic,
-									origin: schedule.origin,
-									_phantom: Default::default(),
-								})
-							})
-							.or_else(|| {
-								log::info!("Schedule in agenda for block {:?} is empty - nothing to do here.", &block);
-								None
-							})
-					})
-					.collect::<Vec<_>>(),
-			))
-		});
+	// 							Some(Scheduled {
+	// 								maybe_id: schedule.maybe_id.map(|x| blake2_256(&x[..])),
+	// 								priority: schedule.priority,
+	// 								call,
+	// 								maybe_periodic: schedule.maybe_periodic,
+	// 								origin: schedule.origin,
+	// 								_phantom: Default::default(),
+	// 							})
+	// 						})
+	// 						.or_else(|| {
+	// 							log::info!("Schedule in agenda for block {:?} is empty - nothing to do here.", &block);
+	// 							None
+	// 						})
+	// 				})
+	// 				.collect::<Vec<_>>(),
+	// 		))
+	// 	});
 
-		#[allow(deprecated)]
-		frame_support::storage::migration::remove_storage_prefix(
-			Self::name().as_bytes(),
-			b"StorageVersion",
-			&[],
-		);
+	// 	#[allow(deprecated)]
+	// 	frame_support::storage::migration::remove_storage_prefix(
+	// 		Self::name().as_bytes(),
+	// 		b"StorageVersion",
+	// 		&[],
+	// 	);
 
-		StorageVersion::new(4).put::<Self>();
+	// 	StorageVersion::new(4).put::<Self>();
 
-		weight + T::DbWeight::get().writes(2)
-	}
+	// 	weight + T::DbWeight::get().writes(2)
+	// }
 }
 
 impl<T: Config> Pallet<T> {

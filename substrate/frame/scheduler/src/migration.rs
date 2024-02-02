@@ -63,128 +63,128 @@ pub mod v2 {
 		StorageMap<Pallet<T>, Twox64Concat, Vec<u8>, TaskAddress<BlockNumberFor<T>>>;
 }
 
-pub mod v3 {
-	use super::*;
-	use frame_support::pallet_prelude::*;
+// pub mod v3 {
+// 	use super::*;
+// 	use frame_support::pallet_prelude::*;
 
-	#[frame_support::storage_alias]
-	pub(crate) type Agenda<T: Config> = StorageMap<
-		Pallet<T>,
-		Twox64Concat,
-		BlockNumberFor<T>,
-		Vec<Option<ScheduledV3Of<T>>>,
-		ValueQuery,
-	>;
+// 	#[frame_support::storage_alias]
+// 	pub(crate) type Agenda<T: Config> = StorageMap<
+// 		Pallet<T>,
+// 		Twox64Concat,
+// 		BlockNumberFor<T>,
+// 		Vec<Option<ScheduledV3Of<T>>>,
+// 		ValueQuery,
+// 	>;
 
-	#[frame_support::storage_alias]
-	pub(crate) type Lookup<T: Config> =
-		StorageMap<Pallet<T>, Twox64Concat, Vec<u8>, TaskAddress<BlockNumberFor<T>>>;
+// 	#[frame_support::storage_alias]
+// 	pub(crate) type Lookup<T: Config> =
+// 		StorageMap<Pallet<T>, Twox64Concat, Vec<u8>, TaskAddress<BlockNumberFor<T>>>;
 
-	/// Migrate the scheduler pallet from V3 to V4.
-	pub struct MigrateToV4<T>(sp_std::marker::PhantomData<T>);
+// 	/// Migrate the scheduler pallet from V3 to V4.
+// 	pub struct MigrateToV4<T>(sp_std::marker::PhantomData<T>);
 
-	impl<T: Config> OnRuntimeUpgrade for MigrateToV4<T> {
-		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-			ensure!(StorageVersion::get::<Pallet<T>>() == 3, "Can only upgrade from version 3");
+// 	impl<T: Config> OnRuntimeUpgrade for MigrateToV4<T> {
+// 		#[cfg(feature = "try-runtime")]
+// 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+// 			ensure!(StorageVersion::get::<Pallet<T>>() == 3, "Can only upgrade from version 3");
 
-			let agendas = Agenda::<T>::iter_keys().count() as u32;
-			let decodable_agendas = Agenda::<T>::iter_values().count() as u32;
-			if agendas != decodable_agendas {
-				// This is not necessarily an error, but can happen when there are Calls
-				// in an Agenda that are not valid anymore with the new runtime.
-				log::error!(
-					target: TARGET,
-					"Can only decode {} of {} agendas - others will be dropped",
-					decodable_agendas,
-					agendas
-				);
-			}
-			log::info!(target: TARGET, "Trying to migrate {} agendas...", decodable_agendas);
+// 			let agendas = Agenda::<T>::iter_keys().count() as u32;
+// 			let decodable_agendas = Agenda::<T>::iter_values().count() as u32;
+// 			if agendas != decodable_agendas {
+// 				// This is not necessarily an error, but can happen when there are Calls
+// 				// in an Agenda that are not valid anymore with the new runtime.
+// 				log::error!(
+// 					target: TARGET,
+// 					"Can only decode {} of {} agendas - others will be dropped",
+// 					decodable_agendas,
+// 					agendas
+// 				);
+// 			}
+// 			log::info!(target: TARGET, "Trying to migrate {} agendas...", decodable_agendas);
 
-			// Check that no agenda overflows `MaxScheduledPerBlock`.
-			let max_scheduled_per_block = T::MaxScheduledPerBlock::get() as usize;
-			for (block_number, agenda) in Agenda::<T>::iter() {
-				if agenda.iter().cloned().flatten().count() > max_scheduled_per_block {
-					log::error!(
-						target: TARGET,
-						"Would truncate agenda of block {:?} from {} items to {} items.",
-						block_number,
-						agenda.len(),
-						max_scheduled_per_block,
-					);
-					return Err("Agenda would overflow `MaxScheduledPerBlock`.".into())
-				}
-			}
-			// Check that bounding the calls will not overflow `MAX_LENGTH`.
-			let max_length = T::Preimages::MAX_LENGTH as usize;
-			for (block_number, agenda) in Agenda::<T>::iter() {
-				for schedule in agenda.iter().cloned().flatten() {
-					match schedule.call {
-						frame_support::traits::schedule::MaybeHashed::Value(call) => {
-							let l = call.using_encoded(|c| c.len());
-							if l > max_length {
-								log::error!(
-									target: TARGET,
-									"Call in agenda of block {:?} is too large: {} byte",
-									block_number,
-									l,
-								);
-								return Err("Call is too large.".into())
-							}
-						},
-						_ => (),
-					}
-				}
-			}
+// 			// Check that no agenda overflows `MaxScheduledPerBlock`.
+// 			let max_scheduled_per_block = T::MaxScheduledPerBlock::get() as usize;
+// 			for (block_number, agenda) in Agenda::<T>::iter() {
+// 				if agenda.iter().cloned().flatten().count() > max_scheduled_per_block {
+// 					log::error!(
+// 						target: TARGET,
+// 						"Would truncate agenda of block {:?} from {} items to {} items.",
+// 						block_number,
+// 						agenda.len(),
+// 						max_scheduled_per_block,
+// 					);
+// 					return Err("Agenda would overflow `MaxScheduledPerBlock`.".into())
+// 				}
+// 			}
+// 			// Check that bounding the calls will not overflow `MAX_LENGTH`.
+// 			let max_length = T::Preimages::MAX_LENGTH as usize;
+// 			for (block_number, agenda) in Agenda::<T>::iter() {
+// 				for schedule in agenda.iter().cloned().flatten() {
+// 					match schedule.call {
+// 						frame_support::traits::schedule::MaybeHashed::Value(call) => {
+// 							let l = call.using_encoded(|c| c.len());
+// 							if l > max_length {
+// 								log::error!(
+// 									target: TARGET,
+// 									"Call in agenda of block {:?} is too large: {} byte",
+// 									block_number,
+// 									l,
+// 								);
+// 								return Err("Call is too large.".into())
+// 							}
+// 						},
+// 						_ => (),
+// 					}
+// 				}
+// 			}
 
-			Ok((decodable_agendas as u32).encode())
-		}
+// 			Ok((decodable_agendas as u32).encode())
+// 		}
 
-		fn on_runtime_upgrade() -> Weight {
-			let version = StorageVersion::get::<Pallet<T>>();
-			if version != 3 {
-				log::warn!(
-					target: TARGET,
-					"skipping v3 to v4 migration: executed on wrong storage version.\
-				Expected version 3, found {:?}",
-					version,
-				);
-				return T::DbWeight::get().reads(1)
-			}
+// 		fn on_runtime_upgrade() -> Weight {
+// 			let version = StorageVersion::get::<Pallet<T>>();
+// 			if version != 3 {
+// 				log::warn!(
+// 					target: TARGET,
+// 					"skipping v3 to v4 migration: executed on wrong storage version.\
+// 				Expected version 3, found {:?}",
+// 					version,
+// 				);
+// 				return T::DbWeight::get().reads(1)
+// 			}
 
-			crate::Pallet::<T>::migrate_v3_to_v4()
-		}
+// 			crate::Pallet::<T>::migrate_v3_to_v4()
+// 		}
 
-		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
-			ensure!(StorageVersion::get::<Pallet<T>>() == 4, "Must upgrade");
+// 		#[cfg(feature = "try-runtime")]
+// 		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
+// 			ensure!(StorageVersion::get::<Pallet<T>>() == 4, "Must upgrade");
 
-			// Check that everything decoded fine.
-			for k in crate::Agenda::<T>::iter_keys() {
-				ensure!(crate::Agenda::<T>::try_get(k).is_ok(), "Cannot decode V4 Agenda");
-			}
+// 			// Check that everything decoded fine.
+// 			for k in crate::Agenda::<T>::iter_keys() {
+// 				ensure!(crate::Agenda::<T>::try_get(k).is_ok(), "Cannot decode V4 Agenda");
+// 			}
 
-			let old_agendas: u32 =
-				Decode::decode(&mut &state[..]).expect("pre_upgrade provides a valid state; qed");
-			let new_agendas = crate::Agenda::<T>::iter_keys().count() as u32;
-			if old_agendas != new_agendas {
-				// This is not necessarily an error, but can happen when there are Calls
-				// in an Agenda that are not valid anymore in the new runtime.
-				log::error!(
-					target: TARGET,
-					"Did not migrate all Agendas. Previous {}, Now {}",
-					old_agendas,
-					new_agendas,
-				);
-			} else {
-				log::info!(target: TARGET, "Migrated {} agendas.", new_agendas);
-			}
+// 			let old_agendas: u32 =
+// 				Decode::decode(&mut &state[..]).expect("pre_upgrade provides a valid state; qed");
+// 			let new_agendas = crate::Agenda::<T>::iter_keys().count() as u32;
+// 			if old_agendas != new_agendas {
+// 				// This is not necessarily an error, but can happen when there are Calls
+// 				// in an Agenda that are not valid anymore in the new runtime.
+// 				log::error!(
+// 					target: TARGET,
+// 					"Did not migrate all Agendas. Previous {}, Now {}",
+// 					old_agendas,
+// 					new_agendas,
+// 				);
+// 			} else {
+// 				log::info!(target: TARGET, "Migrated {} agendas.", new_agendas);
+// 			}
 
-			Ok(())
-		}
-	}
-}
+// 			Ok(())
+// 		}
+// 	}
+// }
 
 pub mod v4 {
 	use super::*;
