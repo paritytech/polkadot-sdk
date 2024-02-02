@@ -291,7 +291,6 @@ mod tests {
 				.unwrap();
 			assert_eq!(pre, None);
 
-			// We expect a refund of 400
 			assert_ok!(StorageWeightReclaim::<Test>::post_dispatch(
 				Some(pre),
 				&info,
