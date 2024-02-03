@@ -370,8 +370,8 @@ async fn run(
 
 	loop {
 		// biased to make it behave deterministically for tests.
-		// and also any request from execute queue should be handled first
-		// to provide consistency with message from other channels
+		// and also any request from the execute queue should be handled first
+		// to provide consistency with messages from other channels
 		futures::select_biased! {
 			from_execute_queue_rx = from_execute_queue_rx.next() => {
 				let from_queue = break_if_fatal!(from_execute_queue_rx.ok_or(Fatal));

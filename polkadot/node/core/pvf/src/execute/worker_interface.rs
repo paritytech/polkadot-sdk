@@ -87,8 +87,9 @@ pub enum Outcome {
 	/// a trap. Errors related to the preparation process are not expected to be encountered by the
 	/// execution workers.
 	InvalidCandidate { err: String, idle_worker: IdleWorker },
-	/// The error is probably transient. It may be for example because the wasm runtime version
-	/// in the worker is different from the wasmtime version of the host.
+	/// The error is probably transient. It may be for example
+	/// because the artifact was prepared with a Wasmtime version different from the version
+	/// in the current execution environment.
 	RuntimeConstruction { err: String, idle_worker: IdleWorker },
 	/// The execution time exceeded the hard limit. The worker is terminated.
 	HardTimeout,
