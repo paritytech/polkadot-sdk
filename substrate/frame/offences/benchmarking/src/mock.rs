@@ -25,7 +25,7 @@ use frame_election_provider_support::{
 	onchain, SequentialPhragmen,
 };
 use frame_support::{
-	parameter_types,
+	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64},
 };
 use frame_system as system;
@@ -40,6 +40,7 @@ type AccountId = u64;
 type Nonce = u32;
 type Balance = u64;
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -79,7 +80,7 @@ impl pallet_balances::Config for Test {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeFreezeReason = ();
 }
 
 impl pallet_timestamp::Config for Test {
@@ -175,7 +176,7 @@ impl pallet_staking::Config for Test {
 	type SessionInterface = Self;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type NextNewSession = Session;
-	type MaxNominatorRewardedPerValidator = ConstU32<64>;
+	type MaxExposurePageSize = ConstU32<64>;
 	type OffendingValidatorsThreshold = ();
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = Self::ElectionProvider;
@@ -183,6 +184,7 @@ impl pallet_staking::Config for Test {
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
 	type MaxUnlockingChunks = ConstU32<32>;
+	type MaxControllersInDeprecationBatch = ConstU32<100>;
 	type HistoryDepth = ConstU32<84>;
 	type EventListeners = ();
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
@@ -224,9 +226,9 @@ frame_support::construct_runtime!(
 	pub enum Test
 	{
 		System: system::{Pallet, Call, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Staking: pallet_staking::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
+		Balances: pallet_balances,
+		Staking: pallet_staking,
+		Session: pallet_session,
 		ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>},
 		Offences: pallet_offences::{Pallet, Storage, Event},
 		Historical: pallet_session_historical::{Pallet},

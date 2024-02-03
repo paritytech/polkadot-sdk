@@ -492,7 +492,6 @@ where
 		runtime_code: &RuntimeCode,
 		method: &str,
 		data: &[u8],
-		_use_native: bool,
 		context: CallContext,
 	) -> (Result<Vec<u8>>, bool) {
 		tracing::trace!(
@@ -565,6 +564,8 @@ pub struct NativeElseWasmExecutor<D: NativeExecutionDispatch> {
 	/// Fallback wasm executor.
 	wasm:
 		WasmExecutor<ExtendedHostFunctions<sp_io::SubstrateHostFunctions, D::ExtendHostFunctions>>,
+
+	use_native: bool,
 }
 
 impl<D: NativeExecutionDispatch> NativeElseWasmExecutor<D> {
@@ -601,7 +602,7 @@ impl<D: NativeExecutionDispatch> NativeElseWasmExecutor<D> {
 			.with_runtime_cache_size(runtime_cache_size)
 			.build();
 
-		NativeElseWasmExecutor { native_version: D::native_version(), wasm }
+		NativeElseWasmExecutor { native_version: D::native_version(), wasm, use_native: true }
 	}
 
 	/// Create a new instance using the given [`WasmExecutor`].
@@ -610,7 +611,14 @@ impl<D: NativeExecutionDispatch> NativeElseWasmExecutor<D> {
 			ExtendedHostFunctions<sp_io::SubstrateHostFunctions, D::ExtendHostFunctions>,
 		>,
 	) -> Self {
-		Self { native_version: D::native_version(), wasm: executor }
+		Self { native_version: D::native_version(), wasm: executor, use_native: true }
+	}
+
+	/// Disable to use native runtime when possible just behave like `WasmExecutor`.
+	///
+	/// Default to enabled.
+	pub fn disable_use_native(&mut self) {
+		self.use_native = false;
 	}
 
 	/// Ignore missing function imports if set true.
@@ -645,9 +653,10 @@ impl<D: NativeExecutionDispatch + 'static> CodeExecutor for NativeElseWasmExecut
 		runtime_code: &RuntimeCode,
 		method: &str,
 		data: &[u8],
-		use_native: bool,
 		context: CallContext,
 	) -> (Result<Vec<u8>>, bool) {
+		let use_native = self.use_native;
+
 		tracing::trace!(
 			target: "executor",
 			function = %method,
@@ -711,7 +720,11 @@ impl<D: NativeExecutionDispatch + 'static> CodeExecutor for NativeElseWasmExecut
 
 impl<D: NativeExecutionDispatch> Clone for NativeElseWasmExecutor<D> {
 	fn clone(&self) -> Self {
-		NativeElseWasmExecutor { native_version: D::native_version(), wasm: self.wasm.clone() }
+		NativeElseWasmExecutor {
+			native_version: D::native_version(),
+			wasm: self.wasm.clone(),
+			use_native: self.use_native,
+		}
 	}
 }
 

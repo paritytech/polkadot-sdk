@@ -63,16 +63,15 @@ publish-rustdoc:
   after_script:
     - rm -rf .git/ ./*
 
-# cumulus
-
+# note: images are used not only in zombienet but also in rococo, wococo and versi
 .build-push-image:
   image: $BUILDAH_IMAGE
   variables:
     DOCKERFILE: "" # docker/path-to.Dockerfile
     IMAGE_NAME: "" # docker.io/paritypr/image_name
   script:
-    # - test "$PARITYPR_USER" -a "$PARITYPR_PASS" ||
-    #   ( echo "no docker credentials provided"; exit 1 )
+    # Dockertag should differ in a merge queue
+    - if [[ $CI_COMMIT_REF_NAME == *"gh-readonly-queue"* ]]; then export DOCKER_IMAGES_VERSION="${CI_COMMIT_SHORT_SHA}"; fi
     - $BUILDAH_COMMAND build
       --format=docker
       --build-arg VCS_REF="${CI_COMMIT_SHA}"
@@ -112,59 +111,6 @@ build-push-image-test-parachain:
   variables:
     DOCKERFILE: "docker/dockerfiles/test-parachain_injected.Dockerfile"
     IMAGE_NAME: "docker.io/paritypr/test-parachain"
-# publish-s3:
-#   stage: publish
-#   extends:
-#     - .kubernetes-env
-#     - .publish-refs
-#   image: paritytech/awscli:latest
-#   needs:
-#     - job: build-linux-stable-cumulus
-#       artifacts: true
-#   variables:
-#     GIT_STRATEGY: none
-#     BUCKET: "releases.parity.io"
-#     PREFIX: "cumulus/${ARCH}-${DOCKER_OS}"
-#   script:
-#     - echo "___Publishing a binary with debug assertions!___"
-#     - echo "___VERSION = $(cat ./artifacts/VERSION) ___"
-#     - aws s3 sync ./artifacts/ s3://${BUCKET}/${PREFIX}/$(cat ./artifacts/VERSION)/
-#     - echo "___Updating objects in latest path___"
-#     - aws s3 sync s3://${BUCKET}/${PREFIX}/$(cat ./artifacts/VERSION)/ s3://${BUCKET}/${PREFIX}/latest/
-#   after_script:
-#     - aws s3 ls s3://${BUCKET}/${PREFIX}/latest/
-#       --recursive --human-readable --summarize
-
-# publish-benchmarks-assets-s3: &publish-benchmarks
-#   stage: publish
-#   extends:
-#     - .kubernetes-env
-#     - .benchmarks-refs
-#   image: paritytech/awscli:latest
-#   needs:
-#     - job: benchmarks-assets
-#       artifacts: true
-#   variables:
-#     GIT_STRATEGY: none
-#     BUCKET: "releases.parity.io"
-#     PREFIX: "cumulus/$CI_COMMIT_REF_NAME/benchmarks-assets"
-#   script:
-#     - echo "___Publishing benchmark results___"
-#     - aws s3 sync ./artifacts/ s3://${BUCKET}/${PREFIX}/
-#   after_script:
-#     - aws s3 ls s3://${BUCKET}/${PREFIX}/ --recursive --human-readable --summarize
-
-# publish-benchmarks-collectives-s3:
-#   <<: *publish-benchmarks
-#   variables:
-#     GIT_STRATEGY: none
-#     BUCKET: "releases.parity.io"
-#     PREFIX: "cumulus/$CI_COMMIT_REF_NAME/benchmarks-collectives"
-#   needs:
-#     - job: benchmarks-collectives
-#       artifacts: true
-
-### Polkadot
 
 build-push-image-polkadot-debug:
   stage: publish
@@ -217,143 +163,3 @@ build-push-image-substrate-pr:
   variables:
     DOCKERFILE: "docker/dockerfiles/substrate_injected.Dockerfile"
     IMAGE_NAME: "docker.io/paritypr/substrate"
-# old way
-
-# .build-push-image-polkadot:
-#   before_script:
-#     # - test -s ./artifacts/VERSION || exit 1
-#     # - test -s ./artifacts/EXTRATAG || exit 1
-#     - VERSION="$(cat ./artifacts/VERSION)"
-#     - EXTRATAG="$(cat ./artifacts/EXTRATAG)"
-#     - echo "Polkadot version = ${VERSION} (EXTRATAG = ${EXTRATAG})"
-#   script:
-#     # - test "$DOCKER_USER" -a "$DOCKER_PASS" ||
-#     #   ( echo "no docker credentials provided"; exit 1 )
-#     - cd ./artifacts
-#     - $BUILDAH_COMMAND build
-#       --format=docker
-#       --build-arg VCS_REF="${CI_COMMIT_SHA}"
-#       --build-arg BUILD_DATE="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-#       --build-arg IMAGE_NAME="${IMAGE_NAME}"
-#       --tag "$IMAGE_NAME:$VERSION"
-#       --tag "$IMAGE_NAME:$EXTRATAG"
-#       --file ${DOCKERFILE} .
-#     # The job will success only on the protected branch
-#     # - echo "$DOCKER_PASS" |
-#     #   buildah login --username "$DOCKER_USER" --password-stdin docker.io
-#     # - $BUILDAH_COMMAND info
-#     # - $BUILDAH_COMMAND push --format=v2s2 "$IMAGE_NAME:$VERSION"
-#     # - $BUILDAH_COMMAND push --format=v2s2 "$IMAGE_NAME:$EXTRATAG"
-#   after_script:
-#     - buildah logout --all
-
-# publish-polkadot-debug-image:
-#   stage: publish
-#   image: ${BUILDAH_IMAGE}
-#   extends:
-#     - .kubernetes-env
-#     - .build-push-image-polkadot
-#   rules:
-#     - if: $CI_PIPELINE_SOURCE == "web"
-#     - if: $CI_PIPELINE_SOURCE == "schedule"
-#     - if: $CI_COMMIT_REF_NAME == "master"
-#     - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/ # PRs
-#     - if: $CI_COMMIT_REF_NAME =~ /^v[0-9]+\.[0-9]+.*$/ # i.e. v1.0, v2.1rc1
-#   variables:
-#     GIT_STRATEGY: none
-#     DOCKER_USER: ${PARITYPR_USER}
-#     DOCKER_PASS: ${PARITYPR_PASS}
-#     # docker/dockerfiles/polkadot/polkadot_injected_debug.Dockerfile
-#     DOCKERFILE: polkadot_injected_debug.Dockerfile
-#     IMAGE_NAME: docker.io/paritypr/polkadot-debug
-#   needs:
-#     - job: build-linux-stable
-#       artifacts: true
-#   after_script:
-#     # pass artifacts to the zombienet-tests job
-#     # https://docs.gitlab.com/ee/ci/multi_project_pipelines.html#with-variable-inheritance
-#     - echo "PARACHAINS_IMAGE_NAME=${IMAGE_NAME}" > ./artifacts/parachains.env
-#     - echo "PARACHAINS_IMAGE_TAG=$(cat ./artifacts/EXTRATAG)" >> ./artifacts/parachains.env
-#   artifacts:
-#     reports:
-#       # this artifact is used in zombienet-tests job
-#       dotenv: ./artifacts/parachains.env
-#     expire_in: 1 days
-
-# publish-test-collators-image:
-#   # service image for zombienet
-#   stage: publish
-#   extends:
-#     - .kubernetes-env
-#     - .build-push-image-polkadot
-#     - .zombienet-refs
-#   variables:
-#     CI_IMAGE: ${BUILDAH_IMAGE}
-#     GIT_STRATEGY: none
-#     DOCKER_USER: ${PARITYPR_USER}
-#     DOCKER_PASS: ${PARITYPR_PASS}
-#     # docker/dockerfiles/collator_injected.Dockerfile
-#     DOCKERFILE: collator_injected.Dockerfile
-#     IMAGE_NAME: docker.io/paritypr/colander
-#   needs:
-#     - job: build-test-collators
-#       artifacts: true
-#   after_script:
-#     - buildah logout --all
-#     # pass artifacts to the zombienet-tests job
-#     - echo "COLLATOR_IMAGE_NAME=${IMAGE_NAME}" > ./artifacts/collator.env
-#     - echo "COLLATOR_IMAGE_TAG=$(cat ./artifacts/EXTRATAG)" >> ./artifacts/collator.env
-#   artifacts:
-#     reports:
-#       # this artifact is used in zombienet-tests job
-#       dotenv: ./artifacts/collator.env
-
-# publish-malus-image:
-#   # service image for Simnet
-#   stage: publish
-#   extends:
-#     - .kubernetes-env
-#     - .build-push-image-polkadot
-#     - .zombienet-refs
-#   variables:
-#     CI_IMAGE: ${BUILDAH_IMAGE}
-#     GIT_STRATEGY: none
-#     DOCKER_USER: ${PARITYPR_USER}
-#     DOCKER_PASS: ${PARITYPR_PASS}
-#     # docker/dockerfiles/malus_injected.Dockerfile
-#     DOCKERFILE: malus_injected.Dockerfile
-#     IMAGE_NAME: docker.io/paritypr/malus
-#   needs:
-#     - job: build-malus
-#       artifacts: true
-#   after_script:
-#     - buildah logout "$IMAGE_NAME"
-#     # pass artifacts to the zombienet-tests job
-#     - echo "MALUS_IMAGE_NAME=${IMAGE_NAME}" > ./artifacts/malus.env
-#     - echo "MALUS_IMAGE_TAG=$(cat ./artifacts/EXTRATAG)" >> ./artifacts/malus.env
-#   artifacts:
-#     reports:
-#       # this artifact is used in zombienet-tests job
-#       dotenv: ./artifacts/malus.env
-
-# substrate
-
-# publish-substrate-image-pr:
-#   # service image for zombienet
-#   stage: publish
-#   extends:
-#     - .kubernetes-env
-#     - .build-push-image-polkadot
-#     - .zombienet-refs
-#   variables:
-#     CI_IMAGE: ${BUILDAH_IMAGE}
-#     GIT_STRATEGY: none
-#     DOCKER_USER: ${PARITYPR_USER}
-#     DOCKER_PASS: ${PARITYPR_PASS}
-#     DOCKERFILE: substrate_injected.Dockerfile
-#     IMAGE_NAME: docker.io/paritypr/substrate
-#   needs:
-#     - job: build-linux-substrate
-#       artifacts: true
-#   after_script:
-#     - buildah logout "$IMAGE_NAME"

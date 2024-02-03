@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{limits::BlockWeights, Config, Pallet};
+use crate::{limits::BlockWeights, Config, Pallet, LOG_TARGET};
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
@@ -50,8 +50,16 @@ where
 	) -> Result<(), TransactionValidityError> {
 		let max = T::BlockWeights::get().get(info.class).max_extrinsic;
 		match max {
-			Some(max) if info.weight.any_gt(max) =>
-				Err(InvalidTransaction::ExhaustsResources.into()),
+			Some(max) if info.weight.any_gt(max) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Extrinsic {} is greater than the max extrinsic {}",
+					info.weight,
+					max,
+				);
+
+				Err(InvalidTransaction::ExhaustsResources.into())
+			},
 			_ => Ok(()),
 		}
 	}
@@ -79,6 +87,13 @@ where
 		let added_len = len as u32;
 		let next_len = current_len.saturating_add(added_len);
 		if next_len > *length_limit.max.get(info.class) {
+			log::debug!(
+				target: LOG_TARGET,
+				"Exceeded block length limit: {} > {}",
+				next_len,
+				length_limit.max.get(info.class),
+			);
+
 			Err(InvalidTransaction::ExhaustsResources.into())
 		} else {
 			Ok(next_len)
@@ -137,17 +152,28 @@ where
 	if limit_per_class.max_total.is_none() && limit_per_class.reserved.is_none() {
 		all_weight.accrue(extrinsic_weight, info.class)
 	} else {
-		all_weight
-			.checked_accrue(extrinsic_weight, info.class)
-			.map_err(|_| InvalidTransaction::ExhaustsResources)?;
+		all_weight.checked_accrue(extrinsic_weight, info.class).map_err(|_| {
+			log::debug!(
+				target: LOG_TARGET,
+				"All weight checked add overflow.",
+			);
+
+			InvalidTransaction::ExhaustsResources
+		})?;
 	}
 
 	let per_class = *all_weight.get(info.class);
 
 	// Check if we don't exceed per-class allowance
 	match limit_per_class.max_total {
-		Some(max) if per_class.any_gt(max) =>
-			return Err(InvalidTransaction::ExhaustsResources.into()),
+		Some(max) if per_class.any_gt(max) => {
+			log::debug!(
+				target: LOG_TARGET,
+				"Exceeded the per-class allowance.",
+			);
+
+			return Err(InvalidTransaction::ExhaustsResources.into())
+		},
 		// There is no `max_total` limit (`None`),
 		// or we are below the limit.
 		_ => {},
@@ -158,8 +184,14 @@ where
 	if all_weight.total().any_gt(maximum_weight.max_block) {
 		match limit_per_class.reserved {
 			// We are over the limit in reserved pool.
-			Some(reserved) if per_class.any_gt(reserved) =>
-				return Err(InvalidTransaction::ExhaustsResources.into()),
+			Some(reserved) if per_class.any_gt(reserved) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Total block weight is exceeded.",
+				);
+
+				return Err(InvalidTransaction::ExhaustsResources.into())
+			},
 			// There is either no limit in reserved pool (`None`),
 			// or we are below the limit.
 			_ => {},
@@ -232,6 +264,18 @@ where
 				current_weight.reduce(unspent, info.class);
 			})
 		}
+
+		log::trace!(
+			target: LOG_TARGET,
+			"Used block weight: {:?}",
+			crate::BlockWeight::<T>::get(),
+		);
+
+		log::trace!(
+			target: LOG_TARGET,
+			"Used block length: {:?}",
+			Pallet::<T>::all_extrinsics_len(),
+		);
 
 		Ok(())
 	}

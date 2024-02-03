@@ -253,7 +253,9 @@ impl GridTracker {
 	/// This checks whether the peer is allowed to send us manifests
 	/// about this group at this relay-parent. This also does sanity
 	/// checks on the format of the manifest and the amount of votes
-	/// it contains. It has effects on the stored state only when successful.
+	/// it contains. It assumes that the votes from disabled validators
+	/// are already filtered out.
+	/// It has effects on the stored state only when successful.
 	///
 	/// This returns a `bool` on success, which if true indicates that an acknowledgement is
 	/// to be sent in response to the received manifest. This only occurs when the
@@ -2244,5 +2246,74 @@ mod tests {
 			Some(StatementFilter::blank(group_size))
 		);
 		assert_eq!(tracker.all_pending_statements_for(counterparty), vec![]);
+	}
+
+	#[test]
+	fn session_grid_topology_consistent() {
+		let n_validators = 300;
+		let group_size = 5;
+
+		let validator_indices =
+			(0..n_validators).map(|i| ValidatorIndex(i as u32)).collect::<Vec<_>>();
+		let groups = validator_indices.chunks(group_size).map(|x| x.to_vec()).collect::<Vec<_>>();
+
+		let topology = SessionGridTopology::new(
+			(0..n_validators).collect::<Vec<_>>(),
+			(0..n_validators)
+				.map(|i| TopologyPeerInfo {
+					peer_ids: Vec::new(),
+					validator_index: ValidatorIndex(i as u32),
+					discovery_id: AuthorityDiscoveryPair::generate().0.public(),
+				})
+				.collect(),
+		);
+
+		let computed_topologies = validator_indices
+			.iter()
+			.cloned()
+			.map(|v| build_session_topology(groups.iter(), &topology, Some(v)))
+			.collect::<Vec<_>>();
+
+		let pairwise_check_topologies = |i, j| {
+			let v_i = ValidatorIndex(i);
+			let v_j = ValidatorIndex(j);
+
+			for group in (0..groups.len()).map(|i| GroupIndex(i as u32)) {
+				let g_i = computed_topologies[i as usize].group_views.get(&group).unwrap();
+				let g_j = computed_topologies[j as usize].group_views.get(&group).unwrap();
+
+				if g_i.sending.contains(&v_j) {
+					assert!(
+						g_j.receiving.contains(&v_i),
+						"{:?}: {:?}, sending but not receiving",
+						group,
+						&(i, j)
+					);
+				}
+
+				if g_j.sending.contains(&v_i) {
+					assert!(
+						g_i.receiving.contains(&v_j),
+						"{:?}: {:?}, sending but not receiving",
+						group,
+						&(j, i)
+					);
+				}
+
+				if g_i.receiving.contains(&v_j) {
+					assert!(g_j.sending.contains(&v_i), "{:?}, receiving but not sending", &(i, j));
+				}
+
+				if g_j.receiving.contains(&v_i) {
+					assert!(g_i.sending.contains(&v_j), "{:?}, receiving but not sending", &(j, i));
+				}
+			}
+		};
+
+		for i in 0..n_validators {
+			for j in (i + 1)..n_validators {
+				pairwise_check_topologies(i as u32, j as u32);
+			}
+		}
 	}
 }

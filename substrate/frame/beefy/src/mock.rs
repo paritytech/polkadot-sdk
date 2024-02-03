@@ -22,29 +22,22 @@ use frame_election_provider_support::{
 	onchain, SequentialPhragmen,
 };
 use frame_support::{
-	construct_runtime, parameter_types,
-	traits::{ConstU16, ConstU32, ConstU64, KeyOwnerProofSystem, OnFinalize, OnInitialize},
+	construct_runtime, derive_impl, parameter_types,
+	traits::{ConstU32, ConstU64, KeyOwnerProofSystem, OnFinalize, OnInitialize},
 };
 use pallet_session::historical as pallet_session_historical;
-use sp_core::{crypto::KeyTypeId, ConstU128, H256};
+use sp_core::{crypto::KeyTypeId, ConstU128};
 use sp_io::TestExternalities;
 use sp_runtime::{
-	app_crypto::ecdsa::Public,
-	curve::PiecewiseLinear,
-	impl_opaque_keys,
-	testing::TestXt,
-	traits::{BlakeTwo256, IdentityLookup, OpaqueKeys},
-	BuildStorage, Perbill,
+	app_crypto::ecdsa::Public, curve::PiecewiseLinear, impl_opaque_keys, testing::TestXt,
+	traits::OpaqueKeys, BuildStorage, Perbill,
 };
 use sp_staking::{EraIndex, SessionIndex};
 use sp_state_machine::BasicExternalities;
 
 use crate as pallet_beefy;
 
-pub use sp_consensus_beefy::{
-	ecdsa_crypto::{AuthorityId as BeefyId, AuthoritySignature as BeefySignature},
-	ConsensusLog, EquivocationProof, BEEFY_ENGINE_ID,
-};
+pub use sp_consensus_beefy::{ecdsa_crypto::AuthorityId as BeefyId, ConsensusLog, BEEFY_ENGINE_ID};
 
 impl_opaque_keys! {
 	pub struct MockSessionKeys {
@@ -69,30 +62,10 @@ construct_runtime!(
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type Hash = H256;
-	type RuntimeCall = RuntimeCall;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u128>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ConstU16<42>;
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
@@ -159,7 +132,7 @@ impl pallet_balances::Config for Test {
 	type AccountStore = System;
 	type WeightInfo = ();
 	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeFreezeReason = ();
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 }
@@ -215,7 +188,7 @@ impl pallet_staking::Config for Test {
 	type SessionInterface = Self;
 	type UnixTime = pallet_timestamp::Pallet<Test>;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
-	type MaxNominatorRewardedPerValidator = ConstU32<64>;
+	type MaxExposurePageSize = ConstU32<64>;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type NextNewSession = Session;
 	type ElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
@@ -224,6 +197,7 @@ impl pallet_staking::Config for Test {
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<16>;
 	type MaxUnlockingChunks = ConstU32<32>;
+	type MaxControllersInDeprecationBatch = ConstU32<100>;
 	type HistoryDepth = ConstU32<84>;
 	type EventListeners = ();
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;

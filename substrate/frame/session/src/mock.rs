@@ -35,7 +35,7 @@ use sp_staking::SessionIndex;
 use sp_state_machine::BasicExternalities;
 
 use frame_support::{
-	parameter_types,
+	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64},
 };
 
@@ -82,9 +82,9 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
-		Historical: pallet_session_historical::{Pallet},
+		System: frame_system,
+		Session: pallet_session,
+		Historical: pallet_session_historical,
 	}
 );
 
@@ -92,8 +92,8 @@ frame_support::construct_runtime!(
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
+		System: frame_system,
+		Session: pallet_session,
 	}
 );
 
@@ -232,6 +232,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	sp_io::TestExternalities::new(t)
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();

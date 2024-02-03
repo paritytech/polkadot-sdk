@@ -1,6 +1,6 @@
 [package]
 name = "pallet-contracts"
-version = "4.0.0-dev"
+version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 build = "build.rs"
@@ -9,7 +9,10 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "FRAME pallet for WASM contracts"
 readme = "README.md"
-include = ["src/**/*", "build.rs", "README.md", "CHANGELOG.md"]
+include = ["CHANGELOG.md", "README.md", "benchmarks/**", "build.rs", "src/**/*"]
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -20,7 +23,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 	"derive",
 	"max-encoded-len",
 ] }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 log = { version = "0.4", default-features = false }
 serde = { version = "1", optional = true, features = ["derive"] }
 smallvec = { version = "1", default-features = false, features = [
@@ -37,16 +40,19 @@ rand_pcg = { version = "0.3", optional = true }
 # Substrate Dependencies
 environmental = { version = "1.1.4", default-features = false }
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
-frame-support = { path = "../support", default-features = false}
-frame-system = { path = "../system", default-features = false}
-pallet-balances = { path = "../balances", default-features = false , optional = true}
-pallet-contracts-primitives = { path = "primitives", default-features = false}
+frame-support = { path = "../support", default-features = false }
+frame-system = { path = "../system", default-features = false }
+pallet-balances = { path = "../balances", default-features = false, optional = true }
+pallet-contracts-uapi = { path = "uapi" }
 pallet-contracts-proc-macro = { path = "proc-macro" }
-sp-api = { path = "../../primitives/api", default-features = false}
-sp-core = { path = "../../primitives/core", default-features = false}
-sp-io = { path = "../../primitives/io", default-features = false}
-sp-runtime = { path = "../../primitives/runtime", default-features = false}
-sp-std = { path = "../../primitives/std", default-features = false}
+sp-api = { path = "../../primitives/api", default-features = false }
+sp-core = { path = "../../primitives/core", default-features = false }
+sp-io = { path = "../../primitives/io", default-features = false }
+sp-runtime = { path = "../../primitives/runtime", default-features = false }
+sp-std = { path = "../../primitives/std", default-features = false }
+
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false }
 
 [dev-dependencies]
 array-bytes = "6.1"
@@ -54,17 +60,24 @@ assert_matches = "1"
 env_logger = "0.9"
 pretty_assertions = "1"
 wat = "1"
+pallet-contracts-fixtures = { path = "./fixtures" }
+
+# Polkadot Dependencies
+xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder" }
 
 # Substrate Dependencies
 pallet-balances = { path = "../balances" }
 pallet-timestamp = { path = "../timestamp" }
+pallet-message-queue = { path = "../message-queue" }
 pallet-insecure-randomness-collective-flip = { path = "../insecure-randomness-collective-flip" }
 pallet-utility = { path = "../utility" }
+pallet-assets = { path = "../assets" }
 pallet-proxy = { path = "../proxy" }
 sp-keystore = { path = "../../primitives/keystore" }
+sp-tracing = { path = "../../primitives/tracing" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"environmental/std",
@@ -73,13 +86,11 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"pallet-balances?/std",
-	"pallet-contracts-primitives/std",
-	"pallet-contracts-proc-macro/full",
 	"pallet-insecure-randomness-collective-flip/std",
 	"pallet-proxy/std",
 	"pallet-timestamp/std",
 	"pallet-utility/std",
-	"rand/std",
+	"rand?/std",
 	"scale-info/std",
 	"serde",
 	"sp-api/std",
@@ -88,14 +99,18 @@ std = [
 	"sp-keystore/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"wasm-instrument/std",
+	"wasm-instrument?/std",
 	"wasmi/std",
+	"xcm-builder/std",
+	"xcm/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
@@ -103,12 +118,15 @@ runtime-benchmarks = [
 	"rand_pcg",
 	"sp-runtime/runtime-benchmarks",
 	"wasm-instrument",
+	"xcm-builder/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-assets/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-insecure-randomness-collective-flip/try-runtime",
+	"pallet-message-queue/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-utility/try-runtime",

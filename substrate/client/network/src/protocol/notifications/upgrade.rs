@@ -16,12 +16,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+#[cfg(test)]
+pub(crate) use self::notifications::{
+	NotificationsInOpen, NotificationsInSubstreamHandshake, NotificationsOutOpen,
+};
 pub use self::{
 	collec::UpgradeCollec,
 	notifications::{
-		NotificationsHandshakeError, NotificationsIn, NotificationsInOpen,
-		NotificationsInSubstream, NotificationsInSubstreamHandshake, NotificationsOut,
-		NotificationsOutError, NotificationsOutOpen, NotificationsOutSubstream,
+		NotificationsIn, NotificationsInSubstream, NotificationsOut, NotificationsOutSubstream,
 	},
 };
 

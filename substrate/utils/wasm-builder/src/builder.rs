@@ -21,6 +21,8 @@ use std::{
 	process,
 };
 
+use crate::RuntimeTarget;
+
 /// Returns the manifest dir from the `CARGO_MANIFEST_DIR` env.
 fn get_manifest_dir() -> PathBuf {
 	env::var("CARGO_MANIFEST_DIR")
@@ -49,6 +51,8 @@ impl WasmBuilderSelectProject {
 			project_cargo_toml: get_manifest_dir().join("Cargo.toml"),
 			features_to_enable: Vec::new(),
 			disable_runtime_version_section_check: false,
+			export_heap_base: false,
+			import_memory: false,
 		}
 	}
 
@@ -65,6 +69,8 @@ impl WasmBuilderSelectProject {
 				project_cargo_toml: path,
 				features_to_enable: Vec::new(),
 				disable_runtime_version_section_check: false,
+				export_heap_base: false,
+				import_memory: false,
 			})
 		} else {
 			Err("Project path must point to the `Cargo.toml` of the project")
@@ -97,6 +103,11 @@ pub struct WasmBuilder {
 	features_to_enable: Vec<String>,
 	/// Should the builder not check that the `runtime_version` section exists in the wasm binary?
 	disable_runtime_version_section_check: bool,
+
+	/// Whether `__heap_base` should be exported (WASM-only).
+	export_heap_base: bool,
+	/// Whether `--import-memory` should be added to the link args (WASM-only).
+	import_memory: bool,
 }
 
 impl WasmBuilder {
@@ -109,7 +120,7 @@ impl WasmBuilder {
 	///
 	/// This adds `-Clink-arg=--export=__heap_base` to `RUST_FLAGS`.
 	pub fn export_heap_base(mut self) -> Self {
-		self.rust_flags.push("-Clink-arg=--export=__heap_base".into());
+		self.export_heap_base = true;
 		self
 	}
 
@@ -127,7 +138,7 @@ impl WasmBuilder {
 	///
 	/// This adds `-C link-arg=--import-memory` to `RUST_FLAGS`.
 	pub fn import_memory(mut self) -> Self {
-		self.rust_flags.push("-C link-arg=--import-memory".into());
+		self.import_memory = true;
 		self
 	}
 
@@ -159,7 +170,18 @@ impl WasmBuilder {
 	}
 
 	/// Build the WASM binary.
-	pub fn build(self) {
+	pub fn build(mut self) {
+		let target = crate::runtime_target();
+		if target == RuntimeTarget::Wasm {
+			if self.export_heap_base {
+				self.rust_flags.push("-Clink-arg=--export=__heap_base".into());
+			}
+
+			if self.import_memory {
+				self.rust_flags.push("-C link-arg=--import-memory".into());
+			}
+		}
+
 		let out_dir = PathBuf::from(env::var("OUT_DIR").expect("`OUT_DIR` is set by cargo!"));
 		let file_path =
 			out_dir.join(self.file_name.clone().unwrap_or_else(|| "wasm_binary.rs".into()));
@@ -175,6 +197,7 @@ impl WasmBuilder {
 		}
 
 		build_project(
+			target,
 			file_path,
 			self.project_cargo_toml,
 			self.rust_flags.into_iter().map(|f| format!("{} ", f)).collect(),
@@ -248,6 +271,7 @@ fn generate_rerun_if_changed_instructions() {
 /// `check_for_runtime_version_section` - Should the wasm binary be checked for the
 /// `runtime_version` section?
 fn build_project(
+	target: RuntimeTarget,
 	file_name: PathBuf,
 	project_cargo_toml: PathBuf,
 	default_rustflags: String,
@@ -255,7 +279,7 @@ fn build_project(
 	wasm_binary_name: Option<String>,
 	check_for_runtime_version_section: bool,
 ) {
-	let cargo_cmd = match crate::prerequisites::check() {
+	let cargo_cmd = match crate::prerequisites::check(target) {
 		Ok(cmd) => cmd,
 		Err(err_msg) => {
 			eprintln!("{}", err_msg);
@@ -264,6 +288,7 @@ fn build_project(
 	};
 
 	let (wasm_binary, bloaty) = crate::wasm_project::create_and_compile(
+		target,
 		&project_cargo_toml,
 		&default_rustflags,
 		cargo_cmd,
@@ -273,9 +298,9 @@ fn build_project(
 	);
 
 	let (wasm_binary, wasm_binary_bloaty) = if let Some(wasm_binary) = wasm_binary {
-		(wasm_binary.wasm_binary_path_escaped(), bloaty.wasm_binary_bloaty_path_escaped())
+		(wasm_binary.wasm_binary_path_escaped(), bloaty.bloaty_path_escaped())
 	} else {
-		(bloaty.wasm_binary_bloaty_path_escaped(), bloaty.wasm_binary_bloaty_path_escaped())
+		(bloaty.bloaty_path_escaped(), bloaty.bloaty_path_escaped())
 	};
 
 	crate::write_file_if_changed(

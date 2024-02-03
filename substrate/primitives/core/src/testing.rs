@@ -31,6 +31,8 @@ pub const BANDERSNATCH: KeyTypeId = KeyTypeId(*b"band");
 pub const BLS377: KeyTypeId = KeyTypeId(*b"bls7");
 /// Key type for generic BLS12-381 key.
 pub const BLS381: KeyTypeId = KeyTypeId(*b"bls8");
+/// Key type for (ECDSA,BLS12-377) key pair
+pub const ECDSA_BLS377: KeyTypeId = KeyTypeId(*b"ecb7");
 
 /// Macro for exporting functions from wasm in with the expected signature for using it with the
 /// wasm executor. This is useful for tests where you need to call a function in wasm.

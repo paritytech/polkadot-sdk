@@ -1,15 +1,18 @@
 [package]
 name = "pallet-xcm-bridge-hub-router"
 description = "Bridge hub interface for sibling/parent chains with dynamic fees support."
-version = "0.1.0"
+version = "0.5.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
+[lints]
+workspace = true
+
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false }
 log = { version = "0.4.20", default-features = false }
-scale-info = { version = "2.8.0", default-features = false, features = ["bit-vec", "derive", "serde"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["bit-vec", "derive", "serde"] }
 
 # Bridge dependencies
 
@@ -34,7 +37,7 @@ sp-io = { path = "../../../substrate/primitives/io" }
 sp-std = { path = "../../../substrate/primitives/std" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"bp-xcm-bridge-hub-router/std",
 	"codec/std",

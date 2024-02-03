@@ -1,6 +1,6 @@
 [package]
 name = "sp-inherents"
-version = "4.0.0-dev"
+version = "26.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -10,23 +10,26 @@ description = "Provides types and traits for creating and checking inherents."
 documentation = "https://docs.rs/sp-inherents"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-async-trait = { version = "0.1.57", optional = true }
+async-trait = { version = "0.1.74", optional = true }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 impl-trait-for-tuples = "0.2.2"
 thiserror = { version = "1.0.48", optional = true }
-sp-runtime = { path = "../runtime", default-features = false, optional = true}
-sp-std = { path = "../std", default-features = false}
+sp-runtime = { path = "../runtime", default-features = false, optional = true }
+sp-std = { path = "../std", default-features = false }
 
 [dev-dependencies]
 futures = "0.3.21"
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"async-trait",
 	"codec/std",

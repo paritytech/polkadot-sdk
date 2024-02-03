@@ -6,6 +6,9 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 
@@ -38,7 +41,7 @@ sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 futures = "0.3.21"
 
 [features]
-runtime-benchmarks= [
+runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-test-runtime/runtime-benchmarks",

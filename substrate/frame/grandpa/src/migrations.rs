@@ -22,8 +22,11 @@ use frame_support::{
 
 use crate::{Config, CurrentSetId, SetIdSession, LOG_TARGET};
 
+pub use v5::MigrateV4ToV5;
+
 /// Version 4.
 pub mod v4;
+mod v5;
 
 /// This migration will clean up all stale set id -> session entries from the
 /// `SetIdSession` storage map, only the latest `max_set_id_session_entries`

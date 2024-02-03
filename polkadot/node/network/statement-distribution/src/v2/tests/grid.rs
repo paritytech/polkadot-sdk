@@ -29,7 +29,7 @@ fn backed_candidate_leads_to_advertisement() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -41,7 +41,10 @@ fn backed_candidate_leads_to_advertisement() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
-		let local_para = ParaId::from(local_validator.group_index.0);
+		let local_group_index = local_validator.group_index.unwrap();
+		let local_para = ParaId::from(local_group_index.0);
+
+		let other_group = next_group_index(local_group_index, validator_count, group_size);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
 
@@ -55,13 +58,12 @@ fn backed_candidate_leads_to_advertisement() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let other_group_validators = state.group_validators(local_validator.group_index, true);
-		let target_group_validators =
-			state.group_validators((local_validator.group_index.0 + 1).into(), true);
-		let v_a = other_group_validators[0];
-		let v_b = other_group_validators[1];
-		let v_c = target_group_validators[0];
-		let v_d = target_group_validators[1];
+		let local_group_validators = state.group_validators(local_group_index, true);
+		let other_group_validators = state.group_validators(other_group, true);
+		let v_a = local_group_validators[0];
+		let v_b = local_group_validators[1];
+		let v_c = other_group_validators[0];
+		let v_d = other_group_validators[1];
 
 		// peer A is in group, has relay parent in view.
 		// peer B is in group, has no relay parent in view.
@@ -100,15 +102,7 @@ fn backed_candidate_leads_to_advertisement() {
 			send_peer_view_change(&mut overseer, peer_c.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
-
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
 		// Send gossip topology.
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
@@ -135,7 +129,7 @@ fn backed_candidate_leads_to_advertisement() {
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(peers, _)) if peers == vec![peer_a]
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 		}
 
 		// Send enough statements to make candidate backable, make sure announcements are sent.
@@ -219,7 +213,7 @@ fn backed_candidate_leads_to_advertisement() {
 					assert_eq!(manifest, BackedCandidateManifest {
 						relay_parent,
 						candidate_hash,
-						group_index: local_validator.group_index,
+						group_index: local_group_index,
 						para_id: local_para,
 						parent_head_data_hash: pvd.parent_head.hash(),
 						statement_knowledge: StatementFilter {
@@ -230,7 +224,7 @@ fn backed_candidate_leads_to_advertisement() {
 				}
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 		}
 
 		overseer
@@ -244,7 +238,7 @@ fn received_advertisement_before_confirmation_leads_to_request() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -256,9 +250,9 @@ fn received_advertisement_before_confirmation_leads_to_request() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
+		let local_group_index = local_validator.group_index.unwrap();
 
-		let other_group =
-			next_group_index(local_validator.group_index, validator_count, group_size);
+		let other_group = next_group_index(local_group_index, validator_count, group_size);
 		let other_para = ParaId::from(other_group.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
@@ -273,12 +267,12 @@ fn received_advertisement_before_confirmation_leads_to_request() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let other_group_validators = state.group_validators(local_validator.group_index, true);
-		let target_group_validators = state.group_validators(other_group, true);
-		let v_a = other_group_validators[0];
-		let v_b = other_group_validators[1];
-		let v_c = target_group_validators[0];
-		let v_d = target_group_validators[1];
+		let local_group_validators = state.group_validators(local_group_index, true);
+		let other_group_validators = state.group_validators(other_group, true);
+		let v_a = local_group_validators[0];
+		let v_b = local_group_validators[1];
+		let v_c = other_group_validators[0];
+		let v_d = other_group_validators[1];
 
 		// peer A is in group, has relay parent in view.
 		// peer B is in group, has no relay parent in view.
@@ -318,15 +312,7 @@ fn received_advertisement_before_confirmation_leads_to_request() {
 			send_peer_view_change(&mut overseer, peer_d.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
-
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
 		// Send gossip topology.
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
@@ -398,7 +384,7 @@ fn received_advertisement_before_confirmation_leads_to_request() {
 					if p == peer_c && r == BENEFIT_VALID_RESPONSE.into() => { }
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 		}
 
 		overseer
@@ -424,23 +410,38 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
-	let relay_parent = Hash::repeat_byte(1);
-	let peer_c = PeerId::random();
-	let peer_d = PeerId::random();
-	let peer_e = PeerId::random();
-
 	test_harness(config, |state, mut overseer| async move {
-		let local_validator = state.local.clone().unwrap();
+		let peers_to_connect = [
+			TestPeerToConnect { local: true, relay_parent_in_view: false },
+			TestPeerToConnect { local: true, relay_parent_in_view: false },
+			TestPeerToConnect { local: false, relay_parent_in_view: true },
+			TestPeerToConnect { local: false, relay_parent_in_view: true },
+			TestPeerToConnect { local: false, relay_parent_in_view: true },
+		];
 
-		let other_group =
-			next_group_index(local_validator.group_index, validator_count, group_size);
-		let other_para = ParaId::from(other_group.0);
-
-		let test_leaf = state.make_dummy_leaf(relay_parent);
+		let TestSetupInfo {
+			other_group,
+			other_para,
+			relay_parent,
+			test_leaf,
+			peers,
+			validators,
+			..
+		} = setup_test_and_connect_peers(
+			&state,
+			&mut overseer,
+			validator_count,
+			group_size,
+			&peers_to_connect,
+			false,
+		)
+		.await;
+		let [_, _, peer_c, peer_d, _] = peers[..] else { panic!() };
+		let [_, _, v_c, v_d, v_e] = validators[..] else { panic!() };
 
 		let (candidate, pvd) = make_candidate(
 			relay_parent,
@@ -451,52 +452,6 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 			Hash::repeat_byte(42).into(),
 		);
 		let candidate_hash = candidate.hash();
-
-		let target_group_validators = state.group_validators(other_group, true);
-		let v_c = target_group_validators[0];
-		let v_d = target_group_validators[1];
-		let v_e = target_group_validators[2];
-
-		// Connect C, D, E
-		{
-			connect_peer(
-				&mut overseer,
-				peer_c.clone(),
-				Some(vec![state.discovery_id(v_c)].into_iter().collect()),
-			)
-			.await;
-
-			connect_peer(
-				&mut overseer,
-				peer_d.clone(),
-				Some(vec![state.discovery_id(v_d)].into_iter().collect()),
-			)
-			.await;
-
-			connect_peer(
-				&mut overseer,
-				peer_e.clone(),
-				Some(vec![state.discovery_id(v_e)].into_iter().collect()),
-			)
-			.await;
-
-			send_peer_view_change(&mut overseer, peer_c.clone(), view![relay_parent]).await;
-			send_peer_view_change(&mut overseer, peer_d.clone(), view![relay_parent]).await;
-			send_peer_view_change(&mut overseer, peer_e.clone(), view![relay_parent]).await;
-		}
-
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
-
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
-
-		// Send gossip topology.
-		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		let manifest = BackedCandidateManifest {
 			relay_parent,
@@ -529,14 +484,7 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 
 		// Receive an advertisement from C.
 		{
-			send_peer_message(
-				&mut overseer,
-				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
-					manifest.clone(),
-				),
-			)
-			.await;
+			send_manifest_from_peer(&mut overseer, peer_c, manifest.clone()).await;
 
 			// Should send a request to C.
 			let statements = vec![
@@ -562,37 +510,16 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 			)
 			.await;
 
-			assert_matches!(
-				overseer.recv().await,
-				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
-					if p == peer_c && r == BENEFIT_VALID_STATEMENT.into()
-			);
-			assert_matches!(
-				overseer.recv().await,
-				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
-					if p == peer_c && r == BENEFIT_VALID_STATEMENT.into()
-			);
-			assert_matches!(
-				overseer.recv().await,
-				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
-					if p == peer_c && r == BENEFIT_VALID_STATEMENT.into()
-			);
+			assert_peer_reported!(&mut overseer, peer_c, BENEFIT_VALID_STATEMENT);
+			assert_peer_reported!(&mut overseer, peer_c, BENEFIT_VALID_STATEMENT);
+			assert_peer_reported!(&mut overseer, peer_c, BENEFIT_VALID_STATEMENT);
+			assert_peer_reported!(&mut overseer, peer_c, BENEFIT_VALID_RESPONSE);
 
-			assert_matches!(
-				overseer.recv().await,
-				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
-					if p == peer_c && r == BENEFIT_VALID_RESPONSE.into()
-			);
-
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 		}
 
 		// Receive Backed message.
-		overseer
-			.send(FromOrchestra::Communication {
-				msg: StatementDistributionMessage::Backed(candidate_hash),
-			})
-			.await;
+		send_backed_message(&mut overseer, candidate_hash).await;
 
 		// Should send an acknowledgement back to C.
 		{
@@ -619,19 +546,12 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 				}
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 		}
 
 		// Receive a manifest about the same candidate from peer D.
 		{
-			send_peer_message(
-				&mut overseer,
-				peer_d.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
-					manifest.clone(),
-				),
-			)
-			.await;
+			send_manifest_from_peer(&mut overseer, peer_d, manifest.clone()).await;
 
 			let expected_ack = BackedCandidateAcknowledgement {
 				candidate_hash,
@@ -664,6 +584,363 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 	});
 }
 
+#[test]
+fn receive_ack_for_unconfirmed_candidate() {
+	let validator_count = 6;
+	let group_size = 3;
+	let config = TestConfig {
+		validator_count,
+		group_size,
+		local_validator: LocalRole::Validator,
+		async_backing_params: None,
+	};
+
+	test_harness(config, |state, mut overseer| async move {
+		let peers_to_connect = [
+			TestPeerToConnect { local: true, relay_parent_in_view: true },
+			TestPeerToConnect { local: true, relay_parent_in_view: false },
+			TestPeerToConnect { local: false, relay_parent_in_view: true },
+			TestPeerToConnect { local: false, relay_parent_in_view: false },
+		];
+		let TestSetupInfo { local_para, relay_parent, test_leaf, peers, .. } =
+			setup_test_and_connect_peers(
+				&state,
+				&mut overseer,
+				validator_count,
+				group_size,
+				&peers_to_connect,
+				false,
+			)
+			.await;
+		let [_, _, peer_c, _] = peers[..] else { panic!() };
+
+		let (candidate, _pvd) = make_candidate(
+			relay_parent,
+			1,
+			local_para,
+			test_leaf.para_data(local_para).head_data.clone(),
+			vec![4, 5, 6].into(),
+			Hash::repeat_byte(42).into(),
+		);
+		let candidate_hash = candidate.hash();
+
+		let ack = BackedCandidateAcknowledgement {
+			candidate_hash,
+			statement_knowledge: StatementFilter {
+				seconded_in_group: bitvec::bitvec![u8, Lsb0; 1, 1, 1],
+				validated_in_group: bitvec::bitvec![u8, Lsb0; 0, 0, 0],
+			},
+		};
+
+		// Receive an acknowledgement from a peer before the candidate is confirmed.
+		send_ack_from_peer(&mut overseer, peer_c, ack.clone()).await;
+		assert_peer_reported!(
+			&mut overseer,
+			peer_c,
+			COST_UNEXPECTED_ACKNOWLEDGEMENT_UNKNOWN_CANDIDATE,
+		);
+
+		overseer
+	});
+}
+
+// Test receiving unexpected and expected acknowledgements for a locally confirmed candidate.
+#[test]
+fn received_acknowledgements_for_locally_confirmed() {
+	let validator_count = 6;
+	let group_size = 3;
+	let config = TestConfig {
+		validator_count,
+		group_size,
+		local_validator: LocalRole::Validator,
+		async_backing_params: None,
+	};
+
+	test_harness(config, |state, mut overseer| async move {
+		let peers_to_connect = [
+			TestPeerToConnect { local: true, relay_parent_in_view: true },
+			TestPeerToConnect { local: true, relay_parent_in_view: false },
+			TestPeerToConnect { local: false, relay_parent_in_view: true },
+			TestPeerToConnect { local: false, relay_parent_in_view: false },
+		];
+		let TestSetupInfo {
+			local_validator,
+			local_group,
+			local_para,
+			relay_parent,
+			test_leaf,
+			peers,
+			validators,
+			..
+		} = setup_test_and_connect_peers(
+			&state,
+			&mut overseer,
+			validator_count,
+			group_size,
+			&peers_to_connect,
+			true,
+		)
+		.await;
+		let [peer_a, peer_b, peer_c, peer_d] = peers[..] else { panic!() };
+		let [_, v_b, _, _] = validators[..] else { panic!() };
+
+		let (candidate, pvd) = make_candidate(
+			relay_parent,
+			1,
+			local_para,
+			test_leaf.para_data(local_para).head_data.clone(),
+			vec![4, 5, 6].into(),
+			Hash::repeat_byte(42).into(),
+		);
+		let candidate_hash = candidate.hash();
+
+		let ack = BackedCandidateAcknowledgement {
+			candidate_hash,
+			statement_knowledge: StatementFilter {
+				seconded_in_group: bitvec::bitvec![u8, Lsb0; 1, 1, 1],
+				validated_in_group: bitvec::bitvec![u8, Lsb0; 0, 0, 0],
+			},
+		};
+
+		// Confirm the candidate locally so that we don't send out requests.
+		{
+			let statement = state
+				.sign_full_statement(
+					local_validator.validator_index,
+					Statement::Seconded(candidate.clone()),
+					&SigningContext { parent_hash: relay_parent, session_index: 1 },
+					pvd.clone(),
+				)
+				.clone();
+
+			send_share_message(&mut overseer, relay_parent, statement).await;
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(peers, _)) if peers == vec![peer_a]
+			);
+
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+		}
+
+		// Receive an unexpected acknowledgement from peer D.
+		send_ack_from_peer(&mut overseer, peer_d, ack.clone()).await;
+		assert_peer_reported!(&mut overseer, peer_d, COST_UNEXPECTED_MANIFEST_DISALLOWED);
+
+		// Send statement from peer B.
+		{
+			let statement = state
+				.sign_statement(
+					v_b,
+					CompactStatement::Seconded(candidate_hash),
+					&SigningContext { parent_hash: relay_parent, session_index: 1 },
+				)
+				.as_unchecked()
+				.clone();
+
+			send_peer_message(
+				&mut overseer,
+				peer_b.clone(),
+				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
+			)
+			.await;
+
+			assert_peer_reported!(&mut overseer, peer_b, BENEFIT_VALID_STATEMENT_FIRST);
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(peers, _)) if peers == vec![peer_a]
+			);
+		}
+
+		// Send Backed notification.
+		{
+			send_backed_message(&mut overseer, candidate_hash).await;
+
+			// We should send out a manifest.
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages:: NetworkBridgeTx(
+					NetworkBridgeTxMessage::SendValidationMessage(
+						peers,
+						Versioned::V2(
+							protocol_v2::ValidationProtocol::StatementDistribution(
+								protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest),
+							),
+						),
+					)
+				) => {
+					assert_eq!(peers, vec![peer_c]);
+					assert_eq!(manifest, BackedCandidateManifest {
+						relay_parent,
+						candidate_hash,
+						group_index: local_group,
+						para_id: local_para,
+						parent_head_data_hash: pvd.parent_head.hash(),
+						statement_knowledge: StatementFilter {
+							seconded_in_group: bitvec::bitvec![u8, Lsb0; 0, 1, 1],
+							validated_in_group: bitvec::bitvec![u8, Lsb0; 0, 0, 0],
+						},
+					});
+				}
+			);
+
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+		}
+
+		// Receive an unexpected acknowledgement from peer D.
+		//
+		// It still shouldn't know this manifest.
+		send_ack_from_peer(&mut overseer, peer_d, ack.clone()).await;
+		assert_peer_reported!(&mut overseer, peer_d, COST_UNEXPECTED_MANIFEST_DISALLOWED);
+
+		// Receive an acknowledgement from peer C.
+		//
+		// It's OK, we know they know it because we sent them a manifest.
+		send_ack_from_peer(&mut overseer, peer_c, ack.clone()).await;
+
+		// What happens if we get another valid ack?
+		send_ack_from_peer(&mut overseer, peer_c, ack.clone()).await;
+
+		overseer
+	});
+}
+
+// Test receiving unexpected acknowledgements for a candidate confirmed in a different group.
+#[test]
+fn received_acknowledgements_for_externally_confirmed() {
+	let validator_count = 6;
+	let group_size = 3;
+	let config = TestConfig {
+		validator_count,
+		group_size,
+		local_validator: LocalRole::Validator,
+		async_backing_params: None,
+	};
+
+	test_harness(config, |state, mut overseer| async move {
+		let peers_to_connect = [
+			TestPeerToConnect { local: true, relay_parent_in_view: true },
+			TestPeerToConnect { local: true, relay_parent_in_view: false },
+			TestPeerToConnect { local: false, relay_parent_in_view: true },
+			TestPeerToConnect { local: false, relay_parent_in_view: true },
+			TestPeerToConnect { local: false, relay_parent_in_view: true },
+		];
+		let TestSetupInfo {
+			other_group,
+			other_para,
+			relay_parent,
+			test_leaf,
+			peers,
+			validators,
+			..
+		} = setup_test_and_connect_peers(
+			&state,
+			&mut overseer,
+			validator_count,
+			group_size,
+			&peers_to_connect,
+			false,
+		)
+		.await;
+		let [peer_a, _, peer_c, peer_d, _] = peers[..] else { panic!() };
+		let [_, _, v_c, v_d, v_e] = validators[..] else { panic!() };
+
+		let (candidate, pvd) = make_candidate(
+			relay_parent,
+			1,
+			other_para,
+			test_leaf.para_data(other_para).head_data.clone(),
+			vec![4, 5, 6].into(),
+			Hash::repeat_byte(42).into(),
+		);
+		let candidate_hash = candidate.hash();
+
+		let manifest = BackedCandidateManifest {
+			relay_parent,
+			candidate_hash,
+			group_index: other_group,
+			para_id: other_para,
+			parent_head_data_hash: pvd.parent_head.hash(),
+			statement_knowledge: StatementFilter {
+				seconded_in_group: bitvec::bitvec![u8, Lsb0; 0, 1, 1],
+				validated_in_group: bitvec::bitvec![u8, Lsb0; 0, 0, 0],
+			},
+		};
+
+		let statement_c = state
+			.sign_statement(
+				v_c,
+				CompactStatement::Seconded(candidate_hash),
+				&SigningContext { parent_hash: relay_parent, session_index: 1 },
+			)
+			.as_unchecked()
+			.clone();
+		let statement_d = state
+			.sign_statement(
+				v_d,
+				CompactStatement::Seconded(candidate_hash),
+				&SigningContext { parent_hash: relay_parent, session_index: 1 },
+			)
+			.as_unchecked()
+			.clone();
+
+		// Receive an advertisement from C, confirming the candidate.
+		{
+			send_manifest_from_peer(&mut overseer, peer_c, manifest.clone()).await;
+
+			// Should send a request to C.
+			let statements = vec![
+				statement_c.clone(),
+				statement_d.clone(),
+				state
+					.sign_statement(
+						v_e,
+						CompactStatement::Seconded(candidate_hash),
+						&SigningContext { parent_hash: relay_parent, session_index: 1 },
+					)
+					.as_unchecked()
+					.clone(),
+			];
+			handle_sent_request(
+				&mut overseer,
+				peer_c,
+				candidate_hash,
+				StatementFilter::blank(group_size),
+				candidate.clone(),
+				pvd.clone(),
+				statements,
+			)
+			.await;
+
+			assert_peer_reported!(&mut overseer, peer_c, BENEFIT_VALID_STATEMENT);
+			assert_peer_reported!(&mut overseer, peer_c, BENEFIT_VALID_STATEMENT);
+			assert_peer_reported!(&mut overseer, peer_c, BENEFIT_VALID_STATEMENT);
+			assert_peer_reported!(&mut overseer, peer_c, BENEFIT_VALID_RESPONSE);
+
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
+		}
+
+		let ack = BackedCandidateAcknowledgement {
+			candidate_hash,
+			statement_knowledge: StatementFilter {
+				seconded_in_group: bitvec::bitvec![u8, Lsb0; 1, 1, 1],
+				validated_in_group: bitvec::bitvec![u8, Lsb0; 0, 0, 0],
+			},
+		};
+
+		// Receive an unexpected acknowledgement from peer D.
+		send_ack_from_peer(&mut overseer, peer_d, ack.clone()).await;
+		assert_peer_reported!(&mut overseer, peer_d, COST_UNEXPECTED_MANIFEST_PEER_UNKNOWN);
+
+		// Receive an unexpected acknowledgement from peer A.
+		send_ack_from_peer(&mut overseer, peer_a, ack.clone()).await;
+		assert_peer_reported!(&mut overseer, peer_a, COST_UNEXPECTED_MANIFEST_DISALLOWED);
+
+		overseer
+	});
+}
+
 // Received advertisement after confirmation but before backing leads to nothing.
 #[test]
 fn received_advertisement_after_confirmation_before_backing() {
@@ -672,7 +949,7 @@ fn received_advertisement_after_confirmation_before_backing() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -683,9 +960,9 @@ fn received_advertisement_after_confirmation_before_backing() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
+		let local_group_index = local_validator.group_index.unwrap();
 
-		let other_group =
-			next_group_index(local_validator.group_index, validator_count, group_size);
+		let other_group = next_group_index(local_group_index, validator_count, group_size);
 		let other_para = ParaId::from(other_group.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
@@ -700,10 +977,10 @@ fn received_advertisement_after_confirmation_before_backing() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let target_group_validators = state.group_validators(other_group, true);
-		let v_c = target_group_validators[0];
-		let v_d = target_group_validators[1];
-		let v_e = target_group_validators[2];
+		let other_group_validators = state.group_validators(other_group, true);
+		let v_c = other_group_validators[0];
+		let v_d = other_group_validators[1];
+		let v_e = other_group_validators[2];
 
 		// Connect C, D, E
 		{
@@ -733,15 +1010,7 @@ fn received_advertisement_after_confirmation_before_backing() {
 			send_peer_view_change(&mut overseer, peer_e.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
-
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
 		// Send gossip topology.
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
@@ -832,7 +1101,7 @@ fn received_advertisement_after_confirmation_before_backing() {
 					if p == peer_c && r == BENEFIT_VALID_RESPONSE.into()
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 		}
 
 		// Receive advertisement from peer D (after confirmation but before backing).
@@ -858,7 +1127,7 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -869,9 +1138,9 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
+		let local_group_index = local_validator.group_index.unwrap();
 
-		let other_group =
-			next_group_index(local_validator.group_index, validator_count, group_size);
+		let other_group = next_group_index(local_group_index, validator_count, group_size);
 		let other_para = ParaId::from(other_group.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
@@ -886,10 +1155,10 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let target_group_validators = state.group_validators(other_group, true);
-		let v_c = target_group_validators[0];
-		let v_d = target_group_validators[1];
-		let v_e = target_group_validators[2];
+		let other_group_validators = state.group_validators(other_group, true);
+		let v_c = other_group_validators[0];
+		let v_d = other_group_validators[1];
+		let v_e = other_group_validators[2];
 
 		// Connect C, D, E
 		{
@@ -919,15 +1188,7 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 			send_peer_view_change(&mut overseer, peer_e.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
-
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
 		// Send gossip topology.
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
@@ -1012,13 +1273,8 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 			persisted_validation_data: pvd.clone(),
 		};
 		let membership = vec![(relay_parent, vec![0])];
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![(hypothetical, membership)],
-			None,
-			false,
-		)
-		.await;
+		answer_expected_hypothetical_depth_request(&mut overseer, vec![(hypothetical, membership)])
+			.await;
 
 		// Statements are sent to the Backing subsystem.
 		{
@@ -1082,7 +1338,7 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 				}
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 		}
 
 		// Receive a manifest about the same candidate from peer D. Contains different statements.
@@ -1155,7 +1411,7 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -1167,7 +1423,8 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
-		let local_para = ParaId::from(local_validator.group_index.0);
+		let local_group_index = local_validator.group_index.unwrap();
+		let local_para = ParaId::from(local_group_index.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
 
@@ -1181,13 +1438,12 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let other_group_validators = state.group_validators(local_validator.group_index, true);
-		let target_group_validators =
-			state.group_validators((local_validator.group_index.0 + 1).into(), true);
-		let v_a = other_group_validators[0];
-		let v_b = other_group_validators[1];
-		let v_c = target_group_validators[0];
-		let v_d = target_group_validators[1];
+		let local_group_validators = state.group_validators(local_group_index, true);
+		let other_group_validators = state.group_validators((local_group_index.0 + 1).into(), true);
+		let v_a = local_group_validators[0];
+		let v_b = local_group_validators[1];
+		let v_c = other_group_validators[0];
+		let v_d = other_group_validators[1];
 
 		// peer A is in group, has relay parent in view.
 		// peer B is in group, has no relay parent in view.
@@ -1225,17 +1481,8 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 			send_peer_view_change(&mut overseer, peer_a.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
-
-		// Send gossip topology.
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		// Confirm the candidate locally so that we don't send out requests.
@@ -1260,7 +1507,7 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(peers, _)) if peers == vec![peer_a]
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 		}
 
 		// Send enough statements to make candidate backable, make sure announcements are sent.
@@ -1327,7 +1574,7 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 			})
 			.await;
 
-		answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+		answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 
 		// Relay parent enters view of peer C.
 		{
@@ -1336,7 +1583,7 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 			let expected_manifest = BackedCandidateManifest {
 				relay_parent,
 				candidate_hash,
-				group_index: local_validator.group_index,
+				group_index: local_group_index,
 				para_id: local_para,
 				parent_head_data_hash: pvd.parent_head.hash(),
 				statement_knowledge: StatementFilter {
@@ -1377,7 +1624,7 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -1389,7 +1636,8 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
-		let local_para = ParaId::from(local_validator.group_index.0);
+		let local_group_index = local_validator.group_index.unwrap();
+		let local_para = ParaId::from(local_group_index.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
 
@@ -1403,13 +1651,12 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let other_group_validators = state.group_validators(local_validator.group_index, true);
-		let target_group_validators =
-			state.group_validators((local_validator.group_index.0 + 1).into(), true);
-		let v_a = other_group_validators[0];
-		let v_b = other_group_validators[1];
-		let v_c = target_group_validators[0];
-		let v_d = target_group_validators[1];
+		let local_group_validators = state.group_validators(local_group_index, true);
+		let other_group_validators = state.group_validators((local_group_index.0 + 1).into(), true);
+		let v_a = local_group_validators[0];
+		let v_b = local_group_validators[1];
+		let v_c = other_group_validators[0];
+		let v_d = other_group_validators[1];
 
 		// peer A is in group, has relay parent in view.
 		// peer B is in group, has no relay parent in view.
@@ -1448,17 +1695,8 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 			send_peer_view_change(&mut overseer, peer_c.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
-
-		// Send gossip topology.
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		// Confirm the candidate locally so that we don't send out requests.
@@ -1483,7 +1721,7 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(peers, _)) if peers == vec![peer_a]
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 		}
 
 		// Send enough statements to make candidate backable, make sure announcements are sent.
@@ -1567,7 +1805,7 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 					assert_eq!(manifest, BackedCandidateManifest {
 						relay_parent,
 						candidate_hash,
-						group_index: local_validator.group_index,
+						group_index: local_group_index,
 						para_id: local_para,
 						parent_head_data_hash: pvd.parent_head.hash(),
 						statement_knowledge: StatementFilter {
@@ -1578,7 +1816,7 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 				}
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 		}
 
 		// Peer leaves view.
@@ -1599,7 +1837,7 @@ fn grid_statements_imported_to_backing() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -1610,9 +1848,9 @@ fn grid_statements_imported_to_backing() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
+		let local_group_index = local_validator.group_index.unwrap();
 
-		let other_group =
-			next_group_index(local_validator.group_index, validator_count, group_size);
+		let other_group = next_group_index(local_group_index, validator_count, group_size);
 		let other_para = ParaId::from(other_group.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
@@ -1627,10 +1865,10 @@ fn grid_statements_imported_to_backing() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let target_group_validators = state.group_validators(other_group, true);
-		let v_c = target_group_validators[0];
-		let v_d = target_group_validators[1];
-		let v_e = target_group_validators[2];
+		let other_group_validators = state.group_validators(other_group, true);
+		let v_c = other_group_validators[0];
+		let v_d = other_group_validators[1];
+		let v_e = other_group_validators[2];
 
 		// Connect C, D, E
 		{
@@ -1660,17 +1898,8 @@ fn grid_statements_imported_to_backing() {
 			send_peer_view_change(&mut overseer, peer_e.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
-
-		// Send gossip topology.
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		// Receive an advertisement from C.
@@ -1753,13 +1982,8 @@ fn grid_statements_imported_to_backing() {
 			persisted_validation_data: pvd.clone(),
 		};
 		let membership = vec![(relay_parent, vec![0])];
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![(hypothetical, membership)],
-			None,
-			false,
-		)
-		.await;
+		answer_expected_hypothetical_depth_request(&mut overseer, vec![(hypothetical, membership)])
+			.await;
 
 		// Receive messages from Backing subsystem.
 		{
@@ -1797,12 +2021,13 @@ fn grid_statements_imported_to_backing() {
 
 #[test]
 fn advertisements_rejected_from_incorrect_peers() {
+	sp_tracing::try_init_simple();
 	let validator_count = 6;
 	let group_size = 3;
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -1814,9 +2039,9 @@ fn advertisements_rejected_from_incorrect_peers() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
+		let local_group_index = local_validator.group_index.unwrap();
 
-		let other_group =
-			next_group_index(local_validator.group_index, validator_count, group_size);
+		let other_group = next_group_index(local_group_index, validator_count, group_size);
 		let other_para = ParaId::from(other_group.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
@@ -1831,12 +2056,12 @@ fn advertisements_rejected_from_incorrect_peers() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let other_group_validators = state.group_validators(local_validator.group_index, true);
-		let target_group_validators = state.group_validators(other_group, true);
-		let v_a = other_group_validators[0];
-		let v_b = other_group_validators[1];
-		let v_c = target_group_validators[0];
-		let v_d = target_group_validators[1];
+		let local_group_validators = state.group_validators(local_group_index, true);
+		let other_group_validators = state.group_validators(other_group, true);
+		let v_a = local_group_validators[0];
+		let v_b = local_group_validators[1];
+		let v_c = other_group_validators[0];
+		let v_d = other_group_validators[1];
 
 		// peer A is in group, has relay parent in view.
 		// peer B is in group, has no relay parent in view.
@@ -1875,17 +2100,8 @@ fn advertisements_rejected_from_incorrect_peers() {
 			send_peer_view_change(&mut overseer, peer_c.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
-
-		// Send gossip topology.
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		let manifest = BackedCandidateManifest {
@@ -1911,10 +2127,11 @@ fn advertisements_rejected_from_incorrect_peers() {
 			)
 			.await;
 
+			// Message not expected from peers of our own group.
 			assert_matches!(
 				overseer.recv().await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
-					if p == peer_a && r == COST_UNEXPECTED_MANIFEST_DISALLOWED.into() => { }
+					if p == peer_a && r == COST_UNEXPECTED_MANIFEST_PEER_UNKNOWN.into() => { }
 			);
 		}
 
@@ -1927,10 +2144,11 @@ fn advertisements_rejected_from_incorrect_peers() {
 			)
 			.await;
 
+			// Message not expected from peers of our own group.
 			assert_matches!(
 				overseer.recv().await,
 				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
-					if p == peer_b && r == COST_UNEXPECTED_MANIFEST_DISALLOWED.into() => { }
+					if p == peer_b && r == COST_UNEXPECTED_MANIFEST_PEER_UNKNOWN.into() => { }
 			);
 		}
 
@@ -1945,7 +2163,7 @@ fn manifest_rejected_with_unknown_relay_parent() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -1956,9 +2174,9 @@ fn manifest_rejected_with_unknown_relay_parent() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
+		let local_group_index = local_validator.group_index.unwrap();
 
-		let other_group =
-			next_group_index(local_validator.group_index, validator_count, group_size);
+		let other_group = next_group_index(local_group_index, validator_count, group_size);
 		let other_para = ParaId::from(other_group.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
@@ -1973,9 +2191,9 @@ fn manifest_rejected_with_unknown_relay_parent() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let target_group_validators = state.group_validators(other_group, true);
-		let v_c = target_group_validators[0];
-		let v_d = target_group_validators[1];
+		let other_group_validators = state.group_validators(other_group, true);
+		let v_c = other_group_validators[0];
+		let v_d = other_group_validators[1];
 
 		// peer C is not in group, has relay parent in view.
 		// peer D is not in group, has no relay parent in view.
@@ -1997,17 +2215,8 @@ fn manifest_rejected_with_unknown_relay_parent() {
 			send_peer_view_change(&mut overseer, peer_c.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
-
-		// Send gossip topology.
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		let manifest = BackedCandidateManifest {
@@ -2051,7 +2260,7 @@ fn manifest_rejected_when_not_a_validator() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: false,
+		local_validator: LocalRole::None,
 		async_backing_params: None,
 	};
 
@@ -2075,9 +2284,9 @@ fn manifest_rejected_when_not_a_validator() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let target_group_validators = state.group_validators(other_group, true);
-		let v_c = target_group_validators[0];
-		let v_d = target_group_validators[1];
+		let other_group_validators = state.group_validators(other_group, true);
+		let v_c = other_group_validators[0];
+		let v_d = other_group_validators[1];
 
 		// peer C is not in group, has relay parent in view.
 		// peer D is not in group, has no relay parent in view.
@@ -2099,17 +2308,8 @@ fn manifest_rejected_when_not_a_validator() {
 			send_peer_view_change(&mut overseer, peer_c.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
-
-		// Send gossip topology.
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		let manifest = BackedCandidateManifest {
@@ -2153,7 +2353,7 @@ fn manifest_rejected_when_group_does_not_match_para() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -2163,9 +2363,9 @@ fn manifest_rejected_when_group_does_not_match_para() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
+		let local_group_index = local_validator.group_index.unwrap();
 
-		let other_group =
-			next_group_index(local_validator.group_index, validator_count, group_size);
+		let other_group = next_group_index(local_group_index, validator_count, group_size);
 		// Create a mismatch between group and para.
 		let other_para = next_group_index(other_group, validator_count, group_size);
 		let other_para = ParaId::from(other_para.0);
@@ -2182,9 +2382,9 @@ fn manifest_rejected_when_group_does_not_match_para() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let target_group_validators = state.group_validators(other_group, true);
-		let v_c = target_group_validators[0];
-		let v_d = target_group_validators[1];
+		let other_group_validators = state.group_validators(other_group, true);
+		let v_c = other_group_validators[0];
+		let v_d = other_group_validators[1];
 
 		// peer C is not in group, has relay parent in view.
 		// peer D is not in group, has no relay parent in view.
@@ -2206,17 +2406,8 @@ fn manifest_rejected_when_group_does_not_match_para() {
 			send_peer_view_change(&mut overseer, peer_c.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
-
-		// Send gossip topology.
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		let manifest = BackedCandidateManifest {
@@ -2260,7 +2451,7 @@ fn peer_reported_for_advertisement_conflicting_with_confirmed_candidate() {
 	let config = TestConfig {
 		validator_count,
 		group_size,
-		local_validator: true,
+		local_validator: LocalRole::Validator,
 		async_backing_params: None,
 	};
 
@@ -2271,9 +2462,9 @@ fn peer_reported_for_advertisement_conflicting_with_confirmed_candidate() {
 
 	test_harness(config, |state, mut overseer| async move {
 		let local_validator = state.local.clone().unwrap();
+		let local_group_index = local_validator.group_index.unwrap();
 
-		let other_group =
-			next_group_index(local_validator.group_index, validator_count, group_size);
+		let other_group = next_group_index(local_group_index, validator_count, group_size);
 		let other_para = ParaId::from(other_group.0);
 
 		let test_leaf = state.make_dummy_leaf(relay_parent);
@@ -2288,10 +2479,10 @@ fn peer_reported_for_advertisement_conflicting_with_confirmed_candidate() {
 		);
 		let candidate_hash = candidate.hash();
 
-		let target_group_validators = state.group_validators(other_group, true);
-		let v_c = target_group_validators[0];
-		let v_d = target_group_validators[1];
-		let v_e = target_group_validators[2];
+		let other_group_validators = state.group_validators(other_group, true);
+		let v_c = other_group_validators[0];
+		let v_d = other_group_validators[1];
+		let v_e = other_group_validators[2];
 
 		// Connect C, D, E
 		{
@@ -2321,17 +2512,8 @@ fn peer_reported_for_advertisement_conflicting_with_confirmed_candidate() {
 			send_peer_view_change(&mut overseer, peer_e.clone(), view![relay_parent]).await;
 		}
 
-		activate_leaf(&mut overseer, &test_leaf, &state, true).await;
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
 
-		answer_expected_hypothetical_depth_request(
-			&mut overseer,
-			vec![],
-			Some(relay_parent),
-			false,
-		)
-		.await;
-
-		// Send gossip topology.
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		let manifest = BackedCandidateManifest {
@@ -2421,7 +2603,7 @@ fn peer_reported_for_advertisement_conflicting_with_confirmed_candidate() {
 					if p == peer_c && r == BENEFIT_VALID_RESPONSE.into()
 			);
 
-			answer_expected_hypothetical_depth_request(&mut overseer, vec![], None, false).await;
+			answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 		}
 
 		// Receive conflicting advertisement from peer C after confirmation.
@@ -2447,6 +2629,128 @@ fn peer_reported_for_advertisement_conflicting_with_confirmed_candidate() {
 					if p == peer_c && r == COST_CONFLICTING_MANIFEST.into()
 			);
 		}
+
+		overseer
+	});
+}
+
+#[test]
+fn inactive_local_participates_in_grid() {
+	let validator_count = 11;
+	let group_size = 3;
+	let config = TestConfig {
+		validator_count,
+		group_size,
+		local_validator: LocalRole::InactiveValidator,
+		async_backing_params: None,
+	};
+
+	let relay_parent = Hash::repeat_byte(1);
+	let peer_a = PeerId::random();
+
+	test_harness(config, |state, mut overseer| async move {
+		let local_validator = state.local.clone().unwrap();
+		assert_eq!(local_validator.validator_index.0, validator_count as u32);
+
+		let group_idx = GroupIndex::from(0);
+		let para = ParaId::from(0);
+
+		// Dummy leaf is needed to update topology.
+		let dummy_leaf = state.make_dummy_leaf(Hash::repeat_byte(2));
+		let test_leaf = state.make_dummy_leaf(relay_parent);
+
+		let (candidate, pvd) = make_candidate(
+			relay_parent,
+			1,
+			para,
+			test_leaf.para_data(para).head_data.clone(),
+			vec![4, 5, 6].into(),
+			Hash::repeat_byte(42).into(),
+		);
+		let candidate_hash = candidate.hash();
+
+		let first_group = state.group_validators(group_idx, true);
+		let v_a = first_group.last().unwrap().clone();
+		let v_b = first_group.first().unwrap().clone();
+
+		{
+			connect_peer(
+				&mut overseer,
+				peer_a.clone(),
+				Some(vec![state.discovery_id(v_a)].into_iter().collect()),
+			)
+			.await;
+
+			send_peer_view_change(&mut overseer, peer_a.clone(), view![relay_parent]).await;
+		}
+
+		activate_leaf(&mut overseer, &dummy_leaf, &state, true, vec![]).await;
+		// Send gossip topology.
+		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
+		activate_leaf(&mut overseer, &test_leaf, &state, false, vec![]).await;
+
+		// Receive an advertisement from A.
+		let manifest = BackedCandidateManifest {
+			relay_parent,
+			candidate_hash,
+			group_index: group_idx,
+			para_id: para,
+			parent_head_data_hash: pvd.parent_head.hash(),
+			statement_knowledge: StatementFilter {
+				seconded_in_group: bitvec::bitvec![u8, Lsb0; 1, 0, 1],
+				validated_in_group: bitvec::bitvec![u8, Lsb0; 1, 0, 1],
+			},
+		};
+		send_peer_message(
+			&mut overseer,
+			peer_a.clone(),
+			protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest),
+		)
+		.await;
+
+		let statements = vec![
+			state
+				.sign_statement(
+					v_a,
+					CompactStatement::Seconded(candidate_hash),
+					&SigningContext { parent_hash: relay_parent, session_index: 1 },
+				)
+				.as_unchecked()
+				.clone(),
+			state
+				.sign_statement(
+					v_b,
+					CompactStatement::Seconded(candidate_hash),
+					&SigningContext { parent_hash: relay_parent, session_index: 1 },
+				)
+				.as_unchecked()
+				.clone(),
+		];
+		// Inactive node requests this candidate.
+		handle_sent_request(
+			&mut overseer,
+			peer_a,
+			candidate_hash,
+			StatementFilter::blank(group_size),
+			candidate.clone(),
+			pvd.clone(),
+			statements,
+		)
+		.await;
+
+		for _ in 0..2 {
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_a && r == BENEFIT_VALID_STATEMENT.into() => { }
+			);
+		}
+		assert_matches!(
+			overseer.recv().await,
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+				if p == peer_a && r == BENEFIT_VALID_RESPONSE.into() => { }
+		);
+		answer_expected_hypothetical_depth_request(&mut overseer, vec![]).await;
 
 		overseer
 	});

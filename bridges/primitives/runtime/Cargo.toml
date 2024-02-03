@@ -1,10 +1,13 @@
 [package]
 name = "bp-runtime"
 description = "Primitives that may be used at (bridges) runtime level."
-version = "0.1.0"
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[lints]
+workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false }
@@ -12,7 +15,7 @@ hash-db = { version = "0.16.0", default-features = false }
 impl-trait-for-tuples = "0.2.2"
 log = { version = "0.4.19", default-features = false }
 num-traits = { version = "0.2", default-features = false }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0", default-features = false, features = ["alloc", "derive"] }
 
 # Substrate Dependencies
@@ -31,7 +34,7 @@ trie-db = { version = "0.28.0", default-features = false }
 hex-literal = "0.4"
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"frame-support/std",

@@ -1,0 +1,24 @@
+[package]
+name = "bridge-hub-rococo-emulated-chain"
+version = "0.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+description = "Bridge Hub Rococo emulated chain"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+
+# Substrate
+sp-core = { path = "../../../../../../../../substrate/primitives/core", default-features = false }
+frame-support = { path = "../../../../../../../../substrate/frame/support", default-features = false }
+
+# Cumulus
+parachains-common = { path = "../../../../../../../parachains/common" }
+emulated-integration-tests-common = { path = "../../../../common", default-features = false }
+bridge-hub-rococo-runtime = { path = "../../../../../../runtimes/bridge-hubs/bridge-hub-rococo" }
+bridge-hub-common = { path = "../../../../../../runtimes/bridge-hubs/common", default-features = false }
+testnet-parachains-constants = { path = "../../../../../../runtimes/constants", features = ["rococo"] }

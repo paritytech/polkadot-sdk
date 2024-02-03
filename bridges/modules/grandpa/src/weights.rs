@@ -23,7 +23,7 @@
 //! EXECUTION: Some(Wasm), WASM-EXECUTION: Compiled, CHAIN: Some("dev"), DB CACHE: 1024
 
 // Executed Command:
-// target/release/millau-bridge-node
+// target/release/unknown-bridge-node
 // benchmark
 // pallet
 // --chain=dev
@@ -58,39 +58,39 @@ pub trait WeightInfo {
 /// Those weights are test only and must never be used in production.
 pub struct BridgeWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
-	/// Storage: BridgeRialtoGrandpa PalletOperatingMode (r:1 w:0)
+	/// Storage: BridgeUnknownGrandpa PalletOperatingMode (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoGrandpa PalletOperatingMode (max_values: Some(1), max_size: Some(1),
+	/// Proof: BridgeUnknownGrandpa PalletOperatingMode (max_values: Some(1), max_size: Some(1),
 	/// added: 496, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa RequestCount (r:1 w:1)
+	/// Storage: BridgeUnknownGrandpa RequestCount (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoGrandpa RequestCount (max_values: Some(1), max_size: Some(4), added: 499,
-	/// mode: MaxEncodedLen)
+	/// Proof: BridgeUnknownGrandpa RequestCount (max_values: Some(1), max_size: Some(4), added:
+	/// 499, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa BestFinalized (r:1 w:1)
+	/// Storage: BridgeUnknownGrandpa BestFinalized (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoGrandpa BestFinalized (max_values: Some(1), max_size: Some(36), added:
+	/// Proof: BridgeUnknownGrandpa BestFinalized (max_values: Some(1), max_size: Some(36), added:
 	/// 531, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa CurrentAuthoritySet (r:1 w:0)
+	/// Storage: BridgeUnknownGrandpa CurrentAuthoritySet (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoGrandpa CurrentAuthoritySet (max_values: Some(1), max_size: Some(209),
+	/// Proof: BridgeUnknownGrandpa CurrentAuthoritySet (max_values: Some(1), max_size: Some(209),
 	/// added: 704, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa ImportedHashesPointer (r:1 w:1)
+	/// Storage: BridgeUnknownGrandpa ImportedHashesPointer (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoGrandpa ImportedHashesPointer (max_values: Some(1), max_size: Some(4),
+	/// Proof: BridgeUnknownGrandpa ImportedHashesPointer (max_values: Some(1), max_size: Some(4),
 	/// added: 499, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa ImportedHashes (r:1 w:1)
+	/// Storage: BridgeUnknownGrandpa ImportedHashes (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoGrandpa ImportedHashes (max_values: Some(14400), max_size: Some(36),
+	/// Proof: BridgeUnknownGrandpa ImportedHashes (max_values: Some(14400), max_size: Some(36),
 	/// added: 2016, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa ImportedHeaders (r:0 w:2)
+	/// Storage: BridgeUnknownGrandpa ImportedHeaders (r:0 w:2)
 	///
-	/// Proof: BridgeRialtoGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
+	/// Proof: BridgeUnknownGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
 	/// added: 2048, mode: MaxEncodedLen)
 	///
 	/// The range of component `p` is `[1, 4]`.
@@ -113,39 +113,39 @@ impl<T: frame_system::Config> WeightInfo for BridgeWeight<T> {
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
-	/// Storage: BridgeRialtoGrandpa PalletOperatingMode (r:1 w:0)
+	/// Storage: BridgeUnknownGrandpa PalletOperatingMode (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoGrandpa PalletOperatingMode (max_values: Some(1), max_size: Some(1),
+	/// Proof: BridgeUnknownGrandpa PalletOperatingMode (max_values: Some(1), max_size: Some(1),
 	/// added: 496, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa RequestCount (r:1 w:1)
+	/// Storage: BridgeUnknownGrandpa RequestCount (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoGrandpa RequestCount (max_values: Some(1), max_size: Some(4), added: 499,
-	/// mode: MaxEncodedLen)
+	/// Proof: BridgeUnknownGrandpa RequestCount (max_values: Some(1), max_size: Some(4), added:
+	/// 499, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa BestFinalized (r:1 w:1)
+	/// Storage: BridgeUnknownGrandpa BestFinalized (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoGrandpa BestFinalized (max_values: Some(1), max_size: Some(36), added:
+	/// Proof: BridgeUnknownGrandpa BestFinalized (max_values: Some(1), max_size: Some(36), added:
 	/// 531, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa CurrentAuthoritySet (r:1 w:0)
+	/// Storage: BridgeUnknownGrandpa CurrentAuthoritySet (r:1 w:0)
 	///
-	/// Proof: BridgeRialtoGrandpa CurrentAuthoritySet (max_values: Some(1), max_size: Some(209),
+	/// Proof: BridgeUnknownGrandpa CurrentAuthoritySet (max_values: Some(1), max_size: Some(209),
 	/// added: 704, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa ImportedHashesPointer (r:1 w:1)
+	/// Storage: BridgeUnknownGrandpa ImportedHashesPointer (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoGrandpa ImportedHashesPointer (max_values: Some(1), max_size: Some(4),
+	/// Proof: BridgeUnknownGrandpa ImportedHashesPointer (max_values: Some(1), max_size: Some(4),
 	/// added: 499, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa ImportedHashes (r:1 w:1)
+	/// Storage: BridgeUnknownGrandpa ImportedHashes (r:1 w:1)
 	///
-	/// Proof: BridgeRialtoGrandpa ImportedHashes (max_values: Some(14400), max_size: Some(36),
+	/// Proof: BridgeUnknownGrandpa ImportedHashes (max_values: Some(14400), max_size: Some(36),
 	/// added: 2016, mode: MaxEncodedLen)
 	///
-	/// Storage: BridgeRialtoGrandpa ImportedHeaders (r:0 w:2)
+	/// Storage: BridgeUnknownGrandpa ImportedHeaders (r:0 w:2)
 	///
-	/// Proof: BridgeRialtoGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
+	/// Proof: BridgeUnknownGrandpa ImportedHeaders (max_values: Some(14400), max_size: Some(68),
 	/// added: 2048, mode: MaxEncodedLen)
 	///
 	/// The range of component `p` is `[1, 4]`.

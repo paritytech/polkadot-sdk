@@ -1,18 +1,21 @@
 [package]
 name = "polkadot-node-subsystem-util"
 description = "Subsystem traits and message definitions"
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
-async-trait = "0.1.57"
+async-trait = "0.1.74"
 futures = "0.3.21"
 futures-channel = "0.3.23"
 itertools = "0.10"
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
-parking_lot = "0.11.2"
+parking_lot = "0.12.1"
 pin-project = "1.0.9"
 rand = "0.8.5"
 thiserror = "1.0.48"
@@ -29,7 +32,7 @@ polkadot-node-network-protocol = { path = "../network/protocol" }
 polkadot-primitives = { path = "../../primitives" }
 polkadot-node-primitives = { path = "../primitives" }
 polkadot-overseer = { path = "../overseer" }
-metered = { package = "prioritized-metered-channel", version = "0.5.1", default-features = false, features=["futures_channel"] }
+metered = { package = "prioritized-metered-channel", version = "0.6.1", default-features = false, features = ["futures_channel"] }
 
 sp-core = { path = "../../../substrate/primitives/core" }
 sp-application-crypto = { path = "../../../substrate/primitives/application-crypto" }
@@ -37,7 +40,7 @@ sp-keystore = { path = "../../../substrate/primitives/keystore" }
 sc-client-api = { path = "../../../substrate/client/api" }
 
 kvdb = "0.13.0"
-parity-db = { version = "0.4.8"}
+parity-db = { version = "0.4.12" }
 
 [dev-dependencies]
 assert_matches = "1.4.0"

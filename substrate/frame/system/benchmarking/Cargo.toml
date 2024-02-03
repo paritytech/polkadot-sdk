@@ -1,6 +1,6 @@
 [package]
 name = "frame-system-benchmarking"
-version = "4.0.0-dev"
+version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -9,18 +9,21 @@ repository.workspace = true
 description = "FRAME System benchmarking"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
-frame-benchmarking = { path = "../../benchmarking", default-features = false}
-frame-support = { path = "../../support", default-features = false}
-frame-system = { path = "..", default-features = false}
-sp-core = { path = "../../../primitives/core", default-features = false}
-sp-runtime = { path = "../../../primitives/runtime", default-features = false}
-sp-std = { path = "../../../primitives/std", default-features = false}
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+frame-benchmarking = { path = "../../benchmarking", default-features = false }
+frame-support = { path = "../../support", default-features = false }
+frame-system = { path = "..", default-features = false }
+sp-core = { path = "../../../primitives/core", default-features = false }
+sp-runtime = { path = "../../../primitives/runtime", default-features = false }
+sp-std = { path = "../../../primitives/std", default-features = false }
 
 [dev-dependencies]
 sp-io = { path = "../../../primitives/io" }
@@ -28,7 +31,7 @@ sp-externalities = { path = "../../../primitives/externalities" }
 sp-version = { path = "../../../primitives/version" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"frame-benchmarking/std",

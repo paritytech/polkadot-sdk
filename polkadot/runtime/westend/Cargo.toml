@@ -1,18 +1,22 @@
 [package]
 name = "westend-runtime"
 build = "build.rs"
-version = "1.0.0"
+version = "7.0.0"
+description = "Westend testnet Relay Chain runtime."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 log = { version = "0.4.17", default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
-serde = { version = "1.0.188", default-features = false }
+serde = { version = "1.0.195", default-features = false }
 serde_derive = { version = "1.0.117", optional = true }
 smallvec = "1.8.0"
 
@@ -45,7 +49,7 @@ frame-support = { path = "../../../substrate/frame/support", default-features = 
 frame-system = { path = "../../../substrate/frame/system", default-features = false }
 frame-system-rpc-runtime-api = { path = "../../../substrate/frame/system/rpc/runtime-api", default-features = false }
 westend-runtime-constants = { package = "westend-runtime-constants", path = "constants", default-features = false }
-pallet-asset-rate = {  path = "../../../substrate/frame/asset-rate", default-features = false }
+pallet-asset-rate = { path = "../../../substrate/frame/asset-rate", default-features = false }
 pallet-authority-discovery = { path = "../../../substrate/frame/authority-discovery", default-features = false }
 pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false }
 pallet-babe = { path = "../../../substrate/frame/babe", default-features = false }
@@ -91,6 +95,7 @@ pallet-vesting = { path = "../../../substrate/frame/vesting", default-features =
 pallet-whitelist = { path = "../../../substrate/frame/whitelist", default-features = false }
 pallet-xcm = { path = "../../xcm/pallet-xcm", default-features = false }
 pallet-xcm-benchmarks = { path = "../../xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
+pallet-root-testing = { path = "../../../substrate/frame/root-testing", default-features = false }
 
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
 frame-try-runtime = { path = "../../../substrate/frame/try-runtime", default-features = false, optional = true }
@@ -114,8 +119,8 @@ xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder",
 hex-literal = "0.4.1"
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 keyring = { package = "sp-keyring", path = "../../../substrate/primitives/keyring" }
-serde_json = "1.0.107"
-remote-externalities = { package = "frame-remote-externalities" , path = "../../../substrate/utils/frame/remote-externalities" }
+serde_json = "1.0.111"
+remote-externalities = { package = "frame-remote-externalities", path = "../../../substrate/utils/frame/remote-externalities" }
 tokio = { version = "1.24.2", features = ["macros"] }
 sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false }
 
@@ -123,7 +128,7 @@ sp-tracing = { path = "../../../substrate/primitives/tracing", default-features 
 substrate-wasm-builder = { path = "../../../substrate/utils/wasm-builder" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 no_std = []
 only-staking = []
 std = [
@@ -176,6 +181,7 @@ std = [
 	"pallet-proxy/std",
 	"pallet-recovery/std",
 	"pallet-referenda/std",
+	"pallet-root-testing/std",
 	"pallet-scheduler/std",
 	"pallet-session-benchmarking?/std",
 	"pallet-session/std",
@@ -314,6 +320,7 @@ try-runtime = [
 	"pallet-proxy/try-runtime",
 	"pallet-recovery/try-runtime",
 	"pallet-referenda/try-runtime",
+	"pallet-root-testing/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-society/try-runtime",
@@ -335,9 +342,9 @@ try-runtime = [
 # Set timing constants (e.g. session period) to faster versions to speed up testing.
 fast-runtime = []
 
-runtime-metrics = [ "runtime-parachains/runtime-metrics", "sp-io/with-tracing" ]
+runtime-metrics = ["runtime-parachains/runtime-metrics", "sp-io/with-tracing"]
 
-# A feature that should be enabled when the runtime should be build for on-chain
+# A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
-# to make it smaller like logging for example.
-on-chain-release-build = [ "sp-api/disable-logging" ]
+# to make it smaller, like logging for example.
+on-chain-release-build = ["sp-api/disable-logging"]

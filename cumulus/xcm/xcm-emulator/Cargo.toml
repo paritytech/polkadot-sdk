@@ -1,10 +1,13 @@
 [package]
 name = "xcm-emulator"
 description = "Test kit to emulate XCM program execution."
-version = "0.1.0"
+version = "0.5.0"
 authors.workspace = true
 edition.workspace = true
-publish = false
+license = "Apache-2.0"
+
+[lints]
+workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0" }
@@ -18,6 +21,7 @@ frame-support = { path = "../../../substrate/frame/support" }
 frame-system = { path = "../../../substrate/frame/system" }
 sp-io = { path = "../../../substrate/primitives/io" }
 sp-core = { path = "../../../substrate/primitives/core" }
+sp-crypto-hashing = { path = "../../../substrate/primitives/crypto/hashing" }
 sp-std = { path = "../../../substrate/primitives/std" }
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
 sp-arithmetic = { path = "../../../substrate/primitives/arithmetic" }
@@ -27,6 +31,7 @@ pallet-message-queue = { path = "../../../substrate/frame/message-queue" }
 
 # Cumulus
 cumulus-primitives-core = { path = "../../primitives/core" }
+cumulus-pallet-xcmp-queue = { path = "../../pallets/xcmp-queue" }
 cumulus-pallet-parachain-system = { path = "../../pallets/parachain-system" }
 cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent" }
 cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }

@@ -1,6 +1,6 @@
 [package]
 name = "pallet-referenda"
-version = "4.0.0-dev"
+version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -8,6 +8,9 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "FRAME pallet for inclusive on-chain decisions"
 readme = "README.md"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -17,15 +20,15 @@ assert_matches = { version = "1.5", optional = true }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
 	"derive",
 ] }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.188", features = ["derive"], optional = true }
-sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false}
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true}
-frame-support = { path = "../support", default-features = false}
-frame-system = { path = "../system", default-features = false}
-sp-io = { path = "../../primitives/io", default-features = false}
-sp-runtime = { path = "../../primitives/runtime", default-features = false}
-sp-std = { path = "../../primitives/std", default-features = false}
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+serde = { version = "1.0.195", features = ["derive"], optional = true }
+sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false }
+frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
+frame-support = { path = "../support", default-features = false }
+frame-system = { path = "../system", default-features = false }
+sp-io = { path = "../../primitives/io", default-features = false }
+sp-runtime = { path = "../../primitives/runtime", default-features = false }
+sp-std = { path = "../../primitives/std", default-features = false }
 log = { version = "0.4.17", default-features = false }
 
 [dev-dependencies]
@@ -36,12 +39,13 @@ pallet-scheduler = { path = "../scheduler" }
 sp-core = { path = "../../primitives/core" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
+	"log/std",
 	"pallet-balances/std",
 	"pallet-preimage/std",
 	"pallet-scheduler/std",

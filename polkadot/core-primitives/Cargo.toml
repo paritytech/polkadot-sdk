@@ -1,19 +1,23 @@
 [package]
 name = "polkadot-core-primitives"
-version = "1.0.0"
+version = "7.0.0"
+description = "Core Polkadot types used by Relay Chains and parachains."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+
+[lints]
+workspace = true
 
 [dependencies]
 sp-core = { path = "../../substrate/primitives/core", default-features = false }
 sp-std = { path = "../../substrate/primitives/std", default-features = false }
 sp-runtime = { path = "../../substrate/primitives/runtime", default-features = false }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
-parity-scale-codec = { version = "3.6.1", default-features = false, features = [ "derive" ] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"parity-scale-codec/std",
 	"scale-info/std",

@@ -62,7 +62,7 @@ fn run_to_block(
 
 fn default_config() -> HostConfiguration<BlockNumber> {
 	HostConfiguration {
-		on_demand_cores: 1,
+		coretime_cores: 1,
 		dispute_period: 2,
 		needed_approvals: 3,
 		..Default::default()

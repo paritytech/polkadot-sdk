@@ -89,7 +89,8 @@ use sp_runtime::{
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 use frame_support::{
-	print,
+	dispatch::{DispatchResult, DispatchResultWithPostInfo},
+	ensure, print,
 	traits::{
 		tokens::Pay, Currency, ExistenceRequirement::KeepAlive, Get, Imbalance, OnUnbalanced,
 		ReservableCurrency, WithdrawReasons,
@@ -455,6 +456,14 @@ pub mod pallet {
 			} else {
 				Weight::zero()
 			}
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(
+			_: frame_system::pallet_prelude::BlockNumberFor<T>,
+		) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()?;
+			Ok(())
 		}
 	}
 
@@ -1019,6 +1028,85 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		T::Currency::free_balance(&Self::account_id())
 			// Must never be less than 0 but better be safe.
 			.saturating_sub(T::Currency::minimum_balance())
+	}
+
+	/// Ensure the correctness of the state of this pallet.
+	#[cfg(any(feature = "try-runtime", test))]
+	fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::try_state_proposals()?;
+		Self::try_state_spends()?;
+
+		Ok(())
+	}
+
+	/// ### Invariants of proposal storage items
+	///
+	/// 1. [`ProposalCount`] >= Number of elements in [`Proposals`].
+	/// 2. Each entry in [`Proposals`] should be saved under a key stricly less than current
+	/// [`ProposalCount`].
+	/// 3. Each [`ProposalIndex`] contained in [`Approvals`] should exist in [`Proposals`].
+	/// Note, that this automatically implies [`Approvals`].count() <= [`Proposals`].count().
+	#[cfg(any(feature = "try-runtime", test))]
+	fn try_state_proposals() -> Result<(), sp_runtime::TryRuntimeError> {
+		let current_proposal_count = ProposalCount::<T, I>::get();
+		ensure!(
+			current_proposal_count as usize >= Proposals::<T, I>::iter().count(),
+			"Actual number of proposals exceeds `ProposalCount`."
+		);
+
+		Proposals::<T, I>::iter_keys().try_for_each(|proposal_index| -> DispatchResult {
+			ensure!(
+				current_proposal_count as u32 > proposal_index,
+				"`ProposalCount` should by strictly greater than any ProposalIndex used as a key for `Proposals`."
+			);
+			Ok(())
+		})?;
+
+		Approvals::<T, I>::get()
+			.iter()
+			.try_for_each(|proposal_index| -> DispatchResult {
+				ensure!(
+					Proposals::<T, I>::contains_key(proposal_index),
+					"Proposal indices in `Approvals` must also be contained in `Proposals`."
+				);
+				Ok(())
+			})?;
+
+		Ok(())
+	}
+
+	/// ## Invariants of spend storage items
+	///
+	/// 1. [`SpendCount`] >= Number of elements in [`Spends`].
+	/// 2. Each entry in [`Spends`] should be saved under a key stricly less than current
+	/// [`SpendCount`].
+	/// 3. For each spend entry contained in [`Spends`] we should have spend.expire_at
+	/// > spend.valid_from.
+	#[cfg(any(feature = "try-runtime", test))]
+	fn try_state_spends() -> Result<(), sp_runtime::TryRuntimeError> {
+		let current_spend_count = SpendCount::<T, I>::get();
+		ensure!(
+			current_spend_count as usize >= Spends::<T, I>::iter().count(),
+			"Actual number of spends exceeds `SpendCount`."
+		);
+
+		Spends::<T, I>::iter_keys().try_for_each(|spend_index| -> DispatchResult {
+			ensure!(
+				current_spend_count > spend_index,
+				"`SpendCount` should by strictly greater than any SpendIndex used as a key for `Spends`."
+			);
+			Ok(())
+		})?;
+
+		Spends::<T, I>::iter().try_for_each(|(_index, spend)| -> DispatchResult {
+			ensure!(
+				spend.valid_from < spend.expire_at,
+				"Spend cannot expire before it becomes valid."
+			);
+			Ok(())
+		})?;
+
+		Ok(())
 	}
 }
 

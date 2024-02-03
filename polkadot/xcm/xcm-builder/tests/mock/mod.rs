@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use frame_support::{
-	construct_runtime, parameter_types,
+	construct_runtime, derive_impl, parameter_types,
 	traits::{ConstU32, Everything, Nothing},
 	weights::Weight,
 };
@@ -32,36 +32,38 @@ use xcm_executor::XcmExecutor;
 
 use staging_xcm_builder as xcm_builder;
 
+#[allow(deprecated)]
+use xcm_builder::CurrencyAdapter as XcmCurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom,
 	ChildParachainAsNative, ChildParachainConvertsVia, ChildSystemParachainAsSuperuser,
-	CurrencyAdapter as XcmCurrencyAdapter, FixedRateOfFungible, FixedWeightBounds,
-	IsChildSystemParachain, IsConcrete, MintLocation, RespectSuspension, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
+	FixedRateOfFungible, FixedWeightBounds, IsChildSystemParachain, IsConcrete, MintLocation,
+	RespectSuspension, SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation,
+	TakeWeightCredit,
 };
 
 pub type AccountId = AccountId32;
 pub type Balance = u128;
 
 thread_local! {
-	pub static SENT_XCM: RefCell<Vec<(MultiLocation, opaque::Xcm, XcmHash)>> = RefCell::new(Vec::new());
+	pub static SENT_XCM: RefCell<Vec<(Location, opaque::Xcm, XcmHash)>> = RefCell::new(Vec::new());
 }
-pub fn sent_xcm() -> Vec<(MultiLocation, opaque::Xcm, XcmHash)> {
+pub fn sent_xcm() -> Vec<(Location, opaque::Xcm, XcmHash)> {
 	SENT_XCM.with(|q| (*q.borrow()).clone())
 }
 pub struct TestSendXcm;
 impl SendXcm for TestSendXcm {
-	type Ticket = (MultiLocation, Xcm<()>, XcmHash);
+	type Ticket = (Location, Xcm<()>, XcmHash);
 	fn validate(
-		dest: &mut Option<MultiLocation>,
+		dest: &mut Option<Location>,
 		msg: &mut Option<Xcm<()>>,
-	) -> SendResult<(MultiLocation, Xcm<()>, XcmHash)> {
+	) -> SendResult<(Location, Xcm<()>, XcmHash)> {
 		let msg = msg.take().unwrap();
 		let hash = fake_message_hash(&msg);
 		let triplet = (dest.take().unwrap(), msg, hash);
-		Ok((triplet, MultiAssets::new()))
+		Ok((triplet, Assets::new()))
 	}
-	fn deliver(triplet: (MultiLocation, Xcm<()>, XcmHash)) -> Result<XcmHash, SendError> {
+	fn deliver(triplet: (Location, Xcm<()>, XcmHash)) -> Result<XcmHash, SendError> {
 		let hash = triplet.2;
 		SENT_XCM.with(|q| q.borrow_mut().push(triplet));
 		Ok(hash)
@@ -76,6 +78,7 @@ parameter_types! {
 	pub const BlockHashCount: u64 = 250;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
@@ -119,12 +122,14 @@ impl pallet_balances::Config for Runtime {
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<0>;
 }
 
-impl shared::Config for Runtime {}
+impl shared::Config for Runtime {
+	type DisabledValidators = ();
+}
 
 impl configuration::Config for Runtime {
 	type WeightInfo = configuration::TestWeightInfo;
@@ -132,15 +137,16 @@ impl configuration::Config for Runtime {
 
 // aims to closely emulate the Kusama XcmConfig
 parameter_types! {
-	pub const KsmLocation: MultiLocation = MultiLocation::here();
+	pub const KsmLocation: Location = Location::here();
 	pub const KusamaNetwork: NetworkId = NetworkId::Kusama;
-	pub UniversalLocation: InteriorMultiLocation = Here;
+	pub UniversalLocation: InteriorLocation = Here;
 	pub CheckAccount: (AccountId, MintLocation) = (XcmPallet::check_account(), MintLocation::Local);
 }
 
 pub type SovereignAccountOf =
 	(ChildParachainConvertsVia<ParaId, AccountId>, AccountId32Aliases<KusamaNetwork, AccountId>);
 
+#[allow(deprecated)]
 pub type LocalCurrencyAdapter = XcmCurrencyAdapter<
 	Balances,
 	IsConcrete<KsmLocation>,
@@ -171,13 +177,13 @@ pub type Barrier = (
 );
 
 parameter_types! {
-	pub KusamaForStatemine: (MultiAssetFilter, MultiLocation) =
-		(Wild(AllOf { id: Concrete(Here.into()), fun: WildFungible }), Parachain(1000).into());
+	pub KusamaForAssetHub: (AssetFilter, Location) =
+		(Wild(AllOf { id: AssetId(Here.into()), fun: WildFungible }), Parachain(1000).into());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 4;
 }
 
-pub type TrustedTeleporters = (xcm_builder::Case<KusamaForStatemine>,);
+pub type TrustedTeleporters = (xcm_builder::Case<KusamaForAssetHub>,);
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
@@ -205,14 +211,10 @@ impl xcm_executor::Config for XcmConfig {
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
+	type TransactionalProcessor = ();
 }
 
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, KusamaNetwork>;
-
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Here.into());
-}
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -238,8 +240,6 @@ impl pallet_xcm::Config for Runtime {
 	type MaxRemoteLockConsumers = frame_support::traits::ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = pallet_xcm::TestWeightInfo;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReachableDest = ReachableDest;
 	type AdminOrigin = EnsureRoot<AccountId>;
 }
 
@@ -250,10 +250,10 @@ type Block = frame_system::mocking::MockBlock<Runtime>;
 construct_runtime!(
 	pub enum Runtime
 	{
-		System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		ParasOrigin: origin::{Pallet, Origin},
-		XcmPallet: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin},
+		System: frame_system,
+		Balances: pallet_balances,
+		ParasOrigin: origin,
+		XcmPallet: pallet_xcm,
 	}
 );
 

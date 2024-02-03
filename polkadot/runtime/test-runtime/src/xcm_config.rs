@@ -22,12 +22,12 @@ use frame_support::{
 use frame_system::EnsureRoot;
 use xcm::latest::prelude::*;
 use xcm_builder::{
-	AllowUnpaidExecutionFrom, EnsureXcmOrigin, FixedWeightBounds, SignedAccountId32AsNative,
-	SignedToAccountId32,
+	AllowUnpaidExecutionFrom, EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor,
+	SignedAccountId32AsNative, SignedToAccountId32,
 };
 use xcm_executor::{
 	traits::{TransactAsset, WeightTrader},
-	Assets,
+	AssetsInHolding,
 };
 
 parameter_types! {
@@ -35,10 +35,10 @@ parameter_types! {
 	pub const AnyNetwork: Option<NetworkId> = None;
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 16;
-	pub const UniversalLocation: xcm::latest::InteriorMultiLocation = xcm::latest::Junctions::Here;
+	pub const UniversalLocation: xcm::latest::InteriorLocation = xcm::latest::Junctions::Here;
 }
 
-/// Type to convert an `Origin` type value into a `MultiLocation` value which represents an interior
+/// Type to convert an `Origin` type value into a `Location` value which represents an interior
 /// location of this chain.
 pub type LocalOriginToLocation = (
 	// And a usual Signed origin to be used in XCM as a corresponding AccountId32
@@ -48,8 +48,8 @@ pub type LocalOriginToLocation = (
 pub struct DoNothingRouter;
 impl SendXcm for DoNothingRouter {
 	type Ticket = ();
-	fn validate(_dest: &mut Option<MultiLocation>, _msg: &mut Option<Xcm<()>>) -> SendResult<()> {
-		Ok(((), MultiAssets::new()))
+	fn validate(_dest: &mut Option<Location>, _msg: &mut Option<Xcm<()>>) -> SendResult<()> {
+		Ok(((), Assets::new()))
 	}
 	fn deliver(_: ()) -> Result<XcmHash, SendError> {
 		Ok([0; 32])
@@ -60,20 +60,21 @@ pub type Barrier = AllowUnpaidExecutionFrom<Everything>;
 
 pub struct DummyAssetTransactor;
 impl TransactAsset for DummyAssetTransactor {
-	fn deposit_asset(_what: &MultiAsset, _who: &MultiLocation, _context: &XcmContext) -> XcmResult {
+	fn deposit_asset(_what: &Asset, _who: &Location, _context: Option<&XcmContext>) -> XcmResult {
 		Ok(())
 	}
 
 	fn withdraw_asset(
-		_what: &MultiAsset,
-		_who: &MultiLocation,
+		_what: &Asset,
+		_who: &Location,
 		_maybe_context: Option<&XcmContext>,
-	) -> Result<Assets, XcmError> {
-		let asset: MultiAsset = (Parent, 100_000).into();
+	) -> Result<AssetsInHolding, XcmError> {
+		let asset: Asset = (Parent, 100_000).into();
 		Ok(asset.into())
 	}
 }
 
+#[derive(Clone)]
 pub struct DummyWeightTrader;
 impl WeightTrader for DummyWeightTrader {
 	fn new() -> Self {
@@ -83,10 +84,10 @@ impl WeightTrader for DummyWeightTrader {
 	fn buy_weight(
 		&mut self,
 		_weight: Weight,
-		_payment: Assets,
+		_payment: AssetsInHolding,
 		_context: &XcmContext,
-	) -> Result<Assets, XcmError> {
-		Ok(Assets::default())
+	) -> Result<AssetsInHolding, XcmError> {
+		Ok(AssetsInHolding::default())
 	}
 }
 
@@ -121,11 +122,7 @@ impl xcm_executor::Config for XcmConfig {
 	type CallDispatcher = super::RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(xcm::latest::Junctions::Here.into());
+	type TransactionalProcessor = FrameTransactionalProcessor;
 }
 
 impl pallet_xcm::Config for crate::Runtime {
@@ -153,7 +150,5 @@ impl pallet_xcm::Config for crate::Runtime {
 	type MaxRemoteLockConsumers = frame_support::traits::ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = pallet_xcm::TestWeightInfo;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReachableDest = ReachableDest;
 	type AdminOrigin = EnsureRoot<crate::AccountId>;
 }

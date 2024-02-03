@@ -1,6 +1,6 @@
 [package]
 name = "sc-consensus-slots"
-version = "0.10.0-dev"
+version = "0.33.0"
 authors.workspace = true
 description = "Generic slots-based utilities for consensus"
 edition.workspace = true
@@ -10,11 +10,14 @@ homepage = "https://substrate.io"
 repository.workspace = true
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-async-trait = "0.1.57"
+async-trait = "0.1.74"
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 futures = "0.3.21"
 futures-timer = "3.0.1"

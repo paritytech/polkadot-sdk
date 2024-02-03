@@ -24,8 +24,17 @@ use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 use sp_runtime::TryRuntimeError;
 
 /// Exports for versioned migration `type`s for this pallet.
-pub mod versioned_migrations {
+pub mod versioned {
 	use super::*;
+
+	/// v8: Adds commission claim permissions to `BondedPools`.
+	pub type V7ToV8<T> = frame_support::migrations::VersionedMigration<
+		7,
+		8,
+		v8::VersionUncheckedMigrateV7ToV8<T>,
+		crate::pallet::Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
 
 	/// Migration V6 to V7 wrapped in a [`frame_support::migrations::VersionedMigration`], ensuring
 	/// the migration is only performed when on-chain version is 6.
@@ -47,12 +56,105 @@ pub mod versioned_migrations {
 	>;
 }
 
+pub mod v8 {
+	use super::{v7::V7BondedPoolInner, *};
+
+	impl<T: Config> V7BondedPoolInner<T> {
+		fn migrate_to_v8(self) -> BondedPoolInner<T> {
+			BondedPoolInner {
+				commission: Commission {
+					current: self.commission.current,
+					max: self.commission.max,
+					change_rate: self.commission.change_rate,
+					throttle_from: self.commission.throttle_from,
+					// `claim_permission` is a new field.
+					claim_permission: None,
+				},
+				member_counter: self.member_counter,
+				points: self.points,
+				roles: self.roles,
+				state: self.state,
+			}
+		}
+	}
+
+	pub struct VersionUncheckedMigrateV7ToV8<T>(sp_std::marker::PhantomData<T>);
+	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV7ToV8<T> {
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			Ok(Vec::new())
+		}
+
+		fn on_runtime_upgrade() -> Weight {
+			let mut translated = 0u64;
+			BondedPools::<T>::translate::<V7BondedPoolInner<T>, _>(|_key, old_value| {
+				translated.saturating_inc();
+				Some(old_value.migrate_to_v8())
+			});
+			T::DbWeight::get().reads_writes(translated, translated + 1)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_: Vec<u8>) -> Result<(), TryRuntimeError> {
+			// Check new `claim_permission` field is present.
+			ensure!(
+				BondedPools::<T>::iter()
+					.all(|(_, inner)| inner.commission.claim_permission.is_none()),
+				"`claim_permission` value has not been set correctly."
+			);
+			Ok(())
+		}
+	}
+}
+
 /// This migration accumulates and initializes the [`TotalValueLocked`] for all pools.
 ///
 /// WARNING: This migration works under the assumption that the [`BondedPools`] cannot be inflated
 /// arbitrarily. Otherwise this migration could fail due to too high weight.
-mod v7 {
+pub(crate) mod v7 {
 	use super::*;
+
+	#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEq, Clone)]
+	#[codec(mel_bound(T: Config))]
+	#[scale_info(skip_type_params(T))]
+	pub struct V7Commission<T: Config> {
+		pub current: Option<(Perbill, T::AccountId)>,
+		pub max: Option<Perbill>,
+		pub change_rate: Option<CommissionChangeRate<BlockNumberFor<T>>>,
+		pub throttle_from: Option<BlockNumberFor<T>>,
+	}
+
+	#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEq, Clone)]
+	#[codec(mel_bound(T: Config))]
+	#[scale_info(skip_type_params(T))]
+	pub struct V7BondedPoolInner<T: Config> {
+		pub commission: V7Commission<T>,
+		pub member_counter: u32,
+		pub points: BalanceOf<T>,
+		pub roles: PoolRoles<T::AccountId>,
+		pub state: PoolState,
+	}
+
+	#[allow(dead_code)]
+	#[derive(RuntimeDebugNoBound)]
+	#[cfg_attr(feature = "std", derive(Clone, PartialEq))]
+	pub struct V7BondedPool<T: Config> {
+		/// The identifier of the pool.
+		id: PoolId,
+		/// The inner fields.
+		inner: V7BondedPoolInner<T>,
+	}
+
+	impl<T: Config> V7BondedPool<T> {
+		fn bonded_account(&self) -> T::AccountId {
+			Pallet::<T>::create_bonded_account(self.id)
+		}
+	}
+
+	// NOTE: We cannot put a V7 prefix here since that would change the storage key.
+	#[frame_support::storage_alias]
+	pub type BondedPools<T: Config> =
+		CountedStorageMap<Pallet<T>, Twox64Concat, PoolId, V7BondedPoolInner<T>>;
 
 	pub struct VersionUncheckedMigrateV6ToV7<T>(sp_std::marker::PhantomData<T>);
 	impl<T: Config> VersionUncheckedMigrateV6ToV7<T> {
@@ -60,7 +162,7 @@ mod v7 {
 			BondedPools::<T>::iter()
 				.map(|(id, inner)| {
 					T::Staking::total_stake(
-						&BondedPool { id, inner: inner.clone() }.bonded_account(),
+						&V7BondedPool { id, inner: inner.clone() }.bonded_account(),
 					)
 					.unwrap_or_default()
 				})

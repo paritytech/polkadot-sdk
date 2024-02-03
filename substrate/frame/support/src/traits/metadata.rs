@@ -222,6 +222,23 @@ impl StorageVersion {
 
 		crate::storage::unhashed::get_or_default(&key)
 	}
+
+	/// Returns if the storage version key for the given pallet exists in storage.
+	///
+	/// See [`STORAGE_VERSION_STORAGE_KEY_POSTFIX`] on how this key is built.
+	///
+	/// # Panics
+	///
+	/// This function will panic iff `Pallet` can not be found by `PalletInfo`.
+	/// In a runtime that is put together using
+	/// [`construct_runtime!`](crate::construct_runtime) this should never happen.
+	///
+	/// It will also panic if this function isn't executed in an externalities
+	/// provided environment.
+	pub fn exists<P: PalletInfoAccess>() -> bool {
+		let key = Self::storage_key::<P>();
+		crate::storage::unhashed::exists(&key)
+	}
 }
 
 impl PartialEq<u16> for StorageVersion {
@@ -285,7 +302,7 @@ pub trait GetStorageVersion {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_core::twox_128;
+	use sp_crypto_hashing::twox_128;
 
 	struct Pallet1;
 	impl PalletInfoAccess for Pallet1 {

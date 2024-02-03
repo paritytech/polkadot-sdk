@@ -18,10 +18,10 @@
 use sc_cli::Result;
 use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
 use sc_client_db::{DbHash, DbState, DbStateBuilder};
-use sp_api::StateBackend;
 use sp_blockchain::HeaderBackend;
 use sp_database::{ColumnId, Transaction};
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
+use sp_state_machine::Backend as StateBackend;
 use sp_trie::PrefixedMemoryDB;
 
 use log::{info, trace};

@@ -1,6 +1,6 @@
 [package]
 name = "pallet-broker"
-version = "0.1.0"
+version = "0.6.0"
 description = "Brokerage tool for managing Polkadot Core scheduling"
 authors.workspace = true
 homepage = "https://substrate.io"
@@ -8,26 +8,29 @@ edition.workspace = true
 license = "Apache-2.0"
 repository.workspace = true
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [ "derive"] }
-scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 bitvec = { version = "1.0.0", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false}
-sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false}
-sp-core = { path = "../../primitives/core", default-features = false}
-sp-runtime = { path = "../../primitives/runtime", default-features = false}
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true}
-frame-support = { path = "../support", default-features = false}
-frame-system = { path = "../system", default-features = false}
+sp-std = { path = "../../primitives/std", default-features = false }
+sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false }
+sp-core = { path = "../../primitives/core", default-features = false }
+sp-runtime = { path = "../../primitives/runtime", default-features = false }
+frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
+frame-support = { path = "../support", default-features = false }
+frame-system = { path = "../system", default-features = false }
 
 [dev-dependencies]
 sp-io = { path = "../../primitives/io" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 
 std = [
 	"bitvec/std",

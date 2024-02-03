@@ -4,12 +4,15 @@ description = "Tools & types for building with XCM and its executor."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "1.0.0"
+version = "7.0.0"
+
+[lints]
+workspace = true
 
 [dependencies]
 impl-trait-for-tuples = "0.2.1"
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 xcm = { package = "staging-xcm", path = "..", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", default-features = false }
 sp-std = { path = "../../../substrate/primitives/std", default-features = false }
@@ -37,7 +40,7 @@ assert_matches = "1.5.0"
 polkadot-test-runtime = { path = "../../runtime/test-runtime" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",

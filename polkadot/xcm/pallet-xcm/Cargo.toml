@@ -1,49 +1,58 @@
 [package]
 name = "pallet-xcm"
+version = "7.0.0"
+description = "A pallet for handling XCM programs."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "1.0.0"
 
+[lints]
+workspace = true
 
 [dependencies]
-bounded-collections = { version = "0.1.8", default-features = false }
+bounded-collections = { version = "0.2.0", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.188", optional = true, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+serde = { version = "1.0.195", optional = true, features = ["derive"] }
 log = { version = "0.4.17", default-features = false }
 
-frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
-frame-support = { path = "../../../substrate/frame/support", default-features = false}
-frame-system = { path = "../../../substrate/frame/system", default-features = false}
-sp-core = { path = "../../../substrate/primitives/core", default-features = false}
-sp-io = { path = "../../../substrate/primitives/io", default-features = false}
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false}
-sp-std = { path = "../../../substrate/primitives/std", default-features = false}
+frame-support = { path = "../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../substrate/frame/system", default-features = false }
+sp-core = { path = "../../../substrate/primitives/core", default-features = false }
+sp-io = { path = "../../../substrate/primitives/io", default-features = false }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 
 xcm = { package = "staging-xcm", path = "..", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder", default-features = false }
+
+# marked optional, used in benchmarking
+frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
+pallet-balances = { path = "../../../substrate/frame/balances", default-features = false, optional = true }
 
 [dev-dependencies]
-pallet-balances = { path = "../../../substrate/frame/balances" }
+pallet-assets = { path = "../../../substrate/frame/assets" }
 polkadot-runtime-parachains = { path = "../../runtime/parachains" }
 polkadot-parachain-primitives = { path = "../../parachain" }
-xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"bounded-collections/std",
 	"codec/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
+	"log/std",
+	"pallet-balances/std",
 	"scale-info/std",
 	"serde",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]
@@ -51,6 +60,7 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
@@ -61,6 +71,7 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-assets/try-runtime",
 	"pallet-balances/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",

@@ -22,7 +22,7 @@ use crate as pallet_assets;
 
 use codec::Encode;
 use frame_support::{
-	construct_runtime, parameter_types,
+	construct_runtime, derive_impl, parameter_types,
 	traits::{AsEnsureOriginWithArg, ConstU32, ConstU64},
 };
 use sp_core::H256;
@@ -37,15 +37,16 @@ type Block = frame_system::mocking::MockBlock<Test>;
 construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		Assets: pallet_assets,
 	}
 );
 
 type AccountId = u64;
 type AssetId = u32;
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -83,8 +84,8 @@ impl pallet_balances::Config for Test {
 	type MaxReserves = ();
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = ();
+	type RuntimeFreezeReason = ();
 	type FreezeIdentifier = ();
-	type MaxHolds = ();
 	type MaxFreezes = ();
 }
 

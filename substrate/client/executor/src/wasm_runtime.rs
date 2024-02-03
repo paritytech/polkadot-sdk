@@ -441,6 +441,7 @@ mod tests {
 	use codec::Encode;
 	use sp_api::{Core, RuntimeApiInfo};
 	use sp_runtime::RuntimeString;
+	use sp_version::{create_apis_vec, RuntimeVersion};
 	use sp_wasm_interface::HostFunctions;
 	use substrate_test_runtime::Block;
 
@@ -470,7 +471,7 @@ mod tests {
 			authoring_version: 1,
 			spec_version: 1,
 			impl_version: 1,
-			apis: sp_api::create_apis_vec!([(<dyn Core::<Block>>::ID, 1)]),
+			apis: create_apis_vec!([(<dyn Core::<Block>>::ID, 1)]),
 		};
 
 		let version = decode_version(&old_runtime_version.encode()).unwrap();
@@ -486,7 +487,7 @@ mod tests {
 			authoring_version: 1,
 			spec_version: 1,
 			impl_version: 1,
-			apis: sp_api::create_apis_vec!([(<dyn Core::<Block>>::ID, 3)]),
+			apis: create_apis_vec!([(<dyn Core::<Block>>::ID, 3)]),
 		};
 
 		decode_version(&old_runtime_version.encode()).unwrap_err();
@@ -494,13 +495,13 @@ mod tests {
 
 	#[test]
 	fn new_runtime_version_decodes() {
-		let old_runtime_version = sp_api::RuntimeVersion {
+		let old_runtime_version = RuntimeVersion {
 			spec_name: "test".into(),
 			impl_name: "test".into(),
 			authoring_version: 1,
 			spec_version: 1,
 			impl_version: 1,
-			apis: sp_api::create_apis_vec!([(<dyn Core::<Block>>::ID, 3)]),
+			apis: create_apis_vec!([(<dyn Core::<Block>>::ID, 3)]),
 			transaction_version: 3,
 			state_version: 4,
 		};
@@ -509,13 +510,13 @@ mod tests {
 		assert_eq!(3, version.transaction_version);
 		assert_eq!(0, version.state_version);
 
-		let old_runtime_version = sp_api::RuntimeVersion {
+		let old_runtime_version = RuntimeVersion {
 			spec_name: "test".into(),
 			impl_name: "test".into(),
 			authoring_version: 1,
 			spec_version: 1,
 			impl_version: 1,
-			apis: sp_api::create_apis_vec!([(<dyn Core::<Block>>::ID, 4)]),
+			apis: create_apis_vec!([(<dyn Core::<Block>>::ID, 4)]),
 			transaction_version: 3,
 			state_version: 4,
 		};
@@ -538,7 +539,7 @@ mod tests {
 			authoring_version: 100,
 			spec_version: 100,
 			impl_version: 100,
-			apis: sp_api::create_apis_vec!([(<dyn Core::<Block>>::ID, 4)]),
+			apis: create_apis_vec!([(<dyn Core::<Block>>::ID, 4)]),
 			transaction_version: 100,
 			state_version: 1,
 		};

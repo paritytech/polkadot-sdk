@@ -1,62 +1,68 @@
 [package]
 name = "sp-crypto-ec-utils"
-version = "0.4.0"
+version = "0.10.0"
 authors.workspace = true
-description = "Host function interface for common elliptic curve operations in Substrate runtimes"
+description = "Host functions for common Arkworks elliptic curve operations"
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-ark-serialize = { version = "0.4.2", default-features = false }
-ark-ff = { version = "0.4.2", default-features = false }
-ark-ec = { version = "0.4.2", default-features = false }
-ark-std = { version = "0.4.0", default-features = false }
-ark-bls12-377 = { version = "0.4.0", features = ["curve"], default-features = false }
-ark-bls12-381 = { version = "0.4.0", features = ["curve"], default-features = false }
-ark-bw6-761 = { version = "0.4.0", default-features = false }
-ark-ed-on-bls12-381-bandersnatch = { version = "0.4.0", default-features = false }
-ark-ed-on-bls12-377 = { version = "0.4.0", default-features = false }
-sp-std = { path = "../../std", default-features = false }
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
-ark-scale = { version = "0.0.10", features = ["hazmat"], default-features = false }
-sp-runtime-interface = { path = "../../runtime-interface", default-features = false}
-
-[dev-dependencies]
-sp-io = { path = "../../io", default-features = false }
-ark-algebra-test-templates = { version = "0.4.2", default-features = false }
-sp-ark-models = { version = "0.4.1-beta", default-features = false }
-sp-ark-bls12-377 = { version = "0.4.1-beta", default-features = false }
-sp-ark-bls12-381 = { version = "0.4.1-beta", default-features = false }
-sp-ark-bw6-761 = { version = "0.4.1-beta", default-features = false }
-sp-ark-ed-on-bls12-377 = { version = "0.4.1-beta", default-features = false }
-sp-ark-ed-on-bls12-381-bandersnatch = { version = "0.4.1-beta", default-features = false }
+ark-ec = { version = "0.4.2", default-features = false, optional = true }
+ark-bls12-377-ext = { version = "0.4.1", default-features = false, optional = true }
+ark-bls12-377 = { version = "0.4.0", default-features = false, features = ["curve"], optional = true }
+ark-bls12-381-ext = { version = "0.4.1", default-features = false, optional = true }
+ark-bls12-381 = { version = "0.4.0", default-features = false, features = ["curve"], optional = true }
+ark-bw6-761-ext = { version = "0.4.1", default-features = false, optional = true }
+ark-bw6-761 = { version = "0.4.0", default-features = false, optional = true }
+ark-ed-on-bls12-381-bandersnatch-ext = { version = "0.4.1", default-features = false, optional = true }
+ark-ed-on-bls12-381-bandersnatch = { version = "0.4.0", default-features = false, optional = true }
+ark-ed-on-bls12-377-ext = { version = "0.4.1", default-features = false, optional = true }
+ark-ed-on-bls12-377 = { version = "0.4.0", default-features = false, optional = true }
+ark-scale = { version = "0.0.12", default-features = false, features = ["hazmat"], optional = true }
+sp-runtime-interface = { path = "../../runtime-interface", default-features = false, optional = true }
+sp-std = { path = "../../std", default-features = false, optional = true }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
-	"ark-algebra-test-templates/std",
-	"ark-bls12-377/std",
-	"ark-bls12-381/std",
-	"ark-bw6-761/std",
-	"ark-ec/std",
-	"ark-ed-on-bls12-377/std",
-	"ark-ed-on-bls12-381-bandersnatch/std",
-	"ark-ff/std",
-	"ark-scale/std",
-	"ark-serialize/std",
-	"ark-std/std",
-	"codec/std",
-	"sp-ark-bls12-377/std",
-	"sp-ark-bls12-381/std",
-	"sp-ark-bw6-761/std",
-	"sp-ark-ed-on-bls12-377/std",
-	"sp-ark-ed-on-bls12-381-bandersnatch/std",
-	"sp-io/std",
-	"sp-runtime-interface/std",
-	"sp-std/std",
+	"ark-bls12-377-ext?/std",
+	"ark-bls12-377?/std",
+	"ark-bls12-381-ext?/std",
+	"ark-bls12-381?/std",
+	"ark-bw6-761-ext?/std",
+	"ark-bw6-761?/std",
+	"ark-ec?/parallel",
+	"ark-ec?/std",
+	"ark-ed-on-bls12-377-ext?/std",
+	"ark-ed-on-bls12-377?/std",
+	"ark-ed-on-bls12-381-bandersnatch-ext?/std",
+	"ark-ed-on-bls12-381-bandersnatch?/std",
+	"ark-scale?/std",
+	"sp-runtime-interface?/std",
+	"sp-std?/std",
+]
+common = ["ark-ec", "ark-scale", "sp-runtime-interface", "sp-std"]
+bls12-377 = ["ark-bls12-377", "ark-bls12-377-ext", "common"]
+bls12-381 = ["ark-bls12-381", "ark-bls12-381-ext", "common"]
+bw6-761 = ["ark-bw6-761", "ark-bw6-761-ext", "common"]
+ed-on-bls12-377 = ["ark-ed-on-bls12-377", "ark-ed-on-bls12-377-ext", "common"]
+ed-on-bls12-381-bandersnatch = [
+	"ark-ed-on-bls12-381-bandersnatch",
+	"ark-ed-on-bls12-381-bandersnatch-ext",
+	"common",
+]
+all-curves = [
+	"bls12-377",
+	"bls12-381",
+	"bw6-761",
+	"ed-on-bls12-377",
+	"ed-on-bls12-381-bandersnatch",
 ]

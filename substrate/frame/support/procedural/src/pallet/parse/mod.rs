@@ -33,11 +33,16 @@ pub mod inherent;
 pub mod origin;
 pub mod pallet_struct;
 pub mod storage;
+pub mod tasks;
 pub mod type_value;
 pub mod validate_unsigned;
 
+#[cfg(test)]
+pub mod tests;
+
 use composite::{keyword::CompositeKeyword, CompositeDef};
-use frame_support_procedural_tools::generate_crate_access_2018;
+use frame_support_procedural_tools::generate_access_from_frame_or_crate;
+use quote::ToTokens;
 use syn::spanned::Spanned;
 
 /// Parsed definition of a pallet.
@@ -49,6 +54,8 @@ pub struct Def {
 	pub pallet_struct: pallet_struct::PalletStructDef,
 	pub hooks: Option<hooks::HooksDef>,
 	pub call: Option<call::CallDef>,
+	pub tasks: Option<tasks::TasksDef>,
+	pub task_enum: Option<tasks::TaskEnumDef>,
 	pub storages: Vec<storage::StorageDef>,
 	pub error: Option<error::ErrorDef>,
 	pub event: Option<event::EventDef>,
@@ -60,15 +67,15 @@ pub struct Def {
 	pub extra_constants: Option<extra_constants::ExtraConstantsDef>,
 	pub composites: Vec<composite::CompositeDef>,
 	pub type_values: Vec<type_value::TypeValueDef>,
-	pub frame_system: syn::Ident,
-	pub frame_support: syn::Ident,
+	pub frame_system: syn::Path,
+	pub frame_support: syn::Path,
 	pub dev_mode: bool,
 }
 
 impl Def {
 	pub fn try_from(mut item: syn::ItemMod, dev_mode: bool) -> syn::Result<Self> {
-		let frame_system = generate_crate_access_2018("frame-system")?;
-		let frame_support = generate_crate_access_2018("frame-support")?;
+		let frame_system = generate_access_from_frame_or_crate("frame-system")?;
+		let frame_support = generate_access_from_frame_or_crate("frame-support")?;
 
 		let item_span = item.span();
 		let items = &mut item
@@ -84,6 +91,8 @@ impl Def {
 		let mut pallet_struct = None;
 		let mut hooks = None;
 		let mut call = None;
+		let mut tasks = None;
+		let mut task_enum = None;
 		let mut error = None;
 		let mut event = None;
 		let mut origin = None;
@@ -118,6 +127,32 @@ impl Def {
 				},
 				Some(PalletAttr::RuntimeCall(cw, span)) if call.is_none() =>
 					call = Some(call::CallDef::try_from(span, index, item, dev_mode, cw)?),
+				Some(PalletAttr::Tasks(_)) if tasks.is_none() => {
+					let item_tokens = item.to_token_stream();
+					// `TasksDef::parse` needs to know if attr was provided so we artificially
+					// re-insert it here
+					tasks = Some(syn::parse2::<tasks::TasksDef>(quote::quote! {
+						#[pallet::tasks_experimental]
+						#item_tokens
+					})?);
+
+					// replace item with a no-op because it will be handled by the expansion of tasks
+					*item = syn::Item::Verbatim(quote::quote!());
+				}
+				Some(PalletAttr::TaskCondition(span)) => return Err(syn::Error::new(
+					span,
+					"`#[pallet::task_condition]` can only be used on items within an `impl` statement."
+				)),
+				Some(PalletAttr::TaskIndex(span)) => return Err(syn::Error::new(
+					span,
+					"`#[pallet::task_index]` can only be used on items within an `impl` statement."
+				)),
+				Some(PalletAttr::TaskList(span)) => return Err(syn::Error::new(
+					span,
+					"`#[pallet::task_list]` can only be used on items within an `impl` statement."
+				)),
+				Some(PalletAttr::RuntimeTask(_)) if task_enum.is_none() =>
+					task_enum = Some(syn::parse2::<tasks::TaskEnumDef>(item.to_token_stream())?),
 				Some(PalletAttr::Error(span)) if error.is_none() =>
 					error = Some(error::ErrorDef::try_from(span, index, item)?),
 				Some(PalletAttr::RuntimeEvent(span)) if event.is_none() =>
@@ -190,6 +225,8 @@ impl Def {
 			return Err(syn::Error::new(item_span, msg))
 		}
 
+		Self::resolve_tasks(&item_span, &mut tasks, &mut task_enum, items)?;
+
 		let def = Def {
 			item,
 			config: config
@@ -198,6 +235,8 @@ impl Def {
 				.ok_or_else(|| syn::Error::new(item_span, "Missing `#[pallet::pallet]`"))?,
 			hooks,
 			call,
+			tasks,
+			task_enum,
 			extra_constants,
 			genesis_config,
 			genesis_build,
@@ -218,6 +257,99 @@ impl Def {
 		def.check_event_usage()?;
 
 		Ok(def)
+	}
+
+	/// Performs extra logic checks necessary for the `#[pallet::tasks_experimental]` feature.
+	fn resolve_tasks(
+		item_span: &proc_macro2::Span,
+		tasks: &mut Option<tasks::TasksDef>,
+		task_enum: &mut Option<tasks::TaskEnumDef>,
+		items: &mut Vec<syn::Item>,
+	) -> syn::Result<()> {
+		// fallback for manual (without macros) definition of tasks impl
+		Self::resolve_manual_tasks_impl(tasks, task_enum, items)?;
+
+		// fallback for manual (without macros) definition of task enum
+		Self::resolve_manual_task_enum(tasks, task_enum, items)?;
+
+		// ensure that if `task_enum` is specified, `tasks` is also specified
+		match (&task_enum, &tasks) {
+			(Some(_), None) =>
+				return Err(syn::Error::new(
+					*item_span,
+					"Missing `#[pallet::tasks_experimental]` impl",
+				)),
+			(None, Some(tasks)) =>
+				if tasks.tasks_attr.is_none() {
+					return Err(syn::Error::new(
+						tasks.item_impl.impl_token.span(),
+						"A `#[pallet::tasks_experimental]` attribute must be attached to your `Task` impl if the \
+						task enum has been omitted",
+					))
+				} else {
+				},
+			_ => (),
+		}
+
+		Ok(())
+	}
+
+	/// Tries to locate task enum based on the tasks impl target if attribute is not specified
+	/// but impl is present. If one is found, `task_enum` is set appropriately.
+	fn resolve_manual_task_enum(
+		tasks: &Option<tasks::TasksDef>,
+		task_enum: &mut Option<tasks::TaskEnumDef>,
+		items: &mut Vec<syn::Item>,
+	) -> syn::Result<()> {
+		let (None, Some(tasks)) = (&task_enum, &tasks) else { return Ok(()) };
+		let syn::Type::Path(type_path) = &*tasks.item_impl.self_ty else { return Ok(()) };
+		let type_path = type_path.path.segments.iter().collect::<Vec<_>>();
+		let (Some(seg), None) = (type_path.get(0), type_path.get(1)) else { return Ok(()) };
+		let mut result = None;
+		for item in items {
+			let syn::Item::Enum(item_enum) = item else { continue };
+			if item_enum.ident == seg.ident {
+				result = Some(syn::parse2::<tasks::TaskEnumDef>(item_enum.to_token_stream())?);
+				// replace item with a no-op because it will be handled by the expansion of
+				// `task_enum`. We use a no-op instead of simply removing it from the vec
+				// so that any indices collected by `Def::try_from` remain accurate
+				*item = syn::Item::Verbatim(quote::quote!());
+				break
+			}
+		}
+		*task_enum = result;
+		Ok(())
+	}
+
+	/// Tries to locate a manual tasks impl (an impl impling a trait whose last path segment is
+	/// `Task`) in the event that one has not been found already via the attribute macro
+	pub fn resolve_manual_tasks_impl(
+		tasks: &mut Option<tasks::TasksDef>,
+		task_enum: &Option<tasks::TaskEnumDef>,
+		items: &Vec<syn::Item>,
+	) -> syn::Result<()> {
+		let None = tasks else { return Ok(()) };
+		let mut result = None;
+		for item in items {
+			let syn::Item::Impl(item_impl) = item else { continue };
+			let Some((_, path, _)) = &item_impl.trait_ else { continue };
+			let Some(trait_last_seg) = path.segments.last() else { continue };
+			let syn::Type::Path(target_path) = &*item_impl.self_ty else { continue };
+			let target_path = target_path.path.segments.iter().collect::<Vec<_>>();
+			let (Some(target_ident), None) = (target_path.get(0), target_path.get(1)) else {
+				continue
+			};
+			let matches_task_enum = match task_enum {
+				Some(task_enum) => task_enum.item_enum.ident == target_ident.ident,
+				None => true,
+			};
+			if trait_last_seg.ident == "Task" && matches_task_enum {
+				result = Some(syn::parse2::<tasks::TasksDef>(item_impl.to_token_stream())?);
+				break
+			}
+		}
+		*tasks = result;
+		Ok(())
 	}
 
 	/// Check that usage of trait `Event` is consistent with the definition, i.e. it is declared
@@ -408,6 +540,11 @@ impl GenericKind {
 mod keyword {
 	syn::custom_keyword!(origin);
 	syn::custom_keyword!(call);
+	syn::custom_keyword!(tasks_experimental);
+	syn::custom_keyword!(task_enum);
+	syn::custom_keyword!(task_list);
+	syn::custom_keyword!(task_condition);
+	syn::custom_keyword!(task_index);
 	syn::custom_keyword!(weight);
 	syn::custom_keyword!(event);
 	syn::custom_keyword!(config);
@@ -472,6 +609,11 @@ enum PalletAttr {
 	/// instead of the zero weight. So to say: it works together with `dev_mode`.
 	RuntimeCall(Option<InheritedCallWeightAttr>, proc_macro2::Span),
 	Error(proc_macro2::Span),
+	Tasks(proc_macro2::Span),
+	TaskList(proc_macro2::Span),
+	TaskCondition(proc_macro2::Span),
+	TaskIndex(proc_macro2::Span),
+	RuntimeTask(proc_macro2::Span),
 	RuntimeEvent(proc_macro2::Span),
 	RuntimeOrigin(proc_macro2::Span),
 	Inherent(proc_macro2::Span),
@@ -490,8 +632,13 @@ impl PalletAttr {
 			Self::Config(span, _) => *span,
 			Self::Pallet(span) => *span,
 			Self::Hooks(span) => *span,
-			Self::RuntimeCall(_, span) => *span,
+			Self::Tasks(span) => *span,
+			Self::TaskCondition(span) => *span,
+			Self::TaskIndex(span) => *span,
+			Self::TaskList(span) => *span,
 			Self::Error(span) => *span,
+			Self::RuntimeTask(span) => *span,
+			Self::RuntimeCall(_, span) => *span,
 			Self::RuntimeEvent(span) => *span,
 			Self::RuntimeOrigin(span) => *span,
 			Self::Inherent(span) => *span,
@@ -535,6 +682,16 @@ impl syn::parse::Parse for PalletAttr {
 				false => Some(InheritedCallWeightAttr::parse(&content)?),
 			};
 			Ok(PalletAttr::RuntimeCall(attr, span))
+		} else if lookahead.peek(keyword::tasks_experimental) {
+			Ok(PalletAttr::Tasks(content.parse::<keyword::tasks_experimental>()?.span()))
+		} else if lookahead.peek(keyword::task_enum) {
+			Ok(PalletAttr::RuntimeTask(content.parse::<keyword::task_enum>()?.span()))
+		} else if lookahead.peek(keyword::task_condition) {
+			Ok(PalletAttr::TaskCondition(content.parse::<keyword::task_condition>()?.span()))
+		} else if lookahead.peek(keyword::task_index) {
+			Ok(PalletAttr::TaskIndex(content.parse::<keyword::task_index>()?.span()))
+		} else if lookahead.peek(keyword::task_list) {
+			Ok(PalletAttr::TaskList(content.parse::<keyword::task_list>()?.span()))
 		} else if lookahead.peek(keyword::error) {
 			Ok(PalletAttr::Error(content.parse::<keyword::error>()?.span()))
 		} else if lookahead.peek(keyword::event) {

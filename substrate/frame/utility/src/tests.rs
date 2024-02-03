@@ -23,7 +23,7 @@ use super::*;
 
 use crate as utility;
 use frame_support::{
-	assert_err_ignore_postinfo, assert_noop, assert_ok,
+	assert_err_ignore_postinfo, assert_noop, assert_ok, derive_impl,
 	dispatch::{DispatchErrorWithPostInfo, Pays},
 	error::BadOrigin,
 	parameter_types, storage,
@@ -129,14 +129,14 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Timestamp: pallet_timestamp::{Call, Inherent},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		RootTesting: pallet_root_testing::{Pallet, Call, Storage},
+		System: frame_system,
+		Timestamp: pallet_timestamp,
+		Balances: pallet_balances,
+		RootTesting: pallet_root_testing,
 		Council: pallet_collective::<Instance1>,
-		Utility: utility::{Pallet, Call, Event},
-		Example: example::{Pallet, Call},
-		Democracy: mock_democracy::{Pallet, Call, Event<T>},
+		Utility: utility,
+		Example: example,
+		Democracy: mock_democracy,
 	}
 );
 
@@ -144,6 +144,7 @@ parameter_types! {
 	pub BlockWeights: frame_system::limits::BlockWeights =
 		frame_system::limits::BlockWeights::simple_max(Weight::MAX);
 }
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = TestBaseCallFilter;
 	type BlockWeights = BlockWeights;
@@ -183,10 +184,12 @@ impl pallet_balances::Config for Test {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeFreezeReason = ();
 }
 
-impl pallet_root_testing::Config for Test {}
+impl pallet_root_testing::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+}
 
 impl pallet_timestamp::Config for Test {
 	type Moment = u64;

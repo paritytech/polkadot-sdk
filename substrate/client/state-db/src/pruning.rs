@@ -385,7 +385,7 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> RefWindow<BlockHash, Key, D> {
 	/// Prune next block. Expects at least one block in the window. Adds changes to `commit`.
 	pub fn prune_one(&mut self, commit: &mut CommitSet<Key>) -> Result<(), Error<D::Error>> {
 		if let Some(pruned) = self.queue.pop_front(self.base)? {
-			trace!(target: "state-db", "Pruning {:?} ({} deleted)", pruned.hash, pruned.deleted.len());
+			trace!(target: LOG_TARGET, "Pruning {:?} ({} deleted)", pruned.hash, pruned.deleted.len());
 			let index = self.base;
 			commit.data.deleted.extend(pruned.deleted.into_iter());
 			commit.meta.inserted.push((to_meta_key(LAST_PRUNED, &()), index.encode()));
@@ -393,7 +393,7 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> RefWindow<BlockHash, Key, D> {
 			self.base += 1;
 			Ok(())
 		} else {
-			trace!(target: "state-db", "Trying to prune when there's nothing to prune");
+			trace!(target: LOG_TARGET, "Trying to prune when there's nothing to prune");
 			Err(Error::StateDb(StateDbError::BlockUnavailable))
 		}
 	}
@@ -406,12 +406,24 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> RefWindow<BlockHash, Key, D> {
 		commit: &mut CommitSet<Key>,
 	) -> Result<(), Error<D::Error>> {
 		if self.base == 0 && self.is_empty() && number > 0 {
-			// assume that parent was canonicalized
+			// This branch is taken if the node imports the target block of a warp sync.
+			// assume that the block was canonicalized
 			self.base = number;
+			// The parent of the block was the last block that got pruned.
+			commit
+				.meta
+				.inserted
+				.push((to_meta_key(LAST_PRUNED, &()), (number - 1).encode()));
 		} else if (self.base + self.window_size()) != number {
 			return Err(Error::StateDb(StateDbError::InvalidBlockNumber))
 		}
-		trace!(target: "state-db", "Adding to pruning window: {:?} ({} inserted, {} deleted)", hash, commit.data.inserted.len(), commit.data.deleted.len());
+		trace!(
+			target: LOG_TARGET,
+			"Adding to pruning window: {:?} ({} inserted, {} deleted)",
+			hash,
+			commit.data.inserted.len(),
+			commit.data.deleted.len(),
+		);
 		let inserted = if matches!(self.queue, DeathRowQueue::Mem { .. }) {
 			commit.data.inserted.iter().map(|(k, _)| k.clone()).collect()
 		} else {
@@ -868,5 +880,31 @@ mod tests {
 		assert_eq!(pruning.next_hash().unwrap(), Some(index));
 		pruning.prune_one(&mut commit).unwrap();
 		db.commit(&commit);
+	}
+
+	/// Ensure that after warp syncing the state is stored correctly in the db. The warp sync target
+	/// block is imported with all its state at once. This test ensures that after a restart
+	/// `pruning` still knows that this block was imported.
+	#[test]
+	fn store_correct_state_after_warp_syncing() {
+		for count_insertions in [true, false] {
+			let mut db = make_db(&[]);
+			let mut pruning: RefWindow<u64, H256, TestDb> =
+				RefWindow::new(db.clone(), DEFAULT_MAX_BLOCK_CONSTRAINT, count_insertions).unwrap();
+			let block = 10000;
+
+			// import blocks
+			let mut commit = make_commit(&[], &[]);
+			pruning.note_canonical(&block, block, &mut commit).unwrap();
+			push_last_canonicalized(block, &mut commit);
+			db.commit(&commit);
+
+			// load a new queue from db
+			// `cache` should be the same
+			let pruning: RefWindow<u64, H256, TestDb> =
+				RefWindow::new(db, DEFAULT_MAX_BLOCK_CONSTRAINT, count_insertions).unwrap();
+
+			assert_eq!(HaveBlock::Yes, pruning.have_block(&block, block));
+		}
 	}
 }

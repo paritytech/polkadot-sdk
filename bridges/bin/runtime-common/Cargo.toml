@@ -1,16 +1,20 @@
 [package]
 name = "bridge-runtime-common"
-version = "0.1.0"
+version = "0.7.0"
+description = "Common types and functions that may be used by substrate-based runtimes of all bridged chains"
 authors.workspace = true
 edition.workspace = true
 repository.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
+[lints]
+workspace = true
+
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false, features = ["derive"] }
 hash-db = { version = "0.16.0", default-features = false }
 log = { version = "0.4.20", default-features = false }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 static_assertions = { version = "1.1", optional = true }
 
 # Bridge dependencies
@@ -21,6 +25,7 @@ bp-parachains = { path = "../../primitives/parachains", default-features = false
 bp-polkadot-core = { path = "../../primitives/polkadot-core", default-features = false }
 bp-relayers = { path = "../../primitives/relayers", default-features = false }
 bp-runtime = { path = "../../primitives/runtime", default-features = false }
+bp-xcm-bridge-hub = { path = "../../primitives/xcm-bridge-hub", default-features = false }
 bp-xcm-bridge-hub-router = { path = "../../primitives/xcm-bridge-hub-router", default-features = false }
 pallet-bridge-grandpa = { path = "../../modules/grandpa", default-features = false }
 pallet-bridge-messages = { path = "../../modules/messages", default-features = false }
@@ -49,7 +54,7 @@ bp-test-utils = { path = "../../primitives/test-utils" }
 pallet-balances = { path = "../../../substrate/frame/balances" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"bp-header-chain/std",
 	"bp-messages/std",
@@ -58,6 +63,7 @@ std = [
 	"bp-relayers/std",
 	"bp-runtime/std",
 	"bp-xcm-bridge-hub-router/std",
+	"bp-xcm-bridge-hub/std",
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
@@ -91,4 +97,4 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 ]
-integrity-test = [ "static_assertions" ]
+integrity-test = ["static_assertions"]

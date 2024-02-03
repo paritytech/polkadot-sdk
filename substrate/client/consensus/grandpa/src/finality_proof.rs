@@ -261,7 +261,7 @@ mod tests {
 	use super::*;
 	use crate::{authorities::AuthoritySetChanges, BlockNumberOps, ClientError, SetId};
 	use futures::executor::block_on;
-	use sc_block_builder::BlockBuilderProvider;
+	use sc_block_builder::BlockBuilderBuilder;
 	use sc_client_api::{apply_aux, LockImportRun};
 	use sp_consensus::BlockOrigin;
 	use sp_consensus_grandpa::GRANDPA_ENGINE_ID as ID;
@@ -323,7 +323,14 @@ mod tests {
 
 		let mut blocks = Vec::new();
 		for _ in 0..number_of_blocks {
-			let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+			let block = BlockBuilderBuilder::new(&*client)
+				.on_parent_block(client.chain_info().best_hash)
+				.with_parent_block_number(client.chain_info().best_number)
+				.build()
+				.unwrap()
+				.build()
+				.unwrap()
+				.block;
 			block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
 			blocks.push(block);
 		}

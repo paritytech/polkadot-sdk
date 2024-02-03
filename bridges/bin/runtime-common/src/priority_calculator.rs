@@ -27,6 +27,7 @@ use frame_support::traits::Get;
 use sp_runtime::transaction_validity::TransactionPriority;
 
 // reexport everything from `integrity_tests` module
+#[allow(unused_imports)]
 pub use integrity_tests::*;
 
 /// Compute priority boost for message delivery transaction that delivers

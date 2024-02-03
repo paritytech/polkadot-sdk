@@ -1,9 +1,13 @@
 [package]
 name = "cumulus-pallet-parachain-system"
-version = "0.1.0"
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
 description = "Base pallet for cumulus-based parachains"
+license = "Apache-2.0"
+
+[lints]
+workspace = true
 
 [dependencies]
 bytes = { version = "1.4.0", default-features = false }
@@ -12,38 +16,46 @@ environmental = { version = "1.1.4", default-features = false }
 impl-trait-for-tuples = "0.2.1"
 log = { version = "0.4.20", default-features = false }
 trie-db = { version = "0.28.0", default-features = false }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 # Substrate
-frame-support = { path = "../../../substrate/frame/support", default-features = false}
-frame-system = { path = "../../../substrate/frame/system", default-features = false}
-sp-core = { path = "../../../substrate/primitives/core", default-features = false}
-sp-externalities = { path = "../../../substrate/primitives/externalities", default-features = false}
-sp-inherents = { path = "../../../substrate/primitives/inherents", default-features = false}
-sp-io = { path = "../../../substrate/primitives/io", default-features = false}
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false}
-sp-state-machine = { path = "../../../substrate/primitives/state-machine", default-features = false}
-sp-std = { path = "../../../substrate/primitives/std", default-features = false}
-sp-trie = { path = "../../../substrate/primitives/trie", default-features = false}
-sp-version = { path = "../../../substrate/primitives/version", default-features = false}
+frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
+frame-support = { path = "../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../substrate/frame/system", default-features = false }
+pallet-message-queue = { path = "../../../substrate/frame/message-queue", default-features = false }
+sp-core = { path = "../../../substrate/primitives/core", default-features = false }
+sp-externalities = { path = "../../../substrate/primitives/externalities", default-features = false }
+sp-inherents = { path = "../../../substrate/primitives/inherents", default-features = false }
+sp-io = { path = "../../../substrate/primitives/io", default-features = false }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
+sp-state-machine = { path = "../../../substrate/primitives/state-machine", default-features = false }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+sp-trie = { path = "../../../substrate/primitives/trie", default-features = false }
+sp-version = { path = "../../../substrate/primitives/version", default-features = false }
 
 # Polkadot
-polkadot-parachain-primitives = { path = "../../../polkadot/parachain", default-features = false, features = [ "wasm-api" ]}
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false}
+polkadot-parachain-primitives = { path = "../../../polkadot/parachain", default-features = false, features = ["wasm-api"] }
+polkadot-runtime-parachains = { path = "../../../polkadot/runtime/parachains", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
 
 # Cumulus
 cumulus-pallet-parachain-system-proc-macro = { path = "proc-macro", default-features = false }
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
 cumulus-primitives-parachain-inherent = { path = "../../primitives/parachain-inherent", default-features = false }
+cumulus-primitives-proof-size-hostfunction = { path = "../../primitives/proof-size-hostfunction", default-features = false }
 
 [dev-dependencies]
 assert_matches = "1.5"
 hex-literal = "0.4.1"
 lazy_static = "1.4"
+trie-standardmap = "0.16.0"
+rand = "0.8.5"
+futures = "0.3.28"
 
 # Substrate
 sc-client-api = { path = "../../../substrate/client/api" }
 sp-keyring = { path = "../../../substrate/primitives/keyring" }
+sp-crypto-hashing = { path = "../../../substrate/primitives/crypto/hashing" }
 sp-tracing = { path = "../../../substrate/primitives/tracing" }
 sp-version = { path = "../../../substrate/primitives/version" }
 
@@ -52,17 +64,22 @@ cumulus-test-client = { path = "../../test/client" }
 cumulus-test-relay-sproof-builder = { path = "../../test/relay-sproof-builder" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
+	"bytes/std",
 	"codec/std",
 	"cumulus-pallet-parachain-system-proc-macro/std",
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-parachain-inherent/std",
+	"cumulus-primitives-proof-size-hostfunction/std",
 	"environmental/std",
+	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
+	"pallet-message-queue/std",
 	"polkadot-parachain-primitives/std",
+	"polkadot-runtime-parachains/std",
 	"scale-info/std",
 	"sp-core/std",
 	"sp-externalities/std",
@@ -71,21 +88,29 @@ std = [
 	"sp-runtime/std",
 	"sp-state-machine/std",
 	"sp-std/std",
+	"sp-tracing/std",
 	"sp-trie/std",
 	"trie-db/std",
 	"xcm/std",
 ]
 
 runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
+	"cumulus-test-client/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-message-queue/try-runtime",
+	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]
 

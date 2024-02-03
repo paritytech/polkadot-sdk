@@ -30,10 +30,10 @@ use cumulus_client_consensus_common::{
 	self as consensus_common, ParachainBlockImportMarker, ParachainCandidate,
 };
 use cumulus_client_consensus_proposer::ProposerInterface;
+use cumulus_client_parachain_inherent::{ParachainInherentData, ParachainInherentDataProvider};
 use cumulus_primitives_core::{
 	relay_chain::Hash as PHash, DigestItem, ParachainBlockData, PersistedValidationData,
 };
-use cumulus_primitives_parachain_inherent::ParachainInherentData;
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_node_primitives::{Collation, MaybeCompressedPoV};
@@ -124,7 +124,7 @@ where
 		parent_hash: Block::Hash,
 		timestamp: impl Into<Option<Timestamp>>,
 	) -> Result<(ParachainInherentData, InherentData), Box<dyn Error + Send + Sync + 'static>> {
-		let paras_inherent_data = ParachainInherentData::create_at(
+		let paras_inherent_data = ParachainInherentDataProvider::create_at(
 			relay_parent,
 			&self.relay_client,
 			validation_data,
@@ -172,12 +172,14 @@ where
 		inherent_data: (ParachainInherentData, InherentData),
 		proposal_duration: Duration,
 		max_pov_size: usize,
-	) -> Result<(Collation, ParachainBlockData<Block>, Block::Hash), Box<dyn Error + Send + 'static>>
-	{
+	) -> Result<
+		Option<(Collation, ParachainBlockData<Block>, Block::Hash)>,
+		Box<dyn Error + Send + 'static>,
+	> {
 		let mut digest = additional_pre_digest.into().unwrap_or_default();
 		digest.push(slot_claim.pre_digest.clone());
 
-		let proposal = self
+		let maybe_proposal = self
 			.proposer
 			.propose(
 				&parent_header,
@@ -189,6 +191,11 @@ where
 			)
 			.await
 			.map_err(|e| Box::new(e) as Box<dyn Error + Send>)?;
+
+		let proposal = match maybe_proposal {
+			None => return Ok(None),
+			Some(p) => p,
+		};
 
 		let sealed_importable = seal::<_, P>(
 			proposal.block,
@@ -234,7 +241,7 @@ where
 				);
 			}
 
-			Ok((collation, block_data, post_hash))
+			Ok(Some((collation, block_data, post_hash)))
 		} else {
 			Err(Box::<dyn Error + Send + Sync>::from("Unable to produce collation")
 				as Box<dyn Error + Send>)
