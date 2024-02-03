@@ -368,7 +368,7 @@ mod waiting {
 }
 
 /// Starts RPC servers.
-fn start_rpc_servers<R>(
+pub fn start_rpc_servers<R>(
 	config: &Configuration,
 	gen_rpc_module: R,
 	rpc_id_provider: Option<Box<dyn RpcSubscriptionIdProvider>>,
