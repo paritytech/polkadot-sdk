@@ -290,6 +290,31 @@
 <a href="#290" id="290">290</a>
 <a href="#291" id="291">291</a>
 <a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -312,6 +337,8 @@
 	path::{Path, PathBuf},
 	process,
 };
+
+<span class="kw">use </span><span class="kw">crate</span>::RuntimeTarget;
 
 <span class="doccomment">/// Returns the manifest dir from the `CARGO_MANIFEST_DIR` env.
 </span><span class="kw">fn </span>get_manifest_dir() -&gt; PathBuf {
@@ -341,6 +368,8 @@
 			project_cargo_toml: get_manifest_dir().join(<span class="string">&quot;Cargo.toml&quot;</span>),
 			features_to_enable: Vec::new(),
 			disable_runtime_version_section_check: <span class="bool-val">false</span>,
+			export_heap_base: <span class="bool-val">false</span>,
+			import_memory: <span class="bool-val">false</span>,
 		}
 	}
 
@@ -357,6 +386,8 @@
 				project_cargo_toml: path,
 				features_to_enable: Vec::new(),
 				disable_runtime_version_section_check: <span class="bool-val">false</span>,
+				export_heap_base: <span class="bool-val">false</span>,
+				import_memory: <span class="bool-val">false</span>,
 			})
 		} <span class="kw">else </span>{
 			<span class="prelude-val">Err</span>(<span class="string">&quot;Project path must point to the `Cargo.toml` of the project&quot;</span>)
@@ -389,6 +420,11 @@
 	</span>features_to_enable: Vec&lt;String&gt;,
 	<span class="doccomment">/// Should the builder not check that the `runtime_version` section exists in the wasm binary?
 	</span>disable_runtime_version_section_check: bool,
+
+	<span class="doccomment">/// Whether `__heap_base` should be exported (WASM-only).
+	</span>export_heap_base: bool,
+	<span class="doccomment">/// Whether `--import-memory` should be added to the link args (WASM-only).
+	</span>import_memory: bool,
 }
 
 <span class="kw">impl </span>WasmBuilder {
@@ -401,7 +437,7 @@
 	///
 	/// This adds `-Clink-arg=--export=__heap_base` to `RUST_FLAGS`.
 	</span><span class="kw">pub fn </span>export_heap_base(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
-		<span class="self">self</span>.rust_flags.push(<span class="string">&quot;-Clink-arg=--export=__heap_base&quot;</span>.into());
+		<span class="self">self</span>.export_heap_base = <span class="bool-val">true</span>;
 		<span class="self">self
 	</span>}
 
@@ -419,7 +455,7 @@
 	///
 	/// This adds `-C link-arg=--import-memory` to `RUST_FLAGS`.
 	</span><span class="kw">pub fn </span>import_memory(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
-		<span class="self">self</span>.rust_flags.push(<span class="string">&quot;-C link-arg=--import-memory&quot;</span>.into());
+		<span class="self">self</span>.import_memory = <span class="bool-val">true</span>;
 		<span class="self">self
 	</span>}
 
@@ -451,7 +487,18 @@
 	</span>}
 
 	<span class="doccomment">/// Build the WASM binary.
-	</span><span class="kw">pub fn </span>build(<span class="self">self</span>) {
+	</span><span class="kw">pub fn </span>build(<span class="kw-2">mut </span><span class="self">self</span>) {
+		<span class="kw">let </span>target = <span class="kw">crate</span>::runtime_target();
+		<span class="kw">if </span>target == RuntimeTarget::Wasm {
+			<span class="kw">if </span><span class="self">self</span>.export_heap_base {
+				<span class="self">self</span>.rust_flags.push(<span class="string">&quot;-Clink-arg=--export=__heap_base&quot;</span>.into());
+			}
+
+			<span class="kw">if </span><span class="self">self</span>.import_memory {
+				<span class="self">self</span>.rust_flags.push(<span class="string">&quot;-C link-arg=--import-memory&quot;</span>.into());
+			}
+		}
+
 		<span class="kw">let </span>out_dir = PathBuf::from(env::var(<span class="string">&quot;OUT_DIR&quot;</span>).expect(<span class="string">&quot;`OUT_DIR` is set by cargo!&quot;</span>));
 		<span class="kw">let </span>file_path =
 			out_dir.join(<span class="self">self</span>.file_name.clone().unwrap_or_else(|| <span class="string">&quot;wasm_binary.rs&quot;</span>.into()));
@@ -467,6 +514,7 @@
 		</span>}
 
 		build_project(
+			target,
 			file_path,
 			<span class="self">self</span>.project_cargo_toml,
 			<span class="self">self</span>.rust_flags.into_iter().map(|f| <span class="macro">format!</span>(<span class="string">&quot;{} &quot;</span>, f)).collect(),
@@ -540,6 +588,7 @@
 /// `check_for_runtime_version_section` - Should the wasm binary be checked for the
 /// `runtime_version` section?
 </span><span class="kw">fn </span>build_project(
+	target: RuntimeTarget,
 	file_name: PathBuf,
 	project_cargo_toml: PathBuf,
 	default_rustflags: String,
@@ -547,7 +596,7 @@
 	wasm_binary_name: <span class="prelude-ty">Option</span>&lt;String&gt;,
 	check_for_runtime_version_section: bool,
 ) {
-	<span class="kw">let </span>cargo_cmd = <span class="kw">match </span><span class="kw">crate</span>::prerequisites::check() {
+	<span class="kw">let </span>cargo_cmd = <span class="kw">match </span><span class="kw">crate</span>::prerequisites::check(target) {
 		<span class="prelude-val">Ok</span>(cmd) =&gt; cmd,
 		<span class="prelude-val">Err</span>(err_msg) =&gt; {
 			<span class="macro">eprintln!</span>(<span class="string">&quot;{}&quot;</span>, err_msg);
@@ -556,6 +605,7 @@
 	};
 
 	<span class="kw">let </span>(wasm_binary, bloaty) = <span class="kw">crate</span>::wasm_project::create_and_compile(
+		target,
 		<span class="kw-2">&amp;</span>project_cargo_toml,
 		<span class="kw-2">&amp;</span>default_rustflags,
 		cargo_cmd,

@@ -255,6 +255,11 @@
 <a href="#255" id="255">255</a>
 <a href="#256" id="256">256</a>
 <a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -366,7 +371,12 @@
 	};
 	<span class="kw">let </span>maybe_unreachable = <span class="kw">if </span>method.should_trap_on_return() {
 		<span class="macro">quote! </span>{
-			; core::arch::wasm32::unreachable();
+			;
+			<span class="attr">#[cfg(target_family = <span class="string">&quot;wasm&quot;</span>)]
+			</span>{ core::arch::wasm32::unreachable(); }
+
+			<span class="attr">#[cfg(any(target_arch = <span class="string">&quot;riscv32&quot;</span>, target_arch = <span class="string">&quot;riscv64&quot;</span>))]
+			</span><span class="kw">unsafe </span>{ <span class="macro">core::arch::asm!</span>(<span class="string">&quot;unimp&quot;</span>, options(noreturn)); }
 		}
 	} <span class="kw">else </span>{
 		<span class="macro">quote! </span>{}
@@ -375,7 +385,7 @@
 	<span class="kw">let </span>attrs = method.attrs.iter().filter(|a| !a.path().is_ident(<span class="string">&quot;version&quot;</span>));
 
 	<span class="kw">let </span>cfg_wasm_only = <span class="kw">if </span>is_wasm_only {
-		<span class="macro">quote! </span>{ <span class="attr">#[cfg(target_arch = <span class="string">&quot;wasm32&quot;</span>)] </span>}
+		<span class="macro">quote! </span>{ <span class="attr">#[cfg(substrate_runtime)] </span>}
 	} <span class="kw">else </span>{
 		<span class="macro">quote! </span>{}
 	};

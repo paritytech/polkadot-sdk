@@ -582,9 +582,9 @@
 		#(#cfg_attrs)*
 		<span class="attr">#[doc = #doc_string]
 		</span><span class="kw">pub fn </span>#function ( #( #args ),* ) #return_value {
-			<span class="kw">extern </span><span class="string">&quot;C&quot; </span>{
-				<span class="doccomment">/// The extern function.
-				</span><span class="kw">pub fn </span>#ext_function (
+			<span class="attr">#[cfg_attr(any(target_arch = <span class="string">&quot;riscv32&quot;</span>, target_arch = <span class="string">&quot;riscv64&quot;</span>), #crate_::polkavm::polkavm_import(abi = #crate_::polkavm::polkavm_abi))]
+			</span><span class="kw">extern </span><span class="string">&quot;C&quot; </span>{
+				<span class="kw">pub fn </span>#ext_function (
 					#( #arg_names: &lt;#arg_types <span class="kw">as </span>#crate_::RIType&gt;::FFIType ),*
 				) #ffi_return_value;
 			}

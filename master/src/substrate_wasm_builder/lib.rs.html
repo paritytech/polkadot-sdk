@@ -367,6 +367,89 @@
 <a href="#367" id="367">367</a>
 <a href="#368" id="368">368</a>
 <a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -482,6 +565,7 @@
 //! wasm32-unknown-unknown --toolchain nightly-2020-02-20`.
 
 </span><span class="kw">use </span>std::{
+	collections::BTreeSet,
 	env, fs,
 	io::BufRead,
 	path::{Path, PathBuf},
@@ -533,6 +617,9 @@
 <span class="doccomment">/// Environment variable to set whether we&#39;ll build `core`/`std`.
 </span><span class="kw">const </span>WASM_BUILD_STD: <span class="kw-2">&amp;</span>str = <span class="string">&quot;WASM_BUILD_STD&quot;</span>;
 
+<span class="doccomment">/// The target to use for the runtime. Valid values are `wasm` (default) or `riscv`.
+</span><span class="kw">const </span>RUNTIME_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;SUBSTRATE_RUNTIME_TARGET&quot;</span>;
+
 <span class="doccomment">/// Write to the given `file` if the `content` is different.
 </span><span class="kw">fn </span>write_file_if_changed(file: <span class="kw">impl </span>AsRef&lt;Path&gt;, content: <span class="kw">impl </span>AsRef&lt;str&gt;) {
 	<span class="kw">if </span>fs::read_to_string(file.as_ref()).ok().as_deref() != <span class="prelude-val">Some</span>(content.as_ref()) {
@@ -554,7 +641,7 @@
 }
 
 <span class="doccomment">/// Get a cargo command that should be used to invoke the compilation.
-</span><span class="kw">fn </span>get_cargo_command() -&gt; CargoCommand {
+</span><span class="kw">fn </span>get_cargo_command(target: RuntimeTarget) -&gt; CargoCommand {
 	<span class="kw">let </span>env_cargo =
 		CargoCommand::new(<span class="kw-2">&amp;</span>env::var(<span class="string">&quot;CARGO&quot;</span>).expect(<span class="string">&quot;`CARGO` env variable is always set by cargo&quot;</span>));
 	<span class="kw">let </span>default_cargo = CargoCommand::new(<span class="string">&quot;cargo&quot;</span>);
@@ -565,35 +652,33 @@
 		wasm_toolchain.map(|t| CargoCommand::new_with_args(<span class="string">&quot;rustup&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">&quot;run&quot;</span>, <span class="kw-2">&amp;</span>t, <span class="string">&quot;cargo&quot;</span>]))
 	{
 		cmd
-	} <span class="kw">else if </span>env_cargo.supports_substrate_wasm_env() {
+	} <span class="kw">else if </span>env_cargo.supports_substrate_runtime_env(target) {
 		env_cargo
-	} <span class="kw">else if </span>default_cargo.supports_substrate_wasm_env() {
+	} <span class="kw">else if </span>default_cargo.supports_substrate_runtime_env(target) {
 		default_cargo
 	} <span class="kw">else </span>{
 		<span class="comment">// If no command before provided us with a cargo that supports our Substrate wasm env, we
 		// try to search one with rustup. If that fails as well, we return the default cargo and let
 		// the prequisities check fail.
-		</span>get_rustup_command().unwrap_or(default_cargo)
+		</span>get_rustup_command(target).unwrap_or(default_cargo)
 	}
 }
 
-<span class="doccomment">/// Get the newest rustup command that supports our Substrate wasm env.
+<span class="doccomment">/// Get the newest rustup command that supports compiling a runtime.
 ///
 /// Stable versions are always favored over nightly versions even if the nightly versions are
 /// newer.
-</span><span class="kw">fn </span>get_rustup_command() -&gt; <span class="prelude-ty">Option</span>&lt;CargoCommand&gt; {
-	<span class="kw">let </span>host = <span class="macro">format!</span>(<span class="string">&quot;-{}&quot;</span>, env::var(<span class="string">&quot;HOST&quot;</span>).expect(<span class="string">&quot;`HOST` is always set by cargo&quot;</span>));
-
+</span><span class="kw">fn </span>get_rustup_command(target: RuntimeTarget) -&gt; <span class="prelude-ty">Option</span>&lt;CargoCommand&gt; {
 	<span class="kw">let </span>output = Command::new(<span class="string">&quot;rustup&quot;</span>).args(<span class="kw-2">&amp;</span>[<span class="string">&quot;toolchain&quot;</span>, <span class="string">&quot;list&quot;</span>]).output().ok()<span class="question-mark">?</span>.stdout;
 	<span class="kw">let </span>lines = output.as_slice().lines();
 
 	<span class="kw">let </span><span class="kw-2">mut </span>versions = Vec::new();
 	<span class="kw">for </span>line <span class="kw">in </span>lines.filter_map(|l| l.ok()) {
-		<span class="kw">let </span>rustup_version = line.trim_end_matches(<span class="kw-2">&amp;</span>host);
-
+		<span class="comment">// Split by a space to get rid of e.g. &quot; (default)&quot; at the end.
+		</span><span class="kw">let </span>rustup_version = line.split(<span class="string">&quot; &quot;</span>).next().unwrap();
 		<span class="kw">let </span>cmd = CargoCommand::new_with_args(<span class="string">&quot;rustup&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">&quot;run&quot;</span>, <span class="kw-2">&amp;</span>rustup_version, <span class="string">&quot;cargo&quot;</span>]);
 
-		<span class="kw">if </span>!cmd.supports_substrate_wasm_env() {
+		<span class="kw">if </span>!cmd.supports_substrate_runtime_env(target) {
 			<span class="kw">continue
 		</span>}
 
@@ -616,22 +701,26 @@
 	program: String,
 	args: Vec&lt;String&gt;,
 	version: <span class="prelude-ty">Option</span>&lt;Version&gt;,
+	target_list: <span class="prelude-ty">Option</span>&lt;BTreeSet&lt;String&gt;&gt;,
 }
 
 <span class="kw">impl </span>CargoCommand {
 	<span class="kw">fn </span>new(program: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>version = <span class="self">Self</span>::extract_version(program, <span class="kw-2">&amp;</span>[]);
+		<span class="kw">let </span>target_list = <span class="self">Self</span>::extract_target_list(program, <span class="kw-2">&amp;</span>[]);
 
-		CargoCommand { program: program.into(), args: Vec::new(), version }
+		CargoCommand { program: program.into(), args: Vec::new(), version, target_list }
 	}
 
 	<span class="kw">fn </span>new_with_args(program: <span class="kw-2">&amp;</span>str, args: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str]) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>version = <span class="self">Self</span>::extract_version(program, args);
+		<span class="kw">let </span>target_list = <span class="self">Self</span>::extract_target_list(program, args);
 
 		CargoCommand {
 			program: program.into(),
 			args: args.iter().map(ToString::to_string).collect(),
 			version,
+			target_list,
 		}
 	}
 
@@ -652,6 +741,23 @@
 		Version::extract(<span class="kw-2">&amp;</span>version)
 	}
 
+	<span class="kw">fn </span>extract_target_list(program: <span class="kw-2">&amp;</span>str, args: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str]) -&gt; <span class="prelude-ty">Option</span>&lt;BTreeSet&lt;String&gt;&gt; {
+		<span class="comment">// This is technically an unstable option, but we don&#39;t care because we only need this
+		// to build RISC-V runtimes, and those currently require a specific nightly toolchain
+		// anyway, so it&#39;s totally fine for this to fail in other cases.
+		</span><span class="kw">let </span>list = Command::new(program)
+			.args(args)
+			.args(<span class="kw-2">&amp;</span>[<span class="string">&quot;rustc&quot;</span>, <span class="string">&quot;-Z&quot;</span>, <span class="string">&quot;unstable-options&quot;</span>, <span class="string">&quot;--print&quot;</span>, <span class="string">&quot;target-list&quot;</span>])
+			<span class="comment">// Make sure if we&#39;re called from within a `build.rs` the host toolchain won&#39;t override
+			// a rustup toolchain we&#39;ve picked.
+			</span>.env_remove(<span class="string">&quot;RUSTC&quot;</span>)
+			.output()
+			.ok()
+			.and_then(|o| String::from_utf8(o.stdout).ok())<span class="question-mark">?</span>;
+
+		<span class="prelude-val">Some</span>(list.trim().split(<span class="string">&quot;\n&quot;</span>).map(ToString::to_string).collect())
+	}
+
 	<span class="doccomment">/// Returns the version of this cargo command or `None` if it failed to extract the version.
 	</span><span class="kw">fn </span>version(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Version&gt; {
 		<span class="self">self</span>.version
@@ -663,12 +769,29 @@
 			env::var(<span class="string">&quot;RUSTC_BOOTSTRAP&quot;</span>).is_ok()
 	}
 
+	<span class="doccomment">/// Check if the supplied cargo command supports our runtime environment.
+	</span><span class="kw">fn </span>supports_substrate_runtime_env(<span class="kw-2">&amp;</span><span class="self">self</span>, target: RuntimeTarget) -&gt; bool {
+		<span class="kw">match </span>target {
+			RuntimeTarget::Wasm =&gt; <span class="self">self</span>.supports_substrate_runtime_env_wasm(),
+			RuntimeTarget::Riscv =&gt; <span class="self">self</span>.supports_substrate_runtime_env_riscv(),
+		}
+	}
+
+	<span class="doccomment">/// Check if the supplied cargo command supports our RISC-V runtime environment.
+	</span><span class="kw">fn </span>supports_substrate_runtime_env_riscv(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+		<span class="kw">let </span><span class="prelude-val">Some</span>(target_list) = <span class="self">self</span>.target_list.as_ref() <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
+		<span class="comment">// This is our custom target which currently doesn&#39;t exist on any upstream toolchain,
+		// so if it exists it&#39;s guaranteed to be our custom toolchain and have have everything
+		// we need, so any further version checks are unnecessary at this point.
+		</span>target_list.contains(<span class="string">&quot;riscv32ema-unknown-none-elf&quot;</span>)
+	}
+
 	<span class="doccomment">/// Check if the supplied cargo command supports our Substrate wasm environment.
 	///
 	/// This means that either the cargo version is at minimum 1.68.0 or this is a nightly cargo.
 	///
 	/// Assumes that cargo version matches the rustc version.
-	</span><span class="kw">fn </span>supports_substrate_wasm_env(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+	</span><span class="kw">fn </span>supports_substrate_runtime_env_wasm(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
 		<span class="comment">// `RUSTC_BOOTSTRAP` tells a stable compiler to behave like a nightly. So, when this env
 		// variable is set, we can assume that whatever rust compiler we have, it is a nightly
 		// compiler. For &quot;more&quot; information, see:
@@ -734,6 +857,49 @@
 
 <span class="doccomment">/// Returns whether we need to also compile the standard library when compiling the runtime.
 </span><span class="kw">fn </span>build_std_required() -&gt; bool {
-	<span class="kw">crate</span>::get_bool_environment_variable(<span class="kw">crate</span>::WASM_BUILD_STD).unwrap_or(<span class="bool-val">true</span>)
+	<span class="kw">let </span>default = runtime_target() == RuntimeTarget::Wasm;
+
+	<span class="kw">crate</span>::get_bool_environment_variable(<span class="kw">crate</span>::WASM_BUILD_STD).unwrap_or(default)
+}
+
+<span class="attr">#[derive(Copy, Clone, PartialEq, Eq)]
+</span><span class="kw">enum </span>RuntimeTarget {
+	Wasm,
+	Riscv,
+}
+
+<span class="kw">impl </span>RuntimeTarget {
+	<span class="kw">fn </span>rustc_target(<span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+		<span class="kw">match </span><span class="self">self </span>{
+			RuntimeTarget::Wasm =&gt; <span class="string">&quot;wasm32-unknown-unknown&quot;</span>,
+			RuntimeTarget::Riscv =&gt; <span class="string">&quot;riscv32ema-unknown-none-elf&quot;</span>,
+		}
+	}
+
+	<span class="kw">fn </span>build_subdirectory(<span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+		<span class="comment">// Keep the build directories separate so that when switching between
+		// the targets we won&#39;t trigger unnecessary rebuilds.
+		</span><span class="kw">match </span><span class="self">self </span>{
+			RuntimeTarget::Wasm =&gt; <span class="string">&quot;wbuild&quot;</span>,
+			RuntimeTarget::Riscv =&gt; <span class="string">&quot;rbuild&quot;</span>,
+		}
+	}
+}
+
+<span class="kw">fn </span>runtime_target() -&gt; RuntimeTarget {
+	<span class="kw">let </span><span class="prelude-val">Some</span>(value) = env::var_os(RUNTIME_TARGET) <span class="kw">else </span>{
+		<span class="kw">return </span>RuntimeTarget::Wasm;
+	};
+
+	<span class="kw">if </span>value == <span class="string">&quot;wasm&quot; </span>{
+		RuntimeTarget::Wasm
+	} <span class="kw">else if </span>value == <span class="string">&quot;riscv&quot; </span>{
+		RuntimeTarget::Riscv
+	} <span class="kw">else </span>{
+		<span class="macro">build_helper::warning!</span>(
+			<span class="string">&quot;the &#39;{RUNTIME_TARGET}&#39; environment variable has an invalid value; it must be either &#39;wasm&#39; or &#39;riscv&#39;&quot;
+		</span>);
+		std::process::exit(<span class="number">1</span>);
+	}
 }
 </code></pre></div></section></main></body></html>

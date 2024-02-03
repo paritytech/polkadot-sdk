@@ -829,6 +829,9 @@
 <a href="#829" id="829">829</a>
 <a href="#830" id="830">830</a>
 <a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -936,6 +939,9 @@
 	};
 	<span class="kw">pub use </span>sp_std::{mem, slice, vec};
 	<span class="kw">pub use </span>sp_version::{create_apis_vec, ApiId, ApisVec, RuntimeVersion};
+
+	<span class="attr">#[cfg(all(any(target_arch = <span class="string">&quot;riscv32&quot;</span>, target_arch = <span class="string">&quot;riscv64&quot;</span>), substrate_runtime))]
+	</span><span class="kw">pub use </span>sp_runtime_interface::polkavm::{polkavm_abi, polkavm_export};
 }
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]

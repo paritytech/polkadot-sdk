@@ -1955,6 +1955,25 @@
 <a href="#1955" id="1955">1955</a>
 <a href="#1956" id="1956">1956</a>
 <a href="#1957" id="1957">1957</a>
+<a href="#1958" id="1958">1958</a>
+<a href="#1959" id="1959">1959</a>
+<a href="#1960" id="1960">1960</a>
+<a href="#1961" id="1961">1961</a>
+<a href="#1962" id="1962">1962</a>
+<a href="#1963" id="1963">1963</a>
+<a href="#1964" id="1964">1964</a>
+<a href="#1965" id="1965">1965</a>
+<a href="#1966" id="1966">1966</a>
+<a href="#1967" id="1967">1967</a>
+<a href="#1968" id="1968">1968</a>
+<a href="#1969" id="1969">1969</a>
+<a href="#1970" id="1970">1970</a>
+<a href="#1971" id="1971">1971</a>
+<a href="#1972" id="1972">1972</a>
+<a href="#1973" id="1973">1973</a>
+<a href="#1974" id="1974">1974</a>
+<a href="#1975" id="1975">1975</a>
+<a href="#1976" id="1976">1976</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3694,20 +3713,20 @@
 
 <span class="kw">pub use </span>tracing_setup::init_tracing;
 
-<span class="doccomment">/// Allocator used by Substrate when executing the Wasm runtime.
-</span><span class="attr">#[cfg(all(target_arch = <span class="string">&quot;wasm32&quot;</span>, not(feature = <span class="string">&quot;std&quot;</span>)))]
-</span><span class="kw">struct </span>WasmAllocator;
+<span class="doccomment">/// Allocator used by Substrate from within the runtime.
+</span><span class="attr">#[cfg(substrate_runtime)]
+</span><span class="kw">struct </span>RuntimeAllocator;
 
-<span class="attr">#[cfg(all(target_arch = <span class="string">&quot;wasm32&quot;</span>, not(feature = <span class="string">&quot;disable_allocator&quot;</span>), not(feature = <span class="string">&quot;std&quot;</span>)))]
+<span class="attr">#[cfg(all(not(feature = <span class="string">&quot;disable_allocator&quot;</span>), substrate_runtime))]
 #[global_allocator]
-</span><span class="kw">static </span>ALLOCATOR: WasmAllocator = WasmAllocator;
+</span><span class="kw">static </span>ALLOCATOR: RuntimeAllocator = RuntimeAllocator;
 
-<span class="attr">#[cfg(all(target_arch = <span class="string">&quot;wasm32&quot;</span>, not(feature = <span class="string">&quot;std&quot;</span>)))]
+<span class="attr">#[cfg(substrate_runtime)]
 </span><span class="kw">mod </span>allocator_impl {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>core::alloc::{GlobalAlloc, Layout};
 
-	<span class="kw">unsafe impl </span>GlobalAlloc <span class="kw">for </span>WasmAllocator {
+	<span class="kw">unsafe impl </span>GlobalAlloc <span class="kw">for </span>RuntimeAllocator {
 		<span class="kw">unsafe fn </span>alloc(<span class="kw-2">&amp;</span><span class="self">self</span>, layout: Layout) -&gt; <span class="kw-2">*mut </span>u8 {
 			allocator::malloc(layout.size() <span class="kw">as </span>u32)
 		}
@@ -3718,8 +3737,27 @@
 	}
 }
 
-<span class="doccomment">/// A default panic handler for WASM environment.
-</span><span class="attr">#[cfg(all(not(feature = <span class="string">&quot;disable_panic_handler&quot;</span>), not(feature = <span class="string">&quot;std&quot;</span>)))]
+<span class="doccomment">/// Crashes the execution of the program.
+///
+/// Equivalent to the WASM `unreachable` instruction, RISC-V `unimp` instruction,
+/// or just the `unreachable!()` macro everywhere else.
+</span><span class="kw">pub fn </span>unreachable() -&gt; ! {
+	<span class="attr">#[cfg(target_family = <span class="string">&quot;wasm&quot;</span>)]
+	</span>{
+		core::arch::wasm32::unreachable();
+	}
+
+	<span class="attr">#[cfg(any(target_arch = <span class="string">&quot;riscv32&quot;</span>, target_arch = <span class="string">&quot;riscv64&quot;</span>))]
+	</span><span class="kw">unsafe </span>{
+		<span class="macro">core::arch::asm!</span>(<span class="string">&quot;unimp&quot;</span>, options(noreturn));
+	}
+
+	<span class="attr">#[cfg(not(any(target_arch = <span class="string">&quot;riscv32&quot;</span>, target_arch = <span class="string">&quot;riscv64&quot;</span>, target_family = <span class="string">&quot;wasm&quot;</span>)))]
+	</span><span class="macro">unreachable!</span>();
+}
+
+<span class="doccomment">/// A default panic handler for the runtime environment.
+</span><span class="attr">#[cfg(all(not(feature = <span class="string">&quot;disable_panic_handler&quot;</span>), substrate_runtime))]
 #[panic_handler]
 #[no_mangle]
 </span><span class="kw">pub fn </span>panic(info: <span class="kw-2">&amp;</span>core::panic::PanicInfo) -&gt; ! {
@@ -3731,11 +3769,11 @@
 	<span class="attr">#[cfg(not(feature = <span class="string">&quot;improved_panic_error_reporting&quot;</span>))]
 	</span>{
 		logging::log(LogLevel::Error, <span class="string">&quot;runtime&quot;</span>, message.as_bytes());
-		core::arch::wasm32::unreachable();
+		unreachable();
 	}
 }
 
-<span class="doccomment">/// A default OOM handler for WASM environment.
+<span class="doccomment">/// A default OOM handler for the runtime environment.
 </span><span class="attr">#[cfg(all(not(feature = <span class="string">&quot;disable_oom&quot;</span>), enable_alloc_error_handler))]
 #[alloc_error_handler]
 </span><span class="kw">pub fn </span>oom(<span class="kw">_</span>: core::alloc::Layout) -&gt; ! {
@@ -3746,7 +3784,7 @@
 	<span class="attr">#[cfg(not(feature = <span class="string">&quot;improved_panic_error_reporting&quot;</span>))]
 	</span>{
 		logging::log(LogLevel::Error, <span class="string">&quot;runtime&quot;</span>, <span class="string">b&quot;Runtime memory exhausted. Aborting&quot;</span>);
-		core::arch::wasm32::unreachable();
+		unreachable();
 	}
 }
 

@@ -964,6 +964,7 @@
 <a href="#964" id="964">964</a>
 <a href="#965" id="965">965</a>
 <a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1203,7 +1204,8 @@
 					#<span class="macro">c::std_disabled! </span>{
 						#( #attrs )*
 						<span class="attr">#[no_mangle]
-						</span><span class="kw">pub unsafe fn </span>#fn_name(input_data: <span class="kw-2">*mut </span>u8, input_len: usize) -&gt; u64 {
+						#[cfg_attr(any(target_arch = <span class="string">&quot;riscv32&quot;</span>, target_arch = <span class="string">&quot;riscv64&quot;</span>), #c::__private::polkavm_export(abi = #c::__private::polkavm_abi))]
+						</span><span class="kw">pub unsafe extern fn </span>#fn_name(input_data: <span class="kw-2">*mut </span>u8, input_len: usize) -&gt; u64 {
 							<span class="kw">let </span><span class="kw-2">mut </span>#input = <span class="kw">if </span>input_len == <span class="number">0 </span>{
 								<span class="kw-2">&amp;</span>[<span class="number">0u8</span>; <span class="number">0</span>]
 							} <span class="kw">else </span>{
