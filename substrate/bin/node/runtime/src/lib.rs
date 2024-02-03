@@ -2182,7 +2182,7 @@ mod runtime {
 	pub type Offences = pallet_offences;
 
 	#[runtime::pallet_index(26)]
-	pub type Historical = pallet_session_historical + Pallet;
+	pub type Historical = pallet_session_historical;
 
 	#[runtime::pallet_index(27)]
 	pub type RandomnessCollectiveFlip = pallet_insecure_randomness_collective_flip;
@@ -2227,97 +2227,108 @@ mod runtime {
 	pub type PoolAssets = pallet_assets<Instance2>;
 
 	#[runtime::pallet_index(41)]
+	pub type Beefy = pallet_beefy;
+
+	// MMR leaf construction must be after session in order to have a leaf's next_auth_set
+	// refer to block<N>. See issue polkadot-fellows/runtimes#160 for details.
+	#[runtime::pallet_index(42)]
 	pub type Mmr = pallet_mmr;
 
-	#[runtime::pallet_index(42)]
-	pub type Lottery = pallet_lottery;
-
 	#[runtime::pallet_index(43)]
-	pub type Nis = pallet_nis;
+	pub type MmrLeaf = pallet_beefy_mmr;
 
 	#[runtime::pallet_index(44)]
-	pub type Uniques = pallet_uniques;
+	pub type Lottery = pallet_lottery;
 
 	#[runtime::pallet_index(45)]
-	pub type Nfts = pallet_nfts;
+	pub type Nis = pallet_nis;
 
 	#[runtime::pallet_index(46)]
-	pub type NftFractionalization = pallet_nft_fractionalization;
+	pub type Uniques = pallet_uniques;
 
 	#[runtime::pallet_index(47)]
-	pub type Salary = pallet_salary;
+	pub type Nfts = pallet_nfts;
 
 	#[runtime::pallet_index(48)]
-	pub type CoreFellowship = pallet_core_fellowship;
+	pub type NftFractionalization = pallet_nft_fractionalization;
 
 	#[runtime::pallet_index(49)]
-	pub type TransactionStorage = pallet_transaction_storage;
+	pub type Salary = pallet_salary;
 
 	#[runtime::pallet_index(50)]
-	pub type VoterList = pallet_bags_list<Instance1>;
+	pub type CoreFellowship = pallet_core_fellowship;
 
 	#[runtime::pallet_index(51)]
-	pub type StateTrieMigration = pallet_state_trie_migration;
+	pub type TransactionStorage = pallet_transaction_storage;
 
 	#[runtime::pallet_index(52)]
-	pub type ChildBounties = pallet_child_bounties;
+	pub type VoterList = pallet_bags_list<Instance1>;
 
 	#[runtime::pallet_index(53)]
-	pub type Referenda = pallet_referenda;
+	pub type StateTrieMigration = pallet_state_trie_migration;
 
 	#[runtime::pallet_index(54)]
-	pub type Remark = pallet_remark;
+	pub type ChildBounties = pallet_child_bounties;
 
 	#[runtime::pallet_index(55)]
-	pub type RootTesting = pallet_root_testing;
+	pub type Referenda = pallet_referenda;
 
 	#[runtime::pallet_index(56)]
-	pub type ConvictionVoting = pallet_conviction_voting;
+	pub type Remark = pallet_remark;
 
 	#[runtime::pallet_index(57)]
-	pub type Whitelist = pallet_whitelist;
+	pub type RootTesting = pallet_root_testing;
 
 	#[runtime::pallet_index(58)]
-	pub type AllianceMotion = pallet_collective<Instance3>;
+	pub type ConvictionVoting = pallet_conviction_voting;
 
 	#[runtime::pallet_index(59)]
-	pub type Alliance = pallet_alliance;
+	pub type Whitelist = pallet_whitelist;
 
 	#[runtime::pallet_index(60)]
-	pub type NominationPools = pallet_nomination_pools;
+	pub type AllianceMotion = pallet_collective<Instance3>;
 
 	#[runtime::pallet_index(61)]
-	pub type RankedPolls = pallet_referenda<Instance2>;
+	pub type Alliance = pallet_alliance;
 
 	#[runtime::pallet_index(62)]
-	pub type RankedCollective = pallet_ranked_collective;
+	pub type NominationPools = pallet_nomination_pools;
 
 	#[runtime::pallet_index(63)]
-	pub type AssetConversion = pallet_asset_conversion;
+	pub type RankedPolls = pallet_referenda<Instance2>;
 
 	#[runtime::pallet_index(64)]
-	pub type FastUnstake = pallet_fast_unstake;
+	pub type RankedCollective = pallet_ranked_collective;
 
 	#[runtime::pallet_index(65)]
-	pub type MessageQueue = pallet_message_queue;
+	pub type AssetConversion = pallet_asset_conversion;
 
 	#[runtime::pallet_index(66)]
-	pub type Pov = frame_benchmarking_pallet_pov;
+	pub type FastUnstake = pallet_fast_unstake;
 
 	#[runtime::pallet_index(67)]
-	pub type TxPause = pallet_tx_pause;
+	pub type MessageQueue = pallet_message_queue;
 
 	#[runtime::pallet_index(68)]
-	pub type SafeMode = pallet_safe_mode;
+	pub type Pov = frame_benchmarking_pallet_pov;
 
 	#[runtime::pallet_index(69)]
-	pub type Statement = pallet_statement;
+	pub type TxPause = pallet_tx_pause;
 
 	#[runtime::pallet_index(70)]
-	pub type Broker = pallet_broker;
+	pub type SafeMode = pallet_safe_mode;
 
 	#[runtime::pallet_index(71)]
+	pub type Statement = pallet_statement;
+
+	#[runtime::pallet_index(72)]
+	pub type Broker = pallet_broker;
+
+	#[runtime::pallet_index(73)]
 	pub type Mixnet = pallet_mixnet;
+
+	#[runtime::pallet_index(74)]
+	pub type SkipFeelessPayment = pallet_skip_feeless_payment;
 }
 
 /// The address format for describing accounts.
