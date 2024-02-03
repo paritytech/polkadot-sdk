@@ -2338,7 +2338,6 @@
 <a href="#2338" id="2338">2338</a>
 <a href="#2339" id="2339">2339</a>
 <a href="#2340" id="2340">2340</a>
-<a href="#2341" id="2341">2341</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3883,7 +3882,6 @@
 
 	<span class="doccomment">/// Checks whether the caller of the current contract is root.
 	/// See [`pallet_contracts_uapi::HostFn::caller_is_root`].
-	</span><span class="attr">#[unstable]
 	</span><span class="kw">fn </span>caller_is_root(ctx: <span class="kw">_</span>, _memory: <span class="kw">_</span>) -&gt; <span class="prelude-ty">Result</span>&lt;u32, TrapReason&gt; {
 		ctx.charge_gas(RuntimeCosts::CallerIsRoot)<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(ctx.ext.caller_is_root() <span class="kw">as </span>u32)
