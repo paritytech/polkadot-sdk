@@ -639,7 +639,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					vec![ReserveAssetDeposited(to_weigh.into()), ClearOrigin];
 				message_to_weigh.extend(xcm.0.clone().into_iter());
 				let (_, fee) =
-					validate_send::<Config::XcmSender>(dest.clone(), Xcm(message_to_weigh))?;
+					validate_send::<Config::XcmSender>(dest, Xcm(message_to_weigh))?;
 				// set aside fee to be charged by XcmSender
 				let parked_fee = self.holding.saturating_take(fee.into());
 
