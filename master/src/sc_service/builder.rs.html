@@ -1046,6 +1046,9 @@
 <a href="#1046" id="1046">1046</a>
 <a href="#1047" id="1047">1047</a>
 <a href="#1048" id="1048">1048</a>
+<a href="#1049" id="1049">1049</a>
+<a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1508,7 +1511,7 @@
 	spawn_handle.spawn(
 		<span class="string">&quot;on-transaction-imported&quot;</span>,
 		<span class="prelude-val">Some</span>(<span class="string">&quot;transaction-pool&quot;</span>),
-		transaction_notifications(
+		propagate_transaction_notifications(
 			transaction_pool.clone(),
 			tx_handler_controller,
 			telemetry.clone(),
@@ -1580,7 +1583,8 @@
 	<span class="prelude-val">Ok</span>(rpc_handlers)
 }
 
-<span class="kw">async fn </span>transaction_notifications&lt;Block, ExPool&gt;(
+<span class="doccomment">/// Returns a future that forwards imported transactions to the transaction networking protocol.
+</span><span class="kw">pub async fn </span>propagate_transaction_notifications&lt;Block, ExPool&gt;(
 	transaction_pool: Arc&lt;ExPool&gt;,
 	tx_handler_controller: sc_network_transactions::TransactionsHandlerController&lt;
 		&lt;Block <span class="kw">as </span>BlockT&gt;::Hash,
@@ -1608,7 +1612,8 @@
 		.<span class="kw">await</span>;
 }
 
-<span class="kw">fn </span>init_telemetry&lt;Block, Client, Network&gt;(
+<span class="doccomment">/// Initialize telemetry with provided configuration and return telemetry handle
+</span><span class="kw">pub fn </span>init_telemetry&lt;Block, Client, Network&gt;(
 	config: <span class="kw-2">&amp;mut </span>Configuration,
 	network: Network,
 	client: Arc&lt;Client&gt;,
@@ -1646,7 +1651,8 @@
 	<span class="prelude-val">Ok</span>(telemetry.handle())
 }
 
-<span class="kw">fn </span>gen_rpc_module&lt;TBl, TBackend, TCl, TRpc, TExPool&gt;(
+<span class="doccomment">/// Generate RPC module using provided configuration
+</span><span class="kw">pub fn </span>gen_rpc_module&lt;TBl, TBackend, TCl, TRpc, TExPool&gt;(
 	deny_unsafe: DenyUnsafe,
 	spawn_handle: SpawnTaskHandle,
 	client: Arc&lt;TCl&gt;,
