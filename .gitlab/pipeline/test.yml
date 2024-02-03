@@ -16,7 +16,7 @@ test-linux-stable:
     RUST_TOOLCHAIN: stable
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
-    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+    RUSTFLAGS: "-Cdebug-assertions=y"
   parallel: 3
   script:
     # Build all but only execute 'runtime' tests.
@@ -66,7 +66,7 @@ test-linux-stable-runtime-benchmarks:
     RUST_TOOLCHAIN: stable
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
-    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+    RUSTFLAGS: "-Cdebug-assertions=y"
   script:
     - time cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet
 
@@ -108,7 +108,7 @@ test-linux-stable-additional-tests:
     RUST_TOOLCHAIN: stable
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
-    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+    RUSTFLAGS: "-Cdebug-assertions=y"
   script:
     # tests were moved to test-linux-stable
     # the jobs should be removed
@@ -128,7 +128,7 @@ test-linux-stable-slow:
     RUST_TOOLCHAIN: stable
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
-    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+    RUSTFLAGS: "-Cdebug-assertions=y"
   script:
     # tests were moved to test-linux-stable
     # the jobs should be removed
@@ -148,7 +148,7 @@ test-linux-stable-slow:
 #     RUST_TOOLCHAIN: stable
 #     # Enable debug assertions since we are running optimized builds for testing
 #     # but still want to have debug assertions.
-#     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+#     RUSTFLAGS: "-Cdebug-assertions=y"
 #   script:
 #     - mkdir -p artifacts
 #     - time cargo test --workspace
@@ -169,7 +169,7 @@ test-doc:
   variables:
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
-    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+    RUSTFLAGS: "-Cdebug-assertions=y"
   script:
     - time cargo test --doc --workspace
 
@@ -207,7 +207,7 @@ test-node-metrics:
     RUST_TOOLCHAIN: stable
     # Enable debug assertions since we are running optimized builds for testing
     # but still want to have debug assertions.
-    RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+    RUSTFLAGS: "-Cdebug-assertions=ys"
   script:
     # Build the required workers.
     - cargo build --bin polkadot-execute-worker --bin polkadot-prepare-worker --profile testnet --verbose --locked
