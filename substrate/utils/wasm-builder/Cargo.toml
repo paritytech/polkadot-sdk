@@ -26,3 +26,4 @@ sp-maybe-compressed-blob = { path = "../../primitives/maybe-compressed-blob" }
 filetime = "0.2.16"
 wasm-opt = "0.116"
 parity-wasm = "0.45"
+polkavm-linker = { workspace = true }
