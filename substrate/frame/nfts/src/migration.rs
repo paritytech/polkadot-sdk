@@ -51,7 +51,7 @@ pub mod v1 {
 	}
 
 	/// A migration utility to update the storage version from v0 to v1 for the pallet.
-	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	pub struct MigrateToV1<T>(core::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let current_version = Pallet::<T>::current_storage_version();
