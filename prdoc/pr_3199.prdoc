@@ -1,0 +1,12 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: sp-std to core
+
+doc:
+  - audience: Node Dev
+    description: |
+      The types in alloc and core now cover everything that sp-std was doing.
+      This pr reduces reliance on sp-std but should be 100% backward compatible
+
+crates: [ ]
