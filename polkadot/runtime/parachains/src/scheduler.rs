@@ -114,7 +114,7 @@ pub mod pallet {
 		Paras(ParasEntry<N>),
 	}
 
-	/// Conveninece type alias for `CoreOccupied`.
+	/// Convenience type alias for `CoreOccupied`.
 	pub type CoreOccupiedType<T> = CoreOccupied<BlockNumberFor<T>>;
 
 	impl<N> CoreOccupied<N> {
@@ -145,9 +145,7 @@ pub mod pallet {
 	pub(crate) type SessionStartBlock<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	/// One entry for each availability core. The `VecDeque` represents the assignments to be
-	/// scheduled on that core. `None` is used to signal to not schedule the next para of the core
-	/// as there is one currently being scheduled. Not using `None` here would overwrite the
-	/// `CoreState` in the runtime API. The value contained here will not be valid after the end of
+	/// scheduled on that core. The value contained here will not be valid after the end of
 	/// a block. Runtime APIs should be used to determine scheduled cores/ for the upcoming block.
 	#[pallet::storage]
 	#[pallet::getter(fn claimqueue)]

@@ -253,7 +253,7 @@ mod tests {
 
 		new_test_ext(Default::default()).execute_with(|| {
 			// Implant the v10 version in the state.
-			v10::ActiveConfig::<Test>::set(Some(v10));
+			v10::ActiveConfig::<Test>::set(Some(v10.clone()));
 			v10::PendingConfigs::<Test>::set(Some(pending_configs));
 
 			migrate_to_v11::<Test>();
@@ -264,7 +264,7 @@ mod tests {
 			let mut configs_to_check = v11::PendingConfigs::<Test>::get().unwrap();
 			configs_to_check.push((0, v11.clone()));
 
-			for (_, v10) in configs_to_check {
+			for (_, v11) in configs_to_check {
 				#[rustfmt::skip]
 				{
 					assert_eq!(v10.max_code_size                            , v11.max_code_size);
@@ -286,7 +286,7 @@ mod tests {
 					assert_eq!(v10.hrmp_max_parachain_inbound_channels      , v11.hrmp_max_parachain_inbound_channels);
 					assert_eq!(v10.hrmp_channel_max_message_size            , v11.hrmp_channel_max_message_size);
 					assert_eq!(v10.code_retention_period                    , v11.code_retention_period);
-					assert_eq!(v10.coretime_cores                           , v11.coretime_cores);
+					assert_eq!(v10.on_demand_cores                          , v11.coretime_cores);
 					assert_eq!(v10.on_demand_retries                        , v11.on_demand_retries);
 					assert_eq!(v10.group_rotation_frequency                 , v11.group_rotation_frequency);
 					assert_eq!(v10.paras_availability_period                , v11.paras_availability_period);
@@ -303,8 +303,8 @@ mod tests {
 					assert_eq!(v10.minimum_validation_upgrade_delay         , v11.minimum_validation_upgrade_delay);
 					assert_eq!(v10.async_backing_params.allowed_ancestry_len, v11.async_backing_params.allowed_ancestry_len);
 					assert_eq!(v10.async_backing_params.max_candidate_depth , v11.async_backing_params.max_candidate_depth);
-					assert_eq!(v10.executor_params						   , v11.executor_params);
-				    assert_eq!(v10.minimum_backing_votes					   , v11.minimum_backing_votes);
+					assert_eq!(v10.executor_params						    , v11.executor_params);
+				    assert_eq!(v10.minimum_backing_votes					, v11.minimum_backing_votes);
 				}; // ; makes this a statement. `rustfmt::skip` cannot be put on an expression.
 			}
 		});

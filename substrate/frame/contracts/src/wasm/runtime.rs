@@ -1542,7 +1542,6 @@ pub mod env {
 
 	/// Checks whether the caller of the current contract is root.
 	/// See [`pallet_contracts_uapi::HostFn::caller_is_root`].
-	#[unstable]
 	fn caller_is_root(ctx: _, _memory: _) -> Result<u32, TrapReason> {
 		ctx.charge_gas(RuntimeCosts::CallerIsRoot)?;
 		Ok(ctx.ext.caller_is_root() as u32)
