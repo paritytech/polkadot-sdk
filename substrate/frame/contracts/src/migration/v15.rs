@@ -43,6 +43,8 @@ use sp_core::hexdisplay::HexDisplay;
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 use sp_runtime::{traits::Zero, Saturating};
+#[cfg(feature = "try-runtime")]
+use alloc::vec::Vec;
 
 mod old {
 	use super::*;

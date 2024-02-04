@@ -17,7 +17,10 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
+	"derive",
+	"max-encoded-len",
+] }
 integer-sqrt = "0.1.2"
 num-traits = { version = "0.2.17", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
