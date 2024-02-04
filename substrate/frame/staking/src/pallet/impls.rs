@@ -1696,6 +1696,12 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		Self::bond_extra(RawOrigin::Signed(who.clone()).into(), extra)
 	}
 
+	fn rebond(who: Self::AccountId, value: BalanceOf<T>) -> DispatchResult {
+		Self::rebond(RawOrigin::Signed(who).into(), value)
+			.map(|_| ())
+			.map_err(|with_post| with_post.error)
+	}
+
 	fn unbond(who: &Self::AccountId, value: Self::Balance) -> DispatchResult {
 		let ctrl = Self::bonded(who).ok_or(Error::<T>::NotStash)?;
 		Self::unbond(RawOrigin::Signed(ctrl).into(), value)

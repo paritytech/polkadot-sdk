@@ -1294,6 +1294,18 @@ impl<T: Config> BondedPool<T> {
 		};
 	}
 
+	// A member cannot rebond if the pool state is `Blocked`, or if the member has no active points
+	// in the pool. Also checks that the pool is ok to be open.
+	fn ok_to_rebond(&self, member: &PoolMember<T>) -> Result<(), DispatchError> {
+		if matches!(self.state, PoolState::Blocked | PoolState::Destroying) &&
+			member.active_points().is_zero()
+		{
+			return Err(Error::<T>::FullyUnbonding.into())
+		}
+		self.ok_to_be_open()?;
+		Ok(())
+	}
+
 	/// Withdraw all the funds that are already unlocked from staking for the
 	/// [`BondedPool::bonded_account`].
 	///
@@ -1573,6 +1585,11 @@ impl<T: Config> SubPools<T> {
 				.values()
 				.fold(BalanceOf::<T>::zero(), |acc, pool| acc.saturating_add(pool.balance)),
 		)
+	}
+
+	// Gets the unbonding pool from a given era, or returns the `no_era` pool otherwise.
+	fn get_era(&mut self, era: &EraIndex) -> &mut UnbondPool<T> {
+		self.with_era.get_mut(era).unwrap_or(&mut self.no_era)
 	}
 }
 
@@ -1883,6 +1900,8 @@ pub mod pallet {
 		},
 		/// Pool commission has been claimed.
 		PoolCommissionClaimed { pool_id: PoolId, commission: BalanceOf<T> },
+		/// A member rebonded their unbonding funds back into the pool.
+		Rebonded { member: T::AccountId, pool_id: PoolId, rebonded: BalanceOf<T> },
 		/// Topped up deficit in frozen ED of the reward pool.
 		MinBalanceDeficitAdjusted { pool_id: PoolId, amount: BalanceOf<T> },
 		/// Claimed excess frozen ED of af the reward pool.
@@ -1903,6 +1922,8 @@ pub mod pallet {
 		/// An account is already delegating in another pool. An account may only belong to one
 		/// pool at a time.
 		AccountBelongsToOtherPool,
+		/// The member is not unbonding.
+		NotUnbonding,
 		/// The member is fully unbonded (and thus cannot access the bonded and reward pool
 		/// anymore to, for example, collect rewards).
 		FullyUnbonding,
@@ -1962,6 +1983,10 @@ pub mod pallet {
 		InvalidPoolId,
 		/// Bonding extra is restricted to the exact pending reward amount.
 		BondExtraRestricted,
+		/// The pool does not have any active unlock chunks.
+		NoUnlockChunks,
+		/// The member does not have enough points to rebond the given amount.
+		NotEnoughPoints,
 		/// No imbalance in the ED deposit for the pool.
 		NothingToAdjust,
 	}
@@ -1979,6 +2004,8 @@ pub mod pallet {
 		/// The bonded account should only be killed by the staking system when the depositor is
 		/// withdrawing
 		BondedStashKilledPrematurely,
+		/// The actual rebond funds do not match the deducted unlocking funds
+		RebondFundsNotMatch,
 	}
 
 	impl<T> From<DefensiveError> for Error<T> {
@@ -2120,11 +2147,11 @@ pub mod pallet {
 		/// # Note
 		///
 		/// If there are too many unlocking chunks to unbond with the pool account,
-		/// [`Call::pool_withdraw_unbonded`] can be called to try and minimize unlocking chunks.
-		/// The [`StakingInterface::unbond`] will implicitly call [`Call::pool_withdraw_unbonded`]
-		/// to try to free chunks if necessary (ie. if unbound was called and no unlocking chunks
-		/// are available). However, it may not be possible to release the current unlocking chunks,
-		/// in which case, the result of this call will likely be the `NoMoreChunks` error from the
+		/// [`Call::pool_withdraw_unbonded`] can be called to try and minimize unlocking chunks. The
+		/// [`StakingInterface::unbond`] will implicitly call [`Call::pool_withdraw_unbonded`] to
+		/// try to free chunks if necessary (ie. if unbond was called and no unlocking chunks are
+		/// available). However, it may not be possible to release the current unlocking chunks, in
+		/// which case, the result of this call will likely be the `NoMoreChunks` error from the
 		/// staking system.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::unbond())]
@@ -2801,7 +2828,133 @@ pub mod pallet {
 				pool_id,
 				permission,
 			});
+			Ok(())
+		}
 
+		/// Rebond an unlock chunk from the unbonding queue.
+		///
+		/// Called by a pool member to rebond funds that are currently unlocking.
+		#[pallet::call_index(23)]
+		#[pallet::weight(T::WeightInfo::unbond())] // TODO: plug in real weight
+		pub fn rebond(origin: OriginFor<T>, points: BalanceOf<T>) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let (mut member, mut bonded_pool, mut reward_pool) = Self::get_member_with_pools(&who)?;
+
+			// This pool and member must be actively unbonding. `SubPools` need to exist for the
+			// pool, and the member must have unbonding eras present.
+			let mut sub_pools =
+				SubPoolsStorage::<T>::get(member.pool_id).ok_or(Error::<T>::NoUnlockChunks)?;
+			ensure!(!member.unbonding_eras.is_empty(), Error::<T>::NotUnbonding);
+
+			// The amount to rebond (as a balance) must not be greater than the combined total of
+			// the nominator's unlock chunks at this time.
+			let bonded_account = bonded_pool.bonded_account();
+
+			// This current active stake will be used to ensure the final active stake is this value
+			// plus the rebond amount.
+			let pre_active = T::Staking::active_stake(&bonded_account).unwrap_or_default();
+
+			let amount_to_rebond = bonded_pool.points_to_balance(points).min(
+				T::Staking::total_stake(&bonded_account)
+					.unwrap_or_default()
+					.saturating_sub(T::Staking::active_stake(&bonded_account).unwrap_or_default()),
+			);
+
+			// The provided amount of points to rebond must be within the total points this member
+			// is currently unbonding.
+			ensure!(
+				points <= member.unbonding_points() && !amount_to_rebond.is_zero(),
+				Error::<T>::NotEnoughPoints
+			);
+
+			// Payout related stuff: we must claim the payouts, and updated recorded payout data
+			// before updating the bonded pool points, similar to that of `join` transaction.
+			reward_pool.update_records(
+				bonded_pool.id,
+				bonded_pool.points,
+				bonded_pool.commission.current(),
+			)?;
+			let _ = Self::do_reward_payout(&who, &mut member, &mut bonded_pool, &mut reward_pool)?;
+
+			let initial_chunks = member.unbonding_eras.len() as u32;
+			let mut unlocking_balance = BalanceOf::<T>::zero();
+
+			member.unbonding_eras = member
+				.unbonding_eras
+				.try_mutate(|unbonding_eras| {
+					// Rebond from the most recent era (will have longer remaining unlock duration).
+					for (era, points) in unbonding_eras.iter_mut().rev() {
+						let unbonding_pool = sub_pools.get_era(era);
+						let unbonding_pool_balance = unbonding_pool.point_to_balance(*points);
+
+						if unlocking_balance.saturating_add(unbonding_pool_balance) <=
+							amount_to_rebond
+						{
+							// If the balance of this unbonding pool is less than or equal to the
+							// amount to rebond, dissolve all its points.
+							unbonding_pool.dissolve(*points);
+							*points = BalanceOf::<T>::zero();
+							unlocking_balance =
+								unlocking_balance.saturating_add(unbonding_pool_balance);
+						} else {
+							// Otherwise, dissolve the remaining points to rebond in this unbonding
+							// pool.
+							let remaining_balance =
+								amount_to_rebond.saturating_sub(unlocking_balance);
+							let remaining_points =
+								unbonding_pool.balance_to_point(remaining_balance);
+
+							unbonding_pool.dissolve(remaining_points);
+							*points = points.saturating_sub(remaining_points);
+							unlocking_balance = unlocking_balance.saturating_add(remaining_balance);
+						}
+
+						if unlocking_balance >= amount_to_rebond {
+							break
+						}
+					}
+
+					// Remove sub pools that have no points left.
+					sub_pools.with_era.retain(|_, pool| !pool.points.is_zero());
+
+					// Remove underlying unbonding eras that have no points left.
+					unbonding_eras.retain(|_, points| !points.is_zero());
+				})
+				.expect("the length of the map only ever decreases here; qed");
+
+			bonded_pool.ok_to_rebond(&member)?;
+
+			// Calculate the points issued before rebonding funds, else points:balance ratio will be
+			// wrong.
+			let points_issued = bonded_pool.issue(unlocking_balance);
+			member.points = member.points.saturating_add(points_issued);
+
+			// Ensure the funds deducted from the member matches the rebond fund amount.
+			let post_active = T::Staking::active_stake(&bonded_account).unwrap_or_default();
+
+			ensure!(
+				post_active.saturating_sub(pre_active) == unlocking_balance,
+				Error::<T>::Defensive(DefensiveError::RebondFundsNotMatch)
+			);
+
+			Self::deposit_event(Event::<T>::Rebonded {
+				member: who.clone(),
+				pool_id: member.pool_id,
+				rebonded: unlocking_balance,
+			});
+
+			// TODO: plug into weight function.
+			let _removed_chunks = initial_chunks
+				.saturating_sub(member.unbonding_eras.len() as u32)
+				// for the case where the last iterated chunk is not removed
+				.max(1u32);
+
+			// write the modified item back to storage.
+			SubPoolsStorage::insert(&member.pool_id, sub_pools);
+			Self::put_member_with_pools(&who, member, bonded_pool, reward_pool);
+
+			// TODO: use proper weight.
+			// Ok(Some(T::WeightInfo::rebond(removed_chunks)).into())
 			Ok(())
 		}
 	}
