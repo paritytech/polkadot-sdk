@@ -1,0 +1,27 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Integrate litep2p into Polkadot SDK"
+
+doc:
+  - audience: Node Dev
+  - audience: Node Operator
+    description: |
+      litep2p is a libp2p-compatible P2P networking library. It supports all of the features of rust-libp2p
+      that are currently being utilized by Polkadot SDK and is a drop-in replacement for any node operators.
+
+      For node developers, introduction of litep2p implies specifying the networking backend that Polkadot SDK
+      shall use for P2P networking. A new trait called `NetworkBackend` is introduced which is is implemented
+      by both the libp2p and litep2p backends which is used to initialize any networking-related code.
+
+      litep2p is considered experimental and rust-libp2p will remain as the default networking backend
+      for Polkadot SDK but litep2p can be selected with `--network-backend litep2p`.
+
+crates:
+  - name: "sc-network"
+  - name: "sc-service"
+  - name: "minimal-node"
+  - name: "node-template"
+  - name: "staging-node-cli"
+  - name: "polkadot-service"
+  - name: "parachain-template-node"

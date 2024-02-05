@@ -269,6 +269,7 @@ members = [
 	"substrate/client/network/statement",
 	"substrate/client/network/sync",
 	"substrate/client/network/test",
+	"substrate/client/network/types",
 	"substrate/client/network/transactions",
 	"substrate/client/offchain",
 	"substrate/client/proposer-metrics",
