@@ -34,6 +34,7 @@ array-bytes = "6.1"
 default = ["std"]
 std = [
 	"codec/std",
+	"dep:thiserror",
 	"log/std",
 	"mmr-lib/std",
 	"scale-info/std",
@@ -43,7 +44,6 @@ std = [
 	"sp-debug-derive/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"dep:thiserror",
 ]
 
 # Serde support without relying on std features.
