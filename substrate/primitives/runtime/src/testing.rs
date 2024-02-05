@@ -21,8 +21,8 @@ use crate::{
 	codec::{Codec, Decode, Encode, MaxEncodedLen},
 	generic,
 	scale_info::TypeInfo,
-	traits::{self, BlakeTwo256, OpaqueKeys},
-	KeyTypeId,
+	traits::{self, BlakeTwo256, Dispatchable, OpaqueKeys},
+	DispatchResultWithInfo, KeyTypeId,
 };
 use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize};
 use sp_core::{
@@ -236,5 +236,25 @@ where
 		let r = <Vec<u8>>::deserialize(de)?;
 		Decode::decode(&mut &r[..])
 			.map_err(|e| DeError::custom(format!("Invalid value passed into decode: {}", e)))
+	}
+}
+
+/// Wrapper over a `u64` that can be used as a `RuntimeCall`.
+#[derive(PartialEq, Eq, Debug, Clone, Encode, Decode, TypeInfo)]
+pub struct MockCallU64(pub u64);
+
+impl Dispatchable for MockCallU64 {
+	type RuntimeOrigin = u64;
+	type Config = ();
+	type Info = ();
+	type PostInfo = ();
+	fn dispatch(self, _origin: Self::RuntimeOrigin) -> DispatchResultWithInfo<Self::PostInfo> {
+		Ok(())
+	}
+}
+
+impl From<u64> for MockCallU64 {
+	fn from(value: u64) -> Self {
+		Self(value)
 	}
 }

@@ -199,11 +199,15 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_runtime::testing::{Block as TBlock, ExtrinsicWrapper, Header, H256};
+	use sp_runtime::{
+		generic::UncheckedExtrinsic,
+		testing::{Block as TBlock, Header, MockCallU64, H256},
+	};
 	use std::sync::Arc;
 	use tokio::sync::Mutex;
 
-	type Block = TBlock<ExtrinsicWrapper<()>>;
+	type UncheckedXt = UncheckedExtrinsic<u64, MockCallU64, (), ()>;
+	type Block = TBlock<UncheckedXt>;
 	type BlockNumber = u64;
 	type Hash = H256;
 
