@@ -131,6 +131,41 @@ pub enum TransactionStatus<Hash, BlockHash> {
 	Invalid,
 }
 
+impl<Hash, BlockHash> TransactionStatus<Hash, BlockHash> {
+	/// Returns true if this is the last event emitted by [`TransactionStatusStream`].
+	pub fn is_final(&self) -> bool {
+		// The state must be kept in sync with `crate::graph::Sender`.
+		match self {
+			Self::Usurped(_) |
+			Self::Finalized(_) |
+			Self::FinalityTimeout(_) |
+			Self::Invalid |
+			Self::Dropped => true,
+			_ => false,
+		}
+	}
+
+	/// Returns true if the transaction could be re-submitted to the pool in the future.
+	///
+	/// A retriable transaction is a transaction that fails to be included in the chain
+	/// at the moment. However, it may become valid in the future.
+	///
+	/// For example, `TransactionStatus::Dropped` is retriable, because the transaction
+	/// may enter the pool if there is space for it in the future.
+	pub fn is_retriable(&self) -> bool {
+		match self {
+			// The number of finality watchers has been reached.
+			Self::FinalityTimeout(_) |
+			// An invalid transaction might be valid at a later time.
+			Self::Invalid |
+			// The transaction was dropped because of the limits of the pool.
+			// It can reenter the pool when other transactions are removed / finalized.
+			Self::Dropped => true,
+			_ => false,
+		}
+	}
+}
+
 /// The stream of transaction events.
 pub type TransactionStatusStream<Hash, BlockHash> =
 	dyn Stream<Item = TransactionStatus<Hash, BlockHash>> + Send;
