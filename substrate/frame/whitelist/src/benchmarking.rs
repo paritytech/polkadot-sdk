@@ -79,7 +79,7 @@ benchmarks! {
 		let call_weight = call.get_dispatch_info().weight;
 		let encoded_call = call.encode();
 		let call_encoded_len = encoded_call.len() as u32;
-		let call_hash = call.blake2_256().into();
+		let call_hash = T::Hashing::hash_of(&call);
 
 		Pallet::<T>::whitelist_call(origin.clone(), call_hash)
 			.expect("whitelisting call must be successful");
@@ -106,7 +106,7 @@ benchmarks! {
 		let remark = sp_std::vec![1u8; n as usize];
 
 		let call: <T as Config>::RuntimeCall = frame_system::Call::remark { remark }.into();
-		let call_hash = call.blake2_256().into();
+		let call_hash = T::Hashing::hash_of(&call);
 
 		Pallet::<T>::whitelist_call(origin.clone(), call_hash)
 			.expect("whitelisting call must be successful");

@@ -17,55 +17,69 @@
 //! XCM configuration for Rococo.
 
 use super::{
-	parachains_origin, AccountId, AllPalletsWithSystem, Balances, Dmp, ParaId, Runtime,
-	RuntimeCall, RuntimeEvent, RuntimeOrigin, TransactionByteFee, WeightToFee, XcmPallet,
+	parachains_origin, AccountId, AllPalletsWithSystem, Balances, Dmp, Fellows, ParaId, Runtime,
+	RuntimeCall, RuntimeEvent, RuntimeOrigin, TransactionByteFee, Treasury, WeightToFee, XcmPallet,
 };
+
+use crate::governance::StakingAdmin;
+
 use frame_support::{
-	match_types, parameter_types,
-	traits::{Contains, Everything, Nothing},
+	parameter_types,
+	traits::{Contains, Equals, Everything, Nothing},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
-use rococo_runtime_constants::currency::CENTS;
+use rococo_runtime_constants::{currency::CENTS, system_parachain::*};
 use runtime_common::{
-	crowdloan, paras_registrar,
 	xcm_sender::{ChildParachainRouter, ExponentialPrice},
 	ToAuthor,
 };
 use sp_core::ConstU32;
 use xcm::latest::prelude::*;
+#[allow(deprecated)]
+use xcm_builder::CurrencyAdapter as XcmCurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, ChildParachainAsNative,
-	ChildParachainConvertsVia, ChildSystemParachainAsSuperuser,
-	CurrencyAdapter as XcmCurrencyAdapter, FixedWeightBounds, IsChildSystemParachain, IsConcrete,
-	MintLocation, SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation,
-	TakeWeightCredit, TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin,
-	WithUniqueTopic,
+	ChildParachainConvertsVia, DescribeBodyTerminal, DescribeFamily, FixedWeightBounds,
+	FrameTransactionalProcessor, HashedDescription, IsChildSystemParachain, IsConcrete,
+	MintLocation, OriginToPluralityVoice, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
+	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
+	XcmFeeToAccount,
 };
-use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
+use xcm_executor::XcmExecutor;
 
 parameter_types! {
-	pub const TokenLocation: MultiLocation = Here.into_location();
+	pub TokenLocation: Location = Here.into_location();
+	pub RootLocation: Location = Location::here();
 	pub const ThisNetwork: NetworkId = NetworkId::Rococo;
-	pub UniversalLocation: InteriorMultiLocation = ThisNetwork::get().into();
+	pub UniversalLocation: InteriorLocation = ThisNetwork::get().into();
 	pub CheckAccount: AccountId = XcmPallet::check_account();
 	pub LocalCheckAccount: (AccountId, MintLocation) = (CheckAccount::get(), MintLocation::Local);
+	pub TreasuryAccount: AccountId = Treasury::account_id();
 }
 
-pub type LocationConverter =
-	(ChildParachainConvertsVia<ParaId, AccountId>, AccountId32Aliases<ThisNetwork, AccountId>);
+pub type LocationConverter = (
+	// We can convert a child parachain using the standard `AccountId` conversion.
+	ChildParachainConvertsVia<ParaId, AccountId>,
+	// We can directly alias an `AccountId32` into a local account.
+	AccountId32Aliases<ThisNetwork, AccountId>,
+	// Allow governance body to be used as a sovereign account.
+	HashedDescription<AccountId, DescribeFamily<DescribeBodyTerminal>>,
+);
 
 /// Our asset transactor. This is what allows us to interest with the runtime facilities from the
-/// point of view of XCM-only concepts like `MultiLocation` and `MultiAsset`.
+/// point of view of XCM-only concepts like `Location` and `Asset`.
 ///
 /// Ours is only aware of the Balances pallet, which is mapped to `RocLocation`.
+#[allow(deprecated)]
 pub type LocalAssetTransactor = XcmCurrencyAdapter<
 	// Use this currency:
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
 	IsConcrete<TokenLocation>,
-	// We can convert the MultiLocations with our converter above:
+	// We can convert the Locations with our converter above:
 	LocationConverter,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
@@ -81,44 +95,47 @@ type LocalOriginConverter = (
 	ChildParachainAsNative<parachains_origin::Origin, RuntimeOrigin>,
 	// The AccountId32 location type can be expressed natively as a `Signed` origin.
 	SignedAccountId32AsNative<ThisNetwork, RuntimeOrigin>,
-	// A system child parachain, expressed as a Superuser, converts to the `Root` origin.
-	ChildSystemParachainAsSuperuser<ParaId, RuntimeOrigin>,
 );
 
 parameter_types! {
 	/// The amount of weight an XCM operation takes. This is a safe overestimate.
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000_000_000, 64 * 1024);
 	/// The asset ID for the asset that we use to pay for message delivery fees.
-	pub FeeAssetId: AssetId = Concrete(TokenLocation::get());
+	pub FeeAssetId: AssetId = AssetId(TokenLocation::get());
 	/// The base fee for the message delivery fees.
 	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
 }
 
+pub type PriceForChildParachainDelivery =
+	ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, Dmp>;
+
 /// The XCM router. When we want to send an XCM message, we use this type. It amalgamates all of our
 /// individual routers.
-pub type XcmRouter = WithUniqueTopic<(
+pub type XcmRouter = WithUniqueTopic<
 	// Only one router so far - use DMP to communicate with child parachains.
-	ChildParachainRouter<
-		Runtime,
-		XcmPallet,
-		ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, Dmp>,
-	>,
-)>;
+	ChildParachainRouter<Runtime, XcmPallet, PriceForChildParachainDelivery>,
+>;
 
 parameter_types! {
-	pub const Roc: MultiAssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
-	pub const Rockmine: MultiLocation = Parachain(1000).into_location();
-	pub const Contracts: MultiLocation = Parachain(1002).into_location();
-	pub const Encointer: MultiLocation = Parachain(1003).into_location();
-	pub const Tick: MultiLocation = Parachain(100).into_location();
-	pub const Trick: MultiLocation = Parachain(110).into_location();
-	pub const Track: MultiLocation = Parachain(120).into_location();
-	pub const RocForTick: (MultiAssetFilter, MultiLocation) = (Roc::get(), Tick::get());
-	pub const RocForTrick: (MultiAssetFilter, MultiLocation) = (Roc::get(), Trick::get());
-	pub const RocForTrack: (MultiAssetFilter, MultiLocation) = (Roc::get(), Track::get());
-	pub const RocForRockmine: (MultiAssetFilter, MultiLocation) = (Roc::get(), Rockmine::get());
-	pub const RocForContracts: (MultiAssetFilter, MultiLocation) = (Roc::get(), Contracts::get());
-	pub const RocForEncointer: (MultiAssetFilter, MultiLocation) = (Roc::get(), Encointer::get());
+	pub Roc: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) });
+	pub AssetHub: Location = Parachain(ASSET_HUB_ID).into_location();
+	pub Contracts: Location = Parachain(CONTRACTS_ID).into_location();
+	pub Encointer: Location = Parachain(ENCOINTER_ID).into_location();
+	pub BridgeHub: Location = Parachain(BRIDGE_HUB_ID).into_location();
+	pub People: Location = Parachain(PEOPLE_ID).into_location();
+	pub Broker: Location = Parachain(BROKER_ID).into_location();
+	pub Tick: Location = Parachain(100).into_location();
+	pub Trick: Location = Parachain(110).into_location();
+	pub Track: Location = Parachain(120).into_location();
+	pub RocForTick: (AssetFilter, Location) = (Roc::get(), Tick::get());
+	pub RocForTrick: (AssetFilter, Location) = (Roc::get(), Trick::get());
+	pub RocForTrack: (AssetFilter, Location) = (Roc::get(), Track::get());
+	pub RocForAssetHub: (AssetFilter, Location) = (Roc::get(), AssetHub::get());
+	pub RocForContracts: (AssetFilter, Location) = (Roc::get(), Contracts::get());
+	pub RocForEncointer: (AssetFilter, Location) = (Roc::get(), Encointer::get());
+	pub RocForBridgeHub: (AssetFilter, Location) = (Roc::get(), BridgeHub::get());
+	pub RocForPeople: (AssetFilter, Location) = (Roc::get(), People::get());
+	pub RocForBroker: (AssetFilter, Location) = (Roc::get(), Broker::get());
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
@@ -126,15 +143,26 @@ pub type TrustedTeleporters = (
 	xcm_builder::Case<RocForTick>,
 	xcm_builder::Case<RocForTrick>,
 	xcm_builder::Case<RocForTrack>,
-	xcm_builder::Case<RocForRockmine>,
+	xcm_builder::Case<RocForAssetHub>,
 	xcm_builder::Case<RocForContracts>,
 	xcm_builder::Case<RocForEncointer>,
+	xcm_builder::Case<RocForBridgeHub>,
+	xcm_builder::Case<RocForPeople>,
+	xcm_builder::Case<RocForBroker>,
 );
 
-match_types! {
-	pub type OnlyParachains: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 0, interior: X1(Parachain(_)) }
-	};
+pub struct OnlyParachains;
+impl Contains<Location> for OnlyParachains {
+	fn contains(loc: &Location) -> bool {
+		matches!(loc.unpack(), (0, [Parachain(_)]))
+	}
+}
+
+pub struct LocalPlurality;
+impl Contains<Location> for LocalPlurality {
+	fn contains(loc: &Location) -> bool {
+		matches!(loc.unpack(), (0, [Plurality { .. }]))
+	}
 }
 
 /// The barriers one of which must be passed for an XCM message to be executed.
@@ -145,7 +173,7 @@ pub type Barrier = TrailingSetTopicAsId<(
 	AllowKnownQueryResponses<XcmPallet>,
 	WithComputedOrigin<
 		(
-			// If the message is one that immediately attemps to pay for execution, then allow it.
+			// If the message is one that immediately attempts to pay for execution, then allow it.
 			AllowTopLevelPaidExecutionFrom<Everything>,
 			// Messages coming from system parachains need not pay for execution.
 			AllowExplicitUnpaidExecutionFrom<IsChildSystemParachain<ParaId>>,
@@ -157,137 +185,9 @@ pub type Barrier = TrailingSetTopicAsId<(
 	>,
 )>;
 
-/// A call filter for the XCM Transact instruction. This is a temporary measure until we
-/// properly account for proof size weights.
-///
-/// Calls that are allowed through this filter must:
-/// 1. Have a fixed weight;
-/// 2. Cannot lead to another call being made;
-/// 3. Have a defined proof size weight, e.g. no unbounded vecs in call parameters.
-pub struct SafeCallFilter;
-impl Contains<RuntimeCall> for SafeCallFilter {
-	fn contains(call: &RuntimeCall) -> bool {
-		#[cfg(feature = "runtime-benchmarks")]
-		{
-			if matches!(call, RuntimeCall::System(frame_system::Call::remark_with_event { .. })) {
-				return true
-			}
-		}
-
-		match call {
-			RuntimeCall::System(
-				frame_system::Call::kill_prefix { .. } | frame_system::Call::set_heap_pages { .. },
-			) |
-			RuntimeCall::Babe(..) |
-			RuntimeCall::Timestamp(..) |
-			RuntimeCall::Indices(..) |
-			RuntimeCall::Balances(..) |
-			RuntimeCall::Crowdloan(
-				crowdloan::Call::create { .. } |
-				crowdloan::Call::contribute { .. } |
-				crowdloan::Call::withdraw { .. } |
-				crowdloan::Call::refund { .. } |
-				crowdloan::Call::dissolve { .. } |
-				crowdloan::Call::edit { .. } |
-				crowdloan::Call::poke { .. } |
-				crowdloan::Call::contribute_all { .. },
-			) |
-			RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
-			RuntimeCall::Grandpa(..) |
-			RuntimeCall::ImOnline(..) |
-			RuntimeCall::Democracy(
-				pallet_democracy::Call::second { .. } |
-				pallet_democracy::Call::vote { .. } |
-				pallet_democracy::Call::emergency_cancel { .. } |
-				pallet_democracy::Call::fast_track { .. } |
-				pallet_democracy::Call::veto_external { .. } |
-				pallet_democracy::Call::cancel_referendum { .. } |
-				pallet_democracy::Call::delegate { .. } |
-				pallet_democracy::Call::undelegate { .. } |
-				pallet_democracy::Call::clear_public_proposals { .. } |
-				pallet_democracy::Call::unlock { .. } |
-				pallet_democracy::Call::remove_vote { .. } |
-				pallet_democracy::Call::remove_other_vote { .. } |
-				pallet_democracy::Call::blacklist { .. } |
-				pallet_democracy::Call::cancel_proposal { .. },
-			) |
-			RuntimeCall::Council(
-				pallet_collective::Call::vote { .. } |
-				pallet_collective::Call::disapprove_proposal { .. } |
-				pallet_collective::Call::close { .. },
-			) |
-			RuntimeCall::TechnicalCommittee(
-				pallet_collective::Call::vote { .. } |
-				pallet_collective::Call::disapprove_proposal { .. } |
-				pallet_collective::Call::close { .. },
-			) |
-			RuntimeCall::PhragmenElection(
-				pallet_elections_phragmen::Call::remove_voter { .. } |
-				pallet_elections_phragmen::Call::submit_candidacy { .. } |
-				pallet_elections_phragmen::Call::renounce_candidacy { .. } |
-				pallet_elections_phragmen::Call::remove_member { .. } |
-				pallet_elections_phragmen::Call::clean_defunct_voters { .. },
-			) |
-			RuntimeCall::TechnicalMembership(
-				pallet_membership::Call::add_member { .. } |
-				pallet_membership::Call::remove_member { .. } |
-				pallet_membership::Call::swap_member { .. } |
-				pallet_membership::Call::change_key { .. } |
-				pallet_membership::Call::set_prime { .. } |
-				pallet_membership::Call::clear_prime { .. },
-			) |
-			RuntimeCall::Treasury(..) |
-			RuntimeCall::Claims(
-				super::claims::Call::claim { .. } |
-				super::claims::Call::mint_claim { .. } |
-				super::claims::Call::move_claim { .. },
-			) |
-			RuntimeCall::Utility(pallet_utility::Call::as_derivative { .. }) |
-			RuntimeCall::Identity(
-				pallet_identity::Call::add_registrar { .. } |
-				pallet_identity::Call::set_identity { .. } |
-				pallet_identity::Call::clear_identity { .. } |
-				pallet_identity::Call::request_judgement { .. } |
-				pallet_identity::Call::cancel_request { .. } |
-				pallet_identity::Call::set_fee { .. } |
-				pallet_identity::Call::set_account_id { .. } |
-				pallet_identity::Call::set_fields { .. } |
-				pallet_identity::Call::provide_judgement { .. } |
-				pallet_identity::Call::kill_identity { .. } |
-				pallet_identity::Call::add_sub { .. } |
-				pallet_identity::Call::rename_sub { .. } |
-				pallet_identity::Call::remove_sub { .. } |
-				pallet_identity::Call::quit_sub { .. },
-			) |
-			RuntimeCall::Society(..) |
-			RuntimeCall::Recovery(..) |
-			RuntimeCall::Vesting(..) |
-			RuntimeCall::Bounties(
-				pallet_bounties::Call::propose_bounty { .. } |
-				pallet_bounties::Call::approve_bounty { .. } |
-				pallet_bounties::Call::propose_curator { .. } |
-				pallet_bounties::Call::unassign_curator { .. } |
-				pallet_bounties::Call::accept_curator { .. } |
-				pallet_bounties::Call::award_bounty { .. } |
-				pallet_bounties::Call::claim_bounty { .. } |
-				pallet_bounties::Call::close_bounty { .. },
-			) |
-			RuntimeCall::ChildBounties(..) |
-			RuntimeCall::Hrmp(..) |
-			RuntimeCall::Registrar(
-				paras_registrar::Call::deregister { .. } |
-				paras_registrar::Call::swap { .. } |
-				paras_registrar::Call::remove_lock { .. } |
-				paras_registrar::Call::reserve { .. } |
-				paras_registrar::Call::add_lock { .. },
-			) |
-			RuntimeCall::XcmPallet(pallet_xcm::Call::limited_reserve_transfer_assets {
-				..
-			}) => true,
-			_ => false,
-		}
-	}
-}
+/// Locations that will not be charged fees in the executor, neither for execution nor delivery.
+/// We only waive fees for system functions, which these locations represent.
+pub type WaivedLocations = (SystemParachains, Equals<RootLocation>, LocalPlurality);
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
@@ -314,28 +214,56 @@ impl xcm_executor::Config for XcmConfig {
 	type SubscriptionService = XcmPallet;
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	type FeeManager = ();
+	type FeeManager = XcmFeeManagerFromComponents<
+		WaivedLocations,
+		XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
+	>;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
-	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
-	type SafeCallFilter = SafeCallFilter;
+	type CallDispatcher = RuntimeCall;
+	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
+	type TransactionalProcessor = FrameTransactionalProcessor;
 }
 
-#[cfg(feature = "runtime-benchmarks")]
 parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parachain(1000).into());
+	pub const CollectiveBodyId: BodyId = BodyId::Unit;
+	// StakingAdmin pluralistic body.
+	pub const StakingAdminBodyId: BodyId = BodyId::Defense;
+	// Fellows pluralistic body.
+	pub const FellowsBodyId: BodyId = BodyId::Technical;
 }
 
-/// Type to convert an `Origin` type value into a `MultiLocation` value which represents an interior
+/// Type to convert an `Origin` type value into a `Location` value which represents an interior
 /// location of this chain.
 pub type LocalOriginToLocation = (
-	// A usual Signed origin to be used in XCM as a corresponding AccountId32
+	// And a usual Signed origin to be used in XCM as a corresponding AccountId32
 	SignedToAccountId32<RuntimeOrigin, AccountId, ThisNetwork>,
 );
+
+/// Type to convert the `StakingAdmin` origin to a Plurality `Location` value.
+pub type StakingAdminToPlurality =
+	OriginToPluralityVoice<RuntimeOrigin, StakingAdmin, StakingAdminBodyId>;
+
+/// Type to convert the Fellows origin to a Plurality `Location` value.
+pub type FellowsToPlurality = OriginToPluralityVoice<RuntimeOrigin, Fellows, FellowsBodyId>;
+
+/// Type to convert a pallet `Origin` type value into a `Location` value which represents an
+/// interior location of this chain for a destination chain.
+pub type LocalPalletOriginToLocation = (
+	// StakingAdmin origin to be used in XCM as a corresponding Plurality `Location` value.
+	StakingAdminToPlurality,
+	// Fellows origin to be used in XCM as a corresponding Plurality `Location` value.
+	FellowsToPlurality,
+);
+
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
+	// We only allow the root, fellows and the staking admin to send messages.
+	// This is basically safe to enable for everyone (safe the possibility of someone spamming the
+	// parachain if they're willing to pay the KSM to send from the Relay-chain), but it's useless
+	// until we bring in XCM v3 which will make `DescendOrigin` a bit more useful.
+	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalPalletOriginToLocation>;
 	type XcmRouter = XcmRouter;
 	// Anyone can execute XCM messages locally.
 	type ExecuteXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
@@ -359,7 +287,5 @@ impl pallet_xcm::Config for Runtime {
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = crate::weights::pallet_xcm::WeightInfo<Runtime>;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReachableDest = ReachableDest;
 	type AdminOrigin = EnsureRoot<AccountId>;
 }

@@ -22,9 +22,8 @@ use super::*;
 #[test]
 fn set_external_metadata_works() {
 	new_test_ext().execute_with(|| {
-		use frame_support::traits::Hash as PreimageHash;
 		// invalid preimage hash.
-		let invalid_hash: PreimageHash = [1u8; 32].into();
+		let invalid_hash: <Test as frame_system::Config>::Hash = [1u8; 32].into();
 		// metadata owner is an external proposal.
 		let owner = MetadataOwner::External;
 		// fails to set metadata if an external proposal does not exist.
@@ -83,9 +82,8 @@ fn clear_metadata_works() {
 #[test]
 fn set_proposal_metadata_works() {
 	new_test_ext().execute_with(|| {
-		use frame_support::traits::Hash as PreimageHash;
 		// invalid preimage hash.
-		let invalid_hash: PreimageHash = [1u8; 32].into();
+		let invalid_hash: <Test as frame_system::Config>::Hash = [1u8; 32].into();
 		// create an external proposal.
 		assert_ok!(propose_set_balance(1, 2, 5));
 		// metadata owner is a public proposal.

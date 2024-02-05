@@ -20,11 +20,11 @@
 use super::*;
 use crate::{self as bags_list};
 use frame_election_provider_support::VoteWeight;
-use frame_support::parameter_types;
+use frame_support::{derive_impl, parameter_types};
 use sp_runtime::BuildStorage;
 use std::collections::HashMap;
 
-pub type AccountId = u32;
+pub type AccountId = <Runtime as frame_system::Config>::AccountId;
 pub type Balance = u32;
 
 parameter_types! {
@@ -48,30 +48,10 @@ impl frame_election_provider_support::ScoreProvider<AccountId> for StakingMock {
 	}
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
-	type SS58Prefix = ();
-	type BaseCallFilter = frame_support::traits::Everything;
-	type RuntimeOrigin = RuntimeOrigin;
-	type Nonce = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = sp_core::H256;
-	type Hashing = sp_runtime::traits::BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = sp_runtime::traits::IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ();
-	type DbWeight = ();
-	type BlockLength = ();
-	type BlockWeights = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 parameter_types! {
@@ -88,10 +68,9 @@ impl bags_list::Config for Runtime {
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
 frame_support::construct_runtime!(
-	pub struct Runtime
-	{
-		System: frame_system::{Pallet, Call, Storage, Event<T>, Config<T>},
-		BagsList: bags_list::{Pallet, Call, Storage, Event<T>},
+	pub enum Runtime {
+		System: frame_system,
+		BagsList: bags_list,
 	}
 );
 

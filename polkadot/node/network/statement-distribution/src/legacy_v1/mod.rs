@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use net_protocol::{filter_by_peer_version, peer_set::ProtocolVersion};
 use parity_scale_codec::Encode;
 
 use polkadot_node_network_protocol::{
@@ -21,7 +22,7 @@ use polkadot_node_network_protocol::{
 	grid_topology::{GridNeighbors, RequiredRouting, SessionBoundGridTopologyStorage},
 	peer_set::{IsAuthority, PeerSet, ValidationVersion},
 	v1::{self as protocol_v1, StatementMetadata},
-	vstaging as protocol_vstaging, IfDisconnected, PeerId, UnifiedReputationChange as Rep,
+	v2 as protocol_v2, v3 as protocol_v3, IfDisconnected, PeerId, UnifiedReputationChange as Rep,
 	Versioned, View,
 };
 use polkadot_node_primitives::{
@@ -1062,7 +1063,7 @@ async fn circulate_statement<'a, Context>(
 		"We filter out duplicates above. qed.",
 	);
 
-	let (v1_peers_to_send, vstaging_peers_to_send) = peers_to_send
+	let (v1_peers_to_send, non_v1_peers_to_send) = peers_to_send
 		.into_iter()
 		.map(|peer_id| {
 			let peer_data =
@@ -1074,7 +1075,7 @@ async fn circulate_statement<'a, Context>(
 		})
 		.partition::<Vec<_>, _>(|(_, _, version)| match version {
 			ValidationVersion::V1 => true,
-			ValidationVersion::VStaging => false,
+			ValidationVersion::V2 | ValidationVersion::V3 => false,
 		}); // partition is handy here but not if we add more protocol versions
 
 	let payload = v1_statement_message(relay_parent, stored.statement.clone(), metrics);
@@ -1094,26 +1095,52 @@ async fn circulate_statement<'a, Context>(
 		))
 		.await;
 	}
-	if !vstaging_peers_to_send.is_empty() {
+
+	let peers_to_send: Vec<(PeerId, ProtocolVersion)> = non_v1_peers_to_send
+		.iter()
+		.map(|(p, _, version)| (*p, (*version).into()))
+		.collect();
+
+	let peer_needs_dependent_statement = v1_peers_to_send
+		.into_iter()
+		.chain(non_v1_peers_to_send)
+		.filter_map(|(peer, needs_dependent, _)| if needs_dependent { Some(peer) } else { None })
+		.collect();
+
+	let v2_peers_to_send = filter_by_peer_version(&peers_to_send, ValidationVersion::V2.into());
+	let v3_to_send = filter_by_peer_version(&peers_to_send, ValidationVersion::V3.into());
+
+	if !v2_peers_to_send.is_empty() {
 		gum::trace!(
 			target: LOG_TARGET,
-			?vstaging_peers_to_send,
+			?v2_peers_to_send,
 			?relay_parent,
 			statement = ?stored.statement,
-			"Sending statement to vstaging peers",
+			"Sending statement to v2 peers",
 		);
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
-			vstaging_peers_to_send.iter().map(|(p, _, _)| *p).collect(),
-			compatible_v1_message(ValidationVersion::VStaging, payload.clone()).into(),
+			v2_peers_to_send,
+			compatible_v1_message(ValidationVersion::V2, payload.clone()).into(),
 		))
 		.await;
 	}
 
-	v1_peers_to_send
-		.into_iter()
-		.chain(vstaging_peers_to_send)
-		.filter_map(|(peer, needs_dependent, _)| if needs_dependent { Some(peer) } else { None })
-		.collect()
+	if !v3_to_send.is_empty() {
+		gum::trace!(
+			target: LOG_TARGET,
+			?v3_to_send,
+			?relay_parent,
+			statement = ?stored.statement,
+			"Sending statement to v3 peers",
+		);
+		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
+			v3_to_send,
+			compatible_v1_message(ValidationVersion::V3, payload.clone()).into(),
+		))
+		.await;
+	}
+
+	peer_needs_dependent_statement
 }
 
 /// Send all statements about a given candidate hash to a peer.
@@ -1443,10 +1470,9 @@ async fn handle_incoming_message<'a, Context>(
 
 	let message = match message {
 		Versioned::V1(m) => m,
-		Versioned::VStaging(protocol_vstaging::StatementDistributionMessage::V1Compatibility(
-			m,
-		)) => m,
-		Versioned::VStaging(_) => {
+		Versioned::V2(protocol_v2::StatementDistributionMessage::V1Compatibility(m)) |
+		Versioned::V3(protocol_v3::StatementDistributionMessage::V1Compatibility(m)) => m,
+		Versioned::V2(_) | Versioned::V3(_) => {
 			// The higher-level subsystem code is supposed to filter out
 			// all non v1 messages.
 			gum::debug!(
@@ -1866,7 +1892,9 @@ pub(crate) async fn handle_network_update<Context, R>(
 				?authority_ids,
 				"Updated `AuthorityDiscoveryId`s"
 			);
-
+			topology_storage
+				.get_current_topology_mut()
+				.update_authority_ids(peer, &authority_ids);
 			// Remove the authority IDs which were previously mapped to the peer
 			// but aren't part of the new set.
 			authorities.retain(|a, p| p != &peer || authority_ids.contains(a));
@@ -2170,8 +2198,9 @@ fn compatible_v1_message(
 ) -> net_protocol::StatementDistributionMessage {
 	match version {
 		ValidationVersion::V1 => Versioned::V1(message),
-		ValidationVersion::VStaging => Versioned::VStaging(
-			protocol_vstaging::StatementDistributionMessage::V1Compatibility(message),
-		),
+		ValidationVersion::V2 =>
+			Versioned::V2(protocol_v2::StatementDistributionMessage::V1Compatibility(message)),
+		ValidationVersion::V3 =>
+			Versioned::V3(protocol_v3::StatementDistributionMessage::V1Compatibility(message)),
 	}
 }

@@ -1,10 +1,10 @@
-### Run benches
+# Run benches
 ```
-$ cd erasure-coding # ensure you are in the right directory
-$ cargo bench
+cd erasure-coding # ensure you are in the right directory
+cargo bench
 ```
 
-### `scaling_with_validators`
+## `scaling_with_validators`
 
 This benchmark evaluates the performance of constructing the chunks and the erasure root from PoV and
 reconstructing the PoV from chunks. You can see the results of running this bench on 5950x below.

@@ -1,6 +1,6 @@
 [package]
 name = "frame-remote-externalities"
-version = "0.10.0-dev"
+version = "0.35.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -8,23 +8,26 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "An externalities provided environment that can load itself from remote nodes or cached files"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-jsonrpsee = { version = "0.16.2", features = ["http-client"] }
+jsonrpsee = { version = "0.20.3", features = ["http-client"] }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 log = "0.4.17"
-serde = "1.0.188"
+serde = "1.0.195"
 sp-core = { path = "../../../primitives/core" }
+sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
 sp-state-machine = { path = "../../../primitives/state-machine" }
 sp-io = { path = "../../../primitives/io" }
 sp-runtime = { path = "../../../primitives/runtime" }
 tokio = { version = "1.22.0", features = ["macros", "rt-multi-thread"] }
 substrate-rpc-client = { path = "../rpc/client" }
 futures = "0.3"
-async-recursion = "1.0.4"
-indicatif = "0.17.3"
+indicatif = "0.17.7"
 spinners = "4.1.0"
 tokio-retry = "0.3.0"
 

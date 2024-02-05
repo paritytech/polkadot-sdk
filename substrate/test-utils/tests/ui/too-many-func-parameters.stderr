@@ -1,5 +1,0 @@
-error: No arguments expected for tests.
-  --> $DIR/too-many-func-parameters.rs:20:1
-   |
-20 | async fn too_many_func_parameters(_: u32) {
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

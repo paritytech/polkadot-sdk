@@ -31,7 +31,7 @@ digraph {
     CandidateDescriptor:collator -> CollatorId:w
     CandidateDescriptor:persisted_validation_data_hash -> PersistedValidationDataHash
 
-    Id [label="polkadot_parachain::primitives::Id"]
+    Id [label="polkadot_parachain_primitives::primitives::Id"]
     CollatorId [label="polkadot_primitives::v2::CollatorId"]
 
     PoVHash [label = "Hash", shape="doublecircle", fill="gray90"]
@@ -128,11 +128,11 @@ digraph {
         </table>
     >]
 
-    CandidateCommitments:upward_messages -> "polkadot_parachain::primitives::UpwardMessage":w
+    CandidateCommitments:upward_messages -> "polkadot_parachain_primitives::primitives::UpwardMessage":w
     CandidateCommitments:horizontal_messages -> "polkadot_core_primitives::v2::OutboundHrmpMessage":w
     CandidateCommitments:head_data -> HeadData:w
-    CandidateCommitments:horizontal_messages -> "polkadot_parachain::primitives::Id":w
-    CandidateCommitments:new_validation_code -> "polkadot_parachain::primitives::ValidationCode":w
+    CandidateCommitments:horizontal_messages -> "polkadot_parachain_primitives::primitives::Id":w
+    CandidateCommitments:new_validation_code -> "polkadot_parachain_primitives::primitives::ValidationCode":w
 
     PoV [label = <
         <table>
@@ -141,7 +141,7 @@ digraph {
         </table>
     >]
 
-    PoV:block_data -> "polkadot_parachain::primitives::BlockData":w
+    PoV:block_data -> "polkadot_parachain_primitives::primitives::BlockData":w
 
     BackedCandidate [label = <
         <table>
@@ -155,7 +155,7 @@ digraph {
     BackedCandidate:candidate -> CommittedCandidateReceipt:name
     BackedCandidate:validity_votes  -> "polkadot_primitives:v0:ValidityAttestation":w
 
-    HeadData [label = "polkadot_parachain::primitives::HeadData"]
+    HeadData [label = "polkadot_parachain_primitives::primitives::HeadData"]
 
     CoreIndex [label = <
         <table>

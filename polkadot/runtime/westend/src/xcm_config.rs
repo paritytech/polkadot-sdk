@@ -17,53 +17,71 @@
 //! XCM configurations for Westend.
 
 use super::{
-	parachains_origin, weights, AccountId, AllPalletsWithSystem, Balances, Dmp, ParaId, Runtime,
-	RuntimeCall, RuntimeEvent, RuntimeOrigin, TransactionByteFee, WeightToFee, XcmPallet,
+	parachains_origin, AccountId, AllPalletsWithSystem, Balances, Dmp, FellowshipAdmin,
+	GeneralAdmin, ParaId, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, StakingAdmin,
+	TransactionByteFee, Treasury, WeightToFee, XcmPallet,
 };
+use crate::governance::pallet_custom_origins::Treasurer;
 use frame_support::{
 	parameter_types,
-	traits::{Contains, Everything, Nothing},
+	traits::{Contains, Equals, Everything, Nothing},
 };
 use frame_system::EnsureRoot;
+use pallet_xcm::XcmPassthrough;
 use runtime_common::{
-	crowdloan, paras_registrar,
 	xcm_sender::{ChildParachainRouter, ExponentialPrice},
 	ToAuthor,
 };
 use sp_core::ConstU32;
-use westend_runtime_constants::currency::CENTS;
+use westend_runtime_constants::{
+	currency::CENTS,
+	system_parachain::*,
+	xcm::body::{FELLOWSHIP_ADMIN_INDEX, TREASURER_INDEX},
+};
 use xcm::latest::prelude::*;
+#[allow(deprecated)]
+use xcm_builder::CurrencyAdapter as XcmCurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, ChildParachainAsNative,
-	ChildParachainConvertsVia, ChildSystemParachainAsSuperuser,
-	CurrencyAdapter as XcmCurrencyAdapter, IsChildSystemParachain, IsConcrete, MintLocation,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	ChildParachainConvertsVia, DescribeBodyTerminal, DescribeFamily, FrameTransactionalProcessor,
+	HashedDescription, IsConcrete, MintLocation, OriginToPluralityVoice, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
+	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
-use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
+use xcm_executor::XcmExecutor;
 
 parameter_types! {
-	pub const TokenLocation: MultiLocation = Here.into_location();
+	pub const TokenLocation: Location = Here.into_location();
+	pub const RootLocation: Location = Location::here();
 	pub const ThisNetwork: NetworkId = Westend;
-	pub UniversalLocation: InteriorMultiLocation = ThisNetwork::get().into();
+	pub UniversalLocation: InteriorLocation = [GlobalConsensus(ThisNetwork::get())].into();
 	pub CheckAccount: AccountId = XcmPallet::check_account();
 	pub LocalCheckAccount: (AccountId, MintLocation) = (CheckAccount::get(), MintLocation::Local);
+	pub TreasuryAccount: AccountId = Treasury::account_id();
 	/// The asset ID for the asset that we use to pay for message delivery fees.
-	pub FeeAssetId: AssetId = Concrete(TokenLocation::get());
+	pub FeeAssetId: AssetId = AssetId(TokenLocation::get());
 	/// The base fee for the message delivery fees.
 	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
 }
 
-pub type LocationConverter =
-	(ChildParachainConvertsVia<ParaId, AccountId>, AccountId32Aliases<ThisNetwork, AccountId>);
+pub type LocationConverter = (
+	// We can convert a child parachain using the standard `AccountId` conversion.
+	ChildParachainConvertsVia<ParaId, AccountId>,
+	// We can directly alias an `AccountId32` into a local account.
+	AccountId32Aliases<ThisNetwork, AccountId>,
+	// Allow governance body to be used as a sovereign account.
+	HashedDescription<AccountId, DescribeFamily<DescribeBodyTerminal>>,
+);
 
+#[allow(deprecated)]
 pub type LocalAssetTransactor = XcmCurrencyAdapter<
 	// Use this currency:
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
 	IsConcrete<TokenLocation>,
-	// We can convert the MultiLocations with our converter above:
+	// We can convert the Locations with our converter above:
 	LocationConverter,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
@@ -72,40 +90,74 @@ pub type LocalAssetTransactor = XcmCurrencyAdapter<
 >;
 
 type LocalOriginConverter = (
+	// If the origin kind is `Sovereign`, then return a `Signed` origin with the account determined
+	// by the `LocationConverter` converter.
 	SovereignSignedViaLocation<LocationConverter, RuntimeOrigin>,
+	// If the origin kind is `Native` and the XCM origin is a child parachain, then we can express
+	// it with the special `parachains_origin::Origin` origin variant.
 	ChildParachainAsNative<parachains_origin::Origin, RuntimeOrigin>,
+	// If the origin kind is `Native` and the XCM origin is the `AccountId32` location, then it can
+	// be expressed using the `Signed` origin variant.
 	SignedAccountId32AsNative<ThisNetwork, RuntimeOrigin>,
-	ChildSystemParachainAsSuperuser<ParaId, RuntimeOrigin>,
+	// Xcm origins can be represented natively under the Xcm pallet's Xcm origin.
+	XcmPassthrough<RuntimeOrigin>,
 );
+
+pub type PriceForChildParachainDelivery =
+	ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, Dmp>;
 
 /// The XCM router. When we want to send an XCM message, we use this type. It amalgamates all of our
 /// individual routers.
-pub type XcmRouter = WithUniqueTopic<(
+pub type XcmRouter = WithUniqueTopic<
 	// Only one router so far - use DMP to communicate with child parachains.
-	ChildParachainRouter<
-		Runtime,
-		XcmPallet,
-		ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, Dmp>,
-	>,
-)>;
+	ChildParachainRouter<Runtime, XcmPallet, PriceForChildParachainDelivery>,
+>;
 
 parameter_types! {
-	pub const Westmint: MultiLocation = Parachain(1000).into_location();
-	pub const Collectives: MultiLocation = Parachain(1001).into_location();
-	pub const Wnd: MultiAssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(TokenLocation::get()) });
-	pub const WndForWestmint: (MultiAssetFilter, MultiLocation) = (Wnd::get(), Westmint::get());
-	pub const WndForCollectives: (MultiAssetFilter, MultiLocation) = (Wnd::get(), Collectives::get());
-	pub const MaxInstructions: u32 = 100;
-	pub const MaxAssetsIntoHolding: u32 = 64;
+	pub AssetHub: Location = Parachain(ASSET_HUB_ID).into_location();
+	pub Collectives: Location = Parachain(COLLECTIVES_ID).into_location();
+	pub BridgeHub: Location = Parachain(BRIDGE_HUB_ID).into_location();
+	pub People: Location = Parachain(PEOPLE_ID).into_location();
+	pub Wnd: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId(TokenLocation::get()) });
+	pub WndForAssetHub: (AssetFilter, Location) = (Wnd::get(), AssetHub::get());
+	pub WndForCollectives: (AssetFilter, Location) = (Wnd::get(), Collectives::get());
+	pub WndForBridgeHub: (AssetFilter, Location) = (Wnd::get(), BridgeHub::get());
+	pub WndForPeople: (AssetFilter, Location) = (Wnd::get(), People::get());
+	pub MaxInstructions: u32 = 100;
+	pub MaxAssetsIntoHolding: u32 = 64;
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-parameter_types! {
-	pub ReachableDest: Option<MultiLocation> = Some(Parachain(1000).into());
+pub type TrustedTeleporters = (
+	xcm_builder::Case<WndForAssetHub>,
+	xcm_builder::Case<WndForCollectives>,
+	xcm_builder::Case<WndForBridgeHub>,
+	xcm_builder::Case<WndForPeople>,
+);
+
+pub struct OnlyParachains;
+impl Contains<Location> for OnlyParachains {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (0, [Parachain(_)]))
+	}
 }
 
-pub type TrustedTeleporters =
-	(xcm_builder::Case<WndForWestmint>, xcm_builder::Case<WndForCollectives>);
+pub struct CollectivesOrFellows;
+impl Contains<Location> for CollectivesOrFellows {
+	fn contains(location: &Location) -> bool {
+		matches!(
+			location.unpack(),
+			(0, [Parachain(COLLECTIVES_ID)]) |
+				(0, [Parachain(COLLECTIVES_ID), Plurality { id: BodyId::Technical, .. }])
+		)
+	}
+}
+
+pub struct LocalPlurality;
+impl Contains<Location> for LocalPlurality {
+	fn contains(loc: &Location) -> bool {
+		matches!(loc.unpack(), (0, [Plurality { .. }]))
+	}
+}
 
 /// The barriers one of which must be passed for an XCM message to be executed.
 pub type Barrier = TrailingSetTopicAsId<(
@@ -115,131 +167,21 @@ pub type Barrier = TrailingSetTopicAsId<(
 	AllowKnownQueryResponses<XcmPallet>,
 	WithComputedOrigin<
 		(
-			// If the message is one that immediately attemps to pay for execution, then allow it.
+			// If the message is one that immediately attempts to pay for execution, then allow it.
 			AllowTopLevelPaidExecutionFrom<Everything>,
-			// Messages coming from system parachains need not pay for execution.
-			AllowExplicitUnpaidExecutionFrom<IsChildSystemParachain<ParaId>>,
 			// Subscriptions for version tracking are OK.
-			AllowSubscriptionsFrom<Everything>,
+			AllowSubscriptionsFrom<OnlyParachains>,
+			// Collectives and Fellows plurality get free execution.
+			AllowExplicitUnpaidExecutionFrom<CollectivesOrFellows>,
 		),
 		UniversalLocation,
 		ConstU32<8>,
 	>,
 )>;
 
-/// A call filter for the XCM Transact instruction. This is a temporary measure until we
-/// properly account for proof size weights.
-///
-/// Calls that are allowed through this filter must:
-/// 1. Have a fixed weight;
-/// 2. Cannot lead to another call being made;
-/// 3. Have a defined proof size weight, e.g. no unbounded vecs in call parameters.
-pub struct SafeCallFilter;
-impl Contains<RuntimeCall> for SafeCallFilter {
-	fn contains(call: &RuntimeCall) -> bool {
-		#[cfg(feature = "runtime-benchmarks")]
-		{
-			if matches!(call, RuntimeCall::System(frame_system::Call::remark_with_event { .. })) {
-				return true
-			}
-		}
-
-		match call {
-			RuntimeCall::System(
-				frame_system::Call::kill_prefix { .. } | frame_system::Call::set_heap_pages { .. },
-			) |
-			RuntimeCall::Babe(..) |
-			RuntimeCall::Timestamp(..) |
-			RuntimeCall::Indices(..) |
-			RuntimeCall::Balances(..) |
-			RuntimeCall::Crowdloan(
-				crowdloan::Call::create { .. } |
-				crowdloan::Call::contribute { .. } |
-				crowdloan::Call::withdraw { .. } |
-				crowdloan::Call::refund { .. } |
-				crowdloan::Call::dissolve { .. } |
-				crowdloan::Call::edit { .. } |
-				crowdloan::Call::poke { .. } |
-				crowdloan::Call::contribute_all { .. },
-			) |
-			RuntimeCall::Staking(
-				pallet_staking::Call::bond { .. } |
-				pallet_staking::Call::bond_extra { .. } |
-				pallet_staking::Call::unbond { .. } |
-				pallet_staking::Call::withdraw_unbonded { .. } |
-				pallet_staking::Call::validate { .. } |
-				pallet_staking::Call::nominate { .. } |
-				pallet_staking::Call::chill { .. } |
-				pallet_staking::Call::set_payee { .. } |
-				pallet_staking::Call::set_controller { .. } |
-				pallet_staking::Call::set_validator_count { .. } |
-				pallet_staking::Call::increase_validator_count { .. } |
-				pallet_staking::Call::scale_validator_count { .. } |
-				pallet_staking::Call::force_no_eras { .. } |
-				pallet_staking::Call::force_new_era { .. } |
-				pallet_staking::Call::set_invulnerables { .. } |
-				pallet_staking::Call::force_unstake { .. } |
-				pallet_staking::Call::force_new_era_always { .. } |
-				pallet_staking::Call::payout_stakers { .. } |
-				pallet_staking::Call::rebond { .. } |
-				pallet_staking::Call::reap_stash { .. } |
-				pallet_staking::Call::set_staking_configs { .. } |
-				pallet_staking::Call::chill_other { .. } |
-				pallet_staking::Call::force_apply_min_commission { .. },
-			) |
-			RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
-			RuntimeCall::Grandpa(..) |
-			RuntimeCall::ImOnline(..) |
-			RuntimeCall::Utility(pallet_utility::Call::as_derivative { .. }) |
-			RuntimeCall::Identity(
-				pallet_identity::Call::add_registrar { .. } |
-				pallet_identity::Call::set_identity { .. } |
-				pallet_identity::Call::clear_identity { .. } |
-				pallet_identity::Call::request_judgement { .. } |
-				pallet_identity::Call::cancel_request { .. } |
-				pallet_identity::Call::set_fee { .. } |
-				pallet_identity::Call::set_account_id { .. } |
-				pallet_identity::Call::set_fields { .. } |
-				pallet_identity::Call::provide_judgement { .. } |
-				pallet_identity::Call::kill_identity { .. } |
-				pallet_identity::Call::add_sub { .. } |
-				pallet_identity::Call::rename_sub { .. } |
-				pallet_identity::Call::remove_sub { .. } |
-				pallet_identity::Call::quit_sub { .. },
-			) |
-			RuntimeCall::Recovery(..) |
-			RuntimeCall::Vesting(..) |
-			RuntimeCall::ElectionProviderMultiPhase(..) |
-			RuntimeCall::VoterList(..) |
-			RuntimeCall::NominationPools(
-				pallet_nomination_pools::Call::join { .. } |
-				pallet_nomination_pools::Call::bond_extra { .. } |
-				pallet_nomination_pools::Call::claim_payout { .. } |
-				pallet_nomination_pools::Call::unbond { .. } |
-				pallet_nomination_pools::Call::pool_withdraw_unbonded { .. } |
-				pallet_nomination_pools::Call::withdraw_unbonded { .. } |
-				pallet_nomination_pools::Call::create { .. } |
-				pallet_nomination_pools::Call::create_with_pool_id { .. } |
-				pallet_nomination_pools::Call::set_state { .. } |
-				pallet_nomination_pools::Call::set_configs { .. } |
-				pallet_nomination_pools::Call::update_roles { .. } |
-				pallet_nomination_pools::Call::chill { .. },
-			) |
-			RuntimeCall::Hrmp(..) |
-			RuntimeCall::Registrar(
-				paras_registrar::Call::deregister { .. } |
-				paras_registrar::Call::swap { .. } |
-				paras_registrar::Call::remove_lock { .. } |
-				paras_registrar::Call::reserve { .. } |
-				paras_registrar::Call::add_lock { .. },
-			) |
-			RuntimeCall::XcmPallet(pallet_xcm::Call::limited_reserve_transfer_assets {
-				..
-			}) => true,
-			_ => false,
-		}
-	}
-}
+/// Locations that will not be charged fees in the executor, neither for execution nor delivery.
+/// We only waive fees for system functions, which these locations represent.
+pub type WaivedLocations = (SystemParachains, Equals<RootLocation>, LocalPlurality);
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
@@ -251,8 +193,11 @@ impl xcm_executor::Config for XcmConfig {
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
-	type Weigher =
-		WeightInfoBounds<weights::xcm::WestendXcmWeight<RuntimeCall>, RuntimeCall, MaxInstructions>;
+	type Weigher = WeightInfoBounds<
+		crate::weights::xcm::WestendXcmWeight<RuntimeCall>,
+		RuntimeCall,
+		MaxInstructions,
+	>;
 	type Trader =
 		UsingComponents<WeightToFee, TokenLocation, AccountId, Balances, ToAuthor<Runtime>>;
 	type ResponseHandler = XcmPallet;
@@ -263,24 +208,67 @@ impl xcm_executor::Config for XcmConfig {
 	type SubscriptionService = XcmPallet;
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	type FeeManager = ();
+	type FeeManager = XcmFeeManagerFromComponents<
+		WaivedLocations,
+		XcmFeeToAccount<Self::AssetTransactor, AccountId, TreasuryAccount>,
+	>;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
-	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
-	type SafeCallFilter = SafeCallFilter;
+	type CallDispatcher = RuntimeCall;
+	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
+	type TransactionalProcessor = FrameTransactionalProcessor;
 }
 
-/// Type to convert an `Origin` type value into a `MultiLocation` value which represents an interior
+parameter_types! {
+	// `GeneralAdmin` pluralistic body.
+	pub const GeneralAdminBodyId: BodyId = BodyId::Administration;
+	// StakingAdmin pluralistic body.
+	pub const StakingAdminBodyId: BodyId = BodyId::Defense;
+	// FellowshipAdmin pluralistic body.
+	pub const FellowshipAdminBodyId: BodyId = BodyId::Index(FELLOWSHIP_ADMIN_INDEX);
+	// `Treasurer` pluralistic body.
+	pub const TreasurerBodyId: BodyId = BodyId::Index(TREASURER_INDEX);
+}
+
+/// Type to convert the `GeneralAdmin` origin to a Plurality `Location` value.
+pub type GeneralAdminToPlurality =
+	OriginToPluralityVoice<RuntimeOrigin, GeneralAdmin, GeneralAdminBodyId>;
+
 /// location of this chain.
 pub type LocalOriginToLocation = (
+	GeneralAdminToPlurality,
 	// And a usual Signed origin to be used in XCM as a corresponding AccountId32
 	SignedToAccountId32<RuntimeOrigin, AccountId, ThisNetwork>,
 );
 
+/// Type to convert the `StakingAdmin` origin to a Plurality `Location` value.
+pub type StakingAdminToPlurality =
+	OriginToPluralityVoice<RuntimeOrigin, StakingAdmin, StakingAdminBodyId>;
+
+/// Type to convert the `FellowshipAdmin` origin to a Plurality `Location` value.
+pub type FellowshipAdminToPlurality =
+	OriginToPluralityVoice<RuntimeOrigin, FellowshipAdmin, FellowshipAdminBodyId>;
+
+/// Type to convert the `Treasurer` origin to a Plurality `Location` value.
+pub type TreasurerToPlurality = OriginToPluralityVoice<RuntimeOrigin, Treasurer, TreasurerBodyId>;
+
+/// Type to convert a pallet `Origin` type value into a `Location` value which represents an
+/// interior location of this chain for a destination chain.
+pub type LocalPalletOriginToLocation = (
+	// GeneralAdmin origin to be used in XCM as a corresponding Plurality `Location` value.
+	GeneralAdminToPlurality,
+	// StakingAdmin origin to be used in XCM as a corresponding Plurality `Location` value.
+	StakingAdminToPlurality,
+	// FellowshipAdmin origin to be used in XCM as a corresponding Plurality `Location` value.
+	FellowshipAdminToPlurality,
+	// `Treasurer` origin to be used in XCM as a corresponding Plurality `MultiLocation` value.
+	TreasurerToPlurality,
+);
+
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
+	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalPalletOriginToLocation>;
 	type XcmRouter = XcmRouter;
 	// Anyone can execute XCM messages locally...
 	type ExecuteXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
@@ -289,8 +277,11 @@ impl pallet_xcm::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type XcmTeleportFilter = Everything;
 	type XcmReserveTransferFilter = Everything;
-	type Weigher =
-		WeightInfoBounds<weights::xcm::WestendXcmWeight<RuntimeCall>, RuntimeCall, MaxInstructions>;
+	type Weigher = WeightInfoBounds<
+		crate::weights::xcm::WestendXcmWeight<RuntimeCall>,
+		RuntimeCall,
+		MaxInstructions,
+	>;
 	type UniversalLocation = UniversalLocation;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
@@ -304,7 +295,5 @@ impl pallet_xcm::Config for Runtime {
 	type MaxRemoteLockConsumers = ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = crate::weights::pallet_xcm::WeightInfo<Runtime>;
-	#[cfg(feature = "runtime-benchmarks")]
-	type ReachableDest = ReachableDest;
 	type AdminOrigin = EnsureRoot<AccountId>;
 }

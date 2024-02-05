@@ -18,10 +18,10 @@ not available or desired.
 
 ### Dispatchable Functions
 
-* `as_multi` - Approve and if possible dispatch a call from a composite origin formed from a
+- `as_multi` - Approve and if possible dispatch a call from a composite origin formed from a
   number of signed origins.
-* `approve_as_multi` - Approve a call from a composite origin.
-* `cancel_as_multi` - Cancel a call from a composite origin.
+- `approve_as_multi` - Approve a call from a composite origin.
+- `cancel_as_multi` - Cancel a call from a composite origin.
 
 [`Call`]: ./enum.Call.html
 [`Config`]: ./trait.Config.html

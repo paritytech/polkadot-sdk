@@ -90,7 +90,7 @@ pub fn migrate<T: pallet_tips::Config, P: GetStorageVersion + PalletInfoAccess, 
 }
 
 /// Some checks prior to migration. This can be linked to
-/// [`frame_support::traits::OnRuntimeUpgrade::pre_upgrade`] for further testing.
+/// `frame_support::traits::OnRuntimeUpgrade::pre_upgrade` for further testing.
 ///
 /// Panics if anything goes wrong.
 pub fn pre_migrate<
@@ -129,7 +129,7 @@ pub fn pre_migrate<
 }
 
 /// Some checks for after migration. This can be linked to
-/// [`frame_support::traits::OnRuntimeUpgrade::post_upgrade`] for further testing.
+/// `frame_support::traits::OnRuntimeUpgrade::post_upgrade` for further testing.
 ///
 /// Panics if anything goes wrong.
 pub fn post_migrate<

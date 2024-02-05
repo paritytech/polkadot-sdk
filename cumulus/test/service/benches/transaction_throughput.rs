@@ -17,16 +17,16 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion, Throughput};
+use cumulus_client_cli::get_raw_genesis_header;
 use cumulus_test_runtime::{AccountId, BalancesCall, ExistentialDeposit, SudoCall};
 use futures::{future, StreamExt};
 use sc_transaction_pool_api::{TransactionPool as _, TransactionSource, TransactionStatus};
 use sp_core::{crypto::Pair, sr25519};
-use sp_runtime::{generic::BlockId, OpaqueExtrinsic};
+use sp_runtime::OpaqueExtrinsic;
 
 use cumulus_primitives_core::ParaId;
-use cumulus_test_service::{
-	construct_extrinsic, fetch_nonce, initial_head_data, Client, Keyring::*, TransactionPool,
-};
+use cumulus_test_service::{construct_extrinsic, fetch_nonce, Client, Keyring::*, TransactionPool};
+use polkadot_primitives::HeadData;
 
 fn create_accounts(num: usize) -> Vec<sr25519::Pair> {
 	(0..num)
@@ -117,7 +117,7 @@ async fn submit_tx_and_wait_for_inclusion(
 	let best_hash = client.chain_info().best_hash;
 
 	let mut watch = tx_pool
-		.submit_and_watch(&BlockId::Hash(best_hash), TransactionSource::External, tx.clone())
+		.submit_and_watch(best_hash, TransactionSource::External, tx.clone())
 		.await
 		.expect("Submits tx to pool")
 		.fuse();
@@ -159,6 +159,13 @@ fn transaction_throughput_benchmarks(c: &mut Criterion) {
 		None,
 	);
 
+	// Run charlie as parachain collator
+	let charlie = runtime.block_on(
+		cumulus_test_service::TestNodeBuilder::new(para_id, tokio_handle.clone(), Charlie)
+			.enable_collator()
+			.connect_to_relay_chain_nodes(vec![&alice, &bob])
+			.build(),
+	);
 	// Register parachain
 	runtime
 		.block_on(
@@ -167,18 +174,13 @@ fn transaction_throughput_benchmarks(c: &mut Criterion) {
 				cumulus_test_service::runtime::WASM_BINARY
 					.expect("You need to build the WASM binary to run this test!")
 					.to_vec(),
-				initial_head_data(para_id),
+				HeadData(
+					get_raw_genesis_header(charlie.client.clone())
+						.expect("Unable to get genesis HeadData."),
+				),
 			),
 		)
 		.unwrap();
-
-	// Run charlie as parachain collator
-	let charlie = runtime.block_on(
-		cumulus_test_service::TestNodeBuilder::new(para_id, tokio_handle.clone(), Charlie)
-			.enable_collator()
-			.connect_to_relay_chain_nodes(vec![&alice, &bob])
-			.build(),
-	);
 
 	// Run dave as parachain collator
 	let dave = runtime.block_on(

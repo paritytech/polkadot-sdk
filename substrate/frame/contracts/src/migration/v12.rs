@@ -96,7 +96,7 @@ where
 
 #[storage_alias]
 pub type CodeInfoOf<T: Config, OldCurrency> =
-	StorageMap<Pallet<T>, Twox64Concat, CodeHash<T>, CodeInfo<T, OldCurrency>>;
+	StorageMap<Pallet<T>, Identity, CodeHash<T>, CodeInfo<T, OldCurrency>>;
 
 #[storage_alias]
 pub type PristineCode<T: Config> = StorageMap<Pallet<T>, Identity, CodeHash<T>, Vec<u8>>;
@@ -317,7 +317,7 @@ where
 		let (_, old_deposit, storage_module) = state;
 		// CodeInfoOf::max_encoded_len == OwnerInfoOf::max_encoded_len + 1
 		// I.e. code info adds up 1 byte per record.
-		let info_bytes_added = items.clone();
+		let info_bytes_added = items;
 		// We removed 1 PrefabWasmModule, and added 1 byte of determinism flag, per contract code.
 		let storage_removed = storage_module.saturating_sub(info_bytes_added);
 		// module+code+info - bytes

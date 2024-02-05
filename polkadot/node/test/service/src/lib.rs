@@ -28,7 +28,9 @@ use polkadot_overseer::Handle;
 use polkadot_primitives::{Balance, CollatorPair, HeadData, Id as ParaId, ValidationCode};
 use polkadot_runtime_common::BlockHashCount;
 use polkadot_runtime_parachains::paras::{ParaGenesisArgs, ParaKind};
-use polkadot_service::{Error, FullClient, IsParachainNode, NewFull, PrometheusConfig};
+use polkadot_service::{
+	Error, FullClient, IsParachainNode, NewFull, OverseerGen, PrometheusConfig,
+};
 use polkadot_test_runtime::{
 	ParasCall, ParasSudoWrapperCall, Runtime, SignedExtra, SignedPayload, SudoCall,
 	UncheckedExtrinsic, VERSION,
@@ -69,10 +71,11 @@ pub use polkadot_service::{FullBackend, GetLastTimestamp};
 
 /// Create a new full node.
 #[sc_tracing::logging::prefix_logs_with(config.network.node_name.as_str())]
-pub fn new_full(
+pub fn new_full<OverseerGenerator: OverseerGen>(
 	config: Configuration,
 	is_parachain_node: IsParachainNode,
 	workers_path: Option<PathBuf>,
+	overseer_gen: OverseerGenerator,
 ) -> Result<NewFull, Error> {
 	let workers_path = Some(workers_path.unwrap_or_else(get_relative_workers_path_for_test));
 
@@ -80,14 +83,15 @@ pub fn new_full(
 		config,
 		polkadot_service::NewFullParams {
 			is_parachain_node,
-			grandpa_pause: None,
 			enable_beefy: true,
+			force_authoring_backoff: false,
 			jaeger_agent: None,
 			telemetry_worker_handle: None,
 			node_version: None,
+			secure_validator_mode: false,
 			workers_path,
 			workers_names: None,
-			overseer_gen: polkadot_service::RealOverseerGen,
+			overseer_gen,
 			overseer_message_channel_capacity_override: None,
 			malus_finality_delay: None,
 			hwbench: None,
@@ -181,6 +185,7 @@ pub fn node_config(
 		rpc_id_provider: None,
 		rpc_max_subs_per_conn: Default::default(),
 		rpc_port: 9944,
+		rpc_message_buffer_capacity: Default::default(),
 		prometheus_config: None,
 		telemetry_endpoints: None,
 		default_heap_pages: None,
@@ -205,9 +210,13 @@ pub fn run_validator_node(
 	worker_program_path: Option<PathBuf>,
 ) -> PolkadotTestNode {
 	let multiaddr = config.network.listen_addresses[0].clone();
-	let NewFull { task_manager, client, network, rpc_handlers, overseer_handle, .. } =
-		new_full(config, IsParachainNode::No, worker_program_path)
-			.expect("could not create Polkadot test service");
+	let NewFull { task_manager, client, network, rpc_handlers, overseer_handle, .. } = new_full(
+		config,
+		IsParachainNode::No,
+		worker_program_path,
+		polkadot_service::ValidatorOverseerGen,
+	)
+	.expect("could not create Polkadot test service");
 
 	let overseer_handle = overseer_handle.expect("test node must have an overseer handle");
 	let peer_id = network.local_peer_id();
@@ -237,9 +246,13 @@ pub fn run_collator_node(
 ) -> PolkadotTestNode {
 	let config = node_config(storage_update_func, tokio_handle, key, boot_nodes, false);
 	let multiaddr = config.network.listen_addresses[0].clone();
-	let NewFull { task_manager, client, network, rpc_handlers, overseer_handle, .. } =
-		new_full(config, IsParachainNode::Collator(collator_pair), None)
-			.expect("could not create Polkadot test service");
+	let NewFull { task_manager, client, network, rpc_handlers, overseer_handle, .. } = new_full(
+		config,
+		IsParachainNode::Collator(collator_pair),
+		None,
+		polkadot_service::CollatorOverseerGen,
+	)
+	.expect("could not create Polkadot test service");
 
 	let overseer_handle = overseer_handle.expect("test node must have an overseer handle");
 	let peer_id = network.local_peer_id();

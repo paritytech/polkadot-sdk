@@ -1,13 +1,16 @@
 [package]
 name = "polkadot-node-core-candidate-validation"
 description = "Polkadot crate that implements the Candidate Validation subsystem. Handles requests to validate candidates according to a PVF."
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
-async-trait = "0.1.57"
+async-trait = "0.1.74"
 futures = "0.3.21"
 futures-timer = "3.0.2"
 gum = { package = "tracing-gum", path = "../../gum" }
@@ -16,7 +19,7 @@ sp-maybe-compressed-blob = { package = "sp-maybe-compressed-blob", path = "../..
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["bit-vec", "derive"] }
 
 polkadot-primitives = { path = "../../../primitives" }
-polkadot-parachain = { path = "../../../parachain" }
+polkadot-parachain-primitives = { path = "../../../parachain" }
 polkadot-node-primitives = { path = "../../primitives" }
 polkadot-node-subsystem = { path = "../../subsystem" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }

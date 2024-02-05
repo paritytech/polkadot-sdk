@@ -24,14 +24,14 @@ use polkadot_node_subsystem::{
 	},
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
-use polkadot_node_subsystem_types::{jaeger, ActivatedLeaf, LeafStatus};
 use polkadot_primitives::{
-	vstaging::{AsyncBackingParams, BackingState, Constraints, InboundHrmpLimitations},
+	async_backing::{AsyncBackingParams, BackingState, Constraints, InboundHrmpLimitations},
 	CommittedCandidateReceipt, HeadData, Header, PersistedValidationData, ScheduledCore,
 	ValidationCodeHash,
 };
 use polkadot_primitives_test_helpers::make_candidate;
 use std::sync::Arc;
+use test_helpers::mock::new_leaf;
 
 const ALLOWED_ANCESTRY_LEN: u32 = 3;
 const ASYNC_BACKING_PARAMETERS: AsyncBackingParams =
@@ -101,11 +101,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 
 	let mut view = View::new();
 	let subsystem = async move {
-		loop {
-			match run_iteration(&mut context, &mut view, &Metrics(None)).await {
-				Ok(()) => break,
-				Err(e) => panic!("{:?}", e),
-			}
+		if let Err(e) = run_iteration(&mut context, &mut view, &Metrics(None)).await {
+			panic!("{:?}", e);
 		}
 
 		view
@@ -197,12 +194,7 @@ async fn activate_leaf_with_params(
 ) {
 	let TestLeaf { number, hash, .. } = leaf;
 
-	let activated = ActivatedLeaf {
-		hash: *hash,
-		number: *number,
-		status: LeafStatus::Fresh,
-		span: Arc::new(jaeger::Span::Disabled),
-	};
+	let activated = new_leaf(*hash, *number);
 
 	virtual_overseer
 		.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(
@@ -224,7 +216,7 @@ async fn handle_leaf_activation(
 	assert_matches!(
 		virtual_overseer.recv().await,
 		AllMessages::RuntimeApi(
-			RuntimeApiMessage::Request(parent, RuntimeApiRequest::StagingAsyncBackingParams(tx))
+			RuntimeApiMessage::Request(parent, RuntimeApiRequest::AsyncBackingParams(tx))
 		) if parent == *hash => {
 			tx.send(Ok(async_backing_params)).unwrap();
 		}
@@ -289,7 +281,7 @@ async fn handle_leaf_activation(
 		let para_id = match message {
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				_,
-				RuntimeApiRequest::StagingParaBackingState(p_id, _),
+				RuntimeApiRequest::ParaBackingState(p_id, _),
 			)) => p_id,
 			_ => panic!("received unexpected message {:?}", message),
 		};
@@ -308,7 +300,7 @@ async fn handle_leaf_activation(
 		assert_matches!(
 			message,
 			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(parent, RuntimeApiRequest::StagingParaBackingState(p_id, tx))
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::ParaBackingState(p_id, tx))
 			) if parent == *hash && p_id == para_id => {
 				tx.send(Ok(Some(backing_state))).unwrap();
 			}
@@ -497,19 +489,14 @@ fn should_do_no_work_if_async_backing_disabled_for_leaf() {
 		// Start work on some new parent.
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
-				ActiveLeavesUpdate::start_work(ActivatedLeaf {
-					hash,
-					number: 1,
-					status: LeafStatus::Fresh,
-					span: Arc::new(jaeger::Span::Disabled),
-				}),
+				ActiveLeavesUpdate::start_work(new_leaf(hash, 1)),
 			)))
 			.await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
 			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(parent, RuntimeApiRequest::StagingAsyncBackingParams(tx))
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::AsyncBackingParams(tx))
 			) if parent == hash => {
 				tx.send(Err(ASYNC_BACKING_DISABLED_ERROR)).unwrap();
 			}
@@ -1318,12 +1305,7 @@ fn correctly_updates_leaves() {
 			.await;
 
 		// Activate a leaf and remove one at the same time.
-		let activated = ActivatedLeaf {
-			hash: leaf_c.hash,
-			number: leaf_c.number,
-			span: Arc::new(jaeger::Span::Disabled),
-			status: LeafStatus::Fresh,
-		};
+		let activated = new_leaf(leaf_c.hash, leaf_c.number);
 		let update = ActiveLeavesUpdate {
 			activated: Some(activated),
 			deactivated: [leaf_b.hash][..].into(),
@@ -1349,12 +1331,7 @@ fn correctly_updates_leaves() {
 			.await;
 
 		// Activate and deactivate the same leaf.
-		let activated = ActivatedLeaf {
-			hash: leaf_a.hash,
-			number: leaf_a.number,
-			span: Arc::new(jaeger::Span::Disabled),
-			status: LeafStatus::Fresh,
-		};
+		let activated = new_leaf(leaf_a.hash, leaf_a.number);
 		let update = ActiveLeavesUpdate {
 			activated: Some(activated),
 			deactivated: [leaf_a.hash][..].into(),
@@ -1578,12 +1555,7 @@ fn uses_ancestry_only_within_session() {
 			vec![Hash::repeat_byte(4), Hash::repeat_byte(3), Hash::repeat_byte(2)];
 		let session_change_hash = Hash::repeat_byte(3);
 
-		let activated = ActivatedLeaf {
-			hash,
-			number,
-			status: LeafStatus::Fresh,
-			span: Arc::new(jaeger::Span::Disabled),
-		};
+		let activated = new_leaf(hash, number);
 
 		virtual_overseer
 			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
@@ -1594,7 +1566,7 @@ fn uses_ancestry_only_within_session() {
 		assert_matches!(
 			virtual_overseer.recv().await,
 			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(parent, RuntimeApiRequest::StagingAsyncBackingParams(tx))
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::AsyncBackingParams(tx))
 			) if parent == hash => {
 				tx.send(Ok(AsyncBackingParams { max_candidate_depth: 0, allowed_ancestry_len: ancestry_len })).unwrap();
 			}

@@ -18,26 +18,26 @@ use assert_cmd::cargo::cargo_bin;
 use std::{process::Command, result::Result};
 use tempfile::tempdir;
 
-static RUNTIMES: [&str; 4] = ["polkadot", "kusama", "westend", "rococo"];
+static RUNTIMES: &[&str] = &["westend", "rococo"];
 
 /// `benchmark overhead` works for all dev runtimes.
 #[test]
 fn benchmark_overhead_works() {
 	for runtime in RUNTIMES {
 		let runtime = format!("{}-dev", runtime);
-		assert!(benchmark_overhead(runtime).is_ok());
+		assert!(benchmark_overhead(&runtime).is_ok());
 	}
 }
 
 /// `benchmark overhead` rejects all non-dev runtimes.
 #[test]
 fn benchmark_overhead_rejects_non_dev_runtimes() {
-	for runtime in RUNTIMES {
-		assert!(benchmark_overhead(runtime.into()).is_err());
+	for runtime in RUNTIMES.into_iter() {
+		assert!(benchmark_overhead(runtime).is_err());
 	}
 }
 
-fn benchmark_overhead(runtime: String) -> Result<(), String> {
+fn benchmark_overhead(runtime: &str) -> Result<(), String> {
 	let tmp_dir = tempdir().expect("could not create a temp dir");
 	let base_path = tmp_dir.path();
 

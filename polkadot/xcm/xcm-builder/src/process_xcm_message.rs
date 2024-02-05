@@ -16,22 +16,21 @@
 
 //! Implementation of `ProcessMessage` for an `ExecuteXcm` implementation.
 
-use frame_support::{
-	ensure,
-	traits::{ProcessMessage, ProcessMessageError},
-};
+use frame_support::traits::{ProcessMessage, ProcessMessageError};
 use parity_scale_codec::{Decode, FullCodec, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_std::{fmt::Debug, marker::PhantomData};
 use sp_weights::{Weight, WeightMeter};
 use xcm::prelude::*;
 
+const LOG_TARGET: &str = "xcm::process-message";
+
 /// A message processor that delegates execution to an `XcmExecutor`.
 pub struct ProcessXcmMessage<MessageOrigin, XcmExecutor, Call>(
 	PhantomData<(MessageOrigin, XcmExecutor, Call)>,
 );
 impl<
-		MessageOrigin: Into<MultiLocation> + FullCodec + MaxEncodedLen + Clone + Eq + PartialEq + TypeInfo + Debug,
+		MessageOrigin: Into<Location> + FullCodec + MaxEncodedLen + Clone + Eq + PartialEq + TypeInfo + Debug,
 		XcmExecutor: ExecuteXcm<Call>,
 		Call,
 	> ProcessMessage for ProcessXcmMessage<MessageOrigin, XcmExecutor, Call>
@@ -45,20 +44,66 @@ impl<
 		meter: &mut WeightMeter,
 		id: &mut XcmHash,
 	) -> Result<bool, ProcessMessageError> {
-		let versioned_message = VersionedXcm::<Call>::decode(&mut &message[..])
-			.map_err(|_| ProcessMessageError::Corrupt)?;
-		let message = Xcm::<Call>::try_from(versioned_message)
-			.map_err(|_| ProcessMessageError::Unsupported)?;
-		let pre = XcmExecutor::prepare(message).map_err(|_| ProcessMessageError::Unsupported)?;
+		let versioned_message = VersionedXcm::<Call>::decode(&mut &message[..]).map_err(|e| {
+			log::trace!(
+				target: LOG_TARGET,
+				"`VersionedXcm` failed to decode: {e:?}",
+			);
+
+			ProcessMessageError::Corrupt
+		})?;
+		let message = Xcm::<Call>::try_from(versioned_message).map_err(|_| {
+			log::trace!(
+				target: LOG_TARGET,
+				"Failed to convert `VersionedXcm` into `XcmV3`.",
+			);
+
+			ProcessMessageError::Unsupported
+		})?;
+		let pre = XcmExecutor::prepare(message).map_err(|_| {
+			log::trace!(
+				target: LOG_TARGET,
+				"Failed to prepare message.",
+			);
+
+			ProcessMessageError::Unsupported
+		})?;
+		// The worst-case weight:
 		let required = pre.weight_of();
-		ensure!(meter.can_consume(required), ProcessMessageError::Overweight(required));
+		if !meter.can_consume(required) {
+			log::trace!(
+				target: LOG_TARGET,
+				"Xcm required {required} more than remaining {}",
+				meter.remaining(),
+			);
+
+			return Err(ProcessMessageError::Overweight(required))
+		}
 
 		let (consumed, result) = match XcmExecutor::execute(origin.into(), pre, id, Weight::zero())
 		{
-			Outcome::Complete(w) => (w, Ok(true)),
-			Outcome::Incomplete(w, _) => (w, Ok(false)),
+			Outcome::Complete { used } => {
+				log::trace!(
+					target: LOG_TARGET,
+					"XCM message execution complete, used weight: {used}",
+				);
+				(used, Ok(true))
+			},
+			Outcome::Incomplete { used, error } => {
+				log::trace!(
+					target: LOG_TARGET,
+					"XCM message execution incomplete, used weight: {used}, error: {error:?}",
+				);
+				(used, Ok(false))
+			},
 			// In the error-case we assume the worst case and consume all possible weight.
-			Outcome::Error(_) => (required, Err(ProcessMessageError::Unsupported)),
+			Outcome::Error { error } => {
+				log::trace!(
+					target: LOG_TARGET,
+					"XCM message execution error: {error:?}",
+				);
+				(required, Err(ProcessMessageError::Unsupported))
+			},
 		};
 		meter.consume(consumed);
 		result
@@ -110,7 +155,7 @@ mod tests {
 
 			// Errors if we stay below a weight limit of 1000.
 			for i in 0..10 {
-				let meter = &mut WeightMeter::from_limit((i * 10).into());
+				let meter = &mut WeightMeter::with_limit((i * 10).into());
 				let mut id = [0; 32];
 				assert_err!(
 					Processor::process_message(msg, ORIGIN, meter, &mut id),
@@ -120,7 +165,7 @@ mod tests {
 			}
 
 			// Works with a limit of 1000.
-			let meter = &mut WeightMeter::from_limit(1000.into());
+			let meter = &mut WeightMeter::with_limit(1000.into());
 			let mut id = [0; 32];
 			assert_ok!(Processor::process_message(msg, ORIGIN, meter, &mut id));
 			assert_eq!(meter.consumed(), 1000.into());
@@ -150,6 +195,6 @@ mod tests {
 	}
 
 	fn process_raw(raw: &[u8]) -> Result<bool, ProcessMessageError> {
-		Processor::process_message(raw, ORIGIN, &mut WeightMeter::max_limit(), &mut [0; 32])
+		Processor::process_message(raw, ORIGIN, &mut WeightMeter::new(), &mut [0; 32])
 	}
 }

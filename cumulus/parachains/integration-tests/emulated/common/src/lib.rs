@@ -1,624 +1,158 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
-
-pub use lazy_static;
-pub mod constants;
 pub mod impls;
+pub mod macros;
+pub mod xcm_helpers;
 
-pub use codec::Encode;
-pub use constants::{
-	accounts::{ALICE, BOB},
-	asset_hub_kusama, asset_hub_polkadot, asset_hub_westend, bridge_hub_kusama,
-	bridge_hub_polkadot, bridge_hub_rococo, collectives, kusama, penpal, polkadot, rococo, westend,
-	PROOF_SIZE_THRESHOLD, REF_TIME_THRESHOLD,
-};
-use frame_support::{
-	assert_ok,
-	instances::Instance1,
-	parameter_types,
-	traits::{fungibles::Inspect, Hooks},
-};
-pub use impls::{RococoWococoMessageHandler, WococoRococoMessageHandler};
-pub use parachains_common::{AccountId, Balance};
-pub use paste;
-use polkadot_parachain::primitives::HrmpChannelId;
-pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueueId};
-pub use sp_core::{sr25519, storage::Storage, Get};
-use sp_tracing;
-use xcm_emulator::{
-	assert_expected_events, bx, decl_test_bridges, decl_test_networks, decl_test_parachains,
-	decl_test_relay_chains, decl_test_sender_receiver_accounts_parameter_types,
-	helpers::weight_within_threshold, BridgeMessageHandler, Chain, DefaultMessageProcessor, ParaId,
-	Parachain, RelayChain, TestExt,
+pub use xcm_emulator;
+
+// Substrate
+use grandpa::AuthorityId as GrandpaId;
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
+use sp_consensus_babe::AuthorityId as BabeId;
+use sp_core::{sr25519, storage::Storage, Pair, Public};
+use sp_runtime::{
+	traits::{IdentifyAccount, Verify},
+	BuildStorage, MultiSignature,
 };
 
-pub use xcm::{
-	prelude::{
-		AccountId32, All, BuyExecution, DepositAsset, MultiAsset, MultiAssets, MultiLocation,
-		OriginKind, Outcome, RefundSurplus, Transact, UnpaidExecution, VersionedXcm, Weight,
-		WeightLimit, WithdrawAsset, Xcm, X1,
-	},
-	v3::Error,
-	DoubleEncoded,
-};
+// Polakdot
+use parachains_common::BlockNumber;
+use polkadot_runtime_parachains::configuration::HostConfiguration;
 
-decl_test_relay_chains! {
-	#[api_version(5)]
-	pub struct Polkadot {
-		genesis = polkadot::genesis(),
-		on_init = (),
-		runtime = polkadot_runtime,
-		core = {
-			MessageProcessor: DefaultMessageProcessor<Polkadot>,
-			SovereignAccountOf: polkadot_runtime::xcm_config::SovereignAccountOf,
-		},
-		pallets = {
-			XcmPallet: polkadot_runtime::XcmPallet,
-			Balances: polkadot_runtime::Balances,
-			Hrmp: polkadot_runtime::Hrmp,
-		}
-	},
-	#[api_version(5)]
-	pub struct Kusama {
-		genesis = kusama::genesis(),
-		on_init = (),
-		runtime = kusama_runtime,
-		core = {
-			MessageProcessor: DefaultMessageProcessor<Kusama>,
-			SovereignAccountOf: kusama_runtime::xcm_config::SovereignAccountOf,
-		},
-		pallets = {
-			XcmPallet: kusama_runtime::XcmPallet,
-			Balances: kusama_runtime::Balances,
-			Hrmp: kusama_runtime::Hrmp,
-		}
-	},
-	#[api_version(5)]
-	pub struct Westend {
-		genesis = westend::genesis(),
-		on_init = (),
-		runtime = westend_runtime,
-		core = {
-			MessageProcessor: DefaultMessageProcessor<Westend>,
-			SovereignAccountOf: westend_runtime::xcm_config::LocationConverter, //TODO: rename to SovereignAccountOf,
-		},
-		pallets = {
-			XcmPallet: westend_runtime::XcmPallet,
-			Sudo: westend_runtime::Sudo,
-			Balances: westend_runtime::Balances,
-		}
-	},
-	#[api_version(5)]
-	pub struct Rococo {
-		genesis = rococo::genesis(),
-		on_init = (),
-		runtime = rococo_runtime,
-		core = {
-			MessageProcessor: DefaultMessageProcessor<Rococo>,
-			SovereignAccountOf: rococo_runtime::xcm_config::LocationConverter, //TODO: rename to SovereignAccountOf,
-		},
-		pallets = {
-			XcmPallet: rococo_runtime::XcmPallet,
-			Sudo: rococo_runtime::Sudo,
-			Balances: rococo_runtime::Balances,
-		}
-	},
-	#[api_version(5)]
-	pub struct Wococo {
-		genesis = rococo::genesis(),
-		on_init = (),
-		runtime = rococo_runtime,
-		core = {
-			MessageProcessor: DefaultMessageProcessor<Wococo>,
-			SovereignAccountOf: rococo_runtime::xcm_config::LocationConverter, //TODO: rename to SovereignAccountOf,
-		},
-		pallets = {
-			XcmPallet: rococo_runtime::XcmPallet,
-			Sudo: rococo_runtime::Sudo,
-			Balances: rococo_runtime::Balances,
-		}
+// Cumulus
+use parachains_common::{AccountId, AuraId};
+use polkadot_primitives::{AssignmentId, ValidatorId};
+use polkadot_service::chain_spec::get_authority_keys_from_seed_no_beefy;
+
+pub const XCM_V2: u32 = 2;
+pub const XCM_V3: u32 = 3;
+pub const XCM_V4: u32 = 4;
+pub const REF_TIME_THRESHOLD: u64 = 33;
+pub const PROOF_SIZE_THRESHOLD: u64 = 33;
+
+/// The default XCM version to set in genesis config.
+pub const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
+
+type AccountPublic = <MultiSignature as Verify>::Signer;
+
+/// Helper function to generate a crypto pair from seed
+pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
+	TPublic::Pair::from_string(&format!("//{}", seed), None)
+		.expect("static values are valid; qed")
+		.public()
+}
+
+/// Helper function to generate an account ID from seed.
+pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
+where
+	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
+{
+	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
+}
+
+pub fn get_host_config() -> HostConfiguration<BlockNumber> {
+	HostConfiguration {
+		max_upward_queue_count: 10,
+		max_upward_queue_size: 51200,
+		max_upward_message_size: 51200,
+		max_upward_message_num_per_candidate: 10,
+		max_downward_message_size: 51200,
+		hrmp_sender_deposit: 0,
+		hrmp_recipient_deposit: 0,
+		hrmp_channel_max_capacity: 1000,
+		hrmp_channel_max_message_size: 102400,
+		hrmp_channel_max_total_size: 102400,
+		hrmp_max_parachain_outbound_channels: 30,
+		hrmp_max_parachain_inbound_channels: 30,
+		..Default::default()
 	}
 }
 
-decl_test_parachains! {
-	// Polkadot Parachains
-	pub struct AssetHubPolkadot {
-		genesis = asset_hub_polkadot::genesis(),
-		on_init = {
-			asset_hub_polkadot_runtime::AuraExt::on_initialize(1);
-		},
-		runtime = asset_hub_polkadot_runtime,
-		core = {
-			XcmpMessageHandler: asset_hub_polkadot_runtime::XcmpQueue,
-			DmpMessageHandler: asset_hub_polkadot_runtime::DmpQueue,
-			LocationToAccountId: asset_hub_polkadot_runtime::xcm_config::LocationToAccountId,
-			ParachainInfo: asset_hub_polkadot_runtime::ParachainInfo,
-		},
-		pallets = {
-			PolkadotXcm: asset_hub_polkadot_runtime::PolkadotXcm,
-			Assets: asset_hub_polkadot_runtime::Assets,
-			Balances: asset_hub_polkadot_runtime::Balances,
-		}
-	},
-	pub struct Collectives {
-		genesis = collectives::genesis(),
-		on_init = {
-			collectives_polkadot_runtime::AuraExt::on_initialize(1);
-		},
-		runtime = collectives_polkadot_runtime,
-		core = {
-			XcmpMessageHandler: collectives_polkadot_runtime::XcmpQueue,
-			DmpMessageHandler: collectives_polkadot_runtime::DmpQueue,
-			LocationToAccountId: collectives_polkadot_runtime::xcm_config::LocationToAccountId,
-			ParachainInfo: collectives_polkadot_runtime::ParachainInfo,
-		},
-		pallets = {
-			PolkadotXcm: collectives_polkadot_runtime::PolkadotXcm,
-			Balances: collectives_polkadot_runtime::Balances,
-		}
-	},
-	pub struct BridgeHubPolkadot {
-		genesis = bridge_hub_polkadot::genesis(),
-		on_init = {
-			bridge_hub_polkadot_runtime::AuraExt::on_initialize(1);
-		},
-		runtime = bridge_hub_polkadot_runtime,
-		core = {
-			XcmpMessageHandler: bridge_hub_polkadot_runtime::XcmpQueue,
-			DmpMessageHandler: bridge_hub_polkadot_runtime::DmpQueue,
-			LocationToAccountId: bridge_hub_polkadot_runtime::xcm_config::LocationToAccountId,
-			ParachainInfo: bridge_hub_polkadot_runtime::ParachainInfo,
-		},
-		pallets = {
-			PolkadotXcm: bridge_hub_polkadot_runtime::PolkadotXcm,
-		}
-	},
-	pub struct PenpalPolkadotA {
-		genesis = penpal::genesis(penpal::PARA_ID_A),
-		on_init = {
-			penpal_runtime::AuraExt::on_initialize(1);
-		},
-		runtime = penpal_runtime,
-		core = {
-			XcmpMessageHandler: penpal_runtime::XcmpQueue,
-			DmpMessageHandler: penpal_runtime::DmpQueue,
-			LocationToAccountId: penpal_runtime::xcm_config::LocationToAccountId,
-			ParachainInfo: penpal_runtime::ParachainInfo,
-		},
-		pallets = {
-			PolkadotXcm: penpal_runtime::PolkadotXcm,
-			Assets: penpal_runtime::Assets,
-		}
-	},
-	pub struct PenpalPolkadotB {
-		genesis = penpal::genesis(penpal::PARA_ID_B),
-		on_init = {
-			penpal_runtime::AuraExt::on_initialize(1);
-		},
-		runtime = penpal_runtime,
-		core = {
-			XcmpMessageHandler: penpal_runtime::XcmpQueue,
-			DmpMessageHandler: penpal_runtime::DmpQueue,
-			LocationToAccountId: penpal_runtime::xcm_config::LocationToAccountId,
-			ParachainInfo: penpal_runtime::ParachainInfo,
-		},
-		pallets = {
-			PolkadotXcm: penpal_runtime::PolkadotXcm,
-			Assets: penpal_runtime::Assets,
-		}
-	},
-	// Kusama Parachains
-	pub struct AssetHubKusama {
-		genesis = asset_hub_kusama::genesis(),
-		on_init = {
-			asset_hub_kusama_runtime::AuraExt::on_initialize(1);
-		},
-		runtime = asset_hub_kusama_runtime,
-		core = {
-			XcmpMessageHandler: asset_hub_kusama_runtime::XcmpQueue,
-			DmpMessageHandler: asset_hub_kusama_runtime::DmpQueue,
-			LocationToAccountId: asset_hub_kusama_runtime::xcm_config::LocationToAccountId,
-			ParachainInfo: asset_hub_kusama_runtime::ParachainInfo,
-		},
-		pallets = {
-			PolkadotXcm: asset_hub_kusama_runtime::PolkadotXcm,
-			Assets: asset_hub_kusama_runtime::Assets,
-			ForeignAssets: asset_hub_kusama_runtime::ForeignAssets,
-			PoolAssets: asset_hub_kusama_runtime::PoolAssets,
-			AssetConversion: asset_hub_kusama_runtime::AssetConversion,
-			Balances: asset_hub_kusama_runtime::Balances,
-		}
-	},
-	pub struct BridgeHubKusama {
-		genesis = bridge_hub_kusama::genesis(),
-		on_init = {
-			bridge_hub_kusama_runtime::AuraExt::on_initialize(1);
-		},
-		runtime = bridge_hub_kusama_runtime,
-		core = {
-			XcmpMessageHandler: bridge_hub_kusama_runtime::XcmpQueue,
-			DmpMessageHandler: bridge_hub_kusama_runtime::DmpQueue,
-			LocationToAccountId: bridge_hub_kusama_runtime::xcm_config::LocationToAccountId,
-			ParachainInfo: bridge_hub_kusama_runtime::ParachainInfo,
-		},
-		pallets = {
-			PolkadotXcm: bridge_hub_kusama_runtime::PolkadotXcm,
-		}
-	},
-	pub struct PenpalKusamaA {
-		genesis = penpal::genesis(penpal::PARA_ID_A),
-		on_init = {
-			penpal_runtime::AuraExt::on_initialize(1);
-		},
-		runtime = penpal_runtime,
-		core = {
-			XcmpMessageHandler: penpal_runtime::XcmpQueue,
-			DmpMessageHandler: penpal_runtime::DmpQueue,
-			LocationToAccountId: penpal_runtime::xcm_config::LocationToAccountId,
-			ParachainInfo: penpal_runtime::ParachainInfo,
-		},
-		pallets = {
-			PolkadotXcm: penpal_runtime::PolkadotXcm,
-			Assets: penpal_runtime::Assets,
-		}
-	},
-	pub struct PenpalKusamaB {
-		genesis = penpal::genesis(penpal::PARA_ID_B),
-		on_init = {
-			penpal_runtime::AuraExt::on_initialize(1);
-		},
-		runtime = penpal_runtime,
-		core = {
-			XcmpMessageHandler: penpal_runtime::XcmpQueue,
-			DmpMessageHandler: penpal_runtime::DmpQueue,
-			LocationToAccountId: penpal_runtime::xcm_config::LocationToAccountId,
-			ParachainInfo: penpal_runtime::ParachainInfo,
-		},
-		pallets = {
-			PolkadotXcm: penpal_runtime::PolkadotXcm,
-			Assets: penpal_runtime::Assets,
-		}
-	},
-	// Westend Parachains
-	pub struct AssetHubWestend {
-		genesis = asset_hub_westend::genesis(),
-		on_init = {
-			asset_hub_westend_runtime::AuraExt::on_initialize(1);
-		},
-		runtime = asset_hub_westend_runtime,
-		core = {
-			XcmpMessageHandler: asset_hub_westend_runtime::XcmpQueue,
-			DmpMessageHandler: asset_hub_westend_runtime::DmpQueue,
-			LocationToAccountId: asset_hub_westend_runtime::xcm_config::LocationToAccountId,
-			ParachainInfo: asset_hub_westend_runtime::ParachainInfo,
-		},
-		pallets = {
-			PolkadotXcm: asset_hub_westend_runtime::PolkadotXcm,
-			Balances: asset_hub_westend_runtime::Balances,
-			Assets: asset_hub_westend_runtime::Assets,
-			ForeignAssets: asset_hub_westend_runtime::ForeignAssets,
-			PoolAssets: asset_hub_westend_runtime::PoolAssets,
-			AssetConversion: asset_hub_westend_runtime::AssetConversion,
-		}
-	},
-	pub struct PenpalWestendA {
-		genesis = penpal::genesis(penpal::PARA_ID_A),
-		on_init = {
-			penpal_runtime::AuraExt::on_initialize(1);
-		},
-		runtime = penpal_runtime,
-		core = {
-			XcmpMessageHandler: penpal_runtime::XcmpQueue,
-			DmpMessageHandler: penpal_runtime::DmpQueue,
-			LocationToAccountId: penpal_runtime::xcm_config::LocationToAccountId,
-			ParachainInfo: penpal_runtime::ParachainInfo,
-		},
-		pallets = {
-			PolkadotXcm: penpal_runtime::PolkadotXcm,
-			Assets: penpal_runtime::Assets,
-		}
-	},
-	// Rococo Parachains
-	pub struct BridgeHubRococo {
-		genesis = bridge_hub_rococo::genesis(),
-		on_init = {
-			bridge_hub_rococo_runtime::AuraExt::on_initialize(1);
-		},
-		runtime = bridge_hub_rococo_runtime,
-		core = {
-			XcmpMessageHandler: bridge_hub_rococo_runtime::XcmpQueue,
-			DmpMessageHandler: bridge_hub_rococo_runtime::DmpQueue,
-			LocationToAccountId: bridge_hub_rococo_runtime::xcm_config::LocationToAccountId,
-			ParachainInfo: bridge_hub_rococo_runtime::ParachainInfo,
-		},
-		pallets = {
-			PolkadotXcm: bridge_hub_rococo_runtime::PolkadotXcm,
-			Balances: bridge_hub_rococo_runtime::Balances,
-		}
-	},
-	// AssetHubRococo (aka Rockmine/Rockmine2) mirrors AssetHubKusama
-	pub struct AssetHubRococo {
-		genesis = asset_hub_kusama::genesis(),
-		on_init = {
-			asset_hub_polkadot_runtime::AuraExt::on_initialize(1);
-		},
-		runtime = asset_hub_kusama_runtime,
-		core = {
-			XcmpMessageHandler: asset_hub_kusama_runtime::XcmpQueue,
-			DmpMessageHandler: asset_hub_kusama_runtime::DmpQueue,
-			LocationToAccountId: asset_hub_kusama_runtime::xcm_config::LocationToAccountId,
-			ParachainInfo: asset_hub_kusama_runtime::ParachainInfo,
-		},
-		pallets = {
-			PolkadotXcm: asset_hub_kusama_runtime::PolkadotXcm,
-			Assets: asset_hub_kusama_runtime::Assets,
-		}
-	},
-	// Wococo Parachains
-	pub struct BridgeHubWococo {
-		genesis = bridge_hub_rococo::genesis(),
-		on_init = {
-			bridge_hub_rococo_runtime::AuraExt::on_initialize(1);
-		},
-		runtime = bridge_hub_rococo_runtime,
-		core = {
-			XcmpMessageHandler: bridge_hub_rococo_runtime::XcmpQueue,
-			DmpMessageHandler: bridge_hub_rococo_runtime::DmpQueue,
-			LocationToAccountId: bridge_hub_rococo_runtime::xcm_config::LocationToAccountId,
-			ParachainInfo: bridge_hub_rococo_runtime::ParachainInfo,
-		},
-		pallets = {
-			PolkadotXcm: bridge_hub_rococo_runtime::PolkadotXcm,
-		}
-	},
-	pub struct AssetHubWococo {
-		genesis = asset_hub_polkadot::genesis(),
-		on_init = {
-			asset_hub_polkadot_runtime::AuraExt::on_initialize(1);
-		},
-		runtime = asset_hub_polkadot_runtime,
-		core = {
-			XcmpMessageHandler: asset_hub_polkadot_runtime::XcmpQueue,
-			DmpMessageHandler: asset_hub_polkadot_runtime::DmpQueue,
-			LocationToAccountId: asset_hub_polkadot_runtime::xcm_config::LocationToAccountId,
-			ParachainInfo: asset_hub_polkadot_runtime::ParachainInfo,
-		},
-		pallets = {
-			PolkadotXcm: asset_hub_polkadot_runtime::PolkadotXcm,
-			Assets: asset_hub_polkadot_runtime::Assets,
-		}
-	},
-	pub struct PenpalRococoA {
-		genesis = penpal::genesis(penpal::PARA_ID_A),
-		on_init = {
-			penpal_runtime::AuraExt::on_initialize(1);
-		},
-		runtime = penpal_runtime,
-		core = {
-			XcmpMessageHandler: penpal_runtime::XcmpQueue,
-			DmpMessageHandler: penpal_runtime::DmpQueue,
-			LocationToAccountId: penpal_runtime::xcm_config::LocationToAccountId,
-			ParachainInfo: penpal_runtime::ParachainInfo,
-		},
-		pallets = {
-			PolkadotXcm: penpal_runtime::PolkadotXcm,
-			Assets: penpal_runtime::Assets,
-		}
+/// Helper function used in tests to build the genesis storage using given RuntimeGenesisConfig and
+/// code Used in `legacy_vs_json_check` submods to verify storage building with JSON patch against
+/// building with RuntimeGenesisConfig struct.
+pub fn build_genesis_storage(builder: &dyn BuildStorage, code: &[u8]) -> Storage {
+	let mut storage = builder.build_storage().unwrap();
+	storage
+		.top
+		.insert(sp_core::storage::well_known_keys::CODE.to_vec(), code.into());
+	storage
+}
+
+pub mod accounts {
+	use super::*;
+	pub const ALICE: &str = "Alice";
+	pub const BOB: &str = "Bob";
+	pub const CHARLIE: &str = "Charlie";
+	pub const DAVE: &str = "Dave";
+	pub const EVE: &str = "Eve";
+	pub const FERDIE: &str = "Ferdie";
+	pub const ALICE_STASH: &str = "Alice//stash";
+	pub const BOB_STASH: &str = "Bob//stash";
+	pub const CHARLIE_STASH: &str = "Charlie//stash";
+	pub const DAVE_STASH: &str = "Dave//stash";
+	pub const EVE_STASH: &str = "Eve//stash";
+	pub const FERDIE_STASH: &str = "Ferdie//stash";
+	pub const FERDIE_BEEFY: &str = "Ferdie//stash";
+
+	pub fn init_balances() -> Vec<AccountId> {
+		vec![
+			get_account_id_from_seed::<sr25519::Public>(ALICE),
+			get_account_id_from_seed::<sr25519::Public>(BOB),
+			get_account_id_from_seed::<sr25519::Public>(CHARLIE),
+			get_account_id_from_seed::<sr25519::Public>(DAVE),
+			get_account_id_from_seed::<sr25519::Public>(EVE),
+			get_account_id_from_seed::<sr25519::Public>(FERDIE),
+			get_account_id_from_seed::<sr25519::Public>(ALICE_STASH),
+			get_account_id_from_seed::<sr25519::Public>(BOB_STASH),
+			get_account_id_from_seed::<sr25519::Public>(CHARLIE_STASH),
+			get_account_id_from_seed::<sr25519::Public>(DAVE_STASH),
+			get_account_id_from_seed::<sr25519::Public>(EVE_STASH),
+			get_account_id_from_seed::<sr25519::Public>(FERDIE_STASH),
+		]
 	}
 }
 
-decl_test_networks! {
-	pub struct PolkadotMockNet {
-		relay_chain = Polkadot,
-		parachains = vec![
-			AssetHubPolkadot,
-			Collectives,
-			BridgeHubPolkadot,
-			PenpalPolkadotA,
-			PenpalPolkadotB,
-		],
-		// TODO: uncomment when https://github.com/paritytech/cumulus/pull/2528 is merged
-		// bridge = PolkadotKusamaMockBridge
-		bridge = ()
-	},
-	pub struct KusamaMockNet {
-		relay_chain = Kusama,
-		parachains = vec![
-			AssetHubKusama,
-			PenpalKusamaA,
-			BridgeHubKusama,
-			PenpalKusamaB,
-		],
-		// TODO: uncomment when https://github.com/paritytech/cumulus/pull/2528 is merged
-		// bridge = KusamaPolkadotMockBridge
-		bridge = ()
-	},
-	pub struct WestendMockNet {
-		relay_chain = Westend,
-		parachains = vec![
-			AssetHubWestend,
-			PenpalWestendA,
-		],
-		bridge = ()
-	},
-	pub struct RococoMockNet {
-		relay_chain = Rococo,
-		parachains = vec![
-			AssetHubRococo,
-			BridgeHubRococo,
-			PenpalRococoA,
-		],
-		bridge = RococoWococoMockBridge
-	},
-	pub struct WococoMockNet {
-		relay_chain = Wococo,
-		parachains = vec![
-			AssetHubWococo,
-			BridgeHubWococo,
-		],
-		bridge = WococoRococoMockBridge
+pub mod collators {
+	use super::*;
+
+	pub fn invulnerables() -> Vec<(AccountId, AuraId)> {
+		vec![
+			(
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				get_from_seed::<AuraId>("Alice"),
+			),
+			(get_account_id_from_seed::<sr25519::Public>("Bob"), get_from_seed::<AuraId>("Bob")),
+		]
 	}
 }
 
-decl_test_bridges! {
-	pub struct RococoWococoMockBridge {
-		source = BridgeHubRococo,
-		target = BridgeHubWococo,
-		handler = RococoWococoMessageHandler
-	},
-	pub struct WococoRococoMockBridge {
-		source = BridgeHubWococo,
-		target = BridgeHubRococo,
-		handler = WococoRococoMessageHandler
+pub mod validators {
+	use super::*;
+
+	pub fn initial_authorities() -> Vec<(
+		AccountId,
+		AccountId,
+		BabeId,
+		GrandpaId,
+		ValidatorId,
+		AssignmentId,
+		AuthorityDiscoveryId,
+	)> {
+		vec![get_authority_keys_from_seed_no_beefy("Alice")]
 	}
-	// TODO: uncomment when https://github.com/paritytech/cumulus/pull/2528 is merged
-	// pub struct PolkadotKusamaMockBridge {
-	// 	source = BridgeHubPolkadot,
-	// 	target = BridgeHubKusama,
-	//  handler = PolkadotKusamaMessageHandler
-	// },
-	// pub struct KusamaPolkadotMockBridge {
-	// 	source = BridgeHubKusama,
-	// 	target = BridgeHubPolkadot,
-	// 	handler = KusamaPolkadotMessageHandler
-	// }
-}
-
-// Polkadot implementation
-impl_accounts_helpers_for_relay_chain!(Polkadot);
-impl_assert_events_helpers_for_relay_chain!(Polkadot);
-impl_hrmp_channels_helpers_for_relay_chain!(Polkadot);
-
-// Kusama implementation
-impl_accounts_helpers_for_relay_chain!(Kusama);
-impl_assert_events_helpers_for_relay_chain!(Kusama);
-impl_hrmp_channels_helpers_for_relay_chain!(Kusama);
-
-// Westend implementation
-impl_accounts_helpers_for_relay_chain!(Westend);
-impl_assert_events_helpers_for_relay_chain!(Westend);
-
-// Rococo implementation
-impl_accounts_helpers_for_relay_chain!(Rococo);
-impl_assert_events_helpers_for_relay_chain!(Rococo);
-
-// Wococo implementation
-impl_accounts_helpers_for_relay_chain!(Wococo);
-impl_assert_events_helpers_for_relay_chain!(Wococo);
-
-// AssetHubPolkadot implementation
-impl_accounts_helpers_for_parachain!(AssetHubPolkadot);
-impl_assets_helpers_for_parachain!(AssetHubPolkadot, Polkadot);
-impl_assert_events_helpers_for_parachain!(AssetHubPolkadot);
-
-// AssetHubKusama implementation
-impl_accounts_helpers_for_parachain!(AssetHubKusama);
-impl_assets_helpers_for_parachain!(AssetHubKusama, Kusama);
-impl_assert_events_helpers_for_parachain!(AssetHubKusama);
-
-// AssetHubWestend implementation
-impl_accounts_helpers_for_parachain!(AssetHubWestend);
-impl_assets_helpers_for_parachain!(AssetHubWestend, Westend);
-impl_assert_events_helpers_for_parachain!(AssetHubWestend);
-
-// PenpalPolkadot implementations
-impl_assert_events_helpers_for_parachain!(PenpalPolkadotA);
-impl_assert_events_helpers_for_parachain!(PenpalPolkadotB);
-
-// PenpalKusama implementations
-impl_assert_events_helpers_for_parachain!(PenpalKusamaA);
-impl_assert_events_helpers_for_parachain!(PenpalKusamaB);
-
-// PenpalWestendA implementation
-impl_assert_events_helpers_for_parachain!(PenpalWestendA);
-
-// Collectives implementation
-impl_accounts_helpers_for_parachain!(Collectives);
-impl_assert_events_helpers_for_parachain!(Collectives);
-
-// BridgeHubRococo implementation
-impl_accounts_helpers_for_parachain!(BridgeHubRococo);
-impl_assert_events_helpers_for_parachain!(BridgeHubRococo);
-
-decl_test_sender_receiver_accounts_parameter_types! {
-	// Relays
-	Polkadot { sender: ALICE, receiver: BOB },
-	Kusama { sender: ALICE, receiver: BOB },
-	Westend { sender: ALICE, receiver: BOB },
-	Rococo { sender: ALICE, receiver: BOB },
-	Wococo { sender: ALICE, receiver: BOB },
-	// Asset Hubs
-	AssetHubPolkadot { sender: ALICE, receiver: BOB },
-	AssetHubKusama { sender: ALICE, receiver: BOB },
-	AssetHubWestend { sender: ALICE, receiver: BOB },
-	AssetHubRococo { sender: ALICE, receiver: BOB },
-	AssetHubWococo { sender: ALICE, receiver: BOB },
-	// Collectives
-	Collectives { sender: ALICE, receiver: BOB },
-	// Bridged Hubs
-	BridgeHubPolkadot { sender: ALICE, receiver: BOB },
-	BridgeHubKusama { sender: ALICE, receiver: BOB },
-	BridgeHubRococo { sender: ALICE, receiver: BOB },
-	BridgeHubWococo { sender: ALICE, receiver: BOB },
-	// Penpals
-	PenpalPolkadotA { sender: ALICE, receiver: BOB },
-	PenpalPolkadotB { sender: ALICE, receiver: BOB },
-	PenpalKusamaA { sender: ALICE, receiver: BOB },
-	PenpalKusamaB { sender: ALICE, receiver: BOB },
-	PenpalWestendA { sender: ALICE, receiver: BOB },
-	PenpalRococoA { sender: ALICE, receiver: BOB }
-}
-
-/// Helper method to build a XCM with a `Transact` instruction and paying for its execution
-pub fn xcm_transact_paid_execution(
-	call: DoubleEncoded<()>,
-	origin_kind: OriginKind,
-	native_asset: MultiAsset,
-	beneficiary: AccountId,
-) -> VersionedXcm<()> {
-	let weight_limit = WeightLimit::Unlimited;
-	let require_weight_at_most = Weight::from_parts(1000000000, 200000);
-	let native_assets: MultiAssets = native_asset.clone().into();
-
-	VersionedXcm::from(Xcm(vec![
-		WithdrawAsset(native_assets),
-		BuyExecution { fees: native_asset, weight_limit },
-		Transact { require_weight_at_most, origin_kind, call },
-		RefundSurplus,
-		DepositAsset {
-			assets: All.into(),
-			beneficiary: MultiLocation {
-				parents: 0,
-				interior: X1(AccountId32 { network: None, id: beneficiary.into() }),
-			},
-		},
-	]))
-}
-
-/// Helper method to build a XCM with a `Transact` instruction without paying for its execution
-pub fn xcm_transact_unpaid_execution(
-	call: DoubleEncoded<()>,
-	origin_kind: OriginKind,
-) -> VersionedXcm<()> {
-	let weight_limit = WeightLimit::Unlimited;
-	let require_weight_at_most = Weight::from_parts(1000000000, 200000);
-	let check_origin = None;
-
-	VersionedXcm::from(Xcm(vec![
-		UnpaidExecution { weight_limit, check_origin },
-		Transact { require_weight_at_most, origin_kind, call },
-	]))
 }

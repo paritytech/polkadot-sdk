@@ -22,7 +22,7 @@
 //! backing phases of parachain consensus.
 //!
 //! This is primarily an implementation of "Fragment Trees", as described in
-//! [`polkadot_node_subsystem_util::inclusion_emulator::staging`].
+//! [`polkadot_node_subsystem_util::inclusion_emulator`].
 //!
 //! This subsystem also handles concerns such as the relay-chain being forkful and session changes.
 
@@ -42,13 +42,14 @@ use polkadot_node_subsystem::{
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_util::{
-	inclusion_emulator::staging::{Constraints, RelayChainBlockInfo},
+	inclusion_emulator::{Constraints, RelayChainBlockInfo},
 	request_session_index_for_child,
 	runtime::{prospective_parachains_mode, ProspectiveParachainsMode},
 };
-use polkadot_primitives::vstaging::{
-	BlockNumber, CandidateHash, CandidatePendingAvailability, CommittedCandidateReceipt, CoreState,
-	Hash, HeadData, Header, Id as ParaId, PersistedValidationData,
+use polkadot_primitives::{
+	async_backing::CandidatePendingAvailability, BlockNumber, CandidateHash,
+	CommittedCandidateReceipt, CoreState, Hash, HeadData, Header, Id as ParaId,
+	PersistedValidationData,
 };
 
 use crate::{
@@ -288,6 +289,14 @@ async fn handle_active_leaves_update<Context>(
 				ancestry.iter().cloned(),
 			)
 			.expect("ancestors are provided in reverse order and correctly; qed");
+
+			gum::debug!(
+				target: LOG_TARGET,
+				relay_parent = ?hash,
+				min_relay_parent = scope.earliest_relay_parent().number,
+				para_id = ?para,
+				"Creating fragment tree"
+			);
 
 			let tree = FragmentTree::populate(scope, &*candidate_storage);
 
@@ -598,6 +607,14 @@ fn answer_get_backable_candidate(
 	let Some(child_hash) =
 		tree.select_child(&required_path, |candidate| storage.is_backed(candidate))
 	else {
+		gum::trace!(
+			target: LOG_TARGET,
+			?required_path,
+			para_id = ?para,
+			%relay_parent,
+			"Could not find any backable candidate",
+		);
+
 		let _ = tx.send(None);
 		return
 	};
@@ -611,6 +628,14 @@ fn answer_get_backable_candidate(
 		let _ = tx.send(None);
 		return
 	};
+
+	gum::trace!(
+		target: LOG_TARGET,
+		?relay_parent,
+		candidate_hash = ?child_hash,
+		?candidate_relay_parent,
+		"Found backable candidate",
+	);
 
 	let _ = tx.send(Some((child_hash, candidate_relay_parent)));
 }
@@ -792,7 +817,7 @@ async fn fetch_backing_state<Context>(
 	let (tx, rx) = oneshot::channel();
 	ctx.send_message(RuntimeApiMessage::Request(
 		relay_parent,
-		RuntimeApiRequest::StagingParaBackingState(para_id, tx),
+		RuntimeApiRequest::ParaBackingState(para_id, tx),
 	))
 	.await;
 

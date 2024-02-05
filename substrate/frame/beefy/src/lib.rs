@@ -33,7 +33,7 @@ use frame_system::{
 use log;
 use sp_runtime::{
 	generic::DigestItem,
-	traits::{IsMember, Member},
+	traits::{IsMember, Member, One},
 	RuntimeAppPublic,
 };
 use sp_session::{GetSessionNumber, GetValidatorCount};
@@ -62,7 +62,7 @@ const LOG_TARGET: &str = "runtime::beefy";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_system::pallet_prelude::BlockNumberFor;
+	use frame_system::{ensure_root, pallet_prelude::BlockNumberFor};
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -152,8 +152,8 @@ pub mod pallet {
 		StorageMap<_, Twox64Concat, sp_consensus_beefy::ValidatorSetId, SessionIndex>;
 
 	/// Block number where BEEFY consensus is enabled/started.
-	/// By changing this (through governance or sudo), BEEFY consensus is effectively
-	/// restarted from the new block number.
+	/// By changing this (through privileged `set_new_genesis()`), BEEFY consensus is effectively
+	/// restarted from the newly set block number.
 	#[pallet::storage]
 	#[pallet::getter(fn genesis_block)]
 	pub(super) type GenesisBlock<T: Config> =
@@ -174,7 +174,7 @@ pub mod pallet {
 		fn default() -> Self {
 			// BEEFY genesis will be first BEEFY-MANDATORY block,
 			// use block number one instead of chain-genesis.
-			let genesis_block = Some(sp_runtime::traits::One::one());
+			let genesis_block = Some(One::one());
 			Self { authorities: Vec::new(), genesis_block }
 		}
 	}
@@ -198,6 +198,8 @@ pub mod pallet {
 		InvalidEquivocationProof,
 		/// A given equivocation report is valid but already previously reported.
 		DuplicateOffenceReport,
+		/// Submitted configuration is invalid.
+		InvalidConfiguration,
 	}
 
 	#[pallet::call]
@@ -264,6 +266,23 @@ pub mod pallet {
 				(*equivocation_proof, key_owner_proof),
 			)?;
 			Ok(Pays::No.into())
+		}
+
+		/// Reset BEEFY consensus by setting a new BEEFY genesis at `delay_in_blocks` blocks in the
+		/// future.
+		///
+		/// Note: `delay_in_blocks` has to be at least 1.
+		#[pallet::call_index(2)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_new_genesis())]
+		pub fn set_new_genesis(
+			origin: OriginFor<T>,
+			delay_in_blocks: BlockNumberFor<T>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			ensure!(delay_in_blocks >= One::one(), Error::<T>::InvalidConfiguration);
+			let genesis_block = frame_system::Pallet::<T>::block_number() + delay_in_blocks;
+			GenesisBlock::<T>::put(Some(genesis_block));
+			Ok(())
 		}
 	}
 
@@ -452,4 +471,5 @@ impl<T: Config> IsMember<T::BeefyId> for Pallet<T> {
 
 pub trait WeightInfo {
 	fn report_equivocation(validator_count: u32, max_nominators_per_validator: u32) -> Weight;
+	fn set_new_genesis() -> Weight;
 }

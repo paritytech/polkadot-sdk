@@ -202,8 +202,8 @@ the dispute-coordinator already knows about the dispute.
 
 Goal 3 and 4 are obviously very related and both can easily be solved via rate
 limiting as we shall see below. Rate limits should already be implemented at the
-substrate level, but [are not](https://github.com/paritytech/substrate/issues/7750)
-at the time of writing. But even if they were, the enforced substrate limits would
+Substrate level, but [are not](https://github.com/paritytech/substrate/issues/7750)
+at the time of writing. But even if they were, the enforced Substrate limits would
 likely not be configurable and thus would still be to high for our needs as we can
 rely on the following observations:
 
@@ -282,10 +282,10 @@ well, we will do the following:
    to assume this is concerning a new dispute.
 2. We open a batch and start collecting incoming messages for that candidate,
    instead of immediately forwarding.
-4. We keep collecting votes in the batch until we receive less than
+3. We keep collecting votes in the batch until we receive less than
    `MIN_KEEP_BATCH_ALIVE_VOTES` unique votes in the last `BATCH_COLLECTING_INTERVAL`. This is
    important to accommodate for goal 5 and also 3.
-5. We send the whole batch to the dispute-coordinator.
+4. We send the whole batch to the dispute-coordinator.
 
 This together with rate limiting explained above ensures we will be able to
 process valid disputes: We can limit the number of simultaneous existing batches
@@ -297,7 +297,7 @@ is `500ms` and above `RATE_LIMIT` is `100ms`. 1/3 of validators are malicious,
 so for 1000 this means around 330 malicious actors worst case.
 
 All those actors can send a message every `100ms`, that is 10 per second. This
-means at the begining of an attack they can open up around 3300 batches. Each
+means at the beginning of an attack they can open up around 3300 batches. Each
 containing two votes. So memory usage is still negligible. In reality it is even
 less, as we also demand 10 new votes to trickle in per batch in order to keep it
 alive, every `500ms`. Hence for the first second, each batch requires 20 votes
@@ -312,8 +312,8 @@ of attackers, each has 10 messages per second, all are needed to maintain the
 batches in memory. Therefore we have a hard cap of around 330 (number of
 malicious nodes) open batches. Each can be filled with number of malicious
 actor's votes. So 330 batches with each 330 votes: Let's assume approximately 100
-bytes per signature/vote. This results in a worst case memory usage of 330 * 330
-* 100 ~= 10 MiB.
+bytes per signature/vote. This results in a worst case memory usage of
+`330 * 330 * 100 ~= 10 MiB`.
 
 For 10_000 validators, we are already in the Gigabyte range, which means that
 with a validator set that large we might want to be more strict with the rate limit or

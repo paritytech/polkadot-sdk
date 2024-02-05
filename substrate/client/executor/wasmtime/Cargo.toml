@@ -1,6 +1,6 @@
 [package]
 name = "sc-executor-wasmtime"
-version = "0.10.0-dev"
+version = "0.29.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -9,13 +9,17 @@ repository.workspace = true
 description = "Defines a `WasmRuntime` that uses the Wasmtime JIT to execute."
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 log = "0.4.17"
 cfg-if = "1.0"
-libc = "0.2.121"
+libc = "0.2.152"
+parking_lot = "0.12.1"
 
 # When bumping wasmtime do not forget to also bump rustix
 # to exactly the same version as used by wasmtime!
@@ -24,7 +28,7 @@ wasmtime = { version = "8.0.1", default-features = false, features = [
 	"cranelift",
 	"jitdump",
 	"parallel-compilation",
-	"pooling-allocator"
+	"pooling-allocator",
 ] }
 anyhow = "1.0.68"
 sc-allocator = { path = "../../allocator" }
@@ -38,7 +42,7 @@ sp-wasm-interface = { path = "../../../primitives/wasm-interface", features = ["
 # By default rustix directly calls the appropriate syscalls completely bypassing libc;
 # this doesn't have any actual benefits for us besides making it harder to debug memory
 # problems (since then `mmap` etc. cannot be easily hooked into).
-rustix = { version = "0.36.7", default-features = false, features = ["std", "mm", "fs", "param", "use-libc"] }
+rustix = { version = "0.36.7", default-features = false, features = ["fs", "mm", "param", "std", "use-libc"] }
 
 [dev-dependencies]
 wat = "1.0"

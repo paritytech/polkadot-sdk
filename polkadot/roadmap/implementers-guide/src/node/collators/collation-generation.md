@@ -1,17 +1,18 @@
 # Collation Generation
 
-The collation generation subsystem is executed on collator nodes and produces candidates to be distributed to validators. If configured to produce collations for a para, it produces collations and then feeds them to the [Collator Protocol][CP] subsystem, which handles the networking.
+The collation generation subsystem is executed on collator nodes and produces candidates to be distributed to
+validators. If configured to produce collations for a para, it produces collations and then feeds them to the [Collator
+Protocol][CP] subsystem, which handles the networking.
 
 ## Protocol
 
 Collation generation for Parachains currently works in the following way:
 
-1.  A new relay chain block is imported.
-2.  The collation generation subsystem checks if the core associated to
-    the parachain is free and if yes, continues.
-3.  Collation generation calls our collator callback, if present, to generate a PoV. If none exists, do nothing.
-4.  Authoring logic determines if the current node should build a PoV.
-5.  Build new PoV and give it back to collation generation.
+1. A new relay chain block is imported.
+2. The collation generation subsystem checks if the core associated to the parachain is free and if yes, continues.
+3. Collation generation calls our collator callback, if present, to generate a PoV. If none exists, do nothing.
+4. Authoring logic determines if the current node should build a PoV.
+5. Build new PoV and give it back to collation generation.
 
 ## Messages
 
@@ -22,8 +23,7 @@ Collation generation for Parachains currently works in the following way:
   - Triggers collation generation procedure outlined in "Protocol" section.
 - `CollationGenerationMessage::Initialize`
   - Initializes the subsystem. Carries a config.
-  - No more than one initialization message should ever be sent to the collation
-    generation subsystem.
+  - No more than one initialization message should ever be sent to the collation generation subsystem.
   - Sent by a collator to initialize this subsystem.
 - `CollationGenerationMessage::SubmitCollation`
   - If the subsystem isn't initialized or the relay-parent is too old to be relevant, ignore the message.
@@ -37,7 +37,9 @@ Collation generation for Parachains currently works in the following way:
 
 ## Functionality
 
-The process of generating a collation for a parachain is very parachain-specific. As such, the details of how to do so are left beyond the scope of this description. The subsystem should be implemented as an abstract wrapper, which is aware of this configuration:
+The process of generating a collation for a parachain is very parachain-specific. As such, the details of how to do so
+are left beyond the scope of this description. The subsystem should be implemented as an abstract wrapper, which is
+aware of this configuration:
 
 ```rust
 /// The output of a collator.
@@ -117,30 +119,24 @@ The configuration should be optional, to allow for the case where the node is no
 
 - **Collation (output of a collator)**
 
-  - Contains the PoV (proof to verify the state transition of the
-    parachain) and other data.
+  - Contains the PoV (proof to verify the state transition of the parachain) and other data.
 
 - **Collation result**
 
-  - Contains the collation, and an optional result sender for a
-    collation-seconded signal.
+  - Contains the collation, and an optional result sender for a collation-seconded signal.
 
 - **Collation seconded signal**
 
-  - The signal that is returned when a collation was seconded by a
-    validator.
+  - The signal that is returned when a collation was seconded by a validator.
 
 - **Collation function**
 
-  - Called with the relay chain block the parablock will be built on top
-    of.
+  - Called with the relay chain block the parablock will be built on top of.
   - Called with the validation data.
-    - Provides information about the state of the parachain on the relay
-      chain.
+    - Provides information about the state of the parachain on the relay chain.
 
 - **Collation generation config**
 
-  - Contains collator's authentication key, optional collator function, and
-    parachain ID.
+  - Contains collator's authentication key, optional collator function, and parachain ID.
 
 [CP]: collator-protocol.md

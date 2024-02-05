@@ -16,33 +16,41 @@
 
 //! Common traits and types used by the scheduler and assignment providers.
 
-use frame_support::pallet_prelude::*;
-use primitives::{
-	v5::{Assignment, ParasEntry},
-	CoreIndex, Id as ParaId,
-};
 use scale_info::TypeInfo;
-use sp_std::prelude::*;
+use sp_runtime::{
+	codec::{Decode, Encode},
+	RuntimeDebug,
+};
 
-// Only used to link to configuration documentation.
-#[allow(unused)]
-use crate::configuration::HostConfiguration;
+use primitives::{CoreIndex, Id as ParaId};
 
-/// Reasons a core might be freed
-#[derive(Clone, Copy)]
-pub enum FreedReason {
-	/// The core's work concluded and the parablock assigned to it is considered available.
-	Concluded,
-	/// The core's work timed out.
-	TimedOut,
+/// Assignment (ParaId -> CoreIndex).
+#[derive(Encode, Decode, TypeInfo, RuntimeDebug, Clone, PartialEq)]
+pub enum Assignment {
+	/// A pool assignment.
+	Pool {
+		/// The assigned para id.
+		para_id: ParaId,
+		/// The core index the para got assigned to.
+		core_index: CoreIndex,
+	},
+	/// A bulk assignment.
+	Bulk(ParaId),
 }
 
+impl Assignment {
+	/// Returns the [`ParaId`] this assignment is associated to.
+	pub fn para_id(&self) -> ParaId {
+		match self {
+			Self::Pool { para_id, .. } => *para_id,
+			Self::Bulk(para_id) => *para_id,
+		}
+	}
+}
+
+#[derive(Encode, Decode, TypeInfo)]
 /// A set of variables required by the scheduler in order to operate.
 pub struct AssignmentProviderConfig<BlockNumber> {
-	/// The availability period specified by the implementation.
-	/// See [`HostConfiguration::paras_availability_period`] for more information.
-	pub availability_period: BlockNumber,
-
 	/// How many times a collation can time out on availability.
 	/// Zero timeouts still means that a collation can be provided as per the slot auction
 	/// assignment provider.
@@ -53,44 +61,42 @@ pub struct AssignmentProviderConfig<BlockNumber> {
 }
 
 pub trait AssignmentProvider<BlockNumber> {
-	/// How many cores are allocated to this provider.
-	fn session_core_count() -> u32;
-
 	/// Pops an [`Assignment`] from the provider for a specified [`CoreIndex`].
-	/// The `concluded_para` field makes the caller report back to the provider
-	/// which [`ParaId`] it processed last on the supplied [`CoreIndex`].
-	fn pop_assignment_for_core(
-		core_idx: CoreIndex,
-		concluded_para: Option<ParaId>,
-	) -> Option<Assignment>;
+	///
+	/// This is where assignments come into existance.
+	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Assignment>;
 
-	/// Push back an already popped assignment. Intended for provider implementations
-	/// that need to be able to keep track of assignments over session boundaries,
-	/// such as the on demand assignment provider.
-	fn push_assignment_for_core(core_idx: CoreIndex, assignment: Assignment);
+	/// A previously popped `Assignment` has been fully processed.
+	///
+	/// Report back to the assignment provider that an assignment is done and no longer present in
+	/// the scheduler.
+	///
+	/// This is one way of the life of an assignment coming to an end.
+	fn report_processed(assignment: Assignment);
+
+	/// Push back a previously popped assignment.
+	///
+	/// If the assignment could not be processed within the current session, it can be pushed back
+	/// to the assignment provider in order to be poppped again later.
+	///
+	/// This is the second way the life of an assignment can come to an end.
+	fn push_back_assignment(assignment: Assignment);
 
 	/// Returns a set of variables needed by the scheduler
 	fn get_provider_config(core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumber>;
-}
 
-/// How a core is mapped to a backing group and a `ParaId`
-#[derive(Clone, Encode, Decode, PartialEq, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub struct CoreAssignment<BlockNumber> {
-	/// The core that is assigned.
-	pub core: CoreIndex,
-	/// The para id and accompanying information needed to collate and back a parablock.
-	pub paras_entry: ParasEntry<BlockNumber>,
-}
+	/// Push some assignment for mocking/benchmarks purposes.
+	///
+	/// Useful for benchmarks and testing. The returned assignment is "valid" and can if need be
+	/// passed into `report_processed` for example.
+	#[cfg(any(feature = "runtime-benchmarks", test))]
+	fn get_mock_assignment(core_idx: CoreIndex, para_id: ParaId) -> Assignment;
 
-impl<BlockNumber> CoreAssignment<BlockNumber> {
-	/// Returns the [`ParaId`] of the assignment.
-	pub fn para_id(&self) -> ParaId {
-		self.paras_entry.para_id()
-	}
-
-	/// Returns the inner [`ParasEntry`] of the assignment.
-	pub fn to_paras_entry(self) -> ParasEntry<BlockNumber> {
-		self.paras_entry
-	}
+	/// How many cores are allocated to this provider.
+	///
+	/// As the name suggests the core count has to be session buffered:
+	///
+	/// - Core count has to be predetermined for the next session in the current session.
+	/// - Core count must not change during a session.
+	fn session_core_count() -> u32;
 }

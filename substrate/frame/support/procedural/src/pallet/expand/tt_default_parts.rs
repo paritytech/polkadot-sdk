@@ -31,6 +31,8 @@ pub fn expand_tt_default_parts(def: &mut Def) -> proc_macro2::TokenStream {
 
 	let call_part = def.call.as_ref().map(|_| quote::quote!(Call,));
 
+	let task_part = def.task_enum.as_ref().map(|_| quote::quote!(Task,));
+
 	let storage_part = (!def.storages.is_empty()).then(|| quote::quote!(Storage,));
 
 	let event_part = def.event.as_ref().map(|event| {
@@ -85,23 +87,21 @@ pub fn expand_tt_default_parts(def: &mut Def) -> proc_macro2::TokenStream {
 		// wrapped inside of braces and finally prepended with double colons, to the caller inside
 		// of a key named `tokens`.
 		//
-		// We need to accept a frame_support argument here, because this macro gets expanded on the
-		// crate that called the `construct_runtime!` macro, and said crate may have renamed
-		// frame-support, and so we need to pass in the frame-support path that said crate
-		// recognizes.
+		// We need to accept a path argument here, because this macro gets expanded on the
+		// crate that called the `construct_runtime!` macro, and the actual path is unknown.
 		#[macro_export]
 		#[doc(hidden)]
 		macro_rules! #default_parts_unique_id {
 			{
 				$caller:tt
-				frame_support = [{ $($frame_support:ident)::* }]
+				your_tt_return = [{ $my_tt_return:path }]
 			} => {
-				$($frame_support)*::__private::tt_return! {
+				$my_tt_return! {
 					$caller
 					tokens = [{
 						expanded::{
 							Pallet, #call_part #storage_part #event_part #error_part #origin_part #config_part
-							#inherent_part #validate_unsigned_part #freeze_reason_part
+							#inherent_part #validate_unsigned_part #freeze_reason_part #task_part
 							#hold_reason_part #lock_id_part #slash_reason_part
 						}
 					}]
@@ -112,7 +112,7 @@ pub fn expand_tt_default_parts(def: &mut Def) -> proc_macro2::TokenStream {
 		pub use #default_parts_unique_id as tt_default_parts;
 
 
-		// This macro is similar to the `tt_default_parts!`. It expands the pallets thare are declared
+		// This macro is similar to the `tt_default_parts!`. It expands the pallets that are declared
 		// explicitly (`System: frame_system::{Pallet, Call}`) with extra parts.
 		//
 		// For example, after expansion an explicit pallet would look like:
@@ -124,9 +124,9 @@ pub fn expand_tt_default_parts(def: &mut Def) -> proc_macro2::TokenStream {
 		macro_rules! #extra_parts_unique_id {
 			{
 				$caller:tt
-				frame_support = [{ $($frame_support:ident)::* }]
+				your_tt_return = [{ $my_tt_return:path }]
 			} => {
-				$($frame_support)*::__private::tt_return! {
+				$my_tt_return! {
 					$caller
 					tokens = [{
 						expanded::{

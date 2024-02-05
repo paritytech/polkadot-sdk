@@ -117,7 +117,7 @@ pub mod weights;
 
 use codec::{Decode, MaxEncodedLen};
 use frame_support::{
-	dispatch::{DispatchError, DispatchResult},
+	dispatch::DispatchResult,
 	ensure,
 	traits::{
 		EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get, OneSessionHandler,
@@ -129,7 +129,7 @@ use frame_support::{
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Convert, Member, One, OpaqueKeys, Zero},
-	ConsensusEngineId, KeyTypeId, Permill, RuntimeAppPublic,
+	ConsensusEngineId, DispatchError, KeyTypeId, Permill, RuntimeAppPublic,
 };
 use sp_staking::SessionIndex;
 use sp_std::{
@@ -917,6 +917,10 @@ impl<T: Config> EstimateNextNewSession<BlockNumberFor<T>> for Pallet<T> {
 impl<T: Config> frame_support::traits::DisabledValidators for Pallet<T> {
 	fn is_disabled(index: u32) -> bool {
 		<Pallet<T>>::disabled_validators().binary_search(&index).is_ok()
+	}
+
+	fn disabled_validators() -> Vec<u32> {
+		<Pallet<T>>::disabled_validators()
 	}
 }
 

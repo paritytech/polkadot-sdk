@@ -91,6 +91,9 @@ mod address;
 mod benchmarking;
 mod exec;
 mod gas;
+mod primitives;
+pub use primitives::*;
+
 mod schedule;
 mod storage;
 mod wasm;
@@ -103,7 +106,9 @@ pub mod weights;
 #[cfg(test)]
 mod tests;
 use crate::{
-	exec::{AccountIdOf, ErrorOrigin, ExecError, Executable, Key, MomentOf, Stack as ExecStack},
+	exec::{
+		AccountIdOf, ErrorOrigin, ExecError, Executable, Ext, Key, MomentOf, Stack as ExecStack,
+	},
 	gas::GasMeter,
 	storage::{meter::Meter as StorageMeter, ContractInfo, DeletionQueueManager},
 	wasm::{CodeInfo, WasmBlob},
@@ -111,10 +116,7 @@ use crate::{
 use codec::{Codec, Decode, Encode, HasCompact, MaxEncodedLen};
 use environmental::*;
 use frame_support::{
-	dispatch::{
-		DispatchError, Dispatchable, GetDispatchInfo, Pays, PostDispatchInfo, RawOrigin,
-		WithPostDispatchInfo,
-	},
+	dispatch::{GetDispatchInfo, Pays, PostDispatchInfo, RawOrigin, WithPostDispatchInfo},
 	ensure,
 	error::BadOrigin,
 	traits::{
@@ -129,16 +131,11 @@ use frame_system::{
 	pallet_prelude::{BlockNumberFor, OriginFor},
 	EventRecord, Pallet as System,
 };
-use pallet_contracts_primitives::{
-	Code, CodeUploadResult, CodeUploadReturnValue, ContractAccessError, ContractExecResult,
-	ContractInstantiateResult, ContractResult, ExecReturnValue, GetStorageResult,
-	InstantiateReturnValue, StorageDeposit,
-};
 use scale_info::TypeInfo;
 use smallvec::Array;
 use sp_runtime::{
-	traits::{Convert, Hash, Saturating, StaticLookup, Zero},
-	RuntimeDebug,
+	traits::{Convert, Dispatchable, Hash, Saturating, StaticLookup, Zero},
+	DispatchError, RuntimeDebug,
 };
 use sp_std::{fmt::Debug, prelude::*};
 
@@ -404,6 +401,14 @@ pub mod pallet {
 		/// its type appears in the metadata. Only valid value is `()`.
 		#[pallet::constant]
 		type Environment: Get<Environment<Self>>;
+
+		/// A type that exposes XCM APIs, allowing contracts to interact with other parachains, and
+		/// execute XCM programs.
+		type Xcm: xcm_builder::Controller<
+			OriginFor<Self>,
+			<Self as frame_system::Config>::RuntimeCall,
+			BlockNumberFor<Self>,
+		>;
 	}
 
 	#[pallet::hooks]
@@ -661,8 +666,8 @@ pub mod pallet {
 				} else {
 					return Err(<Error<T>>::ContractNotFound.into())
 				};
-				<WasmBlob<T>>::increment_refcount(code_hash)?;
-				<WasmBlob<T>>::decrement_refcount(contract.code_hash);
+				<ExecStack<T, WasmBlob<T>>>::increment_refcount(code_hash)?;
+				<ExecStack<T, WasmBlob<T>>>::decrement_refcount(contract.code_hash);
 				Self::deposit_event(
 					vec![T::Hashing::hash_of(&dest), code_hash, contract.code_hash],
 					Event::ContractCodeUpdated {
@@ -1005,6 +1010,8 @@ pub mod pallet {
 		/// in this error. Note that this usually  shouldn't happen as deploying such contracts
 		/// is rejected.
 		NoChainExtension,
+		/// Failed to decode the XCM program.
+		XCMDecodeFailed,
 		/// A contract with the same AccountId already exists.
 		DuplicateContract,
 		/// A contract self destructed in its constructor.
@@ -1221,6 +1228,9 @@ struct InternalOutput<T: Config, O> {
 	result: Result<O, ExecError>,
 }
 
+// Set up a global reference to the boolean flag used for the re-entrancy guard.
+environmental!(executing_contract: bool);
+
 /// Helper trait to wrap contract execution entry points into a single function
 /// [`Invokable::run_guarded`].
 trait Invokable<T: Config>: Sized {
@@ -1236,9 +1246,6 @@ trait Invokable<T: Config>: Sized {
 	/// We enforce a re-entrancy guard here by initializing and checking a boolean flag through a
 	/// global reference.
 	fn run_guarded(self, common: CommonInput<T>) -> InternalOutput<T, Self::Output> {
-		// Set up a global reference to the boolean flag used for the re-entrancy guard.
-		environmental!(executing_contract: bool);
-
 		let gas_limit = common.gas_limit;
 
 		// Check whether the origin is allowed here. The logic of the access rules

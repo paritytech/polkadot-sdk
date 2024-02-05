@@ -101,6 +101,9 @@ where
 				self.requests_cache.cache_authorities(relay_parent, authorities),
 			Validators(relay_parent, validators) =>
 				self.requests_cache.cache_validators(relay_parent, validators),
+			MinimumBackingVotes(_, session_index, minimum_backing_votes) => self
+				.requests_cache
+				.cache_minimum_backing_votes(session_index, minimum_backing_votes),
 			ValidatorGroups(relay_parent, groups) =>
 				self.requests_cache.cache_validator_groups(relay_parent, groups),
 			AvailabilityCores(relay_parent, cores) =>
@@ -162,13 +165,18 @@ where
 			KeyOwnershipProof(relay_parent, validator_id, key_ownership_proof) => self
 				.requests_cache
 				.cache_key_ownership_proof((relay_parent, validator_id), key_ownership_proof),
+			RequestResult::ApprovalVotingParams(_relay_parent, session_index, params) =>
+				self.requests_cache.cache_approval_voting_params(session_index, params),
 			SubmitReportDisputeLost(_, _, _, _) => {},
-
-			StagingParaBackingState(relay_parent, para_id, constraints) => self
+			DisabledValidators(relay_parent, disabled_validators) =>
+				self.requests_cache.cache_disabled_validators(relay_parent, disabled_validators),
+			ParaBackingState(relay_parent, para_id, constraints) => self
 				.requests_cache
-				.cache_staging_para_backing_state((relay_parent, para_id), constraints),
-			StagingAsyncBackingParams(relay_parent, params) =>
-				self.requests_cache.cache_staging_async_backing_params(relay_parent, params),
+				.cache_para_backing_state((relay_parent, para_id), constraints),
+			AsyncBackingParams(relay_parent, params) =>
+				self.requests_cache.cache_async_backing_params(relay_parent, params),
+			NodeFeatures(session_index, params) =>
+				self.requests_cache.cache_node_features(session_index, params),
 		}
 	}
 
@@ -294,13 +302,33 @@ where
 						Request::SubmitReportDisputeLost(dispute_proof, key_ownership_proof, sender)
 					},
 				),
-
-			Request::StagingParaBackingState(para, sender) =>
-				query!(staging_para_backing_state(para), sender)
-					.map(|sender| Request::StagingParaBackingState(para, sender)),
-			Request::StagingAsyncBackingParams(sender) =>
-				query!(staging_async_backing_params(), sender)
-					.map(|sender| Request::StagingAsyncBackingParams(sender)),
+			Request::ApprovalVotingParams(session_index, sender) =>
+				query!(approval_voting_params(session_index), sender)
+					.map(|sender| Request::ApprovalVotingParams(session_index, sender)),
+			Request::DisabledValidators(sender) => query!(disabled_validators(), sender)
+				.map(|sender| Request::DisabledValidators(sender)),
+			Request::ParaBackingState(para, sender) => query!(para_backing_state(para), sender)
+				.map(|sender| Request::ParaBackingState(para, sender)),
+			Request::AsyncBackingParams(sender) => query!(async_backing_params(), sender)
+				.map(|sender| Request::AsyncBackingParams(sender)),
+			Request::MinimumBackingVotes(index, sender) => {
+				if let Some(value) = self.requests_cache.minimum_backing_votes(index) {
+					self.metrics.on_cached_request();
+					let _ = sender.send(Ok(value));
+					None
+				} else {
+					Some(Request::MinimumBackingVotes(index, sender))
+				}
+			},
+			Request::NodeFeatures(index, sender) => {
+				if let Some(value) = self.requests_cache.node_features(index) {
+					self.metrics.on_cached_request();
+					let _ = sender.send(Ok(value.clone()));
+					None
+				} else {
+					Some(Request::NodeFeatures(index, sender))
+				}
+			},
 		}
 	}
 
@@ -396,6 +424,9 @@ where
 
 	macro_rules! query {
 		($req_variant:ident, $api_name:ident ($($param:expr),*), ver = $version:expr, $sender:expr) => {{
+			query!($req_variant, $api_name($($param),*), ver = $version, $sender, result = ( relay_parent $(, $param )* ) )
+		}};
+		($req_variant:ident, $api_name:ident ($($param:expr),*), ver = $version:expr, $sender:expr, result = ( $($results:expr),* ) ) => {{
 			let sender = $sender;
 			let version: u32 = $version;	// enforce type for the version expression
 			let runtime_version = client.api_version_parachain_host(relay_parent).await
@@ -429,7 +460,7 @@ where
 			metrics.on_request(res.is_ok());
 			let _ = sender.send(res.clone());
 
-			res.ok().map(|res| RequestResult::$req_variant(relay_parent, $( $param, )* res))
+			res.ok().map(|res| RequestResult::$req_variant($( $results, )* res))
 		}}
 	}
 
@@ -545,28 +576,54 @@ where
 			ver = Request::KEY_OWNERSHIP_PROOF_RUNTIME_REQUIREMENT,
 			sender
 		),
+		Request::ApprovalVotingParams(session_index, sender) => {
+			query!(
+				ApprovalVotingParams,
+				approval_voting_params(session_index),
+				ver = Request::APPROVAL_VOTING_PARAMS_REQUIREMENT,
+				sender
+			)
+		},
 		Request::SubmitReportDisputeLost(dispute_proof, key_ownership_proof, sender) => query!(
 			SubmitReportDisputeLost,
 			submit_report_dispute_lost(dispute_proof, key_ownership_proof),
 			ver = Request::SUBMIT_REPORT_DISPUTE_LOST_RUNTIME_REQUIREMENT,
 			sender
 		),
-
-		Request::StagingParaBackingState(para, sender) => {
+		Request::MinimumBackingVotes(index, sender) => query!(
+			MinimumBackingVotes,
+			minimum_backing_votes(index),
+			ver = Request::MINIMUM_BACKING_VOTES_RUNTIME_REQUIREMENT,
+			sender
+		),
+		Request::DisabledValidators(sender) => query!(
+			DisabledValidators,
+			disabled_validators(),
+			ver = Request::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT,
+			sender
+		),
+		Request::ParaBackingState(para, sender) => {
 			query!(
-				StagingParaBackingState,
-				staging_para_backing_state(para),
-				ver = Request::STAGING_BACKING_STATE,
+				ParaBackingState,
+				para_backing_state(para),
+				ver = Request::ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT,
 				sender
 			)
 		},
-		Request::StagingAsyncBackingParams(sender) => {
+		Request::AsyncBackingParams(sender) => {
 			query!(
-				StagingAsyncBackingParams,
-				staging_async_backing_params(),
-				ver = Request::STAGING_BACKING_STATE,
+				AsyncBackingParams,
+				async_backing_params(),
+				ver = Request::ASYNC_BACKING_STATE_RUNTIME_REQUIREMENT,
 				sender
 			)
 		},
+		Request::NodeFeatures(index, sender) => query!(
+			NodeFeatures,
+			node_features(),
+			ver = Request::NODE_FEATURES_RUNTIME_REQUIREMENT,
+			sender,
+			result = (index)
+		),
 	}
 }

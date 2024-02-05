@@ -1,6 +1,6 @@
 [package]
 name = "sc-informant"
-version = "0.10.0-dev"
+version = "0.33.0"
 authors.workspace = true
 description = "Substrate informant."
 edition.workspace = true
@@ -8,6 +8,9 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
 readme = "README.md"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -19,6 +22,7 @@ futures-timer = "3.0.1"
 log = "0.4.17"
 sc-client-api = { path = "../api" }
 sc-network-common = { path = "../network/common" }
+sc-network-sync = { path = "../network/sync" }
 sc-network = { path = "../network" }
 sp-blockchain = { path = "../../primitives/blockchain" }
 sp-runtime = { path = "../../primitives/runtime" }

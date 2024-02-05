@@ -1,50 +1,60 @@
 [package]
 name = "polkadot-parachain-bin"
-version = "1.0.0"
+version = "4.0.0"
 authors.workspace = true
 build = "build.rs"
 edition.workspace = true
 description = "Runs a polkadot parachain node which could be a collator."
+license = "Apache-2.0"
+
+[lints]
+workspace = true
 
 [[bin]]
 name = "polkadot-parachain"
 path = "src/main.rs"
 
 [dependencies]
-async-trait = "0.1.73"
-clap = { version = "4.4.1", features = ["derive"] }
+async-trait = "0.1.74"
+clap = { version = "4.4.18", features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.0.0" }
 futures = "0.3.28"
 hex-literal = "0.4.1"
 log = "0.4.20"
-serde = { version = "1.0.188", features = ["derive"] }
-serde_json = "1.0.105"
+serde = { version = "1.0.195", features = ["derive"] }
+serde_json = "1.0.111"
 
 # Local
 rococo-parachain-runtime = { path = "../parachains/runtimes/testing/rococo-parachain" }
 shell-runtime = { path = "../parachains/runtimes/starters/shell" }
-glutton-runtime = { path = "../parachains/runtimes/glutton/glutton-kusama" }
+glutton-westend-runtime = { path = "../parachains/runtimes/glutton/glutton-westend" }
 seedling-runtime = { path = "../parachains/runtimes/starters/seedling" }
-asset-hub-polkadot-runtime = { path = "../parachains/runtimes/assets/asset-hub-polkadot" }
-asset-hub-kusama-runtime = { path = "../parachains/runtimes/assets/asset-hub-kusama" }
+asset-hub-rococo-runtime = { path = "../parachains/runtimes/assets/asset-hub-rococo" }
 asset-hub-westend-runtime = { path = "../parachains/runtimes/assets/asset-hub-westend" }
-collectives-polkadot-runtime = { path = "../parachains/runtimes/collectives/collectives-polkadot" }
+collectives-westend-runtime = { path = "../parachains/runtimes/collectives/collectives-westend" }
 contracts-rococo-runtime = { path = "../parachains/runtimes/contracts/contracts-rococo" }
 bridge-hub-rococo-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-rococo" }
-bridge-hub-kusama-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-kusama" }
-bridge-hub-polkadot-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-polkadot" }
+coretime-rococo-runtime = { path = "../parachains/runtimes/coretime/coretime-rococo" }
+coretime-westend-runtime = { path = "../parachains/runtimes/coretime/coretime-westend" }
+bridge-hub-westend-runtime = { path = "../parachains/runtimes/bridge-hubs/bridge-hub-westend" }
 penpal-runtime = { path = "../parachains/runtimes/testing/penpal" }
-jsonrpsee = { version = "0.16.2", features = ["server"] }
+jsonrpsee = { version = "0.20.3", features = ["server"] }
+people-rococo-runtime = { path = "../parachains/runtimes/people/people-rococo" }
+people-westend-runtime = { path = "../parachains/runtimes/people/people-westend" }
 parachains-common = { path = "../parachains/common" }
+testnet-parachains-constants = { path = "../parachains/runtimes/constants", default-features = false, features = ["rococo", "westend"] }
 
 # Substrate
 frame-benchmarking = { path = "../../substrate/frame/benchmarking" }
 frame-benchmarking-cli = { path = "../../substrate/utils/frame/benchmarking-cli" }
-sp-runtime = { path = "../../substrate/primitives/runtime", default-features = false}
+sp-runtime = { path = "../../substrate/primitives/runtime", default-features = false }
 sp-io = { path = "../../substrate/primitives/io" }
 sp-core = { path = "../../substrate/primitives/core" }
 sp-session = { path = "../../substrate/primitives/session" }
+frame-try-runtime = { path = "../../substrate/frame/try-runtime", optional = true }
 sc-consensus = { path = "../../substrate/client/consensus/common" }
+sp-tracing = { path = "../../substrate/primitives/tracing" }
+frame-support = { path = "../../substrate/frame/support" }
 sc-cli = { path = "../../substrate/client/cli" }
 sc-client-api = { path = "../../substrate/client/api" }
 sc-executor = { path = "../../substrate/client/executor" }
@@ -57,12 +67,19 @@ sc-network-sync = { path = "../../substrate/client/network/sync" }
 sc-basic-authorship = { path = "../../substrate/client/basic-authorship" }
 sp-timestamp = { path = "../../substrate/primitives/timestamp" }
 sp-blockchain = { path = "../../substrate/primitives/blockchain" }
+sp-genesis-builder = { path = "../../substrate/primitives/genesis-builder", default-features = false }
 sp-block-builder = { path = "../../substrate/primitives/block-builder" }
 sp-keystore = { path = "../../substrate/primitives/keystore" }
 sc-chain-spec = { path = "../../substrate/client/chain-spec" }
 sc-rpc = { path = "../../substrate/client/rpc" }
+sp-version = { path = "../../substrate/primitives/version" }
 sc-tracing = { path = "../../substrate/client/tracing" }
 sp-offchain = { path = "../../substrate/primitives/offchain" }
+frame-system-rpc-runtime-api = { path = "../../substrate/frame/system/rpc/runtime-api" }
+pallet-transaction-payment = { path = "../../substrate/frame/transaction-payment" }
+pallet-transaction-payment-rpc-runtime-api = { path = "../../substrate/frame/transaction-payment/rpc/runtime-api" }
+sp-std = { path = "../../substrate/primitives/std" }
+sp-inherents = { path = "../../substrate/primitives/inherents" }
 sp-api = { path = "../../substrate/primitives/api" }
 sp-consensus-aura = { path = "../../substrate/primitives/consensus/aura" }
 sc-sysinfo = { path = "../../substrate/client/sysinfo" }
@@ -86,9 +103,10 @@ cumulus-client-consensus-aura = { path = "../client/consensus/aura" }
 cumulus-client-consensus-relay-chain = { path = "../client/consensus/relay-chain" }
 cumulus-client-consensus-common = { path = "../client/consensus/common" }
 cumulus-client-consensus-proposer = { path = "../client/consensus/proposer" }
+cumulus-client-parachain-inherent = { path = "../client/parachain-inherent" }
 cumulus-client-service = { path = "../client/service" }
+cumulus-primitives-aura = { path = "../primitives/aura" }
 cumulus-primitives-core = { path = "../primitives/core" }
-cumulus-primitives-parachain-inherent = { path = "../primitives/parachain-inherent" }
 cumulus-relay-chain-interface = { path = "../client/relay-chain-interface" }
 color-print = "0.3.4"
 
@@ -99,24 +117,29 @@ substrate-build-script-utils = { path = "../../substrate/utils/build-script-util
 assert_cmd = "2.0"
 nix = { version = "0.26.1", features = ["signal"] }
 tempfile = "3.8.0"
-tokio = { version = "1.32.0", features = ["macros", "time", "parking_lot"] }
+tokio = { version = "1.32.0", features = ["macros", "parking_lot", "time"] }
 wait-timeout = "0.2"
 
 [features]
 default = []
 runtime-benchmarks = [
-	"asset-hub-kusama-runtime/runtime-benchmarks",
-	"asset-hub-polkadot-runtime/runtime-benchmarks",
+	"asset-hub-rococo-runtime/runtime-benchmarks",
 	"asset-hub-westend-runtime/runtime-benchmarks",
-	"bridge-hub-kusama-runtime/runtime-benchmarks",
-	"bridge-hub-polkadot-runtime/runtime-benchmarks",
 	"bridge-hub-rococo-runtime/runtime-benchmarks",
-	"collectives-polkadot-runtime/runtime-benchmarks",
+	"bridge-hub-westend-runtime/runtime-benchmarks",
+	"collectives-westend-runtime/runtime-benchmarks",
 	"contracts-rococo-runtime/runtime-benchmarks",
+	"coretime-rococo-runtime/runtime-benchmarks",
+	"coretime-westend-runtime/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
 	"frame-benchmarking-cli/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
-	"glutton-runtime/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"glutton-westend-runtime/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
 	"penpal-runtime/runtime-benchmarks",
+	"people-rococo-runtime/runtime-benchmarks",
+	"people-westend-runtime/runtime-benchmarks",
 	"polkadot-cli/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
 	"polkadot-service/runtime-benchmarks",
@@ -125,18 +148,26 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
-	"asset-hub-kusama-runtime/try-runtime",
-	"asset-hub-polkadot-runtime/try-runtime",
+	"asset-hub-rococo-runtime/try-runtime",
 	"asset-hub-westend-runtime/try-runtime",
-	"bridge-hub-kusama-runtime/try-runtime",
-	"bridge-hub-polkadot-runtime/try-runtime",
 	"bridge-hub-rococo-runtime/try-runtime",
-	"collectives-polkadot-runtime/try-runtime",
+	"bridge-hub-westend-runtime/try-runtime",
+	"collectives-westend-runtime/try-runtime",
 	"contracts-rococo-runtime/try-runtime",
-	"glutton-runtime/try-runtime",
+	"coretime-rococo-runtime/try-runtime",
+	"coretime-westend-runtime/try-runtime",
+	"frame-support/try-runtime",
+	"frame-try-runtime/try-runtime",
+	"glutton-westend-runtime/try-runtime",
+	"pallet-transaction-payment/try-runtime",
 	"penpal-runtime/try-runtime",
+	"people-rococo-runtime/try-runtime",
+	"people-westend-runtime/try-runtime",
 	"polkadot-cli/try-runtime",
 	"polkadot-service/try-runtime",
 	"shell-runtime/try-runtime",
 	"sp-runtime/try-runtime",
+]
+fast-runtime = [
+	"bridge-hub-rococo-runtime/fast-runtime",
 ]

@@ -36,12 +36,13 @@ impl<T: Config> Pallet<T> {
 	/// - Request revenue information for a previous timeslice
 	/// - Initialize an instantaneous core pool historical revenue record
 	pub(crate) fn do_tick() -> Weight {
+		let mut meter = WeightMeter::new();
+		meter.consume(T::WeightInfo::do_tick_base());
+
 		let (mut status, config) = match (Status::<T>::get(), Configuration::<T>::get()) {
 			(Some(s), Some(c)) => (s, c),
-			_ => return Weight::zero(),
+			_ => return meter.consumed(),
 		};
-
-		let mut meter = WeightMeter::max_limit();
 
 		if Self::process_core_count(&mut status) {
 			meter.consume(T::WeightInfo::process_core_count(status.core_count.into()));
@@ -86,7 +87,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn process_core_count(status: &mut StatusRecord) -> bool {
-		if let Some(core_count) = T::Coretime::check_notify_core_count() {
+		if let Some(core_count) = CoreCountInbox::<T>::take() {
 			status.core_count = core_count;
 			Self::deposit_event(Event::<T>::CoreCountChanged { core_count });
 			return true
@@ -95,9 +96,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn process_revenue() -> bool {
-		let Some((until, amount)) = T::Coretime::check_notify_revenue_info() else {
-			return false;
-		};
+		let Some((until, amount)) = T::Coretime::check_notify_revenue_info() else { return false };
 		let when: Timeslice =
 			(until / T::TimeslicePeriod::get()).saturating_sub(One::one()).saturated_into();
 		let mut revenue = T::ConvertBalance::convert_back(amount);
@@ -113,10 +112,16 @@ impl<T: Config> Pallet<T> {
 		}
 		// Payout system InstaPool Cores.
 		let total_contrib = r.system_contributions.saturating_add(r.private_contributions);
-		let system_payout =
-			revenue.saturating_mul(r.system_contributions.into()) / total_contrib.into();
-		let _ = Self::charge(&Self::account_id(), system_payout);
-		revenue.saturating_reduce(system_payout);
+		let system_payout = if !total_contrib.is_zero() {
+			let system_payout =
+				revenue.saturating_mul(r.system_contributions.into()) / total_contrib.into();
+			let _ = Self::charge(&Self::account_id(), system_payout);
+			revenue.saturating_reduce(system_payout);
+
+			system_payout
+		} else {
+			Zero::zero()
+		};
 
 		if !revenue.is_zero() && r.private_contributions > 0 {
 			r.maybe_payout = Some(revenue);
@@ -289,9 +294,7 @@ impl<T: Config> Pallet<T> {
 		rc_begin: RelayBlockNumberOf<T>,
 		core: CoreIndex,
 	) {
-		let Some(workplan) = Workplan::<T>::take((timeslice, core)) else {
-			return;
-		};
+		let Some(workplan) = Workplan::<T>::take((timeslice, core)) else { return };
 		let workload = Workload::<T>::get(core);
 		let parts_used = workplan.iter().map(|i| i.mask).fold(CoreMask::void(), |a, i| a | i);
 		let mut workplan = workplan.into_inner();

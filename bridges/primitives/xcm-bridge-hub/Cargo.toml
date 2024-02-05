@@ -1,0 +1,19 @@
+[package]
+name = "bp-xcm-bridge-hub"
+description = "Primitives of the xcm-bridge-hub pallet."
+version = "0.2.0"
+authors.workspace = true
+edition.workspace = true
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[lints]
+workspace = true
+
+[dependencies]
+
+# Substrate Dependencies
+sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+
+[features]
+default = ["std"]
+std = ["sp-std/std"]

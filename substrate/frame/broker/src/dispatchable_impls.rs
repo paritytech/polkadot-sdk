@@ -37,6 +37,11 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	pub(crate) fn do_notify_core_count(core_count: CoreIndex) -> DispatchResult {
+		CoreCountInbox::<T>::put(core_count);
+		Ok(())
+	}
+
 	pub(crate) fn do_reserve(workload: Schedule) -> DispatchResult {
 		let mut r = Reservations::<T>::get();
 		let index = r.len() as u32;
@@ -76,7 +81,7 @@ impl<T: Config> Pallet<T> {
 			last_timeslice: Self::current_timeslice(),
 		};
 		let now = frame_system::Pallet::<T>::block_number();
-		let dummy_sale = SaleInfoRecord {
+		let new_sale = SaleInfoRecord {
 			sale_start: now,
 			leadin_length: Zero::zero(),
 			price,
@@ -89,7 +94,7 @@ impl<T: Config> Pallet<T> {
 			cores_sold: 0,
 		};
 		Self::deposit_event(Event::<T>::SalesStarted { price, core_count });
-		Self::rotate_sale(dummy_sale, &config, &status);
+		Self::rotate_sale(new_sale, &config, &status);
 		Status::<T>::put(&status);
 		Ok(())
 	}
@@ -229,6 +234,9 @@ impl<T: Config> Pallet<T> {
 		ensure!(!pivot.is_void(), Error::<T>::VoidPivot);
 		ensure!(pivot != region_id.mask, Error::<T>::CompletePivot);
 
+		// The old region should be removed.
+		Regions::<T>::remove(&region_id);
+
 		let one = RegionId { mask: pivot, ..region_id };
 		Regions::<T>::insert(&one, &region);
 		let other = RegionId { mask: region_id.mask ^ pivot, ..region_id };
@@ -333,12 +341,8 @@ impl<T: Config> Pallet<T> {
 			region.begin = r + 1;
 			contribution.length.saturating_dec();
 
-			let Some(mut pool_record) = InstaPoolHistory::<T>::get(r) else {
-				continue;
-			};
-			let Some(total_payout) = pool_record.maybe_payout else {
-				break;
-			};
+			let Some(mut pool_record) = InstaPoolHistory::<T>::get(r) else { continue };
+			let Some(total_payout) = pool_record.maybe_payout else { break };
 			let p = total_payout
 				.saturating_mul(contributed_parts.into())
 				.checked_div(&pool_record.private_contributions.into())

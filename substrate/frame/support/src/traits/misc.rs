@@ -36,6 +36,24 @@ pub const DEFENSIVE_OP_PUBLIC_ERROR: &str = "a defensive failure has been trigge
 #[doc(hidden)]
 pub const DEFENSIVE_OP_INTERNAL_ERROR: &str = "Defensive failure has been triggered!";
 
+/// Trait to get the number of variants in any enum.
+pub trait VariantCount {
+	/// Get the number of variants.
+	const VARIANT_COUNT: u32;
+}
+
+impl VariantCount for () {
+	const VARIANT_COUNT: u32 = 0;
+}
+
+/// Adapter for `Get<u32>` to access `VARIANT_COUNT` from `trait pub trait VariantCount {`.
+pub struct VariantCountOf<T: VariantCount>(sp_std::marker::PhantomData<T>);
+impl<T: VariantCount> Get<u32> for VariantCountOf<T> {
+	fn get() -> u32 {
+		T::VARIANT_COUNT
+	}
+}
+
 /// Generic function to mark an execution path as ONLY defensive.
 ///
 /// Similar to mark a match arm or `if/else` branch as `unreachable!`.
@@ -43,7 +61,7 @@ pub const DEFENSIVE_OP_INTERNAL_ERROR: &str = "Defensive failure has been trigge
 macro_rules! defensive {
 	() => {
 		frame_support::__private::log::error!(
-			target: "runtime",
+			target: "runtime::defensive",
 			"{}",
 			$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR
 		);
@@ -51,7 +69,7 @@ macro_rules! defensive {
 	};
 	($error:expr $(,)?) => {
 		frame_support::__private::log::error!(
-			target: "runtime",
+			target: "runtime::defensive",
 			"{}: {:?}",
 			$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR,
 			$error
@@ -60,7 +78,7 @@ macro_rules! defensive {
 	};
 	($error:expr, $proof:expr $(,)?) => {
 		frame_support::__private::log::error!(
-			target: "runtime",
+			target: "runtime::defensive",
 			"{}: {:?}: {:?}",
 			$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR,
 			$error,
@@ -1158,17 +1176,26 @@ impl<Hash> PreimageRecipient<Hash> for () {
 	fn unnote_preimage(_: &Hash) {}
 }
 
-/// Trait for creating an asset account with a deposit taken from a designated depositor specified
-/// by the client.
+/// Trait for touching/creating an asset account with a deposit taken from a designated depositor
+/// specified by the client.
+///
+/// Ensures that transfers to the touched account will succeed without being denied by the account
+/// creation requirements. For example, it is useful for the account creation of non-sufficient
+/// assets when its system account may not have the free consumer reference required for it. If
+/// there is no risk of failing to meet those requirements, the touch operation can be a no-op, as
+/// is common for native assets.
 pub trait AccountTouch<AssetId, AccountId> {
 	/// The type for currency units of the deposit.
 	type Balance;
 
-	/// The deposit amount of a native currency required for creating an account of the `asset`.
+	/// The deposit amount of a native currency required for touching an account of the `asset`.
 	fn deposit_required(asset: AssetId) -> Self::Balance;
 
+	/// Check if an account for a given asset should be touched to meet the existence requirements.
+	fn should_touch(asset: AssetId, who: &AccountId) -> bool;
+
 	/// Create an account for `who` of the `asset` with a deposit taken from the `depositor`.
-	fn touch(asset: AssetId, who: AccountId, depositor: AccountId) -> DispatchResult;
+	fn touch(asset: AssetId, who: &AccountId, depositor: &AccountId) -> DispatchResult;
 }
 
 #[cfg(test)]

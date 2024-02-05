@@ -1,10 +1,14 @@
 [package]
 name = "polkadot-service"
 rust-version = "1.60"
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "Utils to tie different Polkadot components together and allow instantiation of a node."
+
+[lints]
+workspace = true
 
 [dependencies]
 # Substrate Client
@@ -74,27 +78,27 @@ frame-benchmarking-cli = { path = "../../../substrate/utils/frame/benchmarking-c
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking" }
 
 # External Crates
+async-trait = "0.1.74"
 futures = "0.3.21"
 hex-literal = "0.4.1"
+is_executable = "1.0.1"
 gum = { package = "tracing-gum", path = "../gum" }
-serde = { version = "1.0.188", features = ["derive"] }
-serde_json = "1.0.96"
-thiserror = "1.0.31"
+log = "0.4.17"
+schnellru = "0.2.1"
+serde = { version = "1.0.195", features = ["derive"] }
+serde_json = "1.0.111"
+thiserror = "1.0.48"
 kvdb = "0.13.0"
 kvdb-rocksdb = { version = "0.19.0", optional = true }
-parity-db = { version = "0.4.8", optional = true }
+parity-db = { version = "0.4.12", optional = true }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
-
-async-trait = "0.1.57"
-schnellru = "0.2.1"
-log = "0.4.17"
-is_executable = "1.0.1"
+parking_lot = "0.12.1"
 
 # Polkadot
 polkadot-core-primitives = { path = "../../core-primitives" }
 polkadot-node-core-parachains-inherent = { path = "../core/parachains-inherent" }
 polkadot-overseer = { path = "../overseer" }
-polkadot-parachain = { path = "../../parachain" }
+polkadot-parachain-primitives = { path = "../../parachain" }
 polkadot-primitives = { path = "../../primitives" }
 polkadot-node-primitives = { path = "../primitives" }
 polkadot-rpc = { path = "../../rpc" }
@@ -103,17 +107,12 @@ polkadot-node-subsystem-util = { path = "../subsystem-util" }
 polkadot-node-subsystem-types = { path = "../subsystem-types" }
 polkadot-runtime-parachains = { path = "../../runtime/parachains" }
 polkadot-node-network-protocol = { path = "../network/protocol" }
-polkadot-runtime-common = { path = "../../runtime/common" }
 
 # Polkadot Runtime Constants
-polkadot-runtime-constants = { path = "../../runtime/polkadot/constants", optional = true }
-kusama-runtime-constants = { path = "../../runtime/kusama/constants", optional = true }
 rococo-runtime-constants = { path = "../../runtime/rococo/constants", optional = true }
 westend-runtime-constants = { path = "../../runtime/westend/constants", optional = true }
 
 # Polkadot Runtimes
-polkadot-runtime = { path = "../../runtime/polkadot", optional = true }
-kusama-runtime = { package = "staging-kusama-runtime", path = "../../runtime/kusama", optional = true }
 westend-runtime = { path = "../../runtime/westend", optional = true }
 rococo-runtime = { path = "../../runtime/rococo", optional = true }
 
@@ -145,15 +144,16 @@ polkadot-statement-distribution = { path = "../network/statement-distribution", 
 [dev-dependencies]
 polkadot-test-client = { path = "../test/client" }
 polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
+test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../primitives/test-helpers" }
 env_logger = "0.9.0"
 assert_matches = "1.5.0"
 serial_test = "2.0.0"
 tempfile = "3.2"
 
 [features]
-default = [ "db", "full-node" ]
+default = ["db", "full-node"]
 
-db = [ "service/rocksdb" ]
+db = ["service/rocksdb"]
 
 full-node = [
 	"kvdb-rocksdb",
@@ -183,28 +183,21 @@ full-node = [
 	"polkadot-statement-distribution",
 ]
 
-# Configure the native runtimes to use. Polkadot is enabled by default.
-#
-# Validators require the native runtime currently
-polkadot-native = [ "polkadot-runtime", "polkadot-runtime-constants" ]
-kusama-native = [ "kusama-runtime", "kusama-runtime-constants" ]
-westend-native = [ "westend-runtime", "westend-runtime-constants" ]
-rococo-native = [ "rococo-runtime", "rococo-runtime-constants" ]
+# Configure the native runtimes to use.
+westend-native = ["westend-runtime", "westend-runtime-constants"]
+rococo-native = ["rococo-runtime", "rococo-runtime-constants"]
 
 runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"kusama-runtime?/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
-	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-primitives/runtime-benchmarks",
-	"polkadot-runtime-common/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
-	"polkadot-runtime?/runtime-benchmarks",
 	"polkadot-test-client/runtime-benchmarks",
 	"rococo-runtime?/runtime-benchmarks",
 	"sc-client-db/runtime-benchmarks",
@@ -215,34 +208,23 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"kusama-runtime?/try-runtime",
 	"pallet-babe/try-runtime",
 	"pallet-im-online/try-runtime",
 	"pallet-staking/try-runtime",
 	"pallet-transaction-payment/try-runtime",
-	"polkadot-runtime-common/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
-	"polkadot-runtime?/try-runtime",
 	"rococo-runtime?/try-runtime",
 	"sp-runtime/try-runtime",
 	"westend-runtime?/try-runtime",
 ]
 fast-runtime = [
-	"kusama-runtime?/fast-runtime",
-	"polkadot-runtime?/fast-runtime",
 	"rococo-runtime?/fast-runtime",
 	"westend-runtime?/fast-runtime",
 ]
 
-malus = [ "full-node" ]
+malus = ["full-node"]
 runtime-metrics = [
-	"kusama-runtime?/runtime-metrics",
 	"polkadot-runtime-parachains/runtime-metrics",
-	"polkadot-runtime?/runtime-metrics",
 	"rococo-runtime?/runtime-metrics",
 	"westend-runtime?/runtime-metrics",
-]
-
-network-protocol-staging = [
-	"polkadot-node-network-protocol/network-protocol-staging",
 ]

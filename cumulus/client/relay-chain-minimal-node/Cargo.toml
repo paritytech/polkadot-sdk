@@ -1,8 +1,13 @@
 [package]
 authors.workspace = true
 name = "cumulus-relay-chain-minimal-node"
-version = "0.1.0"
+version = "0.7.0"
 edition.workspace = true
+description = "Minimal node implementation to be used in tandem with RPC or light-client mode."
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[lints]
+workspace = true
 
 [dependencies]
 # polkadot deps
@@ -17,18 +22,24 @@ polkadot-collator-protocol = { path = "../../../polkadot/node/network/collator-p
 polkadot-network-bridge = { path = "../../../polkadot/node/network/bridge" }
 polkadot-node-collation-generation = { path = "../../../polkadot/node/collation-generation" }
 polkadot-node-core-runtime-api = { path = "../../../polkadot/node/core/runtime-api" }
+polkadot-node-core-chain-api = { path = "../../../polkadot/node/core/chain-api" }
+polkadot-node-core-prospective-parachains = { path = "../../../polkadot/node/core/prospective-parachains" }
 
 # substrate deps
 sc-authority-discovery = { path = "../../../substrate/client/authority-discovery" }
 sc-network = { path = "../../../substrate/client/network" }
 sc-network-common = { path = "../../../substrate/client/network/common" }
 sc-service = { path = "../../../substrate/client/service" }
+sc-client-api = { path = "../../../substrate/client/api" }
+substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
 sc-tracing = { path = "../../../substrate/client/tracing" }
 sc-utils = { path = "../../../substrate/client/utils" }
 sp-api = { path = "../../../substrate/primitives/api" }
 sp-consensus-babe = { path = "../../../substrate/primitives/consensus/babe" }
 sp-consensus = { path = "../../../substrate/primitives/consensus/common" }
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
+sp-blockchain = { path = "../../../substrate/primitives/blockchain" }
+tokio = { version = "1.32.0", features = ["macros"] }
 
 # cumulus deps
 cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
@@ -36,12 +47,7 @@ cumulus-relay-chain-rpc-interface = { path = "../relay-chain-rpc-interface" }
 cumulus-primitives-core = { path = "../../primitives/core" }
 
 array-bytes = "6.1"
-schnellru = "0.2.1"
 tracing = "0.1.37"
-async-trait = "0.1.73"
+async-trait = "0.1.74"
 futures = "0.3.28"
-
-[features]
-network-protocol-staging = [
-	"polkadot-node-network-protocol/network-protocol-staging",
-]
+parking_lot = "0.12.1"

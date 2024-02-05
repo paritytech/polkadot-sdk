@@ -87,6 +87,9 @@
 //!   required as we walk up from the target directory until we find a `Cargo.toml`. If the target
 //!   directory is changed for the build, this environment variable can be used to point to the
 //!   actual workspace.
+//! - `WASM_BUILD_STD` - Sets whether the Rust's standard library crates will also be built. This is
+//!   necessary to make sure the standard library crates only use the exact WASM feature set that
+//!   our executor supports. Enabled by default.
 //! - `CARGO_NET_OFFLINE` - If `true`, `--offline` will be passed to all processes launched to
 //!   prevent network access. Useful in offline environments.
 //!
@@ -110,6 +113,7 @@
 //! wasm32-unknown-unknown --toolchain nightly-2020-02-20`.
 
 use std::{
+	collections::BTreeSet,
 	env, fs,
 	io::BufRead,
 	path::{Path, PathBuf},
@@ -158,6 +162,12 @@ const FORCE_WASM_BUILD_ENV: &str = "FORCE_WASM_BUILD";
 /// Environment variable that hints the workspace we are building.
 const WASM_BUILD_WORKSPACE_HINT: &str = "WASM_BUILD_WORKSPACE_HINT";
 
+/// Environment variable to set whether we'll build `core`/`std`.
+const WASM_BUILD_STD: &str = "WASM_BUILD_STD";
+
+/// The target to use for the runtime. Valid values are `wasm` (default) or `riscv`.
+const RUNTIME_TARGET: &str = "SUBSTRATE_RUNTIME_TARGET";
+
 /// Write to the given `file` if the `content` is different.
 fn write_file_if_changed(file: impl AsRef<Path>, content: impl AsRef<str>) {
 	if fs::read_to_string(file.as_ref()).ok().as_deref() != Some(content.as_ref()) {
@@ -179,7 +189,7 @@ fn copy_file_if_changed(src: PathBuf, dst: PathBuf) {
 }
 
 /// Get a cargo command that should be used to invoke the compilation.
-fn get_cargo_command() -> CargoCommand {
+fn get_cargo_command(target: RuntimeTarget) -> CargoCommand {
 	let env_cargo =
 		CargoCommand::new(&env::var("CARGO").expect("`CARGO` env variable is always set by cargo"));
 	let default_cargo = CargoCommand::new("cargo");
@@ -190,35 +200,33 @@ fn get_cargo_command() -> CargoCommand {
 		wasm_toolchain.map(|t| CargoCommand::new_with_args("rustup", &["run", &t, "cargo"]))
 	{
 		cmd
-	} else if env_cargo.supports_substrate_wasm_env() {
+	} else if env_cargo.supports_substrate_runtime_env(target) {
 		env_cargo
-	} else if default_cargo.supports_substrate_wasm_env() {
+	} else if default_cargo.supports_substrate_runtime_env(target) {
 		default_cargo
 	} else {
 		// If no command before provided us with a cargo that supports our Substrate wasm env, we
 		// try to search one with rustup. If that fails as well, we return the default cargo and let
 		// the prequisities check fail.
-		get_rustup_command().unwrap_or(default_cargo)
+		get_rustup_command(target).unwrap_or(default_cargo)
 	}
 }
 
-/// Get the newest rustup command that supports our Substrate wasm env.
+/// Get the newest rustup command that supports compiling a runtime.
 ///
 /// Stable versions are always favored over nightly versions even if the nightly versions are
 /// newer.
-fn get_rustup_command() -> Option<CargoCommand> {
-	let host = format!("-{}", env::var("HOST").expect("`HOST` is always set by cargo"));
-
+fn get_rustup_command(target: RuntimeTarget) -> Option<CargoCommand> {
 	let output = Command::new("rustup").args(&["toolchain", "list"]).output().ok()?.stdout;
 	let lines = output.as_slice().lines();
 
 	let mut versions = Vec::new();
 	for line in lines.filter_map(|l| l.ok()) {
-		let rustup_version = line.trim_end_matches(&host);
-
+		// Split by a space to get rid of e.g. " (default)" at the end.
+		let rustup_version = line.split(" ").next().unwrap();
 		let cmd = CargoCommand::new_with_args("rustup", &["run", &rustup_version, "cargo"]);
 
-		if !cmd.supports_substrate_wasm_env() {
+		if !cmd.supports_substrate_runtime_env(target) {
 			continue
 		}
 
@@ -241,22 +249,26 @@ struct CargoCommand {
 	program: String,
 	args: Vec<String>,
 	version: Option<Version>,
+	target_list: Option<BTreeSet<String>>,
 }
 
 impl CargoCommand {
 	fn new(program: &str) -> Self {
 		let version = Self::extract_version(program, &[]);
+		let target_list = Self::extract_target_list(program, &[]);
 
-		CargoCommand { program: program.into(), args: Vec::new(), version }
+		CargoCommand { program: program.into(), args: Vec::new(), version, target_list }
 	}
 
 	fn new_with_args(program: &str, args: &[&str]) -> Self {
 		let version = Self::extract_version(program, args);
+		let target_list = Self::extract_target_list(program, args);
 
 		CargoCommand {
 			program: program.into(),
 			args: args.iter().map(ToString::to_string).collect(),
 			version,
+			target_list,
 		}
 	}
 
@@ -277,9 +289,49 @@ impl CargoCommand {
 		Version::extract(&version)
 	}
 
+	fn extract_target_list(program: &str, args: &[&str]) -> Option<BTreeSet<String>> {
+		// This is technically an unstable option, but we don't care because we only need this
+		// to build RISC-V runtimes, and those currently require a specific nightly toolchain
+		// anyway, so it's totally fine for this to fail in other cases.
+		let list = Command::new(program)
+			.args(args)
+			.args(&["rustc", "-Z", "unstable-options", "--print", "target-list"])
+			// Make sure if we're called from within a `build.rs` the host toolchain won't override
+			// a rustup toolchain we've picked.
+			.env_remove("RUSTC")
+			.output()
+			.ok()
+			.and_then(|o| String::from_utf8(o.stdout).ok())?;
+
+		Some(list.trim().split("\n").map(ToString::to_string).collect())
+	}
+
 	/// Returns the version of this cargo command or `None` if it failed to extract the version.
 	fn version(&self) -> Option<Version> {
 		self.version
+	}
+
+	/// Returns whether this version of the toolchain supports nightly features.
+	fn supports_nightly_features(&self) -> bool {
+		self.version.map_or(false, |version| version.is_nightly) ||
+			env::var("RUSTC_BOOTSTRAP").is_ok()
+	}
+
+	/// Check if the supplied cargo command supports our runtime environment.
+	fn supports_substrate_runtime_env(&self, target: RuntimeTarget) -> bool {
+		match target {
+			RuntimeTarget::Wasm => self.supports_substrate_runtime_env_wasm(),
+			RuntimeTarget::Riscv => self.supports_substrate_runtime_env_riscv(),
+		}
+	}
+
+	/// Check if the supplied cargo command supports our RISC-V runtime environment.
+	fn supports_substrate_runtime_env_riscv(&self) -> bool {
+		let Some(target_list) = self.target_list.as_ref() else { return false };
+		// This is our custom target which currently doesn't exist on any upstream toolchain,
+		// so if it exists it's guaranteed to be our custom toolchain and have have everything
+		// we need, so any further version checks are unnecessary at this point.
+		target_list.contains("riscv32ema-unknown-none-elf")
 	}
 
 	/// Check if the supplied cargo command supports our Substrate wasm environment.
@@ -287,7 +339,7 @@ impl CargoCommand {
 	/// This means that either the cargo version is at minimum 1.68.0 or this is a nightly cargo.
 	///
 	/// Assumes that cargo version matches the rustc version.
-	fn supports_substrate_wasm_env(&self) -> bool {
+	fn supports_substrate_runtime_env_wasm(&self) -> bool {
 		// `RUSTC_BOOTSTRAP` tells a stable compiler to behave like a nightly. So, when this env
 		// variable is set, we can assume that whatever rust compiler we have, it is a nightly
 		// compiler. For "more" information, see:
@@ -331,4 +383,70 @@ impl std::ops::Deref for CargoCommandVersioned {
 /// Returns `true` when color output is enabled.
 fn color_output_enabled() -> bool {
 	env::var(crate::WASM_BUILD_NO_COLOR).is_err()
+}
+
+/// Fetches a boolean environment variable. Will exit the process if the value is invalid.
+fn get_bool_environment_variable(name: &str) -> Option<bool> {
+	let value = env::var_os(name)?;
+
+	// We're comparing `OsString`s here so we can't use a `match`.
+	if value == "1" {
+		Some(true)
+	} else if value == "0" {
+		Some(false)
+	} else {
+		build_helper::warning!(
+			"the '{}' environment variable has an invalid value; it must be either '1' or '0'",
+			name
+		);
+		std::process::exit(1);
+	}
+}
+
+/// Returns whether we need to also compile the standard library when compiling the runtime.
+fn build_std_required() -> bool {
+	let default = runtime_target() == RuntimeTarget::Wasm;
+
+	crate::get_bool_environment_variable(crate::WASM_BUILD_STD).unwrap_or(default)
+}
+
+#[derive(Copy, Clone, PartialEq, Eq)]
+enum RuntimeTarget {
+	Wasm,
+	Riscv,
+}
+
+impl RuntimeTarget {
+	fn rustc_target(self) -> &'static str {
+		match self {
+			RuntimeTarget::Wasm => "wasm32-unknown-unknown",
+			RuntimeTarget::Riscv => "riscv32ema-unknown-none-elf",
+		}
+	}
+
+	fn build_subdirectory(self) -> &'static str {
+		// Keep the build directories separate so that when switching between
+		// the targets we won't trigger unnecessary rebuilds.
+		match self {
+			RuntimeTarget::Wasm => "wbuild",
+			RuntimeTarget::Riscv => "rbuild",
+		}
+	}
+}
+
+fn runtime_target() -> RuntimeTarget {
+	let Some(value) = env::var_os(RUNTIME_TARGET) else {
+		return RuntimeTarget::Wasm;
+	};
+
+	if value == "wasm" {
+		RuntimeTarget::Wasm
+	} else if value == "riscv" {
+		RuntimeTarget::Riscv
+	} else {
+		build_helper::warning!(
+			"the '{RUNTIME_TARGET}' environment variable has an invalid value; it must be either 'wasm' or 'riscv'"
+		);
+		std::process::exit(1);
+	}
 }

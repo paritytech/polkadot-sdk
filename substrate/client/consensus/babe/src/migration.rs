@@ -62,10 +62,11 @@ impl EpochT for EpochV0 {
 	}
 }
 
+// Implement From<EpochV0> for Epoch
 impl EpochV0 {
 	/// Migrate the sturct to current epoch version.
 	pub fn migrate(self, config: &BabeConfiguration) -> Epoch {
-		Epoch {
+		sp_consensus_babe::Epoch {
 			epoch_index: self.epoch_index,
 			start_slot: self.start_slot,
 			duration: self.duration,
@@ -73,5 +74,6 @@ impl EpochV0 {
 			randomness: self.randomness,
 			config: BabeEpochConfiguration { c: config.c, allowed_slots: config.allowed_slots },
 		}
+		.into()
 	}
 }

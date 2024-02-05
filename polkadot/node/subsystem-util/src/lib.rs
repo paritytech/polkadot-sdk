@@ -43,7 +43,7 @@ use futures::channel::{mpsc, oneshot};
 use parity_scale_codec::Encode;
 
 use polkadot_primitives::{
-	vstaging as vstaging_primitives, AuthorityDiscoveryId, CandidateEvent, CandidateHash,
+	AsyncBackingParams, AuthorityDiscoveryId, CandidateEvent, CandidateHash,
 	CommittedCandidateReceipt, CoreState, EncodeAs, GroupIndex, GroupRotationInfo, Hash,
 	Id as ParaId, OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes,
 	SessionIndex, SessionInfo, Signed, SigningContext, ValidationCode, ValidationCodeHash,
@@ -55,6 +55,7 @@ use sp_core::ByteArray;
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
 use std::time::Duration;
 use thiserror::Error;
+use vstaging::get_disabled_validators_with_fallback;
 
 pub use metered;
 pub use polkadot_node_network_protocol::MIN_GOSSIP_PEERS;
@@ -79,6 +80,9 @@ pub mod inclusion_emulator;
 /// Convenient and efficient runtime info access.
 pub mod runtime;
 
+/// Helpers for working with unreleased runtime calls
+pub mod vstaging;
+
 /// Nested message sending
 ///
 /// Useful for having mostly synchronous code, with submodules spawning short lived asynchronous
@@ -91,6 +95,8 @@ mod determine_new_blocks;
 
 #[cfg(test)]
 mod tests;
+
+const LOG_TARGET: &'static str = "parachain::subsystem-util";
 
 /// Duration a job will wait after sending a stop signal before hard-aborting.
 pub const JOB_GRACEFUL_STOP_DURATION: Duration = Duration::from_secs(1);
@@ -135,6 +141,20 @@ impl From<OverseerError> for Error {
 	}
 }
 
+impl TryFrom<crate::runtime::Error> for Error {
+	type Error = ();
+
+	fn try_from(e: crate::runtime::Error) -> Result<Self, ()> {
+		use crate::runtime::Error;
+
+		match e {
+			Error::RuntimeRequestCanceled(e) => Ok(Self::Oneshot(e)),
+			Error::RuntimeRequest(e) => Ok(Self::RuntimeApi(e)),
+			Error::NoSuchSession(_) | Error::NoExecutorParams(_) => Err(()),
+		}
+	}
+}
+
 /// A type alias for Runtime API receivers.
 pub type RuntimeApiReceiver<T> = oneshot::Receiver<Result<T, RuntimeApiError>>;
 
@@ -155,6 +175,62 @@ where
 		.await;
 
 	rx
+}
+
+/// Verifies if `ParachainHost` runtime api is at least at version `required_runtime_version`. This
+/// method is used to determine if a given runtime call is supported by the runtime.
+pub async fn has_required_runtime<Sender>(
+	sender: &mut Sender,
+	relay_parent: Hash,
+	required_runtime_version: u32,
+) -> bool
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	gum::trace!(target: LOG_TARGET, ?relay_parent, "Fetching ParachainHost runtime api version");
+
+	let (tx, rx) = oneshot::channel();
+	sender
+		.send_message(RuntimeApiMessage::Request(relay_parent, RuntimeApiRequest::Version(tx)))
+		.await;
+
+	match rx.await {
+		Result::Ok(Ok(runtime_version)) => {
+			gum::trace!(
+				target: LOG_TARGET,
+				?relay_parent,
+				?runtime_version,
+				?required_runtime_version,
+				"Fetched  ParachainHost runtime api version"
+			);
+			runtime_version >= required_runtime_version
+		},
+		Result::Ok(Err(RuntimeApiError::Execution { source: error, .. })) => {
+			gum::trace!(
+				target: LOG_TARGET,
+				?relay_parent,
+				?error,
+				"Execution error while fetching ParachainHost runtime api version"
+			);
+			false
+		},
+		Result::Ok(Err(RuntimeApiError::NotSupported { .. })) => {
+			gum::trace!(
+				target: LOG_TARGET,
+				?relay_parent,
+				"NotSupported error while fetching ParachainHost runtime api version"
+			);
+			false
+		},
+		Result::Err(_) => {
+			gum::trace!(
+				target: LOG_TARGET,
+				?relay_parent,
+				"Cancelled error while fetching ParachainHost runtime api version"
+			);
+			false
+		},
+	}
 }
 
 /// Construct specialized request functions for the runtime.
@@ -226,8 +302,8 @@ specialize_requests! {
 	fn request_unapplied_slashes() -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>; UnappliedSlashes;
 	fn request_key_ownership_proof(validator_id: ValidatorId) -> Option<slashing::OpaqueKeyOwnershipProof>; KeyOwnershipProof;
 	fn request_submit_report_dispute_lost(dp: slashing::DisputeProof, okop: slashing::OpaqueKeyOwnershipProof) -> Option<()>; SubmitReportDisputeLost;
-
-	fn request_staging_async_backing_params() -> vstaging_primitives::AsyncBackingParams; StagingAsyncBackingParams;
+	fn request_disabled_validators() -> Vec<ValidatorIndex>; DisabledValidators;
+	fn request_async_backing_params() -> AsyncBackingParams; AsyncBackingParams;
 }
 
 /// Requests executor parameters from the runtime effective at given relay-parent. First obtains
@@ -378,6 +454,7 @@ pub struct Validator {
 	signing_context: SigningContext,
 	key: ValidatorId,
 	index: ValidatorIndex,
+	disabled: bool,
 }
 
 impl Validator {
@@ -399,7 +476,14 @@ impl Validator {
 
 		let validators = validators?;
 
-		Self::construct(&validators, signing_context, keystore)
+		// TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
+		// When `DisabledValidators` is released remove this and add a
+		// `request_disabled_validators` call here
+		let disabled_validators = get_disabled_validators_with_fallback(sender, parent)
+			.await
+			.map_err(|e| Error::try_from(e).expect("the conversion is infallible; qed"))?;
+
+		Self::construct(&validators, &disabled_validators, signing_context, keystore)
 	}
 
 	/// Construct a validator instance without performing runtime fetches.
@@ -407,13 +491,16 @@ impl Validator {
 	/// This can be useful if external code also needs the same data.
 	pub fn construct(
 		validators: &[ValidatorId],
+		disabled_validators: &[ValidatorIndex],
 		signing_context: SigningContext,
 		keystore: KeystorePtr,
 	) -> Result<Self, Error> {
 		let (key, index) =
 			signing_key_and_index(validators, &keystore).ok_or(Error::NotAValidator)?;
 
-		Ok(Validator { signing_context, key, index })
+		let disabled = disabled_validators.iter().any(|d: &ValidatorIndex| *d == index);
+
+		Ok(Validator { signing_context, key, index, disabled })
 	}
 
 	/// Get this validator's id.
@@ -424,6 +511,11 @@ impl Validator {
 	/// Get this validator's local index.
 	pub fn index(&self) -> ValidatorIndex {
 		self.index
+	}
+
+	/// Get the enabled/disabled state of this validator
+	pub fn disabled(&self) -> bool {
+		self.disabled
 	}
 
 	/// Get the current signing context.

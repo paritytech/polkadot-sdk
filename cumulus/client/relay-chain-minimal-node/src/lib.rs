@@ -21,9 +21,9 @@ use cumulus_relay_chain_rpc_interface::{RelayChainRpcClient, RelayChainRpcInterf
 use network::build_collator_network;
 use polkadot_network_bridge::{peer_sets_info, IsAuthority};
 use polkadot_node_network_protocol::{
-	peer_set::PeerSetProtocolNames,
+	peer_set::{PeerSet, PeerSetProtocolNames},
 	request_response::{
-		v1, vstaging, IncomingRequest, IncomingRequestReceiver, Protocol, ReqProtocolNames,
+		v1, v2, IncomingRequest, IncomingRequestReceiver, Protocol, ReqProtocolNames,
 	},
 };
 
@@ -32,10 +32,10 @@ use polkadot_primitives::CollatorPair;
 
 use sc_authority_discovery::Service as AuthorityDiscoveryService;
 use sc_network::{config::FullNetworkConfiguration, Event, NetworkEventStream, NetworkService};
-use sc_service::{Configuration, TaskManager};
+use sc_service::{config::PrometheusConfig, Configuration, TaskManager};
 use sp_runtime::{app_crypto::Pair, traits::Block as BlockT};
 
-use futures::StreamExt;
+use futures::{FutureExt, StreamExt};
 use std::sync::Arc;
 
 mod blockchain_rpc_client;
@@ -69,7 +69,7 @@ fn build_authority_discovery_service<Block: BlockT>(
 			..Default::default()
 		},
 		client,
-		network.clone(),
+		network,
 		Box::pin(dht_event_stream),
 		authority_discovery_role,
 		prometheus_registry,
@@ -160,29 +160,31 @@ async fn new_minimal_relay_chain(
 	let role = config.role.clone();
 	let mut net_config = sc_network::config::FullNetworkConfiguration::new(&config.network);
 
-	let task_manager = {
-		let registry = config.prometheus_config.as_ref().map(|cfg| &cfg.registry);
-		TaskManager::new(config.tokio_handle.clone(), registry)?
-	};
+	let prometheus_registry = config.prometheus_registry();
+	let task_manager = TaskManager::new(config.tokio_handle.clone(), prometheus_registry)?;
 
-	let prometheus_registry = config.prometheus_registry().cloned();
+	if let Some(PrometheusConfig { port, registry }) = config.prometheus_config.clone() {
+		task_manager.spawn_handle().spawn(
+			"prometheus-endpoint",
+			None,
+			substrate_prometheus_endpoint::init_prometheus(port, registry).map(drop),
+		);
+	}
 
-	let genesis_hash = relay_chain_rpc_client
-		.block_get_hash(Some(0))
-		.await
-		.expect("Genesis block hash is always available; qed")
-		.unwrap_or_default();
-
+	let genesis_hash = relay_chain_rpc_client.block_get_hash(Some(0)).await?.unwrap_or_default();
 	let peer_set_protocol_names =
 		PeerSetProtocolNames::new(genesis_hash, config.chain_spec.fork_id());
 	let is_authority = if role.is_authority() { IsAuthority::Yes } else { IsAuthority::No };
-
-	for config in peer_sets_info(is_authority, &peer_set_protocol_names) {
-		net_config.add_notification_protocol(config);
-	}
+	let notification_services = peer_sets_info(is_authority, &peer_set_protocol_names)
+		.into_iter()
+		.map(|(config, (peerset, service))| {
+			net_config.add_notification_protocol(config);
+			(peerset, service)
+		})
+		.collect::<std::collections::HashMap<PeerSet, Box<dyn sc_network::NotificationService>>>();
 
 	let request_protocol_names = ReqProtocolNames::new(genesis_hash, config.chain_spec.fork_id());
-	let (collation_req_receiver_v1, collation_req_receiver_vstaging, available_data_req_receiver) =
+	let (collation_req_receiver_v1, collation_req_receiver_v2, available_data_req_receiver) =
 		build_request_response_protocol_receivers(&request_protocol_names, &mut net_config);
 
 	let best_header = relay_chain_rpc_client
@@ -203,22 +205,23 @@ async fn new_minimal_relay_chain(
 		relay_chain_rpc_client.clone(),
 		&config,
 		network.clone(),
-		prometheus_registry.clone(),
+		prometheus_registry.cloned(),
 	);
 
 	let overseer_args = CollatorOverseerGenArgs {
 		runtime_client: relay_chain_rpc_client.clone(),
-		network_service: network.clone(),
+		network_service: network,
 		sync_oracle,
 		authority_discovery_service,
 		collation_req_receiver_v1,
-		collation_req_receiver_vstaging,
+		collation_req_receiver_v2,
 		available_data_req_receiver,
-		registry: prometheus_registry.as_ref(),
+		registry: prometheus_registry,
 		spawner: task_manager.spawn_handle(),
 		collator_pair,
 		req_protocol_names: request_protocol_names,
 		peer_set_protocol_names,
+		notification_services,
 	};
 
 	let overseer_handle =
@@ -226,7 +229,7 @@ async fn new_minimal_relay_chain(
 
 	network_starter.start_network();
 
-	Ok(NewMinimalNode { task_manager, overseer_handle, network })
+	Ok(NewMinimalNode { task_manager, overseer_handle })
 }
 
 fn build_request_response_protocol_receivers(
@@ -234,13 +237,13 @@ fn build_request_response_protocol_receivers(
 	config: &mut FullNetworkConfiguration,
 ) -> (
 	IncomingRequestReceiver<v1::CollationFetchingRequest>,
-	IncomingRequestReceiver<vstaging::CollationFetchingRequest>,
+	IncomingRequestReceiver<v2::CollationFetchingRequest>,
 	IncomingRequestReceiver<v1::AvailableDataFetchingRequest>,
 ) {
 	let (collation_req_receiver_v1, cfg) =
 		IncomingRequest::get_config_receiver(request_protocol_names);
 	config.add_request_response_protocol(cfg);
-	let (collation_req_receiver_vstaging, cfg) =
+	let (collation_req_receiver_v2, cfg) =
 		IncomingRequest::get_config_receiver(request_protocol_names);
 	config.add_request_response_protocol(cfg);
 	let (available_data_req_receiver, cfg) =
@@ -248,5 +251,5 @@ fn build_request_response_protocol_receivers(
 	config.add_request_response_protocol(cfg);
 	let cfg = Protocol::ChunkFetchingV1.get_outbound_only_config(request_protocol_names);
 	config.add_request_response_protocol(cfg);
-	(collation_req_receiver_v1, collation_req_receiver_vstaging, available_data_req_receiver)
+	(collation_req_receiver_v1, collation_req_receiver_v2, available_data_req_receiver)
 }

@@ -21,12 +21,9 @@ use super::*;
 use crate::mock::{RefState::*, *};
 use assert_matches::assert_matches;
 use codec::Decode;
-use frame_support::{
-	assert_noop, assert_ok,
-	dispatch::{DispatchError::BadOrigin, RawOrigin},
-	traits::Contains,
-};
+use frame_support::{assert_noop, assert_ok, dispatch::RawOrigin, traits::Contains};
 use pallet_balances::Error as BalancesError;
+use sp_runtime::DispatchError::BadOrigin;
 
 #[test]
 fn params_should_work() {
@@ -602,9 +599,8 @@ fn curve_handles_all_inputs() {
 #[test]
 fn set_metadata_works() {
 	ExtBuilder::default().build_and_execute(|| {
-		use frame_support::traits::Hash as PreimageHash;
 		// invalid preimage hash.
-		let invalid_hash: PreimageHash = [1u8; 32].into();
+		let invalid_hash: <Test as frame_system::Config>::Hash = [1u8; 32].into();
 		// fails to set metadata for a finished referendum.
 		assert_ok!(Referenda::submit(
 			RuntimeOrigin::signed(1),

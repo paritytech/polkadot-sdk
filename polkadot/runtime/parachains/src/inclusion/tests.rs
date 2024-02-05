@@ -26,14 +26,16 @@ use crate::{
 	paras_inherent::DisputedBitfield,
 	shared::AllowedRelayParentsTracker,
 };
-use primitives::{SignedAvailabilityBitfields, UncheckedSignedAvailabilityBitfields};
+use primitives::{
+	effective_minimum_backing_votes, SignedAvailabilityBitfields,
+	UncheckedSignedAvailabilityBitfields,
+};
 
 use assert_matches::assert_matches;
 use frame_support::assert_noop;
 use keyring::Sr25519Keyring;
 use parity_scale_codec::DecodeAll;
 use primitives::{
-	v5::{Assignment, ParasEntry},
 	BlockNumber, CandidateCommitments, CandidateDescriptor, CollatorId,
 	CompactStatement as Statement, Hash, SignedAvailabilityBitfield, SignedStatement,
 	ValidationCode, ValidatorId, ValidityAttestation, PARACHAIN_KEY_TYPE_ID,
@@ -45,7 +47,7 @@ use test_helpers::{dummy_collator, dummy_collator_signature, dummy_validation_co
 
 fn default_config() -> HostConfiguration<BlockNumber> {
 	let mut config = HostConfiguration::default();
-	config.on_demand_cores = 1;
+	config.coretime_cores = 1;
 	config.max_code_size = 0b100000;
 	config.max_head_data_size = 0b100000;
 	config.group_rotation_frequency = u32::MAX;
@@ -120,11 +122,14 @@ pub(crate) fn back_candidate(
 	kind: BackingKind,
 ) -> BackedCandidate {
 	let mut validator_indices = bitvec::bitvec![u8, BitOrderLsb0; 0; group.len()];
-	let threshold = minimum_backing_votes(group.len());
+	let threshold = effective_minimum_backing_votes(
+		group.len(),
+		configuration::Pallet::<Test>::config().minimum_backing_votes,
+	);
 
 	let signing = match kind {
 		BackingKind::Unanimous => group.len(),
-		BackingKind::Threshold => threshold,
+		BackingKind::Threshold => threshold as usize,
 		BackingKind::Lacking => threshold.saturating_sub(1),
 	};
 
@@ -213,7 +218,7 @@ pub(crate) fn run_to_block(
 }
 
 pub(crate) fn expected_bits() -> usize {
-	Paras::parachains().len() + Configuration::config().on_demand_cores as usize
+	Paras::parachains().len() + Configuration::config().coretime_cores as usize
 }
 
 fn default_bitfield() -> AvailabilityBitfield {
@@ -374,7 +379,9 @@ fn collect_pending_cleans_up_pending() {
 		(chain_b, ParaKind::Parachain),
 		(thread_a, ParaKind::Parathread),
 	];
-	new_test_ext(genesis_config(paras)).execute_with(|| {
+	let mut config = genesis_config(paras);
+	config.configuration.config.group_rotation_frequency = 3;
+	new_test_ext(config).execute_with(|| {
 		let default_candidate = TestCandidateBuilder::default().build();
 		<PendingAvailability<Test>>::insert(
 			chain_a,
@@ -402,7 +409,7 @@ fn collect_pending_cleans_up_pending() {
 				descriptor: default_candidate.descriptor,
 				availability_votes: default_availability_votes(),
 				relay_parent_number: 0,
-				backed_in_number: 0,
+				backed_in_number: 5,
 				backers: default_backing_bitfield(),
 				backing_group: GroupIndex::from(1),
 			},
@@ -416,7 +423,7 @@ fn collect_pending_cleans_up_pending() {
 		assert!(<PendingAvailabilityCommitments<Test>>::get(&chain_a).is_some());
 		assert!(<PendingAvailabilityCommitments<Test>>::get(&chain_b).is_some());
 
-		ParaInclusion::collect_pending(|core, _since| core == CoreIndex::from(0));
+		ParaInclusion::collect_pending(Scheduler::availability_timeout_predicate());
 
 		assert!(<PendingAvailability<Test>>::get(&chain_a).is_none());
 		assert!(<PendingAvailability<Test>>::get(&chain_b).is_some());
@@ -904,23 +911,12 @@ fn candidate_checks() {
 		];
 		Scheduler::set_validator_groups(validator_groups);
 
-		let entry_ttl = 10_000;
 		let thread_collator: CollatorId = Sr25519Keyring::Two.public().into();
-		let chain_a_assignment = CoreAssignment {
-			core: CoreIndex::from(0),
-			paras_entry: ParasEntry::new(Assignment::new(chain_a), entry_ttl),
-		};
+		let chain_a_assignment = (chain_a, CoreIndex::from(0));
 
-		let chain_b_assignment = CoreAssignment {
-			core: CoreIndex::from(1),
-			paras_entry: ParasEntry::new(Assignment::new(chain_b), entry_ttl),
-		};
+		let chain_b_assignment = (chain_b, CoreIndex::from(1));
 
-		let thread_a_assignment = CoreAssignment {
-			core: CoreIndex::from(2),
-			paras_entry: ParasEntry::new(Assignment::new(thread_a), entry_ttl),
-		};
-
+		let thread_a_assignment = (thread_a, CoreIndex::from(2));
 		let allowed_relay_parents = default_allowed_relay_parent_tracker();
 
 		// unscheduled candidate.
@@ -949,7 +945,7 @@ fn candidate_checks() {
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
 					vec![backed],
-					vec![chain_b_assignment.clone()],
+					&[chain_b_assignment].into_iter().collect(),
 					&group_validators,
 				),
 				Error::<Test>::UnscheduledCandidate
@@ -1004,10 +1000,10 @@ fn candidate_checks() {
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
 					vec![backed_b, backed_a],
-					vec![chain_a_assignment.clone(), chain_b_assignment.clone()],
+					&[chain_a_assignment, chain_b_assignment].into_iter().collect(),
 					&group_validators,
 				),
-				Error::<Test>::UnscheduledCandidate
+				Error::<Test>::ScheduledOutOfOrder
 			);
 		}
 
@@ -1037,7 +1033,7 @@ fn candidate_checks() {
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
 					vec![backed],
-					vec![chain_a_assignment.clone()],
+					&[chain_a_assignment].into_iter().collect(),
 					&group_validators,
 				),
 				Error::<Test>::InsufficientBacking
@@ -1094,7 +1090,7 @@ fn candidate_checks() {
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
 					vec![backed_b, backed_a],
-					vec![chain_a_assignment.clone(), chain_b_assignment.clone()],
+					&[chain_a_assignment, chain_b_assignment].into_iter().collect(),
 					&group_validators,
 				),
 				Error::<Test>::DisallowedRelayParent
@@ -1132,7 +1128,7 @@ fn candidate_checks() {
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
 					vec![backed],
-					vec![thread_a_assignment.clone()],
+					&[thread_a_assignment].into_iter().collect(),
 					&group_validators,
 				),
 				Error::<Test>::NotCollatorSigned
@@ -1182,7 +1178,7 @@ fn candidate_checks() {
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
 					vec![backed],
-					vec![chain_a_assignment.clone()],
+					&[chain_a_assignment].into_iter().collect(),
 					&group_validators,
 				),
 				Error::<Test>::CandidateScheduledBeforeParaFree
@@ -1222,7 +1218,7 @@ fn candidate_checks() {
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
 					vec![backed],
-					vec![chain_a_assignment.clone()],
+					&[chain_a_assignment].into_iter().collect(),
 					&group_validators,
 				),
 				Error::<Test>::CandidateScheduledBeforeParaFree
@@ -1259,14 +1255,20 @@ fn candidate_checks() {
 				let cfg = Configuration::config();
 				let expected_at = 10 + cfg.validation_upgrade_delay;
 				assert_eq!(expected_at, 12);
-				Paras::schedule_code_upgrade(chain_a, vec![1, 2, 3, 4].into(), expected_at, &cfg);
+				Paras::schedule_code_upgrade(
+					chain_a,
+					vec![1, 2, 3, 4].into(),
+					expected_at,
+					&cfg,
+					SetGoAhead::Yes,
+				);
 			}
 
 			assert_noop!(
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
 					vec![backed],
-					vec![chain_a_assignment.clone()],
+					&[chain_a_assignment].into_iter().collect(),
 					&group_validators,
 				),
 				Error::<Test>::PrematureCodeUpgrade
@@ -1300,7 +1302,7 @@ fn candidate_checks() {
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
 					vec![backed],
-					vec![chain_a_assignment.clone()],
+					&[chain_a_assignment].into_iter().collect(),
 					&group_validators,
 				),
 				Err(Error::<Test>::ValidationDataHashMismatch.into()),
@@ -1335,7 +1337,7 @@ fn candidate_checks() {
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
 					vec![backed],
-					vec![chain_a_assignment.clone()],
+					&[chain_a_assignment].into_iter().collect(),
 					&group_validators,
 				),
 				Error::<Test>::InvalidValidationCodeHash
@@ -1370,7 +1372,7 @@ fn candidate_checks() {
 				ParaInclusion::process_candidates(
 					&allowed_relay_parents,
 					vec![backed],
-					vec![chain_a_assignment.clone()],
+					&[chain_a_assignment].into_iter().collect(),
 					&group_validators,
 				),
 				Error::<Test>::ParaHeadMismatch
@@ -1440,21 +1442,9 @@ fn backing_works() {
 
 		let allowed_relay_parents = default_allowed_relay_parent_tracker();
 
-		let entry_ttl = 10_000;
-		let chain_a_assignment = CoreAssignment {
-			core: CoreIndex::from(0),
-			paras_entry: ParasEntry::new(Assignment::new(chain_a), entry_ttl),
-		};
-
-		let chain_b_assignment = CoreAssignment {
-			core: CoreIndex::from(1),
-			paras_entry: ParasEntry::new(Assignment::new(chain_b), entry_ttl),
-		};
-
-		let thread_a_assignment = CoreAssignment {
-			core: CoreIndex::from(2),
-			paras_entry: ParasEntry::new(Assignment::new(thread_a), entry_ttl),
-		};
+		let chain_a_assignment = (chain_a, CoreIndex::from(0));
+		let chain_b_assignment = (chain_b, CoreIndex::from(1));
+		let thread_a_assignment = (thread_a, CoreIndex::from(2));
 
 		let mut candidate_a = TestCandidateBuilder {
 			para_id: chain_a,
@@ -1542,11 +1532,9 @@ fn backing_works() {
 		} = ParaInclusion::process_candidates(
 			&allowed_relay_parents,
 			backed_candidates.clone(),
-			vec![
-				chain_a_assignment.clone(),
-				chain_b_assignment.clone(),
-				thread_a_assignment.clone(),
-			],
+			&[chain_a_assignment, chain_b_assignment, thread_a_assignment]
+				.into_iter()
+				.collect(),
 			&group_validators,
 		)
 		.expect("candidates scheduled, in order, and backed");
@@ -1609,7 +1597,10 @@ fn backing_works() {
 		);
 
 		let backers = {
-			let num_backers = minimum_backing_votes(group_validators(GroupIndex(0)).unwrap().len());
+			let num_backers = effective_minimum_backing_votes(
+				group_validators(GroupIndex(0)).unwrap().len(),
+				configuration::Pallet::<Test>::config().minimum_backing_votes,
+			);
 			backing_bitfield(&(0..num_backers).collect::<Vec<_>>())
 		};
 		assert_eq!(
@@ -1631,7 +1622,10 @@ fn backing_works() {
 		);
 
 		let backers = {
-			let num_backers = minimum_backing_votes(group_validators(GroupIndex(0)).unwrap().len());
+			let num_backers = effective_minimum_backing_votes(
+				group_validators(GroupIndex(0)).unwrap().len(),
+				configuration::Pallet::<Test>::config().minimum_backing_votes,
+			);
 			backing_bitfield(&(0..num_backers).map(|v| v + 2).collect::<Vec<_>>())
 		};
 		assert_eq!(
@@ -1726,12 +1720,7 @@ fn can_include_candidate_with_ok_code_upgrade() {
 		Scheduler::set_validator_groups(validator_groups);
 
 		let allowed_relay_parents = default_allowed_relay_parent_tracker();
-		let entry_ttl = 10_000;
-		let chain_a_assignment = CoreAssignment {
-			core: CoreIndex::from(0),
-			paras_entry: ParasEntry::new(Assignment::new(chain_a), entry_ttl),
-		};
-
+		let chain_a_assignment = (chain_a, CoreIndex::from(0));
 		let mut candidate_a = TestCandidateBuilder {
 			para_id: chain_a,
 			relay_parent: System::parent_hash(),
@@ -1757,7 +1746,7 @@ fn can_include_candidate_with_ok_code_upgrade() {
 			ParaInclusion::process_candidates(
 				&allowed_relay_parents,
 				vec![backed_a],
-				vec![chain_a_assignment.clone()],
+				&[chain_a_assignment].into_iter().collect(),
 				&group_validators,
 			)
 			.expect("candidates scheduled, in order, and backed");
@@ -1765,7 +1754,10 @@ fn can_include_candidate_with_ok_code_upgrade() {
 		assert_eq!(occupied_cores, vec![(CoreIndex::from(0), chain_a)]);
 
 		let backers = {
-			let num_backers = minimum_backing_votes(group_validators(GroupIndex(0)).unwrap().len());
+			let num_backers = effective_minimum_backing_votes(
+				group_validators(GroupIndex(0)).unwrap().len(),
+				configuration::Pallet::<Test>::config().minimum_backing_votes,
+			);
 			backing_bitfield(&(0..num_backers).collect::<Vec<_>>())
 		};
 		assert_eq!(
@@ -1880,28 +1872,10 @@ fn check_allowed_relay_parents() {
 			max_ancestry_len,
 		);
 
-		let chain_a_assignment = CoreAssignment {
-			core: CoreIndex::from(0),
-			paras_entry: ParasEntry {
-				assignment: Assignment { para_id: chain_a },
-				availability_timeouts: 0,
-				ttl: 5,
-			},
-		};
+		let chain_a_assignment = (chain_a, CoreIndex::from(0));
 
-		let chain_b_assignment = CoreAssignment {
-			core: CoreIndex::from(1),
-			paras_entry: ParasEntry {
-				assignment: Assignment { para_id: chain_b },
-				availability_timeouts: 0,
-				ttl: 5,
-			},
-		};
-
-		let thread_a_assignment = CoreAssignment {
-			core: CoreIndex::from(2),
-			paras_entry: ParasEntry::new(Assignment::new(thread_a), 5),
-		};
+		let chain_b_assignment = (chain_b, CoreIndex::from(1));
+		let thread_a_assignment = (thread_a, CoreIndex::from(2));
 
 		let mut candidate_a = TestCandidateBuilder {
 			para_id: chain_a,
@@ -1983,11 +1957,9 @@ fn check_allowed_relay_parents() {
 		ParaInclusion::process_candidates(
 			&allowed_relay_parents,
 			backed_candidates.clone(),
-			vec![
-				chain_a_assignment.clone(),
-				chain_b_assignment.clone(),
-				thread_a_assignment.clone(),
-			],
+			&[chain_a_assignment, chain_b_assignment, thread_a_assignment]
+				.into_iter()
+				.collect(),
 			&group_validators,
 		)
 		.expect("candidates scheduled, in order, and backed");
@@ -2197,15 +2169,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 
 		let allowed_relay_parents = default_allowed_relay_parent_tracker();
 
-		let chain_a_assignment = CoreAssignment {
-			core: CoreIndex::from(0),
-			paras_entry: ParasEntry {
-				assignment: Assignment { para_id: chain_a },
-				availability_timeouts: 0,
-				ttl: 5,
-			},
-		};
-
+		let chain_a_assignment = (chain_a, CoreIndex::from(0));
 		let mut candidate_a = TestCandidateBuilder {
 			para_id: chain_a,
 			relay_parent: System::parent_hash(),
@@ -2231,7 +2195,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 			ParaInclusion::process_candidates(
 				&allowed_relay_parents,
 				vec![backed_a],
-				vec![chain_a_assignment.clone()],
+				&[chain_a_assignment].into_iter().collect(),
 				&group_validators,
 			)
 			.expect("candidates scheduled, in order, and backed");
@@ -2277,7 +2241,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 		let cause = &active_vote_state.causes()[0];
 		// Upgrade block is the block of inclusion, not candidate's parent.
 		assert_matches!(cause,
-			paras::PvfCheckCause::Upgrade { id, included_at }
+			paras::PvfCheckCause::Upgrade { id, included_at, set_go_ahead: SetGoAhead::Yes }
 				if id == &chain_a && included_at == &7
 		);
 	});

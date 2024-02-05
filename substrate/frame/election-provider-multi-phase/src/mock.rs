@@ -16,12 +16,12 @@
 // limitations under the License.
 
 use super::*;
-use crate::{self as multi_phase, unsigned::MinerConfig};
+use crate::{self as multi_phase, signed::GeometricDepositBase, unsigned::MinerConfig};
 use frame_election_provider_support::{
 	bounds::{DataProviderBounds, ElectionBounds},
 	data_provider, onchain, ElectionDataProvider, NposSolution, SequentialPhragmen,
 };
-pub use frame_support::{assert_noop, assert_ok, pallet_prelude::GetDefault};
+pub use frame_support::derive_impl;
 use frame_support::{
 	parameter_types,
 	traits::{ConstU32, Hooks},
@@ -44,8 +44,8 @@ use sp_npos_elections::{
 use sp_runtime::{
 	bounded_vec,
 	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage, PerU16,
+	traits::{BlakeTwo256, Convert, IdentityLookup},
+	BuildStorage, PerU16, Percent,
 };
 use std::sync::Arc;
 
@@ -54,11 +54,10 @@ pub type UncheckedExtrinsic =
 	sp_runtime::generic::UncheckedExtrinsic<AccountId, RuntimeCall, (), ()>;
 
 frame_support::construct_runtime!(
-	pub struct Runtime
-	{
-		System: frame_system::{Pallet, Call, Event<T>, Config<T>},
-		Balances: pallet_balances::{Pallet, Call, Event<T>, Config<T>},
-		MultiPhase: multi_phase::{Pallet, Call, Event<T>},
+	pub enum Runtime {
+		System: frame_system,
+		Balances: pallet_balances,
+		MultiPhase: multi_phase,
 	}
 );
 
@@ -80,11 +79,7 @@ frame_election_provider_support::generate_solution_type!(
 
 /// All events of this pallet.
 pub(crate) fn multi_phase_events() -> Vec<super::Event<Runtime>> {
-	System::events()
-		.into_iter()
-		.map(|r| r.event)
-		.filter_map(|e| if let RuntimeEvent::MultiPhase(inner) = e { Some(inner) } else { None })
-		.collect::<Vec<_>>()
+	System::read_events_for_pallet::<super::Event<Runtime>>()
 }
 
 /// To from `now` to block `n`.
@@ -113,6 +108,15 @@ pub fn roll_to_with_ocw(n: BlockNumber) {
 		System::set_block_number(i);
 		MultiPhase::on_initialize(i);
 		MultiPhase::offchain_worker(i);
+	}
+}
+
+pub fn roll_to_round(n: u32) {
+	assert!(MultiPhase::round() <= n);
+
+	while MultiPhase::round() != n {
+		roll_to_signed();
+		frame_support::assert_ok!(MultiPhase::elect());
 	}
 }
 
@@ -204,6 +208,7 @@ pub fn witness() -> SolutionOrSnapshotSize {
 		.unwrap_or_default()
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	type SS58Prefix = ();
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -253,7 +258,7 @@ impl pallet_balances::Config for Runtime {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeFreezeReason = ();
 }
 
 #[derive(Default, Eq, PartialEq, Debug, Clone, Copy)]
@@ -283,14 +288,17 @@ parameter_types! {
 	pub static UnsignedPhase: BlockNumber = 5;
 	pub static SignedMaxSubmissions: u32 = 5;
 	pub static SignedMaxRefunds: u32 = 1;
-	pub static SignedDepositBase: Balance = 5;
+	// for tests only. if `EnableVariableDepositBase` is true, the deposit base will be calculated
+	// by `Multiphase::DepositBase`. Otherwise the deposit base is `SignedFixedDeposit`.
+	pub static EnableVariableDepositBase: bool = false;
+	pub static SignedFixedDeposit: Balance = 5;
+	pub static SignedDepositIncreaseFactor: Percent = Percent::from_percent(10);
 	pub static SignedDepositByte: Balance = 0;
 	pub static SignedDepositWeight: Balance = 0;
 	pub static SignedRewardBase: Balance = 7;
 	pub static SignedMaxWeight: Weight = BlockWeights::get().max_block;
 	pub static MinerTxPriority: u64 = 100;
 	pub static BetterSignedThreshold: Perbill = Perbill::zero();
-	pub static BetterUnsignedThreshold: Perbill = Perbill::zero();
 	pub static OffchainRepeat: BlockNumber = 5;
 	pub static MinerMaxWeight: Weight = BlockWeights::get().max_block;
 	pub static MinerMaxLength: u32 = 256;
@@ -388,12 +396,11 @@ impl crate::Config for Runtime {
 	type EstimateCallFee = frame_support::traits::ConstU32<8>;
 	type SignedPhase = SignedPhase;
 	type UnsignedPhase = UnsignedPhase;
-	type BetterUnsignedThreshold = BetterUnsignedThreshold;
 	type BetterSignedThreshold = BetterSignedThreshold;
 	type OffchainRepeat = OffchainRepeat;
 	type MinerTxPriority = MinerTxPriority;
 	type SignedRewardBase = SignedRewardBase;
-	type SignedDepositBase = SignedDepositBase;
+	type SignedDepositBase = Self;
 	type SignedDepositByte = ();
 	type SignedDepositWeight = ();
 	type SignedMaxWeight = SignedMaxWeight;
@@ -412,6 +419,18 @@ impl crate::Config for Runtime {
 	type MinerConfig = Self;
 	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>, Balancing>;
 	type ElectionBounds = ElectionsBounds;
+}
+
+impl Convert<usize, BalanceOf<Runtime>> for Runtime {
+	/// returns the geometric increase deposit fee if `EnableVariableDepositBase` is set, otherwise
+	/// the fee is `SignedFixedDeposit`.
+	fn convert(queue_len: usize) -> Balance {
+		if !EnableVariableDepositBase::get() {
+			SignedFixedDeposit::get()
+		} else {
+			GeometricDepositBase::<Balance, SignedFixedDeposit, SignedDepositIncreaseFactor>::convert(queue_len)
+		}
+	}
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Runtime
@@ -515,10 +534,7 @@ impl ExtBuilder {
 		<BetterSignedThreshold>::set(p);
 		self
 	}
-	pub fn better_unsigned_threshold(self, p: Perbill) -> Self {
-		<BetterUnsignedThreshold>::set(p);
-		self
-	}
+
 	pub fn phases(self, signed: BlockNumber, unsigned: BlockNumber) -> Self {
 		<SignedPhase>::set(signed);
 		<UnsignedPhase>::set(unsigned);
@@ -553,8 +569,14 @@ impl ExtBuilder {
 		<SignedMaxSubmissions>::set(count);
 		self
 	}
+	pub fn signed_base_deposit(self, base: u64, variable: bool, increase: Percent) -> Self {
+		<EnableVariableDepositBase>::set(variable);
+		<SignedFixedDeposit>::set(base);
+		<SignedDepositIncreaseFactor>::set(increase);
+		self
+	}
 	pub fn signed_deposit(self, base: u64, byte: u64, weight: u64) -> Self {
-		<SignedDepositBase>::set(base);
+		<SignedFixedDeposit>::set(base);
 		<SignedDepositByte>::set(byte);
 		<SignedDepositWeight>::set(weight);
 		self
@@ -614,9 +636,9 @@ impl ExtBuilder {
 
 		#[cfg(feature = "try-runtime")]
 		ext.execute_with(|| {
-			assert_ok!(<MultiPhase as frame_support::traits::Hooks<u64>>::try_state(
-				System::block_number()
-			));
+			frame_support::assert_ok!(
+				<MultiPhase as frame_support::traits::Hooks<u64>>::try_state(System::block_number())
+			);
 		});
 	}
 }

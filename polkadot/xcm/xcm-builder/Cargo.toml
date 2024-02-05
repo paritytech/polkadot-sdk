@@ -4,12 +4,15 @@ description = "Tools & types for building with XCM and its executor."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "1.0.0"
+version = "7.0.0"
+
+[lints]
+workspace = true
 
 [dependencies]
 impl-trait-for-tuples = "0.2.1"
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 xcm = { package = "staging-xcm", path = "..", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", default-features = false }
 sp-std = { path = "../../../substrate/primitives/std", default-features = false }
@@ -23,7 +26,7 @@ pallet-transaction-payment = { path = "../../../substrate/frame/transaction-paym
 log = { version = "0.4.17", default-features = false }
 
 # Polkadot dependencies
-polkadot-parachain = { path = "../../parachain", default-features = false }
+polkadot-parachain-primitives = { path = "../../parachain", default-features = false }
 
 [dev-dependencies]
 primitive-types = "0.12.1"
@@ -37,7 +40,7 @@ assert_matches = "1.5.0"
 polkadot-test-runtime = { path = "../../runtime/test-runtime" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
@@ -45,7 +48,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-salary/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
-	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"polkadot-test-runtime/runtime-benchmarks",
 	"primitives/runtime-benchmarks",
@@ -58,7 +61,7 @@ std = [
 	"log/std",
 	"pallet-transaction-payment/std",
 	"parity-scale-codec/std",
-	"polkadot-parachain/std",
+	"polkadot-parachain-primitives/std",
 	"scale-info/std",
 	"sp-arithmetic/std",
 	"sp-io/std",

@@ -27,36 +27,30 @@ use crate::{
 			outgoing_requests_engine::OnDemandJustificationsEngine, BeefyJustifsRequestHandler,
 		},
 	},
+	error::Error,
 	import::BeefyBlockImport,
 	metrics::register_metrics,
-	round::Rounds,
-	worker::PersistedState,
 };
 use futures::{stream::Fuse, StreamExt};
-use log::{error, info};
+use log::{debug, error, info, warn};
 use parking_lot::Mutex;
 use prometheus::Registry;
 use sc_client_api::{Backend, BlockBackend, BlockchainEvents, FinalityNotifications, Finalizer};
 use sc_consensus::BlockImport;
-use sc_network::{NetworkRequest, ProtocolName};
+use sc_network::{NetworkRequest, NotificationService, ProtocolName};
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork, Syncing as GossipSyncing};
-use sp_api::{HeaderT, NumberFor, ProvideRuntimeApi};
+use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{
 	Backend as BlockchainBackend, Error as ClientError, HeaderBackend, Result as ClientResult,
 };
 use sp_consensus::{Error as ConsensusError, SyncOracle};
 use sp_consensus_beefy::{
 	ecdsa_crypto::AuthorityId, BeefyApi, MmrRootHash, PayloadProvider, ValidatorSet,
-	BEEFY_ENGINE_ID,
 };
 use sp_keystore::KeystorePtr;
 use sp_mmr_primitives::MmrApi;
-use sp_runtime::traits::{Block, Zero};
-use std::{
-	collections::{BTreeMap, VecDeque},
-	marker::PhantomData,
-	sync::Arc,
-};
+use sp_runtime::traits::{Block, Header as HeaderT, NumberFor, Zero};
+use std::{collections::BTreeMap, marker::PhantomData, sync::Arc, time::Duration};
 
 mod aux_schema;
 mod error;
@@ -77,6 +71,8 @@ pub use communication::beefy_protocol_name::{
 mod tests;
 
 const LOG_TARGET: &str = "beefy";
+
+const HEADER_SYNC_DELAY: Duration = Duration::from_secs(60);
 
 /// A convenience BEEFY client trait that defines all the type bounds a BEEFY client
 /// has to satisfy. Ideally that should actually be a trait alias. Unfortunately as
@@ -178,6 +174,8 @@ pub struct BeefyNetworkParams<B: Block, N, S> {
 	pub network: Arc<N>,
 	/// Syncing service implementing a sync oracle and an event stream for peers.
 	pub sync: Arc<S>,
+	/// Handle for receiving notification events.
+	pub notification_service: Box<dyn NotificationService>,
 	/// Chain specific BEEFY gossip protocol name. See
 	/// [`communication::beefy_protocol_name::gossip_protocol_name`].
 	pub gossip_protocol_name: ProtocolName,
@@ -243,6 +241,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	let BeefyNetworkParams {
 		network,
 		sync,
+		notification_service,
 		gossip_protocol_name,
 		justifications_protocol_name,
 		..
@@ -264,6 +263,7 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	let gossip_engine = GossipEngine::new(
 		network.clone(),
 		sync.clone(),
+		notification_service,
 		gossip_protocol_name.clone(),
 		gossip_validator.clone(),
 		None,
@@ -288,21 +288,32 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	// select recoverable errors.
 	loop {
 		// Wait for BEEFY pallet to be active before starting voter.
-		let persisted_state = match wait_for_runtime_pallet(
+		let (beefy_genesis, best_grandpa) = match wait_for_runtime_pallet(
 			&*runtime,
 			&mut beefy_comms.gossip_engine,
 			&mut finality_notifications,
 		)
 		.await
-		.and_then(|(beefy_genesis, best_grandpa)| {
-			load_or_init_voter_state(
-				&*backend,
-				&*runtime,
-				beefy_genesis,
-				best_grandpa,
-				min_block_delta,
-			)
-		}) {
+		{
+			Ok(res) => res,
+			Err(e) => {
+				error!(target: LOG_TARGET, "Error: {:?}. Terminating.", e);
+				return
+			},
+		};
+
+		let mut worker_base = worker::BeefyWorkerBase {
+			backend: backend.clone(),
+			runtime: runtime.clone(),
+			key_store: key_store.clone().into(),
+			metrics: metrics.clone(),
+			_phantom: Default::default(),
+		};
+
+		let persisted_state = match worker_base
+			.load_or_init_state(beefy_genesis, best_grandpa, min_block_delta)
+			.await
+		{
 			Ok(state) => state,
 			Err(e) => {
 				error!(target: LOG_TARGET, "Error: {:?}. Terminating.", e);
@@ -319,14 +330,11 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 		}
 
 		let worker = worker::BeefyWorker {
-			backend: backend.clone(),
+			base: worker_base,
 			payload_provider: payload_provider.clone(),
-			runtime: runtime.clone(),
 			sync: sync.clone(),
-			key_store: key_store.clone().into(),
 			comms: beefy_comms,
 			links: links.clone(),
-			metrics: metrics.clone(),
 			pending_justifications: BTreeMap::new(),
 			persisted_state,
 		};
@@ -353,136 +361,43 @@ pub async fn start_beefy_gadget<B, BE, C, N, P, R, S>(
 	}
 }
 
-fn load_or_init_voter_state<B, BE, R>(
-	backend: &BE,
-	runtime: &R,
-	beefy_genesis: NumberFor<B>,
-	best_grandpa: <B as Block>::Header,
-	min_block_delta: u32,
-) -> ClientResult<PersistedState<B>>
+/// Waits until the parent header of `current` is available and returns it.
+///
+/// When the node uses GRANDPA warp sync it initially downloads only the mandatory GRANDPA headers.
+/// The rest of the headers (gap sync) are lazily downloaded later. But the BEEFY voter also needs
+/// the headers in range `[beefy_genesis..=best_grandpa]` to be available. This helper method
+/// enables us to wait until these headers have been synced.
+async fn wait_for_parent_header<B, BC>(
+	blockchain: &BC,
+	current: <B as Block>::Header,
+	delay: Duration,
+) -> Result<<B as Block>::Header, Error>
 where
 	B: Block,
-	BE: Backend<B>,
-	R: ProvideRuntimeApi<B>,
-	R::Api: BeefyApi<B, AuthorityId>,
+	BC: BlockchainBackend<B>,
 {
-	// Initialize voter state from AUX DB if compatible.
-	crate::aux_schema::load_persistent(backend)?
-		// Verify state pallet genesis matches runtime.
-		.filter(|state| state.pallet_genesis() == beefy_genesis)
-		.and_then(|mut state| {
-			// Overwrite persisted state with current best GRANDPA block.
-			state.set_best_grandpa(best_grandpa.clone());
-			// Overwrite persisted data with newly provided `min_block_delta`.
-			state.set_min_block_delta(min_block_delta);
-			info!(target: LOG_TARGET, "🥩 Loading BEEFY voter state from db: {:?}.", state);
-			Some(Ok(state))
-		})
-		// No valid voter-state persisted, re-initialize from pallet genesis.
-		.unwrap_or_else(|| {
-			initialize_voter_state(backend, runtime, beefy_genesis, best_grandpa, min_block_delta)
-		})
-}
-
-// If no persisted state present, walk back the chain from first GRANDPA notification to either:
-//  - latest BEEFY finalized block, or if none found on the way,
-//  - BEEFY pallet genesis;
-// Enqueue any BEEFY mandatory blocks (session boundaries) found on the way, for voter to finalize.
-fn initialize_voter_state<B, BE, R>(
-	backend: &BE,
-	runtime: &R,
-	beefy_genesis: NumberFor<B>,
-	best_grandpa: <B as Block>::Header,
-	min_block_delta: u32,
-) -> ClientResult<PersistedState<B>>
-where
-	B: Block,
-	BE: Backend<B>,
-	R: ProvideRuntimeApi<B>,
-	R::Api: BeefyApi<B, AuthorityId>,
-{
-	let beefy_genesis = runtime
-		.runtime_api()
-		.beefy_genesis(best_grandpa.hash())
-		.ok()
-		.flatten()
-		.filter(|genesis| *genesis == beefy_genesis)
-		.ok_or_else(|| ClientError::Backend("BEEFY pallet expected to be active.".into()))?;
-	// Walk back the imported blocks and initialize voter either, at the last block with
-	// a BEEFY justification, or at pallet genesis block; voter will resume from there.
-	let blockchain = backend.blockchain();
-	let mut sessions = VecDeque::new();
-	let mut header = best_grandpa.clone();
-	let state = loop {
-		if let Some(true) = blockchain
-			.justifications(header.hash())
-			.ok()
-			.flatten()
-			.map(|justifs| justifs.get(BEEFY_ENGINE_ID).is_some())
+	if *current.number() == Zero::zero() {
+		let msg = format!("header {} is Genesis, there is no parent for it", current.hash());
+		warn!(target: LOG_TARGET, "{}", msg);
+		return Err(Error::Backend(msg));
+	}
+	loop {
+		match blockchain
+			.header(*current.parent_hash())
+			.map_err(|e| Error::Backend(e.to_string()))?
 		{
-			info!(
-				target: LOG_TARGET,
-				"🥩 Initialize BEEFY voter at last BEEFY finalized block: {:?}.",
-				*header.number()
-			);
-			let best_beefy = *header.number();
-			// If no session boundaries detected so far, just initialize new rounds here.
-			if sessions.is_empty() {
-				let active_set = expect_validator_set(runtime, backend, &header, beefy_genesis)?;
-				let mut rounds = Rounds::new(best_beefy, active_set);
-				// Mark the round as already finalized.
-				rounds.conclude(best_beefy);
-				sessions.push_front(rounds);
-			}
-			let state = PersistedState::checked_new(
-				best_grandpa,
-				best_beefy,
-				sessions,
-				min_block_delta,
-				beefy_genesis,
-			)
-			.ok_or_else(|| ClientError::Backend("Invalid BEEFY chain".into()))?;
-			break state
+			Some(parent) => return Ok(parent),
+			None => {
+				info!(
+					target: LOG_TARGET,
+					"🥩 Parent of header number {} not found. \
+					BEEFY gadget waiting for header sync to finish ...",
+					current.number()
+				);
+				tokio::time::sleep(delay).await;
+			},
 		}
-
-		if *header.number() == beefy_genesis {
-			// We've reached BEEFY genesis, initialize voter here.
-			let genesis_set = expect_validator_set(runtime, backend, &header, beefy_genesis)?;
-			info!(
-				target: LOG_TARGET,
-				"🥩 Loading BEEFY voter state from genesis on what appears to be first startup. \
-				Starting voting rounds at block {:?}, genesis validator set {:?}.",
-				beefy_genesis,
-				genesis_set,
-			);
-
-			sessions.push_front(Rounds::new(beefy_genesis, genesis_set));
-			break PersistedState::checked_new(
-				best_grandpa,
-				Zero::zero(),
-				sessions,
-				min_block_delta,
-				beefy_genesis,
-			)
-			.ok_or_else(|| ClientError::Backend("Invalid BEEFY chain".into()))?
-		}
-
-		if let Some(active) = worker::find_authorities_change::<B>(&header) {
-			info!(
-				target: LOG_TARGET,
-				"🥩 Marking block {:?} as BEEFY Mandatory.",
-				*header.number()
-			);
-			sessions.push_front(Rounds::new(*header.number(), active));
-		}
-
-		// Move up the chain.
-		header = blockchain.expect_header(*header.parent_hash())?;
-	};
-
-	aux_schema::write_current_version(backend)?;
-	aux_schema::write_voter_state(backend, &state)?;
-	Ok(state)
+	}
 }
 
 /// Wait for BEEFY runtime pallet to be available, return active validator set.
@@ -528,36 +443,42 @@ where
 	Err(ClientError::Backend(err_msg))
 }
 
-fn expect_validator_set<B, BE, R>(
+/// Provides validator set active `at_header`. It tries to get it from state, otherwise falls
+/// back to walk up the chain looking the validator set enactment in header digests.
+///
+/// Note: function will `async::sleep()` when walking back the chain if some needed header hasn't
+/// been synced yet (as it happens when warp syncing when headers are synced in the background).
+async fn expect_validator_set<B, BE, R>(
 	runtime: &R,
 	backend: &BE,
 	at_header: &B::Header,
-	beefy_genesis: NumberFor<B>,
-) -> ClientResult<ValidatorSet<AuthorityId>>
+) -> Result<ValidatorSet<AuthorityId>, Error>
 where
 	B: Block,
 	BE: Backend<B>,
 	R: ProvideRuntimeApi<B>,
 	R::Api: BeefyApi<B, AuthorityId>,
 {
-	runtime
-		.runtime_api()
-		.validator_set(at_header.hash())
-		.ok()
-		.flatten()
-		.or_else(|| {
-			// if state unavailable, fallback to walking up the chain looking for the header
-			// Digest emitted when validator set active 'at_header' was enacted.
-			let blockchain = backend.blockchain();
-			let mut header = at_header.clone();
-			while *header.number() >= beefy_genesis {
-				match worker::find_authorities_change::<B>(&header) {
-					Some(active) => return Some(active),
-					// Move up the chain.
-					None => header = blockchain.expect_header(*header.parent_hash()).ok()?,
-				}
+	let blockchain = backend.blockchain();
+
+	// Walk up the chain looking for the validator set active at 'at_header'. Process both state and
+	// header digests.
+	debug!(target: LOG_TARGET, "🥩 Trying to find validator set active at header: {:?}", at_header);
+	let mut header = at_header.clone();
+	loop {
+		debug!(target: LOG_TARGET, "🥩 Looking for auth set change at block number: {:?}", *header.number());
+		if let Ok(Some(active)) = runtime.runtime_api().validator_set(header.hash()) {
+			return Ok(active)
+		} else {
+			match worker::find_authorities_change::<B>(&header) {
+				Some(active) => return Ok(active),
+				// Move up the chain. Ultimately we'll get it from chain genesis state, or error out
+				// there.
+				None =>
+					header = wait_for_parent_header(blockchain, header, HEADER_SYNC_DELAY)
+						.await
+						.map_err(|e| Error::Backend(e.to_string()))?,
 			}
-			None
-		})
-		.ok_or_else(|| ClientError::Backend("Could not find initial validator set".into()))
+		}
+	}
 }

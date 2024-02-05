@@ -27,7 +27,6 @@ use sp_consensus_babe::{
 	make_vrf_sign_data, AuthorityId, BabeAuthorityWeight, Randomness, Slot,
 };
 use sp_core::{
-	blake2_256,
 	crypto::{ByteArray, Wraps},
 	U256,
 };
@@ -109,7 +108,7 @@ pub(super) fn secondary_slot_author(
 		return None
 	}
 
-	let rand = U256::from((randomness, slot).using_encoded(blake2_256));
+	let rand = U256::from((randomness, slot).using_encoded(sp_crypto_hashing::blake2_256));
 
 	let authorities_len = U256::from(authorities.len());
 	let idx = rand % authorities_len;
@@ -132,23 +131,22 @@ fn claim_secondary_slot(
 	keystore: &KeystorePtr,
 	author_secondary_vrf: bool,
 ) -> Option<(PreDigest, AuthorityId)> {
-	let Epoch { authorities, randomness, mut epoch_index, .. } = epoch;
-
-	if authorities.is_empty() {
+	if epoch.authorities.is_empty() {
 		return None
 	}
 
+	let mut epoch_index = epoch.epoch_index;
 	if epoch.end_slot() <= slot {
 		// Slot doesn't strictly belong to the epoch, create a clone with fixed values.
 		epoch_index = epoch.clone_for_slot(slot).epoch_index;
 	}
 
-	let expected_author = secondary_slot_author(slot, authorities, *randomness)?;
+	let expected_author = secondary_slot_author(slot, &epoch.authorities, epoch.randomness)?;
 
 	for (authority_id, authority_index) in keys {
 		if authority_id == expected_author {
 			let pre_digest = if author_secondary_vrf {
-				let data = make_vrf_sign_data(randomness, slot, epoch_index);
+				let data = make_vrf_sign_data(&epoch.randomness, slot, epoch_index);
 				let result =
 					keystore.sr25519_vrf_sign(AuthorityId::ID, authority_id.as_ref(), &data);
 				if let Ok(Some(vrf_signature)) = result {
@@ -232,26 +230,25 @@ fn claim_primary_slot(
 	keystore: &KeystorePtr,
 	keys: &[(AuthorityId, usize)],
 ) -> Option<(PreDigest, AuthorityId)> {
-	let Epoch { authorities, randomness, mut epoch_index, .. } = epoch;
-
+	let mut epoch_index = epoch.epoch_index;
 	if epoch.end_slot() <= slot {
 		// Slot doesn't strictly belong to the epoch, create a clone with fixed values.
 		epoch_index = epoch.clone_for_slot(slot).epoch_index;
 	}
 
-	let data = make_vrf_sign_data(randomness, slot, epoch_index);
+	let data = make_vrf_sign_data(&epoch.randomness, slot, epoch_index);
 
 	for (authority_id, authority_index) in keys {
 		let result = keystore.sr25519_vrf_sign(AuthorityId::ID, authority_id.as_ref(), &data);
 		if let Ok(Some(vrf_signature)) = result {
-			let threshold = calculate_primary_threshold(c, authorities, *authority_index);
+			let threshold = calculate_primary_threshold(c, &epoch.authorities, *authority_index);
 
 			let can_claim = authority_id
 				.as_inner_ref()
 				.make_bytes::<AUTHORING_SCORE_LENGTH>(
 					AUTHORING_SCORE_VRF_CONTEXT,
 					&data.as_ref(),
-					&vrf_signature.output,
+					&vrf_signature.pre_output,
 				)
 				.map(|bytes| u128::from_le_bytes(bytes) < threshold)
 				.unwrap_or_default();
@@ -274,7 +271,7 @@ fn claim_primary_slot(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_consensus_babe::{AllowedSlots, AuthorityId, BabeEpochConfiguration};
+	use sp_consensus_babe::{AllowedSlots, AuthorityId, BabeEpochConfiguration, Epoch};
 	use sp_core::{crypto::Pair as _, sr25519::Pair};
 	use sp_keystore::testing::MemoryKeystore;
 
@@ -300,7 +297,8 @@ mod tests {
 				c: (3, 10),
 				allowed_slots: AllowedSlots::PrimaryAndSecondaryPlainSlots,
 			},
-		};
+		}
+		.into();
 
 		assert!(claim_slot(10.into(), &epoch, &keystore).is_none());
 

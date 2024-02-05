@@ -9,53 +9,58 @@ license = "MIT-0"
 publish = false
 repository = "https://github.com/substrate-developer-hub/substrate-node-template/"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive", "serde"] }
 
-pallet-aura = { path = "../../../frame/aura", default-features = false}
-pallet-balances = { path = "../../../frame/balances", default-features = false}
-frame-support = { path = "../../../frame/support", default-features = false}
-pallet-grandpa = { path = "../../../frame/grandpa", default-features = false}
-pallet-sudo = { path = "../../../frame/sudo", default-features = false}
-frame-system = { path = "../../../frame/system", default-features = false}
+pallet-aura = { path = "../../../frame/aura", default-features = false }
+pallet-balances = { path = "../../../frame/balances", default-features = false }
+frame-support = { path = "../../../frame/support", default-features = false }
+pallet-grandpa = { path = "../../../frame/grandpa", default-features = false }
+pallet-sudo = { path = "../../../frame/sudo", default-features = false }
+frame-system = { path = "../../../frame/system", default-features = false }
 frame-try-runtime = { path = "../../../frame/try-runtime", default-features = false, optional = true }
-pallet-timestamp = { path = "../../../frame/timestamp", default-features = false}
-pallet-transaction-payment = { path = "../../../frame/transaction-payment", default-features = false}
-frame-executive = { path = "../../../frame/executive", default-features = false}
-sp-api = { path = "../../../primitives/api", default-features = false}
-sp-block-builder = { path = "../../../primitives/block-builder", default-features = false}
-sp-consensus-aura = { path = "../../../primitives/consensus/aura", default-features = false}
-sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa", default-features = false}
-sp-core = { path = "../../../primitives/core", default-features = false}
-sp-inherents = { path = "../../../primitives/inherents", default-features = false}
-sp-offchain = { path = "../../../primitives/offchain", default-features = false}
-sp-runtime = { path = "../../../primitives/runtime", default-features = false}
-sp-session = { path = "../../../primitives/session", default-features = false}
-sp-std = { path = "../../../primitives/std", default-features = false}
-sp-storage = { path = "../../../primitives/storage", default-features = false}
-sp-transaction-pool = { path = "../../../primitives/transaction-pool", default-features = false}
-sp-version = { path = "../../../primitives/version", default-features = false}
+pallet-timestamp = { path = "../../../frame/timestamp", default-features = false }
+pallet-transaction-payment = { path = "../../../frame/transaction-payment", default-features = false }
+frame-executive = { path = "../../../frame/executive", default-features = false }
+sp-api = { path = "../../../primitives/api", default-features = false }
+sp-block-builder = { path = "../../../primitives/block-builder", default-features = false }
+sp-consensus-aura = { path = "../../../primitives/consensus/aura", default-features = false, features = ["serde"] }
+sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa", default-features = false, features = ["serde"] }
+sp-core = { path = "../../../primitives/core", default-features = false, features = ["serde"] }
+sp-inherents = { path = "../../../primitives/inherents", default-features = false }
+sp-offchain = { path = "../../../primitives/offchain", default-features = false }
+sp-runtime = { path = "../../../primitives/runtime", default-features = false, features = ["serde"] }
+sp-session = { path = "../../../primitives/session", default-features = false }
+sp-std = { path = "../../../primitives/std", default-features = false }
+sp-storage = { path = "../../../primitives/storage", default-features = false }
+sp-transaction-pool = { path = "../../../primitives/transaction-pool", default-features = false }
+sp-version = { path = "../../../primitives/version", default-features = false, features = ["serde"] }
+serde_json = { version = "1.0.111", default-features = false, features = ["alloc"] }
+sp-genesis-builder = { default-features = false, path = "../../../primitives/genesis-builder" }
 
 # Used for the node template's RPCs
-frame-system-rpc-runtime-api = { path = "../../../frame/system/rpc/runtime-api", default-features = false}
-pallet-transaction-payment-rpc-runtime-api = { path = "../../../frame/transaction-payment/rpc/runtime-api", default-features = false}
+frame-system-rpc-runtime-api = { path = "../../../frame/system/rpc/runtime-api", default-features = false }
+pallet-transaction-payment-rpc-runtime-api = { path = "../../../frame/transaction-payment/rpc/runtime-api", default-features = false }
 
 # Used for runtime benchmarking
 frame-benchmarking = { path = "../../../frame/benchmarking", default-features = false, optional = true }
 frame-system-benchmarking = { path = "../../../frame/system/benchmarking", default-features = false, optional = true }
 
 # Local Dependencies
-pallet-template = { path = "../pallets/template", default-features = false}
+pallet-template = { path = "../pallets/template", default-features = false }
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",
@@ -74,11 +79,13 @@ std = [
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
 	"scale-info/std",
+	"serde_json/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
 	"sp-consensus-grandpa/std",
 	"sp-core/std",
+	"sp-genesis-builder/std",
 	"sp-inherents/std",
 	"sp-offchain/std",
 	"sp-runtime/std",
@@ -115,4 +122,4 @@ try-runtime = [
 	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-experimental = [ "pallet-aura/experimental" ]
+experimental = ["pallet-aura/experimental"]

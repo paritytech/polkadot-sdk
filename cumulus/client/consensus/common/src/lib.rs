@@ -20,8 +20,8 @@ use polkadot_primitives::{
 };
 
 use cumulus_primitives_core::{
-	relay_chain::{BlockId as RBlockId, OccupiedCoreAssumption},
-	ParaId,
+	relay_chain::{self, BlockId as RBlockId, OccupiedCoreAssumption},
+	AbridgedHostConfiguration, ParaId,
 };
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface};
 
@@ -111,12 +111,15 @@ impl<B: BlockT> ParachainConsensus<B> for Box<dyn ParachainConsensus<B> + Send +
 
 /// Parachain specific block import.
 ///
-/// This is used to set `block_import_params.fork_choice` to `false` as long as the block origin is
-/// not `NetworkInitialSync`. The best block for parachains is determined by the relay chain.
-/// Meaning we will update the best block, as it is included by the relay-chain.
+/// Specialized block import for parachains. It supports to delay setting the best block until the
+/// relay chain has included a candidate in its best block. By default the delayed best block
+/// setting is disabled. The block import also monitors the imported blocks and prunes by default if
+/// there are too many blocks at the same height. Too many blocks at the same height can for example
+/// happen if the relay chain is rejecting the parachain blocks in the validation.
 pub struct ParachainBlockImport<Block: BlockT, BI, BE> {
 	inner: BI,
 	monitor: Option<SharedData<LevelMonitor<Block, BE>>>,
+	delayed_best_block: bool,
 }
 
 impl<Block: BlockT, BI, BE: Backend<Block>> ParachainBlockImport<Block, BI, BE> {
@@ -141,13 +144,27 @@ impl<Block: BlockT, BI, BE: Backend<Block>> ParachainBlockImport<Block, BI, BE> 
 		let monitor =
 			level_limit.map(|level_limit| SharedData::new(LevelMonitor::new(level_limit, backend)));
 
-		Self { inner, monitor }
+		Self { inner, monitor, delayed_best_block: false }
+	}
+
+	/// Create a new instance which delays setting the best block.
+	///
+	/// The number of leaves per level limit is set to `LevelLimit::Default`.
+	pub fn new_with_delayed_best_block(inner: BI, backend: Arc<BE>) -> Self {
+		Self {
+			delayed_best_block: true,
+			..Self::new_with_limit(inner, backend, LevelLimit::Default)
+		}
 	}
 }
 
 impl<Block: BlockT, I: Clone, BE> Clone for ParachainBlockImport<Block, I, BE> {
 	fn clone(&self) -> Self {
-		ParachainBlockImport { inner: self.inner.clone(), monitor: self.monitor.clone() }
+		ParachainBlockImport {
+			inner: self.inner.clone(),
+			monitor: self.monitor.clone(),
+			delayed_best_block: self.delayed_best_block,
+		}
 	}
 }
 
@@ -182,11 +199,13 @@ where
 			params.finalized = true;
 		}
 
-		// Best block is determined by the relay chain, or if we are doing the initial sync
-		// we import all blocks as new best.
-		params.fork_choice = Some(sc_consensus::ForkChoiceStrategy::Custom(
-			params.origin == sp_consensus::BlockOrigin::NetworkInitialSync,
-		));
+		if self.delayed_best_block {
+			// Best block is determined by the relay chain, or if we are doing the initial sync
+			// we import all blocks as new best.
+			params.fork_choice = Some(sc_consensus::ForkChoiceStrategy::Custom(
+				params.origin == sp_consensus::BlockOrigin::NetworkInitialSync,
+			));
+		}
 
 		let maybe_lock = self.monitor.as_ref().map(|monitor_lock| {
 			let mut monitor = monitor_lock.shared_data_locked();
@@ -211,6 +230,7 @@ pub trait ParachainBlockImportMarker {}
 impl<B: BlockT, BI, BE> ParachainBlockImportMarker for ParachainBlockImport<B, BI, BE> {}
 
 /// Parameters when searching for suitable parents to build on top of.
+#[derive(Debug)]
 pub struct ParentSearchParams {
 	/// The relay-parent that is intended to be used.
 	pub relay_parent: PHash,
@@ -228,6 +248,7 @@ pub struct ParentSearchParams {
 }
 
 /// A potential parent block returned from [`find_potential_parents`]
+#[derive(Debug, PartialEq)]
 pub struct PotentialParent<B: BlockT> {
 	/// The hash of the block.
 	pub hash: B::Hash,
@@ -411,4 +432,19 @@ pub fn relay_slot_and_timestamp(
 			(slot, t)
 		})
 		.ok()
+}
+
+/// Reads abridged host configuration from the relay chain storage at the given relay parent.
+pub async fn load_abridged_host_configuration(
+	relay_parent: PHash,
+	relay_client: &impl RelayChainInterface,
+) -> Result<Option<AbridgedHostConfiguration>, RelayChainError> {
+	relay_client
+		.get_storage_by_key(relay_parent, relay_chain::well_known_keys::ACTIVE_CONFIG)
+		.await?
+		.map(|bytes| {
+			AbridgedHostConfiguration::decode(&mut &bytes[..])
+				.map_err(RelayChainError::DeserializationError)
+		})
+		.transpose()
 }

@@ -1,6 +1,6 @@
 [package]
 name = "pallet-preimage"
-version = "4.0.0-dev"
+version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -8,24 +8,27 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "FRAME pallet for storing preimages of hashes"
 
+[lints]
+workspace = true
+
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
-frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true}
-frame-support = { path = "../support", default-features = false}
-frame-system = { path = "../system", default-features = false}
-sp-core = { path = "../../primitives/core", default-features = false, optional = true}
-sp-io = { path = "../../primitives/io", default-features = false}
-sp-runtime = { path = "../../primitives/runtime", default-features = false}
-sp-std = { path = "../../primitives/std", default-features = false}
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
+frame-support = { path = "../support", default-features = false }
+frame-system = { path = "../system", default-features = false }
+sp-core = { path = "../../primitives/core", default-features = false, optional = true }
+sp-io = { path = "../../primitives/io", default-features = false }
+sp-runtime = { path = "../../primitives/runtime", default-features = false }
+sp-std = { path = "../../primitives/std", default-features = false }
 log = { version = "0.4.17", default-features = false }
 
 [dev-dependencies]
 pallet-balances = { path = "../balances" }
-sp-core = { path = "../../primitives/core", default-features = false}
+sp-core = { path = "../../primitives/core", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 runtime-benchmarks = [
 	"frame-benchmarking",
 	"frame-benchmarking/runtime-benchmarks",

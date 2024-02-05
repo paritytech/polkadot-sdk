@@ -18,17 +18,21 @@
 
 #![warn(missing_docs)]
 
+use polkadot_erasure_coding::{branches, obtain_chunks_v1 as obtain_chunks};
+use polkadot_node_primitives::{AvailableData, ErasureChunk, Proof};
 use polkadot_node_subsystem::{
 	messages::AllMessages, overseer, FromOrchestra, OverseerSignal, SpawnGlue, SpawnedSubsystem,
-	SubsystemError, SubsystemResult,
+	SubsystemError, SubsystemResult, TrySendError,
 };
 use polkadot_node_subsystem_util::TimeoutExt;
+use polkadot_primitives::{Hash, ValidatorIndex};
 
 use futures::{channel::mpsc, poll, prelude::*};
 use parking_lot::Mutex;
 use sp_core::testing::TaskExecutor;
 
 use std::{
+	collections::VecDeque,
 	convert::Infallible,
 	future::Future,
 	pin::Pin,
@@ -160,6 +164,14 @@ where
 		self.tx.send(msg.into()).await.expect("test overseer no longer live");
 	}
 
+	fn try_send_message(
+		&mut self,
+		msg: OutgoingMessage,
+	) -> Result<(), TrySendError<OutgoingMessage>> {
+		self.tx.unbounded_send(msg.into()).expect("test overseer no longer live");
+		Ok(())
+	}
+
 	async fn send_messages<I>(&mut self, msgs: I)
 	where
 		I: IntoIterator<Item = OutgoingMessage> + Send,
@@ -179,6 +191,7 @@ pub struct TestSubsystemContext<M, S> {
 	tx: TestSubsystemSender,
 	rx: mpsc::Receiver<FromOrchestra<M>>,
 	spawn: S,
+	message_buffer: VecDeque<FromOrchestra<M>>,
 }
 
 #[async_trait::async_trait]
@@ -196,6 +209,9 @@ where
 	type Error = SubsystemError;
 
 	async fn try_recv(&mut self) -> Result<Option<FromOrchestra<M>>, ()> {
+		if let Some(msg) = self.message_buffer.pop_front() {
+			return Ok(Some(msg))
+		}
 		match poll!(self.rx.next()) {
 			Poll::Ready(Some(msg)) => Ok(Some(msg)),
 			Poll::Ready(None) => Err(()),
@@ -204,10 +220,28 @@ where
 	}
 
 	async fn recv(&mut self) -> SubsystemResult<FromOrchestra<M>> {
+		if let Some(msg) = self.message_buffer.pop_front() {
+			return Ok(msg)
+		}
 		self.rx
 			.next()
 			.await
 			.ok_or_else(|| SubsystemError::Context("Receiving end closed".to_owned()))
+	}
+
+	async fn recv_signal(&mut self) -> SubsystemResult<OverseerSignal> {
+		loop {
+			let msg = self
+				.rx
+				.next()
+				.await
+				.ok_or_else(|| SubsystemError::Context("Receiving end closed".to_owned()))?;
+			if let FromOrchestra::Signal(sig) = msg {
+				return Ok(sig)
+			} else {
+				self.message_buffer.push_back(msg)
+			}
+		}
 	}
 
 	fn spawn(
@@ -303,6 +337,7 @@ pub fn make_buffered_subsystem_context<M, S>(
 			tx: TestSubsystemSender { tx: all_messages_tx },
 			rx: overseer_rx,
 			spawn: SpawnGlue(spawner),
+			message_buffer: VecDeque::new(),
 		},
 		TestSubsystemContextHandle { tx: overseer_tx, rx: all_messages_rx },
 	)
@@ -338,7 +373,7 @@ pub fn subsystem_test_harness<M, OverseerFactory, Overseer, TestFactory, Test>(
 	});
 }
 
-/// A forward subsystem that implements [`Subsystem`].
+/// A forward subsystem that implements [`Subsystem`](overseer::Subsystem).
 ///
 /// It forwards all communication from the overseer to the internal message
 /// channel.
@@ -432,45 +467,37 @@ impl Future for Yield {
 	}
 }
 
+/// Helper for chunking available data.
+pub fn derive_erasure_chunks_with_proofs_and_root(
+	n_validators: usize,
+	available_data: &AvailableData,
+	alter_chunk: impl Fn(usize, &mut Vec<u8>),
+) -> (Vec<ErasureChunk>, Hash) {
+	let mut chunks: Vec<Vec<u8>> = obtain_chunks(n_validators, available_data).unwrap();
+
+	for (i, chunk) in chunks.iter_mut().enumerate() {
+		alter_chunk(i, chunk)
+	}
+
+	// create proofs for each erasure chunk
+	let branches = branches(chunks.as_ref());
+
+	let root = branches.root();
+	let erasure_chunks = branches
+		.enumerate()
+		.map(|(index, (proof, chunk))| ErasureChunk {
+			chunk: chunk.to_vec(),
+			index: ValidatorIndex(index as _),
+			proof: Proof::try_from(proof).unwrap(),
+		})
+		.collect::<Vec<ErasureChunk>>();
+
+	(erasure_chunks, root)
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use futures::executor::block_on;
-	use polkadot_node_subsystem::messages::CollatorProtocolMessage;
-	use polkadot_overseer::{dummy::dummy_overseer_builder, Handle, HeadSupportsParachains};
-	use polkadot_primitives::Hash;
-	use sp_core::traits::SpawnNamed;
-
-	struct AlwaysSupportsParachains;
-
-	#[async_trait::async_trait]
-	impl HeadSupportsParachains for AlwaysSupportsParachains {
-		async fn head_supports_parachains(&self, _head: &Hash) -> bool {
-			true
-		}
-	}
-
-	#[test]
-	fn forward_subsystem_works() {
-		let spawner = sp_core::testing::TaskExecutor::new();
-		let (tx, rx) = mpsc::channel(2);
-		let (overseer, handle) =
-			dummy_overseer_builder(spawner.clone(), AlwaysSupportsParachains, None)
-				.unwrap()
-				.replace_collator_protocol(|_| ForwardSubsystem(tx))
-				.build()
-				.unwrap();
-
-		let mut handle = Handle::new(handle);
-
-		spawner.spawn("overseer", None, overseer.run().then(|_| async { () }).boxed());
-
-		block_on(handle.send_msg_anon(CollatorProtocolMessage::CollateOn(Default::default())));
-		assert!(matches!(
-			block_on(rx.into_future()).0.unwrap(),
-			CollatorProtocolMessage::CollateOn(_)
-		));
-	}
 
 	#[test]
 	fn macro_arbitrary_order() {

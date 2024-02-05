@@ -28,7 +28,8 @@ enum DisputeStatement {
 
 ## Dispute Statement Kinds
 
-Kinds of dispute statements. Each of these can be combined with a candidate hash, session index, validator public key, and validator signature to reproduce and check the original statement.
+Kinds of dispute statements. Each of these can be combined with a candidate hash, session index, validator public key,
+and validator signature to reproduce and check the original statement.
 
 ```rust
 enum ValidDisputeStatementKind {

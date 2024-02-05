@@ -14,13 +14,17 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+// NOTE: System chains, identified by ParaId < 2000, are treated as special in HRMP channel
+// initialization. Namely, they do not require a deposit if even one ParaId is a system para. If
+// both paras are system chains, then they are also configured to the system's max configuration.
+
 use super::*;
 use crate::mock::{
 	deregister_parachain, new_test_ext, register_parachain, register_parachain_with_balance,
 	Configuration, Hrmp, MockGenesisConfig, Paras, ParasShared, RuntimeEvent as MockEvent,
 	RuntimeOrigin, System, Test,
 };
-use frame_support::assert_noop;
+use frame_support::{assert_noop, assert_ok};
 use primitives::BlockNumber;
 use std::collections::BTreeMap;
 
@@ -133,10 +137,10 @@ fn empty_state_consistent_state() {
 
 #[test]
 fn open_channel_works() {
-	let para_a = 1.into();
-	let para_a_origin: crate::Origin = 1.into();
-	let para_b = 3.into();
-	let para_b_origin: crate::Origin = 3.into();
+	let para_a = 2001.into();
+	let para_a_origin: crate::Origin = 2001.into();
+	let para_b = 2003.into();
+	let para_b_origin: crate::Origin = 2003.into();
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		// We need both A & B to be registered and alive parachains.
@@ -147,14 +151,17 @@ fn open_channel_works() {
 		Hrmp::hrmp_init_open_channel(para_a_origin.into(), para_b, 2, 8).unwrap();
 		Hrmp::assert_storage_consistency_exhaustive();
 		assert!(System::events().iter().any(|record| record.event ==
-			MockEvent::Hrmp(Event::OpenChannelRequested(para_a, para_b, 2, 8))));
+			MockEvent::Hrmp(Event::OpenChannelRequested {
+				sender: para_a,
+				recipient: para_b,
+				proposed_max_capacity: 2,
+				proposed_max_message_size: 8
+			})));
 
 		Hrmp::hrmp_accept_open_channel(para_b_origin.into(), para_a).unwrap();
 		Hrmp::assert_storage_consistency_exhaustive();
-		assert!(System::events()
-			.iter()
-			.any(|record| record.event ==
-				MockEvent::Hrmp(Event::OpenChannelAccepted(para_a, para_b))));
+		assert!(System::events().iter().any(|record| record.event ==
+			MockEvent::Hrmp(Event::OpenChannelAccepted { sender: para_a, recipient: para_b })));
 
 		// Advance to a block 6, but without session change. That means that the channel has
 		// not been created yet.
@@ -171,36 +178,110 @@ fn open_channel_works() {
 #[test]
 fn force_open_channel_works() {
 	let para_a = 1.into();
-	let para_b = 3.into();
+	let para_b = 2003.into();
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		// We need both A & B to be registered and live parachains.
 		register_parachain(para_a);
 		register_parachain(para_b);
 
+		let para_a_free_balance =
+			<Test as Config>::Currency::free_balance(&para_a.into_account_truncating());
+		let para_b_free_balance =
+			<Test as Config>::Currency::free_balance(&para_b.into_account_truncating());
+
 		run_to_block(5, Some(vec![4, 5]));
 		Hrmp::force_open_hrmp_channel(RuntimeOrigin::root(), para_a, para_b, 2, 8).unwrap();
+		Hrmp::force_open_hrmp_channel(RuntimeOrigin::root(), para_b, para_a, 2, 8).unwrap();
 		Hrmp::assert_storage_consistency_exhaustive();
 		assert!(System::events().iter().any(|record| record.event ==
-			MockEvent::Hrmp(Event::HrmpChannelForceOpened(para_a, para_b, 2, 8))));
+			MockEvent::Hrmp(Event::HrmpChannelForceOpened {
+				sender: para_a,
+				recipient: para_b,
+				proposed_max_capacity: 2,
+				proposed_max_message_size: 8
+			})));
+		assert!(System::events().iter().any(|record| record.event ==
+			MockEvent::Hrmp(Event::HrmpChannelForceOpened {
+				sender: para_b,
+				recipient: para_a,
+				proposed_max_capacity: 2,
+				proposed_max_message_size: 8
+			})));
 
 		// Advance to a block 6, but without session change. That means that the channel has
 		// not been created yet.
 		run_to_block(6, None);
 		assert!(!channel_exists(para_a, para_b));
+		assert!(!channel_exists(para_b, para_a));
 		Hrmp::assert_storage_consistency_exhaustive();
 
 		// Now let the session change happen and thus open the channel.
 		run_to_block(8, Some(vec![8]));
 		assert!(channel_exists(para_a, para_b));
+		assert!(channel_exists(para_b, para_a));
+		// Because para_a is a system chain, their free balances should not have changed.
+		assert_eq!(
+			<Test as Config>::Currency::free_balance(&para_a.into_account_truncating()),
+			para_a_free_balance
+		);
+		assert_eq!(
+			<Test as Config>::Currency::free_balance(&para_b.into_account_truncating()),
+			para_b_free_balance
+		);
+	});
+}
+
+#[test]
+fn force_open_channel_without_free_balance_works() {
+	let para_a = 1.into();
+	let para_b = 2003.into();
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		// We need both A & B to be registered and live parachains, but they should not have any
+		// balance in their sovereign accounts. Even without any balance, the channel opening should
+		// still be successful.
+		register_parachain_with_balance(para_a, 0);
+		register_parachain_with_balance(para_b, 0);
+
+		run_to_block(5, Some(vec![4, 5]));
+		Hrmp::force_open_hrmp_channel(RuntimeOrigin::root(), para_a, para_b, 2, 8).unwrap();
+		Hrmp::force_open_hrmp_channel(RuntimeOrigin::root(), para_b, para_a, 2, 8).unwrap();
+		Hrmp::assert_storage_consistency_exhaustive();
+		assert!(System::events().iter().any(|record| record.event ==
+			MockEvent::Hrmp(Event::HrmpChannelForceOpened {
+				sender: para_a,
+				recipient: para_b,
+				proposed_max_capacity: 2,
+				proposed_max_message_size: 8
+			})));
+		assert!(System::events().iter().any(|record| record.event ==
+			MockEvent::Hrmp(Event::HrmpChannelForceOpened {
+				sender: para_b,
+				recipient: para_a,
+				proposed_max_capacity: 2,
+				proposed_max_message_size: 8
+			})));
+
+		// Advance to a block 6, but without session change. That means that the channel has
+		// not been created yet.
+		run_to_block(6, None);
+		assert!(!channel_exists(para_a, para_b));
+		assert!(!channel_exists(para_b, para_a));
+		Hrmp::assert_storage_consistency_exhaustive();
+
+		// Now let the session change happen and thus open the channel.
+		run_to_block(8, Some(vec![8]));
+		assert!(channel_exists(para_a, para_b));
+		assert!(channel_exists(para_b, para_a));
 	});
 }
 
 #[test]
 fn force_open_channel_works_with_existing_request() {
-	let para_a = 1.into();
-	let para_a_origin: crate::Origin = 1.into();
-	let para_b = 3.into();
+	let para_a = 2001.into();
+	let para_a_origin: crate::Origin = 2001.into();
+	let para_b = 2003.into();
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		// We need both A & B to be registered and live parachains.
@@ -212,7 +293,12 @@ fn force_open_channel_works_with_existing_request() {
 		Hrmp::hrmp_init_open_channel(para_a_origin.into(), para_b, 2, 8).unwrap();
 		Hrmp::assert_storage_consistency_exhaustive();
 		assert!(System::events().iter().any(|record| record.event ==
-			MockEvent::Hrmp(Event::OpenChannelRequested(para_a, para_b, 2, 8))));
+			MockEvent::Hrmp(Event::OpenChannelRequested {
+				sender: para_a,
+				recipient: para_b,
+				proposed_max_capacity: 2,
+				proposed_max_message_size: 8
+			})));
 
 		run_to_block(5, Some(vec![4, 5]));
 		// the request exists, but no channel.
@@ -226,7 +312,12 @@ fn force_open_channel_works_with_existing_request() {
 		Hrmp::force_open_hrmp_channel(RuntimeOrigin::root(), para_a, para_b, 2, 8).unwrap();
 		Hrmp::assert_storage_consistency_exhaustive();
 		assert!(System::events().iter().any(|record| record.event ==
-			MockEvent::Hrmp(Event::HrmpChannelForceOpened(para_a, para_b, 2, 8))));
+			MockEvent::Hrmp(Event::HrmpChannelForceOpened {
+				sender: para_a,
+				recipient: para_b,
+				proposed_max_capacity: 2,
+				proposed_max_message_size: 8
+			})));
 
 		// Advance to a block 6, but without session change. That means that the channel has
 		// not been created yet.
@@ -241,10 +332,131 @@ fn force_open_channel_works_with_existing_request() {
 }
 
 #[test]
+fn open_system_channel_works() {
+	let para_a = 1.into();
+	let para_b = 3.into();
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		// We need both A & B to be registered and live parachains.
+		register_parachain(para_a);
+		register_parachain(para_b);
+
+		run_to_block(5, Some(vec![4, 5]));
+		Hrmp::establish_system_channel(RuntimeOrigin::signed(1), para_a, para_b).unwrap();
+		Hrmp::assert_storage_consistency_exhaustive();
+		assert!(System::events().iter().any(|record| record.event ==
+			MockEvent::Hrmp(Event::HrmpSystemChannelOpened {
+				sender: para_a,
+				recipient: para_b,
+				proposed_max_capacity: 2,
+				proposed_max_message_size: 8
+			})));
+
+		// Advance to a block 6, but without session change. That means that the channel has
+		// not been created yet.
+		run_to_block(6, None);
+		assert!(!channel_exists(para_a, para_b));
+		Hrmp::assert_storage_consistency_exhaustive();
+
+		// Now let the session change happen and thus open the channel.
+		run_to_block(8, Some(vec![8]));
+		assert!(channel_exists(para_a, para_b));
+	});
+}
+
+#[test]
+fn open_system_channel_does_not_work_for_non_system_chains() {
+	let para_a = 2001.into();
+	let para_b = 2003.into();
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		// We need both A & B to be registered and live parachains.
+		register_parachain(para_a);
+		register_parachain(para_b);
+
+		run_to_block(5, Some(vec![4, 5]));
+		assert_noop!(
+			Hrmp::establish_system_channel(RuntimeOrigin::signed(1), para_a, para_b),
+			Error::<Test>::ChannelCreationNotAuthorized
+		);
+		Hrmp::assert_storage_consistency_exhaustive();
+	});
+}
+
+#[test]
+fn open_system_channel_does_not_work_with_one_non_system_chain() {
+	let para_a = 1.into();
+	let para_b = 2003.into();
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		// We need both A & B to be registered and live parachains.
+		register_parachain(para_a);
+		register_parachain(para_b);
+
+		run_to_block(5, Some(vec![4, 5]));
+		assert_noop!(
+			Hrmp::establish_system_channel(RuntimeOrigin::signed(1), para_a, para_b),
+			Error::<Test>::ChannelCreationNotAuthorized
+		);
+		Hrmp::assert_storage_consistency_exhaustive();
+	});
+}
+
+#[test]
+fn poke_deposits_works() {
+	let para_a = 1.into();
+	let para_b = 2001.into();
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		// We need both A & B to be registered and live parachains.
+		register_parachain_with_balance(para_a, 200);
+		register_parachain_with_balance(para_b, 200);
+
+		let config = Configuration::config();
+		let channel_id = HrmpChannelId { sender: para_a, recipient: para_b };
+
+		// Our normal establishment won't actually reserve deposits, so just insert them directly.
+		HrmpChannels::<Test>::insert(
+			&channel_id,
+			HrmpChannel {
+				sender_deposit: config.hrmp_sender_deposit,
+				recipient_deposit: config.hrmp_recipient_deposit,
+				max_capacity: config.hrmp_channel_max_capacity,
+				max_total_size: config.hrmp_channel_max_total_size,
+				max_message_size: config.hrmp_channel_max_message_size,
+				msg_count: 0,
+				total_size: 0,
+				mqc_head: None,
+			},
+		);
+		// reserve funds
+		assert_ok!(<Test as Config>::Currency::reserve(
+			&para_a.into_account_truncating(),
+			config.hrmp_sender_deposit
+		));
+		assert_ok!(<Test as Config>::Currency::reserve(
+			&para_b.into_account_truncating(),
+			config.hrmp_recipient_deposit
+		));
+
+		assert_ok!(Hrmp::poke_channel_deposits(RuntimeOrigin::signed(1), para_a, para_b));
+
+		assert_eq!(
+			<Test as Config>::Currency::reserved_balance(&para_a.into_account_truncating()),
+			0
+		);
+		assert_eq!(
+			<Test as Config>::Currency::reserved_balance(&para_b.into_account_truncating()),
+			0
+		);
+	});
+}
+
+#[test]
 fn close_channel_works() {
-	let para_a = 5.into();
-	let para_b = 2.into();
-	let para_b_origin: crate::Origin = 2.into();
+	let para_a = 2005.into();
+	let para_b = 2002.into();
+	let para_b_origin: crate::Origin = 2002.into();
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		register_parachain(para_a);
@@ -269,14 +481,17 @@ fn close_channel_works() {
 		assert!(!channel_exists(para_a, para_b));
 		Hrmp::assert_storage_consistency_exhaustive();
 		assert!(System::events().iter().any(|record| record.event ==
-			MockEvent::Hrmp(Event::ChannelClosed(para_b, channel_id.clone()))));
+			MockEvent::Hrmp(Event::ChannelClosed {
+				by_parachain: para_b,
+				channel_id: channel_id.clone()
+			})));
 	});
 }
 
 #[test]
 fn send_recv_messages() {
-	let para_a = 32.into();
-	let para_b = 64.into();
+	let para_a = 2032.into();
+	let para_b = 2064.into();
 
 	let mut genesis = GenesisConfigBuilder::default();
 	genesis.hrmp_channel_max_message_size = 20;
@@ -358,8 +573,8 @@ fn hrmp_mqc_head_fixture() {
 
 #[test]
 fn accept_incoming_request_and_offboard() {
-	let para_a = 32.into();
-	let para_b = 64.into();
+	let para_a = 2032.into();
+	let para_b = 2064.into();
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		register_parachain(para_a);
@@ -380,9 +595,9 @@ fn accept_incoming_request_and_offboard() {
 
 #[test]
 fn check_sent_messages() {
-	let para_a = 32.into();
-	let para_b = 64.into();
-	let para_c = 97.into();
+	let para_a = 2032.into();
+	let para_b = 2064.into();
+	let para_c = 2097.into();
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		register_parachain(para_a);
@@ -444,8 +659,8 @@ fn check_sent_messages() {
 fn verify_externally_accessible() {
 	use primitives::{well_known_keys, AbridgedHrmpChannel};
 
-	let para_a = 20.into();
-	let para_b = 21.into();
+	let para_a = 2020.into();
+	let para_b = 2021.into();
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		// Register two parachains, wait until a session change, then initiate channel open
@@ -502,8 +717,8 @@ fn verify_externally_accessible() {
 
 #[test]
 fn charging_deposits() {
-	let para_a = 32.into();
-	let para_b = 64.into();
+	let para_a = 2032.into();
+	let para_b = 2064.into();
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		register_parachain_with_balance(para_a, 0);
@@ -532,8 +747,8 @@ fn charging_deposits() {
 
 #[test]
 fn refund_deposit_on_normal_closure() {
-	let para_a = 32.into();
-	let para_b = 64.into();
+	let para_a = 2032.into();
+	let para_b = 2064.into();
 
 	let mut genesis = GenesisConfigBuilder::default();
 	genesis.hrmp_sender_deposit = 20;
@@ -565,8 +780,8 @@ fn refund_deposit_on_normal_closure() {
 
 #[test]
 fn refund_deposit_on_offboarding() {
-	let para_a = 32.into();
-	let para_b = 64.into();
+	let para_a = 2032.into();
+	let para_b = 2064.into();
 
 	let mut genesis = GenesisConfigBuilder::default();
 	genesis.hrmp_sender_deposit = 20;
@@ -605,8 +820,8 @@ fn refund_deposit_on_offboarding() {
 
 #[test]
 fn no_dangling_open_requests() {
-	let para_a = 32.into();
-	let para_b = 64.into();
+	let para_a = 2032.into();
+	let para_b = 2064.into();
 
 	let mut genesis = GenesisConfigBuilder::default();
 	genesis.hrmp_sender_deposit = 20;
@@ -643,8 +858,8 @@ fn no_dangling_open_requests() {
 
 #[test]
 fn cancel_pending_open_channel_request() {
-	let para_a = 32.into();
-	let para_b = 64.into();
+	let para_a = 2032.into();
+	let para_b = 2064.into();
 
 	let mut genesis = GenesisConfigBuilder::default();
 	genesis.hrmp_sender_deposit = 20;
@@ -675,8 +890,8 @@ fn cancel_pending_open_channel_request() {
 
 #[test]
 fn watermark_maxed_out_at_relay_parent() {
-	let para_a = 32.into();
-	let para_b = 64.into();
+	let para_a = 2032.into();
+	let para_b = 2064.into();
 
 	let mut genesis = GenesisConfigBuilder::default();
 	genesis.hrmp_channel_max_message_size = 20;

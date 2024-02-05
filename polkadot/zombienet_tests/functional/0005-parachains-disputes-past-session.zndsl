@@ -21,18 +21,22 @@ malus-validator: resume
 malus-validator: log line matches "Suggesting malicious candidate" within 200 seconds
 
 # Pause first flaky node
-# Availability and finality will continue with 3/4 nodes online (incl. malus)
+# Availability will continue with 3/4 nodes online (incl. malus)
 honest-flaky-validator-0: pause
 
 # Wait for the dispute
-honest-flaky-validator-1: reports parachain_candidate_disputes_total is at least 1 within 40 seconds
+honest-flaky-validator-1: reports parachain_candidate_disputes_total is at least 1 within 60 seconds
 
 # Pause second flaky node so that we do not revert blocks due to f+1 invalid votes
 # Availability and finality will stop
 honest-flaky-validator-1: pause
 
 # Wait for 1 full session to pass after the last unconcluded dispute.
-sleep 120 seconds
+#
+# TODO: replace with assertion for "New session detected" in logs. I think that
+# would match on previous log lines, so we may need to programmatically wait for
+# a specific session, requiring zombienet v2.
+sleep 110 seconds
 
 # Now resume flaky validators
 honest-flaky-validator: resume

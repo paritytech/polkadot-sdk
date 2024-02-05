@@ -3,9 +3,15 @@
 
 .zombienet-before-script:
   before_script:
+    # Exit if the job is not merge queue
+    # - if [[ $CI_COMMIT_REF_NAME != *"gh-readonly-queue"* ]]; then echo "I will run only in a merge queue"; exit 0; fi
+    # Docker images have different tag in merge queues
+    - if [[ $CI_COMMIT_REF_NAME == *"gh-readonly-queue"* ]]; then export DOCKER_IMAGES_VERSION="${CI_COMMIT_SHORT_SHA}"; fi
+    - export POLKADOT_IMAGE="docker.io/paritypr/polkadot-debug:${DOCKER_IMAGES_VERSION}"
+    - export COL_IMAGE="docker.io/paritypr/test-parachain:${DOCKER_IMAGES_VERSION}"
     - echo "Zombie-net Tests Config"
     - echo "${ZOMBIENET_IMAGE}"
-    - echo "${RELAY_IMAGE}"
+    - echo "${POLKADOT_IMAGE}"
     - echo "${COL_IMAGE}"
     - echo "${GH_DIR}"
     - echo "${LOCAL_DIR}"
@@ -25,11 +31,13 @@
   needs:
     - job: build-push-image-test-parachain
       artifacts: true
+    - job: build-push-image-polkadot-debug
+      artifacts: true
   variables:
-    POLKADOT_IMAGE: "docker.io/paritypr/polkadot-debug:master"
+    # POLKADOT_IMAGE: "docker.io/paritypr/polkadot-debug:${DOCKER_IMAGES_VERSION}"
     GH_DIR: "https://github.com/paritytech/cumulus/tree/${CI_COMMIT_SHORT_SHA}/zombienet/tests"
     LOCAL_DIR: "/builds/parity/mirrors/polkadot-sdk/cumulus/zombienet/tests"
-    COL_IMAGE: "docker.io/paritypr/test-parachain:${DOCKER_IMAGES_VERSION}"
+    # COL_IMAGE: "docker.io/paritypr/test-parachain:${DOCKER_IMAGES_VERSION}"
     FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
     RUN_IN_CONTAINER: "1"
   artifacts:

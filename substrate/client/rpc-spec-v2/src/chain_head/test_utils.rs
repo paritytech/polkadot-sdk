@@ -20,18 +20,19 @@ use parking_lot::Mutex;
 use sc_client_api::{
 	execution_extensions::ExecutionExtensions, BlockBackend, BlockImportNotification,
 	BlockchainEvents, CallExecutor, ChildInfo, ExecutorProvider, FinalityNotification,
-	FinalityNotifications, FinalizeSummary, ImportNotifications, KeysIter, PairsIter, StorageData,
-	StorageEventStream, StorageKey, StorageProvider,
+	FinalityNotifications, FinalizeSummary, ImportNotifications, KeysIter, MerkleValue, PairsIter,
+	StorageData, StorageEventStream, StorageKey, StorageProvider,
 };
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
-use sp_api::{CallApiAt, CallApiAtParams, NumberFor, RuntimeVersion};
+use sp_api::{CallApiAt, CallApiAtParams};
 use sp_blockchain::{BlockStatus, CachedHeaderMetadata, HeaderBackend, HeaderMetadata, Info};
 use sp_consensus::BlockOrigin;
 use sp_runtime::{
 	generic::SignedBlock,
-	traits::{Block as BlockT, Header as HeaderT},
+	traits::{Block as BlockT, Header as HeaderT, NumberFor},
 	Justifications,
 };
+use sp_version::RuntimeVersion;
 use std::sync::Arc;
 use substrate_test_runtime::{Block, Hash, Header};
 
@@ -198,6 +199,23 @@ impl<
 	) -> sp_blockchain::Result<Option<Block::Hash>> {
 		self.client.child_storage_hash(hash, child_info, key)
 	}
+
+	fn closest_merkle_value(
+		&self,
+		hash: Block::Hash,
+		key: &StorageKey,
+	) -> sp_blockchain::Result<Option<MerkleValue<Block::Hash>>> {
+		self.client.closest_merkle_value(hash, key)
+	}
+
+	fn child_closest_merkle_value(
+		&self,
+		hash: Block::Hash,
+		child_info: &ChildInfo,
+		key: &StorageKey,
+	) -> sp_blockchain::Result<Option<MerkleValue<Block::Hash>>> {
+		self.client.child_closest_merkle_value(hash, child_info, key)
+	}
 }
 
 impl<Block: BlockT, Client: CallApiAt<Block>> CallApiAt<Block> for ChainHeadMockClient<Client> {
@@ -218,7 +236,7 @@ impl<Block: BlockT, Client: CallApiAt<Block>> CallApiAt<Block> for ChainHeadMock
 	fn initialize_extensions(
 		&self,
 		at: <Block as BlockT>::Hash,
-		extensions: &mut sp_api::Extensions,
+		extensions: &mut sp_externalities::Extensions,
 	) -> Result<(), sp_api::ApiError> {
 		self.client.initialize_extensions(at, extensions)
 	}

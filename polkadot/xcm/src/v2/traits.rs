@@ -23,7 +23,13 @@ use scale_info::TypeInfo;
 
 use super::*;
 
+// A simple trait to get the weight of some object.
+pub trait GetWeight<W> {
+	fn weight(&self) -> sp_weights::Weight;
+}
+
 #[derive(Copy, Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum Error {
 	// Errors that happen due to instructions being executed. These alone are defined in the
 	// XCM specification.
@@ -160,6 +166,7 @@ pub type Result = result::Result<(), Error>;
 
 /// Outcome of an XCM execution.
 #[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, TypeInfo)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum Outcome {
 	/// Execution completed successfully; given weight was used.
 	Complete(Weight),
@@ -241,6 +248,7 @@ impl<C> ExecuteXcm<C> for () {
 
 /// Error result value when attempting to send an XCM message.
 #[derive(Clone, Encode, Decode, Eq, PartialEq, Debug, scale_info::TypeInfo)]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum SendError {
 	/// The message and destination combination was not recognized as being reachable.
 	///
@@ -273,7 +281,7 @@ pub type SendResult = result::Result<(), SendError>;
 ///
 /// # Example
 /// ```rust
-/// # use xcm::v2::prelude::*;
+/// # use staging_xcm::v2::prelude::*;
 /// # use parity_scale_codec::Encode;
 ///
 /// /// A sender that only passes the message through and does nothing.
@@ -284,11 +292,12 @@ pub type SendResult = result::Result<(), SendError>;
 ///     }
 /// }
 ///
-/// /// A sender that accepts a message that has an X2 junction, otherwise stops the routing.
+/// /// A sender that accepts a message that has two junctions, otherwise stops the routing.
 /// struct Sender2;
 /// impl SendXcm for Sender2 {
 ///     fn send_xcm(destination: impl Into<MultiLocation>, message: Xcm<()>) -> SendResult {
-///         if let MultiLocation { parents: 0, interior: X2(j1, j2) } = destination.into() {
+///         let destination = destination.into();
+///         if destination.parents == 0 && destination.interior.len() == 2 {
 ///             Ok(())
 ///         } else {
 ///             Err(SendError::Unroutable)

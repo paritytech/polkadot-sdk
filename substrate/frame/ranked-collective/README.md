@@ -1,4 +1,4 @@
-# Ranked collective system.
+# Ranked collective system
 
 This is a membership pallet providing a `Tally` implementation ready for use with polling
 systems such as the Referenda pallet. Members each have a rank, with zero being the lowest.

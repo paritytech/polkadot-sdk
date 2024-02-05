@@ -44,6 +44,8 @@ pub(crate) const MAX_JUNCTIONS: usize = 8;
 	serde::Serialize,
 	serde::Deserialize,
 )]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum Junctions {
 	/// The interpreting consensus system.
 	Here,
@@ -64,6 +66,27 @@ pub enum Junctions {
 	/// A relative path comprising 8 junctions.
 	X8(Junction, Junction, Junction, Junction, Junction, Junction, Junction, Junction),
 }
+
+macro_rules! impl_junction {
+	($count:expr, $variant:ident, ($($index:literal),+)) => {
+		/// Additional helper for building junctions
+		/// Useful for converting to future XCM versions
+		impl From<[Junction; $count]> for Junctions {
+			fn from(junctions: [Junction; $count]) -> Self {
+				Self::$variant($(junctions[$index]),*)
+			}
+		}
+	};
+}
+
+impl_junction!(1, X1, (0));
+impl_junction!(2, X2, (0, 1));
+impl_junction!(3, X3, (0, 1, 2));
+impl_junction!(4, X4, (0, 1, 2, 3));
+impl_junction!(5, X5, (0, 1, 2, 3, 4));
+impl_junction!(6, X6, (0, 1, 2, 3, 4, 5));
+impl_junction!(7, X7, (0, 1, 2, 3, 4, 5, 6));
+impl_junction!(8, X8, (0, 1, 2, 3, 4, 5, 6, 7));
 
 pub struct JunctionsIterator(Junctions);
 impl Iterator for JunctionsIterator {
@@ -437,12 +460,10 @@ impl Junctions {
 	///
 	/// # Example
 	/// ```rust
-	/// # use xcm::v3::{Junctions::*, Junction::*, MultiLocation};
-	/// # fn main() {
+	/// # use staging_xcm::v3::{Junctions::*, Junction::*, MultiLocation};
 	/// let mut m = X1(Parachain(21));
 	/// assert_eq!(m.append_with(X1(PalletInstance(3))), Ok(()));
 	/// assert_eq!(m, X2(Parachain(21), PalletInstance(3)));
-	/// # }
 	/// ```
 	pub fn append_with(&mut self, suffix: impl Into<Junctions>) -> Result<(), Junctions> {
 		let suffix = suffix.into();
@@ -568,12 +589,10 @@ impl Junctions {
 	///
 	/// # Example
 	/// ```rust
-	/// # use xcm::v3::{Junctions::*, Junction::*};
-	/// # fn main() {
+	/// # use staging_xcm::v3::{Junctions::*, Junction::*};
 	/// let mut m = X3(Parachain(2), PalletInstance(3), OnlyChild);
 	/// assert_eq!(m.match_and_split(&X2(Parachain(2), PalletInstance(3))), Some(&OnlyChild));
 	/// assert_eq!(m.match_and_split(&X1(Parachain(2))), None);
-	/// # }
 	/// ```
 	pub fn match_and_split(&self, prefix: &Junctions) -> Option<&Junction> {
 		if prefix.len() + 1 != self.len() {

@@ -1,0 +1,60 @@
+[package]
+description = "FRAME's mixnet pallet"
+name = "pallet-mixnet"
+version = "0.4.0"
+license = "Apache-2.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+homepage = "https://substrate.io"
+repository = "https://github.com/paritytech/substrate/"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
+frame-benchmarking = { default-features = false, optional = true, path = "../benchmarking" }
+frame-support = { default-features = false, path = "../support" }
+frame-system = { default-features = false, path = "../system" }
+log = { version = "0.4.17", default-features = false }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+serde = { version = "1.0.195", default-features = false, features = ["derive"] }
+sp-application-crypto = { default-features = false, path = "../../primitives/application-crypto" }
+sp-arithmetic = { default-features = false, path = "../../primitives/arithmetic" }
+sp-io = { default-features = false, path = "../../primitives/io" }
+sp-mixnet = { default-features = false, path = "../../primitives/mixnet" }
+sp-runtime = { default-features = false, path = "../../primitives/runtime" }
+sp-std = { default-features = false, path = "../../primitives/std" }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"frame-benchmarking?/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-application-crypto/std",
+	"sp-arithmetic/std",
+	"sp-io/std",
+	"sp-mixnet/std",
+	"sp-runtime/std",
+	"sp-std/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
+]

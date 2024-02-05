@@ -19,19 +19,18 @@ use futures::{executor, pending, pin_mut, poll, select, stream, FutureExt};
 use std::{collections::HashMap, sync::atomic, task::Poll};
 
 use ::test_helpers::{dummy_candidate_descriptor, dummy_candidate_receipt, dummy_hash};
+use node_test_helpers::mock::{dummy_unpin_handle, new_leaf};
 use polkadot_node_network_protocol::{PeerId, UnifiedReputationChange};
 use polkadot_node_primitives::{
 	BlockData, CollationGenerationConfig, CollationResult, DisputeMessage, InvalidDisputeVote, PoV,
 	UncheckedDisputeMessage, ValidDisputeVote,
 };
-use polkadot_node_subsystem_types::{
-	jaeger,
-	messages::{NetworkBridgeEvent, ReportPeerMessage, RuntimeApiRequest},
-	ActivatedLeaf, LeafStatus,
+use polkadot_node_subsystem_types::messages::{
+	NetworkBridgeEvent, ReportPeerMessage, RuntimeApiRequest,
 };
 use polkadot_primitives::{
 	CandidateHash, CandidateReceipt, CollatorPair, Id as ParaId, InvalidDisputeStatementKind,
-	PvfExecTimeoutKind, SessionIndex, ValidDisputeStatementKind, ValidatorIndex,
+	PvfExecKind, SessionIndex, ValidDisputeStatementKind, ValidatorIndex,
 };
 
 use crate::{
@@ -99,16 +98,17 @@ where
 					if c < 10 {
 						let candidate_receipt = CandidateReceipt {
 							descriptor: dummy_candidate_descriptor(dummy_hash()),
-							commitments_hash: Hash::zero(),
+							commitments_hash: dummy_hash(),
 						};
 
 						let (tx, _) = oneshot::channel();
-						ctx.send_message(CandidateValidationMessage::ValidateFromChainState(
+						ctx.send_message(CandidateValidationMessage::ValidateFromChainState {
 							candidate_receipt,
-							PoV { block_data: BlockData(Vec::new()) }.into(),
-							PvfExecTimeoutKind::Backing,
-							tx,
-						))
+							pov: PoV { block_data: BlockData(Vec::new()) }.into(),
+							executor_params: Default::default(),
+							exec_kind: PvfExecKind::Backing,
+							response_sender: tx,
+						})
 						.await;
 						c += 1;
 						continue
@@ -215,11 +215,20 @@ fn overseer_metrics_work() {
 	executor::block_on(async move {
 		let first_block_hash = [1; 32].into();
 		let second_block_hash = [2; 32].into();
+		let unpin_handle = dummy_unpin_handle(dummy_hash());
 
-		let first_block =
-			BlockInfo { hash: first_block_hash, parent_hash: [0; 32].into(), number: 1 };
-		let second_block =
-			BlockInfo { hash: second_block_hash, parent_hash: first_block_hash, number: 2 };
+		let first_block = BlockInfo {
+			hash: first_block_hash,
+			parent_hash: [0; 32].into(),
+			number: 1,
+			unpin_handle: unpin_handle.clone(),
+		};
+		let second_block = BlockInfo {
+			hash: second_block_hash,
+			parent_hash: first_block_hash,
+			number: 2,
+			unpin_handle: unpin_handle.clone(),
+		};
 
 		let registry = prometheus::Registry::new();
 		let (overseer, handle) =
@@ -367,11 +376,20 @@ fn overseer_start_stop_works() {
 	executor::block_on(async move {
 		let first_block_hash = [1; 32].into();
 		let second_block_hash = [2; 32].into();
+		let unpin_handle = dummy_unpin_handle(dummy_hash());
 
-		let first_block =
-			BlockInfo { hash: first_block_hash, parent_hash: [0; 32].into(), number: 1 };
-		let second_block =
-			BlockInfo { hash: second_block_hash, parent_hash: first_block_hash, number: 2 };
+		let first_block = BlockInfo {
+			hash: first_block_hash,
+			parent_hash: [0; 32].into(),
+			number: 1,
+			unpin_handle: unpin_handle.clone(),
+		};
+		let second_block = BlockInfo {
+			hash: second_block_hash,
+			parent_hash: first_block_hash,
+			number: 2,
+			unpin_handle: unpin_handle.clone(),
+		};
 
 		let (tx_5, mut rx_5) = metered::channel(64);
 		let (tx_6, mut rx_6) = metered::channel(64);
@@ -395,21 +413,11 @@ fn overseer_start_stop_works() {
 
 		let expected_heartbeats = vec![
 			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate {
-				activated: Some(ActivatedLeaf {
-					hash: first_block_hash,
-					number: 1,
-					span: Arc::new(jaeger::Span::Disabled),
-					status: LeafStatus::Fresh,
-				}),
+				activated: Some(new_leaf(first_block_hash, 1)),
 				deactivated: Default::default(),
 			}),
 			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate {
-				activated: Some(ActivatedLeaf {
-					hash: second_block_hash,
-					number: 2,
-					span: Arc::new(jaeger::Span::Disabled),
-					status: LeafStatus::Fresh,
-				}),
+				activated: Some(new_leaf(second_block_hash, 2)),
 				deactivated: [first_block_hash].as_ref().into(),
 			}),
 		];
@@ -455,13 +463,26 @@ fn overseer_finalize_works() {
 		let first_block_hash = [1; 32].into();
 		let second_block_hash = [2; 32].into();
 		let third_block_hash = [3; 32].into();
+		let unpin_handle = dummy_unpin_handle(dummy_hash());
 
-		let first_block =
-			BlockInfo { hash: first_block_hash, parent_hash: [0; 32].into(), number: 1 };
-		let second_block =
-			BlockInfo { hash: second_block_hash, parent_hash: [42; 32].into(), number: 2 };
-		let third_block =
-			BlockInfo { hash: third_block_hash, parent_hash: second_block_hash, number: 3 };
+		let first_block = BlockInfo {
+			hash: first_block_hash,
+			parent_hash: [0; 32].into(),
+			number: 1,
+			unpin_handle: unpin_handle.clone(),
+		};
+		let second_block = BlockInfo {
+			hash: second_block_hash,
+			parent_hash: [42; 32].into(),
+			number: 2,
+			unpin_handle: unpin_handle.clone(),
+		};
+		let third_block = BlockInfo {
+			hash: third_block_hash,
+			parent_hash: second_block_hash,
+			number: 3,
+			unpin_handle: unpin_handle.clone(),
+		};
 
 		let (tx_5, mut rx_5) = metered::channel(64);
 		let (tx_6, mut rx_6) = metered::channel(64);
@@ -491,21 +512,11 @@ fn overseer_finalize_works() {
 
 		let expected_heartbeats = vec![
 			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate {
-				activated: Some(ActivatedLeaf {
-					hash: first_block_hash,
-					number: 1,
-					span: Arc::new(jaeger::Span::Disabled),
-					status: LeafStatus::Fresh,
-				}),
+				activated: Some(new_leaf(first_block_hash, 1)),
 				deactivated: Default::default(),
 			}),
 			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate {
-				activated: Some(ActivatedLeaf {
-					hash: second_block_hash,
-					number: 2,
-					span: Arc::new(jaeger::Span::Disabled),
-					status: LeafStatus::Fresh,
-				}),
+				activated: Some(new_leaf(second_block_hash, 2)),
 				deactivated: Default::default(),
 			}),
 			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate {
@@ -562,11 +573,20 @@ fn overseer_finalize_leaf_preserves_it() {
 	executor::block_on(async move {
 		let first_block_hash = [1; 32].into();
 		let second_block_hash = [2; 32].into();
+		let unpin_handle = dummy_unpin_handle(dummy_hash());
 
-		let first_block =
-			BlockInfo { hash: first_block_hash, parent_hash: [0; 32].into(), number: 1 };
-		let second_block =
-			BlockInfo { hash: second_block_hash, parent_hash: [42; 32].into(), number: 1 };
+		let first_block = BlockInfo {
+			hash: first_block_hash,
+			parent_hash: [0; 32].into(),
+			number: 1,
+			unpin_handle: unpin_handle.clone(),
+		};
+		let second_block = BlockInfo {
+			hash: second_block_hash,
+			parent_hash: [42; 32].into(),
+			number: 1,
+			unpin_handle: unpin_handle.clone(),
+		};
 
 		let (tx_5, mut rx_5) = metered::channel(64);
 		let (tx_6, mut rx_6) = metered::channel(64);
@@ -594,18 +614,14 @@ fn overseer_finalize_leaf_preserves_it() {
 		handle.block_finalized(first_block).await;
 
 		let expected_heartbeats = vec![
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-				hash: first_block_hash,
-				number: 1,
-				span: Arc::new(jaeger::Span::Disabled),
-				status: LeafStatus::Fresh,
-			})),
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-				hash: second_block_hash,
-				number: 1,
-				span: Arc::new(jaeger::Span::Disabled),
-				status: LeafStatus::Fresh,
-			})),
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
+				first_block_hash,
+				1,
+			))),
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
+				second_block_hash,
+				2,
+			))),
 			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate {
 				deactivated: [second_block_hash].as_ref().into(),
 				..Default::default()
@@ -656,11 +672,21 @@ fn do_not_send_empty_leaves_update_on_block_finalization() {
 	let spawner = sp_core::testing::TaskExecutor::new();
 
 	executor::block_on(async move {
-		let imported_block =
-			BlockInfo { hash: Hash::random(), parent_hash: Hash::random(), number: 1 };
+		let unpin_handle = dummy_unpin_handle(dummy_hash());
 
-		let finalized_block =
-			BlockInfo { hash: Hash::random(), parent_hash: Hash::random(), number: 1 };
+		let imported_block = BlockInfo {
+			hash: Hash::random(),
+			parent_hash: Hash::random(),
+			number: 1,
+			unpin_handle: unpin_handle.clone(),
+		};
+
+		let finalized_block = BlockInfo {
+			hash: Hash::random(),
+			parent_hash: Hash::random(),
+			number: 1,
+			unpin_handle: unpin_handle.clone(),
+		};
 
 		let (tx_5, mut rx_5) = metered::channel(64);
 
@@ -681,12 +707,10 @@ fn do_not_send_empty_leaves_update_on_block_finalization() {
 		handle.block_imported(imported_block.clone()).await;
 
 		let expected_heartbeats = vec![
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-				hash: imported_block.hash,
-				number: imported_block.number,
-				span: Arc::new(jaeger::Span::Disabled),
-				status: LeafStatus::Fresh,
-			})),
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
+				imported_block.hash,
+				imported_block.number,
+			))),
 			OverseerSignal::BlockFinalized(finalized_block.hash, 1),
 		];
 
@@ -769,19 +793,20 @@ where
 }
 
 fn test_candidate_validation_msg() -> CandidateValidationMessage {
-	let (sender, _) = oneshot::channel();
+	let (response_sender, _) = oneshot::channel();
 	let pov = Arc::new(PoV { block_data: BlockData(Vec::new()) });
 	let candidate_receipt = CandidateReceipt {
 		descriptor: dummy_candidate_descriptor(dummy_hash()),
 		commitments_hash: Hash::zero(),
 	};
 
-	CandidateValidationMessage::ValidateFromChainState(
+	CandidateValidationMessage::ValidateFromChainState {
 		candidate_receipt,
 		pov,
-		PvfExecTimeoutKind::Backing,
-		sender,
-	)
+		executor_params: Default::default(),
+		exec_kind: PvfExecKind::Backing,
+		response_sender,
+	}
 }
 
 fn test_candidate_backing_msg() -> CandidateBackingMessage {
@@ -950,11 +975,13 @@ fn overseer_all_subsystems_receive_signals_and_messages() {
 		pin_mut!(overseer_fut);
 
 		// send a signal to each subsystem
+		let unpin_handle = dummy_unpin_handle(dummy_hash());
 		handle
 			.block_imported(BlockInfo {
 				hash: Default::default(),
 				parent_hash: Default::default(),
 				number: Default::default(),
+				unpin_handle: unpin_handle.clone(),
 			})
 			.await;
 
@@ -1047,6 +1074,7 @@ fn overseer_all_subsystems_receive_signals_and_messages() {
 
 #[test]
 fn context_holds_onto_message_until_enough_signals_received() {
+	const CHANNEL_CAPACITY: usize = 64;
 	let (candidate_validation_bounded_tx, _) = metered::channel(CHANNEL_CAPACITY);
 	let (candidate_backing_bounded_tx, _) = metered::channel(CHANNEL_CAPACITY);
 	let (statement_distribution_bounded_tx, _) = metered::channel(CHANNEL_CAPACITY);

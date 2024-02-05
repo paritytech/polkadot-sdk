@@ -1,0 +1,39 @@
+Description: User is able to transfer ROC from Rococo Asset Hub to Westend Asset Hub and back
+Network: ../../../cumulus/zombienet/bridge-hubs/bridge_hub_westend_local_network.toml
+Creds: config
+
+# step 0: start relayer
+# (started by sibling 0001-asset-transfer-works-westend-to-rococo.zndsl test)
+
+# step 1: initialize Westend AH
+asset-hub-westend-collator1: run ../scripts/invoke-script.sh with "init-asset-hub-westend-local" within 60 seconds
+
+# step 2: initialize Westend bridge hub
+bridge-hub-westend-collator1: run ../scripts/invoke-script.sh with "init-bridge-hub-westend-local" within 60 seconds
+
+# step 3: ensure that initialization has completed
+asset-hub-westend-collator1: js-script ../helpers/wait-hrmp-channel-opened.js with "1002" within 600 seconds
+
+# step 4: relay is already started - let's wait until with-Rococo GRANPDA pallet is initialized at Westend
+bridge-hub-westend-collator1: js-script ../helpers/best-finalized-header-at-bridged-chain.js with "Rococo,0" within 400 seconds
+
+# step 5: send WND to //Alice on Rococo AH
+# (that's a required part of a sibling 0001-asset-transfer-works-westend-to-rococo.zndsl test)
+asset-hub-westend-collator1: run ../scripts/invoke-script.sh with "reserve-transfer-assets-from-asset-hub-westend-local" within 60 seconds
+
+# step 6: elsewhere Rococo has sent ROC to //Alice - let's wait for it
+asset-hub-westend-collator1: js-script ../helpers/wrapped-assets-balance.js with "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY,0,Rococo" within 600 seconds
+
+# step 7: check that the relayer //Charlie is rewarded by both our AH and target AH
+bridge-hub-westend-collator1: js-script ../helpers/relayer-rewards.js with "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y,0x00000002,0x6268726f,BridgedChain,0" within 300 seconds
+bridge-hub-westend-collator1: js-script ../helpers/relayer-rewards.js with "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y,0x00000002,0x6268726F,ThisChain,0" within 300 seconds
+
+# step 8: send wROC back to Alice at Rococo AH
+asset-hub-westend-collator1: run ../scripts/invoke-script.sh with "withdraw-reserve-assets-from-asset-hub-westend-local" within 60 seconds
+
+# step 9: elsewhere Rococo has sent wWND to //Alice - let's wait for it
+# (we wait until //Alice account increases here - there are no other transactionc that may increase it)
+asset-hub-westend-collator1: js-script ../helpers/native-assets-balance-increased.js with "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY" within 600 seconds
+
+# wait until other network test has completed OR exit with an error too
+asset-hub-westend-collator1: run ../scripts/sync-exit.sh within 600 seconds

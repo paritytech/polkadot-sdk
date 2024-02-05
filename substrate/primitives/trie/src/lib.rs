@@ -30,6 +30,9 @@ mod storage_proof;
 mod trie_codec;
 mod trie_stream;
 
+#[cfg(feature = "std")]
+pub mod proof_size_extension;
+
 /// Our `NodeCodec`-specific error.
 pub use error::Error;
 /// Various re-exports from the `hash-db` crate.
@@ -44,7 +47,6 @@ pub use storage_proof::{CompactProof, StorageProof};
 /// Trie codec reexport, mainly child trie support
 /// for trie compact proof.
 pub use trie_codec::{decode_compact, encode_compact, Error as CompactProofError};
-pub use trie_db::proof::VerifyError;
 use trie_db::proof::{generate_proof, verify_proof};
 /// Various re-exports from the `trie-db` crate.
 pub use trie_db::{
@@ -53,6 +55,7 @@ pub use trie_db::{
 	CError, DBValue, Query, Recorder, Trie, TrieCache, TrieConfiguration, TrieDBIterator,
 	TrieDBKeyIterator, TrieDBRawIterator, TrieLayout, TrieMut, TrieRecorder,
 };
+pub use trie_db::{proof::VerifyError, MerkleValue};
 /// The Substrate format implementation of `TrieStream`.
 pub use trie_stream::TrieStream;
 
@@ -144,6 +147,29 @@ where
 	fn encode_index(input: u32) -> Vec<u8> {
 		codec::Encode::encode(&codec::Compact(input))
 	}
+}
+
+/// Type that is able to provide a [`trie_db::TrieRecorder`].
+///
+/// Types implementing this trait can be used to maintain recorded state
+/// across operations on different [`trie_db::TrieDB`] instances.
+pub trait TrieRecorderProvider<H: Hasher> {
+	/// Recorder type that is going to be returned by implementors of this trait.
+	type Recorder<'a>: trie_db::TrieRecorder<H::Out> + 'a
+	where
+		Self: 'a;
+
+	/// Create a [`StorageProof`] derived from the internal state.
+	fn drain_storage_proof(self) -> Option<StorageProof>;
+
+	/// Provide a recorder implementing [`trie_db::TrieRecorder`].
+	fn as_trie_recorder(&self, storage_root: H::Out) -> Self::Recorder<'_>;
+}
+
+/// Type that is able to provide a proof size estimation.
+pub trait ProofSizeProvider {
+	/// Returns the storage proof size.
+	fn estimate_encoded_size(&self) -> usize;
 }
 
 /// TrieDB error over `TrieConfiguration` trait.
@@ -295,6 +321,25 @@ pub fn read_trie_value<L: TrieLayout, DB: hash_db::HashDBRef<L::Hash, trie_db::D
 		.get(key)
 }
 
+/// Read the [`trie_db::MerkleValue`] of the node that is the closest descendant for
+/// the provided key.
+pub fn read_trie_first_descedant_value<L: TrieLayout, DB>(
+	db: &DB,
+	root: &TrieHash<L>,
+	key: &[u8],
+	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>>>,
+	cache: Option<&mut dyn TrieCache<L::Codec>>,
+) -> Result<Option<MerkleValue<TrieHash<L>>>, Box<TrieError<L>>>
+where
+	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
+{
+	TrieDBBuilder::<L>::new(db, root)
+		.with_optional_cache(cache)
+		.with_optional_recorder(recorder)
+		.build()
+		.lookup_first_descendant(key)
+}
+
 /// Read a value from the trie with given Query.
 pub fn read_trie_value_with<
 	L: TrieLayout,
@@ -395,6 +440,27 @@ where
 		.with_optional_cache(cache)
 		.build()
 		.get_hash(key)
+}
+
+/// Read the [`trie_db::MerkleValue`] of the node that is the closest descendant for
+/// the provided child key.
+pub fn read_child_trie_first_descedant_value<L: TrieConfiguration, DB>(
+	keyspace: &[u8],
+	db: &DB,
+	root: &TrieHash<L>,
+	key: &[u8],
+	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>>>,
+	cache: Option<&mut dyn TrieCache<L::Codec>>,
+) -> Result<Option<MerkleValue<TrieHash<L>>>, Box<TrieError<L>>>
+where
+	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
+{
+	let db = KeySpacedDB::new(db, keyspace);
+	TrieDBBuilder::<L>::new(&db, &root)
+		.with_optional_recorder(recorder)
+		.with_optional_cache(cache)
+		.build()
+		.lookup_first_descendant(key)
 }
 
 /// Read a value from the child trie with given query.

@@ -25,7 +25,6 @@ use frame_support::{
 	traits::{Currency, EnsureOrigin, Get, OnInitialize, UnfilteredDispatchable},
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
-use sp_core::H256;
 use sp_runtime::{traits::Bounded, BoundedVec};
 
 use crate::Pallet as Democracy;
@@ -46,7 +45,7 @@ fn make_proposal<T: Config>(n: u32) -> BoundedCallOf<T> {
 	<T as Config>::Preimages::bound(call).unwrap()
 }
 
-fn add_proposal<T: Config>(n: u32) -> Result<H256, &'static str> {
+fn add_proposal<T: Config>(n: u32) -> Result<T::Hash, &'static str> {
 	let other = funded_account::<T>("proposer", n);
 	let value = T::MinimumDeposit::get();
 	let proposal = make_proposal::<T>(n);
@@ -55,7 +54,7 @@ fn add_proposal<T: Config>(n: u32) -> Result<H256, &'static str> {
 }
 
 // add a referendum with a metadata.
-fn add_referendum<T: Config>(n: u32) -> (ReferendumIndex, H256, PreimageHash) {
+fn add_referendum<T: Config>(n: u32) -> (ReferendumIndex, T::Hash, T::Hash) {
 	let vote_threshold = VoteThreshold::SimpleMajority;
 	let proposal = make_proposal::<T>(n);
 	let hash = proposal.hash();
@@ -66,7 +65,7 @@ fn add_referendum<T: Config>(n: u32) -> (ReferendumIndex, H256, PreimageHash) {
 		0u32.into(),
 	);
 	let preimage_hash = note_preimage::<T>();
-	MetadataOf::<T>::insert(crate::MetadataOwner::Referendum(index), preimage_hash.clone());
+	MetadataOf::<T>::insert(crate::MetadataOwner::Referendum(index), preimage_hash);
 	(index, hash, preimage_hash)
 }
 
@@ -85,7 +84,7 @@ fn assert_has_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 }
 
 // note a new preimage.
-fn note_preimage<T: Config>() -> PreimageHash {
+fn note_preimage<T: Config>() -> T::Hash {
 	use core::sync::atomic::{AtomicU8, Ordering};
 	use sp_std::borrow::Cow;
 	// note a new preimage on every function invoke.

@@ -7,7 +7,10 @@ license = "Apache-2.0"
 name = "pallet-collator-selection"
 readme = "README.md"
 repository.workspace = true
-version = "3.0.0"
+version = "9.0.0"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -16,17 +19,17 @@ targets = ["x86_64-unknown-linux-gnu"]
 log = { version = "0.4.20", default-features = false }
 codec = { default-features = false, features = ["derive"], package = "parity-scale-codec", version = "3.0.0" }
 rand = { version = "0.8.5", features = ["std_rng"], default-features = false }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
-sp-std = { path = "../../../substrate/primitives/std", default-features = false}
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false}
-sp-staking = { path = "../../../substrate/primitives/staking", default-features = false}
-frame-support = { path = "../../../substrate/frame/support", default-features = false}
-frame-system = { path = "../../../substrate/frame/system", default-features = false}
-pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false}
-pallet-session = { path = "../../../substrate/frame/session", default-features = false}
+sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
+sp-staking = { path = "../../../substrate/primitives/staking", default-features = false }
+frame-support = { path = "../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../substrate/frame/system", default-features = false }
+pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false }
+pallet-session = { path = "../../../substrate/frame/session", default-features = false }
 
-frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true}
+frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
 
 [dev-dependencies]
 sp-core = { path = "../../../substrate/primitives/core" }
@@ -39,7 +42,7 @@ pallet-balances = { path = "../../../substrate/frame/balances" }
 pallet-aura = { path = "../../../substrate/frame/aura" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
@@ -75,4 +78,4 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 
-experimental = [ "pallet-aura/experimental" ]
+experimental = ["pallet-aura/experimental"]

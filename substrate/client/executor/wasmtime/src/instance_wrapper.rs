@@ -19,7 +19,9 @@
 //! Defines data and logic needed for interaction with an WebAssembly instance of a substrate
 //! runtime module.
 
-use crate::runtime::{Store, StoreData};
+use std::sync::Arc;
+
+use crate::runtime::{InstanceCounter, ReleaseInstanceHandle, Store, StoreData};
 use sc_executor_common::{
 	error::{Backtrace, Error, MessageWithBacktrace, Result, WasmError},
 	wasm_runtime::InvokeMethod,
@@ -116,12 +118,12 @@ impl EntryPoint {
 pub(crate) struct MemoryWrapper<'a, C>(pub &'a wasmtime::Memory, pub &'a mut C);
 
 impl<C: AsContextMut> sc_allocator::Memory for MemoryWrapper<'_, C> {
-	fn with_access<R>(&self, run: impl FnOnce(&[u8]) -> R) -> R {
-		run(self.0.data(&self.1))
-	}
-
 	fn with_access_mut<R>(&mut self, run: impl FnOnce(&mut [u8]) -> R) -> R {
 		run(self.0.data_mut(&mut self.1))
+	}
+
+	fn with_access<R>(&self, run: impl FnOnce(&[u8]) -> R) -> R {
+		run(self.0.data(&self.1))
 	}
 
 	fn grow(&mut self, additional: u32) -> std::result::Result<(), ()> {
@@ -153,16 +155,20 @@ impl<C: AsContextMut> sc_allocator::Memory for MemoryWrapper<'_, C> {
 /// routines.
 pub struct InstanceWrapper {
 	instance: Instance,
-	/// The memory instance of the `instance`.
-	///
-	/// It is important to make sure that we don't make any copies of this to make it easier to
-	/// proof
-	memory: Memory,
 	store: Store,
+	// NOTE: We want to decrement the instance counter *after* the store has been dropped
+	// to avoid a potential race condition, so this field must always be kept
+	// as the last field in the struct!
+	_release_instance_handle: ReleaseInstanceHandle,
 }
 
 impl InstanceWrapper {
-	pub(crate) fn new(engine: &Engine, instance_pre: &InstancePre<StoreData>) -> Result<Self> {
+	pub(crate) fn new(
+		engine: &Engine,
+		instance_pre: &InstancePre<StoreData>,
+		instance_counter: Arc<InstanceCounter>,
+	) -> Result<Self> {
+		let _release_instance_handle = instance_counter.acquire_instance();
 		let mut store = Store::new(engine, Default::default());
 		let instance = instance_pre.instantiate(&mut store).map_err(|error| {
 			WasmError::Other(format!(
@@ -177,7 +183,7 @@ impl InstanceWrapper {
 		store.data_mut().memory = Some(memory);
 		store.data_mut().table = table;
 
-		Ok(InstanceWrapper { instance, memory, store })
+		Ok(InstanceWrapper { instance, store, _release_instance_handle })
 	}
 
 	/// Resolves a substrate entrypoint by the given name.
@@ -280,11 +286,6 @@ impl InstanceWrapper {
 			_ => Err("Unknown value type".into()),
 		}
 	}
-
-	/// Get a global with the given `name`.
-	pub fn get_global(&mut self, name: &str) -> Option<wasmtime::Global> {
-		self.instance.get_global(&mut self.store, name)
-	}
 }
 
 /// Extract linear memory instance from the given instance.
@@ -311,76 +312,6 @@ fn get_table(instance: &Instance, ctx: &mut Store) -> Option<Table> {
 
 /// Functions related to memory.
 impl InstanceWrapper {
-	/// Returns the pointer to the first byte of the linear memory for this instance.
-	pub fn base_ptr(&self) -> *const u8 {
-		self.memory.data_ptr(&self.store)
-	}
-
-	/// If possible removes physical backing from the allocated linear memory which
-	/// leads to returning the memory back to the system; this also zeroes the memory
-	/// as a side-effect.
-	pub fn decommit(&mut self) {
-		if self.memory.data_size(&self.store) == 0 {
-			return
-		}
-
-		cfg_if::cfg_if! {
-			if #[cfg(target_os = "linux")] {
-				use std::sync::Once;
-
-				unsafe {
-					let ptr = self.memory.data_ptr(&self.store);
-					let len = self.memory.data_size(&self.store);
-
-					// Linux handles MADV_DONTNEED reliably. The result is that the given area
-					// is unmapped and will be zeroed on the next pagefault.
-					if libc::madvise(ptr as _, len, libc::MADV_DONTNEED) != 0 {
-						static LOGGED: Once = Once::new();
-						LOGGED.call_once(|| {
-							log::warn!(
-								"madvise(MADV_DONTNEED) failed: {}",
-								std::io::Error::last_os_error(),
-							);
-						});
-					} else {
-						return;
-					}
-				}
-			} else if #[cfg(target_os = "macos")] {
-				use std::sync::Once;
-
-				unsafe {
-					let ptr = self.memory.data_ptr(&self.store);
-					let len = self.memory.data_size(&self.store);
-
-					// On MacOS we can simply overwrite memory mapping.
-					if libc::mmap(
-						ptr as _,
-						len,
-						libc::PROT_READ | libc::PROT_WRITE,
-						libc::MAP_FIXED | libc::MAP_PRIVATE | libc::MAP_ANONYMOUS,
-						-1,
-						0,
-					) == libc::MAP_FAILED {
-						static LOGGED: Once = Once::new();
-						LOGGED.call_once(|| {
-							log::warn!(
-								"Failed to decommit WASM instance memory through mmap: {}",
-								std::io::Error::last_os_error(),
-							);
-						});
-					} else {
-						return;
-					}
-				}
-			}
-		}
-
-		// If we're on an unsupported OS or the memory couldn't have been
-		// decommited for some reason then just manually zero it out.
-		self.memory.data_mut(self.store.as_context_mut()).fill(0);
-	}
-
 	pub(crate) fn store(&self) -> &Store {
 		&self.store
 	}
@@ -388,18 +319,4 @@ impl InstanceWrapper {
 	pub(crate) fn store_mut(&mut self) -> &mut Store {
 		&mut self.store
 	}
-}
-
-#[test]
-fn decommit_works() {
-	let engine = wasmtime::Engine::default();
-	let code = wat::parse_str("(module (memory (export \"memory\") 1 4))").unwrap();
-	let module = wasmtime::Module::new(&engine, code).unwrap();
-	let linker = wasmtime::Linker::new(&engine);
-	let instance_pre = linker.instantiate_pre(&module).unwrap();
-	let mut wrapper = InstanceWrapper::new(&engine, &instance_pre).unwrap();
-	unsafe { *wrapper.memory.data_ptr(&wrapper.store) = 42 };
-	assert_eq!(unsafe { *wrapper.memory.data_ptr(&wrapper.store) }, 42);
-	wrapper.decommit();
-	assert_eq!(unsafe { *wrapper.memory.data_ptr(&wrapper.store) }, 0);
 }

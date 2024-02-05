@@ -32,7 +32,7 @@ use sp_runtime::{
 };
 use std::{collections::HashSet, sync::Arc};
 use substrate_test_runtime::{
-	substrate_test_pallet::pallet::Call as PalletCall, BalancesCall, Block, Extrinsic,
+	substrate_test_pallet::pallet::Call as PalletCall, BalancesCall, Block, BlockNumber, Extrinsic,
 	ExtrinsicBuilder, Hashing, RuntimeCall, Transfer, TransferData, H256,
 };
 
@@ -53,6 +53,11 @@ impl TestApi {
 	pub fn validation_requests(&self) -> Vec<Extrinsic> {
 		self.validation_requests.lock().clone()
 	}
+
+	/// Helper function for mapping block number to hash. Use if mapping shall not fail.
+	pub fn expect_hash_from_number(&self, n: BlockNumber) -> H256 {
+		self.block_id_to_hash(&BlockId::Number(n)).unwrap().unwrap()
+	}
 }
 
 impl ChainApi for TestApi {
@@ -64,13 +69,13 @@ impl ChainApi for TestApi {
 	/// Verify extrinsic at given block.
 	fn validate_transaction(
 		&self,
-		at: &BlockId<Self::Block>,
+		at: <Self::Block as BlockT>::Hash,
 		_source: TransactionSource,
 		uxt: ExtrinsicFor<Self>,
 	) -> Self::ValidationFuture {
 		self.validation_requests.lock().push(uxt.clone());
 		let hash = self.hash_and_length(&uxt).0;
-		let block_number = self.block_id_to_number(at).unwrap().unwrap();
+		let block_number = self.block_id_to_number(&BlockId::Hash(at)).unwrap().unwrap();
 
 		let res = match uxt {
 			Extrinsic {
@@ -153,6 +158,8 @@ impl ChainApi for TestApi {
 	) -> Result<Option<NumberFor<Self>>, Self::Error> {
 		Ok(match at {
 			BlockId::Number(num) => Some(*num),
+			BlockId::Hash(hash) if *hash == H256::from_low_u64_be(hash.to_low_u64_be()) =>
+				Some(hash.to_low_u64_be()),
 			BlockId::Hash(_) => None,
 		})
 	}
@@ -164,7 +171,7 @@ impl ChainApi for TestApi {
 	) -> Result<Option<<Self::Block as BlockT>::Hash>, Self::Error> {
 		Ok(match at {
 			BlockId::Number(num) => Some(H256::from_low_u64_be(*num)).into(),
-			BlockId::Hash(_) => None,
+			BlockId::Hash(hash) => Some(*hash),
 		})
 	}
 
@@ -199,6 +206,7 @@ pub(crate) fn uxt(transfer: Transfer) -> Extrinsic {
 	ExtrinsicBuilder::new_transfer(transfer).build()
 }
 
-pub(crate) fn pool() -> Pool<TestApi> {
-	Pool::new(Default::default(), true.into(), TestApi::default().into())
+pub(crate) fn pool() -> (Pool<TestApi>, Arc<TestApi>) {
+	let api = Arc::new(TestApi::default());
+	(Pool::new(Default::default(), true.into(), api.clone()), api)
 }

@@ -56,7 +56,7 @@ pub mod weights;
 
 use codec::{Decode, Encode};
 use frame_support::{
-	dispatch::{DispatchResult, Dispatchable, GetDispatchInfo},
+	dispatch::{DispatchResult, GetDispatchInfo},
 	ensure,
 	pallet_prelude::MaxEncodedLen,
 	storage::bounded_vec::BoundedVec,
@@ -65,7 +65,7 @@ use frame_support::{
 };
 pub use pallet::*;
 use sp_runtime::{
-	traits::{AccountIdConversion, Saturating, Zero},
+	traits::{AccountIdConversion, Dispatchable, Saturating, Zero},
 	ArithmeticError, DispatchError, RuntimeDebug,
 };
 use sp_std::prelude::*;
@@ -368,7 +368,8 @@ pub mod pallet {
 			// Make sure pot exists.
 			let lottery_account = Self::account_id();
 			if T::Currency::total_balance(&lottery_account).is_zero() {
-				T::Currency::deposit_creating(&lottery_account, T::Currency::minimum_balance());
+				let _ =
+					T::Currency::deposit_creating(&lottery_account, T::Currency::minimum_balance());
 			}
 			Self::deposit_event(Event::<T>::LotteryStarted);
 			Ok(())

@@ -277,7 +277,7 @@ fn report_equivocation_current_set_works() {
 			assert_eq!(Staking::slashable_balance_of(validator), 10_000);
 
 			assert_eq!(
-				Staking::eras_stakers(1, validator),
+				Staking::eras_stakers(1, &validator),
 				pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
 			);
 		}
@@ -314,7 +314,7 @@ fn report_equivocation_current_set_works() {
 		assert_eq!(Balances::total_balance(&equivocation_validator_id), 10_000_000 - 10_000);
 		assert_eq!(Staking::slashable_balance_of(&equivocation_validator_id), 0);
 		assert_eq!(
-			Staking::eras_stakers(2, equivocation_validator_id),
+			Staking::eras_stakers(2, &equivocation_validator_id),
 			pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
 		);
 
@@ -328,7 +328,7 @@ fn report_equivocation_current_set_works() {
 			assert_eq!(Staking::slashable_balance_of(validator), 10_000);
 
 			assert_eq!(
-				Staking::eras_stakers(2, validator),
+				Staking::eras_stakers(2, &validator),
 				pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
 			);
 		}
@@ -363,7 +363,7 @@ fn report_equivocation_old_set_works() {
 			assert_eq!(Staking::slashable_balance_of(validator), 10_000);
 
 			assert_eq!(
-				Staking::eras_stakers(2, validator),
+				Staking::eras_stakers(2, &validator),
 				pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
 			);
 		}
@@ -397,7 +397,7 @@ fn report_equivocation_old_set_works() {
 		assert_eq!(Balances::total_balance(&equivocation_validator_id), 10_000_000 - 10_000);
 		assert_eq!(Staking::slashable_balance_of(&equivocation_validator_id), 0);
 		assert_eq!(
-			Staking::eras_stakers(3, equivocation_validator_id),
+			Staking::eras_stakers(3, &equivocation_validator_id),
 			pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
 		);
 
@@ -411,7 +411,7 @@ fn report_equivocation_old_set_works() {
 			assert_eq!(Staking::slashable_balance_of(validator), 10_000);
 
 			assert_eq!(
-				Staking::eras_stakers(3, validator),
+				Staking::eras_stakers(3, &validator),
 				pallet_staking::Exposure { total: 10_000, own: 10_000, others: vec![] },
 			);
 		}
@@ -790,4 +790,26 @@ fn valid_equivocation_reports_dont_pay_fees() {
 		assert!(post_info.actual_weight.is_none());
 		assert_eq!(post_info.pays_fee, Pays::Yes);
 	})
+}
+
+#[test]
+fn set_new_genesis_works() {
+	let authorities = test_authorities();
+
+	new_test_ext_raw_authorities(authorities).execute_with(|| {
+		start_era(1);
+
+		let new_genesis_delay = 10u64;
+		// the call for setting new genesis should work
+		assert_ok!(Beefy::set_new_genesis(RuntimeOrigin::root(), new_genesis_delay,));
+		let expected = System::block_number() + new_genesis_delay;
+		// verify new genesis was set
+		assert_eq!(Beefy::genesis_block(), Some(expected));
+
+		// setting delay < 1 should fail
+		assert_err!(
+			Beefy::set_new_genesis(RuntimeOrigin::root(), 0u64,),
+			Error::<Test>::InvalidConfiguration,
+		);
+	});
 }

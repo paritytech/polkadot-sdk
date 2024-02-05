@@ -139,7 +139,8 @@ enum CollationProtocolV1 {
 
 ## Network Bridge Event
 
-These updates are posted from the [Network Bridge Subsystem](../node/utility/network-bridge.md) to other subsystems based on registered listeners.
+These updates are posted from the [Network Bridge Subsystem](../node/utility/network-bridge.md) to other subsystems
+based on registered listeners.
 
 ```rust
 struct NewGossipTopology {

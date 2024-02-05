@@ -31,10 +31,6 @@ const DEFAULT_KEYSTORE_CONFIG_PATH: &str = "keystore";
 /// Parameters of the keystore
 #[derive(Debug, Clone, Args)]
 pub struct KeystoreParams {
-	/// Specify custom URIs to connect to for keystore-services
-	#[arg(long)]
-	pub keystore_uri: Option<String>,
-
 	/// Specify custom keystore path.
 	#[arg(long, value_name = "PATH")]
 	pub keystore_path: Option<PathBuf>,
@@ -43,8 +39,9 @@ pub struct KeystoreParams {
 	#[arg(long, conflicts_with_all = &["password", "password_filename"])]
 	pub password_interactive: bool,
 
-	/// Password used by the keystore. This allows appending an extra user-defined secret to the
-	/// seed.
+	/// Password used by the keystore.
+	///
+	/// This allows appending an extra user-defined secret to the seed.
 	#[arg(
 		long,
 		value_parser = secret_string_from_str,

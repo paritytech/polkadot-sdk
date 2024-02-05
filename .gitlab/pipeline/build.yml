@@ -19,12 +19,18 @@ build-linux-stable:
     RUN_UI_TESTS: 1
   script:
     - time cargo build --locked --profile testnet --features pyroscope,fast-runtime --bin polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker
+    - time ROCOCO_EPOCH_DURATION=10  ./polkadot/scripts/build-only-wasm.sh rococo-runtime $(pwd)/runtimes/rococo-runtime-10/
+    - time ROCOCO_EPOCH_DURATION=100 ./polkadot/scripts/build-only-wasm.sh rococo-runtime $(pwd)/runtimes/rococo-runtime-100/
+    - time ROCOCO_EPOCH_DURATION=600 ./polkadot/scripts/build-only-wasm.sh rococo-runtime $(pwd)/runtimes/rococo-runtime-600/
+    - pwd
+    - ls -alR runtimes
     # pack artifacts
     - mkdir -p ./artifacts
     - VERSION="${CI_COMMIT_REF_NAME}" # will be tag or branch name
     - mv ./target/testnet/polkadot ./artifacts/.
     - mv ./target/testnet/polkadot-prepare-worker ./artifacts/.
     - mv ./target/testnet/polkadot-execute-worker ./artifacts/.
+    - mv ./runtimes/ ./artifacts/.
     - pushd artifacts
     - sha256sum polkadot | tee polkadot.sha256
     - shasum -c polkadot.sha256
@@ -77,26 +83,6 @@ build-malus:
     - echo "polkadot-test-malus = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
     - cp -r ./docker/* ./artifacts
 
-build-staking-miner:
-  stage: build
-  extends:
-    - .docker-env
-    - .common-refs
-    # - .collect-artifacts
-  # DAG
-  needs:
-    - job: build-malus
-      artifacts: false
-  script:
-    - time cargo build -q --locked --release --package staging-staking-miner
-    # # pack artifacts
-    # - mkdir -p ./artifacts
-    # - mv ./target/release/staking-miner ./artifacts/.
-    # - echo -n "${CI_COMMIT_REF_NAME}" > ./artifacts/VERSION
-    # - echo -n "${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}" > ./artifacts/EXTRATAG
-    # - echo "staking-miner = $(cat ./artifacts/VERSION) (EXTRATAG = $(cat ./artifacts/EXTRATAG))"
-    # - cp -r ./scripts/* ./artifacts
-
 build-rustdoc:
   stage: build
   extends:
@@ -105,21 +91,41 @@ build-rustdoc:
     - .run-immediately
   variables:
     SKIP_WASM_BUILD: 1
-  # artifacts:
-  #   name: "${CI_JOB_NAME}_${CI_COMMIT_REF_NAME}-doc"
-  #   when: on_success
-  #   expire_in: 1 days
-  #   paths:
-  #     - ./crate-docs/
+    RUSTDOCFLAGS: ""
+  artifacts:
+    name: "${CI_JOB_NAME}_${CI_COMMIT_REF_NAME}-doc"
+    when: on_success
+    expire_in: 1 days
+    paths:
+      - ./crate-docs/
   script:
     # FIXME: it fails with `RUSTDOCFLAGS="-Dwarnings"` and `--all-features`
-    # FIXME: return to stable when https://github.com/rust-lang/rust/issues/96937 gets into stable
-    - time cargo doc --workspace --no-deps
+    - time cargo doc --features try-runtime,experimental --workspace --no-deps
     - rm -f ./target/doc/.lock
     - mv ./target/doc ./crate-docs
-    # FIXME: remove me after CI image gets nonroot
-    - chown -R nonroot:nonroot ./crate-docs
-    - echo "<meta http-equiv=refresh content=0;url=polkadot_service/index.html>" > ./crate-docs/index.html
+    # Inject Simple Analytics (https://www.simpleanalytics.com/) privacy preserving tracker into
+    # all .html files
+    - |
+      inject_simple_analytics() {
+        local path="$1"
+        local script_content="<script async defer src=\"https://apisa.parity.io/latest.js\"></script><noscript><img src=\"https://apisa.parity.io/latest.js\" alt=\"\" referrerpolicy=\"no-referrer-when-downgrade\" /></noscript>"
+
+        # Function that inject script into the head of an html file using sed.
+        process_file() {
+            local file="$1"
+            echo "Adding Simple Analytics script to $file"
+            sed -i "s|</head>|$script_content</head>|" "$file"
+        }
+        export -f process_file
+        # xargs runs process_file in seperate shells without access to outer variables.
+        # to make script_content available inside process_file, export it as an env var here.
+        export script_content
+
+        # Modify .html files in parallel using xargs, otherwise it can take a long time.
+        find "$path" -name '*.html' | xargs -I {} -P "$(nproc)" bash -c 'process_file "$@"' _ {}
+      }
+      inject_simple_analytics "./crate-docs"
+    - echo "<meta http-equiv=refresh content=0;url=polkadot_sdk_docs/index.html>" > ./crate-docs/index.html
 
 build-implementers-guide:
   stage: build
@@ -127,7 +133,7 @@ build-implementers-guide:
     - .kubernetes-env
     - .common-refs
     - .run-immediately
-    # - .collect-artifacts
+    - .collect-artifacts
   # git depth is set on purpose: https://github.com/paritytech/polkadot/issues/6284
   variables:
     GIT_STRATEGY: clone
@@ -146,7 +152,7 @@ build-short-benchmark:
     - .run-immediately
     - .collect-artifacts
   script:
-    - cargo build --profile release --locked --features=runtime-benchmarks
+    - cargo build --profile release --locked --features=runtime-benchmarks,on-chain-release-build --bin polkadot --workspace
     - mkdir -p artifacts
     - target/release/polkadot --version
     - cp ./target/release/polkadot ./artifacts/
@@ -166,7 +172,7 @@ build-linux-stable-cumulus:
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
   script:
     - echo "___Building a binary, please refrain from using it in production since it goes with the debug assertions.___"
-    - time cargo build --release --locked --bin polkadot-parachain
+    - time cargo build --release --locked -p polkadot-parachain-bin --bin polkadot-parachain
     - echo "___Packing the artifacts___"
     - mkdir -p ./artifacts
     - mv ./target/release/polkadot-parachain ./artifacts/.
@@ -186,7 +192,7 @@ build-test-parachain:
     RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
   script:
     - echo "___Building a binary, please refrain from using it in production since it goes with the debug assertions.___"
-    - time cargo build --release --locked --bin test-parachain
+    - time cargo build --release --locked -p cumulus-test-service --bin test-parachain
     - echo "___Packing the artifacts___"
     - mkdir -p ./artifacts
     - mv ./target/release/test-parachain ./artifacts/.
@@ -214,6 +220,7 @@ build-test-parachain:
 
 # DAG: build-runtime-assets -> build-runtime-collectives -> build-runtime-bridge-hubs
 # DAG: build-runtime-assets -> build-runtime-collectives -> build-runtime-contracts
+# DAG: build-runtime-assets -> build-runtime-coretime
 # DAG: build-runtime-assets -> build-runtime-starters -> build-runtime-testing
 build-runtime-assets:
   <<: *build-runtime-template
@@ -224,6 +231,15 @@ build-runtime-collectives:
   <<: *build-runtime-template
   variables:
     RUNTIME_PATH: "cumulus/parachains/runtimes/collectives"
+  # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
+  needs:
+    - job: build-runtime-assets
+      artifacts: false
+
+build-runtime-coretime:
+  <<: *build-runtime-template
+  variables:
+    RUNTIME_PATH: "cumulus/parachains/runtimes/coretime"
   # this is an artificial job dependency, for pipeline optimization using GitLab's DAGs
   needs:
     - job: build-runtime-assets
@@ -265,6 +281,19 @@ build-runtime-testing:
     - job: build-runtime-starters
       artifacts: false
 
+build-short-benchmark-cumulus:
+  stage: build
+  extends:
+    - .docker-env
+    - .common-refs
+    - .run-immediately
+    - .collect-artifacts
+  script:
+    - cargo build --profile release --locked --features=runtime-benchmarks,on-chain-release-build -p polkadot-parachain-bin --bin polkadot-parachain --workspace
+    - mkdir -p artifacts
+    - target/release/polkadot-parachain --version
+    - cp ./target/release/polkadot-parachain ./artifacts/
+
 # substrate
 
 build-linux-substrate:
@@ -286,7 +315,7 @@ build-linux-substrate:
     # see https://github.com/paritytech/ci_cd/issues/682#issuecomment-1340953589
     - git checkout -B "$CI_COMMIT_REF_NAME" "$CI_COMMIT_SHA"
   script:
-    - WASM_BUILD_NO_COLOR=1 time cargo build --locked --release
+    - WASM_BUILD_NO_COLOR=1 time cargo build --locked --release -p staging-node-cli
     - mv $CARGO_TARGET_DIR/release/substrate-node ./artifacts/substrate/substrate
     - echo -n "Substrate version = "
     - if [ "${CI_COMMIT_TAG}" ]; then
@@ -296,9 +325,17 @@ build-linux-substrate:
       cut -d ' ' -f 2 | tee ./artifacts/substrate/VERSION;
       fi
     - sha256sum ./artifacts/substrate/substrate | tee ./artifacts/substrate/substrate.sha256
-    - cp -r ./docker/substrate_injected.Dockerfile ./artifacts/substrate/
+    - cp -r ./docker/dockerfiles/substrate_injected.Dockerfile ./artifacts/substrate/
     # - printf '\n# building node-template\n\n'
     # - ./scripts/ci/node-template-release.sh ./artifacts/substrate/substrate-node-template.tar.gz
+
+build-minimal-runtime-polkavm:
+  stage: build
+  extends:
+    - .docker-env
+    - .common-refs
+  script:
+    - SUBSTRATE_RUNTIME_TARGET=riscv cargo check -p minimal-runtime
 
 .build-subkey:
   stage: build
@@ -328,7 +365,7 @@ build-subkey-linux:
   extends: .build-subkey
   # DAG
   needs:
-    - job: build-staking-miner
+    - job: build-malus
       artifacts: false
 # tbd
 # build-subkey-macos:

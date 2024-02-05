@@ -22,7 +22,7 @@
 use crate as pallet_whitelist;
 
 use frame_support::{
-	construct_runtime,
+	construct_runtime, derive_impl,
 	traits::{ConstU32, ConstU64, Nothing},
 };
 use frame_system::EnsureRoot;
@@ -44,6 +44,7 @@ construct_runtime!(
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = Nothing;
 	type BlockWeights = ();
@@ -83,15 +84,14 @@ impl pallet_balances::Config for Test {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeFreezeReason = ();
 }
 
 impl pallet_preimage::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type ManagerOrigin = EnsureRoot<Self::AccountId>;
-	type BaseDeposit = ConstU64<1>;
-	type ByteDeposit = ConstU64<1>;
+	type Consideration = ();
 	type WeightInfo = ();
 }
 

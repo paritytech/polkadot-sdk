@@ -24,9 +24,7 @@ use sp_core::Get;
 use sp_io::{hashing::twox_128, storage::clear_prefix, KillStorageResult};
 use sp_std::marker::PhantomData;
 
-/// EXPERIMENTAL: The API of this feature may change.
-///
-/// Make it easier to write versioned runtime upgrades.
+/// Handles storage migration pallet versioning.
 ///
 /// [`VersionedMigration`] allows developers to write migrations without worrying about checking and
 /// setting storage versions. Instead, the developer wraps their migration in this struct which
@@ -53,7 +51,7 @@ use sp_std::marker::PhantomData;
 /// 	// OnRuntimeUpgrade implementation...
 /// }
 ///
-/// pub type VersionCheckedMigrateV5ToV6<T, I> =
+/// pub type MigrateV5ToV6<T, I> =
 /// 	VersionedMigration<
 /// 		5,
 /// 		6,
@@ -65,18 +63,16 @@ use sp_std::marker::PhantomData;
 /// // Migrations tuple to pass to the Executive pallet:
 /// pub type Migrations = (
 /// 	// other migrations...
-/// 	VersionCheckedMigrateV5ToV6<T, ()>,
+/// 	MigrateV5ToV6<T, ()>,
 /// 	// other migrations...
 /// );
 /// ```
-#[cfg(feature = "experimental")]
 pub struct VersionedMigration<const FROM: u16, const TO: u16, Inner, Pallet, Weight> {
 	_marker: PhantomData<(Inner, Pallet, Weight)>,
 }
 
 /// A helper enum to wrap the pre_upgrade bytes like an Option before passing them to post_upgrade.
 /// This enum is used rather than an Option to make the API clearer to the developer.
-#[cfg(feature = "experimental")]
 #[derive(codec::Encode, codec::Decode)]
 pub enum VersionedPostUpgradeData {
 	/// The migration ran, inner vec contains pre_upgrade data.
@@ -91,7 +87,6 @@ pub enum VersionedPostUpgradeData {
 /// version of the pallets storage matches `From`, and after the upgrade set the on-chain storage to
 /// `To`. If the versions do not match, it writes a log notifying the developer that the migration
 /// is a noop.
-#[cfg(feature = "experimental")]
 impl<
 		const FROM: u16,
 		const TO: u16,
@@ -124,7 +119,7 @@ impl<
 		let on_chain_version = Pallet::on_chain_storage_version();
 		if on_chain_version == FROM {
 			log::info!(
-				"Running {} VersionedOnRuntimeUpgrade: version {:?} to {:?}.",
+				"🚚 Pallet {:?} VersionedMigration migrating storage version from {:?} to {:?}.",
 				Pallet::name(),
 				FROM,
 				TO
@@ -139,9 +134,10 @@ impl<
 			weight.saturating_add(DbWeight::get().reads_writes(1, 1))
 		} else {
 			log::warn!(
-				"{} VersionedOnRuntimeUpgrade for version {:?} skipped because current on-chain version is {:?}.",
+				"🚚 Pallet {:?} VersionedMigration migration {}->{} can be removed; on-chain is already at {:?}.",
 				Pallet::name(),
 				FROM,
+				TO,
 				on_chain_version
 			);
 			DbWeight::get().reads(1)
@@ -228,8 +224,7 @@ impl PalletVersionToStorageVersionHelper for T {
 	}
 }
 
-/// Migrate from the `PalletVersion` struct to the new
-/// [`StorageVersion`](crate::traits::StorageVersion) struct.
+/// Migrate from the `PalletVersion` struct to the new [`StorageVersion`] struct.
 ///
 /// This will remove all `PalletVersion's` from the state and insert the current storage version.
 pub fn migrate_from_pallet_version_to_storage_version<
@@ -259,10 +254,10 @@ pub fn migrate_from_pallet_version_to_storage_version<
 /// construct_runtime! {
 /// 	pub enum Runtime
 /// 	{
-/// 		System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>} = 0,
+/// 		System: frame_system = 0,
 ///
-/// 		SomePalletToRemove: pallet_something::{Pallet, Call, Storage, Event<T>} = 1,
-/// 		AnotherPalletToRemove: pallet_something_else::{Pallet, Call, Storage, Event<T>} = 2,
+/// 		SomePalletToRemove: pallet_something = 1,
+/// 		AnotherPalletToRemove: pallet_something_else = 2,
 ///
 /// 		YourOtherPallets...
 /// 	}

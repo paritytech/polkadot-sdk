@@ -1,15 +1,19 @@
 [package]
 name = "polkadot-node-core-provisioner"
-version = "1.0.0"
+version = "7.0.0"
+description = "Responsible for assembling a relay chain block from a set of available parachain candidates"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+
+[lints]
+workspace = true
 
 [dependencies]
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
 futures = "0.3.21"
 gum = { package = "tracing-gum", path = "../../gum" }
-thiserror = "1.0.31"
+thiserror = "1.0.48"
 polkadot-primitives = { path = "../../../primitives" }
 polkadot-node-primitives = { path = "../../primitives" }
 polkadot-node-subsystem = { path = "../../subsystem" }

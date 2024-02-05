@@ -1,0 +1,52 @@
+[package]
+name = "pallet-collective-content"
+version = "0.6.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+description = "Managed content"
+license = "Apache-2.0"
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+
+frame-benchmarking = { path = "../../../../substrate/frame/benchmarking", optional = true, default-features = false }
+frame-support = { path = "../../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../../substrate/frame/system", default-features = false }
+
+sp-core = { path = "../../../../substrate/primitives/core", default-features = false }
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
+sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
+
+[dev-dependencies]
+sp-io = { path = "../../../../substrate/primitives/io", default-features = false }
+
+[features]
+default = ["std"]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]
+
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
+]
+
+std = [
+	"codec/std",
+	"frame-benchmarking/std",
+	"frame-support/std",
+	"frame-system/std",
+	"scale-info/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+]

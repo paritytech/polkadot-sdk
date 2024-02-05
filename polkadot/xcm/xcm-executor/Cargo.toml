@@ -4,12 +4,16 @@ description = "An abstract and configurable XCM message executor."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "1.0.0"
+version = "7.0.0"
+
+[lints]
+workspace = true
 
 [dependencies]
 impl-trait-for-tuples = "0.2.2"
 environmental = { version = "1.1.4", default-features = false }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
+scale-info = { version = "2.5.0", default-features = false, features = ["derive", "serde"] }
 xcm = { package = "staging-xcm", path = "..", default-features = false }
 sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 sp-io = { path = "../../../substrate/primitives/io", default-features = false }
@@ -22,17 +26,19 @@ log = { version = "0.4.17", default-features = false }
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 std = [
+	"environmental/std",
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"log/std",
 	"parity-scale-codec/std",
+	"scale-info/std",
 	"sp-arithmetic/std",
 	"sp-core/std",
 	"sp-io/std",

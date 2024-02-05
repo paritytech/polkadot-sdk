@@ -18,23 +18,24 @@
 
 pub mod error;
 pub mod execute;
-pub mod executor_intf;
+pub mod executor_interface;
 pub mod prepare;
 pub mod pvf;
 pub mod worker;
+pub mod worker_dir;
 
 pub use cpu_time::ProcessTime;
 
-/// DO NOT USE - internal for macros only.
-#[doc(hidden)]
-pub mod __private {
-	pub use sp_tracing::try_init_simple;
-}
+// Used by `decl_worker_main!`.
+pub use sp_tracing;
 
 const LOG_TARGET: &str = "parachain::pvf-common";
 
-use std::mem;
-use tokio::io::{self, AsyncRead, AsyncReadExt as _, AsyncWrite, AsyncWriteExt as _};
+use parity_scale_codec::{Decode, Encode};
+use std::{
+	io::{self, Read, Write},
+	mem,
+};
 
 #[cfg(feature = "test-utils")]
 pub mod tests {
@@ -44,20 +45,44 @@ pub mod tests {
 	pub const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(30);
 }
 
-/// Write some data prefixed by its length into `w`.
-pub async fn framed_send(w: &mut (impl AsyncWrite + Unpin), buf: &[u8]) -> io::Result<()> {
+/// Status of security features on the current system.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Encode, Decode)]
+pub struct SecurityStatus {
+	/// Whether Secure Validator Mode is enabled. This mode enforces that all required security
+	/// features are present. All features are enabled on a best-effort basis regardless.
+	pub secure_validator_mode: bool,
+	/// Whether the landlock features we use are fully available on this system.
+	pub can_enable_landlock: bool,
+	/// Whether the seccomp features we use are fully available on this system.
+	pub can_enable_seccomp: bool,
+	/// Whether we are able to unshare the user namespace and change the filesystem root.
+	pub can_unshare_user_namespace_and_change_root: bool,
+	/// Whether we are able to call `clone` with all sandboxing flags.
+	pub can_do_secure_clone: bool,
+}
+
+/// A handshake with information for the worker.
+#[derive(Debug, Encode, Decode)]
+pub struct WorkerHandshake {
+	pub security_status: SecurityStatus,
+}
+
+/// Write some data prefixed by its length into `w`. Sync version of `framed_send` to avoid
+/// dependency on tokio.
+pub fn framed_send_blocking(w: &mut (impl Write + Unpin), buf: &[u8]) -> io::Result<()> {
 	let len_buf = buf.len().to_le_bytes();
-	w.write_all(&len_buf).await?;
-	w.write_all(buf).await?;
+	w.write_all(&len_buf)?;
+	w.write_all(buf)?;
 	Ok(())
 }
 
-/// Read some data prefixed by its length from `r`.
-pub async fn framed_recv(r: &mut (impl AsyncRead + Unpin)) -> io::Result<Vec<u8>> {
+/// Read some data prefixed by its length from `r`. Sync version of `framed_recv` to avoid
+/// dependency on tokio.
+pub fn framed_recv_blocking(r: &mut (impl Read + Unpin)) -> io::Result<Vec<u8>> {
 	let mut len_buf = [0u8; mem::size_of::<usize>()];
-	r.read_exact(&mut len_buf).await?;
+	r.read_exact(&mut len_buf)?;
 	let len = usize::from_le_bytes(len_buf);
 	let mut buf = vec![0; len];
-	r.read_exact(&mut buf).await?;
+	r.read_exact(&mut buf)?;
 	Ok(buf)
 }

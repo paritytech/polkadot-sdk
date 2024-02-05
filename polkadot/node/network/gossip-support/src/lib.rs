@@ -32,7 +32,7 @@ use std::{
 
 use futures::{channel::oneshot, select, FutureExt as _};
 use futures_timer::Delay;
-use rand::{seq::SliceRandom as _, SeedableRng};
+use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 
 use sc_network::{config::parse_addr, Multiaddr};
@@ -104,7 +104,7 @@ pub struct GossipSupport<AD> {
 	/// By `PeerId`.
 	///
 	/// Needed for efficient handling of disconnect events.
-	connected_authorities_by_peer_id: HashMap<PeerId, HashSet<AuthorityDiscoveryId>>,
+	connected_peers: HashMap<PeerId, HashSet<AuthorityDiscoveryId>>,
 	/// Authority discovery service.
 	authority_discovery: AD,
 
@@ -130,7 +130,7 @@ where
 			failure_start: None,
 			resolved_authorities: HashMap::new(),
 			connected_authorities: HashMap::new(),
-			connected_authorities_by_peer_id: HashMap::new(),
+			connected_peers: HashMap::new(),
 			authority_discovery,
 			metrics,
 		}
@@ -270,9 +270,10 @@ where
 						session_index,
 					)
 					.await?;
-
-					self.update_authority_ids(sender, session_info.discovery_keys).await;
 				}
+				// authority_discovery is just a cache so let's try every leaf to detect if there
+				// are new authorities there.
+				self.update_authority_ids(sender, session_info.discovery_keys).await;
 			}
 		}
 		Ok(())
@@ -407,19 +408,42 @@ where
 			}
 		}
 
-		for (peer_id, auths) in authority_ids {
-			if self.connected_authorities_by_peer_id.get(&peer_id) != Some(&auths) {
+		// peer was authority and now isn't
+		for (peer_id, current) in self.connected_peers.iter_mut() {
+			// empty -> nonempty is handled in the next loop
+			if !current.is_empty() && !authority_ids.contains_key(peer_id) {
 				sender
 					.send_message(NetworkBridgeRxMessage::UpdatedAuthorityIds {
-						peer_id,
-						authority_ids: auths.clone(),
+						peer_id: *peer_id,
+						authority_ids: HashSet::new(),
 					})
 					.await;
 
-				auths.iter().for_each(|a| {
+				for a in current.drain() {
+					self.connected_authorities.remove(&a);
+				}
+			}
+		}
+
+		// peer has new authority set.
+		for (peer_id, new) in authority_ids {
+			// If the peer is connected _and_ the authority IDs have changed.
+			if let Some(prev) = self.connected_peers.get(&peer_id).filter(|x| x != &&new) {
+				sender
+					.send_message(NetworkBridgeRxMessage::UpdatedAuthorityIds {
+						peer_id,
+						authority_ids: new.clone(),
+					})
+					.await;
+
+				prev.iter().for_each(|a| {
+					self.connected_authorities.remove(a);
+				});
+				new.iter().for_each(|a| {
 					self.connected_authorities.insert(a.clone(), peer_id);
 				});
-				self.connected_authorities_by_peer_id.insert(peer_id, auths);
+
+				self.connected_peers.insert(peer_id, new);
 			}
 		}
 	}
@@ -431,12 +455,13 @@ where
 					authority_ids.iter().for_each(|a| {
 						self.connected_authorities.insert(a.clone(), peer_id);
 					});
-					self.connected_authorities_by_peer_id.insert(peer_id, authority_ids);
+					self.connected_peers.insert(peer_id, authority_ids);
+				} else {
+					self.connected_peers.insert(peer_id, HashSet::new());
 				}
 			},
 			NetworkBridgeEvent::PeerDisconnected(peer_id) => {
-				if let Some(authority_ids) = self.connected_authorities_by_peer_id.remove(&peer_id)
-				{
+				if let Some(authority_ids) = self.connected_peers.remove(&peer_id) {
 					authority_ids.into_iter().for_each(|a| {
 						self.connected_authorities.remove(&a);
 					});
@@ -452,7 +477,8 @@ where
 				// match void -> LLVM unreachable
 				match message {
 					Versioned::V1(m) => match m {},
-					Versioned::VStaging(m) => match m {},
+					Versioned::V2(m) => match m {},
+					Versioned::V3(m) => match m {},
 				}
 			},
 		}
@@ -568,7 +594,7 @@ async fn update_gossip_topology(
 		let mut subject = [0u8; 40];
 		subject[..8].copy_from_slice(b"gossipsu");
 		subject[8..].copy_from_slice(&randomness);
-		sp_core::blake2_256(&subject)
+		sp_crypto_hashing::blake2_256(&subject)
 	};
 
 	// shuffle the validators and create the index mapping
@@ -582,7 +608,7 @@ async fn update_gossip_topology(
 			.map(|(i, a)| (a.clone(), ValidatorIndex(i as _)))
 			.collect();
 
-		canonical_shuffling.shuffle(&mut rng);
+		fisher_yates_shuffle(&mut rng, &mut canonical_shuffling[..]);
 		for (i, (_, validator_index)) in canonical_shuffling.iter().enumerate() {
 			shuffled_indices[validator_index.0 as usize] = i;
 		}
@@ -600,6 +626,16 @@ async fn update_gossip_topology(
 		.await;
 
 	Ok(())
+}
+
+// Durstenfeld algorithm for the Fisher-Yates shuffle
+// https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle#The_modern_algorithm
+fn fisher_yates_shuffle<T, R: Rng + ?Sized>(rng: &mut R, items: &mut [T]) {
+	for i in (1..items.len()).rev() {
+		// invariant: elements with index > i have been locked in place.
+		let index = rng.gen_range(0u32..(i as u32 + 1));
+		items.swap(i, index as usize);
+	}
 }
 
 #[overseer::subsystem(GossipSupport, error = SubsystemError, prefix = self::overseer)]

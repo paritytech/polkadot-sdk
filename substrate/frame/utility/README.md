@@ -27,10 +27,10 @@ filtered by any proxy.
 ### Dispatchable Functions
 
 #### For batch dispatch
-* `batch` - Dispatch multiple calls from the sender's origin.
+- `batch` - Dispatch multiple calls from the sender's origin.
 
 #### For pseudonymal dispatch
-* `as_derivative` - Dispatch a call from a derivative signed origin.
+- `as_derivative` - Dispatch a call from a derivative signed origin.
 
 [`Call`]: ./enum.Call.html
 [`Config`]: ./trait.Config.html

@@ -25,6 +25,7 @@ use super::{mock_helpers::*, Pallet as MessageQueue, *};
 use frame_benchmarking::v2::*;
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
+use sp_io::hashing::blake2_256;
 use sp_std::prelude::*;
 
 #[benchmarks(
@@ -78,7 +79,7 @@ mod benchmarks {
 	fn service_queue_base() {
 		#[block]
 		{
-			MessageQueue::<T>::service_queue(0.into(), &mut WeightMeter::max_limit(), Weight::MAX);
+			MessageQueue::<T>::service_queue(0.into(), &mut WeightMeter::new(), Weight::MAX);
 		}
 	}
 
@@ -89,7 +90,7 @@ mod benchmarks {
 		let page = PageOf::<T>::default();
 		Pages::<T>::insert(&origin, 0, &page);
 		let mut book_state = single_page_book::<T>();
-		let mut meter = WeightMeter::max_limit();
+		let mut meter = WeightMeter::new();
 		let limit = Weight::MAX;
 
 		#[block]
@@ -108,7 +109,7 @@ mod benchmarks {
 		page.remaining = 1.into();
 		Pages::<T>::insert(&origin, 0, &page);
 		let mut book_state = single_page_book::<T>();
-		let mut meter = WeightMeter::max_limit();
+		let mut meter = WeightMeter::new();
 		let limit = Weight::MAX;
 
 		#[block]
@@ -124,7 +125,7 @@ mod benchmarks {
 		let mut page = page::<T>(&msg.clone());
 		let mut book = book_for::<T>(&page);
 		assert!(page.peek_first().is_some(), "There is one message");
-		let mut weight = WeightMeter::max_limit();
+		let mut weight = WeightMeter::new();
 
 		#[block]
 		{
@@ -142,7 +143,7 @@ mod benchmarks {
 		// Check that it was processed.
 		assert_last_event::<T>(
 			Event::Processed {
-				id: sp_io::hashing::blake2_256(&msg),
+				id: blake2_256(&msg).into(),
 				origin: 0.into(),
 				weight_used: 1.into_weight(),
 				success: true,
@@ -158,7 +159,7 @@ mod benchmarks {
 	#[benchmark]
 	fn bump_service_head() {
 		setup_bump_service_head::<T>(0.into(), 10.into());
-		let mut weight = WeightMeter::max_limit();
+		let mut weight = WeightMeter::new();
 
 		#[block]
 		{
@@ -227,7 +228,7 @@ mod benchmarks {
 
 		assert_last_event::<T>(
 			Event::Processed {
-				id: sp_io::hashing::blake2_256(&((msgs - 1) as u32).encode()),
+				id: blake2_256(&((msgs - 1) as u32).encode()).into(),
 				origin: 0.into(),
 				weight_used: Weight::from_parts(1, 1),
 				success: true,
@@ -264,7 +265,7 @@ mod benchmarks {
 
 		assert_last_event::<T>(
 			Event::Processed {
-				id: sp_io::hashing::blake2_256(&((msgs - 1) as u32).encode()),
+				id: blake2_256(&((msgs - 1) as u32).encode()).into(),
 				origin: 0.into(),
 				weight_used: Weight::from_parts(1, 1),
 				success: true,

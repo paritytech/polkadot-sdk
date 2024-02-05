@@ -15,10 +15,7 @@
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
 use assert_cmd::cargo::cargo_bin;
-use std::{
-	process::{self, Command},
-	time::Duration,
-};
+use std::process::{self, Command};
 use tempfile::tempdir;
 
 pub mod common;
@@ -49,17 +46,13 @@ async fn running_the_node_works_and_can_be_interrupted() {
 		let (ws_url, _) = common::find_ws_url_from_output(cmd.stderr.take().unwrap());
 
 		// Let it produce three blocks.
-		common::wait_n_finalized_blocks(3, Duration::from_secs(60), &ws_url)
-			.await
-			.unwrap();
+		common::wait_n_finalized_blocks(3, &ws_url).await;
 
 		assert!(cmd.try_wait().unwrap().is_none(), "the process should still be running");
 		kill(Pid::from_raw(cmd.id().try_into().unwrap()), signal).unwrap();
-		assert_eq!(
-			common::wait_for(&mut cmd, 30).map(|x| x.success()),
-			Some(true),
-			"the process must exit gracefully after signal {}",
-			signal,
+		assert!(
+			cmd.wait().unwrap().success(),
+			"the process must exit gracefully after signal {signal}",
 		);
 	}
 

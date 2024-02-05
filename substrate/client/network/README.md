@@ -80,8 +80,8 @@ is "dot". In the protocol names below, `<protocol-id>` must be replaced with the
 protocol ID.
 
 > **Note**: It is possible for the same connection to be used for multiple chains. For example,
->           one can use both the `/dot/sync/2` and `/sub/sync/2` protocols on the same
->           connection, provided that the remote supports them.
+> one can use both the `/dot/sync/2` and `/sub/sync/2` protocols on the same
+> connection, provided that the remote supports them.
 
 Substrate uses the following standard libp2p protocols:
 
@@ -138,7 +138,7 @@ substream is closed, the entire connection is closed as well. This is a bug that
 resolved by deprecating the protocol entirely.
 
 Within the unique Substrate substream, messages encoded using
-[*parity-scale-codec*](https://github.com/paritytech/parity-scale-codec) are exchanged.
+[`parity-scale-codec``](https://github.com/paritytech/parity-scale-codec) are exchanged.
 The detail of theses messages is not totally in place, but they can be found in the
 `message.rs` file.
 
@@ -240,7 +240,7 @@ The state is then imported into the database and the keep-up sync starts in norm
 This is similar to fast sync, but instead of downloading and verifying full header chain, the algorithm
 only downloads finalized authority set changes.
 
-### GRANDPA warp sync.
+### GRANDPA warp sync
 
 GRANDPA keeps justifications for each finalized authority set change. Each change is signed by the
 authorities from the previous set. By downloading and verifying these signed hand-offs starting from genesis,
@@ -254,7 +254,7 @@ the fast sync. The state is verified to match the header storage root. After the
 database it is queried for the information that allows GRANDPA and BABE to continue operating from that state.
 This includes BABE epoch information and GRANDPA authority set id.
 
-### Background block download.
+### Background block download
 
 After the latest state has been imported the node is fully operational, but is still missing historic block
 data. I.e. it is unable to serve bock bodies and headers other than the most recent one. To make sure all

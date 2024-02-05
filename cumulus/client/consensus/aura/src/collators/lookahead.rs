@@ -34,7 +34,8 @@
 use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{
-	self as consensus_common, ParachainBlockImportMarker, ParentSearchParams,
+	self as consensus_common, load_abridged_host_configuration, ParachainBlockImportMarker,
+	ParentSearchParams,
 };
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
@@ -44,11 +45,13 @@ use cumulus_primitives_core::{
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_node_primitives::SubmitCollationParams;
-use polkadot_node_subsystem::messages::CollationGenerationMessage;
+use polkadot_node_subsystem::messages::{
+	CollationGenerationMessage, RuntimeApiMessage, RuntimeApiRequest,
+};
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CollatorPair, Id as ParaId, OccupiedCoreAssumption};
 
-use futures::prelude::*;
+use futures::{channel::oneshot, prelude::*};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::standalone as aura_internal;
@@ -102,6 +105,8 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, SO, Proposer, CS> {
 	pub collator_service: CS,
 	/// The amount of time to spend authoring each block.
 	pub authoring_duration: Duration,
+	/// Whether we should reinitialize the collator config (i.e. we are transitioning to aura).
+	pub reinitialize: bool,
 }
 
 /// Run async-backing-friendly Aura.
@@ -146,6 +151,7 @@ where
 			&mut params.overseer_handle,
 			params.collator_key,
 			params.para_id,
+			params.reinitialize,
 		)
 		.await;
 
@@ -179,6 +185,17 @@ where
 
 		while let Some(relay_parent_header) = import_notifications.next().await {
 			let relay_parent = relay_parent_header.hash();
+
+			if !is_para_scheduled(relay_parent, params.para_id, &mut params.overseer_handle).await {
+				tracing::trace!(
+					target: crate::LOG_TARGET,
+					?relay_parent,
+					?params.para_id,
+					"Para is not scheduled on any core, skipping import notification",
+				);
+
+				continue
+			}
 
 			let max_pov_size = match params
 				.relay_client
@@ -345,7 +362,7 @@ where
 					)
 					.await
 				{
-					Ok((collation, block_data, new_block_hash)) => {
+					Ok(Some((collation, block_data, new_block_hash))) => {
 						// Here we are assuming that the import logic protects against equivocations
 						// and provides sybil-resistance, as it should.
 						collator.collator_service().announce_block(new_block_hash, None);
@@ -372,6 +389,10 @@ where
 
 						parent_hash = new_block_hash;
 						parent_header = block_data.into_header();
+					},
+					Ok(None) => {
+						tracing::debug!(target: crate::LOG_TARGET, "No block proposal");
+						break
 					},
 					Err(err) => {
 						tracing::error!(target: crate::LOG_TARGET, ?err);
@@ -416,16 +437,68 @@ where
 	Some(SlotClaim::unchecked::<P>(author_pub, slot, timestamp))
 }
 
+/// Reads allowed ancestry length parameter from the relay chain storage at the given relay parent.
+///
+/// Falls back to 0 in case of an error.
 async fn max_ancestry_lookback(
-	_relay_parent: PHash,
-	_relay_client: &impl RelayChainInterface,
+	relay_parent: PHash,
+	relay_client: &impl RelayChainInterface,
 ) -> usize {
-	// TODO [https://github.com/paritytech/cumulus/issues/2706]
-	// We need to read the relay-chain state to know what the maximum
-	// age truly is, but that depends on those pallets existing.
-	//
-	// For now, just provide the conservative value of '2'.
-	// Overestimating can cause problems, as we'd be building on forks of the
-	// chain that can never get included. Underestimating is less of an issue.
-	2
+	match load_abridged_host_configuration(relay_parent, relay_client).await {
+		Ok(Some(config)) => config.async_backing_params.allowed_ancestry_len as usize,
+		Ok(None) => {
+			tracing::error!(
+				target: crate::LOG_TARGET,
+				"Active config is missing in relay chain storage",
+			);
+			0
+		},
+		Err(err) => {
+			tracing::error!(
+				target: crate::LOG_TARGET,
+				?err,
+				?relay_parent,
+				"Failed to read active config from relay chain client",
+			);
+			0
+		},
+	}
+}
+
+// Checks if there exists a scheduled core for the para at the provided relay parent.
+//
+// Falls back to `false` in case of an error.
+async fn is_para_scheduled(
+	relay_parent: PHash,
+	para_id: ParaId,
+	overseer_handle: &mut OverseerHandle,
+) -> bool {
+	let (tx, rx) = oneshot::channel();
+	let request = RuntimeApiRequest::AvailabilityCores(tx);
+	overseer_handle
+		.send_msg(RuntimeApiMessage::Request(relay_parent, request), "LookaheadCollator")
+		.await;
+
+	let cores = match rx.await {
+		Ok(Ok(cores)) => cores,
+		Ok(Err(error)) => {
+			tracing::error!(
+				target: crate::LOG_TARGET,
+				?error,
+				?relay_parent,
+				"Failed to query availability cores runtime API",
+			);
+			return false
+		},
+		Err(oneshot::Canceled) => {
+			tracing::error!(
+				target: crate::LOG_TARGET,
+				?relay_parent,
+				"Sender for availability cores runtime request dropped",
+			);
+			return false
+		},
+	};
+
+	cores.iter().any(|core| core.para_id() == Some(para_id))
 }

@@ -19,14 +19,14 @@ use super::*;
 use assert_matches::assert_matches;
 use futures::{channel::oneshot, executor, future, Future};
 
+use self::test_helpers::mock::new_leaf;
 use ::test_helpers::TestCandidateBuilder;
 use parking_lot::Mutex;
 use polkadot_node_primitives::{AvailableData, BlockData, PoV, Proof};
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
-	jaeger,
 	messages::{AllMessages, RuntimeApiMessage, RuntimeApiRequest},
-	ActivatedLeaf, ActiveLeavesUpdate, LeafStatus,
+	ActiveLeavesUpdate,
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::{database::Database, TimeoutExt};
@@ -219,16 +219,11 @@ fn runtime_api_error_does_not_stop_the_subsystem() {
 	let store = test_store();
 
 	test_harness(TestState::default(), store, |mut virtual_overseer| async move {
-		let new_leaf = Hash::repeat_byte(0x01);
+		let a_leaf = Hash::repeat_byte(0x01);
 
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-				hash: new_leaf,
-				number: 1,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			})),
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(a_leaf, 1))),
 		)
 		.await;
 
@@ -246,7 +241,7 @@ fn runtime_api_error_does_not_stop_the_subsystem() {
 				relay_parent,
 				tx,
 			)) => {
-				assert_eq!(relay_parent, new_leaf);
+				assert_eq!(relay_parent, a_leaf);
 				tx.send(Ok(Some(header))).unwrap();
 			}
 		);
@@ -258,7 +253,7 @@ fn runtime_api_error_does_not_stop_the_subsystem() {
 				relay_parent,
 				RuntimeApiRequest::CandidateEvents(tx),
 			)) => {
-				assert_eq!(relay_parent, new_leaf);
+				assert_eq!(relay_parent, a_leaf);
 				#[derive(Debug)]
 				struct FauxError;
 				impl std::error::Error for FauxError {}
@@ -741,7 +736,7 @@ fn stored_data_kept_until_finalized() {
 			available_data,
 		);
 
-		let new_leaf = import_leaf(
+		let a_leaf = import_leaf(
 			&mut virtual_overseer,
 			parent,
 			block_number,
@@ -764,7 +759,7 @@ fn stored_data_kept_until_finalized() {
 
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::BlockFinalized(new_leaf, block_number),
+			OverseerSignal::BlockFinalized(a_leaf, block_number),
 		)
 		.await;
 
@@ -849,16 +844,11 @@ fn we_dont_miss_anything_if_import_notifications_are_missed() {
 			extrinsics_root: Hash::zero(),
 			digest: Default::default(),
 		};
-		let new_leaf = Hash::repeat_byte(4);
+		let a_leaf = Hash::repeat_byte(4);
 
 		overseer_signal(
 			&mut virtual_overseer,
-			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-				hash: new_leaf,
-				number: 4,
-				status: LeafStatus::Fresh,
-				span: Arc::new(jaeger::Span::Disabled),
-			})),
+			OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(a_leaf, 4))),
 		)
 		.await;
 
@@ -868,7 +858,7 @@ fn we_dont_miss_anything_if_import_notifications_are_missed() {
 				relay_parent,
 				tx,
 			)) => {
-				assert_eq!(relay_parent, new_leaf);
+				assert_eq!(relay_parent, a_leaf);
 				tx.send(Ok(Some(header))).unwrap();
 			}
 		);
@@ -886,7 +876,7 @@ fn we_dont_miss_anything_if_import_notifications_are_missed() {
 				k,
 				response_channel: tx,
 			}) => {
-				assert_eq!(hash, new_leaf);
+				assert_eq!(hash, a_leaf);
 				assert_eq!(k, 2);
 				let _ = tx.send(Ok(vec![
 					Hash::repeat_byte(3),
@@ -1166,16 +1156,11 @@ async fn import_leaf(
 		extrinsics_root: Hash::zero(),
 		digest: Default::default(),
 	};
-	let new_leaf = header.hash();
+	let a_leaf = header.hash();
 
 	overseer_signal(
 		virtual_overseer,
-		OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(ActivatedLeaf {
-			hash: new_leaf,
-			number: 1,
-			status: LeafStatus::Fresh,
-			span: Arc::new(jaeger::Span::Disabled),
-		})),
+		OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(a_leaf, 1))),
 	)
 	.await;
 
@@ -1185,7 +1170,7 @@ async fn import_leaf(
 			relay_parent,
 			tx,
 		)) => {
-			assert_eq!(relay_parent, new_leaf);
+			assert_eq!(relay_parent, a_leaf);
 			tx.send(Ok(Some(header))).unwrap();
 		}
 	);
@@ -1196,7 +1181,7 @@ async fn import_leaf(
 			relay_parent,
 			RuntimeApiRequest::CandidateEvents(tx),
 		)) => {
-			assert_eq!(relay_parent, new_leaf);
+			assert_eq!(relay_parent, a_leaf);
 			tx.send(Ok(events)).unwrap();
 		}
 	);
@@ -1212,7 +1197,7 @@ async fn import_leaf(
 		}
 	);
 
-	new_leaf
+	a_leaf
 }
 
 #[test]

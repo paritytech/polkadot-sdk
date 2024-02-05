@@ -27,23 +27,50 @@ use crate::{
 	StorageHasher, Twox128,
 };
 use codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
+use frame_support::storage::StorageDecodeNonDedupLength;
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_metadata_ir::{StorageEntryMetadataIR, StorageEntryTypeIR};
 use sp_std::prelude::*;
 
-/// A type that allow to store value for given key. Allowing to insert/remove/iterate on values.
+/// A type representing a *map* in storage. A *storage map* is a mapping of keys to values of a
+/// given type stored on-chain.
 ///
-/// Each value is stored at:
-/// ```nocompile
-/// Twox128(Prefix::pallet_prefix())
-/// 		++ Twox128(Prefix::STORAGE_PREFIX)
-/// 		++ Hasher1(encode(key))
+/// For general information regarding the `#[pallet::storage]` attribute, refer to
+/// [`crate::pallet_macros::storage`].
+///
+/// # Example
+///
 /// ```
+/// #[frame_support::pallet]
+/// mod pallet {
+///     # use frame_support::pallet_prelude::*;
+///     # #[pallet::config]
+///     # pub trait Config: frame_system::Config {}
+///     # #[pallet::pallet]
+///     # pub struct Pallet<T>(_);
+/// 	/// A kitchen-sink StorageMap, with all possible additional attributes.
+///     #[pallet::storage]
+/// 	#[pallet::getter(fn foo)]
+/// 	#[pallet::storage_prefix = "OtherFoo"]
+/// 	#[pallet::unbounded]
+///     pub type Foo<T> = StorageMap<
+/// 		_,
+/// 		Blake2_128Concat,
+/// 		u32,
+/// 		u32,
+/// 		ValueQuery
+/// 	>;
 ///
-/// # Warning
-///
-/// If the keys are not trusted (e.g. can be set by a user), a cryptographic `hasher` such as
-/// `blake2_128_concat` must be used.  Otherwise, other values in storage can be compromised.
+/// 	/// Alternative named syntax.
+///     #[pallet::storage]
+///     pub type Bar<T> = StorageMap<
+/// 		Hasher = Blake2_128Concat,
+/// 		Key = u32,
+/// 		Value = u32,
+/// 		QueryKind = ValueQuery
+/// 	>;
+/// }
+/// ```
 pub struct StorageMap<
 	Prefix,
 	Hasher,
@@ -83,11 +110,14 @@ where
 {
 	type Query = QueryKind::Query;
 	type Hasher = Hasher;
-	fn module_prefix() -> &'static [u8] {
+	fn pallet_prefix() -> &'static [u8] {
 		Prefix::pallet_prefix().as_bytes()
 	}
 	fn storage_prefix() -> &'static [u8] {
 		Prefix::STORAGE_PREFIX.as_bytes()
+	}
+	fn prefix_hash() -> [u8; 32] {
+		Prefix::prefix_hash()
 	}
 	fn from_optional_value_to_query(v: Option<Value>) -> Self::Query {
 		QueryKind::from_optional_value_to_query(v)
@@ -108,8 +138,8 @@ where
 	OnEmpty: Get<QueryKind::Query> + 'static,
 	MaxValues: Get<Option<u32>>,
 {
-	fn module_prefix() -> &'static [u8] {
-		<Self as crate::storage::generator::StorageMap<Key, Value>>::module_prefix()
+	fn pallet_prefix() -> &'static [u8] {
+		<Self as crate::storage::generator::StorageMap<Key, Value>>::pallet_prefix()
 	}
 	fn storage_prefix() -> &'static [u8] {
 		<Self as crate::storage::generator::StorageMap<Key, Value>>::storage_prefix()
@@ -254,6 +284,27 @@ where
 		Value: StorageDecodeLength,
 	{
 		<Self as crate::storage::StorageMap<Key, Value>>::decode_len(key)
+	}
+
+	/// Read the length of the storage value without decoding the entire value.
+	///
+	/// `Value` is required to implement [`StorageDecodeNonDedupLength`].
+	///
+	/// If the value does not exists or it fails to decode the length, `None` is returned.
+	/// Otherwise `Some(len)` is returned.
+	///
+	/// # Warning
+	///
+	///  - `None` does not mean that `get()` does not return a value. The default value is completly
+	/// ignored by this function.
+	///
+	/// - The value returned is the non-deduplicated length of the underlying Vector in storage.This
+	/// means that any duplicate items are included.
+	pub fn decode_non_dedup_len<KeyArg: EncodeLike<Key>>(key: KeyArg) -> Option<usize>
+	where
+		Value: StorageDecodeNonDedupLength,
+	{
+		<Self as crate::storage::StorageMap<Key, Value>>::decode_non_dedup_len(key)
 	}
 
 	/// Migrate an item with the given `key` from a defunct `OldHasher` to the current hasher.
@@ -420,7 +471,8 @@ where
 	///
 	/// By returning `None` from `f` for an element, you'll remove it from the map.
 	///
-	/// NOTE: If a value fail to decode because storage is corrupted then it is skipped.
+	/// NOTE: If a value fails to decode because storage is corrupted, then it will log an error and
+	/// be skipped in production, or panic in development.
 	pub fn translate<O: Decode, F: FnMut(Key, O) -> Option<Value>>(f: F) {
 		<Self as crate::storage::IterableStorageMap<Key, Value>>::translate(f)
 	}
@@ -469,7 +521,7 @@ where
 {
 	fn storage_info() -> Vec<StorageInfo> {
 		vec![StorageInfo {
-			pallet_name: Self::module_prefix().to_vec(),
+			pallet_name: Self::pallet_prefix().to_vec(),
 			storage_name: Self::storage_prefix().to_vec(),
 			prefix: Self::final_prefix().to_vec(),
 			max_values: MaxValues::get(),
@@ -497,7 +549,7 @@ where
 {
 	fn partial_storage_info() -> Vec<StorageInfo> {
 		vec![StorageInfo {
-			pallet_name: Self::module_prefix().to_vec(),
+			pallet_name: Self::pallet_prefix().to_vec(),
 			storage_name: Self::storage_prefix().to_vec(),
 			prefix: Self::final_prefix().to_vec(),
 			max_values: MaxValues::get(),

@@ -34,7 +34,6 @@ use sc_service::{
 	RuntimeGenesis, SpawnTaskHandle, TaskManager,
 };
 use sc_transaction_pool_api::TransactionPool;
-use sp_api::BlockId;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
 use std::{iter, net::Ipv4Addr, pin::Pin, sync::Arc, task::Context, time::Duration};
@@ -254,6 +253,7 @@ fn node_config<
 		rpc_id_provider: Default::default(),
 		rpc_max_subs_per_conn: Default::default(),
 		rpc_port: 9944,
+		rpc_message_buffer_capacity: Default::default(),
 		prometheus_config: None,
 		telemetry_endpoints: None,
 		default_heap_pages: None,
@@ -286,7 +286,7 @@ where
 		base_port: u16,
 	) -> TestNet<G, E, F, U> {
 		sp_tracing::try_init_simple();
-		fdlimit::raise_fd_limit();
+		fdlimit::raise_fd_limit().unwrap();
 		let runtime = Runtime::new().expect("Error creating tokio runtime");
 		let mut net = TestNet {
 			runtime,
@@ -501,15 +501,13 @@ pub fn sync<G, E, Fb, F, B, ExF, U>(
 	info!("Checking extrinsic propagation");
 	let first_service = network.full_nodes[0].1.clone();
 	let first_user_data = &network.full_nodes[0].2;
-	let best_block = BlockId::number(first_service.client().info().best_number);
+	let best_block = first_service.client().info().best_hash;
 	let extrinsic = extrinsic_factory(&first_service, first_user_data);
 	let source = sc_transaction_pool_api::TransactionSource::External;
 
-	futures::executor::block_on(first_service.transaction_pool().submit_one(
-		&best_block,
-		source,
-		extrinsic,
-	))
+	futures::executor::block_on(
+		first_service.transaction_pool().submit_one(best_block, source, extrinsic),
+	)
 	.expect("failed to submit extrinsic");
 
 	network.run_until_all_full(|_index, service| service.transaction_pool().ready().count() == 1);

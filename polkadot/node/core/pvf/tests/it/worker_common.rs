@@ -14,36 +14,64 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::time::Duration;
-
-use polkadot_node_core_pvf::testing::{spawn_with_program_path, SpawnErr};
-
-use crate::PUPPET_EXE;
+use polkadot_node_core_pvf::{
+	testing::{build_workers_and_get_paths, spawn_with_program_path, SpawnErr},
+	SecurityStatus,
+};
+use std::{env, time::Duration};
 
 // Test spawning a program that immediately exits with a failure code.
 #[tokio::test]
 async fn spawn_immediate_exit() {
-	let result =
-		spawn_with_program_path("integration-test", PUPPET_EXE, &["exit"], Duration::from_secs(2))
-			.await;
-	assert!(matches!(result, Err(SpawnErr::AcceptTimeout)));
+	let (prepare_worker_path, _) = build_workers_and_get_paths();
+
+	// There's no explicit `exit` subcommand in the worker; it will panic on an unknown
+	// subcommand anyway
+	let spawn_timeout = Duration::from_secs(2);
+	let result = spawn_with_program_path(
+		"integration-test",
+		prepare_worker_path,
+		&env::temp_dir(),
+		&["exit"],
+		Duration::from_secs(2),
+		SecurityStatus::default(),
+	)
+	.await;
+	assert!(
+		matches!(result, Err(SpawnErr::AcceptTimeout { spawn_timeout: s }) if s == spawn_timeout)
+	);
 }
 
 #[tokio::test]
 async fn spawn_timeout() {
-	let result =
-		spawn_with_program_path("integration-test", PUPPET_EXE, &["sleep"], Duration::from_secs(2))
-			.await;
-	assert!(matches!(result, Err(SpawnErr::AcceptTimeout)));
+	let (_, execute_worker_path) = build_workers_and_get_paths();
+
+	let spawn_timeout = Duration::from_secs(2);
+	let result = spawn_with_program_path(
+		"integration-test",
+		execute_worker_path,
+		&env::temp_dir(),
+		&["test-sleep"],
+		spawn_timeout,
+		SecurityStatus::default(),
+	)
+	.await;
+	assert!(
+		matches!(result, Err(SpawnErr::AcceptTimeout { spawn_timeout: s }) if s == spawn_timeout)
+	);
 }
 
 #[tokio::test]
 async fn should_connect() {
+	let (prepare_worker_path, _) = build_workers_and_get_paths();
+
 	let _ = spawn_with_program_path(
 		"integration-test",
-		PUPPET_EXE,
+		prepare_worker_path,
+		&env::temp_dir(),
 		&["prepare-worker"],
 		Duration::from_secs(2),
+		SecurityStatus::default(),
 	)
 	.await
 	.unwrap();

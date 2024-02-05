@@ -1,25 +1,30 @@
 [package]
 name = "cumulus-primitives-timestamp"
-version = "0.1.0"
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
 description = "Provides timestamp related functionality for parachains."
+license = "Apache-2.0"
+
+[lints]
+workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [ "derive" ] }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 futures = "0.3.28"
 
 # Substrate
-sp-inherents = { path = "../../../substrate/primitives/inherents", default-features = false}
-sp-std = { path = "../../../substrate/primitives/std", default-features = false}
-sp-timestamp = { path = "../../../substrate/primitives/timestamp", default-features = false}
+sp-inherents = { path = "../../../substrate/primitives/inherents", default-features = false }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+sp-timestamp = { path = "../../../substrate/primitives/timestamp", default-features = false }
 
 # Cumulus
 cumulus-primitives-core = { path = "../core", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
+	"codec/std",
 	"cumulus-primitives-core/std",
 	"sp-inherents/std",
 	"sp-std/std",

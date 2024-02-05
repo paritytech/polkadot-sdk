@@ -7,11 +7,14 @@ edition.workspace = true
 license.workspace = true
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 honggfuzz = "0.5.55"
-arbitrary = "1.2.0"
-scale-info = { version = "2.5.0", features = ["derive"] }
+arbitrary = "1.3.2"
+scale-info = { version = "2.10.0", features = ["derive"] }
 
 frame-system = { path = "../../../../substrate/frame/system" }
 frame-support = { path = "../../../../substrate/frame/support" }
@@ -29,7 +32,7 @@ xcm-builder = { package = "staging-xcm-builder", path = "../../xcm-builder" }
 pallet-xcm = { path = "../../pallet-xcm" }
 polkadot-core-primitives = { path = "../../../core-primitives" }
 polkadot-runtime-parachains = { path = "../../../runtime/parachains" }
-polkadot-parachain = { path = "../../../parachain" }
+polkadot-parachain-primitives = { path = "../../../parachain" }
 
 [features]
 runtime-benchmarks = [
@@ -38,7 +41,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
-	"polkadot-parachain/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",

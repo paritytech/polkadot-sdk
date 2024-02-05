@@ -2,10 +2,10 @@
 timeout = 1000
 bootnode = true
 
-[relaychain.genesis.runtime.configuration.config]
+[relaychain.genesis.runtimeGenesis.patch.configuration.config]
   max_validators_per_core = 1
   needed_approvals = 2
-  group_rotation_frequency = 3
+  group_rotation_frequency = 2
 
 [relaychain]
 default_image = "{{ZOMBIENET_INTEGRATION_TEST_IMAGE}}"
@@ -39,8 +39,7 @@ id = 1000
 cumulus_based = true
 
   [parachains.collator]
-  name = "collator"
+  name = "alice"
   command = "polkadot-parachain"
-  image = "docker.io/parity/polkadot-parachain:latest"
-  # image = "{{COL_IMAGE}}"
+  image = "{{CUMULUS_IMAGE}}"
   args = ["-lparachain=debug"]

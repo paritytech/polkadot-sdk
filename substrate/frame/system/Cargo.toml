@@ -1,6 +1,6 @@
 [package]
 name = "frame-system"
-version = "4.0.0-dev"
+version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -9,6 +9,9 @@ repository.workspace = true
 description = "FRAME system module"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
@@ -16,15 +19,16 @@ targets = ["x86_64-unknown-linux-gnu"]
 cfg-if = "1.0"
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 log = { version = "0.4.17", default-features = false }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive", "serde"] }
-serde = { version = "1.0.188", default-features = false, features = ["derive", "alloc"] }
-frame-support = { path = "../support", default-features = false}
+scale-info = { version = "2.10.0", default-features = false, features = ["derive", "serde"] }
+serde = { version = "1.0.195", default-features = false, features = ["alloc", "derive"] }
+frame-support = { path = "../support", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false, features = ["serde"] }
-sp-io = { path = "../../primitives/io", default-features = false}
+sp-io = { path = "../../primitives/io", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"] }
-sp-std = { path = "../../primitives/std", default-features = false}
+sp-std = { path = "../../primitives/std", default-features = false }
 sp-version = { path = "../../primitives/version", default-features = false, features = ["serde"] }
 sp-weights = { path = "../../primitives/weights", default-features = false, features = ["serde"] }
+docify = "0.2.7"
 
 [dev-dependencies]
 criterion = "0.4.0"
@@ -32,7 +36,7 @@ sp-externalities = { path = "../../primitives/externalities" }
 substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"frame-support/std",
@@ -51,7 +55,8 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
-try-runtime = [ "frame-support/try-runtime", "sp-runtime/try-runtime" ]
+try-runtime = ["frame-support/try-runtime", "sp-runtime/try-runtime"]
+experimental = ["frame-support/experimental"]
 
 [[bench]]
 name = "bench"

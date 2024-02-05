@@ -43,9 +43,8 @@ use polkadot_node_subsystem::{
 	SubsystemContext, SubsystemError, SubsystemResult,
 };
 use polkadot_node_subsystem_util::{
-	request_availability_cores, request_persisted_validation_data,
-	request_staging_async_backing_params, request_validation_code, request_validation_code_hash,
-	request_validators,
+	request_async_backing_params, request_availability_cores, request_persisted_validation_data,
+	request_validation_code, request_validation_code_hash, request_validators,
 };
 use polkadot_primitives::{
 	collator_signature_payload, CandidateCommitments, CandidateDescriptor, CandidateReceipt,
@@ -145,6 +144,16 @@ impl CollationGenerationSubsystem {
 				false
 			},
 			Ok(FromOrchestra::Communication {
+				msg: CollationGenerationMessage::Reinitialize(config),
+			}) => {
+				if self.config.is_none() {
+					gum::error!(target: LOG_TARGET, "no initial initialization");
+				} else {
+					self.config = Some(Arc::new(config));
+				}
+				false
+			},
+			Ok(FromOrchestra::Communication {
 				msg: CollationGenerationMessage::SubmitCollation(params),
 			}) => {
 				if let Some(config) = &self.config {
@@ -194,7 +203,7 @@ async fn handle_new_activations<Context>(
 	metrics: Metrics,
 ) -> crate::error::Result<()> {
 	// follow the procedure from the guide:
-	// https://paritytech.github.io/polkadot/book/node/collators/collation-generation.html
+	// https://paritytech.github.io/polkadot-sdk/book/node/collators/collation-generation.html
 
 	if config.collator.is_none() {
 		return Ok(())
@@ -208,7 +217,7 @@ async fn handle_new_activations<Context>(
 		let (availability_cores, validators, async_backing_params) = join!(
 			request_availability_cores(relay_parent, ctx.sender()).await,
 			request_validators(relay_parent, ctx.sender()).await,
-			request_staging_async_backing_params(relay_parent, ctx.sender()).await,
+			request_async_backing_params(relay_parent, ctx.sender()).await,
 		);
 
 		let availability_cores = availability_cores??;

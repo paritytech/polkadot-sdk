@@ -125,8 +125,10 @@ impl RelayChainInterface for DummyRelayChainInterface {
 		if self.data.lock().has_pending_availability {
 			Ok(Some(CommittedCandidateReceipt {
 				descriptor: CandidateDescriptor {
-					para_head: polkadot_parachain::primitives::HeadData(default_header().encode())
-						.hash(),
+					para_head: polkadot_parachain_primitives::primitives::HeadData(
+						default_header().encode(),
+					)
+					.hash(),
 					para_id: 0u32.into(),
 					relay_parent: PHash::random(),
 					collator: CollatorPair::generate().0.public(),
@@ -315,7 +317,7 @@ async fn make_gossip_message_and_header(
 			pov_hash: PHash::random(),
 			erasure_root: PHash::random(),
 			signature: sp_core::sr25519::Signature([0u8; 64]).into(),
-			para_head: polkadot_parachain::primitives::HeadData(header.encode()).hash(),
+			para_head: polkadot_parachain_primitives::primitives::HeadData(header.encode()).hash(),
 			validation_code_hash: ValidationCodeHash::from(PHash::random()),
 		},
 	};

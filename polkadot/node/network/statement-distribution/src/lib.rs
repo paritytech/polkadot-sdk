@@ -19,17 +19,15 @@
 //! This is responsible for distributing signed statements about candidate
 //! validity among validators.
 
-// #![deny(unused_crate_dependencies)]
+#![deny(unused_crate_dependencies)]
 #![warn(missing_docs)]
 
 use error::{log_error, FatalResult};
 use std::time::Duration;
 
 use polkadot_node_network_protocol::{
-	request_response::{
-		v1 as request_v1, vstaging::AttestedCandidateRequest, IncomingRequestReceiver,
-	},
-	vstaging as protocol_vstaging, Versioned,
+	request_response::{v1 as request_v1, v2::AttestedCandidateRequest, IncomingRequestReceiver},
+	v2 as protocol_v2, v3 as protocol_v3, Versioned,
 };
 use polkadot_node_primitives::StatementWithPVD;
 use polkadot_node_subsystem::{
@@ -60,7 +58,7 @@ use legacy_v1::{
 	ResponderMessage as V1ResponderMessage,
 };
 
-mod vstaging;
+mod v2;
 
 const LOG_TARGET: &str = "parachain::statement-distribution";
 
@@ -104,9 +102,9 @@ enum MuxedMessage {
 	/// Messages from spawned v1 (legacy) responder background task.
 	V1Responder(Option<V1ResponderMessage>),
 	/// Messages from candidate responder background task.
-	Responder(Option<vstaging::ResponderMessage>),
+	Responder(Option<v2::ResponderMessage>),
 	/// Messages from answered requests.
-	Response(vstaging::UnhandledResponse),
+	Response(v2::UnhandledResponse),
 	/// Message that a request is ready to be retried. This just acts as a signal that we should
 	/// dispatch all pending requests again.
 	RetryRequest(()),
@@ -116,10 +114,10 @@ enum MuxedMessage {
 impl MuxedMessage {
 	async fn receive<Context>(
 		ctx: &mut Context,
-		state: &mut vstaging::State,
+		state: &mut v2::State,
 		from_v1_requester: &mut mpsc::Receiver<V1RequesterMessage>,
 		from_v1_responder: &mut mpsc::Receiver<V1ResponderMessage>,
-		from_responder: &mut mpsc::Receiver<vstaging::ResponderMessage>,
+		from_responder: &mut mpsc::Receiver<v2::ResponderMessage>,
 	) -> MuxedMessage {
 		let (request_manager, response_manager) = state.request_and_response_managers();
 		// We are only fusing here to make `select` happy, in reality we will quit if one of those
@@ -128,8 +126,8 @@ impl MuxedMessage {
 		let from_v1_requester = from_v1_requester.next();
 		let from_v1_responder = from_v1_responder.next();
 		let from_responder = from_responder.next();
-		let receive_response = vstaging::receive_response(response_manager).fuse();
-		let retry_request = vstaging::next_retry(request_manager).fuse();
+		let receive_response = v2::receive_response(response_manager).fuse();
+		let retry_request = v2::next_retry(request_manager).fuse();
 		futures::pin_mut!(
 			from_orchestra,
 			from_v1_requester,
@@ -182,7 +180,7 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 		let mut reputation_delay = new_reputation_delay();
 
 		let mut legacy_v1_state = crate::legacy_v1::State::new(self.keystore.clone());
-		let mut state = crate::vstaging::State::new(self.keystore.clone());
+		let mut state = crate::v2::State::new(self.keystore.clone());
 
 		// Sender/Receiver for getting news from our statement fetching tasks.
 		let (v1_req_sender, mut v1_req_receiver) = mpsc::channel(1);
@@ -206,7 +204,7 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 
 		ctx.spawn(
 			"candidate-responder",
-			vstaging::respond_task(
+			v2::respond_task(
 				self.req_receiver.take().expect("Mandatory argument to new. qed"),
 				res_sender.clone(),
 			)
@@ -280,14 +278,13 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 					)?;
 				},
 				MuxedMessage::Responder(result) => {
-					vstaging::answer_request(
+					v2::answer_request(
 						&mut state,
 						result.ok_or(FatalError::RequesterReceiverFinished)?,
 					);
 				},
 				MuxedMessage::Response(result) => {
-					vstaging::handle_response(&mut ctx, &mut state, result, &mut self.reputation)
-						.await;
+					v2::handle_response(&mut ctx, &mut state, result, &mut self.reputation).await;
 				},
 				MuxedMessage::RetryRequest(()) => {
 					// A pending request is ready to retry. This is only a signal to call
@@ -296,7 +293,7 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 				},
 			};
 
-			vstaging::dispatch_requests(&mut ctx, &mut state).await;
+			v2::dispatch_requests(&mut ctx, &mut state).await;
 		}
 		Ok(())
 	}
@@ -304,7 +301,7 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 	async fn handle_subsystem_message<Context>(
 		&mut self,
 		ctx: &mut Context,
-		state: &mut vstaging::State,
+		state: &mut v2::State,
 		legacy_v1_state: &mut legacy_v1::State,
 		v1_req_sender: &mpsc::Sender<V1RequesterMessage>,
 		message: FromOrchestra<StatementDistributionMessage>,
@@ -318,11 +315,16 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 			})) => {
 				let _timer = metrics.time_active_leaves_update();
 
-				// vstaging should handle activated first because of implicit view.
+				// v2 should handle activated first because of implicit view.
 				if let Some(ref activated) = activated {
 					let mode = prospective_parachains_mode(ctx.sender(), activated.hash).await?;
 					if let ProspectiveParachainsMode::Enabled { .. } = mode {
-						vstaging::handle_active_leaves_update(ctx, state, activated, mode).await?;
+						let res =
+							v2::handle_active_leaves_update(ctx, state, activated, mode).await;
+						// Regardless of the result of leaf activation, we always prune before
+						// handling it to avoid leaks.
+						v2::handle_deactivate_leaves(state, &deactivated);
+						res?;
 					} else if let ProspectiveParachainsMode::Disabled = mode {
 						for deactivated in &deactivated {
 							crate::legacy_v1::handle_deactivate_leaf(legacy_v1_state, *deactivated);
@@ -339,7 +341,7 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 					for deactivated in &deactivated {
 						crate::legacy_v1::handle_deactivate_leaf(legacy_v1_state, *deactivated);
 					}
-					vstaging::handle_deactivate_leaves(state, &deactivated);
+					v2::handle_deactivate_leaves(state, &deactivated);
 				}
 			},
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) => {
@@ -362,7 +364,7 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 						)
 						.await?;
 					} else {
-						vstaging::share_local_statement(
+						v2::share_local_statement(
 							ctx,
 							state,
 							relay_parent,
@@ -399,11 +401,14 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 
 					let target = match &event {
 						NetworkBridgeEvent::PeerMessage(_, message) => match message {
-							Versioned::VStaging(
-								protocol_vstaging::StatementDistributionMessage::V1Compatibility(_),
+							Versioned::V2(
+								protocol_v2::StatementDistributionMessage::V1Compatibility(_),
+							) |
+							Versioned::V3(
+								protocol_v3::StatementDistributionMessage::V1Compatibility(_),
 							) => VersionTarget::Legacy,
 							Versioned::V1(_) => VersionTarget::Legacy,
-							Versioned::VStaging(_) => VersionTarget::Current,
+							Versioned::V2(_) | Versioned::V3(_) => VersionTarget::Current,
 						},
 						_ => VersionTarget::Both,
 					};
@@ -422,14 +427,12 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 					}
 
 					if target.targets_current() {
-						// pass to vstaging.
-						vstaging::handle_network_update(ctx, state, event, &mut self.reputation)
-							.await;
+						// pass to v2.
+						v2::handle_network_update(ctx, state, event, &mut self.reputation).await;
 					}
 				},
 				StatementDistributionMessage::Backed(candidate_hash) => {
-					crate::vstaging::handle_backed_candidate_message(ctx, state, candidate_hash)
-						.await;
+					crate::v2::handle_backed_candidate_message(ctx, state, candidate_hash).await;
 				},
 			},
 		}

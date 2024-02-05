@@ -7,25 +7,25 @@ default_args = [ "-lparachain=debug,xcm=trace" ]
 chain = "rococo-local"
 
 	[[relaychain.nodes]]
-	name = "alice-validator"
+	name = "alice-rococo-validator"
 	validator = true
 	rpc_port = 9932
 	ws_port = 9942
-	extra_args = ["--no-mdns --bootnodes {{'bob-validator'|zombie('multiAddress')}}"]
+	balance = 2000000000000
 
 	[[relaychain.nodes]]
-	name = "bob-validator"
+	name = "bob-rococo-validator"
 	validator = true
 	rpc_port = 9933
 	ws_port = 9943
-	extra_args = ["--no-mdns --bootnodes {{'alice-validator'|zombie('multiAddress')}}"]
+	balance = 2000000000000
 
 	[[relaychain.nodes]]
-	name = "charlie-validator"
+	name = "charlie-rococo-validator"
 	validator = true
 	rpc_port = 9934
 	ws_port = 9944
-	extra_args = ["--no-mdns --bootnodes {{'alice-validator'|zombie('multiAddress')}}"]
+	balance = 2000000000000
 
 [[parachains]]
 id = 1013
@@ -34,71 +34,57 @@ cumulus_based = true
 
 	# run alice as parachain collator
 	[[parachains.collators]]
-	name = "alice-collator"
+	name = "bridge-hub-rococo-collator1"
 	validator = true
 	command = "{{POLKADOT_PARACHAIN_BINARY_PATH}}"
 	rpc_port = 8933
 	ws_port = 8943
 	args = [
 		"-lparachain=debug,runtime::bridge-hub=trace,runtime::bridge=trace,runtime::bridge-dispatch=trace,bridge=trace,runtime::bridge-messages=trace,xcm=trace",
-	]
-	extra_args = [
-		"--force-authoring", "--no-mdns", "--bootnodes {{'bob-collator'|zombie('multiAddress')}}",
-		"-- --port 41333 --rpc-port 48933 --ws-port 48943 --no-mdns", "--bootnodes {{'alice-validator'|zombie('multiAddress')}}"
+		"--force-authoring"
 	]
 
 	# run bob as parachain collator
 	[[parachains.collators]]
-	name = "bob-collator"
+	name = "bridge-hub-rococo-collator2"
 	validator = true
 	command = "{{POLKADOT_PARACHAIN_BINARY_PATH}}"
 	rpc_port = 8934
 	ws_port = 8944
 	args = [
 		"-lparachain=trace,runtime::bridge-hub=trace,runtime::bridge=trace,runtime::bridge-dispatch=trace,bridge=trace,runtime::bridge-messages=trace,xcm=trace",
-	]
-	extra_args = [
-		"--force-authoring", "--no-mdns", "--bootnodes {{'alice-collator'|zombie('multiAddress')}}",
-		"-- --port 41334 --rpc-port 48934 --ws-port 48944 --no-mdns", "--bootnodes {{'bob-validator'|zombie('multiAddress')}}"
+		"--force-authoring"
 	]
 
 [[parachains]]
 id = 1000
-chain = "asset-hub-kusama-local"
+chain = "asset-hub-rococo-local"
 cumulus_based = true
 
 	[[parachains.collators]]
-	name = "rockmine-collator1"
+	name = "asset-hub-rococo-collator1"
 	rpc_port = 9911
 	ws_port = 9910
 	command = "{{POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO}}"
 	args = [
-		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace",
-	]
-	extra_args = [
-		"--no-mdns", "--bootnodes {{'rockmine-collator2'|zombie('multiAddress')}}",
-		"-- --port 51333 --rpc-port 58933 --ws-port 58943 --no-mdns", "--bootnodes {{'alice-validator'|zombie('multiAddress')}}"
+		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace"
 	]
 
 	[[parachains.collators]]
-	name = "rockmine-collator2"
+	name = "asset-hub-rococo-collator2"
 	command = "{{POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_ROCOCO}}"
 	args = [
-		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace",
-	]
-	extra_args = [
-		"--no-mdns", "--bootnodes {{'rockmine-collator1'|zombie('multiAddress')}}",
-		"-- --port 51433 --rpc-port 58833 --ws-port 58843 --no-mdns", "--bootnodes {{'alice-validator'|zombie('multiAddress')}}"
+		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace"
 	]
 
-[[hrmp_channels]]
-sender = 1000
-recipient = 1013
-max_capacity = 4
-max_message_size = 524288
-
-[[hrmp_channels]]
-sender = 1013
-recipient = 1000
-max_capacity = 4
-max_message_size = 524288
+#[[hrmp_channels]]
+#sender = 1000
+#recipient = 1013
+#max_capacity = 4
+#max_message_size = 524288
+#
+#[[hrmp_channels]]
+#sender = 1013
+#recipient = 1000
+#max_capacity = 4
+#max_message_size = 524288

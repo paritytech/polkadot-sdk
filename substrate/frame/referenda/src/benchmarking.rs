@@ -25,8 +25,7 @@ use frame_benchmarking::v1::{
 };
 use frame_support::{
 	assert_ok,
-	dispatch::UnfilteredDispatchable,
-	traits::{Bounded, Currency, EnsureOrigin, EnsureOriginWithArg},
+	traits::{Currency, EnsureOrigin, EnsureOriginWithArg, UnfilteredDispatchable},
 };
 use frame_system::RawOrigin;
 use sp_runtime::traits::Bounded as ArithBounded;
@@ -43,7 +42,7 @@ fn funded_account<T: Config<I>, I: 'static>(name: &'static str, index: u32) -> T
 	caller
 }
 
-fn dummy_call<T: Config<I>, I: 'static>() -> Bounded<<T as Config<I>>::RuntimeCall> {
+fn dummy_call<T: Config<I>, I: 'static>() -> BoundedCallOf<T, I> {
 	let inner = frame_system::Call::remark { remark: vec![] };
 	let call = <T as Config<I>>::RuntimeCall::from(inner);
 	T::Preimages::bound(call).unwrap()

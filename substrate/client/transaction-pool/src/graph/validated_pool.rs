@@ -106,7 +106,7 @@ pub struct ValidatedPool<B: ChainApi> {
 	is_validator: IsValidator,
 	options: Options,
 	listener: RwLock<Listener<ExtrinsicHash<B>, B>>,
-	pool: RwLock<base::BasePool<ExtrinsicHash<B>, ExtrinsicFor<B>>>,
+	pub(crate) pool: RwLock<base::BasePool<ExtrinsicHash<B>, ExtrinsicFor<B>>>,
 	import_notification_sinks: Mutex<Vec<Sender<ExtrinsicHash<B>>>>,
 	rotator: PoolRotator<ExtrinsicHash<B>>,
 }

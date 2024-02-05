@@ -29,7 +29,11 @@ const ASSET_ID: u32 = 42;
 fn create_works() {
 	new_test_ext().execute_with(|| {
 		assert!(pallet_asset_rate::ConversionRateToNative::<Test>::get(ASSET_ID).is_none());
-		assert_ok!(AssetRate::create(RuntimeOrigin::root(), ASSET_ID, FixedU128::from_float(0.1)));
+		assert_ok!(AssetRate::create(
+			RuntimeOrigin::root(),
+			Box::new(ASSET_ID),
+			FixedU128::from_float(0.1)
+		));
 
 		assert_eq!(
 			pallet_asset_rate::ConversionRateToNative::<Test>::get(ASSET_ID),
@@ -42,10 +46,18 @@ fn create_works() {
 fn create_existing_throws() {
 	new_test_ext().execute_with(|| {
 		assert!(pallet_asset_rate::ConversionRateToNative::<Test>::get(ASSET_ID).is_none());
-		assert_ok!(AssetRate::create(RuntimeOrigin::root(), ASSET_ID, FixedU128::from_float(0.1)));
+		assert_ok!(AssetRate::create(
+			RuntimeOrigin::root(),
+			Box::new(ASSET_ID),
+			FixedU128::from_float(0.1)
+		));
 
 		assert_noop!(
-			AssetRate::create(RuntimeOrigin::root(), ASSET_ID, FixedU128::from_float(0.1)),
+			AssetRate::create(
+				RuntimeOrigin::root(),
+				Box::new(ASSET_ID),
+				FixedU128::from_float(0.1)
+			),
 			Error::<Test>::AlreadyExists
 		);
 	});
@@ -54,9 +66,13 @@ fn create_existing_throws() {
 #[test]
 fn remove_works() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(AssetRate::create(RuntimeOrigin::root(), ASSET_ID, FixedU128::from_float(0.1)));
+		assert_ok!(AssetRate::create(
+			RuntimeOrigin::root(),
+			Box::new(ASSET_ID),
+			FixedU128::from_float(0.1)
+		));
 
-		assert_ok!(AssetRate::remove(RuntimeOrigin::root(), ASSET_ID,));
+		assert_ok!(AssetRate::remove(RuntimeOrigin::root(), Box::new(ASSET_ID),));
 		assert!(pallet_asset_rate::ConversionRateToNative::<Test>::get(ASSET_ID).is_none());
 	});
 }
@@ -65,7 +81,7 @@ fn remove_works() {
 fn remove_unknown_throws() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
-			AssetRate::remove(RuntimeOrigin::root(), ASSET_ID,),
+			AssetRate::remove(RuntimeOrigin::root(), Box::new(ASSET_ID),),
 			Error::<Test>::UnknownAssetKind
 		);
 	});
@@ -74,8 +90,16 @@ fn remove_unknown_throws() {
 #[test]
 fn update_works() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(AssetRate::create(RuntimeOrigin::root(), ASSET_ID, FixedU128::from_float(0.1)));
-		assert_ok!(AssetRate::update(RuntimeOrigin::root(), ASSET_ID, FixedU128::from_float(0.5)));
+		assert_ok!(AssetRate::create(
+			RuntimeOrigin::root(),
+			Box::new(ASSET_ID),
+			FixedU128::from_float(0.1)
+		));
+		assert_ok!(AssetRate::update(
+			RuntimeOrigin::root(),
+			Box::new(ASSET_ID),
+			FixedU128::from_float(0.5)
+		));
 
 		assert_eq!(
 			pallet_asset_rate::ConversionRateToNative::<Test>::get(ASSET_ID),
@@ -88,7 +112,11 @@ fn update_works() {
 fn update_unknown_throws() {
 	new_test_ext().execute_with(|| {
 		assert_noop!(
-			AssetRate::update(RuntimeOrigin::root(), ASSET_ID, FixedU128::from_float(0.5)),
+			AssetRate::update(
+				RuntimeOrigin::root(),
+				Box::new(ASSET_ID),
+				FixedU128::from_float(0.5)
+			),
 			Error::<Test>::UnknownAssetKind
 		);
 	});
@@ -97,7 +125,11 @@ fn update_unknown_throws() {
 #[test]
 fn convert_works() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(AssetRate::create(RuntimeOrigin::root(), ASSET_ID, FixedU128::from_float(2.51)));
+		assert_ok!(AssetRate::create(
+			RuntimeOrigin::root(),
+			Box::new(ASSET_ID),
+			FixedU128::from_float(2.51)
+		));
 
 		let conversion = <AssetRate as ConversionFromAssetBalance<
 			BalanceOf<Test>,

@@ -19,7 +19,6 @@
 
 use std::{
 	collections::HashSet,
-	sync::Arc,
 	task::Poll,
 	time::{Duration, Instant},
 };
@@ -33,7 +32,7 @@ use futures::{
 use futures_timer::Delay;
 use parity_scale_codec::{Decode, Encode};
 
-use sc_network::config::RequestResponseConfig;
+use sc_network::{config::RequestResponseConfig, ProtocolName};
 
 use polkadot_node_network_protocol::{
 	request_response::{v1::DisputeRequest, IncomingRequest, ReqProtocolNames},
@@ -51,13 +50,15 @@ use polkadot_node_subsystem::{
 		AllMessages, DisputeCoordinatorMessage, DisputeDistributionMessage, ImportStatementsResult,
 		NetworkBridgeTxMessage, RuntimeApiMessage, RuntimeApiRequest,
 	},
-	ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, LeafStatus, OverseerSignal, Span,
+	ActiveLeavesUpdate, FromOrchestra, OverseerSignal,
 };
 use polkadot_node_subsystem_test_helpers::{
-	mock::make_ferdie_keystore, subsystem_test_harness, TestSubsystemContextHandle,
+	mock::{make_ferdie_keystore, new_leaf},
+	subsystem_test_harness, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
-	AuthorityDiscoveryId, CandidateHash, CandidateReceipt, Hash, SessionIndex, SessionInfo,
+	vstaging::NodeFeatures, AuthorityDiscoveryId, CandidateHash, CandidateReceipt, ExecutorParams,
+	Hash, SessionIndex, SessionInfo,
 };
 
 use self::mock::{
@@ -635,6 +636,26 @@ async fn nested_network_dispute_request<'a, F, O>(
 			},
 			unexpected => panic!("Unexpected message {:?}", unexpected),
 		}
+		match handle.recv().await {
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::SessionExecutorParams(_, tx),
+			)) => {
+				tx.send(Ok(Some(ExecutorParams::default())))
+					.expect("Receiver should stay alive.");
+			},
+			unexpected => panic!("Unexpected message {:?}", unexpected),
+		}
+
+		match handle.recv().await {
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::NodeFeatures(_, si_tx),
+			)) => {
+				si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+			},
+			unexpected => panic!("Unexpected message {:?}", unexpected),
+		}
 	}
 
 	// Import should get initiated:
@@ -724,12 +745,7 @@ async fn activate_leaf(
 ) {
 	handle
 		.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate {
-			activated: Some(ActivatedLeaf {
-				hash: activate,
-				number: 10,
-				status: LeafStatus::Fresh,
-				span: Arc::new(Span::Disabled),
-			}),
+			activated: Some(new_leaf(activate, 10)),
 			deactivated: deactivate.into_iter().collect(),
 		})))
 		.await;
@@ -746,15 +762,35 @@ async fn activate_leaf(
 
 	if let Some(session_info) = new_session {
 		assert_matches!(
-		handle.recv().await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			h,
-			RuntimeApiRequest::SessionInfo(session_idx, tx)
-		)) => {
-			assert_eq!(h, activate);
-			assert_eq!(session_index, session_idx);
-			tx.send(Ok(Some(session_info))).expect("Receiver should stay alive.");
-		});
+			handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				h,
+				RuntimeApiRequest::SessionInfo(session_idx, tx)
+			)) => {
+				assert_eq!(h, activate);
+				assert_eq!(session_index, session_idx);
+				tx.send(Ok(Some(session_info))).expect("Receiver should stay alive.");
+			}
+		);
+		assert_matches!(
+			handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				h,
+				RuntimeApiRequest::SessionExecutorParams(session_idx, tx)
+			)) => {
+				assert_eq!(h, activate);
+				assert_eq!(session_index, session_idx);
+				tx.send(Ok(Some(ExecutorParams::default()))).expect("Receiver should stay alive.");
+			}
+		);
+		assert_matches!(
+			handle.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
+			) => {
+				si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+			}
+		);
 	}
 
 	assert_matches!(
@@ -796,7 +832,7 @@ async fn check_sent_requests(
 			if confirm_receive {
 				for req in reqs {
 					req.pending_response.send(
-						Ok(DisputeResponse::Confirmed.encode())
+						Ok((DisputeResponse::Confirmed.encode(), ProtocolName::from("")))
 					)
 					.expect("Subsystem should be listening for a response.");
 				}

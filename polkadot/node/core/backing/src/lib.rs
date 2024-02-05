@@ -80,8 +80,8 @@ use futures::{
 
 use error::{Error, FatalResult};
 use polkadot_node_primitives::{
-	minimum_votes, AvailableData, InvalidCandidate, PoV, SignedFullStatementWithPVD,
-	StatementWithPVD, ValidationResult,
+	AvailableData, InvalidCandidate, PoV, SignedFullStatementWithPVD, StatementWithPVD,
+	ValidationResult,
 };
 use polkadot_node_subsystem::{
 	messages::{
@@ -96,16 +96,18 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	self as util,
 	backing_implicit_view::{FetchError as ImplicitViewFetchError, View as ImplicitView},
-	request_from_runtime, request_session_index_for_child, request_validator_groups,
-	request_validators,
-	runtime::{prospective_parachains_mode, ProspectiveParachainsMode},
+	executor_params_at_relay_parent, request_from_runtime, request_session_index_for_child,
+	request_validator_groups, request_validators,
+	runtime::{
+		self, prospective_parachains_mode, request_min_backing_votes, ProspectiveParachainsMode,
+	},
 	Validator,
 };
 use polkadot_primitives::{
 	BackedCandidate, CandidateCommitments, CandidateHash, CandidateReceipt,
-	CommittedCandidateReceipt, CoreIndex, CoreState, Hash, Id as ParaId, PersistedValidationData,
-	PvfExecTimeoutKind, SigningContext, ValidationCode, ValidatorId, ValidatorIndex,
-	ValidatorSignature, ValidityAttestation,
+	CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, Hash, Id as ParaId,
+	PersistedValidationData, PvfExecKind, SigningContext, ValidationCode, ValidatorId,
+	ValidatorIndex, ValidatorSignature, ValidityAttestation,
 };
 use sp_keystore::KeystorePtr;
 use statement_table::{
@@ -116,6 +118,7 @@ use statement_table::{
 	},
 	Config as TableConfig, Context as TableContextTrait, Table,
 };
+use util::vstaging::get_disabled_validators_with_fallback;
 
 mod error;
 
@@ -219,6 +222,8 @@ struct PerRelayParentState {
 	awaiting_validation: HashSet<CandidateHash>,
 	/// Data needed for retrying in case of `ValidatedCandidateCommand::AttestNoPoV`.
 	fallbacks: HashMap<CandidateHash, AttestingData>,
+	/// The minimum backing votes threshold.
+	minimum_backing_votes: u32,
 }
 
 struct PerCandidateState {
@@ -379,6 +384,21 @@ struct TableContext {
 	validator: Option<Validator>,
 	groups: HashMap<ParaId, Vec<ValidatorIndex>>,
 	validators: Vec<ValidatorId>,
+	disabled_validators: Vec<ValidatorIndex>,
+}
+
+impl TableContext {
+	// Returns `true` if the provided `ValidatorIndex` is in the disabled validators list
+	pub fn validator_is_disabled(&self, validator_idx: &ValidatorIndex) -> bool {
+		self.disabled_validators
+			.iter()
+			.any(|disabled_val_idx| *disabled_val_idx == *validator_idx)
+	}
+
+	// Returns `true` if the local validator is in the disabled validators list
+	pub fn local_validator_is_disabled(&self) -> Option<bool> {
+		self.validator.as_ref().map(|v| v.disabled())
+	}
 }
 
 impl TableContextTrait for TableContext {
@@ -400,8 +420,8 @@ impl TableContextTrait for TableContext {
 		self.groups.get(group).map_or(false, |g| g.iter().any(|a| a == authority))
 	}
 
-	fn requisite_votes(&self, group: &ParaId) -> usize {
-		self.groups.get(group).map_or(usize::MAX, |g| minimum_votes(g.len()))
+	fn get_group_size(&self, group: &ParaId) -> Option<usize> {
+		self.groups.get(group).map(|g| g.len())
 	}
 }
 
@@ -547,22 +567,24 @@ async fn request_pov(
 
 async fn request_candidate_validation(
 	sender: &mut impl overseer::CandidateBackingSenderTrait,
-	pvd: PersistedValidationData,
-	code: ValidationCode,
+	validation_data: PersistedValidationData,
+	validation_code: ValidationCode,
 	candidate_receipt: CandidateReceipt,
 	pov: Arc<PoV>,
+	executor_params: ExecutorParams,
 ) -> Result<ValidationResult, Error> {
 	let (tx, rx) = oneshot::channel();
 
 	sender
-		.send_message(CandidateValidationMessage::ValidateFromExhaustive(
-			pvd,
-			code,
+		.send_message(CandidateValidationMessage::ValidateFromExhaustive {
+			validation_data,
+			validation_code,
 			candidate_receipt,
 			pov,
-			PvfExecTimeoutKind::Backing,
-			tx,
-		))
+			executor_params,
+			exec_kind: PvfExecKind::Backing,
+			response_sender: tx,
+		})
 		.await;
 
 	match rx.await {
@@ -626,6 +648,11 @@ async fn validate_and_make_available(
 		}
 	};
 
+	let executor_params = match executor_params_at_relay_parent(relay_parent, &mut sender).await {
+		Ok(ep) => ep,
+		Err(e) => return Err(Error::UtilError(e)),
+	};
+
 	let pov = match pov {
 		PoVData::Ready(pov) => pov,
 		PoVData::FetchFromValidator { from_validator, candidate_hash, pov_hash } =>
@@ -661,6 +688,7 @@ async fn validate_and_make_available(
 			validation_code,
 			candidate.clone(),
 			pov.clone(),
+			executor_params,
 		)
 		.await?
 	};
@@ -965,28 +993,25 @@ async fn construct_per_relay_parent_state<Context>(
 		($x: expr) => {
 			match $x {
 				Ok(x) => x,
-				Err(e) => {
-					gum::warn!(
-						target: LOG_TARGET,
-						err = ?e,
-						"Failed to fetch runtime API data for job",
-					);
+				Err(err) => {
+					// Only bubble up fatal errors.
+					error::log_error(Err(Into::<runtime::Error>::into(err).into()))?;
 
 					// We can't do candidate validation work if we don't have the
 					// requisite runtime API data. But these errors should not take
 					// down the node.
-					return Ok(None);
-				}
+					return Ok(None)
+				},
 			}
-		}
+		};
 	}
 
 	let parent = relay_parent;
 
-	let (validators, groups, session_index, cores) = futures::try_join!(
+	let (session_index, validators, groups, cores) = futures::try_join!(
+		request_session_index_for_child(parent, ctx.sender()).await,
 		request_validators(parent, ctx.sender()).await,
 		request_validator_groups(parent, ctx.sender()).await,
-		request_session_index_for_child(parent, ctx.sender()).await,
 		request_from_runtime(parent, ctx.sender(), |tx| {
 			RuntimeApiRequest::AvailabilityCores(tx)
 		},)
@@ -994,26 +1019,41 @@ async fn construct_per_relay_parent_state<Context>(
 	)
 	.map_err(Error::JoinMultiple)?;
 
+	let session_index = try_runtime_api!(session_index);
 	let validators: Vec<_> = try_runtime_api!(validators);
 	let (validator_groups, group_rotation_info) = try_runtime_api!(groups);
-	let session_index = try_runtime_api!(session_index);
 	let cores = try_runtime_api!(cores);
+	let minimum_backing_votes =
+		try_runtime_api!(request_min_backing_votes(parent, session_index, ctx.sender()).await);
+
+	// TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
+	// Once runtime ver `DISABLED_VALIDATORS_RUNTIME_REQUIREMENT` is released remove this call to
+	// `get_disabled_validators_with_fallback`, add `request_disabled_validators` call to the
+	// `try_join!` above and use `try_runtime_api!` to get `disabled_validators`
+	let disabled_validators =
+		get_disabled_validators_with_fallback(ctx.sender(), parent).await.map_err(|e| {
+			Error::UtilError(TryFrom::try_from(e).expect("the conversion is infallible; qed"))
+		})?;
 
 	let signing_context = SigningContext { parent_hash: parent, session_index };
-	let validator =
-		match Validator::construct(&validators, signing_context.clone(), keystore.clone()) {
-			Ok(v) => Some(v),
-			Err(util::Error::NotAValidator) => None,
-			Err(e) => {
-				gum::warn!(
-					target: LOG_TARGET,
-					err = ?e,
-					"Cannot participate in candidate backing",
-				);
+	let validator = match Validator::construct(
+		&validators,
+		&disabled_validators,
+		signing_context.clone(),
+		keystore.clone(),
+	) {
+		Ok(v) => Some(v),
+		Err(util::Error::NotAValidator) => None,
+		Err(e) => {
+			gum::warn!(
+				target: LOG_TARGET,
+				err = ?e,
+				"Cannot participate in candidate backing",
+			);
 
-				return Ok(None)
-			},
-		};
+			return Ok(None)
+		},
+	};
 
 	let mut groups = HashMap::new();
 	let n_cores = cores.len();
@@ -1043,7 +1083,7 @@ async fn construct_per_relay_parent_state<Context>(
 		}
 	}
 
-	let table_context = TableContext { groups, validators, validator };
+	let table_context = TableContext { validator, groups, validators, disabled_validators };
 	let table_config = TableConfig {
 		allow_multiple_seconded: match mode {
 			ProspectiveParachainsMode::Enabled { .. } => true,
@@ -1061,6 +1101,7 @@ async fn construct_per_relay_parent_state<Context>(
 		issued_statements: HashSet::new(),
 		awaiting_validation: HashSet::new(),
 		fallbacks: HashMap::new(),
+		minimum_backing_votes,
 	}))
 }
 
@@ -1562,11 +1603,14 @@ async fn post_import_statement_actions<Context>(
 	ctx: &mut Context,
 	rp_state: &mut PerRelayParentState,
 	summary: Option<&TableSummary>,
-) -> Result<(), Error> {
-	if let Some(attested) = summary
-		.as_ref()
-		.and_then(|s| rp_state.table.attested_candidate(&s.candidate, &rp_state.table_context))
-	{
+) {
+	if let Some(attested) = summary.as_ref().and_then(|s| {
+		rp_state.table.attested_candidate(
+			&s.candidate,
+			&rp_state.table_context,
+			rp_state.minimum_backing_votes,
+		)
+	}) {
 		let candidate_hash = attested.candidate.hash();
 
 		// `HashSet::insert` returns true if the thing wasn't in there already.
@@ -1615,8 +1659,6 @@ async fn post_import_statement_actions<Context>(
 	}
 
 	issue_new_misbehaviors(ctx, rp_state.parent, &mut rp_state.table);
-
-	Ok(())
 }
 
 /// Check if there have happened any new misbehaviors and issue necessary messages.
@@ -1659,7 +1701,7 @@ async fn sign_import_and_distribute_statement<Context>(
 		let smsg = StatementDistributionMessage::Share(rp_state.parent, signed_statement.clone());
 		ctx.send_unbounded_message(smsg);
 
-		post_import_statement_actions(ctx, rp_state, summary.as_ref()).await?;
+		post_import_statement_actions(ctx, rp_state, summary.as_ref()).await;
 
 		Ok(Some(signed_statement))
 	} else {
@@ -1713,6 +1755,19 @@ async fn kick_off_validation_work<Context>(
 	background_validation_tx: &mpsc::Sender<(Hash, ValidatedCandidateCommand)>,
 	attesting: AttestingData,
 ) -> Result<(), Error> {
+	// Do nothing if the local validator is disabled or not a validator at all
+	match rp_state.table_context.local_validator_is_disabled() {
+		Some(true) => {
+			gum::info!(target: LOG_TARGET, "We are disabled - don't kick off validation");
+			return Ok(())
+		},
+		Some(false) => {}, // we are not disabled - move on
+		None => {
+			gum::debug!(target: LOG_TARGET, "We are not a validator - don't kick off validation");
+			return Ok(())
+		},
+	}
+
 	let candidate_hash = attesting.candidate.hash();
 	if rp_state.issued_statements.contains(&candidate_hash) {
 		return Ok(())
@@ -1770,6 +1825,16 @@ async fn maybe_validate_and_import<Context>(
 		},
 	};
 
+	// Don't import statement if the sender is disabled
+	if rp_state.table_context.validator_is_disabled(&statement.validator_index()) {
+		gum::debug!(
+			target: LOG_TARGET,
+			sender_validator_idx = ?statement.validator_index(),
+			"Not importing statement because the sender is disabled"
+		);
+		return Ok(())
+	}
+
 	let res = import_statement(ctx, rp_state, &mut state.per_candidate, &statement).await;
 
 	// if we get an Error::RejectedByProspectiveParachains,
@@ -1785,7 +1850,7 @@ async fn maybe_validate_and_import<Context>(
 	}
 
 	let summary = res?;
-	post_import_statement_actions(ctx, rp_state, summary.as_ref()).await?;
+	post_import_statement_actions(ctx, rp_state, summary.as_ref()).await;
 
 	if let Some(summary) = summary {
 		// import_statement already takes care of communicating with the
@@ -1931,6 +1996,13 @@ async fn handle_second_message<Context>(
 		Some(r) => r,
 	};
 
+	// Just return if the local validator is disabled. If we are here the local node should be a
+	// validator but defensively use `unwrap_or(false)` to continue processing in this case.
+	if rp_state.table_context.local_validator_is_disabled().unwrap_or(false) {
+		gum::warn!(target: LOG_TARGET, "Local validator is disabled. Don't validate and second");
+		return Ok(())
+	}
+
 	// Sanity check that candidate is from our assignment.
 	if Some(candidate.descriptor().para_id) != rp_state.assignment {
 		gum::debug!(
@@ -1977,6 +2049,7 @@ async fn handle_statement_message<Context>(
 ) -> Result<(), Error> {
 	let _timer = metrics.time_process_statement();
 
+	// Validator disabling is handled in `maybe_validate_and_import`
 	match maybe_validate_and_import(ctx, state, relay_parent, statement).await {
 		Err(Error::ValidationFailed(_)) => Ok(()),
 		Err(e) => Err(e),
@@ -2009,7 +2082,11 @@ fn handle_get_backed_candidates_message(
 			};
 			rp_state
 				.table
-				.attested_candidate(&candidate_hash, &rp_state.table_context)
+				.attested_candidate(
+					&candidate_hash,
+					&rp_state.table_context,
+					rp_state.minimum_backing_votes,
+				)
 				.and_then(|attested| table_attested_to_backed(attested, &rp_state.table_context))
 		})
 		.collect();

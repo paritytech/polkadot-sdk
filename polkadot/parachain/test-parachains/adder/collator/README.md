@@ -19,7 +19,7 @@ Next start the collator that will collate for the adder parachain:
 cargo run --release -p test-parachain-adder-collator -- --tmp --chain rococo-local --port 50553
 ```
 
-The last step is to register the parachain using polkadot-js. The parachain id is
+The last step is to register the parachain using `polkadot-js`. The parachain id is
 100. The genesis state and the validation code are printed at startup by the collator.
 
 To do this automatically, run `scripts/adder-collator.sh`.

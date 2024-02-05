@@ -1,4 +1,4 @@
-# polkadot-node-metrics
+# `polkadot-node-metrics`
 
 ## Testing
 

@@ -16,9 +16,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::chain_head::{
-	event::{MethodResponse, StorageQuery, StorageQueryType, StorageResultType},
-	test_utils::ChainHeadMockClient,
+use crate::{
+	chain_head::{event::MethodResponse, test_utils::ChainHeadMockClient},
+	common::events::{StorageQuery, StorageQueryType, StorageResultType},
+	hex_string,
 };
 
 use super::*;
@@ -26,15 +27,12 @@ use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use futures::Future;
 use jsonrpsee::{
-	core::{error::Error, server::rpc_module::Subscription as RpcSubscription},
-	rpc_params,
-	types::{error::CallError, EmptyServerParams as EmptyParams},
-	RpcModule,
+	core::{error::Error, server::Subscription as RpcSubscription},
+	rpc_params, RpcModule,
 };
-use sc_block_builder::BlockBuilderProvider;
+use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::ChildInfo;
 use sc_service::client::new_in_mem;
-use sp_api::BlockT;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
 use sp_core::{
@@ -42,8 +40,14 @@ use sp_core::{
 	testing::TaskExecutor,
 	Blake2Hasher, Hasher,
 };
+use sp_runtime::traits::Block as BlockT;
 use sp_version::RuntimeVersion;
-use std::{collections::HashSet, fmt::Debug, sync::Arc, time::Duration};
+use std::{
+	collections::{HashMap, HashSet},
+	fmt::Debug,
+	sync::Arc,
+	time::Duration,
+};
 use substrate_test_runtime::Transfer;
 use substrate_test_runtime_client::{
 	prelude::*, runtime, runtime::RuntimeApi, Backend, BlockBuilderExt, Client,
@@ -56,7 +60,6 @@ const MAX_PINNED_BLOCKS: usize = 32;
 const MAX_PINNED_SECS: u64 = 60;
 const MAX_OPERATIONS: usize = 16;
 const MAX_PAGINATION_LIMIT: usize = 5;
-const CHAIN_GENESIS: [u8; 32] = [0; 32];
 const INVALID_HASH: [u8; 32] = [1; 32];
 const KEY: &[u8] = b":mock";
 const VALUE: &[u8] = b"hello world";
@@ -106,7 +109,6 @@ async fn setup_api() -> (
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -116,11 +118,18 @@ async fn setup_api() -> (
 	)
 	.into_rpc();
 
-	let mut sub = api.subscribe("chainHead_unstable_follow", [true]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 
-	let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
 
 	// Ensure the imported block is propagated and pinned for this subscription.
@@ -150,7 +159,6 @@ async fn follow_subscription_produces_blocks() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -161,7 +169,7 @@ async fn follow_subscription_produces_blocks() {
 	.into_rpc();
 
 	let finalized_hash = client.info().finalized_hash;
-	let mut sub = api.subscribe("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
 
 	// Initialized must always be reported first.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
@@ -172,7 +180,14 @@ async fn follow_subscription_produces_blocks() {
 	});
 	assert_eq!(event, expected);
 
-	let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 
 	let best_hash = block.header.hash();
 	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
@@ -212,7 +227,6 @@ async fn follow_with_runtime() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -223,23 +237,23 @@ async fn follow_with_runtime() {
 	.into_rpc();
 
 	let finalized_hash = client.info().finalized_hash;
-	let mut sub = api.subscribe("chainHead_unstable_follow", [true]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
 
 	// Initialized must always be reported first.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 
 	// it is basically json-encoded substrate_test_runtime_client::runtime::VERSION
-	let runtime_str = "{\"specName\":\"test\",\"implName\":\"parity-test\",\"authoringVersion\":1,\
+	let runtime_str = "{\"specName\":\"test\",\"implName\":\"parity-test\",\"authoringVersion\":0,\
 		\"specVersion\":2,\"implVersion\":2,\"apis\":[[\"0xdf6acb689907609b\",4],\
 		[\"0x37e397fc7c91f5e4\",2],[\"0xd2bc9897eed08f15\",3],[\"0x40fe3ad401f8959a\",6],\
 		[\"0xbc9d89904f5b923f\",1],[\"0xc6e9a76309f39b09\",2],[\"0xdd718d5cc53262d4\",1],\
 		[\"0xcbca25e39f142387\",2],[\"0xf78b278be53f454c\",2],[\"0xab3c0572291feb8b\",1],\
-		[\"0xed99c5acb25eedf5\",3],[\"0xfbc577b9d747efd6\",1]],\"transactionVersion\":1,\"stateVersion\":1}";
+		[\"0xed99c5acb25eedf5\",3],[\"0xfbc577b9d747efd6\",1]],\"transactionVersion\":1,\"stateVersion\":0}";
 
 	let runtime: RuntimeVersion = serde_json::from_str(runtime_str).unwrap();
 
 	let finalized_block_runtime =
-		Some(RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime.clone() }));
+		Some(RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime.clone().into() }));
 	// Runtime must always be reported with the first event.
 	let expected = FollowEvent::Initialized(Initialized {
 		finalized_block_hash: format!("{:?}", finalized_hash),
@@ -250,8 +264,15 @@ async fn follow_with_runtime() {
 
 	// Import a new block without runtime changes.
 	// The runtime field must be None in this case.
-	let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
-	let best_hash = block.header.hash();
+	let block = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let best_hash = block.hash();
 	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
 
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
@@ -297,13 +318,18 @@ async fn follow_with_runtime() {
 	)
 	.unwrap();
 
-	let mut builder = client.new_block(Default::default()).unwrap();
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(best_hash)
+		.with_parent_block_number(1)
+		.build()
+		.unwrap();
 	builder.push_storage_change(CODE.to_vec(), Some(wasm)).unwrap();
 	let block = builder.build().unwrap().block;
 	let best_hash = block.header.hash();
 	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
 
-	let new_runtime = Some(RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime.clone() }));
+	let new_runtime =
+		Some(RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime.clone().into() }));
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::NewBlock(NewBlock {
 		block_hash: format!("{:?}", best_hash),
@@ -312,31 +338,6 @@ async fn follow_with_runtime() {
 		with_runtime: false,
 	});
 	assert_eq!(event, expected);
-}
-
-#[tokio::test]
-async fn get_genesis() {
-	let builder = TestClientBuilder::new();
-	let backend = builder.backend();
-	let client = Arc::new(builder.build());
-
-	let api = ChainHead::new(
-		client.clone(),
-		backend,
-		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
-		ChainHeadConfig {
-			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
-			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
-			subscription_max_ongoing_operations: MAX_OPERATIONS,
-			operation_max_storage_items: MAX_PAGINATION_LIMIT,
-		},
-	)
-	.into_rpc();
-
-	let genesis: String =
-		api.call("chainHead_unstable_genesisHash", EmptyParams::new()).await.unwrap();
-	assert_eq!(genesis, hex_string(&CHAIN_GENESIS));
 }
 
 #[tokio::test]
@@ -358,7 +359,7 @@ async fn get_header() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(CallError::Custom(ref err)) if err.code() == 2001 && err.message() == "Invalid block hash"
+		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	// Obtain the valid header.
@@ -387,7 +388,7 @@ async fn get_body() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(CallError::Custom(ref err)) if err.code() == 2001 && err.message() == "Invalid block hash"
+		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	// Valid call.
@@ -405,7 +406,11 @@ async fn get_body() {
 	);
 
 	// Import a block with extrinsics.
-	let mut builder = client.new_block(Default::default()).unwrap();
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block.hash())
+		.with_parent_block_number(1)
+		.build()
+		.unwrap();
 	builder
 		.push_transfer(runtime::Transfer {
 			from: AccountKeyring::Alice.into(),
@@ -468,7 +473,7 @@ async fn call_runtime() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(CallError::Custom(ref err)) if err.code() == 2001 && err.message() == "Invalid block hash"
+		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	// Pass an invalid parameters that cannot be decode.
@@ -481,7 +486,7 @@ async fn call_runtime() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(CallError::Custom(ref err)) if err.code() == 2003 && err.message().contains("Invalid parameter")
+		Error::Call(err) if err.code() == super::error::json_rpc_spec::INVALID_PARAM_ERROR && err.message().contains("Invalid parameter")
 	);
 
 	// Valid call.
@@ -534,7 +539,6 @@ async fn call_runtime_without_flag() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -544,11 +548,18 @@ async fn call_runtime_without_flag() {
 	)
 	.into_rpc();
 
-	let mut sub = api.subscribe("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 
-	let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	let block_hash = format!("{:?}", block.header.hash());
 	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
 
@@ -578,7 +589,7 @@ async fn call_runtime_without_flag() {
 		.unwrap_err();
 
 	assert_matches!(err,
-		Error::Call(CallError::Custom(ref err)) if err.code() == 2003 && err.message().contains("The runtime updates flag must be set")
+		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_RUNTIME_CALL && err.message().contains("subscription was started with `withRuntime` set to `false`")
 	);
 }
 
@@ -616,7 +627,7 @@ async fn get_storage_hash() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(CallError::Custom(ref err)) if err.code() == 2001 && err.message() == "Invalid block hash"
+		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	// Valid call without storage at the key.
@@ -642,7 +653,11 @@ async fn get_storage_hash() {
 	);
 
 	// Import a new block with storage changes.
-	let mut builder = client.new_block(Default::default()).unwrap();
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block.hash())
+		.with_parent_block_number(1)
+		.build()
+		.unwrap();
 	builder.push_storage_change(KEY.to_vec(), Some(VALUE.to_vec())).unwrap();
 	let block = builder.build().unwrap().block;
 	let block_hash = format!("{:?}", block.header.hash());
@@ -724,11 +739,15 @@ async fn get_storage_hash() {
 
 #[tokio::test]
 async fn get_storage_multi_query_iter() {
-	let (mut client, api, mut block_sub, sub_id, _) = setup_api().await;
+	let (mut client, api, mut block_sub, sub_id, block) = setup_api().await;
 	let key = hex_string(&KEY);
 
 	// Import a new block with storage changes.
-	let mut builder = client.new_block(Default::default()).unwrap();
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block.hash())
+		.with_parent_block_number(1)
+		.build()
+		.unwrap();
 	builder.push_storage_change(KEY.to_vec(), Some(VALUE.to_vec())).unwrap();
 	let block = builder.build().unwrap().block;
 	let block_hash = format!("{:?}", block.header.hash());
@@ -845,7 +864,7 @@ async fn get_storage_multi_query_iter() {
 #[tokio::test]
 async fn get_storage_value() {
 	let (mut client, api, mut block_sub, sub_id, block) = setup_api().await;
-	let block_hash = format!("{:?}", block.header.hash());
+	let block_hash = format!("{:?}", block.hash());
 	let invalid_hash = hex_string(&INVALID_HASH);
 	let key = hex_string(&KEY);
 
@@ -876,7 +895,7 @@ async fn get_storage_value() {
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(CallError::Custom(ref err)) if err.code() == 2001 && err.message() == "Invalid block hash"
+		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	// Valid call without storage at the key.
@@ -902,10 +921,14 @@ async fn get_storage_value() {
 	);
 
 	// Import a new block with storage changes.
-	let mut builder = client.new_block(Default::default()).unwrap();
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block.hash())
+		.with_parent_block_number(1)
+		.build()
+		.unwrap();
 	builder.push_storage_change(KEY.to_vec(), Some(VALUE.to_vec())).unwrap();
 	let block = builder.build().unwrap().block;
-	let block_hash = format!("{:?}", block.header.hash());
+	let block_hash = format!("{:?}", block.hash());
 	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
 
 	// Ensure the imported block is propagated and pinned for this subscription.
@@ -1174,7 +1197,6 @@ async fn separate_operation_ids_for_subscriptions() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1185,15 +1207,23 @@ async fn separate_operation_ids_for_subscriptions() {
 	.into_rpc();
 
 	// Create two separate subscriptions.
-	let mut sub_first = api.subscribe("chainHead_unstable_follow", [true]).await.unwrap();
+	let mut sub_first = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
 	let sub_id_first = sub_first.subscription_id();
 	let sub_id_first = serde_json::to_string(&sub_id_first).unwrap();
 
-	let mut sub_second = api.subscribe("chainHead_unstable_follow", [true]).await.unwrap();
+	let mut sub_second =
+		api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
 	let sub_id_second = sub_second.subscription_id();
 	let sub_id_second = serde_json::to_string(&sub_id_second).unwrap();
 
-	let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
 	let block_hash = format!("{:?}", block.header.hash());
 
@@ -1255,7 +1285,6 @@ async fn follow_generates_initial_blocks() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1268,18 +1297,35 @@ async fn follow_generates_initial_blocks() {
 	let finalized_hash = client.info().finalized_hash;
 
 	// Block tree:
-	// finalized -> block 1 -> block 2 -> block 4
-	//           -> block 1 -> block 3
-	let block_1 = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	// finalized -> block 1 -> block 2 -> block 3
+	//           -> block 1 -> block 2_f
+	let block_1 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	let block_1_hash = block_1.header.hash();
 	client.import(BlockOrigin::Own, block_1.clone()).await.unwrap();
 
-	let block_2 = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block_2 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_1_hash)
+		.with_parent_block_number(1)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	let block_2_hash = block_2.header.hash();
 	client.import(BlockOrigin::Own, block_2.clone()).await.unwrap();
 
-	let mut block_builder =
-		client.new_block_at(block_1.header.hash(), Default::default(), false).unwrap();
+	let mut block_builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_1_hash)
+		.with_parent_block_number(1)
+		.build()
+		.unwrap();
 	// This push is required as otherwise block 3 has the same hash as block 2 and won't get
 	// imported
 	block_builder
@@ -1290,11 +1336,11 @@ async fn follow_generates_initial_blocks() {
 			nonce: 0,
 		})
 		.unwrap();
-	let block_3 = block_builder.build().unwrap().block;
-	let block_3_hash = block_3.header.hash();
-	client.import(BlockOrigin::Own, block_3.clone()).await.unwrap();
+	let block_2_f = block_builder.build().unwrap().block;
+	let block_2_f_hash = block_2_f.header.hash();
+	client.import(BlockOrigin::Own, block_2_f.clone()).await.unwrap();
 
-	let mut sub = api.subscribe("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
 
 	// Initialized must always be reported first.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
@@ -1327,7 +1373,7 @@ async fn follow_generates_initial_blocks() {
 	// Check block 3.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::NewBlock(NewBlock {
-		block_hash: format!("{:?}", block_3_hash),
+		block_hash: format!("{:?}", block_2_f_hash),
 		parent_block_hash: format!("{:?}", block_1_hash),
 		new_runtime: None,
 		with_runtime: false,
@@ -1340,14 +1386,21 @@ async fn follow_generates_initial_blocks() {
 	});
 	assert_eq!(event, expected);
 
-	// Import block 4.
-	let block_4 = client.new_block(Default::default()).unwrap().build().unwrap().block;
-	let block_4_hash = block_4.header.hash();
-	client.import(BlockOrigin::Own, block_4.clone()).await.unwrap();
+	// Import block 3.
+	let block_3 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_2_hash)
+		.with_parent_block_number(2)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let block_3_hash = block_3.hash();
+	client.import(BlockOrigin::Own, block_3.clone()).await.unwrap();
 
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::NewBlock(NewBlock {
-		block_hash: format!("{:?}", block_4_hash),
+		block_hash: format!("{:?}", block_3_hash),
 		parent_block_hash: format!("{:?}", block_2_hash),
 		new_runtime: None,
 		with_runtime: false,
@@ -1356,23 +1409,23 @@ async fn follow_generates_initial_blocks() {
 
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::BestBlockChanged(BestBlockChanged {
-		best_block_hash: format!("{:?}", block_4_hash),
+		best_block_hash: format!("{:?}", block_3_hash),
 	});
 	assert_eq!(event, expected);
 
 	// Check the finalized event:
 	//  - blocks 1, 2, 4 from canonical chain are finalized
 	//  - block 3 from the fork is pruned
-	client.finalize_block(block_4_hash, None).unwrap();
+	client.finalize_block(block_3_hash, None).unwrap();
 
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Finalized(Finalized {
 		finalized_block_hashes: vec![
 			format!("{:?}", block_1_hash),
 			format!("{:?}", block_2_hash),
-			format!("{:?}", block_4_hash),
+			format!("{:?}", block_3_hash),
 		],
-		pruned_block_hashes: vec![format!("{:?}", block_3_hash)],
+		pruned_block_hashes: vec![format!("{:?}", block_2_f_hash)],
 	});
 	assert_eq!(event, expected);
 }
@@ -1387,7 +1440,6 @@ async fn follow_exceeding_pinned_blocks() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: 2,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1397,9 +1449,17 @@ async fn follow_exceeding_pinned_blocks() {
 	)
 	.into_rpc();
 
-	let mut sub = api.subscribe("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
 
-	let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+
 	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
 
 	// Ensure the imported block is propagated and pinned for this subscription.
@@ -1420,13 +1480,27 @@ async fn follow_exceeding_pinned_blocks() {
 	//   finalized_block -> block -> block2
 	// The first 2 blocks are pinned into the subscription, but the block2 will exceed the limit (2
 	// blocks).
-	let block2 = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block2 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block.hash())
+		.with_parent_block_number(1)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	client.import(BlockOrigin::Own, block2.clone()).await.unwrap();
 
 	assert_matches!(get_next_event::<FollowEvent<String>>(&mut sub).await, FollowEvent::Stop);
 
 	// Subscription will not produce any more event for further blocks.
-	let block3 = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block3 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block2.hash())
+		.with_parent_block_number(2)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	client.import(BlockOrigin::Own, block3.clone()).await.unwrap();
 
 	assert!(sub.next::<FollowEvent<String>>().await.is_none());
@@ -1442,7 +1516,6 @@ async fn follow_with_unpin() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: 2,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1452,11 +1525,18 @@ async fn follow_with_unpin() {
 	)
 	.into_rpc();
 
-	let mut sub = api.subscribe("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 
-	let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	let block_hash = format!("{:?}", block.header.hash());
 	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
 
@@ -1477,27 +1557,40 @@ async fn follow_with_unpin() {
 	// Unpin an invalid subscription ID must return Ok(()).
 	let invalid_hash = hex_string(&INVALID_HASH);
 	let _res: () = api
-		.call("chainHead_unstable_unpin", ["invalid_sub_id", &invalid_hash])
+		.call("chainHead_unstable_unpin", rpc_params!["invalid_sub_id", &invalid_hash])
 		.await
 		.unwrap();
 
 	// Valid subscription with invalid block hash.
 	let invalid_hash = hex_string(&INVALID_HASH);
 	let err = api
-		.call::<_, serde_json::Value>("chainHead_unstable_unpin", [&sub_id, &invalid_hash])
+		.call::<_, serde_json::Value>(
+			"chainHead_unstable_unpin",
+			rpc_params![&sub_id, &invalid_hash],
+		)
 		.await
 		.unwrap_err();
 	assert_matches!(err,
-		Error::Call(CallError::Custom(ref err)) if err.code() == 2001 && err.message() == "Invalid block hash"
+		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
 	);
 
 	// To not exceed the number of pinned blocks, we need to unpin before the next import.
-	let _res: () = api.call("chainHead_unstable_unpin", [&sub_id, &block_hash]).await.unwrap();
+	let _res: () = api
+		.call("chainHead_unstable_unpin", rpc_params![&sub_id, &block_hash])
+		.await
+		.unwrap();
 
 	// Block tree:
 	//   finalized_block -> block -> block2
 	//                      ^ has been unpinned
-	let block2 = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block2 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block.hash())
+		.with_parent_block_number(1)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	client.import(BlockOrigin::Own, block2.clone()).await.unwrap();
 
 	assert_matches!(
@@ -1510,11 +1603,171 @@ async fn follow_with_unpin() {
 		FollowEvent::BestBlockChanged(_)
 	);
 
-	let block3 = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block3 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block2.hash())
+		.with_parent_block_number(2)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	client.import(BlockOrigin::Own, block3.clone()).await.unwrap();
 
 	assert_matches!(get_next_event::<FollowEvent<String>>(&mut sub).await, FollowEvent::Stop);
 	assert!(sub.next::<FollowEvent<String>>().await.is_none());
+}
+
+#[tokio::test]
+async fn follow_with_multiple_unpin_hashes() {
+	let builder = TestClientBuilder::new();
+	let backend = builder.backend();
+	let mut client = Arc::new(builder.build());
+
+	let api = ChainHead::new(
+		client.clone(),
+		backend,
+		Arc::new(TaskExecutor::default()),
+		ChainHeadConfig {
+			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
+			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
+			subscription_max_ongoing_operations: MAX_OPERATIONS,
+			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+		},
+	)
+	.into_rpc();
+
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
+	let sub_id = sub.subscription_id();
+	let sub_id = serde_json::to_string(&sub_id).unwrap();
+
+	// Import 3 blocks.
+	let block_1 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let block_1_hash = block_1.header.hash();
+	client.import(BlockOrigin::Own, block_1.clone()).await.unwrap();
+
+	let block_2 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_1.hash())
+		.with_parent_block_number(1)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let block_2_hash = block_2.header.hash();
+	client.import(BlockOrigin::Own, block_2.clone()).await.unwrap();
+
+	let block_3 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_2.hash())
+		.with_parent_block_number(2)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let block_3_hash = block_3.header.hash();
+	client.import(BlockOrigin::Own, block_3.clone()).await.unwrap();
+
+	// Ensure the imported block is propagated and pinned for this subscription.
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::Initialized(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::NewBlock(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::BestBlockChanged(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::NewBlock(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::BestBlockChanged(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::NewBlock(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::BestBlockChanged(_)
+	);
+
+	// Unpin an invalid subscription ID must return Ok(()).
+	let invalid_hash = hex_string(&INVALID_HASH);
+	let _res: () = api
+		.call("chainHead_unstable_unpin", rpc_params!["invalid_sub_id", &invalid_hash])
+		.await
+		.unwrap();
+
+	// Valid subscription with invalid block hash.
+	let err = api
+		.call::<_, serde_json::Value>(
+			"chainHead_unstable_unpin",
+			rpc_params![&sub_id, &invalid_hash],
+		)
+		.await
+		.unwrap_err();
+	assert_matches!(err,
+		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+	);
+
+	let _res: () = api
+		.call("chainHead_unstable_unpin", rpc_params![&sub_id, &block_1_hash])
+		.await
+		.unwrap();
+
+	// One block hash is invalid. Block 1 is already unpinned.
+	let err = api
+		.call::<_, serde_json::Value>(
+			"chainHead_unstable_unpin",
+			rpc_params![&sub_id, vec![&block_1_hash, &block_2_hash, &block_3_hash]],
+		)
+		.await
+		.unwrap_err();
+	assert_matches!(err,
+		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+	);
+
+	// Unpin multiple blocks.
+	let _res: () = api
+		.call("chainHead_unstable_unpin", rpc_params![&sub_id, vec![&block_2_hash, &block_3_hash]])
+		.await
+		.unwrap();
+
+	// Check block 2 and 3 are unpinned.
+	let err = api
+		.call::<_, serde_json::Value>(
+			"chainHead_unstable_unpin",
+			rpc_params![&sub_id, &block_2_hash],
+		)
+		.await
+		.unwrap_err();
+	assert_matches!(err,
+		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+	);
+
+	let err = api
+		.call::<_, serde_json::Value>(
+			"chainHead_unstable_unpin",
+			rpc_params![&sub_id, &block_3_hash],
+		)
+		.await
+		.unwrap_err();
+	assert_matches!(err,
+		Error::Call(err) if err.code() == super::error::rpc_spec_v2::INVALID_BLOCK_ERROR && err.message() == "Invalid block hash"
+	);
 }
 
 #[tokio::test]
@@ -1527,7 +1780,6 @@ async fn follow_prune_best_block() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1538,7 +1790,7 @@ async fn follow_prune_best_block() {
 	.into_rpc();
 
 	let finalized_hash = client.info().finalized_hash;
-	let mut sub = api.subscribe("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
 
 	// Initialized must always be reported first.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
@@ -1554,27 +1806,52 @@ async fn follow_prune_best_block() {
 	// finalized -> block 1 -> block 2
 	//                         ^^^ best block reported
 	//
-	//           -> block 1 -> block 3 -> block 4
+	//           -> block 1 -> block 2_f -> block 4
 	//                                    ^^^ finalized
 	//
 	// The block 4 is needed on the longest chain because we want the
 	// best block 2 to be reported as pruned. Pruning is happening at
 	// height (N - 1), where N is the finalized block number.
 
-	let block_1 = client.new_block(Default::default()).unwrap().build().unwrap().block;
-	let block_1_hash = block_1.header.hash();
+	let block_1 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let block_1_hash = block_1.hash();
 	client.import(BlockOrigin::Own, block_1.clone()).await.unwrap();
 
-	let block_3 = client.new_block(Default::default()).unwrap().build().unwrap().block;
-	let block_3_hash = block_3.header.hash();
-	client.import(BlockOrigin::Own, block_3.clone()).await.unwrap();
+	let block_2_f = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_1_hash)
+		.with_parent_block_number(1)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let block_2_f_hash = block_2_f.hash();
+	client.import(BlockOrigin::Own, block_2_f.clone()).await.unwrap();
 
-	let block_4 = client.new_block(Default::default()).unwrap().build().unwrap().block;
-	let block_4_hash = block_4.header.hash();
+	let block_4 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_2_f_hash)
+		.with_parent_block_number(2)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let block_4_hash = block_4.hash();
 	client.import(BlockOrigin::Own, block_4.clone()).await.unwrap();
 
 	// Import block 2 as best on the fork.
-	let mut block_builder = client.new_block_at(block_1_hash, Default::default(), false).unwrap();
+	let mut block_builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_1_hash)
+		.with_parent_block_number(1)
+		.build()
+		.unwrap();
 	// This push is required as otherwise block 3 has the same hash as block 2 and won't get
 	// imported
 	block_builder
@@ -1607,7 +1884,7 @@ async fn follow_prune_best_block() {
 	// Check block 3.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::NewBlock(NewBlock {
-		block_hash: format!("{:?}", block_3_hash),
+		block_hash: format!("{:?}", block_2_f_hash),
 		parent_block_hash: format!("{:?}", block_1_hash),
 		new_runtime: None,
 		with_runtime: false,
@@ -1615,7 +1892,7 @@ async fn follow_prune_best_block() {
 	assert_eq!(event, expected);
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::BestBlockChanged(BestBlockChanged {
-		best_block_hash: format!("{:?}", block_3_hash),
+		best_block_hash: format!("{:?}", block_2_f_hash),
 	});
 	assert_eq!(event, expected);
 
@@ -1623,7 +1900,7 @@ async fn follow_prune_best_block() {
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::NewBlock(NewBlock {
 		block_hash: format!("{:?}", block_4_hash),
-		parent_block_hash: format!("{:?}", block_3_hash),
+		parent_block_hash: format!("{:?}", block_2_f_hash),
 		new_runtime: None,
 		with_runtime: false,
 	});
@@ -1664,7 +1941,7 @@ async fn follow_prune_best_block() {
 	let expected = FollowEvent::Finalized(Finalized {
 		finalized_block_hashes: vec![
 			format!("{:?}", block_1_hash),
-			format!("{:?}", block_3_hash),
+			format!("{:?}", block_2_f_hash),
 			format!("{:?}", block_4_hash),
 		],
 		pruned_block_hashes: vec![format!("{:?}", block_2_hash)],
@@ -1675,7 +1952,7 @@ async fn follow_prune_best_block() {
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 	let hash = format!("{:?}", block_2_hash);
-	let _res: () = api.call("chainHead_unstable_unpin", [&sub_id, &hash]).await.unwrap();
+	let _res: () = api.call("chainHead_unstable_unpin", rpc_params![&sub_id, &hash]).await.unwrap();
 }
 
 #[tokio::test]
@@ -1688,7 +1965,6 @@ async fn follow_forks_pruned_block() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1702,22 +1978,46 @@ async fn follow_forks_pruned_block() {
 	//
 	// finalized -> block 1 -> block 2 -> block 3
 	//                                        ^^^ finalized
-	//           -> block 1 -> block 4 -> block 5
+	//           -> block 1 -> block 2_f -> block 3_f
 	//
 
-	let block_1 = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block_1 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	client.import(BlockOrigin::Own, block_1.clone()).await.unwrap();
 
-	let block_2 = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block_2 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_1.hash())
+		.with_parent_block_number(1)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	client.import(BlockOrigin::Own, block_2.clone()).await.unwrap();
 
-	let block_3 = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block_3 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_2.hash())
+		.with_parent_block_number(2)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	let block_3_hash = block_3.header.hash();
 	client.import(BlockOrigin::Own, block_3.clone()).await.unwrap();
 
 	// Block 4 with parent Block 1 is not the best imported.
-	let mut block_builder =
-		client.new_block_at(block_1.header.hash(), Default::default(), false).unwrap();
+	let mut block_builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_1.hash())
+		.with_parent_block_number(1)
+		.build()
+		.unwrap();
 	// This push is required as otherwise block 4 has the same hash as block 2 and won't get
 	// imported
 	block_builder
@@ -1728,11 +2028,14 @@ async fn follow_forks_pruned_block() {
 			nonce: 0,
 		})
 		.unwrap();
-	let block_4 = block_builder.build().unwrap().block;
-	client.import(BlockOrigin::Own, block_4.clone()).await.unwrap();
+	let block_2_f = block_builder.build().unwrap().block;
+	client.import(BlockOrigin::Own, block_2_f.clone()).await.unwrap();
 
-	let mut block_builder =
-		client.new_block_at(block_4.header.hash(), Default::default(), false).unwrap();
+	let mut block_builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_2_f.hash())
+		.with_parent_block_number(2)
+		.build()
+		.unwrap();
 	block_builder
 		.push_transfer(Transfer {
 			from: AccountKeyring::Bob.into(),
@@ -1741,13 +2044,13 @@ async fn follow_forks_pruned_block() {
 			nonce: 0,
 		})
 		.unwrap();
-	let block_5 = block_builder.build().unwrap().block;
-	client.import(BlockOrigin::Own, block_5.clone()).await.unwrap();
+	let block_3_f = block_builder.build().unwrap().block;
+	client.import(BlockOrigin::Own, block_3_f.clone()).await.unwrap();
 
-	// Block 4 and 5 are not pruned, pruning happens at height (N - 1).
+	// Block 2_f and 3_f are not pruned, pruning happens at height (N - 1).
 	client.finalize_block(block_3_hash, None).unwrap();
 
-	let mut sub = api.subscribe("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
 
 	// Initialized must always be reported first.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
@@ -1760,22 +2063,29 @@ async fn follow_forks_pruned_block() {
 
 	// Block tree:
 	//
-	// finalized -> block 1 -> block 2 -> block 3 -> block 6
+	// finalized -> block 1 -> block 2 -> block 3 -> block 4
 	//                                                  ^^^ finalized
-	//           -> block 1 -> block 4 -> block 5
+	//           -> block 1 -> block 2_f -> block 3_f
 	//
-	// Mark block 6 as finalized to force block 4 and 5 to get pruned.
+	// Mark block 4 as finalized to force block 2_f and 3_f to get pruned.
 
-	let block_6 = client.new_block(Default::default()).unwrap().build().unwrap().block;
-	let block_6_hash = block_6.header.hash();
-	client.import(BlockOrigin::Own, block_6.clone()).await.unwrap();
+	let block_4 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_3.hash())
+		.with_parent_block_number(3)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let block_4_hash = block_4.hash();
+	client.import(BlockOrigin::Own, block_4.clone()).await.unwrap();
 
-	client.finalize_block(block_6_hash, None).unwrap();
+	client.finalize_block(block_4_hash, None).unwrap();
 
 	// Check block 6.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::NewBlock(NewBlock {
-		block_hash: format!("{:?}", block_6_hash),
+		block_hash: format!("{:?}", block_4_hash),
 		parent_block_hash: format!("{:?}", block_3_hash),
 		new_runtime: None,
 		with_runtime: false,
@@ -1783,14 +2093,14 @@ async fn follow_forks_pruned_block() {
 	assert_eq!(event, expected);
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::BestBlockChanged(BestBlockChanged {
-		best_block_hash: format!("{:?}", block_6_hash),
+		best_block_hash: format!("{:?}", block_4_hash),
 	});
 	assert_eq!(event, expected);
 
 	// Block 4 and 5 must not be reported as pruned.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Finalized(Finalized {
-		finalized_block_hashes: vec![format!("{:?}", block_6_hash)],
+		finalized_block_hashes: vec![format!("{:?}", block_4_hash)],
 		pruned_block_hashes: vec![],
 	});
 	assert_eq!(event, expected);
@@ -1806,7 +2116,6 @@ async fn follow_report_multiple_pruned_block() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -1820,26 +2129,51 @@ async fn follow_report_multiple_pruned_block() {
 	//
 	// finalized -> block 1 -> block 2 -> block 3
 	//                                        ^^^ finalized after subscription
-	//           -> block 1 -> block 4 -> block 5
+	//           -> block 1 -> block 2_f -> block 3_f
 
 	let finalized_hash = client.info().finalized_hash;
 
-	let block_1 = client.new_block(Default::default()).unwrap().build().unwrap().block;
-	let block_1_hash = block_1.header.hash();
+	let block_1 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let block_1_hash = block_1.hash();
 	client.import(BlockOrigin::Own, block_1.clone()).await.unwrap();
 
-	let block_2 = client.new_block(Default::default()).unwrap().build().unwrap().block;
-	let block_2_hash = block_2.header.hash();
+	let block_2 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_1.hash())
+		.with_parent_block_number(1)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let block_2_hash = block_2.hash();
 	client.import(BlockOrigin::Own, block_2.clone()).await.unwrap();
 
-	let block_3 = client.new_block(Default::default()).unwrap().build().unwrap().block;
-	let block_3_hash = block_3.header.hash();
+	let block_3 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_2.hash())
+		.with_parent_block_number(2)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let block_3_hash = block_3.hash();
 	client.import(BlockOrigin::Own, block_3.clone()).await.unwrap();
 
-	// Block 4 with parent Block 1 is not the best imported.
-	let mut block_builder =
-		client.new_block_at(block_1.header.hash(), Default::default(), false).unwrap();
-	// This push is required as otherwise block 4 has the same hash as block 2 and won't get
+	// Block 2_f with parent Block 1 is not the best imported.
+	let mut block_builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_1.hash())
+		.with_parent_block_number(1)
+		.build()
+		.unwrap();
+
+	// This push is required as otherwise block 2_f has the same hash as block 2 and won't get
 	// imported
 	block_builder
 		.push_transfer(Transfer {
@@ -1849,12 +2183,16 @@ async fn follow_report_multiple_pruned_block() {
 			nonce: 0,
 		})
 		.unwrap();
-	let block_4 = block_builder.build().unwrap().block;
-	let block_4_hash = block_4.header.hash();
-	client.import(BlockOrigin::Own, block_4.clone()).await.unwrap();
+	let block_2_f = block_builder.build().unwrap().block;
+	let block_2_f_hash = block_2_f.hash();
+	client.import(BlockOrigin::Own, block_2_f.clone()).await.unwrap();
 
-	let mut block_builder =
-		client.new_block_at(block_4.header.hash(), Default::default(), false).unwrap();
+	let mut block_builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_2_f.hash())
+		.with_parent_block_number(2)
+		.build()
+		.unwrap();
+
 	block_builder
 		.push_transfer(Transfer {
 			from: AccountKeyring::Bob.into(),
@@ -1863,10 +2201,10 @@ async fn follow_report_multiple_pruned_block() {
 			nonce: 0,
 		})
 		.unwrap();
-	let block_5 = block_builder.build().unwrap().block;
-	let block_5_hash = block_5.header.hash();
-	client.import(BlockOrigin::Own, block_5.clone()).await.unwrap();
-	let mut sub = api.subscribe("chainHead_unstable_follow", [false]).await.unwrap();
+	let block_3_f = block_builder.build().unwrap().block;
+	let block_3_f_hash = block_3_f.hash();
+	client.import(BlockOrigin::Own, block_3_f.clone()).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
 
 	// Initialized must always be reported first.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
@@ -1907,7 +2245,7 @@ async fn follow_report_multiple_pruned_block() {
 	// The fork must also be reported.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::NewBlock(NewBlock {
-		block_hash: format!("{:?}", block_4_hash),
+		block_hash: format!("{:?}", block_2_f_hash),
 		parent_block_hash: format!("{:?}", block_1_hash),
 		new_runtime: None,
 		with_runtime: false,
@@ -1916,8 +2254,8 @@ async fn follow_report_multiple_pruned_block() {
 
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::NewBlock(NewBlock {
-		block_hash: format!("{:?}", block_5_hash),
-		parent_block_hash: format!("{:?}", block_4_hash),
+		block_hash: format!("{:?}", block_3_f_hash),
+		parent_block_hash: format!("{:?}", block_2_f_hash),
 		new_runtime: None,
 		with_runtime: false,
 	});
@@ -1947,22 +2285,30 @@ async fn follow_report_multiple_pruned_block() {
 
 	// Block tree:
 	//
-	// finalized -> block 1 -> block 2 -> block 3 -> block 6
+	// finalized -> block 1 -> block 2 -> block 3 -> block 4
 	//                                                  ^^^ finalized
-	//           -> block 1 -> block 4 -> block 5
+	//           -> block 1 -> block 2_f -> block 3_f
 	//
-	// Mark block 6 as finalized to force block 4 and 5 to get pruned.
+	// Mark block 4 as finalized to force block 2_f and 3_f to get pruned.
 
-	let block_6 = client.new_block(Default::default()).unwrap().build().unwrap().block;
-	let block_6_hash = block_6.header.hash();
-	client.import(BlockOrigin::Own, block_6.clone()).await.unwrap();
+	let block_4 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_3.hash())
+		.with_parent_block_number(3)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 
-	client.finalize_block(block_6_hash, None).unwrap();
+	let block_4_hash = block_4.hash();
+	client.import(BlockOrigin::Own, block_4.clone()).await.unwrap();
+
+	client.finalize_block(block_4_hash, None).unwrap();
 
 	// Check block 6.
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::NewBlock(NewBlock {
-		block_hash: format!("{:?}", block_6_hash),
+		block_hash: format!("{:?}", block_4_hash),
 		parent_block_hash: format!("{:?}", block_3_hash),
 		new_runtime: None,
 		with_runtime: false,
@@ -1970,15 +2316,15 @@ async fn follow_report_multiple_pruned_block() {
 	assert_eq!(event, expected);
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::BestBlockChanged(BestBlockChanged {
-		best_block_hash: format!("{:?}", block_6_hash),
+		best_block_hash: format!("{:?}", block_4_hash),
 	});
 	assert_eq!(event, expected);
 
 	// Block 4 and 5 be reported as pruned, not just the stale head (block 5).
 	let event: FollowEvent<String> = get_next_event(&mut sub).await;
 	let expected = FollowEvent::Finalized(Finalized {
-		finalized_block_hashes: vec![format!("{:?}", block_6_hash)],
-		pruned_block_hashes: vec![format!("{:?}", block_4_hash), format!("{:?}", block_5_hash)],
+		finalized_block_hashes: vec![format!("{:?}", block_4_hash)],
+		pruned_block_hashes: vec![format!("{:?}", block_2_f_hash), format!("{:?}", block_3_f_hash)],
 	});
 	assert_eq!(event, expected);
 }
@@ -2015,7 +2361,6 @@ async fn pin_block_references() {
 		client.clone(),
 		backend.clone(),
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: 3,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -2042,11 +2387,18 @@ async fn pin_block_references() {
 		}
 	}
 
-	let mut sub = api.subscribe("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 
-	let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	let hash = block.header.hash();
 	let block_hash = format!("{:?}", hash);
 	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
@@ -2074,7 +2426,10 @@ async fn pin_block_references() {
 	wait_pinned_references(&backend, &hash, 1).await;
 
 	// To not exceed the number of pinned blocks, we need to unpin before the next import.
-	let _res: () = api.call("chainHead_unstable_unpin", [&sub_id, &block_hash]).await.unwrap();
+	let _res: () = api
+		.call("chainHead_unstable_unpin", rpc_params![&sub_id, &block_hash])
+		.await
+		.unwrap();
 
 	// Make sure unpin clears out the reference.
 	let refs = backend.pin_refs(&hash).unwrap();
@@ -2083,8 +2438,15 @@ async fn pin_block_references() {
 	// Add another 2 blocks and make sure we drop the subscription with the blocks pinned.
 	let mut hashes = Vec::new();
 	for _ in 0..2 {
-		let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
-		let hash = block.header.hash();
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let hash = block.hash();
 		client.import(BlockOrigin::Own, block.clone()).await.unwrap();
 
 		// Ensure the imported block is propagated for this subscription.
@@ -2109,7 +2471,14 @@ async fn pin_block_references() {
 	drop(sub);
 	// The `chainHead` detects the subscription was terminated when it tries
 	// to send another block.
-	let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().best_hash)
+		.with_parent_block_number(client.chain_info().best_number)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
 
 	for hash in &hashes {
@@ -2129,7 +2498,6 @@ async fn follow_finalized_before_new_block() {
 		client_mock.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -2140,11 +2508,18 @@ async fn follow_finalized_before_new_block() {
 	.into_rpc();
 
 	// Make sure the block is imported for it to be pinned.
-	let block_1 = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block_1 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	let block_1_hash = block_1.header.hash();
 	client.import(BlockOrigin::Own, block_1.clone()).await.unwrap();
 
-	let mut sub = api.subscribe("chainHead_unstable_follow", [false]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [false]).await.unwrap();
 
 	// Trigger the `FinalizedNotification` for block 1 before the `BlockImportNotification`, and
 	// expect for the `chainHead` to generate `NewBlock`, `BestBlock` and `Finalized` events.
@@ -2185,8 +2560,15 @@ async fn follow_finalized_before_new_block() {
 	});
 	assert_eq!(event, expected);
 
-	let block_2 = client.new_block(Default::default()).unwrap().build().unwrap().block;
-	let block_2_hash = block_2.header.hash();
+	let block_2 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_1.hash())
+		.with_parent_block_number(1)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let block_2_hash = block_2.hash();
 	client.import(BlockOrigin::Own, block_2.clone()).await.unwrap();
 
 	// Triggering the `BlockImportNotification` notification for block 1 should have no effect
@@ -2230,7 +2612,6 @@ async fn ensure_operation_limits_works() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -2240,11 +2621,18 @@ async fn ensure_operation_limits_works() {
 	)
 	.into_rpc();
 
-	let mut sub = api.subscribe("chainHead_unstable_follow", [true]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 
-	let block = client.new_block(Default::default()).unwrap().build().unwrap().block;
+	let block = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
 	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
 
 	// Ensure the imported block is propagated and pinned for this subscription.
@@ -2328,7 +2716,6 @@ async fn check_continue_operation() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -2338,15 +2725,20 @@ async fn check_continue_operation() {
 	)
 	.into_rpc();
 
-	let mut sub = api.subscribe("chainHead_unstable_follow", [true]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 
 	// Import a new block with storage changes.
-	let mut builder = client.new_block(Default::default()).unwrap();
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap();
 	builder.push_storage_change(b":m".to_vec(), Some(b"a".to_vec())).unwrap();
 	builder.push_storage_change(b":mo".to_vec(), Some(b"ab".to_vec())).unwrap();
 	builder.push_storage_change(b":moc".to_vec(), Some(b"abc".to_vec())).unwrap();
+	builder.push_storage_change(b":moD".to_vec(), Some(b"abcmoD".to_vec())).unwrap();
 	builder.push_storage_change(b":mock".to_vec(), Some(b"abcd".to_vec())).unwrap();
 	let block = builder.build().unwrap().block;
 	let block_hash = format!("{:?}", block.header.hash());
@@ -2430,6 +2822,25 @@ async fn check_continue_operation() {
 		get_next_event::<FollowEvent<String>>(&mut sub).await,
 		FollowEvent::OperationWaitingForContinue(res) if res.operation_id == operation_id
 	);
+	does_not_produce_event::<FollowEvent<String>>(
+		&mut sub,
+		std::time::Duration::from_secs(DOES_NOT_PRODUCE_EVENTS_SECONDS),
+	)
+	.await;
+	let _res: () = api.call("chainHead_unstable_continue", [&sub_id, &operation_id]).await.unwrap();
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::OperationStorageItems(res) if res.operation_id == operation_id &&
+			res.items.len() == 1 &&
+			res.items[0].key == hex_string(b":moD") &&
+			res.items[0].result == StorageResultType::Value(hex_string(b"abcmoD"))
+	);
+
+	// Pagination event.
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::OperationWaitingForContinue(res) if res.operation_id == operation_id
+	);
 
 	does_not_produce_event::<FollowEvent<String>>(
 		&mut sub,
@@ -2487,7 +2898,6 @@ async fn stop_storage_operation() {
 		client.clone(),
 		backend,
 		Arc::new(TaskExecutor::default()),
-		CHAIN_GENESIS,
 		ChainHeadConfig {
 			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
 			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
@@ -2497,12 +2907,16 @@ async fn stop_storage_operation() {
 	)
 	.into_rpc();
 
-	let mut sub = api.subscribe("chainHead_unstable_follow", [true]).await.unwrap();
+	let mut sub = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
 	let sub_id = sub.subscription_id();
 	let sub_id = serde_json::to_string(&sub_id).unwrap();
 
 	// Import a new block with storage changes.
-	let mut builder = client.new_block(Default::default()).unwrap();
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap();
 	builder.push_storage_change(b":m".to_vec(), Some(b"a".to_vec())).unwrap();
 	builder.push_storage_change(b":mo".to_vec(), Some(b"ab".to_vec())).unwrap();
 	let block = builder.build().unwrap().block;
@@ -2582,4 +2996,195 @@ async fn stop_storage_operation() {
 		std::time::Duration::from_secs(DOES_NOT_PRODUCE_EVENTS_SECONDS),
 	)
 	.await;
+}
+
+#[tokio::test]
+async fn storage_closest_merkle_value() {
+	let (mut client, api, mut sub, sub_id, block) = setup_api().await;
+
+	/// The core of this test.
+	///
+	/// Checks keys that are exact match, keys with descedant and keys that should not return
+	/// values.
+	///
+	/// Returns (key, merkle value) pairs.
+	async fn expect_merkle_request(
+		api: &RpcModule<ChainHead<Backend, Block, Client<Backend>>>,
+		mut sub: &mut RpcSubscription,
+		sub_id: String,
+		block_hash: String,
+	) -> HashMap<String, String> {
+		// Valid call with storage at the keys.
+		let response: MethodResponse = api
+			.call(
+				"chainHead_unstable_storage",
+				rpc_params![
+					&sub_id,
+					&block_hash,
+					vec![
+						StorageQuery {
+							key: hex_string(b":AAAA"),
+							query_type: StorageQueryType::ClosestDescendantMerkleValue
+						},
+						StorageQuery {
+							key: hex_string(b":AAAB"),
+							query_type: StorageQueryType::ClosestDescendantMerkleValue
+						},
+						// Key with descedent.
+						StorageQuery {
+							key: hex_string(b":A"),
+							query_type: StorageQueryType::ClosestDescendantMerkleValue
+						},
+						StorageQuery {
+							key: hex_string(b":AA"),
+							query_type: StorageQueryType::ClosestDescendantMerkleValue
+						},
+						// Keys below this comment do not produce a result.
+						// Key that exceed the keyspace of the trie.
+						StorageQuery {
+							key: hex_string(b":AAAAX"),
+							query_type: StorageQueryType::ClosestDescendantMerkleValue
+						},
+						StorageQuery {
+							key: hex_string(b":AAABX"),
+							query_type: StorageQueryType::ClosestDescendantMerkleValue
+						},
+						// Key that are not part of the trie.
+						StorageQuery {
+							key: hex_string(b":AAX"),
+							query_type: StorageQueryType::ClosestDescendantMerkleValue
+						},
+						StorageQuery {
+							key: hex_string(b":AAAX"),
+							query_type: StorageQueryType::ClosestDescendantMerkleValue
+						},
+					]
+				],
+			)
+			.await
+			.unwrap();
+		let operation_id = match response {
+			MethodResponse::Started(started) => started.operation_id,
+			MethodResponse::LimitReached => panic!("Expected started response"),
+		};
+
+		let event = get_next_event::<FollowEvent<String>>(&mut sub).await;
+		let merkle_values: HashMap<_, _> = match event {
+			FollowEvent::OperationStorageItems(res) => {
+				assert_eq!(res.operation_id, operation_id);
+
+				res.items
+					.into_iter()
+					.map(|res| {
+						let value = match res.result {
+							StorageResultType::ClosestDescendantMerkleValue(value) => value,
+							_ => panic!("Unexpected StorageResultType"),
+						};
+						(res.key, value)
+					})
+					.collect()
+			},
+			_ => panic!("Expected OperationStorageItems event"),
+		};
+
+		// Finished.
+		assert_matches!(
+				get_next_event::<FollowEvent<String>>(&mut sub).await,
+				FollowEvent::OperationStorageDone(done) if done.operation_id == operation_id
+		);
+
+		// Response for AAAA, AAAB, A and AA.
+		assert_eq!(merkle_values.len(), 4);
+
+		// While checking for expected merkle values to align,
+		// the following will check that the returned keys are
+		// expected.
+
+		// Values for AAAA and AAAB are different.
+		assert_ne!(
+			merkle_values.get(&hex_string(b":AAAA")).unwrap(),
+			merkle_values.get(&hex_string(b":AAAB")).unwrap()
+		);
+
+		// Values for A and AA should be on the same branch node.
+		assert_eq!(
+			merkle_values.get(&hex_string(b":A")).unwrap(),
+			merkle_values.get(&hex_string(b":AA")).unwrap()
+		);
+		// The branch node value must be different than the leaf of either
+		// AAAA and AAAB.
+		assert_ne!(
+			merkle_values.get(&hex_string(b":A")).unwrap(),
+			merkle_values.get(&hex_string(b":AAAA")).unwrap()
+		);
+		assert_ne!(
+			merkle_values.get(&hex_string(b":A")).unwrap(),
+			merkle_values.get(&hex_string(b":AAAB")).unwrap()
+		);
+
+		merkle_values
+	}
+
+	// Import a new block with storage changes.
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block.hash())
+		.with_parent_block_number(1)
+		.build()
+		.unwrap();
+	builder.push_storage_change(b":AAAA".to_vec(), Some(vec![1; 64])).unwrap();
+	builder.push_storage_change(b":AAAB".to_vec(), Some(vec![2; 64])).unwrap();
+	let block = builder.build().unwrap().block;
+	let block_hash = format!("{:?}", block.header.hash());
+	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+
+	// Ensure the imported block is propagated and pinned for this subscription.
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::NewBlock(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::BestBlockChanged(_)
+	);
+
+	let merkle_values_lhs = expect_merkle_request(&api, &mut sub, sub_id.clone(), block_hash).await;
+
+	// Import a new block with and change AAAB value.
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block.hash())
+		.with_parent_block_number(2)
+		.build()
+		.unwrap();
+	builder.push_storage_change(b":AAAA".to_vec(), Some(vec![1; 64])).unwrap();
+	builder.push_storage_change(b":AAAB".to_vec(), Some(vec![3; 64])).unwrap();
+	let block = builder.build().unwrap().block;
+	let block_hash = format!("{:?}", block.header.hash());
+	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+
+	// Ensure the imported block is propagated and pinned for this subscription.
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::NewBlock(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub).await,
+		FollowEvent::BestBlockChanged(_)
+	);
+
+	let merkle_values_rhs = expect_merkle_request(&api, &mut sub, sub_id.clone(), block_hash).await;
+
+	// Change propagated to the root.
+	assert_ne!(
+		merkle_values_lhs.get(&hex_string(b":A")).unwrap(),
+		merkle_values_rhs.get(&hex_string(b":A")).unwrap()
+	);
+	assert_ne!(
+		merkle_values_lhs.get(&hex_string(b":AAAB")).unwrap(),
+		merkle_values_rhs.get(&hex_string(b":AAAB")).unwrap()
+	);
+	// However the AAAA branch leaf remains unchanged.
+	assert_eq!(
+		merkle_values_lhs.get(&hex_string(b":AAAA")).unwrap(),
+		merkle_values_rhs.get(&hex_string(b":AAAA")).unwrap()
+	);
 }
