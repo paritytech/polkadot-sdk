@@ -156,12 +156,6 @@ where
 						// - The transaction was included in a finalized block via
 						//   `TransactionStatus::Finalized`.
 						TransactionStatus::Finalized(_) |
-						// - The block in which the transaction was included could not be finalized for
-						//   more than 256 blocks via `TransactionStatus::FinalityTimeout`. This could
-						//   happen when:
-						//   - the finality gadget is lagging behing
-						//   - the finality gadget is not available for the chain
-						TransactionStatus::FinalityTimeout(_) |
 						// - The transaction has been replaced by another transaction with identical tags
 						// (same sender and same account nonce).
 						TransactionStatus::Usurped(_) => {
@@ -169,6 +163,8 @@ where
 							break;
 						},
 
+						// The maximum number of finality watchers has been reached.
+						TransactionStatus::FinalityTimeout(_) |
 						// Dropped transaction may enter the pool at a later time, when other
 						// transactions have been finalized and remove from the pool.
 						TransactionStatus::Dropped |
