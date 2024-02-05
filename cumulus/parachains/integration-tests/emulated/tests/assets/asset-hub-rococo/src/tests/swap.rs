@@ -14,17 +14,19 @@
 // limitations under the License.
 
 use crate::*;
-use frame_support::{instances::Instance2, BoundedVec};
-use parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
-use sp_runtime::{DispatchError, ModuleError};
+use rococo_system_emulated_network::penpal_emulated_chain::LocalTeleportableToAssetHubV3 as PenpalLocalTeleportableToAssetHubV3;
+use sp_runtime::ModuleError;
 
 #[test]
 fn swap_locally_on_chain_using_local_assets() {
-	let asset_native = Box::new(asset_hub_rococo_runtime::xcm_config::TokenLocation::get());
-	let asset_one = Box::new(MultiLocation {
-		parents: 0,
-		interior: X2(PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())),
-	});
+	let asset_native = Box::new(asset_hub_rococo_runtime::xcm_config::TokenLocationV3::get());
+	let asset_one = Box::new(v3::Location::new(
+		0,
+		[
+			v3::Junction::PalletInstance(ASSETS_PALLET_ID),
+			v3::Junction::GeneralIndex(ASSET_ID.into()),
+		],
+	));
 
 	AssetHubRococo::execute_with(|| {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
@@ -40,12 +42,6 @@ fn swap_locally_on_chain_using_local_assets() {
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::Assets::mint(
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
 			ASSET_ID.into(),
-			AssetHubRococoSender::get().into(),
-			100_000_000_000_000,
-		));
-
-		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::Balances::force_set_balance(
-			<AssetHubRococo as Chain>::RuntimeOrigin::root(),
 			AssetHubRococoSender::get().into(),
 			100_000_000_000_000,
 		));
@@ -81,7 +77,7 @@ fn swap_locally_on_chain_using_local_assets() {
 			]
 		);
 
-		let path = BoundedVec::<_, _>::truncate_from(vec![asset_native.clone(), asset_one.clone()]);
+		let path = vec![asset_native.clone(), asset_one.clone()];
 
 		assert_ok!(
 			<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::swap_exact_tokens_for_tokens(
@@ -108,7 +104,7 @@ fn swap_locally_on_chain_using_local_assets() {
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
 			asset_native,
 			asset_one,
-			1414213562273 - EXISTENTIAL_DEPOSIT * 2, // all but the 2 EDs can't be retrieved.
+			1414213562273 - ASSET_HUB_ROCOCO_ED * 2, // all but the 2 EDs can't be retrieved.
 			0,
 			0,
 			AssetHubRococoSender::get().into(),
@@ -118,114 +114,37 @@ fn swap_locally_on_chain_using_local_assets() {
 
 #[test]
 fn swap_locally_on_chain_using_foreign_assets() {
-	use frame_support::weights::WeightToFee;
+	let asset_native = Box::new(asset_hub_rococo_runtime::xcm_config::TokenLocationV3::get());
+	let ah_as_seen_by_penpal = PenpalA::sibling_location_of(AssetHubRococo::para_id());
+	let asset_location_on_penpal = PenpalLocalTeleportableToAssetHubV3::get();
+	let asset_id_on_penpal = match asset_location_on_penpal.last() {
+		Some(v3::Junction::GeneralIndex(id)) => *id as u32,
+		_ => unreachable!(),
+	};
+	let asset_owner_on_penpal = PenpalASender::get();
+	let foreign_asset_at_asset_hub_rococo =
+		v3::Location::new(1, [v3::Junction::Parachain(PenpalA::para_id().into())])
+			.appended_with(asset_location_on_penpal)
+			.unwrap();
 
-	let asset_native = Box::new(asset_hub_rococo_runtime::xcm_config::TokenLocation::get());
+	// 1. Create asset on penpal and, 2. Create foreign asset on asset_hub_rococo
+	super::penpal_create_foreign_asset_on_asset_hub(
+		asset_id_on_penpal,
+		foreign_asset_at_asset_hub_rococo,
+		ah_as_seen_by_penpal,
+		true,
+		asset_owner_on_penpal,
+		ASSET_MIN_BALANCE * 1_000_000,
+	);
 
-	let foreign_asset1_at_asset_hub_rococo = Box::new(MultiLocation {
-		parents: 1,
-		interior: X3(
-			Parachain(PenpalA::para_id().into()),
-			PalletInstance(ASSETS_PALLET_ID),
-			GeneralIndex(ASSET_ID.into()),
-		),
-	});
-
-	let assets_para_destination: VersionedMultiLocation =
-		MultiLocation { parents: 1, interior: X1(Parachain(AssetHubRococo::para_id().into())) }
-			.into();
-
-	let penpal_location =
-		MultiLocation { parents: 1, interior: X1(Parachain(PenpalA::para_id().into())) };
-
-	// 1. Create asset on penpal:
-	PenpalA::execute_with(|| {
-		assert_ok!(<PenpalA as PenpalAPallet>::Assets::create(
-			<PenpalA as Chain>::RuntimeOrigin::signed(PenpalASender::get()),
-			ASSET_ID.into(),
-			PenpalASender::get().into(),
-			1000,
-		));
-
-		assert!(<PenpalA as PenpalAPallet>::Assets::asset_exists(ASSET_ID));
-	});
-
-	// 2. Create foreign asset on asset_hub_rococo:
-
-	let require_weight_at_most = Weight::from_parts(1_100_000_000_000, 30_000);
-	let origin_kind = OriginKind::Xcm;
-	let sov_penpal_on_asset_hub_rococo = AssetHubRococo::sovereign_account_id_of(penpal_location);
-
+	let penpal_as_seen_by_ah = AssetHubRococo::sibling_location_of(PenpalA::para_id());
+	let sov_penpal_on_ahr = AssetHubRococo::sovereign_account_id_of(penpal_as_seen_by_ah);
 	AssetHubRococo::fund_accounts(vec![
 		(AssetHubRococoSender::get().into(), 5_000_000 * ROCOCO_ED), /* An account to swap dot
 		                                                              * for something else. */
-		(sov_penpal_on_asset_hub_rococo.clone().into(), 1000_000_000_000_000_000 * ROCOCO_ED),
 	]);
 
-	let sov_penpal_on_asset_hub_rococo_as_location: MultiLocation = MultiLocation {
-		parents: 0,
-		interior: X1(AccountId32Junction {
-			network: None,
-			id: sov_penpal_on_asset_hub_rococo.clone().into(),
-		}),
-	};
-
-	let call_foreign_assets_create =
-		<AssetHubRococo as Chain>::RuntimeCall::ForeignAssets(pallet_assets::Call::<
-			<AssetHubRococo as Chain>::Runtime,
-			Instance2,
-		>::create {
-			id: *foreign_asset1_at_asset_hub_rococo,
-			min_balance: 1000,
-			admin: sov_penpal_on_asset_hub_rococo.clone().into(),
-		})
-		.encode()
-		.into();
-
-	let buy_execution_fee_amount = parachains_common::rococo::fee::WeightToFee::weight_to_fee(
-		&Weight::from_parts(10_100_000_000_000, 300_000),
-	);
-	let buy_execution_fee = MultiAsset {
-		id: Concrete(MultiLocation { parents: 1, interior: Here }),
-		fun: Fungible(buy_execution_fee_amount),
-	};
-
-	let xcm = VersionedXcm::from(Xcm(vec![
-		WithdrawAsset { 0: vec![buy_execution_fee.clone()].into() },
-		BuyExecution { fees: buy_execution_fee.clone(), weight_limit: Unlimited },
-		Transact { require_weight_at_most, origin_kind, call: call_foreign_assets_create },
-		RefundSurplus,
-		DepositAsset {
-			assets: All.into(),
-			beneficiary: sov_penpal_on_asset_hub_rococo_as_location,
-		},
-	]));
-
-	// Send XCM message from penpal => asset_hub_rococo
-	let sudo_penpal_origin = <PenpalA as Chain>::RuntimeOrigin::root();
-	PenpalA::execute_with(|| {
-		assert_ok!(<PenpalA as PenpalAPallet>::PolkadotXcm::send(
-			sudo_penpal_origin.clone(),
-			bx!(assets_para_destination.clone()),
-			bx!(xcm),
-		));
-
-		type RuntimeEvent = <PenpalA as Chain>::RuntimeEvent;
-
-		assert_expected_events!(
-			PenpalA,
-			vec![
-				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::Sent { .. }) => {},
-			]
-		);
-	});
-
-	// Receive XCM message in Assets Parachain
 	AssetHubRococo::execute_with(|| {
-		assert!(<AssetHubRococo as AssetHubRococoPallet>::ForeignAssets::asset_exists(
-			*foreign_asset1_at_asset_hub_rococo
-		));
-
 		// 3: Mint foreign asset on asset_hub_rococo:
 		//
 		// (While it might be nice to use batch,
@@ -234,11 +153,9 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 		// 3. Mint foreign asset (in reality this should be a teleport or some such)
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::ForeignAssets::mint(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(
-				sov_penpal_on_asset_hub_rococo.clone().into()
-			),
-			*foreign_asset1_at_asset_hub_rococo,
-			sov_penpal_on_asset_hub_rococo.clone().into(),
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed(sov_penpal_on_ahr.clone().into()),
+			foreign_asset_at_asset_hub_rococo,
+			sov_penpal_on_ahr.clone().into(),
 			3_000_000_000_000,
 		));
 
@@ -253,7 +170,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::create_pool(
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
 			asset_native.clone(),
-			foreign_asset1_at_asset_hub_rococo.clone(),
+			Box::new(foreign_asset_at_asset_hub_rococo),
 		));
 
 		assert_expected_events!(
@@ -265,16 +182,14 @@ fn swap_locally_on_chain_using_foreign_assets() {
 
 		// 5. Add liquidity:
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::add_liquidity(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(
-				sov_penpal_on_asset_hub_rococo.clone()
-			),
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed(sov_penpal_on_ahr.clone()),
 			asset_native.clone(),
-			foreign_asset1_at_asset_hub_rococo.clone(),
+			Box::new(foreign_asset_at_asset_hub_rococo),
 			1_000_000_000_000,
 			2_000_000_000_000,
 			0,
 			0,
-			sov_penpal_on_asset_hub_rococo.clone().into()
+			sov_penpal_on_ahr.clone().into()
 		));
 
 		assert_expected_events!(
@@ -287,10 +202,7 @@ fn swap_locally_on_chain_using_foreign_assets() {
 		);
 
 		// 6. Swap!
-		let path = BoundedVec::<_, _>::truncate_from(vec![
-			asset_native.clone(),
-			foreign_asset1_at_asset_hub_rococo.clone(),
-		]);
+		let path = vec![asset_native.clone(), Box::new(foreign_asset_at_asset_hub_rococo)];
 
 		assert_ok!(
 			<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::swap_exact_tokens_for_tokens(
@@ -315,24 +227,24 @@ fn swap_locally_on_chain_using_foreign_assets() {
 
 		// 7. Remove liquidity
 		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::remove_liquidity(
-			<AssetHubRococo as Chain>::RuntimeOrigin::signed(
-				sov_penpal_on_asset_hub_rococo.clone()
-			),
-			asset_native,
-			foreign_asset1_at_asset_hub_rococo,
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed(sov_penpal_on_ahr.clone()),
+			asset_native.clone(),
+			Box::new(foreign_asset_at_asset_hub_rococo),
 			1414213562273 - 2_000_000_000, // all but the 2 EDs can't be retrieved.
 			0,
 			0,
-			sov_penpal_on_asset_hub_rococo.clone().into(),
+			sov_penpal_on_ahr.clone().into(),
 		));
 	});
 }
 
 #[test]
 fn cannot_create_pool_from_pool_assets() {
-	let asset_native = Box::new(asset_hub_rococo_runtime::xcm_config::TokenLocation::get());
-	let mut asset_one = asset_hub_rococo_runtime::xcm_config::PoolAssetsPalletLocation::get();
-	asset_one.append_with(GeneralIndex(ASSET_ID.into())).expect("pool assets");
+	let asset_native = Box::new(asset_hub_rococo_runtime::xcm_config::TokenLocationV3::get());
+	let mut asset_one = asset_hub_rococo_runtime::xcm_config::PoolAssetsPalletLocationV3::get();
+	asset_one
+		.append_with(v3::Junction::GeneralIndex(ASSET_ID.into()))
+		.expect("pool assets");
 
 	AssetHubRococo::execute_with(|| {
 		let pool_owner_account_id = asset_hub_rococo_runtime::AssetConversionOrigin::get();
@@ -355,10 +267,140 @@ fn cannot_create_pool_from_pool_assets() {
 		assert_matches::assert_matches!(
 			<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::create_pool(
 				<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
-				asset_native.clone(),
+				asset_native,
 				Box::new(asset_one),
 			),
-			Err(DispatchError::Module(ModuleError{index: _, error: _, message})) => assert_eq!(message, Some("UnsupportedAsset"))
+			Err(DispatchError::Module(ModuleError{index: _, error: _, message})) => assert_eq!(message, Some("Unknown"))
+		);
+	});
+}
+
+#[test]
+fn pay_xcm_fee_with_some_asset_swapped_for_native() {
+	let asset_native = asset_hub_rococo_runtime::xcm_config::TokenLocationV3::get();
+	let asset_one = xcm::v3::Location {
+		parents: 0,
+		interior: [
+			xcm::v3::Junction::PalletInstance(ASSETS_PALLET_ID),
+			xcm::v3::Junction::GeneralIndex(ASSET_ID.into()),
+		]
+		.into(),
+	};
+	let penpal = AssetHubRococo::sovereign_account_id_of(AssetHubRococo::sibling_location_of(
+		PenpalA::para_id(),
+	));
+
+	AssetHubRococo::execute_with(|| {
+		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
+
+		// set up pool with ASSET_ID <> NATIVE pair
+		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::Assets::create(
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			ASSET_ID.into(),
+			AssetHubRococoSender::get().into(),
+			ASSET_MIN_BALANCE,
+		));
+		assert!(<AssetHubRococo as AssetHubRococoPallet>::Assets::asset_exists(ASSET_ID));
+
+		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::Assets::mint(
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			ASSET_ID.into(),
+			AssetHubRococoSender::get().into(),
+			3_000_000_000_000,
+		));
+
+		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::create_pool(
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			Box::new(asset_native),
+			Box::new(asset_one),
+		));
+
+		assert_expected_events!(
+			AssetHubRococo,
+			vec![
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::PoolCreated { .. }) => {},
+			]
+		);
+
+		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::AssetConversion::add_liquidity(
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			Box::new(asset_native),
+			Box::new(asset_one),
+			1_000_000_000_000,
+			2_000_000_000_000,
+			0,
+			0,
+			AssetHubRococoSender::get().into()
+		));
+
+		assert_expected_events!(
+			AssetHubRococo,
+			vec![
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::LiquidityAdded {lp_token_minted, .. }) => { lp_token_minted: *lp_token_minted == 1414213562273, },
+			]
+		);
+
+		// ensure `penpal` sovereign account has no native tokens and mint some `ASSET_ID`
+		assert_eq!(
+			<AssetHubRococo as AssetHubRococoPallet>::Balances::free_balance(penpal.clone()),
+			0
+		);
+
+		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::Assets::touch_other(
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			ASSET_ID.into(),
+			penpal.clone().into(),
+		));
+
+		assert_ok!(<AssetHubRococo as AssetHubRococoPallet>::Assets::mint(
+			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
+			ASSET_ID.into(),
+			penpal.clone().into(),
+			10_000_000_000_000,
+		));
+	});
+
+	PenpalA::execute_with(|| {
+		// send xcm transact from `penpal` account which as only `ASSET_ID` tokens on
+		// `AssetHubRococo`
+		let call = AssetHubRococo::force_create_asset_call(
+			ASSET_ID + 1000,
+			penpal.clone(),
+			true,
+			ASSET_MIN_BALANCE,
+		);
+
+		let penpal_root = <PenpalA as Chain>::RuntimeOrigin::root();
+		let fee_amount = 4_000_000_000_000u128;
+		let asset_one =
+			([PalletInstance(ASSETS_PALLET_ID), GeneralIndex(ASSET_ID.into())], fee_amount).into();
+		let asset_hub_location = PenpalA::sibling_location_of(AssetHubRococo::para_id()).into();
+		let xcm = xcm_transact_paid_execution(
+			call,
+			OriginKind::SovereignAccount,
+			asset_one,
+			penpal.clone(),
+		);
+
+		assert_ok!(<PenpalA as PenpalAPallet>::PolkadotXcm::send(
+			penpal_root,
+			bx!(asset_hub_location),
+			bx!(xcm),
+		));
+
+		PenpalA::assert_xcm_pallet_sent();
+	});
+
+	AssetHubRococo::execute_with(|| {
+		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
+
+		AssetHubRococo::assert_xcmp_queue_success(None);
+		assert_expected_events!(
+			AssetHubRococo,
+			vec![
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::SwapCreditExecuted { .. },) => {},
+				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed { success: true,.. }) => {},
+			]
 		);
 	});
 }

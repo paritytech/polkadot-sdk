@@ -17,7 +17,7 @@
 
 use super::*;
 use crate::{self as pools};
-use frame_support::{assert_ok, parameter_types, traits::fungible::Mutate, PalletId};
+use frame_support::{assert_ok, derive_impl, parameter_types, traits::fungible::Mutate, PalletId};
 use frame_system::RawOrigin;
 use sp_runtime::{BuildStorage, FixedU128};
 use sp_staking::{OnStakingUpdate, Stake};
@@ -209,6 +209,7 @@ impl sp_staking::StakingInterface for StakingMock {
 	}
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	type SS58Prefix = ();
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -253,7 +254,6 @@ impl pallet_balances::Config for Runtime {
 	type MaxFreezes = ConstU32<1>;
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-	type MaxHolds = ();
 }
 
 pub struct BalanceToU256;
@@ -294,11 +294,10 @@ impl pools::Config for Runtime {
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
 frame_support::construct_runtime!(
-	pub struct Runtime
-	{
-		System: frame_system::{Pallet, Call, Storage, Event<T>, Config<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Pools: pools::{Pallet, Call, Storage, Event<T>, FreezeReason},
+	pub enum Runtime {
+		System: frame_system,
+		Balances: pallet_balances,
+		Pools: pools,
 	}
 );
 

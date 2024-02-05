@@ -1,6 +1,6 @@
 [package]
 name = "pallet-alliance"
-version = "4.0.0-dev"
+version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -8,6 +8,9 @@ homepage = "https://docs.substrate.io/"
 repository.workspace = true
 description = "The Alliance pallet provides a collective for standard-setting industry collaboration."
 readme = "README.md"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -19,27 +22,27 @@ log = { version = "0.4.14", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
-sp-std = { path = "../../primitives/std", default-features = false}
-sp-core = { path = "../../primitives/core", default-features = false}
-sp-core-hashing = { path = "../../primitives/core/hashing", default-features = false, optional = true }
-sp-io = { path = "../../primitives/io", default-features = false}
-sp-runtime = { path = "../../primitives/runtime", default-features = false}
+sp-std = { path = "../../primitives/std", default-features = false }
+sp-core = { path = "../../primitives/core", default-features = false }
+sp-crypto-hashing = { path = "../../primitives/crypto/hashing", default-features = false, optional = true }
+sp-io = { path = "../../primitives/io", default-features = false }
+sp-runtime = { path = "../../primitives/runtime", default-features = false }
 
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
-frame-support = { path = "../support", default-features = false}
-frame-system = { path = "../system", default-features = false}
+frame-support = { path = "../support", default-features = false }
+frame-system = { path = "../system", default-features = false }
 
 pallet-identity = { path = "../identity", default-features = false }
 pallet-collective = { path = "../collective", default-features = false, optional = true }
 
 [dev-dependencies]
 array-bytes = "6.1"
-sp-core-hashing = { path = "../../primitives/core/hashing", default-features = false}
+sp-crypto-hashing = { path = "../../primitives/crypto/hashing", default-features = false }
 pallet-balances = { path = "../balances" }
 pallet-collective = { path = "../collective" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",
@@ -50,8 +53,8 @@ std = [
 	"pallet-collective?/std",
 	"pallet-identity/std",
 	"scale-info/std",
-	"sp-core-hashing?/std",
 	"sp-core/std",
+	"sp-crypto-hashing?/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
@@ -64,7 +67,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
-	"sp-core-hashing",
+	"sp-crypto-hashing",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [

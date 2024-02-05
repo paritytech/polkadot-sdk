@@ -1,35 +1,34 @@
 [package]
 name = "asset-test-utils"
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 description = "Test utils for Asset Hub runtimes."
 license = "Apache-2.0"
 
+[lints]
+workspace = true
+
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
 
 # Substrate
-frame-support = { path = "../../../../../substrate/frame/support", default-features = false}
-frame-system = { path = "../../../../../substrate/frame/system", default-features = false}
-pallet-assets = { path = "../../../../../substrate/frame/assets", default-features = false}
-pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false}
-pallet-session = { path = "../../../../../substrate/frame/session", default-features = false}
-sp-consensus-aura = { path = "../../../../../substrate/primitives/consensus/aura", default-features = false}
-sp-io = { path = "../../../../../substrate/primitives/io", default-features = false}
-sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false}
-sp-std = { path = "../../../../../substrate/primitives/std", default-features = false}
-sp-core = { path = "../../../../../substrate/primitives/core", default-features = false}
+frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../../../substrate/frame/system", default-features = false }
+pallet-assets = { path = "../../../../../substrate/frame/assets", default-features = false }
+pallet-asset-conversion = { path = "../../../../../substrate/frame/asset-conversion", default-features = false }
+pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false }
+pallet-session = { path = "../../../../../substrate/frame/session", default-features = false }
+sp-io = { path = "../../../../../substrate/primitives/io", default-features = false }
+sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
+sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
 
 # Cumulus
-cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook",] }
+cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"] }
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false }
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
 parachains-common = { path = "../../../common", default-features = false }
-assets-common = { path = "../common", default-features = false }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
-cumulus-primitives-parachain-inherent = { path = "../../../../primitives/parachain-inherent", default-features = false }
-cumulus-test-relay-sproof-builder = { path = "../../../../test/relay-sproof-builder", default-features = false }
 parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false }
 parachains-runtimes-test-utils = { path = "../../test-utils", default-features = false }
 
@@ -38,7 +37,6 @@ xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-f
 xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false }
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false }
-polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false }
 
 # Bridges
 pallet-xcm-bridge-hub-router = { path = "../../../../../bridges/modules/xcm-bridge-hub-router", default-features = false }
@@ -50,17 +48,15 @@ hex-literal = "0.4.1"
 substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
-	"assets-common/std",
 	"codec/std",
 	"cumulus-pallet-parachain-system/std",
 	"cumulus-pallet-xcmp-queue/std",
 	"cumulus-primitives-core/std",
-	"cumulus-primitives-parachain-inherent/std",
-	"cumulus-test-relay-sproof-builder/std",
 	"frame-support/std",
 	"frame-system/std",
+	"pallet-asset-conversion/std",
 	"pallet-assets/std",
 	"pallet-balances/std",
 	"pallet-collator-selection/std",
@@ -70,9 +66,6 @@ std = [
 	"parachain-info/std",
 	"parachains-common/std",
 	"parachains-runtimes-test-utils/std",
-	"polkadot-parachain-primitives/std",
-	"sp-consensus-aura/std",
-	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",

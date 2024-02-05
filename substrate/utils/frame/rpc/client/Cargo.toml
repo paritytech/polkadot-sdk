@@ -1,6 +1,6 @@
 [package]
 name = "substrate-rpc-client"
-version = "0.10.0-dev"
+version = "0.33.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -8,13 +8,16 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "Shared JSON-RPC client"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-jsonrpsee = { version = "0.16.2", features = ["ws-client"] }
+jsonrpsee = { version = "0.20.3", features = ["ws-client"] }
 sc-rpc-api = { path = "../../../../client/rpc-api" }
-async-trait = "0.1.57"
+async-trait = "0.1.74"
 serde = "1"
 sp-runtime = { path = "../../../../primitives/runtime" }
 log = "0.4"

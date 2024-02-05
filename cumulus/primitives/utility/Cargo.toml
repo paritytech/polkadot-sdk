@@ -1,39 +1,44 @@
 [package]
 name = "cumulus-primitives-utility"
-version = "0.1.0"
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 description = "Helper datatypes for Cumulus"
 
+[lints]
+workspace = true
+
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [ "derive" ] }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 log = { version = "0.4.20", default-features = false }
 
 # Substrate
-frame-support = { path = "../../../substrate/frame/support", default-features = false}
-sp-io = { path = "../../../substrate/primitives/io", default-features = false}
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false}
-sp-std = { path = "../../../substrate/primitives/std", default-features = false}
+frame-support = { path = "../../../substrate/frame/support", default-features = false }
+sp-io = { path = "../../../substrate/primitives/io", default-features = false }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+pallet-asset-conversion = { path = "../../../substrate/frame/asset-conversion", default-features = false }
 
 # Polkadot
 polkadot-runtime-common = { path = "../../../polkadot/runtime/common", default-features = false }
 polkadot-runtime-parachains = { path = "../../../polkadot/runtime/parachains", default-features = false }
 xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false}
-xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false}
+xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false }
 pallet-xcm-benchmarks = { path = "../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false }
 
 # Cumulus
 cumulus-primitives-core = { path = "../core", default-features = false }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"cumulus-primitives-core/std",
 	"frame-support/std",
 	"log/std",
+	"pallet-asset-conversion/std",
 	"pallet-xcm-benchmarks/std",
 	"polkadot-runtime-common/std",
 	"polkadot-runtime-parachains/std",
@@ -48,6 +53,7 @@ std = [
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
+	"pallet-asset-conversion/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
 	"polkadot-runtime-parachains/runtime-benchmarks",

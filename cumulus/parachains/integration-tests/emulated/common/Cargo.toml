@@ -1,41 +1,41 @@
 [package]
 name = "emulated-integration-tests-common"
-version = "1.0.0"
+version = "3.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 description = "Common resources for integration testing with xcm-emulator"
 
+[lints]
+workspace = true
+
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
 paste = "1.0.14"
-serde_json = "1.0.108"
 
 # Substrate
 grandpa = { package = "sc-consensus-grandpa", path = "../../../../../substrate/client/consensus/grandpa" }
-sp-authority-discovery = { path = "../../../../../substrate/primitives/authority-discovery", default-features = false}
-sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false}
-frame-support = { path = "../../../../../substrate/frame/support", default-features = false}
-sp-core = { path = "../../../../../substrate/primitives/core", default-features = false}
-sp-consensus-babe = { path = "../../../../../substrate/primitives/consensus/babe", default-features = false}
-pallet-assets = { path = "../../../../../substrate/frame/assets", default-features = false}
-pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false}
-pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false}
-pallet-im-online = { path = "../../../../../substrate/frame/im-online", default-features = false}
-beefy-primitives = { package = "sp-consensus-beefy", path = "../../../../../substrate/primitives/consensus/beefy" }
+sp-authority-discovery = { path = "../../../../../substrate/primitives/authority-discovery" }
+sp-runtime = { path = "../../../../../substrate/primitives/runtime" }
+frame-support = { path = "../../../../../substrate/frame/support" }
+sp-core = { path = "../../../../../substrate/primitives/core" }
+sp-consensus-babe = { path = "../../../../../substrate/primitives/consensus/babe" }
+pallet-assets = { path = "../../../../../substrate/frame/assets" }
+pallet-balances = { path = "../../../../../substrate/frame/balances" }
+pallet-message-queue = { path = "../../../../../substrate/frame/message-queue" }
 
 # Polkadot
 polkadot-service = { path = "../../../../../polkadot/node/service", default-features = false, features = ["full-node"] }
-polkadot-primitives = { path = "../../../../../polkadot/primitives", default-features = false}
+polkadot-primitives = { path = "../../../../../polkadot/primitives" }
 polkadot-runtime-parachains = { path = "../../../../../polkadot/runtime/parachains" }
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false}
-pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm" }
+pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm" }
 
 # Cumulus
 parachains-common = { path = "../../../common" }
 cumulus-primitives-core = { path = "../../../../primitives/core" }
-xcm-emulator = { path = "../../../../xcm/xcm-emulator", default-features = false}
-cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false}
+xcm-emulator = { path = "../../../../xcm/xcm-emulator" }
+cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue" }
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system" }
 asset-test-utils = { path = "../../../runtimes/assets/test-utils" }
 

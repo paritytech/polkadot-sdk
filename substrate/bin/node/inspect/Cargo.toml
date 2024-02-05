@@ -1,6 +1,6 @@
 [package]
 name = "staging-node-inspect"
-version = "0.9.0-dev"
+version = "0.12.0"
 authors.workspace = true
 description = "Substrate node block inspection tool."
 edition.workspace = true
@@ -8,16 +8,27 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-clap = { version = "4.4.6", features = ["derive"] }
+clap = { version = "4.4.18", features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 thiserror = "1.0"
 sc-cli = { path = "../../../client/cli" }
 sc-client-api = { path = "../../../client/api" }
-sc-service = { path = "../../../client/service", default-features = false}
+sc-service = { path = "../../../client/service", default-features = false }
 sp-blockchain = { path = "../../../primitives/blockchain" }
 sp-core = { path = "../../../primitives/core" }
+sp-io = { path = "../../../primitives/io" }
 sp-runtime = { path = "../../../primitives/runtime" }
+sp-statement-store = { path = "../../../primitives/statement-store" }
+
+[features]
+runtime-benchmarks = [
+	"sc-service/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+]

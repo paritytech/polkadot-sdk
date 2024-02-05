@@ -43,16 +43,37 @@ const EXTRINSIC_FORMAT_VERSION: u8 = 4;
 /// The `SingaturePayload` of `UncheckedExtrinsic`.
 type UncheckedSignaturePayload<Address, Signature, Extra> = (Address, Signature, Extra);
 
-/// A extrinsic right from the external world. This is unchecked and so
-/// can contain a signature.
+/// An extrinsic right from the external world. This is unchecked and so can contain a signature.
+///
+/// An extrinsic is formally described as any external data that is originating from the outside of
+/// the runtime and fed into the runtime as a part of the block-body.
+///
+/// Inherents are special types of extrinsics that are placed into the block by the block-builder.
+/// They are unsigned because the assertion is that they are "inherently true" by virtue of getting
+/// past all validators.
+///
+/// Transactions are all other statements provided by external entities that the chain deems values
+/// and decided to include in the block. This value is typically in the form of fee payment, but it
+/// could in principle be any other interaction. Transactions are either signed or unsigned. A
+/// sensible transaction pool should ensure that only transactions that are worthwhile are
+/// considered for block-building.
+#[cfg_attr(feature = "std", doc = simple_mermaid::mermaid!("../../docs/mermaid/extrinsics.mmd"))]
+/// This type is by no means enforced within Substrate, but given its genericness, it is highly
+/// likely that for most use-cases it will suffice. Thus, the encoding of this type will dictate
+/// exactly what bytes should be sent to a runtime to transact with it.
+///
+/// This can be checked using [`Checkable`], yielding a [`CheckedExtrinsic`], which is the
+/// counterpart of this type after its signature (and other non-negotiable validity checks) have
+/// passed.
 #[derive(PartialEq, Eq, Clone)]
 pub struct UncheckedExtrinsic<Address, Call, Signature, Extra>
 where
 	Extra: SignedExtension,
 {
-	/// The signature, address, number of extrinsics have come before from
-	/// the same signer and an era describing the longevity of this transaction,
-	/// if this is a signed extrinsic.
+	/// The signature, address, number of extrinsics have come before from the same signer and an
+	/// era describing the longevity of this transaction, if this is a signed extrinsic.
+	///
+	/// `None` if it is unsigned or an inherent.
 	pub signature: Option<UncheckedSignaturePayload<Address, Signature, Extra>>,
 	/// The function that should be called.
 	pub function: Call,
@@ -286,6 +307,7 @@ where
 	}
 }
 
+#[docify::export(unchecked_extrinsic_encode_impl)]
 impl<Address, Call, Signature, Extra> Encode for UncheckedExtrinsic<Address, Call, Signature, Extra>
 where
 	Address: Encode,

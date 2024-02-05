@@ -1,10 +1,13 @@
 [package]
 name = "polkadot-node-core-approval-voting"
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Approval Voting Subsystem of the Polkadot node"
+
+[lints]
+workspace = true
 
 [dependencies]
 futures = "0.3.21"
@@ -13,8 +16,8 @@ parity-scale-codec = { version = "3.6.1", default-features = false, features = [
 gum = { package = "tracing-gum", path = "../../gum" }
 bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
 schnellru = "0.2.1"
-merlin = "2.0"
-schnorrkel = "0.9.1"
+merlin = "3.0"
+schnorrkel = "0.11.4"
 kvdb = "0.13.0"
 derive_more = "0.99.17"
 thiserror = "1.0.48"
@@ -32,14 +35,14 @@ sp-consensus = { path = "../../../../substrate/primitives/consensus/common", def
 sp-consensus-slots = { path = "../../../../substrate/primitives/consensus/slots", default-features = false }
 sp-application-crypto = { path = "../../../../substrate/primitives/application-crypto", default-features = false, features = ["full_crypto"] }
 sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
-rand_core = "0.5.1"
+# should match schnorrkel
+rand_core = "0.6.2"
 rand_chacha = { version = "0.3.1" }
 rand = "0.8.5"
 
 [dev-dependencies]
-async-trait = "0.1.57"
-parking_lot = "0.12.0"
-rand_core = "0.5.1" #                                                                       should match schnorrkel
+async-trait = "0.1.74"
+parking_lot = "0.12.1"
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 sp-keystore = { path = "../../../../substrate/primitives/keystore" }
 sp-core = { path = "../../../../substrate/primitives/core" }

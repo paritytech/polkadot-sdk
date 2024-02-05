@@ -52,6 +52,8 @@ use sp_core::{traits::SpawnNamed, Decode};
 use sp_runtime::traits::{Block as BlockT, BlockIdTo, Header};
 use std::{sync::Arc, time::Duration};
 
+pub use cumulus_primitives_proof_size_hostfunction::storage_proof_size;
+
 // Given the sporadic nature of the explicit recovery operation and the
 // possibility to retry infinite times this value is more than enough.
 // In practice here we expect no more than one queued messages.

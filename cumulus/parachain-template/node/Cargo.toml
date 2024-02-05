@@ -10,14 +10,17 @@ edition.workspace = true
 build = "build.rs"
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
-clap = { version = "4.4.6", features = ["derive"] }
+clap = { version = "4.4.18", features = ["derive"] }
 log = "0.4.20"
 codec = { package = "parity-scale-codec", version = "3.0.0" }
-serde = { version = "1.0.188", features = ["derive"] }
-jsonrpsee = { version = "0.16.2", features = ["server"] }
+serde = { version = "1.0.195", features = ["derive"] }
+jsonrpsee = { version = "0.20.3", features = ["server"] }
 futures = "0.3.28"
-serde_json = "1.0.108"
+serde_json = "1.0.111"
 
 # Local
 parachain-template-runtime = { path = "../runtime" }
@@ -57,7 +60,7 @@ substrate-prometheus-endpoint = { path = "../../../substrate/utils/prometheus" }
 # Polkadot
 polkadot-cli = { path = "../../../polkadot/cli", features = ["rococo-native"] }
 polkadot-primitives = { path = "../../../polkadot/primitives" }
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
 
 # Cumulus
 cumulus-client-cli = { path = "../../client/cli" }
@@ -91,4 +94,3 @@ try-runtime = [
 	"polkadot-cli/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-

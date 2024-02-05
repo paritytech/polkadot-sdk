@@ -1,23 +1,26 @@
 [package]
 name = "cumulus-pallet-xcmp-queue"
-version = "0.1.0"
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
 description = "Pallet to queue outbound and inbound XCMP messages."
 license = "Apache-2.0"
 
+[lints]
+workspace = true
+
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", features = [ "derive" ], default-features = false }
+codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"], default-features = false }
 log = { version = "0.4.20", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 # Substrate
-frame-support = { path = "../../../substrate/frame/support", default-features = false}
-frame-system = { path = "../../../substrate/frame/system", default-features = false}
-sp-io = { path = "../../../substrate/primitives/io", default-features = false}
+frame-support = { path = "../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../substrate/frame/system", default-features = false }
+sp-io = { path = "../../../substrate/primitives/io", default-features = false }
 sp-core = { path = "../../../substrate/primitives/core", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false}
-sp-std = { path = "../../../substrate/primitives/std", default-features = false}
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 pallet-message-queue = { path = "../../../substrate/frame/message-queue", default-features = false }
 
 # Polkadot
@@ -30,8 +33,8 @@ xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false }
 
 # Optional import for benchmarking
-frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true}
-bounded-collections = { version = "0.1.4", default-features = false }
+frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
+bounded-collections = { version = "0.2.0", default-features = false }
 
 # Bridges
 bp-xcm-bridge-hub-router = { path = "../../../bridges/primitives/xcm-bridge-hub-router", default-features = false, optional = true }
@@ -50,7 +53,7 @@ xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/x
 cumulus-pallet-parachain-system = { path = "../parachain-system", features = ["parameterized-consensus-hook"] }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"bounded-collections/std",
 	"bp-xcm-bridge-hub-router?/std",
@@ -96,4 +99,4 @@ try-runtime = [
 	"polkadot-runtime-parachains/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-bridging = [ "bp-xcm-bridge-hub-router" ]
+bridging = ["bp-xcm-bridge-hub-router"]

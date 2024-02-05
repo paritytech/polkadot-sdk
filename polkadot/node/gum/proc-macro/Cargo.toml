@@ -1,10 +1,13 @@
 [package]
 name = "tracing-gum-proc-macro"
-version = "1.0.0"
+version = "5.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Generate an overseer including builder pattern and message wrapper from a single annotated struct definition."
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -13,10 +16,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 proc-macro = true
 
 [dependencies]
-syn = { version = "2.0.38", features = ["full", "extra-traits"] }
+syn = { version = "2.0.48", features = ["extra-traits", "full"] }
 quote = "1.0.28"
 proc-macro2 = "1.0.56"
-proc-macro-crate = "1.1.3"
+proc-macro-crate = "3.0.0"
 expander = "2.0.0"
 
 [dev-dependencies]

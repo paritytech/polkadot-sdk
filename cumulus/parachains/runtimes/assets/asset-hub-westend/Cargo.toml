@@ -1,83 +1,85 @@
 [package]
 name = "asset-hub-westend-runtime"
-version = "0.9.420"
+version = "0.15.0"
 authors.workspace = true
 edition.workspace = true
 description = "Westend variant of Asset Hub parachain runtime"
 license = "Apache-2.0"
+
+[lints]
+workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
 hex-literal = { version = "0.4.1", optional = true }
 log = { version = "0.4.20", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-smallvec = "1.11.0"
 
 # Substrate
-frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true}
-frame-executive = { path = "../../../../../substrate/frame/executive", default-features = false}
-frame-support = { path = "../../../../../substrate/frame/support", default-features = false}
-frame-system = { path = "../../../../../substrate/frame/system", default-features = false}
-frame-system-benchmarking = { path = "../../../../../substrate/frame/system/benchmarking", default-features = false, optional = true}
-frame-system-rpc-runtime-api = { path = "../../../../../substrate/frame/system/rpc/runtime-api", default-features = false}
-frame-try-runtime = { path = "../../../../../substrate/frame/try-runtime", default-features = false, optional = true}
-pallet-asset-conversion-tx-payment = { path = "../../../../../substrate/frame/transaction-payment/asset-conversion-tx-payment", default-features = false}
-pallet-assets = { path = "../../../../../substrate/frame/assets", default-features = false}
-pallet-asset-conversion = { path = "../../../../../substrate/frame/asset-conversion", default-features = false}
-pallet-aura = { path = "../../../../../substrate/frame/aura", default-features = false}
-pallet-authorship = { path = "../../../../../substrate/frame/authorship", default-features = false}
-pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false}
-pallet-multisig = { path = "../../../../../substrate/frame/multisig", default-features = false}
-pallet-nft-fractionalization = { path = "../../../../../substrate/frame/nft-fractionalization", default-features = false}
-pallet-nfts = { path = "../../../../../substrate/frame/nfts", default-features = false}
-pallet-nfts-runtime-api = { path = "../../../../../substrate/frame/nfts/runtime-api", default-features = false}
-pallet-proxy = { path = "../../../../../substrate/frame/proxy", default-features = false}
-pallet-session = { path = "../../../../../substrate/frame/session", default-features = false}
-pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false}
-pallet-transaction-payment = { path = "../../../../../substrate/frame/transaction-payment", default-features = false}
-pallet-transaction-payment-rpc-runtime-api = { path = "../../../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false}
-pallet-uniques = { path = "../../../../../substrate/frame/uniques", default-features = false}
-pallet-utility = { path = "../../../../../substrate/frame/utility", default-features = false}
-sp-api = { path = "../../../../../substrate/primitives/api", default-features = false}
-sp-block-builder = { path = "../../../../../substrate/primitives/block-builder", default-features = false}
-sp-consensus-aura = { path = "../../../../../substrate/primitives/consensus/aura", default-features = false}
-sp-core = { path = "../../../../../substrate/primitives/core", default-features = false}
+frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true }
+frame-executive = { path = "../../../../../substrate/frame/executive", default-features = false }
+frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../../../substrate/frame/system", default-features = false }
+frame-system-benchmarking = { path = "../../../../../substrate/frame/system/benchmarking", default-features = false, optional = true }
+frame-system-rpc-runtime-api = { path = "../../../../../substrate/frame/system/rpc/runtime-api", default-features = false }
+frame-try-runtime = { path = "../../../../../substrate/frame/try-runtime", default-features = false, optional = true }
+pallet-asset-conversion-tx-payment = { path = "../../../../../substrate/frame/transaction-payment/asset-conversion-tx-payment", default-features = false }
+pallet-assets = { path = "../../../../../substrate/frame/assets", default-features = false }
+pallet-asset-conversion = { path = "../../../../../substrate/frame/asset-conversion", default-features = false }
+pallet-aura = { path = "../../../../../substrate/frame/aura", default-features = false }
+pallet-authorship = { path = "../../../../../substrate/frame/authorship", default-features = false }
+pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false }
+pallet-multisig = { path = "../../../../../substrate/frame/multisig", default-features = false }
+pallet-nft-fractionalization = { path = "../../../../../substrate/frame/nft-fractionalization", default-features = false }
+pallet-nfts = { path = "../../../../../substrate/frame/nfts", default-features = false }
+pallet-nfts-runtime-api = { path = "../../../../../substrate/frame/nfts/runtime-api", default-features = false }
+pallet-proxy = { path = "../../../../../substrate/frame/proxy", default-features = false }
+pallet-session = { path = "../../../../../substrate/frame/session", default-features = false }
+pallet-timestamp = { path = "../../../../../substrate/frame/timestamp", default-features = false }
+pallet-transaction-payment = { path = "../../../../../substrate/frame/transaction-payment", default-features = false }
+pallet-transaction-payment-rpc-runtime-api = { path = "../../../../../substrate/frame/transaction-payment/rpc/runtime-api", default-features = false }
+pallet-uniques = { path = "../../../../../substrate/frame/uniques", default-features = false }
+pallet-utility = { path = "../../../../../substrate/frame/utility", default-features = false }
+sp-api = { path = "../../../../../substrate/primitives/api", default-features = false }
+sp-block-builder = { path = "../../../../../substrate/primitives/block-builder", default-features = false }
+sp-consensus-aura = { path = "../../../../../substrate/primitives/consensus/aura", default-features = false }
+sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
 sp-genesis-builder = { path = "../../../../../substrate/primitives/genesis-builder", default-features = false }
-sp-inherents = { path = "../../../../../substrate/primitives/inherents", default-features = false}
-sp-offchain = { path = "../../../../../substrate/primitives/offchain", default-features = false}
-sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false}
-sp-session = { path = "../../../../../substrate/primitives/session", default-features = false}
-sp-std = { path = "../../../../../substrate/primitives/std", default-features = false}
-sp-storage = { path = "../../../../../substrate/primitives/storage", default-features = false}
-sp-transaction-pool = { path = "../../../../../substrate/primitives/transaction-pool", default-features = false}
-sp-version = { path = "../../../../../substrate/primitives/version", default-features = false}
+sp-inherents = { path = "../../../../../substrate/primitives/inherents", default-features = false }
+sp-offchain = { path = "../../../../../substrate/primitives/offchain", default-features = false }
+sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
+sp-session = { path = "../../../../../substrate/primitives/session", default-features = false }
+sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
+sp-storage = { path = "../../../../../substrate/primitives/storage", default-features = false }
+sp-transaction-pool = { path = "../../../../../substrate/primitives/transaction-pool", default-features = false }
+sp-version = { path = "../../../../../substrate/primitives/version", default-features = false }
 # num-traits feature needed for dex integer sq root:
-primitive-types = { version = "0.12.1", default-features = false, features = ["codec", "scale-info", "num-traits"] }
+primitive-types = { version = "0.12.1", default-features = false, features = ["codec", "num-traits", "scale-info"] }
 
 # Polkadot
-pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false}
+pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false }
 pallet-xcm-benchmarks = { path = "../../../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
-polkadot-core-primitives = { path = "../../../../../polkadot/core-primitives", default-features = false}
-polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false}
-polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false}
-westend-runtime-constants = { path = "../../../../../polkadot/runtime/westend/constants", default-features = false}
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false}
-xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false}
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false}
+polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false }
+polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false }
+westend-runtime-constants = { path = "../../../../../polkadot/runtime/westend/constants", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false }
 
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false }
 pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false }
-cumulus-pallet-dmp-queue = { path = "../../../../pallets/dmp-queue", default-features = false }
-cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook",] }
-cumulus-pallet-session-benchmarking = { path = "../../../../pallets/session-benchmarking", default-features = false}
+cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system", default-features = false, features = ["parameterized-consensus-hook"] }
+cumulus-pallet-session-benchmarking = { path = "../../../../pallets/session-benchmarking", default-features = false }
 cumulus-pallet-xcm = { path = "../../../../pallets/xcm", default-features = false }
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false, features = ["bridging"] }
+cumulus-primitives-aura = { path = "../../../../primitives/aura", default-features = false }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
 cumulus-primitives-utility = { path = "../../../../primitives/utility", default-features = false }
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
 parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false }
 parachains-common = { path = "../../../common", default-features = false }
+testnet-parachains-constants = { path = "../../constants", default-features = false, features = ["westend"] }
 assets-common = { path = "../common", default-features = false }
 
 # Bridges
@@ -95,10 +97,9 @@ asset-test-utils = { path = "../test-utils" }
 substrate-wasm-builder = { path = "../../../../../substrate/utils/wasm-builder", optional = true }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 runtime-benchmarks = [
 	"assets-common/runtime-benchmarks",
-	"cumulus-pallet-dmp-queue/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
@@ -133,7 +134,6 @@ runtime-benchmarks = [
 ]
 try-runtime = [
 	"cumulus-pallet-aura-ext/try-runtime",
-	"cumulus-pallet-dmp-queue/try-runtime",
 	"cumulus-pallet-parachain-system/try-runtime",
 	"cumulus-pallet-xcm/try-runtime",
 	"cumulus-pallet-xcmp-queue/try-runtime",
@@ -172,11 +172,11 @@ std = [
 	"bp-bridge-hub-westend/std",
 	"codec/std",
 	"cumulus-pallet-aura-ext/std",
-	"cumulus-pallet-dmp-queue/std",
 	"cumulus-pallet-parachain-system/std",
 	"cumulus-pallet-session-benchmarking/std",
 	"cumulus-pallet-xcm/std",
 	"cumulus-pallet-xcmp-queue/std",
+	"cumulus-primitives-aura/std",
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-utility/std",
 	"frame-benchmarking?/std",
@@ -211,7 +211,6 @@ std = [
 	"pallet-xcm/std",
 	"parachain-info/std",
 	"parachains-common/std",
-	"polkadot-core-primitives/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-common/std",
 	"primitive-types/std",
@@ -230,15 +229,16 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
+	"testnet-parachains-constants/std",
 	"westend-runtime-constants/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]
 
-experimental = [ "pallet-aura/experimental" ]
+experimental = ["pallet-aura/experimental"]
 
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
-# to make it smaller like logging for example.
-on-chain-release-build = [ "sp-api/disable-logging" ]
+# to make it smaller, like logging for example.
+on-chain-release-build = ["sp-api/disable-logging"]

@@ -1,7 +1,7 @@
 [package]
 description = "Gossiping for the Substrate network protocol"
 name = "sc-network-gossip"
-version = "0.10.0-dev"
+version = "0.34.0"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 authors.workspace = true
 edition.workspace = true
@@ -10,6 +10,9 @@ repository.workspace = true
 documentation = "https://docs.rs/sc-network-gossip"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
@@ -17,7 +20,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 ahash = "0.8.2"
 futures = "0.3.21"
 futures-timer = "3.0.1"
-libp2p = "0.51.3"
+libp2p = "0.51.4"
 log = "0.4.17"
 schnellru = "0.2.1"
 tracing = "0.1.29"
@@ -29,5 +32,7 @@ sp-runtime = { path = "../../primitives/runtime" }
 
 [dev-dependencies]
 tokio = "1.22.0"
+async-trait = "0.1.74"
+codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"] }
 quickcheck = { version = "1.0.3", default-features = false }
 substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }

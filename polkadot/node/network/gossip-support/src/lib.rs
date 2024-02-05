@@ -32,7 +32,7 @@ use std::{
 
 use futures::{channel::oneshot, select, FutureExt as _};
 use futures_timer::Delay;
-use rand::{seq::SliceRandom as _, SeedableRng};
+use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 
 use sc_network::{config::parse_addr, Multiaddr};
@@ -270,9 +270,10 @@ where
 						session_index,
 					)
 					.await?;
-
-					self.update_authority_ids(sender, session_info.discovery_keys).await;
 				}
+				// authority_discovery is just a cache so let's try every leaf to detect if there
+				// are new authorities there.
+				self.update_authority_ids(sender, session_info.discovery_keys).await;
 			}
 		}
 		Ok(())
@@ -477,7 +478,7 @@ where
 				match message {
 					Versioned::V1(m) => match m {},
 					Versioned::V2(m) => match m {},
-					Versioned::VStaging(m) => match m {},
+					Versioned::V3(m) => match m {},
 				}
 			},
 		}
@@ -593,7 +594,7 @@ async fn update_gossip_topology(
 		let mut subject = [0u8; 40];
 		subject[..8].copy_from_slice(b"gossipsu");
 		subject[8..].copy_from_slice(&randomness);
-		sp_core::blake2_256(&subject)
+		sp_crypto_hashing::blake2_256(&subject)
 	};
 
 	// shuffle the validators and create the index mapping
@@ -607,7 +608,7 @@ async fn update_gossip_topology(
 			.map(|(i, a)| (a.clone(), ValidatorIndex(i as _)))
 			.collect();
 
-		canonical_shuffling.shuffle(&mut rng);
+		fisher_yates_shuffle(&mut rng, &mut canonical_shuffling[..]);
 		for (i, (_, validator_index)) in canonical_shuffling.iter().enumerate() {
 			shuffled_indices[validator_index.0 as usize] = i;
 		}
@@ -625,6 +626,16 @@ async fn update_gossip_topology(
 		.await;
 
 	Ok(())
+}
+
+// Durstenfeld algorithm for the Fisher-Yates shuffle
+// https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle#The_modern_algorithm
+fn fisher_yates_shuffle<T, R: Rng + ?Sized>(rng: &mut R, items: &mut [T]) {
+	for i in (1..items.len()).rev() {
+		// invariant: elements with index > i have been locked in place.
+		let index = rng.gen_range(0u32..(i as u32 + 1));
+		items.swap(i, index as usize);
+	}
 }
 
 #[overseer::subsystem(GossipSupport, error = SubsystemError, prefix = self::overseer)]

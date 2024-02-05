@@ -269,6 +269,9 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxUnlockingChunks: Get<u32>;
 
+		/// The maximum amount of controller accounts that can be deprecated in one call.
+		type MaxControllersInDeprecationBatch: Get<u32>;
+
 		/// Something that listens to staking updates and performs actions based on the data it
 		/// receives.
 		///
@@ -336,7 +339,7 @@ pub mod pallet {
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
 	#[pallet::storage]
 	pub type Payee<T: Config> =
-		StorageMap<_, Twox64Concat, T::AccountId, RewardDestination<T::AccountId>, ValueQuery>;
+		StorageMap<_, Twox64Concat, T::AccountId, RewardDestination<T::AccountId>, OptionQuery>;
 
 	/// The map from (wannabe) validator stash key to the preferences of that validator.
 	///
@@ -842,6 +845,8 @@ pub mod pallet {
 		CommissionTooLow,
 		/// Some bound is not met.
 		BoundNotMet,
+		/// Used when attempting to use deprecated controller account logic.
+		ControllerDeprecated,
 	}
 
 	#[pallet::hooks]
@@ -1066,7 +1071,9 @@ pub mod pallet {
 				ensure!(ledger.active >= min_active_bond, Error::<T>::InsufficientBond);
 
 				// Note: in case there is no current era it is fine to bond one era more.
-				let era = Self::current_era().unwrap_or(0) + T::BondingDuration::get();
+				let era = Self::current_era()
+					.unwrap_or(0)
+					.defensive_saturating_add(T::BondingDuration::get());
 				if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
 					// To keep the chunk count down, we only keep one chunk per era. Since
 					// `unlocking` is a FiFo queue, if a chunk exists for `era` we know that it will
@@ -1283,10 +1290,19 @@ pub mod pallet {
 			payee: RewardDestination<T::AccountId>,
 		) -> DispatchResult {
 			let controller = ensure_signed(origin)?;
-			let ledger = Self::ledger(Controller(controller))?;
+			let ledger = Self::ledger(Controller(controller.clone()))?;
+
+			ensure!(
+				(payee != {
+					#[allow(deprecated)]
+					RewardDestination::Controller
+				}),
+				Error::<T>::ControllerDeprecated
+			);
+
 			let _ = ledger
 				.set_payee(payee)
-				.defensive_proof("ledger was retrieved from storage, thus its bonded; qed.");
+				.defensive_proof("ledger was retrieved from storage, thus its bonded; qed.")?;
 
 			Ok(())
 		}
@@ -1310,18 +1326,17 @@ pub mod pallet {
 		pub fn set_controller(origin: OriginFor<T>) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
-			// the bonded map and ledger are mutated directly as this extrinsic is related to a
+			// The bonded map and ledger are mutated directly as this extrinsic is related to a
 			// (temporary) passive migration.
 			Self::ledger(StakingAccount::Stash(stash.clone())).map(|ledger| {
 				let controller = ledger.controller()
-                    .defensive_proof("ledger was fetched used the StakingInterface, so controller field must exist; qed.")
+                    .defensive_proof("Ledger's controller field didn't exist. The controller should have been fetched using StakingLedger.")
                     .ok_or(Error::<T>::NotController)?;
 
 				if controller == stash {
-					// stash is already its own controller.
+					// Stash is already its own controller.
 					return Err(Error::<T>::AlreadyPaired.into())
 				}
-				// update bond and ledger.
 				<Ledger<T>>::remove(controller);
 				<Bonded<T>>::insert(&stash, &stash);
 				<Ledger<T>>::insert(&stash, ledger);
@@ -1751,11 +1766,16 @@ pub mod pallet {
 		/// who do not satisfy these requirements.
 		#[pallet::call_index(23)]
 		#[pallet::weight(T::WeightInfo::chill_other())]
-		pub fn chill_other(origin: OriginFor<T>, controller: T::AccountId) -> DispatchResult {
+		pub fn chill_other(origin: OriginFor<T>, stash: T::AccountId) -> DispatchResult {
 			// Anyone can call this function.
 			let caller = ensure_signed(origin)?;
-			let ledger = Self::ledger(Controller(controller.clone()))?;
-			let stash = ledger.stash;
+			let ledger = Self::ledger(Stash(stash.clone()))?;
+			let controller = ledger
+				.controller()
+				.defensive_proof(
+					"Ledger's controller field didn't exist. The controller should have been fetched using StakingLedger.",
+				)
+				.ok_or(Error::<T>::NotController)?;
 
 			// In order for one user to chill another user, the following conditions must be met:
 			//
@@ -1871,6 +1891,84 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
 			Self::do_payout_stakers_by_page(validator_stash, era, page)
+		}
+
+		/// Migrates an account's `RewardDestination::Controller` to
+		/// `RewardDestination::Account(controller)`.
+		///
+		/// Effects will be felt instantly (as soon as this function is completed successfully).
+		///
+		/// This will waive the transaction fee if the `payee` is successfully migrated.
+		#[pallet::call_index(27)]
+		#[pallet::weight(T::WeightInfo::update_payee())]
+		pub fn update_payee(
+			origin: OriginFor<T>,
+			controller: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			let _ = ensure_signed(origin)?;
+			let ledger = Self::ledger(StakingAccount::Controller(controller.clone()))?;
+
+			ensure!(
+				(Payee::<T>::get(&ledger.stash) == {
+					#[allow(deprecated)]
+					Some(RewardDestination::Controller)
+				}),
+				Error::<T>::NotController
+			);
+
+			let _ = ledger
+				.set_payee(RewardDestination::Account(controller))
+				.defensive_proof("ledger should have been previously retrieved from storage.")?;
+
+			Ok(Pays::No.into())
+		}
+
+		/// Updates a batch of controller accounts to their corresponding stash account if they are
+		/// not the same. Ignores any controller accounts that do not exist, and does not operate if
+		/// the stash and controller are already the same.
+		///
+		/// Effects will be felt instantly (as soon as this function is completed successfully).
+		///
+		/// The dispatch origin must be `T::AdminOrigin`.
+		#[pallet::call_index(28)]
+		#[pallet::weight(T::WeightInfo::deprecate_controller_batch(controllers.len() as u32))]
+		pub fn deprecate_controller_batch(
+			origin: OriginFor<T>,
+			controllers: BoundedVec<T::AccountId, T::MaxControllersInDeprecationBatch>,
+		) -> DispatchResultWithPostInfo {
+			T::AdminOrigin::ensure_origin(origin)?;
+
+			// Ignore controllers that do not exist or are already the same as stash.
+			let filtered_batch_with_ledger: Vec<_> = controllers
+				.iter()
+				.filter_map(|controller| {
+					let ledger = Self::ledger(StakingAccount::Controller(controller.clone()));
+					ledger.ok().map_or(None, |ledger| {
+						// If the controller `RewardDestination` is still the deprecated
+						// `Controller` variant, skip deprecating this account.
+						let payee_deprecated = Payee::<T>::get(&ledger.stash) == {
+							#[allow(deprecated)]
+							Some(RewardDestination::Controller)
+						};
+
+						if ledger.stash != *controller && !payee_deprecated {
+							Some((controller.clone(), ledger))
+						} else {
+							None
+						}
+					})
+				})
+				.collect();
+
+			// Update unique pairs.
+			for (controller, ledger) in filtered_batch_with_ledger {
+				let stash = ledger.stash.clone();
+
+				<Bonded<T>>::insert(&stash, &stash);
+				<Ledger<T>>::remove(controller);
+				<Ledger<T>>::insert(stash, ledger);
+			}
+			Ok(Some(T::WeightInfo::deprecate_controller_batch(controllers.len() as u32)).into())
 		}
 	}
 }

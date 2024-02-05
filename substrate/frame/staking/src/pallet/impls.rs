@@ -27,8 +27,8 @@ use frame_support::{
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
 	traits::{
-		Currency, Defensive, EstimateNextNewSession, Get, Imbalance, Len, OnUnbalanced, TryCollect,
-		UnixTime,
+		Currency, Defensive, DefensiveSaturating, EstimateNextNewSession, Get, Imbalance, Len,
+		OnUnbalanced, TryCollect, UnixTime,
 	},
 	weights::Weight,
 };
@@ -75,7 +75,7 @@ impl<T: Config> Pallet<T> {
 		StakingLedger::<T>::get(account)
 	}
 
-	pub fn payee(account: StakingAccount<T::AccountId>) -> RewardDestination<T::AccountId> {
+	pub fn payee(account: StakingAccount<T::AccountId>) -> Option<RewardDestination<T::AccountId>> {
 		StakingLedger::<T>::reward_destination(account)
 	}
 
@@ -148,7 +148,7 @@ impl<T: Config> Pallet<T> {
 		// `consolidate_unlocked` strictly subtracts balance.
 		if new_total < old_total {
 			// Already checked that this won't overflow by entry condition.
-			let value = old_total - new_total;
+			let value = old_total.defensive_saturating_sub(new_total);
 			Self::deposit_event(Event::<T>::Withdrawn { stash, amount: value });
 		}
 
@@ -262,7 +262,8 @@ impl<T: Config> Pallet<T> {
 		// total commission validator takes across all nominator pages
 		let validator_total_commission_payout = validator_commission * validator_total_payout;
 
-		let validator_leftover_payout = validator_total_payout - validator_total_commission_payout;
+		let validator_leftover_payout =
+			validator_total_payout.defensive_saturating_sub(validator_total_commission_payout);
 		// Now let's calculate how this is split to the validator.
 		let validator_exposure_part = Perbill::from_rational(exposure.own(), exposure.total());
 		let validator_staking_payout = validator_exposure_part * validator_leftover_payout;
@@ -335,11 +336,9 @@ impl<T: Config> Pallet<T> {
 		if amount.is_zero() {
 			return None
 		}
+		let dest = Self::payee(StakingAccount::Stash(stash.clone()))?;
 
-		let dest = Self::payee(StakingAccount::Stash(stash.clone()));
 		let maybe_imbalance = match dest {
-			RewardDestination::Controller => Self::bonded(stash)
-				.map(|controller| T::Currency::deposit_creating(&controller, amount)),
 			RewardDestination::Stash => T::Currency::deposit_into_existing(stash, amount).ok(),
 			RewardDestination::Staked => Self::ledger(Stash(stash.clone()))
 				.and_then(|mut ledger| {
@@ -354,12 +353,19 @@ impl<T: Config> Pallet<T> {
 					Ok(r)
 				})
 				.unwrap_or_default(),
-			RewardDestination::Account(dest_account) =>
+			RewardDestination::Account(ref dest_account) =>
 				Some(T::Currency::deposit_creating(&dest_account, amount)),
 			RewardDestination::None => None,
+			#[allow(deprecated)]
+			RewardDestination::Controller => Self::bonded(stash)
+					.map(|controller| {
+						defensive!("Paying out controller as reward destination which is deprecated and should be migrated.");
+						// This should never happen once payees with a `Controller` variant have been migrated.
+						// But if it does, just pay the controller account.
+						T::Currency::deposit_creating(&controller, amount)
+		}),
 		};
-		maybe_imbalance
-			.map(|imbalance| (imbalance, Self::payee(StakingAccount::Stash(stash.clone()))))
+		maybe_imbalance.map(|imbalance| (imbalance, dest))
 	}
 
 	/// Plan a new session potentially trigger a new era.
@@ -468,7 +474,7 @@ impl<T: Config> Pallet<T> {
 			bonded.push((active_era, start_session));
 
 			if active_era > bonding_duration {
-				let first_kept = active_era - bonding_duration;
+				let first_kept = active_era.defensive_saturating_sub(bonding_duration);
 
 				// Prune out everything that's from before the first-kept index.
 				let n_to_prune =
@@ -494,7 +500,8 @@ impl<T: Config> Pallet<T> {
 		if let Some(active_era_start) = active_era.start {
 			let now_as_millis_u64 = T::UnixTime::now().as_millis().saturated_into::<u64>();
 
-			let era_duration = (now_as_millis_u64 - active_era_start).saturated_into::<u64>();
+			let era_duration = (now_as_millis_u64.defensive_saturating_sub(active_era_start))
+				.saturated_into::<u64>();
 			let staked = Self::eras_total_stake(&active_era.index);
 			let issuance = T::Currency::total_issuance();
 			let (validator_payout, remainder) =
@@ -794,7 +801,7 @@ impl<T: Config> Pallet<T> {
 		stash: T::AccountId,
 		exposure: Exposure<T::AccountId, BalanceOf<T>>,
 	) {
-		<ErasStakers<T>>::insert(&current_era, &stash, &exposure);
+		EraInfo::<T>::set_exposure(current_era, &stash, exposure);
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1745,8 +1752,15 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn is_exposed_in_era(who: &Self::AccountId, era: &EraIndex) -> bool {
+		// look in the non paged exposures
+		// FIXME: Can be cleaned up once non paged exposures are cleared (https://github.com/paritytech/polkadot-sdk/issues/433)
 		ErasStakers::<T>::iter_prefix(era).any(|(validator, exposures)| {
 			validator == *who || exposures.others.iter().any(|i| i.who == *who)
+		})
+			||
+		// look in the paged exposures
+		ErasStakersPaged::<T>::iter_prefix((era,)).any(|((validator, _), exposure_page)| {
+			validator == *who || exposure_page.others.iter().any(|i| i.who == *who)
 		})
 	}
 	fn status(
@@ -1785,7 +1799,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		) {
 			let others = exposures
 				.iter()
-				.map(|(who, value)| IndividualExposure { who: who.clone(), value: value.clone() })
+				.map(|(who, value)| IndividualExposure { who: who.clone(), value: *value })
 				.collect::<Vec<_>>();
 			let exposure = Exposure { total: Default::default(), own: Default::default(), others };
 			EraInfo::<T>::set_exposure(*current_era, stash, exposure);
@@ -1810,10 +1824,29 @@ impl<T: Config> Pallet<T> {
 			"VoterList contains non-staker"
 		);
 
+		Self::check_payees()?;
 		Self::check_nominators()?;
 		Self::check_exposures()?;
+		Self::check_paged_exposures()?;
 		Self::check_ledgers()?;
 		Self::check_count()
+	}
+
+	/// Invariants:
+	/// * A bonded ledger should always have an assigned `Payee`.
+	/// * The number of entries in `Payee` and of bonded staking ledgers *must* match.
+	fn check_payees() -> Result<(), TryRuntimeError> {
+		for (stash, _) in Bonded::<T>::iter() {
+			ensure!(Payee::<T>::get(&stash).is_some(), "bonded ledger does not have payee set");
+		}
+
+		ensure!(
+			(Ledger::<T>::iter().count() == Payee::<T>::iter().count()) &&
+				(Ledger::<T>::iter().count() == Bonded::<T>::iter().count()),
+			"number of entries in payee storage items does not match the number of bonded ledgers",
+		);
+
+		Ok(())
 	}
 
 	fn check_count() -> Result<(), TryRuntimeError> {
@@ -1836,7 +1869,17 @@ impl<T: Config> Pallet<T> {
 
 	fn check_ledgers() -> Result<(), TryRuntimeError> {
 		Bonded::<T>::iter()
-			.map(|(_, ctrl)| Self::ensure_ledger_consistent(ctrl))
+			.map(|(stash, ctrl)| {
+				// `ledger.controller` is never stored in raw storage.
+				let raw = Ledger::<T>::get(stash).unwrap_or_else(|| {
+					Ledger::<T>::get(ctrl.clone())
+						.expect("try_check: bonded stash/ctrl does not have an associated ledger")
+				});
+				ensure!(raw.controller.is_none(), "raw storage controller should be None");
+
+				// ensure ledger consistency.
+				Self::ensure_ledger_consistent(ctrl)
+			})
 			.collect::<Result<Vec<_>, _>>()?;
 		Ok(())
 	}
@@ -1855,6 +1898,70 @@ impl<T: Config> Pallet<T> {
 								.fold(Zero::zero(), |acc, x| acc + x),
 					"wrong total exposure.",
 				);
+				Ok(())
+			})
+			.collect::<Result<(), TryRuntimeError>>()
+	}
+
+	fn check_paged_exposures() -> Result<(), TryRuntimeError> {
+		use sp_staking::PagedExposureMetadata;
+		use sp_std::collections::btree_map::BTreeMap;
+
+		// Sanity check for the paged exposure of the active era.
+		let mut exposures: BTreeMap<T::AccountId, PagedExposureMetadata<BalanceOf<T>>> =
+			BTreeMap::new();
+		let era = Self::active_era().unwrap().index;
+		let accumulator_default = PagedExposureMetadata {
+			total: Zero::zero(),
+			own: Zero::zero(),
+			nominator_count: 0,
+			page_count: 0,
+		};
+
+		ErasStakersPaged::<T>::iter_prefix((era,))
+			.map(|((validator, _page), expo)| {
+				ensure!(
+					expo.page_total ==
+						expo.others.iter().map(|e| e.value).fold(Zero::zero(), |acc, x| acc + x),
+					"wrong total exposure for the page.",
+				);
+
+				let metadata = exposures.get(&validator).unwrap_or(&accumulator_default);
+				exposures.insert(
+					validator,
+					PagedExposureMetadata {
+						total: metadata.total + expo.page_total,
+						own: metadata.own,
+						nominator_count: metadata.nominator_count + expo.others.len() as u32,
+						page_count: metadata.page_count + 1,
+					},
+				);
+
+				Ok(())
+			})
+			.collect::<Result<(), TryRuntimeError>>()?;
+
+		exposures
+			.iter()
+			.map(|(validator, metadata)| {
+				let actual_overview = ErasStakersOverview::<T>::get(era, validator);
+
+				ensure!(actual_overview.is_some(), "No overview found for a paged exposure");
+				let actual_overview = actual_overview.unwrap();
+
+				ensure!(
+					actual_overview.total == metadata.total + actual_overview.own,
+					"Exposure metadata does not have correct total exposed stake."
+				);
+				ensure!(
+					actual_overview.nominator_count == metadata.nominator_count,
+					"Exposure metadata does not have correct count of nominators."
+				);
+				ensure!(
+					actual_overview.page_count == metadata.page_count,
+					"Exposure metadata does not have correct count of pages."
+				);
+
 				Ok(())
 			})
 			.collect::<Result<(), TryRuntimeError>>()

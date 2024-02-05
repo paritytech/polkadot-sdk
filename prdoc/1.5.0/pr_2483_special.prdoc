@@ -1,0 +1,9 @@
+title: Remove `dmp-queue`` pallet from Rococo Asset Hub and Bridge Hub
+author: liamaharon
+topic: Frame
+
+doc:
+  - audience: Runtime Dev
+    description: n/a
+
+crates: []

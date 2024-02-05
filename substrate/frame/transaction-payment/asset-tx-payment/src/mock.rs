@@ -18,6 +18,7 @@ use crate as pallet_asset_tx_payment;
 
 use codec;
 use frame_support::{
+	derive_impl,
 	dispatch::DispatchClass,
 	pallet_prelude::*,
 	parameter_types,
@@ -36,7 +37,7 @@ type Balance = u64;
 type AccountId = u64;
 
 frame_support::construct_runtime!(
-	pub struct Runtime {
+	pub enum Runtime {
 		System: system,
 		Balances: pallet_balances,
 		TransactionPayment: pallet_transaction_payment,
@@ -70,6 +71,7 @@ parameter_types! {
 	pub static TransactionByteFee: u64 = 1;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;
@@ -114,7 +116,6 @@ impl pallet_balances::Config for Runtime {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-	type MaxHolds = ();
 }
 
 impl WeightToFeeT for WeightToFee {

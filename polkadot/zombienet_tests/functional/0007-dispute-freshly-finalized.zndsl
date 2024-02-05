@@ -1,0 +1,29 @@
+Description: Test if disputes triggered on finalized blocks within scope always end as valid.
+Network: ./0007-dispute-freshly-finalized.toml
+Creds: config
+
+# Check authority status and peers.
+malus: reports node_roles is 4
+honest: reports node_roles is 4
+
+# Ensure parachains are registered.
+honest: parachain 2000 is registered within 30 seconds
+
+# Ensure parachains made progress.
+honest: parachain 2000 block height is at least 10 within 200 seconds
+
+# Ensure that malus is already attempting to dispute
+malus: log line contains "😈 Disputing candidate with hash:" within 180 seconds
+
+# Check if disputes are initiated and concluded.
+honest: reports polkadot_parachain_candidate_disputes_total is at least 2 within 100 seconds
+honest: reports polkadot_parachain_candidate_dispute_concluded{validity="valid"} is at least 2 within 100 seconds
+honest: reports polkadot_parachain_candidate_dispute_concluded{validity="invalid"} is 0 within 100 seconds
+
+# Check lag - approval
+honest: reports polkadot_parachain_approval_checking_finality_lag is 0
+
+# Check lag - dispute conclusion
+honest: reports polkadot_parachain_disputes_finality_lag is 0
+
+

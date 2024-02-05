@@ -19,7 +19,7 @@
 //! This is responsible for distributing signed statements about candidate
 //! validity among validators.
 
-// #![deny(unused_crate_dependencies)]
+#![deny(unused_crate_dependencies)]
 #![warn(missing_docs)]
 
 use error::{log_error, FatalResult};
@@ -27,7 +27,7 @@ use std::time::Duration;
 
 use polkadot_node_network_protocol::{
 	request_response::{v1 as request_v1, v2::AttestedCandidateRequest, IncomingRequestReceiver},
-	v2 as protocol_v2, vstaging as protocol_vstaging, Versioned,
+	v2 as protocol_v2, v3 as protocol_v3, Versioned,
 };
 use polkadot_node_primitives::StatementWithPVD;
 use polkadot_node_subsystem::{
@@ -319,8 +319,12 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 				if let Some(ref activated) = activated {
 					let mode = prospective_parachains_mode(ctx.sender(), activated.hash).await?;
 					if let ProspectiveParachainsMode::Enabled { .. } = mode {
-						v2::handle_active_leaves_update(ctx, state, activated, mode).await?;
+						let res =
+							v2::handle_active_leaves_update(ctx, state, activated, mode).await;
+						// Regardless of the result of leaf activation, we always prune before
+						// handling it to avoid leaks.
 						v2::handle_deactivate_leaves(state, &deactivated);
+						res?;
 					} else if let ProspectiveParachainsMode::Disabled = mode {
 						for deactivated in &deactivated {
 							crate::legacy_v1::handle_deactivate_leaf(legacy_v1_state, *deactivated);
@@ -400,11 +404,11 @@ impl<R: rand::Rng> StatementDistributionSubsystem<R> {
 							Versioned::V2(
 								protocol_v2::StatementDistributionMessage::V1Compatibility(_),
 							) |
-							Versioned::VStaging(
-								protocol_vstaging::StatementDistributionMessage::V1Compatibility(_),
+							Versioned::V3(
+								protocol_v3::StatementDistributionMessage::V1Compatibility(_),
 							) => VersionTarget::Legacy,
 							Versioned::V1(_) => VersionTarget::Legacy,
-							Versioned::V2(_) | Versioned::VStaging(_) => VersionTarget::Current,
+							Versioned::V2(_) | Versioned::V3(_) => VersionTarget::Current,
 						},
 						_ => VersionTarget::Both,
 					};

@@ -1,13 +1,16 @@
 [package]
 description = "Substrate mixnet types and runtime interface"
 name = "sp-mixnet"
-version = "0.1.0-dev"
+version = "0.4.0"
 license = "Apache-2.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 homepage = "https://substrate.io"
 repository = "https://github.com/paritytech/substrate/"
 readme = "README.md"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -20,7 +23,7 @@ sp-application-crypto = { default-features = false, path = "../application-crypt
 sp-std = { default-features = false, path = "../std" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"scale-info/std",

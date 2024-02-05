@@ -1,6 +1,6 @@
 [package]
 name = "substrate-state-trie-migration-rpc"
-version = "4.0.0-dev"
+version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -8,6 +8,9 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "Node-specific RPC methods for interaction with state trie migration."
 readme = "README.md"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -20,8 +23,7 @@ sp-core = { path = "../../../../primitives/core" }
 sp-state-machine = { path = "../../../../primitives/state-machine" }
 sp-trie = { path = "../../../../primitives/trie" }
 trie-db = "0.28.0"
-
-jsonrpsee = { version = "0.16.2", features = ["client-core", "server", "macros"] }
+jsonrpsee = { version = "0.20.3", features = ["client-core", "macros", "server"] }
 
 # Substrate Dependencies
 sc-client-api = { path = "../../../../client/api" }
@@ -29,4 +31,4 @@ sc-rpc-api = { path = "../../../../client/rpc-api" }
 sp-runtime = { path = "../../../../primitives/runtime" }
 
 [dev-dependencies]
-serde_json = "1.0.108"
+serde_json = "1.0.111"

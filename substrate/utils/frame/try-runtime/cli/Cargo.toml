@@ -1,6 +1,6 @@
 [package]
 name = "try-runtime-cli"
-version = "0.10.0-dev"
+version = "0.38.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -8,11 +8,14 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "Cli command runtime testing and dry-running"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-remote-externalities = { package = "frame-remote-externalities" , path = "../../remote-externalities" }
+remote-externalities = { package = "frame-remote-externalities", path = "../../remote-externalities" }
 sc-cli = { path = "../../../../client/cli" }
 sc-executor = { path = "../../../../client/executor" }
 sp-consensus-aura = { path = "../../../../primitives/consensus/aura" }
@@ -31,16 +34,16 @@ sp-version = { path = "../../../../primitives/version" }
 sp-debug-derive = { path = "../../../../primitives/debug-derive" }
 sp-api = { path = "../../../../primitives/api" }
 sp-weights = { path = "../../../../primitives/weights" }
-frame-try-runtime = { path = "../../../../frame/try-runtime", optional = true}
+frame-try-runtime = { path = "../../../../frame/try-runtime", optional = true }
 substrate-rpc-client = { path = "../../rpc/client" }
 
-async-trait = "0.1.57"
-clap = { version = "4.4.6", features = ["derive"] }
+async-trait = "0.1.74"
+clap = { version = "4.4.18", features = ["derive"] }
 hex = { version = "0.4.3", default-features = false }
 log = "0.4.17"
 parity-scale-codec = "3.6.1"
-serde = "1.0.188"
-serde_json = "1.0.108"
+serde = "1.0.195"
+serde_json = "1.0.111"
 zstd = { version = "0.12.4", default-features = false }
 
 [dev-dependencies]

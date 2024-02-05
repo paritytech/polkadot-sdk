@@ -1,6 +1,6 @@
 [package]
 name = "frame-support"
-version = "4.0.0-dev"
+version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -9,53 +9,57 @@ repository.workspace = true
 description = "Support code for the runtime."
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 array-bytes = { version = "6.1", default-features = false }
-serde = { version = "1.0.188", default-features = false, features = ["alloc", "derive"] }
+serde = { version = "1.0.195", default-features = false, features = ["alloc", "derive"] }
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 frame-metadata = { version = "16.0.0", default-features = false, features = ["current"] }
-sp-api = { path = "../../primitives/api", default-features = false, features = [ "frame-metadata" ] }
-sp-std = { path = "../../primitives/std", default-features = false}
-sp-io = { path = "../../primitives/io", default-features = false}
-sp-runtime = { path = "../../primitives/runtime", default-features = false}
-sp-tracing = { path = "../../primitives/tracing", default-features = false}
-sp-core = { path = "../../primitives/core", default-features = false}
-sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false}
-sp-inherents = { path = "../../primitives/inherents", default-features = false}
-sp-staking = { path = "../../primitives/staking", default-features = false}
-sp-weights = { path = "../../primitives/weights", default-features = false}
-sp-debug-derive = { path = "../../primitives/debug-derive", default-features = false}
-sp-metadata-ir = { path = "../../primitives/metadata-ir", default-features = false}
+sp-api = { path = "../../primitives/api", default-features = false, features = ["frame-metadata"] }
+sp-std = { path = "../../primitives/std", default-features = false }
+sp-io = { path = "../../primitives/io", default-features = false }
+sp-runtime = { path = "../../primitives/runtime", default-features = false, features = ["serde"] }
+sp-tracing = { path = "../../primitives/tracing", default-features = false }
+sp-core = { path = "../../primitives/core", default-features = false }
+sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false }
+sp-inherents = { path = "../../primitives/inherents", default-features = false }
+sp-staking = { path = "../../primitives/staking", default-features = false }
+sp-weights = { path = "../../primitives/weights", default-features = false }
+sp-debug-derive = { path = "../../primitives/debug-derive", default-features = false }
+sp-metadata-ir = { path = "../../primitives/metadata-ir", default-features = false }
 tt-call = "1.0.8"
 macro_magic = "0.5.0"
-frame-support-procedural = { path = "procedural", default-features = false}
+frame-support-procedural = { path = "procedural", default-features = false }
 paste = "1.0"
-sp-state-machine = { path = "../../primitives/state-machine", default-features = false, optional = true}
+sp-state-machine = { path = "../../primitives/state-machine", default-features = false, optional = true }
 bitflags = "1.3"
 impl-trait-for-tuples = "0.2.2"
 smallvec = "1.11.0"
 log = { version = "0.4.17", default-features = false }
-sp-core-hashing-proc-macro = { path = "../../primitives/core/hashing/proc-macro" }
+sp-crypto-hashing-proc-macro = { path = "../../primitives/crypto/hashing/proc-macro" }
 k256 = { version = "0.13.1", default-features = false, features = ["ecdsa"] }
 environmental = { version = "1.1.4", default-features = false }
-sp-genesis-builder = { path = "../../primitives/genesis-builder", default-features=false}
-serde_json = { version = "1.0.108", default-features = false, features = ["alloc"] }
-docify = "0.2.6"
+sp-genesis-builder = { path = "../../primitives/genesis-builder", default-features = false }
+serde_json = { version = "1.0.111", default-features = false, features = ["alloc"] }
+docify = "0.2.7"
 static_assertions = "1.1.0"
 
-aquamarine = { version = "0.3.2" }
+aquamarine = { version = "0.5.0" }
 
 [dev-dependencies]
 assert_matches = "1.3.0"
 pretty_assertions = "1.2.1"
 frame-system = { path = "../system" }
+sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"environmental/std",
@@ -101,8 +105,8 @@ no-metadata-docs = [
 ]
 # By default some types have documentation, `full-metadata-docs` allows to add documentation to
 # more types in the metadata.
-full-metadata-docs = [ "scale-info/docs" ]
+full-metadata-docs = ["scale-info/docs"]
 # Generate impl-trait for tuples with the given number of tuples. Will be needed as the number of
 # pallets in a runtime grows. Does increase the compile time!
-tuples-96 = [ "frame-support-procedural/tuples-96" ]
-tuples-128 = [ "frame-support-procedural/tuples-128" ]
+tuples-96 = ["frame-support-procedural/tuples-96"]
+tuples-128 = ["frame-support-procedural/tuples-128"]

@@ -1,10 +1,13 @@
 [package]
 name = "polkadot-runtime-parachains"
-version = "1.0.0"
+version = "7.0.0"
 description = "Relay Chain runtime code responsible for Parachains."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+
+[lints]
+workspace = true
 
 [dependencies]
 impl-trait-for-tuples = "0.2.2"
@@ -13,7 +16,7 @@ parity-scale-codec = { version = "3.6.1", default-features = false, features = [
 log = { version = "0.4.17", default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.188", default-features = false, features = ["derive", "alloc"] }
+serde = { version = "1.0.195", default-features = false, features = ["alloc", "derive"] }
 derive_more = "0.99.17"
 bitflags = "1.3.2"
 
@@ -21,18 +24,20 @@ sp-api = { path = "../../../substrate/primitives/api", default-features = false 
 inherents = { package = "sp-inherents", path = "../../../substrate/primitives/inherents", default-features = false }
 sp-std = { package = "sp-std", path = "../../../substrate/primitives/std", default-features = false }
 sp-io = { path = "../../../substrate/primitives/io", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, features=["serde"] }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, features = ["serde"] }
 sp-session = { path = "../../../substrate/primitives/session", default-features = false }
-sp-staking = { path = "../../../substrate/primitives/staking", default-features = false, features=["serde"] }
-sp-core = { path = "../../../substrate/primitives/core", default-features = false, features=["serde"] }
+sp-staking = { path = "../../../substrate/primitives/staking", default-features = false, features = ["serde"] }
+sp-core = { path = "../../../substrate/primitives/core", default-features = false, features = ["serde"] }
 sp-keystore = { path = "../../../substrate/primitives/keystore", optional = true }
 sp-application-crypto = { path = "../../../substrate/primitives/application-crypto", default-features = false, optional = true }
 sp-tracing = { path = "../../../substrate/primitives/tracing", default-features = false, optional = true }
+sp-arithmetic = { path = "../../../substrate/primitives/arithmetic", default-features = false }
 
 pallet-authority-discovery = { path = "../../../substrate/frame/authority-discovery", default-features = false }
 pallet-authorship = { path = "../../../substrate/frame/authorship", default-features = false }
 pallet-balances = { path = "../../../substrate/frame/balances", default-features = false }
 pallet-babe = { path = "../../../substrate/frame/babe", default-features = false }
+pallet-broker = { path = "../../../substrate/frame/broker", default-features = false }
 pallet-message-queue = { path = "../../../substrate/frame/message-queue", default-features = false }
 pallet-session = { path = "../../../substrate/frame/session", default-features = false }
 pallet-staking = { path = "../../../substrate/frame/staking", default-features = false }
@@ -50,7 +55,7 @@ rand = { version = "0.8.5", default-features = false }
 rand_chacha = { version = "0.3.1", default-features = false }
 static_assertions = { version = "1.1.0", optional = true }
 polkadot-parachain-primitives = { path = "../../parachain", default-features = false }
-polkadot-runtime-metrics = { path = "../metrics", default-features = false}
+polkadot-runtime-metrics = { path = "../metrics", default-features = false }
 polkadot-core-primitives = { path = "../../core-primitives", default-features = false }
 
 [dev-dependencies]
@@ -61,12 +66,13 @@ frame-support-test = { path = "../../../substrate/frame/support/test" }
 sc-keystore = { path = "../../../substrate/client/keystore" }
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../primitives/test-helpers" }
 sp-tracing = { path = "../../../substrate/primitives/tracing" }
+sp-crypto-hashing = { path = "../../../substrate/primitives/crypto/hashing" }
 thousands = "0.2.0"
 assert_matches = "1"
-serde_json = "1.0.108"
+serde_json = "1.0.111"
 
 [features]
-default = [ "std" ]
+default = ["std"]
 no_std = []
 std = [
 	"bitvec/std",
@@ -79,6 +85,7 @@ std = [
 	"pallet-authorship/std",
 	"pallet-babe/std",
 	"pallet-balances/std",
+	"pallet-broker/std",
 	"pallet-message-queue/std",
 	"pallet-session/std",
 	"pallet-staking/std",
@@ -96,6 +103,7 @@ std = [
 	"serde/std",
 	"sp-api/std",
 	"sp-application-crypto?/std",
+	"sp-arithmetic/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-keystore",
@@ -112,6 +120,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-broker/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
@@ -132,6 +141,7 @@ try-runtime = [
 	"pallet-authorship/try-runtime",
 	"pallet-babe/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-broker/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-staking/try-runtime",

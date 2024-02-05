@@ -62,7 +62,7 @@ where
 	pub fn new(code: &'a [u8]) -> Self {
 		GenesisConfigBuilderRuntimeCaller {
 			code: code.into(),
-			code_hash: sp_core::blake2_256(code).to_vec(),
+			code_hash: sp_crypto_hashing::blake2_256(code).to_vec(),
 			executor: WasmExecutor::<(sp_io::SubstrateHostFunctions, EHF)>::builder()
 				.with_allow_missing_host_functions(true)
 				.build(),
@@ -76,7 +76,6 @@ where
 				&RuntimeCode { heap_pages: None, code_fetcher: self, hash: self.code_hash.clone() },
 				method,
 				data,
-				false,
 				CallContext::Offchain,
 			)
 			.0
@@ -142,7 +141,7 @@ where
 mod tests {
 	use super::*;
 	use serde_json::{from_str, json};
-	pub use sp_consensus_babe::{AllowedSlots, BabeEpochConfiguration, Slot};
+	pub use sp_consensus_babe::{AllowedSlots, BabeEpochConfiguration};
 
 	#[test]
 	fn get_default_config_works() {

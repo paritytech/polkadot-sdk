@@ -1,13 +1,16 @@
 [package]
 description = "Endpoint to expose Prometheus metrics"
 name = "substrate-prometheus-endpoint"
-version = "0.10.0-dev"
+version = "0.17.0"
 license = "Apache-2.0"
 authors.workspace = true
 edition.workspace = true
 homepage = "https://substrate.io"
 repository.workspace = true
 readme = "README.md"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]

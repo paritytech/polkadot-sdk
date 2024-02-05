@@ -1,10 +1,13 @@
 [package]
 name = "polkadot-node-core-backing"
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "The Candidate Backing Subsystem. Tracks parachain candidates that can be backed, as well as the issuance of statements about candidates."
+
+[lints]
+workspace = true
 
 [dependencies]
 futures = "0.3.21"

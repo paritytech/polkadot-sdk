@@ -1,6 +1,6 @@
 [package]
 name = "sc-consensus"
-version = "0.10.0-dev"
+version = "0.33.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -9,14 +9,17 @@ repository.workspace = true
 description = "Collection of common consensus specific imlementations for Substrate (client)"
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-async-trait = "0.1.57"
+async-trait = "0.1.74"
 futures = { version = "0.3.21", features = ["thread-pool"] }
 futures-timer = "3.0.1"
-libp2p-identity = { version = "0.1.3", features = ["peerid", "ed25519"] }
+libp2p-identity = { version = "0.1.3", features = ["ed25519", "peerid"] }
 log = "0.4.17"
 mockall = "0.11.3"
 parking_lot = "0.12.1"

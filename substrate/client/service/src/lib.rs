@@ -37,7 +37,7 @@ mod task_manager;
 use std::{collections::HashMap, net::SocketAddr};
 
 use codec::{Decode, Encode};
-use futures::{channel::mpsc, pin_mut, FutureExt, StreamExt};
+use futures::{pin_mut, FutureExt, StreamExt};
 use jsonrpsee::{core::Error as JsonRpseeError, RpcModule};
 use log::{debug, error, warn};
 use sc_client_api::{blockchain::HeaderBackend, BlockBackend, BlockchainEvents, ProofProvider};
@@ -53,9 +53,10 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 pub use self::{
 	builder::{
 		build_network, new_client, new_db_backend, new_full_client, new_full_parts,
-		new_full_parts_with_genesis_builder, new_native_or_wasm_executor, new_wasm_executor,
-		spawn_tasks, BuildNetworkParams, KeystoreContainer, NetworkStarter, SpawnTasksParams,
-		TFullBackend, TFullCallExecutor, TFullClient,
+		new_full_parts_record_import, new_full_parts_with_genesis_builder,
+		new_native_or_wasm_executor, new_wasm_executor, spawn_tasks, BuildNetworkParams,
+		KeystoreContainer, NetworkStarter, SpawnTasksParams, TFullBackend, TFullCallExecutor,
+		TFullClient,
 	},
 	client::{ClientConfig, LocalCallExecutor},
 	error::Error,
@@ -76,7 +77,7 @@ pub use sc_chain_spec::{
 
 pub use sc_consensus::ImportQueue;
 pub use sc_executor::NativeExecutionDispatch;
-pub use sc_network_sync::warp::WarpSyncParams;
+pub use sc_network_sync::WarpSyncParams;
 #[doc(hidden)]
 pub use sc_network_transactions::config::{TransactionImport, TransactionImportFuture};
 pub use sc_rpc::{
@@ -108,9 +109,15 @@ impl RpcHandlers {
 	pub async fn rpc_query(
 		&self,
 		json_query: &str,
-	) -> Result<(String, mpsc::UnboundedReceiver<String>), JsonRpseeError> {
+	) -> Result<(String, tokio::sync::mpsc::Receiver<String>), JsonRpseeError> {
+		// Because `tokio::sync::mpsc::channel` is used under the hood
+		// it will panic if it's set to usize::MAX.
+		//
+		// This limit is used to prevent panics and is large enough.
+		const TOKIO_MPSC_MAX_SIZE: usize = tokio::sync::Semaphore::MAX_PERMITS;
+
 		self.0
-			.raw_json_request(json_query)
+			.raw_json_request(json_query, TOKIO_MPSC_MAX_SIZE)
 			.await
 			.map(|(method_res, recv)| (method_res.result, recv))
 	}
@@ -361,7 +368,7 @@ mod waiting {
 }
 
 /// Starts RPC servers.
-fn start_rpc_servers<R>(
+pub fn start_rpc_servers<R>(
 	config: &Configuration,
 	gen_rpc_module: R,
 	rpc_id_provider: Option<Box<dyn RpcSubscriptionIdProvider>>,
@@ -393,6 +400,7 @@ where
 		max_payload_in_mb: config.rpc_max_request_size,
 		max_payload_out_mb: config.rpc_max_response_size,
 		max_subs_per_conn: config.rpc_max_subs_per_conn,
+		message_buffer_capacity: config.rpc_message_buffer_capacity,
 		rpc_api: gen_rpc_module(deny_unsafe(addr, &config.rpc_methods))?,
 		metrics,
 		id_provider: rpc_id_provider,

@@ -42,10 +42,10 @@ use frame_election_provider_support::{
 	onchain, SequentialPhragmen,
 };
 use frame_support::{
-	construct_runtime,
+	construct_runtime, derive_impl,
 	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
-	traits::{Everything, KeyOwnerProofSystem, WithdrawReasons},
+	traits::{KeyOwnerProofSystem, WithdrawReasons},
 };
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_session::historical as session_historical;
@@ -74,7 +74,7 @@ use sp_runtime::{
 		SaturatedConversion, StaticLookup, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, KeyTypeId, Perbill,
+	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill,
 };
 use sp_staking::SessionIndex;
 #[cfg(any(feature = "std", test))]
@@ -139,29 +139,19 @@ parameter_types! {
 	pub const SS58Prefix: u8 = 42;
 }
 
+#[derive_impl(frame_system::config_preludes::RelayChainDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
-	type BaseCallFilter = Everything;
 	type BlockWeights = BlockWeights;
 	type BlockLength = BlockLength;
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
 	type Nonce = Nonce;
 	type Hash = HashT;
-	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = Indices;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
 	type BlockHashCount = BlockHashCount;
 	type Version = Version;
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
 	type SS58Prefix = SS58Prefix;
-	type OnSetCode = ();
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
@@ -231,7 +221,6 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<0>;
 }
 
@@ -366,6 +355,7 @@ impl pallet_staking::Config for Runtime {
 	type TargetList = pallet_staking::UseValidatorsMap<Runtime>;
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<MAX_QUOTA_NOMINATIONS>;
 	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
+	type MaxControllersInDeprecationBatch = ConstU32<5900>;
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
 	type BenchmarkingConfig = runtime_common::StakingBenchmarkingConfig;
 	type EventListeners = ();
@@ -473,6 +463,7 @@ impl pallet_vesting::Config for Runtime {
 	type MinVestedTransfer = MinVestedTransfer;
 	type WeightInfo = ();
 	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
+	type BlockNumberProvider = System;
 	const MAX_VESTING_SCHEDULES: u32 = 28;
 }
 
@@ -486,7 +477,9 @@ impl parachains_configuration::Config for Runtime {
 	type WeightInfo = parachains_configuration::TestWeightInfo;
 }
 
-impl parachains_shared::Config for Runtime {}
+impl parachains_shared::Config for Runtime {
+	type DisabledValidators = Session;
+}
 
 impl parachains_inclusion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -528,6 +521,7 @@ impl parachains_initializer::Config for Runtime {
 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type WeightInfo = ();
+	type CoretimeOnNewSession = ();
 }
 
 impl parachains_session_info::Config for Runtime {
@@ -545,6 +539,15 @@ impl parachains_paras::Config for Runtime {
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = Babe;
 	type OnNewHead = ();
+	type AssignCoretime = ();
+}
+
+parameter_types! {
+	pub const BrokerId: u32 = 10u32;
+}
+
+parameter_types! {
+	pub const OnDemandTrafficDefaultValue: FixedU128 = FixedU128::from_u32(1);
 }
 
 impl parachains_dmp::Config for Runtime {}
@@ -602,7 +605,7 @@ pub mod pallet_test_notifier {
 	pub enum Event<T: Config> {
 		QueryPrepared(QueryId),
 		NotifyQueryPrepared(QueryId),
-		ResponseReceived(MultiLocation, QueryId, Response),
+		ResponseReceived(Location, QueryId, Response),
 	}
 
 	#[pallet::error]
@@ -666,52 +669,52 @@ construct_runtime! {
 	pub enum Runtime
 	{
 		// Basic stuff; balances is uncallable initially.
-		System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
+		System: frame_system,
 
 		// Must be before session.
-		Babe: pallet_babe::{Pallet, Call, Storage, Config<T>},
+		Babe: pallet_babe,
 
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-		Indices: pallet_indices::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
+		Timestamp: pallet_timestamp,
+		Indices: pallet_indices,
+		Balances: pallet_balances,
+		TransactionPayment: pallet_transaction_payment,
 
 		// Consensus support.
-		Authorship: pallet_authorship::{Pallet, Storage},
-		Staking: pallet_staking::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Offences: pallet_offences::{Pallet, Storage, Event},
-		Historical: session_historical::{Pallet},
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
-		Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config<T>, Event},
-		AuthorityDiscovery: pallet_authority_discovery::{Pallet, Config<T>},
+		Authorship: pallet_authorship,
+		Staking: pallet_staking,
+		Offences: pallet_offences,
+		Historical: session_historical,
+		Session: pallet_session,
+		Grandpa: pallet_grandpa,
+		AuthorityDiscovery: pallet_authority_discovery,
 
 		// Claims. Usable initially.
-		Claims: claims::{Pallet, Call, Storage, Event<T>, Config<T>, ValidateUnsigned},
+		Claims: claims,
 
 		// Vesting. Usable initially, but removed once all vesting is finished.
-		Vesting: pallet_vesting::{Pallet, Call, Storage, Event<T>, Config<T>},
+		Vesting: pallet_vesting,
 
 		// Parachains runtime modules
-		Configuration: parachains_configuration::{Pallet, Call, Storage, Config<T>},
-		ParaInclusion: parachains_inclusion::{Pallet, Call, Storage, Event<T>},
-		ParaInherent: parachains_paras_inherent::{Pallet, Call, Storage, Inherent},
-		Initializer: parachains_initializer::{Pallet, Call, Storage},
-		Paras: parachains_paras::{Pallet, Call, Storage, Event, ValidateUnsigned},
-		ParasShared: parachains_shared::{Pallet, Call, Storage},
-		Scheduler: parachains_scheduler::{Pallet, Storage},
-		ParasSudoWrapper: paras_sudo_wrapper::{Pallet, Call},
-		ParasOrigin: parachains_origin::{Pallet, Origin},
-		ParaSessionInfo: parachains_session_info::{Pallet, Storage},
-		Hrmp: parachains_hrmp::{Pallet, Call, Storage, Event<T>},
-		Dmp: parachains_dmp::{Pallet, Storage},
-		Xcm: pallet_xcm::{Pallet, Call, Event<T>, Origin},
-		ParasDisputes: parachains_disputes::{Pallet, Storage, Event<T>},
-		ParasSlashing: parachains_slashing::{Pallet, Call, Storage, ValidateUnsigned},
-		ParaAssignmentProvider: parachains_assigner_parachains::{Pallet},
+		Configuration: parachains_configuration,
+		ParaInclusion: parachains_inclusion,
+		ParaInherent: parachains_paras_inherent,
+		Initializer: parachains_initializer,
+		Paras: parachains_paras,
+		ParasShared: parachains_shared,
+		Scheduler: parachains_scheduler,
+		ParasSudoWrapper: paras_sudo_wrapper,
+		ParasOrigin: parachains_origin,
+		ParaSessionInfo: parachains_session_info,
+		Hrmp: parachains_hrmp,
+		Dmp: parachains_dmp,
+		Xcm: pallet_xcm,
+		ParasDisputes: parachains_disputes,
+		ParasSlashing: parachains_slashing,
+		ParaAssignmentProvider: parachains_assigner_parachains,
 
-		Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>},
+		Sudo: pallet_sudo,
 
-		TestNotifier: pallet_test_notifier::{Pallet, Call, Event<T>},
+		TestNotifier: pallet_test_notifier,
 	}
 }
 
@@ -826,7 +829,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl primitives::runtime_api::ParachainHost<Block, Hash, BlockNumber> for Runtime {
+	impl primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			runtime_impl::validators::<Runtime>()
 		}

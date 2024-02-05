@@ -1,15 +1,18 @@
 [package]
 name = "polkadot-node-jaeger"
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Polkadot Jaeger primitives, but equally useful for Grafana/Tempo"
 
+[lints]
+workspace = true
+
 [dependencies]
 mick-jaeger = "0.1.8"
 lazy_static = "1.4"
-parking_lot = "0.12.0"
+parking_lot = "0.12.1"
 polkadot-primitives = { path = "../../primitives" }
 polkadot-node-primitives = { path = "../primitives" }
 sc-network = { path = "../../../substrate/client/network" }

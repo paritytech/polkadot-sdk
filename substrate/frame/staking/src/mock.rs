@@ -23,7 +23,7 @@ use frame_election_provider_support::{
 	onchain, SequentialPhragmen, VoteWeight,
 };
 use frame_support::{
-	assert_ok, ord_parameter_types, parameter_types,
+	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
 		ConstU64, Currency, EitherOfDiverse, FindAuthor, Get, Hooks, Imbalance, OnUnbalanced,
 		OneSessionHandler,
@@ -122,8 +122,10 @@ parameter_types! {
 	pub static SlashDeferDuration: EraIndex = 0;
 	pub static Period: BlockNumber = 5;
 	pub static Offset: BlockNumber = 0;
+	pub static MaxControllersInDeprecationBatch: u32 = 5900;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -163,7 +165,6 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-	type MaxHolds = ();
 }
 
 sp_runtime::impl_opaque_keys! {
@@ -315,6 +316,7 @@ impl crate::pallet::pallet::Config for Test {
 	type NominationsQuota = WeightedNominationsQuota<16>;
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type HistoryDepth = HistoryDepth;
+	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
 	type BenchmarkingConfig = TestBenchmarkingConfig;
 	type WeightInfo = ();
@@ -341,6 +343,11 @@ where
 
 pub(crate) type StakingCall = crate::Call<Test>;
 pub(crate) type TestCall = <Test as frame_system::Config>::RuntimeCall;
+
+parameter_types! {
+	// if true, skips the try-state for the test running.
+	pub static SkipTryStateCheck: bool = false;
+}
 
 pub struct ExtBuilder {
 	nominate: bool,
@@ -449,6 +456,10 @@ impl ExtBuilder {
 	}
 	pub fn balance_factor(mut self, factor: Balance) -> Self {
 		self.balance_factor = factor;
+		self
+	}
+	pub fn try_state(self, enable: bool) -> Self {
+		SkipTryStateCheck::set(!enable);
 		self
 	}
 	fn build(self) -> sp_io::TestExternalities {
@@ -579,7 +590,9 @@ impl ExtBuilder {
 		let mut ext = self.build();
 		ext.execute_with(test);
 		ext.execute_with(|| {
-			Staking::do_try_state(System::block_number()).unwrap();
+			if !SkipTryStateCheck::get() {
+				Staking::do_try_state(System::block_number()).unwrap();
+			}
 		});
 	}
 }
@@ -594,7 +607,7 @@ pub(crate) fn current_era() -> EraIndex {
 
 pub(crate) fn bond(who: AccountId, val: Balance) {
 	let _ = Balances::make_free_balance_be(&who, val);
-	assert_ok!(Staking::bond(RuntimeOrigin::signed(who), val, RewardDestination::Controller));
+	assert_ok!(Staking::bond(RuntimeOrigin::signed(who), val, RewardDestination::Stash));
 }
 
 pub(crate) fn bond_validator(who: AccountId, val: Balance) {

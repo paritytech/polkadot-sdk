@@ -1,12 +1,15 @@
 [package]
 name = "pallet-staking-reward-fn"
-version = "4.0.0-dev"
+version = "19.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
 description = "Reward function for FRAME staking pallet"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -15,8 +18,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 log = { version = "0.4.17", default-features = false }
-sp-arithmetic = { path = "../../../primitives/arithmetic", default-features = false}
+sp-arithmetic = { path = "../../../primitives/arithmetic", default-features = false }
 
 [features]
-default = [ "std" ]
-std = [ "log/std", "sp-arithmetic/std" ]
+default = ["std"]
+std = ["log/std", "sp-arithmetic/std"]

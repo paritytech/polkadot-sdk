@@ -1,10 +1,13 @@
 [package]
 name = "polkadot-dispute-distribution"
-version = "1.0.0"
+version = "7.0.0"
 description = "Polkadot Dispute Distribution subsystem, which ensures all concerned validators are aware of a dispute and have the relevant votes."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+
+[lints]
+workspace = true
 
 [dependencies]
 futures = "0.3.21"
@@ -24,11 +27,11 @@ sp-keystore = { path = "../../../../substrate/primitives/keystore" }
 thiserror = "1.0.48"
 fatality = "0.0.6"
 schnellru = "0.2.1"
-indexmap = "1.9.1"
+indexmap = "2.0.0"
 
 [dev-dependencies]
 async-channel = "1.8.0"
-async-trait = "0.1.57"
+async-trait = "0.1.74"
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }
 sp-tracing = { path = "../../../../substrate/primitives/tracing" }

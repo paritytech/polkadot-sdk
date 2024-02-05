@@ -1,10 +1,13 @@
 [package]
 name = "polkadot-node-core-prospective-parachains"
-version = "1.0.0"
+version = "6.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "The Prospective Parachains subsystem. Tracks and handles prospective parachain fragments."
+
+[lints]
+workspace = true
 
 [dependencies]
 futures = "0.3.19"

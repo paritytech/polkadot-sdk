@@ -1,13 +1,16 @@
 [package]
 description = "Substrate sync network protocol"
 name = "sc-network-sync"
-version = "0.10.0-dev"
+version = "0.33.0"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 authors.workspace = true
 edition.workspace = true
 homepage = "https://substrate.io"
 repository.workspace = true
 documentation = "https://docs.rs/sc-network-sync"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -18,19 +21,19 @@ prost-build = "0.11"
 [dependencies]
 array-bytes = "6.1"
 async-channel = "1.8.0"
-async-trait = "0.1.58"
+async-trait = "0.1.74"
 codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
 futures = "0.3.21"
 futures-timer = "3.0.2"
-libp2p = "0.51.3"
+libp2p = "0.51.4"
 log = "0.4.17"
 mockall = "0.11.3"
-prost = "0.11"
+prost = "0.12"
 schnellru = "0.2.1"
 smallvec = "1.11.0"
 thiserror = "1.0"
 tokio-stream = "0.1.14"
-tokio = { version = "1.32.0", features = ["time", "macros"] }
+tokio = { version = "1.32.0", features = ["macros", "time"] }
 fork-tree = { path = "../../../utils/fork-tree" }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
 sc-client-api = { path = "../../api" }
@@ -46,7 +49,7 @@ sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa" }
 sp-runtime = { path = "../../../primitives/runtime" }
 
 [dev-dependencies]
-tokio = { version = "1.22.0", features = ["macros"] }
+mockall = "0.11.3"
 quickcheck = { version = "1.0.3", default-features = false }
 sc-block-builder = { path = "../../block-builder" }
 sp-test-primitives = { path = "../../../primitives/test-primitives" }

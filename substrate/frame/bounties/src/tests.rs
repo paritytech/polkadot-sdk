@@ -23,7 +23,7 @@ use super::*;
 use crate as pallet_bounties;
 
 use frame_support::{
-	assert_noop, assert_ok, parameter_types,
+	assert_noop, assert_ok, derive_impl, parameter_types,
 	traits::{
 		tokens::{PayFromAccount, UnityAssetBalanceConversion},
 		ConstU32, ConstU64, OnInitialize,
@@ -44,12 +44,12 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Bounties: pallet_bounties::{Pallet, Call, Storage, Event<T>},
-		Bounties1: pallet_bounties::<Instance1>::{Pallet, Call, Storage, Event<T>},
-		Treasury: pallet_treasury::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Treasury1: pallet_treasury::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		Bounties: pallet_bounties,
+		Bounties1: pallet_bounties::<Instance1>,
+		Treasury: pallet_treasury,
+		Treasury1: pallet_treasury::<Instance1>,
 	}
 );
 
@@ -59,6 +59,7 @@ parameter_types! {
 
 type Balance = u64;
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -99,7 +100,6 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-	type MaxHolds = ();
 }
 parameter_types! {
 	pub const ProposalBond: Permill = Permill::from_percent(5);

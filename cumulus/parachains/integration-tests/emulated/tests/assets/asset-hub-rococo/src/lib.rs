@@ -26,7 +26,7 @@ pub use frame_support::{
 // Polkadot
 pub use xcm::{
 	prelude::{AccountId32 as AccountId32Junction, *},
-	v3::{Error, NetworkId::Rococo as RococoId},
+	v3::{self, Error, NetworkId::Rococo as RococoId},
 };
 
 // Cumulus
@@ -51,8 +51,8 @@ pub use rococo_system_emulated_network::{
 	AssetHubRococoParaSender as AssetHubRococoSender, BridgeHubRococoPara as BridgeHubRococo,
 	BridgeHubRococoParaReceiver as BridgeHubRococoReceiver, PenpalAPara as PenpalA,
 	PenpalAParaReceiver as PenpalAReceiver, PenpalAParaSender as PenpalASender,
-	RococoRelay as Rococo, RococoRelayReceiver as RococoReceiver,
-	RococoRelaySender as RococoSender,
+	PenpalBPara as PenpalB, PenpalBParaReceiver as PenpalBReceiver, RococoRelay as Rococo,
+	RococoRelayReceiver as RococoReceiver, RococoRelaySender as RococoSender,
 };
 
 pub const ASSET_ID: u32 = 1;
@@ -61,44 +61,11 @@ pub const ASSET_MIN_BALANCE: u128 = 1000;
 pub const ASSETS_PALLET_ID: u8 = 50;
 
 pub type RelayToSystemParaTest = Test<Rococo, AssetHubRococo>;
+pub type RelayToParaTest = Test<Rococo, PenpalA>;
 pub type SystemParaToRelayTest = Test<AssetHubRococo, Rococo>;
 pub type SystemParaToParaTest = Test<AssetHubRococo, PenpalA>;
-
-/// Returns a `TestArgs` instance to de used for the Relay Chain accross integraton tests
-pub fn relay_test_args(amount: Balance) -> TestArgs {
-	TestArgs {
-		dest: Rococo::child_location_of(AssetHubRococo::para_id()),
-		beneficiary: AccountId32Junction {
-			network: None,
-			id: AssetHubRococoReceiver::get().into(),
-		}
-		.into(),
-		amount,
-		assets: (Here, amount).into(),
-		asset_id: None,
-		fee_asset_item: 0,
-		weight_limit: WeightLimit::Unlimited,
-	}
-}
-
-/// Returns a `TestArgs` instance to de used for the System Parachain accross integraton tests
-pub fn system_para_test_args(
-	dest: MultiLocation,
-	beneficiary_id: AccountId32,
-	amount: Balance,
-	assets: MultiAssets,
-	asset_id: Option<u32>,
-) -> TestArgs {
-	TestArgs {
-		dest,
-		beneficiary: AccountId32Junction { network: None, id: beneficiary_id.into() }.into(),
-		amount,
-		assets,
-		asset_id,
-		fee_asset_item: 0,
-		weight_limit: WeightLimit::Unlimited,
-	}
-}
+pub type ParaToSystemParaTest = Test<PenpalA, AssetHubRococo>;
+pub type ParaToParaTest = Test<PenpalA, PenpalB, Rococo>;
 
 #[cfg(test)]
 mod tests;

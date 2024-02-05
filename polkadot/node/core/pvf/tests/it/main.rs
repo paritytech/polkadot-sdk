@@ -18,26 +18,28 @@
 
 use assert_matches::assert_matches;
 use parity_scale_codec::Encode as _;
+#[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
+use polkadot_node_core_pvf::SecurityStatus;
 use polkadot_node_core_pvf::{
-	start, testing::get_and_check_worker_paths, Config, InvalidCandidate, Metrics, PrepareError,
-	PrepareJobKind, PrepareStats, PvfPrepData, ValidationError, ValidationHost,
-	JOB_TIMEOUT_WALL_CLOCK_FACTOR,
+	start, testing::build_workers_and_get_paths, Config, InvalidCandidate, Metrics, PrepareError,
+	PrepareJobKind, PvfPrepData, ValidationError, ValidationHost, JOB_TIMEOUT_WALL_CLOCK_FACTOR,
 };
 use polkadot_parachain_primitives::primitives::{BlockData, ValidationParams, ValidationResult};
 use polkadot_primitives::{ExecutorParam, ExecutorParams};
-#[cfg(target_os = "linux")]
-use rusty_fork::rusty_fork_test;
 
 use std::time::Duration;
 use tokio::sync::Mutex;
 
 mod adder;
+#[cfg(target_os = "linux")]
+mod process;
 mod worker_common;
 
-const TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(3);
-const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(3);
+const TEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(6);
+const TEST_PREPARATION_TIMEOUT: Duration = Duration::from_secs(6);
 
 struct TestHost {
+	// Keep a reference to the tempdir as it gets deleted on drop.
 	cache_dir: tempfile::TempDir,
 	host: Mutex<ValidationHost>,
 }
@@ -51,17 +53,18 @@ impl TestHost {
 	where
 		F: FnOnce(&mut Config),
 	{
-		let (prepare_worker_path, execute_worker_path) = get_and_check_worker_paths();
+		let (prepare_worker_path, execute_worker_path) = build_workers_and_get_paths();
 
 		let cache_dir = tempfile::tempdir().unwrap();
 		let mut config = Config::new(
 			cache_dir.path().to_owned(),
 			None,
+			false,
 			prepare_worker_path,
 			execute_worker_path,
 		);
 		f(&mut config);
-		let (host, task) = start(config, Metrics::default()).await;
+		let (host, task) = start(config, Metrics::default()).await.unwrap();
 		let _ = tokio::task::spawn(task);
 		Self { cache_dir, host: Mutex::new(host) }
 	}
@@ -70,7 +73,7 @@ impl TestHost {
 		&self,
 		code: &[u8],
 		executor_params: ExecutorParams,
-	) -> Result<PrepareStats, PrepareError> {
+	) -> Result<(), PrepareError> {
 		let (result_tx, result_rx) = futures::channel::oneshot::channel();
 
 		let code = sp_maybe_compressed_blob::decompress(code, 16 * 1024 * 1024)
@@ -123,10 +126,34 @@ impl TestHost {
 			.unwrap();
 		result_rx.await.unwrap()
 	}
+
+	#[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
+	async fn security_status(&self) -> SecurityStatus {
+		self.host.lock().await.security_status.clone()
+	}
 }
 
 #[tokio::test]
-async fn terminates_on_timeout() {
+async fn prepare_job_terminates_on_timeout() {
+	let host = TestHost::new().await;
+
+	let start = std::time::Instant::now();
+	let result = host
+		.precheck_pvf(rococo_runtime::WASM_BINARY.unwrap(), Default::default())
+		.await;
+
+	match result {
+		Err(PrepareError::TimedOut) => {},
+		r => panic!("{:?}", r),
+	}
+
+	let duration = std::time::Instant::now().duration_since(start);
+	assert!(duration >= TEST_PREPARATION_TIMEOUT);
+	assert!(duration < TEST_PREPARATION_TIMEOUT * JOB_TIMEOUT_WALL_CLOCK_FACTOR);
+}
+
+#[tokio::test]
+async fn execute_job_terminates_on_timeout() {
 	let host = TestHost::new().await;
 
 	let start = std::time::Instant::now();
@@ -144,115 +171,13 @@ async fn terminates_on_timeout() {
 		.await;
 
 	match result {
-		Err(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout)) => {},
+		Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)) => {},
 		r => panic!("{:?}", r),
 	}
 
 	let duration = std::time::Instant::now().duration_since(start);
 	assert!(duration >= TEST_EXECUTION_TIMEOUT);
 	assert!(duration < TEST_EXECUTION_TIMEOUT * JOB_TIMEOUT_WALL_CLOCK_FACTOR);
-}
-
-#[cfg(target_os = "linux")]
-fn kill_by_sid_and_name(sid: i32, exe_name: &'static str) {
-	use procfs::process;
-
-	let all_processes: Vec<process::Process> = process::all_processes()
-		.expect("Can't read /proc")
-		.filter_map(|p| match p {
-			Ok(p) => Some(p), // happy path
-			Err(e) => match e {
-				// process vanished during iteration, ignore it
-				procfs::ProcError::NotFound(_) => None,
-				x => {
-					panic!("some unknown error: {}", x);
-				},
-			},
-		})
-		.collect();
-
-	for process in all_processes {
-		if process.stat().unwrap().session == sid &&
-			process.exe().unwrap().to_str().unwrap().contains(exe_name)
-		{
-			assert_eq!(unsafe { libc::kill(process.pid(), 9) }, 0);
-		}
-	}
-}
-
-// Run these tests in their own processes with rusty-fork. They work by each creating a new session,
-// then killing the worker process that matches the session ID and expected worker name.
-#[cfg(target_os = "linux")]
-rusty_fork_test! {
-	// What happens when the prepare worker dies in the middle of a job?
-	#[test]
-	fn prepare_worker_killed_during_job() {
-		const PROCESS_NAME: &'static str = "polkadot-prepare-worker";
-
-		let rt  = tokio::runtime::Runtime::new().unwrap();
-		rt.block_on(async {
-			let host = TestHost::new().await;
-
-			// Create a new session and get the session ID.
-			let sid = unsafe { libc::setsid() };
-			assert!(sid > 0);
-
-			let (result, _) = futures::join!(
-				// Choose a job that would normally take the entire timeout.
-				host.precheck_pvf(rococo_runtime::WASM_BINARY.unwrap(), Default::default()),
-				// Run a future that kills the job in the middle of the timeout.
-				async {
-					tokio::time::sleep(TEST_PREPARATION_TIMEOUT / 2).await;
-					kill_by_sid_and_name(sid, PROCESS_NAME);
-				}
-			);
-
-			assert_matches!(result, Err(PrepareError::IoErr(_)));
-		})
-	}
-
-	// What happens when the execute worker dies in the middle of a job?
-	#[test]
-	fn execute_worker_killed_during_job() {
-		const PROCESS_NAME: &'static str = "polkadot-execute-worker";
-
-		let rt  = tokio::runtime::Runtime::new().unwrap();
-		rt.block_on(async {
-			let host = TestHost::new().await;
-
-			// Create a new session and get the session ID.
-			let sid = unsafe { libc::setsid() };
-			assert!(sid > 0);
-
-			// Prepare the artifact ahead of time.
-			let binary = halt::wasm_binary_unwrap();
-			host.precheck_pvf(binary, Default::default()).await.unwrap();
-
-			let (result, _) = futures::join!(
-				// Choose an job that would normally take the entire timeout.
-				host.validate_candidate(
-					binary,
-					ValidationParams {
-						block_data: BlockData(Vec::new()),
-						parent_head: Default::default(),
-						relay_parent_number: 1,
-						relay_parent_storage_root: Default::default(),
-					},
-					Default::default(),
-				),
-				// Run a future that kills the job in the middle of the timeout.
-				async {
-					tokio::time::sleep(TEST_EXECUTION_TIMEOUT / 2).await;
-					kill_by_sid_and_name(sid, PROCESS_NAME);
-				}
-			);
-
-			assert_matches!(
-				result,
-				Err(ValidationError::InvalidCandidate(InvalidCandidate::AmbiguousWorkerDeath))
-			);
-		})
-	}
 }
 
 #[cfg(feature = "ci-only-tests")]
@@ -286,8 +211,8 @@ async fn ensure_parallel_execution() {
 	assert_matches!(
 		(res1, res2),
 		(
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout)),
-			Err(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout))
+			Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)),
+			Err(ValidationError::Invalid(InvalidCandidate::HardTimeout))
 		)
 	);
 
@@ -428,9 +353,28 @@ async fn deleting_prepared_artifact_does_not_dispute() {
 		.await;
 
 	match result {
-		Err(ValidationError::InvalidCandidate(InvalidCandidate::HardTimeout)) => {},
+		Err(ValidationError::Invalid(InvalidCandidate::HardTimeout)) => {},
 		r => panic!("{:?}", r),
 	}
+}
+
+#[tokio::test]
+async fn cache_cleared_on_startup() {
+	// Don't drop this host, it owns the `TempDir` which gets cleared on drop.
+	let host = TestHost::new().await;
+
+	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), Default::default()).await.unwrap();
+
+	// The cache dir should contain one artifact and one worker dir.
+	let cache_dir = host.cache_dir.path().to_owned();
+	assert_eq!(std::fs::read_dir(&cache_dir).unwrap().count(), 2);
+
+	// Start a new host, previous artifact should be cleared.
+	let _host = TestHost::new_with_config(|cfg| {
+		cfg.cache_path = cache_dir.clone();
+	})
+	.await;
+	assert_eq!(std::fs::read_dir(&cache_dir).unwrap().count(), 0);
 }
 
 // This test checks if the adder parachain runtime can be prepared with 10Mb preparation memory
@@ -485,4 +429,59 @@ async fn prepare_can_run_serially() {
 
 	// Prepare a different wasm blob to prevent skipping work.
 	let _stats = host.precheck_pvf(halt::wasm_binary_unwrap(), Default::default()).await.unwrap();
+}
+
+// CI machines should be able to enable all the security features.
+#[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
+#[tokio::test]
+async fn all_security_features_work() {
+	// Landlock is only available starting Linux 5.13, and we may be testing on an old kernel.
+	let can_enable_landlock = {
+		let sysinfo = sc_sysinfo::gather_sysinfo();
+		// The version will look something like "5.15.0-87-generic".
+		let version = sysinfo.linux_kernel.unwrap();
+		let version_split: Vec<&str> = version.split(".").collect();
+		let major: u32 = version_split[0].parse().unwrap();
+		let minor: u32 = version_split[1].parse().unwrap();
+		if major >= 6 {
+			true
+		} else if major == 5 {
+			minor >= 13
+		} else {
+			false
+		}
+	};
+
+	let host = TestHost::new().await;
+
+	assert_eq!(
+		host.security_status().await,
+		SecurityStatus {
+			// Disabled in tests to not enforce the presence of security features. This CI-only test
+			// is the only one that tests them.
+			secure_validator_mode: false,
+			can_enable_landlock,
+			can_enable_seccomp: true,
+			can_unshare_user_namespace_and_change_root: true,
+			can_do_secure_clone: true,
+		}
+	);
+}
+
+// Regression test to make sure the unshare-pivot-root capability does not depend on the PVF
+// artifacts cache existing.
+#[cfg(all(feature = "ci-only-tests", target_os = "linux"))]
+#[tokio::test]
+async fn nonexistant_cache_dir() {
+	let host = TestHost::new_with_config(|cfg| {
+		cfg.cache_path = cfg.cache_path.join("nonexistant_cache_dir");
+	})
+	.await;
+
+	assert!(host.security_status().await.can_unshare_user_namespace_and_change_root);
+
+	let _stats = host
+		.precheck_pvf(::adder::wasm_binary_unwrap(), Default::default())
+		.await
+		.unwrap();
 }

@@ -1,6 +1,6 @@
 [package]
 name = "sc-service"
-version = "0.10.0-dev"
+version = "0.35.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -9,14 +9,17 @@ repository.workspace = true
 description = "Substrate service. Starts a thread that spins up the network, client, and extrinsic pool. Manages communication between them."
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [features]
-default = [ "rocksdb" ]
+default = ["rocksdb"]
 # The RocksDB feature activates the RocksDB database backend. If it is not activated, and you pass
 # a path to a database, an error will be produced at runtime.
-rocksdb = [ "sc-client-db/rocksdb" ]
+rocksdb = ["sc-client-db/rocksdb"]
 # exposes the client type
 test-helpers = []
 runtime-benchmarks = [
@@ -25,7 +28,7 @@ runtime-benchmarks = [
 ]
 
 [dependencies]
-jsonrpsee = { version = "0.16.2", features = ["server"] }
+jsonrpsee = { version = "0.20.3", features = ["server"] }
 thiserror = "1.0.48"
 futures = "0.3.21"
 rand = "0.8.5"
@@ -34,8 +37,8 @@ log = "0.4.17"
 futures-timer = "3.0.1"
 exit-future = "0.2.0"
 pin-project = "1.0.12"
-serde = "1.0.188"
-serde_json = "1.0.108"
+serde = "1.0.195"
+serde_json = "1.0.111"
 sc-keystore = { path = "../keystore" }
 sp-runtime = { path = "../../primitives/runtime" }
 sp-trie = { path = "../../primitives/trie" }
@@ -59,7 +62,7 @@ sc-network-transactions = { path = "../network/transactions" }
 sc-chain-spec = { path = "../chain-spec" }
 sc-client-api = { path = "../api" }
 sp-api = { path = "../../primitives/api" }
-sc-client-db = { path = "../db", default-features = false}
+sc-client-db = { path = "../db", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 sc-executor = { path = "../executor" }
 sc-transaction-pool = { path = "../transaction-pool" }
@@ -76,8 +79,8 @@ sc-tracing = { path = "../tracing" }
 sc-sysinfo = { path = "../sysinfo" }
 tracing = "0.1.29"
 tracing-futures = { version = "0.2.4" }
-async-trait = "0.1.57"
-tokio = { version = "1.22.0", features = ["time", "rt-multi-thread", "parking_lot"] }
+async-trait = "0.1.74"
+tokio = { version = "1.22.0", features = ["parking_lot", "rt-multi-thread", "time"] }
 tempfile = "3.1.0"
 directories = "5.0.1"
 static_init = "1.0.3"

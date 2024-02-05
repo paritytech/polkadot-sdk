@@ -8,6 +8,9 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
 
 [build-dependencies]
@@ -15,5 +18,5 @@ substrate-wasm-builder = { path = "../../../../substrate/utils/wasm-builder" }
 rustversion = "1.0.6"
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = []

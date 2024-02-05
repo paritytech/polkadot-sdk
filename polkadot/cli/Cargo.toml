@@ -1,10 +1,13 @@
 [package]
 name = "polkadot-cli"
 description = "Polkadot Relay-chain Client Node"
-version = "1.1.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+
+[lints]
+workspace = true
 
 [package.metadata.wasm-pack.profile.release]
 # `wasm-opt` has some problems on Linux, see
@@ -15,7 +18,8 @@ wasm-opt = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-clap = { version = "4.4.6", features = ["derive"], optional = true }
+cfg-if = "1.0"
+clap = { version = "4.4.18", features = ["derive"], optional = true }
 log = "0.4.17"
 thiserror = "1.0.48"
 futures = "0.3.21"
@@ -43,8 +47,8 @@ sc-storage-monitor = { path = "../../substrate/client/storage-monitor" }
 substrate-build-script-utils = { path = "../../substrate/utils/build-script-utils" }
 
 [features]
-default = [ "cli", "db", "full-node" ]
-db = [ "service/db" ]
+default = ["cli", "db", "full-node"]
+db = ["service/db"]
 cli = [
 	"clap",
 	"frame-benchmarking-cli",
@@ -60,19 +64,17 @@ runtime-benchmarks = [
 	"sc-service?/runtime-benchmarks",
 	"service/runtime-benchmarks",
 ]
-full-node = [ "service/full-node" ]
-try-runtime = [ "service/try-runtime", "try-runtime-cli/try-runtime" ]
-fast-runtime = [ "service/fast-runtime" ]
-pyroscope = [ "pyro", "pyroscope_pprofrs" ]
+full-node = ["service/full-node"]
+try-runtime = ["service/try-runtime", "try-runtime-cli/try-runtime"]
+fast-runtime = ["service/fast-runtime"]
+pyroscope = ["pyro", "pyroscope_pprofrs"]
 
 # Configure the native runtimes to use.
-westend-native = [ "service/westend-native" ]
-rococo-native = [ "service/rococo-native" ]
+westend-native = ["service/westend-native"]
+rococo-native = ["service/rococo-native"]
 
-malus = [ "full-node", "service/malus" ]
+malus = ["full-node", "service/malus"]
 runtime-metrics = [
 	"polkadot-node-metrics/runtime-metrics",
 	"service/runtime-metrics",
 ]
-
-network-protocol-staging = [ "service/network-protocol-staging" ]

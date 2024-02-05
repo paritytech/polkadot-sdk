@@ -23,6 +23,7 @@ pub mod auctions;
 pub mod claims;
 pub mod crowdloan;
 pub mod elections;
+pub mod identity_migrator;
 pub mod impls;
 pub mod paras_registrar;
 pub mod paras_sudo_wrapper;

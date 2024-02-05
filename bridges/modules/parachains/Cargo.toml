@@ -1,10 +1,13 @@
 [package]
 name = "pallet-bridge-parachains"
-version = "0.1.0"
+version = "0.7.0"
 description = "Module that allows bridged relay chains to exchange information on their parachains' heads."
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[lints]
+workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false }
@@ -35,7 +38,7 @@ sp-core = { path = "../../../substrate/primitives/core" }
 sp-io = { path = "../../../substrate/primitives/io" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"bp-header-chain/std",
 	"bp-parachains/std",

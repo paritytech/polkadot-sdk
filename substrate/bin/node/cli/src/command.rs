@@ -24,7 +24,6 @@ use crate::{
 };
 use frame_benchmarking_cli::*;
 use kitchensink_runtime::{ExistentialDeposit, RuntimeApi};
-use node_executor::ExecutorDispatch;
 use node_primitives::Block;
 use sc_cli::{Result, SubstrateCli};
 use sc_service::PartialComponents;
@@ -89,7 +88,7 @@ pub fn run() -> Result<()> {
 		Some(Subcommand::Inspect(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 
-			runner.sync_run(|config| cmd.run::<Block, RuntimeApi, ExecutorDispatch>(config))
+			runner.sync_run(|config| cmd.run::<Block, RuntimeApi>(config))
 		},
 		Some(Subcommand::Benchmark(cmd)) => {
 			let runner = cli.create_runner(cmd)?;

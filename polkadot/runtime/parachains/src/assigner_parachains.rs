@@ -17,13 +17,20 @@
 //! The bulk (parachain slot auction) blockspace assignment provider.
 //! This provider is tightly coupled with the configuration and paras modules.
 
+#[cfg(test)]
+mod mock_helpers;
+#[cfg(test)]
+mod tests;
+
+use frame_system::pallet_prelude::BlockNumberFor;
+use primitives::CoreIndex;
+
 use crate::{
 	configuration, paras,
 	scheduler::common::{Assignment, AssignmentProvider, AssignmentProviderConfig},
 };
-use frame_system::pallet_prelude::BlockNumberFor;
+
 pub use pallet::*;
-use primitives::{CoreIndex, Id as ParaId};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -38,23 +45,18 @@ pub mod pallet {
 }
 
 impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
-	fn session_core_count() -> u32 {
-		paras::Parachains::<T>::decode_len().unwrap_or(0) as u32
-	}
-
-	fn pop_assignment_for_core(
-		core_idx: CoreIndex,
-		_concluded_para: Option<ParaId>,
-	) -> Option<Assignment> {
+	fn pop_assignment_for_core(core_idx: CoreIndex) -> Option<Assignment> {
 		<paras::Pallet<T>>::parachains()
 			.get(core_idx.0 as usize)
 			.copied()
-			.map(|para_id| Assignment::new(para_id))
+			.map(Assignment::Bulk)
 	}
+
+	fn report_processed(_: Assignment) {}
 
 	/// Bulk assignment has no need to push the assignment back on a session change,
 	/// this is a no-op in the case of a bulk assignment slot.
-	fn push_assignment_for_core(_: CoreIndex, _: Assignment) {}
+	fn push_back_assignment(_: Assignment) {}
 
 	fn get_provider_config(_core_idx: CoreIndex) -> AssignmentProviderConfig<BlockNumberFor<T>> {
 		AssignmentProviderConfig {
@@ -64,5 +66,14 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 			// that's high enough to clear the time it takes to clear backing/availability.
 			ttl: 10u32.into(),
 		}
+	}
+
+	#[cfg(any(feature = "runtime-benchmarks", test))]
+	fn get_mock_assignment(_: CoreIndex, para_id: primitives::Id) -> Assignment {
+		Assignment::Bulk(para_id)
+	}
+
+	fn session_core_count() -> u32 {
+		paras::Parachains::<T>::decode_len().unwrap_or(0) as u32
 	}
 }

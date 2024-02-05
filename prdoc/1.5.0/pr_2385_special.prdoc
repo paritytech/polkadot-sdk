@@ -1,0 +1,9 @@
+title: "Relax `force_default_xcm_version` for testnet system parachains"
+author: bkontur
+topic: Cumulus
+
+doc:
+  - audience: Runtime Dev
+    description: n/a
+
+crates: []

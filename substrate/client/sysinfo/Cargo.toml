@@ -1,6 +1,6 @@
 [package]
 name = "sc-sysinfo"
-version = "6.0.0-dev"
+version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -9,6 +9,9 @@ repository.workspace = true
 description = "A crate that provides basic hardware and software telemetry information."
 documentation = "https://docs.rs/sc-sysinfo"
 readme = "README.md"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -21,10 +24,11 @@ rand = "0.8.5"
 rand_pcg = "0.3.1"
 derive_more = "0.99"
 regex = "1"
-serde = { version = "1.0.188", features = ["derive"] }
-serde_json = "1.0.108"
+serde = { version = "1.0.195", features = ["derive"] }
+serde_json = "1.0.111"
 sc-telemetry = { path = "../telemetry" }
 sp-core = { path = "../../primitives/core" }
+sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
 sp-io = { path = "../../primitives/io" }
 sp-std = { path = "../../primitives/std" }
 
