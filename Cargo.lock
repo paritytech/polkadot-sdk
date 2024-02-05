@@ -13467,6 +13467,7 @@ version = "1.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
+ "bincode",
  "bitvec",
  "clap 4.4.18",
  "clap-num",
@@ -13475,16 +13476,19 @@ dependencies = [
  "env_logger 0.9.3",
  "futures",
  "futures-timer",
+ "hex",
  "itertools 0.11.0",
  "kvdb-memorydb",
  "log",
  "orchestra",
  "parity-scale-codec",
  "paste",
+ "polkadot-approval-distribution",
  "polkadot-availability-bitfield-distribution",
  "polkadot-availability-distribution",
  "polkadot-availability-recovery",
  "polkadot-erasure-coding",
+ "polkadot-node-core-approval-voting",
  "polkadot-node-core-av-store",
  "polkadot-node-core-chain-api",
  "polkadot-node-metrics",
@@ -13501,17 +13505,24 @@ dependencies = [
  "pyroscope",
  "pyroscope_pprofrs",
  "rand",
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.4",
  "rand_distr",
  "sc-keystore",
  "sc-network",
  "sc-service",
+ "schnorrkel 0.9.1",
  "serde",
  "serde_yaml",
+ "sha1",
  "sp-application-crypto",
  "sp-consensus",
+ "sp-consensus-babe",
  "sp-core",
  "sp-keyring",
  "sp-keystore",
+ "sp-runtime",
+ "sp-timestamp",
  "substrate-prometheus-endpoint",
  "tokio",
  "tracing-gum",
@@ -17208,9 +17219,9 @@ dependencies = [
 
 [[package]]
 name = "sha1"
-version = "0.10.5"
+version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f04293dc80c3993519f2d7f6f511707ee7094fe0c6d3406feb330cdb3540eba3"
+checksum = "e3bf829a2d51ab4a5ddf1352d8470c140cadc8301b2ae1789db023f01cedd6ba"
 dependencies = [
  "cfg-if",
  "cpufeatures",
