@@ -122,8 +122,8 @@ default:
     - 'curl --header "PRIVATE-TOKEN: $FL_CI_GROUP_TOKEN" -o forklift  -L "${CI_API_V4_URL}/projects/676/packages/generic/forklift/${FL_FORKLIFT_VERSION_ALT}/forklift_${FL_FORKLIFT_VERSION_ALT}_linux_amd64"'
     - chmod +x forklift
     - mkdir .forklift
-    - cp $FL_FORKLIFT_CONFIG_ALT .forklift/config.toml
     - mkdir ~/.forklift
+    - cp $FL_FORKLIFT_CONFIG_ALT ~/.forklift/config.toml
     - shopt -s expand_aliases
     - export PATH=$PATH:$(pwd)
     - |
