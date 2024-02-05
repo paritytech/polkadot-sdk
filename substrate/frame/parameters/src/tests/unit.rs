@@ -15,13 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Unit tests for the non-fungible-token module.
+//! Unit tests for the parameters pallet.
 
 #![cfg(test)]
 
 use crate::tests::mock::{
-	dynamic_params::*, new_test_ext, PalletParameters, RuntimeOrigin as Origin, RuntimeParameters,
-	RuntimeParameters::*, RuntimeParametersKey, RuntimeParametersValue,
+	dynamic_params::*, new_test_ext, PalletParameters, Runtime, RuntimeOrigin as Origin,
+	RuntimeParameters, RuntimeParameters::*, RuntimeParametersKey, RuntimeParametersValue,
 };
 use codec::Encode;
 use frame_support::{
@@ -119,6 +119,20 @@ fn set_parameters_wrong_origin_errors() {
 			),
 			DispatchError::BadOrigin
 		);
+	});
+}
+
+#[test]
+fn get_through_external_pallet_works() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(<Runtime as pallet_example_basic::Config>::MagicNumber::get(), 0);
+
+		assert_ok!(PalletParameters::set_parameter(
+			Origin::root(),
+			Pallet1(pallet1::Parameters::Key1(pallet1::Key1, Some(123))),
+		));
+
+		assert_eq!(<Runtime as pallet_example_basic::Config>::MagicNumber::get(), 123);
 	});
 }
 

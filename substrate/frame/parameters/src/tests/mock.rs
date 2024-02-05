@@ -17,7 +17,7 @@
 
 #![cfg(any(test, feature = "runtime-benchmarks"))]
 
-//! Test that the `pallet_example_basic` can use the parameters pallet as storage.
+//! Mock runtime that configures the `pallet_example_basic` to use dynamic params for testing.
 
 use frame_support::{
 	construct_runtime, derive_impl,
@@ -106,7 +106,7 @@ parameter_types! {
 
 #[docify::export(impl_config)]
 impl Config for Runtime {
-	type AggregratedKeyValue = RuntimeParameters;
+	type RuntimeParameters = RuntimeParameters;
 	type AdminOrigin = custom_origin::ParamsManager;
 
 	type RuntimeEvent = RuntimeEvent;

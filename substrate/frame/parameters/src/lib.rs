@@ -40,8 +40,8 @@
 //!
 //! ### Inbound
 //!
-//! The inbound side solely consists of the [`Pallet::set_parameter`] extrinsic to update the value of a
-//! parameter. Each parameter can have their own admin origin as given by the
+//! The inbound side solely consists of the [`Pallet::set_parameter`] extrinsic to update the value
+//! of a parameter. Each parameter can have their own admin origin as given by the
 //! [`Config::AdminOrigin`].
 //!
 //! ### Outbound
@@ -123,10 +123,10 @@ pub use pallet::*;
 pub use weights::WeightInfo;
 
 /// The key type of a parameter.
-type KeyOf<T> = <<T as Config>::AggregratedKeyValue as AggregratedKeyValue>::AggregratedKey;
+type KeyOf<T> = <<T as Config>::RuntimeParameters as AggregratedKeyValue>::AggregratedKey;
 
 /// The value type of a parameter.
-type ValueOf<T> = <<T as Config>::AggregratedKeyValue as AggregratedKeyValue>::AggregratedValue;
+type ValueOf<T> = <<T as Config>::RuntimeParameters as AggregratedKeyValue>::AggregratedValue;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -140,7 +140,7 @@ pub mod pallet {
 		/// The overarching KV type of the parameters.
 		///
 		/// Usually created by [`frame_support::dynamic_params`] or equivalent.
-		type AggregratedKeyValue: AggregratedKeyValue;
+		type RuntimeParameters: AggregratedKeyValue;
 
 		/// The origin which may update a parameter.
 		///
@@ -162,7 +162,7 @@ pub mod pallet {
 		/// A Parameter was set.
 		Updated {
 			/// The Key-Value pair that was set.
-			key_value: T::AggregratedKeyValue,
+			key_value: T::RuntimeParameters,
 		},
 	}
 
@@ -183,7 +183,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::set_parameter())]
 		pub fn set_parameter(
 			origin: OriginFor<T>,
-			key_value: T::AggregratedKeyValue,
+			key_value: T::RuntimeParameters,
 		) -> DispatchResult {
 			let (key, value) = key_value.clone().into_parts();
 
@@ -199,7 +199,7 @@ pub mod pallet {
 }
 
 impl<T: Config> RuntimeParameterStore for Pallet<T> {
-	type AggregratedKeyValue = T::AggregratedKeyValue;
+	type AggregratedKeyValue = T::RuntimeParameters;
 
 	fn get<KV, K>(key: K) -> Option<K::Value>
 	where
