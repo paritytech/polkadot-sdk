@@ -182,6 +182,7 @@ fn migrate_to_v12<T: Config>() -> Weight {
 #[cfg(test)]
 mod tests {
 	use primitives::LEGACY_MIN_BACKING_VOTES;
+	use sp_arithmetic::Perbill;
 
 	use super::*;
 	use crate::mock::{new_test_ext, Test};
@@ -209,25 +210,34 @@ mod tests {
 		// doesn't need to be read and also leaving it as one line allows to easily copy it.
 		let raw_config =
 	hex_literal::hex!["
-	0000300000800000080000000000100000c8000005000000050000000200000002000000000000000000000000005000000010000400000000000000000000000000000000000000000000000000000000000000000000000800000000200000040000000000100000b004000000000000000000001027000080b2e60e80c3c9018096980000000000000000000000000005000000140000000400000001000000010100000000060000006400000002000000190000000000000002000000020000000200000005000000020000000001000000"
+	0000300000800000080000000000100000c8000005000000050000000200000002000000000000000000000000005000000010000400000000000000000000000000000000000000000000000000000000000000000000000800000000200000040000000000100000b004000014000000040000000101000000000600000064000000020000001900000000000000020000000200000002000000050000000200000000010000000100000001000000000000001027000080b2e60e80c3c9018096980000000000000000000000000005000000"
 	];
 
-		let v11 =
-			V11HostConfiguration::<primitives::BlockNumber>::decode(&mut &raw_config[..]).unwrap();
+		let v12 =
+			V12HostConfiguration::<primitives::BlockNumber>::decode(&mut &raw_config[..]).unwrap();
 
 		// We check only a sample of the values here. If we missed any fields or messed up data
 		// types that would skew all the fields coming after.
-		assert_eq!(v11.max_code_size, 3_145_728);
-		assert_eq!(v11.validation_upgrade_cooldown, 2);
-		assert_eq!(v11.max_pov_size, 5_242_880);
-		assert_eq!(v11.hrmp_channel_max_message_size, 1_048_576);
-		assert_eq!(v11.n_delay_tranches, 25);
-		assert_eq!(v11.minimum_validation_upgrade_delay, 5);
-		assert_eq!(v11.group_rotation_frequency, 20);
-		assert_eq!(v11.coretime_cores, 0);
-		assert_eq!(v11.on_demand_base_fee, 10_000_000);
-		assert_eq!(v11.minimum_backing_votes, LEGACY_MIN_BACKING_VOTES);
-		assert_eq!(v11.approval_voting_params.max_approval_coalesce_count, 1);
+		assert_eq!(v12.max_code_size, 3_145_728);
+		assert_eq!(v12.validation_upgrade_cooldown, 2);
+		assert_eq!(v12.max_pov_size, 5_242_880);
+		assert_eq!(v12.hrmp_channel_max_message_size, 1_048_576);
+		assert_eq!(v12.n_delay_tranches, 25);
+		assert_eq!(v12.minimum_validation_upgrade_delay, 5);
+		assert_eq!(v12.group_rotation_frequency, 20);
+		assert_eq!(v12.minimum_backing_votes, LEGACY_MIN_BACKING_VOTES);
+		assert_eq!(v12.approval_voting_params.max_approval_coalesce_count, 1);
+		assert_eq!(v12.scheduler_params.lookahead, 1);
+		assert_eq!(v12.scheduler_params.coretime_cores, 1);
+		assert_eq!(v12.scheduler_params.coretime_max_availability_timeouts, 0);
+		assert_eq!(v12.scheduler_params.on_demand_queue_max_size, 10_000);
+		assert_eq!(
+			v12.scheduler_params.on_demand_target_queue_utilization,
+			Perbill::from_percent(25)
+		);
+		assert_eq!(v12.scheduler_params.on_demand_fee_variability, Perbill::from_percent(3));
+		assert_eq!(v12.scheduler_params.on_demand_base_fee, 10_000_000);
+		assert_eq!(v12.scheduler_params.coretime_ttl, 5);
 	}
 
 	#[test]
