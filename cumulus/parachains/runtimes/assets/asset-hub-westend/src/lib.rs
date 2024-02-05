@@ -32,7 +32,7 @@ use assets_common::{
 	AssetIdForTrustBackedAssetsConvert,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
-use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{
 	construct_runtime, derive_impl,
@@ -58,7 +58,7 @@ use pallet_xcm::EnsureXcm;
 use parachains_common::{
 	impls::DealWithFees, message_queue::*, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
 	BlockNumber, CollectionId, Hash, Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
-	DAYS, HOURS, MAXIMUM_BLOCK_WEIGHT, NORMAL_DISPATCH_RATIO, SLOT_DURATION,
+	NORMAL_DISPATCH_RATIO,
 };
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -72,7 +72,7 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee};
+use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee, time::*};
 use xcm_config::{
 	ForeignAssetsConvertedConcreteId, PoolAssetsConvertedConcreteId,
 	TrustBackedAssetsConvertedConcreteId, TrustBackedAssetsPalletLocationV3, WestendLocation,
@@ -171,6 +171,9 @@ impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
 	type Moment = u64;
 	type OnTimestampSet = Aura;
+	#[cfg(feature = "experimental")]
+	type MinimumPeriod = ConstU64<0>;
+	#[cfg(not(feature = "experimental"))]
 	type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
 	type WeightInfo = weights::pallet_timestamp::WeightInfo<Runtime>;
 }
@@ -604,14 +607,16 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type OutboundXcmpMessageSource = XcmpQueue;
 	type XcmpMessageHandler = XcmpQueue;
 	type ReservedXcmpWeight = ReservedXcmpWeight;
-	type CheckAssociatedRelayNumber = RelayNumberStrictlyIncreases;
-	type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
-		Runtime,
-		RELAY_CHAIN_SLOT_DURATION_MILLIS,
-		BLOCK_PROCESSING_VELOCITY,
-		UNINCLUDED_SEGMENT_CAPACITY,
-	>;
+	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
+	type ConsensusHook = ConsensusHook;
 }
+
+type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
+	Runtime,
+	RELAY_CHAIN_SLOT_DURATION_MILLIS,
+	BLOCK_PROCESSING_VELOCITY,
+	UNINCLUDED_SEGMENT_CAPACITY,
+>;
 
 impl parachain_info::Config for Runtime {}
 
@@ -697,9 +702,9 @@ impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
 	type MaxAuthorities = ConstU32<100_000>;
-	type AllowMultipleBlocksPerSlot = ConstBool<false>;
+	type AllowMultipleBlocksPerSlot = ConstBool<true>;
 	#[cfg(feature = "experimental")]
-	type SlotDuration = pallet_aura::MinimumPeriodTimesTwo<Self>;
+	type SlotDuration = ConstU64<SLOT_DURATION>;
 }
 
 parameter_types! {
@@ -980,7 +985,7 @@ impl frame_support::traits::OnRuntimeUpgrade for DeleteUndecodableStorage {
 			},
 			Err(e) => {
 				log::error!("Failed to destroy undecodable NFT item: {:?}", e);
-				return <Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, writes)
+				return <Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, writes);
 			},
 		}
 
@@ -992,7 +997,7 @@ impl frame_support::traits::OnRuntimeUpgrade for DeleteUndecodableStorage {
 			},
 			Err(e) => {
 				log::error!("Failed to destroy undecodable NFT item: {:?}", e);
-				return <Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, writes)
+				return <Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, writes);
 			},
 		}
 
@@ -1090,11 +1095,20 @@ mod benches {
 impl_runtime_apis! {
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
-			sp_consensus_aura::SlotDuration::from_millis(Aura::slot_duration())
+			sp_consensus_aura::SlotDuration::from_millis(SLOT_DURATION)
 		}
 
 		fn authorities() -> Vec<AuraId> {
 			Aura::authorities().into_inner()
+		}
+	}
+
+	impl cumulus_primitives_aura::AuraUnincludedSegmentApi<Block> for Runtime {
+		fn can_build_upon(
+			included_hash: <Block as BlockT>::Hash,
+			slot: cumulus_primitives_aura::Slot,
+		) -> bool {
+			ConsensusHook::can_build_upon(included_hash, slot)
 		}
 	}
 
