@@ -19,7 +19,7 @@ sp-runtime = { default-features = false, path = "../../../primitives/runtime", f
 sp-staking = { default-features = false, path = "../../../primitives/staking", features = ["serde"] }
 sp-std = { default-features = false, path = "../../../primitives/std" }
 
-sp-npos-elections = { path = "../../../primitives/npos-elections" }
+sp-npos-elections = { default-features = false, path = "../../../primitives/npos-elections" }
 frame-election-provider-support = { default-features = false, path = "../../election-provider-support" }
 frame-support = { default-features = false, path = "../../support" }
 frame-system = { default-features = false, path = "../../system" }
@@ -28,12 +28,12 @@ log = { version = "0.4.17", default-features = false }
 
 [dev-dependencies]
 sp-std = { default-features = false, path = "../../../primitives/std" }
-sp-core = { path = "../../../primitives/core" }
+sp-core = { default-features = false, path = "../../../primitives/core" }
 sp-io = { default-features = false, path = "../../../primitives/io" }
 sp-runtime = { default-features = false, path = "../../../primitives/runtime", features = ["serde"] }
-sp-tracing = { path = "../../../primitives/tracing" }
-pallet-bags-list = { path = "../../bags-list" }
-pallet-balances = { path = "../../balances" }
+sp-tracing = { default-features = false, path = "../../../primitives/tracing" }
+pallet-bags-list = { default-features = false, path = "../../bags-list" }
+pallet-balances = { default-features = false, path = "../../balances" }
 
 [features]
 default = ["std"]
@@ -45,9 +45,14 @@ std = [
 	"scale-info/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"sp-staking/std",
+	"sp-runtime/std",
+	"sp-core/std",
+	"sp-tracing/std",
 	"frame-election-provider-support/std",
 	"pallet-balances/std",
 	"pallet-bags-list/std",
+	"sp-npos-elections/std"
 ]
 
 runtime-benchmarks = [

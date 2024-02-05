@@ -91,7 +91,7 @@ use sp_runtime::traits::Zero;
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, OnStakingUpdate, Stake, StakerStatus, StakingInterface,
 };
-use sp_std::collections::btree_map::BTreeMap;
+use sp_std::{collections::btree_map::BTreeMap, vec, vec::Vec};
 
 #[cfg(test)]
 mod mock;

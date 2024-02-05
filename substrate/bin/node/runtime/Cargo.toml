@@ -402,7 +402,6 @@ try-runtime = [
 	"pallet-skip-feeless-payment/try-runtime",
 	"pallet-society/try-runtime",
 	"pallet-staking/try-runtime",
-	"pallet-stake-tracker/try-runtime",
 	"pallet-state-trie-migration/try-runtime",
 	"pallet-statement/try-runtime",
 	"pallet-sudo/try-runtime",

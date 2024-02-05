@@ -35,7 +35,7 @@ frame-election-provider-support = { path = "../../election-provider-support" }
 
 pallet-election-provider-multi-phase = { path = ".." }
 pallet-staking = { path = "../../staking" }
-pallet-stake-tracker = { path = "../../staking/stake-tracker" }
+pallet-stake-tracker = { path = "../../staking/stake-tracker", default-features = false }
 pallet-bags-list = { path = "../../bags-list" }
 pallet-balances = { path = "../../balances" }
 pallet-timestamp = { path = "../../timestamp" }
