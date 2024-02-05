@@ -491,3 +491,50 @@ test-syscalls:
       printf "The x86_64 syscalls used by the worker binaries have changed. Please review if this is expected and update polkadot/scripts/list-syscalls/*-worker-syscalls as needed.\n";
       fi
   allow_failure: false # this rarely triggers in practice
+
+subsystem-bench:
+  stage: test
+  extends:
+    - .docker-env
+    - .common-refs
+    - .collect-artifacts
+  artifacts:
+    expire_in: 10 days
+  script:
+    - cargo build --profile=testnet -p polkadot-subsystem-bench --bin subsystem-bench 
+    - target/testnet/subsystem-bench --ci test-sequence --path polkadot/node/subsystem-bench/examples/availability_read.yaml | tee -a $CI_COMMIT_REF_NAME-$CI_COMMIT_SHORT_SHA.yaml || true
+    - target/testnet/subsystem-bench --ci test-sequence --path polkadot/node/subsystem-bench/examples/availability_write.yaml | tee -a $CI_COMMIT_REF_NAME-$CI_COMMIT_SHORT_SHA.yaml || true
+    - echo "___Packing the artifacts___"
+    - mkdir -p ./artifacts/subsystem_bench/
+    - if [[ $CI_COMMIT_REF_NAME == "master" ]]; then
+      mv $CI_COMMIT_REF_NAME.yaml ./artifacts/subsystem_bench/;
+      else
+      mv $CI_COMMIT_REF_NAME-$CI_COMMIT_SHORT_SHA.yaml ./artifacts/subsystem_bench/;
+      fi
+  tags:
+    - benchmark
+
+susystem-bench-regression-guard:
+  stage: test
+  extends:
+    - .docker-env
+    - .common-refs
+  needs:
+    - job: subsystem-bench
+      artifacts: true
+    - project: $CI_PROJECT_PATH
+      job: subsystem-bench
+      # ref: "master"
+      ref: "3133"
+      artifacts: true
+  script:
+    # - if [ $(ls -la artifacts/subsystem_bench_output.yaml | grep master | wc -l) == 0 ]; then
+    #   echo "Couldn't find master artifacts";
+    #   exit 1;
+    #   fi
+    - echo "------- IMPORTANT -------"
+    - echo "subsystem-bench-regression-guard depends on the results of a susystem-bench job"
+    - echo "In case of this job failure, check your pipeline's subsystem-bench"
+    - cargo build --profile=testnet -p polkadot-subsystem-bench --bin subsystem-bench-guard 
+    # - target/testnet/subsystem-bench-guard --current=artifacts/subsystem_bench/$CI_COMMIT_REF_NAME-$CI_COMMIT_SHORT_SHA.yaml --reference=artifacts/subsystem_bench/master.yaml --threshold=1
+    - ls -la artifacts/subsystem_bench
