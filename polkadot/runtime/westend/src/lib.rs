@@ -1656,6 +1656,7 @@ pub mod migrations {
 		// Migrate Identity pallet for Usernames
 		pallet_identity::migration::versioned::V0ToV1<Runtime, IDENTITY_MIGRATION_KEY_LIMIT>,
 		parachains_configuration::migration::v11::MigrateToV11<Runtime>,
+		parachains_configuration::migration::v12::MigrateToV12<Runtime>,
 	);
 }
 
