@@ -51,14 +51,14 @@ use xcm_builder::CurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
 	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, DenyReserveTransferToRelayChain,
-	DenyThenTry, DescribeFamily, DescribePalletTerminal, EnsureXcmOrigin, FungiblesAdapter,
-	GlobalConsensusParachainConvertsFor, HashedDescription, IsConcrete, LocalMint,
-	NetworkExportTableItem, NoChecking, NonFungiblesAdapter, ParentAsSuperuser, ParentIsPreset,
-	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, StartsWith,
-	StartsWithExplicitGlobalConsensus, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
-	WeightInfoBounds, WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
-	XcmFeeToAccount,
+	DenyThenTry, DescribeFamily, DescribePalletTerminal, EnsureXcmOrigin,
+	FrameTransactionalProcessor, FungiblesAdapter, GlobalConsensusParachainConvertsFor,
+	HashedDescription, IsConcrete, LocalMint, NetworkExportTableItem, NoChecking,
+	NonFungiblesAdapter, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
+	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, StartsWith, StartsWithExplicitGlobalConsensus,
+	TakeWeightCredit, TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin,
+	WithUniqueTopic, XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::{traits::WithOriginFilter, XcmExecutor};
 
@@ -231,21 +231,15 @@ impl MatchesLocalAndForeignAssetsLocation<xcm::v3::Location>
 {
 	fn is_local(location: &xcm::v3::Location) -> bool {
 		use assets_common::fungible_conversion::MatchesLocation;
-		let latest_location: Location = if let Ok(location) = (*location).try_into() {
-			location
-		} else {
-			return false;
-		};
+		let latest_location: Location =
+			if let Ok(location) = (*location).try_into() { location } else { return false };
 		TrustBackedAssetsConvertedConcreteId::contains(&latest_location)
 	}
 
 	fn is_foreign(location: &xcm::v3::Location) -> bool {
 		use assets_common::fungible_conversion::MatchesLocation;
-		let latest_location: Location = if let Ok(location) = (*location).try_into() {
-			location
-		} else {
-			return false;
-		};
+		let latest_location: Location =
+			if let Ok(location) = (*location).try_into() { location } else { return false };
 		ForeignAssetsConvertedConcreteId::contains(&latest_location)
 	}
 }
@@ -682,6 +676,7 @@ impl xcm_executor::Config for XcmConfig {
 	type CallDispatcher = WithOriginFilter<SafeCallFilter>;
 	type SafeCallFilter = SafeCallFilter;
 	type Aliasers = Nothing;
+	type TransactionalProcessor = FrameTransactionalProcessor;
 }
 
 /// Local origins on this chain are allowed to dispatch XCM sends/executions.

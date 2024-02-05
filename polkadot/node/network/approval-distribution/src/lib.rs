@@ -284,12 +284,12 @@ struct AggressionConfig {
 }
 
 impl AggressionConfig {
-	/// Returns `true` if lag is past threshold depending on the aggression level
-	fn should_trigger_aggression(&self, approval_checking_lag: BlockNumber) -> bool {
+	/// Returns `true` if age is past threshold depending on the aggression level
+	fn should_trigger_aggression(&self, age: BlockNumber) -> bool {
 		if let Some(t) = self.l1_threshold {
-			approval_checking_lag >= t
+			age >= t
 		} else if let Some(t) = self.resend_unfinalized_period {
-			approval_checking_lag > 0 && approval_checking_lag % t == 0
+			age > 0 && age % t == 0
 		} else {
 			false
 		}
@@ -299,7 +299,7 @@ impl AggressionConfig {
 impl Default for AggressionConfig {
 	fn default() -> Self {
 		AggressionConfig {
-			l1_threshold: Some(13),
+			l1_threshold: Some(16),
 			l2_threshold: Some(28),
 			resend_unfinalized_period: Some(8),
 		}
@@ -1961,6 +1961,16 @@ impl State {
 		}
 	}
 
+	// It is very important that aggression starts with oldest unfinalized block, rather than oldest
+	// unapproved block. Using the gossip approach to distribute potentially
+	// missing votes to validators requires that we always trigger on finality lag, even if
+	// we have have the approval lag value. The reason for this, is to avoid finality stall
+	// when more than 1/3 nodes go offline for a period o time. When they come back
+	// there wouldn't get any of the approvals since the on-line nodes would never trigger
+	// aggression as they have approved all the candidates and don't detect any approval lag.
+	//
+	// In order to switch to using approval lag as a trigger we need a request/response protocol
+	// to fetch votes from validators rather than use gossip.
 	async fn enable_aggression<Context>(
 		&mut self,
 		ctx: &mut Context,
@@ -1968,27 +1978,27 @@ impl State {
 		metrics: &Metrics,
 	) {
 		let config = self.aggression_config.clone();
+		let min_age = self.blocks_by_number.iter().next().map(|(num, _)| num);
+		let max_age = self.blocks_by_number.iter().rev().next().map(|(num, _)| num);
 
-		if !self.aggression_config.should_trigger_aggression(self.approval_checking_lag) {
+		// Return if we don't have at least 1 block.
+		let (min_age, max_age) = match (min_age, max_age) {
+			(Some(min), Some(max)) => (*min, *max),
+			_ => return, // empty.
+		};
+
+		let age = max_age.saturating_sub(min_age);
+
+		// Trigger on approval checking lag.
+		if !self.aggression_config.should_trigger_aggression(age) {
 			gum::trace!(
 				target: LOG_TARGET,
 				approval_checking_lag = self.approval_checking_lag,
+				age,
 				"Aggression not enabled",
 			);
 			return
 		}
-
-		let max_age = self.blocks_by_number.iter().rev().next().map(|(num, _)| num);
-
-		let max_age = match max_age {
-			Some(max) => *max,
-			_ => return, // empty.
-		};
-
-		// Since we have the approval checking lag, we need to set the `min_age` accordingly to
-		// enable aggresion for the oldest block that is not approved.
-		let min_age = max_age.saturating_sub(self.approval_checking_lag);
-
 		gum::debug!(target: LOG_TARGET, min_age, max_age, "Aggression enabled",);
 
 		adjust_required_routing_and_propagate(
@@ -2044,8 +2054,7 @@ impl State {
 
 				let mut new_required_routing = *required_routing;
 
-				if config.l1_threshold.as_ref().map_or(false, |t| &self.approval_checking_lag >= t)
-				{
+				if config.l1_threshold.as_ref().map_or(false, |t| &age >= t) {
 					// Message originator sends to everyone.
 					if local && new_required_routing != RequiredRouting::All {
 						metrics.on_aggression_l1();
@@ -2053,8 +2062,7 @@ impl State {
 					}
 				}
 
-				if config.l2_threshold.as_ref().map_or(false, |t| &self.approval_checking_lag >= t)
-				{
+				if config.l2_threshold.as_ref().map_or(false, |t| &age >= t) {
 					// Message originator sends to everyone. Everyone else sends to XY.
 					if !local && new_required_routing != RequiredRouting::GridXY {
 						metrics.on_aggression_l2();

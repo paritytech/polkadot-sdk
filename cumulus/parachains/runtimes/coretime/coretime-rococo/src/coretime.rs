@@ -29,8 +29,9 @@ use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, 
 use parachains_common::{AccountId, Balance, BlockNumber};
 use xcm::latest::prelude::*;
 
+// TODO: check AccountId import
 pub struct CreditToCollatorPot;
-impl OnUnbalanced<Credit<polkadot_core_primitives::AccountId, Balances>> for CreditToCollatorPot {
+impl OnUnbalanced<Credit<AccountId, Balances>> for CreditToCollatorPot {
 	fn on_nonzero_unbalanced(credit: Credit<polkadot_core_primitives::AccountId, Balances>) {
 		let staking_pot = CollatorSelection::account_id();
 		let _ = <Balances as Balanced<_>>::resolve(&staking_pot, credit);

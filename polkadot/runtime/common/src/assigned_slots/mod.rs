@@ -658,13 +658,13 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-			Configuration: parachains_configuration::{Pallet, Call, Storage, Config<T>},
-			ParasShared: parachains_shared::{Pallet, Call, Storage},
-			Parachains: parachains_paras::{Pallet, Call, Storage, Config<T>, Event},
-			Slots: slots::{Pallet, Call, Storage, Event<T>},
-			AssignedSlots: assigned_slots::{Pallet, Call, Storage, Event<T>},
+			System: frame_system,
+			Balances: pallet_balances,
+			Configuration: parachains_configuration,
+			ParasShared: parachains_shared,
+			Parachains: parachains_paras,
+			Slots: slots,
+			AssignedSlots: assigned_slots,
 		}
 	);
 

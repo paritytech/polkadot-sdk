@@ -37,8 +37,8 @@ type Class = Rank;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Club: pallet_ranked_collective::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		Club: pallet_ranked_collective,
 	}
 );
 
