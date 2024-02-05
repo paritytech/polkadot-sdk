@@ -63,7 +63,9 @@ impl Default for ApprovalVotingParams {
 	serde::Serialize,
 	serde::Deserialize,
 )]
-pub struct CoretimeParams<BlockNumber> {
+pub struct SchedulerParams<BlockNumber> {
+	/// The amount of blocks ahead to schedule paras.
+	pub lookahead: u32,
 	/// How many cores are managed by the coretime chain.
 	pub coretime_cores: u32,
 	/// The max number of times a claim can time out in availability
@@ -83,9 +85,10 @@ pub struct CoretimeParams<BlockNumber> {
 	pub coretime_ttl: BlockNumber,
 }
 
-impl<BlockNumber: Default + From<u32>> Default for CoretimeParams<BlockNumber> {
+impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> {
 	fn default() -> Self {
 		Self {
+			lookahead: 1,
 			coretime_cores: Default::default(),
 			coretime_max_availability_timeouts: Default::default(),
 			on_demand_queue_max_size: ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,

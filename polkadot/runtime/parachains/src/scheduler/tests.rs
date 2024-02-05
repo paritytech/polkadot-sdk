@@ -19,7 +19,7 @@ use super::*;
 use frame_support::assert_ok;
 use keyring::Sr25519Keyring;
 use primitives::{
-	vstaging::CoretimeParams, BlockNumber, SessionIndex, ValidationCode, ValidatorId,
+	vstaging::SchedulerParams, BlockNumber, SessionIndex, ValidationCode, ValidatorId,
 };
 use sp_std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
 
@@ -107,13 +107,13 @@ fn default_config() -> HostConfiguration<BlockNumber> {
 	HostConfiguration {
 		group_rotation_frequency: 10,
 		paras_availability_period: 3,
-		scheduling_lookahead: 2,
 		// This field does not affect anything that scheduler does. However, `HostConfiguration`
 		// is still a subject to consistency test. It requires that
 		// `minimum_validation_upgrade_delay` is greater than `chain_availability_period` and
 		// `thread_availability_period`.
 		minimum_validation_upgrade_delay: 6,
-		coretime_params: CoretimeParams {
+		scheduler_params: SchedulerParams {
+			lookahead: 2,
 			coretime_cores: 3,
 			coretime_max_availability_timeouts: 1,
 			..Default::default()
@@ -161,7 +161,7 @@ fn scheduled_entries() -> impl Iterator<Item = (CoreIndex, ParasEntry<BlockNumbe
 #[test]
 fn claimqueue_ttl_drop_fn_works() {
 	let mut config = default_config();
-	config.scheduling_lookahead = 3;
+	config.scheduler_params.lookahead = 3;
 	let genesis_config = genesis_config(&config);
 
 	let para_id = ParaId::from(100);
@@ -169,7 +169,7 @@ fn claimqueue_ttl_drop_fn_works() {
 	let mut now = 10;
 
 	new_test_ext(genesis_config).execute_with(|| {
-		assert!(config.coretime_params.coretime_ttl == 5);
+		assert!(config.scheduler_params.coretime_ttl == 5);
 		// Register and run to a blockheight where the para is in a valid state.
 		schedule_blank_para(para_id);
 		run_to_block(now, |n| if n == now { Some(Default::default()) } else { None });
@@ -348,7 +348,7 @@ fn fill_claimqueue_fills() {
 
 	new_test_ext(genesis_config).execute_with(|| {
 		MockAssigner::set_core_count(2);
-		let coretime_ttl = config.coretime_params.coretime_ttl;
+		let coretime_ttl = config.scheduler_params.coretime_ttl;
 
 		// Add 3 paras
 		schedule_blank_para(para_a);
@@ -415,7 +415,7 @@ fn schedule_schedules_including_just_freed() {
 	let mut config = default_config();
 	// NOTE: This test expects on demand cores to each get slotted on to a different core
 	// and not fill up the claimqueue of each core first.
-	config.scheduling_lookahead = 1;
+	config.scheduler_params.lookahead = 1;
 	let genesis_config = genesis_config(&config);
 
 	let para_a = ParaId::from(3_u32);
@@ -562,7 +562,7 @@ fn schedule_schedules_including_just_freed() {
 #[test]
 fn schedule_clears_availability_cores() {
 	let mut config = default_config();
-	config.scheduling_lookahead = 1;
+	config.scheduler_params.lookahead = 1;
 	let genesis_config = genesis_config(&config);
 
 	let para_a = ParaId::from(1_u32);
@@ -664,7 +664,7 @@ fn schedule_clears_availability_cores() {
 fn schedule_rotates_groups() {
 	let config = {
 		let mut config = default_config();
-		config.scheduling_lookahead = 1;
+		config.scheduler_params.lookahead = 1;
 		config
 	};
 
@@ -749,10 +749,10 @@ fn schedule_rotates_groups() {
 fn on_demand_claims_are_pruned_after_timing_out() {
 	let max_retries = 20;
 	let mut config = default_config();
-	config.scheduling_lookahead = 1;
+	config.scheduler_params.lookahead = 1;
 	// Need more timeouts for this test
-	config.coretime_params.coretime_max_availability_timeouts = max_retries;
-	config.coretime_params.coretime_ttl = BlockNumber::from(5u32);
+	config.scheduler_params.coretime_max_availability_timeouts = max_retries;
+	config.scheduler_params.coretime_ttl = BlockNumber::from(5u32);
 	let genesis_config = genesis_config(&config);
 
 	let para_a = ParaId::from(1_u32);
@@ -1047,7 +1047,7 @@ fn next_up_on_time_out_reuses_claim_if_nothing_queued() {
 #[test]
 fn session_change_requires_reschedule_dropping_removed_paras() {
 	let mut config = default_config();
-	config.scheduling_lookahead = 1;
+	config.scheduler_params.lookahead = 1;
 	let genesis_config = genesis_config(&config);
 
 	let para_a = ParaId::from(1_u32);
@@ -1059,7 +1059,7 @@ fn session_change_requires_reschedule_dropping_removed_paras() {
 	new_test_ext(genesis_config).execute_with(|| {
 		// Setting explicit core count
 		MockAssigner::set_core_count(5);
-		let coretime_ttl = <configuration::Pallet<Test>>::config().coretime_params.coretime_ttl;
+		let coretime_ttl = <configuration::Pallet<Test>>::config().scheduler_params.coretime_ttl;
 
 		schedule_blank_para(para_a);
 		schedule_blank_para(para_b);

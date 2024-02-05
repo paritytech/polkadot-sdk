@@ -201,10 +201,10 @@ pub mod pallet {
 			let old_traffic = SpotTraffic::<T>::get();
 			match Self::calculate_spot_traffic(
 				old_traffic,
-				config.coretime_params.on_demand_queue_max_size,
+				config.scheduler_params.on_demand_queue_max_size,
 				Self::queue_size(),
-				config.coretime_params.on_demand_target_queue_utilization,
-				config.coretime_params.on_demand_fee_variability,
+				config.scheduler_params.on_demand_target_queue_utilization,
+				config.scheduler_params.on_demand_fee_variability,
 			) {
 				Ok(new_traffic) => {
 					// Only update storage on change
@@ -331,7 +331,7 @@ where
 
 		// Calculate spot price
 		let spot_price: BalanceOf<T> = traffic.saturating_mul_int(
-			config.coretime_params.on_demand_base_fee.saturated_into::<BalanceOf<T>>(),
+			config.scheduler_params.on_demand_base_fee.saturated_into::<BalanceOf<T>>(),
 		);
 
 		// Is the current price higher than `max_amount`
@@ -452,7 +452,7 @@ where
 		OnDemandQueue::<T>::try_mutate(|queue| {
 			// Abort transaction if queue is too large
 			ensure!(
-				Self::queue_size() < config.coretime_params.on_demand_queue_max_size,
+				Self::queue_size() < config.scheduler_params.on_demand_queue_max_size,
 				Error::<T>::QueueFull
 			);
 			match location {
@@ -476,7 +476,7 @@ where
 					target: LOG_TARGET,
 					"Failed to fetch the on demand queue size, returning the max size."
 				);
-				return config.coretime_params.on_demand_queue_max_size
+				return config.scheduler_params.on_demand_queue_max_size
 			},
 		}
 	}

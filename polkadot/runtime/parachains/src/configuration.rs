@@ -42,7 +42,7 @@ mod benchmarking;
 pub mod migration;
 
 pub use pallet::*;
-use primitives::vstaging::CoretimeParams;
+use primitives::vstaging::SchedulerParams;
 
 const LOG_TARGET: &str = "runtime::configuration";
 
@@ -192,8 +192,6 @@ pub struct HostConfiguration<BlockNumber> {
 	/// affect the following group at the expense of a tight availability timeline at group
 	/// rotation boundaries.
 	pub paras_availability_period: BlockNumber,
-	/// The amount of blocks ahead to schedule paras.
-	pub scheduling_lookahead: u32,
 	/// The maximum number of validators to have per core.
 	///
 	/// `None` means no maximum.
@@ -251,7 +249,7 @@ pub struct HostConfiguration<BlockNumber> {
 	/// Params used by approval-voting
 	pub approval_voting_params: ApprovalVotingParams,
 	/// Core time parameters
-	pub coretime_params: CoretimeParams<BlockNumber>,
+	pub scheduler_params: SchedulerParams<BlockNumber>,
 }
 
 impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber> {
@@ -270,7 +268,6 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			max_code_size: Default::default(),
 			max_pov_size: Default::default(),
 			max_head_data_size: Default::default(),
-			scheduling_lookahead: 1,
 			max_validators_per_core: Default::default(),
 			max_validators: None,
 			dispute_period: 6,
@@ -298,7 +295,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: 1 },
 			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
 			node_features: NodeFeatures::EMPTY,
-			coretime_params: Default::default(),
+			scheduler_params: Default::default(),
 		}
 	}
 }
@@ -669,7 +666,7 @@ pub mod pallet {
 		pub fn set_on_demand_retries(origin: OriginFor<T>, new: u32) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.coretime_params.coretime_max_availability_timeouts = new;
+				config.scheduler_params.coretime_max_availability_timeouts = new;
 			})
 		}
 
@@ -714,7 +711,7 @@ pub mod pallet {
 		pub fn set_scheduling_lookahead(origin: OriginFor<T>, new: u32) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.scheduling_lookahead = new;
+				config.scheduler_params.lookahead = new;
 			})
 		}
 
@@ -1122,7 +1119,7 @@ pub mod pallet {
 		pub fn set_on_demand_base_fee(origin: OriginFor<T>, new: Balance) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.coretime_params.on_demand_base_fee = new;
+				config.scheduler_params.on_demand_base_fee = new;
 			})
 		}
 
@@ -1135,7 +1132,7 @@ pub mod pallet {
 		pub fn set_on_demand_fee_variability(origin: OriginFor<T>, new: Perbill) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.coretime_params.on_demand_fee_variability = new;
+				config.scheduler_params.on_demand_fee_variability = new;
 			})
 		}
 
@@ -1148,7 +1145,7 @@ pub mod pallet {
 		pub fn set_on_demand_queue_max_size(origin: OriginFor<T>, new: u32) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.coretime_params.on_demand_queue_max_size = new;
+				config.scheduler_params.on_demand_queue_max_size = new;
 			})
 		}
 		/// Set the on demand (parathreads) fee variability.
@@ -1163,7 +1160,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.coretime_params.on_demand_target_queue_utilization = new;
+				config.scheduler_params.on_demand_target_queue_utilization = new;
 			})
 		}
 		/// Set the on demand (parathreads) ttl in the claimqueue.
@@ -1175,7 +1172,7 @@ pub mod pallet {
 		pub fn set_on_demand_ttl(origin: OriginFor<T>, new: BlockNumberFor<T>) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.coretime_params.coretime_ttl = new;
+				config.scheduler_params.coretime_ttl = new;
 			})
 		}
 
@@ -1233,7 +1230,7 @@ pub mod pallet {
 		/// To be used if authorization is checked otherwise.
 		pub fn set_coretime_cores_unchecked(new: u32) -> DispatchResult {
 			Self::schedule_config_update(|config| {
-				config.coretime_params.coretime_cores = new;
+				config.scheduler_params.coretime_cores = new;
 			})
 		}
 	}

@@ -84,7 +84,7 @@ mod enter {
 	// `create_inherent` and will not cause `enter` to early.
 	fn include_backed_candidates() {
 		let config = MockGenesisConfig::default();
-		assert!(config.configuration.config.scheduling_lookahead > 0);
+		assert!(config.configuration.config.scheduler_params.lookahead > 0);
 
 		new_test_ext(config).execute_with(|| {
 			let dispute_statements = BTreeMap::new();
@@ -622,7 +622,7 @@ mod enter {
 	#[test]
 	fn limit_candidates_over_weight_1() {
 		let config = MockGenesisConfig::default();
-		assert!(config.configuration.config.scheduling_lookahead > 0);
+		assert!(config.configuration.config.scheduler_params.lookahead > 0);
 
 		new_test_ext(config).execute_with(|| {
 			// Create the inherent data for this block

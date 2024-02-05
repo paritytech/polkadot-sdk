@@ -23,11 +23,13 @@ use frame_support::{
 	traits::{Defensive, OnRuntimeUpgrade},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use primitives::vstaging::CoretimeParams;
+use primitives::vstaging::SchedulerParams;
 use sp_core::Get;
 use sp_staking::SessionIndex;
+use sp_std::vec::Vec;
 
 type V12HostConfiguration<BlockNumber> = configuration::HostConfiguration<BlockNumber>;
+
 mod v11 {
 	use super::*;
 
@@ -128,7 +130,6 @@ fn migrate_to_v12<T: Config>() -> Weight {
 					code_retention_period                    : pre.code_retention_period,
 					group_rotation_frequency                 : pre.group_rotation_frequency,
 					paras_availability_period                : pre.paras_availability_period,
-					scheduling_lookahead                     : pre.scheduling_lookahead,
 					max_validators_per_core                  : pre.max_validators_per_core,
 					max_validators                           : pre.max_validators,
 					dispute_period                           : pre.dispute_period,
@@ -145,7 +146,8 @@ fn migrate_to_v12<T: Config>() -> Weight {
 					minimum_backing_votes                    : pre.minimum_backing_votes,
 					node_features							 : pre.node_features,
 					approval_voting_params                   : pre.approval_voting_params,
-					coretime_params: CoretimeParams {
+					scheduler_params: SchedulerParams {
+							lookahead                            : pre.scheduling_lookahead,
 							coretime_cores                       : pre.coretime_cores,
 							coretime_max_availability_timeouts   : pre.on_demand_retries,
 							on_demand_queue_max_size             : pre.on_demand_queue_max_size,
@@ -198,7 +200,7 @@ mod tests {
 		//        the block)
 		//   2.3. Note the value of encoded storage key ->
 		//        0x06de3d8a54d27e44a9d5ce189618f22db4b49d95320d9021994c850f25b8e385 for the
-		// referenced        block.
+		//        referenced block.
 		//   2.4. You'll also need the decoded values to update the test.
 		// 3. Go to Polkadot.js -> Developer -> Chain state -> Raw storage
 		//   3.1 Enter the encoded storage key and you get the raw config.
@@ -290,7 +292,6 @@ mod tests {
 					assert_eq!(v11.code_retention_period                    , v12.code_retention_period);
 					assert_eq!(v11.group_rotation_frequency                 , v12.group_rotation_frequency);
 					assert_eq!(v11.paras_availability_period                , v12.paras_availability_period);
-					assert_eq!(v11.scheduling_lookahead                     , v12.scheduling_lookahead);
 					assert_eq!(v11.max_validators_per_core                  , v12.max_validators_per_core);
 					assert_eq!(v11.max_validators                           , v12.max_validators);
 					assert_eq!(v11.dispute_period                           , v12.dispute_period);
@@ -305,13 +306,14 @@ mod tests {
 					assert_eq!(v11.async_backing_params.max_candidate_depth , v12.async_backing_params.max_candidate_depth);
 					assert_eq!(v11.executor_params						    , v12.executor_params);
 				    assert_eq!(v11.minimum_backing_votes					, v12.minimum_backing_votes);
-					assert_eq!(v11.coretime_cores                           , v12.coretime_params.coretime_cores);
-					assert_eq!(v11.on_demand_retries                        , v12.coretime_params.coretime_max_availability_timeouts);
-					assert_eq!(v11.on_demand_queue_max_size                 , v12.coretime_params.on_demand_queue_max_size);
-					assert_eq!(v11.on_demand_target_queue_utilization       , v12.coretime_params.on_demand_target_queue_utilization);
-					assert_eq!(v11.on_demand_fee_variability            	, v12.coretime_params.on_demand_fee_variability);
-					assert_eq!(v11.on_demand_base_fee            			, v12.coretime_params.on_demand_base_fee);
-					assert_eq!(v11.on_demand_ttl            				, v12.coretime_params.coretime_ttl);
+					assert_eq!(v11.scheduling_lookahead                     , v12.scheduler_params.lookahead);
+					assert_eq!(v11.coretime_cores                           , v12.scheduler_params.coretime_cores);
+					assert_eq!(v11.on_demand_retries                        , v12.scheduler_params.coretime_max_availability_timeouts);
+					assert_eq!(v11.on_demand_queue_max_size                 , v12.scheduler_params.on_demand_queue_max_size);
+					assert_eq!(v11.on_demand_target_queue_utilization       , v12.scheduler_params.on_demand_target_queue_utilization);
+					assert_eq!(v11.on_demand_fee_variability            	, v12.scheduler_params.on_demand_fee_variability);
+					assert_eq!(v11.on_demand_base_fee            			, v12.scheduler_params.on_demand_base_fee);
+					assert_eq!(v11.on_demand_ttl            				, v12.scheduler_params.coretime_ttl);
 				}; // ; makes this a statement. `rustfmt::skip` cannot be put on an expression.
 			}
 		});

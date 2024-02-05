@@ -25,7 +25,7 @@ use crate::{
 	util::take_active_subset,
 };
 use keyring::Sr25519Keyring;
-use primitives::{vstaging::CoretimeParams, BlockNumber, ValidatorId, ValidatorIndex};
+use primitives::{vstaging::SchedulerParams, BlockNumber, ValidatorId, ValidatorIndex};
 
 fn run_to_block(
 	to: BlockNumber,
@@ -64,7 +64,7 @@ fn default_config() -> HostConfiguration<BlockNumber> {
 	HostConfiguration {
 		dispute_period: 2,
 		needed_approvals: 3,
-		coretime_params: CoretimeParams { coretime_cores: 1, ..Default::default() },
+		scheduler_params: SchedulerParams { coretime_cores: 1, ..Default::default() },
 		..Default::default()
 	}
 }

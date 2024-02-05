@@ -285,7 +285,7 @@ fn setting_pending_config_members() {
 			max_head_data_size: 1_000,
 			group_rotation_frequency: 20,
 			paras_availability_period: 10,
-			scheduling_lookahead: 3,
+
 			max_validators_per_core: None,
 			max_validators: None,
 			dispute_period: 239,
@@ -314,7 +314,8 @@ fn setting_pending_config_members() {
 			approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: 1 },
 			minimum_backing_votes: 5,
 			node_features: bitvec![u8, Lsb0; 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
-			coretime_params: CoretimeParams {
+			scheduler_params: SchedulerParams {
+				lookahead: 3,
 				coretime_cores: 2,
 				coretime_max_availability_timeouts: 5,
 				on_demand_queue_max_size: 10_000u32,
@@ -346,12 +347,12 @@ fn setting_pending_config_members() {
 			.unwrap();
 		Configuration::set_coretime_cores(
 			RuntimeOrigin::root(),
-			new_config.coretime_params.coretime_cores,
+			new_config.scheduler_params.coretime_cores,
 		)
 		.unwrap();
 		Configuration::set_on_demand_retries(
 			RuntimeOrigin::root(),
-			new_config.coretime_params.coretime_max_availability_timeouts,
+			new_config.scheduler_params.coretime_max_availability_timeouts,
 		)
 		.unwrap();
 		Configuration::set_group_rotation_frequency(
@@ -373,7 +374,7 @@ fn setting_pending_config_members() {
 		.unwrap();
 		Configuration::set_scheduling_lookahead(
 			RuntimeOrigin::root(),
-			new_config.scheduling_lookahead,
+			new_config.scheduler_params.lookahead,
 		)
 		.unwrap();
 		Configuration::set_max_validators_per_core(
