@@ -17,7 +17,7 @@
 use crate::cli::{Cli, Subcommand, NODE_VERSION};
 use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFERENCE_HARDWARE};
 use futures::future::TryFutureExt;
-use log::{info, warn};
+use log::info;
 use sc_cli::SubstrateCli;
 use service::{
 	self,
@@ -91,6 +91,7 @@ impl SubstrateCli for Cli {
 			"polkadot" => Box::new(service::chain_spec::polkadot_config()?),
 			name if name.starts_with("polkadot-") && !name.ends_with(".json") =>
 				Err(format!("`{name}` is not supported anymore as the polkadot native runtime no longer part of the node."))?,
+			"paseo" => Box::new(service::chain_spec::paseo_config()?),
 			"rococo" => Box::new(service::chain_spec::rococo_config()?),
 			#[cfg(feature = "rococo-native")]
 			"dev" | "rococo-dev" => Box::new(service::chain_spec::rococo_development_config()?),
@@ -196,30 +197,9 @@ where
 	let chain_spec = &runner.config().chain_spec;
 
 	// By default, enable BEEFY on all networks, unless explicitly disabled through CLI.
-	let mut enable_beefy = !cli.run.no_beefy;
-	// BEEFY doesn't (yet) support warp sync:
-	// Until we implement https://github.com/paritytech/substrate/issues/14756
-	// - disallow warp sync for validators,
-	// - disable BEEFY when warp sync for non-validators.
-	if enable_beefy && runner.config().network.sync_mode.is_warp() {
-		if runner.config().role.is_authority() {
-			return Err(Error::Other(
-				"Warp sync not supported for validator nodes running BEEFY.".into(),
-			))
-		} else {
-			// disable BEEFY for non-validator nodes that are warp syncing
-			warn!("🥩 BEEFY not supported when warp syncing. Disabling BEEFY.");
-			enable_beefy = false;
-		}
-	}
+	let enable_beefy = !cli.run.no_beefy;
 
 	set_default_ss58_version(chain_spec);
-
-	let grandpa_pause = if cli.run.grandpa_pause.is_empty() {
-		None
-	} else {
-		Some((cli.run.grandpa_pause[0], cli.run.grandpa_pause[1]))
-	};
 
 	if chain_spec.is_kusama() {
 		info!("----------------------------");
@@ -244,6 +224,8 @@ where
 	let node_version =
 		if cli.run.disable_worker_version_check { None } else { Some(NODE_VERSION.to_string()) };
 
+	let secure_validator_mode = cli.run.base.validator && !cli.run.insecure_validator;
+
 	runner.run_node_until_exit(move |config| async move {
 		let hwbench = (!cli.run.no_hardware_benchmarks)
 			.then_some(config.database.path().map(|database_path| {
@@ -257,11 +239,12 @@ where
 			config,
 			service::NewFullParams {
 				is_parachain_node: service::IsParachainNode::No,
-				grandpa_pause,
 				enable_beefy,
+				force_authoring_backoff: cli.run.force_authoring_backoff,
 				jaeger_agent,
 				telemetry_worker_handle: None,
 				node_version,
+				secure_validator_mode,
 				workers_path: cli.run.workers_path,
 				workers_names: None,
 				overseer_gen,
@@ -274,11 +257,13 @@ where
 		)
 		.map(|full| full.task_manager)?;
 
-		sc_storage_monitor::StorageMonitorService::try_spawn(
-			cli.storage_monitor,
-			database_source,
-			&task_manager.spawn_essential_handle(),
-		)?;
+		if let Some(path) = database_source.path() {
+			sc_storage_monitor::StorageMonitorService::try_spawn(
+				cli.storage_monitor,
+				path.to_path_buf(),
+				&task_manager.spawn_essential_handle(),
+			)?;
+		}
 
 		Ok(task_manager)
 	})
@@ -315,7 +300,7 @@ pub fn run() -> Result<()> {
 	match &cli.subcommand {
 		None => run_node_inner(
 			cli,
-			service::RealOverseerGen,
+			service::ValidatorOverseerGen,
 			None,
 			polkadot_node_metrics::logger_hook(),
 		),

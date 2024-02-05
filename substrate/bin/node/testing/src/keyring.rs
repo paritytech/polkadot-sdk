@@ -20,8 +20,11 @@
 
 use codec::Encode;
 use kitchensink_runtime::{CheckedExtrinsic, SessionKeys, SignedExtra, UncheckedExtrinsic};
+use node_cli::chain_spec::get_from_seed;
 use node_primitives::{AccountId, Balance, Nonce};
-use sp_keyring::{AccountKeyring, Ed25519Keyring, Sr25519Keyring};
+use sp_core::{ecdsa, ed25519, sr25519};
+use sp_crypto_hashing::blake2_256;
+use sp_keyring::AccountKeyring;
 use sp_runtime::generic::Era;
 
 /// Alice's account id.
@@ -55,16 +58,14 @@ pub fn ferdie() -> AccountId {
 }
 
 /// Convert keyrings into `SessionKeys`.
-pub fn to_session_keys(
-	ed25519_keyring: &Ed25519Keyring,
-	sr25519_keyring: &Sr25519Keyring,
-) -> SessionKeys {
+pub fn session_keys_from_seed(seed: &str) -> SessionKeys {
 	SessionKeys {
-		grandpa: ed25519_keyring.to_owned().public().into(),
-		babe: sr25519_keyring.to_owned().public().into(),
-		im_online: sr25519_keyring.to_owned().public().into(),
-		authority_discovery: sr25519_keyring.to_owned().public().into(),
-		mixnet: sr25519_keyring.to_owned().public().into(),
+		grandpa: get_from_seed::<ed25519::Public>(seed).into(),
+		babe: get_from_seed::<sr25519::Public>(seed).into(),
+		im_online: get_from_seed::<sr25519::Public>(seed).into(),
+		authority_discovery: get_from_seed::<sr25519::Public>(seed).into(),
+		mixnet: get_from_seed::<sr25519::Public>(seed).into(),
+		beefy: get_from_seed::<ecdsa::Public>(seed).into(),
 	}
 }
 
@@ -78,7 +79,9 @@ pub fn signed_extra(nonce: Nonce, extra_fee: Balance) -> SignedExtra {
 		frame_system::CheckEra::from(Era::mortal(256, 0)),
 		frame_system::CheckNonce::from(nonce),
 		frame_system::CheckWeight::new(),
-		pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(extra_fee, None),
+		pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
+			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(extra_fee, None),
+		),
 	)
 }
 
@@ -94,15 +97,16 @@ pub fn sign(
 			let payload =
 				(xt.function, extra.clone(), spec_version, tx_version, genesis_hash, genesis_hash);
 			let key = AccountKeyring::from_account_id(&signed).unwrap();
-			let signature = payload
-				.using_encoded(|b| {
-					if b.len() > 256 {
-						key.sign(&sp_io::hashing::blake2_256(b))
-					} else {
-						key.sign(b)
-					}
-				})
-				.into();
+			let signature =
+				payload
+					.using_encoded(|b| {
+						if b.len() > 256 {
+							key.sign(&blake2_256(b))
+						} else {
+							key.sign(b)
+						}
+					})
+					.into();
 			UncheckedExtrinsic {
 				signature: Some((sp_runtime::MultiAddress::Id(signed), signature, extra)),
 				function: payload.0,

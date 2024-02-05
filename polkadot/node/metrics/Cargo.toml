@@ -1,17 +1,20 @@
 [package]
 name = "polkadot-node-metrics"
 description = "Subsystem metric helpers"
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+
+[lints]
+workspace = true
 
 [dependencies]
 futures = "0.3.21"
 futures-timer = "3.0.2"
 gum = { package = "tracing-gum", path = "../gum" }
 
-metered = { package = "prioritized-metered-channel", version = "0.5.1", default-features = false, features=["futures_channel"] }
+metered = { package = "prioritized-metered-channel", version = "0.6.1", default-features = false, features = ["futures_channel"] }
 # Both `sc-service` and `sc-cli` are required by runtime metrics `logger_hook()`.
 sc-service = { path = "../../../substrate/client/service" }
 sc-cli = { path = "../../../substrate/client/cli" }
@@ -28,11 +31,11 @@ assert_cmd = "2.0.4"
 tempfile = "3.2.0"
 hyper = { version = "0.14.20", default-features = false, features = ["http1", "tcp"] }
 tokio = "1.24.2"
-polkadot-test-service = { path = "../test/service", features=["runtime-metrics"]}
+polkadot-test-service = { path = "../test/service", features = ["runtime-metrics"] }
 substrate-test-utils = { path = "../../../substrate/test-utils" }
 sc-service = { path = "../../../substrate/client/service" }
 sp-keyring = { path = "../../../substrate/primitives/keyring" }
-prometheus-parse = {version = "0.2.2"}
+prometheus-parse = { version = "0.2.2" }
 
 [features]
 default = []

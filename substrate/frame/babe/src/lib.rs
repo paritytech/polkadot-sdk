@@ -384,7 +384,11 @@ pub mod pallet {
 							});
 
 							public
-								.make_bytes(RANDOMNESS_VRF_CONTEXT, &transcript, &signature.output)
+								.make_bytes(
+									RANDOMNESS_VRF_CONTEXT,
+									&transcript,
+									&signature.pre_output,
+								)
 								.ok()
 						});
 
@@ -900,8 +904,9 @@ impl<T: Config> OnTimestampSet<T::Moment> for Pallet<T> {
 		let timestamp_slot = moment / slot_duration;
 		let timestamp_slot = Slot::from(timestamp_slot.saturated_into::<u64>());
 
-		assert!(
-			CurrentSlot::<T>::get() == timestamp_slot,
+		assert_eq!(
+			CurrentSlot::<T>::get(),
+			timestamp_slot,
 			"Timestamp slot must match `CurrentSlot`"
 		);
 	}

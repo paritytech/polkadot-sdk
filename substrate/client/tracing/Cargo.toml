@@ -1,6 +1,6 @@
 [package]
 name = "sc-tracing"
-version = "4.0.0-dev"
+version = "28.0.0"
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 authors.workspace = true
 edition.workspace = true
@@ -9,20 +9,24 @@ repository.workspace = true
 description = "Instrumentation implementation for substrate."
 readme = "README.md"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 ansi_term = "0.12.1"
-atty = "0.2.13"
-chrono = "0.4.27"
+is-terminal = "0.4.9"
+chrono = "0.4.31"
+codec = { package = "parity-scale-codec", version = "3.6.1" }
 lazy_static = "1.4.0"
-libc = "0.2.121"
+libc = "0.2.152"
 log = { version = "0.4.17" }
 parking_lot = "0.12.1"
 regex = "1.6.0"
 rustc-hash = "1.1.0"
-serde = "1.0.188"
+serde = "1.0.195"
 thiserror = "1.0.48"
 tracing = "0.1.29"
 tracing-log = "0.1.3"

@@ -1,13 +1,17 @@
 [package]
 name = "cumulus-client-consensus-aura"
 description = "AURA consensus algorithm for parachains"
-version = "0.1.0"
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+
+[lints]
+workspace = true
 
 [dependencies]
-async-trait = "0.1.73"
-codec = { package = "parity-scale-codec", version = "3.0.0", features = [ "derive" ] }
+async-trait = "0.1.74"
+codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"] }
 futures = "0.3.28"
 tracing = "0.1.37"
 schnellru = "0.2.1"
@@ -37,9 +41,9 @@ substrate-prometheus-endpoint = { path = "../../../../substrate/utils/prometheus
 cumulus-client-consensus-common = { path = "../common" }
 cumulus-relay-chain-interface = { path = "../../relay-chain-interface" }
 cumulus-client-consensus-proposer = { path = "../proposer" }
+cumulus-client-parachain-inherent = { path = "../../../client/parachain-inherent" }
 cumulus-primitives-aura = { path = "../../../primitives/aura" }
 cumulus-primitives-core = { path = "../../../primitives/core" }
-cumulus-primitives-parachain-inherent = { path = "../../../primitives/parachain-inherent" }
 cumulus-client-collator = { path = "../../collator" }
 
 # Polkadot

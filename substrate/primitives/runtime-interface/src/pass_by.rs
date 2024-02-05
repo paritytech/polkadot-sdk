@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Provides the [`PassBy`](PassBy) trait to simplify the implementation of the
+//! Provides the [`PassBy`] trait to simplify the implementation of the
 //! runtime interface traits for custom types.
 //!
 //! [`Codec`], [`Inner`] and [`Enum`] are the provided strategy implementations.

@@ -149,6 +149,7 @@ pub fn derive_default_no_bound(input: proc_macro::TokenStream) -> proc_macro::To
 
 	quote!(
 		const _: () = {
+			#[automatically_derived]
 			impl #impl_generics ::core::default::Default for #name #ty_generics #where_clause {
 				fn default() -> Self {
 					#impl_

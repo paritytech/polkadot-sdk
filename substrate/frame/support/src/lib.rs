@@ -45,13 +45,17 @@ pub mod __private {
 	pub use scale_info;
 	pub use serde;
 	pub use sp_core::{OpaqueMetadata, Void};
-	pub use sp_core_hashing_proc_macro;
+	pub use sp_crypto_hashing_proc_macro;
 	pub use sp_inherents;
-	pub use sp_io::{self, storage::root as storage_root};
+	#[cfg(feature = "std")]
+	pub use sp_io::TestExternalities;
+	pub use sp_io::{self, hashing, storage::root as storage_root};
 	pub use sp_metadata_ir as metadata_ir;
 	#[cfg(feature = "std")]
 	pub use sp_runtime::{bounded_btree_map, bounded_vec};
-	pub use sp_runtime::{traits::Dispatchable, RuntimeDebug, StateVersion};
+	pub use sp_runtime::{
+		traits::Dispatchable, DispatchError, RuntimeDebug, StateVersion, TransactionOutcome,
+	};
 	#[cfg(feature = "std")]
 	pub use sp_state_machine::BasicExternalities;
 	pub use sp_std;
@@ -326,7 +330,7 @@ macro_rules! parameter_types {
 		impl< $($ty_params),* > $name< $($ty_params),* > {
 			/// Returns the key for this parameter type.
 			pub fn key() -> [u8; 16] {
-				$crate::__private::sp_core_hashing_proc_macro::twox_128!(b":", $name, b":")
+				$crate::__private::sp_crypto_hashing_proc_macro::twox_128!(b":", $name, b":")
 			}
 
 			/// Set the value of this parameter type in the storage.
@@ -552,6 +556,42 @@ pub use frame_support_procedural::EqNoBound;
 /// }
 /// ```
 pub use frame_support_procedural::PartialEqNoBound;
+
+/// Derive [`Ord`] but do not bound any generic.
+///
+/// This is useful for type generic over runtime:
+/// ```
+/// # use frame_support::{OrdNoBound, PartialOrdNoBound, EqNoBound, PartialEqNoBound};
+/// trait Config {
+/// 		type C: Ord;
+/// }
+///
+/// // Foo implements [`Ord`] because `C` bounds [`Ord`].
+/// // Otherwise compilation will fail with an output telling `c` doesn't implement [`Ord`].
+/// #[derive(EqNoBound, OrdNoBound, PartialEqNoBound, PartialOrdNoBound)]
+/// struct Foo<T: Config> {
+/// 		c: T::C,
+/// }
+/// ```
+pub use frame_support_procedural::OrdNoBound;
+
+/// Derive [`PartialOrd`] but do not bound any generic.
+///
+/// This is useful for type generic over runtime:
+/// ```
+/// # use frame_support::{OrdNoBound, PartialOrdNoBound, EqNoBound, PartialEqNoBound};
+/// trait Config {
+/// 		type C: PartialOrd;
+/// }
+///
+/// // Foo implements [`PartialOrd`] because `C` bounds [`PartialOrd`].
+/// // Otherwise compilation will fail with an output telling `c` doesn't implement [`PartialOrd`].
+/// #[derive(PartialOrdNoBound, PartialEqNoBound, EqNoBound)]
+/// struct Foo<T: Config> {
+/// 		c: T::C,
+/// }
+/// ```
+pub use frame_support_procedural::PartialOrdNoBound;
 
 /// Derive [`Debug`] but do not bound any generic.
 ///
@@ -781,6 +821,31 @@ macro_rules! assert_error_encoded_size {
 	} => {};
 }
 
+/// Do something hypothetically by rolling back any changes afterwards.
+///
+/// Returns the original result of the closure.
+#[macro_export]
+#[cfg(feature = "experimental")]
+macro_rules! hypothetically {
+	( $e:expr ) => {
+		$crate::storage::transactional::with_transaction(|| -> $crate::__private::TransactionOutcome<Result<_, $crate::__private::DispatchError>> {
+			$crate::__private::TransactionOutcome::Rollback(Ok($e))
+		},
+		).expect("Always returning Ok; qed")
+	};
+}
+
+/// Assert something to be *hypothetically* `Ok`, without actually committing it.
+///
+/// Reverts any storage changes made by the closure.
+#[macro_export]
+#[cfg(feature = "experimental")]
+macro_rules! hypothetically_ok {
+	($e:expr $(, $args:expr)* $(,)?) => {
+		$crate::assert_ok!($crate::hypothetically!($e) $(, $args)*);
+	};
+}
+
 #[doc(hidden)]
 pub use serde::{Deserialize, Serialize};
 
@@ -802,21 +867,25 @@ pub mod testing_prelude {
 /// Prelude to be used alongside pallet macro, for ease of use.
 pub mod pallet_prelude {
 	pub use crate::{
+		defensive, defensive_assert,
 		dispatch::{DispatchClass, DispatchResult, DispatchResultWithPostInfo, Parameter, Pays},
 		ensure,
 		inherent::{InherentData, InherentIdentifier, ProvideInherent},
 		storage,
 		storage::{
+			bounded_btree_map::BoundedBTreeMap,
+			bounded_btree_set::BoundedBTreeSet,
 			bounded_vec::BoundedVec,
 			types::{
 				CountedStorageMap, CountedStorageNMap, Key as NMapKey, OptionQuery, ResultQuery,
 				StorageDoubleMap, StorageMap, StorageNMap, StorageValue, ValueQuery,
 			},
+			weak_bounded_vec::WeakBoundedVec,
 			StorageList,
 		},
 		traits::{
 			BuildGenesisConfig, ConstU32, EnsureOrigin, Get, GetDefault, GetStorageVersion, Hooks,
-			IsType, PalletInfoAccess, StorageInfoTrait, StorageVersion, TypedGet,
+			IsType, PalletInfoAccess, StorageInfoTrait, StorageVersion, Task, TypedGet,
 		},
 		Blake2_128, Blake2_128Concat, Blake2_256, CloneNoBound, DebugNoBound, EqNoBound, Identity,
 		PartialEqNoBound, RuntimeDebugNoBound, Twox128, Twox256, Twox64Concat,
@@ -2195,12 +2264,158 @@ pub use frame_support_procedural::pallet;
 /// Contains macro stubs for all of the pallet:: macros
 pub mod pallet_macros {
 	pub use frame_support_procedural::{
-		call_index, compact, composite_enum, config, constant,
-		disable_frame_system_supertrait_check, error, event, extra_constants, generate_deposit,
-		generate_store, getter, hooks, import_section, inherent, no_default, no_default_bounds,
-		origin, pallet_section, storage, storage_prefix, storage_version, type_value, unbounded,
-		validate_unsigned, weight, whitelist_storage,
+		composite_enum, config, disable_frame_system_supertrait_check, error, event,
+		extra_constants, feeless_if, generate_deposit, generate_store, getter, hooks,
+		import_section, inherent, no_default, no_default_bounds, origin, pallet_section,
+		storage_prefix, storage_version, type_value, unbounded, validate_unsigned, weight,
+		whitelist_storage,
 	};
+
+	/// Allows a pallet to declare a set of functions as a *dispatchable extrinsic*. In
+	/// slightly simplified terms, this macro declares the set of "transactions" of a pallet.
+	///
+	/// > The exact definition of **extrinsic** can be found in
+	/// > [`sp_runtime::generic::UncheckedExtrinsic`].
+	///
+	/// A **dispatchable** is a common term in FRAME, referring to process of constructing a
+	/// function, and dispatching it with the correct inputs. This is commonly used with
+	/// extrinsics, for example "an extrinsic has been dispatched". See
+	/// [`sp_runtime::traits::Dispatchable`] and [`crate::traits::UnfilteredDispatchable`].
+	///
+	/// ## Call Enum
+	///
+	/// The macro is called `call` (rather than `#[pallet::extrinsics]`) because of the
+	/// generation of a `enum Call`. This enum contains only the encoding of the function
+	/// arguments of the dispatchable, alongside the information needed to route it to the
+	/// correct function.
+	///
+	/// ```
+	/// #[frame_support::pallet(dev_mode)]
+	/// pub mod custom_pallet {
+	/// #   use frame_support::pallet_prelude::*;
+	/// #   use frame_system::pallet_prelude::*;
+	/// #   #[pallet::config]
+	/// #   pub trait Config: frame_system::Config {}
+	/// #   #[pallet::pallet]
+	/// #   pub struct Pallet<T>(_);
+	/// #   use frame_support::traits::BuildGenesisConfig;
+	///     #[pallet::call]
+	///     impl<T: Config> Pallet<T> {
+	///         pub fn some_dispatchable(_origin: OriginFor<T>, _input: u32) -> DispatchResult {
+	///             Ok(())
+	///         }
+	///         pub fn other(_origin: OriginFor<T>, _input: u64) -> DispatchResult {
+	///             Ok(())
+	///         }
+	///     }
+	///
+	///     // generates something like:
+	///     // enum Call<T: Config> {
+	///     //  some_dispatchable { input: u32 }
+	///     //  other { input: u64 }
+	///     // }
+	/// }
+	///
+	/// fn main() {
+	/// #   use frame_support::{derive_impl, construct_runtime};
+	/// #   use frame_support::__private::codec::Encode;
+	/// #   use frame_support::__private::TestExternalities;
+	/// #   use frame_support::traits::UnfilteredDispatchable;
+	/// #    impl custom_pallet::Config for Runtime {}
+	/// #    #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+	/// #    impl frame_system::Config for Runtime {
+	/// #        type Block = frame_system::mocking::MockBlock<Self>;
+	/// #    }
+	///     construct_runtime! {
+	///         pub enum Runtime {
+	///             System: frame_system,
+	///             Custom: custom_pallet
+	///         }
+	///     }
+	///
+	/// #    TestExternalities::new_empty().execute_with(|| {
+	///     let origin: RuntimeOrigin = frame_system::RawOrigin::Signed(10).into();
+	///     // calling into a dispatchable from within the runtime is simply a function call.
+	///         let _ = custom_pallet::Pallet::<Runtime>::some_dispatchable(origin.clone(), 10);
+	///
+	///     // calling into a dispatchable from the outer world involves constructing the bytes of
+	///     let call = custom_pallet::Call::<Runtime>::some_dispatchable { input: 10 };
+	///     let _ = call.clone().dispatch_bypass_filter(origin);
+	///
+	///     // the routing of a dispatchable is simply done through encoding of the `Call` enum,
+	///     // which is the index of the variant, followed by the arguments.
+	///     assert_eq!(call.encode(), vec![0u8, 10, 0, 0, 0]);
+	///
+	///     // notice how in the encoding of the second function, the first byte is different and
+	///     // referring to the second variant of `enum Call`.
+	///     let call = custom_pallet::Call::<Runtime>::other { input: 10 };
+	///     assert_eq!(call.encode(), vec![1u8, 10, 0, 0, 0, 0, 0, 0, 0]);
+	///     #    });
+	/// }
+	/// ```
+	///
+	/// Further properties of dispatchable functions are as follows:
+	///
+	/// - Unless if annotated by `dev_mode`, it must contain [`weight`] to denote the
+	///   pre-dispatch weight consumed.
+	/// - The dispatchable must declare its index via [`call_index`], which can override the
+	///   position of a function in `enum Call`.
+	/// - The first argument is always an `OriginFor` (or `T::RuntimeOrigin`).
+	/// - The return type is always [`crate::dispatch::DispatchResult`] (or
+	///   [`crate::dispatch::DispatchResultWithPostInfo`]).
+	///
+	/// **WARNING**: modifying dispatchables, changing their order (i.e. using [`call_index`]),
+	/// removing some, etc., must be done with care. This will change the encoding of the , and
+	/// the call can be stored on-chain (e.g. in `pallet-scheduler`). Thus, migration might be
+	/// needed. This is why the use of `call_index` is mandatory by default in FRAME.
+	///
+	/// ## Default Behavior
+	///
+	/// If no `#[pallet::call]` exists, then a default implementation corresponding to the
+	/// following code is automatically generated:
+	///
+	/// ```ignore
+	/// #[pallet::call]
+	/// impl<T: Config> Pallet<T> {}
+	/// ```
+	pub use frame_support_procedural::call;
+
+	/// Enforce the index of a variant in the generated `enum Call`. See [`call`] for more
+	/// information.
+	///
+	/// All call indexes start from 0, until it encounters a dispatchable function with a
+	/// defined call index. The dispatchable function that lexically follows the function with
+	/// a defined call index will have that call index, but incremented by 1, e.g. if there are
+	/// 3 dispatchable functions `fn foo`, `fn bar` and `fn qux` in that order, and only `fn
+	/// bar` has a call index of 10, then `fn qux` will have an index of 11, instead of 1.
+	pub use frame_support_procedural::call_index;
+
+	/// Declares the arguments of a [`call`] function to be encoded using
+	/// [`codec::Compact`]. This will results in smaller extrinsic encoding.
+	///
+	/// A common example of `compact` is for numeric values that are often times far far away
+	/// from their theoretical maximum. For example, in the context of a crypto-currency, the
+	/// balance of an individual account is oftentimes way less than what the numeric type
+	/// allows. In all such cases, using `compact` is sensible.
+	///
+	/// ```
+	/// #[frame_support::pallet(dev_mode)]
+	/// pub mod custom_pallet {
+	/// #   use frame_support::pallet_prelude::*;
+	/// #   use frame_system::pallet_prelude::*;
+	/// #   #[pallet::config]
+	/// #   pub trait Config: frame_system::Config {}
+	/// #   #[pallet::pallet]
+	/// #   pub struct Pallet<T>(_);
+	/// #   use frame_support::traits::BuildGenesisConfig;
+	///     #[pallet::call]
+	///     impl<T: Config> Pallet<T> {
+	///         pub fn some_dispatchable(_origin: OriginFor<T>, #[pallet::compact] _input: u32) -> DispatchResult {
+	///             Ok(())
+	///         }
+	///     }
+	/// }
+	pub use frame_support_procedural::compact;
 
 	/// Allows you to define the genesis configuration for the pallet.
 	///
@@ -2216,7 +2431,7 @@ pub mod pallet_macros {
 	///
 	/// The fields of the `GenesisConfig` can in turn be populated by the chain-spec.
 	///
-	/// ## Example:
+	/// ## Example
 	///
 	/// ```
 	/// #[frame_support::pallet]
@@ -2271,6 +2486,285 @@ pub mod pallet_macros {
 	/// }
 	/// ```
 	pub use frame_support_procedural::genesis_build;
+
+	/// The `#[pallet::constant]` attribute can be used to add an associated type trait bounded
+	/// by [`Get`](frame_support::pallet_prelude::Get) from [`pallet::config`](`macro@config`)
+	/// into metadata.
+	///
+	/// ## Example
+	///
+	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	///     use frame_support::pallet_prelude::*;
+	///     # #[pallet::pallet]
+	///     # pub struct Pallet<T>(_);
+	///     #[pallet::config]
+	///     pub trait Config: frame_system::Config {
+	/// 		/// This is like a normal `Get` trait, but it will be added into metadata.
+	/// 		#[pallet::constant]
+	/// 		type Foo: Get<u32>;
+	/// 	}
+	/// }
+	/// ```
+	pub use frame_support_procedural::constant;
+
+	/// Declares a type alias as a storage item. Storage items are pointers to data stored
+	/// on-chain (the *blockchain state*), under a specific key. The exact key is dependent on
+	/// the type of the storage.
+	///
+	/// > From the perspective of this pallet, the entire blockchain state is abstracted behind
+	/// > a key-value api, namely [`sp_io::storage`].
+	///
+	/// ## Storage Types
+	///
+	/// The following storage types are supported by the `#[storage]` macro. For specific
+	/// information about each storage type, refer to the documentation of the respective type.
+	///
+	/// * [`StorageValue`](crate::storage::types::StorageValue)
+	/// * [`StorageMap`](crate::storage::types::StorageMap)
+	/// * [`CountedStorageMap`](crate::storage::types::CountedStorageMap)
+	/// * [`StorageDoubleMap`](crate::storage::types::StorageDoubleMap)
+	/// * [`StorageNMap`](crate::storage::types::StorageNMap)
+	/// * [`CountedStorageNMap`](crate::storage::types::CountedStorageNMap)
+	///
+	/// ## Storage Type Usage
+	///
+	/// The following details are relevant to all of the aforementioned storage types.
+	/// Depending on the exact storage type, it may require the following generic parameters:
+	///
+	/// * [`Prefix`](#prefixes) - Used to give the storage item a unique key in the underlying
+	///   storage.
+	/// * `Key` - Type of the keys used to store the values,
+	/// * `Value` - Type of the value being stored,
+	/// * [`Hasher`](#hashers) - Used to ensure the keys of a map are uniformly distributed,
+	/// * [`QueryKind`](#querykind) - Used to configure how to handle queries to the underlying
+	///   storage,
+	/// * `OnEmpty` - Used to handle missing values when querying the underlying storage,
+	/// * `MaxValues` - _not currently used_.
+	///
+	/// Each `Key` type requires its own designated `Hasher` declaration, so that
+	/// [`StorageDoubleMap`](frame_support::storage::types::StorageDoubleMap) needs two of
+	/// each, and [`StorageNMap`](frame_support::storage::types::StorageNMap) needs `N` such
+	/// pairs. Since [`StorageValue`](frame_support::storage::types::StorageValue) only stores
+	/// a single element, no configuration of hashers is needed.
+	///
+	/// ### Syntax
+	///
+	/// Two general syntaxes are supported, as demonstrated below:
+	///
+	/// 1. Named type parameters, e.g., `type Foo<T> = StorageValue<Value = u32>`.
+	/// 2. Positional type parameters, e.g., `type Foo<T> = StorageValue<_, u32>`.
+	///
+	/// In both instances, declaring the generic parameter `<T>` is mandatory. Optionally, it
+	/// can also be explicitly declared as `<T: Config>`. In the compiled code, `T` will
+	/// automatically include the trait bound `Config`.
+	///
+	/// Note that in positional syntax, the first generic type parameter must be `_`.
+	///
+	/// #### Example
+	///
+	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	///     # use frame_support::pallet_prelude::*;
+	///     # #[pallet::config]
+	///     # pub trait Config: frame_system::Config {}
+	///     # #[pallet::pallet]
+	///     # pub struct Pallet<T>(_);
+	///     /// Positional syntax, without bounding `T`.
+	///     #[pallet::storage]
+	///     pub type Foo<T> = StorageValue<_, u32>;
+	///
+	///     /// Positional syntax, with bounding `T`.
+	///     #[pallet::storage]
+	///     pub type Bar<T: Config> = StorageValue<_, u32>;
+	///
+	///     /// Named syntax.
+	///     #[pallet::storage]
+	///     pub type Baz<T> = StorageMap<Hasher = Blake2_128Concat, Key = u32, Value = u32>;
+	/// }
+	/// ```
+	///
+	/// ### QueryKind
+	///
+	/// Every storage type mentioned above has a generic type called
+	/// [`QueryKind`](frame_support::storage::types::QueryKindTrait) that determines its
+	/// "query" type. This refers to the kind of value returned when querying the storage, for
+	/// instance, through a `::get()` method.
+	///
+	/// There are three types of queries:
+	///
+	/// 1. [`OptionQuery`](frame_support::storage::types::OptionQuery): The default query type.
+	///    It returns `Some(V)` if the value is present, or `None` if it isn't, where `V` is
+	///    the value type.
+	/// 2. [`ValueQuery`](frame_support::storage::types::ValueQuery): Returns the value itself
+	///    if present; otherwise, it returns `Default::default()`. This behavior can be
+	///    adjusted with the `OnEmpty` generic parameter, which defaults to `OnEmpty =
+	///    GetDefault`.
+	/// 3. [`ResultQuery`](frame_support::storage::types::ResultQuery): Returns `Result<V, E>`,
+	///    where `V` is the value type.
+	///
+	/// See [`QueryKind`](frame_support::storage::types::QueryKindTrait) for further examples.
+	///
+	/// ### Optimized Appending
+	///
+	/// All storage items — such as
+	/// [`StorageValue`](frame_support::storage::types::StorageValue),
+	/// [`StorageMap`](frame_support::storage::types::StorageMap), and their variants—offer an
+	/// `::append()` method optimized for collections. Using this method avoids the
+	/// inefficiency of decoding and re-encoding entire collections when adding items. For
+	/// instance, consider the storage declaration `type MyVal<T> = StorageValue<_, Vec<u8>,
+	/// ValueQuery>`. With `MyVal` storing a large list of bytes, `::append()` lets you
+	/// directly add bytes to the end in storage without processing the full list. Depending on
+	/// the storage type, additional key specifications may be needed.
+	///
+	/// #### Example
+	#[doc = docify::embed!("src/lib.rs", example_storage_value_append)]
+	/// Similarly, there also exists a `::try_append()` method, which can be used when handling
+	/// types where an append operation might fail, such as a
+	/// [`BoundedVec`](frame_support::BoundedVec).
+	///
+	/// #### Example
+	#[doc = docify::embed!("src/lib.rs", example_storage_value_try_append)]
+	/// ### Optimized Length Decoding
+	///
+	/// All storage items — such as
+	/// [`StorageValue`](frame_support::storage::types::StorageValue),
+	/// [`StorageMap`](frame_support::storage::types::StorageMap), and their counterparts —
+	/// incorporate the `::decode_len()` method. This method allows for efficient retrieval of
+	/// a collection's length without the necessity of decoding the entire dataset.
+	/// #### Example
+	#[doc = docify::embed!("src/lib.rs", example_storage_value_decode_len)]
+	/// ### Hashers
+	///
+	/// For all storage types, except
+	/// [`StorageValue`](frame_support::storage::types::StorageValue), a set of hashers needs
+	/// to be specified. The choice of hashers is crucial, especially in production chains. The
+	/// purpose of storage hashers in maps is to ensure the keys of a map are
+	/// uniformly distributed. An unbalanced map/trie can lead to inefficient performance.
+	///
+	/// In general, hashers are categorized as either cryptographically secure or not. The
+	/// former is slower than the latter. `Blake2` and `Twox` serve as examples of each,
+	/// respectively.
+	///
+	/// As a rule of thumb:
+	///
+	/// 1. If the map keys are not controlled by end users, or are cryptographically secure by
+	/// definition (e.g., `AccountId`), then the use of cryptographically secure hashers is NOT
+	/// required.
+	/// 2. If the map keys are controllable by the end users, cryptographically secure hashers
+	/// should be used.
+	///
+	/// For more information, look at the types that implement
+	/// [`frame_support::StorageHasher`](frame_support::StorageHasher).
+	///
+	/// Lastly, it's recommended for hashers with "concat" to have reversible hashes. Refer to
+	/// the implementors section of
+	/// [`hash::ReversibleStorageHasher`](frame_support::hash::ReversibleStorageHasher).
+	///
+	/// ### Prefixes
+	///
+	/// Internally, every storage type generates a "prefix". This prefix serves as the initial
+	/// segment of the key utilized to store values in the on-chain state (i.e., the final key
+	/// used in [`sp_io::storage`](sp_io::storage)). For all storage types, the following rule
+	/// applies:
+	///
+	/// > The storage prefix begins with `twox128(pallet_prefix) ++ twox128(STORAGE_PREFIX)`,
+	/// > where
+	/// > `pallet_prefix` is the name assigned to the pallet instance in
+	/// > [`frame_support::construct_runtime`](frame_support::construct_runtime), and
+	/// > `STORAGE_PREFIX` is the name of the `type` aliased to a particular storage type, such
+	/// > as
+	/// > `Foo` in `type Foo<T> = StorageValue<..>`.
+	///
+	/// For [`StorageValue`](frame_support::storage::types::StorageValue), no additional key is
+	/// required. For map types, the prefix is extended with one or more keys defined by the
+	/// map.
+	///
+	/// #### Example
+	#[doc = docify::embed!("src/lib.rs", example_storage_value_map_prefixes)]
+	/// ## Related Macros
+	///
+	/// The following attribute macros can be used in conjunction with the `#[storage]` macro:
+	///
+	/// * [`macro@getter`]: Creates a custom getter function.
+	/// * [`macro@storage_prefix`]: Overrides the default prefix of the storage item.
+	/// * [`macro@unbounded`]: Declares the storage item as unbounded.
+	///
+	/// #### Example
+	/// ```
+	/// #[frame_support::pallet]
+	/// mod pallet {
+	///     # use frame_support::pallet_prelude::*;
+	///     # #[pallet::config]
+	///     # pub trait Config: frame_system::Config {}
+	///     # #[pallet::pallet]
+	///     # pub struct Pallet<T>(_);
+	/// 	/// A kitchen-sink StorageValue, with all possible additional attributes.
+	///     #[pallet::storage]
+	/// 	#[pallet::getter(fn foo)]
+	/// 	#[pallet::storage_prefix = "OtherFoo"]
+	/// 	#[pallet::unbounded]
+	///     pub type Foo<T> = StorageValue<_, u32, ValueQuery>;
+	/// }
+	/// ```
+	pub use frame_support_procedural::storage;
+	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// [`pallet::tasks_experimental`](`tasks_experimental`) to define the conditions for a
+	/// given work item to be valid.
+	///
+	/// It takes a closure as input, which is then used to define the condition. The closure
+	/// should have the same signature as the function it is attached to, except that it should
+	/// return a `bool` instead.
+	pub use frame_support_procedural::task_condition;
+	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// [`pallet::tasks_experimental`](`tasks_experimental`) to define the index of a given
+	/// work item.
+	///
+	/// It takes an integer literal as input, which is then used to define the index. This
+	/// index should be unique for each function in the `impl` block.
+	pub use frame_support_procedural::task_index;
+	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// [`pallet::tasks_experimental`](`tasks_experimental`) to define an iterator over the
+	/// available work items for a task.
+	///
+	/// It takes an iterator as input that yields a tuple with same types as the function
+	/// arguments.
+	pub use frame_support_procedural::task_list;
+	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// [`pallet::tasks_experimental`](`tasks_experimental`) define the weight of a given work
+	/// item.
+	///
+	/// It takes a closure as input, which should return a `Weight` value.
+	pub use frame_support_procedural::task_weight;
+	/// Allows you to define some service work that can be recognized by a script or an
+	/// off-chain worker. Such a script can then create and submit all such work items at any
+	/// given time.
+	///
+	/// These work items are defined as instances of the [`Task`](frame_support::traits::Task)
+	/// trait. [`pallet:tasks_experimental`](`tasks_experimental`) when attached to an `impl`
+	/// block inside a pallet, will generate an enum `Task<T>` whose variants are mapped to
+	/// functions inside this `impl` block.
+	///
+	/// Each such function must have the following set of attributes:
+	///
+	/// * [`pallet::task_list`](`task_list`)
+	/// * [`pallet::task_condition`](`task_condition`)
+	/// * [`pallet::task_weight`](`task_weight`)
+	/// * [`pallet::task_index`](`task_index`)
+	///
+	/// All of such Tasks are then aggregated into a `RuntimeTask` by
+	/// [`construct_runtime`](frame_support::construct_runtime).
+	///
+	/// Finally, the `RuntimeTask` can then used by a script or off-chain worker to create and
+	/// submit such tasks via an extrinsic defined in `frame_system` called `do_task`.
+	///
+	/// ## Example
+	#[doc = docify::embed!("src/tests/tasks.rs", tasks_example)]
+	/// Now, this can be executed as follows:
+	#[doc = docify::embed!("src/tests/tasks.rs", tasks_work)]
+	pub use frame_support_procedural::tasks_experimental;
 }
 
 #[deprecated(note = "Will be removed after July 2023; Use `sp_runtime::traits` directly instead.")]
@@ -2287,3 +2781,98 @@ sp_core::generate_feature_enabled_macro!(std_enabled, feature = "std", $);
 
 // Helper for implementing GenesisBuilder runtime API
 pub mod genesis_builder_helper;
+
+#[cfg(test)]
+mod test {
+	// use super::*;
+	use crate::{
+		hash::*,
+		storage::types::{StorageMap, StorageValue, ValueQuery},
+		traits::{ConstU32, StorageInstance},
+		BoundedVec,
+	};
+	use sp_io::{hashing::twox_128, TestExternalities};
+
+	struct Prefix;
+	impl StorageInstance for Prefix {
+		fn pallet_prefix() -> &'static str {
+			"test"
+		}
+		const STORAGE_PREFIX: &'static str = "foo";
+	}
+
+	struct Prefix1;
+	impl StorageInstance for Prefix1 {
+		fn pallet_prefix() -> &'static str {
+			"test"
+		}
+		const STORAGE_PREFIX: &'static str = "MyVal";
+	}
+	struct Prefix2;
+	impl StorageInstance for Prefix2 {
+		fn pallet_prefix() -> &'static str {
+			"test"
+		}
+		const STORAGE_PREFIX: &'static str = "MyMap";
+	}
+
+	#[docify::export]
+	#[test]
+	pub fn example_storage_value_try_append() {
+		type MyVal = StorageValue<Prefix, BoundedVec<u8, ConstU32<10>>, ValueQuery>;
+
+		TestExternalities::default().execute_with(|| {
+			MyVal::set(BoundedVec::try_from(vec![42, 43]).unwrap());
+			assert_eq!(MyVal::get(), vec![42, 43]);
+			// Try to append a single u32 to BoundedVec stored in `MyVal`
+			assert_ok!(MyVal::try_append(40));
+			assert_eq!(MyVal::get(), vec![42, 43, 40]);
+		});
+	}
+
+	#[docify::export]
+	#[test]
+	pub fn example_storage_value_append() {
+		type MyVal = StorageValue<Prefix, Vec<u8>, ValueQuery>;
+
+		TestExternalities::default().execute_with(|| {
+			MyVal::set(vec![42, 43]);
+			assert_eq!(MyVal::get(), vec![42, 43]);
+			// Append a single u32 to Vec stored in `MyVal`
+			MyVal::append(40);
+			assert_eq!(MyVal::get(), vec![42, 43, 40]);
+		});
+	}
+
+	#[docify::export]
+	#[test]
+	pub fn example_storage_value_decode_len() {
+		type MyVal = StorageValue<Prefix, BoundedVec<u8, ConstU32<10>>, ValueQuery>;
+
+		TestExternalities::default().execute_with(|| {
+			MyVal::set(BoundedVec::try_from(vec![42, 43]).unwrap());
+			assert_eq!(MyVal::decode_len().unwrap(), 2);
+		});
+	}
+
+	#[docify::export]
+	#[test]
+	pub fn example_storage_value_map_prefixes() {
+		type MyVal = StorageValue<Prefix1, u32, ValueQuery>;
+		type MyMap = StorageMap<Prefix2, Blake2_128Concat, u16, u32, ValueQuery>;
+		TestExternalities::default().execute_with(|| {
+			// This example assumes `pallet_prefix` to be "test"
+			// Get storage key for `MyVal` StorageValue
+			assert_eq!(
+				MyVal::hashed_key().to_vec(),
+				[twox_128(b"test"), twox_128(b"MyVal")].concat()
+			);
+			// Get storage key for `MyMap` StorageMap and `key` = 1
+			let mut k: Vec<u8> = vec![];
+			k.extend(&twox_128(b"test"));
+			k.extend(&twox_128(b"MyMap"));
+			k.extend(&1u16.blake2_128_concat());
+			assert_eq!(MyMap::hashed_key_for(1).to_vec(), k);
+		});
+	}
+}

@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+//! PVF host integration tests checking the chain production pipeline.
+
 use super::TestHost;
 use adder::{hash_state, BlockData, HeadData};
 use parity_scale_codec::{Decode, Encode};
@@ -28,7 +30,7 @@ async fn execute_good_block_on_parent() {
 
 	let block_data = BlockData { state: 0, add: 512 };
 
-	let host = TestHost::new();
+	let host = TestHost::new().await;
 
 	let ret = host
 		.validate_candidate(
@@ -56,7 +58,7 @@ async fn execute_good_chain_on_parent() {
 	let mut parent_hash = [0; 32];
 	let mut last_state = 0;
 
-	let host = TestHost::new();
+	let host = TestHost::new().await;
 
 	for (number, add) in (0..10).enumerate() {
 		let parent_head =
@@ -98,7 +100,7 @@ async fn execute_bad_block_on_parent() {
 		add: 256,
 	};
 
-	let host = TestHost::new();
+	let host = TestHost::new().await;
 
 	let _err = host
 		.validate_candidate(
@@ -117,7 +119,7 @@ async fn execute_bad_block_on_parent() {
 
 #[tokio::test]
 async fn stress_spawn() {
-	let host = std::sync::Arc::new(TestHost::new());
+	let host = std::sync::Arc::new(TestHost::new().await);
 
 	async fn execute(host: std::sync::Arc<TestHost>) {
 		let parent_head = HeadData { number: 0, parent_hash: [0; 32], post_state: hash_state(0) };
@@ -149,9 +151,12 @@ async fn stress_spawn() {
 // With one worker, run multiple execution jobs serially. They should not conflict.
 #[tokio::test]
 async fn execute_can_run_serially() {
-	let host = std::sync::Arc::new(TestHost::new_with_config(|cfg| {
-		cfg.execute_workers_max_num = 1;
-	}));
+	let host = std::sync::Arc::new(
+		TestHost::new_with_config(|cfg| {
+			cfg.execute_workers_max_num = 1;
+		})
+		.await,
+	);
 
 	async fn execute(host: std::sync::Arc<TestHost>) {
 		let parent_head = HeadData { number: 0, parent_hash: [0; 32], post_state: hash_state(0) };

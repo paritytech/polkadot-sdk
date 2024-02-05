@@ -1,6 +1,6 @@
 [package]
 name = "sc-utils"
-version = "4.0.0-dev"
+version = "14.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -8,6 +8,9 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "I/O for Substrate runtimes"
 readme = "README.md"
+
+[lints]
+workspace = true
 
 [dependencies]
 async-channel = "1.8.0"
@@ -17,10 +20,10 @@ lazy_static = "1.4.0"
 log = "0.4"
 parking_lot = "0.12.1"
 prometheus = { version = "0.13.0", default-features = false }
-sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false}
+sp-arithmetic = { path = "../../primitives/arithmetic", default-features = false }
 
 [features]
-default = [ "metered" ]
+default = ["metered"]
 metered = []
 
 [dev-dependencies]

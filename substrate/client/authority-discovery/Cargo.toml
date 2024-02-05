@@ -1,6 +1,6 @@
 [package]
 name = "sc-authority-discovery"
-version = "0.10.0-dev"
+version = "0.34.0"
 authors.workspace = true
 edition.workspace = true
 build = "build.rs"
@@ -9,6 +9,9 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "Substrate authority discovery."
 readme = "README.md"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -21,10 +24,13 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 futures = "0.3.21"
 futures-timer = "3.0.1"
 ip_network = "0.4.1"
-libp2p = { version = "0.51.3", features = ["kad", "ed25519"] }
-multihash = { version = "0.17.0", default-features = false, features = ["std", "sha2"] }
+libp2p = { version = "0.51.4", features = ["ed25519", "kad"] }
+multihash = { version = "0.18.1", default-features = false, features = [
+	"sha2",
+	"std",
+] }
 log = "0.4.17"
-prost = "0.11"
+prost = "0.12"
 rand = "0.8.5"
 thiserror = "1.0"
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
@@ -36,7 +42,12 @@ sp-blockchain = { path = "../../primitives/blockchain" }
 sp-core = { path = "../../primitives/core" }
 sp-keystore = { path = "../../primitives/keystore" }
 sp-runtime = { path = "../../primitives/runtime" }
-async-trait = "0.1.56"
+async-trait = "0.1.74"
+multihash-codetable = { version = "0.1.1", features = [
+	"digest",
+	"serde",
+	"sha2",
+] }
 
 [dev-dependencies]
 quickcheck = { version = "1.0.3", default-features = false }

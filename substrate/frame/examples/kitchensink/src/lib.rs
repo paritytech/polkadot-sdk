@@ -206,6 +206,10 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::set_foo_benchmark())]
+		/// Marks this call as feeless if `new_foo` is zero.
+		#[pallet::feeless_if(|_origin: &OriginFor<T>, new_foo: &u32, _other_compact: &u128| -> bool {
+			*new_foo == 0
+		})]
 		pub fn set_foo(
 			_: OriginFor<T>,
 			new_foo: u32,
@@ -288,9 +292,8 @@ pub mod pallet {
 		}
 	}
 
-	/// Allows you to define an enum on the pallet which will then instruct
-	/// `construct_runtime` to amalgamate all similarly-named enums from other
-	/// pallets into an aggregate enum.
+	/// Allows you to define an enum on the pallet which will then instruct `construct_runtime` to
+	/// amalgamate all similarly-named enums from other pallets into an aggregate enum.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
 		Staking,

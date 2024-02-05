@@ -20,7 +20,7 @@
 use crate::{self as pallet_nis, Perquintill, WithMaximumOf};
 
 use frame_support::{
-	ord_parameter_types, parameter_types,
+	derive_impl, ord_parameter_types, parameter_types,
 	traits::{
 		fungible::Inspect, ConstU16, ConstU32, ConstU64, Everything, OnFinalize, OnInitialize,
 		StorageMapShim,
@@ -50,6 +50,7 @@ frame_support::construct_runtime!(
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = Everything;
 	type BlockWeights = ();
@@ -90,7 +91,6 @@ impl pallet_balances::Config<Instance1> for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type MaxHolds = ConstU32<1>;
 }
 
 impl pallet_balances::Config<Instance2> for Test {
@@ -111,7 +111,6 @@ impl pallet_balances::Config<Instance2> for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-	type MaxHolds = ();
 }
 
 parameter_types! {

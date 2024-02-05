@@ -15,24 +15,19 @@ workflows:
         '--features=try-runtime,runtime-benchmarks,std',
         # Do not try to add a new section into `[features]` of `A` only because `B` expose that feature. There are edge-cases where this is still needed, but we can add them manually.
         '--left-side-feature-missing=ignore',
-        # Enabling this feature somehow pulls in two versions of `sp-runtime-interface` and makes it impossible to build that crate with `cargo b -p sp-runtime-interface`. We therefore disable it for now.
-        '--ignore-missing-propagate=sp-core/std:bandersnatch_vrfs/std',
         # Ignore the case that `A` it outside of the workspace. Otherwise it will report errors in external dependencies that we have no influence on.
         '--left-side-outside-workspace=ignore',
         # Some features imply that they activate a specific dependency as non-optional. Otherwise the default behaviour with a `?` is used.
         '--feature-enables-dep=try-runtime:frame-try-runtime,runtime-benchmarks:frame-benchmarking',
-        # Actually modify the files and not just report the issues:
+        # Auxillary flags:
         '--offline',
         '--locked',
         '--show-path',
         '--quiet',
       ]
-      # Format the features into canonical format:
-    - ['format', 'features', '--offline', '--locked', '--quiet']
   # Same as `check`, but with the `--fix` flag.
   default:
     - [ $check.0, '--fix' ]
-    - [ $check.1, '--fix' ]
 
 # Will be displayed when any workflow fails:
 help:

@@ -70,48 +70,61 @@
 // Make doc tests happy
 extern crate self as sp_api;
 
+/// Private exports used by the macros.
+///
+/// This is seen as internal API and can change at any point.
 #[doc(hidden)]
-pub use codec::{self, Decode, DecodeLimit, Encode};
-#[doc(hidden)]
-#[cfg(feature = "std")]
-pub use hash_db::Hasher;
-#[doc(hidden)]
-pub use scale_info;
-#[doc(hidden)]
-pub use sp_core::offchain;
-#[doc(hidden)]
-#[cfg(not(feature = "std"))]
-pub use sp_core::to_substrate_wasm_fn_return_value;
-#[doc(hidden)]
+pub mod __private {
+	#[cfg(feature = "std")]
+	mod std_imports {
+		pub use hash_db::Hasher;
+		pub use sp_core::traits::CallContext;
+		pub use sp_externalities::{Extension, Extensions};
+		pub use sp_runtime::StateVersion;
+		pub use sp_state_machine::{
+			Backend as StateBackend, InMemoryBackend, OverlayedChanges, StorageProof, TrieBackend,
+			TrieBackendBuilder,
+		};
+	}
+	#[cfg(feature = "std")]
+	pub use std_imports::*;
+
+	pub use crate::*;
+	pub use codec::{self, Decode, DecodeLimit, Encode};
+	pub use scale_info;
+	pub use sp_core::offchain;
+	#[cfg(not(feature = "std"))]
+	pub use sp_core::to_substrate_wasm_fn_return_value;
+	#[cfg(feature = "frame-metadata")]
+	pub use sp_metadata_ir::{self as metadata_ir, frame_metadata as metadata};
+	pub use sp_runtime::{
+		generic::BlockId,
+		traits::{Block as BlockT, Hash as HashT, HashingFor, Header as HeaderT, NumberFor},
+		transaction_validity::TransactionValidity,
+		RuntimeString, TransactionOutcome,
+	};
+	pub use sp_std::{mem, slice, vec};
+	pub use sp_version::{create_apis_vec, ApiId, ApisVec, RuntimeVersion};
+
+	#[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), substrate_runtime))]
+	pub use sp_runtime_interface::polkavm::{polkavm_abi, polkavm_export};
+}
+
 #[cfg(feature = "std")]
 pub use sp_core::traits::CallContext;
 use sp_core::OpaqueMetadata;
-#[doc(hidden)]
 #[cfg(feature = "std")]
-pub use sp_externalities::{Extension, Extensions};
-#[doc(hidden)]
-#[cfg(feature = "frame-metadata")]
-pub use sp_metadata_ir::{self as metadata_ir, frame_metadata as metadata};
-#[doc(hidden)]
+use sp_externalities::{Extension, Extensions};
+use sp_runtime::traits::Block as BlockT;
 #[cfg(feature = "std")]
-pub use sp_runtime::StateVersion;
-#[doc(hidden)]
-pub use sp_runtime::{
-	generic::BlockId,
-	traits::{Block as BlockT, Hash as HashT, HashingFor, Header as HeaderT, NumberFor},
-	transaction_validity::TransactionValidity,
-	RuntimeString, TransactionOutcome,
-};
-#[doc(hidden)]
+use sp_runtime::traits::HashingFor;
 #[cfg(feature = "std")]
-pub use sp_state_machine::{
-	backend::AsTrieBackend, Backend as StateBackend, InMemoryBackend, OverlayedChanges,
-	StorageProof, TrieBackend, TrieBackendBuilder,
-};
-#[doc(hidden)]
-pub use sp_std::{mem, slice, vec};
-#[doc(hidden)]
-pub use sp_version::{create_apis_vec, ApiId, ApisVec, RuntimeVersion};
+pub use sp_runtime::TransactionOutcome;
+#[cfg(feature = "std")]
+pub use sp_state_machine::StorageProof;
+#[cfg(feature = "std")]
+use sp_state_machine::{backend::AsTrieBackend, Backend as StateBackend, OverlayedChanges};
+use sp_version::RuntimeVersion;
 #[cfg(feature = "std")]
 use std::cell::RefCell;
 
@@ -272,7 +285,7 @@ pub use sp_api_proc_macro::decl_runtime_apis;
 /// #
 /// # /// The declaration of the `Runtime` type is done by the `construct_runtime!` macro
 /// # /// in a real runtime.
-/// # pub struct Runtime {}
+/// # pub enum Runtime {}
 /// #
 /// # sp_api::decl_runtime_apis! {
 /// #     /// Declare the api trait.
@@ -351,7 +364,7 @@ pub use sp_api_proc_macro::decl_runtime_apis;
 /// let's say you want to implement a staging version of the runtime api and put it behind a
 /// feature flag. You can do it this way:
 /// ```ignore
-/// pub struct Runtime {}
+/// pub enum Runtime {}
 /// sp_api::decl_runtime_apis! {
 ///     pub trait ApiWithStagingMethod {
 ///         fn stable_one(data: u64);
@@ -396,14 +409,14 @@ pub use sp_api_proc_macro::impl_runtime_apis;
 
 /// Mocks given trait implementations as runtime apis.
 ///
-/// Accepts similar syntax as [`impl_runtime_apis!`] and generates
-/// simplified mock implementations of the given runtime apis. The difference in syntax is that
-/// the trait does not need to be referenced by a qualified path, methods accept the `&self`
-/// parameter and the error type can be specified as associated type. If no error type is
-/// specified [`String`] is used as error type.
+/// Accepts similar syntax as [`impl_runtime_apis!`] and generates simplified mock
+/// implementations of the given runtime apis. The difference in syntax is that the trait does
+/// not need to be referenced by a qualified path, methods accept the `&self` parameter and the
+/// error type can be specified as associated type. If no error type is specified [`String`] is
+/// used as error type.
 ///
-/// Besides implementing the given traits, the [`Core`](sp_api::Core) and
-/// [`ApiExt`](sp_api::ApiExt) are implemented automatically.
+/// Besides implementing the given traits, the [`Core`] and [`ApiExt`] are implemented
+/// automatically.
 ///
 /// # Example
 ///
@@ -663,6 +676,34 @@ pub trait CallApiAt<Block: BlockT> {
 		at: Block::Hash,
 		extensions: &mut Extensions,
 	) -> Result<(), ApiError>;
+}
+
+#[cfg(feature = "std")]
+impl<Block: BlockT, T: CallApiAt<Block>> CallApiAt<Block> for std::sync::Arc<T> {
+	type StateBackend = T::StateBackend;
+
+	fn call_api_at(&self, params: CallApiAtParams<Block>) -> Result<Vec<u8>, ApiError> {
+		(**self).call_api_at(params)
+	}
+
+	fn runtime_version_at(
+		&self,
+		at_hash: <Block as BlockT>::Hash,
+	) -> Result<RuntimeVersion, ApiError> {
+		(**self).runtime_version_at(at_hash)
+	}
+
+	fn state_at(&self, at: <Block as BlockT>::Hash) -> Result<Self::StateBackend, ApiError> {
+		(**self).state_at(at)
+	}
+
+	fn initialize_extensions(
+		&self,
+		at: <Block as BlockT>::Hash,
+		extensions: &mut Extensions,
+	) -> Result<(), ApiError> {
+		(**self).initialize_extensions(at, extensions)
+	}
 }
 
 /// Auxiliary wrapper that holds an api instance and binds it to the given lifetime.

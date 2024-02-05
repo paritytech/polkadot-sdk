@@ -1,6 +1,6 @@
 [package]
 name = "sc-consensus-beefy-rpc"
-version = "4.0.0-dev"
+version = "13.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -8,13 +8,16 @@ repository.workspace = true
 description = "RPC for the BEEFY Client gadget for substrate"
 homepage = "https://substrate.io"
 
+[lints]
+workspace = true
+
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
 futures = "0.3.21"
-jsonrpsee = { version = "0.16.2", features = ["client-core", "server", "macros"] }
+jsonrpsee = { version = "0.20.3", features = ["client-core", "macros", "server"] }
 log = "0.4"
 parking_lot = "0.12.1"
-serde = { version = "1.0.188", features = ["derive"] }
+serde = { version = "1.0.195", features = ["derive"] }
 thiserror = "1.0"
 sc-consensus-beefy = { path = ".." }
 sp-consensus-beefy = { path = "../../../../primitives/consensus/beefy" }
@@ -23,7 +26,7 @@ sp-core = { path = "../../../../primitives/core" }
 sp-runtime = { path = "../../../../primitives/runtime" }
 
 [dev-dependencies]
-serde_json = "1.0.107"
-sc-rpc = { path = "../../../rpc", features = ["test-helpers"]}
+serde_json = "1.0.111"
+sc-rpc = { path = "../../../rpc", features = ["test-helpers"] }
 substrate-test-runtime-client = { path = "../../../../test-utils/runtime/client" }
 tokio = { version = "1.22.0", features = ["macros"] }

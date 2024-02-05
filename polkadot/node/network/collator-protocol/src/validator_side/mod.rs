@@ -776,7 +776,8 @@ async fn process_incoming_peer_message<Context>(
 
 	match msg {
 		Versioned::V1(V1::Declare(collator_id, para_id, signature)) |
-		Versioned::V2(V2::Declare(collator_id, para_id, signature)) => {
+		Versioned::V2(V2::Declare(collator_id, para_id, signature)) |
+		Versioned::V3(V2::Declare(collator_id, para_id, signature)) => {
 			if collator_peer_id(&state.peer_data, &collator_id).is_some() {
 				modify_reputation(
 					&mut state.reputation,
@@ -892,6 +893,11 @@ async fn process_incoming_peer_message<Context>(
 			relay_parent,
 			candidate_hash,
 			parent_head_data_hash,
+		}) |
+		Versioned::V3(V2::AdvertiseCollation {
+			relay_parent,
+			candidate_hash,
+			parent_head_data_hash,
 		}) =>
 			if let Err(err) = handle_advertisement(
 				ctx.sender(),
@@ -915,7 +921,9 @@ async fn process_incoming_peer_message<Context>(
 					modify_reputation(&mut state.reputation, ctx.sender(), origin, rep).await;
 				}
 			},
-		Versioned::V1(V1::CollationSeconded(..)) | Versioned::V2(V2::CollationSeconded(..)) => {
+		Versioned::V1(V1::CollationSeconded(..)) |
+		Versioned::V2(V2::CollationSeconded(..)) |
+		Versioned::V3(V2::CollationSeconded(..)) => {
 			gum::warn!(
 				target: LOG_TARGET,
 				peer_id = ?origin,

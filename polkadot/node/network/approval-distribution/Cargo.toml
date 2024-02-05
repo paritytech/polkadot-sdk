@@ -1,9 +1,13 @@
 [package]
 name = "polkadot-approval-distribution"
-version = "1.0.0"
+version = "7.0.0"
+description = "Polkadot Approval Distribution subsystem for the distribution of assignments and approvals for approval checks on candidates over the network."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+
+[lints]
+workspace = true
 
 [dependencies]
 polkadot-node-metrics = { path = "../../metrics" }
@@ -14,10 +18,12 @@ polkadot-node-subsystem-util = { path = "../../subsystem-util" }
 polkadot-primitives = { path = "../../../primitives" }
 polkadot-node-jaeger = { path = "../../jaeger" }
 rand = "0.8"
+itertools = "0.10.5"
 
 futures = "0.3.21"
 futures-timer = "3.0.2"
 gum = { package = "tracing-gum", path = "../../gum" }
+bitvec = { version = "1.0.0", default-features = false, features = ["alloc"] }
 
 [dev-dependencies]
 sp-authority-discovery = { path = "../../../../substrate/primitives/authority-discovery" }
@@ -27,8 +33,9 @@ polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
 
 assert_matches = "1.4.0"
-schnorrkel = { version = "0.9.1", default-features = false }
-rand_core = "0.5.1" # should match schnorrkel
+schnorrkel = { version = "0.11.4", default-features = false }
+# rand_core should match schnorrkel
+rand_core = "0.6.2"
 rand_chacha = "0.3.1"
 env_logger = "0.9.0"
 log = "0.4.17"

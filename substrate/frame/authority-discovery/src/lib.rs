@@ -169,7 +169,7 @@ mod tests {
 	use super::*;
 	use crate as pallet_authority_discovery;
 	use frame_support::{
-		parameter_types,
+		derive_impl, parameter_types,
 		traits::{ConstU32, ConstU64},
 	};
 	use sp_application_crypto::Pair;
@@ -187,9 +187,9 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-			Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
-			AuthorityDiscovery: pallet_authority_discovery::{Pallet, Config<T>},
+			System: frame_system,
+			Session: pallet_session,
+			AuthorityDiscovery: pallet_authority_discovery,
 		}
 	);
 
@@ -225,6 +225,7 @@ mod tests {
 		pub const Offset: BlockNumber = 0;
 	}
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();

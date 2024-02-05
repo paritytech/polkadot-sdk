@@ -35,6 +35,7 @@ use sc_transaction_pool_api::{TransactionPool as _, TransactionSource, Transacti
 use sp_core::{crypto::Pair, sr25519};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::OpaqueExtrinsic;
+use staging_node_cli as node_cli;
 use tokio::runtime::Handle;
 
 fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
@@ -54,7 +55,7 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		impl_name: "BenchmarkImpl".into(),
 		impl_version: "1.0".into(),
 		role: Role::Authority,
-		tokio_handle,
+		tokio_handle: tokio_handle.clone(),
 		transaction_pool: TransactionPoolOptions {
 			ready: PoolLimit { count: 100_000, total_bytes: 100 * 1024 * 1024 },
 			future: PoolLimit { count: 100_000, total_bytes: 100 * 1024 * 1024 },
@@ -78,6 +79,7 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		rpc_id_provider: Default::default(),
 		rpc_max_subs_per_conn: Default::default(),
 		rpc_port: 9944,
+		rpc_message_buffer_capacity: Default::default(),
 		prometheus_config: None,
 		telemetry_endpoints: None,
 		default_heap_pages: None,
@@ -96,7 +98,9 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		wasm_runtime_overrides: None,
 	};
 
-	node_cli::service::new_full_base(config, None, false, |_, _| ()).expect("Creates node")
+	tokio_handle.block_on(async move {
+		node_cli::service::new_full_base(config, None, false, |_, _| ()).expect("Creates node")
+	})
 }
 
 fn create_accounts(num: usize) -> Vec<sr25519::Pair> {

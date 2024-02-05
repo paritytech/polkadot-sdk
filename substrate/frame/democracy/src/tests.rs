@@ -20,7 +20,7 @@
 use super::*;
 use crate as pallet_democracy;
 use frame_support::{
-	assert_noop, assert_ok, ord_parameter_types, parameter_types,
+	assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
 		ConstU32, ConstU64, Contains, EqualPrivilegeOnly, OnInitialize, SortedMembers,
 		StorePreimage,
@@ -55,11 +55,11 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
 		Preimage: pallet_preimage,
-		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
-		Democracy: pallet_democracy::{Pallet, Call, Storage, Config<T>, Event<T>},
+		Scheduler: pallet_scheduler,
+		Democracy: pallet_democracy,
 	}
 );
 
@@ -77,6 +77,8 @@ parameter_types! {
 			Weight::from_parts(frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND, u64::MAX),
 		);
 }
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = BaseFilter;
 	type BlockWeights = BlockWeights;
@@ -141,7 +143,6 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-	type MaxHolds = ();
 }
 parameter_types! {
 	pub static PreimageByteDeposit: u64 = 0;

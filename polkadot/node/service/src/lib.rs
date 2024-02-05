@@ -31,7 +31,10 @@ pub mod overseer;
 pub mod workers;
 
 #[cfg(feature = "full-node")]
-pub use self::overseer::{OverseerGen, OverseerGenArgs, RealOverseerGen};
+pub use self::overseer::{
+	CollatorOverseerGen, ExtendedOverseerGenArgs, OverseerGen, OverseerGenArgs,
+	ValidatorOverseerGen,
+};
 
 #[cfg(test)]
 mod tests;
@@ -51,7 +54,8 @@ use {
 	},
 	polkadot_node_core_dispute_coordinator::Config as DisputeCoordinatorConfig,
 	polkadot_node_network_protocol::{
-		peer_set::PeerSetProtocolNames, request_response::ReqProtocolNames,
+		peer_set::{PeerSet, PeerSetProtocolNames},
+		request_response::ReqProtocolNames,
 	},
 	sc_client_api::BlockBackend,
 	sc_transaction_pool_api::OffchainTransactionPoolFactory,
@@ -74,7 +78,7 @@ pub use {
 #[cfg(feature = "full-node")]
 use polkadot_node_subsystem::jaeger;
 
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
 
 use prometheus_endpoint::Registry;
 #[cfg(feature = "full-node")]
@@ -98,7 +102,7 @@ pub use service::{
 	ChainSpec, Configuration, Error as SubstrateServiceError, PruningMode, Role, RuntimeGenesis,
 	TFullBackend, TFullCallExecutor, TFullClient, TaskManager, TransactionPoolOptions,
 };
-pub use sp_api::{ApiRef, ConstructRuntimeApi, Core as CoreApi, ProvideRuntimeApi, StateBackend};
+pub use sp_api::{ApiRef, ConstructRuntimeApi, Core as CoreApi, ProvideRuntimeApi};
 pub use sp_runtime::{
 	generic,
 	traits::{self as runtime_traits, BlakeTwo256, Block as BlockT, Header as HeaderT, NumberFor},
@@ -238,7 +242,7 @@ pub enum Error {
 	InvalidWorkerBinaries { prep_worker_path: PathBuf, exec_worker_path: PathBuf },
 
 	#[cfg(feature = "full-node")]
-	#[error("Worker binaries could not be found, make sure polkadot was built/installed correctly. If you ran with `cargo run`, please run `cargo build` first. Searched given workers path ({given_workers_path:?}), polkadot binary path ({current_exe_path:?}), and lib path (/usr/lib/polkadot), workers names: {workers_names:?}")]
+	#[error("Worker binaries could not be found, make sure polkadot was built and installed correctly. Please see the readme for the latest instructions (https://github.com/paritytech/polkadot-sdk/tree/master/polkadot). If you ran with `cargo run`, please run `cargo build` first. Searched given workers path ({given_workers_path:?}), polkadot binary path ({current_exe_path:?}), and lib path (/usr/lib/polkadot), workers names: {workers_names:?}")]
 	MissingWorkerBinaries {
 		given_workers_path: Option<PathBuf>,
 		current_exe_path: PathBuf,
@@ -623,13 +627,17 @@ where
 #[cfg(feature = "full-node")]
 pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	pub is_parachain_node: IsParachainNode,
-	pub grandpa_pause: Option<(u32, u32)>,
 	pub enable_beefy: bool,
+	/// Whether to enable the block authoring backoff on production networks
+	/// where it isn't enabled by default.
+	pub force_authoring_backoff: bool,
 	pub jaeger_agent: Option<std::net::SocketAddr>,
 	pub telemetry_worker_handle: Option<TelemetryWorkerHandle>,
 	/// The version of the node. TESTING ONLY: `None` can be passed to skip the node/worker version
 	/// check, both on startup and in the workers.
 	pub node_version: Option<String>,
+	/// Whether the node is attempting to run as a secure validator.
+	pub secure_validator_mode: bool,
 	/// An optional path to a directory containing the workers.
 	pub workers_path: Option<std::path::PathBuf>,
 	/// Optional custom names for the prepare and execute workers.
@@ -714,11 +722,12 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	mut config: Configuration,
 	NewFullParams {
 		is_parachain_node,
-		grandpa_pause,
 		enable_beefy,
+		force_authoring_backoff,
 		jaeger_agent,
 		telemetry_worker_handle,
 		node_version,
+		secure_validator_mode,
 		workers_path,
 		workers_names,
 		overseer_gen,
@@ -728,20 +737,26 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	}: NewFullParams<OverseerGenerator>,
 ) -> Result<NewFull, Error> {
 	use polkadot_node_network_protocol::request_response::IncomingRequest;
-	use sc_network_sync::warp::WarpSyncParams;
+	use sc_network_sync::WarpSyncParams;
 
 	let is_offchain_indexing_enabled = config.offchain_worker.indexing_enabled;
 	let role = config.role.clone();
 	let force_authoring = config.force_authoring;
-	let backoff_authoring_blocks = {
+	let backoff_authoring_blocks = if !force_authoring_backoff &&
+		(config.chain_spec.is_polkadot() || config.chain_spec.is_kusama())
+	{
+		// the block authoring backoff is disabled by default on production networks
+		None
+	} else {
 		let mut backoff = sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging::default();
 
 		if config.chain_spec.is_rococo() ||
 			config.chain_spec.is_wococo() ||
-			config.chain_spec.is_versi()
+			config.chain_spec.is_versi() ||
+			config.chain_spec.is_dev()
 		{
-			// it's a testnet that's in flux, finality has stalled sometimes due
-			// to operational issues and it's annoying to slow down block
+			// on testnets that are in flux (like rococo or versi), finality has stalled
+			// sometimes due to operational issues and it's annoying to slow down block
 			// production to 1 block per hour.
 			backoff.max_interval = 10;
 		}
@@ -763,8 +778,6 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 
 	let keystore = basics.keystore_container.local_keystore();
 	let auth_or_collator = role.is_authority() || is_parachain_node.is_collator();
-	// We only need to enable the pvf checker when this is a validator.
-	let pvf_checker_enabled = role.is_authority();
 
 	let select_chain = if auth_or_collator {
 		let metrics =
@@ -801,9 +814,9 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	// anything in terms of behaviour, but makes the logs more consistent with the other
 	// Substrate nodes.
 	let grandpa_protocol_name = grandpa::protocol_standard_name(&genesis_hash, &config.chain_spec);
-	net_config.add_notification_protocol(grandpa::grandpa_peers_set_config(
-		grandpa_protocol_name.clone(),
-	));
+	let (grandpa_protocol_config, grandpa_notification_service) =
+		grandpa::grandpa_peers_set_config(grandpa_protocol_name.clone());
+	net_config.add_notification_protocol(grandpa_protocol_config);
 
 	let beefy_gossip_proto_name =
 		beefy::gossip_protocol_name(&genesis_hash, config.chain_spec.fork_id());
@@ -816,12 +829,17 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 			client.clone(),
 			prometheus_registry.clone(),
 		);
-	if enable_beefy {
-		net_config.add_notification_protocol(beefy::communication::beefy_peers_set_config(
-			beefy_gossip_proto_name.clone(),
-		));
-		net_config.add_request_response_protocol(beefy_req_resp_cfg);
-	}
+	let beefy_notification_service = match enable_beefy {
+		false => None,
+		true => {
+			let (beefy_notification_config, beefy_notification_service) =
+				beefy::communication::beefy_peers_set_config(beefy_gossip_proto_name.clone());
+
+			net_config.add_notification_protocol(beefy_notification_config);
+			net_config.add_request_response_protocol(beefy_req_resp_cfg);
+			Some(beefy_notification_service)
+		},
+	};
 
 	// validation/collation protocols are enabled only if `Overseer` is enabled
 	let peerset_protocol_names =
@@ -832,20 +850,24 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	//
 	// Collators and parachain full nodes require the collator and validator networking to send
 	// collations and to be able to recover PoVs.
-	if role.is_authority() || is_parachain_node.is_running_alongside_parachain_node() {
-		use polkadot_network_bridge::{peer_sets_info, IsAuthority};
-		let is_authority = if role.is_authority() { IsAuthority::Yes } else { IsAuthority::No };
-		for config in peer_sets_info(is_authority, &peerset_protocol_names) {
-			net_config.add_notification_protocol(config);
-		}
-	}
+	let notification_services =
+		if role.is_authority() || is_parachain_node.is_running_alongside_parachain_node() {
+			use polkadot_network_bridge::{peer_sets_info, IsAuthority};
+			let is_authority = if role.is_authority() { IsAuthority::Yes } else { IsAuthority::No };
+
+			peer_sets_info(is_authority, &peerset_protocol_names)
+				.into_iter()
+				.map(|(config, (peerset, service))| {
+					net_config.add_notification_protocol(config);
+					(peerset, service)
+				})
+				.collect::<HashMap<PeerSet, Box<dyn sc_network::NotificationService>>>()
+		} else {
+			std::collections::HashMap::new()
+		};
 
 	let req_protocol_names = ReqProtocolNames::new(&genesis_hash, config.chain_spec.fork_id());
 
-	let (pov_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
-	net_config.add_request_response_protocol(cfg);
-	let (chunk_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
-	net_config.add_request_response_protocol(cfg);
 	let (collation_req_v1_receiver, cfg) =
 		IncomingRequest::get_config_receiver(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
@@ -855,12 +877,9 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	let (available_data_req_receiver, cfg) =
 		IncomingRequest::get_config_receiver(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
-	let (statement_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
+	let (pov_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
-	let (candidate_req_v2_receiver, cfg) =
-		IncomingRequest::get_config_receiver(&req_protocol_names);
-	net_config.add_request_response_protocol(cfg);
-	let (dispute_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
+	let (chunk_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
 	net_config.add_request_response_protocol(cfg);
 
 	let grandpa_hard_forks = if config.chain_spec.is_kusama() {
@@ -874,6 +893,69 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 		import_setup.1.shared_authority_set().clone(),
 		grandpa_hard_forks,
 	));
+
+	let ext_overseer_args = if is_parachain_node.is_running_alongside_parachain_node() {
+		None
+	} else {
+		let parachains_db = open_database(&config.database)?;
+		let candidate_validation_config = if role.is_authority() {
+			let (prep_worker_path, exec_worker_path) = workers::determine_workers_paths(
+				workers_path,
+				workers_names,
+				node_version.clone(),
+			)?;
+			log::info!("🚀 Using prepare-worker binary at: {:?}", prep_worker_path);
+			log::info!("🚀 Using execute-worker binary at: {:?}", exec_worker_path);
+
+			Some(CandidateValidationConfig {
+				artifacts_cache_path: config
+					.database
+					.path()
+					.ok_or(Error::DatabasePathRequired)?
+					.join("pvf-artifacts"),
+				node_version,
+				secure_validator_mode,
+				prep_worker_path,
+				exec_worker_path,
+			})
+		} else {
+			None
+		};
+		let (statement_req_receiver, cfg) =
+			IncomingRequest::get_config_receiver(&req_protocol_names);
+		net_config.add_request_response_protocol(cfg);
+		let (candidate_req_v2_receiver, cfg) =
+			IncomingRequest::get_config_receiver(&req_protocol_names);
+		net_config.add_request_response_protocol(cfg);
+		let (dispute_req_receiver, cfg) = IncomingRequest::get_config_receiver(&req_protocol_names);
+		net_config.add_request_response_protocol(cfg);
+		let approval_voting_config = ApprovalVotingConfig {
+			col_approval_data: parachains_db::REAL_COLUMNS.col_approval_data,
+			slot_duration_millis: slot_duration.as_millis() as u64,
+		};
+		let dispute_coordinator_config = DisputeCoordinatorConfig {
+			col_dispute_data: parachains_db::REAL_COLUMNS.col_dispute_coordinator_data,
+		};
+		let chain_selection_config = ChainSelectionConfig {
+			col_data: parachains_db::REAL_COLUMNS.col_chain_selection_data,
+			stagnant_check_interval: Default::default(),
+			stagnant_check_mode: chain_selection_subsystem::StagnantCheckMode::PruneOnly,
+		};
+		Some(ExtendedOverseerGenArgs {
+			keystore,
+			parachains_db,
+			candidate_validation_config,
+			availability_config: AVAILABILITY_CONFIG,
+			pov_req_receiver,
+			chunk_req_receiver,
+			statement_req_receiver,
+			candidate_req_v2_receiver,
+			approval_voting_config,
+			dispute_req_receiver,
+			dispute_coordinator_config,
+			chain_selection_config,
+		})
+	};
 
 	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
 		service::build_network(service::BuildNetworkParams {
@@ -911,43 +993,6 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 		);
 	}
 
-	let parachains_db = open_database(&config.database)?;
-
-	let approval_voting_config = ApprovalVotingConfig {
-		col_approval_data: parachains_db::REAL_COLUMNS.col_approval_data,
-		slot_duration_millis: slot_duration.as_millis() as u64,
-	};
-
-	let candidate_validation_config = if role.is_authority() {
-		let (prep_worker_path, exec_worker_path) =
-			workers::determine_workers_paths(workers_path, workers_names, node_version.clone())?;
-		log::info!("🚀 Using prepare-worker binary at: {:?}", prep_worker_path);
-		log::info!("🚀 Using execute-worker binary at: {:?}", exec_worker_path);
-
-		Some(CandidateValidationConfig {
-			artifacts_cache_path: config
-				.database
-				.path()
-				.ok_or(Error::DatabasePathRequired)?
-				.join("pvf-artifacts"),
-			node_version,
-			prep_worker_path,
-			exec_worker_path,
-		})
-	} else {
-		None
-	};
-
-	let chain_selection_config = ChainSelectionConfig {
-		col_data: parachains_db::REAL_COLUMNS.col_chain_selection_data,
-		stagnant_check_interval: Default::default(),
-		stagnant_check_mode: chain_selection_subsystem::StagnantCheckMode::PruneOnly,
-	};
-
-	let dispute_coordinator_config = DisputeCoordinatorConfig {
-		col_dispute_data: parachains_db::REAL_COLUMNS.col_dispute_coordinator_data,
-	};
-
 	let rpc_handlers = service::spawn_tasks(service::SpawnTasksParams {
 		config,
 		backend: backend.clone(),
@@ -965,11 +1010,15 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 
 	if let Some(hwbench) = hwbench {
 		sc_sysinfo::print_hwbench(&hwbench);
-		if !SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench) && role.is_authority() {
-			log::warn!(
-				"⚠️  The hardware does not meet the minimal requirements for role 'Authority' find out more at:\n\
-				https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware"
+		match SUBSTRATE_REFERENCE_HARDWARE.check_hardware(&hwbench) {
+			Err(err) if role.is_authority() => {
+				log::warn!(
+				"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority' find out more at:\n\
+				https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware",
+				err
 			);
+			},
+			_ => {},
 		}
 
 		if let Some(ref mut telemetry) = telemetry {
@@ -1037,36 +1086,25 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 			.generate::<service::SpawnTaskHandle, FullClient>(
 				overseer_connector,
 				OverseerGenArgs {
-					keystore,
 					runtime_client: overseer_client.clone(),
-					parachains_db,
 					network_service: network.clone(),
 					sync_service: sync_service.clone(),
 					authority_discovery_service,
-					pov_req_receiver,
-					chunk_req_receiver,
 					collation_req_v1_receiver,
 					collation_req_v2_receiver,
 					available_data_req_receiver,
-					statement_req_receiver,
-					candidate_req_v2_receiver,
-					dispute_req_receiver,
 					registry: prometheus_registry.as_ref(),
 					spawner,
 					is_parachain_node,
-					approval_voting_config,
-					availability_config: AVAILABILITY_CONFIG,
-					candidate_validation_config,
-					chain_selection_config,
-					dispute_coordinator_config,
-					pvf_checker_enabled,
 					overseer_message_channel_capacity_override,
 					req_protocol_names,
 					peerset_protocol_names,
 					offchain_transaction_pool_factory: OffchainTransactionPoolFactory::new(
 						transaction_pool.clone(),
 					),
+					notification_services,
 				},
+				ext_overseer_args,
 			)
 			.map_err(|e| {
 				gum::error!("Failed to init overseer: {}", e);
@@ -1167,13 +1205,15 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	// need a keystore, regardless of which protocol we use below.
 	let keystore_opt = if role.is_authority() { Some(keystore_container.keystore()) } else { None };
 
-	if enable_beefy {
+	// beefy is enabled if its notification service exists
+	if let Some(notification_service) = beefy_notification_service {
 		let justifications_protocol_name = beefy_on_demand_justifications_handler.protocol_name();
 		let network_params = beefy::BeefyNetworkParams {
 			network: network.clone(),
 			sync: sync_service.clone(),
 			gossip_protocol_name: beefy_gossip_proto_name,
 			justifications_protocol_name,
+			notification_service,
 			_phantom: core::marker::PhantomData::<Block>,
 		};
 		let payload_provider = beefy_primitives::mmr::MmrRootProvider::new(client.clone());
@@ -1234,32 +1274,14 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 		// provide better guarantees of block and vote data availability than
 		// the observer.
 
-		// add a custom voting rule to temporarily stop voting for new blocks
-		// after the given pause block is finalized and restarting after the
-		// given delay.
-		let mut builder = grandpa::VotingRulesBuilder::default();
+		let mut voting_rules_builder = grandpa::VotingRulesBuilder::default();
 
 		#[cfg(not(feature = "malus"))]
 		let _malus_finality_delay = None;
 
 		if let Some(delay) = _malus_finality_delay {
 			info!(?delay, "Enabling malus finality delay",);
-			builder = builder.add(grandpa::BeforeBestBlockBy(delay));
-		};
-
-		let voting_rule = match grandpa_pause {
-			Some((block, delay)) => {
-				info!(
-					block_number = %block,
-					delay = %delay,
-					"GRANDPA scheduled voting pause set for block #{} with a duration of {} blocks.",
-					block,
-					delay,
-				);
-
-				builder.add(grandpa_support::PauseAfterBlockFor(block, delay)).build()
-			},
-			None => builder.build(),
+			voting_rules_builder = voting_rules_builder.add(grandpa::BeforeBestBlockBy(delay));
 		};
 
 		let grandpa_config = grandpa::GrandpaParams {
@@ -1267,10 +1289,11 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 			link: link_half,
 			network: network.clone(),
 			sync: sync_service.clone(),
-			voting_rule,
+			voting_rule: voting_rules_builder.build(),
 			prometheus_registry: prometheus_registry.clone(),
 			shared_voter_state,
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
+			notification_service: grandpa_notification_service,
 			offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
 		};
 

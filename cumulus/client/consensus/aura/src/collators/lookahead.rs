@@ -105,6 +105,8 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, SO, Proposer, CS> {
 	pub collator_service: CS,
 	/// The amount of time to spend authoring each block.
 	pub authoring_duration: Duration,
+	/// Whether we should reinitialize the collator config (i.e. we are transitioning to aura).
+	pub reinitialize: bool,
 }
 
 /// Run async-backing-friendly Aura.
@@ -149,6 +151,7 @@ where
 			&mut params.overseer_handle,
 			params.collator_key,
 			params.para_id,
+			params.reinitialize,
 		)
 		.await;
 
@@ -359,7 +362,7 @@ where
 					)
 					.await
 				{
-					Ok((collation, block_data, new_block_hash)) => {
+					Ok(Some((collation, block_data, new_block_hash))) => {
 						// Here we are assuming that the import logic protects against equivocations
 						// and provides sybil-resistance, as it should.
 						collator.collator_service().announce_block(new_block_hash, None);
@@ -386,6 +389,10 @@ where
 
 						parent_hash = new_block_hash;
 						parent_header = block_data.into_header();
+					},
+					Ok(None) => {
+						tracing::debug!(target: crate::LOG_TARGET, "No block proposal");
+						break
 					},
 					Err(err) => {
 						tracing::error!(target: crate::LOG_TARGET, ?err);

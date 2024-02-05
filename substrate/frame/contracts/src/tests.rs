@@ -30,9 +30,10 @@ use crate::{
 	},
 	exec::{Frame, Key},
 	migration::codegen::LATEST_MIGRATION_VERSION,
+	primitives::CodeUploadReturnValue,
 	storage::DeletionQueueManager,
 	tests::test_utils::{get_contract, get_contract_checked},
-	wasm::{Determinism, ReturnCode as RuntimeReturnCode},
+	wasm::{Determinism, ReturnErrorCode as RuntimeReturnCode},
 	weights::WeightInfo,
 	BalanceOf, Code, CodeHash, CodeInfoOf, CollectEvents, Config, ContractInfo, ContractInfoOf,
 	DebugInfo, DefaultAddressGenerator, DeletionQueueCounter, Error, HoldReason,
@@ -42,6 +43,7 @@ use assert_matches::assert_matches;
 use codec::Encode;
 use frame_support::{
 	assert_err, assert_err_ignore_postinfo, assert_err_with_weight, assert_noop, assert_ok,
+	derive_impl,
 	dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
 	parameter_types,
 	storage::child,
@@ -53,7 +55,7 @@ use frame_support::{
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 };
 use frame_system::{EventRecord, Phase};
-use pallet_contracts_primitives::CodeUploadReturnValue;
+use pallet_contracts_fixtures::compile_module;
 use pretty_assertions::{assert_eq, assert_ne};
 use sp_core::ByteArray;
 use sp_io::hashing::blake2_256;
@@ -69,13 +71,13 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-		Randomness: pallet_insecure_randomness_collective_flip::{Pallet, Storage},
-		Utility: pallet_utility::{Pallet, Call, Storage, Event},
-		Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>, HoldReason},
-		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		Timestamp: pallet_timestamp,
+		Randomness: pallet_insecure_randomness_collective_flip,
+		Utility: pallet_utility,
+		Contracts: pallet_contracts,
+		Proxy: pallet_proxy,
 		Dummy: pallet_dummy
 	}
 );
@@ -176,7 +178,7 @@ parameter_types! {
 pub struct TestExtension {
 	enabled: bool,
 	last_seen_buffer: Vec<u8>,
-	last_seen_inputs: (u32, u32, u32, u32),
+	last_seen_input_len: u32,
 }
 
 #[derive(Default)]
@@ -199,14 +201,14 @@ impl TestExtension {
 		TestExtensionTestValue::get().last_seen_buffer.clone()
 	}
 
-	fn last_seen_inputs() -> (u32, u32, u32, u32) {
-		TestExtensionTestValue::get().last_seen_inputs
+	fn last_seen_input_len() -> u32 {
+		TestExtensionTestValue::get().last_seen_input_len
 	}
 }
 
 impl Default for TestExtension {
 	fn default() -> Self {
-		Self { enabled: true, last_seen_buffer: vec![], last_seen_inputs: (0, 0, 0, 0) }
+		Self { enabled: true, last_seen_buffer: vec![], last_seen_input_len: 0 }
 	}
 }
 
@@ -229,9 +231,7 @@ impl ChainExtension<Test> for TestExtension {
 			},
 			1 => {
 				let env = env.only_in();
-				TestExtensionTestValue::mutate(|e| {
-					e.last_seen_inputs = (env.val0(), env.val1(), env.val2(), env.val3())
-				});
+				TestExtensionTestValue::mutate(|e| e.last_seen_input_len = env.val1());
 				Ok(RetVal::Converging(id))
 			},
 			2 => {
@@ -331,6 +331,8 @@ parameter_types! {
 		);
 	pub static ExistentialDeposit: u64 = 1;
 }
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = BlockWeights;
@@ -371,7 +373,6 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type MaxHolds = ConstU32<1>;
 }
 
 impl pallet_timestamp::Config for Test {
@@ -485,6 +486,7 @@ impl Config for Test {
 	type MaxDelegateDependencies = MaxDelegateDependencies;
 	type Debug = TestDebug;
 	type Environment = ();
+	type Xcm = ();
 }
 
 pub const ALICE: AccountId32 = AccountId32::new([1u8; 32]);
@@ -553,29 +555,6 @@ impl ExtBuilder {
 		});
 		ext
 	}
-}
-
-/// Load a given wasm module represented by a .wat file and returns a wasm binary contents along
-/// with it's hash.
-///
-/// The fixture files are located under the `fixtures/` directory.
-fn compile_module<T>(fixture_name: &str) -> wat::Result<(Vec<u8>, <T::Hashing as Hash>::Output)>
-where
-	T: frame_system::Config,
-{
-	let fixture_path = [
-		// When `CARGO_MANIFEST_DIR` is not set, Rust resolves relative paths from the root folder
-		std::env::var("CARGO_MANIFEST_DIR")
-			.as_deref()
-			.unwrap_or("substrate/frame/contracts"),
-		"/fixtures/",
-		fixture_name,
-		".wat",
-	]
-	.concat();
-	let wasm_binary = wat::parse_file(fixture_path)?;
-	let code_hash = T::Hashing::hash(&wasm_binary);
-	Ok((wasm_binary, code_hash))
 }
 
 fn initialize_block(number: u64) {
@@ -2172,8 +2151,7 @@ fn chain_extension_works() {
 		)
 		.result
 		.unwrap();
-		// those values passed in the fixture
-		assert_eq!(TestExtension::last_seen_inputs(), (4, 4, 16, 12));
+		assert_eq!(TestExtension::last_seen_input_len(), 4);
 
 		// 2 = charge some extra weight (amount supplied in the fifth byte)
 		let result = Contracts::bare_call(
@@ -3529,7 +3507,7 @@ fn failed_deposit_charge_should_roll_back_call() {
 	let result = execute().unwrap();
 
 	// Bump the deposit per byte to a high value to trigger a FundsUnavailable error.
-	DEPOSIT_PER_BYTE.with(|c| *c.borrow_mut() = ED);
+	DEPOSIT_PER_BYTE.with(|c| *c.borrow_mut() = 20);
 	assert_err_with_weight!(execute(), TokenError::FundsUnavailable, result.actual_weight);
 }
 

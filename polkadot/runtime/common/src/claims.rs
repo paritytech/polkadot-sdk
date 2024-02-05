@@ -561,7 +561,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// We first need to deposit the balance to ensure that the account exists.
-		CurrencyOf::<T>::deposit_creating(&dest, balance_due);
+		let _ = CurrencyOf::<T>::deposit_creating(&dest, balance_due);
 
 		// Check if this claim should have a vesting schedule.
 		if let Some(vs) = vesting {
@@ -591,11 +591,9 @@ impl<T: Config> Pallet<T> {
 /// otherwise free to place on chain.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-pub struct PrevalidateAttests<T: Config + Send + Sync>(sp_std::marker::PhantomData<T>)
-where
-	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>;
+pub struct PrevalidateAttests<T>(core::marker::PhantomData<fn(T)>);
 
-impl<T: Config + Send + Sync> Debug for PrevalidateAttests<T>
+impl<T: Config> Debug for PrevalidateAttests<T>
 where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
@@ -610,7 +608,7 @@ where
 	}
 }
 
-impl<T: Config + Send + Sync> PrevalidateAttests<T>
+impl<T: Config> PrevalidateAttests<T>
 where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
@@ -620,7 +618,7 @@ where
 	}
 }
 
-impl<T: Config + Send + Sync> SignedExtension for PrevalidateAttests<T>
+impl<T: Config> SignedExtension for PrevalidateAttests<T>
 where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
@@ -710,7 +708,7 @@ mod tests {
 	use crate::claims;
 	use claims::Call as ClaimsCall;
 	use frame_support::{
-		assert_err, assert_noop, assert_ok,
+		assert_err, assert_noop, assert_ok, derive_impl,
 		dispatch::{GetDispatchInfo, Pays},
 		ord_parameter_types, parameter_types,
 		traits::{ConstU32, ExistenceRequirement, WithdrawReasons},
@@ -729,16 +727,18 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-			Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-			Vesting: pallet_vesting::{Pallet, Call, Storage, Config<T>, Event<T>},
-			Claims: claims::{Pallet, Call, Storage, Config<T>, Event<T>, ValidateUnsigned},
+			System: frame_system,
+			Balances: pallet_balances,
+			Vesting: pallet_vesting,
+			Claims: claims,
 		}
 	);
 
 	parameter_types! {
 		pub const BlockHashCount: u32 = 250;
 	}
+
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();
@@ -782,7 +782,6 @@ mod tests {
 		type RuntimeHoldReason = RuntimeHoldReason;
 		type RuntimeFreezeReason = RuntimeFreezeReason;
 		type FreezeIdentifier = ();
-		type MaxHolds = ConstU32<1>;
 		type MaxFreezes = ConstU32<1>;
 	}
 
@@ -799,6 +798,7 @@ mod tests {
 		type MinVestedTransfer = MinVestedTransfer;
 		type WeightInfo = ();
 		type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
+		type BlockNumberProvider = System;
 		const MAX_VESTING_SCHEDULES: u32 = 28;
 	}
 

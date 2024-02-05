@@ -517,7 +517,7 @@ pub fn benchmarks(
 							components,
 							// TODO: Not supported by V2 syntax as of yet.
 							// https://github.com/paritytech/substrate/issues/13132
-							pov_modes: vec![],
+							pov_modes: #krate::__private::vec![],
 						}
 					}).collect::<#krate::__private::Vec<_>>()
 				}

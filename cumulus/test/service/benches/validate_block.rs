@@ -18,7 +18,9 @@
 use codec::{Decode, Encode};
 use core::time::Duration;
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion, Throughput};
-use cumulus_primitives_core::{relay_chain::AccountId, PersistedValidationData, ValidationParams};
+use cumulus_primitives_core::{
+	relay_chain::AccountId, ParaId, PersistedValidationData, ValidationParams,
+};
 use cumulus_test_client::{
 	generate_extrinsic_with_pair, BuildParachainBlockData, InitBlockBuilder, TestClientBuilder,
 	ValidationResult,
@@ -27,7 +29,7 @@ use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use cumulus_test_runtime::{BalancesCall, Block, Header, UncheckedExtrinsic};
 use cumulus_test_service::bench_utils as utils;
 use polkadot_primitives::HeadData;
-use sc_block_builder::BlockBuilderProvider;
+use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::UsageProvider;
 use sc_executor_common::wasm_runtime::WasmModule;
 
@@ -46,7 +48,11 @@ fn create_extrinsics(
 	dst_accounts: &[sr25519::Pair],
 ) -> (usize, Vec<UncheckedExtrinsic>) {
 	// Add as many tranfer extrinsics as possible into a single block.
-	let mut block_builder = client.new_block(Default::default()).unwrap();
+	let mut block_builder = BlockBuilderBuilder::new(client)
+		.on_parent_block(client.chain_info().best_hash)
+		.with_parent_block_number(client.chain_info().best_number)
+		.build()
+		.unwrap();
 	let mut max_transfer_count = 0;
 	let mut extrinsics = Vec::new();
 
@@ -79,6 +85,7 @@ fn benchmark_block_validation(c: &mut Criterion) {
 	// Each account should only be included in one transfer.
 	let (src_accounts, dst_accounts, account_ids) = utils::create_benchmark_accounts();
 
+	let para_id = ParaId::from(cumulus_test_runtime::PARACHAIN_ID);
 	let mut test_client_builder = TestClientBuilder::with_default_backend();
 	let genesis_init = test_client_builder.genesis_init_mut();
 	*genesis_init = cumulus_test_client::GenesisParameters { endowed_accounts: account_ids };
@@ -94,7 +101,14 @@ fn benchmark_block_validation(c: &mut Criterion) {
 		..Default::default()
 	};
 
-	let mut block_builder = client.init_block_builder(Some(validation_data), Default::default());
+	let sproof_builder = RelayStateSproofBuilder {
+		included_para_head: Some(parent_header.clone().encode().into()),
+		para_id,
+		..Default::default()
+	};
+
+	let mut block_builder =
+		client.init_block_builder(Some(validation_data), sproof_builder.clone());
 	for extrinsic in extrinsics {
 		block_builder.push(extrinsic).unwrap();
 	}
@@ -104,7 +118,6 @@ fn benchmark_block_validation(c: &mut Criterion) {
 	let proof_size_in_kb = parachain_block.storage_proof().encode().len() as f64 / 1024f64;
 	let runtime = utils::get_wasm_module();
 
-	let sproof_builder: RelayStateSproofBuilder = Default::default();
 	let (relay_parent_storage_root, _) = sproof_builder.into_state_root_and_proof();
 	let encoded_params = ValidationParams {
 		block_data: cumulus_test_client::BlockData(parachain_block.encode()),

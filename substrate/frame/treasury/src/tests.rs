@@ -27,7 +27,7 @@ use sp_runtime::{
 };
 
 use frame_support::{
-	assert_err_ignore_postinfo, assert_noop, assert_ok,
+	assert_err_ignore_postinfo, assert_noop, assert_ok, derive_impl,
 	pallet_prelude::Pays,
 	parameter_types,
 	traits::{
@@ -47,13 +47,14 @@ type TreasuryCall = crate::Call<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Treasury: treasury::{Pallet, Call, Storage, Config<T>, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		Treasury: treasury,
 		Utility: pallet_utility,
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -93,7 +94,6 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-	type MaxHolds = ();
 }
 
 impl pallet_utility::Config for Test {

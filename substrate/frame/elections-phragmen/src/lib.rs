@@ -1307,7 +1307,7 @@ mod tests {
 	use super::*;
 	use crate as elections_phragmen;
 	use frame_support::{
-		assert_noop, assert_ok,
+		assert_noop, assert_ok, derive_impl,
 		dispatch::DispatchResultWithPostInfo,
 		parameter_types,
 		traits::{ConstU32, ConstU64, OnInitialize},
@@ -1321,6 +1321,7 @@ mod tests {
 	};
 	use substrate_test_utils::assert_eq_uvec;
 
+	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type BaseCallFilter = frame_support::traits::Everything;
 		type BlockWeights = ();
@@ -1361,7 +1362,6 @@ mod tests {
 		type MaxFreezes = ();
 		type RuntimeHoldReason = ();
 		type RuntimeFreezeReason = ();
-		type MaxHolds = ();
 	}
 
 	frame_support::parameter_types! {
@@ -1453,9 +1453,9 @@ mod tests {
 	frame_support::construct_runtime!(
 		pub enum Test
 		{
-			System: frame_system::{Pallet, Call, Event<T>},
-			Balances: pallet_balances::{Pallet, Call, Event<T>, Config<T>},
-			Elections: elections_phragmen::{Pallet, Call, Event<T>, Config<T>},
+			System: frame_system,
+			Balances: pallet_balances,
+			Elections: elections_phragmen,
 		}
 	);
 
@@ -1506,6 +1506,7 @@ mod tests {
 				*m.borrow_mut() = self.genesis_members.iter().map(|(m, _)| *m).collect::<Vec<_>>()
 			});
 			let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
+				system: frame_system::GenesisConfig::default(),
 				balances: pallet_balances::GenesisConfig::<Test> {
 					balances: vec![
 						(1, 10 * self.balance_factor),

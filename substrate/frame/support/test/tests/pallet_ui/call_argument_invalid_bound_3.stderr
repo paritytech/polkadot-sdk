@@ -10,6 +10,7 @@ error: use of deprecated constant `pallet::warnings::ConstantWeight_0::_w`:
    |                          ^
    |
    = note: `-D deprecated` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(deprecated)]`
 
 error[E0277]: `Bar` doesn't implement `std::fmt::Debug`
   --> tests/pallet_ui/call_argument_invalid_bound_3.rs:40:36

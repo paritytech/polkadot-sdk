@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use polkadot_node_core_pvf::{
-	testing::{get_and_check_worker_paths, spawn_with_program_path, SpawnErr},
+	testing::{build_workers_and_get_paths, spawn_with_program_path, SpawnErr},
 	SecurityStatus,
 };
 use std::{env, time::Duration};
@@ -23,10 +23,11 @@ use std::{env, time::Duration};
 // Test spawning a program that immediately exits with a failure code.
 #[tokio::test]
 async fn spawn_immediate_exit() {
-	let (prepare_worker_path, _) = get_and_check_worker_paths();
+	let (prepare_worker_path, _) = build_workers_and_get_paths();
 
 	// There's no explicit `exit` subcommand in the worker; it will panic on an unknown
 	// subcommand anyway
+	let spawn_timeout = Duration::from_secs(2);
 	let result = spawn_with_program_path(
 		"integration-test",
 		prepare_worker_path,
@@ -36,28 +37,33 @@ async fn spawn_immediate_exit() {
 		SecurityStatus::default(),
 	)
 	.await;
-	assert!(matches!(result, Err(SpawnErr::AcceptTimeout)));
+	assert!(
+		matches!(result, Err(SpawnErr::AcceptTimeout { spawn_timeout: s }) if s == spawn_timeout)
+	);
 }
 
 #[tokio::test]
 async fn spawn_timeout() {
-	let (_, execute_worker_path) = get_and_check_worker_paths();
+	let (_, execute_worker_path) = build_workers_and_get_paths();
 
+	let spawn_timeout = Duration::from_secs(2);
 	let result = spawn_with_program_path(
 		"integration-test",
 		execute_worker_path,
 		&env::temp_dir(),
 		&["test-sleep"],
-		Duration::from_secs(2),
+		spawn_timeout,
 		SecurityStatus::default(),
 	)
 	.await;
-	assert!(matches!(result, Err(SpawnErr::AcceptTimeout)));
+	assert!(
+		matches!(result, Err(SpawnErr::AcceptTimeout { spawn_timeout: s }) if s == spawn_timeout)
+	);
 }
 
 #[tokio::test]
 async fn should_connect() {
-	let (prepare_worker_path, _) = get_and_check_worker_paths();
+	let (prepare_worker_path, _) = build_workers_and_get_paths();
 
 	let _ = spawn_with_program_path(
 		"integration-test",

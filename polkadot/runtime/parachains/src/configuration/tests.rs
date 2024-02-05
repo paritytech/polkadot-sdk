@@ -16,6 +16,7 @@
 
 use super::*;
 use crate::mock::{new_test_ext, Configuration, ParasShared, RuntimeOrigin, Test};
+use bitvec::{bitvec, prelude::Lsb0};
 use frame_support::{assert_err, assert_noop, assert_ok};
 
 fn on_new_session(session_index: SessionIndex) -> (HostConfiguration<u32>, HostConfiguration<u32>) {
@@ -37,7 +38,7 @@ fn default_is_consistent() {
 fn scheduled_session_is_two_sessions_from_now() {
 	new_test_ext(Default::default()).execute_with(|| {
 		// The logic here is really tested only with scheduled_session = 2. It should work
-		// with other values, but that should receive a more rigorious testing.
+		// with other values, but that should receive a more rigorous testing.
 		on_new_session(1);
 		assert_eq!(Configuration::scheduled_session(), 3);
 	});
@@ -135,7 +136,7 @@ fn pending_next_session_but_we_upgrade_once_more() {
 		// update.
 		assert_ok!(Configuration::set_validation_upgrade_cooldown(RuntimeOrigin::root(), 99));
 
-		// This should result in yet another configiguration change scheduled.
+		// This should result in yet another configuration change scheduled.
 		assert_eq!(Configuration::config(), initial_config);
 		assert_eq!(
 			PendingConfigs::<Test>::get(),
@@ -178,7 +179,7 @@ fn scheduled_session_config_update_while_next_session_pending() {
 		assert_ok!(Configuration::set_validation_upgrade_cooldown(RuntimeOrigin::root(), 99));
 		assert_ok!(Configuration::set_code_retention_period(RuntimeOrigin::root(), 98));
 
-		// This should result in yet another configiguration change scheduled.
+		// This should result in yet another configuration change scheduled.
 		assert_eq!(Configuration::config(), initial_config);
 		assert_eq!(
 			PendingConfigs::<Test>::get(),
@@ -282,7 +283,7 @@ fn setting_pending_config_members() {
 			max_code_size: 100_000,
 			max_pov_size: 1024,
 			max_head_data_size: 1_000,
-			on_demand_cores: 2,
+			coretime_cores: 2,
 			on_demand_retries: 5,
 			group_rotation_frequency: 20,
 			paras_availability_period: 10,
@@ -312,12 +313,14 @@ fn setting_pending_config_members() {
 			pvf_voting_ttl: 3,
 			minimum_validation_upgrade_delay: 20,
 			executor_params: Default::default(),
+			approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: 1 },
 			on_demand_queue_max_size: 10_000u32,
 			on_demand_base_fee: 10_000_000u128,
 			on_demand_fee_variability: Perbill::from_percent(3),
 			on_demand_target_queue_utilization: Perbill::from_percent(25),
 			on_demand_ttl: 5u32,
 			minimum_backing_votes: 5,
+			node_features: bitvec![u8, Lsb0; 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
 		};
 
 		Configuration::set_validation_upgrade_cooldown(
@@ -339,7 +342,7 @@ fn setting_pending_config_members() {
 		Configuration::set_max_pov_size(RuntimeOrigin::root(), new_config.max_pov_size).unwrap();
 		Configuration::set_max_head_data_size(RuntimeOrigin::root(), new_config.max_head_data_size)
 			.unwrap();
-		Configuration::set_on_demand_cores(RuntimeOrigin::root(), new_config.on_demand_cores)
+		Configuration::set_coretime_cores(RuntimeOrigin::root(), new_config.coretime_cores)
 			.unwrap();
 		Configuration::set_on_demand_retries(RuntimeOrigin::root(), new_config.on_demand_retries)
 			.unwrap();
@@ -473,6 +476,12 @@ fn setting_pending_config_members() {
 			new_config.minimum_backing_votes,
 		)
 		.unwrap();
+		Configuration::set_node_feature(RuntimeOrigin::root(), 1, true).unwrap();
+		Configuration::set_node_feature(RuntimeOrigin::root(), 1, true).unwrap();
+		Configuration::set_node_feature(RuntimeOrigin::root(), 3, true).unwrap();
+		Configuration::set_node_feature(RuntimeOrigin::root(), 10, true).unwrap();
+		Configuration::set_node_feature(RuntimeOrigin::root(), 10, false).unwrap();
+		Configuration::set_node_feature(RuntimeOrigin::root(), 11, true).unwrap();
 
 		assert_eq!(PendingConfigs::<Test>::get(), vec![(shared::SESSION_DELAY, new_config)],);
 	})

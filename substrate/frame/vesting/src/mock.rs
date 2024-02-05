@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use frame_support::{
-	parameter_types,
+	derive_impl, parameter_types,
 	traits::{ConstU32, ConstU64, WithdrawReasons},
 };
 use sp_core::H256;
@@ -33,12 +33,13 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Vesting: pallet_vesting::{Pallet, Call, Storage, Event<T>, Config<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		Vesting: pallet_vesting,
 	}
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u64>;
 	type AccountId = u64;
@@ -79,7 +80,6 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-	type MaxHolds = ();
 }
 parameter_types! {
 	pub const MinVestedTransfer: u64 = 256 * 2;
@@ -95,6 +95,7 @@ impl Config for Test {
 	type MinVestedTransfer = MinVestedTransfer;
 	type WeightInfo = ();
 	type UnvestedFundsAllowedWithdrawReasons = UnvestedFundsAllowedWithdrawReasons;
+	type BlockNumberProvider = System;
 }
 
 pub struct ExtBuilder {
