@@ -155,7 +155,6 @@ fn run_input(xcm_messages: [XcmMessage; 5]) {
 	println!();
 
 	for xcm_message in xcm_messages {
-		/*
 		fn matches_blocklisted_messages(message: Instruction<()>) -> bool {
 			matches!(message, Transact { .. })
 		}
@@ -183,7 +182,6 @@ fn run_input(xcm_messages: [XcmMessage; 5]) {
 			println!("  skipping message\n");
 			continue;
 		}
-		*/
 
 		if xcm_message.source % 4 == 0 {
 			// We get the destination for the message
