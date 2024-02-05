@@ -1513,7 +1513,7 @@ pub fn origin(_: TokenStream, _: TokenStream) -> TokenStream {
 ///
 /// ```ignore
 /// Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, TypeInfo,
-/// RuntimeDebug,
+/// RuntimeDebug
 /// ```
 ///
 /// For ease of usage, when no `#[derive]` attributes are found for the enum under

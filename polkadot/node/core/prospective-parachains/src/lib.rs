@@ -613,7 +613,7 @@ fn answer_get_backable_candidates(
 		Some(s) => s,
 	};
 
-	let backable_children = tree
+	let backable_candidates: Vec<_> = tree
 		.select_children(&required_path, count, |candidate| storage.is_backed(candidate))
 		.into_iter()
 		.filter_map(|child_hash| {
@@ -632,7 +632,24 @@ fn answer_get_backable_candidates(
 		})
 		.collect();
 
-	let _ = tx.send(backable_children);
+	if backable_candidates.is_empty() {
+		gum::trace!(
+			target: LOG_TARGET,
+			?required_path,
+			para_id = ?para,
+			%relay_parent,
+			"Could not find any backable candidate",
+		);
+	} else {
+		gum::trace!(
+			target: LOG_TARGET,
+			?relay_parent,
+			?backable_candidates,
+			"Found backable candidates",
+		);
+	}
+
+	let _ = tx.send(backable_candidates);
 }
 
 fn answer_hypothetical_frontier_request(

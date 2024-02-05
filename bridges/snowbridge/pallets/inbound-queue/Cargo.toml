@@ -1,0 +1,102 @@
+[package]
+name = "snowbridge-pallet-inbound-queue"
+description = "Snowbridge Inbound Queue Pallet"
+version = "0.0.0"
+authors = ["Snowfork <contact@snowfork.com>"]
+edition.workspace = true
+repository.workspace = true
+license = "Apache-2.0"
+categories = ["cryptography::cryptocurrencies"]
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+serde = { version = "1.0.195", optional = true }
+codec = { version = "3.6.1", package = "parity-scale-codec", default-features = false, features = ["derive"] }
+scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+hex-literal = { version = "0.4.1", optional = true }
+log = { version = "0.4.20", default-features = false }
+alloy-primitives = { version = "0.4.2", default-features = false, features = ["rlp"] }
+alloy-sol-types = { version = "0.4.2", default-features = false }
+alloy-rlp = { version = "0.3.3", default-features = false, features = ["derive"] }
+num-traits = { version = "0.2.16", default-features = false }
+
+frame-benchmarking = { path = "../../../../substrate/frame/benchmarking", default-features = false, optional = true }
+frame-support = { path = "../../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../../substrate/frame/system", default-features = false }
+pallet-balances = { path = "../../../../substrate/frame/balances", default-features = false }
+sp-core = { path = "../../../../substrate/primitives/core", default-features = false }
+sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
+sp-io = { path = "../../../../substrate/primitives/io", default-features = false }
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
+
+xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../polkadot/xcm/xcm-builder", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../polkadot/xcm/xcm-executor", default-features = false }
+
+snowbridge-core = { path = "../../primitives/core", default-features = false }
+snowbridge-ethereum = { path = "../../primitives/ethereum", default-features = false }
+snowbridge-router-primitives = { path = "../../primitives/router", default-features = false }
+snowbridge-beacon-primitives = { path = "../../primitives/beacon", default-features = false }
+snowbridge-pallet-inbound-queue-fixtures = { path = "./fixtures", default-features = false, optional = true }
+
+[dev-dependencies]
+frame-benchmarking = { path = "../../../../substrate/frame/benchmarking" }
+sp-keyring = { path = "../../../../substrate/primitives/keyring" }
+snowbridge-pallet-ethereum-client = { path = "../ethereum-client" }
+hex-literal = { version = "0.4.1" }
+
+[features]
+default = ["std"]
+std = [
+	"alloy-primitives/std",
+	"alloy-rlp/std",
+	"alloy-sol-types/std",
+	"codec/std",
+	"frame-benchmarking/std",
+	"frame-support/std",
+	"frame-system/std",
+	"log/std",
+	"num-traits/std",
+	"pallet-balances/std",
+	"scale-info/std",
+	"serde",
+	"snowbridge-beacon-primitives/std",
+	"snowbridge-core/std",
+	"snowbridge-ethereum/std",
+	"snowbridge-pallet-inbound-queue-fixtures?/std",
+	"snowbridge-router-primitives/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"xcm-builder/std",
+	"xcm-executor/std",
+	"xcm/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking",
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"hex-literal",
+	"pallet-balances/runtime-benchmarks",
+	"snowbridge-core/runtime-benchmarks",
+	"snowbridge-pallet-ethereum-client/runtime-benchmarks",
+	"snowbridge-pallet-inbound-queue-fixtures/runtime-benchmarks",
+	"snowbridge-router-primitives/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-balances/try-runtime",
+	"snowbridge-pallet-ethereum-client/try-runtime",
+	"sp-runtime/try-runtime",
+]
