@@ -597,7 +597,7 @@ fn tally_support_correct() {
 
 #[test]
 fn exchange_member_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
 		assert_eq!(member_count(0), 1);
 
@@ -625,7 +625,7 @@ fn exchange_member_works() {
 
 #[test]
 fn exchange_member_same_noops() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
 		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 1));
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 2));
