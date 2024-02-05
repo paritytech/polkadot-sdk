@@ -701,7 +701,7 @@ mod tests {
 			let _tx3 = pool_state.write().transactions.pop().unwrap();
 			assert!(pool_state.read().transactions.is_empty());
 			let tx1 = Extrinsic::decode(&mut &*tx1).unwrap();
-			assert_eq!(tx1.signature, None);
+			assert!(tx1.is_inherent());
 		});
 	}
 
@@ -732,7 +732,7 @@ mod tests {
 			let tx1 = pool_state.write().transactions.pop().unwrap();
 			assert!(pool_state.read().transactions.is_empty());
 			let tx1 = Extrinsic::decode(&mut &*tx1).unwrap();
-			assert_eq!(tx1.signature, None);
+			assert!(tx1.is_inherent());
 		});
 	}
 
@@ -766,7 +766,7 @@ mod tests {
 			let _tx2 = pool_state.write().transactions.pop().unwrap();
 			assert!(pool_state.read().transactions.is_empty());
 			let tx1 = Extrinsic::decode(&mut &*tx1).unwrap();
-			assert_eq!(tx1.signature, None);
+			assert!(tx1.is_inherent());
 		});
 	}
 
@@ -798,7 +798,7 @@ mod tests {
 			let tx1 = pool_state.write().transactions.pop().unwrap();
 			assert!(pool_state.read().transactions.is_empty());
 			let tx1 = Extrinsic::decode(&mut &*tx1).unwrap();
-			assert_eq!(tx1.signature, None);
+			assert!(tx1.is_inherent());
 		});
 	}
 }

@@ -972,6 +972,9 @@ mod tests {
 		fn upgrade_accounts(_u: u32) -> Weight {
 			Weight::zero()
 		}
+		fn force_adjust_total_issuance() -> Weight {
+			Weight::zero()
+		}
 	}
 
 	impl pallet_balances::Config for Runtime {

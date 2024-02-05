@@ -99,7 +99,7 @@ where
 		_account: AccountId,
 		nonce: u64,
 	) -> Option<(RuntimeCall, <Extrinsic as ExtrinsicT>::SignaturePayload)> {
-		Some((call, (nonce, ())))
+		Some((call, (nonce, (), ())))
 	}
 }
 
@@ -219,8 +219,8 @@ fn should_submit_signed_transaction_on_chain() {
 		let tx = pool_state.write().transactions.pop().unwrap();
 		assert!(pool_state.read().transactions.is_empty());
 		let tx = Extrinsic::decode(&mut &*tx).unwrap();
-		assert_eq!(tx.signature.unwrap().0, 0);
-		assert_eq!(tx.call, RuntimeCall::Example(crate::Call::submit_price { price: 15523 }));
+		assert!(matches!(tx.preamble, sp_runtime::generic::Preamble::Signed(0, (), ())));
+		assert_eq!(tx.function, RuntimeCall::Example(crate::Call::submit_price { price: 15523 }));
 	});
 }
 
@@ -259,11 +259,11 @@ fn should_submit_unsigned_transaction_on_chain_for_any_account() {
 		// then
 		let tx = pool_state.write().transactions.pop().unwrap();
 		let tx = Extrinsic::decode(&mut &*tx).unwrap();
-		assert_eq!(tx.signature, None);
+		assert!(tx.is_inherent());
 		if let RuntimeCall::Example(crate::Call::submit_price_unsigned_with_signed_payload {
 			price_payload: body,
 			signature,
-		}) = tx.call
+		}) = tx.function
 		{
 			assert_eq!(body, price_payload);
 
@@ -313,11 +313,11 @@ fn should_submit_unsigned_transaction_on_chain_for_all_accounts() {
 		// then
 		let tx = pool_state.write().transactions.pop().unwrap();
 		let tx = Extrinsic::decode(&mut &*tx).unwrap();
-		assert_eq!(tx.signature, None);
+		assert!(tx.is_inherent());
 		if let RuntimeCall::Example(crate::Call::submit_price_unsigned_with_signed_payload {
 			price_payload: body,
 			signature,
-		}) = tx.call
+		}) = tx.function
 		{
 			assert_eq!(body, price_payload);
 
@@ -353,9 +353,9 @@ fn should_submit_raw_unsigned_transaction_on_chain() {
 		let tx = pool_state.write().transactions.pop().unwrap();
 		assert!(pool_state.read().transactions.is_empty());
 		let tx = Extrinsic::decode(&mut &*tx).unwrap();
-		assert_eq!(tx.signature, None);
+		assert!(tx.is_inherent());
 		assert_eq!(
-			tx.call,
+			tx.function,
 			RuntimeCall::Example(crate::Call::submit_price_unsigned {
 				block_number: 1,
 				price: 15523
