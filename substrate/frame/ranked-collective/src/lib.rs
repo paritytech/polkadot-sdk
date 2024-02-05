@@ -394,7 +394,7 @@ pub mod pallet {
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The origin required to add a member.
-		type AddOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = ()>;
+		type AddOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The origin required to remove a member.
 		///
