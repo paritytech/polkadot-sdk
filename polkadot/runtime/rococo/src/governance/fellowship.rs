@@ -17,7 +17,7 @@
 //! Elements of governance concerning the Rococo Fellowship.
 
 use frame_support::traits::{MapSuccess, TryMapSuccess};
-use sp_runtime::traits::{CheckedReduceBy, ConstU16, Replace};
+use sp_runtime::traits::{CheckedReduceBy, ConstU16, Replace, ReplaceWithDefault};
 
 use super::*;
 use crate::{CENTS, DAYS};
@@ -319,7 +319,7 @@ impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime 
 	// - Root.
 	// - the FellowshipAdmin origin.
 	// - a Fellowship origin.
-	type AddOrigin = MapSuccess<Self::PromoteOrigin, Replace<()>>;
+	type AddOrigin = MapSuccess<Self::PromoteOrigin, ReplaceWithDefault<()>>;
 	// Promotion is by any of:
 	// - Root can demote arbitrarily.
 	// - the FellowshipAdmin origin (i.e. token holder referendum);
