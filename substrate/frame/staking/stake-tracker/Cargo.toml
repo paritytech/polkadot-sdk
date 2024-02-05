@@ -39,6 +39,7 @@ pallet-balances = { default-features = false, path = "../../balances" }
 default = ["std"]
 
 std = [
+	"log/std",
 	"codec/std",
 	"frame-support/std",
 	"frame-system/std",
@@ -62,6 +63,7 @@ runtime-benchmarks = [
 	"frame-election-provider-support/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
 ]
 
 try-runtime = [
