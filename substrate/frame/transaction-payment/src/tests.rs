@@ -21,7 +21,7 @@ use crate as pallet_transaction_payment;
 use codec::Encode;
 
 use sp_runtime::{
-	testing::TestXt,
+	generic::UncheckedExtrinsic,
 	traits::{DispatchTransaction, One},
 	transaction_validity::InvalidTransaction,
 	BuildStorage,
@@ -270,12 +270,12 @@ fn query_info_and_fee_details_works() {
 	let call = RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 2, value: 69 });
 	let origin = 111111;
 	let extra = ();
-	let xt = TestXt::new_signed(call.clone(), origin, extra);
+	let xt = UncheckedExtrinsic::new_signed(call.clone(), origin, (), extra);
 	let info = xt.get_dispatch_info();
 	let ext = xt.encode();
 	let len = ext.len() as u32;
 
-	let unsigned_xt = TestXt::<_, ()>::new_inherent(call);
+	let unsigned_xt = UncheckedExtrinsic::<u64, _, (), ()>::new_bare(call);
 	let unsigned_xt_info = unsigned_xt.get_dispatch_info();
 
 	ExtBuilder::default()

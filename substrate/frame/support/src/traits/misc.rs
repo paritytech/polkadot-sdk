@@ -902,17 +902,6 @@ pub trait ExtrinsicCall: sp_runtime::traits::Extrinsic {
 	fn call(&self) -> &Self::Call;
 }
 
-#[cfg(feature = "std")]
-impl<Call, Extra> ExtrinsicCall for sp_runtime::testing::TestXt<Call, Extra>
-where
-	Call: codec::Codec + Sync + Send + TypeInfo,
-	Extra: TypeInfo,
-{
-	fn call(&self) -> &Self::Call {
-		&self.call
-	}
-}
-
 impl<Address, Call, Signature, Extra> ExtrinsicCall
 	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, Extra>
 where

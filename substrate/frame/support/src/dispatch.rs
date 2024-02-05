@@ -389,21 +389,6 @@ where
 	}
 }
 
-/// Implementation for test extrinsic.
-#[cfg(feature = "std")]
-impl<Call: Encode + GetDispatchInfo, Extension: Encode> GetDispatchInfo
-	for sp_runtime::testing::TestXt<Call, Extension>
-{
-	fn get_dispatch_info(&self) -> DispatchInfo {
-		// for testing: weight == size.
-		DispatchInfo {
-			weight: Weight::from_parts(self.encode().len() as _, 0),
-			pays_fee: Pays::Yes,
-			class: self.call.get_dispatch_info().class,
-		}
-	}
-}
-
 /// A struct holding value for each `DispatchClass`.
 #[derive(Clone, Eq, PartialEq, Default, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub struct PerDispatchClass<T> {

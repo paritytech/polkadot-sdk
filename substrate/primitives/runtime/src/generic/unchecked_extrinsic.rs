@@ -175,6 +175,11 @@ impl<Address, Call, Signature, Extension> UncheckedExtrinsic<Address, Call, Sign
 	}
 
 	/// TODO: docs
+	pub fn is_signed(&self) -> bool {
+		matches!(self.preamble, Preamble::Signed(..))
+	}
+
+	/// TODO: docs
 	pub fn from_parts(function: Call, preamble: Preamble<Address, Signature, Extension>) -> Self {
 		Self { preamble, function }
 	}

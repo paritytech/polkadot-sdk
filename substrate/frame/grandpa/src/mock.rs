@@ -36,8 +36,9 @@ use sp_core::{crypto::KeyTypeId, H256};
 use sp_keyring::Ed25519Keyring;
 use sp_runtime::{
 	curve::PiecewiseLinear,
+	generic::UncheckedExtrinsic,
 	impl_opaque_keys,
-	testing::{TestXt, UintAuthorityId},
+	testing::UintAuthorityId,
 	traits::{IdentityLookup, OpaqueKeys},
 	BuildStorage, DigestItem, Perbill,
 };
@@ -98,7 +99,7 @@ where
 	RuntimeCall: From<C>,
 {
 	type OverarchingCall = RuntimeCall;
-	type Extrinsic = TestXt<RuntimeCall, ()>;
+	type Extrinsic = UncheckedExtrinsic<u64, RuntimeCall, (), ()>;
 }
 
 parameter_types! {
