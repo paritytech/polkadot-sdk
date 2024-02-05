@@ -2150,7 +2150,7 @@ impl pallet_parameters::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type AdminOrigin = DynamicParametersManagerOrigin;
 	type WeightInfo = ();
-	type AggregratedKeyValue = RuntimeParameters;
+	type RuntimeParameters = RuntimeParameters;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkingDefault = BenchmarkingDefault;
 }

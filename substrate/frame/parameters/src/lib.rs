@@ -132,28 +132,32 @@ type ValueOf<T> = <<T as Config>::RuntimeParameters as AggregratedKeyValue>::Agg
 pub mod pallet {
 	use super::*;
 
-	#[pallet::config]
+	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[pallet::no_default_bounds]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The overarching KV type of the parameters.
 		///
 		/// Usually created by [`frame_support::dynamic_params`] or equivalent.
+		#[pallet::no_default_bounds]
 		type RuntimeParameters: AggregratedKeyValue;
 
 		/// The origin which may update a parameter.
 		///
 		/// The key of the parameter is passed in as second argument to allow for fine grained
 		/// control.
+		#[pallet::no_default_bounds]
 		type AdminOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, KeyOf<Self>>;
 
 		/// Weight information for extrinsics in this module.
 		type WeightInfo: WeightInfo;
 
 		/// Provides a default KV since the type is otherwise in-constructable.
+		#[pallet::no_default]
 		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkingDefault: Get<Self::AggregratedKeyValue>;
+		type BenchmarkingDefault: Get<Self::RuntimeParameters>;
 	}
 
 	#[pallet::event]
@@ -194,6 +198,31 @@ pub mod pallet {
 			Self::deposit_event(Event::Updated { key_value });
 
 			Ok(())
+		}
+	}
+	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
+	pub mod config_preludes {
+		use super::*;
+		use frame_support::derive_impl;
+
+		/// A configuration for testing.
+		pub struct TestDefaultConfig;
+
+		#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
+		impl frame_system::DefaultConfig for TestDefaultConfig {}
+
+		#[frame_support::register_default_impl(TestDefaultConfig)]
+		impl DefaultConfig for TestDefaultConfig {
+			#[inject_runtime_type]
+			type RuntimeEvent = ();
+			#[inject_runtime_type]
+			type RuntimeParameters = ();
+
+			type AdminOrigin = frame_support::traits::AsEnsureOriginWithArg<
+				frame_system::EnsureRoot<Self::AccountId>,
+			>;
+
+			type WeightInfo = ();
 		}
 	}
 }

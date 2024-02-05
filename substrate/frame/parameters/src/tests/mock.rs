@@ -26,6 +26,7 @@ use frame_support::{
 	traits::EnsureOriginWithArg,
 };
 
+use crate as pallet_parameters;
 use crate::*;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
@@ -41,7 +42,7 @@ impl pallet_balances::Config for Runtime {
 }
 
 #[docify::export]
-#[dynamic_params(RuntimeParameters, crate::Parameters::<Runtime>)]
+#[dynamic_params(RuntimeParameters, pallet_parameters::Parameters::<Runtime>)]
 pub mod dynamic_params {
 	use super::*;
 
@@ -105,12 +106,12 @@ parameter_types! {
 }
 
 #[docify::export(impl_config)]
+#[derive_impl(pallet_parameters::config_preludes::TestDefaultConfig as pallet_parameters::DefaultConfig)]
 impl Config for Runtime {
-	type RuntimeParameters = RuntimeParameters;
 	type AdminOrigin = custom_origin::ParamsManager;
-
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
+	// RuntimeParameters is injected by the `derive_impl` macro.
+	// RuntimeEvent is injected by the `derive_impl` macro.
+	// WeightInfo is injected by the `derive_impl` macro.
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkingDefault = BenchmarkingDefault;
 }
