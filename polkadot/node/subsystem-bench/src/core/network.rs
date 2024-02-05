@@ -10,7 +10,6 @@
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 //!
@@ -48,11 +47,15 @@ use futures::{
 	stream::FuturesUnordered,
 };
 
+use itertools::Itertools;
 use net_protocol::{
+	peer_set::{ProtocolVersion, ValidationVersion},
 	request_response::{Recipient, Requests, ResponseSender},
-	VersionedValidationProtocol,
+	ObservedRole, VersionedValidationProtocol,
 };
 use parity_scale_codec::Encode;
+use polkadot_node_subsystem_types::messages::{ApprovalDistributionMessage, NetworkBridgeEvent};
+use polkadot_overseer::AllMessages;
 use polkadot_primitives::AuthorityDiscoveryId;
 use prometheus_endpoint::U64;
 use rand::{seq::SliceRandom, thread_rng};
@@ -60,6 +63,7 @@ use sc_network::{
 	request_responses::{IncomingRequest, OutgoingResponse},
 	RequestFailure,
 };
+use sc_network_types::PeerId;
 use sc_service::SpawnTaskHandle;
 use std::{
 	collections::HashMap,
@@ -142,7 +146,7 @@ impl RateLimit {
 /// peer(`AuthorityDiscoveryId``).
 pub enum NetworkMessage {
 	/// A gossip message from peer to node.
-	MessageFromPeer(VersionedValidationProtocol),
+	MessageFromPeer(PeerId, VersionedValidationProtocol),
 	/// A gossip message from node to a peer.
 	MessageFromNode(AuthorityDiscoveryId, VersionedValidationProtocol),
 	/// A request originating from our node
@@ -155,9 +159,9 @@ impl NetworkMessage {
 	/// Returns the size of the encoded message or request
 	pub fn size(&self) -> usize {
 		match &self {
-			NetworkMessage::MessageFromPeer(Versioned::V2(message)) => message.encoded_size(),
-			NetworkMessage::MessageFromPeer(Versioned::V1(message)) => message.encoded_size(),
-			NetworkMessage::MessageFromPeer(Versioned::V3(message)) => message.encoded_size(),
+			NetworkMessage::MessageFromPeer(_, Versioned::V2(message)) => message.encoded_size(),
+			NetworkMessage::MessageFromPeer(_, Versioned::V1(message)) => message.encoded_size(),
+			NetworkMessage::MessageFromPeer(_, Versioned::V3(message)) => message.encoded_size(),
 			NetworkMessage::MessageFromNode(_peer_id, Versioned::V2(message)) =>
 				message.encoded_size(),
 			NetworkMessage::MessageFromNode(_peer_id, Versioned::V1(message)) =>
@@ -430,6 +434,7 @@ pub struct EmulatedPeerHandle {
 	messages_tx: UnboundedSender<NetworkMessage>,
 	/// Send actions to be performed by the peer.
 	actions_tx: UnboundedSender<NetworkMessage>,
+	peer_id: PeerId,
 }
 
 impl EmulatedPeerHandle {
@@ -441,7 +446,7 @@ impl EmulatedPeerHandle {
 	/// Send a message to the node.
 	pub fn send_message(&self, message: VersionedValidationProtocol) {
 		self.actions_tx
-			.unbounded_send(NetworkMessage::MessageFromPeer(message))
+			.unbounded_send(NetworkMessage::MessageFromPeer(self.peer_id, message))
 			.expect("Peer action channel hangup");
 	}
 
@@ -613,6 +618,7 @@ pub fn new_peer(
 	stats: Arc<PeerEmulatorStats>,
 	to_network_interface: UnboundedSender<NetworkMessage>,
 	latency_ms: usize,
+	peer_id: PeerId,
 ) -> EmulatedPeerHandle {
 	let (messages_tx, messages_rx) = mpsc::unbounded::<NetworkMessage>();
 	let (actions_tx, actions_rx) = mpsc::unbounded::<NetworkMessage>();
@@ -641,7 +647,7 @@ pub fn new_peer(
 		.boxed(),
 	);
 
-	EmulatedPeerHandle { messages_tx, actions_tx }
+	EmulatedPeerHandle { messages_tx, actions_tx, peer_id }
 }
 
 /// Book keeping of sent and received bytes.
@@ -719,6 +725,28 @@ pub struct NetworkEmulatorHandle {
 	validator_authority_ids: HashMap<AuthorityDiscoveryId, usize>,
 }
 
+impl NetworkEmulatorHandle {
+	/// Generates peer_connected messages for all peers in `test_authorities`
+	pub fn generate_peer_connected(&self) -> Vec<AllMessages> {
+		self.peers
+			.iter()
+			.filter(|peer| peer.is_connected())
+			.map(|peer| {
+				let network = NetworkBridgeEvent::PeerConnected(
+					peer.handle().peer_id,
+					ObservedRole::Full,
+					ProtocolVersion::from(ValidationVersion::V3),
+					None,
+				);
+
+				AllMessages::ApprovalDistribution(ApprovalDistributionMessage::NetworkBridgeUpdate(
+					network,
+				))
+			})
+			.collect_vec()
+	}
+}
+
 /// Create a new emulated network based on `config`.
 /// Each emulated peer will run the specified `handlers` to process incoming messages.
 pub fn new_network(
@@ -753,6 +781,7 @@ pub fn new_network(
 					stats,
 					to_network_interface.clone(),
 					random_latency(config.latency.as_ref()),
+					*authorities.peer_ids.get(peer_index).unwrap(),
 				)),
 			)
 		})
@@ -760,10 +789,14 @@ pub fn new_network(
 
 	let connected_count = config.connected_count();
 
-	let (_connected, to_disconnect) = peers.partial_shuffle(&mut thread_rng(), connected_count);
+	let mut peers_indicies = (0..n_peers).collect_vec();
+	let (_connected, to_disconnect) =
+		peers_indicies.partial_shuffle(&mut thread_rng(), connected_count);
 
-	for peer in to_disconnect {
-		peer.disconnect();
+	// Node under test is always mark as disconnected.
+	peers[NODE_UNDER_TEST as usize].disconnect();
+	for peer in to_disconnect.iter().skip(1) {
+		peers[*peer].disconnect();
 	}
 
 	gum::info!(target: LOG_TARGET, "{}",format!("Network created, connected validator count {}", connected_count).bright_black());
@@ -786,6 +819,7 @@ pub fn new_network(
 }
 
 /// Errors that can happen when sending data to emulated peers.
+#[derive(Clone, Debug)]
 pub enum EmulatedPeerError {
 	NotConnected,
 }
