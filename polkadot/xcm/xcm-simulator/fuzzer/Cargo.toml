@@ -49,7 +49,7 @@ try-runtime = [
 	"pallet-message-queue/try-runtime",
 	"pallet-xcm/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",
-	"sp-runtime/try-runtime"
+	"sp-runtime/try-runtime",
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",

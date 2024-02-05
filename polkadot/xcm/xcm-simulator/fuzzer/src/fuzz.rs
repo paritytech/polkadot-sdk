@@ -226,11 +226,34 @@ fn run_input(xcm_messages: [XcmMessage; 5]) {
 		#[cfg(not(fuzzing))]
 		println!();
 		use frame_support::traits::{TryState, TryStateSelect};
-		<crate::parachain::AllPalletsWithSystem as TryState<u32>>::try_state(
-			Default::default(),
-			TryStateSelect::All,
-		)
-		.unwrap();
+		ParaA::execute_with(|| {
+			<crate::parachain::AllPalletsWithSystem as TryState<u32>>::try_state(
+				Default::default(),
+				TryStateSelect::All,
+			)
+			.unwrap();
+		});
+		ParaB::execute_with(|| {
+			<crate::parachain::AllPalletsWithSystem as TryState<u32>>::try_state(
+				Default::default(),
+				TryStateSelect::All,
+			)
+			.unwrap();
+		});
+		ParaC::execute_with(|| {
+			<crate::parachain::AllPalletsWithSystem as TryState<u32>>::try_state(
+				Default::default(),
+				TryStateSelect::All,
+			)
+			.unwrap();
+		});
+		Relay::execute_with(|| {
+			crate::relay_chain::AllPalletsWithSystem::try_state(
+				Default::default(),
+				TryStateSelect::All,
+			)
+			.unwrap();
+		});
 		/*
 		<crate::relay_chain::AllPalletsWithSystem as TryState<u32>>::try_state(
 			Default::default(),
