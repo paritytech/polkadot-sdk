@@ -167,9 +167,6 @@ impl<Hash, BlockHash> TransactionStatus<Hash, BlockHash> {
 
 	/// Returns true if the transaction could be re-submitted to the pool in the future.
 	///
-	/// A retriable transaction is a transaction that fails to be included in the chain
-	/// at the moment. However, it may become valid in the future.
-	///
 	/// For example, `TransactionStatus::Dropped` is retriable, because the transaction
 	/// may enter the pool if there is space for it in the future.
 	pub fn is_retriable(&self) -> bool {
