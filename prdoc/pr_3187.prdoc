@@ -6,7 +6,7 @@ title: Retrying an execution on failed runtime construction
 doc:
   - audience: Node Dev
     description: |
-      If runtime construction happened during the execution request, then the artifact is re-prepared 
+      If a runtime construction error happened during the execution request, then the artifact is re-prepared 
       and the execution request is retried at most once. See also the related issue.
 
 crates:
