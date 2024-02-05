@@ -56,7 +56,8 @@ pub use westend_system_emulated_network::{
 	AssetHubWestendPara as AssetHubWestend, AssetHubWestendParaReceiver as AssetHubWestendReceiver,
 	AssetHubWestendParaSender as AssetHubWestendSender, BridgeHubWestendPara as BridgeHubWestend,
 	BridgeHubWestendParaReceiver as BridgeHubWestendReceiver,
-	CollectivesWestendPara as CollectivesWestend, PenpalBPara as PenpalB,
+	CollectivesWestendPara as CollectivesWestend, PenpalAPara as PenpalA,
+	PenpalAParaReceiver as PenpalAReceiver, PenpalBPara as PenpalB,
 	PenpalBParaReceiver as PenpalBReceiver, PenpalBParaSender as PenpalBSender,
 	WestendRelay as Westend, WestendRelayReceiver as WestendReceiver,
 	WestendRelaySender as WestendSender,
@@ -72,6 +73,7 @@ pub type RelayToParaTest = Test<Westend, PenpalB>;
 pub type SystemParaToRelayTest = Test<AssetHubWestend, Westend>;
 pub type SystemParaToParaTest = Test<AssetHubWestend, PenpalB>;
 pub type ParaToSystemParaTest = Test<PenpalB, AssetHubWestend>;
+pub type ParaToParaTest = Test<PenpalB, PenpalA, Westend>;
 
 #[cfg(test)]
 mod tests;

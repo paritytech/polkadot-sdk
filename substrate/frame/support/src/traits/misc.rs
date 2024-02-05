@@ -37,8 +37,6 @@ pub const DEFENSIVE_OP_PUBLIC_ERROR: &str = "a defensive failure has been trigge
 pub const DEFENSIVE_OP_INTERNAL_ERROR: &str = "Defensive failure has been triggered!";
 
 /// Trait to get the number of variants in any enum.
-///
-/// NOTE: can be removed once <https://doc.rust-lang.org/std/mem/fn.variant_count.html> is stable.
 pub trait VariantCount {
 	/// Get the number of variants.
 	const VARIANT_COUNT: u32;
@@ -46,6 +44,14 @@ pub trait VariantCount {
 
 impl VariantCount for () {
 	const VARIANT_COUNT: u32 = 0;
+}
+
+/// Adapter for `Get<u32>` to access `VARIANT_COUNT` from `trait pub trait VariantCount {`.
+pub struct VariantCountOf<T: VariantCount>(sp_std::marker::PhantomData<T>);
+impl<T: VariantCount> Get<u32> for VariantCountOf<T> {
+	fn get() -> u32 {
+		T::VARIANT_COUNT
+	}
 }
 
 /// Generic function to mark an execution path as ONLY defensive.
