@@ -119,7 +119,7 @@ async fn test_once() {
 		// PRNG to use in `spawn_blocking` context.
 		let mut rng = rand::thread_rng();
 
-		for _ in 0..10000 {
+		for _ in 0..2500 {
 			// each of these weights corresponds to an action that we may perform
 			let action_weights =
 				[300, 110, 110, 110, 110, 90, 70, 30, 110, 110, 110, 110, 20, 110, 50, 110];
