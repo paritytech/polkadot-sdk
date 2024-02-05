@@ -23,7 +23,7 @@ use frame_support::traits::{MapSuccess, TryMapSuccess};
 use sp_arithmetic::traits::CheckedSub;
 use sp_runtime::{
 	morph_types,
-	traits::{ConstU16, Ignore, Replace, TypedGet},
+	traits::{ConstU16, Replace, TypedGet},
 };
 
 use super::*;
@@ -334,7 +334,7 @@ impl pallet_ranked_collective::Config<FellowshipCollectiveInstance> for Runtime 
 	// - Root.
 	// - the FellowshipAdmin origin.
 	// - a Fellowship origin.
-	type AddOrigin = MapSuccess<Self::PromoteOrigin, Ignore>;
+	type AddOrigin = MapSuccess<Self::PromoteOrigin, Replace<()>>;
 	// Promotion is by any of:
 	// - Root can demote arbitrarily.
 	// - the FellowshipAdmin origin (i.e. token holder referendum);

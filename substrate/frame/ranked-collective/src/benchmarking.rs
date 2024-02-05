@@ -121,23 +121,11 @@ benchmarks_instance_pallet! {
 	}
 
 	vote {
-		let caller: T::AccountId = whitelisted_caller();
-		let caller_lookup = T::Lookup::unlookup(caller.clone());
-		assert_ok!(Pallet::<T, I>::add_member(
-			T::AddOrigin::try_successful_origin()
-				.expect("AddOrigin has no successful origin required for the benchmark"),
-			caller_lookup.clone(),
-		));
-		// Create a poll
 		let class = T::Polls::classes().into_iter().next().unwrap();
 		let rank = T::MinRankOfClass::convert(class.clone());
-		for _ in 0..rank {
-			assert_ok!(Pallet::<T, I>::promote_member(
-				T::PromoteOrigin::try_successful_origin()
-					.expect("PromoteOrigin has no successful origin required for the benchmark"),
-				caller_lookup.clone(),
-			));
-		}
+
+		let caller = make_member::<T, I>(rank);
+		let caller_lookup = T::Lookup::unlookup(caller.clone());
 
 		let poll = T::Polls::create_ongoing(class).expect("Must always be able to create a poll for rank 0");
 

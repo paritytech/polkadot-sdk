@@ -385,8 +385,9 @@ pub mod pallet {
 		/// The origin required to add a member.
 		type AddOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = ()>;
 
-		/// The origin required to remove a member. The success value indicates the
-		/// maximum rank *from which* the removal may be.
+		/// The origin required to remove a member.
+		///
+		/// The success value indicates the maximum rank *from which* the removal may be.
 		type RemoveOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Rank>;
 
 		/// The origin required to promote a member. The success value indicates the
