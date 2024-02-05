@@ -98,7 +98,7 @@ impl<'a> Arbitrary<'a> for XcmMessage {
 		if let Ok(message) =
 			DecodeLimit::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut encoded_message)
 		{
-			return Ok(XcmMessage { source, destination, message })
+			return Ok(XcmMessage { source, destination, message });
 		}
 		Err(Error::IncorrectFormat)
 	}
@@ -155,6 +155,36 @@ fn run_input(xcm_messages: [XcmMessage; 5]) {
 	println!();
 
 	for xcm_message in xcm_messages {
+		/*
+		fn matches_blocklisted_messages(message: Instruction<()>) -> bool {
+			matches!(message, Transact { .. })
+		}
+		// We check XCM messages recursively for blocklisted messages
+		fn matches_recursive(message: &mut Instruction<()>) -> Vec<Instruction<()>> {
+			match message {
+				DepositReserveAsset { xcm, .. } |
+				ExportMessage { xcm, .. } |
+				InitiateReserveWithdraw { xcm, .. } |
+				InitiateTeleport { xcm, .. } |
+				TransferReserveAsset { xcm, .. } |
+				SetErrorHandler(xcm) |
+				SetAppendix(xcm) => Vec::from(xcm.inner()).iter_mut().flat_map(matches_recursive).collect(),
+				_ => vec![message.clone()],
+			}
+		}
+
+		if xcm_message
+			.message
+			.clone()
+			.iter_mut()
+			.flat_map(matches_recursive)
+			.any(|m| matches_blocklisted_messages(m))
+		{
+			println!("  skipping message\n");
+			continue;
+		}
+		*/
+
 		if xcm_message.source % 4 == 0 {
 			// We get the destination for the message
 			let parachain_id = (xcm_message.destination % 3) + 1;
@@ -198,12 +228,18 @@ fn run_input(xcm_messages: [XcmMessage; 5]) {
 		#[cfg(not(fuzzing))]
 		println!();
 		use frame_support::traits::{TryState, TryStateSelect};
-		use polkadot_core_primitives::BlockNumber;
-		<crate::parachain::AllPalletsWithSystem as TryState<BlockNumber>>::try_state(
-			0.into(),
+		<crate::parachain::AllPalletsWithSystem as TryState<u32>>::try_state(
+			Default::default(),
 			TryStateSelect::All,
 		)
 		.unwrap();
+		/*
+		<crate::relay_chain::AllPalletsWithSystem as TryState<u32>>::try_state(
+			Default::default(),
+			TryStateSelect::All,
+		)
+		.unwrap();
+		*/
 		use frame_support::traits::IntegrityTest;
 		<crate::parachain::AllPalletsWithSystem as IntegrityTest>::integrity_test();
 		<crate::relay_chain::AllPalletsWithSystem as IntegrityTest>::integrity_test();
