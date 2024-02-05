@@ -122,6 +122,7 @@ pallet-session-benchmarking = { path = "../../../frame/session/benchmarking", de
 pallet-staking = { path = "../../../frame/staking", default-features = false }
 pallet-staking-reward-curve = { path = "../../../frame/staking/reward-curve", default-features = false }
 pallet-staking-runtime-api = { path = "../../../frame/staking/runtime-api", default-features = false }
+pallet-stake-tracker = { path = "../../../frame/staking/stake-tracker", default-features = false }
 pallet-state-trie-migration = { path = "../../../frame/state-trie-migration", default-features = false }
 pallet-statement = { path = "../../../frame/statement", default-features = false }
 pallet-scheduler = { path = "../../../frame/scheduler", default-features = false }
@@ -225,6 +226,7 @@ std = [
 	"pallet-society/std",
 	"pallet-staking-runtime-api/std",
 	"pallet-staking/std",
+	"pallet-stake-tracker/std",
 	"pallet-state-trie-migration/std",
 	"pallet-statement/std",
 	"pallet-sudo/std",
@@ -400,6 +402,7 @@ try-runtime = [
 	"pallet-skip-feeless-payment/try-runtime",
 	"pallet-society/try-runtime",
 	"pallet-staking/try-runtime",
+	"pallet-stake-tracker/try-runtime",
 	"pallet-state-trie-migration/try-runtime",
 	"pallet-statement/try-runtime",
 	"pallet-sudo/try-runtime",
