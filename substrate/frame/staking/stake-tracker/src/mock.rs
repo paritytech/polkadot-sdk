@@ -232,16 +232,21 @@ impl StakingInterface for StakingMock {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn add_era_stakers(
-		current_era: &sp_staking::EraIndex,
-		stash: &Self::AccountId,
-		exposures: Vec<(Self::AccountId, Self::Balance)>,
+		_current_era: &sp_staking::EraIndex,
+		_stash: &Self::AccountId,
+		_exposures: Vec<(Self::AccountId, Self::Balance)>,
 	) {
-		unreachable!();
+		unimplemented!("method currently not used in testing")
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn set_current_era(era: sp_staking::EraIndex) {
-		unreachable!();
+	fn set_current_era(_era: sp_staking::EraIndex) {
+		unimplemented!("method currently not used in testing")
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn max_exposure_page_size() -> sp_staking::Page {
+		unimplemented!("method currently not used in testing")
 	}
 }
 
