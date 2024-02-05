@@ -36,8 +36,8 @@ use crate::{
 use codec::Encode;
 use futures::future::FutureExt;
 use jsonrpsee::{
-	core::async_trait, response_channel, server::ResponsePayload, types::SubscriptionId,
-	PendingSubscriptionSink, SubscriptionSink,
+	core::async_trait, server::ResponsePayload, types::SubscriptionId,
+	PendingSubscriptionSink, SubscriptionSink, MethodResponseFuture
 };
 use log::debug;
 use sc_client_api::{
@@ -219,16 +219,16 @@ where
 		&self,
 		follow_subscription: String,
 		hash: Block::Hash,
-	) -> Result<MethodResponse, ChainHeadRpcError> {
+	) -> ResponsePayload<'static, MethodResponse> {
 		let mut block_guard = match self.subscriptions.lock_block(&follow_subscription, hash, 1) {
 			Ok(block) => block,
 			Err(SubscriptionManagementError::SubscriptionAbsent) |
-			Err(SubscriptionManagementError::ExceededLimits) => return Ok(MethodResponse::LimitReached),
+			Err(SubscriptionManagementError::ExceededLimits) => return ResponsePayload::result(MethodResponse::LimitReached),
 			Err(SubscriptionManagementError::BlockHashAbsent) => {
 				// Block is not part of the subscription.
-				return Err(ChainHeadRpcError::InvalidBlock.into())
+				return ResponsePayload::error(ChainHeadRpcError::InvalidBlock);
 			},
-			Err(_) => return Err(ChainHeadRpcError::InvalidBlock.into()),
+			Err(_) => return ResponsePayload::error(ChainHeadRpcError::InvalidBlock),
 		};
 
 		let operation_id = block_guard.operation().operation_id();
@@ -255,7 +255,7 @@ where
 					hash
 				);
 				self.subscriptions.remove_subscription(&follow_subscription);
-				return Err(ChainHeadRpcError::InvalidBlock.into())
+				return ResponsePayload::error(ChainHeadRpcError::InvalidBlock)
 			},
 			Err(error) => FollowEvent::<Block::Hash>::OperationError(OperationError {
 				operation_id: operation_id.clone(),
@@ -263,8 +263,20 @@ where
 			}),
 		};
 
-		let _ = block_guard.response_sender().unbounded_send(event);
-		Ok(MethodResponse::Started(MethodResponseStarted { operation_id, discarded_items: None }))
+		let (rp, rp_is_success) = method_started_response(operation_id, None);
+
+		let fut = async move {
+			// Events should only by generated if response
+			// was succesful.
+			if rp_is_success.await.is_err() {
+				return;
+			}
+			let _ = block_guard.response_sender().unbounded_send(event);
+		};
+
+		self.executor.spawn("substrate-rpc-subscription", Some("rpc"), fut.boxed());
+
+		rp
 	}
 
 	fn chain_head_unstable_header(
@@ -344,12 +356,12 @@ where
 		let mut items = items;
 		items.truncate(num_operations);
 
-		let (rp_tx, rp_rx) = response_channel();
+		let (rp, rp_is_success) = method_started_response(operation_id, Some(discarded));
 
 		let fut = async move {
-			// Don't generate events unless the method was
-			// successfully executed.
-			if rp_rx.await.is_err() {
+			// Events should only by generated if response
+			// was succesful.
+			if rp_is_success.await.is_err() {
 				return;
 			}
 			storage_client.generate_events(block_guard, hash, items, child_trie).await;
@@ -358,12 +370,7 @@ where
 		self.executor
 			.spawn_blocking("substrate-rpc-subscription", Some("rpc"), fut.boxed());
 
-		let rp = MethodResponse::Started(MethodResponseStarted {
-			operation_id,
-			discarded_items: Some(discarded),
-		});
-
-		ResponsePayload::result(rp).notify_on_success(rp_tx)
+		rp
 	}
 
 	fn chain_head_unstable_call(
@@ -372,29 +379,31 @@ where
 		hash: Block::Hash,
 		function: String,
 		call_parameters: String,
-	) -> Result<MethodResponse, ChainHeadRpcError> {
-		let call_parameters = Bytes::from(parse_hex_param(call_parameters)?);
+	) -> ResponsePayload<'static, MethodResponse> {
+		let call_parameters = match parse_hex_param(call_parameters) {
+			Ok(hex) => Bytes::from(hex),
+			Err(err) => return ResponsePayload::error(err),
+		};
 
 		let mut block_guard = match self.subscriptions.lock_block(&follow_subscription, hash, 1) {
 			Ok(block) => block,
 			Err(SubscriptionManagementError::SubscriptionAbsent) |
 			Err(SubscriptionManagementError::ExceededLimits) => {
 				// Invalid invalid subscription ID.
-				return Ok(MethodResponse::LimitReached)
+				return ResponsePayload::result(MethodResponse::LimitReached)
 			},
 			Err(SubscriptionManagementError::BlockHashAbsent) => {
 				// Block is not part of the subscription.
-				return Err(ChainHeadRpcError::InvalidBlock.into())
+				return ResponsePayload::error(ChainHeadRpcError::InvalidBlock)
 			},
-			Err(_) => return Err(ChainHeadRpcError::InvalidBlock.into()),
+			Err(_) => return ResponsePayload::error(ChainHeadRpcError::InvalidBlock),
 		};
 
 		// Reject subscription if with_runtime is false.
 		if !block_guard.has_runtime() {
-			return Err(ChainHeadRpcError::InvalidRuntimeCall(
+			return ResponsePayload::error(ChainHeadRpcError::InvalidRuntimeCall(
 				"The runtime updates flag must be set".to_string(),
-			)
-			.into())
+			));
 		}
 
 		let operation_id = block_guard.operation().operation_id();
@@ -415,11 +424,20 @@ where
 				})
 			});
 
-		let _ = block_guard.response_sender().unbounded_send(event);
-		Ok(MethodResponse::Started(MethodResponseStarted {
-			operation_id: operation_id.clone(),
-			discarded_items: None,
-		}))
+		let (rp, rp_is_success) = method_started_response(operation_id, None);
+
+		let fut = async move {
+			// Events should only by generated if response
+			// was succesful.
+			if rp_is_success.await.is_err() {
+				return;
+			}
+			let _ = block_guard.response_sender().unbounded_send(event);
+		};
+
+		self.executor.spawn("substrate-rpc-subscription", Some("rpc"), fut.boxed());
+
+		rp
 	}
 
 	fn chain_head_unstable_unpin(
@@ -480,4 +498,13 @@ where
 
 		Ok(())
 	}
+}
+
+fn method_started_response(operation_id: String, discarded_items: Option<usize>) -> (ResponsePayload<'static, MethodResponse>, MethodResponseFuture) {
+	let rp = MethodResponse::Started(MethodResponseStarted {
+		operation_id,
+		discarded_items,
+	});
+
+	ResponsePayload::result(rp).notify_on_success()
 }
