@@ -10745,7 +10745,6 @@ dependencies = [
 name = "pallet-stake-tracker"
 version = "0.1.0"
 dependencies = [
- "frame-benchmarking",
  "frame-election-provider-support",
  "frame-support",
  "frame-system",

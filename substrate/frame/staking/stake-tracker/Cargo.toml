@@ -21,7 +21,6 @@ sp-std = { default-features = false, path = "../../../primitives/std" }
 
 sp-npos-elections = { path = "../../../primitives/npos-elections" }
 frame-election-provider-support = { default-features = false, path = "../../election-provider-support" }
-frame-benchmarking = { default-features = false, optional = true, path = "../../benchmarking" }
 frame-support = { default-features = false, path = "../../support" }
 frame-system = { default-features = false, path = "../../system" }
 
@@ -41,7 +40,6 @@ default = ["std"]
 
 std = [
 	"codec/std",
-	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
 	"scale-info/std",
@@ -53,7 +51,6 @@ std = [
 ]
 
 runtime-benchmarks = [
-	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
