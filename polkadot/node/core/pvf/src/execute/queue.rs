@@ -356,6 +356,11 @@ fn handle_job_finish(
 			None,
 		),
 		Outcome::RuntimeConstruction { err, idle_worker } => {
+			// The task for artifact removal is executed concurrently with
+			// the message to the host on the execution result.
+			// But thanks to the randomness of the artifact name (see
+			// `artifacts::generate_artifact_path`) there is no issue with any name conflict on
+			// future repreparation.
 			queue
 				.from_queue_tx
 				.unbounded_send(FromQueue::RemoveArtifact { artifact: artifact_id.clone() })
