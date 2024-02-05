@@ -1691,7 +1691,7 @@ pub fn import_section(attr: TokenStream, tokens: TokenStream) -> TokenStream {
 
 /// Mark a module that contains dynamic parameters.
 ///
-/// See the [`pallet_parameters`] for a full example.
+/// See the `pallet_parameters` for a full example.
 ///
 /// # Arguments
 ///
@@ -1714,14 +1714,14 @@ pub fn dynamic_params(attrs: TokenStream, input: TokenStream) -> TokenStream {
 		.into()
 }
 
-/// Define a module inside a [`dynamic_params`] module that contains dynamic parameters.
+/// Define a module inside a [`macro@dynamic_params`] module that contains dynamic parameters.
 ///
-/// See the [`pallet_parameters`] for a full example.
+/// See the `pallet_parameters` for a full example.
 ///
 /// # Argument
 ///
 /// This attribute takes one optional argument. The argument can either be put here or on the
-/// surrounding  `#[dynamic_params]` attribute. If set on both, the inner one takes precedence.
+/// surrounding `#[dynamic_params]` attribute. If set on both, the inner one takes precedence.
 #[proc_macro_attribute]
 pub fn dynamic_pallet_params(attrs: TokenStream, input: TokenStream) -> TokenStream {
 	dynamic_params::dynamic_pallet_params(attrs.into(), input.into())
