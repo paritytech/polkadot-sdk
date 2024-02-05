@@ -40,7 +40,7 @@
 //!
 //! ### Inbound
 //!
-//! The inbound side solely consists of the `set_parameter` extrinsic to update the value of a
+//! The inbound side solely consists of the [`Pallet::set_parameter`] extrinsic to update the value of a
 //! parameter. Each parameter can have their own admin origin as given by the
 //! [`Config::AdminOrigin`].
 //!
