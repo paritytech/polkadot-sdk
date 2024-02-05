@@ -977,6 +977,7 @@ pub(crate) mod tests {
 		to_prepare_queue_rx: mpsc::Receiver<prepare::ToQueue>,
 		from_prepare_queue_tx: mpsc::UnboundedSender<prepare::FromQueue>,
 		to_execute_queue_rx: mpsc::Receiver<execute::ToQueue>,
+		#[allow(unused)]
 		from_execute_queue_tx: mpsc::UnboundedSender<execute::FromQueue>,
 		to_sweeper_rx: mpsc::Receiver<PathBuf>,
 
