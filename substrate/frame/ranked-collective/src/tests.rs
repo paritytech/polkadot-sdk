@@ -23,16 +23,13 @@ use frame_support::{
 	assert_noop, assert_ok, derive_impl,
 	error::BadOrigin,
 	parameter_types,
-	traits::{ConstU16, ConstU32, ConstU64, EitherOf, Everything, MapSuccess, Polling},
-};
-use sp_core::{Get, H256};
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup, ReduceBy, ReplaceWithDefault},
-	BuildStorage,
 	traits::{ConstU16, EitherOf, MapSuccess, Polling},
 };
 use sp_core::Get;
-use sp_runtime::{traits::ReduceBy, BuildStorage};
+use sp_runtime::{
+	traits::{ReduceBy, ReplaceWithDefault},
+	BuildStorage,
+};
 
 use super::*;
 use crate as pallet_ranked_collective;
