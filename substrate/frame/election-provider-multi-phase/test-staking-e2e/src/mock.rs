@@ -628,7 +628,7 @@ pub fn roll_to_with_ocw(n: BlockNumber, pool: Arc<RwLock<PoolState>>, delay_solu
 			for encoded in &pool.read().transactions {
 				let extrinsic = Extrinsic::decode(&mut &encoded[..]).unwrap();
 
-				let _ = match extrinsic.call {
+				let _ = match extrinsic.function {
 					RuntimeCall::ElectionProviderMultiPhase(
 						call @ Call::submit_unsigned { .. },
 					) => {
