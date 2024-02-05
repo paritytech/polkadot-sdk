@@ -14,4 +14,4 @@ The JSON object returned by this function has the following format:
 
 Where:
 
-- `methods` contains an array of strings indicating the names of all the JSON-RPC functions supported by the JSON-RPC server, including this one.
+- `methods` contains an array of strings indicating the names of all the JSON-RPC functions supported by the JSON-RPC server, including `rpc_methods` itself.
