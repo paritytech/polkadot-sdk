@@ -1721,7 +1721,6 @@ mod benches {
 		// Substrate
 		[pallet_bags_list, VoterList]
 		[pallet_bags_list, TargetList]
-		[pallet_stake_tracker, StakeTracker]
 		[pallet_balances, Balances]
 		[pallet_conviction_voting, ConvictionVoting]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
