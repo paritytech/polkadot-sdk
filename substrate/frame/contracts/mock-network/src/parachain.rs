@@ -41,9 +41,10 @@ use xcm::latest::prelude::*;
 use xcm_builder::CurrencyAdapter as XcmCurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowTopLevelPaidExecutionFrom,
-	ConvertedConcreteId, EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds, FungiblesAdapter,
-	IsConcrete, NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, WithComputedOrigin,
+	ConvertedConcreteId, EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds,
+	FrameTransactionalProcessor, FungiblesAdapter, IsConcrete, NativeAsset, NoChecking,
+	ParentAsSuperuser, ParentIsPreset, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, WithComputedOrigin,
 };
 use xcm_executor::{traits::JustTry, Config, XcmExecutor};
 
@@ -94,7 +95,6 @@ impl pallet_balances::Config for Runtime {
 	type ExistentialDeposit = ExistentialDeposit;
 	type FreezeIdentifier = ();
 	type MaxFreezes = ConstU32<0>;
-	type MaxHolds = ConstU32<1>;
 	type MaxLocks = MaxLocks;
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
@@ -284,6 +284,7 @@ impl Config for XcmConfig {
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
+	type TransactionalProcessor = FrameTransactionalProcessor;
 }
 
 impl mock_msg_queue::Config for Runtime {

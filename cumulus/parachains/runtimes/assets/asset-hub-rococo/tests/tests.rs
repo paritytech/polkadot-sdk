@@ -31,7 +31,8 @@ use asset_hub_rococo_runtime::{
 	ToWestendXcmRouterInstance, TrustBackedAssetsInstance, XcmpQueue,
 };
 use asset_test_utils::{
-	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys, ExtBuilder,
+	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
+	ExtBuilder, SlotDurations,
 };
 use codec::{Decode, Encode};
 use cumulus_primitives_utility::ChargeWeightInFungibles;
@@ -45,12 +46,11 @@ use frame_support::{
 	},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
-use parachains_common::{
-	rococo::{currency::UNITS, fee::WeightToFee},
-	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
-};
+use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
+use sp_consensus_aura::SlotDuration;
 use sp_runtime::traits::MaybeEquivalence;
 use std::convert::Into;
+use testnet_parachains_constants::rococo::{consensus::*, currency::UNITS, fee::WeightToFee};
 use xcm::latest::prelude::{Assets as XcmAssets, *};
 use xcm_builder::V4V3LocationConverter;
 use xcm_executor::traits::{JustTry, WeightTrader};
@@ -76,6 +76,13 @@ fn collator_session_key(account: [u8; 32]) -> CollatorSessionKey<Runtime> {
 
 fn collator_session_keys() -> CollatorSessionKeys<Runtime> {
 	CollatorSessionKeys::default().add(collator_session_key(ALICE))
+}
+
+fn slot_durations() -> SlotDurations {
+	SlotDurations {
+		relay: SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS.into()),
+		para: SlotDuration::from_millis(SLOT_DURATION),
+	}
 }
 
 #[test]
@@ -892,6 +899,7 @@ asset_test_utils::include_teleports_for_native_asset_works!(
 	WeightToFee,
 	ParachainSystem,
 	collator_session_keys(),
+	slot_durations(),
 	ExistentialDeposit::get(),
 	Box::new(|runtime_event_encoded: Vec<u8>| {
 		match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
@@ -912,6 +920,7 @@ asset_test_utils::include_teleports_for_foreign_assets_works!(
 	ForeignCreatorsSovereignAccountOf,
 	ForeignAssetsInstance,
 	collator_session_keys(),
+	slot_durations(),
 	ExistentialDeposit::get(),
 	Box::new(|runtime_event_encoded: Vec<u8>| {
 		match RuntimeEvent::decode(&mut &runtime_event_encoded[..]) {
@@ -1023,6 +1032,7 @@ fn limited_reserve_transfer_assets_for_native_asset_over_bridge_works(
 		LocationToAccountId,
 	>(
 		collator_session_keys(),
+		slot_durations(),
 		ExistentialDeposit::get(),
 		AccountId::from(ALICE),
 		Box::new(|runtime_event_encoded: Vec<u8>| {
@@ -1194,6 +1204,7 @@ mod asset_hub_rococo_tests {
 			LocationToAccountId,
 		>(
 			collator_session_keys(),
+			slot_durations(),
 			ExistentialDeposit::get(),
 			AccountId::from(ALICE),
 			Box::new(|runtime_event_encoded: Vec<u8>| {
@@ -1250,6 +1261,12 @@ fn change_xcm_bridge_hub_router_base_fee_by_governance_works() {
 		1000,
 		Box::new(|call| RuntimeCall::System(call).encode()),
 		|| {
+			log::error!(
+				target: "bridges::estimate",
+				"`bridging::XcmBridgeHubRouterBaseFee` actual value: {} for runtime: {}",
+				bridging::XcmBridgeHubRouterBaseFee::get(),
+				<Runtime as frame_system::Config>::Version::get(),
+			);
 			(
 				bridging::XcmBridgeHubRouterBaseFee::key().to_vec(),
 				bridging::XcmBridgeHubRouterBaseFee::get(),
@@ -1276,6 +1293,12 @@ fn change_xcm_bridge_hub_ethereum_base_fee_by_governance_works() {
 		1000,
 		Box::new(|call| RuntimeCall::System(call).encode()),
 		|| {
+			log::error!(
+				target: "bridges::estimate",
+				"`bridging::BridgeHubEthereumBaseFee` actual value: {} for runtime: {}",
+				bridging::to_ethereum::BridgeHubEthereumBaseFee::get(),
+				<Runtime as frame_system::Config>::Version::get(),
+			);
 			(
 				bridging::to_ethereum::BridgeHubEthereumBaseFee::key().to_vec(),
 				bridging::to_ethereum::BridgeHubEthereumBaseFee::get(),

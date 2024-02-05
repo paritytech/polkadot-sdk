@@ -202,7 +202,10 @@ impl CandidateStorage {
 	/// Note that an existing candidate has been backed.
 	pub fn mark_backed(&mut self, candidate_hash: &CandidateHash) {
 		if let Some(entry) = self.by_candidate_hash.get_mut(candidate_hash) {
+			gum::trace!(target: LOG_TARGET, ?candidate_hash, "Candidate marked as backed");
 			entry.state = CandidateState::Backed;
+		} else {
+			gum::trace!(target: LOG_TARGET, ?candidate_hash, "Candidate not found while marking as backed");
 		}
 	}
 

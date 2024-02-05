@@ -45,7 +45,7 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use parachains_common::AccountId;
 use parachains_runtimes_test_utils::{
 	mock_open_hrmp_channel, AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder, RuntimeCallOf,
-	XcmReceivedFrom,
+	SlotDurations, XcmReceivedFrom,
 };
 use sp_runtime::{traits::Zero, AccountId32};
 use xcm::{latest::prelude::*, AlwaysLatest};
@@ -72,7 +72,9 @@ pub type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
 	parachains_runtimes_test_utils::RuntimeHelper<Runtime, AllPalletsWithoutSystem>;
 
 // Re-export test_case from `parachains-runtimes-test-utils`
-pub use parachains_runtimes_test_utils::test_cases::change_storage_constant_by_governance_works;
+pub use parachains_runtimes_test_utils::test_cases::{
+	change_storage_constant_by_governance_works, set_storage_keys_by_governance_works,
+};
 
 /// Prepare default runtime storage and run test within this context.
 pub fn run_test<Runtime, T>(
@@ -419,6 +421,7 @@ pub fn message_dispatch_routing_works<
 	NetworkDistanceAsParentCount,
 >(
 	collator_session_key: CollatorSessionKeys<Runtime>,
+	slot_durations: SlotDurations,
 	runtime_para_id: u32,
 	sibling_parachain_id: u32,
 	unwrap_cumulus_pallet_parachain_system_event: Box<
@@ -529,6 +532,7 @@ pub fn message_dispatch_routing_works<
 			sibling_parachain_id.into(),
 			included_head,
 			&alice,
+			&slot_durations,
 		);
 		let result =
 			<<Runtime as BridgeMessagesConfig<MessagesPalletInstance>>::MessageDispatch>::dispatch(
@@ -574,6 +578,10 @@ where
 			fees: Asset { id: AssetId(Location::new(1, [])), fun: Fungible(34333299) },
 			weight_limit: Unlimited,
 		},
+		SetAppendix(Xcm(vec![DepositAsset {
+			assets: Wild(AllCounted(1)),
+			beneficiary: Location::new(1, [Parachain(1000)]),
+		}])),
 		ExportMessage {
 			network: Polkadot,
 			destination: [Parachain(1000)].into(),
@@ -610,7 +618,6 @@ where
 				]),
 			]),
 		},
-		DepositAsset { assets: Wild(All), beneficiary: Location::new(1, [Parachain(1000)]) },
 		SetTopic([
 			36, 224, 250, 165, 82, 195, 67, 110, 160, 170, 140, 87, 217, 62, 201, 164, 42, 98, 219,
 			157, 124, 105, 248, 25, 131, 218, 199, 36, 109, 173, 100, 122,
@@ -633,14 +640,6 @@ where
 	// check fee, should not be 0
 	let estimated_fee = WeightToFee::weight_to_fee(&weight);
 	assert!(estimated_fee > BalanceOf::<Runtime>::zero());
-
-	sp_tracing::try_init_simple();
-	log::error!(
-		target: "bridges::estimate",
-		"Estimate fee: {:?} for `ExportMessage` for runtime: {:?}",
-		estimated_fee,
-		Runtime::Version::get(),
-	);
 
 	estimated_fee.into()
 }
