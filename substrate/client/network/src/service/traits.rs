@@ -566,15 +566,15 @@ pub trait NotificationSender: Send + Sync + 'static {
 		-> Result<Box<dyn NotificationSenderReady + '_>, NotificationSenderError>;
 }
 
-/// Error returned by [`NetworkNotification::notification_sender`].
+/// Error returned by the notification sink.
 #[derive(Debug, thiserror::Error)]
 pub enum NotificationSenderError {
 	/// The notification receiver has been closed, usually because the underlying connection
 	/// closed.
 	///
 	/// Some of the notifications most recently sent may not have been received. However,
-	/// the peer may still be connected and a new `NotificationSender` for the same
-	/// protocol obtained from [`NetworkNotification::notification_sender`].
+	/// the peer may still be connected and a new notification sink for the same
+	/// protocol obtained from [`NotificationService::message_sink()`].
 	#[error("The notification receiver has been closed")]
 	Closed,
 	/// Protocol name hasn't been registered.
