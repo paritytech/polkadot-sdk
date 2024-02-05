@@ -785,13 +785,23 @@ pub mod pallet {
 		///
 		/// Total number of [`Members`] in storage should be >= [`MemberIndex`] of a [`Rank`] in
 		///    [`MemberCount`].
+		/// [`Rank`] in Members should be in [`MemberCount`]
 		#[cfg(any(feature = "try-runtime", test))]
 		fn try_state_members() -> Result<(), sp_runtime::TryRuntimeError> {
-			MemberCount::<T, I>::iter().try_for_each(|(_rank, member_index)| -> DispatchResult {
+			MemberCount::<T, I>::iter().try_for_each(|(_, member_index)| -> DispatchResult {
 				let total_members = Members::<T, I>::iter().count();
 				ensure!(
 				total_members as u32 >= member_index,
 				"Total count of `Members` should be greater than or equal to the number of `MemberIndex` of a particular `Rank` in `MemberCount`."
+				);
+
+				Ok(())
+			})?;
+
+			Members::<T, I>::iter().try_for_each(|(_, member_record)| -> DispatchResult {
+				ensure!(
+					Self::is_rank_in_member_count(member_record.rank.clone().into()) == true,
+					"`Rank` in Members should be in `MemberCount`"
 				);
 
 				Ok(())
@@ -802,6 +812,8 @@ pub mod pallet {
 
 		/// ### Invariants of Index storage items
 		/// [`Member`] in storage of [`IdToIndex`] should be the same as [`Member`] in [`IndexToId`]
+		/// [`Rank`] in [`IdToIndex`] should be in [`IndexToId`]
+		#[cfg(any(feature = "try-runtime", test))]
 		fn try_state_index() -> Result<(), sp_runtime::TryRuntimeError> {
 			IdToIndex::<T, I>::iter().try_for_each(
 				|(rank, who, member_index)| -> DispatchResult {
@@ -811,11 +823,40 @@ pub mod pallet {
 				"`Member` in storage of `IdToIndex` should be the same as `Member` in `IndexToId`."
 				);
 
+					ensure!(
+						Self::is_rank_in_index_to_id_storage(rank.into()) == true,
+						"`Rank` in `IdToIndex` should be in `IndexToId`"
+					);
+
 					Ok(())
 				},
 			)?;
 
 			Ok(())
+		}
+
+		/// Checks if a rank is part of the `MemberCount`
+		#[cfg(any(feature = "try-runtime", test))]
+		fn is_rank_in_member_count(rank: u32) -> bool {
+			for (r, _) in MemberCount::<T, I>::iter() {
+				if r as u32 == rank {
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		/// Checks if a rank is part of the `IndexToId`
+		#[cfg(any(feature = "try-runtime", test))]
+		fn is_rank_in_index_to_id_storage(rank: u32) -> bool {
+			for (r, _, _) in IndexToId::<T, I>::iter() {
+				if r as u32 == rank {
+					return true;
+				}
+			}
+
+			return false;
 		}
 	}
 
