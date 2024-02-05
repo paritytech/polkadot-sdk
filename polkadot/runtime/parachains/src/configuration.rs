@@ -669,7 +669,7 @@ pub mod pallet {
 		pub fn set_on_demand_retries(origin: OriginFor<T>, new: u32) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.coretime_params.max_availability_timeouts = new;
+				config.coretime_params.coretime_max_availability_timeouts = new;
 			})
 		}
 
@@ -1175,7 +1175,7 @@ pub mod pallet {
 		pub fn set_on_demand_ttl(origin: OriginFor<T>, new: BlockNumberFor<T>) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.coretime_params.ttl = new;
+				config.coretime_params.coretime_ttl = new;
 			})
 		}
 
@@ -1233,7 +1233,7 @@ pub mod pallet {
 		/// To be used if authorization is checked otherwise.
 		pub fn set_coretime_cores_unchecked(new: u32) -> DispatchResult {
 			Self::schedule_config_update(|config| {
-				config.coretime_params.cores = new;
+				config.coretime_params.coretime_cores = new;
 			})
 		}
 	}

@@ -146,13 +146,13 @@ fn migrate_to_v12<T: Config>() -> Weight {
 					node_features							 : pre.node_features,
 					approval_voting_params                   : pre.approval_voting_params,
 					coretime_params: CoretimeParams {
-							cores: pre.coretime_cores,
-							max_availability_timeouts: pre.on_demand_retries,
+							coretime_cores                       : pre.coretime_cores,
+							coretime_max_availability_timeouts   : pre.on_demand_retries,
 							on_demand_queue_max_size             : pre.on_demand_queue_max_size,
 							on_demand_target_queue_utilization   : pre.on_demand_target_queue_utilization,
 							on_demand_fee_variability            : pre.on_demand_fee_variability,
 							on_demand_base_fee                   : pre.on_demand_base_fee,
-							ttl: pre.on_demand_ttl,
+							coretime_ttl                         : pre.on_demand_ttl,
 					}
 				}
 			};
@@ -305,13 +305,13 @@ mod tests {
 					assert_eq!(v11.async_backing_params.max_candidate_depth , v12.async_backing_params.max_candidate_depth);
 					assert_eq!(v11.executor_params						    , v12.executor_params);
 				    assert_eq!(v11.minimum_backing_votes					, v12.minimum_backing_votes);
-					assert_eq!(v11.coretime_cores                           , v12.coretime_params.cores);
-					assert_eq!(v11.on_demand_retries                        , v12.coretime_params.max_availability_timeouts);
+					assert_eq!(v11.coretime_cores                           , v12.coretime_params.coretime_cores);
+					assert_eq!(v11.on_demand_retries                        , v12.coretime_params.coretime_max_availability_timeouts);
 					assert_eq!(v11.on_demand_queue_max_size                 , v12.coretime_params.on_demand_queue_max_size);
 					assert_eq!(v11.on_demand_target_queue_utilization       , v12.coretime_params.on_demand_target_queue_utilization);
 					assert_eq!(v11.on_demand_fee_variability            	, v12.coretime_params.on_demand_fee_variability);
 					assert_eq!(v11.on_demand_base_fee            			, v12.coretime_params.on_demand_base_fee);
-					assert_eq!(v11.on_demand_ttl            				, v12.coretime_params.ttl);
+					assert_eq!(v11.on_demand_ttl            				, v12.coretime_params.coretime_ttl);
 				}; // ; makes this a statement. `rustfmt::skip` cannot be put on an expression.
 			}
 		});
