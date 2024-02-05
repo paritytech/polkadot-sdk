@@ -229,8 +229,12 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 pub type Balance = u128;
 
 /// Unchecked Extrinsic type.
-pub type UncheckedExtrinsic<Call, SignedExt> =
-	generic::UncheckedExtrinsic<AccountAddress, EncodedOrDecodedCall<Call>, Signature, SignedExt>;
+pub type UncheckedExtrinsic<Call, TransactionExt> = generic::UncheckedExtrinsic<
+	AccountAddress,
+	EncodedOrDecodedCall<Call>,
+	Signature,
+	TransactionExt,
+>;
 
 /// Account address, used by the Polkadot-like chain.
 pub type Address = MultiAddress<AccountId, ()>;
@@ -286,7 +290,7 @@ pub type CommonTransactionExtra = (
 	ChargeTransactionPayment<Balance>,
 );
 
-/// Extra signed extension data that starts with `CommonSignedExtra`.
+/// Extra transaction extension data that starts with `CommonTransactionExtra`.
 pub type SuffixedCommonTransactionExtension<Suffix> =
 	GenericTransactionExtension<(CommonTransactionExtra, Suffix)>;
 
