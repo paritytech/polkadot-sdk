@@ -152,7 +152,7 @@ async fn run_iteration<Context>(
 					count,
 					required_path,
 					tx,
-				) => answer_get_backable_candidate(
+				) => answer_get_backable_candidates(
 					&view,
 					relay_parent,
 					para,
@@ -560,7 +560,7 @@ async fn handle_candidate_backed<Context>(
 	Ok(())
 }
 
-fn answer_get_backable_candidate(
+fn answer_get_backable_candidates(
 	view: &View,
 	relay_parent: Hash,
 	para: ParaId,
