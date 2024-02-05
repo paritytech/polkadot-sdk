@@ -77,6 +77,13 @@ impl PoolStatus {
 /// 		- [Finalized](TransactionStatus::Finalized)
 /// 		- [FinalityTimeout](TransactionStatus::FinalityTimeout)
 ///
+/// Transactions are first placed in either the `Ready` or `Future` queues of the transaction pool.
+/// Substrate validates the transaction before it enters the pool.
+///
+/// A transaction is placed in the `Future` queue if it will become valid at a future time.
+/// For example, submitting a transaction with a higher account nonce than the current
+/// expected nonce will place the transaction in the `Future` queue.
+///
 /// The events will always be received in the order described above, however
 /// there might be cases where transactions alternate between `Future` and `Ready`
 /// pool, and are `Broadcast` in the meantime.
