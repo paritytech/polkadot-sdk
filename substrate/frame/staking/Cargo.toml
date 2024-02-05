@@ -65,8 +65,8 @@ std = [
 	"pallet-authorship/std",
 	"pallet-bags-list/std",
 	"pallet-balances/std",
-	"pallet-stake-tracker/std",
 	"pallet-session/std",
+	"pallet-stake-tracker/std",
 	"pallet-timestamp/std",
 	"scale-info/std",
 	"serde/std",
@@ -86,11 +86,11 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-stake-tracker/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"rand_chacha",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
-	"pallet-stake-tracker/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",
@@ -100,7 +100,7 @@ try-runtime = [
 	"pallet-bags-list/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-session/try-runtime",
+	"pallet-stake-tracker/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
-	"pallet-stake-tracker/try-runtime",
 ]
