@@ -12,6 +12,10 @@ publish = false
 name = "subsystem-bench"
 path = "src/subsystem-bench.rs"
 
+[[bin]]
+name = "subsystem-bench-guard"
+path = "src/subsystem-bench-guard.rs"
+
 # Prevent rustdoc error. Already documented from top-level Cargo.toml.
 doc = false
 
