@@ -52,14 +52,14 @@ use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CollatorPair, Id as ParaId, OccupiedCoreAssumption};
 
 use futures::{channel::oneshot, prelude::*};
-use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
+use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::standalone as aura_internal;
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
-use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
+use sp_consensus_aura::{AuraApi, Slot};
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
@@ -95,8 +95,6 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, SO, Proposer, CS> {
 	pub para_id: ParaId,
 	/// A handle to the relay-chain client's "Overseer" or task orchestrator.
 	pub overseer_handle: OverseerHandle,
-	/// The length of slots in this chain.
-	pub slot_duration: SlotDuration,
 	/// The length of slots in the relay chain.
 	pub relay_chain_slot_duration: Duration,
 	/// The underlying block proposer this should call into.
@@ -120,6 +118,7 @@ where
 		+ AuxStore
 		+ HeaderBackend<Block>
 		+ BlockBackend<Block>
+		+ UsageProvider<Block>
 		+ Send
 		+ Sync
 		+ 'static,
@@ -214,19 +213,28 @@ where
 				},
 			};
 
+			let slot_duration = match sc_consensus_aura::slot_duration(&*params.para_client) {
+				Ok(sd) => sd,
+				Err(err) => {
+					tracing::error!(target: crate::LOG_TARGET, ?err, "Failed to acquire parachain slot duration");
+					continue
+				},
+			};
+			tracing::debug!(target: crate::LOG_TARGET, "Parachain slot duration acquired: {:?}", slot_duration);
+
 			let (slot_now, timestamp) = match consensus_common::relay_slot_and_timestamp(
 				&relay_parent_header,
 				params.relay_chain_slot_duration,
 			) {
 				None => continue,
 				Some((r_s, t)) => {
-					let our_slot = Slot::from_timestamp(t, params.slot_duration);
+					let our_slot = Slot::from_timestamp(t, slot_duration);
 					tracing::debug!(
 						target: crate::LOG_TARGET,
 						relay_slot = ?r_s,
 						para_slot = ?our_slot,
 						timestamp = ?t,
-						slot_duration = ?params.slot_duration,
+						slot_duration = ?slot_duration,
 						relay_chain_slot_duration = ?params.relay_chain_slot_duration,
 						"Adjusted relay-chain slot to parachain slot"
 					);
