@@ -4,7 +4,7 @@
 title: Add Parameters Pallet
 
 doc:
-  - audience: Node Dev
+  - audience: Runtime Dev
     description: |
       Adds `pallet-parameters` that allows to have parameters for pallet configs that dynamically change at runtime. Allows to be permissioned on a per-key basis and is compatible with ORML macros.
 
