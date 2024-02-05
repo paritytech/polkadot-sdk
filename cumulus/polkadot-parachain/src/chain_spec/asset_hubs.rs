@@ -24,10 +24,8 @@ use parachains_common::{AccountId, AuraId, Balance as AssetHubBalance};
 use sc_service::ChainType;
 use sp_core::{crypto::UncheckedInto, sr25519};
 
-const ASSET_HUB_WESTEND_ED: AssetHubBalance =
-	parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
-const ASSET_HUB_ROCOCO_ED: AssetHubBalance =
-	parachains_common::westend::currency::EXISTENTIAL_DEPOSIT;
+const ASSET_HUB_WESTEND_ED: AssetHubBalance = asset_hub_westend_runtime::ExistentialDeposit::get();
+const ASSET_HUB_ROCOCO_ED: AssetHubBalance = asset_hub_rococo_runtime::ExistentialDeposit::get();
 
 /// Generate the session keys from individual elements.
 ///
@@ -68,7 +66,7 @@ pub fn asset_hub_westend_development_config() -> GenericChainSpec {
 			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
 			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
 		],
-		parachains_common::westend::currency::UNITS * 1_000_000,
+		testnet_parachains_constants::westend::currency::UNITS * 1_000_000,
 		1000.into(),
 	))
 	.with_properties(properties)
@@ -114,7 +112,7 @@ pub fn asset_hub_westend_local_config() -> GenericChainSpec {
 			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 		],
-		parachains_common::westend::currency::UNITS * 1_000_000,
+		testnet_parachains_constants::westend::currency::UNITS * 1_000_000,
 		1000.into(),
 	))
 	.with_properties(properties)
@@ -243,7 +241,7 @@ fn asset_hub_rococo_like_development_config(
 			get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
 			get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
 		],
-		parachains_common::rococo::currency::UNITS * 1_000_000,
+		testnet_parachains_constants::rococo::currency::UNITS * 1_000_000,
 		para_id.into(),
 	))
 	.with_properties(properties)
@@ -302,7 +300,7 @@ fn asset_hub_rococo_like_local_config(
 			get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
 			get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 		],
-		parachains_common::rococo::currency::UNITS * 1_000_000,
+		testnet_parachains_constants::rococo::currency::UNITS * 1_000_000,
 		para_id.into(),
 	))
 	.with_properties(properties)

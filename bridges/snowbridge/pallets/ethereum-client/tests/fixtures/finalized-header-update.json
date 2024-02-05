@@ -1,0 +1,38 @@
+{
+  "attested_header": {
+    "slot": 2566,
+    "proposer_index": 6,
+    "parent_root": "0x6eb9f13a2c496318ce1ab3087bbd872f5c9519a1a7ca8231a2453e3cb523af00",
+    "state_root": "0xc8cb12766113dff7e46d2917267bf33d0626d99dd47715fcdbc5c65fad3c04b4",
+    "body_root": "0xd8cfd0d7bc9bc3724417a1655bb0a67c0765ca36197320f4d834150b52ef1420"
+  },
+  "sync_aggregate": {
+    "sync_committee_bits": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "sync_committee_signature": "0x9296f9a0387f2cac47008e22ad7c3cd3d49d35384c13e6aa1eacca7dca7c3d2ca81515e50eb3396b9550ed20ef7d8fa2049a186598feb2c00e93728045fcff917733d1827481b8fc95f3913e27fc70112c2490496eb57bb7181f02c3f9fd471f"
+  },
+  "signature_slot": 2567,
+  "next_sync_committee_update": null,
+  "finalized_header": {
+    "slot": 2496,
+    "proposer_index": 2,
+    "parent_root": "0xc99e49787106733eeebab4d93eb326e1f2214575c9d928f0c4ab0da0776f1622",
+    "state_root": "0xfbf8a08c86ef36bd173e37e733da4a78aa8e85fee99a990e858dd12a59087fde",
+    "body_root": "0xa2a8ad06901447b2807a9059580a4c40d8a941f325b1343c69f7c7c6c90e4ab0"
+  },
+  "finality_branch": [
+    "0x4e00000000000000000000000000000000000000000000000000000000000000",
+    "0x10c726fac935bf9657cc7476d3cfa7bedec5983dcfb59e8a7df6d0a619e108d7",
+    "0x98e9116c6bb7f20de18800dc63e73e689d06d6a47d35b5e2b32cf093d475840d",
+    "0x958b8e43347f6df6fa5eb3d62d06a862381a6585aa40640dd1c0de11f1cf89c1",
+    "0xf107dce04faa86a28fc5d4a618be9cb8d4fc3c23d6c42c3624f3ff4bf6586a03",
+    "0xa501cdc02e86969ac3e4d0c5a36f4f049efaa1ab8cb6693f51d130eb52a80f30"
+  ],
+  "block_roots_root": "0xd160b7687041891b73e54b06fc4e04f82d0fa8fdd76705895e216c6b24709dfe",
+  "block_roots_branch": [
+    "0x105290e42d98ab6a0ada6e55453cede36c672abf645eeb986b88d7487616e135",
+    "0x9da41f274bcdf6122335443d9ce94d07163b48dba3e2f9499ff56f4e48b48b99",
+    "0xecea7e1d3152d8130e83afdfe34b4de4ba2b69a33c9471991096daf454de9cf5",
+    "0xb2bf1758e50b2bfff29169fbc70fdb884b2b05bb615dbc53567574da6f4f1ae2",
+    "0xcd87069daf70975779126d6af833b7d636c75ca4d5e750ebcad0e76408a5e5bf"
+  ]
+}

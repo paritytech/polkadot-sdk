@@ -398,7 +398,6 @@ impl pallet_balances::Config for Runtime {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type MaxHolds = ConstU32<1>;
 }
 
 impl substrate_test_pallet::Config for Runtime {}
@@ -1410,7 +1409,7 @@ mod tests {
 				}
 			});
 
-			json_patch::merge(&mut default_config, &patch);
+			sc_chain_spec::json_merge(&mut default_config, patch);
 
 			// Build genesis config using custom json:
 			let mut t = BasicExternalities::new_empty();

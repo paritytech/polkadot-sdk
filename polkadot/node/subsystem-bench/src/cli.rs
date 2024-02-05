@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 use super::availability::DataAvailabilityReadOptions;
+use crate::approval::ApprovalsOptions;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, clap::Parser)]
@@ -24,14 +25,19 @@ pub struct TestSequenceOptions {
 	pub path: String,
 }
 
-/// Define the supported benchmarks targets
+/// Supported test objectives
 #[derive(Debug, Clone, clap::Parser, Serialize, Deserialize)]
 #[command(rename_all = "kebab-case")]
 pub enum TestObjective {
 	/// Benchmark availability recovery strategies.
 	DataAvailabilityRead(DataAvailabilityReadOptions),
+	/// Benchmark availability and bitfield distribution.
+	DataAvailabilityWrite,
 	/// Run a test sequence specified in a file
 	TestSequence(TestSequenceOptions),
+	/// Benchmark the approval-voting and approval-distribution subsystems.
+	ApprovalVoting(ApprovalsOptions),
+	Unimplemented,
 }
 
 #[derive(Debug, clap::Parser)]
