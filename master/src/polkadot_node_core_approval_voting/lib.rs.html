@@ -3605,6 +3605,21 @@
 <a href="#3605" id="3605">3605</a>
 <a href="#3606" id="3606">3606</a>
 <a href="#3607" id="3607">3607</a>
+<a href="#3608" id="3608">3608</a>
+<a href="#3609" id="3609">3609</a>
+<a href="#3610" id="3610">3610</a>
+<a href="#3611" id="3611">3611</a>
+<a href="#3612" id="3612">3612</a>
+<a href="#3613" id="3613">3613</a>
+<a href="#3614" id="3614">3614</a>
+<a href="#3615" id="3615">3615</a>
+<a href="#3616" id="3616">3616</a>
+<a href="#3617" id="3617">3617</a>
+<a href="#3618" id="3618">3618</a>
+<a href="#3619" id="3619">3619</a>
+<a href="#3620" id="3620">3620</a>
+<a href="#3621" id="3621">3621</a>
+<a href="#3622" id="3622">3622</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3699,11 +3714,11 @@
 <span class="kw">mod </span>approval_checking;
 <span class="kw">pub mod </span>approval_db;
 <span class="kw">mod </span>backend;
-<span class="kw">mod </span>criteria;
+<span class="kw">pub mod </span>criteria;
 <span class="kw">mod </span>import;
 <span class="kw">mod </span>ops;
 <span class="kw">mod </span>persisted_entries;
-<span class="kw">mod </span>time;
+<span class="kw">pub mod </span>time;
 
 <span class="kw">use crate</span>::{
 	approval_checking::{Check, TranchesToApproveResult},
@@ -3766,6 +3781,7 @@
 	db: Arc&lt;<span class="kw">dyn </span>Database&gt;,
 	mode: Mode,
 	metrics: Metrics,
+	clock: Box&lt;<span class="kw">dyn </span>Clock + Send + Sync&gt;,
 }
 
 <span class="attr">#[derive(Clone)]
@@ -4052,6 +4068,25 @@
 		sync_oracle: Box&lt;<span class="kw">dyn </span>SyncOracle + Send&gt;,
 		metrics: Metrics,
 	) -&gt; <span class="self">Self </span>{
+		ApprovalVotingSubsystem::with_config_and_clock(
+			config,
+			db,
+			keystore,
+			sync_oracle,
+			metrics,
+			Box::new(SystemClock {}),
+		)
+	}
+
+	<span class="doccomment">/// Create a new approval voting subsystem with the given keystore, config, and database.
+	</span><span class="kw">pub fn </span>with_config_and_clock(
+		config: Config,
+		db: Arc&lt;<span class="kw">dyn </span>Database&gt;,
+		keystore: Arc&lt;LocalKeystore&gt;,
+		sync_oracle: Box&lt;<span class="kw">dyn </span>SyncOracle + Send&gt;,
+		metrics: Metrics,
+		clock: Box&lt;<span class="kw">dyn </span>Clock + Send + Sync&gt;,
+	) -&gt; <span class="self">Self </span>{
 		ApprovalVotingSubsystem {
 			keystore,
 			slot_duration_millis: config.slot_duration_millis,
@@ -4059,6 +4094,7 @@
 			db_config: DatabaseConfig { col_approval_data: config.col_approval_data },
 			mode: Mode::Syncing(sync_oracle),
 			metrics,
+			clock,
 		}
 	}
 
@@ -4100,15 +4136,10 @@
 </span><span class="kw">impl</span>&lt;Context: Send&gt; ApprovalVotingSubsystem {
 	<span class="kw">fn </span>start(<span class="self">self</span>, ctx: Context) -&gt; SpawnedSubsystem {
 		<span class="kw">let </span>backend = DbBackend::new(<span class="self">self</span>.db.clone(), <span class="self">self</span>.db_config);
-		<span class="kw">let </span>future = run::&lt;DbBackend, Context&gt;(
-			ctx,
-			<span class="self">self</span>,
-			Box::new(SystemClock),
-			Box::new(RealAssignmentCriteria),
-			backend,
-		)
-		.map_err(|e| SubsystemError::with_origin(<span class="string">&quot;approval-voting&quot;</span>, e))
-		.boxed();
+		<span class="kw">let </span>future =
+			run::&lt;DbBackend, Context&gt;(ctx, <span class="self">self</span>, Box::new(RealAssignmentCriteria), backend)
+				.map_err(|e| SubsystemError::with_origin(<span class="string">&quot;approval-voting&quot;</span>, e))
+				.boxed();
 
 		SpawnedSubsystem { name: <span class="string">&quot;approval-voting-subsystem&quot;</span>, future }
 	}
@@ -4516,7 +4547,6 @@
 </span><span class="kw">async fn </span>run&lt;B, Context&gt;(
 	<span class="kw-2">mut </span>ctx: Context,
 	<span class="kw-2">mut </span>subsystem: ApprovalVotingSubsystem,
-	clock: Box&lt;<span class="kw">dyn </span>Clock + Send + Sync&gt;,
 	assignment_criteria: Box&lt;<span class="kw">dyn </span>AssignmentCriteria + Send + Sync&gt;,
 	<span class="kw-2">mut </span>backend: B,
 ) -&gt; SubsystemResult&lt;()&gt;
@@ -4530,7 +4560,7 @@
 	<span class="kw">let </span><span class="kw-2">mut </span>state = State {
 		keystore: subsystem.keystore,
 		slot_duration_millis: subsystem.slot_duration_millis,
-		clock,
+		clock: subsystem.clock,
 		assignment_criteria,
 		spans: HashMap::new(),
 	};

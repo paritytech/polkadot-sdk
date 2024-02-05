@@ -251,6 +251,18 @@
 <a href="#251" id="251">251</a>
 <a href="#252" id="252">252</a>
 <a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -286,14 +298,14 @@
 };
 
 <span class="kw">use </span>polkadot_primitives::{Hash, ValidatorIndex};
-<span class="kw">const </span>TICK_DURATION_MILLIS: u64 = <span class="number">500</span>;
+<span class="kw">pub const </span>TICK_DURATION_MILLIS: u64 = <span class="number">500</span>;
 
 <span class="doccomment">/// A base unit of time, starting from the Unix epoch, split into half-second intervals.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>Tick = u64;
+</span><span class="kw">pub type </span>Tick = u64;
 
 <span class="doccomment">/// A clock which allows querying of the current tick as well as
 /// waiting for a tick to be reached.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">trait </span>Clock {
+</span><span class="kw">pub trait </span>Clock {
 	<span class="doccomment">/// Yields the current tick.
 	</span><span class="kw">fn </span>tick_now(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Tick;
 
@@ -302,7 +314,7 @@
 }
 
 <span class="doccomment">/// Extension methods for clocks.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">trait </span>ClockExt {
+</span><span class="kw">pub trait </span>ClockExt {
 	<span class="kw">fn </span>tranche_now(<span class="kw-2">&amp;</span><span class="self">self</span>, slot_duration_millis: u64, base_slot: Slot) -&gt; DelayTranche;
 }
 
@@ -314,7 +326,8 @@
 }
 
 <span class="doccomment">/// A clock which uses the actual underlying system clock.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>SystemClock;
+</span><span class="attr">#[derive(Clone)]
+</span><span class="kw">pub struct </span>SystemClock;
 
 <span class="kw">impl </span>Clock <span class="kw">for </span>SystemClock {
 	<span class="doccomment">/// Yields the current tick.
@@ -346,9 +359,20 @@
 }
 
 <span class="doccomment">/// assumes `slot_duration_millis` evenly divided by tick duration.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>slot_number_to_tick(slot_duration_millis: u64, slot: Slot) -&gt; Tick {
+</span><span class="kw">pub fn </span>slot_number_to_tick(slot_duration_millis: u64, slot: Slot) -&gt; Tick {
 	<span class="kw">let </span>ticks_per_slot = slot_duration_millis / TICK_DURATION_MILLIS;
 	u64::from(slot) * ticks_per_slot
+}
+
+<span class="doccomment">/// Converts a tick to the slot number.
+</span><span class="kw">pub fn </span>tick_to_slot_number(slot_duration_millis: u64, tick: Tick) -&gt; Slot {
+	<span class="kw">let </span>ticks_per_slot = slot_duration_millis / TICK_DURATION_MILLIS;
+	(tick / ticks_per_slot).into()
+}
+
+<span class="doccomment">/// Converts a tranche from a slot to the tick number.
+</span><span class="kw">pub fn </span>tranche_to_tick(slot_duration_millis: u64, slot: Slot, tranche: u32) -&gt; Tick {
+	slot_number_to_tick(slot_duration_millis, slot) + tranche <span class="kw">as </span>u64
 }
 
 <span class="doccomment">/// A list of delayed futures that gets triggered when the waiting time has expired and it is

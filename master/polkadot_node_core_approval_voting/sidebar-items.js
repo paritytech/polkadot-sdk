@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["approval_db"],"struct":["ApprovalVotingSubsystem","Config","Metrics"]};
+window.SIDEBAR_ITEMS = {"mod":["approval_db","criteria","time"],"struct":["ApprovalVotingSubsystem","Config","Metrics"]};

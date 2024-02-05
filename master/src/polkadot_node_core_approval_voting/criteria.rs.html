@@ -1292,11 +1292,11 @@
 }
 
 <span class="kw">impl </span>OurAssignment {
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>cert(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>AssignmentCertV2 {
+	<span class="kw">pub fn </span>cert(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>AssignmentCertV2 {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.cert
 	}
 
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>tranche(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; DelayTranche {
+	<span class="kw">pub fn </span>tranche(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; DelayTranche {
 		<span class="self">self</span>.tranche
 	}
 
@@ -1462,7 +1462,7 @@
 
 <span class="doccomment">/// Information about the world assignments are being produced in.
 </span><span class="attr">#[derive(Clone, Debug)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Config {
+</span><span class="kw">pub struct </span>Config {
 	<span class="doccomment">/// The assignment public keys for validators.
 	</span>assignment_keys: Vec&lt;AssignmentId&gt;,
 	<span class="doccomment">/// The groups of validators assigned to each core.
@@ -1558,7 +1558,7 @@
 /// different times. The idea is that most assignments are never triggered and fall by the wayside.
 ///
 /// This will not assign to anything the local validator was part of the backing group for.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>compute_assignments(
+</span><span class="kw">pub fn </span>compute_assignments(
 	keystore: <span class="kw-2">&amp;</span>LocalKeystore,
 	relay_vrf_story: RelayVRFStory,
 	config: <span class="kw-2">&amp;</span>Config,
