@@ -2477,6 +2477,9 @@
 <a href="#2477" id="2477">2477</a>
 <a href="#2478" id="2478">2478</a>
 <a href="#2479" id="2479">2479</a>
+<a href="#2480" id="2480">2480</a>
+<a href="#2481" id="2481">2481</a>
+<a href="#2482" id="2482">2482</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -4141,6 +4144,9 @@
 		parachains_configuration::migration::v11::MigrateToV11&lt;Runtime&gt;,
 		<span class="comment">// This needs to come after the `parachains_configuration` above as we are reading the configuration.
 		</span>coretime::migration::MigrateToCoretime&lt;Runtime, <span class="kw">crate</span>::xcm_config::XcmRouter, GetLegacyLeaseImpl&gt;,
+
+		<span class="comment">// permanent
+		</span>pallet_xcm::migration::MigrateToLatestXcmVersion&lt;Runtime&gt;,
 	);
 }
 

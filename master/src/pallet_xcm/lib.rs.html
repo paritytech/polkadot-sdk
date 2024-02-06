@@ -3021,6 +3021,61 @@
 <a href="#3021" id="3021">3021</a>
 <a href="#3022" id="3022">3022</a>
 <a href="#3023" id="3023">3023</a>
+<a href="#3024" id="3024">3024</a>
+<a href="#3025" id="3025">3025</a>
+<a href="#3026" id="3026">3026</a>
+<a href="#3027" id="3027">3027</a>
+<a href="#3028" id="3028">3028</a>
+<a href="#3029" id="3029">3029</a>
+<a href="#3030" id="3030">3030</a>
+<a href="#3031" id="3031">3031</a>
+<a href="#3032" id="3032">3032</a>
+<a href="#3033" id="3033">3033</a>
+<a href="#3034" id="3034">3034</a>
+<a href="#3035" id="3035">3035</a>
+<a href="#3036" id="3036">3036</a>
+<a href="#3037" id="3037">3037</a>
+<a href="#3038" id="3038">3038</a>
+<a href="#3039" id="3039">3039</a>
+<a href="#3040" id="3040">3040</a>
+<a href="#3041" id="3041">3041</a>
+<a href="#3042" id="3042">3042</a>
+<a href="#3043" id="3043">3043</a>
+<a href="#3044" id="3044">3044</a>
+<a href="#3045" id="3045">3045</a>
+<a href="#3046" id="3046">3046</a>
+<a href="#3047" id="3047">3047</a>
+<a href="#3048" id="3048">3048</a>
+<a href="#3049" id="3049">3049</a>
+<a href="#3050" id="3050">3050</a>
+<a href="#3051" id="3051">3051</a>
+<a href="#3052" id="3052">3052</a>
+<a href="#3053" id="3053">3053</a>
+<a href="#3054" id="3054">3054</a>
+<a href="#3055" id="3055">3055</a>
+<a href="#3056" id="3056">3056</a>
+<a href="#3057" id="3057">3057</a>
+<a href="#3058" id="3058">3058</a>
+<a href="#3059" id="3059">3059</a>
+<a href="#3060" id="3060">3060</a>
+<a href="#3061" id="3061">3061</a>
+<a href="#3062" id="3062">3062</a>
+<a href="#3063" id="3063">3063</a>
+<a href="#3064" id="3064">3064</a>
+<a href="#3065" id="3065">3065</a>
+<a href="#3066" id="3066">3066</a>
+<a href="#3067" id="3067">3067</a>
+<a href="#3068" id="3068">3068</a>
+<a href="#3069" id="3069">3069</a>
+<a href="#3070" id="3070">3070</a>
+<a href="#3071" id="3071">3071</a>
+<a href="#3072" id="3072">3072</a>
+<a href="#3073" id="3073">3073</a>
+<a href="#3074" id="3074">3074</a>
+<a href="#3075" id="3075">3075</a>
+<a href="#3076" id="3076">3076</a>
+<a href="#3077" id="3077">3077</a>
+<a href="#3078" id="3078">3078</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3084,6 +3139,9 @@
 	},
 	AssetsInHolding,
 };
+
+<span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, test))]
+</span><span class="kw">use </span>sp_runtime::TryRuntimeError;
 
 <span class="kw">pub trait </span>WeightInfo {
 	<span class="kw">fn </span>send() -&gt; Weight;
@@ -3487,6 +3545,8 @@
 		</span>FeesPaid { paying: Location, fees: Assets },
 		<span class="doccomment">/// Some assets have been claimed from an asset trap
 		</span>AssetsClaimed { hash: H256, origin: Location, assets: VersionedAssets },
+		<span class="doccomment">/// A XCM version migration finished.
+		</span>VersionMigrationFinished { version: XcmVersion },
 	}
 
 	<span class="attr">#[pallet::origin]
@@ -3788,6 +3848,9 @@
 				<span class="comment">// Consume 10% of block at most
 				</span><span class="kw">let </span>max_weight = T::BlockWeights::get().max_block / <span class="number">10</span>;
 				<span class="kw">let </span>(w, maybe_migration) = <span class="self">Self</span>::check_xcm_version_change(migration, max_weight);
+				<span class="kw">if </span>maybe_migration.is_none() {
+					<span class="self">Self</span>::deposit_event(Event::VersionMigrationFinished { version: XCM_VERSION });
+				}
 				CurrentMigration::&lt;T&gt;::set(maybe_migration);
 				weight_used.saturating_accrue(w);
 			}
@@ -3813,6 +3876,11 @@
 				VersionDiscoveryQueue::&lt;T&gt;::put(q);
 			}
 			weight_used
+		}
+
+		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		</span><span class="kw">fn </span>try_state(_n: BlockNumberFor&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
+			<span class="self">Self</span>::do_try_state()
 		}
 	}
 
@@ -5408,6 +5476,48 @@
 		T::XcmExecutor::charge_fees(location.clone(), assets.clone())
 			.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::FeesNotMet)<span class="question-mark">?</span>;
 		<span class="self">Self</span>::deposit_event(Event::FeesPaid { paying: location, fees: assets });
+		<span class="prelude-val">Ok</span>(())
+	}
+
+	<span class="doccomment">/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before and after each state transition of this pallet.
+	///
+	/// ## Invariants
+	///
+	/// All entries stored in the `SupportedVersion` / `VersionNotifiers` / `VersionNotifyTargets`
+	/// need to be migrated to the `XCM_VERSION`. If they are not, then `CurrentMigration` has to be
+	/// set.
+	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, test))]
+	</span><span class="kw">pub fn </span>do_try_state() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
+		<span class="comment">// if migration has been already scheduled, everything is ok and data will be eventually
+		// migrated
+		</span><span class="kw">if </span>CurrentMigration::&lt;T&gt;::exists() {
+			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
+		}
+
+		<span class="comment">// if migration has NOT been scheduled yet, we need to check all operational data
+		</span><span class="kw">for </span>v <span class="kw">in </span><span class="number">0</span>..XCM_VERSION {
+			<span class="macro">ensure!</span>(
+				SupportedVersion::&lt;T&gt;::iter_prefix(v).next().is_none(),
+				TryRuntimeError::Other(
+					<span class="string">&quot;`SupportedVersion` data should be migrated to the `XCM_VERSION`!`&quot;
+				</span>)
+			);
+			<span class="macro">ensure!</span>(
+				VersionNotifiers::&lt;T&gt;::iter_prefix(v).next().is_none(),
+				TryRuntimeError::Other(
+					<span class="string">&quot;`VersionNotifiers` data should be migrated to the `XCM_VERSION`!`&quot;
+				</span>)
+			);
+			<span class="macro">ensure!</span>(
+				VersionNotifyTargets::&lt;T&gt;::iter_prefix(v).next().is_none(),
+				TryRuntimeError::Other(
+					<span class="string">&quot;`VersionNotifyTargets` data should be migrated to the `XCM_VERSION`!`&quot;
+				</span>)
+			);
+		}
+
 		<span class="prelude-val">Ok</span>(())
 	}
 }

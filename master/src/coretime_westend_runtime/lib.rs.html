@@ -864,6 +864,9 @@
 <a href="#864" id="864">864</a>
 <a href="#865" id="865">865</a>
 <a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -963,7 +966,10 @@
 	generic::UncheckedExtrinsic&lt;Address, RuntimeCall, Signature, SignedExtra&gt;;
 
 <span class="doccomment">/// Migrations to apply on runtime upgrade.
-</span><span class="kw">pub type </span>Migrations = ();
+</span><span class="kw">pub type </span>Migrations = (
+	<span class="comment">// permanent
+	</span>pallet_xcm::migration::MigrateToLatestXcmVersion&lt;Runtime&gt;,
+);
 
 <span class="doccomment">/// Executive: handles dispatch to the various modules.
 </span><span class="kw">pub type </span>Executive = frame_executive::Executive&lt;
