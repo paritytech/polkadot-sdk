@@ -310,6 +310,9 @@ pub type Reserves = (
 	AssetPrefixFrom<EthereumLocation, SystemAssetHubLocation>,
 );
 
+pub type TrustedTeleporters =
+	AssetFromChain<LocalTeleportableToAssetHub, SystemAssetHubLocation>;
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -319,7 +322,7 @@ impl xcm_executor::Config for XcmConfig {
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
 	type IsReserve = Reserves;
 	// no teleport trust established with other chains
-	type IsTeleporter = ();
+	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
