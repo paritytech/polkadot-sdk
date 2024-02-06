@@ -70,7 +70,7 @@ use std::{
 	sync::Arc,
 };
 
-use bitvec::vec::BitVec;
+use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use futures::{
 	channel::{mpsc, oneshot},
 	future::BoxFuture,
@@ -104,6 +104,7 @@ use polkadot_node_subsystem_util::{
 	Validator,
 };
 use polkadot_primitives::{
+	vstaging::{node_features::FeatureIndex, NodeFeatures},
 	BackedCandidate, CandidateCommitments, CandidateHash, CandidateReceipt,
 	CommittedCandidateReceipt, CoreIndex, CoreState, ExecutorParams, GroupIndex, Hash,
 	Id as ParaId, PersistedValidationData, PvfExecKind, SigningContext, ValidationCode,
@@ -118,7 +119,7 @@ use statement_table::{
 	},
 	Config as TableConfig, Context as TableContextTrait, Table,
 };
-use util::vstaging::get_disabled_validators_with_fallback;
+use util::{runtime::request_node_features, vstaging::get_disabled_validators_with_fallback};
 
 mod error;
 
@@ -226,6 +227,8 @@ struct PerRelayParentState {
 	fallbacks: HashMap<CandidateHash, AttestingData>,
 	/// The minimum backing votes threshold.
 	minimum_backing_votes: u32,
+	/// If true, we're appendindg extra bits in the BackedCandidate validator indices bitfield.
+	inject_core_index: bool,
 }
 
 struct PerCandidateState {
@@ -446,6 +449,7 @@ fn table_attested_to_backed(
 		ValidatorSignature,
 	>,
 	table_context: &TableContext,
+	inject_core_index: bool,
 ) -> Option<BackedCandidate> {
 	let TableAttestedCandidate { candidate, validity_votes, group_id: core_index } = attested;
 
@@ -454,8 +458,6 @@ fn table_attested_to_backed(
 
 	let group = table_context.groups.get(&core_index)?;
 
-	// TODO: This si a temporary fix and will not work if a para is assigned to
-	// different sized backing groups. We need core index in the candidate descriptor
 	let mut validator_indices = BitVec::with_capacity(group.len());
 
 	validator_indices.resize(group.len(), false);
@@ -478,6 +480,12 @@ fn table_attested_to_backed(
 		}
 	}
 	vote_positions.sort_by_key(|(_orig, pos_in_group)| *pos_in_group);
+
+	if inject_core_index {
+		let core_index_to_inject: BitVec<u8, BitOrderLsb0> =
+			BitVec::from_vec(vec![core_index.0 as u8]);
+		validator_indices.extend(core_index_to_inject);
+	}
 
 	Some(BackedCandidate {
 		candidate,
@@ -1053,6 +1061,16 @@ async fn construct_per_relay_parent_state<Context>(
 	.map_err(Error::JoinMultiple)?;
 
 	let session_index = try_runtime_api!(session_index);
+
+	let inject_core_index = request_node_features(parent, session_index, ctx.sender())
+		.await?
+		.unwrap_or(NodeFeatures::EMPTY)
+		.get(FeatureIndex::InjectCoreIndex as usize)
+		.map(|b| *b)
+		.unwrap_or(false);
+
+	gum::debug!(target: LOG_TARGET, inject_core_index, ?parent, "New state");
+
 	let validators: Vec<_> = try_runtime_api!(validators);
 	let (validator_groups, group_rotation_info) = try_runtime_api!(groups);
 	let cores = try_runtime_api!(cores);
@@ -1140,6 +1158,7 @@ async fn construct_per_relay_parent_state<Context>(
 		awaiting_validation: HashSet::new(),
 		fallbacks: HashMap::new(),
 		minimum_backing_votes,
+		inject_core_index,
 	}))
 }
 
@@ -1658,7 +1677,11 @@ async fn post_import_statement_actions<Context>(
 
 		// `HashSet::insert` returns true if the thing wasn't in there already.
 		if rp_state.backed.insert(candidate_hash) {
-			if let Some(backed) = table_attested_to_backed(attested, &rp_state.table_context) {
+			if let Some(backed) = table_attested_to_backed(
+				attested,
+				&rp_state.table_context,
+				rp_state.inject_core_index,
+			) {
 				let para_id = backed.candidate.descriptor.para_id;
 				gum::debug!(
 					target: LOG_TARGET,
@@ -2138,7 +2161,13 @@ fn handle_get_backed_candidates_message(
 					&rp_state.table_context,
 					rp_state.minimum_backing_votes,
 				)
-				.and_then(|attested| table_attested_to_backed(attested, &rp_state.table_context))
+				.and_then(|attested| {
+					table_attested_to_backed(
+						attested,
+						&rp_state.table_context,
+						rp_state.inject_core_index,
+					)
+				})
 		})
 		.collect();
 
