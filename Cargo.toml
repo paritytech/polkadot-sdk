@@ -533,7 +533,7 @@ extra-unused-type-parameters = { level = "allow", priority = 2 }     # stylistic
 default_constructed_unit_structs = { level = "allow", priority = 2 } # stylistic
 
 [workspace.dependencies]
-polkavm-linker = "0.8.1"
+polkavm-linker = "0.8.2"
 polkavm-derive = "0.8.0"
 
 [profile.release]
