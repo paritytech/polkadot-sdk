@@ -52,7 +52,8 @@ impl<Address: TypeInfo, Signature: TypeInfo, Extension: TypeInfo> SignaturePaylo
 	type SignatureExtra = Extension;
 }
 
-/// TODO: docs
+/// A "header" for extrinsics leading up to the call itself. Determines the type of extrinsic and
+/// holds any necessary specialized data.
 #[derive(Eq, PartialEq, Clone, Encode, Decode)]
 pub enum Preamble<Address, Signature, Extension> {
 	/// An extrinsic without a signature or any extension. This means it's either an inherent or
@@ -169,17 +170,18 @@ impl<Address, Call, Signature, Extension> UncheckedExtrinsic<Address, Call, Sign
 		Self::new_bare(function)
 	}
 
-	/// TODO: docs
+	/// Returns `true` if this extrinsic instance is an inherent, `false`` otherwise.
 	pub fn is_inherent(&self) -> bool {
 		matches!(self.preamble, Preamble::Bare)
 	}
 
-	/// TODO: docs
+	/// Returns `true` if this extrinsic instance is an old-school signed transaction, `false`
+	/// otherwise.
 	pub fn is_signed(&self) -> bool {
 		matches!(self.preamble, Preamble::Signed(..))
 	}
 
-	/// TODO: docs
+	/// Create an `UncheckedExtrinsic` from a `Preamble` and the actual `Call`.
 	pub fn from_parts(function: Call, preamble: Preamble<Address, Signature, Extension>) -> Self {
 		Self { preamble, function }
 	}

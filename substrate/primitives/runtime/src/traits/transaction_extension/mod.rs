@@ -157,7 +157,7 @@ pub trait TransactionExtensionBase: TransactionExtensionInterior {
 /// meaning of the `origin` and `implication` parameters as well as the results. Whereas the
 /// [prepare](TransactionExtension::prepare) and
 /// [post_dispatch](TransactionExtension::post_dispatch) functions are clear in their meaning, the
-/// [validate](TransactionExtension::validate) function is sfairly sophisticated and warrants
+/// [validate](TransactionExtension::validate) function is fairly sophisticated and warrants
 /// further explanation.
 ///
 /// Firstly, the `origin` parameter. The `origin` passed into the first item in a pipeline is simply
@@ -180,7 +180,7 @@ pub trait TransactionExtensionBase: TransactionExtensionInterior {
 /// its own implications through its own fields and the
 /// [implicit](TransactionExtensionBase::implicit) function. This is only utilized by extensions
 /// which preceed it in a pipeline or, if the transaction is an old-school signed trasnaction, the
-/// udnerlying transaction verification logic.
+/// underlying transaction verification logic.
 ///
 /// **The inherited implication passed as the `implication` parameter to
 /// [validate](TransactionExtension::validate) does not include the extension's inner data itself
@@ -208,6 +208,7 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 	///   `RawOrigin::None` value. If this extension is an item in a composite, then it could be
 	///   anything which was previously returned as an `origin` value in the result of a `validate`
 	///   call.
+	/// - `call`: The `Call` wrapped by this extension.
 	/// - `info`: Information concerning, and inherent to, the transaction's call.
 	/// - `len`: The total length of the encoded transaction.
 	/// - `inherited_implication`: The *implication* which this extension inherits. This is a tuple
@@ -245,6 +246,17 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 	///
 	/// Unlike `validate`, this function may consume `self`.
 	///
+	/// Parameters:
+	/// - `val`: `Self::Val` returned by the result of the `validate` call.
+	/// - `origin`: The origin returned by the result of the `validate` call.
+	/// - `call`: The `Call` wrapped by this extension.
+	/// - `info`: Information concerning, and inherent to, the transaction's call.
+	/// - `len`: The total length of the encoded transaction.
+	/// - `context`: Some opaque mutable context, as yet unused.
+	///
+	/// Returns a [Self::Pre] value on success, which gets passed into
+	/// [post_dispatch](TransactionExtension::post_dispatch) and after the call is dispatched.
+	///
 	/// IMPORTANT: **Checks made in validation need not be repeated here.**
 	fn prepare(
 		self,
@@ -263,6 +275,14 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 	/// This gets given the `DispatchResult` `_result` from the extrinsic and can, if desired,
 	/// introduce a `TransactionValidityError`, causing the block to become invalid for including
 	/// it.
+	///
+	/// Parameters:
+	/// - `pre`: `Self::Pre` returned by the result of the `prepare` call prior to dispatch.
+	/// - `info`: Information concerning, and inherent to, the transaction's call.
+	/// - `post_info`: Information concerning the dispatch of the transaction's call.
+	/// - `len`: The total length of the encoded transaction.
+	/// - `result`: The result of the dispatch.
+	/// - `context`: Some opaque mutable context, as yet unused.
 	///
 	/// WARNING: It is dangerous to return an error here. To do so will fundamentally invalidate the
 	/// transaction and any block that it is included in, causing the block author to not be
