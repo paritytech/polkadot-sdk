@@ -17510,7 +17510,7 @@ dependencies = [
 
 [[package]]
 name = "sp-runtime"
-version = "30.0.0"
+version = "30.0.1"
 dependencies = [
  "docify",
  "either",
