@@ -27,6 +27,7 @@ sp-core = { path = "../../primitives/core", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
 sp-std = { path = "../../primitives/std", default-features = false }
+impl-trait-for-tuples = "0.2.2"
 
 [features]
 default = ["std"]
