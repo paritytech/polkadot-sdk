@@ -771,8 +771,9 @@ fn answer_prospective_validation_data_request(
 		Some(s) => s,
 	};
 
-	let mut head_data =
-		storage.head_data_by_hash(&request.parent_head_data_hash).map(|x| x.clone());
+	let mut head_data = request
+		.maybe_parent_head_data
+		.or_else(|| storage.head_data_by_hash(&request.parent_head_data_hash).map(|x| x.clone()));
 	let mut relay_parent_info = None;
 	let mut max_pov_size = None;
 

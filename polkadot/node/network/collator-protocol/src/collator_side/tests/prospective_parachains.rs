@@ -271,12 +271,13 @@ fn distribute_collation_from_implicit_view() {
 			.build();
 			overseer_send(
 				virtual_overseer,
-				CollatorProtocolMessage::DistributeCollation(
-					candidate.clone(),
+				CollatorProtocolMessage::DistributeCollation {
+					candidate_receipt: candidate.clone(),
 					parent_head_data_hash,
-					pov.clone(),
-					None,
-				),
+					pov: pov.clone(),
+					maybe_parent_head_data: None,
+					result_sender: None,
+				},
 			)
 			.await;
 
@@ -351,12 +352,13 @@ fn distribute_collation_up_to_limit() {
 			.build();
 			overseer_send(
 				virtual_overseer,
-				CollatorProtocolMessage::DistributeCollation(
-					candidate.clone(),
+				CollatorProtocolMessage::DistributeCollation {
+					candidate_receipt: candidate.clone(),
 					parent_head_data_hash,
-					pov.clone(),
-					None,
-				),
+					pov: pov.clone(),
+					maybe_parent_head_data: None,
+					result_sender: None,
+				},
 			)
 			.await;
 

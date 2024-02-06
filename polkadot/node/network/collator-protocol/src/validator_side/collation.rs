@@ -32,7 +32,9 @@ use std::{collections::VecDeque, future::Future, pin::Pin, task::Poll};
 use futures::{future::BoxFuture, FutureExt};
 use polkadot_node_network_protocol::{
 	peer_set::CollationVersion,
-	request_response::{outgoing::RequestError, v1 as request_v1, OutgoingResult},
+	request_response::{
+		outgoing::RequestError, v1 as request_v1, v3 as request_v3, OutgoingResult,
+	},
 	PeerId,
 };
 use polkadot_node_primitives::PoV;
@@ -41,7 +43,8 @@ use polkadot_node_subsystem_util::{
 	metrics::prometheus::prometheus::HistogramTimer, runtime::ProspectiveParachainsMode,
 };
 use polkadot_primitives::{
-	CandidateHash, CandidateReceipt, CollatorId, Hash, Id as ParaId, PersistedValidationData,
+	CandidateHash, CandidateReceipt, CollatorId, Hash, HeadData, Id as ParaId,
+	PersistedValidationData,
 };
 use tokio_util::sync::CancellationToken;
 
@@ -101,6 +104,9 @@ pub struct PendingCollation {
 	pub prospective_candidate: Option<ProspectiveCandidate>,
 	/// Hash of the candidate's commitments.
 	pub commitments_hash: Option<Hash>,
+	/// Whether the collation was advertised with elastic scaling enabled.
+	/// If it was, the validator will request the parent-head data along with the collation.
+	pub with_elastic_scaling: bool,
 }
 
 impl PendingCollation {
@@ -109,6 +115,7 @@ impl PendingCollation {
 		para_id: ParaId,
 		peer_id: &PeerId,
 		prospective_candidate: Option<ProspectiveCandidate>,
+		with_elastic_scaling: bool,
 	) -> Self {
 		Self {
 			relay_parent,
@@ -116,11 +123,12 @@ impl PendingCollation {
 			peer_id: *peer_id,
 			prospective_candidate,
 			commitments_hash: None,
+			with_elastic_scaling,
 		}
 	}
 }
 
-/// v2 advertisement that was rejected by the backing
+/// v2 or v3 advertisement that was rejected by the backing
 /// subsystem. Validator may fetch it later if its fragment
 /// membership gets recognized before relay parent goes out of view.
 #[derive(Debug, Clone)]
@@ -133,6 +141,8 @@ pub struct BlockedAdvertisement {
 	pub candidate_relay_parent: Hash,
 	/// Hash of the candidate.
 	pub candidate_hash: CandidateHash,
+	/// Whether the collation was advertised with elastic scaling enabled.
+	pub with_elastic_scaling: bool,
 }
 
 /// Performs a sanity check between advertised and fetched collations.
@@ -176,6 +186,9 @@ pub struct PendingCollationFetch {
 	pub candidate_receipt: CandidateReceipt,
 	/// Proof of validity.
 	pub pov: PoV,
+	/// Optional parachain parent head data.
+	/// Only needed for elastic scaling.
+	pub maybe_parent_head_data: Option<HeadData>,
 }
 
 /// The status of the collations in [`CollationsPerRelayParent`].
@@ -313,7 +326,7 @@ pub(super) struct CollationFetchRequest {
 	/// The network protocol version the collator is using.
 	pub collator_protocol_version: CollationVersion,
 	/// Responses from collator.
-	pub from_collator: BoxFuture<'static, OutgoingResult<request_v1::CollationFetchingResponse>>,
+	pub from_collator: BoxFuture<'static, OutgoingResult<VersionedResponse>>,
 	/// Handle used for checking if this request was cancelled.
 	pub cancellation_token: CancellationToken,
 	/// A jaeger span corresponding to the lifetime of the request.
@@ -322,11 +335,13 @@ pub(super) struct CollationFetchRequest {
 	pub _lifetime_timer: Option<HistogramTimer>,
 }
 
+pub enum VersionedResponse {
+	V1(request_v1::CollationFetchingResponse),
+	V3(request_v3::CollationFetchingResponse),
+}
+
 impl Future for CollationFetchRequest {
-	type Output = (
-		CollationEvent,
-		std::result::Result<request_v1::CollationFetchingResponse, CollationFetchError>,
-	);
+	type Output = (CollationEvent, std::result::Result<VersionedResponse, CollationFetchError>);
 
 	fn poll(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
 		// First check if this fetch request was cancelled.
@@ -359,7 +374,7 @@ impl Future for CollationFetchRequest {
 		});
 
 		match &res {
-			Poll::Ready((_, Ok(request_v1::CollationFetchingResponse::Collation(..)))) => {
+			Poll::Ready((_, Ok(_))) => {
 				self.span.as_mut().map(|s| s.add_string_tag("success", "true"));
 			},
 			Poll::Ready((_, Err(_))) => {

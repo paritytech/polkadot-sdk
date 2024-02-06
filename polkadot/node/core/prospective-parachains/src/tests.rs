@@ -473,6 +473,7 @@ async fn get_pvd(
 		para_id,
 		candidate_relay_parent,
 		parent_head_data_hash: parent_head_data.hash(),
+		maybe_parent_head_data: None,
 	};
 	let (tx, rx) = oneshot::channel();
 	virtual_overseer

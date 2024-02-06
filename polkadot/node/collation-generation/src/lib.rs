@@ -350,6 +350,8 @@ async fn handle_new_activations<Context>(
 							},
 						};
 
+					let with_elastic_scaling = task_config.with_elastic_scaling;
+
 					construct_and_distribute_receipt(
 						PreparedCollation {
 							collation,
@@ -358,6 +360,7 @@ async fn handle_new_activations<Context>(
 							validation_data,
 							validation_code_hash,
 							n_validators,
+							with_elastic_scaling,
 						},
 						task_config.key.clone(),
 						&mut task_sender,
@@ -392,6 +395,7 @@ async fn handle_submit_collation<Context>(
 
 	let validators = request_validators(relay_parent, ctx.sender()).await.await??;
 	let n_validators = validators.len();
+	let with_elastic_scaling = config.with_elastic_scaling;
 
 	// We need to swap the parent-head data, but all other fields here will be correct.
 	let mut validation_data = match request_persisted_validation_data(
@@ -424,6 +428,7 @@ async fn handle_submit_collation<Context>(
 		validation_data,
 		validation_code_hash,
 		n_validators,
+		with_elastic_scaling,
 	};
 
 	construct_and_distribute_receipt(
@@ -445,6 +450,7 @@ struct PreparedCollation {
 	validation_data: PersistedValidationData,
 	validation_code_hash: ValidationCodeHash,
 	n_validators: usize,
+	with_elastic_scaling: bool,
 }
 
 /// Takes a prepared collation, along with its context, and produces a candidate receipt
@@ -463,6 +469,7 @@ async fn construct_and_distribute_receipt(
 		validation_data,
 		validation_code_hash,
 		n_validators,
+		with_elastic_scaling,
 	} = collation;
 
 	let persisted_validation_data_hash = validation_data.hash();
@@ -540,23 +547,28 @@ async fn construct_and_distribute_receipt(
 		},
 	};
 
+	let maybe_parent_head_data =
+		if with_elastic_scaling { Some(commitments.head_data.clone()) } else { None };
+
 	gum::debug!(
 		target: LOG_TARGET,
 		candidate_hash = ?ccr.hash(),
 		?pov_hash,
 		?relay_parent,
 		para_id = %para_id,
+		?with_elastic_scaling,
 		"candidate is generated",
 	);
 	metrics.on_collation_generated();
 
 	sender
-		.send_message(CollatorProtocolMessage::DistributeCollation(
-			ccr,
+		.send_message(CollatorProtocolMessage::DistributeCollation {
+			candidate_receipt: ccr,
 			parent_head_data_hash,
 			pov,
+			maybe_parent_head_data,
 			result_sender,
-		))
+		})
 		.await;
 }
 

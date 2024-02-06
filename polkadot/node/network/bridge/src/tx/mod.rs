@@ -310,6 +310,7 @@ where
 					Requests::DisputeSendingV1(_) => metrics.on_message("dispute_sending_v1"),
 					Requests::StatementFetchingV1(_) => metrics.on_message("statement_fetching_v1"),
 					Requests::AttestedCandidateV2(_) => metrics.on_message("attested_candidate_v2"),
+					Requests::CollationFetchingV3(_) => metrics.on_message("collation_fetching_v3"),
 				}
 
 				network_service

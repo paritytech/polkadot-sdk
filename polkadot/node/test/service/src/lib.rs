@@ -353,8 +353,12 @@ impl PolkadotTestNode {
 		para_id: ParaId,
 		collator: CollatorFn,
 	) {
-		let config =
-			CollationGenerationConfig { key: collator_key, collator: Some(collator), para_id };
+		let config = CollationGenerationConfig {
+			key: collator_key,
+			collator: Some(collator),
+			para_id,
+			with_elastic_scaling: false,
+		};
 
 		self.overseer_handle
 			.send_msg(CollationGenerationMessage::Initialize(config), "Collator")

@@ -356,12 +356,13 @@ async fn distribute_collation_with_receipt(
 ) -> DistributeCollation {
 	overseer_send(
 		virtual_overseer,
-		CollatorProtocolMessage::DistributeCollation(
-			candidate.clone(),
+		CollatorProtocolMessage::DistributeCollation {
+			candidate_receipt: candidate.clone(),
 			parent_head_data_hash,
-			pov.clone(),
-			None,
-		),
+			pov: pov.clone(),
+			maybe_parent_head_data: None,
+			result_sender: None,
+		},
 	)
 	.await;
 
@@ -591,7 +592,7 @@ async fn expect_advertise_collation_msg(
 					) => {
 						assert_matches!(
 							wire_message,
-							protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
+							protocol_v2::CollatorProtocolMessage::AdvertiseCollationV2 {
 								relay_parent,
 								candidate_hash,
 								..

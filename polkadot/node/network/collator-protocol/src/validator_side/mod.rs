@@ -34,7 +34,7 @@ use polkadot_node_network_protocol::{
 	peer_set::{CollationVersion, PeerSet},
 	request_response::{
 		outgoing::{Recipient, RequestError},
-		v1 as request_v1, v2 as request_v2, OutgoingRequest, Requests,
+		v1 as request_v1, v2 as request_v2, v3 as request_v3, OutgoingRequest, Requests,
 	},
 	v1 as protocol_v1, v2 as protocol_v2, OurView, PeerId, UnifiedReputationChange as Rep,
 	Versioned, View,
@@ -55,11 +55,14 @@ use polkadot_node_subsystem_util::{
 	runtime::{prospective_parachains_mode, ProspectiveParachainsMode},
 };
 use polkadot_primitives::{
-	CandidateHash, CollatorId, CoreState, Hash, Id as ParaId, OccupiedCoreAssumption,
+	CandidateHash, CollatorId, CoreState, Hash, HeadData, Id as ParaId, OccupiedCoreAssumption,
 	PersistedValidationData,
 };
 
-use crate::error::{Error, FetchError, Result, SecondingError};
+use crate::{
+	error::{Error, FetchError, Result, SecondingError},
+	validator_side::collation::VersionedResponse,
+};
 
 use super::{modify_reputation, tick_stream, LOG_TARGET};
 
@@ -690,8 +693,14 @@ async fn request_collation(
 		return Err(FetchError::AlreadyRequested)
 	}
 
-	let PendingCollation { relay_parent, para_id, peer_id, prospective_candidate, .. } =
-		pending_collation;
+	let PendingCollation {
+		relay_parent,
+		para_id,
+		peer_id,
+		prospective_candidate,
+		with_elastic_scaling,
+		..
+	} = pending_collation;
 	let per_relay_parent = state
 		.per_relay_parent
 		.get_mut(&relay_parent)
@@ -705,16 +714,24 @@ async fn request_collation(
 				request_v1::CollationFetchingRequest { relay_parent, para_id },
 			);
 			let requests = Requests::CollationFetchingV1(req);
-			(requests, response_recv.boxed())
+			(requests, response_recv.map(|r| r.map(VersionedResponse::V1)).boxed())
 		},
-		(CollationVersion::V2, Some(ProspectiveCandidate { candidate_hash, .. })) => {
-			let (req, response_recv) = OutgoingRequest::new(
-				Recipient::Peer(peer_id),
-				request_v2::CollationFetchingRequest { relay_parent, para_id, candidate_hash },
-			);
-			let requests = Requests::CollationFetchingV2(req);
-			(requests, response_recv.boxed())
-		},
+		(CollationVersion::V2, Some(ProspectiveCandidate { candidate_hash, .. })) =>
+			if with_elastic_scaling {
+				let (req, response_recv) = OutgoingRequest::new(
+					Recipient::Peer(peer_id),
+					request_v3::CollationFetchingRequest { relay_parent, para_id, candidate_hash },
+				);
+				let requests = Requests::CollationFetchingV3(req);
+				(requests, response_recv.map(|r| r.map(VersionedResponse::V3)).boxed())
+			} else {
+				let (req, response_recv) = OutgoingRequest::new(
+					Recipient::Peer(peer_id),
+					request_v2::CollationFetchingRequest { relay_parent, para_id, candidate_hash },
+				);
+				let requests = Requests::CollationFetchingV2(req);
+				(requests, response_recv.map(|r| r.map(VersionedResponse::V1)).boxed())
+			},
 		_ => return Err(FetchError::ProtocolMismatch),
 	};
 
@@ -723,7 +740,7 @@ async fn request_collation(
 		pending_collation,
 		collator_id: collator_id.clone(),
 		collator_protocol_version: peer_protocol_version,
-		from_collator: response_recv.boxed(),
+		from_collator: response_recv,
 		cancellation_token: cancellation_token.clone(),
 		span: state
 			.span_per_relay_parent
@@ -875,7 +892,7 @@ async fn process_incoming_peer_message<Context>(
 		},
 		Versioned::V1(V1::AdvertiseCollation(relay_parent)) =>
 			if let Err(err) =
-				handle_advertisement(ctx.sender(), state, relay_parent, origin, None).await
+				handle_advertisement(ctx.sender(), state, relay_parent, origin, None, false).await
 			{
 				gum::debug!(
 					target: LOG_TARGET,
@@ -889,22 +906,57 @@ async fn process_incoming_peer_message<Context>(
 					modify_reputation(&mut state.reputation, ctx.sender(), origin, rep).await;
 				}
 			},
-		Versioned::V2(V2::AdvertiseCollation {
+		Versioned::V2(V2::AdvertiseCollationV3 {
 			relay_parent,
 			candidate_hash,
 			parent_head_data_hash,
 		}) |
-		Versioned::V3(V2::AdvertiseCollation {
+		Versioned::V3(V2::AdvertiseCollationV3 {
 			relay_parent,
 			candidate_hash,
 			parent_head_data_hash,
-		}) =>
+		}) => {
 			if let Err(err) = handle_advertisement(
 				ctx.sender(),
 				state,
 				relay_parent,
 				origin,
 				Some((candidate_hash, parent_head_data_hash)),
+				true,
+			)
+			.await
+			{
+				gum::debug!(
+					target: LOG_TARGET,
+					peer_id = ?origin,
+					?relay_parent,
+					?candidate_hash,
+					error = ?err,
+					"Rejected v3 advertisement",
+				);
+
+				if let Some(rep) = err.reputation_changes() {
+					modify_reputation(&mut state.reputation, ctx.sender(), origin, rep).await;
+				}
+			}
+		},
+		Versioned::V3(V2::AdvertiseCollationV2 {
+			relay_parent,
+			candidate_hash,
+			parent_head_data_hash,
+		}) |
+		Versioned::V2(V2::AdvertiseCollationV2 {
+			relay_parent,
+			candidate_hash,
+			parent_head_data_hash,
+		}) => {
+			if let Err(err) = handle_advertisement(
+				ctx.sender(),
+				state,
+				relay_parent,
+				origin,
+				Some((candidate_hash, parent_head_data_hash)),
+				false,
 			)
 			.await
 			{
@@ -920,7 +972,8 @@ async fn process_incoming_peer_message<Context>(
 				if let Some(rep) = err.reputation_changes() {
 					modify_reputation(&mut state.reputation, ctx.sender(), origin, rep).await;
 				}
-			},
+			}
+		},
 		Versioned::V1(V1::CollationSeconded(..)) |
 		Versioned::V2(V2::CollationSeconded(..)) |
 		Versioned::V3(V2::CollationSeconded(..)) => {
@@ -1031,6 +1084,7 @@ where
 					blocked.peer_id,
 					blocked.collator_id,
 					Some((blocked.candidate_hash, para_head)),
+					blocked.with_elastic_scaling,
 				)
 				.await;
 				if let Err(fetch_error) = result {
@@ -1061,6 +1115,7 @@ async fn handle_advertisement<Sender>(
 	relay_parent: Hash,
 	peer_id: PeerId,
 	prospective_candidate: Option<(CandidateHash, Hash)>,
+	with_elastic_scaling: bool,
 ) -> std::result::Result<(), AdvertisementError>
 where
 	Sender: CollatorProtocolSenderTrait,
@@ -1140,6 +1195,7 @@ where
 					collator_id: collator_id.clone(),
 					candidate_relay_parent: relay_parent,
 					candidate_hash,
+					with_elastic_scaling,
 				});
 
 			return Ok(())
@@ -1154,6 +1210,7 @@ where
 		peer_id,
 		collator_id,
 		prospective_candidate,
+		with_elastic_scaling,
 	)
 	.await;
 
@@ -1181,6 +1238,7 @@ async fn enqueue_collation<Sender>(
 	peer_id: PeerId,
 	collator_id: CollatorId,
 	prospective_candidate: Option<(CandidateHash, Hash)>,
+	with_elastic_scaling: bool,
 ) -> std::result::Result<(), FetchError>
 where
 	Sender: CollatorProtocolSenderTrait,
@@ -1226,8 +1284,13 @@ where
 		return Ok(())
 	}
 
-	let pending_collation =
-		PendingCollation::new(relay_parent, para_id, &peer_id, prospective_candidate);
+	let pending_collation = PendingCollation::new(
+		relay_parent,
+		para_id,
+		&peer_id,
+		prospective_candidate,
+		with_elastic_scaling,
+	);
 
 	match collations.status {
 		CollationStatus::Fetching | CollationStatus::WaitingOnValidation => {
@@ -1477,7 +1540,7 @@ async fn process_msg<Context>(
 				"CollateOn message is not expected on the validator side of the protocol",
 			);
 		},
-		DistributeCollation(..) => {
+		DistributeCollation { .. } => {
 			gum::warn!(
 				target: LOG_TARGET,
 				"DistributeCollation message is not expected on the validator side of the protocol",
@@ -1776,14 +1839,19 @@ async fn request_prospective_validation_data<Sender>(
 	candidate_relay_parent: Hash,
 	parent_head_data_hash: Hash,
 	para_id: ParaId,
+	maybe_parent_head_data: Option<HeadData>,
 ) -> std::result::Result<Option<PersistedValidationData>, SecondingError>
 where
 	Sender: CollatorProtocolSenderTrait,
 {
 	let (tx, rx) = oneshot::channel();
 
-	let request =
-		ProspectiveValidationDataRequest { para_id, candidate_relay_parent, parent_head_data_hash };
+	let request = ProspectiveValidationDataRequest {
+		para_id,
+		candidate_relay_parent,
+		parent_head_data_hash,
+		maybe_parent_head_data,
+	};
 
 	sender
 		.send_message(ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx))
@@ -1797,7 +1865,7 @@ where
 async fn kick_off_seconding<Context>(
 	ctx: &mut Context,
 	state: &mut State,
-	PendingCollationFetch { mut collation_event, candidate_receipt, pov }: PendingCollationFetch,
+	PendingCollationFetch { mut collation_event, candidate_receipt, pov, maybe_parent_head_data }: PendingCollationFetch,
 ) -> std::result::Result<(), SecondingError> {
 	let pending_collation = collation_event.pending_collation;
 	let relay_parent = pending_collation.relay_parent;
@@ -1832,6 +1900,7 @@ async fn kick_off_seconding<Context>(
 					relay_parent,
 					parent_head_data_hash,
 					pending_collation.para_id,
+					maybe_parent_head_data,
 				)
 				.await?,
 			// Support V2 collators without async backing enabled.
@@ -1978,9 +2047,12 @@ async fn handle_collation_fetch_response(
 			);
 			Err(None)
 		},
-		Ok(request_v1::CollationFetchingResponse::Collation(receipt, _))
-			if receipt.descriptor().para_id != pending_collation.para_id =>
-		{
+		Ok(
+			VersionedResponse::V1(request_v1::CollationFetchingResponse::Collation(receipt, _)) |
+			VersionedResponse::V3(request_v3::CollationFetchingResponse::Collation {
+				receipt, ..
+			}),
+		) if receipt.descriptor().para_id != pending_collation.para_id => {
 			gum::debug!(
 				target: LOG_TARGET,
 				expected_para_id = ?pending_collation.para_id,
@@ -1991,7 +2063,10 @@ async fn handle_collation_fetch_response(
 
 			Err(Some((pending_collation.peer_id, COST_WRONG_PARA)))
 		},
-		Ok(request_v1::CollationFetchingResponse::Collation(candidate_receipt, pov)) => {
+		Ok(VersionedResponse::V1(request_v1::CollationFetchingResponse::Collation(
+			candidate_receipt,
+			pov,
+		))) => {
 			gum::debug!(
 				target: LOG_TARGET,
 				para_id = %pending_collation.para_id,
@@ -2010,6 +2085,33 @@ async fn handle_collation_fetch_response(
 				},
 				candidate_receipt,
 				pov,
+				maybe_parent_head_data: None,
+			})
+		},
+		Ok(VersionedResponse::V3(request_v3::CollationFetchingResponse::Collation {
+			receipt,
+			pov,
+			parent_head_data,
+		})) => {
+			gum::debug!(
+				target: LOG_TARGET,
+				para_id = %pending_collation.para_id,
+				hash = ?pending_collation.relay_parent,
+				candidate_hash = ?receipt.hash(),
+				"Received collation (v3)",
+			);
+			let _span = jaeger::Span::new(&pov, "received-collation");
+
+			metrics_result = Ok(());
+			Ok(PendingCollationFetch {
+				collation_event: CollationEvent {
+					collator_id,
+					pending_collation,
+					collator_protocol_version,
+				},
+				candidate_receipt: receipt,
+				pov,
+				maybe_parent_head_data: Some(parent_head_data),
 			})
 		},
 	};

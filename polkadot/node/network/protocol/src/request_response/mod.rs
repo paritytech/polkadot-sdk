@@ -31,7 +31,7 @@
 //! data, like what is the corresponding response type.
 //!
 //!  ## Versioning
-//!  
+//!
 //! Versioning for request-response protocols can be done in multiple ways.
 //!
 //! If you're just changing the protocol name but the binary payloads are the same, just add a new
@@ -74,6 +74,9 @@ pub mod v1;
 /// Actual versioned requests and responses that are sent over the wire.
 pub mod v2;
 
+/// Actual versioned requests and responses that are sent over the wire.
+pub mod v3;
+
 /// A protocol per subsystem seems to make the most sense, this way we don't need any dispatching
 /// within protocols.
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, EnumIter)]
@@ -96,6 +99,9 @@ pub enum Protocol {
 	/// Protocol for requesting candidates with attestations in statement distribution
 	/// when async backing is enabled.
 	AttestedCandidateV2,
+
+	/// Protocol for fetching collations from collators for elastic scaling.
+	CollationFetchingV3,
 }
 
 /// Minimum bandwidth we expect for validators - 500Mbit/s is the recommendation, so approximately
@@ -216,16 +222,17 @@ impl Protocol {
 				request_timeout: CHUNK_REQUEST_TIMEOUT,
 				inbound_queue: tx,
 			},
-			Protocol::CollationFetchingV1 | Protocol::CollationFetchingV2 =>
-				RequestResponseConfig {
-					name,
-					fallback_names: legacy_names,
-					max_request_size: 1_000,
-					max_response_size: POV_RESPONSE_SIZE,
-					// Taken from initial implementation in collator protocol:
-					request_timeout: POV_REQUEST_TIMEOUT_CONNECTED,
-					inbound_queue: tx,
-				},
+			Protocol::CollationFetchingV1 |
+			Protocol::CollationFetchingV2 |
+			Protocol::CollationFetchingV3 => RequestResponseConfig {
+				name,
+				fallback_names: legacy_names,
+				max_request_size: 1_000,
+				max_response_size: POV_RESPONSE_SIZE,
+				// Taken from initial implementation in collator protocol:
+				request_timeout: POV_REQUEST_TIMEOUT_CONNECTED,
+				inbound_queue: tx,
+			},
 			Protocol::PoVFetchingV1 => RequestResponseConfig {
 				name,
 				fallback_names: legacy_names,
@@ -292,7 +299,9 @@ impl Protocol {
 			// as well.
 			Protocol::ChunkFetchingV1 => 100,
 			// 10 seems reasonable, considering group sizes of max 10 validators.
-			Protocol::CollationFetchingV1 | Protocol::CollationFetchingV2 => 10,
+			Protocol::CollationFetchingV1 |
+			Protocol::CollationFetchingV2 |
+			Protocol::CollationFetchingV3 => 10,
 			// 10 seems reasonable, considering group sizes of max 10 validators.
 			Protocol::PoVFetchingV1 => 10,
 			// Validators are constantly self-selecting to request available data which may lead
@@ -356,10 +365,11 @@ impl Protocol {
 			Protocol::AvailableDataFetchingV1 => Some("/polkadot/req_available_data/1"),
 			Protocol::StatementFetchingV1 => Some("/polkadot/req_statement/1"),
 			Protocol::DisputeSendingV1 => Some("/polkadot/send_dispute/1"),
+			Protocol::CollationFetchingV2 => Some("/polkadot/req_collation/2"),
 
 			// Introduced after legacy names became legacy.
 			Protocol::AttestedCandidateV2 => None,
-			Protocol::CollationFetchingV2 => None,
+			Protocol::CollationFetchingV3 => None,
 		}
 	}
 }
@@ -419,6 +429,8 @@ impl ReqProtocolNames {
 
 			Protocol::CollationFetchingV2 => "/req_collation/2",
 			Protocol::AttestedCandidateV2 => "/req_attested_candidate/2",
+
+			Protocol::CollationFetchingV3 => "/req_collation/3",
 		};
 
 		format!("{}{}", prefix, short_name).into()

@@ -498,6 +498,11 @@ pub struct CollationGenerationConfig {
 	pub collator: Option<CollatorFn>,
 	/// The parachain that this collator collates for
 	pub para_id: ParaId,
+	/// Whether elastic scaling is enabled for this collation.
+	/// If it is, the collator will send the parent-head data along with the collation.
+	/// If your parachain is not assigned to multiple cores at the same time,
+	/// you should set this to `false`.
+	pub with_elastic_scaling: bool,
 }
 
 #[cfg(not(target_os = "unknown"))]

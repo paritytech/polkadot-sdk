@@ -46,11 +46,12 @@ use polkadot_primitives::{
 	vstaging::{ApprovalVotingParams, NodeFeatures},
 	AuthorityDiscoveryId, BackedCandidate, BlockNumber, CandidateEvent, CandidateHash,
 	CandidateIndex, CandidateReceipt, CollatorId, CommittedCandidateReceipt, CoreState,
-	DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Header as BlockHeader,
-	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, MultiDisputeStatementSet,
-	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, PvfExecKind, SessionIndex,
-	SessionInfo, SignedAvailabilityBitfield, SignedAvailabilityBitfields, ValidationCode,
-	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, HeadData,
+	Header as BlockHeader, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
+	MultiDisputeStatementSet, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
+	PvfExecKind, SessionIndex, SessionInfo, SignedAvailabilityBitfield,
+	SignedAvailabilityBitfields, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	ValidatorSignature,
 };
 use polkadot_statement_table::v2::Misbehavior;
 use std::{
@@ -211,12 +212,19 @@ pub enum CollatorProtocolMessage {
 	///
 	/// The result sender should be informed when at least one parachain validator seconded the
 	/// collation. It is also completely okay to just drop the sender.
-	DistributeCollation(
-		CandidateReceipt,
-		Hash,
-		PoV,
-		Option<oneshot::Sender<CollationSecondedSignal>>,
-	),
+	DistributeCollation {
+		/// TODO(ordian)
+		candidate_receipt: CandidateReceipt,
+		/// TODO(ordian)
+		parent_head_data_hash: Hash,
+		/// TODO(ordian)
+		pov: PoV,
+		/// This field is only used for elastic scaling.
+		// TODO(ordian): maybe using an enum
+		maybe_parent_head_data: Option<HeadData>,
+		/// TODO(ordian)
+		result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
+	},
 	/// Report a collator as having provided an invalid collation. This should lead to disconnect
 	/// and blacklist of the collator.
 	ReportCollator(CollatorId),
@@ -1106,6 +1114,9 @@ pub struct ProspectiveValidationDataRequest {
 	pub candidate_relay_parent: Hash,
 	/// The parent head-data hash.
 	pub parent_head_data_hash: Hash,
+	/// Optionally, the head-data of the parent.
+	/// This will be provided for collations with elastic scaling enabled.
+	pub maybe_parent_head_data: Option<HeadData>,
 }
 
 /// Indicates the relay-parents whose fragment tree a candidate
