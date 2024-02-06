@@ -156,7 +156,8 @@ pub mod pallet {
 		/// Something that provides an *always* sorted list of targets.
 		///
 		/// This pallet is responsible to keep the score and sorting of this pallet up to date with
-		/// the state from [`Self::StakingInterface`].
+		/// the correct approvals stakes of every target that is bouded or it has been bonded in the
+		/// past *and* it still has nominations from active voters.
 		type TargetList: SortedListProvider<
 			Self::AccountId,
 			Score = <Self::Staking as StakingInterface>::Balance,
@@ -508,7 +509,8 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	/// Fired when someone removes their intention to nominate and is completely removed from the
 	/// staking state.
 	///
-	/// Note: this may update the score of up to [`T::MaxNominations`] validators.
+	/// Note: the number of nodes that are updated is bounded by the maximum number of nominators,
+	/// which is defined in the staking pallet.
 	fn on_nominator_remove(who: &T::AccountId, nominations: Vec<T::AccountId>) {
 		let nominator_vote = Self::weight_of(Self::active_vote_of(who));
 
