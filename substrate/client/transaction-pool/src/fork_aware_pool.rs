@@ -33,6 +33,7 @@
 use crate::graph;
 pub use crate::{
 	api::FullChainApi,
+	enactment_state::{EnactmentAction, EnactmentState},
 	graph::{
 		base_pool::Limit as PoolLimit, watcher::Watcher, ChainApi, Options, Pool, Transaction,
 		ValidatedTransaction,
@@ -118,8 +119,21 @@ where
 	PoolApi: graph::ChainApi<Block = Block> + 'static,
 	<Block as BlockT>::Hash: Unpin,
 {
-	fn new(api: Arc<PoolApi>) -> Self {
-		Self { api, views: Default::default(), listener: MultiViewListener::new() }
+	fn new(api: Arc<PoolApi>, finalized_hash: Block::Hash) -> Self {
+		// let number = api
+		// 	.resolve_block_number(finalized_hash)
+		// 	.map_err(|_| ViewCreationError::BlockIdConversion) //?
+		// 	.unwrap();
+		// let at = HashAndNumber { hash: finalized_hash, number };
+		// let view = Arc::new(View::new(api.clone(), at.clone()));
+		// let views = RwLock::from(HashMap::from([(finalized_hash, view)]));
+		let views = Default::default();
+
+		Self { api, views, listener: MultiViewListener::new() }
+	}
+
+	fn create_new_empty_view_at(&self, hash: Block::Hash) {
+		//todo: error handling
 	}
 
 	// shall be called on block import
@@ -277,6 +291,7 @@ where
 				.rev()
 				.chain(std::iter::once(tree_route.common_block()))
 				.chain(tree_route.retracted().iter().rev())
+				.rev()
 				.find(|i| views.contains_key(&i.hash))
 		};
 		best_view.map(|h| views.get(&h.hash).expect("best_hash is an existing key.qed").clone())
@@ -304,20 +319,32 @@ where
 	}
 
 	async fn finalize_route(&self, finalized_hash: Block::Hash, tree_route: &[Block::Hash]) {
-		let finalized_view = { self.views.read().get(&finalized_hash).map(|v| v.clone()) };
-
-		let Some(finalized_view) = finalized_view else {
-			log::warn!(
-				target: LOG_TARGET,
-				"Error occurred while attempting to notify watchers about finalization {}",
-				finalized_hash
-			);
-			return;
-		};
-
+		let mut no_view_blocks = vec![];
 		for hash in tree_route.iter().chain(std::iter::once(&finalized_hash)) {
-			finalized_view.finalize(*hash).await;
+			let finalized_view = { self.views.read().get(&hash).map(|v| v.clone()) };
+			if let Some(finalized_view) = finalized_view {
+				for h in no_view_blocks.iter().chain(std::iter::once(hash)) {
+					finalized_view.finalize(*h).await;
+				}
+				no_view_blocks.clear();
+			} else {
+				no_view_blocks.push(*hash);
+			}
 		}
+		// let finalized_view = { self.views.read().get(&finalized_hash).map(|v| v.clone()) };
+		//
+		// let Some(finalized_view) = finalized_view else {
+		// 	log::warn!(
+		// 		target: LOG_TARGET,
+		// 		"Error occurred while attempting to notify watchers about finalization {}",
+		// 		finalized_hash
+		// 	);
+		// 	return;
+		// };
+		//
+		// for hash in tree_route.iter().chain(std::iter::once(&finalized_hash)) {
+		// 	finalized_view.finalize(*hash).await;
+		// }
 	}
 }
 
@@ -370,7 +397,7 @@ where
 	ready_poll: Arc<Mutex<ReadyPoll<super::ReadyIteratorFor<PoolApi>, Block>>>,
 	// current tree? (somehow similar to enactment state?)
 	// todo: metrics
-
+	enactment_state: Arc<Mutex<EnactmentState<Block>>>,
 	// todo: this are coming from ValidatedPool, some of them maybe needed here
 	// is_validator: IsValidator,
 	// options: Options,
@@ -394,8 +421,12 @@ where
 		Self {
 			api: pool_api.clone(),
 			xts: Default::default(),
-			views: Arc::new(ViewManager::new(pool_api)),
+			views: Arc::new(ViewManager::new(pool_api, finalized_hash)),
 			ready_poll: Arc::from(Mutex::from(ReadyPoll::new())),
+			enactment_state: Arc::new(Mutex::new(EnactmentState::new(
+				best_block_hash,
+				finalized_hash,
+			))),
 		}
 	}
 
@@ -608,8 +639,10 @@ where
 		if views.is_empty() {
 			return future::ready(Ok(xts
 				.iter()
-				.map(|_| {
-					Err(TxPoolError::UnknownTransaction(UnknownTransaction::CannotLookup).into())
+				.map(|xt| {
+					//todo: error or ok if no views?
+					// Err(TxPoolError::UnknownTransaction(UnknownTransaction::CannotLookup).into())
+					Ok(self.api.hash_and_length(xt).0)
 				})
 				.collect()))
 			.boxed()
@@ -638,11 +671,13 @@ where
 		self.xts.write().push(xt.clone());
 
 		if views.is_empty() {
-			return future::ready(Err(TxPoolError::UnknownTransaction(
-				UnknownTransaction::CannotLookup,
-			)
-			.into()))
-			.boxed()
+			//todo: error or ok if no views?
+			return future::ready(Ok(self.api.hash_and_length(&xt).0)).boxed()
+			// return future::ready(Err(TxPoolError::UnknownTransaction(
+			// 	UnknownTransaction::CannotLookup,
+			// )
+			// .into()))
+			// .boxed()
 		}
 
 		async move {
@@ -788,25 +823,14 @@ where
 	PoolApi: graph::ChainApi<Block = Block> + 'static,
 	<Block as BlockT>::Hash: Unpin,
 {
-	async fn handle_new_block(&self, best_hash: Block::Hash, tree_route: &TreeRoute<Block>) {
-		// let hash_and_number = match tree_route.last() {
-		// 	Some(hash_and_number) => hash_and_number,
-		// 	None => {
-		// 		log::warn!(
-		// 			target: LOG_TARGET,
-		// 			"Skipping ChainEvent - no last block in tree route {:?}",
-		// 			tree_route,
-		// 		);
-		// 		return
-		// 	},
-		// };
-		let hash_and_number = match self.api.block_id_to_number(&BlockId::Hash(best_hash)) {
-			Ok(Some(number)) => HashAndNumber { number, hash: best_hash },
-			_ => {
+	async fn handle_new_block(&self, tree_route: &TreeRoute<Block>) {
+		let hash_and_number = match tree_route.last() {
+			Some(hash_and_number) => hash_and_number,
+			None => {
 				log::warn!(
 					target: LOG_TARGET,
-					"Skipping ChainEvent - cannot convert hash to block number {:?}",
-					best_hash,
+					"Skipping ChainEvent - no last block in tree route {:?}",
+					tree_route,
 				);
 				return
 			},
@@ -823,7 +847,7 @@ where
 
 		let best_view = self.views.find_best_view(tree_route);
 		if let Some(best_view) = best_view {
-			self.build_cloned_view(best_view, hash_and_number, tree_route).await;
+			self.build_cloned_view(best_view, hash_and_number.clone(), tree_route).await;
 		} else {
 			self.create_new_view_at(hash_and_number.hash).await;
 		}
@@ -907,7 +931,7 @@ where
 			tree_route
 				.enacted()
 				.iter()
-				.chain(std::iter::once(&hash_and_number))
+				// .chain(std::iter::once(&hash_and_number))
 				.map(|h| super::prune_known_txs_for_block(h, &*api, &view.pool)),
 		)
 		.await
@@ -979,19 +1003,20 @@ where
 	async fn handle_finalized(&self, finalized_hash: Block::Hash, tree_route: &[Block::Hash]) {
 		let finalized_number = self.api.block_id_to_number(&BlockId::Hash(finalized_hash));
 
-		if !self.views.views.read().contains_key(&finalized_hash) {
-			if tree_route.is_empty() {
-				log::info!("Creating new view for finalized block: {}", finalized_hash);
-				self.create_new_view_at(finalized_hash).await;
-			} else {
-				//convert &[Hash] to TreeRoute
-				let tree_route = self.api.tree_route(tree_route[0], tree_route[tree_route.len()-1]).expect(
-					"Tree route between currently and recently finalized blocks must exist. qed",
-				);
-				self.handle_new_block(finalized_hash, &tree_route).await;
-			}
-		}
+		// if !self.views.views.read().contains_key(&finalized_hash) {
+		// 	if tree_route.is_empty() {
+		// 		log::info!("Creating new view for finalized block: {}", finalized_hash);
+		// 		self.create_new_view_at(finalized_hash).await;
+		// 	} else {
+		// 		//convert &[Hash] to TreeRoute
+		// 		let tree_route = self.api.tree_route(tree_route[0],
+		// tree_route[tree_route.len()-1]).expect( 			"Tree route between currently and recently
+		// finalized blocks must exist. qed", 		);
+		// 		self.handle_new_block(finalized_hash, &tree_route).await;
+		// 	}
+		// }
 
+		self.views.finalize_route(finalized_hash, tree_route).await;
 		{
 			//clean up older then finalized
 			let mut views = self.views.views.write();
@@ -1001,8 +1026,6 @@ where
 				Ok(Some(n)) => v.at.number > n,
 			})
 		}
-
-		self.views.finalize_route(finalized_hash, tree_route).await;
 	}
 }
 
@@ -1018,18 +1041,52 @@ where
 		// handle_new_block/handle_finalized
 		// if self.views.is_empty() {
 		// 	self.create_new_view_at(event.hash()).await;
-		// 	return;
 		// }
 
 		log::info!(">> maintain: {event:#?}");
-		match event {
-			ChainEvent::NewBestBlock { hash, tree_route: Some(tree_route) } =>
-				self.handle_new_block(hash, &tree_route).await,
-			ChainEvent::Finalized { hash, tree_route } =>
-				self.handle_finalized(hash, &*tree_route).await,
-			_ => {
-				let _ = self.views.create_new_view_at(event.hash(), self.xts.clone()).await;
+		let prev_finalized_block = self.enactment_state.lock().recent_finalized_block();
+
+		let compute_tree_route = |from, to| -> Result<TreeRoute<Block>, String> {
+			match self.api.tree_route(from, to) {
+				Ok(tree_route) => Ok(tree_route),
+				Err(e) =>
+					return Err(format!(
+						"Error occurred while computing tree_route from {from:?} to {to:?}: {e}"
+					)),
+			}
+		};
+		let block_id_to_number =
+			|hash| self.api.block_id_to_number(&BlockId::Hash(hash)).map_err(|e| format!("{}", e));
+
+		let result =
+			self.enactment_state
+				.lock()
+				.update(&event, &compute_tree_route, &block_id_to_number);
+
+		match result {
+			Err(msg) => {
+				log::debug!(target: LOG_TARGET, "enactment_state::update error: {msg}");
+				self.enactment_state.lock().force_update(&event);
 			},
+			Ok(EnactmentAction::Skip) => return,
+			Ok(EnactmentAction::HandleFinalization) => {},
+			Ok(EnactmentAction::HandleEnactment(tree_route)) =>
+				self.handle_new_block(&tree_route).await,
+		};
+		match event {
+			ChainEvent::NewBestBlock { hash, .. } => {},
+			ChainEvent::Finalized { hash, tree_route } => {
+				self.handle_finalized(hash, &*tree_route).await;
+
+				log::trace!(
+					target: LOG_TARGET,
+					"on-finalized enacted: {tree_route:?}, previously finalized: \
+					{prev_finalized_block:?}",
+				);
+			},
+			// _ => {
+			// 	let _ = self.views.create_new_view_at(event.hash(), self.xts.clone()).await;
+			// },
 		}
 
 		()

@@ -34,6 +34,16 @@ pub type TxStatusStream<T> = Pin<Box<TransactionStatusStream<TxHash<T>, BlockHas
 enum ViewEvent<PoolApi: ChainApi> {
 	ViewAdded(BlockHash<PoolApi>, TxStatusStream<PoolApi>),
 }
+impl<PoolApi> std::fmt::Debug for ViewEvent<PoolApi>
+where
+	PoolApi: ChainApi,
+{
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			ViewEvent::ViewAdded(h, _) => write!(f, "ViewEvent::ViewAdded({})", h),
+		}
+	}
+}
 
 pub struct MultiViewListener<PoolApi: ChainApi> {
 	//todo: rwlock not needed here (mut?)
@@ -111,10 +121,16 @@ where
 		block_hash: BlockHash<PoolApi>,
 		stream: TxStatusStream<PoolApi>,
 	) {
-		if let Some(tx) = self.controllers.write().await.get(&tx_hash) {
-			//todo: unwrap / error handling
+		let mut controllers = self.controllers.write().await;
+		if let Some(tx) = controllers.get(&tx_hash) {
 			trace!(target: LOG_TARGET, "add_view_watcher_for_tx {:#?}: sent viewEvent", tx_hash);
-			tx.send(ViewEvent::ViewAdded(block_hash, stream)).await.unwrap();
+			match tx.send(ViewEvent::ViewAdded(block_hash, stream)).await {
+				Err(mpsc::error::SendError(e)) => {
+					trace!(target: LOG_TARGET, "add_view_watcher_for_tx: SendError: {:?}", e);
+					controllers.remove(&tx_hash);
+				},
+				Ok(_) => {},
+			}
 		}
 	}
 }
