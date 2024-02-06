@@ -69,6 +69,7 @@ use sp_runtime::{
 		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
 };
+use sp_std::vec::Vec;
 
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
