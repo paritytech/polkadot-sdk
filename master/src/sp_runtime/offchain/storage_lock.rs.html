@@ -645,9 +645,9 @@
 	traits::BlockNumberProvider,
 };
 <span class="kw">use </span>codec::{Codec, Decode, Encode};
+<span class="kw">use </span>core::fmt;
 <span class="kw">use </span>sp_core::offchain::{Duration, Timestamp};
 <span class="kw">use </span>sp_io::offchain;
-<span class="kw">use </span>sp_std::fmt;
 
 <span class="doccomment">/// Default expiry duration for time based locks in milliseconds.
 </span><span class="kw">const </span>STORAGE_LOCK_DEFAULT_EXPIRY_DURATION: Duration = Duration::from_millis(<span class="number">20_000</span>);

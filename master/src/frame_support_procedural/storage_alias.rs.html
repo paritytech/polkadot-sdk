@@ -1299,7 +1299,7 @@
 
 		<span class="macro">quote! </span>{
 			#visibility <span class="kw">struct </span>#counter_name&lt; #impl_generics &gt;(
-				#crate_::__private::sp_std::marker::PhantomData&lt;(#type_generics)&gt;
+				::core::marker::PhantomData&lt;(#type_generics)&gt;
 			) #where_clause;
 
 			<span class="kw">impl</span>&lt;#impl_generics&gt; #crate_::traits::StorageInstance
@@ -1329,7 +1329,7 @@
 	</span><span class="kw">let </span>code = <span class="macro">quote! </span>{
 		<span class="attr">#[allow(non_camel_case_types)]
 		</span>#visibility <span class="kw">struct </span>#name&lt; #impl_generics &gt;(
-			#crate_::__private::sp_std::marker::PhantomData&lt;(#type_generics)&gt;
+			::core::marker::PhantomData&lt;(#type_generics)&gt;
 		) #where_clause;
 
 		<span class="kw">impl</span>&lt;#impl_generics&gt; #crate_::traits::StorageInstance

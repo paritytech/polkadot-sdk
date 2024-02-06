@@ -150,12 +150,12 @@
 
 </span><span class="kw">use </span><span class="kw">crate</span>::types::Delegations;
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
+<span class="kw">use </span>core::result::Result;
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::{
 	traits::{Bounded, CheckedDiv, CheckedMul, Zero},
 	RuntimeDebug,
 };
-<span class="kw">use </span>sp_std::{prelude::<span class="kw-2">*</span>, result::Result};
 
 <span class="doccomment">/// A value denoting the strength of conviction of a vote.
 </span><span class="attr">#[derive(

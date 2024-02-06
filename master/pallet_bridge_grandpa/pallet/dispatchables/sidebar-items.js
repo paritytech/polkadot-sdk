@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["initialize","set_operating_mode","set_owner","submit_finality_proof"]};
+window.SIDEBAR_ITEMS = {"fn":["initialize","set_operating_mode","set_owner","submit_finality_proof","submit_finality_proof_ex"]};

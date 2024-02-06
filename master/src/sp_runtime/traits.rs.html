@@ -2494,6 +2494,9 @@
 <a href="#2494" id="2494">2494</a>
 <a href="#2495" id="2495">2495</a>
 <a href="#2496" id="2496">2496</a>
+<a href="#2497" id="2497">2497</a>
+<a href="#2498" id="2498">2498</a>
+<a href="#2499" id="2499">2499</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -3035,6 +3038,9 @@
 <span class="macro">morph_types! </span>{
 	<span class="doccomment">/// Morpher to disregard the source value and replace with another.
 	</span><span class="kw">pub type </span>Replace&lt;V: TypedGet&gt; = |<span class="kw">_</span>| -&gt; V::Type { V::get() };
+
+	<span class="doccomment">/// Morpher to disregard the source value and replace with the default of `V`.
+	</span><span class="kw">pub type </span>ReplaceWithDefault&lt;V: Default&gt; = |<span class="kw">_</span>| -&gt; V { Default::default() };
 
 	<span class="doccomment">/// Mutator which reduces a scalar by a particular amount.
 	</span><span class="kw">pub type </span>ReduceBy&lt;N: TypedGet&gt; = |r: N::Type| -&gt; N::Type {

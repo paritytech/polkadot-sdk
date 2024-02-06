@@ -192,7 +192,7 @@
 
 </span><span class="kw">use </span><span class="kw">crate</span>::trie_constants;
 <span class="kw">use </span>codec::{Decode, Encode, Input, Output};
-<span class="kw">use </span>sp_std::iter::once;
+<span class="kw">use </span>core::iter::once;
 
 <span class="doccomment">/// A node header
 </span><span class="attr">#[derive(Copy, Clone, PartialEq, Eq, sp_core::RuntimeDebug)]
@@ -291,7 +291,7 @@
 	prefix_mask: usize,
 ) -&gt; <span class="kw">impl </span>Iterator&lt;Item = u8&gt; {
 	<span class="kw">let </span>max_value = <span class="number">255u8 </span>&gt;&gt; prefix_mask;
-	<span class="kw">let </span>l1 = sp_std::cmp::min((max_value <span class="kw">as </span>usize).saturating_sub(<span class="number">1</span>), size);
+	<span class="kw">let </span>l1 = core::cmp::min((max_value <span class="kw">as </span>usize).saturating_sub(<span class="number">1</span>), size);
 	<span class="kw">let </span>(first_byte, <span class="kw-2">mut </span>rem) = <span class="kw">if </span>size == l1 {
 		(once(prefix + l1 <span class="kw">as </span>u8), <span class="number">0</span>)
 	} <span class="kw">else </span>{
@@ -311,7 +311,7 @@
 			<span class="prelude-val">None
 		</span>}
 	};
-	first_byte.chain(sp_std::iter::from_fn(next_bytes))
+	first_byte.chain(core::iter::from_fn(next_bytes))
 }
 
 <span class="doccomment">/// Encodes size and prefix to a stream output.

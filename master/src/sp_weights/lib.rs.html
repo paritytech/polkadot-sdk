@@ -622,7 +622,7 @@
 }
 
 <span class="doccomment">/// Implementor of `WeightToFee` that maps one unit of weight to one unit of fee.
-</span><span class="kw">pub struct </span>IdentityFee&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>IdentityFee&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 
 <span class="kw">impl</span>&lt;T&gt; WeightToFee <span class="kw">for </span>IdentityFee&lt;T&gt;
 <span class="kw">where
@@ -636,7 +636,7 @@
 }
 
 <span class="doccomment">/// Implementor of [`WeightToFee`] such that it maps any unit of weight to a fixed fee.
-</span><span class="kw">pub struct </span>FixedFee&lt;<span class="kw">const </span>F: u32, T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>FixedFee&lt;<span class="kw">const </span>F: u32, T&gt;(core::marker::PhantomData&lt;T&gt;);
 
 <span class="kw">impl</span>&lt;<span class="kw">const </span>F: u32, T&gt; WeightToFee <span class="kw">for </span>FixedFee&lt;F, T&gt;
 <span class="kw">where
@@ -662,7 +662,7 @@
 /// // Results in a multiplier of 10 for each unit of weight (or length)
 /// type LengthToFee = ConstantMultiplier::&lt;u128, ConstU128&lt;10u128&gt;&gt;;
 /// ```
-</span><span class="kw">pub struct </span>ConstantMultiplier&lt;T, M&gt;(sp_std::marker::PhantomData&lt;(T, M)&gt;);
+</span><span class="kw">pub struct </span>ConstantMultiplier&lt;T, M&gt;(core::marker::PhantomData&lt;(T, M)&gt;);
 
 <span class="kw">impl</span>&lt;T, M&gt; WeightToFee <span class="kw">for </span>ConstantMultiplier&lt;T, M&gt;
 <span class="kw">where

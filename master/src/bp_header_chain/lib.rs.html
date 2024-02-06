@@ -376,6 +376,16 @@
 <a href="#376" id="376">376</a>
 <a href="#377" id="377">377</a>
 <a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -621,6 +631,16 @@
 	</span>initialize {
 		<span class="doccomment">/// All data, required to initialize the pallet.
 		</span>init_data: InitializationData&lt;Header&gt;,
+	},
+	<span class="doccomment">/// `pallet-bridge-grandpa::Call::submit_finality_proof_ex`
+	</span><span class="attr">#[codec(index = <span class="number">4</span>)]
+	</span>submit_finality_proof_ex {
+		<span class="doccomment">/// The header that we are going to finalize.
+		</span>finality_target: Box&lt;Header&gt;,
+		<span class="doccomment">/// Finality justification for the `finality_target`.
+		</span>justification: justification::GrandpaJustification&lt;Header&gt;,
+		<span class="doccomment">/// An identifier of the validators set, that have signed the justification.
+		</span>current_set_id: SetId,
 	},
 }
 

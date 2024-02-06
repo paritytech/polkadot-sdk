@@ -269,8 +269,8 @@
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
 </span><span class="kw">use </span>codec::{Decode, Encode};
+<span class="kw">use </span>core::time::Duration;
 <span class="kw">use </span>sp_inherents::{InherentData, InherentIdentifier, IsFatalError};
-<span class="kw">use </span>sp_std::time::Duration;
 
 <span class="doccomment">/// The identifier for the `timestamp` inherent.
 </span><span class="kw">pub const </span>INHERENT_IDENTIFIER: InherentIdentifier = <span class="kw-2">*</span><span class="string">b&quot;timstap0&quot;</span>;
@@ -318,7 +318,7 @@
 	}
 }
 
-<span class="kw">impl </span>sp_std::ops::Deref <span class="kw">for </span>Timestamp {
+<span class="kw">impl </span>core::ops::Deref <span class="kw">for </span>Timestamp {
 	<span class="kw">type </span>Target = u64;
 
 	<span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Target {
@@ -468,7 +468,7 @@
 }
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">impl </span>sp_std::ops::Deref <span class="kw">for </span>InherentDataProvider {
+</span><span class="kw">impl </span>core::ops::Deref <span class="kw">for </span>InherentDataProvider {
 	<span class="kw">type </span>Target = InherentType;
 
 	<span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Target {

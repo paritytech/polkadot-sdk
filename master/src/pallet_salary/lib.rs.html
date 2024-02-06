@@ -510,10 +510,10 @@
 #![recursion_limit = <span class="string">&quot;128&quot;</span>]
 
 </span><span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
+<span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_arithmetic::traits::{Saturating, Zero};
 <span class="kw">use </span>sp_runtime::{Perbill, RuntimeDebug};
-<span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>};
 
 <span class="kw">use </span>frame_support::{
 	defensive,

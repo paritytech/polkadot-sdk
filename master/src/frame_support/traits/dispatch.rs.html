@@ -642,11 +642,11 @@
 
 </span><span class="kw">use </span><span class="kw">crate</span>::dispatch::{DispatchResultWithPostInfo, Parameter, RawOrigin};
 <span class="kw">use </span>codec::MaxEncodedLen;
+<span class="kw">use </span>core::{cmp::Ordering, marker::PhantomData};
 <span class="kw">use </span>sp_runtime::{
 	traits::{BadOrigin, Get, Member, Morph, TryMorph},
 	Either,
 };
-<span class="kw">use </span>sp_std::{cmp::Ordering, marker::PhantomData};
 
 <span class="kw">use </span><span class="kw">super</span>::misc;
 
@@ -708,7 +708,7 @@
 /// ```rust
 /// # use frame_support::traits::{EnsureOriginEqualOrHigherPrivilege, PrivilegeCmp, EnsureOrigin as _};
 /// # use sp_runtime::traits::{parameter_types, Get};
-/// # use sp_std::cmp::Ordering;
+/// # use core::cmp::Ordering;
 ///
 /// #[derive(Eq, PartialEq, Debug)]
 /// pub enum Origin {
@@ -747,7 +747,7 @@
 /// assert!(EnsureOrigin::ensure_origin(Origin::NormalUser).is_err());
 /// ```
 </span><span class="kw">pub struct </span>EnsureOriginEqualOrHigherPrivilege&lt;Origin, PrivilegeCmp&gt;(
-	sp_std::marker::PhantomData&lt;(Origin, PrivilegeCmp)&gt;,
+	core::marker::PhantomData&lt;(Origin, PrivilegeCmp)&gt;,
 );
 
 <span class="kw">impl</span>&lt;OuterOrigin, Origin, PrivilegeCmp&gt; EnsureOrigin&lt;OuterOrigin&gt;
@@ -841,7 +841,7 @@
 }
 
 <span class="doccomment">/// [`EnsureOrigin`] implementation that always fails.
-</span><span class="kw">pub struct </span>NeverEnsureOrigin&lt;Success&gt;(sp_std::marker::PhantomData&lt;Success&gt;);
+</span><span class="kw">pub struct </span>NeverEnsureOrigin&lt;Success&gt;(core::marker::PhantomData&lt;Success&gt;);
 <span class="kw">impl</span>&lt;OO, Success&gt; EnsureOrigin&lt;OO&gt; <span class="kw">for </span>NeverEnsureOrigin&lt;Success&gt; {
 	<span class="kw">type </span>Success = Success;
 	<span class="kw">fn </span>try_origin(o: OO) -&gt; <span class="prelude-ty">Result</span>&lt;Success, OO&gt; {
@@ -858,7 +858,7 @@
 	{}
 }
 
-<span class="kw">pub struct </span>AsEnsureOriginWithArg&lt;EO&gt;(sp_std::marker::PhantomData&lt;EO&gt;);
+<span class="kw">pub struct </span>AsEnsureOriginWithArg&lt;EO&gt;(core::marker::PhantomData&lt;EO&gt;);
 <span class="kw">impl</span>&lt;OuterOrigin, Argument, EO: EnsureOrigin&lt;OuterOrigin&gt;&gt;
 	EnsureOriginWithArg&lt;OuterOrigin, Argument&gt; <span class="kw">for </span>AsEnsureOriginWithArg&lt;EO&gt;
 {
@@ -976,7 +976,7 @@
 /// Origin check will pass if `L` or `R` origin check passes. `L` is tested first.
 ///
 /// Successful origin is derived from the left side.
-</span><span class="kw">pub struct </span>EitherOfDiverse&lt;L, R&gt;(sp_std::marker::PhantomData&lt;(L, R)&gt;);
+</span><span class="kw">pub struct </span>EitherOfDiverse&lt;L, R&gt;(core::marker::PhantomData&lt;(L, R)&gt;);
 <span class="kw">impl</span>&lt;OuterOrigin, L: EnsureOrigin&lt;OuterOrigin&gt;, R: EnsureOrigin&lt;OuterOrigin&gt;&gt;
 	EnsureOrigin&lt;OuterOrigin&gt; <span class="kw">for </span>EitherOfDiverse&lt;L, R&gt;
 {
@@ -1025,7 +1025,7 @@
 /// Origin check will pass if `L` or `R` origin check passes. `L` is tested first.
 ///
 /// Successful origin is derived from the left side.
-</span><span class="kw">pub struct </span>EitherOf&lt;L, R&gt;(sp_std::marker::PhantomData&lt;(L, R)&gt;);
+</span><span class="kw">pub struct </span>EitherOf&lt;L, R&gt;(core::marker::PhantomData&lt;(L, R)&gt;);
 <span class="kw">impl</span>&lt;
 		OuterOrigin,
 		L: EnsureOrigin&lt;OuterOrigin&gt;,

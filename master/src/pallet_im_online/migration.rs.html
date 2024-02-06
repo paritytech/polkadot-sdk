@@ -217,7 +217,7 @@
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 	<span class="doccomment">/// Simple migration that replaces `ReceivedHeartbeats` values with `true`.
-	</span><span class="kw">pub struct </span>Migration&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+	</span><span class="kw">pub struct </span>Migration&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 
 	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>Migration&lt;T&gt; {
 		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]

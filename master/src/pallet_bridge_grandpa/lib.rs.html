@@ -1461,6 +1461,70 @@
 <a href="#1461" id="1461">1461</a>
 <a href="#1462" id="1462">1462</a>
 <a href="#1463" id="1463">1463</a>
+<a href="#1464" id="1464">1464</a>
+<a href="#1465" id="1465">1465</a>
+<a href="#1466" id="1466">1466</a>
+<a href="#1467" id="1467">1467</a>
+<a href="#1468" id="1468">1468</a>
+<a href="#1469" id="1469">1469</a>
+<a href="#1470" id="1470">1470</a>
+<a href="#1471" id="1471">1471</a>
+<a href="#1472" id="1472">1472</a>
+<a href="#1473" id="1473">1473</a>
+<a href="#1474" id="1474">1474</a>
+<a href="#1475" id="1475">1475</a>
+<a href="#1476" id="1476">1476</a>
+<a href="#1477" id="1477">1477</a>
+<a href="#1478" id="1478">1478</a>
+<a href="#1479" id="1479">1479</a>
+<a href="#1480" id="1480">1480</a>
+<a href="#1481" id="1481">1481</a>
+<a href="#1482" id="1482">1482</a>
+<a href="#1483" id="1483">1483</a>
+<a href="#1484" id="1484">1484</a>
+<a href="#1485" id="1485">1485</a>
+<a href="#1486" id="1486">1486</a>
+<a href="#1487" id="1487">1487</a>
+<a href="#1488" id="1488">1488</a>
+<a href="#1489" id="1489">1489</a>
+<a href="#1490" id="1490">1490</a>
+<a href="#1491" id="1491">1491</a>
+<a href="#1492" id="1492">1492</a>
+<a href="#1493" id="1493">1493</a>
+<a href="#1494" id="1494">1494</a>
+<a href="#1495" id="1495">1495</a>
+<a href="#1496" id="1496">1496</a>
+<a href="#1497" id="1497">1497</a>
+<a href="#1498" id="1498">1498</a>
+<a href="#1499" id="1499">1499</a>
+<a href="#1500" id="1500">1500</a>
+<a href="#1501" id="1501">1501</a>
+<a href="#1502" id="1502">1502</a>
+<a href="#1503" id="1503">1503</a>
+<a href="#1504" id="1504">1504</a>
+<a href="#1505" id="1505">1505</a>
+<a href="#1506" id="1506">1506</a>
+<a href="#1507" id="1507">1507</a>
+<a href="#1508" id="1508">1508</a>
+<a href="#1509" id="1509">1509</a>
+<a href="#1510" id="1510">1510</a>
+<a href="#1511" id="1511">1511</a>
+<a href="#1512" id="1512">1512</a>
+<a href="#1513" id="1513">1513</a>
+<a href="#1514" id="1514">1514</a>
+<a href="#1515" id="1515">1515</a>
+<a href="#1516" id="1516">1516</a>
+<a href="#1517" id="1517">1517</a>
+<a href="#1518" id="1518">1518</a>
+<a href="#1519" id="1519">1519</a>
+<a href="#1520" id="1520">1520</a>
+<a href="#1521" id="1521">1521</a>
+<a href="#1522" id="1522">1522</a>
+<a href="#1523" id="1523">1523</a>
+<a href="#1524" id="1524">1524</a>
+<a href="#1525" id="1525">1525</a>
+<a href="#1526" id="1526">1526</a>
+<a href="#1527" id="1527">1527</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -1614,102 +1678,31 @@
 
 	<span class="attr">#[pallet::call]
 	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
-		<span class="doccomment">/// Verify a target header is finalized according to the given finality proof.
-		///
-		/// It will use the underlying storage pallet to fetch information about the current
-		/// authorities and best finalized header in order to verify that the header is finalized.
-		///
-		/// If successful in verification, it will write the target header to the underlying storage
-		/// pallet.
-		///
-		/// The call fails if:
-		///
-		/// - the pallet is halted;
-		///
-		/// - the pallet knows better header than the `finality_target`;
-		///
-		/// - verification is not optimized or invalid;
-		///
-		/// - header contains forced authorities set change or change with non-zero delay.
+		<span class="doccomment">/// This call is deprecated and will be removed around May 2024. Use the
+		/// `submit_finality_proof_ex` instead. Semantically, this call is an equivalent of the
+		/// `submit_finality_proof_ex` call without current authority set id check.
 		</span><span class="attr">#[pallet::call_index(<span class="number">0</span>)]
 		#[pallet::weight(&lt;T::WeightInfo <span class="kw">as </span>WeightInfo&gt;::submit_finality_proof(
 			justification.commit.precommits.len().saturated_into(),
 			justification.votes_ancestries.len().saturated_into(),
 		))]
+		#[allow(deprecated)]
+		#[deprecated(
+			note = <span class="string">&quot;`submit_finality_proof` will be removed in May 2024. Use `submit_finality_proof_ex` instead.&quot;
+		</span>)]
 		</span><span class="kw">pub fn </span>submit_finality_proof(
 			origin: OriginFor&lt;T&gt;,
 			finality_target: Box&lt;BridgedHeader&lt;T, I&gt;&gt;,
 			justification: GrandpaJustification&lt;BridgedHeader&lt;T, I&gt;&gt;,
 		) -&gt; DispatchResultWithPostInfo {
-			<span class="self">Self</span>::ensure_not_halted().map_err(Error::&lt;T, I&gt;::BridgeModule)<span class="question-mark">?</span>;
-			ensure_signed(origin)<span class="question-mark">?</span>;
-
-			<span class="kw">let </span>(hash, number) = (finality_target.hash(), <span class="kw-2">*</span>finality_target.number());
-			<span class="macro">log::trace!</span>(
-				target: LOG_TARGET,
-				<span class="string">&quot;Going to try and finalize header {:?}&quot;</span>,
-				finality_target
-			);
-
-			SubmitFinalityProofHelper::&lt;T, I&gt;::check_obsolete(number)<span class="question-mark">?</span>;
-
-			<span class="kw">let </span>authority_set = &lt;CurrentAuthoritySet&lt;T, I&gt;&gt;::get();
-			<span class="kw">let </span>unused_proof_size = authority_set.unused_proof_size();
-			<span class="kw">let </span>set_id = authority_set.set_id;
-			<span class="kw">let </span>authority_set: AuthoritySet = authority_set.into();
-			verify_justification::&lt;T, I&gt;(<span class="kw-2">&amp;</span>justification, hash, number, authority_set)<span class="question-mark">?</span>;
-
-			<span class="kw">let </span>maybe_new_authority_set =
-				try_enact_authority_change::&lt;T, I&gt;(<span class="kw-2">&amp;</span>finality_target, set_id)<span class="question-mark">?</span>;
-			<span class="kw">let </span>may_refund_call_fee = maybe_new_authority_set.is_some() &amp;&amp;
-				<span class="comment">// if we have seen too many mandatory headers in this block, we don&#39;t want to refund
-				</span><span class="self">Self</span>::free_mandatory_headers_remaining() &gt; <span class="number">0 </span>&amp;&amp;
-				<span class="comment">// if arguments out of expected bounds, we don&#39;t want to refund
-				</span>submit_finality_proof_info_from_args::&lt;T, I&gt;(<span class="kw-2">&amp;</span>finality_target, <span class="kw-2">&amp;</span>justification)
-					.fits_limits();
-			<span class="kw">if </span>may_refund_call_fee {
-				FreeMandatoryHeadersRemaining::&lt;T, I&gt;::mutate(|count| {
-					<span class="kw-2">*</span>count = count.saturating_sub(<span class="number">1</span>)
-				});
-			}
-			insert_header::&lt;T, I&gt;(<span class="kw-2">*</span>finality_target, hash);
-			<span class="macro">log::info!</span>(
-				target: LOG_TARGET,
-				<span class="string">&quot;Successfully imported finalized header with hash {:?}!&quot;</span>,
-				hash
-			);
-
-			<span class="comment">// mandatory header is a header that changes authorities set. The pallet can&#39;t go
-			// further without importing this header. So every bridge MUST import mandatory headers.
-			//
-			// We don&#39;t want to charge extra costs for mandatory operations. So relayer is not
-			// paying fee for mandatory headers import transactions.
-			//
-			// If size/weight of the call is exceeds our estimated limits, the relayer still needs
-			// to pay for the transaction.
-			</span><span class="kw">let </span>pays_fee = <span class="kw">if </span>may_refund_call_fee { Pays::No } <span class="kw">else </span>{ Pays::Yes };
-
-			<span class="comment">// the proof size component of the call weight assumes that there are
-			// `MaxBridgedAuthorities` in the `CurrentAuthoritySet` (we use `MaxEncodedLen`
-			// estimation). But if their number is lower, then we may &quot;refund&quot; some `proof_size`,
-			// making proof smaller and leaving block space to other useful transactions
-			</span><span class="kw">let </span>pre_dispatch_weight = T::WeightInfo::submit_finality_proof(
-				justification.commit.precommits.len().saturated_into(),
-				justification.votes_ancestries.len().saturated_into(),
-			);
-			<span class="kw">let </span>actual_weight = pre_dispatch_weight
-				.set_proof_size(pre_dispatch_weight.proof_size().saturating_sub(unused_proof_size));
-
-			<span class="self">Self</span>::deposit_event(Event::UpdatedBestFinalizedHeader {
-				number,
-				hash,
-				grandpa_info: StoredHeaderGrandpaInfo {
-					finality_proof: justification,
-					new_verification_context: maybe_new_authority_set,
-				},
-			});
-
-			<span class="prelude-val">Ok</span>(PostDispatchInfo { actual_weight: <span class="prelude-val">Some</span>(actual_weight), pays_fee })
+			<span class="self">Self</span>::submit_finality_proof_ex(
+				origin,
+				finality_target,
+				justification,
+				<span class="comment">// the `submit_finality_proof_ex` also reads this value, but it is done from the
+				// cache, so we don&#39;t treat it as an additional db access
+				</span>&lt;CurrentAuthoritySet&lt;T, I&gt;&gt;::get().set_id,
+			)
 		}
 
 		<span class="doccomment">/// Bootstrap the bridge pallet with an initial header and authority set from which to sync.
@@ -1761,6 +1754,111 @@
 			operating_mode: BasicOperatingMode,
 		) -&gt; DispatchResult {
 			&lt;<span class="self">Self </span><span class="kw">as </span>OwnedBridgeModule&lt;<span class="kw">_</span>&gt;&gt;::set_operating_mode(origin, operating_mode)
+		}
+
+		<span class="doccomment">/// Verify a target header is finalized according to the given finality proof. The proof
+		/// is assumed to be signed by GRANDPA authorities set with `current_set_id` id.
+		///
+		/// It will use the underlying storage pallet to fetch information about the current
+		/// authorities and best finalized header in order to verify that the header is finalized.
+		///
+		/// If successful in verification, it will write the target header to the underlying storage
+		/// pallet.
+		///
+		/// The call fails if:
+		///
+		/// - the pallet is halted;
+		///
+		/// - the pallet knows better header than the `finality_target`;
+		///
+		/// - the id of best GRANDPA authority set, known to the pallet is not equal to the
+		///   `current_set_id`;
+		///
+		/// - verification is not optimized or invalid;
+		///
+		/// - header contains forced authorities set change or change with non-zero delay.
+		</span><span class="attr">#[pallet::call_index(<span class="number">4</span>)]
+		#[pallet::weight(&lt;T::WeightInfo <span class="kw">as </span>WeightInfo&gt;::submit_finality_proof(
+			justification.commit.precommits.len().saturated_into(),
+			justification.votes_ancestries.len().saturated_into(),
+		))]
+		</span><span class="kw">pub fn </span>submit_finality_proof_ex(
+			origin: OriginFor&lt;T&gt;,
+			finality_target: Box&lt;BridgedHeader&lt;T, I&gt;&gt;,
+			justification: GrandpaJustification&lt;BridgedHeader&lt;T, I&gt;&gt;,
+			current_set_id: sp_consensus_grandpa::SetId,
+		) -&gt; DispatchResultWithPostInfo {
+			<span class="self">Self</span>::ensure_not_halted().map_err(Error::&lt;T, I&gt;::BridgeModule)<span class="question-mark">?</span>;
+			ensure_signed(origin)<span class="question-mark">?</span>;
+
+			<span class="kw">let </span>(hash, number) = (finality_target.hash(), <span class="kw-2">*</span>finality_target.number());
+			<span class="macro">log::trace!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;Going to try and finalize header {:?}&quot;</span>,
+				finality_target
+			);
+
+			<span class="comment">// it checks whether the `number` is better than the current best block number
+			// and whether the `current_set_id` matches the best known set id
+			</span>SubmitFinalityProofHelper::&lt;T, I&gt;::check_obsolete(number, <span class="prelude-val">Some</span>(current_set_id))<span class="question-mark">?</span>;
+
+			<span class="kw">let </span>authority_set = &lt;CurrentAuthoritySet&lt;T, I&gt;&gt;::get();
+			<span class="kw">let </span>unused_proof_size = authority_set.unused_proof_size();
+			<span class="kw">let </span>set_id = authority_set.set_id;
+			<span class="kw">let </span>authority_set: AuthoritySet = authority_set.into();
+			verify_justification::&lt;T, I&gt;(<span class="kw-2">&amp;</span>justification, hash, number, authority_set)<span class="question-mark">?</span>;
+
+			<span class="kw">let </span>maybe_new_authority_set =
+				try_enact_authority_change::&lt;T, I&gt;(<span class="kw-2">&amp;</span>finality_target, set_id)<span class="question-mark">?</span>;
+			<span class="kw">let </span>may_refund_call_fee = maybe_new_authority_set.is_some() &amp;&amp;
+				<span class="comment">// if we have seen too many mandatory headers in this block, we don&#39;t want to refund
+				</span><span class="self">Self</span>::free_mandatory_headers_remaining() &gt; <span class="number">0 </span>&amp;&amp;
+				<span class="comment">// if arguments out of expected bounds, we don&#39;t want to refund
+				</span>submit_finality_proof_info_from_args::&lt;T, I&gt;(<span class="kw-2">&amp;</span>finality_target, <span class="kw-2">&amp;</span>justification, <span class="prelude-val">Some</span>(current_set_id))
+					.fits_limits();
+			<span class="kw">if </span>may_refund_call_fee {
+				FreeMandatoryHeadersRemaining::&lt;T, I&gt;::mutate(|count| {
+					<span class="kw-2">*</span>count = count.saturating_sub(<span class="number">1</span>)
+				});
+			}
+			insert_header::&lt;T, I&gt;(<span class="kw-2">*</span>finality_target, hash);
+			<span class="macro">log::info!</span>(
+				target: LOG_TARGET,
+				<span class="string">&quot;Successfully imported finalized header with hash {:?}!&quot;</span>,
+				hash
+			);
+
+			<span class="comment">// mandatory header is a header that changes authorities set. The pallet can&#39;t go
+			// further without importing this header. So every bridge MUST import mandatory headers.
+			//
+			// We don&#39;t want to charge extra costs for mandatory operations. So relayer is not
+			// paying fee for mandatory headers import transactions.
+			//
+			// If size/weight of the call is exceeds our estimated limits, the relayer still needs
+			// to pay for the transaction.
+			</span><span class="kw">let </span>pays_fee = <span class="kw">if </span>may_refund_call_fee { Pays::No } <span class="kw">else </span>{ Pays::Yes };
+
+			<span class="comment">// the proof size component of the call weight assumes that there are
+			// `MaxBridgedAuthorities` in the `CurrentAuthoritySet` (we use `MaxEncodedLen`
+			// estimation). But if their number is lower, then we may &quot;refund&quot; some `proof_size`,
+			// making proof smaller and leaving block space to other useful transactions
+			</span><span class="kw">let </span>pre_dispatch_weight = T::WeightInfo::submit_finality_proof(
+				justification.commit.precommits.len().saturated_into(),
+				justification.votes_ancestries.len().saturated_into(),
+			);
+			<span class="kw">let </span>actual_weight = pre_dispatch_weight
+				.set_proof_size(pre_dispatch_weight.proof_size().saturating_sub(unused_proof_size));
+
+			<span class="self">Self</span>::deposit_event(Event::UpdatedBestFinalizedHeader {
+				number,
+				hash,
+				grandpa_info: StoredHeaderGrandpaInfo {
+					finality_proof: justification,
+					new_verification_context: maybe_new_authority_set,
+				},
+			});
+
+			<span class="prelude-val">Ok</span>(PostDispatchInfo { actual_weight: <span class="prelude-val">Some</span>(actual_weight), pays_fee })
 		}
 	}
 
@@ -1899,6 +1997,9 @@
 		</span>TooManyAuthoritiesInSet,
 		<span class="doccomment">/// Error generated by the `OwnedBridgeModule` trait.
 		</span>BridgeModule(bp_runtime::OwnedBridgeModuleError),
+		<span class="doccomment">/// The `current_set_id` argument of the `submit_finality_proof_ex` doesn&#39;t match
+		/// the id of the current set, known to the pallet.
+		</span>InvalidAuthoritySetId,
 	}
 
 	<span class="doccomment">/// Check the given header for a GRANDPA scheduled authority set change. If a change
@@ -2126,6 +2227,7 @@
 	<span class="kw">use </span>bp_test_utils::{
 		authority_list, generate_owned_bridge_module_tests, make_default_justification,
 		make_justification_for_header, JustificationGeneratorParams, ALICE, BOB,
+		TEST_GRANDPA_SET_ID,
 	};
 	<span class="kw">use </span>codec::Encode;
 	<span class="kw">use </span>frame_support::{
@@ -2156,7 +2258,7 @@
 		<span class="kw">let </span>init_data = InitializationData {
 			header: Box::new(genesis),
 			authority_list: authority_list(),
-			set_id: <span class="number">1</span>,
+			set_id: TEST_GRANDPA_SET_ID,
 			operating_mode: BasicOperatingMode::Normal,
 		};
 
@@ -2167,10 +2269,11 @@
 		<span class="kw">let </span>header = test_header(header.into());
 		<span class="kw">let </span>justification = make_default_justification(<span class="kw-2">&amp;</span>header);
 
-		Pallet::&lt;TestRuntime&gt;::submit_finality_proof(
+		Pallet::&lt;TestRuntime&gt;::submit_finality_proof_ex(
 			RuntimeOrigin::signed(<span class="number">1</span>),
 			Box::new(header),
 			justification,
+			TEST_GRANDPA_SET_ID,
 		)
 	}
 
@@ -2185,10 +2288,11 @@
 			..Default::default()
 		});
 
-		Pallet::&lt;TestRuntime&gt;::submit_finality_proof(
+		Pallet::&lt;TestRuntime&gt;::submit_finality_proof_ex(
 			RuntimeOrigin::signed(<span class="number">1</span>),
 			Box::new(header),
 			justification,
+			set_id,
 		)
 	}
 
@@ -2212,10 +2316,11 @@
 			..Default::default()
 		});
 
-		Pallet::&lt;TestRuntime&gt;::submit_finality_proof(
+		Pallet::&lt;TestRuntime&gt;::submit_finality_proof_ex(
 			RuntimeOrigin::signed(<span class="number">1</span>),
 			Box::new(header),
 			justification,
+			set_id,
 		)
 	}
 
@@ -2418,17 +2523,30 @@
 
 			<span class="kw">let </span>header = test_header(<span class="number">1</span>);
 
-			<span class="kw">let </span>params =
-				JustificationGeneratorParams::&lt;TestHeader&gt; { set_id: <span class="number">2</span>, ..Default::default() };
+			<span class="kw">let </span>next_set_id = <span class="number">2</span>;
+			<span class="kw">let </span>params = JustificationGeneratorParams::&lt;TestHeader&gt; {
+				set_id: next_set_id,
+				..Default::default()
+			};
 			<span class="kw">let </span>justification = make_justification_for_header(params);
 
 			<span class="macro">assert_err!</span>(
-				Pallet::&lt;TestRuntime&gt;::submit_finality_proof(
+				Pallet::&lt;TestRuntime&gt;::submit_finality_proof_ex(
+					RuntimeOrigin::signed(<span class="number">1</span>),
+					Box::new(header.clone()),
+					justification.clone(),
+					TEST_GRANDPA_SET_ID,
+				),
+				&lt;Error&lt;TestRuntime&gt;&gt;::InvalidJustification
+			);
+			<span class="macro">assert_err!</span>(
+				Pallet::&lt;TestRuntime&gt;::submit_finality_proof_ex(
 					RuntimeOrigin::signed(<span class="number">1</span>),
 					Box::new(header),
 					justification,
+					next_set_id,
 				),
-				&lt;Error&lt;TestRuntime&gt;&gt;::InvalidJustification
+				&lt;Error&lt;TestRuntime&gt;&gt;::InvalidAuthoritySetId
 			);
 		})
 	}
@@ -2443,10 +2561,11 @@
 			justification.round = <span class="number">42</span>;
 
 			<span class="macro">assert_err!</span>(
-				Pallet::&lt;TestRuntime&gt;::submit_finality_proof(
+				Pallet::&lt;TestRuntime&gt;::submit_finality_proof_ex(
 					RuntimeOrigin::signed(<span class="number">1</span>),
 					Box::new(header),
 					justification,
+					TEST_GRANDPA_SET_ID,
 				),
 				&lt;Error&lt;TestRuntime&gt;&gt;::InvalidJustification
 			);
@@ -2472,10 +2591,11 @@
 			<span class="kw">let </span>justification = make_default_justification(<span class="kw-2">&amp;</span>header);
 
 			<span class="macro">assert_err!</span>(
-				Pallet::&lt;TestRuntime&gt;::submit_finality_proof(
+				Pallet::&lt;TestRuntime&gt;::submit_finality_proof_ex(
 					RuntimeOrigin::signed(<span class="number">1</span>),
 					Box::new(header),
 					justification,
+					TEST_GRANDPA_SET_ID,
 				),
 				&lt;Error&lt;TestRuntime&gt;&gt;::InvalidAuthoritySet
 			);
@@ -2510,10 +2630,11 @@
 			</span><span class="kw">let </span>justification = make_default_justification(<span class="kw-2">&amp;</span>header);
 
 			<span class="comment">// Let&#39;s import our test header
-			</span><span class="kw">let </span>result = Pallet::&lt;TestRuntime&gt;::submit_finality_proof(
+			</span><span class="kw">let </span>result = Pallet::&lt;TestRuntime&gt;::submit_finality_proof_ex(
 				RuntimeOrigin::signed(<span class="number">1</span>),
 				Box::new(header.clone()),
 				justification.clone(),
+				TEST_GRANDPA_SET_ID,
 			);
 			<span class="macro">assert_ok!</span>(result);
 			<span class="macro">assert_eq!</span>(result.unwrap().pays_fee, frame_support::dispatch::Pays::No);
@@ -2572,10 +2693,11 @@
 
 			<span class="comment">// without large digest item ^^^ the relayer would have paid zero transaction fee
 			// (`Pays::No`)
-			</span><span class="kw">let </span>result = Pallet::&lt;TestRuntime&gt;::submit_finality_proof(
+			</span><span class="kw">let </span>result = Pallet::&lt;TestRuntime&gt;::submit_finality_proof_ex(
 				RuntimeOrigin::signed(<span class="number">1</span>),
 				Box::new(header.clone()),
 				justification,
+				TEST_GRANDPA_SET_ID,
 			);
 			<span class="macro">assert_ok!</span>(result);
 			<span class="macro">assert_eq!</span>(result.unwrap().pays_fee, frame_support::dispatch::Pays::Yes);
@@ -2603,10 +2725,11 @@
 
 			<span class="comment">// without many headers in votes ancestries ^^^ the relayer would have paid zero
 			// transaction fee (`Pays::No`)
-			</span><span class="kw">let </span>result = Pallet::&lt;TestRuntime&gt;::submit_finality_proof(
+			</span><span class="kw">let </span>result = Pallet::&lt;TestRuntime&gt;::submit_finality_proof_ex(
 				RuntimeOrigin::signed(<span class="number">1</span>),
 				Box::new(header.clone()),
 				justification,
+				TEST_GRANDPA_SET_ID,
 			);
 			<span class="macro">assert_ok!</span>(result);
 			<span class="macro">assert_eq!</span>(result.unwrap().pays_fee, frame_support::dispatch::Pays::Yes);
@@ -2632,10 +2755,11 @@
 
 			<span class="comment">// Should not be allowed to import this header
 			</span><span class="macro">assert_err!</span>(
-				Pallet::&lt;TestRuntime&gt;::submit_finality_proof(
+				Pallet::&lt;TestRuntime&gt;::submit_finality_proof_ex(
 					RuntimeOrigin::signed(<span class="number">1</span>),
 					Box::new(header),
-					justification
+					justification,
+					TEST_GRANDPA_SET_ID,
 				),
 				&lt;Error&lt;TestRuntime&gt;&gt;::UnsupportedScheduledChange
 			);
@@ -2657,10 +2781,11 @@
 
 			<span class="comment">// Should not be allowed to import this header
 			</span><span class="macro">assert_err!</span>(
-				Pallet::&lt;TestRuntime&gt;::submit_finality_proof(
+				Pallet::&lt;TestRuntime&gt;::submit_finality_proof_ex(
 					RuntimeOrigin::signed(<span class="number">1</span>),
 					Box::new(header),
-					justification
+					justification,
+					TEST_GRANDPA_SET_ID,
 				),
 				&lt;Error&lt;TestRuntime&gt;&gt;::UnsupportedScheduledChange
 			);
@@ -2682,10 +2807,11 @@
 
 			<span class="comment">// Should not be allowed to import this header
 			</span><span class="macro">assert_err!</span>(
-				Pallet::&lt;TestRuntime&gt;::submit_finality_proof(
+				Pallet::&lt;TestRuntime&gt;::submit_finality_proof_ex(
 					RuntimeOrigin::signed(<span class="number">1</span>),
 					Box::new(header),
-					justification
+					justification,
+					TEST_GRANDPA_SET_ID,
 				),
 				&lt;Error&lt;TestRuntime&gt;&gt;::TooManyAuthoritiesInSet
 			);
@@ -2746,10 +2872,11 @@
 				<span class="kw">let </span><span class="kw-2">mut </span>invalid_justification = make_default_justification(<span class="kw-2">&amp;</span>header);
 				invalid_justification.round = <span class="number">42</span>;
 
-				Pallet::&lt;TestRuntime&gt;::submit_finality_proof(
+				Pallet::&lt;TestRuntime&gt;::submit_finality_proof_ex(
 					RuntimeOrigin::signed(<span class="number">1</span>),
 					Box::new(header),
 					invalid_justification,
+					TEST_GRANDPA_SET_ID,
 				)
 			};
 
@@ -2914,10 +3041,11 @@
 			<span class="kw">let </span>justification = make_default_justification(<span class="kw-2">&amp;</span>header);
 
 			<span class="macro">assert_noop!</span>(
-				Pallet::&lt;TestRuntime&gt;::submit_finality_proof(
+				Pallet::&lt;TestRuntime&gt;::submit_finality_proof_ex(
 					RuntimeOrigin::root(),
 					Box::new(header),
 					justification,
+					TEST_GRANDPA_SET_ID,
 				),
 				DispatchError::BadOrigin,
 			);

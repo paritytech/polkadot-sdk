@@ -1646,6 +1646,8 @@
 <a href="#1646" id="1646">1646</a>
 <a href="#1647" id="1647">1647</a>
 <a href="#1648" id="1648">1648</a>
+<a href="#1649" id="1649">1649</a>
+<a href="#1650" id="1650">1650</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Parity Bridges Common.
 
@@ -2379,6 +2381,7 @@
 	};
 	<span class="kw">use </span>bp_test_utils::{
 		authority_list, generate_owned_bridge_module_tests, make_default_justification,
+		TEST_GRANDPA_SET_ID,
 	};
 	<span class="kw">use </span>frame_support::{
 		assert_noop, assert_ok,
@@ -2425,10 +2428,11 @@
 		<span class="kw">let </span>hash = header.hash();
 		<span class="kw">let </span>justification = make_default_justification(<span class="kw-2">&amp;</span>header);
 		<span class="macro">assert_ok!</span>(
-			pallet_bridge_grandpa::Pallet::&lt;TestRuntime, BridgesGrandpaPalletInstance&gt;::submit_finality_proof(
+			pallet_bridge_grandpa::Pallet::&lt;TestRuntime, BridgesGrandpaPalletInstance&gt;::submit_finality_proof_ex(
 				RuntimeOrigin::signed(<span class="number">1</span>),
 				Box::new(header),
 				justification.clone(),
+				TEST_GRANDPA_SET_ID,
 			)
 		);
 

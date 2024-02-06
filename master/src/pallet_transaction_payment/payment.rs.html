@@ -174,11 +174,11 @@
 </span><span class="doccomment">/// ! Traits and default implementation for paying transaction fees.
 </span><span class="kw">use </span><span class="kw">crate</span>::Config;
 
+<span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>sp_runtime::{
 	traits::{DispatchInfoOf, PostDispatchInfoOf, Saturating, Zero},
 	transaction_validity::InvalidTransaction,
 };
-<span class="kw">use </span>sp_std::marker::PhantomData;
 
 <span class="kw">use </span>frame_support::{
 	traits::{Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReasons},

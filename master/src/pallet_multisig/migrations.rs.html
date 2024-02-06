@@ -126,7 +126,7 @@
 		(OpaqueCall&lt;T&gt;, &lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId, BalanceOf&lt;T&gt;),
 	&gt;;
 
-	<span class="kw">pub struct </span>MigrateToV1&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+	<span class="kw">pub struct </span>MigrateToV1&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToV1&lt;T&gt; {
 		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {

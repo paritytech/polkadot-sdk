@@ -103,7 +103,7 @@
 /// This migration should be added with a runtime upgrade that introduces the
 /// `MaxSetIdSessionEntries` constant to the pallet (although it could also be
 /// done later on).
-</span><span class="kw">pub struct </span>CleanupSetIdSessionMap&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+</span><span class="kw">pub struct </span>CleanupSetIdSessionMap&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>CleanupSetIdSessionMap&lt;T&gt; {
 	<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 		<span class="comment">// NOTE: since this migration will loop over all stale entries in the

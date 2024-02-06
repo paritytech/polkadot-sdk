@@ -288,7 +288,7 @@
 				<span class="kw-2">&amp;</span>[<span class="number">0u8</span>; <span class="number">0</span>]
 			} <span class="kw">else </span>{
 				<span class="kw">unsafe </span>{
-					<span class="macro-nonterminal">$crate::sp_std::slice::from_raw_parts</span>(input_data, input_len)
+					::core::slice::from_raw_parts(input_data, input_len)
 				}
 			};
 
@@ -316,7 +316,7 @@
 				<span class="kw-2">&amp;</span>[<span class="number">0u8</span>; <span class="number">0</span>]
 			} <span class="kw">else </span>{
 				<span class="kw">unsafe </span>{
-					<span class="macro-nonterminal">$crate::sp_std::slice::from_raw_parts</span>(input_data, input_len)
+					::core::slice::from_raw_parts(input_data, input_len)
 				}
 			};
 

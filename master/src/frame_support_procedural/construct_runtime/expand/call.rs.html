@@ -401,7 +401,7 @@
 			<span class="kw">type </span>PostInfo = #scrate::dispatch::PostDispatchInfo;
 			<span class="kw">fn </span>dispatch(<span class="self">self</span>, origin: RuntimeOrigin) -&gt; #scrate::dispatch::DispatchResultWithPostInfo {
 				<span class="kw">if </span>!&lt;<span class="self">Self</span>::RuntimeOrigin <span class="kw">as </span>#scrate::traits::OriginTrait&gt;::filter_call(<span class="kw-2">&amp;</span>origin, <span class="kw-2">&amp;</span><span class="self">self</span>) {
-					<span class="kw">return </span>#scrate::__private::sp_std::result::Result::Err(
+					<span class="kw">return </span>::core::result::Result::Err(
 						#system_path::Error::&lt;#runtime&gt;::CallFiltered.into()
 					);
 				}

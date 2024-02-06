@@ -150,8 +150,8 @@
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
+<span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>scale_info::TypeInfo;
-<span class="kw">use </span>sp_std::marker::PhantomData;
 
 <span class="doccomment">/// Represents a swap path with associated asset amounts indicating how much of the asset needs to
 /// be deposited to get the following asset&#39;s amount withdrawn (this is inclusive of fees).

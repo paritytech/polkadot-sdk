@@ -266,6 +266,8 @@
 <a href="#266" id="266">266</a>
 <a href="#267" id="267">267</a>
 <a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) 2022 Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -308,7 +310,7 @@
 	EnsureAmbassadorsVoice, EnsureAmbassadorsVoiceFrom, EnsureHeadAmbassadorsVoice, Origin,
 };
 <span class="kw">use </span>sp_core::ConstU128;
-<span class="kw">use </span>sp_runtime::traits::{CheckedReduceBy, ConstU16, ConvertToValue, Replace};
+<span class="kw">use </span>sp_runtime::traits::{CheckedReduceBy, ConstU16, ConvertToValue, Replace, ReplaceWithDefault};
 <span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
 
@@ -376,8 +378,10 @@
 <span class="kw">impl </span>pallet_ranked_collective::Config&lt;AmbassadorCollectiveInstance&gt; <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>WeightInfo = weights::pallet_ranked_collective_ambassador_collective::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+	<span class="kw">type </span>AddOrigin = MapSuccess&lt;<span class="self">Self</span>::PromoteOrigin, ReplaceWithDefault&lt;()&gt;&gt;;
 	<span class="kw">type </span>PromoteOrigin = PromoteOrigin;
 	<span class="kw">type </span>DemoteOrigin = DemoteOrigin;
+	<span class="kw">type </span>RemoveOrigin = <span class="self">Self</span>::DemoteOrigin;
 	<span class="kw">type </span>ExchangeOrigin = ExchangeOrigin;
 	<span class="kw">type </span>Polls = AmbassadorReferenda;
 	<span class="kw">type </span>MinRankOfClass = sp_runtime::traits::Identity;

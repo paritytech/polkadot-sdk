@@ -305,7 +305,7 @@
 
 	<span class="doccomment">/// Apply the given transaction to this backend and set the root to the given value.
 	</span><span class="kw">pub fn </span>apply_transaction(<span class="kw-2">&amp;mut </span><span class="self">self</span>, root: H::Out, transaction: PrefixedMemoryDB&lt;H&gt;) {
-		<span class="kw">let </span><span class="kw-2">mut </span>storage = sp_std::mem::take(<span class="self">self</span>).into_storage();
+		<span class="kw">let </span><span class="kw-2">mut </span>storage = core::mem::take(<span class="self">self</span>).into_storage();
 
 		storage.consolidate(transaction);
 		<span class="kw-2">*</span><span class="self">self </span>= TrieBackendBuilder::new(storage, root).build();

@@ -692,6 +692,7 @@
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span>codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
+<span class="kw">use </span>core::fmt::Debug;
 <span class="kw">use </span>frame_support::{
 	traits::{schedule::v3::Anon, Bounded},
 	Parameter,
@@ -699,7 +700,6 @@
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_arithmetic::{Rounding::<span class="kw-2">*</span>, SignedRounding::<span class="kw-2">*</span>};
 <span class="kw">use </span>sp_runtime::{FixedI64, PerThing, RuntimeDebug};
-<span class="kw">use </span>sp_std::fmt::Debug;
 
 <span class="kw">pub type </span>BalanceOf&lt;T, I = ()&gt; =
 	&lt;&lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::Currency <span class="kw">as </span>Currency&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance;

@@ -200,7 +200,7 @@
 /// be the default value), or where the account is being removed or reset back to the default value
 /// where previously it did exist (though may have been in a default state). This works well with
 /// system module&#39;s `CallOnCreatedAccount` and `CallKillAccount`.
-</span><span class="kw">pub struct </span>StorageMapShim&lt;S, K, T&gt;(sp_std::marker::PhantomData&lt;(S, K, T)&gt;);
+</span><span class="kw">pub struct </span>StorageMapShim&lt;S, K, T&gt;(core::marker::PhantomData&lt;(S, K, T)&gt;);
 <span class="kw">impl</span>&lt;S: StorageMap&lt;K, T, Query = T&gt;, K: FullCodec, T: FullCodec + Default&gt; StoredMap&lt;K, T&gt;
 	<span class="kw">for </span>StorageMapShim&lt;S, K, T&gt;
 {

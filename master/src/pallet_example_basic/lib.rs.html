@@ -540,6 +540,7 @@
 <a href="#540" id="540">540</a>
 <a href="#541" id="541">541</a>
 <a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -596,6 +597,7 @@
 </span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 
 </span><span class="kw">use </span>codec::{Decode, Encode};
+<span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>frame_support::{
 	dispatch::{ClassifyDispatch, DispatchClass, DispatchResult, Pays, PaysFee, WeighData},
 	traits::IsSubType,
@@ -610,7 +612,7 @@
 		InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
 	},
 };
-<span class="kw">use </span>sp_std::{marker::PhantomData, prelude::<span class="kw-2">*</span>};
+<span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="comment">// Re-export pallet items so that they can be accessed from the crate namespace.
 </span><span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
@@ -1027,8 +1029,8 @@
 #[scale_info(skip_type_params(T))]
 </span><span class="kw">pub struct </span>WatchDummy&lt;T: Config + Send + Sync&gt;(PhantomData&lt;T&gt;);
 
-<span class="kw">impl</span>&lt;T: Config + Send + Sync&gt; sp_std::fmt::Debug <span class="kw">for </span>WatchDummy&lt;T&gt; {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
+<span class="kw">impl</span>&lt;T: Config + Send + Sync&gt; core::fmt::Debug <span class="kw">for </span>WatchDummy&lt;T&gt; {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
 		<span class="macro">write!</span>(f, <span class="string">&quot;WatchDummy&quot;</span>)
 	}
 }
@@ -1043,7 +1045,7 @@
 	<span class="kw">type </span>AdditionalSigned = ();
 	<span class="kw">type </span>Pre = ();
 
-	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sp_std::result::Result&lt;(), TransactionValidityError&gt; {
+	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; core::result::Result&lt;(), TransactionValidityError&gt; {
 		<span class="prelude-val">Ok</span>(())
 	}
 

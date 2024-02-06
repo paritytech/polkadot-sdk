@@ -343,7 +343,7 @@
 </span><span class="kw">pub struct </span>StaticTracker&lt;DataProvider&gt; {
 	<span class="kw">pub </span>size: usize,
 	<span class="kw">pub </span>counter: usize,
-	_marker: sp_std::marker::PhantomData&lt;DataProvider&gt;,
+	_marker: core::marker::PhantomData&lt;DataProvider&gt;,
 }
 
 <span class="kw">impl</span>&lt;DataProvider&gt; Default <span class="kw">for </span>StaticTracker&lt;DataProvider&gt; {

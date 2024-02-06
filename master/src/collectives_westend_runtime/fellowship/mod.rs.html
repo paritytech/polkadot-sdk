@@ -347,6 +347,12 @@
 <a href="#347" id="347">347</a>
 <a href="#348" id="348">348</a>
 <a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -462,12 +468,17 @@
 	<span class="kw">type </span>WeightInfo = weights::pallet_ranked_collective_fellowship_collective::WeightInfo&lt;Runtime&gt;;
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 
-	<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
-	</span><span class="comment">// Promotions and the induction of new members are serviced by `FellowshipCore` pallet instance.
+	<span class="comment">// Promotions and the induction of new members are serviced by `FellowshipCore` pallet instance.
+	</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+	</span><span class="kw">type </span>AddOrigin = frame_system::EnsureNever&lt;()&gt;;
+	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="kw">type </span>AddOrigin = frame_system::EnsureRoot&lt;<span class="self">Self</span>::AccountId&gt;;
+
+	<span class="comment">// The maximum value of `u16` set as a success value for the root to ensure the benchmarks will
+	// pass.
+	</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
 	</span><span class="kw">type </span>PromoteOrigin = frame_system::EnsureNever&lt;pallet_ranked_collective::Rank&gt;;
 	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-	</span><span class="comment">// The maximum value of `u16` set as a success value for the root to ensure the benchmarks will
-	// pass.
 	</span><span class="kw">type </span>PromoteOrigin = EnsureRootWithSuccess&lt;<span class="self">Self</span>::AccountId, ConstU16&lt;<span class="number">65535</span>&gt;&gt;;
 
 	<span class="comment">// Demotion is by any of:
@@ -476,7 +487,8 @@
 	//
 	// The maximum value of `u16` set as a success value for the root to ensure the benchmarks will
 	// pass.
-	</span><span class="kw">type </span>DemoteOrigin = EitherOf&lt;
+	</span><span class="kw">type </span>RemoveOrigin = <span class="self">Self</span>::DemoteOrigin;
+	<span class="kw">type </span>DemoteOrigin = EitherOf&lt;
 		EnsureRootWithSuccess&lt;<span class="self">Self</span>::AccountId, ConstU16&lt;<span class="number">65535</span>&gt;&gt;,
 		MapSuccess&lt;
 			EnsureXcm&lt;IsVoiceOfBody&lt;GovernanceLocation, FellowshipAdminBodyId&gt;&gt;,

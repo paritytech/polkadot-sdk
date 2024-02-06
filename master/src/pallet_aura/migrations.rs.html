@@ -64,7 +64,7 @@
 
 </span><span class="kw">use </span>frame_support::{pallet_prelude::<span class="kw-2">*</span>, traits::Get, weights::Weight};
 
-<span class="kw">struct </span>__LastTimestamp&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+<span class="kw">struct </span>__LastTimestamp&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;T: RemoveLastTimestamp&gt; frame_support::traits::StorageInstance <span class="kw">for </span>__LastTimestamp&lt;T&gt; {
 	<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
 		T::PalletPrefix::get()

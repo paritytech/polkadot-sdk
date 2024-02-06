@@ -644,7 +644,7 @@
 		StorageMap&lt;Pallet&lt;T&gt;, Twox64Concat, Vec&lt;u8&gt;, TaskAddress&lt;BlockNumberFor&lt;T&gt;&gt;&gt;;
 
 	<span class="doccomment">/// Migrate the scheduler pallet from V3 to V4.
-	</span><span class="kw">pub struct </span>MigrateToV4&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+	</span><span class="kw">pub struct </span>MigrateToV4&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 
 	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToV4&lt;T&gt; {
 		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
@@ -757,7 +757,7 @@
 	///
 	/// This should be run on a scheduler that does not have
 	/// &lt;https://github.com/paritytech/substrate/pull/12989&gt; since it piles up `None`-only agendas. This does not modify the pallet version.
-	</span><span class="kw">pub struct </span>CleanupAgendas&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
+	</span><span class="kw">pub struct </span>CleanupAgendas&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 
 	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>CleanupAgendas&lt;T&gt; {
 		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]

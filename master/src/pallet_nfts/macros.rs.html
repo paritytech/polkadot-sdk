@@ -108,7 +108,7 @@
 		<span class="kw">impl </span>Decode <span class="kw">for </span><span class="macro-nonterminal">$wrapper </span>{
 			<span class="kw">fn </span>decode&lt;I: codec::Input&gt;(
 				input: <span class="kw-2">&amp;mut </span>I,
-			) -&gt; sp_std::result::Result&lt;<span class="self">Self</span>, codec::Error&gt; {
+			) -&gt; ::core::result::Result&lt;<span class="self">Self</span>, codec::Error&gt; {
 				<span class="kw">let </span>field = &lt;<span class="macro-nonterminal">$size</span>&gt;::decode(input)<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>(<span class="self">Self</span>(BitFlags::from_bits(field <span class="kw">as </span><span class="macro-nonterminal">$size</span>).map_err(|<span class="kw">_</span>| <span class="string">&quot;invalid value&quot;</span>)<span class="question-mark">?</span>))
 			}

@@ -136,7 +136,7 @@
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; sp_std::ops::Deref <span class="kw">for </span>ExtraMutator&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; core::ops::Deref <span class="kw">for </span>ExtraMutator&lt;T, I&gt; {
 	<span class="kw">type </span>Target = T::Extra;
 	<span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>T::Extra {
 		<span class="kw">match </span><span class="self">self</span>.pending {
@@ -146,7 +146,7 @@
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; sp_std::ops::DerefMut <span class="kw">for </span>ExtraMutator&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; core::ops::DerefMut <span class="kw">for </span>ExtraMutator&lt;T, I&gt; {
 	<span class="kw">fn </span>deref_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>T::Extra {
 		<span class="kw">if </span><span class="self">self</span>.pending.is_none() {
 			<span class="self">self</span>.pending = <span class="prelude-val">Some</span>(<span class="self">self</span>.original.clone());
@@ -158,7 +158,7 @@
 <span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; ExtraMutator&lt;T, I&gt; {
 	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>maybe_new(
 		id: T::AssetId,
-		who: <span class="kw">impl </span>sp_std::borrow::Borrow&lt;T::AccountId&gt;,
+		who: <span class="kw">impl </span>core::borrow::Borrow&lt;T::AccountId&gt;,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;ExtraMutator&lt;T, I&gt;&gt; {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(a) = Account::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>id, who.borrow()) {
 			<span class="prelude-val">Some</span>(ExtraMutator::&lt;T, I&gt; {

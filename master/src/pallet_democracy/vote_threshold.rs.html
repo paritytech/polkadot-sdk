@@ -140,11 +140,11 @@
 
 </span><span class="kw">use </span><span class="kw">crate</span>::Tally;
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
+<span class="kw">use </span>core::ops::{Add, Div, Mul, Rem};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>sp_runtime::traits::{IntegerSquareRoot, Zero};
-<span class="kw">use </span>sp_std::ops::{Add, Div, Mul, Rem};
 
 <span class="doccomment">/// A means of determining if a vote is past pass threshold.
 </span><span class="attr">#[derive(

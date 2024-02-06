@@ -1210,7 +1210,7 @@
 								<span class="kw-2">&amp;</span>[<span class="number">0u8</span>; <span class="number">0</span>]
 							} <span class="kw">else </span>{
 								<span class="kw">unsafe </span>{
-									#c::slice::from_raw_parts(input_data, input_len)
+									::core::slice::from_raw_parts(input_data, input_len)
 								}
 							};
 
@@ -1312,7 +1312,7 @@
 					<span class="kw-2">&amp;</span><span class="self">self</span>,
 					backend: <span class="kw-2">&amp;</span>B,
 					parent_hash: Block::Hash,
-				) -&gt; core::result::Result&lt;
+				) -&gt; ::core::result::Result&lt;
 					#crate_::StorageChanges&lt;Block&gt;,
 				String
 					&gt; <span class="kw">where </span><span class="self">Self</span>: Sized {

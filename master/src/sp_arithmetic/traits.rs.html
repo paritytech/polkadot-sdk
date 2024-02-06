@@ -1131,6 +1131,9 @@
 </span><span class="doccomment">//! Primitive traits for the runtime arithmetic.
 
 </span><span class="kw">use </span>codec::HasCompact;
+<span class="kw">use </span>core::ops::{
+	Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, RemAssign, Shl, Shr, Sub, SubAssign,
+};
 <span class="kw">pub use </span>ensure::{
 	ensure_pow, Ensure, EnsureAdd, EnsureAddAssign, EnsureDiv, EnsureDivAssign,
 	EnsureFixedPointNumber, EnsureFrom, EnsureInto, EnsureMul, EnsureMulAssign, EnsureOp,
@@ -1140,9 +1143,6 @@
 <span class="kw">pub use </span>num_traits::{
 	checked_pow, Bounded, CheckedAdd, CheckedDiv, CheckedMul, CheckedNeg, CheckedRem, CheckedShl,
 	CheckedShr, CheckedSub, One, Signed, Unsigned, Zero,
-};
-<span class="kw">use </span>sp_std::ops::{
-	Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, RemAssign, Shl, Shr, Sub, SubAssign,
 };
 
 <span class="kw">use </span><span class="kw">crate</span>::MultiplyRational;
@@ -1375,7 +1375,7 @@
 		</span><span class="self">Self</span>: One,
 	{
 		<span class="kw">let </span><span class="kw-2">mut </span>o = <span class="self">Self</span>::one();
-		sp_std::mem::swap(<span class="kw-2">&amp;mut </span>o, <span class="self">self</span>);
+		core::mem::swap(<span class="kw-2">&amp;mut </span>o, <span class="self">self</span>);
 		<span class="kw-2">*</span><span class="self">self </span>= o.saturating_add(One::one());
 	}
 
@@ -1385,7 +1385,7 @@
 		</span><span class="self">Self</span>: One,
 	{
 		<span class="kw">let </span><span class="kw-2">mut </span>o = <span class="self">Self</span>::one();
-		sp_std::mem::swap(<span class="kw-2">&amp;mut </span>o, <span class="self">self</span>);
+		core::mem::swap(<span class="kw-2">&amp;mut </span>o, <span class="self">self</span>);
 		<span class="kw-2">*</span><span class="self">self </span>= o.saturating_sub(One::one());
 	}
 
@@ -1395,7 +1395,7 @@
 		</span><span class="self">Self</span>: One,
 	{
 		<span class="kw">let </span><span class="kw-2">mut </span>o = <span class="self">Self</span>::one();
-		sp_std::mem::swap(<span class="kw-2">&amp;mut </span>o, <span class="self">self</span>);
+		core::mem::swap(<span class="kw-2">&amp;mut </span>o, <span class="self">self</span>);
 		<span class="kw-2">*</span><span class="self">self </span>= o.saturating_add(amount);
 	}
 
@@ -1405,7 +1405,7 @@
 		</span><span class="self">Self</span>: One,
 	{
 		<span class="kw">let </span><span class="kw-2">mut </span>o = <span class="self">Self</span>::one();
-		sp_std::mem::swap(<span class="kw-2">&amp;mut </span>o, <span class="self">self</span>);
+		core::mem::swap(<span class="kw-2">&amp;mut </span>o, <span class="self">self</span>);
 		<span class="kw-2">*</span><span class="self">self </span>= o.saturating_sub(amount);
 	}
 }
@@ -2062,7 +2062,7 @@
 			}
 		}
 
-		<span class="kw">impl </span>sp_std::ops::Mul <span class="kw">for </span>Signum {
+		<span class="kw">impl </span>core::ops::Mul <span class="kw">for </span>Signum {
 			<span class="kw">type </span>Output = <span class="self">Self</span>;
 
 			<span class="kw">fn </span>mul(<span class="self">self</span>, rhs: <span class="self">Self</span>) -&gt; <span class="self">Self </span>{

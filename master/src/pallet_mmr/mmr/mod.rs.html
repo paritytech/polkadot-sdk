@@ -74,7 +74,7 @@
 </span><span class="kw">pub type </span>Node&lt;H, L&gt; = DataOrHash&lt;H, L&gt;;
 
 <span class="doccomment">/// Default Merging &amp; Hashing behavior for MMR.
-</span><span class="kw">pub struct </span>Hasher&lt;H, L&gt;(sp_std::marker::PhantomData&lt;(H, L)&gt;);
+</span><span class="kw">pub struct </span>Hasher&lt;H, L&gt;(core::marker::PhantomData&lt;(H, L)&gt;);
 
 <span class="kw">impl</span>&lt;H: traits::Hash, L: FullLeaf&gt; mmr_lib::Merge <span class="kw">for </span>Hasher&lt;H, L&gt; {
 	<span class="kw">type </span>Item = Node&lt;H, L&gt;;

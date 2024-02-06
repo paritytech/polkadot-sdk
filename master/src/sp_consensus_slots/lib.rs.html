@@ -333,9 +333,9 @@
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
 </span><span class="kw">impl </span>SlotDuration {
-	<span class="doccomment">/// Returns `self` as [`sp_std::time::Duration`].
-	</span><span class="kw">pub const fn </span>as_duration(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sp_std::time::Duration {
-		sp_std::time::Duration::from_millis(<span class="self">self</span>.<span class="number">0</span>)
+	<span class="doccomment">/// Returns `self` as [`core::time::Duration`].
+	</span><span class="kw">pub const fn </span>as_duration(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; core::time::Duration {
+		core::time::Duration::from_millis(<span class="self">self</span>.<span class="number">0</span>)
 	}
 }
 

@@ -245,7 +245,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="kw">use </span>frame_support::{
+</span><span class="kw">use </span>core::str;
+<span class="kw">use </span>frame_support::{
 	storage::{generator::StorageValue, StoragePrefixedMap},
 	traits::{
 		Get, GetStorageVersion, PalletInfoAccess, StorageVersion,
@@ -255,7 +256,6 @@
 };
 <span class="kw">use </span>sp_core::hexdisplay::HexDisplay;
 <span class="kw">use </span>sp_io::{hashing::twox_128, storage};
-<span class="kw">use </span>sp_std::str;
 
 <span class="kw">use crate as </span>pallet_bounties;
 

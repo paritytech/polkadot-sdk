@@ -81,7 +81,7 @@
 </span><span class="kw">pub fn </span>pack_ptr_and_len(ptr: u32, len: u32) -&gt; u64 {
 	<span class="comment">// The static assertions from above are changed into a runtime check.
 	</span><span class="attr">#[cfg(all(not(feature = <span class="string">&quot;std&quot;</span>), feature = <span class="string">&quot;disable_target_static_assertions&quot;</span>))]
-	</span><span class="macro">assert_eq!</span>(<span class="number">4</span>, sp_std::mem::size_of::&lt;usize&gt;());
+	</span><span class="macro">assert_eq!</span>(<span class="number">4</span>, core::mem::size_of::&lt;usize&gt;());
 
 	(u64::from(len) &lt;&lt; <span class="number">32</span>) | u64::from(ptr)
 }
@@ -94,7 +94,7 @@
 </span><span class="kw">pub fn </span>unpack_ptr_and_len(val: u64) -&gt; (u32, u32) {
 	<span class="comment">// The static assertions from above are changed into a runtime check.
 	</span><span class="attr">#[cfg(all(not(feature = <span class="string">&quot;std&quot;</span>), feature = <span class="string">&quot;disable_target_static_assertions&quot;</span>))]
-	</span><span class="macro">assert_eq!</span>(<span class="number">4</span>, sp_std::mem::size_of::&lt;usize&gt;());
+	</span><span class="macro">assert_eq!</span>(<span class="number">4</span>, core::mem::size_of::&lt;usize&gt;());
 
 	<span class="kw">let </span>ptr = (val &amp; (!<span class="number">0u32 </span><span class="kw">as </span>u64)) <span class="kw">as </span>u32;
 	<span class="kw">let </span>len = (val &gt;&gt; <span class="number">32</span>) <span class="kw">as </span>u32;

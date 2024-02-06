@@ -527,7 +527,7 @@
 
 <span class="doccomment">/// A non-const `Get` implementation parameterised by a `Currency` impl which provides the result
 /// of `total_issuance`.
-</span><span class="kw">pub struct </span>TotalIssuanceOf&lt;C: Currency&lt;A&gt;, A&gt;(sp_std::marker::PhantomData&lt;(C, A)&gt;);
+</span><span class="kw">pub struct </span>TotalIssuanceOf&lt;C: Currency&lt;A&gt;, A&gt;(core::marker::PhantomData&lt;(C, A)&gt;);
 <span class="kw">impl</span>&lt;C: Currency&lt;A&gt;, A&gt; Get&lt;C::Balance&gt; <span class="kw">for </span>TotalIssuanceOf&lt;C, A&gt; {
 	<span class="kw">fn </span>get() -&gt; C::Balance {
 		C::total_issuance()
@@ -536,7 +536,7 @@
 
 <span class="doccomment">/// A non-const `Get` implementation parameterised by a `Currency` impl which provides the result
 /// of `active_issuance`.
-</span><span class="kw">pub struct </span>ActiveIssuanceOf&lt;C: Currency&lt;A&gt;, A&gt;(sp_std::marker::PhantomData&lt;(C, A)&gt;);
+</span><span class="kw">pub struct </span>ActiveIssuanceOf&lt;C: Currency&lt;A&gt;, A&gt;(core::marker::PhantomData&lt;(C, A)&gt;);
 <span class="kw">impl</span>&lt;C: Currency&lt;A&gt;, A&gt; Get&lt;C::Balance&gt; <span class="kw">for </span>ActiveIssuanceOf&lt;C, A&gt; {
 	<span class="kw">fn </span>get() -&gt; C::Balance {
 		C::active_issuance()
