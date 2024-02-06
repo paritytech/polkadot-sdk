@@ -218,7 +218,7 @@ mod tests {
 		while std::time::Instant::now() < deadline {
 			let (response, _) = io.raw_json_request(request, 1).await.expect("RPC requests work");
 			if response.result != not_ready {
-				assert_eq!(response.result, expected);
+				assert_eq!(response.into_result(), expected);
 				// Success
 				return
 			}
@@ -249,7 +249,7 @@ mod tests {
 			.unwrap();
 		let expected = r#"{"jsonrpc":"2.0","result":false,"id":1}"#;
 
-		assert_eq!(response.result, expected);
+		assert_eq!(response.into_result(), expected);
 	}
 
 	fn create_finality_proof() -> BeefyVersionedFinalityProof<Block> {

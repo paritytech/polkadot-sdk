@@ -31,7 +31,9 @@ use super::{
 
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
-use jsonrpsee::{core::EmptyServerParams as EmptyParams, MethodsError as Error, RpcModule};
+use jsonrpsee::{
+	core::EmptyServerParams as EmptyParams, rpc_params, MethodsError as Error, RpcModule,
+};
 use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::ChildInfo;
 use sp_blockchain::HeaderBackend;
