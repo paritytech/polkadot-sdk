@@ -65,10 +65,12 @@ use sp_runtime::RuntimeDebug;
 use sp_std::{marker::PhantomData, prelude::*};
 
 use frame_support::{
+	defensive,
 	dispatch::DispatchResultWithPostInfo,
 	ensure, impl_ensure_origin_with_arg_ignoring_arg,
 	traits::{
 		tokens::Balance as BalanceTrait, EnsureOrigin, EnsureOriginWithArg, Get, RankedMembers,
+		RankedMembersSwapHandler,
 	},
 	BoundedVec,
 };
@@ -249,6 +251,8 @@ pub mod pallet {
 		},
 		/// Pre-ranked account has been inducted at their current rank.
 		Imported { who: T::AccountId, rank: RankOf<T, I> },
+		/// A member had its AccountId swapped.
+		Swapped { who: T::AccountId, new_who: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -602,4 +606,39 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 	impl< { T: Config<I>, I: 'static, const MIN_RANK: u16, A } >
 		EnsureOriginWithArg<T::RuntimeOrigin, A> for EnsureInducted<T, I, MIN_RANK>
 	{}
+}
+
+impl<T: Config<I>, I: 'static> RankedMembersSwapHandler<T::AccountId, u16> for Pallet<T, I> {
+	fn swapped(old: &T::AccountId, new: &T::AccountId, _rank: u16) {
+		if old == new {
+			defensive!("Should not try to swap with self");
+			return
+		}
+		if !Member::<T, I>::contains_key(old) {
+			defensive!("Should not try to swap non-member");
+			return
+		}
+		if Member::<T, I>::contains_key(new) {
+			defensive!("Should not try to overwrite existing member");
+			return
+		}
+
+		if let Some(member) = Member::<T, I>::take(old) {
+			Member::<T, I>::insert(new, member);
+		}
+		if let Some(we) = MemberEvidence::<T, I>::take(old) {
+			MemberEvidence::<T, I>::insert(new, we);
+		}
+
+		Self::deposit_event(Event::<T, I>::Swapped { who: old.clone(), new_who: new.clone() });
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl<T: Config<I>, I: 'static>
+	pallet_ranked_collective::BenchmarkSetup<<T as frame_system::Config>::AccountId> for Pallet<T, I>
+{
+	fn ensure_member(who: &<T as frame_system::Config>::AccountId) {
+		Self::import(frame_system::RawOrigin::Signed(who.clone()).into()).unwrap();
+	}
 }

@@ -230,7 +230,8 @@ mod tests {
 	use bridge_runtime_common::{
 		assert_complete_bridge_types, integrity::check_message_lane_weights,
 	};
-	use parachains_common::{rococo, Balance};
+	use parachains_common::Balance;
+	use testnet_parachains_constants::rococo;
 
 	/// Every additional message in the message delivery transaction boosts its priority.
 	/// So the priority of transaction with `N+1` messages is larger than priority of

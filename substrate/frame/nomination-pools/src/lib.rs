@@ -478,8 +478,16 @@ impl Default for ClaimPermission {
 }
 
 /// A member in a pool.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebugNoBound, CloneNoBound)]
-#[cfg_attr(feature = "std", derive(frame_support::PartialEqNoBound, DefaultNoBound))]
+#[derive(
+	Encode,
+	Decode,
+	MaxEncodedLen,
+	TypeInfo,
+	RuntimeDebugNoBound,
+	CloneNoBound,
+	frame_support::PartialEqNoBound,
+)]
+#[cfg_attr(feature = "std", derive(DefaultNoBound))]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
 pub struct PoolMember<T: Config> {
@@ -2140,7 +2148,12 @@ pub mod pallet {
 				bonded_pool.points,
 				bonded_pool.commission.current(),
 			)?;
-			let _ = Self::do_reward_payout(&who, &mut member, &mut bonded_pool, &mut reward_pool)?;
+			let _ = Self::do_reward_payout(
+				&member_account,
+				&mut member,
+				&mut bonded_pool,
+				&mut reward_pool,
+			)?;
 
 			let current_era = T::Staking::current_era();
 			let unbond_era = T::Staking::bonding_duration().saturating_add(current_era);
@@ -2929,6 +2942,11 @@ impl<T: Config> Pallet<T> {
 		bonded_pool: BondedPool<T>,
 		reward_pool: RewardPool<T>,
 	) {
+		// The pool id of a member cannot change in any case, so we use it to make sure
+		// `member_account` is the right one.
+		debug_assert_eq!(PoolMembers::<T>::get(member_account).unwrap().pool_id, member.pool_id);
+		debug_assert_eq!(member.pool_id, bonded_pool.id);
+
 		bonded_pool.put();
 		RewardPools::insert(member.pool_id, reward_pool);
 		PoolMembers::<T>::insert(member_account, member);
@@ -2995,6 +3013,7 @@ impl<T: Config> Pallet<T> {
 		reward_pool: &mut RewardPool<T>,
 	) -> Result<BalanceOf<T>, DispatchError> {
 		debug_assert_eq!(member.pool_id, bonded_pool.id);
+		debug_assert_eq!(&mut PoolMembers::<T>::get(member_account).unwrap(), member);
 
 		// a member who has no skin in the game anymore cannot claim any rewards.
 		ensure!(!member.active_points().is_zero(), Error::<T>::FullyUnbonding);
@@ -3111,18 +3130,19 @@ impl<T: Config> Pallet<T> {
 
 	fn do_bond_extra(
 		signer: T::AccountId,
-		who: T::AccountId,
+		member_account: T::AccountId,
 		extra: BondExtra<BalanceOf<T>>,
 	) -> DispatchResult {
-		if signer != who {
+		if signer != member_account {
 			ensure!(
-				ClaimPermissions::<T>::get(&who).can_bond_extra(),
+				ClaimPermissions::<T>::get(&member_account).can_bond_extra(),
 				Error::<T>::DoesNotHavePermission
 			);
 			ensure!(extra == BondExtra::Rewards, Error::<T>::BondExtraRestricted);
 		}
 
-		let (mut member, mut bonded_pool, mut reward_pool) = Self::get_member_with_pools(&who)?;
+		let (mut member, mut bonded_pool, mut reward_pool) =
+			Self::get_member_with_pools(&member_account)?;
 
 		// payout related stuff: we must claim the payouts, and updated recorded payout data
 		// before updating the bonded pool points, similar to that of `join` transaction.
@@ -3131,14 +3151,18 @@ impl<T: Config> Pallet<T> {
 			bonded_pool.points,
 			bonded_pool.commission.current(),
 		)?;
-		let claimed =
-			Self::do_reward_payout(&who, &mut member, &mut bonded_pool, &mut reward_pool)?;
+		let claimed = Self::do_reward_payout(
+			&member_account,
+			&mut member,
+			&mut bonded_pool,
+			&mut reward_pool,
+		)?;
 
 		let (points_issued, bonded) = match extra {
 			BondExtra::FreeBalance(amount) =>
-				(bonded_pool.try_bond_funds(&who, amount, BondType::Later)?, amount),
+				(bonded_pool.try_bond_funds(&member_account, amount, BondType::Later)?, amount),
 			BondExtra::Rewards =>
-				(bonded_pool.try_bond_funds(&who, claimed, BondType::Later)?, claimed),
+				(bonded_pool.try_bond_funds(&member_account, claimed, BondType::Later)?, claimed),
 		};
 
 		bonded_pool.ok_to_be_open()?;
@@ -3146,12 +3170,12 @@ impl<T: Config> Pallet<T> {
 			member.points.checked_add(&points_issued).ok_or(Error::<T>::OverflowRisk)?;
 
 		Self::deposit_event(Event::<T>::Bonded {
-			member: who.clone(),
+			member: member_account.clone(),
 			pool_id: member.pool_id,
 			bonded,
 			joined: false,
 		});
-		Self::put_member_with_pools(&who, member, bonded_pool, reward_pool);
+		Self::put_member_with_pools(&member_account, member, bonded_pool, reward_pool);
 
 		Ok(())
 	}
@@ -3200,18 +3224,27 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	fn do_claim_payout(signer: T::AccountId, who: T::AccountId) -> DispatchResult {
-		if signer != who {
+	pub(crate) fn do_claim_payout(
+		signer: T::AccountId,
+		member_account: T::AccountId,
+	) -> DispatchResult {
+		if signer != member_account {
 			ensure!(
-				ClaimPermissions::<T>::get(&who).can_claim_payout(),
+				ClaimPermissions::<T>::get(&member_account).can_claim_payout(),
 				Error::<T>::DoesNotHavePermission
 			);
 		}
-		let (mut member, mut bonded_pool, mut reward_pool) = Self::get_member_with_pools(&who)?;
+		let (mut member, mut bonded_pool, mut reward_pool) =
+			Self::get_member_with_pools(&member_account)?;
 
-		let _ = Self::do_reward_payout(&who, &mut member, &mut bonded_pool, &mut reward_pool)?;
+		let _ = Self::do_reward_payout(
+			&member_account,
+			&mut member,
+			&mut bonded_pool,
+			&mut reward_pool,
+		)?;
 
-		Self::put_member_with_pools(&who, member, bonded_pool, reward_pool);
+		Self::put_member_with_pools(&member_account, member, bonded_pool, reward_pool);
 		Ok(())
 	}
 
