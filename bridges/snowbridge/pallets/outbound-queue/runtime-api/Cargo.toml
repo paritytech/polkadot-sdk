@@ -1,0 +1,38 @@
+[package]
+name = "snowbridge-outbound-queue-runtime-api"
+description = "Snowbridge Outbound Queue Runtime API"
+version = "0.0.0"
+authors = ["Snowfork <contact@snowfork.com>"]
+edition.workspace = true
+repository.workspace = true
+license = "Apache-2.0"
+categories = ["cryptography::cryptocurrencies"]
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { version = "3.1.5", package = "parity-scale-codec", features = ["derive"], default-features = false }
+sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
+sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
+sp-api = { path = "../../../../../substrate/primitives/api", default-features = false }
+frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
+snowbridge-outbound-queue-merkle-tree = { path = "../merkle-tree", default-features = false }
+snowbridge-core = { path = "../../../primitives/core", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"frame-support/std",
+	"snowbridge-core/std",
+	"snowbridge-outbound-queue-merkle-tree/std",
+	"sp-api/std",
+	"sp-core/std",
+	"sp-std/std",
+	"xcm/std",
+]

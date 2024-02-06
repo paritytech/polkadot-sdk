@@ -578,6 +578,10 @@ where
 			fees: Asset { id: AssetId(Location::new(1, [])), fun: Fungible(34333299) },
 			weight_limit: Unlimited,
 		},
+		SetAppendix(Xcm(vec![DepositAsset {
+			assets: Wild(AllCounted(1)),
+			beneficiary: Location::new(1, [Parachain(1000)]),
+		}])),
 		ExportMessage {
 			network: Polkadot,
 			destination: [Parachain(1000)].into(),
@@ -614,7 +618,6 @@ where
 				]),
 			]),
 		},
-		DepositAsset { assets: Wild(All), beneficiary: Location::new(1, [Parachain(1000)]) },
 		SetTopic([
 			36, 224, 250, 165, 82, 195, 67, 110, 160, 170, 140, 87, 217, 62, 201, 164, 42, 98, 219,
 			157, 124, 105, 248, 25, 131, 218, 199, 36, 109, 173, 100, 122,
@@ -637,14 +640,6 @@ where
 	// check fee, should not be 0
 	let estimated_fee = WeightToFee::weight_to_fee(&weight);
 	assert!(estimated_fee > BalanceOf::<Runtime>::zero());
-
-	sp_tracing::try_init_simple();
-	log::error!(
-		target: "bridges::estimate",
-		"Estimate fee: {:?} for `ExportMessage` for runtime: {:?}",
-		estimated_fee,
-		Runtime::Version::get(),
-	);
 
 	estimated_fee.into()
 }
