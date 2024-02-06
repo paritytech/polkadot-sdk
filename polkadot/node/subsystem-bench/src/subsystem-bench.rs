@@ -168,7 +168,8 @@ impl BenchCli {
 					format!("Sequence contains {} step(s)", num_steps).bright_purple()
 				);
 				for (index, test_config) in test_sequence.into_iter().enumerate() {
-					let benchmark_name = format!("{} #{}", &options.path, index + 1);
+					let benchmark_name =
+						format!("{} #{} {}", &options.path, index + 1, test_config.objective);
 					gum::info!(target: LOG_TARGET, "{}", format!("Step {}/{}", index + 1, num_steps).bright_purple(),);
 					display_configuration(&test_config);
 
@@ -252,19 +253,14 @@ impl BenchCli {
 		let mut state = TestState::new(&test_config);
 		let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
 
+		let benchmark_name = format!("{}", self.objective);
 		let usage = match self.objective {
-			TestObjective::DataAvailabilityRead(_options) =>
-				env.runtime().block_on(availability::benchmark_availability_read(
-					"benchmark_availability_read",
-					&mut env,
-					state,
-				)),
-			TestObjective::DataAvailabilityWrite =>
-				env.runtime().block_on(availability::benchmark_availability_write(
-					"benchmark_availability_write",
-					&mut env,
-					state,
-				)),
+			TestObjective::DataAvailabilityRead(_options) => env.runtime().block_on(
+				availability::benchmark_availability_read(&benchmark_name, &mut env, state),
+			),
+			TestObjective::DataAvailabilityWrite => env.runtime().block_on(
+				availability::benchmark_availability_write(&benchmark_name, &mut env, state),
+			),
 			TestObjective::TestSequence(_options) => todo!(),
 			TestObjective::ApprovalVoting(_) => todo!(),
 			TestObjective::Unimplemented => todo!(),
