@@ -102,6 +102,11 @@ impl PoolStatus {
 /// such case). An `Invalid` transaction may re-enter the pool only if it is resubmitted.
 /// 4. `Retracted` transactions might be included in some next block.
 ///
+/// The `FinalityTimeout` event will be emitted when the block did not reach finality
+/// within 512 blocks. This either indicates that finality is not available for your chain,
+/// or that finality gadget is lagging behind. If you choose to wait for finality longer, you can
+/// re-subscribe for a particular transaction hash manually again.
+///
 /// ### Last Event
 ///
 /// The stream is considered finished when one of the following events happen:
