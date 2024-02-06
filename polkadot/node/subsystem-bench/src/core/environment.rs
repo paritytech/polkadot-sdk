@@ -429,7 +429,7 @@ impl std::fmt::Display for BenchmarkUsage {
 				.map(|v| v.to_string())
 				.collect::<Vec<String>>()
 				.join("\n"),
-			format!("{:<32}{:>12}{:>12}", "CPU usage, s", "total", "per block").blue(),
+			format!("{:<32}{:>12}{:>12}", "CPU usage in seconds", "total", "per block").blue(),
 			self.cpu_usage.iter().map(|v| v.to_string()).collect::<Vec<String>>().join("\n")
 		)
 	}
