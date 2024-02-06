@@ -310,6 +310,8 @@ pub enum InconsistentError<BlockNumber> {
 	ZeroMinimumBackingVotes,
 	/// `executor_params` are inconsistent.
 	InconsistentExecutorParams { inner: ExecutorParamError },
+	/// TTL should be bigger than lookahead
+	LookaheadExceedsTTL,
 }
 
 impl<BlockNumber> HostConfiguration<BlockNumber>
@@ -397,6 +399,10 @@ where
 
 		if let Err(inner) = self.executor_params.check_consistency() {
 			return Err(InconsistentExecutorParams { inner })
+		}
+
+		if self.scheduler_params.ttl < self.scheduler_params.lookahead.into() {
+			return Err(LookaheadExceedsTTL)
 		}
 
 		Ok(())
