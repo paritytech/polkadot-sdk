@@ -723,6 +723,8 @@ type Migrations = (
 	pallet_collator_selection::migration::v1::MigrateToV1<Runtime>,
 	// unreleased
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
+	// permanent
+	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.
