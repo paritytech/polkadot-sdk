@@ -22,21 +22,33 @@
 
 pub mod middleware;
 
-use std::{error::Error as StdError, net::SocketAddr, time::Duration};
+use std::{convert::Infallible, error::Error as StdError, net::SocketAddr, time::Duration};
 
+use futures::FutureExt;
 use http::header::HeaderValue;
+use hyper::{
+	server::conn::AddrStream,
+	service::{make_service_fn, service_fn},
+};
 use jsonrpsee::{
-	server::middleware::{HostFilterLayer, ProxyGetRequestLayer},
+	server::{
+		middleware::{
+			http::{HostFilterLayer, ProxyGetRequestLayer},
+			rpc::RpcServiceBuilder,
+		},
+		stop_channel, ws, PingConfig,
+	},
 	RpcModule,
 };
 use tokio::net::TcpListener;
+use tower::Service;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
-pub use crate::middleware::RpcMetrics;
 pub use jsonrpsee::core::{
 	id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
 	traits::IdProvider,
 };
+pub use middleware::{MetricsLayer, RpcMetrics};
 
 const MEGABYTE: u32 = 1024 * 1024;
 
@@ -92,7 +104,7 @@ pub async fn start_server<M: Send + Sync + 'static>(
 	let local_addr = std_listener.local_addr().ok();
 	let host_filter = hosts_filtering(cors.is_some(), local_addr);
 
-	let middleware = tower::ServiceBuilder::new()
+	let http_middleware = tower::ServiceBuilder::new()
 		.option_layer(host_filter)
 		// Proxy `GET /health` requests to internal `system_health` method.
 		.layer(ProxyGetRequestLayer::new("/health", "system_health")?)
@@ -103,10 +115,14 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		.max_response_body_size(max_payload_out_mb.saturating_mul(MEGABYTE))
 		.max_connections(max_connections)
 		.max_subscriptions_per_connection(max_subs_per_conn)
-		.ping_interval(Duration::from_secs(30))
-		.set_middleware(middleware)
+		.enable_ws_ping(
+			PingConfig::new()
+				.ping_interval(Duration::from_secs(30))
+				.inactive_limit(Duration::from_secs(50)),
+		)
+		.set_http_middleware(http_middleware)
 		.set_message_buffer_capacity(message_buffer_capacity)
-		.custom_tokio_runtime(tokio_handle);
+		.custom_tokio_runtime(tokio_handle.clone());
 
 	if let Some(provider) = id_provider {
 		builder = builder.set_id_provider(provider);
@@ -114,14 +130,71 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		builder = builder.set_id_provider(RandomStringIdProvider::new(16));
 	};
 
-	let rpc_api = build_rpc_api(rpc_api);
-	let handle = if let Some(metrics) = metrics {
-		let server = builder.set_logger(metrics).build_from_tcp(std_listener)?;
-		server.start(rpc_api)
-	} else {
-		let server = builder.build_from_tcp(std_listener)?;
-		server.start(rpc_api)
-	};
+	let methods = build_rpc_api(rpc_api);
+	let svc_builder = builder.to_service_builder().max_connections(max_connections);
+
+	let (stop_handle, server_handle) = stop_channel();
+	let stop_handle2 = stop_handle.clone();
+	let methods = methods.clone();
+	let metrics = metrics.clone();
+	let tokio_handle = tokio_handle.clone();
+
+	let make_service = make_service_fn(move |_conn: &AddrStream| {
+		let stop_handle = stop_handle2.clone();
+		let svc_builder = svc_builder.clone();
+		let metrics = metrics.clone();
+		let methods = methods.clone();
+		let tokio_handle = tokio_handle.clone();
+
+		async move {
+			let stop_handle = stop_handle.clone();
+			let svc_builder = svc_builder.clone();
+			let stop_handle = stop_handle.clone();
+			let tokio_handle = tokio_handle.clone();
+			let metrics = metrics.clone();
+
+			Ok::<_, Infallible>(service_fn(move |req| {
+				let metrics = metrics.clone();
+				let svc_builder = svc_builder.clone();
+				let tokio_handle = tokio_handle.clone();
+
+				let is_websocket = ws::is_upgrade_request(&req);
+				let transport_label = if is_websocket { "ws" } else { "http" };
+
+				let metrics = metrics.map(|m| MetricsLayer::new(m, transport_label));
+				let rpc_middleware = RpcServiceBuilder::new().option_layer(metrics.clone());
+				let mut svc = svc_builder
+					.set_rpc_middleware(rpc_middleware)
+					.build(methods.clone(), stop_handle.clone());
+
+				async move {
+					if is_websocket {
+						let on_disconnect = svc.on_session_closed();
+
+						// Spawn a task to handle when the connection is closed.
+						tokio_handle.spawn(async move {
+							let now = std::time::Instant::now();
+							metrics.as_ref().map(|m| m.ws_connect());
+							on_disconnect.await;
+							metrics.as_ref().map(|m| m.ws_disconnect(now));
+						});
+
+						svc.call(req).await
+					} else {
+						svc.call(req).await
+					}
+				}
+				.boxed()
+			}))
+		}
+	});
+
+	let server = hyper::Server::from_tcp(std_listener)?.serve(make_service);
+
+	tokio::spawn(async move {
+		let graceful = server.with_graceful_shutdown(async move { stop_handle.shutdown().await });
+		graceful.await.unwrap()
+	});
 
 	log::info!(
 		"Running JSON-RPC server: addr={}, allowed origins={}",
@@ -129,7 +202,7 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		format_cors(cors)
 	);
 
-	Ok(handle)
+	Ok(server_handle)
 }
 
 fn hosts_filtering(enabled: bool, addr: Option<SocketAddr>) -> Option<HostFilterLayer> {
