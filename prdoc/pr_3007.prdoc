@@ -7,6 +7,8 @@ doc:
       1. Total number of `Members` in storage should be >= [`MemberIndex`] of a [`Rank`] in `MemberCount`.
       2. `Rank` in Members should be in `MemberCount`.
       3. `Member` in storage of `IdToIndex` should be the same as `Member` in `IndexToId`.
-      4. `Rank` in `IdToIndex` should be in `IndexToId`.
+      4. `Rank` in `IdToIndex` should be the same as the the `Rank` in  `IndexToId`.
+      5. `Rank` of the member `who` in `IdToIndex` should be the same as the `Rank` of
+      the member `who` in `Members`
 crates:
 - name: pallet-ranked-collective

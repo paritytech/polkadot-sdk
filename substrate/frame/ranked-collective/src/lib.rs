@@ -888,7 +888,9 @@ pub mod pallet {
 
 		/// ### Invariants of Index storage items
 		/// [`Member`] in storage of [`IdToIndex`] should be the same as [`Member`] in [`IndexToId`]
-		/// [`Rank`] in [`IdToIndex`] should be in [`IndexToId`]
+		/// [`Rank`] in [`IdToIndex`] should be the same as the the [`Rank`] in  [`IndexToId`]
+		/// [`Rank`] of the member [`who`] in [`IdToIndex`] should be the same as the [`Rank`] of
+		/// the member [`who`] in [`Members`]
 		fn try_state_index() -> Result<(), sp_runtime::TryRuntimeError> {
 			IdToIndex::<T, I>::iter().try_for_each(
 				|(rank, who, member_index)| -> DispatchResult {
@@ -900,12 +902,20 @@ pub mod pallet {
 
 					ensure!(
 						Self::is_rank_in_index_to_id_storage(rank.into()) == true,
-						"`Rank` in `IdToIndex` should be in `IndexToId`"
+						"`Rank` in `IdToIndex` should be the same as the `Rank` in `IndexToId`"
 					);
-
 					Ok(())
 				},
 			)?;
+
+			Members::<T, I>::iter().try_for_each(|(who, member_record)| -> DispatchResult {
+				ensure!(
+						Self::is_who_rank_in_id_to_index_storage(who, member_record.rank) == true,
+						"`Rank` of the member `who` in `IdToIndex` should be the same as the `Rank` of the member `who` in `Members`"
+					);
+
+				Ok(())
+			})?;
 
 			Ok(())
 		}
@@ -921,10 +931,21 @@ pub mod pallet {
 			return false;
 		}
 
-		/// Checks if a rank is part of the `IndexToId`
+		/// Checks if a rank is the same as the rank `IndexToId`
 		fn is_rank_in_index_to_id_storage(rank: u32) -> bool {
 			for (r, _, _) in IndexToId::<T, I>::iter() {
 				if r as u32 == rank {
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		/// Checks if a member(who) rank is the same as the rank of a member(who) in `IdToIndex`
+		fn is_who_rank_in_id_to_index_storage(who: T::AccountId, rank: u16) -> bool {
+			for (rank_, who_, _) in IdToIndex::<T, I>::iter() {
+				if who == who_ && rank == rank_ {
 					return true;
 				}
 			}
