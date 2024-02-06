@@ -411,7 +411,7 @@ async fn run_one_test(mutator: impl Fn(&mut TestHeader, Stage) + Send + Sync + '
 			let mut net = net.lock();
 			net.poll(cx);
 			for p in net.peers() {
-				for (h, e) in p.failed_verifications() {
+				if let Some((h, e)) = p.failed_verifications().into_iter().next() {
 					panic!("Verification failed for {:?}: {}", h, e);
 				}
 			}
