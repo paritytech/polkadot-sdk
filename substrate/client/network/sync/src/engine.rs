@@ -33,7 +33,7 @@ use crate::{
 	},
 	strategy::{
 		warp::{EncodedProof, WarpProofRequest, WarpSyncParams},
-		Key, SyncingAction, SyncingConfig, SyncingStrategy,
+		StrategyKey, SyncingAction, SyncingConfig, SyncingStrategy,
 	},
 	types::{
 		BadPeer, ExtendedPeerInfo, OpaqueStateRequest, OpaqueStateResponse, PeerRequest, SyncEvent,
@@ -1154,7 +1154,7 @@ where
 		Ok(())
 	}
 
-	fn send_block_request(&mut self, peer_id: PeerId, key: Key, request: BlockRequest<B>) {
+	fn send_block_request(&mut self, peer_id: PeerId, key: StrategyKey, request: BlockRequest<B>) {
 		if !self.peers.contains_key(&peer_id) {
 			trace!(target: LOG_TARGET, "Cannot send block request to unknown peer {peer_id}");
 			debug_assert!(false);
@@ -1171,7 +1171,12 @@ where
 		);
 	}
 
-	fn send_state_request(&mut self, peer_id: PeerId, key: Key, request: OpaqueStateRequest) {
+	fn send_state_request(
+		&mut self,
+		peer_id: PeerId,
+		key: StrategyKey,
+		request: OpaqueStateRequest,
+	) {
 		if !self.peers.contains_key(&peer_id) {
 			trace!(target: LOG_TARGET, "Cannot send state request to unknown peer {peer_id}");
 			debug_assert!(false);
@@ -1201,7 +1206,12 @@ where
 		}
 	}
 
-	fn send_warp_proof_request(&mut self, peer_id: PeerId, key: Key, request: WarpProofRequest<B>) {
+	fn send_warp_proof_request(
+		&mut self,
+		peer_id: PeerId,
+		key: StrategyKey,
+		request: WarpProofRequest<B>,
+	) {
 		if !self.peers.contains_key(&peer_id) {
 			trace!(target: LOG_TARGET, "Cannot send warp proof request to unknown peer {peer_id}");
 			debug_assert!(false);

@@ -19,7 +19,7 @@
 //! [`PendingResponses`] is responsible for keeping track of pending responses and
 //! polling them. [`Stream`] implemented by [`PendingResponses`] never terminates.
 
-use crate::{strategy::Key, types::PeerRequest, LOG_TARGET};
+use crate::{strategy::StrategyKey, types::PeerRequest, LOG_TARGET};
 use futures::{
 	channel::oneshot,
 	future::BoxFuture,
@@ -42,7 +42,7 @@ type ResponseFuture = BoxFuture<'static, ResponseResult>;
 /// An event we receive once a pending response future resolves.
 pub(crate) struct ResponseEvent<B: BlockT> {
 	pub peer_id: PeerId,
-	pub key: Key,
+	pub key: StrategyKey,
 	pub request: PeerRequest<B>,
 	pub response: ResponseResult,
 }
@@ -51,7 +51,7 @@ pub(crate) struct ResponseEvent<B: BlockT> {
 pub(crate) struct PendingResponses<B: BlockT> {
 	/// Pending responses
 	pending_responses:
-		StreamMap<(PeerId, Key), BoxStream<'static, (PeerRequest<B>, ResponseResult)>>,
+		StreamMap<(PeerId, StrategyKey), BoxStream<'static, (PeerRequest<B>, ResponseResult)>>,
 	/// Waker to implement never terminating stream
 	waker: Option<Waker>,
 }
@@ -64,7 +64,7 @@ impl<B: BlockT> PendingResponses<B> {
 	pub fn insert(
 		&mut self,
 		peer_id: PeerId,
-		key: Key,
+		key: StrategyKey,
 		request: PeerRequest<B>,
 		response_future: ResponseFuture,
 	) {
@@ -90,7 +90,7 @@ impl<B: BlockT> PendingResponses<B> {
 		}
 	}
 
-	pub fn remove(&mut self, peer_id: PeerId, key: Key) -> bool {
+	pub fn remove(&mut self, peer_id: PeerId, key: StrategyKey) -> bool {
 		self.pending_responses.remove(&(peer_id, key)).is_some()
 	}
 

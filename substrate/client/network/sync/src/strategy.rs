@@ -73,7 +73,7 @@ pub struct SyncingConfig {
 
 /// The key identifying a specific strategy for responses routing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Key {
+pub enum StrategyKey {
 	// Warp sync initiated this request.
 	Warp,
 	// State sync initiated this request.
@@ -82,18 +82,16 @@ pub enum Key {
 	ChainSync,
 }
 
-impl Unpin for Key {}
-
 #[derive(Debug)]
 pub enum SyncingAction<B: BlockT> {
 	/// Send block request to peer. Always implies dropping a stale block request to the same peer.
-	SendBlockRequest { peer_id: PeerId, key: Key, request: BlockRequest<B> },
+	SendBlockRequest { peer_id: PeerId, key: StrategyKey, request: BlockRequest<B> },
 	/// Send state request to peer.
-	SendStateRequest { peer_id: PeerId, key: Key, request: OpaqueStateRequest },
+	SendStateRequest { peer_id: PeerId, key: StrategyKey, request: OpaqueStateRequest },
 	/// Send warp proof request to peer.
-	SendWarpProofRequest { peer_id: PeerId, key: Key, request: WarpProofRequest<B> },
+	SendWarpProofRequest { peer_id: PeerId, key: StrategyKey, request: WarpProofRequest<B> },
 	/// Drop stale request.
-	CancelRequest { peer_id: PeerId, key: Key },
+	CancelRequest { peer_id: PeerId, key: StrategyKey },
 	/// Peer misbehaved. Disconnect, report it and cancel any requests to it.
 	DropPeer(BadPeer),
 	/// Import blocks.
@@ -119,9 +117,9 @@ impl<B: BlockT> From<WarpSyncAction<B>> for SyncingAction<B> {
 	fn from(action: WarpSyncAction<B>) -> Self {
 		match action {
 			WarpSyncAction::SendWarpProofRequest { peer_id, request } =>
-				SyncingAction::SendWarpProofRequest { peer_id, key: Key::Warp, request },
+				SyncingAction::SendWarpProofRequest { peer_id, key: StrategyKey::Warp, request },
 			WarpSyncAction::SendBlockRequest { peer_id, request } =>
-				SyncingAction::SendBlockRequest { peer_id, key: Key::Warp, request },
+				SyncingAction::SendBlockRequest { peer_id, key: StrategyKey::Warp, request },
 			WarpSyncAction::DropPeer(bad_peer) => SyncingAction::DropPeer(bad_peer),
 			WarpSyncAction::Finished => SyncingAction::Finished,
 		}
@@ -132,7 +130,7 @@ impl<B: BlockT> From<StateStrategyAction<B>> for SyncingAction<B> {
 	fn from(action: StateStrategyAction<B>) -> Self {
 		match action {
 			StateStrategyAction::SendStateRequest { peer_id, request } =>
-				SyncingAction::SendStateRequest { peer_id, key: Key::State, request },
+				SyncingAction::SendStateRequest { peer_id, key: StrategyKey::State, request },
 			StateStrategyAction::DropPeer(bad_peer) => SyncingAction::DropPeer(bad_peer),
 			StateStrategyAction::ImportBlocks { origin, blocks } =>
 				SyncingAction::ImportBlocks { origin, blocks },
@@ -145,11 +143,11 @@ impl<B: BlockT> From<ChainSyncAction<B>> for SyncingAction<B> {
 	fn from(action: ChainSyncAction<B>) -> Self {
 		match action {
 			ChainSyncAction::SendBlockRequest { peer_id, request } =>
-				SyncingAction::SendBlockRequest { peer_id, key: Key::ChainSync, request },
+				SyncingAction::SendBlockRequest { peer_id, key: StrategyKey::ChainSync, request },
 			ChainSyncAction::SendStateRequest { peer_id, request } =>
-				SyncingAction::SendStateRequest { peer_id, key: Key::ChainSync, request },
+				SyncingAction::SendStateRequest { peer_id, key: StrategyKey::ChainSync, request },
 			ChainSyncAction::CancelRequest { peer_id } =>
-				SyncingAction::CancelRequest { peer_id, key: Key::ChainSync },
+				SyncingAction::CancelRequest { peer_id, key: StrategyKey::ChainSync },
 			ChainSyncAction::DropPeer(bad_peer) => SyncingAction::DropPeer(bad_peer),
 			ChainSyncAction::ImportBlocks { origin, blocks } =>
 				SyncingAction::ImportBlocks { origin, blocks },
@@ -306,15 +304,15 @@ where
 	pub fn on_block_response(
 		&mut self,
 		peer_id: PeerId,
-		key: Key,
+		key: StrategyKey,
 		request: BlockRequest<B>,
 		blocks: Vec<BlockData<B>>,
 	) {
 		match key {
-			Key::Warp => {
+			StrategyKey::Warp => {
 				self.warp.as_mut().map(|warp| warp.on_block_response(peer_id, request, blocks));
 			},
-			Key::ChainSync => {
+			StrategyKey::ChainSync => {
 				self.chain_sync
 					.as_mut()
 					.map(|chain_sync| chain_sync.on_block_response(peer_id, request, blocks));
@@ -330,12 +328,17 @@ where
 	}
 
 	/// Process state response.
-	pub fn on_state_response(&mut self, peer_id: PeerId, key: Key, response: OpaqueStateResponse) {
+	pub fn on_state_response(
+		&mut self,
+		peer_id: PeerId,
+		key: StrategyKey,
+		response: OpaqueStateResponse,
+	) {
 		match key {
-			Key::State => {
+			StrategyKey::State => {
 				self.state.as_mut().map(|state| state.on_state_response(peer_id, response));
 			},
-			Key::ChainSync => {
+			StrategyKey::ChainSync => {
 				self.chain_sync
 					.as_mut()
 					.map(|chain_sync| chain_sync.on_state_response(peer_id, response));
@@ -351,9 +354,14 @@ where
 	}
 
 	/// Process warp proof response.
-	pub fn on_warp_proof_response(&mut self, peer_id: &PeerId, key: Key, response: EncodedProof) {
+	pub fn on_warp_proof_response(
+		&mut self,
+		peer_id: &PeerId,
+		key: StrategyKey,
+		response: EncodedProof,
+	) {
 		match key {
-			Key::Warp => {
+			StrategyKey::Warp => {
 				self.warp.as_mut().map(|warp| warp.on_warp_proof_response(peer_id, response));
 			},
 			key => {
