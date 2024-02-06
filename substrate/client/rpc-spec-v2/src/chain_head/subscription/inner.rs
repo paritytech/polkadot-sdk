@@ -109,14 +109,14 @@ impl BlockStateMachine {
 }
 
 /// Limit the number of ongoing operations across methods.
-struct LimitOperations {
+pub struct LimitOperations {
 	/// Limit the number of ongoing operations for this subscription.
 	semaphore: Arc<tokio::sync::Semaphore>,
 }
 
 impl LimitOperations {
 	/// Constructs a new [`LimitOperations`].
-	fn new(max_operations: usize) -> Self {
+	pub fn new(max_operations: usize) -> Self {
 		LimitOperations { semaphore: Arc::new(tokio::sync::Semaphore::new(max_operations)) }
 	}
 
@@ -127,7 +127,7 @@ impl LimitOperations {
 	///
 	/// Returns nothing if there's no space available, else returns a permit
 	/// that guarantees that at least one operation can be executed.
-	fn reserve_at_most(&self, to_reserve: usize) -> Option<PermitOperations> {
+	pub fn reserve_at_most(&self, to_reserve: usize) -> Option<PermitOperations> {
 		let num_ops = std::cmp::min(self.semaphore.available_permits(), to_reserve);
 
 		if num_ops == 0 {
@@ -148,7 +148,7 @@ impl LimitOperations {
 /// to guarantee the RPC server can execute the number of operations.
 ///
 /// The number of reserved items are given back to the [`LimitOperations`] on drop.
-struct PermitOperations {
+pub struct PermitOperations {
 	/// The number of operations permitted (reserved).
 	num_ops: usize,
 	/// The permit for these operations.

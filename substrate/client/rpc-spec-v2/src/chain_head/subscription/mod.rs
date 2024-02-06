@@ -28,7 +28,7 @@ use self::inner::SubscriptionsInner;
 
 pub use self::inner::OperationState;
 pub use error::SubscriptionManagementError;
-pub use inner::{BlockGuard, InsertedSubscriptionData};
+pub use inner::{BlockGuard, InsertedSubscriptionData, LimitOperations, PermitOperations};
 
 /// Manage block pinning / unpinning for subscription IDs.
 pub struct SubscriptionManagement<Block: BlockT, BE: Backend<Block>> {
