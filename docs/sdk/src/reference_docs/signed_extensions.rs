@@ -5,7 +5,6 @@
 //! extrinsic that is submitted.
 //!
 //! Signed extensions [implement the following trait][sp_runtime::traits::SignedExtension]:
-//!
 #![doc = docify::embed!("../../substrate/primitives/runtime/src/traits.rs", SignedExtension)]
 //!
 //! Tuples of signed extensions automatically implement this trait too, which allows them to be
@@ -13,20 +12,21 @@
 //!
 //! # Working with signed extensions
 //!
-//! Every signed extension must implement [`parity_scale_codec::Encode`] and [`parity_scale_codec::Decode`]
-//! to define how they are to be SCALE encoded and decoded. Every valid extrinsic will then contain
-//! all of the encoded signed extension bytes as part of its payload, which the node can then
-//! decode. Each signed extension on the node can then perform additional logic for the extrinsic via
-//! [`validate()`][validate], [`pre_dispatch()`][pre_dispatch] and [`post_dispatch()`][post_dispatch]
-//! methods.
+//! Every signed extension must implement [`parity_scale_codec::Encode`] and
+//! [`parity_scale_codec::Decode`] to define how they are to be SCALE encoded and decoded. Every
+//! valid extrinsic will then contain all of the encoded signed extension bytes as part of its
+//! payload, which the node can then decode. Each signed extension on the node can then perform
+//! additional logic for the extrinsic via [`validate()`][validate],
+//! [`pre_dispatch()`][pre_dispatch] and [`post_dispatch()`][post_dispatch] methods.
 //!
 //! Signed extensions can optionally also create some [`AdditionalSigned`][AdditionalSigned] type
-//! via [`additional_signed()`][additional_signed]. This type must implement [`parity_scale_codec::Encode`].
-//! The SCALE encoded bytes for all of the additional signed values are added to a _signed
-//! payload_, which will be checked against the signature and "from" address of a submitted extrinsic.
-//! If the signature in the submitted extrinsic was created from a different signed payload,
-//! then the extrinsic is found to be invalid. Thus, the extrinsic sender needs to have the same
-//! additional signed data as the node, else it will not be able to produce valid extrinsics.
+//! via [`additional_signed()`][additional_signed]. This type must implement
+//! [`parity_scale_codec::Encode`]. The SCALE encoded bytes for all of the additional signed values
+//! are added to a _signed payload_, which will be checked against the signature and "from" address
+//! of a submitted extrinsic. If the signature in the submitted extrinsic was created from a
+//! different signed payload, then the extrinsic is found to be invalid. Thus, the extrinsic sender
+//! needs to have the same additional signed data as the node, else it will not be able to produce
+//! valid extrinsics.
 //!
 //! Signed extensions also expose a [`metadata()`][metadata] method whose default implementation
 //! should normally be left alone. This determines what information is placed in the node metadata,
@@ -82,9 +82,9 @@
 //!
 //! The extension has two parts to it:
 //!
-//! - First, it encodes/decodes the _mortality_ of an extrinsic (ie how many blocks will it be
-//!   valid for, and the starting block number) into the extrinsic payload. It uses a clever scheme
-//!   to encode this information into just 2 bytes.
+//! - First, it encodes/decodes the _mortality_ of an extrinsic (ie how many blocks will it be valid
+//!   for, and the starting block number) into the extrinsic payload. It uses a clever scheme to
+//!   encode this information into just 2 bytes.
 //! - Second, it uses the starting block number encoded into the mortality data to look up a
 //!   corresponding block hash to use as its additional signed payload. This means that if the block
 //!   hash found on the node differs from that signed by the extrinsic author (ie because the node
@@ -118,9 +118,9 @@
 pub mod signed_extensions_example {
 	use parity_scale_codec::{Decode, Encode};
 	use scale_info::TypeInfo;
-	use sp_runtime::traits::{ SignedExtension, DispatchInfoOf };
-	use sp_runtime::transaction_validity::{
-		TransactionValidity, TransactionValidityError, ValidTransaction
+	use sp_runtime::{
+		traits::{DispatchInfoOf, SignedExtension},
+		transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
 	};
 
 	// This doesn't actually check anything, but simply allows
@@ -137,7 +137,7 @@ pub mod signed_extensions_example {
 		type AdditionalSigned = ();
 		type Pre = ();
 
-		fn additional_signed(&self) -> Result<Self::AdditionalSigned,TransactionValidityError> {
+		fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
 			Ok(())
 		}
 
@@ -187,12 +187,7 @@ pub mod signed_extensions_example {
 		type AdditionalSigned = u32;
 		type Pre = ();
 
-		fn additional_signed(
-			&self,
-		) -> Result<
-			Self::AdditionalSigned,
-			TransactionValidityError,
-		> {
+		fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
 			// By doing this, we require extrinsic authors to also add 1234u32 to
 			// the signer payloads that they sign when constructing extrinsics,
 			// else the signature will be invalid.
