@@ -71,16 +71,29 @@ pub struct SyncingConfig {
 	pub metrics_registry: Option<Registry>,
 }
 
+/// The key identifying a specific strategy for responses routing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Key {
+	// Warp sync initiated this request.
+	Warp,
+	// State sync initiated this request.
+	State,
+	// `ChainSync` initiated this request.
+	ChainSync,
+}
+
+impl Unpin for Key {}
+
 #[derive(Debug)]
 pub enum SyncingAction<B: BlockT> {
 	/// Send block request to peer. Always implies dropping a stale block request to the same peer.
-	SendBlockRequest { peer_id: PeerId, request: BlockRequest<B> },
+	SendBlockRequest { peer_id: PeerId, key: Key, request: BlockRequest<B> },
 	/// Send state request to peer.
-	SendStateRequest { peer_id: PeerId, request: OpaqueStateRequest },
+	SendStateRequest { peer_id: PeerId, key: Key, request: OpaqueStateRequest },
 	/// Send warp proof request to peer.
-	SendWarpProofRequest { peer_id: PeerId, request: WarpProofRequest<B> },
+	SendWarpProofRequest { peer_id: PeerId, key: Key, request: WarpProofRequest<B> },
 	/// Drop stale request.
-	CancelRequest { peer_id: PeerId },
+	CancelRequest { peer_id: PeerId, key: Key },
 	/// Peer misbehaved. Disconnect, report it and cancel any requests to it.
 	DropPeer(BadPeer),
 	/// Import blocks.
@@ -106,9 +119,9 @@ impl<B: BlockT> From<WarpSyncAction<B>> for SyncingAction<B> {
 	fn from(action: WarpSyncAction<B>) -> Self {
 		match action {
 			WarpSyncAction::SendWarpProofRequest { peer_id, request } =>
-				SyncingAction::SendWarpProofRequest { peer_id, request },
+				SyncingAction::SendWarpProofRequest { peer_id, key: Key::Warp, request },
 			WarpSyncAction::SendBlockRequest { peer_id, request } =>
-				SyncingAction::SendBlockRequest { peer_id, request },
+				SyncingAction::SendBlockRequest { peer_id, key: Key::Warp, request },
 			WarpSyncAction::DropPeer(bad_peer) => SyncingAction::DropPeer(bad_peer),
 			WarpSyncAction::Finished => SyncingAction::Finished,
 		}
@@ -119,7 +132,7 @@ impl<B: BlockT> From<StateStrategyAction<B>> for SyncingAction<B> {
 	fn from(action: StateStrategyAction<B>) -> Self {
 		match action {
 			StateStrategyAction::SendStateRequest { peer_id, request } =>
-				SyncingAction::SendStateRequest { peer_id, request },
+				SyncingAction::SendStateRequest { peer_id, key: Key::State, request },
 			StateStrategyAction::DropPeer(bad_peer) => SyncingAction::DropPeer(bad_peer),
 			StateStrategyAction::ImportBlocks { origin, blocks } =>
 				SyncingAction::ImportBlocks { origin, blocks },
@@ -132,10 +145,11 @@ impl<B: BlockT> From<ChainSyncAction<B>> for SyncingAction<B> {
 	fn from(action: ChainSyncAction<B>) -> Self {
 		match action {
 			ChainSyncAction::SendBlockRequest { peer_id, request } =>
-				SyncingAction::SendBlockRequest { peer_id, request },
+				SyncingAction::SendBlockRequest { peer_id, key: Key::ChainSync, request },
 			ChainSyncAction::SendStateRequest { peer_id, request } =>
-				SyncingAction::SendStateRequest { peer_id, request },
-			ChainSyncAction::CancelRequest { peer_id } => SyncingAction::CancelRequest { peer_id },
+				SyncingAction::SendStateRequest { peer_id, key: Key::ChainSync, request },
+			ChainSyncAction::CancelRequest { peer_id } =>
+				SyncingAction::CancelRequest { peer_id, key: Key::ChainSync },
 			ChainSyncAction::DropPeer(bad_peer) => SyncingAction::DropPeer(bad_peer),
 			ChainSyncAction::ImportBlocks { origin, blocks } =>
 				SyncingAction::ImportBlocks { origin, blocks },
@@ -292,32 +306,63 @@ where
 	pub fn on_block_response(
 		&mut self,
 		peer_id: PeerId,
+		key: Key,
 		request: BlockRequest<B>,
 		blocks: Vec<BlockData<B>>,
 	) {
-		// Only `WarpSync` and `ChainSync` handle block responses.
-		if let Some(ref mut warp) = self.warp {
-			warp.on_block_response(peer_id, request, blocks);
-		} else if let Some(ref mut chain_sync) = self.chain_sync {
-			chain_sync.on_block_response(peer_id, request, blocks);
+		match key {
+			Key::Warp => {
+				self.warp.as_mut().map(|warp| warp.on_block_response(peer_id, request, blocks));
+			},
+			Key::ChainSync => {
+				self.chain_sync
+					.as_mut()
+					.map(|chain_sync| chain_sync.on_block_response(peer_id, request, blocks));
+			},
+			key => {
+				error!(
+					target: LOG_TARGET,
+					"`on_block_response()` called with unexpected key {key:?}",
+				);
+				debug_assert!(false);
+			},
 		}
 	}
 
 	/// Process state response.
-	pub fn on_state_response(&mut self, peer_id: PeerId, response: OpaqueStateResponse) {
-		// Only `StateStrategy` and `ChainSync` handle state responses.
-		if let Some(ref mut state) = self.state {
-			state.on_state_response(peer_id, response);
-		} else if let Some(ref mut chain_sync) = self.chain_sync {
-			chain_sync.on_state_response(peer_id, response);
+	pub fn on_state_response(&mut self, peer_id: PeerId, key: Key, response: OpaqueStateResponse) {
+		match key {
+			Key::State => {
+				self.state.as_mut().map(|state| state.on_state_response(peer_id, response));
+			},
+			Key::ChainSync => {
+				self.chain_sync
+					.as_mut()
+					.map(|chain_sync| chain_sync.on_state_response(peer_id, response));
+			},
+			key => {
+				error!(
+					target: LOG_TARGET,
+					"`on_state_response()` called with unexpected key {key:?}",
+				);
+				debug_assert!(false);
+			},
 		}
 	}
 
 	/// Process warp proof response.
-	pub fn on_warp_proof_response(&mut self, peer_id: &PeerId, response: EncodedProof) {
-		// Only `WarpSync` handles warp proof responses.
-		if let Some(ref mut warp) = self.warp {
-			warp.on_warp_proof_response(peer_id, response);
+	pub fn on_warp_proof_response(&mut self, peer_id: &PeerId, key: Key, response: EncodedProof) {
+		match key {
+			Key::Warp => {
+				self.warp.as_mut().map(|warp| warp.on_warp_proof_response(peer_id, response));
+			},
+			key => {
+				error!(
+					target: LOG_TARGET,
+					"`on_warp_proof_response()` called with unexpected key {key:?}",
+				);
+				debug_assert!(false);
+			},
 		}
 	}
 
@@ -329,7 +374,6 @@ where
 		results: Vec<(Result<BlockImportStatus<NumberFor<B>>, BlockImportError>, B::Hash)>,
 	) {
 		// Only `StateStrategy` and `ChainSync` are interested in block processing notifications.
-
 		if let Some(ref mut state) = self.state {
 			state.on_blocks_processed(imported, count, results);
 		} else if let Some(ref mut chain_sync) = self.chain_sync {
