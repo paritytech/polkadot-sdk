@@ -24,7 +24,7 @@ use crate::{
 };
 
 use async_trait::async_trait;
-use bp_header_chain::justification::GrandpaJustification;
+use bp_header_chain::justification::{GrandpaJustification, JustificationVerificationContext};
 use finality_relay::{FinalityPipeline, FinalitySyncPipeline};
 use pallet_bridge_grandpa::{Call as BridgeGrandpaCall, Config as BridgeGrandpaConfig};
 use relay_substrate_client::{
@@ -110,11 +110,12 @@ impl<P: SubstrateFinalitySyncPipeline> FinalitySyncPipeline for FinalitySyncPipe
 
 /// Different ways of building `submit_finality_proof` calls.
 pub trait SubmitFinalityProofCallBuilder<P: SubstrateFinalitySyncPipeline> {
-	/// Given source chain header and its finality proofs, build call of `submit_finality_proof`
-	/// function of bridge GRANDPA module at the target chain.
+	/// Given source chain header, its finality proof and the current authority set id, build call
+	/// of `submit_finality_proof` function of bridge GRANDPA module at the target chain.
 	fn build_submit_finality_proof_call(
 		header: SyncHeader<HeaderOf<P::SourceChain>>,
 		proof: SubstrateFinalityProof<P>,
+		context: <<P as SubstrateFinalityPipeline>::FinalityEngine as Engine<P::SourceChain>>::FinalityVerificationContext,
 	) -> CallOf<P::TargetChain>;
 }
 
@@ -132,12 +133,16 @@ where
 	I: 'static,
 	R::BridgedChain: bp_runtime::Chain<Header = HeaderOf<P::SourceChain>>,
 	CallOf<P::TargetChain>: From<BridgeGrandpaCall<R, I>>,
-	P::FinalityEngine:
-		Engine<P::SourceChain, FinalityProof = GrandpaJustification<HeaderOf<P::SourceChain>>>,
+	P::FinalityEngine: Engine<
+		P::SourceChain,
+		FinalityProof = GrandpaJustification<HeaderOf<P::SourceChain>>,
+		FinalityVerificationContext = JustificationVerificationContext,
+	>,
 {
 	fn build_submit_finality_proof_call(
 		header: SyncHeader<HeaderOf<P::SourceChain>>,
 		proof: GrandpaJustification<HeaderOf<P::SourceChain>>,
+		_context: JustificationVerificationContext,
 	) -> CallOf<P::TargetChain> {
 		BridgeGrandpaCall::<R, I>::submit_finality_proof {
 			finality_target: Box::new(header.into_inner()),
@@ -171,6 +176,7 @@ macro_rules! generate_submit_finality_proof_call_builder {
 						<$pipeline as $crate::finality_base::SubstrateFinalityPipeline>::SourceChain
 					>
 				>,
+				_context: bp_header_chain::justification::JustificationVerificationContext,
 			) -> relay_substrate_client::CallOf<
 				<$pipeline as $crate::finality_base::SubstrateFinalityPipeline>::TargetChain
 			> {
