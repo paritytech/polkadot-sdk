@@ -36,9 +36,9 @@ use jsonrpsee::{
 			http::{HostFilterLayer, ProxyGetRequestLayer},
 			rpc::RpcServiceBuilder,
 		},
-		stop_channel, ws, PingConfig,
+		stop_channel, ws, PingConfig, StopHandle, TowerServiceBuilder,
 	},
-	RpcModule,
+	Methods, RpcModule,
 };
 use tokio::net::TcpListener;
 use tower::Service;
@@ -130,42 +130,32 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		builder = builder.set_id_provider(RandomStringIdProvider::new(16));
 	};
 
-	let methods = build_rpc_api(rpc_api);
-	let svc_builder = builder.to_service_builder().max_connections(max_connections);
-
 	let (stop_handle, server_handle) = stop_channel();
-	let stop_handle2 = stop_handle.clone();
-	let methods = methods.clone();
-	let metrics = metrics.clone();
-	let tokio_handle = tokio_handle.clone();
+	let cfg = PerConnection {
+		methods: build_rpc_api(rpc_api).into(),
+		service_builder: builder.to_service_builder().max_connections(max_connections),
+		metrics,
+		tokio_handle,
+		stop_handle: stop_handle.clone(),
+	};
 
 	let make_service = make_service_fn(move |_conn: &AddrStream| {
-		let stop_handle = stop_handle2.clone();
-		let svc_builder = svc_builder.clone();
-		let metrics = metrics.clone();
-		let methods = methods.clone();
-		let tokio_handle = tokio_handle.clone();
+		let cfg = cfg.clone();
 
 		async move {
-			let stop_handle = stop_handle.clone();
-			let svc_builder = svc_builder.clone();
-			let stop_handle = stop_handle.clone();
-			let tokio_handle = tokio_handle.clone();
-			let metrics = metrics.clone();
+			let cfg = cfg.clone();
 
 			Ok::<_, Infallible>(service_fn(move |req| {
-				let metrics = metrics.clone();
-				let svc_builder = svc_builder.clone();
-				let tokio_handle = tokio_handle.clone();
+				let PerConnection { service_builder, metrics, tokio_handle, stop_handle, methods } =
+					cfg.clone();
 
 				let is_websocket = ws::is_upgrade_request(&req);
 				let transport_label = if is_websocket { "ws" } else { "http" };
 
 				let metrics = metrics.map(|m| MetricsLayer::new(m, transport_label));
 				let rpc_middleware = RpcServiceBuilder::new().option_layer(metrics.clone());
-				let mut svc = svc_builder
-					.set_rpc_middleware(rpc_middleware)
-					.build(methods.clone(), stop_handle.clone());
+				let mut svc =
+					service_builder.set_rpc_middleware(rpc_middleware).build(methods, stop_handle);
 
 				async move {
 					if is_websocket {
@@ -257,4 +247,13 @@ fn format_cors(maybe_cors: Option<&Vec<String>>) -> String {
 	} else {
 		format!("{:?}", ["*"])
 	}
+}
+
+#[derive(Clone)]
+struct PerConnection<RpcMiddleware, HttpMiddleware> {
+	methods: Methods,
+	stop_handle: StopHandle,
+	metrics: Option<RpcMetrics>,
+	tokio_handle: tokio::runtime::Handle,
+	service_builder: TowerServiceBuilder<RpcMiddleware, HttpMiddleware>,
 }
