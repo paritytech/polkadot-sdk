@@ -118,12 +118,15 @@ pub trait Engine<C: Chain>: Send {
 		source_client.subscribe_finality_justifications::<Self::FinalityClient>().await
 	}
 
-	/// Optimize finality proof before sending it to the target node.
-	async fn optimize_proof<TargetChain: Chain>(
+	/// Verify and optimize finality proof before sending it to the target node.
+	///
+	/// Apart from optimization, we expect this method to perform all required checks
+	/// that the `header` and `proof` are valid at the current state of the target chain.
+	async fn verify_and_optimize_proof<TargetChain: Chain>(
 		target_client: &Client<TargetChain>,
 		header: &C::Header,
 		proof: &mut Self::FinalityProof,
-	) -> Result<(), SubstrateError>;
+	) -> Result<Self::FinalityVerificationContext, SubstrateError>;
 
 	/// Checks whether the given `header` and its finality `proof` fit the maximal expected
 	/// call size limit. If result is `MaxExpectedCallSizeCheck::Exceeds { .. }`, this
@@ -212,11 +215,11 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 		bp_header_chain::storage_keys::pallet_operating_mode_key(C::WITH_CHAIN_GRANDPA_PALLET_NAME)
 	}
 
-	async fn optimize_proof<TargetChain: Chain>(
+	async fn verify_and_optimize_proof<TargetChain: Chain>(
 		target_client: &Client<TargetChain>,
 		header: &C::Header,
 		proof: &mut Self::FinalityProof,
-	) -> Result<(), SubstrateError> {
+	) -> Result<Self::FinalityVerificationContext, SubstrateError> {
 		let verification_context = Grandpa::<C>::finality_verification_context(
 			target_client,
 			target_client.best_header().await?.hash(),
@@ -231,6 +234,7 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 			&verification_context,
 			proof,
 		)
+		.map(|_| verification_context)
 		.map_err(|e| {
 			SubstrateError::Custom(format!(
 				"Failed to optimize {} GRANDPA jutification for header {:?}: {:?}",
