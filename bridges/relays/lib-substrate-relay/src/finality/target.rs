@@ -108,13 +108,15 @@ impl<P: SubstrateFinalitySyncPipeline> TargetClient<FinalitySyncPipelineAdapter<
 		header: SyncHeader<HeaderOf<P::SourceChain>>,
 		mut proof: SubstrateFinalityProof<P>,
 	) -> Result<Self::TransactionTracker, Error> {
-		// runtime module at target chain may require optimized finality proof
-		P::FinalityEngine::optimize_proof(&self.client, &header, &mut proof).await?;
+		// verify and runtime module at target chain may require optimized finality proof
+		let context =
+			P::FinalityEngine::verify_and_optimize_proof(&self.client, &header, &mut proof).await?;
 
 		// now we may submit optimized finality proof
 		let mortality = self.transaction_params.mortality;
-		let call =
-			P::SubmitFinalityProofCallBuilder::build_submit_finality_proof_call(header, proof);
+		let call = P::SubmitFinalityProofCallBuilder::build_submit_finality_proof_call(
+			header, proof, context,
+		);
 		self.client
 			.submit_and_watch_signed_extrinsic(
 				&self.transaction_params.signer,
