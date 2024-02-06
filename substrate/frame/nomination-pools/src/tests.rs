@@ -1182,6 +1182,12 @@ mod claim_payout {
 			assert_eq!(payout, 0);
 			assert_eq!(member, del(0.0));
 			assert_eq!(reward_pool, rew(0, 0, 0));
+			Pools::put_member_with_pools(
+				&10,
+				member.clone(),
+				bonded_pool.clone(),
+				reward_pool.clone(),
+			);
 
 			// Given the pool has earned some rewards for the first time
 			deposit_rewards(5);
@@ -1203,6 +1209,12 @@ mod claim_payout {
 			assert_eq!(payout, 5);
 			assert_eq!(reward_pool, rew(0, 0, 5));
 			assert_eq!(member, del(0.5));
+			Pools::put_member_with_pools(
+				&10,
+				member.clone(),
+				bonded_pool.clone(),
+				reward_pool.clone(),
+			);
 
 			// Given the pool has earned rewards again
 			deposit_rewards(10);
@@ -1220,6 +1232,12 @@ mod claim_payout {
 			assert_eq!(payout, 10);
 			assert_eq!(reward_pool, rew(0, 0, 15));
 			assert_eq!(member, del(1.5));
+			Pools::put_member_with_pools(
+				&10,
+				member.clone(),
+				bonded_pool.clone(),
+				reward_pool.clone(),
+			);
 
 			// Given the pool has earned no new rewards
 			Currency::set_balance(&default_reward_account(), ed);
@@ -1234,6 +1252,12 @@ mod claim_payout {
 			assert_eq!(payout, 0);
 			assert_eq!(reward_pool, rew(0, 0, 15));
 			assert_eq!(member, del(1.5));
+			Pools::put_member_with_pools(
+				&10,
+				member.clone(),
+				bonded_pool.clone(),
+				reward_pool.clone(),
+			);
 		});
 	}
 
@@ -1279,6 +1303,12 @@ mod claim_payout {
 				assert_eq!(payout, 10);
 				assert_eq!(del_10, del(10, 1));
 				assert_eq!(reward_pool, rew(0, 0, 10));
+				Pools::put_member_with_pools(
+					&10,
+					del_10.clone(),
+					bonded_pool.clone(),
+					reward_pool.clone(),
+				);
 
 				// When
 				let payout =
@@ -1293,6 +1323,12 @@ mod claim_payout {
 				assert_eq!(payout, 40);
 				assert_eq!(del_40, del(40, 1));
 				assert_eq!(reward_pool, rew(0, 0, 50));
+				Pools::put_member_with_pools(
+					&40,
+					del_40.clone(),
+					bonded_pool.clone(),
+					reward_pool.clone(),
+				);
 
 				// When
 				let payout =
@@ -1307,6 +1343,12 @@ mod claim_payout {
 				assert_eq!(payout, 50);
 				assert_eq!(del_50, del(50, 1));
 				assert_eq!(reward_pool, rew(0, 0, 100));
+				Pools::put_member_with_pools(
+					&50,
+					del_50.clone(),
+					bonded_pool.clone(),
+					reward_pool.clone(),
+				);
 
 				// Given the reward pool has some new rewards
 				deposit_rewards(50);
@@ -1324,6 +1366,12 @@ mod claim_payout {
 				assert_eq!(payout, 5);
 				assert_eq!(del_10, del_float(10, 1.5));
 				assert_eq!(reward_pool, rew(0, 0, 105));
+				Pools::put_member_with_pools(
+					&10,
+					del_10.clone(),
+					bonded_pool.clone(),
+					reward_pool.clone(),
+				);
 
 				// When
 				let payout =
@@ -1338,6 +1386,12 @@ mod claim_payout {
 				assert_eq!(payout, 20);
 				assert_eq!(del_40, del_float(40, 1.5));
 				assert_eq!(reward_pool, rew(0, 0, 125));
+				Pools::put_member_with_pools(
+					&40,
+					del_40.clone(),
+					bonded_pool.clone(),
+					reward_pool.clone(),
+				);
 
 				// Given del_50 hasn't claimed and the reward pools has just earned 50
 				deposit_rewards(50);
@@ -1355,6 +1409,12 @@ mod claim_payout {
 				assert_eq!(payout, 50);
 				assert_eq!(del_50, del_float(50, 2.0));
 				assert_eq!(reward_pool, rew(0, 0, 175));
+				Pools::put_member_with_pools(
+					&50,
+					del_50.clone(),
+					bonded_pool.clone(),
+					reward_pool.clone(),
+				);
 
 				// When
 				let payout =
@@ -1369,6 +1429,12 @@ mod claim_payout {
 				assert_eq!(payout, 5);
 				assert_eq!(del_10, del_float(10, 2.0));
 				assert_eq!(reward_pool, rew(0, 0, 180));
+				Pools::put_member_with_pools(
+					&10,
+					del_10.clone(),
+					bonded_pool.clone(),
+					reward_pool.clone(),
+				);
 
 				// Given del_40 hasn't claimed and the reward pool has just earned 400
 				deposit_rewards(400);
@@ -1386,6 +1452,12 @@ mod claim_payout {
 				assert_eq!(payout, 40);
 				assert_eq!(del_10, del_float(10, 6.0));
 				assert_eq!(reward_pool, rew(0, 0, 220));
+				Pools::put_member_with_pools(
+					&10,
+					del_10.clone(),
+					bonded_pool.clone(),
+					reward_pool.clone(),
+				);
 
 				// Given del_40 + del_50 haven't claimed and the reward pool has earned 20
 				deposit_rewards(20);
@@ -1399,6 +1471,12 @@ mod claim_payout {
 				assert_eq!(payout, 2);
 				assert_eq!(del_10, del_float(10, 6.2));
 				assert_eq!(reward_pool, rew(0, 0, 222));
+				Pools::put_member_with_pools(
+					&10,
+					del_10.clone(),
+					bonded_pool.clone(),
+					reward_pool.clone(),
+				);
 
 				// When
 				let payout =
@@ -1409,6 +1487,12 @@ mod claim_payout {
 				assert_eq!(payout, 188); // 20 (from the 50) + 160 (from the 400) + 8 (from the 20)
 				assert_eq!(del_40, del_float(40, 6.2));
 				assert_eq!(reward_pool, rew(0, 0, 410));
+				Pools::put_member_with_pools(
+					&40,
+					del_40.clone(),
+					bonded_pool.clone(),
+					reward_pool.clone(),
+				);
 
 				// When
 				let payout =
@@ -1419,6 +1503,12 @@ mod claim_payout {
 				assert_eq!(payout, 210); // 200 (from the 400) + 10 (from the 20)
 				assert_eq!(del_50, del_float(50, 6.2));
 				assert_eq!(reward_pool, rew(0, 0, 620));
+				Pools::put_member_with_pools(
+					&50,
+					del_50.clone(),
+					bonded_pool.clone(),
+					reward_pool.clone(),
+				);
 			});
 	}
 
@@ -2487,6 +2577,38 @@ mod unbond {
 				assert_ok!(Pools::unbond(RuntimeOrigin::signed(random), 20, 18));
 				assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().active_points(), 0);
 				assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().unbonding_points(), 20);
+			})
+	}
+
+	#[test]
+	fn member_unbond_destroying_with_pending_rewards() {
+		ExtBuilder::default()
+			.min_join_bond(10)
+			.add_members(vec![(20, 20)])
+			.build_and_execute(|| {
+				unsafe_set_state(1, PoolState::Destroying);
+				let random = 123;
+
+				// given the pool some pending rewards.
+				assert_eq!(pending_rewards_for_delegator(20), 0);
+				deposit_rewards(10);
+				assert_eq!(pending_rewards_for_delegator(20), 6);
+
+				// any random user can unbond 20 now.
+				assert_ok!(Pools::unbond(RuntimeOrigin::signed(random), 20, 20));
+				assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().active_points(), 0);
+				assert_eq!(PoolMembers::<Runtime>::get(20).unwrap().unbonding_points(), 20);
+
+				assert_eq!(
+					pool_events_since_last_call(),
+					vec![
+						Event::Created { depositor: 10, pool_id: 1 },
+						Event::Bonded { member: 10, pool_id: 1, bonded: 10, joined: true },
+						Event::Bonded { member: 20, pool_id: 1, bonded: 20, joined: true },
+						Event::PaidOut { member: 20, pool_id: 1, payout: 6 },
+						Event::Unbonded { member: 20, pool_id: 1, balance: 20, points: 20, era: 3 }
+					]
+				);
 			})
 	}
 

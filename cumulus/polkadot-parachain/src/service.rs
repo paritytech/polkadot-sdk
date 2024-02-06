@@ -1292,7 +1292,7 @@ where
 	Ok(BasicQueue::new(verifier, Box::new(block_import), None, &spawner, registry))
 }
 
-/// Start an aura powered parachain node. Collectives uses this.
+/// Start an aura powered parachain node. Some system chains use this.
 pub async fn start_generic_aura_node<RuntimeApi, AuraId: AppCrypto>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
@@ -1377,6 +1377,106 @@ where
 
 			let fut =
 				basic_aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _>(params);
+			task_manager.spawn_essential_handle().spawn("aura", None, fut);
+
+			Ok(())
+		},
+		hwbench,
+	)
+	.await
+}
+
+/// Uses the lookahead collator to support async backing.
+///
+/// Start an aura powered parachain node. Some system chains use this.
+pub async fn start_generic_aura_lookahead_node<RuntimeApi, AuraId: AppCrypto>(
+	parachain_config: Configuration,
+	polkadot_config: Configuration,
+	collator_options: CollatorOptions,
+	para_id: ParaId,
+	hwbench: Option<sc_sysinfo::HwBench>,
+) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<RuntimeApi>>)>
+where
+	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
+	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
+		+ sp_api::Metadata<Block>
+		+ sp_session::SessionKeys<Block>
+		+ sp_api::ApiExt<Block>
+		+ sp_offchain::OffchainWorkerApi<Block>
+		+ sp_block_builder::BlockBuilder<Block>
+		+ cumulus_primitives_core::CollectCollationInfo<Block>
+		+ sp_consensus_aura::AuraApi<Block, <<AuraId as AppCrypto>::Pair as Pair>::Public>
+		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
+		+ frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
+		+ cumulus_primitives_aura::AuraUnincludedSegmentApi<Block>,
+	<<AuraId as AppCrypto>::Pair as Pair>::Signature:
+		TryFrom<Vec<u8>> + std::hash::Hash + sp_runtime::traits::Member + Codec,
+{
+	start_node_impl::<RuntimeApi, _, _, _>(
+		parachain_config,
+		polkadot_config,
+		collator_options,
+		CollatorSybilResistance::Resistant, // Aura
+		para_id,
+		|_| Ok(RpcModule::new(())),
+		aura_build_import_queue::<_, AuraId>,
+		|client,
+		 block_import,
+		 prometheus_registry,
+		 telemetry,
+		 task_manager,
+		 relay_chain_interface,
+		 transaction_pool,
+		 sync_oracle,
+		 keystore,
+		 relay_chain_slot_duration,
+		 para_id,
+		 collator_key,
+		 overseer_handle,
+		 announce_block,
+		 backend| {
+			let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
+
+			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
+				task_manager.spawn_handle(),
+				client.clone(),
+				transaction_pool,
+				prometheus_registry,
+				telemetry.clone(),
+			);
+			let proposer = Proposer::new(proposer_factory);
+
+			let collator_service = CollatorService::new(
+				client.clone(),
+				Arc::new(task_manager.spawn_handle()),
+				announce_block,
+				client.clone(),
+			);
+
+			let params = AuraParams {
+				create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+				block_import,
+				para_client: client.clone(),
+				para_backend: backend,
+				relay_client: relay_chain_interface,
+				code_hash_provider: move |block_hash| {
+					client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
+				},
+				sync_oracle,
+				keystore,
+				collator_key,
+				para_id,
+				overseer_handle,
+				slot_duration,
+				relay_chain_slot_duration,
+				proposer,
+				collator_service,
+				authoring_duration: Duration::from_millis(1500),
+				reinitialize: false,
+			};
+
+			let fut =
+				aura::run::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(params);
 			task_manager.spawn_essential_handle().spawn("aura", None, fut);
 
 			Ok(())
@@ -1805,7 +1905,8 @@ where
 		+ sp_block_builder::BlockBuilder<Block>
 		+ cumulus_primitives_core::CollectCollationInfo<Block>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
-		+ frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
+		+ frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
+		+ cumulus_primitives_aura::AuraUnincludedSegmentApi<Block>,
 	RB: Fn(Arc<ParachainClient<RuntimeApi>>) -> Result<jsonrpsee::RpcModule<()>, sc_service::Error>,
 	BIQ: FnOnce(
 		Arc<ParachainClient<RuntimeApi>>,
@@ -2039,7 +2140,7 @@ pub async fn start_contracts_rococo_node(
 		 collator_key,
 		 overseer_handle,
 		 announce_block,
-		 _backend| {
+		 backend| {
 			let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
 
 			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
@@ -2058,11 +2159,15 @@ pub async fn start_contracts_rococo_node(
 				client.clone(),
 			);
 
-			let params = BasicAuraParams {
+			let params = AuraParams {
 				create_inherent_data_providers: move |_, ()| async move { Ok(()) },
 				block_import,
-				para_client: client,
+				para_client: client.clone(),
+				para_backend: backend.clone(),
 				relay_client: relay_chain_interface,
+				code_hash_provider: move |block_hash| {
+					client.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
+				},
 				sync_oracle,
 				keystore,
 				collator_key,
@@ -2073,13 +2178,15 @@ pub async fn start_contracts_rococo_node(
 				proposer,
 				collator_service,
 				// Very limited proposal time.
-				authoring_duration: Duration::from_millis(500),
-				collation_request_receiver: None,
+				authoring_duration: Duration::from_millis(1500),
+				reinitialize: false,
 			};
 
-			let fut = basic_aura::run::<
+			let fut = aura::run::<
 				Block,
 				sp_consensus_aura::sr25519::AuthorityPair,
+				_,
+				_,
 				_,
 				_,
 				_,

@@ -261,6 +261,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		});
 
 	quote::quote_spanned!(span =>
+		#[doc(hidden)]
 		mod warnings {
 			#(
 				#call_index_warnings
@@ -270,6 +271,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			)*
 		}
 
+		#[allow(unused_imports)]
 		#[doc(hidden)]
 		pub mod __substrate_call_check {
 			#[macro_export]
@@ -455,6 +457,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		}
 
 		impl<#type_impl_gen> #pallet_ident<#type_use_gen> #where_clause {
+			#[allow(dead_code)]
 			#[doc(hidden)]
 			pub fn call_functions() -> #frame_support::__private::metadata_ir::PalletCallMetadataIR {
 				#frame_support::__private::scale_info::meta_type::<#call_ident<#type_use_gen>>().into()
