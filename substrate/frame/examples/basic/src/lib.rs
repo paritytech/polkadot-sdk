@@ -55,6 +55,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
+use core::marker::PhantomData;
 use frame_support::{
 	dispatch::{ClassifyDispatch, DispatchClass, DispatchResult, Pays, PaysFee, WeighData},
 	traits::IsSubType,
@@ -71,7 +72,7 @@ use sp_runtime::{
 	},
 	transaction_validity::{InvalidTransaction, ValidTransaction},
 };
-use sp_std::{marker::PhantomData, prelude::*};
+use sp_std::vec::Vec;
 
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
@@ -488,8 +489,8 @@ impl<T: Config> Pallet<T> {
 #[scale_info(skip_type_params(T))]
 pub struct WatchDummy<T: Config + Send + Sync>(PhantomData<T>);
 
-impl<T: Config + Send + Sync> sp_std::fmt::Debug for WatchDummy<T> {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+impl<T: Config + Send + Sync> core::fmt::Debug for WatchDummy<T> {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		write!(f, "WatchDummy")
 	}
 }

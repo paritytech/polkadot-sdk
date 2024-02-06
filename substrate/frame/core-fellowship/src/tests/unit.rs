@@ -19,6 +19,7 @@
 
 use std::collections::BTreeMap;
 
+use core::cell::RefCell;
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, ord_parameter_types,
 	pallet_prelude::Weight,
@@ -27,7 +28,6 @@ use frame_support::{
 };
 use frame_system::EnsureSignedBy;
 use sp_runtime::{traits::TryMorphInto, BuildStorage, DispatchError, DispatchResult};
-use sp_std::cell::RefCell;
 
 use crate as pallet_core_fellowship;
 use crate::*;

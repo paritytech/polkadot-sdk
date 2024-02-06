@@ -198,6 +198,19 @@ impl CallInfo {
 		}
 	}
 
+	/// Returns mutable reference to pre-dispatch `finality_target` sent to the
+	/// `SubmitFinalityProof` call.
+	#[cfg(test)]
+	fn submit_finality_proof_info_mut(
+		&mut self,
+	) -> Option<&mut SubmitFinalityProofInfo<RelayBlockNumber>> {
+		match *self {
+			Self::AllFinalityAndMsgs(ref mut info, _, _) => Some(info),
+			Self::RelayFinalityAndMsgs(ref mut info, _) => Some(info),
+			_ => None,
+		}
+	}
+
 	/// Returns the pre-dispatch `SubmitParachainHeadsInfo`.
 	fn submit_parachain_heads_info(&self) -> Option<&SubmitParachainHeadsInfo> {
 		match self {
@@ -870,7 +883,7 @@ mod tests {
 	use bp_parachains::{BestParaHeadHash, ParaInfo};
 	use bp_polkadot_core::parachains::{ParaHeadsProof, ParaId};
 	use bp_runtime::{BasicOperatingMode, HeaderId};
-	use bp_test_utils::{make_default_justification, test_keyring};
+	use bp_test_utils::{make_default_justification, test_keyring, TEST_GRANDPA_SET_ID};
 	use frame_support::{
 		assert_storage_noop, parameter_types,
 		traits::{fungible::Mutate, ReservableCurrency},
@@ -955,7 +968,7 @@ mod tests {
 		let authorities = test_keyring().into_iter().map(|(a, w)| (a.into(), w)).collect();
 		let best_relay_header = HeaderId(best_relay_header_number, RelayBlockHash::default());
 		pallet_bridge_grandpa::CurrentAuthoritySet::<TestRuntime>::put(
-			StoredAuthoritySet::try_new(authorities, 0).unwrap(),
+			StoredAuthoritySet::try_new(authorities, TEST_GRANDPA_SET_ID).unwrap(),
 		);
 		pallet_bridge_grandpa::BestFinalized::<TestRuntime>::put(best_relay_header);
 
@@ -1000,6 +1013,23 @@ mod tests {
 		RuntimeCall::BridgeGrandpa(GrandpaCall::submit_finality_proof {
 			finality_target: Box::new(relay_header),
 			justification: relay_justification,
+		})
+	}
+
+	fn submit_relay_header_call_ex(relay_header_number: RelayBlockNumber) -> RuntimeCall {
+		let relay_header = BridgedChainHeader::new(
+			relay_header_number,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		);
+		let relay_justification = make_default_justification(&relay_header);
+
+		RuntimeCall::BridgeGrandpa(GrandpaCall::submit_finality_proof_ex {
+			finality_target: Box::new(relay_header),
+			justification: relay_justification,
+			current_set_id: TEST_GRANDPA_SET_ID,
 		})
 	}
 
@@ -1085,6 +1115,18 @@ mod tests {
 		})
 	}
 
+	fn relay_finality_and_delivery_batch_call_ex(
+		relay_header_number: RelayBlockNumber,
+		best_message: MessageNonce,
+	) -> RuntimeCall {
+		RuntimeCall::Utility(UtilityCall::batch_all {
+			calls: vec![
+				submit_relay_header_call_ex(relay_header_number),
+				message_delivery_call(best_message),
+			],
+		})
+	}
+
 	fn relay_finality_and_confirmation_batch_call(
 		relay_header_number: RelayBlockNumber,
 		best_message: MessageNonce,
@@ -1092,6 +1134,18 @@ mod tests {
 		RuntimeCall::Utility(UtilityCall::batch_all {
 			calls: vec![
 				submit_relay_header_call(relay_header_number),
+				message_confirmation_call(best_message),
+			],
+		})
+	}
+
+	fn relay_finality_and_confirmation_batch_call_ex(
+		relay_header_number: RelayBlockNumber,
+		best_message: MessageNonce,
+	) -> RuntimeCall {
+		RuntimeCall::Utility(UtilityCall::batch_all {
+			calls: vec![
+				submit_relay_header_call_ex(relay_header_number),
 				message_confirmation_call(best_message),
 			],
 		})
@@ -1105,6 +1159,20 @@ mod tests {
 		RuntimeCall::Utility(UtilityCall::batch_all {
 			calls: vec![
 				submit_relay_header_call(relay_header_number),
+				submit_parachain_head_call(parachain_head_at_relay_header_number),
+				message_delivery_call(best_message),
+			],
+		})
+	}
+
+	fn all_finality_and_delivery_batch_call_ex(
+		relay_header_number: RelayBlockNumber,
+		parachain_head_at_relay_header_number: RelayBlockNumber,
+		best_message: MessageNonce,
+	) -> RuntimeCall {
+		RuntimeCall::Utility(UtilityCall::batch_all {
+			calls: vec![
+				submit_relay_header_call_ex(relay_header_number),
 				submit_parachain_head_call(parachain_head_at_relay_header_number),
 				message_delivery_call(best_message),
 			],
@@ -1125,12 +1193,27 @@ mod tests {
 		})
 	}
 
+	fn all_finality_and_confirmation_batch_call_ex(
+		relay_header_number: RelayBlockNumber,
+		parachain_head_at_relay_header_number: RelayBlockNumber,
+		best_message: MessageNonce,
+	) -> RuntimeCall {
+		RuntimeCall::Utility(UtilityCall::batch_all {
+			calls: vec![
+				submit_relay_header_call_ex(relay_header_number),
+				submit_parachain_head_call(parachain_head_at_relay_header_number),
+				message_confirmation_call(best_message),
+			],
+		})
+	}
+
 	fn all_finality_pre_dispatch_data() -> PreDispatchData<ThisChainAccountId> {
 		PreDispatchData {
 			relayer: relayer_account_at_this_chain(),
 			call_info: CallInfo::AllFinalityAndMsgs(
 				SubmitFinalityProofInfo {
 					block_number: 200,
+					current_set_id: None,
 					extra_weight: Weight::zero(),
 					extra_size: 0,
 				},
@@ -1152,6 +1235,13 @@ mod tests {
 				}),
 			),
 		}
+	}
+
+	fn all_finality_pre_dispatch_data_ex() -> PreDispatchData<ThisChainAccountId> {
+		let mut data = all_finality_pre_dispatch_data();
+		data.call_info.submit_finality_proof_info_mut().unwrap().current_set_id =
+			Some(TEST_GRANDPA_SET_ID);
+		data
 	}
 
 	fn all_finality_confirmation_pre_dispatch_data() -> PreDispatchData<ThisChainAccountId> {
@@ -1160,6 +1250,7 @@ mod tests {
 			call_info: CallInfo::AllFinalityAndMsgs(
 				SubmitFinalityProofInfo {
 					block_number: 200,
+					current_set_id: None,
 					extra_weight: Weight::zero(),
 					extra_size: 0,
 				},
@@ -1179,12 +1270,20 @@ mod tests {
 		}
 	}
 
+	fn all_finality_confirmation_pre_dispatch_data_ex() -> PreDispatchData<ThisChainAccountId> {
+		let mut data = all_finality_confirmation_pre_dispatch_data();
+		data.call_info.submit_finality_proof_info_mut().unwrap().current_set_id =
+			Some(TEST_GRANDPA_SET_ID);
+		data
+	}
+
 	fn relay_finality_pre_dispatch_data() -> PreDispatchData<ThisChainAccountId> {
 		PreDispatchData {
 			relayer: relayer_account_at_this_chain(),
 			call_info: CallInfo::RelayFinalityAndMsgs(
 				SubmitFinalityProofInfo {
 					block_number: 200,
+					current_set_id: None,
 					extra_weight: Weight::zero(),
 					extra_size: 0,
 				},
@@ -1203,12 +1302,20 @@ mod tests {
 		}
 	}
 
+	fn relay_finality_pre_dispatch_data_ex() -> PreDispatchData<ThisChainAccountId> {
+		let mut data = relay_finality_pre_dispatch_data();
+		data.call_info.submit_finality_proof_info_mut().unwrap().current_set_id =
+			Some(TEST_GRANDPA_SET_ID);
+		data
+	}
+
 	fn relay_finality_confirmation_pre_dispatch_data() -> PreDispatchData<ThisChainAccountId> {
 		PreDispatchData {
 			relayer: relayer_account_at_this_chain(),
 			call_info: CallInfo::RelayFinalityAndMsgs(
 				SubmitFinalityProofInfo {
 					block_number: 200,
+					current_set_id: None,
 					extra_weight: Weight::zero(),
 					extra_size: 0,
 				},
@@ -1221,6 +1328,13 @@ mod tests {
 				)),
 			),
 		}
+	}
+
+	fn relay_finality_confirmation_pre_dispatch_data_ex() -> PreDispatchData<ThisChainAccountId> {
+		let mut data = relay_finality_confirmation_pre_dispatch_data();
+		data.call_info.submit_finality_proof_info_mut().unwrap().current_set_id =
+			Some(TEST_GRANDPA_SET_ID);
+		data
 	}
 
 	fn parachain_finality_pre_dispatch_data() -> PreDispatchData<ThisChainAccountId> {
@@ -1448,6 +1562,10 @@ mod tests {
 				run_validate(all_finality_and_delivery_batch_call(200, 200, 200)),
 				Ok(Default::default()),
 			);
+			assert_eq!(
+				run_validate(all_finality_and_delivery_batch_call_ex(200, 200, 200)),
+				Ok(Default::default()),
+			);
 			// message confirmation validation is passing
 			assert_eq!(
 				run_validate_ignore_priority(message_confirmation_call(200)),
@@ -1461,6 +1579,12 @@ mod tests {
 			);
 			assert_eq!(
 				run_validate_ignore_priority(all_finality_and_confirmation_batch_call(
+					200, 200, 200
+				)),
+				Ok(Default::default()),
+			);
+			assert_eq!(
+				run_validate_ignore_priority(all_finality_and_confirmation_batch_call_ex(
 					200, 200, 200
 				)),
 				Ok(Default::default()),
@@ -1556,7 +1680,19 @@ mod tests {
 				Ok(ValidTransaction::default()),
 			);
 			assert_eq!(
+				run_validate_ignore_priority(all_finality_and_delivery_batch_call_ex(
+					200, 200, 200
+				)),
+				Ok(ValidTransaction::default()),
+			);
+			assert_eq!(
 				run_validate_ignore_priority(all_finality_and_confirmation_batch_call(
+					200, 200, 200
+				)),
+				Ok(ValidTransaction::default()),
+			);
+			assert_eq!(
+				run_validate_ignore_priority(all_finality_and_confirmation_batch_call_ex(
 					200, 200, 200
 				)),
 				Ok(ValidTransaction::default()),
@@ -1573,9 +1709,17 @@ mod tests {
 				run_pre_dispatch(all_finality_and_delivery_batch_call(100, 200, 200)),
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
 			);
+			assert_eq!(
+				run_pre_dispatch(all_finality_and_delivery_batch_call_ex(100, 200, 200)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
+			);
 
 			assert_eq!(
 				run_validate(all_finality_and_delivery_batch_call(100, 200, 200)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
+			);
+			assert_eq!(
+				run_validate(all_finality_and_delivery_batch_call_ex(100, 200, 200)),
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
 			);
 		});
@@ -1591,7 +1735,15 @@ mod tests {
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
 			);
 			assert_eq!(
+				run_pre_dispatch(all_finality_and_delivery_batch_call_ex(101, 100, 200)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
+			);
+			assert_eq!(
 				run_validate(all_finality_and_delivery_batch_call(101, 100, 200)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
+			);
+			assert_eq!(
+				run_validate(all_finality_and_delivery_batch_call_ex(101, 100, 200)),
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
 			);
 
@@ -1616,7 +1768,15 @@ mod tests {
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
 			);
 			assert_eq!(
+				run_pre_dispatch(all_finality_and_delivery_batch_call_ex(200, 200, 100)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
+			);
+			assert_eq!(
 				run_pre_dispatch(all_finality_and_confirmation_batch_call(200, 200, 100)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
+			);
+			assert_eq!(
+				run_pre_dispatch(all_finality_and_confirmation_batch_call_ex(200, 200, 100)),
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
 			);
 
@@ -1625,7 +1785,15 @@ mod tests {
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
 			);
 			assert_eq!(
+				run_validate(all_finality_and_delivery_batch_call_ex(200, 200, 100)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
+			);
+			assert_eq!(
 				run_validate(all_finality_and_confirmation_batch_call(200, 200, 100)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
+			);
+			assert_eq!(
+				run_validate(all_finality_and_confirmation_batch_call_ex(200, 200, 100)),
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
 			);
 
@@ -1665,7 +1833,15 @@ mod tests {
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
 			);
 			assert_eq!(
+				run_pre_dispatch(all_finality_and_delivery_batch_call_ex(200, 200, 200)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+			);
+			assert_eq!(
 				run_pre_dispatch(all_finality_and_confirmation_batch_call(200, 200, 200)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+			);
+			assert_eq!(
+				run_pre_dispatch(all_finality_and_confirmation_batch_call_ex(200, 200, 200)),
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
 			);
 		});
@@ -1687,7 +1863,15 @@ mod tests {
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
 			);
 			assert_eq!(
+				run_pre_dispatch(all_finality_and_delivery_batch_call_ex(200, 200, 200)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+			);
+			assert_eq!(
 				run_pre_dispatch(all_finality_and_confirmation_batch_call(200, 200, 200)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+			);
+			assert_eq!(
+				run_pre_dispatch(all_finality_and_confirmation_batch_call_ex(200, 200, 200)),
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
 			);
 
@@ -1718,7 +1902,15 @@ mod tests {
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
 			);
 			assert_eq!(
+				run_pre_dispatch(all_finality_and_delivery_batch_call_ex(200, 200, 200)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+			);
+			assert_eq!(
 				run_pre_dispatch(all_finality_and_confirmation_batch_call(200, 200, 200)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
+			);
+			assert_eq!(
+				run_pre_dispatch(all_finality_and_confirmation_batch_call_ex(200, 200, 200)),
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Call)),
 			);
 
@@ -1752,8 +1944,16 @@ mod tests {
 				Ok(Some(all_finality_pre_dispatch_data())),
 			);
 			assert_eq!(
+				run_pre_dispatch(all_finality_and_delivery_batch_call_ex(200, 200, 200)),
+				Ok(Some(all_finality_pre_dispatch_data_ex())),
+			);
+			assert_eq!(
 				run_pre_dispatch(all_finality_and_confirmation_batch_call(200, 200, 200)),
 				Ok(Some(all_finality_confirmation_pre_dispatch_data())),
+			);
+			assert_eq!(
+				run_pre_dispatch(all_finality_and_confirmation_batch_call_ex(200, 200, 200)),
+				Ok(Some(all_finality_confirmation_pre_dispatch_data_ex())),
 			);
 		});
 	}
@@ -2181,11 +2381,23 @@ mod tests {
 				),
 				Ok(None),
 			);
+			assert_eq!(
+				TestGrandpaExtensionProvider::parse_and_check_for_obsolete_call(
+					&all_finality_and_delivery_batch_call_ex(200, 200, 200)
+				),
+				Ok(None),
+			);
 
 			// relay + parachain + message confirmation calls batch is ignored
 			assert_eq!(
 				TestGrandpaExtensionProvider::parse_and_check_for_obsolete_call(
 					&all_finality_and_confirmation_batch_call(200, 200, 200)
+				),
+				Ok(None),
+			);
+			assert_eq!(
+				TestGrandpaExtensionProvider::parse_and_check_for_obsolete_call(
+					&all_finality_and_confirmation_batch_call_ex(200, 200, 200)
 				),
 				Ok(None),
 			);
@@ -2213,6 +2425,12 @@ mod tests {
 				),
 				Ok(Some(relay_finality_pre_dispatch_data().call_info)),
 			);
+			assert_eq!(
+				TestGrandpaExtensionProvider::parse_and_check_for_obsolete_call(
+					&relay_finality_and_delivery_batch_call_ex(200, 200)
+				),
+				Ok(Some(relay_finality_pre_dispatch_data_ex().call_info)),
+			);
 
 			// relay + message confirmation call batch is accepted
 			assert_eq!(
@@ -2220,6 +2438,12 @@ mod tests {
 					&relay_finality_and_confirmation_batch_call(200, 200)
 				),
 				Ok(Some(relay_finality_confirmation_pre_dispatch_data().call_info)),
+			);
+			assert_eq!(
+				TestGrandpaExtensionProvider::parse_and_check_for_obsolete_call(
+					&relay_finality_and_confirmation_batch_call_ex(200, 200)
+				),
+				Ok(Some(relay_finality_confirmation_pre_dispatch_data_ex().call_info)),
 			);
 
 			// message delivery call batch is accepted
@@ -2249,9 +2473,17 @@ mod tests {
 				run_grandpa_pre_dispatch(relay_finality_and_delivery_batch_call(100, 200)),
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
 			);
+			assert_eq!(
+				run_grandpa_pre_dispatch(relay_finality_and_delivery_batch_call_ex(100, 200)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
+			);
 
 			assert_eq!(
 				run_grandpa_validate(relay_finality_and_delivery_batch_call(100, 200)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
+			);
+			assert_eq!(
+				run_grandpa_validate(relay_finality_and_delivery_batch_call_ex(100, 200)),
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
 			);
 		});
@@ -2267,7 +2499,15 @@ mod tests {
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
 			);
 			assert_eq!(
+				run_grandpa_pre_dispatch(relay_finality_and_delivery_batch_call_ex(200, 100)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
+			);
+			assert_eq!(
 				run_grandpa_pre_dispatch(relay_finality_and_confirmation_batch_call(200, 100)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
+			);
+			assert_eq!(
+				run_grandpa_pre_dispatch(relay_finality_and_confirmation_batch_call_ex(200, 100)),
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
 			);
 
@@ -2276,7 +2516,15 @@ mod tests {
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
 			);
 			assert_eq!(
+				run_grandpa_validate(relay_finality_and_delivery_batch_call_ex(200, 100)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
+			);
+			assert_eq!(
 				run_grandpa_validate(relay_finality_and_confirmation_batch_call(200, 100)),
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
+			);
+			assert_eq!(
+				run_grandpa_validate(relay_finality_and_confirmation_batch_call_ex(200, 100)),
 				Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
 			);
 
@@ -2310,8 +2558,16 @@ mod tests {
 				Ok(Some(relay_finality_pre_dispatch_data()),)
 			);
 			assert_eq!(
+				run_grandpa_pre_dispatch(relay_finality_and_delivery_batch_call_ex(200, 200)),
+				Ok(Some(relay_finality_pre_dispatch_data_ex()),)
+			);
+			assert_eq!(
 				run_grandpa_pre_dispatch(relay_finality_and_confirmation_batch_call(200, 200)),
 				Ok(Some(relay_finality_confirmation_pre_dispatch_data())),
+			);
+			assert_eq!(
+				run_grandpa_pre_dispatch(relay_finality_and_confirmation_batch_call_ex(200, 200)),
+				Ok(Some(relay_finality_confirmation_pre_dispatch_data_ex())),
 			);
 
 			assert_eq!(
@@ -2319,7 +2575,15 @@ mod tests {
 				Ok(Default::default()),
 			);
 			assert_eq!(
+				run_grandpa_validate(relay_finality_and_delivery_batch_call_ex(200, 200)),
+				Ok(Default::default()),
+			);
+			assert_eq!(
 				run_grandpa_validate(relay_finality_and_confirmation_batch_call(200, 200)),
+				Ok(Default::default()),
+			);
+			assert_eq!(
+				run_grandpa_validate(relay_finality_and_confirmation_batch_call_ex(200, 200)),
 				Ok(Default::default()),
 			);
 
