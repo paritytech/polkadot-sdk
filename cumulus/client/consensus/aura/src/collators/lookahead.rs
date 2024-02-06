@@ -213,35 +213,6 @@ where
 				},
 			};
 
-			let slot_duration = match sc_consensus_aura::slot_duration(&*params.para_client) {
-				Ok(sd) => sd,
-				Err(err) => {
-					tracing::error!(target: crate::LOG_TARGET, ?err, "Failed to acquire parachain slot duration");
-					continue
-				},
-			};
-			tracing::debug!(target: crate::LOG_TARGET, "Parachain slot duration acquired: {:?}", slot_duration);
-
-			let (slot_now, timestamp) = match consensus_common::relay_slot_and_timestamp(
-				&relay_parent_header,
-				params.relay_chain_slot_duration,
-			) {
-				None => continue,
-				Some((r_s, t)) => {
-					let our_slot = Slot::from_timestamp(t, slot_duration);
-					tracing::debug!(
-						target: crate::LOG_TARGET,
-						relay_slot = ?r_s,
-						para_slot = ?our_slot,
-						timestamp = ?t,
-						slot_duration = ?slot_duration,
-						relay_chain_slot_duration = ?params.relay_chain_slot_duration,
-						"Adjusted relay-chain slot to parachain slot"
-					);
-					(our_slot, t)
-				},
-			};
-
 			let parent_search_params = ParentSearchParams {
 				relay_parent,
 				para_id: params.para_id,
@@ -280,14 +251,39 @@ where
 			let para_client = &*params.para_client;
 			let keystore = &params.keystore;
 			let can_build_upon = |block_hash| {
-				can_build_upon::<_, _, P>(
+				let slot_duration = match sc_consensus_aura::standalone::slot_duration_at(
+					&*params.para_client,
+					block_hash,
+				) {
+					Ok(sd) => sd,
+					Err(err) => {
+						tracing::error!(target: crate::LOG_TARGET, ?err, "Failed to acquire parachain slot duration");
+						return None
+					},
+				};
+				tracing::debug!(target: crate::LOG_TARGET, "Parachain slot duration acquired: {:?}", slot_duration);
+				let (relay_slot, timestamp) = consensus_common::relay_slot_and_timestamp(
+					&relay_parent_header,
+					params.relay_chain_slot_duration,
+				)?;
+				let slot_now = Slot::from_timestamp(timestamp, slot_duration);
+				tracing::debug!(
+					target: crate::LOG_TARGET,
+					relay_slot = ?relay_slot,
+					para_slot = ?slot_now,
+					timestamp = ?timestamp,
+					slot_duration = ?slot_duration,
+					relay_chain_slot_duration = ?params.relay_chain_slot_duration,
+					"Adjusted relay-chain slot to parachain slot"
+				);
+				Some(can_build_upon::<_, _, P>(
 					slot_now,
 					timestamp,
 					block_hash,
 					included_block,
 					para_client,
 					&keystore,
-				)
+				))
 			};
 
 			// Sort by depth, ascending, to choose the longest chain.
@@ -309,9 +305,12 @@ where
 			// This needs to change to support elastic scaling, but for continuously
 			// scheduled chains this ensures that the backlog will grow steadily.
 			for n_built in 0..2 {
-				let slot_claim = match can_build_upon(parent_hash).await {
+				let slot_claim = match can_build_upon(parent_hash) {
+					Some(fut) => match fut.await {
+						None => break,
+						Some(c) => c,
+					},
 					None => break,
-					Some(c) => c,
 				};
 
 				tracing::debug!(
