@@ -24,7 +24,7 @@ use frame_support::{
 };
 
 use frame_system::EnsureRoot;
-use sp_core::{ConstU32, H256};
+use sp_core::ConstU32;
 use sp_runtime::{
 	create_runtime_str, generic,
 	traits::{AccountIdLookup, BlakeTwo256, Hash, IdentifyAccount, Verify},
@@ -51,7 +51,7 @@ use xcm_executor::{Config, XcmExecutor};
 
 pub type SignedExtra = (frame_system::CheckNonZeroSender<Runtime>,);
 
-pub type BlockNumber = u32;
+pub type BlockNumber = u64;
 pub type Address = MultiAddress<AccountId, ()>;
 pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 pub type UncheckedExtrinsic =
@@ -80,29 +80,10 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Nonce = u64;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = AccountIdLookup<AccountId, ()>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = BlockHashCount;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type DbWeight = ();
-	type BaseCallFilter = Everything;
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 parameter_types! {
