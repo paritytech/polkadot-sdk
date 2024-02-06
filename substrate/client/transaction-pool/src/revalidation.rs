@@ -24,10 +24,7 @@ use std::{
 	sync::Arc,
 };
 
-use crate::{
-	graph::{BlockHash, ChainApi, ExtrinsicHash, Pool, ValidatedTransaction},
-	LOG_TARGET,
-};
+use crate::graph::{BlockHash, ChainApi, ExtrinsicHash, Pool, ValidatedTransaction};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_runtime::{
 	generic::BlockId, traits::SaturatedConversion, transaction_validity::TransactionValidityError,
@@ -39,6 +36,8 @@ use std::time::Duration;
 const BACKGROUND_REVALIDATION_INTERVAL: Duration = Duration::from_millis(200);
 
 const MIN_BACKGROUND_REVALIDATION_BATCH_SIZE: usize = 20;
+
+const LOG_TARGET: &str = "txpool::revalidation";
 
 /// Payload from queue to worker.
 struct WorkerPayload<Api: ChainApi> {
@@ -94,6 +93,8 @@ async fn batch_revalidate<Api: ChainApi>(
 		})
 	}))
 	.await;
+
+	log::info!("revalidate: {:#?}", validation_results);
 
 	for (validation_result, ext_hash, ext) in validation_results {
 		match validation_result {
@@ -252,6 +253,10 @@ impl<Api: ChainApi> RevalidationWorker<Api> {
 				_ = (&mut interval_fut).fuse() => {
 					let next_batch = this.prepare_batch();
 					let batch_len = next_batch.len();
+						log::debug!(
+							target: LOG_TARGET,
+							"revalidation -- interval.",
+						);
 
 					batch_revalidate(this.pool.clone(), this.api.clone(), this.best_block, next_batch).await;
 
@@ -347,7 +352,7 @@ where
 		transactions: Vec<ExtrinsicHash<Api>>,
 	) {
 		if transactions.len() > 0 {
-			log::debug!(
+			log::info!(
 				target: LOG_TARGET,
 				"Sent {} transactions to revalidation queue",
 				transactions.len(),
@@ -355,10 +360,18 @@ where
 		}
 
 		if let Some(ref to_worker) = self.background {
+			log::info!(
+				target: LOG_TARGET,
+				"revlidation send",
+			);
 			if let Err(e) = to_worker.unbounded_send(WorkerPayload { at, transactions }) {
 				log::warn!(target: LOG_TARGET, "Failed to update background worker: {:?}", e);
 			}
 		} else {
+			log::info!(
+				target: LOG_TARGET,
+				"batch_revalidate direct call"
+			);
 			let pool = self.pool.clone();
 			let api = self.api.clone();
 			batch_revalidate(pool, api, at, transactions).await

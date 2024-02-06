@@ -91,6 +91,8 @@ impl<Hash: hash::Hash + Eq + Clone> PoolRotator<Hash> {
 			return false
 		}
 
+		log::info!("ban_if_stale: {:#?}", std::backtrace::Backtrace::force_capture());
+
 		self.ban(now, iter::once(xt.hash.clone()));
 		true
 	}

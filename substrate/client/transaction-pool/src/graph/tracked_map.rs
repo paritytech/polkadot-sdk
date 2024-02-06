@@ -52,7 +52,6 @@ where
 	V: Clone,
 {
 	fn clone(&self) -> Self {
-		log::error!("xxx: TrackedMap::clone");
 		Self {
 			index: Arc::from(RwLock::from(self.index.read().clone())),
 			bytes: self.bytes.load(AtomicOrdering::Relaxed).into(),
