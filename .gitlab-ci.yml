@@ -231,7 +231,7 @@ include:
   stage: .post
   rules:
     - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/ # PRs
-      when: on_failure
+      when: never
   variables:
     PROJECT_ID: "${CI_PROJECT_ID}"
     PROJECT_NAME: "${CI_PROJECT_NAME}"
@@ -246,6 +246,7 @@ remove-cancel-pipeline-message:
   stage: .post
   rules:
     - if: $CI_COMMIT_REF_NAME =~ /^[0-9]+$/ # PRs
+      when: never
   variables:
     PROJECT_ID: "${CI_PROJECT_ID}"
     PROJECT_NAME: "${CI_PROJECT_NAME}"
