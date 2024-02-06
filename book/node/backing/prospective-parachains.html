@@ -236,10 +236,11 @@ been backed.</li>
 statement giving a candidate the necessary quorum of backing votes.</li>
 </ul>
 </li>
-<li><code>ProspectiveParachainsMessage::GetBackableCandidate</code>
+<li><code>ProspectiveParachainsMessage::GetBackableCandidates</code>
 <ul>
-<li>Get a backable candidate hash along with its relay parent for a given parachain,
-under a given relay-parent (leaf) hash, which is a descendant of given candidate hashes.</li>
+<li>Get the requested number of backable candidate hashes along with their relay parent for a given
+parachain,under a given relay-parent (leaf) hash, which are descendants of given candidate
+hashes.</li>
 <li>Sent by the Provisioner when requesting backable candidates, when
 selecting candidates for a given relay-parent.</li>
 </ul>
@@ -334,7 +335,7 @@ anchored to.</li>
 <li><strong>Scope:</strong> The scope of a fragment tree, defining limits on nodes
 within the tree.</li>
 </ul>
-<footer id="last-change">Last change: 2023-09-27, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/7cbe0c76ef">7cbe0c76ef</a></footer>
+<footer id="last-change">Last change: 2024-02-06, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/7df1ae3b81">7df1ae3b81</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

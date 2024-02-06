@@ -326,14 +326,14 @@ this process is a vector of <code>CandidateHash</code>s, sorted in order of thei
 </li>
 </ul>
 <h4 id="required-path"><a class="header" href="#required-path">Required Path</a></h4>
-<p>Required path is a parameter for <code>ProspectiveParachainsMessage::GetBackableCandidate</code>, which the provisioner sends in
+<p>Required path is a parameter for <code>ProspectiveParachainsMessage::GetBackableCandidates</code>, which the provisioner sends in
 candidate selection.</p>
-<p>An empty required path indicates that the requested candidate should be a direct child of the most recently included
+<p>An empty required path indicates that the requested candidate chain should start with the most recently included
 parablock for the given <code>para_id</code> as of the given relay parent.</p>
 <p>In contrast, a required path with one or more entries prompts <a href="../backing/prospective-parachains.html">prospective
 parachains</a> to step forward through its fragment tree for the given <code>para_id</code> and
-relay parent until the desired parablock is reached. We then select a direct child of that parablock to pass to the
-provisioner.</p>
+relay parent until the desired parablock is reached. We then select the chain starting with the direct child of that
+parablock to pass to the provisioner.</p>
 <p>The parablocks making up a required path do not need to have been previously seen as included in relay chain blocks.
 Thus the ability to provision backable candidates based on a required path effectively decouples backing from inclusion.</p>
 <h3 id="legacy-candidate-selection"><a class="header" href="#legacy-candidate-selection">Legacy Candidate Selection</a></h3>
@@ -421,7 +421,7 @@ availability from a particular validator's perspective. Each bit in the bitfield
 </ul>
 </li>
 </ul>
-<footer id="last-change">Last change: 2023-09-04, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/a30092ab42">a30092ab42</a></footer>
+<footer id="last-change">Last change: 2024-02-06, commit: <a href="https://github.com/paritytech/polkadot-sdk/commit/7df1ae3b81">7df1ae3b81</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

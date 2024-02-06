@@ -856,6 +856,9 @@
 <a href="#856" id="856">856</a>
 <a href="#857" id="857">857</a>
 <a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1664,15 +1667,18 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;(CandidateHash, Hash)&gt;, Error&gt; {
 	<span class="kw">let </span>(tx, rx) = oneshot::channel();
 	sender
-		.send_message(ProspectiveParachainsMessage::GetBackableCandidate(
+		.send_message(ProspectiveParachainsMessage::GetBackableCandidates(
 			relay_parent,
 			para_id,
-			required_path,
+			<span class="number">1</span>, <span class="comment">// core count hardcoded to 1, until elastic scaling is implemented and enabled.
+			</span>required_path,
 			tx,
 		))
 		.<span class="kw">await</span>;
 
-	rx.<span class="kw">await</span>.map_err(Error::CanceledBackableCandidate)
+	rx.<span class="kw">await
+		</span>.map_err(Error::CanceledBackableCandidate)
+		.map(|res| res.get(<span class="number">0</span>).copied())
 }
 
 <span class="doccomment">/// The availability bitfield for a given core is the transpose
