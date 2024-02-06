@@ -51,7 +51,7 @@ impl Default for ApprovalVotingParams {
 	}
 }
 
-/// Coretime configuration parameters
+/// Scheduler configuration parameters. All coretime/ondemand parameters are here.
 #[derive(
 	RuntimeDebug,
 	Copy,

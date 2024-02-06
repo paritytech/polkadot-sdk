@@ -144,7 +144,7 @@ fn migrate_to_v12<T: Config>() -> Weight {
 					async_backing_params                     : pre.async_backing_params,
 					executor_params                          : pre.executor_params,
 					minimum_backing_votes                    : pre.minimum_backing_votes,
-					node_features							 : pre.node_features,
+					node_features                            : pre.node_features,
 					approval_voting_params                   : pre.approval_voting_params,
 					scheduler_params: SchedulerParams {
 							lookahead                            : pre.scheduling_lookahead,
@@ -314,16 +314,16 @@ mod tests {
 					assert_eq!(v11.minimum_validation_upgrade_delay         , v12.minimum_validation_upgrade_delay);
 					assert_eq!(v11.async_backing_params.allowed_ancestry_len, v12.async_backing_params.allowed_ancestry_len);
 					assert_eq!(v11.async_backing_params.max_candidate_depth , v12.async_backing_params.max_candidate_depth);
-					assert_eq!(v11.executor_params						    , v12.executor_params);
-				    assert_eq!(v11.minimum_backing_votes					, v12.minimum_backing_votes);
+					assert_eq!(v11.executor_params                          , v12.executor_params);
+				    assert_eq!(v11.minimum_backing_votes                    , v12.minimum_backing_votes);
 					assert_eq!(v11.scheduling_lookahead                     , v12.scheduler_params.lookahead);
 					assert_eq!(v11.coretime_cores                           , v12.scheduler_params.coretime_cores);
 					assert_eq!(v11.on_demand_retries                        , v12.scheduler_params.coretime_max_availability_timeouts);
 					assert_eq!(v11.on_demand_queue_max_size                 , v12.scheduler_params.on_demand_queue_max_size);
 					assert_eq!(v11.on_demand_target_queue_utilization       , v12.scheduler_params.on_demand_target_queue_utilization);
-					assert_eq!(v11.on_demand_fee_variability            	, v12.scheduler_params.on_demand_fee_variability);
-					assert_eq!(v11.on_demand_base_fee            			, v12.scheduler_params.on_demand_base_fee);
-					assert_eq!(v11.on_demand_ttl            				, v12.scheduler_params.coretime_ttl);
+					assert_eq!(v11.on_demand_fee_variability                , v12.scheduler_params.on_demand_fee_variability);
+					assert_eq!(v11.on_demand_base_fee                       , v12.scheduler_params.on_demand_base_fee);
+					assert_eq!(v11.on_demand_ttl                            , v12.scheduler_params.coretime_ttl);
 				}; // ; makes this a statement. `rustfmt::skip` cannot be put on an expression.
 			}
 		});

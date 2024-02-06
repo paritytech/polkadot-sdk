@@ -285,7 +285,6 @@ fn setting_pending_config_members() {
 			max_head_data_size: 1_000,
 			group_rotation_frequency: 20,
 			paras_availability_period: 10,
-
 			max_validators_per_core: None,
 			max_validators: None,
 			dispute_period: 239,

@@ -248,7 +248,7 @@ pub struct HostConfiguration<BlockNumber> {
 	pub node_features: NodeFeatures,
 	/// Params used by approval-voting
 	pub approval_voting_params: ApprovalVotingParams,
-	/// Core time parameters
+	/// Scheduler parameters
 	pub scheduler_params: SchedulerParams<BlockNumber>,
 }
 
