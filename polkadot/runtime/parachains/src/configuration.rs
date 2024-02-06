@@ -641,7 +641,7 @@ pub mod pallet {
 		pub fn set_on_demand_retries(origin: OriginFor<T>, new: u32) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.scheduler_params.coretime_max_availability_timeouts = new;
+				config.scheduler_params.max_availability_timeouts = new;
 			})
 		}
 
@@ -1147,7 +1147,7 @@ pub mod pallet {
 		pub fn set_on_demand_ttl(origin: OriginFor<T>, new: BlockNumberFor<T>) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.scheduler_params.coretime_ttl = new;
+				config.scheduler_params.ttl = new;
 			})
 		}
 

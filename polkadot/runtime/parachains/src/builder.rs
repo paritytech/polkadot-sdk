@@ -713,7 +713,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 		let cores = (0..used_cores)
 			.into_iter()
 			.map(|i| {
-				let ttl = configuration::Pallet::<T>::config().scheduler_params.coretime_ttl;
+				let ttl = configuration::Pallet::<T>::config().scheduler_params.ttl;
 				// Load an assignment into provider so that one is present to pop
 				let assignment = <T as scheduler::Config>::AssignmentProvider::get_mock_assignment(
 					CoreIndex(i),
@@ -728,7 +728,7 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 			let cores = (0..used_cores)
 				.into_iter()
 				.map(|i| {
-					let ttl = configuration::Pallet::<T>::config().scheduler_params.coretime_ttl;
+					let ttl = configuration::Pallet::<T>::config().scheduler_params.ttl;
 					// Load an assignment into provider so that one is present to pop
 					let assignment =
 						<T as scheduler::Config>::AssignmentProvider::get_mock_assignment(

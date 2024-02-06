@@ -149,12 +149,12 @@ fn migrate_to_v12<T: Config>() -> Weight {
 							max_validators_per_core              : pre.max_validators_per_core,
 							lookahead                            : pre.scheduling_lookahead,
 							coretime_cores                       : pre.coretime_cores,
-							coretime_max_availability_timeouts   : pre.on_demand_retries,
+							max_availability_timeouts   : pre.on_demand_retries,
 							on_demand_queue_max_size             : pre.on_demand_queue_max_size,
 							on_demand_target_queue_utilization   : pre.on_demand_target_queue_utilization,
 							on_demand_fee_variability            : pre.on_demand_fee_variability,
 							on_demand_base_fee                   : pre.on_demand_base_fee,
-							coretime_ttl                         : pre.on_demand_ttl,
+							ttl                         : pre.on_demand_ttl,
 					}
 				}
 			};
@@ -230,7 +230,7 @@ mod tests {
 		assert_eq!(v12.scheduler_params.paras_availability_period, 4);
 		assert_eq!(v12.scheduler_params.lookahead, 1);
 		assert_eq!(v12.scheduler_params.coretime_cores, 1);
-		assert_eq!(v12.scheduler_params.coretime_max_availability_timeouts, 0);
+		assert_eq!(v12.scheduler_params.max_availability_timeouts, 0);
 		assert_eq!(v12.scheduler_params.on_demand_queue_max_size, 10_000);
 		assert_eq!(
 			v12.scheduler_params.on_demand_target_queue_utilization,
@@ -238,7 +238,7 @@ mod tests {
 		);
 		assert_eq!(v12.scheduler_params.on_demand_fee_variability, Perbill::from_percent(3));
 		assert_eq!(v12.scheduler_params.on_demand_base_fee, 10_000_000);
-		assert_eq!(v12.scheduler_params.coretime_ttl, 5);
+		assert_eq!(v12.scheduler_params.ttl, 5);
 	}
 
 	#[test]
@@ -319,12 +319,12 @@ mod tests {
 					assert_eq!(v11.max_validators_per_core                  , v12.scheduler_params.max_validators_per_core);
 					assert_eq!(v11.scheduling_lookahead                     , v12.scheduler_params.lookahead);
 					assert_eq!(v11.coretime_cores                           , v12.scheduler_params.coretime_cores);
-					assert_eq!(v11.on_demand_retries                        , v12.scheduler_params.coretime_max_availability_timeouts);
+					assert_eq!(v11.on_demand_retries                        , v12.scheduler_params.max_availability_timeouts);
 					assert_eq!(v11.on_demand_queue_max_size                 , v12.scheduler_params.on_demand_queue_max_size);
 					assert_eq!(v11.on_demand_target_queue_utilization       , v12.scheduler_params.on_demand_target_queue_utilization);
 					assert_eq!(v11.on_demand_fee_variability                , v12.scheduler_params.on_demand_fee_variability);
 					assert_eq!(v11.on_demand_base_fee                       , v12.scheduler_params.on_demand_base_fee);
-					assert_eq!(v11.on_demand_ttl                            , v12.scheduler_params.coretime_ttl);
+					assert_eq!(v11.on_demand_ttl                            , v12.scheduler_params.ttl);
 				}; // ; makes this a statement. `rustfmt::skip` cannot be put on an expression.
 			}
 		});

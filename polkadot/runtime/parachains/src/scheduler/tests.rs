@@ -115,7 +115,7 @@ fn default_config() -> HostConfiguration<BlockNumber> {
 			paras_availability_period: 3,
 			lookahead: 2,
 			coretime_cores: 3,
-			coretime_max_availability_timeouts: 1,
+			max_availability_timeouts: 1,
 			..Default::default()
 		},
 		..Default::default()
@@ -169,7 +169,7 @@ fn claimqueue_ttl_drop_fn_works() {
 	let mut now = 10;
 
 	new_test_ext(genesis_config).execute_with(|| {
-		assert!(config.scheduler_params.coretime_ttl == 5);
+		assert!(config.scheduler_params.ttl == 5);
 		// Register and run to a blockheight where the para is in a valid state.
 		schedule_blank_para(para_id);
 		run_to_block(now, |n| if n == now { Some(Default::default()) } else { None });
@@ -348,7 +348,7 @@ fn fill_claimqueue_fills() {
 
 	new_test_ext(genesis_config).execute_with(|| {
 		MockAssigner::set_core_count(2);
-		let coretime_ttl = config.scheduler_params.coretime_ttl;
+		let coretime_ttl = config.scheduler_params.ttl;
 
 		// Add 3 paras
 		schedule_blank_para(para_a);
@@ -751,8 +751,8 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 	let mut config = default_config();
 	config.scheduler_params.lookahead = 1;
 	// Need more timeouts for this test
-	config.scheduler_params.coretime_max_availability_timeouts = max_retries;
-	config.scheduler_params.coretime_ttl = BlockNumber::from(5u32);
+	config.scheduler_params.max_availability_timeouts = max_retries;
+	config.scheduler_params.ttl = BlockNumber::from(5u32);
 	let genesis_config = genesis_config(&config);
 
 	let para_a = ParaId::from(1_u32);
@@ -1059,7 +1059,7 @@ fn session_change_requires_reschedule_dropping_removed_paras() {
 	new_test_ext(genesis_config).execute_with(|| {
 		// Setting explicit core count
 		MockAssigner::set_core_count(5);
-		let coretime_ttl = <configuration::Pallet<Test>>::config().scheduler_params.coretime_ttl;
+		let coretime_ttl = <configuration::Pallet<Test>>::config().scheduler_params.ttl;
 
 		schedule_blank_para(para_a);
 		schedule_blank_para(para_b);
