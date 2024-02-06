@@ -31,7 +31,7 @@ use crate::{
 	paras,
 	scheduler::{self, FreedReason},
 	shared::{self, AllowedRelayParentsTracker},
-	ParaId,
+	ParaId, util::elastic_scaling_mvp_filter,
 };
 use bitvec::prelude::BitVec;
 use frame_support::{
@@ -40,6 +40,9 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::Randomness,
 };
+
+use crate::util::strip_candidate_core_index;
+
 use frame_system::pallet_prelude::*;
 use pallet_babe::{self, ParentBlockRandomness};
 use primitives::{
@@ -591,6 +594,8 @@ impl<T: Config> Pallet<T> {
 
 		METRICS.on_candidates_processed_total(backed_candidates.len() as u64);
 
+		elastic_scaling_mvp_filter::<T>(&mut backed_candidates);
+
 		let SanitizedBackedCandidates { backed_candidates, votes_from_disabled_were_dropped } =
 			sanitize_backed_candidates::<T, _>(
 				backed_candidates,
@@ -625,6 +630,7 @@ impl<T: Config> Pallet<T> {
 		if context == ProcessInherentDataContext::Enter {
 			ensure!(!votes_from_disabled_were_dropped, Error::<T>::BackedByDisabled);
 		}
+		let scheduled_by_core = <scheduler::Pallet<T>>::scheduled_paras().collect();
 
 		// Process backed candidates according to scheduled cores.
 		let inclusion::ProcessedCandidates::<<HeaderFor<T> as HeaderT>::Hash> {
@@ -634,6 +640,7 @@ impl<T: Config> Pallet<T> {
 			&allowed_relay_parents,
 			backed_candidates.clone(),
 			&scheduled,
+			&scheduled_by_core,
 			<scheduler::Pallet<T>>::group_validators,
 		)?;
 		// Note which of the scheduled cores were actually occupied by a backed candidate.
@@ -1095,12 +1102,16 @@ fn filter_backed_statements_from_disabled_validators<T: shared::Config + schedul
 	// 1. Core index assigned to the parachain which has produced the candidate
 	// 2. The relay chain block number of the candidate
 	backed_candidates.retain_mut(|bc| {
-		// Get `core_idx` assigned to the `para_id` of the candidate
-		let core_idx = match scheduled.get(&bc.descriptor().para_id) {
-			Some(core_idx) => *core_idx,
-			None => {
-				log::debug!(target: LOG_TARGET, "Can't get core idx of a backed candidate for para id {:?}. Dropping the candidate.", bc.descriptor().para_id);
-				return false
+		let core_idx = if let Some(core_idx) = strip_candidate_core_index::<T>(bc) {
+			core_idx
+		} else {
+			// Get `core_idx` assigned to the `para_id` of the candidate
+			match scheduled.get(&bc.descriptor().para_id) {
+				Some(core_idx) => *core_idx,
+				None => {
+					log::debug!(target: LOG_TARGET, "Can't get core idx of a backed candidate for para id {:?}. Dropping the candidate.", bc.descriptor().para_id);
+					return false
+				}
 			}
 		};
 

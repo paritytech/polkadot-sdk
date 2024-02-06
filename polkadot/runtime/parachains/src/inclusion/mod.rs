@@ -25,6 +25,7 @@ use crate::{
 	paras::{self, SetGoAhead},
 	scheduler::{self, AvailabilityTimeoutStatus},
 	shared::{self, AllowedRelayParentsTracker},
+	util::strip_candidate_core_index,
 };
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::{
@@ -37,11 +38,12 @@ use frame_system::pallet_prelude::*;
 use pallet_message_queue::OnQueueChanged;
 use parity_scale_codec::{Decode, Encode};
 use primitives::{
-	effective_minimum_backing_votes, supermajority_threshold, well_known_keys,
-	AvailabilityBitfield, BackedCandidate, CandidateCommitments, CandidateDescriptor,
-	CandidateHash, CandidateReceipt, CommittedCandidateReceipt, CoreIndex, GroupIndex, Hash,
-	HeadData, Id as ParaId, SignedAvailabilityBitfields, SigningContext, UpwardMessage,
-	ValidatorId, ValidatorIndex, ValidityAttestation,
+	effective_minimum_backing_votes, supermajority_threshold,
+	vstaging::node_features::FeatureIndex, well_known_keys, AvailabilityBitfield, BackedCandidate,
+	CandidateCommitments, CandidateDescriptor, CandidateHash, CandidateReceipt,
+	CommittedCandidateReceipt, CoreIndex, GroupIndex, Hash, HeadData, Id as ParaId,
+	SignedAvailabilityBitfields, SigningContext, UpwardMessage, ValidatorId, ValidatorIndex,
+	ValidityAttestation,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
@@ -601,8 +603,9 @@ impl<T: Config> Pallet<T> {
 	/// scheduled cores. If these conditions are not met, the execution of the function fails.
 	pub(crate) fn process_candidates<GV>(
 		allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
-		candidates: Vec<BackedCandidate<T::Hash>>,
+		mut candidates: Vec<BackedCandidate<T::Hash>>,
 		scheduled: &BTreeMap<ParaId, CoreIndex>,
+		scheduled_by_core: &BTreeMap<CoreIndex, ParaId>,
 		group_validators: GV,
 	) -> Result<ProcessedCandidates<T::Hash>, DispatchError>
 	where
@@ -610,7 +613,7 @@ impl<T: Config> Pallet<T> {
 	{
 		let now = <frame_system::Pallet<T>>::block_number();
 
-		ensure!(candidates.len() <= scheduled.len(), Error::<T>::UnscheduledCandidate);
+		ensure!(candidates.len() <= scheduled_by_core.len(), Error::<T>::UnscheduledCandidate);
 
 		if scheduled.is_empty() {
 			return Ok(ProcessedCandidates::default())
@@ -648,7 +651,7 @@ impl<T: Config> Pallet<T> {
 			//
 			// In the meantime, we do certain sanity checks on the candidates and on the scheduled
 			// list.
-			for (candidate_idx, backed_candidate) in candidates.iter().enumerate() {
+			for (candidate_idx, backed_candidate) in candidates.iter_mut().enumerate() {
 				let relay_parent_hash = backed_candidate.descriptor().relay_parent;
 				let para_id = backed_candidate.descriptor().para_id;
 
@@ -680,10 +683,23 @@ impl<T: Config> Pallet<T> {
 				};
 
 				let para_id = backed_candidate.descriptor().para_id;
+				let core_idx =
+					if let Some(core_idx) = strip_candidate_core_index::<T>(backed_candidate) {
+						core_idx
+					} else {
+						*scheduled.get(&para_id).ok_or(Error::<T>::UnscheduledCandidate)?
+					};
+
+				log::debug!(target: LOG_TARGET, "Candidate {:?} on {:?}, core_index_hack = {}", backed_candidate.hash(), core_idx, configuration::Pallet::<T>::config()
+					.node_features
+					.get(FeatureIndex::InjectCoreIndex as usize)
+					.map(|b| *b)
+					.unwrap_or(false));
+
+				check_assignment_in_order(core_idx)?;
+
 				let mut backers = bitvec::bitvec![u8, BitOrderLsb0; 0; validators.len()];
 
-				let core_idx = *scheduled.get(&para_id).ok_or(Error::<T>::UnscheduledCandidate)?;
-				check_assignment_in_order(core_idx)?;
 				ensure!(
 					<PendingAvailability<T>>::get(&para_id).is_none() &&
 						<PendingAvailabilityCommitments<T>>::get(&para_id).is_none(),
