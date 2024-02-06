@@ -244,6 +244,11 @@ impl TestEnvironment {
 		&self.network
 	}
 
+	/// Returns a reference to the overseer handle.
+	pub fn overseer_handle(&self) -> &OverseerHandle {
+		&self.overseer_handle
+	}
+
 	/// Returns the Prometheus registry.
 	pub fn registry(&self) -> &Registry {
 		&self.dependencies.registry
@@ -312,18 +317,32 @@ impl TestEnvironment {
 		self.overseer_handle.stop().await;
 	}
 
-	/// Blocks until `metric_name` == `value`
-	pub async fn wait_until_metric_eq(&self, metric_name: &str, value: usize) {
-		let value = value as f64;
+	/// Tells if entries in bucket metric is lower than `value`
+	pub fn metric_lower_than(registry: &Registry, metric_name: &str, value: f64) -> bool {
+		let test_metrics = super::display::parse_metrics(registry);
+		test_metrics.metric_lower_than(metric_name, value)
+	}
+
+	/// Blocks until `metric_name` >= `value`
+	pub async fn wait_until_metric(
+		&self,
+		metric_name: &str,
+		label: Option<(&str, &str)>,
+		condition: impl Fn(f64) -> bool,
+	) {
 		loop {
-			let test_metrics = super::display::parse_metrics(self.registry());
+			let test_metrics = if let Some((label_name, label_value)) = label {
+				super::display::parse_metrics(self.registry())
+					.subset_with_label_value(label_name, label_value)
+			} else {
+				super::display::parse_metrics(self.registry())
+			};
 			let current_value = test_metrics.sum_by(metric_name);
 
-			gum::debug!(target: LOG_TARGET, metric_name, current_value, value, "Waiting for metric");
-			if current_value == value {
+			gum::debug!(target: LOG_TARGET, metric_name, current_value, "Waiting for metric");
+			if condition(current_value) {
 				break
 			}
-
 			// Check value every 50ms.
 			tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 		}

@@ -26,6 +26,7 @@ use pyroscope_pprofrs::{pprof_backend, PprofConfig};
 
 use std::path::Path;
 
+pub(crate) mod approval;
 pub(crate) mod availability;
 pub(crate) mod cli;
 pub(crate) mod core;
@@ -43,7 +44,7 @@ use core::{
 
 use clap_num::number_range;
 
-use crate::core::display::display_configuration;
+use crate::{approval::bench_approvals, core::display::display_configuration};
 
 fn le_100(s: &str) -> Result<usize, String> {
 	number_range(s, 0, 100)
@@ -181,6 +182,15 @@ impl BenchCli {
 								state,
 							))
 						},
+						TestObjective::ApprovalVoting(ref options) => {
+							let (mut env, state) =
+								approval::prepare_test(test_config.clone(), options.clone());
+							env.runtime().block_on(bench_approvals(
+								&benchmark_name,
+								&mut env,
+								state,
+							))
+						},
 						TestObjective::DataAvailabilityWrite => {
 							let mut state = TestState::new(&test_config);
 							let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
@@ -190,10 +200,8 @@ impl BenchCli {
 								state,
 							))
 						},
-						_ => {
-							gum::error!("Invalid test objective in sequence");
-							continue;
-						},
+						TestObjective::TestSequence(_) => todo!(),
+						TestObjective::Unimplemented => todo!(),
 					};
 
 					let output = if self.yaml_output {
@@ -208,6 +216,8 @@ impl BenchCli {
 			},
 			TestObjective::DataAvailabilityRead(ref _options) => self.create_test_configuration(),
 			TestObjective::DataAvailabilityWrite => self.create_test_configuration(),
+			TestObjective::ApprovalVoting(_) => todo!(),
+			TestObjective::Unimplemented => todo!(),
 		};
 
 		let mut latency_config = test_config.latency.clone().unwrap_or_default();
@@ -256,6 +266,8 @@ impl BenchCli {
 					state,
 				)),
 			TestObjective::TestSequence(_options) => todo!(),
+			TestObjective::ApprovalVoting(_) => todo!(),
+			TestObjective::Unimplemented => todo!(),
 		};
 
 		if let Some(agent_running) = agent_running {

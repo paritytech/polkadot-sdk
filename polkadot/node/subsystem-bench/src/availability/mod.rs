@@ -28,7 +28,7 @@ use polkadot_node_subsystem_types::{
 	messages::{AvailabilityStoreMessage, NetworkBridgeEvent},
 	Span,
 };
-use polkadot_overseer::Handle as OverseerHandle;
+use polkadot_overseer::{metrics::Metrics as OverseerMetrics, Handle as OverseerHandle};
 use sc_network::{request_responses::ProtocolConfig, PeerId};
 use sp_core::H256;
 use std::{collections::HashMap, iter::Cycle, ops::Sub, sync::Arc, time::Instant};
@@ -88,9 +88,12 @@ fn build_overseer_for_availability_read(
 	av_store: MockAvailabilityStore,
 	network_bridge: (MockNetworkBridgeTx, MockNetworkBridgeRx),
 	availability_recovery: AvailabilityRecoverySubsystem,
+	dependencies: &TestEnvironmentDependencies,
 ) -> (Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>, OverseerHandle) {
 	let overseer_connector = OverseerConnector::with_event_capacity(64000);
-	let dummy = dummy_builder!(spawn_task_handle);
+	let overseer_metrics = OverseerMetrics::try_register(&dependencies.registry).unwrap();
+
+	let dummy = dummy_builder!(spawn_task_handle, overseer_metrics);
 	let builder = dummy
 		.replace_runtime_api(|_| runtime_api)
 		.replace_availability_store(|_| av_store)
@@ -104,6 +107,7 @@ fn build_overseer_for_availability_read(
 	(overseer, OverseerHandle::new(raw_handle))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_overseer_for_availability_write(
 	spawn_task_handle: SpawnTaskHandle,
 	runtime_api: MockRuntimeApi,
@@ -112,9 +116,12 @@ fn build_overseer_for_availability_write(
 	chain_api: MockChainApi,
 	availability_store: AvailabilityStoreSubsystem,
 	bitfield_distribution: BitfieldDistribution,
+	dependencies: &TestEnvironmentDependencies,
 ) -> (Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>, OverseerHandle) {
 	let overseer_connector = OverseerConnector::with_event_capacity(64000);
-	let dummy = dummy_builder!(spawn_task_handle);
+	let overseer_metrics = OverseerMetrics::try_register(&dependencies.registry).unwrap();
+
+	let dummy = dummy_builder!(spawn_task_handle, overseer_metrics);
 	let builder = dummy
 		.replace_runtime_api(|_| runtime_api)
 		.replace_availability_store(|_| availability_store)
@@ -174,6 +181,9 @@ fn prepare_test_inner(
 		config.clone(),
 		test_authorities.clone(),
 		candidate_hashes,
+		Default::default(),
+		Default::default(),
+		0,
 	);
 
 	let availability_state = NetworkAvailabilityState {
@@ -201,6 +211,7 @@ fn prepare_test_inner(
 	let network_bridge_tx = network_bridge::MockNetworkBridgeTx::new(
 		network.clone(),
 		network_interface.subsystem_sender(),
+		test_authorities.clone(),
 	);
 
 	let network_bridge_rx =
@@ -234,6 +245,7 @@ fn prepare_test_inner(
 				av_store,
 				(network_bridge_tx, network_bridge_rx),
 				subsystem,
+				&dependencies,
 			)
 		},
 		TestObjective::DataAvailabilityWrite => {
@@ -243,7 +255,7 @@ fn prepare_test_inner(
 				Metrics::try_register(&dependencies.registry).unwrap(),
 			);
 
-			let block_headers = (0..=config.num_blocks)
+			let block_headers = (1..=config.num_blocks)
 				.map(|block_number| {
 					(
 						Hash::repeat_byte(block_number as u8),
@@ -270,6 +282,7 @@ fn prepare_test_inner(
 				chain_api,
 				new_av_store(&dependencies),
 				bitfield_distribution,
+				&dependencies,
 			)
 		},
 		_ => {
@@ -624,9 +637,10 @@ pub async fn benchmark_availability_write(
 		);
 
 		// Wait for all bitfields to be processed.
-		env.wait_until_metric_eq(
+		env.wait_until_metric(
 			"polkadot_parachain_received_availabilty_bitfields_total",
-			config.connected_count() * block_num,
+			None,
+			|value| value == (config.connected_count() * block_num) as f64,
 		)
 		.await;
 
