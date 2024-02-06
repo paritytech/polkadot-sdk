@@ -19,11 +19,11 @@
 
 use crate::dispatch::{DispatchResultWithPostInfo, Parameter, RawOrigin};
 use codec::MaxEncodedLen;
+use core::{cmp::Ordering, marker::PhantomData};
 use sp_runtime::{
 	traits::{BadOrigin, Get, Member, Morph, TryMorph},
 	Either,
 };
-use sp_std::{cmp::Ordering, marker::PhantomData};
 
 use super::misc;
 
@@ -85,7 +85,7 @@ pub trait EnsureOrigin<OuterOrigin> {
 /// ```rust
 /// # use frame_support::traits::{EnsureOriginEqualOrHigherPrivilege, PrivilegeCmp, EnsureOrigin as _};
 /// # use sp_runtime::traits::{parameter_types, Get};
-/// # use sp_std::cmp::Ordering;
+/// # use core::cmp::Ordering;
 ///
 /// #[derive(Eq, PartialEq, Debug)]
 /// pub enum Origin {
@@ -124,7 +124,7 @@ pub trait EnsureOrigin<OuterOrigin> {
 /// assert!(EnsureOrigin::ensure_origin(Origin::NormalUser).is_err());
 /// ```
 pub struct EnsureOriginEqualOrHigherPrivilege<Origin, PrivilegeCmp>(
-	sp_std::marker::PhantomData<(Origin, PrivilegeCmp)>,
+	core::marker::PhantomData<(Origin, PrivilegeCmp)>,
 );
 
 impl<OuterOrigin, Origin, PrivilegeCmp> EnsureOrigin<OuterOrigin>
@@ -218,7 +218,7 @@ macro_rules! impl_ensure_origin_with_arg_ignoring_arg {
 }
 
 /// [`EnsureOrigin`] implementation that always fails.
-pub struct NeverEnsureOrigin<Success>(sp_std::marker::PhantomData<Success>);
+pub struct NeverEnsureOrigin<Success>(core::marker::PhantomData<Success>);
 impl<OO, Success> EnsureOrigin<OO> for NeverEnsureOrigin<Success> {
 	type Success = Success;
 	fn try_origin(o: OO) -> Result<Success, OO> {
@@ -235,7 +235,7 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 	{}
 }
 
-pub struct AsEnsureOriginWithArg<EO>(sp_std::marker::PhantomData<EO>);
+pub struct AsEnsureOriginWithArg<EO>(core::marker::PhantomData<EO>);
 impl<OuterOrigin, Argument, EO: EnsureOrigin<OuterOrigin>>
 	EnsureOriginWithArg<OuterOrigin, Argument> for AsEnsureOriginWithArg<EO>
 {
@@ -353,7 +353,7 @@ impl<
 /// Origin check will pass if `L` or `R` origin check passes. `L` is tested first.
 ///
 /// Successful origin is derived from the left side.
-pub struct EitherOfDiverse<L, R>(sp_std::marker::PhantomData<(L, R)>);
+pub struct EitherOfDiverse<L, R>(core::marker::PhantomData<(L, R)>);
 impl<OuterOrigin, L: EnsureOrigin<OuterOrigin>, R: EnsureOrigin<OuterOrigin>>
 	EnsureOrigin<OuterOrigin> for EitherOfDiverse<L, R>
 {
@@ -402,7 +402,7 @@ pub type EnsureOneOf<L, R> = EitherOfDiverse<L, R>;
 /// Origin check will pass if `L` or `R` origin check passes. `L` is tested first.
 ///
 /// Successful origin is derived from the left side.
-pub struct EitherOf<L, R>(sp_std::marker::PhantomData<(L, R)>);
+pub struct EitherOf<L, R>(core::marker::PhantomData<(L, R)>);
 impl<
 		OuterOrigin,
 		L: EnsureOrigin<OuterOrigin>,
@@ -490,7 +490,7 @@ pub trait OriginTrait: Sized {
 	/// Add a filter to the origin.
 	fn add_filter(&mut self, filter: impl Fn(&Self::Call) -> bool + 'static);
 
-	/// Reset origin filters to default one, i.e `frame_system::Config::BaseCallFilter`.
+	/// Reset origin filters to default one, i.e `frame_system::1fig::BaseCallFilter`.
 	fn reset_filter(&mut self);
 
 	/// Replace the caller with caller from the other origin

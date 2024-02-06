@@ -24,5 +24,5 @@ emulated_integration_tests_common::include_penpal_create_foreign_asset_on_asset_
 	PenpalA,
 	AssetHubRococo,
 	ROCOCO_ED,
-	parachains_common::rococo::fee::WeightToFee
+	testnet_parachains_constants::rococo::fee::WeightToFee
 );

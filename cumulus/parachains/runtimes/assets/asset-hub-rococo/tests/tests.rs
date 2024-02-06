@@ -28,7 +28,7 @@ use asset_hub_rococo_runtime::{
 	AllPalletsWithoutSystem, AssetConversion, AssetDeposit, Assets, Balances, CollatorSelection,
 	ExistentialDeposit, ForeignAssets, ForeignAssetsInstance, MetadataDepositBase,
 	MetadataDepositPerByte, ParachainSystem, Runtime, RuntimeCall, RuntimeEvent, SessionKeys,
-	ToWestendXcmRouterInstance, TrustBackedAssetsInstance, XcmpQueue, SLOT_DURATION,
+	ToWestendXcmRouterInstance, TrustBackedAssetsInstance, XcmpQueue,
 };
 use asset_test_utils::{
 	test_cases_over_bridge::TestBridgingConfig, CollatorSessionKey, CollatorSessionKeys,
@@ -46,13 +46,11 @@ use frame_support::{
 	},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
-use parachains_common::{
-	rococo::{consensus::RELAY_CHAIN_SLOT_DURATION_MILLIS, currency::UNITS, fee::WeightToFee},
-	AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
-};
+use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
 use sp_runtime::traits::MaybeEquivalence;
 use std::convert::Into;
+use testnet_parachains_constants::rococo::{consensus::*, currency::UNITS, fee::WeightToFee};
 use xcm::latest::prelude::{Assets as XcmAssets, *};
 use xcm_builder::V4V3LocationConverter;
 use xcm_executor::traits::{JustTry, WeightTrader};
@@ -1263,6 +1261,12 @@ fn change_xcm_bridge_hub_router_base_fee_by_governance_works() {
 		1000,
 		Box::new(|call| RuntimeCall::System(call).encode()),
 		|| {
+			log::error!(
+				target: "bridges::estimate",
+				"`bridging::XcmBridgeHubRouterBaseFee` actual value: {} for runtime: {}",
+				bridging::XcmBridgeHubRouterBaseFee::get(),
+				<Runtime as frame_system::Config>::Version::get(),
+			);
 			(
 				bridging::XcmBridgeHubRouterBaseFee::key().to_vec(),
 				bridging::XcmBridgeHubRouterBaseFee::get(),
@@ -1289,6 +1293,12 @@ fn change_xcm_bridge_hub_ethereum_base_fee_by_governance_works() {
 		1000,
 		Box::new(|call| RuntimeCall::System(call).encode()),
 		|| {
+			log::error!(
+				target: "bridges::estimate",
+				"`bridging::BridgeHubEthereumBaseFee` actual value: {} for runtime: {}",
+				bridging::to_ethereum::BridgeHubEthereumBaseFee::get(),
+				<Runtime as frame_system::Config>::Version::get(),
+			);
 			(
 				bridging::to_ethereum::BridgeHubEthereumBaseFee::key().to_vec(),
 				bridging::to_ethereum::BridgeHubEthereumBaseFee::get(),
