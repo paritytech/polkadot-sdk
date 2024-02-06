@@ -1,7 +1,7 @@
 [package]
 name = "rococo-runtime"
 build = "build.rs"
-version = "1.0.0"
+version = "7.0.0"
 description = "Rococo testnet Relay Chain runtime."
 authors.workspace = true
 edition.workspace = true
@@ -13,7 +13,7 @@ workspace = true
 [dependencies]
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive", "max-encoded-len"] }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-log = { workspace = true }
+log = { version = "0.4.17", default-features = false }
 serde = { version = "1.0.195", default-features = false }
 serde_derive = { version = "1.0.117", optional = true }
 static_assertions = "1.1.0"
@@ -322,5 +322,5 @@ runtime-metrics = ["runtime-parachains/runtime-metrics", "sp-io/with-tracing"]
 
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
-# to make it smaller like logging for example.
+# to make it smaller, like logging for example.
 on-chain-release-build = ["sp-api/disable-logging"]

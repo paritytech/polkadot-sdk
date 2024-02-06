@@ -29,7 +29,7 @@ sp-io = { path = "../../../primitives/io" }
 sp-tracing = { path = "../../../primitives/tracing" }
 
 rand = { version = "0.8.5", features = ["small_rng"] }
-log = { workspace = true }
+log = "0.4.17"
 
 [[bin]]
 name = "call"

@@ -1,6 +1,6 @@
 [package]
 name = "cumulus-pallet-parachain-system"
-version = "0.1.0"
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
 description = "Base pallet for cumulus-based parachains"
@@ -14,7 +14,7 @@ bytes = { version = "1.4.0", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 environmental = { version = "1.1.4", default-features = false }
 impl-trait-for-tuples = "0.2.1"
-log = { workspace = true }
+log = { version = "0.4.20", default-features = false }
 trie-db = { version = "0.28.0", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
@@ -55,6 +55,7 @@ futures = "0.3.28"
 # Substrate
 sc-client-api = { path = "../../../substrate/client/api" }
 sp-keyring = { path = "../../../substrate/primitives/keyring" }
+sp-crypto-hashing = { path = "../../../substrate/primitives/crypto/hashing" }
 sp-tracing = { path = "../../../substrate/primitives/tracing" }
 sp-version = { path = "../../../substrate/primitives/version" }
 
