@@ -22078,8 +22078,10 @@ name = "xcm-simulator-fuzzer"
 version = "1.0.0"
 dependencies = [
  "arbitrary",
+ "frame-executive",
  "frame-support",
  "frame-system",
+ "frame-try-runtime",
  "honggfuzz",
  "pallet-balances",
  "pallet-message-queue",
@@ -22089,10 +22091,12 @@ dependencies = [
  "polkadot-parachain-primitives",
  "polkadot-runtime-parachains",
  "scale-info",
+ "sp-api",
  "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
+ "sp-version",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",

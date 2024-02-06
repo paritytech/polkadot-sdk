@@ -37,6 +37,7 @@ use polkadot_core_primitives::BlockNumber as RelayBlockNumber;
 use polkadot_parachain_primitives::primitives::{
 	DmpMessageHandler, Id as ParaId, Sibling, XcmpMessageFormat, XcmpMessageHandler,
 };
+use sp_version::RuntimeVersion;
 use xcm::{latest::prelude::*, VersionedXcm};
 #[allow(deprecated)]
 use xcm_builder::CurrencyAdapter as XcmCurrencyAdapter;
@@ -389,8 +390,6 @@ construct_runtime!(
 		PolkadotXcm: pallet_xcm,
 	}
 );
-
-use sp_version::RuntimeVersion;
 
 // To learn more about runtime versioning, see:
 // https://docs.substrate.io/main-docs/build/upgrade#runtime-versioning

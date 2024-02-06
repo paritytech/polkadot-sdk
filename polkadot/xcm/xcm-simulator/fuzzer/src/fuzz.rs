@@ -23,7 +23,10 @@ use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_runtime::{traits::AccountIdConversion, BuildStorage};
 use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain, TestExt};
 
-use frame_support::assert_ok;
+use frame_support::{
+	assert_ok,
+	traits::{IntegrityTest, TryState, TryStateSelect::All},
+};
 use xcm::{latest::prelude::*, MAX_XCM_DECODE_DEPTH};
 
 use arbitrary::{Arbitrary, Error, Unstructured};
@@ -225,47 +228,20 @@ fn run_input(xcm_messages: [XcmMessage; 5]) {
 		}
 		#[cfg(not(fuzzing))]
 		println!();
-		use frame_support::traits::{TryState, TryStateSelect};
-		ParaA::execute_with(|| {
-			<crate::parachain::AllPalletsWithSystem as TryState<u32>>::try_state(
-				Default::default(),
-				TryStateSelect::All,
-			)
-			.unwrap();
-		});
-		ParaB::execute_with(|| {
-			<crate::parachain::AllPalletsWithSystem as TryState<u32>>::try_state(
-				Default::default(),
-				TryStateSelect::All,
-			)
-			.unwrap();
-		});
-		ParaC::execute_with(|| {
-			<crate::parachain::AllPalletsWithSystem as TryState<u32>>::try_state(
-				Default::default(),
-				TryStateSelect::All,
-			)
-			.unwrap();
-		});
+		// We run integrity tests and try_runtime invariants
+		[ParaA::execute_with, ParaB::execute_with, ParaC::execute_with].iter().for_each(
+			|execute_with| {
+				execute_with(|| {
+					parachain::AllPalletsWithSystem::try_state(Default::default(), All).unwrap();
+					parachain::AllPalletsWithSystem::integrity_test();
+				});
+			},
+		);
 		Relay::execute_with(|| {
-			crate::relay_chain::AllPalletsWithSystem::try_state(
-				Default::default(),
-				TryStateSelect::All,
-			)
-			.unwrap();
+			relay_chain::AllPalletsWithSystem::try_state(Default::default(), All).unwrap();
+			relay_chain::AllPalletsWithSystem::integrity_test();
 		});
-		/*
-		<crate::relay_chain::AllPalletsWithSystem as TryState<u32>>::try_state(
-			Default::default(),
-			TryStateSelect::All,
-		)
-		.unwrap();
-		*/
-		use frame_support::traits::IntegrityTest;
-		<crate::parachain::AllPalletsWithSystem as IntegrityTest>::integrity_test();
-		<crate::relay_chain::AllPalletsWithSystem as IntegrityTest>::integrity_test();
 	}
-	Relay::execute_with(|| {});
 }
 
 fn main() {

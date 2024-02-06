@@ -36,6 +36,7 @@ use polkadot_runtime_parachains::{
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 	origin, shared,
 };
+use sp_version::RuntimeVersion;
 use xcm::latest::prelude::*;
 #[allow(deprecated)]
 use xcm_builder::CurrencyAdapter as XcmCurrencyAdapter;
@@ -284,8 +285,6 @@ construct_runtime!(
 		MessageQueue: pallet_message_queue,
 	}
 );
-
-use sp_version::RuntimeVersion;
 
 // To learn more about runtime versioning, see:
 // https://docs.substrate.io/main-docs/build/upgrade#runtime-versioning
