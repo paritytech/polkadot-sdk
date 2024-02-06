@@ -731,6 +731,7 @@ pub(crate) mod tests {
 	};
 	use bp_test_utils::{
 		authority_list, generate_owned_bridge_module_tests, make_default_justification,
+		TEST_GRANDPA_SET_ID,
 	};
 	use frame_support::{
 		assert_noop, assert_ok,
@@ -777,10 +778,11 @@ pub(crate) mod tests {
 		let hash = header.hash();
 		let justification = make_default_justification(&header);
 		assert_ok!(
-			pallet_bridge_grandpa::Pallet::<TestRuntime, BridgesGrandpaPalletInstance>::submit_finality_proof(
+			pallet_bridge_grandpa::Pallet::<TestRuntime, BridgesGrandpaPalletInstance>::submit_finality_proof_ex(
 				RuntimeOrigin::signed(1),
 				Box::new(header),
 				justification.clone(),
+				TEST_GRANDPA_SET_ID,
 			)
 		);
 
