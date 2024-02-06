@@ -68,5 +68,12 @@ pub mod node_features {
 		/// Every time a new feature flag is assigned it should take this value.
 		/// and this should be incremented.
 		FirstUnassigned = 1,
+		/// Experimental features start at bit 16. Note that experimental features pop in and out
+		/// of exsitence without warning.
+		///
+		/// This feature enables the extension of `BackedCandidate::validator_indices` by 8 bit.
+		/// The value stored there represents the assumed core index where the candidates
+		/// are backed.
+		InjectCoreIndex = 16,
 	}
 }
