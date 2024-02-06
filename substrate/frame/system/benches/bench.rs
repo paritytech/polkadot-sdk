@@ -47,10 +47,9 @@ mod module {
 type Block = frame_system::mocking::MockBlock<Runtime>;
 
 frame_support::construct_runtime!(
-	pub struct Runtime
-	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Module: module::{Pallet, Event},
+	pub enum Runtime {
+		System: frame_system,
+		Module: module,
 	}
 );
 

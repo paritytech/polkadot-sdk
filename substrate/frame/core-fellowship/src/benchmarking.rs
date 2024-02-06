@@ -227,7 +227,7 @@ mod benchmarks {
 
 	impl_benchmark_test_suite! {
 		CoreFellowship,
-		crate::tests::new_test_ext(),
-		crate::tests::Test,
+		crate::tests::unit::new_test_ext(),
+		crate::tests::unit::Test,
 	}
 }

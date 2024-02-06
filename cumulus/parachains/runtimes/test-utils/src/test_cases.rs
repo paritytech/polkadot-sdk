@@ -91,3 +91,55 @@ pub fn change_storage_constant_by_governance_works<Runtime, StorageConstant, Sto
 			);
 		})
 }
+
+/// Test-case makes sure that `Runtime` can change storage constant via governance-like call
+pub fn set_storage_keys_by_governance_works<Runtime>(
+	collator_session_key: CollatorSessionKeys<Runtime>,
+	runtime_para_id: u32,
+	runtime_call_encode: Box<dyn Fn(frame_system::Call<Runtime>) -> Vec<u8>>,
+	storage_items: Vec<(Vec<u8>, Vec<u8>)>,
+	initialize_storage: impl FnOnce() -> (),
+	assert_storage: impl FnOnce() -> (),
+) where
+	Runtime: frame_system::Config
+		+ pallet_balances::Config
+		+ pallet_session::Config
+		+ pallet_xcm::Config
+		+ parachain_info::Config
+		+ pallet_collator_selection::Config
+		+ cumulus_pallet_parachain_system::Config,
+	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
+{
+	let mut runtime = ExtBuilder::<Runtime>::default()
+		.with_collators(collator_session_key.collators())
+		.with_session_keys(collator_session_key.session_keys())
+		.with_para_id(runtime_para_id.into())
+		.with_tracing()
+		.build();
+	runtime.execute_with(|| {
+		initialize_storage();
+	});
+	runtime.execute_with(|| {
+		// encode `kill_storage` call
+		let kill_storage_call = runtime_call_encode(frame_system::Call::<Runtime>::set_storage {
+			items: storage_items.clone(),
+		});
+
+		// estimate - storing just 1 value
+		use frame_system::WeightInfo;
+		let require_weight_at_most =
+			<Runtime as frame_system::Config>::SystemWeightInfo::set_storage(
+				storage_items.len().try_into().unwrap(),
+			);
+
+		// execute XCM with Transact to `set_storage` as governance does
+		assert_ok!(RuntimeHelper::<Runtime>::execute_as_governance(
+			kill_storage_call,
+			require_weight_at_most
+		)
+		.ensure_complete());
+	});
+	runtime.execute_with(|| {
+		assert_storage();
+	});
+}

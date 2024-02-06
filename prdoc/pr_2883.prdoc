@@ -1,9 +1,0 @@
-title: "pallet-core-fellowship: import an unimported on approve"
-
-doc:
-  - audience: Runtime User
-    description: |
-      To align with the documentation of the approve call, we import an untracked member on approval.
-
-crates:
-  - name: "pallet-core-fellowship"
