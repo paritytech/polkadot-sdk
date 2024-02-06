@@ -92,6 +92,58 @@ pub enum SyncingAction<B: BlockT> {
 		number: NumberFor<B>,
 		justifications: Justifications,
 	},
+	/// Strategy finished. Nothing to do, this is handled by `SyncingStrategy`.
+	Finished,
+}
+
+impl<B: BlockT> SyncingAction<B> {
+	fn is_finished(&self) -> bool {
+		matches!(self, SyncingAction::Finished)
+	}
+}
+
+impl<B: BlockT> From<WarpSyncAction<B>> for SyncingAction<B> {
+	fn from(action: WarpSyncAction<B>) -> Self {
+		match action {
+			WarpSyncAction::SendWarpProofRequest { peer_id, request } =>
+				SyncingAction::SendWarpProofRequest { peer_id, request },
+			WarpSyncAction::SendBlockRequest { peer_id, request } =>
+				SyncingAction::SendBlockRequest { peer_id, request },
+			WarpSyncAction::DropPeer(bad_peer) => SyncingAction::DropPeer(bad_peer),
+			WarpSyncAction::Finished => SyncingAction::Finished,
+		}
+	}
+}
+
+impl<B: BlockT> From<StateStrategyAction<B>> for SyncingAction<B> {
+	fn from(action: StateStrategyAction<B>) -> Self {
+		match action {
+			StateStrategyAction::SendStateRequest { peer_id, request } =>
+				SyncingAction::SendStateRequest { peer_id, request },
+			StateStrategyAction::DropPeer(bad_peer) => SyncingAction::DropPeer(bad_peer),
+			StateStrategyAction::ImportBlocks { origin, blocks } =>
+				SyncingAction::ImportBlocks { origin, blocks },
+			StateStrategyAction::Finished => SyncingAction::Finished,
+		}
+	}
+}
+
+impl<B: BlockT> From<ChainSyncAction<B>> for SyncingAction<B> {
+	fn from(action: ChainSyncAction<B>) -> Self {
+		match action {
+			ChainSyncAction::SendBlockRequest { peer_id, request } =>
+				SyncingAction::SendBlockRequest { peer_id, request },
+			ChainSyncAction::SendStateRequest { peer_id, request } =>
+				SyncingAction::SendStateRequest { peer_id, request },
+			ChainSyncAction::CancelBlockRequest { peer_id } =>
+				SyncingAction::CancelBlockRequest { peer_id },
+			ChainSyncAction::DropPeer(bad_peer) => SyncingAction::DropPeer(bad_peer),
+			ChainSyncAction::ImportBlocks { origin, blocks } =>
+				SyncingAction::ImportBlocks { origin, blocks },
+			ChainSyncAction::ImportJustifications { peer_id, hash, number, justifications } =>
+				SyncingAction::ImportJustifications { peer_id, hash, number, justifications },
+		}
+	}
 }
 
 /// Proxy to specific syncing strategies.
@@ -376,68 +428,22 @@ where
 	#[must_use]
 	pub fn actions(&mut self) -> Result<Vec<SyncingAction<B>>, ClientError> {
 		// This function presumes that strategies are executed serially and must be refactored once
-		// we have parallel startegies.
-		if let Some(ref mut warp) = self.warp {
-			let mut actions = Vec::new();
-			for action in warp.actions() {
-				actions.push(match action {
-					WarpSyncAction::SendWarpProofRequest { peer_id, request } =>
-						SyncingAction::SendWarpProofRequest { peer_id, request },
-					WarpSyncAction::SendBlockRequest { peer_id, request } =>
-						SyncingAction::SendBlockRequest { peer_id, request },
-					WarpSyncAction::DropPeer(bad_peer) => SyncingAction::DropPeer(bad_peer),
-					WarpSyncAction::Finished => {
-						self.proceed_to_next()?;
-						return Ok(actions)
-					},
-				});
-			}
-			Ok(actions)
+		// we have parallel strategies.
+		let actions: Vec<_> = if let Some(ref mut warp) = self.warp {
+			warp.actions().map(Into::into).collect()
 		} else if let Some(ref mut state) = self.state {
-			let mut actions = Vec::new();
-			for action in state.actions() {
-				actions.push(match action {
-					StateStrategyAction::SendStateRequest { peer_id, request } =>
-						SyncingAction::SendStateRequest { peer_id, request },
-					StateStrategyAction::DropPeer(bad_peer) => SyncingAction::DropPeer(bad_peer),
-					StateStrategyAction::ImportBlocks { origin, blocks } =>
-						SyncingAction::ImportBlocks { origin, blocks },
-					StateStrategyAction::Finished => {
-						self.proceed_to_next()?;
-						return Ok(actions)
-					},
-				});
-			}
-			Ok(actions)
+			state.actions().map(Into::into).collect()
 		} else if let Some(ref mut chain_sync) = self.chain_sync {
-			Ok(chain_sync
-				.actions()
-				.map(|action| match action {
-					ChainSyncAction::SendBlockRequest { peer_id, request } =>
-						SyncingAction::SendBlockRequest { peer_id, request },
-					ChainSyncAction::CancelBlockRequest { peer_id } =>
-						SyncingAction::CancelBlockRequest { peer_id },
-					ChainSyncAction::SendStateRequest { peer_id, request } =>
-						SyncingAction::SendStateRequest { peer_id, request },
-					ChainSyncAction::DropPeer(bad_peer) => SyncingAction::DropPeer(bad_peer),
-					ChainSyncAction::ImportBlocks { origin, blocks } =>
-						SyncingAction::ImportBlocks { origin, blocks },
-					ChainSyncAction::ImportJustifications {
-						peer_id,
-						hash,
-						number,
-						justifications,
-					} => SyncingAction::ImportJustifications {
-						peer_id,
-						hash,
-						number,
-						justifications,
-					},
-				})
-				.collect())
+			chain_sync.actions().map(Into::into).collect()
 		} else {
-			unreachable!("At least one syncing startegy is always active; qed")
+			unreachable!("At least one syncing strategy is always active; qed")
+		};
+
+		if actions.iter().any(SyncingAction::is_finished) {
+			self.proceed_to_next()?;
 		}
+
+		Ok(actions)
 	}
 
 	/// Proceed with the next strategy if the active one finished.
