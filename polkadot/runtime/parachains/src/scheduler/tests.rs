@@ -105,14 +105,14 @@ fn run_to_end_of_block(
 
 fn default_config() -> HostConfiguration<BlockNumber> {
 	HostConfiguration {
-		group_rotation_frequency: 10,
-		paras_availability_period: 3,
 		// This field does not affect anything that scheduler does. However, `HostConfiguration`
 		// is still a subject to consistency test. It requires that
 		// `minimum_validation_upgrade_delay` is greater than `chain_availability_period` and
 		// `thread_availability_period`.
 		minimum_validation_upgrade_delay: 6,
 		scheduler_params: SchedulerParams {
+			group_rotation_frequency: 10,
+			paras_availability_period: 3,
 			lookahead: 2,
 			coretime_cores: 3,
 			coretime_max_availability_timeouts: 1,
@@ -295,7 +295,7 @@ fn session_change_shuffles_validators() {
 fn session_change_takes_only_max_per_core() {
 	let config = {
 		let mut config = default_config();
-		config.max_validators_per_core = Some(1);
+		config.scheduler_params.max_validators_per_core = Some(1);
 		config
 	};
 
@@ -668,7 +668,7 @@ fn schedule_rotates_groups() {
 		config
 	};
 
-	let rotation_frequency = config.group_rotation_frequency;
+	let rotation_frequency = config.scheduler_params.group_rotation_frequency;
 	let on_demand_cores = 2;
 
 	let genesis_config = genesis_config(&config);
@@ -877,8 +877,8 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 fn availability_predicate_works() {
 	let genesis_config = genesis_config(&default_config());
 
-	let HostConfiguration { group_rotation_frequency, paras_availability_period, .. } =
-		default_config();
+	let SchedulerParams { group_rotation_frequency, paras_availability_period, .. } =
+		default_config().scheduler_params;
 
 	assert!(paras_availability_period < group_rotation_frequency);
 

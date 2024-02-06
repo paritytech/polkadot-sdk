@@ -173,29 +173,6 @@ pub struct HostConfiguration<BlockNumber> {
 	/// have concluded.
 	pub code_retention_period: BlockNumber,
 
-	/// How often parachain groups should be rotated across parachains.
-	///
-	/// Must be non-zero.
-	pub group_rotation_frequency: BlockNumber,
-	/// The minimum availability period, in blocks.
-	///
-	/// This is the minimum amount of blocks after a core became occupied that validators have time
-	/// to make the block available.
-	///
-	/// This value only has effect on group rotations. If backers backed something at the end of
-	/// their rotation, the occupied core affects the backing group that comes afterwards. We limit
-	/// the effect one backing group can have on the next to `paras_availability_period` blocks.
-	///
-	/// Within a group rotation there is no timeout as backers are only affecting themselves.
-	///
-	/// Must be at least 1. With a value of 1, the previous group will not be able to negatively
-	/// affect the following group at the expense of a tight availability timeline at group
-	/// rotation boundaries.
-	pub paras_availability_period: BlockNumber,
-	/// The maximum number of validators to have per core.
-	///
-	/// `None` means no maximum.
-	pub max_validators_per_core: Option<u32>,
 	/// The maximum number of validators to use for parachain consensus, period.
 	///
 	/// `None` means no maximum.
@@ -259,8 +236,6 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 				max_candidate_depth: 0,
 				allowed_ancestry_len: 0,
 			},
-			group_rotation_frequency: 1u32.into(),
-			paras_availability_period: 1u32.into(),
 			no_show_slots: 1u32.into(),
 			validation_upgrade_cooldown: Default::default(),
 			validation_upgrade_delay: 2u32.into(),
@@ -268,7 +243,6 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			max_code_size: Default::default(),
 			max_pov_size: Default::default(),
 			max_head_data_size: Default::default(),
-			max_validators_per_core: Default::default(),
 			max_validators: None,
 			dispute_period: 6,
 			dispute_post_conclusion_acceptance_period: 100.into(),
@@ -350,11 +324,11 @@ where
 	pub fn check_consistency(&self) -> Result<(), InconsistentError<BlockNumber>> {
 		use InconsistentError::*;
 
-		if self.group_rotation_frequency.is_zero() {
+		if self.scheduler_params.group_rotation_frequency.is_zero() {
 			return Err(ZeroGroupRotationFrequency)
 		}
 
-		if self.paras_availability_period.is_zero() {
+		if self.scheduler_params.paras_availability_period.is_zero() {
 			return Err(ZeroParasAvailabilityPeriod)
 		}
 
@@ -376,10 +350,11 @@ where
 			return Err(MaxPovSizeExceedHardLimit { max_pov_size: self.max_pov_size })
 		}
 
-		if self.minimum_validation_upgrade_delay <= self.paras_availability_period {
+		if self.minimum_validation_upgrade_delay <= self.scheduler_params.paras_availability_period
+		{
 			return Err(MinimumValidationUpgradeDelayLessThanChainAvailabilityPeriod {
 				minimum_validation_upgrade_delay: self.minimum_validation_upgrade_delay.clone(),
-				paras_availability_period: self.paras_availability_period.clone(),
+				paras_availability_period: self.scheduler_params.paras_availability_period.clone(),
 			})
 		}
 
@@ -682,7 +657,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.group_rotation_frequency = new;
+				config.scheduler_params.group_rotation_frequency = new;
 			})
 		}
 
@@ -698,7 +673,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.paras_availability_period = new;
+				config.scheduler_params.paras_availability_period = new;
 			})
 		}
 
@@ -727,7 +702,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
-				config.max_validators_per_core = new;
+				config.scheduler_params.max_validators_per_core = new;
 			})
 		}
 

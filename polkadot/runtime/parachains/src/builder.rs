@@ -193,7 +193,10 @@ impl<T: paras_inherent::Config> BenchBuilder<T> {
 	/// Maximum number of validators per core (a.k.a. max validators per group). This value is used
 	/// if none is explicitly set on the builder.
 	pub(crate) fn fallback_max_validators_per_core() -> u32 {
-		configuration::Pallet::<T>::config().max_validators_per_core.unwrap_or(5)
+		configuration::Pallet::<T>::config()
+			.scheduler_params
+			.max_validators_per_core
+			.unwrap_or(5)
 	}
 
 	/// Specify a mapping of core index/ para id to the number of dispute statements for the

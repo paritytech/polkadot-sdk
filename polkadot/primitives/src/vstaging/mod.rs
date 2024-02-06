@@ -64,6 +64,29 @@ impl Default for ApprovalVotingParams {
 	serde::Deserialize,
 )]
 pub struct SchedulerParams<BlockNumber> {
+	/// How often parachain groups should be rotated across parachains.
+	///
+	/// Must be non-zero.
+	pub group_rotation_frequency: BlockNumber,
+	/// The minimum availability period, in blocks.
+	///
+	/// This is the minimum amount of blocks after a core became occupied that validators have time
+	/// to make the block available.
+	///
+	/// This value only has effect on group rotations. If backers backed something at the end of
+	/// their rotation, the occupied core affects the backing group that comes afterwards. We limit
+	/// the effect one backing group can have on the next to `paras_availability_period` blocks.
+	///
+	/// Within a group rotation there is no timeout as backers are only affecting themselves.
+	///
+	/// Must be at least 1. With a value of 1, the previous group will not be able to negatively
+	/// affect the following group at the expense of a tight availability timeline at group
+	/// rotation boundaries.
+	pub paras_availability_period: BlockNumber,
+	/// The maximum number of validators to have per core.
+	///
+	/// `None` means no maximum.
+	pub max_validators_per_core: Option<u32>,
 	/// The amount of blocks ahead to schedule paras.
 	pub lookahead: u32,
 	/// How many cores are managed by the coretime chain.
@@ -88,6 +111,9 @@ pub struct SchedulerParams<BlockNumber> {
 impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> {
 	fn default() -> Self {
 		Self {
+			group_rotation_frequency: 1u32.into(),
+			paras_availability_period: 1u32.into(),
+			max_validators_per_core: Default::default(),
 			lookahead: 1,
 			coretime_cores: Default::default(),
 			coretime_max_availability_timeouts: Default::default(),

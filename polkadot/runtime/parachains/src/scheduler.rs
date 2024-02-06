@@ -224,7 +224,7 @@ impl<T: Config> Pallet<T> {
 
 		let n_cores = core::cmp::max(
 			T::AssignmentProvider::session_core_count(),
-			match config.max_validators_per_core {
+			match config.scheduler_params.max_validators_per_core {
 				Some(x) if x != 0 => validators.len() as u32 / x,
 				_ => 0,
 			},
@@ -429,7 +429,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let rotations_since_session_start: BlockNumberFor<T> =
-			(at - session_start_block) / config.group_rotation_frequency;
+			(at - session_start_block) / config.scheduler_params.group_rotation_frequency;
 
 		let rotations_since_session_start =
 			<BlockNumberFor<T> as TryInto<u32>>::try_into(rotations_since_session_start)
@@ -461,9 +461,9 @@ impl<T: Config> Pallet<T> {
 				// Note: blocks backed in this rotation will never time out here as backed_in +
 				// config.paras_availability_period will always be > now for these blocks, as
 				// otherwise above condition would not be true.
-				pending_since + config.paras_availability_period
+				pending_since + config.scheduler_params.paras_availability_period
 			} else {
-				next_rotation + config.paras_availability_period
+				next_rotation + config.scheduler_params.paras_availability_period
 			};
 
 			AvailabilityTimeoutStatus { timed_out: time_out_at <= now, live_until: time_out_at }
@@ -479,7 +479,8 @@ impl<T: Config> Pallet<T> {
 		let now = <frame_system::Pallet<T>>::block_number() + One::one();
 		let rotation_info = Self::group_rotation_info(now);
 
-		let current_window = rotation_info.last_rotation_at() + config.paras_availability_period;
+		let current_window =
+			rotation_info.last_rotation_at() + config.scheduler_params.paras_availability_period;
 		now < current_window
 	}
 
@@ -489,7 +490,7 @@ impl<T: Config> Pallet<T> {
 	) -> GroupRotationInfo<BlockNumberFor<T>> {
 		let session_start_block = Self::session_start_block();
 		let group_rotation_frequency =
-			<configuration::Pallet<T>>::config().group_rotation_frequency;
+			<configuration::Pallet<T>>::config().scheduler_params.group_rotation_frequency;
 
 		GroupRotationInfo { session_start_block, now, group_rotation_frequency }
 	}

@@ -226,8 +226,11 @@ fn invariants() {
 		);
 
 		ActiveConfig::<Test>::put(HostConfiguration {
-			paras_availability_period: 10,
 			minimum_validation_upgrade_delay: 11,
+			scheduler_params: SchedulerParams {
+				paras_availability_period: 10,
+				..Default::default()
+			},
 			..Default::default()
 		});
 		assert_err!(
@@ -283,9 +286,6 @@ fn setting_pending_config_members() {
 			max_code_size: 100_000,
 			max_pov_size: 1024,
 			max_head_data_size: 1_000,
-			group_rotation_frequency: 20,
-			paras_availability_period: 10,
-			max_validators_per_core: None,
 			max_validators: None,
 			dispute_period: 239,
 			dispute_post_conclusion_acceptance_period: 10,
@@ -314,6 +314,9 @@ fn setting_pending_config_members() {
 			minimum_backing_votes: 5,
 			node_features: bitvec![u8, Lsb0; 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
 			scheduler_params: SchedulerParams {
+				group_rotation_frequency: 20,
+				paras_availability_period: 10,
+				max_validators_per_core: None,
 				lookahead: 3,
 				coretime_cores: 2,
 				coretime_max_availability_timeouts: 5,
@@ -356,7 +359,7 @@ fn setting_pending_config_members() {
 		.unwrap();
 		Configuration::set_group_rotation_frequency(
 			RuntimeOrigin::root(),
-			new_config.group_rotation_frequency,
+			new_config.scheduler_params.group_rotation_frequency,
 		)
 		.unwrap();
 		// This comes out of order to satisfy the validity criteria for the chain and thread
@@ -368,7 +371,7 @@ fn setting_pending_config_members() {
 		.unwrap();
 		Configuration::set_paras_availability_period(
 			RuntimeOrigin::root(),
-			new_config.paras_availability_period,
+			new_config.scheduler_params.paras_availability_period,
 		)
 		.unwrap();
 		Configuration::set_scheduling_lookahead(
@@ -378,7 +381,7 @@ fn setting_pending_config_members() {
 		.unwrap();
 		Configuration::set_max_validators_per_core(
 			RuntimeOrigin::root(),
-			new_config.max_validators_per_core,
+			new_config.scheduler_params.max_validators_per_core,
 		)
 		.unwrap();
 		Configuration::set_max_validators(RuntimeOrigin::root(), new_config.max_validators)

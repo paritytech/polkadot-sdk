@@ -128,9 +128,6 @@ fn migrate_to_v12<T: Config>() -> Weight {
 					hrmp_max_parachain_outbound_channels     : pre.hrmp_max_parachain_outbound_channels,
 					hrmp_channel_max_message_size            : pre.hrmp_channel_max_message_size,
 					code_retention_period                    : pre.code_retention_period,
-					group_rotation_frequency                 : pre.group_rotation_frequency,
-					paras_availability_period                : pre.paras_availability_period,
-					max_validators_per_core                  : pre.max_validators_per_core,
 					max_validators                           : pre.max_validators,
 					dispute_period                           : pre.dispute_period,
 					dispute_post_conclusion_acceptance_period: pre.dispute_post_conclusion_acceptance_period,
@@ -147,6 +144,9 @@ fn migrate_to_v12<T: Config>() -> Weight {
 					node_features                            : pre.node_features,
 					approval_voting_params                   : pre.approval_voting_params,
 					scheduler_params: SchedulerParams {
+							group_rotation_frequency             : pre.group_rotation_frequency,
+							paras_availability_period            : pre.paras_availability_period,
+							max_validators_per_core              : pre.max_validators_per_core,
 							lookahead                            : pre.scheduling_lookahead,
 							coretime_cores                       : pre.coretime_cores,
 							coretime_max_availability_timeouts   : pre.on_demand_retries,
@@ -209,8 +209,8 @@ mod tests {
 		// This exceeds the maximal line width length, but that's fine, since this is not code and
 		// doesn't need to be read and also leaving it as one line allows to easily copy it.
 		let raw_config =
-	hex_literal::hex!["
-	0000300000800000080000000000100000c8000005000000050000000200000002000000000000000000000000005000000010000400000000000000000000000000000000000000000000000000000000000000000000000800000000200000040000000000100000b004000014000000040000000101000000000600000064000000020000001900000000000000020000000200000002000000050000000200000000010000000100000001000000000000001027000080b2e60e80c3c9018096980000000000000000000000000005000000"
+	hex_literal::hex![
+	"0000300000800000080000000000100000c8000005000000050000000200000002000000000000000000000000005000000010000400000000000000000000000000000000000000000000000000000000000000000000000800000000200000040000000000100000b004000000060000006400000002000000190000000000000002000000020000000200000005000000020000000001000000140000000400000001010000000100000001000000000000001027000080b2e60e80c3c9018096980000000000000000000000000005000000"
 	];
 
 		let v12 =
@@ -224,9 +224,10 @@ mod tests {
 		assert_eq!(v12.hrmp_channel_max_message_size, 1_048_576);
 		assert_eq!(v12.n_delay_tranches, 25);
 		assert_eq!(v12.minimum_validation_upgrade_delay, 5);
-		assert_eq!(v12.group_rotation_frequency, 20);
 		assert_eq!(v12.minimum_backing_votes, LEGACY_MIN_BACKING_VOTES);
 		assert_eq!(v12.approval_voting_params.max_approval_coalesce_count, 1);
+		assert_eq!(v12.scheduler_params.group_rotation_frequency, 20);
+		assert_eq!(v12.scheduler_params.paras_availability_period, 4);
 		assert_eq!(v12.scheduler_params.lookahead, 1);
 		assert_eq!(v12.scheduler_params.coretime_cores, 1);
 		assert_eq!(v12.scheduler_params.coretime_max_availability_timeouts, 0);
@@ -300,9 +301,6 @@ mod tests {
 					assert_eq!(v11.hrmp_max_parachain_inbound_channels      , v12.hrmp_max_parachain_inbound_channels);
 					assert_eq!(v11.hrmp_channel_max_message_size            , v12.hrmp_channel_max_message_size);
 					assert_eq!(v11.code_retention_period                    , v12.code_retention_period);
-					assert_eq!(v11.group_rotation_frequency                 , v12.group_rotation_frequency);
-					assert_eq!(v11.paras_availability_period                , v12.paras_availability_period);
-					assert_eq!(v11.max_validators_per_core                  , v12.max_validators_per_core);
 					assert_eq!(v11.max_validators                           , v12.max_validators);
 					assert_eq!(v11.dispute_period                           , v12.dispute_period);
 					assert_eq!(v11.no_show_slots                            , v12.no_show_slots);
@@ -316,6 +314,9 @@ mod tests {
 					assert_eq!(v11.async_backing_params.max_candidate_depth , v12.async_backing_params.max_candidate_depth);
 					assert_eq!(v11.executor_params                          , v12.executor_params);
 				    assert_eq!(v11.minimum_backing_votes                    , v12.minimum_backing_votes);
+					assert_eq!(v11.group_rotation_frequency                 , v12.scheduler_params.group_rotation_frequency);
+					assert_eq!(v11.paras_availability_period                , v12.scheduler_params.paras_availability_period);
+					assert_eq!(v11.max_validators_per_core                  , v12.scheduler_params.max_validators_per_core);
 					assert_eq!(v11.scheduling_lookahead                     , v12.scheduler_params.lookahead);
 					assert_eq!(v11.coretime_cores                           , v12.scheduler_params.coretime_cores);
 					assert_eq!(v11.on_demand_retries                        , v12.scheduler_params.coretime_max_availability_timeouts);
