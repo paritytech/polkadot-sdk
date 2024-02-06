@@ -25,9 +25,7 @@ use std::{
 	time::Instant,
 };
 
-use jsonrpsee::{
-	server::middleware::rpc::RpcServiceT, types::Request, MethodResponse,
-};
+use jsonrpsee::{server::middleware::rpc::RpcServiceT, types::Request, MethodResponse};
 use pin_project::pin_project;
 use prometheus_endpoint::{
 	register, Counter, CounterVec, HistogramOpts, HistogramVec, Opts, PrometheusError, Registry,
