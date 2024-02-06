@@ -152,7 +152,7 @@ pub type RelayChainPalletXcm = pallet_xcm::Pallet<relay_chain::Runtime>;
 pub type ParachainPalletXcm = pallet_xcm::Pallet<parachain::Runtime>;
 
 // We check XCM messages recursively for blocklisted messages
-fn recursively_matches_blocklisted_messages(message: &mut Instruction<()>) -> bool {
+fn recursively_matches_blocklisted_messages(message: &Instruction<()>) -> bool {
 	match message {
 		DepositReserveAsset { xcm, .. } |
 		ExportMessage { xcm, .. } |
@@ -160,8 +160,7 @@ fn recursively_matches_blocklisted_messages(message: &mut Instruction<()>) -> bo
 		InitiateTeleport { xcm, .. } |
 		TransferReserveAsset { xcm, .. } |
 		SetErrorHandler(xcm) |
-		SetAppendix(xcm) =>
-			Vec::from(xcm.inner()).iter_mut().any(recursively_matches_blocklisted_messages),
+		SetAppendix(xcm) => xcm.iter().any(recursively_matches_blocklisted_messages),
 		// The blocklisted message is the Transact instruction.
 		m => matches!(m, Transact { .. }),
 	}
@@ -174,12 +173,7 @@ fn run_input(xcm_messages: [XcmMessage; 5]) {
 	println!();
 
 	for xcm_message in xcm_messages {
-		if xcm_message
-			.message
-			.clone()
-			.iter_mut()
-			.any(recursively_matches_blocklisted_messages)
-		{
+		if xcm_message.message.iter().any(recursively_matches_blocklisted_messages) {
 			println!("  skipping message\n");
 			continue;
 		}
