@@ -93,8 +93,10 @@ fn processes_empty_response_on_justification_request_for_unknown_block() {
 fn restart_doesnt_affect_peers_downloading_finality_data() {
 	let mut client = Arc::new(TestClientBuilder::new().build());
 
+	// we request max 8 blocks to always initiate block requests to both peers for the test to be
+	// deterministic
 	let mut sync =
-		ChainSync::new(ChainSyncMode::Full, client.clone(), 1, 64, None, std::iter::empty())
+		ChainSync::new(ChainSyncMode::Full, client.clone(), 1, 8, None, std::iter::empty())
 			.unwrap();
 
 	let peer_id1 = PeerId::random();
@@ -126,10 +128,13 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 
 	// we wil send block requests to these peers
 	// for these blocks we don't know about
-	assert!(sync
-		.block_requests()
-		.into_iter()
-		.all(|(p, _)| { p == peer_id1 || p == peer_id2 }));
+	let actions = sync.actions().collect::<Vec<_>>();
+	assert_eq!(actions.len(), 2);
+	assert!(actions.iter().all(|action| match action {
+		ChainSyncAction::SendBlockRequest { peer_id, .. } =>
+			peer_id == &peer_id1 || peer_id == &peer_id2,
+		_ => false,
+	}));
 
 	// add a new peer at a known block
 	sync.add_peer(peer_id3, b1_hash, b1_number);
@@ -150,22 +155,29 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 		PeerSyncState::DownloadingJustification(b1_hash),
 	);
 
-	// clear old actions
+	// drop old actions
 	let _ = sync.take_actions();
 
 	// we restart the sync state
 	sync.restart();
-	let actions = sync.take_actions().collect::<Vec<_>>();
 
-	// which should make us send out block requests to the first two peers
-	assert_eq!(actions.len(), 2);
+	// which should make us cancel and send out again block requests to the first two peers
+	let actions = sync.actions().collect::<Vec<_>>();
+	assert_eq!(actions.len(), 4);
+	let mut cancelled_first = HashSet::new();
 	assert!(actions.iter().all(|action| match action {
-		ChainSyncAction::SendBlockRequest { peer_id, .. } =>
-			peer_id == &peer_id1 || peer_id == &peer_id2,
+		ChainSyncAction::CancelRequest { peer_id, .. } => {
+			cancelled_first.insert(peer_id);
+			peer_id == &peer_id1 || peer_id == &peer_id2
+		},
+		ChainSyncAction::SendBlockRequest { peer_id, .. } => {
+			assert!(cancelled_first.remove(peer_id));
+			peer_id == &peer_id1 || peer_id == &peer_id2
+		},
 		_ => false,
 	}));
 
-	// peer 3 should be unaffected it was downloading finality data
+	// peer 3 should be unaffected as it was downloading finality data
 	assert_eq!(
 		sync.peers.get(&peer_id3).unwrap().state,
 		PeerSyncState::DownloadingJustification(b1_hash),
@@ -829,7 +841,7 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 	let actions = sync.take_actions().collect::<Vec<_>>();
 	for action in actions.iter() {
 		match action {
-			ChainSyncAction::CancelBlockRequest { peer_id } => {
+			ChainSyncAction::CancelRequest { peer_id } => {
 				pending_responses.remove(&peer_id);
 			},
 			ChainSyncAction::SendBlockRequest { peer_id, .. } => {

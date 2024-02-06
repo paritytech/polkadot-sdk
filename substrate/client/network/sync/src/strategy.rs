@@ -75,12 +75,12 @@ pub struct SyncingConfig {
 pub enum SyncingAction<B: BlockT> {
 	/// Send block request to peer. Always implies dropping a stale block request to the same peer.
 	SendBlockRequest { peer_id: PeerId, request: BlockRequest<B> },
-	/// Drop stale block request.
-	CancelBlockRequest { peer_id: PeerId },
 	/// Send state request to peer.
 	SendStateRequest { peer_id: PeerId, request: OpaqueStateRequest },
 	/// Send warp proof request to peer.
 	SendWarpProofRequest { peer_id: PeerId, request: WarpProofRequest<B> },
+	/// Drop stale request.
+	CancelRequest { peer_id: PeerId },
 	/// Peer misbehaved. Disconnect, report it and cancel any requests to it.
 	DropPeer(BadPeer),
 	/// Import blocks.
@@ -135,8 +135,7 @@ impl<B: BlockT> From<ChainSyncAction<B>> for SyncingAction<B> {
 				SyncingAction::SendBlockRequest { peer_id, request },
 			ChainSyncAction::SendStateRequest { peer_id, request } =>
 				SyncingAction::SendStateRequest { peer_id, request },
-			ChainSyncAction::CancelBlockRequest { peer_id } =>
-				SyncingAction::CancelBlockRequest { peer_id },
+			ChainSyncAction::CancelRequest { peer_id } => SyncingAction::CancelRequest { peer_id },
 			ChainSyncAction::DropPeer(bad_peer) => SyncingAction::DropPeer(bad_peer),
 			ChainSyncAction::ImportBlocks { origin, blocks } =>
 				SyncingAction::ImportBlocks { origin, blocks },

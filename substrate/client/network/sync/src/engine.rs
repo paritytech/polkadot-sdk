@@ -704,7 +704,7 @@ where
 						removed,
 					)
 				},
-				SyncingAction::CancelBlockRequest { peer_id } => {
+				SyncingAction::CancelRequest { peer_id } => {
 					let removed = self.pending_responses.remove(&peer_id);
 
 					trace!(
