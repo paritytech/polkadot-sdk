@@ -2422,15 +2422,15 @@ impl<T: Config> Pallet<T> {
 		for v in 0..XCM_VERSION {
 			ensure!(
 				SupportedVersion::<T>::iter_prefix(v).next().is_none(),
-				TryRuntimeError::Other("`SupportedVersion` data with XCM version: {v} should be migrated to the XCM version: {XCM_VERSION}!`")
+				TryRuntimeError::Other("`SupportedVersion` data should be migrated to the `XCM_VERSION`!`")
 			);
 			ensure!(
 				VersionNotifiers::<T>::iter_prefix(v).next().is_none(),
-				TryRuntimeError::Other("`VersionNotifiers` data with XCM version: {v} should be migrated to the XCM version: {XCM_VERSION}!`")
+				TryRuntimeError::Other("`VersionNotifiers` data should be migrated to the `XCM_VERSION`!`")
 			);
 			ensure!(
 				VersionNotifyTargets::<T>::iter_prefix(v).next().is_none(),
-				TryRuntimeError::Other("`VersionNotifyTargets` data with XCM version: {v} should be migrated to the XCM version: {XCM_VERSION}!`")
+				TryRuntimeError::Other("`VersionNotifyTargets` data should be migrated to the `XCM_VERSION`!`")
 			);
 		}
 
