@@ -21,6 +21,7 @@
 use super::{
 	chain_head_storage::ChainHeadStorage,
 	event::{MethodResponseStarted, OperationBodyDone, OperationCallDone},
+	subscription::{LimitOperations, PermitOperations},
 };
 use crate::{
 	chain_head::{
@@ -36,9 +37,11 @@ use crate::{
 use codec::Encode;
 use futures::future::FutureExt;
 use jsonrpsee::{
-	core::async_trait, types::SubscriptionId, PendingSubscriptionSink, SubscriptionSink,
+	core::async_trait, types::SubscriptionId, ConnectionId, PendingSubscriptionSink,
+	SubscriptionSink,
 };
 use log::debug;
+use parking_lot::Mutex;
 use sc_client_api::{
 	Backend, BlockBackend, BlockchainEvents, CallExecutor, ChildInfo, ExecutorProvider, StorageKey,
 	StorageProvider,
@@ -49,7 +52,7 @@ use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_core::{traits::CallContext, Bytes};
 use sp_rpc::list::ListOrValue;
 use sp_runtime::traits::Block as BlockT;
-use std::{marker::PhantomData, sync::Arc, time::Duration};
+use std::{collections::HashMap, marker::PhantomData, sync::Arc, time::Duration};
 
 pub(crate) const LOG_TARGET: &str = "rpc-spec-v2";
 
@@ -106,6 +109,8 @@ pub struct ChainHead<BE: Backend<Block>, Block: BlockT, Client> {
 	executor: SubscriptionTaskExecutor,
 	/// Keep track of the pinned blocks for each subscription.
 	subscriptions: Arc<SubscriptionManagement<Block, BE>>,
+	/// Keep track of the active connections.
+	connections: Arc<Mutex<HashMap<ConnectionId, LimitOperations>>>,
 	/// The maximum number of items reported by the `chainHead_storage` before
 	/// pagination is required.
 	operation_max_storage_items: usize,
@@ -131,9 +136,23 @@ impl<BE: Backend<Block>, Block: BlockT, Client> ChainHead<BE, Block, Client> {
 				config.subscription_max_ongoing_operations,
 				backend,
 			)),
+			connections: Default::default(),
 			operation_max_storage_items: config.operation_max_storage_items,
 			_phantom: PhantomData,
 		}
+	}
+
+	/// Limit the number of connections.
+	pub fn limit_connections(
+		&self,
+		connection_id: ConnectionId,
+		max_connections: usize,
+	) -> Option<PermitOperations> {
+		let mut connections = self.connections.lock();
+		let limiter = connections
+			.entry(connection_id)
+			.or_insert_with(|| LimitOperations::new(max_connections));
+		limiter.reserve_at_most(1)
 	}
 }
 
@@ -176,11 +195,19 @@ where
 		+ 'static,
 {
 	fn chain_head_unstable_follow(&self, pending: PendingSubscriptionSink, with_runtime: bool) {
+		let connection_id = pending.connection_id();
+		let permit_operation = self.limit_connections(connection_id, 2);
+
 		let subscriptions = self.subscriptions.clone();
 		let backend = self.backend.clone();
 		let client = self.client.clone();
 
 		let fut = async move {
+			let Some(permit_operation) = permit_operation else {
+				pending.reject(ChainHeadRpcError::InvalidParam("Exceeded limits".into())).await;
+				return
+			};
+
 			let Ok(sink) = pending.accept().await else { return };
 
 			let sub_id = read_subscription_id_as_string(&sink);
@@ -209,6 +236,11 @@ where
 
 			subscriptions.remove_subscription(&sub_id);
 			debug!(target: LOG_TARGET, "[follow][id={:?}] Subscription removed", sub_id);
+
+			// At this time the chainHead_follow is stopped and
+			// the `permit_operation` is dropped. Dropping the permit increments the
+			// number of operations this connection can make to the chainHead_follow.
+			drop(permit_operation);
 		};
 
 		self.executor.spawn("substrate-rpc-subscription", Some("rpc"), fut.boxed());
