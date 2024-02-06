@@ -151,6 +151,22 @@ pub fn relay_ext() -> sp_io::TestExternalities {
 pub type RelayChainPalletXcm = pallet_xcm::Pallet<relay_chain::Runtime>;
 pub type ParachainPalletXcm = pallet_xcm::Pallet<parachain::Runtime>;
 
+// We check XCM messages recursively for blocklisted messages
+fn recursively_matches_blocklisted_messages(message: &mut Instruction<()>) -> bool {
+	match message {
+		DepositReserveAsset { xcm, .. } |
+		ExportMessage { xcm, .. } |
+		InitiateReserveWithdraw { xcm, .. } |
+		InitiateTeleport { xcm, .. } |
+		TransferReserveAsset { xcm, .. } |
+		SetErrorHandler(xcm) |
+		SetAppendix(xcm) =>
+			Vec::from(xcm.inner()).iter_mut().any(recursively_matches_blocklisted_messages),
+		// The blocklisted message is the Transact instruction.
+		m => matches!(m, Transact { .. }),
+	}
+}
+
 fn run_input(xcm_messages: [XcmMessage; 5]) {
 	MockNet::reset();
 
@@ -158,29 +174,11 @@ fn run_input(xcm_messages: [XcmMessage; 5]) {
 	println!();
 
 	for xcm_message in xcm_messages {
-		fn matches_blocklisted_messages(message: Instruction<()>) -> bool {
-			matches!(message, Transact { .. })
-		}
-		// We check XCM messages recursively for blocklisted messages
-		fn matches_recursive(message: &mut Instruction<()>) -> Vec<Instruction<()>> {
-			match message {
-				DepositReserveAsset { xcm, .. } |
-				ExportMessage { xcm, .. } |
-				InitiateReserveWithdraw { xcm, .. } |
-				InitiateTeleport { xcm, .. } |
-				TransferReserveAsset { xcm, .. } |
-				SetErrorHandler(xcm) |
-				SetAppendix(xcm) => Vec::from(xcm.inner()).iter_mut().flat_map(matches_recursive).collect(),
-				_ => vec![message.clone()],
-			}
-		}
-
 		if xcm_message
 			.message
 			.clone()
 			.iter_mut()
-			.flat_map(matches_recursive)
-			.any(|m| matches_blocklisted_messages(m))
+			.any(recursively_matches_blocklisted_messages)
 		{
 			println!("  skipping message\n");
 			continue;
