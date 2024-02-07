@@ -373,11 +373,12 @@ async fn run(
 		futures::select_biased! {
 			from_execute_queue_rx = from_execute_queue_rx.next() => {
 				let from_queue = break_if_fatal!(from_execute_queue_rx.ok_or(Fatal));
-				let execute::FromQueue::RemoveArtifact { artifact } = from_queue;
+				let execute::FromQueue::RemoveArtifact { artifact, reply_to } = from_queue;
 				break_if_fatal!(handle_artifact_removal(
 					&mut to_sweeper_tx,
 					&mut artifacts,
-					artifact
+					artifact,
+					reply_to,
 				).await);
 			},
 			() = cleanup_pulse.select_next_some() => {
@@ -857,10 +858,18 @@ async fn handle_artifact_removal(
 	sweeper_tx: &mut mpsc::Sender<PathBuf>,
 	artifacts: &mut Artifacts,
 	artifact_id: ArtifactId,
+	reply_to: oneshot::Sender<()>,
 ) -> Result<(), Fatal> {
 	let (artifact_id, path) = artifacts
 		.remove(artifact_id)
 		.expect("artifact sent by the execute queue for removal exists; qed");
+	reply_to
+		.send(())
+		.expect("the execute queue waits for the artifact remove confirmation; qed");
+	// Thanks to the randomness of the artifact name (see
+	// `artifacts::generate_artifact_path`) there is no issue with any name conflict on
+	// future repreparation.
+	// So we can confirm the artifact removal already
 	gum::debug!(
 		target: LOG_TARGET,
 		validation_code_hash = ?artifact_id.code_hash,

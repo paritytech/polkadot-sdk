@@ -403,9 +403,10 @@ async fn corrupted_prepared_artifact_does_not_dispute() {
 		)
 		.await;
 
-	// The validation result is sent concurrently with the removal request
-	// it is not a problem for further re-preparation
-	// (see comments for `execute::queue::handle_job_finish`).
+	// The actual artifact removal is done concurrently
+	// with sending of the result of the execution
+	// it is not a problem for further re-preparation as
+	// artifact file names are random
 	for _ in 1..5 {
 		if !artifact_path.path().exists() {
 			break;
