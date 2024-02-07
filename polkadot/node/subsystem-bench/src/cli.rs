@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 use super::availability::DataAvailabilityReadOptions;
+use crate::approval::ApprovalsOptions;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, clap::Parser)]
@@ -34,6 +35,25 @@ pub enum TestObjective {
 	DataAvailabilityWrite,
 	/// Run a test sequence specified in a file
 	TestSequence(TestSequenceOptions),
+	/// Benchmark the approval-voting and approval-distribution subsystems.
+	ApprovalVoting(ApprovalsOptions),
+	Unimplemented,
+}
+
+impl std::fmt::Display for TestObjective {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(
+			f,
+			"{}",
+			match self {
+				Self::DataAvailabilityRead(_) => "DataAvailabilityRead",
+				Self::DataAvailabilityWrite => "DataAvailabilityWrite",
+				Self::TestSequence(_) => "TestSequence",
+				Self::ApprovalVoting(_) => "ApprovalVoting",
+				Self::Unimplemented => "Unimplemented",
+			}
+		)
+	}
 }
 
 #[derive(Debug, clap::Parser)]
