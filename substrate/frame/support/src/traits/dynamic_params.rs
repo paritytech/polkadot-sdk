@@ -28,6 +28,8 @@ pub trait RuntimeParameterStore {
 	type AggregratedKeyValue: AggregratedKeyValue;
 
 	/// Get the value of a parametrized key.
+	///
+	/// Should return `None` if no explicit value was set instead of a default.
 	fn get<KV, K>(key: K) -> Option<K::Value>
 	where
 		KV: AggregratedKeyValue,
@@ -79,7 +81,7 @@ impl AggregratedKeyValue for () {
 	}
 }
 
-/// Allows create a `ParameterStore` from a `RuntimeParameterStore`.
+/// Allows to create a `ParameterStore` from a `RuntimeParameterStore`.
 ///
 /// This concretization is useful when configuring pallets, since a pallet will require a parameter
 /// store for its own KV type and not the aggregated runtime-wide KV type.

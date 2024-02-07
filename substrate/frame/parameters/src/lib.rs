@@ -176,9 +176,15 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A Parameter was set.
+		///
+		/// Is also emitted when the value was not changed.
 		Updated {
-			/// The Key-Value pair that was set.
-			key_value: T::RuntimeParameters,
+			/// The key that was updated.
+			key: <T::RuntimeParameters as AggregratedKeyValue>::Key,
+			/// The old value before this call.
+			old_value: Option<<T::RuntimeParameters as AggregratedKeyValue>::Value>,
+			/// The new value after this call.
+			new_value: Option<<T::RuntimeParameters as AggregratedKeyValue>::Value>,
 		},
 	}
 
@@ -194,20 +200,24 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Set the value of a parameter.
 		///
-		/// The dispatch origin of this call must be `AdminOrigin` for the given `key`.
+		/// The dispatch origin of this call must be `AdminOrigin` for the given `key`. Values be
+		/// deleted by setting them to `None`.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::set_parameter())]
 		pub fn set_parameter(
 			origin: OriginFor<T>,
 			key_value: T::RuntimeParameters,
 		) -> DispatchResult {
-			let (key, value) = key_value.clone().into_parts();
-
+			let (key, new) = key_value.into_parts();
 			T::AdminOrigin::ensure_origin(origin, &key)?;
 
-			Parameters::<T>::mutate(key, |v| *v = value);
+			let mut old = None;
+			Parameters::<T>::mutate(&key, |v| {
+				old = v.clone();
+				*v = new.clone();
+			});
 
-			Self::deposit_event(Event::Updated { key_value });
+			Self::deposit_event(Event::Updated { key, old_value: old, new_value: new });
 
 			Ok(())
 		}

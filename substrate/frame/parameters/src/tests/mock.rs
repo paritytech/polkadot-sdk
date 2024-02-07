@@ -138,5 +138,15 @@ construct_runtime!(
 );
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	sp_io::TestExternalities::new(Default::default())
+	let mut ext = sp_io::TestExternalities::new(Default::default());
+	ext.execute_with(|| System::set_block_number(1));
+	ext
+}
+
+pub(crate) fn assert_last_event(generic_event: RuntimeEvent) {
+	let events = frame_system::Pallet::<Runtime>::events();
+	let system_event: RuntimeEvent = generic_event.into();
+	// compare to the last event record
+	let frame_system::EventRecord { event, .. } = &events.last().expect("Event expected");
+	assert_eq!(event, &system_event);
 }

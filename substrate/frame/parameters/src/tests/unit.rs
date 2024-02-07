@@ -20,13 +20,12 @@
 #![cfg(test)]
 
 use crate::tests::mock::{
-	dynamic_params::*, new_test_ext, PalletParameters, Runtime, RuntimeOrigin as Origin,
-	RuntimeParameters, RuntimeParameters::*, RuntimeParametersKey, RuntimeParametersValue,
+	assert_last_event, dynamic_params::*, new_test_ext, PalletParameters, Runtime,
+	RuntimeOrigin as Origin, RuntimeParameters, RuntimeParameters::*, RuntimeParametersKey,
+	RuntimeParametersValue,
 };
 use codec::Encode;
-use frame_support::{
-	assert_noop, assert_ok, traits::dynamic_params::AggregratedKeyValue, StorageNoopGuard,
-};
+use frame_support::{assert_noop, assert_ok, traits::dynamic_params::AggregratedKeyValue};
 use sp_core::Get;
 use sp_runtime::DispatchError;
 
@@ -51,6 +50,16 @@ fn set_parameters_example() {
 		));
 
 		assert_eq!(pallet1::Key3::get(), 123, "Update works");
+		assert_last_event(
+			crate::Event::Updated {
+				key: RuntimeParametersKey::Pallet1(pallet1::ParametersKey::Key3(pallet1::Key3)),
+				old_value: None,
+				new_value: Some(RuntimeParametersValue::Pallet1(pallet1::ParametersValue::Key3(
+					123,
+				))),
+			}
+			.into(),
+		);
 	});
 }
 
@@ -62,7 +71,6 @@ fn set_parameters_same_is_noop() {
 			Pallet1(pallet1::Parameters::Key3(pallet1::Key3, Some(123))),
 		));
 
-		let _g = StorageNoopGuard::new();
 		assert_ok!(PalletParameters::set_parameter(
 			Origin::root(),
 			Pallet1(pallet1::Parameters::Key3(pallet1::Key3, Some(123))),
@@ -86,6 +94,72 @@ fn set_parameters_twice_works() {
 		));
 
 		assert_eq!(pallet1::Key3::get(), 432, "Update works");
+	});
+}
+
+#[test]
+fn set_parameters_removing_restores_default_works() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(PalletParameters::set_parameter(
+			Origin::root(),
+			Pallet1(pallet1::Parameters::Key3(pallet1::Key3, Some(123))),
+		));
+
+		assert_eq!(pallet1::Key3::get(), 123, "Update works");
+		assert!(
+			crate::Parameters::<Runtime>::contains_key(RuntimeParametersKey::Pallet1(
+				pallet1::ParametersKey::Key3(pallet1::Key3)
+			)),
+			"Key inserted"
+		);
+
+		// Removing the value restores the default.
+		assert_ok!(PalletParameters::set_parameter(
+			Origin::root(),
+			Pallet1(pallet1::Parameters::Key3(pallet1::Key3, None)),
+		));
+
+		assert_eq!(pallet1::Key3::get(), 2, "Default restored");
+		assert!(
+			!crate::Parameters::<Runtime>::contains_key(RuntimeParametersKey::Pallet1(
+				pallet1::ParametersKey::Key3(pallet1::Key3)
+			)),
+			"Key removed"
+		);
+	});
+}
+
+#[test]
+fn set_parameters_to_default_emits_events_works() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(pallet1::Key3::get(), 2);
+		assert_ok!(PalletParameters::set_parameter(
+			Origin::root(),
+			Pallet1(pallet1::Parameters::Key3(pallet1::Key3, Some(2))),
+		));
+		assert_eq!(pallet1::Key3::get(), 2);
+
+		assert!(
+			crate::Parameters::<Runtime>::contains_key(RuntimeParametersKey::Pallet1(
+				pallet1::ParametersKey::Key3(pallet1::Key3)
+			)),
+			"Key inserted"
+		);
+		assert_last_event(
+			crate::Event::Updated {
+				key: RuntimeParametersKey::Pallet1(pallet1::ParametersKey::Key3(pallet1::Key3)),
+				old_value: None,
+				new_value: Some(RuntimeParametersValue::Pallet1(pallet1::ParametersValue::Key3(2))),
+			}
+			.into(),
+		);
+
+		// It will also emit a second event:
+		assert_ok!(PalletParameters::set_parameter(
+			Origin::root(),
+			Pallet1(pallet1::Parameters::Key3(pallet1::Key3, Some(2))),
+		));
+		assert_eq!(frame_system::Pallet::<Runtime>::events().len(), 2);
 	});
 }
 
