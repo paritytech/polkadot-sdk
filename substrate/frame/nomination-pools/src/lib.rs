@@ -1572,7 +1572,7 @@ pub mod pallet {
 	use sp_runtime::Perbill;
 
 	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(8);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(9);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]

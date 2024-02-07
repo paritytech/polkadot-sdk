@@ -27,6 +27,15 @@ use sp_runtime::TryRuntimeError;
 pub mod versioned {
 	use super::*;
 
+	/// v9: Checks and updates `TotalValueLocked` if out of sync.
+	pub type V8ToV9<T> = frame_support::migrations::VersionedMigration<
+		8,
+		9,
+		v9::VersionUncheckedMigrateV8ToV9<T>,
+		crate::pallet::Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+
 	/// v8: Adds commission claim permissions to `BondedPools`.
 	pub type V7ToV8<T> = frame_support::migrations::VersionedMigration<
 		7,
@@ -54,6 +63,59 @@ pub mod versioned {
 		crate::pallet::Pallet<T>,
 		<T as frame_system::Config>::DbWeight,
 	>;
+}
+
+pub mod v9 {
+	use super::*;
+
+	pub struct VersionUncheckedMigrateV8ToV9<T>(sp_std::marker::PhantomData<T>);
+
+	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV8ToV9<T> {
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			Ok(Vec::new())
+		}
+
+		fn on_runtime_upgrade() -> Weight {
+			let migrated = BondedPools::<T>::count();
+
+			// recalcuate the `TotalValueLocked` to compare with the current on-chain TVL which may
+			// be out of sync.
+			let tvl: BalanceOf<T> = helpers::calculate_tvl_by_total_stake::<T>();
+			let onchain_tvl = TotalValueLocked::<T>::get();
+
+			let writes = if tvl != onchain_tvl {
+				TotalValueLocked::<T>::set(tvl);
+
+				log!(
+					info,
+					"on-chain TVL was out of sync, update. Old: {:?}, new: {:?}",
+					onchain_tvl,
+					tvl
+				);
+
+				// writes: onchain version + set total value locked.
+				2
+			} else {
+				log!(info, "on-chain TVL was OK: {:?}", tvl);
+
+				// writes: onchain version write.
+				1
+			};
+
+			// reads: migrated * (BondedPools +  Staking::total_stake) + count + onchain
+			// version
+			//
+			// writes: current version + (maybe) TVL
+			T::DbWeight::get()
+				.reads_writes(migrated.saturating_mul(2).saturating_add(2).into(), writes)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_: Vec<u8>) -> Result<(), TryRuntimeError> {
+			Ok(())
+		}
+	}
 }
 
 pub mod v8 {
@@ -132,26 +194,12 @@ mod v7 {
 	use super::*;
 
 	pub struct VersionUncheckedMigrateV6ToV7<T>(sp_std::marker::PhantomData<T>);
-	impl<T: Config> VersionUncheckedMigrateV6ToV7<T> {
-		fn calculate_tvl_by_total_stake() -> BalanceOf<T> {
-			BondedPools::<T>::iter()
-				.map(|(id, inner)| {
-					T::Staking::total_stake(
-						&BondedPool { id, inner: inner.clone() }.bonded_account(),
-					)
-					.unwrap_or_default()
-				})
-				.reduce(|acc, total_balance| acc + total_balance)
-				.unwrap_or_default()
-		}
-	}
-
 	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV6ToV7<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let migrated = BondedPools::<T>::count();
 			// The TVL should be the sum of all the funds that are actively staked and in the
 			// unbonding process of the account of each pool.
-			let tvl: BalanceOf<T> = Self::calculate_tvl_by_total_stake();
+			let tvl: BalanceOf<T> = helpers::calculate_tvl_by_total_stake::<T>();
 
 			TotalValueLocked::<T>::set(tvl);
 
@@ -173,7 +221,7 @@ mod v7 {
 		fn post_upgrade(_data: Vec<u8>) -> Result<(), TryRuntimeError> {
 			// check that the `TotalValueLocked` written is actually the sum of `total_stake` of the
 			// `BondedPools``
-			let tvl: BalanceOf<T> = Self::calculate_tvl_by_total_stake();
+			let tvl: BalanceOf<T> = helpers::calculate_tvl_by_total_stake::<T>();
 			ensure!(
 				TotalValueLocked::<T>::get() == tvl,
 				"TVL written is not equal to `Staking::total_stake` of all `BondedPools`."
@@ -950,5 +998,19 @@ pub mod v1 {
 			Pallet::<T>::try_state(frame_system::Pallet::<T>::block_number())?;
 			Ok(())
 		}
+	}
+}
+
+mod helpers {
+	use super::*;
+
+	pub(crate) fn calculate_tvl_by_total_stake<T: Config>() -> BalanceOf<T> {
+		BondedPools::<T>::iter()
+			.map(|(id, inner)| {
+				T::Staking::total_stake(&BondedPool { id, inner: inner.clone() }.bonded_account())
+					.unwrap_or_default()
+			})
+			.reduce(|acc, total_balance| acc + total_balance)
+			.unwrap_or_default()
 	}
 }
