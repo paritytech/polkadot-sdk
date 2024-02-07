@@ -320,3 +320,15 @@ impl<T: Config<I>, I: 'static> fungibles::ResetTeam<T::AccountId> for Pallet<T, 
 		Self::do_reset_team(id, owner, admin, issuer, freezer)
 	}
 }
+
+impl<T: Config<I>, I: 'static> fungibles::Refund<T::AccountId> for Pallet<T, I> {
+	type AssetId = T::AssetId;
+	fn refund(id: Self::AssetId, who: T::AccountId) -> DispatchResult {
+		use ExistenceReason::*;
+		match Account::<T, I>::get(&id, &who).ok_or(Error::<T, I>::NoDeposit)?.reason {
+			DepositHeld(..) => Self::do_refund(id, who, false),
+			DepositFrom(..) => Self::do_refund_other(id, &who, None),
+			_ => Err(Error::<T, I>::NoDeposit.into()),
+		}
+	}
+}

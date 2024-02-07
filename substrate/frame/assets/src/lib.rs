@@ -1593,7 +1593,7 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 			let who = T::Lookup::lookup(who)?;
 			let id: T::AssetId = id.into();
-			Self::do_refund_other(id, &who, &origin)
+			Self::do_refund_other(id, &who, Some(origin))
 		}
 
 		/// Disallow further unprivileged transfers of an asset `id` to and from an account `who`.
