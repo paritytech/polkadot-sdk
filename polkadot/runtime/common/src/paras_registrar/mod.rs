@@ -418,7 +418,6 @@ pub mod pallet {
 			new_code: ValidationCode,
 		) -> DispatchResult {
 			Self::ensure_root_para_or_owner(origin, para)?;
-			Self::validate_code(new_code.clone())?;
 			runtime_parachains::schedule_code_upgrade::<T>(para, new_code, SetGoAhead::No)?;
 			Ok(())
 		}
@@ -658,7 +657,8 @@ impl<T: Config> Pallet<T> {
 		para_kind: ParaKind,
 	) -> Result<(ParaGenesisArgs, BalanceOf<T>), sp_runtime::DispatchError> {
 		let config = configuration::Pallet::<T>::config();
-		Self::validate_code(validation_code.clone())?;
+		ensure!(validation_code.0.len() > 0, Error::<T>::EmptyCode);
+		ensure!(validation_code.0.len() <= config.max_code_size as usize, Error::<T>::CodeTooLarge);
 		ensure!(
 			genesis_head.0.len() <= config.max_head_data_size as usize,
 			Error::<T>::HeadDataTooLarge
@@ -680,16 +680,6 @@ impl<T: Config> Pallet<T> {
 		let res2 = runtime_parachains::schedule_parathread_upgrade::<T>(to_upgrade);
 		debug_assert!(res2.is_ok());
 		T::OnSwap::on_swap(to_upgrade, to_downgrade);
-	}
-
-	/// Checks whether the provided code is valid.
-	fn validate_code(code: ValidationCode) -> DispatchResult {
-		let config = configuration::Pallet::<T>::config();
-
-		ensure!(code.0.len() > 0, Error::<T>::EmptyCode);
-		ensure!(code.0.len() <= config.max_code_size as usize, Error::<T>::CodeTooLarge);
-
-		Ok(())
 	}
 }
 
@@ -1072,7 +1062,7 @@ mod tests {
 					para_id,
 					new_code.clone(),
 				),
-				Error::<Test>::EmptyCode
+				paras::Error::<Test>::EmptyCode
 			);
 
 			let new_code = test_validation_code(max_code_size() as usize + 1);
@@ -1082,7 +1072,7 @@ mod tests {
 					para_id,
 					new_code.clone(),
 				),
-				Error::<Test>::CodeTooLarge
+				paras::Error::<Test>::CodeTooLarge
 			);
 		});
 	}
