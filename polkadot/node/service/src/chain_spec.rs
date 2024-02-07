@@ -67,6 +67,10 @@ pub struct Extensions {
 	///
 	/// This value will be set by the `sync-state rpc` implementation.
 	pub light_sync_state: sc_sync_state_rpc::LightSyncStateExtension,
+	/// The checkpoint extension.
+	///
+	/// This value will be set by the `sync-state rpc` implementation.
+	pub light_sync_state: sc_sync_state_rpc::CheckpointExtension<Block>,
 }
 
 // Generic chain spec, in case when we don't have the native runtime.
