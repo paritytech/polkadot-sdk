@@ -186,6 +186,18 @@ where
 			grandpa_authority_set: self.shared_authority_set.clone_inner(),
 		})
 	}
+
+	fn build_checkpoint(&self) -> Result<Checkpoint<Block>, sp_blockchain::Error> {
+		let finalized_hash = self.client.info().finalized_hash;
+		let finalized_header = self
+			.client
+			.header(finalized_hash)?
+			.ok_or_else(|| sp_blockchain::Error::MissingHeader(finalized_hash.to_string()))?;
+
+		let call_proof = generate_checkpoint_proof(&self.client, finalized_hash.clone())?;
+
+		Ok(Checkpoint { header: finalized_header, call_proof })
+	}
 }
 
 #[async_trait]
@@ -196,6 +208,8 @@ where
 {
 	async fn system_gen_sync_spec(&self, raw: bool) -> Result<serde_json::Value, Error<Block>> {
 		let current_sync_state = self.build_sync_state().await?;
+		let checkpoint_state = self.build_checkpoint()?;
+
 		let mut chain_spec = self.chain_spec.cloned_box();
 
 		let extension = sc_chain_spec::get_extension_mut::<LightSyncStateExtension>(
@@ -203,8 +217,13 @@ where
 		)
 		.ok_or(Error::<Block>::LightSyncStateExtensionNotFound)?;
 
-		let val = serde_json::to_value(&current_sync_state)
-			.map_err(|e| Error::<Block>::JsonRpc(e.to_string()))?;
+		let merge = LightSyncStateExt {
+			light_sync_state: current_sync_state,
+			checkpoint: checkpoint_state,
+		};
+
+		let val =
+			serde_json::to_value(&merge).map_err(|e| Error::<Block>::JsonRpc(e.to_string()))?;
 		*extension = Some(val);
 
 		let json_str = chain_spec.as_json(raw).map_err(|e| Error::<Block>::JsonRpc(e))?;
@@ -233,7 +252,7 @@ const RUNTIME_FUNCTIONS_TO_PROVE: [&str; 5] = [
 /// - `BabeApi_current_epoch`, `BabeApi_next_epoch`, `BabeApi_configuration`,
 ///   `GrandpaApi_grandpa_authorities`, and `GrandpaApi_current_set_id` call proofs
 pub fn generate_checkpoint_proof<Client, Block>(
-	client: Arc<Client>,
+	client: &Arc<Client>,
 	at: Block::Hash,
 ) -> sp_blockchain::Result<StorageProof>
 where
@@ -254,4 +273,29 @@ where
 	proofs.push(code_and_heap);
 
 	Ok(StorageProof::merge(proofs))
+}
+
+/// Checkpoint information that allows light clients to sync quickly.
+#[derive(serde::Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub struct Checkpoint<Block: BlockT> {
+	/// The header of the best finalized block.
+	#[serde(serialize_with = "serialize_encoded")]
+	pub header: <Block as BlockT>::Header,
+	/// The epoch changes tree for babe.
+	#[serde(serialize_with = "serialize_encoded")]
+	pub call_proof: StorageProof,
+}
+
+/// Merge the `lightSyncState` with `checkpoint` for a nicer output.
+#[derive(serde::Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub struct LightSyncStateExt<Block: BlockT> {
+	/// Current light sync state.
+	pub light_sync_state: LightSyncState<Block>,
+
+	/// Checkpoint
+	pub checkpoint: Checkpoint<Block>,
 }
