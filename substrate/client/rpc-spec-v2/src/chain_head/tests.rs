@@ -1276,6 +1276,83 @@ async fn separate_operation_ids_for_subscriptions() {
 }
 
 #[tokio::test]
+async fn limit_subscriptions_per_connection() {
+	let builder = TestClientBuilder::new();
+	let backend = builder.backend();
+	let mut client = Arc::new(builder.build());
+
+	let api = ChainHead::new(
+		client.clone(),
+		backend,
+		Arc::new(TaskExecutor::default()),
+		ChainHeadConfig {
+			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
+			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
+			subscription_max_ongoing_operations: MAX_OPERATIONS,
+			operation_max_storage_items: MAX_PAGINATION_LIMIT,
+		},
+	)
+	.into_rpc();
+
+	// Create two separate subscriptions.
+	let mut sub_first = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+	let sub_id_first = sub_first.subscription_id();
+	let sub_id_first = serde_json::to_string(&sub_id_first).unwrap();
+
+	let mut sub_second =
+		api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap();
+	let sub_id_second = sub_second.subscription_id();
+	let sub_id_second = serde_json::to_string(&sub_id_second).unwrap();
+	assert_ne!(sub_id_first, sub_id_second);
+
+	// The third subscription should fail immediately.
+	let err = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap_err();
+	assert_matches!(err, Error::Call(err) if err.code() == super::error::json_rpc_spec::INVALID_PARAM_ERROR && err.message().contains("Exceeded limits" ));
+
+	let block = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+	let block_1_hash = block.header.hash();
+
+	// Ensure the imported block is propagated and pinned.
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub_first).await,
+		FollowEvent::Initialized(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub_first).await,
+		FollowEvent::NewBlock(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub_first).await,
+		FollowEvent::BestBlockChanged(_)
+	);
+
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub_second).await,
+		FollowEvent::Initialized(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub_second).await,
+		FollowEvent::NewBlock(_)
+	);
+	assert_matches!(
+		get_next_event::<FollowEvent<String>>(&mut sub_second).await,
+		FollowEvent::BestBlockChanged(_)
+	);
+
+	// The third subscription should fail as long as the other two are still alive.
+	let err = api.subscribe_unbounded("chainHead_unstable_follow", [true]).await.unwrap_err();
+	assert_matches!(err, Error::Call(err) if err.code() == super::error::json_rpc_spec::INVALID_PARAM_ERROR && err.message().contains("Exceeded limits" ));
+}
+
+#[tokio::test]
 async fn follow_generates_initial_blocks() {
 	let builder = TestClientBuilder::new();
 	let backend = builder.backend();
