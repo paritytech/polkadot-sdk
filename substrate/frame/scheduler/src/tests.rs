@@ -478,10 +478,10 @@ fn retry_scheduling_with_period_works() {
 	new_test_ext().execute_with(|| {
 		// tasks fail until we reach block 4 and after we're past block 8
 		Threshold::<Test>::put((4, 8));
-		// task 42 at #4, every 3 blocks, 4 times
+		// task 42 at #4, every 3 blocks, 6 times
 		assert_ok!(Scheduler::do_schedule(
 			DispatchTime::At(4),
-			Some((3, 4)),
+			Some((3, 6)),
 			127,
 			root(),
 			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
@@ -519,49 +519,99 @@ fn retry_scheduling_with_period_works() {
 		assert_eq!(logger::log(), vec![(root(), 42u32), (root(), 42u32)]);
 		// 42 has 10 retries left out of a total of 10
 		assert_eq!(Retries::<Test>::get((10, 0)).unwrap().remaining, 10);
-		// 42 will fail because we're outside the set threshold (block number in `4..8`), so its
-		// periodic execution should be paused and it should be retried in 2 blocks (at block 12)
+		// 42 will fail because we're outside the set threshold (block number in `4..8`), so it
+		// should be retried in 2 blocks (at block 12)
 		run_to_block(10);
-		// should not be queued for the normal period of 3 blocks
-		assert!(Agenda::<Test>::get(13).is_empty());
-		// should instead be queued to be retried in 2 blocks
+		// should be queued for the normal period of 3 blocks
+		assert!(Agenda::<Test>::get(13)[0].is_some());
+		// should also be queued to be retried in 2 blocks
 		assert!(Agenda::<Test>::get(12)[0].is_some());
 		// 42 has consumed one retry attempt
 		assert_eq!(Retries::<Test>::get((12, 0)).unwrap().remaining, 9);
-		assert_eq!(Retries::<Test>::iter().count(), 1);
+		assert_eq!(Retries::<Test>::get((13, 0)).unwrap().remaining, 10);
+		assert_eq!(Retries::<Test>::iter().count(), 2);
 		assert_eq!(logger::log(), vec![(root(), 42u32), (root(), 42u32)]);
 		// 42 will fail again
 		run_to_block(12);
-		// should not be queued for the normal period of 3 blocks
-		assert!(Agenda::<Test>::get(15).is_empty());
-		// should instead be queued to be retried in 2 blocks
+		// should still be queued for the normal period
+		assert!(Agenda::<Test>::get(13)[0].is_some());
+		// should be queued to be retried in 2 blocks
 		assert!(Agenda::<Test>::get(14)[0].is_some());
 		// 42 has consumed another retry attempt
 		assert_eq!(Retries::<Test>::get((14, 0)).unwrap().remaining, 8);
-		assert_eq!(Retries::<Test>::iter().count(), 1);
+		assert_eq!(Retries::<Test>::get((13, 0)).unwrap().remaining, 10);
+		assert_eq!(Retries::<Test>::iter().count(), 2);
+		assert_eq!(logger::log(), vec![(root(), 42u32), (root(), 42u32)]);
+		// 42 will fail for the regular periodic run
+		run_to_block(13);
+		// should still be queued for the normal period
+		assert!(Agenda::<Test>::get(16)[0].is_some());
+		// should still be queued to be retried next block
+		assert!(Agenda::<Test>::get(14)[0].is_some());
+		// 42 consumed another periodic run, which failed, so another retry is queued for block 15
+		assert!(Agenda::<Test>::get(16)[0].as_ref().unwrap().maybe_periodic.is_some());
+		assert!(Agenda::<Test>::get(15)[0].as_ref().unwrap().maybe_periodic.is_none());
+		assert!(Agenda::<Test>::get(14)[0].as_ref().unwrap().maybe_periodic.is_none());
+		assert_eq!(Retries::<Test>::iter().count(), 3);
+		assert!(Retries::<Test>::get((14, 0)).unwrap().remaining == 8);
+		assert!(Retries::<Test>::get((15, 0)).unwrap().remaining == 9);
+		assert!(Retries::<Test>::get((16, 0)).unwrap().remaining == 10);
 		assert_eq!(logger::log(), vec![(root(), 42u32), (root(), 42u32)]);
 		// change the threshold to allow the task to succeed
 		Threshold::<Test>::put((14, 100));
-		// 42 should now succeed, periodic execution should resume
+		// first retry should now succeed
 		run_to_block(14);
-		// 42 will run again in 3 blocks (at block 15)
-		assert!(Agenda::<Test>::get(17)[0].is_some());
-		// 42 ran successfully, so its retry attempts were reset back to the original value of 10
-		assert_eq!(Retries::<Test>::get((17, 0)).unwrap().remaining, 10);
-		assert_eq!(Retries::<Test>::iter().count(), 1);
+		assert!(Agenda::<Test>::get(15)[0].as_ref().unwrap().maybe_periodic.is_none());
+		assert_eq!(Agenda::<Test>::get(16).iter().filter(|entry| entry.is_some()).count(), 1);
+		assert!(Agenda::<Test>::get(16)[0].is_some());
+		assert_eq!(Retries::<Test>::get((15, 0)).unwrap().remaining, 9);
+		assert_eq!(Retries::<Test>::get((16, 0)).unwrap().remaining, 10);
+		assert_eq!(Retries::<Test>::iter().count(), 2);
 		assert_eq!(logger::log(), vec![(root(), 42u32), (root(), 42u32), (root(), 42u32)]);
-		// 42 finishes its periodic scheduled run
-		run_to_block(17);
-		assert_eq!(Agenda::<Test>::iter().count(), 0);
-		assert_eq!(Retries::<Test>::iter().count(), 0);
+		// second retry should also succeed
+		run_to_block(15);
+		assert_eq!(Agenda::<Test>::get(16).iter().filter(|entry| entry.is_some()).count(), 1);
+		assert!(Agenda::<Test>::get(16)[0].is_some());
+		assert!(Agenda::<Test>::get(17).is_empty());
+		assert_eq!(Retries::<Test>::get((16, 0)).unwrap().remaining, 10);
+		assert_eq!(Retries::<Test>::iter().count(), 1);
 		assert_eq!(
 			logger::log(),
 			vec![(root(), 42u32), (root(), 42u32), (root(), 42u32), (root(), 42u32)]
 		);
-		run_to_block(100);
+		// normal periodic run on block 16 will succeed
+		run_to_block(16);
+		// next periodic run at block 19
+		assert!(Agenda::<Test>::get(19)[0].is_some());
+		assert!(Agenda::<Test>::get(18).is_empty());
+		assert!(Agenda::<Test>::get(17).is_empty());
+		assert_eq!(Retries::<Test>::get((19, 0)).unwrap().remaining, 10);
+		assert_eq!(Retries::<Test>::iter().count(), 1);
 		assert_eq!(
 			logger::log(),
-			vec![(root(), 42u32), (root(), 42u32), (root(), 42u32), (root(), 42u32)]
+			vec![
+				(root(), 42u32),
+				(root(), 42u32),
+				(root(), 42u32),
+				(root(), 42u32),
+				(root(), 42u32)
+			]
+		);
+		// final periodic run on block 19 will succeed
+		run_to_block(19);
+		// next periodic run at block 19
+		assert_eq!(Agenda::<Test>::iter().count(), 0);
+		assert_eq!(Retries::<Test>::iter().count(), 0);
+		assert_eq!(
+			logger::log(),
+			vec![
+				(root(), 42u32),
+				(root(), 42u32),
+				(root(), 42u32),
+				(root(), 42u32),
+				(root(), 42u32),
+				(root(), 42u32)
+			]
 		);
 	});
 }
@@ -571,11 +621,11 @@ fn named_retry_scheduling_with_period_works() {
 	new_test_ext().execute_with(|| {
 		// tasks fail until we reach block 4 and after we're past block 8
 		Threshold::<Test>::put((4, 8));
-		// task 42 at #4, every 3 blocks, 4 times
+		// task 42 at #4, every 3 blocks, 6 times
 		assert_ok!(Scheduler::do_schedule_named(
 			[42u8; 32],
 			DispatchTime::At(4),
-			Some((3, 4)),
+			Some((3, 6)),
 			127,
 			root(),
 			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
@@ -613,49 +663,104 @@ fn named_retry_scheduling_with_period_works() {
 		assert_eq!(logger::log(), vec![(root(), 42u32), (root(), 42u32)]);
 		// 42 has 10 retries left out of a total of 10
 		assert_eq!(Retries::<Test>::get((10, 0)).unwrap().remaining, 10);
-		// 42 will fail because we're outside the set threshold (block number in `4..8`), so its
-		// periodic execution should be paused and it should be retried in 2 blocks (at block 12)
+		// 42 will fail because we're outside the set threshold (block number in `4..8`), so it
+		// should be retried in 2 blocks (at block 12)
 		run_to_block(10);
-		// should not be queued for the normal period of 3 blocks
-		assert!(Agenda::<Test>::get(13).is_empty());
-		// should instead be queued to be retried in 2 blocks
+		// should be queued for the normal period of 3 blocks
+		assert!(Agenda::<Test>::get(13)[0].is_some());
+		// should also be queued to be retried in 2 blocks
 		assert!(Agenda::<Test>::get(12)[0].is_some());
 		// 42 has consumed one retry attempt
 		assert_eq!(Retries::<Test>::get((12, 0)).unwrap().remaining, 9);
-		assert_eq!(Retries::<Test>::iter().count(), 1);
+		assert_eq!(Retries::<Test>::get((13, 0)).unwrap().remaining, 10);
+		assert_eq!(Retries::<Test>::iter().count(), 2);
+		assert_eq!(Lookup::<Test>::get([42u8; 32]).unwrap(), (13, 0));
 		assert_eq!(logger::log(), vec![(root(), 42u32), (root(), 42u32)]);
 		// 42 will fail again
 		run_to_block(12);
-		// should not be queued for the normal period of 3 blocks
-		assert!(Agenda::<Test>::get(15).is_empty());
-		// should instead be queued to be retried in 2 blocks
+		// should still be queued for the normal period
+		assert!(Agenda::<Test>::get(13)[0].is_some());
+		// should be queued to be retried in 2 blocks
 		assert!(Agenda::<Test>::get(14)[0].is_some());
 		// 42 has consumed another retry attempt
 		assert_eq!(Retries::<Test>::get((14, 0)).unwrap().remaining, 8);
-		assert_eq!(Retries::<Test>::iter().count(), 1);
+		assert_eq!(Retries::<Test>::get((13, 0)).unwrap().remaining, 10);
+		assert_eq!(Retries::<Test>::iter().count(), 2);
+		assert_eq!(logger::log(), vec![(root(), 42u32), (root(), 42u32)]);
+		// 42 will fail for the regular periodic run
+		run_to_block(13);
+		// should still be queued for the normal period
+		assert!(Agenda::<Test>::get(16)[0].is_some());
+		// should still be queued to be retried next block
+		assert!(Agenda::<Test>::get(14)[0].is_some());
+		// 42 consumed another periodic run, which failed, so another retry is queued for block 15
+		assert!(Agenda::<Test>::get(16)[0].as_ref().unwrap().maybe_periodic.is_some());
+		assert!(Agenda::<Test>::get(15)[0].as_ref().unwrap().maybe_periodic.is_none());
+		assert!(Agenda::<Test>::get(14)[0].as_ref().unwrap().maybe_periodic.is_none());
+		assert_eq!(Retries::<Test>::iter().count(), 3);
+		assert!(Retries::<Test>::get((14, 0)).unwrap().remaining == 8);
+		assert!(Retries::<Test>::get((15, 0)).unwrap().remaining == 9);
+		assert!(Retries::<Test>::get((16, 0)).unwrap().remaining == 10);
+		assert_eq!(Lookup::<Test>::get([42u8; 32]).unwrap(), (16, 0));
 		assert_eq!(logger::log(), vec![(root(), 42u32), (root(), 42u32)]);
 		// change the threshold to allow the task to succeed
 		Threshold::<Test>::put((14, 100));
-		// 42 should now succeed, periodic execution should resume
+		// first retry should now succeed
 		run_to_block(14);
-		// 42 will run again in 3 blocks (at block 15)
-		assert!(Agenda::<Test>::get(17)[0].is_some());
-		// 42 ran successfully, so its retry attempts were reset back to the original value of 10
-		assert_eq!(Retries::<Test>::get((17, 0)).unwrap().remaining, 10);
-		assert_eq!(Retries::<Test>::iter().count(), 1);
+		assert!(Agenda::<Test>::get(15)[0].as_ref().unwrap().maybe_periodic.is_none());
+		assert_eq!(Agenda::<Test>::get(16).iter().filter(|entry| entry.is_some()).count(), 1);
+		assert!(Agenda::<Test>::get(16)[0].is_some());
+		assert_eq!(Retries::<Test>::get((15, 0)).unwrap().remaining, 9);
+		assert_eq!(Retries::<Test>::get((16, 0)).unwrap().remaining, 10);
+		assert_eq!(Retries::<Test>::iter().count(), 2);
 		assert_eq!(logger::log(), vec![(root(), 42u32), (root(), 42u32), (root(), 42u32)]);
-		// 42 finishes its periodic scheduled run
-		run_to_block(17);
-		assert_eq!(Agenda::<Test>::iter().count(), 0);
-		assert_eq!(Retries::<Test>::iter().count(), 0);
+		// second retry should also succeed
+		run_to_block(15);
+		assert_eq!(Agenda::<Test>::get(16).iter().filter(|entry| entry.is_some()).count(), 1);
+		assert!(Agenda::<Test>::get(16)[0].is_some());
+		assert!(Agenda::<Test>::get(17).is_empty());
+		assert_eq!(Retries::<Test>::get((16, 0)).unwrap().remaining, 10);
+		assert_eq!(Retries::<Test>::iter().count(), 1);
+		assert_eq!(Lookup::<Test>::get([42u8; 32]).unwrap(), (16, 0));
 		assert_eq!(
 			logger::log(),
 			vec![(root(), 42u32), (root(), 42u32), (root(), 42u32), (root(), 42u32)]
 		);
-		run_to_block(100);
+		// normal periodic run on block 16 will succeed
+		run_to_block(16);
+		// next periodic run at block 19
+		assert!(Agenda::<Test>::get(19)[0].is_some());
+		assert!(Agenda::<Test>::get(18).is_empty());
+		assert!(Agenda::<Test>::get(17).is_empty());
+		assert_eq!(Retries::<Test>::get((19, 0)).unwrap().remaining, 10);
+		assert_eq!(Retries::<Test>::iter().count(), 1);
+		assert_eq!(Lookup::<Test>::get([42u8; 32]).unwrap(), (19, 0));
 		assert_eq!(
 			logger::log(),
-			vec![(root(), 42u32), (root(), 42u32), (root(), 42u32), (root(), 42u32)]
+			vec![
+				(root(), 42u32),
+				(root(), 42u32),
+				(root(), 42u32),
+				(root(), 42u32),
+				(root(), 42u32)
+			]
+		);
+		// final periodic run on block 19 will succeed
+		run_to_block(19);
+		// next periodic run at block 19
+		assert_eq!(Agenda::<Test>::iter().count(), 0);
+		assert_eq!(Retries::<Test>::iter().count(), 0);
+		assert_eq!(Lookup::<Test>::iter().count(), 0);
+		assert_eq!(
+			logger::log(),
+			vec![
+				(root(), 42u32),
+				(root(), 42u32),
+				(root(), 42u32),
+				(root(), 42u32),
+				(root(), 42u32),
+				(root(), 42u32)
+			]
 		);
 	});
 }
@@ -1683,8 +1788,8 @@ fn cancel_removes_retry_entry() {
 		assert_eq!(Retries::<Test>::iter().count(), 2);
 		assert!(logger::log().is_empty());
 
-		// 20 should be (6, 0), so 42 should have address (6, 1)
-		assert_eq!(Lookup::<Test>::get([1u8; 32]), Some((6, 1)));
+		// even though 42 is being retried, the tasks scheduled for retries are not named
+		assert_eq!(Lookup::<Test>::iter().count(), 0);
 		assert!(Scheduler::cancel(root().into(), 6, 0).is_ok());
 
 		// 20 is removed, 42 still fails
@@ -1696,11 +1801,62 @@ fn cancel_removes_retry_entry() {
 		assert_eq!(Retries::<Test>::iter().count(), 1);
 		assert!(logger::log().is_empty());
 
-		assert!(Scheduler::cancel_named(root().into(), [1u8; 32]).is_ok());
+		assert!(Scheduler::cancel(root().into(), 7, 0).is_ok());
 
 		// both tasks are canceled, everything is removed now
 		run_to_block(7);
 		assert!(Agenda::<Test>::get(8).is_empty());
+		assert_eq!(Retries::<Test>::iter().count(), 0);
+	});
+}
+
+#[test]
+fn cancel_retries_works() {
+	new_test_ext().execute_with(|| {
+		// task fails until block 99 is reached
+		Threshold::<Test>::put((99, 100));
+		// task 20 at #4
+		assert_ok!(Scheduler::do_schedule(
+			DispatchTime::At(4),
+			None,
+			127,
+			root(),
+			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+				i: 20,
+				weight: Weight::from_parts(10, 0)
+			}))
+			.unwrap()
+		));
+		// named task 42 at #4
+		assert_ok!(Scheduler::do_schedule_named(
+			[1u8; 32],
+			DispatchTime::At(4),
+			None,
+			127,
+			root(),
+			Preimage::bound(RuntimeCall::Logger(logger::Call::timed_log {
+				i: 42,
+				weight: Weight::from_parts(10, 0)
+			}))
+			.unwrap()
+		));
+
+		assert_eq!(Agenda::<Test>::get(4).len(), 2);
+		// task 20 will be retried 3 times every block
+		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 10, 1));
+		// task 42 will be retried 10 times every 3 blocks
+		assert_ok!(Scheduler::set_retry_named(root().into(), [1u8; 32], 10, 1));
+		assert_eq!(Retries::<Test>::iter().count(), 2);
+		run_to_block(3);
+		assert!(logger::log().is_empty());
+		assert_eq!(Agenda::<Test>::get(4).len(), 2);
+		// cancel the retry config for 20
+		assert_ok!(Scheduler::set_retry(root().into(), (4, 0), 0, 1));
+		// cancel the retry config for 42
+		assert_ok!(Scheduler::set_retry_named(root().into(), [1u8; 32], 0, 1));
+		run_to_block(4);
+		// both tasks failed and there are no more retries, so they are evicted
+		assert_eq!(Agenda::<Test>::get(4).len(), 0);
 		assert_eq!(Retries::<Test>::iter().count(), 0);
 	});
 }

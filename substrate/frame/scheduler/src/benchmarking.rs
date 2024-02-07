@@ -327,7 +327,7 @@ benchmarks! {
 		let (mut when, index) = address;
 		let task = Agenda::<T>::get(when)[index as usize].clone().unwrap();
 	}: {
-		assert!(Scheduler::<T>::schedule_retry(when, when, index, task).is_ok());
+		Scheduler::<T>::schedule_retry(when, when, index, &task);
 	} verify {
 		when = when + BlockNumberFor::<T>::one();
 		assert_eq!(
