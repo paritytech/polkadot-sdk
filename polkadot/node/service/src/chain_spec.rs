@@ -20,12 +20,12 @@ use beefy_primitives::ecdsa_crypto::AuthorityId as BeefyId;
 use grandpa::AuthorityId as GrandpaId;
 #[cfg(feature = "westend-native")]
 use pallet_staking::Forcing;
-use polkadot_primitives::{
-	vstaging::SchedulerParams, AccountId, AccountPublic, AssignmentId, ValidatorId,
-};
+use polkadot_primitives::{AccountId, AccountPublic, AssignmentId, ValidatorId};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 
+#[cfg(any(feature = "rococo-native", feature = "westend-native",))]
+use polkadot_primitives::vstaging::SchedulerParams;
 #[cfg(feature = "rococo-native")]
 use rococo_runtime as rococo;
 #[cfg(feature = "rococo-native")]
