@@ -2,13 +2,13 @@
     _: <a class="struct" href="struct.ImportQueueParams.html" title="struct sc_consensus_aura::ImportQueueParams">ImportQueueParams</a>&lt;'_, Block, I, C, S, CIDP&gt;
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;DefaultImportQueue&lt;Block&gt;, Error&gt;<span class="where fmt-newline">where
     Block: BlockT,
-    C::Api: BlockBuilderApi&lt;Block&gt; + <a class="trait" href="trait.AuraApi.html" title="trait sc_consensus_aura::AuraApi">AuraApi</a>&lt;Block, &lt;P as <a class="trait" href="../sp_core/crypto/trait.Pair.html" title="trait sp_core::crypto::Pair">Pair</a>&gt;::<a class="associatedtype" href="../sp_core/crypto/trait.Pair.html#associatedtype.Public" title="type sp_core::crypto::Pair::Public">Public</a>&gt; + ApiExt&lt;Block&gt;,
+    C::Api: BlockBuilderApi&lt;Block&gt; + <a class="trait" href="trait.AuraApi.html" title="trait sc_consensus_aura::AuraApi">AuraApi</a>&lt;Block, &lt;P as Pair&gt;::Public&gt; + ApiExt&lt;Block&gt;,
     C: 'static + ProvideRuntimeApi&lt;Block&gt; + BlockOf + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + AuxStore + UsageProvider&lt;Block&gt; + HeaderBackend&lt;Block&gt;,
     I: BlockImport&lt;Block, Error = Error&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,
-    P: <a class="trait" href="../sp_core/crypto/trait.Pair.html" title="trait sp_core::crypto::Pair">Pair</a> + 'static,
-    P::<a class="associatedtype" href="../sp_core/crypto/trait.Pair.html#associatedtype.Public" title="type sp_core::crypto::Pair::Public">Public</a>: Codec + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a>,
-    P::<a class="associatedtype" href="../sp_core/crypto/trait.Pair.html#associatedtype.Signature" title="type sp_core::crypto::Pair::Signature">Signature</a>: Codec,
-    S: <a class="trait" href="../sp_core/traits/trait.SpawnEssentialNamed.html" title="trait sp_core::traits::SpawnEssentialNamed">SpawnEssentialNamed</a>,
+    P: Pair + 'static,
+    P::Public: Codec + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a>,
+    P::Signature: Codec,
+    S: SpawnEssentialNamed,
     CIDP: CreateInherentDataProviders&lt;Block, <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.unit.html">()</a>&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'static,
     CIDP::InherentDataProviders: InherentDataProviderExt + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a>,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Start an import queue for the Aura consensus algorithm.</p>
 </div></details></section></div></main></body></html>
