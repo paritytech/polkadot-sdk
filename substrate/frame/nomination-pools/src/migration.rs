@@ -207,6 +207,7 @@ pub(crate) mod v7 {
 	}
 
 	impl<T: Config> V7BondedPool<T> {
+		#[allow(dead_code)]
 		fn bonded_account(&self) -> T::AccountId {
 			Pallet::<T>::create_bonded_account(self.id)
 		}
