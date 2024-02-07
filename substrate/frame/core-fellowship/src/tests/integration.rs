@@ -27,7 +27,7 @@ use frame_system::EnsureSignedBy;
 use pallet_ranked_collective::{EnsureRanked, Geometric, Rank, TallyOf, Votes};
 use sp_core::Get;
 use sp_runtime::{
-	traits::{Convert, ReduceBy, TryMorphInto},
+	traits::{Convert, ReduceBy, ReplaceWithDefault, TryMorphInto},
 	BuildStorage, DispatchError,
 };
 type Class = Rank;
@@ -137,12 +137,14 @@ impl pallet_ranked_collective::Config for Test {
 		// Members can promote up to the rank of 2 below them.
 		MapSuccess<EnsureRanked<Test, (), 2>, ReduceBy<ConstU16<2>>>,
 	>;
+	type AddOrigin = MapSuccess<Self::PromoteOrigin, ReplaceWithDefault<()>>;
 	type DemoteOrigin = EitherOf<
 		// Root can demote arbitrarily.
 		frame_system::EnsureRootWithSuccess<Self::AccountId, ConstU16<65535>>,
 		// Members can demote up to the rank of 3 below them.
 		MapSuccess<EnsureRanked<Test, (), 3>, ReduceBy<ConstU16<3>>>,
 	>;
+	type RemoveOrigin = Self::DemoteOrigin;
 	type ExchangeOrigin = EitherOf<
 		// Root can exchange arbitrarily.
 		frame_system::EnsureRootWithSuccess<Self::AccountId, ConstU16<65535>>,

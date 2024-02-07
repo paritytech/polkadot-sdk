@@ -23,7 +23,7 @@ use sp_runtime::{bounded_btree_map, traits::Dispatchable, FixedU128};
 
 macro_rules! unbonding_pools_with_era {
 	($($k:expr => $v:expr),* $(,)?) => {{
-		use sp_std::iter::{Iterator, IntoIterator};
+		use ::core::iter::{Iterator, IntoIterator};
 		let not_bounded: BTreeMap<_, _> = Iterator::collect(IntoIterator::into_iter([$(($k, $v),)*]));
 		BoundedBTreeMap::<EraIndex, UnbondPool<T>, TotalUnbondingPools<T>>::try_from(not_bounded).unwrap()
 	}};
