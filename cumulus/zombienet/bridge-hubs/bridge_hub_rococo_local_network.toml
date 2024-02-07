@@ -40,8 +40,7 @@ cumulus_based = true
 	rpc_port = 8933
 	ws_port = 8943
 	args = [
-		"-lparachain=debug,runtime::bridge-hub=trace,runtime::bridge=trace,runtime::bridge-dispatch=trace,bridge=trace,runtime::bridge-messages=trace,xcm=trace",
-		"--force-authoring"
+		"-lparachain=debug,runtime::bridge-hub=trace,runtime::bridge=trace,runtime::bridge-dispatch=trace,bridge=trace,runtime::bridge-messages=trace,xcm=trace"
 	]
 
 	# run bob as parachain collator
@@ -52,8 +51,7 @@ cumulus_based = true
 	rpc_port = 8934
 	ws_port = 8944
 	args = [
-		"-lparachain=trace,runtime::bridge-hub=trace,runtime::bridge=trace,runtime::bridge-dispatch=trace,bridge=trace,runtime::bridge-messages=trace,xcm=trace",
-		"--force-authoring"
+		"-lparachain=trace,runtime::bridge-hub=trace,runtime::bridge=trace,runtime::bridge-dispatch=trace,bridge=trace,runtime::bridge-messages=trace,xcm=trace"
 	]
 
 [[parachains]]
