@@ -659,6 +659,7 @@ impl<Hasher: Hash> std::fmt::Debug for BenchmarkingState<Hasher> {
 #[cfg(test)]
 mod test {
 	use crate::bench::BenchmarkingState;
+	use sp_runtime::traits::HashingFor;
 	use sp_state_machine::backend::Backend as _;
 
 	fn hex(hex: &str) -> Vec<u8> {
@@ -677,7 +678,8 @@ mod test {
 			..sp_runtime::Storage::default()
 		};
 		let bench_state =
-			BenchmarkingState::<crate::tests::Block>::new(storage, None, false, true).unwrap();
+			BenchmarkingState::<HashingFor<crate::tests::Block>>::new(storage, None, false, true)
+				.unwrap();
 
 		assert_eq!(bench_state.read_write_count(), (0, 0, 0, 0));
 		assert_eq!(bench_state.keys(Default::default()).unwrap().count(), 1);
@@ -686,9 +688,13 @@ mod test {
 
 	#[test]
 	fn read_to_main_and_child_tries() {
-		let bench_state =
-			BenchmarkingState::<crate::tests::Block>::new(Default::default(), None, false, true)
-				.unwrap();
+		let bench_state = BenchmarkingState::<HashingFor<crate::tests::Block>>::new(
+			Default::default(),
+			None,
+			false,
+			true,
+		)
+		.unwrap();
 
 		for _ in 0..2 {
 			let child1 = sp_core::storage::ChildInfo::new_default(b"child1");
