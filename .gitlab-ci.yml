@@ -127,7 +127,7 @@ default:
     - |
       if [ "$FORKLIFT_BYPASS_ALT" != "true" ]; then
       echo "FORKLIFT_BYPASS not set, creating function cargo() { forklift cargo "$@" }"
-      function cargo() { forklift cargo $1; }
+      function cargo() { forklift cargo "$@" }
       fi
     #
     - echo "FL_FORKLIFT_VERSION_ALT ${FL_FORKLIFT_VERSION_ALT}"
