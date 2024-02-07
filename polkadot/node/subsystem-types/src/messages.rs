@@ -1112,6 +1112,45 @@ pub struct ProspectiveValidationDataRequest {
 /// is present in and the depths of that tree the candidate is present in.
 pub type FragmentTreeMembership = Vec<(Hash, Vec<usize>)>;
 
+/// A candidate ancestor. When requesting some backable candidates, you need to supply a collection
+/// of on-chain the ancestors of the parachain. (backed, available or timed out).
+#[derive(Debug, Clone)]
+pub struct AncestorState {
+	/// Record how many times it appears in the on-chain availability cores. Will be non-zero
+	/// only if the parachain has cycles.
+	/// If a candidate is timed out, it's assumed that all of its `count` occupied cores are timed
+	/// out.
+	pub count: u32,
+	/// Whether or not this candidate has been timed out while pending availability.
+	pub timed_out: bool,
+}
+
+impl AncestorState {
+	/// Mark this ancestor as timed out.
+	pub fn timeout(&mut self) {
+		self.timed_out = true;
+	}
+
+	/// Record an occurence of this candidate.
+	pub fn record(&mut self) {
+		self.count += 1;
+	}
+
+	/// Return the number of occurences of this candidate.
+	pub fn count(&self) -> u32 {
+		self.count
+	}
+}
+
+impl Default for AncestorState {
+	fn default() -> Self {
+		Self { count: 0, timed_out: false }
+	}
+}
+
+/// A collection of ancestor candidates of a parachain.
+pub type Ancestors = HashMap<CandidateHash, AncestorState>;
+
 /// Messages sent to the Prospective Parachains subsystem.
 #[derive(Debug)]
 pub enum ProspectiveParachainsMessage {
@@ -1128,15 +1167,20 @@ pub enum ProspectiveParachainsMessage {
 	/// has been backed. This requires that the candidate was successfully introduced in
 	/// the past.
 	CandidateBacked(ParaId, CandidateHash),
-	/// Get N backable candidate hashes along with their relay parents for the given parachain,
-	/// under the given relay-parent hash, which is a descendant of the given candidate hashes.
+	/// Try getting N backable candidate hashes along with their relay parents for the given
+	/// parachain, under the given relay-parent hash, which is a descendant of the given ancestors.
+	/// The ancestors need not be ordered. The subsystem will take care of that. Moreover, timed
+	/// out ancestors should be marked as such.
 	/// N should represent the number of scheduled cores of this ParaId.
-	/// Returns `None` on the channel if no such candidate exists.
+	/// This may return more than N candidates, if some of the ancestors are timed
+	/// out. A timed out ancestor frees the cores of its descendants.
+	/// It may also return less/no candidates, if there aren't enough backable candidates
+	/// recorded.
 	GetBackableCandidates(
 		Hash,
 		ParaId,
 		u32,
-		Vec<CandidateHash>,
+		Ancestors,
 		oneshot::Sender<Vec<(CandidateHash, Hash)>>,
 	),
 	/// Get the hypothetical frontier membership of candidates with the given properties

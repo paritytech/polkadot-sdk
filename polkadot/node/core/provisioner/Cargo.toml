@@ -26,3 +26,4 @@ sp-application-crypto = { path = "../../../../substrate/primitives/application-c
 sp-keystore = { path = "../../../../substrate/primitives/keystore" }
 polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
 test-helpers = { package = "polkadot-primitives-test-helpers", path = "../../../primitives/test-helpers" }
+rstest = "0.18.2"

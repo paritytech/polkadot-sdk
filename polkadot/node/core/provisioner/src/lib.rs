@@ -28,8 +28,8 @@ use futures_timer::Delay;
 use polkadot_node_subsystem::{
 	jaeger,
 	messages::{
-		CandidateBackingMessage, ChainApiMessage, ProspectiveParachainsMessage, ProvisionableData,
-		ProvisionerInherentData, ProvisionerMessage, RuntimeApiRequest,
+		Ancestors, CandidateBackingMessage, ChainApiMessage, ProspectiveParachainsMessage,
+		ProvisionableData, ProvisionerInherentData, ProvisionerMessage, RuntimeApiRequest,
 	},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, PerLeafSpan,
 	SpawnedSubsystem, SubsystemError,
@@ -645,55 +645,89 @@ async fn request_backable_candidates(
 
 	let mut selected_candidates = Vec::with_capacity(availability_cores.len());
 
+	// Record how many candidates we'll need to request for each para id. Use a BTreeMap because
+	// we'll need to iterate through them.
+	let mut requested_counts: BTreeMap<ParaId, u32> = BTreeMap::new();
+	// The on-chain ancestors of a para present in availability-cores.
+	let mut ancestors: HashMap<ParaId, Ancestors> =
+		HashMap::with_capacity(availability_cores.len());
+
 	for (core_idx, core) in availability_cores.iter().enumerate() {
-		let (para_id, required_path) = match core {
+		match core {
 			CoreState::Scheduled(scheduled_core) => {
-				// The core is free, pick the first eligible candidate from
-				// the fragment tree.
-				(scheduled_core.para_id, Vec::new())
+				requested_counts
+					.entry(scheduled_core.para_id)
+					.and_modify(|c| *c += 1)
+					.or_insert(1);
 			},
 			CoreState::Occupied(occupied_core) => {
-				if bitfields_indicate_availability(core_idx, bitfields, &occupied_core.availability)
-				{
+				let is_available = bitfields_indicate_availability(
+					core_idx,
+					bitfields,
+					&occupied_core.availability,
+				);
+
+				if is_available {
+					ancestors
+						.entry(occupied_core.para_id())
+						.or_default()
+						.entry(occupied_core.candidate_hash)
+						.or_default()
+						.record();
+
 					if let Some(ref scheduled_core) = occupied_core.next_up_on_available {
-						// The candidate occupying the core is available, choose its
-						// child in the fragment tree.
-						//
-						// TODO: doesn't work for on-demand parachains. We lean hard on the
-						// assumption that cores are fixed to specific parachains within a session.
-						// https://github.com/paritytech/polkadot/issues/5492
-						(scheduled_core.para_id, vec![occupied_core.candidate_hash])
-					} else {
-						continue
+						// Request a new backable candidate for the newly scheduled para id.
+						requested_counts
+							.entry(scheduled_core.para_id)
+							.and_modify(|c| *c += 1)
+							.or_insert(1);
 					}
+				} else if occupied_core.time_out_at > block_number {
+					// Not timed out and not available.
+					ancestors
+						.entry(occupied_core.para_id())
+						.or_default()
+						.entry(occupied_core.candidate_hash)
+						.or_default()
+						.record();
 				} else {
-					if occupied_core.time_out_at != block_number {
-						continue
-					}
+					// Timed out before being available.
+					let ancestor_state = ancestors
+						.entry(occupied_core.para_id())
+						.or_default()
+						.entry(occupied_core.candidate_hash)
+						.or_default();
+					ancestor_state.record();
+					ancestor_state.timeout();
+
 					if let Some(ref scheduled_core) = occupied_core.next_up_on_time_out {
 						// Candidate's availability timed out, practically same as scheduled.
-						(scheduled_core.para_id, Vec::new())
-					} else {
-						continue
+						requested_counts
+							.entry(scheduled_core.para_id)
+							.and_modify(|c| *c += 1)
+							.or_insert(1);
 					}
 				}
 			},
 			CoreState::Free => continue,
-		};
-
-		let response = get_backable_candidate(relay_parent, para_id, required_path, sender).await?;
-
-		match response {
-			Some((hash, relay_parent)) => selected_candidates.push((hash, relay_parent)),
-			None => {
-				gum::debug!(
-					target: LOG_TARGET,
-					leaf_hash = ?relay_parent,
-					core = core_idx,
-					"No backable candidate returned by prospective parachains",
-				);
-			},
 		}
+	}
+
+	for (para_id, count) in requested_counts {
+		let para_ancestors = ancestors.remove(&para_id).unwrap_or_default();
+		let response =
+			get_backable_candidates(relay_parent, para_id, para_ancestors, count, sender).await?;
+
+		if response.is_empty() {
+			gum::debug!(
+				target: LOG_TARGET,
+				leaf_hash = ?relay_parent,
+				?para_id,
+				"No backable candidate returned by prospective parachains",
+			);
+		}
+
+		selected_candidates.extend(response.into_iter());
 	}
 
 	Ok(selected_candidates)
@@ -796,28 +830,27 @@ async fn get_block_number_under_construction(
 	}
 }
 
-/// Requests backable candidate from Prospective Parachains based on
-/// the given path in the fragment tree.
-async fn get_backable_candidate(
+/// Requests backable candidates from Prospective Parachains based on
+/// the given ancestors in the fragment tree. The ancestors may not be ordered.
+async fn get_backable_candidates(
 	relay_parent: Hash,
 	para_id: ParaId,
-	required_path: Vec<CandidateHash>,
+	ancestors: Ancestors,
+	count: u32,
 	sender: &mut impl overseer::ProvisionerSenderTrait,
-) -> Result<Option<(CandidateHash, Hash)>, Error> {
+) -> Result<Vec<(CandidateHash, Hash)>, Error> {
 	let (tx, rx) = oneshot::channel();
 	sender
 		.send_message(ProspectiveParachainsMessage::GetBackableCandidates(
 			relay_parent,
 			para_id,
-			1, // core count hardcoded to 1, until elastic scaling is implemented and enabled.
-			required_path,
+			count,
+			ancestors,
 			tx,
 		))
 		.await;
 
-	rx.await
-		.map_err(Error::CanceledBackableCandidate)
-		.map(|res| res.get(0).copied())
+	rx.await.map_err(Error::CanceledBackableCandidates)
 }
 
 /// The availability bitfield for a given core is the transpose
