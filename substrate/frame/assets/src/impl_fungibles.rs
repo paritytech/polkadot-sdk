@@ -310,6 +310,7 @@ impl<T: Config<I>, I: 'static> fungibles::InspectEnumerable<T::AccountId> for Pa
 }
 
 impl<T: Config<I>, I: 'static> fungibles::ResetTeam<T::AccountId> for Pallet<T, I> {
+	type AssetId = T::AssetId;
 	fn reset_team(
 		id: T::AssetId,
 		owner: T::AccountId,
