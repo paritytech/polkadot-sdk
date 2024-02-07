@@ -40,9 +40,10 @@ use polkadot_parachain_primitives::primitives::{
 use xcm::{latest::prelude::*, VersionedXcm};
 use xcm_builder::{
 	Account32Hash, AccountId32Aliases, AllowUnpaidExecutionFrom, ConvertedConcreteId,
-	EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds, FungibleAdapter, IsConcrete,
-	NativeAsset, NoChecking, NonFungiblesAdapter, ParentIsPreset, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation,
+	EnsureXcmOrigin, FixedRateOfFungible, FixedWeightBounds, FrameTransactionalProcessor,
+	FungibleAdapter, IsConcrete, NativeAsset, NoChecking, NonFungiblesAdapter, ParentIsPreset,
+	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation,
 };
 use xcm_executor::{
 	traits::{ConvertLocation, JustTry},
@@ -108,7 +109,6 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<0>;
 	type MaxFreezes = ConstU32<0>;
 }
 
@@ -250,6 +250,7 @@ impl Config for XcmConfig {
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
+	type TransactionalProcessor = FrameTransactionalProcessor;
 }
 
 #[frame_support::pallet]

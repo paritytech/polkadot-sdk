@@ -270,9 +270,10 @@ where
 						session_index,
 					)
 					.await?;
-
-					self.update_authority_ids(sender, session_info.discovery_keys).await;
 				}
+				// authority_discovery is just a cache so let's try every leaf to detect if there
+				// are new authorities there.
+				self.update_authority_ids(sender, session_info.discovery_keys).await;
 			}
 		}
 		Ok(())

@@ -98,7 +98,6 @@ impl pallet_balances::Config for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
-	type MaxHolds = ();
 }
 parameter_types! {
 	static TenToFourteenTestValue: Vec<u128> = vec![10,11,12,13,14];

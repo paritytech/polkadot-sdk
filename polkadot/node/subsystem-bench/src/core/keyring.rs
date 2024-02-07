@@ -14,26 +14,37 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use sp_core::{
-	sr25519::{Pair, Public},
-	Pair as PairT,
-};
-/// Set of test accounts.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+use polkadot_primitives::ValidatorId;
+use sc_keystore::LocalKeystore;
+use sp_application_crypto::AppCrypto;
+use sp_core::sr25519::Public;
+use sp_keystore::Keystore;
+use std::sync::Arc;
+
+/// Set of test accounts generated and kept safe by a keystore.
+#[derive(Clone)]
 pub struct Keyring {
-	name: String,
+	keystore: Arc<LocalKeystore>,
+}
+
+impl Default for Keyring {
+	fn default() -> Self {
+		Self { keystore: Arc::new(LocalKeystore::in_memory()) }
+	}
 }
 
 impl Keyring {
-	pub fn new(name: String) -> Keyring {
-		Self { name }
+	pub fn sr25519_new(&self, seed: &str) -> Public {
+		self.keystore
+			.sr25519_generate_new(ValidatorId::ID, Some(seed))
+			.expect("Insert key into keystore")
 	}
 
-	pub fn pair(self) -> Pair {
-		Pair::from_string(&format!("//{}", self.name), None).expect("input is always good; qed")
+	pub fn keystore(&self) -> Arc<dyn Keystore> {
+		self.keystore.clone()
 	}
 
-	pub fn public(self) -> Public {
-		self.pair().public()
+	pub fn keystore_ref(&self) -> &LocalKeystore {
+		self.keystore.as_ref()
 	}
 }

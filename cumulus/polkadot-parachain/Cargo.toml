@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-parachain-bin"
-version = "1.6.0"
+version = "4.0.0"
 authors.workspace = true
 build = "build.rs"
 edition.workspace = true
@@ -42,6 +42,7 @@ jsonrpsee = { version = "0.20.3", features = ["server"] }
 people-rococo-runtime = { path = "../parachains/runtimes/people/people-rococo" }
 people-westend-runtime = { path = "../parachains/runtimes/people/people-westend" }
 parachains-common = { path = "../parachains/common" }
+testnet-parachains-constants = { path = "../parachains/runtimes/constants", default-features = false, features = ["rococo", "westend"] }
 
 # Substrate
 frame-benchmarking = { path = "../../substrate/frame/benchmarking" }

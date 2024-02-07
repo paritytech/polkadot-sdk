@@ -146,12 +146,20 @@ async fn run_iteration<Context>(
 					handle_candidate_seconded(view, para, candidate_hash),
 				ProspectiveParachainsMessage::CandidateBacked(para, candidate_hash) =>
 					handle_candidate_backed(&mut *ctx, view, para, candidate_hash).await?,
-				ProspectiveParachainsMessage::GetBackableCandidate(
+				ProspectiveParachainsMessage::GetBackableCandidates(
 					relay_parent,
 					para,
+					count,
 					required_path,
 					tx,
-				) => answer_get_backable_candidate(&view, relay_parent, para, required_path, tx),
+				) => answer_get_backable_candidates(
+					&view,
+					relay_parent,
+					para,
+					count,
+					required_path,
+					tx,
+				),
 				ProspectiveParachainsMessage::GetHypotheticalFrontier(request, tx) =>
 					answer_hypothetical_frontier_request(&view, request, tx),
 				ProspectiveParachainsMessage::GetTreeMembership(para, candidate, tx) =>
@@ -552,12 +560,13 @@ async fn handle_candidate_backed<Context>(
 	Ok(())
 }
 
-fn answer_get_backable_candidate(
+fn answer_get_backable_candidates(
 	view: &View,
 	relay_parent: Hash,
 	para: ParaId,
+	count: u32,
 	required_path: Vec<CandidateHash>,
-	tx: oneshot::Sender<Option<(CandidateHash, Hash)>>,
+	tx: oneshot::Sender<Vec<(CandidateHash, Hash)>>,
 ) {
 	let data = match view.active_leaves.get(&relay_parent) {
 		None => {
@@ -568,7 +577,7 @@ fn answer_get_backable_candidate(
 				"Requested backable candidate for inactive relay-parent."
 			);
 
-			let _ = tx.send(None);
+			let _ = tx.send(vec![]);
 			return
 		},
 		Some(d) => d,
@@ -583,7 +592,7 @@ fn answer_get_backable_candidate(
 				"Requested backable candidate for inactive para."
 			);
 
-			let _ = tx.send(None);
+			let _ = tx.send(vec![]);
 			return
 		},
 		Some(tree) => tree,
@@ -598,30 +607,49 @@ fn answer_get_backable_candidate(
 				"No candidate storage for active para",
 			);
 
-			let _ = tx.send(None);
+			let _ = tx.send(vec![]);
 			return
 		},
 		Some(s) => s,
 	};
 
-	let Some(child_hash) =
-		tree.select_child(&required_path, |candidate| storage.is_backed(candidate))
-	else {
-		let _ = tx.send(None);
-		return
-	};
-	let Some(candidate_relay_parent) = storage.relay_parent_by_candidate_hash(&child_hash) else {
-		gum::error!(
-			target: LOG_TARGET,
-			?child_hash,
-			para_id = ?para,
-			"Candidate is present in fragment tree but not in candidate's storage!",
-		);
-		let _ = tx.send(None);
-		return
-	};
+	let backable_candidates: Vec<_> = tree
+		.select_children(&required_path, count, |candidate| storage.is_backed(candidate))
+		.into_iter()
+		.filter_map(|child_hash| {
+			storage.relay_parent_by_candidate_hash(&child_hash).map_or_else(
+				|| {
+					gum::error!(
+						target: LOG_TARGET,
+						?child_hash,
+						para_id = ?para,
+						"Candidate is present in fragment tree but not in candidate's storage!",
+					);
+					None
+				},
+				|parent_hash| Some((child_hash, parent_hash)),
+			)
+		})
+		.collect();
 
-	let _ = tx.send(Some((child_hash, candidate_relay_parent)));
+	if backable_candidates.is_empty() {
+		gum::trace!(
+			target: LOG_TARGET,
+			?required_path,
+			para_id = ?para,
+			%relay_parent,
+			"Could not find any backable candidate",
+		);
+	} else {
+		gum::trace!(
+			target: LOG_TARGET,
+			?relay_parent,
+			?backable_candidates,
+			"Found backable candidates",
+		);
+	}
+
+	let _ = tx.send(backable_candidates);
 }
 
 fn answer_hypothetical_frontier_request(
