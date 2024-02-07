@@ -135,10 +135,10 @@ pub use pallet::*;
 pub use weights::WeightInfo;
 
 /// The key type of a parameter.
-type KeyOf<T> = <<T as Config>::RuntimeParameters as AggregratedKeyValue>::AggregratedKey;
+type KeyOf<T> = <<T as Config>::RuntimeParameters as AggregratedKeyValue>::Key;
 
 /// The value type of a parameter.
-type ValueOf<T> = <<T as Config>::RuntimeParameters as AggregratedKeyValue>::AggregratedValue;
+type ValueOf<T> = <<T as Config>::RuntimeParameters as AggregratedKeyValue>::Value;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -245,17 +245,18 @@ impl<T: Config> RuntimeParameterStore for Pallet<T> {
 	fn get<KV, K>(key: K) -> Option<K::Value>
 	where
 		KV: AggregratedKeyValue,
-		K: Key + Into<<KV as AggregratedKeyValue>::AggregratedKey>,
-		<KV as AggregratedKeyValue>::AggregratedKey:
-			IntoKey<<<Self as RuntimeParameterStore>::AggregratedKeyValue as AggregratedKeyValue>::AggregratedKey>,
-		<<Self as RuntimeParameterStore>::AggregratedKeyValue as AggregratedKeyValue>::AggregratedValue:
-			TryIntoKey<<KV as AggregratedKeyValue>::AggregratedValue>,
-		<KV as AggregratedKeyValue>::AggregratedValue: TryInto<K::WrappedValue>,
+		K: Key + Into<<KV as AggregratedKeyValue>::Key>,
+		<KV as AggregratedKeyValue>::Key: IntoKey<
+			<<Self as RuntimeParameterStore>::AggregratedKeyValue as AggregratedKeyValue>::Key,
+		>,
+		<<Self as RuntimeParameterStore>::AggregratedKeyValue as AggregratedKeyValue>::Value:
+			TryIntoKey<<KV as AggregratedKeyValue>::Value>,
+		<KV as AggregratedKeyValue>::Value: TryInto<K::WrappedValue>,
 	{
-		let key: <KV as AggregratedKeyValue>::AggregratedKey = key.into();
+		let key: <KV as AggregratedKeyValue>::Key = key.into();
 		let val = Parameters::<T>::get(key.into_key());
 		val.and_then(|v| {
-			let val: <KV as AggregratedKeyValue>::AggregratedValue = v.try_into_key().ok()?;
+			let val: <KV as AggregratedKeyValue>::Value = v.try_into_key().ok()?;
 			let val: K::WrappedValue = val.try_into().ok()?;
 			let val = val.into();
 			Some(val)

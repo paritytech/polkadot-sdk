@@ -31,12 +31,13 @@ pub trait RuntimeParameterStore {
 	fn get<KV, K>(key: K) -> Option<K::Value>
 	where
 		KV: AggregratedKeyValue,
-		K: Key + Into<<KV as AggregratedKeyValue>::AggregratedKey>,
-		<KV as AggregratedKeyValue>::AggregratedKey:
-			IntoKey<<<Self as RuntimeParameterStore>::AggregratedKeyValue as AggregratedKeyValue>::AggregratedKey>,
-		<<Self as RuntimeParameterStore>::AggregratedKeyValue as AggregratedKeyValue>::AggregratedValue:
-			TryIntoKey<<KV as AggregratedKeyValue>::AggregratedValue>,
-		<KV as AggregratedKeyValue>::AggregratedValue: TryInto<K::WrappedValue>;
+		K: Key + Into<<KV as AggregratedKeyValue>::Key>,
+		<KV as AggregratedKeyValue>::Key: IntoKey<
+			<<Self as RuntimeParameterStore>::AggregratedKeyValue as AggregratedKeyValue>::Key,
+		>,
+		<<Self as RuntimeParameterStore>::AggregratedKeyValue as AggregratedKeyValue>::Value:
+			TryIntoKey<<KV as AggregratedKeyValue>::Value>,
+		<KV as AggregratedKeyValue>::Value: TryInto<K::WrappedValue>;
 }
 
 /// A dynamic parameter store across a concrete KV type.
@@ -44,8 +45,8 @@ pub trait ParameterStore<KV: AggregratedKeyValue> {
 	/// Get the value of a parametrized key.
 	fn get<K>(key: K) -> Option<K::Value>
 	where
-		K: Key + Into<<KV as AggregratedKeyValue>::AggregratedKey>,
-		<KV as AggregratedKeyValue>::AggregratedValue: TryInto<K::WrappedValue>;
+		K: Key + Into<<KV as AggregratedKeyValue>::Key>,
+		<KV as AggregratedKeyValue>::Value: TryInto<K::WrappedValue>;
 }
 
 /// Key of a dynamic parameter.
@@ -60,20 +61,20 @@ pub trait Key {
 /// The aggregated key-value type of a dynamic parameter store.
 pub trait AggregratedKeyValue: Parameter {
 	/// The aggregated key type.
-	type AggregratedKey: Parameter + MaxEncodedLen;
+	type Key: Parameter + MaxEncodedLen;
 
 	/// The aggregated value type.
-	type AggregratedValue: Parameter + MaxEncodedLen;
+	type Value: Parameter + MaxEncodedLen;
 
 	/// Split the aggregated key-value type into its parts.
-	fn into_parts(self) -> (Self::AggregratedKey, Option<Self::AggregratedValue>);
+	fn into_parts(self) -> (Self::Key, Option<Self::Value>);
 }
 
 impl AggregratedKeyValue for () {
-	type AggregratedKey = ();
-	type AggregratedValue = ();
+	type Key = ();
+	type Value = ();
 
-	fn into_parts(self) -> (Self::AggregratedKey, Option<Self::AggregratedValue>) {
+	fn into_parts(self) -> (Self::Key, Option<Self::Value>) {
 		((), None)
 	}
 }
@@ -88,15 +89,16 @@ impl<PS, KV> ParameterStore<KV> for ParameterStoreAdapter<PS, KV>
 where
 	PS: RuntimeParameterStore,
 	KV: AggregratedKeyValue,
-	<KV as AggregratedKeyValue>::AggregratedKey:
-		IntoKey<<<PS as RuntimeParameterStore>::AggregratedKeyValue as AggregratedKeyValue>::AggregratedKey>,
-	<KV as AggregratedKeyValue>::AggregratedValue:
-		TryFromKey<<<PS as RuntimeParameterStore>::AggregratedKeyValue as AggregratedKeyValue>::AggregratedValue>,
+	<KV as AggregratedKeyValue>::Key:
+		IntoKey<<<PS as RuntimeParameterStore>::AggregratedKeyValue as AggregratedKeyValue>::Key>,
+	<KV as AggregratedKeyValue>::Value: TryFromKey<
+		<<PS as RuntimeParameterStore>::AggregratedKeyValue as AggregratedKeyValue>::Value,
+	>,
 {
 	fn get<K>(key: K) -> Option<K::Value>
 	where
-		K: Key + Into<<KV as AggregratedKeyValue>::AggregratedKey>,
-		<KV as AggregratedKeyValue>::AggregratedValue: TryInto<K::WrappedValue>,
+		K: Key + Into<<KV as AggregratedKeyValue>::Key>,
+		<KV as AggregratedKeyValue>::Value: TryInto<K::WrappedValue>,
 	{
 		PS::get::<KV, K>(key)
 	}

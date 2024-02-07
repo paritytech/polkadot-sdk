@@ -298,10 +298,10 @@ impl ToTokens for DynamicPalletParamAttr {
 				}
 
 				impl #scrate::traits::dynamic_params::AggregratedKeyValue for Parameters {
-					type AggregratedKey = #key_ident;
-					type AggregratedValue = #value_ident;
+					type Key = #key_ident;
+					type Value = #value_ident;
 
-					fn into_parts(self) -> (Self::AggregratedKey, Option<Self::AggregratedValue>) {
+					fn into_parts(self) -> (Self::Key, Option<Self::Value>) {
 						match self {
 							#(
 								Parameters::#key_names(key, value) => {
@@ -483,7 +483,7 @@ impl ToTokens for DynamicParamAggregatedEnum {
 			#vis enum #params_key_ident {
 				#(
 					#(#attributes)*
-					#param_names(<#param_types as #scrate::traits::dynamic_params::AggregratedKeyValue>::AggregratedKey),
+					#param_names(<#param_types as #scrate::traits::dynamic_params::AggregratedKeyValue>::Key),
 				)*
 			}
 
@@ -501,15 +501,15 @@ impl ToTokens for DynamicParamAggregatedEnum {
 			#vis enum #params_value_ident {
 				#(
 					#(#attributes)*
-					#param_names(<#param_types as #scrate::traits::dynamic_params::AggregratedKeyValue>::AggregratedValue),
+					#param_names(<#param_types as #scrate::traits::dynamic_params::AggregratedKeyValue>::Value),
 				)*
 			}
 
 			impl #scrate::traits::dynamic_params::AggregratedKeyValue for #name {
-				type AggregratedKey = #params_key_ident;
-				type AggregratedValue = #params_value_ident;
+				type Key = #params_key_ident;
+				type Value = #params_value_ident;
 
-				fn into_parts(self) -> (Self::AggregratedKey, Option<Self::AggregratedValue>) {
+				fn into_parts(self) -> (Self::Key, Option<Self::Value>) {
 					match self {
 						#(
 							#name::#param_names(parameter) => {
@@ -522,13 +522,13 @@ impl ToTokens for DynamicParamAggregatedEnum {
 			}
 
 			#(
-				impl ::core::convert::From<<#param_types as #scrate::traits::dynamic_params::AggregratedKeyValue>::AggregratedKey> for #params_key_ident {
-					fn from(key: <#param_types as #scrate::traits::dynamic_params::AggregratedKeyValue>::AggregratedKey) -> Self {
+				impl ::core::convert::From<<#param_types as #scrate::traits::dynamic_params::AggregratedKeyValue>::Key> for #params_key_ident {
+					fn from(key: <#param_types as #scrate::traits::dynamic_params::AggregratedKeyValue>::Key) -> Self {
 						#params_key_ident::#param_names(key)
 					}
 				}
 
-				impl ::core::convert::TryFrom<#params_value_ident> for <#param_types as #scrate::traits::dynamic_params::AggregratedKeyValue>::AggregratedValue {
+				impl ::core::convert::TryFrom<#params_value_ident> for <#param_types as #scrate::traits::dynamic_params::AggregratedKeyValue>::Value {
 					type Error = ();
 
 					fn try_from(value: #params_value_ident) -> Result<Self, Self::Error> {
