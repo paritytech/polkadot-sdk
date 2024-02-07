@@ -462,6 +462,7 @@ fn staking_should_work() {
 		start_session(2);
 		// add a new candidate for being a validator. account 3 controlled by 4.
 		assert_ok!(Staking::bond(RuntimeOrigin::signed(3), 1500, RewardDestination::Account(3)));
+
 		assert_ok!(Staking::validate(RuntimeOrigin::signed(3), ValidatorPrefs::default()));
 		assert_ok!(Session::set_keys(
 			RuntimeOrigin::signed(3),
@@ -2193,32 +2194,35 @@ fn new_era_elects_correct_number_of_validators() {
 
 #[test]
 fn phragmen_should_not_overflow() {
-	ExtBuilder::default().nominate(false).build_and_execute(|| {
-		// This is the maximum value that we can have as the outcome of CurrencyToVote.
-		type Votes = u64;
+	ExtBuilder::default()
+		.stake_tracker_try_state(false)
+		.nominate(false)
+		.build_and_execute(|| {
+			// This is the maximum value that we can have as the outcome of CurrencyToVote.
+			type Votes = u64;
 
-		let _ = Staking::chill(RuntimeOrigin::signed(10));
-		let _ = Staking::chill(RuntimeOrigin::signed(20));
+			let _ = Staking::chill(RuntimeOrigin::signed(10));
+			let _ = Staking::chill(RuntimeOrigin::signed(20));
 
-		bond_validator(3, Votes::max_value() as Balance);
-		bond_validator(5, Votes::max_value() as Balance);
+			bond_validator(3, Votes::max_value() as Balance);
+			bond_validator(5, Votes::max_value() as Balance);
 
-		bond_nominator(7, Votes::max_value() as Balance, vec![3, 5]);
-		bond_nominator(9, Votes::max_value() as Balance, vec![3, 5]);
+			bond_nominator(7, Votes::max_value() as Balance, vec![3, 5]);
+			bond_nominator(9, Votes::max_value() as Balance, vec![3, 5]);
 
-		mock::start_active_era(1);
+			mock::start_active_era(1);
 
-		assert_eq_uvec!(validator_controllers(), vec![3, 5]);
+			assert_eq_uvec!(validator_controllers(), vec![3, 5]);
 
-		// We can safely convert back to values within [u64, u128].
-		assert!(Staking::eras_stakers(active_era(), &3).total > Votes::max_value() as Balance);
-		assert!(Staking::eras_stakers(active_era(), &5).total > Votes::max_value() as Balance);
-	})
+			// We can safely convert back to values within [u64, u128].
+			assert!(Staking::eras_stakers(active_era(), &3).total > Votes::max_value() as Balance);
+			assert!(Staking::eras_stakers(active_era(), &5).total > Votes::max_value() as Balance);
+		})
 }
 
 #[test]
 fn reward_validator_slashing_validator_does_not_overflow() {
-	ExtBuilder::default().build_and_execute(|| {
+	ExtBuilder::default().stake_tracker_try_state(false).build_and_execute(|| {
 		let stake = u64::MAX as Balance * 2;
 		let reward_slash = u64::MAX as Balance * 2;
 
@@ -5448,6 +5452,7 @@ mod election_data_provider {
 	#[test]
 	fn lazy_quota_npos_voters_works_above_quota() {
 		ExtBuilder::default()
+			.stake_tracker_try_state(false)
 			.nominate(false)
 			.has_stakers(true)
 			.add_staker(
@@ -5480,6 +5485,7 @@ mod election_data_provider {
 	#[test]
 	fn nominations_quota_limits_size_work() {
 		ExtBuilder::default()
+			.stake_tracker_try_state(false)
 			.nominate(false)
 			.has_stakers(true)
 			.add_staker(71, 70, 333, StakerStatus::<AccountId>::Nominator(vec![11, 21, 31, 41]))
@@ -6072,6 +6078,7 @@ fn change_of_absolute_max_nominations() {
 fn nomination_quota_max_changes_decoding() {
 	use frame_election_provider_support::ElectionDataProvider;
 	ExtBuilder::default()
+		.stake_tracker_try_state(false)
 		.add_staker(60, 61, 10, StakerStatus::Nominator(vec![11]))
 		.add_staker(70, 71, 10, StakerStatus::Nominator(vec![11, 21, 31]))
 		.add_staker(30, 330, 10, StakerStatus::Nominator(vec![11, 21, 31, 41]))
@@ -7757,7 +7764,9 @@ mod stake_tracker {
 			// we immediately slash 11 with a 50% slash.
 			let exposure = Staking::eras_stakers(active_era(), &11);
 			let slash_percent = Perbill::from_percent(50);
-			let total_stake_to_slash = slash_percent * exposure.total;
+			let total_others_stake_to_slash =
+				exposure.others.iter().fold(0, |acc, s| acc + s.value);
+
 			on_offence_now(
 				&[OffenceDetails { offender: (11, exposure.clone()), reporters: vec![] }],
 				&[slash_percent],
@@ -7770,9 +7779,11 @@ mod stake_tracker {
 			assert_eq!(Staking::status(&11), Ok(StakerStatus::Idle));
 			// and its balance has been updated based on the slash applied + chilling.
 			let score_11_after = <TargetBagsList as ScoreProvider<A>>::score(&11);
+
 			assert_eq!(
 				score_11_after,
-				score_11_before - total_stake_to_slash - self_stake_11_before
+				score_11_before -
+					self_stake_11_before - (slash_percent * total_others_stake_to_slash),
 			);
 
 			// self-stake of 11 has decreased by 50% due to slash.
@@ -7801,22 +7812,19 @@ mod stake_tracker {
 			// Although 11 is chilled, it is still part of the target list.
 			assert_eq!(
 				voters_and_targets().1,
-				[(21, score_21_after), (31, 500), (11, score_11_after)]
+				[(21, score_21_after), (11, score_11_after), (31, 500)]
 			);
 			assert_eq!(
 				target_bags_events(),
 				[
 					BagsEvent::Rebagged { who: 11, from: 10000, to: 2000 },
 					BagsEvent::ScoreUpdated { who: 11, new_score: 1050 },
-					BagsEvent::Rebagged { who: 11, from: 2000, to: 600 },
-					BagsEvent::ScoreUpdated { who: 11, new_score: 550 },
-					BagsEvent::Rebagged { who: 11, from: 600, to: 500 },
-					BagsEvent::ScoreUpdated { who: 11, new_score: 465 },
+					BagsEvent::Rebagged { who: 11, from: 2000, to: 1000 },
+					BagsEvent::ScoreUpdated { who: 11, new_score: 965 },
 					BagsEvent::Rebagged { who: 21, from: 10000, to: 2000 },
 					BagsEvent::ScoreUpdated { who: 21, new_score: 1965 },
 					BagsEvent::ScoreUpdated { who: 21, new_score: 1872 },
-					BagsEvent::Rebagged { who: 11, from: 500, to: 400 },
-					BagsEvent::ScoreUpdated { who: 11, new_score: 372 },
+					BagsEvent::ScoreUpdated { who: 11, new_score: 872 },
 				]
 			);
 

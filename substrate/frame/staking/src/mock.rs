@@ -368,6 +368,8 @@ pub(crate) type TestCall = <Test as frame_system::Config>::RuntimeCall;
 parameter_types! {
 	// if true, skips the try-state for the test running.
 	pub static SkipTryStateCheck: bool = false;
+	// if true, skips the stake-tracker try-state for the tests running.
+	pub static SkipStakeTrackerTryStateCheck: bool = false;
 }
 
 pub struct ExtBuilder {
@@ -481,6 +483,10 @@ impl ExtBuilder {
 	}
 	pub fn try_state(self, enable: bool) -> Self {
 		SkipTryStateCheck::set(!enable);
+		self
+	}
+	pub fn stake_tracker_try_state(self, enable: bool) -> Self {
+		SkipStakeTrackerTryStateCheck::set(!enable);
 		self
 	}
 	fn build(self) -> sp_io::TestExternalities {
@@ -620,6 +626,18 @@ impl ExtBuilder {
 						err
 					})
 					.unwrap();
+			}
+
+			// run the stake tracker try state checks too to leverage the test coverage of the
+			// staking pallet tests.
+			#[cfg(feature = "try-runtime")]
+			if !SkipStakeTrackerTryStateCheck::get() {
+				StakeTracker::do_try_state()
+					.map_err(|err| {
+						println!(" 🕵️‍♂️  StakeTracker try_state failure: {:?}", err);
+						err
+					})
+					.unwrap()
 			}
 		});
 	}
@@ -959,6 +977,30 @@ pub(crate) fn voters_and_targets() -> (Vec<(AccountId, VoteWeight)>, Vec<(Accoun
 			.map(|t| (t, TargetBagsList::get_score(&t).unwrap()))
 			.collect::<Vec<_>>(),
 	)
+}
+
+#[allow(dead_code)]
+pub(crate) fn print_lists_debug() {
+	use sp_staking::StakingInterface;
+
+	println!("\nVoters:");
+	let _ = voters_and_targets()
+		.0
+		.iter()
+		.map(|v| {
+			println!(" {:?} -> {:?}", v, Staking::status(&v.0));
+		})
+		.collect::<Vec<_>>();
+
+	println!("\nTargets:");
+	let _ = voters_and_targets()
+		.1
+		.iter()
+		.map(|v| {
+			println!(" {:?} -> {:?}", v, Staking::status(&v.0));
+		})
+		.collect::<Vec<_>>();
+	println!("\n");
 }
 
 pub(crate) fn target_bags_events() -> Vec<pallet_bags_list::Event<Test, TargetBagsListInstance>> {

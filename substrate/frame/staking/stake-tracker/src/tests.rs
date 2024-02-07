@@ -311,6 +311,7 @@ fn on_nominator_add_already_exists_works() {
 }
 
 #[test]
+#[should_panic]
 fn on_validator_add_already_exists_works() {
 	ExtBuilder::default().populate_lists().build_and_execute(|| {
 		assert!(TargetBagsList::contains(&10));

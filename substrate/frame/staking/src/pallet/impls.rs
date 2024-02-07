@@ -952,7 +952,8 @@ impl<T: Config> Pallet<T> {
 		let mut all_targets = Vec::<T::AccountId>::with_capacity(final_predicted_len as usize);
 		let mut targets_seen = 0;
 
-		// target list also contains chilled/idle validators and unbonded ledgers. filter those.
+		// target list may contain chilled validators and dangling (i.e. unbonded) targets, filter
+		// those.
 		let mut targets_iter = T::TargetList::iter()
 			.filter(|t| Self::status(&t) != Ok(StakerStatus::Idle))
 			.filter(|t| !Self::status(&t).is_err());

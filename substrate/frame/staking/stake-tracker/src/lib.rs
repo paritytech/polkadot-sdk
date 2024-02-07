@@ -208,117 +208,272 @@ pub mod pallet {
 			)
 		}
 
+		/// Returns whether a target should be removed from the target list.
+		///
+		/// A target should be removed from the target list at any point IFF:
+		/// * it's approvals are 0 AND
+		/// * it's state is dangling (ledger unbonded).
+		pub(crate) fn should_remove_target(who: &T::AccountId, score: BalanceOf<T>) -> bool {
+			score.is_zero() && T::Staking::status(&who).is_err()
+		}
+
 		/// Updates a target's score by increasing/decreasing an imbalance of the current score in
 		/// the target list.
 		pub(crate) fn update_target_score(
 			who: &T::AccountId,
 			imbalance: StakeImbalance<ExtendedBalance>,
 		) {
-			// there may be nominators who nominate a validator that is not bonded anymore. if
-			// that's the case, move on. This is an expected behaviour, so no defensive.
+			// if the target is not part of the list, check state of the target to update first.
 			if !T::TargetList::contains(who) {
-				log!(debug, "update_score of {:?}, which is not a target", who);
-				return
+				match T::Staking::status(who) {
+					Err(_) | Ok(StakerStatus::Nominator(_)) => {
+						defensive!("update target score was called on an unbonded ledger or nominator, not expected.");
+						return
+					},
+					Ok(StakerStatus::Validator) => {
+						defensive!(
+							"active validator was not part of the target list, something is wrong."
+						);
+						return
+					},
+					Ok(StakerStatus::Idle) => {
+						// if stash is idle and not part of the target list yet, initialize it and
+						// proceed.
+						T::TargetList::on_insert(who.clone(), Zero::zero())
+							.expect("staker does not exist in the list as per check above; qed.");
+					},
+				}
 			}
 
-			match imbalance {
+			// update target score.
+			let removed = match imbalance {
 				StakeImbalance::Positive(imbalance) => {
 					let _ = T::TargetList::on_increase(who, Self::to_currency(imbalance))
 						.defensive_proof(
 							"staker should exist in the list, otherwise returned earlier.",
 						);
+					false
 				},
 				StakeImbalance::Negative(imbalance) => {
 					if let Ok(current_score) = T::TargetList::get_score(who) {
 						let balance =
 							Self::to_vote_extended(current_score).saturating_sub(imbalance);
 
-						// the target is removed from the list IFF score is 0 and the ledger is not
-						// bonded in staking.
-						if balance.is_zero() && T::Staking::status(who).is_err() {
+						// the target is removed from the list IFF score is 0 and the target is
+						// dangling (i.e. not bonded).
+						if Self::should_remove_target(who, Self::to_currency(balance)) {
 							let _ = T::TargetList::on_remove(who).defensive_proof(
 								"staker exists in the list as per the check above; qed.",
 							);
+							true
 						} else {
 							// update the target score without removing it.
 							let _ = T::TargetList::on_update(who, Self::to_currency(balance))
 								.defensive_proof(
 									"staker exists in the list as per the check above; qed.",
 								);
+							false
 						}
 					} else {
 						defensive!("unexpected: unable to fetch score from staking interface of an existent staker");
+						false
 					}
 				},
-			}
+			};
+
+			log!(
+				debug,
+				"update_score of {:?} by {:?}. removed target node? {}",
+				who,
+				imbalance,
+				removed
+			);
 		}
 
-		#[cfg(any(test, feature = "try-runtime"))]
+		/// Try-state checks for the stake-tracker pallet.
+		///
+		/// 1. [`Self::do_try_state_approvals`]: checks the curent approval stake in the target list
+		///    compared with the staking state.
+		/// 2. [`Self::do_try_state_target_sorting`]: checks if the target list is sorted by score.
+		#[cfg(feature = "try-runtime")]
 		pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
-			// Invariant.
-			// * The target score in the target list is the sum of self-stake and all stake from
-			//   nominations.
-			// * All valid validators are part of the target list.
-			let mut map: BTreeMap<AccountIdOf<T>, ExtendedBalance> = BTreeMap::new();
+			Self::do_try_state_approvals()?;
+			Self::do_try_state_target_sorting()
+		}
 
-			for nominator in T::VoterList::iter() {
-				if let Some(nominations) = <T::Staking as StakingInterface>::nominations(&nominator)
-				{
+		/// Try-state: checks if the approvals stake of the targets in the target list are correct.
+		///
+		/// These try-state checks generate a map with approval stake of all the targets based on
+		/// the staking state of stakers in the voter and target lists. In doing so, we are able to
+		/// verify that the current voter and target lists and scores are in sync with the staking
+		/// data and perform other sanity checks as the approvals map is calculated.
+		///
+		/// NOTE: this is an expensive state check since it iterates over all the nodes in the
+		/// target and voter list providers.
+		///
+		/// Invariants:
+		///
+		/// * Target List:
+		///   * The sum of the calculated approvals stake is the same as the current approvals in
+		///   the target list per target.
+		///   * The target score of an active validator is the sum of all of its nominators' stake
+		///   and the self-stake;
+		///   * The target score of an idle validator (i.e. chilled) is the sum of its nominator's
+		///   stake. An idle target may not be part of the target list, if it has no nominations.
+		///   * The target score of a "dangling" target (ie. idle AND unbonded validator) must
+		///   always be > 0. We expect the stake-tracker to have cleaned up dangling targets with 0
+		///   score.
+		///   * The number of target nodes in the target list matches the number of
+		///   (active_validators + idle_validators + dangling_targets_score_with_score).
+		///
+		/// * Voter List:
+		///  * The voter score is the same as the active stake of the corresponding stash.
+		///  * An active validator should also be part of the voter list.
+		///  * An idle validator should not be part of the voter list.
+		///  * A dangling target shoud not be part of the voter list.
+		#[cfg(any(test, feature = "try-runtime"))]
+		pub(crate) fn do_try_state_approvals() -> Result<(), sp_runtime::TryRuntimeError> {
+			let mut approvals_map: BTreeMap<AccountIdOf<T>, ExtendedBalance> = BTreeMap::new();
+
+			// build map of approvals stakes from the `VoterList` POV.
+			for voter in T::VoterList::iter() {
+				if let Some(nominations) = <T::Staking as StakingInterface>::nominations(&voter) {
 					let score =
-						<T::VoterList as SortedListProvider<AccountIdOf<T>>>::get_score(&nominator)
+						<T::VoterList as SortedListProvider<AccountIdOf<T>>>::get_score(&voter)
 							.map_err(|_| "nominator score must exist in voter bags list")?;
 
+					// sanity check.
+					let active_stake = T::Staking::stake(&voter)
+						.map(|s| Self::weight_of(s.active))
+						.expect("active voter has bonded stake; qed.");
+					ensure!(
+						active_stake == score,
+						"voter score must be the same as its active stake"
+					);
+
 					for nomination in nominations {
-						if let Some(stake) = map.get_mut(&nomination) {
+						if let Some(stake) = approvals_map.get_mut(&nomination) {
 							*stake += score as ExtendedBalance;
 						} else {
-							map.insert(nomination, score.into());
+							approvals_map.insert(nomination, score.into());
 						}
 					}
 				}
 			}
+
+			// add self-vote of active targets to calculated approvals from the `TargetList` POV.
 			for target in T::TargetList::iter() {
-				let score =
-					<T::VoterList as SortedListProvider<AccountIdOf<T>>>::get_score(&target)
-						.map_err(|_| "target score must exist in voter bags list")?;
-
-				if let Some(stake) = map.get_mut(&target) {
-					*stake += score as ExtendedBalance;
-				} else {
-					map.insert(target, score.into());
-				}
-			}
-
-			// compare final result with target list.
-			let mut valid_validators_count = 0;
-			for (target, stake) in map.into_iter() {
-				if let Ok(stake_in_list) = T::TargetList::get_score(&target) {
-					let stake_in_list = Self::to_vote_extended(stake_in_list);
-
-					if stake != stake_in_list {
-						log!(
-							error,
-							"try-runtime: score of {:?} in list: {:?}, sum of all stake: {:?}",
-							target,
-							stake_in_list,
-							stake,
+				// also checks invariant: all active targets are also voters.
+				let maybe_self_stake = match T::Staking::status(&target) {
+					Err(_) => {
+						// if target is "dangling" (i.e unbonded but still in the `TargetList`), it
+						// should NOT be part of the voter list.
+						ensure!(
+							!T::VoterList::contains(&target),
+							"dangling target (i.e. unbonded) should not be part of the voter list"
 						);
-						return Err(
-							"target score in the target list is different than the expected".into()
-						)
-					}
 
-					valid_validators_count += 1;
+						// if target is dangling, its target score should > 0 (otherwise it should
+						// have been removed from the list).
+						ensure!(
+                            T::TargetList::get_score(&target).expect("target must have score") > Zero::zero(),
+                            "dangling target (i.e. unbonded) is part of the `TargetList` IFF it's approval voting > 0"
+                        );
+						// no self-stake and it should not be part of the target list.
+						None
+					},
+					Ok(StakerStatus::Idle) => {
+						// target is idle and not part of the voter list.
+						ensure!(
+							!T::VoterList::contains(&target),
+							"chilled validator (idle target) should not be part of the voter list"
+						);
+
+						// no sef-stake but since it's chilling, it should be part of the TL even
+						// with score = 0.
+						Some(0)
+					},
+					Ok(StakerStatus::Validator) => {
+						// active target should be part of the voter list.
+						ensure!(
+							T::VoterList::contains(&target),
+							"bonded and active validator should also be part of the voter list"
+						);
+						// return self-stake (ie. active bonded).
+						let stake =
+							T::Staking::stake(&target).map(|s| Self::weight_of(s.active)).ok();
+						stake
+					},
+					Ok(StakerStatus::Nominator(_)) => {
+						panic!(
+							"staker with nominator status should not be part of the target list"
+						);
+					},
+				};
+
+				if let Some(score) = maybe_self_stake {
+					if let Some(stake) = approvals_map.get_mut(&target) {
+						*stake += score as ExtendedBalance;
+					} else {
+						approvals_map.insert(target, score.into());
+					}
 				} else {
-					// moot target nomination, do nothing.
+					// unbonded target: it does not have self-stake.
 				}
 			}
 
-			let count = T::TargetList::count() as usize;
+			log!(trace, "try-state: calculated approvals map: {:?}", approvals_map);
+
+			// compare calculated approvals per target with target list state.
+			for (target, calculated_stake) in approvals_map.iter() {
+				let stake_in_list =
+					T::TargetList::get_score(&target).expect("target must exist; qed.");
+				let stake_in_list = Self::to_vote_extended(stake_in_list);
+
+				if calculated_stake.clone() != stake_in_list {
+					log!(
+						error,
+						"try-runtime: score of {:?} in `TargetList` list: {:?}, calculated sum of all stake: {:?}",
+						target,
+						stake_in_list,
+						calculated_stake,
+					);
+
+					return Err(
+						"target score in the target list is different than the expected".into()
+					)
+				}
+			}
+
 			ensure!(
-				valid_validators_count == count,
-				"target list count is different from total of targets.",
+				approvals_map.keys().count() == T::TargetList::iter().count() as usize,
+				"calculated approvals count is different from total of target list.",
 			);
+
+			Ok(())
+		}
+
+		/// Try-state: checks if targets in the target list are sorted by score.
+		///
+		/// Invariant:
+		///  * All targets in the target list are sorted by their score.
+		#[cfg(any(test, feature = "try-runtime"))]
+		pub fn do_try_state_target_sorting() -> Result<(), sp_runtime::TryRuntimeError> {
+			let mut current_highest = None;
+
+			for t in T::TargetList::iter() {
+				let target_score = T::TargetList::get_score(&t).expect("score must exist");
+
+				// first iter.
+				if current_highest.is_none() {
+					current_highest = Some(target_score);
+				}
+
+				ensure!(
+					current_highest.expect("is set based on the above; qed.") >= target_score,
+					"target list is not sorted",
+				);
+			}
 
 			Ok(())
 		}
@@ -414,10 +569,21 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	/// Note: it is assumed that `who`'s ledger staking state is updated *before* calling this
 	/// method.
 	fn on_validator_add(who: &T::AccountId, self_stake: Option<Stake<BalanceOf<T>>>) {
-		// target may exist in the list in case of re-enabling a chilled validator;
+		let self_stake = self_stake.unwrap_or_default().active;
+
 		if !T::TargetList::contains(who) {
-			T::TargetList::on_insert(who.clone(), self_stake.unwrap_or_default().active)
+			T::TargetList::on_insert(who.clone(), self_stake)
 				.expect("staker does not exist in the list as per check above; qed.");
+		} else {
+			// if the target already exists in the list, it means that the target has been idle
+			// and/or dangling.
+			debug_assert!(
+				T::Staking::status(who) == Ok(StakerStatus::Idle) ||
+					T::Staking::status(who).is_err()
+			);
+
+			let self_stake = Self::to_vote_extended(self_stake);
+			Self::update_target_score(who, StakeImbalance::Positive(self_stake));
 		}
 
 		log!(debug, "on_validator_add: {:?}. role: {:?}", who, T::Staking::status(who),);
@@ -568,23 +734,13 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 
 	/// Fired when a slash happens.
 	///
-	/// In practice, this only updates the score of the slashed validators, since the score of the
-	/// nominators and corresponding scores are updated through the `ledger.update` calls following
-	/// the slash.
+	/// In practice, this is a noop in the context of the stake tracker, since the score of the
+	/// voters and targets are updated through the `ledger.update` calls following the slash.
 	fn on_slash(
-		stash: &T::AccountId,
+		_stash: &T::AccountId,
 		_slashed_active: BalanceOf<T>,
 		_slashed_unlocking: &BTreeMap<sp_staking::EraIndex, BalanceOf<T>>,
-		slashed_total: BalanceOf<T>,
+		_slashed_total: BalanceOf<T>,
 	) {
-		let stake_imbalance = StakeImbalance::Negative(Self::to_vote_extended(slashed_total));
-
-		match T::Staking::status(stash).defensive_proof("called on_slash on a unbonded stash") {
-			Ok(StakerStatus::Idle) | Ok(StakerStatus::Validator) =>
-				Self::update_target_score(stash, stake_imbalance),
-			// score of target impacted by nominators will be updated through ledger.update.
-			Ok(StakerStatus::Nominator(_)) => (),
-			Err(_) => (), // nothing to see here.
-		}
 	}
 }
