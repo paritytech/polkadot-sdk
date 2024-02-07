@@ -403,10 +403,18 @@ async fn corrupted_prepared_artifact_does_not_dispute() {
 		)
 		.await;
 
+	assert_matches!(
+		result,
+		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::RuntimeConstruction(_)))
+	);
+
+	// because of RuntimeConstruction we may retry
+	host.precheck_pvf(halt::wasm_binary_unwrap(), Default::default()).await.unwrap();
+
 	// The actual artifact removal is done concurrently
 	// with sending of the result of the execution
 	// it is not a problem for further re-preparation as
-	// artifact file names are random
+	// artifact filenames are random
 	for _ in 1..5 {
 		if !artifact_path.path().exists() {
 			break;
@@ -419,11 +427,6 @@ async fn corrupted_prepared_artifact_does_not_dispute() {
 		"the corrupted artifact ({}) should be deleted by the host",
 		artifact_path.path().display()
 	);
-
-	assert_matches!(
-		result,
-		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::RuntimeConstruction(_)))
-	)
 }
 
 #[tokio::test]
