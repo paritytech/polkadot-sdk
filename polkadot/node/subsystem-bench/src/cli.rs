@@ -40,6 +40,22 @@ pub enum TestObjective {
 	Unimplemented,
 }
 
+impl std::fmt::Display for TestObjective {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(
+			f,
+			"{}",
+			match self {
+				Self::DataAvailabilityRead(_) => "DataAvailabilityRead",
+				Self::DataAvailabilityWrite => "DataAvailabilityWrite",
+				Self::TestSequence(_) => "TestSequence",
+				Self::ApprovalVoting(_) => "ApprovalVoting",
+				Self::Unimplemented => "Unimplemented",
+			}
+		)
+	}
+}
+
 #[derive(Debug, clap::Parser)]
 #[clap(rename_all = "kebab-case")]
 #[allow(missing_docs)]

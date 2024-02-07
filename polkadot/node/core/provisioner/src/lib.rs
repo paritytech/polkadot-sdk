@@ -806,15 +806,18 @@ async fn get_backable_candidate(
 ) -> Result<Option<(CandidateHash, Hash)>, Error> {
 	let (tx, rx) = oneshot::channel();
 	sender
-		.send_message(ProspectiveParachainsMessage::GetBackableCandidate(
+		.send_message(ProspectiveParachainsMessage::GetBackableCandidates(
 			relay_parent,
 			para_id,
+			1, // core count hardcoded to 1, until elastic scaling is implemented and enabled.
 			required_path,
 			tx,
 		))
 		.await;
 
-	rx.await.map_err(Error::CanceledBackableCandidate)
+	rx.await
+		.map_err(Error::CanceledBackableCandidate)
+		.map(|res| res.get(0).copied())
 }
 
 /// The availability bitfield for a given core is the transpose
