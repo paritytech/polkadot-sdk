@@ -42,6 +42,7 @@ sc-tracing = { path = "../../substrate/client/tracing", optional = true }
 sc-sysinfo = { path = "../../substrate/client/sysinfo" }
 sc-executor = { path = "../../substrate/client/executor" }
 sc-storage-monitor = { path = "../../substrate/client/storage-monitor" }
+sp-runtime = { path = "../../substrate/primitives/runtime" }
 
 [build-dependencies]
 substrate-build-script-utils = { path = "../../substrate/utils/build-script-utils" }
@@ -63,9 +64,14 @@ runtime-benchmarks = [
 	"polkadot-node-metrics/runtime-benchmarks",
 	"sc-service?/runtime-benchmarks",
 	"service/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks"
 ]
 full-node = ["service/full-node"]
-try-runtime = ["service/try-runtime", "try-runtime-cli/try-runtime"]
+try-runtime = [
+	"service/try-runtime",
+	"try-runtime-cli/try-runtime",
+	"sp-runtime/try-runtime"
+]
 fast-runtime = ["service/fast-runtime"]
 pyroscope = ["pyro", "pyroscope_pprofrs"]
 

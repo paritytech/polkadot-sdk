@@ -37,7 +37,7 @@ use sp_core::{
 };
 use sp_externalities::Extensions;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
-use sp_runtime::traits::{Block as BlockT, Hash, HashingFor};
+use sp_runtime::traits::Hash;
 use sp_state_machine::StateMachine;
 use std::{collections::HashMap, fmt::Debug, fs, str::FromStr, time};
 
@@ -140,19 +140,8 @@ This could mean that you either did not build the node correctly with the \
 not created by a node that was compiled with the flag";
 
 impl PalletCmd {
-	/// Runs the command and benchmarks the chain.
-	#[deprecated(
-		note = "`run` will have a breaking change after July 2024. Use `run_with_hasher` instead."
-	)]
-	pub fn run<BB, ExtraHostFunctions>(&self, config: Configuration) -> Result<()>
-	where
-		BB: BlockT + Debug,
-		ExtraHostFunctions: sp_wasm_interface::HostFunctions,
-	{
-		self.run_with_hasher::<HashingFor<BB>, ExtraHostFunctions>(config)
-	}
-
-	pub fn run_with_hasher<Hasher, ExtraHostFunctions>(&self, config: Configuration) -> Result<()>
+	/// Runs the command and benchmarks a pallet.
+	pub fn run<Hasher, ExtraHostFunctions>(&self, config: Configuration) -> Result<()>
 	where
 		Hasher: Hash,
 		ExtraHostFunctions: sp_wasm_interface::HostFunctions,
