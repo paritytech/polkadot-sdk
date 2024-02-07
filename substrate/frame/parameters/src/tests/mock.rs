@@ -146,8 +146,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 pub(crate) fn assert_last_event(generic_event: RuntimeEvent) {
 	let events = frame_system::Pallet::<Runtime>::events();
-	let system_event: RuntimeEvent = generic_event.into();
 	// compare to the last event record
 	let frame_system::EventRecord { event, .. } = &events.last().expect("Event expected");
-	assert_eq!(event, &system_event);
+	assert_eq!(event, &generic_event);
 }

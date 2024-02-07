@@ -41,7 +41,6 @@ default = ["std"]
 std = [
 	"codec/std",
 	"frame-support/std",
-	"sp-state-machine/std",
 	"log/std",
 	"scale-info/std",
 	"serde/std",
@@ -49,6 +48,7 @@ std = [
 	"sp-externalities/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"sp-state-machine/std",
 	"sp-std/std",
 	"sp-version/std",
 	"sp-weights/std",
