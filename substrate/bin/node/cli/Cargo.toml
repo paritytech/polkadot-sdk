@@ -1,6 +1,6 @@
 [package]
 name = "staging-node-cli"
-version = "3.0.0-dev.1"
+version = "3.0.0-dev"
 authors.workspace = true
 description = "Generic Substrate node implementation in Rust."
 build = "build.rs"

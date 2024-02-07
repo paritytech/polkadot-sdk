@@ -1,6 +1,6 @@
 [package]
 name = "pallet-example-kitchensink"
-version = "4.0.0-dev.1"
+version = "4.0.0-dev"
 authors.workspace = true
 edition.workspace = true
 license = "MIT-0"

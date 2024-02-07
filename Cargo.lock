@@ -6946,7 +6946,7 @@ checksum = "c33070833c9ee02266356de0c43f723152bd38bd96ddf52c82b3af10c9138b28"
 
 [[package]]
 name = "kitchensink-runtime"
-version = "3.0.0-dev.1"
+version = "3.0.0-dev"
 dependencies = [
  "frame-benchmarking",
  "frame-benchmarking-pallet-pov",
@@ -8031,7 +8031,7 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
 name = "minimal-node"
-version = "4.0.0-dev.1"
+version = "4.0.0-dev"
 dependencies = [
  "clap 4.4.18",
  "frame",
@@ -8493,7 +8493,7 @@ checksum = "43794a0ace135be66a25d3ae77d41b91615fb68ae937f904090203e81f755b65"
 
 [[package]]
 name = "node-bench"
-version = "0.9.0-dev.1"
+version = "0.9.0-dev"
 dependencies = [
  "array-bytes 6.1.0",
  "clap 4.4.18",
@@ -8580,7 +8580,7 @@ dependencies = [
 
 [[package]]
 name = "node-template"
-version = "4.0.0-dev.1"
+version = "4.0.0-dev"
 dependencies = [
  "clap 4.4.18",
  "frame-benchmarking",
@@ -8638,7 +8638,7 @@ dependencies = [
 
 [[package]]
 name = "node-template-runtime"
-version = "4.0.0-dev.1"
+version = "4.0.0-dev"
 dependencies = [
  "frame-benchmarking",
  "frame-executive",
@@ -8677,7 +8677,7 @@ dependencies = [
 
 [[package]]
 name = "node-testing"
-version = "3.0.0-dev.1"
+version = "3.0.0-dev"
 dependencies = [
  "frame-system",
  "fs_extra",
@@ -9211,7 +9211,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-bags-list-fuzzer"
-version = "4.0.0-dev.1"
+version = "4.0.0-dev"
 dependencies = [
  "frame-election-provider-support",
  "honggfuzz",
@@ -9221,7 +9221,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-bags-list-remote-tests"
-version = "4.0.0-dev.1"
+version = "4.0.0-dev"
 dependencies = [
  "frame-election-provider-support",
  "frame-remote-externalities",
@@ -9823,7 +9823,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-example-kitchensink"
-version = "4.0.0-dev.1"
+version = "4.0.0-dev"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -9888,7 +9888,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-examples"
-version = "4.0.0-dev.1"
+version = "4.0.0-dev"
 dependencies = [
  "pallet-default-config-example",
  "pallet-dev-mode",
@@ -19127,7 +19127,7 @@ dependencies = [
 
 [[package]]
 name = "staging-node-cli"
-version = "3.0.0-dev.1"
+version = "3.0.0-dev"
 dependencies = [
  "array-bytes 6.1.0",
  "assert_cmd",
