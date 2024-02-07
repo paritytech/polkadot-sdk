@@ -1,0 +1,10 @@
+title: "Make the `benchmark pallet`` command only require a Hash"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Currently the `benchmark pallet` command requires a `Block` type, whole only using its hash. Now this is changed to only require the hash. Some refactoring in DB crates was needed to achieve this.
+
+crates:
+  - name: sc-client-db
+  - name: frame-benchmarking-cli
