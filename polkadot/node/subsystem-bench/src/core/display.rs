@@ -26,7 +26,7 @@ use prometheus::{
 };
 use std::fmt::Display;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct MetricCollection(Vec<TestMetric>);
 
 impl From<Vec<TestMetric>> for MetricCollection {
@@ -47,6 +47,11 @@ impl MetricCollection {
 			.filter(|metric| metric.name == name)
 			.map(|metric| metric.value)
 			.sum()
+	}
+
+	/// Tells if entries in bucket metric is lower than `value`
+	pub fn metric_lower_than(&self, metric_name: &str, value: f64) -> bool {
+		self.sum_by(metric_name) < value
 	}
 
 	pub fn subset_with_label_value(&self, label_name: &str, label_value: &str) -> MetricCollection {
@@ -163,7 +168,7 @@ pub fn parse_metrics(registry: &Registry) -> MetricCollection {
 						name: h_name,
 						label_names,
 						label_values,
-						value: h.get_sample_sum(),
+						value: h.get_sample_count() as f64,
 					});
 				},
 				MetricType::SUMMARY => {
