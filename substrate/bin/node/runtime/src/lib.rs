@@ -2154,6 +2154,7 @@ impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParamet
 }
 
 impl pallet_parameters::Config for Runtime {
+	type RuntimeParameters = RuntimeParameters;
 	type RuntimeEvent = RuntimeEvent;
 	type AdminOrigin = DynamicParametersManagerOrigin;
 	type WeightInfo = ();
