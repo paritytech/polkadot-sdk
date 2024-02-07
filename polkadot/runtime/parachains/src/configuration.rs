@@ -118,9 +118,9 @@ pub struct HostConfiguration<BlockNumber> {
 	/// been completed.
 	///
 	/// Note, there are situations in which `expected_at` in the past. For example, if
-	/// [`paras_availability_period`](Self::paras_availability_period) is less than the delay set
-	/// by this field or if PVF pre-check took more time than the delay. In such cases, the upgrade
-	/// is further at the earliest possible time determined by
+	/// [`paras_availability_period`](SchedulerParams::paras_availability_period) is less than the
+	/// delay set by this field or if PVF pre-check took more time than the delay. In such cases,
+	/// the upgrade is further at the earliest possible time determined by
 	/// [`minimum_validation_upgrade_delay`](Self::minimum_validation_upgrade_delay).
 	///
 	/// The rationale for this delay has to do with relay-chain reversions. In case there is an
@@ -216,7 +216,7 @@ pub struct HostConfiguration<BlockNumber> {
 	/// scheduled. This number is controlled by this field.
 	///
 	/// This value should be greater than
-	/// [`paras_availability_period`](Self::paras_availability_period).
+	/// [`paras_availability_period`](SchedulerParams::paras_availability_period).
 	pub minimum_validation_upgrade_delay: BlockNumber,
 	/// The minimum number of valid backing statements required to consider a parachain candidate
 	/// backable.
