@@ -54,7 +54,10 @@ use sp_std::{marker::PhantomData, prelude::*};
 use frame_support::{
 	dispatch::{DispatchResultWithPostInfo, PostDispatchInfo},
 	ensure, impl_ensure_origin_with_arg_ignoring_arg,
-	traits::{EnsureOrigin, EnsureOriginWithArg, PollStatus, Polling, RankedMembers, VoteTally},
+	traits::{
+		EnsureOrigin, EnsureOriginWithArg, PollStatus, Polling, RankedMembers,
+		RankedMembersSwapHandler, VoteTally,
+	},
 	CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 
@@ -365,6 +368,13 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 	{}
 }
 
+/// Helper functions to setup benchmarking.
+#[impl_trait_for_tuples::impl_for_tuples(8)]
+pub trait BenchmarkSetup<AccountId> {
+	/// Ensure that this member is registered correctly.
+	fn ensure_member(acc: &AccountId);
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -383,12 +393,20 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		/// The origin required to add or promote a mmember. The success value indicates the
+		/// The origin required to add a member.
+		type AddOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		/// The origin required to remove a member.
+		///
+		/// The success value indicates the maximum rank *from which* the removal may be.
+		type RemoveOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Rank>;
+
+		/// The origin required to promote a member. The success value indicates the
 		/// maximum rank *to which* the promotion may be.
 		type PromoteOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Rank>;
 
-		/// The origin required to demote or remove a member. The success value indicates the
-		/// maximum rank *from which* the demotion/removal may be.
+		/// The origin required to demote a member. The success value indicates the
+		/// maximum rank *from which* the demotion may be.
 		type DemoteOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = Rank>;
 
 		/// The origin that can swap the account of a member.
@@ -402,11 +420,21 @@ pub mod pallet {
 		/// "a rank of at least the poll class".
 		type MinRankOfClass: Convert<ClassOf<Self, I>, Rank>;
 
+		/// An external handler that will be notified when two members are swapped.
+		type MemberSwappedHandler: RankedMembersSwapHandler<
+			<Pallet<Self, I> as RankedMembers>::AccountId,
+			<Pallet<Self, I> as RankedMembers>::Rank,
+		>;
+
 		/// Convert a rank_delta into a number of votes the rank gets.
 		///
 		/// Rank_delta is defined as the number of ranks above the minimum required to take part
 		/// in the poll.
 		type VoteWeight: Convert<Rank, Votes>;
+
+		/// Setup a member for benchmarking.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkSetup: BenchmarkSetup<Self::AccountId>;
 	}
 
 	/// The number of members in the collective who have at least the rank according to the index
@@ -490,22 +518,21 @@ pub mod pallet {
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		/// Introduce a new member.
 		///
-		/// - `origin`: Must be the `AdminOrigin`.
+		/// - `origin`: Must be the `AddOrigin`.
 		/// - `who`: Account of non-member which will become a member.
-		/// - `rank`: The rank to give the new member.
 		///
 		/// Weight: `O(1)`
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::add_member())]
 		pub fn add_member(origin: OriginFor<T>, who: AccountIdLookupOf<T>) -> DispatchResult {
-			let _ = T::PromoteOrigin::ensure_origin(origin)?;
+			T::AddOrigin::ensure_origin(origin)?;
 			let who = T::Lookup::lookup(who)?;
 			Self::do_add_member(who, true)
 		}
 
 		/// Increment the rank of an existing member by one.
 		///
-		/// - `origin`: Must be the `AdminOrigin`.
+		/// - `origin`: Must be the `PromoteOrigin`.
 		/// - `who`: Account of existing member.
 		///
 		/// Weight: `O(1)`
@@ -520,7 +547,7 @@ pub mod pallet {
 		/// Decrement the rank of an existing member by one. If the member is already at rank zero,
 		/// then they are removed entirely.
 		///
-		/// - `origin`: Must be the `AdminOrigin`.
+		/// - `origin`: Must be the `DemoteOrigin`.
 		/// - `who`: Account of existing member of rank greater than zero.
 		///
 		/// Weight: `O(1)`, less if the member's index is highest in its rank.
@@ -534,7 +561,7 @@ pub mod pallet {
 
 		/// Remove the member entirely.
 		///
-		/// - `origin`: Must be the `AdminOrigin`.
+		/// - `origin`: Must be the `RemoveOrigin`.
 		/// - `who`: Account of existing member of rank greater than zero.
 		/// - `min_rank`: The rank of the member or greater.
 		///
@@ -546,7 +573,7 @@ pub mod pallet {
 			who: AccountIdLookupOf<T>,
 			min_rank: Rank,
 		) -> DispatchResultWithPostInfo {
-			let max_rank = T::DemoteOrigin::ensure_origin(origin)?;
+			let max_rank = T::RemoveOrigin::ensure_origin(origin)?;
 			let who = T::Lookup::lookup(who)?;
 			let MemberRecord { rank, .. } = Self::ensure_member(&who)?;
 			ensure!(min_rank >= rank, Error::<T, I>::InvalidWitness);
@@ -679,7 +706,12 @@ pub mod pallet {
 			Self::do_remove_member_from_rank(&who, rank)?;
 			Self::do_add_member_to_rank(new_who.clone(), rank, false)?;
 
-			Self::deposit_event(Event::MemberExchanged { who, new_who });
+			Self::deposit_event(Event::MemberExchanged {
+				who: who.clone(),
+				new_who: new_who.clone(),
+			});
+			T::MemberSwappedHandler::swapped(&who, &new_who, rank);
+
 			Ok(())
 		}
 	}

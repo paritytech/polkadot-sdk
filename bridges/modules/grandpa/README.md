@@ -38,11 +38,11 @@ There are two main things in GRANDPA that help building light clients:
 
 ## Pallet Operations
 
-The main entrypoint of the pallet is the `submit_finality_proof` call. It has two arguments - the finalized
-headers and associated GRANDPA justification. The call simply verifies the justification using current
-validators set and checks if header is better than the previous best header. If both checks are passed, the
-header (only its useful fields) is inserted into the runtime storage and may be used by other pallets to verify
-storage proofs.
+The main entrypoint of the pallet is the `submit_finality_proof_ex` call. It has three arguments - the finalized
+headers, associated GRANDPA justification and ID of the authority set that has generated this justification. The
+call simply verifies the justification using current validators set and checks if header is better than the
+previous best header. If both checks are passed, the header (only its useful fields) is inserted into the runtime
+storage and may be used by other pallets to verify storage proofs.
 
 The submitter pays regular fee for submitting all headers, except for the mandatory header. Since it is
 required for the pallet operations, submitting such header is free. So if you're ok with session-length

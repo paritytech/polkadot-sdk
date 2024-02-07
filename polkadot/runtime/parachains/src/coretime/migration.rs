@@ -74,7 +74,7 @@ mod v_coretime {
 
 			loop {
 				match sp_io::storage::next_key(&next_key) {
-					// StorageVersion is initialized before, so we need to ingore it.
+					// StorageVersion is initialized before, so we need to ignore it.
 					Some(key) if &key == &storage_version_key => {
 						next_key = key;
 					},
