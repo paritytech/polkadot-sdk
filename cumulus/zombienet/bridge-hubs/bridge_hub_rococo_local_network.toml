@@ -2,7 +2,7 @@
 node_spawn_timeout = 240
 
 [relaychain]
-default_command = "{{POLKADOT_BINARY_PATH}}"
+default_command = "{{POLKADOT_BINARY}}"
 default_args = [ "-lparachain=debug,xcm=trace" ]
 chain = "rococo-local"
 
@@ -36,7 +36,7 @@ cumulus_based = true
 	[[parachains.collators]]
 	name = "bridge-hub-rococo-collator1"
 	validator = true
-	command = "{{POLKADOT_PARACHAIN_BINARY_PATH}}"
+	command = "{{POLKADOT_PARACHAIN_BINARY}}"
 	rpc_port = 8933
 	ws_port = 8943
 	args = [
@@ -48,7 +48,7 @@ cumulus_based = true
 	[[parachains.collators]]
 	name = "bridge-hub-rococo-collator2"
 	validator = true
-	command = "{{POLKADOT_PARACHAIN_BINARY_PATH}}"
+	command = "{{POLKADOT_PARACHAIN_BINARY}}"
 	rpc_port = 8934
 	ws_port = 8944
 	args = [
@@ -65,14 +65,14 @@ cumulus_based = true
 	name = "asset-hub-rococo-collator1"
 	rpc_port = 9911
 	ws_port = 9910
-	command = "{{POLKADOT_PARACHAIN_BINARY_PATH}}"
+	command = "{{POLKADOT_PARACHAIN_BINARY}}"
 	args = [
 		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace"
 	]
 
 	[[parachains.collators]]
 	name = "asset-hub-rococo-collator2"
-	command = "{{POLKADOT_PARACHAIN_BINARY_PATH}}"
+	command = "{{POLKADOT_PARACHAIN_BINARY}}"
 	args = [
 		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace"
 	]

@@ -89,8 +89,8 @@ cp target/release/polkadot-parachain ~/local_bridge_testing/bin/polkadot-paracha
 cd <polkadot-sdk-git-repo-dir>
 
 # Rococo + BridgeHubRococo + AssetHub for Rococo (mirroring Kusama)
-POLKADOT_BINARY_PATH=~/local_bridge_testing/bin/polkadot \
-POLKADOT_PARACHAIN_BINARY_PATH=~/local_bridge_testing/bin/polkadot-parachain \
+POLKADOT_BINARY=~/local_bridge_testing/bin/polkadot \
+POLKADOT_PARACHAIN_BINARY=~/local_bridge_testing/bin/polkadot-parachain \
 	~/local_bridge_testing/bin/zombienet-linux --provider native spawn ./cumulus/zombienet/bridge-hubs/bridge_hub_rococo_local_network.toml
 ```
 
@@ -98,8 +98,8 @@ POLKADOT_PARACHAIN_BINARY_PATH=~/local_bridge_testing/bin/polkadot-parachain \
 cd <polkadot-sdk-git-repo-dir>
 
 # Westend + BridgeHubWestend + AssetHub for Westend (mirroring Polkadot)
-POLKADOT_BINARY_PATH=~/local_bridge_testing/bin/polkadot \
-POLKADOT_PARACHAIN_BINARY_PATH=~/local_bridge_testing/bin/polkadot-parachain \
+POLKADOT_BINARY=~/local_bridge_testing/bin/polkadot \
+POLKADOT_PARACHAIN_BINARY=~/local_bridge_testing/bin/polkadot-parachain \
 	~/local_bridge_testing/bin/zombienet-linux --provider native spawn ./cumulus/zombienet/bridge-hubs/bridge_hub_westend_local_network.toml
 ```
 
