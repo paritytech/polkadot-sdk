@@ -3,7 +3,7 @@ name = "test-parachain-undying-collator"
 description = "Collator for the undying test parachain"
 edition.workspace = true
 license.workspace = true
-version = "1.0.0"
+version = "1.0.1"
 authors.workspace = true
 publish = false
 

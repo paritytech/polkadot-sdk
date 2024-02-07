@@ -4,7 +4,7 @@ description = "Integration tests for the XCM Executor"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-version = "1.0.0"
+version = "1.0.1"
 publish = false
 
 [lints]

@@ -1,6 +1,6 @@
 [package]
 name = "parachain-template-node"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Anonymous"]
 description = "A new Cumulus FRAME-based Substrate Node, ready for hacking together a parachain."
 license = "Unlicense"

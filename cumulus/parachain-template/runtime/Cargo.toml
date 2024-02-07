@@ -1,6 +1,6 @@
 [package]
 name = "parachain-template-runtime"
-version = "0.7.0"
+version = "0.7.1"
 authors = ["Anonymous"]
 description = "A new Cumulus FRAME-based Substrate Runtime, ready for hacking together a parachain."
 license = "Unlicense"

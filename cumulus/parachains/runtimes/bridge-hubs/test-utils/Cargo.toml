@@ -1,6 +1,6 @@
 [package]
 name = "bridge-hub-test-utils"
-version = "0.7.0"
+version = "0.7.1"
 authors.workspace = true
 edition.workspace = true
 description = "Utils for BridgeHub testing"

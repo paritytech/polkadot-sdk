@@ -2,7 +2,7 @@
 name = "test-parachain-adder-collator"
 description = "Collator for the adder test parachain"
 publish = false
-version = "1.0.0"
+version = "1.0.1"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true

@@ -1,6 +1,6 @@
 [package]
 name = "sp-application-crypto-test"
-version = "2.0.0"
+version = "2.0.1"
 authors.workspace = true
 edition.workspace = true
 description = "Integration tests for application-crypto"

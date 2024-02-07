@@ -1,6 +1,6 @@
 [package]
 name = "kitchensink-runtime"
-version = "3.0.0-dev"
+version = "3.0.0-dev.1"
 authors.workspace = true
 description = "Substrate node kitchensink runtime."
 edition.workspace = true
