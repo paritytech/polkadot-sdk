@@ -16602,7 +16602,9 @@ dependencies = [
  "sc-consensus-grandpa",
  "serde",
  "serde_json",
+ "sp-api",
  "sp-blockchain",
+ "sp-core",
  "sp-runtime",
  "thiserror",
 ]

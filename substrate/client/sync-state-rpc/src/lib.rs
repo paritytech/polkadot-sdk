@@ -41,18 +41,19 @@
 
 #![deny(unused_crate_dependencies)]
 
-use std::sync::Arc;
-
 use jsonrpsee::{
 	core::async_trait,
 	proc_macros::rpc,
 	types::{ErrorObject, ErrorObjectOwned},
 };
 
-use sc_client_api::StorageData;
+use sc_client_api::{ProofProvider, StorageData};
 use sc_consensus_babe::{BabeWorkerHandle, Error as BabeError};
+use sp_api::StorageProof;
 use sp_blockchain::HeaderBackend;
+use sp_core::storage::well_known_keys;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
+use std::sync::Arc;
 
 type SharedAuthoritySet<TBl> =
 	sc_consensus_grandpa::SharedAuthoritySet<<TBl as BlockT>::Hash, NumberFor<TBl>>;
@@ -143,7 +144,7 @@ pub struct SyncState<Block: BlockT, Client> {
 impl<Block, Client> SyncState<Block, Client>
 where
 	Block: BlockT,
-	Client: HeaderBackend<Block> + sc_client_api::AuxStore + 'static,
+	Client: HeaderBackend<Block> + sc_client_api::AuxStore + ProofProvider<Block> + 'static,
 {
 	/// Create a new sync state RPC helper.
 	pub fn new(
@@ -191,7 +192,7 @@ where
 impl<Block, Backend> SyncStateApiServer<Block> for SyncState<Block, Backend>
 where
 	Block: BlockT,
-	Backend: HeaderBackend<Block> + sc_client_api::AuxStore + 'static,
+	Backend: HeaderBackend<Block> + sc_client_api::AuxStore + ProofProvider<Block> + 'static,
 {
 	async fn system_gen_sync_spec(&self, raw: bool) -> Result<serde_json::Value, Error<Block>> {
 		let current_sync_state = self.build_sync_state().await?;
@@ -209,4 +210,48 @@ where
 		let json_str = chain_spec.as_json(raw).map_err(|e| Error::<Block>::JsonRpc(e))?;
 		serde_json::from_str(&json_str).map_err(|e| Error::<Block>::JsonRpc(e.to_string()))
 	}
+}
+
+/// The runtime functions we'd like to prove in the storage proof.
+const RUNTIME_FUNCTIONS_TO_PROVE: [&str; 5] = [
+	"BabeApi_current_epoch",
+	"BabeApi_next_epoch",
+	"BabeApi_configuration",
+	"GrandpaApi_grandpa_authorities",
+	"GrandpaApi_current_set_id",
+];
+
+/// The checkpoint proof is a single storage proof that helps the lightclient
+/// synchronize to the head of the chain faster.
+///
+/// The lightclient trusts this chekpoint after verifing the proof.
+/// With the verified proof, the lightclient is able to reconstruct what was
+/// previously called as `lightSyncState`.
+///
+/// The checkpoint proof consist of the following proofs merged together:
+/// - `:code` and `:heappages` storage proofs
+/// - `BabeApi_current_epoch`, `BabeApi_next_epoch`, `BabeApi_configuration`,
+///   `GrandpaApi_grandpa_authorities`, and `GrandpaApi_current_set_id` call proofs
+pub fn generate_checkpoint_proof<Client, Block>(
+	client: Arc<Client>,
+	at: Block::Hash,
+) -> sp_blockchain::Result<StorageProof>
+where
+	Block: BlockT + 'static,
+	Client: ProofProvider<Block> + 'static,
+{
+	// Extract only the proofs.
+	let mut proofs = RUNTIME_FUNCTIONS_TO_PROVE
+		.iter()
+		.map(|func| Ok(client.execution_proof(at.clone(), func, Default::default())?.1))
+		.collect::<Result<Vec<_>, sp_blockchain::Error>>()?;
+
+	// Fetch the `:code` and `:heap_pages` in one go.
+	let code_and_heap = client.read_proof(
+		at.clone(),
+		&mut [well_known_keys::CODE, well_known_keys::HEAP_PAGES].iter().map(|v| *v),
+	)?;
+	proofs.push(code_and_heap);
+
+	Ok(StorageProof::merge(proofs))
 }
