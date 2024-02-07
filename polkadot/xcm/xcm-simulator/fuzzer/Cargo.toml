@@ -26,7 +26,6 @@ sp-std = { path = "../../../../substrate/primitives/std" }
 sp-core = { path = "../../../../substrate/primitives/core" }
 sp-runtime = { path = "../../../../substrate/primitives/runtime" }
 sp-io = { path = "../../../../substrate/primitives/io" }
-sp-api = { path = "../../../../substrate/primitives/api" }
 
 xcm = { package = "staging-xcm", path = "../.." }
 xcm-simulator = { path = ".." }
