@@ -26,7 +26,10 @@ use frame_support::{
 	traits::{ConstU16, EitherOf, MapSuccess, Polling},
 };
 use sp_core::Get;
-use sp_runtime::{traits::ReduceBy, BuildStorage};
+use sp_runtime::{
+	traits::{ReduceBy, ReplaceWithDefault},
+	BuildStorage,
+};
 
 use super::*;
 use crate as pallet_ranked_collective;
@@ -152,6 +155,8 @@ parameter_types! {
 impl Config for Test {
 	type WeightInfo = ();
 	type RuntimeEvent = RuntimeEvent;
+	type AddOrigin = MapSuccess<Self::PromoteOrigin, ReplaceWithDefault<()>>;
+	type RemoveOrigin = Self::DemoteOrigin;
 	type PromoteOrigin = EitherOf<
 		// Root can promote arbitrarily.
 		frame_system::EnsureRootWithSuccess<Self::AccountId, ConstU16<65535>>,
