@@ -1,21 +1,24 @@
+// This file is part of Substrate.
+
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Polkadot.
+// SPDX-License-Identifier: Apache-2.0
 
-// Polkadot is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Polkadot is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(missing_docs)]
+// Need to enable this one since we document feature-gated stuff.
+#![allow(rustdoc::broken_intra_doc_links)]
 
 //! # **⚠️ WARNING ⚠️**
 //!  
@@ -32,8 +35,8 @@
 //! This pallet exposes two APIs; one *inbound* side to update parameters, and one *outbound* side
 //! to access said parameters. Parameters themselves are defined in the runtime config and will be
 //! aggregated into an enum. Each parameter is addressed by a `key` and can have a default value.
-//! This is not done by the pallet but through the [`frame_support::dynamic_params`] macro or
-//! alternatives.
+//! This is not done by the pallet but through the [`frame_support::dynamic_params::dynamic_params`]
+//! macro or alternatives.
 //!
 //! Note that this is incurring one storage read per access. This should not be a problem in most
 //! cases but must be considered in weight-restrained code.
@@ -48,18 +51,22 @@
 //!
 //! The outbound side is runtime facing for the most part. More general, it provides a `Get`
 //! implementation and can be used in every spot where that is accepted. Two macros are in place:
-//! `define_parameters` and `dynamic_pallet_params` to define and expose parameters in a typed
-//! manner.
+//! [`frame_support::dynamic_params::define_parameters` and
+//! [`frame_support::dynamic_params:dynamic_pallet_params`] to define and expose parameters in a
+//! typed manner.
 //!
 //! See the [`pallet`] module for more information about the interfaces this pallet exposes,
 //! including its configuration trait, dispatchables, storage items, events and errors.
 //!
 //! ## Overview
 //!
-//! This pallet is a good fit for updating parameters without a runtime upgrade. It allows for
-//! fine-grained control over who can update what. The only down-side is that it trades off
-//! performance with convenience and should therefore only be used in places where that is proven to
-//! be uncritical.
+//! This pallet is a good fit for updating parameters without a runtime upgrade. It is very handy to
+//! not require a runtime upgrade for a simple parameter change since runtime upgrades require a lot
+//! of diligence and always bear risks. It seems overkill to update the whole runtime for a simple
+//! parameter change. This pallet allows for fine-grained control over who can update what.
+//! The only down-side is that it trades off performance with convenience and should therefore only
+//! be used in places where that is proven to be uncritical. Values that are rarely accessed but
+//! change often would be a perfect fit.
 //!
 //! ### Example Configuration
 //!
@@ -68,6 +75,11 @@
 //!
 //! A permissioned origin can be define on a per-key basis like this:
 #![doc = docify::embed!("src/tests/mock.rs", custom_origin)]
+//!
+//! The pallet will also require a default value for benchmarking. Ideally this is the variant with
+//! the longest encoded length. Although in either case the PoV benchmarking will take the worst
+//! case over the whole enum.
+#![doc = docify::embed!("src/tests/mock.rs", benchmarking_default)]
 //!
 //! Now the aggregated parameter needs to be injected into the pallet config:
 #![doc = docify::embed!("src/tests/mock.rs", impl_config)]
@@ -88,7 +100,7 @@
 //! same.
 //!
 //! The key and value types themselves are defined by macros and aggregated into a runtime wide
-//! enum. This enum is then injected into the pallet. This allows it to be used without any changed
+//! enum. This enum is then injected into the pallet. This allows it to be used without any changes
 //! to the pallet that the parameter will be utilized by.
 //!
 //! ### Design Goals

@@ -12,13 +12,13 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 scale-info = { version = "2.1.2", default-features = false, features = ["derive"] }
 paste = { version = "1.0.14", default-features = false }
 serde = { version = "1.0.188", features = ["derive"], optional = true }
+docify = "0.2.5"
 
 frame-support = { path = "../support", default-features = false, features = ["experimental"] }
 frame-system = { path = "../system", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
 sp-std = { path = "../../primitives/std", default-features = false }
-docify = "0.2.5"
 frame-benchmarking = { path = "../benchmarking", default-features = false, optional = true }
 
 [dev-dependencies]
@@ -39,7 +39,6 @@ std = [
 	"sp-core/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	#"orml-traits/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

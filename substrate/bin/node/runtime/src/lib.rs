@@ -2085,7 +2085,8 @@ impl pallet_mixnet::Config for Runtime {
 	type MinMixnodes = ConstU32<7>; // Low to allow small testing networks
 }
 
-/// Dynamic parameters that can be changed at runtime through the `pallet_parametes::set_parameter`.
+/// Dynamic parameters that can be changed at runtime through the
+/// `pallet_parameters::set_parameter`.
 #[dynamic_params(RuntimeParameters, pallet_parameters::Parameters::<Runtime>)]
 pub mod dynamic_params {
 	use super::*;
@@ -2142,7 +2143,7 @@ impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParamet
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin(_key: &RuntimeParametersKey) -> Result<RuntimeOrigin, ()> {
-		Err(())
+		Ok(RuntimeOrigin::root())
 	}
 }
 

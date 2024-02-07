@@ -101,8 +101,11 @@ mod custom_origin {
 	}
 }
 
+#[docify::export(benchmarking_default)]
 parameter_types! {
-	pub BenchmarkingDefault: RuntimeParameters = RuntimeParameters::Pallet1(dynamic_params::pallet1::Parameters::Key1(dynamic_params::pallet1::Key1, Some(123)));
+	pub BenchmarkingDefault: RuntimeParameters = RuntimeParameters::Pallet1(
+			dynamic_params::pallet1::Parameters::Key1(dynamic_params::pallet1::Key1, Some(123))
+	);
 }
 
 #[docify::export(impl_config)]
