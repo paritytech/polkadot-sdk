@@ -22,7 +22,7 @@ use sc_network::PeerId;
 use sp_consensus_babe::AuthorityId;
 use std::{collections::HashMap, path::Path};
 
-pub use crate::cli::TestObjective;
+use crate::TestObjective;
 use polkadot_primitives::{AssignmentId, AuthorityDiscoveryId, ValidatorId};
 use rand::thread_rng;
 use rand_distr::{Distribution, Normal, Uniform};
