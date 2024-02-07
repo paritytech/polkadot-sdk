@@ -126,7 +126,7 @@ default:
     - export PATH=$PATH:$(pwd)
     - |
       if [ "$FORKLIFT_BYPASS_ALT" != "true" ]; then
-      echo "FORKLIFT_BYPASS not set, creating function cargo() { forklift cargo $@; }"
+      echo "FORKLIFT_BYPASS not set, creating function cargo() { forklift cargo "$@" }"
       function cargo() { forklift cargo $1; }
       fi
     #
