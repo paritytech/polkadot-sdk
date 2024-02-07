@@ -119,7 +119,6 @@ impl RpcHandlers {
 		self.0
 			.raw_json_request(json_query, TOKIO_MPSC_MAX_SIZE)
 			.await
-			.map(|(method_res, recv)| (method_res, recv))
 	}
 
 	/// Provides access to the underlying `RpcModule`
