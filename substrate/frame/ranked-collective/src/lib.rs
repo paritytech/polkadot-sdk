@@ -863,6 +863,8 @@ pub mod pallet {
 		/// Total number of [`Members`] in storage should be >= [`MemberIndex`] of a [`Rank`] in
 		///    [`MemberCount`].
 		/// [`Rank`] in Members should be in [`MemberCount`]
+		/// [`Sum`] of [`MemberCount`] index should be the same as the sum of all the index attained
+		/// for rank possessed by [`Members`]
 		fn try_state_members() -> Result<(), sp_runtime::TryRuntimeError> {
 			MemberCount::<T, I>::iter().try_for_each(|(_, member_index)| -> DispatchResult {
 				let total_members = Members::<T, I>::iter().count();
@@ -874,15 +876,24 @@ pub mod pallet {
 				Ok(())
 			})?;
 
+			let mut sum_of_member_rank_indexes = 0;
 			Members::<T, I>::iter().try_for_each(|(_, member_record)| -> DispatchResult {
 				ensure!(
 					Self::is_rank_in_member_count(member_record.rank.clone().into()) == true,
 					"`Rank` in Members should be in `MemberCount`"
 				);
 
+				sum_of_member_rank_indexes += Self::determine_index_of_a_rank(member_record.rank);
+
 				Ok(())
 			})?;
 
+			let sum_of_all_member_count_indexes =
+				MemberCount::<T, I>::iter_values().fold(0, |sum, index| sum + index);
+			ensure!(
+					sum_of_all_member_count_indexes == sum_of_member_rank_indexes as u32,
+					"Sum of `MemberCount` index should be the same as the sum of all the index attained for rank possessed by `Members`"
+				);
 			Ok(())
 		}
 
@@ -951,6 +962,15 @@ pub mod pallet {
 			}
 
 			return false;
+		}
+
+		/// Determines the total index for a rank
+		fn determine_index_of_a_rank(rank: u16) -> u16 {
+			let mut sum = 0;
+			for _ in 0..rank + 1 {
+				sum += 1;
+			}
+			sum
 		}
 	}
 
