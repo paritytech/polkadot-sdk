@@ -19,6 +19,7 @@
 
 use std::collections::BTreeMap;
 
+use core::cell::RefCell;
 use frame_support::{
 	assert_noop, assert_ok, derive_impl,
 	pallet_prelude::Weight,
@@ -26,7 +27,6 @@ use frame_support::{
 	traits::{tokens::ConvertRank, ConstU64},
 };
 use sp_runtime::{traits::Identity, BuildStorage, DispatchResult};
-use sp_std::cell::RefCell;
 
 use crate as pallet_salary;
 use crate::*;

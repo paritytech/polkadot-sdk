@@ -641,13 +641,5 @@ where
 	let estimated_fee = WeightToFee::weight_to_fee(&weight);
 	assert!(estimated_fee > BalanceOf::<Runtime>::zero());
 
-	sp_tracing::try_init_simple();
-	log::error!(
-		target: "bridges::estimate",
-		"Estimate fee: {:?} for `ExportMessage` for runtime: {:?}",
-		estimated_fee,
-		Runtime::Version::get(),
-	);
-
 	estimated_fee.into()
 }

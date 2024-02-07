@@ -277,9 +277,6 @@ pub trait HostFn {
 	///
 	/// A return value of `true` indicates that this contract is being called by a root origin,
 	/// and `false` indicates that the caller is a signed origin.
-	#[deprecated(
-		note = "Unstable function. Behaviour can change without further notice. Use only for testing."
-	)]
 	fn caller_is_root() -> u32;
 
 	/// Clear the value at the given key in the contract storage.
