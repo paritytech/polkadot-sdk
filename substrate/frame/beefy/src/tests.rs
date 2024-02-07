@@ -47,7 +47,7 @@ fn genesis_session_initializes_authorities() {
 	let authorities = mock_authorities(vec![1, 2, 3, 4]);
 	let want = authorities.clone();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
 		let authorities = Beefy::authorities();
 
 		assert_eq!(authorities.len(), 4);
@@ -69,7 +69,7 @@ fn session_change_updates_authorities() {
 	let authorities = mock_authorities(vec![1, 2, 3, 4]);
 	let want_validators = authorities.clone();
 
-	new_test_ext(vec![1, 2, 3, 4]).execute_with(|| {
+	ExtBuilder::default().add_authorities(mock_authorities(vec![1, 2, 3, 4])).build_and_execute(|| {
 		assert!(0 == Beefy::validator_set_id());
 
 		init_block(1);
@@ -100,7 +100,7 @@ fn session_change_updates_authorities() {
 fn session_change_updates_next_authorities() {
 	let want = vec![mock_beefy_id(1), mock_beefy_id(2), mock_beefy_id(3), mock_beefy_id(4)];
 
-	new_test_ext(vec![1, 2, 3, 4]).execute_with(|| {
+	ExtBuilder::default().add_authorities(mock_authorities(vec![1, 2, 3, 4])).build_and_execute(|| {
 		let next_authorities = Beefy::next_authorities();
 
 		assert_eq!(next_authorities.len(), 4);
@@ -123,7 +123,7 @@ fn session_change_updates_next_authorities() {
 fn validator_set_at_genesis() {
 	let want = vec![mock_beefy_id(1), mock_beefy_id(2)];
 
-	new_test_ext(vec![1, 2, 3, 4]).execute_with(|| {
+	ExtBuilder::default().add_authorities(mock_authorities(vec![1, 2, 3, 4])).build_and_execute(|| {
 		let vs = Beefy::validator_set().unwrap();
 
 		assert_eq!(vs.id(), 0u64);
@@ -136,7 +136,7 @@ fn validator_set_at_genesis() {
 fn validator_set_updates_work() {
 	let want = vec![mock_beefy_id(1), mock_beefy_id(2), mock_beefy_id(3), mock_beefy_id(4)];
 
-	new_test_ext(vec![1, 2, 3, 4]).execute_with(|| {
+	ExtBuilder::default().add_authorities(mock_authorities(vec![1, 2, 3, 4])).build_and_execute(|| {
 		let vs = Beefy::validator_set().unwrap();
 		assert_eq!(vs.id(), 0u64);
 		assert_eq!(want[0], vs.validators()[0]);
@@ -164,7 +164,7 @@ fn validator_set_updates_work() {
 
 #[test]
 fn cleans_up_old_set_id_session_mappings() {
-	new_test_ext(vec![1, 2, 3, 4]).execute_with(|| {
+	ExtBuilder::default().add_authorities(mock_authorities(vec![1, 2, 3, 4])).build_and_execute(|| {
 		let max_set_id_session_entries = MaxSetIdSessionEntries::get();
 
 		// we have 3 sessions per era
@@ -259,7 +259,7 @@ fn should_sign_and_verify() {
 fn report_equivocation_current_set_works() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
 		assert_eq!(Staking::current_era(), Some(0));
 		assert_eq!(Session::current_index(), 0);
 
@@ -339,7 +339,7 @@ fn report_equivocation_current_set_works() {
 fn report_equivocation_old_set_works() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
 		start_era(1);
 
 		let block_num = System::block_number();
@@ -422,7 +422,7 @@ fn report_equivocation_old_set_works() {
 fn report_equivocation_invalid_set_id() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
 		start_era(1);
 
 		let block_num = System::block_number();
@@ -460,7 +460,7 @@ fn report_equivocation_invalid_set_id() {
 fn report_equivocation_invalid_session() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
 		start_era(1);
 
 		let block_num = System::block_number();
@@ -503,7 +503,7 @@ fn report_equivocation_invalid_session() {
 fn report_equivocation_invalid_key_owner_proof() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
 		start_era(1);
 
 		let block_num = System::block_number();
@@ -551,7 +551,7 @@ fn report_equivocation_invalid_key_owner_proof() {
 fn report_equivocation_invalid_equivocation_proof() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
 		start_era(1);
 
 		let block_num = System::block_number();
@@ -624,7 +624,7 @@ fn report_equivocation_validate_unsigned_prevents_duplicates() {
 
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
 		start_era(1);
 
 		let block_num = System::block_number();
@@ -728,7 +728,7 @@ fn report_equivocation_has_valid_weight() {
 fn valid_equivocation_reports_dont_pay_fees() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
 		start_era(1);
 
 		let block_num = System::block_number();
@@ -796,7 +796,7 @@ fn valid_equivocation_reports_dont_pay_fees() {
 fn set_new_genesis_works() {
 	let authorities = test_authorities();
 
-	new_test_ext_raw_authorities(authorities).execute_with(|| {
+	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
 		start_era(1);
 
 		let new_genesis_delay = 10u64;
