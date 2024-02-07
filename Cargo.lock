@@ -5779,7 +5779,6 @@ dependencies = [
  "sp-externalities 0.25.0",
  "sp-io",
  "sp-runtime",
- "sp-state-machine",
  "sp-std 14.0.0",
  "sp-version",
  "sp-weights",
