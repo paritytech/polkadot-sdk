@@ -1352,7 +1352,7 @@ impl<T: Config> Pallet<T> {
 		let base_config_consistent = base_config.check_consistency().is_ok();
 
 		// Now, we need to decide what the new configuration should be.
-		// We also move the `base_config` to `new_config` to empahsize that the base config was
+		// We also move the `base_config` to `new_config` to emphasize that the base config was
 		// destroyed by the `updater`.
 		updater(&mut base_config);
 		let new_config = base_config;
