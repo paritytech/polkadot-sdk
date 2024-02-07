@@ -22,7 +22,6 @@
 use frame_support::{
 	construct_runtime, derive_impl,
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
-	parameter_types,
 	traits::EnsureOriginWithArg,
 };
 
@@ -69,6 +68,17 @@ pub mod dynamic_params {
 	}
 }
 
+#[docify::export(benchmarking_default)]
+#[cfg(feature = "runtime-benchmarks")]
+impl Default for RuntimeParameters {
+	fn default() -> Self {
+		RuntimeParameters::Pallet1(dynamic_params::pallet1::Parameters::Key1(
+			dynamic_params::pallet1::Key1,
+			Some(123),
+		))
+	}
+}
+
 #[docify::export]
 mod custom_origin {
 	use super::*;
@@ -101,13 +111,6 @@ mod custom_origin {
 	}
 }
 
-#[docify::export(benchmarking_default)]
-parameter_types! {
-	pub BenchmarkingDefault: RuntimeParameters = RuntimeParameters::Pallet1(
-			dynamic_params::pallet1::Parameters::Key1(dynamic_params::pallet1::Key1, Some(123))
-	);
-}
-
 #[docify::export(impl_config)]
 #[derive_impl(pallet_parameters::config_preludes::TestDefaultConfig as pallet_parameters::DefaultConfig)]
 impl Config for Runtime {
@@ -115,8 +118,6 @@ impl Config for Runtime {
 	// RuntimeParameters is injected by the `derive_impl` macro.
 	// RuntimeEvent is injected by the `derive_impl` macro.
 	// WeightInfo is injected by the `derive_impl` macro.
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkingDefault = BenchmarkingDefault;
 }
 
 #[docify::export(usage)]

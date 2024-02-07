@@ -24,15 +24,14 @@ use super::*;
 use crate::Pallet as Parameters;
 
 use frame_benchmarking::v2::*;
-use sp_core::Get;
 
-#[benchmarks]
+#[benchmarks(where T::RuntimeParameters: Default)]
 mod benchmarks {
 	use super::*;
 
 	#[benchmark]
 	fn set_parameter() -> Result<(), BenchmarkError> {
-		let kv = T::BenchmarkingDefault::get();
+		let kv = T::RuntimeParameters::default();
 		let k = kv.clone().into_parts().0;
 
 		let origin =

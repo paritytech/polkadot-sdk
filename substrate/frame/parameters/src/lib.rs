@@ -165,11 +165,6 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this module.
 		type WeightInfo: WeightInfo;
-
-		/// Provides a default KV since the type is otherwise in-constructable.
-		#[pallet::no_default]
-		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkingDefault: Get<Self::RuntimeParameters>;
 	}
 
 	#[pallet::event]

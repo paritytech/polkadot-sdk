@@ -2117,8 +2117,14 @@ pub mod dynamic_params {
 	}
 }
 
-parameter_types! {
-	pub BenchmarkingDefault: RuntimeParameters = RuntimeParameters::Storage(dynamic_params::storage::Parameters::BaseDeposit(dynamic_params::storage::BaseDeposit, Some(1 * DOLLARS)));
+#[cfg(feature = "runtime-benchmarks")]
+impl Default for RuntimeParameters {
+	fn default() -> Self {
+		RuntimeParameters::Storage(dynamic_params::storage::Parameters::BaseDeposit(
+			dynamic_params::storage::BaseDeposit,
+			Some(1 * DOLLARS),
+		))
+	}
 }
 
 pub struct DynamicParametersManagerOrigin;
@@ -2151,9 +2157,6 @@ impl pallet_parameters::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type AdminOrigin = DynamicParametersManagerOrigin;
 	type WeightInfo = ();
-	type RuntimeParameters = RuntimeParameters;
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkingDefault = BenchmarkingDefault;
 }
 
 construct_runtime!(
