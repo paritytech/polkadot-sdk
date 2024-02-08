@@ -1028,15 +1028,10 @@ impl<T: Config> Pallet<T> {
 	/// A chilled nominator is removed from the `Nominators` map, and the nominator's new state must
 	/// be signalled to [`T::EventListeners`].
 	pub(crate) fn do_chill_nominator(who: &T::AccountId) -> bool {
-		let outcome = if Nominators::<T>::contains_key(who) {
-			T::EventListeners::on_nominator_idle(who, Self::nominations(who).unwrap_or_default());
-			Nominators::<T>::remove(who);
+		Nominators::<T>::take(who).map_or(false, |nominations| {
+			T::EventListeners::on_nominator_idle(who, nominations.targets.into());
 			true
-		} else {
-			false
-		};
-
-		outcome
+		})
 	}
 
 	/// This function will remove a nominator from the `Nominators` storage map,
@@ -1101,12 +1096,13 @@ impl<T: Config> Pallet<T> {
 	///
 	/// A chilled validator is removed from the `Validators` map.
 	pub(crate) fn do_chill_validator(who: &T::AccountId) -> bool {
-		if Validators::<T>::contains_key(who) {
-			Validators::<T>::remove(who);
-			T::EventListeners::on_validator_idle(who);
-			true
-		} else {
-			false
+		match Validators::<T>::contains_key(who) {
+			true => {
+				Validators::<T>::remove(who);
+				T::EventListeners::on_validator_idle(who);
+				true
+			},
+			false => false,
 		}
 	}
 

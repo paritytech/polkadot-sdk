@@ -289,149 +289,146 @@ pub mod pallet {
 				removed
 			);
 		}
+	}
+}
 
-		/// Try-state checks for the stake-tracker pallet.
-		///
-		/// 1. [`Self::do_try_state_approvals`]: checks the curent approval stake in the target list
-		///    compared with the staking state.
-		/// 2. [`Self::do_try_state_target_sorting`]: checks if the target list is sorted by score.
-		#[cfg(feature = "try-runtime")]
-		pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
-			Self::do_try_state_approvals()?;
-			Self::do_try_state_target_sorting()
-		}
+#[cfg(any(test, feature = "try-runtime"))]
+impl<T: Config> Pallet<T> {
+	/// Try-state checks for the stake-tracker pallet.
+	///
+	/// 1. [`Self::do_try_state_approvals`]: checks the curent approval stake in the target list
+	///    compared with the staking state.
+	/// 2. [`Self::do_try_state_target_sorting`]: checks if the target list is sorted by score.
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::do_try_state_approvals()?;
+		Self::do_try_state_target_sorting()
+	}
 
-		/// Try-state: checks if the approvals stake of the targets in the target list are correct.
-		///
-		/// These try-state checks generate a map with approval stake of all the targets based on
-		/// the staking state of stakers in the voter and target lists. In doing so, we are able to
-		/// verify that the current voter and target lists and scores are in sync with the staking
-		/// data and perform other sanity checks as the approvals map is calculated.
-		///
-		/// NOTE: this is an expensive state check since it iterates over all the nodes in the
-		/// target and voter list providers.
-		///
-		/// Invariants:
-		///
-		/// * Target List:
-		///   * The sum of the calculated approvals stake is the same as the current approvals in
-		///   the target list per target.
-		///   * The target score of an active validator is the sum of all of its nominators' stake
-		///   and the self-stake;
-		///   * The target score of an idle validator (i.e. chilled) is the sum of its nominator's
-		///   stake. An idle target may not be part of the target list, if it has no nominations.
-		///   * The target score of a "dangling" target (ie. idle AND unbonded validator) must
-		///   always be > 0. We expect the stake-tracker to have cleaned up dangling targets with 0
-		///   score.
-		///   * The number of target nodes in the target list matches the number of
-		///   (active_validators + idle_validators + dangling_targets_score_with_score).
-		///
-		/// * Voter List:
-		///  * The voter score is the same as the active stake of the corresponding stash.
-		///  * An active validator should also be part of the voter list.
-		///  * An idle validator should not be part of the voter list.
-		///  * A dangling target shoud not be part of the voter list.
-		#[cfg(any(test, feature = "try-runtime"))]
-		pub(crate) fn do_try_state_approvals() -> Result<(), sp_runtime::TryRuntimeError> {
-			let mut approvals_map: BTreeMap<AccountIdOf<T>, ExtendedBalance> = BTreeMap::new();
+	/// Try-state: checks if the approvals stake of the targets in the target list are correct.
+	///
+	/// These try-state checks generate a map with approval stake of all the targets based on
+	/// the staking state of stakers in the voter and target lists. In doing so, we are able to
+	/// verify that the current voter and target lists and scores are in sync with the staking
+	/// data and perform other sanity checks as the approvals map is calculated.
+	///
+	/// NOTE: this is an expensive state check since it iterates over all the nodes in the
+	/// target and voter list providers.
+	///
+	/// Invariants:
+	///
+	/// * Target List:
+	///   * The sum of the calculated approvals stake is the same as the current approvals in
+	///   the target list per target.
+	///   * The target score of an active validator is the sum of all of its nominators' stake
+	///   and the self-stake;
+	///   * The target score of an idle validator (i.e. chilled) is the sum of its nominator's
+	///   stake. An idle target may not be part of the target list, if it has no nominations.
+	///   * The target score of a "dangling" target (ie. idle AND unbonded validator) must
+	///   always be > 0. We expect the stake-tracker to have cleaned up dangling targets with 0
+	///   score.
+	///   * The number of target nodes in the target list matches the number of
+	///   (active_validators + idle_validators + dangling_targets_score_with_score).
+	///
+	/// * Voter List:
+	///  * The voter score is the same as the active stake of the corresponding stash.
+	///  * An active validator should also be part of the voter list.
+	///  * An idle validator should not be part of the voter list.
+	///  * A dangling target shoud not be part of the voter list.
+	pub(crate) fn do_try_state_approvals() -> Result<(), sp_runtime::TryRuntimeError> {
+		let mut approvals_map: BTreeMap<AccountIdOf<T>, ExtendedBalance> = BTreeMap::new();
 
-			// build map of approvals stakes from the `VoterList` POV.
-			for voter in T::VoterList::iter() {
-				if let Some(nominations) = <T::Staking as StakingInterface>::nominations(&voter) {
-					let score =
-						<T::VoterList as SortedListProvider<AccountIdOf<T>>>::get_score(&voter)
-							.map_err(|_| "nominator score must exist in voter bags list")?;
+		// build map of approvals stakes from the `VoterList` POV.
+		for voter in T::VoterList::iter() {
+			if let Some(nominations) = <T::Staking as StakingInterface>::nominations(&voter) {
+				let score = <T::VoterList as SortedListProvider<AccountIdOf<T>>>::get_score(&voter)
+					.map_err(|_| "nominator score must exist in voter bags list")?;
 
-					// sanity check.
-					let active_stake = T::Staking::stake(&voter)
-						.map(|s| Self::weight_of(s.active))
-						.expect("active voter has bonded stake; qed.");
-					ensure!(
-						active_stake == score,
-						"voter score must be the same as its active stake"
-					);
+				// sanity check.
+				let active_stake = T::Staking::stake(&voter)
+					.map(|s| Self::weight_of(s.active))
+					.expect("active voter has bonded stake; qed.");
+				frame_support::ensure!(
+					active_stake == score,
+					"voter score must be the same as its active stake"
+				);
 
-					for nomination in nominations {
-						if let Some(stake) = approvals_map.get_mut(&nomination) {
-							*stake += score as ExtendedBalance;
-						} else {
-							approvals_map.insert(nomination, score.into());
-						}
+				for nomination in nominations {
+					if let Some(stake) = approvals_map.get_mut(&nomination) {
+						*stake += score as ExtendedBalance;
+					} else {
+						approvals_map.insert(nomination, score.into());
 					}
 				}
 			}
+		}
 
-			// add self-vote of active targets to calculated approvals from the `TargetList` POV.
-			for target in T::TargetList::iter() {
-				// also checks invariant: all active targets are also voters.
-				let maybe_self_stake = match T::Staking::status(&target) {
-					Err(_) => {
-						// if target is "dangling" (i.e unbonded but still in the `TargetList`), it
-						// should NOT be part of the voter list.
-						ensure!(
-							!T::VoterList::contains(&target),
-							"dangling target (i.e. unbonded) should not be part of the voter list"
-						);
+		// add self-vote of active targets to calculated approvals from the `TargetList` POV.
+		for target in T::TargetList::iter() {
+			// also checks invariant: all active targets are also voters.
+			let maybe_self_stake = match T::Staking::status(&target) {
+				Err(_) => {
+					// if target is "dangling" (i.e unbonded but still in the `TargetList`), it
+					// should NOT be part of the voter list.
+					frame_support::ensure!(
+						!T::VoterList::contains(&target),
+						"dangling target (i.e. unbonded) should not be part of the voter list"
+					);
 
-						// if target is dangling, its target score should > 0 (otherwise it should
-						// have been removed from the list).
-						ensure!(
+					// if target is dangling, its target score should > 0 (otherwise it should
+					// have been removed from the list).
+					frame_support::ensure!(
                             T::TargetList::get_score(&target).expect("target must have score") > Zero::zero(),
                             "dangling target (i.e. unbonded) is part of the `TargetList` IFF it's approval voting > 0"
                         );
-						// no self-stake and it should not be part of the target list.
-						None
-					},
-					Ok(StakerStatus::Idle) => {
-						// target is idle and not part of the voter list.
-						ensure!(
-							!T::VoterList::contains(&target),
-							"chilled validator (idle target) should not be part of the voter list"
-						);
+					// no self-stake and it should not be part of the target list.
+					None
+				},
+				Ok(StakerStatus::Idle) => {
+					// target is idle and not part of the voter list.
+					frame_support::ensure!(
+						!T::VoterList::contains(&target),
+						"chilled validator (idle target) should not be part of the voter list"
+					);
 
-						// no sef-stake but since it's chilling, it should be part of the TL even
-						// with score = 0.
-						Some(0)
-					},
-					Ok(StakerStatus::Validator) => {
-						// active target should be part of the voter list.
-						ensure!(
-							T::VoterList::contains(&target),
-							"bonded and active validator should also be part of the voter list"
-						);
-						// return self-stake (ie. active bonded).
-						let stake =
-							T::Staking::stake(&target).map(|s| Self::weight_of(s.active)).ok();
-						stake
-					},
-					Ok(StakerStatus::Nominator(_)) => {
-						panic!(
-							"staker with nominator status should not be part of the target list"
-						);
-					},
-				};
+					// no sef-stake but since it's chilling, it should be part of the TL even
+					// with score = 0.
+					Some(0)
+				},
+				Ok(StakerStatus::Validator) => {
+					// active target should be part of the voter list.
+					frame_support::ensure!(
+						T::VoterList::contains(&target),
+						"bonded and active validator should also be part of the voter list"
+					);
+					// return self-stake (ie. active bonded).
+					let stake = T::Staking::stake(&target).map(|s| Self::weight_of(s.active)).ok();
+					stake
+				},
+				Ok(StakerStatus::Nominator(_)) => {
+					panic!("staker with nominator status should not be part of the target list");
+				},
+			};
 
-				if let Some(score) = maybe_self_stake {
-					if let Some(stake) = approvals_map.get_mut(&target) {
-						*stake += score as ExtendedBalance;
-					} else {
-						approvals_map.insert(target, score.into());
-					}
+			if let Some(score) = maybe_self_stake {
+				if let Some(stake) = approvals_map.get_mut(&target) {
+					*stake += score as ExtendedBalance;
 				} else {
-					// unbonded target: it does not have self-stake.
+					approvals_map.insert(target, score.into());
 				}
+			} else {
+				// unbonded target: it does not have self-stake.
 			}
+		}
 
-			log!(trace, "try-state: calculated approvals map: {:?}", approvals_map);
+		log!(trace, "try-state: calculated approvals map: {:?}", approvals_map);
 
-			// compare calculated approvals per target with target list state.
-			for (target, calculated_stake) in approvals_map.iter() {
-				let stake_in_list =
-					T::TargetList::get_score(&target).expect("target must exist; qed.");
-				let stake_in_list = Self::to_vote_extended(stake_in_list);
+		// compare calculated approvals per target with target list state.
+		for (target, calculated_stake) in approvals_map.iter() {
+			let stake_in_list = T::TargetList::get_score(&target).expect("target must exist; qed.");
+			let stake_in_list = Self::to_vote_extended(stake_in_list);
 
-				if calculated_stake.clone() != stake_in_list {
-					log!(
+			if calculated_stake.clone() != stake_in_list {
+				log!(
 						error,
 						"try-runtime: score of {:?} in `TargetList` list: {:?}, calculated sum of all stake: {:?}",
 						target,
@@ -439,44 +436,40 @@ pub mod pallet {
 						calculated_stake,
 					);
 
-					return Err(
-						"target score in the target list is different than the expected".into()
-					)
-				}
+				return Err("target score in the target list is different than the expected".into())
+			}
+		}
+
+		frame_support::ensure!(
+			approvals_map.keys().count() == T::TargetList::iter().count() as usize,
+			"calculated approvals count is different from total of target list.",
+		);
+
+		Ok(())
+	}
+
+	/// Try-state: checks if targets in the target list are sorted by score.
+	///
+	/// Invariant
+	///  * All targets in the target list are sorted by their score.
+	pub fn do_try_state_target_sorting() -> Result<(), sp_runtime::TryRuntimeError> {
+		let mut current_highest = None;
+
+		for t in T::TargetList::iter() {
+			let target_score = T::TargetList::get_score(&t).expect("score must exist");
+
+			// first iter.
+			if current_highest.is_none() {
+				current_highest = Some(target_score);
 			}
 
-			ensure!(
-				approvals_map.keys().count() == T::TargetList::iter().count() as usize,
-				"calculated approvals count is different from total of target list.",
+			frame_support::ensure!(
+				current_highest.expect("is set based on the above; qed.") >= target_score,
+				"target list is not sorted",
 			);
-
-			Ok(())
 		}
 
-		/// Try-state: checks if targets in the target list are sorted by score.
-		///
-		/// Invariant:
-		///  * All targets in the target list are sorted by their score.
-		#[cfg(any(test, feature = "try-runtime"))]
-		pub fn do_try_state_target_sorting() -> Result<(), sp_runtime::TryRuntimeError> {
-			let mut current_highest = None;
-
-			for t in T::TargetList::iter() {
-				let target_score = T::TargetList::get_score(&t).expect("score must exist");
-
-				// first iter.
-				if current_highest.is_none() {
-					current_highest = Some(target_score);
-				}
-
-				ensure!(
-					current_highest.expect("is set based on the above; qed.") >= target_score,
-					"target list is not sorted",
-				);
-			}
-
-			Ok(())
-		}
+		Ok(())
 	}
 }
 
