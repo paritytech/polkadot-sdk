@@ -23,10 +23,9 @@ use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_runtime::{traits::AccountIdConversion, BuildStorage};
 use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain, TestExt};
 
-use frame_support::{
-	assert_ok,
-	traits::{IntegrityTest, TryState, TryStateSelect::All},
-};
+#[cfg(feature = "try-runtime")]
+use frame_support::traits::{TryState, TryStateSelect::All};
+use frame_support::{assert_ok, traits::IntegrityTest};
 use xcm::{latest::prelude::*, MAX_XCM_DECODE_DEPTH};
 
 use arbitrary::{Arbitrary, Error, Unstructured};
@@ -224,12 +223,14 @@ fn run_input(xcm_messages: [XcmMessage; 5]) {
 		[ParaA::execute_with, ParaB::execute_with, ParaC::execute_with].iter().for_each(
 			|execute_with| {
 				execute_with(|| {
+					#[cfg(feature = "try-runtime")]
 					parachain::AllPalletsWithSystem::try_state(Default::default(), All).unwrap();
 					parachain::AllPalletsWithSystem::integrity_test();
 				});
 			},
 		);
 		Relay::execute_with(|| {
+			#[cfg(feature = "try-runtime")]
 			relay_chain::AllPalletsWithSystem::try_state(Default::default(), All).unwrap();
 			relay_chain::AllPalletsWithSystem::integrity_test();
 		});
