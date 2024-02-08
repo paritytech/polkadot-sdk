@@ -98,7 +98,6 @@ impl<Pool, Client> TransactionBroadcastApiServer for TransactionBroadcast<Pool, 
 where
 	Pool: TransactionPool + Sync + Send + 'static,
 	Pool::Error: IntoPoolError,
-	Pool::Hash: Unpin,
 	<Pool::Block as BlockT>::Hash: Unpin,
 	Client: HeaderBackend<Pool::Block> + BlockchainEvents<Pool::Block> + Send + Sync + 'static,
 {
