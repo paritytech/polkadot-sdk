@@ -240,7 +240,7 @@ pub mod pallet {
 			+ Eq
 			+ Ord
 			+ PartialOrd
-			+ alloc::fmt::Debug
+			+ core::fmt::Debug
 			+ Copy
 			+ AtLeast32BitUnsigned
 			+ Bounded

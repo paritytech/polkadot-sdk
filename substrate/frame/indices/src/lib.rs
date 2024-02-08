@@ -33,7 +33,6 @@ use sp_runtime::{
 	traits::{AtLeast32Bit, LookupError, Saturating, StaticLookup, Zero},
 	MultiAddress,
 };
-
 pub use weights::WeightInfo;
 
 type BalanceOf<T> =

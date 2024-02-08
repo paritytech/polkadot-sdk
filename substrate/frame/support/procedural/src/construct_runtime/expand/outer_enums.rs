@@ -245,7 +245,7 @@ fn expand_enum_conversion(
 		impl TryInto<#pallet_enum> for #enum_name_ident {
 			type Error = ();
 
-			fn try_into(self) -> core::result::Result<#pallet_enum, Self::Error> {
+			fn try_into(self) -> ::core::result::Result<#pallet_enum, Self::Error> {
 				match self {
 					Self::#variant_name(evt) => Ok(evt),
 					_ => Err(()),

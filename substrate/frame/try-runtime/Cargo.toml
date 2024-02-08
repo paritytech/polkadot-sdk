@@ -22,5 +22,10 @@ sp-runtime = { path = "../../primitives/runtime", default-features = false }
 
 [features]
 default = ["std"]
-std = ["codec/std", "frame-support/std", "sp-api/std", "sp-runtime/std"]
+std = [
+	"codec/std",
+	"frame-support/std",
+	"sp-api/std",
+	"sp-runtime/std",
+]
 try-runtime = ["frame-support/try-runtime", "sp-runtime/try-runtime"]

@@ -66,7 +66,7 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 		#[doc(hidden)]
 		#[codec(skip)]
 		__Ignore(
-			core::marker::PhantomData<(#type_use_gen)>,
+			::core::marker::PhantomData<(#type_use_gen)>,
 			#frame_support::Never,
 		)
 	);

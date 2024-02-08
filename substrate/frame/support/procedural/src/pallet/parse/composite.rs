@@ -171,7 +171,7 @@ impl CompositeDef {
 				#[doc(hidden)]
 				#[codec(skip)]
 				__Ignore(
-					core::marker::PhantomData<I>,
+					::core::marker::PhantomData<I>,
 				)
 			});
 		}

@@ -178,7 +178,7 @@ pub fn expand_outer_dispatch(
 			type PostInfo = #scrate::dispatch::PostDispatchInfo;
 			fn dispatch(self, origin: RuntimeOrigin) -> #scrate::dispatch::DispatchResultWithPostInfo {
 				if !<Self::RuntimeOrigin as #scrate::traits::OriginTrait>::filter_call(&origin, &self) {
-					return core::result::Result::Err(
+					return ::core::result::Result::Err(
 						#system_path::Error::<#runtime>::CallFiltered.into()
 					);
 				}
