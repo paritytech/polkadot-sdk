@@ -276,7 +276,7 @@ where
 				self.update_authority_ids(sender, session_info.discovery_keys).await;
 			} else if let Some(session_index) = self
 				.last_session_index
-				.filter(|last_session_index| *last_session_index >= current_index)
+				.filter(|last_session_index| *last_session_index == current_index)
 			{
 				// authority_discovery is just a cache so let's try every leaf from the current
 				// session if there are new authorities detected and inform the needed subsystems.
