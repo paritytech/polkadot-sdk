@@ -188,9 +188,14 @@ where
 		// Convert the future into an abortable future, for easily terminating it from the
 		// `transaction_stop` method.
 		let (fut, handle) = futures::future::abortable(broadcast_transaction_fut);
+		let broadcast_ids = self.broadcast_ids.clone();
+		let drop_id = id.clone();
 		// The future expected by the executor must be `Future<Output = ()>` instead of
 		// `Future<Output = Result<(), Aborted>>`.
-		let fut = fut.map(drop);
+		let fut = fut.map(move |_| {
+			// Remove the entry from the broadcast IDs map.
+			broadcast_ids.write().remove(&drop_id);
+		});
 
 		// Keep track of this entry and the abortable handle.
 		{
