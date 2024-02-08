@@ -149,7 +149,7 @@ impl sp_staking::StakingInterface for StakingMock {
 
 		staker_map.retain(|(unlocking_at, _amount)| *unlocking_at > current_era);
 
-		// if there was withdraw, notify the pallet.
+		// if there was a withdrawal, notify the pallet.
 		Pools::on_withdraw(&who, unlocking_before.saturating_sub(unlocking(&staker_map)));
 
 		UnbondingBalanceMap::set(&unbonding_map);
