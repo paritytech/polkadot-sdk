@@ -22192,8 +22192,10 @@ name = "xcm-simulator-fuzzer"
 version = "1.0.0"
 dependencies = [
  "arbitrary",
+ "frame-executive",
  "frame-support",
  "frame-system",
+ "frame-try-runtime",
  "honggfuzz",
  "pallet-balances",
  "pallet-message-queue",
