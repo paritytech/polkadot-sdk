@@ -154,102 +154,31 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		/// Verify a target header is finalized according to the given finality proof.
-		///
-		/// It will use the underlying storage pallet to fetch information about the current
-		/// authorities and best finalized header in order to verify that the header is finalized.
-		///
-		/// If successful in verification, it will write the target header to the underlying storage
-		/// pallet.
-		///
-		/// The call fails if:
-		///
-		/// - the pallet is halted;
-		///
-		/// - the pallet knows better header than the `finality_target`;
-		///
-		/// - verification is not optimized or invalid;
-		///
-		/// - header contains forced authorities set change or change with non-zero delay.
+		/// This call is deprecated and will be removed around May 2024. Use the
+		/// `submit_finality_proof_ex` instead. Semantically, this call is an equivalent of the
+		/// `submit_finality_proof_ex` call without current authority set id check.
 		#[pallet::call_index(0)]
 		#[pallet::weight(<T::WeightInfo as WeightInfo>::submit_finality_proof(
 			justification.commit.precommits.len().saturated_into(),
 			justification.votes_ancestries.len().saturated_into(),
 		))]
+		#[allow(deprecated)]
+		#[deprecated(
+			note = "`submit_finality_proof` will be removed in May 2024. Use `submit_finality_proof_ex` instead."
+		)]
 		pub fn submit_finality_proof(
 			origin: OriginFor<T>,
 			finality_target: Box<BridgedHeader<T, I>>,
 			justification: GrandpaJustification<BridgedHeader<T, I>>,
 		) -> DispatchResultWithPostInfo {
-			Self::ensure_not_halted().map_err(Error::<T, I>::BridgeModule)?;
-			ensure_signed(origin)?;
-
-			let (hash, number) = (finality_target.hash(), *finality_target.number());
-			log::trace!(
-				target: LOG_TARGET,
-				"Going to try and finalize header {:?}",
-				finality_target
-			);
-
-			SubmitFinalityProofHelper::<T, I>::check_obsolete(number)?;
-
-			let authority_set = <CurrentAuthoritySet<T, I>>::get();
-			let unused_proof_size = authority_set.unused_proof_size();
-			let set_id = authority_set.set_id;
-			let authority_set: AuthoritySet = authority_set.into();
-			verify_justification::<T, I>(&justification, hash, number, authority_set)?;
-
-			let maybe_new_authority_set =
-				try_enact_authority_change::<T, I>(&finality_target, set_id)?;
-			let may_refund_call_fee = maybe_new_authority_set.is_some() &&
-				// if we have seen too many mandatory headers in this block, we don't want to refund
-				Self::free_mandatory_headers_remaining() > 0 &&
-				// if arguments out of expected bounds, we don't want to refund
-				submit_finality_proof_info_from_args::<T, I>(&finality_target, &justification)
-					.fits_limits();
-			if may_refund_call_fee {
-				FreeMandatoryHeadersRemaining::<T, I>::mutate(|count| {
-					*count = count.saturating_sub(1)
-				});
-			}
-			insert_header::<T, I>(*finality_target, hash);
-			log::info!(
-				target: LOG_TARGET,
-				"Successfully imported finalized header with hash {:?}!",
-				hash
-			);
-
-			// mandatory header is a header that changes authorities set. The pallet can't go
-			// further without importing this header. So every bridge MUST import mandatory headers.
-			//
-			// We don't want to charge extra costs for mandatory operations. So relayer is not
-			// paying fee for mandatory headers import transactions.
-			//
-			// If size/weight of the call is exceeds our estimated limits, the relayer still needs
-			// to pay for the transaction.
-			let pays_fee = if may_refund_call_fee { Pays::No } else { Pays::Yes };
-
-			// the proof size component of the call weight assumes that there are
-			// `MaxBridgedAuthorities` in the `CurrentAuthoritySet` (we use `MaxEncodedLen`
-			// estimation). But if their number is lower, then we may "refund" some `proof_size`,
-			// making proof smaller and leaving block space to other useful transactions
-			let pre_dispatch_weight = T::WeightInfo::submit_finality_proof(
-				justification.commit.precommits.len().saturated_into(),
-				justification.votes_ancestries.len().saturated_into(),
-			);
-			let actual_weight = pre_dispatch_weight
-				.set_proof_size(pre_dispatch_weight.proof_size().saturating_sub(unused_proof_size));
-
-			Self::deposit_event(Event::UpdatedBestFinalizedHeader {
-				number,
-				hash,
-				grandpa_info: StoredHeaderGrandpaInfo {
-					finality_proof: justification,
-					new_verification_context: maybe_new_authority_set,
-				},
-			});
-
-			Ok(PostDispatchInfo { actual_weight: Some(actual_weight), pays_fee })
+			Self::submit_finality_proof_ex(
+				origin,
+				finality_target,
+				justification,
+				// the `submit_finality_proof_ex` also reads this value, but it is done from the
+				// cache, so we don't treat it as an additional db access
+				<CurrentAuthoritySet<T, I>>::get().set_id,
+			)
 		}
 
 		/// Bootstrap the bridge pallet with an initial header and authority set from which to sync.
@@ -301,6 +230,111 @@ pub mod pallet {
 			operating_mode: BasicOperatingMode,
 		) -> DispatchResult {
 			<Self as OwnedBridgeModule<_>>::set_operating_mode(origin, operating_mode)
+		}
+
+		/// Verify a target header is finalized according to the given finality proof. The proof
+		/// is assumed to be signed by GRANDPA authorities set with `current_set_id` id.
+		///
+		/// It will use the underlying storage pallet to fetch information about the current
+		/// authorities and best finalized header in order to verify that the header is finalized.
+		///
+		/// If successful in verification, it will write the target header to the underlying storage
+		/// pallet.
+		///
+		/// The call fails if:
+		///
+		/// - the pallet is halted;
+		///
+		/// - the pallet knows better header than the `finality_target`;
+		///
+		/// - the id of best GRANDPA authority set, known to the pallet is not equal to the
+		///   `current_set_id`;
+		///
+		/// - verification is not optimized or invalid;
+		///
+		/// - header contains forced authorities set change or change with non-zero delay.
+		#[pallet::call_index(4)]
+		#[pallet::weight(<T::WeightInfo as WeightInfo>::submit_finality_proof(
+			justification.commit.precommits.len().saturated_into(),
+			justification.votes_ancestries.len().saturated_into(),
+		))]
+		pub fn submit_finality_proof_ex(
+			origin: OriginFor<T>,
+			finality_target: Box<BridgedHeader<T, I>>,
+			justification: GrandpaJustification<BridgedHeader<T, I>>,
+			current_set_id: sp_consensus_grandpa::SetId,
+		) -> DispatchResultWithPostInfo {
+			Self::ensure_not_halted().map_err(Error::<T, I>::BridgeModule)?;
+			ensure_signed(origin)?;
+
+			let (hash, number) = (finality_target.hash(), *finality_target.number());
+			log::trace!(
+				target: LOG_TARGET,
+				"Going to try and finalize header {:?}",
+				finality_target
+			);
+
+			// it checks whether the `number` is better than the current best block number
+			// and whether the `current_set_id` matches the best known set id
+			SubmitFinalityProofHelper::<T, I>::check_obsolete(number, Some(current_set_id))?;
+
+			let authority_set = <CurrentAuthoritySet<T, I>>::get();
+			let unused_proof_size = authority_set.unused_proof_size();
+			let set_id = authority_set.set_id;
+			let authority_set: AuthoritySet = authority_set.into();
+			verify_justification::<T, I>(&justification, hash, number, authority_set)?;
+
+			let maybe_new_authority_set =
+				try_enact_authority_change::<T, I>(&finality_target, set_id)?;
+			let may_refund_call_fee = maybe_new_authority_set.is_some() &&
+				// if we have seen too many mandatory headers in this block, we don't want to refund
+				Self::free_mandatory_headers_remaining() > 0 &&
+				// if arguments out of expected bounds, we don't want to refund
+				submit_finality_proof_info_from_args::<T, I>(&finality_target, &justification, Some(current_set_id))
+					.fits_limits();
+			if may_refund_call_fee {
+				FreeMandatoryHeadersRemaining::<T, I>::mutate(|count| {
+					*count = count.saturating_sub(1)
+				});
+			}
+			insert_header::<T, I>(*finality_target, hash);
+			log::info!(
+				target: LOG_TARGET,
+				"Successfully imported finalized header with hash {:?}!",
+				hash
+			);
+
+			// mandatory header is a header that changes authorities set. The pallet can't go
+			// further without importing this header. So every bridge MUST import mandatory headers.
+			//
+			// We don't want to charge extra costs for mandatory operations. So relayer is not
+			// paying fee for mandatory headers import transactions.
+			//
+			// If size/weight of the call is exceeds our estimated limits, the relayer still needs
+			// to pay for the transaction.
+			let pays_fee = if may_refund_call_fee { Pays::No } else { Pays::Yes };
+
+			// the proof size component of the call weight assumes that there are
+			// `MaxBridgedAuthorities` in the `CurrentAuthoritySet` (we use `MaxEncodedLen`
+			// estimation). But if their number is lower, then we may "refund" some `proof_size`,
+			// making proof smaller and leaving block space to other useful transactions
+			let pre_dispatch_weight = T::WeightInfo::submit_finality_proof(
+				justification.commit.precommits.len().saturated_into(),
+				justification.votes_ancestries.len().saturated_into(),
+			);
+			let actual_weight = pre_dispatch_weight
+				.set_proof_size(pre_dispatch_weight.proof_size().saturating_sub(unused_proof_size));
+
+			Self::deposit_event(Event::UpdatedBestFinalizedHeader {
+				number,
+				hash,
+				grandpa_info: StoredHeaderGrandpaInfo {
+					finality_proof: justification,
+					new_verification_context: maybe_new_authority_set,
+				},
+			});
+
+			Ok(PostDispatchInfo { actual_weight: Some(actual_weight), pays_fee })
 		}
 	}
 
@@ -439,6 +473,9 @@ pub mod pallet {
 		TooManyAuthoritiesInSet,
 		/// Error generated by the `OwnedBridgeModule` trait.
 		BridgeModule(bp_runtime::OwnedBridgeModuleError),
+		/// The `current_set_id` argument of the `submit_finality_proof_ex` doesn't match
+		/// the id of the current set, known to the pallet.
+		InvalidAuthoritySetId,
 	}
 
 	/// Check the given header for a GRANDPA scheduled authority set change. If a change
@@ -666,6 +703,7 @@ mod tests {
 	use bp_test_utils::{
 		authority_list, generate_owned_bridge_module_tests, make_default_justification,
 		make_justification_for_header, JustificationGeneratorParams, ALICE, BOB,
+		TEST_GRANDPA_SET_ID,
 	};
 	use codec::Encode;
 	use frame_support::{
@@ -696,7 +734,7 @@ mod tests {
 		let init_data = InitializationData {
 			header: Box::new(genesis),
 			authority_list: authority_list(),
-			set_id: 1,
+			set_id: TEST_GRANDPA_SET_ID,
 			operating_mode: BasicOperatingMode::Normal,
 		};
 
@@ -707,10 +745,11 @@ mod tests {
 		let header = test_header(header.into());
 		let justification = make_default_justification(&header);
 
-		Pallet::<TestRuntime>::submit_finality_proof(
+		Pallet::<TestRuntime>::submit_finality_proof_ex(
 			RuntimeOrigin::signed(1),
 			Box::new(header),
 			justification,
+			TEST_GRANDPA_SET_ID,
 		)
 	}
 
@@ -725,10 +764,11 @@ mod tests {
 			..Default::default()
 		});
 
-		Pallet::<TestRuntime>::submit_finality_proof(
+		Pallet::<TestRuntime>::submit_finality_proof_ex(
 			RuntimeOrigin::signed(1),
 			Box::new(header),
 			justification,
+			set_id,
 		)
 	}
 
@@ -752,10 +792,11 @@ mod tests {
 			..Default::default()
 		});
 
-		Pallet::<TestRuntime>::submit_finality_proof(
+		Pallet::<TestRuntime>::submit_finality_proof_ex(
 			RuntimeOrigin::signed(1),
 			Box::new(header),
 			justification,
+			set_id,
 		)
 	}
 
@@ -958,17 +999,30 @@ mod tests {
 
 			let header = test_header(1);
 
-			let params =
-				JustificationGeneratorParams::<TestHeader> { set_id: 2, ..Default::default() };
+			let next_set_id = 2;
+			let params = JustificationGeneratorParams::<TestHeader> {
+				set_id: next_set_id,
+				..Default::default()
+			};
 			let justification = make_justification_for_header(params);
 
 			assert_err!(
-				Pallet::<TestRuntime>::submit_finality_proof(
+				Pallet::<TestRuntime>::submit_finality_proof_ex(
+					RuntimeOrigin::signed(1),
+					Box::new(header.clone()),
+					justification.clone(),
+					TEST_GRANDPA_SET_ID,
+				),
+				<Error<TestRuntime>>::InvalidJustification
+			);
+			assert_err!(
+				Pallet::<TestRuntime>::submit_finality_proof_ex(
 					RuntimeOrigin::signed(1),
 					Box::new(header),
 					justification,
+					next_set_id,
 				),
-				<Error<TestRuntime>>::InvalidJustification
+				<Error<TestRuntime>>::InvalidAuthoritySetId
 			);
 		})
 	}
@@ -983,10 +1037,11 @@ mod tests {
 			justification.round = 42;
 
 			assert_err!(
-				Pallet::<TestRuntime>::submit_finality_proof(
+				Pallet::<TestRuntime>::submit_finality_proof_ex(
 					RuntimeOrigin::signed(1),
 					Box::new(header),
 					justification,
+					TEST_GRANDPA_SET_ID,
 				),
 				<Error<TestRuntime>>::InvalidJustification
 			);
@@ -1012,10 +1067,11 @@ mod tests {
 			let justification = make_default_justification(&header);
 
 			assert_err!(
-				Pallet::<TestRuntime>::submit_finality_proof(
+				Pallet::<TestRuntime>::submit_finality_proof_ex(
 					RuntimeOrigin::signed(1),
 					Box::new(header),
 					justification,
+					TEST_GRANDPA_SET_ID,
 				),
 				<Error<TestRuntime>>::InvalidAuthoritySet
 			);
@@ -1050,10 +1106,11 @@ mod tests {
 			let justification = make_default_justification(&header);
 
 			// Let's import our test header
-			let result = Pallet::<TestRuntime>::submit_finality_proof(
+			let result = Pallet::<TestRuntime>::submit_finality_proof_ex(
 				RuntimeOrigin::signed(1),
 				Box::new(header.clone()),
 				justification.clone(),
+				TEST_GRANDPA_SET_ID,
 			);
 			assert_ok!(result);
 			assert_eq!(result.unwrap().pays_fee, frame_support::dispatch::Pays::No);
@@ -1112,10 +1169,11 @@ mod tests {
 
 			// without large digest item ^^^ the relayer would have paid zero transaction fee
 			// (`Pays::No`)
-			let result = Pallet::<TestRuntime>::submit_finality_proof(
+			let result = Pallet::<TestRuntime>::submit_finality_proof_ex(
 				RuntimeOrigin::signed(1),
 				Box::new(header.clone()),
 				justification,
+				TEST_GRANDPA_SET_ID,
 			);
 			assert_ok!(result);
 			assert_eq!(result.unwrap().pays_fee, frame_support::dispatch::Pays::Yes);
@@ -1143,10 +1201,11 @@ mod tests {
 
 			// without many headers in votes ancestries ^^^ the relayer would have paid zero
 			// transaction fee (`Pays::No`)
-			let result = Pallet::<TestRuntime>::submit_finality_proof(
+			let result = Pallet::<TestRuntime>::submit_finality_proof_ex(
 				RuntimeOrigin::signed(1),
 				Box::new(header.clone()),
 				justification,
+				TEST_GRANDPA_SET_ID,
 			);
 			assert_ok!(result);
 			assert_eq!(result.unwrap().pays_fee, frame_support::dispatch::Pays::Yes);
@@ -1172,10 +1231,11 @@ mod tests {
 
 			// Should not be allowed to import this header
 			assert_err!(
-				Pallet::<TestRuntime>::submit_finality_proof(
+				Pallet::<TestRuntime>::submit_finality_proof_ex(
 					RuntimeOrigin::signed(1),
 					Box::new(header),
-					justification
+					justification,
+					TEST_GRANDPA_SET_ID,
 				),
 				<Error<TestRuntime>>::UnsupportedScheduledChange
 			);
@@ -1197,10 +1257,11 @@ mod tests {
 
 			// Should not be allowed to import this header
 			assert_err!(
-				Pallet::<TestRuntime>::submit_finality_proof(
+				Pallet::<TestRuntime>::submit_finality_proof_ex(
 					RuntimeOrigin::signed(1),
 					Box::new(header),
-					justification
+					justification,
+					TEST_GRANDPA_SET_ID,
 				),
 				<Error<TestRuntime>>::UnsupportedScheduledChange
 			);
@@ -1222,10 +1283,11 @@ mod tests {
 
 			// Should not be allowed to import this header
 			assert_err!(
-				Pallet::<TestRuntime>::submit_finality_proof(
+				Pallet::<TestRuntime>::submit_finality_proof_ex(
 					RuntimeOrigin::signed(1),
 					Box::new(header),
-					justification
+					justification,
+					TEST_GRANDPA_SET_ID,
 				),
 				<Error<TestRuntime>>::TooManyAuthoritiesInSet
 			);
@@ -1286,10 +1348,11 @@ mod tests {
 				let mut invalid_justification = make_default_justification(&header);
 				invalid_justification.round = 42;
 
-				Pallet::<TestRuntime>::submit_finality_proof(
+				Pallet::<TestRuntime>::submit_finality_proof_ex(
 					RuntimeOrigin::signed(1),
 					Box::new(header),
 					invalid_justification,
+					TEST_GRANDPA_SET_ID,
 				)
 			};
 
@@ -1454,10 +1517,11 @@ mod tests {
 			let justification = make_default_justification(&header);
 
 			assert_noop!(
-				Pallet::<TestRuntime>::submit_finality_proof(
+				Pallet::<TestRuntime>::submit_finality_proof_ex(
 					RuntimeOrigin::root(),
 					Box::new(header),
 					justification,
+					TEST_GRANDPA_SET_ID,
 				),
 				DispatchError::BadOrigin,
 			);
