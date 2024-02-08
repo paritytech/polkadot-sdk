@@ -349,6 +349,15 @@ impl<T: Config> Pallet<T> {
 		);
 		Ok(())
 	}
+
+	/// # Invariants
+	///
+	/// `ValidatorSetId` must be present in `SetIdSession`
+	fn try_state_validators() -> Result<(), sp_runtime::TryRuntimeError> {
+		let validator_set_id = <ValidatorSetId<T>>::get();
+		ensure!(SetIdSession::<T>::get(validator_set_id).is_some(), "Validator set id must be present in SetIdSession");
+		Ok(())
+	}
 }
 
 impl<T: Config> Pallet<T> {
