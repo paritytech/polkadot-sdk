@@ -117,7 +117,8 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		.enable_ws_ping(
 			PingConfig::new()
 				.ping_interval(Duration::from_secs(30))
-				.inactive_limit(Duration::from_secs(50)),
+				.inactive_limit(Duration::from_secs(60)),
+				.max_failures(3)
 		)
 		.set_http_middleware(http_middleware)
 		.set_message_buffer_capacity(message_buffer_capacity)
