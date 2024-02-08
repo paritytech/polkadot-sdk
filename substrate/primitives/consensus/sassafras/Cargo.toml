@@ -26,7 +26,6 @@ sp-application-crypto = { path = "../../application-crypto", default-features = 
 sp-consensus-slots = { path = "../slots", default-features = false }
 sp-core = { path = "../../core", default-features = false, features = ["bandersnatch-experimental"] }
 sp-runtime = { path = "../../runtime", default-features = false }
-sp-std = { path = "../../std", default-features = false }
 
 [features]
 default = ["std"]
@@ -39,7 +38,6 @@ std = [
 	"sp-consensus-slots/std",
 	"sp-core/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 
 # Serde support without relying on std features.

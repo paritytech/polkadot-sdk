@@ -29,7 +29,6 @@ use sp_runtime::{
 		InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction,
 	},
 };
-use sp_std::prelude::*;
 
 pub use self::pallet::*;
 
@@ -59,7 +58,7 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		pub authorities: Vec<Public>,
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]

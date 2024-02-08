@@ -22,7 +22,6 @@ sp-api = { path = "../api", default-features = false }
 sp-core = { path = "../core", default-features = false }
 sp-runtime = { path = "../runtime", optional = true }
 sp-staking = { path = "../staking", default-features = false }
-sp-std = { path = "../std", default-features = false }
 sp-keystore = { path = "../keystore", optional = true }
 
 [features]
@@ -35,5 +34,4 @@ std = [
 	"sp-keystore/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"sp-std/std",
 ]

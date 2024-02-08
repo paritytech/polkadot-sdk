@@ -15,9 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, Error, Input};
+use core::cmp;
 use scale_info::TypeInfo;
-use sp_std::{cmp, prelude::*};
 
 use crate::{Payload, ValidatorSetId};
 

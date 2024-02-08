@@ -32,12 +32,10 @@ use sp_core::storage::{
 use sp_externalities::{Extension, ExtensionStore, Externalities, MultiRemovalResults};
 
 use crate::{log_error, trace, warn};
-use sp_std::{
+use alloc::{boxed::Box, vec, vec::Vec};
+use core::{
 	any::{Any, TypeId},
-	boxed::Box,
 	cmp::Ordering,
-	vec,
-	vec::Vec,
 };
 #[cfg(feature = "std")]
 use std::error;
@@ -739,7 +737,7 @@ impl<'a> StorageAppend<'a> {
 	pub fn append(&mut self, value: Vec<u8>) {
 		let value = vec![EncodeOpaqueValue(value)];
 
-		let item = sp_std::mem::take(self.0);
+		let item = core::mem::take(self.0);
 
 		*self.0 = match Vec::<EncodeOpaqueValue>::append_or_new(item, &value) {
 			Ok(item) => item,

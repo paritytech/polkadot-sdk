@@ -31,6 +31,8 @@
 //! it will use a different set of keys. For Polkadot use case we plan to use `secp256k1` for BEEFY,
 //! while GRANDPA uses `ed25519`.
 
+extern crate alloc;
+
 mod commitment;
 pub mod mmr;
 mod payload;
@@ -43,12 +45,12 @@ pub use payload::{known_payloads, BeefyPayloadId, Payload, PayloadProvider};
 #[cfg(feature = "std")]
 pub use test_utils::*;
 
+use alloc::vec::Vec;
 use codec::{Codec, Decode, Encode};
 use scale_info::TypeInfo;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::H256;
 use sp_runtime::traits::{Hash, Keccak256, NumberFor};
-use sp_std::prelude::*;
 
 /// Key type for BEEFY module.
 pub const KEY_TYPE: sp_core::crypto::KeyTypeId = sp_application_crypto::key_types::BEEFY;

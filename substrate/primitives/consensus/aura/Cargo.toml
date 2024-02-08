@@ -24,7 +24,6 @@ sp-application-crypto = { path = "../../application-crypto", default-features = 
 sp-consensus-slots = { path = "../slots", default-features = false }
 sp-inherents = { path = "../../inherents", default-features = false }
 sp-runtime = { path = "../../runtime", default-features = false }
-sp-std = { path = "../../std", default-features = false }
 sp-timestamp = { path = "../../timestamp", default-features = false }
 
 [features]
@@ -38,7 +37,6 @@ std = [
 	"sp-consensus-slots/std",
 	"sp-inherents/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-timestamp/std",
 ]
 

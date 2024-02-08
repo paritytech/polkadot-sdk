@@ -18,10 +18,10 @@
 //! Common traits and types that are useful for describing offences for usage in environments
 //! that use staking.
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use sp_core::Get;
 use sp_runtime::{transaction_validity::TransactionValidityError, DispatchError, Perbill};
-use sp_std::vec::Vec;
 
 use crate::SessionIndex;
 

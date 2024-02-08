@@ -28,7 +28,6 @@ sp-keyring = { path = "../../primitives/keyring", optional = true }
 sp-offchain = { path = "../../primitives/offchain", default-features = false }
 sp-core = { path = "../../primitives/core", default-features = false }
 sp-crypto-hashing = { path = "../../primitives/crypto/hashing", default-features = false }
-sp-std = { path = "../../primitives/std", default-features = false }
 sp-io = { path = "../../primitives/io", default-features = false }
 frame-support = { path = "../../frame/support", default-features = false }
 sp-version = { path = "../../primitives/version", default-features = false }
@@ -104,7 +103,6 @@ std = [
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-state-machine/std",
-	"sp-std/std",
 	"sp-tracing/std",
 	"sp-transaction-pool/std",
 	"sp-trie/std",

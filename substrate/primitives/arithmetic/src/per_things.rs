@@ -23,12 +23,11 @@ use crate::traits::{
 	Saturating, UniqueSaturatedInto, Unsigned, Zero,
 };
 use codec::{CompactAs, Encode};
-use num_traits::{Pow, SaturatingAdd, SaturatingSub};
-use sp_std::{
+use core::{
 	fmt, ops,
 	ops::{Add, Sub},
-	prelude::*,
 };
+use num_traits::{Pow, SaturatingAdd, SaturatingSub};
 
 /// Get the inner type of a `PerThing`.
 pub type InnerOf<P> = <P as PerThing>::Inner;
@@ -414,7 +413,7 @@ pub trait PerThing:
 }
 
 /// The rounding method to use for unsigned quantities.
-#[derive(Copy, Clone, sp_std::fmt::Debug)]
+#[derive(Copy, Clone, core::fmt::Debug)]
 pub enum Rounding {
 	// Towards infinity.
 	Up,
@@ -427,7 +426,7 @@ pub enum Rounding {
 }
 
 /// The rounding method to use.
-#[derive(Copy, Clone, sp_std::fmt::Debug)]
+#[derive(Copy, Clone, core::fmt::Debug)]
 pub enum SignedRounding {
 	// Towards positive infinity.
 	High,
@@ -580,8 +579,8 @@ macro_rules! implement_per_thing {
 		}
 
 		#[cfg(feature = "std")]
-		impl sp_std::fmt::Debug for $name {
-			fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+		impl core::fmt::Debug for $name {
+			fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
 				if $max == <$type>::max_value() {
 					// Not a power of ten: show as N/D and approx %
 					let pc = (self.0 as f64) / (self.0 as f64) * 100f64;
@@ -606,8 +605,8 @@ macro_rules! implement_per_thing {
 		}
 
 		#[cfg(not(feature = "std"))]
-		impl sp_std::fmt::Debug for $name {
-			fn fmt(&self, fmt: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+		impl core::fmt::Debug for $name {
+			fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
 				if $max == <$type>::max_value() {
 					// Not a power of ten: show as N/D and approx %
 					write!(fmt, "{}/{}", self.0, $max)

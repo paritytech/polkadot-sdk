@@ -21,11 +21,13 @@
 #![forbid(unsafe_code, missing_docs, unused_variables, unused_imports)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::crypto::KeyTypeId;
 use sp_runtime::{ConsensusEngineId, RuntimeDebug};
-use sp_std::vec::Vec;
 
 pub use sp_consensus_slots::{Slot, SlotDuration};
 

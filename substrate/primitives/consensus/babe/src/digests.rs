@@ -22,9 +22,9 @@ use super::{
 	BabeEpochConfiguration, Randomness, Slot, BABE_ENGINE_ID,
 };
 
+use alloc::vec::Vec;
 use sp_core::sr25519::vrf::VrfSignature;
 use sp_runtime::{DigestItem, RuntimeDebug};
-use sp_std::vec::Vec;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
