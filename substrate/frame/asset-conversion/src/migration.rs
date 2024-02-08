@@ -83,7 +83,7 @@ pub mod new_pool_account_id {
 				) {
 					log::error!(
 						target: LOG_TARGET,
-						"transfer all, of `{:?}` from `{}` to `{}` failed with error `{:?}`",
+						"transfer all, of `{:?}` from `{:?}` to `{:?}` failed with error `{:?}`",
 						asset1,
 						account_id,
 						new_account_id,
@@ -102,7 +102,7 @@ pub mod new_pool_account_id {
 				) {
 					log::error!(
 						target: LOG_TARGET,
-						"transfer all, of `{:?}` from `{}` to `{}` failed with error `{:?}`",
+						"transfer all, of `{:?}` from `{:?}` to `{:?}` failed with error `{:?}`",
 						asset2,
 						account_id,
 						new_account_id,
@@ -122,7 +122,7 @@ pub mod new_pool_account_id {
 					if let Err(e) = Refund::refund(asset1.clone(), account_id.clone()) {
 						log::error!(
 							target: LOG_TARGET,
-							"refund for asset1 `{:?}` to account `{}` failed with error `{:?}`",
+							"refund for asset1 `{:?}` to account `{:?}` failed with error `{:?}`",
 							asset1,
 							account_id,
 							e,
@@ -134,7 +134,7 @@ pub mod new_pool_account_id {
 					if let Err(e) = Refund::refund(asset2.clone(), account_id.clone()) {
 						log::error!(
 							target: LOG_TARGET,
-							"refund for asset2 `{:?}` to account `{}` failed with error `{:?}`",
+							"refund for asset2 `{:?}` to account `{:?}` failed with error `{:?}`",
 							asset2.clone(),
 							account_id,
 							e,
