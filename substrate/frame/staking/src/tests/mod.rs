@@ -375,9 +375,9 @@ fn rewards_should_work() {
 		);
 		assert_eq_error_rate!(
 			Balances::total_balance(&101),
-			init_balance_101
-				+ part_for_101_from_11 * total_payout_0 * 2 / 3
-				+ part_for_101_from_21 * total_payout_0 * 1 / 3,
+			init_balance_101 +
+				part_for_101_from_11 * total_payout_0 * 2 / 3 +
+				part_for_101_from_21 * total_payout_0 * 1 / 3,
 			2
 		);
 
@@ -414,9 +414,9 @@ fn rewards_should_work() {
 		);
 		assert_eq_error_rate!(
 			Balances::total_balance(&101),
-			init_balance_101
-				+ part_for_101_from_11 * (total_payout_0 * 2 / 3 + total_payout_1)
-				+ part_for_101_from_21 * total_payout_0 * 1 / 3,
+			init_balance_101 +
+				part_for_101_from_11 * (total_payout_0 * 2 / 3 + total_payout_1) +
+				part_for_101_from_21 * total_payout_0 * 1 / 3,
 			2
 		);
 	});
@@ -6087,8 +6087,8 @@ fn test_validator_exposure_is_backward_compatible_with_non_paged_rewards_payout(
 		let actual_exposure_page_1 = ErasStakersPaged::<Test>::get((1, 11, 1)).unwrap();
 		expected_individual_exposures.iter().for_each(|exposure| {
 			assert!(
-				actual_exposure_page_0.others.contains(exposure)
-					|| actual_exposure_page_1.others.contains(exposure)
+				actual_exposure_page_0.others.contains(exposure) ||
+					actual_exposure_page_1.others.contains(exposure)
 			);
 		});
 		assert_eq!(
