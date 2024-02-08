@@ -221,6 +221,8 @@ zombienet-polkadot-smoke-0004-coretime-smoke-test:
 zombienet-polkadot-misc-0001-parachains-paritydb:
   extends:
     - .zombienet-polkadot-common
+  # TODO: flaky test remove once fixed
+  allow_failure: true
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/misc"

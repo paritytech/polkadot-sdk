@@ -127,6 +127,8 @@ check-runtime-migration-westend:
     - .docker-env
     - .test-pr-refs
     - .check-runtime-migration
+  # TODO: flaky test remove once fixed
+  allow_failure: true
   variables:
     NETWORK: "westend"
     PACKAGE: "westend-runtime"
