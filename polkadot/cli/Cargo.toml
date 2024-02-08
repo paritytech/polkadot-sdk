@@ -64,13 +64,13 @@ runtime-benchmarks = [
 	"polkadot-node-metrics/runtime-benchmarks",
 	"sc-service?/runtime-benchmarks",
 	"service/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks"
+	"sp-runtime/runtime-benchmarks",
 ]
 full-node = ["service/full-node"]
 try-runtime = [
 	"service/try-runtime",
+	"sp-runtime/try-runtime",
 	"try-runtime-cli/try-runtime",
-	"sp-runtime/try-runtime"
 ]
 fast-runtime = ["service/fast-runtime"]
 pyroscope = ["pyro", "pyroscope_pprofrs"]
