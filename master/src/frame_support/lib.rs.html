@@ -2876,6 +2876,14 @@
 <a href="#2876" id="2876">2876</a>
 <a href="#2877" id="2877">2877</a>
 <a href="#2878" id="2878">2878</a>
+<a href="#2879" id="2879">2879</a>
+<a href="#2880" id="2880">2880</a>
+<a href="#2881" id="2881">2881</a>
+<a href="#2882" id="2882">2882</a>
+<a href="#2883" id="2883">2883</a>
+<a href="#2884" id="2884">2884</a>
+<a href="#2885" id="2885">2885</a>
+<a href="#2886" id="2886">2886</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2922,7 +2930,7 @@
 	<span class="kw">pub use </span>paste;
 	<span class="kw">pub use </span>scale_info;
 	<span class="kw">pub use </span>serde;
-	<span class="kw">pub use </span>sp_core::{OpaqueMetadata, Void};
+	<span class="kw">pub use </span>sp_core::{Get, OpaqueMetadata, Void};
 	<span class="kw">pub use </span>sp_crypto_hashing_proc_macro;
 	<span class="kw">pub use </span>sp_inherents;
 	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
@@ -3052,6 +3060,14 @@
 </span><span class="kw">pub use </span>frame_support_procedural::storage_alias;
 
 <span class="kw">pub use </span>frame_support_procedural::derive_impl;
+
+<span class="doccomment">/// Experimental macros for defining dynamic params that can be used in pallet configs.
+</span><span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
+</span><span class="kw">pub mod </span>dynamic_params {
+	<span class="kw">pub use </span>frame_support_procedural::{
+		dynamic_aggregated_params_internal, dynamic_pallet_params, dynamic_params,
+	};
+}
 
 <span class="doccomment">/// Create new implementations of the [`Get`](crate::traits::Get) trait.
 ///
