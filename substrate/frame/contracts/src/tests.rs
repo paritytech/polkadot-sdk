@@ -3063,10 +3063,10 @@ fn gas_estimation_for_subcalls() {
 						Determinism::Enforced,
 					)
 					.result,
-					error.clone(),
+					error,
 				);
 
-				// Check that it fails with too litte proof_size
+				// Check that it fails with too little proof_size
 				assert_err!(
 					Contracts::bare_call(
 						ALICE,
