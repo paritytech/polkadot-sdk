@@ -30,7 +30,7 @@ use xcm_builder::{
 		Assets, TestAssetExchanger, TestAssetLocker, TestAssetTrap, TestSubscriptionService,
 		TestUniversalAliases,
 	},
-	AliasForeignAccountId32, AllowUnpaidExecutionFrom,
+	AliasForeignAccountId32, AllowUnpaidExecutionFrom, FrameTransactionalProcessor,
 };
 use xcm_executor::traits::ConvertOrigin;
 
@@ -137,6 +137,7 @@ impl xcm_executor::Config for XcmConfig {
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Aliasers;
+	type TransactionalProcessor = FrameTransactionalProcessor;
 }
 
 parameter_types! {
@@ -197,6 +198,10 @@ impl generic::Config for Test {
 		let assets: MultiAssets = (Concrete(Here.into()), 100).into();
 		let ticket = MultiLocation { parents: 0, interior: X1(GeneralIndex(0)) };
 		Ok((Default::default(), ticket, assets))
+	}
+
+	fn fee_asset() -> Result<MultiAsset, BenchmarkError> {
+		Ok(MultiAsset { id: Concrete(Here.into()), fun: Fungible(1_000_000) })
 	}
 
 	fn unlockable_asset() -> Result<(MultiLocation, MultiLocation, MultiAsset), BenchmarkError> {

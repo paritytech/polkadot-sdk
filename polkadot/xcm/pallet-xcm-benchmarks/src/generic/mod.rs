@@ -76,6 +76,10 @@ pub mod pallet {
 		/// Return an origin, ticket, and assets that can be trapped and claimed.
 		fn claimable_asset() -> Result<(MultiLocation, MultiLocation, MultiAssets), BenchmarkError>;
 
+		/// Asset used to pay for fees. Used to buy weight in benchmarks, for example in
+		/// `refund_surplus`.
+		fn fee_asset() -> Result<MultiAsset, BenchmarkError>;
+
 		/// Return an unlocker, owner and assets that can be locked and unlocked.
 		fn unlockable_asset() -> Result<(MultiLocation, MultiLocation, MultiAsset), BenchmarkError>;
 

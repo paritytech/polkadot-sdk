@@ -24,8 +24,11 @@ xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", def
 pallet-xcm = { path = "../../../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "6.0.0" }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "6.0.0" }
 rococo-runtime = { version = "6.0.0", path = "../../../../../../../polkadot/runtime/rococo" }
+
+# Cumulus
 asset-test-utils = { version = "6.0.0", path = "../../../../../runtimes/assets/test-utils" }
-parachains-common = { version = "6.0.0", path = "../../../../../common" }
+parachains-common = { version = "6.0.0", path = "../../../../../../parachains/common" }
+cumulus-pallet-parachain-system = { path = "../../../../../../pallets/parachain-system", default-features = false }
 asset-hub-rococo-runtime = { version = "0.11.0", path = "../../../../../runtimes/assets/asset-hub-rococo" }
 emulated-integration-tests-common = { path = "../../../common", default-features = false, version = "2.0.0" }
 rococo-system-emulated-network = { version = "0.1.0", path = "../../../networks/rococo-system" }

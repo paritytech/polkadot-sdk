@@ -724,6 +724,7 @@ dependencies = [
  "assert_matches",
  "asset-hub-rococo-runtime",
  "asset-test-utils",
+ "cumulus-pallet-parachain-system",
  "emulated-integration-tests-common",
  "frame-support",
  "pallet-asset-conversion",
@@ -17510,7 +17511,7 @@ dependencies = [
 
 [[package]]
 name = "sp-runtime"
-version = "30.0.0"
+version = "30.0.1"
 dependencies = [
  "docify",
  "either",
