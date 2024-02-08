@@ -9735,6 +9735,7 @@ dependencies = [
  "pallet-bags-list",
  "pallet-balances",
  "pallet-election-provider-multi-phase",
+ "pallet-nomination-pools",
  "pallet-session",
  "pallet-staking",
  "pallet-timestamp",
