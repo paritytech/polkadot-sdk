@@ -37,8 +37,9 @@ use litep2p::{
 };
 
 use sc_network_types::PeerId;
+use sc_utils::mpsc::tracing_unbounded;
 
-use std::{sync::Arc, task::Poll};
+use std::{collections::HashMap, sync::Arc, task::Poll};
 
 /// Create `litep2p` for testing.
 async fn make_litep2p() -> (Litep2p, RequestResponseHandle) {
@@ -98,12 +99,16 @@ async fn connect_peers(litep2p1: &mut Litep2p, litep2p2: &mut Litep2p) {
 async fn dial_failure() {
 	let (mut litep2p, handle) = make_litep2p().await;
 	let (tx, _rx) = async_channel::bounded(64);
+	let (outbound_tx, outbound_rx) = tracing_unbounded("outbound-request", 1000);
+	let senders = HashMap::from_iter([(ProtocolName::from("/protocol/1"), outbound_tx.clone())]);
 
-	let (protocol, outbound_tx) = RequestResponseProtocol::new(
+	let protocol = RequestResponseProtocol::new(
 		ProtocolName::from("/protocol/1"),
 		handle,
 		Arc::new(peerstore_handle_test()),
 		Some(tx),
+		outbound_rx,
+		senders,
 		None,
 	);
 
@@ -130,12 +135,16 @@ async fn dial_failure() {
 async fn send_request_to_disconnected_peer() {
 	let (mut litep2p, handle) = make_litep2p().await;
 	let (tx, _rx) = async_channel::bounded(64);
+	let (outbound_tx, outbound_rx) = tracing_unbounded("outbound-request", 1000);
+	let senders = HashMap::from_iter([(ProtocolName::from("/protocol/1"), outbound_tx.clone())]);
 
-	let (protocol, outbound_tx) = RequestResponseProtocol::new(
+	let protocol = RequestResponseProtocol::new(
 		ProtocolName::from("/protocol/1"),
 		handle,
 		Arc::new(peerstore_handle_test()),
 		Some(tx),
+		outbound_rx,
+		senders,
 		None,
 	);
 
@@ -163,9 +172,6 @@ async fn send_request_to_disconnected_peer_and_dial() {
 	let (mut litep2p1, handle1) = make_litep2p().await;
 	let (mut litep2p2, handle2) = make_litep2p().await;
 
-	let (tx1, _rx1) = async_channel::bounded(64);
-	let (tx2, rx2) = async_channel::bounded(64);
-
 	let peer1 = *litep2p1.local_peer_id();
 	let peer2 = *litep2p2.local_peer_id();
 
@@ -174,19 +180,31 @@ async fn send_request_to_disconnected_peer_and_dial() {
 		std::iter::once(litep2p2.listen_addresses().next().expect("listen address").clone()),
 	);
 
-	let (protocol1, outbound_tx1) = RequestResponseProtocol::new(
+	let (outbound_tx1, outbound_rx1) = tracing_unbounded("outbound-request", 1000);
+	let senders = HashMap::from_iter([(ProtocolName::from("/protocol/1"), outbound_tx1.clone())]);
+	let (tx1, _rx1) = async_channel::bounded(64);
+
+	let protocol1 = RequestResponseProtocol::new(
 		ProtocolName::from("/protocol/1"),
 		handle1,
 		Arc::new(peerstore_handle_test()),
 		Some(tx1),
+		outbound_rx1,
+		senders,
 		None,
 	);
 
-	let (protocol2, _outbound_tx2) = RequestResponseProtocol::new(
+	let (outbound_tx2, outbound_rx2) = tracing_unbounded("outbound-request", 1000);
+	let senders = HashMap::from_iter([(ProtocolName::from("/protocol/1"), outbound_tx2)]);
+	let (tx2, rx2) = async_channel::bounded(64);
+
+	let protocol2 = RequestResponseProtocol::new(
 		ProtocolName::from("/protocol/1"),
 		handle2,
 		Arc::new(peerstore_handle_test()),
 		Some(tx2),
+		outbound_rx2,
+		senders,
 		None,
 	);
 
@@ -223,12 +241,17 @@ async fn too_many_inbound_requests() {
 
 	connect_peers(&mut litep2p1, &mut litep2p2).await;
 
+	let (outbound_tx, outbound_rx) = tracing_unbounded("outbound-request", 1000);
+	let senders = HashMap::from_iter([(ProtocolName::from("/protocol/1"), outbound_tx)]);
 	let (tx, _rx) = async_channel::bounded(4);
-	let (protocol, _outbound_tx) = RequestResponseProtocol::new(
+
+	let protocol = RequestResponseProtocol::new(
 		ProtocolName::from("/protocol/1"),
 		handle1,
 		Arc::new(peerstore_handle_test()),
 		Some(tx),
+		outbound_rx,
+		senders,
 		None,
 	);
 
@@ -271,12 +294,17 @@ async fn feedback_works() {
 
 	connect_peers(&mut litep2p1, &mut litep2p2).await;
 
+	let (outbound_tx, outbound_rx) = tracing_unbounded("outbound-request", 1000);
+	let senders = HashMap::from_iter([(ProtocolName::from("/protocol/1"), outbound_tx)]);
 	let (tx, rx) = async_channel::bounded(4);
-	let (protocol, _outbound_tx) = RequestResponseProtocol::new(
+
+	let protocol = RequestResponseProtocol::new(
 		ProtocolName::from("/protocol/1"),
 		handle1,
 		Arc::new(peerstore_handle_test()),
 		Some(tx),
+		outbound_rx,
+		senders,
 		None,
 	);
 
@@ -325,27 +353,37 @@ async fn feedback_works() {
 
 #[tokio::test]
 async fn fallback_request_compatible_peers() {
-	let (config1, handle1) = ConfigBuilder::new(litep2p::ProtocolName::from("/protocol/2"))
-		.with_fallback_names(vec![litep2p::ProtocolName::from("/protocol/1")])
-		.with_max_size(1024)
-		.build();
+	// `litep2p1` supports both the new and the old protocol
+	let (mut litep2p1, handle1_1, handle1_2) = {
+		let (config1, handle1) = ConfigBuilder::new(litep2p::ProtocolName::from("/protocol/2"))
+			.with_max_size(1024)
+			.build();
 
-	let mut litep2p1 = Litep2p::new(
-		Litep2pConfigBuilder::new()
-			.with_request_response_protocol(config1)
-			.with_tcp(TcpConfig {
-				listen_addresses: vec![
-					"/ip4/0.0.0.0/tcp/0".parse().unwrap(),
-					"/ip6/::/tcp/0".parse().unwrap(),
-				],
-				..Default::default()
-			})
-			.build(),
-	)
-	.unwrap();
+		let (config2, handle2) = ConfigBuilder::new(litep2p::ProtocolName::from("/protocol/1"))
+			.with_max_size(1024)
+			.build();
+		(
+			Litep2p::new(
+				Litep2pConfigBuilder::new()
+					.with_request_response_protocol(config1)
+					.with_request_response_protocol(config2)
+					.with_tcp(TcpConfig {
+						listen_addresses: vec![
+							"/ip4/0.0.0.0/tcp/0".parse().unwrap(),
+							"/ip6/::/tcp/0".parse().unwrap(),
+						],
+						..Default::default()
+					})
+					.build(),
+			)
+			.unwrap(),
+			handle1,
+			handle2,
+		)
+	};
 
+	// `litep2p2` supports only the new protocol
 	let (config2, handle2) = ConfigBuilder::new(litep2p::ProtocolName::from("/protocol/2"))
-		.with_fallback_names(vec![litep2p::ProtocolName::from("/protocol/1")])
 		.with_max_size(1024)
 		.build();
 
@@ -368,26 +406,53 @@ async fn fallback_request_compatible_peers() {
 
 	connect_peers(&mut litep2p1, &mut litep2p2).await;
 
+	let (outbound_tx1, outbound_rx1) = tracing_unbounded("outbound-request", 1000);
+	let (outbound_tx_fallback, outbound_rx_fallback) = tracing_unbounded("outbound-request", 1000);
+
+	let senders1 = HashMap::from_iter([
+		(ProtocolName::from("/protocol/2"), outbound_tx1.clone()),
+		(ProtocolName::from("/protocol/1"), outbound_tx_fallback),
+	]);
+
 	let (tx1, _rx1) = async_channel::bounded(4);
-	let (protocol1, outbound_tx1) = RequestResponseProtocol::new(
+	let protocol1 = RequestResponseProtocol::new(
 		ProtocolName::from("/protocol/2"),
-		handle1,
+		handle1_1,
 		Arc::new(peerstore_handle_test()),
 		Some(tx1),
+		outbound_rx1,
+		senders1.clone(),
 		None,
 	);
 
+	let (tx_fallback, _rx_fallback) = async_channel::bounded(4);
+	let protocol_fallback = RequestResponseProtocol::new(
+		ProtocolName::from("/protocol/1"),
+		handle1_2,
+		Arc::new(peerstore_handle_test()),
+		Some(tx_fallback),
+		outbound_rx_fallback,
+		senders1,
+		None,
+	);
+
+	let (outbound_tx2, outbound_rx2) = tracing_unbounded("outbound-request", 1000);
+	let senders2 = HashMap::from_iter([(ProtocolName::from("/protocol/2"), outbound_tx2)]);
+
 	let (tx2, rx2) = async_channel::bounded(4);
-	let (protocol2, _outbound_tx2) = RequestResponseProtocol::new(
+	let protocol2 = RequestResponseProtocol::new(
 		ProtocolName::from("/protocol/2"),
 		handle2,
 		Arc::new(peerstore_handle_test()),
 		Some(tx2),
+		outbound_rx2,
+		senders2,
 		None,
 	);
 
 	tokio::spawn(protocol1.run());
 	tokio::spawn(protocol2.run());
+	tokio::spawn(protocol_fallback.run());
 	tokio::spawn(async move { while let Some(_) = litep2p1.next_event().await {} });
 	tokio::spawn(async move { while let Some(_) = litep2p2.next_event().await {} });
 
@@ -417,7 +482,6 @@ async fn fallback_request_compatible_peers() {
 		event => panic!("invalid event: {event:?}"),
 	}
 
-	// sender: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
 	match result_rx.await {
 		Ok(Ok((response, protocol))) => {
 			assert_eq!(response, vec![5, 6, 7, 8]);
@@ -429,27 +493,38 @@ async fn fallback_request_compatible_peers() {
 
 #[tokio::test]
 async fn fallback_request_old_peer_receives() {
-	// peer1 supports new, binary-incompatible version of the protocol
-	let (config1, handle1) = ConfigBuilder::new(litep2p::ProtocolName::from("/protocol/2"))
-		.with_fallback_names(vec![litep2p::ProtocolName::from("/protocol/1")])
-		.with_max_size(1024)
-		.build();
+	sp_tracing::try_init_simple();
 
-	let mut litep2p1 = Litep2p::new(
-		Litep2pConfigBuilder::new()
-			.with_request_response_protocol(config1)
-			.with_tcp(TcpConfig {
-				listen_addresses: vec![
-					"/ip4/0.0.0.0/tcp/0".parse().unwrap(),
-					"/ip6/::/tcp/0".parse().unwrap(),
-				],
-				..Default::default()
-			})
-			.build(),
-	)
-	.unwrap();
+	// `litep2p1` supports both the new and the old protocol
+	let (mut litep2p1, handle1_1, handle1_2) = {
+		let (config1, handle1) = ConfigBuilder::new(litep2p::ProtocolName::from("/protocol/2"))
+			.with_max_size(1024)
+			.build();
 
-	// peer2 supports only the old version of the protocol
+		let (config2, handle2) = ConfigBuilder::new(litep2p::ProtocolName::from("/protocol/1"))
+			.with_max_size(1024)
+			.build();
+		(
+			Litep2p::new(
+				Litep2pConfigBuilder::new()
+					.with_request_response_protocol(config1)
+					.with_request_response_protocol(config2)
+					.with_tcp(TcpConfig {
+						listen_addresses: vec![
+							"/ip4/0.0.0.0/tcp/0".parse().unwrap(),
+							"/ip6/::/tcp/0".parse().unwrap(),
+						],
+						..Default::default()
+					})
+					.build(),
+			)
+			.unwrap(),
+			handle1,
+			handle2,
+		)
+	};
+
+	// `litep2p2` supports only the new protocol
 	let (config2, handle2) = ConfigBuilder::new(litep2p::ProtocolName::from("/protocol/1"))
 		.with_max_size(1024)
 		.build();
@@ -473,26 +548,53 @@ async fn fallback_request_old_peer_receives() {
 
 	connect_peers(&mut litep2p1, &mut litep2p2).await;
 
+	let (outbound_tx1, outbound_rx1) = tracing_unbounded("outbound-request", 1000);
+	let (outbound_tx_fallback, outbound_rx_fallback) = tracing_unbounded("outbound-request", 1000);
+
+	let senders1 = HashMap::from_iter([
+		(ProtocolName::from("/protocol/2"), outbound_tx1.clone()),
+		(ProtocolName::from("/protocol/1"), outbound_tx_fallback),
+	]);
+
 	let (tx1, _rx1) = async_channel::bounded(4);
-	let (protocol1, outbound_tx1) = RequestResponseProtocol::new(
+	let protocol1 = RequestResponseProtocol::new(
 		ProtocolName::from("/protocol/2"),
-		handle1,
+		handle1_1,
 		Arc::new(peerstore_handle_test()),
 		Some(tx1),
+		outbound_rx1,
+		senders1.clone(),
 		None,
 	);
 
+	let (tx_fallback, _rx_fallback) = async_channel::bounded(4);
+	let protocol_fallback = RequestResponseProtocol::new(
+		ProtocolName::from("/protocol/1"),
+		handle1_2,
+		Arc::new(peerstore_handle_test()),
+		Some(tx_fallback),
+		outbound_rx_fallback,
+		senders1,
+		None,
+	);
+
+	let (outbound_tx2, outbound_rx2) = tracing_unbounded("outbound-request", 1000);
+	let senders2 = HashMap::from_iter([(ProtocolName::from("/protocol/1"), outbound_tx2)]);
+
 	let (tx2, rx2) = async_channel::bounded(4);
-	let (protocol2, _outbound_tx2) = RequestResponseProtocol::new(
+	let protocol2 = RequestResponseProtocol::new(
 		ProtocolName::from("/protocol/1"),
 		handle2,
 		Arc::new(peerstore_handle_test()),
 		Some(tx2),
+		outbound_rx2,
+		senders2,
 		None,
 	);
 
 	tokio::spawn(protocol1.run());
 	tokio::spawn(protocol2.run());
+	tokio::spawn(protocol_fallback.run());
 	tokio::spawn(async move { while let Some(_) = litep2p1.next_event().await {} });
 	tokio::spawn(async move { while let Some(_) = litep2p2.next_event().await {} });
 
@@ -522,7 +624,6 @@ async fn fallback_request_old_peer_receives() {
 		event => panic!("invalid event: {event:?}"),
 	}
 
-	// sender: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
 	match result_rx.await {
 		Ok(Ok((response, protocol))) => {
 			assert_eq!(response, vec![1, 3, 3, 8]);
@@ -534,27 +635,38 @@ async fn fallback_request_old_peer_receives() {
 
 #[tokio::test]
 async fn fallback_request_old_peer_sends() {
-	// peer1 supports new, binary-incompatible version of the protocol
-	let (config1, handle1) = ConfigBuilder::new(litep2p::ProtocolName::from("/protocol/2"))
-		.with_fallback_names(vec![litep2p::ProtocolName::from("/protocol/1")])
-		.with_max_size(1024)
-		.build();
+	sp_tracing::try_init_simple();
 
-	let mut litep2p1 = Litep2p::new(
-		Litep2pConfigBuilder::new()
-			.with_request_response_protocol(config1)
-			.with_tcp(TcpConfig {
-				listen_addresses: vec![
-					"/ip4/0.0.0.0/tcp/0".parse().unwrap(),
-					"/ip6/::/tcp/0".parse().unwrap(),
-				],
-				..Default::default()
-			})
-			.build(),
-	)
-	.unwrap();
+	// `litep2p1` supports both the new and the old protocol
+	let (mut litep2p1, handle1_1, handle1_2) = {
+		let (config1, handle1) = ConfigBuilder::new(litep2p::ProtocolName::from("/protocol/2"))
+			.with_max_size(1024)
+			.build();
 
-	// peer2 supports only the old version of the protocol
+		let (config2, handle2) = ConfigBuilder::new(litep2p::ProtocolName::from("/protocol/1"))
+			.with_max_size(1024)
+			.build();
+		(
+			Litep2p::new(
+				Litep2pConfigBuilder::new()
+					.with_request_response_protocol(config1)
+					.with_request_response_protocol(config2)
+					.with_tcp(TcpConfig {
+						listen_addresses: vec![
+							"/ip4/0.0.0.0/tcp/0".parse().unwrap(),
+							"/ip6/::/tcp/0".parse().unwrap(),
+						],
+						..Default::default()
+					})
+					.build(),
+			)
+			.unwrap(),
+			handle1,
+			handle2,
+		)
+	};
+
+	// `litep2p2` supports only the new protocol
 	let (config2, handle2) = ConfigBuilder::new(litep2p::ProtocolName::from("/protocol/1"))
 		.with_max_size(1024)
 		.build();
@@ -578,26 +690,53 @@ async fn fallback_request_old_peer_sends() {
 
 	connect_peers(&mut litep2p1, &mut litep2p2).await;
 
-	let (tx1, rx1) = async_channel::bounded(4);
-	let (protocol1, _outbound_tx1) = RequestResponseProtocol::new(
+	let (outbound_tx1, outbound_rx1) = tracing_unbounded("outbound-request", 1000);
+	let (outbound_tx_fallback, outbound_rx_fallback) = tracing_unbounded("outbound-request", 1000);
+
+	let senders1 = HashMap::from_iter([
+		(ProtocolName::from("/protocol/2"), outbound_tx1.clone()),
+		(ProtocolName::from("/protocol/1"), outbound_tx_fallback),
+	]);
+
+	let (tx1, _rx1) = async_channel::bounded(4);
+	let protocol1 = RequestResponseProtocol::new(
 		ProtocolName::from("/protocol/2"),
-		handle1,
+		handle1_1,
 		Arc::new(peerstore_handle_test()),
 		Some(tx1),
+		outbound_rx1,
+		senders1.clone(),
 		None,
 	);
 
+	let (tx_fallback, rx_fallback) = async_channel::bounded(4);
+	let protocol_fallback = RequestResponseProtocol::new(
+		ProtocolName::from("/protocol/1"),
+		handle1_2,
+		Arc::new(peerstore_handle_test()),
+		Some(tx_fallback),
+		outbound_rx_fallback,
+		senders1,
+		None,
+	);
+
+	let (outbound_tx2, outbound_rx2) = tracing_unbounded("outbound-request", 1000);
+	let senders2 = HashMap::from_iter([(ProtocolName::from("/protocol/1"), outbound_tx2.clone())]);
+
 	let (tx2, _rx2) = async_channel::bounded(4);
-	let (protocol2, outbound_tx2) = RequestResponseProtocol::new(
+	let protocol2 = RequestResponseProtocol::new(
 		ProtocolName::from("/protocol/1"),
 		handle2,
 		Arc::new(peerstore_handle_test()),
 		Some(tx2),
+		outbound_rx2,
+		senders2,
 		None,
 	);
 
 	tokio::spawn(protocol1.run());
 	tokio::spawn(protocol2.run());
+	tokio::spawn(protocol_fallback.run());
 	tokio::spawn(async move { while let Some(_) = litep2p1.next_event().await {} });
 	tokio::spawn(async move { while let Some(_) = litep2p2.next_event().await {} });
 
@@ -612,13 +751,7 @@ async fn fallback_request_old_peer_sends() {
 		})
 		.unwrap();
 
-	// FIXME: because `/protocol/1` is a fallback of `/protocol/2`, requests over both protocols
-	// are received over the same channel which in the high-level API is tied to one single protocol
-	// and the actual negotiated protocol is reported to the request handler
-	//
-	// this means that request handler doesn't know the protocol of the request and may decode the
-	// request incorrectly
-	match rx1.recv().await {
+	match rx_fallback.recv().await {
 		Ok(IncomingRequest { peer, payload, pending_response }) => {
 			assert_eq!(peer, peer2.into());
 			assert_eq!(payload, vec![1, 2, 3, 4]);
@@ -637,6 +770,131 @@ async fn fallback_request_old_peer_sends() {
 		Ok(Ok((response, protocol))) => {
 			assert_eq!(response, vec![1, 3, 3, 8]);
 			assert_eq!(protocol, ProtocolName::from("/protocol/1"));
+		},
+		event => panic!("invalid event: {event:?}"),
+	}
+}
+
+#[tokio::test]
+async fn old_protocol_supported_but_no_fallback_provided() {
+	sp_tracing::try_init_simple();
+
+	// `litep2p1` supports both the new and the old protocol
+	let (mut litep2p1, handle1_1, handle1_2) = {
+		let (config1, handle1) = ConfigBuilder::new(litep2p::ProtocolName::from("/protocol/2"))
+			.with_max_size(1024)
+			.build();
+
+		let (config2, handle2) = ConfigBuilder::new(litep2p::ProtocolName::from("/protocol/1"))
+			.with_max_size(1024)
+			.build();
+		(
+			Litep2p::new(
+				Litep2pConfigBuilder::new()
+					.with_request_response_protocol(config1)
+					.with_request_response_protocol(config2)
+					.with_tcp(TcpConfig {
+						listen_addresses: vec![
+							"/ip4/0.0.0.0/tcp/0".parse().unwrap(),
+							"/ip6/::/tcp/0".parse().unwrap(),
+						],
+						..Default::default()
+					})
+					.build(),
+			)
+			.unwrap(),
+			handle1,
+			handle2,
+		)
+	};
+
+	// `litep2p2` supports only the new protocol
+	let (config2, handle2) = ConfigBuilder::new(litep2p::ProtocolName::from("/protocol/1"))
+		.with_max_size(1024)
+		.build();
+
+	let mut litep2p2 = Litep2p::new(
+		Litep2pConfigBuilder::new()
+			.with_request_response_protocol(config2)
+			.with_tcp(TcpConfig {
+				listen_addresses: vec![
+					"/ip4/0.0.0.0/tcp/0".parse().unwrap(),
+					"/ip6/::/tcp/0".parse().unwrap(),
+				],
+				..Default::default()
+			})
+			.build(),
+	)
+	.unwrap();
+
+	let peer2 = *litep2p2.local_peer_id();
+
+	connect_peers(&mut litep2p1, &mut litep2p2).await;
+
+	let (outbound_tx1, outbound_rx1) = tracing_unbounded("outbound-request", 1000);
+	let (outbound_tx_fallback, outbound_rx_fallback) = tracing_unbounded("outbound-request", 1000);
+
+	let senders1 = HashMap::from_iter([
+		(ProtocolName::from("/protocol/2"), outbound_tx1.clone()),
+		(ProtocolName::from("/protocol/1"), outbound_tx_fallback),
+	]);
+
+	let (tx1, _rx1) = async_channel::bounded(4);
+	let protocol1 = RequestResponseProtocol::new(
+		ProtocolName::from("/protocol/2"),
+		handle1_1,
+		Arc::new(peerstore_handle_test()),
+		Some(tx1),
+		outbound_rx1,
+		senders1.clone(),
+		None,
+	);
+
+	let (tx_fallback, _rx_fallback) = async_channel::bounded(4);
+	let protocol_fallback = RequestResponseProtocol::new(
+		ProtocolName::from("/protocol/1"),
+		handle1_2,
+		Arc::new(peerstore_handle_test()),
+		Some(tx_fallback),
+		outbound_rx_fallback,
+		senders1,
+		None,
+	);
+
+	let (outbound_tx2, outbound_rx2) = tracing_unbounded("outbound-request", 1000);
+	let senders2 = HashMap::from_iter([(ProtocolName::from("/protocol/1"), outbound_tx2)]);
+
+	let (tx2, _rx2) = async_channel::bounded(4);
+	let protocol2 = RequestResponseProtocol::new(
+		ProtocolName::from("/protocol/1"),
+		handle2,
+		Arc::new(peerstore_handle_test()),
+		Some(tx2),
+		outbound_rx2,
+		senders2,
+		None,
+	);
+
+	tokio::spawn(protocol1.run());
+	tokio::spawn(protocol2.run());
+	tokio::spawn(protocol_fallback.run());
+	tokio::spawn(async move { while let Some(_) = litep2p1.next_event().await {} });
+	tokio::spawn(async move { while let Some(_) = litep2p2.next_event().await {} });
+
+	let (result_tx, result_rx) = oneshot::channel();
+	outbound_tx1
+		.unbounded_send(OutboundRequest {
+			peer: peer2.into(),
+			request: vec![1, 2, 3, 4],
+			sender: result_tx,
+			fallback_request: None,
+			dial_behavior: IfDisconnected::ImmediateError,
+		})
+		.unwrap();
+
+	match result_rx.await {
+		Ok(Err(error)) => {
+			assert!(std::matches!(error, RequestFailure::Refused));
 		},
 		event => panic!("invalid event: {event:?}"),
 	}

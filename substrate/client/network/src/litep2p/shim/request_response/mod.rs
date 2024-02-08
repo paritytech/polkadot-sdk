@@ -36,7 +36,7 @@ use litep2p::{
 };
 
 use sc_network_types::PeerId;
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+use sc_utils::mpsc::{TracingUnboundedReceiver, TracingUnboundedSender};
 
 use std::{
 	collections::HashMap,
@@ -81,6 +81,24 @@ impl OutboundRequest {
 		dial_behavior: IfDisconnected,
 	) -> Self {
 		OutboundRequest { peer, request, sender, fallback_request, dial_behavior }
+	}
+}
+
+/// Pending request.
+struct PendingRequest {
+	tx: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
+	started: Instant,
+	fallback_request: Option<(Vec<u8>, ProtocolName)>,
+}
+
+impl PendingRequest {
+	/// Create new [`PendingRequest`].
+	fn new(
+		tx: oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>,
+		started: Instant,
+		fallback_request: Option<(Vec<u8>, ProtocolName)>,
+	) -> Self {
+		Self { tx, started, fallback_request }
 	}
 }
 
@@ -157,10 +175,7 @@ pub struct RequestResponseProtocol {
 	peerstore_handle: Arc<dyn PeerStoreProvider>,
 
 	/// Pending responses.
-	pending_inbound_responses: HashMap<
-		RequestId,
-		(oneshot::Sender<Result<(Vec<u8>, ProtocolName), RequestFailure>>, Instant),
-	>,
+	pending_inbound_responses: HashMap<RequestId, PendingRequest>,
 
 	/// Pending outbound responses.
 	pending_outbound_responses: FuturesUnordered<
@@ -169,6 +184,13 @@ pub struct RequestResponseProtocol {
 
 	/// RX channel for receiving info for outbound requests.
 	request_rx: TracingUnboundedReceiver<OutboundRequest>,
+
+	/// Map of supported request-response protocols which are used to support fallback requests.
+	///
+	/// If negotiation for the main protocol fails and the request was sent with a fallback,
+	/// [`RequestResponseProtocol`] queries this map and sends the protocol that protocol for
+	/// processing.
+	request_tx: HashMap<ProtocolName, TracingUnboundedSender<OutboundRequest>>,
 
 	/// Metrics, if enabled.
 	metrics: RequestResponseMetrics,
@@ -181,23 +203,21 @@ impl RequestResponseProtocol {
 		handle: RequestResponseHandle,
 		peerstore_handle: Arc<dyn PeerStoreProvider>,
 		inbound_queue: Option<async_channel::Sender<IncomingRequest>>,
+		request_rx: TracingUnboundedReceiver<OutboundRequest>,
+		request_tx: HashMap<ProtocolName, TracingUnboundedSender<OutboundRequest>>,
 		metrics: Option<Metrics>,
-	) -> (Self, TracingUnboundedSender<OutboundRequest>) {
-		let (request_tx, request_rx) = tracing_unbounded("outbound-requests", 10_000);
-
-		(
-			Self {
-				handle,
-				request_rx,
-				inbound_queue,
-				peerstore_handle,
-				protocol: protocol.clone(),
-				pending_inbound_responses: HashMap::new(),
-				pending_outbound_responses: FuturesUnordered::new(),
-				metrics: RequestResponseMetrics::new(metrics, protocol),
-			},
+	) -> Self {
+		Self {
+			handle,
+			request_rx,
 			request_tx,
-		)
+			inbound_queue,
+			peerstore_handle,
+			protocol: protocol.clone(),
+			pending_inbound_responses: HashMap::new(),
+			pending_outbound_responses: FuturesUnordered::new(),
+			metrics: RequestResponseMetrics::new(metrics, protocol),
+		}
 	}
 
 	/// Send `request` to `peer`.
@@ -217,26 +237,16 @@ impl RequestResponseProtocol {
 		log::trace!(
 			target: LOG_TARGET,
 			"{}: send request to {:?} (fallback {:?}) (dial options: {:?})",
+			self.protocol,
 			peer,
 			fallback_request,
 			dial_options,
-			self.protocol,
 		);
 
-		match {
-			match fallback_request {
-				Some((fallback_request, fallback_protocol)) =>
-					self.handle.try_send_request_with_fallback(
-						peer.into(),
-						request,
-						(fallback_protocol.into(), fallback_request),
-						dial_options,
-					),
-				None => self.handle.try_send_request(peer.into(), request, dial_options),
-			}
-		} {
+		match self.handle.try_send_request(peer.into(), request, dial_options) {
 			Ok(request_id) => {
-				self.pending_inbound_responses.insert(request_id, (tx, Instant::now()));
+				self.pending_inbound_responses
+					.insert(request_id, PendingRequest::new(tx, Instant::now(), fallback_request));
 			},
 			Err(error) => {
 				log::warn!(
@@ -317,7 +327,7 @@ impl RequestResponseProtocol {
 				"{:?}: response received for {peer:?} but {request_id:?} doesn't exist",
 				self.protocol,
 			),
-			Some((tx, started)) => {
+			Some(PendingRequest { tx, started, .. }) => {
 				log::trace!(
 					target: LOG_TARGET,
 					"{:?}: response received for {peer:?} ({request_id:?}), response size {:?}",
@@ -347,7 +357,9 @@ impl RequestResponseProtocol {
 			self.protocol
 		);
 
-		let Some((tx, _)) = self.pending_inbound_responses.remove(&request_id) else {
+		let Some(PendingRequest { tx, fallback_request, .. }) =
+			self.pending_inbound_responses.remove(&request_id)
+		else {
 			log::warn!(
 				target: LOG_TARGET,
 				"{:?}: request failed for peer {peer:?} but {request_id:?} doesn't exist",
@@ -377,7 +389,48 @@ impl RequestResponseProtocol {
 				);
 				Some(RequestFailure::Refused)
 			},
-			RequestResponseError::UnsupportedProtocol => Some(RequestFailure::Refused),
+			RequestResponseError::UnsupportedProtocol => match fallback_request {
+				Some((request, protocol)) => match self.request_tx.get(&protocol) {
+					Some(sender) => {
+						log::debug!(
+							target: LOG_TARGET,
+							"{}: failed to negotiate protocol with {:?}, try fallback request: ({})",
+							self.protocol,
+							peer,
+							protocol,
+						);
+
+						let outbound_request = OutboundRequest::new(
+							peer.into(),
+							request,
+							tx,
+							None,
+							IfDisconnected::ImmediateError,
+						);
+
+						// since remote peer doesn't support the main protocol (`self.protocol`),
+						// try to send the request over a fallback protocol by creating a new
+						// `OutboundRequest` from the original data, now with the fallback request
+						// payload, and send it over to the (fallback) request handler like it was
+						// a normal request.
+						let _ = sender.unbounded_send(outbound_request);
+
+						return;
+					},
+					None => {
+						log::warn!(
+							target: LOG_TARGET,
+							"{}: fallback request provided but protocol ({}) doesn't exist (peer {:?})",
+							self.protocol,
+							protocol,
+							peer,
+						);
+
+						Some(RequestFailure::Refused)
+					},
+				},
+				None => Some(RequestFailure::Refused),
+			},
 		};
 
 		if let Some(error) = error {

@@ -458,7 +458,22 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			Some(registry) => Some(register_without_sources(registry)?),
 			None => None,
 		};
-		let mut request_response_tx = HashMap::new();
+
+		// create channels that are used to send request before initializing protocols so the
+		// senders can be passed onto all request-response protocols
+		//
+		// all protocols must have each others' senders so they can send the fallback request in
+		// case the main protocol is not supported by the remote peer and user specified a fallback
+		let (mut request_response_receivers, request_response_senders): (
+			HashMap<_, _>,
+			HashMap<_, _>,
+		) = request_response_protocols
+			.iter()
+			.map(|config| {
+				let (tx, rx) = tracing_unbounded("outbound-requests", 10_000);
+				((config.protocol_name.clone(), rx), (config.protocol_name.clone(), tx))
+			})
+			.unzip();
 
 		config_builder = request_response_protocols.into_iter().fold(
 			config_builder,
@@ -471,18 +486,21 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				.with_timeout(config.request_timeout)
 				.build();
 
-				let (protocol, tx) = RequestResponseProtocol::new(
+				let protocol = RequestResponseProtocol::new(
 					config.protocol_name.clone(),
 					handle,
 					Arc::clone(&peer_store_handle),
 					config.inbound_queue,
+					request_response_receivers
+						.remove(&config.protocol_name)
+						.expect("receiver exists as it was just added and there are no duplicate protocols; qed"),
+					request_response_senders.clone(),
 					metrics.clone(),
 				);
 
 				executor.run(Box::pin(async move {
 					protocol.run().await;
 				}));
-				request_response_tx.insert(config.protocol_name, tx);
 
 				config_builder.with_request_response_protocol(protocol_config)
 			},
@@ -551,7 +569,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			Arc::clone(&peer_store_handle),
 			notif_protocols.clone(),
 			block_announce_protocol.clone(),
-			request_response_tx,
+			request_response_senders,
 			Arc::clone(&listen_addresses),
 			Arc::clone(&external_addresses),
 		));
