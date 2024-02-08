@@ -109,7 +109,8 @@ impl ToTokens for DynamicParamModAttr {
 
 		// Inject the outer args into the inner `#[dynamic_pallet_params(..)]` attribute.
 		if let Some(params_pallet) = &self.meta.params_pallet {
-			MacroInjectArgs(params_pallet.clone()).visit_item_mod_mut(&mut params_mod);
+			MacroInjectArgs { runtime_params: name.clone(), params_pallet: params_pallet.clone() }
+				.visit_item_mod_mut(&mut params_mod);
 		}
 
 		tokens.extend(quote! {
@@ -148,7 +149,10 @@ fn ensure_codec_index(attrs: &Vec<syn::Attribute>, span: Span) -> Result<()> {
 ///
 /// This allows the outer `#[dynamic_params(..)]` attribute to specify some arguments that dont need
 /// to be repeated every time.
-struct MacroInjectArgs(syn::Type);
+struct MacroInjectArgs {
+	runtime_params: syn::Ident,
+	params_pallet: syn::Type,
+}
 impl VisitMut for MacroInjectArgs {
 	fn visit_item_mod_mut(&mut self, item: &mut syn::ItemMod) {
 		// Check if the mod has a `#[dynamic_pallet_params(..)]` attribute.
@@ -161,9 +165,11 @@ impl VisitMut for MacroInjectArgs {
 				_ => (),
 			}
 
-			let params_pallet = &self.0;
+			let runtime_params = &self.runtime_params;
+			let params_pallet = &self.params_pallet;
+
 			attr.meta = syn::parse2::<syn::Meta>(quote! {
-				dynamic_pallet_params(#params_pallet)
+				dynamic_pallet_params(#runtime_params, #params_pallet)
 			})
 			.unwrap()
 			.into();
@@ -172,20 +178,25 @@ impl VisitMut for MacroInjectArgs {
 		visit_mut::visit_item_mod_mut(self, item);
 	}
 }
-/// The helper attribute of a `#[dynamic_pallet_params(parameter_pallet, parameter_name)]`
+/// The helper attribute of a `#[dynamic_pallet_params(runtime_params, params_pallet)]`
 /// attribute.
 #[derive(derive_syn_parse::Parse)]
 pub struct DynamicPalletParamAttr {
 	inner_mod: syn::ItemMod,
+	meta: DynamicPalletParamAttrMeta,
+}
+
+/// The inner meta of a `#[dynamic_pallet_params(..)]` attribute.
+#[derive(derive_syn_parse::Parse)]
+pub struct DynamicPalletParamAttrMeta {
+	runtime_params: syn::Ident,
+	_comma: Token![,],
 	parameter_pallet: syn::Type,
 }
 
 impl DynamicPalletParamAttr {
 	pub fn parse(attr: TokenStream, item: TokenStream) -> Result<Self> {
-		let inner_mod = parse2(item)?;
-		let parameter_pallet = parse2(attr)?;
-
-		Ok(Self { inner_mod, parameter_pallet })
+		Ok(Self { inner_mod: parse2(item)?, meta: parse2(attr)? })
 	}
 
 	pub fn statics(&self) -> Vec<syn::ItemStatic> {
@@ -208,7 +219,8 @@ impl ToTokens for DynamicPalletParamAttr {
 			Ok(path) => path,
 			Err(err) => return tokens.extend(err),
 		};
-		let (params_mod, parameter_pallet) = (&self.inner_mod, &self.parameter_pallet);
+		let (params_mod, parameter_pallet, runtime_params) =
+			(&self.inner_mod, &self.meta.parameter_pallet, &self.meta.runtime_params);
 
 		let aggregate_name =
 			syn::Ident::new(&params_mod.ident.to_string().to_class_case(), params_mod.ident.span());
@@ -238,6 +250,8 @@ impl ToTokens for DynamicPalletParamAttr {
 
 		let key_ident = syn::Ident::new("ParametersKey", params_mod.ident.span());
 		let value_ident = syn::Ident::new("ParametersValue", params_mod.ident.span());
+		let runtime_key_ident = format_ident!("{}Key", runtime_params);
+		let runtime_value_ident = format_ident!("{}Value", runtime_params);
 
 		tokens.extend(quote! {
 			pub mod #mod_name {
@@ -330,10 +344,10 @@ impl ToTokens for DynamicPalletParamAttr {
 						fn get() -> #value_types {
 							match
 								<#parameter_pallet as
-									#scrate::storage::StorageMap<RuntimeParametersKey, RuntimeParametersValue>
-								>::get(RuntimeParametersKey::#aggregate_name(#key_ident::#key_names(#key_names)))
+									#scrate::storage::StorageMap<#runtime_key_ident, #runtime_value_ident>
+								>::get(#runtime_key_ident::#aggregate_name(#key_ident::#key_names(#key_names)))
 							{
-								Some(RuntimeParametersValue::#aggregate_name(
+								Some(#runtime_value_ident::#aggregate_name(
 									#value_ident::#key_names(inner))) => inner,
 								Some(_) => {
 									#scrate::defensive!("Unexpected value type at key - returning default");
