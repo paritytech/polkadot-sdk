@@ -368,7 +368,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(())
 	}
 
-	/// Refunds the DepositFrom of an account only if its balance is zero.
+	/// Refunds the `DepositFrom` of an account only if its balance is zero.
 	///
 	/// If the `maybe_check_caller` parameter is specified, it must match the account that provided
 	/// the deposit or must be the admin of the asset.
@@ -1022,7 +1022,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Reset the team for the asset with the given `id`.
 	///
 	/// ### Parameters
-	///
 	/// - `id`: The identifier of the asset for which the team is being reset.
 	/// - `owner`: The new `owner` account for the asset.
 	/// - `admin`: The new `admin` account for the asset.

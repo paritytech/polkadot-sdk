@@ -39,7 +39,6 @@ pub trait ResetTeam<AccountId> {
 	/// Reset the team for the asset with the given `id`.
 	///
 	/// ### Parameters
-	///
 	/// - `id`: The identifier of the asset for which the team is being reset.
 	/// - `owner`: The new `owner` account for the asset.
 	/// - `admin`: The new `admin` account for the asset.

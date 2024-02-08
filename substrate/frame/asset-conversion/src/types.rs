@@ -151,7 +151,7 @@ where
 	}
 }
 
-/// `PoolId` to `AccountId` conversion without [`PalledId`] seed.
+/// `PoolId` to `AccountId` conversion without an addition arguments to the seed.
 pub struct AccountIdConverterNoSeed<PoolId>(PhantomData<PoolId>);
 impl<PoolId, AccountId> TryConvert<&PoolId, AccountId> for AccountIdConverterNoSeed<PoolId>
 where
