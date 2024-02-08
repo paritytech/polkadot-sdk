@@ -373,13 +373,18 @@ mod select_candidates {
 					let _ = sender.send(response);
 				},
 				AllMessages::ProspectiveParachains(
-					ProspectiveParachainsMessage::GetBackableCandidate(.., tx),
-				) => match prospective_parachains_mode {
-					ProspectiveParachainsMode::Enabled { .. } => {
-						let _ = tx.send(candidates_iter.next());
-					},
-					ProspectiveParachainsMode::Disabled =>
-						panic!("unexpected prospective parachains request"),
+					ProspectiveParachainsMessage::GetBackableCandidates(_, _, count, _, tx),
+				) => {
+					assert_eq!(count, 1);
+
+					match prospective_parachains_mode {
+						ProspectiveParachainsMode::Enabled { .. } => {
+							let _ =
+								tx.send(candidates_iter.next().map_or_else(Vec::new, |c| vec![c]));
+						},
+						ProspectiveParachainsMode::Disabled =>
+							panic!("unexpected prospective parachains request"),
+					}
 				},
 				_ => panic!("Unexpected message: {:?}", from_job),
 			}

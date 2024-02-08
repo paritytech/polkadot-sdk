@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{exec::ExecError, Config, Error};
+use core::marker::PhantomData;
 use frame_support::{
 	dispatch::{DispatchErrorWithPostInfo, DispatchResultWithPostInfo, PostDispatchInfo},
 	weights::Weight,
@@ -23,7 +24,6 @@ use frame_support::{
 };
 use sp_core::Get;
 use sp_runtime::{traits::Zero, DispatchError};
-use sp_std::marker::PhantomData;
 
 #[cfg(test)]
 use std::{any::Any, fmt::Debug};
