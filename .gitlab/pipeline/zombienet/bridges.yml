@@ -37,18 +37,16 @@
       - ./zombienet-logs
   after_script:
     - mkdir -p ./zombienet-logs
-    # copy logs of tests runner (run-tests.sh)
-    - cp -r /tmp/bridges-zombienet-tests.*/tmp.*/tmp.* ./zombienet-logs/
-    # copy logs of all nodes
-    - cp /tmp/zombie*/logs/* ./zombienet-logs/
-# following lines are causing spurious test failures ("At least one of the nodes fails to start")
-#  retry: 2
-#  tags:
-#    - zombienet-polkadot-integration-test
+    # copy general logs
+    - cp -r /tmp/bridges-tests-run-*/logs/* ./zombienet-logs/
+    # copy logs of rococo nodes
+    - cp -r /tmp/bridges-tests-run-*/bridge_hub_rococo_local_network/*.log ./zombienet-logs/
+    # copy logs of westend nodes
+    - cp -r /tmp/bridges-tests-run-*/bridge_hub_westend_local_network/*.log ./zombienet-logs/
 
 zombienet-bridges-0001-asset-transfer-works:
   extends:
     - .zombienet-bridges-common
   script:
-    - /home/nonroot/bridges-polkadot-sdk/bridges/zombienet/run-tests.sh --docker
+    - /home/nonroot/bridges-polkadot-sdk/bridges/zombienet/run-new-test.sh 0001-asset-transfer --docker
     - echo "Done"
