@@ -333,24 +333,6 @@
 <a href="#333" id="333">333</a>
 <a href="#334" id="334">334</a>
 <a href="#335" id="335">335</a>
-<a href="#336" id="336">336</a>
-<a href="#337" id="337">337</a>
-<a href="#338" id="338">338</a>
-<a href="#339" id="339">339</a>
-<a href="#340" id="340">340</a>
-<a href="#341" id="341">341</a>
-<a href="#342" id="342">342</a>
-<a href="#343" id="343">343</a>
-<a href="#344" id="344">344</a>
-<a href="#345" id="345">345</a>
-<a href="#346" id="346">346</a>
-<a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a>
-<a href="#349" id="349">349</a>
-<a href="#350" id="350">350</a>
-<a href="#351" id="351">351</a>
-<a href="#352" id="352">352</a>
-<a href="#353" id="353">353</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -457,10 +439,8 @@
 	/// # Note
 	///
 	/// Passing `0` as amount is interpreted as &quot;all remaining gas&quot;.
-	</span><span class="kw">pub fn </span>nested(<span class="kw-2">&amp;mut </span><span class="self">self</span>, amount: Weight) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
-		<span class="comment">// NOTE that it is ok to allocate all available gas since it still ensured
-		// by `charge` that it doesn&#39;t reach zero.
-		</span><span class="kw">let </span>amount = Weight::from_parts(
+	</span><span class="kw">pub fn </span>nested(<span class="kw-2">&amp;mut </span><span class="self">self</span>, amount: Weight) -&gt; <span class="self">Self </span>{
+		<span class="kw">let </span>amount = Weight::from_parts(
 			<span class="kw">if </span>amount.ref_time().is_zero() {
 				<span class="self">self</span>.gas_left().ref_time()
 			} <span class="kw">else </span>{
@@ -471,33 +451,17 @@
 			} <span class="kw">else </span>{
 				amount.proof_size()
 			},
-		);
-		<span class="self">self</span>.gas_left = <span class="self">self</span>.gas_left.checked_sub(<span class="kw-2">&amp;</span>amount).ok_or_else(|| &lt;Error&lt;T&gt;&gt;::OutOfGas)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>(GasMeter::new(amount))
+		)
+		.min(<span class="self">self</span>.gas_left);
+		<span class="self">self</span>.gas_left -= amount;
+		GasMeter::new(amount)
 	}
 
 	<span class="doccomment">/// Absorb the remaining gas of a nested meter after we are done using it.
 	</span><span class="kw">pub fn </span>absorb_nested(<span class="kw-2">&amp;mut </span><span class="self">self</span>, nested: <span class="self">Self</span>) {
-		<span class="kw">if </span><span class="self">self</span>.gas_left.ref_time().is_zero() {
-			<span class="comment">// All of the remaining gas was inherited by the nested gas meter. When absorbing
-			// we can therefore safely inherit the lowest gas that the nested gas meter experienced
-			// as long as it is lower than the lowest gas that was experienced by the parent.
-			// We cannot call `self.gas_left_lowest()` here because in the state that this
-			// code is run the parent gas meter has `0` gas left.
-			</span><span class="kw-2">*</span><span class="self">self</span>.gas_left_lowest.ref_time_mut() =
-				nested.gas_left_lowest().ref_time().min(<span class="self">self</span>.gas_left_lowest.ref_time());
-		} <span class="kw">else </span>{
-			<span class="comment">// The nested gas meter was created with a fixed amount that did not consume all of the
-			// parents (self) gas. The lowest gas that self will experience is when the nested
-			// gas was pre charged with the fixed amount.
-			</span><span class="kw-2">*</span><span class="self">self</span>.gas_left_lowest.ref_time_mut() = <span class="self">self</span>.gas_left_lowest().ref_time();
-		}
-		<span class="kw">if </span><span class="self">self</span>.gas_left.proof_size().is_zero() {
-			<span class="kw-2">*</span><span class="self">self</span>.gas_left_lowest.proof_size_mut() =
-				nested.gas_left_lowest().proof_size().min(<span class="self">self</span>.gas_left_lowest.proof_size());
-		} <span class="kw">else </span>{
-			<span class="kw-2">*</span><span class="self">self</span>.gas_left_lowest.proof_size_mut() = <span class="self">self</span>.gas_left_lowest().proof_size();
-		}
+		<span class="self">self</span>.gas_left_lowest = (<span class="self">self</span>.gas_left + nested.gas_limit)
+			.saturating_sub(nested.gas_required())
+			.min(<span class="self">self</span>.gas_left_lowest);
 		<span class="self">self</span>.gas_left += nested.gas_left;
 	}
 

@@ -2,10 +2,10 @@
     header_hash: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.reference.html">&amp;Hash</a>,
     public: &amp;P::Public,
     keystore: &amp;KeystorePtr
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;DigestItem, Error&gt;<span class="where fmt-newline">where
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="../../sp_runtime/generic/digest/enum.DigestItem.html" title="enum sp_runtime::generic::digest::DigestItem">DigestItem</a>, Error&gt;<span class="where fmt-newline">where
     Hash: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.AsRef.html" title="trait core::convert::AsRef">AsRef</a>&lt;[<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>]&gt;,
     P: Pair,
     P::Signature: Codec + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>&gt;&gt;,
-    P::Public: AppPublic,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Produce the seal digest item by signing the hash of a block.</p>
+    P::Public: <a class="trait" href="../../sp_application_crypto/traits/trait.AppPublic.html" title="trait sp_application_crypto::traits::AppPublic">AppPublic</a>,</span></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Produce the seal digest item by signing the hash of a block.</p>
 <p>Note that after this is added to a block header, the hash of the block will change.</p>
 </div></details></section></div></main></body></html>
