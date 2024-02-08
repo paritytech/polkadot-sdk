@@ -1840,11 +1840,20 @@ impl<T: Config> Pallet<T> {
 			ensure!(Payee::<T>::get(&stash).is_some(), "bonded ledger does not have payee set");
 		}
 
-		ensure!(
-			(Ledger::<T>::iter().count() == Payee::<T>::iter().count()) &&
-				(Ledger::<T>::iter().count() == Bonded::<T>::iter().count()),
-			"number of entries in payee storage items does not match the number of bonded ledgers",
-		);
+		let ledger_count = Ledger::<T>::iter().count();
+		let payee_count = Payee::<T>::iter().count();
+		let bonded_count = Bonded::<T>::iter().count();
+
+		// TODO: fail if condition below is not met once <https://github.com/paritytech/polkadot-sdk/issues/3245> is fixed.
+		if !((ledger_count == payee_count) && (ledger_count == bonded_count)) {
+			log!(
+                warn,
+                "number of entries in payee storage items does not match the number of bonded ledgers. Ledgers: {}, Payees: {}, Bonded: {}",
+                ledger_count,
+                payee_count,
+                bonded_count,
+            );
+		}
 
 		Ok(())
 	}
