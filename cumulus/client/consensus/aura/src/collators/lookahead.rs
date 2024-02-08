@@ -52,7 +52,7 @@ use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CollatorPair, Id as ParaId, OccupiedCoreAssumption};
 
 use futures::{channel::oneshot, prelude::*};
-use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
+use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::standalone as aura_internal;
 use sp_api::ProvideRuntimeApi;
@@ -118,7 +118,6 @@ where
 		+ AuxStore
 		+ HeaderBackend<Block>
 		+ BlockBackend<Block>
-		+ UsageProvider<Block>
 		+ Send
 		+ Sync
 		+ 'static,
