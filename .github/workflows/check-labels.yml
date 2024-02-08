@@ -3,6 +3,7 @@ name: Check labels
 on:
   pull_request:
     types: [labeled, opened, synchronize, unlabeled]
+  push:
     branches-ignore:
       - master
   merge_group:
