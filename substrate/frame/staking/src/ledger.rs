@@ -221,7 +221,7 @@ impl<T: Config> StakingLedger<T> {
 	///
 	/// Note: we assume that [`T::EventListeners::on_nominator_remove`] and/or
 	/// [`T::EventListeners::on_validator_remove`] have been called and the stash is idle, prior to
-	/// call this method. This can be achieved by calling `[crate::Pallet::<T>::kill_stash]` prior
+	/// call this method. This can be achieved by calling [`crate::Pallet::<T>::kill_stash`] prior
 	/// to this call.
 	pub(crate) fn kill(stash: &T::AccountId) -> Result<(), Error<T>> {
 		let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
