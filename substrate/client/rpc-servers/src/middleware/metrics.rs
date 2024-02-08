@@ -121,7 +121,7 @@ impl RpcMetrics {
 					HistogramVec::new(
 						HistogramOpts::new(
 							"substrate_rpc_sessions_time",
-							"Time [s] for each websocket session",
+							"Total time [s] for each websocket session",
 						)
 						.buckets(HISTOGRAM_BUCKETS.to_vec()),
 						&["protocol"],
