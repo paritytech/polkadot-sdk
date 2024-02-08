@@ -46,7 +46,7 @@ type State<H> = DbState<H>;
 
 struct StorageDb<Hasher: Hash> {
 	db: Arc<dyn KeyValueDB>,
-	_phantom: std::marker::PhantomData<Hasher::Output>,
+	_phantom: std::marker::PhantomData<Hasher>,
 }
 
 impl<Hasher: Hash> sp_state_machine::Storage<Hasher> for StorageDb<Hasher> {
