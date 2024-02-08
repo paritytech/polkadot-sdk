@@ -898,9 +898,9 @@ macro_rules! implement_fixed {
 			}
 		}
 
-		impl core::fmt::Debug for $name {
+		impl ::core::fmt::Debug for $name {
 			#[cfg(feature = "std")]
-			fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+			fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
 				let integral = {
 					let int = self.0 / Self::accuracy();
 					let signum_for_zero = if int == 0 && self.is_negative() { "-" } else { "" };
@@ -916,7 +916,7 @@ macro_rules! implement_fixed {
 			}
 
 			#[cfg(not(feature = "std"))]
-			fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
+			fn fmt(&self, _: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
 				Ok(())
 			}
 		}
@@ -932,13 +932,13 @@ macro_rules! implement_fixed {
 			}
 		}
 
-		impl core::fmt::Display for $name {
-			fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+		impl ::core::fmt::Display for $name {
+			fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
 				write!(f, "{}", self.0)
 			}
 		}
 
-		impl core::str::FromStr for $name {
+		impl ::core::str::FromStr for $name {
 			type Err = &'static str;
 
 			fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -968,7 +968,7 @@ macro_rules! implement_fixed {
 			where
 				D: Deserializer<'de>,
 			{
-				use core::str::FromStr;
+				use ::core::str::FromStr;
 				let s = String::deserialize(deserializer)?;
 				$name::from_str(&s).map_err(de::Error::custom)
 			}

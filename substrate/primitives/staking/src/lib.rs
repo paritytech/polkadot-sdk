@@ -172,7 +172,7 @@ pub trait StakingInterface {
 		+ Saturating;
 
 	/// AccountId type used by the staking system.
-	type AccountId: Clone + alloc::fmt::Debug;
+	type AccountId: Clone + core::fmt::Debug;
 
 	/// Means of converting Currency to VoteWeight.
 	type CurrencyToVote: CurrencyToVote<Self::Balance>;

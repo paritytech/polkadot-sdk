@@ -18090,7 +18090,6 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-crypto-hashing",
- "sp-std 14.0.0",
  "static_assertions",
 ]
 
@@ -18132,7 +18131,6 @@ dependencies = [
  "sp-api",
  "sp-application-crypto",
  "sp-runtime",
- "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -18142,7 +18140,6 @@ dependencies = [
  "sp-api",
  "sp-inherents",
  "sp-runtime",
- "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -18189,7 +18186,6 @@ dependencies = [
  "sp-consensus-slots",
  "sp-inherents",
  "sp-runtime",
- "sp-std 14.0.0",
  "sp-timestamp",
 ]
 
@@ -18207,7 +18203,6 @@ dependencies = [
  "sp-core",
  "sp-inherents",
  "sp-runtime",
- "sp-std 14.0.0",
  "sp-timestamp",
 ]
 
@@ -18227,7 +18222,6 @@ dependencies = [
  "sp-io",
  "sp-mmr-primitives",
  "sp-runtime",
- "sp-std 14.0.0",
  "strum 0.24.1",
  "w3f-bls",
 ]
@@ -18246,7 +18240,6 @@ dependencies = [
  "sp-core",
  "sp-keystore",
  "sp-runtime",
- "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -18257,7 +18250,6 @@ dependencies = [
  "sp-api",
  "sp-core",
  "sp-runtime",
- "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -18272,7 +18264,6 @@ dependencies = [
  "sp-consensus-slots",
  "sp-core",
  "sp-runtime",
- "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -18282,7 +18273,6 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-std 14.0.0",
  "sp-timestamp",
 ]
 
@@ -18397,7 +18387,6 @@ dependencies = [
  "ark-ed-on-bls12-381-bandersnatch-ext",
  "ark-scale 0.0.12",
  "sp-runtime-interface 24.0.0",
- "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -18467,7 +18456,6 @@ version = "0.25.0"
 dependencies = [
  "environmental",
  "parity-scale-codec",
- "sp-std 14.0.0",
  "sp-storage 19.0.0",
 ]
 
@@ -18478,7 +18466,6 @@ dependencies = [
  "serde_json",
  "sp-api",
  "sp-runtime",
- "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -18491,7 +18478,6 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-runtime",
- "sp-std 14.0.0",
  "thiserror",
 ]
 
@@ -18556,7 +18542,6 @@ dependencies = [
  "frame-metadata",
  "parity-scale-codec",
  "scale-info",
- "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -18567,7 +18552,6 @@ dependencies = [
  "scale-info",
  "sp-api",
  "sp-application-crypto",
- "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -18584,7 +18568,6 @@ dependencies = [
  "sp-core",
  "sp-debug-derive 14.0.0",
  "sp-runtime",
- "sp-std 14.0.0",
  "thiserror",
 ]
 
@@ -18599,7 +18582,6 @@ dependencies = [
  "sp-arithmetic",
  "sp-core",
  "sp-runtime",
- "sp-std 14.0.0",
  "substrate-test-utils",
 ]
 
@@ -18786,7 +18768,6 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-staking",
- "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -18799,7 +18780,6 @@ dependencies = [
  "serde",
  "sp-core",
  "sp-runtime",
- "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -18819,7 +18799,6 @@ dependencies = [
  "sp-externalities 0.25.0",
  "sp-panic-handler",
  "sp-runtime",
- "sp-std 14.0.0",
  "sp-trie",
  "thiserror",
  "tracing",
@@ -18845,7 +18824,6 @@ dependencies = [
  "sp-externalities 0.25.0",
  "sp-runtime",
  "sp-runtime-interface 24.0.0",
- "sp-std 14.0.0",
  "thiserror",
  "x25519-dalek 2.0.0",
 ]
@@ -18881,7 +18859,6 @@ dependencies = [
  "ref-cast",
  "serde",
  "sp-debug-derive 14.0.0",
- "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -18894,7 +18871,6 @@ dependencies = [
  "sp-application-crypto",
  "sp-core",
  "sp-runtime",
- "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -18905,7 +18881,6 @@ dependencies = [
  "parity-scale-codec",
  "sp-inherents",
  "sp-runtime",
- "sp-std 14.0.0",
  "thiserror",
 ]
 
@@ -18926,7 +18901,6 @@ name = "sp-tracing"
 version = "16.0.0"
 dependencies = [
  "parity-scale-codec",
- "sp-std 14.0.0",
  "tracing",
  "tracing-core",
  "tracing-subscriber 0.2.25",
@@ -18950,7 +18924,6 @@ dependencies = [
  "sp-core",
  "sp-inherents",
  "sp-runtime",
- "sp-std 14.0.0",
  "sp-trie",
 ]
 
@@ -18973,7 +18946,6 @@ dependencies = [
  "sp-core",
  "sp-externalities 0.25.0",
  "sp-runtime",
- "sp-std 14.0.0",
  "thiserror",
  "tracing",
  "trie-bench",
@@ -19030,7 +19002,6 @@ dependencies = [
  "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
- "sp-std 14.0.0",
  "wasmtime",
 ]
 
@@ -19046,7 +19017,6 @@ dependencies = [
  "smallvec",
  "sp-arithmetic",
  "sp-debug-derive 14.0.0",
- "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -19651,7 +19621,6 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-state-machine",
- "sp-std 14.0.0",
  "sp-tracing 16.0.0",
  "sp-transaction-pool",
  "sp-trie",

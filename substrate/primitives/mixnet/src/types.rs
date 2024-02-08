@@ -90,8 +90,8 @@ pub enum MixnodesErr {
 	},
 }
 
-impl alloc::fmt::Display for MixnodesErr {
-	fn fmt(&self, fmt: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+impl core::fmt::Display for MixnodesErr {
+	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
 		match self {
 			MixnodesErr::InsufficientRegistrations { num, min } =>
 				write!(fmt, "{num} mixnode(s) registered; {min} is the minimum"),
