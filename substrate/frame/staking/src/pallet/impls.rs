@@ -233,7 +233,7 @@ impl<T: Config> Pallet<T> {
 				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
 		})?;
 
-		// Input data seems good, no errors allowed after this point
+		// Input data seems good, no errors allowed after the ledger is successfully updated.
 		ledger.update()?;
 
 		// Get Era reward points. It has TOTAL and INDIVIDUAL

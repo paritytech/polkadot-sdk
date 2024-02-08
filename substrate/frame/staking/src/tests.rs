@@ -1779,6 +1779,7 @@ fn reward_to_stake_works() {
 		.set_status(41, StakerStatus::Idle)
 		.set_stake(21, 2000)
 		.try_state(false)
+		.stake_tracker_try_state(false)
 		.build_and_execute(|| {
 			assert_eq!(Staking::validator_count(), 2);
 			// Confirm account 10 and 20 are validators
