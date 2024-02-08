@@ -135,7 +135,14 @@ pub struct LightSyncState<Block: BlockT> {
 ///
 /// This represents a [`Checkpoint`]. It is required to be added to the
 /// chain-spec as an extension.
-pub type CheckpointExtension<Block> = Checkpoint<Block>;
+pub type CheckpointExtension = Option<SerdePassThrough<serde_json::Value>>;
+
+/// A serde wrapper that passes through the given value.
+///
+/// This is introduced to distinguish between the `LightSyncStateExtension`
+/// and `CheckpointExtension` extension types.
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
+pub struct SerdePassThrough<T>(T);
 
 /// Checkpoint information that allows light clients to sync quickly.
 #[derive(serde::Serialize, Clone)]
@@ -178,9 +185,7 @@ where
 		shared_authority_set: SharedAuthoritySet<Block>,
 		babe_worker_handle: BabeWorkerHandle<Block>,
 	) -> Result<Self, Error<Block>> {
-		if sc_chain_spec::get_extension::<CheckpointExtension<Block>>(chain_spec.extensions())
-			.is_none()
-		{
+		if sc_chain_spec::get_extension::<CheckpointExtension>(chain_spec.extensions()).is_none() {
 			return Err(Error::<Block>::CheckpointExtensionNotFound)
 		}
 		if sc_chain_spec::get_extension::<LightSyncStateExtension>(chain_spec.extensions())
@@ -254,9 +259,11 @@ where
 
 		// Populate the Checkpoint extension.
 		let extension =
-			sc_chain_spec::get_extension_mut::<CheckpointExtension<Block>>(chain_spec.extensions_mut())
+			sc_chain_spec::get_extension_mut::<CheckpointExtension>(chain_spec.extensions_mut())
 				.ok_or(Error::<Block>::CheckpointExtensionNotFound)?;
-		*extension = checkpoint_state;
+		let val = serde_json::to_value(&checkpoint_state)
+			.map_err(|e| Error::<Block>::JsonRpc(e.to_string()))?;
+		*extension = Some(SerdePassThrough(val));
 
 		let json_str = chain_spec.as_json(raw).map_err(|e| Error::<Block>::JsonRpc(e))?;
 		serde_json::from_str(&json_str).map_err(|e| Error::<Block>::JsonRpc(e.to_string()))

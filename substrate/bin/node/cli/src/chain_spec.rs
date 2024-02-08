@@ -60,7 +60,7 @@ pub struct Extensions {
 	/// The light sync state extension used by the sync-state rpc.
 	pub light_sync_state: sc_sync_state_rpc::LightSyncStateExtension,
 	/// The checkpoint extension used by the sync-state rpc.
-	pub light_sync_state: sc_sync_state_rpc::CheckpointExtension<Block>,
+	pub checkpoint: sc_sync_state_rpc::CheckpointExtension,
 }
 
 /// Specialized `ChainSpec`.
