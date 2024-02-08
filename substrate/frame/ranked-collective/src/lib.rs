@@ -886,7 +886,7 @@ pub mod pallet {
 			let mut sum_of_member_rank_indexes = 0;
 			Members::<T, I>::iter().try_for_each(|(_, member_record)| -> DispatchResult {
 				ensure!(
-					Self::is_rank_in_member_count(member_record.rank.clone().into()) == true,
+					Self::is_rank_in_member_count(member_record.rank.into()),
 					"`Rank` in Members should be in `MemberCount`"
 				);
 
@@ -919,7 +919,7 @@ pub mod pallet {
 				);
 
 					ensure!(
-						Self::is_rank_in_index_to_id_storage(rank.into()) == true,
+						Self::is_rank_in_index_to_id_storage(rank.into()),
 						"`Rank` in `IdToIndex` should be the same as the `Rank` in `IndexToId`"
 					);
 					Ok(())
@@ -928,7 +928,7 @@ pub mod pallet {
 
 			Members::<T, I>::iter().try_for_each(|(who, member_record)| -> DispatchResult {
 				ensure!(
-						Self::is_who_rank_in_id_to_index_storage(who, member_record.rank) == true,
+						Self::is_who_rank_in_id_to_index_storage(who, member_record.rank),
 						"`Rank` of the member `who` in `IdToIndex` should be the same as the `Rank` of the member `who` in `Members`"
 					);
 
