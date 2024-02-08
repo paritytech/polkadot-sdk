@@ -134,10 +134,23 @@ impl sp_staking::StakingInterface for StakingMock {
 
 	fn withdraw_unbonded(who: Self::AccountId, _: u32) -> Result<bool, DispatchError> {
 		let mut unbonding_map = UnbondingBalanceMap::get();
+
+		// closure to calculate the current unlocking funds across all eras/accounts.
+		let unlocking = |pair: &Vec<(EraIndex, Balance)>| -> Balance {
+			pair.iter()
+				.try_fold(Zero::zero(), |acc: Balance, (_at, amount)| acc.checked_add(*amount))
+				.unwrap()
+		};
+
 		let staker_map = unbonding_map.get_mut(&who).ok_or("Nothing to unbond")?;
+		let unlocking_before = unlocking(&staker_map);
 
 		let current_era = Self::current_era();
+
 		staker_map.retain(|(unlocking_at, _amount)| *unlocking_at > current_era);
+
+		// if there was a withdrawal, notify the pallet.
+		Pools::on_withdraw(&who, unlocking_before.saturating_sub(unlocking(&staker_map)));
 
 		UnbondingBalanceMap::set(&unbonding_map);
 		Ok(UnbondingBalanceMap::get().is_empty() && BondedBalanceMap::get().is_empty())
