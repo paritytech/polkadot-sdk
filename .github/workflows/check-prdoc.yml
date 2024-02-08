@@ -3,9 +3,6 @@ name: Check PRdoc
 on:
   pull_request:
     types: [labeled, opened, synchronize, unlabeled]
-  push:
-    branches-ignore:
-      - master
   merge_group:
 
 env:
@@ -25,6 +22,9 @@ jobs:
       # due to https://github.com/paritytech/prdoc/issues/15
       - name: Skip merge queue
         if: ${{ contains(github.ref, 'gh-readonly-queue') }}
+        run: exit 0
+      - name: Skip master
+        if: ${{ contains(github.ref, 'master') }}
         run: exit 0
       - name: Pull image
         run: |
