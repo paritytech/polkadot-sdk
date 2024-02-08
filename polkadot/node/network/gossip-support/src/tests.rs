@@ -548,7 +548,7 @@ fn issues_connection_request_to_past_present_future() {
 	);
 }
 
-// Test we notify peer about learning of the authority ID at session boundary
+// Test we notify peer about learning of the authority ID after session boundary
 #[test]
 fn issues_update_authorities_after_session() {
 	let hash = Hash::repeat_byte(0xAA);
