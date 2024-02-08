@@ -18,6 +18,8 @@
 //! Storage migrations.
 
 use super::*;
+#[cfg(feature = "try-runtime")]
+use codec::{Decode, Encode};
 use frame_support::{traits::OnRuntimeUpgrade, weights::Weight};
 use log;
 #[cfg(feature = "try-runtime")]
