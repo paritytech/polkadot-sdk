@@ -3609,7 +3609,7 @@ impl<T: Config> sp_staking::OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pall
 		Self::deposit_event(Event::<T>::PoolSlashed { pool_id, balance: slashed_bonded });
 	}
 
-	/// Reduces the overall `TotalValueLocked` if an withdraw happened for a pool involved in the
+	/// Reduces the overall `TotalValueLocked` if a withdrawal happened for a pool involved in the
 	/// staking withdraw.
 	fn on_withdraw(pool_account: &T::AccountId, amount: BalanceOf<T>) {
 		if ReversePoolIdLookup::<T>::get(pool_account).is_some() {
