@@ -1,4 +1,4 @@
-# Using Parity Bridges Common dependency (`git subtree`)
+# Using Parity Bridges Common dependency (`git subtree`)1
 
 In `./bridges` sub-directory you can find a `git subtree` imported version of:
 [`parity-bridges-common`](https://github.com/paritytech/parity-bridges-common/) repository.
