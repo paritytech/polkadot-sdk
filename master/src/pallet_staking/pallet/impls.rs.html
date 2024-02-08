@@ -2040,6 +2040,9 @@
 <a href="#2040" id="2040">2040</a>
 <a href="#2041" id="2041">2041</a>
 <a href="#2042" id="2042">2042</a>
+<a href="#2043" id="2043">2043</a>
+<a href="#2044" id="2044">2044</a>
+<a href="#2045" id="2045">2045</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2083,7 +2086,7 @@
 <span class="kw">use </span>sp_staking::{
 	currency_to_vote::CurrencyToVote,
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
-	EraIndex, Page, SessionIndex, Stake,
+	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
 	StakingAccount::{<span class="self">self</span>, Controller, Stash},
 	StakingInterface,
 };
@@ -2192,6 +2195,9 @@
 			<span class="comment">// Already checked that this won&#39;t overflow by entry condition.
 			</span><span class="kw">let </span>value = old_total.defensive_saturating_sub(new_total);
 			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Withdrawn { stash, amount: value });
+
+			<span class="comment">// notify listeners.
+			</span>T::EventListeners::on_withdraw(controller, value);
 		}
 
 		<span class="prelude-val">Ok</span>(used_weight)

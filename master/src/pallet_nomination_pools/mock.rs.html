@@ -542,6 +542,19 @@
 <a href="#542" id="542">542</a>
 <a href="#543" id="543">543</a>
 <a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -678,10 +691,23 @@
 
 	<span class="kw">fn </span>withdraw_unbonded(who: <span class="self">Self</span>::AccountId, <span class="kw">_</span>: u32) -&gt; <span class="prelude-ty">Result</span>&lt;bool, DispatchError&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>unbonding_map = UnbondingBalanceMap::get();
+
+		<span class="comment">// closure to calculate the current unlocking funds across all eras/accounts.
+		</span><span class="kw">let </span>unlocking = |pair: <span class="kw-2">&amp;</span>Vec&lt;(EraIndex, Balance)&gt;| -&gt; Balance {
+			pair.iter()
+				.try_fold(Zero::zero(), |acc: Balance, (_at, amount)| acc.checked_add(<span class="kw-2">*</span>amount))
+				.unwrap()
+		};
+
 		<span class="kw">let </span>staker_map = unbonding_map.get_mut(<span class="kw-2">&amp;</span>who).ok_or(<span class="string">&quot;Nothing to unbond&quot;</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>unlocking_before = unlocking(<span class="kw-2">&amp;</span>staker_map);
 
 		<span class="kw">let </span>current_era = <span class="self">Self</span>::current_era();
+
 		staker_map.retain(|(unlocking_at, _amount)| <span class="kw-2">*</span>unlocking_at &gt; current_era);
+
+		<span class="comment">// if there was a withdrawal, notify the pallet.
+		</span>Pools::on_withdraw(<span class="kw-2">&amp;</span>who, unlocking_before.saturating_sub(unlocking(<span class="kw-2">&amp;</span>staker_map)));
 
 		UnbondingBalanceMap::set(<span class="kw-2">&amp;</span>unbonding_map);
 		<span class="prelude-val">Ok</span>(UnbondingBalanceMap::get().is_empty() &amp;&amp; BondedBalanceMap::get().is_empty())

@@ -417,6 +417,9 @@
 <a href="#417" id="417">417</a>
 <a href="#418" id="418">418</a>
 <a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -569,6 +572,9 @@
 		_slashed_total: Balance,
 	) {
 	}
+
+	<span class="doccomment">/// Fired when a portion of a staker&#39;s balance has been withdrawn.
+	</span><span class="kw">fn </span>on_withdraw(_stash: <span class="kw-2">&amp;</span>AccountId, _amount: Balance) {}
 }
 
 <span class="doccomment">/// A generic representation of a staking implementation.

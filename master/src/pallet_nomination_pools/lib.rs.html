@@ -3619,16 +3619,6 @@
 <a href="#3619" id="3619">3619</a>
 <a href="#3620" id="3620">3620</a>
 <a href="#3621" id="3621">3621</a>
-<a href="#3622" id="3622">3622</a>
-<a href="#3623" id="3623">3623</a>
-<a href="#3624" id="3624">3624</a>
-<a href="#3625" id="3625">3625</a>
-<a href="#3626" id="3626">3626</a>
-<a href="#3627" id="3627">3627</a>
-<a href="#3628" id="3628">3628</a>
-<a href="#3629" id="3629">3629</a>
-<a href="#3630" id="3630">3630</a>
-<a href="#3631" id="3631">3631</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4924,27 +4914,6 @@
 			});
 		};
 	}
-
-	<span class="doccomment">/// Withdraw all the funds that are already unlocked from staking for the
-	/// [`BondedPool::bonded_account`].
-	///
-	/// Also reduces the [`TotalValueLocked`] by the difference of the
-	/// [`T::Staking::total_stake`] of the [`BondedPool::bonded_account`] that might occur by
-	/// [`T::Staking::withdraw_unbonded`].
-	///
-	/// Returns the result of [`T::Staking::withdraw_unbonded`]
-	</span><span class="kw">fn </span>withdraw_from_staking(<span class="kw-2">&amp;</span><span class="self">self</span>, num_slashing_spans: u32) -&gt; <span class="prelude-ty">Result</span>&lt;bool, DispatchError&gt; {
-		<span class="kw">let </span>bonded_account = <span class="self">self</span>.bonded_account();
-
-		<span class="kw">let </span>prev_total = T::Staking::total_stake(<span class="kw-2">&amp;</span>bonded_account.clone()).unwrap_or_default();
-		<span class="kw">let </span>outcome = T::Staking::withdraw_unbonded(bonded_account.clone(), num_slashing_spans);
-		<span class="kw">let </span>diff = prev_total
-			.defensive_saturating_sub(T::Staking::total_stake(<span class="kw-2">&amp;</span>bonded_account).unwrap_or_default());
-		TotalValueLocked::&lt;T&gt;::mutate(|tvl| {
-			tvl.saturating_reduce(diff);
-		});
-		outcome
-	}
 }
 
 <span class="doccomment">/// A reward pool.
@@ -5364,7 +5333,7 @@
 		CountedStorageMap&lt;<span class="kw">_</span>, Twox64Concat, PoolId, BondedPoolInner&lt;T&gt;&gt;;
 
 	<span class="doccomment">/// Reward pools. This is where there rewards for each pool accumulate. When a members payout is
-	/// claimed, the balance comes out fo the reward pool. Keyed by the bonded pools account.
+	/// claimed, the balance comes out of the reward pool. Keyed by the bonded pools account.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub type </span>RewardPools&lt;T: Config&gt; = CountedStorageMap&lt;<span class="kw">_</span>, Twox64Concat, PoolId, RewardPool&lt;T&gt;&gt;;
 
@@ -5384,8 +5353,8 @@
 
 	<span class="doccomment">/// A reverse lookup from the pool&#39;s account id to its id.
 	///
-	/// This is only used for slashing. In all other instances, the pool id is used, and the
-	/// accounts are deterministically derived from it.
+	/// This is only used for slashing and on automatic withdraw update. In all other instances, the
+	/// pool id is used, and the accounts are deterministically derived from it.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub type </span>ReversePoolIdLookup&lt;T: Config&gt; =
 		CountedStorageMap&lt;<span class="kw">_</span>, Twox64Concat, T::AccountId, PoolId, OptionQuery&gt;;
@@ -5854,7 +5823,7 @@
 			<span class="comment">// For now we only allow a pool to withdraw unbonded if its not destroying. If the pool
 			// is destroying then `withdraw_unbonded` can be used.
 			</span><span class="macro">ensure!</span>(pool.state != PoolState::Destroying, Error::&lt;T&gt;::NotDestroying);
-			pool.withdraw_from_staking(num_slashing_spans)<span class="question-mark">?</span>;
+			T::Staking::withdraw_unbonded(pool.bonded_account(), num_slashing_spans)<span class="question-mark">?</span>;
 
 			<span class="prelude-val">Ok</span>(())
 		}
@@ -5906,7 +5875,8 @@
 
 			<span class="comment">// Before calculating the `balance_to_unbond`, we call withdraw unbonded to ensure the
 			// `transferrable_balance` is correct.
-			</span><span class="kw">let </span>stash_killed = bonded_pool.withdraw_from_staking(num_slashing_spans)<span class="question-mark">?</span>;
+			</span><span class="kw">let </span>stash_killed =
+				T::Staking::withdraw_unbonded(bonded_pool.bonded_account(), num_slashing_spans)<span class="question-mark">?</span>;
 
 			<span class="comment">// defensive-only: the depositor puts enough funds into the stash so that it will only
 			// be destroyed when they are leaving.
@@ -7258,6 +7228,16 @@
 			<span class="macro">defensive!</span>(<span class="string">&quot;Expected SubPools were not found&quot;</span>);
 		}
 		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::PoolSlashed { pool_id, balance: slashed_bonded });
+	}
+
+	<span class="doccomment">/// Reduces the overall `TotalValueLocked` if a withdrawal happened for a pool involved in the
+	/// staking withdraw.
+	</span><span class="kw">fn </span>on_withdraw(pool_account: <span class="kw-2">&amp;</span>T::AccountId, amount: BalanceOf&lt;T&gt;) {
+		<span class="kw">if </span>ReversePoolIdLookup::&lt;T&gt;::get(pool_account).is_some() {
+			TotalValueLocked::&lt;T&gt;::mutate(|tvl| {
+				tvl.saturating_reduce(amount);
+			});
+		}
 	}
 }
 </code></pre></div></section></main></body></html>
