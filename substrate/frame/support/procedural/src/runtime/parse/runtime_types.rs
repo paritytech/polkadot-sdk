@@ -31,6 +31,7 @@ mod keyword {
 	custom_keyword!(RuntimeHoldReason);
 	custom_keyword!(RuntimeSlashReason);
 	custom_keyword!(RuntimeLockId);
+	custom_keyword!(RuntimeTask);
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -43,6 +44,7 @@ pub enum RuntimeType {
 	RuntimeHoldReason(keyword::RuntimeHoldReason),
 	RuntimeSlashReason(keyword::RuntimeSlashReason),
 	RuntimeLockId(keyword::RuntimeLockId),
+	RuntimeTask(keyword::RuntimeTask),
 }
 
 impl Parse for RuntimeType {
@@ -65,6 +67,8 @@ impl Parse for RuntimeType {
 			Ok(Self::RuntimeSlashReason(input.parse()?))
 		} else if lookahead.peek(keyword::RuntimeLockId) {
 			Ok(Self::RuntimeLockId(input.parse()?))
+		} else if lookahead.peek(keyword::RuntimeTask) {
+			Ok(Self::RuntimeTask(input.parse()?))
 		} else {
 			Err(lookahead.error())
 		}

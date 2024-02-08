@@ -30,7 +30,7 @@ use crate::{
 };
 use cfg_expr::Predicate;
 use frame_support_procedural_tools::{
-	generate_crate_access, generate_crate_access_2018, generate_hidden_includes,
+	generate_access_from_frame_or_crate, generate_crate_access, generate_hidden_includes,
 };
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
@@ -72,7 +72,7 @@ fn construct_runtime_implicit_to_explicit(
 	input: TokenStream2,
 	definition: ImplicitAllPalletsDeclaration,
 ) -> Result<TokenStream2> {
-	let frame_support = generate_crate_access_2018("frame-support")?;
+	let frame_support = generate_access_from_frame_or_crate("frame-support")?;
 	let mut expansion = quote::quote!(
 		#[frame_support::runtime]
 		#input
@@ -138,7 +138,7 @@ fn construct_runtime_final_expansion(
 	let scrate = generate_crate_access(hidden_crate_name, "frame-support");
 	let scrate_decl = generate_hidden_includes(hidden_crate_name, "frame-support");
 
-	let frame_system = generate_crate_access_2018("frame-system")?;
+	let frame_system = generate_access_from_frame_or_crate("frame-system")?;
 	let block = quote!(<#name as #frame_system::Config>::Block);
 	let unchecked_extrinsic = quote!(<#block as #scrate::sp_runtime::traits::Block>::Extrinsic);
 
@@ -150,6 +150,7 @@ fn construct_runtime_final_expansion(
 	let mut hold_reason = None;
 	let mut slash_reason = None;
 	let mut lock_id = None;
+	let mut task = None;
 
 	for runtime_type in runtime_types.iter() {
 		match runtime_type {
@@ -188,6 +189,9 @@ fn construct_runtime_final_expansion(
 			},
 			RuntimeType::RuntimeLockId(_) => {
 				lock_id = Some(expand::expand_outer_lock_id(&pallets, &scrate));
+			},
+			RuntimeType::RuntimeTask(_) => {
+				task = Some(expand::expand_outer_task(&name, &pallets, &scrate));
 			},
 		}
 	}
@@ -263,6 +267,8 @@ fn construct_runtime_final_expansion(
 		#pallet_to_index
 
 		#dispatch
+
+		#task
 
 		#metadata
 
