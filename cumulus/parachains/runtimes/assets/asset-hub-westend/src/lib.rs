@@ -939,6 +939,24 @@ pub type SignedExtra = (
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 
+parameter_types! {
+	pub PerAccountMigrationWeight: Weight = {
+		// 2 balance + 2 deposit
+		<Runtime as frame_system::Config>::DbWeight::get().reads(5)
+			.saturating_add(
+				<weights::pallet_assets_local::WeightInfo<Runtime> as pallet_assets::WeightInfo>::transfer()
+			).saturating_add(
+				<weights::pallet_assets_foreign::WeightInfo<Runtime> as pallet_assets::WeightInfo>::transfer()
+			).saturating_add(
+				<weights::pallet_assets_local::WeightInfo<Runtime> as pallet_assets::WeightInfo>::refund_other()
+			).saturating_add(
+				<weights::pallet_assets_foreign::WeightInfo<Runtime> as pallet_assets::WeightInfo>::refund_other()
+			).saturating_add( // team reset
+				<Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 1)
+			)
+	};
+}
+
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
 	// v9420
@@ -953,6 +971,22 @@ pub type Migrations = (
 	DeleteUndecodableStorage,
 	// unreleased
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
+	// unreleased
+	pallet_asset_conversion::migration::new_pool_account_id::Migrate<
+		Runtime,
+		pallet_asset_conversion::WithFirstAsset<
+			WestendLocationV3,
+			AccountId,
+			xcm::v3::Location,
+			pallet_asset_conversion::AccountIdConverterNoSeed<(
+				xcm::v3::Location,
+				xcm::v3::Location,
+			)>,
+		>,
+		<Runtime as pallet_asset_conversion::Config>::PoolAssets,
+		<Runtime as pallet_asset_conversion::Config>::Assets,
+		PerAccountMigrationWeight,
+	>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.
