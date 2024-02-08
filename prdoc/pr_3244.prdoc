@@ -1,4 +1,4 @@
-title: "Make the `benchmark pallet`` command only require a Hash"
+title: "Make the `benchmark pallet`` command only require a Hasher"
 
 doc:
   - audience: Node Dev
