@@ -2328,9 +2328,12 @@ mod runtime {
 	pub type Broker = pallet_broker;
 
 	#[runtime::pallet_index(73)]
-	pub type Mixnet = pallet_mixnet;
+	pub type TasksExample = pallet_example_tasks;
 
 	#[runtime::pallet_index(74)]
+	pub type Mixnet = pallet_mixnet;
+
+	#[runtime::pallet_index(75)]
 	pub type SkipFeelessPayment = pallet_skip_feeless_payment;
 }
 
