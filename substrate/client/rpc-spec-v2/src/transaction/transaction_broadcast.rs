@@ -64,7 +64,7 @@ impl<Pool, Client> TransactionBroadcast<Pool, Client> {
 	/// Generate an unique operation ID for the `transaction_broadcast` RPC method.
 	pub fn generate_unique_id(&self) -> String {
 		let generate_operation_id = || {
-			// The lenght of the operation ID.
+			// The length of the operation ID.
 			const OPERATION_ID_LEN: usize = 16;
 
 			rand::thread_rng()
