@@ -247,7 +247,7 @@ mod select_candidates {
 	use ::test_helpers::{dummy_candidate_descriptor, dummy_hash};
 	use futures::channel::mpsc;
 	use polkadot_node_subsystem::messages::{
-		AllMessages, RuntimeApiMessage,
+		AllMessages, AncestorState, RuntimeApiMessage,
 		RuntimeApiRequest::{
 			AvailabilityCores, PersistedValidationData as PersistedValidationDataReq,
 		},
@@ -507,7 +507,7 @@ mod select_candidates {
 		mut receiver: mpsc::UnboundedReceiver<AllMessages>,
 		mock_availability_cores: Vec<CoreState>,
 		expected: Vec<BackedCandidate>,
-		mut required_ancestors: HashMap<Vec<CandidateHash>, Vec<CandidateHash>>,
+		mut expected_ancestors: HashMap<Vec<CandidateHash>, Ancestors>,
 		prospective_parachains_mode: ProspectiveParachainsMode,
 	) {
 		use ChainApiMessage::BlockNumber;
@@ -549,7 +549,7 @@ mod select_candidates {
 						_,
 						_para_id,
 						count,
-						actual_required_ancestors,
+						actual_ancestors,
 						tx,
 					),
 				) => match prospective_parachains_mode {
@@ -559,17 +559,17 @@ mod select_candidates {
 							(&mut candidates_iter).take(count as usize).collect::<Vec<_>>();
 						assert_eq!(candidates.len(), count as usize);
 
-						if let Some(expected_required_ancestors) = required_ancestors.remove(
+						if let Some(expected_required_ancestors) = expected_ancestors.remove(
 							&(candidates
 								.clone()
 								.into_iter()
-								.take(actual_required_ancestors.len())
+								.take(actual_ancestors.len())
 								.map(|(c_hash, _)| c_hash)
 								.collect::<Vec<_>>()),
 						) {
-							assert_eq!(expected_required_ancestors, actual_required_ancestors);
+							assert_eq!(expected_required_ancestors, actual_ancestors);
 						} else {
-							assert_eq!(actual_required_ancestors.len(), 0);
+							assert_eq!(actual_ancestors.len(), 0);
 						}
 
 						let _ = tx.send(candidates);
@@ -584,7 +584,7 @@ mod select_candidates {
 		if let ProspectiveParachainsMode::Enabled { .. } = prospective_parachains_mode {
 			assert_eq!(candidates_iter.next(), None);
 		}
-		assert_eq!(required_ancestors.len(), 0);
+		assert_eq!(expected_ancestors.len(), 0);
 	}
 
 	#[rstest]
@@ -836,26 +836,61 @@ mod select_candidates {
 			})
 			.collect();
 
-		let mut required_ancestors = HashMap::new();
-		required_ancestors
-			.insert(vec![candidates[4].hash()], vec![CandidateHash(Hash::from_low_u64_be(41))]);
-		required_ancestors
-			.insert(vec![candidates[8].hash()], vec![CandidateHash(Hash::from_low_u64_be(81))]);
+		let mut required_ancestors: HashMap<Vec<CandidateHash>, Ancestors> = HashMap::new();
+		required_ancestors.insert(
+			vec![candidates[4].hash()],
+			vec![(
+				CandidateHash(Hash::from_low_u64_be(41)),
+				AncestorState { count: 1, timed_out: false },
+			)]
+			.into_iter()
+			.collect(),
+		);
+		required_ancestors.insert(
+			vec![candidates[8].hash()],
+			vec![(
+				CandidateHash(Hash::from_low_u64_be(81)),
+				AncestorState { count: 1, timed_out: false },
+			)]
+			.into_iter()
+			.collect(),
+		);
 		required_ancestors.insert(
 			[12, 12, 12].iter().map(|&idx| candidates[idx].hash()).collect::<Vec<_>>(),
 			vec![
-				CandidateHash(Hash::from_low_u64_be(121)),
-				CandidateHash(Hash::from_low_u64_be(122)),
-				CandidateHash(Hash::from_low_u64_be(121)),
-			],
+				(
+					CandidateHash(Hash::from_low_u64_be(122)),
+					AncestorState { count: 1, timed_out: false },
+				),
+				(
+					CandidateHash(Hash::from_low_u64_be(121)),
+					AncestorState { count: 1, timed_out: false },
+				),
+			]
+			.into_iter()
+			.collect(),
 		);
 		required_ancestors.insert(
 			[13, 13].iter().map(|&idx| candidates[idx].hash()).collect::<Vec<_>>(),
-			(131..=139).map(|num| CandidateHash(Hash::from_low_u64_be(num))).collect(),
+			(131..=139)
+				.map(|num| {
+					(
+						CandidateHash(Hash::from_low_u64_be(num)),
+						AncestorState { count: 1, timed_out: false },
+					)
+				})
+				.collect(),
 		);
 
-		required_ancestors
-			.insert(vec![candidates[15].hash()], vec![CandidateHash(Hash::from_low_u64_be(151))]);
+		required_ancestors.insert(
+			vec![candidates[15].hash()],
+			vec![(
+				CandidateHash(Hash::from_low_u64_be(151)),
+				AncestorState { count: 1, timed_out: false },
+			)]
+			.into_iter()
+			.collect(),
+		);
 
 		let mock_cores_clone = mock_cores.clone();
 		test_harness(
