@@ -67,7 +67,7 @@ use super::core::{configuration::TestConfiguration, mock::dummy_builder, network
 
 const LOG_TARGET: &str = "subsystem-bench::availability";
 
-use super::{cli::TestObjective, core::mock::AlwaysSupportsParachains};
+use super::{core::mock::AlwaysSupportsParachains, TestObjective};
 use polkadot_node_subsystem_test_helpers::{
 	derive_erasure_chunks_with_proofs_and_root, mock::new_block_import_info,
 };

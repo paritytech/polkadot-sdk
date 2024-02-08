@@ -15,7 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Simple BLS (Boneh–Lynn–Shacham) Signature API.
+//! BLS (Boneh–Lynn–Shacham) Signature along with efficiently verifiable Chaum-Pedersen proof API.
+//! Signatures are implemented according to
+//! [Efficient Aggregatable BLS Signatures with Chaum-Pedersen Proofs](https://eprint.iacr.org/2022/1611)
+//! Hash-to-BLS-curve is using Simplified SWU for AB == 0
+//! [RFC 9380](https://datatracker.ietf.org/doc/rfc9380/) Sect 6.6.3.
+//! Chaum-Pedersen proof uses the same hash-to-field specified in RFC 9380 for the field of the BLS
+//! curve.
 
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
@@ -452,11 +458,12 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 	fn derive<Iter: Iterator<Item = DeriveJunction>>(
 		&self,
 		path: Iter,
-		_seed: Option<Seed>,
+		seed: Option<Seed>,
 	) -> Result<(Self, Option<Seed>), DeriveError> {
-		let mut acc: [u8; SECRET_KEY_SERIALIZED_SIZE] = self.0.secret.to_bytes().try_into().expect(
-			"Secret key serializer returns a vector of SECRET_KEY_SERIALIZED_SIZE size; qed",
-		);
+		let mut acc: [u8; SECRET_KEY_SERIALIZED_SIZE] =
+			seed.unwrap_or(self.0.secret.to_bytes().try_into().expect(
+				"Secret key serializer returns a vector of SECRET_KEY_SERIALIZED_SIZE size; qed",
+			));
 		for j in path {
 			match j {
 				DeriveJunction::Soft(_cc) => return Err(DeriveError::SoftKeyInPath),
@@ -544,7 +551,7 @@ mod test {
 			"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
 		);
 		let pair = Pair::from_seed(&seed);
-		// we are using hash to field so this is not going to work
+		// we are using hash-to-field so this is not going to work
 		// assert_eq!(pair.seed(), seed);
 		let path = vec![DeriveJunction::Hard([0u8; 32])];
 		let derived = pair.derive(path.into_iter(), None).ok().unwrap().0;
@@ -588,12 +595,12 @@ mod test {
 		assert_eq!(
 			public,
 			Public::unchecked_from(array_bytes::hex2array_unchecked(
-				"6dc6be608fab3c6bd894a606be86db346cc170db85c733853a371f3db54ae1b12052c0888d472760c81b537572a26f00db865e5963aef8634f9917571c51b538b564b2a9ceda938c8b930969ee3b832448e08e33a79e9ddd28af419a3ce45300f5dbc768b067781f44f3fe05a19e6b07b1c4196151ec3f8ea37e4f89a8963030d2101e931276bb9ebe1f20102239d780"
+				"7a84ca8ce4c37c93c95ecee6a3c0c9a7b9c225093cf2f12dc4f69cbfb847ef9424a18f5755d5a742247d386ff2aabb806bcf160eff31293ea9616976628f77266c8a8cc1d8753be04197bd6cdd8c5c87a148f782c4c1568d599b48833fd539001e580cff64bbc71850605433fcd051f3afc3b74819786f815ffb5272030a8d03e5df61e6183f8fd8ea85f26defa83400"
 			))
 		);
 		let message = b"";
 		let signature =
-	array_bytes::hex2array_unchecked("bbb395bbdee1a35930912034f5fde3b36df2835a0536c865501b0675776a1d5931a3bea2e66eff73b2546c6af2061a8019223e4ebbbed661b2538e0f5823f2c708eb89c406beca8fcb53a5c13dbc7c0c42e4cf2be2942bba96ea29297915a06bd2b1b979c0e2ac8fd4ec684a6b5d110c"
+	array_bytes::hex2array_unchecked("d1e3013161991e142d8751017d4996209c2ff8a9ee160f373733eda3b4b785ba6edce9f45f87104bbe07aa6aa6eb2780aa705efb2c13d3b317d6409d159d23bdc7cdd5c2a832d1551cf49d811d49c901495e527dbd532e3a462335ce2686009104aba7bc11c5b22be78f3198d2727a0b"
 	);
 		let expected_signature = Signature::unchecked_from(signature);
 		println!("signature is {:?}", pair.sign(&message[..]));
@@ -648,11 +655,29 @@ mod test {
 	}
 
 	#[test]
+	fn generate_with_phrase_should_be_recoverable_with_from_string() {
+		let (pair, phrase, seed) = Pair::generate_with_phrase(None);
+		let repair_seed = Pair::from_seed_slice(seed.as_ref()).expect("seed slice is valid");
+		assert_eq!(pair.public(), repair_seed.public());
+		assert_eq!(pair.to_raw_vec(), repair_seed.to_raw_vec());
+		let (repair_phrase, reseed) =
+			Pair::from_phrase(phrase.as_ref(), None).expect("seed slice is valid");
+		assert_eq!(seed, reseed);
+		assert_eq!(pair.public(), repair_phrase.public());
+		assert_eq!(pair.to_raw_vec(), repair_seed.to_raw_vec());
+
+		let repair_string = Pair::from_string(phrase.as_str(), None).expect("seed slice is valid");
+		assert_eq!(pair.public(), repair_string.public());
+		assert_eq!(pair.to_raw_vec(), repair_seed.to_raw_vec());
+	}
+
+	#[test]
 	fn password_does_something() {
 		let (pair1, phrase, _) = Pair::generate_with_phrase(Some("password"));
 		let (pair2, _) = Pair::from_phrase(&phrase, None).unwrap();
 
 		assert_ne!(pair1.public(), pair2.public());
+		assert_ne!(pair1.to_raw_vec(), pair2.to_raw_vec());
 	}
 
 	#[test]

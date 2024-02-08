@@ -28,7 +28,7 @@ use crate::{
 		mock_chain_selection::MockChainSelection,
 	},
 	core::{
-		configuration::{TestAuthorities, TestConfiguration},
+		configuration::TestAuthorities,
 		environment::{
 			BenchmarkUsage, TestEnvironment, TestEnvironmentDependencies, MAX_TIME_OF_FLIGHT,
 		},
@@ -43,6 +43,7 @@ use crate::{
 		},
 		NODE_UNDER_TEST,
 	},
+	TestConfiguration,
 };
 use colored::Colorize;
 use futures::channel::oneshot;
