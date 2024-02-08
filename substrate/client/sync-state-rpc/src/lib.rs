@@ -313,3 +313,49 @@ where
 
 	Ok(StorageProof::merge(proofs))
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sc_block_builder::BlockBuilderBuilder;
+	use sc_client_api::{StorageKey, StorageProvider};
+	use sp_consensus::BlockOrigin;
+	use std::collections::HashMap;
+	use substrate_test_runtime_client::{prelude::*, ClientBlockImportExt};
+
+	#[tokio::test]
+	async fn check_proof_has_code() {
+		let builder = TestClientBuilder::new();
+		let mut client = Arc::new(builder.build());
+
+		// Import a new block.
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().genesis_hash)
+			.with_parent_block_number(0)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let best_hash = block.header.hash();
+
+		client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+		client.finalize_block(best_hash, None).unwrap();
+
+		let storage_proof = generate_checkpoint_proof(&client, best_hash).unwrap();
+
+		// Inspect the contents of the proof.
+		let memdb = storage_proof.to_memory_db::<sp_runtime::traits::BlakeTwo256>().drain();
+		let storage: HashMap<_, _> =
+			memdb.iter().map(|(key, (value, _n))| (key.as_bytes(), value)).collect();
+
+		// The code entry must be present in the proof.
+		let code = client
+			.storage(best_hash, &StorageKey(well_known_keys::CODE.into()))
+			.unwrap()
+			.unwrap();
+
+		let found_code = storage.iter().any(|(_, value)| value == &&code.0);
+		assert!(found_code);
+	}
+}
