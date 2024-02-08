@@ -25,6 +25,8 @@ use log;
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 use sp_std::marker::PhantomData;
+#[cfg(feature = "try-runtime")]
+use sp_std::vec;
 
 const LOG_TARGET: &'static str = "runtime::asset-conversion::migration";
 
