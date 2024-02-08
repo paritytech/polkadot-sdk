@@ -4433,6 +4433,13 @@
 <a href="#4433" id="4433">4433</a>
 <a href="#4434" id="4434">4434</a>
 <a href="#4435" id="4435">4435</a>
+<a href="#4436" id="4436">4436</a>
+<a href="#4437" id="4437">4437</a>
+<a href="#4438" id="4438">4438</a>
+<a href="#4439" id="4439">4439</a>
+<a href="#4440" id="4440">4440</a>
+<a href="#4441" id="4441">4441</a>
+<a href="#4442" id="4442">4442</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -4536,14 +4543,11 @@
 <span class="kw">const </span>CACHE_HEADERS: usize = <span class="number">8</span>;
 
 <span class="doccomment">/// DB-backed patricia trie state, transaction type is an overlay of changes to commit.
-</span><span class="kw">pub type </span>DbState&lt;B&gt; =
-	sp_state_machine::TrieBackend&lt;Arc&lt;<span class="kw">dyn </span>sp_state_machine::Storage&lt;HashingFor&lt;B&gt;&gt;&gt;, HashingFor&lt;B&gt;&gt;;
+</span><span class="kw">pub type </span>DbState&lt;H&gt; = sp_state_machine::TrieBackend&lt;Arc&lt;<span class="kw">dyn </span>sp_state_machine::Storage&lt;H&gt;&gt;, H&gt;;
 
 <span class="doccomment">/// Builder for [`DbState`].
-</span><span class="kw">pub type </span>DbStateBuilder&lt;B&gt; = sp_state_machine::TrieBackendBuilder&lt;
-	Arc&lt;<span class="kw">dyn </span>sp_state_machine::Storage&lt;HashingFor&lt;B&gt;&gt;&gt;,
-	HashingFor&lt;B&gt;,
-&gt;;
+</span><span class="kw">pub type </span>DbStateBuilder&lt;Hasher&gt; =
+	sp_state_machine::TrieBackendBuilder&lt;Arc&lt;<span class="kw">dyn </span>sp_state_machine::Storage&lt;Hasher&gt;&gt;, Hasher&gt;;
 
 <span class="doccomment">/// Length of a [`DbHash`].
 </span><span class="kw">const </span>DB_HASH_LEN: usize = <span class="number">32</span>;
@@ -4570,13 +4574,17 @@
 /// It makes sure that the hash we are using stays pinned in storage
 /// until this structure is dropped.
 </span><span class="kw">pub struct </span>RefTrackingState&lt;Block: BlockT&gt; {
-	state: DbState&lt;Block&gt;,
+	state: DbState&lt;HashingFor&lt;Block&gt;&gt;,
 	storage: Arc&lt;StorageDb&lt;Block&gt;&gt;,
 	parent_hash: <span class="prelude-ty">Option</span>&lt;Block::Hash&gt;,
 }
 
 <span class="kw">impl</span>&lt;B: BlockT&gt; RefTrackingState&lt;B&gt; {
-	<span class="kw">fn </span>new(state: DbState&lt;B&gt;, storage: Arc&lt;StorageDb&lt;B&gt;&gt;, parent_hash: <span class="prelude-ty">Option</span>&lt;B::Hash&gt;) -&gt; <span class="self">Self </span>{
+	<span class="kw">fn </span>new(
+		state: DbState&lt;HashingFor&lt;B&gt;&gt;,
+		storage: Arc&lt;StorageDb&lt;B&gt;&gt;,
+		parent_hash: <span class="prelude-ty">Option</span>&lt;B::Hash&gt;,
+	) -&gt; <span class="self">Self </span>{
 		RefTrackingState { state, parent_hash, storage }
 	}
 }
@@ -4597,12 +4605,12 @@
 
 <span class="doccomment">/// A raw iterator over the `RefTrackingState`.
 </span><span class="kw">pub struct </span>RawIter&lt;B: BlockT&gt; {
-	inner: &lt;DbState&lt;B&gt; <span class="kw">as </span>StateBackend&lt;HashingFor&lt;B&gt;&gt;&gt;::RawIter,
+	inner: &lt;DbState&lt;HashingFor&lt;B&gt;&gt; <span class="kw">as </span>StateBackend&lt;HashingFor&lt;B&gt;&gt;&gt;::RawIter,
 }
 
 <span class="kw">impl</span>&lt;B: BlockT&gt; StorageIterator&lt;HashingFor&lt;B&gt;&gt; <span class="kw">for </span>RawIter&lt;B&gt; {
 	<span class="kw">type </span>Backend = RefTrackingState&lt;B&gt;;
-	<span class="kw">type </span>Error = &lt;DbState&lt;B&gt; <span class="kw">as </span>StateBackend&lt;HashingFor&lt;B&gt;&gt;&gt;::Error;
+	<span class="kw">type </span>Error = &lt;DbState&lt;HashingFor&lt;B&gt;&gt; <span class="kw">as </span>StateBackend&lt;HashingFor&lt;B&gt;&gt;&gt;::Error;
 
 	<span class="kw">fn </span>next_key(<span class="kw-2">&amp;mut </span><span class="self">self</span>, backend: <span class="kw-2">&amp;</span><span class="self">Self</span>::Backend) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;StorageKey, <span class="self">Self</span>::Error&gt;&gt; {
 		<span class="self">self</span>.inner.next_key(<span class="kw-2">&amp;</span>backend.state)
@@ -4621,8 +4629,9 @@
 }
 
 <span class="kw">impl</span>&lt;B: BlockT&gt; StateBackend&lt;HashingFor&lt;B&gt;&gt; <span class="kw">for </span>RefTrackingState&lt;B&gt; {
-	<span class="kw">type </span>Error = &lt;DbState&lt;B&gt; <span class="kw">as </span>StateBackend&lt;HashingFor&lt;B&gt;&gt;&gt;::Error;
-	<span class="kw">type </span>TrieBackendStorage = &lt;DbState&lt;B&gt; <span class="kw">as </span>StateBackend&lt;HashingFor&lt;B&gt;&gt;&gt;::TrieBackendStorage;
+	<span class="kw">type </span>Error = &lt;DbState&lt;HashingFor&lt;B&gt;&gt; <span class="kw">as </span>StateBackend&lt;HashingFor&lt;B&gt;&gt;&gt;::Error;
+	<span class="kw">type </span>TrieBackendStorage =
+		&lt;DbState&lt;HashingFor&lt;B&gt;&gt; <span class="kw">as </span>StateBackend&lt;HashingFor&lt;B&gt;&gt;&gt;::TrieBackendStorage;
 	<span class="kw">type </span>RawIter = RawIter&lt;B&gt;;
 
 	<span class="kw">fn </span>storage(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;, <span class="self">Self</span>::Error&gt; {
@@ -4719,7 +4728,8 @@
 }
 
 <span class="kw">impl</span>&lt;B: BlockT&gt; AsTrieBackend&lt;HashingFor&lt;B&gt;&gt; <span class="kw">for </span>RefTrackingState&lt;B&gt; {
-	<span class="kw">type </span>TrieBackendStorage = &lt;DbState&lt;B&gt; <span class="kw">as </span>StateBackend&lt;HashingFor&lt;B&gt;&gt;&gt;::TrieBackendStorage;
+	<span class="kw">type </span>TrieBackendStorage =
+		&lt;DbState&lt;HashingFor&lt;B&gt;&gt; <span class="kw">as </span>StateBackend&lt;HashingFor&lt;B&gt;&gt;&gt;::TrieBackendStorage;
 
 	<span class="kw">fn </span>as_trie_backend(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -6371,7 +6381,7 @@
 
 	<span class="kw">fn </span>empty_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RecordStatsState&lt;RefTrackingState&lt;Block&gt;, Block&gt; {
 		<span class="kw">let </span>root = EmptyStorage::&lt;Block&gt;::new().<span class="number">0</span>; <span class="comment">// Empty trie
-		</span><span class="kw">let </span>db_state = DbStateBuilder::&lt;Block&gt;::new(<span class="self">self</span>.storage.clone(), root)
+		</span><span class="kw">let </span>db_state = DbStateBuilder::&lt;HashingFor&lt;Block&gt;&gt;::new(<span class="self">self</span>.storage.clone(), root)
 			.with_optional_cache(<span class="self">self</span>.shared_trie_cache.as_ref().map(|c| c.local_cache()))
 			.build();
 		<span class="kw">let </span>state = RefTrackingState::new(db_state, <span class="self">self</span>.storage.clone(), <span class="prelude-val">None</span>);
@@ -6863,9 +6873,12 @@
 		<span class="kw">if </span>hash == <span class="self">self</span>.blockchain.meta.read().genesis_hash {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(genesis_state) = <span class="kw-2">&amp;*</span><span class="self">self</span>.genesis_state.read() {
 				<span class="kw">let </span>root = genesis_state.root;
-				<span class="kw">let </span>db_state = DbStateBuilder::&lt;Block&gt;::new(genesis_state.clone(), root)
-					.with_optional_cache(<span class="self">self</span>.shared_trie_cache.as_ref().map(|c| c.local_cache()))
-					.build();
+				<span class="kw">let </span>db_state =
+					DbStateBuilder::&lt;HashingFor&lt;Block&gt;&gt;::new(genesis_state.clone(), root)
+						.with_optional_cache(
+							<span class="self">self</span>.shared_trie_cache.as_ref().map(|c| c.local_cache()),
+						)
+						.build();
 
 				<span class="kw">let </span>state = RefTrackingState::new(db_state, <span class="self">self</span>.storage.clone(), <span class="prelude-val">None</span>);
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(RecordStatsState::new(state, <span class="prelude-val">None</span>, <span class="self">self</span>.state_usage.clone()))
@@ -6884,11 +6897,12 @@
 					<span class="self">self</span>.storage.state_db.pin(<span class="kw-2">&amp;</span>hash, hdr.number.saturated_into::&lt;u64&gt;(), hint)
 				{
 					<span class="kw">let </span>root = hdr.state_root;
-					<span class="kw">let </span>db_state = DbStateBuilder::&lt;Block&gt;::new(<span class="self">self</span>.storage.clone(), root)
-						.with_optional_cache(
-							<span class="self">self</span>.shared_trie_cache.as_ref().map(|c| c.local_cache()),
-						)
-						.build();
+					<span class="kw">let </span>db_state =
+						DbStateBuilder::&lt;HashingFor&lt;Block&gt;&gt;::new(<span class="self">self</span>.storage.clone(), root)
+							.with_optional_cache(
+								<span class="self">self</span>.shared_trie_cache.as_ref().map(|c| c.local_cache()),
+							)
+							.build();
 					<span class="kw">let </span>state = RefTrackingState::new(db_state, <span class="self">self</span>.storage.clone(), <span class="prelude-val">Some</span>(hash));
 					<span class="prelude-val">Ok</span>(RecordStatsState::new(state, <span class="prelude-val">Some</span>(hash), <span class="self">self</span>.state_usage.clone()))
 				} <span class="kw">else </span>{

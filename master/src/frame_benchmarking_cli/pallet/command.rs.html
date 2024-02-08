@@ -771,7 +771,6 @@
 <a href="#771" id="771">771</a>
 <a href="#772" id="772">772</a>
 <a href="#773" id="773">773</a>
-<a href="#774" id="774">774</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -811,7 +810,7 @@
 };
 <span class="kw">use </span>sp_externalities::Extensions;
 <span class="kw">use </span>sp_keystore::{testing::MemoryKeystore, KeystoreExt};
-<span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT};
+<span class="kw">use </span>sp_runtime::traits::Hash;
 <span class="kw">use </span>sp_state_machine::StateMachine;
 <span class="kw">use </span>std::{collections::HashMap, fmt::Debug, fs, str::FromStr, time};
 
@@ -914,11 +913,10 @@ This could mean that you either did not build the node correctly with the \
 not created by a node that was compiled with the flag&quot;</span>;
 
 <span class="kw">impl </span>PalletCmd {
-	<span class="doccomment">/// Runs the command and benchmarks the chain.
-	</span><span class="kw">pub fn </span>run&lt;BB, ExtraHostFunctions&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, config: Configuration) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;
+	<span class="doccomment">/// Runs the command and benchmarks a pallet.
+	</span><span class="kw">pub fn </span>run&lt;Hasher, ExtraHostFunctions&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, config: Configuration) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;
 	<span class="kw">where
-		</span>BB: BlockT + Debug,
-		&lt;&lt;&lt;BB <span class="kw">as </span>BlockT&gt;::Header <span class="kw">as </span>HeaderT&gt;::Number <span class="kw">as </span>std::str::FromStr&gt;::Err: std::fmt::Debug,
+		</span>Hasher: Hash,
 		ExtraHostFunctions: sp_wasm_interface::HostFunctions,
 	{
 		<span class="kw">let </span>_d = <span class="self">self</span>.execution.as_ref().map(|exec| {
@@ -973,7 +971,7 @@ not created by a node that was compiled with the flag&quot;</span>;
 		<span class="kw">let </span>genesis_storage = spec.build_storage()<span class="question-mark">?</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>changes = Default::default();
 		<span class="kw">let </span>cache_size = <span class="prelude-val">Some</span>(<span class="self">self</span>.database_cache_size <span class="kw">as </span>usize);
-		<span class="kw">let </span>state_with_tracking = BenchmarkingState::&lt;BB&gt;::new(
+		<span class="kw">let </span>state_with_tracking = BenchmarkingState::&lt;Hasher&gt;::new(
 			genesis_storage.clone(),
 			cache_size,
 			<span class="comment">// Record proof size
@@ -981,7 +979,7 @@ not created by a node that was compiled with the flag&quot;</span>;
 			<span class="comment">// Enable storage tracking
 			</span><span class="bool-val">true</span>,
 		)<span class="question-mark">?</span>;
-		<span class="kw">let </span>state_without_tracking = BenchmarkingState::&lt;BB&gt;::new(
+		<span class="kw">let </span>state_without_tracking = BenchmarkingState::&lt;Hasher&gt;::new(
 			genesis_storage,
 			cache_size,
 			<span class="comment">// Do not record proof size

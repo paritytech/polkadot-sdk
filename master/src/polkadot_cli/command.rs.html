@@ -947,7 +947,7 @@
 
 					<span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>) {
 						runner.sync_run(|config| {
-							cmd.run::&lt;service::Block, ()&gt;(config)
+							cmd.run::&lt;sp_runtime::traits::HashingFor&lt;service::Block&gt;, ()&gt;(config)
 								.map_err(|e| Error::SubstrateCli(e))
 						})
 					} <span class="kw">else </span>{

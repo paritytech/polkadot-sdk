@@ -305,7 +305,7 @@
 							)
 						}
 
-						cmd.run::&lt;Block, ()&gt;(config)
+						cmd.run::&lt;sp_runtime::traits::HashingFor&lt;Block&gt;, ()&gt;(config)
 					},
 					BenchmarkCmd::Block(cmd) =&gt; {
 						<span class="kw">let </span>PartialComponents { client, .. } = service::new_partial(<span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;

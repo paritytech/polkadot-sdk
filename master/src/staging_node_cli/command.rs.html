@@ -232,6 +232,7 @@
 <a href="#232" id="232">232</a>
 <a href="#233" id="233">233</a>
 <a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -262,6 +263,7 @@
 <span class="kw">use </span>sc_cli::{<span class="prelude-ty">Result</span>, SubstrateCli};
 <span class="kw">use </span>sc_service::PartialComponents;
 <span class="kw">use </span>sp_keyring::Sr25519Keyring;
+<span class="kw">use </span>sp_runtime::traits::HashingFor;
 
 <span class="kw">use </span>std::sync::Arc;
 
@@ -340,7 +342,7 @@
 							)
 						}
 
-						cmd.run::&lt;Block, sp_statement_store::runtime_api::HostFunctions&gt;(config)
+						cmd.run::&lt;HashingFor&lt;Block&gt;, sp_statement_store::runtime_api::HostFunctions&gt;(config)
 					},
 					BenchmarkCmd::Block(cmd) =&gt; {
 						<span class="comment">// ensure that we keep the task manager alive

@@ -577,7 +577,7 @@
 			</span><span class="kw">match </span>cmd {
 				BenchmarkCmd::Pallet(cmd) =&gt;
 					<span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>) {
-						runner.sync_run(|config| cmd.run::&lt;Block, ()&gt;(config))
+						runner.sync_run(|config| cmd.run::&lt;sp_runtime::traits::HashingFor&lt;Block&gt;, ()&gt;(config))
 					} <span class="kw">else </span>{
 						<span class="prelude-val">Err</span>(<span class="string">&quot;Benchmarking wasn&#39;t enabled when building the node. \
 					You can enable it with `--features runtime-benchmarks`.&quot;

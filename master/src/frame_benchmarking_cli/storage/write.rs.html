@@ -302,7 +302,7 @@
 		<span class="kw">let </span>best_hash = client.usage_info().chain.best_hash;
 		<span class="kw">let </span>header = client.header(best_hash)<span class="question-mark">?</span>.ok_or(<span class="string">&quot;Header not found&quot;</span>)<span class="question-mark">?</span>;
 		<span class="kw">let </span>original_root = <span class="kw-2">*</span>header.state_root();
-		<span class="kw">let </span>trie = DbStateBuilder::&lt;Block&gt;::new(storage.clone(), original_root).build();
+		<span class="kw">let </span>trie = DbStateBuilder::&lt;HashingFor&lt;Block&gt;&gt;::new(storage.clone(), original_root).build();
 
 		<span class="macro">info!</span>(<span class="string">&quot;Preparing keys from block {}&quot;</span>, best_hash);
 		<span class="comment">// Load all KV pairs and randomly shuffle them.
@@ -434,7 +434,7 @@
 /// if `child_info` exist then it means this is a child tree key
 </span><span class="kw">fn </span>measure_write&lt;Block: BlockT&gt;(
 	db: Arc&lt;<span class="kw">dyn </span>sp_database::Database&lt;DbHash&gt;&gt;,
-	trie: <span class="kw-2">&amp;</span>DbState&lt;Block&gt;,
+	trie: <span class="kw-2">&amp;</span>DbState&lt;HashingFor&lt;Block&gt;&gt;,
 	key: Vec&lt;u8&gt;,
 	new_v: Vec&lt;u8&gt;,
 	version: StateVersion,
@@ -465,7 +465,7 @@
 /// if `child_info` exist then it means this is a child tree key
 </span><span class="kw">fn </span>check_new_value&lt;Block: BlockT&gt;(
 	db: Arc&lt;<span class="kw">dyn </span>sp_database::Database&lt;DbHash&gt;&gt;,
-	trie: <span class="kw-2">&amp;</span>DbState&lt;Block&gt;,
+	trie: <span class="kw-2">&amp;</span>DbState&lt;HashingFor&lt;Block&gt;&gt;,
 	key: <span class="kw-2">&amp;</span>Vec&lt;u8&gt;,
 	new_v: <span class="kw-2">&amp;</span>Vec&lt;u8&gt;,
 	version: StateVersion,
