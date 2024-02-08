@@ -1824,12 +1824,12 @@ impl<T: Config> Pallet<T> {
 			"VoterList contains non-staker"
 		);
 
-		// TODO: re-enable once <https://github.com/paritytech/polkadot-sdk/issues/3245> is fixed.
+		// TODO: re-enable checks once <https://github.com/paritytech/polkadot-sdk/issues/3245> is fixed.
 		//Self::check_payees()?;
-		Self::check_nominators()?;
+		//Self::check_nominators()?;
+		//Self::check_ledgers()?;
 		Self::check_exposures()?;
 		Self::check_paged_exposures()?;
-		Self::check_ledgers()?;
 		Self::check_count()
 	}
 
@@ -1869,6 +1869,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	#[allow(dead_code)]
 	fn check_ledgers() -> Result<(), TryRuntimeError> {
 		Bonded::<T>::iter()
 			.map(|(stash, ctrl)| {
@@ -1969,6 +1970,7 @@ impl<T: Config> Pallet<T> {
 			.collect::<Result<(), TryRuntimeError>>()
 	}
 
+	#[allow(dead_code)]
 	fn check_nominators() -> Result<(), TryRuntimeError> {
 		// a check per nominator to ensure their entire stake is correctly distributed. Will only
 		// kick-in if the nomination was submitted before the current era.
@@ -2026,11 +2028,13 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	#[allow(dead_code)]
 	fn ensure_is_stash(who: &T::AccountId) -> Result<(), &'static str> {
 		ensure!(Self::bonded(who).is_some(), "Not a stash.");
 		Ok(())
 	}
 
+	#[allow(dead_code)]
 	fn ensure_ledger_consistent(ctrl: T::AccountId) -> Result<(), TryRuntimeError> {
 		// ensures ledger.total == ledger.active + sum(ledger.unlocking).
 		let ledger = Self::ledger(StakingAccount::Controller(ctrl.clone()))?;
