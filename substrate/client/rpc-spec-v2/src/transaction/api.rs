@@ -41,7 +41,7 @@ pub trait TransactionApi<Hash: Clone> {
 }
 
 #[rpc(client, server)]
-pub trait TransactionBroadcastApi<Hash: Clone> {
+pub trait TransactionBroadcastApi {
 	/// Broadcast an extrinsic to the chain.
 	///
 	/// # Unstable

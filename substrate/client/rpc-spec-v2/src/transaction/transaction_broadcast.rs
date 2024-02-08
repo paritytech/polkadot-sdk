@@ -28,7 +28,7 @@ use rand::{distributions::Alphanumeric, Rng};
 use sc_client_api::BlockchainEvents;
 use sc_transaction_pool_api::{
 	error::{Error as PoolError, IntoPoolError},
-	BlockHash, TransactionFor, TransactionPool, TransactionSource, TransactionStatus,
+	TransactionFor, TransactionPool, TransactionSource, TransactionStatus,
 };
 use sp_blockchain::HeaderBackend;
 use sp_core::Bytes;
@@ -94,8 +94,7 @@ impl<Pool, Client> TransactionBroadcast<Pool, Client> {
 const TX_SOURCE: TransactionSource = TransactionSource::External;
 
 #[async_trait]
-impl<Pool, Client> TransactionBroadcastApiServer<BlockHash<Pool>>
-	for TransactionBroadcast<Pool, Client>
+impl<Pool, Client> TransactionBroadcastApiServer for TransactionBroadcast<Pool, Client>
 where
 	Pool: TransactionPool + Sync + Send + 'static,
 	Pool::Error: IntoPoolError,
