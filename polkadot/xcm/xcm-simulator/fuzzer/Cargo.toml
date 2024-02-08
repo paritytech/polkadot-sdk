@@ -39,10 +39,10 @@ polkadot-parachain-primitives = { path = "../../../parachain" }
 [features]
 default = ["try-runtime"]
 try-runtime = [
-	"frame-support/try-runtime",
-	"frame-try-runtime/try-runtime",
 	"frame-executive/try-runtime",
+	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"frame-try-runtime/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-xcm/try-runtime",
