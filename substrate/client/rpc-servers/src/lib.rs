@@ -132,7 +132,7 @@ pub async fn start_server<M: Send + Sync + 'static>(
 	let (stop_handle, server_handle) = stop_channel();
 	let cfg = PerConnection {
 		methods: build_rpc_api(rpc_api).into(),
-		service_builder: builder.to_service_builder().max_connections(max_connections),
+		service_builder: builder.to_service_builder(),
 		metrics,
 		tokio_handle,
 		stop_handle: stop_handle.clone(),
