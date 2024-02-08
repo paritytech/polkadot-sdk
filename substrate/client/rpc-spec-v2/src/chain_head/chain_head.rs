@@ -264,12 +264,12 @@ where
 			}),
 		};
 
-		let (rp, rp_is_success) = method_started_response(operation_id, None);
+		let (rp, rp_fut) = method_started_response(operation_id, None);
 
 		let fut = async move {
-			// Events should only by generated if the response
-			// was successful.
-			if rp_is_success.await.is_err() {
+			// Events should only by generated
+			// if the response was successfully propagated.
+			if rp_fut.await.is_err() {
 				return;
 			}
 			let _ = block_guard.response_sender().unbounded_send(event);
@@ -324,11 +324,11 @@ where
 			},
 		};
 
-		let child_trie = child_trie
-			.map(|child_trie| parse_hex_param(child_trie))
-			.transpose()
-			.unwrap()
-			.map(ChildInfo::new_default_from_vec);
+		let child_trie = match child_trie.map(|child_trie| parse_hex_param(child_trie)).transpose()
+		{
+			Ok(c) => c.map(ChildInfo::new_default_from_vec),
+			Err(e) => return ResponsePayload::error(e),
+		};
 
 		let mut block_guard =
 			match self.subscriptions.lock_block(&follow_subscription, hash, items.len()) {
@@ -360,8 +360,8 @@ where
 		let (rp, rp_is_success) = method_started_response(operation_id, Some(discarded));
 
 		let fut = async move {
-			// Events should only by generated if the response
-			// was successful.
+			// Events should only by generated
+			// if the response was successfully propagated.
 			if rp_is_success.await.is_err() {
 				return;
 			}
@@ -425,12 +425,12 @@ where
 				})
 			});
 
-		let (rp, rp_is_success) = method_started_response(operation_id, None);
+		let (rp, rp_fut) = method_started_response(operation_id, None);
 
 		let fut = async move {
-			// Events should only by generated if the response
-			// was successful.
-			if rp_is_success.await.is_err() {
+			// Events should only by generated
+			// if the response was successfully propagated.
+			if rp_fut.await.is_err() {
 				return;
 			}
 			let _ = block_guard.response_sender().unbounded_send(event);
@@ -506,6 +506,5 @@ fn method_started_response(
 	discarded_items: Option<usize>,
 ) -> (ResponsePayload<'static, MethodResponse>, MethodResponseFuture) {
 	let rp = MethodResponse::Started(MethodResponseStarted { operation_id, discarded_items });
-
 	ResponsePayload::success(rp).notify_on_completion()
 }
