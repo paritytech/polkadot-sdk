@@ -3,7 +3,7 @@ title: "Make the `benchmark pallet`` command only require a Hasher"
 doc:
   - audience: Node Dev
     description: |
-      Currently the `benchmark pallet` command requires a `Block` type, whole only using its hash.
+      Currently the `benchmark pallet` command requires a `Block` type, whole only using its hasher.
       Now this is changed to only require the hash. This means to use `HashingFor<Block>` in the
       spot where `Block` was required.  
       Example patch for your node with `cmd` being `BenchmarkCmd::Pallet(cmd)`:
