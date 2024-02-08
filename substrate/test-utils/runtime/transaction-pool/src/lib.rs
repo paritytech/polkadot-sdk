@@ -418,7 +418,7 @@ impl ChainApi for TestApi {
 			// 	std::backtrace::Backtrace::force_capture(),
 			// );
 			log::info!(
-				"test_api::validate_transaction: h{:?} n:{:?} cn:{:?} tn:{:?} r:{:?} p:{:?}",
+				"test_api::validate_transaction: h:{:?} n:{:?} cn:{:?} tn:{:?} r:{:?} p:{:?}",
 				at,
 				block_number,
 				chain_nonce,
