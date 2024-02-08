@@ -81,7 +81,7 @@ pub struct CoretimeAllocator;
 impl CoretimeInterface for CoretimeAllocator {
 	type AccountId = AccountId;
 	type Balance = Balance;
-	type RealyChainBlockNumberProvider = RelaychainDataProvider<Runtime>;
+	type RelayChainBlockNumberProvider = RelaychainDataProvider<Runtime>;
 
 	fn request_core_count(count: CoreIndex) {
 		use crate::coretime::CoretimeProviderCalls::RequestCoreCount;
