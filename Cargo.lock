@@ -7021,6 +7021,7 @@ dependencies = [
  "pallet-nomination-pools-runtime-api",
  "pallet-offences",
  "pallet-offences-benchmarking",
+ "pallet-parameters",
  "pallet-preimage",
  "pallet-proxy",
  "pallet-ranked-collective",
@@ -9736,6 +9737,7 @@ dependencies = [
  "pallet-bags-list",
  "pallet-balances",
  "pallet-election-provider-multi-phase",
+ "pallet-nomination-pools",
  "pallet-session",
  "pallet-staking",
  "pallet-timestamp",
@@ -10428,6 +10430,26 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
+]
+
+[[package]]
+name = "pallet-parameters"
+version = "0.0.1"
+dependencies = [
+ "docify",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-example-basic",
+ "parity-scale-codec",
+ "paste",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -12131,6 +12153,7 @@ dependencies = [
  "sp-io",
  "sp-keyring",
  "sp-maybe-compressed-blob",
+ "sp-runtime",
  "substrate-build-script-utils",
  "thiserror",
  "try-runtime-cli",
@@ -18226,6 +18249,7 @@ dependencies = [
  "sp-core",
  "sp-crypto-hashing",
  "sp-io",
+ "sp-keystore",
  "sp-mmr-primitives",
  "sp-runtime",
  "sp-std 14.0.0",
@@ -22193,8 +22217,10 @@ name = "xcm-simulator-fuzzer"
 version = "1.0.0"
 dependencies = [
  "arbitrary",
+ "frame-executive",
  "frame-support",
  "frame-system",
+ "frame-try-runtime",
  "honggfuzz",
  "pallet-balances",
  "pallet-message-queue",
