@@ -100,6 +100,10 @@ struct BenchCli {
 	/// Enable Cache Misses Profiling with Valgrind. Linux only, Valgrind must be in the PATH
 	pub cache_misses: bool,
 
+	#[clap(long, default_value_t = false)]
+	/// Shows the output in YAML format
+	pub yaml_output: bool,
+
 	#[command(subcommand)]
 	pub objective: cli::TestObjective,
 }
@@ -164,34 +168,51 @@ impl BenchCli {
 					format!("Sequence contains {} step(s)", num_steps).bright_purple()
 				);
 				for (index, test_config) in test_sequence.into_iter().enumerate() {
+					let benchmark_name =
+						format!("{} #{} {}", &options.path, index + 1, test_config.objective);
 					gum::info!(target: LOG_TARGET, "{}", format!("Step {}/{}", index + 1, num_steps).bright_purple(),);
 					display_configuration(&test_config);
 
-					match test_config.objective {
+					let usage = match test_config.objective {
 						TestObjective::DataAvailabilityRead(ref _opts) => {
 							let mut state = TestState::new(&test_config);
 							let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
 							env.runtime().block_on(availability::benchmark_availability_read(
-								&mut env, state,
-							));
+								&benchmark_name,
+								&mut env,
+								state,
+							))
 						},
 						TestObjective::ApprovalVoting(ref options) => {
 							let (mut env, state) =
 								approval::prepare_test(test_config.clone(), options.clone());
-
-							env.runtime().block_on(bench_approvals(&mut env, state));
+							env.runtime().block_on(bench_approvals(
+								&benchmark_name,
+								&mut env,
+								state,
+							))
 						},
 						TestObjective::DataAvailabilityWrite => {
 							let mut state = TestState::new(&test_config);
 							let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
 							env.runtime().block_on(availability::benchmark_availability_write(
-								&mut env, state,
-							));
+								&benchmark_name,
+								&mut env,
+								state,
+							))
 						},
 						TestObjective::TestSequence(_) => todo!(),
 						TestObjective::Unimplemented => todo!(),
-					}
+					};
+
+					let output = if self.yaml_output {
+						serde_yaml::to_string(&vec![usage])?
+					} else {
+						usage.to_string()
+					};
+					println!("{}", output);
 				}
+
 				return Ok(())
 			},
 			TestObjective::DataAvailabilityRead(ref _options) => self.create_test_configuration(),
@@ -232,24 +253,27 @@ impl BenchCli {
 		let mut state = TestState::new(&test_config);
 		let (mut env, _protocol_config) = prepare_test(test_config, &mut state);
 
-		match self.objective {
-			TestObjective::DataAvailabilityRead(_options) => {
-				env.runtime()
-					.block_on(availability::benchmark_availability_read(&mut env, state));
-			},
-			TestObjective::DataAvailabilityWrite => {
-				env.runtime()
-					.block_on(availability::benchmark_availability_write(&mut env, state));
-			},
-			TestObjective::TestSequence(_options) => {},
+		let benchmark_name = format!("{}", self.objective);
+		let usage = match self.objective {
+			TestObjective::DataAvailabilityRead(_options) => env.runtime().block_on(
+				availability::benchmark_availability_read(&benchmark_name, &mut env, state),
+			),
+			TestObjective::DataAvailabilityWrite => env.runtime().block_on(
+				availability::benchmark_availability_write(&benchmark_name, &mut env, state),
+			),
+			TestObjective::TestSequence(_options) => todo!(),
 			TestObjective::ApprovalVoting(_) => todo!(),
 			TestObjective::Unimplemented => todo!(),
-		}
+		};
 
 		if let Some(agent_running) = agent_running {
 			let agent_ready = agent_running.stop()?;
 			agent_ready.shutdown();
 		}
+
+		let output =
+			if self.yaml_output { serde_yaml::to_string(&vec![usage])? } else { usage.to_string() };
+		println!("{}", output);
 
 		Ok(())
 	}
