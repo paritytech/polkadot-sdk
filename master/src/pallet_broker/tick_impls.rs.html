@@ -327,6 +327,8 @@
 <a href="#327" id="327">327</a>
 <a href="#328" id="328">328</a>
 <a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -545,7 +547,9 @@
 			<span class="kw">let </span>assignment = CoreAssignment::Task(task);
 			<span class="kw">let </span>schedule = BoundedVec::truncate_from(<span class="macro">vec!</span>[ScheduleItem { mask, assignment }]);
 			Workplan::&lt;T&gt;::insert((region_begin, first_core), <span class="kw-2">&amp;</span>schedule);
-			<span class="kw">let </span>expiring = until &gt;= region_begin &amp;&amp; until &lt; region_end;
+			<span class="comment">// Separate these to avoid missed expired leases hanging around forever.
+			</span><span class="kw">let </span>expired = until &lt; region_end;
+			<span class="kw">let </span>expiring = until &gt;= region_begin &amp;&amp; expired;
 			<span class="kw">if </span>expiring {
 				<span class="comment">// last time for this one - make it renewable.
 				</span><span class="kw">let </span>renewal_id = AllowedRenewalId { core: first_core, when: region_end };
@@ -560,7 +564,7 @@
 				<span class="self">Self</span>::deposit_event(Event::LeaseEnding { when: region_end, task });
 			}
 			first_core.saturating_inc();
-			!expiring
+			!expired
 		});
 		Leases::&lt;T&gt;::put(<span class="kw-2">&amp;</span>leases);
 
