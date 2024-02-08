@@ -18,7 +18,6 @@
 //! Storage migrations.
 
 use super::*;
-use codec::{Decode, Encode};
 use frame_support::{traits::OnRuntimeUpgrade, weights::Weight};
 use log;
 #[cfg(feature = "try-runtime")]
@@ -31,28 +30,42 @@ const LOG_TARGET: &'static str = "runtime::asset-conversion::migration";
 /// pool's account id from pool id has changed.
 pub mod new_pool_account_id {
 	use super::*;
-	use frame_support::{
-		traits::{fungibles::ResetTeam, tokens::Preservation},
-		Parameter,
+	use frame_support::traits::{
+		fungibles::{Refund as RefundT, ResetTeam as ResetTeamT},
+		tokens::Preservation,
 	};
-	use sp_runtime::traits::TryConvert;
 
 	/// Type facilitating the migration of existing pools to new account ids when the type deriving
 	/// a pool's account id from pool id has changed.
-	pub struct Migrate<T, C, A>(PhantomData<(T, C, A)>);
-	impl<T, C, A> OnRuntimeUpgrade for Migrate<T, C, A>
+	///
+	/// ### Parameters:
+	/// - `T`: The [`Config`] implementation for the target asset conversion instance with a new
+	///   account derivation method defined by [`PoolLocator`].
+	/// - `OldLocator`: The previously used type for account derivation.
+	/// - `ResetTeam`: A type used for resetting the team configuration of an LP token.
+	/// - `Refund`: A type used to perform a refund if the previous pool account holds a deposit.
+	/// - `WeightPerItem`: A getter returning the weight required for the migration of a single pool
+	///   account ID. It should include: 2 * weight_of(T::Assets::balance(..)) + 2 *
+	///   weight_of(T::Assets::transfer(..)) + 2 * weight_of(Refund::deposit(..)) + 2 *
+	///   weight_of(Refund::refund(..)) + weight_of(ResetTeam::reset_team(..));
+	pub struct Migrate<T, OldLocator, ResetTeam, Refund, WeightPerItem>(
+		PhantomData<(T, OldLocator, ResetTeam, Refund, WeightPerItem)>,
+	);
+	impl<T, OldLocator, ResetTeam, Refund, WeightPerItem> OnRuntimeUpgrade
+		for Migrate<T, OldLocator, ResetTeam, Refund, WeightPerItem>
 	where
-		A: Parameter,
-		T: Config<PoolId = (A, A), AssetKind = A>,
-		T::PoolAssets: ResetTeam<T::AccountId>,
-		C: for<'a> TryConvert<&'a T::PoolId, T::AccountId>,
+		T: Config<PoolId = (<T as Config>::AssetKind, <T as Config>::AssetKind)>,
+		OldLocator: PoolLocator<T::AccountId, T::AssetKind, T::PoolId>,
+		ResetTeam: ResetTeamT<T::AccountId, AssetId = T::PoolAssetId>,
+		Refund: RefundT<T::AccountId, AssetId = T::AssetKind>,
+		WeightPerItem: Get<Weight>,
 	{
 		fn on_runtime_upgrade() -> Weight {
-			// TODO calculate actual weight
-			let weight = Weight::zero();
+			let mut weight = Weight::zero();
 			for (pool_id, pool_info) in Pools::<T>::iter() {
+				weight.saturating_accrue(WeightPerItem::get());
 				let (account_id, new_account_id) =
-					match (C::try_convert(&pool_id), T::PoolLocator::address(&pool_id)) {
+					match (OldLocator::address(&pool_id), T::PoolLocator::address(&pool_id)) {
 						(Ok(a), Ok(b)) if a != b => (a, b),
 						_ => continue,
 					};
@@ -103,7 +116,31 @@ pub mod new_pool_account_id {
 					continue;
 				}
 
-				if let Err(e) = T::PoolAssets::reset_team(
+				if Refund::deposit(asset1.clone(), account_id.clone()).is_some() {
+					if let Err(e) = Refund::refund(asset1.clone(), account_id.clone()) {
+						log::error!(
+							target: LOG_TARGET,
+							"refund for asset1 `{:?}` to account `{}` failed with error `{:?}`",
+							asset1,
+							account_id,
+							e,
+						);
+					}
+				}
+
+				if Refund::deposit(asset2.clone(), account_id.clone()).is_some() {
+					if let Err(e) = Refund::refund(asset2.clone(), account_id.clone()) {
+						log::error!(
+							target: LOG_TARGET,
+							"refund for asset2 `{:?}` to account `{}` failed with error `{:?}`",
+							asset2.clone(),
+							account_id,
+							e,
+						);
+					}
+				}
+
+				if let Err(e) = ResetTeam::reset_team(
 					pool_info.lp_token.clone(),
 					new_account_id.clone(),
 					new_account_id.clone(),
@@ -126,7 +163,7 @@ pub mod new_pool_account_id {
 			let mut expected: Vec<(T::PoolId, <T as Config>::Balance, <T as Config>::Balance)> =
 				vec![];
 			for (pool_id, _) in Pools::<T>::iter() {
-				let account_id = C::try_convert(&pool_id)
+				let account_id = OldLocator::address(&pool_id)
 					.expect("pool ids must be convertible with old account id conversion type");
 				let (asset1, asset2) = pool_id;
 				let balance1 = T::Assets::total_balance(asset1.clone(), &account_id);
