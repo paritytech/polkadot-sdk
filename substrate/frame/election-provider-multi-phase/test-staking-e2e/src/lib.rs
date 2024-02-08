@@ -389,7 +389,7 @@ fn ledger_consistency_active_balance_below_ed() {
 }
 
 #[test]
-/// Automatic withdraw of unlocking funds in staking propagates to the nomination pools and its
+/// Automatic withdrawal of unlocking funds in staking propagates to the nomination pools and its
 /// state correctly.
 ///
 /// The staking pallet may withdraw unlocking funds from a pool's bonded account without a pool
