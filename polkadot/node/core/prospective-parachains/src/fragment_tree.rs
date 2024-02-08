@@ -763,8 +763,7 @@ impl FragmentTree {
 	/// Does an exhaustive search into the tree after traversing the ancestors path.
 	/// If the ancestors draw out an invalid path or one that can be traversed in multiple ways, no
 	/// candidates will be returned.
-	/// If the ancestors contain timed out candidates, this may return more than the requested
-	/// count. If there are multiple possibilities of the same size, this
+	/// If there are multiple possibilities of the same size, this
 	/// will select the first one. If there is no chain of size `count` that matches the criteria,
 	/// this will return the largest chain it could find with the criteria.
 	/// If there are no candidates meeting those criteria, returns an empty `Vec`.
@@ -772,31 +771,29 @@ impl FragmentTree {
 	///
 	/// The intention of the `ancestors` is to allow queries on the basis of
 	/// one or more candidates which were previously pending availability becoming
-	/// available or candidates timing out and opening up more room on the cores.
+	/// available or candidates timing out.
 	pub(crate) fn select_children(
 		&self,
 		ancestors: Ancestors,
 		count: u32,
 		pred: impl Fn(&CandidateHash) -> bool,
 	) -> Vec<CandidateHash> {
+		if count == 0 {
+			return vec![]
+		}
 		// First, we need to order the ancestors and trim the ones that timed out, including their
 		// descendants.
 		// The node returned is the one from which we can start finding new backable candidates.
-		// The count returned is the number of ancestors that were removed from the path. It
-		// corresponds to the number of cores that will get freed in the runtime as a result of
-		// candidates timing out. So we may actually be able to respond with multiple candidates
-		// than initially requested.
-		let Some((base_node, trim_count)) = self.find_path_from_ancestors(ancestors) else {
-			return vec![]
-		};
+		// If some of the ancestors got timed out, we'll first suggest candidates to fill those
+		// slots.
+		let Some(base_node) = self.find_path_from_ancestors(ancestors) else { return vec![] };
 
-		let max_count = count + trim_count;
 		self.select_children_inner(
 			base_node,
-			max_count,
-			max_count,
+			count,
+			count,
 			&pred,
-			&mut Vec::with_capacity(max_count as usize),
+			&mut Vec::with_capacity(count as usize),
 		)
 	}
 
@@ -872,12 +869,9 @@ impl FragmentTree {
 
 			// Short-circuit the search if we've found the right length. Otherwise, we'll
 			// search for a max.
-			// TODO: taking the first best selection might introduce bias
-			// or become gameable.
-			//
-			// For plausibly unique parachains, this shouldn't matter much.
-			// figure out alternative selection criteria? Like iterating through children in a
-			// random order.
+			// Taking the first best selection doesn't introduce bias or become gameable,
+			// because `find_path_from_ancestors` uses a HashMap to track the ancestors, which
+			// makes the order in which ancestors are visited non-deterministic.
 			if result.len() == expected_count as usize {
 				return result
 			} else if best_result.len() < result.len() {
@@ -892,11 +886,9 @@ impl FragmentTree {
 	// Returns a pointer to the last node in the path.
 	// If there are any timed out ancestors, trims the path so that we get the largest possible
 	// ancestor path that does not include any timed out ancestors or any descendant of them.
-	// Also returns how many ancestors were removed from the path as a result of trimming
-	// timed out ancestors.
 	// We assume that the ancestors form a chain (that the av-cores do not back parachain forks),
 	// None is returned otherwise.
-	fn find_path_from_ancestors(&self, mut ancestors: Ancestors) -> Option<(NodePointer, u32)> {
+	fn find_path_from_ancestors(&self, mut ancestors: Ancestors) -> Option<NodePointer> {
 		// All ancestors if/after this switches to `true` will be trimmed.
 		let mut timed_out = false;
 		// The number of elements in the path we've processed so far.
@@ -979,9 +971,9 @@ impl FragmentTree {
 			unvisited_remaining += ancestor.count();
 		}
 		if timed_out {
-			Some((last_node, unvisited_remaining))
+			Some(last_node)
 		} else if unvisited_remaining == 0 {
-			Some((last_node, 0))
+			Some(last_node)
 		} else {
 			// If no candidates were timed out, we should have used all ancestors. If that wasn't
 			// the case, the supplied path was invalid.
@@ -1673,7 +1665,6 @@ mod tests {
 		let relay_parent = Hash::repeat_byte(1);
 		let required_parent: HeadData = vec![0xff].into();
 		let max_depth = 10;
-		let relay_parent_storage_root = Hash::repeat_byte(69);
 
 		// Empty tree
 		let storage = CandidateStorage::new();
@@ -1695,10 +1686,7 @@ mod tests {
 		assert_eq!(tree.candidates().collect::<Vec<_>>().len(), 0);
 		assert_eq!(tree.nodes.len(), 0);
 
-		assert_eq!(
-			tree.find_path_from_ancestors(Ancestors::new()).unwrap(),
-			(NodePointer::Root, 0)
-		);
+		assert_eq!(tree.find_path_from_ancestors(Ancestors::new()).unwrap(), NodePointer::Root);
 		assert_eq!(tree.select_children(Ancestors::new(), 2, |_| true), vec![]);
 		// Invalid candidate.
 		let ancestors: Ancestors =
@@ -1876,10 +1864,7 @@ mod tests {
 		// Do some common tests on both trees.
 		{
 			// No ancestors supplied.
-			assert_eq!(
-				tree.find_path_from_ancestors(Ancestors::new()).unwrap(),
-				(NodePointer::Root, 0)
-			);
+			assert_eq!(tree.find_path_from_ancestors(Ancestors::new()).unwrap(), NodePointer::Root);
 			assert_eq!(
 				tree.select_children(Ancestors::new(), 4, |_| true),
 				[0, 1, 2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
@@ -1925,7 +1910,7 @@ mod tests {
 						.collect();
 				assert_eq!(
 					tree.find_path_from_ancestors(ancestors.clone()).unwrap(),
-					(NodePointer::Root, 0)
+					NodePointer::Root
 				);
 				assert_eq!(
 					tree.select_children(ancestors, 4, |_| true),
@@ -1940,7 +1925,7 @@ mod tests {
 				.collect();
 				assert_eq!(
 					tree.find_path_from_ancestors(ancestors.clone()).unwrap(),
-					(NodePointer::Root, 0)
+					NodePointer::Root
 				);
 				assert_eq!(
 					tree.select_children(ancestors, 4, |_| true),
@@ -1953,174 +1938,199 @@ mod tests {
 					.into_iter()
 					.collect();
 			let res = tree.find_path_from_ancestors(ancestors.clone()).unwrap();
-			let candidate = &tree.nodes[res.0.unwrap_idx()];
+			let candidate = &tree.nodes[res.unwrap_idx()];
 			assert_eq!(candidate.candidate_hash, candidates[7].hash());
-			assert_eq!(res.1, 0);
 			assert_eq!(tree.select_children(ancestors, 1, |_| true), vec![]);
 
-			// TODO: left here.
-			let res = tree
-				.find_path_from_ancestors(
-					[
-						(candidates[2].hash(), AncestorState { count: 1, timed_out: false }),
-						(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
-						(candidates[1].hash(), AncestorState { count: 1, timed_out: false }),
-					]
-					.into_iter()
-					.collect(),
-				)
-				.unwrap();
-			let candidate = &tree.nodes[res.0.unwrap_idx()];
+			let ancestors: Ancestors = [
+				(candidates[2].hash(), AncestorState { count: 1, timed_out: false }),
+				(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
+				(candidates[1].hash(), AncestorState { count: 1, timed_out: false }),
+			]
+			.into_iter()
+			.collect();
+			let res = tree.find_path_from_ancestors(ancestors.clone()).unwrap();
+			let candidate = &tree.nodes[res.unwrap_idx()];
 			assert_eq!(candidate.candidate_hash, candidates[2].hash());
-			assert_eq!(res.1, 0);
+			assert_eq!(
+				tree.select_children(ancestors, 2, |_| true),
+				[3, 4].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
+			);
 
 			// Valid ancestors with timeouts
-			let res = tree
-				.find_path_from_ancestors(
-					[
-						(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
-						(candidates[2].hash(), AncestorState { count: 1, timed_out: true }),
-						(candidates[1].hash(), AncestorState { count: 1, timed_out: false }),
-					]
-					.into_iter()
-					.collect(),
-				)
-				.unwrap();
-			let candidate = &tree.nodes[res.0.unwrap_idx()];
-			assert_eq!(candidate.candidate_hash, candidates[1].hash());
-			assert_eq!(res.1, 1);
 
-			let res = tree
-				.find_path_from_ancestors(
-					[
-						(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
-						(candidates[1].hash(), AncestorState { count: 1, timed_out: false }),
-						(candidates[2].hash(), AncestorState { count: 1, timed_out: true }),
-						(candidates[3].hash(), AncestorState { count: 1, timed_out: false }),
-					]
-					.into_iter()
-					.collect(),
-				)
-				.unwrap();
-			let candidate = &tree.nodes[res.0.unwrap_idx()];
+			let ancestors: Ancestors = [
+				(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
+				(candidates[2].hash(), AncestorState { count: 1, timed_out: true }),
+				(candidates[1].hash(), AncestorState { count: 1, timed_out: false }),
+			]
+			.into_iter()
+			.collect();
+			let res = tree.find_path_from_ancestors(ancestors.clone()).unwrap();
+			let candidate = &tree.nodes[res.unwrap_idx()];
 			assert_eq!(candidate.candidate_hash, candidates[1].hash());
-			assert_eq!(res.1, 2);
+			assert_eq!(
+				tree.select_children(ancestors, 2, |_| true),
+				[2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
+			);
 
-			let res = tree
-				.find_path_from_ancestors(
-					[
-						(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
-						(candidates[1].hash(), AncestorState { count: 1, timed_out: true }),
-						(candidates[2].hash(), AncestorState { count: 1, timed_out: false }),
-						(candidates[3].hash(), AncestorState { count: 1, timed_out: true }),
-					]
-					.into_iter()
-					.collect(),
-				)
-				.unwrap();
-			let candidate = &tree.nodes[res.0.unwrap_idx()];
+			let ancestors: Ancestors = [
+				(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
+				(candidates[1].hash(), AncestorState { count: 1, timed_out: false }),
+				(candidates[2].hash(), AncestorState { count: 1, timed_out: true }),
+				(candidates[3].hash(), AncestorState { count: 1, timed_out: false }),
+			]
+			.into_iter()
+			.collect();
+			let res = tree.find_path_from_ancestors(ancestors.clone()).unwrap();
+			let candidate = &tree.nodes[res.unwrap_idx()];
+			assert_eq!(candidate.candidate_hash, candidates[1].hash());
+			if has_cycle {
+				assert_eq!(
+					tree.select_children(ancestors, 2, |_| true),
+					[2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
+				);
+			} else {
+				assert_eq!(
+					tree.select_children(ancestors, 4, |_| true),
+					[2, 3, 4].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
+				);
+			}
+
+			let ancestors: Ancestors = [
+				(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
+				(candidates[1].hash(), AncestorState { count: 1, timed_out: true }),
+				(candidates[2].hash(), AncestorState { count: 1, timed_out: false }),
+				(candidates[3].hash(), AncestorState { count: 1, timed_out: true }),
+			]
+			.into_iter()
+			.collect();
+			let res = tree.find_path_from_ancestors(ancestors.clone()).unwrap();
+			let candidate = &tree.nodes[res.unwrap_idx()];
 			assert_eq!(candidate.candidate_hash, candidates[0].hash());
-			assert_eq!(res.1, 3);
+			assert_eq!(
+				tree.select_children(ancestors, 3, |_| true),
+				[1, 2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
+			);
 
-			let res = tree
-				.find_path_from_ancestors(
-					[
-						(candidates[0].hash(), AncestorState { count: 1, timed_out: true }),
-						(candidates[1].hash(), AncestorState { count: 1, timed_out: false }),
-						(candidates[2].hash(), AncestorState { count: 1, timed_out: false }),
-					]
-					.into_iter()
-					.collect(),
-				)
-				.unwrap();
-			assert_eq!(res.0, NodePointer::Root);
-			assert_eq!(res.1, 3);
+			let ancestors: Ancestors = [
+				(candidates[0].hash(), AncestorState { count: 1, timed_out: true }),
+				(candidates[1].hash(), AncestorState { count: 1, timed_out: false }),
+				(candidates[2].hash(), AncestorState { count: 1, timed_out: false }),
+			]
+			.into_iter()
+			.collect();
+			let res = tree.find_path_from_ancestors(ancestors.clone()).unwrap();
+			assert_eq!(res, NodePointer::Root);
+			assert_eq!(
+				tree.select_children(ancestors, 4, |_| true),
+				[0, 1, 2, 3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
+			);
+
+			// Requested count is 0.
+			assert_eq!(tree.select_children(Ancestors::new(), 0, |_| true), vec![]);
+
+			let ancestors: Ancestors = [
+				(candidates[2].hash(), AncestorState { count: 1, timed_out: false }),
+				(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
+				(candidates[1].hash(), AncestorState { count: 1, timed_out: false }),
+			]
+			.into_iter()
+			.collect();
+			assert_eq!(tree.select_children(ancestors, 0, |_| true), vec![]);
+
+			let ancestors: Ancestors = [
+				(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
+				(candidates[2].hash(), AncestorState { count: 1, timed_out: true }),
+				(candidates[1].hash(), AncestorState { count: 1, timed_out: false }),
+			]
+			.into_iter()
+			.collect();
+			assert_eq!(tree.select_children(ancestors, 0, |_| true), vec![]);
 		}
 
 		// Now do some tests only on the tree with cycles
 		if has_cycle {
 			// Exceeds the maximum tree depth. 0-1-2-3-4-1-2-3-4, when the tree stops at
 			// 0-1-2-3-4-1-2-3.
-			let res = tree.find_path_from_ancestors(
-				[
-					(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
-					(candidates[1].hash(), AncestorState { count: 2, timed_out: false }),
-					(candidates[2].hash(), AncestorState { count: 2, timed_out: false }),
-					(candidates[3].hash(), AncestorState { count: 2, timed_out: false }),
-					(candidates[4].hash(), AncestorState { count: 2, timed_out: false }),
-				]
-				.into_iter()
-				.collect(),
-			);
+			let ancestors: Ancestors = [
+				(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
+				(candidates[1].hash(), AncestorState { count: 2, timed_out: false }),
+				(candidates[2].hash(), AncestorState { count: 2, timed_out: false }),
+				(candidates[3].hash(), AncestorState { count: 2, timed_out: false }),
+				(candidates[4].hash(), AncestorState { count: 2, timed_out: false }),
+			]
+			.into_iter()
+			.collect();
+			let res = tree.find_path_from_ancestors(ancestors.clone());
 			assert_eq!(res, None);
+			assert_eq!(tree.select_children(ancestors, 1, |_| true), vec![]);
 
 			// Even for 0-1-2-3-4-1-2-3, there wouldn't be anything left to back.
-			let res = tree.find_path_from_ancestors(
-				[
-					(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
-					(candidates[1].hash(), AncestorState { count: 2, timed_out: false }),
-					(candidates[2].hash(), AncestorState { count: 2, timed_out: false }),
-					(candidates[3].hash(), AncestorState { count: 2, timed_out: false }),
-					(candidates[4].hash(), AncestorState { count: 1, timed_out: false }),
-				]
-				.into_iter()
-				.collect(),
-			);
+			let ancestors: Ancestors = [
+				(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
+				(candidates[1].hash(), AncestorState { count: 2, timed_out: false }),
+				(candidates[2].hash(), AncestorState { count: 2, timed_out: false }),
+				(candidates[3].hash(), AncestorState { count: 2, timed_out: false }),
+				(candidates[4].hash(), AncestorState { count: 1, timed_out: false }),
+			]
+			.into_iter()
+			.collect();
+			let res = tree.find_path_from_ancestors(ancestors.clone());
 			assert_eq!(res, None);
+			assert_eq!(tree.select_children(ancestors, 1, |_| true), vec![]);
 
 			// For 0-1-2-3-4-1-2, we can still use 3.
-			let res = tree
-				.find_path_from_ancestors(
-					[
-						(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
-						(candidates[1].hash(), AncestorState { count: 2, timed_out: false }),
-						(candidates[2].hash(), AncestorState { count: 2, timed_out: false }),
-						(candidates[3].hash(), AncestorState { count: 1, timed_out: false }),
-						(candidates[4].hash(), AncestorState { count: 1, timed_out: false }),
-					]
-					.into_iter()
-					.collect(),
-				)
-				.unwrap();
-
-			let candidate = &tree.nodes[res.0.unwrap_idx()];
+			let ancestors: Ancestors = [
+				(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
+				(candidates[1].hash(), AncestorState { count: 2, timed_out: false }),
+				(candidates[2].hash(), AncestorState { count: 2, timed_out: false }),
+				(candidates[3].hash(), AncestorState { count: 1, timed_out: false }),
+				(candidates[4].hash(), AncestorState { count: 1, timed_out: false }),
+			]
+			.into_iter()
+			.collect();
+			let res = tree.find_path_from_ancestors(ancestors.clone()).unwrap();
+			let candidate = &tree.nodes[res.unwrap_idx()];
 			assert_eq!(candidate.candidate_hash, candidates[2].hash());
-			assert_eq!(res.1, 0);
+			assert_eq!(
+				tree.select_children(ancestors, 3, |_| true),
+				[3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
+			);
 
 			// 0-1-2-3-4-1-2-3-4, but with 3 timed out.
-			let res = tree
-				.find_path_from_ancestors(
-					[
-						(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
-						(candidates[1].hash(), AncestorState { count: 2, timed_out: false }),
-						(candidates[2].hash(), AncestorState { count: 2, timed_out: false }),
-						(candidates[3].hash(), AncestorState { count: 2, timed_out: true }),
-						(candidates[4].hash(), AncestorState { count: 2, timed_out: false }),
-					]
-					.into_iter()
-					.collect(),
-				)
-				.unwrap();
-
-			let candidate = &tree.nodes[res.0.unwrap_idx()];
+			let ancestors: Ancestors = [
+				(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
+				(candidates[1].hash(), AncestorState { count: 2, timed_out: false }),
+				(candidates[2].hash(), AncestorState { count: 2, timed_out: false }),
+				(candidates[3].hash(), AncestorState { count: 2, timed_out: true }),
+				(candidates[4].hash(), AncestorState { count: 2, timed_out: false }),
+			]
+			.into_iter()
+			.collect();
+			let res = tree.find_path_from_ancestors(ancestors.clone()).unwrap();
+			let candidate = &tree.nodes[res.unwrap_idx()];
 			assert_eq!(candidate.candidate_hash, candidates[2].hash());
-			assert_eq!(res.1, 6);
+			assert_eq!(
+				tree.select_children(ancestors, 1, |_| true),
+				[3].into_iter().map(|i| candidates[i].hash()).collect::<Vec<_>>()
+			);
 
 			// For 0-1-2-3-4-5, there's more than 1 way of finding this path in
 			// the tree. `None` should be returned. The runtime should not have accepted this.
-			let res = tree.find_path_from_ancestors(
-				[
-					(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
-					(candidates[1].hash(), AncestorState { count: 1, timed_out: false }),
-					(candidates[2].hash(), AncestorState { count: 1, timed_out: false }),
-					(candidates[3].hash(), AncestorState { count: 1, timed_out: false }),
-					(candidates[4].hash(), AncestorState { count: 1, timed_out: false }),
-					(candidates[5].hash(), AncestorState { count: 1, timed_out: false }),
-				]
-				.into_iter()
-				.collect(),
-			);
+			let ancestors: Ancestors = [
+				(candidates[0].hash(), AncestorState { count: 1, timed_out: false }),
+				(candidates[1].hash(), AncestorState { count: 1, timed_out: false }),
+				(candidates[2].hash(), AncestorState { count: 1, timed_out: false }),
+				(candidates[3].hash(), AncestorState { count: 1, timed_out: false }),
+				(candidates[4].hash(), AncestorState { count: 1, timed_out: false }),
+				(candidates[5].hash(), AncestorState { count: 1, timed_out: false }),
+			]
+			.into_iter()
+			.collect();
+			let res = tree.find_path_from_ancestors(ancestors.clone());
 			assert_eq!(res, None);
+			assert_eq!(tree.select_children(ancestors, 1, |_| true), vec![]);
 		}
 	}
 

@@ -1172,10 +1172,10 @@ pub enum ProspectiveParachainsMessage {
 	/// The ancestors need not be ordered. The subsystem will take care of that. Moreover, timed
 	/// out ancestors should be marked as such.
 	/// N should represent the number of scheduled cores of this ParaId.
-	/// This may return more than N candidates, if some of the ancestors are timed
-	/// out. A timed out ancestor frees the cores of its descendants.
-	/// It may also return less/no candidates, if there aren't enough backable candidates
-	/// recorded.
+	/// A timed out ancestor frees the cores of all of its descendants, so if a timed out ancestor
+	/// is supplied, we'll get candidates that backfill those slots first.
+	/// It may also return less/no candidates, if there aren't enough backable
+	/// candidates recorded.
 	GetBackableCandidates(
 		Hash,
 		ParaId,
