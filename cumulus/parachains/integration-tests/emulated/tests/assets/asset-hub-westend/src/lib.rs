@@ -51,7 +51,9 @@ pub use westend_system_emulated_network::{
 	westend_emulated_chain::{genesis::ED as WESTEND_ED, WestendRelayPallet as WestendPallet},
 	AssetHubWestendPara as AssetHubWestend, AssetHubWestendParaReceiver as AssetHubWestendReceiver,
 	AssetHubWestendParaSender as AssetHubWestendSender, BridgeHubWestendPara as BridgeHubWestend,
-	BridgeHubWestendParaReceiver as BridgeHubWestendReceiver, PenpalBPara as PenpalB,
+	BridgeHubWestendParaReceiver as BridgeHubWestendReceiver,
+	PenpalAPara as PenpalA,
+	PenpalAParaReceiver as PenpalAReceiver, PenpalBPara as PenpalB,
 	PenpalBParaReceiver as PenpalBReceiver, PenpalBParaSender as PenpalBSender,
 	WestendRelay as Westend, WestendRelayReceiver as WestendReceiver,
 	WestendRelaySender as WestendSender,
@@ -67,6 +69,7 @@ pub type RelayToParaTest = Test<Westend, PenpalB>;
 pub type SystemParaToRelayTest = Test<AssetHubWestend, Westend>;
 pub type SystemParaToParaTest = Test<AssetHubWestend, PenpalB>;
 pub type ParaToSystemParaTest = Test<PenpalB, AssetHubWestend>;
+pub type ParaToParaTest = Test<PenpalB, PenpalA, Westend>;
 
 /// Returns a `TestArgs` instance to be used for the Relay Chain across integration tests
 pub fn relay_test_args(
