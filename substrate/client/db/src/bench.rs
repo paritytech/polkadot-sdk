@@ -44,7 +44,7 @@ use std::{
 
 type State<H> = DbState<H>;
 
-struct StorageDb<Hasher: Hash> {
+struct StorageDb<Hasher> {
 	db: Arc<dyn KeyValueDB>,
 	_phantom: std::marker::PhantomData<Hasher>,
 }
