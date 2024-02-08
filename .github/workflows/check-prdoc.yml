@@ -15,8 +15,23 @@ env:
   PRDOC_DOC: https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/prdoc.md
 
 jobs:
+  check-prdoc-mq-and-master:
+    runs-on: ubuntu-latest
+    outputs:
+      status: ${{ steps.prdoc-check.outputs.skip }}
+    steps:
+      - name: Test if PRdoc runs on master or merge queue
+        id: prdoc-check
+        run: |
+          if [ ${{ github.ref }} == "refs/heads/master" ]; then
+            echo "skip=true"  >> "$GITHUB_OUTPUT"
+          fi
+          if [ $(echo ${{ github.ref }} | grep -c "gh-readonly-queue") -eq 1 ]; then
+            echo "skip=true"  >> "$GITHUB_OUTPUT"
+          fi
   check-prdoc:
     runs-on: ubuntu-latest
+    if: ${{ needs.check-prdoc-mq-and-master.outputs.status != 'true' }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 #v4.1.1
@@ -25,15 +40,6 @@ jobs:
       - name: Check if PRdoc is required
         id: get-labels
         run: |
-          if [ ${{ github.ref }} == "refs/heads/master" ]; then
-            echo "Skipping master"
-            exit 0
-          fi
-          if [ $(echo ${{ github.ref }} | grep -c "gh-readonly-queue") -eq 1 ]; then
-            echo "Skipping merge queue"
-            exit 0
-          fi
-
           echo "Pulling $IMAGE"
           $ENGINE pull $IMAGE
 
@@ -49,15 +55,6 @@ jobs:
       - name: Early exit if PR is silent
         if: ${{ contains(steps.get-labels.outputs.labels, 'R0') }}
         run: |
-          if [ ${{ github.ref }} == "refs/heads/master" ]; then
-            echo "Skipping master"
-            exit 0
-          fi
-          if [ $(echo ${{ github.ref }} | grep -c "gh-readonly-queue") -eq 1 ]; then
-            echo "Skipping merge queue"
-            exit 0
-          fi
-
           hits=$(find prdoc -name "pr_$GITHUB_PR*.prdoc" | wc -l)
           if (( hits > 0 )); then
             echo "PR detected as silent, but a PRDoc was found, checking it as information"
@@ -71,15 +68,6 @@ jobs:
       - name: PRdoc check for PR#${{ github.event.pull_request.number }}
         if: ${{ !contains(steps.get-labels.outputs.labels, 'R0') }}
         run: |
-          if [ ${{ github.ref }} == "refs/heads/master" ]; then
-            echo "Skipping master"
-            exit 0
-          fi
-          if [ $(echo ${{ github.ref }} | grep -c "gh-readonly-queue") -eq 1 ]; then
-            echo "Skipping merge queue"
-            exit 0
-          fi
-
           echo "Checking for PR#${GITHUB_PR}"
           echo "You can find more information about PRDoc at $PRDOC_DOC"
           $ENGINE run --rm -v $PWD:/repo $IMAGE check -n ${GITHUB_PR}
