@@ -24,7 +24,6 @@ pub mod middleware;
 
 use std::{convert::Infallible, error::Error as StdError, net::SocketAddr, time::Duration};
 
-use futures::FutureExt;
 use http::header::HeaderValue;
 use hyper::{
 	server::conn::AddrStream,
@@ -168,13 +167,10 @@ pub async fn start_server<M: Send + Sync + 'static>(
 							on_disconnect.await;
 							metrics.as_ref().map(|m| m.ws_disconnect(now));
 						});
-
-						svc.call(req).await
-					} else {
-						svc.call(req).await
 					}
+
+					svc.call(req).await
 				}
-				.boxed()
 			}))
 		}
 	});
@@ -183,7 +179,7 @@ pub async fn start_server<M: Send + Sync + 'static>(
 
 	tokio::spawn(async move {
 		let graceful = server.with_graceful_shutdown(async move { stop_handle.shutdown().await });
-		graceful.await.unwrap()
+		let _ = graceful.await;
 	});
 
 	log::info!(
