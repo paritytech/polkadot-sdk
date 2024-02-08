@@ -243,6 +243,7 @@ where
 {
 	async fn system_gen_sync_spec(&self, raw: bool) -> Result<serde_json::Value, Error<Block>> {
 		// Build data to pass to the chainSpec as extensions.
+		// TODO: Both these states could be cached to avoid recomputation.
 		let current_sync_state = self.build_sync_state().await?;
 		let checkpoint_state = self.build_checkpoint()?;
 
