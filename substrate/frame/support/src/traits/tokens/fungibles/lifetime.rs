@@ -18,7 +18,7 @@
 //! Traits for creating, editing and destroying assets.
 
 use super::Inspect;
-use crate::traits::tokens::AssetId;
+use crate::traits::tokens::{AssetId, Balance};
 use sp_runtime::{DispatchError, DispatchResult};
 
 /// Trait for providing the ability to create new fungible assets.
@@ -58,6 +58,10 @@ pub trait ResetTeam<AccountId> {
 pub trait Refund<AccountId> {
 	/// Means of identifying one asset class from another.
 	type AssetId: AssetId;
+	/// Scalar type for representing balance of an account.
+	type Balance: Balance;
+	/// Returns the amount of account deposit and depositor address, if any.
+	fn deposit(id: Self::AssetId, who: AccountId) -> Option<(AccountId, Self::Balance)>;
 	/// Return the deposit (if any) of a target asset account.
 	fn refund(id: Self::AssetId, who: AccountId) -> DispatchResult;
 }

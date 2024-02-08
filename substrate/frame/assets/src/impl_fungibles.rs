@@ -324,12 +324,20 @@ impl<T: Config<I>, I: 'static> fungibles::ResetTeam<T::AccountId> for Pallet<T, 
 
 impl<T: Config<I>, I: 'static> fungibles::Refund<T::AccountId> for Pallet<T, I> {
 	type AssetId = T::AssetId;
-	fn refund(id: Self::AssetId, who: T::AccountId) -> DispatchResult {
+	type Balance = DepositBalanceOf<T, I>;
+	fn deposit(id: Self::AssetId, who: T::AccountId) -> Option<(T::AccountId, Self::Balance)> {
 		use ExistenceReason::*;
-		match Account::<T, I>::get(&id, &who).ok_or(Error::<T, I>::NoDeposit)?.reason {
-			DepositHeld(..) => Self::do_refund(id, who, false),
-			DepositFrom(..) => Self::do_refund_other(id, &who, None),
-			_ => Err(Error::<T, I>::NoDeposit.into()),
+		match Account::<T, I>::get(&id, &who).ok_or(Error::<T, I>::NoDeposit).ok()?.reason {
+			DepositHeld(b) => Some((who, b)),
+			DepositFrom(d, b) => Some((d, b)),
+			_ => None,
+		}
+	}
+	fn refund(id: Self::AssetId, who: T::AccountId) -> DispatchResult {
+		match Self::deposit(id.clone(), who.clone()) {
+			Some((d, _)) if d == who => Self::do_refund(id, who, false),
+			Some(..) => Self::do_refund_other(id, &who, None),
+			None => Err(Error::<T, I>::NoDeposit.into()),
 		}
 	}
 }
