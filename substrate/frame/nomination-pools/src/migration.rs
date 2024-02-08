@@ -27,15 +27,6 @@ use sp_runtime::TryRuntimeError;
 pub mod versioned {
 	use super::*;
 
-	/// v9: Checks and updates `TotalValueLocked` if out of sync.
-	pub type V8ToV9<T> = frame_support::migrations::VersionedMigration<
-		8,
-		9,
-		v9::VersionUncheckedMigrateV8ToV9<T>,
-		crate::pallet::Pallet<T>,
-		<T as frame_system::Config>::DbWeight,
-	>;
-
 	/// v8: Adds commission claim permissions to `BondedPools`.
 	pub type V7ToV8<T> = frame_support::migrations::VersionedMigration<
 		7,
@@ -65,11 +56,12 @@ pub mod versioned {
 	>;
 }
 
-pub mod v9 {
+pub mod unversioned {
 	use super::*;
 
-	pub struct VersionUncheckedMigrateV8ToV9<T>(sp_std::marker::PhantomData<T>);
-	impl<T: Config> OnRuntimeUpgrade for VersionUncheckedMigrateV8ToV9<T> {
+	/// Checks and updates `TotalValueLocked` if out of sync.
+	pub struct TotalValueLockedSync<T>(sp_std::marker::PhantomData<T>);
+	impl<T: Config> OnRuntimeUpgrade for TotalValueLockedSync<T> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 			Ok(Vec::new())
