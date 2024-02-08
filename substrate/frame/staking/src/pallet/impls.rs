@@ -1824,7 +1824,8 @@ impl<T: Config> Pallet<T> {
 			"VoterList contains non-staker"
 		);
 
-		Self::check_payees()?;
+		// TODO: re-enable once <https://github.com/paritytech/polkadot-sdk/issues/3245> is fixed.
+		//Self::check_payees()?;
 		Self::check_nominators()?;
 		Self::check_exposures()?;
 		Self::check_paged_exposures()?;
@@ -1835,25 +1836,17 @@ impl<T: Config> Pallet<T> {
 	/// Invariants:
 	/// * A bonded ledger should always have an assigned `Payee`.
 	/// * The number of entries in `Payee` and of bonded staking ledgers *must* match.
+	#[allow(dead_code)]
 	fn check_payees() -> Result<(), TryRuntimeError> {
 		for (stash, _) in Bonded::<T>::iter() {
 			ensure!(Payee::<T>::get(&stash).is_some(), "bonded ledger does not have payee set");
 		}
 
-		let ledger_count = Ledger::<T>::iter().count();
-		let payee_count = Payee::<T>::iter().count();
-		let bonded_count = Bonded::<T>::iter().count();
-
-		// TODO: fail if condition below is not met once <https://github.com/paritytech/polkadot-sdk/issues/3245> is fixed.
-		if !((ledger_count == payee_count) && (ledger_count == bonded_count)) {
-			log!(
-                warn,
-                "number of entries in payee storage items does not match the number of bonded ledgers. Ledgers: {}, Payees: {}, Bonded: {}",
-                ledger_count,
-                payee_count,
-                bonded_count,
-            );
-		}
+		ensure!(
+			(Ledger::<T>::iter().count() == Payee::<T>::iter().count()) &&
+				(Ledger::<T>::iter().count() == Bonded::<T>::iter().count()),
+			"number of entries in payee storage items does not match the number of bonded ledgers",
+		);
 
 		Ok(())
 	}
