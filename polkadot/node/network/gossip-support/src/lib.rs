@@ -271,8 +271,30 @@ where
 					)
 					.await?;
 				}
-				// authority_discovery is just a cache so let's try every leaf to detect if there
-				// are new authorities there.
+				// authority_discovery is just a cache so let's try every time we try to re-connect
+				// if new authorities are present.
+				self.update_authority_ids(sender, session_info.discovery_keys).await;
+			} else if let Some(session_index) = self
+				.last_session_index
+				.filter(|last_session_index| *last_session_index >= current_index)
+			{
+				// authority_discovery is just a cache so let's try every leaf from the current
+				// session if there are new authorities detected and inform the needed subsystems.
+				let session_info =
+					util::request_session_info(leaf, session_index, sender).await.await??;
+
+				let session_info = match session_info {
+					Some(s) => s,
+					None => {
+						gum::warn!(
+							relay_parent = ?leaf,
+							session_index = self.last_session_index,
+							"Failed to get session info.",
+						);
+
+						continue
+					},
+				};
 				self.update_authority_ids(sender, session_info.discovery_keys).await;
 			}
 		}
