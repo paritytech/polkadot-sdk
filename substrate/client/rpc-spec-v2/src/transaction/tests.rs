@@ -27,12 +27,65 @@ use futures::Future;
 use jsonrpsee::{core::error::Error, rpc_params, RpcModule};
 use sc_transaction_pool::*;
 use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool, TransactionPool};
-use sp_core::testing::TaskExecutor;
+use sp_core::{testing::TaskExecutor, traits::SpawnNamed};
 use std::{pin::Pin, sync::Arc, time::Duration};
 use substrate_test_runtime_client::{prelude::*, AccountKeyring::*, Client};
 use substrate_test_runtime_transaction_pool::{uxt, TestApi};
+use tokio::sync::mpsc;
 
 type Block = substrate_test_runtime_client::runtime::Block;
+
+/// Wrap the `TaskExecutor` to know when the broadcast future is dropped.
+#[derive(Clone)]
+struct TaskExecutorBroadcast {
+	executor: TaskExecutor,
+	sender: mpsc::UnboundedSender<()>,
+}
+
+/// The channel that receives events when the broadcast futures are dropped.
+type TaskExecutorRecv = mpsc::UnboundedReceiver<()>;
+
+impl TaskExecutorBroadcast {
+	/// Construct a new `TaskExecutorBroadcast` and a receiver to know when the broadcast futures
+	/// are dropped.
+	fn new() -> (Self, TaskExecutorRecv) {
+		let (sender, recv) = mpsc::unbounded_channel();
+
+		(Self { executor: TaskExecutor::new(), sender }, recv)
+	}
+}
+
+impl SpawnNamed for TaskExecutorBroadcast {
+	fn spawn(
+		&self,
+		name: &'static str,
+		group: Option<&'static str>,
+		future: futures::future::BoxFuture<'static, ()>,
+	) {
+		let sender = self.sender.clone();
+		let future = Box::pin(async move {
+			future.await;
+			let _ = sender.send(());
+		});
+
+		self.executor.spawn(name, group, future)
+	}
+
+	fn spawn_blocking(
+		&self,
+		name: &'static str,
+		group: Option<&'static str>,
+		future: futures::future::BoxFuture<'static, ()>,
+	) {
+		let sender = self.sender.clone();
+		let future = Box::pin(async move {
+			future.await;
+			let _ = sender.send(());
+		});
+
+		self.executor.spawn_blocking(name, group, future)
+	}
+}
 
 /// Initial Alice account nonce.
 const ALICE_NONCE: u64 = 209;
@@ -68,6 +121,7 @@ fn setup_api() -> (
 	RpcModule<
 		TransactionBroadcast<BasicPool<TestApi, Block>, ChainHeadMockClient<Client<Backend>>>,
 	>,
+	TaskExecutorRecv,
 ) {
 	let (pool, api, _) = maintained_pool();
 	let pool = Arc::new(pool);
@@ -76,19 +130,18 @@ fn setup_api() -> (
 	let client = Arc::new(builder.build());
 	let client_mock = Arc::new(ChainHeadMockClient::new(client.clone()));
 
-	let tx_api = RpcTransactionBroadcast::new(
-		client_mock.clone(),
-		pool.clone(),
-		Arc::new(TaskExecutor::default()),
-	)
-	.into_rpc();
+	let (task_executor, executor_recv) = TaskExecutorBroadcast::new();
 
-	(api, pool, client_mock, tx_api)
+	let tx_api =
+		RpcTransactionBroadcast::new(client_mock.clone(), pool.clone(), Arc::new(task_executor))
+			.into_rpc();
+
+	(api, pool, client_mock, tx_api, executor_recv)
 }
 
 #[tokio::test]
 async fn tx_broadcast_enters_pool() {
-	let (api, pool, client_mock, tx_api) = setup_api();
+	let (api, pool, client_mock, tx_api, _) = setup_api();
 
 	// Start at block 1.
 	let block_1_header = api.push_block(1, vec![], true);
@@ -133,7 +186,7 @@ async fn tx_broadcast_enters_pool() {
 
 #[tokio::test]
 async fn tx_broadcast_invalid_tx() {
-	let (_, pool, _, tx_api) = setup_api();
+	let (_, pool, _, tx_api, mut exec_recv) = setup_api();
 
 	// Invalid parameters.
 	let err = tx_api
@@ -153,16 +206,26 @@ async fn tx_broadcast_invalid_tx() {
 
 	assert_eq!(0, pool.status().ready);
 
-	// Ensure stop can be called, the tx was decoded and the broadcast future terminated.
-	let _: () = tx_api
-		.call("transaction_unstable_stop", rpc_params![&operation_id])
+	// Await the broadcast future to exit.
+	// Without this we'd be subject to races, where we try to call the stop before the tx is
+	// dropped.
+	exec_recv.recv().await.unwrap();
+
+	// The broadcast future was dropped, and the operation is no longer active.
+	// When the operation is not active, either from the tx being finalized or a
+	// terminal error; the stop method should return an error.
+	let err = tx_api
+		.call::<_, serde_json::Value>("transaction_unstable_stop", rpc_params![&operation_id])
 		.await
-		.unwrap();
+		.unwrap_err();
+	assert_matches!(err,
+		Error::Call(err) if err.code() == super::error::json_rpc_spec::INVALID_PARAM_ERROR && err.message() == "Invalid operation id"
+	);
 }
 
 #[tokio::test]
 async fn tx_invalid_stop() {
-	let (_, _, _, tx_api) = setup_api();
+	let (_, _, _, tx_api, _) = setup_api();
 
 	// Make an invalid stop call.
 	let err = tx_api
