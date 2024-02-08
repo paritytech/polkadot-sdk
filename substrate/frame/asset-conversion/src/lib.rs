@@ -670,6 +670,13 @@ pub mod pallet {
 		/// ensuring that the pool's accounts are in place. It is typically useful when a pool
 		/// creator removes the pool's accounts and does not provide a liquidity. This action may
 		/// involve holding assets from the caller as a deposit for creating the pool's accounts.
+		///
+		/// The origin must be Signed.
+		///
+		/// - `asset1`: The asset ID of an existing pool with a pair (asset1, asset2).
+		/// - `asset2`: The asset ID of an existing pool with a pair (asset1, asset2).
+		///
+		/// Emits `Touched` event when successful.
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::touch(3))]
 		pub fn touch(
