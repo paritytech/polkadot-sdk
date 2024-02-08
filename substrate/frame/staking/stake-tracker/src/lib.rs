@@ -223,7 +223,8 @@ pub mod pallet {
 			who: &T::AccountId,
 			imbalance: StakeImbalance<ExtendedBalance>,
 		) {
-			// if the target is not part of the list, check state of the target to update first.
+			// ensure that the target list node exists if it does not yet and perform a few
+			// defensive checks.
 			if !T::TargetList::contains(who) {
 				match T::Staking::status(who) {
 					Err(_) | Ok(StakerStatus::Nominator(_)) => {
@@ -296,12 +297,13 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
 	/// Try-state checks for the stake-tracker pallet.
 	///
-	/// 1. [`Self::do_try_state_approvals`]: checks the curent approval stake in the target list
-	///    compared with the staking state.
-	/// 2. [`Self::do_try_state_target_sorting`]: checks if the target list is sorted by score.
+	/// 1. `do_try_state_approvals`: checks the curent approval stake in the target list compared
+	///    with the staking state.
+	/// 2. `do_try_state_target_sorting`: checks if the target list is sorted by score.
 	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		#[cfg(feature = "try-runtime")]
+		Self::do_try_state_target_sorting()?;
 		Self::do_try_state_approvals()
-		//Self::do_try_state_target_sorting()
 	}
 
 	/// Try-state: checks if the approvals stake of the targets in the target list are correct.
@@ -451,21 +453,17 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Invariant
 	///  * All targets in the target list are sorted by their score.
-	#[allow(dead_code)] // TODO(remove)
+	///
+	///  NOTE: unfortunatelly, it is not trivial to check if the sort correctness of the list if
+	///  the `SortedListProvider` is implemented by bags list due to score bucketing. Thus, we
+	///  leverage the [`SortedListProvider::in_position`] to verify if the target is in the
+	/// correct  position in the list (bag or otherwise), given its score.
+	#[cfg(feature = "try-runtime")]
 	pub fn do_try_state_target_sorting() -> Result<(), sp_runtime::TryRuntimeError> {
-		let mut current_highest = None;
-
 		for t in T::TargetList::iter() {
-			let target_score = T::TargetList::get_score(&t).expect("score must exist");
-
-			// first iter.
-			if current_highest.is_none() {
-				current_highest = Some(target_score);
-			}
-
 			frame_support::ensure!(
-				current_highest.expect("is set based on the above; qed.") >= target_score,
-				"target list is not sorted",
+				T::TargetList::in_position(&t).expect("target exists"),
+				"target list is not sorted"
 			);
 		}
 
@@ -476,7 +474,8 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	/// Fired when the stake amount of some staker updates.
 	///
-	/// When a nominator's stake is updated, all the nominated targets must be updated accordingly.
+	/// When a nominator's stake is updated, all the nominated targets must be updated
+	/// accordingly.
 	///
 	/// Note: it is assumed that `who`'s staking ledger state is updated *before* this method is
 	/// called.
@@ -533,8 +532,8 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 						nominations,
 					);
 
-					// updates vote weight of nominated targets accordingly. Note: this will update
-					// the score of up to `T::MaxNominations` validators.
+					// updates vote weight of nominated targets accordingly. Note: this will
+					// update the score of up to `T::MaxNominations` validators.
 					for target in nominations.into_iter() {
 						Self::update_target_score(&target, stake_imbalance);
 					}
@@ -542,6 +541,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 				StakerStatus::Validator => {
 					// validator is both a target and a voter.
 					let stake_imbalance = stake_imbalance_of(prev_stake, voter_weight.into());
+
 					Self::update_target_score(who, stake_imbalance);
 
 					let _ = T::VoterList::on_update(who, voter_weight).defensive_proof(
@@ -589,7 +589,8 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	///
 	/// While chilled, the target node remains in the target list.
 	///
-	/// While idling, the target node is not removed from the target list but its score is updated.
+	/// While idling, the target node is not removed from the target list but its score is
+	/// updated.
 	fn on_validator_idle(who: &T::AccountId) {
 		let self_stake = Self::weight_of(Self::active_vote_of(who));
 		Self::update_target_score(who, StakeImbalance::Negative(self_stake.into()));
@@ -600,8 +601,8 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		log!(debug, "on_validator_idle: {:?}, decreased self-stake {}", who, self_stake);
 	}
 
-	/// Fired when someone removes their intention to validate and has been completely removed from
-	/// the staking state.
+	/// Fired when someone removes their intention to validate and has been completely removed
+	/// from the staking state.
 	///
 	/// The node is removed from the target list IFF its score is 0.
 	fn on_validator_remove(who: &T::AccountId) {
@@ -665,11 +666,11 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		Self::on_nominator_remove(who, nominations);
 	}
 
-	/// Fired when someone removes their intention to nominate and is completely removed from the
-	/// staking state.
+	/// Fired when someone removes their intention to nominate and is completely removed from
+	/// the staking state.
 	///
-	/// Note: the number of nodes that are updated is bounded by the maximum number of nominators,
-	/// which is defined in the staking pallet.
+	/// Note: the number of nodes that are updated is bounded by the maximum number of
+	/// nominators, which is defined in the staking pallet.
 	fn on_nominator_remove(who: &T::AccountId, nominations: Vec<T::AccountId>) {
 		let nominator_vote = Self::weight_of(Self::active_vote_of(who));
 
@@ -692,9 +693,9 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 
 	/// Fired when an existing nominator updates their nominations.
 	///
-	/// This is called when a nominator updates their nominations. The nominator's stake remains the
-	/// same (updates to the nominator's stake should emit [`Self::on_stake_update`] instead).
-	/// However, the score of the nominated targets must be updated accordingly.
+	/// This is called when a nominator updates their nominations. The nominator's stake remains
+	/// the same (updates to the nominator's stake should emit [`Self::on_stake_update`]
+	/// instead). However, the score of the nominated targets must be updated accordingly.
 	///
 	/// Note: it is assumed that `who`'s ledger staking state is updated *before* calling this
 	/// method.

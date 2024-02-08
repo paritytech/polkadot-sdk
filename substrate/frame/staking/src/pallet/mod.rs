@@ -1088,12 +1088,6 @@ pub mod pallet {
 
 				ledger.update()?;
 
-				// TODO(gpestana): this should not be here bu rather on the ledger.rs
-				// update this staker in the sorted list, if they exist in it.
-				if T::VoterList::contains(&stash) {
-					let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash)).defensive();
-				}
-
 				Self::deposit_event(Event::<T>::Unbonded { stash, amount: value });
 			}
 

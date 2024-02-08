@@ -1648,6 +1648,10 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 		0
 	}
 	#[cfg(feature = "try-runtime")]
+	fn in_position(_: &T::AccountId) -> Result<bool, Self::Error> {
+		unimplemented!()
+	}
+	#[cfg(feature = "try-runtime")]
 	fn try_state() -> Result<(), TryRuntimeError> {
 		Ok(())
 	}
@@ -1724,6 +1728,10 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsM
 		0
 	}
 
+	#[cfg(feature = "try-runtime")]
+	fn in_position(_: &T::AccountId) -> Result<bool, Self::Error> {
+		unimplemented!()
+	}
 	#[cfg(feature = "try-runtime")]
 	fn try_state() -> Result<(), TryRuntimeError> {
 		Ok(())

@@ -447,6 +447,15 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 	}
 
 	#[cfg(feature = "try-runtime")]
+	fn in_position(id: &T::AccountId) -> Result<bool, Self::Error> {
+		List::<T, I>::get_score(id).and_then(|score| {
+			Ok(!ListNodes::<T, I>::try_get(id)
+				.expect("if score exists, node exists; qed.")
+				.is_misplaced(score))
+		})
+	}
+
+	#[cfg(feature = "try-runtime")]
 	fn try_state() -> Result<(), TryRuntimeError> {
 		Self::do_try_state()
 	}
