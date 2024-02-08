@@ -1646,7 +1646,9 @@ pub mod pallet {
 
 		fn should_touch(asset: T::AssetId, who: &T::AccountId) -> bool {
 			match Asset::<T, I>::get(&asset) {
+				// refer to the [`Self::new_account`] function for more details.
 				Some(info) if info.is_sufficient => false,
+				Some(info) if frame_system::Pallet::<T>::can_accrue_consumers(who, 2) => false,
 				Some(_) => !Account::<T, I>::contains_key(asset, who),
 				_ => true,
 			}
