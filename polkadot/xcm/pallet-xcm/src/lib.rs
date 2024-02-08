@@ -29,7 +29,7 @@ pub mod migration;
 
 use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
 use frame_support::{
-	dispatch::GetDispatchInfo,
+	dispatch::{DispatchErrorWithPostInfo, GetDispatchInfo, WithPostDispatchInfo},
 	pallet_prelude::*,
 	traits::{
 		Contains, ContainsPair, Currency, Defensive, EnsureOrigin, Get, LockableCurrency,
@@ -288,27 +288,36 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			message: Box<VersionedXcm<<T as Config>::RuntimeCall>>,
 			max_weight: Weight,
-		) -> Result<Weight, DispatchError> {
+		) -> Result<Weight, DispatchErrorWithPostInfo> {
 			log::trace!(target: "xcm::pallet_xcm::execute", "message {:?}, max_weight {:?}", message, max_weight);
-			let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
-			let mut hash = message.using_encoded(sp_io::hashing::blake2_256);
-			let message = (*message).try_into().map_err(|()| Error::<T>::BadVersion)?;
-			let value = (origin_location, message);
-			ensure!(T::XcmExecuteFilter::contains(&value), Error::<T>::Filtered);
-			let (origin_location, message) = value;
-			let outcome = T::XcmExecutor::prepare_and_execute(
-				origin_location,
-				message,
-				&mut hash,
-				max_weight,
-				max_weight,
-			);
-			Self::deposit_event(Event::Attempted { outcome: outcome.clone() });
+			let outcome = (|| {
+				let origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)?;
+				let mut hash = message.using_encoded(sp_io::hashing::blake2_256);
+				let message = (*message).try_into().map_err(|()| Error::<T>::BadVersion)?;
+				let value = (origin_location, message);
+				ensure!(T::XcmExecuteFilter::contains(&value), Error::<T>::Filtered);
+				let (origin_location, message) = value;
+				Ok(T::XcmExecutor::prepare_and_execute(
+					origin_location,
+					message,
+					&mut hash,
+					max_weight,
+					max_weight,
+				))
+			})()
+			.map_err(|e: DispatchError| {
+				e.with_weight(<Self::WeightInfo as ExecuteControllerWeightInfo>::execute())
+			})?;
 
+			Self::deposit_event(Event::Attempted { outcome: outcome.clone() });
 			let weight_used = outcome.weight_used();
 			outcome.ensure_complete().map_err(|error| {
 				log::error!(target: "xcm::pallet_xcm::execute", "XCM execution failed with error {:?}", error);
-				Error::<T>::LocalExecutionIncomplete
+				Error::<T>::LocalExecutionIncomplete.with_weight(
+					weight_used.saturating_add(
+						<Self::WeightInfo as ExecuteControllerWeightInfo>::execute(),
+					),
+				)
 			})?;
 			Ok(weight_used)
 		}

@@ -31,5 +31,10 @@ pub extern "C" fn call() {
 	input!(512, msg: [u8],);
 
 	#[allow(deprecated)]
-	api::xcm_execute(msg).unwrap();
+	let err_code = match api::xcm_execute(msg) {
+		Ok(_) => 0u32,
+		Err(code) => code as u32,
+	};
+
+	api::return_value(uapi::ReturnFlags::empty(), &err_code.to_le_bytes());
 }

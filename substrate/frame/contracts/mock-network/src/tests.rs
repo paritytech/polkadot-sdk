@@ -23,17 +23,24 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use frame_support::{
-	assert_err, assert_ok,
+	assert_err,
 	pallet_prelude::Weight,
 	traits::{fungibles::Mutate, Currency},
 };
 use pallet_balances::{BalanceLock, Reasons};
 use pallet_contracts::{Code, CollectEvents, DebugInfo, Determinism, Error};
 use pallet_contracts_fixtures::compile_module;
+use pallet_contracts_uapi::ReturnErrorCode;
 use xcm::{v4::prelude::*, VersionedLocation, VersionedXcm};
 use xcm_simulator::TestExt;
 
 type ParachainContracts = pallet_contracts::Pallet<parachain::Runtime>;
+
+macro_rules! assert_return_code {
+	( $x:expr , $y:expr $(,)? ) => {{
+		assert_eq!(u32::from_le_bytes($x.data[..].try_into().unwrap()), $y as u32);
+	}};
+}
 
 /// Instantiate the tests contract, and fund it with some balance and assets.
 fn instantiate_test_contract(name: &str) -> AccountId {
@@ -102,13 +109,54 @@ fn test_xcm_execute() {
 		);
 
 		assert_eq!(result.gas_consumed, result.gas_required);
-		assert_ok!(result.result);
+		assert_return_code!(&result.result.unwrap(), ReturnErrorCode::Success);
 
 		// Check if the funds are subtracted from the account of Alice and added to the account of
 		// Bob.
 		let initial = INITIAL_BALANCE;
 		assert_eq!(ParachainBalances::free_balance(BOB), initial + amount);
 		assert_eq!(ParachainBalances::free_balance(&contract_addr), initial - amount);
+	});
+}
+
+#[test]
+fn test_xcm_execute_incomplete() {
+	MockNet::reset();
+
+	let contract_addr = instantiate_test_contract("xcm_execute");
+	let amount = 10 * CENTS;
+
+	// Execute XCM instructions through the contract.
+	ParaA::execute_with(|| {
+		// The XCM used to transfer funds to Bob.
+		let message: Xcm<()> = Xcm(vec![
+			WithdrawAsset(vec![(Here, amount).into()].into()),
+			// This will fail as the contract does not have enough balance to complete both
+			// withdrawals.
+			WithdrawAsset(vec![(Here, INITIAL_BALANCE).into()].into()),
+			DepositAsset {
+				assets: All.into(),
+				beneficiary: AccountId32 { network: None, id: BOB.clone().into() }.into(),
+			},
+		]);
+
+		let result = ParachainContracts::bare_call(
+			ALICE,
+			contract_addr.clone(),
+			0,
+			Weight::MAX,
+			None,
+			VersionedXcm::V4(message).encode(),
+			DebugInfo::UnsafeDebug,
+			CollectEvents::UnsafeCollect,
+			Determinism::Enforced,
+		);
+
+		assert_eq!(result.gas_consumed, result.gas_required);
+		assert_return_code!(&result.result.unwrap(), ReturnErrorCode::XcmExecutionFailed);
+
+		assert_eq!(ParachainBalances::free_balance(BOB), INITIAL_BALANCE);
+		assert_eq!(ParachainBalances::free_balance(&contract_addr), INITIAL_BALANCE - amount);
 	});
 }
 

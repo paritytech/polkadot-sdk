@@ -18,7 +18,10 @@
 //! Controller traits defined in this module are high-level traits that will rely on other traits
 //! from `xcm-executor` to perform their tasks.
 
-use frame_support::pallet_prelude::DispatchError;
+use frame_support::{
+	dispatch::{DispatchErrorWithPostInfo, WithPostDispatchInfo},
+	pallet_prelude::DispatchError,
+};
 use sp_std::boxed::Box;
 use xcm::prelude::*;
 pub use xcm_executor::traits::QueryHandler;
@@ -64,7 +67,7 @@ pub trait ExecuteController<Origin, RuntimeCall> {
 		origin: Origin,
 		message: Box<VersionedXcm<RuntimeCall>>,
 		max_weight: Weight,
-	) -> Result<Weight, DispatchError>;
+	) -> Result<Weight, DispatchErrorWithPostInfo>;
 }
 
 /// Weight functions needed for [`SendController`].
@@ -138,8 +141,9 @@ impl<Origin, RuntimeCall> ExecuteController<Origin, RuntimeCall> for () {
 		_origin: Origin,
 		_message: Box<VersionedXcm<RuntimeCall>>,
 		_max_weight: Weight,
-	) -> Result<Weight, DispatchError> {
-		Err(DispatchError::Other("ExecuteController::execute not implemented"))
+	) -> Result<Weight, DispatchErrorWithPostInfo> {
+		Err(DispatchError::Other("ExecuteController::execute not implemented")
+			.with_weight(Weight::zero()))
 	}
 }
 
