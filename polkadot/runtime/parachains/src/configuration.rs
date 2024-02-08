@@ -429,6 +429,7 @@ pub trait WeightInfo {
 	fn set_config_with_executor_params() -> Weight;
 	fn set_config_with_perbill() -> Weight;
 	fn set_node_feature() -> Weight;
+	fn set_config_with_scheduler_params() -> Weight;
 }
 
 pub struct TestWeightInfo;
@@ -455,6 +456,9 @@ impl WeightInfo for TestWeightInfo {
 		Weight::MAX
 	}
 	fn set_node_feature() -> Weight {
+		Weight::MAX
+	}
+	fn set_config_with_scheduler_params() -> Weight {
 		Weight::MAX
 	}
 }
@@ -1201,6 +1205,22 @@ pub mod pallet {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
 				config.approval_voting_params = new;
+			})
+		}
+
+		/// Set scheduler-params.
+		#[pallet::call_index(55)]
+		#[pallet::weight((
+			T::WeightInfo::set_config_with_scheduler_params(),
+			DispatchClass::Operational,
+		))]
+		pub fn set_scheduler_params(
+			origin: OriginFor<T>,
+			new: SchedulerParams<BlockNumberFor<T>>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::schedule_config_update(|config| {
+				config.scheduler_params = new;
 			})
 		}
 	}
