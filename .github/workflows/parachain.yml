@@ -1,0 +1,277 @@
+name: bridge
+
+on:
+  push:
+    paths:
+      - "bridges/snowbridge/**"
+      - "!bridges/snowbridge/README.md"
+      - "!bridges/snowbridge/LICENSE"
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+env:
+  FUZZ_MAX_LEN: 10000000000
+  FUZZ_MAX_RUNS: 30000
+  RUST_NIGHTLY: "2023-05-23"
+
+jobs:
+  check:
+    runs-on: snowbridge-runner
+    env:
+      CARGO_INCREMENTAL: 0
+      RUST_BACKTRACE: 1
+      RUSTFLAGS: -C debuginfo=1
+      SKIP_WASM_BUILD: 1
+      RUST_NIGHTLY_VERSION: nightly-2023-05-23
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: "true"
+      - uses: arduino/setup-protoc@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/cache@v1
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+      - uses: actions/setup-node@v4.0.0
+        with:
+          node-version: "18.x"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@paritytech"
+      - name: setup rust toolchain
+        run: |
+          rustup target add wasm32-unknown-unknown
+          curl -LO https://github.com/paritytech/rustc-rv32e-toolchain/releases/download/v1.1.0/rust-rve-nightly-2024-01-05-x86_64-unknown-linux-gnu.tar.zst
+          tar -I zstd -xf rust-rve-nightly-2024-01-05-x86_64-unknown-linux-gnu.tar.zst
+          mv rve-nightly ~/.rustup/toolchains/
+          rustup toolchain install nightly
+          rustup component add rustfmt --toolchain nightly
+          rustup show
+      - name: cargo check
+        run: cargo check --workspace --all-features
+      - name: clippy
+        run: cargo clippy --all-features -- -D warnings
+      - name: format
+        run: cargo +nightly fmt --all -- --check
+      - name: install taplo
+        run: |
+          cargo install taplo-cli --locked
+      - name: taplo
+        run: taplo format --check --config .config/taplo.toml
+      - name: install zepter
+        run: |
+          cargo install zepter -f --locked
+      - name: zepter
+        run: zepter run check
+      - name: lint-markdown
+        run: |
+          npm install -g markdownlint-cli
+          markdownlint --version
+          markdownlint --config .github/.markdownlint.yaml --ignore target
+
+  test:
+    needs: check
+    runs-on: snowbridge-runner
+    env:
+      CARGO_INCREMENTAL: 0
+      RUST_BACKTRACE: 1
+      RUSTFLAGS: -C debuginfo=1
+      SKIP_WASM_BUILD: 1
+      RUST_MIN_STACK: 8388608
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.head_ref }}
+          submodules: "true"
+      - uses: arduino/setup-protoc@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/cache@v1
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+      - name: setup rust toolchain
+        run: rustup show
+      # Increase stack limit for beacon light client tests
+      - run: sudo prlimit --pid $$ --stack=32768
+      # Run tests for runtime-benchmarks feature
+      - name: Tests for runtime-benchmarks
+        working-directory: bridges/snowbridge
+        run: >
+          cargo test
+          --workspace
+          --features runtime-benchmarks
+      # Run tests for all features
+      - name: Tests for all features
+        working-directory: bridges/snowbridge
+        run: >
+          cargo test
+          --workspace
+          --all-features
+
+  coverage:
+    needs: check
+    runs-on: snowbridge-runner
+    env:
+      CARGO_INCREMENTAL: 0
+      RUST_BACKTRACE: 1
+      RUSTFLAGS: -C debuginfo=1
+      SKIP_WASM_BUILD: 1
+      RUST_MIN_STACK: 8388608
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.head_ref }}
+          submodules: "true"
+      - uses: arduino/setup-protoc@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: setup rust toolchain
+        run: rustup show
+      - name: run coverage test
+        working-directory: bridges/snowbridge
+        run: >
+          cargo install cargo-tarpaulin@0.27.0 &&
+          cargo tarpaulin
+          --workspace
+          --engine llvm
+          --out xml
+      - name: Upload coverage reports to Codecov with GitHub Action
+        uses: codecov/codecov-action@v3
+        with:
+          working-directory: bridges/snowbridge
+          files: cobertura.xml
+          flags: rust
+
+  check-cumulus:
+    runs-on: snowbridge-runner
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: "true"
+      - uses: arduino/setup-protoc@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: setup rust toolchain
+        run: rustup show
+      - name: check bridge-hub fast-runtime
+        run: >
+          cargo check
+          --release --verbose
+          --package bridge-hub-rococo-runtime
+          --features fast-runtime
+      - name: check bridge-hub runtime-benchmarks
+        run: >
+          cargo check
+          --release --verbose
+          --package bridge-hub-rococo-runtime
+          --features runtime-benchmarks
+      - name: check bridge-hub try-runtime
+        run: >
+          cargo check
+          --release --verbose
+          --package bridge-hub-rococo-runtime
+          --features try-runtime
+      - name: check bridge-hub all features
+        run: >
+          cargo check
+          --release --verbose
+          --package bridge-hub-rococo-runtime
+          --all-features
+      - name: check asset-hub all features
+        run: >
+          cargo check
+          --release --verbose
+          --package asset-hub-rococo-runtime
+          --all-features
+
+  runtime-tests:
+    needs: check
+    runs-on: snowbridge-runner
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: "true"
+      - uses: arduino/setup-protoc@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: setup rust toolchain
+        run: rustup show
+      - name: snowbridge runtime tests
+        run: >
+          RUST_LOG=xcm=trace cargo test
+          --package bridge-hub-rococo-runtime 
+          --test snowbridge
+          -- --nocapture
+
+  integration-tests:
+    needs: check
+    runs-on: snowbridge-runner
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: "true"
+      - uses: arduino/setup-protoc@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: setup rust toolchain
+        run: rustup show
+      - name: bridge-hub and asset-hub integration tests
+        run: >
+          RUST_LOG=xcm=trace cargo test
+          -p bridge-hub-rococo-integration-tests
+          -p asset-hub-rococo-integration-tests
+          -- --nocapture
+
+  beacon-fuzz:
+    if: false
+    needs: test
+    runs-on: snowbridge-runner
+    env:
+      CARGO_INCREMENTAL: 0
+      RUST_BACKTRACE: 1
+      RUSTFLAGS: -C debuginfo=1
+      SKIP_WASM_BUILD: 1
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.head_ref }}
+          submodules: "true"
+      - uses: actions/cache@v1
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+      - name: install nightly
+        run: rustup install --profile minimal nightly-$RUST_NIGHTLY
+      - name: Install cargo-fuzz from crates.io
+        uses: baptiste0928/cargo-install@v2
+        with:
+          crate: cargo-fuzz
+          version: "^0.11.2"
+      - name: Fuzz force checkpoint extrinsic
+        run: >
+          cd bridges/snowbridge/pallets/ethereum-beacon-client && cargo +nightly-$RUST_NIGHTLY fuzz run fuzz_force_checkpoint --
+          -max_len=$FUZZ_MAX_LEN -runs=$FUZZ_MAX_RUNS
+      - name: Fuzz submit extrinsic
+        run: >
+          cd bridges/snowbridge/pallets/ethereum-beacon-client && cargo +nightly-$RUST_NIGHTLY fuzz run fuzz_submit --
+          -max_len=$FUZZ_MAX_LEN -runs=$FUZZ_MAX_RUNS
+      - name: Fuzz submit execution header extrinsic
+        run: >
+          cd bridges/snowbridge/pallets/ethereum-beacon-client && cargo +nightly-$RUST_NIGHTLY fuzz run fuzz_submit_execution_header --
+          -max_len=$FUZZ_MAX_LEN -runs=$FUZZ_MAX_RUNS
