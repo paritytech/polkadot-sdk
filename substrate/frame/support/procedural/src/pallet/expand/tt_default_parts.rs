@@ -85,6 +85,8 @@ pub fn expand_tt_default_parts(def: &mut Def) -> proc_macro2::TokenStream {
 
 	let call_part_v2 = def.call.as_ref().map(|_| quote::quote!(+ Call));
 
+	let task_part_v2 = def.task_enum.as_ref().map(|_| quote::quote!(+ Task));
+
 	let storage_part_v2 = (!def.storages.is_empty()).then(|| quote::quote!(+ Storage));
 
 	let event_part_v2 = def.event.as_ref().map(|event| {
@@ -202,7 +204,7 @@ pub fn expand_tt_default_parts(def: &mut Def) -> proc_macro2::TokenStream {
 					$caller
 					tokens = [{
 						+ Pallet #call_part_v2 #storage_part_v2 #event_part_v2 #error_part_v2 #origin_part_v2 #config_part_v2
-						#inherent_part_v2 #validate_unsigned_part_v2 #freeze_reason_part_v2
+						#inherent_part_v2 #validate_unsigned_part_v2 #freeze_reason_part_v2 #task_part_v2
 						#hold_reason_part_v2 #lock_id_part_v2 #slash_reason_part_v2
 					}]
 				}
