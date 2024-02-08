@@ -252,13 +252,6 @@
 <a href="#252" id="252">252</a>
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -284,8 +277,12 @@
 };
 
 <span class="kw">use </span>frame_system::EnsureRoot;
-<span class="kw">use </span>sp_core::{ConstU32, H256};
-<span class="kw">use </span>sp_runtime::{traits::IdentityLookup, AccountId32};
+<span class="kw">use </span>sp_core::ConstU32;
+<span class="kw">use </span>sp_runtime::{
+	generic,
+	traits::{BlakeTwo256, IdentifyAccount, Verify},
+	MultiAddress, MultiSignature,
+};
 
 <span class="kw">use </span>polkadot_parachain_primitives::primitives::Id <span class="kw">as </span>ParaId;
 <span class="kw">use </span>polkadot_runtime_parachains::{
@@ -304,38 +301,29 @@
 };
 <span class="kw">use </span>xcm_executor::{Config, XcmExecutor};
 
-<span class="kw">pub type </span>AccountId = AccountId32;
+<span class="kw">pub type </span>SignedExtra = (frame_system::CheckNonZeroSender&lt;Runtime&gt;,);
+
+<span class="kw">pub type </span>BlockNumber = u64;
+<span class="kw">pub type </span>Address = MultiAddress&lt;AccountId, ()&gt;;
+<span class="kw">pub type </span>Header = generic::Header&lt;BlockNumber, BlakeTwo256&gt;;
+<span class="kw">pub type </span>UncheckedExtrinsic =
+	generic::UncheckedExtrinsic&lt;Address, RuntimeCall, Signature, SignedExtra&gt;;
+<span class="kw">pub type </span>Block = generic::Block&lt;Header, UncheckedExtrinsic&gt;;
+
+<span class="kw">pub type </span>Signature = MultiSignature;
+<span class="kw">pub type </span>AccountId = &lt;&lt;Signature <span class="kw">as </span>Verify&gt;::Signer <span class="kw">as </span>IdentifyAccount&gt;::AccountId;
 <span class="kw">pub type </span>Balance = u128;
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>BlockHashCount: u64 = <span class="number">250</span>;
+	<span class="kw">pub const </span>BlockHashCount: u32 = <span class="number">250</span>;
 }
 
 <span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig <span class="kw">as </span>frame_system::DefaultConfig)]
 </span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
-	<span class="kw">type </span>RuntimeOrigin = RuntimeOrigin;
-	<span class="kw">type </span>RuntimeCall = RuntimeCall;
-	<span class="kw">type </span>Nonce = u64;
-	<span class="kw">type </span>Hash = H256;
-	<span class="kw">type </span>Hashing = ::sp_runtime::traits::BlakeTwo256;
 	<span class="kw">type </span>AccountId = AccountId;
-	<span class="kw">type </span>Lookup = IdentityLookup&lt;<span class="self">Self</span>::AccountId&gt;;
+	<span class="kw">type </span>Lookup = sp_runtime::traits::AccountIdLookup&lt;AccountId, ()&gt;;
 	<span class="kw">type </span>Block = Block;
-	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="kw">type </span>BlockHashCount = BlockHashCount;
-	<span class="kw">type </span>BlockWeights = ();
-	<span class="kw">type </span>BlockLength = ();
-	<span class="kw">type </span>Version = ();
-	<span class="kw">type </span>PalletInfo = PalletInfo;
 	<span class="kw">type </span>AccountData = pallet_balances::AccountData&lt;Balance&gt;;
-	<span class="kw">type </span>OnNewAccount = ();
-	<span class="kw">type </span>OnKilledAccount = ();
-	<span class="kw">type </span>DbWeight = ();
-	<span class="kw">type </span>BaseCallFilter = Everything;
-	<span class="kw">type </span>SystemWeightInfo = ();
-	<span class="kw">type </span>SS58Prefix = ();
-	<span class="kw">type </span>OnSetCode = ();
-	<span class="kw">type </span>MaxConsumers = ConstU32&lt;<span class="number">16</span>&gt;;
 }
 
 <span class="macro">parameter_types! </span>{
@@ -462,8 +450,6 @@
 }
 
 <span class="kw">impl </span>origin::Config <span class="kw">for </span>Runtime {}
-
-<span class="kw">type </span>Block = frame_system::mocking::MockBlock&lt;Runtime&gt;;
 
 <span class="macro">parameter_types! </span>{
 	<span class="doccomment">/// Amount of weight that can be spent per block to service messages.
