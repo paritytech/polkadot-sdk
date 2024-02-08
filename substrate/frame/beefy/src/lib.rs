@@ -312,12 +312,19 @@ pub mod pallet {
 #[cfg(any(feature = "try-runtime", test))]
 impl<T: Config> Pallet<T> {
 	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
 	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		Self::try_state_authorities()?;
+		Self::try_state_validators()?;
 
 		Ok(())
 	}
 
+	/// # Invariants
+	///
+	/// * `Authorities` should not exceed the `MaxAuthorities` capacity.
+	/// * `NextAuthorities` should not exceed the `MaxAuthorities` capacity.
 	fn try_state_authorities() -> Result<(), sp_runtime::TryRuntimeError> {
 		let authorities = <Authorities<T>>::get();
 
@@ -332,6 +339,15 @@ impl<T: Config> Pallet<T> {
 				next_authorities.len() as u32 <= T::MaxAuthorities::get().try_into().expect("Max authorities should be present"),
 				"Shouldn't have next authorities than the pallet config allows."
 			);
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// `ValidatorSetId` must be present in `SetIdSession`
+	fn try_state_validators() -> Result<(), sp_runtime::TryRuntimeError> {
+		let validator_set_id = <ValidatorSetId<T>>::get();
+		ensure!(SetIdSession::<T>::get(validator_set_id).is_some(), "Validator set id must be present in SetIdSession");
 		Ok(())
 	}
 }
