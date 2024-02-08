@@ -214,7 +214,7 @@ pub mod pallet {
 		/// * it's approvals are 0 AND
 		/// * it's state is dangling (ledger unbonded).
 		pub(crate) fn should_remove_target(who: &T::AccountId, score: BalanceOf<T>) -> bool {
-			score.is_zero() && T::Staking::status(&who).is_err()
+			score.is_zero() && T::Staking::status(who).is_err()
 		}
 
 		/// Updates a target's score by increasing/decreasing an imbalance of the current score in
