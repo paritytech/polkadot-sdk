@@ -19,8 +19,9 @@
 pub(crate) mod assets_transfer;
 
 use crate::{
-	mock::*, AssetTraps, CurrentMigration, Error, LatestVersionedLocation, Queries, QueryStatus,
-	VersionDiscoveryQueue, VersionMigrationStage, VersionNotifiers, VersionNotifyTargets,
+	mock::*, pallet::SupportedVersion, AssetTraps, Config, CurrentMigration, Error,
+	LatestVersionedLocation, Pallet, Queries, QueryStatus, VersionDiscoveryQueue,
+	VersionMigrationStage, VersionNotifiers, VersionNotifyTargets, WeightInfo,
 };
 use frame_support::{
 	assert_noop, assert_ok,
@@ -1111,5 +1112,85 @@ fn get_and_wrap_version_works() {
 		// wrapped to the `1`
 		assert_eq!(XcmPallet::wrap_version(&remote_c, xcm.clone()), Err(()));
 		assert_eq!(VersionDiscoveryQueue::<Test>::get().into_inner(), vec![(remote_b.into(), 2)]);
+	})
+}
+
+#[test]
+fn multistage_migration_works() {
+	new_test_ext_with_balances(vec![]).execute_with(|| {
+		// An entry from a previous runtime with v3 XCM.
+		let v3_location = VersionedLocation::V3(xcm::v3::Junction::Parachain(1001).into());
+		let v3_version = xcm::v3::VERSION;
+		SupportedVersion::<Test>::insert(v3_version, v3_location.clone(), v3_version);
+		VersionNotifiers::<Test>::insert(v3_version, v3_location.clone(), 1);
+		VersionNotifyTargets::<Test>::insert(
+			v3_version,
+			v3_location,
+			(70, Weight::zero(), v3_version),
+		);
+		// A version to advertise.
+		AdvertisedXcmVersion::set(4);
+
+		// check `try-state`
+		assert!(Pallet::<Test>::do_try_state().is_err());
+
+		// closure simulates a multistage migration process
+		let migrate = |expected_cycle_count| {
+			// A runtime upgrade which alters the version does send notifications.
+			CurrentMigration::<Test>::put(VersionMigrationStage::default());
+			let mut maybe_migration = CurrentMigration::<Test>::take();
+			let mut counter = 0;
+			let mut weight_used = Weight::zero();
+			while let Some(migration) = maybe_migration.take() {
+				counter += 1;
+				let (w, m) = XcmPallet::check_xcm_version_change(migration, Weight::zero());
+				maybe_migration = m;
+				weight_used.saturating_accrue(w);
+			}
+			assert_eq!(counter, expected_cycle_count);
+			weight_used
+		};
+
+		// run migration for the first time
+		let _ = migrate(4);
+
+		// check xcm sent
+		assert_eq!(
+			take_sent_xcm(),
+			vec![(
+				Parachain(1001).into(),
+				Xcm(vec![QueryResponse {
+					query_id: 70,
+					max_weight: Weight::zero(),
+					response: Response::Version(AdvertisedXcmVersion::get()),
+					querier: None,
+				}])
+			),]
+		);
+
+		// check migrated data
+		assert_eq!(
+			SupportedVersion::<Test>::iter().collect::<Vec<_>>(),
+			vec![(XCM_VERSION, Parachain(1001).into_versioned(), v3_version),]
+		);
+		assert_eq!(
+			VersionNotifiers::<Test>::iter().collect::<Vec<_>>(),
+			vec![(XCM_VERSION, Parachain(1001).into_versioned(), 1),]
+		);
+		assert_eq!(
+			VersionNotifyTargets::<Test>::iter().collect::<Vec<_>>(),
+			vec![(XCM_VERSION, Parachain(1001).into_versioned(), (70, Weight::zero(), 4)),]
+		);
+
+		// run migration again to check it can run multiple time without any harm or double sending
+		// messages.
+		let weight_used = migrate(1);
+		assert_eq!(weight_used, 1_u8 * <Test as Config>::WeightInfo::already_notified_target());
+
+		// check no xcm sent
+		assert_eq!(take_sent_xcm(), vec![]);
+
+		// check `try-state`
+		assert!(Pallet::<Test>::do_try_state().is_ok());
 	})
 }

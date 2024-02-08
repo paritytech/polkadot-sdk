@@ -462,6 +462,18 @@ fn create_project_cargo_toml(
 
 	wasm_workspace_toml.insert("workspace".into(), Table::new().into());
 
+	if target == RuntimeTarget::Riscv {
+		// This dependency currently doesn't compile under RISC-V, so patch it with our own fork.
+		//
+		// TODO: Remove this once a new version of `bitvec` (which uses a new version of `radium`
+		//       which doesn't have this problem) is released on crates.io.
+		let patch = toml::toml! {
+			[crates-io]
+			radium = { git = "https://github.com/paritytech/radium-0.7-fork.git", rev = "a5da15a15c90fd169d661d206cf0db592487f52b" }
+		};
+		wasm_workspace_toml.insert("patch".into(), patch.into());
+	}
+
 	write_file_if_changed(
 		wasm_workspace.join("Cargo.toml"),
 		toml::to_string_pretty(&wasm_workspace_toml).expect("Wasm workspace toml is valid; qed"),
