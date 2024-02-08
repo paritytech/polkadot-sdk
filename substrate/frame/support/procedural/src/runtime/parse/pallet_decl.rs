@@ -34,7 +34,7 @@ pub struct PalletDeclaration {
 impl PalletDeclaration {
 	pub fn try_from(
 		_attr_span: proc_macro2::Span,
-		item: &mut syn::ItemType,
+		item: &syn::ItemType,
 		path: &syn::TypePath,
 	) -> syn::Result<Self> {
 		let name = item.ident.clone();

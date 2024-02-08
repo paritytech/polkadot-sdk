@@ -15,61 +15,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::helper;
 use crate::construct_runtime::parse::{Pallet, PalletPart, PalletPartKeyword, PalletPath};
 use quote::ToTokens;
 use syn::{punctuated::Punctuated, spanned::Spanned, token, Error, Ident, PathArguments};
 
-mod keyword {
-	use syn::custom_keyword;
-
-	custom_keyword!(runtime);
-	custom_keyword!(disable_call);
-	custom_keyword!(disable_unsigned);
-}
-
-enum PalletAttr {
-	DisableCall(proc_macro2::Span),
-	DisableUnsigned(proc_macro2::Span),
-}
-
-impl syn::parse::Parse for PalletAttr {
-	fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-		input.parse::<syn::Token![#]>()?;
-		let content;
-		syn::bracketed!(content in input);
-		content.parse::<keyword::runtime>()?;
-		content.parse::<syn::Token![::]>()?;
-
-		let lookahead = content.lookahead1();
-		if lookahead.peek(keyword::disable_call) {
-			Ok(PalletAttr::DisableCall(content.parse::<keyword::disable_call>()?.span()))
-		} else if lookahead.peek(keyword::disable_unsigned) {
-			Ok(PalletAttr::DisableUnsigned(content.parse::<keyword::disable_unsigned>()?.span()))
-		} else {
-			Err(lookahead.error())
-		}
-	}
-}
-
 impl Pallet {
 	pub fn try_from(
 		attr_span: proc_macro2::Span,
-		item: &mut syn::ItemType,
+		item: &syn::ItemType,
 		pallet_index: u8,
+		disable_call: bool,
+		disable_unsigned: bool,
 		bounds: &Punctuated<syn::TypeParamBound, token::Plus>,
 	) -> syn::Result<Self> {
 		let name = item.ident.clone();
-
-		let mut disable_call = false;
-		let mut disable_unsigned = false;
-
-		while let Some(pallet_attr) = helper::take_first_item_runtime_attr::<PalletAttr>(item)? {
-			match pallet_attr {
-				PalletAttr::DisableCall(_) => disable_call = true,
-				PalletAttr::DisableUnsigned(_) => disable_unsigned = true,
-			}
-		}
 
 		let mut pallet_path = None;
 		let mut pallet_parts = vec![];

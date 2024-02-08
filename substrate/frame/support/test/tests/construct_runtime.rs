@@ -292,7 +292,8 @@ mod runtime {
 		RuntimeFreezeReason,
 		RuntimeHoldReason,
 		RuntimeSlashReason,
-		RuntimeLockId
+		RuntimeLockId,
+		RuntimeTask,
 	)]
 	pub struct Runtime;
 

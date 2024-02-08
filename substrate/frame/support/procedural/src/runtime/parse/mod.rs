@@ -37,12 +37,16 @@ mod keyword {
 	custom_keyword!(runtime);
 	custom_keyword!(derive);
 	custom_keyword!(pallet_index);
+	custom_keyword!(disable_call);
+	custom_keyword!(disable_unsigned);
 }
 
 enum RuntimeAttr {
 	Runtime(proc_macro2::Span),
 	Derive(proc_macro2::Span, Vec<RuntimeType>),
 	PalletIndex(proc_macro2::Span, u8),
+	DisableCall(proc_macro2::Span),
+	DisableUnsigned(proc_macro2::Span),
 }
 
 impl RuntimeAttr {
@@ -51,6 +55,8 @@ impl RuntimeAttr {
 			Self::Runtime(span) => *span,
 			Self::Derive(span, _) => *span,
 			Self::PalletIndex(span, _) => *span,
+			Self::DisableCall(span) => *span,
+			Self::DisableUnsigned(span) => *span,
 		}
 	}
 }
@@ -84,6 +90,10 @@ impl syn::parse::Parse for RuntimeAttr {
 				return Err(syn::Error::new(pallet_index.span(), msg))
 			}
 			Ok(RuntimeAttr::PalletIndex(pallet_index.span(), pallet_index.base10_parse()?))
+		} else if lookahead.peek(keyword::disable_call) {
+			Ok(RuntimeAttr::DisableCall(content.parse::<keyword::disable_call>()?.span()))
+		} else if lookahead.peek(keyword::disable_unsigned) {
+			Ok(RuntimeAttr::DisableUnsigned(content.parse::<keyword::disable_unsigned>()?.span()))
 		} else {
 			Err(lookahead.error())
 		}
@@ -142,6 +152,12 @@ impl Def {
 		let mut pallets = vec![];
 
 		for item in items.iter_mut() {
+			let mut pallet_item = None;
+			let mut pallet_index = 0;
+
+			let mut disable_call = false;
+			let mut disable_unsigned = false;
+
 			while let Some(runtime_attr) =
 				helper::take_first_item_runtime_attr::<RuntimeAttr>(item)?
 			{
@@ -153,56 +169,61 @@ impl Def {
 					RuntimeAttr::Derive(_, types) if runtime_types.is_none() => {
 						runtime_types = Some(types);
 					},
-					RuntimeAttr::PalletIndex(span, pallet_index) => {
-						let item = if let syn::Item::Type(item) = item {
-							item
+					RuntimeAttr::PalletIndex(span, index) => {
+						pallet_index = index;
+						pallet_item = if let syn::Item::Type(item) = item {
+							Some(item.clone())
 						} else {
 							let msg = "Invalid runtime::pallet_index, expected type definition";
 							return Err(syn::Error::new(span, msg))
 						};
-
-						match *item.ty.clone() {
-							syn::Type::Path(ref path) => {
-								let pallet_decl =
-									PalletDeclaration::try_from(item.span(), item, path)?;
-
-								if let Some(used_pallet) =
-									names.insert(pallet_decl.name.clone(), pallet_decl.name.span())
-								{
-									let msg = "Two pallets with the same name!";
-
-									let mut err = syn::Error::new(used_pallet, &msg);
-									err.combine(syn::Error::new(pallet_decl.name.span(), &msg));
-									return Err(err)
-								}
-
-								pallet_decls.push(pallet_decl);
-							},
-							syn::Type::TraitObject(syn::TypeTraitObject { bounds, .. }) => {
-								let pallet =
-									Pallet::try_from(item.span(), item, pallet_index, &bounds)?;
-
-								if let Some(used_pallet) =
-									indices.insert(pallet.index, pallet.name.clone())
-								{
-									let msg = format!(
-										"Pallet indices are conflicting: Both pallets {} and {} are at index {}",
-										used_pallet, pallet.name, pallet.index,
-									);
-									let mut err = syn::Error::new(used_pallet.span(), &msg);
-									err.combine(syn::Error::new(pallet.name.span(), msg));
-									return Err(err)
-								}
-
-								pallets.push(pallet);
-							},
-							_ => continue,
-						}
 					},
+					RuntimeAttr::DisableCall(_) => disable_call = true,
+					RuntimeAttr::DisableUnsigned(_) => disable_unsigned = true,
 					attr => {
 						let msg = "Invalid duplicated attribute";
 						return Err(syn::Error::new(attr.span(), msg))
 					},
+				}
+			}
+
+			if let Some(pallet_item) = pallet_item {
+				match *pallet_item.ty.clone() {
+					syn::Type::Path(ref path) => {
+						let pallet_decl =
+							PalletDeclaration::try_from(item.span(), &pallet_item, path)?;
+
+						if let Some(used_pallet) =
+							names.insert(pallet_decl.name.clone(), pallet_decl.name.span())
+						{
+							let msg = "Two pallets with the same name!";
+
+							let mut err = syn::Error::new(used_pallet, &msg);
+							err.combine(syn::Error::new(pallet_decl.name.span(), &msg));
+							return Err(err)
+						}
+
+						pallet_decls.push(pallet_decl);
+					},
+					syn::Type::TraitObject(syn::TypeTraitObject { bounds, .. }) => {
+						let pallet =
+							Pallet::try_from(item.span(), &pallet_item, pallet_index, disable_call, disable_unsigned, &bounds)?;
+
+						if let Some(used_pallet) =
+							indices.insert(pallet.index, pallet.name.clone())
+						{
+							let msg = format!(
+								"Pallet indices are conflicting: Both pallets {} and {} are at index {}",
+								used_pallet, pallet.name, pallet.index,
+							);
+							let mut err = syn::Error::new(used_pallet.span(), &msg);
+							err.combine(syn::Error::new(pallet.name.span(), msg));
+							return Err(err)
+						}
+
+						pallets.push(pallet);
+					},
+					_ => continue,
 				}
 			}
 		}
