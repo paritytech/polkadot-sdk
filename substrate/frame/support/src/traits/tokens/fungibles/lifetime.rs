@@ -60,7 +60,7 @@ pub trait Refund<AccountId> {
 	/// Scalar type for representing balance of an account.
 	type Balance: Balance;
 	/// Returns the amount of account deposit and depositor address, if any.
-	fn deposit(id: Self::AssetId, who: AccountId) -> Option<(AccountId, Self::Balance)>;
+	fn deposit_held(id: Self::AssetId, who: AccountId) -> Option<(AccountId, Self::Balance)>;
 	/// Return the deposit (if any) of a target asset account.
 	fn refund(id: Self::AssetId, who: AccountId) -> DispatchResult;
 }

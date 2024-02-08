@@ -50,7 +50,7 @@ pub mod new_pool_account_id {
 	/// - `Refund`: A type used to perform a refund if the previous pool account holds a deposit.
 	/// - `WeightPerItem`: A getter returning the weight required for the migration of a single pool
 	///   account ID. It should include: 2 * weight_of(T::Assets::balance(..)) + 2 *
-	///   weight_of(T::Assets::transfer(..)) + 2 * weight_of(Refund::deposit(..)) + 2 *
+	///   weight_of(T::Assets::transfer(..)) + 2 * weight_of(Refund::deposit_held(..)) + 2 *
 	///   weight_of(Refund::refund(..)) + weight_of(ResetTeam::reset_team(..));
 	pub struct Migrate<T, OldLocator, ResetTeam, Refund, WeightPerItem>(
 		PhantomData<(T, OldLocator, ResetTeam, Refund, WeightPerItem)>,
@@ -120,7 +120,7 @@ pub mod new_pool_account_id {
 					continue;
 				}
 
-				if Refund::deposit(asset1.clone(), account_id.clone()).is_some() {
+				if Refund::deposit_held(asset1.clone(), account_id.clone()).is_some() {
 					if let Err(e) = Refund::refund(asset1.clone(), account_id.clone()) {
 						log::error!(
 							target: LOG_TARGET,
@@ -132,7 +132,7 @@ pub mod new_pool_account_id {
 					}
 				}
 
-				if Refund::deposit(asset2.clone(), account_id.clone()).is_some() {
+				if Refund::deposit_held(asset2.clone(), account_id.clone()).is_some() {
 					if let Err(e) = Refund::refund(asset2.clone(), account_id.clone()) {
 						log::error!(
 							target: LOG_TARGET,

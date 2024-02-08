@@ -921,10 +921,10 @@ impl<
 	type AssetId = AssetKind;
 	type Balance = <Left as fungibles::Refund<AccountId>>::Balance;
 
-	fn deposit(asset: AssetKind, who: AccountId) -> Option<(AccountId, Self::Balance)> {
+	fn deposit_held(asset: AssetKind, who: AccountId) -> Option<(AccountId, Self::Balance)> {
 		match Criterion::convert(asset) {
-			Left(a) => <Left as fungibles::Refund<AccountId>>::deposit(a, who),
-			Right(a) => <Right as fungibles::Refund<AccountId>>::deposit(a, who),
+			Left(a) => <Left as fungibles::Refund<AccountId>>::deposit_held(a, who),
+			Right(a) => <Right as fungibles::Refund<AccountId>>::deposit_held(a, who),
 		}
 	}
 	fn refund(asset: AssetKind, who: AccountId) -> DispatchResult {
