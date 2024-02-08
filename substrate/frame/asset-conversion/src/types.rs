@@ -138,16 +138,28 @@ where
 }
 
 /// `PoolId` to `AccountId` conversion.
-pub struct AccountIdConverter<GetPalletId, PoolId>(PhantomData<(GetPalletId, PoolId)>);
-impl<GetPalletId, PoolId, AccountId> TryConvert<&PoolId, AccountId>
-	for AccountIdConverter<GetPalletId, PoolId>
+pub struct AccountIdConverter<Seed, PoolId>(PhantomData<(Seed, PoolId)>);
+impl<Seed, PoolId, AccountId> TryConvert<&PoolId, AccountId> for AccountIdConverter<Seed, PoolId>
 where
 	PoolId: Encode,
 	AccountId: Decode,
-	GetPalletId: Get<PalletId>,
+	Seed: Get<PalletId>,
 {
 	fn try_convert(id: &PoolId) -> Result<AccountId, &PoolId> {
-		let encoded = sp_io::hashing::blake2_256(&Encode::encode(&(GetPalletId::get(), id))[..]);
+		let encoded = sp_io::hashing::blake2_256(&Encode::encode(&(Seed::get(), id))[..]);
+		Decode::decode(&mut TrailingZeroInput::new(encoded.as_ref())).map_err(|_| id)
+	}
+}
+
+/// `PoolId` to `AccountId` conversion without [`PalledId`] seed.
+pub struct AccountIdConverterNoSeed<PoolId>(PhantomData<PoolId>);
+impl<PoolId, AccountId> TryConvert<&PoolId, AccountId> for AccountIdConverterNoSeed<PoolId>
+where
+	PoolId: Encode,
+	AccountId: Decode,
+{
+	fn try_convert(id: &PoolId) -> Result<AccountId, &PoolId> {
+		let encoded = sp_io::hashing::blake2_256(&Encode::encode(id)[..]);
 		Decode::decode(&mut TrailingZeroInput::new(encoded.as_ref())).map_err(|_| id)
 	}
 }
