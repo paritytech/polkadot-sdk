@@ -1,6 +1,6 @@
 [package]
 name = "node-testing"
-version = "3.0.0-dev"
+version = "3.0.0"
 authors.workspace = true
 description = "Test utilities for Substrate node."
 edition.workspace = true

@@ -1,6 +1,6 @@
 [package]
 name = "pallet-sassafras"
-version = "0.3.5-dev"
+version = "0.3.5"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 license = "Apache-2.0"

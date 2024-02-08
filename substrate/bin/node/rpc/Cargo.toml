@@ -1,6 +1,6 @@
 [package]
 name = "node-rpc"
-version = "3.0.0-dev"
+version = "3.0.0"
 authors.workspace = true
 description = "Substrate node rpc methods."
 edition.workspace = true

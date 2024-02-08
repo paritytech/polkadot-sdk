@@ -804,7 +804,7 @@ checksum = "9b34d609dfbaf33d6889b2b7106d3ca345eacad44200913df5ba02bfd31d2ba9"
 
 [[package]]
 name = "asset-hub-rococo-emulated-chain"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "asset-hub-rococo-runtime",
  "cumulus-primitives-core",
@@ -923,7 +923,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-emulated-chain"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "asset-hub-westend-runtime",
  "cumulus-primitives-core",
@@ -1906,7 +1906,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-common"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
@@ -1922,7 +1922,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-rococo-emulated-chain"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "bridge-hub-common",
  "bridge-hub-rococo-runtime",
@@ -2106,7 +2106,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-westend-emulated-chain"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "bridge-hub-common",
  "bridge-hub-westend-runtime",
@@ -2701,7 +2701,7 @@ dependencies = [
 
 [[package]]
 name = "collectives-westend-emulated-chain"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "collectives-westend-runtime",
  "cumulus-primitives-core",
@@ -5395,7 +5395,7 @@ checksum = "6c2141d6d6c8512188a7891b4b01590a45f6dac67afb4f255c4124dbb86d4eaa"
 
 [[package]]
 name = "frame"
-version = "0.0.1-dev"
+version = "0.1.0"
 dependencies = [
  "docify",
  "frame-executive",
@@ -5547,7 +5547,7 @@ dependencies = [
 
 [[package]]
 name = "frame-election-solution-type-fuzzer"
-version = "2.0.0-alpha.5"
+version = "2.0.0"
 dependencies = [
  "clap 4.4.18",
  "frame-election-provider-solution-type",
@@ -5731,7 +5731,7 @@ dependencies = [
 
 [[package]]
 name = "frame-support-test-compile-pass"
-version = "4.0.0-dev"
+version = "4.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -5744,7 +5744,7 @@ dependencies = [
 
 [[package]]
 name = "frame-support-test-pallet"
-version = "4.0.0-dev"
+version = "4.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -6960,7 +6960,7 @@ checksum = "c33070833c9ee02266356de0c43f723152bd38bd96ddf52c82b3af10c9138b28"
 
 [[package]]
 name = "kitchensink-runtime"
-version = "3.0.0-dev"
+version = "3.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-benchmarking-pallet-pov",
@@ -8045,7 +8045,7 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
 name = "minimal-node"
-version = "4.0.0-dev"
+version = "4.0.0"
 dependencies = [
  "clap 4.4.18",
  "frame",
@@ -8507,7 +8507,7 @@ checksum = "43794a0ace135be66a25d3ae77d41b91615fb68ae937f904090203e81f755b65"
 
 [[package]]
 name = "node-bench"
-version = "0.9.0-dev"
+version = "0.9.0"
 dependencies = [
  "array-bytes 6.1.0",
  "clap 4.4.18",
@@ -8551,7 +8551,7 @@ dependencies = [
 
 [[package]]
 name = "node-rpc"
-version = "3.0.0-dev"
+version = "3.0.0"
 dependencies = [
  "jsonrpsee",
  "mmr-rpc",
@@ -8594,7 +8594,7 @@ dependencies = [
 
 [[package]]
 name = "node-template"
-version = "4.0.0-dev"
+version = "4.0.0"
 dependencies = [
  "clap 4.4.18",
  "frame-benchmarking",
@@ -8652,7 +8652,7 @@ dependencies = [
 
 [[package]]
 name = "node-template-runtime"
-version = "4.0.0-dev"
+version = "4.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-executive",
@@ -8691,7 +8691,7 @@ dependencies = [
 
 [[package]]
 name = "node-testing"
-version = "3.0.0-dev"
+version = "3.0.0"
 dependencies = [
  "frame-system",
  "fs_extra",
@@ -9225,7 +9225,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-bags-list-fuzzer"
-version = "4.0.0-dev"
+version = "4.0.0"
 dependencies = [
  "frame-election-provider-support",
  "honggfuzz",
@@ -9235,7 +9235,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-bags-list-remote-tests"
-version = "4.0.0-dev"
+version = "4.0.0"
 dependencies = [
  "frame-election-provider-support",
  "frame-remote-externalities",
@@ -9828,7 +9828,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-example-frame-crate"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "frame",
  "parity-scale-codec",
@@ -9837,7 +9837,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-example-kitchensink"
-version = "4.0.0-dev"
+version = "4.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -9902,7 +9902,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-examples"
-version = "4.0.0-dev"
+version = "4.0.0"
 dependencies = [
  "pallet-default-config-example",
  "pallet-dev-mode",
@@ -10610,7 +10610,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-sassafras"
-version = "0.3.5-dev"
+version = "0.3.5"
 dependencies = [
  "array-bytes 6.1.0",
  "frame-benchmarking",
@@ -10858,7 +10858,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-template"
-version = "4.0.0-dev"
+version = "4.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -11549,7 +11549,7 @@ dependencies = [
 
 [[package]]
 name = "penpal-emulated-chain"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "cumulus-primitives-core",
  "emulated-integration-tests-common",
@@ -13256,7 +13256,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-sdk-docs"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -14798,7 +14798,7 @@ dependencies = [
 
 [[package]]
 name = "rococo-emulated-chain"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "emulated-integration-tests-common",
  "parachains-common",
@@ -14983,7 +14983,7 @@ dependencies = [
 
 [[package]]
 name = "rococo-system-emulated-network"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "asset-hub-rococo-emulated-chain",
  "bridge-hub-rococo-emulated-chain",
@@ -14995,7 +14995,7 @@ dependencies = [
 
 [[package]]
 name = "rococo-westend-system-emulated-network"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "asset-hub-rococo-emulated-chain",
  "asset-hub-westend-emulated-chain",
@@ -17571,7 +17571,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-beacon-primitives"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "byte-slice-cast",
  "frame-support",
@@ -17595,7 +17595,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-core"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "ethabi-decode",
  "frame-support",
@@ -17672,7 +17672,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-outbound-queue-runtime-api"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -17686,7 +17686,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-ethereum-client"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "bp-runtime",
  "byte-slice-cast",
@@ -17732,7 +17732,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -17779,7 +17779,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-outbound-queue"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "bridge-hub-common",
  "ethabi-decode",
@@ -17804,7 +17804,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-system"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "ethabi-decode",
  "frame-benchmarking",
@@ -17832,7 +17832,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-router-primitives"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "ethabi-decode",
  "frame-support",
@@ -17855,7 +17855,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-runtime-common"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -17871,7 +17871,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-runtime-test-common"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "assets-common",
  "bridge-hub-test-utils",
@@ -17948,7 +17948,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-system-runtime-api"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "parity-scale-codec",
  "snowbridge-core",
@@ -18262,7 +18262,7 @@ dependencies = [
 
 [[package]]
 name = "sp-consensus-sassafras"
-version = "0.3.4-dev"
+version = "0.3.4"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -18337,7 +18337,7 @@ dependencies = [
 
 [[package]]
 name = "sp-core-fuzz"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "lazy_static",
  "libfuzzer-sys",
@@ -18402,7 +18402,7 @@ dependencies = [
 
 [[package]]
 name = "sp-crypto-hashing"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "blake2b_simd",
  "byteorder",
@@ -18416,7 +18416,7 @@ dependencies = [
 
 [[package]]
 name = "sp-crypto-hashing-proc-macro"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "quote",
  "sp-crypto-hashing",
@@ -18605,7 +18605,7 @@ dependencies = [
 
 [[package]]
 name = "sp-npos-elections-fuzzer"
-version = "2.0.0-alpha.5"
+version = "2.0.0"
 dependencies = [
  "clap 4.4.18",
  "honggfuzz",
@@ -19139,7 +19139,7 @@ dependencies = [
 
 [[package]]
 name = "staging-node-cli"
-version = "3.0.0-dev"
+version = "3.0.0"
 dependencies = [
  "array-bytes 6.1.0",
  "assert_cmd",
@@ -19695,7 +19695,7 @@ dependencies = [
 
 [[package]]
 name = "substrate-test-utils"
-version = "4.0.0-dev"
+version = "4.0.0"
 dependencies = [
  "futures",
  "sc-service",
@@ -21535,7 +21535,7 @@ checksum = "14247bb57be4f377dfb94c72830b8ce8fc6beac03cf4bf7b9732eadd414123fc"
 
 [[package]]
 name = "westend-emulated-chain"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "emulated-integration-tests-common",
  "pallet-staking",
@@ -21679,7 +21679,7 @@ dependencies = [
 
 [[package]]
 name = "westend-system-emulated-network"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "asset-hub-westend-emulated-chain",
  "bridge-hub-westend-emulated-chain",
