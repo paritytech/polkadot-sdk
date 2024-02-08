@@ -1219,6 +1219,19 @@
 <a href="#1219" id="1219">1219</a>
 <a href="#1220" id="1220">1220</a>
 <a href="#1221" id="1221">1221</a>
+<a href="#1222" id="1222">1222</a>
+<a href="#1223" id="1223">1223</a>
+<a href="#1224" id="1224">1224</a>
+<a href="#1225" id="1225">1225</a>
+<a href="#1226" id="1226">1226</a>
+<a href="#1227" id="1227">1227</a>
+<a href="#1228" id="1228">1228</a>
+<a href="#1229" id="1229">1229</a>
+<a href="#1230" id="1230">1230</a>
+<a href="#1231" id="1231">1231</a>
+<a href="#1232" id="1232">1232</a>
+<a href="#1233" id="1233">1233</a>
+<a href="#1234" id="1234">1234</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2204,6 +2217,19 @@
 		<span class="comment">// Soft derivation not supported
 		</span><span class="kw">let </span>res = Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}//Alice/Soft&quot;</span>, DEV_PHRASE), <span class="prelude-val">None</span>);
 		<span class="macro">assert!</span>(res.is_err());
+	}
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>generate_with_phrase_should_be_recoverable_with_from_string() {
+		<span class="kw">let </span>(pair, phrase, seed) = Pair::generate_with_phrase(<span class="prelude-val">None</span>);
+		<span class="kw">let </span>repair_seed = Pair::from_seed_slice(seed.as_ref()).expect(<span class="string">&quot;seed slice is valid&quot;</span>);
+		<span class="macro">assert_eq!</span>(pair.public(), repair_seed.public());
+		<span class="kw">let </span>(repair_phrase, reseed) =
+			Pair::from_phrase(phrase.as_ref(), <span class="prelude-val">None</span>).expect(<span class="string">&quot;seed slice is valid&quot;</span>);
+		<span class="macro">assert_eq!</span>(seed, reseed);
+		<span class="macro">assert_eq!</span>(pair.public(), repair_phrase.public());
+		<span class="kw">let </span>repair_string = Pair::from_string(phrase.as_str(), <span class="prelude-val">None</span>).expect(<span class="string">&quot;seed slice is valid&quot;</span>);
+		<span class="macro">assert_eq!</span>(pair.public(), repair_string.public());
 	}
 
 	<span class="attr">#[test]

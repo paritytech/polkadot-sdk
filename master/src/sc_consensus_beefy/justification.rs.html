@@ -198,6 +198,7 @@
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -276,7 +277,7 @@
 						.as_ref()
 						.map(|sig| {
 							signatures_checked += <span class="number">1</span>;
-							BeefyKeystore::verify(id, sig, <span class="kw-2">&amp;</span>message[..])
+							BeefyKeystore::verify(<span class="kw-2">*</span>id, sig, <span class="kw-2">&amp;</span>message[..])
 						})
 						.unwrap_or(<span class="bool-val">false</span>)
 				})
@@ -293,7 +294,8 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>tests {
 	<span class="kw">use </span>sp_consensus_beefy::{
-		known_payloads, Commitment, Keyring, Payload, SignedCommitment, VersionedFinalityProof,
+		known_payloads, test_utils::Keyring, Commitment, Payload, SignedCommitment,
+		VersionedFinalityProof,
 	};
 	<span class="kw">use </span>substrate_test_runtime_client::runtime::Block;
 
@@ -303,7 +305,7 @@
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new_finality_proof(
 		block_num: NumberFor&lt;Block&gt;,
 		validator_set: <span class="kw-2">&amp;</span>ValidatorSet&lt;AuthorityId&gt;,
-		keys: <span class="kw-2">&amp;</span>[Keyring],
+		keys: <span class="kw-2">&amp;</span>[Keyring&lt;AuthorityId&gt;],
 	) -&gt; BeefyVersionedFinalityProof&lt;Block&gt; {
 		<span class="kw">let </span>commitment = Commitment {
 			payload: Payload::from_single_entry(known_payloads::MMR_ROOT_ID, <span class="macro">vec!</span>[]),
@@ -374,7 +376,7 @@
 		};
 		<span class="comment">// change a signature to a different key
 		</span><span class="kw-2">*</span>bad_signed_commitment.signatures.first_mut().unwrap() =
-			<span class="prelude-val">Some</span>(Keyring::Dave.sign(<span class="kw-2">&amp;</span>bad_signed_commitment.commitment.encode()));
+			<span class="prelude-val">Some</span>(Keyring::&lt;AuthorityId&gt;::Dave.sign(<span class="kw-2">&amp;</span>bad_signed_commitment.commitment.encode()));
 		<span class="kw">match </span>verify_with_validator_set::&lt;Block&gt;(block_num, <span class="kw-2">&amp;</span>validator_set, <span class="kw-2">&amp;</span>bad_proof.into()) {
 			<span class="prelude-val">Err</span>((ConsensusError::InvalidJustification, <span class="number">3</span>)) =&gt; (),
 			e =&gt; <span class="macro">assert!</span>(<span class="bool-val">false</span>, <span class="string">&quot;Got unexpected {:?}&quot;</span>, e),

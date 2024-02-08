@@ -707,6 +707,34 @@
 <a href="#707" id="707">707</a>
 <a href="#708" id="708">708</a>
 <a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1064,6 +1092,24 @@
 		msg: <span class="kw-2">&amp;</span>[u8],
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ecdsa_bls377::Signature&gt;, Error&gt;;
 
+	<span class="doccomment">/// Hashes the `message` using keccak256 and then signs it using ECDSA
+	/// algorithm. It does not affect the behavior of BLS12-377 component. It generates
+	/// BLS12-377 Signature according to IETF standard.
+	///
+	/// Receives [`KeyTypeId`] and a [`ecdsa_bls377::Public`] key to be able to map
+	/// them to a private key that exists in the keystore.
+	///
+	/// Returns an [`ecdsa_bls377::Signature`] or `None` in case the given `key_type`
+	/// and `public` combination doesn&#39;t exist in the keystore.
+	/// An `Err` will be returned if generating the signature itself failed.
+	</span><span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	</span><span class="kw">fn </span>ecdsa_bls377_sign_with_keccak256(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		key_type: KeyTypeId,
+		public: <span class="kw-2">&amp;</span>ecdsa_bls377::Public,
+		msg: <span class="kw-2">&amp;</span>[u8],
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ecdsa_bls377::Signature&gt;, Error&gt;;
+
 	<span class="doccomment">/// Insert a new secret key.
 	</span><span class="kw">fn </span>insert(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: KeyTypeId, suri: <span class="kw-2">&amp;</span>str, public: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt;;
 
@@ -1368,6 +1414,16 @@
 		msg: <span class="kw-2">&amp;</span>[u8],
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ecdsa_bls377::Signature&gt;, Error&gt; {
 		(<span class="kw-2">**</span><span class="self">self</span>).ecdsa_bls377_sign(key_type, public, msg)
+	}
+
+	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	</span><span class="kw">fn </span>ecdsa_bls377_sign_with_keccak256(
+		<span class="kw-2">&amp;</span><span class="self">self</span>,
+		key_type: KeyTypeId,
+		public: <span class="kw-2">&amp;</span>ecdsa_bls377::Public,
+		msg: <span class="kw-2">&amp;</span>[u8],
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ecdsa_bls377::Signature&gt;, Error&gt; {
+		(<span class="kw-2">**</span><span class="self">self</span>).ecdsa_bls377_sign_with_keccak256(key_type, public, msg)
 	}
 
 	<span class="kw">fn </span>insert(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: KeyTypeId, suri: <span class="kw-2">&amp;</span>str, public: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {

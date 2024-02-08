@@ -501,6 +501,11 @@
 <a href="#501" id="501">501</a>
 <a href="#502" id="502">502</a>
 <a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -710,7 +715,7 @@
 	<span class="kw">use </span>sc_network_test::Block;
 
 	<span class="kw">use </span>sp_consensus_beefy::{
-		known_payloads::MMR_ROOT_ID, Commitment, EquivocationProof, Keyring, Payload,
+		known_payloads::MMR_ROOT_ID, test_utils::Keyring, Commitment, EquivocationProof, Payload,
 		SignedCommitment, ValidatorSet, VoteMessage,
 	};
 
@@ -729,7 +734,7 @@
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>round_tracker() {
 		<span class="kw">let </span><span class="kw-2">mut </span>rt = RoundTracker::default();
-		<span class="kw">let </span>bob_vote = (Keyring::Bob.public(), Keyring::Bob.sign(<span class="string">b&quot;I am committed&quot;</span>));
+		<span class="kw">let </span>bob_vote = (Keyring::Bob.public(), Keyring::&lt;AuthorityId&gt;::Bob.sign(<span class="string">b&quot;I am committed&quot;</span>));
 		<span class="kw">let </span>threshold = <span class="number">2</span>;
 
 		<span class="comment">// adding new vote allowed
@@ -740,7 +745,8 @@
 		<span class="comment">// vote is not done
 		</span><span class="macro">assert!</span>(!rt.is_done(threshold));
 
-		<span class="kw">let </span>alice_vote = (Keyring::Alice.public(), Keyring::Alice.sign(<span class="string">b&quot;I am committed&quot;</span>));
+		<span class="kw">let </span>alice_vote =
+			(Keyring::Alice.public(), Keyring::&lt;AuthorityId&gt;::Alice.sign(<span class="string">b&quot;I am committed&quot;</span>));
 		<span class="comment">// adding new vote (self vote this time) allowed
 		</span><span class="macro">assert!</span>(rt.add_vote(alice_vote));
 
@@ -774,7 +780,11 @@
 		<span class="macro">assert_eq!</span>(<span class="number">42</span>, rounds.validator_set_id());
 		<span class="macro">assert_eq!</span>(<span class="number">1</span>, rounds.session_start());
 		<span class="macro">assert_eq!</span>(
-			<span class="kw-2">&amp;</span><span class="macro">vec!</span>[Keyring::Alice.public(), Keyring::Bob.public(), Keyring::Charlie.public()],
+			<span class="kw-2">&amp;</span><span class="macro">vec!</span>[
+				Keyring::&lt;AuthorityId&gt;::Alice.public(),
+				Keyring::&lt;AuthorityId&gt;::Bob.public(),
+				Keyring::&lt;AuthorityId&gt;::Charlie.public()
+			],
 			rounds.validators()
 		);
 	}
@@ -804,7 +814,7 @@
 		<span class="kw">let </span><span class="kw-2">mut </span>vote = VoteMessage {
 			id: Keyring::Alice.public(),
 			commitment: commitment.clone(),
-			signature: Keyring::Alice.sign(<span class="string">b&quot;I am committed&quot;</span>),
+			signature: Keyring::&lt;AuthorityId&gt;::Alice.sign(<span class="string">b&quot;I am committed&quot;</span>),
 		};
 		<span class="comment">// add 1st good vote
 		</span><span class="macro">assert_eq!</span>(rounds.add_vote(vote.clone()), VoteImportResult::Ok);
@@ -813,26 +823,26 @@
 		</span><span class="macro">assert_eq!</span>(rounds.add_vote(vote.clone()), VoteImportResult::Ok);
 
 		vote.id = Keyring::Dave.public();
-		vote.signature = Keyring::Dave.sign(<span class="string">b&quot;I am committed&quot;</span>);
+		vote.signature = Keyring::&lt;AuthorityId&gt;::Dave.sign(<span class="string">b&quot;I am committed&quot;</span>);
 		<span class="comment">// invalid vote (Dave is not a validator)
 		</span><span class="macro">assert_eq!</span>(rounds.add_vote(vote.clone()), VoteImportResult::Invalid);
 
 		vote.id = Keyring::Bob.public();
-		vote.signature = Keyring::Bob.sign(<span class="string">b&quot;I am committed&quot;</span>);
+		vote.signature = Keyring::&lt;AuthorityId&gt;::Bob.sign(<span class="string">b&quot;I am committed&quot;</span>);
 		<span class="comment">// add 2nd good vote
 		</span><span class="macro">assert_eq!</span>(rounds.add_vote(vote.clone()), VoteImportResult::Ok);
 
 		vote.id = Keyring::Charlie.public();
-		vote.signature = Keyring::Charlie.sign(<span class="string">b&quot;I am committed&quot;</span>);
+		vote.signature = Keyring::&lt;AuthorityId&gt;::Charlie.sign(<span class="string">b&quot;I am committed&quot;</span>);
 		<span class="comment">// add 3rd good vote -&gt; round concluded -&gt; signatures present
 		</span><span class="macro">assert_eq!</span>(
 			rounds.add_vote(vote.clone()),
 			VoteImportResult::RoundConcluded(SignedCommitment {
 				commitment,
 				signatures: <span class="macro">vec!</span>[
-					<span class="prelude-val">Some</span>(Keyring::Alice.sign(<span class="string">b&quot;I am committed&quot;</span>)),
-					<span class="prelude-val">Some</span>(Keyring::Bob.sign(<span class="string">b&quot;I am committed&quot;</span>)),
-					<span class="prelude-val">Some</span>(Keyring::Charlie.sign(<span class="string">b&quot;I am committed&quot;</span>)),
+					<span class="prelude-val">Some</span>(Keyring::&lt;AuthorityId&gt;::Alice.sign(<span class="string">b&quot;I am committed&quot;</span>)),
+					<span class="prelude-val">Some</span>(Keyring::&lt;AuthorityId&gt;::Bob.sign(<span class="string">b&quot;I am committed&quot;</span>)),
+					<span class="prelude-val">Some</span>(Keyring::&lt;AuthorityId&gt;::Charlie.sign(<span class="string">b&quot;I am committed&quot;</span>)),
 					<span class="prelude-val">None</span>,
 				]
 			})
@@ -840,7 +850,7 @@
 		rounds.conclude(block_number);
 
 		vote.id = Keyring::Eve.public();
-		vote.signature = Keyring::Eve.sign(<span class="string">b&quot;I am committed&quot;</span>);
+		vote.signature = Keyring::&lt;AuthorityId&gt;::Eve.sign(<span class="string">b&quot;I am committed&quot;</span>);
 		<span class="comment">// Eve is a validator, but round was concluded, adding vote disallowed
 		</span><span class="macro">assert_eq!</span>(rounds.add_vote(vote), VoteImportResult::Stale);
 	}
@@ -867,7 +877,7 @@
 		<span class="kw">let </span><span class="kw-2">mut </span>vote = VoteMessage {
 			id: Keyring::Alice.public(),
 			commitment,
-			signature: Keyring::Alice.sign(<span class="string">b&quot;I am committed&quot;</span>),
+			signature: Keyring::&lt;AuthorityId&gt;::Alice.sign(<span class="string">b&quot;I am committed&quot;</span>),
 		};
 		<span class="comment">// add vote for previous session, should fail
 		</span><span class="macro">assert_eq!</span>(rounds.add_vote(vote.clone()), VoteImportResult::Stale);
@@ -910,22 +920,22 @@
 		<span class="kw">let </span><span class="kw-2">mut </span>alice_vote = VoteMessage {
 			id: Keyring::Alice.public(),
 			commitment: commitment.clone(),
-			signature: Keyring::Alice.sign(<span class="string">b&quot;I am committed&quot;</span>),
+			signature: Keyring::&lt;AuthorityId&gt;::Alice.sign(<span class="string">b&quot;I am committed&quot;</span>),
 		};
 		<span class="kw">let </span><span class="kw-2">mut </span>bob_vote = VoteMessage {
 			id: Keyring::Bob.public(),
 			commitment: commitment.clone(),
-			signature: Keyring::Bob.sign(<span class="string">b&quot;I am committed&quot;</span>),
+			signature: Keyring::&lt;AuthorityId&gt;::Bob.sign(<span class="string">b&quot;I am committed&quot;</span>),
 		};
 		<span class="kw">let </span><span class="kw-2">mut </span>charlie_vote = VoteMessage {
 			id: Keyring::Charlie.public(),
 			commitment,
-			signature: Keyring::Charlie.sign(<span class="string">b&quot;I am committed&quot;</span>),
+			signature: Keyring::&lt;AuthorityId&gt;::Charlie.sign(<span class="string">b&quot;I am committed&quot;</span>),
 		};
 		<span class="kw">let </span>expected_signatures = <span class="macro">vec!</span>[
-			<span class="prelude-val">Some</span>(Keyring::Alice.sign(<span class="string">b&quot;I am committed&quot;</span>)),
-			<span class="prelude-val">Some</span>(Keyring::Bob.sign(<span class="string">b&quot;I am committed&quot;</span>)),
-			<span class="prelude-val">Some</span>(Keyring::Charlie.sign(<span class="string">b&quot;I am committed&quot;</span>)),
+			<span class="prelude-val">Some</span>(Keyring::&lt;AuthorityId&gt;::Alice.sign(<span class="string">b&quot;I am committed&quot;</span>)),
+			<span class="prelude-val">Some</span>(Keyring::&lt;AuthorityId&gt;::Bob.sign(<span class="string">b&quot;I am committed&quot;</span>)),
+			<span class="prelude-val">Some</span>(Keyring::&lt;AuthorityId&gt;::Charlie.sign(<span class="string">b&quot;I am committed&quot;</span>)),
 		];
 
 		<span class="comment">// round 1 - only 2 out of 3 vote
@@ -987,7 +997,7 @@
 		<span class="kw">let </span>alice_vote1 = VoteMessage {
 			id: Keyring::Alice.public(),
 			commitment: commitment1,
-			signature: Keyring::Alice.sign(<span class="string">b&quot;I am committed&quot;</span>),
+			signature: Keyring::&lt;AuthorityId&gt;::Alice.sign(<span class="string">b&quot;I am committed&quot;</span>),
 		};
 		<span class="kw">let </span><span class="kw-2">mut </span>alice_vote2 = alice_vote1.clone();
 		alice_vote2.commitment = commitment2;

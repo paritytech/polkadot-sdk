@@ -767,6 +767,12 @@
 <a href="#767" id="767">767</a>
 <a href="#768" id="768">768</a>
 <a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1254,8 +1260,8 @@
 	<span class="kw">use </span>sc_network_test::Block;
 	<span class="kw">use </span>sp_application_crypto::key_types::BEEFY <span class="kw">as </span>BEEFY_KEY_TYPE;
 	<span class="kw">use </span>sp_consensus_beefy::{
-		ecdsa_crypto::Signature, known_payloads, Commitment, Keyring, MmrRootHash, Payload,
-		SignedCommitment, VoteMessage,
+		ecdsa_crypto::Signature, known_payloads, test_utils::Keyring, Commitment, MmrRootHash,
+		Payload, SignedCommitment, VoteMessage,
 	};
 	<span class="kw">use </span>sp_keystore::{testing::MemoryKeystore, Keystore};
 
@@ -1276,10 +1282,13 @@
 		}
 	}
 
-	<span class="kw">pub fn </span>sign_commitment&lt;BN: Encode&gt;(who: <span class="kw-2">&amp;</span>Keyring, commitment: <span class="kw-2">&amp;</span>Commitment&lt;BN&gt;) -&gt; Signature {
+	<span class="kw">pub fn </span>sign_commitment&lt;BN: Encode&gt;(
+		who: <span class="kw-2">&amp;</span>Keyring&lt;AuthorityId&gt;,
+		commitment: <span class="kw-2">&amp;</span>Commitment&lt;BN&gt;,
+	) -&gt; Signature {
 		<span class="kw">let </span>store = MemoryKeystore::new();
 		store.ecdsa_generate_new(BEEFY_KEY_TYPE, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>who.to_seed())).unwrap();
-		<span class="kw">let </span>beefy_keystore: BeefyKeystore = <span class="prelude-val">Some</span>(store.into()).into();
+		<span class="kw">let </span>beefy_keystore: BeefyKeystore&lt;AuthorityId&gt; = <span class="prelude-val">Some</span>(store.into()).into();
 		beefy_keystore.sign(<span class="kw-2">&amp;</span>who.public(), <span class="kw-2">&amp;</span>commitment.encode()).unwrap()
 	}
 
@@ -1307,7 +1316,10 @@
 			.validators()
 			.iter()
 			.map(|validator: <span class="kw-2">&amp;</span>AuthorityId| {
-				<span class="prelude-val">Some</span>(sign_commitment(<span class="kw-2">&amp;</span>Keyring::from_public(validator).unwrap(), <span class="kw-2">&amp;</span>commitment))
+				<span class="prelude-val">Some</span>(sign_commitment(
+					<span class="kw-2">&amp;</span>Keyring::&lt;AuthorityId&gt;::from_public(validator).unwrap(),
+					<span class="kw-2">&amp;</span>commitment,
+				))
 			})
 			.collect();
 
@@ -1316,7 +1328,7 @@
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_validate_messages() {
-		<span class="kw">let </span>keys = <span class="macro">vec!</span>[Keyring::Alice.public()];
+		<span class="kw">let </span>keys = <span class="macro">vec!</span>[Keyring::&lt;AuthorityId&gt;::Alice.public()];
 		<span class="kw">let </span>validator_set = ValidatorSet::&lt;AuthorityId&gt;::new(keys.clone(), <span class="number">0</span>).unwrap();
 		<span class="kw">let </span>(gv, <span class="kw-2">mut </span>report_stream) =
 			GossipValidator::&lt;Block&gt;::new(Arc::new(Mutex::new(KnownPeers::new())));

@@ -802,6 +802,23 @@
 <a href="#802" id="802">802</a>
 <a href="#803" id="803">803</a>
 <a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1449,11 +1466,28 @@
 	}
 
 	<span class="attr">#[test]
+	</span><span class="kw">fn </span>generate_with_phrase_should_be_recoverable_with_from_string() {
+		<span class="kw">let </span>(pair, phrase, seed) = Pair::generate_with_phrase(<span class="prelude-val">None</span>);
+		<span class="kw">let </span>repair_seed = Pair::from_seed_slice(seed.as_ref()).expect(<span class="string">&quot;seed slice is valid&quot;</span>);
+		<span class="macro">assert_eq!</span>(pair.public(), repair_seed.public());
+		<span class="macro">assert_eq!</span>(pair.secret, repair_seed.secret);
+		<span class="kw">let </span>(repair_phrase, reseed) =
+			Pair::from_phrase(phrase.as_ref(), <span class="prelude-val">None</span>).expect(<span class="string">&quot;seed slice is valid&quot;</span>);
+		<span class="macro">assert_eq!</span>(seed, reseed);
+		<span class="macro">assert_eq!</span>(pair.public(), repair_phrase.public());
+		<span class="macro">assert_eq!</span>(pair.secret, repair_phrase.secret);
+		<span class="kw">let </span>repair_string = Pair::from_string(phrase.as_str(), <span class="prelude-val">None</span>).expect(<span class="string">&quot;seed slice is valid&quot;</span>);
+		<span class="macro">assert_eq!</span>(pair.public(), repair_string.public());
+		<span class="macro">assert_eq!</span>(pair.secret, repair_string.secret);
+	}
+
+	<span class="attr">#[test]
 	</span><span class="kw">fn </span>password_does_something() {
 		<span class="kw">let </span>(pair1, phrase, <span class="kw">_</span>) = Pair::generate_with_phrase(<span class="prelude-val">Some</span>(<span class="string">&quot;password&quot;</span>));
 		<span class="kw">let </span>(pair2, <span class="kw">_</span>) = Pair::from_phrase(<span class="kw-2">&amp;</span>phrase, <span class="prelude-val">None</span>).unwrap();
 
 		<span class="macro">assert_ne!</span>(pair1.public(), pair2.public());
+		<span class="macro">assert_ne!</span>(pair1.secret, pair2.secret);
 	}
 
 	<span class="attr">#[test]

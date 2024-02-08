@@ -816,6 +816,20 @@
 <a href="#816" id="816">816</a>
 <a href="#817" id="817">817</a>
 <a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -855,7 +869,7 @@
 }
 
 <span class="macro">sp_keystore::bls_experimental_enabled! </span>{
-<span class="kw">use </span>sp_core::{bls377, bls381, ecdsa_bls377};
+<span class="kw">use </span>sp_core::{bls377, bls381, ecdsa_bls377, KeccakHasher};
 }
 
 <span class="kw">use crate</span>::{Error, <span class="prelude-ty">Result</span>};
@@ -1208,6 +1222,20 @@
 		) -&gt; std::result::Result&lt;<span class="prelude-ty">Option</span>&lt;ecdsa_bls377::Signature&gt;, TraitError&gt; {
 			<span class="self">self</span>.sign::&lt;ecdsa_bls377::Pair&gt;(key_type, public, msg)
 		}
+
+			<span class="kw">fn </span>ecdsa_bls377_sign_with_keccak256(
+			<span class="kw-2">&amp;</span><span class="self">self</span>,
+			key_type: KeyTypeId,
+			public: <span class="kw-2">&amp;</span>ecdsa_bls377::Public,
+			msg: <span class="kw-2">&amp;</span>[u8],
+		) -&gt; std::result::Result&lt;<span class="prelude-ty">Option</span>&lt;ecdsa_bls377::Signature&gt;, TraitError&gt; {
+			 <span class="kw">let </span>sig = <span class="self">self</span>.<span class="number">0
+			</span>.read()
+			.key_pair_by_type::&lt;ecdsa_bls377::Pair&gt;(public, key_type)<span class="question-mark">?
+			</span>.map(|pair| pair.sign_with_hasher::&lt;KeccakHasher&gt;(msg));
+			<span class="prelude-val">Ok</span>(sig)
+		}
+
 
 	}
 }

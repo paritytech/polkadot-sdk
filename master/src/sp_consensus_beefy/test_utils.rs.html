@@ -108,6 +108,51 @@
 <a href="#108" id="108">108</a>
 <a href="#109" id="109">109</a>
 <a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -125,18 +170,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="attr">#![cfg(feature = <span class="string">&quot;std&quot;</span>)]
-
-</span><span class="kw">use crate</span>::{ecdsa_crypto, Commitment, EquivocationProof, Payload, ValidatorSetId, VoteMessage};
-<span class="kw">use </span>codec::Encode;
+</span><span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::ecdsa_bls_crypto;
+<span class="kw">use crate</span>::{
+	ecdsa_crypto, AuthorityIdBound, BeefySignatureHasher, Commitment, EquivocationProof, Payload,
+	ValidatorSetId, VoteMessage,
+};
+<span class="kw">use </span>sp_application_crypto::{AppCrypto, AppPair, RuntimeAppPublic, Wraps};
 <span class="kw">use </span>sp_core::{ecdsa, Pair};
-<span class="kw">use </span>std::collections::HashMap;
+<span class="kw">use </span>sp_runtime::traits::Hash;
+
+<span class="kw">use </span>codec::Encode;
+<span class="kw">use </span>std::{collections::HashMap, marker::PhantomData};
 <span class="kw">use </span>strum::IntoEnumIterator;
 
 <span class="doccomment">/// Set of test accounts using [`crate::ecdsa_crypto`] types.
 </span><span class="attr">#[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::Display, strum::EnumIter)]
-</span><span class="kw">pub enum </span>Keyring {
+</span><span class="kw">pub enum </span>Keyring&lt;AuthorityId&gt; {
 	Alice,
 	Bob,
 	Charlie,
@@ -145,71 +196,110 @@
 	Ferdie,
 	One,
 	Two,
+	_Marker(PhantomData&lt;AuthorityId&gt;),
 }
 
-<span class="kw">impl </span>Keyring {
+<span class="doccomment">/// Trait representing BEEFY specific generation and signing behavior of authority id
+///
+/// Accepts custom hashing fn for the message and custom convertor fn for the signer.
+</span><span class="kw">pub trait </span>BeefySignerAuthority&lt;MsgHash: Hash&gt;: AppPair {
+	<span class="doccomment">/// Generate and return signature for `message` using custom hashing `MsgHash`
+	</span><span class="kw">fn </span>sign_with_hasher(<span class="kw-2">&amp;</span><span class="self">self</span>, message: <span class="kw-2">&amp;</span>[u8]) -&gt; &lt;<span class="self">Self </span><span class="kw">as </span>AppCrypto&gt;::Signature;
+}
+
+<span class="kw">impl</span>&lt;MsgHash&gt; BeefySignerAuthority&lt;MsgHash&gt; <span class="kw">for </span>&lt;ecdsa_crypto::AuthorityId <span class="kw">as </span>AppCrypto&gt;::Pair
+<span class="kw">where
+	</span>MsgHash: Hash,
+	&lt;MsgHash <span class="kw">as </span>Hash&gt;::Output: Into&lt;[u8; <span class="number">32</span>]&gt;,
+{
+	<span class="kw">fn </span>sign_with_hasher(<span class="kw-2">&amp;</span><span class="self">self</span>, message: <span class="kw-2">&amp;</span>[u8]) -&gt; &lt;<span class="self">Self </span><span class="kw">as </span>AppCrypto&gt;::Signature {
+		<span class="kw">let </span>hashed_message = &lt;MsgHash <span class="kw">as </span>Hash&gt;::hash(message).into();
+		<span class="self">self</span>.as_inner_ref().sign_prehashed(<span class="kw-2">&amp;</span>hashed_message).into()
+	}
+}
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+</span><span class="kw">impl</span>&lt;MsgHash&gt; BeefySignerAuthority&lt;MsgHash&gt; <span class="kw">for </span>&lt;ecdsa_bls_crypto::AuthorityId <span class="kw">as </span>AppCrypto&gt;::Pair
+<span class="kw">where
+	</span>MsgHash: Hash,
+	&lt;MsgHash <span class="kw">as </span>Hash&gt;::Output: Into&lt;[u8; <span class="number">32</span>]&gt;,
+{
+	<span class="kw">fn </span>sign_with_hasher(<span class="kw-2">&amp;</span><span class="self">self</span>, message: <span class="kw-2">&amp;</span>[u8]) -&gt; &lt;<span class="self">Self </span><span class="kw">as </span>AppCrypto&gt;::Signature {
+		<span class="self">self</span>.as_inner_ref().sign_with_hasher::&lt;MsgHash&gt;(<span class="kw-2">&amp;</span>message).into()
+	}
+}
+
+<span class="doccomment">/// Implement Keyring functionalities generically over AuthorityId
+</span><span class="kw">impl</span>&lt;AuthorityId&gt; Keyring&lt;AuthorityId&gt;
+<span class="kw">where
+	</span>AuthorityId: AuthorityIdBound + From&lt;&lt;&lt;AuthorityId <span class="kw">as </span>AppCrypto&gt;::Pair <span class="kw">as </span>AppCrypto&gt;::Public&gt;,
+	&lt;AuthorityId <span class="kw">as </span>AppCrypto&gt;::Pair: BeefySignerAuthority&lt;BeefySignatureHasher&gt;,
+	&lt;AuthorityId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature:
+		Send + Sync + From&lt;&lt;&lt;AuthorityId <span class="kw">as </span>AppCrypto&gt;::Pair <span class="kw">as </span>AppCrypto&gt;::Signature&gt;,
+{
 	<span class="doccomment">/// Sign `msg`.
-	</span><span class="kw">pub fn </span>sign(<span class="self">self</span>, msg: <span class="kw-2">&amp;</span>[u8]) -&gt; ecdsa_crypto::Signature {
-		<span class="comment">// todo: use custom signature hashing type
-		</span><span class="kw">let </span>msg = sp_crypto_hashing::keccak_256(msg);
-		ecdsa::Pair::from(<span class="self">self</span>).sign_prehashed(<span class="kw-2">&amp;</span>msg).into()
+	</span><span class="kw">pub fn </span>sign(<span class="kw-2">&amp;</span><span class="self">self</span>, msg: <span class="kw-2">&amp;</span>[u8]) -&gt; &lt;AuthorityId <span class="kw">as </span>RuntimeAppPublic&gt;::Signature {
+		<span class="kw">let </span>key_pair: &lt;AuthorityId <span class="kw">as </span>AppCrypto&gt;::Pair = <span class="self">self</span>.pair();
+		key_pair.sign_with_hasher(<span class="kw-2">&amp;</span>msg).into()
 	}
 
 	<span class="doccomment">/// Return key pair.
-	</span><span class="kw">pub fn </span>pair(<span class="self">self</span>) -&gt; ecdsa_crypto::Pair {
-		ecdsa::Pair::from_string(<span class="self">self</span>.to_seed().as_str(), <span class="prelude-val">None</span>).unwrap().into()
+	</span><span class="kw">pub fn </span>pair(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;AuthorityId <span class="kw">as </span>AppCrypto&gt;::Pair {
+		&lt;AuthorityId <span class="kw">as </span>AppCrypto&gt;::Pair::from_string(<span class="self">self</span>.to_seed().as_str(), <span class="prelude-val">None</span>)
+			.unwrap()
+			.into()
 	}
 
 	<span class="doccomment">/// Return public key.
-	</span><span class="kw">pub fn </span>public(<span class="self">self</span>) -&gt; ecdsa_crypto::Public {
-		<span class="self">self</span>.pair().public()
+	</span><span class="kw">pub fn </span>public(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; AuthorityId {
+		<span class="self">self</span>.pair().public().into()
 	}
 
 	<span class="doccomment">/// Return seed string.
-	</span><span class="kw">pub fn </span>to_seed(<span class="self">self</span>) -&gt; String {
+	</span><span class="kw">pub fn </span>to_seed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
 		<span class="macro">format!</span>(<span class="string">&quot;//{}&quot;</span>, <span class="self">self</span>)
 	}
 
 	<span class="doccomment">/// Get Keyring from public key.
-	</span><span class="kw">pub fn </span>from_public(who: <span class="kw-2">&amp;</span>ecdsa_crypto::Public) -&gt; <span class="prelude-ty">Option</span>&lt;Keyring&gt; {
-		<span class="self">Self</span>::iter().find(|<span class="kw-2">&amp;</span>k| <span class="kw-2">&amp;</span>ecdsa_crypto::Public::from(k) == who)
+	</span><span class="kw">pub fn </span>from_public(who: <span class="kw-2">&amp;</span>AuthorityId) -&gt; <span class="prelude-ty">Option</span>&lt;Keyring&lt;AuthorityId&gt;&gt; {
+		<span class="self">Self</span>::iter().find(|k| k.public() == <span class="kw-2">*</span>who)
 	}
 }
 
 <span class="macro">lazy_static::lazy_static! </span>{
-	<span class="kw">static </span><span class="kw-2">ref </span>PRIVATE_KEYS: HashMap&lt;Keyring, ecdsa_crypto::Pair&gt; =
-		Keyring::iter().map(|i| (i, i.pair())).collect();
-	<span class="kw">static </span><span class="kw-2">ref </span>PUBLIC_KEYS: HashMap&lt;Keyring, ecdsa_crypto::Public&gt; =
-		PRIVATE_KEYS.iter().map(|(<span class="kw-2">&amp;</span>name, pair)| (name, pair.public())).collect();
+	<span class="kw">static </span><span class="kw-2">ref </span>PRIVATE_KEYS: HashMap&lt;Keyring&lt;ecdsa_crypto::AuthorityId&gt;, ecdsa_crypto::Pair&gt; =
+		Keyring::iter().map(|i| (i.clone(), i.pair())).collect();
+	<span class="kw">static </span><span class="kw-2">ref </span>PUBLIC_KEYS: HashMap&lt;Keyring&lt;ecdsa_crypto::AuthorityId&gt;, ecdsa_crypto::Public&gt; =
+		PRIVATE_KEYS.iter().map(|(name, pair)| (name.clone(), sp_application_crypto::Pair::public(pair))).collect();
 }
 
-<span class="kw">impl </span>From&lt;Keyring&gt; <span class="kw">for </span>ecdsa_crypto::Pair {
-	<span class="kw">fn </span>from(k: Keyring) -&gt; <span class="self">Self </span>{
+<span class="kw">impl </span>From&lt;Keyring&lt;ecdsa_crypto::AuthorityId&gt;&gt; <span class="kw">for </span>ecdsa_crypto::Pair {
+	<span class="kw">fn </span>from(k: Keyring&lt;ecdsa_crypto::AuthorityId&gt;) -&gt; <span class="self">Self </span>{
 		k.pair()
 	}
 }
 
-<span class="kw">impl </span>From&lt;Keyring&gt; <span class="kw">for </span>ecdsa::Pair {
-	<span class="kw">fn </span>from(k: Keyring) -&gt; <span class="self">Self </span>{
+<span class="kw">impl </span>From&lt;Keyring&lt;ecdsa_crypto::AuthorityId&gt;&gt; <span class="kw">for </span>ecdsa::Pair {
+	<span class="kw">fn </span>from(k: Keyring&lt;ecdsa_crypto::AuthorityId&gt;) -&gt; <span class="self">Self </span>{
 		k.pair().into()
 	}
 }
 
-<span class="kw">impl </span>From&lt;Keyring&gt; <span class="kw">for </span>ecdsa_crypto::Public {
-	<span class="kw">fn </span>from(k: Keyring) -&gt; <span class="self">Self </span>{
+<span class="kw">impl </span>From&lt;Keyring&lt;ecdsa_crypto::AuthorityId&gt;&gt; <span class="kw">for </span>ecdsa_crypto::Public {
+	<span class="kw">fn </span>from(k: Keyring&lt;ecdsa_crypto::AuthorityId&gt;) -&gt; <span class="self">Self </span>{
 		(<span class="kw-2">*</span>PUBLIC_KEYS).get(<span class="kw-2">&amp;</span>k).cloned().unwrap()
 	}
 }
 
 <span class="doccomment">/// Create a new `EquivocationProof` based on given arguments.
 </span><span class="kw">pub fn </span>generate_equivocation_proof(
-	vote1: (u64, Payload, ValidatorSetId, <span class="kw-2">&amp;</span>Keyring),
-	vote2: (u64, Payload, ValidatorSetId, <span class="kw-2">&amp;</span>Keyring),
+	vote1: (u64, Payload, ValidatorSetId, <span class="kw-2">&amp;</span>Keyring&lt;ecdsa_crypto::AuthorityId&gt;),
+	vote2: (u64, Payload, ValidatorSetId, <span class="kw-2">&amp;</span>Keyring&lt;ecdsa_crypto::AuthorityId&gt;),
 ) -&gt; EquivocationProof&lt;u64, ecdsa_crypto::Public, ecdsa_crypto::Signature&gt; {
 	<span class="kw">let </span>signed_vote = |block_number: u64,
 	                   payload: Payload,
 	                   validator_set_id: ValidatorSetId,
-	                   keyring: <span class="kw-2">&amp;</span>Keyring| {
+	                   keyring: <span class="kw-2">&amp;</span>Keyring&lt;ecdsa_crypto::AuthorityId&gt;| {
 		<span class="kw">let </span>commitment = Commitment { validator_set_id, block_number, payload };
 		<span class="kw">let </span>signature = keyring.sign(<span class="kw-2">&amp;</span>commitment.encode());
 		VoteMessage { commitment, id: keyring.public(), signature }

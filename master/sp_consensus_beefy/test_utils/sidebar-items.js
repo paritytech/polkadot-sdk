@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Keyring"],"fn":["generate_equivocation_proof"],"struct":["KeyringIter"],"trait":["BeefySignerAuthority"]};

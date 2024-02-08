@@ -1886,6 +1886,9 @@
 <a href="#1886" id="1886">1886</a>
 <a href="#1887" id="1887">1887</a>
 <a href="#1888" id="1888">1888</a>
+<a href="#1889" id="1889">1889</a>
+<a href="#1890" id="1890">1890</a>
+<a href="#1891" id="1891">1891</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1914,7 +1917,7 @@
 	error::Error,
 	expect_validator_set,
 	justification::BeefyVersionedFinalityProof,
-	keystore::{BeefyKeystore, BeefySignatureHasher},
+	keystore::BeefyKeystore,
 	metric_inc, metric_set,
 	metrics::VoterMetrics,
 	round::{Rounds, VoteImportResult},
@@ -1933,8 +1936,8 @@
 <span class="kw">use </span>sp_consensus_beefy::{
 	check_equivocation_proof,
 	ecdsa_crypto::{AuthorityId, Signature},
-	BeefyApi, Commitment, ConsensusLog, EquivocationProof, PayloadProvider, ValidatorSet,
-	VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
+	BeefyApi, BeefySignatureHasher, Commitment, ConsensusLog, EquivocationProof, PayloadProvider,
+	ValidatorSet, VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
 };
 <span class="kw">use </span>sp_runtime::{
 	generic::{BlockId, OpaqueDigestItemId},
@@ -2228,7 +2231,7 @@
 	<span class="comment">// utilities
 	</span><span class="kw">pub </span>backend: Arc&lt;BE&gt;,
 	<span class="kw">pub </span>runtime: Arc&lt;RuntimeApi&gt;,
-	<span class="kw">pub </span>key_store: BeefyKeystore,
+	<span class="kw">pub </span>key_store: BeefyKeystore&lt;AuthorityId&gt;,
 
 	<span class="doccomment">/// BEEFY client metrics.
 	</span><span class="kw">pub </span>metrics: <span class="prelude-ty">Option</span>&lt;VoterMetrics&gt;,
@@ -3166,8 +3169,11 @@
 	<span class="kw">use </span>sc_network_test::TestNetFactory;
 	<span class="kw">use </span>sp_blockchain::Backend <span class="kw">as </span>BlockchainBackendT;
 	<span class="kw">use </span>sp_consensus_beefy::{
-		generate_equivocation_proof, known_payloads, known_payloads::MMR_ROOT_ID,
-		mmr::MmrRootProvider, Keyring, Payload, SignedCommitment,
+		known_payloads,
+		known_payloads::MMR_ROOT_ID,
+		mmr::MmrRootProvider,
+		test_utils::{generate_equivocation_proof, Keyring},
+		Payload, SignedCommitment,
 	};
 	<span class="kw">use </span>sp_runtime::traits::{Header <span class="kw">as </span>HeaderT, One};
 	<span class="kw">use </span>substrate_test_runtime_client::{
@@ -3197,7 +3203,7 @@
 
 	<span class="kw">fn </span>create_beefy_worker(
 		peer: <span class="kw-2">&amp;mut </span>BeefyPeer,
-		key: <span class="kw-2">&amp;</span>Keyring,
+		key: <span class="kw-2">&amp;</span>Keyring&lt;AuthorityId&gt;,
 		min_block_delta: u32,
 		genesis_validator_set: ValidatorSet&lt;AuthorityId&gt;,
 	) -&gt; BeefyWorker&lt;
@@ -3207,7 +3213,7 @@
 		TestApi,
 		Arc&lt;SyncingService&lt;Block&gt;&gt;,
 	&gt; {
-		<span class="kw">let </span>keystore = create_beefy_keystore(<span class="kw-2">*</span>key);
+		<span class="kw">let </span>keystore = create_beefy_keystore(key);
 
 		<span class="kw">let </span>(to_rpc_justif_sender, from_voter_justif_stream) =
 			BeefyVersionedFinalityProofStream::&lt;Block&gt;::channel();
