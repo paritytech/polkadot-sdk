@@ -69,18 +69,12 @@ fn finalized_block_event(
 	from: Hash,
 	to: Hash,
 ) -> ChainEvent<Block> {
-	ChainEvent::Finalized {
-		hash: to,
-		tree_route: Arc::from(
-			pool.api()
-				.tree_route(from, pool.api().block_header(to).unwrap().unwrap().parent_hash)
-				.expect("Tree route exists")
-				.enacted()
-				.iter()
-				.map(|h| h.hash)
-				.collect::<Vec<_>>(),
-		),
-	}
+	let t = pool.api().tree_route(from, to).expect("Tree route exists");
+
+	let e = t.enacted().iter().map(|h| h.hash).collect::<Vec<_>>();
+	// let mut v = vec![t.common_block().hash];
+	// v.extend(&e[0..e.len() - 1]);
+	ChainEvent::Finalized { hash: to, tree_route: Arc::from(&e[0..e.len() - 1]) }
 }
 
 fn create_basic_pool_with_genesis(test_api: Arc<TestApi>) -> ForkAwareTxPool<TestApi, Block> {
@@ -248,18 +242,26 @@ mod test_chain_with_forks {
 //
 // fn finalized_only_handled_correctly() | fap_watcher_finalized (todo: no view?)
 //
+// fn best_block_after_finalized_handled_correctly() | fap_watcher_best_block_after_finalized
+// 		fap_watcher_best_block_after_finalized2 fn switching_fork_with_finalized_works()
+//
+// fn switching_fork_multiple_times_works() | fap_watcher_switching_fork_multiple_times_works
+//
+// todo: double events?
+// fn two_blocks_delayed_finalization_works() | fap_watcher_two_blocks_delayed_finalization_works
+//
+// fn delayed_finalization_does_not_retract() | fap_watcher_delayed_finalization_does_not_retract
+//
+//
+// fn best_block_after_finalization_does_not_retract() |
+// 		fap_watcher_best_block_after_finalization_does_not_retract
+//
+// -------------------------------------------------------------------------
+//
 // todo: [validated_pool/pool related, probably can be reused]:
 // fn prune_tags_should_work()
 // fn should_ban_invalid_transactions()
 // fn should_correctly_prune_transactions_providing_more_than_one_tag()
-//
-//
-// fn best_block_after_finalized_handled_correctly()
-// fn switching_fork_with_finalized_works()
-// fn switching_fork_multiple_times_works()
-// fn two_blocks_delayed_finalization_works()
-// fn delayed_finalization_does_not_retract()
-// fn best_block_after_finalization_does_not_retract()
 //
 // revalidation needed:
 // fn should_push_watchers_during_maintenance()
@@ -1227,22 +1229,12 @@ fn fap_watcher_two_finalized_in_different_block() {
 	//note: no maintain for block02 (!)
 
 	let header03 = api.push_block(3, vec![xt1.clone()], true);
-	log::info!("=============================");
-	log::info!("header01: {:#?}", header01.hash());
-	log::info!("header02: {:#?}", header02.hash());
-	log::info!("header03: {:#?}", header03.hash());
-	log::info!("xt0: {:#?}", api.hash_and_length(&xt0).0);
-	log::info!("xt1: {:#?}", api.hash_and_length(&xt1).0);
-	log::info!("xt2: {:#?}", api.hash_and_length(&xt2).0);
-	log::info!("xt3: {:#?}", api.hash_and_length(&xt3).0);
-	log::info!("=============================");
 	block_on(pool.maintain(finalized_block_event(&pool, header01.hash(), header03.hash())));
 
 	assert_pool_status!(header03.hash(), &pool, 0, 0);
 
 	let xt1_status = futures::executor::block_on_stream(xt1_watcher).collect::<Vec<_>>();
 
-	log::info!("xt1_status: {:#?}", xt1_status);
 	assert_eq!(
 		xt1_status,
 		vec![
@@ -1428,9 +1420,6 @@ fn fap_watcher_finalizing_forks() {
 	api.set_nonce(api.genesis_hash(), Dave.into(), 200);
 	api.set_nonce(api.genesis_hash(), Eve.into(), 200);
 
-	let empty = api.push_block(1, vec![], true);
-	block_on(pool.maintain(new_best_block_event(&pool, None, empty.hash())));
-
 	let xt0 = uxt(Alice, 200);
 	let xt1 = uxt(Bob, 200);
 	let xt2 = uxt(Charlie, 200);
@@ -1438,7 +1427,7 @@ fn fap_watcher_finalizing_forks() {
 	let xt4 = uxt(Eve, 200);
 
 	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
-	let header01 = api.push_block(2, vec![xt0.clone()], true);
+	let header01 = api.push_block(1, vec![xt0.clone()], true);
 	block_on(pool.maintain(new_best_block_event(&pool, None, header01.hash())));
 	block_on(pool.maintain(finalized_block_event(&pool, api.genesis_hash(), header01.hash())));
 
@@ -1478,12 +1467,6 @@ fn fap_watcher_finalizing_forks() {
 	xt2_status.dedup();
 	xt3_status.dedup();
 	xt4_status.dedup();
-
-	log::info!("xt0_status: {:#?}", xt0_status);
-	log::info!("xt1_status: {:#?}", xt1_status);
-	log::info!("xt2_status: {:#?}", xt2_status);
-	log::info!("xt3_status: {:#?}", xt3_status);
-	log::info!("xt4_status: {:#?}", xt4_status);
 
 	assert_eq!(
 		xt0_status,
@@ -1532,36 +1515,6 @@ fn fap_watcher_finalizing_forks() {
 	);
 }
 
-// #[test]
-// fn best_block_after_finalized_handled_correctly() {
-// 	sp_tracing::try_init_simple();
-// 	let xt = uxt(Alice, 209);
-//
-// 	let (pool, api, _guard) = maintained_pool();
-//
-// 	let watcher =
-// 		block_on(pool.submit_and_watch(api.expect_hash_from_number(0), SOURCE, xt.clone()))
-// 			.expect("1. Imported");
-// 	assert_eq!(pool.status().ready, 1);
-//
-// 	let header = api.push_block(1, vec![xt], true);
-//
-// 	let event =
-// 		ChainEvent::Finalized { hash: header.clone().hash(), tree_route: Arc::from(vec![]) };
-// 	block_on(pool.maintain(event));
-// 	block_on(pool.maintain(block_event(header.clone())));
-//
-// 	assert_eq!(pool.status().ready, 0);
-//
-// 	{
-// 		let mut stream = futures::executor::block_on_stream(watcher);
-// 		assert_eq!(stream.next(), Some(TransactionStatus::Ready));
-// 		assert_eq!(stream.next(), Some(TransactionStatus::InBlock((header.clone().hash(), 0))));
-// 		assert_eq!(stream.next(), Some(TransactionStatus::Finalized((header.hash(), 0))));
-// 		assert_eq!(stream.next(), None);
-// 	}
-// }
-
 #[test]
 fn fap_watcher_best_block_after_finalized() {
 	sp_tracing::try_init_simple();
@@ -1590,6 +1543,255 @@ fn fap_watcher_best_block_after_finalized() {
 			TransactionStatus::Ready,
 			TransactionStatus::InBlock((header02.hash(), 0)),
 			TransactionStatus::Finalized((header02.hash(), 0)),
+		]
+	);
+}
+
+#[test]
+fn fap_watcher_best_block_after_finalized2() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let pool = create_basic_pool(api.clone());
+
+	let xt0 = uxt(Alice, 200);
+	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
+	// assert_pool_status!(header01.hash(), &pool, 1, 0);
+
+	let header01 = api.push_block(1, vec![xt0.clone()], true);
+
+	let event = finalized_block_event(&pool, api.genesis_hash(), header01.hash());
+	block_on(pool.maintain(event));
+	let event = new_best_block_event(&pool, Some(api.genesis_hash()), header01.hash());
+	block_on(pool.maintain(event));
+
+	let xt0_events = block_on(xt0_watcher.collect::<Vec<_>>());
+	assert_eq!(
+		xt0_events,
+		vec![
+			TransactionStatus::Ready,
+			TransactionStatus::InBlock((header01.hash(), 0)),
+			TransactionStatus::Finalized((header01.hash(), 0)),
+		]
+	);
+}
+
+#[test]
+fn fap_watcher_switching_fork_multiple_times_works() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let pool = create_basic_pool(api.clone());
+
+	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Bob, 200);
+
+	let mut xt0_watcher =
+		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
+	let header01a = api.push_block(1, vec![xt0.clone()], true);
+
+	let xt1_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone())).unwrap();
+	let header01b = api.push_block(1, vec![xt0.clone(), xt1.clone()], true);
+
+	//note: finalized block here must be header01b.
+	//It is because of how the order in which MultiViewListener is processing tx events and view
+	//events. tx events from single view are processed first, then view commands are handled. If
+	//finalization happens in first view reported then no events from others views will be
+	//processed.
+
+	block_on(pool.maintain(new_best_block_event(&pool, None, header01a.hash())));
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header01a.hash()), header01b.hash())));
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header01b.hash()), header01a.hash())));
+	block_on(pool.maintain(finalized_block_event(&pool, api.genesis_hash(), header01b.hash())));
+
+	let xt0_status = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
+	let xt1_status = futures::executor::block_on_stream(xt1_watcher).take(2).collect::<Vec<_>>();
+
+	log::info!("xt0_status: {:#?}", xt0_status);
+	log::info!("xt1_status: {:#?}", xt1_status);
+
+	assert_eq!(
+		xt0_status,
+		vec![
+			TransactionStatus::Ready,
+			TransactionStatus::InBlock((header01a.hash(), 0)),
+			TransactionStatus::InBlock((header01b.hash(), 0)),
+			TransactionStatus::Finalized((header01b.hash(), 0)),
+		]
+	);
+
+	assert_eq!(
+		xt1_status,
+		vec![TransactionStatus::Ready, TransactionStatus::InBlock((header01b.hash(), 1)),]
+	);
+}
+
+#[test]
+fn fap_watcher_two_blocks_delayed_finalization_works() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let pool = create_basic_pool(api.clone());
+
+	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
+	api.set_nonce(api.genesis_hash(), Charlie.into(), 200);
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Bob, 200);
+	let xt2 = uxt(Charlie, 200);
+
+	let header01 = api.push_block(1, vec![], true);
+
+	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
+	let header02 = api.push_block_with_parent(header01.hash(), vec![xt0.clone()], true);
+
+	let xt1_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone())).unwrap();
+	let header03 = api.push_block_with_parent(header02.hash(), vec![xt1.clone()], true);
+
+	let xt2_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone())).unwrap();
+	let header04 = api.push_block_with_parent(header03.hash(), vec![xt2.clone()], true);
+
+	block_on(pool.maintain(finalized_block_event(&pool, api.genesis_hash(), header01.hash())));
+	block_on(pool.maintain(new_best_block_event(&pool, None, header04.hash())));
+	block_on(pool.maintain(finalized_block_event(&pool, header01.hash(), header03.hash())));
+	block_on(pool.maintain(finalized_block_event(&pool, header03.hash(), header04.hash())));
+
+	let xt0_status = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
+	let xt1_status = futures::executor::block_on_stream(xt1_watcher).collect::<Vec<_>>();
+	let xt2_status = futures::executor::block_on_stream(xt2_watcher).collect::<Vec<_>>();
+
+	//todo: double events.
+	//view for header04 reported inblock for all xts.
+	//Then finalization comes for header03. We need to create a view to sent finalization events.
+	//But in_block are also sent because of pruning - normal process during view creation.
+	//
+	//Do not know what solution should be in this case?
+	// - just jeep two events,
+	// - block pruning somehow (seems like excessive additional logic not really needed)
+
+	assert_eq!(
+		xt0_status,
+		vec![
+			TransactionStatus::Ready,
+			TransactionStatus::InBlock((header02.hash(), 0)),
+			TransactionStatus::InBlock((header02.hash(), 0)),
+			TransactionStatus::Finalized((header02.hash(), 0)),
+		]
+	);
+	assert_eq!(
+		xt1_status,
+		vec![
+			TransactionStatus::Ready,
+			TransactionStatus::InBlock((header03.hash(), 0)),
+			TransactionStatus::InBlock((header03.hash(), 0)),
+			TransactionStatus::Finalized((header03.hash(), 0)),
+		]
+	);
+	assert_eq!(
+		xt2_status,
+		vec![
+			TransactionStatus::Ready,
+			TransactionStatus::InBlock((header04.hash(), 0)),
+			TransactionStatus::Finalized((header04.hash(), 0)),
+		]
+	);
+}
+
+#[test]
+fn fap_watcher_delayed_finalization_does_not_retract() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let pool = create_basic_pool(api.clone());
+
+	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
+	api.set_nonce(api.genesis_hash(), Charlie.into(), 200);
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Bob, 200);
+
+	let header01 = api.push_block(1, vec![], true);
+
+	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
+	let header02 = api.push_block_with_parent(header01.hash(), vec![xt0.clone()], true);
+
+	let xt1_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone())).unwrap();
+	let header03 = api.push_block_with_parent(header02.hash(), vec![xt1.clone()], true);
+
+	block_on(pool.maintain(new_best_block_event(&pool, None, header02.hash())));
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header02.hash()), header03.hash())));
+
+	block_on(pool.maintain(finalized_block_event(&pool, api.genesis_hash(), header02.hash())));
+	block_on(pool.maintain(finalized_block_event(&pool, header02.hash(), header03.hash())));
+
+	let xt0_status = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
+	let xt1_status = futures::executor::block_on_stream(xt1_watcher).collect::<Vec<_>>();
+
+	assert_eq!(
+		xt0_status,
+		vec![
+			TransactionStatus::Ready,
+			TransactionStatus::InBlock((header02.hash(), 0)),
+			TransactionStatus::Finalized((header02.hash(), 0)),
+		]
+	);
+	assert_eq!(
+		xt1_status,
+		vec![
+			TransactionStatus::Ready,
+			TransactionStatus::InBlock((header03.hash(), 0)),
+			TransactionStatus::Finalized((header03.hash(), 0)),
+		]
+	);
+}
+
+#[test]
+fn fap_watcher_best_block_after_finalization_does_not_retract() {
+	sp_tracing::try_init_simple();
+
+	let api = Arc::from(TestApi::with_alice_nonce(200).enable_stale_check());
+	let pool = create_basic_pool(api.clone());
+
+	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
+	api.set_nonce(api.genesis_hash(), Charlie.into(), 200);
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Bob, 200);
+
+	let header01 = api.push_block(1, vec![], true);
+
+	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
+	let header02 = api.push_block_with_parent(header01.hash(), vec![xt0.clone()], true);
+
+	let xt1_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone())).unwrap();
+	let header03 = api.push_block_with_parent(header02.hash(), vec![xt1.clone()], true);
+
+	block_on(pool.maintain(finalized_block_event(&pool, api.genesis_hash(), header01.hash())));
+	block_on(pool.maintain(finalized_block_event(&pool, header01.hash(), header03.hash())));
+	block_on(pool.maintain(new_best_block_event(&pool, Some(api.genesis_hash()), header02.hash())));
+
+	let xt0_status = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
+	let xt1_status = futures::executor::block_on_stream(xt1_watcher).collect::<Vec<_>>();
+
+	log::info!("xt0_status: {:#?}", xt0_status);
+	log::info!("xt1_status: {:#?}", xt1_status);
+
+	assert_eq!(
+		xt0_status,
+		vec![
+			TransactionStatus::Ready,
+			TransactionStatus::InBlock((header02.hash(), 0)),
+			TransactionStatus::Finalized((header02.hash(), 0)),
+		]
+	);
+	assert_eq!(
+		xt1_status,
+		vec![
+			TransactionStatus::Ready,
+			TransactionStatus::InBlock((header03.hash(), 0)),
+			TransactionStatus::Finalized((header03.hash(), 0)),
 		]
 	);
 }

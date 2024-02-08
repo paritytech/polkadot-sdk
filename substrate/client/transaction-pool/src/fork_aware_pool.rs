@@ -91,6 +91,7 @@ where
 	}
 
 	async fn finalize(&self, finalized: graph::BlockHash<PoolApi>) {
+		log::info!("View::finalize: {:?} {:?}", self.at, finalized);
 		let _ = self.pool.validated_pool().on_block_finalized(finalized).await;
 	}
 }
@@ -137,39 +138,39 @@ where
 	}
 
 	// shall be called on block import
-	// todo: shall be move ForkAwareTxPool
-	pub async fn create_new_view_at(
-		&self,
-		hash: Block::Hash,
-		xts: Arc<RwLock<Vec<Block::Extrinsic>>>,
-	) -> Result<Arc<View<PoolApi>>, ViewCreationError> {
-		if self.views.read().contains_key(&hash) {
-			return Err(ViewCreationError::AlreadyExists)
-		}
-
-		log::info!("create_new_view_at: {hash:?}");
-
-		let number = self
-			.api
-			.resolve_block_number(hash)
-			.map_err(|_| ViewCreationError::BlockIdConversion)?;
-		let at = HashAndNumber { hash, number };
-		let view = Arc::new(View::new(self.api.clone(), at.clone()));
-
-		//todo: lock or clone?
-		//todo: source?
-		let source = TransactionSource::External;
-
-		//todo: internal checked banned: not required any more?
-		let xts = xts.read().clone();
-		let _ = view.pool.submit_at(&at, source, xts).await;
-		self.views.write().insert(hash, view.clone());
-
-		// brute force: just revalidate all xts against block
-		// target: find parent, extract all provided tags on enacted path and recompute graph
-
-		Ok(view)
-	}
+	// todo: shall be moved to ForkAwareTxPool
+	// pub async fn create_new_view_at(
+	// 	&self,
+	// 	hash: Block::Hash,
+	// 	xts: Arc<RwLock<Vec<Block::Extrinsic>>>,
+	// ) -> Result<Arc<View<PoolApi>>, ViewCreationError> {
+	// 	if self.views.read().contains_key(&hash) {
+	// 		return Err(ViewCreationError::AlreadyExists)
+	// 	}
+	//
+	// 	log::info!("create_new_view_at: {hash:?}");
+	//
+	// 	let number = self
+	// 		.api
+	// 		.resolve_block_number(hash)
+	// 		.map_err(|_| ViewCreationError::BlockIdConversion)?;
+	// 	let at = HashAndNumber { hash, number };
+	// 	let view = Arc::new(View::new(self.api.clone(), at.clone()));
+	//
+	// 	//todo: lock or clone?
+	// 	//todo: source?
+	// 	let source = TransactionSource::External;
+	//
+	// 	//todo: internal checked banned: not required any more?
+	// 	let xts = xts.read().clone();
+	// 	let _ = view.pool.submit_at(&at, source, xts).await;
+	// 	self.views.write().insert(hash, view.clone());
+	//
+	// 	// brute force: just revalidate all xts against block
+	// 	// target: find parent, extract all provided tags on enacted path and recompute graph
+	//
+	// 	Ok(view)
+	// }
 
 	/// Imports a bunch of unverified extrinsics to every view
 	pub async fn submit_at(
@@ -319,15 +320,19 @@ where
 	}
 
 	async fn finalize_route(&self, finalized_hash: Block::Hash, tree_route: &[Block::Hash]) {
+		log::info!(target: LOG_TARGET, "finalize_route {finalized_hash:?} tree_route: {tree_route:?}");
 		let mut no_view_blocks = vec![];
 		for hash in tree_route.iter().chain(std::iter::once(&finalized_hash)) {
 			let finalized_view = { self.views.read().get(&hash).map(|v| v.clone()) };
+			log::info!(target: LOG_TARGET, "finalize_route --> {hash:?} {no_view_blocks:?} fv:{:#?}", finalized_view.is_some());
 			if let Some(finalized_view) = finalized_view {
 				for h in no_view_blocks.iter().chain(std::iter::once(hash)) {
+					log::info!(target: LOG_TARGET, "finalize_route --> {h:?}");
 					finalized_view.finalize(*h).await;
 				}
 				no_view_blocks.clear();
 			} else {
+				log::info!(target: LOG_TARGET, "finalize_route --> push {hash:?} {no_view_blocks:?}");
 				no_view_blocks.push(*hash);
 			}
 		}
@@ -390,6 +395,7 @@ where
 {
 	api: Arc<PoolApi>,
 	xts: Arc<RwLock<Vec<Block::Extrinsic>>>,
+	watched_xts: Arc<RwLock<Vec<Block::Extrinsic>>>,
 
 	// todo: is ViewManager strucy really needed? (no)
 	views: Arc<ViewManager<PoolApi, Block>>,
@@ -421,6 +427,7 @@ where
 		Self {
 			api: pool_api.clone(),
 			xts: Default::default(),
+			watched_xts: Default::default(),
 			views: Arc::new(ViewManager::new(pool_api, finalized_hash)),
 			ready_poll: Arc::from(Mutex::from(ReadyPoll::new())),
 			enactment_state: Arc::new(Mutex::new(EnactmentState::new(
@@ -443,6 +450,10 @@ where
 	//todo:naming? maybe just views()
 	pub fn views_len(&self) -> usize {
 		self.views.views.read().len()
+	}
+
+	pub fn has_view(&self, hash: Block::Hash) -> bool {
+		self.views.views.read().get(&hash).is_some()
 	}
 }
 
@@ -702,7 +713,7 @@ where
 		xt: TransactionFor<Self>,
 	) -> PoolFuture<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
 		let views = self.views.clone();
-		self.xts.write().push(xt.clone());
+		self.watched_xts.write().push(xt.clone());
 
 		// todo:
 		// self.metrics.report(|metrics| metrics.submitted_transactions.inc());
@@ -847,27 +858,45 @@ where
 
 		let best_view = self.views.find_best_view(tree_route);
 		if let Some(best_view) = best_view {
-			self.build_cloned_view(best_view, hash_and_number.clone(), tree_route).await;
+			self.build_cloned_view(best_view, hash_and_number, tree_route).await;
 		} else {
-			self.create_new_view_at(hash_and_number.hash).await;
+			self.create_new_view_at(hash_and_number, tree_route).await;
 		}
 	}
 
-	pub async fn create_new_view_at(&self, hash: Block::Hash) {
-		//todo: handle error (log?)
-		let view = self.views.create_new_view_at(hash, self.xts.clone()).await.unwrap();
+	pub async fn create_new_view_at(
+		&self,
+		at: &HashAndNumber<Block>,
+		tree_route: &TreeRoute<Block>,
+	) {
+		//todo: handle errors during creation (log?)
+
+		if self.views.views.read().contains_key(&at.hash) {
+			return;
+		}
+
+		log::info!("create_new_view_at: {at:?}");
+
+		let mut view = View::new(self.api.clone(), at.clone());
+
+		self.update_view(&mut view).await;
+		self.update_view_with_fork(&mut view, tree_route, at.clone()).await;
+
+		let view = Arc::new(view);
+		self.views.views.write().insert(at.hash, view.clone());
+
 		self.ready_poll
 			.lock()
-			.trigger(hash, move || Box::from(view.pool.validated_pool().ready()));
+			.trigger(at.hash, move || Box::from(view.pool.validated_pool().ready()));
 	}
 
 	async fn build_cloned_view(
 		&self,
 		origin_view: Arc<View<PoolApi>>,
-		at: HashAndNumber<Block>,
+		at: &HashAndNumber<Block>,
 		tree_route: &TreeRoute<Block>,
 	) {
-		log::info!("build_cloned_view: x {:?}", at.hash);
+		log::info!("build_cloned_view: {:?}", at.hash);
 		let new_block_hash = at.hash;
 		let mut view = View { at: at.clone(), pool: origin_view.pool.deep_clone() };
 
@@ -890,26 +919,60 @@ where
 			.collect::<Vec<_>>();
 
 		future::join_all(futs).await;
-		log::info!("build_cloned_view: y {:?}", at.hash);
 
 		self.update_view_with_fork(&mut view, tree_route, at.clone()).await;
-		log::info!("build_cloned_view: z {:?}", at.hash);
 		self.update_view(&mut view).await;
-		log::info!("build_cloned_view: u {:?}", at.hash);
 		let view = Arc::from(view);
 		self.views.views.write().insert(new_block_hash, view.clone());
-		log::info!("build_cloned_view: v {:?}", at.hash);
 		self.ready_poll
 			.lock()
 			.trigger(new_block_hash, move || Box::from(view.pool.validated_pool().ready()));
-		log::info!("build_cloned_view: t {:?}", at.hash);
 	}
 
 	async fn update_view(&self, view: &mut View<PoolApi>) {
+		log::info!(
+			"update_view: {:?} xts:{}/{} v:{}",
+			view.at,
+			self.xts.read().len(),
+			self.watched_xts.read().len(),
+			self.views_len()
+		);
 		//todo: source?
 		let source = TransactionSource::External;
 		let xts = self.xts.read().clone();
-		view.pool.submit_at(&view.at, source, xts).await;
+		//todo: internal checked banned: not required any more?
+		let _ = view.pool.submit_at(&view.at, source, xts).await;
+		let view = Arc::from(view);
+
+		let futs = {
+			let watched_xts = self.watched_xts.read();
+			let futs = watched_xts
+				.iter()
+				.map(|t| {
+					let view = view.clone();
+					let t = t.clone();
+					async move {
+						let result = view.pool.submit_and_watch(&view.at, source, t.clone()).await;
+						if let Ok(watcher) = result {
+							self.views
+								.listener
+								.add_view_watcher_for_tx(
+									self.hash_of(&t),
+									view.at.hash,
+									watcher.into_stream().boxed(),
+								)
+								.await;
+							Ok(())
+						} else {
+							// panic!("xx {:#?}", result);
+							Err(result.unwrap_err())
+						}
+					}
+				})
+				.collect::<Vec<_>>();
+			futs
+		};
+		future::join_all(futs).await;
 	}
 
 	//copied from handle_enactment
@@ -1002,6 +1065,7 @@ where
 
 	async fn handle_finalized(&self, finalized_hash: Block::Hash, tree_route: &[Block::Hash]) {
 		let finalized_number = self.api.block_id_to_number(&BlockId::Hash(finalized_hash));
+		log::info!(target: LOG_TARGET, "handle_finalized {finalized_number:?} tree_route: {tree_route:?}");
 
 		// if !self.views.views.read().contains_key(&finalized_hash) {
 		// 	if tree_route.is_empty() {
@@ -1017,6 +1081,7 @@ where
 		// }
 
 		self.views.finalize_route(finalized_hash, tree_route).await;
+		log::info!(target: LOG_TARGET, "handle_finalized b:{:?}", self.views_len());
 		{
 			//clean up older then finalized
 			let mut views = self.views.views.write();
@@ -1026,6 +1091,7 @@ where
 				Ok(Some(n)) => v.at.number > n,
 			})
 		}
+		log::info!(target: LOG_TARGET, "handle_finalized a:{:?}", self.views_len());
 	}
 }
 
@@ -1037,13 +1103,7 @@ where
 	<Block as BlockT>::Hash: Unpin,
 {
 	async fn maintain(&self, event: ChainEvent<Self::Block>) {
-		// todo: this is not required here, it is handled either way in
-		// handle_new_block/handle_finalized
-		// if self.views.is_empty() {
-		// 	self.create_new_view_at(event.hash()).await;
-		// }
-
-		log::info!(">> maintain: {event:#?}");
+		log::info!("maintain: {event:#?}");
 		let prev_finalized_block = self.enactment_state.lock().recent_finalized_block();
 
 		let compute_tree_route = |from, to| -> Result<TreeRoute<Block>, String> {
@@ -1069,10 +1129,19 @@ where
 				self.enactment_state.lock().force_update(&event);
 			},
 			Ok(EnactmentAction::Skip) => return,
-			Ok(EnactmentAction::HandleFinalization) => {},
+			Ok(EnactmentAction::HandleFinalization) => {
+				let hash = event.hash();
+				if !self.has_view(hash) {
+					if let Ok(tree_route) = compute_tree_route(prev_finalized_block, hash) {
+						self.handle_new_block(&tree_route).await;
+					}
+				}
+			},
 			Ok(EnactmentAction::HandleEnactment(tree_route)) =>
 				self.handle_new_block(&tree_route).await,
 		};
+
+		use sp_runtime::traits::CheckedSub;
 		match event {
 			ChainEvent::NewBestBlock { hash, .. } => {},
 			ChainEvent::Finalized { hash, tree_route } => {
@@ -1084,9 +1153,6 @@ where
 					{prev_finalized_block:?}",
 				);
 			},
-			// _ => {
-			// 	let _ = self.views.create_new_view_at(event.hash(), self.xts.clone()).await;
-			// },
 		}
 
 		()

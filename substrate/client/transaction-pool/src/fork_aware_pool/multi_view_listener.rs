@@ -98,10 +98,10 @@ where
 							// todo: full termination logic: count invalid status events
 							let terminate = matches!(status,TransactionStatus::Finalized(_));
 							return Some((status, (fused, rx, terminate)));
-						}
+						},
 						cmd = rx.recv() => {
 							if let Some(ViewEvent::ViewAdded(h,stream)) = cmd {
-								trace!(target: LOG_TARGET, "create_external_watcher_for_tx: got viewEvent {:#?}", h);
+								trace!(target: LOG_TARGET, "got viewEvent {:#?}", h);
 								fused.get_mut().insert(h, stream);
 							}
 						},
