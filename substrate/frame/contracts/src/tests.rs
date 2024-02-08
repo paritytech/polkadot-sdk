@@ -3049,7 +3049,7 @@ fn gas_estimation_for_subcalls() {
 					.result
 				);
 
-				// Check that it fails with too litte ref_time
+				// Check that it fails with too little ref_time
 				assert_err!(
 					Contracts::bare_call(
 						ALICE,
