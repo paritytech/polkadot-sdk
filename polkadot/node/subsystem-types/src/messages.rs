@@ -1128,14 +1128,16 @@ pub enum ProspectiveParachainsMessage {
 	/// has been backed. This requires that the candidate was successfully introduced in
 	/// the past.
 	CandidateBacked(ParaId, CandidateHash),
-	/// Get a backable candidate hash along with its relay parent for the given parachain,
+	/// Get N backable candidate hashes along with their relay parents for the given parachain,
 	/// under the given relay-parent hash, which is a descendant of the given candidate hashes.
+	/// N should represent the number of scheduled cores of this ParaId.
 	/// Returns `None` on the channel if no such candidate exists.
-	GetBackableCandidate(
+	GetBackableCandidates(
 		Hash,
 		ParaId,
+		u32,
 		Vec<CandidateHash>,
-		oneshot::Sender<Option<(CandidateHash, Hash)>>,
+		oneshot::Sender<Vec<(CandidateHash, Hash)>>,
 	),
 	/// Get the hypothetical frontier membership of candidates with the given properties
 	/// under the specified active leaves' fragment trees.
