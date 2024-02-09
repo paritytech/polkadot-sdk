@@ -20,7 +20,7 @@ use scale_info::TypeInfo;
 
 #[cfg(feature = "full_crypto")]
 use sp_core::crypto::Pair;
-use sp_core::crypto::{CryptoType, CryptoTypeId, IsWrappedBy, KeyTypeId, Public};
+use sp_core::crypto::{CryptoType, CryptoTypeId, IsWrappedBy, KeyTypeId, Public, Signature};
 use sp_std::{fmt::Debug, vec::Vec};
 
 /// Application-specific cryptographic object.
@@ -64,22 +64,38 @@ impl<T> MaybeHash for T {}
 /// Application-specific key pair.
 #[cfg(feature = "full_crypto")]
 pub trait AppPair:
-	AppCrypto + Pair<Public = <Self as AppCrypto>::Public, Signature = <Self as AppCrypto>::Signature>
+	AppCrypto<Pair = Self>
+	+ Pair<Public = <Self as AppCrypto>::Public, Signature = <Self as AppCrypto>::Signature>
 {
 	/// The wrapped type which is just a plain instance of `Pair`.
 	type Generic: IsWrappedBy<Self>
-		+ Pair<Public = <<Self as AppCrypto>::Public as AppPublic>::Generic>
-		+ Pair<Signature = <<Self as AppCrypto>::Signature as AppSignature>::Generic>;
+		+ Pair<
+			Public = <<Self as AppCrypto>::Public as AppPublic>::Generic,
+			Signature = <<Self as AppCrypto>::Signature as AppSignature>::Generic,
+		>;
 }
 
 /// Application-specific public key.
-pub trait AppPublic: AppCrypto + Public + Debug + MaybeHash + Codec {
+pub trait AppPublic:
+	AppCrypto
+	+ Public<Pair = <Self as AppCrypto>::Pair, Signature = <Self as AppCrypto>::Signature>
+	+ Debug
+	+ MaybeHash
+	+ Codec
+{
 	/// The wrapped type which is just a plain instance of `Public`.
 	type Generic: IsWrappedBy<Self> + Public + Debug + MaybeHash + Codec;
 }
 
 /// Application-specific signature.
-pub trait AppSignature: AppCrypto + Eq + PartialEq + Debug + Clone {
+pub trait AppSignature:
+	AppCrypto
+	+ Signature<Pair = <Self as AppCrypto>::Pair, Public = <Self as AppCrypto>::Public>
+	+ Eq
+	+ PartialEq
+	+ Debug
+	+ Clone
+{
 	/// The wrapped type which is just a plain instance of `Signature`.
 	type Generic: IsWrappedBy<Self> + Eq + PartialEq + Debug;
 }

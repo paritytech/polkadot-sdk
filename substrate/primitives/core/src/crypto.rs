@@ -1056,22 +1056,19 @@ where
 pub trait CryptoType {
 	/// Secret key.
 	#[cfg(feature = "full_crypto")]
-	type Pair: Pair
-		+ CryptoType<Pair = Self::Pair, Public = Self::Public, Signature = Self::Signature>;
+	type Pair: Pair<Pair = Self::Pair, Public = Self::Public, Signature = Self::Signature>;
 	/// Public key.
 	#[cfg(feature = "full_crypto")]
-	type Public: Public
-		+ CryptoType<Pair = Self::Pair, Public = Self::Public, Signature = Self::Signature>;
+	type Public: Public<Pair = Self::Pair, Public = Self::Public, Signature = Self::Signature>;
 	/// Public key.
 	#[cfg(not(feature = "full_crypto"))]
-	type Public: Public + CryptoType<Public = Self::Public, Signature = Self::Signature>;
+	type Public: Public<Public = Self::Public, Signature = Self::Signature>;
 	/// Signature.
 	#[cfg(feature = "full_crypto")]
-	type Signature: Signature
-		+ CryptoType<Pair = Self::Pair, Public = Self::Public, Signature = Self::Signature>;
+	type Signature: Signature<Pair = Self::Pair, Public = Self::Public, Signature = Self::Signature>;
 	/// Signature.
 	#[cfg(not(feature = "full_crypto"))]
-	type Signature: Signature + CryptoType<Public = Self::Public, Signature = Self::Signature>;
+	type Signature: Signature<Public = Self::Public, Signature = Self::Signature>;
 }
 
 /// An identifier for a type of cryptographic key.
@@ -1126,7 +1123,7 @@ impl<'a> TryFrom<&'a str> for KeyTypeId {
 }
 
 /// Trait grouping types shared by a VRF signer and verifiers.
-pub trait VrfCrypto {
+pub trait VrfCrypto: CryptoType {
 	/// VRF input.
 	type VrfInput;
 	/// VRF pre-output.
