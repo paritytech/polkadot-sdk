@@ -9,14 +9,19 @@ function start_background_process() {
     eval $__pid="'$!'"
 }
 
-function wait_for_file() {
-    local file=$1
-    local timeout=$2
-    local __found=$3
+function wait_for_process_file() {
+    local pid=$1
+    local file=$2
+    local timeout=$3
+    local __found=$4
 
     local time=0
     until [ -e $file ]; do
-      if (( time++ >= timeout )) then
+      if ! kill -0 $pid; then
+        echo "Process finished unsuccessfully"
+        return
+      fi
+      if (( time++ >= timeout )); then
         echo "Timeout waiting for file $file: $timeout seconds"
         eval $__found=0
         return
@@ -28,12 +33,13 @@ function wait_for_file() {
     eval $__found=1
 }
 
-function ensure_file() {
-    local file=$1
-    local timeout=$2
+function ensure_process_file() {
+    local pid=$1
+    local file=$2
+    local timeout=$3
 
-    wait_for_file $file $timeout file_found
-    if [ $file_found != 1 ]; then
+    wait_for_process_file $pid $file $timeout file_found
+    if [ "$file_found" != "1" ]; then
       exit 1
     fi
 }

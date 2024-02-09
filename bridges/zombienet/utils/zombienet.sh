@@ -23,7 +23,7 @@ function start_zombienet() {
         "$ZOMBIENET_BINARY spawn --dir $zombienet_dir --provider native $definition_path" \
         "$zombienet_log" zombienet_pid
 
-    ensure_file "$zombienet_dir/zombie.json" 180
+    ensure_process_file $zombienet_pid "$zombienet_dir/zombie.json" 180
     echo "$zombienet_name zombienet started successfully"
 
     eval $__zombienet_pid="'$zombienet_pid'"

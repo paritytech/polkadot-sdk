@@ -5,13 +5,14 @@ set -e
 source "${BASH_SOURCE%/*}/../../utils/common.sh"
 source "${BASH_SOURCE%/*}/../../utils/zombienet.sh"
 
-${BASH_SOURCE%/*}/../../environments/rococo-westend/spawn.sh &
+${BASH_SOURCE%/*}/../../environments/rococo-westend/spawn.sh --init &
+env_pid=$!
 
-ensure_file $TEST_DIR/rococo.env 300
+ensure_process_file $env_pid $TEST_DIR/rococo.env 300
 rococo_dir=`cat $TEST_DIR/rococo.env`
 echo
 
-ensure_file $TEST_DIR/westend.env 180
+ensure_process_file $env_pid $TEST_DIR/westend.env 180
 westend_dir=`cat $TEST_DIR/westend.env`
 echo
 
