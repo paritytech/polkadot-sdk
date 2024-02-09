@@ -5,8 +5,13 @@
 set -e
 
 PROJECT_ROOT=`git rev-parse --show-toplevel`
-
-shopt -s expand_aliases
+function fl_cargo() {
+    if command -v forklift >/dev/null 2>&1; then
+        forklift cargo "$@";
+    else
+        cargo "$@";
+    fi
+}
 
 if [ "$#" -lt 1 ]; then
   echo "You need to pass the name of the crate you want to compile!"
@@ -24,8 +29,8 @@ fi
 if [ -d $WASM_BUILDER_RUNNER ]; then
   export DEBUG=false
   export OUT_DIR="$PROJECT_ROOT/target/release/build"
-  cargo run --release --manifest-path="$WASM_BUILDER_RUNNER/Cargo.toml" \
+  fl_cargo run --release --manifest-path="$WASM_BUILDER_RUNNER/Cargo.toml" \
     | grep -vE "cargo:rerun-if-|Executing build command"
 else
-  cargo build --release -p $1
+  fl_cargo build --release -p $1
 fi
