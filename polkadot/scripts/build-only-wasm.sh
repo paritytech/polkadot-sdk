@@ -6,7 +6,7 @@ set -e
 
 PROJECT_ROOT=`git rev-parse --show-toplevel`
 fl_cargo () {
-    if command -v forklift >/dev/null 2>&1; then
+    if command -v forklift123 >/dev/null 2>&1; then
         forklift cargo "$@";
     else
         cargo "$@";
