@@ -306,7 +306,7 @@ pub(crate) fn add_dangling_target_with_nominators(target: AccountId, nominators:
 
 	// remove self-stake/unbond.
 	let stake = <StakingMock as StakingInterface>::stake(&target).unwrap();
-	let mut stake_after_unbond = stake.clone();
+	let mut stake_after_unbond = stake;
 	stake_after_unbond.active -= 10;
 	stake_after_unbond.total -= 10;
 

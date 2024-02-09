@@ -643,9 +643,11 @@ impl pallet_bags_list::Config<TargetBagsListInstance> for Runtime {
 
 impl pallet_stake_tracker::Config for Runtime {
 	type Currency = Balances;
+	type RuntimeEvent = RuntimeEvent;
 	type Staking = Staking;
 	type VoterList = VoterList;
 	type TargetList = TargetList;
+	type WeightInfo = ();
 }
 
 pallet_staking_reward_curve::build! {
@@ -1471,7 +1473,7 @@ construct_runtime! {
 		TargetList: pallet_bags_list::<Instance2>::{Pallet, Call, Storage, Event<T>} = 103,
 
 		// Stake tracker for staking.
-		StakeTracker: pallet_stake_tracker::{Pallet, Storage} = 104,
+		StakeTracker: pallet_stake_tracker::{Pallet, Call, Storage, Event<T>} = 104,
 
 		// Nomination pools for staking.
 		NominationPools: pallet_nomination_pools = 29,

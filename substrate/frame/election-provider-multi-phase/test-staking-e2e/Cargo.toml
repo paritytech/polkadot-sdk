@@ -52,8 +52,8 @@ try-runtime = [
 	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-nomination-pools/try-runtime",
 	"pallet-session/try-runtime",
-	"pallet-staking/try-runtime",
 	"pallet-stake-tracker/try-runtime",
+	"pallet-staking/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
 ]
