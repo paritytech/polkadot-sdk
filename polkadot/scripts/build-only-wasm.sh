@@ -33,5 +33,5 @@ if [ -d $WASM_BUILDER_RUNNER ]; then
   fl_cargo run --release --manifest-path="$WASM_BUILDER_RUNNER/Cargo.toml" \
     | grep -vE "cargo:rerun-if-|Executing build command"
 else
-  fl_cargo cargo build --release -p $1
+  fl_cargo build --release -p $1
 fi
