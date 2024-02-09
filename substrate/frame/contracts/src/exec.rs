@@ -834,7 +834,7 @@ where
 			contract_info: CachedContract::Cached(contract_info),
 			account_id,
 			entry_point,
-			nested_gas: gas_meter.nested(gas_limit)?,
+			nested_gas: gas_meter.nested(gas_limit),
 			nested_storage: storage_meter.nested(deposit_limit),
 			allows_reentry: true,
 		};

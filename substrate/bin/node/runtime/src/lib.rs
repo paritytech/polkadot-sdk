@@ -30,6 +30,7 @@ use frame_election_provider_support::{
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
+	dynamic_params::{dynamic_pallet_params, dynamic_params},
 	genesis_builder_helper::{build_config, create_default_config},
 	instances::{Instance1, Instance2},
 	ord_parameter_types,
@@ -44,9 +45,9 @@ use frame_support::{
 			GetSalary, PayFromAccount,
 		},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, Contains, Currency,
-		EitherOfDiverse, EqualPrivilegeOnly, Imbalance, InsideBoth, InstanceFilter,
-		KeyOwnerProofSystem, LinearStoragePrice, LockIdentifier, Nothing, OnUnbalanced,
-		WithdrawReasons,
+		EitherOfDiverse, EnsureOriginWithArg, EqualPrivilegeOnly, Imbalance, InsideBoth,
+		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, LockIdentifier, Nothing,
+		OnUnbalanced, WithdrawReasons,
 	},
 	weights::{
 		constants::{
@@ -457,9 +458,6 @@ impl pallet_glutton::Config for Runtime {
 }
 
 parameter_types! {
-	pub const PreimageBaseDeposit: Balance = 1 * DOLLARS;
-	// One cent: $10,000 / MB
-	pub const PreimageByteDeposit: Balance = 1 * CENTS;
 	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 }
 
@@ -472,7 +470,11 @@ impl pallet_preimage::Config for Runtime {
 		AccountId,
 		Balances,
 		PreimageHoldReason,
-		LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
+		LinearStoragePrice<
+			dynamic_params::storage::BaseDeposit,
+			dynamic_params::storage::ByteDeposit,
+			Balance,
+		>,
 	>;
 }
 
@@ -1326,9 +1328,6 @@ impl pallet_tips::Config for Runtime {
 }
 
 parameter_types! {
-	pub const DepositPerItem: Balance = deposit(1, 0);
-	pub const DepositPerByte: Balance = deposit(0, 1);
-	pub const DefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
 	pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
 	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
 }
@@ -1346,9 +1345,9 @@ impl pallet_contracts::Config for Runtime {
 	/// change because that would break already deployed contracts. The `Call` structure itself
 	/// is not allowed to change the indices of existing pallets, too.
 	type CallFilter = Nothing;
-	type DepositPerItem = DepositPerItem;
-	type DepositPerByte = DepositPerByte;
-	type DefaultDepositLimit = DefaultDepositLimit;
+	type DepositPerItem = dynamic_params::contracts::DepositPerItem;
+	type DepositPerByte = dynamic_params::contracts::DepositPerByte;
+	type DefaultDepositLimit = dynamic_params::contracts::DefaultDepositLimit;
 	type CallStack = [pallet_contracts::Frame<Self>; 5];
 	type WeightPrice = pallet_transaction_payment::Pallet<Self>;
 	type WeightInfo = pallet_contracts::weights::SubstrateWeight<Self>;
@@ -2088,6 +2087,81 @@ impl pallet_mixnet::Config for Runtime {
 	type MinMixnodes = ConstU32<7>; // Low to allow small testing networks
 }
 
+/// Dynamic parameters that can be changed at runtime through the
+/// `pallet_parameters::set_parameter`.
+#[dynamic_params(RuntimeParameters, pallet_parameters::Parameters::<Runtime>)]
+pub mod dynamic_params {
+	use super::*;
+
+	#[dynamic_pallet_params]
+	#[codec(index = 0)]
+	pub mod storage {
+		/// Configures the base deposit of storing some data.
+		#[codec(index = 0)]
+		pub static BaseDeposit: Balance = 1 * DOLLARS;
+
+		/// Configures the per-byte deposit of storing some data.
+		#[codec(index = 1)]
+		pub static ByteDeposit: Balance = 1 * CENTS;
+	}
+
+	#[dynamic_pallet_params]
+	#[codec(index = 1)]
+	pub mod contracts {
+		#[codec(index = 0)]
+		pub static DepositPerItem: Balance = deposit(1, 0);
+
+		#[codec(index = 1)]
+		pub static DepositPerByte: Balance = deposit(0, 1);
+
+		#[codec(index = 2)]
+		pub static DefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl Default for RuntimeParameters {
+	fn default() -> Self {
+		RuntimeParameters::Storage(dynamic_params::storage::Parameters::BaseDeposit(
+			dynamic_params::storage::BaseDeposit,
+			Some(1 * DOLLARS),
+		))
+	}
+}
+
+pub struct DynamicParametersManagerOrigin;
+impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParametersManagerOrigin {
+	type Success = ();
+
+	fn try_origin(
+		origin: RuntimeOrigin,
+		key: &RuntimeParametersKey,
+	) -> Result<Self::Success, RuntimeOrigin> {
+		match key {
+			RuntimeParametersKey::Storage(_) => {
+				frame_system::ensure_root(origin.clone()).map_err(|_| origin)?;
+				return Ok(())
+			},
+			RuntimeParametersKey::Contract(_) => {
+				frame_system::ensure_root(origin.clone()).map_err(|_| origin)?;
+				return Ok(())
+			},
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin(_key: &RuntimeParametersKey) -> Result<RuntimeOrigin, ()> {
+		Ok(RuntimeOrigin::root())
+	}
+}
+
+impl pallet_parameters::Config for Runtime {
+	type RuntimeParameters = RuntimeParameters;
+	type RuntimeEvent = RuntimeEvent;
+	type AdminOrigin = DynamicParametersManagerOrigin;
+	type WeightInfo = ();
+}
+
 construct_runtime!(
 	pub enum Runtime {
 		System: frame_system,
@@ -2169,6 +2243,7 @@ construct_runtime!(
 		Broker: pallet_broker,
 		TasksExample: pallet_example_tasks,
 		Mixnet: pallet_mixnet,
+		Parameters: pallet_parameters,
 		SkipFeelessPayment: pallet_skip_feeless_payment,
 	}
 );
@@ -2288,6 +2363,7 @@ mod benches {
 		[pallet_elections_phragmen, Elections]
 		[pallet_fast_unstake, FastUnstake]
 		[pallet_nis, Nis]
+		[pallet_parameters, Parameters]
 		[pallet_grandpa, Grandpa]
 		[pallet_identity, Identity]
 		[pallet_im_online, ImOnline]
