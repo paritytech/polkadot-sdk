@@ -150,21 +150,29 @@ zombienet-polkadot-functional-0010-validator-disabling:
       --local-dir="${LOCAL_DIR}/functional"
       --test="0010-validator-disabling.zndsl"
 
-zombienet-polkadot-functional-0011-chunk-fetching-network-compatibility:
+zombienet-polkadot-functional-0011-async-backing-6-seconds-rate:
   extends:
     - .zombienet-polkadot-common
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/functional"
-      --test="0011-chunk-fetching-network-compatibility.zndsl"
+      --test="0011-async-backing-6-seconds-rate.zndsl"
 
-zombienet-polkadot-functional-0012-systematic-chunk-recovery:
+zombienet-polkadot-functional-0012-chunk-fetching-network-compatibility:
+  extends:
+      - .zombienet-polkadot-common
+    script:
+      - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+      --local-dir="${LOCAL_DIR}/functional"
+      --test="0012-chunk-fetching-network-compatibility.zndsl"
+
+zombienet-polkadot-functional-0013-systematic-chunk-recovery:
   extends:
     - .zombienet-polkadot-common
   script:
     - /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
       --local-dir="${LOCAL_DIR}/functional"
-      --test="0012-systematic-chunk-recovery.zndsl"
+      --test="0013-systematic-chunk-recovery.zndsl"
 
 zombienet-polkadot-smoke-0001-parachains-smoke-test:
   extends:

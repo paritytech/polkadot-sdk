@@ -549,7 +549,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 
 	let subsystem = run(
 		context,
-		ApprovalVotingSubsystem::with_config(
+		ApprovalVotingSubsystem::with_config_and_clock(
 			Config {
 				col_approval_data: test_constants::TEST_CONFIG.col_approval_data,
 				slot_duration_millis: SLOT_DURATION_MILLIS,
@@ -558,8 +558,8 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 			Arc::new(keystore),
 			sync_oracle,
 			Metrics::default(),
+			clock.clone(),
 		),
-		clock.clone(),
 		assignment_criteria,
 		backend,
 	);

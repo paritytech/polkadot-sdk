@@ -3621,6 +3621,33 @@ fn import_versioned_approval() {
 				assert_eq!(approvals.len(), 1);
 			}
 		);
+
+		// send an obviously invalid approval
+		let approval = IndirectSignedApprovalVote {
+			block_hash: hash,
+			// Invalid candidate index, should not pass sanitization.
+			candidate_index: 16777284,
+			validator: validator_index,
+			signature: dummy_signature(),
+		};
+		let msg = protocol_v2::ApprovalDistributionMessage::Approvals(vec![approval.clone()]);
+		send_message_from_peer_v2(overseer, &peer_a, msg).await;
+
+		expect_reputation_change(overseer, &peer_a, COST_OVERSIZED_BITFIELD).await;
+
+		// send an obviously invalid approval
+		let approval = IndirectSignedApprovalVoteV2 {
+			block_hash: hash,
+			// Invalid candidates len, should not pass sanitization.
+			candidate_indices: 16777284.into(),
+			validator: validator_index,
+			signature: dummy_signature(),
+		};
+		let msg = protocol_v3::ApprovalDistributionMessage::Approvals(vec![approval.clone()]);
+		send_message_from_peer_v3(overseer, &peer_a, msg).await;
+
+		expect_reputation_change(overseer, &peer_a, COST_OVERSIZED_BITFIELD).await;
+
 		virtual_overseer
 	});
 }
