@@ -751,8 +751,6 @@ impl<T: Config> Pallet<T> {
 						vesting_balance == total_locked_amount,
 						TryRuntimeError::Other("inconsistent locked amount")
 					);
-				} else {
-					TryRuntimeError::Other("Account has no schedules");
 				}
 			}
 		}
