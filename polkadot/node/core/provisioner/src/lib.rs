@@ -43,7 +43,7 @@ use polkadot_primitives::{
 	BackedCandidate, BlockNumber, CandidateHash, CandidateReceipt, CoreState, Hash, Id as ParaId,
 	OccupiedCoreAssumption, SignedAvailabilityBitfield, ValidatorIndex,
 };
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 mod disputes;
 mod error;
@@ -558,6 +558,8 @@ async fn select_candidate_hashes_from_tracked(
 
 	let mut selected_candidates =
 		Vec::with_capacity(candidates.len().min(availability_cores.len()));
+	let mut selected_parachains =
+		HashSet::with_capacity(candidates.len().min(availability_cores.len()));
 
 	gum::debug!(
 		target: LOG_TARGET,
@@ -590,6 +592,12 @@ async fn select_candidate_hashes_from_tracked(
 			},
 			CoreState::Free => continue,
 		};
+
+		if selected_parachains.contains(&scheduled_core.para_id) {
+			// We already picked a candidate for this parachain. Elastic scaling only works with
+			// prospective parachains mode.
+			continue
+		}
 
 		let validation_data = match request_persisted_validation_data(
 			relay_parent,
@@ -624,6 +632,7 @@ async fn select_candidate_hashes_from_tracked(
 				"Selected candidate receipt",
 			);
 
+			selected_parachains.insert(candidate.descriptor.para_id);
 			selected_candidates.push((candidate_hash, candidate.descriptor.relay_parent));
 		}
 	}
