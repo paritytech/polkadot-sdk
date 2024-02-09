@@ -1,5 +1,5 @@
 Description: Validators preserve backwards compatibility with peers speaking an older version of the /req_chunk protocol
-Network: ./0011-chunk-fetching-network-compatibility.toml
+Network: ./0012-chunk-fetching-network-compatibility.toml
 Creds: config
 
 # Check authority status.
