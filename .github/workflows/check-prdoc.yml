@@ -15,33 +15,33 @@ env:
   PRDOC_DOC: https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/prdoc.md
 
 jobs:
-  check-prdoc-mq-and-master:
-    runs-on: ubuntu-latest
-    outputs:
-      status: ${{ steps.prdoc-check.outputs.skip }}
-    steps:
-      - name: Test if PRdoc runs on master or merge queue
-        id: prdoc-check
-        run: |
-          if [ "${{ github.ref }}" == "refs/heads/master" ]; then
-            echo "skip=true"  >> "$GITHUB_OUTPUT"
-            echo "Skipping master"
-            exit 0
-          fi
-          if [ $(echo "${{ github.ref }}" | grep -c "gh-readonly-queue") -eq 1 ]; then
-            echo "skip=true"  >> "$GITHUB_OUTPUT"
-            echo "Skipping merge queue"
-            exit 0
-          fi
-          if [ "${{ github.ref }}" == "refs/pull/3257/merge" ]; then
-            echo "skip=true"  >> "$GITHUB_OUTPUT"
-            echo "Check that skip works"
-            exit 0
-          fi
-          echo "skip=false"  >> "$GITHUB_OUTPUT"
+  # check-prdoc-mq-and-master:
+  #   runs-on: ubuntu-latest
+  #   outputs:
+  #     status: ${{ steps.prdoc-check.outputs.skip }}
+  #   steps:
+  #     - name: Test if PRdoc runs on master or merge queue
+  #       id: prdoc-check
+  #       run: |
+  #         if [ "${{ github.ref }}" == "refs/heads/master" ]; then
+  #           echo "skip=true"  >> "$GITHUB_OUTPUT"
+  #           echo "Skipping master"
+  #           exit 0
+  #         fi
+  #         if [ $(echo "${{ github.ref }}" | grep -c "gh-readonly-queue") -eq 1 ]; then
+  #           echo "skip=true"  >> "$GITHUB_OUTPUT"
+  #           echo "Skipping merge queue"
+  #           exit 0
+  #         fi
+  #         if [ "${{ github.ref }}" == "refs/pull/3257/merge" ]; then
+  #           echo "skip=true"  >> "$GITHUB_OUTPUT"
+  #           echo "Check that skip works"
+  #           exit 0
+  #         fi
+  #         echo "skip=false"  >> "$GITHUB_OUTPUT"
   check-prdoc:
     runs-on: ubuntu-latest
-    if: needs.check-prdoc-mq-and-master.outputs.status != 'false'
+    if: ${{ !github.ref == 'refs/heads/master' && !contains(github.ref, 'gh-readonly-queue') && !github.ref == 'refs/pull/3257/merge' }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 #v4.1.1
