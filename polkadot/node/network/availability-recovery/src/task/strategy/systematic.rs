@@ -110,7 +110,7 @@ impl FetchSystematicChunks {
 							.expect("validator count should not exceed u32"),
 					),
 			)
-			.map(|(_, chunk)| &chunk.chunk[..])
+			.map(|(_, chunk)| chunk.chunk.clone())
 			.collect::<Vec<_>>();
 
 		let available_data = polkadot_erasure_coding::reconstruct_from_systematic_v1(

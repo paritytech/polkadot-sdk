@@ -144,7 +144,7 @@ fn code_params(n_validators: usize) -> Result<CodeParams, Error> {
 /// possible.
 pub fn reconstruct_from_systematic_v1(
 	n_validators: usize,
-	chunks: Vec<&[u8]>,
+	chunks: Vec<Vec<u8>>,
 ) -> Result<AvailableData, Error> {
 	reconstruct_from_systematic(n_validators, chunks)
 }
@@ -155,7 +155,7 @@ pub fn reconstruct_from_systematic_v1(
 /// recovery is not possible.
 pub fn reconstruct_from_systematic<T: Decode>(
 	n_validators: usize,
-	chunks: Vec<&[u8]>,
+	chunks: Vec<Vec<u8>>,
 ) -> Result<T, Error> {
 	let code_params = code_params(n_validators)?;
 	let k = code_params.k();
@@ -167,11 +167,7 @@ pub fn reconstruct_from_systematic<T: Decode>(
 	}
 
 	let bytes = code_params.make_encoder().reconstruct_from_systematic(
-		chunks
-			.into_iter()
-			.take(k)
-			.map(|data| WrappedShard::new(data.to_vec()))
-			.collect(),
+		chunks.into_iter().take(k).map(|data| WrappedShard::new(data)).collect(),
 	)?;
 
 	Decode::decode(&mut &bytes[..]).map_err(|err| Error::Decode(err))
@@ -405,7 +401,7 @@ mod tests {
 			assert_eq!(
 				reconstruct_from_systematic_v1(
 					n_validators as usize,
-					chunks.iter().take(kpow2).map(|v| &v[..]).collect()
+					chunks.into_iter().take(kpow2).collect()
 				)
 				.unwrap(),
 				available_data.0

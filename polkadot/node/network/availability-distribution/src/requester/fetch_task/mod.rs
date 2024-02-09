@@ -419,7 +419,7 @@ impl RunningTask {
 								chunk_index = ?self.request.index,
 								candidate_hash = ?self.request.candidate_hash,
 								err = ?e,
-								"Peer sent us invalid erasure chunk data"
+								"Peer sent us invalid erasure chunk data (v2)"
 							);
 							Err(TaskError::PeerError)
 						},
