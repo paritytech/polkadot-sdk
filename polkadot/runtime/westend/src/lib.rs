@@ -1647,7 +1647,7 @@ pub mod migrations {
 		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
 		pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
 		parachains_configuration::migration::v10::MigrateToV10<Runtime>,
-		pallet_nomination_pools::migration::versioned::V7ToV8<Runtime>,
+		pallet_nomination_pools::migration::unversioned::TotalValueLockedSync<Runtime>,
 		UpgradeSessionKeys,
 		frame_support::migrations::RemovePallet<
 			ImOnlinePalletName,
