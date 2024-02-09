@@ -913,13 +913,11 @@ struct MutualKnowledge {
 	/// `Some` only if we have advertised, acknowledged, or requested the candidate
 	/// from them.
 	local_knowledge: Option<StatementFilter>,
-	/// Knowledge peer sent to us, this is different from
-	/// `local_knowledge` and `remote_knowledge`, through the fact that includes only
-	/// statements that we received from peer while the other two include knowledge from
-	/// what we have sent to the peer and he sent back.
-	/// This is needed because sometimes we have races where peers send us statements that
-	/// we just sent to it because there are always 2 grid paths statements could arrive
-	/// to a node.
+	/// Knowledge peer circulated to us, this is different from `local_knowledge` and
+	/// `remote_knowledge`, through the fact that includes only statements that we received from
+	/// peer while the other two, after manifest exchange part will include both what we sent to
+	/// the peer and what we received from peer, see `sent_or_received_direct_statement` for more
+	/// details.
 	received_knowledge: Option<StatementFilter>,
 }
 
