@@ -23,11 +23,17 @@ jobs:
       - name: Test if PRdoc runs on master or merge queue
         id: prdoc-check
         run: |
-          if [ ${{ github.ref }} == "refs/heads/master" ]; then
+          if [ "${{ github.ref }}" == "refs/heads/master" ]; then
             echo "skip=true"  >> "$GITHUB_OUTPUT"
+            echo "Skipping master"
           fi
-          if [ $(echo ${{ github.ref }} | grep -c "gh-readonly-queue") -eq 1 ]; then
+          if [ $(echo "${{ github.ref }}" | grep -c "gh-readonly-queue") -eq 1 ]; then
             echo "skip=true"  >> "$GITHUB_OUTPUT"
+            echo "Skipping merge queue"
+          fi
+          if [ "${{ github.ref }}" == "refs/pull/3257/merge" ]; then
+            echo "skip=true"  >> "$GITHUB_OUTPUT"
+            echo "Check that skip works"
           fi
   check-prdoc:
     runs-on: ubuntu-latest
