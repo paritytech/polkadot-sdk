@@ -785,6 +785,8 @@ pub mod pallet {
 		SnapshotTargetsSizeExceeded { size: u32 },
 		/// A new force era mode was set.
 		ForceEra { mode: Forcing },
+		/// A nominator has set their preferences.
+		NominatorPrefsSet { who: T::AccountId, prefs: Nominations<T> },
 	}
 
 	#[pallet::error]
@@ -847,6 +849,7 @@ pub mod pallet {
 		BoundNotMet,
 		/// Used when attempting to use deprecated controller account logic.
 		ControllerDeprecated,
+		
 	}
 
 	#[pallet::hooks]
@@ -1246,7 +1249,8 @@ pub mod pallet {
 			};
 
 			Self::do_remove_validator(stash);
-			Self::do_add_nominator(stash, nominations);
+			Self::do_add_nominator(stash, nominations.clone());
+			Self::deposit_event(Event::<T>::NominatorPrefsSet { who: stash.clone(), prefs:nominations });
 			Ok(())
 		}
 
