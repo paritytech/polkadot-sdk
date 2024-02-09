@@ -2,7 +2,10 @@ use node_template_runtime::{AccountId, RuntimeGenesisConfig, Signature, WASM_BIN
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::{sr25519, Pair, Public};
+use sp_core::{
+	crypto::{CryptoType, Pair, Public},
+	sr25519,
+};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
 // The URL for the telemetry server.
@@ -12,8 +15,8 @@ use sp_runtime::traits::{IdentifyAccount, Verify};
 pub type ChainSpec = sc_service::GenericChainSpec<RuntimeGenesisConfig>;
 
 /// Generate a crypto pair from seed.
-pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
-	TPublic::Pair::from_string(&format!("//{}", seed), None)
+pub fn get_from_seed<TPublic: Public>(seed: &str) -> TPublic {
+	<TPublic as CryptoType>::Pair::from_string(&format!("//{}", seed), None)
 		.expect("static values are valid; qed")
 		.public()
 }
@@ -23,7 +26,7 @@ type AccountPublic = <Signature as Verify>::Signer;
 /// Generate an account ID from seed.
 pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
 where
-	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
+	AccountPublic: From<TPublic>,
 {
 	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }

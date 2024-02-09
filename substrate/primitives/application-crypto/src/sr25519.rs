@@ -17,9 +17,7 @@
 
 //! Sr25519 crypto types.
 
-use crate::{KeyTypeId, RuntimePublic};
-
-use sp_std::vec::Vec;
+use crate::{KeyTypeId, RuntimePublic, Vec};
 
 pub use sp_core::sr25519::*;
 
@@ -34,7 +32,7 @@ pub use app::{Public as AppPublic, Signature as AppSignature};
 impl RuntimePublic for Public {
 	type Signature = Signature;
 
-	fn all(key_type: KeyTypeId) -> crate::Vec<Self> {
+	fn all(key_type: KeyTypeId) -> Vec<Self> {
 		sp_io::crypto::sr25519_public_keys(key_type)
 	}
 

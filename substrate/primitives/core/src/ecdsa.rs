@@ -24,7 +24,8 @@ use sp_runtime_interface::pass_by::PassByInner;
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 use crate::crypto::{
-	ByteArray, CryptoType, CryptoTypeId, Derive, Public as TraitPublic, UncheckedFrom,
+	impl_crypto_type, ByteArray, CryptoTypeId, Derive, Public as TraitPublic,
+	Signature as TraitSignature, UncheckedFrom,
 };
 #[cfg(feature = "full_crypto")]
 use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError};
@@ -203,6 +204,8 @@ impl<'de> Deserialize<'de> for Public {
 #[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq)]
 pub struct Signature(pub [u8; SIGNATURE_SERIALIZED_SIZE]);
 
+impl TraitSignature for Signature {}
+
 impl ByteArray for Signature {
 	const LEN: usize = SIGNATURE_SERIALIZED_SIZE;
 }
@@ -375,9 +378,7 @@ pub struct Pair {
 
 #[cfg(feature = "full_crypto")]
 impl TraitPair for Pair {
-	type Public = Public;
 	type Seed = Seed;
-	type Signature = Signature;
 
 	/// Make a new key pair from secret seed material. The slice must be 32 bytes long or it
 	/// will return `None`.
@@ -510,20 +511,10 @@ impl Drop for Pair {
 	}
 }
 
-impl CryptoType for Public {
-	#[cfg(feature = "full_crypto")]
-	type Pair = Pair;
-}
-
-impl CryptoType for Signature {
-	#[cfg(feature = "full_crypto")]
-	type Pair = Pair;
-}
-
 #[cfg(feature = "full_crypto")]
-impl CryptoType for Pair {
-	type Pair = Pair;
-}
+impl_crypto_type!(Pair, Public, Signature);
+#[cfg(not(feature = "full_crypto"))]
+impl_crypto_type!(Public, Signature);
 
 #[cfg(test)]
 mod test {

@@ -25,7 +25,10 @@
 
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
-use crate::crypto::{ByteArray, CryptoType, Derive, Public as TraitPublic, UncheckedFrom};
+use crate::crypto::{
+	ByteArray, CryptoType, Derive, Public as TraitPublic, Signature as TraitSignature,
+	UncheckedFrom,
+};
 #[cfg(feature = "full_crypto")]
 use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError};
 
@@ -298,6 +301,8 @@ impl<T> Derive for Public<T> {}
 impl<T: BlsBound> CryptoType for Public<T> {
 	#[cfg(feature = "full_crypto")]
 	type Pair = Pair<T>;
+	type Public = Public<T>;
+	type Signature = Signature<T>;
 }
 
 /// A generic BLS signature.
@@ -307,6 +312,8 @@ pub struct Signature<T> {
 	inner: [u8; SIGNATURE_SERIALIZED_SIZE],
 	_phantom: PhantomData<fn() -> T>,
 }
+
+impl<T: BlsBound> TraitSignature for Signature<T> {}
 
 impl<T> Clone for Signature<T> {
 	fn clone(&self) -> Self {
@@ -414,6 +421,8 @@ impl<T> UncheckedFrom<[u8; SIGNATURE_SERIALIZED_SIZE]> for Signature<T> {
 impl<T: BlsBound> CryptoType for Signature<T> {
 	#[cfg(feature = "full_crypto")]
 	type Pair = Pair<T>;
+	type Public = Public<T>;
+	type Signature = Signature<T>;
 }
 
 /// A key pair.
@@ -443,8 +452,6 @@ impl<T: EngineBLS> Pair<T> {}
 #[cfg(feature = "full_crypto")]
 impl<T: BlsBound> TraitPair for Pair<T> {
 	type Seed = Seed;
-	type Public = Public<T>;
-	type Signature = Signature<T>;
 
 	fn from_seed_slice(seed_slice: &[u8]) -> Result<Self, SecretStringError> {
 		if seed_slice.len() != SECRET_KEY_SERIALIZED_SIZE {
@@ -526,6 +533,8 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 #[cfg(feature = "full_crypto")]
 impl<T: BlsBound> CryptoType for Pair<T> {
 	type Pair = Pair<T>;
+	type Public = Public<T>;
+	type Signature = Signature<T>;
 }
 
 // Test set exercising the BLS12-377 implementation

@@ -38,8 +38,8 @@ use sp_std::vec::Vec;
 
 use crate::{
 	crypto::{
-		ByteArray, CryptoType, CryptoTypeId, Derive, FromEntropy, Public as TraitPublic,
-		UncheckedFrom,
+		impl_crypto_type, ByteArray, CryptoTypeId, Derive, FromEntropy, Public as TraitPublic,
+		Signature as TraitSignature, UncheckedFrom,
 	},
 	hash::{H256, H512},
 };
@@ -219,6 +219,8 @@ impl<'de> Deserialize<'de> for Public {
 #[cfg_attr(feature = "full_crypto", derive(Hash))]
 #[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq)]
 pub struct Signature(pub [u8; 64]);
+
+impl TraitSignature for Signature {}
 
 impl TryFrom<&[u8]> for Signature {
 	type Error = ();
@@ -446,9 +448,7 @@ type Seed = [u8; MINI_SECRET_KEY_LENGTH];
 
 #[cfg(feature = "full_crypto")]
 impl TraitPair for Pair {
-	type Public = Public;
 	type Seed = Seed;
-	type Signature = Signature;
 
 	/// Get the public key.
 	fn public(&self) -> Public {
@@ -532,20 +532,10 @@ impl Pair {
 	}
 }
 
-impl CryptoType for Public {
-	#[cfg(feature = "full_crypto")]
-	type Pair = Pair;
-}
-
-impl CryptoType for Signature {
-	#[cfg(feature = "full_crypto")]
-	type Pair = Pair;
-}
-
 #[cfg(feature = "full_crypto")]
-impl CryptoType for Pair {
-	type Pair = Pair;
-}
+impl_crypto_type!(Pair, Public, Signature);
+#[cfg(not(feature = "full_crypto"))]
+impl_crypto_type!(Public, Signature);
 
 /// Schnorrkel VRF related types and operations.
 pub mod vrf {

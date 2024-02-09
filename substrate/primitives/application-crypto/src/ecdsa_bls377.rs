@@ -17,7 +17,7 @@
 
 //! ECDSA and BLS12-377 paired crypto applications.
 
-use crate::{KeyTypeId, RuntimePublic};
+use crate::{KeyTypeId, RuntimePublic, Vec};
 
 pub use sp_core::paired_crypto::ecdsa_bls377::*;
 

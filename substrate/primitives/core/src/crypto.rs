@@ -18,9 +18,11 @@
 //! Cryptographic utilities.
 
 use crate::{ed25519, sr25519};
+
 #[cfg(feature = "std")]
 use bip39::{Language, Mnemonic};
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::hash::Hash;
 #[cfg(feature = "std")]
 use itertools::Itertools;
 #[cfg(feature = "std")]
@@ -36,7 +38,7 @@ use sp_std::{
 	alloc::{format, string::String},
 	vec,
 };
-use sp_std::{hash::Hash, str, vec::Vec};
+use sp_std::{str, vec::Vec};
 pub use ss58_registry::{from_known_address_format, Ss58AddressFormat, Ss58AddressFormatRegistry};
 /// Trait to zeroize a memory buffer.
 pub use zeroize::Zeroize;
@@ -493,8 +495,14 @@ pub trait ByteArray: AsRef<[u8]> + AsMut<[u8]> + for<'a> TryFrom<&'a [u8], Error
 	}
 }
 
-/// Trait suitable for typical cryptographic key public type.
-pub trait Public: CryptoType + ByteArray + Derive + PartialEq + Eq + Clone + Send + Sync {}
+/// Trait for cryptographic public keys.
+pub trait Public:
+	CryptoType<Public = Self> + ByteArray + Derive + PartialEq + Eq + Clone + Send + Sync
+{
+}
+
+/// Trait for cryptographic key signatures;
+pub trait Signature: CryptoType<Signature = Self> + AsRef<[u8]> {}
 
 /// An opaque 32-byte cryptographic identifier.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, TypeInfo)]
@@ -685,6 +693,8 @@ mod dummy {
 
 	impl CryptoType for Dummy {
 		type Pair = Dummy;
+		type Public = Dummy;
+		type Signature = Dummy;
 	}
 
 	impl Derive for Dummy {}
@@ -702,12 +712,13 @@ mod dummy {
 			b""
 		}
 	}
+
 	impl Public for Dummy {}
 
+	impl Signature for Dummy {}
+
 	impl Pair for Dummy {
-		type Public = Dummy;
 		type Seed = Dummy;
-		type Signature = Dummy;
 
 		#[cfg(feature = "std")]
 		fn generate_with_phrase(_: Option<&str>) -> (Self, String, Self::Seed) {
@@ -844,17 +855,10 @@ impl sp_std::str::FromStr for SecretUri {
 ///
 /// For now it just specifies how to create a key from a phrase and derivation path.
 #[cfg(feature = "full_crypto")]
-pub trait Pair: CryptoType + Sized {
-	/// The type which is used to encode a public key.
-	type Public: Public + Hash;
-
+pub trait Pair: CryptoType<Pair = Self> + Sized {
 	/// The type used to (minimally) encode the data required to securely create
 	/// a new key pair.
 	type Seed: Default + AsRef<[u8]> + AsMut<[u8]> + Clone;
-
-	/// The type used to represent a signature. Can be created from a key pair and a message
-	/// and verified with the message and a public key.
-	type Signature: AsRef<[u8]>;
 
 	/// Generate new secure (random) key pair.
 	///
@@ -1053,7 +1057,21 @@ where
 pub trait CryptoType {
 	/// The pair key type of this crypto.
 	#[cfg(feature = "full_crypto")]
-	type Pair: Pair;
+	type Pair: Pair
+		+ CryptoType<Pair = Self::Pair, Public = Self::Public, Signature = Self::Signature>;
+	/// The type which is used to encode a public key.
+	#[cfg(feature = "full_crypto")]
+	type Public: Public
+		+ Hash
+		+ CryptoType<Pair = Self::Pair, Public = Self::Public, Signature = Self::Signature>;
+	#[cfg(not(feature = "full_crypto"))]
+	type Public: Public + Hash + CryptoType<Public = Self::Public, Signature = Self::Signature>;
+	/// The type which is used to encode a public key.
+	#[cfg(feature = "full_crypto")]
+	type Signature: Signature
+		+ CryptoType<Pair = Self::Pair, Public = Self::Public, Signature = Self::Signature>;
+	#[cfg(not(feature = "full_crypto"))]
+	type Signature: Signature + CryptoType<Public = Self::Public, Signature = Self::Signature>;
 }
 
 /// An identifier for a type of cryptographic key.
@@ -1226,10 +1244,47 @@ macro_rules! impl_from_entropy_base {
 
 impl_from_entropy_base!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128);
 
+#[cfg(feature = "full_crypto")]
+macro_rules! impl_crypto_type {
+	($secret:ident, $public:ident, $signature:ident) => {
+		impl $crate::crypto::CryptoType for $secret {
+			type Pair = $secret;
+			type Public = $public;
+			type Signature = $signature;
+		}
+		impl $crate::crypto::CryptoType for $public {
+			type Pair = $secret;
+			type Public = $public;
+			type Signature = $signature;
+		}
+		impl $crate::crypto::CryptoType for $signature {
+			type Pair = $secret;
+			type Public = $public;
+			type Signature = $signature;
+		}
+	};
+}
+#[cfg(not(feature = "full_crypto"))]
+macro_rules! impl_crypto_type {
+	($public:ident, $signature:ident) => {
+		impl $crate::crypto::CryptoType for $public {
+			type Public = $public;
+			type Signature = $signature;
+		}
+		impl $crate::crypto::CryptoType for $signature {
+			type Public = $public;
+			type Signature = $signature;
+		}
+	};
+}
+pub(crate) use impl_crypto_type;
+
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use crate::DeriveJunction;
+
+	impl_crypto_type!(TestPair, TestPublic, TestSignature);
 
 	#[derive(Clone, Eq, PartialEq, Debug)]
 	enum TestPair {
@@ -1244,22 +1299,32 @@ mod tests {
 			TestPair::Generated
 		}
 	}
-	impl CryptoType for TestPair {
-		type Pair = Self;
+
+	struct TestSignature;
+
+	impl Signature for TestSignature {}
+
+	impl AsRef<[u8]> for TestSignature {
+		fn as_ref(&self) -> &[u8] {
+			&[]
+		}
 	}
 
 	#[derive(Clone, PartialEq, Eq, Hash, Default)]
 	struct TestPublic;
+
 	impl AsRef<[u8]> for TestPublic {
 		fn as_ref(&self) -> &[u8] {
 			&[]
 		}
 	}
+
 	impl AsMut<[u8]> for TestPublic {
 		fn as_mut(&mut self) -> &mut [u8] {
 			&mut []
 		}
 	}
+
 	impl<'a> TryFrom<&'a [u8]> for TestPublic {
 		type Error = ();
 
@@ -1267,10 +1332,9 @@ mod tests {
 			Self::from_slice(data)
 		}
 	}
-	impl CryptoType for TestPublic {
-		type Pair = TestPair;
-	}
+
 	impl Derive for TestPublic {}
+
 	impl ByteArray for TestPublic {
 		const LEN: usize = 0;
 		fn from_slice(bytes: &[u8]) -> Result<Self, ()> {
@@ -1287,11 +1351,11 @@ mod tests {
 			vec![]
 		}
 	}
+
 	impl Public for TestPublic {}
+
 	impl Pair for TestPair {
-		type Public = TestPublic;
 		type Seed = [u8; 8];
-		type Signature = [u8; 0];
 
 		fn generate() -> (Self, <Self as Pair>::Seed) {
 			(TestPair::Generated, [0u8; 8])
@@ -1340,7 +1404,7 @@ mod tests {
 		}
 
 		fn sign(&self, _message: &[u8]) -> Self::Signature {
-			[]
+			TestSignature
 		}
 
 		fn verify<M: AsRef<[u8]>>(_: &Self::Signature, _: M, _: &Self::Public) -> bool {

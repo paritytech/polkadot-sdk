@@ -19,7 +19,9 @@
 
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
-use crate::crypto::{ByteArray, CryptoType, Derive, Public as PublicT, UncheckedFrom};
+use crate::crypto::{
+	ByteArray, CryptoType, Derive, Public as PublicT, Signature as SignatureT, UncheckedFrom,
+};
 #[cfg(feature = "full_crypto")]
 use crate::crypto::{DeriveError, DeriveJunction, Pair as PairT, SecretStringError};
 
@@ -39,12 +41,15 @@ use sp_std::convert::TryFrom;
 /// ECDSA and BLS12-377 paired crypto scheme
 #[cfg(feature = "bls-experimental")]
 pub mod ecdsa_bls377 {
-	#[cfg(feature = "full_crypto")]
-	use crate::Hasher;
 	use crate::{
 		bls377,
-		crypto::{CryptoTypeId, Pair as PairT, UncheckedFrom},
+		crypto::{impl_crypto_type, CryptoTypeId},
 		ecdsa,
+	};
+	#[cfg(feature = "full_crypto")]
+	use crate::{
+		crypto::{CryptoType, Pair as PairT, UncheckedFrom},
+		Hasher,
 	};
 
 	/// An identifier used to match public keys against BLS12-377 keys
@@ -63,20 +68,10 @@ pub mod ecdsa_bls377 {
 	/// (ECDSA,BLS12-377) signature pair.
 	pub type Signature = super::Signature<SIGNATURE_LEN>;
 
-	impl super::CryptoType for Public {
-		#[cfg(feature = "full_crypto")]
-		type Pair = Pair;
-	}
-
-	impl super::CryptoType for Signature {
-		#[cfg(feature = "full_crypto")]
-		type Pair = Pair;
-	}
-
 	#[cfg(feature = "full_crypto")]
-	impl super::CryptoType for Pair {
-		type Pair = Pair;
-	}
+	impl_crypto_type!(Pair, Public, Signature);
+	#[cfg(not(feature = "full_crypto"))]
+	impl_crypto_type!(Public, Signature);
 
 	#[cfg(feature = "full_crypto")]
 	impl Pair {
@@ -97,7 +92,7 @@ pub mod ecdsa_bls377 {
 				.copy_from_slice(self.left.sign_prehashed(&msg_hash).as_ref());
 			raw[ecdsa::SIGNATURE_SERIALIZED_SIZE..]
 				.copy_from_slice(self.right.sign(message).as_ref());
-			<Self as PairT>::Signature::unchecked_from(raw)
+			<Self as CryptoType>::Signature::unchecked_from(raw)
 		}
 
 		/// Hashes the `message` with the specified [`Hasher`] before verifying with the ECDSA
@@ -243,7 +238,7 @@ impl<const LEFT_PLUS_RIGHT_LEN: usize> UncheckedFrom<[u8; LEFT_PLUS_RIGHT_LEN]>
 #[cfg(feature = "std")]
 impl<const LEFT_PLUS_RIGHT_LEN: usize> std::fmt::Display for Public<LEFT_PLUS_RIGHT_LEN>
 where
-	Public<LEFT_PLUS_RIGHT_LEN>: CryptoType,
+	Public<LEFT_PLUS_RIGHT_LEN>: CryptoType<Public = Self>,
 {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		write!(f, "{}", self.to_ss58check())
@@ -252,7 +247,7 @@ where
 
 impl<const LEFT_PLUS_RIGHT_LEN: usize> sp_std::fmt::Debug for Public<LEFT_PLUS_RIGHT_LEN>
 where
-	Public<LEFT_PLUS_RIGHT_LEN>: CryptoType,
+	Public<LEFT_PLUS_RIGHT_LEN>: CryptoType<Public = Self>,
 	[u8; LEFT_PLUS_RIGHT_LEN]: crate::hexdisplay::AsBytesRef,
 {
 	#[cfg(feature = "std")]
@@ -270,7 +265,7 @@ where
 #[cfg(feature = "serde")]
 impl<const LEFT_PLUS_RIGHT_LEN: usize> Serialize for Public<LEFT_PLUS_RIGHT_LEN>
 where
-	Public<LEFT_PLUS_RIGHT_LEN>: CryptoType,
+	Public<LEFT_PLUS_RIGHT_LEN>: CryptoType<Public = Self>,
 {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
@@ -283,7 +278,7 @@ where
 #[cfg(feature = "serde")]
 impl<'de, const LEFT_PLUS_RIGHT_LEN: usize> Deserialize<'de> for Public<LEFT_PLUS_RIGHT_LEN>
 where
-	Public<LEFT_PLUS_RIGHT_LEN>: CryptoType,
+	Public<LEFT_PLUS_RIGHT_LEN>: CryptoType<Public = Self>,
 {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where
@@ -295,21 +290,26 @@ where
 }
 
 impl<const LEFT_PLUS_RIGHT_LEN: usize> PublicT for Public<LEFT_PLUS_RIGHT_LEN> where
-	Public<LEFT_PLUS_RIGHT_LEN>: CryptoType
+	Public<LEFT_PLUS_RIGHT_LEN>: CryptoType<Public = Self>
 {
 }
 
 impl<const LEFT_PLUS_RIGHT_LEN: usize> Derive for Public<LEFT_PLUS_RIGHT_LEN> {}
 
-/// Trait characterizing a signature which could be used as individual component of an
-/// `paired_crypto:Signature` pair.
-pub trait SignatureBound: ByteArray {}
+// /// Trait characterizing a signature which could be used as individual component of an
+// /// `paired_crypto:Signature` pair.
+// pub trait SignatureBound: ByteArray {}
 
-impl<T: ByteArray> SignatureBound for T {}
+// impl<T: ByteArray> SignatureBound for T {}
 
 /// A pair of signatures of different types
 #[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq)]
 pub struct Signature<const LEFT_PLUS_RIGHT_LEN: usize>([u8; LEFT_PLUS_RIGHT_LEN]);
+
+impl<const LEFT_PLUS_RIGHT_LEN: usize> SignatureT for Signature<LEFT_PLUS_RIGHT_LEN> where
+	Signature<LEFT_PLUS_RIGHT_LEN>: CryptoType<Signature = Self>
+{
+}
 
 #[cfg(feature = "full_crypto")]
 impl<const LEFT_PLUS_RIGHT_LEN: usize> sp_std::hash::Hash for Signature<LEFT_PLUS_RIGHT_LEN> {
@@ -431,16 +431,17 @@ impl<
 		const SIGNATURE_LEN: usize,
 	> PairT for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN>
 where
-	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN>: CryptoType,
-	LeftPair::Signature: SignatureBound,
-	RightPair::Signature: SignatureBound,
+	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN>: CryptoType<Pair = Self>,
+	LeftPair::Signature: SignatureT + ByteArray,
+	RightPair::Signature: SignatureT + ByteArray,
 	Public<PUBLIC_KEY_LEN>: CryptoType,
+	Signature<SIGNATURE_LEN>: CryptoType,
 	LeftPair::Seed: From<Seed> + Into<Seed>,
 	RightPair::Seed: From<Seed> + Into<Seed>,
+	Self::Public: UncheckedFrom<[u8; PUBLIC_KEY_LEN]>,
+	Self::Signature: UncheckedFrom<[u8; SIGNATURE_LEN]> + ByteArray,
 {
 	type Seed = Seed;
-	type Public = Public<PUBLIC_KEY_LEN>;
-	type Signature = Signature<SIGNATURE_LEN>;
 
 	fn from_seed_slice(seed_slice: &[u8]) -> Result<Self, SecretStringError> {
 		if seed_slice.len() != SECURE_SEED_LEN {
@@ -487,20 +488,27 @@ where
 		let mut raw: [u8; SIGNATURE_LEN] = [0u8; SIGNATURE_LEN];
 		raw[..LeftPair::Signature::LEN].copy_from_slice(self.left.sign(message).as_ref());
 		raw[LeftPair::Signature::LEN..].copy_from_slice(self.right.sign(message).as_ref());
-		Self::Signature::unchecked_from(raw)
+		<Self as CryptoType>::Signature::unchecked_from(raw)
 	}
 
 	fn verify<M: AsRef<[u8]>>(sig: &Self::Signature, message: M, public: &Self::Public) -> bool {
-		let Ok(left_pub) = public.0[..LeftPair::Public::LEN].try_into() else { return false };
-		let Ok(left_sig) = sig.0[0..LeftPair::Signature::LEN].try_into() else { return false };
+		let Ok(left_pub) = public.as_slice()[..LeftPair::Public::LEN].try_into() else {
+			return false
+		};
+		let Ok(left_sig) = sig.as_slice()[0..LeftPair::Signature::LEN].try_into() else {
+			return false
+		};
 		if !LeftPair::verify(&left_sig, message.as_ref(), &left_pub) {
 			return false
 		}
 
-		let Ok(right_pub) = public.0[LeftPair::Public::LEN..PUBLIC_KEY_LEN].try_into() else {
+		let Ok(right_pub) = public.as_slice()[LeftPair::Public::LEN..PUBLIC_KEY_LEN].try_into()
+		else {
 			return false
 		};
-		let Ok(right_sig) = sig.0[LeftPair::Signature::LEN..].try_into() else { return false };
+		let Ok(right_sig) = sig.as_slice()[LeftPair::Signature::LEN..].try_into() else {
+			return false
+		};
 		RightPair::verify(&right_sig, message.as_ref(), &right_pub)
 	}
 
@@ -517,19 +525,17 @@ where
 mod test {
 	use super::*;
 	use crate::{crypto::DEV_PHRASE, KeccakHasher};
-	use ecdsa_bls377::{Pair, Signature};
+	use ecdsa_bls377::{Pair, Public, Signature};
 
 	use crate::{bls377, ecdsa};
 
 	#[test]
 	fn test_length_of_paired_ecdsa_and_bls377_public_key_and_signature_is_correct() {
+		assert_eq!(Public::LEN, ecdsa::Public::LEN + bls377::Public::LEN);
 		assert_eq!(
-			<Pair as PairT>::Public::LEN,
-			<ecdsa::Pair as PairT>::Public::LEN + <bls377::Pair as PairT>::Public::LEN
-		);
-		assert_eq!(
-			<Pair as PairT>::Signature::LEN,
-			<ecdsa::Pair as PairT>::Signature::LEN + <bls377::Pair as PairT>::Signature::LEN
+			Signature::LEN,
+			<ecdsa::Pair as CryptoType>::Signature::LEN +
+				<bls377::Pair as CryptoType>::Signature::LEN
 		);
 	}
 

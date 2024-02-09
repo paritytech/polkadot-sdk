@@ -23,7 +23,8 @@
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 use crate::crypto::{
-	ByteArray, CryptoType, CryptoTypeId, Derive, Public as TraitPublic, UncheckedFrom, VrfPublic,
+	impl_crypto_type, ByteArray, CryptoTypeId, Derive, Public as TraitPublic,
+	Signature as TraitSignature, UncheckedFrom, VrfPublic,
 };
 #[cfg(feature = "full_crypto")]
 use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError, VrfSecret};
@@ -115,11 +116,6 @@ impl ByteArray for Public {
 
 impl TraitPublic for Public {}
 
-impl CryptoType for Public {
-	#[cfg(feature = "full_crypto")]
-	type Pair = Pair;
-}
-
 impl Derive for Public {}
 
 impl sp_std::fmt::Debug for Public {
@@ -158,6 +154,8 @@ impl<'de> Deserialize<'de> for Public {
 #[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, PassByInner, MaxEncodedLen, TypeInfo)]
 pub struct Signature([u8; SIGNATURE_SERIALIZED_SIZE]);
 
+impl TraitSignature for Signature {}
+
 impl UncheckedFrom<[u8; SIGNATURE_SERIALIZED_SIZE]> for Signature {
 	fn unchecked_from(raw: [u8; SIGNATURE_SERIALIZED_SIZE]) -> Self {
 		Signature(raw)
@@ -191,11 +189,6 @@ impl TryFrom<&[u8]> for Signature {
 
 impl ByteArray for Signature {
 	const LEN: usize = SIGNATURE_SERIALIZED_SIZE;
-}
-
-impl CryptoType for Signature {
-	#[cfg(feature = "full_crypto")]
-	type Pair = Pair;
 }
 
 impl sp_std::fmt::Debug for Signature {
@@ -233,8 +226,6 @@ impl Pair {
 #[cfg(feature = "full_crypto")]
 impl TraitPair for Pair {
 	type Seed = Seed;
-	type Public = Public;
-	type Signature = Signature;
 
 	/// Make a new key pair from secret seed material.
 	///
@@ -306,9 +297,9 @@ impl TraitPair for Pair {
 }
 
 #[cfg(feature = "full_crypto")]
-impl CryptoType for Pair {
-	type Pair = Pair;
-}
+impl_crypto_type!(Pair, Public, Signature);
+#[cfg(not(feature = "full_crypto"))]
+impl_crypto_type!(Public, Signature);
 
 /// Bandersnatch VRF types and operations.
 pub mod vrf {

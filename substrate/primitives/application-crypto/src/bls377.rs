@@ -16,7 +16,8 @@
 // limitations under the License.
 
 //! BLS12-377 crypto applications.
-use crate::{KeyTypeId, RuntimePublic};
+
+use crate::{KeyTypeId, RuntimePublic, Vec};
 
 pub use sp_core::bls::bls377::*;
 

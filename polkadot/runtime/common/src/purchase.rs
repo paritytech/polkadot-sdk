@@ -479,7 +479,10 @@ where
 mod tests {
 	use super::*;
 
-	use sp_core::{crypto::AccountId32, ed25519, Pair, Public, H256};
+	use sp_core::{
+		crypto::{AccountId32, CryptoType, Pair, Public},
+		ed25519, H256,
+	};
 	// The testing primitives are very useful for avoiding having to work with signatures
 	// or public keys. `u64` is used as the `AccountId` and no `Signature`s are required.
 	use crate::purchase;
@@ -625,7 +628,7 @@ mod tests {
 	type AccountPublic = <MultiSignature as Verify>::Signer;
 
 	/// Helper function to generate a crypto pair from seed
-	fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
+	fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as CryptoType>::Public {
 		TPublic::Pair::from_string(&format!("//{}", seed), None)
 			.expect("static values are valid; qed")
 			.public()
@@ -634,7 +637,7 @@ mod tests {
 	/// Helper function to generate an account ID from seed
 	fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
 	where
-		AccountPublic: From<<TPublic::Pair as Pair>::Public>,
+		AccountPublic: From<<TPublic::Pair as CryptoType>::Public>,
 	{
 		AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 	}

@@ -20,7 +20,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub use sp_core::crypto::{key_types, CryptoTypeId, KeyTypeId};
+pub use sp_core::crypto::{key_types, CryptoType, CryptoTypeId, KeyTypeId};
 #[doc(hidden)]
 #[cfg(feature = "full_crypto")]
 pub use sp_core::crypto::{DeriveError, Pair, SecretStringError};
@@ -29,7 +29,7 @@ pub use sp_core::crypto::{DeriveJunction, Ss58Codec};
 #[doc(hidden)]
 pub use sp_core::{
 	self,
-	crypto::{ByteArray, CryptoType, Derive, IsWrappedBy, Public, UncheckedFrom, Wraps},
+	crypto::{ByteArray, Derive, IsWrappedBy, Public, Signature, UncheckedFrom, Wraps},
 	RuntimeDebug,
 };
 
@@ -132,12 +132,12 @@ macro_rules! app_crypto_pair {
 
 		impl $crate::CryptoType for Pair {
 			type Pair = Pair;
+			type Public = Public;
+			type Signature = Signature;
 		}
 
 		impl $crate::Pair for Pair {
-			type Public = Public;
 			type Seed = <$pair as $crate::Pair>::Seed;
-			type Signature = Signature;
 
 			$crate::app_crypto_pair_functions_if_std!($pair);
 
@@ -244,11 +244,13 @@ macro_rules! app_crypto_public_full_crypto {
 
 		impl $crate::CryptoType for Public {
 			type Pair = Pair;
+			type Public = Public;
+			type Signature = Signature;
 		}
 
 		impl $crate::AppCrypto for Public {
-			type Public = Public;
 			type Pair = Pair;
+			type Public = Public;
 			type Signature = Signature;
 			const ID: $crate::KeyTypeId = $key_type;
 			const CRYPTO_ID: $crate::CryptoTypeId = $crypto_type;
@@ -277,7 +279,10 @@ macro_rules! app_crypto_public_not_full_crypto {
 			pub struct Public($public);
 		}
 
-		impl $crate::CryptoType for Public {}
+		impl $crate::CryptoType for Public {
+			type Public = Public;
+			type Signature = Signature;
+		}
 
 		impl $crate::AppCrypto for Public {
 			type Public = Public;
@@ -421,6 +426,8 @@ macro_rules! app_crypto_signature_full_crypto {
 
 		impl $crate::CryptoType for Signature {
 			type Pair = Pair;
+			type Public = Public;
+			type Signature = Signature;
 		}
 
 		impl $crate::AppCrypto for Signature {
@@ -452,7 +459,9 @@ macro_rules! app_crypto_signature_not_full_crypto {
 			pub struct Signature($sig);
 		}
 
-		impl $crate::CryptoType for Signature {}
+		impl $crate::CryptoType for Signature {
+			type Public = Public;
+		}
 
 		impl $crate::AppCrypto for Signature {
 			type Public = Public;
@@ -483,6 +492,8 @@ macro_rules! app_crypto_signature_common {
 				self.0.as_ref()
 			}
 		}
+
+		impl $crate::Signature for Signature {}
 
 		impl $crate::AppSignature for Signature {
 			type Generic = $sig;

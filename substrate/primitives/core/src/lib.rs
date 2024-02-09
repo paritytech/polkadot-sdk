@@ -57,31 +57,32 @@ pub mod const_hex2array;
 pub mod crypto;
 pub mod hexdisplay;
 pub use paste;
-
-#[cfg(any(feature = "full_crypto", feature = "std"))]
-mod address_uri;
-#[cfg(feature = "bandersnatch-experimental")]
-pub mod bandersnatch;
-#[cfg(feature = "bls-experimental")]
-pub mod bls;
 pub mod defer;
-pub mod ecdsa;
-pub mod ed25519;
 pub mod hash;
-#[cfg(feature = "std")]
-mod hasher;
 pub mod offchain;
-pub mod paired_crypto;
-pub mod sr25519;
 pub mod testing;
 #[cfg(feature = "std")]
 pub mod traits;
 pub mod uint;
 
+#[cfg(feature = "bandersnatch-experimental")]
+pub mod bandersnatch;
+#[cfg(feature = "bls-experimental")]
+pub mod bls;
+pub mod ecdsa;
+pub mod ed25519;
+pub mod paired_crypto;
+pub mod sr25519;
+
 #[cfg(feature = "bls-experimental")]
 pub use bls::{bls377, bls381};
 #[cfg(feature = "bls-experimental")]
 pub use paired_crypto::ecdsa_bls377;
+
+#[cfg(any(feature = "full_crypto", feature = "std"))]
+mod address_uri;
+#[cfg(feature = "std")]
+mod hasher;
 
 pub use self::{
 	hash::{convert_hash, H160, H256, H512},

@@ -17,7 +17,7 @@
 use parachains_common::{AccountId, Signature};
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use serde::{Deserialize, Serialize};
-use sp_core::{Pair, Public};
+use sp_core::crypto::{CryptoType, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
 pub mod asset_hubs;
@@ -56,7 +56,7 @@ impl Extensions {
 pub type GenericChainSpec = sc_service::GenericChainSpec<(), Extensions>;
 
 /// Helper function to generate a crypto pair from seed
-pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
+pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as CryptoType>::Public {
 	TPublic::Pair::from_string(&format!("//{}", seed), None)
 		.expect("static values are valid; qed")
 		.public()
@@ -67,7 +67,7 @@ type AccountPublic = <Signature as Verify>::Signer;
 /// Helper function to generate an account ID from seed
 pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
 where
-	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
+	AccountPublic: From<<TPublic::Pair as CryptoType>::Public>,
 {
 	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }
@@ -75,6 +75,8 @@ where
 /// Generate collator keys from seed.
 ///
 /// This function's return type must always match the session keys of the chain in tuple format.
-pub fn get_collator_keys_from_seed<AuraId: Public>(seed: &str) -> <AuraId::Pair as Pair>::Public {
+pub fn get_collator_keys_from_seed<AuraId: Public>(
+	seed: &str,
+) -> <AuraId::Pair as CryptoType>::Public {
 	get_from_seed::<AuraId>(seed)
 }

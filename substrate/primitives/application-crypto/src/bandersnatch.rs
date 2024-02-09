@@ -17,9 +17,9 @@
 
 //! Bandersnatch VRF application crypto types.
 
-use crate::{KeyTypeId, RuntimePublic};
+use crate::{KeyTypeId, RuntimePublic, Vec};
+
 pub use sp_core::bandersnatch::*;
-use sp_std::vec::Vec;
 
 mod app {
 	crate::app_crypto!(super, sp_core::testing::BANDERSNATCH);

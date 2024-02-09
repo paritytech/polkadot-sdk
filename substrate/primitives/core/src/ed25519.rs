@@ -23,7 +23,7 @@
 use sp_std::vec::Vec;
 
 use crate::{
-	crypto::ByteArray,
+	crypto::{impl_crypto_type, ByteArray},
 	hash::{H256, H512},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -32,7 +32,8 @@ use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 use crate::crypto::{
-	CryptoType, CryptoTypeId, Derive, FromEntropy, Public as TraitPublic, UncheckedFrom,
+	CryptoTypeId, Derive, FromEntropy, Public as TraitPublic, Signature as TraitSignature,
+	UncheckedFrom,
 };
 #[cfg(feature = "full_crypto")]
 use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError};
@@ -214,6 +215,8 @@ impl<'de> Deserialize<'de> for Public {
 #[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq)]
 pub struct Signature(pub [u8; 64]);
 
+impl TraitSignature for Signature {}
+
 impl TryFrom<&[u8]> for Signature {
 	type Error = ();
 
@@ -377,9 +380,7 @@ fn derive_hard_junction(secret_seed: &Seed, cc: &[u8; 32]) -> Seed {
 
 #[cfg(feature = "full_crypto")]
 impl TraitPair for Pair {
-	type Public = Public;
 	type Seed = Seed;
-	type Signature = Signature;
 
 	/// Make a new key pair from secret seed material. The slice must be 32 bytes long or it
 	/// will return `None`.
@@ -453,20 +454,10 @@ impl Pair {
 	}
 }
 
-impl CryptoType for Public {
-	#[cfg(feature = "full_crypto")]
-	type Pair = Pair;
-}
-
-impl CryptoType for Signature {
-	#[cfg(feature = "full_crypto")]
-	type Pair = Pair;
-}
-
 #[cfg(feature = "full_crypto")]
-impl CryptoType for Pair {
-	type Pair = Pair;
-}
+impl_crypto_type!(Pair, Public, Signature);
+#[cfg(not(feature = "full_crypto"))]
+impl_crypto_type!(Public, Signature);
 
 #[cfg(test)]
 mod test {
