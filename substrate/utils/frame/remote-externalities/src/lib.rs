@@ -50,7 +50,10 @@ use std::{
 	time::{Duration, Instant},
 };
 use substrate_rpc_client::{rpc_params, BatchRequestBuilder, ChainApi, ClientT, StateApi};
-use tokio_retry::{strategy::FixedInterval, Retry};
+use tokio_retry::{
+	strategy::{jitter, ExponentialBackoff},
+	Retry,
+};
 
 type KeyValue = (StorageKey, StorageData);
 type TopKeyValues = Vec<KeyValue>;
@@ -359,7 +362,6 @@ where
 	// nodes by default will not return more than 1000 keys per request
 	const DEFAULT_KEY_DOWNLOAD_PAGE: u32 = 1000;
 	const MAX_RETRIES: usize = 12;
-	const KEYS_PAGE_RETRY_INTERVAL: Duration = Duration::from_secs(5);
 
 	async fn rpc_get_storage(
 		&self,
@@ -499,8 +501,10 @@ where
 		loop {
 			// This loop can hit the node with very rapid requests, occasionally causing it to
 			// error out in CI (https://github.com/paritytech/substrate/issues/14129), so we retry.
-			let retry_strategy =
-				FixedInterval::new(Self::KEYS_PAGE_RETRY_INTERVAL).take(Self::MAX_RETRIES);
+			let retry_strategy = ExponentialBackoff::from_millis(50)
+				.max_delay(Duration::from_secs(30))
+				.map(jitter)
+				.take(Self::MAX_RETRIES);
 			let get_page_closure =
 				|| self.get_keys_single_page(Some(prefix.clone()), last_key.cloned(), block);
 			let mut page = Retry::spawn(retry_strategy, get_page_closure).await?;
