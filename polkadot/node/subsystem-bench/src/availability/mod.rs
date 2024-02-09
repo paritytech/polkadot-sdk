@@ -13,7 +13,10 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
-use crate::{core::mock::ChainApiState, TestEnvironment};
+use crate::{
+	core::{environment::BenchmarkUsage, mock::ChainApiState},
+	TestEnvironment,
+};
 use av_store::NetworkAvailabilityState;
 use bitvec::bitvec;
 use colored::Colorize;
@@ -64,7 +67,7 @@ use super::core::{configuration::TestConfiguration, mock::dummy_builder, network
 
 const LOG_TARGET: &str = "subsystem-bench::availability";
 
-use super::{cli::TestObjective, core::mock::AlwaysSupportsParachains};
+use super::{core::mock::AlwaysSupportsParachains, TestObjective};
 use polkadot_node_subsystem_test_helpers::{
 	derive_erasure_chunks_with_proofs_and_root, mock::new_block_import_info,
 };
@@ -430,7 +433,11 @@ impl TestState {
 	}
 }
 
-pub async fn benchmark_availability_read(env: &mut TestEnvironment, mut state: TestState) {
+pub async fn benchmark_availability_read(
+	benchmark_name: &str,
+	env: &mut TestEnvironment,
+	mut state: TestState,
+) -> BenchmarkUsage {
 	let config = env.config().clone();
 
 	env.import_block(new_block_import_info(Hash::repeat_byte(1), 1)).await;
@@ -490,12 +497,15 @@ pub async fn benchmark_availability_read(env: &mut TestEnvironment, mut state: T
 		format!("{} ms", test_start.elapsed().as_millis() / env.config().num_blocks as u128).red()
 	);
 
-	env.display_network_usage();
-	env.display_cpu_usage(&["availability-recovery"]);
 	env.stop().await;
+	env.collect_resource_usage(benchmark_name, &["availability-recovery"])
 }
 
-pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: TestState) {
+pub async fn benchmark_availability_write(
+	benchmark_name: &str,
+	env: &mut TestEnvironment,
+	mut state: TestState,
+) -> BenchmarkUsage {
 	let config = env.config().clone();
 
 	env.metrics().set_n_validators(config.n_validators);
@@ -648,15 +658,11 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 		format!("{} ms", test_start.elapsed().as_millis() / env.config().num_blocks as u128).red()
 	);
 
-	env.display_network_usage();
-
-	env.display_cpu_usage(&[
-		"availability-distribution",
-		"bitfield-distribution",
-		"availability-store",
-	]);
-
 	env.stop().await;
+	env.collect_resource_usage(
+		benchmark_name,
+		&["availability-distribution", "bitfield-distribution", "availability-store"],
+	)
 }
 
 pub fn peer_bitfield_message_v2(
