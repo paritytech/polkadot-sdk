@@ -56,8 +56,12 @@ pub mod new_pool_account_id {
 	///   `T::PoolAssets`.
 	/// - `WeightPerItem`: A getter returning the weight required for the migration of a single pool
 	///   account ID. It should include: 2 * weight_of(T::Assets::balance(..)) + 2 *
-	///   weight_of(T::Assets::transfer(..)) + 2 * weight_of(Refund::deposit_held(..)) + 2 *
-	///   weight_of(Refund::refund(..)) + weight_of(ResetTeam::reset_team(..));
+	///   weight_of(T::Assets::transfer(..)) + weight_of(T::PoolAssets::balance(..)) +
+	///   weight_of(T::PoolAssets::transfer(..))  + 2 * weight_of(Refund::deposit_held(..)) + 2 *
+	///   weight_of(Refund::refund(..)) + weight_of(PoolRefund::deposit_held(..)) +
+	///   weight_of(PoolRefund::refund(..)) + 3 * weight_of(DepositAssets::minimum_balance(..)) + 3
+	///   * weight_of(DepositAssets::mint_into(..)) + 3 * weight_of(DepositAssets::burn_from(..)) +
+	///   weight_of(ResetTeam::reset_team(..));
 	pub struct Migrate<T, OldLocator, ResetTeam, Refund, PoolRefund, DepositAssets, WeightPerItem>(
 		PhantomData<(T, OldLocator, ResetTeam, Refund, PoolRefund, DepositAssets, WeightPerItem)>,
 	);
