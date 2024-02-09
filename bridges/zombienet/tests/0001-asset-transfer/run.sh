@@ -8,7 +8,7 @@ source "${BASH_SOURCE%/*}/../../utils/zombienet.sh"
 ${BASH_SOURCE%/*}/../../environments/rococo-westend/spawn.sh --init &
 env_pid=$!
 
-ensure_process_file $env_pid $TEST_DIR/rococo.env 300
+ensure_process_file $env_pid $TEST_DIR/rococo.env 400
 rococo_dir=`cat $TEST_DIR/rococo.env`
 echo
 
