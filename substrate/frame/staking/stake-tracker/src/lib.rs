@@ -57,9 +57,14 @@
 //! approvals score (nominations + self-stake) is kept up to date as the target list's score.
 //! * A [`sp_staking::StakerStatus::Idle`] may have a target list's score while other stakers
 //!   nominate the idle validator.
-//! * A staker which is not recognized by staking (i.e. not bonded) may still have an associated
-//! target list score, in case there are other nominators nominating it. The list's node will
-//! automatically be removed onced all the voters stop nominating the unbonded account.
+//! * A "dangling" target, which is not an active staker anymore (i.e. not bonded), may still have
+//!   an associated target list score. This may happen when active nominators are still nominating
+//!   the target after the validator unbonded. The target list's node and score will automatically
+//!   be removed onced all the voters stop nominating the unbonded account (i.e. the target's score
+//!   drops to 0).
+//!
+//! For further details on the target list invariantes, refer to [`Self`::do_try_state_approvals`]
+//! and [`Self::do_try_state_target_sorting`].
 //!
 //! ## Domain-specific consideration on [`Config::VoterList`] and [`Config::TargetList`]
 //!
