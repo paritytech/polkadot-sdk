@@ -126,8 +126,19 @@ struct QueueStatusType {
 	/// heap is roughly bounded in the number of on demand cores:
 	///
 	/// For a single core, elements will always be processed in order. With each core added, a
-	/// level of of out of order execution is added.
+	/// level of out of order execution is added.
 	freed_indices: BinaryHeap<ReverseQueueIndex>,
+}
+
+impl Default for QueueStatusType {
+	fn default() -> QueueStatusType {
+		QueueStatusType {
+			traffic: FixedU128::default(),
+			next_index: QueueIndex(0),
+			smallest_index: QueueIndex(0),
+			freed_indices: BinaryHeap::new(),
+		}
+	}
 }
 
 impl QueueStatusType {
@@ -206,15 +217,15 @@ enum SpotTrafficCalculationErr {
 	Division,
 }
 
-// Type used for priority indices.
+/// Type used for priority indices.
+//  NOTE: The `Ord` implementation for this type is unsound in the general case.
+//        Do not use it for anything but it's intended purpose.
 #[derive(Encode, Decode, TypeInfo, Debug, PartialEq, Clone, Eq, Copy)]
 struct QueueIndex(u32);
 
 /// QueueIndex with reverse ordering.
 ///
 /// Same as `Reverse(QueueIndex)`, but with all the needed traits implemented.
-///
-/// TODO: Add basic ordering tests.
 #[derive(Encode, Decode, TypeInfo, Debug, PartialEq, Clone, Eq, Copy)]
 struct ReverseQueueIndex(u32);
 
@@ -317,12 +328,7 @@ pub mod pallet {
 	/// Creates an empty queue status for an empty queue with initial traffic value.
 	#[pallet::type_value]
 	pub(super) fn QueueStatusOnEmpty<T: Config>() -> QueueStatusType {
-		QueueStatusType {
-			traffic: T::TrafficDefaultValue::get(),
-			next_index: QueueIndex(0),
-			smallest_index: QueueIndex(0),
-			freed_indices: BinaryHeap::new(),
-		}
+		QueueStatusType { traffic: T::TrafficDefaultValue::get(), ..Default::default() }
 	}
 
 	#[pallet::type_value]
@@ -374,6 +380,21 @@ pub mod pallet {
 		/// The current spot price is higher than the max amount specified in the `place_order`
 		/// call, making it invalid.
 		SpotPriceHigherThanMaxAmount,
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
+			let config = <configuration::Pallet<T>>::config();
+			// We need to update the spot traffic on block initialize in order to account for idle
+			// blocks.
+			QueueStatus::<T>::mutate(|queue_status| {
+				Self::update_spot_traffic(&config, queue_status);
+			});
+
+			// 2 reads in config and queuestatus, at maximum 1 write to queuestatus.
+			T::DbWeight::get().reads_writes(2, 1)
+		}
 	}
 
 	#[pallet::call]
@@ -478,8 +499,6 @@ where
 
 		let assignment = entry.map(|e| Assignment::Pool { para_id: e.para_id, core_index }).ok()?;
 
-		// TODO: Test for invariant: If affinity count was zero before (is 1 now) then the entry
-		// must have come from free_entries.
 		Pallet::<T>::increase_affinity(assignment.para_id(), core_index);
 		Some(assignment)
 	}
@@ -764,6 +783,19 @@ where
 	fn get_affinity_map(para_id: ParaId) -> Option<CoreAffinityCount> {
 		ParaIdAffinity::<T>::get(para_id)
 	}
+
+	/// Getter for the affinity entries.
+	#[cfg(test)]
+	fn get_affinity_entries(core_index: CoreIndex) -> BinaryHeap<EnqueuedOrder> {
+		AffinityEntries::<T>::get(core_index)
+	}
+
+	/// Getter for the free entries.
+	#[cfg(test)]
+	fn get_free_entries() -> BinaryHeap<EnqueuedOrder> {
+		FreeEntries::<T>::get()
+	}
+
 	#[cfg(feature = "runtime-benchmarks")]
 	pub fn populate_queue(para_id: ParaId, num: u32) {
 		QueueStatus::<T>::mutate(|queue_status| {
@@ -771,5 +803,20 @@ where
 				Pallet::<T>::add_on_demand_order(queue_status, para_id, QueuePushDirection::Back);
 			}
 		});
+	}
+
+	#[cfg(test)]
+	fn set_queue_status(new_status: QueueStatusType) {
+		QueueStatus::<T>::set(new_status);
+	}
+
+	#[cfg(test)]
+	fn get_queue_status() -> QueueStatusType {
+		QueueStatus::<T>::get()
+	}
+
+	#[cfg(test)]
+	fn get_traffic_default_value() -> FixedU128 {
+		<T as Config>::TrafficDefaultValue::get()
 	}
 }
