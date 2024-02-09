@@ -31,10 +31,6 @@ jobs:
             echo "skip=true"  >> "$GITHUB_OUTPUT"
             echo "Skipping merge queue"
           fi
-          if [ "${{ github.ref }}" == "refs/pull/3257/merge" ]; then
-            echo "skip=true"  >> "$GITHUB_OUTPUT"
-            echo "Check that skip works"
-          fi
   check-prdoc:
     runs-on: ubuntu-latest
     if: ${{ needs.check-prdoc-mq-and-master.outputs.status == 'true' }}
