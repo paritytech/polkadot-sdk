@@ -6,6 +6,8 @@ set -e
 
 PROJECT_ROOT=`git rev-parse --show-toplevel`
 
+shopt -s expand_aliases
+
 if [ "$#" -lt 1 ]; then
   echo "You need to pass the name of the crate you want to compile!"
   exit 1
