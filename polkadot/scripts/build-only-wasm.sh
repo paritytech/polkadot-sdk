@@ -5,7 +5,7 @@
 set -e
 
 PROJECT_ROOT=`git rev-parse --show-toplevel`
-function fl_cargo() {
+function fl_cargo () {
     if command -v forklift >/dev/null 2>&1; then
         forklift cargo "$@";
     else
