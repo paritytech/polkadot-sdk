@@ -102,7 +102,7 @@ pub mod new_pool_account_id {
 
 				let withdraw_result1 =
 					T::Assets::can_withdraw(asset1.clone(), &account_id, balance1);
-				if withdraw_result1 != WithdrawConsequence::<_>::Success {
+				if withdraw_result1 != WithdrawConsequence::<_>::ReducedToZero(0u32.into()) {
 					log::error!(
 						target: LOG_TARGET,
 						"total balance cannot be withdrawn for asset1 from pair (`{:?}`,`{:?}`), account id `{:?}` with result `{:?}`.",
@@ -116,7 +116,7 @@ pub mod new_pool_account_id {
 
 				let withdraw_result2 =
 					T::Assets::can_withdraw(asset2.clone(), &account_id, balance2);
-				if withdraw_result2 != WithdrawConsequence::<_>::Success {
+				if withdraw_result2 != WithdrawConsequence::<_>::ReducedToZero(0u32.into()) {
 					log::error!(
 						target: LOG_TARGET,
 						"total balance cannot be withdrawn for asset2 from pair (`{:?}`,`{:?}`), account id `{:?}` with result `{:?}`.",
@@ -130,7 +130,7 @@ pub mod new_pool_account_id {
 
 				let withdraw_result3 =
 					T::PoolAssets::can_withdraw(info.lp_token.clone(), &account_id, balance3);
-				if withdraw_result3 != WithdrawConsequence::<_>::Success {
+				if withdraw_result3 != WithdrawConsequence::<_>::ReducedToZero(0u32.into()) {
 					log::error!(
 						target: LOG_TARGET,
 						"total balance cannot be withdrawn for lp token `{:?}`, from pair (`{:?}`,`{:?}`), account id `{:?}` with result `{:?}`.",
@@ -445,7 +445,7 @@ pub mod new_pool_account_id {
 				let balance2 = T::Assets::total_balance(asset2.clone(), &account_id);
 				let balance3 = T::PoolAssets::total_balance(info.lp_token.clone(), &account_id);
 				let total_issuance = DepositAssets::total_issuance();
-				let withdraw_success = WithdrawConsequence::<<T as Config>::Balance>::Success;
+				let withdraw_success = WithdrawConsequence::<_>::ReducedToZero(0u32.into());
 				if T::Assets::can_withdraw(asset1.clone(), &account_id, balance1) ==
 					withdraw_success && T::Assets::can_withdraw(
 					asset2.clone(),
