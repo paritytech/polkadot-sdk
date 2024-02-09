@@ -1113,7 +1113,7 @@ pub struct ProspectiveValidationDataRequest {
 pub type FragmentTreeMembership = Vec<(Hash, Vec<usize>)>;
 
 /// A candidate ancestor. When requesting some backable candidates, you need to supply a collection
-/// of on-chain the ancestors of the parachain. (backed, available or timed out).
+/// of on-chain ancestors of the parachain. (backed, available or timed out).
 #[derive(Debug, Clone, PartialEq)]
 pub struct AncestorState {
 	/// Record how many times it appears in the on-chain availability cores. Will be non-zero
