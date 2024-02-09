@@ -61,7 +61,7 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{Saturating, Zero};
-use sp_runtime::RuntimeDebug;
+use sp_runtime::{RuntimeDebug, TryRuntimeError};
 use sp_std::{marker::PhantomData, prelude::*};
 
 use frame_support::{
@@ -277,6 +277,14 @@ pub mod pallet {
 		NotTracked,
 		/// Operation cannot be done yet since not enough time has passed.
 		TooSoon,
+	}
+
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+			Self::do_try_state()
+		}
 	}
 
 	#[pallet::call]
@@ -550,6 +558,52 @@ pub mod pallet {
 				let e = Event::<T, I>::EvidenceJudged { who, wish, evidence, old_rank, new_rank };
 				Self::deposit_event(e);
 			}
+		}
+
+		#[cfg(any(feature = "try-runtime", test))]
+		pub fn do_try_state() -> Result<(), TryRuntimeError> {
+			// Check invariants for each member tracked by the pallet
+			for who in Member::<T,I>::iter_keys() {
+				if let Some(member_status) = Member::<T,I>::get(who.clone()) {
+					// Ensure the member's rank is consistent with their status in the pallet
+					let rank = T::Members::rank_of(&who).ok_or("Member not found in rank registry")?;
+
+					if rank > 0 {
+						Self::ranked_member(rank, &who);
+					} else {
+						Self::unranked_member(rank, &who);
+					}
+				}
+			}
+			Ok(())
+		}
+
+		fn ranked_member(rank: RankOf<T, I>, who: &T::AccountId) -> Result<(), TryRuntimeError> {
+			// If member has evidence submitted, ensure it aligns with their rank and wish
+			if let Some((wish, _evidence)) = MemberEvidence::<T, I>::get(&who) {
+				match wish {
+					Wish::Retention => {
+						
+						ensure!(rank < 7, "Member at max rank cannot retain further");
+					},
+					Wish::Promotion => {
+						
+						ensure!(rank < 9, "Member at max rank cannot be promoted");
+						// propose the addition of T::Members::max_rank()
+					},
+				}
+			}
+			Ok(())
+		}
+
+		fn unranked_member(_rank: RankOf<T, I>, who: &T::AccountId) -> Result<(), TryRuntimeError>{
+			if let Some((wish, _evidence)) = MemberEvidence::<T, I>::get(&who) {
+				if wish == Wish::Retention {
+						
+					return Err(TryRuntimeError::Other("sales"));
+				}
+			}
+			Ok(())
 		}
 	}
 
