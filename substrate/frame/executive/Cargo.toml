@@ -46,6 +46,7 @@ with-tracing = ["sp-tracing/with-tracing"]
 std = [
 	"codec/std",
 	"frame-support/std",
+	"frame-support/experimental",
 	"frame-system/std",
 	"frame-try-runtime/std",
 	"log/std",

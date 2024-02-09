@@ -326,6 +326,7 @@ where
 			let encoded = uxt.encode();
 			let encoded_len = encoded.len();
 
+			let is_inherent = System::is_inherent(&uxt);
 			// skip signature verification.
 			let xt = if signature_check {
 				uxt.check(&Default::default())
@@ -334,7 +335,6 @@ where
 			}?;
 
 			let dispatch_info = xt.get_dispatch_info();
-			let is_inherent = dispatch_info.class == DispatchClass::Mandatory;
 			if !is_inherent && !<frame_system::Pallet<System>>::inherents_applied() {
 				Self::inherents_applied();
 			}
@@ -776,12 +776,14 @@ where
 		let encoded_len = encoded.len();
 		sp_tracing::enter_span!(sp_tracing::info_span!("apply_extrinsic",
 				ext=?sp_core::hexdisplay::HexDisplay::from(&encoded)));
+
+		// We use the dedicated `is_inherent` check here, since just relying on `Mandatory` dispatch
+		// class does not capture optional inherents.
+		let is_inherent = System::is_inherent(&uxt);
+
 		// Verify that the signature is good.
 		let xt = uxt.check(&Default::default())?;
-
-		// Automatically call `inherents_applied` if this is the first TX after the inherents:
 		let dispatch_info = xt.get_dispatch_info();
-		let is_inherent = dispatch_info.class == DispatchClass::Mandatory;
 
 		if !is_inherent && !<frame_system::Pallet<System>>::inherents_applied() {
 			Self::inherents_applied();
