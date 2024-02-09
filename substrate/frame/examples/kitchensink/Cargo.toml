@@ -20,7 +20,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 log = { version = "0.4.17", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
-frame-support = { path = "../../support", default-features = false }
+frame-support = { path = "../../support", default-features = false, features = ["experimental"] }
 frame-system = { path = "../../system", default-features = false }
 
 sp-io = { path = "../../../primitives/io", default-features = false }
