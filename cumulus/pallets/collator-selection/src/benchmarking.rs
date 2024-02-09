@@ -394,7 +394,7 @@ mod benchmarks {
 		register_validators::<T>(c);
 		register_candidates::<T>(c);
 
-		let new_block: BlockNumberFor<T> = 1800u32.into();
+		let new_block: BlockNumberFor<T> = T::KickThreshold::get();
 		let zero_block: BlockNumberFor<T> = 0u32.into();
 		let candidates: Vec<T::AccountId> = <CandidateList<T>>::get()
 			.iter()

@@ -105,6 +105,9 @@ pub mod __private {
 	};
 	pub use sp_std::{mem, slice, vec};
 	pub use sp_version::{create_apis_vec, ApiId, ApisVec, RuntimeVersion};
+
+	#[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), substrate_runtime))]
+	pub use sp_runtime_interface::polkavm::{polkavm_abi, polkavm_export};
 }
 
 #[cfg(feature = "std")]

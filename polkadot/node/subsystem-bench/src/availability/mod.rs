@@ -13,7 +13,10 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
-use crate::{core::mock::ChainApiState, TestEnvironment};
+use crate::{
+	core::{environment::BenchmarkUsage, mock::ChainApiState},
+	TestEnvironment,
+};
 use av_store::NetworkAvailabilityState;
 use bitvec::bitvec;
 use colored::Colorize;
@@ -25,7 +28,7 @@ use polkadot_node_subsystem_types::{
 	messages::{AvailabilityStoreMessage, NetworkBridgeEvent},
 	Span,
 };
-use polkadot_overseer::Handle as OverseerHandle;
+use polkadot_overseer::{metrics::Metrics as OverseerMetrics, Handle as OverseerHandle};
 use sc_network::{request_responses::ProtocolConfig, PeerId};
 use sp_core::H256;
 use std::{collections::HashMap, iter::Cycle, ops::Sub, sync::Arc, time::Instant};
@@ -64,7 +67,7 @@ use super::core::{configuration::TestConfiguration, mock::dummy_builder, network
 
 const LOG_TARGET: &str = "subsystem-bench::availability";
 
-use super::{cli::TestObjective, core::mock::AlwaysSupportsParachains};
+use super::{core::mock::AlwaysSupportsParachains, TestObjective};
 use polkadot_node_subsystem_test_helpers::{
 	derive_erasure_chunks_with_proofs_and_root, mock::new_block_import_info,
 };
@@ -85,9 +88,12 @@ fn build_overseer_for_availability_read(
 	av_store: MockAvailabilityStore,
 	network_bridge: (MockNetworkBridgeTx, MockNetworkBridgeRx),
 	availability_recovery: AvailabilityRecoverySubsystem,
+	dependencies: &TestEnvironmentDependencies,
 ) -> (Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>, OverseerHandle) {
 	let overseer_connector = OverseerConnector::with_event_capacity(64000);
-	let dummy = dummy_builder!(spawn_task_handle);
+	let overseer_metrics = OverseerMetrics::try_register(&dependencies.registry).unwrap();
+
+	let dummy = dummy_builder!(spawn_task_handle, overseer_metrics);
 	let builder = dummy
 		.replace_runtime_api(|_| runtime_api)
 		.replace_availability_store(|_| av_store)
@@ -101,6 +107,7 @@ fn build_overseer_for_availability_read(
 	(overseer, OverseerHandle::new(raw_handle))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_overseer_for_availability_write(
 	spawn_task_handle: SpawnTaskHandle,
 	runtime_api: MockRuntimeApi,
@@ -109,9 +116,12 @@ fn build_overseer_for_availability_write(
 	chain_api: MockChainApi,
 	availability_store: AvailabilityStoreSubsystem,
 	bitfield_distribution: BitfieldDistribution,
+	dependencies: &TestEnvironmentDependencies,
 ) -> (Overseer<SpawnGlue<SpawnTaskHandle>, AlwaysSupportsParachains>, OverseerHandle) {
 	let overseer_connector = OverseerConnector::with_event_capacity(64000);
-	let dummy = dummy_builder!(spawn_task_handle);
+	let overseer_metrics = OverseerMetrics::try_register(&dependencies.registry).unwrap();
+
+	let dummy = dummy_builder!(spawn_task_handle, overseer_metrics);
 	let builder = dummy
 		.replace_runtime_api(|_| runtime_api)
 		.replace_availability_store(|_| availability_store)
@@ -161,7 +171,7 @@ fn prepare_test_inner(
 			candidate_hashes
 				.get(&Hash::repeat_byte(block_num as u8))
 				.expect("just inserted above")
-				.get(0)
+				.first()
 				.expect("just inserted above")
 				.clone(),
 		);
@@ -171,6 +181,9 @@ fn prepare_test_inner(
 		config.clone(),
 		test_authorities.clone(),
 		candidate_hashes,
+		Default::default(),
+		Default::default(),
+		0,
 	);
 
 	let availability_state = NetworkAvailabilityState {
@@ -198,6 +211,7 @@ fn prepare_test_inner(
 	let network_bridge_tx = network_bridge::MockNetworkBridgeTx::new(
 		network.clone(),
 		network_interface.subsystem_sender(),
+		test_authorities.clone(),
 	);
 
 	let network_bridge_rx =
@@ -231,6 +245,7 @@ fn prepare_test_inner(
 				av_store,
 				(network_bridge_tx, network_bridge_rx),
 				subsystem,
+				&dependencies,
 			)
 		},
 		TestObjective::DataAvailabilityWrite => {
@@ -240,7 +255,7 @@ fn prepare_test_inner(
 				Metrics::try_register(&dependencies.registry).unwrap(),
 			);
 
-			let block_headers = (0..=config.num_blocks)
+			let block_headers = (1..=config.num_blocks)
 				.map(|block_number| {
 					(
 						Hash::repeat_byte(block_number as u8),
@@ -267,6 +282,7 @@ fn prepare_test_inner(
 				chain_api,
 				new_av_store(&dependencies),
 				bitfield_distribution,
+				&dependencies,
 			)
 		},
 		_ => {
@@ -417,7 +433,11 @@ impl TestState {
 	}
 }
 
-pub async fn benchmark_availability_read(env: &mut TestEnvironment, mut state: TestState) {
+pub async fn benchmark_availability_read(
+	benchmark_name: &str,
+	env: &mut TestEnvironment,
+	mut state: TestState,
+) -> BenchmarkUsage {
 	let config = env.config().clone();
 
 	env.import_block(new_block_import_info(Hash::repeat_byte(1), 1)).await;
@@ -477,12 +497,15 @@ pub async fn benchmark_availability_read(env: &mut TestEnvironment, mut state: T
 		format!("{} ms", test_start.elapsed().as_millis() / env.config().num_blocks as u128).red()
 	);
 
-	env.display_network_usage();
-	env.display_cpu_usage(&["availability-recovery"]);
 	env.stop().await;
+	env.collect_resource_usage(benchmark_name, &["availability-recovery"])
 }
 
-pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: TestState) {
+pub async fn benchmark_availability_write(
+	benchmark_name: &str,
+	env: &mut TestEnvironment,
+	mut state: TestState,
+) -> BenchmarkUsage {
 	let config = env.config().clone();
 
 	env.metrics().set_n_validators(config.n_validators);
@@ -614,9 +637,10 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 		);
 
 		// Wait for all bitfields to be processed.
-		env.wait_until_metric_eq(
+		env.wait_until_metric(
 			"polkadot_parachain_received_availabilty_bitfields_total",
-			config.connected_count() * block_num,
+			None,
+			|value| value == (config.connected_count() * block_num) as f64,
 		)
 		.await;
 
@@ -634,15 +658,11 @@ pub async fn benchmark_availability_write(env: &mut TestEnvironment, mut state: 
 		format!("{} ms", test_start.elapsed().as_millis() / env.config().num_blocks as u128).red()
 	);
 
-	env.display_network_usage();
-
-	env.display_cpu_usage(&[
-		"availability-distribution",
-		"bitfield-distribution",
-		"availability-store",
-	]);
-
 	env.stop().await;
+	env.collect_resource_usage(
+		benchmark_name,
+		&["availability-distribution", "bitfield-distribution", "availability-store"],
+	)
 }
 
 pub fn peer_bitfield_message_v2(

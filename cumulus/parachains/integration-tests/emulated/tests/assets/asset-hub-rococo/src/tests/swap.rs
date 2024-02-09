@@ -14,7 +14,6 @@
 // limitations under the License.
 
 use crate::*;
-use parachains_common::rococo::currency::EXISTENTIAL_DEPOSIT;
 use rococo_system_emulated_network::penpal_emulated_chain::LocalTeleportableToAssetHubV3 as PenpalLocalTeleportableToAssetHubV3;
 use sp_runtime::ModuleError;
 
@@ -105,7 +104,7 @@ fn swap_locally_on_chain_using_local_assets() {
 			<AssetHubRococo as Chain>::RuntimeOrigin::signed(AssetHubRococoSender::get()),
 			asset_native,
 			asset_one,
-			1414213562273 - EXISTENTIAL_DEPOSIT * 2, // all but the 2 EDs can't be retrieved.
+			1414213562273 - ASSET_HUB_ROCOCO_ED * 2, // all but the 2 EDs can't be retrieved.
 			0,
 			0,
 			AssetHubRococoSender::get().into(),

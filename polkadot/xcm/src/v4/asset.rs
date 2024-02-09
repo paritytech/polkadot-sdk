@@ -33,6 +33,7 @@ use crate::v3::{
 	WildFungibility as OldWildFungibility, WildMultiAsset as OldWildAsset,
 };
 use alloc::{vec, vec::Vec};
+use bounded_collections::{BoundedVec, ConstU32};
 use core::{
 	cmp::Ordering,
 	convert::{TryFrom, TryInto},
@@ -562,7 +563,9 @@ impl MaxEncodedLen for Assets {
 
 impl Decode for Assets {
 	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, parity_scale_codec::Error> {
-		Self::from_sorted_and_deduplicated(Vec::<Asset>::decode(input)?)
+		let bounded_instructions =
+			BoundedVec::<Asset, ConstU32<{ MAX_ITEMS_IN_ASSETS as u32 }>>::decode(input)?;
+		Self::from_sorted_and_deduplicated(bounded_instructions.into_inner())
 			.map_err(|()| "Out of order".into())
 	}
 }
@@ -1001,5 +1004,65 @@ mod tests {
 		let mixed_bad = vec![(Here, *b"bad!").into(), (Here, 10).into()];
 		let r = Assets::from_sorted_and_deduplicated(mixed_bad);
 		assert!(r.is_err());
+	}
+
+	#[test]
+	fn reanchor_preserves_sorting() {
+		use super::*;
+		use alloc::vec;
+
+		let reanchor_context: Junctions = Parachain(2000).into();
+		let dest = Location::new(1, []);
+
+		let asset_1: Asset = (Location::new(0, [PalletInstance(50), GeneralIndex(1)]), 10).into();
+		let mut asset_1_reanchored = asset_1.clone();
+		assert!(asset_1_reanchored.reanchor(&dest, &reanchor_context).is_ok());
+		assert_eq!(
+			asset_1_reanchored,
+			(Location::new(0, [Parachain(2000), PalletInstance(50), GeneralIndex(1)]), 10).into()
+		);
+
+		let asset_2: Asset = (Location::new(1, []), 10).into();
+		let mut asset_2_reanchored = asset_2.clone();
+		assert!(asset_2_reanchored.reanchor(&dest, &reanchor_context).is_ok());
+		assert_eq!(asset_2_reanchored, (Location::new(0, []), 10).into());
+
+		let asset_3: Asset = (Location::new(1, [Parachain(1000)]), 10).into();
+		let mut asset_3_reanchored = asset_3.clone();
+		assert!(asset_3_reanchored.reanchor(&dest, &reanchor_context).is_ok());
+		assert_eq!(asset_3_reanchored, (Location::new(0, [Parachain(1000)]), 10).into());
+
+		let mut assets: Assets = vec![asset_1.clone(), asset_2.clone(), asset_3.clone()].into();
+		assert_eq!(assets.clone(), vec![asset_1.clone(), asset_2.clone(), asset_3.clone()].into());
+
+		assert!(assets.reanchor(&dest, &reanchor_context).is_ok());
+		assert_eq!(assets, vec![asset_2_reanchored, asset_3_reanchored, asset_1_reanchored].into());
+	}
+
+	#[test]
+	fn decoding_respects_limit() {
+		use super::*;
+
+		// Having lots of one asset will work since they are deduplicated
+		let lots_of_one_asset: Assets =
+			vec![(GeneralIndex(1), 1u128).into(); MAX_ITEMS_IN_ASSETS + 1].into();
+		let encoded = lots_of_one_asset.encode();
+		assert!(Assets::decode(&mut &encoded[..]).is_ok());
+
+		// Fewer assets than the limit works
+		let mut few_assets: Assets = Vec::new().into();
+		for i in 0..MAX_ITEMS_IN_ASSETS {
+			few_assets.push((GeneralIndex(i as u128), 1u128).into());
+		}
+		let encoded = few_assets.encode();
+		assert!(Assets::decode(&mut &encoded[..]).is_ok());
+
+		// Having lots of different assets will not work
+		let mut too_many_different_assets: Assets = Vec::new().into();
+		for i in 0..MAX_ITEMS_IN_ASSETS + 1 {
+			too_many_different_assets.push((GeneralIndex(i as u128), 1u128).into());
+		}
+		let encoded = too_many_different_assets.encode();
+		assert!(Assets::decode(&mut &encoded[..]).is_err());
 	}
 }
