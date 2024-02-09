@@ -306,9 +306,11 @@ impl OnStakingUpdate<AccountId, Balance> for SlashListenerMock {
 
 impl pallet_stake_tracker::Config for Test {
 	type Currency = Balances;
+	type RuntimeEvent = RuntimeEvent;
 	type Staking = Staking;
 	type VoterList = VoterBagsList;
 	type TargetList = TargetBagsList;
+	type WeightInfo = ();
 }
 
 impl crate::pallet::pallet::Config for Test {

@@ -98,6 +98,10 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+mod weights;
+
+use weights::WeightInfo;
+
 pub(crate) const LOG_TARGET: &str = "runtime::stake-tracker";
 
 // syntactic sugar for logging.
@@ -130,7 +134,10 @@ pub mod pallet {
 	use crate::*;
 	use frame_election_provider_support::{ExtendedBalance, VoteWeight};
 	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::BlockNumberFor;
+	use frame_system::{
+		ensure_signed,
+		pallet_prelude::{BlockNumberFor, OriginFor},
+	};
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
@@ -141,7 +148,11 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		/// The stake balance.
 		type Currency: FnInspect<Self::AccountId, Balance = BalanceOf<Self>>;
+
+		/// The overarching event type.
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The staking interface.
 		type Staking: StakingInterface<AccountId = Self::AccountId>;
@@ -162,6 +173,28 @@ pub mod pallet {
 			Self::AccountId,
 			Score = <Self::Staking as StakingInterface>::Balance,
 		>;
+
+		/// Weight information for extrinsics in this pallet.
+		type WeightInfo: WeightInfo;
+	}
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
+	pub enum Event<T: Config> {
+		/// A dangling nomination has been successfully dropped.
+		///
+		/// A dangling nomination is a nomination to an unbonded target.
+		DanglingNominationDropped { voter: AccountIdOf<T>, target: AccountIdOf<T> },
+	}
+
+	#[pallet::error]
+	pub enum Error<T> {
+		/// Target is not dangling.
+		///
+		/// A dandling target is a target that is part of the target list but is unbonded.
+		NotDanglingTarget,
+		/// Not a voter/nominator.
+		NotVoter,
 	}
 
 	#[pallet::hooks]
@@ -169,6 +202,58 @@ pub mod pallet {
 		#[cfg(feature = "try-runtime")]
 		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()
+		}
+	}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		/// Removes nomination from a chilled and unbonded target.
+		///
+		/// In the case that an unboded target still has nominations lingering, the approvals stake
+		/// for the "dangling" target needs to remain in the target list. This extrinsic allows
+		/// nominations of dangling targets to be removed.
+		///
+		/// A danling nomination may be removed IFF:
+		///  * The `target` is unbonded and it exists in the target list.
+		///  * The `voter` is nominating `target`.
+		///
+		/// Emits `DanglingNominationDropped`.
+		#[pallet::call_index(0)]
+		#[pallet::weight(T::WeightInfo::drop_dangling_nomination())]
+		pub fn drop_dangling_nomination(
+			origin: OriginFor<T>,
+			voter: AccountIdOf<T>,
+			target: AccountIdOf<T>,
+		) -> DispatchResultWithPostInfo {
+			let _ = ensure_signed(origin)?;
+
+			ensure!(
+				T::Staking::status(&target).is_err() && T::TargetList::contains(&target),
+				Error::<T>::NotDanglingTarget
+			);
+
+			match T::Staking::status(&voter) {
+				Ok(StakerStatus::Nominator(nominations)) => {
+					let count_before = nominations.len();
+
+					let nominations_after =
+						nominations.into_iter().filter(|n| *n != target).collect::<Vec<_>>();
+
+					if nominations_after.len() != count_before {
+						T::Staking::nominate(&voter, nominations_after)?;
+
+						Self::deposit_event(Event::<T>::DanglingNominationDropped {
+							voter,
+							target,
+						});
+
+						Ok(Pays::No.into())
+					} else {
+						Ok(Pays::Yes.into())
+					}
+				},
+				_ => Err(Error::<T>::NotVoter.into()),
+			}
 		}
 	}
 

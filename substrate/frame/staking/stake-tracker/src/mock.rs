@@ -96,10 +96,11 @@ impl pallet_bags_list::Config<TargetBagsListInstance> for Test {
 
 impl pallet_stake_tracker::Config for Test {
 	type Currency = Balances;
-
+	type RuntimeEvent = RuntimeEvent;
 	type Staking = StakingMock;
 	type VoterList = VoterBagsList;
 	type TargetList = TargetBagsList;
+	type WeightInfo = ();
 }
 
 pub struct StakingMock {}
@@ -148,8 +149,13 @@ impl StakingInterface for StakingMock {
 			(false, true, true) =>
 				Ok(StakerStatus::Nominator(nominators.get(who).expect("exists").1.clone())),
 			(false, false, true) => Ok(StakerStatus::Idle),
-			(false, false, false) => Err("not a staker".into()),
-			_ => Err("mock: inconsistent data".into()),
+			(false, false, false) =>
+				if TargetBagsList::contains(who) {
+					Err("dangling".into())
+				} else {
+					Err("not a staker".into())
+				},
+			_ => Err("bad state".into()),
 		}
 	}
 
@@ -189,10 +195,12 @@ impl StakingInterface for StakingMock {
 	}
 
 	fn nominate(
-		_who: &Self::AccountId,
-		_validators: Vec<Self::AccountId>,
+		who: &Self::AccountId,
+		validators: Vec<Self::AccountId>,
 	) -> sp_runtime::DispatchResult {
-		unreachable!();
+		update_nominations_of(*who, validators);
+
+		Ok(())
 	}
 
 	fn chill(_who: &Self::AccountId) -> sp_runtime::DispatchResult {
@@ -285,6 +293,43 @@ pub(crate) fn add_nominator(who: AccountId, stake: Balance) {
 	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_nominator_add(&who, vec![]);
 }
 
+pub(crate) fn add_dangling_target_with_nominators(target: AccountId, nominators: Vec<AccountId>) {
+	// add new validator.
+	add_validator(target, 10);
+
+	// update nominations.
+	for n in nominators {
+		let mut nominations = StakingMock::nominations(&n).unwrap();
+		nominations.push(target);
+		update_nominations_of(n, nominations);
+	}
+
+	// remove self-stake/unbond.
+	let stake = <StakingMock as StakingInterface>::stake(&target).unwrap();
+	let mut stake_after_unbond = stake.clone();
+	stake_after_unbond.active -= 10;
+	stake_after_unbond.total -= 10;
+
+	// now remove all the self-stake score from the validator.
+	<StakeTracker as OnStakingUpdate<AccountId, Balance>>::on_stake_update(
+		&target,
+		Some(stake),
+		stake_after_unbond,
+	);
+
+	Bonded::mutate(|b| {
+		b.retain(|s| s != &target);
+	});
+
+	TestValidators::mutate(|v| {
+		v.remove(&target);
+	});
+
+	TestNominators::mutate(|n| {
+		n.remove(&target);
+	});
+}
+
 pub(crate) fn stake_of(who: AccountId) -> Option<Stake<Balance>> {
 	StakingMock::stake(&who).ok()
 }
@@ -303,7 +348,6 @@ pub(crate) fn add_nominator_with_nominations(
 	// add new nominator (called at `fn bond` in staking)
 	add_nominator(who, stake);
 
-	// add nominations (called at `fn nominate` in staking)
 	TestNominators::mutate(|n| {
 		n.insert(who, (Stake::<Balance> { active: stake, total: stake }, nominations.clone()));
 	});
@@ -449,6 +493,11 @@ impl ExtBuilder {
 		self
 	}
 
+	pub fn try_state(self, enable: bool) -> Self {
+		DisableTryRuntimeChecks::set(!enable);
+		self
+	}
+
 	pub fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
 		let storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
@@ -478,4 +527,11 @@ impl ExtBuilder {
 			});
 		}
 	}
+}
+
+pub(crate) fn assert_last_event(generic_event: RuntimeEvent) {
+	let events = frame_system::Pallet::<Test>::events();
+	// compare to the last event record
+	let frame_system::EventRecord { event, .. } = &events.last().expect("Event expected");
+	assert_eq!(event, &generic_event);
 }

@@ -264,9 +264,11 @@ impl pallet_bags_list::Config<TargetBagsListInstance> for Runtime {
 
 impl pallet_stake_tracker::Config for Runtime {
 	type Currency = Balances;
+	type RuntimeEvent = RuntimeEvent;
 	type Staking = Staking;
 	type VoterList = VoterBagsList;
 	type TargetList = TargetBagsList;
+	type WeightInfo = ();
 }
 
 pub struct BalanceToU256;

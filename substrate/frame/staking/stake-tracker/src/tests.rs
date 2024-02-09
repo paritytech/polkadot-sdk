@@ -381,6 +381,81 @@ fn on_validator_remove_defensive_works() {
 	})
 }
 
+mod extrinsics {
+	use super::*;
+	use crate::{Error, Event};
+
+	use frame_support::assert_noop;
+
+	#[test]
+	fn drop_dangling_nomination_works() {
+		ExtBuilder::default().populate_lists().try_state(false).build_and_execute(|| {
+			// target is dangling with nominations from 1 and 2.
+			add_dangling_target_with_nominators(42, vec![1, 2]);
+
+			// 1 is now nominating 42..
+			assert_ok!(StakingMock::status(&1), StakerStatus::Nominator(vec![10, 42]));
+			// .. which is unbonded..
+			assert!(StakingMock::status(&42).is_err());
+			// .. and still part of the target list (thus dangling).
+			assert!(TargetBagsList::contains(&42));
+
+			// remove 1 as dangling nomination.
+			assert_ok!(StakeTracker::drop_dangling_nomination(RuntimeOrigin::signed(1), 1, 42));
+
+			assert_last_event(
+				Event::<Test>::DanglingNominationDropped { voter: 1, target: 42 }.into(),
+			);
+
+			// now, 1 is not nominating 42 anymore.
+			assert_ok!(StakingMock::status(&1), StakerStatus::Nominator(vec![10]));
+			// but 42 is still dangling because 2 is still nominating it
+			assert!(TargetBagsList::contains(&42));
+			assert_ok!(StakingMock::status(&2), StakerStatus::Nominator(vec![10, 11, 42]));
+
+			// when the last dangling nomination is removed, the danling target is removed.
+			assert_ok!(StakeTracker::drop_dangling_nomination(RuntimeOrigin::signed(1), 2, 42));
+
+			assert_ok!(StakingMock::status(&2), StakerStatus::Nominator(vec![10, 11]));
+			assert!(!TargetBagsList::contains(&42));
+
+			assert_last_event(
+				Event::<Test>::DanglingNominationDropped { voter: 2, target: 42 }.into(),
+			);
+		})
+	}
+
+	#[test]
+	fn drop_dangling_nomination_failures_work() {
+		ExtBuilder::default().populate_lists().try_state(false).build_and_execute(|| {
+			// target is not dangling since it does not exist in the target list.
+			assert!(StakingMock::status(&42).is_err());
+			assert!(!TargetBagsList::contains(&42));
+
+			assert_noop!(
+				StakeTracker::drop_dangling_nomination(RuntimeOrigin::signed(1), 10, 42),
+				Error::<Test>::NotDanglingTarget,
+			);
+
+			// target is not dangling since it is still bonded.
+			assert!(StakingMock::status(&10) == Ok(StakerStatus::Validator));
+			assert_noop!(
+				StakeTracker::drop_dangling_nomination(RuntimeOrigin::signed(1), 42, 10),
+				Error::<Test>::NotDanglingTarget,
+			);
+
+			// target is dangling but voter is not nominating it.
+			assert!(StakingMock::status(&1) == Ok(StakerStatus::Nominator(vec![10])));
+			add_dangling_target_with_nominators(42, vec![1]);
+			assert!(StakingMock::status(&42).is_err());
+			assert_noop!(
+				StakeTracker::drop_dangling_nomination(RuntimeOrigin::signed(1), 11, 42),
+				Error::<Test>::NotVoter,
+			);
+		})
+	}
+}
+
 mod staking_integration {
 	use super::*;
 
