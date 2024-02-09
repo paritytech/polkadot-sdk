@@ -992,6 +992,8 @@ pub type Migrations = (
 		>,
 		<Runtime as pallet_asset_conversion::Config>::PoolAssets,
 		<Runtime as pallet_asset_conversion::Config>::Assets,
+		<Runtime as pallet_asset_conversion::Config>::PoolAssets,
+		Balances,
 		PerAccountMigrationWeight,
 	>,
 );
