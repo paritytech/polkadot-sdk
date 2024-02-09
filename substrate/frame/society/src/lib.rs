@@ -1433,8 +1433,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let weight_root = rank + 1;
 		let weight = weight_root * weight_root;
 		match approve {
-			true => tally.approvals.saturating_accrue(1),
-			false => tally.rejections.saturating_accrue(1),
+			true => tally.approvals.saturating_accrue(weight),
+			false => tally.rejections.saturating_accrue(weight),
 		}
 		Vote { approve, weight }
 	}

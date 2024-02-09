@@ -64,7 +64,7 @@ type SignedExtra = (
 );
 
 construct_runtime!(
-	pub struct Runtime {
+	pub enum Runtime {
 		System: frame_system,
 		Timestamp: pallet_timestamp,
 

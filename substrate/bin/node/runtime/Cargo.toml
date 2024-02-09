@@ -26,7 +26,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 scale-info = { version = "2.10.0", default-features = false, features = ["derive", "serde"] }
 static_assertions = "1.1.0"
 log = { version = "0.4.17", default-features = false }
-serde_json = { version = "1.0.108", default-features = false, features = ["alloc", "arbitrary_precision"] }
+serde_json = { version = "1.0.111", default-features = false, features = ["alloc", "arbitrary_precision"] }
 
 # pallet-asset-conversion: turn on "num-traits" feature
 primitive-types = { version = "0.12.0", default-features = false, features = ["codec", "num-traits", "scale-info"] }
@@ -34,6 +34,7 @@ primitive-types = { version = "0.12.0", default-features = false, features = ["c
 # primitives
 sp-authority-discovery = { path = "../../../primitives/authority-discovery", default-features = false, features = ["serde"] }
 sp-consensus-babe = { path = "../../../primitives/consensus/babe", default-features = false, features = ["serde"] }
+sp-consensus-beefy = { path = "../../../primitives/consensus/beefy", default-features = false }
 sp-consensus-grandpa = { path = "../../../primitives/consensus/grandpa", default-features = false, features = ["serde"] }
 sp-block-builder = { path = "../../../primitives/block-builder", default-features = false }
 sp-genesis-builder = { default-features = false, path = "../../../primitives/genesis-builder" }
@@ -72,6 +73,8 @@ pallet-authorship = { path = "../../../frame/authorship", default-features = fal
 pallet-babe = { path = "../../../frame/babe", default-features = false }
 pallet-bags-list = { path = "../../../frame/bags-list", default-features = false }
 pallet-balances = { path = "../../../frame/balances", default-features = false }
+pallet-beefy = { path = "../../../frame/beefy", default-features = false }
+pallet-beefy-mmr = { path = "../../../frame/beefy-mmr", default-features = false }
 pallet-bounties = { path = "../../../frame/bounties", default-features = false }
 pallet-broker = { path = "../../../frame/broker", default-features = false }
 pallet-child-bounties = { path = "../../../frame/child-bounties", default-features = false }
@@ -140,6 +143,7 @@ pallet-vesting = { path = "../../../frame/vesting", default-features = false }
 pallet-whitelist = { path = "../../../frame/whitelist", default-features = false }
 pallet-tx-pause = { path = "../../../frame/tx-pause", default-features = false }
 pallet-safe-mode = { path = "../../../frame/safe-mode", default-features = false }
+pallet-parameters = { path = "../../../frame/parameters", default-features = false }
 
 [build-dependencies]
 substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true }
@@ -171,6 +175,8 @@ std = [
 	"pallet-babe/std",
 	"pallet-bags-list/std",
 	"pallet-balances/std",
+	"pallet-beefy-mmr/std",
+	"pallet-beefy/std",
 	"pallet-bounties/std",
 	"pallet-broker/std",
 	"pallet-child-bounties/std",
@@ -206,6 +212,7 @@ std = [
 	"pallet-nomination-pools/std",
 	"pallet-offences-benchmarking?/std",
 	"pallet-offences/std",
+	"pallet-parameters/std",
 	"pallet-preimage/std",
 	"pallet-proxy/std",
 	"pallet-ranked-collective/std",
@@ -243,6 +250,7 @@ std = [
 	"sp-authority-discovery/std",
 	"sp-block-builder/std",
 	"sp-consensus-babe/std",
+	"sp-consensus-beefy/std",
 	"sp-consensus-grandpa/std",
 	"sp-core/std",
 	"sp-genesis-builder/std",
@@ -307,6 +315,7 @@ runtime-benchmarks = [
 	"pallet-nomination-pools/runtime-benchmarks",
 	"pallet-offences-benchmarking/runtime-benchmarks",
 	"pallet-offences/runtime-benchmarks",
+	"pallet-parameters/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-ranked-collective/runtime-benchmarks",
@@ -352,6 +361,8 @@ try-runtime = [
 	"pallet-babe/try-runtime",
 	"pallet-bags-list/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-beefy-mmr/try-runtime",
+	"pallet-beefy/try-runtime",
 	"pallet-bounties/try-runtime",
 	"pallet-broker/try-runtime",
 	"pallet-child-bounties/try-runtime",
@@ -382,6 +393,7 @@ try-runtime = [
 	"pallet-nis/try-runtime",
 	"pallet-nomination-pools/try-runtime",
 	"pallet-offences/try-runtime",
+	"pallet-parameters/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-ranked-collective/try-runtime",
