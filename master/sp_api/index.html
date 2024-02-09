@@ -12,7 +12,7 @@ provides all the core functions that Substrate expects from a runtime.</p>
 <p>Runtime apis support versioning. Each runtime api itself has a version attached. It is also
 supported to change function signatures or names in a non-breaking way. For more information on
 versioning check the <a href="macro.decl_runtime_apis.html" title="macro sp_api::decl_runtime_apis"><code>decl_runtime_apis!</code></a> macro.</p>
-<p>All runtime apis and their versions are returned as part of the <a href="../sp_version/struct.RuntimeVersion.html" title="struct sp_version::RuntimeVersion"><code>RuntimeVersion</code></a>. This can be
+<p>All runtime apis and their versions are returned as part of the [<code>RuntimeVersion</code>]. This can be
 used to check which runtime api version is currently provided by the on-chain runtime.</p>
 <h2 id="testing"><a href="#testing">Testing</a></h2>
 <p>For testing we provide the <a href="macro.mock_impl_runtime_apis.html" title="macro sp_api::mock_impl_runtime_apis"><code>mock_impl_runtime_apis!</code></a> macro that lets you implement a runtime
