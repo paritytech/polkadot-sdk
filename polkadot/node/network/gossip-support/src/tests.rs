@@ -402,17 +402,7 @@ fn issues_a_connection_request_on_new_session() {
 				tx.send(Ok(1)).unwrap();
 			}
 		);
-		assert_matches!(
-			overseer_recv(overseer).await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				relay_parent,
-				RuntimeApiRequest::SessionInfo(s, tx),
-			)) => {
-				assert_eq!(relay_parent, hash);
-				assert_eq!(s, 1);
-				tx.send(Ok(Some(make_session_info()))).unwrap();
-			}
-		);
+
 		virtual_overseer
 	});
 
@@ -548,13 +538,14 @@ fn issues_connection_request_to_past_present_future() {
 	);
 }
 
-// Test we notify peer about learning of the authority ID after session boundary
+// Test we notify peer about learning of the authority ID after session boundary, when we couldn't
+// connect to more than 1/3 of the authorities.
 #[test]
 fn issues_update_authorities_after_session() {
 	let hash = Hash::repeat_byte(0xAA);
 
 	let mut authorities = PAST_PRESENT_FUTURE_AUTHORITIES.clone();
-	let unknown_at_session = authorities.split_off(authorities.len() - 20);
+	let unknown_at_session = authorities.split_off(authorities.len() / 3 - 1);
 	let mut authority_discovery_mock = MockAuthorityDiscovery::new(authorities);
 
 	test_harness(
@@ -582,7 +573,9 @@ fn issues_update_authorities_after_session() {
 				)) => {
 					assert_eq!(relay_parent, hash);
 					assert_eq!(s, 1);
-					tx.send(Ok(Some(make_session_info()))).unwrap();
+					let mut session_info = make_session_info();
+					session_info.discovery_keys = PAST_PRESENT_FUTURE_AUTHORITIES.clone();
+					tx.send(Ok(Some(session_info))).unwrap();
 				}
 			);
 
@@ -617,7 +610,37 @@ fn issues_update_authorities_after_session() {
 			);
 
 			// Ensure neighbors are unaffected
-			test_neighbors(overseer, 1).await;
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_,
+					RuntimeApiRequest::CurrentBabeEpoch(tx),
+				)) => {
+					let _ = tx.send(Ok(BabeEpoch {
+						epoch_index: 2 as _,
+						start_slot: 0.into(),
+						duration: 200,
+						authorities: vec![(Sr25519Keyring::Alice.public().into(), 1)],
+						randomness: [0u8; 32],
+						config: BabeEpochConfiguration {
+							c: (1, 4),
+							allowed_slots: AllowedSlots::PrimarySlots,
+						},
+					})).unwrap();
+				}
+			);
+
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::NetworkBridgeRx(NetworkBridgeRxMessage::NewGossipTopology {
+					session: _,
+					local_index: _,
+					canonical_shuffling: _,
+					shuffled_indices: _,
+				}) => {
+
+				}
+			);
 
 			// 2. Connect all authorities that are known so far.
 			let known_authorities = authority_discovery_mock.authorities();
@@ -636,8 +659,9 @@ fn issues_update_authorities_after_session() {
 					.expect("msg send timeout");
 			}
 
-			// 3. Send a new leaf and check UpdateAuthority is emitted for all known connected
-			//    peers.
+			Delay::new(BACKOFF_DURATION).await;
+			// 3. Send a new leaf after BACKOFF_DURATION  and check UpdateAuthority is emitted for
+			//    all known connected peers.
 			let hash = Hash::repeat_byte(0xBB);
 			overseer_signal_active_leaves(overseer, hash).await;
 
@@ -667,6 +691,26 @@ fn issues_update_authorities_after_session() {
 				}
 			);
 
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					relay_parent,
+					RuntimeApiRequest::Authorities(tx),
+				)) => {
+					assert_eq!(relay_parent, hash);
+					tx.send(Ok(PAST_PRESENT_FUTURE_AUTHORITIES.clone())).unwrap();
+				}
+			);
+
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ConnectToResolvedValidators {
+					validator_addrs: _,
+					peer_set: _,
+				}) => {
+				}
+			);
+
 			for _ in 0..known_authorities.len() {
 				assert_matches!(
 					overseer_recv(overseer).await,
@@ -680,10 +724,14 @@ fn issues_update_authorities_after_session() {
 			}
 
 			assert!(overseer.recv().timeout(TIMEOUT).await.is_none());
-
-			// 4. Connect a few more authorities.
+			// 4. Connect more authorities except one
 			let newly_added = authority_discovery_mock.add_more_authorties(unknown_at_session);
-			for (peer_id, _) in newly_added.iter() {
+			let mut newly_added_iter = newly_added.iter();
+			let unconnected_at_last_retry = newly_added_iter
+				.next()
+				.map(|(peer_id, authority_id)| (*peer_id, authority_id.clone()))
+				.unwrap();
+			for (peer_id, _) in newly_added_iter {
 				let msg =
 					GossipSupportMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerConnected(
 						*peer_id,
@@ -698,9 +746,10 @@ fn issues_update_authorities_after_session() {
 					.expect("msg send timeout");
 			}
 
-			// 5. Send a new leaf and check UpdateAuthority is emitted only for newly connected
+			// 5. Send a new leaf and check UpdateAuthority is emitted only for the newly connected
 			//    peers.
 			let hash = Hash::repeat_byte(0xCC);
+			Delay::new(BACKOFF_DURATION).await;
 			overseer_signal_active_leaves(overseer, hash).await;
 
 			assert_matches!(
@@ -728,17 +777,39 @@ fn issues_update_authorities_after_session() {
 				}
 			);
 
-			for _ in 0..newly_added.len() {
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					relay_parent,
+					RuntimeApiRequest::Authorities(tx),
+				)) => {
+					assert_eq!(relay_parent, hash);
+					tx.send(Ok(PAST_PRESENT_FUTURE_AUTHORITIES.clone())).unwrap();
+				}
+			);
+
+			assert_matches!(
+				overseer_recv(overseer).await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ConnectToResolvedValidators {
+					validator_addrs: _,
+					peer_set: _,
+				}) => {
+				}
+			);
+
+			for _ in 1..newly_added.len() {
 				assert_matches!(
 					overseer_recv(overseer).await,
 					AllMessages::NetworkBridgeRx(NetworkBridgeRxMessage::UpdatedAuthorityIds {
 						peer_id,
 						authority_ids,
 					}) => {
+						assert_ne!(peer_id, unconnected_at_last_retry.0);
 						assert_eq!(newly_added.get(&peer_id).cloned().unwrap_or_default(), authority_ids);
 					}
 				);
 			}
+
 			assert!(overseer.recv().timeout(TIMEOUT).await.is_none());
 			virtual_overseer
 		},
