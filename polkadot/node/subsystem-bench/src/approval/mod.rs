@@ -28,8 +28,10 @@ use crate::{
 		mock_chain_selection::MockChainSelection,
 	},
 	core::{
-		configuration::{TestAuthorities, TestConfiguration},
-		environment::{TestEnvironment, TestEnvironmentDependencies, MAX_TIME_OF_FLIGHT},
+		configuration::TestAuthorities,
+		environment::{
+			BenchmarkUsage, TestEnvironment, TestEnvironmentDependencies, MAX_TIME_OF_FLIGHT,
+		},
 		mock::{
 			dummy_builder,
 			network_bridge::{MockNetworkBridgeRx, MockNetworkBridgeTx},
@@ -41,6 +43,7 @@ use crate::{
 		},
 		NODE_UNDER_TEST,
 	},
+	TestConfiguration,
 };
 use colored::Colorize;
 use futures::channel::oneshot;
@@ -876,7 +879,11 @@ fn prepare_test_inner(
 	)
 }
 
-pub async fn bench_approvals(env: &mut TestEnvironment, mut state: ApprovalTestState) {
+pub async fn bench_approvals(
+	benchmark_name: &str,
+	env: &mut TestEnvironment,
+	mut state: ApprovalTestState,
+) -> BenchmarkUsage {
 	let producer_rx = state
 		.start_message_production(
 			env.network(),
@@ -885,15 +892,16 @@ pub async fn bench_approvals(env: &mut TestEnvironment, mut state: ApprovalTestS
 			env.registry().clone(),
 		)
 		.await;
-	bench_approvals_run(env, state, producer_rx).await
+	bench_approvals_run(benchmark_name, env, state, producer_rx).await
 }
 
 /// Runs the approval benchmark.
 pub async fn bench_approvals_run(
+	benchmark_name: &str,
 	env: &mut TestEnvironment,
 	state: ApprovalTestState,
 	producer_rx: oneshot::Receiver<()>,
-) {
+) -> BenchmarkUsage {
 	let config = env.config().clone();
 
 	env.metrics().set_n_validators(config.n_validators);
@@ -1054,6 +1062,5 @@ pub async fn bench_approvals_run(
 		state.total_unique_messages.load(std::sync::atomic::Ordering::SeqCst)
 	);
 
-	env.display_network_usage();
-	env.display_cpu_usage(&["approval-distribution", "approval-voting"]);
+	env.collect_resource_usage(benchmark_name, &["approval-distribution", "approval-voting"])
 }

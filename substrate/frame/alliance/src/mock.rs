@@ -17,13 +17,13 @@
 
 //! Test utilities
 
+use core::convert::{TryFrom, TryInto};
 pub use sp_core::H256;
 use sp_runtime::traits::Hash;
 pub use sp_runtime::{
 	traits::{BlakeTwo256, IdentifyAccount, Lazy, Verify},
 	BuildStorage,
 };
-use sp_std::convert::{TryFrom, TryInto};
 
 pub use frame_support::{
 	assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
