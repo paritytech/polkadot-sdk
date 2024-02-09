@@ -32,12 +32,20 @@ old: reports polkadot_parachain_approvals_no_shows_total < 3 within 10 seconds
 new: log line contains "Trying the fallback protocol" within 100 seconds
 
 # Ensure that there are no failed recoveries.
+new: count of log lines containing "Data recovery from chunks is complete" is at least 10 within 300 seconds
+old: count of log lines containing "Data recovery from chunks is complete" is at least 10 within 300 seconds
+new: count of log lines containing "Data recovery from chunks is not possible" is 0 within 10 seconds
+old: count of log lines containing "Data recovery from chunks is not possible" is 0 within 10 seconds
 new: reports polkadot_parachain_availability_recovery_recoveries_finished{result="failure"} is 0 within 10 seconds
 old: reports polkadot_parachain_availability_recovery_recoveries_finished{result="failure"} is 0 within 10 seconds
 
+# Ensure systematic recovery was not used.
+old: count of log lines containing "Data recovery from systematic chunks is complete" is 0 within 10 seconds
+new: count of log lines containing "Data recovery from systematic chunks is complete" is 0 within 10 seconds
+
 # Ensure availability-distribution worked fine
-new: reports polkadot_parachain_fetched_chunks_total{success="succeeded"} is at least 10 within 200 seconds
-old: reports polkadot_parachain_fetched_chunks_total{success="succeeded"} is at least 10 within 200 seconds
+new: reports polkadot_parachain_fetched_chunks_total{success="succeeded"} is at least 10 within 400 seconds
+old: reports polkadot_parachain_fetched_chunks_total{success="succeeded"} is at least 10 within 400 seconds
 
 new: reports polkadot_parachain_fetched_chunks_total{success="failed"} is 0 within 10 seconds
 old: reports polkadot_parachain_fetched_chunks_total{success="failed"} is 0 within 10 seconds
