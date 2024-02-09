@@ -36,6 +36,7 @@ use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretString
 use sp_std::vec::Vec;
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::hash::{Hash, Hasher};
 use scale_info::TypeInfo;
 
 #[cfg(feature = "serde")]
@@ -153,9 +154,8 @@ impl<T> Ord for Public<T> {
 	}
 }
 
-#[cfg(feature = "full_crypto")]
-impl<T> sp_std::hash::Hash for Public<T> {
-	fn hash<H: sp_std::hash::Hasher>(&self, state: &mut H) {
+impl<T> Hash for Public<T> {
+	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.inner.hash(state)
 	}
 }
@@ -329,9 +329,8 @@ impl<T> PartialEq for Signature<T> {
 
 impl<T> Eq for Signature<T> {}
 
-#[cfg(feature = "full_crypto")]
-impl<T> sp_std::hash::Hash for Signature<T> {
-	fn hash<H: sp_std::hash::Hasher>(&self, state: &mut H) {
+impl<T> Hash for Signature<T> {
+	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.inner.hash(state)
 	}
 }

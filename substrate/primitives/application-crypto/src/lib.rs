@@ -269,7 +269,7 @@ macro_rules! app_crypto_public_not_full_crypto {
 		$crate::wrap! {
 			/// A generic `AppPublic` wrapper type over $public crypto; this has no specific App.
 			#[derive(
-				Clone, Eq, PartialEq, Ord, PartialOrd,
+				Clone, Eq, Hash, PartialEq, Ord, PartialOrd,
 				$crate::codec::Encode,
 				$crate::codec::Decode,
 				$crate::RuntimeDebug,
@@ -414,13 +414,12 @@ macro_rules! app_crypto_signature_full_crypto {
 	($sig:ty, $key_type:expr, $crypto_type:expr) => {
 		$crate::wrap! {
 			/// A generic `AppPublic` wrapper type over $public crypto; this has no specific App.
-			#[derive(Clone, Eq, PartialEq,
+			#[derive(Clone, Eq, PartialEq, Hash,
 				$crate::codec::Encode,
 				$crate::codec::Decode,
 				$crate::RuntimeDebug,
 				$crate::scale_info::TypeInfo,
 			)]
-			#[derive(Hash)]
 			pub struct Signature($sig);
 		}
 
@@ -450,7 +449,7 @@ macro_rules! app_crypto_signature_not_full_crypto {
 	($sig:ty, $key_type:expr, $crypto_type:expr) => {
 		$crate::wrap! {
 			/// A generic `AppPublic` wrapper type over $public crypto; this has no specific App.
-			#[derive(Clone, Eq, PartialEq,
+			#[derive(Clone, Eq, PartialEq, Hash,
 				$crate::codec::Encode,
 				$crate::codec::Decode,
 				$crate::RuntimeDebug,
@@ -461,6 +460,7 @@ macro_rules! app_crypto_signature_not_full_crypto {
 
 		impl $crate::CryptoType for Signature {
 			type Public = Public;
+			type Signature = Signature;
 		}
 
 		impl $crate::AppCrypto for Signature {

@@ -29,6 +29,7 @@ use crate::crypto::{DeriveError, DeriveJunction, Pair as PairT, SecretStringErro
 use sp_std::vec::Vec;
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::hash::{Hash, Hasher};
 use scale_info::TypeInfo;
 #[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
@@ -146,9 +147,8 @@ type Seed = [u8; SECURE_SEED_LEN];
 #[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Public<const LEFT_PLUS_RIGHT_LEN: usize>([u8; LEFT_PLUS_RIGHT_LEN]);
 
-#[cfg(feature = "full_crypto")]
-impl<const LEFT_PLUS_RIGHT_LEN: usize> sp_std::hash::Hash for Public<LEFT_PLUS_RIGHT_LEN> {
-	fn hash<H: sp_std::hash::Hasher>(&self, state: &mut H) {
+impl<const LEFT_PLUS_RIGHT_LEN: usize> Hash for Public<LEFT_PLUS_RIGHT_LEN> {
+	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.0.hash(state);
 	}
 }
@@ -296,12 +296,6 @@ impl<const LEFT_PLUS_RIGHT_LEN: usize> PublicT for Public<LEFT_PLUS_RIGHT_LEN> w
 
 impl<const LEFT_PLUS_RIGHT_LEN: usize> Derive for Public<LEFT_PLUS_RIGHT_LEN> {}
 
-// /// Trait characterizing a signature which could be used as individual component of an
-// /// `paired_crypto:Signature` pair.
-// pub trait SignatureBound: ByteArray {}
-
-// impl<T: ByteArray> SignatureBound for T {}
-
 /// A pair of signatures of different types
 #[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq)]
 pub struct Signature<const LEFT_PLUS_RIGHT_LEN: usize>([u8; LEFT_PLUS_RIGHT_LEN]);
@@ -311,9 +305,8 @@ impl<const LEFT_PLUS_RIGHT_LEN: usize> SignatureT for Signature<LEFT_PLUS_RIGHT_
 {
 }
 
-#[cfg(feature = "full_crypto")]
-impl<const LEFT_PLUS_RIGHT_LEN: usize> sp_std::hash::Hash for Signature<LEFT_PLUS_RIGHT_LEN> {
-	fn hash<H: sp_std::hash::Hasher>(&self, state: &mut H) {
+impl<const LEFT_PLUS_RIGHT_LEN: usize> Hash for Signature<LEFT_PLUS_RIGHT_LEN> {
+	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.0.hash(state);
 	}
 }

@@ -497,7 +497,7 @@ pub trait ByteArray: AsRef<[u8]> + AsMut<[u8]> + for<'a> TryFrom<&'a [u8], Error
 
 /// Trait for cryptographic public keys.
 pub trait Public:
-	CryptoType<Public = Self> + ByteArray + Derive + PartialEq + Eq + Clone + Send + Sync
+	CryptoType<Public = Self> + ByteArray + Derive + PartialEq + Eq + Clone + Send + Sync + Hash
 {
 }
 
@@ -505,8 +505,7 @@ pub trait Public:
 pub trait Signature: CryptoType<Signature = Self> + AsRef<[u8]> {}
 
 /// An opaque 32-byte cryptographic identifier.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Hash))]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, TypeInfo, Hash)]
 pub struct AccountId32([u8; 32]);
 
 impl AccountId32 {
@@ -1055,21 +1054,22 @@ where
 
 /// Type which has a particular kind of crypto associated with it.
 pub trait CryptoType {
-	/// The pair key type of this crypto.
+	/// Secret key.
 	#[cfg(feature = "full_crypto")]
 	type Pair: Pair
 		+ CryptoType<Pair = Self::Pair, Public = Self::Public, Signature = Self::Signature>;
-	/// The type which is used to encode a public key.
+	/// Public key.
 	#[cfg(feature = "full_crypto")]
 	type Public: Public
-		+ Hash
 		+ CryptoType<Pair = Self::Pair, Public = Self::Public, Signature = Self::Signature>;
+	/// Public key.
 	#[cfg(not(feature = "full_crypto"))]
-	type Public: Public + Hash + CryptoType<Public = Self::Public, Signature = Self::Signature>;
-	/// The type which is used to encode a public key.
+	type Public: Public + CryptoType<Public = Self::Public, Signature = Self::Signature>;
+	/// Signature.
 	#[cfg(feature = "full_crypto")]
 	type Signature: Signature
 		+ CryptoType<Pair = Self::Pair, Public = Self::Public, Signature = Self::Signature>;
+	/// Signature.
 	#[cfg(not(feature = "full_crypto"))]
 	type Signature: Signature + CryptoType<Public = Self::Public, Signature = Self::Signature>;
 }

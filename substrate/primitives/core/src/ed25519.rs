@@ -39,6 +39,7 @@ use crate::crypto::{
 use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError};
 #[cfg(feature = "full_crypto")]
 use core::convert::TryFrom;
+use core::hash::Hash;
 #[cfg(feature = "full_crypto")]
 use ed25519_zebra::{SigningKey, VerificationKey};
 #[cfg(feature = "serde")]
@@ -58,7 +59,6 @@ pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"ed25");
 type Seed = [u8; 32];
 
 /// A public key.
-#[cfg_attr(feature = "full_crypto", derive(Hash))]
 #[derive(
 	PartialEq,
 	Eq,
@@ -71,6 +71,7 @@ type Seed = [u8; 32];
 	PassByInner,
 	MaxEncodedLen,
 	TypeInfo,
+	Hash,
 )]
 pub struct Public(pub [u8; 32]);
 
@@ -211,8 +212,7 @@ impl<'de> Deserialize<'de> for Public {
 }
 
 /// A signature (a 512-bit value).
-#[cfg_attr(feature = "full_crypto", derive(Hash))]
-#[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq)]
+#[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq, Hash)]
 pub struct Signature(pub [u8; 64]);
 
 impl TraitSignature for Signature {}

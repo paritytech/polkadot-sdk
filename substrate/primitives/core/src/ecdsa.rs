@@ -29,6 +29,7 @@ use crate::crypto::{
 };
 #[cfg(feature = "full_crypto")]
 use crate::crypto::{DeriveError, DeriveJunction, Pair as TraitPair, SecretStringError};
+use core::hash::Hash;
 #[cfg(all(feature = "full_crypto", not(feature = "std")))]
 use secp256k1::Secp256k1;
 #[cfg(feature = "std")]
@@ -61,7 +62,6 @@ pub const SIGNATURE_SERIALIZED_SIZE: usize = 65;
 type Seed = [u8; 32];
 
 /// The ECDSA compressed public key.
-#[cfg_attr(feature = "full_crypto", derive(Hash))]
 #[derive(
 	Clone,
 	Copy,
@@ -74,6 +74,7 @@ type Seed = [u8; 32];
 	PartialEq,
 	PartialOrd,
 	Ord,
+	Hash,
 )]
 pub struct Public(pub [u8; PUBLIC_KEY_SERIALIZED_SIZE]);
 
@@ -200,8 +201,7 @@ impl<'de> Deserialize<'de> for Public {
 }
 
 /// A signature (a 512-bit value, plus 8 bits for recovery ID).
-#[cfg_attr(feature = "full_crypto", derive(Hash))]
-#[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq)]
+#[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq, Hash)]
 pub struct Signature(pub [u8; SIGNATURE_SERIALIZED_SIZE]);
 
 impl TraitSignature for Signature {}

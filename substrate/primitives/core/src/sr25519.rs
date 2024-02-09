@@ -44,6 +44,7 @@ use crate::{
 	hash::{H256, H512},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::hash::Hash;
 use scale_info::TypeInfo;
 use sp_std::ops::Deref;
 
@@ -63,7 +64,6 @@ const SIGNING_CTX: &[u8] = b"substrate";
 pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"sr25");
 
 /// An Schnorrkel/Ristretto x25519 ("sr25519") public key.
-#[cfg_attr(feature = "full_crypto", derive(Hash))]
 #[derive(
 	PartialEq,
 	Eq,
@@ -76,6 +76,7 @@ pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"sr25");
 	PassByInner,
 	MaxEncodedLen,
 	TypeInfo,
+	Hash,
 )]
 pub struct Public(pub [u8; 32]);
 
@@ -216,8 +217,7 @@ impl<'de> Deserialize<'de> for Public {
 }
 
 /// An Schnorrkel/Ristretto x25519 ("sr25519") signature.
-#[cfg_attr(feature = "full_crypto", derive(Hash))]
-#[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq)]
+#[derive(Encode, Decode, MaxEncodedLen, PassByInner, TypeInfo, PartialEq, Eq, Hash)]
 pub struct Signature(pub [u8; 64]);
 
 impl TraitSignature for Signature {}
