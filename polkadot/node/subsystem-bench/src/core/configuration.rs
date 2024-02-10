@@ -16,11 +16,14 @@
 //
 //! Test configuration definition and helpers.
 use super::*;
+use itertools::Itertools;
 use keyring::Keyring;
-use std::path::Path;
+use sc_network::PeerId;
+use sp_consensus_babe::AuthorityId;
+use std::{collections::HashMap, path::Path};
 
-pub use crate::cli::TestObjective;
-use polkadot_primitives::{AuthorityDiscoveryId, ValidatorId};
+use crate::TestObjective;
+use polkadot_primitives::{AssignmentId, AuthorityDiscoveryId, ValidatorId};
 use rand::thread_rng;
 use rand_distr::{Distribution, Normal, Uniform};
 
@@ -65,6 +68,25 @@ fn default_backing_group_size() -> usize {
 	5
 }
 
+// Default needed approvals
+fn default_needed_approvals() -> usize {
+	30
+}
+
+fn default_zeroth_delay_tranche_width() -> usize {
+	0
+}
+fn default_relay_vrf_modulo_samples() -> usize {
+	6
+}
+
+fn default_n_delay_tranches() -> usize {
+	89
+}
+fn default_no_show_slots() -> usize {
+	3
+}
+
 /// The test input parameters
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TestConfiguration {
@@ -74,6 +96,17 @@ pub struct TestConfiguration {
 	pub n_validators: usize,
 	/// Number of cores
 	pub n_cores: usize,
+	/// The number of needed votes to approve a candidate.
+	#[serde(default = "default_needed_approvals")]
+	pub needed_approvals: usize,
+	#[serde(default = "default_zeroth_delay_tranche_width")]
+	pub zeroth_delay_tranche_width: usize,
+	#[serde(default = "default_relay_vrf_modulo_samples")]
+	pub relay_vrf_modulo_samples: usize,
+	#[serde(default = "default_n_delay_tranches")]
+	pub n_delay_tranches: usize,
+	#[serde(default = "default_no_show_slots")]
+	pub no_show_slots: usize,
 	/// Maximum backing group size
 	#[serde(default = "default_backing_group_size")]
 	pub max_validators_per_core: usize,
@@ -139,6 +172,11 @@ pub struct TestAuthorities {
 	pub keyring: Keyring,
 	pub validator_public: Vec<ValidatorId>,
 	pub validator_authority_id: Vec<AuthorityDiscoveryId>,
+	pub validator_babe_id: Vec<AuthorityId>,
+	pub validator_assignment_id: Vec<AssignmentId>,
+	pub key_seeds: Vec<String>,
+	pub peer_ids: Vec<PeerId>,
+	pub peer_id_to_authority: HashMap<PeerId, AuthorityDiscoveryId>,
 }
 
 impl TestConfiguration {
@@ -162,91 +200,44 @@ impl TestConfiguration {
 	pub fn generate_authorities(&self) -> TestAuthorities {
 		let keyring = Keyring::default();
 
-		let keys = (0..self.n_validators)
-			.map(|peer_index| keyring.sr25519_new(format!("Node{}", peer_index)))
+		let key_seeds = (0..self.n_validators)
+			.map(|peer_index| format!("//Node{}", peer_index))
+			.collect_vec();
+
+		let keys = key_seeds
+			.iter()
+			.map(|seed| keyring.sr25519_new(seed.as_str()))
 			.collect::<Vec<_>>();
 
-		// Generate `AuthorityDiscoveryId`` for each peer
+		// Generate keys and peers ids in each of the format needed by the tests.
 		let validator_public: Vec<ValidatorId> =
 			keys.iter().map(|key| (*key).into()).collect::<Vec<_>>();
 
 		let validator_authority_id: Vec<AuthorityDiscoveryId> =
 			keys.iter().map(|key| (*key).into()).collect::<Vec<_>>();
 
-		TestAuthorities { keyring, validator_public, validator_authority_id }
-	}
+		let validator_babe_id: Vec<AuthorityId> =
+			keys.iter().map(|key| (*key).into()).collect::<Vec<_>>();
 
-	/// An unconstrained standard configuration matching Polkadot/Kusama
-	pub fn ideal_network(
-		objective: TestObjective,
-		num_blocks: usize,
-		n_validators: usize,
-		n_cores: usize,
-		min_pov_size: usize,
-		max_pov_size: usize,
-	) -> TestConfiguration {
-		Self {
-			objective,
-			n_cores,
-			n_validators,
-			max_validators_per_core: 5,
-			pov_sizes: generate_pov_sizes(n_cores, min_pov_size, max_pov_size),
-			bandwidth: 50 * 1024 * 1024,
-			peer_bandwidth: 50 * 1024 * 1024,
-			// No latency
-			latency: None,
-			num_blocks,
-			min_pov_size,
-			max_pov_size,
-			connectivity: 100,
-		}
-	}
+		let validator_assignment_id: Vec<AssignmentId> =
+			keys.iter().map(|key| (*key).into()).collect::<Vec<_>>();
+		let peer_ids: Vec<PeerId> = keys.iter().map(|_| PeerId::random()).collect::<Vec<_>>();
 
-	pub fn healthy_network(
-		objective: TestObjective,
-		num_blocks: usize,
-		n_validators: usize,
-		n_cores: usize,
-		min_pov_size: usize,
-		max_pov_size: usize,
-	) -> TestConfiguration {
-		Self {
-			objective,
-			n_cores,
-			n_validators,
-			max_validators_per_core: 5,
-			pov_sizes: generate_pov_sizes(n_cores, min_pov_size, max_pov_size),
-			bandwidth: 50 * 1024 * 1024,
-			peer_bandwidth: 50 * 1024 * 1024,
-			latency: Some(PeerLatency { mean_latency_ms: 50, std_dev: 12.5 }),
-			num_blocks,
-			min_pov_size,
-			max_pov_size,
-			connectivity: 95,
-		}
-	}
+		let peer_id_to_authority = peer_ids
+			.iter()
+			.zip(validator_authority_id.iter())
+			.map(|(peer_id, authorithy_id)| (*peer_id, authorithy_id.clone()))
+			.collect();
 
-	pub fn degraded_network(
-		objective: TestObjective,
-		num_blocks: usize,
-		n_validators: usize,
-		n_cores: usize,
-		min_pov_size: usize,
-		max_pov_size: usize,
-	) -> TestConfiguration {
-		Self {
-			objective,
-			n_cores,
-			n_validators,
-			max_validators_per_core: 5,
-			pov_sizes: generate_pov_sizes(n_cores, min_pov_size, max_pov_size),
-			bandwidth: 50 * 1024 * 1024,
-			peer_bandwidth: 50 * 1024 * 1024,
-			latency: Some(PeerLatency { mean_latency_ms: 150, std_dev: 40.0 }),
-			num_blocks,
-			min_pov_size,
-			max_pov_size,
-			connectivity: 67,
+		TestAuthorities {
+			keyring,
+			validator_public,
+			validator_authority_id,
+			peer_ids,
+			validator_babe_id,
+			validator_assignment_id,
+			key_seeds,
+			peer_id_to_authority,
 		}
 	}
 }

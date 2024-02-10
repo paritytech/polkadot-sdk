@@ -211,7 +211,7 @@ pub trait Currency<AccountId> {
 
 /// A non-const `Get` implementation parameterised by a `Currency` impl which provides the result
 /// of `total_issuance`.
-pub struct TotalIssuanceOf<C: Currency<A>, A>(sp_std::marker::PhantomData<(C, A)>);
+pub struct TotalIssuanceOf<C: Currency<A>, A>(core::marker::PhantomData<(C, A)>);
 impl<C: Currency<A>, A> Get<C::Balance> for TotalIssuanceOf<C, A> {
 	fn get() -> C::Balance {
 		C::total_issuance()
@@ -220,7 +220,7 @@ impl<C: Currency<A>, A> Get<C::Balance> for TotalIssuanceOf<C, A> {
 
 /// A non-const `Get` implementation parameterised by a `Currency` impl which provides the result
 /// of `active_issuance`.
-pub struct ActiveIssuanceOf<C: Currency<A>, A>(sp_std::marker::PhantomData<(C, A)>);
+pub struct ActiveIssuanceOf<C: Currency<A>, A>(core::marker::PhantomData<(C, A)>);
 impl<C: Currency<A>, A> Get<C::Balance> for ActiveIssuanceOf<C, A> {
 	fn get() -> C::Balance {
 		C::active_issuance()
