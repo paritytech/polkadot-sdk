@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use frame_support::{derive_impl, traits::ConstU32};
+use frame_support::{derive_impl, traits::ConstU32, traits::ConstU64};
 use scale_info::{form::MetaForm, meta_type};
 use sp_metadata_ir::{
 	RuntimeApiMetadataIR, RuntimeApiMethodMetadataIR, RuntimeApiMethodParamMetadataIR,

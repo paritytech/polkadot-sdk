@@ -23,7 +23,7 @@ use frame_support::{
 	derive_impl,
 	traits::{Contains, OriginTrait},
 };
-use sp_core::ConstU32;
+use sp_core::ConstU64;
 use sp_runtime::{generic, traits::BlakeTwo256};
 
 mod nested {

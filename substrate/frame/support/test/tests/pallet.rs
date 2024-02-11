@@ -23,7 +23,7 @@ use frame_support::{
 	parameter_types,
 	storage::{unhashed, unhashed::contains_prefixed_key},
 	traits::{
-		ConstU32, GetCallIndex, GetCallName, GetStorageVersion, OnFinalize, OnGenesis,
+		ConstU32, ConstU64, GetCallIndex, GetCallName, GetStorageVersion, OnFinalize, OnGenesis,
 		OnInitialize, OnRuntimeUpgrade, PalletError, PalletInfoAccess, StorageVersion,
 		UnfilteredDispatchable,
 	},
