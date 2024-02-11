@@ -4,7 +4,7 @@ doc:
   - audience: Runtime User
     description: |
       Invariants for storage items in the beefy pallet. Enforces the following Invariants:
-      1. `Authorities` should not exceed the `MaxAuthorities` capacity..
+      1. `Authorities` should not exceed the `MaxAuthorities` capacity.
       2. `NextAuthorities` should not exceed the `MaxAuthorities` capacity.
       3. `ValidatorSetId` must be present in `SetIdSession`.
 crates:
