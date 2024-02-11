@@ -63,7 +63,6 @@ const LOG_TARGET: &str = "runtime::beefy";
 pub mod pallet {
 	use super::*;
 	use frame_system::{ensure_root, pallet_prelude::BlockNumberFor};
-	use sp_runtime::TryRuntimeError;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
