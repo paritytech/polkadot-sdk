@@ -764,7 +764,7 @@ mod weight_tests {
 		}
 	}
 
-	type BlockNumber = u32;
+	type BlockNumber = u64;
 	type AccountId = u32;
 	type Balance = u32;
 	type Header = generic::Header<BlockNumber, BlakeTwo256>;

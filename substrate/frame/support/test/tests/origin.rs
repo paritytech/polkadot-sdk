@@ -155,7 +155,7 @@ impl Contains<RuntimeCall> for BaseCallFilter {
 	}
 }
 
-pub type BlockNumber = u32;
+pub type BlockNumber = u64;
 pub type AccountId = u32;
 pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<u32, RuntimeCall, (), ()>;
