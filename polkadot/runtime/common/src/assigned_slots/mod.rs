@@ -653,7 +653,7 @@ mod tests {
 	};
 
 	type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-	type Block = frame_system::mocking::MockBlockU32<Test>;
+	type Block = frame_system::mocking::MockBlock<Test>;
 
 	frame_support::construct_runtime!(
 		pub enum Test

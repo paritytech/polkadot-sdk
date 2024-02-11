@@ -286,7 +286,6 @@ impl frame_system::Config for Runtime {
 	type PalletInfo = PalletInfo;
 	type OnSetCode = ();
 	type Block = Block;
-	type BlockHashCount = ConstU64<10>;
 }
 
 impl module1::Config<module1::Instance1> for Runtime {

@@ -692,7 +692,7 @@ mod tests {
 	};
 	use std::{cell::RefCell, collections::BTreeMap};
 
-	type Block = frame_system::mocking::MockBlockU32<Test>;
+	type Block = frame_system::mocking::MockBlock<Test>;
 
 	frame_support::construct_runtime!(
 		pub enum Test

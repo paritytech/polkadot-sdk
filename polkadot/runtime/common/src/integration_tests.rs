@@ -52,7 +52,7 @@ use sp_runtime::{
 use sp_std::sync::Arc;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-type Block = frame_system::mocking::MockBlockU32<Test>;
+type Block = frame_system::mocking::MockBlock<Test>;
 
 type AccountId = AccountId32;
 type Balance = u32;
