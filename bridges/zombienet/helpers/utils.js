@@ -88,6 +88,7 @@ module.exports = {
         const bestBridgedParachainHeader = await apiAtParent.query[bridgedChain.parachainsPalletName].parasInfo(bridgedChain.bridgedBridgeHubParaId);;
         const hasBestBridgedParachainHeader = bestBridgedParachainHeader.isSome;
 
+        const oldParachainHeaders = hasBestBridgedParachainHeader ? 1: 0;
         // we expect to see: no more than `1` bridged parachain header if there were no parachain header before.
         const maxNewParachainHeaders = hasBestBridgedParachainHeader ? 0 : 1;
         const newParachainHeaders = module.exports.countParachainHeaderImports(bridgedChain, currentEvents);
@@ -98,6 +99,6 @@ module.exports = {
             throw new Error("Unexpected parachain header import: " + newParachainHeaders + " / " + maxNewParachainHeaders);
         }
 
-        return newParachainHeaders;
+        return oldParachainHeaders + newParachainHeaders;
     },
 }
