@@ -182,8 +182,8 @@ pub mod pallet {
 		ParaLocked,
 		/// The ID given for registration has not been reserved.
 		NotReserved,
-		/// Registering parachain with empty code is not allowed.
-		EmptyCode,
+		/// The validation code is invalid.
+		InvalidCode,
 		/// Cannot perform a parachain slot / lifecycle swap. Check that the state of both paras
 		/// are correct for the swap to work.
 		CannotSwap,
@@ -657,7 +657,7 @@ impl<T: Config> Pallet<T> {
 		para_kind: ParaKind,
 	) -> Result<(ParaGenesisArgs, BalanceOf<T>), sp_runtime::DispatchError> {
 		let config = configuration::Pallet::<T>::config();
-		ensure!(validation_code.0.len() > 0, Error::<T>::EmptyCode);
+		ensure!(validation_code.0.len() > 0, Error::<T>::InvalidCode);
 		ensure!(validation_code.0.len() <= config.max_code_size as usize, Error::<T>::CodeTooLarge);
 		ensure!(
 			genesis_head.0.len() <= config.max_head_data_size as usize,
@@ -1062,7 +1062,7 @@ mod tests {
 					para_id,
 					new_code.clone(),
 				),
-				paras::Error::<Test>::EmptyCode
+				paras::Error::<Test>::InvalidCode
 			);
 
 			let new_code = test_validation_code(max_code_size() as usize + 1);
@@ -1072,7 +1072,7 @@ mod tests {
 					para_id,
 					new_code.clone(),
 				),
-				paras::Error::<Test>::CodeTooLarge
+				paras::Error::<Test>::InvalidCode
 			);
 		});
 	}

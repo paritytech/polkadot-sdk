@@ -680,9 +680,7 @@ pub mod pallet {
 		/// Parachain cannot currently schedule a code upgrade.
 		CannotUpgradeCode,
 		/// Invalid validation code size.
-		CodeTooLarge,
-		/// Validation code cannot be empty.
-		EmptyCode,
+		InvalidCode,
 	}
 
 	/// All currently active PVF pre-checking votes.
@@ -1235,8 +1233,8 @@ impl<T: Config> Pallet<T> {
 		ensure!(Self::can_upgrade_validation_code(id), Error::<T>::CannotUpgradeCode);
 		let config = configuration::Pallet::<T>::config();
 		// Validation code sanity checks:
-		ensure!(new_code.0.len() > 0, Error::<T>::EmptyCode);
-		ensure!(new_code.0.len() <= config.max_code_size as usize, Error::<T>::CodeTooLarge);
+		ensure!(new_code.check_sanity(), Error::<T>::InvalidCode);
+		ensure!(new_code.0.len() <= config.max_code_size as usize, Error::<T>::InvalidCode);
 
 		let current_block = frame_system::Pallet::<T>::block_number();
 		// Schedule the upgrade with a delay just like if a parachain triggered the upgrade.
