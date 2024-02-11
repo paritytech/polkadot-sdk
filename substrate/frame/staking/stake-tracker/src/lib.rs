@@ -91,7 +91,6 @@ use frame_support::{
 	defensive,
 	traits::{fungible::Inspect as FnInspect, Defensive, DefensiveSaturating},
 };
-use sp_npos_elections::ExtendedBalance;
 use sp_runtime::traits::Zero;
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, OnStakingUpdate, Stake, StakerStatus, StakingInterface,
@@ -132,6 +131,16 @@ pub enum StakeImbalance<Balance> {
 	Negative(Balance),
 	/// Represents the increase of stake by `Balance`.
 	Positive(Balance),
+}
+
+impl<Balance: PartialOrd + DefensiveSaturating> StakeImbalance<Balance> {
+	fn from(prev_balance: Balance, new_balance: Balance) -> Self {
+		if prev_balance > new_balance {
+			StakeImbalance::Negative(prev_balance.defensive_saturating_sub(new_balance))
+		} else {
+			StakeImbalance::Positive(new_balance.defensive_saturating_sub(prev_balance))
+		}
+	}
 }
 
 #[frame_support::pallet]
@@ -427,7 +436,8 @@ impl<T: Config> Pallet<T> {
 	///  * An idle validator should not be part of the voter list.
 	///  * A dangling target shoud not be part of the voter list.
 	pub(crate) fn do_try_state_approvals() -> Result<(), sp_runtime::TryRuntimeError> {
-		let mut approvals_map: BTreeMap<AccountIdOf<T>, ExtendedBalance> = BTreeMap::new();
+		let mut approvals_map: BTreeMap<AccountIdOf<T>, sp_npos_elections::ExtendedBalance> =
+			BTreeMap::new();
 
 		// build map of approvals stakes from the `VoterList` POV.
 		for voter in T::VoterList::iter() {
@@ -446,7 +456,7 @@ impl<T: Config> Pallet<T> {
 
 				for nomination in nominations {
 					if let Some(stake) = approvals_map.get_mut(&nomination) {
-						*stake += score as ExtendedBalance;
+						*stake += score as sp_npos_elections::ExtendedBalance;
 					} else {
 						approvals_map.insert(nomination, score.into());
 					}
@@ -502,7 +512,7 @@ impl<T: Config> Pallet<T> {
 
 			if let Some(score) = maybe_self_stake {
 				if let Some(stake) = approvals_map.get_mut(&target) {
-					*stake += score as ExtendedBalance;
+					*stake += score as sp_npos_elections::ExtendedBalance;
 				} else {
 					approvals_map.insert(target, score.into());
 				}
@@ -557,13 +567,18 @@ impl<T: Config> Pallet<T> {
 			);
 		}
 
+		for v in T::VoterList::iter() {
+			frame_support::ensure!(
+				T::VoterList::in_position(&v).expect("voter exists"),
+				"voter list is not sorted"
+			);
+		}
+
 		Ok(())
 	}
 }
 
 impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
-	/// Fired when the stake amount of some staker updates.
-	///
 	/// When a nominator's stake is updated, all the nominated targets must be updated
 	/// accordingly.
 	///
@@ -574,28 +589,6 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		prev_stake: Option<Stake<BalanceOf<T>>>,
 		stake: Stake<BalanceOf<T>>,
 	) {
-		// closure to calculate the stake imbalance of a staker.
-		let stake_imbalance_of = |prev_stake: Option<Stake<BalanceOf<T>>>,
-		                          voter_weight: ExtendedBalance| {
-			if let Some(prev_stake) = prev_stake {
-				let prev_voter_weight = Self::to_vote_extended(prev_stake.active);
-
-				if prev_voter_weight > voter_weight {
-					StakeImbalance::Negative(
-						prev_voter_weight.defensive_saturating_sub(voter_weight),
-					)
-				} else {
-					StakeImbalance::Positive(
-						voter_weight.defensive_saturating_sub(prev_voter_weight),
-					)
-				}
-			} else {
-				// if staker had no stake before update, then add all the voter weight
-				// to the target's score.
-				StakeImbalance::Positive(voter_weight)
-			}
-		};
-
 		if T::Staking::status(who)
 			.and(T::Staking::stake(who))
 			.defensive_proof(
@@ -612,7 +605,10 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
                             with staking.",
 					);
 
-					let stake_imbalance = stake_imbalance_of(prev_stake, voter_weight.into());
+					let stake_imbalance = StakeImbalance::from(
+						prev_stake.map_or(Default::default(), |s| Self::to_vote_extended(s.active)),
+						voter_weight.into(),
+					);
 
 					log!(
 						debug,
@@ -630,7 +626,10 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 				},
 				StakerStatus::Validator => {
 					// validator is both a target and a voter.
-					let stake_imbalance = stake_imbalance_of(prev_stake, voter_weight.into());
+					let stake_imbalance = StakeImbalance::from(
+						prev_stake.map_or(Default::default(), |s| Self::to_vote_extended(s.active)),
+						voter_weight.into(),
+					);
 
 					Self::update_target_score(who, stake_imbalance);
 
@@ -644,8 +643,6 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		}
 	}
 
-	/// Fired when someone sets their intention to validate.
-	///
 	/// A validator is also considered a voter with self-vote and should also be added to
 	/// [`Config::VoterList`].
 	//
@@ -675,9 +672,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		Self::on_nominator_add(who, vec![])
 	}
 
-	/// Fired when a validator becomes idle (i.e. chilling).
-	///
-	/// While chilled, the target node remains in the target list.
+	/// A validator has been chilled. The target node remains in the target list.
 	///
 	/// While idling, the target node is not removed from the target list but its score is
 	/// updated.
@@ -691,10 +686,9 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		log!(debug, "on_validator_idle: {:?}, decreased self-stake {}", who, self_stake);
 	}
 
-	/// Fired when someone removes their intention to validate and has been completely removed
-	/// from the staking state.
-	///
-	/// The node is removed from the target list IFF its score is 0.
+	/// A validator has been set as inactive/removed from the staking POV. The target node is
+	/// removed from the target list IFF its score is 0. Otherwise, its score should be kept up to
+	/// date as if the validator was active.
 	fn on_validator_remove(who: &T::AccountId) {
 		log!(debug, "on_validator_remove: {:?}", who,);
 
@@ -718,8 +712,6 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		}
 	}
 
-	/// Fired when someone sets their intention to nominate.
-	///
 	/// Note: it is assumed that `who`'s ledger staking state is updated *before* this method is
 	/// called.
 	fn on_nominator_add(who: &T::AccountId, nominations: Vec<AccountIdOf<T>>) {
@@ -746,9 +738,8 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		log!(debug, "on_nominator_add: {:?}. role: {:?}", who, T::Staking::status(who),);
 	}
 
-	/// Fired when a nominator becomes idle (i.e. chilling).
-	///
-	/// From the `T::VotertList` PoV, chilling a nominator is the same as removing it.
+	/// A nominator has been idle. From the `T::VotertList` PoV, chilling a nominator is the same as
+	/// removing it.
 	///
 	/// Note: it is assumed that `who`'s staking ledger and `nominations` are up to date before
 	/// calling this method.
@@ -781,8 +772,6 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 			.defensive_proof("the nominator exists in the list as per the contract with staking.");
 	}
 
-	/// Fired when an existing nominator updates their nominations.
-	///
 	/// This is called when a nominator updates their nominations. The nominator's stake remains
 	/// the same (updates to the nominator's stake should emit [`Self::on_stake_update`]
 	/// instead). However, the score of the nominated targets must be updated accordingly.
@@ -816,10 +805,18 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		}
 	}
 
-	/// Fired when a slash happens.
-	///
-	/// In practice, this is a noop in the context of the stake tracker, since the score of the
-	/// voters and targets are updated through the `ledger.update` calls following the slash.
+	// no-op events.
+
+	/// The score of the staker `who` is updated through the `on_stake_update` calls following the
+	/// full unstake (ledger kill).
+	fn on_unstake(_who: &T::AccountId) {}
+
+	/// The score of the staker `who` is updated through the `on_stake_update` calls following the
+	/// withdraw.
+	fn on_withdraw(_who: &T::AccountId, _amount: BalanceOf<T>) {}
+
+	/// The score of the staker `who` is updated through the `on_stake_update` calls following the
+	/// slash.
 	fn on_slash(
 		_stash: &T::AccountId,
 		_slashed_active: BalanceOf<T>,

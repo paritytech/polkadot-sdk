@@ -163,6 +163,9 @@ impl<T: Config> StakingLedger<T> {
 	/// Bonds the ledger if it is not bonded yet, signalling that this is a new ledger. The staking
 	/// locks of the stash account are updated accordingly.
 	///
+	/// Emits:
+	/// * [`OnStakeUpdate::on_stake_update`]
+	///
 	/// Note: To ensure lock consistency, all the [`Ledger`] storage updates should be made through
 	/// this helper function.
 	pub(crate) fn update(self) -> Result<(), Error<T>> {
@@ -219,6 +222,9 @@ impl<T: Config> StakingLedger<T> {
 	/// Clears all data related to a staking ledger and its bond in both [`Ledger`] and [`Bonded`]
 	/// storage items and updates the stash staking lock.
 	///
+	/// Emits:
+	/// * [`OnStakingUpdate::on_unstake`]
+	///
 	/// Note: we assume that [`T::EventListeners::on_nominator_remove`] and/or
 	/// [`T::EventListeners::on_validator_remove`] have been called and the stash is idle, prior to
 	/// call this method. This can be achieved by calling [`crate::Pallet::<T>::kill_stash`] prior
@@ -234,6 +240,8 @@ impl<T: Config> StakingLedger<T> {
 
 			<Bonded<T>>::remove(&stash);
 			<Payee<T>>::remove(&stash);
+
+			T::EventListeners::on_unstake(stash);
 
 			Ok(())
 		})?
