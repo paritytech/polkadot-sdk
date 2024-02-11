@@ -27,7 +27,6 @@ use frame_support::{
 };
 use pallet_session::historical as pallet_session_historical;
 use sp_core::{crypto::KeyTypeId, ConstU128};
-use sp_io::TestExternalities;
 use sp_runtime::{
 	app_crypto::ecdsa::Public, curve::PiecewiseLinear, impl_opaque_keys, testing::TestXt,
 	traits::OpaqueKeys, BuildStorage, Perbill,
@@ -224,16 +223,17 @@ impl ExtBuilder {
 	}
 
 	pub fn build(self) -> sp_io::TestExternalities {
-		let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
-		let balances: Vec<_> = (0..self.authorities.len()).map(|i| (i as u64, 10_000_000)).collect();
+		let balances: Vec<_> =
+			(0..self.authorities.len()).map(|i| (i as u64, 10_000_000)).collect();
 
 		pallet_balances::GenesisConfig::<Test> { balances }
 			.assimilate_storage(&mut t)
 			.unwrap();
 
-		let session_keys: Vec<_> = self.authorities
+		let session_keys: Vec<_> = self
+			.authorities
 			.iter()
 			.enumerate()
 			.map(|(i, k)| (i as u64, i as u64, MockSessionKeys { dummy: k.clone() }))

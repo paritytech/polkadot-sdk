@@ -76,24 +76,24 @@ fn session_change_updates_authorities() {
 
 		assert!(1 == beefy::ValidatorSetId::<Test>::get());
 
-		let want = beefy_log(ConsensusLog::AuthoritiesChange(
-			ValidatorSet::new(want_validators, 1).unwrap(),
-		));
+			let want = beefy_log(ConsensusLog::AuthoritiesChange(
+				ValidatorSet::new(want_validators, 1).unwrap(),
+			));
 
-		let log = System::digest().logs[0].clone();
-		assert_eq!(want, log);
+			let log = System::digest().logs[0].clone();
+			assert_eq!(want, log);
 
-		init_block(2);
+			init_block(2);
 
 		assert!(2 == beefy::ValidatorSetId::<Test>::get());
 
-		let want = beefy_log(ConsensusLog::AuthoritiesChange(
-			ValidatorSet::new(vec![mock_beefy_id(2), mock_beefy_id(4)], 2).unwrap(),
-		));
+			let want = beefy_log(ConsensusLog::AuthoritiesChange(
+				ValidatorSet::new(vec![mock_beefy_id(2), mock_beefy_id(4)], 2).unwrap(),
+			));
 
-		let log = System::digest().logs[1].clone();
-		assert_eq!(want, log);
-	});
+			let log = System::digest().logs[1].clone();
+			assert_eq!(want, log);
+		});
 }
 
 #[test]
@@ -109,70 +109,76 @@ fn session_change_updates_next_authorities() {
 		assert_eq!(want[2], next_authorities[2]);
 		assert_eq!(want[3], next_authorities[3]);
 
-		init_block(1);
+			init_block(1);
 
 		let next_authorities = beefy::NextAuthorities::<Test>::get();
 
-		assert_eq!(next_authorities.len(), 2);
-		assert_eq!(want[1], next_authorities[0]);
-		assert_eq!(want[3], next_authorities[1]);
-	});
+			assert_eq!(next_authorities.len(), 2);
+			assert_eq!(want[1], next_authorities[0]);
+			assert_eq!(want[3], next_authorities[1]);
+		});
 }
 
 #[test]
 fn validator_set_at_genesis() {
 	let want = vec![mock_beefy_id(1), mock_beefy_id(2)];
 
-	ExtBuilder::default().add_authorities(mock_authorities(vec![1, 2, 3, 4])).build_and_execute(|| {
-		let vs = Beefy::validator_set().unwrap();
+	ExtBuilder::default()
+		.add_authorities(mock_authorities(vec![1, 2, 3, 4]))
+		.build_and_execute(|| {
+			let vs = Beefy::validator_set().unwrap();
 
-		assert_eq!(vs.id(), 0u64);
-		assert_eq!(vs.validators()[0], want[0]);
-		assert_eq!(vs.validators()[1], want[1]);
-	});
+			assert_eq!(vs.id(), 0u64);
+			assert_eq!(vs.validators()[0], want[0]);
+			assert_eq!(vs.validators()[1], want[1]);
+		});
 }
 
 #[test]
 fn validator_set_updates_work() {
 	let want = vec![mock_beefy_id(1), mock_beefy_id(2), mock_beefy_id(3), mock_beefy_id(4)];
 
-	ExtBuilder::default().add_authorities(mock_authorities(vec![1, 2, 3, 4])).build_and_execute(|| {
-		let vs = Beefy::validator_set().unwrap();
-		assert_eq!(vs.id(), 0u64);
-		assert_eq!(want[0], vs.validators()[0]);
-		assert_eq!(want[1], vs.validators()[1]);
-		assert_eq!(want[2], vs.validators()[2]);
-		assert_eq!(want[3], vs.validators()[3]);
+	ExtBuilder::default()
+		.add_authorities(mock_authorities(vec![1, 2, 3, 4]))
+		.build_and_execute(|| {
+			let vs = Beefy::validator_set().unwrap();
+			assert_eq!(vs.id(), 0u64);
+			assert_eq!(want[0], vs.validators()[0]);
+			assert_eq!(want[1], vs.validators()[1]);
+			assert_eq!(want[2], vs.validators()[2]);
+			assert_eq!(want[3], vs.validators()[3]);
 
-		init_block(1);
+			init_block(1);
 
-		let vs = Beefy::validator_set().unwrap();
+			let vs = Beefy::validator_set().unwrap();
 
-		assert_eq!(vs.id(), 1u64);
-		assert_eq!(want[0], vs.validators()[0]);
-		assert_eq!(want[1], vs.validators()[1]);
+			assert_eq!(vs.id(), 1u64);
+			assert_eq!(want[0], vs.validators()[0]);
+			assert_eq!(want[1], vs.validators()[1]);
 
-		init_block(2);
+			init_block(2);
 
-		let vs = Beefy::validator_set().unwrap();
+			let vs = Beefy::validator_set().unwrap();
 
-		assert_eq!(vs.id(), 2u64);
-		assert_eq!(want[1], vs.validators()[0]);
-		assert_eq!(want[3], vs.validators()[1]);
-	});
+			assert_eq!(vs.id(), 2u64);
+			assert_eq!(want[1], vs.validators()[0]);
+			assert_eq!(want[3], vs.validators()[1]);
+		});
 }
 
 #[test]
 fn cleans_up_old_set_id_session_mappings() {
-	ExtBuilder::default().add_authorities(mock_authorities(vec![1, 2, 3, 4])).build_and_execute(|| {
-		let max_set_id_session_entries = MaxSetIdSessionEntries::get();
+	ExtBuilder::default()
+		.add_authorities(mock_authorities(vec![1, 2, 3, 4]))
+		.build_and_execute(|| {
+			let max_set_id_session_entries = MaxSetIdSessionEntries::get();
 
-		// we have 3 sessions per era
-		let era_limit = max_set_id_session_entries / 3;
-		// sanity check against division precision loss
-		assert_eq!(0, max_set_id_session_entries % 3);
-		// go through `max_set_id_session_entries` sessions
-		start_era(era_limit);
+			// we have 3 sessions per era
+			let era_limit = max_set_id_session_entries / 3;
+			// sanity check against division precision loss
+			assert_eq!(0, max_set_id_session_entries % 3);
+			// go through `max_set_id_session_entries` sessions
+			start_era(era_limit);
 
 		// we should have a session id mapping for all the set ids from
 		// `max_set_id_session_entries` eras we have observed
@@ -180,8 +186,8 @@ fn cleans_up_old_set_id_session_mappings() {
 			assert!(beefy::SetIdSession::<Test>::get(i as u64).is_some());
 		}
 
-		// go through another `max_set_id_session_entries` sessions
-		start_era(era_limit * 2);
+			// go through another `max_set_id_session_entries` sessions
+			start_era(era_limit * 2);
 
 		// we should keep tracking the new mappings for new sessions
 		for i in max_set_id_session_entries + 1..=max_set_id_session_entries * 2 {
