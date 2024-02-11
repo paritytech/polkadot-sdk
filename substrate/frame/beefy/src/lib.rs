@@ -329,16 +329,18 @@ impl<T: Config> Pallet<T> {
 		let authorities = <Authorities<T>>::get();
 
 		ensure!(
-				authorities.len() as u32 <= T::MaxAuthorities::get().try_into().expect("Max authorities should be present"),
-				"Shouldn't have authorities than the pallet config allows."
-			);
+			authorities.len() as u32 <=
+				T::MaxAuthorities::get().try_into().expect("Max authorities should be present"),
+			"Shouldn't have authorities than the pallet config allows."
+		);
 
 		let next_authorities = <NextAuthorities<T>>::get();
 
 		ensure!(
-				next_authorities.len() as u32 <= T::MaxAuthorities::get().try_into().expect("Max authorities should be present"),
-				"Shouldn't have next authorities than the pallet config allows."
-			);
+			next_authorities.len() as u32 <=
+				T::MaxAuthorities::get().try_into().expect("Max authorities should be present"),
+			"Shouldn't have next authorities than the pallet config allows."
+		);
 		Ok(())
 	}
 
@@ -347,7 +349,10 @@ impl<T: Config> Pallet<T> {
 	/// `ValidatorSetId` must be present in `SetIdSession`
 	fn try_state_validators() -> Result<(), sp_runtime::TryRuntimeError> {
 		let validator_set_id = <ValidatorSetId<T>>::get();
-		ensure!(SetIdSession::<T>::get(validator_set_id).is_some(), "Validator set id must be present in SetIdSession");
+		ensure!(
+			SetIdSession::<T>::get(validator_set_id).is_some(),
+			"Validator set id must be present in SetIdSession"
+		);
 		Ok(())
 	}
 }
