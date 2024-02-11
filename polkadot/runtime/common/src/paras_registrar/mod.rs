@@ -1355,7 +1355,7 @@ mod tests {
 				RuntimeOrigin::signed(1),
 				para_id,
 				vec![1; 3].into(),
-				vec![1, 2, 3].into(),
+				test_validation_code(32)
 			));
 
 			assert_noop!(Registrar::add_lock(RuntimeOrigin::signed(2), para_id), BadOrigin);

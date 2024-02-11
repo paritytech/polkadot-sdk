@@ -79,7 +79,7 @@ impl ValidationCode {
 		ValidationCodeHash(sp_runtime::traits::BlakeTwo256::hash(&self.0[..]))
 	}
 
-	/// Performs basic sanity checks on the validation code
+	/// Performs basic sanity checks on the validation code.
 	pub fn check_sanity(&self) -> bool {
 		// Compressed or not the wasm blob can never be less than 9 bytes.
 		self.0.len() >= 9
