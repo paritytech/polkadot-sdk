@@ -21,6 +21,7 @@ use frame_support::{
 	derive_impl,
 	inherent::{InherentData, InherentIdentifier, MakeFatalError, ProvideInherent},
 	traits::ConstU32,
+	traits::ConstU64,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_core::sr25519;

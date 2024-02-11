@@ -22,7 +22,7 @@ use frame_support::{
 	parameter_types,
 	storage::unhashed,
 	traits::{
-		ConstU32, GetCallName, OnFinalize, OnGenesis, OnInitialize, OnRuntimeUpgrade,
+		ConstU32, ConstU64, GetCallName, OnFinalize, OnGenesis, OnInitialize, OnRuntimeUpgrade,
 		UnfilteredDispatchable,
 	},
 	weights::Weight,
