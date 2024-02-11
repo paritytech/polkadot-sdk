@@ -17,7 +17,7 @@
 
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, dispatch::DispatchResult, ensure,
-	pallet_prelude::ConstU32, pallet_prelude::ConstU64, storage::with_storage_layer,
+	pallet_prelude::ConstU32, traits::ConstU64, storage::with_storage_layer,
 };
 use pallet::*;
 use sp_io::TestExternalities;
