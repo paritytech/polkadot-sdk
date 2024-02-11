@@ -183,11 +183,28 @@ impl Config for Test {
 	type BenchmarkSetup = ();
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	let mut ext = sp_io::TestExternalities::new(t);
-	ext.execute_with(|| System::set_block_number(1));
-	ext
+pub struct ExtBuilder {}
+
+impl Default for ExtBuilder {
+	fn default() -> Self {
+		Self {}
+	}
+}
+
+impl ExtBuilder {
+	pub fn build(self) -> sp_io::TestExternalities {
+		let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+		let mut ext = sp_io::TestExternalities::new(t);
+		ext.execute_with(|| System::set_block_number(1));
+		ext
+	}
+
+	pub fn build_and_execute(self, test: impl FnOnce() -> ()) {
+		self.build().execute_with(|| {
+			test();
+			Club::do_try_state().expect("All invariants must hold after a test");
+		})
+	}
 }
 
 fn next_block() {
@@ -225,14 +242,14 @@ fn completed_poll_should_panic() {
 
 #[test]
 fn basic_stuff() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 0));
 	});
 }
 
 #[test]
 fn member_lifecycle_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
 		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 1));
 		assert_ok!(Club::demote_member(RuntimeOrigin::root(), 1));
@@ -244,7 +261,7 @@ fn member_lifecycle_works() {
 
 #[test]
 fn add_remove_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_noop!(Club::add_member(RuntimeOrigin::signed(1), 1), DispatchError::BadOrigin);
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
 		assert_eq!(member_count(0), 1);
@@ -274,7 +291,7 @@ fn add_remove_works() {
 
 #[test]
 fn promote_demote_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_noop!(Club::add_member(RuntimeOrigin::signed(1), 1), DispatchError::BadOrigin);
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
 		assert_eq!(member_count(0), 1);
@@ -305,7 +322,7 @@ fn promote_demote_works() {
 
 #[test]
 fn promote_demote_by_rank_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
 		for _ in 0..7 {
 			assert_ok!(Club::promote_member(RuntimeOrigin::root(), 1));
@@ -372,7 +389,7 @@ fn promote_demote_by_rank_works() {
 
 #[test]
 fn voting_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 0));
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
 		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 1));
@@ -406,7 +423,7 @@ fn voting_works() {
 
 #[test]
 fn cleanup_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
 		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 1));
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 2));
@@ -433,7 +450,7 @@ fn cleanup_works() {
 
 #[test]
 fn remove_member_cleanup_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
 		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 1));
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 2));
@@ -459,7 +476,7 @@ fn remove_member_cleanup_works() {
 
 #[test]
 fn ensure_ranked_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
 		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 1));
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 2));
@@ -528,7 +545,7 @@ fn ensure_ranked_works() {
 
 #[test]
 fn do_add_member_to_rank_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let max_rank = 9u16;
 		assert_ok!(Club::do_add_member_to_rank(69, max_rank / 2, true));
 		assert_ok!(Club::do_add_member_to_rank(1337, max_rank, true));
@@ -545,7 +562,7 @@ fn do_add_member_to_rank_works() {
 
 #[test]
 fn tally_support_correct() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		// add members,
 		// rank 1: accounts 1, 2, 3
 		// rank 2: accounts 2, 3
@@ -585,7 +602,7 @@ fn tally_support_correct() {
 
 #[test]
 fn exchange_member_works() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
 		assert_eq!(member_count(0), 1);
 
@@ -613,7 +630,7 @@ fn exchange_member_works() {
 
 #[test]
 fn exchange_member_same_noops() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
 		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 1));
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 2));

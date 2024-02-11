@@ -23,8 +23,12 @@ use frame_support::{
 };
 
 use frame_system::EnsureRoot;
-use sp_core::{ConstU32, H256};
-use sp_runtime::{traits::IdentityLookup, AccountId32};
+use sp_core::ConstU32;
+use sp_runtime::{
+	generic,
+	traits::{BlakeTwo256, IdentifyAccount, Verify},
+	MultiAddress, MultiSignature,
+};
 
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use polkadot_runtime_parachains::{
@@ -43,38 +47,29 @@ use xcm_builder::{
 };
 use xcm_executor::{Config, XcmExecutor};
 
-pub type AccountId = AccountId32;
+pub type SignedExtra = (frame_system::CheckNonZeroSender<Runtime>,);
+
+pub type BlockNumber = u64;
+pub type Address = MultiAddress<AccountId, ()>;
+pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
+pub type UncheckedExtrinsic =
+	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+pub type Block = generic::Block<Header, UncheckedExtrinsic>;
+
+pub type Signature = MultiSignature;
+pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Balance = u128;
 
 parameter_types! {
-	pub const BlockHashCount: u64 = 250;
+	pub const BlockHashCount: u32 = 250;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Nonce = u64;
-	type Hash = H256;
-	type Hashing = ::sp_runtime::traits::BlakeTwo256;
 	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
+	type Lookup = sp_runtime::traits::AccountIdLookup<AccountId, ()>;
 	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = BlockHashCount;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type DbWeight = ();
-	type BaseCallFilter = Everything;
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {
@@ -201,8 +196,6 @@ parameter_types! {
 }
 
 impl origin::Config for Runtime {}
-
-type Block = frame_system::mocking::MockBlock<Runtime>;
 
 parameter_types! {
 	/// Amount of weight that can be spent per block to service messages.
