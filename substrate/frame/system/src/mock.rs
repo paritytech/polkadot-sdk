@@ -18,7 +18,7 @@
 use crate::{self as frame_system, *};
 use frame_support::{
 	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64},
+	traits::{ConstU32},
 };
 use sp_core::H256;
 use sp_runtime::{
