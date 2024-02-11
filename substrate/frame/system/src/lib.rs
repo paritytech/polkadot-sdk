@@ -388,7 +388,7 @@ pub mod pallet {
 
 			/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
 			/// Using 256 as default.
-			type BlockHashCount = frame_support::traits::ConstU32<256>;
+			type BlockHashCount = frame_support::traits::ConstU64<256>;
 
 			/// The set code logic, just the default since we're not a parachain.
 			type OnSetCode = ();
