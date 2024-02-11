@@ -135,6 +135,26 @@
 <a href="#135" id="135">135</a>
 <a href="#136" id="136">136</a>
 <a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -234,7 +254,8 @@
 <span class="kw">mod </span>metrics;
 <span class="kw">mod </span>prepare;
 <span class="kw">mod </span>priority;
-<span class="kw">mod </span>security;
+<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+</span><span class="kw">mod </span>security;
 <span class="kw">mod </span>worker_interface;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;test-utils&quot;</span>)]
@@ -272,4 +293,23 @@
 		.trim()
 		.to_string())
 }
+
+<span class="comment">// Trying to run securely and some mandatory errors occurred.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>SECURE_MODE_ERROR: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str =
+	<span class="string">&quot;🚨 Your system cannot securely run a validator. \
+\nRunning validation of malicious PVF code has a higher risk of compromising this machine.&quot;</span>;
+<span class="comment">// Some errors occurred when running insecurely, or some optional errors occurred when running
+// securely.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>SECURE_MODE_WARNING: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;🚨 Some security issues have been detected. \
+\nRunning validation of malicious PVF code has a higher risk of compromising this machine.&quot;</span>;
+<span class="comment">// Message to be printed only when running securely and mandatory errors occurred.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>IGNORE_SECURE_MODE_TIP: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str =
+<span class="string">&quot;\nYou can ignore this error with the `--insecure-validator-i-know-what-i-do` \
+command line argument if you understand and accept the risks of running insecurely. \
+With this flag, security features are enabled on a best-effort basis, but not mandatory. \
+\nMore information: https://wiki.polkadot.network/docs/maintain-guides-secure-validator#secure-validator-mode&quot;</span>;
+<span class="comment">// Only Linux supports security features
+</span><span class="attr">#[cfg(not(target_os = <span class="string">&quot;linux&quot;</span>))]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>SECURE_LINUX_NOTE: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;\nSecure mode is enabled only for Linux \
+\nand a full secure mode is enabled only for Linux x86-64.&quot;</span>;
 </code></pre></div></section></main></body></html>

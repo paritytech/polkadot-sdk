@@ -86,6 +86,36 @@
 <a href="#86" id="86">86</a>
 <a href="#87" id="87">87</a>
 <a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -173,5 +203,35 @@
 	<span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0</span>; len];
 	r.read_exact(<span class="kw-2">&amp;mut </span>buf)<span class="question-mark">?</span>;
 	<span class="prelude-val">Ok</span>(buf)
+}
+
+<span class="attr">#[cfg(all(test, not(feature = <span class="string">&quot;test-utils&quot;</span>)))]
+</span><span class="kw">mod </span>tests {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+	<span class="attr">#[test]
+	</span><span class="kw">fn </span>default_secure_status() {
+		<span class="kw">let </span>status = SecurityStatus::default();
+		<span class="macro">assert!</span>(
+			!status.secure_validator_mode,
+			<span class="string">&quot;secure_validator_mode is false for default security status&quot;
+		</span>);
+		<span class="macro">assert!</span>(
+			!status.can_enable_landlock,
+			<span class="string">&quot;can_enable_landlock is false for default security status&quot;
+		</span>);
+		<span class="macro">assert!</span>(
+			!status.can_enable_seccomp,
+			<span class="string">&quot;can_enable_seccomp is false for default security status&quot;
+		</span>);
+		<span class="macro">assert!</span>(
+			!status.can_unshare_user_namespace_and_change_root,
+			<span class="string">&quot;can_unshare_user_namespace_and_change_root is false for default security status&quot;
+		</span>);
+		<span class="macro">assert!</span>(
+			!status.can_do_secure_clone,
+			<span class="string">&quot;can_do_secure_clone is false for default security status&quot;
+		</span>);
+	}
 }
 </code></pre></div></section></main></body></html>

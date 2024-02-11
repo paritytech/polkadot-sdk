@@ -1712,6 +1712,28 @@
 <a href="#1712" id="1712">1712</a>
 <a href="#1713" id="1713">1713</a>
 <a href="#1714" id="1714">1714</a>
+<a href="#1715" id="1715">1715</a>
+<a href="#1716" id="1716">1716</a>
+<a href="#1717" id="1717">1717</a>
+<a href="#1718" id="1718">1718</a>
+<a href="#1719" id="1719">1719</a>
+<a href="#1720" id="1720">1720</a>
+<a href="#1721" id="1721">1721</a>
+<a href="#1722" id="1722">1722</a>
+<a href="#1723" id="1723">1723</a>
+<a href="#1724" id="1724">1724</a>
+<a href="#1725" id="1725">1725</a>
+<a href="#1726" id="1726">1726</a>
+<a href="#1727" id="1727">1727</a>
+<a href="#1728" id="1728">1728</a>
+<a href="#1729" id="1729">1729</a>
+<a href="#1730" id="1730">1730</a>
+<a href="#1731" id="1731">1731</a>
+<a href="#1732" id="1732">1732</a>
+<a href="#1733" id="1733">1733</a>
+<a href="#1734" id="1734">1734</a>
+<a href="#1735" id="1735">1735</a>
+<a href="#1736" id="1736">1736</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1738,7 +1760,7 @@
 	artifacts::{ArtifactId, ArtifactPathId, ArtifactState, Artifacts},
 	execute::{<span class="self">self</span>, PendingExecutionRequest},
 	metrics::Metrics,
-	prepare, security, Priority, SecurityStatus, ValidationError, LOG_TARGET,
+	prepare, Priority, SecurityStatus, ValidationError, LOG_TARGET,
 };
 <span class="kw">use </span>always_assert::never;
 <span class="kw">use </span>futures::{
@@ -1939,9 +1961,31 @@
 
 	<span class="comment">// Run checks for supported security features once per host startup. If some checks fail, warn
 	// if Secure Validator Mode is disabled and return an error otherwise.
-	</span><span class="kw">let </span>security_status = <span class="kw">match </span>security::check_security_status(<span class="kw-2">&amp;</span>config).<span class="kw">await </span>{
+	</span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+	</span><span class="kw">let </span>security_status = <span class="kw">match </span><span class="kw">crate</span>::security::check_security_status(<span class="kw-2">&amp;</span>config).<span class="kw">await </span>{
 		<span class="prelude-val">Ok</span>(ok) =&gt; ok,
 		<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(SubsystemError::Context(err)),
+	};
+	<span class="attr">#[cfg(not(target_os = <span class="string">&quot;linux&quot;</span>))]
+	</span><span class="kw">let </span>security_status = <span class="kw">if </span>config.secure_validator_mode {
+		<span class="macro">gum::error!</span>(
+			target: LOG_TARGET,
+			<span class="string">&quot;{}{}{}&quot;</span>,
+			<span class="kw">crate</span>::SECURE_MODE_ERROR,
+			<span class="kw">crate</span>::SECURE_LINUX_NOTE,
+			<span class="kw">crate</span>::IGNORE_SECURE_MODE_TIP
+		);
+		<span class="kw">return </span><span class="prelude-val">Err</span>(SubsystemError::Context(
+			<span class="string">&quot;could not enable Secure Validator Mode for non-Linux; check logs&quot;</span>.into(),
+		));
+	} <span class="kw">else </span>{
+		<span class="macro">gum::warn!</span>(
+			target: LOG_TARGET,
+			<span class="string">&quot;{}{}&quot;</span>,
+			<span class="kw">crate</span>::SECURE_MODE_WARNING,
+			<span class="kw">crate</span>::SECURE_LINUX_NOTE,
+		);
+		SecurityStatus::default()
 	};
 
 	<span class="kw">let </span>(to_host_tx, to_host_rx) = mpsc::channel(HOST_MESSAGE_QUEUE_SIZE);

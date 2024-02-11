@@ -377,60 +377,6 @@
 <a href="#377" id="377">377</a>
 <a href="#378" id="378">378</a>
 <a href="#379" id="379">379</a>
-<a href="#380" id="380">380</a>
-<a href="#381" id="381">381</a>
-<a href="#382" id="382">382</a>
-<a href="#383" id="383">383</a>
-<a href="#384" id="384">384</a>
-<a href="#385" id="385">385</a>
-<a href="#386" id="386">386</a>
-<a href="#387" id="387">387</a>
-<a href="#388" id="388">388</a>
-<a href="#389" id="389">389</a>
-<a href="#390" id="390">390</a>
-<a href="#391" id="391">391</a>
-<a href="#392" id="392">392</a>
-<a href="#393" id="393">393</a>
-<a href="#394" id="394">394</a>
-<a href="#395" id="395">395</a>
-<a href="#396" id="396">396</a>
-<a href="#397" id="397">397</a>
-<a href="#398" id="398">398</a>
-<a href="#399" id="399">399</a>
-<a href="#400" id="400">400</a>
-<a href="#401" id="401">401</a>
-<a href="#402" id="402">402</a>
-<a href="#403" id="403">403</a>
-<a href="#404" id="404">404</a>
-<a href="#405" id="405">405</a>
-<a href="#406" id="406">406</a>
-<a href="#407" id="407">407</a>
-<a href="#408" id="408">408</a>
-<a href="#409" id="409">409</a>
-<a href="#410" id="410">410</a>
-<a href="#411" id="411">411</a>
-<a href="#412" id="412">412</a>
-<a href="#413" id="413">413</a>
-<a href="#414" id="414">414</a>
-<a href="#415" id="415">415</a>
-<a href="#416" id="416">416</a>
-<a href="#417" id="417">417</a>
-<a href="#418" id="418">418</a>
-<a href="#419" id="419">419</a>
-<a href="#420" id="420">420</a>
-<a href="#421" id="421">421</a>
-<a href="#422" id="422">422</a>
-<a href="#423" id="423">423</a>
-<a href="#424" id="424">424</a>
-<a href="#425" id="425">425</a>
-<a href="#426" id="426">426</a>
-<a href="#427" id="427">427</a>
-<a href="#428" id="428">428</a>
-<a href="#429" id="429">429</a>
-<a href="#430" id="430">430</a>
-<a href="#431" id="431">431</a>
-<a href="#432" id="432">432</a>
-<a href="#433" id="433">433</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -602,20 +548,6 @@
 
 <span class="doccomment">/// Print an error if Secure Validator Mode and some mandatory errors occurred, warn otherwise.
 </span><span class="kw">fn </span>print_secure_mode_error_or_warning(security_status: <span class="kw-2">&amp;</span>FullSecurityStatus) {
-	<span class="comment">// Trying to run securely and some mandatory errors occurred.
-	</span><span class="kw">const </span>SECURE_MODE_ERROR: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;🚨 Your system cannot securely run a validator. \
-		 \nRunning validation of malicious PVF code has a higher risk of compromising this machine.&quot;</span>;
-	<span class="comment">// Some errors occurred when running insecurely, or some optional errors occurred when running
-	// securely.
-	</span><span class="kw">const </span>SECURE_MODE_WARNING: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;🚨 Some security issues have been detected. \
-		 \nRunning validation of malicious PVF code has a higher risk of compromising this machine.&quot;</span>;
-	<span class="comment">// Message to be printed only when running securely and mandatory errors occurred.
-	</span><span class="kw">const </span>IGNORE_SECURE_MODE_TIP: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str =
-		<span class="string">&quot;\nYou can ignore this error with the `--insecure-validator-i-know-what-i-do` \
-		 command line argument if you understand and accept the risks of running insecurely. \
-		 With this flag, security features are enabled on a best-effort basis, but not mandatory. \
-		 \nMore information: https://wiki.polkadot.network/docs/maintain-guides-secure-validator#secure-validator-mode&quot;</span>;
-
 	<span class="kw">let </span>all_errs_allowed = security_status.all_errs_allowed();
 	<span class="kw">let </span>errs_string = security_status.errs_string();
 
@@ -623,16 +555,16 @@
 		<span class="macro">gum::warn!</span>(
 			target: LOG_TARGET,
 			<span class="string">&quot;{}{}&quot;</span>,
-			SECURE_MODE_WARNING,
+			<span class="kw">crate</span>::SECURE_MODE_WARNING,
 			errs_string,
 		);
 	} <span class="kw">else </span>{
 		<span class="macro">gum::error!</span>(
 			target: LOG_TARGET,
 			<span class="string">&quot;{}{}{}&quot;</span>,
-			SECURE_MODE_ERROR,
+			<span class="kw">crate</span>::SECURE_MODE_ERROR,
 			errs_string,
-			IGNORE_SECURE_MODE_TIP
+			<span class="kw">crate</span>::IGNORE_SECURE_MODE_TIP
 		);
 	}
 }
@@ -643,29 +575,25 @@
 /// to running the check in a worker, we try it... in a worker. The expected return status is 0 on
 /// success and -1 on failure.
 </span><span class="kw">async fn </span>check_can_unshare_user_namespace_and_change_root(
-	<span class="attr">#[cfg_attr(not(target_os = <span class="string">&quot;linux&quot;</span>), allow(unused_variables))]
-	</span>prepare_worker_program_path: <span class="kw-2">&amp;</span>Path,
-	<span class="attr">#[cfg_attr(not(target_os = <span class="string">&quot;linux&quot;</span>), allow(unused_variables))] </span>cache_path: <span class="kw-2">&amp;</span>Path,
+	prepare_worker_program_path: <span class="kw-2">&amp;</span>Path,
+	cache_path: <span class="kw-2">&amp;</span>Path,
 ) -&gt; SecureModeResult {
-	<span class="macro">cfg_if::cfg_if! </span>{
-		<span class="kw">if </span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)] </span>{
-			<span class="kw">let </span>cache_dir_tempdir = tempfile::Builder::new()
-				.prefix(<span class="string">&quot;check-can-unshare-&quot;</span>)
-				.tempdir_in(cache_path)
-				.map_err(|err| SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
-					<span class="macro">format!</span>(<span class="string">&quot;could not create a temporary directory in {:?}: {}&quot;</span>, cache_path, err)
-				))<span class="question-mark">?</span>;
-			spawn_process_for_security_check(
-				prepare_worker_program_path,
-				<span class="string">&quot;--check-can-unshare-user-namespace-and-change-root&quot;</span>,
-				<span class="kw-2">&amp;</span>[cache_dir_tempdir.path()],
-			).<span class="kw">await</span>.map_err(|err| SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(err))
-		} <span class="kw">else </span>{
-			<span class="prelude-val">Err</span>(SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(
-				<span class="string">&quot;only available on Linux&quot;</span>.into()
+	<span class="kw">let </span>cache_dir_tempdir = tempfile::Builder::new()
+		.prefix(<span class="string">&quot;check-can-unshare-&quot;</span>)
+		.tempdir_in(cache_path)
+		.map_err(|err| {
+			SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(<span class="macro">format!</span>(
+				<span class="string">&quot;could not create a temporary directory in {:?}: {}&quot;</span>,
+				cache_path, err
 			))
-		}
-	}
+		})<span class="question-mark">?</span>;
+	spawn_process_for_security_check(
+		prepare_worker_program_path,
+		<span class="string">&quot;--check-can-unshare-user-namespace-and-change-root&quot;</span>,
+		<span class="kw-2">&amp;</span>[cache_dir_tempdir.path()],
+	)
+	.<span class="kw">await
+	</span>.map_err(|err| SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(err))
 }
 
 <span class="doccomment">/// Check if landlock is supported and return an error if not.
@@ -673,25 +601,15 @@
 /// We do this check by spawning a new process and trying to sandbox it. To get as close as possible
 /// to running the check in a worker, we try it... in a worker. The expected return status is 0 on
 /// success and -1 on failure.
-</span><span class="kw">async fn </span>check_landlock(
-	<span class="attr">#[cfg_attr(not(target_os = <span class="string">&quot;linux&quot;</span>), allow(unused_variables))]
-	</span>prepare_worker_program_path: <span class="kw-2">&amp;</span>Path,
-) -&gt; SecureModeResult {
-	<span class="macro">cfg_if::cfg_if! </span>{
-		<span class="kw">if </span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)] </span>{
-			<span class="kw">let </span>abi = polkadot_node_core_pvf_common::worker::security::landlock::LANDLOCK_ABI <span class="kw">as </span>u8;
-			spawn_process_for_security_check(
-				prepare_worker_program_path,
-				<span class="string">&quot;--check-can-enable-landlock&quot;</span>,
-				std::iter::empty::&lt;<span class="kw-2">&amp;</span>str&gt;(),
-			).<span class="kw">await</span>.map_err(|err| SecureModeError::CannotEnableLandlock { err, abi })
-		} <span class="kw">else </span>{
-			<span class="prelude-val">Err</span>(SecureModeError::CannotEnableLandlock {
-				err: <span class="string">&quot;only available on Linux&quot;</span>.into(),
-				abi: <span class="number">0</span>,
-			})
-		}
-	}
+</span><span class="kw">async fn </span>check_landlock(prepare_worker_program_path: <span class="kw-2">&amp;</span>Path) -&gt; SecureModeResult {
+	<span class="kw">let </span>abi = polkadot_node_core_pvf_common::worker::security::landlock::LANDLOCK_ABI <span class="kw">as </span>u8;
+	spawn_process_for_security_check(
+		prepare_worker_program_path,
+		<span class="string">&quot;--check-can-enable-landlock&quot;</span>,
+		std::iter::empty::&lt;<span class="kw-2">&amp;</span>str&gt;(),
+	)
+	.<span class="kw">await
+	</span>.map_err(|err| SecureModeError::CannotEnableLandlock { err, abi })
 }
 
 <span class="doccomment">/// Check if seccomp is supported and return an error if not.
@@ -699,39 +617,23 @@
 /// We do this check by spawning a new process and trying to sandbox it. To get as close as possible
 /// to running the check in a worker, we try it... in a worker. The expected return status is 0 on
 /// success and -1 on failure.
-</span><span class="kw">async fn </span>check_seccomp(
-	<span class="attr">#[cfg_attr(not(all(target_os = <span class="string">&quot;linux&quot;</span>, target_arch = <span class="string">&quot;x86_64&quot;</span>)), allow(unused_variables))]
-	</span>prepare_worker_program_path: <span class="kw-2">&amp;</span>Path,
-) -&gt; SecureModeResult {
-	<span class="macro">cfg_if::cfg_if! </span>{
-		<span class="kw">if </span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)] </span>{
-			<span class="macro">cfg_if::cfg_if! </span>{
-				<span class="kw">if </span><span class="attr">#[cfg(target_arch = <span class="string">&quot;x86_64&quot;</span>)] </span>{
-					spawn_process_for_security_check(
-						prepare_worker_program_path,
-						<span class="string">&quot;--check-can-enable-seccomp&quot;</span>,
-						std::iter::empty::&lt;<span class="kw-2">&amp;</span>str&gt;(),
-					).<span class="kw">await</span>.map_err(|err| SecureModeError::CannotEnableSeccomp(err))
-				} <span class="kw">else </span>{
-					<span class="prelude-val">Err</span>(SecureModeError::CannotEnableSeccomp(
-						<span class="string">&quot;only supported on CPUs from the x86_64 family (usually Intel or AMD)&quot;</span>.into()
-					))
-				}
-			}
-		} <span class="kw">else </span>{
-			<span class="macro">cfg_if::cfg_if! </span>{
-				<span class="kw">if </span><span class="attr">#[cfg(target_arch = <span class="string">&quot;x86_64&quot;</span>)] </span>{
-					<span class="prelude-val">Err</span>(SecureModeError::CannotEnableSeccomp(
-						<span class="string">&quot;only supported on Linux&quot;</span>.into()
-					))
-				} <span class="kw">else </span>{
-					<span class="prelude-val">Err</span>(SecureModeError::CannotEnableSeccomp(
-						<span class="string">&quot;only supported on Linux and on CPUs from the x86_64 family (usually Intel or AMD).&quot;</span>.into()
-					))
-				}
-			}
-		}
-	}
+
+</span><span class="attr">#[cfg(target_arch = <span class="string">&quot;x86_64&quot;</span>)]
+</span><span class="kw">async fn </span>check_seccomp(prepare_worker_program_path: <span class="kw-2">&amp;</span>Path) -&gt; SecureModeResult {
+	spawn_process_for_security_check(
+		prepare_worker_program_path,
+		<span class="string">&quot;--check-can-enable-seccomp&quot;</span>,
+		std::iter::empty::&lt;<span class="kw-2">&amp;</span>str&gt;(),
+	)
+	.<span class="kw">await
+	</span>.map_err(|err| SecureModeError::CannotEnableSeccomp(err))
+}
+
+<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;x86_64&quot;</span>))]
+</span><span class="kw">async fn </span>check_seccomp(<span class="kw">_</span>: <span class="kw-2">&amp;</span>Path) -&gt; SecureModeResult {
+	<span class="prelude-val">Err</span>(SecureModeError::CannotEnableSeccomp(
+		<span class="string">&quot;only supported on CPUs from the x86_64 family (usually Intel or AMD)&quot;</span>.into(),
+	))
 }
 
 <span class="doccomment">/// Check if we can call `clone` with all sandboxing flags, and return an error if not.
@@ -739,27 +641,17 @@
 /// We do this check by spawning a new process and trying to sandbox it. To get as close as possible
 /// to running the check in a worker, we try it... in a worker. The expected return status is 0 on
 /// success and -1 on failure.
-</span><span class="kw">async fn </span>check_can_do_secure_clone(
-	<span class="attr">#[cfg_attr(not(target_os = <span class="string">&quot;linux&quot;</span>), allow(unused_variables))]
-	</span>prepare_worker_program_path: <span class="kw-2">&amp;</span>Path,
-) -&gt; SecureModeResult {
-	<span class="macro">cfg_if::cfg_if! </span>{
-		<span class="kw">if </span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)] </span>{
-			spawn_process_for_security_check(
-				prepare_worker_program_path,
-				<span class="string">&quot;--check-can-do-secure-clone&quot;</span>,
-				std::iter::empty::&lt;<span class="kw-2">&amp;</span>str&gt;(),
-			).<span class="kw">await</span>.map_err(|err| SecureModeError::CannotDoSecureClone(err))
-		} <span class="kw">else </span>{
-			<span class="prelude-val">Err</span>(SecureModeError::CannotDoSecureClone(
-				<span class="string">&quot;only available on Linux&quot;</span>.into()
-			))
-		}
-	}
+</span><span class="kw">async fn </span>check_can_do_secure_clone(prepare_worker_program_path: <span class="kw-2">&amp;</span>Path) -&gt; SecureModeResult {
+	spawn_process_for_security_check(
+		prepare_worker_program_path,
+		<span class="string">&quot;--check-can-do-secure-clone&quot;</span>,
+		std::iter::empty::&lt;<span class="kw-2">&amp;</span>str&gt;(),
+	)
+	.<span class="kw">await
+	</span>.map_err(|err| SecureModeError::CannotDoSecureClone(err))
 }
 
-<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
-</span><span class="kw">async fn </span>spawn_process_for_security_check&lt;I, S&gt;(
+<span class="kw">async fn </span>spawn_process_for_security_check&lt;I, S&gt;(
 	prepare_worker_program_path: <span class="kw-2">&amp;</span>Path,
 	check_arg: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
 	extra_args: I,
