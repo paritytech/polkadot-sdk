@@ -57,7 +57,7 @@ pub mod pallet {
 	}
 }
 
-pub type BlockNumber = u32;
+pub type BlockNumber = u64;
 pub type Nonce = u64;
 pub type AccountId = u64;
 pub type Header = sp_runtime::generic::Header<BlockNumber, sp_runtime::traits::BlakeTwo256>;

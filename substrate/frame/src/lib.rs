@@ -227,7 +227,7 @@ pub mod runtime {
 			<<Signature as traits::Verify>::Signer as traits::IdentifyAccount>::AccountId;
 
 		/// The block-number type, which should be fed into [`frame_system::Config`].
-		pub type BlockNumber = u32;
+		pub type BlockNumber = u64;
 
 		/// TODO: Ideally we want the hashing type to be equal to SysConfig::Hashing?
 		type HeaderInner = generic::Header<BlockNumber, traits::BlakeTwo256>;

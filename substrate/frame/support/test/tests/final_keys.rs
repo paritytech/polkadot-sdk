@@ -192,7 +192,7 @@ fn blake2_128_concat(d: &[u8]) -> Vec<u8> {
 	v
 }
 
-pub type BlockNumber = u32;
+pub type BlockNumber = u64;
 pub type Signature = sr25519::Signature;
 pub type AccountId = <Signature as Verify>::Signer;
 pub type Header = generic::Header<BlockNumber, BlakeTwo256>;

@@ -111,7 +111,7 @@ mod tests {
 		}
 	}
 
-	type BlockNumber = u32;
+	type BlockNumber = u64;
 	type AccountId = u32;
 	type Header = generic::Header<BlockNumber, BlakeTwo256>;
 	type UncheckedExtrinsic = generic::UncheckedExtrinsic<u32, RuntimeCall, (), ()>;

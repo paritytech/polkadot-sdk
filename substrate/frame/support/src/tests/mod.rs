@@ -214,7 +214,7 @@ pub mod frame_system {
 	}
 }
 
-type BlockNumber = u32;
+type BlockNumber = u64;
 type AccountId = u32;
 type Header = generic::Header<BlockNumber, BlakeTwo256>;
 type UncheckedExtrinsic = generic::UncheckedExtrinsic<u32, RuntimeCall, (), ()>;
@@ -504,7 +504,7 @@ fn double_map_append_should_work() {
 		type DoubleMap = self::frame_system::AppendableDM<Runtime>;
 
 		let key1 = 17u32;
-		let key2 = 18u32;
+		let key2 = 18u64;
 
 		DoubleMap::insert(&key1, &key2, &vec![1]);
 		DoubleMap::append(&key1, &key2, 2);
@@ -593,10 +593,10 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				modifier: StorageEntryModifierIR::Default,
 				ty: StorageEntryTypeIR::Map {
 					hashers: vec![StorageHasherIR::Identity],
-					key: scale_info::meta_type::<u32>(),
-					value: scale_info::meta_type::<u32>(),
+					key: scale_info::meta_type::<u64>(),
+					value: scale_info::meta_type::<u64>(),
 				},
-				default: vec![0, 0, 0, 0],
+				default: vec![0, 0, 0, 0, 0, 0, 0, 0],
 				docs: vec![],
 			},
 			StorageEntryMetadataIR {
@@ -604,8 +604,8 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				modifier: StorageEntryModifierIR::Optional,
 				ty: StorageEntryTypeIR::Map {
 					hashers: vec![StorageHasherIR::Blake2_128Concat],
-					key: scale_info::meta_type::<u32>(),
-					value: scale_info::meta_type::<u32>(),
+					key: scale_info::meta_type::<u64>(),
+					value: scale_info::meta_type::<u64>(),
 				},
 				default: vec![0],
 				docs: vec![],
@@ -626,10 +626,10 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				modifier: StorageEntryModifierIR::Default,
 				ty: StorageEntryTypeIR::Map {
 					hashers: vec![StorageHasherIR::Blake2_128Concat, StorageHasherIR::Identity],
-					key: scale_info::meta_type::<(u32, u32)>(),
-					value: scale_info::meta_type::<u32>(),
+					key: scale_info::meta_type::<(u64, u64)>(),
+					value: scale_info::meta_type::<u64>(),
 				},
-				default: vec![0, 0, 0, 0],
+				default: vec![0, 0, 0, 0, 0, 0, 0, 0],
 				docs: vec![],
 			},
 			StorageEntryMetadataIR {
@@ -637,8 +637,8 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 				modifier: StorageEntryModifierIR::Optional,
 				ty: StorageEntryTypeIR::Map {
 					hashers: vec![StorageHasherIR::Blake2_128Concat, StorageHasherIR::Twox64Concat],
-					key: scale_info::meta_type::<(u32, u32)>(),
-					value: scale_info::meta_type::<u32>(),
+					key: scale_info::meta_type::<(u64, u64)>(),
+					value: scale_info::meta_type::<u64>(),
 				},
 				default: vec![0],
 				docs: vec![],
@@ -651,7 +651,7 @@ fn expected_metadata() -> PalletStorageMetadataIR {
 						StorageHasherIR::Blake2_128Concat,
 						StorageHasherIR::Blake2_128Concat,
 					],
-					key: scale_info::meta_type::<(u32, u32)>(),
+					key: scale_info::meta_type::<(u32, u64)>(),
 					value: scale_info::meta_type::<Vec<u32>>(),
 				},
 				default: vec![0],

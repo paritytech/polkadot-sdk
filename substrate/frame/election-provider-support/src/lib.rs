@@ -86,7 +86,7 @@
 //!
 //! type AccountId = u64;
 //! type Balance = u64;
-//! type BlockNumber = u32;
+//! type BlockNumber = u64;
 //!
 //! mod data_provider_mod {
 //!     use super::*;
