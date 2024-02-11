@@ -99,7 +99,6 @@ impl Config for Test {
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<10>;
 	type DbWeight = DbWeight;
 	type Version = Version;
 	type PalletInfo = PalletInfo;

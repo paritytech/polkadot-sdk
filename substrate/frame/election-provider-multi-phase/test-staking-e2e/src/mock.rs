@@ -61,7 +61,7 @@ use crate::{log, log_current_time};
 pub const INIT_TIMESTAMP: BlockNumber = 30_000;
 pub const BLOCK_TIME: BlockNumber = 1000;
 
-type Block = frame_system::mocking::MockBlockU32<Runtime>;
+type Block = frame_system::mocking::MockBlock<Runtime>;
 type Extrinsic = testing::TestXt<RuntimeCall, ()>;
 
 frame_support::construct_runtime!(

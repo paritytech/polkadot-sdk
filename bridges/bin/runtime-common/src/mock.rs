@@ -66,7 +66,7 @@ pub type ThisChainCallOrigin = RuntimeOrigin;
 /// Header of `ThisChain`.
 pub type ThisChainHeader = sp_runtime::generic::Header<ThisChainBlockNumber, ThisChainHasher>;
 /// Block of `ThisChain`.
-pub type ThisChainBlock = frame_system::mocking::MockBlockU32<TestRuntime>;
+pub type ThisChainBlock = frame_system::mocking::MockBlock<TestRuntime>;
 
 /// Account identifier at the `BridgedChain`.
 pub type BridgedChainAccountId = u128;

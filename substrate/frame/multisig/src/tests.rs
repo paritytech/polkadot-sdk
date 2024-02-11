@@ -28,7 +28,7 @@ use frame_support::{
 };
 use sp_runtime::{BuildStorage, TokenError};
 
-type Block = frame_system::mocking::MockBlockU32<Test>;
+type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
 	pub enum Test {
