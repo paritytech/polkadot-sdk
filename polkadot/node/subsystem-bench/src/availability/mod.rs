@@ -13,74 +13,71 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
-use av_store::NetworkAvailabilityState;
+use av_store_helpers::new_av_store;
 use bitvec::bitvec;
 use colored::Colorize;
+use futures::{channel::oneshot, stream::FuturesUnordered, StreamExt};
 use itertools::Itertools;
 use polkadot_node_subsystem_util::availability_chunks::availability_chunk_indices;
-use std::{collections::HashMap, iter::Cycle, ops::Sub, sync::Arc, time::Instant};
 
+use crate::{
+	availability::cli::Strategy,
+	core::{
+		configuration::TestConfiguration,
+		environment::{BenchmarkUsage, TestEnvironmentDependencies},
+		mock::{
+			av_store::{MockAvailabilityStore, NetworkAvailabilityState},
+			chain_api::{ChainApiState, MockChainApi},
+			dummy_builder,
+			network_bridge::{self, MockNetworkBridgeRx, MockNetworkBridgeTx},
+			runtime_api::{node_features_with_chunk_mapping_enabled, MockRuntimeApi},
+			AlwaysSupportsParachains,
+		},
+		network::*,
+	},
+	TestEnvironment, TestObjective, GENESIS_HASH,
+};
+use parity_scale_codec::Encode;
 use polkadot_availability_bitfield_distribution::BitfieldDistribution;
+use polkadot_availability_distribution::{
+	AvailabilityDistributionSubsystem, IncomingRequestReceivers,
+};
+use polkadot_availability_recovery::{AvailabilityRecoverySubsystem, RecoveryStrategyKind};
 use polkadot_node_core_av_store::AvailabilityStoreSubsystem;
-use polkadot_node_subsystem::{Overseer, OverseerConnector, SpawnGlue};
+use polkadot_node_metrics::metrics::Metrics;
+use polkadot_node_network_protocol::{
+	request_response::{v1, v2, IncomingRequest, ReqProtocolNames},
+	OurView, Versioned, VersionedValidationProtocol,
+};
+use polkadot_node_primitives::{AvailableData, BlockData, ErasureChunk, PoV};
+use polkadot_node_subsystem::{
+	messages::{AllMessages, AvailabilityRecoveryMessage},
+	Overseer, OverseerConnector, SpawnGlue,
+};
+use polkadot_node_subsystem_test_helpers::{
+	derive_erasure_chunks_with_proofs_and_root, mock::new_block_import_info,
+};
 use polkadot_node_subsystem_types::{
 	messages::{AvailabilityStoreMessage, NetworkBridgeEvent},
 	Span,
 };
 use polkadot_overseer::{metrics::Metrics as OverseerMetrics, Handle as OverseerHandle};
-use sc_network::{request_responses::ProtocolConfig, PeerId};
-use sp_core::H256;
-
-use av_store_helpers::new_av_store;
-use futures::{channel::oneshot, stream::FuturesUnordered, StreamExt};
-use polkadot_availability_distribution::{
-	AvailabilityDistributionSubsystem, IncomingRequestReceivers,
-};
-use polkadot_node_metrics::metrics::Metrics;
-
-use polkadot_availability_recovery::{AvailabilityRecoverySubsystem, RecoveryStrategyKind};
-use polkadot_node_primitives::{AvailableData, BlockData, ErasureChunk, PoV};
-
-use parity_scale_codec::Encode;
-use polkadot_node_network_protocol::{
-	request_response::{v1, v2, IncomingRequest, ReqProtocolNames},
-	OurView, Versioned, VersionedValidationProtocol,
-};
-use sc_network::request_responses::IncomingRequest as RawIncomingRequest;
-
-use polkadot_node_subsystem::messages::{AllMessages, AvailabilityRecoveryMessage};
-
-use crate::{
-	availability::cli::Strategy,
-	cli::TestObjective,
-	core::{
-		configuration::TestConfiguration,
-		environment::{BenchmarkUsage, TestEnvironmentDependencies},
-		mock::{
-			av_store, dummy_builder,
-			network_bridge::{self, MockNetworkBridgeRx, MockNetworkBridgeTx},
-			node_features_with_chunk_mapping_enabled, runtime_api, AlwaysSupportsParachains,
-			ChainApiState, MockAvailabilityStore, MockChainApi, MockRuntimeApi,
-		},
-		network::*,
-	},
-	TestEnvironment, GENESIS_HASH,
-};
-
-use polkadot_node_subsystem_test_helpers::{
-	derive_erasure_chunks_with_proofs_and_root, mock::new_block_import_info,
-};
 use polkadot_primitives::{
 	AvailabilityBitfield, BlockNumber, CandidateHash, CandidateReceipt, ChunkIndex, CoreIndex,
 	GroupIndex, Hash, HeadData, Header, PersistedValidationData, Signed, SigningContext,
 	ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
+use sc_network::{
+	request_responses::{IncomingRequest as RawIncomingRequest, ProtocolConfig},
+	PeerId,
+};
 use sc_service::SpawnTaskHandle;
+use sp_core::H256;
+use std::{collections::HashMap, iter::Cycle, ops::Sub, sync::Arc, time::Instant};
 
 mod av_store_helpers;
-mod cli;
-pub use cli::{DataAvailabilityReadOptions, NetworkEmulation};
+pub(crate) mod cli;
 
 const LOG_TARGET: &str = "subsystem-bench::availability";
 
@@ -179,7 +176,7 @@ fn prepare_test_inner(
 		);
 	}
 
-	let runtime_api = runtime_api::MockRuntimeApi::new(
+	let runtime_api = MockRuntimeApi::new(
 		config.clone(),
 		test_authorities.clone(),
 		candidate_hashes,
@@ -256,7 +253,7 @@ fn prepare_test_inner(
 			};
 
 			// Use a mocked av-store.
-			let av_store = av_store::MockAvailabilityStore::new(
+			let av_store = MockAvailabilityStore::new(
 				state.chunks.clone(),
 				state.chunk_indices.clone(),
 				state.candidate_hashes.clone(),

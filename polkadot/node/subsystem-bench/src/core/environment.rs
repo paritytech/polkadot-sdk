@@ -13,29 +13,31 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+
 //! Test environment implementation
+
 use crate::{
-	core::{mock::AlwaysSupportsParachains, network::NetworkEmulatorHandle},
+	core::{
+		configuration::TestAuthorities, mock::AlwaysSupportsParachains,
+		network::NetworkEmulatorHandle,
+	},
 	TestConfiguration,
 };
 use colored::Colorize;
 use core::time::Duration;
 use futures::{Future, FutureExt};
-use polkadot_overseer::{BlockInfo, Handle as OverseerHandle};
-use serde::{Deserialize, Serialize};
-
 use polkadot_node_subsystem::{messages::AllMessages, Overseer, SpawnGlue, TimeoutExt};
 use polkadot_node_subsystem_types::Hash;
 use polkadot_node_subsystem_util::metrics::prometheus::{
 	self, Gauge, Histogram, PrometheusError, Registry, U64,
 };
-
+use polkadot_overseer::{BlockInfo, Handle as OverseerHandle};
 use sc_service::{SpawnTaskHandle, TaskManager};
+use serde::{Deserialize, Serialize};
 use std::net::{Ipv4Addr, SocketAddr};
 use tokio::runtime::Handle;
 
 const LOG_TARGET: &str = "subsystem-bench::environment";
-use super::configuration::TestAuthorities;
 
 /// Test environment/configuration metrics
 #[derive(Clone)]

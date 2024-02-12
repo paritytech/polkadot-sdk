@@ -12,10 +12,10 @@
 // GNU General Public License for more details.
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
-//!
+
 //! Implements network emulation and interfaces to control and specialize
 //! network peer behaviour.
-//
+
 //	     [TestEnvironment]
 // 	  [NetworkEmulatorHandle]
 // 			    ||
@@ -33,20 +33,22 @@
 //               |
 //     Subsystems under test
 
-use crate::core::configuration::random_latency;
-
-use super::{
-	configuration::{TestAuthorities, TestConfiguration},
+use crate::core::{
+	configuration::{random_latency, TestAuthorities, TestConfiguration},
 	environment::TestEnvironmentDependencies,
-	*,
+	NODE_UNDER_TEST,
 };
 use colored::Colorize;
 use futures::{
-	channel::{mpsc, oneshot},
+	channel::{
+		mpsc,
+		mpsc::{UnboundedReceiver, UnboundedSender},
+		oneshot,
+	},
 	lock::Mutex,
 	stream::FuturesUnordered,
+	Future, FutureExt, StreamExt,
 };
-
 use itertools::Itertools;
 use net_protocol::{
 	peer_set::{ProtocolVersion, ValidationVersion},
@@ -54,7 +56,11 @@ use net_protocol::{
 	ObservedRole, VersionedValidationProtocol,
 };
 use parity_scale_codec::Encode;
+use polkadot_node_network_protocol::{self as net_protocol, Versioned};
 use polkadot_node_subsystem_types::messages::{ApprovalDistributionMessage, NetworkBridgeEvent};
+use polkadot_node_subsystem_util::metrics::prometheus::{
+	self, CounterVec, Opts, PrometheusError, Registry,
+};
 use polkadot_overseer::AllMessages;
 use polkadot_primitives::AuthorityDiscoveryId;
 use prometheus_endpoint::U64;
@@ -67,14 +73,12 @@ use sc_service::SpawnTaskHandle;
 use std::{
 	collections::HashMap,
 	sync::Arc,
+	task::Poll,
 	time::{Duration, Instant},
 };
 
-use polkadot_node_network_protocol::{self as net_protocol, Versioned};
+const LOG_TARGET: &str = "subsystem-bench::network";
 
-use futures::channel::mpsc::{UnboundedReceiver, UnboundedSender};
-
-use futures::{Future, FutureExt, StreamExt};
 // An emulated node egress traffic rate_limiter.
 #[derive(Debug)]
 pub struct RateLimit {
@@ -202,8 +206,6 @@ struct ProxiedResponse {
 	pub result: Result<Vec<u8>, RequestFailure>,
 }
 
-use std::task::Poll;
-
 impl Future for ProxiedRequest {
 	// The sender and result.
 	type Output = ProxiedResponse;
@@ -265,9 +267,9 @@ impl NetworkInterface {
 							task_rx_limiter.lock().await.reap(size).await;
 							rx_network.inc_received(size);
 
-							// To be able to apply the configured bandwidth limits for responses being sent 
-							// over channels, we need to implement a simple proxy that allows this loop 
-							// to receive the response and enforce the configured bandwidth before 
+							// To be able to apply the configured bandwidth limits for responses being sent
+							// over channels, we need to implement a simple proxy that allows this loop
+							// to receive the response and enforce the configured bandwidth before
 							// sending it to the original recipient.
 							if let NetworkMessage::RequestFromPeer(request) = peer_message {
 								let (response_sender, response_receiver) = oneshot::channel();
@@ -914,10 +916,6 @@ impl NetworkEmulatorHandle {
 	}
 }
 
-use polkadot_node_subsystem_util::metrics::prometheus::{
-	self, CounterVec, Opts, PrometheusError, Registry,
-};
-
 /// Emulated network metrics.
 #[derive(Clone)]
 pub(crate) struct Metrics {
@@ -1036,9 +1034,8 @@ impl RequestExt for Requests {
 
 #[cfg(test)]
 mod tests {
-	use std::time::Instant;
-
 	use super::RateLimit;
+	use std::time::Instant;
 
 	#[tokio::test]
 	async fn test_expected_rate() {
