@@ -32,7 +32,7 @@ sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
 sp-genesis-builder = { path = "../../primitives/genesis-builder" }
 sp-runtime = { path = "../../primitives/runtime" }
 sp-state-machine = { path = "../../primitives/state-machine" }
-log = { version = "0.4.17", default-features = false }
+log = { workspace = true }
 array-bytes = { version = "6.1" }
 docify = "0.2.7"
 

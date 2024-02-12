@@ -19,5 +19,5 @@ sc-network = { path = "../../../substrate/client/network" }
 sp-core = { path = "../../../substrate/primitives/core" }
 thiserror = "1.0.48"
 tokio = "1.24.2"
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 parity-scale-codec = { version = "3.6.1", default-features = false }

@@ -14,26 +14,27 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use self::{
-	helpers::{make_candidates, make_header},
-	test_message::{MessagesBundle, TestMessageInfo},
-};
 use crate::{
 	approval::{
 		helpers::{
 			generate_babe_epoch, generate_new_session_topology, generate_peer_view_change_for,
-			PastSystemClock,
+			make_header, PastSystemClock,
 		},
 		message_generator::PeerMessagesGenerator,
 		mock_chain_selection::MockChainSelection,
+		test_message::{MessagesBundle, TestMessageInfo},
 	},
 	core::{
-		configuration::{TestAuthorities, TestConfiguration},
-		environment::{TestEnvironment, TestEnvironmentDependencies, MAX_TIME_OF_FLIGHT},
+		configuration::TestAuthorities,
+		environment::{
+			BenchmarkUsage, TestEnvironment, TestEnvironmentDependencies, MAX_TIME_OF_FLIGHT,
+		},
 		mock::{
+			chain_api::{ChainApiState, MockChainApi},
 			dummy_builder,
 			network_bridge::{MockNetworkBridgeRx, MockNetworkBridgeTx},
-			AlwaysSupportsParachains, ChainApiState, MockChainApi, MockRuntimeApi, TestSyncOracle,
+			runtime_api::MockRuntimeApi,
+			AlwaysSupportsParachains, TestSyncOracle,
 		},
 		network::{
 			new_network, HandleNetworkMessage, NetworkEmulatorHandle, NetworkInterface,
@@ -41,6 +42,7 @@ use crate::{
 		},
 		NODE_UNDER_TEST,
 	},
+	TestConfiguration,
 };
 use colored::Colorize;
 use futures::channel::oneshot;
@@ -89,14 +91,15 @@ mod message_generator;
 mod mock_chain_selection;
 mod test_message;
 
-pub const LOG_TARGET: &str = "subsystem-bench::approval";
-const DATA_COL: u32 = 0;
+pub(crate) const LOG_TARGET: &str = "subsystem-bench::approval";
 pub(crate) const NUM_COLUMNS: u32 = 1;
 pub(crate) const SLOT_DURATION_MILLIS: u64 = 6000;
 pub(crate) const TEST_CONFIG: ApprovalVotingConfig = ApprovalVotingConfig {
 	col_approval_data: DATA_COL,
 	slot_duration_millis: SLOT_DURATION_MILLIS,
 };
+
+const DATA_COL: u32 = 0;
 
 /// Start generating messages for a slot into the future, so that the
 /// generation nevers falls behind the current slot.
@@ -232,7 +235,7 @@ impl CandidateTestData {
 #[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
 struct GeneratedState {
 	/// All assignments and approvals
-	all_messages: Option<Vec<MessagesBundle>>,
+	all_messages: Option<Vec<test_message::MessagesBundle>>,
 	/// The first slot in the test.
 	initial_slot: Slot,
 }
@@ -365,7 +368,7 @@ impl ApprovalTestState {
 				block_number: block_number as BlockNumber,
 				hash: block_hash,
 				header,
-				candidates: make_candidates(
+				candidates: helpers::make_candidates(
 					block_hash,
 					block_number as BlockNumber,
 					configuration.n_cores as u32,
@@ -502,12 +505,16 @@ struct PeerMessageProducer {
 impl PeerMessageProducer {
 	/// Generates messages by spawning a blocking task in the background which begins creating
 	/// the assignments/approvals and peer view changes at the begining of each block.
-	fn produce_messages(mut self, env: &TestEnvironment, all_messages: Vec<MessagesBundle>) {
+	fn produce_messages(
+		mut self,
+		env: &TestEnvironment,
+		all_messages: Vec<test_message::MessagesBundle>,
+	) {
 		env.spawn_blocking("produce-messages", async move {
 			let mut initialized_blocks = HashSet::new();
 			let mut per_candidate_data: HashMap<(Hash, CandidateIndex), CandidateTestData> =
 				self.initialize_candidates_test_data();
-			let mut skipped_messages: Vec<MessagesBundle> = Vec::new();
+			let mut skipped_messages: Vec<test_message::MessagesBundle> = Vec::new();
 			let mut re_process_skipped = false;
 
 			let system_clock =
@@ -604,9 +611,9 @@ impl PeerMessageProducer {
 	// send the message in our simulation.
 	pub fn process_message(
 		&mut self,
-		bundle: MessagesBundle,
+		bundle: test_message::MessagesBundle,
 		per_candidate_data: &mut HashMap<(Hash, CandidateIndex), CandidateTestData>,
-		skipped_messages: &mut Vec<MessagesBundle>,
+		skipped_messages: &mut Vec<test_message::MessagesBundle>,
 	) -> bool {
 		let mut reprocess_skipped = false;
 		let block_info = self
@@ -876,7 +883,11 @@ fn prepare_test_inner(
 	)
 }
 
-pub async fn bench_approvals(env: &mut TestEnvironment, mut state: ApprovalTestState) {
+pub async fn bench_approvals(
+	benchmark_name: &str,
+	env: &mut TestEnvironment,
+	mut state: ApprovalTestState,
+) -> BenchmarkUsage {
 	let producer_rx = state
 		.start_message_production(
 			env.network(),
@@ -885,15 +896,16 @@ pub async fn bench_approvals(env: &mut TestEnvironment, mut state: ApprovalTestS
 			env.registry().clone(),
 		)
 		.await;
-	bench_approvals_run(env, state, producer_rx).await
+	bench_approvals_run(benchmark_name, env, state, producer_rx).await
 }
 
 /// Runs the approval benchmark.
 pub async fn bench_approvals_run(
+	benchmark_name: &str,
 	env: &mut TestEnvironment,
 	state: ApprovalTestState,
 	producer_rx: oneshot::Receiver<()>,
-) {
+) -> BenchmarkUsage {
 	let config = env.config().clone();
 
 	env.metrics().set_n_validators(config.n_validators);
@@ -1054,6 +1066,5 @@ pub async fn bench_approvals_run(
 		state.total_unique_messages.load(std::sync::atomic::Ordering::SeqCst)
 	);
 
-	env.display_network_usage();
-	env.display_cpu_usage(&["approval-distribution", "approval-voting"]);
+	env.collect_resource_usage(benchmark_name, &["approval-distribution", "approval-voting"])
 }
