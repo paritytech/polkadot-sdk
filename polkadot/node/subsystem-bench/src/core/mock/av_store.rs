@@ -238,7 +238,7 @@ impl MockAvailabilityStore {
 							.chunks
 							.get(*candidate_index)
 							.unwrap()
-							.get(0)
+							.first()
 							.unwrap()
 							.encoded_size();
 						let _ = tx.send(Some(chunk_size));
