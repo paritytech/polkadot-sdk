@@ -36,6 +36,7 @@ pallet-balances = { path = "../balances" }
 default = [ "std" ]
 std = [
 	"codec/std",
+	"sp-core/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
