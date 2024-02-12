@@ -159,11 +159,18 @@ impl<B: BlockT> From<ChainSyncAction<B>> for SyncingAction<B> {
 
 /// Proxy to specific syncing strategies.
 pub struct SyncingStrategy<B: BlockT, Client> {
+	/// Syncing configuration.
 	config: SyncingConfig,
+	/// Client used by syncing strategies.
 	client: Arc<Client>,
+	/// Warp strategy.
 	warp: Option<WarpSync<B, Client>>,
+	/// State strategy.
 	state: Option<StateStrategy<B>>,
+	/// `ChainSync` strategy.`
 	chain_sync: Option<ChainSync<B, Client>>,
+	/// Connected peers and their best blocks used to seed a new strategy when switching to it in
+	/// [`SyncingStrategy::proceed_to_next`].
 	peer_best_blocks: HashMap<PeerId, (B::Hash, NumberFor<B>)>,
 }
 
@@ -250,6 +257,8 @@ where
 		} else if let Some(ref mut chain_sync) = self.chain_sync {
 			chain_sync.on_validated_block_announce(is_best, peer_id, announce)
 		} else {
+			error!(target: LOG_TARGET, "No syncing strategy is active.");
+			debug_assert!(false);
 			Some((announce.header.hash(), *announce.header.number()))
 		};
 
@@ -308,22 +317,18 @@ where
 		request: BlockRequest<B>,
 		blocks: Vec<BlockData<B>>,
 	) {
-		match key {
-			StrategyKey::Warp => {
-				self.warp.as_mut().map(|warp| warp.on_block_response(peer_id, request, blocks));
-			},
-			StrategyKey::ChainSync => {
-				self.chain_sync
-					.as_mut()
-					.map(|chain_sync| chain_sync.on_block_response(peer_id, request, blocks));
-			},
-			key => {
-				error!(
-					target: LOG_TARGET,
-					"`on_block_response()` called with unexpected key {key:?}",
-				);
-				debug_assert!(false);
-			},
+		if let (StrategyKey::Warp, Some(ref mut warp)) = (key, &mut self.warp) {
+			warp.on_block_response(peer_id, request, blocks);
+		} else if let (StrategyKey::ChainSync, Some(ref mut chain_sync)) =
+			(key, &mut self.chain_sync)
+		{
+			chain_sync.on_block_response(peer_id, request, blocks);
+		} else {
+			error!(
+				target: LOG_TARGET,
+				"`on_block_response()` called with key {key:?} while corresponding strategy is not active.",
+			);
+			debug_assert!(false);
 		}
 	}
 

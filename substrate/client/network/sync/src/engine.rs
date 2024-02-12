@@ -48,7 +48,7 @@ use futures::{
 	FutureExt, StreamExt,
 };
 use libp2p::{request_response::OutboundFailure, PeerId};
-use log::{debug, error, trace};
+use log::{debug, error, trace, warn};
 use prometheus_endpoint::{
 	register, Counter, Gauge, MetricSource, Opts, PrometheusError, Registry, SourcedGauge, U64,
 };
@@ -695,13 +695,24 @@ where
 					let removed = self.pending_responses.remove(peer_id, key);
 					self.send_block_request(peer_id, key, request.clone());
 
-					trace!(
-						target: LOG_TARGET,
-						"Processed `ChainSyncAction::SendBlockRequest` to {} with {:?}, stale response removed: {}.",
-						peer_id,
-						request,
-						removed,
-					)
+					if removed {
+						warn!(
+							target: LOG_TARGET,
+							"Processed `ChainSyncAction::SendBlockRequest` to {} from {:?} with {:?}. \
+							 Stale response removed!",
+							peer_id,
+							key,
+							request,
+						)
+					} else {
+						trace!(
+							target: LOG_TARGET,
+							"Processed `ChainSyncAction::SendBlockRequest` to {} from {:?} with {:?}.",
+							peer_id,
+							key,
+							request,
+						)
+					}
 				},
 				SyncingAction::CancelRequest { peer_id, key } => {
 					let removed = self.pending_responses.remove(peer_id, key);
@@ -716,7 +727,7 @@ where
 
 					trace!(
 						target: LOG_TARGET,
-						"Processed `ChainSyncAction::SendBlockRequest` to {peer_id}.",
+						"Processed `ChainSyncAction::SendStateRequest` to {peer_id}.",
 					);
 				},
 				SyncingAction::SendWarpProofRequest { peer_id, key, request } => {
