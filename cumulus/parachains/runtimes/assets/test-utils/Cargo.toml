@@ -35,8 +35,8 @@ parachains-runtimes-test-utils = { path = "../../test-utils", default-features =
 
 # Polkadot
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "6.0.0" }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "6.0.1" }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "6.0.1" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "6.0.2" }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "6.0.2" }
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "6.0.0" }
 polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false, version = "5.0.0" }
 

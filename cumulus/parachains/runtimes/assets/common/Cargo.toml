@@ -23,8 +23,8 @@ pallet-asset-tx-payment = { path = "../../../../../substrate/frame/transaction-p
 # Polkadot
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "6.0.0" }
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "6.0.0" }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "6.0.1" }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "6.0.1" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "6.0.2" }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "6.0.2" }
 
 # Cumulus
 parachains-common = { path = "../../../common", default-features = false, version = "6.0.0" }
