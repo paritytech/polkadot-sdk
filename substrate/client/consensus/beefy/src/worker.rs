@@ -26,7 +26,7 @@ use crate::{
 	error::Error,
 	expect_validator_set,
 	justification::BeefyVersionedFinalityProof,
-	keystore::{BeefyKeystore, BeefySignatureHasher},
+	keystore::BeefyKeystore,
 	metric_inc, metric_set,
 	metrics::VoterMetrics,
 	round::{Rounds, VoteImportResult},
@@ -45,8 +45,8 @@ use sp_consensus::SyncOracle;
 use sp_consensus_beefy::{
 	check_equivocation_proof,
 	ecdsa_crypto::{AuthorityId, Signature},
-	BeefyApi, Commitment, ConsensusLog, EquivocationProof, PayloadProvider, ValidatorSet,
-	VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
+	BeefyApi, BeefySignatureHasher, Commitment, ConsensusLog, EquivocationProof, PayloadProvider,
+	ValidatorSet, VersionedFinalityProof, VoteMessage, BEEFY_ENGINE_ID,
 };
 use sp_runtime::{
 	generic::{BlockId, OpaqueDigestItemId},
@@ -340,7 +340,7 @@ pub(crate) struct BeefyWorkerBase<B: Block, BE, RuntimeApi> {
 	// utilities
 	pub backend: Arc<BE>,
 	pub runtime: Arc<RuntimeApi>,
-	pub key_store: BeefyKeystore,
+	pub key_store: BeefyKeystore<AuthorityId>,
 
 	/// BEEFY client metrics.
 	pub metrics: Option<VoterMetrics>,
@@ -1278,8 +1278,11 @@ pub(crate) mod tests {
 	use sc_network_test::TestNetFactory;
 	use sp_blockchain::Backend as BlockchainBackendT;
 	use sp_consensus_beefy::{
-		generate_equivocation_proof, known_payloads, known_payloads::MMR_ROOT_ID,
-		mmr::MmrRootProvider, Keyring, Payload, SignedCommitment,
+		known_payloads,
+		known_payloads::MMR_ROOT_ID,
+		mmr::MmrRootProvider,
+		test_utils::{generate_equivocation_proof, Keyring},
+		Payload, SignedCommitment,
 	};
 	use sp_runtime::traits::{Header as HeaderT, One};
 	use substrate_test_runtime_client::{
@@ -1309,7 +1312,7 @@ pub(crate) mod tests {
 
 	fn create_beefy_worker(
 		peer: &mut BeefyPeer,
-		key: &Keyring,
+		key: &Keyring<AuthorityId>,
 		min_block_delta: u32,
 		genesis_validator_set: ValidatorSet<AuthorityId>,
 	) -> BeefyWorker<
@@ -1319,7 +1322,7 @@ pub(crate) mod tests {
 		TestApi,
 		Arc<SyncingService<Block>>,
 	> {
-		let keystore = create_beefy_keystore(*key);
+		let keystore = create_beefy_keystore(key);
 
 		let (to_rpc_justif_sender, from_voter_justif_stream) =
 			BeefyVersionedFinalityProofStream::<Block>::channel();
