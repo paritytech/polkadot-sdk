@@ -183,7 +183,6 @@ impl Contains<RuntimeCall> for SafeCallFilter {
 			) | RuntimeCall::ParachainSystem(..) |
 				RuntimeCall::Timestamp(..) |
 				RuntimeCall::Balances(..) |
-				RuntimeCall::Sudo(..) |
 				RuntimeCall::CollatorSelection(..) |
 				RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
 				RuntimeCall::XcmpQueue(..) |
