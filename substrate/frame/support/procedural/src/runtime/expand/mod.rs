@@ -40,19 +40,20 @@ use syn::{Ident, Result};
 /// The fixed name of the system pallet.
 const SYSTEM_PALLET_NAME: &str = "System";
 
-pub fn expand(def: Def) -> TokenStream2 {
+pub fn expand(def: Def, legacy_ordering: bool) -> TokenStream2 {
 	let input = def.input;
 
 	let res = match def.pallets {
 		AllPalletsDeclaration::Implicit(ref decl) =>
 			check_pallet_number(input.clone(), decl.pallet_count)
-				.and_then(|_| construct_runtime_implicit_to_explicit(input.into(), decl.clone())),
+				.and_then(|_| construct_runtime_implicit_to_explicit(input.into(), decl.clone(), legacy_ordering)),
 		AllPalletsDeclaration::Explicit(ref decl) => check_pallet_number(input, decl.pallets.len())
 			.and_then(|_| {
 				construct_runtime_final_expansion(
 					def.runtime_struct.ident.clone(),
 					decl.clone(),
 					def.runtime_types.clone(),
+					legacy_ordering,
 				)
 			}),
 	};
@@ -71,10 +72,16 @@ pub fn expand(def: Def) -> TokenStream2 {
 fn construct_runtime_implicit_to_explicit(
 	input: TokenStream2,
 	definition: ImplicitAllPalletsDeclaration,
+	legacy_ordering: bool,
 ) -> Result<TokenStream2> {
 	let frame_support = generate_access_from_frame_or_crate("frame-support")?;
+	let attr = if legacy_ordering {
+		quote!((legacy_ordering))
+	} else {
+		quote!()
+	};
 	let mut expansion = quote::quote!(
-		#[frame_support::runtime]
+		#[frame_support::runtime #attr]
 		#input
 	);
 	for pallet in definition.pallet_decls.iter() {
@@ -100,8 +107,14 @@ fn construct_runtime_final_expansion(
 	name: Ident,
 	definition: ExplicitAllPalletsDeclaration,
 	runtime_types: Vec<RuntimeType>,
+	legacy_ordering: bool,
 ) -> Result<TokenStream2> {
-	let ExplicitAllPalletsDeclaration { pallets, name: pallets_name } = definition;
+	let ExplicitAllPalletsDeclaration { mut pallets, name: pallets_name } = definition;
+
+	if !legacy_ordering {
+		// Ensure that order of hooks is based on the pallet index
+		pallets.sort_by_key(|p| p.index);
+	}
 
 	let system_pallet =
 		pallets.iter().find(|decl| decl.name == SYSTEM_PALLET_NAME).ok_or_else(|| {

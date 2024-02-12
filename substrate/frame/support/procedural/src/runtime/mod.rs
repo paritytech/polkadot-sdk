@@ -202,14 +202,33 @@
 
 pub use parse::Def;
 use proc_macro::TokenStream;
+use syn::spanned::Spanned;
 
 mod expand;
 mod parse;
 
-pub fn runtime(_attrs: TokenStream, tokens: TokenStream) -> TokenStream {
+mod keyword {
+	syn::custom_keyword!(legacy_ordering);
+}
+
+pub fn runtime(attr: TokenStream, tokens: TokenStream) -> TokenStream {
+	let mut legacy_ordering = false;
+	if !attr.is_empty() {
+		if let Ok(_) = syn::parse::<keyword::legacy_ordering>(attr.clone()) {
+			legacy_ordering = true;
+		} else {
+			let msg = "Invalid runtime macro call: unexpected attribute. Macro call must be \
+				bare, such as `#[frame_support::runtime]` or `#[runtime]`, or must specify the \
+				`legacy_ordering` attribute, such as `#[frame_support::runtime(legacy_ordering)]` or \
+				#[runtime(legacy_ordering)].";
+			let span = proc_macro2::TokenStream::from(attr).span();
+			return syn::Error::new(span, msg).to_compile_error().into()
+		}
+	}
+
 	let item = syn::parse_macro_input!(tokens as syn::ItemMod);
 	match parse::Def::try_from(item) {
-		Ok(def) => expand::expand(def).into(),
+		Ok(def) => expand::expand(def, legacy_ordering).into(),
 		Err(e) => e.to_compile_error().into(),
 	}
 }
