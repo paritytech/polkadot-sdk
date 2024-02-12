@@ -19,7 +19,7 @@ use codec::Encode;
 use frame_support::{derive_impl, storage::unhashed, StoragePrefixedMap};
 use frame_system::pallet_prelude::BlockNumberFor;
 
-use sp_core::{sr25519, ConstU64};
+use sp_core::sr25519;
 use sp_io::{
 	hashing::{blake2_128, twox_128, twox_64},
 	TestExternalities,
