@@ -59,6 +59,7 @@ pub use pallet::*;
 mod tests;
 
 const LOG_TARGET: &str = "runtime::parachains::scheduler";
+
 pub mod migration;
 
 #[frame_support::pallet]
@@ -88,10 +89,8 @@ pub mod pallet {
 	#[pallet::getter(fn validator_groups)]
 	pub(crate) type ValidatorGroups<T> = StorageValue<_, Vec<Vec<ValidatorIndex>>, ValueQuery>;
 
-	/// One entry for each availability core. Entries are `None` if the core is not currently
-	/// occupied. Can be temporarily `Some` if scheduled but not occupied.
-	/// The i'th parachain belongs to the i'th core, with the remaining cores all being
-	/// parathread-multiplexers.
+	/// One entry for each availability core. The i'th parachain belongs to the i'th core, with the
+	/// remaining cores all being parathread-multiplexers.
 	///
 	/// Bounded by the maximum of either of these two values:
 	///   * The number of parachains and parathread multiplexers
@@ -146,7 +145,7 @@ pub mod pallet {
 
 	/// One entry for each availability core. The `VecDeque` represents the assignments to be
 	/// scheduled on that core. The value contained here will not be valid after the end of
-	/// a block. Runtime APIs should be used to determine scheduled cores/ for the upcoming block.
+	/// a block. Runtime APIs should be used to determine scheduled cores for the upcoming block.
 	#[pallet::storage]
 	#[pallet::getter(fn claimqueue)]
 	pub(crate) type ClaimQueue<T: Config> =
