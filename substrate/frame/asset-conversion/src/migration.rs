@@ -109,6 +109,14 @@ pub mod new_pool_account_id {
 					balance3,
 				);
 
+				if balance1 == T::Balance::zero() &&
+					balance2 == T::Balance::zero() &&
+					balance3 == T::Balance::zero()
+				{
+					log::info!(target: LOG_TARGET, "skip migration for the pool with no liquidity");
+					continue;
+				}
+
 				// Check if it's possible to withdraw the assets from old account id.
 				// It might fail if asset is not live.
 
@@ -118,7 +126,7 @@ pub mod new_pool_account_id {
 					withdraw_result1,
 					WithdrawConsequence::<_>::Success | WithdrawConsequence::<_>::ReducedToZero(_)
 				) {
-					log::error!(
+					log::warn!(
 						target: LOG_TARGET,
 						"total balance of asset1 cannot be withdrawn from the old account with result `{:?}`.",
 						withdraw_result1,
@@ -132,7 +140,7 @@ pub mod new_pool_account_id {
 					withdraw_result2,
 					WithdrawConsequence::<_>::Success | WithdrawConsequence::<_>::ReducedToZero(_)
 				) {
-					log::error!(
+					log::warn!(
 						target: LOG_TARGET,
 						"total balance of asset2 cannot be withdrawn from the old account with result `{:?}`.",
 						withdraw_result2,
@@ -146,7 +154,7 @@ pub mod new_pool_account_id {
 					withdraw_result3,
 					WithdrawConsequence::<_>::Success | WithdrawConsequence::<_>::ReducedToZero(_)
 				) {
-					log::error!(
+					log::warn!(
 						target: LOG_TARGET,
 						"total balance of lp token cannot be withdrawn from the old account with result `{:?}`.",
 						withdraw_result3,
@@ -167,7 +175,7 @@ pub mod new_pool_account_id {
 					deposit_result1,
 					DepositConsequence::Success | DepositConsequence::CannotCreate
 				) {
-					log::error!(
+					log::warn!(
 						target: LOG_TARGET,
 						"total balance of asset1 cannot be deposited to the new account with result `{:?}`.",
 						deposit_result1,
@@ -185,7 +193,7 @@ pub mod new_pool_account_id {
 					deposit_result2,
 					DepositConsequence::Success | DepositConsequence::CannotCreate
 				) {
-					log::error!(
+					log::warn!(
 						target: LOG_TARGET,
 						"total balance of asset2 cannot be deposited to the new account with result `{:?}`.",
 						deposit_result2,
@@ -203,7 +211,7 @@ pub mod new_pool_account_id {
 					deposit_result3,
 					DepositConsequence::Success | DepositConsequence::CannotCreate
 				) {
-					log::error!(
+					log::warn!(
 						target: LOG_TARGET,
 						"total balance of lp token cannot be deposited to the new account with result `{:?}`.",
 						deposit_result3,
@@ -487,12 +495,19 @@ pub mod new_pool_account_id {
 				let balance3 = T::PoolAssets::balance(info.lp_token.clone(), &account_id);
 				let total_issuance = DepositAssets::total_issuance();
 
-				assert_eq!(T::Balance::zero(), T::Assets::balance(asset1.clone(), &new_account_id));
-				assert_eq!(T::Balance::zero(), T::Assets::balance(asset2.clone(), &new_account_id));
-				assert_eq!(
-					T::Balance::zero(),
-					T::PoolAssets::balance(info.lp_token.clone(), &new_account_id)
+				log::info!(
+					target: LOG_TARGET,
+					"run pre upgrade check for asset pair (`{:?}`,`{:?}`) with balance1 `{:?}`, balance2 `{:?}` and balance3 `{:?}`.",
+					asset1.clone(), asset2.clone(), balance1, balance2, balance3
 				);
+
+				if balance1 == T::Balance::zero() &&
+					balance2 == T::Balance::zero() &&
+					balance3 == T::Balance::zero()
+				{
+					log::info!(target: LOG_TARGET, "skip pre upgrade for the pool with no liquidity");
+					continue;
+				}
 
 				let withdraw_result1 =
 					T::Assets::can_withdraw(asset1.clone(), &account_id, balance1);
@@ -513,7 +528,7 @@ pub mod new_pool_account_id {
 				) {
 					log::warn!(
 						target: LOG_TARGET,
-						"cannot withdraw, migration for asset pair (`{:?}`,`{:?}`) will be skipped, with results: `{:?}`, `{:?}`, `{:?}`",
+						"cannot withdraw, migration for asset pair (`{:?}`,`{:?}`) will be skipped, with `can_withdraw` results: `{:?}`, `{:?}`, `{:?}`",
 						asset1,
 						asset2,
 						withdraw_result1,
@@ -554,7 +569,7 @@ pub mod new_pool_account_id {
 				) {
 					log::warn!(
 						target: LOG_TARGET,
-						"cannot deposit, migration for asset pair (`{:?}`,`{:?}`) will be skipped, with results: `{:?}`, `{:?}`, `{:?}`", 		asset1,
+						"cannot deposit, migration for asset pair (`{:?}`,`{:?}`) will be skipped, with `can_deposit` results: `{:?}`, `{:?}`, `{:?}`", 		asset1,
 						asset2,
 						increase_result1,
 						increase_result2,
@@ -562,12 +577,6 @@ pub mod new_pool_account_id {
 					);
 					continue;
 				}
-
-				log::info!(
-					target: LOG_TARGET,
-					"asset pair (`{:?}`,`{:?}`) will be migrated with balance1 `{:?}`, balance2 `{:?}` and balance3 `{:?}`.",
-					asset1.clone(), asset2.clone(), balance1, balance2, balance3
-				);
 
 				expected.push(((asset1, asset2), balance1, balance2, balance3, total_issuance));
 			}
