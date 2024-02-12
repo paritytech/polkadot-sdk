@@ -55,7 +55,6 @@ for i in range(0, crates_per_group + overflow_crates):
 
 	print(f"Checking {crates[crate][0]}", file=sys.stderr)
 
-	res = subprocess.run(["cargo", "check", "--locked"], cwd = crates[crate][1])
+	res = subprocess.run(["cargo", "rustc", "-q", "--", "--version"], cwd = crates[crate][1])
 
-	if res.returncode != 0:
-		sys.exit(1)
+	sys.exit(1)
