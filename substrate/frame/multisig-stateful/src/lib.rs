@@ -117,6 +117,7 @@ use sp_runtime::{
 	traits::{Dispatchable, Hash, TrailingZeroInput},
 	BoundedBTreeSet,
 };
+use sp_runtime::Saturating;
 /// The log target of this pallet.
 pub const LOG_TARGET: &'static str = "runtime::multisig_stateful";
 
@@ -136,6 +137,7 @@ pub mod pallet {
 
 	use crate::*;
 	use frame_support::dispatch::{GetDispatchInfo, RawOrigin};
+	use frame_support::traits::fungible::InspectHold;
 	use frame_support::traits::fungible::MutateHold;
 	use frame_system::pallet_prelude::*;
 
@@ -164,11 +166,15 @@ pub mod pallet {
 
 		/// The amount held on deposit for a created Multisig account.
 		#[pallet::constant]
-		type CreationDeposit: Get<BalanceOf<Self>>;
+		type BaseCreationDeposit: Get<BalanceOf<Self>>;
 
 		/// The amount held on deposit for a new proposal.
 		#[pallet::constant]
 		type ProposalDeposit: Get<BalanceOf<Self>>;
+
+		/// The amount held on deposit for a created Multisig account.
+		#[pallet::constant]
+		type PerOwnerDeposit: Get<BalanceOf<Self>>;
 
 		/// The maximum amount of signatories/owners allowed in the multisig.
 		#[pallet::constant]
@@ -201,6 +207,9 @@ pub mod pallet {
 		/// Funds are held for creating a new proposal.
 		#[codec(index = 1)]
 		ProposalCreation,
+		/// Funds are held for adding a new owner to a multisig account.
+		#[codec(index = 2)]
+		AddedOwner,
 	}
 
 	#[pallet::event]
@@ -294,8 +303,6 @@ pub mod pallet {
 		OwnerAlreadyExists,
 		/// Trying to do an operation concenring an owner that does not exist. (e.g. `remove_owner`` and `revoke` both needs the owner to exist to remove/revoke it.)
 		OwnerNotFound,
-		/// An error from the underlying `Currency`.
-		CurrencyError,
 	}
 
 	#[pallet::call]
@@ -326,20 +333,20 @@ pub mod pallet {
 				Error::<T>::InvalidThreshold
 			);
 
+			let multisig_account = Self::get_multisig_account_id(&owners, Self::timepoint());
+
+			let deposit = Self::calculate_creation_deposit(owners.len() as u32);
 			T::Currency::hold(
 				&HoldReason::MultisigCreation.into(),
 				&who,
-				T::CreationDeposit::get(),
-			)
-			.map_err(|_| Error::<T>::CurrencyError)?;
-
-			let multisig_account = Self::get_multisig_account_id(&owners, Self::timepoint());
+				deposit,
+			)?;
 
 			let multisig_details: MultisigAccountDetails<T> = MultisigAccountDetails {
 				owners: owners.clone(),
 				threshold,
 				creator: who.clone(),
-				deposit: T::CreationDeposit::get(),
+				deposit: deposit,
 			};
 			MultisigAccount::<T>::insert(&multisig_account, multisig_details);
 			Self::deposit_event(Event::CreatedMultisig { multisig_account, created_by: who });
@@ -383,8 +390,7 @@ pub mod pallet {
 				&HoldReason::ProposalCreation.into(),
 				&who,
 				T::ProposalDeposit::get(),
-			)
-			.map_err(|_| Error::<T>::CurrencyError)?;
+			)?;
 
 			// Add the new approver to the list
 			let mut approvers = BoundedBTreeSet::new();
@@ -632,11 +638,11 @@ pub mod pallet {
 				Error::<T>::MultisigStillExists
 			);
 
-			// Although we're iterating over dreaind proposals, It's hard to attack the runtime by having a very large 
+			// Although we're iterating over dreaind proposals, It's hard to attack the runtime by having a very large
 			// number of proposals as with each proposal we already hold a deposit which makes it pretty hard to do so.
-			for(_, proposal) in PendingProposals::<T>::drain_prefix(&multisig_account) {
+			for (_, proposal) in PendingProposals::<T>::drain_prefix(&multisig_account) {
 				Self::return_proposal_deposit(&proposal)?;
-			};
+			}
 
 			Self::deposit_event(Event::PendingProposalsCleared { multisig_account });
 			Ok(())
@@ -671,11 +677,17 @@ pub mod pallet {
 			let multisig_account = ensure_signed(origin)?;
 			let multisig_details =
 				MultisigAccount::<T>::get(&multisig_account).ok_or(Error::<T>::MultisigNotFound)?;
-			let mut owners = multisig_details.owners;
-			// If owner already exists in error.
-			ensure!(!owners.contains(&new_owner), Error::<T>::OwnerAlreadyExists);
+			// Make sure that the multisig has enough funds to reserve for the new owner.
+			T::Currency::ensure_can_hold(
+				&HoldReason::AddedOwner.into(),
+				&multisig_account,
+				T::PerOwnerDeposit::get(),
+			)?;
 
-			let owners_len = owners.len() as u32;
+			// Should be a new owner. Error if it's already an owner.
+			ensure!(!multisig_details.has_owner(&new_owner), Error::<T>::OwnerAlreadyExists);
+
+			let owners_len = multisig_details.owners.len() as u32;
 			ensure!(new_threshold > 0, Error::<T>::InvalidThreshold);
 			// Fail early if the threshold is greater than the total number of owners after adding the new owner.
 			let owners_after_addition = owners_len
@@ -683,6 +695,13 @@ pub mod pallet {
 				.ok_or(DispatchError::Arithmetic(sp_runtime::ArithmeticError::Overflow))?;
 			ensure!(new_threshold <= owners_after_addition, Error::<T>::InvalidThreshold);
 
+			T::Currency::hold(
+				&HoldReason::AddedOwner.into(),
+				&multisig_account,
+				T::PerOwnerDeposit::get(),
+			)?;
+
+			let mut owners = multisig_details.owners;
 			owners.try_insert(new_owner.clone()).map_err(|_| Error::<T>::TooManyOwners)?;
 
 			let multisig_details: MultisigAccountDetails<T> =
@@ -825,7 +844,7 @@ pub mod pallet {
 				.ok_or(Error::<T>::ProposalNotFound)?;
 
 			Self::return_proposal_deposit(&proposal)?;
-			
+
 			Self::deposit_event(Event::CanceledProposal { multisig_account, call_hash });
 			Ok(())
 		}
@@ -952,5 +971,13 @@ impl<T: Config> Pallet<T> {
 			Precision::BestEffort,
 		)?;
 		Ok(())
+	}
+
+	// Calculate the deposit needed for creating a multisig account.
+	// The deposit is the sum of the base deposit and the per owner deposit multiplied by the number of owners.
+	fn calculate_creation_deposit(owners_count: u32) -> BalanceOf<T> {
+		let deposit = T::BaseCreationDeposit::get()
+			.saturating_add(T::PerOwnerDeposit::get().saturating_mul(owners_count.into()));
+		deposit
 	}
 }

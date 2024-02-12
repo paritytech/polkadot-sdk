@@ -68,8 +68,9 @@ impl pallet_balances::Config for Test {
 
 parameter_types! {
 	pub static MaxSignatories: u32 = 4; // Adding static makes it easier to set it to different values in tests. MaxSignatories::set(100);
-	pub static CreationDeposit: u128 = 2;
+	pub static BaseCreationDeposit: u128 = 2;
 	pub static ProposalDeposit: u128 = 1;
+	pub static PerOwnerDeposit: u128 = 1;
 }
 
 impl pallet_multisig_stateful::Config for Test {
@@ -78,8 +79,9 @@ impl pallet_multisig_stateful::Config for Test {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeCall = RuntimeCall;
 	type MaxSignatories = MaxSignatories;
-	type CreationDeposit = CreationDeposit;
+	type BaseCreationDeposit = BaseCreationDeposit;
 	type ProposalDeposit = ProposalDeposit;
+	type PerOwnerDeposit = PerOwnerDeposit;
 }
 
 pub(crate) const ALICE: u64 = 1;
@@ -88,13 +90,17 @@ pub(crate) const CHARLIE: u64 = 3;
 pub(crate) const DAVE: u64 = 4;
 pub(crate) const EVE: u64 = 5;
 
-pub(crate) const INITIAL_BALANCE: u128 = 20; 
+pub(crate) const INITIAL_BALANCE: u128 = 20;
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	// frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(ALICE, INITIAL_BALANCE), (BOB, INITIAL_BALANCE), (CHARLIE, INITIAL_BALANCE)],
+		balances: vec![
+			(ALICE, INITIAL_BALANCE),
+			(BOB, INITIAL_BALANCE),
+			(CHARLIE, INITIAL_BALANCE),
+		],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

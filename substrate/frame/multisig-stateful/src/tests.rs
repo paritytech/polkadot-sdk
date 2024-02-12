@@ -1,8 +1,8 @@
 use crate::PendingProposals;
 use crate::{mock::*, Error, MultisigAccount, Timepoint};
+use frame_support::traits::fungible::Mutate;
 use frame_support::{assert_noop, assert_ok};
 use sp_runtime::BoundedBTreeSet;
-
 // Helpers - Only call in a TestExternality
 fn now() -> Timepoint<u64> {
 	Multisig::timepoint()
@@ -19,11 +19,13 @@ fn add_alice_bob_charlie_dave_multisig(threshold: u32) -> u64 {
 	let alice_current_balance = Balances::free_balance(&ALICE);
 	assert_ok!(Multisig::create_multisig(RuntimeOrigin::signed(ALICE), owners, threshold));
 	assert!(MultisigAccount::<Test>::contains_key(&multisig_account));
-	// 3 owners
+	// 4 owners
 	assert!(MultisigAccount::<Test>::get(&multisig_account).unwrap().owners.len() == 4);
+	let reserved = BaseCreationDeposit::get() + (PerOwnerDeposit::get() * 4);
 	// reserved creation deposit
-	assert_eq!(Balances::free_balance(&ALICE), alice_current_balance - CreationDeposit::get());
+	assert_eq!(Balances::free_balance(&ALICE), alice_current_balance - reserved);
 
+	Balances::mint_into(&multisig_account, INITIAL_BALANCE).unwrap();
 	multisig_account
 }
 
@@ -39,9 +41,11 @@ fn add_alice_bob_charlie_multisig(threshold: u32) -> u64 {
 	assert!(MultisigAccount::<Test>::contains_key(&multisig_account));
 	// 3 owners
 	assert!(MultisigAccount::<Test>::get(&multisig_account).unwrap().owners.len() == 3);
+	let reserved = BaseCreationDeposit::get() + (PerOwnerDeposit::get() * 3);
 	// reserved creation deposit
-	assert_eq!(Balances::free_balance(&ALICE), alice_current_balance - CreationDeposit::get());
+	assert_eq!(Balances::free_balance(&ALICE), alice_current_balance - reserved);
 
+	Balances::mint_into(&multisig_account, INITIAL_BALANCE).unwrap();
 	multisig_account
 }
 
@@ -56,9 +60,11 @@ fn add_alice_bob_multisig(threshold: u32) -> u64 {
 	assert!(MultisigAccount::<Test>::contains_key(&multisig_account));
 	// 2 owners
 	assert!(MultisigAccount::<Test>::get(&multisig_account).unwrap().owners.len() == 2);
+	let reserved = BaseCreationDeposit::get() + (PerOwnerDeposit::get() * 2);
 	// reserved creation deposit
-	assert_eq!(Balances::free_balance(&ALICE), alice_current_balance - CreationDeposit::get());
+	assert_eq!(Balances::free_balance(&ALICE), alice_current_balance - reserved);
 
+	Balances::mint_into(&multisig_account, INITIAL_BALANCE).unwrap();
 	multisig_account
 }
 
@@ -73,9 +79,12 @@ fn add_alice_multisig() -> u64 {
 	assert!(MultisigAccount::<Test>::contains_key(&multisig_account));
 	// 1 owner
 	assert!(MultisigAccount::<Test>::get(&multisig_account).unwrap().owners.len() == 1);
-	// reserved creation deposit
-	assert_eq!(Balances::free_balance(&ALICE), alice_current_balance - CreationDeposit::get());
 
+	let reserved = BaseCreationDeposit::get() + (PerOwnerDeposit::get() * 1);
+	// reserved creation deposit
+	assert_eq!(Balances::free_balance(&ALICE), alice_current_balance - reserved);
+
+	Balances::mint_into(&multisig_account, INITIAL_BALANCE).unwrap();
 	multisig_account
 }
 
@@ -314,15 +323,12 @@ fn multisig_2_of_3() {
 	new_test_ext().execute_with(|| {
 		// Start by making sure Eve doesn't have any balance
 		assert_eq!(Balances::free_balance(EVE), 0);
-		let call = construc_transfer_call(EVE, 15);
+		let amount = 15;
+		let call = construc_transfer_call(EVE, amount);
 		let (multisig_account, call_hash) =
 			start_alice_bob_charlie_multisig_proposal(call.clone(), 2, ALICE);
 
-		transfer(ALICE, multisig_account, 5);
-		transfer(BOB, multisig_account, 5);
-		transfer(CHARLIE, multisig_account, 5);
-
-		assert_eq!(Balances::free_balance(multisig_account), 15);
+		assert_eq!(Balances::free_balance(multisig_account), INITIAL_BALANCE);
 		// Starting a proposal is not anough to transfer to Eve as the threshold is 2
 		assert_eq!(Balances::free_balance(EVE), 0);
 
@@ -336,8 +342,8 @@ fn multisig_2_of_3() {
 		));
 
 		// Eve has 15 balance now since the call has been approved by 2 members.
-		assert_eq!(Balances::free_balance(EVE), 15);
-		assert_eq!(Balances::free_balance(multisig_account), 0);
+		assert_eq!(Balances::free_balance(EVE), amount);
+		assert_eq!(Balances::free_balance(multisig_account), INITIAL_BALANCE - amount);
 		// No proposal should exist anymore
 		assert!(!PendingProposals::<Test>::contains_key(&multisig_account, call_hash))
 	});
@@ -346,17 +352,15 @@ fn multisig_2_of_3() {
 #[test]
 fn multisig_3_of_3() {
 	new_test_ext().execute_with(|| {
+		let amount = 15;
 		// Start by making sure Eve doesn't have any balance
 		assert_eq!(Balances::free_balance(EVE), 0);
-		let call = construc_transfer_call(EVE, 15);
+		let call = construc_transfer_call(EVE, amount);
 		let (multisig_account, call_hash) =
 			start_alice_bob_charlie_multisig_proposal(call.clone(), 3, ALICE);
 
-		transfer(ALICE, multisig_account, 5);
-		transfer(BOB, multisig_account, 5);
-		transfer(CHARLIE, multisig_account, 5);
+		assert_eq!(Balances::free_balance(multisig_account), INITIAL_BALANCE);
 
-		assert_eq!(Balances::free_balance(multisig_account), 15);
 		// Starting a proposal is not anough to transfer to Eve as the threshold is 2
 		assert_eq!(Balances::free_balance(EVE), 0);
 
@@ -364,7 +368,7 @@ fn multisig_3_of_3() {
 		assert_ok!(Multisig::approve(RuntimeOrigin::signed(BOB), multisig_account, call_hash));
 
 		// Still not enough approvers
-		assert_eq!(Balances::free_balance(multisig_account), 15);
+		assert_eq!(Balances::free_balance(multisig_account), INITIAL_BALANCE);
 		assert_eq!(Balances::free_balance(EVE), 0);
 
 		// Charlie approves
@@ -378,8 +382,8 @@ fn multisig_3_of_3() {
 		));
 
 		// Eve has 15 balance now since the call has been approved by 2 members.
-		assert_eq!(Balances::free_balance(EVE), 15);
-		assert_eq!(Balances::free_balance(multisig_account), 0);
+		assert_eq!(Balances::free_balance(EVE), amount);
+		assert_eq!(Balances::free_balance(multisig_account), INITIAL_BALANCE - amount);
 		// No proposal should exist anymore
 		assert!(!PendingProposals::<Test>::contains_key(&multisig_account, call_hash))
 	});
@@ -436,11 +440,18 @@ fn starting_same_approval_fails() {
 fn add_owner_works() {
 	new_test_ext().execute_with(|| {
 		let multisig_account = add_alice_bob_multisig(2);
+		assert_eq!(Balances::free_balance(&multisig_account), INITIAL_BALANCE);
 		assert_ok!(Multisig::add_owner(RuntimeOrigin::signed(multisig_account), CHARLIE, 3));
+		// Deposit is reserved
+		assert_eq!(
+			Balances::free_balance(&multisig_account),
+			INITIAL_BALANCE - PerOwnerDeposit::get()
+		);
+
 		let multisig_details = MultisigAccount::<Test>::get(&multisig_account).unwrap();
 		assert!(multisig_details.owners.contains(&CHARLIE));
-		assert!(multisig_details.owners.len() == 3);
-		assert!(multisig_details.threshold == 3);
+		assert_eq!(multisig_details.owners.len(), 3);
+		assert_eq!(multisig_details.threshold, 3);
 		System::assert_has_event(
 			crate::Event::AddedOwner { multisig_account, added_owner: CHARLIE, threshold: 3 }
 				.into(),
@@ -485,8 +496,9 @@ fn add_owner_fails_when_existing_owner_added() {
 fn add_owner_fails_when_more_owners_than_max() {
 	new_test_ext().execute_with(|| {
 		let multisig_account = add_alice_bob_charlie_multisig(2);
+		assert_eq!(Balances::free_balance(&multisig_account), INITIAL_BALANCE);
 		assert_ok!(Multisig::add_owner(RuntimeOrigin::signed(multisig_account), DAVE, 2));
-		assert!(MultisigAccount::<Test>::get(&multisig_account).unwrap().owners.len() == 4);
+		assert_eq!(MultisigAccount::<Test>::get(&multisig_account).unwrap().owners.len(), 4);
 
 		assert_noop!(
 			Multisig::add_owner(RuntimeOrigin::signed(multisig_account), EVE, 2),
@@ -501,7 +513,7 @@ fn remove_owner_works() {
 		let multisig_account = add_alice_bob_charlie_multisig(2);
 		assert_ok!(Multisig::remove_owner(RuntimeOrigin::signed(multisig_account), CHARLIE, 1));
 		let multisig_details = MultisigAccount::<Test>::get(&multisig_account).unwrap();
-		assert!(multisig_details.owners.len() == 2);
+		assert_eq!(multisig_details.owners.len(), 2);
 		// Charlie deleted
 		assert!(!multisig_details.owners.contains(&CHARLIE));
 		assert_eq!(multisig_details.threshold, 1);
@@ -517,12 +529,16 @@ fn remove_owner_deletes_multisig_when_only_one_owner_left() {
 	new_test_ext().execute_with(|| {
 		let multisig_account = add_alice_multisig();
 		let alice_current_balance = Balances::free_balance(&ALICE);
-
 		assert_ok!(Multisig::remove_owner(RuntimeOrigin::signed(multisig_account), ALICE, 0));
 
 		assert!(MultisigAccount::<Test>::get(&multisig_account).is_none());
+
+		let reserved = Multisig::calculate_creation_deposit(1);
 		// Return deposit after deletion
-		assert_eq!(Balances::free_balance(&ALICE), alice_current_balance + CreationDeposit::get());
+		assert_eq!(
+			Balances::free_balance(&ALICE),
+			alice_current_balance + reserved
+		);
 
 		System::assert_has_event(
 			crate::Event::RemovedOwner { multisig_account, removed_owner: ALICE, threshold: 0 }
@@ -625,14 +641,15 @@ fn approve_works() {
 		let proposal = PendingProposals::<Test>::get(&multisig_account, call_hash).unwrap();
 
 		// Only ALICE approval should be present
-		assert!(proposal.approvers.len() == 1);
+		assert_eq!(proposal.approvers.len(), 1);
 		assert!(proposal.approvers.contains(&ALICE));
 
 		// Bob approves
 		assert_ok!(Multisig::approve(RuntimeOrigin::signed(BOB), multisig_account, call_hash));
 		let proposal_after_approval =
 			PendingProposals::<Test>::get(&multisig_account, call_hash).unwrap();
-		assert!(proposal_after_approval.approvers.len() == 2);
+
+		assert_eq!(proposal_after_approval.approvers.len(), 2);
 		assert!(proposal_after_approval.approvers.contains(&ALICE));
 		assert!(proposal_after_approval.approvers.contains(&BOB));
 		System::assert_has_event(
@@ -670,7 +687,7 @@ fn revoke_approval_works() {
 
 		let proposal = PendingProposals::<Test>::get(&multisig_account, call_hash).unwrap();
 		// Only ALICE approval should be present
-		assert!(proposal.approvers.len() == 1);
+		assert_eq!(proposal.approvers.len(), 1);
 		assert!(proposal.approvers.contains(&ALICE));
 
 		// Revoke approval with ALICE
@@ -679,7 +696,7 @@ fn revoke_approval_works() {
 		let proposal = PendingProposals::<Test>::get(&multisig_account, call_hash).unwrap();
 		// No approvers should be present
 		// Don't delete the proposal itself if all approvers are revoked.
-		assert!(proposal.approvers.len() == 0);
+		assert_eq!(proposal.approvers.len(), 0);
 
 		System::assert_has_event(
 			crate::Event::RevokedApproval { revoking_account: ALICE, multisig_account, call_hash }
@@ -792,8 +809,13 @@ fn delete_account_works() {
 		assert_ok!(Multisig::delete_account(RuntimeOrigin::signed(multisig_account)));
 		// Account deleted
 		assert!(!MultisigAccount::<Test>::contains_key(&multisig_account));
+
+		let reserved = Multisig::calculate_creation_deposit(3);
 		// return creation deposit after deletion
-		assert_eq!(Balances::free_balance(&ALICE), current_alice_balance + CreationDeposit::get());
+		assert_eq!(
+			Balances::free_balance(&ALICE),
+			current_alice_balance + reserved
+		);
 		System::assert_last_event(crate::Event::DeletedMultisig { multisig_account }.into());
 	});
 }
@@ -875,13 +897,10 @@ fn cancel_others_proposal_fails() {
 #[test]
 fn remove_owner_same_threshold_during_active_proposal() {
 	new_test_ext().execute_with(|| {
-		let call = construc_transfer_call(EVE, 15);
+		let amount = 15;
+		let call = construc_transfer_call(EVE, amount);
 		let (multisig_account, call_hash) =
 			start_alice_bob_charlie_dave_multisig_proposal(call.clone(), 3, ALICE); // Start with threshold 3
-
-		transfer(ALICE, multisig_account, 5);
-		transfer(BOB, multisig_account, 5);
-		transfer(CHARLIE, multisig_account, 5);
 
 		// Proposal should exist
 		assert!(PendingProposals::<Test>::contains_key(&multisig_account, call_hash));
@@ -923,24 +942,21 @@ fn remove_owner_same_threshold_during_active_proposal() {
 		));
 		// Proposal removed after executing
 		assert!(!PendingProposals::<Test>::contains_key(&multisig_account, call_hash));
-		assert!(Balances::free_balance(multisig_account) == 0);
-		assert!(Balances::free_balance(EVE) == 15);
+		assert_eq!(Balances::free_balance(multisig_account), INITIAL_BALANCE - amount);
+		assert_eq!(Balances::free_balance(EVE), amount);
 	});
 }
 
 #[test]
 fn change_threshold_down_while_proposal_active_works() {
 	new_test_ext().execute_with(|| {
+		let amount = 15;
 		let call = construc_transfer_call(EVE, 15);
 		let (multisig_account, call_hash) =
 			start_alice_bob_charlie_dave_multisig_proposal(call.clone(), 3, ALICE); // Start with threshold 3
-
-		transfer(ALICE, multisig_account, 5);
-		transfer(BOB, multisig_account, 5);
-		transfer(CHARLIE, multisig_account, 5);
-
-		// Proposal should exist
+																		// Proposal should exist
 		assert!(PendingProposals::<Test>::contains_key(&multisig_account, call_hash));
+		assert_eq!(Balances::free_balance(multisig_account), INITIAL_BALANCE);
 
 		// Bob approves, We have in total 2 approvers to execute the proposal.
 		assert_ok!(Multisig::approve(RuntimeOrigin::signed(BOB), multisig_account, call_hash));
@@ -966,8 +982,8 @@ fn change_threshold_down_while_proposal_active_works() {
 		));
 		// Proposal removed after executing
 		assert!(!PendingProposals::<Test>::contains_key(&multisig_account, call_hash));
-		assert!(Balances::free_balance(multisig_account) == 0);
-		assert!(Balances::free_balance(EVE) == 15);
+		assert_eq!(Balances::free_balance(multisig_account), INITIAL_BALANCE - amount);
+		assert_eq!(Balances::free_balance(EVE), amount);
 	});
 }
 
@@ -1031,10 +1047,12 @@ fn cleanup_proposals_works() {
 			assert!(PendingProposals::<Test>::contains_key(&multisig_account, call_hash));
 		});
 
+		let reserved = Multisig::calculate_creation_deposit(4);
 		assert_eq!(
 			Balances::free_balance(&ALICE),
 			// As the account is deleted, the creation deposit should be returned
-			alice_current_balance - (n_proposals * ProposalDeposit::get()) + CreationDeposit::get()
+			alice_current_balance - (n_proposals * ProposalDeposit::get())
+				+ reserved
 		);
 
 		assert_ok!(Multisig::cleanup_proposals(RuntimeOrigin::signed(EVE), multisig_account));
@@ -1042,7 +1060,7 @@ fn cleanup_proposals_works() {
 		// After cleanup, all deposits should be returned and all proposals should be removed
 		assert_eq!(
 			Balances::free_balance(&ALICE),
-			alice_current_balance + CreationDeposit::get()
+			alice_current_balance + reserved
 		);
 
 		call_hash_vec.iter().for_each(|call_hash| {

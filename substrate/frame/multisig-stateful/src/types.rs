@@ -1,9 +1,8 @@
 use super::*;
 use frame_system::pallet_prelude::BlockNumberFor;
 
-pub type BalanceOf<T> = <<T as Config>::Currency as fungible::Inspect<
-	<T as frame_system::Config>::AccountId,
->>::Balance;
+pub type BalanceOf<T> =
+	<<T as Config>::Currency as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// A global extrinsic index, formed as the extrinsic index within a block, together with that
 /// block's height. This allows a transaction in which a multisig operation of a particular
