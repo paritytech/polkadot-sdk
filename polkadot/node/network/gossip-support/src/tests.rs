@@ -651,11 +651,7 @@ fn issues_update_authorities_after_session() {
 						ValidationVersion::V3.into(),
 						None,
 					));
-				overseer
-					.send(FromOrchestra::Communication { msg })
-					.timeout(TIMEOUT)
-					.await
-					.expect("msg send timeout");
+				overseer.send(FromOrchestra::Communication { msg }).await
 			}
 
 			Delay::new(BACKOFF_DURATION).await;
@@ -738,11 +734,7 @@ fn issues_update_authorities_after_session() {
 						ValidationVersion::V3.into(),
 						None,
 					));
-				overseer
-					.send(FromOrchestra::Communication { msg })
-					.timeout(TIMEOUT)
-					.await
-					.expect("msg send timeout");
+				overseer.send(FromOrchestra::Communication { msg }).await
 			}
 
 			// 5. Send a new leaf and check UpdateAuthority is emitted only for the newly connected
