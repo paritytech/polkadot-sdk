@@ -1266,13 +1266,13 @@ mod remote_tests {
 	use std::os::unix::fs::MetadataExt;
 	use std::env;
 
-	static TRANSPORT_URL: once_cell::sync::Lazy<String> = once_cell::sync::Lazy::new(|| {
-        env::var("TEST_WS").unwrap_or_else(|_| DEFAULT_HTTP_ENDPOINT.to_string())
-    });
+	fn endpoint() -> String {
+		env::var("TEST_WS").unwrap_or_else(|_| DEFAULT_HTTP_ENDPOINT.to_string())
+	}
 
 	#[test]
 	fn print_transport_url() {
-		println!("TRANSPORT_URL: {:?}", once_cell::sync::Lazy::<std::string::String>::force(&TRANSPORT_URL));
+		println!("TRANSPORT_URL: {:?}", endpoint());
 	}
 
 	#[tokio::test]
@@ -1283,7 +1283,7 @@ mod remote_tests {
 		// first, build a snapshot.
 		let ext = Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
-				transport: TRANSPORT_URL.clone().into(),
+				transport: endpoint().clone().into(),
 				pallets: vec!["Proxy".to_owned()],
 				child_trie: false,
 				state_snapshot: Some(SnapshotConfig::new(CACHE)),
@@ -1325,7 +1325,7 @@ mod remote_tests {
 		// first, build a snapshot.
 		let ext = Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
-				transport: TRANSPORT_URL.clone().into(),
+				transport: endpoint().clone().into(),
 				pallets: vec!["Proxy".to_owned()],
 				child_trie: false,
 				state_snapshot: Some(SnapshotConfig::new(CACHE)),
@@ -1353,7 +1353,7 @@ mod remote_tests {
 		// create an ext with children keys
 		let child_ext = Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
-				transport: TRANSPORT_URL.clone().into(),
+				transport: endpoint().clone().into(),
 				pallets: vec!["Proxy".to_owned()],
 				child_trie: true,
 				state_snapshot: Some(SnapshotConfig::new(CACHE)),
@@ -1366,7 +1366,7 @@ mod remote_tests {
 		// create an ext without children keys
 		let ext = Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
-				transport: TRANSPORT_URL.clone().into(),
+				transport: endpoint().clone().into(),
 				pallets: vec!["Proxy".to_owned()],
 				child_trie: false,
 				state_snapshot: Some(SnapshotConfig::new(CACHE)),
@@ -1392,7 +1392,7 @@ mod remote_tests {
 			.mode(Mode::OfflineOrElseOnline(
 				OfflineConfig { state_snapshot: SnapshotConfig::new(CACHE) },
 				OnlineConfig {
-					transport: TRANSPORT_URL.clone().into(),
+					transport: endpoint().clone().into(),
 					pallets: vec!["Proxy".to_owned()],
 					child_trie: false,
 					state_snapshot: Some(SnapshotConfig::new(CACHE)),
@@ -1434,7 +1434,7 @@ mod remote_tests {
 		init_logger();
 		Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
-				transport: TRANSPORT_URL.clone().into(),
+				transport: endpoint().clone().into(),
 				pallets: vec!["Proxy".to_owned()],
 				child_trie: false,
 				..Default::default()
@@ -1450,7 +1450,7 @@ mod remote_tests {
 		init_logger();
 		Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
-				transport: TRANSPORT_URL.clone().into(),
+				transport: endpoint().clone().into(),
 				pallets: vec!["Proxy".to_owned(), "Multisig".to_owned()],
 				child_trie: false,
 				..Default::default()
@@ -1468,7 +1468,7 @@ mod remote_tests {
 
 		Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
-				transport: TRANSPORT_URL.clone().into(),
+				transport: endpoint().clone().into(),
 				state_snapshot: Some(SnapshotConfig::new(CACHE)),
 				pallets: vec!["Proxy".to_owned()],
 				child_trie: false,
@@ -1498,7 +1498,7 @@ mod remote_tests {
 		init_logger();
 		Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
-				transport: TRANSPORT_URL.clone().into(),
+				transport: endpoint().clone().into(),
 				state_snapshot: Some(SnapshotConfig::new(CACHE)),
 				pallets: vec!["Crowdloan".to_owned()],
 				child_trie: true,
@@ -1527,7 +1527,7 @@ mod remote_tests {
 		init_logger();
 		Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
-				transport: TRANSPORT_URL.clone().into(),
+				transport: endpoint().clone().into(),
 				pallets: vec!["Staking".to_owned()],
 				child_trie: false,
 				..Default::default()
@@ -1543,7 +1543,7 @@ mod remote_tests {
 		init_logger();
 		Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
-				transport: TRANSPORT_URL.clone().into(),
+				transport: endpoint().clone().into(),
 				..Default::default()
 			}))
 			.build()
@@ -1557,7 +1557,7 @@ mod remote_tests {
 		init_logger();
 
 		let mut builder = Builder::<Block>::new()
-			.mode(Mode::Online(OnlineConfig { transport: TRANSPORT_URL.clone().into(), ..Default::default() }));
+			.mode(Mode::Online(OnlineConfig { transport: endpoint().clone().into(), ..Default::default() }));
 		builder.init_remote_client().await.unwrap();
 
 		let at = builder.as_online().at.unwrap();
