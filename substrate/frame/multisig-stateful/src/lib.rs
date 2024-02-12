@@ -114,6 +114,7 @@ use sp_runtime::{
 	traits::{Dispatchable, Hash, TrailingZeroInput},
 	BoundedBTreeSet,
 };
+use sp_std::boxed::Box;
 /// The log target of this pallet.
 pub const LOG_TARGET: &'static str = "runtime::multisig_stateful";
 
