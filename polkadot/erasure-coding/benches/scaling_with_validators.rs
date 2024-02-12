@@ -83,9 +83,8 @@ fn construct_and_reconstruct_5mb_pov(c: &mut Criterion) {
 		let all_chunks = chunks(n_validators, &pov);
 
 		let chunks = all_chunks
-			.iter()
+			.into_iter()
 			.take(polkadot_erasure_coding::systematic_recovery_threshold(n_validators).unwrap())
-			.map(|c| &c[..])
 			.collect::<Vec<_>>();
 
 		group.throughput(Throughput::Bytes(pov.len() as u64));
