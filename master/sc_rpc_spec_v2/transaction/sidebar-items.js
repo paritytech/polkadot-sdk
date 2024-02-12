@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["api","error","event","transaction"]};
+window.SIDEBAR_ITEMS = {"mod":["api","error","event","transaction","transaction_broadcast"]};

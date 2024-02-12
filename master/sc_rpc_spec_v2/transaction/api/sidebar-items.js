@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"trait":["TransactionApiClient","TransactionApiServer"]};
+window.SIDEBAR_ITEMS = {"trait":["TransactionApiClient","TransactionApiServer","TransactionBroadcastApiClient","TransactionBroadcastApiServer"]};

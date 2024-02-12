@@ -194,9 +194,6 @@
 <a href="#194" id="194">194</a>
 <a href="#195" id="195">195</a>
 <a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -228,21 +225,18 @@
 	},
 	SubscriptionTaskExecutor,
 };
+<span class="kw">use </span>codec::Decode;
+<span class="kw">use </span>futures::{StreamExt, TryFutureExt};
 <span class="kw">use </span>jsonrpsee::{core::async_trait, types::error::ErrorObject, PendingSubscriptionSink};
+<span class="kw">use </span>sc_rpc::utils::pipe_from_stream;
 <span class="kw">use </span>sc_transaction_pool_api::{
 	error::IntoPoolError, BlockHash, TransactionFor, TransactionPool, TransactionSource,
 	TransactionStatus,
 };
-<span class="kw">use </span>std::sync::Arc;
-
-<span class="kw">use </span>sc_rpc::utils::pipe_from_stream;
-<span class="kw">use </span>sp_api::ProvideRuntimeApi;
 <span class="kw">use </span>sp_blockchain::HeaderBackend;
 <span class="kw">use </span>sp_core::Bytes;
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
-
-<span class="kw">use </span>codec::Decode;
-<span class="kw">use </span>futures::{StreamExt, TryFutureExt};
+<span class="kw">use </span>std::sync::Arc;
 
 <span class="doccomment">/// An API for transaction RPC calls.
 </span><span class="kw">pub struct </span>Transaction&lt;Pool, Client&gt; {
@@ -281,7 +275,7 @@
 	</span>Pool: TransactionPool + Sync + Send + <span class="lifetime">&#39;static</span>,
 	Pool::Hash: Unpin,
 	&lt;Pool::Block <span class="kw">as </span>BlockT&gt;::Hash: Unpin,
-	Client: HeaderBackend&lt;Pool::Block&gt; + ProvideRuntimeApi&lt;Pool::Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	Client: HeaderBackend&lt;Pool::Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
 {
 	<span class="kw">fn </span>submit_and_watch(<span class="kw-2">&amp;</span><span class="self">self</span>, pending: PendingSubscriptionSink, xt: Bytes) {
 		<span class="kw">let </span>client = <span class="self">self</span>.client.clone();
