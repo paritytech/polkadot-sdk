@@ -88,8 +88,6 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = ();
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = ConstU32<1>;
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type MaxHolds = ConstU32<1>;
 }
 
@@ -201,6 +199,7 @@ impl pallet_nomination_pools::Config for Runtime {
 type Block = frame_system::mocking::MockBlock<Runtime>;
 
 frame_support::construct_runtime!(
+<<<<<<< HEAD
 	pub struct Runtime
 	{
 		System: frame_system::{Pallet, Call, Event<T>},
@@ -210,6 +209,15 @@ frame_support::construct_runtime!(
 		VoterList: pallet_bags_list::<Instance1>::{Pallet, Call, Storage, Event<T>},
 		DelegatedStaking: pallet_delegated_staking::{Pallet, Storage, Event<T>, HoldReason},
 		Pools: pallet_nomination_pools::{Pallet, Call, Storage, Event<T>, FreezeReason},
+=======
+	pub enum Runtime {
+		System: frame_system,
+		Timestamp: pallet_timestamp,
+		Balances: pallet_balances,
+		Staking: pallet_staking,
+		VoterList: pallet_bags_list::<Instance1>,
+		Pools: pallet_nomination_pools,
+>>>>>>> master
 	}
 );
 

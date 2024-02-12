@@ -19,7 +19,7 @@
 
 use frame_support::{pallet_prelude::*, traits::Get, weights::Weight};
 
-struct __LastTimestamp<T>(sp_std::marker::PhantomData<T>);
+struct __LastTimestamp<T>(core::marker::PhantomData<T>);
 impl<T: RemoveLastTimestamp> frame_support::traits::StorageInstance for __LastTimestamp<T> {
 	fn pallet_prefix() -> &'static str {
 		T::PalletPrefix::get()

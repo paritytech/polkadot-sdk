@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-availability-recovery"
 description = "The Availability Recovery subsystem. Handles requests for recovering the availability data of included candidates."
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -32,7 +32,7 @@ sc-network = { path = "../../../../substrate/client/network" }
 assert_matches = "1.4.0"
 env_logger = "0.9.0"
 futures-timer = "3.0.2"
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 
 sp-core = { path = "../../../../substrate/primitives/core" }
 sp-keyring = { path = "../../../../substrate/primitives/keyring" }

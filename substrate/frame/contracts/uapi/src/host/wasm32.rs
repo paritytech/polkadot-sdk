@@ -336,13 +336,14 @@ macro_rules! impl_hash_fn {
 }
 
 impl HostFn for HostFnImpl {
+	#[inline(always)]
 	fn instantiate_v1(
 		code_hash: &[u8],
 		gas: u64,
 		value: &[u8],
 		input: &[u8],
-		mut address: Option<&mut [u8]>,
-		mut output: Option<&mut [u8]>,
+		mut address: Option<&mut &mut [u8]>,
+		mut output: Option<&mut &mut [u8]>,
 		salt: &[u8],
 	) -> Result {
 		let (address_ptr, mut address_len) = ptr_len_or_sentinel(&mut address);
@@ -379,8 +380,8 @@ impl HostFn for HostFnImpl {
 		deposit: Option<&[u8]>,
 		value: &[u8],
 		input: &[u8],
-		mut address: Option<&mut [u8]>,
-		mut output: Option<&mut [u8]>,
+		mut address: Option<&mut &mut [u8]>,
+		mut output: Option<&mut &mut [u8]>,
 		salt: &[u8],
 	) -> Result {
 		let (address_ptr, mut address_len) = ptr_len_or_sentinel(&mut address);
@@ -418,12 +419,13 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
+	#[inline(always)]
 	fn call(
 		callee: &[u8],
 		gas: u64,
 		value: &[u8],
 		input_data: &[u8],
-		mut output: Option<&mut [u8]>,
+		mut output: Option<&mut &mut [u8]>,
 	) -> Result {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let ret_code = {
@@ -449,13 +451,14 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
+	#[inline(always)]
 	fn call_v1(
 		flags: CallFlags,
 		callee: &[u8],
 		gas: u64,
 		value: &[u8],
 		input_data: &[u8],
-		mut output: Option<&mut [u8]>,
+		mut output: Option<&mut &mut [u8]>,
 	) -> Result {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let ret_code = {
@@ -488,7 +491,7 @@ impl HostFn for HostFnImpl {
 		deposit: Option<&[u8]>,
 		value: &[u8],
 		input_data: &[u8],
-		mut output: Option<&mut [u8]>,
+		mut output: Option<&mut &mut [u8]>,
 	) -> Result {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let deposit_ptr = ptr_or_sentinel(&deposit);
@@ -520,11 +523,12 @@ impl HostFn for HostFnImpl {
 		unsafe { sys::caller_is_root() }.into_u32()
 	}
 
+	#[inline(always)]
 	fn delegate_call(
 		flags: CallFlags,
 		code_hash: &[u8],
 		input: &[u8],
-		mut output: Option<&mut [u8]>,
+		mut output: Option<&mut &mut [u8]>,
 	) -> Result {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let ret_code = {
@@ -602,6 +606,7 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
+	#[inline(always)]
 	fn get_storage(key: &[u8], output: &mut &mut [u8]) -> Result {
 		let mut output_len = output.len() as u32;
 		let ret_code =
@@ -610,6 +615,7 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
+	#[inline(always)]
 	fn get_storage_v1(key: &[u8], output: &mut &mut [u8]) -> Result {
 		let mut output_len = output.len() as u32;
 		let ret_code = {
@@ -626,6 +632,7 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
+	#[inline(always)]
 	fn take_storage(key: &[u8], output: &mut &mut [u8]) -> Result {
 		let mut output_len = output.len() as u32;
 		let ret_code = {
@@ -665,7 +672,7 @@ impl HostFn for HostFnImpl {
 		unsafe { sys::v1::terminate(beneficiary.as_ptr()) }
 	}
 
-	fn call_chain_extension(func_id: u32, input: &[u8], mut output: Option<&mut [u8]>) -> u32 {
+	fn call_chain_extension(func_id: u32, input: &[u8], mut output: Option<&mut &mut [u8]>) -> u32 {
 		let (output_ptr, mut output_len) = ptr_len_or_sentinel(&mut output);
 		let ret_code = {
 			unsafe {
@@ -685,6 +692,7 @@ impl HostFn for HostFnImpl {
 		ret_code.into_u32()
 	}
 
+	#[inline(always)]
 	fn input(output: &mut &mut [u8]) {
 		let mut output_len = output.len() as u32;
 		{
@@ -707,6 +715,7 @@ impl HostFn for HostFnImpl {
 		(v1) => [gas_left],
 	}
 
+	#[inline(always)]
 	fn weight_to_fee(gas: u64, output: &mut &mut [u8]) {
 		let mut output_len = output.len() as u32;
 		{

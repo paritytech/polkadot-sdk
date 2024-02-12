@@ -18,11 +18,10 @@
 
 //! Schema for BEEFY state persisted in the aux-db.
 
-use crate::{worker::PersistedState, LOG_TARGET};
+use crate::{error::Error, worker::PersistedState, LOG_TARGET};
 use codec::{Decode, Encode};
 use log::{info, trace};
 use sc_client_api::{backend::AuxStore, Backend};
-use sp_blockchain::{Error as ClientError, Result as ClientResult};
 use sp_runtime::traits::Block as BlockT;
 
 const VERSION_KEY: &[u8] = b"beefy_auxschema_version";
@@ -30,31 +29,33 @@ const WORKER_STATE_KEY: &[u8] = b"beefy_voter_state";
 
 const CURRENT_VERSION: u32 = 4;
 
-pub(crate) fn write_current_version<BE: AuxStore>(backend: &BE) -> ClientResult<()> {
+pub(crate) fn write_current_version<BE: AuxStore>(backend: &BE) -> Result<(), Error> {
 	info!(target: LOG_TARGET, "🥩 write aux schema version {:?}", CURRENT_VERSION);
 	AuxStore::insert_aux(backend, &[(VERSION_KEY, CURRENT_VERSION.encode().as_slice())], &[])
+		.map_err(|e| Error::Backend(e.to_string()))
 }
 
 /// Write voter state.
 pub(crate) fn write_voter_state<B: BlockT, BE: AuxStore>(
 	backend: &BE,
 	state: &PersistedState<B>,
-) -> ClientResult<()> {
+) -> Result<(), Error> {
 	trace!(target: LOG_TARGET, "🥩 persisting {:?}", state);
 	AuxStore::insert_aux(backend, &[(WORKER_STATE_KEY, state.encode().as_slice())], &[])
+		.map_err(|e| Error::Backend(e.to_string()))
 }
 
-fn load_decode<BE: AuxStore, T: Decode>(backend: &BE, key: &[u8]) -> ClientResult<Option<T>> {
-	match backend.get_aux(key)? {
+fn load_decode<BE: AuxStore, T: Decode>(backend: &BE, key: &[u8]) -> Result<Option<T>, Error> {
+	match backend.get_aux(key).map_err(|e| Error::Backend(e.to_string()))? {
 		None => Ok(None),
 		Some(t) => T::decode(&mut &t[..])
-			.map_err(|e| ClientError::Backend(format!("BEEFY DB is corrupted: {}", e)))
+			.map_err(|e| Error::Backend(format!("BEEFY DB is corrupted: {}", e)))
 			.map(Some),
 	}
 }
 
 /// Load or initialize persistent data from backend.
-pub(crate) fn load_persistent<B, BE>(backend: &BE) -> ClientResult<Option<PersistedState<B>>>
+pub(crate) fn load_persistent<B, BE>(backend: &BE) -> Result<Option<PersistedState<B>>, Error>
 where
 	B: BlockT,
 	BE: Backend<B>,
@@ -65,8 +66,7 @@ where
 		None => (),
 		Some(1) | Some(2) | Some(3) => (), // versions 1, 2 & 3 are obsolete and should be ignored
 		Some(4) => return load_decode::<_, PersistedState<B>>(backend, WORKER_STATE_KEY),
-		other =>
-			return Err(ClientError::Backend(format!("Unsupported BEEFY DB version: {:?}", other))),
+		other => return Err(Error::Backend(format!("Unsupported BEEFY DB version: {:?}", other))),
 	}
 
 	// No persistent state found in DB.
