@@ -10,7 +10,7 @@ workspace = true
 
 [dependencies]
 anyhow = "1.0"
-thiserror = "1.0.56"
+thiserror = "1.0.57"
 async-std = "1.9.0"
 async-trait = "0.1"
 codec = { package = "parity-scale-codec", version = "3.1.5" }
