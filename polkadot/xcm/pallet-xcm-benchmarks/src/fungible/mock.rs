@@ -103,8 +103,7 @@ impl xcm_executor::traits::MatchesFungible<u64> for MatchAnyFungible {
 }
 
 // Use balances as the asset transactor.
-#[allow(deprecated)]
-pub type AssetTransactor = xcm_builder::CurrencyAdapter<
+pub type AssetTransactor = xcm_builder::FungibleAdapter<
 	Balances,
 	MatchAnyFungible,
 	AccountIdConverter,
