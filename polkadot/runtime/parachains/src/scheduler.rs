@@ -236,8 +236,16 @@ impl<T: Config> Pallet<T> {
 		if n_cores == 0 || validators.is_empty() {
 			ValidatorGroups::<T>::set(Vec::new());
 		} else {
-			let group_base_size = validators.len() / n_cores as usize;
-			let n_larger_groups = validators.len() % n_cores as usize;
+			let group_base_size =
+				validators.len().checked_div(n_cores as usize).unwrap_or_else(|| {
+					defensive!("n_cores should not be 0");
+					0
+				});
+			let n_larger_groups =
+				validators.len().checked_rem(n_cores as usize).unwrap_or_else(|| {
+					defensive!("n_cores should not be 0");
+					0
+				});
 
 			// Groups contain indices into the validators from the session change notification,
 			// which are already shuffled.
