@@ -5604,7 +5604,6 @@ dependencies = [
  "indicatif",
  "jsonrpsee",
  "log",
- "once_cell",
  "parity-scale-codec",
  "serde",
  "sp-core",
