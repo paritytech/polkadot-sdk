@@ -27,7 +27,7 @@ use frame_support::{
 	BoundedVec,
 };
 use frame_system::{
-	offchain::{SendTransactionTypes, SubmitTransaction},
+	offchain::{CreateInherent, SubmitTransaction},
 	pallet_prelude::BlockNumberFor,
 };
 pub use pallet::*;
@@ -175,7 +175,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + SendTransactionTypes<Call<Self>> {
+	pub trait Config: frame_system::Config + CreateInherent<Call<Self>> {
 		/// The maximum number of authorities per session.
 		#[pallet::constant]
 		type MaxAuthorities: Get<AuthorityIndex>;
@@ -358,7 +358,10 @@ pub mod pallet {
 	}
 }
 
-impl<T: Config> Pallet<T> {
+impl<T: Config> Pallet<T>
+where
+	T:,
+{
 	/// Returns the phase of the current session.
 	fn session_phase() -> SessionPhase {
 		let block_in_phase = frame_system::Pallet::<T>::block_number()
@@ -528,7 +531,8 @@ impl<T: Config> Pallet<T> {
 			return false
 		};
 		let call = Call::register { registration, signature };
-		match SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()) {
+		let xt = T::create_inherent(call.into());
+		match SubmitTransaction::<T, Call<T>>::submit_transaction(xt) {
 			Ok(()) => true,
 			Err(()) => {
 				log::debug!(

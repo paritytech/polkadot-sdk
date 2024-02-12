@@ -26,7 +26,7 @@
 //! communication between the client and the runtime. This includes:
 //!
 //! - A set of traits to declare what any block/header/extrinsic type should provide.
-//! 	- [`traits::Block`], [`traits::Header`], [`traits::Extrinsic`]
+//! 	- [`traits::Block`], [`traits::Header`], [`traits::ExtrinsicLike`]
 //! - A set of types that implement these traits, whilst still providing a high degree of
 //!   configurability via generics.
 //! 	- [`generic::Block`], [`generic::Header`], [`generic::UncheckedExtrinsic`] and
@@ -944,10 +944,7 @@ impl<'a> ::serde::Deserialize<'a> for OpaqueExtrinsic {
 	}
 }
 
-// TODO: OpaqueExtrinsics cannot act like regular extrinsics, right?!
-impl traits::Extrinsic for OpaqueExtrinsic {
-	type Call = ();
-	type SignaturePayload = ();
+impl traits::ExtrinsicLike for OpaqueExtrinsic {
 	fn is_bare(&self) -> bool {
 		false
 	}

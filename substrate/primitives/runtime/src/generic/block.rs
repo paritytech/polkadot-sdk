@@ -99,7 +99,7 @@ where
 impl<Header, Extrinsic: MaybeSerialize> traits::Block for Block<Header, Extrinsic>
 where
 	Header: HeaderT + MaybeSerializeDeserialize,
-	Extrinsic: Member + Codec + traits::Extrinsic,
+	Extrinsic: Member + Codec + traits::ExtrinsicLike,
 {
 	type Extrinsic = Extrinsic;
 	type Header = Header;

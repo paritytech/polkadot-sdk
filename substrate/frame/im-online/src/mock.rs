@@ -214,7 +214,7 @@ impl Config for Runtime {
 	type MaxPeerInHeartbeats = ConstU32<10_000>;
 }
 
-impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Runtime
+impl<LocalCall> frame_system::offchain::CreateTransactionBase<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
