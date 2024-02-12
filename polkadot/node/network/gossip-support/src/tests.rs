@@ -72,7 +72,6 @@ lazy_static! {
 			.chain(AUTHORITIES.clone())
 			.collect()
 	};
-	// static ref MOCK_AUTHORITY_DISCOVERY: MockAuthorityDiscovery = MockAuthorityDiscovery::new(PAST_PRESENT_FUTURE_AUTHORITIES.clone());
 
 	// [2 6]
 	// [4 5]
