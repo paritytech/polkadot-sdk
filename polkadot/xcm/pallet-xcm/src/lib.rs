@@ -62,6 +62,9 @@ use xcm_executor::{
 	AssetsInHolding,
 };
 
+#[cfg(any(feature = "try-runtime", test))]
+use sp_runtime::TryRuntimeError;
+
 pub trait WeightInfo {
 	fn send() -> Weight;
 	fn teleport_assets() -> Weight;
@@ -464,6 +467,8 @@ pub mod pallet {
 		FeesPaid { paying: Location, fees: Assets },
 		/// Some assets have been claimed from an asset trap
 		AssetsClaimed { hash: H256, origin: Location, assets: VersionedAssets },
+		/// A XCM version migration finished.
+		VersionMigrationFinished { version: XcmVersion },
 	}
 
 	#[pallet::origin]
@@ -765,6 +770,9 @@ pub mod pallet {
 				// Consume 10% of block at most
 				let max_weight = T::BlockWeights::get().max_block / 10;
 				let (w, maybe_migration) = Self::check_xcm_version_change(migration, max_weight);
+				if maybe_migration.is_none() {
+					Self::deposit_event(Event::VersionMigrationFinished { version: XCM_VERSION });
+				}
 				CurrentMigration::<T>::set(maybe_migration);
 				weight_used.saturating_accrue(w);
 			}
@@ -790,6 +798,11 @@ pub mod pallet {
 				VersionDiscoveryQueue::<T>::put(q);
 			}
 			weight_used
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+			Self::do_try_state()
 		}
 	}
 
@@ -2385,6 +2398,48 @@ impl<T: Config> Pallet<T> {
 		T::XcmExecutor::charge_fees(location.clone(), assets.clone())
 			.map_err(|_| Error::<T>::FeesNotMet)?;
 		Self::deposit_event(Event::FeesPaid { paying: location, fees: assets });
+		Ok(())
+	}
+
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before and after each state transition of this pallet.
+	///
+	/// ## Invariants
+	///
+	/// All entries stored in the `SupportedVersion` / `VersionNotifiers` / `VersionNotifyTargets`
+	/// need to be migrated to the `XCM_VERSION`. If they are not, then `CurrentMigration` has to be
+	/// set.
+	#[cfg(any(feature = "try-runtime", test))]
+	pub fn do_try_state() -> Result<(), TryRuntimeError> {
+		// if migration has been already scheduled, everything is ok and data will be eventually
+		// migrated
+		if CurrentMigration::<T>::exists() {
+			return Ok(())
+		}
+
+		// if migration has NOT been scheduled yet, we need to check all operational data
+		for v in 0..XCM_VERSION {
+			ensure!(
+				SupportedVersion::<T>::iter_prefix(v).next().is_none(),
+				TryRuntimeError::Other(
+					"`SupportedVersion` data should be migrated to the `XCM_VERSION`!`"
+				)
+			);
+			ensure!(
+				VersionNotifiers::<T>::iter_prefix(v).next().is_none(),
+				TryRuntimeError::Other(
+					"`VersionNotifiers` data should be migrated to the `XCM_VERSION`!`"
+				)
+			);
+			ensure!(
+				VersionNotifyTargets::<T>::iter_prefix(v).next().is_none(),
+				TryRuntimeError::Other(
+					"`VersionNotifyTargets` data should be migrated to the `XCM_VERSION`!`"
+				)
+			);
+		}
+
 		Ok(())
 	}
 }

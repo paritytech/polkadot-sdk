@@ -11,6 +11,9 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
+// You should have received a copy of the GNU General Public License
+// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+
 use crate::core::configuration::TestAuthorities;
 use itertools::Itertools;
 use polkadot_node_core_approval_voting::time::{Clock, SystemClock, Tick};
@@ -38,9 +41,6 @@ use sp_core::crypto::VrfSecret;
 use sp_keyring::sr25519::Keyring as Sr25519Keyring;
 use sp_runtime::{Digest, DigestItem};
 use std::sync::{atomic::AtomicU64, Arc};
-
-// You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 /// A fake system clock used for driving the approval voting and make
 /// it process blocks, assignments and approvals from the past.
