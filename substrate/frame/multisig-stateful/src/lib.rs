@@ -95,7 +95,6 @@
 use frame_support::traits::fungible::MutateHold;
 use frame_support::{
 	pallet_prelude::*,
-	storage::KeyLenOf,
 	traits::{fungible, tokens::Precision},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -174,12 +173,6 @@ pub mod pallet {
 		/// The maximum amount of signatories/owners allowed in the multisig.
 		#[pallet::constant]
 		type MaxSignatories: Get<u32>;
-
-		/// The maximum amount of proposals to remove in one call when cleaning up the storage.
-		/// Don't change the u8 as we don't want to allow a large number of proposals to be removed in one call
-		/// to eliminate the possibility of a DoS attack.
-		#[pallet::constant]
-		type RemoveProposalsLimit: Get<u8>;
 	}
 
 	/// Each multisig account (key) has a set of current owners with a threshold.
@@ -198,11 +191,6 @@ pub mod pallet {
 		T::Hash, // Call Hash
 		MultisigProposal<T>,
 	>;
-
-	/// Clear-cursor for pending proposals, map from MultisigAccountId -> (Maybe) Cursor.
-	#[pallet::storage]
-	pub(super) type ProposalsClearCursor<T: Config> =
-		StorageMap<_, Twox64Concat, T::AccountId, BoundedVec<u8, KeyLenOf<PendingProposals<T>>>>;
 
 	/// A reason for the pallet placing a hold on funds.
 	#[pallet::composite_enum]
@@ -637,29 +625,21 @@ pub mod pallet {
 		pub fn cleanup_proposals(
 			origin: OriginFor<T>,
 			multisig_account: T::AccountId,
-		) -> DispatchResultWithPostInfo {
+		) -> DispatchResult {
 			ensure_signed(origin)?;
 			ensure!(
 				!MultisigAccount::<T>::contains_key(&multisig_account),
 				Error::<T>::MultisigStillExists
 			);
-			let maybe_cursor = ProposalsClearCursor::<T>::get(&multisig_account);
-			let r = PendingProposals::<T>::clear_prefix(
-				&multisig_account,
-				T::RemoveProposalsLimit::get().into(), // RemoveProposalLimit is u8, no worries from a big loop.
-				maybe_cursor.as_ref().map(|x| &x[..]),
-			);
-			if let Some(cursor) = r.maybe_cursor {
-				ProposalsClearCursor::<T>::insert(
-					&multisig_account,
-					BoundedVec::truncate_from(cursor),
-				);
-			} else {
-				// Clear the cursor if we're done.
-				ProposalsClearCursor::<T>::remove(&multisig_account);
-				Self::deposit_event(Event::PendingProposalsCleared { multisig_account });
-			}
-			Ok(if r.loops == 0 { Pays::Yes } else { Pays::No }.into())
+
+			// Although we're iterating over dreaind proposals, It's hard to attack the runtime by having a very large 
+			// number of proposals as with each proposal we already hold a deposit which makes it pretty hard to do so.
+			for(_, proposal) in PendingProposals::<T>::drain_prefix(&multisig_account) {
+				Self::return_proposal_deposit(&proposal)?;
+			};
+
+			Self::deposit_event(Event::PendingProposalsCleared { multisig_account });
+			Ok(())
 		}
 
 		//==============================================================================================================

@@ -1026,7 +1026,6 @@ fn cleanup_proposals_works() {
 
 		// Delete account
 		assert_ok!(Multisig::delete_account(RuntimeOrigin::signed(multisig_account)));
-
 		// Still exists
 		call_hash_vec.iter().for_each(|call_hash| {
 			assert!(PendingProposals::<Test>::contains_key(&multisig_account, call_hash));
@@ -1046,9 +1045,6 @@ fn cleanup_proposals_works() {
 			alice_current_balance + CreationDeposit::get()
 		);
 
-		//TODO: This should only clear RemoveProposalLimit proposals at a time, It's clearing all instead.
-		// From documentation it mentions that it clears the overlay completely but can't mock the behvaior to check
-		// the actual implementation.
 		call_hash_vec.iter().for_each(|call_hash| {
 			assert!(!PendingProposals::<Test>::contains_key(&multisig_account, call_hash));
 		});

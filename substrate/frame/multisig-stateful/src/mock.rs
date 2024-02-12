@@ -68,7 +68,6 @@ impl pallet_balances::Config for Test {
 
 parameter_types! {
 	pub static MaxSignatories: u32 = 4; // Adding static makes it easier to set it to different values in tests. MaxSignatories::set(100);
-	pub static RemoveProposalsLimit: u8 = 1;
 	pub static CreationDeposit: u128 = 2;
 	pub static ProposalDeposit: u128 = 1;
 }
@@ -79,7 +78,6 @@ impl pallet_multisig_stateful::Config for Test {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeCall = RuntimeCall;
 	type MaxSignatories = MaxSignatories;
-	type RemoveProposalsLimit = RemoveProposalsLimit;
 	type CreationDeposit = CreationDeposit;
 	type ProposalDeposit = ProposalDeposit;
 }
