@@ -24,7 +24,7 @@ ssz_rs_derive = { version = "0.9.0", default-features = false }
 byte-slice-cast = { version = "1.2.1", default-features = false }
 rlp = { version = "0.5.2", default-features = false }
 hex-literal = { version = "0.4.1", optional = true }
-log = { version = "0.4.20", default-features = false }
+log = { workspace = true }
 
 frame-benchmarking = { path = "../../../../substrate/frame/benchmarking", default-features = false, optional = true }
 frame-support = { path = "../../../../substrate/frame/support", default-features = false }

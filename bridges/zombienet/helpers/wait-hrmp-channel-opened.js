@@ -15,7 +15,7 @@ async function run(nodeName, networkInfo, args) {
         }
 
         // else sleep and retry
-        await new Promise((resolve) => setTimeout(resolve, 12000));
+        await new Promise((resolve) => setTimeout(resolve, 6000));
     }
 }
 
