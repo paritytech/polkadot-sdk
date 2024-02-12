@@ -36,9 +36,9 @@ use jsonrpsee::{
 			http::{HostFilterLayer, ProxyGetRequestLayer},
 			rpc::RpcServiceBuilder,
 		},
-		stop_channel, ws, PingConfig,
+		stop_channel, ws, PingConfig, StopHandle, TowerServiceBuilder,
 	},
-	RpcModule,
+	Methods, RpcModule,
 };
 use tokio::net::TcpListener;
 use tower::Service;
@@ -121,11 +121,12 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		.enable_ws_ping(
 			PingConfig::new()
 				.ping_interval(Duration::from_secs(30))
-				.inactive_limit(Duration::from_secs(40)),
+				.inactive_limit(Duration::from_secs(60))
+				.max_failures(3),
 		)
 		.set_http_middleware(http_middleware)
 		.set_message_buffer_capacity(message_buffer_capacity)
-		.custom_tokio_runtime(tokio_handle);
+		.custom_tokio_runtime(tokio_handle.clone());
 
 	if let Some(provider) = id_provider {
 		builder = builder.set_id_provider(provider);
@@ -133,53 +134,50 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		builder = builder.set_id_provider(RandomStringIdProvider::new(16));
 	};
 
-	let methods = build_rpc_api(rpc_api);
-	let svc_builder = builder.to_service_builder().max_connections(max_connections);
-
 	let (stop_handle, server_handle) = stop_channel();
-	let stop_handle2 = stop_handle.clone();
-	let methods = methods.clone();
-	let metrics = metrics.clone();
+	let cfg = PerConnection {
+		methods: build_rpc_api(rpc_api).into(),
+		service_builder: builder.to_service_builder(),
+		metrics,
+		tokio_handle,
+		stop_handle: stop_handle.clone(),
+	};
 
 	let make_service = make_service_fn(move |_conn: &AddrStream| {
-		let stop_handle = stop_handle2.clone();
-		let svc_builder = svc_builder.clone();
-		let metrics = metrics.clone();
-		let methods = methods.clone();
+		let cfg = cfg.clone();
 
 		async move {
-			let stop_handle = stop_handle.clone();
-			let svc_builder = svc_builder.clone();
-			let stop_handle = stop_handle.clone();
-			let metrics = metrics.clone();
+			let cfg = cfg.clone();
 
 			Ok::<_, Infallible>(service_fn(move |req| {
-				let metrics = metrics.clone();
-				let svc_builder = svc_builder.clone();
+				let PerConnection { service_builder, metrics, tokio_handle, stop_handle, methods } =
+					cfg.clone();
+
 				let is_websocket = ws::is_upgrade_request(&req);
 				let transport_label = if is_websocket { "ws" } else { "http" };
 
 				let metrics = metrics.map(|m| MetricsLayer::new(m, transport_label));
-				let rate_limit = rate_limit
-					.map(|r| RateLimitLayer::new(r as u64, std::time::Duration::from_secs(60)));
-				let rpc_middleware =
-					RpcServiceBuilder::new().option_layer(rate_limit).option_layer(metrics.clone());
-				let mut svc = svc_builder
-					.set_rpc_middleware(rpc_middleware)
-					.build(methods.clone(), stop_handle.clone());
+				let rate_limit = rate_limit.map(|r| RateLimitLayer::new(r as u64, std::time::Duration::from_secs(60)));
+
+				let rpc_middleware = RpcServiceBuilder::new().option_layer(rate_limit).option_layer(metrics.clone());
+				let mut svc =
+					service_builder.set_rpc_middleware(rpc_middleware).build(methods, stop_handle);
 
 				async move {
 					if is_websocket {
-						let now = std::time::Instant::now();
-						metrics.as_ref().map(|m| m.ws_connect());
-						let rp = svc.call(req).await;
-						metrics.as_ref().map(|m| m.ws_disconnect(now));
-						rp
-					} else {
-						svc.call(req).await
+						let on_disconnect = svc.on_session_closed();
+
+						// Spawn a task to handle when the connection is closed.
+						tokio_handle.spawn(async move {
+							let now = std::time::Instant::now();
+							metrics.as_ref().map(|m| m.ws_connect());
+							on_disconnect.await;
+							metrics.as_ref().map(|m| m.ws_disconnect(now));
+						});
 					}
+
+					svc.call(req).await
 				}
-				.boxed()
 			}))
 		}
 	});
@@ -188,7 +186,7 @@ pub async fn start_server<M: Send + Sync + 'static>(
 
 	tokio::spawn(async move {
 		let graceful = server.with_graceful_shutdown(async move { stop_handle.shutdown().await });
-		graceful.await.unwrap()
+		let _ = graceful.await;
 	});
 
 	log::info!(
@@ -252,4 +250,13 @@ fn format_cors(maybe_cors: Option<&Vec<String>>) -> String {
 	} else {
 		format!("{:?}", ["*"])
 	}
+}
+
+#[derive(Clone)]
+struct PerConnection<RpcMiddleware, HttpMiddleware> {
+	methods: Methods,
+	stop_handle: StopHandle,
+	metrics: Option<RpcMetrics>,
+	tokio_handle: tokio::runtime::Handle,
+	service_builder: TowerServiceBuilder<RpcMiddleware, HttpMiddleware>,
 }

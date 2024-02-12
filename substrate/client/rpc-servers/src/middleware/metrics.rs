@@ -1,3 +1,23 @@
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+//! RPC middleware to collect prometheus metrics on RPC calls.
+
 use std::{
 	future::Future,
 	pin::Pin,
@@ -5,9 +25,7 @@ use std::{
 	time::Instant,
 };
 
-use jsonrpsee::{
-	core::async_trait, server::middleware::rpc::RpcServiceT, types::Request, MethodResponse,
-};
+use jsonrpsee::{server::middleware::rpc::RpcServiceT, types::Request, MethodResponse};
 use pin_project::pin_project;
 use prometheus_endpoint::{
 	register, Counter, CounterVec, HistogramOpts, HistogramVec, Opts, PrometheusError, Registry,
@@ -103,7 +121,7 @@ impl RpcMetrics {
 					HistogramVec::new(
 						HistogramOpts::new(
 							"substrate_rpc_sessions_time",
-							"Time [s] for each websocket session",
+							"Total time [s] for each websocket session",
 						)
 						.buckets(HISTOGRAM_BUCKETS.to_vec()),
 						&["protocol"],
@@ -128,7 +146,7 @@ impl RpcMetrics {
 	}
 }
 
-/// ..
+/// Metrics layer.
 #[derive(Clone)]
 pub struct MetricsLayer {
 	inner: RpcMetrics,
@@ -136,7 +154,7 @@ pub struct MetricsLayer {
 }
 
 impl MetricsLayer {
-	/// ..
+	/// Create a new [`MetricsLayer`].
 	pub fn new(metrics: RpcMetrics, transport_label: &'static str) -> Self {
 		Self { inner: metrics, transport_label }
 	}
@@ -173,7 +191,6 @@ impl<S> Metrics<S> {
 	}
 }
 
-#[async_trait]
 impl<'a, S> RpcServiceT<'a> for Metrics<S>
 where
 	S: Send + Sync + RpcServiceT<'a>,
