@@ -209,7 +209,7 @@ struct PerRelayParentState {
 	prospective_parachains_mode: ProspectiveParachainsMode,
 	/// The hash of the relay parent on top of which this job is doing it's work.
 	parent: Hash,
-	/// The `CoreIndex` assigned to the local validator at this relay parent.
+	/// The `ParaId` assigned to the local validator at this relay parent.
 	assigned_para: Option<ParaId>,
 	/// The `CoreIndex` assigned to the local validator at this relay parent.
 	assigned_core: Option<CoreIndex>,
