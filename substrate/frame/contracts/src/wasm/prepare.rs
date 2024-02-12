@@ -384,12 +384,7 @@ mod tests {
 				let wasm = wat::parse_str($wat).unwrap().try_into().unwrap();
 				let schedule = Schedule {
 					limits: Limits {
-					    globals: 3,
-					    locals: 3,
-						parameters: 3,
 						memory_pages: 16,
-						table_size: 3,
-						br_table_size: 3,
 						.. Default::default()
 					},
 					.. Default::default()
