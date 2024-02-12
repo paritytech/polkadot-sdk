@@ -39,7 +39,7 @@ cat chain-spec-plain.json | jq --rawfile code rt-hex.txt '.genesis.runtimeGenesi
     | jq '.chainType = "Live"' \
     | jq '.bootNodes = [
           "/dns/westend-coretime-collator-0.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWP93Dzk8T7GWxyWw9jhLcz8Pksokk3R9vL2eEH337bNkT",
-          "/dns/westend-coretime-collator-1.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWMh2imeAzsZKGQgm2cv6Uoep3GBYtwGfujt1bs5YfVzkH",
+          "/dns/westend-coretime-collator-1.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWMh2imeAzsZKGQgm2cv6Uoep3GBYtwGfujt1bs5YfVzkH"
         ]' \
     | jq '.relay_chain = "westend"' \
     | jq --argjson para_id $para_id '.para_id = $para_id' \
@@ -47,23 +47,23 @@ cat chain-spec-plain.json | jq --rawfile code rt-hex.txt '.genesis.runtimeGenesi
     | jq '.genesis.runtimeGenesis.patch.balances.balances = []' \
     | jq '.genesis.runtimeGenesis.patch.collatorSelection.invulnerables = [
           "5GKXTtB7RG3mLJ2kT4AkDXoxvKCFDVUdwyRmeMEbX3gBwcGi",
-          "5DknBCD1h49nc8eqnm6XtHz3bMQm5hfMuGYcLenRfCmpnBJG",
+          "5DknBCD1h49nc8eqnm6XtHz3bMQm5hfMuGYcLenRfCmpnBJG"
         ]' \
     | jq '.genesis.runtimeGenesis.patch.session.keys = [
           [
             "5GKXTtB7RG3mLJ2kT4AkDXoxvKCFDVUdwyRmeMEbX3gBwcGi",
             "5GKXTtB7RG3mLJ2kT4AkDXoxvKCFDVUdwyRmeMEbX3gBwcGi",
             {
-              "aura": "0xbc3ea120d2991b75447b0b53cd8623970a0f6d98fa2701036c74d94e6b79252c"
+              "aura": "5GKXTtB7RG3mLJ2kT4AkDXoxvKCFDVUdwyRmeMEbX3gBwcGi"
             }
           ],
           [
             "5DknBCD1h49nc8eqnm6XtHz3bMQm5hfMuGYcLenRfCmpnBJG",
             "5DknBCD1h49nc8eqnm6XtHz3bMQm5hfMuGYcLenRfCmpnBJG",
             {
-              "aura": "0x4acc970c28713ec93bf925352d3023418fdf89933227e1e2fdae8481103dfe28"
+              "aura": "5DknBCD1h49nc8eqnm6XtHz3bMQm5hfMuGYcLenRfCmpnBJG"
             }
-          ],
+          ]
         ]' \
     > edited-chain-spec-plain.json
 
