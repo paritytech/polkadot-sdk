@@ -470,6 +470,7 @@ members = [
 	"substrate/primitives/std",
 	"substrate/primitives/storage",
 	"substrate/primitives/test-primitives",
+	"substrate/primitives/time",
 	"substrate/primitives/timestamp",
 	"substrate/primitives/tracing",
 	"substrate/primitives/transaction-pool",

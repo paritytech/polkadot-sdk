@@ -18922,6 +18922,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp-time"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+ "sp-arithmetic",
+ "sp-runtime",
+ "sp-std 14.0.0",
+]
+
+[[package]]
 name = "sp-timestamp"
 version = "26.0.0"
 dependencies = [
