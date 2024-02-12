@@ -59,7 +59,10 @@
 use codec::Encode;
 use sp_runtime::{
 	app_crypto::RuntimeAppPublic,
-	traits::{Extrinsic as ExtrinsicT, IdentifyAccount, One},
+	traits::{
+		CreateInherent, CreateSignedTransaction as CreateSignedTransactionT, CreateTransaction,
+		Extrinsic as ExtrinsicT, IdentifyAccount, One,
+	},
 	RuntimeDebug,
 };
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
@@ -87,13 +90,22 @@ where
 	T: SendTransactionTypes<LocalCall>,
 {
 	/// Submit transaction onchain by providing the call and an optional signature
-	pub fn submit_transaction(
+	pub fn submit_general_transaction(
 		call: <T as SendTransactionTypes<LocalCall>>::OverarchingCall,
-		signature: Option<<T::Extrinsic as ExtrinsicT>::SignaturePayload>,
+		extension: <T::Extrinsic as CreateTransaction>::Extension,
+	) -> Result<(), ()> {
+		let xt = T::Extrinsic::create_transaction(call, extension);
+		sp_io::offchain::submit_transaction(xt.encode())
+	}
+
+	/// Submit transaction onchain by providing the call and an optional signature
+	pub fn submit_signed_transaction(
+		call: <T as SendTransactionTypes<LocalCall>>::OverarchingCall,
+		signature: <T::Extrinsic as CreateSignedTransactionT>::SignaturePayload,
 	) -> Result<(), ()> {
 		// TODO: Use regular transaction API instead.
 		#[allow(deprecated)]
-		let xt = T::Extrinsic::new(call, signature).ok_or(())?;
+		let xt = T::Extrinsic::create_signed_transaction(call, signature);
 		sp_io::offchain::submit_transaction(xt.encode())
 	}
 
@@ -101,7 +113,8 @@ where
 	pub fn submit_unsigned_transaction(
 		call: <T as SendTransactionTypes<LocalCall>>::OverarchingCall,
 	) -> Result<(), ()> {
-		SubmitTransaction::<T, LocalCall>::submit_transaction(call, None)
+		let xt = <T::Extrinsic as CreateInherent>::create_inherent(call);
+		sp_io::offchain::submit_transaction(xt.encode())
 	}
 }
 
@@ -465,7 +478,10 @@ pub trait SigningTypes: crate::Config {
 /// A definition of types required to submit transactions from within the runtime.
 pub trait SendTransactionTypes<LocalCall> {
 	/// The extrinsic type expected by the runtime.
-	type Extrinsic: ExtrinsicT<Call = Self::OverarchingCall> + codec::Encode;
+	type Extrinsic: ExtrinsicT /* <Call = Self::OverarchingCall> */ + codec::Encode
+		+ CreateTransaction<Call = Self::OverarchingCall>
+		+ CreateSignedTransactionT<Call = Self::OverarchingCall>
+		+ CreateInherent<Call = Self::OverarchingCall>;
 	/// The runtime's call type.
 	///
 	/// This has additional bound to be able to be created from pallet-local `Call` types.
@@ -493,7 +509,10 @@ pub trait CreateSignedTransaction<LocalCall>:
 		public: Self::Public,
 		account: Self::AccountId,
 		nonce: Self::Nonce,
-	) -> Option<(Self::OverarchingCall, <Self::Extrinsic as ExtrinsicT>::SignaturePayload)>;
+	) -> Option<(
+		Self::OverarchingCall,
+		<Self::Extrinsic as CreateSignedTransactionT>::SignaturePayload,
+	)>;
 }
 
 /// A message signer.
@@ -558,7 +577,7 @@ pub trait SendSignedTransaction<
 			account.id.clone(),
 			account_data.nonce,
 		)?;
-		let res = SubmitTransaction::<T, LocalCall>::submit_transaction(call, Some(signature));
+		let res = SubmitTransaction::<T, LocalCall>::submit_signed_transaction(call, signature);
 
 		if res.is_ok() {
 			// increment the nonce. This is fine, since the code should always

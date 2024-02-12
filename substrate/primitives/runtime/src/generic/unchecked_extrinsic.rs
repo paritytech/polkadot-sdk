@@ -20,9 +20,9 @@
 use crate::{
 	generic::{CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
-		self, transaction_extension::TransactionExtensionBase, Checkable, Dispatchable, Extrinsic,
-		ExtrinsicMetadata, IdentifyAccount, MaybeDisplay, Member, SignaturePayload,
-		TransactionExtension,
+		self, transaction_extension::TransactionExtensionBase, Checkable, CreateInherent,
+		CreateSignedTransaction, CreateTransaction, Dispatchable, Extrinsic, ExtrinsicMetadata,
+		IdentifyAccount, MaybeDisplay, Member, SignaturePayload, TransactionExtension,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic,
@@ -212,10 +212,6 @@ impl<Address, Call, Signature, Extension> UncheckedExtrinsic<Address, Call, Sign
 impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extension: TypeInfo> Extrinsic
 	for UncheckedExtrinsic<Address, Call, Signature, Extension>
 {
-	type Call = Call;
-
-	type SignaturePayload = UncheckedSignaturePayload<Address, Signature, Extension>;
-
 	fn is_bare(&self) -> bool {
 		matches!(self.preamble, Preamble::Bare)
 	}
@@ -223,17 +219,38 @@ impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extension: TypeInfo
 	fn is_signed(&self) -> Option<bool> {
 		Some(matches!(self.preamble, Preamble::Signed(..)))
 	}
+}
 
-	fn new(function: Call, signed_data: Option<Self::SignaturePayload>) -> Option<Self> {
-		Some(if let Some((address, signature, extra)) = signed_data {
-			Self::new_signed(function, address, signature, extra)
-		} else {
-			Self::new_bare(function)
-		})
+impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extension: TypeInfo> CreateTransaction
+	for UncheckedExtrinsic<Address, Call, Signature, Extension>
+{
+	type Call = Call;
+	type Extension = Extension;
+
+	fn create_transaction(call: Self::Call, extension: Self::Extension) -> Self {
+		Self::new_transaction(call, extension)
 	}
+}
 
-	fn new_inherent(function: Call) -> Self {
-		Self::new_bare(function)
+impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extension: TypeInfo>
+	CreateSignedTransaction for UncheckedExtrinsic<Address, Call, Signature, Extension>
+{
+	type Call = Call;
+	type SignaturePayload = UncheckedSignaturePayload<Address, Signature, Extension>;
+
+	fn create_signed_transaction(call: Self::Call, signed_data: Self::SignaturePayload) -> Self {
+		let (signed, signature, extension) = signed_data;
+		Self::new_signed(call, signed, signature, extension)
+	}
+}
+
+impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extension: TypeInfo> CreateInherent
+	for UncheckedExtrinsic<Address, Call, Signature, Extension>
+{
+	type Call = Call;
+
+	fn create_inherent(call: Self::Call) -> Self {
+		Self::new_bare(call)
 	}
 }
 
@@ -653,14 +670,14 @@ mod tests {
 	#[test]
 	fn unsigned_codec_should_work() {
 		let call: TestCall = vec![0u8; 0].into();
-		let ux = Ex::new_inherent(call);
+		let ux = Ex::create_inherent(call);
 		let encoded = ux.encode();
 		assert_eq!(Ex::decode(&mut &encoded[..]), Ok(ux));
 	}
 
 	#[test]
 	fn invalid_length_prefix_is_detected() {
-		let ux = Ex::new_inherent(vec![0u8; 0].into());
+		let ux = Ex::create_inherent(vec![0u8; 0].into());
 		let mut encoded = ux.encode();
 
 		let length = Compact::<u32>::decode(&mut &encoded[..]).unwrap();
@@ -705,7 +722,7 @@ mod tests {
 
 	#[test]
 	fn unsigned_check_should_work() {
-		let ux = Ex::new_inherent(vec![0u8; 0].into());
+		let ux = Ex::create_inherent(vec![0u8; 0].into());
 		assert!(ux.is_inherent());
 		assert_eq!(
 			<Ex as Checkable<TestContext>>::check(ux, &Default::default()),
@@ -761,7 +778,7 @@ mod tests {
 
 	#[test]
 	fn encoding_matches_vec() {
-		let ex = Ex::new_inherent(vec![0u8; 0].into());
+		let ex = Ex::create_inherent(vec![0u8; 0].into());
 		let encoded = ex.encode();
 		let decoded = Ex::decode(&mut encoded.as_slice()).unwrap();
 		assert_eq!(decoded, ex);
@@ -771,7 +788,7 @@ mod tests {
 
 	#[test]
 	fn conversion_to_opaque() {
-		let ux = Ex::new_inherent(vec![0u8; 0].into());
+		let ux = Ex::create_inherent(vec![0u8; 0].into());
 		let encoded = ux.encode();
 		let opaque: OpaqueExtrinsic = ux.into();
 		let opaque_encoded = opaque.encode();

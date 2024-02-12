@@ -915,6 +915,8 @@ pub trait IsInherent<Extrinsic> {
 
 /// An extrinsic on which we can get access to call.
 pub trait ExtrinsicCall: sp_runtime::traits::Extrinsic {
+	type Call: TypeInfo;
+
 	/// Get the call of the extrinsic.
 	fn call(&self) -> &Self::Call;
 }
@@ -927,6 +929,8 @@ where
 	Signature: TypeInfo,
 	Extra: TypeInfo,
 {
+	type Call = Call;
+
 	fn call(&self) -> &Self::Call {
 		&self.function
 	}
