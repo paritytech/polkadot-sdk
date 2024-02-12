@@ -7020,6 +7020,7 @@ dependencies = [
  "pallet-nomination-pools-runtime-api",
  "pallet-offences",
  "pallet-offences-benchmarking",
+ "pallet-parameters",
  "pallet-preimage",
  "pallet-proxy",
  "pallet-ranked-collective",
@@ -9735,6 +9736,7 @@ dependencies = [
  "pallet-bags-list",
  "pallet-balances",
  "pallet-election-provider-multi-phase",
+ "pallet-nomination-pools",
  "pallet-session",
  "pallet-staking",
  "pallet-timestamp",
@@ -10427,6 +10429,26 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
+]
+
+[[package]]
+name = "pallet-parameters"
+version = "0.0.1"
+dependencies = [
+ "docify",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-example-basic",
+ "parity-scale-codec",
+ "paste",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 14.0.0",
 ]
 
 [[package]]
@@ -12130,6 +12152,7 @@ dependencies = [
  "sp-io",
  "sp-keyring",
  "sp-maybe-compressed-blob",
+ "sp-runtime",
  "substrate-build-script-utils",
  "thiserror",
  "try-runtime-cli",
@@ -13798,9 +13821,9 @@ dependencies = [
 
 [[package]]
 name = "polkavm-linker"
-version = "0.8.1"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1bc03593918a5890f96c276fb1e34ab77002bea1f9136cdcb55107c241011ab7"
+checksum = "fdec1451cb18261d5d01de82acc15305e417fb59588cdcb3127d3dcc9672b925"
 dependencies = [
  "gimli 0.28.0",
  "hashbrown 0.14.3",
@@ -18225,6 +18248,7 @@ dependencies = [
  "sp-core",
  "sp-crypto-hashing",
  "sp-io",
+ "sp-keystore",
  "sp-mmr-primitives",
  "sp-runtime",
  "sp-std 14.0.0",
@@ -19712,7 +19736,7 @@ dependencies = [
  "console",
  "filetime",
  "parity-wasm",
- "polkavm-linker 0.8.1",
+ "polkavm-linker 0.8.2",
  "sp-maybe-compressed-blob",
  "strum 0.24.1",
  "tempfile",
@@ -22192,8 +22216,10 @@ name = "xcm-simulator-fuzzer"
 version = "1.0.0"
 dependencies = [
  "arbitrary",
+ "frame-executive",
  "frame-support",
  "frame-system",
+ "frame-try-runtime",
  "honggfuzz",
  "pallet-balances",
  "pallet-message-queue",

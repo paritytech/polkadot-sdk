@@ -147,7 +147,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("westend"),
 	impl_name: create_runtime_str!("parity-westend"),
 	authoring_version: 2,
-	spec_version: 1_006_001,
+	spec_version: 1_007_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 24,
@@ -1647,7 +1647,7 @@ pub mod migrations {
 		pallet_referenda::migration::v1::MigrateV0ToV1<Runtime, ()>,
 		pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
 		parachains_configuration::migration::v10::MigrateToV10<Runtime>,
-		pallet_nomination_pools::migration::versioned::V7ToV8<Runtime>,
+		pallet_nomination_pools::migration::unversioned::TotalValueLockedSync<Runtime>,
 		UpgradeSessionKeys,
 		frame_support::migrations::RemovePallet<
 			ImOnlinePalletName,
@@ -1656,6 +1656,8 @@ pub mod migrations {
 		// Migrate Identity pallet for Usernames
 		pallet_identity::migration::versioned::V0ToV1<Runtime, IDENTITY_MIGRATION_KEY_LIMIT>,
 		parachains_configuration::migration::v11::MigrateToV11<Runtime>,
+		// permanent
+		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	);
 }
 

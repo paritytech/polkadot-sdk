@@ -56,7 +56,7 @@ pub mod v1 {
 	use super::*;
 
 	/// Simple migration that replaces `ReceivedHeartbeats` values with `true`.
-	pub struct Migration<T>(sp_std::marker::PhantomData<T>);
+	pub struct Migration<T>(core::marker::PhantomData<T>);
 
 	impl<T: Config> OnRuntimeUpgrade for Migration<T> {
 		#[cfg(feature = "try-runtime")]

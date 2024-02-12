@@ -62,10 +62,11 @@ use crate::{
 		GeneratedState, BUFFER_FOR_GENERATION_MILLIS, LOG_TARGET, SLOT_DURATION_MILLIS,
 	},
 	core::{
-		configuration::{TestAuthorities, TestConfiguration, TestObjective},
+		configuration::{TestAuthorities, TestConfiguration},
 		mock::session_info_for_peers,
 		NODE_UNDER_TEST,
 	},
+	TestObjective,
 };
 use polkadot_node_network_protocol::v3 as protocol_v3;
 use polkadot_primitives::Hash;
