@@ -54,7 +54,7 @@ pub type ThisChainAccountId = u64;
 /// Balance at `ThisChain`.
 pub type ThisChainBalance = u64;
 /// Block number at `ThisChain`.
-pub type ThisChainBlockNumber = u32;
+pub type ThisChainBlockNumber = u64;
 /// Hash at `ThisChain`.
 pub type ThisChainHash = H256;
 /// Hasher at `ThisChain`.

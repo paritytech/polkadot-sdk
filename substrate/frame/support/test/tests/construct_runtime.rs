@@ -27,7 +27,7 @@ use frame_support::{
 };
 use frame_system::limits::{BlockLength, BlockWeights};
 use scale_info::TypeInfo;
-use sp_core::{sr25519, ConstU64};
+use sp_core::{sr25519};
 use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, Verify},
