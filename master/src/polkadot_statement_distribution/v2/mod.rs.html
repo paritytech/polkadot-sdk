@@ -3312,6 +3312,59 @@
 <a href="#3312" id="3312">3312</a>
 <a href="#3313" id="3313">3313</a>
 <a href="#3314" id="3314">3314</a>
+<a href="#3315" id="3315">3315</a>
+<a href="#3316" id="3316">3316</a>
+<a href="#3317" id="3317">3317</a>
+<a href="#3318" id="3318">3318</a>
+<a href="#3319" id="3319">3319</a>
+<a href="#3320" id="3320">3320</a>
+<a href="#3321" id="3321">3321</a>
+<a href="#3322" id="3322">3322</a>
+<a href="#3323" id="3323">3323</a>
+<a href="#3324" id="3324">3324</a>
+<a href="#3325" id="3325">3325</a>
+<a href="#3326" id="3326">3326</a>
+<a href="#3327" id="3327">3327</a>
+<a href="#3328" id="3328">3328</a>
+<a href="#3329" id="3329">3329</a>
+<a href="#3330" id="3330">3330</a>
+<a href="#3331" id="3331">3331</a>
+<a href="#3332" id="3332">3332</a>
+<a href="#3333" id="3333">3333</a>
+<a href="#3334" id="3334">3334</a>
+<a href="#3335" id="3335">3335</a>
+<a href="#3336" id="3336">3336</a>
+<a href="#3337" id="3337">3337</a>
+<a href="#3338" id="3338">3338</a>
+<a href="#3339" id="3339">3339</a>
+<a href="#3340" id="3340">3340</a>
+<a href="#3341" id="3341">3341</a>
+<a href="#3342" id="3342">3342</a>
+<a href="#3343" id="3343">3343</a>
+<a href="#3344" id="3344">3344</a>
+<a href="#3345" id="3345">3345</a>
+<a href="#3346" id="3346">3346</a>
+<a href="#3347" id="3347">3347</a>
+<a href="#3348" id="3348">3348</a>
+<a href="#3349" id="3349">3349</a>
+<a href="#3350" id="3350">3350</a>
+<a href="#3351" id="3351">3351</a>
+<a href="#3352" id="3352">3352</a>
+<a href="#3353" id="3353">3353</a>
+<a href="#3354" id="3354">3354</a>
+<a href="#3355" id="3355">3355</a>
+<a href="#3356" id="3356">3356</a>
+<a href="#3357" id="3357">3357</a>
+<a href="#3358" id="3358">3358</a>
+<a href="#3359" id="3359">3359</a>
+<a href="#3360" id="3360">3360</a>
+<a href="#3361" id="3361">3361</a>
+<a href="#3362" id="3362">3362</a>
+<a href="#3363" id="3363">3363</a>
+<a href="#3364" id="3364">3364</a>
+<a href="#3365" id="3365">3365</a>
+<a href="#3366" id="3366">3366</a>
+<a href="#3367" id="3367">3367</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -3407,7 +3460,19 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
-<span class="kw">const </span>COST_UNEXPECTED_STATEMENT: Rep = Rep::CostMinor(<span class="string">&quot;Unexpected Statement&quot;</span>);
+<span class="kw">const </span>COST_UNEXPECTED_STATEMENT_NOT_VALIDATOR: Rep =
+	Rep::CostMinor(<span class="string">&quot;Unexpected Statement, not a validator&quot;</span>);
+<span class="kw">const </span>COST_UNEXPECTED_STATEMENT_VALIDATOR_NOT_FOUND: Rep =
+	Rep::CostMinor(<span class="string">&quot;Unexpected Statement, validator not found&quot;</span>);
+<span class="kw">const </span>COST_UNEXPECTED_STATEMENT_INVALID_SENDER: Rep =
+	Rep::CostMinor(<span class="string">&quot;Unexpected Statement, invalid sender&quot;</span>);
+<span class="kw">const </span>COST_UNEXPECTED_STATEMENT_BAD_ADVERTISE: Rep =
+	Rep::CostMinor(<span class="string">&quot;Unexpected Statement, bad advertise&quot;</span>);
+<span class="kw">const </span>COST_UNEXPECTED_STATEMENT_CLUSTER_REJECTED: Rep =
+	Rep::CostMinor(<span class="string">&quot;Unexpected Statement, cluster rejected&quot;</span>);
+<span class="kw">const </span>COST_UNEXPECTED_STATEMENT_NOT_IN_GROUP: Rep =
+	Rep::CostMinor(<span class="string">&quot;Unexpected Statement, not in group&quot;</span>);
+
 <span class="kw">const </span>COST_UNEXPECTED_STATEMENT_MISSING_KNOWLEDGE: Rep =
 	Rep::CostMinor(<span class="string">&quot;Unexpected Statement, missing knowledge for relay parent&quot;</span>);
 <span class="kw">const </span>COST_EXCESSIVE_SECONDED: Rep = Rep::CostMinor(<span class="string">&quot;Sent Excessive `Seconded` Statements&quot;</span>);
@@ -4400,6 +4465,7 @@
 						originator,
 						peer_validator_id,
 						<span class="kw-2">&amp;</span>compact,
+						<span class="bool-val">false</span>,
 					);
 				}
 
@@ -4692,6 +4758,7 @@
 					originator,
 					target,
 					<span class="kw-2">&amp;</span>compact_statement,
+					<span class="bool-val">false</span>,
 				);
 			},
 		}
@@ -4829,7 +4896,13 @@
 			<span class="comment">// we shouldn&#39;t be receiving statements unless we&#39;re a validator
 			// this session.
 			</span><span class="kw">if </span>per_session.is_not_validator() {
-				modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).<span class="kw">await</span>;
+				modify_reputation(
+					reputation,
+					ctx.sender(),
+					peer,
+					COST_UNEXPECTED_STATEMENT_NOT_VALIDATOR,
+				)
+				.<span class="kw">await</span>;
 			}
 			<span class="kw">return
 		</span>},
@@ -4840,7 +4913,13 @@
 		<span class="kw">match </span>per_session.groups.by_validator_index(statement.unchecked_validator_index()) {
 			<span class="prelude-val">Some</span>(g) =&gt; g,
 			<span class="prelude-val">None </span>=&gt; {
-				modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).<span class="kw">await</span>;
+				modify_reputation(
+					reputation,
+					ctx.sender(),
+					peer,
+					COST_UNEXPECTED_STATEMENT_VALIDATOR_NOT_FOUND,
+				)
+				.<span class="kw">await</span>;
 				<span class="kw">return
 			</span>},
 		};
@@ -4879,38 +4958,45 @@
 		(active, idx)
 	};
 
-	<span class="kw">let </span>checked_statement =
-		<span class="kw">if let </span><span class="prelude-val">Some</span>((active, cluster_sender_index)) = active.zip(cluster_sender_index) {
-			<span class="kw">match </span>handle_cluster_statement(
-				relay_parent,
-				<span class="kw-2">&amp;mut </span>active.cluster_tracker,
-				per_relay_parent.session,
-				<span class="kw-2">&amp;</span>per_session.session_info,
-				statement,
-				cluster_sender_index,
-			) {
-				<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(s)) =&gt; s,
-				<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; <span class="kw">return</span>,
-				<span class="prelude-val">Err</span>(rep) =&gt; {
-					modify_reputation(reputation, ctx.sender(), peer, rep).<span class="kw">await</span>;
-					<span class="kw">return
-				</span>},
-			}
-		} <span class="kw">else </span>{
-			<span class="kw">let </span>grid_sender_index = local_validator
-				.grid_tracker
-				.direct_statement_providers(
-					<span class="kw-2">&amp;</span>per_session.groups,
-					statement.unchecked_validator_index(),
-					statement.unchecked_payload(),
-				)
-				.into_iter()
-				.filter_map(|i| session_info.discovery_keys.get(i.<span class="number">0 </span><span class="kw">as </span>usize).map(|ad| (i, ad)))
-				.filter(|(<span class="kw">_</span>, ad)| peer_state.is_authority(ad))
-				.map(|(i, <span class="kw">_</span>)| i)
-				.next();
+	<span class="kw">let </span>checked_statement = <span class="kw">if let </span><span class="prelude-val">Some</span>((active, cluster_sender_index)) =
+		active.zip(cluster_sender_index)
+	{
+		<span class="kw">match </span>handle_cluster_statement(
+			relay_parent,
+			<span class="kw-2">&amp;mut </span>active.cluster_tracker,
+			per_relay_parent.session,
+			<span class="kw-2">&amp;</span>per_session.session_info,
+			statement,
+			cluster_sender_index,
+		) {
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(s)) =&gt; s,
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; <span class="kw">return</span>,
+			<span class="prelude-val">Err</span>(rep) =&gt; {
+				modify_reputation(reputation, ctx.sender(), peer, rep).<span class="kw">await</span>;
+				<span class="kw">return
+			</span>},
+		}
+	} <span class="kw">else </span>{
+		<span class="kw">let </span>grid_sender_index = local_validator
+			.grid_tracker
+			.direct_statement_providers(
+				<span class="kw-2">&amp;</span>per_session.groups,
+				statement.unchecked_validator_index(),
+				statement.unchecked_payload(),
+			)
+			.into_iter()
+			.filter_map(|(i, validator_knows_statement)| {
+				session_info
+					.discovery_keys
+					.get(i.<span class="number">0 </span><span class="kw">as </span>usize)
+					.map(|ad| (i, ad, validator_knows_statement))
+			})
+			.filter(|(<span class="kw">_</span>, ad, <span class="kw">_</span>)| peer_state.is_authority(ad))
+			.map(|(i, <span class="kw">_</span>, validator_knows_statement)| (i, validator_knows_statement))
+			.next();
 
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(grid_sender_index) = grid_sender_index {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>((grid_sender_index, validator_knows_statement)) = grid_sender_index {
+			<span class="kw">if </span>!validator_knows_statement {
 				<span class="kw">match </span>handle_grid_statement(
 					relay_parent,
 					<span class="kw-2">&amp;mut </span>local_validator.grid_tracker,
@@ -4926,11 +5012,22 @@
 					</span>},
 				}
 			} <span class="kw">else </span>{
-				<span class="comment">// Not a cluster or grid peer.
-				</span>modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).<span class="kw">await</span>;
-				<span class="kw">return
-			</span>}
-		};
+				<span class="comment">// Reward the peer for sending us the statement
+				</span>modify_reputation(reputation, ctx.sender(), peer, BENEFIT_VALID_STATEMENT).<span class="kw">await</span>;
+				<span class="kw">return</span>;
+			}
+		} <span class="kw">else </span>{
+			<span class="comment">// Not a cluster or grid peer.
+			</span>modify_reputation(
+				reputation,
+				ctx.sender(),
+				peer,
+				COST_UNEXPECTED_STATEMENT_INVALID_SENDER,
+			)
+			.<span class="kw">await</span>;
+			<span class="kw">return
+		</span>}
+	};
 
 	<span class="kw">let </span>statement = checked_statement.payload().clone();
 	<span class="kw">let </span>originator_index = checked_statement.validator_index();
@@ -4949,7 +5046,13 @@
 		);
 
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(BadAdvertisement) = res {
-			modify_reputation(reputation, ctx.sender(), peer, COST_UNEXPECTED_STATEMENT).<span class="kw">await</span>;
+			modify_reputation(
+				reputation,
+				ctx.sender(),
+				peer,
+				COST_UNEXPECTED_STATEMENT_BAD_ADVERTISE,
+			)
+			.<span class="kw">await</span>;
 			<span class="kw">return
 		</span>}
 	}
@@ -5057,11 +5160,11 @@
 			<span class="prelude-val">Ok</span>(ClusterAccept::WithPrejudice) =&gt; <span class="bool-val">false</span>,
 			<span class="prelude-val">Err</span>(ClusterRejectIncoming::ExcessiveSeconded) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(COST_EXCESSIVE_SECONDED),
 			<span class="prelude-val">Err</span>(ClusterRejectIncoming::CandidateUnknown | ClusterRejectIncoming::Duplicate) =&gt;
-				<span class="kw">return </span><span class="prelude-val">Err</span>(COST_UNEXPECTED_STATEMENT),
+				<span class="kw">return </span><span class="prelude-val">Err</span>(COST_UNEXPECTED_STATEMENT_CLUSTER_REJECTED),
 			<span class="prelude-val">Err</span>(ClusterRejectIncoming::NotInGroup) =&gt; {
 				<span class="comment">// sanity: shouldn&#39;t be possible; we already filtered this
 				// out above.
-				</span><span class="kw">return </span><span class="prelude-val">Err</span>(COST_UNEXPECTED_STATEMENT)
+				</span><span class="kw">return </span><span class="prelude-val">Err</span>(COST_UNEXPECTED_STATEMENT_NOT_IN_GROUP)
 			},
 		}
 	};
@@ -5112,6 +5215,7 @@
 		checked_statement.validator_index(),
 		grid_sender_index,
 		<span class="kw-2">&amp;</span>checked_statement.payload(),
+		<span class="bool-val">true</span>,
 	);
 
 	<span class="prelude-val">Ok</span>(checked_statement)
@@ -5690,6 +5794,7 @@
 			statement.validator_index(),
 			recipient,
 			statement.payload(),
+			<span class="bool-val">false</span>,
 		);
 		<span class="kw">match </span>peer.<span class="number">1</span>.into() {
 			ValidationVersion::V2 =&gt; messages.push(Versioned::V2(
@@ -6569,6 +6674,7 @@
 				statement.unchecked_validator_index(),
 				validator_id,
 				statement.unchecked_payload(),
+				<span class="bool-val">false</span>,
 			);
 		}
 	}

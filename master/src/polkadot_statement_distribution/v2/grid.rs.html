@@ -2317,6 +2317,39 @@
 <a href="#2317" id="2317">2317</a>
 <a href="#2318" id="2318">2318</a>
 <a href="#2319" id="2319">2319</a>
+<a href="#2320" id="2320">2320</a>
+<a href="#2321" id="2321">2321</a>
+<a href="#2322" id="2322">2322</a>
+<a href="#2323" id="2323">2323</a>
+<a href="#2324" id="2324">2324</a>
+<a href="#2325" id="2325">2325</a>
+<a href="#2326" id="2326">2326</a>
+<a href="#2327" id="2327">2327</a>
+<a href="#2328" id="2328">2328</a>
+<a href="#2329" id="2329">2329</a>
+<a href="#2330" id="2330">2330</a>
+<a href="#2331" id="2331">2331</a>
+<a href="#2332" id="2332">2332</a>
+<a href="#2333" id="2333">2333</a>
+<a href="#2334" id="2334">2334</a>
+<a href="#2335" id="2335">2335</a>
+<a href="#2336" id="2336">2336</a>
+<a href="#2337" id="2337">2337</a>
+<a href="#2338" id="2338">2338</a>
+<a href="#2339" id="2339">2339</a>
+<a href="#2340" id="2340">2340</a>
+<a href="#2341" id="2341">2341</a>
+<a href="#2342" id="2342">2342</a>
+<a href="#2343" id="2343">2343</a>
+<a href="#2344" id="2344">2344</a>
+<a href="#2345" id="2345">2345</a>
+<a href="#2346" id="2346">2346</a>
+<a href="#2347" id="2347">2347</a>
+<a href="#2348" id="2348">2348</a>
+<a href="#2349" id="2349">2349</a>
+<a href="#2350" id="2350">2350</a>
+<a href="#2351" id="2351">2351</a>
+<a href="#2352" id="2352">2352</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2846,12 +2879,16 @@
 	}
 
 	<span class="doccomment">/// Determine the validators which can send a statement to us by direct broadcast.
+	///
+	/// Returns a list of tuples representing each potential sender(ValidatorIndex)
+	/// and if the sender should already know about the statement, because we just
+	/// sent it to it.
 	</span><span class="kw">pub fn </span>direct_statement_providers(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		groups: <span class="kw-2">&amp;</span>Groups,
 		originator: ValidatorIndex,
 		statement: <span class="kw-2">&amp;</span>CompactStatement,
-	) -&gt; Vec&lt;ValidatorIndex&gt; {
+	) -&gt; Vec&lt;(ValidatorIndex, bool)&gt; {
 		<span class="kw">let </span>(g, c_h, kind, in_group) =
 			<span class="kw">match </span>extract_statement_and_group_info(groups, originator, statement) {
 				<span class="prelude-val">None </span>=&gt; <span class="kw">return </span>Vec::new(),
@@ -2935,12 +2972,13 @@
 		originator: ValidatorIndex,
 		counterparty: ValidatorIndex,
 		statement: <span class="kw-2">&amp;</span>CompactStatement,
+		received: bool,
 	) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, c_h, kind, in_group)) =
 			extract_statement_and_group_info(groups, originator, statement)
 		{
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(known) = <span class="self">self</span>.confirmed_backed.get_mut(<span class="kw-2">&amp;</span>c_h) {
-				known.sent_or_received_direct_statement(counterparty, in_group, kind);
+				known.sent_or_received_direct_statement(counterparty, in_group, kind, received);
 
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(pending) = <span class="self">self</span>.pending_statements.get_mut(<span class="kw-2">&amp;</span>counterparty) {
 					pending.remove(<span class="kw-2">&amp;</span>(originator, statement.clone()));
@@ -3227,6 +3265,12 @@
 	/// `Some` only if we have advertised, acknowledged, or requested the candidate
 	/// from them.
 	</span>local_knowledge: <span class="prelude-ty">Option</span>&lt;StatementFilter&gt;,
+	<span class="doccomment">/// Knowledge peer circulated to us, this is different from `local_knowledge` and
+	/// `remote_knowledge`, through the fact that includes only statements that we received from
+	/// peer while the other two, after manifest exchange part will include both what we sent to
+	/// the peer and what we received from peer, see `sent_or_received_direct_statement` for more
+	/// details.
+	</span>received_knowledge: <span class="prelude-ty">Option</span>&lt;StatementFilter&gt;,
 }
 
 <span class="comment">// A utility struct for keeping track of metadata about candidates
@@ -3252,10 +3296,13 @@
 	}
 
 	<span class="kw">fn </span>manifest_sent_to(<span class="kw-2">&amp;mut </span><span class="self">self</span>, validator: ValidatorIndex, local_knowledge: StatementFilter) {
-		<span class="kw">let </span>k = <span class="self">self
-			</span>.mutual_knowledge
-			.entry(validator)
-			.or_insert_with(|| MutualKnowledge { remote_knowledge: <span class="prelude-val">None</span>, local_knowledge: <span class="prelude-val">None </span>});
+		<span class="kw">let </span>k = <span class="self">self</span>.mutual_knowledge.entry(validator).or_insert_with(|| MutualKnowledge {
+			remote_knowledge: <span class="prelude-val">None</span>,
+			local_knowledge: <span class="prelude-val">None</span>,
+			received_knowledge: <span class="prelude-val">None</span>,
+		});
+		k.received_knowledge =
+			<span class="prelude-val">Some</span>(StatementFilter::blank(local_knowledge.seconded_in_group.len()));
 
 		k.local_knowledge = <span class="prelude-val">Some</span>(local_knowledge);
 	}
@@ -3265,20 +3312,24 @@
 		validator: ValidatorIndex,
 		remote_knowledge: StatementFilter,
 	) {
-		<span class="kw">let </span>k = <span class="self">self
-			</span>.mutual_knowledge
-			.entry(validator)
-			.or_insert_with(|| MutualKnowledge { remote_knowledge: <span class="prelude-val">None</span>, local_knowledge: <span class="prelude-val">None </span>});
+		<span class="kw">let </span>k = <span class="self">self</span>.mutual_knowledge.entry(validator).or_insert_with(|| MutualKnowledge {
+			remote_knowledge: <span class="prelude-val">None</span>,
+			local_knowledge: <span class="prelude-val">None</span>,
+			received_knowledge: <span class="prelude-val">None</span>,
+		});
 
 		k.remote_knowledge = <span class="prelude-val">Some</span>(remote_knowledge);
 	}
 
-	<span class="kw">fn </span>direct_statement_senders(
+	<span class="doccomment">/// Returns a list of tuples representing each potential sender(ValidatorIndex)
+	/// and if the sender should already know about the statement, because we just
+	/// sent it to it.
+	</span><span class="kw">fn </span>direct_statement_senders(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		group_index: GroupIndex,
 		originator_index_in_group: usize,
 		statement_kind: StatementKind,
-	) -&gt; Vec&lt;ValidatorIndex&gt; {
+	) -&gt; Vec&lt;(ValidatorIndex, bool)&gt; {
 		<span class="kw">if </span>group_index != <span class="self">self</span>.group_index {
 			<span class="kw">return </span>Vec::new()
 		}
@@ -3287,11 +3338,18 @@
 			.iter()
 			.filter(|(<span class="kw">_</span>, k)| k.remote_knowledge.is_some())
 			.filter(|(<span class="kw">_</span>, k)| {
-				k.local_knowledge
+				k.received_knowledge
 					.as_ref()
 					.map_or(<span class="bool-val">false</span>, |r| !r.contains(originator_index_in_group, statement_kind))
 			})
-			.map(|(v, <span class="kw">_</span>)| <span class="kw-2">*</span>v)
+			.map(|(v, k)| {
+				(
+					<span class="kw-2">*</span>v,
+					k.local_knowledge
+						.as_ref()
+						.map_or(<span class="bool-val">false</span>, |r| r.contains(originator_index_in_group, statement_kind)),
+				)
+			})
 			.collect()
 	}
 
@@ -3333,11 +3391,18 @@
 		validator: ValidatorIndex,
 		statement_index_in_group: usize,
 		statement_kind: StatementKind,
+		received: bool,
 	) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(k) = <span class="self">self</span>.mutual_knowledge.get_mut(<span class="kw-2">&amp;</span>validator) {
 			<span class="kw">if let </span>(<span class="prelude-val">Some</span>(r), <span class="prelude-val">Some</span>(l)) = (k.remote_knowledge.as_mut(), k.local_knowledge.as_mut()) {
 				r.set(statement_index_in_group, statement_kind);
 				l.set(statement_index_in_group, statement_kind);
+			}
+
+			<span class="kw">if </span>received {
+				k.received_knowledge
+					.as_mut()
+					.map(|knowledge| knowledge.set(statement_index_in_group, statement_kind));
 			}
 		}
 	}
@@ -4557,6 +4622,7 @@
 			validator_index,
 			counterparty,
 			<span class="kw-2">&amp;</span>statement,
+			<span class="bool-val">false</span>,
 		);
 
 		<span class="comment">// There should be no pending statements now (for the counterparty).
