@@ -16,35 +16,32 @@
 
 //! A tool for running subsystem benchmark tests designed for development and
 //! CI regression testing.
-use clap::Parser;
-use serde::{Deserialize, Serialize};
-
-use colored::Colorize;
-
-use color_eyre::eyre;
-use pyroscope::PyroscopeAgent;
-use pyroscope_pprofrs::{pprof_backend, PprofConfig};
-
-use std::path::Path;
-
-pub(crate) mod approval;
-pub(crate) mod availability;
-pub(crate) mod core;
-mod valgrind;
-
-const LOG_TARGET: &str = "subsystem-bench";
-
-use availability::{prepare_test, NetworkEmulation, TestState};
 
 use approval::{bench_approvals, ApprovalsOptions};
-use availability::DataAvailabilityReadOptions;
+use availability::{
+	cli::{DataAvailabilityReadOptions, NetworkEmulation},
+	prepare_test, TestState,
+};
+use clap::Parser;
+use clap_num::number_range;
+use color_eyre::eyre;
+use colored::Colorize;
 use core::{
 	configuration::TestConfiguration,
 	display::display_configuration,
 	environment::{TestEnvironment, GENESIS_HASH},
 };
+use pyroscope::PyroscopeAgent;
+use pyroscope_pprofrs::{pprof_backend, PprofConfig};
+use serde::{Deserialize, Serialize};
+use std::path::Path;
 
-use clap_num::number_range;
+mod approval;
+mod availability;
+mod core;
+mod valgrind;
+
+const LOG_TARGET: &str = "subsystem-bench";
 
 fn le_100(s: &str) -> Result<usize, String> {
 	number_range(s, 0, 100)
@@ -213,7 +210,6 @@ fn main() -> eyre::Result<()> {
 		.filter(Some("polkadot_overseer"), log::LevelFilter::Error)
 		.filter(None, log::LevelFilter::Info)
 		.format_timestamp_millis()
-		// .filter(None, log::LevelFilter::Trace)
 		.try_init()
 		.unwrap();
 

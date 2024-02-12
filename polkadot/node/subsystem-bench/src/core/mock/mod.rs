@@ -16,6 +16,7 @@
 
 use polkadot_node_subsystem::HeadSupportsParachains;
 use polkadot_node_subsystem_types::Hash;
+use sp_consensus::SyncOracle;
 
 pub mod av_store;
 pub mod chain_api;
@@ -23,11 +24,8 @@ pub mod dummy;
 pub mod network_bridge;
 pub mod runtime_api;
 
-pub use av_store::*;
-pub use chain_api::*;
-pub use runtime_api::*;
-
 pub struct AlwaysSupportsParachains {}
+
 #[async_trait::async_trait]
 impl HeadSupportsParachains for AlwaysSupportsParachains {
 	async fn head_supports_parachains(&self, _head: &Hash) -> bool {
@@ -38,7 +36,7 @@ impl HeadSupportsParachains for AlwaysSupportsParachains {
 // An orchestra with dummy subsystems
 macro_rules! dummy_builder {
 	($spawn_task_handle: ident, $metrics: ident) => {{
-		use super::core::mock::dummy::*;
+		use $crate::core::mock::dummy::*;
 
 		// Initialize a mock overseer.
 		// All subsystem except approval_voting and approval_distribution are mock subsystems.
@@ -74,9 +72,7 @@ macro_rules! dummy_builder {
 			.spawner(SpawnGlue($spawn_task_handle))
 	}};
 }
-
 pub(crate) use dummy_builder;
-use sp_consensus::SyncOracle;
 
 #[derive(Clone)]
 pub struct TestSyncOracle {}
