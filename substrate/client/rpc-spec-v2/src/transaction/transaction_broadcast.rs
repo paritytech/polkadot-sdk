@@ -27,8 +27,7 @@ use parking_lot::RwLock;
 use rand::{distributions::Alphanumeric, Rng};
 use sc_client_api::BlockchainEvents;
 use sc_transaction_pool_api::{
-	error::{Error as PoolError, IntoPoolError},
-	TransactionFor, TransactionPool, TransactionSource, TransactionStatus,
+	error::IntoPoolError, TransactionFor, TransactionPool, TransactionSource,
 };
 use sp_blockchain::HeaderBackend;
 use sp_core::Bytes;
@@ -138,10 +137,10 @@ where
 					Err(e) => {
 						let Ok(pool_err) = e.into_pool_error() else { return };
 
-						if is_pool_error_recoverable(&pool_err) {
-							// Try to resubmit the transaction at a later block for recoverable
-							// errors.
-							continue;
+						if pool_err.is_retriable() {
+							// Try to resubmit the transaction at a later block for
+							// recoverable errors.
+							continue
 						} else {
 							return;
 						}
@@ -149,36 +148,17 @@ where
 				};
 
 				while let Some(event) = stream.next().await {
-					match event {
-						// The transaction propagation stops when:
-						// - The transaction was included in a finalized block via
-						//   `TransactionStatus::Finalized`.
-						TransactionStatus::Finalized(_) |
-						// - The transaction has been replaced by another transaction with identical tags
-						// (same sender and same account nonce).
-						TransactionStatus::Usurped(_) => {
-							is_done = true;
-							break;
-						},
+					// Check if the transaction could be submitted again
+					// at a later time.
+					if event.is_retriable() {
+						break;
+					}
 
-						// The maximum number of finality watchers has been reached.
-						TransactionStatus::FinalityTimeout(_) |
-						// Dropped transaction may enter the pool at a later time, when other
-						// transactions have been finalized and remove from the pool.
-						TransactionStatus::Dropped |
-						// An invalid transaction may become valid at a later time.
-						TransactionStatus::Invalid => {
-							break;
-						},
-
-						// The transaction is still in the pool, the ready or future queue.
-						TransactionStatus::Ready | TransactionStatus::Future |
-						// Transaction has been broadcasted as intended.
-						TransactionStatus::Broadcast(_) |
-						// Transaction has been included in a block, but the block is not finalized yet.
-						TransactionStatus::InBlock(_) |
-						// Transaction has been retracted, but it may be included in a block at a later time.
-						TransactionStatus::Retracted(_) => (),
+					// Stop if this is the final event of the transaction stream
+					// and the event is not retriable.
+					if event.is_final() {
+						is_done = true;
+						break;
 					}
 				}
 			}
@@ -240,26 +220,6 @@ where
 	}
 
 	Some(element)
-}
-
-/// Returns true if the pool error could be recoverable by resubmitting the transaction
-/// at a later time.
-fn is_pool_error_recoverable(err: &PoolError) -> bool {
-	match err {
-		// An invalid transaction is temporarily banned, however it can
-		// become valid at a later time.
-		PoolError::TemporarilyBanned |
-		// The pool is full at the moment.
-		PoolError::ImmediatelyDropped |
-		// The block id is not known to the pool.
-		// The node might be lagging behind, or during a warp sync.
-		PoolError::InvalidBlockId(_) |
-		// The pool is configured to not accept future transactions.
-		PoolError::RejectedFutureTransaction => {
-			true
-		}
-		_ => false
-	}
 }
 
 #[cfg(test)]
