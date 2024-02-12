@@ -229,7 +229,7 @@ where
 			.header(finalized_hash)?
 			.ok_or_else(|| sp_blockchain::Error::MissingHeader(finalized_hash.to_string()))?;
 
-		let call_proof = generate_checkpoint_proof(&self.client, finalized_hash.clone())?;
+		let call_proof = generate_checkpoint_proof(&self.client, finalized_hash)?;
 
 		Ok(Checkpoint { header: finalized_header, call_proof })
 	}
@@ -302,12 +302,12 @@ where
 	// Extract only the proofs.
 	let mut proofs = RUNTIME_FUNCTIONS_TO_PROVE
 		.iter()
-		.map(|func| Ok(client.execution_proof(at.clone(), func, Default::default())?.1))
+		.map(|func| Ok(client.execution_proof(at, func, Default::default())?.1))
 		.collect::<Result<Vec<_>, sp_blockchain::Error>>()?;
 
 	// Fetch the `:code` and `:heap_pages` in one go.
 	let code_and_heap = client.read_proof(
-		at.clone(),
+		at,
 		&mut [well_known_keys::CODE, well_known_keys::HEAP_PAGES].iter().map(|v| *v),
 	)?;
 	proofs.push(code_and_heap);
