@@ -135,6 +135,14 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext
 }
 
+/// Run the function pointer inside externalities and asserts the try_state hook at the end.
+pub fn build_and_execute(test: impl FnOnce() -> ()) {
+	new_test_ext().execute_with(|| {
+		test();
+		CoreFellowship::do_try_state().expect("All invariants must hold after a test");
+	});
+}
+
 fn next_block() {
 	System::set_block_number(System::block_number() + 1);
 }
@@ -155,9 +163,16 @@ fn next_demotion(who: u64) -> u64 {
 	member.last_proof + demotion_period[TestClub::rank_of(&who).unwrap() as usize - 1]
 }
 
+// helper function for offboard timeout.
+fn offboard_timeout(who: u64) -> u64 {
+	let member = Member::<Test>::get(who).unwrap();
+	let offboard_timeout = Params::<Test>::get().offboard_timeout;
+	member.last_proof + offboard_timeout
+}
+
 #[test]
 fn basic_stuff() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_eq!(CoreFellowship::rank_to_index(0), None);
 		assert_eq!(CoreFellowship::rank_to_index(1), Some(0));
 		assert_eq!(CoreFellowship::rank_to_index(9), Some(8));
@@ -186,7 +201,7 @@ fn set_params_works() {
 
 #[test]
 fn induct_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		set_rank(0, 0);
 		assert_ok!(CoreFellowship::import(signed(0)));
 		set_rank(1, 1);
@@ -195,14 +210,16 @@ fn induct_works() {
 		assert_noop!(CoreFellowship::induct(signed(10), 10), DispatchError::BadOrigin);
 		assert_noop!(CoreFellowship::induct(signed(0), 10), DispatchError::BadOrigin);
 		assert_ok!(CoreFellowship::induct(signed(1), 10));
+		assert_eq!(offboard_timeout(10), 2);
 		assert_noop!(CoreFellowship::induct(signed(1), 10), Error::<Test>::AlreadyInducted);
 	});
 }
 
 #[test]
 fn promote_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		set_rank(1, 1);
+		set_rank(2, 2);
 		assert_ok!(CoreFellowship::import(signed(1)));
 		assert_noop!(CoreFellowship::promote(signed(1), 10, 1), Error::<Test>::Unranked);
 
@@ -210,9 +227,19 @@ fn promote_works() {
 		assert_noop!(CoreFellowship::promote(signed(10), 10, 1), DispatchError::BadOrigin);
 		assert_noop!(CoreFellowship::promote(signed(0), 10, 1), Error::<Test>::NoPermission);
 		assert_noop!(CoreFellowship::promote(signed(3), 10, 2), Error::<Test>::UnexpectedRank);
-		run_to(3);
+
+		// Member(1) demotion period will elapse, a call to approve / bump is required.
+		assert_ok!(CoreFellowship::approve(signed(2), 1, 1));
+		run_to(2);
+
 		assert_noop!(CoreFellowship::promote(signed(1), 10, 1), Error::<Test>::TooSoon);
+
+		assert_ok!(CoreFellowship::approve(signed(2), 1, 1));
+		run_to(3);
+
+		assert_ok!(CoreFellowship::approve(signed(2), 1, 1));
 		run_to(4);
+
 		assert_ok!(CoreFellowship::promote(signed(1), 10, 1));
 		set_rank(11, 0);
 		assert_noop!(CoreFellowship::promote(signed(1), 11, 1), Error::<Test>::NotTracked);
@@ -221,7 +248,7 @@ fn promote_works() {
 
 #[test]
 fn sync_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		set_rank(10, 5);
 		assert_noop!(CoreFellowship::approve(signed(4), 10, 5), Error::<Test>::NoPermission);
 		assert_noop!(CoreFellowship::approve(signed(6), 10, 6), Error::<Test>::UnexpectedRank);
@@ -233,7 +260,7 @@ fn sync_works() {
 
 #[test]
 fn auto_demote_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		set_rank(10, 5);
 		assert_ok!(CoreFellowship::import(signed(10)));
 
@@ -249,7 +276,7 @@ fn auto_demote_works() {
 
 #[test]
 fn auto_demote_offboard_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		set_rank(10, 1);
 		assert_ok!(CoreFellowship::import(signed(10)));
 
@@ -265,7 +292,7 @@ fn auto_demote_offboard_works() {
 
 #[test]
 fn offboard_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_noop!(CoreFellowship::offboard(signed(0), 10), Error::<Test>::NotTracked);
 		set_rank(10, 0);
 		assert_noop!(CoreFellowship::offboard(signed(0), 10), Error::<Test>::Ranked);
@@ -282,7 +309,7 @@ fn offboard_works() {
 
 #[test]
 fn infinite_demotion_period_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let params = ParamsType {
 			active_salary: [10; 9],
 			passive_salary: [10; 9],
@@ -295,6 +322,7 @@ fn infinite_demotion_period_works() {
 		set_rank(0, 0);
 		assert_ok!(CoreFellowship::import(signed(0)));
 		set_rank(1, 1);
+		
 		assert_ok!(CoreFellowship::import(signed(1)));
 
 		assert_noop!(CoreFellowship::bump(signed(0), 0), Error::<Test>::NothingDoing);
@@ -304,7 +332,7 @@ fn infinite_demotion_period_works() {
 
 #[test]
 fn proof_postpones_auto_demote() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		set_rank(10, 5);
 		assert_ok!(CoreFellowship::import(signed(10)));
 
@@ -317,7 +345,7 @@ fn proof_postpones_auto_demote() {
 
 #[test]
 fn promote_postpones_auto_demote() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		set_rank(10, 5);
 		assert_ok!(CoreFellowship::import(signed(10)));
 
@@ -330,7 +358,7 @@ fn promote_postpones_auto_demote() {
 
 #[test]
 fn get_salary_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		for i in 1..=9u64 {
 			set_rank(10 + i, i as u16);
 			assert_ok!(CoreFellowship::import(signed(10 + i)));
@@ -341,7 +369,7 @@ fn get_salary_works() {
 
 #[test]
 fn active_changing_get_salary_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		for i in 1..=9u64 {
 			set_rank(10 + i, i as u16);
 			assert_ok!(CoreFellowship::import(signed(10 + i)));
