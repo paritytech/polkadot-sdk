@@ -2,7 +2,7 @@
 node_spawn_timeout = 240
 
 [relaychain]
-default_command = "{{POLKADOT_BINARY_PATH}}"
+default_command = "{{POLKADOT_BINARY}}"
 default_args = [ "-lparachain=debug,xcm=trace" ]
 chain = "westend-local"
 
@@ -36,24 +36,22 @@ cumulus_based = true
 	[[parachains.collators]]
 	name = "bridge-hub-westend-collator1"
 	validator = true
-	command = "{{POLKADOT_PARACHAIN_BINARY_PATH}}"
+	command = "{{POLKADOT_PARACHAIN_BINARY}}"
 	rpc_port = 8935
 	ws_port = 8945
 	args = [
-		"-lparachain=debug,runtime::mmr=info,substrate=info,runtime=info,runtime::bridge-hub=trace,runtime::bridge=trace,runtime::bridge-dispatch=trace,bridge=trace,runtime::bridge-messages=trace,xcm=trace",
-		"--force-authoring"
+		"-lparachain=debug,runtime::mmr=info,substrate=info,runtime=info,runtime::bridge-hub=trace,runtime::bridge=trace,runtime::bridge-dispatch=trace,bridge=trace,runtime::bridge-messages=trace,xcm=trace"
 	]
 
 	# run bob as parachain collator
 	[[parachains.collators]]
 	name = "bridge-hub-westend-collator2"
 	validator = true
-	command = "{{POLKADOT_PARACHAIN_BINARY_PATH}}"
+	command = "{{POLKADOT_PARACHAIN_BINARY}}"
 	rpc_port = 8936
 	ws_port = 8946
 	args = [
-		"-lparachain=trace,runtime::mmr=info,substrate=info,runtime=info,runtime::bridge-hub=trace,runtime::bridge=trace,runtime::bridge-dispatch=trace,bridge=trace,runtime::bridge-messages=trace,xcm=trace",
-		"--force-authoring"
+		"-lparachain=trace,runtime::mmr=info,substrate=info,runtime=info,runtime::bridge-hub=trace,runtime::bridge=trace,runtime::bridge-dispatch=trace,bridge=trace,runtime::bridge-messages=trace,xcm=trace"
 	]
 
 [[parachains]]
@@ -65,14 +63,14 @@ cumulus_based = true
 	name = "asset-hub-westend-collator1"
 	rpc_port = 9011
 	ws_port = 9010
-	command = "{{POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND}}"
+	command = "{{POLKADOT_PARACHAIN_BINARY}}"
 	args = [
 		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace"
 	]
 
 	[[parachains.collators]]
 	name = "asset-hub-westend-collator2"
-	command = "{{POLKADOT_PARACHAIN_BINARY_PATH_FOR_ASSET_HUB_WESTEND}}"
+	command = "{{POLKADOT_PARACHAIN_BINARY}}"
 	args = [
 		"-lparachain=debug,xcm=trace,runtime::bridge-transfer=trace"
 	]
