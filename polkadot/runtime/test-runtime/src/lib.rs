@@ -70,8 +70,8 @@ use sp_runtime::{
 	curve::PiecewiseLinear,
 	generic, impl_opaque_keys,
 	traits::{
-		BlakeTwo256, Block as BlockT, ConvertInto, Extrinsic as ExtrinsicT, OpaqueKeys,
-		SaturatedConversion, StaticLookup, Verify,
+		BlakeTwo256, Block as BlockT, ConvertInto, OpaqueKeys, SaturatedConversion, StaticLookup,
+		Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill,
@@ -388,7 +388,10 @@ where
 		public: <Signature as Verify>::Signer,
 		account: AccountId,
 		nonce: <Runtime as frame_system::Config>::Nonce,
-	) -> Option<(RuntimeCall, <UncheckedExtrinsic as ExtrinsicT>::SignaturePayload)> {
+	) -> Option<(
+		RuntimeCall,
+		<UncheckedExtrinsic as sp_runtime::traits::CreateSignedTransaction>::SignaturePayload,
+	)> {
 		let period =
 			BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
 

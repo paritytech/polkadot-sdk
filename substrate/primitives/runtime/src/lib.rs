@@ -949,10 +949,7 @@ impl<'a> ::serde::Deserialize<'a> for OpaqueExtrinsic {
 	}
 }
 
-// TODO: OpaqueExtrinsics cannot act like regular extrinsics, right?!
 impl traits::Extrinsic for OpaqueExtrinsic {
-	type Call = ();
-	type SignaturePayload = ();
 	fn is_bare(&self) -> bool {
 		false
 	}

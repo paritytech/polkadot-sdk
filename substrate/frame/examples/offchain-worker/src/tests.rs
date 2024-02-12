@@ -31,7 +31,7 @@ use sp_core::{
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystoreExt};
 use sp_runtime::{
 	generic::UncheckedExtrinsic,
-	traits::{BlakeTwo256, Extrinsic as ExtrinsicT, IdentifyAccount, IdentityLookup, Verify},
+	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	RuntimeAppPublic,
 };
 
@@ -98,7 +98,10 @@ where
 		_public: <Signature as Verify>::Signer,
 		_account: AccountId,
 		nonce: u64,
-	) -> Option<(RuntimeCall, <Extrinsic as ExtrinsicT>::SignaturePayload)> {
+	) -> Option<(
+		RuntimeCall,
+		<Extrinsic as sp_runtime::traits::CreateSignedTransaction>::SignaturePayload,
+	)> {
 		Some((call, (nonce, (), ())))
 	}
 }

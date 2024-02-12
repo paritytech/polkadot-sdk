@@ -73,7 +73,7 @@ pub fn expand_outer_inherent(
 				#(
 					#pallet_attrs
 					if let Some(inherent) = #pallet_names::create_inherent(self) {
-						let inherent = <#unchecked_extrinsic as #scrate::sp_runtime::traits::Extrinsic>::new_inherent(
+						let inherent = <#unchecked_extrinsic as #scrate::sp_runtime::traits::CreateInherent>::create_inherent(
 							inherent.into(),
 						);
 
