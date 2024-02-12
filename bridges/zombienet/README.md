@@ -23,7 +23,7 @@ To start those tests, you need to:
 
 - copy fresh `substrate-relay` binary, built in previous point, to the `~/local_bridge_testing/bin/substrate-relay`;
 
-- change the `POLKADOT_SDK_FOLDER` and `ZOMBIENET_BINARY_PATH` (and ensure that the nearby variables
+- change the `POLKADOT_SDK_PATH` and `ZOMBIENET_BINARY_PATH` (and ensure that the nearby variables
 have correct values) in the `./run-tests.sh`.
 
 After that, you could run tests with the `./run-tests.sh` command. Hopefully, it'll show the

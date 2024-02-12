@@ -29,7 +29,7 @@ const TARGET: &'static str = "runtime::society::migration";
 
 /// This migration moves all the state to v2 of Society.
 pub struct VersionUncheckedMigrateToV2<T: Config<I>, I: 'static, PastPayouts>(
-	sp_std::marker::PhantomData<(T, I, PastPayouts)>,
+	core::marker::PhantomData<(T, I, PastPayouts)>,
 );
 
 impl<

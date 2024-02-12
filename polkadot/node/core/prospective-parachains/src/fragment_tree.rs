@@ -202,7 +202,10 @@ impl CandidateStorage {
 	/// Note that an existing candidate has been backed.
 	pub fn mark_backed(&mut self, candidate_hash: &CandidateHash) {
 		if let Some(entry) = self.by_candidate_hash.get_mut(candidate_hash) {
+			gum::trace!(target: LOG_TARGET, ?candidate_hash, "Candidate marked as backed");
 			entry.state = CandidateState::Backed;
+		} else {
+			gum::trace!(target: LOG_TARGET, ?candidate_hash, "Candidate not found while marking as backed");
 		}
 	}
 
@@ -753,53 +756,127 @@ impl FragmentTree {
 		depths.iter_ones().collect()
 	}
 
-	/// Select a candidate after the given `required_path` which passes
-	/// the predicate.
+	/// Select `count` candidates after the given `required_path` which pass
+	/// the predicate and have not already been backed on chain.
 	///
-	/// If there are multiple possibilities, this will select the first one.
-	///
-	/// This returns `None` if there is no candidate meeting those criteria.
+	/// Does an exhaustive search into the tree starting after `required_path`.
+	/// If there are multiple possibilities of size `count`, this will select the first one.
+	/// If there is no chain of size `count` that matches the criteria, this will return the largest
+	/// chain it could find with the criteria.
+	/// If there are no candidates meeting those criteria, returns an empty `Vec`.
+	/// Cycles are accepted, see module docs for the `Cycles` section.
 	///
 	/// The intention of the `required_path` is to allow queries on the basis of
 	/// one or more candidates which were previously pending availability becoming
 	/// available and opening up more room on the core.
-	pub(crate) fn select_child(
+	pub(crate) fn select_children(
 		&self,
 		required_path: &[CandidateHash],
+		count: u32,
 		pred: impl Fn(&CandidateHash) -> bool,
-	) -> Option<CandidateHash> {
+	) -> Vec<CandidateHash> {
 		let base_node = {
 			// traverse the required path.
 			let mut node = NodePointer::Root;
 			for required_step in required_path {
-				node = self.node_candidate_child(node, &required_step)?;
+				if let Some(next_node) = self.node_candidate_child(node, &required_step) {
+					node = next_node;
+				} else {
+					return vec![]
+				};
 			}
 
 			node
 		};
 
-		// TODO [now]: taking the first selection might introduce bias
+		// TODO: taking the first best selection might introduce bias
 		// or become gameable.
 		//
 		// For plausibly unique parachains, this shouldn't matter much.
 		// figure out alternative selection criteria?
-		match base_node {
+		self.select_children_inner(base_node, count, count, &pred, &mut vec![])
+	}
+
+	// Try finding a candidate chain starting from `base_node` of length `expected_count`.
+	// If not possible, return the longest one we could find.
+	// Does a depth-first search, since we're optimistic that there won't be more than one such
+	// chains (parachains shouldn't usually have forks). So in the usual case, this will conclude
+	// in `O(expected_count)`.
+	// Cycles are accepted, but this doesn't allow for infinite execution time, because the maximum
+	// depth we'll reach is `expected_count`.
+	//
+	// Worst case performance is `O(num_forks ^ expected_count)`.
+	// Although an exponential function, this is actually a constant that can only be altered via
+	// sudo/governance, because:
+	// 1. `num_forks` at a given level is at most `max_candidate_depth * max_validators_per_core`
+	//    (because each validator in the assigned group can second `max_candidate_depth`
+	//    candidates). The prospective-parachains subsystem assumes that the number of para forks is
+	//    limited by collator-protocol and backing subsystems. In practice, this is a constant which
+	//    can only be altered by sudo or governance.
+	// 2. `expected_count` is equal to the number of cores a para is scheduled on (in an elastic
+	//    scaling scenario). For non-elastic-scaling, this is just 1. In practice, this should be a
+	//    small number (1-3), capped by the total number of available cores (a constant alterable
+	//    only via governance/sudo).
+	fn select_children_inner(
+		&self,
+		base_node: NodePointer,
+		expected_count: u32,
+		remaining_count: u32,
+		pred: &dyn Fn(&CandidateHash) -> bool,
+		accumulator: &mut Vec<CandidateHash>,
+	) -> Vec<CandidateHash> {
+		if remaining_count == 0 {
+			// The best option is the chain we've accumulated so far.
+			return accumulator.to_vec();
+		}
+
+		let children: Vec<_> = match base_node {
 			NodePointer::Root => self
 				.nodes
 				.iter()
-				.take_while(|n| n.parent == NodePointer::Root)
-				.filter(|n| self.scope.get_pending_availability(&n.candidate_hash).is_none())
-				.filter(|n| pred(&n.candidate_hash))
-				.map(|n| n.candidate_hash)
-				.next(),
-			NodePointer::Storage(ptr) => self.nodes[ptr]
-				.children
-				.iter()
-				.filter(|n| self.scope.get_pending_availability(&n.1).is_none())
-				.filter(|n| pred(&n.1))
-				.map(|n| n.1)
-				.next(),
+				.enumerate()
+				.take_while(|(_, n)| n.parent == NodePointer::Root)
+				.filter(|(_, n)| self.scope.get_pending_availability(&n.candidate_hash).is_none())
+				.filter(|(_, n)| pred(&n.candidate_hash))
+				.map(|(ptr, n)| (NodePointer::Storage(ptr), n.candidate_hash))
+				.collect(),
+			NodePointer::Storage(base_node_ptr) => {
+				let base_node = &self.nodes[base_node_ptr];
+
+				base_node
+					.children
+					.iter()
+					.filter(|(_, hash)| self.scope.get_pending_availability(&hash).is_none())
+					.filter(|(_, hash)| pred(&hash))
+					.map(|(ptr, hash)| (*ptr, *hash))
+					.collect()
+			},
+		};
+
+		let mut best_result = accumulator.clone();
+		for (child_ptr, child_hash) in children {
+			accumulator.push(child_hash);
+
+			let result = self.select_children_inner(
+				child_ptr,
+				expected_count,
+				remaining_count - 1,
+				&pred,
+				accumulator,
+			);
+
+			accumulator.pop();
+
+			// Short-circuit the search if we've found the right length. Otherwise, we'll
+			// search for a max.
+			if result.len() == expected_count as usize {
+				return result
+			} else if best_result.len() < result.len() {
+				best_result = result;
+			}
 		}
+
+		best_result
 	}
 
 	fn populate_from_bases(&mut self, storage: &CandidateStorage, initial_bases: Vec<NodePointer>) {
@@ -984,6 +1061,7 @@ mod tests {
 	use polkadot_node_subsystem_util::inclusion_emulator::InboundHrmpLimitations;
 	use polkadot_primitives::{BlockNumber, CandidateCommitments, CandidateDescriptor, HeadData};
 	use polkadot_primitives_test_helpers as test_helpers;
+	use std::iter;
 
 	fn make_constraints(
 		min_relay_parent_number: BlockNumber,
@@ -1521,6 +1599,21 @@ mod tests {
 		assert_eq!(tree.nodes[2].candidate_hash, candidate_a_hash);
 		assert_eq!(tree.nodes[3].candidate_hash, candidate_a_hash);
 		assert_eq!(tree.nodes[4].candidate_hash, candidate_a_hash);
+
+		for count in 1..10 {
+			assert_eq!(
+				tree.select_children(&[], count, |_| true),
+				iter::repeat(candidate_a_hash)
+					.take(std::cmp::min(count as usize, max_depth + 1))
+					.collect::<Vec<_>>()
+			);
+			assert_eq!(
+				tree.select_children(&[candidate_a_hash], count - 1, |_| true),
+				iter::repeat(candidate_a_hash)
+					.take(std::cmp::min(count as usize - 1, max_depth))
+					.collect::<Vec<_>>()
+			);
+		}
 	}
 
 	#[test]
@@ -1588,6 +1681,35 @@ mod tests {
 		assert_eq!(tree.nodes[2].candidate_hash, candidate_a_hash);
 		assert_eq!(tree.nodes[3].candidate_hash, candidate_b_hash);
 		assert_eq!(tree.nodes[4].candidate_hash, candidate_a_hash);
+
+		assert_eq!(tree.select_children(&[], 1, |_| true), vec![candidate_a_hash],);
+		assert_eq!(
+			tree.select_children(&[], 2, |_| true),
+			vec![candidate_a_hash, candidate_b_hash],
+		);
+		assert_eq!(
+			tree.select_children(&[], 3, |_| true),
+			vec![candidate_a_hash, candidate_b_hash, candidate_a_hash],
+		);
+		assert_eq!(
+			tree.select_children(&[candidate_a_hash], 2, |_| true),
+			vec![candidate_b_hash, candidate_a_hash],
+		);
+
+		assert_eq!(
+			tree.select_children(&[], 6, |_| true),
+			vec![
+				candidate_a_hash,
+				candidate_b_hash,
+				candidate_a_hash,
+				candidate_b_hash,
+				candidate_a_hash
+			],
+		);
+		assert_eq!(
+			tree.select_children(&[candidate_a_hash, candidate_b_hash], 6, |_| true),
+			vec![candidate_a_hash, candidate_b_hash, candidate_a_hash,],
+		);
 	}
 
 	#[test]

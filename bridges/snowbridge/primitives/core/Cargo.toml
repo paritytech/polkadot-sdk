@@ -1,0 +1,65 @@
+[package]
+name = "snowbridge-core"
+description = "Snowbridge Core"
+version = "0.0.0"
+authors = ["Snowfork <contact@snowfork.com>"]
+edition.workspace = true
+repository.workspace = true
+license = "Apache-2.0"
+categories = ["cryptography::cryptocurrencies"]
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { version = "1.0.195", optional = true, features = ["alloc", "derive"], default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
+scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+hex-literal = { version = "0.4.1" }
+
+polkadot-parachain-primitives = { path = "../../../../polkadot/parachain", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../../polkadot/xcm", default-features = false }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../polkadot/xcm/xcm-builder", default-features = false }
+
+frame-support = { path = "../../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../../substrate/frame/system", default-features = false }
+sp-runtime = { path = "../../../../substrate/primitives/runtime", default-features = false }
+sp-std = { path = "../../../../substrate/primitives/std", default-features = false }
+sp-io = { path = "../../../../substrate/primitives/io", default-features = false }
+sp-core = { path = "../../../../substrate/primitives/core", default-features = false }
+sp-arithmetic = { path = "../../../../substrate/primitives/arithmetic", default-features = false }
+
+snowbridge-beacon-primitives = { path = "../beacon", default-features = false }
+
+ethabi = { package = "ethabi-decode", version = "1.0.0", default-features = false }
+
+[dev-dependencies]
+hex = { version = "0.4.3" }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"ethabi/std",
+	"frame-support/std",
+	"frame-system/std",
+	"polkadot-parachain-primitives/std",
+	"scale-info/std",
+	"serde/std",
+	"snowbridge-beacon-primitives/std",
+	"sp-arithmetic/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"xcm-builder/std",
+	"xcm/std",
+]
+serde = ["dep:serde", "scale-info/serde"]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+]

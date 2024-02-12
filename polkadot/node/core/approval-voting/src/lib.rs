@@ -92,11 +92,11 @@ use time::{slot_number_to_tick, Clock, ClockExt, DelayedApprovalTimer, SystemClo
 mod approval_checking;
 pub mod approval_db;
 mod backend;
-mod criteria;
+pub mod criteria;
 mod import;
 mod ops;
 mod persisted_entries;
-mod time;
+pub mod time;
 
 use crate::{
 	approval_checking::{Check, TranchesToApproveResult},
@@ -159,6 +159,7 @@ pub struct ApprovalVotingSubsystem {
 	db: Arc<dyn Database>,
 	mode: Mode,
 	metrics: Metrics,
+	clock: Box<dyn Clock + Send + Sync>,
 }
 
 #[derive(Clone)]
@@ -445,6 +446,25 @@ impl ApprovalVotingSubsystem {
 		sync_oracle: Box<dyn SyncOracle + Send>,
 		metrics: Metrics,
 	) -> Self {
+		ApprovalVotingSubsystem::with_config_and_clock(
+			config,
+			db,
+			keystore,
+			sync_oracle,
+			metrics,
+			Box::new(SystemClock {}),
+		)
+	}
+
+	/// Create a new approval voting subsystem with the given keystore, config, and database.
+	pub fn with_config_and_clock(
+		config: Config,
+		db: Arc<dyn Database>,
+		keystore: Arc<LocalKeystore>,
+		sync_oracle: Box<dyn SyncOracle + Send>,
+		metrics: Metrics,
+		clock: Box<dyn Clock + Send + Sync>,
+	) -> Self {
 		ApprovalVotingSubsystem {
 			keystore,
 			slot_duration_millis: config.slot_duration_millis,
@@ -452,6 +472,7 @@ impl ApprovalVotingSubsystem {
 			db_config: DatabaseConfig { col_approval_data: config.col_approval_data },
 			mode: Mode::Syncing(sync_oracle),
 			metrics,
+			clock,
 		}
 	}
 
@@ -493,15 +514,10 @@ fn db_sanity_check(db: Arc<dyn Database>, config: DatabaseConfig) -> SubsystemRe
 impl<Context: Send> ApprovalVotingSubsystem {
 	fn start(self, ctx: Context) -> SpawnedSubsystem {
 		let backend = DbBackend::new(self.db.clone(), self.db_config);
-		let future = run::<DbBackend, Context>(
-			ctx,
-			self,
-			Box::new(SystemClock),
-			Box::new(RealAssignmentCriteria),
-			backend,
-		)
-		.map_err(|e| SubsystemError::with_origin("approval-voting", e))
-		.boxed();
+		let future =
+			run::<DbBackend, Context>(ctx, self, Box::new(RealAssignmentCriteria), backend)
+				.map_err(|e| SubsystemError::with_origin("approval-voting", e))
+				.boxed();
 
 		SpawnedSubsystem { name: "approval-voting-subsystem", future }
 	}
@@ -909,7 +925,6 @@ enum Action {
 async fn run<B, Context>(
 	mut ctx: Context,
 	mut subsystem: ApprovalVotingSubsystem,
-	clock: Box<dyn Clock + Send + Sync>,
 	assignment_criteria: Box<dyn AssignmentCriteria + Send + Sync>,
 	mut backend: B,
 ) -> SubsystemResult<()>
@@ -923,7 +938,7 @@ where
 	let mut state = State {
 		keystore: subsystem.keystore,
 		slot_duration_millis: subsystem.slot_duration_millis,
-		clock,
+		clock: subsystem.clock,
 		assignment_criteria,
 		spans: HashMap::new(),
 	};

@@ -1737,20 +1737,20 @@ mod tracing_setup {
 
 pub use tracing_setup::init_tracing;
 
-/// Allocator used by Substrate when executing the Wasm runtime.
-#[cfg(all(target_arch = "wasm32", not(feature = "std")))]
-struct WasmAllocator;
+/// Allocator used by Substrate from within the runtime.
+#[cfg(substrate_runtime)]
+struct RuntimeAllocator;
 
-#[cfg(all(target_arch = "wasm32", not(feature = "disable_allocator"), not(feature = "std")))]
+#[cfg(all(not(feature = "disable_allocator"), substrate_runtime))]
 #[global_allocator]
-static ALLOCATOR: WasmAllocator = WasmAllocator;
+static ALLOCATOR: RuntimeAllocator = RuntimeAllocator;
 
-#[cfg(all(target_arch = "wasm32", not(feature = "std")))]
+#[cfg(substrate_runtime)]
 mod allocator_impl {
 	use super::*;
 	use core::alloc::{GlobalAlloc, Layout};
 
-	unsafe impl GlobalAlloc for WasmAllocator {
+	unsafe impl GlobalAlloc for RuntimeAllocator {
 		unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
 			allocator::malloc(layout.size() as u32)
 		}
@@ -1761,8 +1761,27 @@ mod allocator_impl {
 	}
 }
 
-/// A default panic handler for WASM environment.
-#[cfg(all(not(feature = "disable_panic_handler"), not(feature = "std")))]
+/// Crashes the execution of the program.
+///
+/// Equivalent to the WASM `unreachable` instruction, RISC-V `unimp` instruction,
+/// or just the `unreachable!()` macro everywhere else.
+pub fn unreachable() -> ! {
+	#[cfg(target_family = "wasm")]
+	{
+		core::arch::wasm32::unreachable();
+	}
+
+	#[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
+	unsafe {
+		core::arch::asm!("unimp", options(noreturn));
+	}
+
+	#[cfg(not(any(target_arch = "riscv32", target_arch = "riscv64", target_family = "wasm")))]
+	unreachable!();
+}
+
+/// A default panic handler for the runtime environment.
+#[cfg(all(not(feature = "disable_panic_handler"), substrate_runtime))]
 #[panic_handler]
 #[no_mangle]
 pub fn panic(info: &core::panic::PanicInfo) -> ! {
@@ -1774,11 +1793,11 @@ pub fn panic(info: &core::panic::PanicInfo) -> ! {
 	#[cfg(not(feature = "improved_panic_error_reporting"))]
 	{
 		logging::log(LogLevel::Error, "runtime", message.as_bytes());
-		core::arch::wasm32::unreachable();
+		unreachable();
 	}
 }
 
-/// A default OOM handler for WASM environment.
+/// A default OOM handler for the runtime environment.
 #[cfg(all(not(feature = "disable_oom"), enable_alloc_error_handler))]
 #[alloc_error_handler]
 pub fn oom(_: core::alloc::Layout) -> ! {
@@ -1789,7 +1808,7 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 	#[cfg(not(feature = "improved_panic_error_reporting"))]
 	{
 		logging::log(LogLevel::Error, "runtime", b"Runtime memory exhausted. Aborting");
-		core::arch::wasm32::unreachable();
+		unreachable();
 	}
 }
 

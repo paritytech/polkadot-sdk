@@ -19,6 +19,7 @@
 
 use super::*;
 use crate as pallet_asset_conversion;
+use core::default::Default;
 use frame_support::{
 	construct_runtime, derive_impl,
 	instances::{Instance1, Instance2},
@@ -39,7 +40,6 @@ use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
 	BuildStorage,
 };
-use sp_std::default::Default;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

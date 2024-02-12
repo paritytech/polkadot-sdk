@@ -40,7 +40,7 @@ use origins::pallet_origins::{
 	EnsureAmbassadorsVoice, EnsureAmbassadorsVoiceFrom, EnsureHeadAmbassadorsVoice, Origin,
 };
 use sp_core::ConstU128;
-use sp_runtime::traits::{CheckedReduceBy, ConstU16, ConvertToValue, Replace};
+use sp_runtime::traits::{CheckedReduceBy, ConstU16, ConvertToValue, Replace, ReplaceWithDefault};
 use xcm::prelude::*;
 use xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
 
@@ -108,12 +108,17 @@ pub type ExchangeOrigin = EitherOf<EnsureRootWithSuccess<AccountId, ConstU16<655
 impl pallet_ranked_collective::Config<AmbassadorCollectiveInstance> for Runtime {
 	type WeightInfo = weights::pallet_ranked_collective_ambassador_collective::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
+	type AddOrigin = MapSuccess<Self::PromoteOrigin, ReplaceWithDefault<()>>;
 	type PromoteOrigin = PromoteOrigin;
 	type DemoteOrigin = DemoteOrigin;
+	type RemoveOrigin = Self::DemoteOrigin;
 	type ExchangeOrigin = ExchangeOrigin;
 	type Polls = AmbassadorReferenda;
 	type MinRankOfClass = sp_runtime::traits::Identity;
+	type MemberSwappedHandler = (crate::AmbassadorCore, crate::AmbassadorSalary);
 	type VoteWeight = pallet_ranked_collective::Linear;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkSetup = (crate::AmbassadorCore, crate::AmbassadorSalary);
 }
 
 parameter_types! {
