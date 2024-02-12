@@ -860,9 +860,15 @@ async fn handle_artifact_removal(
 	artifact_id: ArtifactId,
 	reply_to: oneshot::Sender<()>,
 ) -> Result<(), Fatal> {
-	let (artifact_id, path) = artifacts
-		.remove(artifact_id)
-		.expect("artifact sent by the execute queue for removal exists; qed");
+	let (artifact_id, path) = if let Some(artifact) = artifacts.remove(artifact_id) {
+		artifact
+	} else {
+		// if we haven't found the artifact by its id,
+		// it has been probably removed
+		// anyway with the randomness of the artifact name
+		// it is safe to ignore
+		return Ok(());
+	};
 	reply_to
 		.send(())
 		.expect("the execute queue waits for the artifact remove confirmation; qed");
