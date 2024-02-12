@@ -15,27 +15,45 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use crate::{new_executor, XcmCallOf};
+use crate::{account_and_location, new_executor, EnsureDelivery, XcmCallOf};
 use codec::Encode;
 use frame_benchmarking::{benchmarks, BenchmarkError};
-use frame_support::dispatch::GetDispatchInfo;
+use frame_support::{dispatch::GetDispatchInfo, traits::fungible::Inspect};
 use sp_std::vec;
 use xcm::{
 	latest::{prelude::*, MaxDispatchErrorLen, MaybeErrorCode, Weight},
 	DoubleEncoded,
 };
-use xcm_executor::{ExecutorError, FeesMode};
+use xcm_executor::{
+	traits::{ConvertLocation, FeeReason},
+	ExecutorError, FeesMode,
+};
 
 benchmarks! {
 	report_holding {
+		let (sender_account, sender_location) = account_and_location::<T>(1);
 		let holding = T::worst_case_holding(0);
+		let destination = T::valid_destination().map_err(|_| BenchmarkError::Skip)?;
 
-		let mut executor = new_executor::<T>(Default::default());
+		let (expected_fees_mode, expected_assets_in_holding) = T::DeliveryHelper::ensure_successful_delivery(
+			&sender_location,
+			&destination,
+			FeeReason::Report,
+		);
+		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
+
+		let mut executor = new_executor::<T>(sender_location);
 		executor.set_holding(holding.clone().into());
+		if let Some(expected_fees_mode) = expected_fees_mode {
+			executor.set_fees_mode(expected_fees_mode);
+		}
+		if let Some(expected_assets_in_holding) = expected_assets_in_holding {
+			executor.set_holding(expected_assets_in_holding.into());
+		}
 
 		let instruction = Instruction::<XcmCallOf<T>>::ReportHolding {
 			response_info: QueryResponseInfo {
-				destination: T::valid_destination()?,
+				destination,
 				query_id: Default::default(),
 				max_weight: Weight::MAX,
 			},
@@ -44,11 +62,11 @@ benchmarks! {
 		};
 
 		let xcm = Xcm(vec![instruction]);
-
 	} : {
 		executor.bench_process(xcm)?;
 	} verify {
-		// The completion of execution above is enough to validate this is completed.
+		// Check we charged the delivery fees
+		assert!(T::TransactAsset::balance(&sender_account) <= sender_account_balance_before);
 	}
 
 	// This benchmark does not use any additional orders or instructions. This should be managed
@@ -59,7 +77,7 @@ benchmarks! {
 		let mut executor = new_executor::<T>(Default::default());
 		executor.set_holding(holding);
 
-		let fee_asset = Concrete(Here.into());
+		let fee_asset = AssetId(Here.into());
 
 		let instruction = Instruction::<XcmCallOf<T>>::BuyExecution {
 			fees: (fee_asset, 100_000_000u128).into(), // should be something inside of holding
@@ -77,7 +95,7 @@ benchmarks! {
 		let mut executor = new_executor::<T>(Default::default());
 		let (query_id, response) = T::worst_case_response();
 		let max_weight = Weight::MAX;
-		let querier: Option<MultiLocation> = Some(Here.into());
+		let querier: Option<Location> = Some(Here.into());
 		let instruction = Instruction::QueryResponse { query_id, response, max_weight, querier };
 		let xcm = Xcm(vec![instruction]);
 	}: {
@@ -107,11 +125,15 @@ benchmarks! {
 	}
 
 	refund_surplus {
-		let holding = T::worst_case_holding(0).into();
 		let mut executor = new_executor::<T>(Default::default());
-		executor.set_holding(holding);
+		let holding_assets = T::worst_case_holding(1);
+		// We can already buy execution since we'll load the holding register manually
+		let asset_for_fees = T::fee_asset().unwrap();
+		let previous_xcm = Xcm(vec![BuyExecution { fees: asset_for_fees, weight_limit: Limited(Weight::from_parts(1337, 1337)) }]);
+		executor.set_holding(holding_assets.into());
 		executor.set_total_surplus(Weight::from_parts(1337, 1337));
 		executor.set_total_refunded(Weight::zero());
+		executor.bench_process(previous_xcm).expect("Holding has been loaded, so we can buy execution here");
 
 		let instruction = Instruction::<XcmCallOf<T>>::RefundSurplus;
 		let xcm = Xcm(vec![instruction]);
@@ -156,7 +178,7 @@ benchmarks! {
 
 	descend_origin {
 		let mut executor = new_executor::<T>(Default::default());
-		let who = X2(OnlyChild, OnlyChild);
+		let who = Junctions::from([OnlyChild, OnlyChild]);
 		let instruction = Instruction::DescendOrigin(who.clone());
 		let xcm = Xcm(vec![instruction]);
 	} : {
@@ -164,7 +186,7 @@ benchmarks! {
 	} verify {
 		assert_eq!(
 			executor.origin(),
-			&Some(MultiLocation {
+			&Some(Location {
 				parents: 0,
 				interior: who,
 			}),
@@ -182,11 +204,26 @@ benchmarks! {
 	}
 
 	report_error {
-		let mut executor = new_executor::<T>(Default::default());
-		executor.set_error(Some((0u32, XcmError::Unimplemented)));
+		let (sender_account, sender_location) = account_and_location::<T>(1);
 		let query_id = Default::default();
-		let destination = T::valid_destination().map_err(|_| BenchmarkError::Skip)?;
 		let max_weight = Default::default();
+		let destination = T::valid_destination().map_err(|_| BenchmarkError::Skip)?;
+
+		let (expected_fees_mode, expected_assets_in_holding) = T::DeliveryHelper::ensure_successful_delivery(
+			&sender_location,
+			&destination,
+			FeeReason::Report,
+		);
+		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
+
+		let mut executor = new_executor::<T>(sender_location);
+		if let Some(expected_fees_mode) = expected_fees_mode {
+			executor.set_fees_mode(expected_fees_mode);
+		}
+		if let Some(expected_assets_in_holding) = expected_assets_in_holding {
+			executor.set_holding(expected_assets_in_holding.into());
+		}
+		executor.set_error(Some((0u32, XcmError::Unimplemented)));
 
 		let instruction = Instruction::ReportError(QueryResponseInfo {
 			query_id, destination, max_weight
@@ -195,7 +232,8 @@ benchmarks! {
 	}: {
 		executor.bench_process(xcm)?;
 	} verify {
-		// the execution succeeding is all we need to verify this xcm was successful
+		// Check we charged the delivery fees
+		assert!(T::TransactAsset::balance(&sender_account) <= sender_account_balance_before);
 	}
 
 	claim_asset {
@@ -360,31 +398,48 @@ benchmarks! {
 	}
 
 	query_pallet {
+		let (sender_account, sender_location) = account_and_location::<T>(1);
 		let query_id = Default::default();
 		let destination = T::valid_destination().map_err(|_| BenchmarkError::Skip)?;
 		let max_weight = Default::default();
-		let mut executor = new_executor::<T>(Default::default());
 
+		let (expected_fees_mode, expected_assets_in_holding) = T::DeliveryHelper::ensure_successful_delivery(
+			&sender_location,
+			&destination,
+			FeeReason::QueryPallet,
+		);
+		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
+		let mut executor = new_executor::<T>(sender_location);
+		if let Some(expected_fees_mode) = expected_fees_mode {
+			executor.set_fees_mode(expected_fees_mode);
+		}
+		if let Some(expected_assets_in_holding) = expected_assets_in_holding {
+			executor.set_holding(expected_assets_in_holding.into());
+		}
+
+		let valid_pallet = T::valid_pallet();
 		let instruction = Instruction::QueryPallet {
-			module_name: b"frame_system".to_vec(),
+			module_name: valid_pallet.module_name.as_bytes().to_vec(),
 			response_info: QueryResponseInfo { destination, query_id, max_weight },
 		};
 		let xcm = Xcm(vec![instruction]);
 	}: {
 		executor.bench_process(xcm)?;
 	} verify {
+		// Check we charged the delivery fees
+		assert!(T::TransactAsset::balance(&sender_account) <= sender_account_balance_before);
 		// TODO: Potentially add new trait to XcmSender to detect a queued outgoing message. #4426
 	}
 
 	expect_pallet {
 		let mut executor = new_executor::<T>(Default::default());
-
+		let valid_pallet = T::valid_pallet();
 		let instruction = Instruction::ExpectPallet {
-			index: 0,
-			name: b"System".to_vec(),
-			module_name: b"frame_system".to_vec(),
-			crate_major: 4,
-			min_crate_minor: 0,
+			index: valid_pallet.index as u32,
+			name: valid_pallet.name.as_bytes().to_vec(),
+			module_name: valid_pallet.module_name.as_bytes().to_vec(),
+			crate_major: valid_pallet.crate_version.major.into(),
+			min_crate_minor: valid_pallet.crate_version.minor.into(),
 		};
 		let xcm = Xcm(vec![instruction]);
 	}: {
@@ -394,11 +449,25 @@ benchmarks! {
 	}
 
 	report_transact_status {
+		let (sender_account, sender_location) = account_and_location::<T>(1);
 		let query_id = Default::default();
 		let destination = T::valid_destination().map_err(|_| BenchmarkError::Skip)?;
 		let max_weight = Default::default();
 
-		let mut executor = new_executor::<T>(Default::default());
+		let (expected_fees_mode, expected_assets_in_holding) = T::DeliveryHelper::ensure_successful_delivery(
+			&sender_location,
+			&destination,
+			FeeReason::Report,
+		);
+		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
+
+		let mut executor = new_executor::<T>(sender_location);
+		if let Some(expected_fees_mode) = expected_fees_mode {
+			executor.set_fees_mode(expected_fees_mode);
+		}
+		if let Some(expected_assets_in_holding) = expected_assets_in_holding {
+			executor.set_holding(expected_assets_in_holding.into());
+		}
 		executor.set_transact_status(b"MyError".to_vec().into());
 
 		let instruction = Instruction::ReportTransactStatus(QueryResponseInfo {
@@ -410,6 +479,8 @@ benchmarks! {
 	}: {
 		executor.bench_process(xcm)?;
 	} verify {
+		// Check we charged the delivery fees
+		assert!(T::TransactAsset::balance(&sender_account) <= sender_account_balance_before);
 		// TODO: Potentially add new trait to XcmSender to detect a queued outgoing message. #4426
 	}
 
@@ -471,14 +542,14 @@ benchmarks! {
 
 		let mut executor = new_executor::<T>(origin);
 
-		let instruction = Instruction::UniversalOrigin(alias.clone());
+		let instruction = Instruction::UniversalOrigin(alias);
 		let xcm = Xcm(vec![instruction]);
 	}: {
 		executor.bench_process(xcm)?;
 	} verify {
 		use frame_support::traits::Get;
 		let universal_location = <T::XcmConfig as xcm_executor::Config>::UniversalLocation::get();
-		assert_eq!(executor.origin(), &Some(X1(alias).relative_to(&universal_location)));
+		assert_eq!(executor.origin(), &Some(Junctions::from([alias]).relative_to(&universal_location)));
 	}
 
 	export_message {
@@ -491,14 +562,30 @@ benchmarks! {
 		let inner_xcm = Xcm(vec![ClearOrigin; x as usize]);
 		// Get `origin`, `network` and `destination` from configured runtime.
 		let (origin, network, destination) = T::export_message_origin_and_destination()?;
+
+		let (expected_fees_mode, expected_assets_in_holding) = T::DeliveryHelper::ensure_successful_delivery(
+			&origin,
+			&destination.clone().into(),
+			FeeReason::Export { network, destination: destination.clone() },
+		);
+		let sender_account = T::AccountIdConverter::convert_location(&origin).unwrap();
+		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
+
 		let mut executor = new_executor::<T>(origin);
+		if let Some(expected_fees_mode) = expected_fees_mode {
+			executor.set_fees_mode(expected_fees_mode);
+		}
+		if let Some(expected_assets_in_holding) = expected_assets_in_holding {
+			executor.set_holding(expected_assets_in_holding.into());
+		}
 		let xcm = Xcm(vec![ExportMessage {
-			network, destination, xcm: inner_xcm,
+			network, destination: destination.clone(), xcm: inner_xcm,
 		}]);
 	}: {
 		executor.bench_process(xcm)?;
 	} verify {
-		// The execute completing successfully is as good as we can check.
+		// Check we charged the delivery fees
+		assert!(T::TransactAsset::balance(&sender_account) <= sender_account_balance_before);
 		// TODO: Potentially add new trait to XcmSender to detect a queued outgoing message. #4426
 	}
 
@@ -517,14 +604,30 @@ benchmarks! {
 	lock_asset {
 		let (unlocker, owner, asset) = T::unlockable_asset()?;
 
+		let (expected_fees_mode, expected_assets_in_holding) = T::DeliveryHelper::ensure_successful_delivery(
+			&owner,
+			&unlocker,
+			FeeReason::LockAsset,
+		);
+		let sender_account = T::AccountIdConverter::convert_location(&owner).unwrap();
+		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
+
 		let mut executor = new_executor::<T>(owner);
 		executor.set_holding(asset.clone().into());
+		if let Some(expected_fees_mode) = expected_fees_mode {
+			executor.set_fees_mode(expected_fees_mode);
+		}
+		if let Some(expected_assets_in_holding) = expected_assets_in_holding {
+			executor.set_holding(expected_assets_in_holding.into());
+		}
 
 		let instruction = Instruction::LockAsset { asset, unlocker };
 		let xcm = Xcm(vec![instruction]);
 	}: {
 		executor.bench_process(xcm)?;
 	} verify {
+		// Check delivery fees
+		assert!(T::TransactAsset::balance(&sender_account) <= sender_account_balance_before);
 		// TODO: Potentially add new trait to XcmSender to detect a queued outgoing message. #4426
 	}
 
@@ -595,13 +698,29 @@ benchmarks! {
 		.enact()
 		.map_err(|_| BenchmarkError::Skip)?;
 
+		let (expected_fees_mode, expected_assets_in_holding) = T::DeliveryHelper::ensure_successful_delivery(
+			&owner,
+			&locker,
+			FeeReason::RequestUnlock,
+		);
+		let sender_account = T::AccountIdConverter::convert_location(&owner).unwrap();
+		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
+
 		// ... then request for an unlock with the RequestUnlock instruction.
 		let mut executor = new_executor::<T>(owner);
+		if let Some(expected_fees_mode) = expected_fees_mode {
+			executor.set_fees_mode(expected_fees_mode);
+		}
+		if let Some(expected_assets_in_holding) = expected_assets_in_holding {
+			executor.set_holding(expected_assets_in_holding.into());
+		}
 		let instruction = Instruction::RequestUnlock { asset, locker };
 		let xcm = Xcm(vec![instruction]);
 	}: {
 		executor.bench_process(xcm)?;
 	} verify {
+		// Check we charged the delivery fees
+		assert!(T::TransactAsset::balance(&sender_account) <= sender_account_balance_before);
 		// TODO: Potentially add new trait to XcmSender to detect a queued outgoing message. #4426
 	}
 

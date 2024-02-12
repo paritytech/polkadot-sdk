@@ -19,7 +19,11 @@ output = subprocess.check_output(["cargo", "tree", "--locked", "--workspace", "-
 crates = []
 for line in output.splitlines():
 	if line != b"":
-		crates.append(line.decode('utf8').split(" ")[0])
+		line = line.decode('utf8').split(" ")
+		crate_name = line[0]
+		# The crate path is always the last element in the line.
+		crate_path = line[len(line) - 1].replace("(", "").replace(")", "")
+		crates.append((crate_name, crate_path))
 
 # Make the list unique and sorted
 crates = list(set(crates))
@@ -49,9 +53,9 @@ print(f"Crates per group: {crates_per_group}", file=sys.stderr)
 for i in range(0, crates_per_group + overflow_crates):
 	crate = crates_per_group * target_group + i
 
-	print(f"Checking {crates[crate]}", file=sys.stderr)
+	print(f"Checking {crates[crate][0]}", file=sys.stderr)
 
-	res = subprocess.run(["cargo", "check", "--locked", "-p", crates[crate]])
+	res = subprocess.run(["forklift", "cargo", "check", "--locked"], cwd = crates[crate][1])
 
 	if res.returncode != 0:
 		sys.exit(1)

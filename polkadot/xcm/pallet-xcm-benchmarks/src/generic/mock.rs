@@ -19,18 +19,18 @@
 use crate::{generic, mock::*, *};
 use codec::Decode;
 use frame_support::{
-	match_types, parameter_types,
-	traits::{Everything, OriginTrait},
+	derive_impl, parameter_types,
+	traits::{Contains, Everything, OriginTrait},
 	weights::Weight,
 };
 use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, IdentityLookup, TrailingZeroInput};
 use xcm_builder::{
 	test_utils::{
-		Assets, TestAssetExchanger, TestAssetLocker, TestAssetTrap, TestSubscriptionService,
-		TestUniversalAliases,
+		AssetsInHolding, TestAssetExchanger, TestAssetLocker, TestAssetTrap,
+		TestSubscriptionService, TestUniversalAliases,
 	},
-	AliasForeignAccountId32, AllowUnpaidExecutionFrom,
+	AliasForeignAccountId32, AllowUnpaidExecutionFrom, FrameTransactionalProcessor,
 };
 use xcm_executor::traits::ConvertOrigin;
 
@@ -39,8 +39,9 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		XcmGenericBenchmarks: generic::{Pallet},
+		System: frame_system,
+		Balances: pallet_balances,
+		XcmGenericBenchmarks: generic,
 	}
 );
 
@@ -50,6 +51,7 @@ parameter_types! {
 		frame_system::limits::BlockWeights::simple_max(Weight::from_parts(1024, u64::MAX));
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = Everything;
 	type BlockWeights = ();
@@ -79,15 +81,15 @@ impl frame_system::Config for Test {
 /// The benchmarks in this pallet should never need an asset transactor to begin with.
 pub struct NoAssetTransactor;
 impl xcm_executor::traits::TransactAsset for NoAssetTransactor {
-	fn deposit_asset(_: &MultiAsset, _: &MultiLocation, _: &XcmContext) -> Result<(), XcmError> {
+	fn deposit_asset(_: &Asset, _: &Location, _: Option<&XcmContext>) -> Result<(), XcmError> {
 		unreachable!();
 	}
 
 	fn withdraw_asset(
-		_: &MultiAsset,
-		_: &MultiLocation,
+		_: &Asset,
+		_: &Location,
 		_: Option<&XcmContext>,
-	) -> Result<Assets, XcmError> {
+	) -> Result<AssetsInHolding, XcmError> {
 		unreachable!();
 	}
 }
@@ -97,10 +99,11 @@ parameter_types! {
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
 
-match_types! {
-	pub type OnlyParachains: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 0, interior: X1(Parachain(_)) }
-	};
+pub struct OnlyParachains;
+impl Contains<Location> for OnlyParachains {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (0, [Parachain(_)]))
+	}
 }
 
 type Aliasers = AliasForeignAccountId32<OnlyParachains>;
@@ -131,18 +134,30 @@ impl xcm_executor::Config for XcmConfig {
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Aliasers;
+	type TransactionalProcessor = FrameTransactionalProcessor;
+}
+
+parameter_types! {
+	pub const ExistentialDeposit: u64 = 7;
+}
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
+impl pallet_balances::Config for Test {
+	type ReserveIdentifier = [u8; 8];
+	type AccountStore = System;
 }
 
 impl crate::Config for Test {
 	type XcmConfig = XcmConfig;
 	type AccountIdConverter = AccountIdConverter;
-	fn valid_destination() -> Result<MultiLocation, BenchmarkError> {
-		let valid_destination: MultiLocation =
+	type DeliveryHelper = ();
+	fn valid_destination() -> Result<Location, BenchmarkError> {
+		let valid_destination: Location =
 			Junction::AccountId32 { network: None, id: [0u8; 32] }.into();
 
 		Ok(valid_destination)
 	}
-	fn worst_case_holding(depositable_count: u32) -> MultiAssets {
+	fn worst_case_holding(depositable_count: u32) -> Assets {
 		crate::mock_worst_case_holding(
 			depositable_count,
 			<XcmConfig as xcm_executor::Config>::MaxAssetsIntoHolding::get(),
@@ -151,51 +166,55 @@ impl crate::Config for Test {
 }
 
 impl generic::Config for Test {
+	type TransactAsset = Balances;
 	type RuntimeCall = RuntimeCall;
 
 	fn worst_case_response() -> (u64, Response) {
-		let assets: MultiAssets = (Concrete(Here.into()), 100).into();
+		let assets: Assets = (AssetId(Here.into()), 100).into();
 		(0, Response::Assets(assets))
 	}
 
-	fn worst_case_asset_exchange() -> Result<(MultiAssets, MultiAssets), BenchmarkError> {
+	fn worst_case_asset_exchange() -> Result<(Assets, Assets), BenchmarkError> {
 		Ok(Default::default())
 	}
 
-	fn universal_alias() -> Result<(MultiLocation, Junction), BenchmarkError> {
+	fn universal_alias() -> Result<(Location, Junction), BenchmarkError> {
 		Ok((Here.into(), GlobalConsensus(ByGenesis([0; 32]))))
 	}
 
 	fn transact_origin_and_runtime_call(
-	) -> Result<(MultiLocation, <Self as generic::Config>::RuntimeCall), BenchmarkError> {
+	) -> Result<(Location, <Self as generic::Config>::RuntimeCall), BenchmarkError> {
 		Ok((Default::default(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
 	}
 
-	fn subscribe_origin() -> Result<MultiLocation, BenchmarkError> {
+	fn subscribe_origin() -> Result<Location, BenchmarkError> {
 		Ok(Default::default())
 	}
 
-	fn claimable_asset() -> Result<(MultiLocation, MultiLocation, MultiAssets), BenchmarkError> {
-		let assets: MultiAssets = (Concrete(Here.into()), 100).into();
-		let ticket = MultiLocation { parents: 0, interior: X1(GeneralIndex(0)) };
+	fn claimable_asset() -> Result<(Location, Location, Assets), BenchmarkError> {
+		let assets: Assets = (AssetId(Here.into()), 100).into();
+		let ticket = Location { parents: 0, interior: [GeneralIndex(0)].into() };
 		Ok((Default::default(), ticket, assets))
 	}
 
-	fn unlockable_asset() -> Result<(MultiLocation, MultiLocation, MultiAsset), BenchmarkError> {
-		let assets: MultiAsset = (Concrete(Here.into()), 100).into();
-		Ok((Default::default(), Default::default(), assets))
+	fn fee_asset() -> Result<Asset, BenchmarkError> {
+		Ok(Asset { id: AssetId(Here.into()), fun: Fungible(1_000_000) })
+	}
+
+	fn unlockable_asset() -> Result<(Location, Location, Asset), BenchmarkError> {
+		let assets: Asset = (AssetId(Here.into()), 100).into();
+		Ok((Default::default(), account_id_junction::<Test>(1).into(), assets))
 	}
 
 	fn export_message_origin_and_destination(
-	) -> Result<(MultiLocation, NetworkId, InteriorMultiLocation), BenchmarkError> {
+	) -> Result<(Location, NetworkId, InteriorLocation), BenchmarkError> {
 		// No MessageExporter in tests
 		Err(BenchmarkError::Skip)
 	}
 
-	fn alias_origin() -> Result<(MultiLocation, MultiLocation), BenchmarkError> {
-		let origin: MultiLocation =
-			(Parachain(1), AccountId32 { network: None, id: [0; 32] }).into();
-		let target: MultiLocation = AccountId32 { network: None, id: [0; 32] }.into();
+	fn alias_origin() -> Result<(Location, Location), BenchmarkError> {
+		let origin: Location = (Parachain(1), AccountId32 { network: None, id: [0; 32] }).into();
+		let target: Location = AccountId32 { network: None, id: [0; 32] }.into();
 		Ok((origin, target))
 	}
 }
@@ -215,9 +234,9 @@ where
 	<RuntimeOrigin as OriginTrait>::AccountId: Decode,
 {
 	fn convert_origin(
-		_origin: impl Into<MultiLocation>,
+		_origin: impl Into<Location>,
 		_kind: OriginKind,
-	) -> Result<RuntimeOrigin, MultiLocation> {
+	) -> Result<RuntimeOrigin, Location> {
 		Ok(RuntimeOrigin::signed(
 			<RuntimeOrigin as OriginTrait>::AccountId::decode(&mut TrailingZeroInput::zeroes())
 				.expect("infinite length input; no invalid inputs for type; qed"),

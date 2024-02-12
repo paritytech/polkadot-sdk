@@ -4,9 +4,7 @@
   "chainType": "Live",
   "bootNodes": [
     "/dns/rococo-bridge-hub-collator-node-0.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWJCFBJmFF65xz5xHeZQRSCf35BxfSEB3RHQFoLza28LWU",
-    "/dns/rococo-bridge-hub-collator-node-1.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWJzLd8skcAgA24EcJey7aJAhYctfUxWGjSP5Usk9wbpPZ",
-    "/dns/rococo-bridge-hub-collator-node-2.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWPZLWbbDJzEXAHPuAcVssPrjQLyZK4nvvmV2ez6gy2FQ3",
-    "/dns/rococo-bridge-hub-collator-node-3.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWKWMENpCNH7wBVQoHLwQoWUs6acAEmfdV694v9jCuJwYc"
+    "/dns/rococo-bridge-hub-collator-node-1.parity-testnet.parity.io/tcp/30333/p2p/12D3KooWJzLd8skcAgA24EcJey7aJAhYctfUxWGjSP5Usk9wbpPZ"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

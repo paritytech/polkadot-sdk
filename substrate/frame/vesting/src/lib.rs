@@ -71,8 +71,8 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
-		AtLeast32BitUnsigned, Bounded, Convert, MaybeSerializeDeserialize, One, Saturating,
-		StaticLookup, Zero,
+		AtLeast32BitUnsigned, BlockNumberProvider, Bounded, Convert, MaybeSerializeDeserialize,
+		One, Saturating, StaticLookup, Zero,
 	},
 	DispatchError, RuntimeDebug,
 };
@@ -175,6 +175,9 @@ pub mod pallet {
 		/// Reasons that determine under which conditions the balance may drop below
 		/// the unvested amount.
 		type UnvestedFundsAllowedWithdrawReasons: Get<WithdrawReasons>;
+
+		/// Provider for the block number.
+		type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
 
 		/// Maximum number of vesting schedules an account may have at a given moment.
 		const MAX_VESTING_SCHEDULES: u32;
@@ -427,6 +430,36 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// Force remove a vesting schedule
+		///
+		/// The dispatch origin for this call must be _Root_.
+		///
+		/// - `target`: An account that has a vesting schedule
+		/// - `schedule_index`: The vesting schedule index that should be removed
+		#[pallet::call_index(5)]
+		#[pallet::weight(
+			T::WeightInfo::force_remove_vesting_schedule(MaxLocksOf::<T>::get(), T::MAX_VESTING_SCHEDULES)
+		)]
+		pub fn force_remove_vesting_schedule(
+			origin: OriginFor<T>,
+			target: <T::Lookup as StaticLookup>::Source,
+			schedule_index: u32,
+		) -> DispatchResultWithPostInfo {
+			ensure_root(origin)?;
+			let who = T::Lookup::lookup(target)?;
+
+			let schedules_count = Vesting::<T>::decode_len(&who).unwrap_or_default();
+			ensure!(schedule_index < schedules_count as u32, Error::<T>::InvalidScheduleParams);
+
+			Self::remove_vesting_schedule(&who, schedule_index)?;
+
+			Ok(Some(T::WeightInfo::force_remove_vesting_schedule(
+				MaxLocksOf::<T>::get(),
+				schedules_count as u32,
+			))
+			.into())
+		}
 	}
 }
 
@@ -535,7 +568,7 @@ impl<T: Config> Pallet<T> {
 		schedules: Vec<VestingInfo<BalanceOf<T>, BlockNumberFor<T>>>,
 		action: VestingAction,
 	) -> (Vec<VestingInfo<BalanceOf<T>, BlockNumberFor<T>>>, BalanceOf<T>) {
-		let now = <frame_system::Pallet<T>>::block_number();
+		let now = T::BlockNumberProvider::current_block_number();
 
 		let mut total_locked_now: BalanceOf<T> = Zero::zero();
 		let filtered_schedules = action
@@ -619,7 +652,7 @@ impl<T: Config> Pallet<T> {
 				let (mut schedules, mut locked_now) =
 					Self::report_schedule_updates(schedules.to_vec(), action);
 
-				let now = <frame_system::Pallet<T>>::block_number();
+				let now = T::BlockNumberProvider::current_block_number();
 				if let Some(new_schedule) = Self::merge_vesting_info(now, schedule1, schedule2) {
 					// Merging created a new schedule so we:
 					// 1) need to add it to the accounts vesting schedule collection,
@@ -655,7 +688,7 @@ where
 	/// Get the amount that is currently being vested and cannot be transferred out of this account.
 	fn vesting_balance(who: &T::AccountId) -> Option<BalanceOf<T>> {
 		if let Some(v) = Self::vesting(who) {
-			let now = <frame_system::Pallet<T>>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			let total_locked_now = v.iter().fold(Zero::zero(), |total, schedule| {
 				schedule.locked_at::<T::BlockNumberToBalance>(now).saturating_add(total)
 			});

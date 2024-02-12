@@ -1,23 +1,27 @@
 [package]
 name = "cumulus-pallet-aura-ext"
-version = "0.1.0"
+version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
 description = "AURA consensus extension pallet for parachains"
+license = "Apache-2.0"
+
+[lints]
+workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 # Substrate
-frame-support = { path = "../../../substrate/frame/support", default-features = false}
-frame-system = { path = "../../../substrate/frame/system", default-features = false}
-pallet-aura = { path = "../../../substrate/frame/aura", default-features = false}
-pallet-timestamp= { path = "../../../substrate/frame/timestamp", default-features = false}
-sp-application-crypto = { path = "../../../substrate/primitives/application-crypto", default-features = false}
-sp-consensus-aura = { path = "../../../substrate/primitives/consensus/aura", default-features = false}
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false}
-sp-std = { path = "../../../substrate/primitives/std", default-features = false}
+frame-support = { path = "../../../substrate/frame/support", default-features = false }
+frame-system = { path = "../../../substrate/frame/system", default-features = false }
+pallet-aura = { path = "../../../substrate/frame/aura", default-features = false }
+pallet-timestamp = { path = "../../../substrate/frame/timestamp", default-features = false }
+sp-application-crypto = { path = "../../../substrate/primitives/application-crypto", default-features = false }
+sp-consensus-aura = { path = "../../../substrate/primitives/consensus/aura", default-features = false }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false }
 
 # Cumulus
 cumulus-pallet-parachain-system = { path = "../parachain-system", default-features = false }
@@ -28,7 +32,7 @@ cumulus-pallet-parachain-system = { path = "../parachain-system", default-featur
 cumulus-pallet-parachain-system = { path = "../parachain-system" }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
 	"cumulus-pallet-parachain-system/std",

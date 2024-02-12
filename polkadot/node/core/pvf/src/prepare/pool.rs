@@ -14,10 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::worker_intf::{self, Outcome};
+use super::worker_interface::{self, Outcome};
 use crate::{
 	metrics::Metrics,
-	worker_intf::{IdleWorker, WorkerHandle},
+	worker_interface::{IdleWorker, WorkerHandle},
 	LOG_TARGET,
 };
 use always_assert::never;
@@ -27,6 +27,7 @@ use futures::{
 use polkadot_node_core_pvf_common::{
 	error::{PrepareError, PrepareResult},
 	pvf::PvfPrepData,
+	SecurityStatus,
 };
 use slotmap::HopSlotMap;
 use std::{
@@ -67,7 +68,7 @@ pub enum ToPool {
 	///
 	/// In either case, the worker is considered busy and no further `StartWork` messages should be
 	/// sent until either `Concluded` or `Rip` message is received.
-	StartWork { worker: Worker, pvf: PvfPrepData, artifact_path: PathBuf },
+	StartWork { worker: Worker, pvf: PvfPrepData, cache_path: PathBuf },
 }
 
 /// A message sent from pool to its client.
@@ -110,10 +111,12 @@ enum PoolEvent {
 type Mux = FuturesUnordered<BoxFuture<'static, PoolEvent>>;
 
 struct Pool {
+	// Some variables related to the current session.
 	program_path: PathBuf,
 	cache_path: PathBuf,
 	spawn_timeout: Duration,
 	node_version: Option<String>,
+	security_status: SecurityStatus,
 
 	to_pool: mpsc::Receiver<ToPool>,
 	from_pool: mpsc::UnboundedSender<FromPool>,
@@ -132,6 +135,7 @@ async fn run(
 		cache_path,
 		spawn_timeout,
 		node_version,
+		security_status,
 		to_pool,
 		mut from_pool,
 		mut spawned,
@@ -160,6 +164,7 @@ async fn run(
 					&cache_path,
 					spawn_timeout,
 					node_version.clone(),
+					security_status.clone(),
 					&mut spawned,
 					&mut mux,
 					to_pool,
@@ -207,6 +212,7 @@ fn handle_to_pool(
 	cache_path: &Path,
 	spawn_timeout: Duration,
 	node_version: Option<String>,
+	security_status: SecurityStatus,
 	spawned: &mut HopSlotMap<Worker, WorkerData>,
 	mux: &mut Mux,
 	to_pool: ToPool,
@@ -216,10 +222,17 @@ fn handle_to_pool(
 			gum::debug!(target: LOG_TARGET, "spawning a new prepare worker");
 			metrics.prepare_worker().on_begin_spawn();
 			mux.push(
-				spawn_worker_task(program_path.to_owned(), spawn_timeout, node_version).boxed(),
+				spawn_worker_task(
+					program_path.to_owned(),
+					cache_path.to_owned(),
+					spawn_timeout,
+					node_version,
+					security_status,
+				)
+				.boxed(),
 			);
 		},
-		ToPool::StartWork { worker, pvf, artifact_path } => {
+		ToPool::StartWork { worker, pvf, cache_path } => {
 			if let Some(data) = spawned.get_mut(worker) {
 				if let Some(idle) = data.idle.take() {
 					let preparation_timer = metrics.time_preparation();
@@ -229,8 +242,7 @@ fn handle_to_pool(
 							worker,
 							idle,
 							pvf,
-							cache_path.to_owned(),
-							artifact_path,
+							cache_path,
 							preparation_timer,
 						)
 						.boxed(),
@@ -258,13 +270,23 @@ fn handle_to_pool(
 
 async fn spawn_worker_task(
 	program_path: PathBuf,
+	cache_path: PathBuf,
 	spawn_timeout: Duration,
 	node_version: Option<String>,
+	security_status: SecurityStatus,
 ) -> PoolEvent {
 	use futures_timer::Delay;
 
 	loop {
-		match worker_intf::spawn(&program_path, spawn_timeout, node_version.as_deref()).await {
+		match worker_interface::spawn(
+			&program_path,
+			&cache_path,
+			spawn_timeout,
+			node_version.as_deref(),
+			security_status.clone(),
+		)
+		.await
+		{
 			Ok((idle, handle)) => break PoolEvent::Spawn(idle, handle),
 			Err(err) => {
 				gum::warn!(target: LOG_TARGET, "failed to spawn a prepare worker: {:?}", err);
@@ -282,10 +304,9 @@ async fn start_work_task<Timer>(
 	idle: IdleWorker,
 	pvf: PvfPrepData,
 	cache_path: PathBuf,
-	artifact_path: PathBuf,
 	_preparation_timer: Option<Timer>,
 ) -> PoolEvent {
-	let outcome = worker_intf::start_work(&metrics, idle, pvf, &cache_path, artifact_path).await;
+	let outcome = worker_interface::start_work(&metrics, idle, pvf, cache_path).await;
 	PoolEvent::StartWork(worker, outcome)
 }
 
@@ -318,18 +339,33 @@ fn handle_mux(
 					spawned,
 					worker,
 					idle,
-					Err(PrepareError::CreateTmpFileErr(err)),
+					Err(PrepareError::CreateTmpFile(err)),
 				),
 				// Return `Concluded`, but do not kill the worker since the error was on the host
 				// side.
-				Outcome::RenameTmpFileErr { worker: idle, result: _, err } =>
+				Outcome::RenameTmpFile { worker: idle, result: _, err, src, dest } =>
 					handle_concluded_no_rip(
 						from_pool,
 						spawned,
 						worker,
 						idle,
-						Err(PrepareError::RenameTmpFileErr(err)),
+						Err(PrepareError::RenameTmpFile { err, src, dest }),
 					),
+				// Could not clear worker cache. Kill the worker so other jobs can't see the data.
+				Outcome::ClearWorkerDir { err } => {
+					if attempt_retire(metrics, spawned, worker) {
+						reply(
+							from_pool,
+							FromPool::Concluded {
+								worker,
+								rip: true,
+								result: Err(PrepareError::ClearWorkerDir(err)),
+							},
+						)?;
+					}
+
+					Ok(())
+				},
 				Outcome::Unreachable => {
 					if attempt_retire(metrics, spawned, worker) {
 						reply(from_pool, FromPool::Rip(worker))?;
@@ -351,6 +387,21 @@ fn handle_mux(
 
 					Ok(())
 				},
+				// The worker might still be usable, but we kill it just in case.
+				Outcome::JobDied { err, job_pid } => {
+					if attempt_retire(metrics, spawned, worker) {
+						reply(
+							from_pool,
+							FromPool::Concluded {
+								worker,
+								rip: true,
+								result: Err(PrepareError::JobDied { err, job_pid }),
+							},
+						)?;
+					}
+
+					Ok(())
+				},
 				Outcome::TimedOut => {
 					if attempt_retire(metrics, spawned, worker) {
 						reply(
@@ -359,6 +410,20 @@ fn handle_mux(
 								worker,
 								rip: true,
 								result: Err(PrepareError::TimedOut),
+							},
+						)?;
+					}
+
+					Ok(())
+				},
+				Outcome::OutOfMemory => {
+					if attempt_retire(metrics, spawned, worker) {
+						reply(
+							from_pool,
+							FromPool::Concluded {
+								worker,
+								rip: true,
+								result: Err(PrepareError::OutOfMemory),
 							},
 						)?;
 					}
@@ -434,6 +499,7 @@ pub fn start(
 	cache_path: PathBuf,
 	spawn_timeout: Duration,
 	node_version: Option<String>,
+	security_status: SecurityStatus,
 ) -> (mpsc::Sender<ToPool>, mpsc::UnboundedReceiver<FromPool>, impl Future<Output = ()>) {
 	let (to_pool_tx, to_pool_rx) = mpsc::channel(10);
 	let (from_pool_tx, from_pool_rx) = mpsc::unbounded();
@@ -444,6 +510,7 @@ pub fn start(
 		cache_path,
 		spawn_timeout,
 		node_version,
+		security_status,
 		to_pool: to_pool_rx,
 		from_pool: from_pool_tx,
 		spawned: HopSlotMap::with_capacity_and_key(20),

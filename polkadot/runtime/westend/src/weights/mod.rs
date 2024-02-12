@@ -17,6 +17,7 @@
 
 pub mod frame_election_provider_support;
 pub mod frame_system;
+pub mod pallet_asset_rate;
 pub mod pallet_bags_list;
 pub mod pallet_balances;
 pub mod pallet_conviction_voting;
@@ -45,9 +46,12 @@ pub mod pallet_xcm;
 pub mod runtime_common_assigned_slots;
 pub mod runtime_common_auctions;
 pub mod runtime_common_crowdloan;
+pub mod runtime_common_identity_migrator;
 pub mod runtime_common_paras_registrar;
 pub mod runtime_common_slots;
+pub mod runtime_parachains_assigner_on_demand;
 pub mod runtime_parachains_configuration;
+pub mod runtime_parachains_coretime;
 pub mod runtime_parachains_disputes;
 pub mod runtime_parachains_disputes_slashing;
 pub mod runtime_parachains_hrmp;

@@ -14,10 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Bridges Common.  If not, see <http://www.gnu.org/licenses/>.
 
+//! Signed extension for the `pallet-bridge-messages` that is able to reject obsolete
+//! (and some other invalid) transactions.
+
 use crate::messages::{
 	source::FromBridgedChainMessagesDeliveryProof, target::FromBridgedChainMessagesProof,
 };
 use bp_messages::{target_chain::MessageDispatch, InboundLaneData, LaneId, MessageNonce};
+use bp_runtime::OwnedBridgeModule;
 use frame_support::{
 	dispatch::CallableCallFor,
 	traits::{Get, IsSubType},
@@ -115,7 +119,9 @@ impl ReceiveMessagesDeliveryProofInfo {
 /// which tries to update a single lane.
 #[derive(PartialEq, RuntimeDebug)]
 pub enum CallInfo {
+	/// Messages delivery call info.
 	ReceiveMessagesProof(ReceiveMessagesProofInfo),
+	/// Messages delivery confirmation call info.
 	ReceiveMessagesDeliveryProof(ReceiveMessagesDeliveryProofInfo),
 }
 
@@ -131,7 +137,7 @@ impl CallInfo {
 
 /// Helper struct that provides methods for working with a call supported by `CallInfo`.
 pub struct CallHelper<T: Config<I>, I: 'static> {
-	pub _phantom_data: sp_std::marker::PhantomData<(T, I)>,
+	_phantom_data: sp_std::marker::PhantomData<(T, I)>,
 }
 
 impl<T: Config<I>, I: 'static> CallHelper<T, I> {
@@ -187,8 +193,22 @@ pub trait MessagesCallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 	/// or a `ReceiveMessagesDeliveryProof` call, if the call is for the provided lane.
 	fn call_info_for(&self, lane_id: LaneId) -> Option<CallInfo>;
 
-	/// Check that a `ReceiveMessagesProof` or a `ReceiveMessagesDeliveryProof` call is trying
-	/// to deliver/confirm at least some messages that are better than the ones we know of.
+	/// Ensures that a `ReceiveMessagesProof` or a `ReceiveMessagesDeliveryProof` call:
+	///
+	/// - does not deliver already delivered messages. We require all messages in the
+	///   `ReceiveMessagesProof` call to be undelivered;
+	///
+	/// - does not submit empty `ReceiveMessagesProof` call with zero messages, unless the lane
+	///   needs to be unblocked by providing relayer rewards proof;
+	///
+	/// - brings no new delivery confirmations in a `ReceiveMessagesDeliveryProof` call. We require
+	///   at least one new delivery confirmation in the unrewarded relayers set;
+	///
+	/// - does not violate some basic (easy verifiable) messages pallet rules obsolete (like
+	///   submitting a call when a pallet is halted or delivering messages when a dispatcher is
+	///   inactive).
+	///
+	/// If one of above rules is violated, the transaction is treated as invalid.
 	fn check_obsolete_call(&self) -> TransactionValidity;
 }
 
@@ -278,7 +298,17 @@ impl<
 	}
 
 	fn check_obsolete_call(&self) -> TransactionValidity {
+		let is_pallet_halted = Pallet::<T, I>::ensure_not_halted().is_err();
 		match self.call_info() {
+			Some(proof_info) if is_pallet_halted => {
+				log::trace!(
+					target: pallet_bridge_messages::LOG_TARGET,
+					"Rejecting messages transaction on halted pallet: {:?}",
+					proof_info
+				);
+
+				return sp_runtime::transaction_validity::InvalidTransaction::Call.into()
+			},
 			Some(CallInfo::ReceiveMessagesProof(proof_info))
 				if proof_info.is_obsolete(T::MessageDispatch::is_active()) =>
 			{

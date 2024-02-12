@@ -24,7 +24,7 @@ use crate::chain_head::{
 		BestBlockChanged, Finalized, FollowEvent, Initialized, NewBlock, RuntimeEvent,
 		RuntimeVersionEvent,
 	},
-	subscription::{InsertedSubscriptionData, SubscriptionManagement, SubscriptionManagementError},
+	subscription::{SubscriptionManagement, SubscriptionManagementError},
 };
 use futures::{
 	channel::oneshot,
@@ -36,12 +36,15 @@ use log::{debug, error};
 use sc_client_api::{
 	Backend, BlockBackend, BlockImportNotification, BlockchainEvents, FinalityNotification,
 };
+use sc_rpc::utils::to_sub_message;
 use sp_api::CallApiAt;
 use sp_blockchain::{
 	Backend as BlockChainBackend, Error as BlockChainError, HeaderBackend, HeaderMetadata, Info,
 };
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
 use std::{collections::HashSet, sync::Arc};
+
+use super::subscription::InsertedSubscriptionData;
 
 /// Generates the events of the `chainHead_follow` method.
 pub struct ChainHeadFollower<BE: Backend<Block>, Block: BlockT, Client> {
@@ -158,7 +161,7 @@ where
 		let parent = match parent {
 			Some(parent) => parent,
 			// Nothing to compare against, always report.
-			None => return Some(RuntimeEvent::Valid(RuntimeVersionEvent { spec: block_rt })),
+			None => return Some(RuntimeEvent::Valid(RuntimeVersionEvent { spec: block_rt.into() })),
 		};
 
 		let parent_rt = match self.client.runtime_version_at(parent) {
@@ -168,7 +171,7 @@ where
 
 		// Report the runtime version change.
 		if block_rt != parent_rt {
-			Some(RuntimeEvent::Valid(RuntimeVersionEvent { spec: block_rt }))
+			Some(RuntimeEvent::Valid(RuntimeVersionEvent { spec: block_rt.into() }))
 		} else {
 			None
 		}
@@ -500,7 +503,7 @@ where
 		startup_point: &StartupPoint<Block>,
 		mut stream: EventStream,
 		mut to_ignore: HashSet<Block::Hash>,
-		mut sink: SubscriptionSink,
+		sink: SubscriptionSink,
 		rx_stop: oneshot::Receiver<()>,
 	) where
 		EventStream: Stream<Item = NotificationType<Block>> + Unpin,
@@ -529,35 +532,23 @@ where
 						self.sub_id,
 						err
 					);
-					let _ = sink.send(&FollowEvent::<String>::Stop);
+					let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
+					let _ = sink.send(msg).await;
 					return
 				},
 			};
 
 			for event in events {
-				let result = sink.send(&event);
-
-				// Migration note: the new version of jsonrpsee returns Result<(), DisconnectError>
-				// The logic from `Err(err)` should be moved when building the new
-				// `SubscriptionMessage`.
-
-				// For now, jsonrpsee returns:
-				// Ok(true): message sent
-				// Ok(false): client disconnected or subscription closed
-				// Err(err): serder serialization error of the event
-				if let Err(err) = result {
+				let msg = to_sub_message(&sink, &event);
+				if let Err(err) = sink.send(msg).await {
 					// Failed to submit event.
 					debug!(
 						target: LOG_TARGET,
 						"[follow][id={:?}] Failed to send event {:?}", self.sub_id, err
 					);
 
-					let _ = sink.send(&FollowEvent::<String>::Stop);
-					return
-				}
-
-				if let Ok(false) = result {
-					// Client disconnected or subscription was closed.
+					let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
+					let _ = sink.send(msg).await;
 					return
 				}
 			}
@@ -568,13 +559,14 @@ where
 
 		// If we got here either the substrate streams have closed
 		// or the `Stop` receiver was triggered.
-		let _ = sink.send(&FollowEvent::<String>::Stop);
+		let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
+		let _ = sink.send(msg).await;
 	}
 
 	/// Generate the block events for the `chainHead_follow` method.
 	pub async fn generate_events(
 		&mut self,
-		mut sink: SubscriptionSink,
+		sink: SubscriptionSink,
 		sub_data: InsertedSubscriptionData<Block>,
 	) {
 		// Register for the new block and finalized notifications.
@@ -602,7 +594,8 @@ where
 					self.sub_id,
 					err
 				);
-				let _ = sink.send(&FollowEvent::<Block::Hash>::Stop);
+				let msg = to_sub_message(&sink, &FollowEvent::<String>::Stop);
+				let _ = sink.send(msg).await;
 				return
 			},
 		};

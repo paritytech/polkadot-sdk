@@ -17,10 +17,10 @@
 
 use super::*;
 use crate::{self as pools};
-use frame_support::{assert_ok, parameter_types, PalletId};
+use frame_support::{assert_ok, derive_impl, parameter_types, traits::fungible::Mutate, PalletId};
 use frame_system::RawOrigin;
 use sp_runtime::{BuildStorage, FixedU128};
-use sp_staking::Stake;
+use sp_staking::{OnStakingUpdate, Stake};
 
 pub type BlockNumber = u64;
 pub type AccountId = u128;
@@ -29,6 +29,7 @@ pub type RewardCounter = FixedU128;
 // This sneaky little hack allows us to write code exactly as we would do in the pallet in the tests
 // as well, e.g. `StorageItem::<T>::get()`.
 pub type T = Runtime;
+pub type Currency = <T as Config>::Currency;
 
 // Ext builder creates a pool with id 1.
 pub fn default_bonded_account() -> AccountId {
@@ -45,19 +46,33 @@ parameter_types! {
 	pub static CurrentEra: EraIndex = 0;
 	pub static BondingDuration: EraIndex = 3;
 	pub storage BondedBalanceMap: BTreeMap<AccountId, Balance> = Default::default();
-	pub storage UnbondingBalanceMap: BTreeMap<AccountId, Balance> = Default::default();
+	// map from a user to a vec of eras and amounts being unlocked in each era.
+	pub storage UnbondingBalanceMap: BTreeMap<AccountId, Vec<(EraIndex, Balance)>> = Default::default();
 	#[derive(Clone, PartialEq)]
 	pub static MaxUnbonding: u32 = 8;
 	pub static StakingMinBond: Balance = 10;
 	pub storage Nominations: Option<Vec<AccountId>> = None;
 }
-
 pub struct StakingMock;
+
 impl StakingMock {
 	pub(crate) fn set_bonded_balance(who: AccountId, bonded: Balance) {
 		let mut x = BondedBalanceMap::get();
 		x.insert(who, bonded);
 		BondedBalanceMap::set(&x)
+	}
+	/// Mimics a slash towards a pool specified by `pool_id`.
+	/// This reduces the bonded balance of a pool by `amount` and calls [`Pools::on_slash`] to
+	/// enact changes in the nomination-pool pallet.
+	///
+	/// Does not modify any [`SubPools`] of the pool as [`Default::default`] is passed for
+	/// `slashed_unlocking`.
+	pub fn slash_by(pool_id: PoolId, amount: Balance) {
+		let acc = Pools::create_bonded_account(pool_id);
+		let bonded = BondedBalanceMap::get();
+		let pre_total = bonded.get(&acc).unwrap();
+		Self::set_bonded_balance(acc, pre_total - amount);
+		Pools::on_slash(&acc, pre_total - amount, &Default::default(), amount);
 	}
 }
 
@@ -104,8 +119,11 @@ impl sp_staking::StakingInterface for StakingMock {
 		let mut x = BondedBalanceMap::get();
 		*x.get_mut(who).unwrap() = x.get_mut(who).unwrap().saturating_sub(amount);
 		BondedBalanceMap::set(&x);
+
+		let era = Self::current_era();
+		let unlocking_at = era + Self::bonding_duration();
 		let mut y = UnbondingBalanceMap::get();
-		*y.entry(*who).or_insert(Self::Balance::zero()) += amount;
+		y.entry(*who).or_insert(Default::default()).push((unlocking_at, amount));
 		UnbondingBalanceMap::set(&y);
 		Ok(())
 	}
@@ -115,11 +133,26 @@ impl sp_staking::StakingInterface for StakingMock {
 	}
 
 	fn withdraw_unbonded(who: Self::AccountId, _: u32) -> Result<bool, DispatchError> {
-		// Simulates removing unlocking chunks and only having the bonded balance locked
-		let mut x = UnbondingBalanceMap::get();
-		x.remove(&who);
-		UnbondingBalanceMap::set(&x);
+		let mut unbonding_map = UnbondingBalanceMap::get();
 
+		// closure to calculate the current unlocking funds across all eras/accounts.
+		let unlocking = |pair: &Vec<(EraIndex, Balance)>| -> Balance {
+			pair.iter()
+				.try_fold(Zero::zero(), |acc: Balance, (_at, amount)| acc.checked_add(*amount))
+				.unwrap()
+		};
+
+		let staker_map = unbonding_map.get_mut(&who).ok_or("Nothing to unbond")?;
+		let unlocking_before = unlocking(&staker_map);
+
+		let current_era = Self::current_era();
+
+		staker_map.retain(|(unlocking_at, _amount)| *unlocking_at > current_era);
+
+		// if there was a withdrawal, notify the pallet.
+		Pools::on_withdraw(&who, unlocking_before.saturating_sub(unlocking(&staker_map)));
+
+		UnbondingBalanceMap::set(&unbonding_map);
 		Ok(UnbondingBalanceMap::get().is_empty() && BondedBalanceMap::get().is_empty())
 	}
 
@@ -143,14 +176,17 @@ impl sp_staking::StakingInterface for StakingMock {
 	}
 
 	fn stake(who: &Self::AccountId) -> Result<Stake<Balance>, DispatchError> {
-		match (
-			UnbondingBalanceMap::get().get(who).copied(),
-			BondedBalanceMap::get().get(who).copied(),
-		) {
+		match (UnbondingBalanceMap::get().get(who), BondedBalanceMap::get().get(who).copied()) {
 			(None, None) => Err(DispatchError::Other("balance not found")),
-			(Some(v), None) => Ok(Stake { total: v, active: 0 }),
+			(Some(v), None) => Ok(Stake {
+				total: v.into_iter().fold(0u128, |acc, &x| acc.saturating_add(x.1)),
+				active: 0,
+			}),
 			(None, Some(v)) => Ok(Stake { total: v, active: v }),
-			(Some(a), Some(b)) => Ok(Stake { total: a + b, active: b }),
+			(Some(a), Some(b)) => Ok(Stake {
+				total: a.into_iter().fold(0u128, |acc, &x| acc.saturating_add(x.1)) + b,
+				active: b,
+			}),
 		}
 	}
 
@@ -179,8 +215,14 @@ impl sp_staking::StakingInterface for StakingMock {
 	fn set_current_era(_era: EraIndex) {
 		unimplemented!("method currently not used in testing")
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn max_exposure_page_size() -> sp_staking::Page {
+		unimplemented!("method currently not used in testing")
+	}
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	type SS58Prefix = ();
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -221,10 +263,10 @@ impl pallet_balances::Config for Runtime {
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = ConstU32<1>;
 	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeFreezeReason = ();
 }
 
 pub struct BalanceToU256;
@@ -251,6 +293,7 @@ impl pools::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
 	type Currency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type RewardCounter = RewardCounter;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
@@ -264,11 +307,10 @@ impl pools::Config for Runtime {
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
 frame_support::construct_runtime!(
-	pub struct Runtime
-	{
-		System: frame_system::{Pallet, Call, Storage, Event<T>, Config<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Pools: pools::{Pallet, Call, Storage, Event<T>},
+	pub enum Runtime {
+		System: frame_system,
+		Balances: pallet_balances,
+		Pools: pools,
 	}
 );
 
@@ -356,12 +398,12 @@ impl ExtBuilder {
 
 			// make a pool
 			let amount_to_bond = Pools::depositor_min_bond();
-			Balances::make_free_balance_be(&10, amount_to_bond * 5);
+			Currency::set_balance(&10, amount_to_bond * 5);
 			assert_ok!(Pools::create(RawOrigin::Signed(10).into(), amount_to_bond, 900, 901, 902));
 			assert_ok!(Pools::set_metadata(RuntimeOrigin::signed(900), 1, vec![1, 1]));
 			let last_pool = LastPoolId::<Runtime>::get();
 			for (account_id, bonded) in self.members {
-				Balances::make_free_balance_be(&account_id, bonded * 2);
+				<Runtime as Config>::Currency::set_balance(&account_id, bonded * 2);
 				assert_ok!(Pools::join(RawOrigin::Signed(account_id).into(), bonded, last_pool));
 			}
 		});
@@ -438,6 +480,58 @@ pub fn fully_unbond_permissioned(member: AccountId) -> DispatchResult {
 		.map(|d| d.active_points())
 		.unwrap_or_default();
 	Pools::unbond(RuntimeOrigin::signed(member), member, points)
+}
+
+pub fn pending_rewards_for_delegator(delegator: AccountId) -> Balance {
+	let member = PoolMembers::<T>::get(delegator).unwrap();
+	let bonded_pool = BondedPools::<T>::get(member.pool_id).unwrap();
+	let reward_pool = RewardPools::<T>::get(member.pool_id).unwrap();
+
+	assert!(!bonded_pool.points.is_zero());
+
+	let commission = bonded_pool.commission.current();
+	let current_rc = reward_pool
+		.current_reward_counter(member.pool_id, bonded_pool.points, commission)
+		.unwrap()
+		.0;
+
+	member.pending_rewards(current_rc).unwrap_or_default()
+}
+
+#[derive(PartialEq, Debug)]
+pub enum RewardImbalance {
+	// There is no reward deficit.
+	Surplus(Balance),
+	// There is a reward deficit.
+	Deficit(Balance),
+}
+
+pub fn pool_pending_rewards(pool: PoolId) -> Result<BalanceOf<T>, sp_runtime::DispatchError> {
+	let bonded_pool = BondedPools::<T>::get(pool).ok_or(Error::<T>::PoolNotFound)?;
+	let reward_pool = RewardPools::<T>::get(pool).ok_or(Error::<T>::PoolNotFound)?;
+
+	let current_rc = if !bonded_pool.points.is_zero() {
+		let commission = bonded_pool.commission.current();
+		reward_pool.current_reward_counter(pool, bonded_pool.points, commission)?.0
+	} else {
+		Default::default()
+	};
+
+	Ok(PoolMembers::<T>::iter()
+		.filter(|(_, d)| d.pool_id == pool)
+		.map(|(_, d)| d.pending_rewards(current_rc).unwrap_or_default())
+		.fold(0u32.into(), |acc: BalanceOf<T>, x| acc.saturating_add(x)))
+}
+
+pub fn reward_imbalance(pool: PoolId) -> RewardImbalance {
+	let pending_rewards = pool_pending_rewards(pool).expect("pool should exist");
+	let current_balance = RewardPool::<Runtime>::current_balance(pool);
+
+	if pending_rewards > current_balance {
+		RewardImbalance::Deficit(pending_rewards - current_balance)
+	} else {
+		RewardImbalance::Surplus(current_balance - pending_rewards)
+	}
 }
 
 #[cfg(test)]

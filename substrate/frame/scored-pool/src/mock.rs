@@ -21,7 +21,7 @@ use super::*;
 use crate as pallet_scored_pool;
 
 use frame_support::{
-	construct_runtime, ord_parameter_types, parameter_types,
+	construct_runtime, derive_impl, ord_parameter_types, parameter_types,
 	traits::{ConstU32, ConstU64},
 };
 use frame_system::EnsureSignedBy;
@@ -37,9 +37,9 @@ type Block = frame_system::mocking::MockBlock<Test>;
 construct_runtime!(
 	pub enum Test
 	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		ScoredPool: pallet_scored_pool::{Pallet, Call, Storage, Config<T>, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		ScoredPool: pallet_scored_pool,
 	}
 );
 
@@ -51,6 +51,7 @@ ord_parameter_types! {
 	pub const ScoreOrigin: u64 = 3;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
@@ -90,7 +91,7 @@ impl pallet_balances::Config for Test {
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
-	type MaxHolds = ();
+	type RuntimeFreezeReason = ();
 }
 
 parameter_types! {

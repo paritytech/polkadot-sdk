@@ -7,6 +7,9 @@ edition.workspace = true
 license.workspace = true
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
@@ -18,5 +21,5 @@ halt = { package = "test-parachain-halt", path = "halt" }
 sp-core = { path = "../../../substrate/primitives/core" }
 
 [features]
-default = [ "std" ]
-std = [ "adder/std", "halt/std" ]
+default = ["std"]
+std = ["adder/std", "halt/std", "parity-scale-codec/std"]

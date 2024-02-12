@@ -1,10 +1,13 @@
 [package]
 name = "polkadot-statement-distribution"
 description = "Statement Distribution Subsystem"
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+
+[lints]
+workspace = true
 
 [dependencies]
 futures = "0.3.21"
@@ -16,10 +19,9 @@ sp-keystore = { path = "../../../../substrate/primitives/keystore" }
 polkadot-node-subsystem = { path = "../../subsystem" }
 polkadot-node-primitives = { path = "../../primitives" }
 polkadot-node-subsystem-util = { path = "../../subsystem-util" }
-polkadot-node-subsystem-types = { path = "../../subsystem-types" }
 polkadot-node-network-protocol = { path = "../protocol" }
 arrayvec = "0.7.4"
-indexmap = "1.9.1"
+indexmap = "2.0.0"
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }
 thiserror = "1.0.48"
 fatality = "0.0.6"

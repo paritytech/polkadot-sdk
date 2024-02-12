@@ -54,10 +54,10 @@ pub enum Error {
 	#[error("Tasks executor hasn't been provided.")]
 	TaskExecutorRequired,
 
-	#[error("Prometheus metrics error")]
+	#[error("Prometheus metrics error: {0}")]
 	Prometheus(#[from] prometheus_endpoint::PrometheusError),
 
-	#[error("Application")]
+	#[error("Application: {0}")]
 	Application(#[from] Box<dyn std::error::Error + Send + Sync + 'static>),
 
 	#[error("Other: {0}")]

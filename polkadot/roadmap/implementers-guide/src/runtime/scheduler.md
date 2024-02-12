@@ -182,6 +182,7 @@ struct CoreAssignment {
   core: CoreIndex,
   para_id: ParaId,
   kind: AssignmentKind,
+  group_idx: GroupIndex,
 }
 // reasons a core might be freed.
 enum FreedReason {
@@ -263,7 +264,7 @@ No finalization routine runs for this module.
     `Paras::parachains().len()` to it.
   - `next_core` is then updated by adding 1 and taking it modulo `config.parathread_cores`.
   - The claim is then added to the claim index.
-- `free_cores(Vec<(CoreIndex, FreedReason)>)`: indicate previosuly-occupied cores which are to be considered returned
+- `free_cores(Vec<(CoreIndex, FreedReason)>)`: indicate previously-occupied cores which are to be considered returned
   and why they are being returned.
   - All freed lease holding parachain cores should be assigned to their respective parachain
   - All freed on-demand parachain cores whose reason for freeing was `FreedReason::Concluded` should have the claim

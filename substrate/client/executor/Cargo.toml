@@ -1,6 +1,6 @@
 [package]
 name = "sc-executor"
-version = "0.10.0-dev"
+version = "0.32.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -9,6 +9,9 @@ repository.workspace = true
 description = "A crate that provides means of executing/dispatching calls into the runtime."
 documentation = "https://docs.rs/sc-executor"
 readme = "README.md"
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -37,6 +40,7 @@ assert_matches = "1.3.0"
 wat = "1.0"
 sc-runtime-test = { path = "runtime-test" }
 substrate-test-runtime = { path = "../../test-utils/runtime" }
+sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
 sp-state-machine = { path = "../../primitives/state-machine" }
 sp-runtime = { path = "../../primitives/runtime" }
 sp-maybe-compressed-blob = { path = "../../primitives/maybe-compressed-blob" }
@@ -55,7 +59,7 @@ name = "bench"
 harness = false
 
 [features]
-default = [ "std" ]
+default = ["std"]
 # This crate does not have `no_std` support, we just require this for tests
 std = [
 	"sc-runtime-test/std",

@@ -66,9 +66,9 @@ use crate::{
 	traits::BlockNumberProvider,
 };
 use codec::{Codec, Decode, Encode};
+use core::fmt;
 use sp_core::offchain::{Duration, Timestamp};
 use sp_io::offchain;
-use sp_std::fmt;
 
 /// Default expiry duration for time based locks in milliseconds.
 const STORAGE_LOCK_DEFAULT_EXPIRY_DURATION: Duration = Duration::from_millis(20_000);
@@ -156,7 +156,7 @@ pub struct BlockAndTimeDeadline<B: BlockNumberProvider> {
 
 impl<B: BlockNumberProvider> Clone for BlockAndTimeDeadline<B> {
 	fn clone(&self) -> Self {
-		Self { block_number: self.block_number.clone(), timestamp: self.timestamp }
+		Self { block_number: self.block_number, timestamp: self.timestamp }
 	}
 }
 
@@ -250,7 +250,7 @@ impl<B: BlockNumberProvider> Lockable for BlockAndTime<B> {
 ///
 /// A lock that is persisted in the DB and provides the ability to guard against
 /// concurrent access in an off-chain worker, with a defined expiry deadline
-/// based on the concrete [`Lockable`](Lockable) implementation.
+/// based on the concrete [`Lockable`] implementation.
 pub struct StorageLock<'a, L = Time> {
 	// A storage value ref which defines the DB entry representing the lock.
 	value_ref: StorageValueRef<'a>,

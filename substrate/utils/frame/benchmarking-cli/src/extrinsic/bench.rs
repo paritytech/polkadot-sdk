@@ -17,10 +17,10 @@
 
 //! Contains the core benchmarking logic.
 
-use sc_block_builder::{BlockBuilderApi, BlockBuilderProvider};
+use sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder};
 use sc_cli::{Error, Result};
-use sc_client_api::Backend as ClientBackend;
-use sp_api::{ApiExt, Core, ProvideRuntimeApi};
+use sc_client_api::UsageProvider;
+use sp_api::{ApiExt, CallApiAt, Core, ProvideRuntimeApi};
 use sp_blockchain::{
 	ApplyExtrinsicFailed::Validity,
 	Error::{ApplyExtrinsicFailed, RuntimeApiError},
@@ -61,20 +61,20 @@ pub struct BenchmarkParams {
 pub(crate) type BenchRecord = Vec<u64>;
 
 /// Holds all objects needed to run the *overhead* benchmarks.
-pub(crate) struct Benchmark<Block, BA, C> {
+pub(crate) struct Benchmark<Block, C> {
 	client: Arc<C>,
 	params: BenchmarkParams,
 	inherent_data: sp_inherents::InherentData,
 	digest_items: Vec<DigestItem>,
-	_p: PhantomData<(Block, BA)>,
+	_p: PhantomData<Block>,
 }
 
-impl<Block, BA, C> Benchmark<Block, BA, C>
+impl<Block, C> Benchmark<Block, C>
 where
 	Block: BlockT<Extrinsic = OpaqueExtrinsic>,
-	BA: ClientBackend<Block>,
-	C: BlockBuilderProvider<BA, Block, C>
-		+ ProvideRuntimeApi<Block>
+	C: ProvideRuntimeApi<Block>
+		+ CallApiAt<Block>
+		+ UsageProvider<Block>
 		+ sp_blockchain::HeaderBackend<Block>,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
 {
@@ -129,7 +129,13 @@ where
 		&self,
 		ext_builder: Option<&dyn ExtrinsicBuilder>,
 	) -> Result<(Block, Option<u64>)> {
-		let mut builder = self.client.new_block(Digest { logs: self.digest_items.clone() })?;
+		let chain = self.client.usage_info().chain;
+		let mut builder = BlockBuilderBuilder::new(&*self.client)
+			.on_parent_block(chain.best_hash)
+			.with_parent_block_number(chain.best_number)
+			.with_inherent_digests(Digest { logs: self.digest_items.clone() })
+			.build()?;
+
 		// Create and insert the inherents.
 		let inherents = builder.create_inherents(self.inherent_data.clone())?;
 		for inherent in inherents {

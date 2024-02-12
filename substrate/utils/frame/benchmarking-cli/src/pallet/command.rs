@@ -25,7 +25,7 @@ use frame_support::traits::StorageInfo;
 use linked_hash_map::LinkedHashMap;
 use sc_cli::{execution_method_from_cli, CliConfiguration, Result, SharedParams};
 use sc_client_db::BenchmarkingState;
-use sc_executor::WasmExecutor;
+use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_service::Configuration;
 use serde::Serialize;
 use sp_core::{
@@ -37,7 +37,7 @@ use sp_core::{
 };
 use sp_externalities::Extensions;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
+use sp_runtime::traits::Hash;
 use sp_state_machine::StateMachine;
 use std::{collections::HashMap, fmt::Debug, fs, str::FromStr, time};
 
@@ -140,11 +140,10 @@ This could mean that you either did not build the node correctly with the \
 not created by a node that was compiled with the flag";
 
 impl PalletCmd {
-	/// Runs the command and benchmarks the chain.
-	pub fn run<BB, ExtraHostFunctions>(&self, config: Configuration) -> Result<()>
+	/// Runs the command and benchmarks a pallet.
+	pub fn run<Hasher, ExtraHostFunctions>(&self, config: Configuration) -> Result<()>
 	where
-		BB: BlockT + Debug,
-		<<<BB as BlockT>::Header as HeaderT>::Number as std::str::FromStr>::Err: std::fmt::Debug,
+		Hasher: Hash,
 		ExtraHostFunctions: sp_wasm_interface::HostFunctions,
 	{
 		let _d = self.execution.as_ref().map(|exec| {
@@ -199,7 +198,7 @@ impl PalletCmd {
 		let genesis_storage = spec.build_storage()?;
 		let mut changes = Default::default();
 		let cache_size = Some(self.database_cache_size as usize);
-		let state_with_tracking = BenchmarkingState::<BB>::new(
+		let state_with_tracking = BenchmarkingState::<Hasher>::new(
 			genesis_storage.clone(),
 			cache_size,
 			// Record proof size
@@ -207,7 +206,7 @@ impl PalletCmd {
 			// Enable storage tracking
 			true,
 		)?;
-		let state_without_tracking = BenchmarkingState::<BB>::new(
+		let state_without_tracking = BenchmarkingState::<Hasher>::new(
 			genesis_storage,
 			cache_size,
 			// Do not record proof size
@@ -219,12 +218,20 @@ impl PalletCmd {
 		let method =
 			execution_method_from_cli(self.wasm_method, self.wasmtime_instantiation_strategy);
 
+		let heap_pages =
+			self.heap_pages
+				.map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |p| HeapAllocStrategy::Static {
+					extra_pages: p as _,
+				});
+
 		let executor = WasmExecutor::<(
 			sp_io::SubstrateHostFunctions,
 			frame_benchmarking::benchmarking::HostFunctions,
 			ExtraHostFunctions,
 		)>::builder()
 		.with_execution_method(method)
+		.with_onchain_heap_alloc_strategy(heap_pages)
+		.with_offchain_heap_alloc_strategy(heap_pages)
 		.with_max_runtime_instances(2)
 		.with_runtime_cache_size(2)
 		.build();
@@ -748,13 +755,17 @@ impl CliConfiguration for PalletCmd {
 
 /// List the benchmarks available in the runtime, in a CSV friendly format.
 fn list_benchmark(
-	benchmarks_to_run: Vec<(
+	mut benchmarks_to_run: Vec<(
 		Vec<u8>,
 		Vec<u8>,
 		Vec<(BenchmarkParameter, u32, u32)>,
 		Vec<(String, String)>,
 	)>,
 ) {
+	// Sort and de-dub by pallet and function name.
+	benchmarks_to_run.sort_by(|(pa, sa, _, _), (pb, sb, _, _)| (pa, sa).cmp(&(pb, sb)));
+	benchmarks_to_run.dedup_by(|(pa, sa, _, _), (pb, sb, _, _)| (pa, sa) == (pb, sb));
+
 	println!("pallet, benchmark");
 	for (pallet, extrinsic, _, _) in benchmarks_to_run {
 		println!("{}, {}", String::from_utf8_lossy(&pallet), String::from_utf8_lossy(&extrinsic));

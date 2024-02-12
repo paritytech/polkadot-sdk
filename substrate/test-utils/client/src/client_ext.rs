@@ -20,8 +20,10 @@
 use sc_client_api::{backend::Finalizer, client::BlockBackend};
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 use sc_service::client::Client;
-use sp_consensus::{BlockOrigin, Error as ConsensusError};
+use sp_consensus::Error as ConsensusError;
 use sp_runtime::{traits::Block as BlockT, Justification, Justifications};
+
+pub use sp_consensus::BlockOrigin;
 
 /// Extension trait for a test client.
 pub trait ClientExt<Block: BlockT>: Sized {

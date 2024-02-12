@@ -1,0 +1,14 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Introduce bounds for the number of candidate validation subsystem simultaneously processed tasks
+
+doc:
+  - audience: Node Dev
+    description: |
+      Makes it possible for the candidate validation subsystem to create backpressure on subsystems
+      requesting to validate a candidate through limiting the number of simultaneously processed
+      validation tasks.
+
+crates:
+  - name: polkadot-node-core-candidate-validation

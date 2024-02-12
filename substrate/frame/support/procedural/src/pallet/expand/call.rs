@@ -17,12 +17,14 @@
 
 use crate::{
 	pallet::{
+		expand::warnings::{weight_constant_warning, weight_witness_warning},
 		parse::call::{CallVariantDef, CallWeightDef},
 		Def,
 	},
 	COUNTER,
 };
 use proc_macro2::TokenStream as TokenStream2;
+use proc_macro_warning::Warning;
 use quote::{quote, ToTokens};
 use syn::spanned::Spanned;
 
@@ -68,7 +70,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			continue
 		}
 
-		let warning = proc_macro_warning::Warning::new_deprecated("ImplicitCallIndex")
+		let warning = Warning::new_deprecated("ImplicitCallIndex")
 			.index(call_index_warnings.len())
 			.old("use implicit call indices")
 			.new("ensure that all calls have a `pallet::call_index` attribute or put the pallet into `dev` mode")
@@ -77,7 +79,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 				"https://github.com/paritytech/substrate/pull/11381"
 			])
 			.span(method.name.span())
-			.build();
+			.build_or_panic();
 		call_index_warnings.push(warning);
 	}
 
@@ -86,18 +88,12 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 	for method in &methods {
 		match &method.weight {
 			CallWeightDef::DevModeDefault => fn_weight.push(syn::parse_quote!(0)),
-			CallWeightDef::Immediate(e @ syn::Expr::Lit(lit)) if !def.dev_mode => {
-				let warning = proc_macro_warning::Warning::new_deprecated("ConstantWeight")
-					.index(weight_warnings.len())
-					.old("use hard-coded constant as call weight")
-					.new("benchmark all calls or put the pallet into `dev` mode")
-					.help_link("https://github.com/paritytech/substrate/pull/13798")
-					.span(lit.span())
-					.build();
-				weight_warnings.push(warning);
+			CallWeightDef::Immediate(e) => {
+				weight_constant_warning(e, def.dev_mode, &mut weight_warnings);
+				weight_witness_warning(method, def.dev_mode, &mut weight_warnings);
+
 				fn_weight.push(e.into_token_stream());
 			},
-			CallWeightDef::Immediate(e) => fn_weight.push(e.into_token_stream()),
 			CallWeightDef::Inherited => {
 				let pallet_weight = def
 					.call
@@ -245,7 +241,27 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		})
 		.collect::<Vec<_>>();
 
+	let cfg_attrs = methods
+		.iter()
+		.map(|method| {
+			let attrs =
+				method.cfg_attrs.iter().map(|attr| attr.to_token_stream()).collect::<Vec<_>>();
+			quote::quote!( #( #attrs )* )
+		})
+		.collect::<Vec<_>>();
+
+	let feeless_check = methods.iter().map(|method| &method.feeless_check).collect::<Vec<_>>();
+	let feeless_check_result =
+		feeless_check.iter().zip(args_name.iter()).map(|(feeless_check, arg_name)| {
+			if let Some(feeless_check) = feeless_check {
+				quote::quote!(#feeless_check(origin, #( #arg_name, )*))
+			} else {
+				quote::quote!(false)
+			}
+		});
+
 	quote::quote_spanned!(span =>
+		#[doc(hidden)]
 		mod warnings {
 			#(
 				#call_index_warnings
@@ -255,6 +271,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			)*
 		}
 
+		#[allow(unused_imports)]
 		#[doc(hidden)]
 		pub mod __substrate_call_check {
 			#[macro_export]
@@ -287,10 +304,11 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			#[doc(hidden)]
 			#[codec(skip)]
 			__Ignore(
-				#frame_support::__private::sp_std::marker::PhantomData<(#type_use_gen,)>,
+				::core::marker::PhantomData<(#type_use_gen,)>,
 				#frame_support::Never,
 			),
 			#(
+				#cfg_attrs
 				#[doc = #fn_doc]
 				#[codec(index = #call_index)]
 				#fn_name {
@@ -304,6 +322,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 
 		impl<#type_impl_gen> #call_ident<#type_use_gen> #where_clause {
 			#(
+				#cfg_attrs
 				#[doc = #new_call_variant_doc]
 				pub fn #new_call_variant_fn_name(
 					#( #args_name_stripped: #args_type ),*
@@ -322,6 +341,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			fn get_dispatch_info(&self) -> #frame_support::dispatch::DispatchInfo {
 				match *self {
 					#(
+						#cfg_attrs
 						Self::#fn_name { #( #args_name_pattern_ref, )* } => {
 							let __pallet_base_weight = #fn_weight;
 
@@ -351,18 +371,36 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			}
 		}
 
+		impl<#type_impl_gen> #frame_support::dispatch::CheckIfFeeless for #call_ident<#type_use_gen>
+			#where_clause
+		{
+			type Origin = #frame_system::pallet_prelude::OriginFor<T>;
+			#[allow(unused_variables)]
+			fn is_feeless(&self, origin: &Self::Origin) -> bool {
+				match *self {
+					#(
+						#cfg_attrs
+						Self::#fn_name { #( #args_name_pattern_ref, )* } => {
+							#feeless_check_result
+						},
+					)*
+					Self::__Ignore(_, _) => unreachable!("__Ignore cannot be used"),
+				}
+			}
+		}
+
 		impl<#type_impl_gen> #frame_support::traits::GetCallName for #call_ident<#type_use_gen>
 			#where_clause
 		{
 			fn get_call_name(&self) -> &'static str {
 				match *self {
-					#( Self::#fn_name { .. } => stringify!(#fn_name), )*
+					#( #cfg_attrs Self::#fn_name { .. } => stringify!(#fn_name), )*
 					Self::__Ignore(_, _) => unreachable!("__PhantomItem cannot be used."),
 				}
 			}
 
 			fn get_call_names() -> &'static [&'static str] {
-				&[ #( stringify!(#fn_name), )* ]
+				&[ #( #cfg_attrs stringify!(#fn_name), )* ]
 			}
 		}
 
@@ -371,13 +409,13 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		{
 			fn get_call_index(&self) -> u8 {
 				match *self {
-					#( Self::#fn_name { .. } => #call_index, )*
+					#( #cfg_attrs Self::#fn_name { .. } => #call_index, )*
 					Self::__Ignore(_, _) => unreachable!("__PhantomItem cannot be used."),
 				}
 			}
 
 			fn get_call_indices() -> &'static [u8] {
-				&[ #( #call_index, )* ]
+				&[ #( #cfg_attrs #call_index, )* ]
 			}
 		}
 
@@ -393,6 +431,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 				#frame_support::dispatch_context::run_in_context(|| {
 					match self {
 						#(
+							#cfg_attrs
 							Self::#fn_name { #( #args_name_pattern, )* } => {
 								#frame_support::__private::sp_tracing::enter_span!(
 									#frame_support::__private::sp_tracing::trace_span!(stringify!(#fn_name))
@@ -418,6 +457,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		}
 
 		impl<#type_impl_gen> #pallet_ident<#type_use_gen> #where_clause {
+			#[allow(dead_code)]
 			#[doc(hidden)]
 			pub fn call_functions() -> #frame_support::__private::metadata_ir::PalletCallMetadataIR {
 				#frame_support::__private::scale_info::meta_type::<#call_ident<#type_use_gen>>().into()

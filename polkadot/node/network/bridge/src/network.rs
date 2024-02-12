@@ -14,50 +14,147 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{collections::HashSet, sync::Arc};
+use std::{
+	collections::{HashMap, HashSet},
+	sync::Arc,
+};
 
 use async_trait::async_trait;
-use futures::{prelude::*, stream::BoxStream};
+use parking_lot::Mutex;
 
 use parity_scale_codec::Encode;
 
 use sc_network::{
-	config::parse_addr, multiaddr::Multiaddr, types::ProtocolName, Event as NetworkEvent,
-	IfDisconnected, NetworkEventStream, NetworkNotification, NetworkPeers, NetworkRequest,
-	NetworkService, OutboundFailure, ReputationChange, RequestFailure,
+	config::parse_addr, multiaddr::Multiaddr, types::ProtocolName, IfDisconnected, MessageSink,
+	NetworkPeers, NetworkRequest, NetworkService, OutboundFailure, ReputationChange,
+	RequestFailure,
 };
 
 use polkadot_node_network_protocol::{
-	peer_set::{PeerSet, PeerSetProtocolNames, ProtocolVersion},
+	peer_set::{CollationVersion, PeerSet, ProtocolVersion, ValidationVersion},
 	request_response::{OutgoingRequest, Recipient, ReqProtocolNames, Requests},
-	PeerId,
+	v1 as protocol_v1, v2 as protocol_v2, v3 as protocol_v3, PeerId,
 };
 use polkadot_primitives::{AuthorityDiscoveryId, Block, Hash};
 
-use crate::validator_discovery::AuthorityDiscovery;
+use crate::{metrics::Metrics, validator_discovery::AuthorityDiscovery, WireMessage};
 
 // network bridge network abstraction log target
 const LOG_TARGET: &'static str = "parachain::network-bridge-net";
 
-/// Send a message to the network.
+// Helper function to send a validation v1 message to a list of peers.
+// Messages are always sent via the main protocol, even legacy protocol messages.
+pub(crate) fn send_validation_message_v1(
+	peers: Vec<PeerId>,
+	message: WireMessage<protocol_v1::ValidationProtocol>,
+	metrics: &Metrics,
+	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
+) {
+	gum::trace!(target: LOG_TARGET, ?peers, ?message, "Sending validation v1 message to peers",);
+
+	send_message(
+		peers,
+		PeerSet::Validation,
+		ValidationVersion::V1.into(),
+		message,
+		metrics,
+		notification_sinks,
+	);
+}
+
+// Helper function to send a validation v3 message to a list of peers.
+// Messages are always sent via the main protocol, even legacy protocol messages.
+pub(crate) fn send_validation_message_v3(
+	peers: Vec<PeerId>,
+	message: WireMessage<protocol_v3::ValidationProtocol>,
+	metrics: &Metrics,
+	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
+) {
+	gum::trace!(target: LOG_TARGET, ?peers, ?message, "Sending validation v3 message to peers",);
+
+	send_message(
+		peers,
+		PeerSet::Validation,
+		ValidationVersion::V3.into(),
+		message,
+		metrics,
+		notification_sinks,
+	);
+}
+
+// Helper function to send a validation v2 message to a list of peers.
+// Messages are always sent via the main protocol, even legacy protocol messages.
+pub(crate) fn send_validation_message_v2(
+	peers: Vec<PeerId>,
+	message: WireMessage<protocol_v2::ValidationProtocol>,
+	metrics: &Metrics,
+	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
+) {
+	send_message(
+		peers,
+		PeerSet::Validation,
+		ValidationVersion::V2.into(),
+		message,
+		metrics,
+		notification_sinks,
+	);
+}
+
+// Helper function to send a collation v1 message to a list of peers.
+// Messages are always sent via the main protocol, even legacy protocol messages.
+pub(crate) fn send_collation_message_v1(
+	peers: Vec<PeerId>,
+	message: WireMessage<protocol_v1::CollationProtocol>,
+	metrics: &Metrics,
+	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
+) {
+	send_message(
+		peers,
+		PeerSet::Collation,
+		CollationVersion::V1.into(),
+		message,
+		metrics,
+		notification_sinks,
+	);
+}
+
+// Helper function to send a collation v2 message to a list of peers.
+// Messages are always sent via the main protocol, even legacy protocol messages.
+pub(crate) fn send_collation_message_v2(
+	peers: Vec<PeerId>,
+	message: WireMessage<protocol_v2::CollationProtocol>,
+	metrics: &Metrics,
+	notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
+) {
+	send_message(
+		peers,
+		PeerSet::Collation,
+		CollationVersion::V2.into(),
+		message,
+		metrics,
+		notification_sinks,
+	);
+}
+
+/// Lower level function that sends a message to the network using the main protocol version.
 ///
 /// This function is only used internally by the network-bridge, which is responsible to only send
 /// messages that are compatible with the passed peer set, as that is currently not enforced by
 /// this function. These are messages of type `WireMessage` parameterized on the matching type.
-pub(crate) fn send_message<M>(
-	net: &mut impl Network,
+fn send_message<M>(
 	mut peers: Vec<PeerId>,
 	peer_set: PeerSet,
 	version: ProtocolVersion,
-	protocol_names: &PeerSetProtocolNames,
 	message: M,
 	metrics: &super::Metrics,
+	network_notification_sinks: &Arc<Mutex<HashMap<(PeerSet, PeerId), Box<dyn MessageSink>>>>,
 ) where
 	M: Encode + Clone,
 {
 	if peers.is_empty() {
 		return
 	}
+
 	let message = {
 		let encoded = message.encode();
 		metrics.on_notification_sent(peer_set, version, encoded.len(), peers.len());
@@ -65,32 +162,40 @@ pub(crate) fn send_message<M>(
 		encoded
 	};
 
+	let notification_sinks = network_notification_sinks.lock();
+
+	gum::trace!(
+		target: LOG_TARGET,
+		?peers,
+		?peer_set,
+		?version,
+		?message,
+		"Sending message to peers",
+	);
+
 	// optimization: avoid cloning the message for the last peer in the
 	// list. The message payload can be quite large. If the underlying
 	// network used `Bytes` this would not be necessary.
+	//
+	// peer may have gotten disconnect by the time `send_message()` is called
+	// at which point the the sink is not available.
 	let last_peer = peers.pop();
-
-	// We always send messages on the "main" name even when a negotiated
-	// fallback is used. The libp2p implementation handles the fallback
-	// under the hood.
-	let protocol_name = protocol_names.get_main_name(peer_set);
 	peers.into_iter().for_each(|peer| {
-		net.write_notification(peer, protocol_name.clone(), message.clone());
+		if let Some(sink) = notification_sinks.get(&(peer_set, peer)) {
+			sink.send_sync_notification(message.clone());
+		}
 	});
+
 	if let Some(peer) = last_peer {
-		net.write_notification(peer, protocol_name, message);
+		if let Some(sink) = notification_sinks.get(&(peer_set, peer)) {
+			sink.send_sync_notification(message.clone());
+		}
 	}
 }
 
 /// An abstraction over networking for the purposes of this subsystem.
 #[async_trait]
 pub trait Network: Clone + Send + 'static {
-	/// Get a stream of all events occurring on the network. This may include events unrelated
-	/// to the Polkadot protocol - the user of this function should filter only for events related
-	/// to the [`VALIDATION_PROTOCOL_NAME`](VALIDATION_PROTOCOL_NAME)
-	/// or [`COLLATION_PROTOCOL_NAME`](COLLATION_PROTOCOL_NAME)
-	fn event_stream(&mut self) -> BoxStream<'static, NetworkEvent>;
-
 	/// Ask the network to keep a substream open with these nodes and not disconnect from them
 	/// until removed from the protocol's peer set.
 	/// Note that `out_peers` setting has no effect on this.
@@ -122,16 +227,12 @@ pub trait Network: Clone + Send + 'static {
 	/// Disconnect a given peer from the protocol specified without harming reputation.
 	fn disconnect_peer(&self, who: PeerId, protocol: ProtocolName);
 
-	/// Write a notification to a peer on the given protocol.
-	fn write_notification(&self, who: PeerId, protocol: ProtocolName, message: Vec<u8>);
+	/// Get peer role.
+	fn peer_role(&self, who: PeerId, handshake: Vec<u8>) -> Option<sc_network::ObservedRole>;
 }
 
 #[async_trait]
 impl Network for Arc<NetworkService<Block, Hash>> {
-	fn event_stream(&mut self) -> BoxStream<'static, NetworkEvent> {
-		NetworkService::event_stream(self, "polkadot-network-bridge").boxed()
-	}
-
 	async fn set_reserved_peers(
 		&mut self,
 		protocol: ProtocolName,
@@ -156,10 +257,6 @@ impl Network for Arc<NetworkService<Block, Hash>> {
 		NetworkService::disconnect_peer(&**self, who, protocol);
 	}
 
-	fn write_notification(&self, who: PeerId, protocol: ProtocolName, message: Vec<u8>) {
-		NetworkService::write_notification(&**self, who, protocol, message);
-	}
-
 	async fn start_request<AD: AuthorityDiscovery>(
 		&self,
 		authority_discovery: &mut AD,
@@ -167,7 +264,8 @@ impl Network for Arc<NetworkService<Block, Hash>> {
 		req_protocol_names: &ReqProtocolNames,
 		if_disconnected: IfDisconnected,
 	) {
-		let (protocol, OutgoingRequest { peer, payload, pending_response }) = req.encode_request();
+		let (protocol, OutgoingRequest { peer, payload, pending_response, fallback_request }) =
+			req.encode_request();
 
 		let peer_id = match peer {
 			Recipient::Peer(peer_id) => Some(peer_id),
@@ -218,6 +316,7 @@ impl Network for Arc<NetworkService<Block, Hash>> {
 			target: LOG_TARGET,
 			%peer_id,
 			protocol = %req_protocol_names.get_name(protocol),
+			fallback_protocol = ?fallback_request.as_ref().map(|(_, p)| req_protocol_names.get_name(*p)),
 			?if_disconnected,
 			"Starting request",
 		);
@@ -227,9 +326,14 @@ impl Network for Arc<NetworkService<Block, Hash>> {
 			peer_id,
 			req_protocol_names.get_name(protocol),
 			payload,
+			fallback_request.map(|(r, p)| (r, req_protocol_names.get_name(p))),
 			pending_response,
 			if_disconnected,
 		);
+	}
+
+	fn peer_role(&self, who: PeerId, handshake: Vec<u8>) -> Option<sc_network::ObservedRole> {
+		NetworkService::peer_role(self, who, handshake)
 	}
 }
 

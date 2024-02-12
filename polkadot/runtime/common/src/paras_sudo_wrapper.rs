@@ -23,7 +23,7 @@ use parity_scale_codec::Encode;
 use primitives::Id as ParaId;
 use runtime_parachains::{
 	configuration, dmp, hrmp,
-	paras::{self, ParaGenesisArgs},
+	paras::{self, AssignCoretime, ParaGenesisArgs},
 	ParaLifecycle,
 };
 use sp_std::boxed::Box;
@@ -58,6 +58,8 @@ pub mod pallet {
 		CannotUpgrade,
 		/// Cannot downgrade lease holding parachain to on-demand.
 		CannotDowngrade,
+		/// There are more cores than supported by the runtime.
+		TooManyCores,
 	}
 
 	#[pallet::hooks]
@@ -66,6 +68,10 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Schedule a para to be initialized at the start of the next session.
+		///
+		/// This should only be used for TESTING and not on PRODUCTION chains. It automatically
+		/// assigns Coretime to the chain and increases the number of cores. Thus, there is no
+		/// running coretime chain required.
 		#[pallet::call_index(0)]
 		#[pallet::weight((1_000, DispatchClass::Operational))]
 		pub fn sudo_schedule_para_initialize(
@@ -76,6 +82,9 @@ pub mod pallet {
 			ensure_root(origin)?;
 			runtime_parachains::schedule_para_initialize::<T>(id, genesis)
 				.map_err(|_| Error::<T>::ParaAlreadyExists)?;
+
+			T::AssignCoretime::assign_coretime(id)?;
+
 			Ok(())
 		}
 

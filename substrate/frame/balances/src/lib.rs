@@ -49,8 +49,7 @@
 //! - **Total Issuance:** The total number of units in existence in a system.
 //!
 //! - **Reaping an account:** The act of removing an account by resetting its nonce. Happens after
-//!   its
-//! total balance has become zero (or, strictly speaking, less than the Existential Deposit).
+//!   its total balance has become zero (or, strictly speaking, less than the Existential Deposit).
 //!
 //! - **Free Balance:** The portion of a balance that is not reserved. The free balance is the only
 //!   balance that matters for most operations.
@@ -59,24 +58,23 @@
 //!   Reserved balance can still be slashed, but only after all the free balance has been slashed.
 //!
 //! - **Imbalance:** A condition when some funds were credited or debited without equal and opposite
-//!   accounting
-//! (i.e. a difference between total issuance and account balances). Functions that result in an
-//! imbalance will return an object of the `Imbalance` trait that can be managed within your runtime
-//! logic. (If an imbalance is simply dropped, it should automatically maintain any book-keeping
-//! such as total issuance.)
+//!   accounting (i.e. a difference between total issuance and account balances). Functions that
+//! result in an imbalance will return an object of the `Imbalance` trait that can be managed within
+//! your runtime logic. (If an imbalance is simply dropped, it should automatically maintain any
+//! book-keeping such as total issuance.)
 //!
 //! - **Lock:** A freeze on a specified amount of an account's free balance until a specified block
-//!   number. Multiple
-//! locks always operate over the same funds, so they "overlay" rather than "stack".
+//!   number. Multiple locks always operate over the same funds, so they "overlay" rather than
+//! "stack".
 //!
 //! ### Implementations
 //!
 //! The Balances pallet provides implementations for the following traits. If these traits provide
 //! the functionality that you need, then you can avoid coupling with the Balances pallet.
 //!
-//! - [`Currency`](frame_support::traits::Currency): Functions for dealing with a
+//! - [`Currency`]: Functions for dealing with a
 //! fungible assets system.
-//! - [`ReservableCurrency`](frame_support::traits::ReservableCurrency):
+//! - [`ReservableCurrency`]
 //! - [`NamedReservableCurrency`](frame_support::traits::NamedReservableCurrency):
 //! Functions for dealing with assets that can be reserved from an account.
 //! - [`LockableCurrency`](frame_support::traits::LockableCurrency): Functions for
@@ -105,7 +103,7 @@
 //! ```
 //! use frame_support::traits::Currency;
 //! # pub trait Config: frame_system::Config {
-//! # 	type Currency: Currency<Self::AccountId>;
+//! #   type Currency: Currency<Self::AccountId>;
 //! # }
 //!
 //! pub type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -120,26 +118,26 @@
 //! use frame_support::traits::{WithdrawReasons, LockableCurrency};
 //! use sp_runtime::traits::Bounded;
 //! pub trait Config: frame_system::Config {
-//! 	type Currency: LockableCurrency<Self::AccountId, Moment=frame_system::pallet_prelude::BlockNumberFor<Self>>;
+//!     type Currency: LockableCurrency<Self::AccountId, Moment=frame_system::pallet_prelude::BlockNumberFor<Self>>;
 //! }
 //! # struct StakingLedger<T: Config> {
-//! # 	stash: <T as frame_system::Config>::AccountId,
-//! # 	total: <<T as Config>::Currency as frame_support::traits::Currency<<T as frame_system::Config>::AccountId>>::Balance,
-//! # 	phantom: std::marker::PhantomData<T>,
+//! #   stash: <T as frame_system::Config>::AccountId,
+//! #   total: <<T as Config>::Currency as frame_support::traits::Currency<<T as frame_system::Config>::AccountId>>::Balance,
+//! #   phantom: std::marker::PhantomData<T>,
 //! # }
 //! # const STAKING_ID: [u8; 8] = *b"staking ";
 //!
 //! fn update_ledger<T: Config>(
-//! 	controller: &T::AccountId,
-//! 	ledger: &StakingLedger<T>
+//!     controller: &T::AccountId,
+//!     ledger: &StakingLedger<T>
 //! ) {
-//! 	T::Currency::set_lock(
-//! 		STAKING_ID,
-//! 		&ledger.stash,
-//! 		ledger.total,
-//! 		WithdrawReasons::all()
-//! 	);
-//! 	// <Ledger<T>>::insert(controller, ledger); // Commented out as we don't have access to Staking's storage here.
+//!     T::Currency::set_lock(
+//!         STAKING_ID,
+//!         &ledger.stash,
+//!         ledger.total,
+//!         WithdrawReasons::all()
+//!     );
+//!     // <Ledger<T>>::insert(controller, ledger); // Commented out as we don't have access to Staking's storage here.
 //! }
 //! # fn main() {}
 //! ```
@@ -192,7 +190,8 @@ use sp_runtime::{
 };
 use sp_std::{cmp, fmt::Debug, mem, prelude::*, result};
 pub use types::{
-	AccountData, BalanceLock, DustCleaner, ExtraFlags, IdAmount, Reasons, ReserveData,
+	AccountData, AdjustmentDirection, BalanceLock, DustCleaner, ExtraFlags, IdAmount, Reasons,
+	ReserveData,
 };
 pub use weights::WeightInfo;
 
@@ -207,7 +206,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{
 		pallet_prelude::*,
-		traits::{fungible::Credit, tokens::Precision},
+		traits::{fungible::Credit, tokens::Precision, VariantCount, VariantCountOf},
 	};
 	use frame_system::pallet_prelude::*;
 
@@ -216,7 +215,7 @@ pub mod pallet {
 	/// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
 	pub mod config_preludes {
 		use super::*;
-		use frame_support::derive_impl;
+		use frame_support::{derive_impl, traits::ConstU64};
 
 		pub struct TestDefaultConfig;
 
@@ -227,16 +226,22 @@ pub mod pallet {
 		impl DefaultConfig for TestDefaultConfig {
 			#[inject_runtime_type]
 			type RuntimeEvent = ();
+			#[inject_runtime_type]
+			type RuntimeHoldReason = ();
+			#[inject_runtime_type]
+			type RuntimeFreezeReason = ();
 
 			type Balance = u64;
+			type ExistentialDeposit = ConstU64<1>;
 
 			type ReserveIdentifier = ();
 			type FreezeIdentifier = ();
 
-			type MaxLocks = ();
-			type MaxReserves = ();
-			type MaxFreezes = ();
-			type MaxHolds = ();
+			type DustRemoval = ();
+
+			type MaxLocks = ConstU32<100>;
+			type MaxReserves = ConstU32<100>;
+			type MaxFreezes = ConstU32<100>;
 
 			type WeightInfo = ();
 		}
@@ -248,6 +253,14 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+		/// The overarching hold reason.
+		#[pallet::no_default_bounds]
+		type RuntimeHoldReason: Parameter + Member + MaxEncodedLen + Copy + VariantCount;
+
+		/// The overarching freeze reason.
+		#[pallet::no_default_bounds]
+		type RuntimeFreezeReason: VariantCount;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -266,7 +279,7 @@ pub mod pallet {
 			+ FixedPointOperand;
 
 		/// Handler for the unbalanced reduction when removing a dust account.
-		#[pallet::no_default]
+		#[pallet::no_default_bounds]
 		type DustRemoval: OnUnbalanced<CreditOf<Self, I>>;
 
 		/// The minimum amount required to keep an account open. MUST BE GREATER THAN ZERO!
@@ -278,7 +291,7 @@ pub mod pallet {
 		///
 		/// Bottom line: Do yourself a favour and make it at least one!
 		#[pallet::constant]
-		#[pallet::no_default]
+		#[pallet::no_default_bounds]
 		type ExistentialDeposit: Get<Self::Balance>;
 
 		/// The means of storing the balances of an account.
@@ -290,12 +303,8 @@ pub mod pallet {
 		/// Use of reserves is deprecated in favour of holds. See `https://github.com/paritytech/substrate/pull/12951/`
 		type ReserveIdentifier: Parameter + Member + MaxEncodedLen + Ord + Copy;
 
-		/// The overarching hold reason.
-		#[pallet::no_default]
-		type RuntimeHoldReason: Parameter + Member + MaxEncodedLen + Ord + Copy;
-
 		/// The ID type for freezes.
-		type FreezeIdentifier: Parameter + Member + MaxEncodedLen + Ord + Copy;
+		type FreezeIdentifier: Parameter + Member + MaxEncodedLen + Copy;
 
 		/// The maximum number of locks that should exist on an account.
 		/// Not strictly enforced, but used for weight estimation.
@@ -305,10 +314,6 @@ pub mod pallet {
 		/// The maximum number of named reserves that can exist on an account.
 		#[pallet::constant]
 		type MaxReserves: Get<u32>;
-
-		/// The maximum number of holds that can exist on an account at any time.
-		#[pallet::constant]
-		type MaxHolds: Get<u32>;
 
 		/// The maximum number of individual freeze locks that can exist on an account at any time.
 		#[pallet::constant]
@@ -375,6 +380,8 @@ pub mod pallet {
 		Frozen { who: T::AccountId, amount: T::Balance },
 		/// Some balance was thawed.
 		Thawed { who: T::AccountId, amount: T::Balance },
+		/// The `TotalIssuance` was forcefully changed.
+		TotalIssuanceForced { old: T::Balance, new: T::Balance },
 	}
 
 	#[pallet::error]
@@ -395,10 +402,14 @@ pub mod pallet {
 		DeadAccount,
 		/// Number of named reserves exceed `MaxReserves`.
 		TooManyReserves,
-		/// Number of holds exceed `MaxHolds`.
+		/// Number of holds exceed `VariantCountOf<T::RuntimeHoldReason>`.
 		TooManyHolds,
 		/// Number of freezes exceed `MaxFreezes`.
 		TooManyFreezes,
+		/// The issuance cannot be modified since it is already deactivated.
+		IssuanceDeactivated,
+		/// The delta cannot be zero.
+		DeltaZero,
 	}
 
 	/// The total units issued in the system.
@@ -471,7 +482,10 @@ pub mod pallet {
 		_,
 		Blake2_128Concat,
 		T::AccountId,
-		BoundedVec<IdAmount<T::RuntimeHoldReason, T::Balance>, T::MaxHolds>,
+		BoundedVec<
+			IdAmount<T::RuntimeHoldReason, T::Balance>,
+			VariantCountOf<T::RuntimeHoldReason>,
+		>,
 		ValueQuery,
 	>;
 
@@ -538,6 +552,12 @@ pub mod pallet {
 			assert!(
 				!<T as Config<I>>::ExistentialDeposit::get().is_zero(),
 				"The existential deposit must be greater than zero!"
+			);
+
+			assert!(
+				T::MaxFreezes::get() >= <T::RuntimeFreezeReason as VariantCount>::VARIANT_COUNT,
+				"MaxFreezes should be greater than or equal to the number of freeze reasons: {} < {}",
+				T::MaxFreezes::get(), <T::RuntimeFreezeReason as VariantCount>::VARIANT_COUNT,
 			);
 		}
 	}
@@ -719,6 +739,37 @@ pub mod pallet {
 			}
 
 			Self::deposit_event(Event::BalanceSet { who, free: new_free });
+			Ok(())
+		}
+
+		/// Adjust the total issuance in a saturating way.
+		///
+		/// Can only be called by root and always needs a positive `delta`.
+		///
+		/// # Example
+		#[doc = docify::embed!("./src/tests/dispatchable_tests.rs", force_adjust_total_issuance_example)]
+		#[pallet::call_index(9)]
+		#[pallet::weight(T::WeightInfo::force_adjust_total_issuance())]
+		pub fn force_adjust_total_issuance(
+			origin: OriginFor<T>,
+			direction: AdjustmentDirection,
+			#[pallet::compact] delta: T::Balance,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			ensure!(delta > Zero::zero(), Error::<T, I>::DeltaZero);
+
+			let old = TotalIssuance::<T, I>::get();
+			let new = match direction {
+				AdjustmentDirection::Increase => old.saturating_add(delta),
+				AdjustmentDirection::Decrease => old.saturating_sub(delta),
+			};
+
+			ensure!(InactiveIssuance::<T, I>::get() <= new, Error::<T, I>::IssuanceDeactivated);
+			TotalIssuance::<T, I>::set(new);
+
+			Self::deposit_event(Event::<T, I>::TotalIssuanceForced { old, new });
+
 			Ok(())
 		}
 	}
@@ -911,8 +962,8 @@ pub mod pallet {
 				if did_provide && !does_provide {
 					// This could reap the account so must go last.
 					frame_system::Pallet::<T>::dec_providers(who).map_err(|r| {
+						// best-effort revert consumer change.
 						if did_consume && !does_consume {
-							// best-effort revert consumer change.
 							let _ = frame_system::Pallet::<T>::inc_consumers(who).defensive();
 						}
 						if !did_consume && does_consume {
@@ -982,8 +1033,8 @@ pub mod pallet {
 			let freezes = Freezes::<T, I>::get(who);
 			let mut prev_frozen = Zero::zero();
 			let mut after_frozen = Zero::zero();
-			// TODO: Revisit this assumption. We no manipulate consumer/provider refs.
 			// No way this can fail since we do not alter the existential balances.
+			// TODO: Revisit this assumption.
 			let res = Self::mutate_account(who, |b| {
 				prev_frozen = b.frozen;
 				b.frozen = Zero::zero();
@@ -1000,26 +1051,9 @@ pub mod pallet {
 				debug_assert!(maybe_dust.is_none(), "Not altering main balance; qed");
 			}
 
-			let existed = Locks::<T, I>::contains_key(who);
-			if locks.is_empty() {
-				Locks::<T, I>::remove(who);
-				if existed {
-					// TODO: use Locks::<T, I>::hashed_key
-					// https://github.com/paritytech/substrate/issues/4969
-					system::Pallet::<T>::dec_consumers(who);
-				}
-			} else {
-				Locks::<T, I>::insert(who, bounded_locks);
-				if !existed && system::Pallet::<T>::inc_consumers_without_limit(who).is_err() {
-					// No providers for the locks. This is impossible under normal circumstances
-					// since the funds that are under the lock will themselves be stored in the
-					// account and therefore will need a reference.
-					log::warn!(
-						target: LOG_TARGET,
-						"Warning: Attempt to introduce lock consumer reference, yet no providers. \
-						This is unexpected but should be safe."
-					);
-				}
+			match locks.is_empty() {
+				true => Locks::<T, I>::remove(who),
+				false => Locks::<T, I>::insert(who, bounded_locks),
 			}
 
 			if prev_frozen > after_frozen {

@@ -1,6 +1,6 @@
 [package]
 name = "sp-consensus-beefy"
-version = "4.0.0-dev"
+version = "13.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -8,40 +8,49 @@ homepage = "https://substrate.io"
 repository.workspace = true
 description = "Primitives for BEEFY protocol."
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
-scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.188", default-features = false,  optional = true, features =  ["derive", "alloc"] }
-sp-api = { path = "../../api", default-features = false}
-sp-application-crypto = { path = "../../application-crypto", default-features = false}
-sp-core = { path = "../../core", default-features = false}
-sp-io = { path = "../../io", default-features = false}
-sp-mmr-primitives = { path = "../../merkle-mountain-range", default-features = false}
-sp-runtime = { path = "../../runtime", default-features = false}
-sp-std = { path = "../../std", default-features = false}
+scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+serde = { version = "1.0.195", default-features = false, optional = true, features = ["alloc", "derive"] }
+sp-api = { path = "../../api", default-features = false }
+sp-application-crypto = { path = "../../application-crypto", default-features = false }
+sp-core = { path = "../../core", default-features = false }
+sp-crypto-hashing = { path = "../../crypto/hashing", default-features = false }
+sp-io = { path = "../../io", default-features = false }
+sp-mmr-primitives = { path = "../../merkle-mountain-range", default-features = false }
+sp-runtime = { path = "../../runtime", default-features = false }
+sp-keystore = { path = "../../keystore", default-features = false }
+sp-std = { path = "../../std", default-features = false }
 strum = { version = "0.24.1", features = ["derive"], default-features = false }
-lazy_static = "1.4.0"
+lazy_static = { version = "1.4.0", optional = true }
 
 [dev-dependencies]
 array-bytes = "6.1"
-w3f-bls = { version = "0.1.3", features = ["std"]} 
+w3f-bls = { version = "0.1.3", features = ["std"] }
 
 [features]
-default = [ "std" ]
+default = ["std"]
 std = [
 	"codec/std",
+	"dep:lazy_static",
 	"scale-info/std",
 	"serde/std",
 	"sp-api/std",
 	"sp-application-crypto/std",
 	"sp-core/std",
+	"sp-crypto-hashing/std",
 	"sp-io/std",
+	"sp-keystore/std",
 	"sp-mmr-primitives/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"strum/std",
 ]
 
 # Serde support without relying on std features.

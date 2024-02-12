@@ -1,7 +1,7 @@
 error: The number of pallets exceeds the maximum number of tuple elements. To increase this limit, enable the tuples-96 feature of [frame_support].
-  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:66:2
+  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:67:2
    |
-66 |     pub struct Runtime
+67 |     pub struct Runtime
    |     ^^^
 
 error[E0412]: cannot find type `RuntimeCall` in this scope
@@ -22,42 +22,70 @@ error[E0412]: cannot find type `Runtime` in this scope
    |                         ^^^^^^^ not found in this scope
 
 error[E0412]: cannot find type `Runtime` in this scope
-  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:39:31
+  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:40:31
    |
-39 | impl frame_system::Config for Runtime {
+40 | impl frame_system::Config for Runtime {
    |                               ^^^^^^^ not found in this scope
 
 error[E0412]: cannot find type `RuntimeOrigin` in this scope
-  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:41:23
+  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:42:23
    |
-41 |     type RuntimeOrigin = RuntimeOrigin;
-   |                          ^^^^^^^^^^^^^ help: you might have meant to use the associated type: `Self::RuntimeOrigin`
+42 |     type RuntimeOrigin = RuntimeOrigin;
+   |                          ^^^^^^^^^^^^^
+   |
+help: you might have meant to use the associated type
+   |
+42 |     type RuntimeOrigin = Self::RuntimeOrigin;
+   |                          ++++++
 
 error[E0412]: cannot find type `RuntimeCall` in this scope
-  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:43:21
+  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:44:21
    |
-43 |     type RuntimeCall = RuntimeCall;
-   |                        ^^^^^^^^^^^ help: you might have meant to use the associated type: `Self::RuntimeCall`
+44 |     type RuntimeCall = RuntimeCall;
+   |                        ^^^^^^^^^^^
+   |
+help: you might have meant to use the associated type
+   |
+44 |     type RuntimeCall = Self::RuntimeCall;
+   |                        ++++++
 
 error[E0412]: cannot find type `RuntimeEvent` in this scope
-  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:49:22
+  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:50:22
    |
-49 |     type RuntimeEvent = RuntimeEvent;
-   |                         ^^^^^^^^^^^^ help: you might have meant to use the associated type: `Self::RuntimeEvent`
+50 |     type RuntimeEvent = RuntimeEvent;
+   |                         ^^^^^^^^^^^^
+   |
+help: you might have meant to use the associated type
+   |
+50 |     type RuntimeEvent = Self::RuntimeEvent;
+   |                         ++++++
 
 error[E0412]: cannot find type `PalletInfo` in this scope
-  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:55:20
+  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:56:20
    |
-55 |     type PalletInfo = PalletInfo;
+56 |     type PalletInfo = PalletInfo;
    |                       ^^^^^^^^^^
    |
 help: you might have meant to use the associated type
    |
-55 |     type PalletInfo = Self::PalletInfo;
-   |                       ~~~~~~~~~~~~~~~~
+56 |     type PalletInfo = Self::PalletInfo;
+   |                       ++++++
 help: consider importing one of these items
    |
 18 + use frame_benchmarking::__private::traits::PalletInfo;
    |
 18 + use frame_support::traits::PalletInfo;
    |
+
+error[E0412]: cannot find type `RuntimeTask` in this scope
+  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:39:1
+   |
+39 | #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the macro `frame_system::config_preludes::TestDefaultConfig` which comes from the expansion of the macro `frame_support::macro_magic::forward_tokens_verbatim` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: you might have meant to use the associated type
+  --> $WORKSPACE/substrate/frame/system/src/lib.rs
+   |
+   |             type Self::RuntimeTask = ();
+   |                  ++++++

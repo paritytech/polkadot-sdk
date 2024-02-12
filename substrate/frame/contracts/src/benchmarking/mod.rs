@@ -29,11 +29,10 @@ use self::{
 	sandbox::Sandbox,
 };
 use crate::{
-	exec::{AccountIdOf, Key},
+	exec::Key,
 	migration::{
 		codegen::LATEST_MIGRATION_VERSION, v09, v10, v11, v12, v13, v14, v15, MigrationStep,
 	},
-	wasm::CallFlags,
 	Pallet as Contracts, *,
 };
 use codec::{Encode, MaxEncodedLen};
@@ -46,9 +45,10 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use pallet_balances;
+use pallet_contracts_uapi::CallFlags;
 use sp_runtime::traits::{Bounded, Hash};
 use sp_std::prelude::*;
-use wasm_instrument::parity_wasm::elements::{BlockType, Instruction, ValueType};
+use wasm_instrument::parity_wasm::elements::{BlockType, Instruction, Local, ValueType};
 
 /// How many runs we do per API benchmark.
 ///
@@ -182,24 +182,6 @@ fn caller_funding<T: Config>() -> BalanceOf<T> {
 	// Minting can overflow, so we can't abuse of the funding. This value happens to be big enough,
 	// but not too big to make the total supply overflow.
 	BalanceOf::<T>::max_value() / 10_000u32.into()
-}
-
-/// Load the specified contract file from disk by including it into the runtime.
-///
-/// We need to load a different version of ink! contracts when the benchmark is run as
-/// a test. This is because ink! contracts depend on the sizes of types that are defined
-/// differently in the test environment. Solang is more lax in that regard.
-macro_rules! load_benchmark {
-	($name:expr) => {{
-		#[cfg(not(test))]
-		{
-			include_bytes!(concat!("../../benchmarks/", $name, ".wasm"))
-		}
-		#[cfg(test)]
-		{
-			include_bytes!(concat!("../../benchmarks/", $name, "_test.wasm"))
-		}
-	}};
 }
 
 benchmarks! {
@@ -1749,7 +1731,7 @@ benchmarks! {
 			.collect::<Vec<BalanceOf<T>>>();
 		let deposits_bytes: Vec<u8> = deposits.iter().flat_map(|i| i.encode()).collect();
 		let deposits_len = deposits_bytes.len() as u32;
-		let deposit_len = value_len.clone();
+		let deposit_len = value_len;
 		let callee_offset = value_len + deposits_len;
 		let code = WasmModule::<T>::from(ModuleDefinition {
 			memory: Some(ImportedMemory::max::<T>()),
@@ -2246,13 +2228,12 @@ benchmarks! {
 		let message_len = message.len() as i32;
 		let key_type = sp_core::crypto::KeyTypeId(*b"code");
 		let sig_params = (0..r)
-			.map(|i| {
+			.flat_map(|i| {
 				let pub_key = sp_io::crypto::sr25519_generate(key_type, None);
 				let sig = sp_io::crypto::sr25519_sign(key_type, &pub_key, &message).expect("Generates signature");
 				let data: [u8; 96] = [AsRef::<[u8]>::as_ref(&sig), AsRef::<[u8]>::as_ref(&pub_key)].concat().try_into().unwrap();
 				data
 			})
-			.flatten()
 			.collect::<Vec<_>>();
 		let sig_params_len = sig_params.len() as i32;
 
@@ -2583,19 +2564,45 @@ benchmarks! {
 		let origin = RawOrigin::Signed(instance.caller.clone());
 	}: call(origin, instance.addr, 0u32.into(), Weight::MAX, None, vec![])
 
-	// We make the assumption that pushing a constant and dropping a value takes roughly
-	// the same amount of time. We call this weight `w_base`.
-	// The weight that would result from the respective benchmark we call: `w_bench`.
+	// We load `i64` values from random linear memory locations and store the loaded
+	// values back into yet another random linear memory location.
+	// The random addresses are uniformely distributed across the entire span of the linear memory.
+	// We do this to enforce random memory accesses which are particularly expensive.
 	//
-	// w_base = w_i{32,64}const = w_drop = w_bench / 2
+	// The combination of this computation is our weight base `w_base`.
 	#[pov_mode = Ignored]
-	instr_i64const {
+	instr_i64_load_store {
 		let r in 0 .. INSTR_BENCHMARK_RUNS;
+
+		use rand::prelude::*;
+
+		// We do not need to be secure here. Fixed seed allows for determinstic results.
+		let mut rng = rand_pcg::Pcg32::seed_from_u64(8446744073709551615);
+
+		let memory = ImportedMemory::max::<T>();
+		let bytes_per_page = 65536;
+		let bytes_per_memory = memory.max_pages * bytes_per_page;
 		let mut sbox = Sandbox::from(&WasmModule::<T>::from(ModuleDefinition {
-			call_body: Some(body::repeated_dyn(r, vec![
-				RandomI64Repeated(1),
-				Regular(Instruction::Drop),
-			])),
+			memory: Some(memory),
+			call_body: Some(body::repeated_with_locals_using(
+				&[Local::new(1, ValueType::I64)],
+				r,
+				|| {
+					// Instruction sequence to load a `i64` from linear memory
+					// at a random memory location and store it back into another
+					// location of the linear memory.
+					let c0: i32 = rng.gen_range(0..bytes_per_memory as i32);
+					let c1: i32 = rng.gen_range(0..bytes_per_memory as i32);
+					[
+						Instruction::I32Const(c0), // address for `i64.load_8s`
+						Instruction::I64Load8S(0, 0),
+						Instruction::SetLocal(0),  // temporarily store value loaded in `i64.load_8s`
+						Instruction::I32Const(c1), // address for `i64.store8`
+						Instruction::GetLocal(0),  // value to be stores in `i64.store8`
+						Instruction::I64Store8(0, 0),
+					]
+				}
+			)),
 			.. Default::default()
 		}));
 	}: {
@@ -2603,106 +2610,20 @@ benchmarks! {
 	}
 
 	// This is no benchmark. It merely exist to have an easy way to pretty print the currently
-	// configured `Schedule` during benchmark development.
-	// It can be outputted using the following command:
-	// cargo run --manifest-path=bin/node/cli/Cargo.toml \
-	//     --features runtime-benchmarks -- benchmark pallet --extra --dev --execution=native \
-	//     -p pallet_contracts -e print_schedule --no-median-slopes --no-min-squares
+	// configured `Schedule` during benchmark development. Check the README on how to print this.
 	#[extra]
 	#[pov_mode = Ignored]
 	print_schedule {
-		#[cfg(feature = "std")]
-		{
-			let max_weight = <T as frame_system::Config>::BlockWeights::get().max_block;
-			let (weight_per_key, key_budget) = ContractInfo::<T>::deletion_budget(max_weight);
-			println!("{:#?}", Schedule::<T>::default());
-			println!("###############################################");
-			println!("Lazy deletion weight per key: {weight_per_key}");
-			println!("Lazy deletion throughput per block: {key_budget}");
-		}
-		#[cfg(not(feature = "std"))]
-		Err("Run this bench with a native runtime in order to see the schedule.")?;
+		let max_weight = <T as frame_system::Config>::BlockWeights::get().max_block;
+		let (weight_per_key, key_budget) = ContractInfo::<T>::deletion_budget(max_weight);
+		let schedule = T::Schedule::get();
+		log::info!(target: LOG_TARGET, "
+		{schedule:#?}
+		###############################################
+		Lazy deletion weight per key: {weight_per_key}
+		Lazy deletion keys per block: {key_budget}
+		");
 	}: {}
-
-	// Execute one erc20 transfer using the ink! erc20 example contract.
-	#[extra]
-	#[pov_mode = Measured]
-	ink_erc20_transfer {
-		let code = load_benchmark!("ink_erc20");
-		let data = {
-			let new: ([u8; 4], BalanceOf<T>) = ([0x9b, 0xae, 0x9d, 0x5e], 1000u32.into());
-			new.encode()
-		};
-		let instance = Contract::<T>::new(
-			WasmModule::from_code(code), data,
-		)?;
-		let data = {
-			let transfer: ([u8; 4], AccountIdOf<T>, BalanceOf<T>) = (
-				[0x84, 0xa1, 0x5d, 0xa1],
-				account::<T::AccountId>("receiver", 0, 0),
-				1u32.into(),
-			);
-			transfer.encode()
-		};
-	}: {
-		<Contracts<T>>::bare_call(
-			instance.caller,
-			instance.account_id,
-			0u32.into(),
-			Weight::MAX,
-			None,
-			data,
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result?;
-	}
-
-	// Execute one erc20 transfer using the open zeppelin erc20 contract compiled with solang.
-	#[extra]
-	#[pov_mode = Measured]
-	solang_erc20_transfer {
-		let code = include_bytes!("../../benchmarks/solang_erc20.wasm");
-		let caller = account::<T::AccountId>("instantiator", 0, 0);
-		let mut balance = [0u8; 32];
-		balance[0] = 100;
-		let data = {
-			let new: ([u8; 4], &str, &str, [u8; 32], AccountIdOf<T>) = (
-				[0xa6, 0xf1, 0xf5, 0xe1],
-				"KSM",
-				"K",
-				balance,
-				caller.clone(),
-			);
-			new.encode()
-		};
-		let instance = Contract::<T>::with_caller(
-			caller, WasmModule::from_code(code), data,
-		)?;
-		balance[0] = 1;
-		let data = {
-			let transfer: ([u8; 4], AccountIdOf<T>, [u8; 32]) = (
-				[0x6a, 0x46, 0x73, 0x94],
-				account::<T::AccountId>("receiver", 0, 0),
-				balance,
-			);
-			transfer.encode()
-		};
-	}: {
-		<Contracts<T>>::bare_call(
-			instance.caller,
-			instance.account_id,
-			0u32.into(),
-			Weight::MAX,
-			None,
-			data,
-			DebugInfo::Skip,
-			CollectEvents::Skip,
-			Determinism::Enforced,
-		)
-		.result?;
-	}
 
 	impl_benchmark_test_suite!(
 		Contracts,

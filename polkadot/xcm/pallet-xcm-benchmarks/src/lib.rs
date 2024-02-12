@@ -22,7 +22,10 @@ use codec::Encode;
 use frame_benchmarking::{account, BenchmarkError};
 use sp_std::prelude::*;
 use xcm::latest::prelude::*;
-use xcm_executor::{traits::ConvertLocation, Config as XcmConfig};
+use xcm_executor::{
+	traits::{ConvertLocation, FeeReason},
+	Config as XcmConfig, FeesMode,
+};
 
 pub mod fungible;
 pub mod generic;
@@ -38,15 +41,18 @@ pub trait Config: frame_system::Config {
 	/// `TransactAsset` is implemented.
 	type XcmConfig: XcmConfig;
 
-	/// A converter between a multi-location to a sovereign account.
+	/// A converter between a location to a sovereign account.
 	type AccountIdConverter: ConvertLocation<Self::AccountId>;
 
+	/// Helper that ensures successful delivery for XCM instructions which need `SendXcm`.
+	type DeliveryHelper: EnsureDelivery;
+
 	/// Does any necessary setup to create a valid destination for XCM messages.
-	/// Returns that destination's multi-location to be used in benchmarks.
-	fn valid_destination() -> Result<MultiLocation, BenchmarkError>;
+	/// Returns that destination's location to be used in benchmarks.
+	fn valid_destination() -> Result<Location, BenchmarkError>;
 
 	/// Worst case scenario for a holding account in this runtime.
-	fn worst_case_holding(depositable_count: u32) -> MultiAssets;
+	fn worst_case_holding(depositable_count: u32) -> Assets;
 }
 
 const SEED: u32 = 0;
@@ -60,21 +66,21 @@ pub type AssetTransactorOf<T> = <<T as Config>::XcmConfig as XcmConfig>::AssetTr
 /// The call type of executor's config. Should eventually resolve to the same overarching call type.
 pub type XcmCallOf<T> = <<T as Config>::XcmConfig as XcmConfig>::RuntimeCall;
 
-pub fn mock_worst_case_holding(depositable_count: u32, max_assets: u32) -> MultiAssets {
+pub fn mock_worst_case_holding(depositable_count: u32, max_assets: u32) -> Assets {
 	let fungibles_amount: u128 = 100;
 	let holding_fungibles = max_assets / 2 - depositable_count;
 	let holding_non_fungibles = holding_fungibles;
 	(0..holding_fungibles)
 		.map(|i| {
-			MultiAsset {
-				id: Concrete(GeneralIndex(i as u128).into()),
+			Asset {
+				id: AssetId(GeneralIndex(i as u128).into()),
 				fun: Fungible(fungibles_amount * i as u128),
 			}
 			.into()
 		})
-		.chain(core::iter::once(MultiAsset { id: Concrete(Here.into()), fun: Fungible(u128::MAX) }))
-		.chain((0..holding_non_fungibles).map(|i| MultiAsset {
-			id: Concrete(GeneralIndex(i as u128).into()),
+		.chain(core::iter::once(Asset { id: AssetId(Here.into()), fun: Fungible(u128::MAX) }))
+		.chain((0..holding_non_fungibles).map(|i| Asset {
+			id: AssetId(GeneralIndex(i as u128).into()),
 			fun: NonFungible(asset_instance_from(i)),
 		}))
 		.collect::<Vec<_>>()
@@ -88,11 +94,11 @@ pub fn asset_instance_from(x: u32) -> AssetInstance {
 	AssetInstance::Array4(instance)
 }
 
-pub fn new_executor<T: Config>(origin: MultiLocation) -> ExecutorOf<T> {
+pub fn new_executor<T: Config>(origin: Location) -> ExecutorOf<T> {
 	ExecutorOf::<T>::new(origin, [0; 32])
 }
 
-/// Build a multi-location from an account id.
+/// Build a location from an account id.
 fn account_id_junction<T: frame_system::Config>(index: u32) -> Junction {
 	let account: T::AccountId = account("account", index, SEED);
 	let mut encoded = account.encode();
@@ -102,9 +108,35 @@ fn account_id_junction<T: frame_system::Config>(index: u32) -> Junction {
 	Junction::AccountId32 { network: None, id }
 }
 
-pub fn account_and_location<T: Config>(index: u32) -> (T::AccountId, MultiLocation) {
-	let location: MultiLocation = account_id_junction::<T>(index).into();
+pub fn account_and_location<T: Config>(index: u32) -> (T::AccountId, Location) {
+	let location: Location = account_id_junction::<T>(index).into();
 	let account = T::AccountIdConverter::convert_location(&location).unwrap();
 
 	(account, location)
+}
+
+/// Trait for a type which ensures all requirements for successful delivery with XCM transport
+/// layers.
+pub trait EnsureDelivery {
+	/// Prepare all requirements for successful `XcmSender: SendXcm` passing (accounts, balances,
+	/// channels ...). Returns:
+	/// - possible `FeesMode` which is expected to be set to executor
+	/// - possible `Assets` which are expected to be subsume to the Holding Register
+	fn ensure_successful_delivery(
+		origin_ref: &Location,
+		dest: &Location,
+		fee_reason: FeeReason,
+	) -> (Option<FeesMode>, Option<Assets>);
+}
+
+/// `()` implementation does nothing which means no special requirements for environment.
+impl EnsureDelivery for () {
+	fn ensure_successful_delivery(
+		_origin_ref: &Location,
+		_dest: &Location,
+		_fee_reason: FeeReason,
+	) -> (Option<FeesMode>, Option<Assets>) {
+		// doing nothing
+		(None, None)
+	}
 }

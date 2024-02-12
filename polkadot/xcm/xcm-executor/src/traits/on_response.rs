@@ -14,49 +14,44 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::Xcm;
+use crate::{Junctions::Here, Xcm};
 use core::result;
-use frame_support::pallet_prelude::{Get, TypeInfo};
-use parity_scale_codec::{FullCodec, MaxEncodedLen};
+use frame_support::{
+	pallet_prelude::{Get, TypeInfo},
+	parameter_types,
+};
+use parity_scale_codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 use sp_arithmetic::traits::Zero;
 use sp_std::fmt::Debug;
 use xcm::latest::{
-	Error as XcmError, InteriorMultiLocation, MultiLocation, QueryId, Response,
-	Result as XcmResult, Weight, XcmContext,
+	Error as XcmError, InteriorLocation, Location, QueryId, Response, Result as XcmResult, Weight,
+	XcmContext,
 };
 
 /// Define what needs to be done upon receiving a query response.
 pub trait OnResponse {
 	/// Returns `true` if we are expecting a response from `origin` for query `query_id` that was
 	/// queried by `querier`.
-	fn expecting_response(
-		origin: &MultiLocation,
-		query_id: u64,
-		querier: Option<&MultiLocation>,
-	) -> bool;
+	fn expecting_response(origin: &Location, query_id: u64, querier: Option<&Location>) -> bool;
 	/// Handler for receiving a `response` from `origin` relating to `query_id` initiated by
 	/// `querier`.
 	fn on_response(
-		origin: &MultiLocation,
+		origin: &Location,
 		query_id: u64,
-		querier: Option<&MultiLocation>,
+		querier: Option<&Location>,
 		response: Response,
 		max_weight: Weight,
 		context: &XcmContext,
 	) -> Weight;
 }
 impl OnResponse for () {
-	fn expecting_response(
-		_origin: &MultiLocation,
-		_query_id: u64,
-		_querier: Option<&MultiLocation>,
-	) -> bool {
+	fn expecting_response(_origin: &Location, _query_id: u64, _querier: Option<&Location>) -> bool {
 		false
 	}
 	fn on_response(
-		_origin: &MultiLocation,
+		_origin: &Location,
 		_query_id: u64,
-		_querier: Option<&MultiLocation>,
+		_querier: Option<&Location>,
 		_response: Response,
 		_max_weight: Weight,
 		_context: &XcmContext,
@@ -76,7 +71,7 @@ pub trait VersionChangeNotifier {
 	/// If the `location` has an ongoing notification and when this function is called, then an
 	/// error should be returned.
 	fn start(
-		location: &MultiLocation,
+		location: &Location,
 		query_id: QueryId,
 		max_weight: Weight,
 		context: &XcmContext,
@@ -84,26 +79,26 @@ pub trait VersionChangeNotifier {
 
 	/// Stop notifying `location` should the XCM change. Returns an error if there is no existing
 	/// notification set up.
-	fn stop(location: &MultiLocation, context: &XcmContext) -> XcmResult;
+	fn stop(location: &Location, context: &XcmContext) -> XcmResult;
 
 	/// Return true if a location is subscribed to XCM version changes.
-	fn is_subscribed(location: &MultiLocation) -> bool;
+	fn is_subscribed(location: &Location) -> bool;
 }
 
 impl VersionChangeNotifier for () {
-	fn start(_: &MultiLocation, _: QueryId, _: Weight, _: &XcmContext) -> XcmResult {
+	fn start(_: &Location, _: QueryId, _: Weight, _: &XcmContext) -> XcmResult {
 		Err(XcmError::Unimplemented)
 	}
-	fn stop(_: &MultiLocation, _: &XcmContext) -> XcmResult {
+	fn stop(_: &Location, _: &XcmContext) -> XcmResult {
 		Err(XcmError::Unimplemented)
 	}
-	fn is_subscribed(_: &MultiLocation) -> bool {
+	fn is_subscribed(_: &Location) -> bool {
 		false
 	}
 }
 
 /// The possible state of an XCM query response.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Encode, Decode)]
 pub enum QueryResponseStatus<BlockNumber> {
 	/// The response has arrived, and includes the inner Response and the block number it arrived
 	/// at.
@@ -129,15 +124,15 @@ pub trait QueryHandler {
 		+ PartialEq
 		+ Debug
 		+ Copy;
-	type BlockNumber: Zero;
+	type BlockNumber: Zero + Encode;
 	type Error;
-	type UniversalLocation: Get<InteriorMultiLocation>;
+	type UniversalLocation: Get<InteriorLocation>;
 
 	/// Attempt to create a new query ID and register it as a query that is yet to respond.
 	fn new_query(
-		responder: impl Into<MultiLocation>,
+		responder: impl Into<Location>,
 		timeout: Self::BlockNumber,
-		match_querier: impl Into<MultiLocation>,
+		match_querier: impl Into<Location>,
 	) -> QueryId;
 
 	/// Consume `message` and return another which is equivalent to it except that it reports
@@ -154,7 +149,7 @@ pub trait QueryHandler {
 	/// The response can be queried with `take_response`.
 	fn report_outcome(
 		message: &mut Xcm<()>,
-		responder: impl Into<MultiLocation>,
+		responder: impl Into<Location>,
 		timeout: Self::BlockNumber,
 	) -> result::Result<Self::QueryId, Self::Error>;
 
@@ -164,4 +159,37 @@ pub trait QueryHandler {
 	/// Makes sure to expect a response with the given id.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn expect_response(id: Self::QueryId, response: Response);
+}
+
+parameter_types! {
+	pub UniversalLocation: InteriorLocation = Here;
+}
+
+impl QueryHandler for () {
+	type BlockNumber = u64;
+	type Error = ();
+	type QueryId = u64;
+	type UniversalLocation = UniversalLocation;
+
+	fn take_response(_query_id: Self::QueryId) -> QueryResponseStatus<Self::BlockNumber> {
+		QueryResponseStatus::NotFound
+	}
+	fn new_query(
+		_responder: impl Into<Location>,
+		_timeout: Self::BlockNumber,
+		_match_querier: impl Into<Location>,
+	) -> Self::QueryId {
+		0u64
+	}
+
+	fn report_outcome(
+		_message: &mut Xcm<()>,
+		_responder: impl Into<Location>,
+		_timeout: Self::BlockNumber,
+	) -> Result<Self::QueryId, Self::Error> {
+		Err(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn expect_response(_id: Self::QueryId, _response: crate::Response) {}
 }

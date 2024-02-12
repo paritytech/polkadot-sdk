@@ -17,7 +17,7 @@
 //! # Overseer
 //!
 //! `overseer` implements the Overseer architecture described in the
-//! [implementers-guide](https://w3f.github.io/parachain-implementers-guide/node/index.html).
+//! [implementers' guide][overseer-page].
 //! For the motivations behind implementing the overseer itself you should
 //! check out that guide, documentation in this crate will be mostly discussing
 //! technical stuff.
@@ -53,6 +53,8 @@
 //!             .  +--------------------+               +---------------------+  .
 //!             ..................................................................
 //! ```
+//!
+//! [overseer-page]: https://paritytech.github.io/polkadot-sdk/book/node/overseer.html
 
 // #![deny(unused_results)]
 // unused dependencies can not work for test and examples at the same time
@@ -68,7 +70,6 @@ use std::{
 };
 
 use futures::{channel::oneshot, future::BoxFuture, select, Future, FutureExt, StreamExt};
-use schnellru::LruMap;
 
 use client::{BlockImportNotification, BlockchainEvents, FinalityNotification};
 use polkadot_primitives::{Block, BlockNumber, Hash};
@@ -86,7 +87,7 @@ use polkadot_node_subsystem_types::messages::{
 
 pub use polkadot_node_subsystem_types::{
 	errors::{SubsystemError, SubsystemResult},
-	jaeger, ActivatedLeaf, ActiveLeavesUpdate, LeafStatus, OverseerSignal,
+	jaeger, ActivatedLeaf, ActiveLeavesUpdate, ChainApiBackend, OverseerSignal,
 	RuntimeApiSubsystemClient, UnpinHandle,
 };
 
@@ -109,10 +110,6 @@ pub use orchestra::{
 	SubsystemIncomingMessages, SubsystemInstance, SubsystemMeterReadouts, SubsystemMeters,
 	SubsystemSender, TimeoutExt, ToOrchestra, TrySendError,
 };
-
-/// Store 2 days worth of blocks, not accounting for forks,
-/// in the LRU cache. Assumes a 6-second block time.
-pub const KNOWN_LEAVES_CACHE_SIZE: u32 = 2 * 24 * 3600 / 6;
 
 #[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 mod memory_stats;
@@ -279,8 +276,14 @@ impl From<FinalityNotification<Block>> for BlockInfo {
 
 /// An event from outside the overseer scope, such
 /// as the substrate framework or user interaction.
+#[derive(Debug)]
 pub enum Event {
 	/// A new block was imported.
+	///
+	/// This event is not sent if the block was already known
+	/// and we reorged to it e.g. due to a reversion.
+	///
+	/// Also, these events are not sent during a major sync.
 	BlockImported(BlockInfo),
 	/// A block was finalized with i.e. babe or another consensus algorithm.
 	BlockFinalized(BlockInfo),
@@ -298,6 +301,7 @@ pub enum Event {
 }
 
 /// Some request from outer world.
+#[derive(Debug)]
 pub enum ExternalRequest {
 	/// Wait for the activation of a particular hash
 	/// and be notified by means of the return channel.
@@ -461,7 +465,7 @@ pub async fn forward_events<P: BlockchainEvents<Block>>(client: Arc<P>, mut hand
 	message_capacity=2048,
 )]
 pub struct Overseer<SupportsParachains> {
-	#[subsystem(CandidateValidationMessage, sends: [
+	#[subsystem(blocking, CandidateValidationMessage, sends: [
 		RuntimeApiMessage,
 	])]
 	candidate_validation: CandidateValidation,
@@ -496,7 +500,6 @@ pub struct Overseer<SupportsParachains> {
 
 	#[subsystem(AvailabilityDistributionMessage, sends: [
 		AvailabilityStoreMessage,
-		AvailabilityRecoveryMessage,
 		ChainApiMessage,
 		RuntimeApiMessage,
 		NetworkBridgeTxMessage,
@@ -638,9 +641,6 @@ pub struct Overseer<SupportsParachains> {
 
 	/// An implementation for checking whether a header supports parachain consensus.
 	pub supports_parachains: SupportsParachains,
-
-	/// An LRU cache for keeping track of relay-chain heads that have already been seen.
-	pub known_leaves: LruMap<Hash, ()>,
 
 	/// Various Prometheus metrics.
 	pub metrics: OverseerMetrics,
@@ -800,10 +800,9 @@ where
 		};
 
 		let mut update = match self.on_head_activated(&block.hash, Some(block.parent_hash)).await {
-			Some((span, status)) => ActiveLeavesUpdate::start_work(ActivatedLeaf {
+			Some(span) => ActiveLeavesUpdate::start_work(ActivatedLeaf {
 				hash: block.hash,
 				number: block.number,
-				status,
 				unpin_handle: block.unpin_handle,
 				span,
 			}),
@@ -862,7 +861,7 @@ where
 		&mut self,
 		hash: &Hash,
 		parent_hash: Option<Hash>,
-	) -> Option<(Arc<jaeger::Span>, LeafStatus)> {
+	) -> Option<Arc<jaeger::Span>> {
 		if !self.supports_parachains.head_supports_parachains(hash).await {
 			return None
 		}
@@ -889,14 +888,7 @@ where
 		let span = Arc::new(span);
 		self.span_per_active_leaf.insert(*hash, span.clone());
 
-		let status = if self.known_leaves.get(hash).is_some() {
-			LeafStatus::Stale
-		} else {
-			self.known_leaves.insert(*hash, ());
-			LeafStatus::Fresh
-		};
-
-		Some((span, status))
+		Some(span)
 	}
 
 	fn on_head_deactivated(&mut self, hash: &Hash) {

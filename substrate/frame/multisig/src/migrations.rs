@@ -39,20 +39,18 @@ pub mod v1 {
 		(OpaqueCall<T>, <T as frame_system::Config>::AccountId, BalanceOf<T>),
 	>;
 
-	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	pub struct MigrateToV1<T>(core::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-			let onchain = Pallet::<T>::on_chain_storage_version();
-
-			ensure!(onchain < 1, "this migration can be deleted");
-
 			log!(info, "Number of calls to refund and delete: {}", Calls::<T>::iter().count());
 
 			Ok(Vec::new())
 		}
 
 		fn on_runtime_upgrade() -> Weight {
+			use sp_runtime::Saturating;
+
 			let current = Pallet::<T>::current_storage_version();
 			let onchain = Pallet::<T>::on_chain_storage_version();
 
@@ -61,20 +59,24 @@ pub mod v1 {
 				return T::DbWeight::get().reads(1)
 			}
 
+			let mut call_count = 0u64;
 			Calls::<T>::drain().for_each(|(_call_hash, (_data, caller, deposit))| {
 				T::Currency::unreserve(&caller, deposit);
+				call_count.saturating_inc();
 			});
 
 			current.put::<Pallet<T>>();
 
-			<T as frame_system::Config>::BlockWeights::get().max_block
+			T::DbWeight::get().reads_writes(
+				// Reads: Get Calls + Get Version
+				call_count.saturating_add(1),
+				// Writes: Drain Calls + Unreserves + Set version
+				call_count.saturating_mul(2).saturating_add(1),
+			)
 		}
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-			let onchain = Pallet::<T>::on_chain_storage_version();
-			ensure!(onchain < 2, "this migration needs to be removed");
-			ensure!(onchain == 1, "this migration needs to be run");
 			ensure!(
 				Calls::<T>::iter().count() == 0,
 				"there are some dangling calls that need to be destroyed and refunded"

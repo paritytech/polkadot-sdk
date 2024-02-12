@@ -53,6 +53,13 @@ pub use disputes::{
 	ValidDisputeVote, ACTIVE_DURATION_SECS,
 };
 
+/// The current node version, which takes the basic SemVer form `<major>.<minor>.<patch>`.
+/// In general, minor should be bumped on every release while major or patch releases are
+/// relatively rare.
+///
+/// The associated worker binaries should use the same version as the node that spawns them.
+pub const NODE_VERSION: &'static str = "1.7.0";
+
 // For a 16-ary Merkle Prefix Trie, we can expect at most 16 32-byte hashes per node
 // plus some overhead:
 // header 1 + bitmap 2 + max partial_key 8 + children 16 * (32 + len 1) + value 32 + value len 1
@@ -435,7 +442,7 @@ pub struct CollationSecondedSignal {
 	pub relay_parent: Hash,
 	/// The statement about seconding the collation.
 	///
-	/// Anything else than [`Statement::Seconded`](Statement::Seconded) is forbidden here.
+	/// Anything else than [`Statement::Seconded`] is forbidden here.
 	pub statement: SignedFullStatement,
 }
 

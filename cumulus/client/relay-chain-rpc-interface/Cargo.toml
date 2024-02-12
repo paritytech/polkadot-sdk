@@ -1,9 +1,13 @@
 [package]
 authors.workspace = true
 name = "cumulus-relay-chain-rpc-interface"
-version = "0.1.0"
+version = "0.7.0"
 edition.workspace = true
+description = "Implementation of the RelayChainInterface trait that connects to a remote RPC-node."
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 
+[lints]
+workspace = true
 
 [dependencies]
 polkadot-overseer = { path = "../../../polkadot/node/overseer" }
@@ -18,6 +22,7 @@ sp-authority-discovery = { path = "../../../substrate/primitives/authority-disco
 sp-state-machine = { path = "../../../substrate/primitives/state-machine" }
 sp-storage = { path = "../../../substrate/primitives/storage" }
 sp-runtime = { path = "../../../substrate/primitives/runtime" }
+sp-version = { path = "../../../substrate/primitives/version" }
 sc-client-api = { path = "../../../substrate/client/api" }
 sc-rpc-api = { path = "../../../substrate/client/rpc-api" }
 sc-service = { path = "../../../substrate/client/service" }
@@ -28,14 +33,14 @@ tokio-util = { version = "0.7.8", features = ["compat"] }
 futures = "0.3.28"
 futures-timer = "3.0.2"
 parity-scale-codec = "3.6.4"
-jsonrpsee = { version = "0.16.2", features = ["ws-client"] }
+jsonrpsee = { version = "0.20.3", features = ["ws-client"] }
 tracing = "0.1.37"
-async-trait = "0.1.73"
+async-trait = "0.1.74"
 url = "2.4.0"
-serde_json = "1.0.107"
-serde = "1.0.188"
+serde_json = "1.0.111"
+serde = "1.0.195"
 schnellru = "0.2.1"
-smoldot = { version = "0.11.0",  default_features = false, features = ["std"]}
+smoldot = { version = "0.11.0", default_features = false, features = ["std"] }
 smoldot-light = { version = "0.9.0", default_features = false, features = ["std"] }
 either = "1.8.1"
 thiserror = "1.0.48"

@@ -47,7 +47,7 @@ use test_helpers::{dummy_collator, dummy_collator_signature, dummy_validation_co
 
 fn default_config() -> HostConfiguration<BlockNumber> {
 	let mut config = HostConfiguration::default();
-	config.on_demand_cores = 1;
+	config.coretime_cores = 1;
 	config.max_code_size = 0b100000;
 	config.max_head_data_size = 0b100000;
 	config.group_rotation_frequency = u32::MAX;
@@ -218,7 +218,7 @@ pub(crate) fn run_to_block(
 }
 
 pub(crate) fn expected_bits() -> usize {
-	Paras::parachains().len() + Configuration::config().on_demand_cores as usize
+	Paras::parachains().len() + Configuration::config().coretime_cores as usize
 }
 
 fn default_bitfield() -> AvailabilityBitfield {
@@ -1255,7 +1255,13 @@ fn candidate_checks() {
 				let cfg = Configuration::config();
 				let expected_at = 10 + cfg.validation_upgrade_delay;
 				assert_eq!(expected_at, 12);
-				Paras::schedule_code_upgrade(chain_a, vec![1, 2, 3, 4].into(), expected_at, &cfg);
+				Paras::schedule_code_upgrade(
+					chain_a,
+					vec![1, 2, 3, 4].into(),
+					expected_at,
+					&cfg,
+					SetGoAhead::Yes,
+				);
 			}
 
 			assert_noop!(
@@ -2235,7 +2241,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 		let cause = &active_vote_state.causes()[0];
 		// Upgrade block is the block of inclusion, not candidate's parent.
 		assert_matches!(cause,
-			paras::PvfCheckCause::Upgrade { id, included_at }
+			paras::PvfCheckCause::Upgrade { id, included_at, set_go_ahead: SetGoAhead::Yes }
 				if id == &chain_a && included_at == &7
 		);
 	});

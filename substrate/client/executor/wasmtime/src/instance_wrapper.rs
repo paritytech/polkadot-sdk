@@ -19,7 +19,9 @@
 //! Defines data and logic needed for interaction with an WebAssembly instance of a substrate
 //! runtime module.
 
-use crate::runtime::{Store, StoreData};
+use std::sync::Arc;
+
+use crate::runtime::{InstanceCounter, ReleaseInstanceHandle, Store, StoreData};
 use sc_executor_common::{
 	error::{Backtrace, Error, MessageWithBacktrace, Result, WasmError},
 	wasm_runtime::InvokeMethod,
@@ -154,10 +156,19 @@ impl<C: AsContextMut> sc_allocator::Memory for MemoryWrapper<'_, C> {
 pub struct InstanceWrapper {
 	instance: Instance,
 	store: Store,
+	// NOTE: We want to decrement the instance counter *after* the store has been dropped
+	// to avoid a potential race condition, so this field must always be kept
+	// as the last field in the struct!
+	_release_instance_handle: ReleaseInstanceHandle,
 }
 
 impl InstanceWrapper {
-	pub(crate) fn new(engine: &Engine, instance_pre: &InstancePre<StoreData>) -> Result<Self> {
+	pub(crate) fn new(
+		engine: &Engine,
+		instance_pre: &InstancePre<StoreData>,
+		instance_counter: Arc<InstanceCounter>,
+	) -> Result<Self> {
+		let _release_instance_handle = instance_counter.acquire_instance();
 		let mut store = Store::new(engine, Default::default());
 		let instance = instance_pre.instantiate(&mut store).map_err(|error| {
 			WasmError::Other(format!(
@@ -172,7 +183,7 @@ impl InstanceWrapper {
 		store.data_mut().memory = Some(memory);
 		store.data_mut().table = table;
 
-		Ok(InstanceWrapper { instance, store })
+		Ok(InstanceWrapper { instance, store, _release_instance_handle })
 	}
 
 	/// Resolves a substrate entrypoint by the given name.

@@ -1,11 +1,13 @@
 [package]
-name = "integration-tests-common"
-version = "1.0.0"
+name = "emulated-integration-tests-common"
+version = "3.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 description = "Common resources for integration testing with xcm-emulator"
-publish = false
+
+[lints]
+workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
@@ -13,81 +15,31 @@ paste = "1.0.14"
 
 # Substrate
 grandpa = { package = "sc-consensus-grandpa", path = "../../../../../substrate/client/consensus/grandpa" }
-sp-authority-discovery = { path = "../../../../../substrate/primitives/authority-discovery", default-features = false}
-sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false}
-frame-support = { path = "../../../../../substrate/frame/support", default-features = false}
-sp-core = { path = "../../../../../substrate/primitives/core", default-features = false}
-sp-consensus-babe = { path = "../../../../../substrate/primitives/consensus/babe", default-features = false}
-pallet-assets = { path = "../../../../../substrate/frame/assets", default-features = false}
-pallet-staking = { path = "../../../../../substrate/frame/staking", default-features = false}
-pallet-message-queue = { path = "../../../../../substrate/frame/message-queue", default-features = false}
-pallet-im-online = { path = "../../../../../substrate/frame/im-online", default-features = false}
-beefy-primitives = { package = "sp-consensus-beefy", path = "../../../../../substrate/primitives/consensus/beefy" }
+sp-authority-discovery = { path = "../../../../../substrate/primitives/authority-discovery" }
+sp-runtime = { path = "../../../../../substrate/primitives/runtime" }
+frame-support = { path = "../../../../../substrate/frame/support" }
+sp-core = { path = "../../../../../substrate/primitives/core" }
+sp-consensus-babe = { path = "../../../../../substrate/primitives/consensus/babe" }
+pallet-assets = { path = "../../../../../substrate/frame/assets" }
+pallet-balances = { path = "../../../../../substrate/frame/balances" }
+pallet-message-queue = { path = "../../../../../substrate/frame/message-queue" }
 
 # Polkadot
-polkadot-core-primitives = { path = "../../../../../polkadot/core-primitives", default-features = false}
-polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false}
 polkadot-service = { path = "../../../../../polkadot/node/service", default-features = false, features = ["full-node"] }
-polkadot-primitives = { path = "../../../../../polkadot/primitives", default-features = false}
+polkadot-primitives = { path = "../../../../../polkadot/primitives" }
 polkadot-runtime-parachains = { path = "../../../../../polkadot/runtime/parachains" }
-polkadot-runtime = { path = "../../../../../polkadot/runtime/polkadot" }
-polkadot-runtime-constants = { path = "../../../../../polkadot/runtime/polkadot/constants" }
-kusama-runtime = { package = "staging-kusama-runtime", path = "../../../../../polkadot/runtime/kusama" }
-kusama-runtime-constants = { path = "../../../../../polkadot/runtime/kusama/constants" }
-rococo-runtime = { path = "../../../../../polkadot/runtime/rococo" }
-rococo-runtime-constants = { path = "../../../../../polkadot/runtime/rococo/constants" }
-westend-runtime = { path = "../../../../../polkadot/runtime/westend" }
-westend-runtime-constants = { path = "../../../../../polkadot/runtime/westend/constants" }
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false}
-pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false}
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm" }
+pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm" }
 
 # Cumulus
 parachains-common = { path = "../../../common" }
 cumulus-primitives-core = { path = "../../../../primitives/core" }
-penpal-runtime = { path = "../../../runtimes/testing/penpal" }
-asset-hub-polkadot-runtime = { path = "../../../runtimes/assets/asset-hub-polkadot" }
-asset-hub-kusama-runtime = { path = "../../../runtimes/assets/asset-hub-kusama" }
-asset-hub-westend-runtime = { path = "../../../runtimes/assets/asset-hub-westend" }
-collectives-polkadot-runtime = { path = "../../../runtimes/collectives/collectives-polkadot" }
-bridge-hub-kusama-runtime = { path = "../../../runtimes/bridge-hubs/bridge-hub-kusama" }
-bridge-hub-polkadot-runtime = { path = "../../../runtimes/bridge-hubs/bridge-hub-polkadot" }
-bridge-hub-rococo-runtime = { path = "../../../runtimes/bridge-hubs/bridge-hub-rococo" }
-xcm-emulator = { path = "../../../../xcm/xcm-emulator", default-features = false}
-cumulus-pallet-dmp-queue = { path = "../../../../pallets/dmp-queue" }
-cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false}
+xcm-emulator = { path = "../../../../xcm/xcm-emulator" }
+cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue" }
 cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system" }
+asset-test-utils = { path = "../../../runtimes/assets/test-utils" }
+
+# Bridges
 bp-messages = { path = "../../../../../bridges/primitives/messages" }
 pallet-bridge-messages = { path = "../../../../../bridges/modules/messages" }
 bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common" }
-
-[features]
-runtime-benchmarks = [
-	"asset-hub-kusama-runtime/runtime-benchmarks",
-	"asset-hub-polkadot-runtime/runtime-benchmarks",
-	"asset-hub-westend-runtime/runtime-benchmarks",
-	"bridge-hub-kusama-runtime/runtime-benchmarks",
-	"bridge-hub-polkadot-runtime/runtime-benchmarks",
-	"bridge-hub-rococo-runtime/runtime-benchmarks",
-	"bridge-runtime-common/runtime-benchmarks",
-	"collectives-polkadot-runtime/runtime-benchmarks",
-	"cumulus-pallet-parachain-system/runtime-benchmarks",
-	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"kusama-runtime/runtime-benchmarks",
-	"pallet-assets/runtime-benchmarks",
-	"pallet-bridge-messages/runtime-benchmarks",
-	"pallet-im-online/runtime-benchmarks",
-	"pallet-message-queue/runtime-benchmarks",
-	"pallet-staking/runtime-benchmarks",
-	"pallet-xcm/runtime-benchmarks",
-	"parachains-common/runtime-benchmarks",
-	"penpal-runtime/runtime-benchmarks",
-	"polkadot-parachain-primitives/runtime-benchmarks",
-	"polkadot-primitives/runtime-benchmarks",
-	"polkadot-runtime-parachains/runtime-benchmarks",
-	"polkadot-runtime/runtime-benchmarks",
-	"polkadot-service/runtime-benchmarks",
-	"rococo-runtime/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-	"westend-runtime/runtime-benchmarks",
-]

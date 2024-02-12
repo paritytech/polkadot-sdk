@@ -251,18 +251,14 @@ mod tests {
 				trie_cache_maximum_size: None,
 				state_pruning: None,
 				blocks_pruning: sc_client_db::BlocksPruning::KeepAll,
-				chain_spec: Box::new(GenericChainSpec::from_genesis(
-					"test",
-					"test_id",
-					ChainType::Development,
-					|| unimplemented!("Not required in tests"),
-					Vec::new(),
-					None,
-					None,
-					None,
-					None,
-					NoExtension::None,
-				)),
+				chain_spec: Box::new(
+					GenericChainSpec::<()>::builder(Default::default(), NoExtension::None)
+						.with_name("test")
+						.with_id("test_id")
+						.with_chain_type(ChainType::Development)
+						.with_genesis_config_patch(Default::default())
+						.build(),
+				),
 				wasm_method: Default::default(),
 				wasm_runtime_overrides: None,
 				rpc_addr: None,
@@ -273,6 +269,7 @@ mod tests {
 				rpc_max_response_size: Default::default(),
 				rpc_id_provider: Default::default(),
 				rpc_max_subs_per_conn: Default::default(),
+				rpc_message_buffer_capacity: Default::default(),
 				rpc_port: 9944,
 				prometheus_config: None,
 				telemetry_endpoints: None,

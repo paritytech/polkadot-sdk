@@ -79,8 +79,7 @@ impl LoadedModule {
 		}
 
 		let engine = Engine::new(&config);
-		let module =
-			Module::new(&engine, code.clone()).map_err(|_| "Can't load the module into wasmi!")?;
+		let module = Module::new(&engine, code).map_err(|_| "Can't load the module into wasmi!")?;
 
 		// Return a `LoadedModule` instance with
 		// __valid__ module.
@@ -385,12 +384,7 @@ mod tests {
 				let wasm = wat::parse_str($wat).unwrap().try_into().unwrap();
 				let schedule = Schedule {
 					limits: Limits {
-					    globals: 3,
-					    locals: 3,
-						parameters: 3,
 						memory_pages: 16,
-						table_size: 3,
-						br_table_size: 3,
 						.. Default::default()
 					},
 					.. Default::default()
