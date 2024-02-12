@@ -1263,8 +1263,7 @@ mod tests {
 #[cfg(all(test, feature = "remote-test"))]
 mod remote_tests {
 	use super::test_prelude::*;
-	use std::os::unix::fs::MetadataExt;
-	use std::env;
+	use std::{env, os::unix::fs::MetadataExt};
 
 	fn endpoint() -> String {
 		env::var("TEST_WS").unwrap_or_else(|_| DEFAULT_HTTP_ENDPOINT.to_string())
@@ -1556,8 +1555,10 @@ mod remote_tests {
 	async fn can_fetch_in_parallel() {
 		init_logger();
 
-		let mut builder = Builder::<Block>::new()
-			.mode(Mode::Online(OnlineConfig { transport: endpoint().clone().into(), ..Default::default() }));
+		let mut builder = Builder::<Block>::new().mode(Mode::Online(OnlineConfig {
+			transport: endpoint().clone().into(),
+			..Default::default()
+		}));
 		builder.init_remote_client().await.unwrap();
 
 		let at = builder.as_online().at.unwrap();
