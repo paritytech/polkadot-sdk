@@ -124,7 +124,7 @@ impl MockAuthorityDiscovery {
 	}
 
 	fn add_more_authorties(
-		&mut self,
+		&self,
 		new_known: Vec<AuthorityDiscoveryId>,
 	) -> HashMap<PeerId, HashSet<AuthorityDiscoveryId>> {
 		let authorities: HashMap<_, _> =
@@ -654,7 +654,7 @@ fn issues_update_authorities_after_session() {
 					));
 				overseer
 					.send(FromOrchestra::Communication { msg })
-					.timeout(Duration::from_secs(4))
+					.timeout(TIMEOUT)
 					.await
 					.expect("msg send timeout");
 			}
@@ -741,7 +741,7 @@ fn issues_update_authorities_after_session() {
 					));
 				overseer
 					.send(FromOrchestra::Communication { msg })
-					.timeout(Duration::from_secs(4))
+					.timeout(TIMEOUT)
 					.await
 					.expect("msg send timeout");
 			}

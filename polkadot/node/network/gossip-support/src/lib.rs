@@ -63,7 +63,11 @@ use metrics::Metrics;
 const LOG_TARGET: &str = "parachain::gossip-support";
 // How much time should we wait to reissue a connection request
 // since the last authority discovery resolution failure.
+#[cfg(not(test))]
 const BACKOFF_DURATION: Duration = Duration::from_secs(5);
+
+#[cfg(test)]
+const BACKOFF_DURATION: Duration = Duration::from_millis(500);
 
 /// Duration after which we consider low connectivity a problem.
 ///
