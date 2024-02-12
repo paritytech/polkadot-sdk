@@ -24,7 +24,7 @@ xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", def
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false }
 xcm = { package = "staging-xcm", path = "..", default-features = false }
 xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder", default-features = false }
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 
 [dev-dependencies]
 pallet-balances = { path = "../../../substrate/frame/balances" }
