@@ -2128,6 +2128,7 @@ impl Default for RuntimeParameters {
 		))
 	}
 }
+
 pub struct DynamicParametersManagerOrigin;
 impl EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey> for DynamicParametersManagerOrigin {
 	type Success = ();
