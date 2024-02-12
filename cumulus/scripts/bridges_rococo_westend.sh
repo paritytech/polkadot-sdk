@@ -185,8 +185,8 @@ function run_relay() {
 
 case "$1" in
   run-relay)
-    init_ro_wnd
     init_wnd_ro
+    init_ro_wnd
     run_relay
     ;;
   init-asset-hub-rococo-local)
