@@ -260,7 +260,7 @@ where
 						return None
 					},
 				};
-				tracing::debug!(target: crate::LOG_TARGET, "Parachain slot duration acquired: {:?}", slot_duration);
+				tracing::debug!(target: crate::LOG_TARGET, ?slot_duration, ?block_hash, "Parachain slot duration acquired");
 				let (relay_slot, timestamp) = consensus_common::relay_slot_and_timestamp(
 					&relay_parent_header,
 					params.relay_chain_slot_duration,
@@ -268,10 +268,10 @@ where
 				let slot_now = Slot::from_timestamp(timestamp, slot_duration);
 				tracing::debug!(
 					target: crate::LOG_TARGET,
-					relay_slot = ?relay_slot,
+					?relay_slot,
 					para_slot = ?slot_now,
-					timestamp = ?timestamp,
-					slot_duration = ?slot_duration,
+					?timestamp,
+					?slot_duration,
 					relay_chain_slot_duration = ?params.relay_chain_slot_duration,
 					"Adjusted relay-chain slot to parachain slot"
 				);
