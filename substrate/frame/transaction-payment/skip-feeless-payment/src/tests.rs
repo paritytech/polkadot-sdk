@@ -19,7 +19,7 @@ use frame_support::dispatch::DispatchInfo;
 use sp_runtime::traits::DispatchTransaction;
 
 #[test]
-fn skip_feeless_payment_works() {
+fn feeless_if_works() {
 	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux { data: 1 });
 	SkipCheckIfFeeless::<Runtime, DummyExtension>::from(DummyExtension)
 		.validate_and_prepare(Some(0).into(), &call, &DispatchInfo::default(), 0)
@@ -27,6 +27,21 @@ fn skip_feeless_payment_works() {
 	assert_eq!(PreDispatchCount::get(), 1);
 
 	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux { data: 0 });
+	SkipCheckIfFeeless::<Runtime, DummyExtension>::from(DummyExtension)
+		.validate_and_prepare(Some(0).into(), &call, &DispatchInfo::default(), 0)
+		.unwrap();
+	assert_eq!(PreDispatchCount::get(), 1);
+}
+
+#[test]
+fn feeless_on_checkpoint_works() {
+	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux_2 { data: 3 });
+	SkipCheckIfFeeless::<Runtime, DummyExtension>::from(DummyExtension)
+		.validate_and_prepare(Some(0).into(), &call, &DispatchInfo::default(), 0)
+		.unwrap();
+	assert_eq!(PreDispatchCount::get(), 1);
+
+	let call = RuntimeCall::DummyPallet(Call::<Runtime>::aux_2 { data: 2 });
 	SkipCheckIfFeeless::<Runtime, DummyExtension>::from(DummyExtension)
 		.validate_and_prepare(Some(0).into(), &call, &DispatchInfo::default(), 0)
 		.unwrap();

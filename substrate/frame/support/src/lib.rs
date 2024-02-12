@@ -887,7 +887,8 @@ pub mod pallet_prelude {
 		},
 		traits::{
 			BuildGenesisConfig, ConstU32, EnsureOrigin, Get, GetDefault, GetStorageVersion, Hooks,
-			IsType, PalletInfoAccess, StorageInfoTrait, StorageVersion, Task, TypedGet,
+			IsType, OriginTrait, PalletInfoAccess, StorageInfoTrait, StorageVersion, Task,
+			TypedGet,
 		},
 		Blake2_128, Blake2_128Concat, Blake2_256, CloneNoBound, DebugNoBound, EqNoBound, Identity,
 		PartialEqNoBound, RuntimeDebugNoBound, Twox128, Twox256, Twox64Concat,
@@ -2266,11 +2267,11 @@ pub use frame_support_procedural::pallet;
 /// Contains macro stubs for all of the pallet:: macros
 pub mod pallet_macros {
 	pub use frame_support_procedural::{
-		composite_enum, config, disable_frame_system_supertrait_check, error, event,
-		extra_constants, feeless_if, generate_deposit, generate_store, getter, hooks,
-		import_section, inherent, no_default, no_default_bounds, origin, pallet_section,
-		storage_prefix, storage_version, type_value, unbounded, validate_unsigned, weight,
-		whitelist_storage,
+		checkpoint_with_refs, composite_enum, config, disable_frame_system_supertrait_check, error,
+		event, extra_constants, feeless_if, feeless_on_checkpoint, generate_deposit,
+		generate_store, getter, hooks, import_section, inherent, no_default, no_default_bounds,
+		origin, pallet_section, storage_prefix, storage_version, type_value, unbounded,
+		validate_unsigned, weight, whitelist_storage,
 	};
 
 	/// Allows a pallet to declare a set of functions as a *dispatchable extrinsic*. In

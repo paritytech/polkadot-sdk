@@ -890,12 +890,13 @@ pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
 		item.ident != "RuntimeOrigin" &&
 		item.ident != "RuntimeHoldReason" &&
 		item.ident != "RuntimeFreezeReason" &&
+		item.ident != "RuntimeCheckpointedCallData" &&
 		item.ident != "PalletInfo"
 	{
 		return syn::Error::new_spanned(
 			item,
 			"`#[inject_runtime_type]` can only be attached to `RuntimeCall`, `RuntimeEvent`, \
-			`RuntimeTask`, `RuntimeOrigin` or `PalletInfo`",
+			`RuntimeTask`, `RuntimeOrigin`, `RuntimeCheckpointedCallData` or `PalletInfo`",
 		)
 		.to_compile_error()
 		.into()
@@ -1163,6 +1164,53 @@ pub fn call_index(_: TokenStream, _: TokenStream) -> TokenStream {
 /// closure in the implementation.
 #[proc_macro_attribute]
 pub fn feeless_if(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+/// Each dispatchable may optionally contain a block of code annotated with
+/// `#[pallet::checkpoint_with_refs]`, which defines the checkpointing logic for the
+/// dispatchable.
+///
+/// ### Example
+/// ```ignore
+/// pub fn do_something(_origin: OriginFor<T>) -> DispatchResult {
+/// 	let something: u32 = #[pallet::checkpoint_with_refs] { Ok(0u32) }?;
+/// 	...
+/// }
+/// ```
+///
+/// This is then added as a variant to the generated `CheckpointedCallData` enum for the containing
+/// pallet.
+/// ```ignore
+/// pub enum CheckpointedCallData<T> {
+/// 	DoSomething(u32),
+/// 	...
+/// }
+/// ````
+/// All such enums are then aggregated into a single enum `RuntimeCheckpointedCallData` by the
+/// `construct_runtime!` macro.
+///
+/// Further, if this dispatchable is also marked as `#[pallet::feeless_on_checkpoint]`, then the
+/// checkpointing logic is used to specify if the call is feeless and the returned object is added
+/// to the checkpointed data of the `origin`.
+///
+/// Pease note that this requires a signed extension such as `SkipCheckIfFeeless` as defined in
+/// `pallet-skip-feeless-payment` to wrap the existing payment extension.
+/// Else, this is completely ignored and the dispatchable is still charged.
+#[proc_macro_attribute]
+pub fn checkpoint_with_refs(_: TokenStream, _: TokenStream) -> TokenStream {
+	pallet_macro_stub()
+}
+
+/// Each dispatchable may be annotated with the `#[pallet::feeless_on_checkpoint]` attribute,
+/// which marks the dispatchable as feeless if the checkpointing logic as specified by
+/// `#[pallet::checkpoint_with_refs]` returns `Ok`.
+///
+/// Pease note that this requires a signed extension such as `SkipCheckIfFeeless` as defined in
+/// `pallet-skip-feeless-payment` to wrap the existing payment extension.
+/// Else, this is completely ignored and the dispatchable is still charged.
+#[proc_macro_attribute]
+pub fn feeless_on_checkpoint(_: TokenStream, _: TokenStream) -> TokenStream {
 	pallet_macro_stub()
 }
 

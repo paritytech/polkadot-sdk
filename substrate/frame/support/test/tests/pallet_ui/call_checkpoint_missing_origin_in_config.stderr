@@ -1,0 +1,7 @@
+error[E0576]: cannot find associated type `RuntimeOrigin` in trait `Config`
+  --> tests/pallet_ui/call_checkpoint_missing_origin_in_config.rs:18:1
+   |
+18 | #[frame_support::pallet(dev_mode)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not found in `Config`
+   |
+   = note: this error originates in the attribute macro `frame_support::pallet` (in Nightly builds, run with -Z macro-backtrace for more info)

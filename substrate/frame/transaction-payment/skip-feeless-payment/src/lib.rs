@@ -133,7 +133,10 @@ impl<T: Config + Send + Sync, S: TransactionExtensionBase> TransactionExtensionB
 impl<T: Config + Send + Sync, Context, S: TransactionExtension<T::RuntimeCall, Context>>
 	TransactionExtension<T::RuntimeCall, Context> for SkipCheckIfFeeless<T, S>
 where
-	T::RuntimeCall: CheckIfFeeless<Origin = frame_system::pallet_prelude::OriginFor<T>>,
+	T::RuntimeCall: CheckIfFeeless<
+		Origin = frame_system::pallet_prelude::OriginFor<T>,
+		CheckpointedCallData = <OriginOf<T::RuntimeCall> as OriginTrait>::CheckpointedCallData,
+	>,
 {
 	type Val = Intermediate<S::Val, <OriginOf<T::RuntimeCall> as OriginTrait>::PalletsOrigin>;
 	type Pre = Intermediate<S::Pre, <OriginOf<T::RuntimeCall> as OriginTrait>::PalletsOrigin>;
@@ -148,7 +151,15 @@ where
 		self_implicit: S::Implicit,
 		inherited_implication: &impl Encode,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
-		if call.is_feeless(&origin) {
+		let feeless_result = call.is_feeless(&origin);
+		if feeless_result.0 {
+			let origin = if let Some(checkpointed_call_data) = feeless_result.1 {
+				let mut origin = origin.clone();
+				origin.add_checkpointed_call_data(checkpointed_call_data);
+				origin
+			} else {
+				origin
+			};
 			Ok((Default::default(), Skip(origin.caller().clone()), origin))
 		} else {
 			let (x, y, z) = self.0.validate(

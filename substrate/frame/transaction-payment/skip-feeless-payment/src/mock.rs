@@ -72,7 +72,12 @@ pub mod pallet_dummy {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {}
+	pub trait Config: frame_system::Config {
+		type RuntimeCheckpointedCallData: TryInto<CheckpointedCallData<Self>>;
+
+		type RuntimeOrigin: IsType<<Self as frame_system::Config>::RuntimeOrigin>
+			+ OriginTrait<CheckpointedCallData = <Self as Config>::RuntimeCheckpointedCallData>;
+	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -82,10 +87,28 @@ pub mod pallet_dummy {
 		pub fn aux(_origin: OriginFor<T>, #[pallet::compact] _data: u32) -> DispatchResult {
 			unreachable!()
 		}
+
+		#[pallet::feeless_on_checkpoint]
+		pub fn aux_2(_origin: OriginFor<T>, #[pallet::compact] data: u32) -> DispatchResult {
+			let _: u32 = #[pallet::checkpoint_with_refs]
+			{
+				ensure!(data.is_power_of_two(), Error::<T>::Dummy);
+				Ok(0u32)
+			}?;
+			Ok(())
+		}
+	}
+
+	#[pallet::error]
+	pub enum Error<T> {
+		Dummy,
 	}
 }
 
-impl pallet_dummy::Config for Runtime {}
+impl pallet_dummy::Config for Runtime {
+	type RuntimeCheckpointedCallData = RuntimeCheckpointedCallData;
+	type RuntimeOrigin = RuntimeOrigin;
+}
 
 frame_support::construct_runtime!(
 	pub enum Runtime {

@@ -58,15 +58,23 @@ pub type CallableCallFor<A, R> = <A as Callable<R>>::RuntimeCall;
 /// Means to checks if the dispatchable is feeless.
 ///
 /// This is automatically implemented for all dispatchables during pallet expansion.
-/// If a call is marked by [`#[pallet::feeless_if]`](`macro@frame_support_procedural::feeless_if`)
-/// attribute, the corresponding closure is checked.
 pub trait CheckIfFeeless {
 	/// The Origin type of the runtime.
 	type Origin;
 
-	/// Checks if the dispatchable satisfies the feeless condition as defined by
-	/// [`#[pallet::feeless_if]`](`macro@frame_support_procedural::feeless_if`)
-	fn is_feeless(&self, origin: &Self::Origin) -> bool;
+	/// The type of the checkpointed call data.
+	type CheckpointedCallData;
+
+	/// Checks if the dispatchable is feeless. This can be defined in two ways:
+	/// 1. [`#[pallet::feeless_if]`](`macro@frame_support_procedural::feeless_if`)
+	/// 2. [`#[pallet::checkpoint_with_refs]`](`macro@
+	///    frame_support_procedural::checkpoint_with_refs`)
+	/// used in tandem with
+	/// [`#[pallet::feeless_on_checkpoint]`](`macro@
+	/// frame_support_procedural::feeless_on_checkpoint`).
+	///
+	/// In case of 2. the `CheckpointedCallData` is returned as well.
+	fn is_feeless(&self, origin: &Self::Origin) -> (bool, Option<Self::CheckpointedCallData>);
 }
 
 /// Origin for the System pallet.

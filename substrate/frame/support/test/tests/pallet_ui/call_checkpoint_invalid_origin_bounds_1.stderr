@@ -1,0 +1,25 @@
+error[E0308]: mismatched types
+  --> tests/pallet_ui/call_checkpoint_invalid_origin_bounds_1.rs:33:14
+   |
+18 | #[frame_support::pallet(dev_mode)]
+   | ---------------------------------- arguments to this function are incorrect
+...
+33 |         pub fn foo(origin: OriginFor<T>) -> DispatchResult {
+   |                    ^^^^^^ expected `pallet::Config::RuntimeOrigin`, found `frame_system::Config::RuntimeOrigin`
+   |
+   = note: expected associated type `<T as pallet::Config>::RuntimeOrigin`
+              found associated type `<T as frame_system::Config>::RuntimeOrigin`
+   = note: an associated type was expected, but a different one was found
+note: associated function defined here
+  --> $RUST/core/src/convert/mod.rs
+   |
+   |     fn from(value: T) -> Self;
+   |        ^^^^
+
+error[E0599]: no method named `checkpointed_call_data` found for associated type `<T as pallet::Config>::RuntimeOrigin` in the current scope
+  --> tests/pallet_ui/call_checkpoint_invalid_origin_bounds_1.rs:18:1
+   |
+18 | #[frame_support::pallet(dev_mode)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method not found in `<T as Config>::RuntimeOrigin`
+   |
+   = note: this error originates in the attribute macro `frame_support::pallet` (in Nightly builds, run with -Z macro-backtrace for more info)

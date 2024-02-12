@@ -16,7 +16,8 @@
 // limitations under the License.
 
 use super::{helper, InheritedCallWeightAttr};
-use frame_support_procedural_tools::get_doc_literals;
+use frame_support_procedural_tools::{generate_access_from_frame_or_crate, get_doc_literals};
+use inflector::Inflector;
 use proc_macro2::Span;
 use quote::ToTokens;
 use std::collections::HashMap;
@@ -33,6 +34,7 @@ mod keyword {
 	syn::custom_keyword!(T);
 	syn::custom_keyword!(pallet);
 	syn::custom_keyword!(feeless_if);
+	syn::custom_keyword!(feeless_on_checkpoint);
 }
 
 /// Definition of dispatchables typically `impl<T: Config> Pallet<T> { ... }`
@@ -89,6 +91,20 @@ pub struct CallVariantDef {
 	pub cfg_attrs: Vec<syn::Attribute>,
 	/// The optional `feeless_if` attribute on the `pallet::call`.
 	pub feeless_check: Option<syn::ExprClosure>,
+	/// Whether the call is feeless on checkpoint.
+	pub feeless_on_checkpoint: bool,
+	/// The optional `checkpoint_with_refs` attribute on the `pallet::call`.
+	pub checkpoint_def: Option<CheckpointDef>,
+}
+
+#[derive(Clone)]
+pub struct CheckpointDef {
+	/// The name of the checkpointed call data type.
+	pub name: syn::Ident,
+	/// The code block of the checkpointed call data type.
+	pub block: syn::Block,
+	/// The return type of the checkpointed call data type.
+	pub return_type: Box<syn::Type>,
 }
 
 /// Attributes for functions in call impl block.
@@ -99,6 +115,8 @@ pub enum FunctionAttr {
 	Weight(syn::Expr),
 	/// Parse for `#[pallet::feeless_if(expr)]`
 	FeelessIf(Span, syn::ExprClosure),
+	/// Parse for `#[pallet::feeless_on_checkpoint]`
+	FeelessOnCheckpoint,
 }
 
 impl syn::parse::Parse for FunctionAttr {
@@ -138,6 +156,9 @@ impl syn::parse::Parse for FunctionAttr {
 					err
 				})?,
 			))
+		} else if lookahead.peek(keyword::feeless_on_checkpoint) {
+			content.parse::<keyword::feeless_on_checkpoint>()?;
+			Ok(FunctionAttr::FeelessOnCheckpoint)
 		} else {
 			Err(lookahead.error())
 		}
@@ -228,6 +249,8 @@ impl CallDef {
 			return Err(syn::Error::new(for_.span(), msg))
 		}
 
+		let frame_support = generate_access_from_frame_or_crate("frame-support")?;
+
 		let mut methods = vec![];
 		let mut indices = HashMap::new();
 		let mut last_index: Option<u8> = None;
@@ -245,7 +268,7 @@ impl CallDef {
 					return Err(syn::Error::new(span, msg))
 				}
 
-				match method.sig.inputs.first() {
+				let origin_arg = match method.sig.inputs.first() {
 					None => {
 						let msg = "Invalid pallet::call, must have at least origin arg";
 						return Err(syn::Error::new(method.sig.span(), msg))
@@ -257,8 +280,10 @@ impl CallDef {
 					},
 					Some(syn::FnArg::Typed(arg)) => {
 						check_dispatchable_first_arg_type(&arg.ty, false)?;
+						let arg_name = &arg.pat;
+						quote::quote!(#arg_name)
 					},
-				}
+				};
 
 				if let syn::ReturnType::Type(_, type_) = &method.sig.output {
 					helper::check_pallet_call_return_type(type_)?;
@@ -272,6 +297,7 @@ impl CallDef {
 				let mut call_idx_attrs = vec![];
 				let mut weight_attrs = vec![];
 				let mut feeless_attrs = vec![];
+				let mut feeless_on_checkpoint = false;
 				for attr in helper::take_item_pallet_attrs(&mut method.attrs)?.into_iter() {
 					match attr {
 						FunctionAttr::CallIndex(_) => {
@@ -282,6 +308,9 @@ impl CallDef {
 						},
 						FunctionAttr::FeelessIf(span, _) => {
 							feeless_attrs.push((span, attr));
+						},
+						FunctionAttr::FeelessOnCheckpoint => {
+							feeless_on_checkpoint = true;
 						},
 					}
 				}
@@ -437,6 +466,57 @@ impl CallDef {
 					}
 				}
 
+				let mut checkpoint_def = None;
+				for stmt in method.block.stmts.iter_mut() {
+					match stmt {
+						syn::Stmt::Local(local) => {
+							let Some(local_init) = &mut local.init else {
+								continue;
+							};
+							let Ok(expr) =
+								helper::check_checkpoint_with_ref_gen(local_init.expr.clone())
+							else {
+								continue;
+							};
+							if checkpoint_def.is_some() {
+								let msg = "Invalid pallet::call, only one checkpoint_with_refs is allowed";
+								return Err(syn::Error::new(expr.span(), msg));
+							}
+							let syn::Pat::Type(t) = local.pat.clone() else {
+								let msg = "Invalid pallet::call, checkpoint_with_refs must be used with a type ascription pattern: `foo: f64`";
+								return Err(syn::Error::new(local.pat.span(), msg));
+							};
+							let attrs = local
+								.attrs
+								.iter()
+								.map(|attr| attr.to_token_stream())
+								.collect::<Vec<_>>();
+							let pat = local.pat.clone();
+							let name = quote::format_ident!(
+								"{}",
+								&method.sig.ident.to_string().to_class_case(),
+								span = method.sig.ident.span()
+							);
+							let block = expr.clone();
+							let output = quote::quote! {
+								#(#attrs)* let #pat = match #origin_arg.checkpointed_call_data().try_into() {
+									Ok(CheckpointedCallData::#name(d)) => Some(Ok::<_, #frame_support::sp_runtime::DispatchError>(d)),
+									_ => None
+								}.unwrap_or_else(|| #block)?;
+							};
+							*stmt = syn::parse2::<syn::Stmt>(output)?;
+							checkpoint_def =
+								Some(CheckpointDef { name, block: expr, return_type: t.ty });
+						},
+						_ => {},
+					};
+				}
+
+				if checkpoint_def.is_some() {
+					let stmt = quote::quote! { let #origin_arg = <T as Config>::RuntimeOrigin::from(#origin_arg); };
+					method.block.stmts.insert(0, syn::parse2::<syn::Stmt>(stmt).unwrap())
+				}
+
 				methods.push(CallVariantDef {
 					name: method.sig.ident.clone(),
 					weight,
@@ -447,6 +527,8 @@ impl CallDef {
 					attrs: method.attrs.clone(),
 					cfg_attrs,
 					feeless_check,
+					feeless_on_checkpoint,
+					checkpoint_def,
 				});
 			} else {
 				let msg = "Invalid pallet::call, only method accepted";

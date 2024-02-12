@@ -1,0 +1,12 @@
+error[E0308]: mismatched types
+  --> tests/pallet_ui/call_checkpoint_invalid_expr.rs:38:5
+   |
+38 |                 0u32
+   |                 ^^^^ expected `Result<u32, DispatchError>`, found `u32`
+   |
+   = note: expected enum `Result<u32, frame_support::pallet_prelude::DispatchError>`
+              found type `u32`
+help: try wrapping the expression in `Ok`
+   |
+38 |                 Ok(0u32)
+   |                 +++    +

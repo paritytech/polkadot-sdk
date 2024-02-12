@@ -106,6 +106,7 @@ pub fn expand_outer_origin(
 		pub struct RuntimeOrigin {
 			caller: OriginCaller,
 			filter: #scrate::__private::sp_std::rc::Rc<Box<dyn Fn(&<#runtime as #system_path::Config>::RuntimeCall) -> bool>>,
+			checkpointed_call_data: RuntimeCheckpointedCallData,
 		}
 
 		#[cfg(not(feature = "std"))]
@@ -135,6 +136,15 @@ pub fn expand_outer_origin(
 			type Call = <#runtime as #system_path::Config>::RuntimeCall;
 			type PalletsOrigin = OriginCaller;
 			type AccountId = <#runtime as #system_path::Config>::AccountId;
+			type CheckpointedCallData = RuntimeCheckpointedCallData;
+
+			fn add_checkpointed_call_data(&mut self, data: Self::CheckpointedCallData) {
+				self.checkpointed_call_data = data;
+			}
+
+			fn checkpointed_call_data(&self) -> Self::CheckpointedCallData {
+				self.checkpointed_call_data.clone()
+			}
 
 			fn add_filter(&mut self, filter: impl Fn(&Self::Call) -> bool + 'static) {
 				let f = self.filter.clone();
@@ -280,6 +290,7 @@ pub fn expand_outer_origin(
 				let mut o = RuntimeOrigin {
 					caller: x,
 					filter: #scrate::__private::sp_std::rc::Rc::new(Box::new(|_| true)),
+					checkpointed_call_data: RuntimeCheckpointedCallData::Void,
 				};
 
 				#scrate::traits::OriginTrait::reset_filter(&mut o);

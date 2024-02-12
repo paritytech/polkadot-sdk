@@ -1,0 +1,8 @@
+error: Invalid pallet::call, only one checkpoint_with_refs is allowed
+  --> tests/pallet_ui/call_checkpoint_multiple.rs:42:49
+   |
+42 |               let _: u64 = #[pallet::checkpoint_with_refs] {
+   |  __________________________________________________________^
+43 | |                 Ok(0u64)
+44 | |             }?;
+   | |_____________^

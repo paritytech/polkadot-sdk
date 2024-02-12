@@ -241,6 +241,19 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		})
 		.collect::<Vec<_>>();
 
+	let checkpointed_call_data_ident = syn::Ident::new("CheckpointedCallData", span);
+	let checkpoint_variants = methods
+		.iter()
+		.filter_map(|method| method.checkpoint_def.clone())
+		.map(|checkpoint_def| {
+			let name = checkpoint_def.name;
+			let arg_type = checkpoint_def.return_type;
+			quote::quote! {
+				#name(#arg_type)
+			}
+		})
+		.collect::<Vec<_>>();
+
 	let cfg_attrs = methods
 		.iter()
 		.map(|method| {
@@ -251,12 +264,32 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 		.collect::<Vec<_>>();
 
 	let feeless_check = methods.iter().map(|method| &method.feeless_check).collect::<Vec<_>>();
+	let checkpoint_def = methods.iter().map(|method| &method.checkpoint_def).collect::<Vec<_>>();
+	let feeless_on_checkpoint =
+		methods.iter().map(|method| &method.feeless_on_checkpoint).collect::<Vec<_>>();
 	let feeless_check_result =
-		feeless_check.iter().zip(args_name.iter()).map(|(feeless_check, arg_name)| {
+		feeless_check.iter()
+		.zip(args_name.iter())
+		.zip(feeless_on_checkpoint.iter())
+		.zip(checkpoint_def.iter()).map(|(((feeless_check, arg_name), feeless_on_checkpoint), checkpoint_def)| {
 			if let Some(feeless_check) = feeless_check {
-				quote::quote!(#feeless_check(origin, #( #arg_name, )*))
+				quote::quote!( (#feeless_check(origin, #( #arg_name, )*), None))
+			} else if **feeless_on_checkpoint {
+				let Some(checkpoint_def) = checkpoint_def else {
+					return quote::quote!( (false, None) )
+				};
+				let checkpoint_name = &checkpoint_def.name;
+				let checkpoint_block = &checkpoint_def.block;
+				let checkpoint_arg_type = &checkpoint_def.return_type;
+				quote::quote! {
+					let result: Result<#checkpoint_arg_type, #frame_support::sp_runtime::DispatchError> = (|| #checkpoint_block)();
+					match result {
+						Ok(result) => (true, Some(#checkpointed_call_data_ident::#checkpoint_name(result.clone()))),
+						Err(_) => (false, None),
+					}
+				}
 			} else {
-				quote::quote!(false)
+				quote::quote!( (false, None) )
 			}
 		});
 
@@ -375,8 +408,9 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			#where_clause
 		{
 			type Origin = #frame_system::pallet_prelude::OriginFor<T>;
+			type CheckpointedCallData = #checkpointed_call_data_ident<#type_use_gen>;
 			#[allow(unused_variables)]
-			fn is_feeless(&self, origin: &Self::Origin) -> bool {
+			fn is_feeless(&self, origin: &Self::Origin) -> (bool, Option<Self::CheckpointedCallData>) {
 				match *self {
 					#(
 						#cfg_attrs
@@ -462,6 +496,32 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 			pub fn call_functions() -> #frame_support::__private::metadata_ir::PalletCallMetadataIR {
 				#frame_support::__private::scale_info::meta_type::<#call_ident<#type_use_gen>>().into()
 			}
+		}
+
+		/// A type that represents checkpointed data from all calls of this pallet.
+		#[derive(
+			#frame_support::RuntimeDebugNoBound,
+			#frame_support::CloneNoBound,
+			#frame_support::EqNoBound,
+			#frame_support::PartialEqNoBound,
+			#frame_support::__private::codec::Encode,
+			#frame_support::__private::codec::Decode,
+			#frame_support::__private::scale_info::TypeInfo,
+		)]
+		#[codec(encode_bound())]
+		#[codec(decode_bound())]
+		#[scale_info(skip_type_params(#type_use_gen), capture_docs = #capture_docs)]
+		pub enum #checkpointed_call_data_ident <#type_decl_bounded_gen> #where_clause {
+			#[doc(hidden)]
+			#[codec(skip)]
+			__Ignore(
+				#frame_support::__private::sp_std::marker::PhantomData<(#type_use_gen,)>,
+				#frame_support::Never,
+			),
+			#(
+				#cfg_attrs
+				#checkpoint_variants,
+			)*
 		}
 	)
 }

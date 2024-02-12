@@ -18,8 +18,9 @@
 //! Tests for pallet-example-kitchensink.
 
 use crate::*;
-use frame_support::{assert_ok, derive_impl, parameter_types, traits::ConstU64};
-use sp_runtime::BuildStorage;
+use frame_support::{assert_noop, assert_ok, derive_impl, parameter_types, traits::ConstU64};
+use sp_runtime::{traits::BlakeTwo256, BuildStorage};
+
 // Reexport crate as its pallet name for construct_runtime.
 use crate as pallet_example_kitchensink;
 
@@ -65,6 +66,8 @@ parameter_types! {
 
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCheckpointedCallData = RuntimeCheckpointedCallData;
+	type RuntimeOrigin = RuntimeOrigin;
 	type WeightInfo = ();
 
 	type Currency = Balances;
@@ -98,6 +101,26 @@ fn set_foo_works() {
 
 		let val1 = 42;
 		assert_ok!(Kitchensink::set_foo(RuntimeOrigin::root(), val1, 2));
+		assert_eq!(Foo::<Test>::get(), Some(val1));
+	});
+}
+
+#[test]
+fn set_foo_feeless_works() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(Foo::<Test>::get(), Some(24)); // From genesis config.
+
+		let secret = 42;
+		let val1: u32 = 2;
+		assert_noop!(
+			Kitchensink::set_foo_feeless(RuntimeOrigin::signed(1), secret, 2),
+			Error::<Test>::BadSecret
+		);
+
+		let ticket = BlakeTwo256::hash_of(&secret);
+		Tickets::<Test>::insert(ticket, true);
+
+		assert_ok!(Kitchensink::set_foo_feeless(RuntimeOrigin::signed(1), secret, 2));
 		assert_eq!(Foo::<Test>::get(), Some(val1));
 	});
 }
