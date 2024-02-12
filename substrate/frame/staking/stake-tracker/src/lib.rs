@@ -634,7 +634,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 					Self::update_target_score(who, stake_imbalance);
 
 					let _ = T::VoterList::on_update(who, voter_weight).defensive_proof(
-						"the staker should exit in VoterList, as per the \
+						"the staker should exist in VoterList, as per the \
                             contract with staking.",
 					);
 				},
