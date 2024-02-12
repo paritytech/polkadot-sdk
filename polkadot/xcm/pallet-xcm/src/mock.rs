@@ -36,9 +36,10 @@ use xcm_builder::{
 	AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, Case, ChildParachainAsNative, ChildParachainConvertsVia,
 	ChildSystemParachainAsSuperuser, CurrencyAdapter as XcmCurrencyAdapter, DescribeAllTerminal,
-	FixedRateOfFungible, FixedWeightBounds, FrameTransactionalProcessor, FungiblesAdapter, HashedDescription, IsConcrete,
-	MatchedConvertedConcreteId, NoChecking, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, TakeWeightCredit, XcmFeeManagerFromComponents, XcmFeeToAccount,
+	FixedRateOfFungible, FixedWeightBounds, FrameTransactionalProcessor, FungiblesAdapter,
+	HashedDescription, IsConcrete, MatchedConvertedConcreteId, NoChecking,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
+	XcmFeeManagerFromComponents, XcmFeeToAccount,
 };
 use xcm_executor::{
 	traits::{Identity, JustTry},

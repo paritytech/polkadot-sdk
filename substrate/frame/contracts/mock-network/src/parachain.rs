@@ -39,10 +39,10 @@ use sp_std::prelude::*;
 use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowTopLevelPaidExecutionFrom,
-	ConvertedConcreteId, CurrencyAdapter as XcmCurrencyAdapter, EnsureXcmOrigin, FixedRateOfFungible,
-	FixedWeightBounds, FrameTransactionalProcessor, FungiblesAdapter, IsConcrete, NativeAsset, NoChecking,
-	ParentAsSuperuser, ParentIsPreset, SignedAccountId32AsNative, SignedToAccountId32,
-	SovereignSignedViaLocation, WithComputedOrigin,
+	ConvertedConcreteId, CurrencyAdapter as XcmCurrencyAdapter, EnsureXcmOrigin,
+	FixedRateOfFungible, FixedWeightBounds, FrameTransactionalProcessor, FungiblesAdapter,
+	IsConcrete, NativeAsset, NoChecking, ParentAsSuperuser, ParentIsPreset,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, WithComputedOrigin,
 };
 use xcm_executor::{traits::JustTry, Config, XcmExecutor};
 
