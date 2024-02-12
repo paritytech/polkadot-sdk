@@ -3,6 +3,8 @@
 A module to facilitate **stateful** multisig accounts. The statefulness of this means that we store a multisig account id in the state with  
 related info (owners, threshold,..etc). The module affords enhanced control over administrative operations such as adding/removing owners, changing the threshold, account deletion, canceling an existing proposal. Each owner can approve/revoke a proposal.  
 
+It is superior in functionality to the stateless multisig as well as the pure-proxy as it keeps the multisig account in the state and allows for more control over the account itself.
+
 We use `proposal` in this module to refer to an extrinsic that is to be dispatched from a multisig account after getting enough approvals.
 
 ## Use Cases
@@ -92,29 +94,29 @@ This is a sequence diagram for a multisig account with 5 owners and a threshold 
   * owners related to a a multisig account
   * approvers in each proposal  
 
-For optimizing we're using BoundedBTreeSet to allow for efficient lookups and removals. Especially in the case of approvers, we need to be able to remove an approver from the list when they revoke their approval. (which we do lazily when `execute_proposal` is called)
+For optimization we're using BoundedBTreeSet to allow for efficient lookups and removals. Especially in the case of approvers, we need to be able to remove an approver from the list when they revoke their approval. (which we do lazily when `execute_proposal` is called)
 
 ### State Transition Functions
 
 All functions have rustdoc in the code. Here is a brief overview of the functions:
 
-* `create_multisig` - Create a multisig account with a given threshold and initial owners.
-* `start_proposal` - Start a multisig proposal.
+* `create_multisig` - Create a multisig account with a given threshold and initial owners. (Needs Deposit)
+* `start_proposal` - Start a multisig proposal. (Needs Deposit)
 * `approve` - Approve a multisig proposal.
 * `revoke` - Revoke a multisig approval from an existing proposal.
-* `execute_proposal` - Execute a multisig proposal.
+* `execute_proposal` - Execute a multisig proposal. (Releases Deposit)
+* `cancel_own_proposal` - Cancel a multisig proposal started by the caller in case no other owners approved it yet. (Releases Deposit)
 
 Note: Next functions need to be called from the multisig account itself.
 
-* `add_owner` - Add a new owner to a multisig account.
-* `remove_owner` - Remove an owner from a multisig account.
+* `add_owner` - Add a new owner to a multisig account. (Needs Deposit)
+* `remove_owner` - Remove an owner from a multisig account. (Releases Deposit)
 * `set_threshold` - Change the threshold of a multisig account.
-* `cancel_proposal` - Cancel a multisig proposal.
-* `delete_multisig` - Delete a multisig account.
+* `cancel_proposal` - Cancel a multisig proposal. (Releases Deposit)
+* `delete_multisig` - Delete a multisig account. (Releases Deposit)
 
 ### Considerations
 
-* For cases where a multisig account is deleted, we make sure that all proposals are deleted as well.
 * For cases when a multisig has pending proposals and an owner is removed, we make sure that all pending proposals are canceled (lazily when `execute_proposal` is called).
 * Changing thresholds during a pending proposal is allowed without issues. We make sure that the proposal is executed with the threshold the latest threshold set.
 
@@ -128,10 +130,10 @@ cargo t -p pallet-multisig-stateful
 
 ## Future Work
 
-* [ ] Reserve funds for all operations and refund them when it's finished.  
-* [ ] Implement call filters. This will allow multisig accounts to only accept certain calls.
 * [ ] Batch proposals. The ability to batch multiple calls into one proposal.  
+* [ ] Batch addition/removal of owners.
 * [ ] Add expiry to proposals. After a certain time, proposals will not accept any more approvals or executions and will be deleted.  
-* [ ] Add extra identifier other than call_hash to proposals. This will allow same call to be proposed multiple times and be in pending state.  
+* [ ] Add extra identifier other than call_hash to proposals (e.g. nonce). This will allow same call to be proposed multiple times and be in pending state.  
+* [ ] Implement call filters. This will allow multisig accounts to only accept certain calls.
 
 License: Apache-2.0

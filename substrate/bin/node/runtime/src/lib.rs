@@ -343,11 +343,20 @@ impl pallet_multisig::Config for Runtime {
 	type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
 }
 
+parameter_types! {
+	pub const BaseCreationDeposit: Balance = 2;
+	pub const ProposalDeposit: Balance = 1;
+	pub const PerOwnerDeposit: Balance = 1;
+}
 impl pallet_multisig_stateful::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type NativeBalance = Balances;
+	type Currency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeCall = RuntimeCall;
 	type MaxSignatories = ConstU32<100>;
+	type BaseCreationDeposit = BaseCreationDeposit;
+	type ProposalDeposit = ProposalDeposit;
+	type PerOwnerDeposit = PerOwnerDeposit;
 }
 
 parameter_types! {

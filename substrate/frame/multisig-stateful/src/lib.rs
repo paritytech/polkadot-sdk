@@ -70,19 +70,20 @@
 //! - [`Call`]
 //!
 //! ### Dispatchable Functions
-//! * [`create_multisig`](Call::create_multisig`) - Creates a new multisig account and attach owners with a threshold to it.
-//! * [`start_proposal`](`Call::start_proposal`) - Start a multisig proposal.
+//! * [`create_multisig`](Call::create_multisig`) -  Create a multisig account with a given threshold and initial owners. (Needs Deposit).
+//! * [`start_proposal`](`Call::start_proposal`) - Start a multisig proposal. (Needs Deposit)
 //! * [`approve`](`Call::approve`) - Approve a multisig proposal.
 //! * [`revoke`](`Call::revoke`) - Revoke a multisig approval from an existing proposal.
-//! * [`execute_proposal`](`Call::execute_proposal`) - Execute a multisig proposal.
+//! * [`execute_proposal`](`Call::execute_proposal`) - Execute a multisig proposal. (Releases Deposit)
+//! * [`cancel_own_proposal`](`Call::cancel_own_proposal`) - Cancel a multisig proposal started by the caller in case no other owners approved it yet. (Releases Deposit)
 //!
 //! Note: Next functions need to be called from the multisig account itself.
 //!
-//! * [`add_owner`](`Call::add_owner`) - Add a new owner to a multisig account.
-//! * [`remove_owner`](`Call::remove_owner`) - Remove an owner from a multisig account.
+//! * [`add_owner`](`Call::add_owner`) - Add a new owner to a multisig account. (Needs Deposit)
+//! * [`remove_owner`](`Call::remove_owner`) - Remove an owner from a multisig account. (Releases Deposit)
 //! * [`set_threshold`](`Call::set_threshold`) - Change the threshold of a multisig account.
-//! * [`cancel_proposal`](`Call::cancel_proposal`) - Cancel a multisig proposal.
-//! * [`delete_account`](`Call::delete_account`) - Delete a multisig account.
+//! * [`cancel_proposal`](`Call::cancel_proposal`) - Cancel a multisig proposal. (Releases Deposit)
+//! * [`delete_account`](`Call::delete_account`) - Delete a multisig account. (Releases Deposit)
 
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
