@@ -2,7 +2,7 @@
     header_hash: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.reference.html">&amp;Hash</a>,
     public: &amp;P::<a class="associatedtype" href="../../sp_core/crypto/trait.Pair.html#associatedtype.Public" title="type sp_core::crypto::Pair::Public">Public</a>,
     keystore: &amp;KeystorePtr
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;DigestItem, Error&gt;<span class="where fmt-newline">where
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="../../sp_runtime/generic/digest/enum.DigestItem.html" title="enum sp_runtime::generic::digest::DigestItem">DigestItem</a>, Error&gt;<span class="where fmt-newline">where
     Hash: <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.AsRef.html" title="trait core::convert::AsRef">AsRef</a>&lt;[<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>]&gt;,
     P: <a class="trait" href="../../sp_core/crypto/trait.Pair.html" title="trait sp_core::crypto::Pair">Pair</a>,
     P::<a class="associatedtype" href="../../sp_core/crypto/trait.Pair.html#associatedtype.Signature" title="type sp_core::crypto::Pair::Signature">Signature</a>: Codec + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.u8.html">u8</a>&gt;&gt;,
