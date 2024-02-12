@@ -461,6 +461,17 @@ impl<T: Config> Pallet<T> {
 						approvals_map.insert(nomination, score.into());
 					}
 				}
+			} else {
+				// if it is in the voter list but it's not a nominator, it should be a validator
+				// and part of the target list.
+				frame_support::ensure!(
+					T::Staking::status(&voter) == Ok(StakerStatus::Validator),
+					"wrong state of voter"
+				);
+				frame_support::ensure!(
+					T::TargetList::contains(&voter),
+					"if voter is in voter list and it's not a nominator, it must be a target"
+				);
 			}
 		}
 
