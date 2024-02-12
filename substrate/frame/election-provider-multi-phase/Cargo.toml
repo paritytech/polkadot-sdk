@@ -21,7 +21,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", default-features = 
 scale-info = { version = "2.10.0", default-features = false, features = [
 	"derive",
 ] }
-log = { version = "0.4.17", default-features = false }
+log = { workspace = true }
 
 frame-support = { path = "../support", default-features = false }
 frame-system = { path = "../system", default-features = false }
