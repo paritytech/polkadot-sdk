@@ -149,8 +149,8 @@ pallet-parameters = { path = "../../../frame/parameters", default-features = fal
 substrate-wasm-builder = { path = "../../../utils/wasm-builder", optional = true }
 
 [features]
-default = ["std"]
-with-tracing = ["frame-executive/with-tracing"]
+default = [ "std" ]
+with-tracing = [ "frame-executive/with-tracing" ]
 std = [
 	"codec/std",
 	"frame-benchmarking-pallet-pov/std",
@@ -201,8 +201,8 @@ std = [
 	"pallet-message-queue/std",
 	"pallet-mixnet/std",
 	"pallet-mmr/std",
-	"pallet-multisig/std",
 	"pallet-multisig-stateful/std",
+	"pallet-multisig/std",
 	"pallet-nft-fractionalization/std",
 	"pallet-nfts-runtime-api/std",
 	"pallet-nfts/std",
@@ -306,8 +306,8 @@ runtime-benchmarks = [
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-mixnet/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
-	"pallet-multisig/runtime-benchmarks",
 	"pallet-multisig-stateful/runtime-benchmarks",
+	"pallet-multisig/runtime-benchmarks",
 	"pallet-nft-fractionalization/runtime-benchmarks",
 	"pallet-nfts/runtime-benchmarks",
 	"pallet-nis/runtime-benchmarks",
@@ -386,8 +386,8 @@ try-runtime = [
 	"pallet-message-queue/try-runtime",
 	"pallet-mixnet/try-runtime",
 	"pallet-mmr/try-runtime",
-	"pallet-multisig/try-runtime",
 	"pallet-multisig-stateful/try-runtime",
+	"pallet-multisig/try-runtime",
 	"pallet-nft-fractionalization/try-runtime",
 	"pallet-nfts/try-runtime",
 	"pallet-nis/try-runtime",
