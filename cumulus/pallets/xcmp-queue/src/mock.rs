@@ -30,7 +30,10 @@ use sp_runtime::{
 	BuildStorage,
 };
 use xcm::prelude::*;
-use xcm_builder::{CurrencyAdapter, FixedWeightBounds, FrameTransactionalProcessor, IsConcrete, NativeAsset, ParentIsPreset};
+use xcm_builder::{
+	CurrencyAdapter, FixedWeightBounds, FrameTransactionalProcessor, IsConcrete, NativeAsset,
+	ParentIsPreset,
+};
 use xcm_executor::traits::ConvertOrigin;
 
 type Block = frame_system::mocking::MockBlock<Test>;

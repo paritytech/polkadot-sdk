@@ -695,8 +695,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					let mut message_to_weigh =
 						vec![ReserveAssetDeposited(to_weigh.into()), ClearOrigin];
 					message_to_weigh.extend(xcm.0.clone().into_iter());
-					let (_, fee) =
-						validate_send::<Config::XcmSender>(dest, Xcm(message_to_weigh))?;
+					let (_, fee) = validate_send::<Config::XcmSender>(dest, Xcm(message_to_weigh))?;
 					// set aside fee to be charged by XcmSender
 					let transport_fee = self.holding.saturating_take(fee.into());
 
@@ -976,8 +975,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let result = Config::TransactionalProcessor::process(|| {
 					let origin = self.cloned_origin().ok_or(XcmError::BadOrigin)?;
 					let (remote_asset, context) = Self::try_reanchor(asset.clone(), &unlocker)?;
-					let lock_ticket =
-						Config::AssetLocker::prepare_lock(unlocker, asset, origin)?;
+					let lock_ticket = Config::AssetLocker::prepare_lock(unlocker, asset, origin)?;
 					let owner = origin
 						.reanchored(&unlocker, context)
 						.map_err(|_| XcmError::ReanchorFailed)?;

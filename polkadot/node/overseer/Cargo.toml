@@ -39,5 +39,5 @@ tikv-jemalloc-ctl = "0.5.0"
 default = ["futures_channel"]
 dotgraph = ["orchestra/dotgraph"]
 expand = ["orchestra/expand"]
-futures_channel = [ "orchestra/futures_channel"]
+futures_channel = ["orchestra/futures_channel"]
 jemalloc-allocator = ["dep:tikv-jemalloc-ctl"]
