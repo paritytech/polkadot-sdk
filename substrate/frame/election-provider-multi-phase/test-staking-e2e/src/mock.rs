@@ -23,7 +23,7 @@ use frame_support::{
 	weights::constants,
 };
 use frame_system::EnsureRoot;
-use sp_core::{ConstU32, Get};
+use sp_core::{ConstU32, ConstU64, Get};
 use sp_npos_elections::{ElectionScore, VoteWeight};
 use sp_runtime::{
 	offchain::{
@@ -84,13 +84,13 @@ pub(crate) type BlockNumber = u64;
 pub(crate) type Balance = u64;
 pub(crate) type VoterIndex = u16;
 pub(crate) type TargetIndex = u16;
-pub(crate) type Moment = u32;
+pub(crate) type Moment = u64;
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type BlockHashCount = ConstU32<10>;
+	type BlockHashCount = ConstU64<10>;
 }
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
@@ -122,13 +122,13 @@ impl pallet_balances::Config for Runtime {
 impl pallet_timestamp::Config for Runtime {
 	type Moment = Moment;
 	type OnTimestampSet = ();
-	type MinimumPeriod = traits::ConstU32<5>;
+	type MinimumPeriod = traits::ConstU64<5>;
 	type WeightInfo = ();
 }
 
 parameter_types! {
-	pub static Period: u32 = 30;
-	pub static Offset: u32 = 0;
+	pub static Period: u64 = 30;
+	pub static Offset: u64 = 0;
 }
 
 sp_runtime::impl_opaque_keys! {
@@ -596,7 +596,7 @@ impl ExtBuilder {
 		ext.execute_with(|| {
 			System::set_block_number(1);
 			Session::on_initialize(1);
-			<Staking as Hooks<u32>>::on_initialize(1);
+			<Staking as Hooks<u64>>::on_initialize(1);
 			Timestamp::set_timestamp(INIT_TIMESTAMP);
 		});
 
@@ -735,9 +735,9 @@ pub(crate) fn start_session(
 	delay_solution: bool,
 ) {
 	let end = if Offset::get().is_zero() {
-		Period::get() * session_index
+		Period::get() * u64::from(session_index)
 	} else {
-		Offset::get() * session_index + Period::get() * session_index
+		Offset::get() * u64::from(session_index) + Period::get() * u64::from(session_index)
 	};
 
 	assert!(end >= System::block_number());
