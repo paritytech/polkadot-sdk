@@ -42,7 +42,7 @@ sp-offchain = { path = "../../primitives/offchain" }
 sp-runtime = { path = "../../primitives/runtime" }
 sp-keystore = { path = "../../primitives/keystore" }
 sp-externalities = { path = "../../primitives/externalities" }
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 
 [dev-dependencies]
 lazy_static = "1.4.0"
