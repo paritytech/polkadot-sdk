@@ -3,7 +3,8 @@ Network: ./0013-systematic-chunk-recovery.toml
 Creds: config
 
 # Check authority status.
-#validator: reports node_roles is 10 within 120 seconds
+alice: reports node_roles is 4
+validator: reports node_roles is 4
 
 # Ensure parachains are registered.
 validator: parachain 2000 is registered within 60 seconds
@@ -19,27 +20,24 @@ validator: reports polkadot_parachain_approval_checking_finality_lag < 3
 
 validator: reports polkadot_parachain_approvals_no_shows_total < 3 within 100 seconds
 
-# Ensure that there are no failed recoveries.
-validator: reports polkadot_parachain_availability_recovery_recoveries_finished{result="failure"} is 0 within 10 seconds
-validator: reports polkadot_parachain_availability_recovery_recoveries_finished{result="success"} is 10 within 600 seconds
-
-# Ensure we used regular chunk recovery
-validator: log line contains "Data recovery from chunks complete" within 100 seconds
+# Ensure we used regular chunk recovery and that there are no failed recoveries.
+validator: count of log lines containing "Data recovery from chunks complete" is at least 10 within 300 seconds
+validator: count of log lines containing "Data recovery from systematic chunks complete" is 0 within 10 seconds
+validator: count of log lines containing "Data recovery from systematic chunks is not possible" is 0 within 10 seconds
 validator: count of log lines containing "Data recovery from chunks is not possible" is 0 within 10 seconds
+validator: reports polkadot_parachain_availability_recovery_recoveries_finished{result="failure"} is 0 within 10 seconds
 
 # Enable the chunk mapping feature
 alice: js-script ./0013-enable-chunk-mapping-feature.js return is 0 within 600 seconds
 
 validator: reports substrate_block_height{status="finalized"} is at least 60 within 400 seconds
 
-# Ensure that there are no failed recoveries.
-validator: reports polkadot_parachain_availability_recovery_recoveries_finished{result="failure"} is 0 within 10 seconds
-validator: reports polkadot_parachain_availability_recovery_recoveries_finished{result="success"} is 20 within 600 seconds
-
-# Ensure we used systematic chunk recovery
-validator: log line contains "Data recovery from systematic chunks complete" within 500 seconds
-validator: count of log lines containing "Data recovery from systematic chunks is not possible" is 0 within 10 seconds
-
 validator: reports polkadot_parachain_approval_checking_finality_lag < 3
 
 validator: reports polkadot_parachain_approvals_no_shows_total < 3 within 100 seconds
+
+# Ensure we used systematic chunk recovery and that there are no failed recoveries.
+validator: count of log lines containing "Data recovery from systematic chunks complete" is at least 10 within 300 seconds
+validator: count of log lines containing "Data recovery from systematic chunks is not possible" is 0 within 10 seconds
+validator: count of log lines containing "Data recovery from chunks is not possible" is 0 within 10 seconds
+validator: reports polkadot_parachain_availability_recovery_recoveries_finished{result="failure"} is 0 within 10 seconds
