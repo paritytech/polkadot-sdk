@@ -87,11 +87,6 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-// TODO:
-// Cleanup Proposals
-// Deposits
-// Beanchmarking
-
 use frame_support::traits::fungible::MutateHold;
 use frame_support::{
 	pallet_prelude::*,
@@ -113,11 +108,11 @@ pub mod types;
 use crate::types::*;
 
 use sp_io::hashing::blake2_256;
+use sp_runtime::Saturating;
 use sp_runtime::{
 	traits::{Dispatchable, Hash, TrailingZeroInput},
 	BoundedBTreeSet,
 };
-use sp_runtime::Saturating;
 /// The log target of this pallet.
 pub const LOG_TARGET: &'static str = "runtime::multisig_stateful";
 
@@ -181,7 +176,6 @@ pub mod pallet {
 		type MaxSignatories: Get<u32>;
 	}
 
-	/// Each multisig account (key) has a set of current owners with a threshold.
 	#[pallet::storage]
 	pub type MultisigAccount<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, MultisigAccountDetails<T>>;
@@ -192,10 +186,21 @@ pub mod pallet {
 	pub type PendingProposals<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
-		T::AccountId,
+		T::AccountId, // Multisig Account
 		Blake2_128Concat,
 		T::Hash, // Call Hash
 		MultisigProposal<T>,
+	>;
+
+	// The deposit held for each "newly" added owner to an existing multisig.
+	#[pallet::storage]
+	pub type AddedOwnerDeposit<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		T::AccountId, // Multisig Account
+		Twox64Concat,
+		T::AccountId, // Added Owner
+		BalanceOf<T>,
 	>;
 
 	/// A reason for the pallet placing a hold on funds.
@@ -309,10 +314,17 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Creates a new multisig account and attach owners with a threshold to it.
 		///
-		/// The dispatch origin for this call must be _Signed_. It is expected to be a nomral AccountId and not a Multisig AccountId.
+		/// The dispatch origin for this call must be _Signed_. It is expected to be a nomral AccountId and not a
+		/// Multisig AccountId.
 		///
-		/// - `owners`: Initial set of accounts to add to the multisig. These may be updated later via `add_owner` and `remove_owner`.
-		/// - `threshold`: The threshold number of accounts required to approve an action. Must be greater than 0 and less than or equal to the total number of owners.
+		/// T::BaseCreationDeposit + T::PerOwnerDeposit * owners.len() will be held from the caller's account.
+		///
+		/// # Arguments
+		///
+		/// - `owners`: Initial set of accounts to add to the multisig. These may be updated later via `add_owner`
+		/// and `remove_owner`.
+		/// - `threshold`: The threshold number of accounts required to approve an action. Must be greater than 0 and
+		/// less than or equal to the total number of owners.
 		///
 		/// # Errors
 		///
@@ -336,17 +348,13 @@ pub mod pallet {
 			let multisig_account = Self::get_multisig_account_id(&owners, Self::timepoint());
 
 			let deposit = Self::calculate_creation_deposit(owners.len() as u32);
-			T::Currency::hold(
-				&HoldReason::MultisigCreation.into(),
-				&who,
-				deposit,
-			)?;
+			T::Currency::hold(&HoldReason::MultisigCreation.into(), &who, deposit)?;
 
 			let multisig_details: MultisigAccountDetails<T> = MultisigAccountDetails {
 				owners: owners.clone(),
 				threshold,
 				creator: who.clone(),
-				deposit: deposit,
+				deposit,
 			};
 			MultisigAccount::<T>::insert(&multisig_account, multisig_details);
 			Self::deposit_event(Event::CreatedMultisig { multisig_account, created_by: who });
@@ -355,6 +363,7 @@ pub mod pallet {
 
 		/// Starts a new proposal for a dispatchable call for a multisig account.
 		/// The caller must be one of the owners of the multisig account.
+		/// T::ProposalDeposit will be held from the caller's account.
 		///
 		/// # Arguments
 		///
@@ -521,6 +530,8 @@ pub mod pallet {
 		/// This function does an extra check to make sure that all approvers still exist in the multisig account.
 		/// That is to make sure that the multisig account is not compromised by removing an owner during an active proposal.
 		///
+		/// Once finished, the withheld deposit will be returned to the proposal creator.
+		///
 		/// # Arguments
 		///
 		/// * `multisig_account` - The multisig account ID.
@@ -587,6 +598,8 @@ pub mod pallet {
 		///
 		///	This function needs to be called from a the proposer of the proposal as the origin.
 		///
+		/// The withheld deposit will be returned to the proposal creator.
+		///
 		/// # Arguments
 		///
 		/// * `multisig_account` - The multisig account ID.
@@ -625,6 +638,8 @@ pub mod pallet {
 
 		/// Remove up to `max` stale proposals for a deleted multisig account.
 		///
+		/// The withheld deposit will be returned to each proposal creator.
+		///
 		/// May be called by any Signed origin, but only after the multisig account is deleted.
 		#[pallet::call_index(25)]
 		#[pallet::weight(Weight::default())]
@@ -656,6 +671,8 @@ pub mod pallet {
 		/// Adds a new owner to the multisig account.
 		/// This function needs to be called from a Multisig account as the origin.
 		/// Otherwise it will fail with MultisigNotFound error.
+		///
+		/// T::PerOwnerDeposit will be held from the multisig account.
 		///
 		/// # Arguments
 		///
@@ -700,6 +717,12 @@ pub mod pallet {
 				&multisig_account,
 				T::PerOwnerDeposit::get(),
 			)?;
+
+			AddedOwnerDeposit::<T>::insert(
+				&multisig_account,
+				&new_owner,
+				T::PerOwnerDeposit::get(),
+			);
 
 			let mut owners = multisig_details.owners;
 			owners.try_insert(new_owner.clone()).map_err(|_| Error::<T>::TooManyOwners)?;
@@ -763,6 +786,18 @@ pub mod pallet {
 
 			ensure!(owners.contains(&owner_to_remove), Error::<T>::OwnerNotFound);
 			owners.remove(&owner_to_remove);
+
+			// Return the deposit held for the removed owner.
+			// (This happens when the owner is added after the initial creation of the multisig account.)
+			if let Some(deposit) = AddedOwnerDeposit::<T>::take(&multisig_account, &owner_to_remove)
+			{
+				T::Currency::release(
+					&HoldReason::AddedOwner.into(),
+					&multisig_account,
+					deposit,
+					Precision::BestEffort,
+				)?;
+			};
 
 			// Last owner was removed, remove the multisig account.
 			if owners.len() == 0 {

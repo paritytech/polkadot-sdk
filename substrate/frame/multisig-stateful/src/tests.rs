@@ -511,9 +511,42 @@ fn add_owner_fails_when_more_owners_than_max() {
 fn remove_owner_works() {
 	new_test_ext().execute_with(|| {
 		let multisig_account = add_alice_bob_charlie_multisig(2);
+		assert_eq!(Balances::free_balance(&multisig_account), INITIAL_BALANCE);
 		assert_ok!(Multisig::remove_owner(RuntimeOrigin::signed(multisig_account), CHARLIE, 1));
+		// Nothing should be reserved or released
+		assert_eq!(Balances::free_balance(&multisig_account), INITIAL_BALANCE);
+
 		let multisig_details = MultisigAccount::<Test>::get(&multisig_account).unwrap();
 		assert_eq!(multisig_details.owners.len(), 2);
+		// Charlie deleted
+		assert!(!multisig_details.owners.contains(&CHARLIE));
+		assert_eq!(multisig_details.threshold, 1);
+		System::assert_has_event(
+			crate::Event::RemovedOwner { multisig_account, removed_owner: CHARLIE, threshold: 1 }
+				.into(),
+		);
+	});
+}
+
+#[test]
+fn remove_newly_added_owner_release_deposit() {
+	new_test_ext().execute_with(|| {
+		let multisig_account = add_alice_bob_multisig(2);
+
+		// Add Charlie
+		assert_eq!(Balances::free_balance(&multisig_account), INITIAL_BALANCE);
+		assert_ok!(Multisig::add_owner(RuntimeOrigin::signed(multisig_account), CHARLIE, 1));
+		assert_eq!(
+			Balances::free_balance(&multisig_account),
+			INITIAL_BALANCE - PerOwnerDeposit::get()
+		);
+
+		assert_ok!(Multisig::remove_owner(RuntimeOrigin::signed(multisig_account), CHARLIE, 1));
+		// Deposit should be released
+		assert_eq!(Balances::free_balance(&multisig_account), INITIAL_BALANCE);
+		let multisig_details = MultisigAccount::<Test>::get(&multisig_account).unwrap();
+		assert_eq!(multisig_details.owners.len(), 2);
+
 		// Charlie deleted
 		assert!(!multisig_details.owners.contains(&CHARLIE));
 		assert_eq!(multisig_details.threshold, 1);
@@ -535,10 +568,7 @@ fn remove_owner_deletes_multisig_when_only_one_owner_left() {
 
 		let reserved = Multisig::calculate_creation_deposit(1);
 		// Return deposit after deletion
-		assert_eq!(
-			Balances::free_balance(&ALICE),
-			alice_current_balance + reserved
-		);
+		assert_eq!(Balances::free_balance(&ALICE), alice_current_balance + reserved);
 
 		System::assert_has_event(
 			crate::Event::RemovedOwner { multisig_account, removed_owner: ALICE, threshold: 0 }
@@ -812,10 +842,7 @@ fn delete_account_works() {
 
 		let reserved = Multisig::calculate_creation_deposit(3);
 		// return creation deposit after deletion
-		assert_eq!(
-			Balances::free_balance(&ALICE),
-			current_alice_balance + reserved
-		);
+		assert_eq!(Balances::free_balance(&ALICE), current_alice_balance + reserved);
 		System::assert_last_event(crate::Event::DeletedMultisig { multisig_account }.into());
 	});
 }
@@ -1051,17 +1078,13 @@ fn cleanup_proposals_works() {
 		assert_eq!(
 			Balances::free_balance(&ALICE),
 			// As the account is deleted, the creation deposit should be returned
-			alice_current_balance - (n_proposals * ProposalDeposit::get())
-				+ reserved
+			alice_current_balance - (n_proposals * ProposalDeposit::get()) + reserved
 		);
 
 		assert_ok!(Multisig::cleanup_proposals(RuntimeOrigin::signed(EVE), multisig_account));
 
 		// After cleanup, all deposits should be returned and all proposals should be removed
-		assert_eq!(
-			Balances::free_balance(&ALICE),
-			alice_current_balance + reserved
-		);
+		assert_eq!(Balances::free_balance(&ALICE), alice_current_balance + reserved);
 
 		call_hash_vec.iter().for_each(|call_hash| {
 			assert!(!PendingProposals::<Test>::contains_key(&multisig_account, call_hash));
