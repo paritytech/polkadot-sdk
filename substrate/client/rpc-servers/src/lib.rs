@@ -24,7 +24,6 @@ pub mod middleware;
 
 use std::{convert::Infallible, error::Error as StdError, net::SocketAddr, time::Duration};
 
-use futures::FutureExt;
 use http::header::HeaderValue;
 use hyper::{
 	server::conn::AddrStream,
@@ -44,11 +43,11 @@ use tokio::net::TcpListener;
 use tower::Service;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
-pub use middleware::{MetricsLayer, RateLimitLayer, RpcMetrics};
 pub use jsonrpsee::core::{
 	id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
 	traits::IdProvider,
 };
+pub use middleware::{MetricsLayer, RateLimitLayer, RpcMetrics};
 
 const MEGABYTE: u32 = 1024 * 1024;
 
@@ -157,9 +156,10 @@ pub async fn start_server<M: Send + Sync + 'static>(
 				let transport_label = if is_websocket { "ws" } else { "http" };
 
 				let metrics = metrics.map(|m| MetricsLayer::new(m, transport_label));
-				let rate_limit = rate_limit.map(|r| RateLimitLayer::new(r as u64, std::time::Duration::from_secs(60)));
+				let rate_limit = rate_limit.map(|r| RateLimitLayer::per_minute(r));
 
-				let rpc_middleware = RpcServiceBuilder::new().option_layer(rate_limit).option_layer(metrics.clone());
+				let rpc_middleware =
+					RpcServiceBuilder::new().option_layer(rate_limit).option_layer(metrics.clone());
 				let mut svc =
 					service_builder.set_rpc_middleware(rpc_middleware).build(methods, stop_handle);
 

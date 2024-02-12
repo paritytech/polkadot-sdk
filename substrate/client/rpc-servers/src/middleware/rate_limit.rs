@@ -1,130 +1,65 @@
+use governor::{
+	clock::DefaultClock,
+	middleware::NoOpMiddleware,
+	state::{InMemoryState, NotKeyed},
+	Jitter,
+};
+use futures::future::{BoxFuture, FutureExt};
 use jsonrpsee::{
-	core::async_trait,
-	server::middleware::rpc::{ResponseFuture, RpcServiceT},
-	types::{ErrorObject, Request},
+	server::middleware::rpc::RpcServiceT,
+	types::Request,
 	MethodResponse,
 };
-use std::{
-	sync::{Arc, Mutex},
-	time::{Duration, Instant},
-};
+use std::num::NonZeroU32;
+use std::sync::Arc;
+use std::time::Duration;
 
-/// Enforces a rate limit on the number of RPC calls.
+type RateLimitInner = governor::RateLimiter<NotKeyed, InMemoryState, DefaultClock, NoOpMiddleware>;
+const MAX_JITTER_DELAY: Duration = Duration::from_millis(50);
+
+/// JSON-RPC rate limit middleware layer.
 #[derive(Debug, Clone)]
-pub struct RateLimitLayer {
-	rate: Rate,
-}
+pub struct RateLimitLayer(governor::Quota);
 
 impl RateLimitLayer {
-	/// Create new rate limit layer.
-	pub fn new(num: u64, per: Duration) -> Self {
-		let rate = Rate::new(num, per);
-		RateLimitLayer { rate }
+	/// Create new rate limit enforced per minute.
+	///
+	/// # Panics
+	///
+	/// Panics if n is zero.
+	pub fn per_minute(n: u32) -> Self {
+		Self(governor::Quota::per_minute(NonZeroU32::new(n).unwrap()))
 	}
+}
+
+/// JSON-RPC rate limit middleware
+pub struct RateLimit<S> {
+	service: S,
+	rate_limit: Arc<RateLimitInner>,
 }
 
 impl<S> tower::Layer<S> for RateLimitLayer {
 	type Service = RateLimit<S>;
 
 	fn layer(&self, service: S) -> Self::Service {
-		RateLimit::new(service, self.rate)
+		RateLimit { service, rate_limit: Arc::new(RateLimitInner::direct(self.0)) }
 	}
 }
 
-/// ..
-#[derive(Debug, Copy, Clone)]
-pub struct Rate {
-	num: u64,
-	period: Duration,
-}
-
-impl Rate {
-	/// ..
-	pub fn new(num: u64, period: Duration) -> Self {
-		Self { num, period }
-	}
-}
-
-#[derive(Debug, Copy, Clone)]
-enum State {
-	Deny { until: Instant },
-	Allow { until: Instant, rem: u64 },
-}
-
-/// Rate limit middleware.
-#[derive(Clone)]
-pub struct RateLimit<S> {
-	service: S,
-	state: Arc<Mutex<State>>,
-	rate: Rate,
-}
-
-impl<S> RateLimit<S> {
-	/// Create a new rate limit.
-	pub fn new(service: S, rate: Rate) -> Self {
-		let period = rate.period;
-		let num = rate.num;
-
-		Self {
-			service,
-			rate,
-			state: Arc::new(Mutex::new(State::Allow {
-				until: Instant::now() + period,
-				rem: num + 1,
-			})),
-		}
-	}
-}
-
-#[async_trait]
 impl<'a, S> RpcServiceT<'a> for RateLimit<S>
 where
-	S: Send + Sync + RpcServiceT<'a>,
+	S: Send + Sync + RpcServiceT<'a> + Clone + 'static,
 {
-	type Future = ResponseFuture<S::Future>;
+	type Future = BoxFuture<'a, MethodResponse>;
 
 	fn call(&self, req: Request<'a>) -> Self::Future {
-		let now = Instant::now();
+		let rate_limit = self.rate_limit.clone();
+		let service = self.service.clone();
 
-		let is_denied = {
-			let mut lock = self.state.lock().unwrap();
-			let next_state = match *lock {
-				State::Deny { until } =>
-					if now > until {
-						State::Allow { until: now + self.rate.period, rem: self.rate.num - 1 }
-					} else {
-						State::Deny { until }
-					},
-				State::Allow { until, rem } =>
-					if now > until {
-						State::Allow { until: now + self.rate.period, rem: self.rate.num - 1 }
-					} else {
-						let n = rem - 1;
-						if n > 0 {
-							State::Allow { until: now + self.rate.period, rem: n }
-						} else {
-							State::Deny { until }
-						}
-					},
-			};
-
-			*lock = next_state;
-			matches!(next_state, State::Deny { .. })
-		};
-
-		if is_denied {
-			let rp = MethodResponse::error(
-				req.id,
-				ErrorObject::owned(
-					-32000,
-					"RPC rate limit",
-					Some(format!("{} calls/min is allowed", self.rate.num)),
-				),
-			);
-
-			ResponseFuture::ready(rp)
-		} else {
-			ResponseFuture::future(self.service.call(req))
-		}
+		async move {
+			// Random delay between 0-50ms to poll waiting futures.
+			rate_limit.until_ready_with_jitter(Jitter::up_to(MAX_JITTER_DELAY)).await;
+			service.call(req).await
+		}.boxed()
 	}
 }
