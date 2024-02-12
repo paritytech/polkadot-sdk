@@ -589,57 +589,47 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 		prev_stake: Option<Stake<BalanceOf<T>>>,
 		stake: Stake<BalanceOf<T>>,
 	) {
-		if T::Staking::status(who)
-			.and(T::Staking::stake(who))
-			.defensive_proof(
-				"staker should exist when calling on_stake_update and have a valid status",
-			)
-			.is_ok()
-		{
-			let voter_weight = Self::weight_of(stake.active);
+		match T::Staking::stake(who).and(T::Staking::status(who)) {
+			Ok(StakerStatus::Nominator(nominations)) => {
+				let voter_weight = Self::weight_of(stake.active);
 
-			match T::Staking::status(who).expect("status checked above; qed.") {
-				StakerStatus::Nominator(nominations) => {
-					let _ = T::VoterList::on_update(who, voter_weight).defensive_proof(
-						"staker should exist in VoterList, as per the contract \
+				let _ = T::VoterList::on_update(who, voter_weight).defensive_proof(
+					"staker should exist in VoterList, as per the contract \
                             with staking.",
-					);
+				);
 
-					let stake_imbalance = StakeImbalance::from(
-						prev_stake.map_or(Default::default(), |s| Self::to_vote_extended(s.active)),
-						voter_weight.into(),
-					);
+				let stake_imbalance = StakeImbalance::from(
+					prev_stake.map_or(Default::default(), |s| Self::to_vote_extended(s.active)),
+					voter_weight.into(),
+				);
 
-					log!(
-						debug,
-						"on_stake_update: {:?} with {:?}. impacting nominations {:?}",
-						who,
-						stake_imbalance,
-						nominations,
-					);
+				// updates vote weight of nominated targets accordingly. Note: this will
+				// update the score of up to `T::MaxNominations` validators.
+				for target in nominations.into_iter() {
+					Self::update_target_score(&target, stake_imbalance);
+				}
+			},
+			Ok(StakerStatus::Validator) => {
+				let voter_weight = Self::weight_of(stake.active);
+				let stake_imbalance = StakeImbalance::from(
+					prev_stake.map_or(Default::default(), |s| Self::to_vote_extended(s.active)),
+					voter_weight.into(),
+				);
 
-					// updates vote weight of nominated targets accordingly. Note: this will
-					// update the score of up to `T::MaxNominations` validators.
-					for target in nominations.into_iter() {
-						Self::update_target_score(&target, stake_imbalance);
-					}
-				},
-				StakerStatus::Validator => {
-					// validator is both a target and a voter.
-					let stake_imbalance = StakeImbalance::from(
-						prev_stake.map_or(Default::default(), |s| Self::to_vote_extended(s.active)),
-						voter_weight.into(),
-					);
+				Self::update_target_score(who, stake_imbalance);
 
-					Self::update_target_score(who, stake_imbalance);
-
-					let _ = T::VoterList::on_update(who, voter_weight).defensive_proof(
-						"the staker should exist in VoterList, as per the \
+				// validator is both a target and a voter.
+				let _ = T::VoterList::on_update(who, voter_weight).defensive_proof(
+					"the staker should exist in VoterList, as per the \
                             contract with staking.",
-					);
-				},
-				StakerStatus::Idle => (), // nothing to see here.
-			}
+				);
+			},
+			Ok(StakerStatus::Idle) => (), // nothing to see here.
+			Err(_) => {
+				defensive!(
+					"staker should exist when calling `on_stake_update` and have a valid status"
+				);
+			},
 		}
 	}
 
@@ -651,19 +641,19 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	fn on_validator_add(who: &T::AccountId, self_stake: Option<Stake<BalanceOf<T>>>) {
 		let self_stake = self_stake.unwrap_or_default().active;
 
-		if !T::TargetList::contains(who) {
-			T::TargetList::on_insert(who.clone(), self_stake)
-				.expect("staker does not exist in the list as per check above; qed.");
-		} else {
-			// if the target already exists in the list, it means that the target has been idle
-			// and/or dangling.
-			debug_assert!(
-				T::Staking::status(who) == Ok(StakerStatus::Idle) ||
-					T::Staking::status(who).is_err()
-			);
+		match T::TargetList::on_insert(who.clone(), self_stake) {
+			Ok(_) => (),
+			Err(_) => {
+				// if the target already exists in the list, it means that the target has been idle
+				// and/or dangling.
+				debug_assert!(
+					T::Staking::status(who) == Ok(StakerStatus::Idle) ||
+						T::Staking::status(who).is_err()
+				);
 
-			let self_stake = Self::to_vote_extended(self_stake);
-			Self::update_target_score(who, StakeImbalance::Positive(self_stake));
+				let self_stake = Self::to_vote_extended(self_stake);
+				Self::update_target_score(who, StakeImbalance::Positive(self_stake));
+			},
 		}
 
 		log!(debug, "on_validator_add: {:?}. role: {:?}", who, T::Staking::status(who),);
@@ -781,7 +771,7 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	fn on_nominator_update(
 		who: &T::AccountId,
 		prev_nominations: Vec<T::AccountId>,
-		nominations: Vec<AccountIdOf<T>>,
+		nominations: Vec<T::AccountId>,
 	) {
 		let nominator_vote = Self::weight_of(Self::active_vote_of(who));
 

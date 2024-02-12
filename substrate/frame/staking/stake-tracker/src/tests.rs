@@ -248,7 +248,7 @@ fn on_stake_update_defensive_not_in_list_works() {
 }
 
 #[test]
-#[should_panic = "Defensive failure has been triggered!: Other(\"not a staker\"): \"staker should exist when calling on_stake_update and have a valid status\""]
+#[should_panic = "Defensive failure has been triggered!: \"staker should exist when calling `on_stake_update` and have a valid status\""]
 fn on_stake_update_defensive_not_staker_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert!(!VoterBagsList::contains(&1));
