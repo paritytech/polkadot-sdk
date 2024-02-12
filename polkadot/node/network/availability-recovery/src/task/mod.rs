@@ -22,9 +22,11 @@ mod strategy;
 
 pub use self::strategy::{
 	FetchChunks, FetchChunksParams, FetchFull, FetchFullParams, FetchSystematicChunks,
-	FetchSystematicChunksParams, RecoveryStrategy, State, REGULAR_CHUNKS_REQ_RETRY_LIMIT,
-	SYSTEMATIC_CHUNKS_REQ_RETRY_LIMIT,
+	FetchSystematicChunksParams, RecoveryStrategy, State,
 };
+
+#[cfg(test)]
+pub use self::strategy::{REGULAR_CHUNKS_REQ_RETRY_LIMIT, SYSTEMATIC_CHUNKS_REQ_RETRY_LIMIT};
 
 use crate::{metrics::Metrics, ErasureTask, PostRecoveryCheck, LOG_TARGET};
 
