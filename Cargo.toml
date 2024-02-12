@@ -352,6 +352,7 @@ members = [
 	"substrate/frame/message-queue",
 	"substrate/frame/mixnet",
 	"substrate/frame/multisig",
+	"substrate/frame/multisig-stateful",
 	"substrate/frame/nft-fractionalization",
 	"substrate/frame/nfts",
 	"substrate/frame/nfts/runtime-api",

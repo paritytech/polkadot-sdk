@@ -343,6 +343,13 @@ impl pallet_multisig::Config for Runtime {
 	type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
 }
 
+impl pallet_multisig_stateful::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type NativeBalance = Balances;
+	type RuntimeCall = RuntimeCall;
+	type MaxSignatories = ConstU32<100>;
+}
+
 parameter_types! {
 	// One storage item; key size 32, value size 8; .
 	pub const ProxyDepositBase: Balance = deposit(1, 8);
@@ -2203,6 +2210,7 @@ construct_runtime!(
 		Preimage: pallet_preimage,
 		Proxy: pallet_proxy,
 		Multisig: pallet_multisig,
+		MultisigStateful: pallet_multisig_stateful,
 		Bounties: pallet_bounties,
 		Tips: pallet_tips,
 		Assets: pallet_assets::<Instance1>,

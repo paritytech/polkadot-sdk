@@ -99,6 +99,7 @@ pallet-message-queue = { path = "../../../frame/message-queue", default-features
 pallet-mixnet = { path = "../../../frame/mixnet", default-features = false }
 pallet-mmr = { path = "../../../frame/merkle-mountain-range", default-features = false }
 pallet-multisig = { path = "../../../frame/multisig", default-features = false }
+pallet-multisig-stateful = { path = "../../../frame/multisig-stateful", default-features = false }
 pallet-nfts = { path = "../../../frame/nfts", default-features = false }
 pallet-nfts-runtime-api = { path = "../../../frame/nfts/runtime-api", default-features = false }
 pallet-nft-fractionalization = { path = "../../../frame/nft-fractionalization", default-features = false }
@@ -201,6 +202,7 @@ std = [
 	"pallet-mixnet/std",
 	"pallet-mmr/std",
 	"pallet-multisig/std",
+	"pallet-multisig-stateful/std",
 	"pallet-nft-fractionalization/std",
 	"pallet-nfts-runtime-api/std",
 	"pallet-nfts/std",
@@ -305,6 +307,7 @@ runtime-benchmarks = [
 	"pallet-mixnet/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
+	"pallet-multisig-stateful/runtime-benchmarks",
 	"pallet-nft-fractionalization/runtime-benchmarks",
 	"pallet-nfts/runtime-benchmarks",
 	"pallet-nis/runtime-benchmarks",
@@ -384,6 +387,7 @@ try-runtime = [
 	"pallet-mixnet/try-runtime",
 	"pallet-mmr/try-runtime",
 	"pallet-multisig/try-runtime",
+	"pallet-multisig-stateful/try-runtime",
 	"pallet-nft-fractionalization/try-runtime",
 	"pallet-nfts/try-runtime",
 	"pallet-nis/try-runtime",
