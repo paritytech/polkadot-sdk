@@ -161,7 +161,6 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 	test: impl FnOnce(VirtualOverseer) -> T,
 ) {
 	let pool = sp_core::testing::TaskExecutor::new();
-	sp_tracing::init_for_tests();
 
 	let (context, virtual_overseer) = test_helpers::make_subsystem_context(pool.clone());
 
@@ -679,6 +678,84 @@ fn backing_works() {
 			.await;
 		virtual_overseer
 	});
+}
+
+#[test]
+fn extract_core_index_from_statement_works() {
+	let test_state = TestState::default();
+
+	let pov_a = PoV { block_data: BlockData(vec![42, 43, 44]) };
+	let pvd_a = dummy_pvd();
+	let validation_code_a = ValidationCode(vec![1, 2, 3]);
+
+	let pov_hash = pov_a.hash();
+
+	let candidate = TestCandidateBuilder {
+		para_id: test_state.chain_ids[0],
+		relay_parent: test_state.relay_parent,
+		pov_hash,
+		erasure_root: make_erasure_root(&test_state, pov_a.clone(), pvd_a.clone()),
+		persisted_validation_data_hash: pvd_a.hash(),
+		validation_code: validation_code_a.0.clone(),
+		..Default::default()
+	}
+	.build();
+
+	let public2 = Keystore::sr25519_generate_new(
+		&*test_state.keystore,
+		ValidatorId::ID,
+		Some(&test_state.validators[2].to_seed()),
+	)
+	.expect("Insert key into keystore");
+
+	let signed_statement_1 = SignedFullStatementWithPVD::sign(
+		&test_state.keystore,
+		StatementWithPVD::Seconded(candidate.clone(), pvd_a.clone()),
+		&test_state.signing_context,
+		ValidatorIndex(2),
+		&public2.into(),
+	)
+	.ok()
+	.flatten()
+	.expect("should be signed");
+
+	let public1 = Keystore::sr25519_generate_new(
+		&*test_state.keystore,
+		ValidatorId::ID,
+		Some(&test_state.validators[1].to_seed()),
+	)
+	.expect("Insert key into keystore");
+
+	let signed_statement_2 = SignedFullStatementWithPVD::sign(
+		&test_state.keystore,
+		StatementWithPVD::Seconded(candidate.clone(), pvd_a.clone()),
+		&test_state.signing_context,
+		ValidatorIndex(1),
+		&public1.into(),
+	)
+	.ok()
+	.flatten()
+	.expect("should be signed");
+
+	let core_index_1 = core_index_from_statement_inner(
+		&test_state.availability_cores,
+		&test_state.validator_groups.0,
+		&test_state.validator_groups.1,
+		&signed_statement_1,
+	)
+	.unwrap();
+
+	assert_eq!(core_index_1, CoreIndex(0));
+
+	let core_index_2 = core_index_from_statement_inner(
+		&test_state.availability_cores,
+		&test_state.validator_groups.0,
+		&test_state.validator_groups.1,
+		&signed_statement_2,
+	)
+	.unwrap();
+
+	assert_eq!(core_index_2, CoreIndex(1));
 }
 
 #[test]
