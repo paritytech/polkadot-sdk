@@ -269,6 +269,14 @@ where
 		let session_index = key_owner_proofs[0].session();
 		let validator_set_count = key_owner_proofs[0].validator_count();
 
+		// Check that the session id for the membership proof is within the
+		// bounds of the set id reported in the equivocation.
+		let set_id_session_index = crate::SetIdSession::<T>::get(set_id)
+			.ok_or(Error::<T>::InvalidEquivocationProofSession)?;
+		if session_index != set_id_session_index {
+			return Err(Error::<T>::InvalidEquivocationProofSession.into())
+		}
+
 		// Validate the key ownership proof extracting the ids of the offenders.
 		let offenders = offenders
 			.into_iter()
@@ -330,14 +338,6 @@ where
 					return Err(Error::<T>::InvalidForkEquivocationProof.into())
 				}
 			},
-		}
-
-		// Check that the session id for the membership proof is within the
-		// bounds of the set id reported in the equivocation.
-		let set_id_session_index = crate::SetIdSession::<T>::get(set_id)
-			.ok_or(Error::<T>::InvalidEquivocationProofSession)?;
-		if session_index != set_id_session_index {
-			return Err(Error::<T>::InvalidEquivocationProofSession.into())
 		}
 
 		let offence = EquivocationOffence {
