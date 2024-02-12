@@ -55,7 +55,7 @@ use std::{cell::RefCell, collections::HashMap};
 use xcm::v4::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-type Block = frame_system::mocking::MockBlock<Test>;
+type Block = frame_system::mocking::MockBlockU32<Test>;
 
 frame_support::construct_runtime!(
 	pub enum Test
