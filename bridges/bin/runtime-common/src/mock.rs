@@ -54,7 +54,7 @@ pub type ThisChainAccountId = u64;
 /// Balance at `ThisChain`.
 pub type ThisChainBalance = u64;
 /// Block number at `ThisChain`.
-pub type ThisChainBlockNumber = u64;
+pub type ThisChainBlockNumber = u32;
 /// Hash at `ThisChain`.
 pub type ThisChainHash = H256;
 /// Hasher at `ThisChain`.
@@ -66,7 +66,7 @@ pub type ThisChainCallOrigin = RuntimeOrigin;
 /// Header of `ThisChain`.
 pub type ThisChainHeader = sp_runtime::generic::Header<ThisChainBlockNumber, ThisChainHasher>;
 /// Block of `ThisChain`.
-pub type ThisChainBlock = frame_system::mocking::MockBlock<TestRuntime>;
+pub type ThisChainBlock = frame_system::mocking::MockBlockU32<TestRuntime>;
 
 /// Account identifier at the `BridgedChain`.
 pub type BridgedChainAccountId = u128;
@@ -148,7 +148,7 @@ impl frame_system::Config for TestRuntime {
 	type AccountId = ThisChainAccountId;
 	type Block = ThisChainBlock;
 	type AccountData = pallet_balances::AccountData<ThisChainBalance>;
-	type BlockHashCount = ConstU64<250>;
+	type BlockHashCount = ConstU32<250>;
 }
 
 impl pallet_utility::Config for TestRuntime {
