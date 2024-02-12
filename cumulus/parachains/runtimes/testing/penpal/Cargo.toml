@@ -1,6 +1,6 @@
 [package]
 name = "penpal-runtime"
-version = "0.13.0"
+version = "0.13.1"
 authors = ["Anonymous"]
 description = "A parachain for communication back and forth with XCM of assets and uniques."
 license = "Unlicense"
@@ -59,8 +59,8 @@ pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features
 polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false, version = "5.0.0" }
 polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false, version = "6.0.0" }
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "6.0.0" }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "6.0.0" }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "6.0.0" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "6.0.1" }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "6.0.1" }
 
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false, version = "0.6.0" }
@@ -71,7 +71,7 @@ cumulus-pallet-session-benchmarking = { path = "../../../../pallets/session-benc
 cumulus-pallet-xcm = { path = "../../../../pallets/xcm", default-features = false, version = "0.6.0" }
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false, version = "0.6.0" }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false, version = "0.6.0" }
-cumulus-primitives-utility = { path = "../../../../primitives/utility", default-features = false, version = "0.6.0" }
+cumulus-primitives-utility = { path = "../../../../primitives/utility", default-features = false, version = "0.6.1" }
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false, version = "8.0.0" }
 parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false, version = "0.6.0" }
 parachains-common = { path = "../../../common", default-features = false, version = "6.0.0" }

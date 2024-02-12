@@ -49,7 +49,7 @@ sp-runtime = { path = "../../primitives/runtime", default-features = false, vers
 sp-std = { path = "../../primitives/std", default-features = false, version = "13.0.0" }
 
 xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "6.0.0" }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false, version = "6.0.0" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false, version = "6.0.1" }
 
 [dev-dependencies]
 array-bytes = "6.1"

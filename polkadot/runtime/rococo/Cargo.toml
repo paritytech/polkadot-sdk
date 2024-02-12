@@ -85,7 +85,7 @@ pallet-utility = { path = "../../../substrate/frame/utility", default-features =
 pallet-vesting = { path = "../../../substrate/frame/vesting", default-features = false, version = "27.0.0" }
 pallet-whitelist = { path = "../../../substrate/frame/whitelist", default-features = false, version = "26.0.0" }
 pallet-xcm = { path = "../../xcm/pallet-xcm", default-features = false, version = "6.0.0" }
-pallet-xcm-benchmarks = { path = "../../xcm/pallet-xcm-benchmarks", default-features = false, optional = true, version = "6.0.0" }
+pallet-xcm-benchmarks = { path = "../../xcm/pallet-xcm-benchmarks", default-features = false, optional = true, version = "6.0.1" }
 pallet-root-testing = { path = "../../../substrate/frame/root-testing", default-features = false, version = "3.0.0" }
 
 frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "27.0.0" }
@@ -99,8 +99,8 @@ primitives = { package = "polkadot-primitives", path = "../../primitives", defau
 polkadot-parachain-primitives = { path = "../../parachain", default-features = false, version = "5.0.0" }
 
 xcm = { package = "staging-xcm", path = "../../xcm", default-features = false, version = "6.0.0" }
-xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false, version = "6.0.0" }
-xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false, version = "6.0.0" }
+xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false, version = "6.0.1" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false, version = "6.0.1" }
 
 [dev-dependencies]
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
