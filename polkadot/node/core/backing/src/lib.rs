@@ -384,7 +384,7 @@ struct AttestingData {
 	backing: Vec<ValidatorIndex>,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct TableContext {
 	validator: Option<Validator>,
 	groups: HashMap<CoreIndex, Vec<ValidatorIndex>>,
@@ -1025,6 +1025,10 @@ async fn core_index_from_statement<Context>(
 	let (validator_groups, group_rotation_info) = try_runtime_api!(groups);
 	let cores = try_runtime_api!(cores);
 
+	let compact_statement = statement.as_unchecked();
+	let candidate_hash = CandidateHash(*compact_statement.unchecked_payload().candidate_hash());
+
+	gum::trace!(target: LOG_TARGET, ?group_rotation_info, ?statement, ?validator_groups, ?cores, ?candidate_hash, "Extracting core index from statement");
 	let statement_validator_index = statement.validator_index();
 	for (group_index, group) in validator_groups.iter().enumerate() {
 		for validator_index in group {
@@ -1653,8 +1657,9 @@ async fn import_statement<Context>(
 
 	let core = core_index_from_statement(ctx, rp_state.parent, statement)
 		.await
-		.unwrap()
-		.unwrap();
+		.map_err(|_| Error::CoreIndexUnavailable)?
+		.ok_or(Error::CoreIndexUnavailable)?;
+
 	Ok(rp_state.table.import_statement(&rp_state.table_context, core, stmt))
 }
 
@@ -2088,6 +2093,14 @@ async fn handle_second_message<Context>(
 
 		return Ok(())
 	}
+
+	gum::debug!(
+		target: LOG_TARGET,
+		our_assignment_core = ?rp_state.assigned_core,
+		our_assignment_para = ?rp_state.assigned_para,
+		collation = ?candidate.descriptor().para_id,
+		"Current assignments vs collation",
+	);
 
 	// If the message is a `CandidateBackingMessage::Second`, sign and dispatch a
 	// Seconded statement only if we have not signed a Valid statement for the requested candidate.

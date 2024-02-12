@@ -36,6 +36,7 @@ use primitives::{
 };
 
 use parity_scale_codec::{Decode, Encode};
+const LOG_TARGET: &str = "parachain::statement-table";
 
 /// Context for the statement table.
 pub trait Context {
@@ -387,6 +388,7 @@ impl<Ctx: Context> Table<Ctx> {
 		group: Ctx::GroupId,
 	) -> ImportResult<Ctx> {
 		if !context.is_member_of(&authority, &group) {
+			gum::debug!(target: LOG_TARGET,  authority = ?authority, group = ?group, "New `Misbehavior::UnauthorizedStatement`, candidate backed by validator that doesn't belong to expected group" );
 			return Err(Misbehavior::UnauthorizedStatement(UnauthorizedStatement {
 				statement: SignedStatement {
 					signature,

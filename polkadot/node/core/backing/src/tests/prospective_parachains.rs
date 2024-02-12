@@ -185,6 +185,16 @@ async fn activate_leaf(
 			}
 		);
 
+		// Node features request from runtime: all features are disabled.
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(parent, RuntimeApiRequest::NodeFeatures(_session_index, tx))
+			) if parent == hash => {
+				tx.send(Ok(Default::default())).unwrap();
+			}
+		);
+
 		// Check if subsystem job issues a request for the minimum backing votes.
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -305,10 +315,11 @@ async fn assert_hypothetical_frontier_requests(
 			) => {
 				let idx = match expected_requests.iter().position(|r| r.0 == request) {
 					Some(idx) => idx,
-					None => panic!(
+					None =>
+						panic!(
 						"unexpected hypothetical frontier request, no match found for {:?}",
 						request
-					),
+						),
 				};
 				let resp = std::mem::take(&mut expected_requests[idx].1);
 				tx.send(resp).unwrap();
@@ -451,6 +462,8 @@ fn seconding_sanity_check_allowed() {
 			))
 		);
 
+		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
+
 		assert_matches!(
 			virtual_overseer.recv().await,
 			AllMessages::StatementDistribution(
@@ -585,6 +598,8 @@ fn seconding_sanity_check_disallowed() {
 				_
 			))
 		);
+
+		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
@@ -840,6 +855,8 @@ fn prospective_parachains_reject_candidate() {
 			))
 		);
 
+		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
+
 		assert_matches!(
 			virtual_overseer.recv().await,
 			AllMessages::StatementDistribution(
@@ -976,6 +993,8 @@ fn second_multiple_candidates_per_relay_parent() {
 				)
 			);
 
+			assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
+
 			assert_matches!(
 				virtual_overseer.recv().await,
 				AllMessages::StatementDistribution(
@@ -1106,6 +1125,8 @@ fn backing_works() {
 			))
 		);
 
+		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
+
 		assert_validate_seconded_candidate(
 			&mut virtual_overseer,
 			candidate_a.descriptor().relay_parent,
@@ -1118,6 +1139,7 @@ fn backing_works() {
 		)
 		.await;
 
+		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
 		assert_matches!(
 			virtual_overseer.recv().await,
 			AllMessages::StatementDistribution(
@@ -1153,6 +1175,8 @@ fn backing_works() {
 		let statement = CandidateBackingMessage::Statement(leaf_parent, signed_b.clone());
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement }).await;
+
+		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
 
 		virtual_overseer
 	});
@@ -1268,6 +1292,7 @@ fn concurrent_dependent_candidates() {
 		let statement_b = CandidateBackingMessage::Statement(leaf_parent, signed_b.clone());
 
 		virtual_overseer.send(FromOrchestra::Communication { msg: statement_a }).await;
+
 		// At this point the subsystem waits for response, the previous message is received,
 		// send a second one without blocking.
 		let _ = virtual_overseer
@@ -1388,7 +1413,19 @@ fn concurrent_dependent_candidates() {
 					assert_eq!(sess_idx, 1);
 					tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
 				},
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_parent,
+					RuntimeApiRequest::ValidatorGroups(tx),
+				)) => {
+					tx.send(Ok(test_state.validator_groups.clone())).unwrap();
+				},
 
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_parent,
+					RuntimeApiRequest::AvailabilityCores(tx),
+				)) => {
+					tx.send(Ok(test_state.availability_cores.clone())).unwrap();
+				},
 				_ => panic!("unexpected message received from overseer: {:?}", msg),
 			}
 		}
@@ -1419,7 +1456,6 @@ fn seconding_sanity_check_occupy_same_depth() {
 		let leaf_parent = get_parent_hash(leaf_hash);
 
 		let activated = new_leaf(leaf_hash, LEAF_BLOCK_NUMBER);
-
 		let min_block_number = LEAF_BLOCK_NUMBER - LEAF_ANCESTRY_LEN;
 		let min_relay_parents = vec![(para_id_a, min_block_number), (para_id_b, min_block_number)];
 		let test_leaf_a = TestLeaf { activated, min_relay_parents };
@@ -1521,6 +1557,29 @@ fn seconding_sanity_check_occupy_same_depth() {
 				AllMessages::ProspectiveParachains(
 					ProspectiveParachainsMessage::CandidateSeconded(_, _)
 				)
+			);
+
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(_parent, RuntimeApiRequest::ValidatorGroups(tx))
+				) => {
+					let (groups, mut rotation) = test_state.validator_groups.clone();
+					if leaf_hash == _parent {
+						rotation.now = 100;
+					}
+					tx.send(Ok((groups, rotation))).unwrap();
+				}
+			);
+
+			// Check that subsystem job issues a request for the availability cores.
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(_parent, RuntimeApiRequest::AvailabilityCores(tx))
+				) => {
+					tx.send(Ok(test_state.availability_cores.clone())).unwrap();
+				}
 			);
 
 			assert_matches!(
@@ -1661,6 +1720,8 @@ fn occupied_core_assignment() {
 				_
 			))
 		);
+
+		assert_core_index_from_statement(&mut virtual_overseer, &test_state).await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
