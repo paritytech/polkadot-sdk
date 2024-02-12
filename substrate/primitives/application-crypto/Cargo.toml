@@ -1,6 +1,6 @@
 [package]
 name = "sp-application-crypto"
-version = "23.0.0"
+version = "30.0.0"
 authors.workspace = true
 edition.workspace = true
 description = "Provides facilities for generating application specific crypto wrapper types."

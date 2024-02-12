@@ -50,12 +50,7 @@ impl frame_system::Config for Test {
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
 impl pallet_balances::Config for Test {
-	type Balance = u64;
-	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
-	type RuntimeHoldReason = RuntimeHoldReason;
-	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type MaxHolds = ConstU32<128>;
 }
 
 impl pallet_transaction_storage::Config for Test {

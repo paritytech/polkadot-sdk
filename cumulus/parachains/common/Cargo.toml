@@ -1,6 +1,6 @@
 [package]
 name = "parachains-common"
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 description = "Logic which is common to all parachain runtimes"
@@ -14,9 +14,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"], default-features = false }
-log = { version = "0.4.19", default-features = false }
+log = { workspace = true }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-smallvec = "1.11.0"
 
 # Substrate
 frame-support = { path = "../../../substrate/frame/support", default-features = false }
@@ -34,9 +33,6 @@ sp-std = { path = "../../../substrate/primitives/std", default-features = false 
 
 # Polkadot
 pallet-xcm = { path = "../../../polkadot/xcm/pallet-xcm", default-features = false }
-rococo-runtime-constants = { path = "../../../polkadot/runtime/rococo/constants", default-features = false }
-westend-runtime-constants = { path = "../../../polkadot/runtime/westend/constants", default-features = false }
-polkadot-core-primitives = { path = "../../../polkadot/core-primitives", default-features = false }
 polkadot-primitives = { path = "../../../polkadot/primitives", default-features = false }
 xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false }
@@ -71,16 +67,13 @@ std = [
 	"pallet-message-queue/std",
 	"pallet-xcm/std",
 	"parachain-info/std",
-	"polkadot-core-primitives/std",
 	"polkadot-primitives/std",
-	"rococo-runtime-constants/std",
 	"scale-info/std",
 	"sp-consensus-aura/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"westend-runtime-constants/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]

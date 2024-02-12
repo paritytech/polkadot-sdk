@@ -119,7 +119,6 @@ impl RpcHandlers {
 		self.0
 			.raw_json_request(json_query, TOKIO_MPSC_MAX_SIZE)
 			.await
-			.map(|(method_res, recv)| (method_res.result, recv))
 	}
 
 	/// Provides access to the underlying `RpcModule`
@@ -368,7 +367,7 @@ mod waiting {
 }
 
 /// Starts RPC servers.
-fn start_rpc_servers<R>(
+pub fn start_rpc_servers<R>(
 	config: &Configuration,
 	gen_rpc_module: R,
 	rpc_id_provider: Option<Box<dyn RpcSubscriptionIdProvider>>,

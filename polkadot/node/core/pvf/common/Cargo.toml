@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-node-core-pvf-common"
 description = "Polkadot crate that contains functionality related to PVFs that is shared by the PVF host and the PVF workers."
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -35,6 +35,8 @@ sp-tracing = { path = "../../../../../substrate/primitives/tracing" }
 [target.'cfg(target_os = "linux")'.dependencies]
 landlock = "0.3.0"
 nix = { version = "0.27.1", features = ["sched"] }
+
+[target.'cfg(all(target_os = "linux", target_arch = "x86_64"))'.dependencies]
 seccompiler = "0.4.0"
 
 [dev-dependencies]

@@ -255,7 +255,7 @@ impl<'a, F: Future<Output = MethodResponse>> Future for ResponseFuture<'a, F> {
 					method_name,
 					// the label "is_error", so `success` should be regarded as false
 					// and vice-versa to be registrered correctly.
-					if rp.success_or_error.is_success() { "false" } else { "true" },
+					if rp.is_success() { "false" } else { "true" },
 				])
 				.inc();
 		}

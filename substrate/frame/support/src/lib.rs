@@ -44,7 +44,7 @@ pub mod __private {
 	pub use paste;
 	pub use scale_info;
 	pub use serde;
-	pub use sp_core::{OpaqueMetadata, Void};
+	pub use sp_core::{Get, OpaqueMetadata, Void};
 	pub use sp_crypto_hashing_proc_macro;
 	pub use sp_inherents;
 	#[cfg(feature = "std")]
@@ -174,6 +174,14 @@ impl TypeId for PalletId {
 pub use frame_support_procedural::storage_alias;
 
 pub use frame_support_procedural::derive_impl;
+
+/// Experimental macros for defining dynamic params that can be used in pallet configs.
+#[cfg(feature = "experimental")]
+pub mod dynamic_params {
+	pub use frame_support_procedural::{
+		dynamic_aggregated_params_internal, dynamic_pallet_params, dynamic_params,
+	};
+}
 
 /// Create new implementations of the [`Get`](crate::traits::Get) trait.
 ///
@@ -556,6 +564,42 @@ pub use frame_support_procedural::EqNoBound;
 /// }
 /// ```
 pub use frame_support_procedural::PartialEqNoBound;
+
+/// Derive [`Ord`] but do not bound any generic.
+///
+/// This is useful for type generic over runtime:
+/// ```
+/// # use frame_support::{OrdNoBound, PartialOrdNoBound, EqNoBound, PartialEqNoBound};
+/// trait Config {
+/// 		type C: Ord;
+/// }
+///
+/// // Foo implements [`Ord`] because `C` bounds [`Ord`].
+/// // Otherwise compilation will fail with an output telling `c` doesn't implement [`Ord`].
+/// #[derive(EqNoBound, OrdNoBound, PartialEqNoBound, PartialOrdNoBound)]
+/// struct Foo<T: Config> {
+/// 		c: T::C,
+/// }
+/// ```
+pub use frame_support_procedural::OrdNoBound;
+
+/// Derive [`PartialOrd`] but do not bound any generic.
+///
+/// This is useful for type generic over runtime:
+/// ```
+/// # use frame_support::{OrdNoBound, PartialOrdNoBound, EqNoBound, PartialEqNoBound};
+/// trait Config {
+/// 		type C: PartialOrd;
+/// }
+///
+/// // Foo implements [`PartialOrd`] because `C` bounds [`PartialOrd`].
+/// // Otherwise compilation will fail with an output telling `c` doesn't implement [`PartialOrd`].
+/// #[derive(PartialOrdNoBound, PartialEqNoBound, EqNoBound)]
+/// struct Foo<T: Config> {
+/// 		c: T::C,
+/// }
+/// ```
+pub use frame_support_procedural::PartialOrdNoBound;
 
 /// Derive [`Debug`] but do not bound any generic.
 ///
