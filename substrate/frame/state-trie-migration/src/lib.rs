@@ -1105,7 +1105,7 @@ mod mock {
 	use crate as pallet_state_trie_migration;
 	use frame_support::{
 		derive_impl, parameter_types,
-		traits::{ConstU32, Hooks},
+		traits::{ConstU64, Hooks},
 		weights::Weight,
 	};
 	use frame_system::{EnsureRoot, EnsureSigned};
@@ -1134,7 +1134,7 @@ mod mock {
 	#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 	impl frame_system::Config for Test {
 		type Block = Block;
-		type BlockHashCount = ConstU32<250>;
+		type BlockHashCount = ConstU64<250>;
 		type AccountData = pallet_balances::AccountData<u64>;
 	}
 
@@ -1269,7 +1269,7 @@ mod mock {
 		(custom_storage, version).into()
 	}
 
-	pub(crate) fn run_to_block(n: u32) -> (H256, Weight) {
+	pub(crate) fn run_to_block(n: u64) -> (H256, Weight) {
 		let mut root = Default::default();
 		let mut weight_sum = Weight::zero();
 		log::trace!(target: LOG_TARGET, "running from {:?} to {:?}", System::block_number(), n);

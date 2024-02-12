@@ -88,7 +88,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext
 }
 
-fn now() -> Timepoint<u32> {
+fn now() -> Timepoint<u64> {
 	Multisig::timepoint()
 }
 
