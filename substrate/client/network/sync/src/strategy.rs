@@ -326,7 +326,8 @@ where
 		} else {
 			error!(
 				target: LOG_TARGET,
-				"`on_block_response()` called with key {key:?} while corresponding strategy is not active.",
+				"`on_block_response()` called with unexpected key {key:?} \
+				 or corresponding strategy is not active.",
 			);
 			debug_assert!(false);
 		}
@@ -339,22 +340,19 @@ where
 		key: StrategyKey,
 		response: OpaqueStateResponse,
 	) {
-		match key {
-			StrategyKey::State => {
-				self.state.as_mut().map(|state| state.on_state_response(peer_id, response));
-			},
-			StrategyKey::ChainSync => {
-				self.chain_sync
-					.as_mut()
-					.map(|chain_sync| chain_sync.on_state_response(peer_id, response));
-			},
-			key => {
-				error!(
-					target: LOG_TARGET,
-					"`on_state_response()` called with unexpected key {key:?}",
-				);
-				debug_assert!(false);
-			},
+		if let (StrategyKey::State, Some(ref mut state)) = (key, &mut self.state) {
+			state.on_state_response(peer_id, response);
+		} else if let (StrategyKey::ChainSync, Some(ref mut chain_sync)) =
+			(key, &mut self.chain_sync)
+		{
+			chain_sync.on_state_response(peer_id, response);
+		} else {
+			error!(
+				target: LOG_TARGET,
+				"`on_state_response()` called with unexpected key {key:?} \
+				 or corresponding strategy is not active.",
+			);
+			debug_assert!(false);
 		}
 	}
 
@@ -365,17 +363,15 @@ where
 		key: StrategyKey,
 		response: EncodedProof,
 	) {
-		match key {
-			StrategyKey::Warp => {
-				self.warp.as_mut().map(|warp| warp.on_warp_proof_response(peer_id, response));
-			},
-			key => {
-				error!(
-					target: LOG_TARGET,
-					"`on_warp_proof_response()` called with unexpected key {key:?}",
-				);
-				debug_assert!(false);
-			},
+		if let (StrategyKey::Warp, Some(ref mut warp)) = (key, &mut self.warp) {
+			warp.on_warp_proof_response(peer_id, response);
+		} else {
+			error!(
+				target: LOG_TARGET,
+				"`on_warp_proof_response()` called with unexpected key {key:?} \
+				 or warp strategy is not active",
+			);
+			debug_assert!(false);
 		}
 	}
 
