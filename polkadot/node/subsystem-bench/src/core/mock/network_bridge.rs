@@ -13,27 +13,24 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
-//!
+
 //! Mocked `network-bridge` subsystems that uses a `NetworkInterface` to access
 //! the emulated network.
-use futures::{channel::mpsc::UnboundedSender, FutureExt, StreamExt};
-use polkadot_node_subsystem_types::{
-	messages::{ApprovalDistributionMessage, BitfieldDistributionMessage, NetworkBridgeEvent},
-	OverseerSignal,
-};
-
-use sc_network::{request_responses::ProtocolConfig, RequestFailure};
-
-use polkadot_node_subsystem::{
-	messages::NetworkBridgeTxMessage, overseer, SpawnedSubsystem, SubsystemError,
-};
-
-use polkadot_node_network_protocol::Versioned;
 
 use crate::core::{
 	configuration::TestAuthorities,
 	network::{NetworkEmulatorHandle, NetworkInterfaceReceiver, NetworkMessage, RequestExt},
 };
+use futures::{channel::mpsc::UnboundedSender, FutureExt, StreamExt};
+use polkadot_node_network_protocol::Versioned;
+use polkadot_node_subsystem::{
+	messages::NetworkBridgeTxMessage, overseer, SpawnedSubsystem, SubsystemError,
+};
+use polkadot_node_subsystem_types::{
+	messages::{ApprovalDistributionMessage, BitfieldDistributionMessage, NetworkBridgeEvent},
+	OverseerSignal,
+};
+use sc_network::{request_responses::ProtocolConfig, RequestFailure};
 
 const LOG_TARGET: &str = "subsystem-bench::network-bridge";
 const CHUNK_REQ_PROTOCOL_NAME_V1: &str =
