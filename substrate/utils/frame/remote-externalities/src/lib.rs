@@ -1269,11 +1269,6 @@ mod remote_tests {
 		env::var("TEST_WS").unwrap_or_else(|_| DEFAULT_HTTP_ENDPOINT.to_string())
 	}
 
-	#[test]
-	fn print_transport_url() {
-		println!("TRANSPORT_URL: {:?}", endpoint());
-	}
-
 	#[tokio::test]
 	async fn state_version_is_kept_and_can_be_altered() {
 		const CACHE: &'static str = "state_version_is_kept_and_can_be_altered";
