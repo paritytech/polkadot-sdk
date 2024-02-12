@@ -3,7 +3,12 @@
 
 # common settings for all zombienet jobs
 .zombienet-bridges-common:
+  extends:
+    - .kubernetes-env
+    - .zombienet-refs
   rules:
+    - !reference [.kubernetes-env, rules]
+    - !reference [.zombienet-refs, rules]
     - if: $CI_COMMIT_REF_NAME =~ /^gh-readonly-queue.*$/
       variables:
         DOCKER_IMAGES_VERSION: ${CI_COMMIT_SHORT_SHA}
@@ -21,9 +26,6 @@
   needs:
     - job: build-push-image-bridges-zombienet-tests
       artifacts: true
-  extends:
-    - .kubernetes-env
-    - .zombienet-refs
   variables:
     BRIDGES_ZOMBIENET_TESTS_IMAGE_TAG: ${DOCKER_IMAGES_VERSION}
     BRIDGES_ZOMBIENET_TESTS_IMAGE: "docker.io/paritypr/bridges-zombienet-tests"
