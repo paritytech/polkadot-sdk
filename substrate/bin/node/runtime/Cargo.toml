@@ -102,7 +102,7 @@ pallet-multisig = { path = "../../../frame/multisig", default-features = false, 
 pallet-nfts = { path = "../../../frame/nfts", default-features = false, version = "22.0.0" }
 pallet-nfts-runtime-api = { path = "../../../frame/nfts/runtime-api", default-features = false, version = "14.0.0" }
 pallet-nft-fractionalization = { path = "../../../frame/nft-fractionalization", default-features = false, version = "10.0.0" }
-pallet-nomination-pools = { path = "../../../frame/nomination-pools", default-features = false, version = "25.0.0" }
+pallet-nomination-pools = { path = "../../../frame/nomination-pools", default-features = false, version = "25.0.3" }
 pallet-nomination-pools-benchmarking = { path = "../../../frame/nomination-pools/benchmarking", default-features = false, optional = true, version = "26.0.0" }
 pallet-nomination-pools-runtime-api = { path = "../../../frame/nomination-pools/runtime-api", default-features = false, version = "23.0.0" }
 pallet-offences = { path = "../../../frame/offences", default-features = false, version = "27.0.0" }

@@ -57,10 +57,10 @@ runtime-parachains = { package = "polkadot-runtime-parachains", path = "../parac
 
 slot-range-helper = { path = "slot_range_helper", default-features = false, version = "7.0.0" }
 xcm = { package = "staging-xcm", path = "../../xcm", default-features = false, version = "7.0.0" }
-xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false, optional = true, version = "7.0.0" }
+xcm-executor = { package = "staging-xcm-executor", path = "../../xcm/xcm-executor", default-features = false, optional = true, version = "7.0.3" }
 
-pallet-xcm-benchmarks = { path = "../../xcm/pallet-xcm-benchmarks", default-features = false, optional = true, version = "7.0.0" }
-xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false, version = "7.0.0" }
+pallet-xcm-benchmarks = { path = "../../xcm/pallet-xcm-benchmarks", default-features = false, optional = true, version = "7.0.3" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../xcm/xcm-builder", default-features = false, version = "7.0.3" }
 
 [dev-dependencies]
 hex-literal = "0.4.1"

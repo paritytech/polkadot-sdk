@@ -17,8 +17,8 @@ sp-io = { version = "30.0.0", path = "../../../substrate/primitives/io" }
 sp-std = { version = "14.0.0", path = "../../../substrate/primitives/std" }
 
 xcm = { package = "staging-xcm", path = "..", version = "7.0.0" }
-xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", version = "7.0.0" }
-xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder", version = "7.0.0" }
+xcm-executor = { package = "staging-xcm-executor", path = "../xcm-executor", version = "7.0.3" }
+xcm-builder = { package = "staging-xcm-builder", path = "../xcm-builder", version = "7.0.3" }
 polkadot-core-primitives = { version = "7.0.0", path = "../../core-primitives" }
 polkadot-parachain-primitives = { version = "6.0.0", path = "../../parachain" }
 polkadot-runtime-parachains = { version = "7.0.0", path = "../../runtime/parachains" }

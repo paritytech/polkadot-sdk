@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
 sp-api = { path = "../../../primitives/api", default-features = false, version = "26.0.0" }
 sp-std = { path = "../../../primitives/std", default-features = false, version = "14.0.0" }
-pallet-nomination-pools = { path = "..", default-features = false, version = "25.0.0" }
+pallet-nomination-pools = { path = "..", default-features = false, version = "25.0.3" }
 
 [features]
 default = ["std"]

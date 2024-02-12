@@ -14,8 +14,8 @@ frame-support = { path = "../../../../../substrate/frame/support", default-featu
 frame-system = { path = "../../../../../substrate/frame/system", default-features = false, version = "28.0.0" }
 sp-arithmetic = { path = "../../../../../substrate/primitives/arithmetic", default-features = false, version = "23.0.0" }
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "7.0.0" }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "7.0.0" }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "7.0.0" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "7.0.3" }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "7.0.3" }
 
 snowbridge-core = { path = "../../primitives/core", default-features = false, version = "0.1.0" }
 

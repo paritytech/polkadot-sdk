@@ -27,7 +27,7 @@ pallet-message-queue = { path = "../../../substrate/frame/message-queue", defaul
 polkadot-runtime-common = { path = "../../../polkadot/runtime/common", default-features = false, version = "7.0.0" }
 polkadot-runtime-parachains = { path = "../../../polkadot/runtime/parachains", default-features = false, version = "7.0.0" }
 xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "7.0.0" }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false, version = "7.0.0" }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", default-features = false, version = "7.0.3" }
 
 # Cumulus
 cumulus-primitives-core = { path = "../../primitives/core", default-features = false, version = "0.7.0" }

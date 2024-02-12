@@ -26,8 +26,8 @@ pallet-asset-rate = { path = "../../../../../../../substrate/frame/asset-rate", 
 pallet-message-queue = { path = "../../../../../../../substrate/frame/message-queue", default-features = false, version = "31.0.0" }
 polkadot-runtime-common = { version = "7.0.0", path = "../../../../../../../polkadot/runtime/common" }
 xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false, version = "7.0.0" }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "7.0.0" }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "7.0.0" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "7.0.3" }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "7.0.3" }
 pallet-xcm = { path = "../../../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "7.0.0" }
 westend-runtime = { version = "7.0.0", path = "../../../../../../../polkadot/runtime/westend" }
 westend-runtime-constants = { path = "../../../../../../../polkadot/runtime/westend/constants", default-features = false, version = "7.0.0" }

@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 honggfuzz = "0.5.54"
 
-pallet-nomination-pools = { path = "..", features = ["fuzzing"], version = "25.0.0" }
+pallet-nomination-pools = { path = "..", features = ["fuzzing"], version = "25.0.3" }
 frame-system = { version = "28.0.0", path = "../../system" }
 frame-support = { version = "28.0.0", path = "../../support" }
 sp-runtime = { version = "31.0.0", path = "../../../primitives/runtime" }

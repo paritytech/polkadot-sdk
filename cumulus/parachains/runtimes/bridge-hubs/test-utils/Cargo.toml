@@ -38,10 +38,10 @@ parachains-runtimes-test-utils = { path = "../../test-utils", default-features =
 
 # Polkadot
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "7.0.0" }
-pallet-xcm-benchmarks = { path = "../../../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false, optional = true, version = "7.0.0" }
+pallet-xcm-benchmarks = { path = "../../../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false, optional = true, version = "7.0.3" }
 xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "7.0.0" }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "7.0.0" }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "7.0.0" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "7.0.3" }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "7.0.3" }
 
 # Bridges
 bp-header-chain = { path = "../../../../../bridges/primitives/header-chain", default-features = false, version = "0.7.0" }

@@ -23,7 +23,7 @@ pallet-identity = { path = "../../../../../../../substrate/frame/identity", defa
 # Polkadot
 xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false, version = "7.0.0" }
 pallet-xcm = { path = "../../../../../../../polkadot/xcm/pallet-xcm", default-features = false, version = "7.0.0" }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "7.0.0" }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "7.0.3" }
 westend-runtime = { version = "7.0.0", path = "../../../../../../../polkadot/runtime/westend" }
 westend-runtime-constants = { version = "7.0.0", path = "../../../../../../../polkadot/runtime/westend/constants" }
 polkadot-primitives = { version = "7.0.0", path = "../../../../../../../polkadot/primitives" }
@@ -32,5 +32,5 @@ asset-test-utils = { version = "7.0.0", path = "../../../../../runtimes/assets/t
 parachains-common = { version = "7.0.0", path = "../../../../../common" }
 people-westend-runtime = { version = "0.1.0", path = "../../../../../runtimes/people/people-westend" }
 emulated-integration-tests-common = { path = "../../../common", default-features = false, version = "3.0.0" }
-penpal-runtime = { version = "0.14.0", path = "../../../../../runtimes/testing/penpal" }
+penpal-runtime = { version = "0.14.3", path = "../../../../../runtimes/testing/penpal" }
 westend-system-emulated-network = { version = "0.1.0", path = "../../../networks/westend-system" }

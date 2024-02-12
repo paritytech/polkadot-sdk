@@ -34,7 +34,7 @@ parachains-common = { version = "7.0.0", path = "../../parachains/common" }
 
 # Polkadot
 xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", version = "7.0.0" }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", version = "7.0.0" }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../polkadot/xcm/xcm-executor", version = "7.0.3" }
 polkadot-primitives = { version = "7.0.0", path = "../../../polkadot/primitives" }
 polkadot-parachain-primitives = { version = "6.0.0", path = "../../../polkadot/parachain" }
 polkadot-runtime-parachains = { version = "7.0.0", path = "../../../polkadot/runtime/parachains" }

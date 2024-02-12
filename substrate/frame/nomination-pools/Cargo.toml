@@ -1,6 +1,6 @@
 [package]
 name = "pallet-nomination-pools"
-version = "25.0.0"
+version = "25.0.3"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
