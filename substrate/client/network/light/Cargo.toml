@@ -25,7 +25,7 @@ codec = { package = "parity-scale-codec", version = "3.6.1", features = [
 	"derive",
 ] }
 futures = "0.3.21"
-log = "0.4.16"
+log = { workspace = true, default-features = true }
 prost = "0.12"
 sp-blockchain = { path = "../../../primitives/blockchain" }
 sc-client-api = { path = "../../api" }

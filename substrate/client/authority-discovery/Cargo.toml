@@ -26,7 +26,7 @@ futures-timer = "3.0.1"
 ip_network = "0.4.1"
 libp2p = { version = "0.51.4", features = ["ed25519", "kad"] }
 multihash = { version = "0.17.0", default-features = false, features = ["sha2", "std"] }
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 prost = "0.12"
 rand = "0.8.5"
 thiserror = "1.0"

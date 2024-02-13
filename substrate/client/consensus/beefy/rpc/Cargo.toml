@@ -15,7 +15,7 @@ workspace = true
 codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"] }
 futures = "0.3.21"
 jsonrpsee = { version = "0.20.3", features = ["client-core", "macros", "server"] }
-log = "0.4"
+log = { workspace = true, default-features = true }
 parking_lot = "0.12.1"
 serde = { version = "1.0.195", features = ["derive"] }
 thiserror = "1.0"

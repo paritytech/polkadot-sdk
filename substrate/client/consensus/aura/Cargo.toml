@@ -19,7 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 async-trait = "0.1.74"
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 futures = "0.3.21"
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 thiserror = "1.0"
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../../utils/prometheus" }
 sc-block-builder = { path = "../../block-builder" }

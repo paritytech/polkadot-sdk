@@ -49,7 +49,7 @@ frame-system-rpc-runtime-api = { default-features = false, path = "../frame/syst
 
 docify = "0.2.7"
 simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", rev = "e48b187bcfd5cc75111acd9d241f1bd36604344b", optional = true }
-log = { version = "0.4.20", default-features = false }
+log = { workspace = true }
 
 [dev-dependencies]
 pallet-examples = { path = "./examples" }
