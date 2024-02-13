@@ -30,7 +30,7 @@ use crate::{
 };
 use chain_sync::{ChainSync, ChainSyncAction, ChainSyncMode};
 use libp2p::PeerId;
-use log::{error, info};
+use log::{debug, error, info};
 use prometheus_endpoint::Registry;
 use sc_client_api::{BlockBackend, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
@@ -265,6 +265,12 @@ where
 		if let Some(new_best) = new_best {
 			if let Some(best) = self.peer_best_blocks.get_mut(&peer_id) {
 				*best = new_best;
+			} else {
+				debug!(
+					target: LOG_TARGET,
+					"Cannot update `peer_best_blocks` as peer {peer_id} is not known to `Strategy` \
+					 (already disconnected?)",
+				);
 			}
 		}
 
