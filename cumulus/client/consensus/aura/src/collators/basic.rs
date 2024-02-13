@@ -204,8 +204,6 @@ where
 			// obsolete and also the underlying issue will be fixed.
 			if last_processed_slot >= *claim.slot() {
 				continue
-			} else {
-				last_processed_slot = *claim.slot();
 			}
 
 			let (parachain_inherent_data, other_inherent_data) = try_request!(
@@ -244,6 +242,8 @@ where
 				request.complete(None);
 				tracing::debug!(target: crate::LOG_TARGET, "No block proposal");
 			}
+
+			last_processed_slot = *claim.slot();
 		}
 	}
 }
