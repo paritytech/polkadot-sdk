@@ -56,7 +56,7 @@
 //! - It may be acceptable to use `except()`, but only if one is completely certain (and has
 //!   performed a check beforehand) that a value won't panic upon unwrapping.  Even this is
 //!   discouraged, however, as future changes to that function could then cause that statement to
-//!   panic.  It is better to ensure all errors are propagated and handled accordingly in some way.
+//!   panic.  It is important to ensure all possible errors are propagated and handled effectively.
 //! - If a function *can* panic, it usually is prefaced with `unchecked_` to indicate its unsafety.
 //! - If you are writing a function that could panic, [be sure to document it!](https://doc.rust-lang.org/rustdoc/how-to-write-documentation.html#documenting-components)
 //! - Carefully handle mathematical operations.  Many seemingly, simplistic operations, such as
