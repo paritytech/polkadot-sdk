@@ -40,6 +40,7 @@ pub const ALICE_NONCE: u64 = 209;
 
 fn create_basic_pool_with_genesis(
 	test_api: Arc<TestApi>,
+	options: Options,
 ) -> (BasicPool<TestApi, Block>, Pin<Box<dyn Future<Output = ()> + Send>>) {
 	let genesis_hash = {
 		test_api
@@ -50,19 +51,23 @@ fn create_basic_pool_with_genesis(
 			.map(|blocks| blocks[0].0.header.hash())
 			.expect("there is block 0. qed")
 	};
-	BasicPool::new_test(test_api, genesis_hash, genesis_hash, Default::default())
+	BasicPool::new_test(test_api, genesis_hash, genesis_hash, options)
 }
 
-fn maintained_pool() -> (BasicPool<TestApi, Block>, Arc<TestApi>, futures::executor::ThreadPool) {
+fn maintained_pool(
+	options: Options,
+) -> (BasicPool<TestApi, Block>, Arc<TestApi>, futures::executor::ThreadPool) {
 	let api = Arc::new(TestApi::with_alice_nonce(ALICE_NONCE));
-	let (pool, background_task) = create_basic_pool_with_genesis(api.clone());
+	let (pool, background_task) = create_basic_pool_with_genesis(api.clone(), options);
 
 	let thread_pool = futures::executor::ThreadPool::new().unwrap();
 	thread_pool.spawn_ok(background_task);
 	(pool, api, thread_pool)
 }
 
-pub fn setup_api() -> (
+pub fn setup_api(
+	options: Options,
+) -> (
 	Arc<TestApi>,
 	Arc<MiddlewarePool>,
 	Arc<ChainHeadMockClient<Client<Backend>>>,
@@ -70,7 +75,7 @@ pub fn setup_api() -> (
 	TaskExecutorRecv,
 	MiddlewarePoolRecv,
 ) {
-	let (pool, api, _) = maintained_pool();
+	let (pool, api, _) = maintained_pool(options);
 	let (pool, pool_recv) = MiddlewarePool::new(Arc::new(pool).clone());
 	let pool = Arc::new(pool);
 

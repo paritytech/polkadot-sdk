@@ -33,7 +33,8 @@ use crate::transaction::tests::{
 
 #[tokio::test]
 async fn tx_broadcast_enters_pool() {
-	let (api, pool, client_mock, tx_api, mut exec_middleware, mut pool_middleware) = setup_api();
+	let (api, pool, client_mock, tx_api, mut exec_middleware, mut pool_middleware) =
+		setup_api(Default::default());
 
 	// Start at block 1.
 	let block_1_header = api.push_block(1, vec![], true);
@@ -91,7 +92,7 @@ async fn tx_broadcast_enters_pool() {
 
 #[tokio::test]
 async fn tx_broadcast_invalid_tx() {
-	let (_, pool, _, tx_api, mut exec_middleware, _) = setup_api();
+	let (_, pool, _, tx_api, mut exec_middleware, _) = setup_api(Default::default());
 
 	// Invalid parameters.
 	let err = tx_api
@@ -130,7 +131,7 @@ async fn tx_broadcast_invalid_tx() {
 
 #[tokio::test]
 async fn tx_invalid_stop() {
-	let (_, _, _, tx_api, _, _) = setup_api();
+	let (_, _, _, tx_api, _, _) = setup_api(Default::default());
 
 	// Make an invalid stop call.
 	let err = tx_api
@@ -144,7 +145,8 @@ async fn tx_invalid_stop() {
 
 #[tokio::test]
 async fn tx_broadcast_resubmits_future_nonce_tx() {
-	let (api, pool, client_mock, tx_api, mut exec_middleware, mut pool_middleware) = setup_api();
+	let (api, pool, client_mock, tx_api, mut exec_middleware, mut pool_middleware) =
+		setup_api(Default::default());
 
 	// Start at block 1.
 	let block_1_header = api.push_block(1, vec![], true);
@@ -233,7 +235,8 @@ async fn tx_broadcast_resubmits_future_nonce_tx() {
 /// broadcast future to exit before the `stop` is called.
 #[tokio::test]
 async fn tx_broadcast_stop_after_broadcast_finishes() {
-	let (api, pool, client_mock, tx_api, mut exec_middleware, mut pool_middleware) = setup_api();
+	let (api, pool, client_mock, tx_api, mut exec_middleware, mut pool_middleware) =
+		setup_api(Default::default());
 
 	// Start at block 1.
 	let block_1_header = api.push_block(1, vec![], true);
