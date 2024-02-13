@@ -82,7 +82,7 @@ impl CoretimeRuntimeType {
 	pub fn load_config(&self) -> Result<Box<dyn ChainSpec>, String> {
 		match self {
 			CoretimeRuntimeType::Rococo => Ok(Box::new(GenericChainSpec::from_json_bytes(
-				&include_bytes!("../../../parachains/chain-specs/coretime-rococo.json")[..],
+				&include_bytes!("../../chain-specs/coretime-rococo.json")[..],
 			)?)),
 			CoretimeRuntimeType::RococoLocal =>
 				Ok(Box::new(rococo::local_config(*self, "rococo-local"))),
