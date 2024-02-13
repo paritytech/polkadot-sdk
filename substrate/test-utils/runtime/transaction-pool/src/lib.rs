@@ -81,6 +81,7 @@ pub struct ChainState {
 	pub block_by_hash: HashMap<Hash, Block>,
 	pub nonces: HashMap<AccountId, u64>,
 	pub invalid_hashes: HashSet<Hash>,
+	pub priorities: HashMap<Hash, u64>,
 }
 
 /// Test Api for transaction pool.
@@ -222,6 +223,14 @@ impl TestApi {
 		self.chain.write().invalid_hashes.remove(&Self::hash_and_length_inner(xts).0);
 	}
 
+	/// Set a transaction priority.
+	pub fn set_priority(&self, xts: &Extrinsic, priority: u64) {
+		self.chain
+			.write()
+			.priorities
+			.insert(Self::hash_and_length_inner(xts).0, priority);
+	}
+
 	/// Query validation requests received.
 	pub fn validation_requests(&self) -> Vec<Extrinsic> {
 		self.validation_requests.read().clone()
@@ -308,8 +317,14 @@ impl ChainApi for TestApi {
 			return ready(Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(0)))))
 		}
 
-		let mut validity =
-			ValidTransaction { priority: 1, requires, provides, longevity: 64, propagate: true };
+		let priority = self.chain.read().priorities.get(&self.hash_and_length(&uxt).0).cloned();
+		let mut validity = ValidTransaction {
+			priority: priority.unwrap_or(1),
+			requires,
+			provides,
+			longevity: 64,
+			propagate: true,
+		};
 
 		(self.valid_modifier.read())(&mut validity);
 
