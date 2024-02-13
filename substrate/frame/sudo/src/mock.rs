@@ -21,14 +21,10 @@ use super::*;
 use crate as sudo;
 use frame_support::{
 	derive_impl,
-	traits::{ConstU32, Contains},
+	traits::Contains,
 };
-use sp_core::{ConstU64, H256};
 use sp_io;
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
-};
+use sp_runtime::BuildStorage;
 
 // Logger module to track execution.
 #[frame_support::pallet]
