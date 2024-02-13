@@ -59,7 +59,7 @@ sp-blockchain = { path = "../../primitives/blockchain" }
 sp-core = { path = "../../primitives/core" }
 sp-runtime = { path = "../../primitives/runtime" }
 wasm-timer = "0.2"
-litep2p = { git = "https://github.com/altonen/litep2p", branch = "master" }
+litep2p = { git = "https://github.com/altonen/litep2p", branch = "debug-2944" }
 once_cell = "1.18.0"
 void = "1.0.2"
 schnellru = "0.2.1"
