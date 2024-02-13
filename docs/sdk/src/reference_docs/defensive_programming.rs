@@ -139,7 +139,7 @@
 //! made obvious, especially in the context of blockchain development, where unsafe arithmetic could
 //! produce unexpected consequences like a user balance over or underflowing.
 //!
-//! Luckily, there are ways to both represent and handle these scenarios depending on our specific
+//! Fortunately, there are ways to both represent and handle these scenarios depending on our specific
 //! use case natively built into Rust, as well as libraries like [`sp_arithmetic`].
 //!
 //! ## Infallible Arithmetic
