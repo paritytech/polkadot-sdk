@@ -21,7 +21,7 @@
 //!
 //! ## In Polkadot SDK
 //!
-//! The Polkadot SDK allows for easily deploying own blockchains from scratch, all very
+//! The Polkadot SDK allows for easily deploying sovereign blockchains from scratch, all very
 //! customizable. This makes dealing with all these blockchains cumbersome.
 //! XCM exists both as a standard for doing similar things in many chains, and as a language to send
 //! message between them.
