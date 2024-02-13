@@ -14,14 +14,30 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::approval::{
-	helpers::{
-		generate_babe_epoch, generate_new_session_topology, generate_peer_view_change_for,
-		make_header, PastSystemClock,
+use crate::{
+	approval::{
+		helpers::{
+			generate_babe_epoch, generate_new_session_topology, generate_peer_view_change_for,
+			make_header, PastSystemClock,
+		},
+		message_generator::PeerMessagesGenerator,
+		mock_chain_selection::MockChainSelection,
+		test_message::{MessagesBundle, TestMessageInfo},
 	},
-	message_generator::PeerMessagesGenerator,
-	mock_chain_selection::MockChainSelection,
-	test_message::{MessagesBundle, TestMessageInfo},
+	configuration::{TestAuthorities, TestConfiguration},
+	dummy_builder,
+	environment::{TestEnvironment, TestEnvironmentDependencies, MAX_TIME_OF_FLIGHT},
+	mock::{
+		chain_api::{ChainApiState, MockChainApi},
+		network_bridge::{MockNetworkBridgeRx, MockNetworkBridgeTx},
+		runtime_api::MockRuntimeApi,
+		AlwaysSupportsParachains, TestSyncOracle,
+	},
+	network::{
+		new_network, HandleNetworkMessage, NetworkEmulatorHandle, NetworkInterface,
+		NetworkInterfaceReceiver,
+	},
+	NODE_UNDER_TEST,
 };
 use colored::Colorize;
 use futures::channel::oneshot;
@@ -44,22 +60,6 @@ use polkadot_overseer::Handle as OverseerHandleReal;
 use polkadot_primitives::{
 	BlockNumber, CandidateEvent, CandidateIndex, CandidateReceipt, Hash, Header, Slot,
 	ValidatorIndex,
-};
-use polkadot_subsystem_bench::{
-	configuration::{TestAuthorities, TestConfiguration},
-	dummy_builder,
-	environment::{TestEnvironment, TestEnvironmentDependencies, MAX_TIME_OF_FLIGHT},
-	mock::{
-		chain_api::{ChainApiState, MockChainApi},
-		network_bridge::{MockNetworkBridgeRx, MockNetworkBridgeTx},
-		runtime_api::MockRuntimeApi,
-		AlwaysSupportsParachains, TestSyncOracle,
-	},
-	network::{
-		new_network, HandleNetworkMessage, NetworkEmulatorHandle, NetworkInterface,
-		NetworkInterfaceReceiver,
-	},
-	NODE_UNDER_TEST,
 };
 use prometheus::Registry;
 use sc_keystore::LocalKeystore;
@@ -467,11 +467,9 @@ impl ApprovalTestState {
 impl HandleNetworkMessage for ApprovalTestState {
 	fn handle(
 		&self,
-		_message: polkadot_subsystem_bench::network::NetworkMessage,
-		_node_sender: &mut futures::channel::mpsc::UnboundedSender<
-			polkadot_subsystem_bench::network::NetworkMessage,
-		>,
-	) -> Option<polkadot_subsystem_bench::network::NetworkMessage> {
+		_message: crate::network::NetworkMessage,
+		_node_sender: &mut futures::channel::mpsc::UnboundedSender<crate::network::NetworkMessage>,
+	) -> Option<crate::network::NetworkMessage> {
 		self.total_sent_messages_from_node
 			.as_ref()
 			.fetch_add(1, std::sync::atomic::Ordering::SeqCst);

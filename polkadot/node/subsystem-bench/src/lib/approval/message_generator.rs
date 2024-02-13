@@ -18,10 +18,12 @@ use crate::{
 	approval::{
 		helpers::{generate_babe_epoch, generate_topology},
 		test_message::{MessagesBundle, TestMessageInfo},
-		ApprovalTestState, BlockTestData, GeneratedState, BUFFER_FOR_GENERATION_MILLIS, LOG_TARGET,
-		SLOT_DURATION_MILLIS,
+		ApprovalTestState, ApprovalsOptions, BlockTestData, GeneratedState,
+		BUFFER_FOR_GENERATION_MILLIS, LOG_TARGET, SLOT_DURATION_MILLIS,
 	},
-	ApprovalsOptions,
+	configuration::{TestAuthorities, TestConfiguration},
+	mock::runtime_api::session_info_for_peers,
+	NODE_UNDER_TEST,
 };
 use futures::SinkExt;
 use itertools::Itertools;
@@ -41,11 +43,6 @@ use polkadot_node_primitives::approval::{
 use polkadot_primitives::{
 	vstaging::ApprovalVoteMultipleCandidates, CandidateEvent, CandidateHash, CandidateIndex,
 	CoreIndex, Hash, SessionInfo, Slot, ValidatorId, ValidatorIndex, ASSIGNMENT_KEY_TYPE_ID,
-};
-use polkadot_subsystem_bench::{
-	configuration::{TestAuthorities, TestConfiguration},
-	mock::runtime_api::session_info_for_peers,
-	NODE_UNDER_TEST,
 };
 use rand::{seq::SliceRandom, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;

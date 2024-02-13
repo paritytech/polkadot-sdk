@@ -15,14 +15,13 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-	approval::{BlockTestData, CandidateTestData},
-	ApprovalsOptions,
+	approval::{ApprovalsOptions, BlockTestData, CandidateTestData},
+	configuration::TestAuthorities,
 };
 use itertools::Itertools;
 use parity_scale_codec::{Decode, Encode};
 use polkadot_node_network_protocol::v3 as protocol_v3;
 use polkadot_primitives::{CandidateIndex, Hash, ValidatorIndex};
-use polkadot_subsystem_bench::configuration::TestAuthorities;
 use sc_network::PeerId;
 use std::collections::{HashMap, HashSet};
 

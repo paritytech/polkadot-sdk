@@ -17,14 +17,13 @@
 //! A tool for running subsystem benchmark tests
 //! designed for development and CI regression testing.
 
-use approval::{bench_approvals, ApprovalsOptions};
 use availability::{cli::DataAvailabilityReadOptions, prepare_test, TestState};
 use clap::Parser;
 use color_eyre::eyre;
 use colored::Colorize;
 use polkadot_subsystem_bench::{
+	approval::{self, bench_approvals, ApprovalsOptions},
 	configuration::TestConfiguration,
-	display::display_configuration,
 	environment::{TestEnvironment, GENESIS_HASH},
 };
 use pyroscope::PyroscopeAgent;
@@ -34,7 +33,6 @@ use rand_distr::{Distribution, Uniform};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-mod approval;
 mod availability;
 mod valgrind;
 
@@ -61,7 +59,6 @@ impl std::fmt::Display for TestObjective {
 				Self::DataAvailabilityRead(_) => "DataAvailabilityRead",
 				Self::DataAvailabilityWrite => "DataAvailabilityWrite",
 				Self::ApprovalVoting(_) => "ApprovalVoting",
-				// Self::Unimplemented => "Unimplemented",
 			}
 		)
 	}

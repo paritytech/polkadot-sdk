@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::configuration::TestAuthorities;
 use itertools::Itertools;
 use polkadot_node_core_approval_voting::time::{Clock, SystemClock, Tick};
 use polkadot_node_network_protocol::{
@@ -29,7 +30,6 @@ use polkadot_primitives::{
 	Id as ParaId, Slot, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::dummy_candidate_receipt_bad_sig;
-use polkadot_subsystem_bench::configuration::TestAuthorities;
 use rand::{seq::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use sc_network::PeerId;
