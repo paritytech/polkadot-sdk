@@ -6959,6 +6959,216 @@ mod staking_interface {
 	}
 }
 
+mod on_staking_update_events {
+	use super::*;
+
+	use sp_staking::{OnStakingUpdateEvent::*, Stake};
+
+	#[test]
+	fn on_nominator_lifecycle_emit_works() {
+		ExtBuilder::default().has_stakers(false).nominate(false).build_and_execute(|| {
+			// no events yet.
+			ensure_on_staking_updates_emitted(vec![]);
+
+			// bond validator 11 and 12.
+			bond_validator(11, 100);
+			bond_validator(12, 100);
+			ensure_on_staking_updates_emitted(vec![
+				StakeUpdate { who: 11, prev_stake: None, stake: Stake { total: 100, active: 100 } },
+				ValidatorAdd { who: 11, self_stake: Some(Stake { total: 100, active: 100 }) },
+				StakeUpdate { who: 12, prev_stake: None, stake: Stake { total: 100, active: 100 } },
+				ValidatorAdd { who: 12, self_stake: Some(Stake { total: 100, active: 100 }) },
+			]);
+
+			// bond staker 21.
+			bond(21, 100);
+			ensure_on_staking_updates_emitted(vec![StakeUpdate {
+				who: 21,
+				prev_stake: None,
+				stake: Stake { total: 100, active: 100 },
+			}]);
+
+			// staker 21 nominates 11.
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(21), vec![11]));
+			ensure_on_staking_updates_emitted(vec![NominatorAdd {
+				who: 21,
+				nominations: vec![11],
+			}]);
+
+			// 21 updates nominations.
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(21), vec![12]));
+			ensure_on_staking_updates_emitted(vec![NominatorUpdate {
+				who: 21,
+				prev_nominations: vec![11],
+				nominations: vec![12],
+			}]);
+
+			// 21 unbonds half of its stake.
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(21), 50));
+			ensure_on_staking_updates_emitted(vec![StakeUpdate {
+				who: 21,
+				prev_stake: Some(Stake { total: 100, active: 100 }),
+				// 50 unlocking, 50 active.
+				stake: Stake { total: 100, active: 50 },
+			}]);
+
+			// 21 chills.
+			assert_ok!(Staking::chill(RuntimeOrigin::signed(21)));
+			ensure_on_staking_updates_emitted(vec![NominatorRemove {
+				who: 21,
+				nominations: vec![12],
+			}]);
+
+			// 21 unbnonds completely.
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(21), 50));
+			ensure_on_staking_updates_emitted(vec![StakeUpdate {
+				who: 21,
+				prev_stake: Some(Stake { total: 100, active: 50 }),
+				stake: Stake { total: 100, active: 0 },
+			}]);
+
+			// roll to era where full withdraw can happen.
+			start_active_era(current_era() + BondingDuration::get());
+
+			// 21 withdraws all unlocked funds to kill the stash/ unstake.
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(21), 0));
+			ensure_on_staking_updates_emitted(vec![
+				Unstake { who: 21 },
+				Withdraw { who: 21, amount: 100 },
+			]);
+		})
+	}
+
+	#[test]
+	fn on_validator_lifecycle_emit_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			// reset `OnStakingUpdate` events from genesis.
+			EventsEmitted::set(vec![]);
+			ensure_on_staking_updates_emitted(vec![]);
+
+			// bond validator 42.
+			bond_validator(42, 100);
+			ensure_on_staking_updates_emitted(vec![
+				StakeUpdate { who: 42, prev_stake: None, stake: Stake { total: 100, active: 100 } },
+				ValidatorAdd { who: 42, self_stake: Some(Stake { total: 100, active: 100 }) },
+			]);
+
+			// 42 bonds 50 extra.
+			let _ = Balances::make_free_balance_be(&42, 500);
+			assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(42), 50));
+			ensure_on_staking_updates_emitted(vec![StakeUpdate {
+				who: 42,
+				prev_stake: Some(Stake { total: 100, active: 100 }),
+				stake: Stake { total: 150, active: 150 },
+			}]);
+
+			// 42 unbonds 50.
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(42), 50));
+			ensure_on_staking_updates_emitted(vec![StakeUpdate {
+				who: 42,
+				prev_stake: Some(Stake { total: 150, active: 150 }),
+				stake: Stake { total: 150, active: 100 },
+			}]);
+
+			// 101 nominates 42.
+			let prev_nominations = Staking::nominations(&101).unwrap();
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![42]));
+			ensure_on_staking_updates_emitted(vec![NominatorUpdate {
+				who: 101,
+				prev_nominations,
+				nominations: vec![42],
+			}]);
+
+			// 42 chills.
+			assert_ok!(Staking::chill(RuntimeOrigin::signed(42)));
+			ensure_on_staking_updates_emitted(vec![ValidatorIdle { who: 42 }]);
+
+			// 42 unbounds completely.
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(42), 100));
+			ensure_on_staking_updates_emitted(vec![StakeUpdate {
+				who: 42,
+				prev_stake: Some(Stake { total: 150, active: 100 }),
+				stake: Stake { total: 150, active: 0 },
+			}]);
+
+			// roll to era where full withdraw can happen.
+			start_active_era(current_era() + BondingDuration::get());
+
+			// 11 withdraws all unlocked funds to kill the stash/ unstake.
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(42), 0));
+			ensure_on_staking_updates_emitted(vec![
+				ValidatorRemove { who: 42 },
+				Unstake { who: 42 },
+				Withdraw { who: 42, amount: 150 },
+			]);
+		})
+	}
+
+	#[test]
+	fn force_unstake_emit_works() {
+		ExtBuilder::default().has_stakers(false).nominate(false).build_and_execute(|| {
+			// set stakers
+			bond_validator(11, 100);
+			bond_nominator(101, 100, vec![11]);
+
+			// reset `OnStakingUpdate` events up to now.
+			EventsEmitted::set(vec![]);
+			ensure_on_staking_updates_emitted(vec![]);
+
+			// force unstake of a validator.
+			assert_ok!(Staking::force_unstake(RuntimeOrigin::root(), 11, 0));
+			ensure_on_staking_updates_emitted(vec![
+				ValidatorIdle { who: 11 },
+				ValidatorRemove { who: 11 },
+				Unstake { who: 11 },
+			]);
+
+			// force unstake of a nominator.
+			assert_ok!(Staking::force_unstake(RuntimeOrigin::root(), 101, 0));
+			ensure_on_staking_updates_emitted(vec![
+				NominatorRemove { who: 101, nominations: vec![11] },
+				Unstake { who: 101 },
+			]);
+		})
+	}
+
+	#[test]
+	fn slash_emit_works() {
+		ExtBuilder::default().has_stakers(false).nominate(false).build_and_execute(|| {
+			// set stakers
+			bond_validator(11, 100);
+			bond_nominator(101, 100, vec![11]);
+
+			// reset `OnStakingUpdate` events up to now.
+			EventsEmitted::set(vec![]);
+			ensure_on_staking_updates_emitted(vec![]);
+
+			// progress a few eras and then slash 11.
+			start_active_era(5);
+			add_slash(&11);
+
+			ensure_on_staking_updates_emitted(vec![
+				// disabling/chilling validator at slash.
+				ValidatorIdle { who: 11 },
+				Slash { who: 11, slashed_active: 90, slashed_total: 10 },
+				// slash applied on the validator stake.
+				StakeUpdate {
+					who: 11,
+					prev_stake: Some(Stake { total: 100, active: 100 }),
+					stake: Stake { total: 90, active: 90 },
+				},
+				Slash { who: 101, slashed_active: 90, slashed_total: 10 },
+				// slash applied on the nominator stake.
+				StakeUpdate {
+					who: 101,
+					prev_stake: Some(Stake { total: 100, active: 100 }),
+					stake: Stake { total: 90, active: 90 },
+				},
+			]);
+		})
+	}
+}
+
 mod ledger {
 	use super::*;
 

@@ -1032,7 +1032,7 @@ impl<T: Config> Pallet<T> {
 	/// be signalled to [`T::EventListeners`].
 	pub(crate) fn do_chill_nominator(who: &T::AccountId) -> bool {
 		Nominators::<T>::take(who).map_or(false, |nominations| {
-			T::EventListeners::on_nominator_idle(who, nominations.targets.into());
+			T::EventListeners::on_nominator_remove(who, nominations.clone().targets.into());
 			true
 		})
 	}
@@ -1046,18 +1046,12 @@ impl<T: Config> Pallet<T> {
 	/// to `Nominators` or `VoterList` outside of this function is almost certainly wrong.
 	pub fn do_remove_nominator(who: &T::AccountId) -> bool {
 		let outcome = match Self::status(who) {
-			Ok(StakerStatus::Nominator(nominations)) => {
+			Ok(StakerStatus::Nominator(_)) | Ok(StakerStatus::Validator) => {
 				let outcome = Self::do_chill_nominator(who);
-				T::EventListeners::on_nominator_remove(who, nominations);
 				outcome
 			},
-			Ok(StakerStatus::Validator) => {
-				let outcome = Self::do_chill_nominator(who);
-				T::EventListeners::on_nominator_remove(who, vec![]);
-				outcome
-			},
-			// not an active nomination, do nothing.
-			_ => false,
+			// not an active nominator, do nothing.
+			Err(_) | Ok(StakerStatus::Idle) => false,
 		};
 
 		debug_assert_eq!(
@@ -1124,10 +1118,6 @@ impl<T: Config> Pallet<T> {
 				T::EventListeners::on_validator_remove(who);
 				outcome
 			},
-			Ok(StakerStatus::Nominator(_)) => {
-				defensive!("called do_validator_remove on a nominator stash.");
-				false
-			},
 			Ok(StakerStatus::Idle) | Err(_) if T::TargetList::contains(who) => {
 				// try to remove "dangling" target. A dangling target does not have a bonded stash
 				// but is still part of the target list because a previously removed stash still has
@@ -1135,10 +1125,7 @@ impl<T: Config> Pallet<T> {
 				T::EventListeners::on_validator_remove(who);
 				false
 			},
-			_ => {
-				// validator has been already removed.
-				false
-			},
+			_ => false,
 		};
 
 		debug_assert_eq!(

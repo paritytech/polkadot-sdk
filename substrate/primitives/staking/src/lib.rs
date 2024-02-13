@@ -153,6 +153,9 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 	/// Fired when someone removes their intention to validate, either due to chill or nominating.
 	fn on_validator_remove(_who: &AccountId) {}
 
+	/// Fired when a portion of a staker's balance has been withdrawn.
+	fn on_withdraw(_stash: &AccountId, _amount: Balance) {}
+
 	/// Fired when someone is fully unstaked.
 	fn on_unstake(_who: &AccountId) {}
 
@@ -170,9 +173,65 @@ pub trait OnStakingUpdate<AccountId, Balance> {
 		_slashed_total: Balance,
 	) {
 	}
+}
 
-	/// Fired when a portion of a staker's balance has been withdrawn.
-	fn on_withdraw(_stash: &AccountId, _amount: Balance) {}
+/// Representation of the `OnStakingUpdate` events.
+///
+/// Represents the events that may be emitted by the `OnStakingUpdate` trait, maps 1-1 to the
+/// trait's method signatures.
+///
+/// Only used for testing in external crates.
+#[cfg(feature = "test-utils")]
+#[derive(PartialEq, Clone, Debug)]
+pub enum OnStakingUpdateEvent<AccountId, Balance> {
+	StakeUpdate {
+		who: AccountId,
+		prev_stake: Option<Stake<Balance>>,
+		stake: Stake<Balance>,
+	},
+	NominatorAdd {
+		who: AccountId,
+		nominations: Vec<AccountId>,
+	},
+	NominatorUpdate {
+		who: AccountId,
+		prev_nominations: Vec<AccountId>,
+		nominations: Vec<AccountId>,
+	},
+	NominatorIdle {
+		who: AccountId,
+		prev_nominations: Vec<AccountId>,
+	},
+	NominatorRemove {
+		who: AccountId,
+		nominations: Vec<AccountId>,
+	},
+	ValidatorAdd {
+		who: AccountId,
+		self_stake: Option<Stake<Balance>>,
+	},
+	ValidatorUpdate {
+		who: AccountId,
+		self_stake: Option<Stake<Balance>>,
+	},
+	ValidatorIdle {
+		who: AccountId,
+	},
+	ValidatorRemove {
+		who: AccountId,
+	},
+	Withdraw {
+		who: AccountId,
+		amount: Balance,
+	},
+	Unstake {
+		who: AccountId,
+	},
+	Slash {
+		who: AccountId,
+		slashed_active: Balance,
+		slashed_total: Balance,
+	},
 }
 
 /// A generic representation of a staking implementation.

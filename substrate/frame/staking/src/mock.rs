@@ -41,7 +41,7 @@ use sp_runtime::{
 };
 use sp_staking::{
 	offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
-	OnStakingUpdate,
+	OnStakingUpdate, OnStakingUpdateEvent, Stake,
 };
 
 pub const INIT_TIMESTAMP: u64 = 30_000;
@@ -290,6 +290,7 @@ parameter_types! {
 	pub static LedgerSlashPerEra:
 		(BalanceOf<Test>, BTreeMap<EraIndex, BalanceOf<Test>>) =
 		(Zero::zero(), BTreeMap::new());
+	pub static EventsEmitted: Vec<OnStakingUpdateEvent<AccountId, Balance>> = vec![];
 }
 
 pub struct SlashListenerMock;
@@ -301,6 +302,83 @@ impl OnStakingUpdate<AccountId, Balance> for SlashListenerMock {
 		_total_slashed: Balance,
 	) {
 		LedgerSlashPerEra::set((slashed_bonded, slashed_chunks.clone()));
+	}
+}
+
+pub struct EventTracker;
+impl OnStakingUpdate<AccountId, Balance> for EventTracker {
+	fn on_stake_update(who: &AccountId, prev_stake: Option<Stake<Balance>>, stake: Stake<Balance>) {
+		EventsEmitted::mutate(|v| {
+			v.push(OnStakingUpdateEvent::StakeUpdate { who: *who, prev_stake, stake });
+		})
+	}
+	fn on_nominator_add(who: &AccountId, nominations: Vec<AccountId>) {
+		EventsEmitted::mutate(|v| {
+			v.push(OnStakingUpdateEvent::NominatorAdd { who: *who, nominations });
+		})
+	}
+	fn on_nominator_update(
+		who: &AccountId,
+		prev_nominations: Vec<AccountId>,
+		nominations: Vec<AccountId>,
+	) {
+		EventsEmitted::mutate(|v| {
+			v.push(OnStakingUpdateEvent::NominatorUpdate {
+				who: *who,
+				prev_nominations,
+				nominations,
+			});
+		})
+	}
+	fn on_nominator_idle(who: &AccountId, prev_nominations: Vec<AccountId>) {
+		EventsEmitted::mutate(|v| {
+			v.push(OnStakingUpdateEvent::NominatorIdle { who: *who, prev_nominations });
+		})
+	}
+	fn on_nominator_remove(who: &AccountId, nominations: Vec<AccountId>) {
+		EventsEmitted::mutate(|v| {
+			v.push(OnStakingUpdateEvent::NominatorRemove { who: *who, nominations });
+		})
+	}
+	fn on_validator_add(who: &AccountId, self_stake: Option<Stake<Balance>>) {
+		EventsEmitted::mutate(|v| {
+			v.push(OnStakingUpdateEvent::ValidatorAdd { who: *who, self_stake });
+		})
+	}
+	fn on_validator_update(who: &AccountId, self_stake: Option<Stake<Balance>>) {
+		EventsEmitted::mutate(|v| {
+			v.push(OnStakingUpdateEvent::ValidatorUpdate { who: *who, self_stake });
+		})
+	}
+	fn on_validator_idle(who: &AccountId) {
+		EventsEmitted::mutate(|v| {
+			v.push(OnStakingUpdateEvent::ValidatorIdle { who: *who });
+		})
+	}
+	fn on_validator_remove(who: &AccountId) {
+		EventsEmitted::mutate(|v| {
+			v.push(OnStakingUpdateEvent::ValidatorRemove { who: *who });
+		})
+	}
+	fn on_withdraw(who: &AccountId, amount: Balance) {
+		EventsEmitted::mutate(|v| {
+			v.push(OnStakingUpdateEvent::Withdraw { who: *who, amount });
+		})
+	}
+	fn on_unstake(who: &AccountId) {
+		EventsEmitted::mutate(|v| {
+			v.push(OnStakingUpdateEvent::Unstake { who: *who });
+		})
+	}
+	fn on_slash(
+		who: &AccountId,
+		slashed_active: Balance,
+		_slashed_unlocking: &BTreeMap<EraIndex, Balance>,
+		slashed_total: Balance,
+	) {
+		EventsEmitted::mutate(|v| {
+			v.push(OnStakingUpdateEvent::Slash { who: *who, slashed_active, slashed_total });
+		})
 	}
 }
 
@@ -340,7 +418,7 @@ impl crate::pallet::pallet::Config for Test {
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type HistoryDepth = HistoryDepth;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
-	type EventListeners = (StakeTracker, SlashListenerMock);
+	type EventListeners = (StakeTracker, SlashListenerMock, EventTracker);
 	type BenchmarkingConfig = TestBenchmarkingConfig;
 	type WeightInfo = ();
 }
@@ -910,6 +988,22 @@ pub(crate) fn staking_events_since_last_call() -> Vec<crate::Event<Test>> {
 
 pub(crate) fn balances(who: &AccountId) -> (Balance, Balance) {
 	(Balances::free_balance(who), Balances::reserved_balance(who))
+}
+
+// this helper method also cleans the current state of `EventsEmtted`.
+pub(crate) fn ensure_on_staking_updates_emitted(
+	expected: Vec<OnStakingUpdateEvent<AccountId, Balance>>,
+) {
+	assert_eq!(
+		EventsEmitted::get(),
+		expected,
+		"`OnStakingUpdate` events not as expected: {:?} != {:?}",
+		EventsEmitted::get(),
+		expected
+	);
+
+	// reset events emitted.
+	EventsEmitted::set(vec![]);
 }
 
 /// Similar to the try-state checks of the stake-tracker pallet, but works without `try-runtime`

@@ -52,6 +52,7 @@ substrate-test-utils = { path = "../../test-utils" }
 frame-benchmarking = { path = "../benchmarking" }
 frame-election-provider-support = { path = "../election-provider-support" }
 rand_chacha = { version = "0.2" }
+sp-staking = { path = "../../primitives/staking", default-features = false, features = ["serde", "test-utils"] }
 
 [features]
 default = ["std"]
