@@ -204,6 +204,7 @@ pub(crate) mod v7 {
 			Pallet::<T>::create_bonded_account(self.id)
 		}
 
+		#[allow(dead_code)]
 		fn points_to_balance(&self, points: BalanceOf<T>) -> BalanceOf<T> {
 			let bonded_balance =
 				T::Staking::active_stake(&self.bonded_account()).unwrap_or(Zero::zero());
@@ -283,6 +284,7 @@ pub(crate) mod v7 {
 	}
 
 	impl<T: Config> UnbondPool<T> {
+		#[allow(dead_code)]
 		fn point_to_balance(&self, points: BalanceOf<T>) -> BalanceOf<T> {
 			point_to_balance::<T>(self.balance, self.points, points)
 		}
@@ -305,6 +307,7 @@ pub(crate) mod v7 {
 	pub type SubPoolsStorage<T: Config> =
 		CountedStorageMap<Pallet<T>, Twox64Concat, PoolId, SubPools<T>>;
 
+	#[allow(dead_code)]
 	fn total_balance<T: Config>(self_as_member: &PoolMember<T>) -> BalanceOf<T> {
 		// let pool = V7BondedPool::<T>::get(self_as_member.pool_id).unwrap();
 		let id = self_as_member.pool_id;
@@ -332,6 +335,7 @@ pub(crate) mod v7 {
 		active_balance + unbonding_balance
 	}
 
+	#[allow(dead_code)]
 	fn point_to_balance<T: Config>(
 		current_balance: BalanceOf<T>,
 		current_points: BalanceOf<T>,
