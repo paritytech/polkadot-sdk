@@ -172,7 +172,7 @@ impl BenchCli {
 		{
 			let benchmark_name = format!("{} #{} {}", &self.path, index + 1, objective);
 			gum::info!(target: LOG_TARGET, "{}", format!("Step {}/{}", index + 1, num_steps).bright_purple(),);
-			gum::info!("[{}] {}", format!("objective = {:?}", objective).green(), test_config);
+			gum::info!(target: LOG_TARGET, "[{}] {}", format!("objective = {:?}", objective).green(), test_config);
 
 			match objective {
 				TestObjective::DataAvailabilityRead(ref _opts) => {
