@@ -37,8 +37,7 @@
 //!
 //! When developing within the context of the a runtime, there is *one* golden rule:
 //!
-//! ***DO NOT PANIC***. There are some exceptions, such as critical operations being actually more
-//! dangerous than allowing the runtime to continue functioning (block authoring, consensus, etc).
+//! ***DO NOT PANIC***. There are some exceptions, which will be covered later on in this doc.
 //!
 //! > It's important to make the differentiation between the **runtime** and **node**.  The runtime
 //! > refers to the core business logic of a Substrate-based chain, whereas the node refers to the
