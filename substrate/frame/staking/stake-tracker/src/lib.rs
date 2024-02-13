@@ -25,8 +25,9 @@
 //! The stake-tracker pallet listens to staking events through implementing the [`OnStakingUpdate`]
 //! trait and, based on those events, ensures that the score of nodes in the lists
 //! [`Config::VoterList`] and [`Config::TargetList`] are kept up to date with the staker's bonds
-//! and nominations in the system. In addition, the pallet also ensures that [`Config::TargetList`]
-//! is *strictly sorted* based on the targets' approvals.
+//! and nominations in the system. In addition, the pallet also ensures that both the
+//! [`Config::TargetList`] and [`Config::VoterList`] are *strictly sorted* by
+//! [`SortedListProvider::Score`].
 //!
 //! ## Goals
 //!
@@ -34,25 +35,26 @@
 //!
 //! * The [`Config::TargetList`] keeps a sorted list of validators, sorted by approvals
 //! (which include self-vote and nominations' stake).
-//! * The [`Config::VoterList`] keeps a semi-sorted list of voters, loosely sorted by bonded stake.
-//! This pallet does nothing to ensure that the voter list sorting is correct.
+//! * The [`Config::VoterList`] keeps a sorted list of voters, sorted by bonded stake.
 //! * The [`Config::TargetList`] sorting must be *always* kept up to date, even in the event of new
 //! nomination updates, nominator/validator slashes and rewards. This pallet *must* ensure that the
-//! scores of the targets are always up to date *and* the targets are sorted by score at all time.
+//! scores of the targets  and voters are always up to date and thus, that the targets and voters in
+//! the lists are sorted by score at all time.
 //!
 //! Note that from the POV of this pallet, all events will result in one or multiple updates to
 //! [`Config::VoterList`] and/or [`Config::TargetList`] state. If a set of staking updates require
-//! too much weight to process (e.g. at nominator's rewards payout or at nominator's slashes), the
-//! event emitter should handle that in some way (e.g. buffering events and implementing a
-//! multi-block event emitter).
+//! too much weight to execute (e.g. at nominator's rewards payout or at slashes), the event emitter
+//! should handle that in some way (e.g. buffering events and implementing a multi-block event
+//! emitter).
 //!
 //! ## Staker status and list invariants
 //!
-//! There are a few list invariants that depend on the staker's (nominator or validator) state, as
+//! There are a few invariants that depend on the staker's (nominator or validator) state, as
 //! exposed by the [`Config::Staking`] interface:
 //!
 //! * A [`sp_staking::StakerStatus::Nominator`] is part of the voter list and its self-stake is the
-//! voter list's score.
+//! voter list's score. In addition, the voters' scores are up to date with the current stake
+//! returned by [`T::Staking::stake`].
 //! * A [`sp_staking::StakerStatus::Validator`] is part of both voter and target list. And its
 //! approvals score (nominations + self-stake) is kept up to date as the target list's score.
 //! * A [`sp_staking::StakerStatus::Idle`] may have a target list's score while other stakers
@@ -65,16 +67,6 @@
 //!
 //! For further details on the target list invariantes, refer to [`Self`::do_try_state_approvals`]
 //! and [`Self::do_try_state_target_sorting`].
-//!
-//! ## Domain-specific consideration on [`Config::VoterList`] and [`Config::TargetList`]
-//!
-//! In the context of Polkadot's staking system, both the voter and target lists will be implemented
-//! by a bags-list pallet, which implements the
-//! [`frame_election_provider_support::SortedListProvider`] trait.
-//!
-//! Note that the score provider of the target's bags-list is the list itself. This, coupled with
-//! the fact that the target list sorting must be always up to date, makes this pallet resposible
-//! for ensuring that the score of the targets in the `TargetList` is *always* kept up to date.
 //!
 //! ## Event emitter ordering and staking ledger state updates
 //!
@@ -171,18 +163,10 @@ pub mod pallet {
 		/// The staking interface.
 		type Staking: StakingInterface<AccountId = Self::AccountId>;
 
-		/// Something that provides a *best-effort* sorted list of voters.
-		///
-		/// To keep the load off the chain as much as possible, changes made to the staked amount
-		/// via rewards and slashes are dropped and thus need to be manually updated through
-		/// extrinsics. In case of `bags-list`, this always means using `rebag` and `putInFrontOf`.
+		/// Something that provides an *always* sorted list of voters.
 		type VoterList: SortedListProvider<Self::AccountId, Score = VoteWeight>;
 
-		/// Something that provides an *always* sorted list of targets.
-		///
-		/// This pallet is responsible to keep the score and sorting of this pallet up to date with
-		/// the correct approvals stakes of every target that is bouded or it has been bonded in the
-		/// past *and* it still has nominations from active voters.
+		/// Something that provides an *always* sorted list of targets by their approval stake.
 		type TargetList: SortedListProvider<
 			Self::AccountId,
 			Score = <Self::Staking as StakingInterface>::Balance,
@@ -398,11 +382,14 @@ impl<T: Config> Pallet<T> {
 	///
 	/// 1. `do_try_state_approvals`: checks the curent approval stake in the target list compared
 	///    with the staking state.
-	/// 2. `do_try_state_target_sorting`: checks if the target list is sorted by score.
+	/// 2. `do_try_state_target_sorting`: checks if the target list is sorted by score (approvals).
+	/// 3. `do_try_state_voter_sorting`: checks if the voter list is sorted by score (stake).
 	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
-		#[cfg(feature = "try-runtime")]
+		Self::do_try_state_approvals()?;
 		Self::do_try_state_target_sorting()?;
-		Self::do_try_state_approvals()
+		Self::do_try_state_voter_sorting()?;
+
+		Ok(())
 	}
 
 	/// Try-state: checks if the approvals stake of the targets in the target list are correct.
@@ -563,13 +550,12 @@ impl<T: Config> Pallet<T> {
 	/// Try-state: checks if targets in the target list are sorted by score.
 	///
 	/// Invariant
-	///  * All targets in the target list are sorted by their score.
+	///  * All targets in the target list are sorted by their score (approvals).
 	///
 	///  NOTE: unfortunatelly, it is not trivial to check if the sort correctness of the list if
 	///  the `SortedListProvider` is implemented by bags list due to score bucketing. Thus, we
 	///  leverage the [`SortedListProvider::in_position`] to verify if the target is in the
 	/// correct  position in the list (bag or otherwise), given its score.
-	#[cfg(feature = "try-runtime")]
 	pub fn do_try_state_target_sorting() -> Result<(), sp_runtime::TryRuntimeError> {
 		for t in T::TargetList::iter() {
 			frame_support::ensure!(
@@ -578,9 +564,22 @@ impl<T: Config> Pallet<T> {
 			);
 		}
 
-		for v in T::VoterList::iter() {
+		Ok(())
+	}
+
+	/// Try-state: checks if voters in the voter list are sorted by score (stake).
+	///
+	/// Invariant
+	///  * All voters in the voter list are sorted by their score.
+	///
+	///  NOTE: unfortunatelly, it is not trivial to check if the sort correctness of the list if
+	///  the `SortedListProvider` is implemented by bags list due to score bucketing. Thus, we
+	///  leverage the [`SortedListProvider::in_position`] to verify if the target is in the
+	/// correct  position in the list (bag or otherwise), given its score.
+	pub fn do_try_state_voter_sorting() -> Result<(), sp_runtime::TryRuntimeError> {
+		for t in T::VoterList::iter() {
 			frame_support::ensure!(
-				T::VoterList::in_position(&v).expect("voter exists"),
+				T::VoterList::in_position(&t).expect("voter exists"),
 				"voter list is not sorted"
 			);
 		}
@@ -709,7 +708,8 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 
 		// remove from target list IIF score is zero.
 		if T::TargetList::get_score(who).unwrap_or_default().is_zero() {
-			T::TargetList::on_remove(who).expect("target exists as per the check above; qed.");
+			let _ = T::TargetList::on_remove(who)
+				.defensive_proof("target exists as per the check above; qed.");
 		}
 	}
 
@@ -718,13 +718,9 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 	fn on_nominator_add(who: &T::AccountId, nominations: Vec<AccountIdOf<T>>) {
 		let nominator_vote = Self::weight_of(Self::active_vote_of(who));
 
-		// voter may exist in the list in case of re-enabling a chilled nominator;
-		if T::VoterList::contains(who) {
-			return
-		}
-
-		let _ = T::VoterList::on_insert(who.clone(), nominator_vote)
-			.defensive_proof("staker does not exist in the list as per check above; qed.");
+		let _ = T::VoterList::on_insert(who.clone(), nominator_vote).defensive_proof(
+			"the nominator must not exist in the list as per the contract with staking.",
+		);
 
 		// If who is a nominator, update the vote weight of the nominations if they exist. Note:
 		// this will update the score of up to `T::MaxNominations` validators.
@@ -769,8 +765,9 @@ impl<T: Config> OnStakingUpdate<T::AccountId, BalanceOf<T>> for Pallet<T> {
 			Self::update_target_score(t, StakeImbalance::Negative(nominator_vote.into()))
 		}
 
-		let _ = T::VoterList::on_remove(who)
-			.defensive_proof("the nominator exists in the list as per the contract with staking.");
+		let _ = T::VoterList::on_remove(who).defensive_proof(
+			"the nominator must exist in the list as per the contract with staking.",
+		);
 	}
 
 	/// This is called when a nominator updates their nominations. The nominator's stake remains

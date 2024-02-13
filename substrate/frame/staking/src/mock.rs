@@ -1006,64 +1006,6 @@ pub(crate) fn ensure_on_staking_updates_emitted(
 	EventsEmitted::set(vec![]);
 }
 
-/// Similar to the try-state checks of the stake-tracker pallet, but works without `try-runtime`
-/// feature enabled.
-pub(crate) fn stake_tracker_sanity_tests() -> Result<(), &'static str> {
-	use sp_staking::StakingInterface;
-
-	assert_eq!(
-		Nominators::<Test>::count() + Validators::<Test>::count(),
-		VoterBagsList::iter()
-			.filter(|v| Staking::status(&v) != Ok(StakerStatus::Idle))
-			.count() as u32,
-	);
-
-	// recalculate the target's stake based on voter's nominations and compare with the score in the
-	// target list.
-	let mut map: BTreeMap<AccountId, Balance> = BTreeMap::new();
-	for nominator in VoterBagsList::iter() {
-		if let Some(nominations) = <Staking as StakingInterface>::nominations(&nominator) {
-			let score = <VoterBagsList as SortedListProvider<AccountId>>::get_score(&nominator)
-				.map_err(|_| "nominator score must exist in voter bags list")?;
-
-			for nomination in nominations {
-				if let Some(stake) = map.get_mut(&nomination) {
-					*stake += score as u128;
-				} else {
-					map.insert(nomination, score.into());
-				}
-			}
-		}
-	}
-	for target in TargetBagsList::iter() {
-		let score = <VoterBagsList as SortedListProvider<AccountId>>::get_score(&target)
-			.map_err(|_| "target score must exist in voter bags list")?;
-		if let Some(stake) = map.get_mut(&target) {
-			*stake += score as u128;
-		} else {
-			map.insert(target, score.into());
-		}
-	}
-
-	// compare final result with target list.
-	let mut valid_validators_count = 0;
-	for (target, stake) in map.into_iter() {
-		if let Ok(stake_in_list) = TargetBagsList::get_score(&target) {
-			assert_eq!(
-				stake, stake_in_list,
-				"target list score of {:?} is not correct. expected {:?}, got {:?}",
-				target, stake, stake_in_list
-			);
-			valid_validators_count += 1;
-		} else {
-			// moot target nomination, do nothing.
-		}
-	}
-	assert_eq!(valid_validators_count, TargetBagsList::count() as usize);
-
-	Ok(())
-}
-
 pub(crate) fn voters_and_targets() -> (Vec<(AccountId, VoteWeight)>, Vec<(AccountId, Balance)>) {
 	(
 		VoterBagsList::iter()

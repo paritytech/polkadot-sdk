@@ -223,18 +223,14 @@ pub mod pallet {
 		/// After the threshold is reached a new era will be forced.
 		type OffendingValidatorsThreshold: Get<Perbill>;
 
-		/// Something that provides a best-effort sorted list of voters (aka electing nominators),
-		/// used for NPoS election.
+		/// Something that provides a sorted list of voters (aka electing nominators), used for
+		/// NPoS election.
 		///
 		/// The changes to nominators are reported to this. Moreover, each validator's self-vote is
 		/// also reported as one independent vote.
 		///
 		/// Voters will be removed from this list when their ledger is killed or the nominator is
 		/// chilled.
-		///
-		/// To keep the load off the chain as much as possible, changes made to the staked amount
-		/// via rewards and slashes are not reported and thus need to be manually fixed by the
-		/// staker. In case of `bags-list`, this always means using `rebag` and `putInFrontOf`.
 		///
 		/// Invariant: what comes out of this list will always be an active nominator.
 		type VoterList: SortedListProvider<Self::AccountId, Score = VoteWeight>;
@@ -249,10 +245,6 @@ pub mod pallet {
 		/// 2. A nominator or validator is chilled.
 		/// 3. The nominations of a voter are updated.
 		/// 4. A nominator or validator ledger is removed from the staking system.
-		///
-		/// Unlike `VoterList`, the values in this list are always kept up to date with both the
-		/// voter and target ledger's state at all the time (even upon rewards, slashes, etc) and
-		/// thus it represent an accurate approval stake of all target accounts in the system.
 		///
 		/// Chilled validators will *not* be removed from this list. Even when chilled, the target's
 		/// approval voting must be kept up to date. In case a chilled validator re-validates their

@@ -2512,7 +2512,6 @@ fn reporters_receive_their_slice() {
 	ExtBuilder::default().build_and_execute(|| {
 		// The reporters' reward is calculated from the total exposure.
 		let initial_balance = 1375;
-		assert_ok!(stake_tracker_sanity_tests());
 
 		assert_eq!(Staking::eras_stakers(active_era(), &11).total, initial_balance);
 
@@ -7564,9 +7563,6 @@ mod stake_tracker {
 			);
 			assert_eq!(<VoterBagsList as SortedListProvider<AccountId>>::get_score(&1), Ok(300));
 
-			// 11 has self-stake and nominated stake from 1, so total score is 400.
-			assert_ok!(stake_tracker_sanity_tests());
-
 			// rebag in the target list happened as expected.
 			assert_eq!(
 				target_bags_events(),
@@ -7582,7 +7578,6 @@ mod stake_tracker {
 			// chill nominator 1.
 			assert_ok!(Staking::chill(RuntimeOrigin::signed(1)));
 
-			assert_ok!(stake_tracker_sanity_tests());
 			// the target list is sorted by stake, similar to before nomination: [(12, 150), (11,
 			// 100)]
 			assert_eq!(voters_and_targets().1, [(12, 150), (11, 100)]);
@@ -7618,8 +7613,6 @@ mod stake_tracker {
 			assert_ok!(Staking::bond(RuntimeOrigin::signed(61), 500, RewardDestination::Staked));
 			assert_ok!(Staking::nominate(RuntimeOrigin::signed(61), vec![31]));
 
-			assert_ok!(stake_tracker_sanity_tests());
-
 			let score_31 = <TargetBagsList as ScoreProvider<A>>::score(&31);
 			let self_stake_31 = Staking::ledger(Stash(31)).unwrap().active;
 			let self_stake_61 = Staking::ledger(Stash(61)).unwrap().active;
@@ -7639,7 +7632,6 @@ mod stake_tracker {
 
 			// now we unbond a portion of the stake of 61.
 			assert_ok!(Staking::unbond(RuntimeOrigin::signed(61), 250));
-			assert_ok!(stake_tracker_sanity_tests());
 
 			// score of 61 was updated after unbonding.
 			assert_eq!(<TargetBagsList as ScoreProvider<A>>::score(&31), score_31 - 250);
@@ -7672,7 +7664,6 @@ mod stake_tracker {
 				);
 
 				// target list is sorted by score.
-				assert_ok!(stake_tracker_sanity_tests());
 				assert_eq!(
 					voters_and_targets().1,
 					[(11, 1500), (21, 1500), (31, own_stake + other_stake)]
@@ -7868,8 +7859,6 @@ mod stake_tracker {
 					BagsEvent::ScoreUpdated { who: 21, new_score: 1000 }
 				]
 			);
-
-			assert_ok!(stake_tracker_sanity_tests());
 		})
 	}
 
@@ -7907,9 +7896,6 @@ mod stake_tracker {
 
 			// stake of nominator 101 increased since it was exposed to payout.
 			assert!(Staking::ledger(Stash(101)).unwrap().active > stake_101_before);
-
-			// current bags list, nominators and validators state are OK.
-			assert_ok!(stake_tracker_sanity_tests());
 
 			// overview of the target list is as expected: 11 and 21 have increased the score after
 			// the payout as they were directly and indirectly exposed to the payout.
@@ -7949,7 +7935,6 @@ mod stake_tracker {
 
 			// checks the current targets' score and list sorting.
 			assert_eq!(voters_and_targets().1, [(21, 2050), (11, 2050), (31, 500)]);
-			assert_ok!(stake_tracker_sanity_tests());
 
 			// get the bonded stake of the nominators that will be affected by the slash.
 			let stake_101_before = Staking::ledger(Stash(101)).unwrap().active;

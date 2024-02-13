@@ -289,7 +289,8 @@ fn on_validator_add_works() {
 }
 
 #[test]
-fn on_nominator_add_already_exists_works() {
+#[should_panic = "Defensive failure has been triggered!: Duplicate: \"the nominator must not exist in the list as per the contract with staking.\""]
+fn on_nominator_add_already_exists_defensive_works() {
 	ExtBuilder::default().populate_lists().build_and_execute(|| {
 		assert!(VoterBagsList::contains(&1));
 		assert_eq!(VoterBagsList::count(), 4);
@@ -358,7 +359,7 @@ fn on_nominator_remove_works() {
 }
 
 #[test]
-#[should_panic = "Defensive failure has been triggered!: NodeNotFound: \"the nominator exists in the list as per the contract with staking.\""]
+#[should_panic = "Defensive failure has been triggered!: NodeNotFound: \"the nominator must exist in the list as per the contract with staking.\""]
 fn on_nominator_remove_defensive_works() {
 	ExtBuilder::default().populate_lists().build_and_execute(|| {
 		assert!(VoterBagsList::contains(&1));

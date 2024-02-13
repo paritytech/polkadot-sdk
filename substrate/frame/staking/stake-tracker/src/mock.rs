@@ -34,10 +34,10 @@ frame_support::construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		VoterBagsList: pallet_bags_list::<Instance1>::{Pallet, Call, Storage, Event<T>},
-		TargetBagsList: pallet_bags_list::<Instance2>::{Pallet, Call, Storage, Event<T>},
-		StakeTracker: crate,
+		Balances: pallet_balances,
+		VoterBagsList: pallet_bags_list::<Instance1>,
+		TargetBagsList: pallet_bags_list::<Instance2>,
+		StakeTracker: pallet_stake_tracker,
 	}
 );
 

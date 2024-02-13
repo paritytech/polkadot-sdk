@@ -32,7 +32,7 @@ sp-core = { default-features = false, path = "../../../primitives/core" }
 sp-io = { default-features = false, path = "../../../primitives/io" }
 sp-runtime = { default-features = false, path = "../../../primitives/runtime", features = ["serde"] }
 sp-tracing = { default-features = false, path = "../../../primitives/tracing" }
-pallet-bags-list = { default-features = false, path = "../../bags-list" }
+pallet-bags-list = { default-features = false, path = "../../bags-list", features = ["try-runtime"] }
 pallet-balances = { default-features = false, path = "../../balances" }
 
 [features]
