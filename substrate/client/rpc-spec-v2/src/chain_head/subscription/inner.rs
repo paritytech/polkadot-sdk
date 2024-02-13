@@ -22,7 +22,7 @@ use sc_client_api::Backend;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_runtime::traits::Block as BlockT;
 use std::{
-	collections::{hash_map::Entry, HashMap},
+	collections::{hash_map::Entry, HashMap, HashSet},
 	sync::{atomic::AtomicBool, Arc},
 	time::{Duration, Instant},
 };
@@ -759,10 +759,13 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 			return Err(SubscriptionManagementError::SubscriptionAbsent)
 		};
 
+		// Keep only unique hashes.
+		let hashes = hashes.into_iter().collect::<HashSet<_>>();
+
 		// Ensure that all blocks are part of the subscription before removing individual
 		// blocks.
-		for hash in hashes.clone() {
-			if !sub.contains_block(hash) {
+		for hash in &hashes {
+			if !sub.contains_block(*hash) {
 				return Err(SubscriptionManagementError::BlockHashAbsent)
 			}
 		}
@@ -771,8 +774,8 @@ impl<Block: BlockT, BE: Backend<Block>> SubscriptionsInner<Block, BE> {
 		// thinking we borrow `&mut self` twice: once from `self.subs.get_mut` and once from
 		// `self.global_unregister_block`. Although the borrowing is correct, since different
 		// fields of the structure are borrowed, one at a time.
-		for hash in hashes.clone() {
-			sub.unregister_block(hash);
+		for hash in &hashes {
+			sub.unregister_block(*hash);
 		}
 
 		// Block have been removed from the subscription. Remove them from the global tracking.
