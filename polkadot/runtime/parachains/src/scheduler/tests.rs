@@ -747,11 +747,11 @@ fn schedule_rotates_groups() {
 
 #[test]
 fn on_demand_claims_are_pruned_after_timing_out() {
-	let max_retries = 20;
+	let max_timeouts = 20;
 	let mut config = default_config();
 	config.scheduler_params.lookahead = 1;
 	// Need more timeouts for this test
-	config.scheduler_params.max_availability_timeouts = max_retries;
+	config.scheduler_params.max_availability_timeouts = max_timeouts;
 	config.scheduler_params.ttl = BlockNumber::from(5u32);
 	let genesis_config = genesis_config(&config);
 
@@ -797,7 +797,7 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 		// Run to block #n over the max_retries value.
 		// In this case, both validator groups with time out on availability and
 		// the assignment will be dropped.
-		for n in now..=(now + max_retries + 1) {
+		for n in now..=(now + max_timeouts + 1) {
 			// #n
 			run_to_block(n, |_| None);
 			// Time out on core 0.
@@ -809,7 +809,7 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 			Scheduler::free_cores_and_fill_claimqueue(just_updated, now);
 
 			// ParaId a exists in the claim queue until max_retries is reached.
-			if n < max_retries + now {
+			if n < max_timeouts + now {
 				assert!(claimqueue_contains_para_ids::<Test>(vec![para_a]));
 			} else {
 				assert!(!claimqueue_contains_para_ids::<Test>(vec![para_a]));
@@ -825,7 +825,7 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 		assert!(!availability_cores_contains_para_ids::<Test>(vec![para_a]));
 
 		// #25
-		now += max_retries + 2;
+		now += max_timeouts + 2;
 
 		// Add assignment back to the mix.
 		MockAssigner::add_test_assignment(assignment_a.clone());
@@ -836,7 +836,7 @@ fn on_demand_claims_are_pruned_after_timing_out() {
 		// #26
 		now += 1;
 		// Run to block #n but this time have group 1 conclude the availabilty.
-		for n in now..=(now + max_retries + 1) {
+		for n in now..=(now + max_timeouts + 1) {
 			// #n
 			run_to_block(n, |_| None);
 			// Time out core 0 if group 0 is assigned to it, if group 1 is assigned, conclude.
