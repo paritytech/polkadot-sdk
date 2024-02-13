@@ -552,18 +552,19 @@ mod select_candidates {
 	async fn mock_overseer(
 		mut receiver: mpsc::UnboundedReceiver<AllMessages>,
 		mock_availability_cores: Vec<CoreState>,
-		expected: Vec<BackedCandidate>,
+		mut expected: Vec<BackedCandidate>,
 		mut expected_ancestors: HashMap<Vec<CandidateHash>, Ancestors>,
 		prospective_parachains_mode: ProspectiveParachainsMode,
 	) {
 		use ChainApiMessage::BlockNumber;
 		use RuntimeApiMessage::Request;
 
+		let mut backed_iter = expected.clone().into_iter();
+
+		expected.sort_by_key(|c| c.candidate.descriptor.para_id);
 		let mut candidates_iter = expected
 			.iter()
 			.map(|candidate| (candidate.hash(), candidate.descriptor().relay_parent));
-
-		let mut backed_iter = expected.clone().into_iter();
 
 		while let Some(from_job) = receiver.next().await {
 			match from_job {
@@ -616,7 +617,6 @@ mod select_candidates {
 							) {
 								assert_eq!(expected_required_ancestors, actual_ancestors);
 							} else {
-								println!("{count}");
 								assert_eq!(actual_ancestors.len(), 0);
 							}
 						}
@@ -754,20 +754,24 @@ mod select_candidates {
 		)
 	}
 
-	#[test]
-	fn selects_max_one_code_upgrade() {
+	#[rstest]
+	#[case(ProspectiveParachainsMode::Disabled)]
+	#[case(ProspectiveParachainsMode::Enabled {max_candidate_depth: 0, allowed_ancestry_len: 0})]
+	fn selects_max_one_code_upgrade(
+		#[case] prospective_parachains_mode: ProspectiveParachainsMode,
+	) {
 		let mock_cores = mock_availability_cores_one_per_para();
 
 		let empty_hash = PersistedValidationData::<Hash, BlockNumber>::default().hash();
 
 		// why those particular indices? see the comments on mock_availability_cores()
-		// the first candidate with code is included out of [1, 4, 7, 8, 10].
-		let cores = [1, 4, 7, 8, 10];
+		// the first candidate with code is included out of [1, 4, 7, 8, 10, 12].
+		let cores = [1, 4, 7, 8, 10, 12];
 		let cores_with_code = [1, 4, 8];
 
-		let expected_cores = [1, 7, 10];
+		let expected_cores = [1, 7, 10, 12];
 
-		let committed_receipts: Vec<_> = (0..mock_cores.len())
+		let committed_receipts: Vec<_> = (0..=mock_cores.len())
 			.map(|i| {
 				let mut descriptor = dummy_candidate_descriptor(dummy_hash());
 				descriptor.para_id = i.into();
@@ -805,7 +809,6 @@ mod select_candidates {
 		let expected_backed_filtered: Vec<_> =
 			expected_cores.iter().map(|&idx| candidates[idx].clone()).collect();
 
-		let prospective_parachains_mode = ProspectiveParachainsMode::Disabled;
 		let mock_cores_clone = mock_cores.clone();
 
 		test_harness(
@@ -830,7 +833,7 @@ mod select_candidates {
 				.await
 				.unwrap();
 
-				assert_eq!(result.len(), 3);
+				assert_eq!(result.len(), 4);
 
 				result.into_iter().for_each(|c| {
 					assert!(
@@ -938,7 +941,7 @@ mod select_candidates {
 
 		// why those particular indices? see the comments on mock_availability_cores()
 		let expected_candidates: Vec<_> =
-			vec![1, 4, 7, 8, 10, 12, 12, 12, 12, 12, 13, 13, 13, 14, 14, 14, 15, 15];
+			vec![1, 4, 7, 8, 10, 12, 12, 12, 12, 12, 13, 14, 14, 14, 15, 13, 15, 13];
 		// Expect prospective parachains subsystem requests.
 		let prospective_parachains_mode =
 			ProspectiveParachainsMode::Enabled { max_candidate_depth: 0, allowed_ancestry_len: 0 };

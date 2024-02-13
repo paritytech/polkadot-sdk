@@ -40,10 +40,10 @@ use polkadot_node_subsystem_util::{
 	TimeoutExt,
 };
 use polkadot_primitives::{
-	BackedCandidate, BlockNumber, CandidateHash, CandidateReceipt, CoreState, Hash, Id as ParaId,
-	OccupiedCoreAssumption, SignedAvailabilityBitfield, ValidatorIndex,
+	BackedCandidate, BlockNumber, CandidateHash, CandidateReceipt, CoreIndex, CoreState, Hash,
+	Id as ParaId, OccupiedCoreAssumption, SignedAvailabilityBitfield, ValidatorIndex,
 };
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{btree_map::Entry, BTreeMap, HashMap, HashSet};
 
 mod disputes;
 mod error;
@@ -652,26 +652,28 @@ async fn request_backable_candidates(
 ) -> Result<Vec<(CandidateHash, Hash)>, Error> {
 	let block_number = get_block_number_under_construction(relay_parent, sender).await?;
 
-	let mut selected_candidates = Vec::with_capacity(availability_cores.len());
+	// These need to be ordered by core index. The runtime makes this assertion.
+	let mut selected_candidates: BTreeMap<CoreIndex, (CandidateHash, Hash)> = BTreeMap::new();
 
-	// Record how many candidates we'll need to request for each para id. Use a BTreeMap because
+	// Record which cores are scheduled for each paraid. Use a BTreeMap because
 	// we'll need to iterate through them.
-	let mut requested_counts: BTreeMap<ParaId, u32> = BTreeMap::new();
+	let mut scheduled_cores: BTreeMap<ParaId, HashSet<CoreIndex>> = BTreeMap::new();
 	// The on-chain ancestors of a para present in availability-cores.
 	let mut ancestors: HashMap<ParaId, Ancestors> =
 		HashMap::with_capacity(availability_cores.len());
 
 	for (core_idx, core) in availability_cores.iter().enumerate() {
+		let core_idx = CoreIndex(core_idx as u32);
 		match core {
 			CoreState::Scheduled(scheduled_core) => {
-				requested_counts
+				scheduled_cores
 					.entry(scheduled_core.para_id)
-					.and_modify(|c| *c += 1)
-					.or_insert(1);
+					.or_insert(HashSet::new())
+					.insert(core_idx);
 			},
 			CoreState::Occupied(occupied_core) => {
 				let is_available = bitfields_indicate_availability(
-					core_idx,
+					core_idx.0 as usize,
 					bitfields,
 					&occupied_core.availability,
 				);
@@ -686,10 +688,10 @@ async fn request_backable_candidates(
 
 					if let Some(ref scheduled_core) = occupied_core.next_up_on_available {
 						// Request a new backable candidate for the newly scheduled para id.
-						requested_counts
+						scheduled_cores
 							.entry(scheduled_core.para_id)
-							.and_modify(|c| *c += 1)
-							.or_insert(1);
+							.or_insert(HashSet::new())
+							.insert(core_idx);
 					}
 				} else if occupied_core.time_out_at > block_number {
 					// Not timed out and not available.
@@ -711,21 +713,28 @@ async fn request_backable_candidates(
 
 					if let Some(ref scheduled_core) = occupied_core.next_up_on_time_out {
 						// Candidate's availability timed out, practically same as scheduled.
-						requested_counts
+						scheduled_cores
 							.entry(scheduled_core.para_id)
-							.and_modify(|c| *c += 1)
-							.or_insert(1);
+							.or_insert(HashSet::new())
+							.insert(core_idx);
 					}
 				}
 			},
 			CoreState::Free => continue,
-		}
+		};
 	}
 
-	for (para_id, count) in requested_counts {
+	'para_loop: for (para_id, cores) in scheduled_cores {
 		let para_ancestors = ancestors.remove(&para_id).unwrap_or_default();
-		let response =
-			get_backable_candidates(relay_parent, para_id, para_ancestors, count, sender).await?;
+		let core_count = cores.len();
+		let response = get_backable_candidates(
+			relay_parent,
+			para_id,
+			para_ancestors,
+			core_count as u32,
+			sender,
+		)
+		.await?;
 
 		if response.is_empty() {
 			gum::debug!(
@@ -734,12 +743,28 @@ async fn request_backable_candidates(
 				?para_id,
 				"No backable candidate returned by prospective parachains",
 			);
+			continue
 		}
 
-		selected_candidates.extend(response.into_iter());
+		for (core_index, candidate) in cores.into_iter().zip(response.into_iter()) {
+			match selected_candidates.entry(core_index) {
+				Entry::Occupied(_) => {
+					// This cannot really happen, since `cores` is a HashSet.
+					gum::warn!(
+						target: LOG_TARGET,
+						leaf_hash = ?relay_parent,
+						?para_id,
+						?core_index,
+						"Suggested multiple candidates for the same core",
+					);
+					continue 'para_loop
+				},
+				Entry::Vacant(vacant) => vacant.insert(candidate),
+			};
+		}
 	}
 
-	Ok(selected_candidates)
+	Ok(selected_candidates.into_values().collect())
 }
 
 /// Determine which cores are free, and then to the degree possible, pick a candidate appropriate to
