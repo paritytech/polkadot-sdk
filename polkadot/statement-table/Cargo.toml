@@ -1,10 +1,13 @@
 [package]
 name = "polkadot-statement-table"
-version = "1.0.0"
+version = "7.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Stores messages other authorities issue about candidates in Polkadot."
+
+[lints]
+workspace = true
 
 [dependencies]
 parity-scale-codec = { version = "3.6.1", default-features = false, features = ["derive"] }

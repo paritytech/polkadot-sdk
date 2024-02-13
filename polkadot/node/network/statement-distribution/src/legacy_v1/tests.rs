@@ -43,13 +43,14 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers::mock::{make_ferdie_keystore, new_leaf};
 use polkadot_primitives::{
-	ExecutorParams, GroupIndex, Hash, HeadData, Id as ParaId, IndexedVec, SessionInfo,
-	ValidationCode,
+	vstaging::NodeFeatures, ExecutorParams, GroupIndex, Hash, HeadData, Id as ParaId, IndexedVec,
+	SessionInfo, ValidationCode,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_committed_candidate_receipt, dummy_hash, AlwaysZeroRng,
 };
 use sc_keystore::LocalKeystore;
+use sc_network::ProtocolName;
 use sp_application_crypto::{sr25519::Pair, AppCrypto, Pair as TraitPair};
 use sp_authority_discovery::AuthorityPair;
 use sp_keyring::Sr25519Keyring;
@@ -834,6 +835,15 @@ fn receiving_from_one_sends_to_another_and_to_candidate_backing() {
 			}
 		);
 
+		assert_matches!(
+			handle.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
+			) => {
+				si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+			}
+		);
+
 		// notify of peers and view
 		handle
 			.send(FromOrchestra::Communication {
@@ -1074,6 +1084,15 @@ fn receiving_large_statement_from_one_sends_to_another_and_to_candidate_backing(
 			}
 		);
 
+		assert_matches!(
+			handle.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
+			) => {
+				si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+			}
+		);
+
 		// notify of peers and view
 		handle
 			.send(FromOrchestra::Communication {
@@ -1312,7 +1331,7 @@ fn receiving_large_statement_from_one_sends_to_another_and_to_candidate_backing(
 					bad
 				};
 				let response = StatementFetchingResponse::Statement(bad_candidate);
-				outgoing.pending_response.send(Ok(response.encode())).unwrap();
+				outgoing.pending_response.send(Ok((response.encode(), ProtocolName::from("")))).unwrap();
 			}
 		);
 
@@ -1364,7 +1383,7 @@ fn receiving_large_statement_from_one_sends_to_another_and_to_candidate_backing(
 				// On retry, we should have reverse order:
 				assert_eq!(outgoing.peer, Recipient::Peer(peer_c));
 				let response = StatementFetchingResponse::Statement(candidate.clone());
-				outgoing.pending_response.send(Ok(response.encode())).unwrap();
+				outgoing.pending_response.send(Ok((response.encode(), ProtocolName::from("")))).unwrap();
 			}
 		);
 
@@ -1604,6 +1623,15 @@ fn delay_reputation_changes() {
 			}
 		);
 
+		assert_matches!(
+			handle.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
+			) => {
+				si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+			}
+		);
+
 		// notify of peers and view
 		handle
 			.send(FromOrchestra::Communication {
@@ -1842,7 +1870,7 @@ fn delay_reputation_changes() {
 					bad
 				};
 				let response = StatementFetchingResponse::Statement(bad_candidate);
-				outgoing.pending_response.send(Ok(response.encode())).unwrap();
+				outgoing.pending_response.send(Ok((response.encode(), ProtocolName::from("")))).unwrap();
 			}
 		);
 
@@ -1886,7 +1914,7 @@ fn delay_reputation_changes() {
 				// On retry, we should have reverse order:
 				assert_eq!(outgoing.peer, Recipient::Peer(peer_c));
 				let response = StatementFetchingResponse::Statement(candidate.clone());
-				outgoing.pending_response.send(Ok(response.encode())).unwrap();
+				outgoing.pending_response.send(Ok((response.encode(), ProtocolName::from("")))).unwrap();
 			}
 		);
 
@@ -2081,6 +2109,15 @@ fn share_prioritizes_backing_group() {
 				if r == hash_a && sess_index == session_index
 			=> {
 				let _ = tx.send(Ok(Some(ExecutorParams::default())));
+			}
+		);
+
+		assert_matches!(
+			handle.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
+			) => {
+				si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
 			}
 		);
 
@@ -2406,6 +2443,15 @@ fn peer_cant_flood_with_large_statements() {
 			}
 		);
 
+		assert_matches!(
+			handle.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
+			) => {
+				si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+			}
+		);
+
 		// notify of peers and view
 		handle
 			.send(FromOrchestra::Communication {
@@ -2631,6 +2677,14 @@ fn handle_multiple_seconded_statements() {
 			}
 		);
 
+		assert_matches!(
+			handle.recv().await,
+			AllMessages::RuntimeApi(
+				RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
+			) => {
+				si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+			}
+		);
 		// notify of peers and view
 		for peer in all_peers.iter() {
 			handle

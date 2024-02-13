@@ -19,7 +19,10 @@
 use crate as pallet_xcm_bridge_hub_router;
 
 use bp_xcm_bridge_hub_router::XcmChannelStatusProvider;
-use frame_support::{construct_runtime, derive_impl, parameter_types};
+use frame_support::{
+	construct_runtime, derive_impl, parameter_types,
+	traits::{Contains, Equals},
+};
 use frame_system::EnsureRoot;
 use sp_runtime::{traits::ConstU128, BuildStorage};
 use xcm::prelude::*;
@@ -46,9 +49,9 @@ construct_runtime! {
 parameter_types! {
 	pub ThisNetworkId: NetworkId = Polkadot;
 	pub BridgedNetworkId: NetworkId = Kusama;
-	pub UniversalLocation: InteriorMultiLocation = X2(GlobalConsensus(ThisNetworkId::get()), Parachain(1000));
-	pub SiblingBridgeHubLocation: MultiLocation = ParentThen(X1(Parachain(1002))).into();
-	pub BridgeFeeAsset: AssetId = MultiLocation::parent().into();
+	pub UniversalLocation: InteriorLocation = [GlobalConsensus(ThisNetworkId::get()), Parachain(1000)].into();
+	pub SiblingBridgeHubLocation: Location = ParentThen([Parachain(1002)].into()).into();
+	pub BridgeFeeAsset: AssetId = Location::parent().into();
 	pub BridgeTable: Vec<NetworkExportTableItem>
 		= vec![
 			NetworkExportTableItem::new(
@@ -58,6 +61,7 @@ parameter_types! {
 				Some((BridgeFeeAsset::get(), BASE_FEE).into())
 			)
 		];
+	pub UnknownXcmVersionLocation: Location = Location::new(2, [GlobalConsensus(BridgedNetworkId::get()), Parachain(9999)]);
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
@@ -71,6 +75,8 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type UniversalLocation = UniversalLocation;
 	type BridgedNetworkId = BridgedNetworkId;
 	type Bridges = NetworkExportTable<BridgeTable>;
+	type DestinationVersion =
+		LatestOrNoneForLocationVersionChecker<Equals<UnknownXcmVersionLocation>>;
 
 	type BridgeHubOrigin = EnsureRoot<AccountId>;
 	type ToBridgeHubSender = TestToBridgeHubSender;
@@ -78,6 +84,18 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 
 	type ByteFee = ConstU128<BYTE_FEE>;
 	type FeeAsset = BridgeFeeAsset;
+}
+
+pub struct LatestOrNoneForLocationVersionChecker<Location>(sp_std::marker::PhantomData<Location>);
+impl<LocationValue: Contains<Location>> GetVersion
+	for LatestOrNoneForLocationVersionChecker<LocationValue>
+{
+	fn get_version_for(dest: &Location) -> Option<XcmVersion> {
+		if LocationValue::contains(dest) {
+			return None
+		}
+		Some(XCM_VERSION)
+	}
 }
 
 pub struct TestToBridgeHubSender;
@@ -92,7 +110,7 @@ impl SendXcm for TestToBridgeHubSender {
 	type Ticket = ();
 
 	fn validate(
-		_destination: &mut Option<MultiLocation>,
+		_destination: &mut Option<Location>,
 		_message: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
 		Ok(((), (BridgeFeeAsset::get(), HRMP_FEE).into()))

@@ -55,4 +55,3 @@ impl RuntimePublic for Public {
 		sp_core::crypto::ByteArray::to_raw_vec(self)
 	}
 }
-

@@ -31,19 +31,34 @@ error[E0412]: cannot find type `RuntimeOrigin` in this scope
   --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:42:23
    |
 42 |     type RuntimeOrigin = RuntimeOrigin;
-   |                          ^^^^^^^^^^^^^ help: you might have meant to use the associated type: `Self::RuntimeOrigin`
+   |                          ^^^^^^^^^^^^^
+   |
+help: you might have meant to use the associated type
+   |
+42 |     type RuntimeOrigin = Self::RuntimeOrigin;
+   |                          ++++++
 
 error[E0412]: cannot find type `RuntimeCall` in this scope
   --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:44:21
    |
 44 |     type RuntimeCall = RuntimeCall;
-   |                        ^^^^^^^^^^^ help: you might have meant to use the associated type: `Self::RuntimeCall`
+   |                        ^^^^^^^^^^^
+   |
+help: you might have meant to use the associated type
+   |
+44 |     type RuntimeCall = Self::RuntimeCall;
+   |                        ++++++
 
 error[E0412]: cannot find type `RuntimeEvent` in this scope
   --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:50:22
    |
 50 |     type RuntimeEvent = RuntimeEvent;
-   |                         ^^^^^^^^^^^^ help: you might have meant to use the associated type: `Self::RuntimeEvent`
+   |                         ^^^^^^^^^^^^
+   |
+help: you might have meant to use the associated type
+   |
+50 |     type RuntimeEvent = Self::RuntimeEvent;
+   |                         ++++++
 
 error[E0412]: cannot find type `PalletInfo` in this scope
   --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:56:20
@@ -54,10 +69,23 @@ error[E0412]: cannot find type `PalletInfo` in this scope
 help: you might have meant to use the associated type
    |
 56 |     type PalletInfo = Self::PalletInfo;
-   |                       ~~~~~~~~~~~~~~~~
+   |                       ++++++
 help: consider importing one of these items
    |
 18 + use frame_benchmarking::__private::traits::PalletInfo;
    |
 18 + use frame_support::traits::PalletInfo;
    |
+
+error[E0412]: cannot find type `RuntimeTask` in this scope
+  --> tests/construct_runtime_ui/number_of_pallets_exceeds_tuple_size.rs:39:1
+   |
+39 | #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the macro `frame_system::config_preludes::TestDefaultConfig` which comes from the expansion of the macro `frame_support::macro_magic::forward_tokens_verbatim` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: you might have meant to use the associated type
+  --> $WORKSPACE/substrate/frame/system/src/lib.rs
+   |
+   |             type Self::RuntimeTask = ();
+   |                  ++++++

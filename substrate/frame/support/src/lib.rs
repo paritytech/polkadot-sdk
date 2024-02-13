@@ -44,8 +44,8 @@ pub mod __private {
 	pub use paste;
 	pub use scale_info;
 	pub use serde;
-	pub use sp_core::{OpaqueMetadata, Void};
-	pub use sp_core_hashing_proc_macro;
+	pub use sp_core::{Get, OpaqueMetadata, Void};
+	pub use sp_crypto_hashing_proc_macro;
 	pub use sp_inherents;
 	#[cfg(feature = "std")]
 	pub use sp_io::TestExternalities;
@@ -174,6 +174,14 @@ impl TypeId for PalletId {
 pub use frame_support_procedural::storage_alias;
 
 pub use frame_support_procedural::derive_impl;
+
+/// Experimental macros for defining dynamic params that can be used in pallet configs.
+#[cfg(feature = "experimental")]
+pub mod dynamic_params {
+	pub use frame_support_procedural::{
+		dynamic_aggregated_params_internal, dynamic_pallet_params, dynamic_params,
+	};
+}
 
 /// Create new implementations of the [`Get`](crate::traits::Get) trait.
 ///
@@ -330,7 +338,7 @@ macro_rules! parameter_types {
 		impl< $($ty_params),* > $name< $($ty_params),* > {
 			/// Returns the key for this parameter type.
 			pub fn key() -> [u8; 16] {
-				$crate::__private::sp_core_hashing_proc_macro::twox_128!(b":", $name, b":")
+				$crate::__private::sp_crypto_hashing_proc_macro::twox_128!(b":", $name, b":")
 			}
 
 			/// Set the value of this parameter type in the storage.
@@ -556,6 +564,42 @@ pub use frame_support_procedural::EqNoBound;
 /// }
 /// ```
 pub use frame_support_procedural::PartialEqNoBound;
+
+/// Derive [`Ord`] but do not bound any generic.
+///
+/// This is useful for type generic over runtime:
+/// ```
+/// # use frame_support::{OrdNoBound, PartialOrdNoBound, EqNoBound, PartialEqNoBound};
+/// trait Config {
+/// 		type C: Ord;
+/// }
+///
+/// // Foo implements [`Ord`] because `C` bounds [`Ord`].
+/// // Otherwise compilation will fail with an output telling `c` doesn't implement [`Ord`].
+/// #[derive(EqNoBound, OrdNoBound, PartialEqNoBound, PartialOrdNoBound)]
+/// struct Foo<T: Config> {
+/// 		c: T::C,
+/// }
+/// ```
+pub use frame_support_procedural::OrdNoBound;
+
+/// Derive [`PartialOrd`] but do not bound any generic.
+///
+/// This is useful for type generic over runtime:
+/// ```
+/// # use frame_support::{OrdNoBound, PartialOrdNoBound, EqNoBound, PartialEqNoBound};
+/// trait Config {
+/// 		type C: PartialOrd;
+/// }
+///
+/// // Foo implements [`PartialOrd`] because `C` bounds [`PartialOrd`].
+/// // Otherwise compilation will fail with an output telling `c` doesn't implement [`PartialOrd`].
+/// #[derive(PartialOrdNoBound, PartialEqNoBound, EqNoBound)]
+/// struct Foo<T: Config> {
+/// 		c: T::C,
+/// }
+/// ```
+pub use frame_support_procedural::PartialOrdNoBound;
 
 /// Derive [`Debug`] but do not bound any generic.
 ///
@@ -849,7 +893,7 @@ pub mod pallet_prelude {
 		},
 		traits::{
 			BuildGenesisConfig, ConstU32, EnsureOrigin, Get, GetDefault, GetStorageVersion, Hooks,
-			IsType, PalletInfoAccess, StorageInfoTrait, StorageVersion, TypedGet,
+			IsType, PalletInfoAccess, StorageInfoTrait, StorageVersion, Task, TypedGet,
 		},
 		Blake2_128, Blake2_128Concat, Blake2_256, CloneNoBound, DebugNoBound, EqNoBound, Identity,
 		PartialEqNoBound, RuntimeDebugNoBound, Twox128, Twox256, Twox64Concat,
@@ -2291,7 +2335,7 @@ pub mod pallet_macros {
 	/// #        type Block = frame_system::mocking::MockBlock<Self>;
 	/// #    }
 	///     construct_runtime! {
-	///         pub struct Runtime {
+	///         pub enum Runtime {
 	///             System: frame_system,
 	///             Custom: custom_pallet
 	///         }
@@ -2674,6 +2718,61 @@ pub mod pallet_macros {
 	/// }
 	/// ```
 	pub use frame_support_procedural::storage;
+	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// [`pallet::tasks_experimental`](`tasks_experimental`) to define the conditions for a
+	/// given work item to be valid.
+	///
+	/// It takes a closure as input, which is then used to define the condition. The closure
+	/// should have the same signature as the function it is attached to, except that it should
+	/// return a `bool` instead.
+	pub use frame_support_procedural::task_condition;
+	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// [`pallet::tasks_experimental`](`tasks_experimental`) to define the index of a given
+	/// work item.
+	///
+	/// It takes an integer literal as input, which is then used to define the index. This
+	/// index should be unique for each function in the `impl` block.
+	pub use frame_support_procedural::task_index;
+	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// [`pallet::tasks_experimental`](`tasks_experimental`) to define an iterator over the
+	/// available work items for a task.
+	///
+	/// It takes an iterator as input that yields a tuple with same types as the function
+	/// arguments.
+	pub use frame_support_procedural::task_list;
+	/// This attribute is attached to a function inside an `impl` block annoated with
+	/// [`pallet::tasks_experimental`](`tasks_experimental`) define the weight of a given work
+	/// item.
+	///
+	/// It takes a closure as input, which should return a `Weight` value.
+	pub use frame_support_procedural::task_weight;
+	/// Allows you to define some service work that can be recognized by a script or an
+	/// off-chain worker. Such a script can then create and submit all such work items at any
+	/// given time.
+	///
+	/// These work items are defined as instances of the [`Task`](frame_support::traits::Task)
+	/// trait. [`pallet:tasks_experimental`](`tasks_experimental`) when attached to an `impl`
+	/// block inside a pallet, will generate an enum `Task<T>` whose variants are mapped to
+	/// functions inside this `impl` block.
+	///
+	/// Each such function must have the following set of attributes:
+	///
+	/// * [`pallet::task_list`](`task_list`)
+	/// * [`pallet::task_condition`](`task_condition`)
+	/// * [`pallet::task_weight`](`task_weight`)
+	/// * [`pallet::task_index`](`task_index`)
+	///
+	/// All of such Tasks are then aggregated into a `RuntimeTask` by
+	/// [`construct_runtime`](frame_support::construct_runtime).
+	///
+	/// Finally, the `RuntimeTask` can then used by a script or off-chain worker to create and
+	/// submit such tasks via an extrinsic defined in `frame_system` called `do_task`.
+	///
+	/// ## Example
+	#[doc = docify::embed!("src/tests/tasks.rs", tasks_example)]
+	/// Now, this can be executed as follows:
+	#[doc = docify::embed!("src/tests/tasks.rs", tasks_work)]
+	pub use frame_support_procedural::tasks_experimental;
 }
 
 #[deprecated(note = "Will be removed after July 2023; Use `sp_runtime::traits` directly instead.")]

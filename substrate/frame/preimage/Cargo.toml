@@ -1,12 +1,15 @@
 [package]
 name = "pallet-preimage"
-version = "4.0.0-dev"
+version = "28.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://substrate.io"
 repository.workspace = true
 description = "FRAME pallet for storing preimages of hashes"
+
+[lints]
+workspace = true
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
@@ -18,7 +21,7 @@ sp-core = { path = "../../primitives/core", default-features = false, optional =
 sp-io = { path = "../../primitives/io", default-features = false }
 sp-runtime = { path = "../../primitives/runtime", default-features = false }
 sp-std = { path = "../../primitives/std", default-features = false }
-log = { version = "0.4.17", default-features = false }
+log = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { path = "../balances" }

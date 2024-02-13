@@ -32,11 +32,14 @@
 //! while GRANDPA uses `ed25519`.
 
 mod commitment;
-pub mod mmr;
 mod payload;
+
+pub mod mmr;
+pub mod witness;
+
+/// Test utilities
 #[cfg(feature = "std")]
 pub mod test_utils;
-pub mod witness;
 
 pub use commitment::{Commitment, SignedCommitment, VersionedFinalityProof};
 pub use payload::{known_payloads, BeefyPayloadId, Payload, PayloadProvider};
@@ -71,9 +74,9 @@ pub trait AuthorityIdBound:
 	Codec
 	+ Debug
 	+ Clone
-	+ Ord
-	+ Sync
-	+ Send
+	//+ Ord
+	//+ Sync
+	//+ Send
 	+ AsRef<[u8]>
 	+ ByteArray
 	+ AppPublic
@@ -362,10 +365,10 @@ where
 	//   have different validator set ids,
 	//   or both votes have the same commitment,
 	//     --> the equivocation is invalid.
-	if first.id != second.id
-		|| first.commitment.block_number != second.commitment.block_number
-		|| first.commitment.validator_set_id != second.commitment.validator_set_id
-		|| first.commitment.payload == second.commitment.payload
+	if first.id != second.id ||
+		first.commitment.block_number != second.commitment.block_number ||
+		first.commitment.validator_set_id != second.commitment.validator_set_id ||
+		first.commitment.payload == second.commitment.payload
 	{
 		return false;
 	}
@@ -463,7 +466,8 @@ sp_api::decl_runtime_apis! {
 mod tests {
 	use super::*;
 	use sp_application_crypto::ecdsa::{self, Public};
-	use sp_core::{blake2_256, crypto::Wraps, keccak_256, Pair};
+	use sp_core::crypto::{Pair, Wraps};
+	use sp_crypto_hashing::{blake2_256, keccak_256};
 	use sp_runtime::traits::{BlakeTwo256, Keccak256};
 
 	#[test]
@@ -555,4 +559,3 @@ mod tests {
 		assert!(!BeefyAuthorityId::<Keccak256>::verify(&other_pair.public(), &signature, msg,));
 	}
 }
-

@@ -17,28 +17,32 @@ use super::{
 	AccountId, AllPalletsWithSystem, Balances, ParachainInfo, ParachainSystem, PolkadotXcm,
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, TransactionByteFee, WeightToFee, XcmpQueue,
 };
-use crate::common::rococo::currency::CENTS;
 use cumulus_primitives_core::AggregateMessageOrigin;
 use frame_support::{
-	match_types, parameter_types,
-	traits::{ConstU32, EitherOfDiverse, Equals, Everything, Nothing},
+	parameter_types,
+	traits::{ConstU32, Contains, EitherOfDiverse, Equals, Everything, Nothing},
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::{EnsureXcm, IsMajorityOfBody, XcmPassthrough};
 use parachains_common::{
-	xcm_config::{ConcreteAssetFromSystem, RelayOrOtherSystemParachains},
+	xcm_config::{
+		AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains,
+		RelayOrOtherSystemParachains,
+	},
 	TREASURY_PALLET_ID,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use rococo_runtime_constants::system_parachain;
 use sp_runtime::traits::AccountIdConversion;
+use testnet_parachains_constants::rococo::currency::CENTS;
 use xcm::latest::prelude::*;
+#[allow(deprecated)]
+use xcm_builder::CurrencyAdapter;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
-	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, CurrencyAdapter,
-	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, FixedWeightBounds, IsConcrete,
+	AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom, DenyReserveTransferToRelayChain,
+	DenyThenTry, EnsureXcmOrigin, FixedWeightBounds, FrameTransactionalProcessor, IsConcrete,
 	NativeAsset, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative,
 	SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
 	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, UsingComponents,
@@ -47,13 +51,13 @@ use xcm_builder::{
 use xcm_executor::XcmExecutor;
 
 parameter_types! {
-	pub const RelayLocation: MultiLocation = MultiLocation::parent();
+	pub const RelayLocation: Location = Location::parent();
 	pub const RelayNetwork: Option<NetworkId> = None;
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
-	pub UniversalLocation: InteriorMultiLocation = Parachain(ParachainInfo::parachain_id().into()).into();
+	pub UniversalLocation: InteriorLocation = Parachain(ParachainInfo::parachain_id().into()).into();
 	pub const ExecutiveBody: BodyId = BodyId::Executive;
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
-	pub RelayTreasuryLocation: MultiLocation = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
+	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(rococo_runtime_constants::TREASURY_PALLET_ID)).into();
 }
 
 /// We allow root and the Relay Chain council to execute privileged collator selection operations.
@@ -62,7 +66,7 @@ pub type CollatorSelectionUpdateOrigin = EitherOfDiverse<
 	EnsureXcm<IsMajorityOfBody<RelayLocation, ExecutiveBody>>,
 >;
 
-/// Type for specifying how a `MultiLocation` can be converted into an `AccountId`. This is used
+/// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
 /// when determining ownership of accounts for asset transacting and when attempting to use XCM
 /// `Transact` in order to determine the dispatch Origin.
 pub type LocationToAccountId = (
@@ -75,12 +79,13 @@ pub type LocationToAccountId = (
 );
 
 /// Means for transacting the native currency on this chain.
+#[allow(deprecated)]
 pub type CurrencyTransactor = CurrencyAdapter<
 	// Use this currency:
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
 	IsConcrete<RelayLocation>,
-	// Convert an XCM MultiLocation into a local account id:
+	// Convert an XCM Location into a local account id:
 	LocationToAccountId,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
@@ -118,15 +123,11 @@ parameter_types! {
 	pub const MaxInstructions: u32 = 100;
 }
 
-match_types! {
-	pub type ParentOrParentsPlurality: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: Here } |
-		MultiLocation { parents: 1, interior: X1(Plurality { .. }) }
-	};
-	pub type ParentOrSiblings: impl Contains<MultiLocation> = {
-		MultiLocation { parents: 1, interior: Here } |
-		MultiLocation { parents: 1, interior: X1(_) }
-	};
+pub struct ParentOrParentsPlurality;
+impl Contains<Location> for ParentOrParentsPlurality {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (1, []) | (1, [Plurality { .. }]))
+	}
 }
 
 pub type Barrier = TrailingSetTopicAsId<
@@ -149,7 +150,7 @@ pub type Barrier = TrailingSetTopicAsId<
 						Equals<RelayTreasuryLocation>,
 					)>,
 					// Subscriptions for version tracking are OK.
-					AllowSubscriptionsFrom<ParentOrSiblings>,
+					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
 				),
 				UniversalLocation,
 				ConstU32<8>,
@@ -158,25 +159,13 @@ pub type Barrier = TrailingSetTopicAsId<
 	>,
 >;
 
-match_types! {
-	pub type SystemParachains: impl Contains<MultiLocation> = {
-		MultiLocation {
-			parents: 1,
-			interior: X1(Parachain(
-				system_parachain::ASSET_HUB_ID |
-				system_parachain::BRIDGE_HUB_ID |
-				system_parachain::CONTRACTS_ID |
-				system_parachain::ENCOINTER_ID
-			)),
-		}
-	};
-}
-
 /// Locations that will not be charged fees in the executor,
 /// either execution or delivery.
 /// We only waive fees for system functions, which these locations represent.
-pub type WaivedLocations =
-	(RelayOrOtherSystemParachains<SystemParachains, Runtime>, Equals<RelayTreasuryLocation>);
+pub type WaivedLocations = (
+	RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
+	Equals<RelayTreasuryLocation>,
+);
 
 pub type TrustedTeleporter = ConcreteAssetFromSystem<RelayLocation>;
 
@@ -209,9 +198,10 @@ impl xcm_executor::Config for XcmConfig {
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
+	type TransactionalProcessor = FrameTransactionalProcessor;
 }
 
-/// Converts a local signed origin into an XCM multilocation.
+/// Converts a local signed origin into an XCM location.
 /// Forms the basis for local origins sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, RelayNetwork>;
 
@@ -265,7 +255,7 @@ impl cumulus_pallet_xcm::Config for Runtime {
 
 parameter_types! {
 	/// The asset ID for the asset that we use to pay for message delivery fees.
-	pub FeeAssetId: AssetId = Concrete(RelayLocation::get());
+	pub FeeAssetId: AssetId = AssetId(RelayLocation::get());
 	/// The base fee for the message delivery fees.
 	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
 }

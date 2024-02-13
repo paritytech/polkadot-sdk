@@ -16,16 +16,16 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::keystore::{ BeefyKeystore};
+use crate::keystore::BeefyKeystore;
 use codec::{Decode, DecodeAll, Encode, WrapperTypeEncode};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_consensus::Error as ConsensusError;
-use sp_consensus_beefy::{ValidatorSet, ValidatorSetId, VersionedFinalityProof, AuthorityIdBound};
+use sp_consensus_beefy::{AuthorityIdBound, ValidatorSet, ValidatorSetId, VersionedFinalityProof};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 /// A finality proof with matching BEEFY authorities' signatures.
-pub type BeefyVersionedFinalityProof<Block, AuthorityId>
-= VersionedFinalityProof<NumberFor<Block>, <AuthorityId as RuntimeAppPublic>::Signature>;
+pub type BeefyVersionedFinalityProof<Block, AuthorityId> =
+	VersionedFinalityProof<NumberFor<Block>, <AuthorityId as RuntimeAppPublic>::Signature>;
 
 pub(crate) fn proof_block_num_and_set_id<Block: BlockT, AuthorityId: AuthorityIdBound>(
 	proof: &BeefyVersionedFinalityProof<Block, AuthorityId>,
@@ -102,9 +102,8 @@ where
 #[cfg(test)]
 pub(crate) mod tests {
 	use sp_consensus_beefy::{
-		known_payloads, Commitment, test_utils::Keyring, Payload, SignedCommitment,
-	    VersionedFinalityProof,
-	    ecdsa_crypto,
+		ecdsa_crypto, known_payloads, test_utils::Keyring, Commitment, Payload, SignedCommitment,
+		VersionedFinalityProof,
 	};
 	use substrate_test_runtime_client::runtime::Block;
 
@@ -122,10 +121,7 @@ pub(crate) mod tests {
 			validator_set_id: validator_set.id(),
 		};
 		let message = commitment.encode();
-		let signatures = keys
-			.iter()
-			.map(|key| Some(key.sign(&message)))
-			.collect();
+		let signatures = keys.iter().map(|key| Some(key.sign(&message))).collect();
 		VersionedFinalityProof::V1(SignedCommitment { commitment, signatures })
 	}
 
@@ -187,10 +183,10 @@ pub(crate) mod tests {
 			VersionedFinalityProof::V1(ref mut sc) => sc,
 		};
 		// change a signature to a different key
-		*bad_signed_commitment.signatures.first_mut().unwrap() =
-			Some(Keyring::<ecdsa_crypto::AuthorityId>::Dave.sign(
-				&bad_signed_commitment.commitment.encode(),
-			));
+		*bad_signed_commitment.signatures.first_mut().unwrap() = Some(
+			Keyring::<ecdsa_crypto::AuthorityId>::Dave
+				.sign(&bad_signed_commitment.commitment.encode()),
+		);
 		match verify_with_validator_set::<Block>(block_num, &validator_set, &bad_proof.into()) {
 			Err((ConsensusError::InvalidJustification, 3)) => (),
 			e => assert!(false, "Got unexpected {:?}", e),

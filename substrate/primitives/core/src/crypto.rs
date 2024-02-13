@@ -152,7 +152,7 @@ impl DeriveJunction {
 		let mut cc: [u8; JUNCTION_ID_LEN] = Default::default();
 		index.using_encoded(|data| {
 			if data.len() > JUNCTION_ID_LEN {
-				cc.copy_from_slice(&sp_core_hashing::blake2_256(data));
+				cc.copy_from_slice(&sp_crypto_hashing::blake2_256(data));
 			} else {
 				cc[0..data.len()].copy_from_slice(data);
 			}
@@ -434,7 +434,7 @@ impl<T: Sized + AsMut<[u8]> + AsRef<[u8]> + Public + Derive> Ss58Codec for T {
 	fn from_string(s: &str) -> Result<Self, PublicError> {
 		let cap = AddressUri::parse(s)?;
 		if cap.pass.is_some() {
-			return Err(PublicError::PasswordNotAllowed);
+			return Err(PublicError::PasswordNotAllowed)
 		}
 		let s = cap.phrase.unwrap_or(DEV_ADDRESS);
 		let addr = if let Some(stripped) = s.strip_prefix("0x") {
@@ -454,7 +454,7 @@ impl<T: Sized + AsMut<[u8]> + AsRef<[u8]> + Public + Derive> Ss58Codec for T {
 	fn from_string_with_version(s: &str) -> Result<(Self, Ss58AddressFormat), PublicError> {
 		let cap = AddressUri::parse(s)?;
 		if cap.pass.is_some() {
-			return Err(PublicError::PasswordNotAllowed);
+			return Err(PublicError::PasswordNotAllowed)
 		}
 		let (addr, v) = Self::from_ss58check_with_version(cap.phrase.unwrap_or(DEV_ADDRESS))?;
 		if cap.paths.is_empty() {
@@ -593,14 +593,16 @@ impl std::fmt::Display for AccountId32 {
 }
 
 impl sp_std::fmt::Debug for AccountId32 {
-	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		let s = self.to_ss58check();
-		write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.0), &s[0..8])
-	}
+		#[cfg(feature = "serde")]
+		{
+			let s = self.to_ss58check();
+			write!(f, "{} ({}...)", crate::hexdisplay::HexDisplay::from(&self.0), &s[0..8])?;
+		}
 
-	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+		#[cfg(not(feature = "serde"))]
+		write!(f, "{}", crate::hexdisplay::HexDisplay::from(&self.0))?;
+
 		Ok(())
 	}
 }
@@ -1109,8 +1111,8 @@ impl<'a> TryFrom<&'a str> for KeyTypeId {
 pub trait VrfCrypto {
 	/// VRF input.
 	type VrfInput;
-	/// VRF output.
-	type VrfOutput;
+	/// VRF pre-output.
+	type VrfPreOutput;
 	/// VRF signing data.
 	type VrfSignData;
 	/// VRF signature.
@@ -1119,8 +1121,8 @@ pub trait VrfCrypto {
 
 /// VRF Secret Key.
 pub trait VrfSecret: VrfCrypto {
-	/// Get VRF-specific output .
-	fn vrf_output(&self, data: &Self::VrfInput) -> Self::VrfOutput;
+	/// Get VRF-specific pre-output.
+	fn vrf_pre_output(&self, data: &Self::VrfInput) -> Self::VrfPreOutput;
 
 	/// Sign VRF-specific data.
 	fn vrf_sign(&self, input: &Self::VrfSignData) -> Self::VrfSignature;

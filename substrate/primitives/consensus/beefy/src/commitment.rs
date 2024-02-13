@@ -235,7 +235,7 @@ where
 /// Note that this enum is subject to change in the future with introduction
 /// of additional cryptographic primitives to BEEFY.
 #[derive(Clone, Debug, PartialEq, codec::Encode, codec::Decode)]
-pub enum VersionedFinalityProof<N, S>{
+pub enum VersionedFinalityProof<N, S> {
 	#[codec(index = 1)]
 	/// Current active version
 	V1(SignedCommitment<N, S>),
@@ -253,7 +253,8 @@ mod tests {
 	use super::*;
 	use crate::{ecdsa_crypto::Signature as EcdsaSignature, known_payloads};
 	use codec::Decode;
-	use sp_core::{keccak_256, Pair};
+	use sp_core::Pair;
+	use sp_crypto_hashing::keccak_256;
 
 	#[cfg(feature = "bls-experimental")]
 	use crate::bls_crypto::Signature as BlsSignature;

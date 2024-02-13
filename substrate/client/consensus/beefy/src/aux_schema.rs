@@ -18,13 +18,15 @@
 
 //! Schema for BEEFY state persisted in the aux-db.
 
-use crate::{worker::PersistedState, LOG_TARGET};
+use crate::{error::Error, worker::PersistedState, LOG_TARGET};
 use codec::{Decode, Encode};
 use log::{info, trace};
 use sc_client_api::{backend::AuxStore, Backend};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_blockchain::{Error as ClientError, Result as ClientResult};
-use sp_consensus_beefy::{BeefyApi, MmrRootHash, PayloadProvider, ValidatorSet, BEEFY_ENGINE_ID, AuthorityIdBound};
+use sp_consensus_beefy::{
+	AuthorityIdBound, BeefyApi, MmrRootHash, PayloadProvider, ValidatorSet, BEEFY_ENGINE_ID,
+};
 use sp_runtime::traits::Block as BlockT;
 
 const VERSION_KEY: &[u8] = b"beefy_auxschema_version";
@@ -32,9 +34,10 @@ const WORKER_STATE_KEY: &[u8] = b"beefy_voter_state";
 
 const CURRENT_VERSION: u32 = 4;
 
-pub(crate) fn write_current_version<BE: AuxStore>(backend: &BE) -> ClientResult<()> {
+pub(crate) fn write_current_version<BE: AuxStore>(backend: &BE) -> Result<(), Error> {
 	info!(target: LOG_TARGET, "🥩 write aux schema version {:?}", CURRENT_VERSION);
 	AuxStore::insert_aux(backend, &[(VERSION_KEY, CURRENT_VERSION.encode().as_slice())], &[])
+		.map_err(|e| Error::Backend(e.to_string()))
 }
 
 /// Write voter state.
@@ -47,13 +50,14 @@ where
 {
 	trace!(target: LOG_TARGET, "🥩 persisting {:?}", state);
 	AuxStore::insert_aux(backend, &[(WORKER_STATE_KEY, state.encode().as_slice())], &[])
+		.map_err(|e| Error::Backend(e.to_string()))
 }
 
-fn load_decode<BE: AuxStore, T: Decode>(backend: &BE, key: &[u8]) -> ClientResult<Option<T>> {
-	match backend.get_aux(key)? {
+fn load_decode<BE: AuxStore, T: Decode>(backend: &BE, key: &[u8]) -> Result<Option<T>, Error> {
+	match backend.get_aux(key).map_err(|e| Error::Backend(e.to_string()))? {
 		None => Ok(None),
 		Some(t) => T::decode(&mut &t[..])
-			.map_err(|e| ClientError::Backend(format!("BEEFY DB is corrupted: {}", e)))
+			.map_err(|e| Error::Backend(format!("BEEFY DB is corrupted: {}", e)))
 			.map(Some),
 	}
 }

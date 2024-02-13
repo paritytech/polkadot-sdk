@@ -40,11 +40,7 @@ use crate::{
 	LOG_TARGET,
 };
 use sp_application_crypto::RuntimeAppPublic;
-use sp_consensus_beefy::{
-	ValidatorSet,
-	ValidatorSetId,
-	VoteMessage,AuthorityIdBound
-};
+use sp_consensus_beefy::{AuthorityIdBound, ValidatorSet, ValidatorSetId, VoteMessage};
 
 // Timeout for rebroadcasting messages.
 #[cfg(not(test))]
@@ -286,7 +282,11 @@ where
 	///
 	/// Only votes for `set_id` and rounds `start <= round <= end` will be accepted.
 	pub(crate) fn update_filter(&self, filter: GossipFilterCfg<B, AuthorityId>) {
-		debug!(target: LOG_TARGET, "🥩 New gossip filter {:?}", filter);
+		debug!(
+			target: LOG_TARGET,
+			"🥩 New gossip filter: start {:?}, end {:?}, validator set id {:?}",
+			filter.start, filter.end, filter.validator_set.id()
+		);
 		self.gossip_filter.write().update(filter);
 	}
 
@@ -511,8 +511,11 @@ pub(crate) mod tests {
 	use sc_network_test::Block;
 	use sp_application_crypto::key_types::BEEFY as BEEFY_KEY_TYPE;
 	use sp_consensus_beefy::{
-		ecdsa_crypto::{Public as EcdsaPublic, Signature}, ecdsa_crypto,
-		known_payloads, Commitment, test_utils::Keyring, MmrRootHash, Payload, SignedCommitment, VoteMessage,
+		ecdsa_crypto,
+		ecdsa_crypto::{Public as EcdsaPublic, Signature},
+		known_payloads,
+		test_utils::Keyring,
+		Commitment, MmrRootHash, Payload, SignedCommitment, VoteMessage,
 	};
 	use sp_keystore::{testing::MemoryKeystore, Keystore};
 
@@ -533,14 +536,12 @@ pub(crate) mod tests {
 		}
 	}
 
-	pub fn sign_commitment<BN: Encode>(who: &Keyring<ecdsa_crypto::AuthorityId>, commitment: &Commitment<BN>) -> Signature {
+	pub fn sign_commitment<BN: Encode>(
+		who: &Keyring<ecdsa_crypto::AuthorityId>,
+		commitment: &Commitment<BN>,
+	) -> Signature {
 		let store = MemoryKeystore::new();
-		store
-			.ecdsa_generate_new(
-				BEEFY_KEY_TYPE,
-				Some(&who.to_seed()),
-			)
-			.unwrap();
+		store.ecdsa_generate_new(BEEFY_KEY_TYPE, Some(&who.to_seed())).unwrap();
 		let beefy_keystore: BeefyKeystore<ecdsa_crypto::AuthorityId> = Some(store.into()).into();
 		beefy_keystore.sign(&who.public(), &commitment.encode()).unwrap()
 	}
@@ -582,7 +583,8 @@ pub(crate) mod tests {
 	#[test]
 	fn should_validate_messages() {
 		let keys = vec![Keyring::<ecdsa_crypto::AuthorityId>::Alice.public()];
-		let validator_set = ValidatorSet::<ecdsa_crypto::AuthorityId>::new(keys.clone(), 0).unwrap();
+		let validator_set =
+			ValidatorSet::<ecdsa_crypto::AuthorityId>::new(keys.clone(), 0).unwrap();
 		let (gv, mut report_stream) =
 			GossipValidator::<Block>::new(Arc::new(Mutex::new(KnownPeers::new())));
 		let sender = PeerId::random();
@@ -696,7 +698,8 @@ pub(crate) mod tests {
 	#[test]
 	fn messages_allowed_and_expired() {
 		let keys = vec![Keyring::Alice.public()];
-		let validator_set = ValidatorSet::<ecdsa_crypto::AuthorityId>::new(keys.clone(), 0).unwrap();
+		let validator_set =
+			ValidatorSet::<ecdsa_crypto::AuthorityId>::new(keys.clone(), 0).unwrap();
 		let (gv, _) = GossipValidator::<Block>::new(Arc::new(Mutex::new(KnownPeers::new())));
 		gv.update_filter(GossipFilterCfg { start: 0, end: 10, validator_set: &validator_set });
 		let sender = sc_network::PeerId::random();
@@ -732,7 +735,8 @@ pub(crate) mod tests {
 		assert!(allowed(&sender, intent, &topic, &mut encoded_proof));
 		assert!(!expired(topic, &mut encoded_proof));
 		// using wrong set_id -> !allowed, expired
-		let bad_validator_set = ValidatorSet::<ecdsa_crypto::AuthorityId>::new(keys.clone(), 1).unwrap();
+		let bad_validator_set =
+			ValidatorSet::<ecdsa_crypto::AuthorityId>::new(keys.clone(), 1).unwrap();
 		let proof = dummy_proof(2, &bad_validator_set);
 		let mut encoded_proof = GossipMessage::<Block>::FinalityProof(proof).encode();
 		assert!(!allowed(&sender, intent, &topic, &mut encoded_proof));
@@ -773,7 +777,8 @@ pub(crate) mod tests {
 	#[test]
 	fn messages_rebroadcast() {
 		let keys = vec![Keyring::Alice.public()];
-		let validator_set = ValidatorSet::<ecdsa_crypto::AuthorityId>::new(keys.clone(), 0).unwrap();
+		let validator_set =
+			ValidatorSet::<ecdsa_crypto::AuthorityId>::new(keys.clone(), 0).unwrap();
 		let (gv, _) = GossipValidator::<Block>::new(Arc::new(Mutex::new(KnownPeers::new())));
 		gv.update_filter(GossipFilterCfg { start: 0, end: 10, validator_set: &validator_set });
 		let sender = sc_network::PeerId::random();

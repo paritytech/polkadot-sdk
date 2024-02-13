@@ -136,9 +136,15 @@ fn combine_impls(
 				return None
 			}
 			if let ImplItem::Type(typ) = item.clone() {
+				let cfg_attrs = typ
+					.attrs
+					.iter()
+					.filter(|attr| attr.path().get_ident().map_or(false, |ident| ident == "cfg"))
+					.map(|attr| attr.to_token_stream());
 				if is_runtime_type(&typ) {
 					let item: ImplItem = if inject_runtime_types {
 						parse_quote! {
+							#( #cfg_attrs )*
 							type #ident = #ident;
 						}
 					} else {
@@ -148,6 +154,7 @@ fn combine_impls(
 				}
 				// modify and insert uncolliding type items
 				let modified_item: ImplItem = parse_quote! {
+					#( #cfg_attrs )*
 					type #ident = <#default_impl_path as #disambiguation_path>::#ident;
 				};
 				return Some(modified_item)

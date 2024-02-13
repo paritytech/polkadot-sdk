@@ -1,17 +1,19 @@
 [package]
 name = "asset-hub-westend-runtime"
-version = "0.9.420"
+version = "0.15.0"
 authors.workspace = true
 edition.workspace = true
 description = "Westend variant of Asset Hub parachain runtime"
 license = "Apache-2.0"
 
+[lints]
+workspace = true
+
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
 hex-literal = { version = "0.4.1", optional = true }
-log = { version = "0.4.20", default-features = false }
+log = { workspace = true }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-smallvec = "1.11.0"
 
 # Substrate
 frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true }
@@ -57,7 +59,6 @@ primitive-types = { version = "0.12.1", default-features = false, features = ["c
 # Polkadot
 pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm", default-features = false }
 pallet-xcm-benchmarks = { path = "../../../../../polkadot/xcm/pallet-xcm-benchmarks", default-features = false, optional = true }
-polkadot-core-primitives = { path = "../../../../../polkadot/core-primitives", default-features = false }
 polkadot-parachain-primitives = { path = "../../../../../polkadot/parachain", default-features = false }
 polkadot-runtime-common = { path = "../../../../../polkadot/runtime/common", default-features = false }
 westend-runtime-constants = { path = "../../../../../polkadot/runtime/westend/constants", default-features = false }
@@ -72,11 +73,13 @@ cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system
 cumulus-pallet-session-benchmarking = { path = "../../../../pallets/session-benchmarking", default-features = false }
 cumulus-pallet-xcm = { path = "../../../../pallets/xcm", default-features = false }
 cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue", default-features = false, features = ["bridging"] }
+cumulus-primitives-aura = { path = "../../../../primitives/aura", default-features = false }
 cumulus-primitives-core = { path = "../../../../primitives/core", default-features = false }
 cumulus-primitives-utility = { path = "../../../../primitives/utility", default-features = false }
 pallet-collator-selection = { path = "../../../../pallets/collator-selection", default-features = false }
 parachain-info = { package = "staging-parachain-info", path = "../../../pallets/parachain-info", default-features = false }
 parachains-common = { path = "../../../common", default-features = false }
+testnet-parachains-constants = { path = "../../constants", default-features = false, features = ["westend"] }
 assets-common = { path = "../common", default-features = false }
 
 # Bridges
@@ -173,6 +176,7 @@ std = [
 	"cumulus-pallet-session-benchmarking/std",
 	"cumulus-pallet-xcm/std",
 	"cumulus-pallet-xcmp-queue/std",
+	"cumulus-primitives-aura/std",
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-utility/std",
 	"frame-benchmarking?/std",
@@ -207,7 +211,6 @@ std = [
 	"pallet-xcm/std",
 	"parachain-info/std",
 	"parachains-common/std",
-	"polkadot-core-primitives/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-common/std",
 	"primitive-types/std",
@@ -226,6 +229,7 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
+	"testnet-parachains-constants/std",
 	"westend-runtime-constants/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
@@ -236,5 +240,5 @@ experimental = ["pallet-aura/experimental"]
 
 # A feature that should be enabled when the runtime should be built for on-chain
 # deployment. This will disable stuff that shouldn't be part of the on-chain wasm
-# to make it smaller like logging for example.
+# to make it smaller, like logging for example.
 on-chain-release-build = ["sp-api/disable-logging"]

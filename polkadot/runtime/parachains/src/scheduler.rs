@@ -65,7 +65,7 @@ pub mod migration;
 pub mod pallet {
 	use super::*;
 
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -99,21 +99,23 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn availability_cores)]
 	pub(crate) type AvailabilityCores<T: Config> =
-		StorageValue<_, Vec<CoreOccupied<BlockNumberFor<T>>>, ValueQuery>;
+		StorageValue<_, Vec<CoreOccupiedType<T>>, ValueQuery>;
 
 	/// Representation of a core in `AvailabilityCores`.
 	///
 	/// This is not to be confused with `CoreState` which is an enriched variant of this and exposed
 	/// to the node side. It also provides information about scheduled/upcoming assignments for
 	/// example and is computed on the fly in the `availability_cores` runtime call.
-	#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
-	#[cfg_attr(feature = "std", derive(PartialEq))]
+	#[derive(Encode, Decode, TypeInfo, RuntimeDebug, PartialEq)]
 	pub enum CoreOccupied<N> {
 		/// No candidate is waiting availability on this core right now (the core is not occupied).
 		Free,
 		/// A para is currently waiting for availability/inclusion on this core.
 		Paras(ParasEntry<N>),
 	}
+
+	/// Convenience type alias for `CoreOccupied`.
+	pub type CoreOccupiedType<T> = CoreOccupied<BlockNumberFor<T>>;
 
 	impl<N> CoreOccupied<N> {
 		/// Is core free?
@@ -143,22 +145,17 @@ pub mod pallet {
 	pub(crate) type SessionStartBlock<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	/// One entry for each availability core. The `VecDeque` represents the assignments to be
-	/// scheduled on that core. `None` is used to signal to not schedule the next para of the core
-	/// as there is one currently being scheduled. Not using `None` here would overwrite the
-	/// `CoreState` in the runtime API. The value contained here will not be valid after the end of
+	/// scheduled on that core. The value contained here will not be valid after the end of
 	/// a block. Runtime APIs should be used to determine scheduled cores/ for the upcoming block.
 	#[pallet::storage]
 	#[pallet::getter(fn claimqueue)]
-	pub(crate) type ClaimQueue<T: Config> = StorageValue<
-		_,
-		BTreeMap<CoreIndex, VecDeque<Option<ParasEntry<BlockNumberFor<T>>>>>,
-		ValueQuery,
-	>;
+	pub(crate) type ClaimQueue<T: Config> =
+		StorageValue<_, BTreeMap<CoreIndex, VecDeque<ParasEntryType<T>>>, ValueQuery>;
 
 	/// Assignments as tracked in the claim queue.
-	#[derive(Clone, Encode, Decode, TypeInfo, PartialEq, RuntimeDebug)]
-	pub struct ParasEntry<N = BlockNumber> {
-		/// The underlying `Assignment`
+	#[derive(Encode, Decode, TypeInfo, RuntimeDebug, PartialEq, Clone)]
+	pub struct ParasEntry<N> {
+		/// The underlying [`Assignment`].
 		pub assignment: Assignment,
 		/// The number of times the entry has timed out in availability already.
 		pub availability_timeouts: u32,
@@ -169,37 +166,18 @@ pub mod pallet {
 		pub ttl: N,
 	}
 
-	impl<N> ParasEntry<N> {
-		/// Return `Id` from the underlying `Assignment`.
-		pub fn para_id(&self) -> ParaId {
-			self.assignment.para_id
-		}
+	/// Convenience type declaration for `ParasEntry`.
+	pub type ParasEntryType<T> = ParasEntry<BlockNumberFor<T>>;
 
+	impl<N> ParasEntry<N> {
 		/// Create a new `ParasEntry`.
 		pub fn new(assignment: Assignment, now: N) -> Self {
 			ParasEntry { assignment, availability_timeouts: 0, ttl: now }
 		}
-	}
 
-	/// How a core is mapped to a backing group and a `ParaId`
-	#[derive(Clone, Encode, Decode, PartialEq, TypeInfo)]
-	#[cfg_attr(feature = "std", derive(Debug))]
-	pub struct CoreAssignment<BlockNumber> {
-		/// The core that is assigned.
-		pub core: CoreIndex,
-		/// The para id and accompanying information needed to collate and back a parablock.
-		pub paras_entry: ParasEntry<BlockNumber>,
-	}
-
-	impl<BlockNumber> CoreAssignment<BlockNumber> {
-		/// Returns the [`ParaId`] of the assignment.
+		/// Return `Id` from the underlying `Assignment`.
 		pub fn para_id(&self) -> ParaId {
-			self.paras_entry.para_id()
-		}
-
-		/// Returns the inner [`ParasEntry`] of the assignment.
-		pub fn to_paras_entry(self) -> ParasEntry<BlockNumber> {
-			self.paras_entry
+			self.assignment.para_id()
 		}
 	}
 
@@ -219,8 +197,6 @@ pub mod pallet {
 }
 
 type PositionInClaimqueue = u32;
-type TimedoutParas<T> = BTreeMap<CoreIndex, ParasEntry<BlockNumberFor<T>>>;
-type ConcludedParas = BTreeMap<CoreIndex, ParaId>;
 
 impl<T: Config> Pallet<T> {
 	/// Called by the initializer to initialize the scheduler pallet.
@@ -253,7 +229,7 @@ impl<T: Config> Pallet<T> {
 		);
 
 		AvailabilityCores::<T>::mutate(|cores| {
-			cores.resize(n_cores as _, CoreOccupied::Free);
+			cores.resize_with(n_cores as _, || CoreOccupied::Free);
 		});
 
 		// shuffle validators into groups.
@@ -298,9 +274,8 @@ impl<T: Config> Pallet<T> {
 	/// with the reason for them being freed. Returns a tuple of concluded and timedout paras.
 	fn free_cores(
 		just_freed_cores: impl IntoIterator<Item = (CoreIndex, FreedReason)>,
-	) -> (ConcludedParas, TimedoutParas<T>) {
-		let mut timedout_paras: BTreeMap<CoreIndex, ParasEntry<BlockNumberFor<T>>> =
-			BTreeMap::new();
+	) -> (BTreeMap<CoreIndex, Assignment>, BTreeMap<CoreIndex, ParasEntryType<T>>) {
+		let mut timedout_paras: BTreeMap<CoreIndex, ParasEntryType<T>> = BTreeMap::new();
 		let mut concluded_paras = BTreeMap::new();
 
 		AvailabilityCores::<T>::mutate(|cores| {
@@ -310,21 +285,22 @@ impl<T: Config> Pallet<T> {
 				.into_iter()
 				.filter(|(freed_index, _)| (freed_index.0 as usize) < c_len)
 				.for_each(|(freed_index, freed_reason)| {
-					match &cores[freed_index.0 as usize] {
+					match sp_std::mem::replace(
+						&mut cores[freed_index.0 as usize],
+						CoreOccupied::Free,
+					) {
 						CoreOccupied::Free => {},
 						CoreOccupied::Paras(entry) => {
 							match freed_reason {
 								FreedReason::Concluded => {
-									concluded_paras.insert(freed_index, entry.para_id());
+									concluded_paras.insert(freed_index, entry.assignment);
 								},
 								FreedReason::TimedOut => {
-									timedout_paras.insert(freed_index, entry.clone());
+									timedout_paras.insert(freed_index, entry);
 								},
 							};
 						},
 					};
-
-					cores[freed_index.0 as usize] = CoreOccupied::Free;
 				})
 		});
 
@@ -379,30 +355,36 @@ impl<T: Config> Pallet<T> {
 			for (idx, _) in (0u32..).zip(availability_cores) {
 				let core_idx = CoreIndex(idx);
 				if let Some(core_claimqueue) = cq.get_mut(&core_idx) {
-					let mut dropped_claims: Vec<Option<ParaId>> = vec![];
-					core_claimqueue.retain(|maybe_entry| {
-						if let Some(entry) = maybe_entry {
+					let mut i = 0;
+					let mut num_dropped = 0;
+					while i < core_claimqueue.len() {
+						let maybe_dropped = if let Some(entry) = core_claimqueue.get(i) {
 							if entry.ttl < now {
-								dropped_claims.push(Some(entry.para_id()));
-								return false
+								core_claimqueue.remove(i)
+							} else {
+								None
 							}
-						}
-						true
-					});
+						} else {
+							None
+						};
 
-					// For all claims dropped due to TTL, attempt to pop a new entry to
-					// the back of the claimqueue.
-					for drop in dropped_claims {
-						match T::AssignmentProvider::pop_assignment_for_core(core_idx, drop) {
-							Some(assignment) => {
-								let AssignmentProviderConfig { ttl, .. } =
-									T::AssignmentProvider::get_provider_config(core_idx);
-								core_claimqueue.push_back(Some(ParasEntry::new(
-									assignment.clone(),
-									now + ttl,
-								)));
-							},
-							None => (),
+						if let Some(dropped) = maybe_dropped {
+							num_dropped += 1;
+							T::AssignmentProvider::report_processed(dropped.assignment);
+						} else {
+							i += 1;
+						}
+					}
+
+					for _ in 0..num_dropped {
+						// For all claims dropped due to TTL, attempt to pop a new entry to
+						// the back of the claimqueue.
+						if let Some(assignment) =
+							T::AssignmentProvider::pop_assignment_for_core(core_idx)
+						{
+							let AssignmentProviderConfig { ttl, .. } =
+								T::AssignmentProvider::get_provider_config(core_idx);
+							core_claimqueue.push_back(ParasEntry::new(assignment, now + ttl));
 						}
 					}
 				}
@@ -446,7 +428,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let rotations_since_session_start: BlockNumberFor<T> =
-			(at - session_start_block) / config.group_rotation_frequency.into();
+			(at - session_start_block) / config.group_rotation_frequency;
 
 		let rotations_since_session_start =
 			<BlockNumberFor<T> as TryInto<u32>>::try_into(rotations_since_session_start)
@@ -514,14 +496,12 @@ impl<T: Config> Pallet<T> {
 	/// Return the next thing that will be scheduled on this core assuming it is currently
 	/// occupied and the candidate occupying it became available.
 	pub(crate) fn next_up_on_available(core: CoreIndex) -> Option<ScheduledCore> {
-		ClaimQueue::<T>::get().get(&core).and_then(|a| {
-			a.iter()
-				.find_map(|e| e.as_ref())
-				.map(|pe| Self::paras_entry_to_scheduled_core(pe))
-		})
+		ClaimQueue::<T>::get()
+			.get(&core)
+			.and_then(|a| a.front().map(|pe| Self::paras_entry_to_scheduled_core(pe)))
 	}
 
-	fn paras_entry_to_scheduled_core(pe: &ParasEntry<BlockNumberFor<T>>) -> ScheduledCore {
+	fn paras_entry_to_scheduled_core(pe: &ParasEntryType<T>) -> ScheduledCore {
 		ScheduledCore { para_id: pe.para_id(), collator: None }
 	}
 
@@ -552,35 +532,33 @@ impl<T: Config> Pallet<T> {
 	/// Pushes occupied cores to the assignment provider.
 	fn push_occupied_cores_to_assignment_provider() {
 		AvailabilityCores::<T>::mutate(|cores| {
-			for (core_idx, core) in cores.iter_mut().enumerate() {
-				match core {
+			for core in cores.iter_mut() {
+				match sp_std::mem::replace(core, CoreOccupied::Free) {
 					CoreOccupied::Free => continue,
 					CoreOccupied::Paras(entry) => {
-						let core_idx = CoreIndex::from(core_idx as u32);
-						Self::maybe_push_assignment(core_idx, entry.clone());
+						Self::maybe_push_assignment(entry);
 					},
 				}
-				*core = CoreOccupied::Free;
 			}
 		});
 	}
 
 	// on new session
 	fn push_claimqueue_items_to_assignment_provider() {
-		for (core_idx, core_claimqueue) in ClaimQueue::<T>::take() {
+		for (_, claim_queue) in ClaimQueue::<T>::take() {
 			// Push back in reverse order so that when we pop from the provider again,
 			// the entries in the claimqueue are in the same order as they are right now.
-			for para_entry in core_claimqueue.into_iter().flatten().rev() {
-				Self::maybe_push_assignment(core_idx, para_entry);
+			for para_entry in claim_queue.into_iter().rev() {
+				Self::maybe_push_assignment(para_entry);
 			}
 		}
 	}
 
 	/// Push assignments back to the provider on session change unless the paras
 	/// timed out on availability before.
-	fn maybe_push_assignment(core_idx: CoreIndex, pe: ParasEntry<BlockNumberFor<T>>) {
+	fn maybe_push_assignment(pe: ParasEntryType<T>) {
 		if pe.availability_timeouts == 0 {
-			T::AssignmentProvider::push_assignment_for_core(core_idx, pe.assignment);
+			T::AssignmentProvider::push_back_assignment(pe.assignment);
 		}
 	}
 
@@ -591,31 +569,8 @@ impl<T: Config> Pallet<T> {
 		<configuration::Pallet<T>>::config().scheduling_lookahead
 	}
 
-	/// Updates the claimqueue by moving it to the next paras and filling empty spots with new
-	/// paras.
-	pub(crate) fn update_claimqueue(
-		just_freed_cores: impl IntoIterator<Item = (CoreIndex, FreedReason)>,
-		now: BlockNumberFor<T>,
-	) {
-		Self::move_claimqueue_forward();
-		Self::free_cores_and_fill_claimqueue(just_freed_cores, now)
-	}
-
-	/// Moves all elements in the claimqueue forward.
-	fn move_claimqueue_forward() {
-		let mut cq = ClaimQueue::<T>::get();
-		for core_queue in cq.values_mut() {
-			// First pop the finished claims from the front.
-			if let Some(None) = core_queue.front() {
-				core_queue.pop_front();
-			}
-		}
-
-		ClaimQueue::<T>::set(cq);
-	}
-
 	/// Frees cores and fills the free claimqueue spots by popping from the `AssignmentProvider`.
-	fn free_cores_and_fill_claimqueue(
+	pub fn free_cores_and_fill_claimqueue(
 		just_freed_cores: impl IntoIterator<Item = (CoreIndex, FreedReason)>,
 		now: BlockNumberFor<T>,
 	) {
@@ -651,19 +606,19 @@ impl<T: Config> Pallet<T> {
 				} else {
 					// Consider timed out assignments for on demand parachains as concluded for
 					// the assignment provider
-					let ret = concluded_paras.insert(core_idx, entry.para_id());
+					let ret = concluded_paras.insert(core_idx, entry.assignment);
 					debug_assert!(ret.is_none());
 				}
 			}
 
-			// We  consider occupied cores to be part of the claimqueue
+			if let Some(concluded_para) = concluded_paras.remove(&core_idx) {
+				T::AssignmentProvider::report_processed(concluded_para);
+			}
+			// We consider occupied cores to be part of the claimqueue
 			let n_lookahead_used = cq.get(&core_idx).map_or(0, |v| v.len() as u32) +
 				if Self::is_core_occupied(core_idx) { 1 } else { 0 };
 			for _ in n_lookahead_used..n_lookahead {
-				let concluded_para = concluded_paras.remove(&core_idx);
-				if let Some(assignment) =
-					T::AssignmentProvider::pop_assignment_for_core(core_idx, concluded_para)
-				{
+				if let Some(assignment) = T::AssignmentProvider::pop_assignment_for_core(core_idx) {
 					Self::add_to_claimqueue(core_idx, ParasEntry::new(assignment, now + ttl));
 				}
 			}
@@ -680,9 +635,9 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	fn add_to_claimqueue(core_idx: CoreIndex, pe: ParasEntry<BlockNumberFor<T>>) {
+	fn add_to_claimqueue(core_idx: CoreIndex, pe: ParasEntryType<T>) {
 		ClaimQueue::<T>::mutate(|la| {
-			la.entry(core_idx).or_default().push_back(Some(pe));
+			la.entry(core_idx).or_default().push_back(pe);
 		});
 	}
 
@@ -690,19 +645,16 @@ impl<T: Config> Pallet<T> {
 	fn remove_from_claimqueue(
 		core_idx: CoreIndex,
 		para_id: ParaId,
-	) -> Result<(PositionInClaimqueue, ParasEntry<BlockNumberFor<T>>), &'static str> {
+	) -> Result<(PositionInClaimqueue, ParasEntryType<T>), &'static str> {
 		ClaimQueue::<T>::mutate(|cq| {
 			let core_claims = cq.get_mut(&core_idx).ok_or("core_idx not found in lookahead")?;
 
 			let pos = core_claims
 				.iter()
-				.position(|a| a.as_ref().map_or(false, |pe| pe.para_id() == para_id))
+				.position(|pe| pe.para_id() == para_id)
 				.ok_or("para id not found at core_idx lookahead")?;
 
-			let pe = core_claims
-				.remove(pos)
-				.ok_or("remove returned None")?
-				.ok_or("Element in Claimqueue was None.")?;
+			let pe = core_claims.remove(pos).ok_or("remove returned None")?;
 
 			Ok((pos as u32, pe))
 		})
@@ -710,16 +662,10 @@ impl<T: Config> Pallet<T> {
 
 	/// Paras scheduled next in the claim queue.
 	pub(crate) fn scheduled_paras() -> impl Iterator<Item = (CoreIndex, ParaId)> {
-		Self::scheduled_entries().map(|(core_idx, e)| (core_idx, e.assignment.para_id))
-	}
-
-	/// Internal access to entries at the top of the claim queue.
-	fn scheduled_entries() -> impl Iterator<Item = (CoreIndex, ParasEntry<BlockNumberFor<T>>)> {
 		let claimqueue = ClaimQueue::<T>::get();
-
 		claimqueue
 			.into_iter()
-			.filter_map(|(core_idx, v)| v.front().cloned().flatten().map(|e| (core_idx, e)))
+			.filter_map(|(core_idx, v)| v.front().map(|e| (core_idx, e.assignment.para_id())))
 	}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
@@ -742,5 +688,10 @@ impl<T: Config> Pallet<T> {
 	#[cfg(test)]
 	pub(crate) fn set_validator_groups(validator_groups: Vec<Vec<ValidatorIndex>>) {
 		ValidatorGroups::<T>::set(validator_groups);
+	}
+
+	#[cfg(test)]
+	pub(crate) fn set_claimqueue(claimqueue: BTreeMap<CoreIndex, VecDeque<ParasEntryType<T>>>) {
+		ClaimQueue::<T>::set(claimqueue);
 	}
 }

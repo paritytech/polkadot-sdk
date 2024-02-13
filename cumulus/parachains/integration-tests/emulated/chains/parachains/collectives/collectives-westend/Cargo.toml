@@ -1,0 +1,24 @@
+[package]
+name = "collectives-westend-emulated-chain"
+version = "0.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+description = "Collectives Westend emulated chain"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+
+# Substrate
+sp-core = { path = "../../../../../../../../substrate/primitives/core", default-features = false }
+frame-support = { path = "../../../../../../../../substrate/frame/support", default-features = false }
+
+# Cumulus
+parachains-common = { path = "../../../../../../../parachains/common" }
+cumulus-primitives-core = { path = "../../../../../../../primitives/core", default-features = false }
+emulated-integration-tests-common = { path = "../../../../common", default-features = false }
+collectives-westend-runtime = { path = "../../../../../../runtimes/collectives/collectives-westend" }
+testnet-parachains-constants = { path = "../../../../../../runtimes/constants", features = ["westend"] }

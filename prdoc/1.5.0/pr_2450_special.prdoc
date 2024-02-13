@@ -1,0 +1,9 @@
+title: Adapt test worker to profile flag
+author: eagr
+topic: Node
+
+doc:
+  - audience: Runtime Dev
+    description: n/a
+
+crates: []

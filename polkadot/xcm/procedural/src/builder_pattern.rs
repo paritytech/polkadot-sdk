@@ -87,8 +87,8 @@ fn generate_builder_raw_impl(name: &Ident, data_enum: &DataEnum) -> TokenStream2
 	let methods = data_enum.variants.iter().map(|variant| {
 		let variant_name = &variant.ident;
 		let method_name_string = &variant_name.to_string().to_snake_case();
-		let method_name = syn::Ident::new(&method_name_string, variant_name.span());
-		let docs = get_doc_comments(&variant);
+		let method_name = syn::Ident::new(method_name_string, variant_name.span());
+		let docs = get_doc_comments(variant);
 		let method = match &variant.fields {
 			Fields::Unit => {
 				quote! {
@@ -148,9 +148,7 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 		.iter()
 		.map(|variant| {
 			let maybe_builder_attr = variant.attrs.iter().find(|attr| match attr.meta {
-				Meta::List(ref list) => {
-					return list.path.is_ident("builder");
-				},
+				Meta::List(ref list) => list.path.is_ident("builder"),
 				_ => false,
 			});
 			let builder_attr = match maybe_builder_attr {
@@ -159,7 +157,7 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 				                          * holding register */
 			};
 			let Meta::List(ref list) = builder_attr.meta else { unreachable!("We checked before") };
-			let inner_ident: Ident = syn::parse2(list.tokens.clone().into()).map_err(|_| {
+			let inner_ident: Ident = syn::parse2(list.tokens.clone()).map_err(|_| {
 				Error::new_spanned(&builder_attr, "Expected `builder(loads_holding)`")
 			})?;
 			let ident_to_match: Ident = syn::parse_quote!(loads_holding);
@@ -177,8 +175,8 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 		.map(|variant| {
 			let variant_name = &variant.ident;
 			let method_name_string = &variant_name.to_string().to_snake_case();
-			let method_name = syn::Ident::new(&method_name_string, variant_name.span());
-			let docs = get_doc_comments(&variant);
+			let method_name = syn::Ident::new(method_name_string, variant_name.span());
+			let docs = get_doc_comments(variant);
 			let method = match &variant.fields {
 				Fields::Unnamed(fields) => {
 					let arg_names: Vec<_> = fields
@@ -217,7 +215,7 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 				},
 				_ =>
 					return Err(Error::new_spanned(
-						&variant,
+						variant,
 						"Instructions that load the holding register should take operands",
 					)),
 			};
@@ -235,14 +233,14 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 	let buy_execution_method = data_enum
 		.variants
 		.iter()
-		.find(|variant| variant.ident.to_string() == "BuyExecution")
+		.find(|variant| variant.ident == "BuyExecution")
 		.map_or(
 			Err(Error::new_spanned(&data_enum.variants, "No BuyExecution instruction")),
 			|variant| {
 				let variant_name = &variant.ident;
 				let method_name_string = &variant_name.to_string().to_snake_case();
-				let method_name = syn::Ident::new(&method_name_string, variant_name.span());
-				let docs = get_doc_comments(&variant);
+				let method_name = syn::Ident::new(method_name_string, variant_name.span());
+				let docs = get_doc_comments(variant);
 				let fields = match &variant.fields {
 					Fields::Named(fields) => {
 						let arg_names: Vec<_> =
@@ -263,7 +261,7 @@ fn generate_builder_impl(name: &Ident, data_enum: &DataEnum) -> Result<TokenStre
 					},
 					_ =>
 						return Err(Error::new_spanned(
-							&variant,
+							variant,
 							"BuyExecution should have named fields",
 						)),
 				};
@@ -289,19 +287,19 @@ fn generate_builder_unpaid_impl(name: &Ident, data_enum: &DataEnum) -> Result<To
 	let unpaid_execution_variant = data_enum
 		.variants
 		.iter()
-		.find(|variant| variant.ident.to_string() == "UnpaidExecution")
+		.find(|variant| variant.ident == "UnpaidExecution")
 		.ok_or(Error::new_spanned(&data_enum.variants, "No UnpaidExecution instruction"))?;
 	let unpaid_execution_ident = &unpaid_execution_variant.ident;
 	let unpaid_execution_method_name = Ident::new(
 		&unpaid_execution_ident.to_string().to_snake_case(),
 		unpaid_execution_ident.span(),
 	);
-	let docs = get_doc_comments(&unpaid_execution_variant);
+	let docs = get_doc_comments(unpaid_execution_variant);
 	let fields = match &unpaid_execution_variant.fields {
 		Fields::Named(fields) => fields,
 		_ =>
 			return Err(Error::new_spanned(
-				&unpaid_execution_variant,
+				unpaid_execution_variant,
 				"UnpaidExecution should have named fields",
 			)),
 	};

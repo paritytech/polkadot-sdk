@@ -25,15 +25,16 @@ use sp_core::{ecdsa, keccak_256};
 use sp_keystore::KeystorePtr;
 use std::marker::PhantomData;
 
+use codec::Decode;
 use log::warn;
 
 use sp_consensus_beefy::{AuthorityIdBound, BeefyAuthorityId, BeefySignatureHasher};
 
 #[cfg(feature = "bls-experimental")]
 use sp_consensus_beefy::ecdsa_bls_crypto;
+use std::marker::PhantomData;
 
 use crate::{error, LOG_TARGET};
-
 
 /// A BEEFY specific keystore implemented as a `Newtype`. This is basically a
 /// wrapper around [`sp_keystore::Keystore`] and allows to customize
@@ -42,8 +43,8 @@ pub(crate) struct BeefyKeystore<AuthorityId: AuthorityIdBound>(
 	Option<KeystorePtr>,
 	PhantomData<fn() -> AuthorityId>,
 );
-impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId>
-{
+
+impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId> {
 	/// Check if the keystore contains a private key for one of the public keys
 	/// contained in `keys`. A public key with a matching private key is known
 	/// as a local authority id.
@@ -116,24 +117,7 @@ impl<AuthorityId: AuthorityIdBound> BeefyKeystore<AuthorityId>
 				sig_ref.to_vec()
 			},
 
-			_ => {
-				let sig = store
-					.sign_with(
-						<AuthorityId as AppCrypto>::ID,
-						<AuthorityId as AppCrypto>::CRYPTO_ID,
-						public.as_slice(),
-						message,
-					)
-					.map_err(|e| error::Error::Signature(format!("{}. Key: {:?}", e, public)))?
-					.ok_or_else(|| {
-						error::Error::Signature(format!(
-							"Could not find key in keystore. Key: {:?}",
-							public
-						))
-					})?;
-
-				sig
-			},
+			_ => Err(error::Error::Keystore("key type is not supported by BEEFY Keystore".into()))?,
 		};
 
 		//check that `sig` has the expected result type
@@ -208,9 +192,14 @@ where
 
 #[cfg(test)]
 pub mod tests {
-    use sp_consensus_beefy::{ecdsa_crypto, test_utils::{BeefySignerAuthority, Keyring, generate_in_store}};
+	#[cfg(feature = "bls-experimental")]
+	use sp_consensus_beefy::ecdsa_bls_crypto;
+	use sp_consensus_beefy::{
+		ecdsa_crypto,
+		test_utils::{BeefySignerAuthority, Keyring},
+	};
 	use sp_core::Pair as PairT;
-	use sp_keystore::testing::MemoryKeystore;
+	use sp_keystore::{testing::MemoryKeystore, Keystore};
 
 	use super::*;
 	use crate::error::Error;
@@ -253,6 +242,38 @@ pub mod tests {
 		));
 	}
 
+	/// Generate key pair in the given store using the provided seed
+	fn generate_in_store<AuthorityId>(
+		store: KeystorePtr,
+		key_type: sp_application_crypto::KeyTypeId,
+		owner: Option<Keyring<AuthorityId>>,
+	) -> AuthorityId
+	where
+		AuthorityId:
+			AuthorityIdBound + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Public>,
+		<AuthorityId as AppCrypto>::Pair: BeefySignerAuthority<BeefySignatureHasher>,
+		<AuthorityId as RuntimeAppPublic>::Signature:
+			Send + Sync + From<<<AuthorityId as AppCrypto>::Pair as AppCrypto>::Signature>,
+	{
+		let optional_seed: Option<String> = owner.map(|owner| owner.to_seed());
+
+		match <AuthorityId as AppCrypto>::CRYPTO_ID {
+			ecdsa::CRYPTO_ID => {
+				let pk = store.ecdsa_generate_new(key_type, optional_seed.as_deref()).ok().unwrap();
+				AuthorityId::decode(&mut pk.as_ref()).unwrap()
+			},
+			#[cfg(feature = "bls-experimental")]
+			ecdsa_bls377::CRYPTO_ID => {
+				let pk = store
+					.ecdsa_bls377_generate_new(key_type, optional_seed.as_deref())
+					.ok()
+					.unwrap();
+				AuthorityId::decode(&mut pk.as_ref()).unwrap()
+			},
+			_ => panic!("Requested CRYPTO_ID is not supported by the BEEFY Keyring"),
+		}
+	}
+
 	#[test]
 	fn pair_verify_should_work_ecdsa() {
 		pair_verify_should_work::<ecdsa_crypto::AuthorityId>();
@@ -284,10 +305,9 @@ pub mod tests {
 		let got = Keyring::<AuthorityId>::Bob.pair().to_raw_vec();
 		assert_eq!(want, got);
 
-		let want =
-			<AuthorityId as AppCrypto>::Pair::from_string("//Charlie", None)
-				.expect("Pair failed")
-				.to_raw_vec();
+		let want = <AuthorityId as AppCrypto>::Pair::from_string("//Charlie", None)
+			.expect("Pair failed")
+			.to_raw_vec();
 		let got = Keyring::<AuthorityId>::Charlie.pair().to_raw_vec();
 		assert_eq!(want, got);
 
@@ -300,7 +320,7 @@ pub mod tests {
 		let want = <AuthorityId as AppCrypto>::Pair::from_string("//Eve", None)
 			.expect("Pair failed")
 			.to_raw_vec();
-	    let got = Keyring::<AuthorityId>::Eve.pair().to_raw_vec();
+		let got = Keyring::<AuthorityId>::Eve.pair().to_raw_vec();
 		assert_eq!(want, got);
 
 		let want = <AuthorityId as AppCrypto>::Pair::from_string("//Ferdie", None)
@@ -343,11 +363,7 @@ pub mod tests {
 	{
 		let store = keystore();
 
-		generate_in_store::<AuthorityId>(
-			store.clone(),
-			BEEFY_KEY_TYPE,
-			Some(Keyring::Alice),
-		);
+		generate_in_store::<AuthorityId>(store.clone(), BEEFY_KEY_TYPE, Some(Keyring::Alice));
 
 		let alice = Keyring::<AuthorityId>::Alice.public();
 
@@ -376,7 +392,12 @@ pub mod tests {
 
 	#[cfg(feature = "bls-experimental")]
 	#[test]
+	fn authority_id_works_for_ecdsa() {
+		authority_id_works::<ecdsa_crypto::AuthorityId>();
+	}
 
+	#[cfg(feature = "bls-experimental")]
+	#[test]
 	fn authority_id_works_for_ecdsa_n_bls() {
 		authority_id_works::<ecdsa_bls_crypto::AuthorityId>();
 	}
@@ -391,11 +412,7 @@ pub mod tests {
 	{
 		let store = keystore();
 
-		generate_in_store::<AuthorityId>(
-			store.clone(),
-			BEEFY_KEY_TYPE,
-			Some(Keyring::Alice),
-		);
+		generate_in_store::<AuthorityId>(store.clone(), BEEFY_KEY_TYPE, Some(Keyring::Alice));
 
 		let alice = Keyring::Alice.public();
 
@@ -404,7 +421,7 @@ pub mod tests {
 		let msg = b"are you involved or commited?";
 
 		let sig1 = store.sign(&alice, msg).unwrap();
-		let sig2 = Keyring::<AuthorityId>::Alice.sign( msg);
+		let sig2 = Keyring::<AuthorityId>::Alice.sign(msg);
 
 		assert_eq!(sig1, sig2);
 	}
@@ -431,11 +448,7 @@ pub mod tests {
 	{
 		let store = keystore();
 
-		generate_in_store::<AuthorityId>(
-			store.clone(),
-			BEEFY_KEY_TYPE,
-			Some(Keyring::Bob),
-		);
+		generate_in_store::<AuthorityId>(store.clone(), BEEFY_KEY_TYPE, Some(Keyring::Bob));
 
 		let store: BeefyKeystore<AuthorityId> = Some(store).into();
 
@@ -481,11 +494,7 @@ pub mod tests {
 	{
 		let store = keystore();
 
-		generate_in_store::<AuthorityId>(
-			store.clone(),
-			BEEFY_KEY_TYPE,
-			Some(Keyring::Alice),
-		);
+		generate_in_store::<AuthorityId>(store.clone(), BEEFY_KEY_TYPE, Some(Keyring::Alice));
 
 		let store: BeefyKeystore<AuthorityId> = Some(store).into();
 
@@ -528,50 +537,19 @@ pub mod tests {
 		let store = keystore();
 
 		// test keys
-		let _ = generate_in_store::<AuthorityId>(
-			store.clone(),
-			TEST_TYPE,
-			Some(Keyring::Alice),
-		);
-		let _ = generate_in_store::<AuthorityId>(
-			store.clone(),
-			TEST_TYPE,
-			Some(Keyring::Bob),
-		);
+		let _ = generate_in_store::<AuthorityId>(store.clone(), TEST_TYPE, Some(Keyring::Alice));
+		let _ = generate_in_store::<AuthorityId>(store.clone(), TEST_TYPE, Some(Keyring::Bob));
 
 		// BEEFY keys
-		let _ = generate_in_store::<AuthorityId>(
-			store.clone(),
-			BEEFY_KEY_TYPE,
-			Some(Keyring::Dave),
-		);
-		let _ = generate_in_store::<AuthorityId>(
-			store.clone(),
-			BEEFY_KEY_TYPE,
-			Some(Keyring::Eve),
-		);
+		let _ =
+			generate_in_store::<AuthorityId>(store.clone(), BEEFY_KEY_TYPE, Some(Keyring::Dave));
+		let _ = generate_in_store::<AuthorityId>(store.clone(), BEEFY_KEY_TYPE, Some(Keyring::Eve));
 
-		let _ = generate_in_store::<AuthorityId>(
-			store.clone(),
-			TEST_TYPE,
-			None,
-		);
-		let _ = generate_in_store::<AuthorityId>(
-			store.clone(),
-			TEST_TYPE,
-			None,
-		);
+		let _ = generate_in_store::<AuthorityId>(store.clone(), TEST_TYPE, None);
+		let _ = generate_in_store::<AuthorityId>(store.clone(), TEST_TYPE, None);
 
-		let key1 = generate_in_store::<AuthorityId>(
-			store.clone(),
-			BEEFY_KEY_TYPE,
-			None,
-		);
-		let key2 = generate_in_store::<AuthorityId>(
-			store.clone(),
-			BEEFY_KEY_TYPE,
-			None,
-		);
+		let key1 = generate_in_store::<AuthorityId>(store.clone(), BEEFY_KEY_TYPE, None);
+		let key2 = generate_in_store::<AuthorityId>(store.clone(), BEEFY_KEY_TYPE, None);
 
 		let store: BeefyKeystore<AuthorityId> = Some(store).into();
 

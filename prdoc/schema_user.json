@@ -17,6 +17,16 @@
         "type": "string",
         "description": "Title for the PR. This is what will show up in the release notes.\nif needed, you may provide a different title override for each audience in the `doc` property."
       },
+      "author": {
+        "title": "Author handle",
+        "type": "string",
+        "description": "Author handle"
+      },
+      "topic": {
+        "title": "Topic",
+        "type": "string",
+        "description": "Topic"
+      },
 
       "doc": {
         "type": "array",

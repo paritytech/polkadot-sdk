@@ -270,9 +270,10 @@ where
 						session_index,
 					)
 					.await?;
-
-					self.update_authority_ids(sender, session_info.discovery_keys).await;
 				}
+				// authority_discovery is just a cache so let's try every leaf to detect if there
+				// are new authorities there.
+				self.update_authority_ids(sender, session_info.discovery_keys).await;
 			}
 		}
 		Ok(())
@@ -477,7 +478,7 @@ where
 				match message {
 					Versioned::V1(m) => match m {},
 					Versioned::V2(m) => match m {},
-					Versioned::VStaging(m) => match m {},
+					Versioned::V3(m) => match m {},
 				}
 			},
 		}
@@ -593,7 +594,7 @@ async fn update_gossip_topology(
 		let mut subject = [0u8; 40];
 		subject[..8].copy_from_slice(b"gossipsu");
 		subject[8..].copy_from_slice(&randomness);
-		sp_core::blake2_256(&subject)
+		sp_crypto_hashing::blake2_256(&subject)
 	};
 
 	// shuffle the validators and create the index mapping

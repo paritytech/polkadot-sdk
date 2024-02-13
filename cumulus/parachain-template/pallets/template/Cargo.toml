@@ -2,11 +2,14 @@
 name = "pallet-parachain-template"
 authors = ["Anonymous"]
 description = "FRAME pallet template for defining custom runtime logic."
-version = "0.1.0"
+version = "0.7.0"
 license = "Unlicense"
 homepage = "https://substrate.io"
 repository.workspace = true
 edition.workspace = true
+
+[lints]
+workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -21,7 +24,7 @@ frame-support = { path = "../../../../substrate/frame/support", default-features
 frame-system = { path = "../../../../substrate/frame/system", default-features = false }
 
 [dev-dependencies]
-serde = { version = "1.0.193" }
+serde = { version = "1.0.195" }
 
 # Substrate
 sp-core = { path = "../../../../substrate/primitives/core", default-features = false }

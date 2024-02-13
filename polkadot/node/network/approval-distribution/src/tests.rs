@@ -25,8 +25,8 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::approval::{
 	v1::{
-		AssignmentCert, AssignmentCertKind, IndirectAssignmentCert, VrfOutput, VrfProof,
-		VrfSignature,
+		AssignmentCert, AssignmentCertKind, IndirectAssignmentCert, IndirectSignedApprovalVote,
+		VrfPreOutput, VrfProof, VrfSignature,
 	},
 	v2::{
 		AssignmentCertKindV2, AssignmentCertV2, CoreBitfield, IndirectAssignmentCertV2,
@@ -130,16 +130,15 @@ fn make_peers_and_authority_ids(n: usize) -> Vec<(PeerId, AuthorityDiscoveryId)>
 
 fn make_gossip_topology(
 	session: SessionIndex,
-	all_peers: &[(PeerId, AuthorityDiscoveryId)],
+	all_peers: &[(Option<PeerId>, AuthorityDiscoveryId)],
 	neighbors_x: &[usize],
 	neighbors_y: &[usize],
+	local_index: usize,
 ) -> network_bridge_event::NewGossipTopology {
 	// This builds a grid topology which is a square matrix.
 	// The local validator occupies the top left-hand corner.
 	// The X peers occupy the same row and the Y peers occupy
 	// the same column.
-
-	let local_index = 1;
 
 	assert_eq!(
 		neighbors_x.len(),
@@ -154,7 +153,7 @@ fn make_gossip_topology(
 	assert!(all_peers.len() >= grid_size);
 
 	let peer_info = |i: usize| TopologyPeerInfo {
-		peer_ids: vec![all_peers[i].0],
+		peer_ids: all_peers[i].0.into_iter().collect_vec(),
 		validator_index: ValidatorIndex::from(i as u32),
 		discovery_id: all_peers[i].1.clone(),
 	};
@@ -277,16 +276,16 @@ async fn send_message_from_peer_v2(
 	.await;
 }
 
-async fn send_message_from_peer_vstaging(
+async fn send_message_from_peer_v3(
 	virtual_overseer: &mut VirtualOverseer,
 	peer_id: &PeerId,
-	msg: protocol_vstaging::ApprovalDistributionMessage,
+	msg: protocol_v3::ApprovalDistributionMessage,
 ) {
 	overseer_send(
 		virtual_overseer,
 		ApprovalDistributionMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
 			*peer_id,
-			Versioned::VStaging(msg),
+			Versioned::V3(msg),
 		)),
 	)
 	.await;
@@ -298,14 +297,14 @@ fn fake_assignment_cert(block_hash: Hash, validator: ValidatorIndex) -> Indirect
 	let mut prng = rand_core::OsRng;
 	let keypair = schnorrkel::Keypair::generate_with(&mut prng);
 	let (inout, proof, _) = keypair.vrf_sign(ctx.bytes(msg));
-	let out = inout.to_output();
+	let preout = inout.to_preout();
 
 	IndirectAssignmentCert {
 		block_hash,
 		validator,
 		cert: AssignmentCert {
 			kind: AssignmentCertKind::RelayVRFModulo { sample: 1 },
-			vrf: VrfSignature { output: VrfOutput(out), proof: VrfProof(proof) },
+			vrf: VrfSignature { pre_output: VrfPreOutput(preout), proof: VrfProof(proof) },
 		},
 	}
 }
@@ -320,14 +319,14 @@ fn fake_assignment_cert_v2(
 	let mut prng = rand_core::OsRng;
 	let keypair = schnorrkel::Keypair::generate_with(&mut prng);
 	let (inout, proof, _) = keypair.vrf_sign(ctx.bytes(msg));
-	let out = inout.to_output();
+	let preout = inout.to_preout();
 
 	IndirectAssignmentCertV2 {
 		block_hash,
 		validator,
 		cert: AssignmentCertV2 {
 			kind: AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield },
-			vrf: VrfSignature { output: VrfOutput(out), proof: VrfProof(proof) },
+			vrf: VrfSignature { pre_output: VrfPreOutput(preout), proof: VrfProof(proof) },
 		},
 	}
 }
@@ -380,10 +379,11 @@ fn state_with_reputation_delay() -> State {
 /// the new peer sends us the same assignment
 #[test]
 fn try_import_the_same_assignment() {
-	let peer_a = PeerId::random();
-	let peer_b = PeerId::random();
-	let peer_c = PeerId::random();
-	let peer_d = PeerId::random();
+	let peers = make_peers_and_authority_ids(15);
+	let peer_a = peers.get(0).unwrap().0;
+	let peer_b = peers.get(1).unwrap().0;
+	let peer_c = peers.get(2).unwrap().0;
+	let peer_d = peers.get(4).unwrap().0;
 	let parent_hash = Hash::repeat_byte(0xFF);
 	let hash = Hash::repeat_byte(0xAA);
 
@@ -393,6 +393,18 @@ fn try_import_the_same_assignment() {
 		setup_peer_with_view(overseer, &peer_a, view![], ValidationVersion::V1).await;
 		setup_peer_with_view(overseer, &peer_b, view![hash], ValidationVersion::V1).await;
 		setup_peer_with_view(overseer, &peer_c, view![hash], ValidationVersion::V1).await;
+
+		// Set up a gossip topology, where a, b, c and d are topology neighboors to the node under
+		// testing.
+		let peers_with_optional_peer_id = peers
+			.iter()
+			.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
+			.collect_vec();
+		setup_gossip_topology(
+			overseer,
+			make_gossip_topology(1, &peers_with_optional_peer_id, &[0, 1], &[2, 4], 3),
+		)
+		.await;
 
 		// new block `hash_a` with 1 candidates
 		let meta = BlockApprovalMeta {
@@ -446,7 +458,7 @@ fn try_import_the_same_assignment() {
 		);
 
 		// setup new peer with V2
-		setup_peer_with_view(overseer, &peer_d, view![], ValidationVersion::VStaging).await;
+		setup_peer_with_view(overseer, &peer_d, view![], ValidationVersion::V3).await;
 
 		// send the same assignment from peer_d
 		let msg = protocol_v1::ApprovalDistributionMessage::Assignments(assignments);
@@ -464,19 +476,32 @@ fn try_import_the_same_assignment() {
 /// cores.
 #[test]
 fn try_import_the_same_assignment_v2() {
-	let peer_a = PeerId::random();
-	let peer_b = PeerId::random();
-	let peer_c = PeerId::random();
-	let peer_d = PeerId::random();
+	let peers = make_peers_and_authority_ids(15);
+	let peer_a = peers.get(0).unwrap().0;
+	let peer_b = peers.get(1).unwrap().0;
+	let peer_c = peers.get(2).unwrap().0;
+	let peer_d = peers.get(4).unwrap().0;
 	let parent_hash = Hash::repeat_byte(0xFF);
 	let hash = Hash::repeat_byte(0xAA);
 
 	let _ = test_harness(state_without_reputation_delay(), |mut virtual_overseer| async move {
 		let overseer = &mut virtual_overseer;
 		// setup peers
-		setup_peer_with_view(overseer, &peer_a, view![], ValidationVersion::VStaging).await;
-		setup_peer_with_view(overseer, &peer_b, view![hash], ValidationVersion::VStaging).await;
-		setup_peer_with_view(overseer, &peer_c, view![hash], ValidationVersion::VStaging).await;
+		setup_peer_with_view(overseer, &peer_a, view![], ValidationVersion::V3).await;
+		setup_peer_with_view(overseer, &peer_b, view![hash], ValidationVersion::V3).await;
+		setup_peer_with_view(overseer, &peer_c, view![hash], ValidationVersion::V3).await;
+
+		// Set up a gossip topology, where a, b, c and d are topology neighboors to the node under
+		// testing.
+		let peers_with_optional_peer_id = peers
+			.iter()
+			.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
+			.collect_vec();
+		setup_gossip_topology(
+			overseer,
+			make_gossip_topology(1, &peers_with_optional_peer_id, &[0, 1], &[2, 4], 3),
+		)
+		.await;
 
 		// new block `hash_a` with 1 candidates
 		let meta = BlockApprovalMeta {
@@ -503,8 +528,8 @@ fn try_import_the_same_assignment_v2() {
 		let cert = fake_assignment_cert_v2(hash, validator_index, core_bitfield.clone());
 		let assignments = vec![(cert.clone(), cores.clone().try_into().unwrap())];
 
-		let msg = protocol_vstaging::ApprovalDistributionMessage::Assignments(assignments.clone());
-		send_message_from_peer_vstaging(overseer, &peer_a, msg).await;
+		let msg = protocol_v3::ApprovalDistributionMessage::Assignments(assignments.clone());
+		send_message_from_peer_v3(overseer, &peer_a, msg).await;
 
 		expect_reputation_change(overseer, &peer_a, COST_UNEXPECTED_MESSAGE).await;
 
@@ -528,8 +553,8 @@ fn try_import_the_same_assignment_v2() {
 			overseer_recv(overseer).await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 				peers,
-				Versioned::VStaging(protocol_vstaging::ValidationProtocol::ApprovalDistribution(
-					protocol_vstaging::ApprovalDistributionMessage::Assignments(assignments)
+				Versioned::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
+					protocol_v3::ApprovalDistributionMessage::Assignments(assignments)
 				))
 			)) => {
 				assert_eq!(peers.len(), 2);
@@ -538,11 +563,11 @@ fn try_import_the_same_assignment_v2() {
 		);
 
 		// setup new peer
-		setup_peer_with_view(overseer, &peer_d, view![], ValidationVersion::VStaging).await;
+		setup_peer_with_view(overseer, &peer_d, view![], ValidationVersion::V3).await;
 
 		// send the same assignment from peer_d
-		let msg = protocol_vstaging::ApprovalDistributionMessage::Assignments(assignments);
-		send_message_from_peer_vstaging(overseer, &peer_d, msg).await;
+		let msg = protocol_v3::ApprovalDistributionMessage::Assignments(assignments);
+		send_message_from_peer_v3(overseer, &peer_d, msg).await;
 
 		expect_reputation_change(overseer, &peer_d, COST_UNEXPECTED_MESSAGE).await;
 		expect_reputation_change(overseer, &peer_d, BENEFIT_VALID_MESSAGE).await;
@@ -705,13 +730,26 @@ fn spam_attack_results_in_negative_reputation_change() {
 #[test]
 fn peer_sending_us_the_same_we_just_sent_them_is_ok() {
 	let parent_hash = Hash::repeat_byte(0xFF);
-	let peer_a = PeerId::random();
 	let hash = Hash::repeat_byte(0xAA);
+
+	let peers = make_peers_and_authority_ids(8);
+	let peer_a = peers.first().unwrap().0;
 
 	let _ = test_harness(state_without_reputation_delay(), |mut virtual_overseer| async move {
 		let overseer = &mut virtual_overseer;
 		let peer = &peer_a;
 		setup_peer_with_view(overseer, peer, view![], ValidationVersion::V1).await;
+
+		let peers_with_optional_peer_id = peers
+			.iter()
+			.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
+			.collect_vec();
+		// Setup a topology where peer_a is neigboor to current node.
+		setup_gossip_topology(
+			overseer,
+			make_gossip_topology(1, &peers_with_optional_peer_id, &[0], &[2], 1),
+		)
+		.await;
 
 		// new block `hash` with 1 candidates
 		let meta = BlockApprovalMeta {
@@ -780,10 +818,12 @@ fn peer_sending_us_the_same_we_just_sent_them_is_ok() {
 }
 
 #[test]
-fn import_approval_happy_path() {
-	let peer_a = PeerId::random();
-	let peer_b = PeerId::random();
-	let peer_c = PeerId::random();
+fn import_approval_happy_path_v1_v2_peers() {
+	let peers = make_peers_and_authority_ids(15);
+
+	let peer_a = peers.get(0).unwrap().0;
+	let peer_b = peers.get(1).unwrap().0;
+	let peer_c = peers.get(2).unwrap().0;
 	let parent_hash = Hash::repeat_byte(0xFF);
 	let hash = Hash::repeat_byte(0xAA);
 
@@ -791,7 +831,7 @@ fn import_approval_happy_path() {
 		let overseer = &mut virtual_overseer;
 		// setup peers with V1 and V2 protocol versions
 		setup_peer_with_view(overseer, &peer_a, view![], ValidationVersion::V1).await;
-		setup_peer_with_view(overseer, &peer_b, view![hash], ValidationVersion::VStaging).await;
+		setup_peer_with_view(overseer, &peer_b, view![hash], ValidationVersion::V3).await;
 		setup_peer_with_view(overseer, &peer_c, view![hash], ValidationVersion::V1).await;
 
 		// new block `hash_a` with 1 candidates
@@ -805,6 +845,17 @@ fn import_approval_happy_path() {
 		};
 		let msg = ApprovalDistributionMessage::NewBlocks(vec![meta]);
 		overseer_send(overseer, msg).await;
+
+		let peers_with_optional_peer_id = peers
+			.iter()
+			.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
+			.collect_vec();
+		// Set up a gossip topology, where a, b, and c are topology neighboors to the node.
+		setup_gossip_topology(
+			overseer,
+			make_gossip_topology(1, &peers_with_optional_peer_id, &[0, 1], &[2, 4], 3),
+		)
+		.await;
 
 		// import an assignment related to `hash` locally
 		let validator_index = ValidatorIndex(0);
@@ -838,8 +889,8 @@ fn import_approval_happy_path() {
 			overseer_recv(overseer).await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 				peers,
-				Versioned::VStaging(protocol_vstaging::ValidationProtocol::ApprovalDistribution(
-					protocol_vstaging::ApprovalDistributionMessage::Assignments(assignments)
+				Versioned::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
+					protocol_v3::ApprovalDistributionMessage::Assignments(assignments)
 				))
 			)) => {
 				assert_eq!(peers.len(), 1);
@@ -848,14 +899,15 @@ fn import_approval_happy_path() {
 		);
 
 		// send the an approval from peer_b
-		let approval = IndirectSignedApprovalVote {
+		let approval = IndirectSignedApprovalVoteV2 {
 			block_hash: hash,
-			candidate_index,
+			candidate_indices: candidate_index.into(),
 			validator: validator_index,
 			signature: dummy_signature(),
 		};
-		let msg = protocol_v1::ApprovalDistributionMessage::Approvals(vec![approval.clone()]);
-		send_message_from_peer(overseer, &peer_b, msg).await;
+		let msg: protocol_v3::ApprovalDistributionMessage =
+			protocol_v3::ApprovalDistributionMessage::Approvals(vec![approval.clone()]);
+		send_message_from_peer_v3(overseer, &peer_b, msg).await;
 
 		assert_matches!(
 			overseer_recv(overseer).await,
@@ -882,6 +934,498 @@ fn import_approval_happy_path() {
 				assert_eq!(approvals.len(), 1);
 			}
 		);
+		virtual_overseer
+	});
+}
+
+// Test a v2 approval that signs multiple candidate is correctly processed.
+#[test]
+fn import_approval_happy_path_v2() {
+	let peers = make_peers_and_authority_ids(15);
+
+	let peer_a = peers.get(0).unwrap().0;
+	let peer_b = peers.get(1).unwrap().0;
+	let peer_c = peers.get(2).unwrap().0;
+	let parent_hash = Hash::repeat_byte(0xFF);
+	let hash = Hash::repeat_byte(0xAA);
+
+	let _ = test_harness(state_without_reputation_delay(), |mut virtual_overseer| async move {
+		let overseer = &mut virtual_overseer;
+		// setup peers with  V2 protocol versions
+		setup_peer_with_view(overseer, &peer_a, view![], ValidationVersion::V3).await;
+		setup_peer_with_view(overseer, &peer_b, view![hash], ValidationVersion::V3).await;
+		setup_peer_with_view(overseer, &peer_c, view![hash], ValidationVersion::V3).await;
+
+		// new block `hash_a` with 1 candidates
+		let meta = BlockApprovalMeta {
+			hash,
+			parent_hash,
+			number: 1,
+			candidates: vec![Default::default(); 2],
+			slot: 1.into(),
+			session: 1,
+		};
+		let msg = ApprovalDistributionMessage::NewBlocks(vec![meta]);
+		overseer_send(overseer, msg).await;
+
+		let peers_with_optional_peer_id = peers
+			.iter()
+			.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
+			.collect_vec();
+		// Set up a gossip topology, where a, b, and c are topology neighboors to the node.
+		setup_gossip_topology(
+			overseer,
+			make_gossip_topology(1, &peers_with_optional_peer_id, &[0, 1], &[2, 4], 3),
+		)
+		.await;
+
+		// import an assignment related to `hash` locally
+		let validator_index = ValidatorIndex(0);
+		let candidate_indices: CandidateBitfield =
+			vec![0 as CandidateIndex, 1 as CandidateIndex].try_into().unwrap();
+		let candidate_bitfields = vec![CoreIndex(0), CoreIndex(1)].try_into().unwrap();
+		let cert = fake_assignment_cert_v2(hash, validator_index, candidate_bitfields);
+		overseer_send(
+			overseer,
+			ApprovalDistributionMessage::DistributeAssignment(
+				cert.clone().into(),
+				candidate_indices.clone(),
+			),
+		)
+		.await;
+
+		// 1 peer is v2
+		assert_matches!(
+			overseer_recv(overseer).await,
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
+				peers,
+				Versioned::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
+					protocol_v3::ApprovalDistributionMessage::Assignments(assignments)
+				))
+			)) => {
+				assert_eq!(peers.len(), 2);
+				assert_eq!(assignments.len(), 1);
+			}
+		);
+
+		// send the an approval from peer_b
+		let approval = IndirectSignedApprovalVoteV2 {
+			block_hash: hash,
+			candidate_indices,
+			validator: validator_index,
+			signature: dummy_signature(),
+		};
+		let msg = protocol_v3::ApprovalDistributionMessage::Approvals(vec![approval.clone()]);
+		send_message_from_peer_v3(overseer, &peer_b, msg).await;
+
+		assert_matches!(
+			overseer_recv(overseer).await,
+			AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportApproval(
+				vote,
+				tx,
+			)) => {
+				assert_eq!(vote, approval);
+				tx.send(ApprovalCheckResult::Accepted).unwrap();
+			}
+		);
+
+		expect_reputation_change(overseer, &peer_b, BENEFIT_VALID_MESSAGE_FIRST).await;
+
+		assert_matches!(
+			overseer_recv(overseer).await,
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
+				peers,
+				Versioned::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
+					protocol_v3::ApprovalDistributionMessage::Approvals(approvals)
+				))
+			)) => {
+				assert_eq!(peers.len(), 1);
+				assert_eq!(approvals.len(), 1);
+			}
+		);
+		virtual_overseer
+	});
+}
+
+// Tests that votes that cover multiple assignments candidates are correctly processed on importing
+#[test]
+fn multiple_assignments_covered_with_one_approval_vote() {
+	let peers = make_peers_and_authority_ids(15);
+
+	let peer_a = peers.get(0).unwrap().0;
+	let peer_b = peers.get(1).unwrap().0;
+	let peer_c = peers.get(2).unwrap().0;
+	let peer_d = peers.get(4).unwrap().0;
+	let parent_hash = Hash::repeat_byte(0xFF);
+	let hash = Hash::repeat_byte(0xAA);
+
+	let _ = test_harness(state_without_reputation_delay(), |mut virtual_overseer| async move {
+		let overseer = &mut virtual_overseer;
+		// setup peers with  V2 protocol versions
+		setup_peer_with_view(overseer, &peer_a, view![hash], ValidationVersion::V3).await;
+		setup_peer_with_view(overseer, &peer_b, view![hash], ValidationVersion::V3).await;
+		setup_peer_with_view(overseer, &peer_c, view![hash], ValidationVersion::V3).await;
+		setup_peer_with_view(overseer, &peer_d, view![hash], ValidationVersion::V3).await;
+
+		// new block `hash_a` with 1 candidates
+		let meta = BlockApprovalMeta {
+			hash,
+			parent_hash,
+			number: 1,
+			candidates: vec![Default::default(); 2],
+			slot: 1.into(),
+			session: 1,
+		};
+		let msg = ApprovalDistributionMessage::NewBlocks(vec![meta]);
+		overseer_send(overseer, msg).await;
+
+		let peers_with_optional_peer_id = peers
+			.iter()
+			.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
+			.collect_vec();
+		// Set up a gossip topology, where a, b, and c, d are topology neighboors to the node.
+		setup_gossip_topology(
+			overseer,
+			make_gossip_topology(1, &peers_with_optional_peer_id, &[0, 1], &[2, 4], 3),
+		)
+		.await;
+
+		// import an assignment related to `hash` locally
+		let validator_index = ValidatorIndex(2); // peer_c is the originator
+		let candidate_indices: CandidateBitfield =
+			vec![0 as CandidateIndex, 1 as CandidateIndex].try_into().unwrap();
+
+		let core_bitfields = vec![CoreIndex(0)].try_into().unwrap();
+		let cert = fake_assignment_cert_v2(hash, validator_index, core_bitfields);
+
+		// send the candidate 0 assignment from peer_b
+		let assignment = IndirectAssignmentCertV2 {
+			block_hash: hash,
+			validator: validator_index,
+			cert: cert.cert,
+		};
+		let msg = protocol_v3::ApprovalDistributionMessage::Assignments(vec![(
+			assignment,
+			(0 as CandidateIndex).into(),
+		)]);
+		send_message_from_peer_v3(overseer, &peer_d, msg).await;
+
+		assert_matches!(
+			overseer_recv(overseer).await,
+			AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportAssignment(
+				_, _,
+				tx,
+			)) => {
+				tx.send(AssignmentCheckResult::Accepted).unwrap();
+			}
+		);
+		expect_reputation_change(overseer, &peer_d, BENEFIT_VALID_MESSAGE_FIRST).await;
+
+		assert_matches!(
+			overseer_recv(overseer).await,
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
+				peers,
+				Versioned::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
+					protocol_v3::ApprovalDistributionMessage::Assignments(assignments)
+				))
+			)) => {
+				assert!(peers.len() >= 2);
+				assert!(peers.contains(&peer_a));
+				assert!(peers.contains(&peer_b));
+				assert_eq!(assignments.len(), 1);
+			}
+		);
+
+		let candidate_bitfields = vec![CoreIndex(1)].try_into().unwrap();
+		let cert = fake_assignment_cert_v2(hash, validator_index, candidate_bitfields);
+
+		// send the candidate 1 assignment from peer_c
+		let assignment = IndirectAssignmentCertV2 {
+			block_hash: hash,
+			validator: validator_index,
+			cert: cert.cert,
+		};
+		let msg = protocol_v3::ApprovalDistributionMessage::Assignments(vec![(
+			assignment,
+			(1 as CandidateIndex).into(),
+		)]);
+
+		send_message_from_peer_v3(overseer, &peer_c, msg).await;
+
+		assert_matches!(
+			overseer_recv(overseer).await,
+			AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportAssignment(
+				_, _,
+				tx,
+			)) => {
+				tx.send(AssignmentCheckResult::Accepted).unwrap();
+			}
+		);
+		expect_reputation_change(overseer, &peer_c, BENEFIT_VALID_MESSAGE_FIRST).await;
+
+		assert_matches!(
+			overseer_recv(overseer).await,
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
+				peers,
+				Versioned::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
+					protocol_v3::ApprovalDistributionMessage::Assignments(assignments)
+				))
+			)) => {
+				assert!(peers.len() >= 2);
+				assert!(peers.contains(&peer_b));
+				assert!(peers.contains(&peer_a));
+				assert_eq!(assignments.len(), 1);
+			}
+		);
+
+		// send an approval from peer_b
+		let approval = IndirectSignedApprovalVoteV2 {
+			block_hash: hash,
+			candidate_indices,
+			validator: validator_index,
+			signature: dummy_signature(),
+		};
+		let msg = protocol_v3::ApprovalDistributionMessage::Approvals(vec![approval.clone()]);
+		send_message_from_peer_v3(overseer, &peer_d, msg).await;
+
+		assert_matches!(
+			overseer_recv(overseer).await,
+			AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportApproval(
+				vote,
+				tx,
+			)) => {
+				assert_eq!(vote, approval);
+				tx.send(ApprovalCheckResult::Accepted).unwrap();
+			}
+		);
+
+		expect_reputation_change(overseer, &peer_d, BENEFIT_VALID_MESSAGE_FIRST).await;
+
+		assert_matches!(
+			overseer_recv(overseer).await,
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
+				peers,
+				Versioned::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
+					protocol_v3::ApprovalDistributionMessage::Approvals(approvals)
+				))
+			)) => {
+				assert!(peers.len() >= 2);
+				assert!(peers.contains(&peer_b));
+				assert!(peers.contains(&peer_a));
+				assert_eq!(approvals.len(), 1);
+			}
+		);
+		for candidate_index in 0..1 {
+			let (tx_distribution, rx_distribution) = oneshot::channel();
+			let mut candidates_requesting_signatures = HashSet::new();
+			candidates_requesting_signatures.insert((hash, candidate_index));
+			overseer_send(
+				overseer,
+				ApprovalDistributionMessage::GetApprovalSignatures(
+					candidates_requesting_signatures,
+					tx_distribution,
+				),
+			)
+			.await;
+			let signatures = rx_distribution.await.unwrap();
+
+			assert_eq!(signatures.len(), 1);
+			for (signing_validator, signature) in signatures {
+				assert_eq!(validator_index, signing_validator);
+				assert_eq!(signature.0, hash);
+				assert_eq!(signature.2, approval.signature);
+				assert_eq!(signature.1, vec![0, 1]);
+			}
+		}
+		virtual_overseer
+	});
+}
+
+// Tests that votes that cover multiple assignments candidates are correctly processed when unify
+// with peer view
+#[test]
+fn unify_with_peer_multiple_assignments_covered_with_one_approval_vote() {
+	let peers = make_peers_and_authority_ids(15);
+
+	let peer_a = peers.get(0).unwrap().0;
+	let peer_b = peers.get(1).unwrap().0;
+	let peer_d = peers.get(4).unwrap().0;
+	let parent_hash = Hash::repeat_byte(0xFF);
+	let hash = Hash::repeat_byte(0xAA);
+
+	let _ = test_harness(state_without_reputation_delay(), |mut virtual_overseer| async move {
+		let overseer = &mut virtual_overseer;
+		setup_peer_with_view(overseer, &peer_d, view![hash], ValidationVersion::V3).await;
+
+		// new block `hash_a` with 1 candidates
+		let meta = BlockApprovalMeta {
+			hash,
+			parent_hash,
+			number: 1,
+			candidates: vec![Default::default(); 2],
+			slot: 1.into(),
+			session: 1,
+		};
+		let msg = ApprovalDistributionMessage::NewBlocks(vec![meta]);
+		overseer_send(overseer, msg).await;
+
+		let peers_with_optional_peer_id = peers
+			.iter()
+			.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
+			.collect_vec();
+		// Set up a gossip topology, where a, b, and c, d are topology neighboors to the node.
+		setup_gossip_topology(
+			overseer,
+			make_gossip_topology(1, &peers_with_optional_peer_id, &[0, 1], &[2, 4], 3),
+		)
+		.await;
+
+		// import an assignment related to `hash` locally
+		let validator_index = ValidatorIndex(2); // peer_c is the originator
+		let candidate_indices: CandidateBitfield =
+			vec![0 as CandidateIndex, 1 as CandidateIndex].try_into().unwrap();
+
+		let core_bitfields = vec![CoreIndex(0)].try_into().unwrap();
+		let cert = fake_assignment_cert_v2(hash, validator_index, core_bitfields);
+
+		// send the candidate 0 assignment from peer_b
+		let assignment = IndirectAssignmentCertV2 {
+			block_hash: hash,
+			validator: validator_index,
+			cert: cert.cert,
+		};
+		let msg = protocol_v3::ApprovalDistributionMessage::Assignments(vec![(
+			assignment,
+			(0 as CandidateIndex).into(),
+		)]);
+		send_message_from_peer_v3(overseer, &peer_d, msg).await;
+
+		assert_matches!(
+			overseer_recv(overseer).await,
+			AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportAssignment(
+				_, _,
+				tx,
+			)) => {
+				tx.send(AssignmentCheckResult::Accepted).unwrap();
+			}
+		);
+		expect_reputation_change(overseer, &peer_d, BENEFIT_VALID_MESSAGE_FIRST).await;
+
+		let candidate_bitfields = vec![CoreIndex(1)].try_into().unwrap();
+		let cert = fake_assignment_cert_v2(hash, validator_index, candidate_bitfields);
+
+		// send the candidate 1 assignment from peer_c
+		let assignment = IndirectAssignmentCertV2 {
+			block_hash: hash,
+			validator: validator_index,
+			cert: cert.cert,
+		};
+		let msg = protocol_v3::ApprovalDistributionMessage::Assignments(vec![(
+			assignment,
+			(1 as CandidateIndex).into(),
+		)]);
+
+		send_message_from_peer_v3(overseer, &peer_d, msg).await;
+
+		assert_matches!(
+			overseer_recv(overseer).await,
+			AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportAssignment(
+				_, _,
+				tx,
+			)) => {
+				tx.send(AssignmentCheckResult::Accepted).unwrap();
+			}
+		);
+		expect_reputation_change(overseer, &peer_d, BENEFIT_VALID_MESSAGE_FIRST).await;
+
+		// send an approval from peer_b
+		let approval = IndirectSignedApprovalVoteV2 {
+			block_hash: hash,
+			candidate_indices,
+			validator: validator_index,
+			signature: dummy_signature(),
+		};
+		let msg = protocol_v3::ApprovalDistributionMessage::Approvals(vec![approval.clone()]);
+		send_message_from_peer_v3(overseer, &peer_d, msg).await;
+
+		assert_matches!(
+			overseer_recv(overseer).await,
+			AllMessages::ApprovalVoting(ApprovalVotingMessage::CheckAndImportApproval(
+				vote,
+				tx,
+			)) => {
+				assert_eq!(vote, approval);
+				tx.send(ApprovalCheckResult::Accepted).unwrap();
+			}
+		);
+
+		expect_reputation_change(overseer, &peer_d, BENEFIT_VALID_MESSAGE_FIRST).await;
+
+		// setup peers with  V2 protocol versions
+		setup_peer_with_view(overseer, &peer_a, view![hash], ValidationVersion::V3).await;
+		setup_peer_with_view(overseer, &peer_b, view![hash], ValidationVersion::V3).await;
+		let mut expected_peers_assignments = vec![peer_a, peer_b];
+		let mut expected_peers_approvals = vec![peer_a, peer_b];
+		assert_matches!(
+			overseer_recv(overseer).await,
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
+				peers,
+				Versioned::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
+					protocol_v3::ApprovalDistributionMessage::Assignments(assignments)
+				))
+			)) => {
+				assert!(peers.len() == 1);
+				assert!(expected_peers_assignments.contains(peers.first().unwrap()));
+				expected_peers_assignments.retain(|peer| peer != peers.first().unwrap());
+				assert_eq!(assignments.len(), 2);
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(overseer).await,
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
+				peers,
+				Versioned::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
+					protocol_v3::ApprovalDistributionMessage::Approvals(approvals)
+				))
+			)) => {
+				assert!(peers.len() == 1);
+				assert!(expected_peers_approvals.contains(peers.first().unwrap()));
+				expected_peers_approvals.retain(|peer| peer != peers.first().unwrap());
+				assert_eq!(approvals.len(), 1);
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(overseer).await,
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
+				peers,
+				Versioned::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
+					protocol_v3::ApprovalDistributionMessage::Assignments(assignments)
+				))
+			)) => {
+				assert!(peers.len() == 1);
+				assert!(expected_peers_assignments.contains(peers.first().unwrap()));
+				expected_peers_assignments.retain(|peer| peer != peers.first().unwrap());
+				assert_eq!(assignments.len(), 2);
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(overseer).await,
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
+				peers,
+				Versioned::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
+					protocol_v3::ApprovalDistributionMessage::Approvals(approvals)
+				))
+			)) => {
+				assert!(peers.len() == 1);
+				assert!(expected_peers_approvals.contains(peers.first().unwrap()));
+				expected_peers_approvals.retain(|peer| peer != peers.first().unwrap());
+				assert_eq!(approvals.len(), 1);
+			}
+		);
+
 		virtual_overseer
 	});
 }
@@ -916,14 +1460,14 @@ fn import_approval_bad() {
 		let cert = fake_assignment_cert(hash, validator_index);
 
 		// send the an approval from peer_b, we don't have an assignment yet
-		let approval = IndirectSignedApprovalVote {
+		let approval = IndirectSignedApprovalVoteV2 {
 			block_hash: hash,
-			candidate_index,
+			candidate_indices: candidate_index.into(),
 			validator: validator_index,
 			signature: dummy_signature(),
 		};
-		let msg = protocol_v1::ApprovalDistributionMessage::Approvals(vec![approval.clone()]);
-		send_message_from_peer(overseer, &peer_b, msg).await;
+		let msg = protocol_v3::ApprovalDistributionMessage::Approvals(vec![approval.clone()]);
+		send_message_from_peer_v3(overseer, &peer_b, msg).await;
 
 		expect_reputation_change(overseer, &peer_b, COST_UNEXPECTED_MESSAGE).await;
 
@@ -948,8 +1492,8 @@ fn import_approval_bad() {
 		expect_reputation_change(overseer, &peer_b, BENEFIT_VALID_MESSAGE_FIRST).await;
 
 		// and try again
-		let msg = protocol_v1::ApprovalDistributionMessage::Approvals(vec![approval.clone()]);
-		send_message_from_peer(overseer, &peer_b, msg).await;
+		let msg = protocol_v3::ApprovalDistributionMessage::Approvals(vec![approval.clone()]);
+		send_message_from_peer_v3(overseer, &peer_b, msg).await;
 
 		assert_matches!(
 			overseer_recv(overseer).await,
@@ -1048,7 +1592,8 @@ fn update_peer_view() {
 	let hash_b = Hash::repeat_byte(0xBB);
 	let hash_c = Hash::repeat_byte(0xCC);
 	let hash_d = Hash::repeat_byte(0xDD);
-	let peer_a = PeerId::random();
+	let peers = make_peers_and_authority_ids(8);
+	let peer_a = peers.first().unwrap().0;
 	let peer = &peer_a;
 
 	let state = test_harness(State::default(), |mut virtual_overseer| async move {
@@ -1081,6 +1626,17 @@ fn update_peer_view() {
 
 		let msg = ApprovalDistributionMessage::NewBlocks(vec![meta_a, meta_b, meta_c]);
 		overseer_send(overseer, msg).await;
+
+		let peers_with_optional_peer_id = peers
+			.iter()
+			.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
+			.collect_vec();
+		// Setup a topology where peer_a is neigboor to current node.
+		setup_gossip_topology(
+			overseer,
+			make_gossip_topology(1, &peers_with_optional_peer_id, &[0], &[2], 1),
+		)
+		.await;
 
 		let cert_a = fake_assignment_cert(hash_a, ValidatorIndex(0));
 		let cert_b = fake_assignment_cert(hash_b, ValidatorIndex(0));
@@ -1202,6 +1758,183 @@ fn update_peer_view() {
 	assert!(state.blocks.get(&hash_c).unwrap().known_by.get(peer).is_none());
 }
 
+// Tests that updating the known peer_id for a given authorithy updates the topology
+// and sends the required messages
+#[test]
+fn update_peer_authority_id() {
+	let parent_hash = Hash::repeat_byte(0xFF);
+	let hash_a = Hash::repeat_byte(0xAA);
+	let hash_b = Hash::repeat_byte(0xBB);
+	let hash_c = Hash::repeat_byte(0xCC);
+	let peers = make_peers_and_authority_ids(8);
+	let neighbour_x_index = 0;
+	let neighbour_y_index = 2;
+	let local_index = 1;
+	// X neighbour, we simulate that PeerId is not known in the beginining.
+	let neighbour_x = peers.get(neighbour_x_index).unwrap().0;
+	// Y neighbour, we simulate that PeerId is not known in the beginining.
+	let neighbour_y = peers.get(neighbour_y_index).unwrap().0;
+
+	let _state = test_harness(State::default(), |mut virtual_overseer| async move {
+		let overseer = &mut virtual_overseer;
+		// new block `hash_a` with 1 candidates
+		let meta_a = BlockApprovalMeta {
+			hash: hash_a,
+			parent_hash,
+			number: 1,
+			candidates: vec![Default::default(); 1],
+			slot: 1.into(),
+			session: 1,
+		};
+		let meta_b = BlockApprovalMeta {
+			hash: hash_b,
+			parent_hash: hash_a,
+			number: 2,
+			candidates: vec![Default::default(); 1],
+			slot: 1.into(),
+			session: 1,
+		};
+		let meta_c = BlockApprovalMeta {
+			hash: hash_c,
+			parent_hash: hash_b,
+			number: 3,
+			candidates: vec![Default::default(); 1],
+			slot: 1.into(),
+			session: 1,
+		};
+
+		let msg = ApprovalDistributionMessage::NewBlocks(vec![meta_a, meta_b, meta_c]);
+		overseer_send(overseer, msg).await;
+
+		let peers_with_optional_peer_id = peers
+			.iter()
+			.enumerate()
+			.map(|(index, (peer_id, authority))| {
+				(if index == 0 { None } else { Some(*peer_id) }, authority.clone())
+			})
+			.collect_vec();
+
+		// Setup a topology where peer_a is neigboor to current node.
+		setup_gossip_topology(
+			overseer,
+			make_gossip_topology(
+				1,
+				&peers_with_optional_peer_id,
+				&[neighbour_x_index],
+				&[neighbour_y_index],
+				local_index,
+			),
+		)
+		.await;
+
+		let cert_a = fake_assignment_cert(hash_a, ValidatorIndex(local_index as u32));
+		let cert_b = fake_assignment_cert(hash_b, ValidatorIndex(local_index as u32));
+
+		overseer_send(
+			overseer,
+			ApprovalDistributionMessage::DistributeAssignment(cert_a.into(), 0.into()),
+		)
+		.await;
+
+		overseer_send(
+			overseer,
+			ApprovalDistributionMessage::DistributeAssignment(cert_b.into(), 0.into()),
+		)
+		.await;
+
+		// connect a peer
+		setup_peer_with_view(overseer, &neighbour_x, view![hash_a], ValidationVersion::V1).await;
+		setup_peer_with_view(overseer, &neighbour_y, view![hash_a], ValidationVersion::V1).await;
+
+		setup_peer_with_view(overseer, &neighbour_x, view![hash_b], ValidationVersion::V1).await;
+		setup_peer_with_view(overseer, &neighbour_y, view![hash_b], ValidationVersion::V1).await;
+
+		assert_matches!(
+			overseer_recv(overseer).await,
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
+				peers,
+				Versioned::V1(protocol_v1::ValidationProtocol::ApprovalDistribution(
+					protocol_v1::ApprovalDistributionMessage::Assignments(assignments)
+				))
+			)) => {
+				assert_eq!(peers.len(), 1);
+				assert_eq!(assignments.len(), 1);
+				assert_eq!(peers.get(0), Some(&neighbour_y));
+			}
+		);
+
+		assert_matches!(
+			overseer_recv(overseer).await,
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
+				peers,
+				Versioned::V1(protocol_v1::ValidationProtocol::ApprovalDistribution(
+					protocol_v1::ApprovalDistributionMessage::Assignments(assignments)
+				))
+			)) => {
+				assert_eq!(peers.len(), 1);
+				assert_eq!(assignments.len(), 1);
+				assert_eq!(peers.get(0), Some(&neighbour_y));
+			}
+		);
+
+		overseer_send(
+			overseer,
+			ApprovalDistributionMessage::NetworkBridgeUpdate(
+				NetworkBridgeEvent::UpdatedAuthorityIds(
+					peers[neighbour_x_index].0,
+					[peers[neighbour_x_index].1.clone()].into_iter().collect(),
+				),
+			),
+		)
+		.await;
+
+		// we should send relevant assignments to the peer, after we found it's peer id.
+		assert_matches!(
+			overseer_recv(overseer).await,
+			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
+				peers,
+				Versioned::V1(protocol_v1::ValidationProtocol::ApprovalDistribution(
+					protocol_v1::ApprovalDistributionMessage::Assignments(assignments)
+				))
+			)) => {
+				gum::info!(target: LOG_TARGET, ?peers, ?assignments);
+				assert_eq!(peers.len(), 1);
+				assert_eq!(assignments.len(), 2);
+				assert_eq!(assignments.get(0).unwrap().0.block_hash, hash_a);
+				assert_eq!(assignments.get(1).unwrap().0.block_hash, hash_b);
+				assert_eq!(peers.get(0), Some(&neighbour_x));
+			}
+		);
+
+		overseer_send(
+			overseer,
+			ApprovalDistributionMessage::NetworkBridgeUpdate(
+				NetworkBridgeEvent::UpdatedAuthorityIds(
+					peers[neighbour_y_index].0,
+					[peers[neighbour_y_index].1.clone()].into_iter().collect(),
+				),
+			),
+		)
+		.await;
+		overseer_send(
+			overseer,
+			ApprovalDistributionMessage::NetworkBridgeUpdate(
+				NetworkBridgeEvent::UpdatedAuthorityIds(
+					peers[neighbour_x_index].0,
+					[peers[neighbour_x_index].1.clone()].into_iter().collect(),
+				),
+			),
+		)
+		.await;
+		assert!(
+			overseer.recv().timeout(TIMEOUT).await.is_none(),
+			"no message should be sent peers are already known"
+		);
+
+		virtual_overseer
+	});
+}
+
 /// E.g. if someone copies the keys...
 #[test]
 fn import_remotely_then_locally() {
@@ -1264,14 +1997,14 @@ fn import_remotely_then_locally() {
 		assert!(overseer.recv().timeout(TIMEOUT).await.is_none(), "no message should be sent");
 
 		// send the approval remotely
-		let approval = IndirectSignedApprovalVote {
+		let approval = IndirectSignedApprovalVoteV2 {
 			block_hash: hash,
-			candidate_index,
+			candidate_indices: candidate_index.into(),
 			validator: validator_index,
 			signature: dummy_signature(),
 		};
-		let msg = protocol_v1::ApprovalDistributionMessage::Approvals(vec![approval.clone()]);
-		send_message_from_peer(overseer, peer, msg).await;
+		let msg = protocol_v3::ApprovalDistributionMessage::Approvals(vec![approval.clone()]);
+		send_message_from_peer_v3(overseer, peer, msg).await;
 
 		assert_matches!(
 			overseer_recv(overseer).await,
@@ -1295,7 +2028,8 @@ fn import_remotely_then_locally() {
 
 #[test]
 fn sends_assignments_even_when_state_is_approved() {
-	let peer_a = PeerId::random();
+	let peers = make_peers_and_authority_ids(8);
+	let peer_a = peers.first().unwrap().0;
 	let parent_hash = Hash::repeat_byte(0xFF);
 	let hash = Hash::repeat_byte(0xAA);
 	let peer = &peer_a;
@@ -1314,6 +2048,17 @@ fn sends_assignments_even_when_state_is_approved() {
 		};
 		let msg = ApprovalDistributionMessage::NewBlocks(vec![meta]);
 		overseer_send(overseer, msg).await;
+
+		let peers_with_optional_peer_id = peers
+			.iter()
+			.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
+			.collect_vec();
+		// Setup a topology where peer_a is neigboor to current node.
+		setup_gossip_topology(
+			overseer,
+			make_gossip_topology(1, &peers_with_optional_peer_id, &[0], &[2], 1),
+		)
+		.await;
 
 		let validator_index = ValidatorIndex(0);
 		let candidate_index = 0u32;
@@ -1336,8 +2081,11 @@ fn sends_assignments_even_when_state_is_approved() {
 		)
 		.await;
 
-		overseer_send(overseer, ApprovalDistributionMessage::DistributeApproval(approval.clone()))
-			.await;
+		overseer_send(
+			overseer,
+			ApprovalDistributionMessage::DistributeApproval(approval.clone().into()),
+		)
+		.await;
 
 		// connect the peer.
 		setup_peer_with_view(overseer, peer, view![hash], ValidationVersion::V1).await;
@@ -1380,7 +2128,8 @@ fn sends_assignments_even_when_state_is_approved() {
 /// assignemnts.
 #[test]
 fn sends_assignments_even_when_state_is_approved_v2() {
-	let peer_a = PeerId::random();
+	let peers = make_peers_and_authority_ids(8);
+	let peer_a = peers.first().unwrap().0;
 	let parent_hash = Hash::repeat_byte(0xFF);
 	let hash = Hash::repeat_byte(0xAA);
 	let peer = &peer_a;
@@ -1400,6 +2149,17 @@ fn sends_assignments_even_when_state_is_approved_v2() {
 		let msg = ApprovalDistributionMessage::NewBlocks(vec![meta]);
 		overseer_send(overseer, msg).await;
 
+		let peers_with_optional_peer_id = peers
+			.iter()
+			.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
+			.collect_vec();
+		// Setup a topology where peer_a is neigboor to current node.
+		setup_gossip_topology(
+			overseer,
+			make_gossip_topology(1, &peers_with_optional_peer_id, &[0], &[2], 1),
+		)
+		.await;
+
 		let validator_index = ValidatorIndex(0);
 		let cores = vec![0, 1, 2, 3];
 		let candidate_bitfield: CandidateBitfield = cores.clone().try_into().unwrap();
@@ -1416,9 +2176,9 @@ fn sends_assignments_even_when_state_is_approved_v2() {
 		// Assumes candidate index == core index.
 		let approvals = cores
 			.iter()
-			.map(|core| IndirectSignedApprovalVote {
+			.map(|core| IndirectSignedApprovalVoteV2 {
 				block_hash: hash,
-				candidate_index: *core,
+				candidate_indices: (*core).into(),
 				validator: validator_index,
 				signature: dummy_signature(),
 			})
@@ -1442,7 +2202,7 @@ fn sends_assignments_even_when_state_is_approved_v2() {
 		}
 
 		// connect the peer.
-		setup_peer_with_view(overseer, peer, view![hash], ValidationVersion::VStaging).await;
+		setup_peer_with_view(overseer, peer, view![hash], ValidationVersion::V3).await;
 
 		let assignments = vec![(cert.clone(), candidate_bitfield.clone())];
 
@@ -1450,8 +2210,8 @@ fn sends_assignments_even_when_state_is_approved_v2() {
 			overseer_recv(overseer).await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 				peers,
-				Versioned::VStaging(protocol_vstaging::ValidationProtocol::ApprovalDistribution(
-					protocol_vstaging::ApprovalDistributionMessage::Assignments(sent_assignments)
+				Versioned::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
+					protocol_v3::ApprovalDistributionMessage::Assignments(sent_assignments)
 				))
 			)) => {
 				assert_eq!(peers, vec![*peer]);
@@ -1463,14 +2223,14 @@ fn sends_assignments_even_when_state_is_approved_v2() {
 			overseer_recv(overseer).await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
 				peers,
-				Versioned::VStaging(protocol_vstaging::ValidationProtocol::ApprovalDistribution(
-					protocol_vstaging::ApprovalDistributionMessage::Approvals(sent_approvals)
+				Versioned::V3(protocol_v3::ValidationProtocol::ApprovalDistribution(
+					protocol_v3::ApprovalDistributionMessage::Approvals(sent_approvals)
 				))
 			)) => {
 				// Construct a hashmaps of approvals for comparison. Approval distribution reorders messages because they are kept in a
 				// hashmap as well.
-				let sent_approvals = sent_approvals.into_iter().map(|approval| (approval.candidate_index, approval)).collect::<HashMap<_,_>>();
-				let approvals = approvals.into_iter().map(|approval| (approval.candidate_index, approval)).collect::<HashMap<_,_>>();
+				let sent_approvals = sent_approvals.into_iter().map(|approval| (approval.candidate_indices.clone(), approval)).collect::<HashMap<_,_>>();
+				let approvals = approvals.into_iter().map(|approval| (approval.candidate_indices.clone(), approval)).collect::<HashMap<_,_>>();
 
 				assert_eq!(peers, vec![*peer]);
 				assert_eq!(sent_approvals, approvals);
@@ -1577,16 +2337,27 @@ fn propagates_locally_generated_assignment_to_both_dimensions() {
 			setup_peer_with_view(overseer, peer, view![hash], ValidationVersion::V1).await;
 		}
 
+		let peers_with_optional_peer_id = peers
+			.iter()
+			.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
+			.collect_vec();
+
 		// Set up a gossip topology.
 		setup_gossip_topology(
 			overseer,
-			make_gossip_topology(1, &peers, &[0, 10, 20, 30], &[50, 51, 52, 53]),
+			make_gossip_topology(
+				1,
+				&peers_with_optional_peer_id,
+				&[0, 10, 20, 30, 40, 60, 70, 80],
+				&[50, 51, 52, 53, 54, 55, 56, 57],
+				1,
+			),
 		)
 		.await;
 
 		let expected_indices = [
 			// Both dimensions in the gossip topology
-			0, 10, 20, 30, 50, 51, 52, 53,
+			0, 10, 20, 30, 40, 60, 70, 80, 50, 51, 52, 53, 54, 55, 56, 57,
 		];
 
 		// new block `hash_a` with 1 candidates
@@ -1623,8 +2394,11 @@ fn propagates_locally_generated_assignment_to_both_dimensions() {
 		)
 		.await;
 
-		overseer_send(overseer, ApprovalDistributionMessage::DistributeApproval(approval.clone()))
-			.await;
+		overseer_send(
+			overseer,
+			ApprovalDistributionMessage::DistributeApproval(approval.clone().into()),
+		)
+		.await;
 
 		let assignments = vec![(cert.clone(), candidate_index)];
 		let approvals = vec![approval.clone()];
@@ -1685,10 +2459,21 @@ fn propagates_assignments_along_unshared_dimension() {
 			setup_peer_with_view(overseer, peer, view![hash], ValidationVersion::V1).await;
 		}
 
+		let peers_with_optional_peer_id = peers
+			.iter()
+			.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
+			.collect_vec();
+
 		// Set up a gossip topology.
 		setup_gossip_topology(
 			overseer,
-			make_gossip_topology(1, &peers, &[0, 10, 20, 30], &[50, 51, 52, 53]),
+			make_gossip_topology(
+				1,
+				&peers_with_optional_peer_id,
+				&[0, 10, 20, 30],
+				&[50, 51, 52, 53],
+				1,
+			),
 		)
 		.await;
 
@@ -1827,17 +2612,26 @@ fn propagates_to_required_after_connect() {
 				setup_peer_with_view(overseer, peer, view![hash], ValidationVersion::V1).await;
 			}
 		}
-
+		let peers_with_optional_peer_id = peers
+			.iter()
+			.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
+			.collect_vec();
 		// Set up a gossip topology.
 		setup_gossip_topology(
 			overseer,
-			make_gossip_topology(1, &peers, &[0, 10, 20, 30], &[50, 51, 52, 53]),
+			make_gossip_topology(
+				1,
+				&peers_with_optional_peer_id,
+				&[0, 10, 20, 30, 40, 60, 70, 80],
+				&[50, 51, 52, 53, 54, 55, 56, 57],
+				1,
+			),
 		)
 		.await;
 
 		let expected_indices = [
 			// Both dimensions in the gossip topology, minus omitted.
-			20, 30, 52, 53,
+			20, 30, 40, 60, 70, 80, 52, 53, 54, 55, 56, 57,
 		];
 
 		// new block `hash_a` with 1 candidates
@@ -1874,8 +2668,11 @@ fn propagates_to_required_after_connect() {
 		)
 		.await;
 
-		overseer_send(overseer, ApprovalDistributionMessage::DistributeApproval(approval.clone()))
-			.await;
+		overseer_send(
+			overseer,
+			ApprovalDistributionMessage::DistributeApproval(approval.clone().into()),
+		)
+		.await;
 
 		let assignments = vec![(cert.clone(), candidate_index)];
 		let approvals = vec![approval.clone()];
@@ -2002,53 +2799,30 @@ fn sends_to_more_peers_after_getting_topology() {
 		)
 		.await;
 
-		overseer_send(overseer, ApprovalDistributionMessage::DistributeApproval(approval.clone()))
-			.await;
+		overseer_send(
+			overseer,
+			ApprovalDistributionMessage::DistributeApproval(approval.clone().into()),
+		)
+		.await;
 
 		let assignments = vec![(cert.clone(), candidate_index)];
 		let approvals = vec![approval.clone()];
 
-		let mut expected_indices = vec![0, 10, 20, 30, 50, 51, 52, 53];
-		let assignment_sent_peers = assert_matches!(
-			overseer_recv(overseer).await,
-			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
-				sent_peers,
-				Versioned::V1(protocol_v1::ValidationProtocol::ApprovalDistribution(
-					protocol_v1::ApprovalDistributionMessage::Assignments(sent_assignments)
-				))
-			)) => {
-				// Only sends to random peers.
-				assert_eq!(sent_peers.len(), 4);
-				for peer in &sent_peers {
-					let i = peers.iter().position(|p| peer == &p.0).unwrap();
-					// Random gossip before topology can send to topology-targeted peers.
-					// Remove them from the expected indices so we don't expect
-					// them to get the messages again after the assignment.
-					expected_indices.retain(|&i2| i2 != i);
-				}
-				assert_eq!(sent_assignments, assignments);
-				sent_peers
-			}
-		);
-
-		assert_matches!(
-			overseer_recv(overseer).await,
-			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
-				sent_peers,
-				Versioned::V1(protocol_v1::ValidationProtocol::ApprovalDistribution(
-					protocol_v1::ApprovalDistributionMessage::Approvals(sent_approvals)
-				))
-			)) => {
-				// Random sampling is reused from the assignment.
-				assert_eq!(sent_peers, assignment_sent_peers);
-				assert_eq!(sent_approvals, approvals);
-			}
-		);
-
+		let expected_indices = vec![0, 10, 20, 30, 50, 51, 52, 53];
+		let peers_with_optional_peer_id = peers
+			.iter()
+			.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
+			.collect_vec();
 		// Set up a gossip topology.
 		setup_gossip_topology(
 			overseer,
-			make_gossip_topology(1, &peers, &[0, 10, 20, 30], &[50, 51, 52, 53]),
+			make_gossip_topology(
+				1,
+				&peers_with_optional_peer_id,
+				&[0, 10, 20, 30],
+				&[50, 51, 52, 53],
+				1,
+			),
 		)
 		.await;
 
@@ -2147,11 +2921,20 @@ fn originator_aggression_l1() {
 			validator: validator_index,
 			signature: dummy_signature(),
 		};
-
+		let peers_with_optional_peer_id = peers
+			.iter()
+			.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
+			.collect_vec();
 		// Set up a gossip topology.
 		setup_gossip_topology(
 			overseer,
-			make_gossip_topology(1, &peers, &[0, 10, 20, 30], &[50, 51, 52, 53]),
+			make_gossip_topology(
+				1,
+				&peers_with_optional_peer_id,
+				&[0, 10, 20, 30],
+				&[50, 51, 52, 53],
+				1,
+			),
 		)
 		.await;
 
@@ -2164,8 +2947,11 @@ fn originator_aggression_l1() {
 		)
 		.await;
 
-		overseer_send(overseer, ApprovalDistributionMessage::DistributeApproval(approval.clone()))
-			.await;
+		overseer_send(
+			overseer,
+			ApprovalDistributionMessage::DistributeApproval(approval.clone().into()),
+		)
+		.await;
 
 		let assignments = vec![(cert.clone(), candidate_index)];
 		let approvals = vec![approval.clone()];
@@ -2303,11 +3089,20 @@ fn non_originator_aggression_l1() {
 
 		// import an assignment and approval locally.
 		let cert = fake_assignment_cert(hash, validator_index);
-
+		let peers_with_optional_peer_id = peers
+			.iter()
+			.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
+			.collect_vec();
 		// Set up a gossip topology.
 		setup_gossip_topology(
 			overseer,
-			make_gossip_topology(1, &peers, &[0, 10, 20, 30], &[50, 51, 52, 53]),
+			make_gossip_topology(
+				1,
+				&peers_with_optional_peer_id,
+				&[0, 10, 20, 30],
+				&[50, 51, 52, 53],
+				1,
+			),
 		)
 		.await;
 
@@ -2408,11 +3203,20 @@ fn non_originator_aggression_l2() {
 
 		// import an assignment and approval locally.
 		let cert = fake_assignment_cert(hash, validator_index);
-
+		let peers_with_optional_peer_id = peers
+			.iter()
+			.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
+			.collect_vec();
 		// Set up a gossip topology.
 		setup_gossip_topology(
 			overseer,
-			make_gossip_topology(1, &peers, &[0, 10, 20, 30], &[50, 51, 52, 53]),
+			make_gossip_topology(
+				1,
+				&peers_with_optional_peer_id,
+				&[0, 10, 20, 30],
+				&[50, 51, 52, 53],
+				1,
+			),
 		)
 		.await;
 
@@ -2554,11 +3358,20 @@ fn resends_messages_periodically() {
 		for (peer, _) in &peers {
 			setup_peer_with_view(overseer, peer, view![hash], ValidationVersion::V1).await;
 		}
-
+		let peers_with_optional_peer_id = peers
+			.iter()
+			.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
+			.collect_vec();
 		// Set up a gossip topology.
 		setup_gossip_topology(
 			overseer,
-			make_gossip_topology(1, &peers, &[0, 10, 20, 30], &[50, 51, 52, 53]),
+			make_gossip_topology(
+				1,
+				&peers_with_optional_peer_id,
+				&[0, 10, 20, 30],
+				&[50, 51, 52, 53],
+				1,
+			),
 		)
 		.await;
 
@@ -2681,12 +3494,13 @@ fn resends_messages_periodically() {
 /// Tests that peers correctly receive versioned messages.
 #[test]
 fn import_versioned_approval() {
-	let peer_a = PeerId::random();
-	let peer_b = PeerId::random();
-	let peer_c = PeerId::random();
+	let peers = make_peers_and_authority_ids(15);
+	let peer_a = peers.get(0).unwrap().0;
+	let peer_b = peers.get(1).unwrap().0;
+	let peer_c = peers.get(2).unwrap().0;
+
 	let parent_hash = Hash::repeat_byte(0xFF);
 	let hash = Hash::repeat_byte(0xAA);
-
 	let state = state_without_reputation_delay();
 	let _ = test_harness(state, |mut virtual_overseer| async move {
 		let overseer = &mut virtual_overseer;
@@ -2694,6 +3508,18 @@ fn import_versioned_approval() {
 		setup_peer_with_view(overseer, &peer_a, view![hash], ValidationVersion::V2).await;
 		setup_peer_with_view(overseer, &peer_b, view![hash], ValidationVersion::V1).await;
 		setup_peer_with_view(overseer, &peer_c, view![hash], ValidationVersion::V2).await;
+
+		// Set up a gossip topology, where a, b, c and d are topology neighboors to the node under
+		// testing.
+		let peers_with_optional_peer_id = peers
+			.iter()
+			.map(|(peer_id, authority)| (Some(*peer_id), authority.clone()))
+			.collect_vec();
+		setup_gossip_topology(
+			overseer,
+			make_gossip_topology(1, &peers_with_optional_peer_id, &[0, 1], &[2, 4], 3),
+		)
+		.await;
 
 		// new block `hash_a` with 1 candidates
 		let meta = BlockApprovalMeta {
@@ -2762,7 +3588,7 @@ fn import_versioned_approval() {
 				vote,
 				tx,
 			)) => {
-				assert_eq!(vote, approval);
+				assert_eq!(vote, approval.into());
 				tx.send(ApprovalCheckResult::Accepted).unwrap();
 			}
 		);
@@ -2782,6 +3608,7 @@ fn import_versioned_approval() {
 				assert_eq!(approvals.len(), 1);
 			}
 		);
+
 		assert_matches!(
 			overseer_recv(overseer).await,
 			AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
@@ -2794,6 +3621,33 @@ fn import_versioned_approval() {
 				assert_eq!(approvals.len(), 1);
 			}
 		);
+
+		// send an obviously invalid approval
+		let approval = IndirectSignedApprovalVote {
+			block_hash: hash,
+			// Invalid candidate index, should not pass sanitization.
+			candidate_index: 16777284,
+			validator: validator_index,
+			signature: dummy_signature(),
+		};
+		let msg = protocol_v2::ApprovalDistributionMessage::Approvals(vec![approval.clone()]);
+		send_message_from_peer_v2(overseer, &peer_a, msg).await;
+
+		expect_reputation_change(overseer, &peer_a, COST_OVERSIZED_BITFIELD).await;
+
+		// send an obviously invalid approval
+		let approval = IndirectSignedApprovalVoteV2 {
+			block_hash: hash,
+			// Invalid candidates len, should not pass sanitization.
+			candidate_indices: 16777284.into(),
+			validator: validator_index,
+			signature: dummy_signature(),
+		};
+		let msg = protocol_v3::ApprovalDistributionMessage::Approvals(vec![approval.clone()]);
+		send_message_from_peer_v3(overseer, &peer_a, msg).await;
+
+		expect_reputation_change(overseer, &peer_a, COST_OVERSIZED_BITFIELD).await;
+
 		virtual_overseer
 	});
 }
@@ -2821,9 +3675,9 @@ fn batch_test_round(message_count: usize) {
 			.collect();
 
 		let approvals: Vec<_> = validators
-			.map(|index| IndirectSignedApprovalVote {
+			.map(|index| IndirectSignedApprovalVoteV2 {
 				block_hash: Hash::zero(),
-				candidate_index: 0,
+				candidate_indices: 0u32.into(),
 				validator: ValidatorIndex(index as u32),
 				signature: dummy_signature(),
 			})
@@ -2890,7 +3744,7 @@ fn batch_test_round(message_count: usize) {
 					assert_eq!(peers.len(), 1);
 
 					for (message_index,  approval) in sent_approvals.iter().enumerate() {
-						assert_eq!(approval, &approvals[approval_index + message_index]);
+						assert_eq!(approval, &approvals[approval_index + message_index].clone().try_into().unwrap());
 					}
 				}
 			);
