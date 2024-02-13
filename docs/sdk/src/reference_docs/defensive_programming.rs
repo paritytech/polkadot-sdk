@@ -177,7 +177,7 @@
 //! handled accordingly (`Some` and `None`).
 //!
 //! In a practical context, the resulting [`Option`] should be handled accordingly. The following
-//! conventions can be seen from the within the Polkadot SDK, where it can be handled in one of
+//! conventions can be seen within the Polkadot SDK, where it is handled in
 //! two ways:
 //!
 //! - As an [`Option`], using the `if let` / `if` or `match`
