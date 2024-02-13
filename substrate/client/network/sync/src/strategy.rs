@@ -74,11 +74,11 @@ pub struct SyncingConfig {
 /// The key identifying a specific strategy for responses routing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum StrategyKey {
-	// Warp sync initiated this request.
+	/// Warp sync initiated this request.
 	Warp,
-	// State sync initiated this request.
+	/// State sync initiated this request.
 	State,
-	// `ChainSync` initiated this request.
+	/// `ChainSync` initiated this request.
 	ChainSync,
 }
 
