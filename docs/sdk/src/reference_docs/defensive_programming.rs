@@ -159,8 +159,8 @@
 //!
 //! ### Checked Arithmetic
 //!
-//! **Checked operations** utilize an `Option<T>` as a return type. This allows for simple pattern
-//! matching to catch any unexpected behavior in the event of an overflow.
+//! **Checked operations** utilize an `Option<T>` as a return type. This allows for
+//! catching any unexpected behavior in the event of an overflow through simple pattern matching.
 //!
 //! This is an example of a valid operation:
 #![doc = docify::embed!("./src/reference_docs/defensive_programming.rs", checked_add_example)]
