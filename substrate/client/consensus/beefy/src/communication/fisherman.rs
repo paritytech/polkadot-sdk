@@ -33,7 +33,7 @@ use sp_consensus_beefy::{
 	BeefyApi, ForkEquivocationProof, MmrHashing, MmrRootHash, Payload, PayloadProvider,
 	SignedCommitment, ValidatorSet, VoteMessage,
 };
-use sp_mmr_primitives::MmrApi;
+use sp_mmr_primitives::{AncestryProof, MmrApi};
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block, Header, NumberFor},
@@ -228,6 +228,29 @@ where
 		}
 	}
 
+	/// Generates an ancestry proof for the given ancestoring block's mmr root.
+	fn generate_ancestry_proof_opt(
+		&self,
+		best_block_hash: B::Hash,
+		prev_block_num: NumberFor<B>,
+	) -> Option<AncestryProof<sp_consensus_beefy::MmrRootHash>> {
+		match self.runtime.runtime_api().generate_ancestry_proof(
+			best_block_hash,
+			prev_block_num,
+			None,
+		) {
+			Ok(Ok(ancestry_proof)) => Some(ancestry_proof),
+			Ok(Err(e)) => {
+				debug!(target: LOG_TARGET, "🥩 Failed to generate ancestry proof: {:?}", e);
+				None
+			},
+			Err(e) => {
+				debug!(target: LOG_TARGET, "🥩 Failed to generate ancestry proof: {:?}", e);
+				None
+			},
+		}
+	}
+
 	/// Check `vote` for contained block against canonical payload. If an equivocation is detected,
 	/// this also reports it.
 	pub(crate) fn check_vote(
@@ -256,21 +279,7 @@ where
 		} else {
 			let canonical_hhp = self.canonical_hash_header_payload(number)?;
 			if vote.commitment.payload != canonical_hhp.payload {
-				let ancestry_proof: Option<_> = match self
-					.runtime
-					.runtime_api()
-					.generate_ancestry_proof(canonical_hhp.hash, number, None)
-				{
-					Ok(Ok(ancestry_proof)) => Some(ancestry_proof),
-					Ok(Err(e)) => {
-						debug!(target: LOG_TARGET, "🥩 Failed to generate ancestry proof: {:?}", e);
-						None
-					},
-					Err(e) => {
-						debug!(target: LOG_TARGET, "🥩 Failed to generate ancestry proof: {:?}", e);
-						None
-					},
-				};
+				let ancestry_proof = self.generate_ancestry_proof_opt(canonical_hhp.hash, number);
 				let proof = ForkEquivocationProof {
 					commitment: vote.commitment,
 					signatories: vec![(vote.id, vote.signature)],
@@ -331,21 +340,7 @@ where
 		} else {
 			let canonical_hhp = self.canonical_hash_header_payload(number)?;
 			if commitment.payload != canonical_hhp.payload {
-				let ancestry_proof = match self.runtime.runtime_api().generate_ancestry_proof(
-					canonical_hhp.hash,
-					number,
-					None,
-				) {
-					Ok(Ok(ancestry_proof)) => Some(ancestry_proof),
-					Ok(Err(e)) => {
-						debug!(target: LOG_TARGET, "🥩 Failed to generate ancestry proof: {:?}", e);
-						None
-					},
-					Err(e) => {
-						debug!(target: LOG_TARGET, "🥩 Failed to generate ancestry proof: {:?}", e);
-						None
-					},
-				};
+				let ancestry_proof = self.generate_ancestry_proof_opt(canonical_hhp.hash, number);
 				let validator_set = self.active_validator_set_at(canonical_hhp.hash)?;
 				if signatures.len() != validator_set.validators().len() {
 					// invalid proof
