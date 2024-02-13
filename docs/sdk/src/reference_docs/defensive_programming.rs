@@ -284,7 +284,7 @@
 //!   as the notion of balances, are often shared across multiple pallets - meaning these small
 //!   changes can make a big difference in outcome. </details>
 //!
-//! #### Proposals' ID Overwrite
+//! #### Proposal ID Overwrite
 //!
 //! The type for counting the number of proposals on-chain is represented by a `u8` number, called
 //! `proposals_count`. Every time a new proposal is added to the system, this number increases. With
