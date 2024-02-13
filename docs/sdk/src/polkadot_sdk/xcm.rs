@@ -13,7 +13,7 @@
 //! Consensus systems include blockchains, smart contracts, and any other state machine that
 //! achieves consensus in some way.
 //!
-//! XCM is based on a virtual machine, the XCVM.
+//! XCM is executed on a virtual machine called the XCVM.
 //! An XCM program is a series of instructions, which get executed one after the other by the
 //! virtual machine. These instructions aim to encompass all major things users typically do in
 //! consensus systems. There are instructions on asset transferring, teleporting, locking, among
