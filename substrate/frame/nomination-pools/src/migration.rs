@@ -149,6 +149,12 @@ pub(crate) mod v7 {
 		fn bonded_account(&self) -> T::AccountId {
 			Pallet::<T>::create_bonded_account(self.id)
 		}
+
+		fn points_to_balance(&self, points: BalanceOf<T>) -> BalanceOf<T> {
+			let bonded_balance =
+				T::Staking::active_stake(&self.bonded_account()).unwrap_or(Zero::zero());
+			point_to_balance::<T>(bonded_balance, self.inner.points, points)
+		}
 	}
 
 	// NOTE: We cannot put a V7 prefix here since that would change the storage key.
@@ -207,7 +213,7 @@ pub(crate) mod v7 {
 			// calculate the sum of `total_balance` of all `PoolMember` as the upper bound for the
 			// `TotalValueLocked`.
 			let total_balance_members: BalanceOf<T> = PoolMembers::<T>::iter()
-				.map(|(_, member)| member.total_balance())
+				.map(|(_, member)| total_balance(&member))
 				.reduce(|acc, total_balance| acc + total_balance)
 				.unwrap_or_default();
 
@@ -223,6 +229,88 @@ pub(crate) mod v7 {
 
 			Ok(())
 		}
+	}
+
+	#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DefaultNoBound, RuntimeDebugNoBound)]
+	#[cfg_attr(feature = "std", derive(Clone, PartialEq, Eq))]
+	#[codec(mel_bound(T: Config))]
+	#[scale_info(skip_type_params(T))]
+	pub struct UnbondPool<T: Config> {
+		/// The points in this pool.
+		points: BalanceOf<T>,
+		/// The funds in the pool.
+		balance: BalanceOf<T>,
+	}
+
+	impl<T: Config> UnbondPool<T> {
+		fn point_to_balance(&self, points: BalanceOf<T>) -> BalanceOf<T> {
+			point_to_balance::<T>(self.balance, self.points, points)
+		}
+	}
+
+	#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DefaultNoBound, RuntimeDebugNoBound)]
+	#[cfg_attr(feature = "std", derive(Clone, PartialEq))]
+	#[codec(mel_bound(T: Config))]
+	#[scale_info(skip_type_params(T))]
+	pub struct SubPools<T: Config> {
+		/// A general, era agnostic pool of funds that have fully unbonded. The pools
+		/// of `Self::with_era` will lazily be merged into into this pool if they are
+		/// older then `current_era - TotalUnbondingPools`.
+		no_era: UnbondPool<T>,
+		/// Map of era in which a pool becomes unbonded in => unbond pools.
+		with_era: BoundedBTreeMap<EraIndex, UnbondPool<T>, TotalUnbondingPools<T>>,
+	}
+
+	#[frame_support::storage_alias]
+	pub type SubPoolsStorage<T: Config> =
+		CountedStorageMap<Pallet<T>, Twox64Concat, PoolId, SubPools<T>>;
+
+	fn total_balance<T: Config>(self_as_member: &PoolMember<T>) -> BalanceOf<T> {
+		// let pool = V7BondedPool::<T>::get(self_as_member.pool_id).unwrap();
+		let id = self_as_member.pool_id;
+		let pool = BondedPools::<T>::try_get(id)
+			.ok()
+			.map(|inner| V7BondedPool { id, inner })
+			.unwrap();
+		let active_balance = pool.points_to_balance(self_as_member.points);
+
+		let sub_pools = match SubPoolsStorage::<T>::get(self_as_member.pool_id) {
+			Some(sub_pools) => sub_pools,
+			None => return active_balance,
+		};
+
+		let unbonding_balance = self_as_member.unbonding_eras.iter().fold(
+			BalanceOf::<T>::zero(),
+			|accumulator, (era, unlocked_points)| {
+				// if the `SubPools::with_era` has already been merged into the
+				// `SubPools::no_era` use this pool instead.
+				let era_pool = sub_pools.with_era.get(era).unwrap_or(&sub_pools.no_era);
+				accumulator + (era_pool.point_to_balance(*unlocked_points))
+			},
+		);
+
+		active_balance + unbonding_balance
+	}
+
+	fn point_to_balance<T: Config>(
+		current_balance: BalanceOf<T>,
+		current_points: BalanceOf<T>,
+		points: BalanceOf<T>,
+	) -> BalanceOf<T> {
+		let u256 = T::BalanceToU256::convert;
+		let balance = T::U256ToBalance::convert;
+		if current_balance.is_zero() || current_points.is_zero() || points.is_zero() {
+			// There is nothing to unbond
+			return Zero::zero()
+		}
+
+		// Equivalent of (current_balance / current_points) * points
+		balance(
+			u256(current_balance)
+				.saturating_mul(u256(points))
+				// We check for zero above
+				.div(u256(current_points)),
+		)
 	}
 }
 
