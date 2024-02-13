@@ -64,8 +64,6 @@ benchmarks_instance_pallet! {
 	transfer_asset {
 		let (sender_account, sender_location) = account_and_location::<T>(1);
 		let asset = T::get_asset();
-		// We use the asset twice to make sure we have enough for ED.
-		// The assets will merge these two into one with a higher amount.
 		let assets: Assets = vec![asset.clone()].into();
 		// this xcm doesn't use holding
 
@@ -98,11 +96,12 @@ benchmarks_instance_pallet! {
 			&dest_location,
 			FeeReason::TransferReserveAsset
 		);
-		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
 
 		let asset = T::get_asset();
 		<AssetTransactorOf<T>>::deposit_asset(&asset, &sender_location, None).unwrap();
-		assert!(T::TransactAsset::balance(&sender_account) > sender_account_balance_before);
+		// We deposit the asset twice so we have enough for ED after transferring
+		<AssetTransactorOf<T>>::deposit_asset(&asset, &sender_location, None).unwrap();
+		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
 		let assets: Assets = vec![asset].into();
 		assert!(T::TransactAsset::balance(&dest_account).is_zero());
 

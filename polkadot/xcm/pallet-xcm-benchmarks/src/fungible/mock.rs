@@ -191,8 +191,7 @@ impl xcm_balances_benchmark::Config for Test {
 	type TrustedReserve = TrustedReserve;
 
 	fn get_asset() -> Asset {
-		let amount =
-			<Balances as frame_support::traits::fungible::Inspect<u64>>::minimum_balance() as u128;
+		let amount = 1_000_000_000_000;
 		Asset { id: AssetId(Here.into()), fun: Fungible(amount) }
 	}
 }
