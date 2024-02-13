@@ -21,9 +21,12 @@
 use std::{
 	future::Future,
 	pin::Pin,
+	sync::Arc,
 	task::{Context, Poll},
 	time::Instant,
 };
+
+use crate::Transport;
 
 use jsonrpsee::{server::middleware::rpc::RpcServiceT, types::Request, MethodResponse};
 use pin_project::pin_project;
@@ -31,6 +34,25 @@ use prometheus_endpoint::{
 	register, Counter, CounterVec, HistogramOpts, HistogramVec, Opts, PrometheusError, Registry,
 	U64,
 };
+use tokio::sync::OnceCell;
+
+/// Represents the transport protocol the RPC connection was made on.
+#[derive(Clone, Debug)]
+pub struct TransportLabel(Arc<OnceCell<Transport>>);
+
+impl TransportLabel {
+	fn new() -> Self {
+		Self(Arc::new(OnceCell::new()))
+	}
+
+	fn get(&self) -> Transport {
+		self.0.get().copied().unwrap_or(Transport::Unknown)
+	}
+
+	fn set(&self, t: Transport) {
+		let _ = self.0.set(t);
+	}
+}
 
 /// Histogram time buckets in microseconds.
 const HISTOGRAM_BUCKETS: [f64; 11] = [
@@ -149,22 +171,34 @@ impl RpcMetrics {
 /// Metrics layer.
 #[derive(Clone)]
 pub struct MetricsLayer {
-	inner: RpcMetrics,
-	transport_label: &'static str,
+	metrics: RpcMetrics,
+	transport_label: TransportLabel,
 }
 
 impl MetricsLayer {
 	/// Create a new [`MetricsLayer`].
-	pub fn new(metrics: RpcMetrics, transport_label: &'static str) -> Self {
-		Self { inner: metrics, transport_label }
+	pub fn new(metrics: RpcMetrics) -> Self {
+		Self { metrics, transport_label: TransportLabel::new() }
 	}
 
-	pub(crate) fn ws_connect(&self) {
-		self.inner.ws_connect();
+	pub(crate) fn set_transport_label(&self, t: Transport) {
+		self.transport_label.set(t);
 	}
 
-	pub(crate) fn ws_disconnect(&self, now: Instant) {
-		self.inner.ws_disconnect(now)
+	pub(crate) fn on_connect(&self) {
+		if self.is_ws() {
+			self.metrics.ws_connect();
+		}
+	}
+
+	pub(crate) fn on_disconnect(&self, now: Instant) {
+		if self.is_ws() {
+			self.metrics.ws_disconnect(now);
+		}
+	}
+
+	fn is_ws(&self) -> bool {
+		matches!(self.transport_label.get(), Transport::WebSocket)
 	}
 }
 
@@ -172,7 +206,7 @@ impl<S> tower::Layer<S> for MetricsLayer {
 	type Service = Metrics<S>;
 
 	fn layer(&self, inner: S) -> Self::Service {
-		Metrics::new(inner, self.inner.clone(), self.transport_label)
+		Metrics::new(inner, self.metrics.clone(), self.transport_label.clone())
 	}
 }
 
@@ -181,12 +215,12 @@ impl<S> tower::Layer<S> for MetricsLayer {
 pub struct Metrics<S> {
 	service: S,
 	metrics: RpcMetrics,
-	transport_label: &'static str,
+	transport_label: TransportLabel,
 }
 
 impl<S> Metrics<S> {
 	/// Create a new metrics middleware.
-	pub fn new(service: S, metrics: RpcMetrics, transport_label: &'static str) -> Metrics<S> {
+	pub fn new(service: S, metrics: RpcMetrics, transport_label: TransportLabel) -> Metrics<S> {
 		Metrics { service, metrics, transport_label }
 	}
 }
@@ -198,18 +232,19 @@ where
 	type Future = ResponseFuture<'a, S::Future>;
 
 	fn call(&self, req: Request<'a>) -> Self::Future {
+		let transport_label = self.transport_label.get();
 		let now = Instant::now();
 
 		log::trace!(
 			target: "rpc_metrics",
 			"[{}] on_call name={} params={:?}",
-			self.transport_label,
+			transport_label.as_str(),
 			req.method_name(),
 			req.params(),
 		);
 		self.metrics
 			.calls_started
-			.with_label_values(&[self.transport_label, req.method_name()])
+			.with_label_values(&[transport_label.as_str(), req.method_name()])
 			.inc();
 
 		ResponseFuture {
@@ -217,7 +252,7 @@ where
 			metrics: self.metrics.clone(),
 			req,
 			now,
-			transport_label: self.transport_label,
+			transport_label,
 		}
 	}
 }
@@ -230,7 +265,7 @@ pub struct ResponseFuture<'a, F> {
 	metrics: RpcMetrics,
 	req: Request<'a>,
 	now: Instant,
-	transport_label: &'static str,
+	transport_label: Transport,
 }
 
 impl<'a, F> std::fmt::Debug for ResponseFuture<'a, F> {
@@ -248,7 +283,7 @@ impl<'a, F: Future<Output = MethodResponse>> Future for ResponseFuture<'a, F> {
 		let res = this.fut.poll(cx);
 		if let Poll::Ready(rp) = &res {
 			let method_name = this.req.method_name();
-			let transport_label = &this.transport_label;
+			let transport_label = &this.transport_label.as_str();
 			let now = this.now;
 			let metrics = &this.metrics;
 

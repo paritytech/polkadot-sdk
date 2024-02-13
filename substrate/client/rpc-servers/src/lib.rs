@@ -33,7 +33,7 @@ use jsonrpsee::{
 	server::{
 		middleware::{
 			http::{HostFilterLayer, ProxyGetRequestLayer},
-			rpc::RpcServiceBuilder,
+			rpc::{RpcService, RpcServiceT},
 		},
 		stop_channel, ws, PingConfig, StopHandle, TowerServiceBuilder,
 	},
@@ -43,20 +43,47 @@ use tokio::net::TcpListener;
 use tower::Service;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
-pub use jsonrpsee::core::{
-	id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
-	traits::IdProvider,
+pub use jsonrpsee::{
+	core::{
+		id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
+		traits::IdProvider,
+	},
+	server::middleware::rpc::RpcServiceBuilder as RpcMiddlewareBuilder,
 };
 pub use middleware::{MetricsLayer, RateLimitLayer, RpcMetrics};
+
+/// No-op middleware.
+pub type NoopMiddleware = RpcMiddlewareBuilder<tower::layer::util::Identity>;
 
 const MEGABYTE: u32 = 1024 * 1024;
 
 /// Type alias for the JSON-RPC server.
 pub type Server = jsonrpsee::server::ServerHandle;
 
+/// Represents the transport protocol the RPC connection was made on.
+#[derive(Debug, Copy, Clone)]
+pub enum Transport {
+	/// WebSocket
+	WebSocket,
+	/// Http
+	Http,
+	/// Unknown
+	Unknown,
+}
+
+impl Transport {
+	/// Get the str reprensenation of the [`Transport`].
+	pub const fn as_str(&self) -> &'static str {
+		match self {
+			Self::WebSocket => "ws",
+			Self::Http => "http",
+			Self::Unknown => "unknown",
+		}
+	}
+}
+
 /// RPC server configuration.
-#[derive(Debug)]
-pub struct Config<'a, M: Send + Sync + 'static> {
+pub struct Config<'a, M: Send + Sync + 'static, L> {
 	/// Socket addresses.
 	pub addrs: [SocketAddr; 2],
 	/// CORS.
@@ -69,10 +96,8 @@ pub struct Config<'a, M: Send + Sync + 'static> {
 	pub max_payload_in_mb: u32,
 	/// Maximum rpc response payload size.
 	pub max_payload_out_mb: u32,
-	/// Rate limit.
-	pub rate_limit: Option<u32>,
 	/// Metrics.
-	pub metrics: Option<RpcMetrics>,
+	pub metrics: Option<MetricsLayer>,
 	/// Message buffer size
 	pub message_buffer_capacity: u32,
 	/// RPC API.
@@ -81,12 +106,23 @@ pub struct Config<'a, M: Send + Sync + 'static> {
 	pub id_provider: Option<Box<dyn IdProvider>>,
 	/// Tokio runtime handle.
 	pub tokio_handle: tokio::runtime::Handle,
+	/// JSON-RPC specific middleware that run
+	/// on each RPC call.
+	///
+	/// It's possible to inject custom middleware
+	/// or disable the middleware completly.
+	pub rpc_middleware: RpcMiddlewareBuilder<L>,
 }
 
 /// Start RPC server listening on given address.
-pub async fn start_server<M: Send + Sync + 'static>(
-	config: Config<'_, M>,
-) -> Result<Server, Box<dyn StdError + Send + Sync>> {
+pub async fn start_server<M, L>(
+	config: Config<'_, M, L>,
+) -> Result<Server, Box<dyn StdError + Send + Sync>>
+where
+	M: Send + Sync,
+	L: tower::Layer<RpcService> + Send + Clone + 'static,
+	for<'a> <L as tower::Layer<RpcService>>::Service: Send + Sync + RpcServiceT<'a> + 'static,
+{
 	let Config {
 		addrs,
 		cors,
@@ -99,7 +135,7 @@ pub async fn start_server<M: Send + Sync + 'static>(
 		id_provider,
 		tokio_handle,
 		rpc_api,
-		rate_limit,
+		rpc_middleware,
 	} = config;
 
 	let std_listener = TcpListener::bind(addrs.as_slice()).await?.into_std()?;
@@ -144,22 +180,25 @@ pub async fn start_server<M: Send + Sync + 'static>(
 
 	let make_service = make_service_fn(move |_conn: &AddrStream| {
 		let cfg = cfg.clone();
+		let rpc_middleware = rpc_middleware.clone();
 
 		async move {
 			let cfg = cfg.clone();
+			let rpc_middleware = rpc_middleware.clone();
 
 			Ok::<_, Infallible>(service_fn(move |req| {
 				let PerConnection { service_builder, metrics, tokio_handle, stop_handle, methods } =
 					cfg.clone();
+				let rpc_middleware = rpc_middleware.clone();
 
 				let is_websocket = ws::is_upgrade_request(&req);
-				let transport_label = if is_websocket { "ws" } else { "http" };
+				let transport_label =
+					if is_websocket { Transport::WebSocket } else { Transport::Http };
 
-				let metrics = metrics.map(|m| MetricsLayer::new(m, transport_label));
-				let rate_limit = rate_limit.map(|r| RateLimitLayer::per_minute(r));
+				if let Some(ref m) = metrics {
+					m.set_transport_label(transport_label);
+				}
 
-				let rpc_middleware =
-					RpcServiceBuilder::new().option_layer(rate_limit).option_layer(metrics.clone());
 				let mut svc =
 					service_builder.set_rpc_middleware(rpc_middleware).build(methods, stop_handle);
 
@@ -170,9 +209,9 @@ pub async fn start_server<M: Send + Sync + 'static>(
 						// Spawn a task to handle when the connection is closed.
 						tokio_handle.spawn(async move {
 							let now = std::time::Instant::now();
-							metrics.as_ref().map(|m| m.ws_connect());
+							metrics.as_ref().map(|m| m.on_connect());
 							on_disconnect.await;
-							metrics.as_ref().map(|m| m.ws_disconnect(now));
+							metrics.as_ref().map(|m| m.on_disconnect(now));
 						});
 					}
 
@@ -256,7 +295,7 @@ fn format_cors(maybe_cors: Option<&Vec<String>>) -> String {
 struct PerConnection<RpcMiddleware, HttpMiddleware> {
 	methods: Methods,
 	stop_handle: StopHandle,
-	metrics: Option<RpcMetrics>,
+	metrics: Option<MetricsLayer>,
 	tokio_handle: tokio::runtime::Handle,
 	service_builder: TowerServiceBuilder<RpcMiddleware, HttpMiddleware>,
 }

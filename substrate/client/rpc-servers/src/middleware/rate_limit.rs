@@ -1,18 +1,12 @@
+use futures::future::{BoxFuture, FutureExt};
 use governor::{
 	clock::DefaultClock,
 	middleware::NoOpMiddleware,
 	state::{InMemoryState, NotKeyed},
 	Jitter,
 };
-use futures::future::{BoxFuture, FutureExt};
-use jsonrpsee::{
-	server::middleware::rpc::RpcServiceT,
-	types::Request,
-	MethodResponse,
-};
-use std::num::NonZeroU32;
-use std::sync::Arc;
-use std::time::Duration;
+use jsonrpsee::{server::middleware::rpc::RpcServiceT, types::Request, MethodResponse};
+use std::{num::NonZeroU32, sync::Arc, time::Duration};
 
 type RateLimitInner = governor::RateLimiter<NotKeyed, InMemoryState, DefaultClock, NoOpMiddleware>;
 const MAX_JITTER_DELAY: Duration = Duration::from_millis(50);
@@ -60,6 +54,7 @@ where
 			// Random delay between 0-50ms to poll waiting futures.
 			rate_limit.until_ready_with_jitter(Jitter::up_to(MAX_JITTER_DELAY)).await;
 			service.call(req).await
-		}.boxed()
+		}
+		.boxed()
 	}
 }
