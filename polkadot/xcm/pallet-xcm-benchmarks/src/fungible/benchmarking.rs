@@ -64,13 +64,18 @@ benchmarks_instance_pallet! {
 	transfer_asset {
 		let (sender_account, sender_location) = account_and_location::<T>(1);
 		let asset = T::get_asset();
-		let assets: Assets = vec![ asset.clone() ].into();
+		// We use the asset twice to make sure we have enough for ED.
+		// The assets will merge these two into one with a higher amount.
+		let assets: Assets = vec![asset.clone()].into();
 		// this xcm doesn't use holding
 
 		let dest_location = T::valid_destination()?;
 		let dest_account = T::AccountIdConverter::convert_location(&dest_location).unwrap();
 
 		<AssetTransactorOf<T>>::deposit_asset(&asset, &sender_location, None).unwrap();
+		// We deposit the asset twice so we have enough for ED after transferring
+		<AssetTransactorOf<T>>::deposit_asset(&asset, &sender_location, None).unwrap();
+		let sender_account_balance_before = T::TransactAsset::balance(&sender_account);
 		assert!(T::TransactAsset::balance(&dest_account).is_zero());
 
 		let mut executor = new_executor::<T>(sender_location);
@@ -79,7 +84,7 @@ benchmarks_instance_pallet! {
 	}: {
 		executor.bench_process(xcm)?;
 	} verify {
-		assert!(T::TransactAsset::balance(&sender_account).is_zero());
+		assert!(T::TransactAsset::balance(&sender_account) < sender_account_balance_before);
 		assert!(!T::TransactAsset::balance(&dest_account).is_zero());
 	}
 
