@@ -56,5 +56,3 @@ RUN /usr/local/bin/substrate-relay --version
 
 # https://polkadot.js.org/apps/?rpc=ws://127.0.0.1:{PORT}#/explorer
 EXPOSE 9942 9910 8943 9945 9010 8945
-
-ENTRYPOINT ["/bin/bash", "-c", "/home/nonroot/bridges-polkadot-sdk/bridges/zombienet/run-tests.sh"]

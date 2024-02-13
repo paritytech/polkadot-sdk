@@ -36,19 +36,21 @@ members = [
 	"bridges/primitives/test-utils",
 	"bridges/primitives/xcm-bridge-hub",
 	"bridges/primitives/xcm-bridge-hub-router",
-	"bridges/snowbridge/parachain/pallets/ethereum-client",
-	"bridges/snowbridge/parachain/pallets/inbound-queue",
-	"bridges/snowbridge/parachain/pallets/outbound-queue",
-	"bridges/snowbridge/parachain/pallets/outbound-queue/merkle-tree",
-	"bridges/snowbridge/parachain/pallets/outbound-queue/runtime-api",
-	"bridges/snowbridge/parachain/pallets/system",
-	"bridges/snowbridge/parachain/pallets/system/runtime-api",
-	"bridges/snowbridge/parachain/primitives/beacon",
-	"bridges/snowbridge/parachain/primitives/core",
-	"bridges/snowbridge/parachain/primitives/ethereum",
-	"bridges/snowbridge/parachain/primitives/router",
-	"bridges/snowbridge/parachain/runtime/runtime-common",
-	"bridges/snowbridge/parachain/runtime/test-common",
+	"bridges/snowbridge/pallets/ethereum-client",
+	"bridges/snowbridge/pallets/ethereum-client/fixtures",
+	"bridges/snowbridge/pallets/inbound-queue",
+	"bridges/snowbridge/pallets/inbound-queue/fixtures",
+	"bridges/snowbridge/pallets/outbound-queue",
+	"bridges/snowbridge/pallets/outbound-queue/merkle-tree",
+	"bridges/snowbridge/pallets/outbound-queue/runtime-api",
+	"bridges/snowbridge/pallets/system",
+	"bridges/snowbridge/pallets/system/runtime-api",
+	"bridges/snowbridge/primitives/beacon",
+	"bridges/snowbridge/primitives/core",
+	"bridges/snowbridge/primitives/ethereum",
+	"bridges/snowbridge/primitives/router",
+	"bridges/snowbridge/runtime/runtime-common",
+	"bridges/snowbridge/runtime/test-common",
 	"cumulus/client/cli",
 	"cumulus/client/collator",
 	"cumulus/client/consensus/aura",
@@ -105,8 +107,10 @@ members = [
 	"cumulus/parachains/runtimes/assets/test-utils",
 	"cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo",
 	"cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend",
+	"cumulus/parachains/runtimes/bridge-hubs/common",
 	"cumulus/parachains/runtimes/bridge-hubs/test-utils",
 	"cumulus/parachains/runtimes/collectives/collectives-westend",
+	"cumulus/parachains/runtimes/constants",
 	"cumulus/parachains/runtimes/contracts/contracts-rococo",
 	"cumulus/parachains/runtimes/coretime/coretime-rococo",
 	"cumulus/parachains/runtimes/coretime/coretime-westend",
@@ -286,6 +290,8 @@ members = [
 	"substrate/client/transaction-pool",
 	"substrate/client/transaction-pool/api",
 	"substrate/client/utils",
+	"substrate/deprecated/hashing",
+	"substrate/deprecated/hashing/proc-macro",
 	"substrate/frame",
 	"substrate/frame/alliance",
 	"substrate/frame/asset-conversion",
@@ -349,7 +355,6 @@ members = [
 	"substrate/frame/nft-fractionalization",
 	"substrate/frame/nfts",
 	"substrate/frame/nfts/runtime-api",
-	"substrate/frame/nicks",
 	"substrate/frame/nis",
 	"substrate/frame/node-authorization",
 	"substrate/frame/nomination-pools",
@@ -361,6 +366,7 @@ members = [
 	"substrate/frame/offences/benchmarking",
 	"substrate/frame/paged-list",
 	"substrate/frame/paged-list/fuzzer",
+	"substrate/frame/parameters",
 	"substrate/frame/preimage",
 	"substrate/frame/proxy",
 	"substrate/frame/ranked-collective",
@@ -431,9 +437,9 @@ members = [
 	"substrate/primitives/consensus/slots",
 	"substrate/primitives/core",
 	"substrate/primitives/core/fuzz",
-	"substrate/primitives/core/hashing",
-	"substrate/primitives/core/hashing/proc-macro",
 	"substrate/primitives/crypto/ec-utils",
+	"substrate/primitives/crypto/hashing",
+	"substrate/primitives/crypto/hashing/proc-macro",
 	"substrate/primitives/database",
 	"substrate/primitives/debug-derive",
 	"substrate/primitives/externalities",
@@ -527,6 +533,11 @@ stable_sort_primitive = { level = "allow", priority = 2 }            # prefer st
 extra-unused-type-parameters = { level = "allow", priority = 2 }     # stylistic
 default_constructed_unit_structs = { level = "allow", priority = 2 } # stylistic
 
+[workspace.dependencies]
+polkavm-linker = "0.8.2"
+polkavm-derive = "0.8.0"
+log = { version = "0.4.20", default-features = false }
+
 [profile.release]
 # Polkadot runtime requires unwinding.
 panic = "unwind"
@@ -586,6 +597,7 @@ num-bigint = { opt-level = 3 }
 parking_lot = { opt-level = 3 }
 parking_lot_core = { opt-level = 3 }
 percent-encoding = { opt-level = 3 }
+polkavm-linker = { opt-level = 3 }
 primitive-types = { opt-level = 3 }
 reed-solomon-novelpoly = { opt-level = 3 }
 ring = { opt-level = 3 }

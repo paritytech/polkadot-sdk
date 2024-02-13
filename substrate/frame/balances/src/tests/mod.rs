@@ -75,11 +75,10 @@ impl VariantCount for TestId {
 }
 
 frame_support::construct_runtime!(
-	pub struct Test
-	{
-		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
+	pub enum Test {
+		System: frame_system,
+		Balances: pallet_balances,
+		TransactionPayment: pallet_transaction_payment,
 	}
 );
 
@@ -127,8 +126,10 @@ impl pallet_transaction_payment::Config for Test {
 	type FeeMultiplierUpdate = ();
 }
 
+pub(crate) type Balance = u64;
+
 impl Config for Test {
-	type Balance = u64;
+	type Balance = Balance;
 	type DustRemoval = DustTrap;
 	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ExistentialDeposit;
@@ -141,7 +142,6 @@ impl Config for Test {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type FreezeIdentifier = TestId;
 	type MaxFreezes = ConstU32<2>;
-	type MaxHolds = ConstU32<3>;
 }
 
 #[derive(Clone)]

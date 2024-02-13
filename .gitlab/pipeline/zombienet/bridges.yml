@@ -3,9 +3,15 @@
 
 # common settings for all zombienet jobs
 .zombienet-bridges-common:
+  extends:
+    - .kubernetes-env
+    - .zombienet-refs
+  rules:
+    - !reference [.build-refs, rules]
+    - if: $CI_COMMIT_REF_NAME =~ /^gh-readonly-queue.*$/
+      variables:
+        DOCKER_IMAGES_VERSION: ${CI_COMMIT_SHORT_SHA}
   before_script:
-    # Exit if the job is not merge queue
-    # - if [[ $CI_COMMIT_REF_NAME != *"gh-readonly-queue"* ]]; then echo "I will run only in a merge queue"; exit 0; fi
     - echo "Zombienet Tests Config"
     - echo "${ZOMBIENET_IMAGE}"
     - echo "${GH_DIR}"
@@ -19,9 +25,6 @@
   needs:
     - job: build-push-image-bridges-zombienet-tests
       artifacts: true
-  extends:
-    - .kubernetes-env
-    - .zombienet-refs
   variables:
     BRIDGES_ZOMBIENET_TESTS_IMAGE_TAG: ${DOCKER_IMAGES_VERSION}
     BRIDGES_ZOMBIENET_TESTS_IMAGE: "docker.io/paritypr/bridges-zombienet-tests"
@@ -37,18 +40,16 @@
       - ./zombienet-logs
   after_script:
     - mkdir -p ./zombienet-logs
-    # copy logs of tests runner (run-tests.sh)
-    - cp -r /tmp/bridges-zombienet-tests.*/tmp.*/tmp.* ./zombienet-logs/
-    # copy logs of all nodes
-    - cp /tmp/zombie*/logs/* ./zombienet-logs/
-# following lines are causing spurious test failures ("At least one of the nodes fails to start")
-#  retry: 2
-#  tags:
-#    - zombienet-polkadot-integration-test
+    # copy general logs
+    - cp -r /tmp/bridges-tests-run-*/logs/* ./zombienet-logs/
+    # copy logs of rococo nodes
+    - cp -r /tmp/bridges-tests-run-*/bridge_hub_rococo_local_network/*.log ./zombienet-logs/
+    # copy logs of westend nodes
+    - cp -r /tmp/bridges-tests-run-*/bridge_hub_westend_local_network/*.log ./zombienet-logs/
 
 zombienet-bridges-0001-asset-transfer-works:
   extends:
     - .zombienet-bridges-common
   script:
-    - /home/nonroot/bridges-polkadot-sdk/bridges/zombienet/run-tests.sh --docker
+    - /home/nonroot/bridges-polkadot-sdk/bridges/zombienet/run-new-test.sh 0001-asset-transfer --docker
     - echo "Done"
