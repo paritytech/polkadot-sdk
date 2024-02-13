@@ -43,9 +43,9 @@
 //! > refers to the core business logic of a Substrate-based chain, whereas the node refers to the
 //! > outer client which deals with telemetry and gossip from other nodes. For more information,
 //! > read about Substrate's architecture.
-//! > It's also important to note that the behavior of the **node** may differ from that of the
-//! > **runtime**, which is also why at times, you may see `unwrap()` or other "non-defensive"
-//! > behavior taking place.
+//! > It's also important to note that the criticality of the **node** is slightly lesser than that of the
+//! > **runtime**, which is why in a few places of the node's code repository, you may see `unwrap()` or other "non-defensive"
+//! > code instances.
 //!
 //!  General guidelines:
 //!
