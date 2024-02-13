@@ -62,7 +62,7 @@ where
 {
 	type Val = ();
 	type Pre = ();
-	impl_tx_ext_default!(Call; Context; implicit prepare);
+	impl_tx_ext_default!(Call; Context; prepare);
 
 	fn validate(
 		&self,

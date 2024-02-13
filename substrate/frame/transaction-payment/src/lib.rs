@@ -60,7 +60,6 @@ use frame_support::{
 pub use pallet::*;
 pub use payment::*;
 use sp_runtime::{
-	impl_tx_ext_default,
 	traits::{
 		Convert, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf, SaturatedConversion,
 		Saturating, TransactionExtension, TransactionExtensionBase, Zero,
@@ -872,8 +871,6 @@ where
 		// imbalance resulting from withdrawing the fee
 		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
 	);
-
-	impl_tx_ext_default!(T::RuntimeCall; Context; implicit);
 
 	fn validate(
 		&self,

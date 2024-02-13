@@ -177,7 +177,6 @@ impl pallet_transaction_payment::Config for TestRuntime {
 		MinimumMultiplier,
 		MaximumMultiplier,
 	>;
-	type RuntimeEvent = RuntimeEvent;
 }
 
 impl pallet_bridge_grandpa::Config for TestRuntime {

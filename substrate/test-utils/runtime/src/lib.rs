@@ -268,7 +268,7 @@ impl<Context> sp_runtime::traits::TransactionExtension<RuntimeCall, Context>
 {
 	type Pre = ();
 	type Val = ();
-	impl_tx_ext_default!(RuntimeCall; Context; implicit prepare);
+	impl_tx_ext_default!(RuntimeCall; Context; prepare);
 
 	fn validate(
 		&self,

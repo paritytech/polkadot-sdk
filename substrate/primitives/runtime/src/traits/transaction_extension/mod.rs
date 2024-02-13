@@ -63,8 +63,8 @@ pub trait TransactionExtensionBase: TransactionExtensionInterior {
 
 	/// Any additional data which was known at the time of transaction construction and can be
 	/// useful in authenticating the transaction. This is determined dynamically in part from the
-	/// on-chain environment using the `implied` function and not directly contained in the
-	/// transction itself and therefore is considered "implicit".
+	/// on-chain environment using the `implicit` function and not directly contained in the
+	/// transaction itself and therefore is considered "implicit".
 	type Implicit: Codec + StaticTypeInfo;
 
 	/// Determine any additional data which was known at the time of transaction construction and
@@ -343,12 +343,6 @@ pub trait TransactionExtension<Call: Dispatchable, Context>: TransactionExtensio
 #[macro_export]
 macro_rules! impl_tx_ext_default {
 	($call:ty ; $context:ty ; , $( $rest:tt )*) => {
-		impl_tx_ext_default!{$call ; $context ; $( $rest )*}
-	};
-	($call:ty ; $context:ty ; implicit $( $rest:tt )*) => {
-/*		fn implicit(&self) -> Result<Self::Implicit, $crate::TransactionValidityError> {
-			Ok(Default::default())
-		}*/
 		impl_tx_ext_default!{$call ; $context ; $( $rest )*}
 	};
 	($call:ty ; $context:ty ; validate $( $rest:tt )*) => {
