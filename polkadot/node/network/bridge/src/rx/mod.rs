@@ -53,11 +53,6 @@ use polkadot_node_subsystem::{
 
 use polkadot_primitives::{AuthorityDiscoveryId, BlockNumber, Hash, ValidatorIndex};
 
-/// Peer set info for network initialization.
-///
-/// To be passed to [`FullNetworkConfiguration::add_notification_protocol`]().
-pub use polkadot_node_network_protocol::peer_set::{peer_sets_info, IsAuthority};
-
 use std::{
 	collections::{hash_map, HashMap},
 	iter::ExactSizeIterator,

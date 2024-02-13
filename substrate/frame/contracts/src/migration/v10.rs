@@ -25,7 +25,10 @@ use crate::{
 	CodeHash, Config, Pallet, TrieId, Weight, LOG_TARGET,
 };
 use codec::{Decode, Encode};
-use core::cmp::{max, min};
+use core::{
+	cmp::{max, min},
+	ops::Deref,
+};
 use frame_support::{
 	pallet_prelude::*,
 	storage_alias,
@@ -42,7 +45,7 @@ use sp_runtime::{
 	traits::{Hash, TrailingZeroInput, Zero},
 	Perbill, Saturating,
 };
-use sp_std::{ops::Deref, prelude::*};
+use sp_std::prelude::*;
 
 mod old {
 	use super::*;
@@ -219,7 +222,7 @@ where
 					"Failed to transfer the base deposit, reason: {:?}",
 					err
 				);
-				OldCurrency::deposit_creating(&deposit_account, min_balance);
+				let _ = OldCurrency::deposit_creating(&deposit_account, min_balance);
 				min_balance
 			});
 

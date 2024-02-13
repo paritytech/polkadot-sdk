@@ -1,0 +1,13 @@
+# Schema: Parity PR Documentation Schema (prdoc)
+# See doc at https://github.com/paritytech/prdoc
+
+title: BEEFY: Support compatibility with Warp Sync - Allow Warp Sync for Validators
+
+doc:
+  - audience: Node Operator
+    description: |
+      BEEFY can now sync itself even when using Warp Sync to sync the node. This removes the limitation of not
+      being able to run BEEFY when warp syncing. Validators are now again able to warp sync.
+
+crates:
+  - name: sc-consensus-beefy

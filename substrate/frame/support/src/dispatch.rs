@@ -664,7 +664,7 @@ mod weight_tests {
 	use sp_runtime::{generic, traits::BlakeTwo256};
 	use sp_weights::RuntimeDbWeight;
 
-	pub use self::frame_system::{Call, Config, Pallet};
+	pub use self::frame_system::{Call, Config};
 
 	fn from_actual_ref_time(ref_time: Option<u64>) -> PostDispatchInfo {
 		PostDispatchInfo {

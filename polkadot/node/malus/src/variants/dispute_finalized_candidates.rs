@@ -33,13 +33,12 @@
 
 use futures::channel::oneshot;
 use polkadot_cli::{
-	prepared_overseer_builder,
 	service::{
-		AuthorityDiscoveryApi, AuxStore, BabeApi, Block, Error, HeaderBackend, Overseer,
-		OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle, ParachainHost,
-		ProvideRuntimeApi,
+		AuthorityDiscoveryApi, AuxStore, BabeApi, Block, Error, ExtendedOverseerGenArgs,
+		HeaderBackend, Overseer, OverseerConnector, OverseerGen, OverseerGenArgs, OverseerHandle,
+		ParachainHost, ProvideRuntimeApi,
 	},
-	Cli,
+	validator_overseer_builder, Cli,
 };
 use polkadot_node_subsystem::{messages::ApprovalVotingMessage, SpawnGlue};
 use polkadot_node_subsystem_types::{DefaultSubsystemClient, OverseerSignal};
@@ -95,7 +94,7 @@ where
 
 				let dispute_offset = self.dispute_offset;
 				let mut sender = subsystem_sender.clone();
-				self.spawner.spawn(
+				self.spawner.spawn_blocking(
 					"malus-dispute-finalized-block",
 					Some("malus"),
 					Box::pin(async move {
@@ -237,6 +236,7 @@ impl OverseerGen for DisputeFinalizedCandidates {
 		&self,
 		connector: OverseerConnector,
 		args: OverseerGenArgs<'_, Spawner, RuntimeClient>,
+		ext_args: Option<ExtendedOverseerGenArgs>,
 	) -> Result<
 		(Overseer<SpawnGlue<Spawner>, Arc<DefaultSubsystemClient<RuntimeClient>>>, OverseerHandle),
 		Error,
@@ -257,9 +257,12 @@ impl OverseerGen for DisputeFinalizedCandidates {
 			dispute_offset: self.dispute_offset,
 		};
 
-		prepared_overseer_builder(args)?
-			.replace_approval_voting(move |cb| InterceptedSubsystem::new(cb, ancestor_disputer))
-			.build_with_connector(connector)
-			.map_err(|e| e.into())
+		validator_overseer_builder(
+			args,
+			ext_args.expect("Extended arguments required to build validator overseer are provided"),
+		)?
+		.replace_approval_voting(move |cb| InterceptedSubsystem::new(cb, ancestor_disputer))
+		.build_with_connector(connector)
+		.map_err(|e| e.into())
 	}
 }

@@ -17,12 +17,13 @@
 //! Module with configuration which reflects BridgeHubRococo runtime setup (AccountId, Headers,
 //! Hashes...)
 
+#![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use bp_bridge_hub_cumulus::*;
 use bp_messages::*;
 use bp_runtime::{
-	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, Parachain,
+	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
 };
 use frame_support::dispatch::DispatchClass;
 use sp_runtime::{MultiAddress, MultiSigner, RuntimeDebug};
@@ -32,6 +33,8 @@ use sp_runtime::{MultiAddress, MultiSigner, RuntimeDebug};
 pub struct BridgeHubRococo;
 
 impl Chain for BridgeHubRococo {
+	const ID: ChainId = *b"bhro";
+
 	type BlockNumber = BlockNumber;
 	type Hash = Hash;
 	type Hasher = Hasher;
@@ -47,7 +50,7 @@ impl Chain for BridgeHubRococo {
 	}
 
 	fn max_extrinsic_weight() -> Weight {
-		BlockWeights::get()
+		BlockWeightsForAsyncBacking::get()
 			.get(DispatchClass::Normal)
 			.max_extrinsic
 			.unwrap_or(Weight::MAX)
@@ -56,6 +59,16 @@ impl Chain for BridgeHubRococo {
 
 impl Parachain for BridgeHubRococo {
 	const PARACHAIN_ID: u32 = BRIDGE_HUB_ROCOCO_PARACHAIN_ID;
+}
+
+impl ChainWithMessages for BridgeHubRococo {
+	const WITH_CHAIN_MESSAGES_PALLET_NAME: &'static str =
+		WITH_BRIDGE_HUB_ROCOCO_MESSAGES_PALLET_NAME;
+
+	const MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce =
+		MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
+	const MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX: MessageNonce =
+		MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX;
 }
 
 /// Public key of the chain account that may be used to verify signatures.
@@ -76,6 +89,8 @@ pub const WITH_BRIDGE_HUB_ROCOCO_RELAYERS_PALLET_NAME: &str = "BridgeRelayers";
 
 /// Pallet index of `BridgeWestendMessages: pallet_bridge_messages::<Instance3>`.
 pub const WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX: u8 = 51;
+/// Pallet index of `BridgePolkadotBulletinMessages: pallet_bridge_messages::<Instance4>`.
+pub const WITH_BRIDGE_ROCOCO_TO_BULLETIN_MESSAGES_PALLET_INDEX: u8 = 61;
 
 decl_bridge_finality_runtime_apis!(bridge_hub_rococo);
 decl_bridge_messages_runtime_apis!(bridge_hub_rococo);
@@ -84,13 +99,13 @@ frame_support::parameter_types! {
 	/// The XCM fee that is paid for executing XCM program (with `ExportMessage` instruction) at the Rococo
 	/// BridgeHub.
 	/// (initially was calculated by test `BridgeHubRococo::can_calculate_weight_for_paid_export_message_with_reserve_transfer` + `33%`)
-	pub const BridgeHubRococoBaseXcmFeeInRocs: u128 = 1628875538;
+	pub const BridgeHubRococoBaseXcmFeeInRocs: u128 = 59_034_266;
 
 	/// Transaction fee that is paid at the Rococo BridgeHub for delivering single inbound message.
 	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_complex_message_delivery_transaction` + `33%`)
-	pub const BridgeHubRococoBaseDeliveryFeeInRocs: u128 = 6417262881;
+	pub const BridgeHubRococoBaseDeliveryFeeInRocs: u128 = 5_651_581_649;
 
 	/// Transaction fee that is paid at the Rococo BridgeHub for delivering single outbound message confirmation.
 	/// (initially was calculated by test `BridgeHubRococo::can_calculate_fee_for_complex_message_confirmation_transaction` + `33%`)
-	pub const BridgeHubRococoBaseConfirmationFeeInRocs: u128 = 6159996668;
+	pub const BridgeHubRococoBaseConfirmationFeeInRocs: u128 = 5_380_829_647;
 }

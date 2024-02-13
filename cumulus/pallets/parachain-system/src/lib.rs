@@ -27,7 +27,7 @@
 //!
 //! Users must ensure that they register this pallet as an inherent provider.
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo,
 	GetChannelInfo, InboundDownwardMessage, InboundHrmpMessage, MessageSendError,
@@ -50,10 +50,9 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockNumberProvider, Hash},
 	transaction_validity::{
-		InvalidTransaction, TransactionLongevity, TransactionSource, TransactionValidity,
-		ValidTransaction,
+		InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction,
 	},
-	BoundedSlice, DispatchError, FixedU128, RuntimeDebug, Saturating,
+	BoundedSlice, FixedU128, RuntimeDebug, Saturating,
 };
 use sp_std::{cmp, collections::btree_map::BTreeMap, prelude::*};
 use xcm::latest::XcmHash;
@@ -169,20 +168,6 @@ impl CheckAssociatedRelayNumber for RelayNumberMonotonicallyIncreases {
 	}
 }
 
-/// Information needed when a new runtime binary is submitted and needs to be authorized before
-/// replacing the current runtime.
-#[derive(Decode, Encode, Default, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-struct CodeUpgradeAuthorization<T>
-where
-	T: Config,
-{
-	/// Hash of the new runtime binary.
-	code_hash: T::Hash,
-	/// Whether or not to carry out version checks.
-	check_version: bool,
-}
-
 /// The max length of a DMP message.
 pub type MaxDmpMessageLenOf<T> = <<T as Config>::DmpQueue as HandleMessage>::MaxMessageLen;
 
@@ -204,7 +189,7 @@ pub mod ump_constants {
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
+	use frame_system::{pallet_prelude::*, WeightInfo as SystemWeightInfo};
 
 	#[pallet::pallet]
 	#[pallet::storage_version(migration::STORAGE_VERSION)]
@@ -677,16 +662,18 @@ pub mod pallet {
 		///
 		/// This call requires Root origin.
 		#[pallet::call_index(2)]
-		#[pallet::weight((1_000_000, DispatchClass::Operational))]
+		#[pallet::weight(<T as frame_system::Config>::SystemWeightInfo::authorize_upgrade())]
+		#[allow(deprecated)]
+		#[deprecated(
+			note = "To be removed after June 2024. Migrate to `frame_system::authorize_upgrade`."
+		)]
 		pub fn authorize_upgrade(
 			origin: OriginFor<T>,
 			code_hash: T::Hash,
 			check_version: bool,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			AuthorizedUpgrade::<T>::put(CodeUpgradeAuthorization { code_hash, check_version });
-
-			Self::deposit_event(Event::UpgradeAuthorized { code_hash });
+			frame_system::Pallet::<T>::do_authorize_upgrade(code_hash, check_version);
 			Ok(())
 		}
 
@@ -700,15 +687,17 @@ pub mod pallet {
 		///
 		/// All origins are allowed.
 		#[pallet::call_index(3)]
-		#[pallet::weight({1_000_000})]
+		#[pallet::weight(<T as frame_system::Config>::SystemWeightInfo::apply_authorized_upgrade())]
+		#[allow(deprecated)]
+		#[deprecated(
+			note = "To be removed after June 2024. Migrate to `frame_system::apply_authorized_upgrade`."
+		)]
 		pub fn enact_authorized_upgrade(
 			_: OriginFor<T>,
 			code: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
-			Self::validate_authorized_upgrade(&code[..])?;
-			Self::schedule_code_upgrade(code)?;
-			AuthorizedUpgrade::<T>::kill();
-			Ok(Pays::No.into())
+			let post = frame_system::Pallet::<T>::do_apply_authorize_upgrade(code)?;
+			Ok(post)
 		}
 	}
 
@@ -721,8 +710,6 @@ pub mod pallet {
 		ValidationFunctionApplied { relay_chain_block_num: RelayChainBlockNumber },
 		/// The relay-chain aborted the upgrade process.
 		ValidationFunctionDiscarded,
-		/// An upgrade has been authorized.
-		UpgradeAuthorized { code_hash: T::Hash },
 		/// Some downward messages have been received and will be processed.
 		DownwardMessagesReceived { count: u32 },
 		/// Downward messages were processed using the given weight.
@@ -928,10 +915,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type ReservedDmpWeightOverride<T: Config> = StorageValue<_, Weight>;
 
-	/// The next authorized upgrade, if there is one.
-	#[pallet::storage]
-	pub(super) type AuthorizedUpgrade<T: Config> = StorageValue<_, CodeUpgradeAuthorization<T>>;
-
 	/// A custom head data that should be returned as result of `validate_block`.
 	///
 	/// See `Pallet::set_custom_validation_head_data` for more information.
@@ -982,7 +965,8 @@ pub mod pallet {
 
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			if let Call::enact_authorized_upgrade { ref code } = call {
-				if let Ok(hash) = Self::validate_authorized_upgrade(code) {
+				if let Ok(hash) = frame_system::Pallet::<T>::validate_authorized_upgrade(&code[..])
+				{
 					return Ok(ValidTransaction {
 						priority: 100,
 						requires: Vec::new(),
@@ -1001,21 +985,6 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	fn validate_authorized_upgrade(code: &[u8]) -> Result<T::Hash, DispatchError> {
-		let authorization = AuthorizedUpgrade::<T>::get().ok_or(Error::<T>::NothingAuthorized)?;
-
-		// ensure that the actual hash matches the authorized hash
-		let actual_hash = T::Hashing::hash(code);
-		ensure!(actual_hash == authorization.code_hash, Error::<T>::Unauthorized);
-
-		// check versions if required as part of the authorization
-		if authorization.check_version {
-			frame_system::Pallet::<T>::can_set_code(code)?;
-		}
-
-		Ok(actual_hash)
-	}
-
 	/// Get the unincluded segment size after the given hash.
 	///
 	/// If the unincluded segment doesn't contain the given hash, this returns the
@@ -1563,8 +1532,8 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
+/// Type that implements `SetCode`.
 pub struct ParachainSetCode<T>(sp_std::marker::PhantomData<T>);
-
 impl<T: Config> frame_system::SetCode<T> for ParachainSetCode<T> {
 	fn set_code(code: Vec<u8>) -> DispatchResult {
 		Pallet::<T>::schedule_code_upgrade(code)
@@ -1630,7 +1599,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Get the relay chain block number which was used as an anchor for the last block in this
 	/// chain.
-	pub fn last_relay_block_number(&self) -> RelayChainBlockNumber {
+	pub fn last_relay_block_number() -> RelayChainBlockNumber {
 		LastRelayChainBlockNumber::<T>::get()
 	}
 }
@@ -1714,20 +1683,33 @@ pub trait RelaychainStateProvider {
 }
 
 /// Implements [`BlockNumberProvider`] that returns relay chain block number fetched from validation
-/// data. When validation data is not available (e.g. within on_initialize), 0 will be returned.
+/// data.
+///
+/// When validation data is not available (e.g. within `on_initialize`), it will fallback to use
+/// [`Pallet::last_relay_block_number()`].
 ///
 /// **NOTE**: This has been deprecated, please use [`RelaychainDataProvider`]
 #[deprecated = "Use `RelaychainDataProvider` instead"]
-pub struct RelaychainBlockNumberProvider<T>(sp_std::marker::PhantomData<T>);
+pub type RelaychainBlockNumberProvider<T> = RelaychainDataProvider<T>;
 
-#[allow(deprecated)]
-impl<T: Config> BlockNumberProvider for RelaychainBlockNumberProvider<T> {
+/// Implements [`BlockNumberProvider`] and [`RelaychainStateProvider`] that returns relevant relay
+/// data fetched from validation data.
+///
+/// NOTE: When validation data is not available (e.g. within `on_initialize`):
+///
+/// - [`current_relay_chain_state`](Self::current_relay_chain_state): Will return the default value
+///   of [`RelayChainState`].
+/// - [`current_block_number`](Self::current_block_number): Will return
+///   [`Pallet::last_relay_block_number()`].
+pub struct RelaychainDataProvider<T>(sp_std::marker::PhantomData<T>);
+
+impl<T: Config> BlockNumberProvider for RelaychainDataProvider<T> {
 	type BlockNumber = relay_chain::BlockNumber;
 
 	fn current_block_number() -> relay_chain::BlockNumber {
 		Pallet::<T>::validation_data()
 			.map(|d| d.relay_parent_number)
-			.unwrap_or_default()
+			.unwrap_or_else(|| Pallet::<T>::last_relay_block_number())
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1767,36 +1749,6 @@ impl<T: Config> RelaychainStateProvider for RelaychainDataProvider<T> {
 			});
 		validation_data.relay_parent_number = state.number;
 		validation_data.relay_parent_storage_root = state.state_root;
-		ValidationData::<T>::put(validation_data)
-	}
-}
-
-/// Implements [`BlockNumberProvider`] and [`RelaychainStateProvider`] that returns relevant relay
-/// data fetched from validation data.
-/// NOTE: When validation data is not available (e.g. within on_initialize), default values will be
-/// returned.
-pub struct RelaychainDataProvider<T>(sp_std::marker::PhantomData<T>);
-
-impl<T: Config> BlockNumberProvider for RelaychainDataProvider<T> {
-	type BlockNumber = relay_chain::BlockNumber;
-
-	fn current_block_number() -> relay_chain::BlockNumber {
-		Pallet::<T>::validation_data()
-			.map(|d| d.relay_parent_number)
-			.unwrap_or_default()
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn set_block_number(block: Self::BlockNumber) {
-		let mut validation_data = Pallet::<T>::validation_data().unwrap_or_else(||
-			// PersistedValidationData does not impl default in non-std
-			PersistedValidationData {
-				parent_head: vec![].into(),
-				relay_parent_number: Default::default(),
-				max_pov_size: Default::default(),
-				relay_parent_storage_root: Default::default(),
-			});
-		validation_data.relay_parent_number = block;
 		ValidationData::<T>::put(validation_data)
 	}
 }

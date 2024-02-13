@@ -23,7 +23,7 @@
 //!
 //! ## Platform
 //!
-//! In this section, we examine what what platform Polkadot exactly provides to developers.
+//! In this section, we examine what platform Polkadot exactly provides to developers.
 //!
 //! ### Polkadot White Paper
 //!
@@ -47,10 +47,12 @@
 //!   Chain*").
 //! * (heterogenous) Sharded Execution: Yet, each parachain is free to have its own execution logic
 //!   (runtime), which also encompasses governance and sovereignty. Moreover, Polkadot ensures the
-//!   correct execution of all parachain, without having all of its validators re-execute all
-//!   parachain blocks. When seen from this perspective, the fact that Polkadot executes different
-//!   parachains means it is a platform that has fully delivered (the holy grail of) "Full Execution
-//!   Sharding". TODO: link to approval checking article. https://github.com/paritytech/polkadot-sdk-docs/issues/66
+//!   correct execution of all parachains, without having all of its validators re-execute all
+//!   parachain blocks. When seen from this perspective, Polkadot achieves the ability to verify
+//!   the validity of the block execution of multiple parachains using the same set of validators as
+//!   the Relay Chain. In practice, this means that the shards (parachains) share the same economic
+//!   security as the Relay Chain.
+//!   Learn about this process called [Approval Checking](https://polkadot.network/blog/polkadot-v1-0-sharding-and-economic-security#approval-checking-and-finality).
 //! * A framework to build blockchains: In order to materialize the ecosystem of parachains, an easy
 //!   blockchain framework must exist. This is [Substrate](crate::polkadot_sdk::substrate),
 //!   [FRAME](crate::polkadot_sdk::frame_runtime) and [Cumulus](crate::polkadot_sdk::cumulus).
@@ -60,7 +62,12 @@
 //!
 //! > Note that the interoperability promised by Polkadot is unparalleled in that any two parachains
 //! > connected to Polkadot have the same security and can have much better guarantees about the
-//! > security of the recipient of any message. TODO: weakest link in bridges systems. https://github.com/paritytech/polkadot-sdk-docs/issues/66
+//! > security of the recipient of any message.
+//! > Bridges enable transaction and information flow between different consensus systems, crucial
+//! > for Polkadot's multi-chain architecture. However, they can become the network's most
+//! > vulnerable points. If a bridge's security measures are weaker than those of the connected
+//! > blockchains, it poses a significant risk. Attackers might exploit these weaknesses to launch
+//! > attacks such as theft or disruption of services.
 //!
 //! Polkadot delivers the above vision, alongside a flexible means for parachains to schedule
 //! themselves with the Relay Chain. To achieve this, Polkadot has been developed with an
@@ -83,5 +90,5 @@
 //!   Agile periodic-sale-based model for assigning Coretime on the Polkadot Ubiquitous Computer.
 //! - RFC#5: [Coretime-interface](https://github.com/polkadot-fellows/RFCs/blob/main/text/0005-coretime-interface.md):
 //!   Interface for manipulating the usage of cores on the Polkadot Ubiquitous Computer.
-// TODO: add more context and explanations about Polkadot as the Ubiquitous Computer and related
-// tech. https://github.com/paritytech/polkadot-sdk-docs/issues/66
+//!
+//! Learn more about [Polkadot as a Computational Resource](https://wiki.polkadot.network/docs/polkadot-direction#polkadot-as-a-computational-resource).

@@ -1,0 +1,32 @@
+[package]
+name = "people-rococo-integration-tests"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+description = "People Rococo runtime integration tests with xcm-emulator"
+publish = false
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.4.0", default-features = false }
+
+# Substrate
+sp-runtime = { path = "../../../../../../../substrate/primitives/runtime", default-features = false }
+frame-support = { path = "../../../../../../../substrate/frame/support", default-features = false }
+pallet-balances = { path = "../../../../../../../substrate/frame/balances", default-features = false }
+pallet-message-queue = { path = "../../../../../../../substrate/frame/message-queue", default-features = false }
+pallet-identity = { path = "../../../../../../../substrate/frame/identity", default-features = false }
+
+# Polkadot
+xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../../../polkadot/xcm/xcm-executor", default-features = false }
+rococo-runtime = { path = "../../../../../../../polkadot/runtime/rococo" }
+rococo-runtime-constants = { path = "../../../../../../../polkadot/runtime/rococo/constants" }
+polkadot-runtime-common = { path = "../../../../../../../polkadot/runtime/common" }
+
+# Cumulus
+asset-test-utils = { path = "../../../../../runtimes/assets/test-utils" }
+parachains-common = { path = "../../../../../../parachains/common" }
+people-rococo-runtime = { path = "../../../../../runtimes/people/people-rococo" }
+emulated-integration-tests-common = { path = "../../../common", default-features = false }
+rococo-system-emulated-network = { path = "../../../networks/rococo-system" }

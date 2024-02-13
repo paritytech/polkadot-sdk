@@ -18,9 +18,12 @@
 //! Tests for `pallet-example-tasks`.
 #![cfg(test)]
 
-use crate::{mock::*, Numbers, Total};
-use frame_support::{assert_noop, assert_ok, traits::Task};
+use crate::{mock::*, Numbers};
+use frame_support::traits::Task;
 use sp_runtime::BuildStorage;
+
+#[cfg(feature = "experimental")]
+use frame_support::{assert_noop, assert_ok};
 
 // This function basically just builds a genesis storage key/value store according to
 // our desired mockup.
@@ -89,6 +92,7 @@ fn task_index_works_at_runtime_level() {
 	});
 }
 
+#[cfg(feature = "experimental")]
 #[test]
 fn task_execution_works() {
 	new_test_ext().execute_with(|| {
@@ -105,11 +109,12 @@ fn task_execution_works() {
 		assert_ok!(System::do_task(RuntimeOrigin::signed(1), task.clone(),));
 		assert_eq!(Numbers::<Runtime>::get(0), Some(1));
 		assert_eq!(Numbers::<Runtime>::get(1), None);
-		assert_eq!(Total::<Runtime>::get(), (1, 4));
+		assert_eq!(crate::Total::<Runtime>::get(), (1, 4));
 		System::assert_last_event(frame_system::Event::<Runtime>::TaskCompleted { task }.into());
 	});
 }
 
+#[cfg(feature = "experimental")]
 #[test]
 fn task_execution_fails_for_invalid_task() {
 	new_test_ext().execute_with(|| {
