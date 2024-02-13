@@ -201,7 +201,7 @@
 //! #### Handling via Result - Less Verbose
 //!
 //! In the Polkadot SDK codebase, you may see checked operations being handled as a [`Result`] via
-//! `ok_or`. This is a less verbose way of expressing the above.  Which to use often boils down to
+//! `ok_or`. This is a less verbose way of expressing the above. This usage often boils down to
 //! the developer's preference:
 #![doc = docify::embed!(
     "./src/reference_docs/defensive_programming.rs",
