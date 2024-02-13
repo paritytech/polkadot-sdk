@@ -25,6 +25,7 @@ sp-crypto-hashing = { path = "../../crypto/hashing", default-features = false }
 sp-io = { path = "../../io", default-features = false }
 sp-mmr-primitives = { path = "../../merkle-mountain-range", default-features = false }
 sp-runtime = { path = "../../runtime", default-features = false }
+sp-keystore = { path = "../../keystore", default-features = false }
 sp-std = { path = "../../std", default-features = false }
 strum = { version = "0.24.1", features = ["derive"], default-features = false }
 lazy_static = { version = "1.4.0", optional = true }
@@ -45,6 +46,7 @@ std = [
 	"sp-core/std",
 	"sp-crypto-hashing/std",
 	"sp-io/std",
+	"sp-keystore/std",
 	"sp-mmr-primitives/std",
 	"sp-runtime/std",
 	"sp-std/std",
