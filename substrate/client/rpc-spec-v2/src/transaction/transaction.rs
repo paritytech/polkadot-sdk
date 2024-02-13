@@ -29,21 +29,18 @@ use crate::{
 	},
 	SubscriptionTaskExecutor,
 };
+use codec::Decode;
+use futures::{StreamExt, TryFutureExt};
 use jsonrpsee::{core::async_trait, types::error::ErrorObject, PendingSubscriptionSink};
+use sc_rpc::utils::pipe_from_stream;
 use sc_transaction_pool_api::{
 	error::IntoPoolError, BlockHash, TransactionFor, TransactionPool, TransactionSource,
 	TransactionStatus,
 };
-use std::sync::Arc;
-
-use sc_rpc::utils::pipe_from_stream;
-use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_core::Bytes;
 use sp_runtime::traits::Block as BlockT;
-
-use codec::Decode;
-use futures::{StreamExt, TryFutureExt};
+use std::sync::Arc;
 
 /// An API for transaction RPC calls.
 pub struct Transaction<Pool, Client> {
@@ -82,7 +79,7 @@ where
 	Pool: TransactionPool + Sync + Send + 'static,
 	Pool::Hash: Unpin,
 	<Pool::Block as BlockT>::Hash: Unpin,
-	Client: HeaderBackend<Pool::Block> + ProvideRuntimeApi<Pool::Block> + Send + Sync + 'static,
+	Client: HeaderBackend<Pool::Block> + Send + Sync + 'static,
 {
 	fn submit_and_watch(&self, pending: PendingSubscriptionSink, xt: Bytes) {
 		let client = self.client.clone();

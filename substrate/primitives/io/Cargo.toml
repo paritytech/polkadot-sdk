@@ -30,7 +30,7 @@ sp-runtime-interface = { path = "../runtime-interface", default-features = false
 sp-trie = { path = "../trie", default-features = false, optional = true }
 sp-externalities = { path = "../externalities", default-features = false }
 sp-tracing = { path = "../tracing", default-features = false }
-log = { version = "0.4.17", optional = true }
+log = { optional = true, workspace = true, default-features = true }
 secp256k1 = { version = "0.28.0", features = ["global-context", "recovery"], optional = true }
 tracing = { version = "0.1.29", default-features = false }
 tracing-core = { version = "0.1.32", default-features = false }

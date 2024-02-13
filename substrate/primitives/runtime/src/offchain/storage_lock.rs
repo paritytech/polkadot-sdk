@@ -66,9 +66,9 @@ use crate::{
 	traits::BlockNumberProvider,
 };
 use codec::{Codec, Decode, Encode};
+use core::fmt;
 use sp_core::offchain::{Duration, Timestamp};
 use sp_io::offchain;
-use sp_std::fmt;
 
 /// Default expiry duration for time based locks in milliseconds.
 const STORAGE_LOCK_DEFAULT_EXPIRY_DURATION: Duration = Duration::from_millis(20_000);

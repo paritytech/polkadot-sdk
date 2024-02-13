@@ -20,7 +20,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 cfg-if = "1.0"
 clap = { version = "4.4.18", features = ["derive"], optional = true }
-log = "0.4.17"
+log = { workspace = true, default-features = true }
 thiserror = "1.0.48"
 futures = "0.3.21"
 pyro = { package = "pyroscope", version = "0.5.3", optional = true }
@@ -42,6 +42,7 @@ sc-tracing = { path = "../../substrate/client/tracing", optional = true }
 sc-sysinfo = { path = "../../substrate/client/sysinfo" }
 sc-executor = { path = "../../substrate/client/executor" }
 sc-storage-monitor = { path = "../../substrate/client/storage-monitor" }
+sp-runtime = { path = "../../substrate/primitives/runtime" }
 
 [build-dependencies]
 substrate-build-script-utils = { path = "../../substrate/utils/build-script-utils" }
@@ -63,9 +64,14 @@ runtime-benchmarks = [
 	"polkadot-node-metrics/runtime-benchmarks",
 	"sc-service?/runtime-benchmarks",
 	"service/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
 ]
 full-node = ["service/full-node"]
-try-runtime = ["service/try-runtime", "try-runtime-cli/try-runtime"]
+try-runtime = [
+	"service/try-runtime",
+	"sp-runtime/try-runtime",
+	"try-runtime-cli/try-runtime",
+]
 fast-runtime = ["service/fast-runtime"]
 pyroscope = ["pyro", "pyroscope_pprofrs"]
 

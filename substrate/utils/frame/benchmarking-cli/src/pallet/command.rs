@@ -37,7 +37,7 @@ use sp_core::{
 };
 use sp_externalities::Extensions;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
+use sp_runtime::traits::Hash;
 use sp_state_machine::StateMachine;
 use std::{collections::HashMap, fmt::Debug, fs, str::FromStr, time};
 
@@ -140,11 +140,10 @@ This could mean that you either did not build the node correctly with the \
 not created by a node that was compiled with the flag";
 
 impl PalletCmd {
-	/// Runs the command and benchmarks the chain.
-	pub fn run<BB, ExtraHostFunctions>(&self, config: Configuration) -> Result<()>
+	/// Runs the command and benchmarks a pallet.
+	pub fn run<Hasher, ExtraHostFunctions>(&self, config: Configuration) -> Result<()>
 	where
-		BB: BlockT + Debug,
-		<<<BB as BlockT>::Header as HeaderT>::Number as std::str::FromStr>::Err: std::fmt::Debug,
+		Hasher: Hash,
 		ExtraHostFunctions: sp_wasm_interface::HostFunctions,
 	{
 		let _d = self.execution.as_ref().map(|exec| {
@@ -199,7 +198,7 @@ impl PalletCmd {
 		let genesis_storage = spec.build_storage()?;
 		let mut changes = Default::default();
 		let cache_size = Some(self.database_cache_size as usize);
-		let state_with_tracking = BenchmarkingState::<BB>::new(
+		let state_with_tracking = BenchmarkingState::<Hasher>::new(
 			genesis_storage.clone(),
 			cache_size,
 			// Record proof size
@@ -207,7 +206,7 @@ impl PalletCmd {
 			// Enable storage tracking
 			true,
 		)?;
-		let state_without_tracking = BenchmarkingState::<BB>::new(
+		let state_without_tracking = BenchmarkingState::<Hasher>::new(
 			genesis_storage,
 			cache_size,
 			// Do not record proof size

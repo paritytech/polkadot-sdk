@@ -131,7 +131,7 @@ default:
       fi
     #
     - echo "FL_FORKLIFT_VERSION_ALT ${FL_FORKLIFT_VERSION_ALT}"
-    - echo "FORKLIFT_PACKAGE_SUFFIX $FORKLIFT_PACKAGE_SUFFIX"  
+
 
 .common-refs:
   rules:
