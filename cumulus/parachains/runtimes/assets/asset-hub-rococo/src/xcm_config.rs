@@ -113,7 +113,7 @@ pub type LocationToAccountId = (
 );
 
 /// Means for transacting the native currency on this chain.
-pub type CurrencyTransactor = FungibleAdapter<
+pub type FungibleTransactor = FungibleAdapter<
 	// Use this currency:
 	Balances,
 	// Use this currency when it is a fungible asset matching the given location or name:
@@ -221,7 +221,7 @@ pub type PoolFungiblesTransactor = FungiblesAdapter<
 
 /// Means for transacting assets on this chain.
 pub type AssetTransactors = (
-	CurrencyTransactor,
+	FungibleTransactor,
 	FungiblesTransactor,
 	ForeignFungiblesTransactor,
 	PoolFungiblesTransactor,
