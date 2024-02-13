@@ -21,8 +21,9 @@ use crate::{
 	generic::{CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
 		self, transaction_extension::TransactionExtensionBase, Checkable, CreateInherent,
-		CreateSignedTransaction, CreateTransaction, Dispatchable, Extrinsic, ExtrinsicMetadata,
-		IdentifyAccount, MaybeDisplay, Member, SignaturePayload, TransactionExtension,
+		CreateSignedTransaction, CreateTransaction, CreateTransactionBase, Dispatchable,
+		ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount, MaybeDisplay, Member, SignaturePayload,
+		TransactionExtension,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	OpaqueExtrinsic,
@@ -209,7 +210,7 @@ impl<Address, Call, Signature, Extension> UncheckedExtrinsic<Address, Call, Sign
 
 // TODO: We can get rid of this trait and just use UncheckedExtrinsic directly.
 
-impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extension: TypeInfo> Extrinsic
+impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extension: TypeInfo> ExtrinsicLike
 	for UncheckedExtrinsic<Address, Call, Signature, Extension>
 {
 	fn is_bare(&self) -> bool {
@@ -221,10 +222,15 @@ impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extension: TypeInfo
 	}
 }
 
+impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extension: TypeInfo>
+	CreateTransactionBase for UncheckedExtrinsic<Address, Call, Signature, Extension>
+{
+	type Call = Call;
+}
+
 impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extension: TypeInfo> CreateTransaction
 	for UncheckedExtrinsic<Address, Call, Signature, Extension>
 {
-	type Call = Call;
 	type Extension = Extension;
 
 	fn create_transaction(call: Self::Call, extension: Self::Extension) -> Self {
@@ -235,7 +241,6 @@ impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extension: TypeInfo
 impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extension: TypeInfo>
 	CreateSignedTransaction for UncheckedExtrinsic<Address, Call, Signature, Extension>
 {
-	type Call = Call;
 	type SignaturePayload = UncheckedSignaturePayload<Address, Signature, Extension>;
 
 	fn create_signed_transaction(call: Self::Call, signed_data: Self::SignaturePayload) -> Self {
@@ -247,8 +252,6 @@ impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extension: TypeInfo
 impl<Address: TypeInfo, Call: TypeInfo, Signature: TypeInfo, Extension: TypeInfo> CreateInherent
 	for UncheckedExtrinsic<Address, Call, Signature, Extension>
 {
-	type Call = Call;
-
 	fn create_inherent(call: Self::Call) -> Self {
 		Self::new_bare(call)
 	}
