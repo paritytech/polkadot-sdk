@@ -385,6 +385,12 @@
 <a href="#385" id="385">385</a>
 <a href="#386" id="386">386</a>
 <a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -645,6 +651,7 @@
 </span><span class="kw">pub struct </span>SlotClaim&lt;Pub&gt; {
 	author_pub: Pub,
 	pre_digest: DigestItem,
+	slot: Slot,
 	timestamp: Timestamp,
 }
 
@@ -659,7 +666,7 @@
 		P::Public: Codec,
 		P::Signature: Codec,
 	{
-		SlotClaim { author_pub, timestamp, pre_digest: aura_internal::pre_digest::&lt;P&gt;(slot) }
+		SlotClaim { author_pub, timestamp, pre_digest: aura_internal::pre_digest::&lt;P&gt;(slot), slot }
 	}
 
 	<span class="doccomment">/// Get the author&#39;s public key.
@@ -670,6 +677,11 @@
 	<span class="doccomment">/// Get the Aura pre-digest for this slot.
 	</span><span class="kw">pub fn </span>pre_digest(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>DigestItem {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.pre_digest
+	}
+
+	<span class="doccomment">/// Get the slot assigned to this claim.
+	</span><span class="kw">pub fn </span>slot(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Slot {
+		<span class="self">self</span>.slot
 	}
 
 	<span class="doccomment">/// Get the timestamp corresponding to the relay-chain slot this claim was

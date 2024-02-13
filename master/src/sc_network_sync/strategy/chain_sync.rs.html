@@ -2252,6 +2252,12 @@
 <a href="#2252" id="2252">2252</a>
 <a href="#2253" id="2253">2253</a>
 <a href="#2254" id="2254">2254</a>
+<a href="#2255" id="2255">2255</a>
+<a href="#2256" id="2256">2256</a>
+<a href="#2257" id="2257">2257</a>
+<a href="#2258" id="2258">2258</a>
+<a href="#2259" id="2259">2259</a>
+<a href="#2260" id="2260">2260</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -2284,7 +2290,7 @@
 
 </span><span class="kw">use crate</span>::{
 	blocks::BlockCollection,
-	extra_requests::ExtraRequests,
+	justification_requests::ExtraRequests,
 	schema::v1::StateResponse,
 	strategy::{
 		state_sync::{ImportResult, StateSync, StateSyncProvider},
@@ -2466,10 +2472,10 @@
 </span><span class="kw">pub enum </span>ChainSyncAction&lt;B: BlockT&gt; {
 	<span class="doccomment">/// Send block request to peer. Always implies dropping a stale block request to the same peer.
 	</span>SendBlockRequest { peer_id: PeerId, request: BlockRequest&lt;B&gt; },
-	<span class="doccomment">/// Drop stale block request.
-	</span>CancelBlockRequest { peer_id: PeerId },
 	<span class="doccomment">/// Send state request to peer.
 	</span>SendStateRequest { peer_id: PeerId, request: OpaqueStateRequest },
+	<span class="doccomment">/// Drop stale request.
+	</span>CancelRequest { peer_id: PeerId },
 	<span class="doccomment">/// Peer misbehaved. Disconnect, report it and cancel the block request to it.
 	</span>DropPeer(BadPeer),
 	<span class="doccomment">/// Import blocks.
@@ -2627,6 +2633,7 @@
 		max_parallel_downloads: u32,
 		max_blocks_per_request: u32,
 		metrics_registry: <span class="prelude-ty">Option</span>&lt;Registry&gt;,
+		initial_peers: <span class="kw">impl </span>Iterator&lt;Item = (PeerId, B::Hash, NumberFor&lt;B&gt;)&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ClientError&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>sync = <span class="self">Self </span>{
 			client,
@@ -2659,6 +2666,10 @@
 		};
 
 		sync.reset_sync_start_point()<span class="question-mark">?</span>;
+		initial_peers.for_each(|(peer_id, best_hash, best_number)| {
+			sync.add_peer(peer_id, best_hash, best_number);
+		});
+
 		<span class="prelude-val">Ok</span>(sync)
 	}
 
@@ -3566,34 +3577,35 @@
 		);
 		<span class="kw">let </span>old_peers = std::mem::take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.peers);
 
-		old_peers.into_iter().for_each(|(peer_id, <span class="kw-2">mut </span>p)| {
-			<span class="comment">// peers that were downloading justifications
-			// should be kept in that state.
-			</span><span class="kw">if let </span>PeerSyncState::DownloadingJustification(<span class="kw">_</span>) = p.state {
-				<span class="comment">// We make sure our commmon number is at least something we have.
-				</span><span class="macro">trace!</span>(
-					target: LOG_TARGET,
-					<span class="string">&quot;Keeping peer {} after restart, updating common number from={} =&gt; to={} (our best).&quot;</span>,
-					peer_id,
-					p.common_number,
-					<span class="self">self</span>.best_queued_number,
-				);
-				p.common_number = <span class="self">self</span>.best_queued_number;
-				<span class="self">self</span>.peers.insert(peer_id, p);
-				<span class="kw">return
-			</span>}
-
-			<span class="comment">// handle peers that were in other states.
-			</span><span class="kw">let </span>action = <span class="kw">match </span><span class="self">self</span>.add_peer_inner(peer_id, p.best_hash, p.best_number) {
-				<span class="comment">// since the request is not a justification, remove it from pending responses
-				</span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; ChainSyncAction::CancelBlockRequest { peer_id },
-				<span class="comment">// update the request if the new one is available
-				</span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(request)) =&gt; ChainSyncAction::SendBlockRequest { peer_id, request },
-				<span class="comment">// this implies that we need to drop pending response from the peer
-				</span><span class="prelude-val">Err</span>(bad_peer) =&gt; ChainSyncAction::DropPeer(bad_peer),
-			};
-
-			<span class="self">self</span>.actions.push(action);
+		old_peers.into_iter().for_each(|(peer_id, <span class="kw-2">mut </span>peer_sync)| {
+			<span class="kw">match </span>peer_sync.state {
+				PeerSyncState::Available =&gt; {
+					<span class="self">self</span>.add_peer(peer_id, peer_sync.best_hash, peer_sync.best_number);
+				},
+				PeerSyncState::AncestorSearch { .. } |
+				PeerSyncState::DownloadingNew(<span class="kw">_</span>) |
+				PeerSyncState::DownloadingStale(<span class="kw">_</span>) |
+				PeerSyncState::DownloadingGap(<span class="kw">_</span>) |
+				PeerSyncState::DownloadingState =&gt; {
+					<span class="comment">// Cancel a request first, as `add_peer` may generate a new request.
+					</span><span class="self">self</span>.actions.push(ChainSyncAction::CancelRequest { peer_id });
+					<span class="self">self</span>.add_peer(peer_id, peer_sync.best_hash, peer_sync.best_number);
+				},
+				PeerSyncState::DownloadingJustification(<span class="kw">_</span>) =&gt; {
+					<span class="comment">// Peers that were downloading justifications
+					// should be kept in that state.
+					// We make sure our commmon number is at least something we have.
+					</span><span class="macro">trace!</span>(
+						target: LOG_TARGET,
+						<span class="string">&quot;Keeping peer {} after restart, updating common number from={} =&gt; to={} (our best).&quot;</span>,
+						peer_id,
+						peer_sync.common_number,
+						<span class="self">self</span>.best_queued_number,
+					);
+					peer_sync.common_number = <span class="self">self</span>.best_queued_number;
+					<span class="self">self</span>.peers.insert(peer_id, peer_sync);
+				},
+			}
 		});
 	}
 

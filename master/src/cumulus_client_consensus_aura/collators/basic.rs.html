@@ -231,6 +231,22 @@
 <a href="#231" id="231">231</a>
 <a href="#232" id="232">232</a>
 <a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
 
@@ -374,6 +390,8 @@
 			collator_util::Collator::&lt;Block, P, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;::new(params)
 		};
 
+		<span class="kw">let </span><span class="kw-2">mut </span>last_processed_slot = <span class="number">0</span>;
+
 		<span class="kw">while let </span><span class="prelude-val">Some</span>(request) = collation_requests.next().<span class="kw">await </span>{
 			<span class="macro">macro_rules! </span>reject_with_error {
 				(<span class="macro-nonterminal">$err</span>:expr) =&gt; {{
@@ -425,6 +443,18 @@
 				<span class="prelude-val">Err</span>(e) =&gt; <span class="macro">reject_with_error!</span>(e),
 			};
 
+			<span class="comment">// With async backing this function will be called every relay chain block.
+			//
+			// Most parachains currently run with 12 seconds slots and thus, they would try to
+			// produce multiple blocks per slot which very likely would fail on chain. Thus, we have
+			// this &quot;hack&quot; to only produce on block per slot.
+			//
+			// With https://github.com/paritytech/polkadot-sdk/issues/3168 this implementation will be
+			// obsolete and also the underlying issue will be fixed.
+			</span><span class="kw">if </span>last_processed_slot &gt;= <span class="kw-2">*</span>claim.slot() {
+				<span class="kw">continue
+			</span>}
+
 			<span class="kw">let </span>(parachain_inherent_data, other_inherent_data) = <span class="macro">try_request!</span>(
 				collator
 					.create_inherent_data(
@@ -461,6 +491,8 @@
 				request.complete(<span class="prelude-val">None</span>);
 				<span class="macro">tracing::debug!</span>(target: <span class="kw">crate</span>::LOG_TARGET, <span class="string">&quot;No block proposal&quot;</span>);
 			}
+
+			last_processed_slot = <span class="kw-2">*</span>claim.slot();
 		}
 	}
 }

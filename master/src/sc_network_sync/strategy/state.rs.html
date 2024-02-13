@@ -747,11 +747,6 @@
 <a href="#747" id="747">747</a>
 <a href="#748" id="748">748</a>
 <a href="#749" id="749">749</a>
-<a href="#750" id="750">750</a>
-<a href="#751" id="751">751</a>
-<a href="#752" id="752">752</a>
-<a href="#753" id="753">753</a>
-<a href="#754" id="754">754</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1082,11 +1077,6 @@
 			state_sync: <span class="prelude-val">Some</span>(<span class="self">self</span>.state_sync.progress()),
 			warp_sync: <span class="prelude-val">None</span>,
 		}
-	}
-
-	<span class="doccomment">/// Get the number of peers known to syncing.
-	</span><span class="kw">pub fn </span>num_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-		<span class="self">self</span>.peers.len()
 	}
 
 	<span class="doccomment">/// Get actions that should be performed by the owner on [`WarpSync`]&#39;s behalf

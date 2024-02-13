@@ -1440,6 +1440,15 @@
 <a href="#1440" id="1440">1440</a>
 <a href="#1441" id="1441">1441</a>
 <a href="#1442" id="1442">1442</a>
+<a href="#1443" id="1443">1443</a>
+<a href="#1444" id="1444">1444</a>
+<a href="#1445" id="1445">1445</a>
+<a href="#1446" id="1446">1446</a>
+<a href="#1447" id="1447">1447</a>
+<a href="#1448" id="1448">1448</a>
+<a href="#1449" id="1449">1449</a>
+<a href="#1450" id="1450">1450</a>
+<a href="#1451" id="1451">1451</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
@@ -1475,7 +1484,7 @@
 	},
 	strategy::{
 		warp::{EncodedProof, WarpProofRequest, WarpSyncParams},
-		SyncingAction, SyncingConfig, SyncingStrategy,
+		StrategyKey, SyncingAction, SyncingConfig, SyncingStrategy,
 	},
 	types::{
 		BadPeer, ExtendedPeerInfo, OpaqueStateRequest, OpaqueStateResponse, PeerRequest, SyncEvent,
@@ -1490,7 +1499,7 @@
 	FutureExt, StreamExt,
 };
 <span class="kw">use </span>libp2p::{request_response::OutboundFailure, PeerId};
-<span class="kw">use </span>log::{debug, error, trace};
+<span class="kw">use </span>log::{debug, error, trace, warn};
 <span class="kw">use </span>prometheus_endpoint::{
 	register, Counter, Gauge, MetricSource, Opts, PrometheusError, Registry, SourcedGauge, U64,
 };
@@ -1655,9 +1664,6 @@
 <span class="kw">pub struct </span>SyncingEngine&lt;B: BlockT, Client&gt; {
 	<span class="doccomment">/// Syncing strategy.
 	</span>strategy: SyncingStrategy&lt;B, Client&gt;,
-
-	<span class="doccomment">/// Syncing configuration for startegies.
-	</span>syncing_config: SyncingConfig,
 
 	<span class="doccomment">/// Blockchain client.
 	</span>client: Arc&lt;Client&gt;,
@@ -1883,8 +1889,7 @@
 			.map_or(futures::future::pending().boxed().fuse(), |rx| rx.boxed().fuse());
 
 		<span class="comment">// Initialize syncing strategy.
-		</span><span class="kw">let </span>strategy =
-			SyncingStrategy::new(syncing_config.clone(), client.clone(), warp_sync_config)<span class="question-mark">?</span>;
+		</span><span class="kw">let </span>strategy = SyncingStrategy::new(syncing_config, client.clone(), warp_sync_config)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>block_announce_protocol_name = block_announce_config.protocol_name().clone();
 		<span class="kw">let </span>(tx, service_rx) = tracing_unbounded(<span class="string">&quot;mpsc_chain_sync&quot;</span>, <span class="number">100_000</span>);
@@ -1913,7 +1918,6 @@
 				roles,
 				client,
 				strategy,
-				syncing_config,
 				network_service,
 				peers: HashMap::new(),
 				block_announce_data_cache: LruMap::new(ByLength::new(cache_capacity)),
@@ -2103,8 +2107,15 @@
 					<span class="prelude-val">Some</span>(event) =&gt; <span class="self">self</span>.process_notification_event(event),
 					<span class="prelude-val">None </span>=&gt; <span class="kw">return</span>,
 				},
-				warp_target_block_header = <span class="kw-2">&amp;mut </span><span class="self">self</span>.warp_sync_target_block_header_rx_fused =&gt;
-					<span class="self">self</span>.pass_warp_sync_target_block_header(warp_target_block_header),
+				warp_target_block_header = <span class="kw-2">&amp;mut </span><span class="self">self</span>.warp_sync_target_block_header_rx_fused =&gt; {
+					<span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw">_</span>) = <span class="self">self</span>.pass_warp_sync_target_block_header(warp_target_block_header) {
+						<span class="macro">error!</span>(
+							target: LOG_TARGET,
+							<span class="string">&quot;Failed to set warp sync target block header, terminating `SyncingEngine`.&quot;</span>,
+						);
+						<span class="kw">return
+					</span>}
+				},
 				response_event = <span class="self">self</span>.pending_responses.select_next_some() =&gt;
 					<span class="self">self</span>.process_response_event(response_event),
 				validation_result = <span class="self">self</span>.block_announce_validator.select_next_some() =&gt;
@@ -2117,48 +2128,61 @@
 
 			<span class="comment">// Process actions requested by a syncing strategy.
 			</span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.process_strategy_actions() {
-				<span class="macro">error!</span>(<span class="string">&quot;Terminating `SyncingEngine` due to fatal error: {e:?}&quot;</span>);
+				<span class="macro">error!</span>(
+					target: LOG_TARGET,
+					<span class="string">&quot;Terminating `SyncingEngine` due to fatal error: {e:?}.&quot;</span>,
+				);
 				<span class="kw">return
 			</span>}
 		}
 	}
 
 	<span class="kw">fn </span>process_strategy_actions(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ClientError&gt; {
-		<span class="kw">for </span>action <span class="kw">in </span><span class="self">self</span>.strategy.actions() {
+		<span class="kw">for </span>action <span class="kw">in </span><span class="self">self</span>.strategy.actions()<span class="question-mark">? </span>{
 			<span class="kw">match </span>action {
-				SyncingAction::SendBlockRequest { peer_id, request } =&gt; {
+				SyncingAction::SendBlockRequest { peer_id, key, request } =&gt; {
 					<span class="comment">// Sending block request implies dropping obsolete pending response as we are
 					// not interested in it anymore (see [`SyncingAction::SendBlockRequest`]).
-					// Furthermore, only one request at a time is allowed to any peer.
-					</span><span class="kw">let </span>removed = <span class="self">self</span>.pending_responses.remove(<span class="kw-2">&amp;</span>peer_id);
-					<span class="self">self</span>.send_block_request(peer_id, request.clone());
+					</span><span class="kw">let </span>removed = <span class="self">self</span>.pending_responses.remove(peer_id, key);
+					<span class="self">self</span>.send_block_request(peer_id, key, request.clone());
 
-					<span class="macro">trace!</span>(
-						target: LOG_TARGET,
-						<span class="string">&quot;Processed `ChainSyncAction::SendBlockRequest` to {} with {:?}, stale response removed: {}.&quot;</span>,
-						peer_id,
-						request,
-						removed,
-					)
+					<span class="kw">if </span>removed {
+						<span class="macro">warn!</span>(
+							target: LOG_TARGET,
+							<span class="string">&quot;Processed `ChainSyncAction::SendBlockRequest` to {} from {:?} with {:?}. \
+							 Stale response removed!&quot;</span>,
+							peer_id,
+							key,
+							request,
+						)
+					} <span class="kw">else </span>{
+						<span class="macro">trace!</span>(
+							target: LOG_TARGET,
+							<span class="string">&quot;Processed `ChainSyncAction::SendBlockRequest` to {} from {:?} with {:?}.&quot;</span>,
+							peer_id,
+							key,
+							request,
+						)
+					}
 				},
-				SyncingAction::CancelBlockRequest { peer_id } =&gt; {
-					<span class="kw">let </span>removed = <span class="self">self</span>.pending_responses.remove(<span class="kw-2">&amp;</span>peer_id);
+				SyncingAction::CancelRequest { peer_id, key } =&gt; {
+					<span class="kw">let </span>removed = <span class="self">self</span>.pending_responses.remove(peer_id, key);
 
 					<span class="macro">trace!</span>(
 						target: LOG_TARGET,
 						<span class="string">&quot;Processed {action:?}, response removed: {removed}.&quot;</span>,
 					);
 				},
-				SyncingAction::SendStateRequest { peer_id, request } =&gt; {
-					<span class="self">self</span>.send_state_request(peer_id, request);
+				SyncingAction::SendStateRequest { peer_id, key, request } =&gt; {
+					<span class="self">self</span>.send_state_request(peer_id, key, request);
 
 					<span class="macro">trace!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Processed `ChainSyncAction::SendBlockRequest` to {peer_id}.&quot;</span>,
+						<span class="string">&quot;Processed `ChainSyncAction::SendStateRequest` to {peer_id}.&quot;</span>,
 					);
 				},
-				SyncingAction::SendWarpProofRequest { peer_id, request } =&gt; {
-					<span class="self">self</span>.send_warp_proof_request(peer_id, request.clone());
+				SyncingAction::SendWarpProofRequest { peer_id, key, request } =&gt; {
+					<span class="self">self</span>.send_warp_proof_request(peer_id, key, request.clone());
 
 					<span class="macro">trace!</span>(
 						target: LOG_TARGET,
@@ -2168,7 +2192,7 @@
 					);
 				},
 				SyncingAction::DropPeer(BadPeer(peer_id, rep)) =&gt; {
-					<span class="self">self</span>.pending_responses.remove(<span class="kw-2">&amp;</span>peer_id);
+					<span class="self">self</span>.pending_responses.remove_all(<span class="kw-2">&amp;</span>peer_id);
 					<span class="self">self</span>.network_service
 						.disconnect_peer(peer_id, <span class="self">self</span>.block_announce_protocol_name.clone());
 					<span class="self">self</span>.network_service.report_peer(peer_id, rep);
@@ -2195,20 +2219,8 @@
 						number,
 					)
 				},
-				SyncingAction::Finished =&gt; {
-					<span class="kw">let </span>connected_peers = <span class="self">self</span>.peers.iter().filter_map(|(peer_id, peer)| {
-						peer.info.roles.is_full().then_some((
-							<span class="kw-2">*</span>peer_id,
-							peer.info.best_hash,
-							peer.info.best_number,
-						))
-					});
-					<span class="self">self</span>.strategy.switch_to_next(
-						<span class="self">self</span>.syncing_config.clone(),
-						<span class="self">self</span>.client.clone(),
-						connected_peers,
-					)<span class="question-mark">?</span>;
-				},
+				<span class="comment">// Nothing to do, this is handled internally by `SyncingStrategy`.
+				</span>SyncingAction::Finished =&gt; {},
 			}
 		}
 
@@ -2390,23 +2402,18 @@
 		}
 	}
 
-	<span class="kw">fn </span>pass_warp_sync_target_block_header(<span class="kw-2">&amp;mut </span><span class="self">self</span>, header: <span class="prelude-ty">Result</span>&lt;B::Header, oneshot::Canceled&gt;) {
+	<span class="kw">fn </span>pass_warp_sync_target_block_header(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		header: <span class="prelude-ty">Result</span>&lt;B::Header, oneshot::Canceled&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
 		<span class="kw">match </span>header {
-			<span class="prelude-val">Ok</span>(header) =&gt;
-				<span class="kw">if let </span>SyncingStrategy::WarpSyncStrategy(warp_sync) = <span class="kw-2">&amp;mut </span><span class="self">self</span>.strategy {
-					warp_sync.set_target_block(header);
-				} <span class="kw">else </span>{
-					<span class="macro">error!</span>(
-						target: LOG_TARGET,
-						<span class="string">&quot;Cannot set warp sync target block: no warp sync strategy is active.&quot;
-					</span>);
-					<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
-				},
+			<span class="prelude-val">Ok</span>(header) =&gt; <span class="self">self</span>.strategy.set_warp_sync_target_block_header(header),
 			<span class="prelude-val">Err</span>(err) =&gt; {
 				<span class="macro">error!</span>(
 					target: LOG_TARGET,
 					<span class="string">&quot;Failed to get target block for warp sync. Error: {err:?}&quot;</span>,
 				);
+				<span class="prelude-val">Err</span>(())
 			},
 		}
 	}
@@ -2444,7 +2451,7 @@
 		}
 
 		<span class="self">self</span>.strategy.remove_peer(<span class="kw-2">&amp;</span>peer_id);
-		<span class="self">self</span>.pending_responses.remove(<span class="kw-2">&amp;</span>peer_id);
+		<span class="self">self</span>.pending_responses.remove_all(<span class="kw-2">&amp;</span>peer_id);
 		<span class="self">self</span>.event_streams
 			.retain(|stream| stream.unbounded_send(SyncEvent::PeerDisconnected(peer_id)).is_ok());
 	}
@@ -2609,7 +2616,7 @@
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="kw">fn </span>send_block_request(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId, request: BlockRequest&lt;B&gt;) {
+	<span class="kw">fn </span>send_block_request(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId, key: StrategyKey, request: BlockRequest&lt;B&gt;) {
 		<span class="kw">if </span>!<span class="self">self</span>.peers.contains_key(<span class="kw-2">&amp;</span>peer_id) {
 			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Cannot send block request to unknown peer {peer_id}&quot;</span>);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
@@ -2620,12 +2627,18 @@
 
 		<span class="self">self</span>.pending_responses.insert(
 			peer_id,
+			key,
 			PeerRequest::Block(request.clone()),
 			<span class="kw">async move </span>{ downloader.download_blocks(peer_id, request).<span class="kw">await </span>}.boxed(),
 		);
 	}
 
-	<span class="kw">fn </span>send_state_request(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId, request: OpaqueStateRequest) {
+	<span class="kw">fn </span>send_state_request(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		peer_id: PeerId,
+		key: StrategyKey,
+		request: OpaqueStateRequest,
+	) {
 		<span class="kw">if </span>!<span class="self">self</span>.peers.contains_key(<span class="kw-2">&amp;</span>peer_id) {
 			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Cannot send state request to unknown peer {peer_id}&quot;</span>);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
@@ -2634,7 +2647,7 @@
 
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
 
-		<span class="self">self</span>.pending_responses.insert(peer_id, PeerRequest::State, rx.boxed());
+		<span class="self">self</span>.pending_responses.insert(peer_id, key, PeerRequest::State, rx.boxed());
 
 		<span class="kw">match </span><span class="self">Self</span>::encode_state_request(<span class="kw-2">&amp;</span>request) {
 			<span class="prelude-val">Ok</span>(data) =&gt; {
@@ -2655,7 +2668,12 @@
 		}
 	}
 
-	<span class="kw">fn </span>send_warp_proof_request(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId, request: WarpProofRequest&lt;B&gt;) {
+	<span class="kw">fn </span>send_warp_proof_request(
+		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+		peer_id: PeerId,
+		key: StrategyKey,
+		request: WarpProofRequest&lt;B&gt;,
+	) {
 		<span class="kw">if </span>!<span class="self">self</span>.peers.contains_key(<span class="kw-2">&amp;</span>peer_id) {
 			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Cannot send warp proof request to unknown peer {peer_id}&quot;</span>);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
@@ -2664,7 +2682,7 @@
 
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
 
-		<span class="self">self</span>.pending_responses.insert(peer_id, PeerRequest::WarpProof, rx.boxed());
+		<span class="self">self</span>.pending_responses.insert(peer_id, key, PeerRequest::WarpProof, rx.boxed());
 
 		<span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.warp_sync_protocol_name {
 			<span class="prelude-val">Some</span>(name) =&gt; <span class="self">self</span>.network_service.start_request(
@@ -2701,14 +2719,14 @@
 	}
 
 	<span class="kw">fn </span>process_response_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, response_event: ResponseEvent&lt;B&gt;) {
-		<span class="kw">let </span>ResponseEvent { peer_id, request, response } = response_event;
+		<span class="kw">let </span>ResponseEvent { peer_id, key, request, response } = response_event;
 
 		<span class="kw">match </span>response {
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>((resp, <span class="kw">_</span>))) =&gt; <span class="kw">match </span>request {
 				PeerRequest::Block(req) =&gt; {
 					<span class="kw">match </span><span class="self">self</span>.block_downloader.block_response_into_blocks(<span class="kw-2">&amp;</span>req, resp) {
 						<span class="prelude-val">Ok</span>(blocks) =&gt; {
-							<span class="self">self</span>.strategy.on_block_response(peer_id, req, blocks);
+							<span class="self">self</span>.strategy.on_block_response(peer_id, key, req, blocks);
 						},
 						<span class="prelude-val">Err</span>(BlockResponseError::DecodeFailed(e)) =&gt; {
 							<span class="macro">debug!</span>(
@@ -2753,10 +2771,10 @@
 						</span>},
 					};
 
-					<span class="self">self</span>.strategy.on_state_response(peer_id, response);
+					<span class="self">self</span>.strategy.on_state_response(peer_id, key, response);
 				},
 				PeerRequest::WarpProof =&gt; {
-					<span class="self">self</span>.strategy.on_warp_proof_response(<span class="kw-2">&amp;</span>peer_id, EncodedProof(resp));
+					<span class="self">self</span>.strategy.on_warp_proof_response(<span class="kw-2">&amp;</span>peer_id, key, EncodedProof(resp));
 				},
 			},
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(e)) =&gt; {

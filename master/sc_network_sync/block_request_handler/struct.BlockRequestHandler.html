@@ -4,7 +4,7 @@ the incoming block requests from a remote peer.</p>
     B: <a class="trait" href="../../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a>,
     Client: HeaderBackend&lt;B&gt; + BlockBackend&lt;B&gt; + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.75.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static,</span></h3></section></summary><div class="impl-items"><details class="toggle method-toggle" open><summary><section id="method.new" class="method"><a class="src rightside" href="../../src/sc_network_sync/block_request_handler.rs.html#157-188">source</a><h4 class="code-header">pub fn <a href="#method.new" class="fn">new</a>(
     network: <a class="struct" href="../service/network/struct.NetworkServiceHandle.html" title="struct sc_network_sync::service::network::NetworkServiceHandle">NetworkServiceHandle</a>,
-    protocol_id: &amp;ProtocolId,
+    protocol_id: &amp;<a class="struct" href="../../sc_network/config/struct.ProtocolId.html" title="struct sc_network::config::ProtocolId">ProtocolId</a>,
     fork_id: <a class="enum" href="https://doc.rust-lang.org/1.75.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.str.html">str</a>&gt;,
     client: <a class="struct" href="https://doc.rust-lang.org/1.75.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;Client&gt;,
     num_peer_hint: <a class="primitive" href="https://doc.rust-lang.org/1.75.0/std/primitive.usize.html">usize</a>
