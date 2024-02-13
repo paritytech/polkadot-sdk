@@ -206,11 +206,16 @@ impl Def {
 						pallet_decls.push(pallet_decl);
 					},
 					syn::Type::TraitObject(syn::TypeTraitObject { bounds, .. }) => {
-						let pallet =
-							Pallet::try_from(item.span(), &pallet_item, pallet_index, disable_call, disable_unsigned, &bounds)?;
+						let pallet = Pallet::try_from(
+							item.span(),
+							&pallet_item,
+							pallet_index,
+							disable_call,
+							disable_unsigned,
+							&bounds,
+						)?;
 
-						if let Some(used_pallet) =
-							indices.insert(pallet.index, pallet.name.clone())
+						if let Some(used_pallet) = indices.insert(pallet.index, pallet.name.clone())
 						{
 							let msg = format!(
 								"Pallet indices are conflicting: Both pallets {} and {} are at index {}",

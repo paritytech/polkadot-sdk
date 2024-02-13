@@ -45,8 +45,9 @@ pub fn expand(def: Def, legacy_ordering: bool) -> TokenStream2 {
 
 	let res = match def.pallets {
 		AllPalletsDeclaration::Implicit(ref decl) =>
-			check_pallet_number(input.clone(), decl.pallet_count)
-				.and_then(|_| construct_runtime_implicit_to_explicit(input.into(), decl.clone(), legacy_ordering)),
+			check_pallet_number(input.clone(), decl.pallet_count).and_then(|_| {
+				construct_runtime_implicit_to_explicit(input.into(), decl.clone(), legacy_ordering)
+			}),
 		AllPalletsDeclaration::Explicit(ref decl) => check_pallet_number(input, decl.pallets.len())
 			.and_then(|_| {
 				construct_runtime_final_expansion(
@@ -75,11 +76,7 @@ fn construct_runtime_implicit_to_explicit(
 	legacy_ordering: bool,
 ) -> Result<TokenStream2> {
 	let frame_support = generate_access_from_frame_or_crate("frame-support")?;
-	let attr = if legacy_ordering {
-		quote!((legacy_ordering))
-	} else {
-		quote!()
-	};
+	let attr = if legacy_ordering { quote!((legacy_ordering)) } else { quote!() };
 	let mut expansion = quote::quote!(
 		#[frame_support::runtime #attr]
 		#input
