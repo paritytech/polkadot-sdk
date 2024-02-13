@@ -1518,6 +1518,9 @@ mod remote_tests {
 
 	#[tokio::test]
 	async fn can_build_big_pallet() {
+		if std::option_env!("TEST_WS").is_none() {
+			return
+		}
 		init_logger();
 		Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
@@ -1534,6 +1537,9 @@ mod remote_tests {
 
 	#[tokio::test]
 	async fn can_fetch_all() {
+		if std::option_env!("TEST_WS").is_none() {
+			return
+		}
 		init_logger();
 		Builder::<Block>::new()
 			.mode(Mode::Online(OnlineConfig {
