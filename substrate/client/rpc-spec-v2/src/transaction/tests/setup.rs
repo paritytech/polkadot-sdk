@@ -96,3 +96,20 @@ macro_rules! get_next_event {
 			.unwrap()
 	};
 }
+
+/// Collect the next number of transaction events from the provided middleware.
+macro_rules! get_next_tx_events {
+	($middleware:expr, $num:expr) => {{
+		let mut events = std::collections::HashMap::new();
+		for _ in 0..$num {
+			let event = get_next_event!($middleware);
+			match event {
+				crate::transaction::tests::middleware_pool::MiddlewarePoolEvent::TransactionStatus { transaction, status } => {
+					events.insert(transaction, status);
+				},
+				_ => panic!("Expected TransactionStatus"),
+			};
+		}
+		events
+	}};
+}

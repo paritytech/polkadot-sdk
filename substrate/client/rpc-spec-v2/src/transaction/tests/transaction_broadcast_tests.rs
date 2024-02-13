@@ -21,6 +21,7 @@ use assert_matches::assert_matches;
 use codec::Encode;
 use jsonrpsee::{core::error::Error, rpc_params};
 use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool, TransactionPool};
+use std::sync::Arc;
 use substrate_test_runtime_client::AccountKeyring::*;
 use substrate_test_runtime_transaction_pool::uxt;
 
@@ -139,4 +140,88 @@ async fn tx_invalid_stop() {
 	assert_matches!(err,
 		Error::Call(err) if err.code() == json_rpc_spec::INVALID_PARAM_ERROR && err.message() == "Invalid operation id"
 	);
+}
+
+#[tokio::test]
+async fn tx_broadcast_resubmits_future_nonce_tx() {
+	let (api, pool, client_mock, tx_api, mut exec_middleware, mut pool_middleware) = setup_api();
+
+	// Start at block 1.
+	let block_1_header = api.push_block(1, vec![], true);
+	let block_1 = block_1_header.hash();
+
+	let current_uxt = uxt(Alice, ALICE_NONCE);
+	let current_xt = hex_string(&current_uxt.encode());
+	// This lives in the future.
+	let future_uxt = uxt(Alice, ALICE_NONCE + 1);
+	let future_xt = hex_string(&future_uxt.encode());
+
+	let future_operation_id: String = tx_api
+		.call("transaction_unstable_broadcast", rpc_params![&future_xt])
+		.await
+		.unwrap();
+
+	// Announce block 1 to `transaction_unstable_broadcast`.
+	client_mock.trigger_import_stream(block_1_header).await;
+
+	// Ensure the tx propagated from `transaction_unstable_broadcast` to the transaction pool.
+	let event = get_next_event!(&mut pool_middleware);
+	assert_eq!(
+		event,
+		MiddlewarePoolEvent::TransactionStatus {
+			transaction: future_xt.clone(),
+			status: TxStatusTypeTest::Future
+		}
+	);
+
+	let event = ChainEvent::NewBestBlock { hash: block_1, tree_route: None };
+	pool.inner_pool.maintain(event).await;
+	assert_eq!(0, pool.inner_pool.status().ready);
+	// Ensure the tx is in the future.
+	assert_eq!(1, pool.inner_pool.status().future);
+
+	let block_2_header = api.push_block(2, vec![], true);
+	let block_2 = block_2_header.hash();
+
+	let operation_id: String = tx_api
+		.call("transaction_unstable_broadcast", rpc_params![&current_xt])
+		.await
+		.unwrap();
+	assert_ne!(future_operation_id, operation_id);
+
+	// Announce block 2 to `transaction_unstable_broadcast`.
+	client_mock.trigger_import_stream(block_2_header).await;
+
+	// Collect the events of both transactions.
+	let events = get_next_tx_events!(&mut pool_middleware, 2);
+	// Transactions entered the ready queue.
+	assert_eq!(events.get(&current_xt).unwrap(), &TxStatusTypeTest::Ready);
+	assert_eq!(events.get(&future_xt).unwrap(), &TxStatusTypeTest::Ready);
+
+	let event = ChainEvent::NewBestBlock { hash: block_2, tree_route: None };
+	pool.inner_pool.maintain(event).await;
+	assert_eq!(2, pool.inner_pool.status().ready);
+	assert_eq!(0, pool.inner_pool.status().future);
+
+	// Finalize transactions.
+	let block_3_header = api.push_block(3, vec![current_uxt, future_uxt], true);
+	let block_3 = block_3_header.hash();
+	client_mock.trigger_import_stream(block_3_header).await;
+
+	let event = ChainEvent::Finalized { hash: block_3, tree_route: Arc::from(vec![]) };
+	pool.inner_pool.maintain(event).await;
+	assert_eq!(0, pool.inner_pool.status().ready);
+	assert_eq!(0, pool.inner_pool.status().future);
+
+	let events = get_next_tx_events!(&mut pool_middleware, 2);
+	assert_eq!(events.get(&current_xt).unwrap(), &TxStatusTypeTest::InBlock((block_3, 0)));
+	assert_eq!(events.get(&future_xt).unwrap(), &TxStatusTypeTest::InBlock((block_3, 1)));
+
+	let events = get_next_tx_events!(&mut pool_middleware, 2);
+	assert_eq!(events.get(&current_xt).unwrap(), &TxStatusTypeTest::Finalized((block_3, 0)));
+	assert_eq!(events.get(&future_xt).unwrap(), &TxStatusTypeTest::Finalized((block_3, 1)));
+
+	// Both broadcast futures must exit.
+	let _ = get_next_event!(&mut exec_middleware);
+	let _ = get_next_event!(&mut exec_middleware);
 }
