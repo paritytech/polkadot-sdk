@@ -14,7 +14,8 @@
 //! achieves consensus in some way.
 //!
 //! XCM is executed on a virtual machine called the XCVM.
-//! An XCM program is a series of instructions, which get executed one after the other by the
+//! Scripts can be written with the XCM language, which are often called XCMs, messages or XCM programs.
+//! Each program is a series of instructions, which get executed one after the other by the
 //! virtual machine. These instructions aim to encompass all major things users typically do in
 //! consensus systems. There are instructions on asset transferring, teleporting, locking, among
 //! others. New instructions are added via the [RFC process](https://github.com/paritytech/xcm-format/blob/master/proposals/0032-process.md).
@@ -22,9 +23,10 @@
 //! ## In Polkadot SDK
 //!
 //! The Polkadot SDK allows for easily deploying sovereign blockchains from scratch, all very
-//! customizable. This makes dealing with all these blockchains cumbersome.
-//! XCM exists both as a standard for doing similar things in many chains, and as a language to send
-//! message between them.
+//! customizable. Dealing with many heterogeneous blockchains can be cumbersome.
+//! XCM allows all these blockchains to communicate with an agreed-upon language.
+//! As long as an implementation of the XCVM is implemented, the same XCM program can be executed in
+//! all blockchains and perform the same task.
 //!
 //! ## Implementation
 //!
@@ -50,10 +52,10 @@
 //!
 //! To learn how it works and to get started, go to the [XCM docs](https://paritytech.github.io/xcm-docs/).
 
-use xcm::latest::prelude::*;
-
 #[cfg(test)]
 mod tests {
+	use xcm::latest::prelude::*;
+
 	#[docify::export]
 	#[test]
 	fn example_transfer() {
