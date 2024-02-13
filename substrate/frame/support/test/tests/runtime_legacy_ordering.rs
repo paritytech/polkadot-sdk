@@ -21,19 +21,19 @@
 
 #![recursion_limit = "128"]
 
-use codec::MaxEncodedLen;
-use frame_support::{
+pub use codec::MaxEncodedLen;
+pub use frame_support::{
 	derive_impl, parameter_types, traits::PalletInfo as _, weights::RuntimeDbWeight,
 };
-use frame_system::limits::{BlockLength, BlockWeights};
-use scale_info::TypeInfo;
-use sp_core::{sr25519, ConstU64};
-use sp_runtime::{
+pub use frame_system::limits::{BlockLength, BlockWeights};
+pub use scale_info::TypeInfo;
+pub use sp_core::{sr25519, ConstU64};
+pub use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, ValidateUnsigned, Verify},
 	DispatchError, ModuleError,
 };
-use sp_version::RuntimeVersion;
+pub use sp_version::RuntimeVersion;
 
 parameter_types! {
 	pub static IntegrityTestExec: u32 = 0;
@@ -281,7 +281,8 @@ pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<u32, RuntimeCall, Signature, ()>;
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 
-#[frame_support::runtime]
+
+#[frame_support::runtime(legacy_ordering)]
 mod runtime {
 	#[runtime::runtime]
 	#[runtime::derive(
