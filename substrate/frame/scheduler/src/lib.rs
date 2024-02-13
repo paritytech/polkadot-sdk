@@ -346,7 +346,7 @@ pub mod pallet {
 		/// The given task was unable to be renewed since the agenda is full at that block.
 		PeriodicFailed { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
 		/// The given task was unable to be retried since the agenda is full at that block or there
-		/// was not enough weigth to reschedule it.
+		/// was not enough weight to reschedule it.
 		RetryFailed { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
 		/// The given task can never be executed since it is overweight.
 		PermanentlyOverweight { task: TaskAddress<BlockNumberFor<T>>, id: Option<TaskName> },
@@ -494,20 +494,14 @@ pub mod pallet {
 		/// be retried after `period` blocks, for a total amount of `retries` retries or until it
 		/// succeeds.
 		///
-		/// If a retried task runs successfully before running out of retries, its remaining retry
-		/// counter will be reset to the initial value. If a retried task runs out of retries, it
-		/// will be removed from the schedule.
-		///
 		/// Tasks which need to be scheduled for a retry are still subject to weight metering and
 		/// agenda space, same as a regular task. If a periodic task fails, it will be scheduled
 		/// normally while the task is retrying.
 		///
-		/// Tasks scheduled as a result of a retry will have their own retry configuration derived
-		/// from the original task's configuration, but will have a lower value for `remaining` than
-		/// the original `total_retries`.
-		///
-		/// To cancel a retry configuration for a task, users should call this extrinsic with a
-		/// `retries` value equal to `0`.
+		/// Tasks scheduled as a result of a retry for a periodic task are unnamed,
+		/// non-periodic clones of the original task and will have their own retry configuration
+		/// derived from the original task's configuration, but will have a lower value for
+		/// `remaining` than the original `total_retries`.
 		#[pallet::call_index(6)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_retry())]
 		pub fn set_retry(
@@ -537,22 +531,14 @@ pub mod pallet {
 		/// will be retried after `period` blocks, for a total amount of `retries` retries or until
 		/// it succeeds.
 		///
-		/// If a retried task runs successfully before running out of retries, its remaining retry
-		/// counter will be reset to the initial value. If a retried task runs out of retries, it
-		/// will be removed from the schedule.
-		///
 		/// Tasks which need to be scheduled for a retry are still subject to weight metering and
 		/// agenda space, same as a regular task. If a periodic task fails, it will be scheduled
 		/// normally while the task is retrying.
 		///
-		/// Tasks scheduled as a result of a named retry will have their own retry configuration
+		/// Tasks scheduled as a result of a named retry for a periodic task are unnamed,
+		/// non-periodic clones of the original task and will have their own retry configuration
 		/// derived from the original task's configuration, but will have a lower value for
-		/// `remaining` than the original `total_retries`. Tasks scheduled as a result of a retry of
-		/// a named task will not be named.
-		///
-		/// To cancel a retry configuration for a named task, users should call this extrinsic with
-		/// a `retries` value equal to `0`. To cancel a retry attempt for a named task, users should
-		/// instead call `set_retry` using that task's address.
+		/// `remaining` than the original `total_retries`.
 		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_retry_named())]
 		pub fn set_retry_named(
@@ -991,7 +977,7 @@ impl<T: Config> Pallet<T> {
 			if let Some(id) = s.maybe_id {
 				Lookup::<T>::remove(id);
 			}
-			let _entry = Retries::<T>::take((when, index));
+			Retries::<T>::remove((when, index));
 			Self::cleanup_agenda(when);
 			Self::deposit_event(Event::Canceled { when, index });
 			Ok(())
@@ -1070,7 +1056,7 @@ impl<T: Config> Pallet<T> {
 					if let Some(s) = agenda.get_mut(i) {
 						if let (Some(ref o), Some(ref s)) = (origin, s.borrow()) {
 							Self::ensure_privilege(o, &s.origin)?;
-							let _ = Retries::<T>::take((when, index));
+							Retries::<T>::remove((when, index));
 							T::Preimages::drop(&s.call);
 						}
 						*s = None;
@@ -1266,7 +1252,7 @@ impl<T: Config> Pallet<T> {
 				});
 
 				if failed {
-					Self::try_schedule_retry(weight, now, when, agenda_index, &task);
+					Self::schedule_retry(weight, now, when, agenda_index, &task);
 				}
 
 				if let &Some((period, count)) = &task.maybe_periodic {
@@ -1281,8 +1267,6 @@ impl<T: Config> Pallet<T> {
 							if let Some(RetryConfig { total_retries, remaining, period }) =
 								Retries::<T>::take((when, agenda_index))
 							{
-								// Reset the counter if the task ran successfully.
-								let remaining = if failed { remaining } else { total_retries };
 								Retries::<T>::insert(
 									new_address,
 									RetryConfig { total_retries, remaining, period },
@@ -1293,7 +1277,7 @@ impl<T: Config> Pallet<T> {
 							// TODO: Leave task in storage somewhere for it to be rescheduled
 							// manually.
 							T::Preimages::drop(&task.call);
-							let _ = Retries::<T>::take((when, agenda_index));
+							Retries::<T>::remove((when, agenda_index));
 							Self::deposit_event(Event::PeriodicFailed {
 								task: (when, agenda_index),
 								id: task.maybe_id,
@@ -1301,7 +1285,7 @@ impl<T: Config> Pallet<T> {
 						},
 					}
 				} else {
-					let _ = Retries::<T>::take((when, agenda_index));
+					Retries::<T>::remove((when, agenda_index));
 					T::Preimages::drop(&task.call);
 				}
 				Ok(())
@@ -1346,8 +1330,14 @@ impl<T: Config> Pallet<T> {
 		Ok(result)
 	}
 
-	/// If there is enough weight, try to run the task reschedule logic.
-	fn try_schedule_retry(
+	/// Check if a task has a retry configuration in place and, if so, try to reschedule it.
+	///
+	/// Possible causes for failure to schedule a retry for a task:
+	/// - there wasn't enough weight to run the task reschedule logic
+	/// - there was no retry configuration in place
+	/// - there were no more retry attempts left
+	/// - the agenda was full.
+	fn schedule_retry(
 		weight: &mut WeightMeter,
 		now: BlockNumberFor<T>,
 		when: BlockNumberFor<T>,
@@ -1365,21 +1355,6 @@ impl<T: Config> Pallet<T> {
 			return;
 		}
 
-		Self::schedule_retry(now, when, agenda_index, task)
-	}
-
-	/// Check if a task has a retry configuration in place and, if so, try to reschedule it.
-	///
-	/// Possible causes for failure to schedule a retry for a task:
-	/// - there was no retry configuration in place
-	/// - there were no more retry attempts left
-	/// - the agenda was full.
-	fn schedule_retry(
-		now: BlockNumberFor<T>,
-		when: BlockNumberFor<T>,
-		agenda_index: u32,
-		task: &ScheduledOf<T>,
-	) {
 		// Check if we have a retry configuration set.
 		if let Some(RetryConfig { total_retries, mut remaining, period }) =
 			Retries::<T>::take((when, agenda_index))

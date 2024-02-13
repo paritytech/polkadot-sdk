@@ -22,6 +22,7 @@ use frame_benchmarking::v1::{account, benchmarks, BenchmarkError};
 use frame_support::{
 	ensure,
 	traits::{schedule::Priority, BoundedInline},
+	weights::WeightMeter,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use sp_std::{prelude::*, vec};
@@ -326,8 +327,9 @@ benchmarks! {
 		Retries::<T>::insert(address, RetryConfig { total_retries: 10, remaining: 10, period });
 		let (mut when, index) = address;
 		let task = Agenda::<T>::get(when)[index as usize].clone().unwrap();
+		let mut weight_counter = WeightMeter::with_limit(T::MaximumWeight::get());
 	}: {
-		Scheduler::<T>::schedule_retry(when, when, index, &task);
+		Scheduler::<T>::schedule_retry(&mut weight_counter, when, when, index, &task);
 	} verify {
 		when = when + BlockNumberFor::<T>::one();
 		assert_eq!(
