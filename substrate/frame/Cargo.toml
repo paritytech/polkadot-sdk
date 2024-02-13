@@ -1,6 +1,6 @@
 [package]
 name = "frame"
-version = "0.0.1-dev"
+version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2021"
 license = "Apache-2.0"
@@ -23,36 +23,36 @@ parity-scale-codec = { version = "3.2.2", default-features = false, features = [
 scale-info = { version = "2.6.0", default-features = false, features = ["derive"] }
 
 # primitive deps, used for developing FRAME pallets.
-sp-runtime = { default-features = false, path = "../primitives/runtime" }
-sp-std = { default-features = false, path = "../primitives/std" }
-sp-io = { default-features = false, path = "../primitives/io" }
-sp-core = { default-features = false, path = "../primitives/core" }
-sp-arithmetic = { default-features = false, path = "../primitives/arithmetic" }
+sp-runtime = { default-features = false, path = "../primitives/runtime", version = "32.0.0" }
+sp-std = { default-features = false, path = "../primitives/std", version = "14.0.0" }
+sp-io = { default-features = false, path = "../primitives/io", version = "31.0.0" }
+sp-core = { default-features = false, path = "../primitives/core", version = "29.0.0" }
+sp-arithmetic = { default-features = false, path = "../primitives/arithmetic", version = "24.0.0" }
 
 # frame deps, for developing FRAME pallets.
-frame-support = { default-features = false, path = "support" }
-frame-system = { default-features = false, path = "system" }
+frame-support = { default-features = false, path = "support", version = "29.0.0" }
+frame-system = { default-features = false, path = "system", version = "29.0.0" }
 
 # primitive types used for developing FRAME runtimes.
-sp-version = { default-features = false, path = "../primitives/version", optional = true }
-sp-api = { default-features = false, path = "../primitives/api", optional = true }
-sp-block-builder = { default-features = false, path = "../primitives/block-builder", optional = true }
-sp-transaction-pool = { default-features = false, path = "../primitives/transaction-pool", optional = true }
-sp-offchain = { default-features = false, path = "../primitives/offchain", optional = true }
-sp-session = { default-features = false, path = "../primitives/session", optional = true }
-sp-consensus-aura = { default-features = false, path = "../primitives/consensus/aura", optional = true }
-sp-consensus-grandpa = { default-features = false, path = "../primitives/consensus/grandpa", optional = true }
-sp-inherents = { default-features = false, path = "../primitives/inherents", optional = true }
+sp-version = { default-features = false, path = "../primitives/version", optional = true, version = "30.0.0" }
+sp-api = { default-features = false, path = "../primitives/api", optional = true, version = "27.0.0" }
+sp-block-builder = { default-features = false, path = "../primitives/block-builder", optional = true, version = "27.0.0" }
+sp-transaction-pool = { default-features = false, path = "../primitives/transaction-pool", optional = true, version = "27.0.0" }
+sp-offchain = { default-features = false, path = "../primitives/offchain", optional = true, version = "27.0.0" }
+sp-session = { default-features = false, path = "../primitives/session", optional = true, version = "28.0.0" }
+sp-consensus-aura = { default-features = false, path = "../primitives/consensus/aura", optional = true, version = "0.33.0" }
+sp-consensus-grandpa = { default-features = false, path = "../primitives/consensus/grandpa", optional = true, version = "14.0.0" }
+sp-inherents = { default-features = false, path = "../primitives/inherents", optional = true, version = "27.0.0" }
 
-frame-executive = { default-features = false, path = "../frame/executive", optional = true }
-frame-system-rpc-runtime-api = { default-features = false, path = "../frame/system/rpc/runtime-api", optional = true }
+frame-executive = { default-features = false, path = "executive", optional = true, version = "29.0.0" }
+frame-system-rpc-runtime-api = { default-features = false, path = "system/rpc/runtime-api", optional = true, version = "27.0.0" }
 
 docify = "0.2.7"
-simple-mermaid = { git = "https://github.com/kianenigma/simple-mermaid.git", rev = "e48b187bcfd5cc75111acd9d241f1bd36604344b", optional = true }
+simple-mermaid = { version = "0.1.1", git = "https://github.com/kianenigma/simple-mermaid.git", rev = "e48b187bcfd5cc75111acd9d241f1bd36604344b", optional = true }
 log = { version = "0.4.20", default-features = false }
 
 [dev-dependencies]
-pallet-examples = { path = "./examples" }
+pallet-examples = { path = "examples" }
 
 [features]
 default = ["runtime", "std"]

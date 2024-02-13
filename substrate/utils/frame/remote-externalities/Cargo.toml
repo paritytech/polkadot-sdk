@@ -1,6 +1,6 @@
 [package]
 name = "frame-remote-externalities"
-version = "0.35.0"
+version = "0.36.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -19,13 +19,13 @@ jsonrpsee = { version = "0.20.3", features = ["http-client"] }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 log = "0.4.17"
 serde = "1.0.195"
-sp-core = { path = "../../../primitives/core" }
-sp-crypto-hashing = { path = "../../../primitives/crypto/hashing" }
-sp-state-machine = { path = "../../../primitives/state-machine" }
-sp-io = { path = "../../../primitives/io" }
-sp-runtime = { path = "../../../primitives/runtime" }
+sp-core = { version = "29.0.0", path = "../../../primitives/core" }
+sp-crypto-hashing = { version = "0.1.0", path = "../../../primitives/crypto/hashing" }
+sp-state-machine = { version = "0.36.0", path = "../../../primitives/state-machine" }
+sp-io = { version = "31.0.0", path = "../../../primitives/io" }
+sp-runtime = { version = "32.0.0", path = "../../../primitives/runtime" }
 tokio = { version = "1.22.0", features = ["macros", "rt-multi-thread"] }
-substrate-rpc-client = { path = "../rpc/client" }
+substrate-rpc-client = { version = "0.34.0", path = "../rpc/client" }
 futures = "0.3"
 indicatif = "0.17.3"
 spinners = "4.1.0"

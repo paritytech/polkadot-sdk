@@ -1,7 +1,7 @@
 [package]
 name = "pallet-xcm-bridge-hub-router"
 description = "Bridge hub interface for sibling/parent chains with dynamic fees support."
-version = "0.5.0"
+version = "0.6.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
@@ -16,21 +16,21 @@ scale-info = { version = "2.10.0", default-features = false, features = ["bit-ve
 
 # Bridge dependencies
 
-bp-xcm-bridge-hub-router = { path = "../../primitives/xcm-bridge-hub-router", default-features = false }
+bp-xcm-bridge-hub-router = { path = "../../primitives/xcm-bridge-hub-router", default-features = false, version = "0.7.0" }
 
 # Substrate Dependencies
 
-frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true }
-frame-support = { path = "../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../substrate/frame/system", default-features = false }
-sp-core = { path = "../../../substrate/primitives/core", default-features = false }
-sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false }
-sp-std = { path = "../../../substrate/primitives/std", default-features = false }
+frame-benchmarking = { path = "../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "29.0.0" }
+frame-support = { path = "../../../substrate/frame/support", default-features = false, version = "29.0.0" }
+frame-system = { path = "../../../substrate/frame/system", default-features = false, version = "29.0.0" }
+sp-core = { path = "../../../substrate/primitives/core", default-features = false, version = "29.0.0" }
+sp-runtime = { path = "../../../substrate/primitives/runtime", default-features = false, version = "32.0.0" }
+sp-std = { path = "../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
 
 # Polkadot Dependencies
 
-xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../polkadot/xcm", default-features = false, version = "8.0.0" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../polkadot/xcm/xcm-builder", default-features = false, version = "8.0.0" }
 
 [dev-dependencies]
 sp-io = { path = "../../../substrate/primitives/io" }

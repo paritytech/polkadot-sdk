@@ -1,6 +1,6 @@
 [package]
 name = "emulated-integration-tests-common"
-version = "3.0.0"
+version = "4.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -14,32 +14,28 @@ codec = { package = "parity-scale-codec", version = "3.4.0", default-features = 
 paste = "1.0.14"
 
 # Substrate
-grandpa = { package = "sc-consensus-grandpa", path = "../../../../../substrate/client/consensus/grandpa" }
-sp-authority-discovery = { path = "../../../../../substrate/primitives/authority-discovery" }
-sp-runtime = { path = "../../../../../substrate/primitives/runtime" }
-frame-support = { path = "../../../../../substrate/frame/support" }
-sp-core = { path = "../../../../../substrate/primitives/core" }
-sp-consensus-babe = { path = "../../../../../substrate/primitives/consensus/babe" }
-pallet-assets = { path = "../../../../../substrate/frame/assets" }
-pallet-balances = { path = "../../../../../substrate/frame/balances" }
-pallet-message-queue = { path = "../../../../../substrate/frame/message-queue" }
+grandpa = { package = "sc-consensus-grandpa", path = "../../../../../substrate/client/consensus/grandpa", version = "0.20.0" }
+sp-authority-discovery = { version = "27.0.0", path = "../../../../../substrate/primitives/authority-discovery" }
+sp-runtime = { version = "32.0.0", path = "../../../../../substrate/primitives/runtime" }
+frame-support = { version = "29.0.0", path = "../../../../../substrate/frame/support" }
+sp-core = { version = "29.0.0", path = "../../../../../substrate/primitives/core" }
+sp-consensus-babe = { version = "0.33.0", path = "../../../../../substrate/primitives/consensus/babe" }
+pallet-assets = { version = "30.0.0", path = "../../../../../substrate/frame/assets" }
+pallet-balances = { version = "29.0.0", path = "../../../../../substrate/frame/balances" }
+pallet-message-queue = { version = "32.0.0", path = "../../../../../substrate/frame/message-queue" }
 
 # Polkadot
-polkadot-service = { path = "../../../../../polkadot/node/service", default-features = false, features = ["full-node"] }
-polkadot-primitives = { path = "../../../../../polkadot/primitives" }
-polkadot-runtime-parachains = { path = "../../../../../polkadot/runtime/parachains" }
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm" }
-pallet-xcm = { path = "../../../../../polkadot/xcm/pallet-xcm" }
-
-# Cumulus
-parachains-common = { path = "../../../common" }
-cumulus-primitives-core = { path = "../../../../primitives/core" }
-xcm-emulator = { path = "../../../../xcm/xcm-emulator" }
-cumulus-pallet-xcmp-queue = { path = "../../../../pallets/xcmp-queue" }
-cumulus-pallet-parachain-system = { path = "../../../../pallets/parachain-system" }
-asset-test-utils = { path = "../../../runtimes/assets/test-utils" }
-
-# Bridges
-bp-messages = { path = "../../../../../bridges/primitives/messages" }
-pallet-bridge-messages = { path = "../../../../../bridges/modules/messages" }
-bridge-runtime-common = { path = "../../../../../bridges/bin/runtime-common" }
+polkadot-service = { path = "../../../../../polkadot/node/service", default-features = false, features = ["full-node"], version = "8.0.0" }
+polkadot-primitives = { version = "8.0.0", path = "../../../../../polkadot/primitives" }
+polkadot-runtime-parachains = { version = "8.0.0", path = "../../../../../polkadot/runtime/parachains" }
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", version = "8.0.0" }
+pallet-xcm = { version = "8.0.0", path = "../../../../../polkadot/xcm/pallet-xcm" }
+parachains-common = { version = "8.0.0", path = "../../../common" }
+cumulus-primitives-core = { version = "0.8.0", path = "../../../../primitives/core" }
+xcm-emulator = { version = "0.6.0", path = "../../../../xcm/xcm-emulator" }
+cumulus-pallet-xcmp-queue = { version = "0.8.0", path = "../../../../pallets/xcmp-queue" }
+cumulus-pallet-parachain-system = { version = "0.8.0", path = "../../../../pallets/parachain-system" }
+asset-test-utils = { version = "8.0.0", path = "../../../runtimes/assets/test-utils" }
+bp-messages = { version = "0.8.0", path = "../../../../../bridges/primitives/messages" }
+pallet-bridge-messages = { version = "0.8.0", path = "../../../../../bridges/modules/messages" }
+bridge-runtime-common = { version = "0.8.0", path = "../../../../../bridges/bin/runtime-common" }

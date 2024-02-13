@@ -1,6 +1,6 @@
 [package]
 name = "substrate-frame-cli"
-version = "32.0.0"
+version = "33.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -15,11 +15,11 @@ workspace = true
 
 [dependencies]
 clap = { version = "4.4.18", features = ["derive"] }
-frame-support = { path = "../../../frame/support" }
-frame-system = { path = "../../../frame/system" }
-sc-cli = { path = "../../../client/cli" }
-sp-core = { path = "../../../primitives/core" }
-sp-runtime = { path = "../../../primitives/runtime" }
+frame-support = { version = "29.0.0", path = "../../../frame/support" }
+frame-system = { version = "29.0.0", path = "../../../frame/system" }
+sc-cli = { version = "0.37.0", path = "../../../client/cli" }
+sp-core = { version = "29.0.0", path = "../../../primitives/core" }
+sp-runtime = { version = "32.0.0", path = "../../../primitives/runtime" }
 
 [features]
 default = []

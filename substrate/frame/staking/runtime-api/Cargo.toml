@@ -1,6 +1,6 @@
 [package]
 name = "pallet-staking-runtime-api"
-version = "14.0.0"
+version = "15.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -17,8 +17,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
-sp-api = { default-features = false, path = "../../../primitives/api" }
-sp-staking = { default-features = false, path = "../../../primitives/staking" }
+sp-api = { default-features = false, path = "../../../primitives/api", version = "27.0.0" }
+sp-staking = { default-features = false, path = "../../../primitives/staking", version = "27.0.0" }
 
 [features]
 default = ["std"]

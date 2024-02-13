@@ -1,7 +1,7 @@
 [package]
 name = "snowbridge-pallet-inbound-queue"
 description = "Snowbridge Inbound Queue Pallet"
-version = "0.0.0"
+version = "0.1.0"
 authors = ["Snowfork <contact@snowfork.com>"]
 edition.workspace = true
 repository.workspace = true
@@ -25,24 +25,24 @@ alloy-sol-types = { version = "0.4.2", default-features = false }
 alloy-rlp = { version = "0.3.3", default-features = false, features = ["derive"] }
 num-traits = { version = "0.2.16", default-features = false }
 
-frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true }
-frame-support = { path = "../../../../../substrate/frame/support", default-features = false }
-frame-system = { path = "../../../../../substrate/frame/system", default-features = false }
-pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false }
-sp-core = { path = "../../../../../substrate/primitives/core", default-features = false }
-sp-std = { path = "../../../../../substrate/primitives/std", default-features = false }
-sp-io = { path = "../../../../../substrate/primitives/io", default-features = false }
-sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false }
+frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking", default-features = false, optional = true, version = "29.0.0" }
+frame-support = { path = "../../../../../substrate/frame/support", default-features = false, version = "29.0.0" }
+frame-system = { path = "../../../../../substrate/frame/system", default-features = false, version = "29.0.0" }
+pallet-balances = { path = "../../../../../substrate/frame/balances", default-features = false, version = "29.0.0" }
+sp-core = { path = "../../../../../substrate/primitives/core", default-features = false, version = "29.0.0" }
+sp-std = { path = "../../../../../substrate/primitives/std", default-features = false, version = "14.0.0" }
+sp-io = { path = "../../../../../substrate/primitives/io", default-features = false, version = "31.0.0" }
+sp-runtime = { path = "../../../../../substrate/primitives/runtime", default-features = false, version = "32.0.0" }
 
-xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false }
-xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false }
-xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false }
+xcm = { package = "staging-xcm", path = "../../../../../polkadot/xcm", default-features = false, version = "8.0.0" }
+xcm-builder = { package = "staging-xcm-builder", path = "../../../../../polkadot/xcm/xcm-builder", default-features = false, version = "8.0.0" }
+xcm-executor = { package = "staging-xcm-executor", path = "../../../../../polkadot/xcm/xcm-executor", default-features = false, version = "8.0.0" }
 
-snowbridge-core = { path = "../../primitives/core", default-features = false }
-snowbridge-ethereum = { path = "../../primitives/ethereum", default-features = false }
-snowbridge-router-primitives = { path = "../../primitives/router", default-features = false }
-snowbridge-beacon-primitives = { path = "../../primitives/beacon", default-features = false }
-snowbridge-pallet-inbound-queue-fixtures = { path = "./fixtures", default-features = false, optional = true }
+snowbridge-core = { path = "../../primitives/core", default-features = false, version = "0.1.0" }
+snowbridge-ethereum = { path = "../../primitives/ethereum", default-features = false, version = "0.2.0" }
+snowbridge-router-primitives = { path = "../../primitives/router", default-features = false, version = "0.1.0" }
+snowbridge-beacon-primitives = { path = "../../primitives/beacon", default-features = false, version = "0.1.0" }
+snowbridge-pallet-inbound-queue-fixtures = { path = "fixtures", default-features = false, optional = true, version = "0.9.0" }
 
 [dev-dependencies]
 frame-benchmarking = { path = "../../../../../substrate/frame/benchmarking" }
@@ -86,7 +86,6 @@ runtime-benchmarks = [
 	"hex-literal",
 	"pallet-balances/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
-	"snowbridge-pallet-ethereum-client/runtime-benchmarks",
 	"snowbridge-pallet-inbound-queue-fixtures/runtime-benchmarks",
 	"snowbridge-router-primitives/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
@@ -97,6 +96,5 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
-	"snowbridge-pallet-ethereum-client/try-runtime",
 	"sp-runtime/try-runtime",
 ]
